@@ -57,22 +57,38 @@ function findLastDelimiter(text: string): number {
 }
 
 function isExplicitPathPrefixStart(prefix: string): boolean {
-	return prefix.startsWith(".") || prefix.startsWith("/") || prefix.startsWith("~/") || prefix === "~";
+	return (
+		prefix.startsWith("./") ||
+		prefix.startsWith("../") ||
+		prefix.startsWith("/") ||
+		prefix.startsWith("~/") ||
+		prefix === "~"
+	);
+}
+
+function isLeadingPunctuationRun(token: string, endIndex: number): boolean {
+	for (let i = 0; i <= endIndex; i += 1) {
+		if (!AUTOCOMPLETE_BOUNDARY_PUNCTUATION.has(token[i] ?? "")) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function isLeadingDotfilePrefixStart(token: string, punctuationIndex: number, suffix: string): boolean {
+	return suffix.startsWith(".") && !suffix.startsWith("./") && isLeadingPunctuationRun(token, punctuationIndex);
 }
 
 function findPathPrefixStartInToken(token: string): number {
 	let tokenStart = 0;
-	while (AUTOCOMPLETE_BOUNDARY_PUNCTUATION.has(token[tokenStart] ?? "")) {
-		tokenStart += 1;
-	}
 
-	for (let i = tokenStart; i < token.length; i += 1) {
+	for (let i = 0; i < token.length; i += 1) {
 		if (!AUTOCOMPLETE_BOUNDARY_PUNCTUATION.has(token[i] ?? "")) {
 			continue;
 		}
 
 		const suffix = token.slice(i + 1);
-		if (isExplicitPathPrefixStart(suffix)) {
+		if (isExplicitPathPrefixStart(suffix) || isLeadingDotfilePrefixStart(token, i, suffix)) {
 			tokenStart = i + 1;
 		}
 	}
@@ -496,7 +512,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		const tokenStart = lastDelimiterIndex === -1 ? 0 : lastDelimiterIndex + 1;
 		const token = text.slice(tokenStart);
 
-		for (let i = 0; i < token.length; i += 1) {
+		for (let i = token.length - 1; i >= 0; i -= 1) {
 			const absoluteIndex = tokenStart + i;
 			if (token[i] === "@" && isTokenStart(text, absoluteIndex)) {
 				return text.slice(absoluteIndex);

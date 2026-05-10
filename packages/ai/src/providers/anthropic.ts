@@ -247,11 +247,19 @@ const ANTHROPIC_MESSAGE_EVENTS: ReadonlySet<string> = new Set([
 	"content_block_stop",
 ]);
 
+function isAlfAnthropicVertexEnabled(): boolean {
+	if (typeof process === "undefined") {
+		return false;
+	}
+	const v = process.env.ALF_ANTHROPIC_VERTEX?.trim().toLowerCase();
+	return v === "1" || v === "true" || v === "yes";
+}
+
 function resolveAnthropicVertexProjectAndRegion(): { projectId: string; region: string } | undefined {
 	if (typeof process === "undefined") {
 		return undefined;
 	}
-	if (process.env.ALF_ANTHROPIC_VERTEX !== "1") {
+	if (!isAlfAnthropicVertexEnabled()) {
 		return undefined;
 	}
 	const projectId =
@@ -265,19 +273,13 @@ function resolveAnthropicVertexProjectAndRegion(): { projectId: string; region: 
 
 /**
  * Route direct Anthropic catalog models through Vertex partner endpoint when opted in.
- * Does not apply to GitHub Copilot, Cloudflare AI Gateway, or Claude OAuth tokens (subscription).
+ * Does not apply to GitHub Copilot or Cloudflare AI Gateway.
  */
-function shouldRouteAnthropicThroughVertex(model: Model<"anthropic-messages">, resolvedApiKey: string): boolean {
+function shouldRouteAnthropicThroughVertex(model: Model<"anthropic-messages">): boolean {
 	if (model.provider !== "anthropic") {
 		return false;
 	}
-	if (!resolveAnthropicVertexProjectAndRegion()) {
-		return false;
-	}
-	if (resolvedApiKey && isOAuthToken(resolvedApiKey)) {
-		return false;
-	}
-	return true;
+	return Boolean(resolveAnthropicVertexProjectAndRegion());
 }
 
 function flushSseEvent(state: SseDecoderState): ServerSentEvent | null {
@@ -487,7 +489,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			} else {
 				const apiKey = options?.apiKey ?? getEnvApiKey(model.provider) ?? "";
 
-				if (shouldRouteAnthropicThroughVertex(model, apiKey)) {
+				if (shouldRouteAnthropicThroughVertex(model)) {
 					const vertexCfg = resolveAnthropicVertexProjectAndRegion();
 					if (!vertexCfg) {
 						throw new Error("Anthropic Vertex routing enabled but project/region not resolved");
@@ -766,8 +768,9 @@ export const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleS
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
-	const apiKey = options?.apiKey || getEnvApiKey(model.provider);
-	if (!apiKey) {
+	const apiKey = options?.apiKey ?? getEnvApiKey(model.provider) ?? "";
+
+	if (!apiKey && !shouldRouteAnthropicThroughVertex(model)) {
 		throw new Error(`No API key for provider: ${model.provider}`);
 	}
 

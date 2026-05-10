@@ -238,7 +238,11 @@ export CLOUD_ML_REGION=global             # or GOOGLE_CLOUD_LOCATION (see GCP do
 gcloud auth application-default login      # or GOOGLE_APPLICATION_CREDENTIALS for a service account
 ```
 
-This path uses `@anthropic-ai/vertex-sdk`. It does **not** apply to GitHub Copilot, Cloudflare AI Gateway, or **Claude OAuth** subscription tokens (`sk-ant-oat…`); unset `ALF_ANTHROPIC_VERTEX` or remove OAuth env/`auth.json` entries if you want Vertex instead.
+Use **`ALF_ANTHROPIC_VERTEX=1`** (or **`true`** / **`yes`**). You do **not** need **`ANTHROPIC_API_KEY`** when Vertex routing is active—GCP ADC provides auth. Remove `anthropic` API keys from the environment or `auth.json` if you rely solely on Vertex billing.
+
+If you still have Claude subscription OAuth or API credentials configured, **`ALF_ANTHROPIC_VERTEX` forces Vertex** for catalog **`anthropic`** models so traffic does not go to `api.anthropic.com`.
+
+Does **not** apply to GitHub Copilot or Cloudflare AI Gateway Anthropic routes.
 
 See Google Cloud: [Request predictions with Claude models](https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/use-claude).
 

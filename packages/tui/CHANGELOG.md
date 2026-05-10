@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-05-10
+
+### Changed
+
+- Published Alf Agent fork baseline as **`@alf-agent/tui`** (`dpopsuev/alf-agent`).
+
 ## [0.74.0] - 2026-05-07
 
 ## [0.73.1] - 2026-05-07

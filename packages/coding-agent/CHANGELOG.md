@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-05-10
+
 ### Breaking Changes
 
 - Renamed built-in tools for clearer families: **`file_read`**, **`file_bash`**, **`file_edit`**, **`file_write`**, **`file_grep`**, **`file_find`**, **`file_ls`**, and **`symbol_outline`** (structural outline; replaces the former `symbols` tool name). Update `--tools` / SDK allowlists and any extensions that matched on the old names.
@@ -10,6 +12,10 @@
 
 - Added built-in **`symbol_outline`** tool: structural view of JavaScript/TypeScript files (imports, exports, declarations, class members) via the TypeScript compiler API; enabled by default alongside **`file_read`**, **`file_bash`**, **`file_edit`**, and **`file_write`**.
 - Added Together AI to built-in provider setup, `/login` API-key auth, and default model resolution ([#3624](https://github.com/earendil-works/pi-mono/pull/3624) by [@Nutlope](https://github.com/Nutlope)).
+
+### Changed
+
+- Published Alf Agent fork baseline as **`@alf-agent/coding-agent`**: CLI **`alf`**, extension manifest field **`pkg.alf`**, and **`alfConfig`** naming in **`package.json`**. Version reporting and optional telemetry defaults use **`ALF_*`** environment variables rather than upstream hard-coded endpoints.
 
 ### Fixed
 

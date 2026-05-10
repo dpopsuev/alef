@@ -1,6 +1,6 @@
 {
 	"name": "@alf-agent/coding-agent",
-	"version": "0.74.0",
+	"version": "0.0.1",
 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
 	"type": "module",
 	"alfConfig": {
@@ -39,9 +39,9 @@
 		"prepublishOnly": "npm run clean && npm run build"
 	},
 	"dependencies": {
-		"@alf-agent/agent-core": "file:../agent",
-		"@alf-agent/ai": "file:../ai",
-		"@alf-agent/tui": "file:../tui",
+		"@alf-agent/agent-core": "^0.0.1",
+		"@alf-agent/ai": "^0.0.1",
+		"@alf-agent/tui": "^0.0.1",
 		"@silvia-odwyer/photon-node": "^0.3.4",
 		"chalk": "^5.5.0",
 		"cli-highlight": "^2.1.11",

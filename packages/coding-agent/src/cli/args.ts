@@ -352,6 +352,9 @@ ${chalk.bold("Environment Variables:")}
   ALF_PACKAGE_DIR                   - Override package directory (for Nix/Guix store paths)
   ALF_OFFLINE                       - Disable startup network operations when set to 1/true/yes
   ALF_TELEMETRY                     - Override install telemetry when set to 1/true/yes or 0/false/no
+  ALF_LATEST_VERSION_URL            - Optional HTTPS JSON endpoint for update checks ({ "version": "..." }); unset = disabled
+  ALF_SKIP_VERSION_CHECK            - When set to 1/true/yes, skip latest-version fetch even if ALF_LATEST_VERSION_URL is set
+  ALF_REPORT_INSTALL_URL            - Optional telemetry GET URL; unset = no install/update ping
   ALF_SHARE_VIEWER_URL              - Optional base URL for /share preview links (defaults to the gist URL from gh)
 
 ${chalk.bold("Built-in Tool Names:")}

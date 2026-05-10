@@ -1,11 +1,11 @@
 # Settings
 
-Pi uses JSON settings files with project settings overriding global settings.
+Alf uses JSON settings files with project settings overriding global settings.
 
 | Location | Scope |
 |----------|-------|
-| `~/.pi/agent/settings.json` | Global (all projects) |
-| `.pi/settings.json` | Project (current directory) |
+| `<agent-dir>/settings.json` | Global (all projects) |
+| `.alf/settings.json` | Project (current directory) |
 
 Edit directly or use `/settings` for common options.
 
@@ -41,7 +41,7 @@ Edit directly or use `/settings` for common options.
 | `theme` | string | `"dark"` | Theme name (`"dark"`, `"light"`, or custom) |
 | `quietStartup` | boolean | `false` | Hide startup header |
 | `collapseChangelog` | boolean | `false` | Show condensed changelog after updates |
-| `enableInstallTelemetry` | boolean | `true` | Send an anonymous install/update version ping after first install or changelog-detected updates. This does not control update checks |
+| `enableInstallTelemetry` | boolean | `true` | Allow install/update telemetry **when** `ALF_REPORT_INSTALL_URL` is set; unset URL means no network ping |
 | `doubleEscapeAction` | string | `"tree"` | Action for double-escape: `"tree"`, `"fork"`, or `"none"` |
 | `treeFilterMode` | string | `"default"` | Default filter for `/tree`: `"default"`, `"no-tools"`, `"user-only"`, `"labeled-only"`, `"all"` |
 | `editorPaddingX` | number | `0` | Horizontal padding for input editor (0-3) |
@@ -50,9 +50,11 @@ Edit directly or use `/settings` for common options.
 
 ### Telemetry and update checks
 
-`enableInstallTelemetry` only controls the anonymous install/update ping to `https://pi.dev/api/report-install`. Opting out of telemetry does not disable update checks; Pi can still fetch `https://pi.dev/api/latest-version` to look for the latest version.
+`enableInstallTelemetry` gates whether install/update **would** send a ping **when** **`ALF_REPORT_INSTALL_URL`** is set in the environment. If that variable is unset (the default), no telemetry request is made regardless of this setting.
 
-Set `ALF_SKIP_VERSION_CHECK=1` to disable the Pi version update check. Use `--offline` or `ALF_OFFLINE=1` to disable all startup network operations described here, including update checks, package update checks, and install/update telemetry.
+Optional latest-version checks run **only** when **`ALF_LATEST_VERSION_URL`** points at an HTTPS JSON endpoint returning a `version` string. Unset means no update request.
+
+Set **`ALF_SKIP_VERSION_CHECK=1`** to skip the latest-version fetch even when `ALF_LATEST_VERSION_URL` is set. Use **`--offline`** or **`ALF_OFFLINE=1`** to disable broader startup network usage (including registry-backed package checks).
 
 ### Warnings
 
@@ -164,7 +166,7 @@ Normally the package manager's global modules location is queried using `root -g
 | `sessionDir` | string | - | Directory where session files are stored. Accepts absolute or relative paths, plus `~`. |
 
 ```json
-{ "sessionDir": ".pi/sessions" }
+{ "sessionDir": ".alf/sessions" }
 ```
 
 When multiple sources specify a session directory, precedence is `--session-dir`, `ALF_CODING_AGENT_SESSION_DIR`, then `sessionDir` in settings.json.
@@ -191,7 +193,7 @@ When multiple sources specify a session directory, precedence is `--session-dir`
 
 These settings define where to load extensions, skills, prompts, and themes from.
 
-Paths in `~/.pi/agent/settings.json` resolve relative to `~/.pi/agent`. Paths in `.pi/settings.json` resolve relative to `.pi`. Absolute paths and `~` are supported.
+Paths in `<agent-dir>/settings.json` resolve relative to `<agent-dir>`. Paths in `.alf/settings.json` resolve relative to `.alf`. Absolute paths and `~` are supported.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
@@ -257,16 +259,16 @@ See [packages.md](packages.md) for package management details.
 
 ## Project Overrides
 
-Project settings (`.pi/settings.json`) override global settings. Nested objects are merged:
+Project settings (`.alf/settings.json`) override global settings. Nested objects are merged:
 
 ```json
-// ~/.pi/agent/settings.json (global)
+// <agent-dir>/settings.json (global)
 {
   "theme": "dark",
   "compaction": { "enabled": true, "reserveTokens": 16384 }
 }
 
-// .pi/settings.json (project)
+// .alf/settings.json (project)
 {
   "compaction": { "reserveTokens": 8192 }
 }

@@ -16,13 +16,13 @@ type Source = { type: "project" | "user" | "path"; dir: string };
 const env = new NodeExecutionEnv({ cwd: process.cwd() });
 const source = (type: Source["type"], dir: string) => ({ path: dir, source: { type, dir } });
 const { skills: sourcedSkills } = await loadSourcedSkills<Source>(env, [
-	source("project", join(env.cwd, ".pi/skills")),
-	source("user", join(homedir(), ".pi/agent/skills")),
+	source("project", join(env.cwd, ".alf/skills")),
+	source("user", join(homedir(), ".alf/agent/skills")),
 	source("path", join(env.cwd, "../../../pi-skills")),
 ]);
 const { promptTemplates: sourcedPromptTemplates } = await loadSourcedPromptTemplates<Source>(env, [
-	source("project", join(env.cwd, ".pi/prompts")),
-	source("user", join(homedir(), ".pi/agent/prompts")),
+	source("project", join(env.cwd, ".alf/prompts")),
+	source("user", join(homedir(), ".alf/agent/prompts")),
 ]);
 
 const session = new Session(new InMemorySessionStorage());

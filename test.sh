@@ -1,8 +1,28 @@
 #!/usr/bin/env bash
 set -e
 
-AUTH_FILE="$HOME/.pi/agent/auth.json"
-AUTH_BACKUP="$HOME/.pi/agent/auth.json.bak"
+resolve_agent_dir() {
+    if [[ -n "${ALF_CODING_AGENT_DIR:-}" ]]; then
+        echo "${ALF_CODING_AGENT_DIR/#\~/$HOME}"
+        return
+    fi
+
+    if [[ "$OSTYPE" == linux* ]]; then
+        if [[ -d "$HOME/.alf/agent" ]]; then
+            echo "$HOME/.alf/agent"
+            return
+        fi
+        local xdg_base="${XDG_CONFIG_HOME:-$HOME/.config}"
+        echo "$xdg_base/alf/agent"
+        return
+    fi
+
+    echo "$HOME/.alf/agent"
+}
+
+AGENT_DIR="$(resolve_agent_dir)"
+AUTH_FILE="$AGENT_DIR/auth.json"
+AUTH_BACKUP="$AGENT_DIR/auth.json.bak"
 
 # Restore auth.json on exit (success or failure)
 cleanup() {

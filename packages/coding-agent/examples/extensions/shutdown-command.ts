@@ -2,16 +2,16 @@
  * Shutdown Command Extension
  *
  * Adds a /quit command that allows extensions to trigger clean shutdown.
- * Demonstrates how extensions can use ctx.shutdown() to exit pi cleanly.
+ * Demonstrates how extensions can use ctx.shutdown() to exit Alf cleanly.
  */
 
 import type { ExtensionAPI } from "@alf-agent/coding-agent";
 import { Type } from "typebox";
 
 export default function (alf: ExtensionAPI) {
-	// Register a /quit command that cleanly exits pi
+	// Register a /quit command that cleanly exits Alf
 	alf.registerCommand("quit", {
-		description: "Exit pi cleanly",
+		description: "Exit Alf cleanly",
 		handler: async (_args, ctx) => {
 			ctx.shutdown();
 		},
@@ -21,7 +21,7 @@ export default function (alf: ExtensionAPI) {
 	alf.registerTool({
 		name: "finish_and_exit",
 		label: "Finish and Exit",
-		description: "Complete a task and exit pi",
+		description: "Complete a task and exit Alf",
 		parameters: Type.Object({}),
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			// Do any final work here...
@@ -40,7 +40,7 @@ export default function (alf: ExtensionAPI) {
 	alf.registerTool({
 		name: "deploy_and_exit",
 		label: "Deploy and Exit",
-		description: "Deploy the application and exit pi",
+		description: "Deploy the application and exit Alf",
 		parameters: Type.Object({
 			environment: Type.String({ description: "Target environment (e.g., production, staging)" }),
 		}),

@@ -26,10 +26,10 @@ import { createCodingTools } from "../src/index.js";
 export const API_KEY = process.env.ANTHROPIC_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
 
 // ============================================================================
-// OAuth API key resolution from ~/.alf/agent/auth.json
+// OAuth API key resolution from the resolved Alf agent `auth.json`
 // ============================================================================
 
-const AUTH_PATH = join(homedir(), ".alf", "agent", "auth.json");
+const AUTH_PATH = join(resolveAlfAgentDir(), "auth.json");
 
 type ApiKeyCredential = {
 	type: "api_key";
@@ -66,7 +66,7 @@ function saveAuthStorage(storage: AuthStorageData): void {
 }
 
 /**
- * Resolve API key for a provider from ~/.alf/agent/auth.json
+ * Resolve API key for a provider from the resolved Alf agent `auth.json`
  *
  * For API key credentials, returns the key directly.
  * For OAuth credentials, returns the access token (refreshing if expired and saving back).
@@ -106,18 +106,38 @@ export async function resolveApiKey(provider: string): Promise<string | undefine
 }
 
 /**
- * Check if a provider has credentials in ~/.alf/agent/auth.json
+ * Check if a provider has credentials in the resolved Alf agent `auth.json`.
  */
 export function hasAuthForProvider(provider: string): boolean {
 	const storage = loadAuthStorage();
 	return provider in storage;
 }
 
+function resolveAlfAgentDir(): string {
+	const envDir = process.env.ALF_CODING_AGENT_DIR?.trim();
+	if (envDir) {
+		return envDir === "~" ? homedir() : envDir.replace(/^~\//, `${homedir()}/`);
+	}
+
+	if (process.platform === "linux") {
+		const legacy = join(homedir(), ".alf", "agent");
+		if (existsSync(legacy)) {
+			return legacy;
+		}
+
+		const xdgRaw = process.env.XDG_CONFIG_HOME?.trim();
+		const xdgBase = xdgRaw && xdgRaw.length > 0 ? xdgRaw : join(homedir(), ".config");
+		return join(xdgBase, "alf", "agent");
+	}
+
+	return join(homedir(), ".alf", "agent");
+}
+
 /** Path to the real Alf agent config directory */
-export const ALF_AGENT_DIR = join(homedir(), ".alf", "agent");
+export const ALF_AGENT_DIR = resolveAlfAgentDir();
 
 /**
- * Get an AuthStorage instance backed by ~/.alf/agent/auth.json
+ * Get an AuthStorage instance backed by the resolved Alf agent `auth.json`
  * Use this for tests that need real OAuth credentials.
  */
 export function getRealAuthStorage(): AuthStorage {

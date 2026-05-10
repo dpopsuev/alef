@@ -1,15 +1,8 @@
 <p align="center">
-  <a href="https://pi.dev">
-    <img alt="pi logo" src="https://pi.dev/logo-auto.svg" width="128">
-  </a>
+  <a href="https://github.com/dpopsuev/alf-agent"><strong>Alf Agent</strong></a>
 </p>
 <p align="center">
   <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
-</p>
-<p align="center">
-  <a href="https://pi.dev">pi.dev</a> domain graciously donated by
-  <br /><br />
-  <a href="https://exe.dev"><img src="packages/coding-agent/docs/images/exy.png" alt="Exy mascot" width="48" /><br />exe.dev</a>
 </p>
 
 > This fork is maintained BDFL-style; outside contributions are not accepted. Source is open to read and to fork (MIT). See [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -26,14 +19,9 @@ This repository contains the Alf coding agent CLI and supporting packages.
 
 ## Attribution
 
-**Alf Agent** is a **fork** of **[Pi](https://pi.dev)** (the Pi coding agent / terminal harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)). The upstream open-source tree is **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
+**Alf Agent** is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (the upstream Pi coding agent / terminal harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)). The upstream open-source tree is **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 
-This fork keeps Mario’s design and implementation as its foundation; it adds Alf branding (`@alf-agent/*` packages, `alf` CLI, `pkg.alf` extensions) and fork-owned defaults (for example version-check and telemetry URLs via `ALF_*` environment variables). Use Pi’s site and upstream repo for the original project; use this repository for Alf-specific packaging and issues.
-
-To learn more about Pi:
-
-* [Visit pi.dev](https://pi.dev), the project website with demos
-* [Read the documentation](https://pi.dev/docs/latest), but you can also ask the agent to explain itself
+This fork keeps Mario’s design and implementation as its foundation; it adds Alf branding (`@alf-agent/*` packages, `alf` CLI, `pkg.alf` extensions) and fork-owned defaults (optional version checks and install pings only when you set `ALF_LATEST_VERSION_URL` / `ALF_REPORT_INSTALL_URL`). Use the upstream repository for the original project line; use **[dpopsuev/alf-agent](https://github.com/dpopsuev/alf-agent)** for Alf packaging and fork-specific issues.
 
 ## Share your OSS coding agent sessions
 

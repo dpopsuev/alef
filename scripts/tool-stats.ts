@@ -1,8 +1,9 @@
 #!/usr/bin/env npx tsx
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { getDefaultAgentDir } from "./lib/default-agent-dir.mjs";
 import { spawn } from "node:child_process";
 
 interface TextContent { type: "text"; text: string }
@@ -18,8 +19,8 @@ interface ToolCallInfo { toolName: string; bashCommand?: string }
 const BUCKETS = [0, 50, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, Number.POSITIVE_INFINITY];
 
 function parseArgs(): { sessionsDir: string; output: string } {
-	let sessionsDir = join(homedir(), ".pi", "agent", "sessions");
-	let output = join(tmpdir(), "pi-tool-stats.html");
+	let sessionsDir = join(getDefaultAgentDir(), "sessions");
+	let output = join(tmpdir(), "alf-tool-stats.html");
 	const args = process.argv.slice(2);
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];

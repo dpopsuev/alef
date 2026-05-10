@@ -2,12 +2,12 @@
 
 import { createReadStream } from "node:fs";
 import { promises as fs } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
+import { getDefaultAgentDir } from "./lib/default-agent-dir.mjs";
 
-const DEFAULT_SESSIONS_DIR = path.join(homedir(), ".pi/agent/sessions");
-const DEFAULT_ACTIVE_EDIT_EXTENSION_PATH = path.join(homedir(), ".pi/agent/extensions/edit.ts");
+const DEFAULT_SESSIONS_DIR = path.join(getDefaultAgentDir(), "sessions");
+const DEFAULT_ACTIVE_EDIT_EXTENSION_PATH = path.join(getDefaultAgentDir(), "extensions/edit.ts");
 const DEFAULT_TOP = 20;
 
 function parseArgs(argv) {
@@ -65,7 +65,7 @@ function printHelp() {
 	console.log(`Usage: node scripts/edit-tool-stats.mjs [options]
 
 Options:
-  --sessions-dir <path>  Sessions directory (default: ~/.pi/agent/sessions)
+  --sessions-dir <path>  Sessions directory (default: see ALF_CODING_AGENT_DIR / coding-agent getAgentDir())
   --model <substring>    Filter provider/model by substring
   --ext <extension>      Filter by file extension, e.g. .ts
   --failed-only          Include only failed edit calls

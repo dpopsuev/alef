@@ -6,7 +6,7 @@ Unified LLM API with automatic model discovery, provider configuration, token an
 
 ## Attribution
 
-Part of **[Alf Agent](https://github.com/dpopsuev/alf-agent)**, a **fork** of **[Pi](https://pi.dev)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
+Part of **[Alf Agent](https://github.com/dpopsuev/alf-agent)**, a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 
 ## Table of Contents
 
@@ -1375,7 +1375,7 @@ Update `packages/ai/README.md`:
 
 #### 8. Changelog
 
-Add an entry to `packages/ai/CHANGELOG.md` under `## [Unreleased]`:
+Add an entry to `packages/ai/CHANGELOG.md` under the current **`## [x.y.z] - date`** section (lockstep version from `package.json`):
 
 ```markdown
 ### Added

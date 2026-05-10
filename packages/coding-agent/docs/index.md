@@ -1,16 +1,10 @@
-# Pi Documentation
+# Alf Agent documentation
 
-Pi is a minimal terminal coding harness. It is designed to stay small at the core while being extended through TypeScript extensions, skills, prompt templates, themes, and pi packages.
+Alf is a minimal terminal coding harness. It stays small at the core while being extended through TypeScript extensions, skills, prompt templates, themes, and Alf packages.
 
 ## Quick start
 
-On linux or mac you can install Pi with curl:
-
-```bash
-curl -fsSL https://pi.dev/install.sh | sh
-```
-
-Or alternatively with npm:
+Install globally via npm:
 
 ```bash
 npm install -g @alf-agent/coding-agent
@@ -19,52 +13,47 @@ npm install -g @alf-agent/coding-agent
 Then run it in a project directory:
 
 ```bash
-pi
+alf
 ```
 
-Authenticate with `/login` for subscription providers, or set an API key such as `ANTHROPIC_API_KEY` before starting pi.
+Authenticate with `/login` for subscription providers, or set an API key such as `ANTHROPIC_API_KEY` before starting Alf.
 
-For the full first-run flow, see [Quickstart](quickstart.md).
+## Guides
 
-## Start here
-
-- [Quickstart](quickstart.md) - install, authenticate, and run a first session.
-- [Using Pi](usage.md) - interactive mode, slash commands, context files, and CLI reference.
-- [Providers](providers.md) - subscription and API-key setup for built-in providers.
-- [Settings](settings.md) - global and project settings.
-- [Keybindings](keybindings.md) - default shortcuts and custom keybindings.
-- [Sessions](sessions.md) - session management, branching, and tree navigation.
-- [Compaction](compaction.md) - context compaction and branch summarization.
+- [Quickstart](quickstart.md) — first session and basics
+- [Usage](usage.md) — CLI modes and flags
+- [Providers](providers.md) — auth and provider setup
+- [Models](models.md) — custom models (`models.json`)
+- [Custom providers](custom-provider.md)
+- [Settings](settings.md)
+- [Keybindings](keybindings.md)
+- [Sessions](sessions.md)
+- [Session format](session-format.md)
+- [Compaction](compaction.md)
 
 ## Customization
 
-- [Extensions](extensions.md) - TypeScript modules for tools, commands, events, and custom UI.
-- [Skills](skills.md) - Agent Skills for reusable on-demand capabilities.
-- [Prompt templates](prompt-templates.md) - reusable prompts that expand from slash commands.
-- [Themes](themes.md) - built-in and custom terminal themes.
-- [Pi packages](packages.md) - bundle and share extensions, skills, prompts, and themes.
-- [Custom models](models.md) - add model entries for supported provider APIs.
-- [Custom providers](custom-provider.md) - implement custom APIs and OAuth flows.
+- [Extensions](extensions.md)
+- [Skills](skills.md)
+- [Prompt templates](prompt-templates.md)
+- [Themes](themes.md)
+- [Alf packages](packages.md)
 
-## Programmatic usage
-
-- [SDK](sdk.md) - embed pi in Node.js applications.
-- [RPC mode](rpc.md) - integrate over stdin/stdout JSONL.
-- [JSON event stream mode](json.md) - print mode with structured events.
-- [TUI components](tui.md) - build custom terminal UI for extensions.
-
-## Reference
-
-- [Session format](session-format.md) - JSONL session file format, entry types, and SessionManager API.
-
-## Platform setup
+## Platforms and tooling
 
 - [Windows](windows.md)
-- [Termux on Android](termux.md)
+- [Termux](termux.md)
 - [tmux](tmux.md)
 - [Terminal setup](terminal-setup.md)
 - [Shell aliases](shell-aliases.md)
 
+## Programmatic use
+
+- [SDK](sdk.md) — embed Alf from Node.js
+- [RPC](rpc.md) — JSONL protocol over stdio
+- [JSON mode](json.md) — machine-readable events
+- [TUI internals](tui.md)
+
 ## Development
 
-- [Development](development.md) - local setup, project structure, and debugging.
+- [Development](development.md) — build and hack on this repo

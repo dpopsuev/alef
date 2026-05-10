@@ -94,7 +94,13 @@ Location: `packages/*/CHANGELOG.md` (each package has its own)
 
 ### Format
 
-Use these sections under `## [Unreleased]`:
+Each changelog uses dated sections (**newest first**):
+
+```markdown
+## [x.y.z] - YYYY-MM-DD
+```
+
+Under each version, use when applicable:
 
 - `### Breaking Changes` - API changes requiring migration
 - `### Added` - New features
@@ -104,11 +110,10 @@ Use these sections under `## [Unreleased]`:
 
 ### Rules
 
-- Before adding entries, read the full `[Unreleased]` section to see which subsections already exist
-- New entries ALWAYS go under `## [Unreleased]` section
-- Append to existing subsections (e.g., `### Fixed`), do not create duplicates
-- NEVER modify already-released version sections (e.g., `## [0.12.2]`)
-- Each version section is immutable once released
+- **Do not** maintain `## [Unreleased]` — record entries under the relevant **`## [x.y.z] - date`** heading (typically the **current lockstep version** in `packages/*/package.json`).
+- Append to existing subsections (e.g., `### Fixed`); avoid duplicate subsection headings in the same version block.
+- **`npm run release:patch`** / **`release:minor`** runs **`scripts/release.mjs`**, which **prepends** a fresh **`## [newVersion] - date`** section above older headings for the next edit cycle.
+- Prefer not rewriting shipped npm-version narrative except for typos or factual corrections.
 
 ### Attribution
 
@@ -166,7 +171,7 @@ Create provider file exporting:
 ### 7. Documentation
 
 - `packages/ai/README.md`: Add to providers table, document options/auth, add env vars
-- `packages/ai/CHANGELOG.md`: Add entry under `## [Unreleased]`
+- `packages/ai/CHANGELOG.md`: Add entry under the current **`## [x.y.z] - date`** section (same version as `package.json`)
 
 ## Releasing
 
@@ -179,7 +184,7 @@ Create provider file exporting:
 
 ### Steps
 
-1. **Update CHANGELOGs**: Ensure all changes since last release are documented in the `[Unreleased]` section of each affected package's CHANGELOG.md
+1. **Update CHANGELOGs**: Ensure each affected `packages/*/CHANGELOG.md` documents changes under the appropriate **`## [x.y.z] - date`** section (usually the version you are about to ship).
 
 2. **Run release script**:
    ```bash
@@ -187,7 +192,7 @@ Create provider file exporting:
    npm run release:minor    # API breaking changes
    ```
 
-The script handles: version bump, CHANGELOG finalization, commit, tag, publish, and adding new `[Unreleased]` sections.
+The script handles: version bump, prepending a new dated section to each changelog, commit, tag, publish, and push.
 
 ## **CRITICAL** Git Rules for Parallel Agents **CRITICAL**
 

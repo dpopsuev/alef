@@ -1,8 +1,8 @@
-> pi can help you create pi packages. Ask it to bundle your extensions, skills, prompt templates, or themes.
+> alf can help you create alf packages. Ask it to bundle your extensions, skills, prompt templates, or themes.
 
-# Pi Packages
+# Alf packages
 
-Pi packages bundle extensions, skills, prompt templates, and themes so you can share them through npm or git. A package can declare resources in `package.json` under the `pi` key, or use conventional directories.
+Alf packages bundle extensions, skills, prompt templates, and themes so you can share them through npm or git. A package can declare resources in `package.json` under the `pi` key, or use conventional directories.
 
 ## Table of Contents
 
@@ -17,37 +17,37 @@ Pi packages bundle extensions, skills, prompt templates, and themes so you can s
 
 ## Install and Manage
 
-> **Security:** Pi packages run with full system access. Extensions execute arbitrary code, and skills can instruct the model to perform any action including running executables. Review source code before installing third-party packages.
+> **Security:** Alf packages run with full system access. Extensions execute arbitrary code, and skills can instruct the model to perform any action including running executables. Review source code before installing third-party packages.
 
 ```bash
-pi install npm:@foo/bar@1.0.0
-pi install git:github.com/user/repo@v1
-pi install https://github.com/user/repo  # raw URLs work too
-pi install /absolute/path/to/package
-pi install ./relative/path/to/package
+alf install npm:@foo/bar@1.0.0
+alf install git:github.com/user/repo@v1
+alf install https://github.com/user/repo  # raw URLs work too
+alf install /absolute/path/to/package
+alf install ./relative/path/to/package
 
-pi remove npm:@foo/bar
-pi list                     # show installed packages from settings
-pi update                   # update pi and all non-pinned packages
-pi update --extensions      # update all non-pinned packages only
-pi update --self            # update pi only
-pi update --self --force    # reinstall pi even if current
-pi update npm:@foo/bar      # update one package
-pi update --extension npm:@foo/bar
+alf remove npm:@foo/bar
+alf list                     # show installed packages from settings
+alf update                   # update pi and all non-pinned packages
+alf update --extensions      # update all non-pinned packages only
+alf update --self            # update pi only
+alf update --self --force    # reinstall pi even if current
+alf update npm:@foo/bar      # update one package
+alf update --extension npm:@foo/bar
 ```
 
-By default, `install` and `remove` write to global settings (`~/.pi/agent/settings.json`). Use `-l` to write to project settings (`.pi/settings.json`) instead. Project settings can be shared with your team, and pi installs any missing packages automatically on startup.
+By default, `install` and `remove` write to global settings (`<agent-dir>/settings.json`). Use `-l` to write to project settings (`.alf/settings.json`) instead. Project settings can be shared with your team, and pi installs any missing packages automatically on startup.
 
 To try a package without installing it, use `--extension` or `-e`. This installs to a temporary directory for the current run only:
 
 ```bash
-pi -e npm:@foo/bar
-pi -e git:github.com/user/repo
+alf -e npm:@foo/bar
+alf -e git:github.com/user/repo
 ```
 
 ## Package Sources
 
-Pi accepts three source types in settings and `pi install`.
+Pi accepts three source types in settings and `alf install`.
 
 ### npm
 
@@ -56,9 +56,9 @@ npm:@scope/pkg@1.2.3
 npm:pkg
 ```
 
-- Versioned specs are pinned and skipped by package updates (`pi update`, `pi update --extensions`).
+- Versioned specs are pinned and skipped by package updates (`alf update`, `alf update --extensions`).
 - Global installs use `npm install -g`.
-- Project installs go under `.pi/npm/`.
+- Project installs go under `.alf/npm/`.
 - Set `npmCommand` in `settings.json` to pin npm package lookup and install operations to a specific wrapper command such as `mise` or `asdf`.
 
 Example:
@@ -83,20 +83,20 @@ ssh://git@github.com/user/repo@v1
 - HTTPS and SSH URLs are both supported.
 - SSH URLs use your configured SSH keys automatically (respects `~/.ssh/config`).
 - For non-interactive runs (for example CI), you can set `GIT_TERMINAL_PROMPT=0` to disable credential prompts and set `GIT_SSH_COMMAND` (for example `ssh -o BatchMode=yes -o ConnectTimeout=5`) to fail fast.
-- Refs pin the package and skip package updates (`pi update`, `pi update --extensions`).
-- Cloned to `~/.pi/agent/git/<host>/<path>` (global) or `.pi/git/<host>/<path>` (project).
+- Refs pin the package and skip package updates (`alf update`, `alf update --extensions`).
+- Cloned to `<agent-dir>/git/<host>/<path>` (global) or `.alf/git/<host>/<path>` (project).
 - Runs `npm install` after clone or pull if `package.json` exists.
 
 **SSH examples:**
 ```bash
 # git@host:path shorthand (requires git: prefix)
-pi install git:git@github.com:user/repo
+alf install git:git@github.com:user/repo
 
 # ssh:// protocol format
-pi install ssh://git@github.com/user/repo
+alf install ssh://git@github.com/user/repo
 
 # With version ref
-pi install git:git@github.com:user/repo@v1.0.0
+alf install git:git@github.com:user/repo@v1.0.0
 ```
 
 ### Local Paths
@@ -129,13 +129,13 @@ Paths are relative to the package root. Arrays support glob patterns and `!exclu
 
 ### Gallery Metadata
 
-The [package gallery](https://pi.dev/packages) displays packages tagged with `pi-package`. Add `video` or `image` fields to show a preview:
+Publishers often list Alf-compatible bundles on npm under the [`alf-package`](https://www.npmjs.com/search?q=keywords%3Aalf-package) keyword (upstream Pi ecosystem packages may still use `pi-package`). Add `video` or `image` fields to show a preview in listings that support them:
 
 ```json
 {
   "name": "my-package",
-  "keywords": ["pi-package"],
-  "pi": {
+  "keywords": ["alf-package"],
+  "alf": {
     "extensions": ["./extensions"],
     "video": "https://example.com/demo.mp4",
     "image": "https://example.com/screenshot.png"
@@ -165,7 +165,7 @@ Third party runtime dependencies belong in `dependencies` in `package.json`. Dep
 
 Pi bundles core packages for extensions and skills. If you import any of these, list them in `peerDependencies` with a `"*"` range and do not bundle them: `@alf-agent/ai`, `@alf-agent/agent-core`, `@alf-agent/coding-agent`, `@alf-agent/tui`, `typebox`.
 
-Other pi packages must be bundled in your tarball. Add them to `dependencies` and `bundledDependencies`, then reference their resources through `node_modules/` paths. Pi loads packages with separate module roots, so separate installs do not collide or share modules.
+Other alf packages must be bundled in your tarball. Add them to `dependencies` and `bundledDependencies`, then reference their resources through `node_modules/` paths. Alf loads packages with separate module roots, so separate installs do not collide or share modules.
 
 Example:
 
@@ -212,7 +212,7 @@ Filter what a package loads using the object form in settings:
 
 ## Enable and Disable Resources
 
-Use `pi config` to enable or disable extensions, skills, prompt templates, and themes from installed packages and local directories. Works for both global (`~/.pi/agent`) and project (`.pi/`) scopes.
+Use `alf config` to enable or disable extensions, skills, prompt templates, and themes from installed packages and local directories. Works for both global (`<agent-dir>`) and project (`.alf/`) scopes.
 
 ## Scope and Deduplication
 

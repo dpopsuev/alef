@@ -317,10 +317,10 @@ Content`,
 			expect(agentsFiles).toEqual([]);
 		});
 
-		it("should discover SYSTEM.md from cwd/.pi", async () => {
-			const piDir = join(cwd, ".alf");
-			mkdirSync(piDir, { recursive: true });
-			writeFileSync(join(piDir, "SYSTEM.md"), "You are a helpful assistant.");
+		it("should discover SYSTEM.md from cwd/.alf", async () => {
+			const alfDir = join(cwd, ".alf");
+			mkdirSync(alfDir, { recursive: true });
+			writeFileSync(join(alfDir, "SYSTEM.md"), "You are a helpful assistant.");
 
 			const loader = new DefaultResourceLoader({ cwd, agentDir });
 			await loader.reload();
@@ -329,9 +329,9 @@ Content`,
 		});
 
 		it("should discover APPEND_SYSTEM.md", async () => {
-			const piDir = join(cwd, ".alf");
-			mkdirSync(piDir, { recursive: true });
-			writeFileSync(join(piDir, "APPEND_SYSTEM.md"), "Additional instructions.");
+			const alfDir = join(cwd, ".alf");
+			mkdirSync(alfDir, { recursive: true });
+			writeFileSync(join(alfDir, "APPEND_SYSTEM.md"), "Additional instructions.");
 
 			const loader = new DefaultResourceLoader({ cwd, agentDir });
 			await loader.reload();

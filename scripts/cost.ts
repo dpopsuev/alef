@@ -2,6 +2,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { getDefaultAgentDir } from "./lib/default-agent-dir.mjs";
 
 // Parse args
 const args = process.argv.slice(2);
@@ -35,7 +36,7 @@ function encodeSessionDir(dir: string): string {
 	return "--" + normalized.replace(/\//g, "-") + "--";
 }
 
-const sessionsBase = path.join(process.env.HOME!, ".pi/agent/sessions");
+const sessionsBase = path.join(getDefaultAgentDir(), "sessions");
 const encodedDir = encodeSessionDir(directory);
 const sessionsDir = path.join(sessionsBase, encodedDir);
 

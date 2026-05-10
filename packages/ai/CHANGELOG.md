@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-05-10
+
 ### Added
 
 - Added Together AI as a built-in OpenAI-compatible provider with generated model metadata and `TOGETHER_API_KEY` authentication ([#3624](https://github.com/earendil-works/pi-mono/pull/3624) by [@Nutlope](https://github.com/Nutlope)).
+
+### Changed
+
+- Published Alf Agent fork baseline as **`@alf-agent/ai`** (`dpopsuev/alf-agent`).
 
 ### Fixed
 

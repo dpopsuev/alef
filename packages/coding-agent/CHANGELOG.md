@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Documented **`ALF_ANTHROPIC_VERTEX`** for Claude partner models on Google Vertex (GCP billing); see `docs/providers.md`.
+
 ## [0.0.1] - 2026-05-10
 
 ### Breaking Changes

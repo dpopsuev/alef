@@ -2,6 +2,10 @@
 
 Stateful agent with tool execution and event streaming. Built on `@alf-agent/ai`.
 
+## Attribution
+
+Part of **[Alf Agent](https://github.com/dpopsuev/alf-agent)**, a **fork** of **[Pi](https://pi.dev)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
+
 ## Installation
 
 ```bash

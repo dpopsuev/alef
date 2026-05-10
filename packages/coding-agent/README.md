@@ -17,15 +17,23 @@
 
 ---
 
-Pi is a minimal terminal coding harness. Adapt pi to your workflows, not the other way around, without having to fork and modify pi internals. Extend it with TypeScript [Extensions](#extensions), [Skills](#skills), [Prompt Templates](#prompt-templates), and [Themes](#themes). Put your extensions, skills, prompt templates, and themes in [Pi Packages](#pi-packages) and share them with others via npm or git.
+## Attribution
 
-Pi ships with powerful defaults but skips features like sub agents and plan mode. Instead, you can ask pi to build what you want or install a third party pi package that matches your workflow.
+**Alf** (`alf`, npm **`@alf-agent/coding-agent`**) is a **fork** of **[Pi](https://pi.dev)** (**Pi Agent** / terminal coding harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream sources live in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**. The MIT-licensed implementation here builds on that work—credit for the original belongs to Mario and the Pi contributors.
 
-Pi runs in four modes: interactive, print or JSON, RPC for process integration, and an SDK for embedding in your own apps. See [openclaw/openclaw](https://github.com/openclaw/openclaw) for a real-world SDK integration.
+**Alf** is maintained separately in **[dpopsuev/alf-agent](https://github.com/dpopsuev/alf-agent)** with Alf-specific scopes and defaults; behavior below follows Pi unless noted otherwise.
+
+---
+
+**Alf** is a minimal terminal coding harness. Adapt Alf to your workflows, not the other way around, without having to fork and modify core internals. Extend it with TypeScript [Extensions](#extensions), [Skills](#skills), [Prompt Templates](#prompt-templates), and [Themes](#themes). Put your extensions, skills, prompt templates, and themes in [Pi Packages](#pi-packages) and share them with others via npm or git.
+
+Alf ships with powerful defaults but skips features like sub agents and plan mode. Instead, you can ask Alf to build what you want or install a third-party package that matches your workflow.
+
+Alf runs in four modes: interactive, print or JSON, RPC for process integration, and an SDK for embedding in your own apps. See [openclaw/openclaw](https://github.com/openclaw/openclaw) for a real-world SDK integration.
 
 ## Share your OSS coding agent sessions
 
-If you use pi for open source work, please share your coding agent sessions.
+If you use Alf or Pi for open source work, please share your coding agent sessions.
 
 Public OSS session data helps improve models, prompts, tools, and evaluations using real development workflows.
 

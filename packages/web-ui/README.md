@@ -4,6 +4,10 @@ Reusable web UI components for building AI chat interfaces powered by [@alf-agen
 
 Built with [mini-lit](https://github.com/badlogic/mini-lit) web components and Tailwind CSS v4.
 
+## Attribution
+
+Part of **[Alf Agent](https://github.com/dpopsuev/alf-agent)**, a **fork** of **[Pi](https://pi.dev)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
+
 ## Features
 
 - **Chat UI**: Complete interface with message history, streaming, and tool execution

@@ -18,20 +18,26 @@
 
 # Alf Agent Harness Monorepo
 
-This repository contains the Alf coding agent CLI and supporting packages (forked from the former Pi upstream).
+This repository contains the Alf coding agent CLI and supporting packages.
 
 * **[@alf-agent/coding-agent](packages/coding-agent)**: Interactive coding agent CLI
 * **[@alf-agent/agent-core](packages/agent)**: Agent runtime with tool calling and state management
 * **[@alf-agent/ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
 
-To learn more about pi:
+## Attribution
+
+**Alf Agent** is a **fork** of **[Pi](https://pi.dev)** (the Pi coding agent / terminal harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)). The upstream open-source tree is **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
+
+This fork keeps Mario’s design and implementation as its foundation; it adds Alf branding (`@alf-agent/*` packages, `alf` CLI, `pkg.alf` extensions) and fork-owned defaults (for example version-check and telemetry URLs via `ALF_*` environment variables). Use Pi’s site and upstream repo for the original project; use this repository for Alf-specific packaging and issues.
+
+To learn more about Pi:
 
 * [Visit pi.dev](https://pi.dev), the project website with demos
 * [Read the documentation](https://pi.dev/docs/latest), but you can also ask the agent to explain itself
 
 ## Share your OSS coding agent sessions
 
-If you use pi or other coding agents for open source work, please share your sessions.
+If you use Pi, Alf, or other coding agents for open source work, please share your sessions.
 
 Public OSS session data helps improve coding agents with real-world tasks, tool use, failures, and fixes instead of toy benchmarks.
 

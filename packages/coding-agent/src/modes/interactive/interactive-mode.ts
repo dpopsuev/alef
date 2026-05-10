@@ -47,6 +47,7 @@ import {
 	TUI,
 	visibleWidth,
 } from "@alf-agent/tui";
+import chalk from "chalk";
 import { spawn, spawnSync } from "child_process";
 import {
 	APP_NAME,
@@ -160,6 +161,33 @@ class ExpandableText extends Text implements Expandable {
 	setExpanded(expanded: boolean): void {
 		this.setText(expanded ? this.getExpandedText() : this.getCollapsedText());
 	}
+}
+
+const ALF_STARTUP_LOGO = ["█████ ████▓", " █████▓███▓", "██████████▒", "███  ████▒", "█████ ████▓"] as const;
+const ALF_STARTUP_LOGO_FACE_COLOR = "#FE2418";
+const ALF_STARTUP_LOGO_DEPTH_COLOR = "#434C49";
+
+function colorizeStartupLogoLine(line: string): string {
+	return Array.from(line)
+		.map((char) => {
+			switch (char) {
+				case "█":
+					return chalk.hex(ALF_STARTUP_LOGO_FACE_COLOR)(char);
+				case "▓":
+				case "▒":
+				case "░":
+					return chalk.hex(ALF_STARTUP_LOGO_DEPTH_COLOR)(char);
+				default:
+					return char;
+			}
+		})
+		.join("");
+}
+
+function getStartupLogo(thm: Theme, version: string): string {
+	const lines = ALF_STARTUP_LOGO.map((line) => thm.bold(colorizeStartupLogoLine(line)));
+	lines[lines.length - 1] = `${lines[lines.length - 1]}${thm.fg("dim", `  ${APP_NAME} v${version}`)}`;
+	return lines.join("\n");
 }
 
 type CompactionQueuedMessage = {
@@ -577,7 +605,7 @@ export class InteractiveMode {
 
 		// Add header with keybindings from config (unless silenced)
 		if (this.options.verbose || !this.settingsManager.getQuietStartup()) {
-			const logo = theme.bold(theme.fg("accent", APP_NAME)) + theme.fg("dim", ` v${this.version}`);
+			const logo = getStartupLogo(theme, this.version);
 
 			// Build startup instructions using keybinding hint helpers
 			const hint = (keybinding: AppKeybinding, description: string) => keyHint(keybinding, description);

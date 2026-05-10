@@ -4,6 +4,10 @@ Unified LLM API with automatic model discovery, provider configuration, token an
 
 **Note**: This library only includes models that support tool calling (function calling), as this is essential for agentic workflows.
 
+## Attribution
+
+Part of **[Alf Agent](https://github.com/dpopsuev/alf-agent)**, a **fork** of **[Pi](https://pi.dev)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
+
 ## Table of Contents
 
 - [Supported Providers](#supported-providers)

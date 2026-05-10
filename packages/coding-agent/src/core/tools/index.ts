@@ -51,6 +51,14 @@ export {
 	type ReadToolOptions,
 } from "./read.js";
 export {
+	createSymbolOutlineTool,
+	createSymbolOutlineToolDefinition,
+	type SymbolOutlineOperations,
+	type SymbolOutlineToolDetails,
+	type SymbolOutlineToolInput,
+	type SymbolOutlineToolOptions,
+} from "./symbol-outline.js";
+export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	formatSize,
@@ -68,7 +76,7 @@ export {
 	type WriteToolOptions,
 } from "./write.js";
 
-import type { AgentTool } from "@earendil-works/pi-agent-core";
+import type { AgentTool } from "@alf-agent/agent-core";
 import type { ToolDefinition } from "../extensions/types.js";
 import { type BashToolOptions, createBashTool, createBashToolDefinition } from "./bash.js";
 import { createEditTool, createEditToolDefinition, type EditToolOptions } from "./edit.js";
@@ -76,14 +84,40 @@ import { createFindTool, createFindToolDefinition, type FindToolOptions } from "
 import { createGrepTool, createGrepToolDefinition, type GrepToolOptions } from "./grep.js";
 import { createLsTool, createLsToolDefinition, type LsToolOptions } from "./ls.js";
 import { createReadTool, createReadToolDefinition, type ReadToolOptions } from "./read.js";
+import {
+	createSymbolOutlineTool,
+	createSymbolOutlineToolDefinition,
+	type SymbolOutlineToolOptions,
+} from "./symbol-outline.js";
 import { createWriteTool, createWriteToolDefinition, type WriteToolOptions } from "./write.js";
 
 export type Tool = AgentTool<any>;
 export type ToolDef = ToolDefinition<any, any>;
-export type ToolName = "read" | "bash" | "edit" | "write" | "grep" | "find" | "ls";
-export const allToolNames: Set<ToolName> = new Set(["read", "bash", "edit", "write", "grep", "find", "ls"]);
+
+/** Built-in tools: `file_*` (filesystem/shell) and `symbol_*` (structure / future LSP & tree-sitter). */
+export type ToolName =
+	| "symbol_outline"
+	| "file_read"
+	| "file_bash"
+	| "file_edit"
+	| "file_write"
+	| "file_grep"
+	| "file_find"
+	| "file_ls";
+
+export const allToolNames: Set<ToolName> = new Set([
+	"symbol_outline",
+	"file_read",
+	"file_bash",
+	"file_edit",
+	"file_write",
+	"file_grep",
+	"file_find",
+	"file_ls",
+]);
 
 export interface ToolsOptions {
+	symbolOutline?: SymbolOutlineToolOptions;
 	read?: ReadToolOptions;
 	bash?: BashToolOptions;
 	write?: WriteToolOptions;
@@ -95,19 +129,21 @@ export interface ToolsOptions {
 
 export function createToolDefinition(toolName: ToolName, cwd: string, options?: ToolsOptions): ToolDef {
 	switch (toolName) {
-		case "read":
+		case "symbol_outline":
+			return createSymbolOutlineToolDefinition(cwd, options?.symbolOutline);
+		case "file_read":
 			return createReadToolDefinition(cwd, options?.read);
-		case "bash":
+		case "file_bash":
 			return createBashToolDefinition(cwd, options?.bash);
-		case "edit":
+		case "file_edit":
 			return createEditToolDefinition(cwd, options?.edit);
-		case "write":
+		case "file_write":
 			return createWriteToolDefinition(cwd, options?.write);
-		case "grep":
+		case "file_grep":
 			return createGrepToolDefinition(cwd, options?.grep);
-		case "find":
+		case "file_find":
 			return createFindToolDefinition(cwd, options?.find);
-		case "ls":
+		case "file_ls":
 			return createLsToolDefinition(cwd, options?.ls);
 		default:
 			throw new Error(`Unknown tool name: ${toolName}`);
@@ -116,19 +152,21 @@ export function createToolDefinition(toolName: ToolName, cwd: string, options?: 
 
 export function createTool(toolName: ToolName, cwd: string, options?: ToolsOptions): Tool {
 	switch (toolName) {
-		case "read":
+		case "symbol_outline":
+			return createSymbolOutlineTool(cwd, options?.symbolOutline);
+		case "file_read":
 			return createReadTool(cwd, options?.read);
-		case "bash":
+		case "file_bash":
 			return createBashTool(cwd, options?.bash);
-		case "edit":
+		case "file_edit":
 			return createEditTool(cwd, options?.edit);
-		case "write":
+		case "file_write":
 			return createWriteTool(cwd, options?.write);
-		case "grep":
+		case "file_grep":
 			return createGrepTool(cwd, options?.grep);
-		case "find":
+		case "file_find":
 			return createFindTool(cwd, options?.find);
-		case "ls":
+		case "file_ls":
 			return createLsTool(cwd, options?.ls);
 		default:
 			throw new Error(`Unknown tool name: ${toolName}`);
@@ -137,6 +175,7 @@ export function createTool(toolName: ToolName, cwd: string, options?: ToolsOptio
 
 export function createCodingToolDefinitions(cwd: string, options?: ToolsOptions): ToolDef[] {
 	return [
+		createSymbolOutlineToolDefinition(cwd, options?.symbolOutline),
 		createReadToolDefinition(cwd, options?.read),
 		createBashToolDefinition(cwd, options?.bash),
 		createEditToolDefinition(cwd, options?.edit),
@@ -146,6 +185,7 @@ export function createCodingToolDefinitions(cwd: string, options?: ToolsOptions)
 
 export function createReadOnlyToolDefinitions(cwd: string, options?: ToolsOptions): ToolDef[] {
 	return [
+		createSymbolOutlineToolDefinition(cwd, options?.symbolOutline),
 		createReadToolDefinition(cwd, options?.read),
 		createGrepToolDefinition(cwd, options?.grep),
 		createFindToolDefinition(cwd, options?.find),
@@ -155,18 +195,20 @@ export function createReadOnlyToolDefinitions(cwd: string, options?: ToolsOption
 
 export function createAllToolDefinitions(cwd: string, options?: ToolsOptions): Record<ToolName, ToolDef> {
 	return {
-		read: createReadToolDefinition(cwd, options?.read),
-		bash: createBashToolDefinition(cwd, options?.bash),
-		edit: createEditToolDefinition(cwd, options?.edit),
-		write: createWriteToolDefinition(cwd, options?.write),
-		grep: createGrepToolDefinition(cwd, options?.grep),
-		find: createFindToolDefinition(cwd, options?.find),
-		ls: createLsToolDefinition(cwd, options?.ls),
+		symbol_outline: createSymbolOutlineToolDefinition(cwd, options?.symbolOutline),
+		file_read: createReadToolDefinition(cwd, options?.read),
+		file_bash: createBashToolDefinition(cwd, options?.bash),
+		file_edit: createEditToolDefinition(cwd, options?.edit),
+		file_write: createWriteToolDefinition(cwd, options?.write),
+		file_grep: createGrepToolDefinition(cwd, options?.grep),
+		file_find: createFindToolDefinition(cwd, options?.find),
+		file_ls: createLsToolDefinition(cwd, options?.ls),
 	};
 }
 
 export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 	return [
+		createSymbolOutlineTool(cwd, options?.symbolOutline),
 		createReadTool(cwd, options?.read),
 		createBashTool(cwd, options?.bash),
 		createEditTool(cwd, options?.edit),
@@ -176,6 +218,7 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 
 export function createReadOnlyTools(cwd: string, options?: ToolsOptions): Tool[] {
 	return [
+		createSymbolOutlineTool(cwd, options?.symbolOutline),
 		createReadTool(cwd, options?.read),
 		createGrepTool(cwd, options?.grep),
 		createFindTool(cwd, options?.find),
@@ -185,12 +228,13 @@ export function createReadOnlyTools(cwd: string, options?: ToolsOptions): Tool[]
 
 export function createAllTools(cwd: string, options?: ToolsOptions): Record<ToolName, Tool> {
 	return {
-		read: createReadTool(cwd, options?.read),
-		bash: createBashTool(cwd, options?.bash),
-		edit: createEditTool(cwd, options?.edit),
-		write: createWriteTool(cwd, options?.write),
-		grep: createGrepTool(cwd, options?.grep),
-		find: createFindTool(cwd, options?.find),
-		ls: createLsTool(cwd, options?.ls),
+		symbol_outline: createSymbolOutlineTool(cwd, options?.symbolOutline),
+		file_read: createReadTool(cwd, options?.read),
+		file_bash: createBashTool(cwd, options?.bash),
+		file_edit: createEditTool(cwd, options?.edit),
+		file_write: createWriteTool(cwd, options?.write),
+		file_grep: createGrepTool(cwd, options?.grep),
+		file_find: createFindTool(cwd, options?.find),
+		file_ls: createLsTool(cwd, options?.ls),
 	};
 }

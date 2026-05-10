@@ -1,4 +1,4 @@
-import type { AgentState } from "@earendil-works/pi-agent-core";
+import type { AgentState } from "@alf-agent/agent-core";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import { APP_NAME, getExportTemplateDir } from "../../config.js";
@@ -174,7 +174,7 @@ function generateHtml(sessionData: SessionData, themeName?: string): string {
 }
 
 /** Tools rendered directly by the HTML template (not pre-rendered via TUI→ANSI→HTML pipeline) */
-const TEMPLATE_RENDERED_TOOLS = new Set(["bash", "read", "write", "edit", "ls"]);
+const TEMPLATE_RENDERED_TOOLS = new Set(["file_bash", "file_read", "file_write", "file_edit", "file_ls"]);
 
 /**
  * Pre-render custom tools to HTML using their TUI renderers.

@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Container, type Terminal, Text, TUI } from "@earendil-works/pi-tui";
+import { Container, type Terminal, Text, TUI } from "@alf-agent/tui";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createEditToolDefinition } from "../src/core/tools/edit.js";
 import { computeEditsDiff, type Edit } from "../src/core/tools/edit-diff.js";
@@ -101,7 +101,7 @@ describe("edit tool TUI rendering", () => {
 		}
 
 		const component = new ToolExecutionComponent(
-			"edit",
+			"file_edit",
 			"tool-call-1",
 			{ path: filePath, edits },
 			{},
@@ -124,7 +124,7 @@ describe("edit tool TUI rendering", () => {
 			"line 50 changed",
 			() => tui.requestRender(true),
 		);
-		expect(callOnlyRender).toContain("edit");
+		expect(callOnlyRender).toContain("file_edit");
 		expect(callOnlyRender).toContain("line 950 changed");
 
 		const redrawsBeforeResult = tui.fullRedraws;
@@ -170,7 +170,7 @@ describe("edit tool TUI rendering", () => {
 		const terminal = new FakeTerminal();
 		const tui = new TUI(terminal);
 		const component = new ToolExecutionComponent(
-			"edit",
+			"file_edit",
 			"tool-call-replay",
 			{ path: filePath, edits },
 			{},
@@ -207,7 +207,7 @@ describe("edit tool TUI rendering", () => {
 		const terminal = new FakeTerminal();
 		const tui = new TUI(terminal);
 		const component = new ToolExecutionComponent(
-			"edit",
+			"file_edit",
 			"tool-call-2",
 			{ path: filePath, edits: [{ oldText: "does not exist", newText: "replacement" }] },
 			{},

@@ -21,7 +21,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@alf-agent/coding-agent";
 
 // Default interactive commands - editors, pagers, git ops, TUIs
 const DEFAULT_INTERACTIVE_COMMANDS = [
@@ -128,8 +128,8 @@ function isInteractiveCommand(command: string): boolean {
 	return false;
 }
 
-export default function (pi: ExtensionAPI) {
-	pi.on("user_bash", async (event, ctx) => {
+export default function (alf: ExtensionAPI) {
+	alf.on("user_bash", async (event, ctx) => {
 		let command = event.command;
 		let forceInteractive = false;
 

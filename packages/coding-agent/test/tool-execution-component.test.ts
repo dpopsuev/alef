@@ -1,5 +1,5 @@
 import { join, resolve } from "node:path";
-import { Text, type TUI } from "@earendil-works/pi-tui";
+import { Text, type TUI } from "@alf-agent/tui";
 import stripAnsi from "strip-ansi";
 import { Type } from "typebox";
 import { beforeAll, describe, expect, test } from "vitest";
@@ -69,11 +69,11 @@ describe("ToolExecutionComponent parity", () => {
 
 	test("uses built-in rendering for built-in overrides without custom renderers", () => {
 		const overrideDefinition: ToolDefinition = {
-			...createBaseToolDefinition("edit"),
+			...createBaseToolDefinition("file_edit"),
 		};
 
 		const component = new ToolExecutionComponent(
-			"edit",
+			"file_edit",
 			"tool-2",
 			{ path: "README.md", oldText: "before", newText: "after" },
 			{},
@@ -83,14 +83,14 @@ describe("ToolExecutionComponent parity", () => {
 		);
 		component.updateResult({ content: [], details: { diff: "+1 after", firstChangedLine: 1 }, isError: false });
 		const rendered = stripAnsi(component.render(120).join("\n"));
-		expect(rendered).toContain("edit");
+		expect(rendered).toContain("file_edit");
 		expect(rendered).toContain("README.md");
 		expect(rendered).not.toContain(":1");
 	});
 
 	test("preserves legacy file_path rendering compatibility for built-in tools", () => {
 		const component = new ToolExecutionComponent(
-			"read",
+			"file_read",
 			"tool-3",
 			{ file_path: "README.md" },
 			{},
@@ -99,7 +99,7 @@ describe("ToolExecutionComponent parity", () => {
 			process.cwd(),
 		);
 		const rendered = stripAnsi(component.render(120).join("\n"));
-		expect(rendered).toContain("read");
+		expect(rendered).toContain("file_read");
 		expect(rendered).toContain("README.md");
 	});
 
@@ -125,7 +125,7 @@ describe("ToolExecutionComponent parity", () => {
 
 	test("does not duplicate built-in headers when passed the active built-in definition", () => {
 		const component = new ToolExecutionComponent(
-			"read",
+			"file_read",
 			"tool-4",
 			{ path: "README.md" },
 			{},
@@ -135,17 +135,17 @@ describe("ToolExecutionComponent parity", () => {
 		);
 		component.updateResult({ content: [{ type: "text", text: "hello" }], details: undefined, isError: false }, false);
 		const rendered = stripAnsi(component.render(120).join("\n"));
-		expect(rendered.match(/\bread\b/g)?.length ?? 0).toBe(1);
+		expect(rendered.match(/\bfile_read\b/g)?.length ?? 0).toBe(1);
 	});
 
 	test("inherits missing built-in result renderer slot from the built-in tool", () => {
 		const overrideDefinition: ToolDefinition = {
-			...createBaseToolDefinition("read"),
+			...createBaseToolDefinition("file_read"),
 			renderCall: () => new Text("override call", 0, 0),
 		};
 
 		const component = new ToolExecutionComponent(
-			"read",
+			"file_read",
 			"tool-4b",
 			{ path: "notes.txt" },
 			{},
@@ -161,12 +161,12 @@ describe("ToolExecutionComponent parity", () => {
 
 	test("inherits missing built-in call renderer slot from the built-in tool", () => {
 		const overrideDefinition: ToolDefinition = {
-			...createBaseToolDefinition("read"),
+			...createBaseToolDefinition("file_read"),
 			renderResult: () => new Text("override result", 0, 0),
 		};
 
 		const component = new ToolExecutionComponent(
-			"read",
+			"file_read",
 			"tool-4c",
 			{ path: "README.md" },
 			{},
@@ -176,7 +176,7 @@ describe("ToolExecutionComponent parity", () => {
 		);
 		component.updateResult({ content: [{ type: "text", text: "hello" }], details: undefined, isError: false }, false);
 		const rendered = stripAnsi(component.render(120).join("\n"));
-		expect(rendered).toContain("read");
+		expect(rendered).toContain("file_read");
 		expect(rendered).toContain("README.md");
 		expect(rendered).toContain("override result");
 	});
@@ -184,7 +184,7 @@ describe("ToolExecutionComponent parity", () => {
 	test("uses custom renderers for built-in overrides that reuse built-in definition parameters", () => {
 		const builtInDefinition = createReadToolDefinition(process.cwd());
 		const component = new ToolExecutionComponent(
-			"read",
+			"file_read",
 			"tool-4d",
 			{ path: "README.md" },
 			{},
@@ -200,18 +200,18 @@ describe("ToolExecutionComponent parity", () => {
 		const rendered = stripAnsi(component.render(120).join("\n"));
 		expect(rendered).toContain("override call");
 		expect(rendered).toContain("override result");
-		expect(rendered).not.toContain("read README.md");
+		expect(rendered).not.toContain("file_read README.md");
 	});
 
 	test("uses custom renderers for built-in overrides that reuse wrapped built-in tool parameters", () => {
 		const builtInTool = createReadTool(process.cwd());
 		const component = new ToolExecutionComponent(
-			"read",
+			"file_read",
 			"tool-4e",
 			{ path: "README.md" },
 			{},
 			{
-				...createBaseToolDefinition("read"),
+				...createBaseToolDefinition("file_read"),
 				parameters: builtInTool.parameters,
 				renderCall: () => new Text("wrapped override call", 0, 0),
 				renderResult: () => new Text("wrapped override result", 0, 0),
@@ -297,7 +297,7 @@ describe("ToolExecutionComponent parity", () => {
 
 	test("trims trailing blank display lines from write previews", () => {
 		const component = new ToolExecutionComponent(
-			"write",
+			"file_write",
 			"tool-7",
 			{ path: "README.md", content: "one\ntwo\n" },
 			{},
@@ -313,7 +313,7 @@ describe("ToolExecutionComponent parity", () => {
 
 	test("trims trailing blank display lines from read results", () => {
 		const component = new ToolExecutionComponent(
-			"read",
+			"file_read",
 			"tool-8",
 			{ path: "notes.txt" },
 			{},
@@ -338,13 +338,13 @@ describe("ToolExecutionComponent parity", () => {
 			content: "---\nname: attio\ndescription: CRM helper\n---\n\n# Hidden skill instructions",
 			compact: "[skill] attio",
 			hidden: "Hidden skill instructions",
-			absent: "read skill attio",
+			absent: "file_read skill attio",
 		},
 		{
 			title: "AGENTS.md",
 			path: join(process.cwd(), ".pi", "AGENTS.md"),
 			content: "Hidden resource instructions",
-			compact: "read resource .pi/AGENTS.md",
+			compact: "file_read resource .pi/AGENTS.md",
 			hidden: "Hidden resource instructions",
 			absent: undefined,
 		},
@@ -352,7 +352,7 @@ describe("ToolExecutionComponent parity", () => {
 			title: "outside AGENTS.md",
 			path: resolve(process.cwd(), "..", "AGENTS.md"),
 			content: "Hidden outside resource instructions",
-			compact: `read resource ${resolve(process.cwd(), "..", "AGENTS.md").replace(/\\/g, "/")}`,
+			compact: `file_read resource ${resolve(process.cwd(), "..", "AGENTS.md").replace(/\\/g, "/")}`,
 			hidden: "Hidden outside resource instructions",
 			absent: undefined,
 		},
@@ -360,14 +360,14 @@ describe("ToolExecutionComponent parity", () => {
 			title: "Pi documentation",
 			path: getReadmePath(),
 			content: "Hidden docs content",
-			compact: "read docs README.md",
+			compact: "file_read docs README.md",
 			hidden: "Hidden docs content",
 			absent: undefined,
 		},
 	] as const) {
 		test(`renders ${scenario.title} read results compactly until expanded`, () => {
 			const component = new ToolExecutionComponent(
-				"read",
+				"file_read",
 				`tool-compact-${scenario.title}`,
 				{ path: scenario.path },
 				{},
@@ -395,11 +395,11 @@ describe("ToolExecutionComponent parity", () => {
 
 	for (const scenario of [
 		{ title: "SKILL.md", path: join(process.cwd(), "attio", "SKILL.md"), compact: "[skill] attio:120-329" },
-		{ title: "Pi documentation", path: getReadmePath(), compact: "read docs README.md:120-329" },
+		{ title: "Pi documentation", path: getReadmePath(), compact: "file_read docs README.md:120-329" },
 	] as const) {
 		test(`shows the read line range in compact ${scenario.title} reads before the expand hint`, () => {
 			const component = new ToolExecutionComponent(
-				"read",
+				"file_read",
 				`tool-compact-range-${scenario.title}`,
 				{ path: scenario.path, offset: 120, limit: 210 },
 				{},

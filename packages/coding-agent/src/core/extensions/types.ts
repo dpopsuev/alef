@@ -14,7 +14,7 @@ import type {
 	AgentToolUpdateCallback,
 	ThinkingLevel,
 	ToolExecutionMode,
-} from "@earendil-works/pi-agent-core";
+} from "@alf-agent/agent-core";
 import type {
 	Api,
 	AssistantMessageEvent,
@@ -27,7 +27,7 @@ import type {
 	SimpleStreamOptions,
 	TextContent,
 	ToolResultMessage,
-} from "@earendil-works/pi-ai";
+} from "@alf-agent/ai";
 import type {
 	AutocompleteItem,
 	AutocompleteProvider,
@@ -38,7 +38,7 @@ import type {
 	OverlayHandle,
 	OverlayOptions,
 	TUI,
-} from "@earendil-works/pi-tui";
+} from "@alf-agent/tui";
 import type { Static, TSchema } from "typebox";
 import type { Theme } from "../../modes/interactive/theme/theme.js";
 import type { BashResult } from "../bash-executor.js";
@@ -73,6 +73,8 @@ import type {
 	LsToolInput,
 	ReadToolDetails,
 	ReadToolInput,
+	SymbolOutlineToolDetails,
+	SymbolOutlineToolInput,
 	WriteToolInput,
 } from "../tools/index.js";
 
@@ -226,12 +228,12 @@ export interface ExtensionUIContext {
 	 * - `keybindings`: KeybindingsManager for app-level keybindings
 	 *
 	 * For full app keybinding support (escape, ctrl+d, model switching, etc.),
-	 * extend `CustomEditor` from `@earendil-works/pi-coding-agent` and call
+	 * extend `CustomEditor` from `@alf-agent/coding-agent` and call
 	 * `super.handleInput(data)` for keys you don't handle.
 	 *
 	 * @example
 	 * ```ts
-	 * import { CustomEditor } from "@earendil-works/pi-coding-agent";
+	 * import { CustomEditor } from "@alf-agent/coding-agent";
 	 *
 	 * class VimEditor extends CustomEditor {
 	 *   private mode: "normal" | "insert" = "insert";
@@ -316,7 +318,7 @@ export interface ExtensionContext {
 	abort(): void;
 	/** Whether there are queued messages waiting */
 	hasPendingMessages(): boolean;
-	/** Gracefully shutdown pi and exit. Available in all contexts. */
+	/** Gracefully shutdown the CLI and exit. Available in all contexts. */
 	shutdown(): void;
 	/** Get current context usage for the active model. */
 	getContextUsage(): ContextUsage | undefined;
@@ -629,7 +631,7 @@ export interface BeforeAgentStartEvent {
 	images?: ImageContent[];
 	/** The fully assembled system prompt string. */
 	systemPrompt: string;
-	/** Structured options used to build the system prompt. Extensions can inspect this to understand what Pi loaded without re-discovering resources. */
+	/** Structured options used to build the system prompt. Extensions can inspect this to understand what Alf loaded without re-discovering resources. */
 	systemPromptOptions: BuildSystemPromptOptions;
 }
 
@@ -774,38 +776,43 @@ interface ToolCallEventBase {
 }
 
 export interface BashToolCallEvent extends ToolCallEventBase {
-	toolName: "bash";
+	toolName: "file_bash";
 	input: BashToolInput;
 }
 
 export interface ReadToolCallEvent extends ToolCallEventBase {
-	toolName: "read";
+	toolName: "file_read";
 	input: ReadToolInput;
 }
 
 export interface EditToolCallEvent extends ToolCallEventBase {
-	toolName: "edit";
+	toolName: "file_edit";
 	input: EditToolInput;
 }
 
 export interface WriteToolCallEvent extends ToolCallEventBase {
-	toolName: "write";
+	toolName: "file_write";
 	input: WriteToolInput;
 }
 
 export interface GrepToolCallEvent extends ToolCallEventBase {
-	toolName: "grep";
+	toolName: "file_grep";
 	input: GrepToolInput;
 }
 
 export interface FindToolCallEvent extends ToolCallEventBase {
-	toolName: "find";
+	toolName: "file_find";
 	input: FindToolInput;
 }
 
 export interface LsToolCallEvent extends ToolCallEventBase {
-	toolName: "ls";
+	toolName: "file_ls";
 	input: LsToolInput;
+}
+
+export interface SymbolOutlineToolCallEvent extends ToolCallEventBase {
+	toolName: "symbol_outline";
+	input: SymbolOutlineToolInput;
 }
 
 export interface CustomToolCallEvent extends ToolCallEventBase {
@@ -827,6 +834,7 @@ export type ToolCallEvent =
 	| GrepToolCallEvent
 	| FindToolCallEvent
 	| LsToolCallEvent
+	| SymbolOutlineToolCallEvent
 	| CustomToolCallEvent;
 
 interface ToolResultEventBase {
@@ -838,38 +846,43 @@ interface ToolResultEventBase {
 }
 
 export interface BashToolResultEvent extends ToolResultEventBase {
-	toolName: "bash";
+	toolName: "file_bash";
 	details: BashToolDetails | undefined;
 }
 
 export interface ReadToolResultEvent extends ToolResultEventBase {
-	toolName: "read";
+	toolName: "file_read";
 	details: ReadToolDetails | undefined;
 }
 
 export interface EditToolResultEvent extends ToolResultEventBase {
-	toolName: "edit";
+	toolName: "file_edit";
 	details: EditToolDetails | undefined;
 }
 
 export interface WriteToolResultEvent extends ToolResultEventBase {
-	toolName: "write";
+	toolName: "file_write";
 	details: undefined;
 }
 
 export interface GrepToolResultEvent extends ToolResultEventBase {
-	toolName: "grep";
+	toolName: "file_grep";
 	details: GrepToolDetails | undefined;
 }
 
 export interface FindToolResultEvent extends ToolResultEventBase {
-	toolName: "find";
+	toolName: "file_find";
 	details: FindToolDetails | undefined;
 }
 
 export interface LsToolResultEvent extends ToolResultEventBase {
-	toolName: "ls";
+	toolName: "file_ls";
 	details: LsToolDetails | undefined;
+}
+
+export interface SymbolOutlineToolResultEvent extends ToolResultEventBase {
+	toolName: "symbol_outline";
+	details: SymbolOutlineToolDetails | undefined;
 }
 
 export interface CustomToolResultEvent extends ToolResultEventBase {
@@ -886,29 +899,33 @@ export type ToolResultEvent =
 	| GrepToolResultEvent
 	| FindToolResultEvent
 	| LsToolResultEvent
+	| SymbolOutlineToolResultEvent
 	| CustomToolResultEvent;
 
 // Type guards for ToolResultEvent
 export function isBashToolResult(e: ToolResultEvent): e is BashToolResultEvent {
-	return e.toolName === "bash";
+	return e.toolName === "file_bash";
 }
 export function isReadToolResult(e: ToolResultEvent): e is ReadToolResultEvent {
-	return e.toolName === "read";
+	return e.toolName === "file_read";
 }
 export function isEditToolResult(e: ToolResultEvent): e is EditToolResultEvent {
-	return e.toolName === "edit";
+	return e.toolName === "file_edit";
 }
 export function isWriteToolResult(e: ToolResultEvent): e is WriteToolResultEvent {
-	return e.toolName === "write";
+	return e.toolName === "file_write";
 }
 export function isGrepToolResult(e: ToolResultEvent): e is GrepToolResultEvent {
-	return e.toolName === "grep";
+	return e.toolName === "file_grep";
 }
 export function isFindToolResult(e: ToolResultEvent): e is FindToolResultEvent {
-	return e.toolName === "find";
+	return e.toolName === "file_find";
 }
 export function isLsToolResult(e: ToolResultEvent): e is LsToolResultEvent {
-	return e.toolName === "ls";
+	return e.toolName === "file_ls";
+}
+export function isSymbolOutlineToolResult(e: ToolResultEvent): e is SymbolOutlineToolResultEvent {
+	return e.toolName === "symbol_outline";
 }
 
 /**
@@ -916,7 +933,7 @@ export function isLsToolResult(e: ToolResultEvent): e is LsToolResultEvent {
  *
  * Built-in tools narrow automatically (no type params needed):
  * ```ts
- * if (isToolCallEventType("bash", event)) {
+ * if (isToolCallEventType("file_bash", event)) {
  *   event.input.command;  // string
  * }
  * ```
@@ -928,16 +945,20 @@ export function isLsToolResult(e: ToolResultEvent): e is LsToolResultEvent {
  * }
  * ```
  *
- * Note: Direct narrowing via `event.toolName === "bash"` doesn't work because
+ * Note: Direct narrowing via `event.toolName === "file_bash"` doesn't work because
  * CustomToolCallEvent.toolName is `string` which overlaps with all literals.
  */
-export function isToolCallEventType(toolName: "bash", event: ToolCallEvent): event is BashToolCallEvent;
-export function isToolCallEventType(toolName: "read", event: ToolCallEvent): event is ReadToolCallEvent;
-export function isToolCallEventType(toolName: "edit", event: ToolCallEvent): event is EditToolCallEvent;
-export function isToolCallEventType(toolName: "write", event: ToolCallEvent): event is WriteToolCallEvent;
-export function isToolCallEventType(toolName: "grep", event: ToolCallEvent): event is GrepToolCallEvent;
-export function isToolCallEventType(toolName: "find", event: ToolCallEvent): event is FindToolCallEvent;
-export function isToolCallEventType(toolName: "ls", event: ToolCallEvent): event is LsToolCallEvent;
+export function isToolCallEventType(toolName: "file_bash", event: ToolCallEvent): event is BashToolCallEvent;
+export function isToolCallEventType(toolName: "file_read", event: ToolCallEvent): event is ReadToolCallEvent;
+export function isToolCallEventType(toolName: "file_edit", event: ToolCallEvent): event is EditToolCallEvent;
+export function isToolCallEventType(toolName: "file_write", event: ToolCallEvent): event is WriteToolCallEvent;
+export function isToolCallEventType(toolName: "file_grep", event: ToolCallEvent): event is GrepToolCallEvent;
+export function isToolCallEventType(toolName: "file_find", event: ToolCallEvent): event is FindToolCallEvent;
+export function isToolCallEventType(toolName: "file_ls", event: ToolCallEvent): event is LsToolCallEvent;
+export function isToolCallEventType(
+	toolName: "symbol_outline",
+	event: ToolCallEvent,
+): event is SymbolOutlineToolCallEvent;
 export function isToolCallEventType<TName extends string, TInput extends Record<string, unknown>>(
 	toolName: TName,
 	event: ToolCallEvent,
@@ -1252,7 +1273,7 @@ export interface ExtensionAPI {
 	 *
 	 * @example
 	 * // Register a new provider with custom models
-	 * pi.registerProvider("my-proxy", {
+	 * alf.registerProvider("my-proxy", {
 	 *   baseUrl: "https://proxy.example.com",
 	 *   apiKey: "PROXY_API_KEY",
 	 *   api: "anthropic-messages",
@@ -1271,13 +1292,13 @@ export interface ExtensionAPI {
 	 *
 	 * @example
 	 * // Override baseUrl for an existing provider
-	 * pi.registerProvider("anthropic", {
+	 * alf.registerProvider("anthropic", {
 	 *   baseUrl: "https://proxy.example.com"
 	 * });
 	 *
 	 * @example
 	 * // Register provider with OAuth support
-	 * pi.registerProvider("corporate-ai", {
+	 * alf.registerProvider("corporate-ai", {
 	 *   baseUrl: "https://ai.corp.com",
 	 *   api: "openai-responses",
 	 *   models: [...],
@@ -1302,7 +1323,7 @@ export interface ExtensionAPI {
 	 * the initial load phase.
 	 *
 	 * @example
-	 * pi.unregisterProvider("my-proxy");
+	 * alf.unregisterProvider("my-proxy");
 	 */
 	unregisterProvider(name: string): void;
 
@@ -1314,7 +1335,7 @@ export interface ExtensionAPI {
 // Provider Registration Types
 // ============================================================================
 
-/** Configuration for registering a provider via pi.registerProvider(). */
+/** Configuration for registering a provider via alf.registerProvider(). */
 export interface ProviderConfig {
 	/** Display name for the provider in UI. */
 	name?: string;
@@ -1359,7 +1380,7 @@ export interface ProviderModelConfig {
 	baseUrl?: string;
 	/** Whether the model supports extended thinking. */
 	reasoning: boolean;
-	/** Maps pi thinking levels to provider/model-specific values; null marks a level unsupported. */
+	/** Maps alf thinking levels to provider/model-specific values; null marks a level unsupported. */
 	thinkingLevelMap?: Model<Api>["thinkingLevelMap"];
 	/** Supported input types. */
 	input: ("text" | "image")[];
@@ -1376,7 +1397,7 @@ export interface ProviderModelConfig {
 }
 
 /** Extension factory function type. Supports both sync and async initialization. */
-export type ExtensionFactory = (pi: ExtensionAPI) => void | Promise<void>;
+export type ExtensionFactory = (alf: ExtensionAPI) => void | Promise<void>;
 
 // ============================================================================
 // Loaded Extension Types
@@ -1466,7 +1487,7 @@ export interface ExtensionRuntimeState {
 }
 
 /**
- * Action implementations for pi.* API methods.
+ * Action implementations for alf.* API methods.
  * Provided to runner.initialize(), copied into the shared runtime.
  */
 export interface ExtensionActions {

@@ -2,8 +2,13 @@
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- Renamed built-in tools for clearer families: **`file_read`**, **`file_bash`**, **`file_edit`**, **`file_write`**, **`file_grep`**, **`file_find`**, **`file_ls`**, and **`symbol_outline`** (structural outline; replaces the former `symbols` tool name). Update `--tools` / SDK allowlists and any extensions that matched on the old names.
+
 ### Added
 
+- Added built-in **`symbol_outline`** tool: structural view of JavaScript/TypeScript files (imports, exports, declarations, class members) via the TypeScript compiler API; enabled by default alongside **`file_read`**, **`file_bash`**, **`file_edit`**, and **`file_write`**.
 - Added Together AI to built-in provider setup, `/login` API-key auth, and default model resolution ([#3624](https://github.com/earendil-works/pi-mono/pull/3624) by [@Nutlope](https://github.com/Nutlope)).
 
 ### Fixed
@@ -21,7 +26,7 @@
 
 ### New Features
 
-- **Self-update support for the npm scope migration**: `pi update --self` now supports the upcoming package rename from `@mariozechner/pi-coding-agent` to `@earendil-works/pi-coding-agent`. After the new package is published, existing global installs can update through the normal self-update flow; pi will uninstall the old global package and install the package name returned by the version check endpoint.
+- **Self-update support for the npm scope migration**: `pi update --self` now supports the upcoming package rename from `@mariozechner/pi-coding-agent` to `@alf-agent/coding-agent`. After the new package is published, existing global installs can update through the normal self-update flow; pi will uninstall the old global package and install the package name returned by the version check endpoint.
 - **Interactive OAuth login selection**: OAuth providers can now present multiple login choices in `/login`, enabling provider-specific interactive authentication flows. See [Providers](docs/providers.md).
 - **JSONC-style `models.json` parsing**: `models.json` now allows comments and trailing commas, making custom provider and model configuration easier to maintain. See [Providers](docs/providers.md) and [Custom Providers](docs/custom-provider.md).
 

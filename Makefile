@@ -1,4 +1,4 @@
-# Alf Agent monorepo — convenience targets over npm scripts.
+# Alef Agent monorepo — convenience targets over npm scripts.
 #
 # Tooling (best-practice alignment):
 #   - Formatter + linter: Biome (`biome.json`). Canonical gate: `npm run check`
@@ -11,7 +11,7 @@
 # CI tip: prefer `npm ci` over `npm install` for reproducible installs.
 #
 # Global CLI: `make install` builds packages and runs `npm install -g ./packages/coding-agent`,
-# placing `alf` in `$(npm prefix -g)/bin` (often ~/.local/bin). Requires Node/npm on PATH.
+# placing `alef` in `$(npm prefix -g)/bin` (often ~/.local/bin). Requires Node/npm on PATH.
 #
 # Variables (override on CLI: `make check NPM=npm`):
 NPM ?= npm
@@ -29,10 +29,10 @@ help: ## Show this list
 install-deps: ## Install Node dependencies only (npm install; runs Husky prepare)
 	$(NPM) install
 
-install-global: build ## Build all packages and install alf into npm global bin
+install-global: build ## Build all packages and install alef into npm global bin
 	$(NPM) install -g ./packages/coding-agent
 
-install: install-deps install-global ## Install deps, build, and install alf globally (`npm install -g`)
+install: install-deps install-global ## Install deps, build, and install alef globally (`npm install -g`)
 
 .PHONY: ci
 ci: ## Install dependencies for CI (npm ci)
@@ -62,9 +62,9 @@ check-browser-smoke: ## Browser smoke script only
 test: ## Run tests in all workspaces that define a test script
 	$(NPM) run test
 
-.PHONY: alf
-alf: ## Run Alf from source (./alf-test.sh)
-	./alf-test.sh
+.PHONY: alef
+alef: ## Run Alef from source (./alef-test.sh)
+	./alef-test.sh
 
 .PHONY: dev
 dev: ## Start package dev watchers (long-running)

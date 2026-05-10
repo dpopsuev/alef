@@ -5,15 +5,15 @@
  * Useful to ensure work is committed before switching context.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@alf-agent/coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
 
 async function checkDirtyRepo(
-	alf: ExtensionAPI,
+	alef: ExtensionAPI,
 	ctx: ExtensionContext,
 	action: string,
 ): Promise<{ cancel: boolean } | undefined> {
 	// Check for uncommitted changes
-	const { stdout, code } = await alf.exec("git", ["status", "--porcelain"]);
+	const { stdout, code } = await alef.exec("git", ["status", "--porcelain"]);
 
 	if (code !== 0) {
 		// Not a git repo, allow the action
@@ -44,13 +44,13 @@ async function checkDirtyRepo(
 	}
 }
 
-export default function (alf: ExtensionAPI) {
-	alf.on("session_before_switch", async (event, ctx) => {
+export default function (alef: ExtensionAPI) {
+	alef.on("session_before_switch", async (event, ctx) => {
 		const action = event.reason === "new" ? "new session" : "switch session";
-		return checkDirtyRepo(alf, ctx, action);
+		return checkDirtyRepo(alef, ctx, action);
 	});
 
-	alf.on("session_before_fork", async (_event, ctx) => {
-		return checkDirtyRepo(alf, ctx, "fork");
+	alef.on("session_before_fork", async (_event, ctx) => {
+		return checkDirtyRepo(alef, ctx, "fork");
 	});
 }

@@ -1,19 +1,19 @@
 /**
  * Commands Extension
  *
- * Demonstrates the alf.getCommands() API by providing a /commands command
+ * Demonstrates the alef.getCommands() API by providing a /commands command
  * that lists all available slash commands in the current session.
  *
  * Usage:
- * 1. Copy this file to ~/.alf/agent/extensions/ or your project's .alf/extensions/
+ * 1. Copy this file to ~/.alef/agent/extensions/ or your project's .alef/extensions/
  * 2. Use /commands to see available commands
  * 3. Use /commands extensions to filter by source
  */
 
-import type { ExtensionAPI, SlashCommandInfo } from "@alf-agent/coding-agent";
+import type { ExtensionAPI, SlashCommandInfo } from "@alef/coding-agent";
 
-export default function commandsExtension(alf: ExtensionAPI) {
-	alf.registerCommand("commands", {
+export default function commandsExtension(alef: ExtensionAPI) {
+	alef.registerCommand("commands", {
 		description: "List available slash commands",
 		getArgumentCompletions: (prefix) => {
 			const sources = ["extension", "prompt", "skill"];
@@ -21,7 +21,7 @@ export default function commandsExtension(alf: ExtensionAPI) {
 			return filtered.length > 0 ? filtered.map((s) => ({ value: s, label: s })) : null;
 		},
 		handler: async (args, ctx) => {
-			const commands = alf.getCommands();
+			const commands = alef.getCommands();
 			const sourceFilter = args.trim() as "extension" | "prompt" | "skill" | "";
 
 			// Filter by source if specified

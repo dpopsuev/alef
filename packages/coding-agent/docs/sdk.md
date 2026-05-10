@@ -16,7 +16,7 @@ See [examples/sdk/](../examples/sdk/) for working examples from minimal to full 
 ## Quick Start
 
 ```typescript
-import { AuthStorage, createAgentSession, ModelRegistry, SessionManager } from "@alf-agent/coding-agent";
+import { AuthStorage, createAgentSession, ModelRegistry, SessionManager } from "@alef/coding-agent";
 
 // Set up credential storage and model registry
 const authStorage = AuthStorage.create();
@@ -40,7 +40,7 @@ await session.prompt("What files are in the current directory?");
 ## Installation
 
 ```bash
-npm install @alf-agent/coding-agent
+npm install @alef/coding-agent
 ```
 
 The SDK is included in the main package. No separate installation needed.
@@ -54,7 +54,7 @@ The main factory function for a single `AgentSession`.
 `createAgentSession()` uses a `ResourceLoader` to supply extensions, skills, prompt templates, themes, and context files. If you do not provide one, it uses `DefaultResourceLoader` with standard discovery.
 
 ```typescript
-import { createAgentSession } from "@alf-agent/coding-agent";
+import { createAgentSession } from "@alef/coding-agent";
 
 // Minimal: defaults with DefaultResourceLoader
 const { session } = await createAgentSession();
@@ -132,7 +132,7 @@ import {
   createAgentSessionServices,
   getAgentDir,
   SessionManager,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 const createRuntime: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
   const services = await createAgentSessionServices({ cwd });
@@ -239,7 +239,7 @@ Both `steer()` and `followUp()` expand file-based prompt templates but error on 
 
 ### Agent and AgentState
 
-The `Agent` class (from `@alf-agent/agent-core`) handles the core LLM interaction. Access it via `session.agent`.
+The `Agent` class (from `@alef/agent-core`) handles the core LLM interaction. Access it via `session.agent`.
 
 ```typescript
 // Access current state
@@ -343,11 +343,11 @@ const { session } = await createAgentSession({
 ```
 
 `cwd` is used by `DefaultResourceLoader` for:
-- Project extensions (`.alf/extensions/`)
+- Project extensions (`.alef/extensions/`)
 - Project skills:
-  - `.alf/skills/`
+  - `.alef/skills/`
   - `.agents/skills/` in `cwd` and ancestor directories (up to git repo root, or filesystem root when not in a repo)
-- Project prompts (`.alf/prompts/`)
+- Project prompts (`.alef/prompts/`)
 - Context files (`AGENTS.md` walking up from cwd)
 - Session directory naming
 
@@ -368,8 +368,8 @@ When you pass a custom `ResourceLoader`, `cwd` and `agentDir` no longer control 
 ### Model
 
 ```typescript
-import { getModel } from "@alf-agent/ai";
-import { AuthStorage, ModelRegistry } from "@alf-agent/coding-agent";
+import { getModel } from "@alef/ai";
+import { AuthStorage, ModelRegistry } from "@alef/coding-agent";
 
 const authStorage = AuthStorage.create();
 const modelRegistry = ModelRegistry.create(authStorage);
@@ -416,7 +416,7 @@ API key resolution priority (handled by AuthStorage):
 4. Fallback resolver (for custom provider keys from `models.json`)
 
 ```typescript
-import { AuthStorage, ModelRegistry } from "@alf-agent/coding-agent";
+import { AuthStorage, ModelRegistry } from "@alef/coding-agent";
 
 // Default: uses <agent-dir>/auth.json and <agent-dir>/models.json
 const authStorage = AuthStorage.create();
@@ -452,7 +452,7 @@ const simpleRegistry = ModelRegistry.inMemory(authStorage);
 Use a `ResourceLoader` to override the system prompt:
 
 ```typescript
-import { createAgentSession, DefaultResourceLoader } from "@alf-agent/coding-agent";
+import { createAgentSession, DefaultResourceLoader } from "@alef/coding-agent";
 
 const loader = new DefaultResourceLoader({
   systemPromptOverride: () => "You are a helpful assistant.",
@@ -472,7 +472,7 @@ import {
   readOnlyTools, // read, grep, find, ls
   readTool, bashTool, editTool, writeTool,
   grepTool, findTool, lsTool,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 // Use built-in tool set
 const { session } = await createAgentSession({
@@ -500,7 +500,7 @@ import {
   createGrepTool,
   createFindTool,
   createLsTool,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 const cwd = "/path/to/project";
 
@@ -530,7 +530,7 @@ const { session } = await createAgentSession({
 
 ```typescript
 import { Type } from "typebox";
-import { createAgentSession, defineTool } from "@alf-agent/coding-agent";
+import { createAgentSession, defineTool } from "@alef/coding-agent";
 
 // Inline custom tool
 const myTool = defineTool({
@@ -560,10 +560,10 @@ Custom tools passed via `customTools` are combined with extension-registered too
 
 ### Extensions
 
-Extensions are loaded by the `ResourceLoader`. `DefaultResourceLoader` discovers extensions from `<agent-dir>/extensions/`, `.alf/extensions/`, and settings.json extension sources.
+Extensions are loaded by the `ResourceLoader`. `DefaultResourceLoader` discovers extensions from `<agent-dir>/extensions/`, `.alef/extensions/`, and settings.json extension sources.
 
 ```typescript
-import { createAgentSession, DefaultResourceLoader } from "@alf-agent/coding-agent";
+import { createAgentSession, DefaultResourceLoader } from "@alef/coding-agent";
 
 const loader = new DefaultResourceLoader({
   additionalExtensionPaths: ["/path/to/my-extension.ts"],
@@ -585,7 +585,7 @@ Extensions can register tools, subscribe to events, add commands, and more. See 
 **Event Bus:** Extensions can communicate via `pi.events`. Pass a shared `eventBus` to `DefaultResourceLoader` if you need to emit or listen from outside:
 
 ```typescript
-import { createEventBus, DefaultResourceLoader } from "@alf-agent/coding-agent";
+import { createEventBus, DefaultResourceLoader } from "@alef/coding-agent";
 
 const eventBus = createEventBus();
 const loader = new DefaultResourceLoader({
@@ -605,7 +605,7 @@ import {
   createAgentSession,
   DefaultResourceLoader,
   type Skill,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 const customSkill: Skill = {
   name: "my-skill",
@@ -631,7 +631,7 @@ const { session } = await createAgentSession({ resourceLoader: loader });
 ### Context Files
 
 ```typescript
-import { createAgentSession, DefaultResourceLoader } from "@alf-agent/coding-agent";
+import { createAgentSession, DefaultResourceLoader } from "@alef/coding-agent";
 
 const loader = new DefaultResourceLoader({
   agentsFilesOverride: (current) => ({
@@ -655,7 +655,7 @@ import {
   createAgentSession,
   DefaultResourceLoader,
   type PromptTemplate,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 const customCommand: PromptTemplate = {
   name: "deploy",
@@ -690,7 +690,7 @@ import {
   createAgentSessionServices,
   getAgentDir,
   SessionManager,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 // In-memory (no persistence)
 const { session } = await createAgentSession({
@@ -784,7 +784,7 @@ sm.createBranchedSession(leafId);       // Extract path to new file
 ### Settings Management
 
 ```typescript
-import { createAgentSession, SettingsManager, SessionManager } from "@alf-agent/coding-agent";
+import { createAgentSession, SettingsManager, SessionManager } from "@alef/coding-agent";
 
 // Default: loads from files (global + project merged)
 const { session } = await createAgentSession({
@@ -819,7 +819,7 @@ const { session } = await createAgentSession({
 
 Settings load from two locations and merge:
 1. Global: `<agent-dir>/settings.json`
-2. Project: `<cwd>/.alf/settings.json`
+2. Project: `<cwd>/.alef/settings.json`
 
 Project overrides global. Nested objects merge keys. Setters modify global settings by default.
 
@@ -840,7 +840,7 @@ Use `DefaultResourceLoader` to discover extensions, skills, prompts, themes, and
 import {
   DefaultResourceLoader,
   getAgentDir,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 const loader = new DefaultResourceLoader({
   cwd,
@@ -881,7 +881,7 @@ interface LoadExtensionsResult {
 ## Complete Example
 
 ```typescript
-import { getModel } from "@alf-agent/ai";
+import { getModel } from "@alef/ai";
 import { Type } from "typebox";
 import {
   AuthStorage,
@@ -893,7 +893,7 @@ import {
   readTool,
   SessionManager,
   SettingsManager,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 // Set up auth storage (custom location)
 const authStorage = AuthStorage.create("/custom/agent/auth.json");
@@ -978,7 +978,7 @@ import {
   getAgentDir,
   InteractiveMode,
   SessionManager,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 const createRuntime: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
   const services = await createAgentSessionServices({ cwd });
@@ -1018,7 +1018,7 @@ import {
   getAgentDir,
   runPrintMode,
   SessionManager,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 const createRuntime: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
   const services = await createAgentSessionServices({ cwd });
@@ -1055,7 +1055,7 @@ import {
   getAgentDir,
   runRpcMode,
   SessionManager,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 const createRuntime: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
   const services = await createAgentSessionServices({ cwd });
@@ -1081,7 +1081,7 @@ See [RPC documentation](rpc.md) for the JSON protocol.
 For subprocess-based integration without building with the SDK, use the CLI directly:
 
 ```bash
-alf --mode rpc --no-session
+alef --mode rpc --no-session
 ```
 
 See [RPC documentation](rpc.md) for the JSON protocol.

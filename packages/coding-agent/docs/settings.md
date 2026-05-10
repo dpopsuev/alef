@@ -1,11 +1,11 @@
 # Settings
 
-Alf uses JSON settings files with project settings overriding global settings.
+Alef uses JSON settings files with project settings overriding global settings.
 
 | Location | Scope |
 |----------|-------|
 | `<agent-dir>/settings.json` | Global (all projects) |
-| `.alf/settings.json` | Project (current directory) |
+| `.alef/settings.json` | Project (current directory) |
 
 Edit directly or use `/settings` for common options.
 
@@ -41,7 +41,7 @@ Edit directly or use `/settings` for common options.
 | `theme` | string | `"dark"` | Theme name (`"dark"`, `"light"`, or custom) |
 | `quietStartup` | boolean | `false` | Hide startup header |
 | `collapseChangelog` | boolean | `false` | Show condensed changelog after updates |
-| `enableInstallTelemetry` | boolean | `true` | Allow install/update telemetry **when** `ALF_REPORT_INSTALL_URL` is set; unset URL means no network ping |
+| `enableInstallTelemetry` | boolean | `true` | Allow install/update telemetry **when** `ALEF_REPORT_INSTALL_URL` is set; unset URL means no network ping |
 | `doubleEscapeAction` | string | `"tree"` | Action for double-escape: `"tree"`, `"fork"`, or `"none"` |
 | `treeFilterMode` | string | `"default"` | Default filter for `/tree`: `"default"`, `"no-tools"`, `"user-only"`, `"labeled-only"`, `"all"` |
 | `editorPaddingX` | number | `0` | Horizontal padding for input editor (0-3) |
@@ -50,11 +50,11 @@ Edit directly or use `/settings` for common options.
 
 ### Telemetry and update checks
 
-`enableInstallTelemetry` gates whether install/update **would** send a ping **when** **`ALF_REPORT_INSTALL_URL`** is set in the environment. If that variable is unset (the default), no telemetry request is made regardless of this setting.
+`enableInstallTelemetry` gates whether install/update **would** send a ping **when** **`ALEF_REPORT_INSTALL_URL`** is set in the environment. If that variable is unset (the default), no telemetry request is made regardless of this setting.
 
-Optional latest-version checks run **only** when **`ALF_LATEST_VERSION_URL`** points at an HTTPS JSON endpoint returning a `version` string. Unset means no update request.
+Optional latest-version checks run **only** when **`ALEF_LATEST_VERSION_URL`** points at an HTTPS JSON endpoint returning a `version` string. Unset means no update request.
 
-Set **`ALF_SKIP_VERSION_CHECK=1`** to skip the latest-version fetch even when `ALF_LATEST_VERSION_URL` is set. Use **`--offline`** or **`ALF_OFFLINE=1`** to disable broader startup network usage (including registry-backed package checks).
+Set **`ALEF_SKIP_VERSION_CHECK=1`** to skip the latest-version fetch even when `ALEF_LATEST_VERSION_URL` is set. Use **`--offline`** or **`ALEF_OFFLINE=1`** to disable broader startup network usage (including registry-backed package checks).
 
 ### Warnings
 
@@ -166,10 +166,10 @@ Normally the package manager's global modules location is queried using `root -g
 | `sessionDir` | string | - | Directory where session files are stored. Accepts absolute or relative paths, plus `~`. |
 
 ```json
-{ "sessionDir": ".alf/sessions" }
+{ "sessionDir": ".alef/sessions" }
 ```
 
-When multiple sources specify a session directory, precedence is `--session-dir`, `ALF_CODING_AGENT_SESSION_DIR`, then `sessionDir` in settings.json.
+When multiple sources specify a session directory, precedence is `--session-dir`, `ALEF_CODING_AGENT_SESSION_DIR`, then `sessionDir` in settings.json.
 
 ### Model Cycling
 
@@ -193,7 +193,7 @@ When multiple sources specify a session directory, precedence is `--session-dir`
 
 These settings define where to load extensions, skills, prompts, and themes from.
 
-Paths in `<agent-dir>/settings.json` resolve relative to `<agent-dir>`. Paths in `.alf/settings.json` resolve relative to `.alf`. Absolute paths and `~` are supported.
+Paths in `<agent-dir>/settings.json` resolve relative to `<agent-dir>`. Paths in `.alef/settings.json` resolve relative to `.alef`. Absolute paths and `~` are supported.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
@@ -259,7 +259,7 @@ See [packages.md](packages.md) for package management details.
 
 ## Project Overrides
 
-Project settings (`.alf/settings.json`) override global settings. Nested objects are merged:
+Project settings (`.alef/settings.json`) override global settings. Nested objects are merged:
 
 ```json
 // <agent-dir>/settings.json (global)
@@ -268,7 +268,7 @@ Project settings (`.alf/settings.json`) override global settings. Nested objects
   "compaction": { "enabled": true, "reserveTokens": 16384 }
 }
 
-// .alf/settings.json (project)
+// .alef/settings.json (project)
 {
   "compaction": { "reserveTokens": 8192 }
 }

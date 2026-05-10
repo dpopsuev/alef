@@ -7,7 +7,7 @@ import {
 	type TextContent,
 	type ThinkingBudgets,
 	type Transport,
-} from "@alf-agent/ai";
+} from "@alef/ai";
 import { runAgentLoop, runAgentLoopContinue } from "./agent-loop.js";
 import type {
 	AfterToolCallContext,

@@ -3,15 +3,15 @@
  *
  * Demonstrates ctx.getSystemPrompt() for accessing the effective system prompt.
  */
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
-	alf.on("agent_start", (_event, ctx) => {
+export default function (alef: ExtensionAPI) {
+	alef.on("agent_start", (_event, ctx) => {
 		const prompt = ctx.getSystemPrompt();
 		ctx.ui.setStatus("system-prompt", `System: ${prompt.length} chars`);
 	});
 
-	alf.on("session_shutdown", (_event, ctx) => {
+	alef.on("session_shutdown", (_event, ctx) => {
 		ctx.ui.setStatus("system-prompt", undefined);
 	});
 }

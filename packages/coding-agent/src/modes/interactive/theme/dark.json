@@ -1,5 +1,5 @@
 {
-	"$schema": "https://raw.githubusercontent.com/dpopsuev/alf-agent/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+	"$schema": "https://raw.githubusercontent.com/dpopsuev/alef/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
 	"name": "dark",
 	"vars": {
 		"cyan": "#00d7ff",
@@ -10,7 +10,7 @@
 		"gray": "#808080",
 		"dimGray": "#666666",
 		"darkGray": "#505050",
-		"accent": "#8abeb7",
+		"accent": "#FE2418",
 		"selectedBg": "#3a3a4a",
 		"userMsgBg": "#343541",
 		"toolPendingBg": "#282832",
@@ -21,7 +21,7 @@
 	"colors": {
 		"accent": "accent",
 		"border": "blue",
-		"borderAccent": "cyan",
+		"borderAccent": "accent",
 		"borderMuted": "darkGray",
 		"success": "green",
 		"error": "red",

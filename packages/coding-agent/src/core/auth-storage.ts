@@ -12,8 +12,8 @@ import {
 	type OAuthCredentials,
 	type OAuthLoginCallbacks,
 	type OAuthProviderId,
-} from "@alf-agent/ai";
-import { getOAuthApiKey, getOAuthProvider, getOAuthProviders } from "@alf-agent/ai/oauth";
+} from "@alef/ai";
+import { getOAuthApiKey, getOAuthProvider, getOAuthProviders } from "@alef/ai/oauth";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import lockfile from "proper-lockfile";

@@ -11,7 +11,7 @@ import {
 	getAgentDir,
 	type PromptTemplate,
 	SessionManager,
-} from "@alf-agent/coding-agent";
+} from "@alef/coding-agent";
 
 // Define custom templates
 const deployTemplate: PromptTemplate = {
@@ -36,7 +36,7 @@ const loader = new DefaultResourceLoader({
 });
 await loader.reload();
 
-// Discover templates from cwd/.alf/prompts/ and ~/.alf/agent/prompts/
+// Discover templates from cwd/.alef/prompts/ and ~/.alef/agent/prompts/
 const discovered = loader.getPrompts().prompts;
 console.log("Discovered prompt templates:");
 for (const template of discovered) {

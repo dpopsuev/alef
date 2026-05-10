@@ -15,8 +15,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import type { Agent, AgentEvent, AgentMessage, AgentState, AgentTool, ThinkingLevel } from "@alf-agent/agent-core";
-import type { AssistantMessage, ImageContent, Message, Model, TextContent } from "@alf-agent/ai";
+import type { Agent, AgentEvent, AgentMessage, AgentState, AgentTool, ThinkingLevel } from "@alef/agent-core";
+import type { AssistantMessage, ImageContent, Message, Model, TextContent } from "@alef/ai";
 import {
 	clampThinkingLevel,
 	cleanupSessionResources,
@@ -24,7 +24,7 @@ import {
 	isContextOverflow,
 	modelsAreEqual,
 	resetApiProviders,
-} from "@alf-agent/ai";
+} from "@alef/ai";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { stripFrontmatter } from "../utils/frontmatter.js";
 import { sleep } from "../utils/sleep.js";
@@ -950,7 +950,7 @@ export class AgentSession {
 
 	/**
 	 * Send a prompt to the agent.
-	 * - Handles extension commands (registered via alf.registerCommand) immediately, even during streaming
+	 * - Handles extension commands (registered via alef.registerCommand) immediately, even during streaming
 	 * - Expands file-based prompt templates by default
 	 * - During streaming, queues via steer() or followUp() based on streamingBehavior option
 	 * - Validates model and API key before sending (when not streaming)
@@ -964,7 +964,7 @@ export class AgentSession {
 
 		try {
 			// Handle extension commands first (execute immediately, even during streaming)
-			// Extension commands manage their own LLM interaction via alf.sendMessage()
+			// Extension commands manage their own LLM interaction via alef.sendMessage()
 			if (expandPromptTemplates && text.startsWith("/")) {
 				const handled = await this._tryExecuteExtensionCommand(text);
 				if (handled) {

@@ -1,13 +1,13 @@
 /**
- * Syncs Alf's theme with macOS system appearance (dark/light mode).
+ * Syncs Alef's theme with macOS system appearance (dark/light mode).
  *
  * Usage:
- *   alf -e examples/extensions/mac-system-theme.ts
+ *   alef -e examples/extensions/mac-system-theme.ts
  */
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
 const execAsync = promisify(exec);
 
@@ -22,10 +22,10 @@ async function isDarkMode(): Promise<boolean> {
 	}
 }
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	let intervalId: ReturnType<typeof setInterval> | null = null;
 
-	alf.on("session_start", async (_event, ctx) => {
+	alef.on("session_start", async (_event, ctx) => {
 		let currentTheme = (await isDarkMode()) ? "dark" : "light";
 		ctx.ui.setTheme(currentTheme);
 
@@ -38,7 +38,7 @@ export default function (alf: ExtensionAPI) {
 		}, 2000);
 	});
 
-	alf.on("session_shutdown", () => {
+	alef.on("session_shutdown", () => {
 		if (intervalId) {
 			clearInterval(intervalId);
 			intervalId = null;

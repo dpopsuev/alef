@@ -17,8 +17,8 @@ import {
 	registerApiProvider,
 	resetApiProviders,
 	type SimpleStreamOptions,
-} from "@alf-agent/ai";
-import { registerOAuthProvider, resetOAuthProviders } from "@alf-agent/ai/oauth";
+} from "@alef/ai";
+import { registerOAuthProvider, resetOAuthProviders } from "@alef/ai/oauth";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { type Static, Type } from "typebox";

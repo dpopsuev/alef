@@ -17,13 +17,13 @@ pkg update && pkg upgrade
 pkg install nodejs termux-api git
 
 # Install pi
-npm install -g @alf-agent/coding-agent
+npm install -g @alef/coding-agent
 
 # Create config directory
 mkdir -p <agent-dir>
 
 # Run pi
-alf
+alef
 ```
 
 ## Clipboard Support

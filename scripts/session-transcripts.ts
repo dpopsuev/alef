@@ -4,7 +4,7 @@
  * optionally spawns subagents to analyze patterns.
  *
  * Usage: npx tsx scripts/session-transcripts.ts [--analyze] [--output <dir>] [cwd]
- *   --analyze      Spawn Alf subagents to analyze each transcript file
+ *   --analyze      Spawn Alef subagents to analyze each transcript file
  *   --output <dir> Output directory for transcript files (defaults to ./session-transcripts)
  *   cwd            Working directory to extract sessions for (defaults to current)
  */
@@ -77,7 +77,7 @@ interface JsonEvent {
 
 function runSubagent(prompt: string, cwd: string): Promise<{ success: boolean }> {
 	return new Promise((resolve) => {
-		const child = spawn("alf", ["--mode", "json", "--tools", "read,write", "-p", prompt], {
+		const child = spawn("alef", ["--mode", "json", "--tools", "read,write", "-p", prompt], {
 			cwd,
 			stdio: ["ignore", "pipe", "pipe"],
 		});
@@ -134,7 +134,7 @@ function runSubagent(prompt: string, cwd: string): Promise<{ success: boolean }>
 		});
 
 		child.on("error", (err) => {
-			console.error(chalk.red(`  Failed to spawn alf: ${err.message}`));
+			console.error(chalk.red(`  Failed to spawn alef: ${err.message}`));
 			resolve({ success: false });
 		});
 	});
@@ -243,7 +243,7 @@ async function main() {
 	console.log(`\nCreated ${outputFiles.length} transcript file(s) in ${outputDir}`);
 
 	if (!analyzeFlag) {
-		console.log("\nRun with --analyze to spawn Alf subagents for pattern analysis.");
+		console.log("\nRun with --analyze to spawn Alef subagents for pattern analysis.");
 		return;
 	}
 

@@ -51,8 +51,8 @@ describe("DefaultPackageManager", () => {
 	let previousOfflineEnv: string | undefined;
 
 	beforeEach(() => {
-		previousOfflineEnv = process.env.ALF_OFFLINE;
-		delete process.env.ALF_OFFLINE;
+		previousOfflineEnv = process.env.ALEF_OFFLINE;
+		delete process.env.ALEF_OFFLINE;
 		tempDir = join(tmpdir(), `pm-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(tempDir, { recursive: true });
 		agentDir = join(tempDir, "agent");
@@ -68,9 +68,9 @@ describe("DefaultPackageManager", () => {
 
 	afterEach(() => {
 		if (previousOfflineEnv === undefined) {
-			delete process.env.ALF_OFFLINE;
+			delete process.env.ALEF_OFFLINE;
 		} else {
-			process.env.ALF_OFFLINE = previousOfflineEnv;
+			process.env.ALEF_OFFLINE = previousOfflineEnv;
 		}
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
@@ -119,7 +119,7 @@ Content`,
 			expect(result.skills.some((r) => r.path === skillFile && r.enabled)).toBe(true);
 		});
 
-		it("should auto-discover root markdown skills from .alf skill dirs", async () => {
+		it("should auto-discover root markdown skills from .alef skill dirs", async () => {
 			const skillFile = join(agentDir, "skills", "single-file.md");
 			mkdirSync(join(agentDir, "skills"), { recursive: true });
 			writeFileSync(
@@ -135,8 +135,8 @@ Content`,
 			expect(result.skills.some((r) => r.path === skillFile && r.enabled)).toBe(true);
 		});
 
-		it("should resolve project paths relative to .alf", async () => {
-			const extDir = join(tempDir, ".alf", "extensions");
+		it("should resolve project paths relative to .alef", async () => {
+			const extDir = join(tempDir, ".alef", "extensions");
 			mkdirSync(extDir, { recursive: true });
 			const extPath = join(extDir, "project-ext.ts");
 			writeFileSync(extPath, "export default function() {}");
@@ -188,15 +188,15 @@ Content`,
 				writeFileSync(join(sharedThemesDir, "shared.json"), JSON.stringify({ name: "shared-theme" }));
 
 				mkdirSync(join(agentDir), { recursive: true });
-				mkdirSync(join(tempDir, ".alf"), { recursive: true });
+				mkdirSync(join(tempDir, ".alef"), { recursive: true });
 				symlinkSync(sharedExtensionsDir, join(agentDir, "extensions"), "dir");
 				symlinkSync(sharedSkillsDir, join(agentDir, "skills"), "dir");
 				symlinkSync(sharedPromptsDir, join(agentDir, "prompts"), "dir");
 				symlinkSync(sharedThemesDir, join(agentDir, "themes"), "dir");
-				symlinkSync(sharedExtensionsDir, join(tempDir, ".alf", "extensions"), "dir");
-				symlinkSync(sharedSkillsDir, join(tempDir, ".alf", "skills"), "dir");
-				symlinkSync(sharedPromptsDir, join(tempDir, ".alf", "prompts"), "dir");
-				symlinkSync(sharedThemesDir, join(tempDir, ".alf", "themes"), "dir");
+				symlinkSync(sharedExtensionsDir, join(tempDir, ".alef", "extensions"), "dir");
+				symlinkSync(sharedSkillsDir, join(tempDir, ".alef", "skills"), "dir");
+				symlinkSync(sharedPromptsDir, join(tempDir, ".alef", "prompts"), "dir");
+				symlinkSync(sharedThemesDir, join(tempDir, ".alef", "themes"), "dir");
 
 				const result = await packageManager.resolve();
 
@@ -228,7 +228,7 @@ Content`,
 		});
 
 		it("should auto-discover project prompts with overrides", async () => {
-			const promptsDir = join(tempDir, ".alf", "prompts");
+			const promptsDir = join(tempDir, ".alef", "prompts");
 			mkdirSync(promptsDir, { recursive: true });
 			const promptPath = join(promptsDir, "is.md");
 			writeFileSync(promptPath, "Is prompt");
@@ -239,7 +239,7 @@ Content`,
 			expect(result.prompts.some((r) => r.path === promptPath && !r.enabled)).toBe(true);
 		});
 
-		it("should resolve directory with package.json alf.extensions in extensions setting", async () => {
+		it("should resolve directory with package.json alef.extensions in extensions setting", async () => {
 			// Create a package with pi.extensions in package.json
 			const pkgDir = join(tempDir, "my-extensions-pkg");
 			mkdirSync(join(pkgDir, "extensions"), { recursive: true });
@@ -247,7 +247,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "my-extensions-pkg",
-					alf: {
+					alef: {
 						extensions: ["./extensions/clip.ts", "./extensions/cost.ts"],
 					},
 				}),
@@ -261,7 +261,7 @@ Content`,
 
 			const result = await packageManager.resolve();
 
-			// Should find the extensions declared in package.json alf.extensions
+			// Should find the extensions declared in package.json alef.extensions
 			expect(result.extensions.some((r) => r.path === join(pkgDir, "extensions", "clip.ts") && r.enabled)).toBe(
 				true,
 			);
@@ -275,7 +275,7 @@ Content`,
 	});
 
 	describe("auto-discovered skill metadata", () => {
-		it("should use the agent dir as baseDir for user .alf/agent skills", async () => {
+		it("should use the agent dir as baseDir for user .alef/agent skills", async () => {
 			const skillPath = join(agentDir, "skills", "user-pi", "SKILL.md");
 			mkdirSync(join(agentDir, "skills", "user-pi"), { recursive: true });
 			writeFileSync(skillPath, "---\nname: user-pi\ndescription: user pi\n---\n");
@@ -288,8 +288,8 @@ Content`,
 			expect(skill?.metadata.baseDir).toBe(agentDir);
 		});
 
-		it("should use the project .alf dir as baseDir for project .alf skills", async () => {
-			const projectBaseDir = join(tempDir, ".alf");
+		it("should use the project .alef dir as baseDir for project .alef skills", async () => {
+			const projectBaseDir = join(tempDir, ".alef");
 			const skillPath = join(projectBaseDir, "skills", "project-pi", "SKILL.md");
 			mkdirSync(join(projectBaseDir, "skills", "project-pi"), { recursive: true });
 			writeFileSync(skillPath, "---\nname: project-pi\ndescription: project pi\n---\n");
@@ -443,7 +443,7 @@ Content`,
 
 			try {
 				const cwd = join(tempDir, "scratch", "nested");
-				const localAgentDir = join(tempDir, ".alf", "agent");
+				const localAgentDir = join(tempDir, ".alef", "agent");
 				const localSettingsManager = SettingsManager.inMemory();
 				mkdirSync(cwd, { recursive: true });
 				mkdirSync(localAgentDir, { recursive: true });
@@ -473,7 +473,7 @@ Content`,
 			}
 		});
 
-		it("should dedupe user skill entries when ~/.alf/agent/skills is a symlink to ~/.agents/skills", async () => {
+		it("should dedupe user skill entries when ~/.alef/agent/skills is a symlink to ~/.agents/skills", async () => {
 			const previousHome = process.env.HOME;
 			process.env.HOME = tempDir;
 
@@ -524,10 +524,10 @@ Content`,
 			expect(result.skills.some((r) => r.path.includes("venv") && r.enabled)).toBe(false);
 		});
 
-		it("should not apply parent .gitignore to .alf auto-discovery", async () => {
-			writeFileSync(join(tempDir, ".gitignore"), ".alf\n");
+		it("should not apply parent .gitignore to .alef auto-discovery", async () => {
+			writeFileSync(join(tempDir, ".gitignore"), ".alef\n");
 
-			const skillDir = join(tempDir, ".alf", "skills", "auto-skill");
+			const skillDir = join(tempDir, ".alef", "skills", "auto-skill");
 			mkdirSync(skillDir, { recursive: true });
 			const skillPath = join(skillDir, "SKILL.md");
 			writeFileSync(skillPath, "---\nname: auto-skill\ndescription: Auto\n---\nContent");
@@ -546,14 +546,14 @@ Content`,
 			expect(result.extensions.some((r) => r.path === extPath && r.enabled)).toBe(true);
 		});
 
-		it("should handle directories with alf manifest", async () => {
+		it("should handle directories with alef manifest", async () => {
 			const pkgDir = join(tempDir, "my-package");
 			mkdirSync(pkgDir, { recursive: true });
 			writeFileSync(
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "my-package",
-					alf: {
+					alef: {
 						extensions: ["./src/index.ts"],
 						skills: ["./skills"],
 					},
@@ -697,7 +697,7 @@ Content`,
 
 		it("should update git package dependencies with --omit=dev", async () => {
 			const source = "git:github.com/user/repo";
-			const targetDir = join(tempDir, ".alf", "git", "github.com", "user", "repo");
+			const targetDir = join(tempDir, ".alef", "git", "github.com", "user", "repo");
 			mkdirSync(targetDir, { recursive: true });
 			writeFileSync(join(targetDir, "package.json"), JSON.stringify({ name: "repo", version: "1.0.0" }));
 			settingsManager.setProjectPackages([source]);
@@ -733,7 +733,7 @@ Content`,
 			});
 
 			const source = "git:github.com/user/repo";
-			const targetDir = join(tempDir, ".alf", "git", "github.com", "user", "repo");
+			const targetDir = join(tempDir, ".alef", "git", "github.com", "user", "repo");
 			mkdirSync(targetDir, { recursive: true });
 			writeFileSync(join(targetDir, "package.json"), JSON.stringify({ name: "repo", version: "1.0.0" }));
 			settingsManager.setProjectPackages([source]);
@@ -883,7 +883,7 @@ Content`,
 			expect(settings.packages?.[0]).toBe(expected);
 		});
 
-		it("should store project local packages relative to .alf settings base", () => {
+		it("should store project local packages relative to .alef settings base", () => {
 			const projectPkgDir = join(tempDir, "project-local-pkg");
 			mkdirSync(join(projectPkgDir, "extensions"), { recursive: true });
 			writeFileSync(join(projectPkgDir, "extensions", "index.ts"), "export default function() {}");
@@ -892,7 +892,7 @@ Content`,
 			expect(added).toBe(true);
 
 			const settings = settingsManager.getProjectSettings();
-			const rel = relative(join(tempDir, ".alf"), projectPkgDir);
+			const rel = relative(join(tempDir, ".alef"), projectPkgDir);
 			const expected = rel.startsWith(".") ? rel : `./${rel}`;
 			expect(settings.packages?.[0]).toBe(expected);
 		});
@@ -1108,7 +1108,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "manifest-pkg",
-					alf: {
+					alef: {
 						extensions: ["extensions", "node_modules/dep/extensions", "!**/skip.ts"],
 					},
 				}),
@@ -1136,7 +1136,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "skill-manifest-pkg",
-					alf: {
+					alef: {
 						skills: ["skills", "!**/bad-skill"],
 					},
 				}),
@@ -1163,7 +1163,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "skill-manifest-glob-pkg",
-					alf: {
+					alef: {
 						skills: ["./plugins/*/skills"],
 					},
 				}),
@@ -1188,7 +1188,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "layered-pkg",
-					alf: {
+					alef: {
 						extensions: ["extensions", "!**/baz.ts"],
 					},
 				}),
@@ -1392,7 +1392,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "manifest-force-pkg",
-					alf: {
+					alef: {
 						extensions: ["extensions", "!**/two.ts", "+extensions/two.ts"],
 					},
 				}),
@@ -1614,7 +1614,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 			expect(result.extensions.some((r) => pathEndsWith(r.path, "agents.ts"))).toBe(false);
 		});
 
-		it("should respect package.json alf.extensions manifest in subdirectories", async () => {
+		it("should respect package.json alef.extensions manifest in subdirectories", async () => {
 			const pkgDir = join(tempDir, "manifest-subdir-pkg");
 			mkdirSync(join(pkgDir, "extensions", "custom"), { recursive: true });
 
@@ -1622,7 +1622,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 			writeFileSync(
 				join(pkgDir, "extensions", "custom", "package.json"),
 				JSON.stringify({
-					alf: {
+					alef: {
 						extensions: ["./main.ts"],
 					},
 				}),
@@ -1689,7 +1689,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 
 	describe("offline mode and network timeouts", () => {
 		it("should update project npm packages using @latest when newer version is available", async () => {
-			const installedPath = join(tempDir, ".alf", "npm", "node_modules", "example");
+			const installedPath = join(tempDir, ".alef", "npm", "node_modules", "example");
 			mkdirSync(installedPath, { recursive: true });
 			writeFileSync(join(installedPath, "package.json"), JSON.stringify({ name: "example", version: "1.0.0" }));
 			settingsManager.setProjectPackages(["npm:example"]);
@@ -1706,13 +1706,13 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 			);
 			expect(runCommandSpy).toHaveBeenCalledWith(
 				"npm",
-				["install", "example@latest", "--prefix", join(tempDir, ".alf", "npm")],
+				["install", "example@latest", "--prefix", join(tempDir, ".alef", "npm")],
 				undefined,
 			);
 		});
 
 		it("should skip project npm update when installed version matches latest", async () => {
-			const installedPath = join(tempDir, ".alf", "npm", "node_modules", "example");
+			const installedPath = join(tempDir, ".alef", "npm", "node_modules", "example");
 			mkdirSync(installedPath, { recursive: true });
 			writeFileSync(join(installedPath, "package.json"), JSON.stringify({ name: "example", version: "1.2.3" }));
 			settingsManager.setProjectPackages(["npm:example"]);
@@ -1736,8 +1736,8 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 			const userOldPath = join(agentDir, "node_modules", "user-old");
 			const userCurrentPath = join(agentDir, "node_modules", "user-current");
 			const userUnknownPath = join(agentDir, "node_modules", "user-unknown");
-			const projectOldPath = join(tempDir, ".alf", "npm", "node_modules", "project-old");
-			const projectCurrentPath = join(tempDir, ".alf", "npm", "node_modules", "project-current");
+			const projectOldPath = join(tempDir, ".alef", "npm", "node_modules", "project-old");
+			const projectCurrentPath = join(tempDir, ".alef", "npm", "node_modules", "project-current");
 			const installPaths = [userOldPath, userCurrentPath, userUnknownPath, projectOldPath, projectCurrentPath];
 			for (const installPath of installPaths) {
 				mkdirSync(installPath, { recursive: true });
@@ -1831,7 +1831,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 			expect(runCommandSpy).toHaveBeenNthCalledWith(
 				2,
 				"npm",
-				["install", "project-old@latest", "project-missing@latest", "--prefix", join(tempDir, ".alf", "npm")],
+				["install", "project-old@latest", "project-missing@latest", "--prefix", join(tempDir, ".alef", "npm")],
 				undefined,
 			);
 			expect(updateGitSpy).toHaveBeenCalledTimes(3);
@@ -1856,7 +1856,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 		});
 
 		it("should skip installing missing package sources when offline", async () => {
-			process.env.ALF_OFFLINE = "1";
+			process.env.ALEF_OFFLINE = "1";
 			settingsManager.setProjectPackages(["npm:missing-package", "git:github.com/example/missing-repo"]);
 
 			const installParsedSourceSpy = vi.spyOn(packageManager as any, "installParsedSource");
@@ -1868,7 +1868,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 		});
 
 		it("should skip refreshing temporary git sources when offline", async () => {
-			process.env.ALF_OFFLINE = "1";
+			process.env.ALEF_OFFLINE = "1";
 			const gitSource = "git:github.com/example/repo";
 			const parsedGitSource = (packageManager as any).parseSource(gitSource);
 			const installedPath = (packageManager as any).getGitInstallPath(parsedGitSource, "temporary") as string;
@@ -1884,7 +1884,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 		});
 
 		it("should not run npm view during resolve for installed unpinned packages", async () => {
-			const installedPath = join(tempDir, ".alf", "npm", "node_modules", "example");
+			const installedPath = join(tempDir, ".alef", "npm", "node_modules", "example");
 			mkdirSync(join(installedPath, "extensions"), { recursive: true });
 			writeFileSync(join(installedPath, "package.json"), JSON.stringify({ name: "example", version: "1.0.0" }));
 			writeFileSync(join(installedPath, "extensions", "index.ts"), "export default function() {};");
@@ -1898,7 +1898,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 		});
 
 		it("should reinstall pinned npm packages when installed version does not match", async () => {
-			const installedPath = join(tempDir, ".alf", "npm", "node_modules", "example");
+			const installedPath = join(tempDir, ".alef", "npm", "node_modules", "example");
 			mkdirSync(installedPath, { recursive: true });
 			writeFileSync(join(installedPath, "package.json"), JSON.stringify({ name: "example", version: "1.0.0" }));
 			settingsManager.setProjectPackages(["npm:example@2.0.0"]);
@@ -1912,7 +1912,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 		});
 
 		it("should not check package updates when offline", async () => {
-			process.env.ALF_OFFLINE = "1";
+			process.env.ALEF_OFFLINE = "1";
 			const runCommandCaptureSpy = vi.spyOn(packageManager as any, "runCommandCapture");
 
 			const updates = await packageManager.checkForAvailableUpdates();
@@ -1921,7 +1921,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 		});
 
 		it("should report updates for installed unpinned npm packages", async () => {
-			const installedPath = join(tempDir, ".alf", "npm", "node_modules", "example");
+			const installedPath = join(tempDir, ".alef", "npm", "node_modules", "example");
 			mkdirSync(installedPath, { recursive: true });
 			writeFileSync(join(installedPath, "package.json"), JSON.stringify({ name: "example", version: "1.0.0" }));
 			settingsManager.setProjectPackages(["npm:example"]);
@@ -1940,7 +1940,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 		});
 
 		it("should skip pinned packages when checking for updates", async () => {
-			const installedNpmPath = join(tempDir, ".alf", "npm", "node_modules", "example");
+			const installedNpmPath = join(tempDir, ".alef", "npm", "node_modules", "example");
 			mkdirSync(installedNpmPath, { recursive: true });
 			writeFileSync(join(installedNpmPath, "package.json"), JSON.stringify({ name: "example", version: "1.0.0" }));
 			const parsedGitSource = (packageManager as any).parseSource("git:github.com/example/repo@v1");

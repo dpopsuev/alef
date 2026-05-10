@@ -5,17 +5,17 @@
  * Shows turn progress with themed colors.
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	let turnCount = 0;
 
-	alf.on("session_start", async (_event, ctx) => {
+	alef.on("session_start", async (_event, ctx) => {
 		const theme = ctx.ui.theme;
 		ctx.ui.setStatus("status-demo", theme.fg("dim", "Ready"));
 	});
 
-	alf.on("turn_start", async (_event, ctx) => {
+	alef.on("turn_start", async (_event, ctx) => {
 		turnCount++;
 		const theme = ctx.ui.theme;
 		const spinner = theme.fg("accent", "●");
@@ -23,7 +23,7 @@ export default function (alf: ExtensionAPI) {
 		ctx.ui.setStatus("status-demo", spinner + text);
 	});
 
-	alf.on("turn_end", async (_event, ctx) => {
+	alef.on("turn_end", async (_event, ctx) => {
 		const theme = ctx.ui.theme;
 		const check = theme.fg("success", "✓");
 		const text = theme.fg("dim", ` Turn ${turnCount} complete`);

@@ -5,9 +5,9 @@
  * and after compaction the session is reloaded.
  */
 
-import type { AgentMessage, ThinkingLevel } from "@alf-agent/agent-core";
-import type { AssistantMessage, Model, Usage } from "@alf-agent/ai";
-import { completeSimple } from "@alf-agent/ai";
+import type { AgentMessage, ThinkingLevel } from "@alef/agent-core";
+import type { AssistantMessage, Model, Usage } from "@alef/ai";
+import { completeSimple } from "@alef/ai";
 import {
 	convertToLlm,
 	createBranchSummaryMessage,

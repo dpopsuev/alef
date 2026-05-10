@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
-import type { AgentTool } from "@alf-agent/agent-core";
-import { fauxAssistantMessage, fauxToolCall } from "@alf-agent/ai";
+import type { AgentTool } from "@alef/agent-core";
+import { fauxAssistantMessage, fauxToolCall } from "@alef/ai";
 import { Type } from "typebox";
 import { afterEach, describe, expect, it } from "vitest";
 import type { BashOperations } from "../../src/core/tools/bash.js";

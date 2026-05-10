@@ -1,7 +1,7 @@
 {
-	"name": "@alf-agent/web-ui",
+	"name": "@alef/web-ui",
 	"version": "0.0.1",
-	"description": "Reusable web UI components for AI chat interfaces powered by @alf-agent/ai",
+	"description": "Reusable web UI components for AI chat interfaces powered by @alef/ai",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -17,9 +17,9 @@
 		"check": "biome check --write --error-on-warnings . && tsc --noEmit && cd example && biome check --write --error-on-warnings . && tsc --noEmit"
 	},
 	"dependencies": {
-		"@alf-agent/agent-core": "^0.0.1",
-		"@alf-agent/ai": "^0.0.1",
-		"@alf-agent/tui": "^0.0.1",
+		"@alef/agent-core": "^0.0.1",
+		"@alef/ai": "^0.0.1",
+		"@alef/tui": "^0.0.1",
 		"@lmstudio/sdk": "^1.5.0",
 		"docx-preview": "^0.3.7",
 		"jszip": "^3.10.1",
@@ -52,7 +52,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/dpopsuev/alf-agent.git",
+		"url": "git+https://github.com/dpopsuev/alef.git",
 		"directory": "packages/web-ui"
 	}
 }

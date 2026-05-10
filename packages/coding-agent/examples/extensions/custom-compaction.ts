@@ -10,15 +10,15 @@
  * which can be cheaper/faster than the main conversation model.
  *
  * Usage:
- *   alf --extension examples/extensions/custom-compaction.ts
+ *   alef --extension examples/extensions/custom-compaction.ts
  */
 
-import { complete } from "@alf-agent/ai";
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
-import { convertToLlm, serializeConversation } from "@alf-agent/coding-agent";
+import { complete } from "@alef/ai";
+import type { ExtensionAPI } from "@alef/coding-agent";
+import { convertToLlm, serializeConversation } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
-	alf.on("session_before_compact", async (event, ctx) => {
+export default function (alef: ExtensionAPI) {
+	alef.on("session_before_compact", async (event, ctx) => {
 		ctx.ui.notify("Custom compaction extension triggered", "info");
 
 		const { preparation, branchEntries: _, signal } = event;

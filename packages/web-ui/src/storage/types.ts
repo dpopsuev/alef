@@ -1,5 +1,5 @@
-import type { AgentMessage, ThinkingLevel } from "@alf-agent/agent-core";
-import type { Model } from "@alf-agent/ai";
+import type { AgentMessage, ThinkingLevel } from "@alef/agent-core";
+import type { Model } from "@alef/ai";
 
 /**
  * Transaction interface for atomic operations across stores.

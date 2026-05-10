@@ -1,7 +1,7 @@
-import { complete, getModel } from "@alf-agent/ai";
-import type { ExtensionAPI, ExtensionCommandContext } from "@alf-agent/coding-agent";
-import { DynamicBorder, getMarkdownTheme } from "@alf-agent/coding-agent";
-import { Container, Markdown, matchesKey, Text } from "@alf-agent/tui";
+import { complete, getModel } from "@alef/ai";
+import type { ExtensionAPI, ExtensionCommandContext } from "@alef/coding-agent";
+import { DynamicBorder, getMarkdownTheme } from "@alef/coding-agent";
+import { Container, Markdown, matchesKey, Text } from "@alef/tui";
 
 type ContentBlock = {
 	type?: string;
@@ -142,8 +142,8 @@ const showSummaryUi = async (summary: string, ctx: ExtensionCommandContext) => {
 	});
 };
 
-export default function (alf: ExtensionAPI) {
-	alf.registerCommand("summarize", {
+export default function (alef: ExtensionAPI) {
+	alef.registerCommand("summarize", {
 		description: "Summarize the current conversation in a custom UI",
 		handler: async (_args, ctx) => {
 			const branch = ctx.sessionManager.getBranch();

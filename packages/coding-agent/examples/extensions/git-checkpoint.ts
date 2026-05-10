@@ -5,28 +5,28 @@
  * When forking, offers to restore code to that point in history.
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	const checkpoints = new Map<string, string>();
 	let currentEntryId: string | undefined;
 
 	// Track the current entry ID when user messages are saved
-	alf.on("tool_result", async (_event, ctx) => {
+	alef.on("tool_result", async (_event, ctx) => {
 		const leaf = ctx.sessionManager.getLeafEntry();
 		if (leaf) currentEntryId = leaf.id;
 	});
 
-	alf.on("turn_start", async () => {
+	alef.on("turn_start", async () => {
 		// Create a git stash entry before LLM makes changes
-		const { stdout } = await alf.exec("git", ["stash", "create"]);
+		const { stdout } = await alef.exec("git", ["stash", "create"]);
 		const ref = stdout.trim();
 		if (ref && currentEntryId) {
 			checkpoints.set(currentEntryId, ref);
 		}
 	});
 
-	alf.on("session_before_fork", async (event, ctx) => {
+	alef.on("session_before_fork", async (event, ctx) => {
 		const ref = checkpoints.get(event.entryId);
 		if (!ref) return;
 
@@ -41,12 +41,12 @@ export default function (alf: ExtensionAPI) {
 		]);
 
 		if (choice?.startsWith("Yes")) {
-			await alf.exec("git", ["stash", "apply", ref]);
+			await alef.exec("git", ["stash", "apply", ref]);
 			ctx.ui.notify("Code restored to checkpoint", "info");
 		}
 	});
 
-	alf.on("agent_end", async () => {
+	alef.on("agent_end", async () => {
 		// Clear checkpoints after agent completes
 		checkpoints.clear();
 	});

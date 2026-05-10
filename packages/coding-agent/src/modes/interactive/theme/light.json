@@ -1,8 +1,9 @@
 {
-	"$schema": "https://raw.githubusercontent.com/dpopsuev/alf-agent/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+	"$schema": "https://raw.githubusercontent.com/dpopsuev/alef/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
 	"name": "light",
 	"vars": {
 		"teal": "#5a8080",
+		"accent": "#FE2418",
 		"blue": "#547da7",
 		"green": "#588458",
 		"red": "#aa5555",
@@ -18,9 +19,9 @@
 		"customMsgBg": "#ede7f6"
 	},
 	"colors": {
-		"accent": "teal",
+		"accent": "accent",
 		"border": "blue",
-		"borderAccent": "teal",
+		"borderAccent": "accent",
 		"borderMuted": "lightGray",
 		"success": "green",
 		"error": "red",
@@ -45,13 +46,13 @@
 		"mdHeading": "yellow",
 		"mdLink": "blue",
 		"mdLinkUrl": "dimGray",
-		"mdCode": "teal",
+		"mdCode": "accent",
 		"mdCodeBlock": "green",
 		"mdCodeBlockBorder": "mediumGray",
 		"mdQuote": "mediumGray",
 		"mdQuoteBorder": "mediumGray",
 		"mdHr": "mediumGray",
-		"mdListBullet": "green",
+		"mdListBullet": "accent",
 
 		"toolDiffAdded": "green",
 		"toolDiffRemoved": "red",

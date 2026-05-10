@@ -1,4 +1,4 @@
-import { setBedrockProviderModule } from "@alf-agent/ai";
-import { bedrockProviderModule } from "@alf-agent/ai/bedrock-provider";
+import { setBedrockProviderModule } from "@alef/ai";
+import { bedrockProviderModule } from "@alef/ai/bedrock-provider";
 
 setBedrockProviderModule(bedrockProviderModule);

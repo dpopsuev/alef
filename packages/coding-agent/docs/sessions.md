@@ -7,11 +7,11 @@ Pi saves conversations as sessions so you can continue work, branch from earlier
 Sessions auto-save to `<agent-dir>/sessions/`, organized by working directory. Each session is a JSONL file with a tree structure.
 
 ```bash
-alf -c                  # Continue most recent session
-alf -r                  # Browse and select from past sessions
-alf --no-session        # Ephemeral mode; do not save
-alf --session <path|id> # Use a specific session file or partial session ID
-alf --fork <path|id>    # Fork a session file or partial session ID into a new session
+alef -c                  # Continue most recent session
+alef -r                  # Browse and select from past sessions
+alef --no-session        # Ephemeral mode; do not save
+alef --session <path|id> # Use a specific session file or partial session ID
+alef --fork <path|id>    # Fork a session file or partial session ID into a new session
 ```
 
 Use `/session` in interactive mode to see the current session file, session ID, message count, tokens, and cost.
@@ -35,7 +35,7 @@ For the JSONL file format and SessionManager API, see [Session Format](session-f
 
 ## Resuming and Deleting Sessions
 
-`/resume` opens an interactive session picker for the current project. `alf -r` opens the same picker at startup.
+`/resume` opens an interactive session picker for the current project. `alef -r` opens the same picker at startup.
 
 In the picker you can:
 
@@ -56,7 +56,7 @@ Use `/name <name>` to set a human-readable session name:
 /name Refactor auth module
 ```
 
-Named sessions are easier to find in `/resume` and `alf -r`.
+Named sessions are easier to find in `/resume` and `alef -r`.
 
 ## Branching with `/tree`
 

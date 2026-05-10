@@ -1,4 +1,4 @@
-import { getModel } from "@alf-agent/ai";
+import { getModel } from "@alef/ai";
 import { describe, expect, it } from "vitest";
 import { NodeExecutionEnv } from "../../src/harness/execution-env.js";
 import { createAgentHarness, createSession } from "../../src/harness/factory.js";

@@ -7,10 +7,10 @@
 		"baseUrl": ".",
 		"paths": {
 			"*": ["./*"],
-			"@alf-agent/agent-core": ["../../agent/src/index.ts"],
-			"@alf-agent/ai": ["../../ai/src/index.ts"],
-			"@alf-agent/tui": ["../../tui/src/index.ts"],
-			"@alf-agent/web-ui": ["../src/index.ts"]
+			"@alef/agent-core": ["../../agent/src/index.ts"],
+			"@alef/ai": ["../../ai/src/index.ts"],
+			"@alef/tui": ["../../tui/src/index.ts"],
+			"@alef/web-ui": ["../src/index.ts"]
 		},
 		"strict": true,
 		"skipLibCheck": true,

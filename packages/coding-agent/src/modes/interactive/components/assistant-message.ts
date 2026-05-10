@@ -1,5 +1,5 @@
-import type { AssistantMessage } from "@alf-agent/ai";
-import { Container, Markdown, type MarkdownTheme, Spacer, Text } from "@alf-agent/tui";
+import type { AssistantMessage } from "@alef/ai";
+import { Container, Markdown, type MarkdownTheme, Spacer, Text } from "@alef/tui";
 import { getMarkdownTheme, theme } from "../theme/theme.js";
 
 const OSC133_ZONE_START = "\x1b]133;A\x07";

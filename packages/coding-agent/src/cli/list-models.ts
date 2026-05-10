@@ -2,8 +2,8 @@
  * List available models with optional fuzzy search
  */
 
-import type { Api, Model } from "@alf-agent/ai";
-import { fuzzyFilter } from "@alf-agent/tui";
+import type { Api, Model } from "@alef/ai";
+import { fuzzyFilter } from "@alef/tui";
 import chalk from "chalk";
 import { formatNoModelsAvailableMessage } from "../core/auth-guidance.js";
 import type { ModelRegistry } from "../core/model-registry.js";

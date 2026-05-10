@@ -7,7 +7,7 @@ import {
 	createAssistantMessageEventStream,
 	type Model,
 	type SimpleStreamOptions,
-} from "@alf-agent/ai";
+} from "@alef/ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";
@@ -27,15 +27,15 @@ describe("createAgentSession OpenRouter attribution headers", () => {
 		agentDir = join(tempDir, "agent");
 		mkdirSync(cwd, { recursive: true });
 		mkdirSync(agentDir, { recursive: true });
-		originalTelemetryEnv = process.env.ALF_TELEMETRY;
-		delete process.env.ALF_TELEMETRY;
+		originalTelemetryEnv = process.env.ALEF_TELEMETRY;
+		delete process.env.ALEF_TELEMETRY;
 	});
 
 	afterEach(() => {
 		if (originalTelemetryEnv === undefined) {
-			delete process.env.ALF_TELEMETRY;
+			delete process.env.ALEF_TELEMETRY;
 		} else {
-			process.env.ALF_TELEMETRY = originalTelemetryEnv;
+			process.env.ALEF_TELEMETRY = originalTelemetryEnv;
 		}
 		if (tempDir && existsSync(tempDir)) {
 			rmSync(tempDir, { recursive: true, force: true });
@@ -141,7 +141,7 @@ describe("createAgentSession OpenRouter attribution headers", () => {
 		const headers = await captureHeaders(createModel("openrouter", "https://openrouter.ai/api/v1"));
 
 		expect(headers?.["HTTP-Referer"]).toBe("https://local.invalid");
-		expect(headers?.["X-OpenRouter-Title"]).toBe("alf");
+		expect(headers?.["X-OpenRouter-Title"]).toBe("alef");
 		expect(headers?.["X-OpenRouter-Categories"]).toBe("cli-agent");
 	});
 
@@ -159,7 +159,7 @@ describe("createAgentSession OpenRouter attribution headers", () => {
 		const headers = await captureHeaders(createModel("custom-openrouter", "https://openrouter.ai/api/v1"));
 
 		expect(headers?.["HTTP-Referer"]).toBe("https://local.invalid");
-		expect(headers?.["X-OpenRouter-Title"]).toBe("alf");
+		expect(headers?.["X-OpenRouter-Title"]).toBe("alef");
 		expect(headers?.["X-OpenRouter-Categories"]).toBe("cli-agent");
 	});
 

@@ -5,8 +5,8 @@
  * Multiple questions: tab bar navigation between questions
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth } from "@alf-agent/tui";
+import type { ExtensionAPI } from "@alef/coding-agent";
+import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth } from "@alef/tui";
 import { Type } from "typebox";
 
 // Types
@@ -73,8 +73,8 @@ function errorResult(
 	};
 }
 
-export default function questionnaire(alf: ExtensionAPI) {
-	alf.registerTool({
+export default function questionnaire(alef: ExtensionAPI) {
+	alef.registerTool({
 		name: "questionnaire",
 		label: "Questionnaire",
 		description:

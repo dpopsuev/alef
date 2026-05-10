@@ -1,8 +1,8 @@
-import type { ExtensionAPI, ExtensionContext } from "@alf-agent/coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
 
 const COMPACT_THRESHOLD_TOKENS = 100_000;
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	let previousTokens: number | null | undefined;
 
 	const triggerCompaction = (ctx: ExtensionContext, customInstructions?: string) => {
@@ -24,7 +24,7 @@ export default function (alf: ExtensionAPI) {
 		});
 	};
 
-	alf.on("turn_end", (_event, ctx) => {
+	alef.on("turn_end", (_event, ctx) => {
 		const usage = ctx.getContextUsage();
 		const currentTokens = usage?.tokens ?? null;
 		if (currentTokens === null) {
@@ -40,7 +40,7 @@ export default function (alf: ExtensionAPI) {
 		triggerCompaction(ctx);
 	});
 
-	alf.registerCommand("trigger-compact", {
+	alef.registerCommand("trigger-compact", {
 		description: "Trigger compaction immediately",
 		handler: async (args, ctx) => {
 			const instructions = args.trim() || undefined;

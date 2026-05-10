@@ -5,12 +5,12 @@
  * Useful for preventing accidental modifications to sensitive files.
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	const protectedPaths = [".env", ".git/", "node_modules/"];
 
-	alf.on("tool_call", async (event, ctx) => {
+	alef.on("tool_call", async (event, ctx) => {
 		if (event.toolName !== "file_write" && event.toolName !== "file_edit") {
 			return undefined;
 		}

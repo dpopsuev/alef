@@ -131,7 +131,7 @@ function parseArgs(): Args {
 Options:
   -n, --days <days>         Number of local calendar days to include (default: 7)
   -d, --dir, --cwd <path>   Project cwd to inspect (default: current cwd)
-  --sessions-base <path>    Sessions base directory (default: $AGENT_DIR/sessions; see ALF_CODING_AGENT_DIR)
+  --sessions-base <path>    Sessions base directory (default: $AGENT_DIR/sessions; see ALEF_CODING_AGENT_DIR)
   -h, --help                Show this help`);
 			process.exit(0);
 		}

@@ -1,5 +1,5 @@
 {
-	"name": "@alf-agent/ai",
+	"name": "@alef/ai",
 	"version": "0.0.1",
 	"description": "Unified LLM API with automatic model discovery and provider configuration",
 	"type": "module",
@@ -52,7 +52,7 @@
 		}
 	},
 	"bin": {
-		"alf-ai": "./dist/cli.js"
+		"alef-ai": "./dist/cli.js"
 	},
 	"files": [
 		"dist",
@@ -95,7 +95,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/dpopsuev/alf-agent.git",
+		"url": "git+https://github.com/dpopsuev/alef.git",
 		"directory": "packages/ai"
 	},
 	"engines": {

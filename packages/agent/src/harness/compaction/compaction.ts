@@ -5,8 +5,8 @@
  * and after compaction the session is reloaded.
  */
 
-import type { AssistantMessage, ImageContent, Model, TextContent, Usage } from "@alf-agent/ai";
-import { completeSimple } from "@alf-agent/ai";
+import type { AssistantMessage, ImageContent, Model, TextContent, Usage } from "@alef/ai";
+import { completeSimple } from "@alef/ai";
 import type { AgentMessage, ThinkingLevel } from "../../types.js";
 import {
 	convertToLlm,

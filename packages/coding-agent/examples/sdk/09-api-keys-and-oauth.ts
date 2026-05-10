@@ -4,10 +4,10 @@
  * Configure API key resolution via AuthStorage and ModelRegistry.
  */
 
-import { AuthStorage, createAgentSession, ModelRegistry, SessionManager } from "@alf-agent/coding-agent";
+import { AuthStorage, createAgentSession, ModelRegistry, SessionManager } from "@alef/coding-agent";
 
-// Default: AuthStorage uses ~/.alf/agent/auth.json
-// ModelRegistry loads built-in + custom models from ~/.alf/agent/models.json
+// Default: AuthStorage uses ~/.alef/agent/auth.json
+// ModelRegistry loads built-in + custom models from ~/.alef/agent/models.json
 const authStorage = AuthStorage.create();
 const modelRegistry = ModelRegistry.create(authStorage);
 

@@ -2,12 +2,12 @@
 
 RPC mode enables headless operation of the coding agent via a JSON protocol over stdin/stdout. This is useful for embedding the agent in other applications, IDEs, or custom UIs.
 
-**Note for Node.js/TypeScript users**: If you're building a Node.js application, consider using `AgentSession` directly from `@alf-agent/coding-agent` instead of spawning a subprocess. See [`src/core/agent-session.ts`](../src/core/agent-session.ts) for the API. For a subprocess-based TypeScript client, see [`src/modes/rpc/rpc-client.ts`](../src/modes/rpc/rpc-client.ts).
+**Note for Node.js/TypeScript users**: If you're building a Node.js application, consider using `AgentSession` directly from `@alef/coding-agent` instead of spawning a subprocess. See [`src/core/agent-session.ts`](../src/core/agent-session.ts) for the API. For a subprocess-based TypeScript client, see [`src/modes/rpc/rpc-client.ts`](../src/modes/rpc/rpc-client.ts).
 
 ## Starting RPC Mode
 
 ```bash
-alf --mode rpc [options]
+alef --mode rpc [options]
 ```
 
 Common options:
@@ -714,9 +714,9 @@ Response:
   "success": true,
   "data": {
     "commands": [
-      {"name": "session-name", "description": "Set or clear session name", "source": "extension", "path": "/home/user/.alf/agent/extensions/session.ts"},
-      {"name": "fix-tests", "description": "Fix failing tests", "source": "prompt", "location": "project", "path": "/home/user/myproject/.alf/prompts/fix-tests.md"},
-      {"name": "skill:brave-search", "description": "Web search via Brave API", "source": "skill", "location": "user", "path": "/home/user/.alf/agent/skills/brave-search/SKILL.md"}
+      {"name": "session-name", "description": "Set or clear session name", "source": "extension", "path": "/home/user/.alef/agent/extensions/session.ts"},
+      {"name": "fix-tests", "description": "Fix failing tests", "source": "prompt", "location": "project", "path": "/home/user/myproject/.alef/prompts/fix-tests.md"},
+      {"name": "skill:brave-search", "description": "Web search via Brave API", "source": "skill", "location": "user", "path": "/home/user/.alef/agent/skills/brave-search/SKILL.md"}
     ]
   }
 }
@@ -726,12 +726,12 @@ Each command has:
 - `name`: Command name (invoke with `/name`)
 - `description`: Human-readable description (optional for extension commands)
 - `source`: What kind of command:
-  - `"extension"`: Registered via `alf.registerCommand()` in an extension
+  - `"extension"`: Registered via `alef.registerCommand()` in an extension
   - `"prompt"`: Loaded from a prompt template `.md` file
   - `"skill"`: Loaded from a skill directory (name is prefixed with `skill:`)
 - `location`: Where it was loaded from (optional, not present for extensions):
   - `"user"`: User-level (`<agent-dir>/`)
-  - `"project"`: Project-level (`./.alf/`)
+  - `"project"`: Project-level (`./.alef/`)
   - `"path"`: Explicit path via CLI or settings
 - `path`: Absolute file path to the command source (optional)
 

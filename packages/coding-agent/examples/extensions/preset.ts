@@ -6,8 +6,8 @@
  * and can be activated via CLI flag, /preset command, or Ctrl+Shift+U to cycle.
  *
  * Config files (merged, project takes precedence):
- * - ~/.alf/agent/presets.json (global)
- * - <cwd>/.alf/presets.json (project-local)
+ * - ~/.alef/agent/presets.json (global)
+ * - <cwd>/.alef/presets.json (project-local)
  *
  * Example presets.json:
  * ```json
@@ -30,7 +30,7 @@
  * ```
  *
  * Usage:
- * - `alf --preset plan` - start with plan preset
+ * - `alef --preset plan` - start with plan preset
  * - `/preset` - show selector to switch presets mid-session
  * - `/preset implement` - switch to implement preset directly
  * - `Ctrl+Shift+U` - cycle through presets
@@ -40,10 +40,10 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Api, Model } from "@alf-agent/ai";
-import type { ExtensionAPI, ExtensionContext } from "@alf-agent/coding-agent";
-import { DynamicBorder, getAgentDir } from "@alf-agent/coding-agent";
-import { Container, Key, type SelectItem, SelectList, Text } from "@alf-agent/tui";
+import type { Api, Model } from "@alef/ai";
+import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
+import { DynamicBorder, getAgentDir } from "@alef/coding-agent";
+import { Container, Key, type SelectItem, SelectList, Text } from "@alef/tui";
 
 // Preset configuration
 interface Preset {
@@ -69,7 +69,7 @@ interface PresetsConfig {
  */
 function loadPresets(cwd: string): PresetsConfig {
 	const globalPath = join(getAgentDir(), "presets.json");
-	const projectPath = join(cwd, ".alf", "presets.json");
+	const projectPath = join(cwd, ".alef", "presets.json");
 
 	let globalPresets: PresetsConfig = {};
 	let projectPresets: PresetsConfig = {};
@@ -104,14 +104,14 @@ interface OriginalState {
 	tools: string[];
 }
 
-export default function presetExtension(alf: ExtensionAPI) {
+export default function presetExtension(alef: ExtensionAPI) {
 	let presets: PresetsConfig = {};
 	let activePresetName: string | undefined;
 	let activePreset: Preset | undefined;
 	let originalState: OriginalState | undefined;
 
 	// Register --preset CLI flag
-	alf.registerFlag("preset", {
+	alef.registerFlag("preset", {
 		description: "Preset configuration to use",
 		type: "string",
 	});
@@ -124,8 +124,8 @@ export default function presetExtension(alf: ExtensionAPI) {
 		if (activePresetName === undefined) {
 			originalState = {
 				model: ctx.model,
-				thinkingLevel: alf.getThinkingLevel(),
-				tools: alf.getActiveTools(),
+				thinkingLevel: alef.getThinkingLevel(),
+				tools: alef.getActiveTools(),
 			};
 		}
 
@@ -133,7 +133,7 @@ export default function presetExtension(alf: ExtensionAPI) {
 		if (preset.provider && preset.model) {
 			const model = ctx.modelRegistry.find(preset.provider, preset.model);
 			if (model) {
-				const success = await alf.setModel(model);
+				const success = await alef.setModel(model);
 				if (!success) {
 					ctx.ui.notify(`Preset "${name}": No API key for ${preset.provider}/${preset.model}`, "warning");
 				}
@@ -144,12 +144,12 @@ export default function presetExtension(alf: ExtensionAPI) {
 
 		// Apply thinking level if specified
 		if (preset.thinkingLevel) {
-			alf.setThinkingLevel(preset.thinkingLevel);
+			alef.setThinkingLevel(preset.thinkingLevel);
 		}
 
 		// Apply tools if specified
 		if (preset.tools && preset.tools.length > 0) {
-			const allToolNames = alf.getAllTools().map((t) => t.name);
+			const allToolNames = alef.getAllTools().map((t) => t.name);
 			const validTools = preset.tools.filter((t) => allToolNames.includes(t));
 			const invalidTools = preset.tools.filter((t) => !allToolNames.includes(t));
 
@@ -158,7 +158,7 @@ export default function presetExtension(alf: ExtensionAPI) {
 			}
 
 			if (validTools.length > 0) {
-				alf.setActiveTools(validTools);
+				alef.setActiveTools(validTools);
 			}
 		}
 
@@ -200,7 +200,10 @@ export default function presetExtension(alf: ExtensionAPI) {
 		const presetNames = Object.keys(presets);
 
 		if (presetNames.length === 0) {
-			ctx.ui.notify("No presets defined. Add presets to ~/.alf/agent/presets.json or .alf/presets.json", "warning");
+			ctx.ui.notify(
+				"No presets defined. Add presets to ~/.alef/agent/presets.json or .alef/presets.json",
+				"warning",
+			);
 			return;
 		}
 
@@ -270,12 +273,12 @@ export default function presetExtension(alf: ExtensionAPI) {
 			activePreset = undefined;
 			if (originalState) {
 				if (originalState.model) {
-					await alf.setModel(originalState.model);
+					await alef.setModel(originalState.model);
 				}
-				alf.setThinkingLevel(originalState.thinkingLevel);
-				alf.setActiveTools(originalState.tools);
+				alef.setThinkingLevel(originalState.thinkingLevel);
+				alef.setActiveTools(originalState.tools);
 			} else {
-				alf.setActiveTools(["symbol_outline", "file_read", "file_bash", "file_edit", "file_write"]);
+				alef.setActiveTools(["symbol_outline", "file_read", "file_bash", "file_edit", "file_write"]);
 			}
 			ctx.ui.notify("Preset cleared, defaults restored", "info");
 			updateStatus(ctx);
@@ -308,7 +311,10 @@ export default function presetExtension(alf: ExtensionAPI) {
 	async function cyclePreset(ctx: ExtensionContext): Promise<void> {
 		const presetNames = getPresetOrder();
 		if (presetNames.length === 0) {
-			ctx.ui.notify("No presets defined. Add presets to ~/.alf/agent/presets.json or .alf/presets.json", "warning");
+			ctx.ui.notify(
+				"No presets defined. Add presets to ~/.alef/agent/presets.json or .alef/presets.json",
+				"warning",
+			);
 			return;
 		}
 
@@ -323,12 +329,12 @@ export default function presetExtension(alf: ExtensionAPI) {
 			activePreset = undefined;
 			if (originalState) {
 				if (originalState.model) {
-					await alf.setModel(originalState.model);
+					await alef.setModel(originalState.model);
 				}
-				alf.setThinkingLevel(originalState.thinkingLevel);
-				alf.setActiveTools(originalState.tools);
+				alef.setThinkingLevel(originalState.thinkingLevel);
+				alef.setActiveTools(originalState.tools);
 			} else {
-				alf.setActiveTools(["symbol_outline", "file_read", "file_bash", "file_edit", "file_write"]);
+				alef.setActiveTools(["symbol_outline", "file_read", "file_bash", "file_edit", "file_write"]);
 			}
 			ctx.ui.notify("Preset cleared, defaults restored", "info");
 			updateStatus(ctx);
@@ -343,7 +349,7 @@ export default function presetExtension(alf: ExtensionAPI) {
 		updateStatus(ctx);
 	}
 
-	alf.registerShortcut(Key.ctrlShift("u"), {
+	alef.registerShortcut(Key.ctrlShift("u"), {
 		description: "Cycle presets",
 		handler: async (ctx) => {
 			await cyclePreset(ctx);
@@ -351,7 +357,7 @@ export default function presetExtension(alf: ExtensionAPI) {
 	});
 
 	// Register /preset command
-	alf.registerCommand("preset", {
+	alef.registerCommand("preset", {
 		description: "Switch preset configuration",
 		handler: async (args, ctx) => {
 			// If preset name provided, apply directly
@@ -377,7 +383,7 @@ export default function presetExtension(alf: ExtensionAPI) {
 	});
 
 	// Inject preset instructions into system prompt
-	alf.on("before_agent_start", async (event) => {
+	alef.on("before_agent_start", async (event) => {
 		if (activePreset?.instructions) {
 			return {
 				systemPrompt: `${event.systemPrompt}\n\n${activePreset.instructions}`,
@@ -386,12 +392,12 @@ export default function presetExtension(alf: ExtensionAPI) {
 	});
 
 	// Initialize on session start
-	alf.on("session_start", async (_event, ctx) => {
+	alef.on("session_start", async (_event, ctx) => {
 		// Load presets from config files
 		presets = loadPresets(ctx.cwd);
 
 		// Check for --preset flag
-		const presetFlag = alf.getFlag("preset");
+		const presetFlag = alef.getFlag("preset");
 		if (typeof presetFlag === "string" && presetFlag) {
 			const preset = presets[presetFlag];
 			if (preset) {
@@ -422,9 +428,9 @@ export default function presetExtension(alf: ExtensionAPI) {
 	});
 
 	// Persist preset state
-	alf.on("turn_start", async () => {
+	alef.on("turn_start", async () => {
 		if (activePresetName) {
-			alf.appendEntry("preset-state", { name: activePresetName });
+			alef.appendEntry("preset-state", { name: activePresetName });
 		}
 	});
 }

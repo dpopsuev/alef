@@ -2,10 +2,10 @@
  * Minimal SDK Usage
  *
  * Uses all defaults: discovers skills, extensions, tools, context files
- * from cwd and ~/.alf/agent. Model chosen from settings or first available.
+ * from cwd and ~/.alef/agent. Model chosen from settings or first available.
  */
 
-import { createAgentSession } from "@alf-agent/coding-agent";
+import { createAgentSession } from "@alef/coding-agent";
 
 const { session } = await createAgentSession();
 

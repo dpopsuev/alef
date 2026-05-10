@@ -373,11 +373,11 @@ describe("skills", () => {
 		});
 
 		it("should expand ~ in skillPaths", () => {
-			const homeSkillsDir = join(homedir(), ".alf/agent/skills");
+			const homeSkillsDir = join(homedir(), ".alef/agent/skills");
 			const { skills: withTilde } = loadSkills({
 				agentDir: emptyAgentDir,
 				cwd: emptyCwd,
-				skillPaths: ["~/.alf/agent/skills"],
+				skillPaths: ["~/.alef/agent/skills"],
 				includeDefaults: true,
 			});
 			const { skills: withoutTilde } = loadSkills({

@@ -1,5 +1,5 @@
 /**
- * Test helper for resolving API keys from the Alf agent directory (`auth.json`).
+ * Test helper for resolving API keys from the Alef agent directory (`auth.json`).
  *
  * Supports both API key and OAuth credentials.
  * OAuth tokens are automatically refreshed if expired and saved back to auth.json.
@@ -18,24 +18,24 @@ function expandTildePath(dir: string): string {
 }
 
 /** Mirrors coding-agent `getAgentDir()` resolution for tests. */
-function resolveAlfAgentDir(): string {
-	const envDir = process.env.ALF_CODING_AGENT_DIR?.trim();
+function resolveAlefAgentDir(): string {
+	const envDir = process.env.ALEF_CODING_AGENT_DIR?.trim();
 	if (envDir) {
 		return expandTildePath(envDir);
 	}
 	if (process.platform === "linux") {
-		const legacy = join(homedir(), ".alf", "agent");
+		const legacy = join(homedir(), ".alef", "agent");
 		if (existsSync(legacy)) {
 			return legacy;
 		}
 		const xdgRaw = process.env.XDG_CONFIG_HOME?.trim();
 		const xdgBase = xdgRaw && xdgRaw.length > 0 ? xdgRaw : join(homedir(), ".config");
-		return join(xdgBase, "alf", "agent");
+		return join(xdgBase, "alef", "agent");
 	}
-	return join(homedir(), ".alf", "agent");
+	return join(homedir(), ".alef", "agent");
 }
 
-const AUTH_PATH = join(resolveAlfAgentDir(), "auth.json");
+const AUTH_PATH = join(resolveAlefAgentDir(), "auth.json");
 
 type ApiKeyCredential = {
 	type: "api_key";

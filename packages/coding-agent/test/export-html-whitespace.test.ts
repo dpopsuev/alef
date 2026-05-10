@@ -1,4 +1,4 @@
-import type { Component } from "@alf-agent/tui";
+import type { Component } from "@alef/tui";
 import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
 import { ansiLinesToHtml } from "../src/core/export-html/ansi-to-html.js";

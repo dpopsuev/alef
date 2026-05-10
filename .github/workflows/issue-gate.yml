@@ -99,7 +99,7 @@ jobs:
               return [
                 'This issue was auto-closed.',
                 '',
-                'Alf Agent is maintained BDFL-style and does not accept unsolicited contributions. Issues from strangers are not reviewed.',
+                'Alef Agent is maintained BDFL-style and does not accept unsolicited contributions. Issues from strangers are not reviewed.',
                 '',
                 `See [CONTRIBUTING.md](${contribUrl}) for this fork (read and fork under MIT). To contribute to **Pi**, use **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.`,
               ].join('\n');

@@ -1,4 +1,4 @@
-import type { Model } from "@alf-agent/ai";
+import type { Model } from "@alef/ai";
 import {
 	Container,
 	type Focusable,
@@ -9,7 +9,7 @@ import {
 	matchesKey,
 	Spacer,
 	Text,
-} from "@alf-agent/tui";
+} from "@alef/tui";
 import { theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
 import { keyText } from "./keybinding-hints.js";

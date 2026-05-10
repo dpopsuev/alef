@@ -10,9 +10,9 @@
  * correct for that point in history.
  */
 
-import { StringEnum } from "@alf-agent/ai";
-import type { ExtensionAPI, ExtensionContext, Theme } from "@alf-agent/coding-agent";
-import { matchesKey, Text, truncateToWidth } from "@alf-agent/tui";
+import { StringEnum } from "@alef/ai";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@alef/coding-agent";
+import { matchesKey, Text, truncateToWidth } from "@alef/tui";
 import { Type } from "typebox";
 
 interface Todo {
@@ -102,7 +102,7 @@ class TodoListComponent {
 	}
 }
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	// In-memory state (reconstructed from session on load)
 	let todos: Todo[] = [];
 	let nextId = 1;
@@ -129,11 +129,11 @@ export default function (alf: ExtensionAPI) {
 	};
 
 	// Reconstruct state on session events
-	alf.on("session_start", async (_event, ctx) => reconstructState(ctx));
-	alf.on("session_tree", async (_event, ctx) => reconstructState(ctx));
+	alef.on("session_start", async (_event, ctx) => reconstructState(ctx));
+	alef.on("session_tree", async (_event, ctx) => reconstructState(ctx));
 
 	// Register the todo tool for the LLM
-	alf.registerTool({
+	alef.registerTool({
 		name: "todo",
 		label: "Todo",
 		description: "Manage a todo list. Actions: list, add (text), toggle (id), clear",
@@ -281,7 +281,7 @@ export default function (alf: ExtensionAPI) {
 	});
 
 	// Register the /todos command for users
-	alf.registerCommand("todos", {
+	alef.registerCommand("todos", {
 		description: "Show all todos on the current branch",
 		handler: async (_args, ctx) => {
 			if (!ctx.hasUI) {

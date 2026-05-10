@@ -2,7 +2,7 @@
  * Reusable countdown timer for dialog components.
  */
 
-import type { TUI } from "@alf-agent/tui";
+import type { TUI } from "@alef/tui";
 
 export class CountdownTimer {
 	private intervalId: ReturnType<typeof setInterval> | undefined;

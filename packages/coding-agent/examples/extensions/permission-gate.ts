@@ -5,12 +5,12 @@
  * Patterns checked: rm -rf, sudo, chmod/chown 777
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	const dangerousPatterns = [/\brm\s+(-rf?|--recursive)/i, /\bsudo\b/i, /\b(chmod|chown)\b.*777/i];
 
-	alf.on("tool_call", async (event, ctx) => {
+	alef.on("tool_call", async (event, ctx) => {
 		if (event.toolName !== "file_bash") return undefined;
 
 		const command = event.input.command as string;

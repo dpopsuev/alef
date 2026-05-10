@@ -5,9 +5,9 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { Agent } from "@alf-agent/agent-core";
-import { getModel, type OAuthCredentials, type OAuthProvider } from "@alf-agent/ai";
-import { getOAuthApiKey } from "@alf-agent/ai/oauth";
+import { Agent } from "@alef/agent-core";
+import { getModel, type OAuthCredentials, type OAuthProvider } from "@alef/ai";
+import { getOAuthApiKey } from "@alef/ai/oauth";
 import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { createEventBus } from "../src/core/event-bus.js";
@@ -26,10 +26,10 @@ import { createCodingTools } from "../src/index.js";
 export const API_KEY = process.env.ANTHROPIC_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
 
 // ============================================================================
-// OAuth API key resolution from the resolved Alf agent `auth.json`
+// OAuth API key resolution from the resolved Alef agent `auth.json`
 // ============================================================================
 
-const AUTH_PATH = join(resolveAlfAgentDir(), "auth.json");
+const AUTH_PATH = join(resolveAlefAgentDir(), "auth.json");
 
 type ApiKeyCredential = {
 	type: "api_key";
@@ -66,7 +66,7 @@ function saveAuthStorage(storage: AuthStorageData): void {
 }
 
 /**
- * Resolve API key for a provider from the resolved Alf agent `auth.json`
+ * Resolve API key for a provider from the resolved Alef agent `auth.json`
  *
  * For API key credentials, returns the key directly.
  * For OAuth credentials, returns the access token (refreshing if expired and saving back).
@@ -106,38 +106,38 @@ export async function resolveApiKey(provider: string): Promise<string | undefine
 }
 
 /**
- * Check if a provider has credentials in the resolved Alf agent `auth.json`.
+ * Check if a provider has credentials in the resolved Alef agent `auth.json`.
  */
 export function hasAuthForProvider(provider: string): boolean {
 	const storage = loadAuthStorage();
 	return provider in storage;
 }
 
-function resolveAlfAgentDir(): string {
-	const envDir = process.env.ALF_CODING_AGENT_DIR?.trim();
+function resolveAlefAgentDir(): string {
+	const envDir = process.env.ALEF_CODING_AGENT_DIR?.trim();
 	if (envDir) {
 		return envDir === "~" ? homedir() : envDir.replace(/^~\//, `${homedir()}/`);
 	}
 
 	if (process.platform === "linux") {
-		const legacy = join(homedir(), ".alf", "agent");
+		const legacy = join(homedir(), ".alef", "agent");
 		if (existsSync(legacy)) {
 			return legacy;
 		}
 
 		const xdgRaw = process.env.XDG_CONFIG_HOME?.trim();
 		const xdgBase = xdgRaw && xdgRaw.length > 0 ? xdgRaw : join(homedir(), ".config");
-		return join(xdgBase, "alf", "agent");
+		return join(xdgBase, "alef", "agent");
 	}
 
-	return join(homedir(), ".alf", "agent");
+	return join(homedir(), ".alef", "agent");
 }
 
-/** Path to the real Alf agent config directory */
-export const ALF_AGENT_DIR = resolveAlfAgentDir();
+/** Path to the real Alef agent config directory */
+export const ALEF_AGENT_DIR = resolveAlefAgentDir();
 
 /**
- * Get an AuthStorage instance backed by the resolved Alf agent `auth.json`
+ * Get an AuthStorage instance backed by the resolved Alef agent `auth.json`
  * Use this for tests that need real OAuth credentials.
  */
 export function getRealAuthStorage(): AuthStorage {

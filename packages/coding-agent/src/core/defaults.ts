@@ -1,3 +1,3 @@
-import type { ThinkingLevel } from "@alf-agent/agent-core";
+import type { ThinkingLevel } from "@alef/agent-core";
 
 export const DEFAULT_THINKING_LEVEL: ThinkingLevel = "medium";

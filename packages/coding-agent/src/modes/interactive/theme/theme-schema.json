@@ -1,7 +1,7 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
-	"title": "Alf Coding Agent Theme",
-	"description": "Theme schema for Alf coding agent",
+	"title": "Alef Coding Agent Theme",
+	"description": "Theme schema for Alef coding agent",
 	"type": "object",
 	"required": ["name", "colors"],
 	"properties": {

@@ -1,10 +1,10 @@
 /**
  * Rainbow Editor - highlights "ultrathink" with animated shine effect
  *
- * Usage: alf --extension ./examples/extensions/rainbow-editor.ts
+ * Usage: alef --extension ./examples/extensions/rainbow-editor.ts
  */
 
-import { CustomEditor, type ExtensionAPI } from "@alf-agent/coding-agent";
+import { CustomEditor, type ExtensionAPI } from "@alef/coding-agent";
 
 // Base colors (coral → yellow → green → teal → blue → purple → pink)
 const COLORS: [number, number, number][] = [
@@ -81,8 +81,8 @@ class RainbowEditor extends CustomEditor {
 	}
 }
 
-export default function (alf: ExtensionAPI) {
-	alf.on("session_start", (_event, ctx) => {
+export default function (alef: ExtensionAPI) {
+	alef.on("session_start", (_event, ctx) => {
 		ctx.ui.setEditorComponent((tui, theme, kb) => new RainbowEditor(tui, theme, kb));
 	});
 }

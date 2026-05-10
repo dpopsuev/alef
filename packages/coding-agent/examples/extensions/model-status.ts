@@ -4,13 +4,13 @@
  * Demonstrates the `model_select` hook which fires when the model changes
  * via /model command, Ctrl+P cycling, or session restore.
  *
- * Usage: alf -e ./model-status.ts
+ * Usage: alef -e ./model-status.ts
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
-	alf.on("model_select", async (event, ctx) => {
+export default function (alef: ExtensionAPI) {
+	alef.on("model_select", async (event, ctx) => {
 		const { model, previousModel, source } = event;
 
 		// Format model identifiers

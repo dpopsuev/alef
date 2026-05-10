@@ -1,7 +1,7 @@
 /**
  * Subagent Tool - Delegate tasks to specialized agents
  *
- * Spawns a separate `alf` process for each subagent invocation,
+ * Spawns a separate `alef` process for each subagent invocation,
  * giving it an isolated context window.
  *
  * Supports three modes:
@@ -16,11 +16,11 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolResult } from "@alf-agent/agent-core";
-import type { Message } from "@alf-agent/ai";
-import { StringEnum } from "@alf-agent/ai";
-import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@alf-agent/coding-agent";
-import { Container, Markdown, Spacer, Text } from "@alf-agent/tui";
+import type { AgentToolResult } from "@alef/agent-core";
+import type { Message } from "@alef/ai";
+import { StringEnum } from "@alef/ai";
+import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@alef/coding-agent";
+import { Container, Markdown, Spacer, Text } from "@alef/tui";
 import { Type } from "typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
 
@@ -217,7 +217,7 @@ async function mapWithConcurrencyLimit<TIn, TOut>(
 }
 
 async function writePromptToTempFile(agentName: string, prompt: string): Promise<{ dir: string; filePath: string }> {
-	const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "alf-subagent-"));
+	const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "alef-subagent-"));
 	const safeName = agentName.replace(/[^\w.-]+/g, "_");
 	const filePath = path.join(tmpDir, `prompt-${safeName}.md`);
 	await withFileMutationQueue(filePath, async () => {
@@ -239,7 +239,7 @@ function getPiInvocation(args: string[]): { command: string; args: string[] } {
 		return { command: process.execPath, args };
 	}
 
-	return { command: "alf", args };
+	return { command: "alef", args };
 }
 
 type OnUpdateCallback = (partial: AgentToolResult<SubagentDetails>) => void;
@@ -437,15 +437,15 @@ const SubagentParams = Type.Object({
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process (single mode)" })),
 });
 
-export default function (alf: ExtensionAPI) {
-	alf.registerTool({
+export default function (alef: ExtensionAPI) {
+	alef.registerTool({
 		name: "subagent",
 		label: "Subagent",
 		description: [
 			"Delegate tasks to specialized subagents with isolated context.",
 			"Modes: single (agent + task), parallel (tasks array), chain (sequential with {previous} placeholder).",
-			'Default agent scope is "user" (from ~/.alf/agent/agents).',
-			'To enable project-local agents in .alf/agents, set agentScope: "both" (or "project").',
+			'Default agent scope is "user" (from ~/.alef/agent/agents).',
+			'To enable project-local agents in .alef/agents, set agentScope: "both" (or "project").',
 		].join(" "),
 		parameters: SubagentParams,
 

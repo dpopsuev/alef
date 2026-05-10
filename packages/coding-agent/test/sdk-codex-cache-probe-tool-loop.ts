@@ -20,7 +20,7 @@ import {
 	type Model,
 	type SimpleStreamOptions,
 	Type,
-} from "@alf-agent/ai";
+} from "@alef/ai";
 import {
 	getOpenAICodexWebSocketDebugStats,
 	streamSimpleOpenAICodexResponses,

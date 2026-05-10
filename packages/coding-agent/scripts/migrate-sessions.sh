@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# Migrate sessions from ~/.alf/agent/*.jsonl to proper session directories.
+# Migrate sessions from ~/.alef/agent/*.jsonl to proper session directories.
 # This fixes sessions created by the bug in v0.30.0 where sessions were
-# saved to ~/.alf/agent/ instead of ~/.alf/agent/sessions/<encoded-cwd>/.
+# saved to ~/.alef/agent/ instead of ~/.alef/agent/sessions/<encoded-cwd>/.
 #
 # Usage: ./migrate-sessions.sh [--dry-run]
 #
 
 set -e
 
-AGENT_DIR="${ALF_AGENT_DIR:-$HOME/.alf/agent}"
+AGENT_DIR="${ALEF_AGENT_DIR:-$HOME/.alef/agent}"
 DRY_RUN=false
 
 if [[ "$1" == "--dry-run" ]]; then

@@ -5,13 +5,13 @@
  * Requires: npm install in this directory
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 import ms from "ms";
 import { Type } from "typebox";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	// Register a tool that uses ms
-	alf.registerTool({
+	alef.registerTool({
 		name: "parse_duration",
 		label: "Parse Duration",
 		description: "Parse a human-readable duration string (e.g., '2 days', '1h', '5m') to milliseconds",

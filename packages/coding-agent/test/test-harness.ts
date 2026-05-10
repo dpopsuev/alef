@@ -10,8 +10,8 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentTool } from "@alf-agent/agent-core";
-import { Agent } from "@alf-agent/agent-core";
+import type { AgentTool } from "@alef/agent-core";
+import { Agent } from "@alef/agent-core";
 import type {
 	AssistantMessage,
 	AssistantMessageEvent,
@@ -24,8 +24,8 @@ import type {
 	ThinkingContent,
 	ToolCall,
 	Usage,
-} from "@alf-agent/ai";
-import { createAssistantMessageEventStream } from "@alf-agent/ai";
+} from "@alef/ai";
+import { createAssistantMessageEventStream } from "@alef/ai";
 import { AgentSession, type AgentSessionEvent } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { ModelRegistry } from "../src/core/model-registry.js";

@@ -1,7 +1,7 @@
 /**
  * Modal Editor - vim-like modal editing example
  *
- * Usage: alf --extension ./examples/extensions/modal-editor.ts
+ * Usage: alef --extension ./examples/extensions/modal-editor.ts
  *
  * - Escape: insert → normal mode (in normal mode, aborts agent)
  * - i: normal → insert mode
@@ -9,8 +9,8 @@
  * - ctrl+c, ctrl+d, etc. work in both modes
  */
 
-import { CustomEditor, type ExtensionAPI } from "@alf-agent/coding-agent";
-import { matchesKey, truncateToWidth, visibleWidth } from "@alf-agent/tui";
+import { CustomEditor, type ExtensionAPI } from "@alef/coding-agent";
+import { matchesKey, truncateToWidth, visibleWidth } from "@alef/tui";
 
 // Normal mode key mappings: key -> escape sequence (or null for mode switch)
 const NORMAL_KEYS: Record<string, string | null> = {
@@ -78,8 +78,8 @@ class ModalEditor extends CustomEditor {
 	}
 }
 
-export default function (alf: ExtensionAPI) {
-	alf.on("session_start", (_event, ctx) => {
+export default function (alef: ExtensionAPI) {
+	alef.on("session_start", (_event, ctx) => {
 		ctx.ui.setEditorComponent((tui, theme, kb) => new ModalEditor(tui, theme, kb));
 	});
 }

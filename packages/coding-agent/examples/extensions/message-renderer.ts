@@ -7,12 +7,12 @@
  * Usage: /status [message] - sends a status message with custom rendering
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
-import { Box, Text } from "@alf-agent/tui";
+import type { ExtensionAPI } from "@alef/coding-agent";
+import { Box, Text } from "@alef/tui";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	// Register custom renderer for "status-update" messages
-	alf.registerMessageRenderer("status-update", (message, { expanded }, theme) => {
+	alef.registerMessageRenderer("status-update", (message, { expanded }, theme) => {
 		const details = message.details as { level: string; timestamp: number } | undefined;
 		const level = details?.level ?? "info";
 
@@ -35,7 +35,7 @@ export default function (alf: ExtensionAPI) {
 	});
 
 	// Command to send status messages
-	alf.registerCommand("status", {
+	alef.registerCommand("status", {
 		description: "Send a status message (usage: /status [warn|error] message)",
 		handler: async (args, _ctx) => {
 			const parts = args.trim().split(/\s+/);
@@ -48,7 +48,7 @@ export default function (alf: ExtensionAPI) {
 				content = parts.slice(1).join(" ") || "Status update";
 			}
 
-			alf.sendMessage({
+			alef.sendMessage({
 				customType: "status-update",
 				content,
 				display: true,

@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { getModel } from "@alf-agent/ai";
+import { getModel } from "@alef/ai";
 import { InMemorySessionStorage } from "../../src/harness/session/storage/memory.js";
 import {
 	createAgentHarness,
@@ -16,13 +16,13 @@ type Source = { type: "project" | "user" | "path"; dir: string };
 const env = new NodeExecutionEnv({ cwd: process.cwd() });
 const source = (type: Source["type"], dir: string) => ({ path: dir, source: { type, dir } });
 const { skills: sourcedSkills } = await loadSourcedSkills<Source>(env, [
-	source("project", join(env.cwd, ".alf/skills")),
-	source("user", join(homedir(), ".alf/agent/skills")),
+	source("project", join(env.cwd, ".alef/skills")),
+	source("user", join(homedir(), ".alef/agent/skills")),
 	source("path", join(env.cwd, "../../../pi-skills")),
 ]);
 const { promptTemplates: sourcedPromptTemplates } = await loadSourcedPromptTemplates<Source>(env, [
-	source("project", join(env.cwd, ".alf/prompts")),
-	source("user", join(homedir(), ".alf/agent/prompts")),
+	source("project", join(env.cwd, ".alef/prompts")),
+	source("user", join(homedir(), ".alef/agent/prompts")),
 ]);
 
 const session = new Session(new InMemorySessionStorage());

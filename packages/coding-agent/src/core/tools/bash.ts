@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
-import type { AgentTool } from "@alf-agent/agent-core";
-import { Container, Text, truncateToWidth } from "@alf-agent/tui";
+import type { AgentTool } from "@alef/agent-core";
+import { Container, Text, truncateToWidth } from "@alef/tui";
 import { spawn } from "child_process";
 import { type Static, Type } from "typebox";
 import { keyHint } from "../../modes/interactive/components/keybinding-hints.js";

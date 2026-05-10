@@ -1,5 +1,5 @@
-import type { AgentTool } from "@alf-agent/agent-core";
-import { Container, Text } from "@alf-agent/tui";
+import type { AgentTool } from "@alef/agent-core";
+import { Container, Text } from "@alef/tui";
 import { mkdir as fsMkdir, writeFile as fsWriteFile } from "fs/promises";
 import { dirname } from "path";
 import { type Static, Type } from "typebox";

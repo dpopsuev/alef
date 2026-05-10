@@ -1,6 +1,6 @@
-import type { TextContent } from "@alf-agent/ai";
-import type { Component } from "@alf-agent/tui";
-import { Box, Container, Markdown, type MarkdownTheme, Spacer, Text } from "@alf-agent/tui";
+import type { TextContent } from "@alef/ai";
+import type { Component } from "@alef/tui";
+import { Box, Container, Markdown, type MarkdownTheme, Spacer, Text } from "@alef/tui";
 import type { MessageRenderer } from "../../../core/extensions/types.js";
 import type { CustomMessage } from "../../../core/messages.js";
 import { getMarkdownTheme, theme } from "../theme/theme.js";

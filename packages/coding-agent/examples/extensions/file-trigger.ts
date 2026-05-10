@@ -9,17 +9,17 @@
  */
 
 import * as fs from "node:fs";
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
-	alf.on("session_start", async (_event, ctx) => {
+export default function (alef: ExtensionAPI) {
+	alef.on("session_start", async (_event, ctx) => {
 		const triggerFile = "/tmp/agent-trigger.txt";
 
 		fs.watch(triggerFile, () => {
 			try {
 				const content = fs.readFileSync(triggerFile, "utf-8").trim();
 				if (content) {
-					alf.sendMessage(
+					alef.sendMessage(
 						{
 							customType: "file-trigger",
 							content: `External trigger: ${content}`,

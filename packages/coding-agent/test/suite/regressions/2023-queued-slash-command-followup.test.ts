@@ -1,6 +1,6 @@
-import type { AgentTool } from "@alf-agent/agent-core";
-import { fauxAssistantMessage, fauxToolCall } from "@alf-agent/ai";
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { AgentTool } from "@alef/agent-core";
+import { fauxAssistantMessage, fauxToolCall } from "@alef/ai";
+import type { ExtensionAPI } from "@alef/coding-agent";
 import { Type } from "typebox";
 import { afterEach, describe, expect, it } from "vitest";
 import { createHarness, getAssistantTexts, getUserTexts, type Harness } from "../harness.js";

@@ -1,4 +1,4 @@
-import { Container, type SelectItem, SelectList, type SelectListLayoutOptions } from "@alf-agent/tui";
+import { Container, type SelectItem, SelectList, type SelectListLayoutOptions } from "@alef/tui";
 import { getSelectListTheme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
 

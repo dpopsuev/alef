@@ -8,14 +8,14 @@
  * Token stats come from ctx.sessionManager/ctx.model (already accessible).
  */
 
-import type { AssistantMessage } from "@alf-agent/ai";
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
-import { truncateToWidth, visibleWidth } from "@alf-agent/tui";
+import type { AssistantMessage } from "@alef/ai";
+import type { ExtensionAPI } from "@alef/coding-agent";
+import { truncateToWidth, visibleWidth } from "@alef/tui";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	let enabled = false;
 
-	alf.registerCommand("footer", {
+	alef.registerCommand("footer", {
 		description: "Toggle custom footer",
 		handler: async (_args, ctx) => {
 			enabled = !enabled;

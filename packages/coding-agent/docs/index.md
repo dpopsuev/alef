@@ -1,22 +1,22 @@
-# Alf Agent documentation
+# Alef Agent documentation
 
-Alf is a minimal terminal coding harness. It stays small at the core while being extended through TypeScript extensions, skills, prompt templates, themes, and Alf packages.
+Alef is a minimal terminal coding harness. It stays small at the core while being extended through TypeScript extensions, skills, prompt templates, themes, and Alef packages.
 
 ## Quick start
 
 Install globally via npm:
 
 ```bash
-npm install -g @alf-agent/coding-agent
+npm install -g @alef/coding-agent
 ```
 
 Then run it in a project directory:
 
 ```bash
-alf
+alef
 ```
 
-Authenticate with `/login` for subscription providers, or set an API key such as `ANTHROPIC_API_KEY` before starting Alf.
+Authenticate with `/login` for subscription providers, or set an API key such as `ANTHROPIC_API_KEY` before starting Alef.
 
 ## Guides
 
@@ -37,7 +37,7 @@ Authenticate with `/login` for subscription providers, or set an API key such as
 - [Skills](skills.md)
 - [Prompt templates](prompt-templates.md)
 - [Themes](themes.md)
-- [Alf packages](packages.md)
+- [Alef packages](packages.md)
 
 ## Platforms and tooling
 
@@ -49,7 +49,7 @@ Authenticate with `/login` for subscription providers, or set an API key such as
 
 ## Programmatic use
 
-- [SDK](sdk.md) — embed Alf from Node.js
+- [SDK](sdk.md) — embed Alef from Node.js
 - [RPC](rpc.md) — JSONL protocol over stdio
 - [JSON mode](json.md) — machine-readable events
 - [TUI internals](tui.md)

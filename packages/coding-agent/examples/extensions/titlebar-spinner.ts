@@ -5,21 +5,21 @@
  * Uses `ctx.ui.setTitle()` to update the terminal title via the extension API.
  *
  * Usage:
- *   alf --extension examples/extensions/titlebar-spinner.ts
+ *   alef --extension examples/extensions/titlebar-spinner.ts
  */
 
 import path from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@alf-agent/coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
 
 const BRAILLE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-function getBaseTitle(alf: ExtensionAPI): string {
+function getBaseTitle(alef: ExtensionAPI): string {
 	const cwd = path.basename(process.cwd());
-	const session = alf.getSessionName();
-	return session ? `Alf - ${session} - ${cwd}` : `Alf - ${cwd}`;
+	const session = alef.getSessionName();
+	return session ? `Alef - ${session} - ${cwd}` : `Alef - ${cwd}`;
 }
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	let timer: ReturnType<typeof setInterval> | null = null;
 	let frameIndex = 0;
 
@@ -29,7 +29,7 @@ export default function (alf: ExtensionAPI) {
 			timer = null;
 		}
 		frameIndex = 0;
-		ctx.ui.setTitle(getBaseTitle(alf));
+		ctx.ui.setTitle(getBaseTitle(alef));
 	}
 
 	function startAnimation(ctx: ExtensionContext) {
@@ -37,22 +37,22 @@ export default function (alf: ExtensionAPI) {
 		timer = setInterval(() => {
 			const frame = BRAILLE_FRAMES[frameIndex % BRAILLE_FRAMES.length];
 			const cwd = path.basename(process.cwd());
-			const session = alf.getSessionName();
-			const title = session ? `${frame} Alf - ${session} - ${cwd}` : `${frame} Alf - ${cwd}`;
+			const session = alef.getSessionName();
+			const title = session ? `${frame} Alef - ${session} - ${cwd}` : `${frame} Alef - ${cwd}`;
 			ctx.ui.setTitle(title);
 			frameIndex++;
 		}, 80);
 	}
 
-	alf.on("agent_start", async (_event, ctx) => {
+	alef.on("agent_start", async (_event, ctx) => {
 		startAnimation(ctx);
 	});
 
-	alf.on("agent_end", async (_event, ctx) => {
+	alef.on("agent_end", async (_event, ctx) => {
 		stopAnimation(ctx);
 	});
 
-	alf.on("session_shutdown", async (_event, ctx) => {
+	alef.on("session_shutdown", async (_event, ctx) => {
 		stopAnimation(ctx);
 	});
 }

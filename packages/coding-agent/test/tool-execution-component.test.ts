@@ -1,5 +1,5 @@
 import { join, resolve } from "node:path";
-import { Text, type TUI } from "@alf-agent/tui";
+import { Text, type TUI } from "@alef/tui";
 import stripAnsi from "strip-ansi";
 import { Type } from "typebox";
 import { beforeAll, describe, expect, test } from "vitest";
@@ -342,9 +342,9 @@ describe("ToolExecutionComponent parity", () => {
 		},
 		{
 			title: "AGENTS.md",
-			path: join(process.cwd(), ".alf", "AGENTS.md"),
+			path: join(process.cwd(), ".alef", "AGENTS.md"),
 			content: "Hidden resource instructions",
-			compact: "file_read resource .alf/AGENTS.md",
+			compact: "file_read resource .alef/AGENTS.md",
 			hidden: "Hidden resource instructions",
 			absent: undefined,
 		},

@@ -5,10 +5,10 @@
  * Demonstrates how to cancel session events using the before_* events.
  */
 
-import type { ExtensionAPI, SessionBeforeSwitchEvent, SessionMessageEntry } from "@alf-agent/coding-agent";
+import type { ExtensionAPI, SessionBeforeSwitchEvent, SessionMessageEntry } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
-	alf.on("session_before_switch", async (event: SessionBeforeSwitchEvent, ctx) => {
+export default function (alef: ExtensionAPI) {
+	alef.on("session_before_switch", async (event: SessionBeforeSwitchEvent, ctx) => {
 		if (!ctx.hasUI) return;
 
 		if (event.reason === "new") {
@@ -43,7 +43,7 @@ export default function (alf: ExtensionAPI) {
 		}
 	});
 
-	alf.on("session_before_fork", async (event, ctx) => {
+	alef.on("session_before_fork", async (event, ctx) => {
 		if (!ctx.hasUI) return;
 
 		const choice = await ctx.ui.select(`Fork from entry ${event.entryId.slice(0, 8)}?`, [

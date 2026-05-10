@@ -20,7 +20,7 @@ Pi loads themes from:
 
 - Built-in: `dark`, `light`
 - Global: `<agent-dir>/themes/*.json`
-- Project: `.alf/themes/*.json`
+- Project: `.alef/themes/*.json`
 - Packages: `themes/` directories or `pi.themes` entries in `package.json`
 - Settings: `themes` array with files or directories
 - CLI: `--theme <path>` (repeatable)
@@ -52,7 +52,7 @@ vim <agent-dir>/themes/my-theme.json
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/dpopsuev/alf-agent/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "$schema": "https://raw.githubusercontent.com/dpopsuev/alef/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
   "name": "my-theme",
   "vars": {
     "primary": "#00aaff",
@@ -122,7 +122,7 @@ vim <agent-dir>/themes/my-theme.json
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/dpopsuev/alf-agent/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "$schema": "https://raw.githubusercontent.com/dpopsuev/alef/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
   "name": "my-theme",
   "vars": {
     "blue": "#0066cc",

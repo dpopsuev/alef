@@ -12,6 +12,12 @@ packages/*/dist-firefox/
 # Environment
 .env
 
+# Editor / local tooling
+.cursor/
+limes.db
+limes.db-shm
+limes.db-wal
+
 # Editor files
 .vscode/
 .zed/

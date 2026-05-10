@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getModel } from "@earendil-works/pi-ai";
+import { getModel } from "@alf-agent/ai";
 import { Type } from "typebox";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DefaultResourceLoader } from "../src/core/resource-loader.js";
@@ -69,7 +69,7 @@ describe("AgentSession dynamic tool registration", () => {
 
 		const allTools = session.getAllTools();
 		const dynamicTool = allTools.find((tool) => tool.name === "dynamic_tool");
-		const readTool = allTools.find((tool) => tool.name === "read");
+		const readTool = allTools.find((tool) => tool.name === "file_read");
 
 		expect(allTools.map((tool) => tool.name)).toContain("dynamic_tool");
 		expect(dynamicTool?.sourceInfo).toMatchObject({
@@ -79,7 +79,7 @@ describe("AgentSession dynamic tool registration", () => {
 			origin: "top-level",
 		});
 		expect(readTool?.sourceInfo).toMatchObject({
-			path: "<builtin:read>",
+			path: "<builtin:file_read>",
 			source: "builtin",
 			scope: "temporary",
 			origin: "top-level",

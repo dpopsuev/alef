@@ -1,4 +1,4 @@
-import type { ToolResultMessage } from "@earendil-works/pi-ai";
+import type { ToolResultMessage } from "@alf-agent/ai";
 import "./javascript-repl.js"; // Auto-registers the renderer
 import "./extract-document.js"; // Auto-registers the renderer
 import { getToolRenderer, registerToolRenderer } from "./renderer-registry.js";
@@ -7,7 +7,7 @@ import { DefaultRenderer } from "./renderers/DefaultRenderer.js";
 import type { ToolRenderResult } from "./types.js";
 
 // Register all built-in tool renderers
-registerToolRenderer("bash", new BashRenderer());
+registerToolRenderer("file_bash", new BashRenderer());
 
 const defaultRenderer = new DefaultRenderer();
 

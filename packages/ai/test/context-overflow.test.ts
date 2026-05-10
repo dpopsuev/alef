@@ -143,7 +143,7 @@ describe("Context overflow error handling", () => {
 		it.skipIf(!githubCopilotToken)(
 			"claude-sonnet-4 - should detect overflow via isContextOverflow",
 			async () => {
-				const model = getModel("github-copilot", "claude-sonnet-4");
+				const model = getModel("github-copilot", "claude-sonnet-4.5");
 				const result = await testContextOverflow(model, githubCopilotToken!);
 				logResult(result);
 
@@ -558,7 +558,7 @@ describe("Context overflow error handling", () => {
 
 	// Check if ollama is installed and local LLM tests are enabled
 	let ollamaInstalled = false;
-	if (!process.env.PI_NO_LOCAL_LLM) {
+	if (!process.env.ALF_NO_LOCAL_LLM) {
 		try {
 			execSync("which ollama", { stdio: "ignore" });
 			ollamaInstalled = true;
@@ -652,7 +652,7 @@ describe("Context overflow error handling", () => {
 	// =============================================================================
 
 	let lmStudioRunning = false;
-	if (!process.env.PI_NO_LOCAL_LLM) {
+	if (!process.env.ALF_NO_LOCAL_LLM) {
 		try {
 			execSync("curl -s --max-time 1 http://localhost:1234/v1/models > /dev/null", { stdio: "ignore" });
 			lmStudioRunning = true;
@@ -689,7 +689,7 @@ describe("Context overflow error handling", () => {
 	// =============================================================================
 
 	let llamaCppRunning = false;
-	if (!process.env.PI_NO_LOCAL_LLM) {
+	if (!process.env.ALF_NO_LOCAL_LLM) {
 		try {
 			execSync("curl -s --max-time 1 http://localhost:8081/health > /dev/null", { stdio: "ignore" });
 			const probeStatus = execSync(

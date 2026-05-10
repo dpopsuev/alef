@@ -16,13 +16,13 @@
 
 ---
 
-# Pi Agent Harness Mono Repo
+# Alf Agent Harness Monorepo
 
-This is the home of the pi agent harness project including our self extensible coding agent.
+This repository contains the Alf coding agent CLI and supporting packages (forked from the former Pi upstream).
 
-* **[@earendil-works/pi-coding-agent](packages/coding-agent)**: Interactive coding agent CLI
-* **[@earendil-works/pi-agent-core](packages/agent)**: Agent runtime with tool calling and state management
-* **[@earendil-works/pi-ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
+* **[@alf-agent/coding-agent](packages/coding-agent)**: Interactive coding agent CLI
+* **[@alf-agent/agent-core](packages/agent)**: Agent runtime with tool calling and state management
+* **[@alf-agent/ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
 
 To learn more about pi:
 
@@ -49,11 +49,11 @@ I regularly publish my own `pi-mono` work sessions here:
 
 | Package | Description |
 |---------|-------------|
-| **[@earendil-works/pi-ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[@earendil-works/pi-agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@earendil-works/pi-coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
-| **[@earendil-works/pi-tui](packages/tui)** | Terminal UI library with differential rendering |
-| **[@earendil-works/pi-web-ui](packages/web-ui)** | Web components for AI chat interfaces |
+| **[@alf-agent/ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
+| **[@alf-agent/agent-core](packages/agent)** | Agent runtime with tool calling and state management |
+| **[@alf-agent/coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
+| **[@alf-agent/tui](packages/tui)** | Terminal UI library with differential rendering |
+| **[@alf-agent/web-ui](packages/web-ui)** | Web components for AI chat interfaces |
 
 For Slack/chat automation and workflows see [earendil-works/pi-chat](https://github.com/earendil-works/pi-chat).
 
@@ -68,7 +68,7 @@ npm install          # Install all dependencies
 npm run build        # Build all packages
 npm run check        # Lint, format, and type check
 ./test.sh            # Run tests (skips LLM-dependent tests without API keys)
-./pi-test.sh         # Run pi from sources (can be run from any directory)
+./alf-test.sh        # Run alf from sources
 ```
 
 > **Note:** `npm run check` requires `npm run build` to be run first. The web-ui package uses `tsc` which needs compiled `.d.ts` files from dependencies.

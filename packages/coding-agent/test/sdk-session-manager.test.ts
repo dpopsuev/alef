@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getModel } from "@earendil-works/pi-ai";
+import { getModel } from "@alf-agent/ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAgentSession } from "../src/core/sdk.js";
 import { SessionManager } from "../src/core/session-manager.js";
@@ -80,7 +80,7 @@ describe("createAgentSession session manager defaults", () => {
 		expect(session.sessionManager).toBe(sessionManager);
 		expect(session.systemPrompt).toContain(`Current working directory: ${sessionCwd}`);
 
-		const bashTool = session.agent.state.tools.find((tool) => tool.name === "bash");
+		const bashTool = session.agent.state.tools.find((tool) => tool.name === "file_bash");
 		expect(bashTool).toBeTruthy();
 		const result = await bashTool!.execute("test", { command: "pwd" });
 		const output = result.content

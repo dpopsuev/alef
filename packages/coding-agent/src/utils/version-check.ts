@@ -1,9 +1,13 @@
-import { getPiUserAgent } from "./pi-user-agent.js";
+import { getAlfUserAgent } from "./alf-user-agent.js";
 
-const LATEST_VERSION_URL = "https://pi.dev/api/latest-version";
+/** When unset or empty, remote version checks are skipped (no upstream endpoint). */
+function getLatestVersionUrl(): string {
+	return (process.env.ALF_LATEST_VERSION_URL ?? "").trim();
+}
+
 const DEFAULT_VERSION_CHECK_TIMEOUT_MS = 10000;
 
-export interface LatestPiRelease {
+export interface LatestRelease {
 	version: string;
 	packageName?: string;
 }
@@ -52,15 +56,18 @@ export function isNewerPackageVersion(candidateVersion: string, currentVersion: 
 	return candidateVersion.trim() !== currentVersion.trim();
 }
 
-export async function getLatestPiRelease(
+export async function getLatestRelease(
 	currentVersion: string,
 	options: { timeoutMs?: number } = {},
-): Promise<LatestPiRelease | undefined> {
-	if (process.env.PI_SKIP_VERSION_CHECK || process.env.PI_OFFLINE) return undefined;
+): Promise<LatestRelease | undefined> {
+	if (process.env.ALF_SKIP_VERSION_CHECK || process.env.ALF_OFFLINE) return undefined;
 
-	const response = await fetch(LATEST_VERSION_URL, {
+	const latestVersionUrl = getLatestVersionUrl();
+	if (!latestVersionUrl) return undefined;
+
+	const response = await fetch(latestVersionUrl, {
 		headers: {
-			"User-Agent": getPiUserAgent(currentVersion),
+			"User-Agent": getAlfUserAgent(currentVersion),
 			accept: "application/json",
 		},
 		signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_VERSION_CHECK_TIMEOUT_MS),
@@ -76,16 +83,16 @@ export async function getLatestPiRelease(
 	return { version: data.version.trim(), packageName };
 }
 
-export async function getLatestPiVersion(
+export async function getLatestVersion(
 	currentVersion: string,
 	options: { timeoutMs?: number } = {},
 ): Promise<string | undefined> {
-	return (await getLatestPiRelease(currentVersion, options))?.version;
+	return (await getLatestRelease(currentVersion, options))?.version;
 }
 
-export async function checkForNewPiVersion(currentVersion: string): Promise<string | undefined> {
+export async function checkForNewRelease(currentVersion: string): Promise<string | undefined> {
 	try {
-		const latestVersion = await getLatestPiVersion(currentVersion);
+		const latestVersion = await getLatestVersion(currentVersion);
 		if (latestVersion && isNewerPackageVersion(latestVersion, currentVersion)) {
 			return latestVersion;
 		}

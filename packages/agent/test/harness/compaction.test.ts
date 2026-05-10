@@ -5,7 +5,7 @@ import {
 	type Model,
 	registerFauxProvider,
 	type Usage,
-} from "@earendil-works/pi-ai";
+} from "@alf-agent/ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	calculateContextTokens,
@@ -220,7 +220,7 @@ describe("harness compaction", () => {
 			{
 				role: "toolResult",
 				toolCallId: "tc1",
-				toolName: "read",
+				toolName: "file_read",
 				content: [{ type: "text", text: longContent }],
 				isError: false,
 				timestamp: Date.now(),
@@ -289,7 +289,7 @@ describe("harness compaction", () => {
 		const u1 = createMessageEntry(createUserMessage("read a file"));
 		const assistantMessage: AssistantMessage = {
 			...createAssistantMessage("calling tool", createMockUsage(1000, 200)),
-			content: [{ type: "toolCall", id: "tool-1", name: "read", arguments: { path: "src/index.ts" } }],
+			content: [{ type: "toolCall", id: "tool-1", name: "file_read", arguments: { path: "src/index.ts" } }],
 		};
 		const a1 = createMessageEntry(assistantMessage, u1.id);
 		const u2 = createMessageEntry(createUserMessage("continue"), a1.id);

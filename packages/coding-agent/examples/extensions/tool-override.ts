@@ -8,7 +8,7 @@
  * - Routing tool calls to remote systems (e.g., pi-ssh-remote)
  * - Modifying tool behavior for specific workflows
  *
- * This example overrides the `read` tool to:
+ * This example overrides the `file_read` tool to:
  * 1. Log all file access to a log file
  * 2. Block access to sensitive paths (e.g., .env files)
  * 3. Delegate to the original read implementation for allowed files
@@ -20,14 +20,14 @@
  *   pi -e ./tool-override.ts
  */
 
-import type { TextContent } from "@earendil-works/pi-ai";
-import { type ExtensionAPI, getAgentDir, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
+import type { TextContent } from "@alf-agent/ai";
+import { type ExtensionAPI, getAgentDir, withFileMutationQueue } from "@alf-agent/coding-agent";
 import { constants, readFileSync } from "fs";
 import { access, appendFile, readFile } from "fs/promises";
 import { join, resolve } from "path";
 import { Type } from "typebox";
 
-const LOG_FILE = join(getAgentDir(), "read-access.log");
+const LOG_FILE = join(getAgentDir(), "file-read-access.log");
 
 // Paths that are blocked from reading
 const BLOCKED_PATTERNS = [
@@ -65,10 +65,10 @@ const readSchema = Type.Object({
 	limit: Type.Optional(Type.Number({ description: "Maximum number of lines to read" })),
 });
 
-export default function (pi: ExtensionAPI) {
-	pi.registerTool({
-		name: "read", // Same name as built-in - this will override it
-		label: "read (audited)",
+export default function (alf: ExtensionAPI) {
+	alf.registerTool({
+		name: "file_read", // Same name as built-in - this will override it
+		label: "file_read (audited)",
 		description:
 			"Read the contents of a file with access logging. Some sensitive paths (.env, secrets, credentials) are blocked.",
 		parameters: readSchema,
@@ -129,7 +129,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	// Also register a command to view the access log
-	pi.registerCommand("read-log", {
+	alf.registerCommand("read-log", {
 		description: "View the file access log",
 		handler: async (_args, ctx) => {
 			try {

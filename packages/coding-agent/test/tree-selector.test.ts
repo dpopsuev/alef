@@ -1,4 +1,4 @@
-import { setKeybindings } from "@earendil-works/pi-tui";
+import { setKeybindings } from "@alf-agent/tui";
 import { beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { KeybindingsManager } from "../src/core/keybindings.js";
 import type {
@@ -66,7 +66,7 @@ function toolCallOnlyAssistant(id: string, parentId: string | null): SessionMess
 		timestamp: new Date().toISOString(),
 		message: {
 			role: "assistant",
-			content: [{ type: "toolCall", id: `tc-${id}`, name: "read", arguments: { path: "test.ts" } }],
+			content: [{ type: "toolCall", id: `tc-${id}`, name: "file_read", arguments: { path: "test.ts" } }],
 			api: "anthropic-messages",
 			provider: "anthropic",
 			model: "claude-sonnet-4",

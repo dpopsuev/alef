@@ -13,7 +13,7 @@
   <a href="https://exe.dev"><img src="docs/images/exy.png" alt="Exy mascot" width="48" /><br />exe.dev</a>
 </p>
 
-> New issues and PRs from new contributors are auto-closed by default. Maintainers review auto-closed issues daily. See [CONTRIBUTING.md](../../CONTRIBUTING.md).
+> This fork is maintained BDFL-style; outside contributions are not accepted. Source is open to read and to fork (MIT). See [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ---
 
@@ -646,7 +646,7 @@ pi --thinking high "Solve this complex problem"
 
 ## Contributing & Development
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines and [docs/development.md](docs/development.md) for setup, forking, and debugging.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for governance (BDFL; read/fork) and [docs/development.md](docs/development.md) for setup, forking, and debugging.
 
 ---
 

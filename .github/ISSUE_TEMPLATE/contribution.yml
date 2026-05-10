@@ -1,36 +1,20 @@
-name: Contribution Proposal
-description: Propose a change or feature (required for new contributors before submitting a PR)
+name: External inquiry (not triaged)
+description: Outside proposals are not reviewed — fork locally or contribute to upstream Pi
 labels: []
 body:
   - type: markdown
     attributes:
       value: |
-        **Before you start:** Read [CONTRIBUTING.md](https://github.com/earendil-works/pi-mono/blob/main/CONTRIBUTING.md).
+        **Alf Agent** is a **BDFL fork**. Unsolicited contributions are **not** accepted; issues from strangers are typically **auto-closed** without reply.
 
-        New issues from new contributors are auto-closed by default. Maintainers review auto-closed issues daily. Issues that do not meet the quality bar in [CONTRIBUTING.md](https://github.com/earendil-works/pi-mono/blob/main/CONTRIBUTING.md) will not be reopened or receive a reply.
+        Read [CONTRIBUTING.md](https://github.com/dpopsuev/alf-agent/blob/main/CONTRIBUTING.md).
 
-        Keep this short. If it doesn't fit on one screen, it's too long. Write in your own voice.
-
-  - type: textarea
-    id: what
-    attributes:
-      label: What do you want to change?
-      description: Be specific and concise.
-    validations:
-      required: true
+        You may **read** and **fork** this MIT-licensed code. To contribute to **Pi**, use **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 
   - type: textarea
-    id: why
+    id: note
     attributes:
-      label: Why?
-      description: What problem does this solve?
-    validations:
-      required: true
-
-  - type: textarea
-    id: how
-    attributes:
-      label: How? (optional)
-      description: Brief technical approach if you have one in mind.
+      label: Note (optional)
+      description: Do not expect maintainers to read or respond.
     validations:
       required: false

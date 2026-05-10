@@ -34,13 +34,8 @@
 
 ## Contribution Gate
 
-- New issues from new contributors are auto-closed by `.github/workflows/issue-gate.yml`
-- New PRs from new contributors without PR rights are auto-closed by `.github/workflows/pr-gate.yml`
-- Maintainer approval comments are handled by `.github/workflows/approve-contributor.yml`
-- Maintainers review auto-closed issues daily
-- Issues that do not meet the quality bar in `CONTRIBUTING.md` are not reopened and do not receive a reply
-- `lgtmi` approves future issues
-- `lgtm` approves future issues and rights to submit PRs
+- This fork is **BDFL-maintained** and **does not accept outside contributions** (see `CONTRIBUTING.md`). The repository remains **open to read** and **open to fork** under the MIT license.
+- Inbound issues and pull requests from strangers may still be auto-closed by `.github/workflows/issue-gate.yml` and `.github/workflows/pr-gate.yml`.
 
 When creating issues:
 

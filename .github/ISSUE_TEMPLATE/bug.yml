@@ -5,9 +5,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Before you start:** Read [CONTRIBUTING.md](https://github.com/earendil-works/pi-mono/blob/main/CONTRIBUTING.md).
+        **Before you start:** Read [CONTRIBUTING.md](https://github.com/dpopsuev/alf-agent/blob/main/CONTRIBUTING.md).
 
-        New issues from new contributors are auto-closed by default. Maintainers review auto-closed issues daily. Issues that do not meet the quality bar in [CONTRIBUTING.md](https://github.com/earendil-works/pi-mono/blob/main/CONTRIBUTING.md) will not be reopened or receive a reply.
+        **Alf Agent** is a **BDFL fork**: outside bug reports are typically **auto-closed** without triage. There is no expectation of review for strangers.
+
+        Bugs in **upstream Pi** belong in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 
         Keep this short. If it doesn't fit on one screen, it's too long. Write in your own voice.
 

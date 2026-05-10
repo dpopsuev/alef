@@ -113,14 +113,13 @@ jobs:
 
             console.log(`${prAuthor} is not approved, closing PR`);
 
+            const contribUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/blob/${defaultBranch}/CONTRIBUTING.md`;
             const message = [
-              'This PR was auto-closed. Only contributors approved with `lgtm` can open PRs. Open an issue first.',
+              'This PR was auto-closed.',
               '',
-              `Maintainers review auto-closed issues daily. Issues that do not meet the quality bar in [CONTRIBUTING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/${defaultBranch}/CONTRIBUTING.md) will not be reopened or receive a reply.`,
+              'Alf Agent is maintained BDFL-style and does not merge unsolicited pull requests from strangers.',
               '',
-              'If a maintainer replies `lgtmi`, your future issues will stay open. If a maintainer replies `lgtm`, your future issues and PRs will stay open.',
-              '',
-              `See [CONTRIBUTING.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/${defaultBranch}/CONTRIBUTING.md).`,
+              `See [CONTRIBUTING.md](${contribUrl}) — fork the MIT-licensed code if you need changes.`,
             ].join('\n');
 
             await closePullRequest(message);

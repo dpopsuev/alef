@@ -4,12 +4,13 @@
 		"module": "ES2022",
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"moduleResolution": "bundler",
+		"baseUrl": ".",
 		"paths": {
 			"*": ["./*"],
-			"@earendil-works/pi-agent-core": ["../../agent/dist/index.d.ts"],
-			"@earendil-works/pi-ai": ["../../ai/dist/index.d.ts"],
-			"@earendil-works/pi-tui": ["../../tui/dist/index.d.ts"],
-			"@earendil-works/pi-web-ui": ["../dist/index.d.ts"]
+			"@alf-agent/agent-core": ["../../agent/src/index.ts"],
+			"@alf-agent/ai": ["../../ai/src/index.ts"],
+			"@alf-agent/tui": ["../../tui/src/index.ts"],
+			"@alf-agent/web-ui": ["../src/index.ts"]
 		},
 		"strict": true,
 		"skipLibCheck": true,

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getModel } from "@earendil-works/pi-ai";
+import { getModel } from "@alf-agent/ai";
 import { Type } from "typebox";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DefaultResourceLoader } from "../../../src/core/resource-loader.js";
@@ -66,19 +66,19 @@ describe("regression #2835: tool allowlists filter extension tools", () => {
 	}
 
 	it("allows only explicitly listed built-in and extension tools", async () => {
-		const session = await createSession(["read", "dynamic_tool"]);
+		const session = await createSession(["file_read", "dynamic_tool"]);
 
 		expect(
 			session
 				.getAllTools()
 				.map((tool) => tool.name)
 				.sort(),
-		).toEqual(["dynamic_tool", "read"]);
-		expect(session.getActiveToolNames().sort()).toEqual(["dynamic_tool", "read"]);
-		expect(session.systemPrompt).toContain("- read: Read file contents");
+		).toEqual(["dynamic_tool", "file_read"]);
+		expect(session.getActiveToolNames().sort()).toEqual(["dynamic_tool", "file_read"]);
+		expect(session.systemPrompt).toContain("- file_read: Read file contents");
 		expect(session.systemPrompt).toContain("- dynamic_tool: Run dynamic test behavior");
-		expect(session.systemPrompt).not.toContain("- bash:");
-		expect(session.systemPrompt).not.toContain("- edit:");
+		expect(session.systemPrompt).not.toContain("- file_bash:");
+		expect(session.systemPrompt).not.toContain("- file_edit:");
 		session.dispose();
 	});
 

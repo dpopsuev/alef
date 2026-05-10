@@ -1,4 +1,4 @@
-import type { AssistantMessage } from "@earendil-works/pi-ai";
+import type { AssistantMessage } from "@alf-agent/ai";
 import { describe, expect, test } from "vitest";
 import { AssistantMessageComponent } from "../src/modes/interactive/components/assistant-message.js";
 import { initTheme } from "../src/modes/interactive/theme/theme.js";
@@ -45,7 +45,7 @@ describe("AssistantMessageComponent", () => {
 		const component = new AssistantMessageComponent(
 			createAssistantMessage([
 				{ type: "text", text: "calling tool" },
-				{ type: "toolCall", id: "tool-1", name: "read", arguments: { path: "file.txt" } },
+				{ type: "toolCall", id: "tool-1", name: "file_read", arguments: { path: "file.txt" } },
 			]),
 		);
 		const rendered = component.render(60).join("\n");

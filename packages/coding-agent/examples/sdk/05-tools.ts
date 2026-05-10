@@ -10,18 +10,18 @@
  * extensions system using pi.registerTool().
  */
 
-import { createAgentSession, SessionManager } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, SessionManager } from "@alf-agent/coding-agent";
 
 // Read-only mode (no edit/write)
 await createAgentSession({
-	tools: ["read", "grep", "find", "ls"],
+	tools: ["file_read", "file_grep", "file_find", "file_ls"],
 	sessionManager: SessionManager.inMemory(),
 });
 console.log("Read-only session created");
 
 // Custom tool selection
 await createAgentSession({
-	tools: ["read", "bash", "grep"],
+	tools: ["file_read", "file_bash", "file_grep"],
 	sessionManager: SessionManager.inMemory(),
 });
 console.log("Custom tools session created");
@@ -30,7 +30,7 @@ console.log("Custom tools session created");
 const customCwd = "/path/to/project";
 await createAgentSession({
 	cwd: customCwd,
-	tools: ["read", "bash", "edit", "write"],
+	tools: ["file_read", "file_bash", "file_edit", "file_write"],
 	sessionManager: SessionManager.inMemory(customCwd),
 });
 console.log("Custom cwd session created");
@@ -38,7 +38,7 @@ console.log("Custom cwd session created");
 // Or pick specific tools for custom cwd
 await createAgentSession({
 	cwd: customCwd,
-	tools: ["read", "bash", "grep"],
+	tools: ["file_read", "file_bash", "file_grep"],
 	sessionManager: SessionManager.inMemory(customCwd),
 });
 console.log("Specific tools with custom cwd session created");

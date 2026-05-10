@@ -16,7 +16,7 @@
  * Then use ctrl+o to toggle between minimal (collapsed) and full (expanded) views.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@alf-agent/coding-agent";
 import {
 	createBashTool,
 	createEditTool,
@@ -25,8 +25,8 @@ import {
 	createLsTool,
 	createReadTool,
 	createWriteTool,
-} from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+} from "@alf-agent/coding-agent";
+import { Text } from "@alf-agent/tui";
 import { homedir } from "os";
 
 /**
@@ -45,13 +45,13 @@ const toolCache = new Map<string, ReturnType<typeof createBuiltInTools>>();
 
 function createBuiltInTools(cwd: string) {
 	return {
-		read: createReadTool(cwd),
-		bash: createBashTool(cwd),
-		edit: createEditTool(cwd),
-		write: createWriteTool(cwd),
-		find: createFindTool(cwd),
-		grep: createGrepTool(cwd),
-		ls: createLsTool(cwd),
+		file_read: createReadTool(cwd),
+		file_bash: createBashTool(cwd),
+		file_edit: createEditTool(cwd),
+		file_write: createWriteTool(cwd),
+		file_find: createFindTool(cwd),
+		file_grep: createGrepTool(cwd),
+		file_ls: createLsTool(cwd),
 	};
 }
 
@@ -64,20 +64,20 @@ function getBuiltInTools(cwd: string) {
 	return tools;
 }
 
-export default function (pi: ExtensionAPI) {
+export default function (alf: ExtensionAPI) {
 	// =========================================================================
 	// Read Tool
 	// =========================================================================
-	pi.registerTool({
-		name: "read",
-		label: "read",
+	alf.registerTool({
+		name: "file_read",
+		label: "file_read",
 		description:
 			"Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files.",
-		parameters: getBuiltInTools(process.cwd()).read.parameters,
+		parameters: getBuiltInTools(process.cwd()).file_read.parameters,
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			const tools = getBuiltInTools(ctx.cwd);
-			return tools.read.execute(toolCallId, params, signal, onUpdate);
+			return tools.file_read.execute(toolCallId, params, signal, onUpdate);
 		},
 
 		renderCall(args, theme, _context) {
@@ -91,7 +91,7 @@ export default function (pi: ExtensionAPI) {
 				pathDisplay += theme.fg("warning", `:${startLine}${endLine ? `-${endLine}` : ""}`);
 			}
 
-			return new Text(`${theme.fg("toolTitle", theme.bold("read"))} ${pathDisplay}`, 0, 0);
+			return new Text(`${theme.fg("toolTitle", theme.bold("file_read"))} ${pathDisplay}`, 0, 0);
 		},
 
 		renderResult(result, { expanded }, theme, _context) {
@@ -115,16 +115,16 @@ export default function (pi: ExtensionAPI) {
 	// =========================================================================
 	// Bash Tool
 	// =========================================================================
-	pi.registerTool({
-		name: "bash",
-		label: "bash",
+	alf.registerTool({
+		name: "file_bash",
+		label: "file_bash",
 		description:
 			"Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last 2000 lines or 50KB (whichever is hit first).",
-		parameters: getBuiltInTools(process.cwd()).bash.parameters,
+		parameters: getBuiltInTools(process.cwd()).file_bash.parameters,
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			const tools = getBuiltInTools(ctx.cwd);
-			return tools.bash.execute(toolCallId, params, signal, onUpdate);
+			return tools.file_bash.execute(toolCallId, params, signal, onUpdate);
 		},
 
 		renderCall(args, theme, _context) {
@@ -164,16 +164,16 @@ export default function (pi: ExtensionAPI) {
 	// =========================================================================
 	// Write Tool
 	// =========================================================================
-	pi.registerTool({
-		name: "write",
-		label: "write",
+	alf.registerTool({
+		name: "file_write",
+		label: "file_write",
 		description:
 			"Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
-		parameters: getBuiltInTools(process.cwd()).write.parameters,
+		parameters: getBuiltInTools(process.cwd()).file_write.parameters,
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			const tools = getBuiltInTools(ctx.cwd);
-			return tools.write.execute(toolCallId, params, signal, onUpdate);
+			return tools.file_write.execute(toolCallId, params, signal, onUpdate);
 		},
 
 		renderCall(args, theme, _context) {
@@ -182,7 +182,7 @@ export default function (pi: ExtensionAPI) {
 			const lineCount = args.content ? args.content.split("\n").length : 0;
 			const lineInfo = lineCount > 0 ? theme.fg("muted", ` (${lineCount} lines)`) : "";
 
-			return new Text(`${theme.fg("toolTitle", theme.bold("write"))} ${pathDisplay}${lineInfo}`, 0, 0);
+			return new Text(`${theme.fg("toolTitle", theme.bold("file_write"))} ${pathDisplay}${lineInfo}`, 0, 0);
 		},
 
 		renderResult(result, { expanded }, theme, _context) {
@@ -206,23 +206,23 @@ export default function (pi: ExtensionAPI) {
 	// =========================================================================
 	// Edit Tool
 	// =========================================================================
-	pi.registerTool({
-		name: "edit",
-		label: "edit",
+	alf.registerTool({
+		name: "file_edit",
+		label: "file_edit",
 		description:
 			"Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.",
-		parameters: getBuiltInTools(process.cwd()).edit.parameters,
+		parameters: getBuiltInTools(process.cwd()).file_edit.parameters,
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			const tools = getBuiltInTools(ctx.cwd);
-			return tools.edit.execute(toolCallId, params, signal, onUpdate);
+			return tools.file_edit.execute(toolCallId, params, signal, onUpdate);
 		},
 
 		renderCall(args, theme, _context) {
 			const path = shortenPath(args.path || "");
 			const pathDisplay = path ? theme.fg("accent", path) : theme.fg("toolOutput", "...");
 
-			return new Text(`${theme.fg("toolTitle", theme.bold("edit"))} ${pathDisplay}`, 0, 0);
+			return new Text(`${theme.fg("toolTitle", theme.bold("file_edit"))} ${pathDisplay}`, 0, 0);
 		},
 
 		renderResult(result, { expanded }, theme, _context) {
@@ -251,16 +251,16 @@ export default function (pi: ExtensionAPI) {
 	// =========================================================================
 	// Find Tool
 	// =========================================================================
-	pi.registerTool({
-		name: "find",
-		label: "find",
+	alf.registerTool({
+		name: "file_find",
+		label: "file_find",
 		description:
 			"Find files by name pattern (glob). Searches recursively from the specified path. Output limited to 200 results.",
-		parameters: getBuiltInTools(process.cwd()).find.parameters,
+		parameters: getBuiltInTools(process.cwd()).file_find.parameters,
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			const tools = getBuiltInTools(ctx.cwd);
-			return tools.find.execute(toolCallId, params, signal, onUpdate);
+			return tools.file_find.execute(toolCallId, params, signal, onUpdate);
 		},
 
 		renderCall(args, theme, _context) {
@@ -268,7 +268,7 @@ export default function (pi: ExtensionAPI) {
 			const path = shortenPath(args.path || ".");
 			const limit = args.limit;
 
-			let text = `${theme.fg("toolTitle", theme.bold("find"))} ${theme.fg("accent", pattern)}`;
+			let text = `${theme.fg("toolTitle", theme.bold("file_find"))} ${theme.fg("accent", pattern)}`;
 			text += theme.fg("toolOutput", ` in ${path}`);
 			if (limit !== undefined) {
 				text += theme.fg("toolOutput", ` (limit ${limit})`);
@@ -309,16 +309,16 @@ export default function (pi: ExtensionAPI) {
 	// =========================================================================
 	// Grep Tool
 	// =========================================================================
-	pi.registerTool({
-		name: "grep",
-		label: "grep",
+	alf.registerTool({
+		name: "file_grep",
+		label: "file_grep",
 		description:
 			"Search file contents by regex pattern. Uses ripgrep for fast searching. Output limited to 200 matches.",
-		parameters: getBuiltInTools(process.cwd()).grep.parameters,
+		parameters: getBuiltInTools(process.cwd()).file_grep.parameters,
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			const tools = getBuiltInTools(ctx.cwd);
-			return tools.grep.execute(toolCallId, params, signal, onUpdate);
+			return tools.file_grep.execute(toolCallId, params, signal, onUpdate);
 		},
 
 		renderCall(args, theme, _context) {
@@ -327,7 +327,7 @@ export default function (pi: ExtensionAPI) {
 			const glob = args.glob;
 			const limit = args.limit;
 
-			let text = `${theme.fg("toolTitle", theme.bold("grep"))} ${theme.fg("accent", `/${pattern}/`)}`;
+			let text = `${theme.fg("toolTitle", theme.bold("file_grep"))} ${theme.fg("accent", `/${pattern}/`)}`;
 			text += theme.fg("toolOutput", ` in ${path}`);
 			if (glob) {
 				text += theme.fg("toolOutput", ` (${glob})`);
@@ -371,23 +371,23 @@ export default function (pi: ExtensionAPI) {
 	// =========================================================================
 	// Ls Tool
 	// =========================================================================
-	pi.registerTool({
-		name: "ls",
-		label: "ls",
+	alf.registerTool({
+		name: "file_ls",
+		label: "file_ls",
 		description:
 			"List directory contents with file sizes. Shows files and directories with their sizes. Output limited to 500 entries.",
-		parameters: getBuiltInTools(process.cwd()).ls.parameters,
+		parameters: getBuiltInTools(process.cwd()).file_ls.parameters,
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			const tools = getBuiltInTools(ctx.cwd);
-			return tools.ls.execute(toolCallId, params, signal, onUpdate);
+			return tools.file_ls.execute(toolCallId, params, signal, onUpdate);
 		},
 
 		renderCall(args, theme, _context) {
 			const path = shortenPath(args.path || ".");
 			const limit = args.limit;
 
-			let text = `${theme.fg("toolTitle", theme.bold("ls"))} ${theme.fg("accent", path)}`;
+			let text = `${theme.fg("toolTitle", theme.bold("file_ls"))} ${theme.fg("accent", path)}`;
 			if (limit !== undefined) {
 				text += theme.fg("toolOutput", ` (limit ${limit})`);
 			}

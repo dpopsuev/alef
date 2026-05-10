@@ -1,8 +1,8 @@
 /**
  * Built-in Tool Renderer Example - Custom rendering for built-in tools
  *
- * Demonstrates how to override the rendering of built-in tools (read, bash,
- * edit, write) without changing their behavior. Each tool is re-registered
+ * Demonstrates how to override the rendering of built-in tools (file_read, file_bash,
+ * file_edit, file_write) without changing their behavior. Each tool is re-registered
  * with the same name, delegating execution to the original implementation
  * while providing compact custom renderCall/renderResult functions.
  *
@@ -25,18 +25,18 @@
  *   pi -e ./built-in-tool-renderer.ts
  */
 
-import type { BashToolDetails, EditToolDetails, ExtensionAPI, ReadToolDetails } from "@earendil-works/pi-coding-agent";
-import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import type { BashToolDetails, EditToolDetails, ExtensionAPI, ReadToolDetails } from "@alf-agent/coding-agent";
+import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@alf-agent/coding-agent";
+import { Text } from "@alf-agent/tui";
 
-export default function (pi: ExtensionAPI) {
+export default function (alf: ExtensionAPI) {
 	const cwd = process.cwd();
 
 	// --- Read tool: show path and line count ---
 	const originalRead = createReadTool(cwd);
-	pi.registerTool({
-		name: "read",
-		label: "read",
+	alf.registerTool({
+		name: "file_read",
+		label: "file_read",
 		description: originalRead.description,
 		parameters: originalRead.parameters,
 
@@ -45,7 +45,7 @@ export default function (pi: ExtensionAPI) {
 		},
 
 		renderCall(args, theme, _context) {
-			let text = theme.fg("toolTitle", theme.bold("read "));
+			let text = theme.fg("toolTitle", theme.bold("file_read "));
 			text += theme.fg("accent", args.path);
 			if (args.offset || args.limit) {
 				const parts: string[] = [];
@@ -93,9 +93,9 @@ export default function (pi: ExtensionAPI) {
 
 	// --- Bash tool: show command and exit code ---
 	const originalBash = createBashTool(cwd);
-	pi.registerTool({
-		name: "bash",
-		label: "bash",
+	alf.registerTool({
+		name: "file_bash",
+		label: "file_bash",
 		description: originalBash.description,
 		parameters: originalBash.parameters,
 
@@ -152,9 +152,9 @@ export default function (pi: ExtensionAPI) {
 
 	// --- Edit tool: show path and diff stats ---
 	const originalEdit = createEditTool(cwd);
-	pi.registerTool({
-		name: "edit",
-		label: "edit",
+	alf.registerTool({
+		name: "file_edit",
+		label: "file_edit",
 		description: originalEdit.description,
 		parameters: originalEdit.parameters,
 		renderShell: "self",
@@ -164,7 +164,7 @@ export default function (pi: ExtensionAPI) {
 		},
 
 		renderCall(args, theme, _context) {
-			let text = theme.fg("toolTitle", theme.bold("edit "));
+			let text = theme.fg("toolTitle", theme.bold("file_edit "));
 			text += theme.fg("accent", args.path);
 			return new Text(text, 0, 0);
 		},
@@ -217,9 +217,9 @@ export default function (pi: ExtensionAPI) {
 
 	// --- Write tool: show path and size ---
 	const originalWrite = createWriteTool(cwd);
-	pi.registerTool({
-		name: "write",
-		label: "write",
+	alf.registerTool({
+		name: "file_write",
+		label: "file_write",
 		description: originalWrite.description,
 		parameters: originalWrite.parameters,
 

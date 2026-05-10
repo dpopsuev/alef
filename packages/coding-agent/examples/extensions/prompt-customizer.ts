@@ -12,7 +12,7 @@
  * 2. Use the extension — it automatically adapts to your active tools and skills
  */
 
-import type { BuildSystemPromptOptions, ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { BuildSystemPromptOptions, ExtensionAPI } from "@alf-agent/coding-agent";
 
 /**
  * Adds tool-specific guidance that adapts to the active tool set.
@@ -24,25 +24,25 @@ function addToolGuidance(options: BuildSystemPromptOptions, basePrompt: string):
 
 	const parts: string[] = [];
 
-	if (hasTool("read")) {
+	if (hasTool("file_read")) {
 		parts.push(
-			"• Use the `read` tool for file contents (supports text and images).",
+			"• Use the `file_read` tool for file contents (supports text and images).",
 			"  - For large files, use `offset` and `limit` to read in chunks.",
 		);
 	}
 
-	if (hasTool("bash")) {
-		parts.push("• Execute commands with the `bash` tool. Use it for file operations like `ls`, `find`, `grep`.");
+	if (hasTool("file_bash")) {
+		parts.push("• Execute commands with the `file_bash` tool. Use it for file operations like `ls`, `find`, `grep`.");
 	}
 
-	if (hasTool("edit")) {
+	if (hasTool("file_edit")) {
 		parts.push(
-			"• Use the `edit` tool for precise text replacements in files. Match exact content including whitespace.",
+			"• Use the `file_edit` tool for precise text replacements in files. Match exact content including whitespace.",
 		);
 	}
 
-	if (hasTool("write")) {
-		parts.push("• Use the `write` tool to create new files or overwrite existing ones completely.");
+	if (hasTool("file_write")) {
+		parts.push("• Use the `file_write` tool to create new files or overwrite existing ones completely.");
 	}
 
 	if (options.skills && options.skills.length > 0) {
@@ -83,8 +83,8 @@ If you have additional requirements, configure them via --append-system-prompt o
 	return extensionSpecific;
 }
 
-export default function promptCustomizer(pi: ExtensionAPI) {
-	pi.on("before_agent_start", async (event) => {
+export default function promptCustomizer(alf: ExtensionAPI) {
+	alf.on("before_agent_start", async (event) => {
 		const { systemPrompt, systemPromptOptions } = event;
 
 		const customPrompt = addToolGuidance(systemPromptOptions, systemPrompt);

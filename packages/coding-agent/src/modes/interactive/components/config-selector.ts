@@ -14,8 +14,8 @@ import {
 	Spacer,
 	truncateToWidth,
 	visibleWidth,
-} from "@earendil-works/pi-tui";
-import { CONFIG_DIR_NAME } from "../../../config.js";
+} from "@alf-agent/tui";
+import { CONFIG_DIR_NAME, getAgentDir } from "../../../config.js";
 import type { PathMetadata, ResolvedPaths, ResolvedResource } from "../../../core/package-manager.js";
 import type { PackageSource, SettingsManager } from "../../../core/settings-manager.js";
 import { theme } from "../theme/theme.js";
@@ -84,7 +84,7 @@ function getGroupLabel(metadata: PathMetadata): string {
 				? `User (${formatBaseDir(metadata.baseDir)})`
 				: `Project (${formatBaseDir(metadata.baseDir)})`;
 		}
-		return metadata.scope === "user" ? "User (~/.pi/agent/)" : "Project (.pi/)";
+		return metadata.scope === "user" ? `User (${formatBaseDir(getAgentDir())})` : `Project (${CONFIG_DIR_NAME}/)`;
 	}
 	return metadata.scope === "user" ? "User settings" : "Project settings";
 }

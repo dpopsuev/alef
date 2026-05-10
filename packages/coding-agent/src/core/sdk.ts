@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import { Agent, type AgentMessage, type ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { clampThinkingLevel, type Message, type Model, streamSimple } from "@earendil-works/pi-ai";
-import { getAgentDir } from "../config.js";
+import { Agent, type AgentMessage, type ThinkingLevel } from "@alf-agent/agent-core";
+import { clampThinkingLevel, type Message, type Model, streamSimple } from "@alf-agent/ai";
+import { APP_NAME, getAgentDir } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { formatNoModelsAvailableMessage } from "./auth-guidance.js";
 import { AuthStorage } from "./auth-storage.js";
@@ -25,6 +25,7 @@ import {
 	createLsTool,
 	createReadOnlyTools,
 	createReadTool,
+	createSymbolOutlineTool,
 	createWriteTool,
 	type ToolName,
 	withFileMutationQueue,
@@ -33,7 +34,7 @@ import {
 export interface CreateAgentSessionOptions {
 	/** Working directory for project-local discovery. Default: process.cwd() */
 	cwd?: string;
-	/** Global config directory. Default: ~/.pi/agent */
+	/** Global config directory (platform default; Linux uses XDG config home). */
 	agentDir?: string;
 
 	/** Auth storage for credentials. Default: AuthStorage.create(agentDir/auth.json) */
@@ -52,14 +53,14 @@ export interface CreateAgentSessionOptions {
 	 * Optional default tool suppression mode when no explicit allowlist is provided.
 	 *
 	 * - "all": start with no tools enabled
-	 * - "builtin": disable the default built-in tools (read, bash, edit, write)
+	 * - "builtin": disable the default built-in tools (symbol_outline, file_read, file_bash, file_edit, file_write)
 	 *   but keep extension/custom tools enabled
 	 */
 	noTools?: "all" | "builtin";
 	/**
 	 * Optional allowlist of tool names.
 	 *
-	 * When omitted, pi enables the default built-in tools (read, bash, edit, write)
+	 * When omitted, pi enables the default built-in tools (symbol_outline, file_read, file_bash, file_edit, file_write)
 	 * and leaves extension/custom tools enabled unless `noTools` changes that default.
 	 * When provided, only the listed tool names are enabled.
 	 */
@@ -111,6 +112,7 @@ export {
 	createCodingTools,
 	createReadOnlyTools,
 	createReadTool,
+	createSymbolOutlineTool,
 	createBashTool,
 	createEditTool,
 	createWriteTool,
@@ -135,8 +137,8 @@ function getAttributionHeaders(
 
 	if (model.provider === "openrouter" || model.baseUrl.includes("openrouter.ai")) {
 		return {
-			"HTTP-Referer": "https://pi.dev",
-			"X-OpenRouter-Title": "pi",
+			"HTTP-Referer": process.env.ALF_OPENROUTER_HTTP_REFERER ?? "https://local.invalid",
+			"X-OpenRouter-Title": "alf",
 			"X-OpenRouter-Categories": "cli-agent",
 		};
 	}
@@ -148,7 +150,7 @@ function getAttributionHeaders(
 		model.baseUrl.includes("gateway.ai.cloudflare.com")
 	) {
 		return {
-			"User-Agent": "pi-coding-agent",
+			"User-Agent": `${APP_NAME}-coding-agent`,
 		};
 	}
 
@@ -164,7 +166,7 @@ function getAttributionHeaders(
  * const { session } = await createAgentSession();
  *
  * // With explicit model
- * import { getModel } from '@earendil-works/pi-ai';
+ * import { getModel } from '@alf-agent/ai';
  * const { session } = await createAgentSession({
  *   model: getModel('anthropic', 'claude-opus-4-5'),
  *   thinkingLevel: 'high',
@@ -268,7 +270,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		thinkingLevel = clampThinkingLevel(model, thinkingLevel) as ThinkingLevel;
 	}
 
-	const defaultActiveToolNames: ToolName[] = ["read", "bash", "edit", "write"];
+	const defaultActiveToolNames: ToolName[] = ["symbol_outline", "file_read", "file_bash", "file_edit", "file_write"];
 	const allowedToolNames = options.tools ?? (options.noTools === "all" ? [] : undefined);
 	const initialActiveToolNames: string[] = options.tools
 		? [...options.tools]

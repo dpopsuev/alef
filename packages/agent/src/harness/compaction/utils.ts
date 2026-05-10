@@ -2,7 +2,7 @@
  * Shared utilities for compaction and branch summarization.
  */
 
-import type { Message } from "@earendil-works/pi-ai";
+import type { Message } from "@alf-agent/ai";
 import type { AgentMessage } from "../../types.js";
 
 // ============================================================================
@@ -42,13 +42,13 @@ export function extractFileOpsFromMessage(message: AgentMessage, fileOps: FileOp
 		if (!path) continue;
 
 		switch (block.name) {
-			case "read":
+			case "file_read":
 				fileOps.read.add(path);
 				break;
-			case "write":
+			case "file_write":
 				fileOps.written.add(path);
 				break;
-			case "edit":
+			case "file_edit":
 				fileOps.edited.add(path);
 				break;
 		}

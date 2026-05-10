@@ -1,7 +1,7 @@
 /**
  * Subagent Tool - Delegate tasks to specialized agents
  *
- * Spawns a separate `pi` process for each subagent invocation,
+ * Spawns a separate `alf` process for each subagent invocation,
  * giving it an isolated context window.
  *
  * Supports three modes:
@@ -16,11 +16,11 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import type { Message } from "@earendil-works/pi-ai";
-import { StringEnum } from "@earendil-works/pi-ai";
-import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
-import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
+import type { AgentToolResult } from "@alf-agent/agent-core";
+import type { Message } from "@alf-agent/ai";
+import { StringEnum } from "@alf-agent/ai";
+import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@alf-agent/coding-agent";
+import { Container, Markdown, Spacer, Text } from "@alf-agent/tui";
 import { Type } from "typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
 
@@ -72,12 +72,12 @@ function formatToolCall(
 	};
 
 	switch (toolName) {
-		case "bash": {
+		case "file_bash": {
 			const command = (args.command as string) || "...";
 			const preview = command.length > 60 ? `${command.slice(0, 60)}...` : command;
 			return themeFg("muted", "$ ") + themeFg("toolOutput", preview);
 		}
-		case "read": {
+		case "file_read": {
 			const rawPath = (args.file_path || args.path || "...") as string;
 			const filePath = shortenPath(rawPath);
 			const offset = args.offset as number | undefined;
@@ -88,38 +88,47 @@ function formatToolCall(
 				const endLine = limit !== undefined ? startLine + limit - 1 : "";
 				text += themeFg("warning", `:${startLine}${endLine ? `-${endLine}` : ""}`);
 			}
-			return themeFg("muted", "read ") + text;
+			return themeFg("muted", "file_read ") + text;
 		}
-		case "write": {
+		case "file_write": {
 			const rawPath = (args.file_path || args.path || "...") as string;
 			const filePath = shortenPath(rawPath);
 			const content = (args.content || "") as string;
 			const lines = content.split("\n").length;
-			let text = themeFg("muted", "write ") + themeFg("accent", filePath);
+			let text = themeFg("muted", "file_write ") + themeFg("accent", filePath);
 			if (lines > 1) text += themeFg("dim", ` (${lines} lines)`);
 			return text;
 		}
-		case "edit": {
+		case "file_edit": {
 			const rawPath = (args.file_path || args.path || "...") as string;
-			return themeFg("muted", "edit ") + themeFg("accent", shortenPath(rawPath));
+			return themeFg("muted", "file_edit ") + themeFg("accent", shortenPath(rawPath));
 		}
-		case "ls": {
+		case "file_ls": {
 			const rawPath = (args.path || ".") as string;
-			return themeFg("muted", "ls ") + themeFg("accent", shortenPath(rawPath));
+			return themeFg("muted", "file_ls ") + themeFg("accent", shortenPath(rawPath));
 		}
-		case "find": {
+		case "file_find": {
 			const pattern = (args.pattern || "*") as string;
 			const rawPath = (args.path || ".") as string;
-			return themeFg("muted", "find ") + themeFg("accent", pattern) + themeFg("dim", ` in ${shortenPath(rawPath)}`);
+			return (
+				themeFg("muted", "file_find ") + themeFg("accent", pattern) + themeFg("dim", ` in ${shortenPath(rawPath)}`)
+			);
 		}
-		case "grep": {
+		case "file_grep": {
 			const pattern = (args.pattern || "") as string;
 			const rawPath = (args.path || ".") as string;
 			return (
-				themeFg("muted", "grep ") +
+				themeFg("muted", "file_grep ") +
 				themeFg("accent", `/${pattern}/`) +
 				themeFg("dim", ` in ${shortenPath(rawPath)}`)
 			);
+		}
+		case "symbol_outline": {
+			const rawPath = (args.path || "...") as string;
+			const depth = args.memberDepth as number | undefined;
+			let text = themeFg("muted", "symbol_outline ") + themeFg("accent", shortenPath(rawPath));
+			if (depth !== undefined) text += themeFg("dim", ` depth=${depth}`);
+			return text;
 		}
 		default: {
 			const argsStr = JSON.stringify(args);
@@ -208,7 +217,7 @@ async function mapWithConcurrencyLimit<TIn, TOut>(
 }
 
 async function writePromptToTempFile(agentName: string, prompt: string): Promise<{ dir: string; filePath: string }> {
-	const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pi-subagent-"));
+	const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "alf-subagent-"));
 	const safeName = agentName.replace(/[^\w.-]+/g, "_");
 	const filePath = path.join(tmpDir, `prompt-${safeName}.md`);
 	await withFileMutationQueue(filePath, async () => {
@@ -230,7 +239,7 @@ function getPiInvocation(args: string[]): { command: string; args: string[] } {
 		return { command: process.execPath, args };
 	}
 
-	return { command: "pi", args };
+	return { command: "alf", args };
 }
 
 type OnUpdateCallback = (partial: AgentToolResult<SubagentDetails>) => void;
@@ -428,15 +437,15 @@ const SubagentParams = Type.Object({
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process (single mode)" })),
 });
 
-export default function (pi: ExtensionAPI) {
-	pi.registerTool({
+export default function (alf: ExtensionAPI) {
+	alf.registerTool({
 		name: "subagent",
 		label: "Subagent",
 		description: [
 			"Delegate tasks to specialized subagents with isolated context.",
 			"Modes: single (agent + task), parallel (tasks array), chain (sequential with {previous} placeholder).",
-			'Default agent scope is "user" (from ~/.pi/agent/agents).',
-			'To enable project-local agents in .pi/agents, set agentScope: "both" (or "project").',
+			'Default agent scope is "user" (from ~/.alf/agent/agents).',
+			'To enable project-local agents in .alf/agents, set agentScope: "both" (or "project").',
 		].join(" "),
 		parameters: SubagentParams,
 

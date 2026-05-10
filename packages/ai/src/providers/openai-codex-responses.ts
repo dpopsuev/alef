@@ -1278,8 +1278,8 @@ function buildBaseCodexHeaders(
 	}
 	headers.set("Authorization", `Bearer ${token}`);
 	headers.set("chatgpt-account-id", accountId);
-	headers.set("originator", "pi");
-	const userAgent = _os ? `pi (${_os.platform()} ${_os.release()}; ${_os.arch()})` : "pi (browser)";
+	headers.set("originator", "alf");
+	const userAgent = _os ? `alf (${_os.platform()} ${_os.release()}; ${_os.arch()})` : "alf (browser)";
 	headers.set("User-Agent", userAgent);
 	return headers;
 }

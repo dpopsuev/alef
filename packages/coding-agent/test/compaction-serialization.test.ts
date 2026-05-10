@@ -1,4 +1,4 @@
-import type { Message } from "@earendil-works/pi-ai";
+import type { Message } from "@alf-agent/ai";
 import { describe, expect, it } from "vitest";
 import { serializeConversation } from "../src/core/compaction/utils.js";
 
@@ -9,7 +9,7 @@ describe("serializeConversation", () => {
 			{
 				role: "toolResult",
 				toolCallId: "tc1",
-				toolName: "read",
+				toolName: "file_read",
 				content: [{ type: "text", text: longContent }],
 				isError: false,
 				timestamp: Date.now(),
@@ -31,7 +31,7 @@ describe("serializeConversation", () => {
 			{
 				role: "toolResult",
 				toolCallId: "tc1",
-				toolName: "read",
+				toolName: "file_read",
 				content: [{ type: "text", text: shortContent }],
 				isError: false,
 				timestamp: Date.now(),

@@ -20,8 +20,8 @@ import {
 	type SimpleStreamOptions,
 	streamSimpleAnthropic,
 	streamSimpleOpenAIResponses,
-} from "@earendil-works/pi-ai";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+} from "@alf-agent/ai";
+import type { ExtensionAPI } from "@alf-agent/coding-agent";
 
 // =============================================================================
 // Constants
@@ -324,8 +324,8 @@ export function streamGitLabDuo(
 // Extension Entry Point
 // =============================================================================
 
-export default function (pi: ExtensionAPI) {
-	pi.registerProvider("gitlab-duo", {
+export default function (alf: ExtensionAPI) {
+	alf.registerProvider("gitlab-duo", {
 		baseUrl: AI_GATEWAY_URL,
 		apiKey: "GITLAB_TOKEN",
 		api: "gitlab-duo-api",

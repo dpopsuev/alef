@@ -1,7 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "baseUrl": ".",
+    "paths": {
+      "@alf-agent/ai": ["../ai/src/index.ts"],
+      "@alf-agent/ai/oauth": ["../ai/src/oauth.ts"],
+      "@alf-agent/agent-core": ["../agent/src/index.ts"],
+      "@alf-agent/tui": ["../tui/src/index.ts"]
+    }
   },
   "include": ["src/**/*"]
 }

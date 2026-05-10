@@ -130,6 +130,8 @@ export type {
 	SetLabelHandler,
 	SetModelHandler,
 	SetThinkingLevelHandler,
+	SymbolOutlineToolCallEvent,
+	SymbolOutlineToolResultEvent,
 	TerminalInputHandler,
 	// Events - Tool
 	ToolCallEvent,
@@ -166,6 +168,7 @@ export {
 	isGrepToolResult,
 	isLsToolResult,
 	isReadToolResult,
+	isSymbolOutlineToolResult,
 	isToolCallEventType,
 	isWriteToolResult,
 } from "./types.js";

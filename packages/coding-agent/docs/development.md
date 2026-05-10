@@ -14,25 +14,31 @@ npm run build
 Run from source:
 
 ```bash
-/path/to/pi-mono/pi-test.sh
+/path/to/your-repo/alf-test.sh
+# Legacy alias: ./pi-test.sh
 ```
 
-The script can be run from any directory. Pi keeps the caller's current working directory.
+The script can be run from any directory. The CLI keeps the caller's current working directory.
 
 ## Forking / Rebranding
 
-Configure via `package.json`:
+Configure via `package.json` (see `packages/coding-agent/package.json` in this fork):
 
 ```json
 {
   "piConfig": {
-    "name": "pi",
-    "configDir": ".pi"
+    "name": "alf",
+    "configDir": ".alf"
+  },
+  "bin": {
+    "alf": "dist/cli.js"
   }
 }
 ```
 
-Change `name`, `configDir`, and `bin` field for your fork. Affects CLI banner, config paths, and environment variable names.
+Change `name`, `configDir`, and `bin` for your fork. Affects CLI banner, project-local config folder name (e.g. `.alf`), and env names (`ALF_CODING_AGENT_DIR`, etc.; `ALF_CODING_AGENT_DIR` still works).
+
+On **Linux**, the default **user** agent directory follows **XDG**: `$XDG_CONFIG_HOME/<name>/agent` (usually `~/.config/alf/agent`). If `~/.alf/agent` already exists, that legacy path is kept until you move it.
 
 ## Path Resolution
 

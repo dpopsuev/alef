@@ -17,14 +17,14 @@
  * - setEditorText() - via /rpc-prefill command
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@alf-agent/coding-agent";
 
-export default function (pi: ExtensionAPI) {
+export default function (alf: ExtensionAPI) {
 	let turnCount = 0;
 
 	// -- setTitle, setWidget, setStatus on session lifecycle --
 
-	pi.on("session_start", async (event, ctx) => {
+	alf.on("session_start", async (event, ctx) => {
 		ctx.ui.setTitle(event.reason === "new" ? "pi RPC Demo (new session)" : "pi RPC Demo");
 		ctx.ui.setWidget("rpc-demo", ["--- RPC Extension UI Demo ---", "Loaded and ready."]);
 		ctx.ui.setStatus("rpc-demo", `Turns: ${turnCount}`);
@@ -32,19 +32,19 @@ export default function (pi: ExtensionAPI) {
 
 	// -- setStatus on turn lifecycle --
 
-	pi.on("turn_start", async (_event, ctx) => {
+	alf.on("turn_start", async (_event, ctx) => {
 		turnCount++;
 		ctx.ui.setStatus("rpc-demo", `Turn ${turnCount} running...`);
 	});
 
-	pi.on("turn_end", async (_event, ctx) => {
+	alf.on("turn_end", async (_event, ctx) => {
 		ctx.ui.setStatus("rpc-demo", `Turn ${turnCount} done`);
 	});
 
 	// -- select on dangerous tool calls --
 
-	pi.on("tool_call", async (event, ctx) => {
-		if (event.toolName !== "bash") return undefined;
+	alf.on("tool_call", async (event, ctx) => {
+		if (event.toolName !== "file_bash") return undefined;
 
 		const command = event.input.command as string;
 		const isDangerous = /\brm\s+(-rf?|--recursive)/i.test(command) || /\bsudo\b/i.test(command);
@@ -67,7 +67,7 @@ export default function (pi: ExtensionAPI) {
 
 	// -- confirm on session clear --
 
-	pi.on("session_before_switch", async (event, ctx) => {
+	alf.on("session_before_switch", async (event, ctx) => {
 		if (event.reason !== "new") return;
 		if (!ctx.hasUI) return;
 
@@ -80,7 +80,7 @@ export default function (pi: ExtensionAPI) {
 
 	// -- input via command --
 
-	pi.registerCommand("rpc-input", {
+	alf.registerCommand("rpc-input", {
 		description: "Prompt for text input (demonstrates ctx.ui.input in RPC)",
 		handler: async (_args, ctx) => {
 			const value = await ctx.ui.input("Enter a value", "type something...");
@@ -94,7 +94,7 @@ export default function (pi: ExtensionAPI) {
 
 	// -- editor via command --
 
-	pi.registerCommand("rpc-editor", {
+	alf.registerCommand("rpc-editor", {
 		description: "Open multi-line editor (demonstrates ctx.ui.editor in RPC)",
 		handler: async (_args, ctx) => {
 			const text = await ctx.ui.editor("Edit some text", "Line 1\nLine 2\nLine 3");
@@ -108,7 +108,7 @@ export default function (pi: ExtensionAPI) {
 
 	// -- setEditorText via command --
 
-	pi.registerCommand("rpc-prefill", {
+	alf.registerCommand("rpc-prefill", {
 		description: "Prefill the input editor (demonstrates ctx.ui.setEditorText in RPC)",
 		handler: async (_args, ctx) => {
 			ctx.ui.setEditorText("This text was set by the rpc-demo extension.");

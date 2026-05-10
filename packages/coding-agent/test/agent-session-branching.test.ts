@@ -10,7 +10,7 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getModel } from "@earendil-works/pi-ai";
+import { getModel } from "@alf-agent/ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentSession } from "../src/core/agent-session.js";
 import {
@@ -71,7 +71,7 @@ describe.skipIf(!API_KEY)("AgentSession forking", () => {
 					sessionManager,
 					sessionStartEvent,
 					model,
-					tools: ["read", "bash", "edit", "write"],
+					tools: ["file_read", "file_bash", "file_edit", "file_write"],
 				})),
 				services,
 				diagnostics: services.diagnostics,

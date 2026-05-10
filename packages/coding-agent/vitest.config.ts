@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 const aiSrcIndex = fileURLToPath(new URL("../ai/src/index.ts", import.meta.url));
 const aiSrcOAuth = fileURLToPath(new URL("../ai/src/oauth.ts", import.meta.url));
 const agentSrcIndex = fileURLToPath(new URL("../agent/src/index.ts", import.meta.url));
+const tuiSrcIndex = fileURLToPath(new URL("../tui/src/index.ts", import.meta.url));
 
 export default defineConfig({
 	test: {
@@ -18,12 +19,10 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: [
-			{ find: /^@earendil-works\/pi-ai$/, replacement: aiSrcIndex },
-			{ find: /^@earendil-works\/pi-ai\/oauth$/, replacement: aiSrcOAuth },
-			{ find: /^@earendil-works\/pi-agent-core$/, replacement: agentSrcIndex },
-			{ find: /^@mariozechner\/pi-ai$/, replacement: aiSrcIndex },
-			{ find: /^@mariozechner\/pi-ai\/oauth$/, replacement: aiSrcOAuth },
-			{ find: /^@mariozechner\/pi-agent-core$/, replacement: agentSrcIndex },
+			{ find: /^@alf-agent\/ai$/, replacement: aiSrcIndex },
+			{ find: /^@alf-agent\/ai\/oauth$/, replacement: aiSrcOAuth },
+			{ find: /^@alf-agent\/agent-core$/, replacement: agentSrcIndex },
+			{ find: /^@alf-agent\/tui$/, replacement: tuiSrcIndex },
 		],
 	},
 });

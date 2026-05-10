@@ -8,7 +8,7 @@ import {
 	Text,
 	TruncatedText,
 	truncateToWidth,
-} from "@earendil-works/pi-tui";
+} from "@alf-agent/tui";
 import type { SessionTreeNode } from "../../../core/session-manager.js";
 import { theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
@@ -846,7 +846,7 @@ class TreeList implements Component {
 		};
 
 		switch (name) {
-			case "read": {
+			case "file_read": {
 				const path = shortenPath(String(args.path || args.file_path || ""));
 				const offset = args.offset as number | undefined;
 				const limit = args.limit as number | undefined;
@@ -856,37 +856,42 @@ class TreeList implements Component {
 					const end = limit !== undefined ? start + limit - 1 : "";
 					display += `:${start}${end ? `-${end}` : ""}`;
 				}
-				return `[read: ${display}]`;
+				return `[file_read: ${display}]`;
 			}
-			case "write": {
+			case "file_write": {
 				const path = shortenPath(String(args.path || args.file_path || ""));
-				return `[write: ${path}]`;
+				return `[file_write: ${path}]`;
 			}
-			case "edit": {
+			case "file_edit": {
 				const path = shortenPath(String(args.path || args.file_path || ""));
-				return `[edit: ${path}]`;
+				return `[file_edit: ${path}]`;
 			}
-			case "bash": {
+			case "file_bash": {
 				const rawCmd = String(args.command || "");
 				const cmd = rawCmd
 					.replace(/[\n\t]/g, " ")
 					.trim()
 					.slice(0, 50);
-				return `[bash: ${cmd}${rawCmd.length > 50 ? "..." : ""}]`;
+				return `[file_bash: ${cmd}${rawCmd.length > 50 ? "..." : ""}]`;
 			}
-			case "grep": {
+			case "file_grep": {
 				const pattern = String(args.pattern || "");
 				const path = shortenPath(String(args.path || "."));
-				return `[grep: /${pattern}/ in ${path}]`;
+				return `[file_grep: /${pattern}/ in ${path}]`;
 			}
-			case "find": {
+			case "file_find": {
 				const pattern = String(args.pattern || "");
 				const path = shortenPath(String(args.path || "."));
-				return `[find: ${pattern} in ${path}]`;
+				return `[file_find: ${pattern} in ${path}]`;
 			}
-			case "ls": {
+			case "file_ls": {
 				const path = shortenPath(String(args.path || "."));
-				return `[ls: ${path}]`;
+				return `[file_ls: ${path}]`;
+			}
+			case "symbol_outline": {
+				const path = shortenPath(String(args.path || ""));
+				const depth = args.memberDepth as number | undefined;
+				return `[symbol_outline: ${path}${depth !== undefined ? ` depth=${depth}` : ""}]`;
 			}
 			default: {
 				// Custom tool - show name and truncated JSON args

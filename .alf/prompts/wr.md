@@ -15,7 +15,7 @@ Rules for context detection:
 
 Unless I explicitly override something in this request, do the following in order:
 
-1. Add or update the relevant package changelog entry under `## [Unreleased]` using the repo changelog rules.
+1. Add or update the relevant package changelog entry under the current **`## [x.y.z] - date`** section (see `AGENTS.md` changelog rules; typically the lockstep version in `packages/*/package.json`).
 2. If this task is tied to a GitHub issue or PR and a final issue or PR comment has not already been posted in this session, draft it in my tone, preview it, and post exactly one final comment.
 3. Commit only files you changed in this session.
 4. If this task is tied to exactly one GitHub issue, include `closes #<issue>` in the commit message. If it is tied to multiple issues, stop and ask which one to use. If it is not tied to any issue, do not include `closes #` or `fixes #` in the commit message.

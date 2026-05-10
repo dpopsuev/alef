@@ -20,10 +20,10 @@ pkg install nodejs termux-api git
 npm install -g @alf-agent/coding-agent
 
 # Create config directory
-mkdir -p ~/.pi/agent
+mkdir -p <agent-dir>
 
 # Run pi
-pi
+alf
 ```
 
 ## Clipboard Support
@@ -34,7 +34,7 @@ Image clipboard is not supported on Termux (the `ctrl+v` image paste feature wil
 
 ## Example AGENTS.md for Termux
 
-Create `~/.pi/agent/AGENTS.md` to help the agent understand the Termux environment:
+Create `<agent-dir>/AGENTS.md` to help the agent understand the Termux environment:
 
 ```markdown
 # Agent Environment: Termux on Android

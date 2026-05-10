@@ -4,7 +4,7 @@
  * optionally spawns subagents to analyze patterns.
  *
  * Usage: npx tsx scripts/session-transcripts.ts [--analyze] [--output <dir>] [cwd]
- *   --analyze      Spawn pi subagents to analyze each transcript file
+ *   --analyze      Spawn Alf subagents to analyze each transcript file
  *   --output <dir> Output directory for transcript files (defaults to ./session-transcripts)
  *   cwd            Working directory to extract sessions for (defaults to current)
  */
@@ -12,8 +12,8 @@
 import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { spawn } from "child_process";
 import { createInterface } from "node:readline";
-import { homedir } from "os";
 import { join, resolve } from "path";
+import { getDefaultAgentDir } from "./lib/default-agent-dir.mjs";
 import { parseSessionEntries, type SessionMessageEntry } from "../packages/coding-agent/src/core/session-manager.js";
 import chalk from "chalk";
 
@@ -162,7 +162,7 @@ async function main() {
 	const cwd = resolve(cwdArg || process.cwd());
 
 	mkdirSync(outputDir, { recursive: true });
-	const sessionsBase = join(homedir(), ".alf/agent/sessions");
+	const sessionsBase = join(getDefaultAgentDir(), "sessions");
 	const sessionDirName = cwdToSessionDir(cwd);
 	const sessionDir = join(sessionsBase, sessionDirName);
 
@@ -243,12 +243,12 @@ async function main() {
 	console.log(`\nCreated ${outputFiles.length} transcript file(s) in ${outputDir}`);
 
 	if (!analyzeFlag) {
-		console.log("\nRun with --analyze to spawn pi subagents for pattern analysis.");
+		console.log("\nRun with --analyze to spawn Alf subagents for pattern analysis.");
 		return;
 	}
 
 	// Find AGENTS.md files to compare against
-	const globalAgentsMd = join(homedir(), ".pi/agent/AGENTS.md");
+	const globalAgentsMd = join(getDefaultAgentDir(), "AGENTS.md");
 	const localAgentsMd = join(cwd, "AGENTS.md");
 	const agentsMdFiles = [globalAgentsMd, localAgentsMd].filter(existsSync);
 	const agentsMdSection =

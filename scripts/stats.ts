@@ -1,8 +1,8 @@
 #!/usr/bin/env npx tsx
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { getDefaultAgentDir } from "./lib/default-agent-dir.mjs";
 
 interface UsageCost {
 	input?: number;
@@ -115,7 +115,7 @@ function parseArgs(): Args {
 	const args = process.argv.slice(2);
 	let days = 7;
 	let cwd = process.cwd();
-	let sessionsBase = join(homedir(), ".pi", "agent", "sessions");
+	let sessionsBase = join(getDefaultAgentDir(), "sessions");
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
@@ -131,7 +131,7 @@ function parseArgs(): Args {
 Options:
   -n, --days <days>         Number of local calendar days to include (default: 7)
   -d, --dir, --cwd <path>   Project cwd to inspect (default: current cwd)
-  --sessions-base <path>    Sessions base directory (default: ~/.pi/agent/sessions)
+  --sessions-base <path>    Sessions base directory (default: $AGENT_DIR/sessions; see ALF_CODING_AGENT_DIR)
   -h, --help                Show this help`);
 			process.exit(0);
 		}

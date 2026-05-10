@@ -1,5 +1,5 @@
 /**
- * Test helper for resolving API keys from ~/.pi/agent/auth.json
+ * Test helper for resolving API keys from the Alf agent directory (`auth.json`).
  *
  * Supports both API key and OAuth credentials.
  * OAuth tokens are automatically refreshed if expired and saved back to auth.json.
@@ -11,7 +11,31 @@ import { dirname, join } from "path";
 import { getOAuthApiKey } from "../src/utils/oauth/index.js";
 import type { OAuthCredentials, OAuthProvider } from "../src/utils/oauth/types.js";
 
-const AUTH_PATH = join(homedir(), ".pi", "agent", "auth.json");
+function expandTildePath(dir: string): string {
+	if (dir === "~") return homedir();
+	if (dir.startsWith("~/")) return join(homedir(), dir.slice(2));
+	return dir;
+}
+
+/** Mirrors coding-agent `getAgentDir()` resolution for tests. */
+function resolveAlfAgentDir(): string {
+	const envDir = process.env.ALF_CODING_AGENT_DIR?.trim();
+	if (envDir) {
+		return expandTildePath(envDir);
+	}
+	if (process.platform === "linux") {
+		const legacy = join(homedir(), ".alf", "agent");
+		if (existsSync(legacy)) {
+			return legacy;
+		}
+		const xdgRaw = process.env.XDG_CONFIG_HOME?.trim();
+		const xdgBase = xdgRaw && xdgRaw.length > 0 ? xdgRaw : join(homedir(), ".config");
+		return join(xdgBase, "alf", "agent");
+	}
+	return join(homedir(), ".alf", "agent");
+}
+
+const AUTH_PATH = join(resolveAlfAgentDir(), "auth.json");
 
 type ApiKeyCredential = {
 	type: "api_key";
@@ -48,7 +72,7 @@ function saveAuthStorage(storage: AuthStorage): void {
 }
 
 /**
- * Resolve API key for a provider from ~/.pi/agent/auth.json
+ * Resolve API key for a provider from `<agent-dir>/auth.json`
  *
  * For API key credentials, returns the key directly.
  * For OAuth credentials, returns the access token (refreshing if expired and saving back).

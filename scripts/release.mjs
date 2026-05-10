@@ -9,11 +9,10 @@
  * Steps:
  * 1. Check for uncommitted changes
  * 2. Bump version via npm run version:xxx or set an explicit version
- * 3. Update CHANGELOG.md files: [Unreleased] -> [version] - date
+ * 3. Update CHANGELOG.md files: prepend ## [version] - date above prior sections
  * 4. Commit and tag
  * 5. Publish to npm
- * 6. Add new [Unreleased] section to changelogs
- * 7. Commit
+ * 6. Push branch and tag
  */
 
 import { execSync } from "child_process";
@@ -107,38 +106,20 @@ function getChangelogs() {
 function updateChangelogsForRelease(version) {
 	const date = new Date().toISOString().split("T")[0];
 	const changelogs = getChangelogs();
+	const heading = `## [${version}] - ${date}\n\n`;
+	const versionHeadingRe = /^## \[\d+\.\d+\.\d+\]/m;
 
 	for (const changelog of changelogs) {
 		const content = readFileSync(changelog, "utf-8");
-
-		if (!content.includes("## [Unreleased]")) {
-			console.log(`  Skipping ${changelog}: no [Unreleased] section`);
+		const match = content.match(versionHeadingRe);
+		if (!match || match.index === undefined) {
+			console.log(`  Skipping ${changelog}: no ## [x.y.z] heading found`);
 			continue;
 		}
 
-		const updated = content.replace(
-			"## [Unreleased]",
-			`## [${version}] - ${date}`
-		);
+		const updated = content.slice(0, match.index) + heading + content.slice(match.index);
 		writeFileSync(changelog, updated);
-		console.log(`  Updated ${changelog}`);
-	}
-}
-
-function addUnreleasedSection() {
-	const changelogs = getChangelogs();
-	const unreleasedSection = "## [Unreleased]\n\n";
-
-	for (const changelog of changelogs) {
-		const content = readFileSync(changelog, "utf-8");
-
-		// Insert after "# Changelog\n\n"
-		const updated = content.replace(
-			/^(# Changelog\n\n)/,
-			`$1${unreleasedSection}`
-		);
-		writeFileSync(changelog, updated);
-		console.log(`  Added [Unreleased] to ${changelog}`);
+		console.log(`  Prepended ${changelog} with [${version}] - ${date}`);
 	}
 }
 
@@ -176,18 +157,7 @@ console.log("Publishing to npm...");
 run("npm run publish");
 console.log();
 
-// 6. Add new [Unreleased] sections
-console.log("Adding [Unreleased] sections for next cycle...");
-addUnreleasedSection();
-console.log();
-
-// 7. Commit
-console.log("Committing changelog updates...");
-stageChangedFiles();
-run(`git commit -m "Add [Unreleased] section for next cycle"`);
-console.log();
-
-// 8. Push
+// 6. Push
 console.log("Pushing to remote...");
 run("git push origin main");
 run(`git push origin v${version}`);

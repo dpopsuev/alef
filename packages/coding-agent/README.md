@@ -1,16 +1,9 @@
 <p align="center">
-  <a href="https://pi.dev">
-    <img alt="pi logo" src="https://pi.dev/logo-auto.svg" width="128">
-  </a>
+  <a href="https://github.com/dpopsuev/alf-agent"><strong>Alf Agent</strong></a>
 </p>
 <p align="center">
   <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
   <a href="https://www.npmjs.com/package/@alf-agent/coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@alf-agent/coding-agent?style=flat-square" /></a>
-</p>
-<p align="center">
-  <a href="https://pi.dev">pi.dev</a> domain graciously donated by
-  <br /><br />
-  <a href="https://exe.dev"><img src="docs/images/exy.png" alt="Exy mascot" width="48" /><br />exe.dev</a>
 </p>
 
 > This fork is maintained BDFL-style; outside contributions are not accepted. Source is open to read and to fork (MIT). See [CONTRIBUTING.md](../../CONTRIBUTING.md).
@@ -19,13 +12,13 @@
 
 ## Attribution
 
-**Alf** (`alf`, npm **`@alf-agent/coding-agent`**) is a **fork** of **[Pi](https://pi.dev)** (**Pi Agent** / terminal coding harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream sources live in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**. The MIT-licensed implementation here builds on that work—credit for the original belongs to Mario and the Pi contributors.
+**Alf** (`alf`, npm **`@alf-agent/coding-agent`**) is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (**Pi Agent** / terminal coding harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream sources live in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**. The MIT-licensed implementation here builds on that work—credit for the original belongs to Mario and the Pi contributors.
 
 **Alf** is maintained separately in **[dpopsuev/alf-agent](https://github.com/dpopsuev/alf-agent)** with Alf-specific scopes and defaults; behavior below follows Pi unless noted otherwise.
 
 ---
 
-**Alf** is a minimal terminal coding harness. Adapt Alf to your workflows, not the other way around, without having to fork and modify core internals. Extend it with TypeScript [Extensions](#extensions), [Skills](#skills), [Prompt Templates](#prompt-templates), and [Themes](#themes). Put your extensions, skills, prompt templates, and themes in [Pi Packages](#pi-packages) and share them with others via npm or git.
+**Alf** is a minimal terminal coding harness. Adapt Alf to your workflows, not the other way around, without having to fork and modify core internals. Extend it with TypeScript [Extensions](#extensions), [Skills](#skills), [Prompt Templates](#prompt-templates), and [Themes](#themes). Put your extensions, skills, prompt templates, and themes in [Alf packages](#alf-packages) and share them with others via npm or git.
 
 Alf ships with powerful defaults but skips features like sub agents and plan mode. Instead, you can ask Alf to build what you want or install a third-party package that matches your workflow.
 
@@ -66,7 +59,7 @@ I regularly publish my own `pi-mono` work sessions here:
   - [Skills](#skills)
   - [Extensions](#extensions)
   - [Themes](#themes)
-  - [Pi Packages](#pi-packages)
+  - [Alf packages](#alf-packages)
 - [Programmatic Usage](#programmatic-usage)
 - [Philosophy](#philosophy)
 - [CLI Reference](#cli-reference)
@@ -75,11 +68,7 @@ I regularly publish my own `pi-mono` work sessions here:
 
 ## Quick Start
 
-```bash
-curl -fsSL https://pi.dev/install.sh | sh
-```
-
-Or with npm:
+Install the CLI globally via npm:
 
 ```bash
 npm install -g @alf-agent/coding-agent
@@ -89,17 +78,17 @@ Authenticate with an API key:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-pi
+alf
 ```
 
 Or use your existing subscription:
 
 ```bash
-pi
+alf
 /login  # Then select provider
 ```
 
-Then just talk to pi. By default, pi gives the model four tools: `read`, `write`, `edit`, and `bash`. The model uses these to fulfill your requests. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [pi packages](#pi-packages).
+Then just talk to Alf. By default, Alf exposes four tools to the model: `read`, `write`, `edit`, and `bash`. The model uses these to fulfill your requests. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [Alf packages](#alf-packages).
 
 **Platform notes:** [Windows](docs/windows.md) | [Termux (Android)](docs/termux.md) | [tmux](docs/tmux.md) | [Terminal setup](docs/terminal-setup.md) | [Shell aliases](docs/shell-aliases.md)
 
@@ -107,7 +96,7 @@ Then just talk to pi. By default, pi gives the model four tools: `read`, `write`
 
 ## Providers & Models
 
-For each built-in provider, pi maintains a list of tool-capable models, updated with every release. Authenticate via subscription (`/login`) or API key, then select any model from that provider via `/model` (or Ctrl+L).
+For each built-in provider, Alf ships a list of tool-capable models, updated with every release. Authenticate via subscription (`/login`) or API key, then select any model from that provider via `/model` (or Ctrl+L).
 
 **Subscriptions:**
 - Anthropic Claude Pro/Max
@@ -145,7 +134,7 @@ For each built-in provider, pi maintains a list of tool-capable models, updated 
 
 See [docs/providers.md](docs/providers.md) for detailed setup instructions.
 
-**Custom providers & models:** Add providers via `~/.pi/agent/models.json` if they speak a supported API (OpenAI, Anthropic, Google). For custom APIs or OAuth, use extensions. See [docs/models.md](docs/models.md) and [docs/custom-provider.md](docs/custom-provider.md).
+**Custom providers & models:** Add providers via `<agent-dir>/models.json` if they speak a supported API (OpenAI, Anthropic, Google). For custom APIs or OAuth, use extensions. See [docs/models.md](docs/models.md) and [docs/custom-provider.md](docs/custom-provider.md).
 
 ---
 
@@ -198,11 +187,11 @@ Type `/` in the editor to trigger commands. [Extensions](#extensions) can regist
 | `/reload` | Reload keybindings, extensions, skills, prompts, and context files (themes hot-reload automatically) |
 | `/hotkeys` | Show all keyboard shortcuts |
 | `/changelog` | Display version history |
-| `/quit` | Quit pi |
+| `/quit` | Quit alf |
 
 ### Keyboard Shortcuts
 
-See `/hotkeys` for the full list. Customize via `~/.pi/agent/keybindings.json`. See [docs/keybindings.md](docs/keybindings.md).
+See `/hotkeys` for the full list. Customize via `<agent-dir>/keybindings.json`. See [docs/keybindings.md](docs/keybindings.md).
 
 **Commonly used:**
 
@@ -227,7 +216,7 @@ Submit messages while the agent is working:
 - **Escape** aborts and restores queued messages to editor
 - **Alt+Up** retrieves queued messages back to editor
 
-On Windows Terminal, `Alt+Enter` is fullscreen by default. Remap it in [docs/terminal-setup.md](docs/terminal-setup.md) so pi can receive the follow-up shortcut.
+On Windows Terminal, `Alt+Enter` is fullscreen by default. Remap it in [docs/terminal-setup.md](docs/terminal-setup.md) so Alf can receive the follow-up shortcut.
 
 Configure delivery in [settings](docs/settings.md): `steeringMode` and `followUpMode` can be `"one-at-a-time"` (default, waits for response) or `"all"` (delivers all queued at once). `transport` selects provider transport preference (`"sse"`, `"websocket"`, or `"auto"`) for providers that support multiple transports.
 
@@ -239,14 +228,14 @@ Sessions are stored as JSONL files with a tree structure. Each entry has an `id`
 
 ### Management
 
-Sessions auto-save to `~/.pi/agent/sessions/` organized by working directory.
+Sessions auto-save to `<agent-dir>/sessions/` organized by working directory.
 
 ```bash
-pi -c                  # Continue most recent session
-pi -r                  # Browse and select from past sessions
-pi --no-session        # Ephemeral mode (don't save)
-pi --session <path|id> # Use specific session file or ID
-pi --fork <path|id>    # Fork specific session file or ID into a new session
+alf -c                  # Continue most recent session
+alf -r                  # Browse and select from past sessions
+alf --no-session        # Ephemeral mode (don't save)
+alf --session <path|id> # Use specific session file or ID
+alf --fork <path|id>    # Fork specific session file or ID into a new session
 ```
 
 Use `/session` in interactive mode to see the current session ID before reusing it with `--session <id>` or `--fork <id>`.
@@ -281,30 +270,38 @@ Compaction is lossy. The full history remains in the JSONL file; use `/tree` to 
 
 ## Settings
 
+`<agent-dir>` is your global Alf config root (sessions, auth, settings, etc.):
+
+- **Linux:** `$XDG_CONFIG_HOME/alf/agent` (usually `~/.config/alf/agent`). If `~/.alf/agent` already exists, that directory is used instead.
+- **macOS and Windows:** `~/.alf/agent`
+- **Override:** set `ALF_CODING_AGENT_DIR`
+
+Project-local overrides live under `.alf/` in the repo root (for example `.alf/settings.json`).
+
 Use `/settings` to modify common options, or edit JSON files directly:
 
 | Location | Scope |
 |----------|-------|
-| `~/.pi/agent/settings.json` | Global (all projects) |
-| `.pi/settings.json` | Project (overrides global) |
+| `<agent-dir>/settings.json` | Global (all projects) |
+| `.alf/settings.json` | Project (overrides global) |
 
 See [docs/settings.md](docs/settings.md) for all options.
 
 ### Telemetry and update checks
 
-Pi has two separate startup features:
+Alf does **not** call third-party homepages by default.
 
-- **Update check:** fetches `https://pi.dev/api/latest-version` to check whether a newer Pi version exists. Disable it with `ALF_SKIP_VERSION_CHECK=1`. Disabling update checks only turns off this check.
-- **Install/update telemetry:** after first install or a changelog-detected update, sends an anonymous version ping to `https://pi.dev/api/report-install`. Opt out by setting `enableInstallTelemetry` to `false` in `settings.json`, or by setting `ALF_TELEMETRY=0`. This does not disable update checks; Pi may still contact `pi.dev` for the latest version unless update checks are disabled or offline mode is enabled.
+- **Update check:** runs only when **`ALF_LATEST_VERSION_URL`** is set to an HTTPS URL that returns JSON like `{ "version": "1.2.3" }`. Otherwise no request is made. Set **`ALF_SKIP_VERSION_CHECK=1`** to skip even when a URL is configured.
+- **Install/update telemetry:** sends a GET only when **`ALF_REPORT_INSTALL_URL`** is set **and** install telemetry is enabled (`enableInstallTelemetry` in settings, default on, overridable with **`ALF_TELEMETRY`**).
 
-Use `--offline` or `ALF_OFFLINE=1` to disable all startup network operations described here, including update checks, package update checks, and install/update telemetry.
+Use **`--offline`** or **`ALF_OFFLINE=1`** to disable startup checks that hit the network (including package update checks that talk to registries).
 
 ---
 
 ## Context Files
 
-Pi loads `AGENTS.md` (or `CLAUDE.md`) at startup from:
-- `~/.pi/agent/AGENTS.md` (global)
+Alf loads `AGENTS.md` (or `CLAUDE.md`) at startup from:
+- `<agent-dir>/AGENTS.md` (global)
 - Parent directories (walking up from cwd)
 - Current directory
 
@@ -314,7 +311,7 @@ Disable context file loading with `--no-context-files` (or `-nc`).
 
 ### System Prompt
 
-Replace the default system prompt with `.pi/SYSTEM.md` (project) or `~/.pi/agent/SYSTEM.md` (global). Append without replacing via `APPEND_SYSTEM.md`.
+Replace the default system prompt with `.alf/SYSTEM.md` (project) or `<agent-dir>/SYSTEM.md` (global). Append without replacing via `APPEND_SYSTEM.md`.
 
 ---
 
@@ -325,19 +322,19 @@ Replace the default system prompt with `.pi/SYSTEM.md` (project) or `~/.pi/agent
 Reusable prompts as Markdown files. Type `/name` to expand.
 
 ```markdown
-<!-- ~/.pi/agent/prompts/review.md -->
+<!-- <agent-dir>/prompts/review.md -->
 Review this code for bugs, security issues, and performance problems.
 Focus on: {{focus}}
 ```
 
-Place in `~/.pi/agent/prompts/`, `.pi/prompts/`, or a [pi package](#pi-packages) to share with others. See [docs/prompt-templates.md](docs/prompt-templates.md).
+Place in `<agent-dir>/prompts/`, `.alf/prompts/`, or an [Alf package](#alf-packages) to share with others. See [docs/prompt-templates.md](docs/prompt-templates.md).
 
 ### Skills
 
 On-demand capability packages following the [Agent Skills standard](https://agentskills.io). Invoke via `/skill:name` or let the agent load them automatically.
 
 ```markdown
-<!-- ~/.pi/agent/skills/my-skill/SKILL.md -->
+<!-- <agent-dir>/skills/my-skill/SKILL.md -->
 # My Skill
 Use this skill when the user asks about X.
 
@@ -346,23 +343,23 @@ Use this skill when the user asks about X.
 2. Then that
 ```
 
-Place in `~/.pi/agent/skills/`, `~/.agents/skills/`, `.pi/skills/`, or `.agents/skills/` (from `cwd` up through parent directories) or a [pi package](#pi-packages) to share with others. See [docs/skills.md](docs/skills.md).
+Place in `<agent-dir>/skills/`, `~/.agents/skills/`, `.alf/skills/`, or `.agents/skills/` (from `cwd` up through parent directories) or an [Alf package](#alf-packages) to share with others. See [docs/skills.md](docs/skills.md).
 
 ### Extensions
 
 <p align="center"><img src="docs/images/doom-extension.png" alt="Doom Extension" width="600"></p>
 
-TypeScript modules that extend pi with custom tools, commands, keyboard shortcuts, event handlers, and UI components.
+TypeScript modules that extend Alf with custom tools, commands, keyboard shortcuts, event handlers, and UI components.
 
 ```typescript
-export default function (pi: ExtensionAPI) {
-  pi.registerTool({ name: "deploy", ... });
-  pi.registerCommand("stats", { ... });
-  pi.on("tool_call", async (event, ctx) => { ... });
+export default function (alf: ExtensionAPI) {
+  alf.registerTool({ name: "deploy", ... });
+  alf.registerCommand("stats", { ... });
+  alf.on("tool_call", async (event, ctx) => { ... });
 }
 ```
 
-The default export can also be `async`. pi waits for async extension factories before startup continues, which is useful for one-time initialization such as fetching remote model lists before calling `pi.registerProvider()`.
+The default export can also be `async`. Alf waits for async extension factories before startup continues, which is useful for one-time initialization such as fetching remote model lists before calling `alf.registerProvider()`.
 
 **What's possible:**
 - Custom tools (or replace built-in tools entirely)
@@ -374,55 +371,55 @@ The default export can also be `async`. pi waits for async extension factories b
 - Git checkpointing and auto-commit
 - SSH and sandbox execution
 - MCP server integration
-- Make pi look like Claude Code
+- Make Alf look like Claude Code
 - Games while waiting (yes, Doom runs)
 - ...anything you can dream up
 
-Place in `~/.pi/agent/extensions/`, `.pi/extensions/`, or a [pi package](#pi-packages) to share with others. See [docs/extensions.md](docs/extensions.md) and [examples/extensions/](examples/extensions/).
+Place in `<agent-dir>/extensions/`, `.alf/extensions/`, or an [Alf package](#alf-packages) to share with others. See [docs/extensions.md](docs/extensions.md) and [examples/extensions/](examples/extensions/).
 
 ### Themes
 
-Built-in: `dark`, `light`. Themes hot-reload: modify the active theme file and pi immediately applies changes.
+Built-in: `dark`, `light`. Themes hot-reload: modify the active theme file and Alf applies changes immediately.
 
-Place in `~/.pi/agent/themes/`, `.pi/themes/`, or a [pi package](#pi-packages) to share with others. See [docs/themes.md](docs/themes.md).
+Place in `<agent-dir>/themes/`, `.alf/themes/`, or an [Alf package](#alf-packages) to share with others. See [docs/themes.md](docs/themes.md).
 
-### Pi Packages
+### Alf packages
 
-Bundle and share extensions, skills, prompts, and themes via npm or git. Find packages on [npmjs.com](https://www.npmjs.com/search?q=keywords%3Api-package) or [Discord](https://discord.com/channels/1456806362351669492/1457744485428629628).
+Bundle and share extensions, skills, prompts, and themes via npm or git. Find packages on [npmjs.com](https://www.npmjs.com/search?q=keywords%3Aalf-package) or upstream-compatible listings tagged [`pi-package`](https://www.npmjs.com/search?q=keywords%3Api-package), or ask on [Discord](https://discord.com/channels/1456806362351669492/1457744485428629628).
 
-> **Security:** Pi packages run with full system access. Extensions execute arbitrary code, and skills can instruct the model to perform any action including running executables. Review source code before installing third-party packages.
+> **Security:** Packages run with full system access. Extensions execute arbitrary code, and skills can instruct the model to perform any action including running executables. Review source code before installing third-party packages.
 
 ```bash
-pi install npm:@foo/pi-tools
-pi install npm:@foo/pi-tools@1.2.3      # pinned version
-pi install git:github.com/user/repo
-pi install git:github.com/user/repo@v1  # tag or commit
-pi install git:git@github.com:user/repo
-pi install git:git@github.com:user/repo@v1  # tag or commit
-pi install https://github.com/user/repo
-pi install https://github.com/user/repo@v1      # tag or commit
-pi install ssh://git@github.com/user/repo
-pi install ssh://git@github.com/user/repo@v1    # tag or commit
-pi remove npm:@foo/pi-tools
-pi uninstall npm:@foo/pi-tools          # alias for remove
-pi list
-pi update                               # update pi and packages (skips pinned packages)
-pi update --extensions                  # update packages only
-pi update --self                        # update pi only
-pi update --self --force                # reinstall pi even if current
-pi update npm:@foo/pi-tools             # update one package
-pi config                               # enable/disable extensions, skills, prompts, themes
+alf install npm:@foo/alf-tools
+alf install npm:@foo/alf-tools@1.2.3      # pinned version
+alf install git:github.com/user/repo
+alf install git:github.com/user/repo@v1  # tag or commit
+alf install git:git@github.com:user/repo
+alf install git:git@github.com:user/repo@v1  # tag or commit
+alf install https://github.com/user/repo
+alf install https://github.com/user/repo@v1      # tag or commit
+alf install ssh://git@github.com/user/repo
+alf install ssh://git@github.com/user/repo@v1    # tag or commit
+alf remove npm:@foo/alf-tools
+alf uninstall npm:@foo/alf-tools          # alias for remove
+alf list
+alf update                               # update Alf and packages (skips pinned packages)
+alf update --extensions                  # update packages only
+alf update --self                        # update Alf only
+alf update --self --force                # reinstall Alf even if current
+alf update npm:@foo/alf-tools             # update one package
+alf config                               # enable/disable extensions, skills, prompts, themes
 ```
 
-Packages install to `~/.pi/agent/git/` (git) or global npm. Use `-l` for project-local installs (`.pi/git/`, `.pi/npm/`). Git packages install dependencies with `npm install --omit=dev` by default, so runtime deps must be listed under `dependencies`; when `npmCommand` is configured, git packages use plain `install` for compatibility with wrappers. If you use a Node version manager and want package installs to reuse a stable npm context, set `npmCommand` in `settings.json`, for example `["mise", "exec", "node@20", "--", "npm"]`.
+Packages install to `<agent-dir>/git/` (git) or global npm. Use `-l` for project-local installs (`.alf/git/`, `.alf/npm/`). Git packages install dependencies with `npm install --omit=dev` by default, so runtime deps must be listed under `dependencies`; when `npmCommand` is configured, git packages use plain `install` for compatibility with wrappers. If you use a Node version manager and want package installs to reuse a stable npm context, set `npmCommand` in `settings.json`, for example `["mise", "exec", "node@20", "--", "npm"]`.
 
-Create a package by adding a `pi` key to `package.json`:
+Create a package by adding an `alf` key to `package.json`:
 
 ```json
 {
-  "name": "my-pi-package",
-  "keywords": ["pi-package"],
-  "pi": {
+  "name": "my-alf-package",
+  "keywords": ["alf-package"],
+  "alf": {
     "extensions": ["./extensions"],
     "skills": ["./skills"],
     "prompts": ["./prompts"],
@@ -431,7 +428,7 @@ Create a package by adding a `pi` key to `package.json`:
 }
 ```
 
-Without a `pi` manifest, pi auto-discovers from conventional directories (`extensions/`, `skills/`, `prompts/`, `themes/`).
+Without an `alf` manifest, Alf auto-discovers from conventional directories (`extensions/`, `skills/`, `prompts/`, `themes/`).
 
 See [docs/packages.md](docs/packages.md).
 
@@ -464,7 +461,7 @@ See [docs/sdk.md](docs/sdk.md) and [examples/sdk/](examples/sdk/).
 For non-Node.js integrations, use RPC mode over stdin/stdout:
 
 ```bash
-pi --mode rpc
+alf --mode rpc
 ```
 
 RPC mode uses strict LF-delimited JSONL framing. Clients must split records on `\n` only. Do not use generic line readers like Node `readline`, which also split on Unicode separators inside JSON payloads.
@@ -475,11 +472,11 @@ See [docs/rpc.md](docs/rpc.md) for the protocol.
 
 ## Philosophy
 
-Pi is aggressively extensible so it doesn't have to dictate your workflow. Features that other tools bake in can be built with [extensions](#extensions), [skills](#skills), or installed from third-party [pi packages](#pi-packages). This keeps the core minimal while letting you shape pi to fit how you work.
+Pi upstream design is aggressively extensible so core workflows stay minimal; Alf inherits that. Features other tools bake in can be built with [extensions](#extensions), [skills](#skills), or installed from third-party [Alf packages](#alf-packages). This keeps the core small while letting you shape Alf to fit how you work.
 
 **No MCP.** Build CLI tools with READMEs (see [Skills](#skills)), or build an extension that adds MCP support. [Why?](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/)
 
-**No sub-agents.** There's many ways to do this. Spawn pi instances via tmux, or build your own with [extensions](#extensions), or install a package that does it your way.
+**No sub-agents.** There's many ways to do this. Spawn Alf instances via tmux, or build your own with [extensions](#extensions), or install a package that does it your way.
 
 **No permission popups.** Run in a container, or build your own confirmation flow with [extensions](#extensions) inline with your environment and security requirements.
 
@@ -496,22 +493,22 @@ Read the [blog post](https://mariozechner.at/posts/2025-11-30-pi-coding-agent/) 
 ## CLI Reference
 
 ```bash
-pi [options] [@files...] [messages...]
+alf [options] [@files...] [messages...]
 ```
 
 ### Package Commands
 
 ```bash
-pi install <source> [-l]     # Install package, -l for project-local
-pi remove <source> [-l]      # Remove package
-pi uninstall <source> [-l]   # Alias for remove
-pi update [source|self|pi]   # Update pi and packages (skips pinned packages)
-pi update --extensions       # Update packages only
-pi update --self             # Update pi only
-pi update --self --force     # Reinstall pi even if current
-pi update --extension <src>  # Update one package
-pi list                      # List installed packages
-pi config                    # Enable/disable package resources
+alf install <source> [-l]     # Install package, -l for project-local
+alf remove <source> [-l]      # Remove package
+alf uninstall <source> [-l]   # Alias for remove
+alf update [source|self|alf]   # Update Alf and packages (skips pinned packages)
+alf update --extensions       # Update packages only
+alf update --self             # Update Alf only
+alf update --self --force     # Reinstall Alf even if current
+alf update --extension <src>  # Update one package
+alf list                      # List installed packages
+alf config                    # Enable/disable package resources
 ```
 
 ### Modes
@@ -524,10 +521,10 @@ pi config                    # Enable/disable package resources
 | `--mode rpc` | RPC mode for process integration (see [docs/rpc.md](docs/rpc.md)) |
 | `--export <in> [out]` | Export session to HTML |
 
-In print mode, pi also reads piped stdin and merges it into the initial prompt:
+In print mode, Alf also reads piped stdin and merges it into the initial prompt:
 
 ```bash
-cat README.md | pi -p "Summarize this text"
+cat README.md | alf -p "Summarize this text"
 ```
 
 ### Model Options
@@ -593,51 +590,53 @@ Combine `--no-*` with explicit flags to load exactly what you need, ignoring set
 Prefix files with `@` to include in the message:
 
 ```bash
-pi @prompt.md "Answer this"
-pi -p @screenshot.png "What's in this image?"
-pi @code.ts @test.ts "Review these files"
+alf @prompt.md "Answer this"
+alf -p @screenshot.png "What's in this image?"
+alf @code.ts @test.ts "Review these files"
 ```
 
 ### Examples
 
 ```bash
 # Interactive with initial prompt
-pi "List all .ts files in src/"
+alf "List all .ts files in src/"
 
 # Non-interactive
-pi -p "Summarize this codebase"
+alf -p "Summarize this codebase"
 
 # Non-interactive with piped stdin
-cat README.md | pi -p "Summarize this text"
+cat README.md | alf -p "Summarize this text"
 
 # Different model
-pi --provider openai --model gpt-4o "Help me refactor"
+alf --provider openai --model gpt-4o "Help me refactor"
 
 # Model with provider prefix (no --provider needed)
-pi --model openai/gpt-4o "Help me refactor"
+alf --model openai/gpt-4o "Help me refactor"
 
 # Model with thinking level shorthand
-pi --model sonnet:high "Solve this complex problem"
+alf --model sonnet:high "Solve this complex problem"
 
 # Limit model cycling
-pi --models "claude-*,gpt-4o"
+alf --models "claude-*,gpt-4o"
 
 # Read-only mode
-pi --tools read,grep,find,ls -p "Review the code"
+alf --tools read,grep,find,ls -p "Review the code"
 
 # High thinking level
-pi --thinking high "Solve this complex problem"
+alf --thinking high "Solve this complex problem"
 ```
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `ALF_CODING_AGENT_DIR` | Override config directory (default: `~/.pi/agent`) |
+| `ALF_CODING_AGENT_DIR` | Override `<agent-dir>` (see [Settings](#settings)) |
 | `ALF_CODING_AGENT_SESSION_DIR` | Override session storage directory (overridden by `--session-dir`) |
 | `ALF_PACKAGE_DIR` | Override package directory (useful for Nix/Guix where store paths tokenize poorly) |
 | `ALF_OFFLINE` | Disable startup network operations, including update checks, package update checks, and install/update telemetry |
-| `ALF_SKIP_VERSION_CHECK` | Skip the Pi version update check at startup. This prevents the `pi.dev` latest-version request |
+| `ALF_SKIP_VERSION_CHECK` | Skip the optional latest-version fetch when `ALF_LATEST_VERSION_URL` is set |
+| `ALF_LATEST_VERSION_URL` | When set, JSON endpoint for update checks (`version` field required). Unset = no update request |
+| `ALF_REPORT_INSTALL_URL` | When set, anonymous install/update ping target. Unset = no telemetry request |
 | `ALF_TELEMETRY` | Override install/update telemetry. Use `1`/`true`/`yes` to enable or `0`/`false`/`no` to disable. This does not disable update checks |
 | `ALF_CACHE_RETENTION` | Set to `long` for extended prompt cache (Anthropic: 1h, OpenAI: 24h) |
 | `VISUAL`, `EDITOR` | External editor for Ctrl+G |

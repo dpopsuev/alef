@@ -2,13 +2,7 @@
 
 All notable changes to **`@alf-agent/ai`** are recorded here.
 
-Release history before **[v0.0.1]** belongs to upstream **[Pi](https://pi.dev)** (`earendil-works/pi-mono`).
-
-## [Unreleased]
-
-### Fixed
-
-- Claude on **Google Vertex** (`ALF_ANTHROPIC_VERTEX`): Vertex routing works with **GCP ADC only** (no `ANTHROPIC_API_KEY`); **`streamSimpleAnthropic`** no longer rejects missing keys when Vertex is configured. Claude subscription OAuth no longer blocks Vertex when the flag is set.
+Release history before **[v0.0.1]** belongs to upstream **[Pi](https://github.com/earendil-works/pi-mono)** (`earendil-works/pi-mono`).
 
 ## [0.0.1] - 2026-05-10
 
@@ -24,3 +18,4 @@ Release history before **[v0.0.1]** belongs to upstream **[Pi](https://pi.dev)**
 ### Fixed
 
 - OpenAI Responses: send **`reasoning.effort: "none"`** when thinking is disabled for models that support it.
+- Claude on **Google Vertex** (`ALF_ANTHROPIC_VERTEX`): routing works with **GCP ADC only** (no `ANTHROPIC_API_KEY` required when Vertex is configured); **`streamSimpleAnthropic`** no longer rejects missing keys in that case. The env flag accepts **`1`**, **`true`**, or **`yes`**. Claude subscription OAuth does not block Vertex when the flag is set.

@@ -324,21 +324,21 @@ describe("InteractiveMode.showLoadedResources", () => {
 	function createExtensionFixtures(): ExtensionFixture[] {
 		return [
 			{
-				path: "/tmp/project/.pi/extensions/answer.ts",
-				sourceInfo: createSourceInfo("/tmp/project/.pi/extensions/answer.ts", {
+				path: "/tmp/project/.alf/extensions/answer.ts",
+				sourceInfo: createSourceInfo("/tmp/project/.alf/extensions/answer.ts", {
 					source: "local",
 					scope: "project",
 					origin: "top-level",
-					baseDir: "/tmp/project/.pi/extensions",
+					baseDir: "/tmp/project/.alf/extensions",
 				}),
 			},
 			{
-				path: "/tmp/project/.pi/extensions/local-index/index.ts",
-				sourceInfo: createSourceInfo("/tmp/project/.pi/extensions/local-index/index.ts", {
+				path: "/tmp/project/.alf/extensions/local-index/index.ts",
+				sourceInfo: createSourceInfo("/tmp/project/.alf/extensions/local-index/index.ts", {
 					source: "local",
 					scope: "project",
 					origin: "top-level",
-					baseDir: "/tmp/project/.pi/extensions",
+					baseDir: "/tmp/project/.alf/extensions",
 				}),
 			},
 			{
@@ -351,44 +351,44 @@ describe("InteractiveMode.showLoadedResources", () => {
 				}),
 			},
 			{
-				path: "/tmp/project/.pi/npm/node_modules/pi-markdown-preview/extensions/index.ts",
-				sourceInfo: createSourceInfo("/tmp/project/.pi/npm/node_modules/pi-markdown-preview/extensions/index.ts", {
+				path: "/tmp/project/.alf/npm/node_modules/pi-markdown-preview/extensions/index.ts",
+				sourceInfo: createSourceInfo("/tmp/project/.alf/npm/node_modules/pi-markdown-preview/extensions/index.ts", {
 					source: "npm:pi-markdown-preview",
 					scope: "project",
 					origin: "package",
-					baseDir: "/tmp/project/.pi/npm/node_modules/pi-markdown-preview",
+					baseDir: "/tmp/project/.alf/npm/node_modules/pi-markdown-preview",
 				}),
 			},
 			{
-				path: "/tmp/project/.pi/npm/node_modules/@scope/pi-scoped/extensions/index.ts",
-				sourceInfo: createSourceInfo("/tmp/project/.pi/npm/node_modules/@scope/pi-scoped/extensions/index.ts", {
+				path: "/tmp/project/.alf/npm/node_modules/@scope/pi-scoped/extensions/index.ts",
+				sourceInfo: createSourceInfo("/tmp/project/.alf/npm/node_modules/@scope/pi-scoped/extensions/index.ts", {
 					source: "npm:@scope/pi-scoped",
 					scope: "project",
 					origin: "package",
-					baseDir: "/tmp/project/.pi/npm/node_modules/@scope/pi-scoped",
+					baseDir: "/tmp/project/.alf/npm/node_modules/@scope/pi-scoped",
 				}),
 			},
 			{
-				path: "/tmp/project/.pi/git/github.com/HazAT/pi-interactive-subagents/extensions/index.ts",
+				path: "/tmp/project/.alf/git/github.com/HazAT/pi-interactive-subagents/extensions/index.ts",
 				sourceInfo: createSourceInfo(
-					"/tmp/project/.pi/git/github.com/HazAT/pi-interactive-subagents/extensions/index.ts",
+					"/tmp/project/.alf/git/github.com/HazAT/pi-interactive-subagents/extensions/index.ts",
 					{
 						source: "git:github.com/HazAT/pi-interactive-subagents",
 						scope: "project",
 						origin: "package",
-						baseDir: "/tmp/project/.pi/git/github.com/HazAT/pi-interactive-subagents",
+						baseDir: "/tmp/project/.alf/git/github.com/HazAT/pi-interactive-subagents",
 					},
 				),
 			},
 			{
-				path: "/tmp/project/.pi/git/github.com/HazAT/pi-interactive-subagents/extensions/subagents/index.ts",
+				path: "/tmp/project/.alf/git/github.com/HazAT/pi-interactive-subagents/extensions/subagents/index.ts",
 				sourceInfo: createSourceInfo(
-					"/tmp/project/.pi/git/github.com/HazAT/pi-interactive-subagents/extensions/subagents/index.ts",
+					"/tmp/project/.alf/git/github.com/HazAT/pi-interactive-subagents/extensions/subagents/index.ts",
 					{
 						source: "git:github.com/HazAT/pi-interactive-subagents",
 						scope: "project",
 						origin: "package",
-						baseDir: "/tmp/project/.pi/git/github.com/HazAT/pi-interactive-subagents",
+						baseDir: "/tmp/project/.alf/git/github.com/HazAT/pi-interactive-subagents",
 					},
 				),
 			},
@@ -731,12 +731,12 @@ describe("InteractiveMode.showLoadedResources", () => {
 	test("package extensions still strip index.ts correctly (regression guard)", () => {
 		const extensions: ExtensionFixture[] = [
 			{
-				path: "/tmp/project/.pi/npm/node_modules/pi-markdown-preview/extensions/index.ts",
-				sourceInfo: createSourceInfo("/tmp/project/.pi/npm/node_modules/pi-markdown-preview/extensions/index.ts", {
+				path: "/tmp/project/.alf/npm/node_modules/pi-markdown-preview/extensions/index.ts",
+				sourceInfo: createSourceInfo("/tmp/project/.alf/npm/node_modules/pi-markdown-preview/extensions/index.ts", {
 					source: "npm:pi-markdown-preview",
 					scope: "project",
 					origin: "package",
-					baseDir: "/tmp/project/.pi/npm/node_modules/pi-markdown-preview",
+					baseDir: "/tmp/project/.alf/npm/node_modules/pi-markdown-preview",
 				}),
 			},
 		];
@@ -770,8 +770,8 @@ describe("InteractiveMode.showLoadedResources", () => {
 		expect(normalizeRenderedOutput(fakeThis.chatContainer)).toMatchInlineSnapshot(`
 "[Extensions]
   project
-    /tmp/project/.pi/extensions/answer.ts
-    /tmp/project/.pi/extensions/local-index
+    /tmp/project/.alf/extensions/answer.ts
+    /tmp/project/.alf/extensions/local-index
     git:github.com/HazAT/pi-interactive-subagents
       extensions
       extensions/subagents

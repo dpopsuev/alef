@@ -227,6 +227,21 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 
 Or set `GOOGLE_APPLICATION_CREDENTIALS` to a service account key file.
 
+### Anthropic Claude on Vertex AI (partner models)
+
+To bill Claude through **Google Cloud** instead of `api.anthropic.com` / `ANTHROPIC_API_KEY`, enable Vertex routing for **catalog `anthropic` models** (same model IDs as on Vertex, e.g. `claude-opus-4-7`). Requires [Vertex AI API](https://cloud.google.com/vertex-ai/docs/start/cloud-environment), partner model enablement in Model Garden, and Application Default Credentials.
+
+```bash
+export ALF_ANTHROPIC_VERTEX=1
+export GOOGLE_CLOUD_PROJECT=your-project   # or ANTHROPIC_VERTEX_PROJECT_ID
+export CLOUD_ML_REGION=global             # or GOOGLE_CLOUD_LOCATION (see GCP docs for supported regions)
+gcloud auth application-default login      # or GOOGLE_APPLICATION_CREDENTIALS for a service account
+```
+
+This path uses `@anthropic-ai/vertex-sdk`. It does **not** apply to GitHub Copilot, Cloudflare AI Gateway, or **Claude OAuth** subscription tokens (`sk-ant-oat…`); unset `ALF_ANTHROPIC_VERTEX` or remove OAuth env/`auth.json` entries if you want Vertex instead.
+
+See Google Cloud: [Request predictions with Claude models](https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/use-claude).
+
 ## Custom Providers
 
 **Via models.json:** Add Ollama, LM Studio, vLLM, or any provider that speaks a supported API (OpenAI Completions, OpenAI Responses, Anthropic Messages, Google Generative AI). See [models.md](models.md).

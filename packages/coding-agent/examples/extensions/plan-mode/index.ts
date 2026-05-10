@@ -12,10 +12,10 @@
  * - Progress tracking widget during execution
  */
 
-import type { AgentMessage } from "@alf-agent/agent-core";
-import type { AssistantMessage, TextContent } from "@alf-agent/ai";
-import type { ExtensionAPI, ExtensionContext } from "@alf-agent/coding-agent";
-import { Key } from "@alf-agent/tui";
+import type { AgentMessage } from "@alef/agent-core";
+import type { AssistantMessage, TextContent } from "@alef/ai";
+import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
+import { Key } from "@alef/tui";
 import { extractTodoItems, isSafeCommand, markCompletedSteps, type TodoItem } from "./utils.js";
 
 // Tools
@@ -43,12 +43,12 @@ function getTextContent(message: AssistantMessage): string {
 		.join("\n");
 }
 
-export default function planModeExtension(alf: ExtensionAPI): void {
+export default function planModeExtension(alef: ExtensionAPI): void {
 	let planModeEnabled = false;
 	let executionMode = false;
 	let todoItems: TodoItem[] = [];
 
-	alf.registerFlag("plan", {
+	alef.registerFlag("plan", {
 		description: "Start in plan mode (read-only exploration)",
 		type: "boolean",
 		default: false,
@@ -87,29 +87,29 @@ export default function planModeExtension(alf: ExtensionAPI): void {
 		todoItems = [];
 
 		if (planModeEnabled) {
-			alf.setActiveTools(PLAN_MODE_TOOLS);
+			alef.setActiveTools(PLAN_MODE_TOOLS);
 			ctx.ui.notify(`Plan mode enabled. Tools: ${PLAN_MODE_TOOLS.join(", ")}`);
 		} else {
-			alf.setActiveTools(NORMAL_MODE_TOOLS);
+			alef.setActiveTools(NORMAL_MODE_TOOLS);
 			ctx.ui.notify("Plan mode disabled. Full access restored.");
 		}
 		updateStatus(ctx);
 	}
 
 	function persistState(): void {
-		alf.appendEntry("plan-mode", {
+		alef.appendEntry("plan-mode", {
 			enabled: planModeEnabled,
 			todos: todoItems,
 			executing: executionMode,
 		});
 	}
 
-	alf.registerCommand("plan", {
+	alef.registerCommand("plan", {
 		description: "Toggle plan mode (read-only exploration)",
 		handler: async (_args, ctx) => togglePlanMode(ctx),
 	});
 
-	alf.registerCommand("todos", {
+	alef.registerCommand("todos", {
 		description: "Show current plan todo list",
 		handler: async (_args, ctx) => {
 			if (todoItems.length === 0) {
@@ -121,13 +121,13 @@ export default function planModeExtension(alf: ExtensionAPI): void {
 		},
 	});
 
-	alf.registerShortcut(Key.ctrlAlt("p"), {
+	alef.registerShortcut(Key.ctrlAlt("p"), {
 		description: "Toggle plan mode",
 		handler: async (ctx) => togglePlanMode(ctx),
 	});
 
 	// Block destructive bash commands in plan mode
-	alf.on("tool_call", async (event) => {
+	alef.on("tool_call", async (event) => {
 		if (!planModeEnabled || event.toolName !== "file_bash") return;
 
 		const command = event.input.command as string;
@@ -140,7 +140,7 @@ export default function planModeExtension(alf: ExtensionAPI): void {
 	});
 
 	// Filter out stale plan mode context when not in plan mode
-	alf.on("context", async (event) => {
+	alef.on("context", async (event) => {
 		if (planModeEnabled) return;
 
 		return {
@@ -164,7 +164,7 @@ export default function planModeExtension(alf: ExtensionAPI): void {
 	});
 
 	// Inject plan/execution context before agent starts
-	alf.on("before_agent_start", async () => {
+	alef.on("before_agent_start", async () => {
 		if (planModeEnabled) {
 			return {
 				message: {
@@ -213,7 +213,7 @@ After completing a step, include a [DONE:n] tag in your response.`,
 	});
 
 	// Track progress after each turn
-	alf.on("turn_end", async (event, ctx) => {
+	alef.on("turn_end", async (event, ctx) => {
 		if (!executionMode || todoItems.length === 0) return;
 		if (!isAssistantMessage(event.message)) return;
 
@@ -225,18 +225,18 @@ After completing a step, include a [DONE:n] tag in your response.`,
 	});
 
 	// Handle plan completion and plan mode UI
-	alf.on("agent_end", async (event, ctx) => {
+	alef.on("agent_end", async (event, ctx) => {
 		// Check if execution is complete
 		if (executionMode && todoItems.length > 0) {
 			if (todoItems.every((t) => t.completed)) {
 				const completedList = todoItems.map((t) => `~~${t.text}~~`).join("\n");
-				alf.sendMessage(
+				alef.sendMessage(
 					{ customType: "plan-complete", content: `**Plan Complete!** ✓\n\n${completedList}`, display: true },
 					{ triggerTurn: false },
 				);
 				executionMode = false;
 				todoItems = [];
-				alf.setActiveTools(NORMAL_MODE_TOOLS);
+				alef.setActiveTools(NORMAL_MODE_TOOLS);
 				updateStatus(ctx);
 				persistState(); // Save cleared state so resume doesn't restore old execution mode
 			}
@@ -257,7 +257,7 @@ After completing a step, include a [DONE:n] tag in your response.`,
 		// Show plan steps and prompt for next action
 		if (todoItems.length > 0) {
 			const todoListText = todoItems.map((t, i) => `${i + 1}. ☐ ${t.text}`).join("\n");
-			alf.sendMessage(
+			alef.sendMessage(
 				{
 					customType: "plan-todo-list",
 					content: `**Plan Steps (${todoItems.length}):**\n\n${todoListText}`,
@@ -276,28 +276,28 @@ After completing a step, include a [DONE:n] tag in your response.`,
 		if (choice?.startsWith("Execute")) {
 			planModeEnabled = false;
 			executionMode = todoItems.length > 0;
-			alf.setActiveTools(NORMAL_MODE_TOOLS);
+			alef.setActiveTools(NORMAL_MODE_TOOLS);
 			updateStatus(ctx);
 
 			const execMessage =
 				todoItems.length > 0
 					? `Execute the plan. Start with: ${todoItems[0].text}`
 					: "Execute the plan you just created.";
-			alf.sendMessage(
+			alef.sendMessage(
 				{ customType: "plan-mode-execute", content: execMessage, display: true },
 				{ triggerTurn: true },
 			);
 		} else if (choice === "Refine the plan") {
 			const refinement = await ctx.ui.editor("Refine the plan:", "");
 			if (refinement?.trim()) {
-				alf.sendUserMessage(refinement.trim());
+				alef.sendUserMessage(refinement.trim());
 			}
 		}
 	});
 
 	// Restore state on session start/resume
-	alf.on("session_start", async (_event, ctx) => {
-		if (alf.getFlag("plan") === true) {
+	alef.on("session_start", async (_event, ctx) => {
+		if (alef.getFlag("plan") === true) {
 			planModeEnabled = true;
 		}
 
@@ -341,7 +341,7 @@ After completing a step, include a [DONE:n] tag in your response.`,
 		}
 
 		if (planModeEnabled) {
-			alf.setActiveTools(PLAN_MODE_TOOLS);
+			alef.setActiveTools(PLAN_MODE_TOOLS);
 		}
 		updateStatus(ctx);
 	});

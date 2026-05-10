@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **`@alf-agent/web-ui`** are recorded here.
+All notable changes to **`@alef/web-ui`** are recorded here.
 
 Release history before **[v0.0.1]** belongs to upstream **[Pi](https://github.com/earendil-works/pi-mono)** (`earendil-works/pi-mono`).
 
@@ -8,4 +8,4 @@ Release history before **[v0.0.1]** belongs to upstream **[Pi](https://github.co
 
 ### Changed
 
-- Initial **`@alf-agent/web-ui`** release from the **[alf-agent](https://github.com/dpopsuev/alf-agent)** fork baseline.
+- Initial **`@alef/web-ui`** release from the **[alef](https://github.com/dpopsuev/alef)** fork baseline.

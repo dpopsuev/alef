@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { Agent, type AgentMessage, type ThinkingLevel } from "@alf-agent/agent-core";
-import { clampThinkingLevel, type Message, type Model, streamSimple } from "@alf-agent/ai";
+import { Agent, type AgentMessage, type ThinkingLevel } from "@alef/agent-core";
+import { clampThinkingLevel, type Message, type Model, streamSimple } from "@alef/ai";
 import { APP_NAME, getAgentDir } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { formatNoModelsAvailableMessage } from "./auth-guidance.js";
@@ -137,8 +137,8 @@ function getAttributionHeaders(
 
 	if (model.provider === "openrouter" || model.baseUrl.includes("openrouter.ai")) {
 		return {
-			"HTTP-Referer": process.env.ALF_OPENROUTER_HTTP_REFERER ?? "https://local.invalid",
-			"X-OpenRouter-Title": "alf",
+			"HTTP-Referer": process.env.ALEF_OPENROUTER_HTTP_REFERER ?? "https://local.invalid",
+			"X-OpenRouter-Title": "alef",
 			"X-OpenRouter-Categories": "cli-agent",
 		};
 	}
@@ -166,7 +166,7 @@ function getAttributionHeaders(
  * const { session } = await createAgentSession();
  *
  * // With explicit model
- * import { getModel } from '@alf-agent/ai';
+ * import { getModel } from '@alef/ai';
  * const { session } = await createAgentSession({
  *   model: getModel('anthropic', 'claude-opus-4-5'),
  *   thinkingLevel: 'high',

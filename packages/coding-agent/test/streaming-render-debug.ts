@@ -4,8 +4,8 @@
  * Run with: npx tsx test/streaming-render-debug.ts
  */
 
-import type { AssistantMessage } from "@alf-agent/ai";
-import { ProcessTerminal, TUI } from "@alf-agent/tui";
+import type { AssistantMessage } from "@alef/ai";
+import { ProcessTerminal, TUI } from "@alef/tui";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";

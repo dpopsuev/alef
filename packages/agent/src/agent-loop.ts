@@ -10,7 +10,7 @@ import {
 	streamSimple,
 	type ToolResultMessage,
 	validateToolArguments,
-} from "@alf-agent/ai";
+} from "@alef/ai";
 import type {
 	AgentContext,
 	AgentEvent,

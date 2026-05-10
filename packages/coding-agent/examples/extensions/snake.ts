@@ -2,8 +2,8 @@
  * Snake game extension - play snake with /snake command
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
-import { matchesKey, visibleWidth } from "@alf-agent/tui";
+import type { ExtensionAPI } from "@alef/coding-agent";
+import { matchesKey, visibleWidth } from "@alef/tui";
 
 const GAME_WIDTH = 40;
 const GAME_HEIGHT = 15;
@@ -306,8 +306,8 @@ class SnakeComponent {
 
 const SNAKE_SAVE_TYPE = "snake-save";
 
-export default function (alf: ExtensionAPI) {
-	alf.registerCommand("snake", {
+export default function (alef: ExtensionAPI) {
+	alef.registerCommand("snake", {
 		description: "Play Snake!",
 
 		handler: async (_args, ctx) => {
@@ -333,7 +333,7 @@ export default function (alf: ExtensionAPI) {
 					() => done(undefined),
 					(state) => {
 						// Save or clear state
-						alf.appendEntry(SNAKE_SAVE_TYPE, state);
+						alef.appendEntry(SNAKE_SAVE_TYPE, state);
 					},
 					savedState,
 				);

@@ -1,4 +1,4 @@
-import { Editor, type EditorOptions, type EditorTheme, type TUI } from "@alf-agent/tui";
+import { Editor, type EditorOptions, type EditorTheme, type TUI } from "@alef/tui";
 import type { AppKeybinding, KeybindingsManager } from "../../../core/keybindings.js";
 
 /**

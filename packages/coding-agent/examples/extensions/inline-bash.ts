@@ -1,8 +1,8 @@
 /**
  * Inline Bash Extension - expands inline bash commands in user prompts.
  *
- * Start Alf with this extension:
- *   alf -e ./examples/extensions/inline-bash.ts
+ * Start Alef with this extension:
+ *   alef -e ./examples/extensions/inline-bash.ts
  *
  * Then type prompts with inline bash:
  *   What's in !{pwd}?
@@ -14,13 +14,13 @@
  *
  * Note: Regular !command syntax (whole-line bash) is preserved and works as before.
  */
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	const PATTERN = /!\{([^}]+)\}/g;
 	const TIMEOUT_MS = 30000;
 
-	alf.on("input", async (event, ctx) => {
+	alef.on("input", async (event, ctx) => {
 		const text = event.text;
 
 		// Don't process if it's a whole-line bash command (starts with !)
@@ -51,7 +51,7 @@ export default function (alf: ExtensionAPI) {
 		// Execute each command and collect results
 		for (const { full, command } of matches) {
 			try {
-				const bashResult = await alf.exec("bash", ["-c", command], {
+				const bashResult = await alef.exec("bash", ["-c", command], {
 					timeout: TIMEOUT_MS,
 				});
 

@@ -5,8 +5,8 @@
  * without paying for an extra follow-up LLM turn.
  */
 
-import { defineTool, type ExtensionAPI } from "@alf-agent/coding-agent";
-import { Text } from "@alf-agent/tui";
+import { defineTool, type ExtensionAPI } from "@alef/coding-agent";
+import { Text } from "@alef/tui";
 import { Type } from "typebox";
 
 interface StructuredOutputDetails {
@@ -60,6 +60,6 @@ const structuredOutputTool = defineTool({
 	},
 });
 
-export default function (alf: ExtensionAPI) {
-	alf.registerTool(structuredOutputTool);
+export default function (alef: ExtensionAPI) {
+	alef.registerTool(structuredOutputTool);
 }

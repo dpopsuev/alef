@@ -1,5 +1,5 @@
 {
-	"name": "@alf-agent/tui",
+	"name": "@alef/tui",
 	"version": "0.0.1",
 	"description": "Terminal User Interface library with differential rendering for efficient text-based applications",
 	"type": "module",
@@ -28,7 +28,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/dpopsuev/alf-agent.git",
+		"url": "git+https://github.com/dpopsuev/alef.git",
 		"directory": "packages/tui"
 	},
 	"engines": {

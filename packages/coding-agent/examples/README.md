@@ -1,6 +1,6 @@
 # Examples
 
-Example code for the Alf coding-agent SDK and extensions.
+Example code for the Alef coding-agent SDK and extensions.
 
 ## Directories
 

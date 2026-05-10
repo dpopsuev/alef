@@ -5,39 +5,39 @@
  * Tool selection persists across session reloads and respects branch navigation.
  *
  * Usage:
- * 1. Copy this file to ~/.alf/agent/extensions/ or your project's .alf/extensions/
+ * 1. Copy this file to ~/.alef/agent/extensions/ or your project's .alef/extensions/
  * 2. Use /tools to open the tool selector
  */
 
-import type { ExtensionAPI, ExtensionContext, ToolInfo } from "@alf-agent/coding-agent";
-import { getSettingsListTheme } from "@alf-agent/coding-agent";
-import { Container, type SettingItem, SettingsList } from "@alf-agent/tui";
+import type { ExtensionAPI, ExtensionContext, ToolInfo } from "@alef/coding-agent";
+import { getSettingsListTheme } from "@alef/coding-agent";
+import { Container, type SettingItem, SettingsList } from "@alef/tui";
 
 // State persisted to session
 interface ToolsState {
 	enabledTools: string[];
 }
 
-export default function toolsExtension(alf: ExtensionAPI) {
+export default function toolsExtension(alef: ExtensionAPI) {
 	// Track enabled tools
 	let enabledTools: Set<string> = new Set();
 	let allTools: ToolInfo[] = [];
 
 	// Persist current state
 	function persistState() {
-		alf.appendEntry<ToolsState>("tools-config", {
+		alef.appendEntry<ToolsState>("tools-config", {
 			enabledTools: Array.from(enabledTools),
 		});
 	}
 
 	// Apply current tool selection
 	function applyTools() {
-		alf.setActiveTools(Array.from(enabledTools));
+		alef.setActiveTools(Array.from(enabledTools));
 	}
 
 	// Find the last tools-config entry in the current branch
 	function restoreFromBranch(ctx: ExtensionContext) {
-		allTools = alf.getAllTools();
+		allTools = alef.getAllTools();
 
 		// Get entries in current branch only
 		const branchEntries = ctx.sessionManager.getBranch();
@@ -59,16 +59,16 @@ export default function toolsExtension(alf: ExtensionAPI) {
 			applyTools();
 		} else {
 			// No saved state - sync with currently active tools
-			enabledTools = new Set(alf.getActiveTools());
+			enabledTools = new Set(alef.getActiveTools());
 		}
 	}
 
 	// Register /tools command
-	alf.registerCommand("tools", {
+	alef.registerCommand("tools", {
 		description: "Enable/disable tools",
 		handler: async (_args, ctx) => {
 			// Refresh tool list
-			allTools = alf.getAllTools();
+			allTools = alef.getAllTools();
 
 			await ctx.ui.custom((tui, theme, _kb, done) => {
 				// Build settings items for each tool
@@ -130,12 +130,12 @@ export default function toolsExtension(alf: ExtensionAPI) {
 	});
 
 	// Restore state on session start
-	alf.on("session_start", async (_event, ctx) => {
+	alef.on("session_start", async (_event, ctx) => {
 		restoreFromBranch(ctx);
 	});
 
 	// Restore state when navigating the session tree
-	alf.on("session_tree", async (_event, ctx) => {
+	alef.on("session_tree", async (_event, ctx) => {
 		restoreFromBranch(ctx);
 	});
 }

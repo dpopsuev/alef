@@ -1,13 +1,8 @@
 // Requires GitHub CLI (`gh`) and a GitHub repository checkout.
 // Preloads the latest open issues once per session, then filters them locally for fast `#...` completion.
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
-import {
-	type AutocompleteItem,
-	type AutocompleteProvider,
-	type AutocompleteSuggestions,
-	fuzzyFilter,
-} from "@alf-agent/tui";
+import type { ExtensionAPI } from "@alef/coding-agent";
+import { type AutocompleteItem, type AutocompleteProvider, type AutocompleteSuggestions, fuzzyFilter } from "@alef/tui";
 
 type GitHubIssue = {
 	number: number;
@@ -39,8 +34,8 @@ function parseGitHubRepo(remoteUrl: string): string | undefined {
 	return undefined;
 }
 
-async function resolveGitHubRepo(alf: ExtensionAPI, cwd: string): Promise<RepoResolution> {
-	const result = await alf.exec("git", ["remote", "-v"], { cwd, timeout: 5_000 });
+async function resolveGitHubRepo(alef: ExtensionAPI, cwd: string): Promise<RepoResolution> {
+	const result = await alef.exec("git", ["remote", "-v"], { cwd, timeout: 5_000 });
 	if (result.code !== 0) {
 		return { ok: false, error: "github-issue-autocomplete: cwd is not a git repository" };
 	}
@@ -127,9 +122,9 @@ function createIssueAutocompleteProvider(
 	};
 }
 
-export default function (alf: ExtensionAPI): void {
-	alf.on("session_start", async (_event, ctx) => {
-		const resolvedRepo = await resolveGitHubRepo(alf, ctx.cwd);
+export default function (alef: ExtensionAPI): void {
+	alef.on("session_start", async (_event, ctx) => {
+		const resolvedRepo = await resolveGitHubRepo(alef, ctx.cwd);
 		if (!resolvedRepo.ok) {
 			ctx.ui.notify(resolvedRepo.error, "error");
 			return;
@@ -141,7 +136,7 @@ export default function (alf: ExtensionAPI): void {
 
 		const getIssues = async (): Promise<GitHubIssue[] | undefined> => {
 			issuesPromise ||= (async () => {
-				const result = await alf.exec(
+				const result = await alef.exec(
 					"gh",
 					[
 						"issue",

@@ -15,7 +15,7 @@
  */
 
 import { mkdtemp, writeFile } from "node:fs/promises";
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -23,8 +23,8 @@ import {
 	type TruncationResult,
 	truncateHead,
 	withFileMutationQueue,
-} from "@alf-agent/coding-agent";
-import { Text } from "@alf-agent/tui";
+} from "@alef/coding-agent";
+import { Text } from "@alef/tui";
 import { execSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -45,8 +45,8 @@ interface RgDetails {
 	fullOutputPath?: string;
 }
 
-export default function (alf: ExtensionAPI) {
-	alf.registerTool({
+export default function (alef: ExtensionAPI) {
+	alef.registerTool({
 		name: "rg",
 		label: "ripgrep",
 		// Document the truncation limits in the tool description so the LLM knows

@@ -2,7 +2,7 @@
  * Shared utilities for compaction and branch summarization.
  */
 
-import type { Message } from "@alf-agent/ai";
+import type { Message } from "@alef/ai";
 import type { AgentMessage } from "../../types.js";
 
 // ============================================================================

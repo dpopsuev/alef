@@ -1,8 +1,8 @@
-import { getAlfUserAgent } from "./alf-user-agent.js";
+import { getAlefUserAgent } from "./alef-user-agent.js";
 
 /** When unset or empty, remote version checks are skipped (no upstream endpoint). */
 function getLatestVersionUrl(): string {
-	return (process.env.ALF_LATEST_VERSION_URL ?? "").trim();
+	return (process.env.ALEF_LATEST_VERSION_URL ?? "").trim();
 }
 
 const DEFAULT_VERSION_CHECK_TIMEOUT_MS = 10000;
@@ -60,14 +60,14 @@ export async function getLatestRelease(
 	currentVersion: string,
 	options: { timeoutMs?: number } = {},
 ): Promise<LatestRelease | undefined> {
-	if (process.env.ALF_SKIP_VERSION_CHECK || process.env.ALF_OFFLINE) return undefined;
+	if (process.env.ALEF_SKIP_VERSION_CHECK || process.env.ALEF_OFFLINE) return undefined;
 
 	const latestVersionUrl = getLatestVersionUrl();
 	if (!latestVersionUrl) return undefined;
 
 	const response = await fetch(latestVersionUrl, {
 		headers: {
-			"User-Agent": getAlfUserAgent(currentVersion),
+			"User-Agent": getAlefUserAgent(currentVersion),
 			accept: "application/json",
 		},
 		signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_VERSION_CHECK_TIMEOUT_MS),

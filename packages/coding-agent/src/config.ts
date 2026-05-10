@@ -302,7 +302,7 @@ export function getUpdateInstruction(packageName: string): string {
  */
 export function getPackageDir(): string {
 	// Allow override via environment variable (useful for Nix/Guix where store paths tokenize poorly)
-	const envDir = process.env.ALF_PACKAGE_DIR;
+	const envDir = process.env.ALEF_PACKAGE_DIR;
 	if (envDir) {
 		if (envDir === "~") return homedir();
 		if (envDir.startsWith("~/")) return homedir() + envDir.slice(1);
@@ -402,13 +402,13 @@ export function getBundledInteractiveAssetPath(name: string): string {
 }
 
 // =============================================================================
-// App Config (from package.json alfConfig)
+// App Config (from package.json alefConfig)
 // =============================================================================
 
 interface PackageJson {
 	name?: string;
 	version?: string;
-	alfConfig?: {
+	alefConfig?: {
 		name?: string;
 		configDir?: string;
 	};
@@ -416,18 +416,18 @@ interface PackageJson {
 
 const pkg = JSON.parse(readFileSync(getPackageJsonPath(), "utf-8")) as PackageJson;
 
-const alfConfigName: string | undefined = pkg.alfConfig?.name;
-export const PACKAGE_NAME: string = pkg.name || "@alf-agent/coding-agent";
-export const APP_NAME: string = alfConfigName || "alf";
-export const APP_TITLE: string = alfConfigName ? APP_NAME : "Alf";
-export const CONFIG_DIR_NAME: string = pkg.alfConfig?.configDir || ".alf";
+const alefConfigName: string | undefined = pkg.alefConfig?.name;
+export const PACKAGE_NAME: string = pkg.name || "@alef/coding-agent";
+export const APP_NAME: string = alefConfigName || "alef";
+export const APP_TITLE: string = alefConfigName ? APP_NAME : "Alef";
+export const CONFIG_DIR_NAME: string = pkg.alefConfig?.configDir || ".alef";
 export const VERSION: string = pkg.version || "0.0.0";
 
-// e.g., ALF_CODING_AGENT_DIR (depends on alfConfig.name / APP_NAME)
+// e.g., ALEF_CODING_AGENT_DIR (depends on alefConfig.name / APP_NAME)
 export const ENV_AGENT_DIR = `${APP_NAME.toUpperCase()}_CODING_AGENT_DIR`;
 export const ENV_SESSION_DIR = `${APP_NAME.toUpperCase()}_CODING_AGENT_SESSION_DIR`;
 
-/** Set to "true" at startup so subprocesses detect this CLI (e.g. ALF_CODING_AGENT). */
+/** Set to "true" at startup so subprocesses detect this CLI (e.g. ALEF_CODING_AGENT). */
 export const ENV_RUNTIME_MARKER = `${APP_NAME.toUpperCase().replace(/[^a-zA-Z0-9]/g, "_")}_CODING_AGENT`;
 
 export function expandTildePath(path: string): string {
@@ -438,7 +438,7 @@ export function expandTildePath(path: string): string {
 
 /** Get the share viewer URL for a gist ID (uses gist URL when no viewer base is configured). */
 export function getShareViewerUrl(gistId: string, gistPublicUrl?: string): string {
-	const baseUrl = process.env.ALF_SHARE_VIEWER_URL?.trim();
+	const baseUrl = process.env.ALEF_SHARE_VIEWER_URL?.trim();
 	if (baseUrl) {
 		const normalized = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 		return `${normalized}#${gistId}`;
@@ -460,7 +460,7 @@ function resolveXdgConfigHome(): string {
 
 /** Get the agent config directory */
 export function getAgentDir(): string {
-	const envDir = process.env[ENV_AGENT_DIR] ?? process.env.ALF_CODING_AGENT_DIR;
+	const envDir = process.env[ENV_AGENT_DIR] ?? process.env.ALEF_CODING_AGENT_DIR;
 	if (envDir) {
 		return expandTildePath(envDir);
 	}

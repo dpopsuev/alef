@@ -1,4 +1,4 @@
-import { fauxAssistantMessage } from "@alf-agent/ai";
+import { fauxAssistantMessage } from "@alef/ai";
 import { afterEach, describe, expect, it } from "vitest";
 import { createHarness, getAssistantTexts, type Harness } from "../harness.js";
 

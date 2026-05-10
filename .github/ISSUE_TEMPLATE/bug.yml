@@ -5,9 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Before you start:** Read [CONTRIBUTING.md](https://github.com/dpopsuev/alf-agent/blob/main/CONTRIBUTING.md).
+        **Before you start:** Read [CONTRIBUTING.md](https://github.com/dpopsuev/alef/blob/main/CONTRIBUTING.md).
 
-        **Alf Agent** is a **BDFL fork**: outside bug reports are typically **auto-closed** without triage. There is no expectation of review for strangers.
+        **Alef Agent** is a **BDFL fork**: outside bug reports are typically **auto-closed** without triage. There is no expectation of review for strangers.
 
         Bugs in **upstream Pi** belong in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 

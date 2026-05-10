@@ -1,6 +1,6 @@
 import "@mariozechner/mini-lit/dist/ThemeToggle.js";
-import { Agent, type AgentMessage } from "@alf-agent/agent-core";
-import { getModel, type TextContent } from "@alf-agent/ai";
+import { Agent, type AgentMessage } from "@alef/agent-core";
+import { getModel, type TextContent } from "@alef/ai";
 import {
 	type AgentState,
 	ApiKeyPromptDialog,
@@ -18,7 +18,7 @@ import {
 	SettingsDialog,
 	SettingsStore,
 	setAppStorage,
-} from "@alf-agent/web-ui";
+} from "@alef/web-ui";
 import { html, render } from "lit";
 import { Bell, History, Plus, Settings } from "lucide";
 import "./app.css";
@@ -47,7 +47,7 @@ const configs = [
 
 // Create backend
 const backend = new IndexedDBStorageBackend({
-	dbName: "pi-web-ui-example",
+	dbName: "alef-web-ui-example",
 	version: 2, // Incremented for custom-providers store
 	stores: configs,
 });

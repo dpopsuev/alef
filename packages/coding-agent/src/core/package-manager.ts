@@ -39,7 +39,7 @@ const UPDATE_CHECK_CONCURRENCY = 4;
 const GIT_UPDATE_CONCURRENCY = 4;
 
 function isOfflineModeEnabled(): boolean {
-	const value = process.env.ALF_OFFLINE;
+	const value = process.env.ALEF_OFFLINE;
 	if (!value) return false;
 	return value === "1" || value.toLowerCase() === "true" || value.toLowerCase() === "yes";
 }
@@ -144,7 +144,7 @@ interface GitUpdateTarget extends ConfiguredUpdateSource {
 	parsed: GitSource;
 }
 
-interface AlfManifest {
+interface AlefManifest {
 	extensions?: string[];
 	skills?: string[];
 	prompts?: string[];
@@ -325,7 +325,7 @@ function collectFiles(
 	return files;
 }
 
-type SkillDiscoveryMode = "alf" | "agents";
+type SkillDiscoveryMode = "alef" | "agents";
 
 function collectSkillEntries(
 	dir: string,
@@ -384,7 +384,7 @@ function collectSkillEntries(
 			}
 
 			const relPath = toPosixPath(relative(root, fullPath));
-			if (mode === "alf" && dir === root && isFile && entry.name.endsWith(".md") && !ig.ignores(relPath)) {
+			if (mode === "alef" && dir === root && isFile && entry.name.endsWith(".md") && !ig.ignores(relPath)) {
 				entries.push(fullPath);
 				continue;
 			}
@@ -514,11 +514,11 @@ function collectAutoThemeEntries(dir: string): string[] {
 	return entries;
 }
 
-function readAlfManifestFile(packageJsonPath: string): AlfManifest | null {
+function readAlefManifestFile(packageJsonPath: string): AlefManifest | null {
 	try {
 		const content = readFileSync(packageJsonPath, "utf-8");
-		const pkg = JSON.parse(content) as { alf?: AlfManifest };
-		return pkg.alf ?? null;
+		const pkg = JSON.parse(content) as { alef?: AlefManifest };
+		return pkg.alef ?? null;
 	} catch {
 		return null;
 	}
@@ -527,7 +527,7 @@ function readAlfManifestFile(packageJsonPath: string): AlfManifest | null {
 function resolveExtensionEntries(dir: string): string[] | null {
 	const packageJsonPath = join(dir, "package.json");
 	if (existsSync(packageJsonPath)) {
-		const manifest = readAlfManifestFile(packageJsonPath);
+		const manifest = readAlefManifestFile(packageJsonPath);
 		if (manifest?.extensions?.length) {
 			const entries: string[] = [];
 			for (const extPath of manifest.extensions) {
@@ -614,7 +614,7 @@ function collectAutoExtensionEntries(dir: string): string[] {
  */
 function collectResourceFiles(dir: string, resourceType: ResourceType): string[] {
 	if (resourceType === "skills") {
-		return collectSkillEntries(dir, "alf");
+		return collectSkillEntries(dir, "alef");
 	}
 	if (resourceType === "extensions") {
 		return collectAutoExtensionEntries(dir);
@@ -1813,7 +1813,7 @@ export class DefaultPackageManager implements PackageManager {
 		this.ensureGitIgnore(installRoot);
 		const packageJsonPath = join(installRoot, "package.json");
 		if (!existsSync(packageJsonPath)) {
-			const pkgJson = { name: "pi-extensions", private: true };
+			const pkgJson = { name: "alef-extensions", private: true };
 			writeFileSync(packageJsonPath, JSON.stringify(pkgJson, null, 2), "utf-8");
 		}
 	}
@@ -1890,7 +1890,7 @@ export class DefaultPackageManager implements PackageManager {
 			.update(`${prefix}-${suffix ?? ""}`)
 			.digest("hex")
 			.slice(0, 8);
-		return join(tmpdir(), "pi-extensions", prefix, hash, suffix ?? "");
+		return join(tmpdir(), "alef-extensions", prefix, hash, suffix ?? "");
 	}
 
 	private getBaseDirForScope(scope: SourceScope): string {
@@ -1938,10 +1938,10 @@ export class DefaultPackageManager implements PackageManager {
 			return true;
 		}
 
-		const manifest = this.readAlfManifest(packageRoot);
+		const manifest = this.readAlefManifest(packageRoot);
 		if (manifest) {
 			for (const resourceType of RESOURCE_TYPES) {
-				const entries = manifest[resourceType as keyof AlfManifest];
+				const entries = manifest[resourceType as keyof AlefManifest];
 				this.addManifestEntries(
 					entries,
 					packageRoot,
@@ -1974,8 +1974,8 @@ export class DefaultPackageManager implements PackageManager {
 		target: Map<string, { metadata: PathMetadata; enabled: boolean }>,
 		metadata: PathMetadata,
 	): void {
-		const manifest = this.readAlfManifest(packageRoot);
-		const entries = manifest?.[resourceType as keyof AlfManifest];
+		const manifest = this.readAlefManifest(packageRoot);
+		const entries = manifest?.[resourceType as keyof AlefManifest];
 		if (entries) {
 			this.addManifestEntries(entries, packageRoot, resourceType, target, metadata);
 			return;
@@ -2025,8 +2025,8 @@ export class DefaultPackageManager implements PackageManager {
 		packageRoot: string,
 		resourceType: ResourceType,
 	): { allFiles: string[]; enabledByManifest: Set<string> } {
-		const manifest = this.readAlfManifest(packageRoot);
-		const entries = manifest?.[resourceType as keyof AlfManifest];
+		const manifest = this.readAlefManifest(packageRoot);
+		const entries = manifest?.[resourceType as keyof AlefManifest];
 		if (entries && entries.length > 0) {
 			const allFiles = this.collectFilesFromManifestEntries(entries, packageRoot, resourceType);
 			const manifestPatterns = entries.filter(isOverridePattern);
@@ -2043,7 +2043,7 @@ export class DefaultPackageManager implements PackageManager {
 		return { allFiles, enabledByManifest: new Set(allFiles) };
 	}
 
-	private readAlfManifest(packageRoot: string): AlfManifest | null {
+	private readAlefManifest(packageRoot: string): AlefManifest | null {
 		const packageJsonPath = join(packageRoot, "package.json");
 		if (!existsSync(packageJsonPath)) {
 			return null;
@@ -2051,8 +2051,8 @@ export class DefaultPackageManager implements PackageManager {
 
 		try {
 			const content = readFileSync(packageJsonPath, "utf-8");
-			const pkg = JSON.parse(content) as { alf?: AlfManifest };
-			return pkg.alf ?? null;
+			const pkg = JSON.parse(content) as { alef?: AlefManifest };
+			return pkg.alef ?? null;
 		} catch {
 			return null;
 		}
@@ -2192,7 +2192,7 @@ export class DefaultPackageManager implements PackageManager {
 
 		addResources(
 			"skills",
-			collectAutoSkillEntries(projectDirs.skills, "alf"),
+			collectAutoSkillEntries(projectDirs.skills, "alef"),
 			projectMetadata,
 			projectOverrides.skills,
 			projectBaseDir,
@@ -2238,7 +2238,7 @@ export class DefaultPackageManager implements PackageManager {
 
 		addResources(
 			"skills",
-			collectAutoSkillEntries(userDirs.skills, "alf"),
+			collectAutoSkillEntries(userDirs.skills, "alef"),
 			userMetadata,
 			userOverrides.skills,
 			globalBaseDir,

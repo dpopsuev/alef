@@ -18,17 +18,17 @@ export function expandTildePath(path) {
 
 /** Mirrors packages/coding-agent/src/config.ts getAgentDir(). */
 export function getDefaultAgentDir() {
-	const envDir = process.env.ALF_CODING_AGENT_DIR;
+	const envDir = process.env.ALEF_CODING_AGENT_DIR;
 	if (envDir) {
 		return expandTildePath(envDir.trim());
 	}
 	if (process.platform === "linux") {
-		const xdgAgentDir = join(resolveXdgConfigHome(), "alf", "agent");
-		const legacyAgentDir = join(homedir(), ".alf", "agent");
+		const xdgAgentDir = join(resolveXdgConfigHome(), "alef", "agent");
+		const legacyAgentDir = join(homedir(), ".alef", "agent");
 		if (existsSync(legacyAgentDir)) {
 			return legacyAgentDir;
 		}
 		return xdgAgentDir;
 	}
-	return join(homedir(), ".alf", "agent");
+	return join(homedir(), ".alef", "agent");
 }

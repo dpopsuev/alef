@@ -43,7 +43,7 @@ Use `/login` in interactive mode and select a provider to store an API key in `a
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-alf
+alef
 ```
 
 | Provider | Environment Variable | `auth.json` key |
@@ -156,14 +156,14 @@ export AWS_REGION=us-west-2
 Also supports ECS task roles (`AWS_CONTAINER_CREDENTIALS_*`) and IRSA (`AWS_WEB_IDENTITY_TOKEN_FILE`).
 
 ```bash
-alf --provider amazon-bedrock --model us.anthropic.claude-sonnet-4-20250514-v1:0
+alef --provider amazon-bedrock --model us.anthropic.claude-sonnet-4-20250514-v1:0
 ```
 
 Prompt caching is enabled automatically for Claude models whose ID contains a recognizable model name (base models and system-defined inference profiles). For application inference profiles (whose ARNs don't contain the model name), set `AWS_BEDROCK_FORCE_CACHE=1` to enable cache points:
 
 ```bash
 export AWS_BEDROCK_FORCE_CACHE=1
-alf --provider amazon-bedrock --model arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123
+alef --provider amazon-bedrock --model arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123
 ```
 
 If you are connecting to a Bedrock API proxy, the following environment variables can be used:
@@ -187,7 +187,7 @@ export AWS_BEDROCK_FORCE_HTTP1=1
 export CLOUDFLARE_API_KEY=...           # or use /login
 export CLOUDFLARE_ACCOUNT_ID=...
 export CLOUDFLARE_GATEWAY_ID=...        # create at dash.cloudflare.com → AI → AI Gateway
-alf --provider cloudflare-ai-gateway --model "claude-sonnet-4-5"
+alef --provider cloudflare-ai-gateway --model "claude-sonnet-4-5"
 ```
 
 Routes to OpenAI, Anthropic, and Workers AI through Cloudflare AI Gateway. Workers AI uses the Unified API (`/compat`) and prefixed model IDs (`workers-ai/@cf/...`). OpenAI uses the OpenAI passthrough route (`/openai`) with native OpenAI model IDs such as `gpt-5.1`. Anthropic uses the Anthropic passthrough route (`/anthropic`) with native Anthropic model IDs such as `claude-sonnet-4-5`.
@@ -210,7 +210,7 @@ For normal pi usage, prefer unified billing or stored BYOK. Inline BYOK requires
 ```bash
 export CLOUDFLARE_API_KEY=...           # or use /login
 export CLOUDFLARE_ACCOUNT_ID=...
-alf --provider cloudflare-workers-ai --model "@cf/moonshotai/kimi-k2.6"
+alef --provider cloudflare-workers-ai --model "@cf/moonshotai/kimi-k2.6"
 ```
 
 Pi automatically sets `x-session-affinity` for [prefix caching](https://developers.cloudflare.com/workers-ai/features/prompt-caching/) discounts.
@@ -232,15 +232,15 @@ Or set `GOOGLE_APPLICATION_CREDENTIALS` to a service account key file.
 To bill Claude through **Google Cloud** instead of `api.anthropic.com` / `ANTHROPIC_API_KEY`, enable Vertex routing for **catalog `anthropic` models** (same model IDs as on Vertex, e.g. `claude-opus-4-7`). Requires [Vertex AI API](https://cloud.google.com/vertex-ai/docs/start/cloud-environment), partner model enablement in Model Garden, and Application Default Credentials.
 
 ```bash
-export ALF_ANTHROPIC_VERTEX=1
+export ALEF_ANTHROPIC_VERTEX=1
 export GOOGLE_CLOUD_PROJECT=your-project   # or ANTHROPIC_VERTEX_PROJECT_ID
 export CLOUD_ML_REGION=global             # or GOOGLE_CLOUD_LOCATION (see GCP docs for supported regions)
 gcloud auth application-default login      # or GOOGLE_APPLICATION_CREDENTIALS for a service account
 ```
 
-Use **`ALF_ANTHROPIC_VERTEX=1`** (or **`true`** / **`yes`**). You do **not** need **`ANTHROPIC_API_KEY`** when Vertex routing is active—GCP ADC provides auth. Remove `anthropic` API keys from the environment or `auth.json` if you rely solely on Vertex billing.
+Use **`ALEF_ANTHROPIC_VERTEX=1`** (or **`true`** / **`yes`**). You do **not** need **`ANTHROPIC_API_KEY`** when Vertex routing is active—GCP ADC provides auth. Remove `anthropic` API keys from the environment or `auth.json` if you rely solely on Vertex billing.
 
-If you still have Claude subscription OAuth or API credentials configured, **`ALF_ANTHROPIC_VERTEX` forces Vertex** for catalog **`anthropic`** models so traffic does not go to `api.anthropic.com`.
+If you still have Claude subscription OAuth or API credentials configured, **`ALEF_ANTHROPIC_VERTEX` forces Vertex** for catalog **`anthropic`** models so traffic does not go to `api.anthropic.com`.
 
 Does **not** apply to GitHub Copilot or Cloudflare AI Gateway Anthropic routes.
 

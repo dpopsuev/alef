@@ -11,7 +11,7 @@ import {
 
 const execPathDescriptor = Object.getOwnPropertyDescriptor(process, "execPath");
 const originalPath = process.env.PATH;
-const originalPiPackageDir = process.env.ALF_PACKAGE_DIR;
+const originalPiPackageDir = process.env.ALEF_PACKAGE_DIR;
 let tempDir: string | undefined;
 
 function setExecPath(value: string): void {
@@ -31,9 +31,9 @@ afterEach(() => {
 		process.env.PATH = originalPath;
 	}
 	if (originalPiPackageDir === undefined) {
-		delete process.env.ALF_PACKAGE_DIR;
+		delete process.env.ALEF_PACKAGE_DIR;
 	} else {
-		process.env.ALF_PACKAGE_DIR = originalPiPackageDir;
+		process.env.ALEF_PACKAGE_DIR = originalPiPackageDir;
 	}
 	if (tempDir) {
 		chmodSync(tempDir, 0o700);
@@ -42,20 +42,20 @@ afterEach(() => {
 	}
 });
 
-function createNpmPrefixInstall(template = "alf-prefix-"): { prefix: string; packageDir: string } {
+function createNpmPrefixInstall(template = "alef-prefix-"): { prefix: string; packageDir: string } {
 	const prefix = mkdtempSync(join(tmpdir(), template));
 	const root = join(prefix, "lib", "node_modules");
-	const scopeDir = join(root, "@alf-agent");
+	const scopeDir = join(root, "@alef");
 	const packageDir = join(scopeDir, "coding-agent");
 	mkdirSync(packageDir, { recursive: true });
 	tempDir = prefix;
-	process.env.ALF_PACKAGE_DIR = packageDir;
+	process.env.ALEF_PACKAGE_DIR = packageDir;
 	setExecPath(join(packageDir, "dist", "cli.js"));
 	return { prefix, packageDir };
 }
 
 function createPnpmGlobalInstall(): { root: string; packageDir: string } {
-	const temp = mkdtempSync(join(tmpdir(), "alf-pnpm-"));
+	const temp = mkdtempSync(join(tmpdir(), "alef-pnpm-"));
 	const binDir = join(temp, "bin");
 	const root = join(temp, "pnpm", "global", "5", "node_modules");
 	const packageDir = join(root, "@legacy-scope", "legacy-coding-agent");
@@ -65,7 +65,7 @@ function createPnpmGlobalInstall(): { root: string; packageDir: string } {
 	chmodSync(join(binDir, process.platform === "win32" ? "pnpm.cmd" : "pnpm"), 0o755);
 	tempDir = temp;
 	process.env.PATH = `${binDir}${delimiter}${originalPath ?? ""}`;
-	process.env.ALF_PACKAGE_DIR = packageDir;
+	process.env.ALEF_PACKAGE_DIR = packageDir;
 	setExecPath(
 		join(
 			root,
@@ -82,7 +82,7 @@ function createPnpmGlobalInstall(): { root: string; packageDir: string } {
 }
 
 function createYarnGlobalInstall(): { globalDir: string; packageDir: string } {
-	const temp = mkdtempSync(join(tmpdir(), "alf-yarn-"));
+	const temp = mkdtempSync(join(tmpdir(), "alef-yarn-"));
 	const binDir = join(temp, "bin");
 	const globalDir = join(temp, "yarn", "global");
 	const packageDir = join(globalDir, "node_modules", "@legacy-scope", "legacy-coding-agent");
@@ -92,17 +92,17 @@ function createYarnGlobalInstall(): { globalDir: string; packageDir: string } {
 	chmodSync(join(binDir, process.platform === "win32" ? "yarn.cmd" : "yarn"), 0o755);
 	tempDir = temp;
 	process.env.PATH = `${binDir}${delimiter}${originalPath ?? ""}`;
-	process.env.ALF_PACKAGE_DIR = packageDir;
+	process.env.ALEF_PACKAGE_DIR = packageDir;
 	setExecPath(join(globalDir, ".yarn", "@legacy-scope", "legacy-coding-agent", "dist", "cli.js"));
 	return { globalDir, packageDir };
 }
 
 function createBunGlobalInstall(): { packageDir: string } {
-	const temp = mkdtempSync(join(tmpdir(), "alf-bun-"));
+	const temp = mkdtempSync(join(tmpdir(), "alef-bun-"));
 	const prefix = join(temp, ".bun");
 	const bunBin = join(prefix, "bin");
 	const root = join(prefix, "install", "global", "node_modules");
-	const scopeDir = join(root, "@alf-agent");
+	const scopeDir = join(root, "@alef");
 	const packageDir = join(scopeDir, "coding-agent");
 	mkdirSync(packageDir, { recursive: true });
 	mkdirSync(bunBin, { recursive: true });
@@ -110,7 +110,7 @@ function createBunGlobalInstall(): { packageDir: string } {
 	chmodSync(join(bunBin, process.platform === "win32" ? "bun.cmd" : "bun"), 0o755);
 	tempDir = temp;
 	process.env.PATH = `${bunBin}${delimiter}${originalPath ?? ""}`;
-	process.env.ALF_PACKAGE_DIR = packageDir;
+	process.env.ALEF_PACKAGE_DIR = packageDir;
 	setExecPath(join(packageDir, "dist", "cli.js"));
 	return { packageDir };
 }
@@ -142,33 +142,33 @@ function createFakeBunScript(bunBin: string): string {
 describe("detectInstallMethod", () => {
 	test("detects pnpm from Windows .pnpm install paths", () => {
 		setExecPath(
-			"C:\\Users\\Admin\\Documents\\pnpm-repository\\global\\5\\.pnpm\\@alf-agent+coding-agent@0.67.68\\node_modules\\@alf-agent\\coding-agent\\dist\\cli.js",
+			"C:\\Users\\Admin\\Documents\\pnpm-repository\\global\\5\\.pnpm\\@alef+coding-agent@0.67.68\\node_modules\\@alef\\coding-agent\\dist\\cli.js",
 		);
 
 		expect(detectInstallMethod()).toBe("pnpm");
-		expect(getUpdateInstruction("@alf-agent/coding-agent")).toBe("Run: pnpm install -g @alf-agent/coding-agent");
+		expect(getUpdateInstruction("@alef/coding-agent")).toBe("Run: pnpm install -g @alef/coding-agent");
 	});
 
 	test("does not self-update unknown wrapper installs", () => {
 		setExecPath("/usr/local/bin/node");
 
 		expect(detectInstallMethod()).toBe("unknown");
-		expect(getSelfUpdateCommand("@alf-agent/coding-agent")).toBeUndefined();
-		expect(getUpdateInstruction("@alf-agent/coding-agent")).toBe(
-			"Update @alf-agent/coding-agent using the package manager, wrapper, or source checkout that provides this installation.",
+		expect(getSelfUpdateCommand("@alef/coding-agent")).toBeUndefined();
+		expect(getUpdateInstruction("@alef/coding-agent")).toBe(
+			"Update @alef/coding-agent using the package manager, wrapper, or source checkout that provides this installation.",
 		);
 	});
 
 	test("self-updates npm installs from custom prefixes", () => {
 		const { prefix } = createNpmPrefixInstall();
 
-		const command = getSelfUpdateCommand("@alf-agent/coding-agent");
+		const command = getSelfUpdateCommand("@alef/coding-agent");
 
 		expect(detectInstallMethod()).toBe("npm");
 		expect(command).toEqual({
 			command: "npm",
-			args: ["--prefix", prefix, "install", "-g", "@alf-agent/coding-agent"],
-			display: `npm --prefix ${prefix} install -g @alf-agent/coding-agent`,
+			args: ["--prefix", prefix, "install", "-g", "@alef/coding-agent"],
+			display: `npm --prefix ${prefix} install -g @alef/coding-agent`,
 		});
 	});
 
@@ -199,50 +199,50 @@ describe("detectInstallMethod", () => {
 	test("self-update respects configured npmCommand", () => {
 		const { prefix } = createNpmPrefixInstall();
 
-		const command = getSelfUpdateCommand("@alf-agent/coding-agent", ["npm", "--prefix", prefix]);
+		const command = getSelfUpdateCommand("@alef/coding-agent", ["npm", "--prefix", prefix]);
 
 		expect(command).toEqual({
 			command: "npm",
-			args: ["--prefix", prefix, "install", "-g", "@alf-agent/coding-agent"],
-			display: `npm --prefix ${prefix} install -g @alf-agent/coding-agent`,
+			args: ["--prefix", prefix, "install", "-g", "@alef/coding-agent"],
+			display: `npm --prefix ${prefix} install -g @alef/coding-agent`,
 		});
 	});
 
 	test("self-update treats empty npmCommand as unset", () => {
 		const { prefix } = createNpmPrefixInstall();
 
-		const command = getSelfUpdateCommand("@alf-agent/coding-agent", []);
+		const command = getSelfUpdateCommand("@alef/coding-agent", []);
 
-		expect(command?.args).toEqual(["--prefix", prefix, "install", "-g", "@alf-agent/coding-agent"]);
+		expect(command?.args).toEqual(["--prefix", prefix, "install", "-g", "@alef/coding-agent"]);
 	});
 
 	test("quotes npm self-update display paths", () => {
-		const { prefix } = createNpmPrefixInstall("alf prefix ");
+		const { prefix } = createNpmPrefixInstall("alef prefix ");
 
-		const command = getSelfUpdateCommand("@alf-agent/coding-agent");
+		const command = getSelfUpdateCommand("@alef/coding-agent");
 
-		expect(command?.display).toBe(`npm --prefix "${prefix}" install -g @alf-agent/coding-agent`);
+		expect(command?.display).toBe(`npm --prefix "${prefix}" install -g @alef/coding-agent`);
 	});
 
 	test("does not infer Windows npm custom prefixes from package paths", () => {
-		const packageDir = "C:\\Users\\Admin\\npm prefix\\node_modules\\@alf-agent\\coding-agent";
-		process.env.ALF_PACKAGE_DIR = packageDir;
+		const packageDir = "C:\\Users\\Admin\\npm prefix\\node_modules\\@alef\\coding-agent";
+		process.env.ALEF_PACKAGE_DIR = packageDir;
 		setExecPath(`${packageDir}\\dist\\cli.js`);
 
 		expect(detectInstallMethod()).toBe("npm");
-		expect(getUpdateInstruction("@alf-agent/coding-agent")).toBe("Run: npm install -g @alf-agent/coding-agent");
+		expect(getUpdateInstruction("@alef/coding-agent")).toBe("Run: npm install -g @alef/coding-agent");
 	});
 
 	test("self-updates bun global installs from bun pm bin", () => {
 		createBunGlobalInstall();
 
-		const command = getSelfUpdateCommand("@alf-agent/coding-agent");
+		const command = getSelfUpdateCommand("@alef/coding-agent");
 
 		expect(detectInstallMethod()).toBe("bun");
 		expect(command).toEqual({
 			command: "bun",
-			args: ["install", "-g", "@alf-agent/coding-agent"],
-			display: "bun install -g @alf-agent/coding-agent",
+			args: ["install", "-g", "@alef/coding-agent"],
+			display: "bun install -g @alef/coding-agent",
 		});
 	});
 
@@ -325,18 +325,16 @@ describe("detectInstallMethod", () => {
 		const { packageDir } = createNpmPrefixInstall();
 		chmodSync(packageDir, 0o500);
 
-		expect(getSelfUpdateCommand("@alf-agent/coding-agent")).toBeUndefined();
-		expect(getSelfUpdateUnavailableInstruction("@alf-agent/coding-agent")).toContain(
-			"the install path is not writable",
-		);
+		expect(getSelfUpdateCommand("@alef/coding-agent")).toBeUndefined();
+		expect(getSelfUpdateUnavailableInstruction("@alef/coding-agent")).toContain("the install path is not writable");
 	});
 });
 
 describe.skipIf(process.platform !== "linux")("getAgentDir (Linux XDG)", () => {
 	const originalHome = process.env.HOME;
 	const originalXdgConfig = process.env.XDG_CONFIG_HOME;
-	const originalAlfDir = process.env.ALF_CODING_AGENT_DIR;
-	const originalPiDir = process.env.ALF_CODING_AGENT_DIR;
+	const originalAlfDir = process.env.ALEF_CODING_AGENT_DIR;
+	const originalPiDir = process.env.ALEF_CODING_AGENT_DIR;
 	let xdgTempHome: string | undefined;
 
 	afterEach(async () => {
@@ -352,14 +350,14 @@ describe.skipIf(process.platform !== "linux")("getAgentDir (Linux XDG)", () => {
 			process.env.XDG_CONFIG_HOME = originalXdgConfig;
 		}
 		if (originalAlfDir === undefined) {
-			delete process.env.ALF_CODING_AGENT_DIR;
+			delete process.env.ALEF_CODING_AGENT_DIR;
 		} else {
-			process.env.ALF_CODING_AGENT_DIR = originalAlfDir;
+			process.env.ALEF_CODING_AGENT_DIR = originalAlfDir;
 		}
 		if (originalPiDir === undefined) {
-			delete process.env.ALF_CODING_AGENT_DIR;
+			delete process.env.ALEF_CODING_AGENT_DIR;
 		} else {
-			process.env.ALF_CODING_AGENT_DIR = originalPiDir;
+			process.env.ALEF_CODING_AGENT_DIR = originalPiDir;
 		}
 		if (xdgTempHome) {
 			rmSync(xdgTempHome, { recursive: true, force: true });
@@ -368,27 +366,27 @@ describe.skipIf(process.platform !== "linux")("getAgentDir (Linux XDG)", () => {
 	});
 
 	test("uses ~/.config/<app>/agent when legacy dot-dir agent is absent", async () => {
-		const home = mkdtempSync(join(tmpdir(), "alf-xdg-home-"));
+		const home = mkdtempSync(join(tmpdir(), "alef-xdg-home-"));
 		xdgTempHome = home;
 		process.env.HOME = home;
 		delete process.env.XDG_CONFIG_HOME;
-		delete process.env.ALF_CODING_AGENT_DIR;
-		delete process.env.ALF_CODING_AGENT_DIR;
+		delete process.env.ALEF_CODING_AGENT_DIR;
+		delete process.env.ALEF_CODING_AGENT_DIR;
 
 		vi.resetModules();
 		const { getAgentDir } = await import("../src/config.js");
-		expect(getAgentDir()).toBe(join(home, ".config", "alf", "agent"));
+		expect(getAgentDir()).toBe(join(home, ".config", "alef", "agent"));
 	});
 
-	test("prefers legacy ~/.alf/agent when it already exists", async () => {
-		const home = mkdtempSync(join(tmpdir(), "alf-legacy-home-"));
+	test("prefers legacy ~/.alef/agent when it already exists", async () => {
+		const home = mkdtempSync(join(tmpdir(), "alef-legacy-home-"));
 		xdgTempHome = home;
 		process.env.HOME = home;
 		delete process.env.XDG_CONFIG_HOME;
-		delete process.env.ALF_CODING_AGENT_DIR;
-		delete process.env.ALF_CODING_AGENT_DIR;
+		delete process.env.ALEF_CODING_AGENT_DIR;
+		delete process.env.ALEF_CODING_AGENT_DIR;
 
-		const legacy = join(home, ".alf", "agent");
+		const legacy = join(home, ".alef", "agent");
 		mkdirSync(legacy, { recursive: true });
 
 		vi.resetModules();
@@ -397,16 +395,16 @@ describe.skipIf(process.platform !== "linux")("getAgentDir (Linux XDG)", () => {
 	});
 
 	test("respects XDG_CONFIG_HOME when set", async () => {
-		const home = mkdtempSync(join(tmpdir(), "alf-xdg-custom-"));
+		const home = mkdtempSync(join(tmpdir(), "alef-xdg-custom-"));
 		xdgTempHome = home;
 		process.env.HOME = home;
 		process.env.XDG_CONFIG_HOME = join(home, "xdg-cfg");
-		delete process.env.ALF_CODING_AGENT_DIR;
-		delete process.env.ALF_CODING_AGENT_DIR;
+		delete process.env.ALEF_CODING_AGENT_DIR;
+		delete process.env.ALEF_CODING_AGENT_DIR;
 		mkdirSync(process.env.XDG_CONFIG_HOME, { recursive: true });
 
 		vi.resetModules();
 		const { getAgentDir } = await import("../src/config.js");
-		expect(getAgentDir()).toBe(join(home, "xdg-cfg", "alf", "agent"));
+		expect(getAgentDir()).toBe(join(home, "xdg-cfg", "alef", "agent"));
 	});
 });

@@ -5,8 +5,8 @@
  * a summary of the branch being left so context isn't lost.
  */
 
-import type { ImageContent, Model, TextContent } from "@alf-agent/ai";
-import { completeSimple } from "@alf-agent/ai";
+import type { ImageContent, Model, TextContent } from "@alef/ai";
+import { completeSimple } from "@alef/ai";
 import type { AgentMessage } from "../../types.js";
 import {
 	convertToLlm,

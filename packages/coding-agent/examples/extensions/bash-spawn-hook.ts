@@ -4,24 +4,24 @@
  * Adjusts command, cwd, and env before execution.
  *
  * Usage:
- *   alf -e ./bash-spawn-hook.ts
+ *   alef -e ./bash-spawn-hook.ts
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
-import { createBashTool } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
+import { createBashTool } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	const cwd = process.cwd();
 
 	const bashTool = createBashTool(cwd, {
 		spawnHook: ({ command, cwd, env }) => ({
 			command: `source ~/.profile\n${command}`,
 			cwd,
-			env: { ...env, ALF_SPAWN_HOOK: "1" },
+			env: { ...env, ALEF_SPAWN_HOOK: "1" },
 		}),
 	});
 
-	alf.registerTool({
+	alef.registerTool({
 		...bashTool,
 		execute: async (id, params, signal, onUpdate, _ctx) => {
 			return bashTool.execute(id, params, signal, onUpdate);

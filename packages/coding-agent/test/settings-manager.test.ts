@@ -15,7 +15,7 @@ describe("SettingsManager", () => {
 			rmSync(testDir, { recursive: true });
 		}
 		mkdirSync(agentDir, { recursive: true });
-		mkdirSync(join(projectDir, ".alf"), { recursive: true });
+		mkdirSync(join(projectDir, ".alef"), { recursive: true });
 	});
 
 	afterEach(() => {
@@ -200,7 +200,7 @@ describe("SettingsManager", () => {
 	describe("error tracking", () => {
 		it("should collect and clear load errors via drainErrors", () => {
 			const globalSettingsPath = join(agentDir, "settings.json");
-			const projectSettingsPath = join(projectDir, ".alf", "settings.json");
+			const projectSettingsPath = join(projectDir, ".alef", "settings.json");
 			writeFileSync(globalSettingsPath, "{ invalid global json");
 			writeFileSync(projectSettingsPath, "{ invalid project json");
 
@@ -215,45 +215,45 @@ describe("SettingsManager", () => {
 
 	describe("project settings directory creation", () => {
 		it("should not create project config folder when only reading project settings", () => {
-			// Create agent dir with global settings, but NO .alf folder in project
+			// Create agent dir with global settings, but NO .alef folder in project
 			const settingsPath = join(agentDir, "settings.json");
 			writeFileSync(settingsPath, JSON.stringify({ theme: "dark" }));
 
-			// Delete the project .alf folder that beforeEach created
-			rmSync(join(projectDir, ".alf"), { recursive: true });
+			// Delete the project .alef folder that beforeEach created
+			rmSync(join(projectDir, ".alef"), { recursive: true });
 
 			// Create SettingsManager (reads both global and project settings)
 			const manager = SettingsManager.create(projectDir, agentDir);
 
-			// .alf folder should NOT have been created just from reading
-			expect(existsSync(join(projectDir, ".alf"))).toBe(false);
+			// .alef folder should NOT have been created just from reading
+			expect(existsSync(join(projectDir, ".alef"))).toBe(false);
 
 			// Settings should still be loaded from global
 			expect(manager.getTheme()).toBe("dark");
 		});
 
 		it("should create project config folder when writing project settings", async () => {
-			// Create agent dir with global settings, but NO .alf folder in project
+			// Create agent dir with global settings, but NO .alef folder in project
 			const settingsPath = join(agentDir, "settings.json");
 			writeFileSync(settingsPath, JSON.stringify({ theme: "dark" }));
 
-			// Delete the project .alf folder that beforeEach created
-			rmSync(join(projectDir, ".alf"), { recursive: true });
+			// Delete the project .alef folder that beforeEach created
+			rmSync(join(projectDir, ".alef"), { recursive: true });
 
 			const manager = SettingsManager.create(projectDir, agentDir);
 
-			// .alf folder should NOT exist yet
-			expect(existsSync(join(projectDir, ".alf"))).toBe(false);
+			// .alef folder should NOT exist yet
+			expect(existsSync(join(projectDir, ".alef"))).toBe(false);
 
 			// Write a project-specific setting
 			manager.setProjectPackages([{ source: "npm:test-pkg" }]);
 			await manager.flush();
 
-			// Now .alf folder should exist
-			expect(existsSync(join(projectDir, ".alf"))).toBe(true);
+			// Now .alef folder should exist
+			expect(existsSync(join(projectDir, ".alef"))).toBe(true);
 
 			// And settings file should be created
-			expect(existsSync(join(projectDir, ".alf", "settings.json"))).toBe(true);
+			expect(existsSync(join(projectDir, ".alef", "settings.json"))).toBe(true);
 		});
 	});
 
@@ -305,7 +305,7 @@ describe("SettingsManager", () => {
 
 		it("should return project sessionDir, overriding global", () => {
 			writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ sessionDir: "/global/sessions" }));
-			writeFileSync(join(projectDir, ".alf", "settings.json"), JSON.stringify({ sessionDir: "./sessions" }));
+			writeFileSync(join(projectDir, ".alef", "settings.json"), JSON.stringify({ sessionDir: "./sessions" }));
 			const manager = SettingsManager.create(projectDir, agentDir);
 			expect(manager.getSessionDir()).toBe("./sessions");
 		});

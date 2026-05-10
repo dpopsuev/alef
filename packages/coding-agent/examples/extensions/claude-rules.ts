@@ -12,14 +12,14 @@
  * - Organize with subdirectories: Group related rules (e.g., frontend/, backend/)
  *
  * Usage:
- * 1. Copy this file to ~/.alf/agent/extensions/ or your project's .alf/extensions/
+ * 1. Copy this file to ~/.alef/agent/extensions/ or your project's .alef/extensions/
  * 2. Create .claude/rules/ folder in your project root
  * 3. Add .md files with your rules
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
 /**
  * Recursively find all .md files in a directory
@@ -46,12 +46,12 @@ function findMarkdownFiles(dir: string, basePath: string = ""): string[] {
 	return results;
 }
 
-export default function claudeRulesExtension(alf: ExtensionAPI) {
+export default function claudeRulesExtension(alef: ExtensionAPI) {
 	let ruleFiles: string[] = [];
 	let rulesDir: string = "";
 
 	// Scan for rules on session start
-	alf.on("session_start", async (_event, ctx) => {
+	alef.on("session_start", async (_event, ctx) => {
 		rulesDir = path.join(ctx.cwd, ".claude", "rules");
 		ruleFiles = findMarkdownFiles(rulesDir);
 
@@ -61,7 +61,7 @@ export default function claudeRulesExtension(alf: ExtensionAPI) {
 	});
 
 	// Append available rules to system prompt
-	alf.on("before_agent_start", async (event) => {
+	alef.on("before_agent_start", async (event) => {
 		if (ruleFiles.length === 0) {
 			return;
 		}

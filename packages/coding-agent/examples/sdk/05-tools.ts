@@ -7,10 +7,10 @@
  * createAgentSession() applies that cwd when it builds the actual built-in tools.
  *
  * For custom tools, see 06-extensions.ts - custom tools are registered via the
- * extensions system using `alf.registerTool()`.
+ * extensions system using `alef.registerTool()`.
  */
 
-import { createAgentSession, SessionManager } from "@alf-agent/coding-agent";
+import { createAgentSession, SessionManager } from "@alef/coding-agent";
 
 // Read-only mode (no edit/write)
 await createAgentSession({

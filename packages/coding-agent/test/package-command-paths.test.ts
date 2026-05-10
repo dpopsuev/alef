@@ -22,7 +22,7 @@ describe("package commands", () => {
 	}
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `alf-package-commands-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = join(tmpdir(), `alef-package-commands-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		agentDir = join(tempDir, "agent");
 		projectDir = join(tempDir, "project");
 		packageDir = join(tempDir, "local-package");
@@ -32,7 +32,7 @@ describe("package commands", () => {
 
 		originalCwd = process.cwd();
 		originalAgentDir = process.env[ENV_AGENT_DIR];
-		originalPiPackageDir = process.env.ALF_PACKAGE_DIR;
+		originalPiPackageDir = process.env.ALEF_PACKAGE_DIR;
 		originalExitCode = process.exitCode;
 		originalExecPath = process.execPath;
 		process.exitCode = undefined;
@@ -50,9 +50,9 @@ describe("package commands", () => {
 			process.env[ENV_AGENT_DIR] = originalAgentDir;
 		}
 		if (originalPiPackageDir === undefined) {
-			delete process.env.ALF_PACKAGE_DIR;
+			delete process.env.ALEF_PACKAGE_DIR;
 		} else {
-			process.env.ALF_PACKAGE_DIR = originalPiPackageDir;
+			process.env.ALEF_PACKAGE_DIR = originalPiPackageDir;
 		}
 		Object.defineProperty(process, "execPath", { value: originalExecPath, configurable: true });
 		rmSync(tempDir, { recursive: true, force: true });
@@ -137,11 +137,11 @@ describe("package commands", () => {
 	it("uses global npmCommand and current package name for forced self updates without checking the api", async () => {
 		const globalPrefix = join(tempDir, "global-prefix");
 		const projectPrefix = join(tempDir, "project-prefix");
-		const selfPackageDir = join(globalPrefix, "lib", "node_modules", "@alf-agent", "coding-agent");
+		const selfPackageDir = join(globalPrefix, "lib", "node_modules", "@alef", "coding-agent");
 		const fakeNpmPath = join(tempDir, "fake-npm.cjs");
 		const recordPath = join(tempDir, "self-update.json");
 		mkdirSync(selfPackageDir, { recursive: true });
-		mkdirSync(join(projectDir, ".alf"), { recursive: true });
+		mkdirSync(join(projectDir, ".alef"), { recursive: true });
 		writeFileSync(
 			fakeNpmPath,
 			`const fs=require("node:fs"),path=require("node:path"),args=process.argv.slice(2),prefix=args[args.indexOf("--prefix")+1];
@@ -154,10 +154,10 @@ else fs.writeFileSync(${JSON.stringify(recordPath)},JSON.stringify(args));
 			JSON.stringify({ npmCommand: [originalExecPath, fakeNpmPath, "--prefix", globalPrefix] }, null, 2),
 		);
 		writeFileSync(
-			join(projectDir, ".alf", "settings.json"),
+			join(projectDir, ".alef", "settings.json"),
 			JSON.stringify({ npmCommand: [originalExecPath, fakeNpmPath, "--prefix", projectPrefix] }, null, 2),
 		);
-		process.env.ALF_PACKAGE_DIR = selfPackageDir;
+		process.env.ALEF_PACKAGE_DIR = selfPackageDir;
 		Object.defineProperty(process, "execPath", {
 			value: join(selfPackageDir, "dist", "cli.js"),
 			configurable: true,
@@ -185,10 +185,10 @@ else fs.writeFileSync(${JSON.stringify(recordPath)},JSON.stringify(args));
 	});
 
 	it("uses the current package name when the update check omits packageName", async () => {
-		const prevLatestUrl = process.env.ALF_LATEST_VERSION_URL;
-		process.env.ALF_LATEST_VERSION_URL = "https://versions.example/latest";
+		const prevLatestUrl = process.env.ALEF_LATEST_VERSION_URL;
+		process.env.ALEF_LATEST_VERSION_URL = "https://versions.example/latest";
 		const globalPrefix = join(tempDir, "global-prefix");
-		const selfPackageDir = join(globalPrefix, "lib", "node_modules", "@alf-agent", "coding-agent");
+		const selfPackageDir = join(globalPrefix, "lib", "node_modules", "@alef", "coding-agent");
 		const fakeNpmPath = join(tempDir, "fake-npm.cjs");
 		const recordPath = join(tempDir, "self-update.json");
 		mkdirSync(selfPackageDir, { recursive: true });
@@ -203,7 +203,7 @@ else fs.writeFileSync(${JSON.stringify(recordPath)},JSON.stringify(args));
 			join(agentDir, "settings.json"),
 			JSON.stringify({ npmCommand: [originalExecPath, fakeNpmPath, "--prefix", globalPrefix] }, null, 2),
 		);
-		process.env.ALF_PACKAGE_DIR = selfPackageDir;
+		process.env.ALEF_PACKAGE_DIR = selfPackageDir;
 		Object.defineProperty(process, "execPath", {
 			value: join(selfPackageDir, "dist", "cli.js"),
 			configurable: true,
@@ -226,18 +226,18 @@ else fs.writeFileSync(${JSON.stringify(recordPath)},JSON.stringify(args));
 			logSpy.mockRestore();
 			errorSpy.mockRestore();
 			if (prevLatestUrl === undefined) {
-				delete process.env.ALF_LATEST_VERSION_URL;
+				delete process.env.ALEF_LATEST_VERSION_URL;
 			} else {
-				process.env.ALF_LATEST_VERSION_URL = prevLatestUrl;
+				process.env.ALEF_LATEST_VERSION_URL = prevLatestUrl;
 			}
 		}
 	});
 
 	it("installs the active package name from the update check during self-update", async () => {
-		const prevLatestUrl = process.env.ALF_LATEST_VERSION_URL;
-		process.env.ALF_LATEST_VERSION_URL = "https://versions.example/latest";
+		const prevLatestUrl = process.env.ALEF_LATEST_VERSION_URL;
+		process.env.ALEF_LATEST_VERSION_URL = "https://versions.example/latest";
 		const globalPrefix = join(tempDir, "global-prefix");
-		const selfPackageDir = join(globalPrefix, "lib", "node_modules", "@alf-agent", "coding-agent");
+		const selfPackageDir = join(globalPrefix, "lib", "node_modules", "@alef", "coding-agent");
 		const fakeNpmPath = join(tempDir, "fake-npm.cjs");
 		const recordPath = join(tempDir, "self-update.json");
 		mkdirSync(selfPackageDir, { recursive: true });
@@ -256,7 +256,7 @@ else {
 			join(agentDir, "settings.json"),
 			JSON.stringify({ npmCommand: [originalExecPath, fakeNpmPath, "--prefix", globalPrefix] }, null, 2),
 		);
-		process.env.ALF_PACKAGE_DIR = selfPackageDir;
+		process.env.ALEF_PACKAGE_DIR = selfPackageDir;
 		Object.defineProperty(process, "execPath", {
 			value: join(selfPackageDir, "dist", "cli.js"),
 			configurable: true,
@@ -285,18 +285,18 @@ else {
 			logSpy.mockRestore();
 			errorSpy.mockRestore();
 			if (prevLatestUrl === undefined) {
-				delete process.env.ALF_LATEST_VERSION_URL;
+				delete process.env.ALEF_LATEST_VERSION_URL;
 			} else {
-				process.env.ALF_LATEST_VERSION_URL = prevLatestUrl;
+				process.env.ALEF_LATEST_VERSION_URL = prevLatestUrl;
 			}
 		}
 	});
 
 	it("fails self-update when renamed npm package installation fails", async () => {
-		const prevLatestUrl = process.env.ALF_LATEST_VERSION_URL;
-		process.env.ALF_LATEST_VERSION_URL = "https://versions.example/latest";
+		const prevLatestUrl = process.env.ALEF_LATEST_VERSION_URL;
+		process.env.ALEF_LATEST_VERSION_URL = "https://versions.example/latest";
 		const globalPrefix = join(tempDir, "global-prefix");
-		const selfPackageDir = join(globalPrefix, "lib", "node_modules", "@alf-agent", "coding-agent");
+		const selfPackageDir = join(globalPrefix, "lib", "node_modules", "@alef", "coding-agent");
 		const fakeNpmPath = join(tempDir, "fake-npm-fail.cjs");
 		const recordPath = join(tempDir, "self-update-fail.json");
 		mkdirSync(selfPackageDir, { recursive: true });
@@ -317,7 +317,7 @@ if(args.includes("install")) process.exit(23);
 			join(agentDir, "settings.json"),
 			JSON.stringify({ npmCommand: [originalExecPath, fakeNpmPath, "--prefix", globalPrefix] }, null, 2),
 		);
-		process.env.ALF_PACKAGE_DIR = selfPackageDir;
+		process.env.ALEF_PACKAGE_DIR = selfPackageDir;
 		Object.defineProperty(process, "execPath", {
 			value: join(selfPackageDir, "dist", "cli.js"),
 			configurable: true,
@@ -349,9 +349,9 @@ if(args.includes("install")) process.exit(23);
 			logSpy.mockRestore();
 			errorSpy.mockRestore();
 			if (prevLatestUrl === undefined) {
-				delete process.env.ALF_LATEST_VERSION_URL;
+				delete process.env.ALEF_LATEST_VERSION_URL;
 			} else {
-				process.env.ALF_LATEST_VERSION_URL = prevLatestUrl;
+				process.env.ALEF_LATEST_VERSION_URL = prevLatestUrl;
 			}
 		}
 	});

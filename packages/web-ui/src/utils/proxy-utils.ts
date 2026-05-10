@@ -1,5 +1,5 @@
-import type { Api, Context, Model, SimpleStreamOptions } from "@alf-agent/ai";
-import { streamSimple } from "@alf-agent/ai";
+import type { Api, Context, Model, SimpleStreamOptions } from "@alef/ai";
+import { streamSimple } from "@alef/ai";
 
 /**
  * Centralized proxy decision logic.

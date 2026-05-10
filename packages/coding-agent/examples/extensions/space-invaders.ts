@@ -3,8 +3,8 @@
  * Uses Kitty keyboard protocol for smooth movement (press/release detection)
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
-import { isKeyRelease, Key, matchesKey, visibleWidth } from "@alf-agent/tui";
+import type { ExtensionAPI } from "@alef/coding-agent";
+import { isKeyRelease, Key, matchesKey, visibleWidth } from "@alef/tui";
 
 const GAME_WIDTH = 60;
 const GAME_HEIGHT = 24;
@@ -524,8 +524,8 @@ class SpaceInvadersComponent {
 
 const INVADERS_SAVE_TYPE = "space-invaders-save";
 
-export default function (alf: ExtensionAPI) {
-	alf.registerCommand("invaders", {
+export default function (alef: ExtensionAPI) {
+	alef.registerCommand("invaders", {
 		description: "Play Space Invaders!",
 
 		handler: async (_args, ctx) => {
@@ -550,7 +550,7 @@ export default function (alf: ExtensionAPI) {
 					tui,
 					() => done(undefined),
 					(state) => {
-						alf.appendEntry(INVADERS_SAVE_TYPE, state);
+						alef.appendEntry(INVADERS_SAVE_TYPE, state);
 					},
 					savedState,
 				);

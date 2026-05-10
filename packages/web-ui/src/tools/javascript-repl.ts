@@ -1,5 +1,5 @@
-import type { AgentTool } from "@alf-agent/agent-core";
-import type { ToolResultMessage } from "@alf-agent/ai";
+import type { AgentTool } from "@alef/agent-core";
+import type { ToolResultMessage } from "@alef/ai";
 import { i18n } from "@mariozechner/mini-lit";
 import { html } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";

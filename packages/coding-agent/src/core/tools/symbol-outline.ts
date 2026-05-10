@@ -1,8 +1,8 @@
 import { constants } from "node:fs";
 import { access as fsAccess, readFile as fsReadFile } from "node:fs/promises";
 import { extname } from "node:path";
-import type { AgentTool } from "@alf-agent/agent-core";
-import { Text } from "@alf-agent/tui";
+import type { AgentTool } from "@alef/agent-core";
+import { Text } from "@alef/tui";
 import { type Static, Type } from "typebox";
 import ts from "typescript";
 import type { ToolDefinition, ToolRenderResultOptions } from "../extensions/types.js";

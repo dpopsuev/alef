@@ -1,6 +1,6 @@
-# Contributing to Alf Agent
+# Contributing to Alef Agent
 
-**Alf Agent** is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream is **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
+**Alef Agent** is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream is **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 
 ## Governance
 

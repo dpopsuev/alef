@@ -7,7 +7,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentMessage } from "@alf-agent/agent-core";
+import type { AgentMessage } from "@alef/agent-core";
 import {
 	type AssistantMessage,
 	getProviders,
@@ -16,7 +16,7 @@ import {
 	type Model,
 	type OAuthProviderId,
 	type OAuthSelectPrompt,
-} from "@alf-agent/ai";
+} from "@alef/ai";
 import type {
 	AutocompleteItem,
 	AutocompleteProvider,
@@ -27,7 +27,7 @@ import type {
 	OverlayHandle,
 	OverlayOptions,
 	SlashCommand,
-} from "@alf-agent/tui";
+} from "@alef/tui";
 import {
 	CombinedAutocompleteProvider,
 	type Component,
@@ -46,7 +46,7 @@ import {
 	TruncatedText,
 	TUI,
 	visibleWidth,
-} from "@alf-agent/tui";
+} from "@alef/tui";
 import chalk from "chalk";
 import { spawn, spawnSync } from "child_process";
 import {
@@ -84,7 +84,7 @@ import { BUILTIN_SLASH_COMMANDS } from "../../core/slash-commands.js";
 import type { SourceInfo } from "../../core/source-info.js";
 import { isInstallTelemetryEnabled } from "../../core/telemetry.js";
 import type { TruncationResult } from "../../core/tools/truncate.js";
-import { getAlfUserAgent } from "../../utils/alf-user-agent.js";
+import { getAlefUserAgent } from "../../utils/alef-user-agent.js";
 import { getChangelogPath, getNewEntries, parseChangelog } from "../../utils/changelog.js";
 import { copyToClipboard } from "../../utils/clipboard.js";
 import { extensionForImageMimeType, readClipboardImage } from "../../utils/clipboard-image.js";
@@ -163,20 +163,20 @@ class ExpandableText extends Text implements Expandable {
 	}
 }
 
-const ALF_STARTUP_LOGO = ["█████ ████▓", " █████▓███▓", "██████████▒", "███  ████▒", "█████ ████▓"] as const;
-const ALF_STARTUP_LOGO_FACE_COLOR = "#FE2418";
-const ALF_STARTUP_LOGO_DEPTH_COLOR = "#434C49";
+const ALEF_STARTUP_LOGO = ["█████ ████▓", " █████▓███▓", "██████████▒", "███  ████▒", "█████ ████▓"] as const;
+const ALEF_STARTUP_LOGO_FACE_COLOR = "#FE2418";
+const ALEF_STARTUP_LOGO_DEPTH_COLOR = "#434C49";
 
 function colorizeStartupLogoLine(line: string): string {
 	return Array.from(line)
 		.map((char) => {
 			switch (char) {
 				case "█":
-					return chalk.hex(ALF_STARTUP_LOGO_FACE_COLOR)(char);
+					return chalk.hex(ALEF_STARTUP_LOGO_FACE_COLOR)(char);
 				case "▓":
 				case "▒":
 				case "░":
-					return chalk.hex(ALF_STARTUP_LOGO_DEPTH_COLOR)(char);
+					return chalk.hex(ALEF_STARTUP_LOGO_DEPTH_COLOR)(char);
 				default:
 					return char;
 			}
@@ -185,7 +185,7 @@ function colorizeStartupLogoLine(line: string): string {
 }
 
 function getStartupLogo(thm: Theme, version: string): string {
-	const lines = ALF_STARTUP_LOGO.map((line) => thm.bold(colorizeStartupLogoLine(line)));
+	const lines = ALEF_STARTUP_LOGO.map((line) => thm.bold(colorizeStartupLogoLine(line)));
 	lines[lines.length - 1] = `${lines[lines.length - 1]}${thm.fg("dim", `  ${APP_NAME} v${version}`)}`;
 	return lines.join("\n");
 }
@@ -644,7 +644,7 @@ export class InteractiveMode {
 			);
 			const onboarding = theme.fg(
 				"dim",
-				`Alf can explain its own features and project conventions. Ask how to use or extend this CLI.`,
+				`Alef can explain its own features and project conventions. Ask how to use or extend this CLI.`,
 			);
 			this.builtInHeader = new ExpandableText(
 				() => `${logo}\n${compactInstructions}\n${compactOnboarding}\n\n${onboarding}`,
@@ -796,7 +796,7 @@ export class InteractiveMode {
 	}
 
 	private async checkForPackageUpdates(): Promise<string[]> {
-		if (process.env.ALF_OFFLINE) {
+		if (process.env.ALEF_OFFLINE) {
 			return [];
 		}
 
@@ -854,7 +854,7 @@ export class InteractiveMode {
 		}
 
 		if (extendedKeysFormat === "xterm") {
-			return "tmux extended-keys-format is xterm. Alf works best with csi-u. Add `set -g extended-keys-format csi-u` to ~/.tmux.conf and restart tmux.";
+			return "tmux extended-keys-format is xterm. Alef works best with csi-u. Add `set -g extended-keys-format csi-u` to ~/.tmux.conf and restart tmux.";
 		}
 
 		return undefined;
@@ -892,7 +892,7 @@ export class InteractiveMode {
 	}
 
 	private reportInstallTelemetry(version: string): void {
-		if (process.env.ALF_OFFLINE) {
+		if (process.env.ALEF_OFFLINE) {
 			return;
 		}
 
@@ -900,7 +900,7 @@ export class InteractiveMode {
 			return;
 		}
 
-		const endpoint = process.env.ALF_REPORT_INSTALL_URL?.trim();
+		const endpoint = process.env.ALEF_REPORT_INSTALL_URL?.trim();
 		if (!endpoint) {
 			return;
 		}
@@ -911,7 +911,7 @@ export class InteractiveMode {
 
 		void fetch(url, {
 			headers: {
-				"User-Agent": getAlfUserAgent(version),
+				"User-Agent": getAlefUserAgent(version),
 			},
 			signal: AbortSignal.timeout(5000),
 		})
@@ -3491,7 +3491,7 @@ export class InteractiveMode {
 		}
 
 		const currentText = this.editor.getExpandedText?.() ?? this.editor.getText();
-		const tmpFile = path.join(os.tmpdir(), `alf-editor-${Date.now()}.alf.md`);
+		const tmpFile = path.join(os.tmpdir(), `alef-editor-${Date.now()}.alef.md`);
 
 		try {
 			// Write current content to temp file
@@ -3554,7 +3554,7 @@ export class InteractiveMode {
 	showNewVersionNotification(newVersion: string): void {
 		const action = theme.fg("accent", `${APP_NAME} update`);
 		const updateInstruction = theme.fg("muted", `New version ${newVersion} is available. Run `) + action;
-		const changelogUrl = process.env.ALF_CHANGELOG_URL?.trim();
+		const changelogUrl = process.env.ALEF_CHANGELOG_URL?.trim();
 		const changelogSuffix = changelogUrl
 			? theme.fg("muted", "Changelog: ") +
 				(getCapabilities().hyperlinks

@@ -1,8 +1,8 @@
 /**
  * Send User Message Example
  *
- * Demonstrates alf.sendUserMessage() for sending user messages from extensions.
- * Unlike alf.sendMessage() which sends custom messages, sendUserMessage() sends
+ * Demonstrates alef.sendUserMessage() for sending user messages from extensions.
+ * Unlike alef.sendMessage() which sends custom messages, sendUserMessage() sends
  * actual user messages that appear in the conversation as if typed by the user.
  *
  * Usage:
@@ -11,11 +11,11 @@
  *   /followup And then?   - Sends while streaming with followUp delivery
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	// Simple command that sends a user message
-	alf.registerCommand("ask", {
+	alef.registerCommand("ask", {
 		description: "Send a user message to the agent",
 		handler: async (args, ctx) => {
 			if (!args.trim()) {
@@ -30,12 +30,12 @@ export default function (alf: ExtensionAPI) {
 				return;
 			}
 
-			alf.sendUserMessage(args);
+			alef.sendUserMessage(args);
 		},
 	});
 
 	// Command that steers the agent mid-conversation
-	alf.registerCommand("steer", {
+	alef.registerCommand("steer", {
 		description: "Send a steering message (interrupts current processing)",
 		handler: async (args, ctx) => {
 			if (!args.trim()) {
@@ -45,16 +45,16 @@ export default function (alf: ExtensionAPI) {
 
 			if (ctx.isIdle()) {
 				// Not streaming, just send normally
-				alf.sendUserMessage(args);
+				alef.sendUserMessage(args);
 			} else {
 				// Streaming - use steer to interrupt
-				alf.sendUserMessage(args, { deliverAs: "steer" });
+				alef.sendUserMessage(args, { deliverAs: "steer" });
 			}
 		},
 	});
 
 	// Command that queues a follow-up message
-	alf.registerCommand("followup", {
+	alef.registerCommand("followup", {
 		description: "Queue a follow-up message (waits for current processing)",
 		handler: async (args, ctx) => {
 			if (!args.trim()) {
@@ -64,17 +64,17 @@ export default function (alf: ExtensionAPI) {
 
 			if (ctx.isIdle()) {
 				// Not streaming, just send normally
-				alf.sendUserMessage(args);
+				alef.sendUserMessage(args);
 			} else {
 				// Streaming - queue as follow-up
-				alf.sendUserMessage(args, { deliverAs: "followUp" });
+				alef.sendUserMessage(args, { deliverAs: "followUp" });
 				ctx.ui.notify("Follow-up queued", "info");
 			}
 		},
 	});
 
 	// Example with content array (text + images would go here)
-	alf.registerCommand("askwith", {
+	alef.registerCommand("askwith", {
 		description: "Send a user message with structured content",
 		handler: async (args, ctx) => {
 			if (!args.trim()) {
@@ -88,7 +88,7 @@ export default function (alf: ExtensionAPI) {
 			}
 
 			// sendUserMessage accepts string or (TextContent | ImageContent)[]
-			alf.sendUserMessage([
+			alef.sendUserMessage([
 				{ type: "text", text: `User request: ${args}` },
 				{ type: "text", text: "Please respond concisely." },
 			]);

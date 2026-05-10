@@ -1,4 +1,4 @@
-import type { Component } from "@alf-agent/tui";
+import type { Component } from "@alef/tui";
 import { theme } from "../theme/theme.js";
 
 /**

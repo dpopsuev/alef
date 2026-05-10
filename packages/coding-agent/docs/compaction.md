@@ -9,7 +9,7 @@ LLMs have limited context windows. When conversations grow too long, pi uses com
 - [`packages/coding-agent/src/core/session-manager.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/session-manager.ts) - Entry types (`CompactionEntry`, `BranchSummaryEntry`)
 - [`packages/coding-agent/src/core/extensions/types.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/extensions/types.ts) - Extension event types
 
-For TypeScript definitions in your project, inspect `node_modules/@alf-agent/coding-agent/dist/`.
+For TypeScript definitions in your project, inspect `node_modules/@alef/coding-agent/dist/`.
 
 ## Overview
 
@@ -32,13 +32,13 @@ Auto-compaction triggers when:
 contextTokens > contextWindow - reserveTokens
 ```
 
-By default, `reserveTokens` is 16384 tokens (configurable in `<agent-dir>/settings.json` or `<project-dir>/.alf/settings.json`). This leaves room for the LLM's response.
+By default, `reserveTokens` is 16384 tokens (configurable in `<agent-dir>/settings.json` or `<project-dir>/.alef/settings.json`). This leaves room for the LLM's response.
 
 You can also trigger manually with `/compact [instructions]`, where optional instructions focus the summary.
 
 ### How It Works
 
-1. **Find cut point**: Walk backwards from newest message, accumulating token estimates until `keepRecentTokens` (default 20k, configurable in `<agent-dir>/settings.json` or `<project-dir>/.alf/settings.json`) is reached
+1. **Find cut point**: Walk backwards from newest message, accumulating token estimates until `keepRecentTokens` (default 20k, configurable in `<agent-dir>/settings.json` or `<project-dir>/.alef/settings.json`) is reached
 2. **Extract messages**: Collect messages from the previous kept boundary (or session start) up to the cut point
 3. **Generate summary**: Call LLM to summarize with structured format, passing the previous summary as iterative context when present
 4. **Append entry**: Save `CompactionEntry` with summary and `firstKeptEntryId`
@@ -309,7 +309,7 @@ pi.on("session_before_compact", async (event, ctx) => {
 To generate a summary with your own model, convert messages to text using `serializeConversation`:
 
 ```typescript
-import { convertToLlm, serializeConversation } from "@alf-agent/coding-agent";
+import { convertToLlm, serializeConversation } from "@alef/coding-agent";
 
 pi.on("session_before_compact", async (event, ctx) => {
   const { preparation } = event;
@@ -373,7 +373,7 @@ See `SessionBeforeTreeEvent` and `TreePreparation` in the types file.
 
 ## Settings
 
-Configure compaction in `<agent-dir>/settings.json` or `<project-dir>/.alf/settings.json`:
+Configure compaction in `<agent-dir>/settings.json` or `<project-dir>/.alef/settings.json`:
 
 ```json
 {

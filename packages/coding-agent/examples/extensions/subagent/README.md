@@ -4,7 +4,7 @@ Delegate tasks to specialized subagents with isolated context windows.
 
 ## Features
 
-- **Isolated context**: Each subagent runs in a separate `alf` process
+- **Isolated context**: Each subagent runs in a separate `alef` process
 - **Streaming output**: See tool calls and progress as they happen
 - **Parallel streaming**: All parallel tasks stream updates simultaneously
 - **Markdown rendering**: Final output rendered with proper formatting (expanded view)
@@ -35,30 +35,30 @@ From the repository root, symlink the files:
 
 ```bash
 # Symlink the extension (must be in a subdirectory with index.ts)
-mkdir -p ~/.alf/agent/extensions/subagent
-ln -sf "$(pwd)/packages/coding-agent/examples/extensions/subagent/index.ts" ~/.alf/agent/extensions/subagent/index.ts
-ln -sf "$(pwd)/packages/coding-agent/examples/extensions/subagent/agents.ts" ~/.alf/agent/extensions/subagent/agents.ts
+mkdir -p ~/.alef/agent/extensions/subagent
+ln -sf "$(pwd)/packages/coding-agent/examples/extensions/subagent/index.ts" ~/.alef/agent/extensions/subagent/index.ts
+ln -sf "$(pwd)/packages/coding-agent/examples/extensions/subagent/agents.ts" ~/.alef/agent/extensions/subagent/agents.ts
 
 # Symlink agents
-mkdir -p ~/.alf/agent/agents
+mkdir -p ~/.alef/agent/agents
 for f in packages/coding-agent/examples/extensions/subagent/agents/*.md; do
-  ln -sf "$(pwd)/$f" ~/.alf/agent/agents/$(basename "$f")
+  ln -sf "$(pwd)/$f" ~/.alef/agent/agents/$(basename "$f")
 done
 
 # Symlink workflow prompts
-mkdir -p ~/.alf/agent/prompts
+mkdir -p ~/.alef/agent/prompts
 for f in packages/coding-agent/examples/extensions/subagent/prompts/*.md; do
-  ln -sf "$(pwd)/$f" ~/.alf/agent/prompts/$(basename "$f")
+  ln -sf "$(pwd)/$f" ~/.alef/agent/prompts/$(basename "$f")
 done
 ```
 
 ## Security Model
 
-This tool executes a separate `alf` subprocess with a delegated system prompt and tool/model configuration.
+This tool executes a separate `alef` subprocess with a delegated system prompt and tool/model configuration.
 
-**Project-local agents** (`.alf/agents/*.md`) are repo-controlled prompts that can instruct the model to read files, run bash commands, etc.
+**Project-local agents** (`.alef/agents/*.md`) are repo-controlled prompts that can instruct the model to read files, run bash commands, etc.
 
-**Default behavior:** Only loads **user-level agents** from `~/.alf/agent/agents`.
+**Default behavior:** Only loads **user-level agents** from `~/.alef/agent/agents`.
 
 To enable project-local agents, pass `agentScope: "both"` (or `"project"`). Only do this for repositories you trust.
 
@@ -136,8 +136,8 @@ System prompt for the agent goes here.
 ```
 
 **Locations:**
-- `~/.alf/agent/agents/*.md` - User-level (always loaded)
-- `.alf/agents/*.md` - Project-level (only with `agentScope: "project"` or `"both"`)
+- `~/.alef/agent/agents/*.md` - User-level (always loaded)
+- `.alef/agents/*.md` - Project-level (only with `agentScope: "project"` or `"both"`)
 
 Project agents override user agents with the same name when `agentScope: "both"`.
 

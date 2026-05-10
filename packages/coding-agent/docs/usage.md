@@ -53,7 +53,7 @@ Type `/` in the editor to open command completion. Extensions can register custo
 | `/reload` | Reload keybindings, extensions, skills, prompts, and context files |
 | `/hotkeys` | Show all keyboard shortcuts |
 | `/changelog` | Display version history |
-| `/quit` | Quit alf |
+| `/quit` | Quit alef |
 
 ## Message Queue
 
@@ -73,11 +73,11 @@ Configure delivery in [Settings](settings.md) with `steeringMode` and `followUpM
 Sessions are saved automatically to `<agent-dir>/sessions/`, organized by working directory.
 
 ```bash
-alf -c                  # Continue most recent session
-alf -r                  # Browse and select a session
-alf --no-session        # Ephemeral mode; do not save
-alf --session <path|id> # Use a specific session file or session ID
-alf --fork <path|id>    # Fork a session into a new session file
+alef -c                  # Continue most recent session
+alef -r                  # Browse and select a session
+alef --no-session        # Ephemeral mode; do not save
+alef --session <path|id> # Use a specific session file or session ID
+alef --fork <path|id>    # Fork a session into a new session file
 ```
 
 Useful session commands:
@@ -104,7 +104,7 @@ Use context files for project conventions, commands, safety rules, and preferenc
 
 Replace the default system prompt with:
 
-- `.alf/SYSTEM.md` for a project
+- `.alef/SYSTEM.md` for a project
 - `<agent-dir>/SYSTEM.md` globally
 
 Append to the default prompt without replacing it with `APPEND_SYSTEM.md` in either location.
@@ -120,21 +120,21 @@ If you use pi for open source work and want to publish sessions for model, promp
 ## CLI Reference
 
 ```bash
-alf [options] [@files...] [messages...]
+alef [options] [@files...] [messages...]
 ```
 
 ### Package Commands
 
 ```bash
-alf install <source> [-l]     # Install package, -l for project-local
-alf remove <source> [-l]      # Remove package
-alf uninstall <source> [-l]   # Alias for remove
-alf update [source|self|pi]   # Update pi and packages; skips pinned packages
-alf update --extensions       # Update packages only
-alf update --self             # Update pi only
-alf update --extension <src>  # Update one package
-alf list                      # List installed packages
-alf config                    # Enable/disable package resources
+alef install <source> [-l]     # Install package, -l for project-local
+alef remove <source> [-l]      # Remove package
+alef uninstall <source> [-l]   # Alias for remove
+alef update [source|self|pi]   # Update pi and packages; skips pinned packages
+alef update --extensions       # Update packages only
+alef update --self             # Update pi only
+alef update --extension <src>  # Update one package
+alef list                      # List installed packages
+alef config                    # Enable/disable package resources
 ```
 
 See [Pi Packages](packages.md) for package sources and security notes.
@@ -204,7 +204,7 @@ Built-in tools: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`.
 Combine `--no-*` with explicit flags to load exactly what you need, ignoring settings. Example:
 
 ```bash
-alf --no-extensions -e ./my-extension.ts
+alef --no-extensions -e ./my-extension.ts
 ```
 
 ### Other Options
@@ -222,57 +222,57 @@ alf --no-extensions -e ./my-extension.ts
 Prefix files with `@` to include them in the message:
 
 ```bash
-alf @prompt.md "Answer this"
-alf -p @screenshot.png "What's in this image?"
-alf @code.ts @test.ts "Review these files"
+alef @prompt.md "Answer this"
+alef -p @screenshot.png "What's in this image?"
+alef @code.ts @test.ts "Review these files"
 ```
 
 ### Examples
 
 ```bash
 # Interactive with initial prompt
-alf "List all .ts files in src/"
+alef "List all .ts files in src/"
 
 # Non-interactive
-alf -p "Summarize this codebase"
+alef -p "Summarize this codebase"
 
 # Non-interactive with piped stdin
 cat README.md | pi -p "Summarize this text"
 
 # Different model
-alf --provider openai --model gpt-4o "Help me refactor"
+alef --provider openai --model gpt-4o "Help me refactor"
 
 # Model with provider prefix
-alf --model openai/gpt-4o "Help me refactor"
+alef --model openai/gpt-4o "Help me refactor"
 
 # Model with thinking level shorthand
-alf --model sonnet:high "Solve this complex problem"
+alef --model sonnet:high "Solve this complex problem"
 
 # Limit model cycling
-alf --models "claude-*,gpt-4o"
+alef --models "claude-*,gpt-4o"
 
 # Read-only mode
-alf --tools read,grep,find,ls -p "Review the code"
+alef --tools read,grep,find,ls -p "Review the code"
 ```
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `ALF_CODING_AGENT_DIR` | Override config directory; default is `<agent-dir>` |
-| `ALF_CODING_AGENT_SESSION_DIR` | Override session storage directory; overridden by `--session-dir` |
-| `ALF_PACKAGE_DIR` | Override package directory, useful for Nix/Guix store paths |
-| `ALF_OFFLINE` | Disable startup network operations used by the CLI (including registry-backed package checks) |
-| `ALF_SKIP_VERSION_CHECK` | Skip the optional latest-version fetch when `ALF_LATEST_VERSION_URL` is set |
-| `ALF_LATEST_VERSION_URL` | HTTPS JSON endpoint returning `{ "version": "x.y.z" }`; unset = no update request |
-| `ALF_REPORT_INSTALL_URL` | Optional telemetry GET target; unset = no install/update ping |
-| `ALF_TELEMETRY` | Override install/update telemetry: `1`/`true`/`yes` or `0`/`false`/`no` when `ALF_REPORT_INSTALL_URL` is set |
-| `ALF_CACHE_RETENTION` | Set to `long` for extended prompt cache where supported |
+| `ALEF_CODING_AGENT_DIR` | Override config directory; default is `<agent-dir>` |
+| `ALEF_CODING_AGENT_SESSION_DIR` | Override session storage directory; overridden by `--session-dir` |
+| `ALEF_PACKAGE_DIR` | Override package directory, useful for Nix/Guix store paths |
+| `ALEF_OFFLINE` | Disable startup network operations used by the CLI (including registry-backed package checks) |
+| `ALEF_SKIP_VERSION_CHECK` | Skip the optional latest-version fetch when `ALEF_LATEST_VERSION_URL` is set |
+| `ALEF_LATEST_VERSION_URL` | HTTPS JSON endpoint returning `{ "version": "x.y.z" }`; unset = no update request |
+| `ALEF_REPORT_INSTALL_URL` | Optional telemetry GET target; unset = no install/update ping |
+| `ALEF_TELEMETRY` | Override install/update telemetry: `1`/`true`/`yes` or `0`/`false`/`no` when `ALEF_REPORT_INSTALL_URL` is set |
+| `ALEF_CACHE_RETENTION` | Set to `long` for extended prompt cache where supported |
 | `VISUAL`, `EDITOR` | External editor for Ctrl+G |
 
 ## Design Principles
 
-Alf keeps the core small and pushes workflow-specific behavior into extensions, skills, prompt templates, and packages.
+Alef keeps the core small and pushes workflow-specific behavior into extensions, skills, prompt templates, and packages.
 
 It intentionally does not include built-in MCP, sub-agents, permission popups, plan mode, to-dos, or background bash. You can build or install those workflows as extensions or packages, or use external tools such as containers and tmux.
 

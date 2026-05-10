@@ -5,13 +5,13 @@
  * tool that queues a follow-up command to trigger reload.
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 import { Type } from "typebox";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	// Command entrypoint for reload.
 	// Treat reload as terminal for this handler.
-	alf.registerCommand("reload-runtime", {
+	alef.registerCommand("reload-runtime", {
 		description: "Reload extensions, skills, prompts, and themes",
 		handler: async (_args, ctx) => {
 			await ctx.reload();
@@ -21,13 +21,13 @@ export default function (alf: ExtensionAPI) {
 
 	// LLM-callable tool. Tools get ExtensionContext, so they cannot call ctx.reload() directly.
 	// Instead, queue a follow-up user command that executes the command above.
-	alf.registerTool({
+	alef.registerTool({
 		name: "reload_runtime",
 		label: "Reload Runtime",
 		description: "Reload extensions, skills, prompts, and themes",
 		parameters: Type.Object({}),
 		async execute() {
-			alf.sendUserMessage("/reload-runtime", { deliverAs: "followUp" });
+			alef.sendUserMessage("/reload-runtime", { deliverAs: "followUp" });
 			return {
 				content: [{ type: "text", text: "Queued /reload-runtime as a follow-up command." }],
 				details: {},

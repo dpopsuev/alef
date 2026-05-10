@@ -1,5 +1,5 @@
-import { Agent } from "@alf-agent/agent-core";
-import { type AssistantMessage, getModel, type Usage } from "@alf-agent/ai";
+import { Agent } from "@alef/agent-core";
+import { type AssistantMessage, getModel, type Usage } from "@alef/ai";
 import { describe, expect, it } from "vitest";
 import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";

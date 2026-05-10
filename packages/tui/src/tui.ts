@@ -5,7 +5,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { performance } from "node:perf_hooks";
-import { resolveAlfAgentDir } from "./alf-agent-dir.js";
+import { resolveAlefAgentDir } from "./alef-agent-dir.js";
 import { isKeyRelease, matchesKey } from "./keys.js";
 import type { Terminal } from "./terminal.js";
 import { deleteKittyImage, getCapabilities, isImageLine, setCellDimensions } from "./terminal-image.js";
@@ -253,8 +253,8 @@ export class TUI extends Container {
 	private static readonly MIN_RENDER_INTERVAL_MS = 16;
 	private cursorRow = 0; // Logical cursor row (end of rendered content)
 	private hardwareCursorRow = 0; // Actual terminal cursor row (may differ due to IME positioning)
-	private showHardwareCursor = process.env.ALF_HARDWARE_CURSOR === "1";
-	private clearOnShrink = process.env.ALF_CLEAR_ON_SHRINK === "1"; // Clear empty rows when content shrinks (default: off)
+	private showHardwareCursor = process.env.ALEF_HARDWARE_CURSOR === "1";
+	private clearOnShrink = process.env.ALEF_CLEAR_ON_SHRINK === "1"; // Clear empty rows when content shrinks (default: off)
 	private maxLinesRendered = 0; // Track terminal's working area (max lines ever rendered)
 	private previousViewportTop = 0; // Track previous viewport top for resize-aware cursor moves
 	private fullRedrawCount = 0;
@@ -1010,10 +1010,10 @@ export class TUI extends Container {
 			this.previousHeight = height;
 		};
 
-		const debugRedraw = process.env.ALF_DEBUG_REDRAW === "1";
+		const debugRedraw = process.env.ALEF_DEBUG_REDRAW === "1";
 		const logRedraw = (reason: string): void => {
 			if (!debugRedraw) return;
-			const logPath = path.join(resolveAlfAgentDir(), "alf-debug.log");
+			const logPath = path.join(resolveAlefAgentDir(), "alef-debug.log");
 			const msg = `[${new Date().toISOString()}] fullRender: ${reason} (prev=${this.previousLines.length}, new=${newLines.length}, height=${height})\n`;
 			fs.appendFileSync(logPath, msg);
 		};
@@ -1043,7 +1043,7 @@ export class TUI extends Container {
 
 		// Content shrunk below the working area and no overlays - re-render to clear empty rows
 		// (overlays need the padding, so only do this when no overlays are active)
-		// Configurable via setClearOnShrink() or ALF_CLEAR_ON_SHRINK=0 env var
+		// Configurable via setClearOnShrink() or ALEF_CLEAR_ON_SHRINK=0 env var
 		if (this.clearOnShrink && newLines.length < this.maxLinesRendered && this.overlayStack.length === 0) {
 			logRedraw(`clearOnShrink (maxLinesRendered=${this.maxLinesRendered})`);
 			fullRender(true);
@@ -1179,7 +1179,7 @@ export class TUI extends Container {
 			const isImage = isImageLine(line);
 			if (!isImage && visibleWidth(line) > width) {
 				// Log all lines to crash file for debugging
-				const crashLogPath = path.join(resolveAlfAgentDir(), "alf-crash.log");
+				const crashLogPath = path.join(resolveAlefAgentDir(), "alef-crash.log");
 				const crashData = [
 					`Crash at ${new Date().toISOString()}`,
 					`Terminal width: ${width}`,
@@ -1229,7 +1229,7 @@ export class TUI extends Container {
 
 		buffer += "\x1b[?2026l"; // End synchronized output
 
-		if (process.env.ALF_TUI_DEBUG === "1") {
+		if (process.env.ALEF_TUI_DEBUG === "1") {
 			const debugDir = "/tmp/tui";
 			fs.mkdirSync(debugDir, { recursive: true });
 			const debugPath = path.join(debugDir, `render-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);

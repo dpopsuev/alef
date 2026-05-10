@@ -8,7 +8,7 @@
  * - Windows toast: Windows Terminal (WSL)
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
 function windowsToastScript(title: string, body: string): string {
 	const type = "Windows.UI.Notifications";
@@ -48,8 +48,8 @@ function notify(title: string, body: string): void {
 	}
 }
 
-export default function (alf: ExtensionAPI) {
-	alf.on("agent_end", async () => {
+export default function (alef: ExtensionAPI) {
+	alef.on("agent_end", async () => {
 		notify("Pi", "Ready for input");
 	});
 }

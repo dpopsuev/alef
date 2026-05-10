@@ -65,7 +65,7 @@ function printHelp() {
 	console.log(`Usage: node scripts/edit-tool-stats.mjs [options]
 
 Options:
-  --sessions-dir <path>  Sessions directory (default: see ALF_CODING_AGENT_DIR / coding-agent getAgentDir())
+  --sessions-dir <path>  Sessions directory (default: see ALEF_CODING_AGENT_DIR / coding-agent getAgentDir())
   --model <substring>    Filter provider/model by substring
   --ext <extension>      Filter by file extension, e.g. .ts
   --failed-only          Include only failed edit calls

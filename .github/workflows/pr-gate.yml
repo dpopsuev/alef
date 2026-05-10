@@ -117,7 +117,7 @@ jobs:
             const message = [
               'This PR was auto-closed.',
               '',
-              'Alf Agent is maintained BDFL-style and does not merge unsolicited pull requests from strangers.',
+              'Alef Agent is maintained BDFL-style and does not merge unsolicited pull requests from strangers.',
               '',
               `See [CONTRIBUTING.md](${contribUrl}) — fork the MIT-licensed code if you need changes.`,
             ].join('\n');

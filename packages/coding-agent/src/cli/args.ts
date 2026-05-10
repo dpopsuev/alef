@@ -3,7 +3,7 @@
  */
 
 import { join } from "node:path";
-import type { ThinkingLevel } from "@alf-agent/agent-core";
+import type { ThinkingLevel } from "@alef/agent-core";
 import chalk from "chalk";
 import {
 	APP_NAME,
@@ -253,7 +253,7 @@ ${chalk.bold("Options:")}
   --export <file>                Export session file to HTML and exit
   --list-models [search]         List available models (with optional fuzzy search)
   --verbose                      Force verbose startup (overrides quietStartup setting)
-  --offline                      Disable startup network operations (same as ALF_OFFLINE=1)
+  --offline                      Disable startup network operations (same as ALEF_OFFLINE=1)
   --help, -h                     Show this help
   --version, -v                  Show version number
 
@@ -309,7 +309,7 @@ ${chalk.bold("Examples:")}
 ${chalk.bold("Environment Variables:")}
   ANTHROPIC_API_KEY                - Anthropic Claude API key
   ANTHROPIC_OAUTH_TOKEN            - Anthropic OAuth token (alternative to API key)
-  ALF_ANTHROPIC_VERTEX             - When 1/true/yes, route catalog anthropic models via Vertex (GCP billing); see docs/providers.md
+  ALEF_ANTHROPIC_VERTEX             - When 1/true/yes, route catalog anthropic models via Vertex (GCP billing); see docs/providers.md
   ANTHROPIC_VERTEX_PROJECT_ID      - GCP project id for Claude on Vertex (optional if GOOGLE_CLOUD_PROJECT/GCLOUD_PROJECT is set)
   CLOUD_ML_REGION                  - Vertex region for Anthropic partner models (often global or regional per GCP docs)
   GOOGLE_CLOUD_LOCATION            - Region fallback when CLOUD_ML_REGION is unset
@@ -349,13 +349,13 @@ ${chalk.bold("Environment Variables:")}
   AWS_REGION                       - AWS region for Amazon Bedrock (e.g., us-east-1)
   ${ENV_AGENT_DIR.padEnd(32)} - Agent directory (default: ${getDefaultAgentDirDescription()})
   ${ENV_SESSION_DIR.padEnd(32)} - Session storage directory (overridden by --session-dir)
-  ALF_PACKAGE_DIR                   - Override package directory (for Nix/Guix store paths)
-  ALF_OFFLINE                       - Disable startup network operations when set to 1/true/yes
-  ALF_TELEMETRY                     - Override install telemetry when set to 1/true/yes or 0/false/no
-  ALF_LATEST_VERSION_URL            - Optional HTTPS JSON endpoint for update checks ({ "version": "..." }); unset = disabled
-  ALF_SKIP_VERSION_CHECK            - When set to 1/true/yes, skip latest-version fetch even if ALF_LATEST_VERSION_URL is set
-  ALF_REPORT_INSTALL_URL            - Optional telemetry GET URL; unset = no install/update ping
-  ALF_SHARE_VIEWER_URL              - Optional base URL for /share preview links (defaults to the gist URL from gh)
+  ALEF_PACKAGE_DIR                   - Override package directory (for Nix/Guix store paths)
+  ALEF_OFFLINE                       - Disable startup network operations when set to 1/true/yes
+  ALEF_TELEMETRY                     - Override install telemetry when set to 1/true/yes or 0/false/no
+  ALEF_LATEST_VERSION_URL            - Optional HTTPS JSON endpoint for update checks ({ "version": "..." }); unset = disabled
+  ALEF_SKIP_VERSION_CHECK            - When set to 1/true/yes, skip latest-version fetch even if ALEF_LATEST_VERSION_URL is set
+  ALEF_REPORT_INSTALL_URL            - Optional telemetry GET URL; unset = no install/update ping
+  ALEF_SHARE_VIEWER_URL              - Optional base URL for /share preview links (defaults to the gist URL from gh)
 
 ${chalk.bold("Built-in Tool Names:")}
   read   - Read file contents

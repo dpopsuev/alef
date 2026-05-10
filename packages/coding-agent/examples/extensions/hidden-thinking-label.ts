@@ -5,7 +5,7 @@
  * when thinking blocks are hidden.
  *
  * Usage:
- *   alf --extension examples/extensions/hidden-thinking-label.ts
+ *   alef --extension examples/extensions/hidden-thinking-label.ts
  *
  * Test:
  *   1. Load this extension
@@ -18,22 +18,22 @@
  *   /thinking-label          Reset to the default label
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@alf-agent/coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
 
 const DEFAULT_LABEL = "Pondering...";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	let label = DEFAULT_LABEL;
 
 	const applyLabel = (ctx: ExtensionContext) => {
 		ctx.ui.setHiddenThinkingLabel(label);
 	};
 
-	alf.on("session_start", async (_event, ctx) => {
+	alef.on("session_start", async (_event, ctx) => {
 		applyLabel(ctx);
 	});
 
-	alf.registerCommand("thinking-label", {
+	alef.registerCommand("thinking-label", {
 		description: "Set the hidden thinking label. Use without args to reset.",
 		handler: async (args, ctx) => {
 			const nextLabel = args.trim();

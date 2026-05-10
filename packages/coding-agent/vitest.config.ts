@@ -19,10 +19,10 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: [
-			{ find: /^@alf-agent\/ai$/, replacement: aiSrcIndex },
-			{ find: /^@alf-agent\/ai\/oauth$/, replacement: aiSrcOAuth },
-			{ find: /^@alf-agent\/agent-core$/, replacement: agentSrcIndex },
-			{ find: /^@alf-agent\/tui$/, replacement: tuiSrcIndex },
+			{ find: /^@alef\/ai$/, replacement: aiSrcIndex },
+			{ find: /^@alef\/ai\/oauth$/, replacement: aiSrcOAuth },
+			{ find: /^@alef\/agent-core$/, replacement: agentSrcIndex },
+			{ find: /^@alef\/tui$/, replacement: tuiSrcIndex },
 		],
 	},
 });

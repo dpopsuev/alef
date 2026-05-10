@@ -1,7 +1,7 @@
 import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } from "node:path";
-import type { AgentTool } from "@alf-agent/agent-core";
-import type { Api, ImageContent, Model, TextContent } from "@alf-agent/ai";
-import { Text } from "@alf-agent/tui";
+import type { AgentTool } from "@alef/agent-core";
+import type { Api, ImageContent, Model, TextContent } from "@alef/ai";
+import { Text } from "@alef/tui";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile } from "fs/promises";
 import { type Static, Type } from "typebox";

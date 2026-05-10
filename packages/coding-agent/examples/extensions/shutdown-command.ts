@@ -2,26 +2,26 @@
  * Shutdown Command Extension
  *
  * Adds a /quit command that allows extensions to trigger clean shutdown.
- * Demonstrates how extensions can use ctx.shutdown() to exit Alf cleanly.
+ * Demonstrates how extensions can use ctx.shutdown() to exit Alef cleanly.
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 import { Type } from "typebox";
 
-export default function (alf: ExtensionAPI) {
-	// Register a /quit command that cleanly exits Alf
-	alf.registerCommand("quit", {
-		description: "Exit Alf cleanly",
+export default function (alef: ExtensionAPI) {
+	// Register a /quit command that cleanly exits Alef
+	alef.registerCommand("quit", {
+		description: "Exit Alef cleanly",
 		handler: async (_args, ctx) => {
 			ctx.shutdown();
 		},
 	});
 
 	// You can also create a tool that shuts down after completing work
-	alf.registerTool({
+	alef.registerTool({
 		name: "finish_and_exit",
 		label: "Finish and Exit",
-		description: "Complete a task and exit Alf",
+		description: "Complete a task and exit Alef",
 		parameters: Type.Object({}),
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			// Do any final work here...
@@ -37,10 +37,10 @@ export default function (alf: ExtensionAPI) {
 	});
 
 	// You could also create a more complex tool with parameters
-	alf.registerTool({
+	alef.registerTool({
 		name: "deploy_and_exit",
 		label: "Deploy and Exit",
-		description: "Deploy the application and exit Alf",
+		description: "Deploy the application and exit Alef",
 		parameters: Type.Object({
 			environment: Type.String({ description: "Target environment (e.g., production, staging)" }),
 		}),
@@ -48,7 +48,7 @@ export default function (alf: ExtensionAPI) {
 			onUpdate?.({ content: [{ type: "text", text: `Deploying to ${params.environment}...` }], details: {} });
 
 			// Example deployment logic
-			// const result = await alf.exec("npm", ["run", "deploy", params.environment], { signal });
+			// const result = await alef.exec("npm", ["run", "deploy", params.environment], { signal });
 
 			// On success, request graceful shutdown
 			onUpdate?.({ content: [{ type: "text", text: "Deployment complete, exiting..." }], details: {} });

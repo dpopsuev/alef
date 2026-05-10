@@ -1,9 +1,9 @@
 <p align="center">
-  <a href="https://github.com/dpopsuev/alf-agent"><strong>Alf Agent</strong></a>
+  <a href="https://github.com/dpopsuev/alef"><strong>Alef Agent</strong></a>
 </p>
 <p align="center">
   <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
-  <a href="https://www.npmjs.com/package/@alf-agent/coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@alf-agent/coding-agent?style=flat-square" /></a>
+  <a href="https://www.npmjs.com/package/@alef/coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@alef/coding-agent?style=flat-square" /></a>
 </p>
 
 > This fork is maintained BDFL-style; outside contributions are not accepted. Source is open to read and to fork (MIT). See [CONTRIBUTING.md](../../CONTRIBUTING.md).
@@ -12,21 +12,21 @@
 
 ## Attribution
 
-**Alf** (`alf`, npm **`@alf-agent/coding-agent`**) is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (**Pi Agent** / terminal coding harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream sources live in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**. The MIT-licensed implementation here builds on that work—credit for the original belongs to Mario and the Pi contributors.
+**Alef** (`alef`, npm **`@alef/coding-agent`**) is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (**Pi Agent** / terminal coding harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream sources live in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**. The MIT-licensed implementation here builds on that work—credit for the original belongs to Mario and the Pi contributors.
 
-**Alf** is maintained separately in **[dpopsuev/alf-agent](https://github.com/dpopsuev/alf-agent)** with Alf-specific scopes and defaults; behavior below follows Pi unless noted otherwise.
+**Alef** is maintained separately in **[dpopsuev/alef](https://github.com/dpopsuev/alef)** with Alef-specific scopes and defaults; behavior below follows Pi unless noted otherwise.
 
 ---
 
-**Alf** is a minimal terminal coding harness. Adapt Alf to your workflows, not the other way around, without having to fork and modify core internals. Extend it with TypeScript [Extensions](#extensions), [Skills](#skills), [Prompt Templates](#prompt-templates), and [Themes](#themes). Put your extensions, skills, prompt templates, and themes in [Alf packages](#alf-packages) and share them with others via npm or git.
+**Alef** is a minimal terminal coding harness. Adapt Alef to your workflows, not the other way around, without having to fork and modify core internals. Extend it with TypeScript [Extensions](#extensions), [Skills](#skills), [Prompt Templates](#prompt-templates), and [Themes](#themes). Put your extensions, skills, prompt templates, and themes in [Alef packages](#alef-packages) and share them with others via npm or git.
 
-Alf ships with powerful defaults but skips features like sub agents and plan mode. Instead, you can ask Alf to build what you want or install a third-party package that matches your workflow.
+Alef ships with powerful defaults but skips features like sub agents and plan mode. Instead, you can ask Alef to build what you want or install a third-party package that matches your workflow.
 
-Alf runs in four modes: interactive, print or JSON, RPC for process integration, and an SDK for embedding in your own apps. See [openclaw/openclaw](https://github.com/openclaw/openclaw) for a real-world SDK integration.
+Alef runs in four modes: interactive, print or JSON, RPC for process integration, and an SDK for embedding in your own apps. See [openclaw/openclaw](https://github.com/openclaw/openclaw) for a real-world SDK integration.
 
 ## Share your OSS coding agent sessions
 
-If you use Alf or Pi for open source work, please share your coding agent sessions.
+If you use Alef or Pi for open source work, please share your coding agent sessions.
 
 Public OSS session data helps improve models, prompts, tools, and evaluations using real development workflows.
 
@@ -59,7 +59,7 @@ I regularly publish my own `pi-mono` work sessions here:
   - [Skills](#skills)
   - [Extensions](#extensions)
   - [Themes](#themes)
-  - [Alf packages](#alf-packages)
+  - [Alef packages](#alef-packages)
 - [Programmatic Usage](#programmatic-usage)
 - [Philosophy](#philosophy)
 - [CLI Reference](#cli-reference)
@@ -71,24 +71,24 @@ I regularly publish my own `pi-mono` work sessions here:
 Install the CLI globally via npm:
 
 ```bash
-npm install -g @alf-agent/coding-agent
+npm install -g @alef/coding-agent
 ```
 
 Authenticate with an API key:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-alf
+alef
 ```
 
 Or use your existing subscription:
 
 ```bash
-alf
+alef
 /login  # Then select provider
 ```
 
-Then just talk to Alf. By default, Alf exposes four tools to the model: `read`, `write`, `edit`, and `bash`. The model uses these to fulfill your requests. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [Alf packages](#alf-packages).
+Then just talk to Alef. By default, Alef exposes four tools to the model: `read`, `write`, `edit`, and `bash`. The model uses these to fulfill your requests. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [Alef packages](#alef-packages).
 
 **Platform notes:** [Windows](docs/windows.md) | [Termux (Android)](docs/termux.md) | [tmux](docs/tmux.md) | [Terminal setup](docs/terminal-setup.md) | [Shell aliases](docs/shell-aliases.md)
 
@@ -96,7 +96,7 @@ Then just talk to Alf. By default, Alf exposes four tools to the model: `read`, 
 
 ## Providers & Models
 
-For each built-in provider, Alf ships a list of tool-capable models, updated with every release. Authenticate via subscription (`/login`) or API key, then select any model from that provider via `/model` (or Ctrl+L).
+For each built-in provider, Alef ships a list of tool-capable models, updated with every release. Authenticate via subscription (`/login`) or API key, then select any model from that provider via `/model` (or Ctrl+L).
 
 **Subscriptions:**
 - Anthropic Claude Pro/Max
@@ -187,7 +187,7 @@ Type `/` in the editor to trigger commands. [Extensions](#extensions) can regist
 | `/reload` | Reload keybindings, extensions, skills, prompts, and context files (themes hot-reload automatically) |
 | `/hotkeys` | Show all keyboard shortcuts |
 | `/changelog` | Display version history |
-| `/quit` | Quit alf |
+| `/quit` | Quit alef |
 
 ### Keyboard Shortcuts
 
@@ -216,7 +216,7 @@ Submit messages while the agent is working:
 - **Escape** aborts and restores queued messages to editor
 - **Alt+Up** retrieves queued messages back to editor
 
-On Windows Terminal, `Alt+Enter` is fullscreen by default. Remap it in [docs/terminal-setup.md](docs/terminal-setup.md) so Alf can receive the follow-up shortcut.
+On Windows Terminal, `Alt+Enter` is fullscreen by default. Remap it in [docs/terminal-setup.md](docs/terminal-setup.md) so Alef can receive the follow-up shortcut.
 
 Configure delivery in [settings](docs/settings.md): `steeringMode` and `followUpMode` can be `"one-at-a-time"` (default, waits for response) or `"all"` (delivers all queued at once). `transport` selects provider transport preference (`"sse"`, `"websocket"`, or `"auto"`) for providers that support multiple transports.
 
@@ -231,11 +231,11 @@ Sessions are stored as JSONL files with a tree structure. Each entry has an `id`
 Sessions auto-save to `<agent-dir>/sessions/` organized by working directory.
 
 ```bash
-alf -c                  # Continue most recent session
-alf -r                  # Browse and select from past sessions
-alf --no-session        # Ephemeral mode (don't save)
-alf --session <path|id> # Use specific session file or ID
-alf --fork <path|id>    # Fork specific session file or ID into a new session
+alef -c                  # Continue most recent session
+alef -r                  # Browse and select from past sessions
+alef --no-session        # Ephemeral mode (don't save)
+alef --session <path|id> # Use specific session file or ID
+alef --fork <path|id>    # Fork specific session file or ID into a new session
 ```
 
 Use `/session` in interactive mode to see the current session ID before reusing it with `--session <id>` or `--fork <id>`.
@@ -270,37 +270,37 @@ Compaction is lossy. The full history remains in the JSONL file; use `/tree` to 
 
 ## Settings
 
-`<agent-dir>` is your global Alf config root (sessions, auth, settings, etc.):
+`<agent-dir>` is your global Alef config root (sessions, auth, settings, etc.):
 
-- **Linux:** `$XDG_CONFIG_HOME/alf/agent` (usually `~/.config/alf/agent`). If `~/.alf/agent` already exists, that directory is used instead.
-- **macOS and Windows:** `~/.alf/agent`
-- **Override:** set `ALF_CODING_AGENT_DIR`
+- **Linux:** `$XDG_CONFIG_HOME/alef/agent` (usually `~/.config/alef/agent`). If `~/.alef/agent` already exists, that directory is used instead.
+- **macOS and Windows:** `~/.alef/agent`
+- **Override:** set `ALEF_CODING_AGENT_DIR`
 
-Project-local overrides live under `.alf/` in the repo root (for example `.alf/settings.json`).
+Project-local overrides live under `.alef/` in the repo root (for example `.alef/settings.json`).
 
 Use `/settings` to modify common options, or edit JSON files directly:
 
 | Location | Scope |
 |----------|-------|
 | `<agent-dir>/settings.json` | Global (all projects) |
-| `.alf/settings.json` | Project (overrides global) |
+| `.alef/settings.json` | Project (overrides global) |
 
 See [docs/settings.md](docs/settings.md) for all options.
 
 ### Telemetry and update checks
 
-Alf does **not** call third-party homepages by default.
+Alef does **not** call third-party homepages by default.
 
-- **Update check:** runs only when **`ALF_LATEST_VERSION_URL`** is set to an HTTPS URL that returns JSON like `{ "version": "1.2.3" }`. Otherwise no request is made. Set **`ALF_SKIP_VERSION_CHECK=1`** to skip even when a URL is configured.
-- **Install/update telemetry:** sends a GET only when **`ALF_REPORT_INSTALL_URL`** is set **and** install telemetry is enabled (`enableInstallTelemetry` in settings, default on, overridable with **`ALF_TELEMETRY`**).
+- **Update check:** runs only when **`ALEF_LATEST_VERSION_URL`** is set to an HTTPS URL that returns JSON like `{ "version": "1.2.3" }`. Otherwise no request is made. Set **`ALEF_SKIP_VERSION_CHECK=1`** to skip even when a URL is configured.
+- **Install/update telemetry:** sends a GET only when **`ALEF_REPORT_INSTALL_URL`** is set **and** install telemetry is enabled (`enableInstallTelemetry` in settings, default on, overridable with **`ALEF_TELEMETRY`**).
 
-Use **`--offline`** or **`ALF_OFFLINE=1`** to disable startup checks that hit the network (including package update checks that talk to registries).
+Use **`--offline`** or **`ALEF_OFFLINE=1`** to disable startup checks that hit the network (including package update checks that talk to registries).
 
 ---
 
 ## Context Files
 
-Alf loads `AGENTS.md` (or `CLAUDE.md`) at startup from:
+Alef loads `AGENTS.md` (or `CLAUDE.md`) at startup from:
 - `<agent-dir>/AGENTS.md` (global)
 - Parent directories (walking up from cwd)
 - Current directory
@@ -311,7 +311,7 @@ Disable context file loading with `--no-context-files` (or `-nc`).
 
 ### System Prompt
 
-Replace the default system prompt with `.alf/SYSTEM.md` (project) or `<agent-dir>/SYSTEM.md` (global). Append without replacing via `APPEND_SYSTEM.md`.
+Replace the default system prompt with `.alef/SYSTEM.md` (project) or `<agent-dir>/SYSTEM.md` (global). Append without replacing via `APPEND_SYSTEM.md`.
 
 ---
 
@@ -327,7 +327,7 @@ Review this code for bugs, security issues, and performance problems.
 Focus on: {{focus}}
 ```
 
-Place in `<agent-dir>/prompts/`, `.alf/prompts/`, or an [Alf package](#alf-packages) to share with others. See [docs/prompt-templates.md](docs/prompt-templates.md).
+Place in `<agent-dir>/prompts/`, `.alef/prompts/`, or an [Alef package](#alef-packages) to share with others. See [docs/prompt-templates.md](docs/prompt-templates.md).
 
 ### Skills
 
@@ -343,23 +343,23 @@ Use this skill when the user asks about X.
 2. Then that
 ```
 
-Place in `<agent-dir>/skills/`, `~/.agents/skills/`, `.alf/skills/`, or `.agents/skills/` (from `cwd` up through parent directories) or an [Alf package](#alf-packages) to share with others. See [docs/skills.md](docs/skills.md).
+Place in `<agent-dir>/skills/`, `~/.agents/skills/`, `.alef/skills/`, or `.agents/skills/` (from `cwd` up through parent directories) or an [Alef package](#alef-packages) to share with others. See [docs/skills.md](docs/skills.md).
 
 ### Extensions
 
 <p align="center"><img src="docs/images/doom-extension.png" alt="Doom Extension" width="600"></p>
 
-TypeScript modules that extend Alf with custom tools, commands, keyboard shortcuts, event handlers, and UI components.
+TypeScript modules that extend Alef with custom tools, commands, keyboard shortcuts, event handlers, and UI components.
 
 ```typescript
-export default function (alf: ExtensionAPI) {
-  alf.registerTool({ name: "deploy", ... });
-  alf.registerCommand("stats", { ... });
-  alf.on("tool_call", async (event, ctx) => { ... });
+export default function (alef: ExtensionAPI) {
+  alef.registerTool({ name: "deploy", ... });
+  alef.registerCommand("stats", { ... });
+  alef.on("tool_call", async (event, ctx) => { ... });
 }
 ```
 
-The default export can also be `async`. Alf waits for async extension factories before startup continues, which is useful for one-time initialization such as fetching remote model lists before calling `alf.registerProvider()`.
+The default export can also be `async`. Alef waits for async extension factories before startup continues, which is useful for one-time initialization such as fetching remote model lists before calling `alef.registerProvider()`.
 
 **What's possible:**
 - Custom tools (or replace built-in tools entirely)
@@ -371,55 +371,55 @@ The default export can also be `async`. Alf waits for async extension factories 
 - Git checkpointing and auto-commit
 - SSH and sandbox execution
 - MCP server integration
-- Make Alf look like Claude Code
+- Make Alef look like Claude Code
 - Games while waiting (yes, Doom runs)
 - ...anything you can dream up
 
-Place in `<agent-dir>/extensions/`, `.alf/extensions/`, or an [Alf package](#alf-packages) to share with others. See [docs/extensions.md](docs/extensions.md) and [examples/extensions/](examples/extensions/).
+Place in `<agent-dir>/extensions/`, `.alef/extensions/`, or an [Alef package](#alef-packages) to share with others. See [docs/extensions.md](docs/extensions.md) and [examples/extensions/](examples/extensions/).
 
 ### Themes
 
-Built-in: `dark`, `light`. Themes hot-reload: modify the active theme file and Alf applies changes immediately.
+Built-in: `dark`, `light`. Themes hot-reload: modify the active theme file and Alef applies changes immediately.
 
-Place in `<agent-dir>/themes/`, `.alf/themes/`, or an [Alf package](#alf-packages) to share with others. See [docs/themes.md](docs/themes.md).
+Place in `<agent-dir>/themes/`, `.alef/themes/`, or an [Alef package](#alef-packages) to share with others. See [docs/themes.md](docs/themes.md).
 
-### Alf packages
+### Alef packages
 
 Bundle and share extensions, skills, prompts, and themes via npm or git. Find packages on [npmjs.com](https://www.npmjs.com/search?q=keywords%3Aalf-package) or upstream-compatible listings tagged [`pi-package`](https://www.npmjs.com/search?q=keywords%3Api-package), or ask on [Discord](https://discord.com/channels/1456806362351669492/1457744485428629628).
 
 > **Security:** Packages run with full system access. Extensions execute arbitrary code, and skills can instruct the model to perform any action including running executables. Review source code before installing third-party packages.
 
 ```bash
-alf install npm:@foo/alf-tools
-alf install npm:@foo/alf-tools@1.2.3      # pinned version
-alf install git:github.com/user/repo
-alf install git:github.com/user/repo@v1  # tag or commit
-alf install git:git@github.com:user/repo
-alf install git:git@github.com:user/repo@v1  # tag or commit
-alf install https://github.com/user/repo
-alf install https://github.com/user/repo@v1      # tag or commit
-alf install ssh://git@github.com/user/repo
-alf install ssh://git@github.com/user/repo@v1    # tag or commit
-alf remove npm:@foo/alf-tools
-alf uninstall npm:@foo/alf-tools          # alias for remove
-alf list
-alf update                               # update Alf and packages (skips pinned packages)
-alf update --extensions                  # update packages only
-alf update --self                        # update Alf only
-alf update --self --force                # reinstall Alf even if current
-alf update npm:@foo/alf-tools             # update one package
-alf config                               # enable/disable extensions, skills, prompts, themes
+alef install npm:@foo/alef-tools
+alef install npm:@foo/alef-tools@1.2.3      # pinned version
+alef install git:github.com/user/repo
+alef install git:github.com/user/repo@v1  # tag or commit
+alef install git:git@github.com:user/repo
+alef install git:git@github.com:user/repo@v1  # tag or commit
+alef install https://github.com/user/repo
+alef install https://github.com/user/repo@v1      # tag or commit
+alef install ssh://git@github.com/user/repo
+alef install ssh://git@github.com/user/repo@v1    # tag or commit
+alef remove npm:@foo/alef-tools
+alef uninstall npm:@foo/alef-tools          # alias for remove
+alef list
+alef update                               # update Alef and packages (skips pinned packages)
+alef update --extensions                  # update packages only
+alef update --self                        # update Alef only
+alef update --self --force                # reinstall Alef even if current
+alef update npm:@foo/alef-tools             # update one package
+alef config                               # enable/disable extensions, skills, prompts, themes
 ```
 
-Packages install to `<agent-dir>/git/` (git) or global npm. Use `-l` for project-local installs (`.alf/git/`, `.alf/npm/`). Git packages install dependencies with `npm install --omit=dev` by default, so runtime deps must be listed under `dependencies`; when `npmCommand` is configured, git packages use plain `install` for compatibility with wrappers. If you use a Node version manager and want package installs to reuse a stable npm context, set `npmCommand` in `settings.json`, for example `["mise", "exec", "node@20", "--", "npm"]`.
+Packages install to `<agent-dir>/git/` (git) or global npm. Use `-l` for project-local installs (`.alef/git/`, `.alef/npm/`). Git packages install dependencies with `npm install --omit=dev` by default, so runtime deps must be listed under `dependencies`; when `npmCommand` is configured, git packages use plain `install` for compatibility with wrappers. If you use a Node version manager and want package installs to reuse a stable npm context, set `npmCommand` in `settings.json`, for example `["mise", "exec", "node@20", "--", "npm"]`.
 
-Create a package by adding an `alf` key to `package.json`:
+Create a package by adding an `alef` key to `package.json`:
 
 ```json
 {
-  "name": "my-alf-package",
-  "keywords": ["alf-package"],
-  "alf": {
+  "name": "my-alef-package",
+  "keywords": ["alef-package"],
+  "alef": {
     "extensions": ["./extensions"],
     "skills": ["./skills"],
     "prompts": ["./prompts"],
@@ -428,7 +428,7 @@ Create a package by adding an `alf` key to `package.json`:
 }
 ```
 
-Without an `alf` manifest, Alf auto-discovers from conventional directories (`extensions/`, `skills/`, `prompts/`, `themes/`).
+Without an `alef` manifest, Alef auto-discovers from conventional directories (`extensions/`, `skills/`, `prompts/`, `themes/`).
 
 See [docs/packages.md](docs/packages.md).
 
@@ -439,7 +439,7 @@ See [docs/packages.md](docs/packages.md).
 ### SDK
 
 ```typescript
-import { AuthStorage, createAgentSession, ModelRegistry, SessionManager } from "@alf-agent/coding-agent";
+import { AuthStorage, createAgentSession, ModelRegistry, SessionManager } from "@alef/coding-agent";
 
 const authStorage = AuthStorage.create();
 const modelRegistry = ModelRegistry.create(authStorage);
@@ -461,7 +461,7 @@ See [docs/sdk.md](docs/sdk.md) and [examples/sdk/](examples/sdk/).
 For non-Node.js integrations, use RPC mode over stdin/stdout:
 
 ```bash
-alf --mode rpc
+alef --mode rpc
 ```
 
 RPC mode uses strict LF-delimited JSONL framing. Clients must split records on `\n` only. Do not use generic line readers like Node `readline`, which also split on Unicode separators inside JSON payloads.
@@ -472,11 +472,11 @@ See [docs/rpc.md](docs/rpc.md) for the protocol.
 
 ## Philosophy
 
-Pi upstream design is aggressively extensible so core workflows stay minimal; Alf inherits that. Features other tools bake in can be built with [extensions](#extensions), [skills](#skills), or installed from third-party [Alf packages](#alf-packages). This keeps the core small while letting you shape Alf to fit how you work.
+Pi upstream design is aggressively extensible so core workflows stay minimal; Alef inherits that. Features other tools bake in can be built with [extensions](#extensions), [skills](#skills), or installed from third-party [Alef packages](#alef-packages). This keeps the core small while letting you shape Alef to fit how you work.
 
 **No MCP.** Build CLI tools with READMEs (see [Skills](#skills)), or build an extension that adds MCP support. [Why?](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/)
 
-**No sub-agents.** There's many ways to do this. Spawn Alf instances via tmux, or build your own with [extensions](#extensions), or install a package that does it your way.
+**No sub-agents.** There's many ways to do this. Spawn Alef instances via tmux, or build your own with [extensions](#extensions), or install a package that does it your way.
 
 **No permission popups.** Run in a container, or build your own confirmation flow with [extensions](#extensions) inline with your environment and security requirements.
 
@@ -493,22 +493,22 @@ Read the [blog post](https://mariozechner.at/posts/2025-11-30-pi-coding-agent/) 
 ## CLI Reference
 
 ```bash
-alf [options] [@files...] [messages...]
+alef [options] [@files...] [messages...]
 ```
 
 ### Package Commands
 
 ```bash
-alf install <source> [-l]     # Install package, -l for project-local
-alf remove <source> [-l]      # Remove package
-alf uninstall <source> [-l]   # Alias for remove
-alf update [source|self|alf]   # Update Alf and packages (skips pinned packages)
-alf update --extensions       # Update packages only
-alf update --self             # Update Alf only
-alf update --self --force     # Reinstall Alf even if current
-alf update --extension <src>  # Update one package
-alf list                      # List installed packages
-alf config                    # Enable/disable package resources
+alef install <source> [-l]     # Install package, -l for project-local
+alef remove <source> [-l]      # Remove package
+alef uninstall <source> [-l]   # Alias for remove
+alef update [source|self|alef]   # Update Alef and packages (skips pinned packages)
+alef update --extensions       # Update packages only
+alef update --self             # Update Alef only
+alef update --self --force     # Reinstall Alef even if current
+alef update --extension <src>  # Update one package
+alef list                      # List installed packages
+alef config                    # Enable/disable package resources
 ```
 
 ### Modes
@@ -521,10 +521,10 @@ alf config                    # Enable/disable package resources
 | `--mode rpc` | RPC mode for process integration (see [docs/rpc.md](docs/rpc.md)) |
 | `--export <in> [out]` | Export session to HTML |
 
-In print mode, Alf also reads piped stdin and merges it into the initial prompt:
+In print mode, Alef also reads piped stdin and merges it into the initial prompt:
 
 ```bash
-cat README.md | alf -p "Summarize this text"
+cat README.md | alef -p "Summarize this text"
 ```
 
 ### Model Options
@@ -590,55 +590,55 @@ Combine `--no-*` with explicit flags to load exactly what you need, ignoring set
 Prefix files with `@` to include in the message:
 
 ```bash
-alf @prompt.md "Answer this"
-alf -p @screenshot.png "What's in this image?"
-alf @code.ts @test.ts "Review these files"
+alef @prompt.md "Answer this"
+alef -p @screenshot.png "What's in this image?"
+alef @code.ts @test.ts "Review these files"
 ```
 
 ### Examples
 
 ```bash
 # Interactive with initial prompt
-alf "List all .ts files in src/"
+alef "List all .ts files in src/"
 
 # Non-interactive
-alf -p "Summarize this codebase"
+alef -p "Summarize this codebase"
 
 # Non-interactive with piped stdin
-cat README.md | alf -p "Summarize this text"
+cat README.md | alef -p "Summarize this text"
 
 # Different model
-alf --provider openai --model gpt-4o "Help me refactor"
+alef --provider openai --model gpt-4o "Help me refactor"
 
 # Model with provider prefix (no --provider needed)
-alf --model openai/gpt-4o "Help me refactor"
+alef --model openai/gpt-4o "Help me refactor"
 
 # Model with thinking level shorthand
-alf --model sonnet:high "Solve this complex problem"
+alef --model sonnet:high "Solve this complex problem"
 
 # Limit model cycling
-alf --models "claude-*,gpt-4o"
+alef --models "claude-*,gpt-4o"
 
 # Read-only mode
-alf --tools read,grep,find,ls -p "Review the code"
+alef --tools read,grep,find,ls -p "Review the code"
 
 # High thinking level
-alf --thinking high "Solve this complex problem"
+alef --thinking high "Solve this complex problem"
 ```
 
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `ALF_CODING_AGENT_DIR` | Override `<agent-dir>` (see [Settings](#settings)) |
-| `ALF_CODING_AGENT_SESSION_DIR` | Override session storage directory (overridden by `--session-dir`) |
-| `ALF_PACKAGE_DIR` | Override package directory (useful for Nix/Guix where store paths tokenize poorly) |
-| `ALF_OFFLINE` | Disable startup network operations, including update checks, package update checks, and install/update telemetry |
-| `ALF_SKIP_VERSION_CHECK` | Skip the optional latest-version fetch when `ALF_LATEST_VERSION_URL` is set |
-| `ALF_LATEST_VERSION_URL` | When set, JSON endpoint for update checks (`version` field required). Unset = no update request |
-| `ALF_REPORT_INSTALL_URL` | When set, anonymous install/update ping target. Unset = no telemetry request |
-| `ALF_TELEMETRY` | Override install/update telemetry. Use `1`/`true`/`yes` to enable or `0`/`false`/`no` to disable. This does not disable update checks |
-| `ALF_CACHE_RETENTION` | Set to `long` for extended prompt cache (Anthropic: 1h, OpenAI: 24h) |
+| `ALEF_CODING_AGENT_DIR` | Override `<agent-dir>` (see [Settings](#settings)) |
+| `ALEF_CODING_AGENT_SESSION_DIR` | Override session storage directory (overridden by `--session-dir`) |
+| `ALEF_PACKAGE_DIR` | Override package directory (useful for Nix/Guix where store paths tokenize poorly) |
+| `ALEF_OFFLINE` | Disable startup network operations, including update checks, package update checks, and install/update telemetry |
+| `ALEF_SKIP_VERSION_CHECK` | Skip the optional latest-version fetch when `ALEF_LATEST_VERSION_URL` is set |
+| `ALEF_LATEST_VERSION_URL` | When set, JSON endpoint for update checks (`version` field required). Unset = no update request |
+| `ALEF_REPORT_INSTALL_URL` | When set, anonymous install/update ping target. Unset = no telemetry request |
+| `ALEF_TELEMETRY` | Override install/update telemetry. Use `1`/`true`/`yes` to enable or `0`/`false`/`no` to disable. This does not disable update checks |
+| `ALEF_CACHE_RETENTION` | Set to `long` for extended prompt cache (Anthropic: 1h, OpenAI: 24h) |
 | `VISUAL`, `EDITOR` | External editor for Ctrl+G |
 
 ---
@@ -655,6 +655,6 @@ MIT
 
 ## See Also
 
-- [@alf-agent/ai](https://www.npmjs.com/package/@alf-agent/ai): Core LLM toolkit
-- [@alf-agent/agent-core](https://www.npmjs.com/package/@alf-agent/agent-core): Agent framework
-- [@alf-agent/tui](https://www.npmjs.com/package/@alf-agent/tui): Terminal UI components
+- [@alef/ai](https://www.npmjs.com/package/@alef/ai): Core LLM toolkit
+- [@alef/agent-core](https://www.npmjs.com/package/@alef/agent-core): Agent framework
+- [@alef/tui](https://www.npmjs.com/package/@alef/tui): Terminal UI components

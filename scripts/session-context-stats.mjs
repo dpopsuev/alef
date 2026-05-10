@@ -37,7 +37,7 @@ function printHelp() {
 	console.log(`Usage: node scripts/session-context-stats.mjs [options]
 
 Options:
-  --sessions-dir <path>  Sessions directory (default: see ALF_CODING_AGENT_DIR / coding-agent getAgentDir())
+  --sessions-dir <path>  Sessions directory (default: see ALEF_CODING_AGENT_DIR / coding-agent getAgentDir())
   --model <substring>    Filter provider/model by substring
   --model-prefix <p>     Include provider/model prefixes, repeatable, e.g. openai-codex/
   --bash-contains <text> Include only sessions with bash tool calls containing text, repeatable

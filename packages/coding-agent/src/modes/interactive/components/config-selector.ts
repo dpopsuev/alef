@@ -14,7 +14,7 @@ import {
 	Spacer,
 	truncateToWidth,
 	visibleWidth,
-} from "@alf-agent/tui";
+} from "@alef/tui";
 import { CONFIG_DIR_NAME, getAgentDir } from "../../../config.js";
 import type { PathMetadata, ResolvedPaths, ResolvedResource } from "../../../core/package-manager.js";
 import type { PackageSource, SettingsManager } from "../../../core/settings-manager.js";

@@ -2,8 +2,8 @@
  * Hello Tool - Minimal custom tool example
  */
 
-import { Type } from "@alf-agent/ai";
-import { defineTool, type ExtensionAPI } from "@alf-agent/coding-agent";
+import { Type } from "@alef/ai";
+import { defineTool, type ExtensionAPI } from "@alef/coding-agent";
 
 const helloTool = defineTool({
 	name: "hello",
@@ -21,6 +21,6 @@ const helloTool = defineTool({
 	},
 });
 
-export default function (alf: ExtensionAPI) {
-	alf.registerTool(helloTool);
+export default function (alef: ExtensionAPI) {
+	alef.registerTool(helloTool);
 }

@@ -27,14 +27,14 @@ Pi loads skills from:
   - `<agent-dir>/skills/`
   - `~/.agents/skills/`
 - Project:
-  - `.alf/skills/`
+  - `.alef/skills/`
   - `.agents/skills/` in `cwd` and ancestor directories (up to git repo root, or filesystem root when not in a repo)
 - Packages: `skills/` directories or `pi.skills` entries in `package.json`
 - Settings: `skills` array with files or directories
 - CLI: `--skill <path>` (repeatable, additive even with `--no-skills`)
 
 Discovery rules:
-- In `<agent-dir>/skills/` and `.alf/skills/`, direct root `.md` files are discovered as individual skills
+- In `<agent-dir>/skills/` and `.alef/skills/`, direct root `.md` files are discovered as individual skills
 - In all skill locations, directories containing `SKILL.md` are discovered recursively
 - In `~/.agents/skills/` and project `.agents/skills/`, root `.md` files are ignored
 
@@ -53,7 +53,7 @@ To use skills from Claude Code or OpenAI Codex, add their directories to setting
 }
 ```
 
-For project-level Claude Code skills, add to `.alf/settings.json`:
+For project-level Claude Code skills, add to `.alef/settings.json`:
 
 ```json
 {

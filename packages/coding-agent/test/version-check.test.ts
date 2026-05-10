@@ -7,26 +7,26 @@ import {
 	isNewerPackageVersion,
 } from "../src/utils/version-check.js";
 
-const originalSkipVersionCheck = process.env.ALF_SKIP_VERSION_CHECK;
-const originalOffline = process.env.ALF_OFFLINE;
-const originalLatestUrl = process.env.ALF_LATEST_VERSION_URL;
+const originalSkipVersionCheck = process.env.ALEF_SKIP_VERSION_CHECK;
+const originalOffline = process.env.ALEF_OFFLINE;
+const originalLatestUrl = process.env.ALEF_LATEST_VERSION_URL;
 
 afterEach(() => {
 	vi.unstubAllGlobals();
 	if (originalSkipVersionCheck === undefined) {
-		delete process.env.ALF_SKIP_VERSION_CHECK;
+		delete process.env.ALEF_SKIP_VERSION_CHECK;
 	} else {
-		process.env.ALF_SKIP_VERSION_CHECK = originalSkipVersionCheck;
+		process.env.ALEF_SKIP_VERSION_CHECK = originalSkipVersionCheck;
 	}
 	if (originalOffline === undefined) {
-		delete process.env.ALF_OFFLINE;
+		delete process.env.ALEF_OFFLINE;
 	} else {
-		process.env.ALF_OFFLINE = originalOffline;
+		process.env.ALEF_OFFLINE = originalOffline;
 	}
 	if (originalLatestUrl === undefined) {
-		delete process.env.ALF_LATEST_VERSION_URL;
+		delete process.env.ALEF_LATEST_VERSION_URL;
 	} else {
-		process.env.ALF_LATEST_VERSION_URL = originalLatestUrl;
+		process.env.ALEF_LATEST_VERSION_URL = originalLatestUrl;
 	}
 });
 
@@ -40,7 +40,7 @@ describe("version checks", () => {
 	});
 
 	it("returns only newer versions", async () => {
-		process.env.ALF_LATEST_VERSION_URL = "https://versions.example/latest";
+		process.env.ALEF_LATEST_VERSION_URL = "https://versions.example/latest";
 
 		const fetchMock = vi.fn(async () => Response.json({ version: "1.2.3" }));
 		vi.stubGlobal("fetch", fetchMock);
@@ -49,8 +49,8 @@ describe("version checks", () => {
 		await expect(checkForNewRelease("1.2.2")).resolves.toBe("1.2.3");
 	});
 
-	it("uses configured endpoint with alf user agent", async () => {
-		process.env.ALF_LATEST_VERSION_URL = "https://versions.example/latest";
+	it("uses configured endpoint with alef user agent", async () => {
+		process.env.ALEF_LATEST_VERSION_URL = "https://versions.example/latest";
 
 		const fetchMock = vi.fn(async () => Response.json({ version: "1.2.4" }));
 		vi.stubGlobal("fetch", fetchMock);
@@ -60,7 +60,7 @@ describe("version checks", () => {
 			"https://versions.example/latest",
 			expect.objectContaining({
 				headers: expect.objectContaining({
-					"User-Agent": expect.stringMatching(/^alf\/1\.2\.3 /),
+					"User-Agent": expect.stringMatching(/^alef\/1\.2\.3 /),
 					accept: "application/json",
 				}),
 			}),
@@ -68,7 +68,7 @@ describe("version checks", () => {
 	});
 
 	it("returns the active package name from the version payload", async () => {
-		process.env.ALF_LATEST_VERSION_URL = "https://versions.example/latest";
+		process.env.ALEF_LATEST_VERSION_URL = "https://versions.example/latest";
 
 		const fetchMock = vi.fn(async () => Response.json({ packageName: "@new-scope/coding-agent", version: "1.2.4" }));
 		vi.stubGlobal("fetch", fetchMock);
@@ -80,8 +80,8 @@ describe("version checks", () => {
 	});
 
 	it("skips api calls when version checks are disabled", async () => {
-		process.env.ALF_LATEST_VERSION_URL = "https://versions.example/latest";
-		process.env.ALF_SKIP_VERSION_CHECK = "1";
+		process.env.ALEF_LATEST_VERSION_URL = "https://versions.example/latest";
+		process.env.ALEF_SKIP_VERSION_CHECK = "1";
 		const fetchMock = vi.fn();
 		vi.stubGlobal("fetch", fetchMock);
 
@@ -90,7 +90,7 @@ describe("version checks", () => {
 	});
 
 	it("skips api calls when no latest-version endpoint is configured", async () => {
-		delete process.env.ALF_LATEST_VERSION_URL;
+		delete process.env.ALEF_LATEST_VERSION_URL;
 		const fetchMock = vi.fn();
 		vi.stubGlobal("fetch", fetchMock);
 

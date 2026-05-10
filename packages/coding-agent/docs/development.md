@@ -14,7 +14,7 @@ npm run build
 Run from source:
 
 ```bash
-/path/to/your-repo/alf-test.sh
+/path/to/your-repo/alef-test.sh
 # Legacy alias: ./pi-test.sh
 ```
 
@@ -27,18 +27,18 @@ Configure via `package.json` (see `packages/coding-agent/package.json` in this f
 ```json
 {
   "piConfig": {
-    "name": "alf",
-    "configDir": ".alf"
+    "name": "alef",
+    "configDir": ".alef"
   },
   "bin": {
-    "alf": "dist/cli.js"
+    "alef": "dist/cli.js"
   }
 }
 ```
 
-Change `name`, `configDir`, and `bin` for your fork. Affects CLI banner, project-local config folder name (e.g. `.alf`), and env names (`ALF_CODING_AGENT_DIR`, etc.; `ALF_CODING_AGENT_DIR` still works).
+Change `name`, `configDir`, and `bin` for your fork. Affects CLI banner, project-local config folder name (e.g. `.alef`), and env names (`ALEF_CODING_AGENT_DIR`, etc.; `ALEF_CODING_AGENT_DIR` still works).
 
-On **Linux**, the default **user** agent directory follows **XDG**: `$XDG_CONFIG_HOME/<name>/agent` (usually `~/.config/alf/agent`). If `~/.alf/agent` already exists, that legacy path is kept until you move it.
+On **Linux**, the default **user** agent directory follows **XDG**: `$XDG_CONFIG_HOME/<name>/agent` (usually `~/.config/alef/agent`). If `~/.alef/agent` already exists, that legacy path is kept until you move it.
 
 ## Path Resolution
 

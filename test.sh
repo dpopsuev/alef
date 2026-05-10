@@ -2,22 +2,22 @@
 set -e
 
 resolve_agent_dir() {
-    if [[ -n "${ALF_CODING_AGENT_DIR:-}" ]]; then
-        echo "${ALF_CODING_AGENT_DIR/#\~/$HOME}"
+    if [[ -n "${ALEF_CODING_AGENT_DIR:-}" ]]; then
+        echo "${ALEF_CODING_AGENT_DIR/#\~/$HOME}"
         return
     fi
 
     if [[ "$OSTYPE" == linux* ]]; then
-        if [[ -d "$HOME/.alf/agent" ]]; then
-            echo "$HOME/.alf/agent"
+        if [[ -d "$HOME/.alef/agent" ]]; then
+            echo "$HOME/.alef/agent"
             return
         fi
         local xdg_base="${XDG_CONFIG_HOME:-$HOME/.config}"
-        echo "$xdg_base/alf/agent"
+        echo "$xdg_base/alef/agent"
         return
     fi
 
-    echo "$HOME/.alf/agent"
+    echo "$HOME/.alef/agent"
 }
 
 AGENT_DIR="$(resolve_agent_dir)"
@@ -40,7 +40,7 @@ if [[ -f "$AUTH_FILE" ]]; then
 fi
 
 # Skip local LLM tests (ollama, lmstudio)
-export ALF_NO_LOCAL_LLM=1
+export ALEF_NO_LOCAL_LLM=1
 
 # Unset API keys (see packages/ai/src/stream.ts getEnvApiKey)
 unset ANTHROPIC_API_KEY

@@ -22,19 +22,19 @@
  *   toggled the tool output open (via ctrl+e or clicking)
  *
  * Usage:
- *   alf -e ./built-in-tool-renderer.ts
+ *   alef -e ./built-in-tool-renderer.ts
  */
 
-import type { BashToolDetails, EditToolDetails, ExtensionAPI, ReadToolDetails } from "@alf-agent/coding-agent";
-import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@alf-agent/coding-agent";
-import { Text } from "@alf-agent/tui";
+import type { BashToolDetails, EditToolDetails, ExtensionAPI, ReadToolDetails } from "@alef/coding-agent";
+import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@alef/coding-agent";
+import { Text } from "@alef/tui";
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	const cwd = process.cwd();
 
 	// --- Read tool: show path and line count ---
 	const originalRead = createReadTool(cwd);
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_read",
 		label: "file_read",
 		description: originalRead.description,
@@ -93,7 +93,7 @@ export default function (alf: ExtensionAPI) {
 
 	// --- Bash tool: show command and exit code ---
 	const originalBash = createBashTool(cwd);
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_bash",
 		label: "file_bash",
 		description: originalBash.description,
@@ -152,7 +152,7 @@ export default function (alf: ExtensionAPI) {
 
 	// --- Edit tool: show path and diff stats ---
 	const originalEdit = createEditTool(cwd);
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_edit",
 		label: "file_edit",
 		description: originalEdit.description,
@@ -217,7 +217,7 @@ export default function (alf: ExtensionAPI) {
 
 	// --- Write tool: show path and size ---
 	const originalWrite = createWriteTool(cwd);
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_write",
 		label: "file_write",
 		description: originalWrite.description,

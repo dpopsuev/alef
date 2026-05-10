@@ -56,7 +56,7 @@ function printHelp() {
 	console.log(`Usage: node scripts/read-tool-stats.mjs [options]
 
 Options:
-  --sessions-dir <path>  Sessions directory (default: see ALF_CODING_AGENT_DIR / coding-agent getAgentDir())
+  --sessions-dir <path>  Sessions directory (default: see ALEF_CODING_AGENT_DIR / coding-agent getAgentDir())
   --model <substring>    Filter provider/model by substring
   --top <n>              Number of examples to show (default: ${DEFAULT_TOP})
   --since <iso>          Only scan session files created at or after this ISO time

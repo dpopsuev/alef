@@ -39,13 +39,13 @@ import { transformMessages } from "./transform-messages.js";
 
 /**
  * Resolve cache retention preference.
- * Defaults to "short" and uses ALF_CACHE_RETENTION for backward compatibility.
+ * Defaults to "short" and uses ALEF_CACHE_RETENTION for backward compatibility.
  */
 function resolveCacheRetention(cacheRetention?: CacheRetention): CacheRetention {
 	if (cacheRetention) {
 		return cacheRetention;
 	}
-	if (typeof process !== "undefined" && process.env.ALF_CACHE_RETENTION === "long") {
+	if (typeof process !== "undefined" && process.env.ALEF_CACHE_RETENTION === "long") {
 		return "long";
 	}
 	return "short";
@@ -251,7 +251,7 @@ function isAlfAnthropicVertexEnabled(): boolean {
 	if (typeof process === "undefined") {
 		return false;
 	}
-	const v = process.env.ALF_ANTHROPIC_VERTEX?.trim().toLowerCase();
+	const v = process.env.ALEF_ANTHROPIC_VERTEX?.trim().toLowerCase();
 	return v === "1" || v === "true" || v === "yes";
 }
 

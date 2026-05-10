@@ -8,11 +8,11 @@
  * are currently active, respecting whatever the user has configured.
  *
  * Usage:
- * 1. Copy this file to ~/.alf/agent/extensions/ or your project's .alf/extensions/
+ * 1. Copy this file to ~/.alef/agent/extensions/ or your project's .alef/extensions/
  * 2. Use the extension — it automatically adapts to your active tools and skills
  */
 
-import type { BuildSystemPromptOptions, ExtensionAPI } from "@alf-agent/coding-agent";
+import type { BuildSystemPromptOptions, ExtensionAPI } from "@alef/coding-agent";
 
 /**
  * Adds tool-specific guidance that adapts to the active tool set.
@@ -83,8 +83,8 @@ If you have additional requirements, configure them via --append-system-prompt o
 	return extensionSpecific;
 }
 
-export default function promptCustomizer(alf: ExtensionAPI) {
-	alf.on("before_agent_start", async (event) => {
+export default function promptCustomizer(alef: ExtensionAPI) {
+	alef.on("before_agent_start", async (event) => {
 		const { systemPrompt, systemPromptOptions } = event;
 
 		const customPrompt = addToolGuidance(systemPromptOptions, systemPrompt);

@@ -1146,7 +1146,7 @@ describe("Generate E2E Tests", () => {
 	);
 
 	// =========================================================================
-	// OAuth-based providers (credentials from Alf agent dir `oauth.json`)
+	// OAuth-based providers (credentials from Alef agent dir `oauth.json`)
 	// Tokens are resolved at module level (see oauthTokens above)
 	// =========================================================================
 
@@ -1488,7 +1488,7 @@ describe("Generate E2E Tests", () => {
 
 	// Check if ollama is installed and local LLM tests are enabled
 	let ollamaInstalled = false;
-	if (!process.env.ALF_NO_LOCAL_LLM) {
+	if (!process.env.ALEF_NO_LOCAL_LLM) {
 		try {
 			execSync("which ollama", { stdio: "ignore" });
 			ollamaInstalled = true;

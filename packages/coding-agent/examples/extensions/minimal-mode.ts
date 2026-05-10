@@ -11,12 +11,12 @@
  * - Minimal: Shows only tool call, no output (this extension's collapsed mode)
  *
  * Usage:
- *   alf -e ./minimal-mode.ts
+ *   alef -e ./minimal-mode.ts
  *
  * Then use ctrl+o to toggle between minimal (collapsed) and full (expanded) views.
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 import {
 	createBashTool,
 	createEditTool,
@@ -25,8 +25,8 @@ import {
 	createLsTool,
 	createReadTool,
 	createWriteTool,
-} from "@alf-agent/coding-agent";
-import { Text } from "@alf-agent/tui";
+} from "@alef/coding-agent";
+import { Text } from "@alef/tui";
 import { homedir } from "os";
 
 /**
@@ -64,11 +64,11 @@ function getBuiltInTools(cwd: string) {
 	return tools;
 }
 
-export default function (alf: ExtensionAPI) {
+export default function (alef: ExtensionAPI) {
 	// =========================================================================
 	// Read Tool
 	// =========================================================================
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_read",
 		label: "file_read",
 		description:
@@ -115,7 +115,7 @@ export default function (alf: ExtensionAPI) {
 	// =========================================================================
 	// Bash Tool
 	// =========================================================================
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_bash",
 		label: "file_bash",
 		description:
@@ -164,7 +164,7 @@ export default function (alf: ExtensionAPI) {
 	// =========================================================================
 	// Write Tool
 	// =========================================================================
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_write",
 		label: "file_write",
 		description:
@@ -206,7 +206,7 @@ export default function (alf: ExtensionAPI) {
 	// =========================================================================
 	// Edit Tool
 	// =========================================================================
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_edit",
 		label: "file_edit",
 		description:
@@ -251,7 +251,7 @@ export default function (alf: ExtensionAPI) {
 	// =========================================================================
 	// Find Tool
 	// =========================================================================
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_find",
 		label: "file_find",
 		description:
@@ -309,7 +309,7 @@ export default function (alf: ExtensionAPI) {
 	// =========================================================================
 	// Grep Tool
 	// =========================================================================
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_grep",
 		label: "file_grep",
 		description:
@@ -371,7 +371,7 @@ export default function (alf: ExtensionAPI) {
 	// =========================================================================
 	// Ls Tool
 	// =========================================================================
-	alf.registerTool({
+	alef.registerTool({
 		name: "file_ls",
 		label: "file_ls",
 		description:

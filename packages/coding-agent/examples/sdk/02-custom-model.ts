@@ -4,8 +4,8 @@
  * Shows how to select a specific model and thinking level.
  */
 
-import { getModel } from "@alf-agent/ai";
-import { AuthStorage, createAgentSession, ModelRegistry } from "@alf-agent/coding-agent";
+import { getModel } from "@alef/ai";
+import { AuthStorage, createAgentSession, ModelRegistry } from "@alef/coding-agent";
 
 // Set up auth storage and model registry
 const authStorage = AuthStorage.create();

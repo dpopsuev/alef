@@ -1,22 +1,22 @@
-# @alf-agent/agent-core
+# @alef/agent-core
 
-Stateful agent with tool execution and event streaming. Built on `@alf-agent/ai`.
+Stateful agent with tool execution and event streaming. Built on `@alef/ai`.
 
 ## Attribution
 
-Part of **[Alf Agent](https://github.com/dpopsuev/alf-agent)**, a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
+Part of **[Alef Agent](https://github.com/dpopsuev/alef)**, a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (Pi Agent) by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 
 ## Installation
 
 ```bash
-npm install @alf-agent/agent-core
+npm install @alef/agent-core
 ```
 
 ## Quick Start
 
 ```typescript
-import { Agent } from "@alf-agent/agent-core";
-import { getModel } from "@alf-agent/ai";
+import { Agent } from "@alef/agent-core";
+import { getModel } from "@alef/ai";
 
 const agent = new Agent({
   initialState: {
@@ -359,7 +359,7 @@ Follow-up messages are checked only when there are no more tool calls and no ste
 Extend `AgentMessage` via declaration merging:
 
 ```typescript
-declare module "@alf-agent/agent-core" {
+declare module "@alef/agent-core" {
   interface CustomAgentMessages {
     notification: { role: "notification"; text: string; timestamp: number };
   }
@@ -440,7 +440,7 @@ Return `terminate: true` from `execute()` or `afterToolCall` to hint that the ag
 For browser apps that proxy through a backend:
 
 ```typescript
-import { Agent, streamProxy } from "@alf-agent/agent-core";
+import { Agent, streamProxy } from "@alef/agent-core";
 
 const agent = new Agent({
   streamFn: (model, context, options) =>
@@ -457,7 +457,7 @@ const agent = new Agent({
 For direct control without the Agent class:
 
 ```typescript
-import { agentLoop, agentLoopContinue } from "@alf-agent/agent-core";
+import { agentLoop, agentLoopContinue } from "@alef/agent-core";
 
 const context: AgentContext = {
   systemPrompt: "You are helpful.",

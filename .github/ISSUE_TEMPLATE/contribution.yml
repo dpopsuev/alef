@@ -5,9 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Alf Agent** is a **BDFL fork**. Unsolicited contributions are **not** accepted; issues from strangers are typically **auto-closed** without reply.
+        **Alef Agent** is a **BDFL fork**. Unsolicited contributions are **not** accepted; issues from strangers are typically **auto-closed** without reply.
 
-        Read [CONTRIBUTING.md](https://github.com/dpopsuev/alf-agent/blob/main/CONTRIBUTING.md).
+        Read [CONTRIBUTING.md](https://github.com/dpopsuev/alef/blob/main/CONTRIBUTING.md).
 
         You may **read** and **fork** this MIT-licensed code. To contribute to **Pi**, use **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 

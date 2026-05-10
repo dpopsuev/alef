@@ -5,18 +5,18 @@
  * change agent behavior based on extension state.
  *
  * Usage:
- * 1. Copy this file to ~/.alf/agent/extensions/ or your project's .alf/extensions/
+ * 1. Copy this file to ~/.alef/agent/extensions/ or your project's .alef/extensions/
  * 2. Use /pirate to toggle pirate mode
  * 3. When enabled, the agent will respond like a pirate
  */
 
-import type { ExtensionAPI } from "@alf-agent/coding-agent";
+import type { ExtensionAPI } from "@alef/coding-agent";
 
-export default function pirateExtension(alf: ExtensionAPI) {
+export default function pirateExtension(alef: ExtensionAPI) {
 	let pirateMode = false;
 
 	// Register /pirate command to toggle pirate mode
-	alf.registerCommand("pirate", {
+	alef.registerCommand("pirate", {
 		description: "Toggle pirate mode (agent speaks like a pirate)",
 		handler: async (_args, ctx) => {
 			pirateMode = !pirateMode;
@@ -25,7 +25,7 @@ export default function pirateExtension(alf: ExtensionAPI) {
 	});
 
 	// Append to system prompt when pirate mode is enabled
-	alf.on("before_agent_start", async (event) => {
+	alef.on("before_agent_start", async (event) => {
 		if (pirateMode) {
 			return {
 				systemPrompt:

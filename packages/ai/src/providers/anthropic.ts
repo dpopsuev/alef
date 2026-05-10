@@ -247,6 +247,39 @@ const ANTHROPIC_MESSAGE_EVENTS: ReadonlySet<string> = new Set([
 	"content_block_stop",
 ]);
 
+function resolveAnthropicVertexProjectAndRegion(): { projectId: string; region: string } | undefined {
+	if (typeof process === "undefined") {
+		return undefined;
+	}
+	if (process.env.ALF_ANTHROPIC_VERTEX !== "1") {
+		return undefined;
+	}
+	const projectId =
+		process.env.ANTHROPIC_VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+	const region = process.env.CLOUD_ML_REGION || process.env.GOOGLE_CLOUD_LOCATION;
+	if (!projectId || !region) {
+		return undefined;
+	}
+	return { projectId, region };
+}
+
+/**
+ * Route direct Anthropic catalog models through Vertex partner endpoint when opted in.
+ * Does not apply to GitHub Copilot, Cloudflare AI Gateway, or Claude OAuth tokens (subscription).
+ */
+function shouldRouteAnthropicThroughVertex(model: Model<"anthropic-messages">, resolvedApiKey: string): boolean {
+	if (model.provider !== "anthropic") {
+		return false;
+	}
+	if (!resolveAnthropicVertexProjectAndRegion()) {
+		return false;
+	}
+	if (resolvedApiKey && isOAuthToken(resolvedApiKey)) {
+		return false;
+	}
+	return true;
+}
+
 function flushSseEvent(state: SseDecoderState): ServerSentEvent | null {
 	if (!state.event && state.data.length === 0) {
 		return null;
@@ -454,25 +487,39 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			} else {
 				const apiKey = options?.apiKey ?? getEnvApiKey(model.provider) ?? "";
 
-				let copilotDynamicHeaders: Record<string, string> | undefined;
-				if (model.provider === "github-copilot") {
-					const hasImages = hasCopilotVisionInput(context.messages);
-					copilotDynamicHeaders = buildCopilotDynamicHeaders({
-						messages: context.messages,
-						hasImages,
-					});
-				}
+				if (shouldRouteAnthropicThroughVertex(model, apiKey)) {
+					const vertexCfg = resolveAnthropicVertexProjectAndRegion();
+					if (!vertexCfg) {
+						throw new Error("Anthropic Vertex routing enabled but project/region not resolved");
+					}
+					// Node-only SDK (google-auth-library); lazy-loaded so browser smoke bundles skip it.
+					const { AnthropicVertex } = await import("@anthropic-ai/vertex-sdk");
+					client = new AnthropicVertex({
+						projectId: vertexCfg.projectId,
+						region: vertexCfg.region,
+					}) as unknown as Anthropic;
+					isOAuth = false;
+				} else {
+					let copilotDynamicHeaders: Record<string, string> | undefined;
+					if (model.provider === "github-copilot") {
+						const hasImages = hasCopilotVisionInput(context.messages);
+						copilotDynamicHeaders = buildCopilotDynamicHeaders({
+							messages: context.messages,
+							hasImages,
+						});
+					}
 
-				const created = createClient(
-					model,
-					apiKey,
-					options?.interleavedThinking ?? true,
-					shouldUseFineGrainedToolStreamingBeta(model, context),
-					options?.headers,
-					copilotDynamicHeaders,
-				);
-				client = created.client;
-				isOAuth = created.isOAuthToken;
+					const created = createClient(
+						model,
+						apiKey,
+						options?.interleavedThinking ?? true,
+						shouldUseFineGrainedToolStreamingBeta(model, context),
+						options?.headers,
+						copilotDynamicHeaders,
+					);
+					client = created.client;
+					isOAuth = created.isOAuthToken;
+				}
 			}
 			let params = buildParams(model, context, isOAuth, options);
 			const nextParams = await options?.onPayload?.(params, model);

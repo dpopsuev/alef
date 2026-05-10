@@ -309,6 +309,11 @@ ${chalk.bold("Examples:")}
 ${chalk.bold("Environment Variables:")}
   ANTHROPIC_API_KEY                - Anthropic Claude API key
   ANTHROPIC_OAUTH_TOKEN            - Anthropic OAuth token (alternative to API key)
+  ALF_ANTHROPIC_VERTEX             - When 1, route catalog anthropic models via Vertex (GCP billing); see docs/providers.md
+  ANTHROPIC_VERTEX_PROJECT_ID      - GCP project id for Claude on Vertex (optional if GOOGLE_CLOUD_PROJECT/GCLOUD_PROJECT is set)
+  CLOUD_ML_REGION                  - Vertex region for Anthropic partner models (often global or regional per GCP docs)
+  GOOGLE_CLOUD_LOCATION            - Region fallback when CLOUD_ML_REGION is unset
+  GOOGLE_CLOUD_PROJECT             - GCP project fallback when ANTHROPIC_VERTEX_PROJECT_ID is unset
   OPENAI_API_KEY                   - OpenAI GPT API key
   AZURE_OPENAI_API_KEY             - Azure OpenAI API key
   AZURE_OPENAI_BASE_URL            - Azure OpenAI/Cognitive Services base URL (e.g. https://{resource}.openai.azure.com)

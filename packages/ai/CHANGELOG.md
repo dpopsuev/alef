@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in **Claude on Vertex AI**: set `ALF_ANTHROPIC_VERTEX=1` with GCP project/region and ADC to route **`anthropic`** provider models through `@anthropic-ai/vertex-sdk` instead of `ANTHROPIC_API_KEY`.
+
 ## [0.0.1] - 2026-05-10
 
 ### Added

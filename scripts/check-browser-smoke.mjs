@@ -14,6 +14,7 @@ try {
 		format: "esm",
 		logLevel: "silent",
 		outfile: outputPath,
+		external: ["@anthropic-ai/vertex-sdk"],
 	});
 	process.exit(0);
 } catch (error) {

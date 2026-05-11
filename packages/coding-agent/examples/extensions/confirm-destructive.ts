@@ -5,7 +5,7 @@
  * Demonstrates how to cancel session events using the before_* events.
  */
 
-import type { ExtensionAPI, SessionBeforeSwitchEvent, SessionMessageEntry } from "@alef/coding-agent";
+import type { ExtensionAPI, SessionBeforeSwitchEvent, SessionMessageEntry } from "@dpopsuev/alef-coding-agent";
 
 export default function (alef: ExtensionAPI) {
 	alef.on("session_before_switch", async (event: SessionBeforeSwitchEvent, ctx) => {

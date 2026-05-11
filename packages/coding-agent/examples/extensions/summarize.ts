@@ -1,7 +1,7 @@
-import { complete, getModel } from "@alef/ai";
-import type { ExtensionAPI, ExtensionCommandContext } from "@alef/coding-agent";
-import { DynamicBorder, getMarkdownTheme } from "@alef/coding-agent";
-import { Container, Markdown, matchesKey, Text } from "@alef/tui";
+import { complete, getModel } from "@dpopsuev/alef-ai";
+import type { ExtensionAPI, ExtensionCommandContext } from "@dpopsuev/alef-coding-agent";
+import { DynamicBorder, getMarkdownTheme } from "@dpopsuev/alef-coding-agent";
+import { Container, Markdown, matchesKey, Text } from "@dpopsuev/alef-tui";
 
 type ContentBlock = {
 	type?: string;

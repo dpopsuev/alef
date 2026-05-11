@@ -2,7 +2,7 @@
  * Utilities for formatting keybinding hints in the UI.
  */
 
-import { getKeybindings, type Keybinding, type KeyId } from "@alef/tui";
+import { getKeybindings, type Keybinding, type KeyId } from "@dpopsuev/alef-tui";
 import { theme } from "../theme/theme.js";
 
 export interface KeyTextFormatOptions {

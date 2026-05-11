@@ -1,6 +1,6 @@
 import * as os from "node:os";
-import type { ImageContent, TextContent } from "@alef/ai";
-import { getCapabilities, getImageDimensions, imageFallback } from "@alef/tui";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-ai";
+import { getCapabilities, getImageDimensions, imageFallback } from "@dpopsuev/alef-tui";
 import stripAnsi from "strip-ansi";
 import { sanitizeBinaryOutput } from "../../utils/shell.js";
 

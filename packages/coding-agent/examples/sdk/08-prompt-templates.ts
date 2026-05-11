@@ -11,7 +11,7 @@ import {
 	getAgentDir,
 	type PromptTemplate,
 	SessionManager,
-} from "@alef/coding-agent";
+} from "@dpopsuev/alef-coding-agent";
 
 // Define custom templates
 const deployTemplate: PromptTemplate = {

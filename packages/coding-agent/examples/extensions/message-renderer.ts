@@ -7,8 +7,8 @@
  * Usage: /status [message] - sends a status message with custom rendering
  */
 
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { Box, Text } from "@alef/tui";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { Box, Text } from "@dpopsuev/alef-tui";
 
 export default function (alef: ExtensionAPI) {
 	// Register custom renderer for "status-update" messages

@@ -1,6 +1,6 @@
-import type { AgentMessage } from "@alef/agent-core";
-import type { AssistantMessage, Usage } from "@alef/ai";
-import { getModel } from "@alef/ai";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
+import type { AssistantMessage, Usage } from "@dpopsuev/alef-ai";
+import { getModel } from "@dpopsuev/alef-ai";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { beforeEach, describe, expect, it } from "vitest";

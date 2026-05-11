@@ -2,7 +2,7 @@
  * GitLab Duo Provider Extension
  *
  * Provides access to GitLab Duo AI models (Claude and GPT) through GitLab's AI Gateway.
- * Delegates to `@alef/ai`'s built-in Anthropic and OpenAI streaming implementations.
+ * Delegates to `@dpopsuev/alef-ai`'s built-in Anthropic and OpenAI streaming implementations.
  *
  * Usage:
  *   alef -e ./packages/coding-agent/examples/extensions/custom-provider-gitlab-duo
@@ -20,8 +20,8 @@ import {
 	type SimpleStreamOptions,
 	streamSimpleAnthropic,
 	streamSimpleOpenAIResponses,
-} from "@alef/ai";
-import type { ExtensionAPI } from "@alef/coding-agent";
+} from "@dpopsuev/alef-ai";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 
 // =============================================================================
 // Constants

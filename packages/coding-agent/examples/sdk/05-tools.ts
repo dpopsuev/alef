@@ -10,7 +10,7 @@
  * extensions system using `alef.registerTool()`.
  */
 
-import { createAgentSession, SessionManager } from "@alef/coding-agent";
+import { createAgentSession, SessionManager } from "@dpopsuev/alef-coding-agent";
 
 // Read-only mode (no edit/write)
 await createAgentSession({

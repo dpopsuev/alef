@@ -417,7 +417,7 @@ interface PackageJson {
 const pkg = JSON.parse(readFileSync(getPackageJsonPath(), "utf-8")) as PackageJson;
 
 const alefConfigName: string | undefined = pkg.alefConfig?.name;
-export const PACKAGE_NAME: string = pkg.name || "@alef/coding-agent";
+export const PACKAGE_NAME: string = pkg.name || "@dpopsuev/alef-coding-agent";
 export const APP_NAME: string = alefConfigName || "alef";
 export const APP_TITLE: string = alefConfigName ? APP_NAME : "Alef";
 export const CONFIG_DIR_NAME: string = pkg.alefConfig?.configDir || ".alef";

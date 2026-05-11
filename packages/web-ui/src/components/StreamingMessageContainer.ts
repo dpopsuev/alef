@@ -1,5 +1,5 @@
-import type { AgentMessage, AgentTool } from "@alef/agent-core";
-import type { ToolResultMessage } from "@alef/ai";
+import type { AgentMessage, AgentTool } from "@dpopsuev/alef-agent-core";
+import type { ToolResultMessage } from "@dpopsuev/alef-ai";
 import { html, LitElement } from "lit";
 import { property, state } from "lit/decorators.js";
 

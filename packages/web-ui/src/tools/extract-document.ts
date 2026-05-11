@@ -1,5 +1,5 @@
-import type { AgentTool } from "@alef/agent-core";
-import type { ToolResultMessage } from "@alef/ai";
+import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import type { ToolResultMessage } from "@dpopsuev/alef-ai";
 import { html } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";
 import { FileText } from "lucide";

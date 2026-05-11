@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@alef/agent-core";
-import type { ImageContent, Message, TextContent } from "@alef/ai";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
+import type { ImageContent, Message, TextContent } from "@dpopsuev/alef-ai";
 import { randomUUID } from "crypto";
 import {
 	appendFileSync,

@@ -12,10 +12,10 @@
  * - Progress tracking widget during execution
  */
 
-import type { AgentMessage } from "@alef/agent-core";
-import type { AssistantMessage, TextContent } from "@alef/ai";
-import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
-import { Key } from "@alef/tui";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
+import type { AssistantMessage, TextContent } from "@dpopsuev/alef-ai";
+import type { ExtensionAPI, ExtensionContext } from "@dpopsuev/alef-coding-agent";
+import { Key } from "@dpopsuev/alef-tui";
 import { extractTodoItems, isSafeCommand, markCompletedSteps, type TodoItem } from "./utils.js";
 
 // Tools

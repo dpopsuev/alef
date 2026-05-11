@@ -16,7 +16,7 @@
  * Then use ctrl+o to toggle between minimal (collapsed) and full (expanded) views.
  */
 
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 import {
 	createBashTool,
 	createEditTool,
@@ -25,8 +25,8 @@ import {
 	createLsTool,
 	createReadTool,
 	createWriteTool,
-} from "@alef/coding-agent";
-import { Text } from "@alef/tui";
+} from "@dpopsuev/alef-coding-agent";
+import { Text } from "@dpopsuev/alef-tui";
 import { homedir } from "os";
 
 /**

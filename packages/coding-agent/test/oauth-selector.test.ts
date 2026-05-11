@@ -1,4 +1,4 @@
-import { setKeybindings } from "@alef/tui";
+import { setKeybindings } from "@dpopsuev/alef-tui";
 import stripAnsi from "strip-ansi";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AuthStorage } from "../src/core/auth-storage.js";

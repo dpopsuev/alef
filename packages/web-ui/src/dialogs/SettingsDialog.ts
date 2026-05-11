@@ -1,4 +1,4 @@
-import { getProviders } from "@alef/ai";
+import { getProviders } from "@dpopsuev/alef-ai";
 import { i18n } from "@mariozechner/mini-lit";
 import { Dialog, DialogContent, DialogHeader } from "@mariozechner/mini-lit/dist/Dialog.js";
 import { Input } from "@mariozechner/mini-lit/dist/Input.js";

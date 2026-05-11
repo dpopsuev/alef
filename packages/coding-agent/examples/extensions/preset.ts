@@ -40,10 +40,10 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Api, Model } from "@alef/ai";
-import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
-import { DynamicBorder, getAgentDir } from "@alef/coding-agent";
-import { Container, Key, type SelectItem, SelectList, Text } from "@alef/tui";
+import type { Api, Model } from "@dpopsuev/alef-ai";
+import type { ExtensionAPI, ExtensionContext } from "@dpopsuev/alef-coding-agent";
+import { DynamicBorder, getAgentDir } from "@dpopsuev/alef-coding-agent";
+import { Container, Key, type SelectItem, SelectList, Text } from "@dpopsuev/alef-tui";
 
 // Preset configuration
 interface Preset {

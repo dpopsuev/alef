@@ -76,7 +76,7 @@ export {
 	type WriteToolOptions,
 } from "./write.js";
 
-import type { AgentTool } from "@alef/agent-core";
+import type { AgentTool } from "@dpopsuev/alef-agent-core";
 import type { ToolDefinition } from "../extensions/types.js";
 import { type BashToolOptions, createBashTool, createBashToolDefinition } from "./bash.js";
 import { createEditTool, createEditToolDefinition, type EditToolOptions } from "./edit.js";

@@ -5,7 +5,7 @@
  * from cwd and ~/.alef/agent. Model chosen from settings or first available.
  */
 
-import { createAgentSession } from "@alef/coding-agent";
+import { createAgentSession } from "@dpopsuev/alef-coding-agent";
 
 const { session } = await createAgentSession();
 

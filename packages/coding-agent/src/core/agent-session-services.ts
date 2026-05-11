@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import type { ThinkingLevel } from "@alef/agent-core";
-import type { Model } from "@alef/ai";
+import type { ThinkingLevel } from "@dpopsuev/alef-agent-core";
+import type { Model } from "@dpopsuev/alef-ai";
 import { getAgentDir } from "../config.js";
 import { AuthStorage } from "./auth-storage.js";
 import type { SessionStartEvent, ToolDefinition } from "./extensions/index.js";

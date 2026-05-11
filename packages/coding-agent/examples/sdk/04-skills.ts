@@ -12,7 +12,7 @@ import {
 	getAgentDir,
 	SessionManager,
 	type Skill,
-} from "@alef/coding-agent";
+} from "@dpopsuev/alef-coding-agent";
 
 // Or define custom skills inline
 const customSkill: Skill = {

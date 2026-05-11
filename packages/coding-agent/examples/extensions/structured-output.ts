@@ -5,8 +5,8 @@
  * without paying for an extra follow-up LLM turn.
  */
 
-import { defineTool, type ExtensionAPI } from "@alef/coding-agent";
-import { Text } from "@alef/tui";
+import { defineTool, type ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { Text } from "@dpopsuev/alef-tui";
 import { Type } from "typebox";
 
 interface StructuredOutputDetails {

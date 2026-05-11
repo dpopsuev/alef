@@ -1,4 +1,4 @@
-import type { Model } from "@alef/ai";
+import type { Model } from "@dpopsuev/alef-ai";
 import { describe, expect, test } from "vitest";
 import {
 	defaultModelPerProvider,

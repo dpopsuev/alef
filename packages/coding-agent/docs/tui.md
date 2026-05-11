@@ -4,7 +4,7 @@
 
 Extensions and custom tools can render custom TUI components for interactive user interfaces. This page covers the component system and available building blocks.
 
-**Source:** [`@alef/tui`](https://github.com/earendil-works/pi-mono/tree/main/packages/tui)
+**Source:** [`@dpopsuev/alef-tui`](https://github.com/earendil-works/pi-mono/tree/main/packages/tui)
 
 ## Component Interface
 
@@ -33,7 +33,7 @@ The TUI appends a full SGR reset and OSC 8 reset at the end of each rendered lin
 Components that display a text cursor and need IME (Input Method Editor) support should implement the `Focusable` interface:
 
 ```typescript
-import { CURSOR_MARKER, type Component, type Focusable } from "@alef/tui";
+import { CURSOR_MARKER, type Component, type Focusable } from "@dpopsuev/alef-tui";
 
 class MyInput implements Component, Focusable {
   focused: boolean = false;  // Set by TUI when focus changes
@@ -59,7 +59,7 @@ This enables IME candidate windows to appear at the correct position for CJK inp
 When a container component (dialog, selector, etc.) contains an `Input` or `Editor` child, the container must implement `Focusable` and propagate the focus state to the child. Otherwise, the hardware cursor won't be positioned correctly for IME input.
 
 ```typescript
-import { Container, type Focusable, Input } from "@alef/tui";
+import { Container, type Focusable, Input } from "@dpopsuev/alef-tui";
 
 class SearchDialog extends Container implements Focusable {
   private searchInput: Input;
@@ -179,10 +179,10 @@ See [overlay-qa-tests.ts](../examples/extensions/overlay-qa-tests.ts) for compre
 
 ## Built-in Components
 
-Import from `@alef/tui`:
+Import from `@dpopsuev/alef-tui`:
 
 ```typescript
-import { Text, Box, Container, Spacer, Markdown } from "@alef/tui";
+import { Text, Box, Container, Spacer, Markdown } from "@dpopsuev/alef-tui";
 ```
 
 ### Text
@@ -264,7 +264,7 @@ const image = new Image(
 Use `matchesKey()` for key detection:
 
 ```typescript
-import { matchesKey, Key } from "@alef/tui";
+import { matchesKey, Key } from "@dpopsuev/alef-tui";
 
 handleInput(data: string) {
   if (matchesKey(data, Key.up)) {
@@ -290,7 +290,7 @@ handleInput(data: string) {
 **Critical:** Each line from `render()` must not exceed the `width` parameter.
 
 ```typescript
-import { visibleWidth, truncateToWidth } from "@alef/tui";
+import { visibleWidth, truncateToWidth } from "@dpopsuev/alef-tui";
 
 render(width: number): string[] {
   // Truncate long lines
@@ -311,7 +311,7 @@ Example: Interactive selector
 import {
   matchesKey, Key,
   truncateToWidth, visibleWidth
-} from "@alef/tui";
+} from "@dpopsuev/alef-tui";
 
 class MySelector {
   private items: string[];
@@ -425,8 +425,8 @@ renderResult(result, options, theme, context) {
 **For Markdown**, use `getMarkdownTheme()`:
 
 ```typescript
-import { getMarkdownTheme } from "@alef/coding-agent";
-import { Markdown } from "@alef/tui";
+import { getMarkdownTheme } from "@dpopsuev/alef-coding-agent";
+import { Markdown } from "@dpopsuev/alef-tui";
 
 renderResult(result, options, theme, context) {
   const mdTheme = getMarkdownTheme();
@@ -587,12 +587,12 @@ These patterns cover the most common UI needs in extensions. **Copy these patter
 
 ### Pattern 1: Selection Dialog (SelectList)
 
-For letting users pick from a list of options. Use `SelectList` from `@alef/tui` with `DynamicBorder` for framing.
+For letting users pick from a list of options. Use `SelectList` from `@dpopsuev/alef-tui` with `DynamicBorder` for framing.
 
 ```typescript
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { DynamicBorder } from "@alef/coding-agent";
-import { Container, type SelectItem, SelectList, Text } from "@alef/tui";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { DynamicBorder } from "@dpopsuev/alef-coding-agent";
+import { Container, type SelectItem, SelectList, Text } from "@dpopsuev/alef-tui";
 
 pi.registerCommand("pick", {
   handler: async (_args, ctx) => {
@@ -650,7 +650,7 @@ pi.registerCommand("pick", {
 For operations that take time and should be cancellable. `BorderedLoader` shows a spinner and handles escape to cancel.
 
 ```typescript
-import { BorderedLoader } from "@alef/coding-agent";
+import { BorderedLoader } from "@dpopsuev/alef-coding-agent";
 
 pi.registerCommand("fetch", {
   handler: async (_args, ctx) => {
@@ -679,11 +679,11 @@ pi.registerCommand("fetch", {
 
 ### Pattern 3: Settings/Toggles (SettingsList)
 
-For toggling multiple settings. Use `SettingsList` from `@alef/tui` with `getSettingsListTheme()`.
+For toggling multiple settings. Use `SettingsList` from `@dpopsuev/alef-tui` with `getSettingsListTheme()`.
 
 ```typescript
-import { getSettingsListTheme } from "@alef/coding-agent";
-import { Container, type SettingItem, SettingsList, Text } from "@alef/tui";
+import { getSettingsListTheme } from "@dpopsuev/alef-coding-agent";
+import { Container, type SettingItem, SettingsList, Text } from "@dpopsuev/alef-tui";
 
 pi.registerCommand("settings", {
   handler: async (_args, ctx) => {
@@ -822,8 +822,8 @@ Token stats available via `ctx.sessionManager.getBranch()` and `ctx.model`.
 Replace the main input editor with a custom implementation. Useful for modal editing (vim), different keybindings (emacs), or specialized input handling.
 
 ```typescript
-import { CustomEditor, type ExtensionAPI } from "@alef/coding-agent";
-import { matchesKey, truncateToWidth } from "@alef/tui";
+import { CustomEditor, type ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { matchesKey, truncateToWidth } from "@dpopsuev/alef-tui";
 
 type Mode = "normal" | "insert";
 

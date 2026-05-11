@@ -1,6 +1,6 @@
-import type { Message } from "@alef/ai";
-import type { AgentMessage, MessageRenderer } from "@alef/web-ui";
-import { defaultConvertToLlm, registerMessageRenderer } from "@alef/web-ui";
+import type { Message } from "@dpopsuev/alef-ai";
+import type { AgentMessage, MessageRenderer } from "@dpopsuev/alef-web-ui";
+import { defaultConvertToLlm, registerMessageRenderer } from "@dpopsuev/alef-web-ui";
 import { Alert } from "@mariozechner/mini-lit/dist/Alert.js";
 import { html } from "lit";
 
@@ -18,7 +18,7 @@ export interface SystemNotificationMessage {
 
 // Extend CustomAgentMessages interface via declaration merging
 // This must target pi-agent-core where CustomAgentMessages is defined
-declare module "@alef/agent-core" {
+declare module "@dpopsuev/alef-agent-core" {
 	interface CustomAgentMessages {
 		"system-notification": SystemNotificationMessage;
 	}

@@ -13,6 +13,8 @@ export {
 	lookupColor,
 	lookupShade,
 } from "./color-registry.js";
+export type { EmitHook, Event, EventKind, EventLog, EventStore, FilterFn } from "./event-log.js";
+export { byKind, bySource, byTrace, createEvent, EVENT_KINDS, MemLog } from "./event-log.js";
 export type { AgentInstance, AgentSchema } from "./gensec.js";
 export { GeneralSecretary } from "./gensec.js";
 export type { PaletteColor, Shade } from "./palette.js";

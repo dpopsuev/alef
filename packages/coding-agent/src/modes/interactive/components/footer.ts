@@ -1,5 +1,5 @@
-import { type Component, truncateToWidth, visibleWidth } from "@alef/tui";
-import type { AgentSession } from "../../../core/agent-session.js";
+import { type Component, truncateToWidth, visibleWidth } from "@dpopsuev/alef-tui";
+import type { AgentTransport } from "../../../core/agent-transport.js";
 import type { ReadonlyFooterDataProvider } from "../../../core/footer-data-provider.js";
 import { theme } from "../theme/theme.js";
 
@@ -34,11 +34,11 @@ export class FooterComponent implements Component {
 	private autoCompactEnabled = true;
 
 	constructor(
-		private session: AgentSession,
+		private session: AgentTransport,
 		private footerData: ReadonlyFooterDataProvider,
 	) {}
 
-	setSession(session: AgentSession): void {
+	setSession(session: AgentTransport): void {
 		this.session = session;
 	}
 

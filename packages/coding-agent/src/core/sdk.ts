@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { Agent, type AgentMessage, type ThinkingLevel } from "@alef/agent-core";
-import { clampThinkingLevel, type Message, type Model, streamSimple } from "@alef/ai";
+import { Agent, type AgentMessage, type ThinkingLevel } from "@dpopsuev/alef-agent-core";
+import { clampThinkingLevel, type Message, type Model, streamSimple } from "@dpopsuev/alef-ai";
 import { APP_NAME, getAgentDir } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { formatNoModelsAvailableMessage } from "./auth-guidance.js";
@@ -94,6 +94,10 @@ export interface CreateAgentSessionResult {
 
 export * from "./agent-session-runtime.js";
 export type {
+	AgentTransport,
+	TransportExtensionBindings,
+} from "./agent-transport.js";
+export type {
 	ExtensionAPI,
 	ExtensionCommandContext,
 	ExtensionContext,
@@ -102,6 +106,7 @@ export type {
 	SlashCommandSource,
 	ToolDefinition,
 } from "./extensions/index.js";
+export { InProcessTransport } from "./in-process-transport.js";
 export type { PromptTemplate } from "./prompt-templates.js";
 export type { Skill } from "./skills.js";
 export type { Tool } from "./tools/index.js";
@@ -166,7 +171,7 @@ function getAttributionHeaders(
  * const { session } = await createAgentSession();
  *
  * // With explicit model
- * import { getModel } from '@alef/ai';
+ * import { getModel } from '@dpopsuev/alef-ai';
  * const { session } = await createAgentSession({
  *   model: getModel('anthropic', 'claude-opus-4-5'),
  *   thinkingLevel: 'high',
@@ -375,6 +380,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		transport: settingsManager.getTransport(),
 		thinkingBudgets: settingsManager.getThinkingBudgets(),
 		maxRetryDelayMs: settingsManager.getProviderRetrySettings().maxRetryDelayMs,
+		maxRetries: settingsManager.getProviderRetrySettings().maxRetries,
 	});
 
 	// Restore messages if session has existing data

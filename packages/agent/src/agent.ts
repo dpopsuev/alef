@@ -7,7 +7,7 @@ import {
 	type TextContent,
 	type ThinkingBudgets,
 	type Transport,
-} from "@alef/ai";
+} from "@dpopsuev/alef-ai";
 import { runAgentLoop, runAgentLoopContinue } from "./agent-loop.js";
 import type {
 	AfterToolCallContext,
@@ -107,6 +107,8 @@ export interface AgentOptions {
 	thinkingBudgets?: ThinkingBudgets;
 	transport?: Transport;
 	maxRetryDelayMs?: number;
+	/** Max provider/SDK-level retry attempts (e.g., Anthropic SDK default: 2) */
+	maxRetries?: number;
 	toolExecution?: ToolExecutionMode;
 }
 
@@ -184,6 +186,7 @@ export class Agent {
 	public transport: Transport;
 	/** Optional cap for provider-requested retry delays. */
 	public maxRetryDelayMs?: number;
+	public maxRetries?: number;
 	/** Tool execution strategy for assistant messages that contain multiple tool calls. */
 	public toolExecution: ToolExecutionMode;
 
@@ -203,6 +206,7 @@ export class Agent {
 		this.thinkingBudgets = options.thinkingBudgets;
 		this.transport = options.transport ?? "auto";
 		this.maxRetryDelayMs = options.maxRetryDelayMs;
+		this.maxRetries = options.maxRetries;
 		this.toolExecution = options.toolExecution ?? "parallel";
 	}
 
@@ -418,6 +422,7 @@ export class Agent {
 			transport: this.transport,
 			thinkingBudgets: this.thinkingBudgets,
 			maxRetryDelayMs: this.maxRetryDelayMs,
+			maxRetries: this.maxRetries,
 			toolExecution: this.toolExecution,
 			beforeToolCall: this.beforeToolCall,
 			afterToolCall: this.afterToolCall,

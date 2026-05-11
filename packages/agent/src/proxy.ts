@@ -14,7 +14,7 @@ import {
 	type SimpleStreamOptions,
 	type StopReason,
 	type ToolCall,
-} from "@alef/ai";
+} from "@dpopsuev/alef-ai";
 
 // Create stream class matching ProxyMessageEventStream
 class ProxyMessageEventStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
@@ -68,6 +68,7 @@ type ProxySerializableStreamOptions = Pick<
 	| "transport"
 	| "thinkingBudgets"
 	| "maxRetryDelayMs"
+	| "maxRetries"
 >;
 
 export interface ProxyStreamOptions extends ProxySerializableStreamOptions {
@@ -110,6 +111,7 @@ function buildProxyRequestOptions(options: ProxyStreamOptions): ProxySerializabl
 		transport: options.transport,
 		thinkingBudgets: options.thinkingBudgets,
 		maxRetryDelayMs: options.maxRetryDelayMs,
+		maxRetries: options.maxRetries,
 	};
 }
 

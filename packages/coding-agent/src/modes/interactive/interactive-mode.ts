@@ -7,7 +7,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentMessage } from "@alef/agent-core";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
 import {
 	type AssistantMessage,
 	getProviders,
@@ -16,7 +16,7 @@ import {
 	type Model,
 	type OAuthProviderId,
 	type OAuthSelectPrompt,
-} from "@alef/ai";
+} from "@dpopsuev/alef-ai";
 import type {
 	AutocompleteItem,
 	AutocompleteProvider,
@@ -27,7 +27,7 @@ import type {
 	OverlayHandle,
 	OverlayOptions,
 	SlashCommand,
-} from "@alef/tui";
+} from "@dpopsuev/alef-tui";
 import {
 	CombinedAutocompleteProvider,
 	type Component,
@@ -46,7 +46,7 @@ import {
 	TruncatedText,
 	TUI,
 	visibleWidth,
-} from "@alef/tui";
+} from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 import { spawn, spawnSync } from "child_process";
 import {
@@ -59,8 +59,9 @@ import {
 	getShareViewerUrl,
 	VERSION,
 } from "../../config.js";
-import { type AgentSession, type AgentSessionEvent, parseSkillBlock } from "../../core/agent-session.js";
+import { type AgentSessionEvent, parseSkillBlock } from "../../core/agent-session.js";
 import { type AgentSessionRuntime, SessionImportFileNotFoundError } from "../../core/agent-session-runtime.js";
+import type { AgentTransport } from "../../core/agent-transport.js";
 import type {
 	AutocompleteProviderFactory,
 	EditorFactory,
@@ -72,6 +73,7 @@ import type {
 	ExtensionWidgetOptions,
 } from "../../core/extensions/index.js";
 import { FooterDataProvider, type ReadonlyFooterDataProvider } from "../../core/footer-data-provider.js";
+import { InProcessTransport } from "../../core/in-process-transport.js";
 import { type AppKeybinding, KeybindingsManager } from "../../core/keybindings.js";
 import { createCompactionSummaryMessage } from "../../core/messages.js";
 import { defaultModelPerProvider, findExactModelReferenceMatch, resolveModelScope } from "../../core/model-resolver.js";
@@ -121,6 +123,7 @@ import { ToolExecutionComponent } from "./components/tool-execution.js";
 import { TreeSelectorComponent } from "./components/tree-selector.js";
 import { UserMessageComponent } from "./components/user-message.js";
 import { UserMessageSelectorComponent } from "./components/user-message-selector.js";
+import { StreamingTextBuffer } from "./streaming-buffer.js";
 import {
 	getAvailableThemes,
 	getAvailableThemesWithPaths,
@@ -297,6 +300,7 @@ export class InteractiveMode {
 	// Streaming message tracking
 	private streamingComponent: AssistantMessageComponent | undefined = undefined;
 	private streamingMessage: AssistantMessage | undefined = undefined;
+	private streamingBuffers: Map<number, StreamingTextBuffer> = new Map();
 
 	// Tool execution tracking: toolCallId -> component
 	private pendingTools = new Map<string, ToolExecutionComponent>();
@@ -362,9 +366,13 @@ export class InteractiveMode {
 	// Custom header from extension (undefined = use built-in header)
 	private customHeader: (Component & { dispose?(): void }) | undefined = undefined;
 
-	// Convenience accessors
-	private get session(): AgentSession {
-		return this.runtimeHost.session;
+	// Transport layer — abstracts AgentSession behind an interface.
+	// InProcessTransport today; can be swapped for RpcTransport in supervised mode.
+	private transport: AgentTransport;
+
+	// Convenience accessor — all 148 call sites use this.session.*
+	private get session(): AgentTransport {
+		return this.transport;
 	}
 	private get agent() {
 		return this.session.agent;
@@ -381,6 +389,7 @@ export class InteractiveMode {
 		private options: InteractiveModeOptions = {},
 	) {
 		this.runtimeHost = runtimeHost;
+		this.transport = new InProcessTransport(this.runtimeHost.session);
 		this.runtimeHost.setBeforeSessionInvalidate(() => {
 			this.resetExtensionUI();
 		});
@@ -1597,6 +1606,10 @@ export class InteractiveMode {
 	}
 
 	private async rebindCurrentSession(): Promise<void> {
+		// Update transport to point at the new session
+		if (this.transport instanceof InProcessTransport) {
+			this.transport.setSession(this.runtimeHost.session);
+		}
 		this.unsubscribe?.();
 		this.unsubscribe = undefined;
 		this.applyRuntimeSettings();
@@ -1619,6 +1632,8 @@ export class InteractiveMode {
 		this.chatContainer.clear();
 		this.pendingMessagesContainer.clear();
 		this.compactionQueuedMessages = [];
+		for (const buf of this.streamingBuffers.values()) buf.stop();
+		this.streamingBuffers.clear();
 		this.streamingComponent = undefined;
 		this.streamingMessage = undefined;
 		this.pendingTools.clear();
@@ -2727,6 +2742,9 @@ export class InteractiveMode {
 					this.streamingMessage = event.message;
 					this.chatContainer.addChild(this.streamingComponent);
 					this.streamingComponent.updateContent(this.streamingMessage);
+					// Reset streaming buffers for new message
+					for (const buf of this.streamingBuffers.values()) buf.stop();
+					this.streamingBuffers.clear();
 					this.ui.requestRender();
 				}
 				break;
@@ -2734,9 +2752,27 @@ export class InteractiveMode {
 			case "message_update":
 				if (this.streamingComponent && event.message.role === "assistant") {
 					this.streamingMessage = event.message;
+
+					// Feed text content blocks through streaming buffers for smooth display.
+					// The component gets the full message for structure tracking (tool calls,
+					// thinking blocks), but text display is driven by the buffer's cadence.
 					this.streamingComponent.updateContent(this.streamingMessage);
 
-					for (const content of this.streamingMessage.content) {
+					for (let ci = 0; ci < this.streamingMessage.content.length; ci++) {
+						const content = this.streamingMessage.content[ci];
+						if (content.type === "text" && content.text.trim()) {
+							if (!this.streamingBuffers.has(ci)) {
+								const blockIndex = ci;
+								const buffer = new StreamingTextBuffer((displayText) => {
+									if (this.streamingComponent) {
+										this.streamingComponent.updateDisplayText(blockIndex, displayText);
+										this.ui.requestRender();
+									}
+								});
+								this.streamingBuffers.set(ci, buffer);
+							}
+							this.streamingBuffers.get(ci)!.push(content.text.trim());
+						}
 						if (content.type === "toolCall") {
 							if (!this.pendingTools.has(content.id)) {
 								const component = new ToolExecutionComponent(
@@ -2769,6 +2805,9 @@ export class InteractiveMode {
 			case "message_end":
 				if (event.message.role === "user") break;
 				if (this.streamingComponent && event.message.role === "assistant") {
+					// Flush and stop all streaming buffers — show final text immediately
+					for (const buf of this.streamingBuffers.values()) buf.end();
+					this.streamingBuffers.clear();
 					this.streamingMessage = event.message;
 					let errorMessage: string | undefined;
 					if (this.streamingMessage.stopReason === "aborted") {

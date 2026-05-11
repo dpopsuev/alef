@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline";
-import type { AgentTool } from "@alef/agent-core";
-import { Text } from "@alef/tui";
+import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import { Text } from "@dpopsuev/alef-tui";
 import { spawn } from "child_process";
 import { existsSync } from "fs";
 import path from "path";

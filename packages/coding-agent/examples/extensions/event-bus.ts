@@ -7,7 +7,7 @@
  * Usage: /emit [event-name] [data] - emit an event on the bus
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@dpopsuev/alef-coding-agent";
 
 export default function (alef: ExtensionAPI) {
 	// Store ctx for use in event handler

@@ -16,7 +16,7 @@
  *   /working-indicator reset     Restore Alef's default spinner
  */
 
-import type { ExtensionAPI, ExtensionContext, WorkingIndicatorOptions } from "@alef/coding-agent";
+import type { ExtensionAPI, ExtensionContext, WorkingIndicatorOptions } from "@dpopsuev/alef-coding-agent";
 
 type WorkingIndicatorMode = "dot" | "none" | "pulse" | "spinner" | "default";
 

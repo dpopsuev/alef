@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 
 export default function widgetPlacementExtension(alef: ExtensionAPI) {
 	alef.on("session_start", (_event, ctx) => {

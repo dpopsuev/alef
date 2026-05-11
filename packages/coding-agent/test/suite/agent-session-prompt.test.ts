@@ -1,8 +1,8 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentTool } from "@alef/agent-core";
-import { fauxAssistantMessage, fauxToolCall, type Model } from "@alef/ai";
+import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import { fauxAssistantMessage, fauxToolCall, type Model } from "@dpopsuev/alef-ai";
 import { Type } from "typebox";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PromptTemplate } from "../../src/core/prompt-templates.js";

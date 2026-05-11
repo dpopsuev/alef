@@ -19,9 +19,9 @@
  *   /overlay-streaming  - Multiple input panels with simulated streaming (Tab to cycle focus)
  */
 
-import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@alef/coding-agent";
-import type { Component, OverlayAnchor, OverlayHandle, OverlayOptions, TUI } from "@alef/tui";
-import { matchesKey, truncateToWidth, visibleWidth } from "@alef/tui";
+import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@dpopsuev/alef-coding-agent";
+import type { Component, OverlayAnchor, OverlayHandle, OverlayOptions, TUI } from "@dpopsuev/alef-tui";
+import { matchesKey, truncateToWidth, visibleWidth } from "@dpopsuev/alef-tui";
 import { spawn } from "child_process";
 
 // Global handle for toggle demo (in real code, use a more elegant pattern)

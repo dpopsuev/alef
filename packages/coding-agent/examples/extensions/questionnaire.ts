@@ -5,8 +5,8 @@
  * Multiple questions: tab bar navigation between questions
  */
 
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth } from "@alef/tui";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth } from "@dpopsuev/alef-tui";
 import { Type } from "typebox";
 
 // Types

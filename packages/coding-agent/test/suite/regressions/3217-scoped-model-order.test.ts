@@ -1,4 +1,4 @@
-import { setKeybindings, type TUI } from "@alef/tui";
+import { setKeybindings, type TUI } from "@dpopsuev/alef-tui";
 import stripAnsi from "strip-ansi";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { KeybindingsManager } from "../../../src/core/keybindings.js";

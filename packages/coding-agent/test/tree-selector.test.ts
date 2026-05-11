@@ -1,4 +1,4 @@
-import { setKeybindings } from "@alef/tui";
+import { setKeybindings } from "@dpopsuev/alef-tui";
 import { beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { KeybindingsManager } from "../src/core/keybindings.js";
 import type {

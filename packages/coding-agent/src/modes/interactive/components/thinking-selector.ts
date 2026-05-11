@@ -1,5 +1,5 @@
-import type { ThinkingLevel } from "@alef/agent-core";
-import { Container, type SelectItem, SelectList, type SelectListLayoutOptions } from "@alef/tui";
+import type { ThinkingLevel } from "@dpopsuev/alef-agent-core";
+import { Container, type SelectItem, SelectList, type SelectListLayoutOptions } from "@dpopsuev/alef-tui";
 import { getSelectListTheme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
 

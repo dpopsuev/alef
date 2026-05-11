@@ -5,9 +5,9 @@
  * a summary of the branch being left so context isn't lost.
  */
 
-import type { AgentMessage } from "@alef/agent-core";
-import type { Model } from "@alef/ai";
-import { completeSimple } from "@alef/ai";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
+import type { Model } from "@dpopsuev/alef-ai";
+import { completeSimple } from "@dpopsuev/alef-ai";
 import {
 	convertToLlm,
 	createBranchSummaryMessage,

@@ -1,7 +1,7 @@
 // Main chat interface
 
-export type { Agent, AgentMessage, AgentState, ThinkingLevel } from "@alef/agent-core";
-export type { Model } from "@alef/ai";
+export type { Agent, AgentMessage, AgentState, ThinkingLevel } from "@dpopsuev/alef-agent-core";
+export type { Model } from "@dpopsuev/alef-ai";
 export { ChatPanel } from "./ChatPanel.js";
 // Components
 export { AgentInterface } from "./components/AgentInterface.js";

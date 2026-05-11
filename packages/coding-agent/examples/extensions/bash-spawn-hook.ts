@@ -7,8 +7,8 @@
  *   alef -e ./bash-spawn-hook.ts
  */
 
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { createBashTool } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { createBashTool } from "@dpopsuev/alef-coding-agent";
 
 export default function (alef: ExtensionAPI) {
 	const cwd = process.cwd();

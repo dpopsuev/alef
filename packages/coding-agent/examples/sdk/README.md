@@ -1,6 +1,6 @@
 # SDK Examples
 
-Programmatic usage of `@alef/coding-agent` via `createAgentSession()` and `createAgentSessionRuntime()`.
+Programmatic usage of `@dpopsuev/alef-coding-agent` via `createAgentSession()` and `createAgentSessionRuntime()`.
 
 The runtime example shows how to build a recreate function that closes over process-global fixed inputs and recreates cwd-bound services and sessions as the active session cwd changes.
 
@@ -32,7 +32,7 @@ npx tsx examples/sdk/01-minimal.ts
 ## Quick Reference
 
 ```typescript
-import { getModel } from "@alef/ai";
+import { getModel } from "@dpopsuev/alef-ai";
 import {
   AuthStorage,
   createAgentSession,
@@ -43,7 +43,7 @@ import {
   codingTools,
   readOnlyTools,
   readTool, bashTool, editTool, writeTool,
-} from "@alef/coding-agent";
+} from "@dpopsuev/alef-coding-agent";
 
 // Auth and models setup
 const authStorage = AuthStorage.create();

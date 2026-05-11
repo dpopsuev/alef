@@ -7,7 +7,7 @@
  * Usage: alef -e ./model-status.ts
  */
 
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 
 export default function (alef: ExtensionAPI) {
 	alef.on("model_select", async (event, ctx) => {

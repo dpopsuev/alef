@@ -1,5 +1,5 @@
-import type { AgentTool } from "@alef/agent-core";
-import { Text } from "@alef/tui";
+import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import { Text } from "@dpopsuev/alef-tui";
 import { existsSync, readdirSync, statSync } from "fs";
 import nodePath from "path";
 import { type Static, Type } from "typebox";

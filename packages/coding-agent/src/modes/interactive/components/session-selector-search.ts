@@ -1,4 +1,4 @@
-import { fuzzyMatch } from "@alef/tui";
+import { fuzzyMatch } from "@dpopsuev/alef-tui";
 import type { SessionInfo } from "../../../core/session-manager.js";
 
 export type SortMode = "threaded" | "recent" | "relevance";

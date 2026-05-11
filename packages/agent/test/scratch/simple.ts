@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { getModel } from "@alef/ai";
+import { getModel } from "@dpopsuev/alef-ai";
 import { InMemorySessionStorage } from "../../src/harness/session/storage/memory.js";
 import {
 	createAgentHarness,

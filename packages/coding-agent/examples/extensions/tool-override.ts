@@ -20,8 +20,8 @@
  *   alef -e ./tool-override.ts
  */
 
-import type { TextContent } from "@alef/ai";
-import { type ExtensionAPI, getAgentDir, withFileMutationQueue } from "@alef/coding-agent";
+import type { TextContent } from "@dpopsuev/alef-ai";
+import { type ExtensionAPI, getAgentDir, withFileMutationQueue } from "@dpopsuev/alef-coding-agent";
 import { constants, readFileSync } from "fs";
 import { access, appendFile, readFile } from "fs/promises";
 import { join, resolve } from "path";

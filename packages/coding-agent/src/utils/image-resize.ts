@@ -1,4 +1,4 @@
-import type { ImageContent } from "@alef/ai";
+import type { ImageContent } from "@dpopsuev/alef-ai";
 import { applyExifOrientation } from "./exif-orientation.js";
 import { loadPhoton } from "./photon.js";
 

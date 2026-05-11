@@ -1,7 +1,7 @@
 {
-	"name": "@alef/web-ui",
+	"name": "@dpopsuev/alef-web-ui",
 	"version": "0.0.1",
-	"description": "Reusable web UI components for AI chat interfaces powered by @alef/ai",
+	"description": "Reusable web UI components for AI chat interfaces powered by @dpopsuev/alef-ai",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -17,9 +17,9 @@
 		"check": "biome check --write --error-on-warnings . && tsc --noEmit && cd example && biome check --write --error-on-warnings . && tsc --noEmit"
 	},
 	"dependencies": {
-		"@alef/agent-core": "^0.0.1",
-		"@alef/ai": "^0.0.1",
-		"@alef/tui": "^0.0.1",
+		"@dpopsuev/alef-agent-core": "^0.0.1",
+		"@dpopsuev/alef-ai": "^0.0.1",
+		"@dpopsuev/alef-tui": "^0.0.1",
 		"@lmstudio/sdk": "^1.5.0",
 		"docx-preview": "^0.3.7",
 		"jszip": "^3.10.1",

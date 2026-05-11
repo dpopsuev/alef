@@ -1,4 +1,4 @@
-import type { ImageContent } from "@alef/ai";
+import type { ImageContent } from "@dpopsuev/alef-ai";
 import type { Args } from "./args.js";
 
 export interface InitialMessageInput {

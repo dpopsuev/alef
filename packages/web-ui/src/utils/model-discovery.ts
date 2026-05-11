@@ -1,4 +1,4 @@
-import type { Model } from "@alef/ai";
+import type { Model } from "@dpopsuev/alef-ai";
 import { LMStudioClient } from "@lmstudio/sdk";
 import { Ollama } from "ollama/browser";
 

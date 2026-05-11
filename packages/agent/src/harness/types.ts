@@ -1,4 +1,4 @@
-import type { ImageContent, Model, TextContent } from "@alef/ai";
+import type { ImageContent, Model, TextContent } from "@dpopsuev/alef-ai";
 import type { AgentEvent, AgentMessage, AgentTool, ThinkingLevel } from "../index.js";
 import type { Session } from "./session/session.js";
 

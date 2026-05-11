@@ -1,4 +1,4 @@
-import { Box, Markdown, type MarkdownTheme, Text } from "@alef/tui";
+import { Box, Markdown, type MarkdownTheme, Text } from "@dpopsuev/alef-tui";
 import type { ParsedSkillBlock } from "../../../core/agent-session.js";
 import { getMarkdownTheme, theme } from "../theme/theme.js";
 import { keyText } from "./keybinding-hints.js";

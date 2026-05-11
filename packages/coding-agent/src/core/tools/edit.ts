@@ -1,5 +1,5 @@
-import type { AgentTool } from "@alef/agent-core";
-import { Box, Container, Spacer, Text } from "@alef/tui";
+import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import { Box, Container, Spacer, Text } from "@dpopsuev/alef-tui";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
 import { type Static, Type } from "typebox";

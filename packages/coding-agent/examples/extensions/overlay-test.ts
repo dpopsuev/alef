@@ -8,8 +8,8 @@
  * - Edge case tests (wide chars, styled text, emoji)
  */
 
-import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@alef/coding-agent";
-import { CURSOR_MARKER, type Focusable, matchesKey, visibleWidth } from "@alef/tui";
+import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@dpopsuev/alef-coding-agent";
+import { CURSOR_MARKER, type Focusable, matchesKey, visibleWidth } from "@dpopsuev/alef-tui";
 
 export default function (alef: ExtensionAPI) {
 	alef.registerCommand("overlay-test", {

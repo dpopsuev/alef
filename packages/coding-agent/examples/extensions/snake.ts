@@ -2,8 +2,8 @@
  * Snake game extension - play snake with /snake command
  */
 
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { matchesKey, visibleWidth } from "@alef/tui";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { matchesKey, visibleWidth } from "@dpopsuev/alef-tui";
 
 const GAME_WIDTH = 40;
 const GAME_HEIGHT = 15;

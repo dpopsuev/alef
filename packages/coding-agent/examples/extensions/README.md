@@ -1,6 +1,6 @@
 # Extension Examples
 
-Example extensions for `@alef/coding-agent`.
+Example extensions for `@dpopsuev/alef-coding-agent`.
 
 ## Usage
 
@@ -123,7 +123,7 @@ cp permission-gate.ts ~/.alef/agent/extensions/
 | Extension | Description |
 |-----------|-------------|
 | `custom-provider-anthropic/` | Custom Anthropic provider with OAuth support and custom streaming implementation |
-| `custom-provider-gitlab-duo/` | GitLab Duo provider using `@alef/ai`'s built-in Anthropic/OpenAI streaming via proxy |
+| `custom-provider-gitlab-duo/` | GitLab Duo provider using `@dpopsuev/alef-ai`'s built-in Anthropic/OpenAI streaming via proxy |
 
 ### External Dependencies
 
@@ -137,7 +137,7 @@ cp permission-gate.ts ~/.alef/agent/extensions/
 See [docs/extensions.md](../../docs/extensions.md) for full documentation.
 
 ```typescript
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 import { Type } from "typebox";
 
 export default function (pi: ExtensionAPI) {
@@ -179,7 +179,7 @@ export default function (pi: ExtensionAPI) {
 
 **Use StringEnum for string parameters** (required for Google API compatibility):
 ```typescript
-import { StringEnum } from "@alef/ai";
+import { StringEnum } from "@dpopsuev/alef-ai";
 
 // Good
 action: StringEnum(["list", "add"] as const)

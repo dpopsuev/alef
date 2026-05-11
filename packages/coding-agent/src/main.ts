@@ -7,8 +7,8 @@
 
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
-import { type ImageContent, modelsAreEqual } from "@alef/ai";
-import { ProcessTerminal, setKeybindings, TUI } from "@alef/tui";
+import { type ImageContent, modelsAreEqual } from "@dpopsuev/alef-ai";
+import { ProcessTerminal, setKeybindings, TUI } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 import { type Args, type Mode, parseArgs, printHelp } from "./cli/args.js";
 import { processFileArguments } from "./cli/file-processor.js";

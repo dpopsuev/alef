@@ -5,10 +5,10 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentMessage, AgentTool } from "@alef/agent-core";
-import { Agent } from "@alef/agent-core";
-import type { FauxModelDefinition, FauxProviderRegistration, FauxResponseStep, Model } from "@alef/ai";
-import { registerFauxProvider } from "@alef/ai";
+import type { AgentMessage, AgentTool } from "@dpopsuev/alef-agent-core";
+import { Agent } from "@dpopsuev/alef-agent-core";
+import type { FauxModelDefinition, FauxProviderRegistration, FauxResponseStep, Model } from "@dpopsuev/alef-ai";
+import { registerFauxProvider } from "@dpopsuev/alef-ai";
 import { AgentSession, type AgentSessionEvent } from "../../src/core/agent-session.js";
 import { AuthStorage } from "../../src/core/auth-storage.js";
 import type { ExtensionRunner } from "../../src/core/extensions/index.js";

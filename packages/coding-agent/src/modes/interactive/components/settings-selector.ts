@@ -1,5 +1,5 @@
-import type { ThinkingLevel } from "@alef/agent-core";
-import type { Transport } from "@alef/ai";
+import type { ThinkingLevel } from "@dpopsuev/alef-agent-core";
+import type { Transport } from "@dpopsuev/alef-ai";
 import {
 	Container,
 	getCapabilities,
@@ -10,7 +10,7 @@ import {
 	SettingsList,
 	Spacer,
 	Text,
-} from "@alef/tui";
+} from "@dpopsuev/alef-tui";
 import type { WarningSettings } from "../../../core/settings-manager.js";
 import { getSelectListTheme, getSettingsListTheme, theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";

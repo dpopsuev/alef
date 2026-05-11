@@ -1,6 +1,6 @@
-import type { AgentMessage } from "@alef/agent-core";
-import type { AssistantMessage, ToolResultMessage, Usage } from "@alef/ai";
-import { Container, Text, type TUI } from "@alef/tui";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
+import type { AssistantMessage, ToolResultMessage, Usage } from "@dpopsuev/alef-ai";
+import { Container, Text, type TUI } from "@dpopsuev/alef-tui";
 import stripAnsi from "strip-ansi";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import type { AgentSessionEvent } from "../../../src/core/agent-session.js";

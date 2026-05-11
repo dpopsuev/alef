@@ -5,9 +5,9 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { Agent } from "@alef/agent-core";
-import { getModel, type OAuthCredentials, type OAuthProvider } from "@alef/ai";
-import { getOAuthApiKey } from "@alef/ai/oauth";
+import { Agent } from "@dpopsuev/alef-agent-core";
+import { getModel, type OAuthCredentials, type OAuthProvider } from "@dpopsuev/alef-ai";
+import { getOAuthApiKey } from "@dpopsuev/alef-ai/oauth";
 import { AgentSession } from "../src/core/agent-session.js";
 import { AuthStorage } from "../src/core/auth-storage.js";
 import { createEventBus } from "../src/core/event-bus.js";

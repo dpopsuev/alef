@@ -25,9 +25,9 @@
  *   alef -e ./built-in-tool-renderer.ts
  */
 
-import type { BashToolDetails, EditToolDetails, ExtensionAPI, ReadToolDetails } from "@alef/coding-agent";
-import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@alef/coding-agent";
-import { Text } from "@alef/tui";
+import type { BashToolDetails, EditToolDetails, ExtensionAPI, ReadToolDetails } from "@dpopsuev/alef-coding-agent";
+import { createBashTool, createEditTool, createReadTool, createWriteTool } from "@dpopsuev/alef-coding-agent";
+import { Text } from "@dpopsuev/alef-tui";
 
 export default function (alef: ExtensionAPI) {
 	const cwd = process.cwd();

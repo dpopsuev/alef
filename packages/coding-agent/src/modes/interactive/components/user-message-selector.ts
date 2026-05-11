@@ -1,4 +1,4 @@
-import { type Component, Container, getKeybindings, Spacer, Text, truncateToWidth } from "@alef/tui";
+import { type Component, Container, getKeybindings, Spacer, Text, truncateToWidth } from "@dpopsuev/alef-tui";
 import { theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
 

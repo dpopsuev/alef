@@ -1,4 +1,4 @@
-import type { AgentState } from "@alef/agent-core";
+import type { AgentState } from "@dpopsuev/alef-agent-core";
 import { Store } from "../store.js";
 import type { SessionData, SessionMetadata, StoreConfig } from "../types.js";
 

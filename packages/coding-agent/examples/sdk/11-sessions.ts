@@ -4,7 +4,7 @@
  * Control session persistence: in-memory, new file, continue, or open specific.
  */
 
-import { createAgentSession, SessionManager } from "@alef/coding-agent";
+import { createAgentSession, SessionManager } from "@dpopsuev/alef-coding-agent";
 
 // In-memory (no persistence)
 const { session: inMemory } = await createAgentSession({

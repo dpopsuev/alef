@@ -18,7 +18,7 @@
  *   /thinking-label          Reset to the default label
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@dpopsuev/alef-coding-agent";
 
 const DEFAULT_LABEL = "Pondering...";
 

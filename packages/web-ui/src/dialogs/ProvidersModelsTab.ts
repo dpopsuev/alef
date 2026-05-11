@@ -1,4 +1,4 @@
-import { getProviders } from "@alef/ai";
+import { getProviders } from "@dpopsuev/alef-ai";
 import { i18n } from "@mariozechner/mini-lit";
 import { Select } from "@mariozechner/mini-lit/dist/Select.js";
 import { html, type TemplateResult } from "lit";

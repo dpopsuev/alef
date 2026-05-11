@@ -1,4 +1,4 @@
-import type { Transport } from "@alef/ai";
+import type { Transport } from "@dpopsuev/alef-ai";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { dirname, join } from "path";

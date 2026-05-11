@@ -2,8 +2,8 @@
  * Shared utilities for compaction and branch summarization.
  */
 
-import type { AgentMessage } from "@alef/agent-core";
-import type { Message } from "@alef/ai";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
+import type { Message } from "@dpopsuev/alef-ai";
 
 // ============================================================================
 // File Operation Tracking

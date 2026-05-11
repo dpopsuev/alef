@@ -2,8 +2,8 @@
  * Model resolution, scoping, and initial selection
  */
 
-import type { ThinkingLevel } from "@alef/agent-core";
-import { type Api, type KnownProvider, type Model, modelsAreEqual } from "@alef/ai";
+import type { ThinkingLevel } from "@dpopsuev/alef-agent-core";
+import { type Api, type KnownProvider, type Model, modelsAreEqual } from "@dpopsuev/alef-ai";
 import chalk from "chalk";
 import { minimatch } from "minimatch";
 import { isValidThinkingLevel } from "../cli/args.js";

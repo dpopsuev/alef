@@ -15,8 +15,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import type { Agent, AgentEvent, AgentMessage, AgentState, AgentTool, ThinkingLevel } from "@alef/agent-core";
-import type { AssistantMessage, ImageContent, Message, Model, TextContent } from "@alef/ai";
+import type { Agent, AgentEvent, AgentMessage, AgentState, AgentTool, ThinkingLevel } from "@dpopsuev/alef-agent-core";
+import type { AssistantMessage, ImageContent, Message, Model, TextContent } from "@dpopsuev/alef-ai";
 import {
 	clampThinkingLevel,
 	cleanupSessionResources,
@@ -24,7 +24,7 @@ import {
 	isContextOverflow,
 	modelsAreEqual,
 	resetApiProviders,
-} from "@alef/ai";
+} from "@dpopsuev/alef-ai";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { stripFrontmatter } from "../utils/frontmatter.js";
 import { sleep } from "../utils/sleep.js";

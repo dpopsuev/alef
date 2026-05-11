@@ -1,6 +1,6 @@
 import "@mariozechner/mini-lit/dist/ThemeToggle.js";
-import { Agent, type AgentMessage } from "@alef/agent-core";
-import { getModel, type TextContent } from "@alef/ai";
+import { Agent, type AgentMessage } from "@dpopsuev/alef-agent-core";
+import { getModel, type TextContent } from "@dpopsuev/alef-ai";
 import {
 	type AgentState,
 	ApiKeyPromptDialog,
@@ -18,7 +18,7 @@ import {
 	SettingsDialog,
 	SettingsStore,
 	setAppStorage,
-} from "@alef/web-ui";
+} from "@dpopsuev/alef-web-ui";
 import { html, render } from "lit";
 import { Bell, History, Plus, Settings } from "lucide";
 import "./app.css";

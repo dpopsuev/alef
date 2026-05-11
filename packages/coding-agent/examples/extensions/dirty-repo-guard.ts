@@ -5,7 +5,7 @@
  * Useful to ensure work is committed before switching context.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@alef/coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@dpopsuev/alef-coding-agent";
 
 async function checkDirtyRepo(
 	alef: ExtensionAPI,

@@ -13,9 +13,9 @@
  *   alef --extension examples/extensions/custom-compaction.ts
  */
 
-import { complete } from "@alef/ai";
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { convertToLlm, serializeConversation } from "@alef/coding-agent";
+import { complete } from "@dpopsuev/alef-ai";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { convertToLlm, serializeConversation } from "@dpopsuev/alef-coding-agent";
 
 export default function (alef: ExtensionAPI) {
 	alef.on("session_before_compact", async (event, ctx) => {

@@ -8,9 +8,9 @@
  * Token stats come from ctx.sessionManager/ctx.model (already accessible).
  */
 
-import type { AssistantMessage } from "@alef/ai";
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { truncateToWidth, visibleWidth } from "@alef/tui";
+import type { AssistantMessage } from "@dpopsuev/alef-ai";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { truncateToWidth, visibleWidth } from "@dpopsuev/alef-tui";
 
 export default function (alef: ExtensionAPI) {
 	let enabled = false;

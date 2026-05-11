@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@alef/agent-core";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
 import {
 	ARTIFACTS_RUNTIME_PROVIDER_DESCRIPTION_RO,
 	ARTIFACTS_RUNTIME_PROVIDER_DESCRIPTION_RW,

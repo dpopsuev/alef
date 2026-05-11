@@ -1,4 +1,4 @@
-import type { Message } from "@alef/ai";
+import type { Message } from "@dpopsuev/alef-ai";
 import { describe, expect, it } from "vitest";
 import { serializeConversation } from "../src/core/compaction/utils.js";
 

@@ -10,7 +10,7 @@
  * 3. Use /commands extensions to filter by source
  */
 
-import type { ExtensionAPI, SlashCommandInfo } from "@alef/coding-agent";
+import type { ExtensionAPI, SlashCommandInfo } from "@dpopsuev/alef-coding-agent";
 
 export default function commandsExtension(alef: ExtensionAPI) {
 	alef.registerCommand("commands", {

@@ -5,7 +5,7 @@ import {
 	type Model,
 	registerFauxProvider,
 	type Usage,
-} from "@alef/ai";
+} from "@dpopsuev/alef-ai";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	calculateContextTokens,

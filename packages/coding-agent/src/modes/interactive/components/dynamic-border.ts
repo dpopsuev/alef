@@ -1,4 +1,4 @@
-import type { Component } from "@alef/tui";
+import type { Component } from "@dpopsuev/alef-tui";
 import { theme } from "../theme/theme.js";
 
 /**

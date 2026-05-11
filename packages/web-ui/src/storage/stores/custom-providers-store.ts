@@ -1,4 +1,4 @@
-import type { Model } from "@alef/ai";
+import type { Model } from "@dpopsuev/alef-ai";
 import { Store } from "../store.js";
 import type { StoreConfig } from "../types.js";
 

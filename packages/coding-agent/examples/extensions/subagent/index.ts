@@ -16,11 +16,11 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentToolResult } from "@alef/agent-core";
-import type { Message } from "@alef/ai";
-import { StringEnum } from "@alef/ai";
-import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@alef/coding-agent";
-import { Container, Markdown, Spacer, Text } from "@alef/tui";
+import type { AgentToolResult } from "@dpopsuev/alef-agent-core";
+import type { Message } from "@dpopsuev/alef-ai";
+import { StringEnum } from "@dpopsuev/alef-ai";
+import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@dpopsuev/alef-coding-agent";
+import { Container, Markdown, Spacer, Text } from "@dpopsuev/alef-tui";
 import { Type } from "typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.js";
 

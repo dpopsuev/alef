@@ -30,7 +30,7 @@ See these complete provider examples:
 ## Quick Reference
 
 ```typescript
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 
 export default function (pi: ExtensionAPI) {
   // Override baseUrl for existing provider
@@ -96,7 +96,7 @@ To add a completely new provider, specify `models` along with the required confi
 If the model list comes from a remote endpoint, use an async extension factory:
 
 ```typescript
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 
 export default async function (pi: ExtensionAPI) {
   const response = await fetch("http://localhost:1234/v1/models");
@@ -252,7 +252,7 @@ pi.registerProvider("custom-api", {
 Add OAuth/SSO authentication that integrates with `/login`:
 
 ```typescript
-import type { OAuthCredentials, OAuthLoginCallbacks } from "@alef/ai";
+import type { OAuthCredentials, OAuthLoginCallbacks } from "@dpopsuev/alef-ai";
 
 pi.registerProvider("corporate-ai", {
   baseUrl: "https://ai.corp.com/v1",
@@ -365,7 +365,7 @@ import {
   type SimpleStreamOptions,
   calculateCost,
   createAssistantMessageEventStream,
-} from "@alef/ai";
+} from "@dpopsuev/alef-ai";
 
 function streamMyProvider(
   model: Model<any>,

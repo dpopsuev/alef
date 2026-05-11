@@ -1,6 +1,6 @@
-# @alef/web-ui
+# @dpopsuev/alef-web-ui
 
-Reusable web UI components for building AI chat interfaces powered by [@alef/ai](../ai) and [@alef/agent-core](../agent).
+Reusable web UI components for building AI chat interfaces powered by [@dpopsuev/alef-ai](../ai) and [@dpopsuev/alef-agent-core](../agent).
 
 Built with [mini-lit](https://github.com/badlogic/mini-lit) web components and Tailwind CSS v4.
 
@@ -21,7 +21,7 @@ Part of **[Alef Agent](https://github.com/dpopsuev/alef)**, a **fork** of **[Pi]
 ## Installation
 
 ```bash
-npm install @alef/web-ui @alef/agent-core @alef/ai
+npm install @dpopsuev/alef-web-ui @dpopsuev/alef-agent-core @dpopsuev/alef-ai
 ```
 
 ## Quick Start
@@ -29,8 +29,8 @@ npm install @alef/web-ui @alef/agent-core @alef/ai
 See the [example](./example) directory for a complete working application.
 
 ```typescript
-import { Agent } from '@alef/agent-core';
-import { getModel } from '@alef/ai';
+import { Agent } from '@dpopsuev/alef-agent-core';
+import { getModel } from '@dpopsuev/alef-ai';
 import {
   ChatPanel,
   AppStorage,
@@ -41,8 +41,8 @@ import {
   setAppStorage,
   defaultConvertToLlm,
   ApiKeyPromptDialog,
-} from '@alef/web-ui';
-import '@alef/web-ui/app.css';
+} from '@dpopsuev/alef-web-ui';
+import '@dpopsuev/alef-web-ui/app.css';
 
 // Set up storage
 const settings = new SettingsStore();
@@ -173,7 +173,7 @@ Properties:
 ### Agent (from pi-agent-core)
 
 ```typescript
-import { Agent } from '@alef/agent-core';
+import { Agent } from '@dpopsuev/alef-agent-core';
 
 const agent = new Agent({
   initialState: {
@@ -263,7 +263,7 @@ interface SystemNotification {
   timestamp: string;
 }
 
-declare module '@alef/agent-core' {
+declare module '@dpopsuev/alef-agent-core' {
   interface CustomAgentMessages {
     'system-notification': SystemNotification;
   }
@@ -291,7 +291,7 @@ function myConvertToLlm(messages: AgentMessage[]): Message[] {
 `convertToLlm` transforms app messages to LLM-compatible format:
 
 ```typescript
-import { defaultConvertToLlm, convertAttachments } from '@alef/web-ui';
+import { defaultConvertToLlm, convertAttachments } from '@dpopsuev/alef-web-ui';
 
 // defaultConvertToLlm handles:
 // - UserMessageWithAttachments → user message with image/text content blocks
@@ -306,7 +306,7 @@ import { defaultConvertToLlm, convertAttachments } from '@alef/web-ui';
 Execute JavaScript in a sandboxed browser environment:
 
 ```typescript
-import { createJavaScriptReplTool } from '@alef/web-ui';
+import { createJavaScriptReplTool } from '@dpopsuev/alef-web-ui';
 
 const replTool = createJavaScriptReplTool();
 
@@ -324,7 +324,7 @@ agent.state.tools = [replTool];
 Extract text from documents at URLs:
 
 ```typescript
-import { createExtractDocumentTool } from '@alef/web-ui';
+import { createExtractDocumentTool } from '@dpopsuev/alef-web-ui';
 
 const extractTool = createExtractDocumentTool();
 extractTool.corsProxyUrl = 'https://corsproxy.io/?';
@@ -347,7 +347,7 @@ agent.state.tools = [artifactsPanel.tool];
 ### Custom Tool Renderers
 
 ```typescript
-import { registerToolRenderer, type ToolRenderer } from '@alef/web-ui';
+import { registerToolRenderer, type ToolRenderer } from '@dpopsuev/alef-web-ui';
 
 const myRenderer: ToolRenderer = {
   render(params, result, isStreaming) {
@@ -375,7 +375,7 @@ import {
   CustomProvidersStore,
   setAppStorage,
   getAppStorage,
-} from '@alef/web-ui';
+} from '@dpopsuev/alef-web-ui';
 
 // Create stores
 const settings = new SettingsStore();
@@ -470,7 +470,7 @@ const all = await storage.customProviders.getAll();
 Load and process files:
 
 ```typescript
-import { loadAttachment, type Attachment } from '@alef/web-ui';
+import { loadAttachment, type Attachment } from '@dpopsuev/alef-web-ui';
 
 // From File input
 const file = inputElement.files[0];
@@ -502,7 +502,7 @@ Supported formats: PDF, DOCX, XLSX, PPTX, images, text files.
 For browser environments with CORS restrictions:
 
 ```typescript
-import { createStreamFn, shouldUseProxyForProvider, isCorsError } from '@alef/web-ui';
+import { createStreamFn, shouldUseProxyForProvider, isCorsError } from '@dpopsuev/alef-web-ui';
 
 // AgentInterface auto-configures proxy from settings
 // For manual setup:
@@ -521,7 +521,7 @@ agent.streamFn = createStreamFn(async () => {
 ### SettingsDialog
 
 ```typescript
-import { SettingsDialog, ProvidersModelsTab, ProxyTab, ApiKeysTab } from '@alef/web-ui';
+import { SettingsDialog, ProvidersModelsTab, ProxyTab, ApiKeysTab } from '@dpopsuev/alef-web-ui';
 
 SettingsDialog.open([
   new ProvidersModelsTab(), // Custom providers + model list
@@ -533,7 +533,7 @@ SettingsDialog.open([
 ### SessionListDialog
 
 ```typescript
-import { SessionListDialog } from '@alef/web-ui';
+import { SessionListDialog } from '@dpopsuev/alef-web-ui';
 
 SessionListDialog.open(
   async (sessionId) => { /* load session */ },
@@ -544,7 +544,7 @@ SessionListDialog.open(
 ### ApiKeyPromptDialog
 
 ```typescript
-import { ApiKeyPromptDialog } from '@alef/web-ui';
+import { ApiKeyPromptDialog } from '@dpopsuev/alef-web-ui';
 
 const success = await ApiKeyPromptDialog.prompt('anthropic');
 ```
@@ -552,7 +552,7 @@ const success = await ApiKeyPromptDialog.prompt('anthropic');
 ### ModelSelector
 
 ```typescript
-import { ModelSelector } from '@alef/web-ui';
+import { ModelSelector } from '@dpopsuev/alef-web-ui';
 
 ModelSelector.open(currentModel, (selectedModel) => {
   agent.state.model = selectedModel;
@@ -564,7 +564,7 @@ ModelSelector.open(currentModel, (selectedModel) => {
 Import the pre-built CSS:
 
 ```typescript
-import '@alef/web-ui/app.css';
+import '@dpopsuev/alef-web-ui/app.css';
 ```
 
 Or use Tailwind with custom config:
@@ -579,7 +579,7 @@ Or use Tailwind with custom config:
 ## Internationalization
 
 ```typescript
-import { i18n, setLanguage, translations } from '@alef/web-ui';
+import { i18n, setLanguage, translations } from '@dpopsuev/alef-web-ui';
 
 // Add translations
 translations.de = {

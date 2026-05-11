@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@alef/agent-core";
-import type { AssistantMessage, Model } from "@alef/ai";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
+import type { AssistantMessage, Model } from "@dpopsuev/alef-ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateSummary } from "../src/core/compaction/index.js";
 
@@ -7,8 +7,8 @@ const { completeSimpleMock } = vi.hoisted(() => ({
 	completeSimpleMock: vi.fn(),
 }));
 
-vi.mock("@alef/ai", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("@alef/ai")>();
+vi.mock("@dpopsuev/alef-ai", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@dpopsuev/alef-ai")>();
 	return {
 		...actual,
 		completeSimple: completeSimpleMock,

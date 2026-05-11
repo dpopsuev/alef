@@ -1,4 +1,4 @@
-import { complete, getModel } from "@alef/ai";
+import { complete, getModel } from "@dpopsuev/alef-ai";
 
 const model = getModel("google", "gemini-2.5-flash");
 console.log(model.id, typeof complete);

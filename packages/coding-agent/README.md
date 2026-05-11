@@ -3,7 +3,7 @@
 </p>
 <p align="center">
   <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
-  <a href="https://www.npmjs.com/package/@alef/coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@alef/coding-agent?style=flat-square" /></a>
+  <a href="https://www.npmjs.com/package/@dpopsuev/alef-coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@dpopsuev/alef-coding-agent?style=flat-square" /></a>
 </p>
 
 > This fork is maintained BDFL-style; outside contributions are not accepted. Source is open to read and to fork (MIT). See [CONTRIBUTING.md](../../CONTRIBUTING.md).
@@ -12,7 +12,7 @@
 
 ## Attribution
 
-**Alef** (`alef`, npm **`@alef/coding-agent`**) is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (**Pi Agent** / terminal coding harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream sources live in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**. The MIT-licensed implementation here builds on that work—credit for the original belongs to Mario and the Pi contributors.
+**Alef** (`alef`, npm **`@dpopsuev/alef-coding-agent`**) is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (**Pi Agent** / terminal coding harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)); upstream sources live in **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**. The MIT-licensed implementation here builds on that work—credit for the original belongs to Mario and the Pi contributors.
 
 **Alef** is maintained separately in **[dpopsuev/alef](https://github.com/dpopsuev/alef)** with Alef-specific scopes and defaults; behavior below follows Pi unless noted otherwise.
 
@@ -71,7 +71,7 @@ I regularly publish my own `pi-mono` work sessions here:
 Install the CLI globally via npm:
 
 ```bash
-npm install -g @alef/coding-agent
+npm install -g @dpopsuev/alef-coding-agent
 ```
 
 Authenticate with an API key:
@@ -439,7 +439,7 @@ See [docs/packages.md](docs/packages.md).
 ### SDK
 
 ```typescript
-import { AuthStorage, createAgentSession, ModelRegistry, SessionManager } from "@alef/coding-agent";
+import { AuthStorage, createAgentSession, ModelRegistry, SessionManager } from "@dpopsuev/alef-coding-agent";
 
 const authStorage = AuthStorage.create();
 const modelRegistry = ModelRegistry.create(authStorage);
@@ -655,6 +655,6 @@ MIT
 
 ## See Also
 
-- [@alef/ai](https://www.npmjs.com/package/@alef/ai): Core LLM toolkit
-- [@alef/agent-core](https://www.npmjs.com/package/@alef/agent-core): Agent framework
-- [@alef/tui](https://www.npmjs.com/package/@alef/tui): Terminal UI components
+- [@dpopsuev/alef-ai](https://www.npmjs.com/package/@dpopsuev/alef-ai): Core LLM toolkit
+- [@dpopsuev/alef-agent-core](https://www.npmjs.com/package/@dpopsuev/alef-agent-core): Agent framework
+- [@dpopsuev/alef-tui](https://www.npmjs.com/package/@dpopsuev/alef-tui): Terminal UI components

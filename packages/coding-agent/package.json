@@ -1,5 +1,5 @@
 {
-	"name": "@alef/coding-agent",
+	"name": "@dpopsuev/alef-coding-agent",
 	"version": "0.0.1",
 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
 	"type": "module",
@@ -8,7 +8,8 @@
 		"configDir": ".alef"
 	},
 	"bin": {
-		"alef": "dist/cli.js"
+		"alef": "dist/cli.js",
+		"alef-supervisor": "dist/supervisor.js"
 	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -39,9 +40,9 @@
 		"prepublishOnly": "npm run clean && npm run build"
 	},
 	"dependencies": {
-		"@alef/agent-core": "^0.0.1",
-		"@alef/ai": "^0.0.1",
-		"@alef/tui": "^0.0.1",
+		"@dpopsuev/alef-agent-core": "^0.0.1",
+		"@dpopsuev/alef-ai": "^0.0.1",
+		"@dpopsuev/alef-tui": "^0.0.1",
 		"@silvia-odwyer/photon-node": "^0.3.4",
 		"chalk": "^5.5.0",
 		"cli-highlight": "^2.1.11",

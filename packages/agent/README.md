@@ -1,6 +1,6 @@
-# @alef/agent-core
+# @dpopsuev/alef-agent-core
 
-Stateful agent with tool execution and event streaming. Built on `@alef/ai`.
+Stateful agent with tool execution and event streaming. Built on `@dpopsuev/alef-ai`.
 
 ## Attribution
 
@@ -9,14 +9,14 @@ Part of **[Alef Agent](https://github.com/dpopsuev/alef)**, a **fork** of **[Pi]
 ## Installation
 
 ```bash
-npm install @alef/agent-core
+npm install @dpopsuev/alef-agent-core
 ```
 
 ## Quick Start
 
 ```typescript
-import { Agent } from "@alef/agent-core";
-import { getModel } from "@alef/ai";
+import { Agent } from "@dpopsuev/alef-agent-core";
+import { getModel } from "@dpopsuev/alef-ai";
 
 const agent = new Agent({
   initialState: {
@@ -359,7 +359,7 @@ Follow-up messages are checked only when there are no more tool calls and no ste
 Extend `AgentMessage` via declaration merging:
 
 ```typescript
-declare module "@alef/agent-core" {
+declare module "@dpopsuev/alef-agent-core" {
   interface CustomAgentMessages {
     notification: { role: "notification"; text: string; timestamp: number };
   }
@@ -440,7 +440,7 @@ Return `terminate: true` from `execute()` or `afterToolCall` to hint that the ag
 For browser apps that proxy through a backend:
 
 ```typescript
-import { Agent, streamProxy } from "@alef/agent-core";
+import { Agent, streamProxy } from "@dpopsuev/alef-agent-core";
 
 const agent = new Agent({
   streamFn: (model, context, options) =>
@@ -457,7 +457,7 @@ const agent = new Agent({
 For direct control without the Agent class:
 
 ```typescript
-import { agentLoop, agentLoopContinue } from "@alef/agent-core";
+import { agentLoop, agentLoopContinue } from "@dpopsuev/alef-agent-core";
 
 const context: AgentContext = {
   systemPrompt: "You are helpful.",

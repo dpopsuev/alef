@@ -5,7 +5,7 @@
  * Shows turn progress with themed colors.
  */
 
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 
 export default function (alef: ExtensionAPI) {
 	let turnCount = 0;

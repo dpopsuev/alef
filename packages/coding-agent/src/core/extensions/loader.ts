@@ -8,11 +8,11 @@ import { createRequire } from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import * as _bundledPiAgentCore from "@alef/agent-core";
-import * as _bundledPiAi from "@alef/ai";
-import * as _bundledPiAiOauth from "@alef/ai/oauth";
-import type { KeyId } from "@alef/tui";
-import * as _bundledPiTui from "@alef/tui";
+import * as _bundledPiAgentCore from "@dpopsuev/alef-agent-core";
+import * as _bundledPiAi from "@dpopsuev/alef-ai";
+import * as _bundledPiAiOauth from "@dpopsuev/alef-ai/oauth";
+import type { KeyId } from "@dpopsuev/alef-tui";
+import * as _bundledPiTui from "@dpopsuev/alef-tui";
 import { createJiti } from "jiti/static";
 // Static imports of packages that extensions may use.
 // These MUST be static so Bun bundles them into the compiled binary.
@@ -22,7 +22,7 @@ import * as _bundledTypeboxCompile from "typebox/compile";
 import * as _bundledTypeboxValue from "typebox/value";
 import { CONFIG_DIR_NAME, getAgentDir, isBunBinary } from "../../config.js";
 // NOTE: This import works because loader.ts exports are NOT re-exported from index.ts,
-// avoiding a circular dependency. Extensions can import from @alef/coding-agent.
+// avoiding a circular dependency. Extensions can import from @dpopsuev/alef-coding-agent.
 import * as _bundledPiCodingAgent from "../../index.js";
 import { createEventBus, type EventBus } from "../event-bus.js";
 import type { ExecOptions } from "../exec.js";
@@ -48,11 +48,11 @@ const VIRTUAL_MODULES: Record<string, unknown> = {
 	"@sinclair/typebox": _bundledTypebox,
 	"@sinclair/typebox/compile": _bundledTypeboxCompile,
 	"@sinclair/typebox/value": _bundledTypeboxValue,
-	"@alef/agent-core": _bundledPiAgentCore,
-	"@alef/tui": _bundledPiTui,
-	"@alef/ai": _bundledPiAi,
-	"@alef/ai/oauth": _bundledPiAiOauth,
-	"@alef/coding-agent": _bundledPiCodingAgent,
+	"@dpopsuev/alef-agent-core": _bundledPiAgentCore,
+	"@dpopsuev/alef-tui": _bundledPiTui,
+	"@dpopsuev/alef-ai": _bundledPiAi,
+	"@dpopsuev/alef-ai/oauth": _bundledPiAiOauth,
+	"@dpopsuev/alef-coding-agent": _bundledPiCodingAgent,
 };
 
 const require = createRequire(import.meta.url);
@@ -83,17 +83,17 @@ function getAliases(): Record<string, string> {
 	};
 
 	const piCodingAgentEntry = packageIndex;
-	const piAgentCoreEntry = resolveWorkspaceOrImport("agent/dist/index.js", "@alef/agent-core");
-	const piTuiEntry = resolveWorkspaceOrImport("tui/dist/index.js", "@alef/tui");
-	const piAiEntry = resolveWorkspaceOrImport("ai/dist/index.js", "@alef/ai");
-	const piAiOauthEntry = resolveWorkspaceOrImport("ai/dist/oauth.js", "@alef/ai/oauth");
+	const piAgentCoreEntry = resolveWorkspaceOrImport("agent/dist/index.js", "@dpopsuev/alef-agent-core");
+	const piTuiEntry = resolveWorkspaceOrImport("tui/dist/index.js", "@dpopsuev/alef-tui");
+	const piAiEntry = resolveWorkspaceOrImport("ai/dist/index.js", "@dpopsuev/alef-ai");
+	const piAiOauthEntry = resolveWorkspaceOrImport("ai/dist/oauth.js", "@dpopsuev/alef-ai/oauth");
 
 	_aliases = {
-		"@alef/coding-agent": piCodingAgentEntry,
-		"@alef/agent-core": piAgentCoreEntry,
-		"@alef/tui": piTuiEntry,
-		"@alef/ai": piAiEntry,
-		"@alef/ai/oauth": piAiOauthEntry,
+		"@dpopsuev/alef-coding-agent": piCodingAgentEntry,
+		"@dpopsuev/alef-agent-core": piAgentCoreEntry,
+		"@dpopsuev/alef-tui": piTuiEntry,
+		"@dpopsuev/alef-ai": piAiEntry,
+		"@dpopsuev/alef-ai/oauth": piAiOauthEntry,
 		typebox: typeboxEntry,
 		"typebox/compile": typeboxCompileEntry,
 		"typebox/value": typeboxValueEntry,

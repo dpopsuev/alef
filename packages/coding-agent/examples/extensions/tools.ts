@@ -9,9 +9,9 @@
  * 2. Use /tools to open the tool selector
  */
 
-import type { ExtensionAPI, ExtensionContext, ToolInfo } from "@alef/coding-agent";
-import { getSettingsListTheme } from "@alef/coding-agent";
-import { Container, type SettingItem, SettingsList } from "@alef/tui";
+import type { ExtensionAPI, ExtensionContext, ToolInfo } from "@dpopsuev/alef-coding-agent";
+import { getSettingsListTheme } from "@dpopsuev/alef-coding-agent";
+import { Container, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
 
 // State persisted to session
 interface ToolsState {

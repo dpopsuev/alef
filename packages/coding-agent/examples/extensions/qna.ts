@@ -7,9 +7,9 @@
  * 3. Loads the result into the editor for user to fill in answers
  */
 
-import { complete, type UserMessage } from "@alef/ai";
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { BorderedLoader } from "@alef/coding-agent";
+import { complete, type UserMessage } from "@dpopsuev/alef-ai";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import { BorderedLoader } from "@dpopsuev/alef-coding-agent";
 
 const SYSTEM_PROMPT = `You are a question extractor. Given text from a conversation, extract any questions that need answering and format them for the user to fill in.
 

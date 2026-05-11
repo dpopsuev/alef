@@ -7,7 +7,7 @@ Alef is a minimal terminal coding harness. It stays small at the core while bein
 Install globally via npm:
 
 ```bash
-npm install -g @alef/coding-agent
+npm install -g @dpopsuev/alef-coding-agent
 ```
 
 Then run it in a project directory:

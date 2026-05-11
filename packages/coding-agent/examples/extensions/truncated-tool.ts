@@ -15,7 +15,7 @@
  */
 
 import { mkdtemp, writeFile } from "node:fs/promises";
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -23,8 +23,8 @@ import {
 	type TruncationResult,
 	truncateHead,
 	withFileMutationQueue,
-} from "@alef/coding-agent";
-import { Text } from "@alef/tui";
+} from "@dpopsuev/alef-coding-agent";
+import { Text } from "@dpopsuev/alef-tui";
 import { execSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";

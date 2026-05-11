@@ -10,9 +10,9 @@
  * correct for that point in history.
  */
 
-import { StringEnum } from "@alef/ai";
-import type { ExtensionAPI, ExtensionContext, Theme } from "@alef/coding-agent";
-import { matchesKey, Text, truncateToWidth } from "@alef/tui";
+import { StringEnum } from "@dpopsuev/alef-ai";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@dpopsuev/alef-coding-agent";
+import { matchesKey, Text, truncateToWidth } from "@dpopsuev/alef-tui";
 import { Type } from "typebox";
 
 interface Todo {

@@ -1,4 +1,4 @@
-import type { ImageContent, TextContent } from "@alef/ai";
+import type { ImageContent, TextContent } from "@dpopsuev/alef-ai";
 import type { AgentMessage } from "../../types.js";
 import { createBranchSummaryMessage, createCompactionSummaryMessage, createCustomMessage } from "../messages.js";
 import type {

@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@alef/agent-core";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
 import type { TemplateResult } from "lit";
 
 // Extract role type from AppMessage union

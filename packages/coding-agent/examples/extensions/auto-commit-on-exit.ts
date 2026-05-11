@@ -5,7 +5,7 @@
  * Uses the last assistant message to generate a commit message.
  */
 
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 
 export default function (alef: ExtensionAPI) {
 	alef.on("session_shutdown", async (_event, ctx) => {

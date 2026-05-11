@@ -163,7 +163,7 @@ If no `pi` manifest is present, pi auto-discovers resources from these directori
 
 Third party runtime dependencies belong in `dependencies` in `package.json`. Dependencies that do not register extensions, skills, prompt templates, or themes also belong in `dependencies`. When pi installs a package from npm or git, it runs `npm install`, so those dependencies are installed automatically.
 
-Pi bundles core packages for extensions and skills. If you import any of these, list them in `peerDependencies` with a `"*"` range and do not bundle them: `@alef/ai`, `@alef/agent-core`, `@alef/coding-agent`, `@alef/tui`, `typebox`.
+Pi bundles core packages for extensions and skills. If you import any of these, list them in `peerDependencies` with a `"*"` range and do not bundle them: `@dpopsuev/alef-ai`, `@dpopsuev/alef-agent-core`, `@dpopsuev/alef-coding-agent`, `@dpopsuev/alef-tui`, `typebox`.
 
 Other alef packages must be bundled in your tarball. Add them to `dependencies` and `bundledDependencies`, then reference their resources through `node_modules/` paths. Alef loads packages with separate module roots, so separate installs do not collide or share modules.
 

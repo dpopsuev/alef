@@ -1,4 +1,4 @@
-import { type AssistantMessage, type AssistantMessageEvent, EventStream, getModel } from "@alef/ai";
+import { type AssistantMessage, type AssistantMessageEvent, EventStream, getModel } from "@dpopsuev/alef-ai";
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/index.js";
 

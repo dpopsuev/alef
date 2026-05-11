@@ -14,7 +14,7 @@
  *
  * Note: Regular !command syntax (whole-line bash) is preserved and works as before.
  */
-import type { ExtensionAPI } from "@alef/coding-agent";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
 
 export default function (alef: ExtensionAPI) {
 	const PATTERN = /!\{([^}]+)\}/g;

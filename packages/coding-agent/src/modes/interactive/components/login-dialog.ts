@@ -1,5 +1,5 @@
-import { getOAuthProviders } from "@alef/ai/oauth";
-import { Container, type Focusable, getKeybindings, Input, Spacer, Text, type TUI } from "@alef/tui";
+import { getOAuthProviders } from "@dpopsuev/alef-ai/oauth";
+import { Container, type Focusable, getKeybindings, Input, Spacer, Text, type TUI } from "@dpopsuev/alef-tui";
 import { exec } from "child_process";
 import { theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";

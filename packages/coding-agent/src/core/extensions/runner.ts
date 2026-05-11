@@ -2,9 +2,9 @@
  * Extension runner - executes extensions and manages their lifecycle.
  */
 
-import type { AgentMessage } from "@alef/agent-core";
-import type { ImageContent, Model } from "@alef/ai";
-import type { KeyId } from "@alef/tui";
+import type { AgentMessage } from "@dpopsuev/alef-agent-core";
+import type { ImageContent, Model } from "@dpopsuev/alef-ai";
+import type { KeyId } from "@dpopsuev/alef-tui";
 import { type Theme, theme } from "../../modes/interactive/theme/theme.js";
 import type { ResourceDiagnostic } from "../diagnostics.js";
 import type { KeybindingsConfig } from "../keybindings.js";

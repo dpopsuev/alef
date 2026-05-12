@@ -13,8 +13,18 @@ export {
 	lookupColor,
 	lookupShade,
 } from "./color-registry.js";
-export type { EmitHook, Event, EventKind, EventLog, EventStore, FilterFn } from "./event-log.js";
-export { byKind, bySource, byTrace, createEvent, EVENT_KINDS, MemLog } from "./event-log.js";
+export type {
+	DeadLetter,
+	DomainEvent,
+	EmitHook,
+	Event,
+	EventInput,
+	EventKind,
+	EventLog,
+	EventStore,
+	FilterFn,
+} from "./event-log.js";
+export { assertNever, byDirection, byKind, bySource, byTrace, Cursor, MemLog } from "./event-log.js";
 export type { AgentInstance, AgentSchema } from "./gensec.js";
 export { GeneralSecretary } from "./gensec.js";
 export type { PaletteColor, Shade } from "./palette.js";
@@ -37,8 +47,11 @@ export type {
 	Topic,
 } from "./types.js";
 export {
+	boardPathToAddress,
+	boardPathToSegments,
 	boardPathToString,
 	matchesScope,
+	parseBoardAddress,
 } from "./types.js";
 export type {
 	Component,

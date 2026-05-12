@@ -12,6 +12,11 @@ import type { ModelRegistry } from "../model-registry.js";
 import type { SessionManager } from "../session-manager.js";
 import type { BuildSystemPromptOptions } from "../system-prompt.js";
 import type {
+	ActionCallEvent,
+	ActionCallEventResult,
+	ActionResultEvent,
+	ActionResultEventResult,
+	AgentPlatformContext,
 	BeforeAgentStartEvent,
 	BeforeAgentStartEventResult,
 	BeforeProviderRequestEvent,
@@ -114,6 +119,8 @@ interface BeforeAgentStartCombinedResult {
  */
 type RunnerEmitEvent = Exclude<
 	ExtensionEvent,
+	| ActionCallEvent
+	| ActionResultEvent
 	| ToolCallEvent
 	| ToolResultEvent
 	| UserBashEvent
@@ -188,6 +195,154 @@ export async function emitSessionShutdownEvent(
 	return false;
 }
 
+const noOpPlatformContext: AgentPlatformContext = {
+	role: "root",
+	memory: {
+		session: {
+			getMessages: () => [],
+			getEntries: () => [],
+			buildContext: () => ({ messages: [], thinkingLevel: "off", model: null }),
+			getSessionId: () => "",
+			getSessionFile: () => undefined,
+		},
+		working: {
+			get: () => undefined,
+			set: () => {},
+			delete: () => false,
+			clear: () => {},
+			list: () => [],
+			snapshot: () => ({}),
+		},
+	},
+	discourse: {
+		ensureBoard: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		ensureForum: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		createTemplate: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		createContract: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		approveTemplate: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		approveContract: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		rejectTemplate: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		rejectContract: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		createTopic: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		relocateTopic: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		assignTopic: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		updateTopic: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		postLetter: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		postOperatorLetter: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		claimTarget: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		renewClaim: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		releaseClaim: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		listClaims: () => [],
+		expireClaims: () => [],
+		requestStamp: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		decideStamp: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		listStamps: () => [],
+		listBoards: () => [],
+		listForums: () => [],
+		listTemplates: () => [],
+		listContracts: () => [],
+		listTopics: () => [],
+		readThread: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		archiveTopic: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		registerRuntime: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		updateRuntime: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		listRuntimes: () => [],
+		getRuntime: () => undefined,
+		createKnowledgeAtom: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		createKnowledgeMolecule: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		listKnowledgeAtoms: () => [],
+		listKnowledgeMolecules: () => [],
+		upsertBudgetPolicy: () => {
+			throw new Error("Platform discourse is unavailable in this context.");
+		},
+		listBudgetPolicies: () => [],
+		recordBudgetUsage: () => [],
+		readBudgetStatus: () => [],
+		listBudgetLedger: () => [],
+		getAgentCapacity: () => ({
+			id: "global",
+			maxConcurrent: 1,
+			activeRuntimeIds: [],
+			updatedAt: 0,
+		}),
+		setAgentCapacity: () => ({
+			id: "global",
+			maxConcurrent: 1,
+			activeRuntimeIds: [],
+			updatedAt: 0,
+		}),
+		getBoard: () => undefined,
+		getForum: () => undefined,
+		getTemplate: () => undefined,
+		getContract: () => undefined,
+		getTopic: () => undefined,
+		getTopicByAddress: () => undefined,
+		getThread: () => undefined,
+		getThreadByAddress: () => undefined,
+	},
+	review: {
+		listDocuments: () => [],
+		getDocument: () => undefined,
+		getDocumentByAddress: () => undefined,
+		addComment: () => {
+			throw new Error("Platform review is unavailable in this context.");
+		},
+	},
+	actions: [],
+	getAction: () => undefined,
+	getCapabilities: () => [],
+};
+
 const noOpUIContext: ExtensionUIContext = {
 	select: async () => undefined,
 	confirm: async () => false,
@@ -230,6 +385,7 @@ export class ExtensionRunner {
 	private modelRegistry: ModelRegistry;
 	private errorListeners: Set<ExtensionErrorListener> = new Set();
 	private getModel: () => Model<any> | undefined = () => undefined;
+	private getPlatformContextFn: () => AgentPlatformContext = () => noOpPlatformContext;
 	private isIdleFn: () => boolean = () => true;
 	private getSignalFn: () => AbortSignal | undefined = () => undefined;
 	private waitForIdleFn: () => Promise<void> = async () => {};
@@ -289,6 +445,7 @@ export class ExtensionRunner {
 
 		// Context actions (required)
 		this.getModel = contextActions.getModel;
+		this.getPlatformContextFn = contextActions.getPlatformContext ?? (() => noOpPlatformContext);
 		this.isIdleFn = contextActions.isIdle;
 		this.getSignalFn = contextActions.getSignal;
 		this.abortFn = contextActions.abort;
@@ -598,6 +755,10 @@ export class ExtensionRunner {
 				runner.assertActive();
 				return getModel();
 			},
+			get platform() {
+				runner.assertActive();
+				return runner.getPlatformContextFn();
+			},
 			isIdle: () => {
 				runner.assertActive();
 				return runner.isIdleFn();
@@ -751,6 +912,94 @@ export class ExtensionRunner {
 		}
 
 		return modified ? currentMessage : undefined;
+	}
+
+	async emitActionResult(event: ActionResultEvent): Promise<ActionResultEventResult | undefined> {
+		const ctx = this.createContext();
+		const currentEvent: ActionResultEvent = { ...event };
+		let modified = false;
+
+		for (const ext of this.extensions) {
+			const handlers = ext.handlers.get("action_result");
+			if (!handlers || handlers.length === 0) continue;
+
+			for (const handler of handlers) {
+				try {
+					const handlerResult = (await handler(currentEvent, ctx)) as ActionResultEventResult | undefined;
+					if (!handlerResult) continue;
+
+					if (handlerResult.content !== undefined) {
+						currentEvent.content = handlerResult.content;
+						modified = true;
+					}
+					if (handlerResult.details !== undefined) {
+						currentEvent.details = handlerResult.details;
+						modified = true;
+					}
+					if (handlerResult.isError !== undefined) {
+						currentEvent.isError = handlerResult.isError;
+						modified = true;
+					}
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					const stack = err instanceof Error ? err.stack : undefined;
+					this.emitError({
+						extensionPath: ext.path,
+						event: "action_result",
+						error: message,
+						stack,
+					});
+				}
+			}
+		}
+
+		if (!modified) {
+			return undefined;
+		}
+
+		return {
+			content: currentEvent.content,
+			details: currentEvent.details,
+			isError: currentEvent.isError,
+		};
+	}
+
+	async emitActionCall(event: ActionCallEvent): Promise<ActionCallEventResult | undefined> {
+		const ctx = this.createContext();
+		let result: ActionCallEventResult | undefined;
+
+		for (const ext of this.extensions) {
+			const handlers = ext.handlers.get("action_call");
+			if (!handlers || handlers.length === 0) continue;
+
+			for (const handler of handlers) {
+				try {
+					const handlerResult = (await handler(event, ctx)) as ActionCallEventResult | undefined;
+
+					if (handlerResult) {
+						result = handlerResult;
+						if (result.block) {
+							return result;
+						}
+					}
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					const stack = err instanceof Error ? err.stack : undefined;
+					this.emitError({
+						extensionPath: ext.path,
+						event: "action_call",
+						error: message,
+						stack,
+					});
+					return {
+						block: true,
+						reason: `Action blocked by extension failure: ${message}`,
+					};
+				}
+			}
+		}
+
+		return result;
 	}
 
 	async emitToolResult(event: ToolResultEvent): Promise<ToolResultEventResult | undefined> {

@@ -4,6 +4,7 @@ import { basename, dirname, isAbsolute, join, resolve, sep } from "path";
 import { CONFIG_DIR_NAME } from "../config.js";
 import { parseFrontmatter } from "../utils/frontmatter.js";
 import { createSyntheticSourceInfo, type SourceInfo } from "./source-info.js";
+import { parsePrefixedCommand } from "./symbolic-commands.js";
 
 /**
  * Represents a prompt template loaded from a markdown file
@@ -279,16 +280,19 @@ export function loadPromptTemplates(options: LoadPromptTemplatesOptions): Prompt
  * Expand a prompt template if it matches a template name.
  * Returns the expanded content or the original text if not a template.
  */
-export function expandPromptTemplate(text: string, templates: PromptTemplate[]): string {
-	if (!text.startsWith("/")) return text;
+export function expandPromptTemplate(
+	text: string,
+	templates: PromptTemplate[],
+	prefixes: ReadonlyArray<":" | "/"> = [":", "/"],
+): string {
+	const command = prefixes
+		.map((prefix) => parsePrefixedCommand(text, prefix))
+		.find((candidate) => candidate !== undefined);
+	if (!command) return text;
 
-	const spaceIndex = text.indexOf(" ");
-	const templateName = spaceIndex === -1 ? text.slice(1) : text.slice(1, spaceIndex);
-	const argsString = spaceIndex === -1 ? "" : text.slice(spaceIndex + 1);
-
-	const template = templates.find((t) => t.name === templateName);
+	const template = templates.find((t) => t.name === command.name);
 	if (template) {
-		const args = parseCommandArgs(argsString);
+		const args = parseCommandArgs(command.args);
 		return substituteArgs(template.content, args);
 	}
 

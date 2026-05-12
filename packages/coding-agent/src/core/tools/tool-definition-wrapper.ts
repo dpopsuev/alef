@@ -9,6 +9,7 @@ export function wrapToolDefinition<TDetails = unknown>(
 	return {
 		name: definition.name,
 		label: definition.label,
+		action: definition.action,
 		description: definition.description,
 		parameters: definition.parameters,
 		prepareArguments: definition.prepareArguments,
@@ -36,6 +37,7 @@ export function createToolDefinitionFromAgentTool(tool: AgentTool<any>): ToolDef
 	return {
 		name: tool.name,
 		label: tool.label,
+		action: tool.action,
 		description: tool.description,
 		parameters: tool.parameters as any,
 		prepareArguments: tool.prepareArguments,

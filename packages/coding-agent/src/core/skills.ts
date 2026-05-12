@@ -335,7 +335,7 @@ function loadSkillFromFile(
  * See: https://agentskills.io/integrate-skills
  *
  * Skills with disableModelInvocation=true are excluded from the prompt
- * (they can only be invoked explicitly via /skill:name commands).
+ * (they can only be invoked explicitly via :skill:name commands).
  */
 export function formatSkillsForPrompt(skills: Skill[]): string {
 	const visibleSkills = skills.filter((s) => !s.disableModelInvocation);

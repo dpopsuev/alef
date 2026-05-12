@@ -1,22 +1,14 @@
-import { existsSync } from "node:fs";
 import type { AgentTool } from "@dpopsuev/alef-agent-core";
 import { Container, Text, truncateToWidth } from "@dpopsuev/alef-tui";
-import { spawn } from "child_process";
 import { type Static, Type } from "typebox";
 import { keyHint } from "../../modes/interactive/components/keybinding-hints.js";
 import { truncateToVisualLines } from "../../modes/interactive/components/visual-truncate.js";
 import { theme } from "../../modes/interactive/theme/theme.js";
-import { waitForChildProcess } from "../../utils/child-process.js";
-import {
-	getShellConfig,
-	getShellEnv,
-	killProcessTree,
-	trackDetachedChildPid,
-	untrackDetachedChildPid,
-} from "../../utils/shell.js";
+import { getShellEnv } from "../../utils/shell.js";
 import type { ToolDefinition, ToolRenderResultOptions } from "../extensions/types.js";
 import { OutputAccumulator } from "./output-accumulator.js";
 import { getTextOutput, invalidArgText, str } from "./render-utils.js";
+import { createPlatformShellAdapter, type ShellAdapter } from "./shell-adapter.js";
 import { wrapToolDefinition } from "./tool-definition-wrapper.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult } from "./truncate.js";
 
@@ -62,67 +54,23 @@ export interface BashOperations {
  * This is useful for extensions that intercept user_bash and still want pi's
  * standard local shell behavior while wrapping or rewriting commands.
  */
-export function createLocalBashOperations(options?: { shellPath?: string }): BashOperations {
+export function createLocalBashOperations(options?: {
+	shellPath?: string;
+	shellAdapter?: ShellAdapter;
+	platform?: NodeJS.Platform;
+}): BashOperations {
+	const shellAdapter = options?.shellAdapter ?? createPlatformShellAdapter(options?.platform);
 	return {
-		exec: (command, cwd, { onData, signal, timeout, env }) => {
-			return new Promise((resolve, reject) => {
-				const { shell, args } = getShellConfig(options?.shellPath);
-				if (!existsSync(cwd)) {
-					reject(new Error(`Working directory does not exist: ${cwd}\nCannot execute bash commands.`));
-					return;
-				}
-				const child = spawn(shell, [...args, command], {
-					cwd,
-					detached: process.platform !== "win32",
-					env: env ?? getShellEnv(),
-					stdio: ["ignore", "pipe", "pipe"],
-				});
-				if (child.pid) trackDetachedChildPid(child.pid);
-				let timedOut = false;
-				let timeoutHandle: NodeJS.Timeout | undefined;
-				// Set timeout if provided.
-				if (timeout !== undefined && timeout > 0) {
-					timeoutHandle = setTimeout(() => {
-						timedOut = true;
-						if (child.pid) killProcessTree(child.pid);
-					}, timeout * 1000);
-				}
-				// Stream stdout and stderr.
-				child.stdout?.on("data", onData);
-				child.stderr?.on("data", onData);
-				// Handle abort signal by killing the entire process tree.
-				const onAbort = () => {
-					if (child.pid) killProcessTree(child.pid);
-				};
-				if (signal) {
-					if (signal.aborted) onAbort();
-					else signal.addEventListener("abort", onAbort, { once: true });
-				}
-				// Handle shell spawn errors and wait for the process to terminate without hanging
-				// on inherited stdio handles held by detached descendants.
-				waitForChildProcess(child)
-					.then((code) => {
-						if (child.pid) untrackDetachedChildPid(child.pid);
-						if (timeoutHandle) clearTimeout(timeoutHandle);
-						if (signal) signal.removeEventListener("abort", onAbort);
-						if (signal?.aborted) {
-							reject(new Error("aborted"));
-							return;
-						}
-						if (timedOut) {
-							reject(new Error(`timeout:${timeout}`));
-							return;
-						}
-						resolve({ exitCode: code });
-					})
-					.catch((err) => {
-						if (child.pid) untrackDetachedChildPid(child.pid);
-						if (timeoutHandle) clearTimeout(timeoutHandle);
-						if (signal) signal.removeEventListener("abort", onAbort);
-						reject(err);
-					});
-			});
-		},
+		exec: async (command, cwd, { onData, signal, timeout, env }) =>
+			await shellAdapter.execute({
+				command,
+				cwd,
+				onData,
+				signal,
+				timeout,
+				env,
+				shellPath: options?.shellPath,
+			}),
 	};
 }
 
@@ -146,6 +94,10 @@ export interface BashToolOptions {
 	commandPrefix?: string;
 	/** Optional explicit shell path from settings */
 	shellPath?: string;
+	/** Optional per-platform shell adapter override. */
+	shellAdapter?: ShellAdapter;
+	/** Platform override for selecting the default shell adapter. */
+	platform?: NodeJS.Platform;
 	/** Hook to adjust command, cwd, or env before execution */
 	spawnHook?: BashSpawnHook;
 }
@@ -265,7 +217,13 @@ export function createBashToolDefinition(
 	cwd: string,
 	options?: BashToolOptions,
 ): ToolDefinition<typeof bashSchema, BashToolDetails | undefined, BashRenderState> {
-	const ops = options?.operations ?? createLocalBashOperations({ shellPath: options?.shellPath });
+	const ops =
+		options?.operations ??
+		createLocalBashOperations({
+			shellPath: options?.shellPath,
+			shellAdapter: options?.shellAdapter,
+			platform: options?.platform,
+		});
 	const commandPrefix = options?.commandPrefix;
 	const spawnHook = options?.spawnHook;
 	return {

@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { Agent, type AgentMessage, type ThinkingLevel } from "@dpopsuev/alef-agent-core";
 import { clampThinkingLevel, type Message, type Model, streamSimple } from "@dpopsuev/alef-ai";
 import { APP_NAME, getAgentDir } from "../config.js";
@@ -10,6 +10,20 @@ import type { ExtensionRunner, LoadExtensionsResult, SessionStartEvent, ToolDefi
 import { convertToLlm } from "./messages.js";
 import { ModelRegistry } from "./model-registry.js";
 import { findInitialModel } from "./model-resolver.js";
+import {
+	type AgentDiscoursePort,
+	type AgentRole,
+	type CompiledAgentDefinition,
+	createDefaultDoltStoreDriver,
+	findAgentDefinitionPath,
+	getCompiledAgentOrgan,
+	loadAgentDefinition,
+	type ReviewBoardPort,
+	SessionBackedDiscourseStore,
+	SessionBackedReviewBoard,
+	SupervisorManager,
+	type WorkingMemoryPort,
+} from "./platform/index.js";
 import type { ResourceLoader } from "./resource-loader.js";
 import { DefaultResourceLoader } from "./resource-loader.js";
 import { getDefaultSessionDir, SessionManager } from "./session-manager.js";
@@ -27,7 +41,6 @@ import {
 	createReadTool,
 	createSymbolOutlineTool,
 	createWriteTool,
-	type ToolName,
 	withFileMutationQueue,
 } from "./tools/index.js";
 
@@ -70,6 +83,26 @@ export interface CreateAgentSessionOptions {
 
 	/** Resource loader. When omitted, DefaultResourceLoader is used. */
 	resourceLoader?: ResourceLoader;
+	/** Optional agent blueprint path or pre-compiled definition. */
+	blueprint?: string | CompiledAgentDefinition;
+	/** Platform role for the created runtime. Defaults to root. */
+	role?: AgentRole;
+	/** Explicit working-memory implementation. */
+	workingMemory?: WorkingMemoryPort;
+	/** Initial working-memory seed data. */
+	workingMemorySeed?: Record<string, unknown>;
+	/** Shared discourse/blackboard store. Defaults to a session-backed store. */
+	discourse?: AgentDiscoursePort;
+	/** Shared review board projection. Defaults to a session-backed store over discourse. */
+	review?: ReviewBoardPort;
+	/** Optional persistent runtime UUID for child/root budgeting and lifecycle. */
+	runtimeId?: string;
+	/** Optional discourse object UUID bound to this runtime. */
+	discourseObjectId?: string;
+	/** Optional topic UUID bound to this runtime. */
+	topicId?: string;
+	/** Optional thread UUID bound to this runtime. */
+	threadId?: string;
 
 	/** Session manager. Default: SessionManager.create(cwd) */
 	sessionManager?: SessionManager;
@@ -201,6 +234,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const cwd = options.cwd ?? options.sessionManager?.getCwd() ?? process.cwd();
 	const agentDir = options.agentDir ?? getDefaultAgentDir();
 	let resourceLoader = options.resourceLoader;
+	const role = options.role ?? "root";
 
 	// Use provided or create AuthStorage and ModelRegistry
 	const authPath = options.agentDir ? join(agentDir, "auth.json") : undefined;
@@ -211,8 +245,29 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
 	const sessionManager = options.sessionManager ?? SessionManager.create(cwd, getDefaultSessionDir(cwd, agentDir));
 
+	const configuredBlueprint = settingsManager.getDefaultBlueprint();
+	const blueprintSource = options.blueprint ?? findAgentDefinitionPath(cwd) ?? configuredBlueprint;
+	const compiledDefinition =
+		typeof blueprintSource === "string"
+			? loadAgentDefinition(blueprintSource.startsWith("/") ? blueprintSource : resolve(cwd, blueprintSource))
+			: blueprintSource;
+	if (role === "child" && getCompiledAgentOrgan(compiledDefinition, "supervisor")) {
+		throw new Error("Supervisor organ is only available to root agents.");
+	}
+	const doltDriver = createDefaultDoltStoreDriver(sessionManager);
+	const discourse = options.discourse ?? new SessionBackedDiscourseStore(sessionManager, doltDriver);
+	const review = options.review ?? new SessionBackedReviewBoard(sessionManager, discourse, doltDriver);
+	for (const policy of settingsManager.getBurnBudgets()) {
+		discourse.upsertBudgetPolicy(policy);
+	}
+
 	if (!resourceLoader) {
-		resourceLoader = new DefaultResourceLoader({ cwd, agentDir, settingsManager });
+		resourceLoader = new DefaultResourceLoader({
+			cwd,
+			agentDir,
+			settingsManager,
+			additionalExtensionPaths: compiledDefinition?.hooks.extensions,
+		});
 		await resourceLoader.reload();
 		time("resourceLoader.reload");
 	}
@@ -224,6 +279,16 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 
 	let model = options.model;
 	let modelFallbackMessage: string | undefined;
+
+	if (!model && compiledDefinition?.model) {
+		const blueprintModel = modelRegistry.find(compiledDefinition.model.provider, compiledDefinition.model.id);
+		if (!blueprintModel) {
+			throw new Error(
+				`Blueprint model not found: ${compiledDefinition.model.provider}/${compiledDefinition.model.id}`,
+			);
+		}
+		model = blueprintModel;
+	}
 
 	// If session has data, try to restore model from it
 	if (!model && hasExistingSession && existingSession.model) {
@@ -254,7 +319,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		}
 	}
 
-	let thinkingLevel = options.thinkingLevel;
+	let thinkingLevel = options.thinkingLevel ?? compiledDefinition?.model?.thinkingLevel;
 
 	// If session has data, restore thinking level from it
 	if (thinkingLevel === undefined && hasExistingSession) {
@@ -275,15 +340,33 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		thinkingLevel = clampThinkingLevel(model, thinkingLevel) as ThinkingLevel;
 	}
 
-	const defaultActiveToolNames: ToolName[] = ["symbol_outline", "file_read", "file_bash", "file_edit", "file_write"];
-	const allowedToolNames = options.tools ?? (options.noTools === "all" ? [] : undefined);
-	const initialActiveToolNames: string[] = options.tools
-		? [...options.tools]
+	const defaultActiveToolNames: string[] = [
+		"symbol_outline",
+		"file_read",
+		"file_bash",
+		"file_edit",
+		"file_write",
+		...(role === "root" ? ["supervisor"] : []),
+	];
+	const blueprintToolNames =
+		compiledDefinition && compiledDefinition.capabilities.tools.length > 0
+			? [...compiledDefinition.capabilities.tools]
+			: undefined;
+	if (role === "root" && compiledDefinition?.capabilities.supervisor && blueprintToolNames) {
+		if (!blueprintToolNames.includes("supervisor")) {
+			blueprintToolNames.push("supervisor");
+		}
+	}
+	const requestedToolNames = options.tools ?? blueprintToolNames;
+	const allowedToolNames = requestedToolNames ?? (options.noTools === "all" ? [] : undefined);
+	const initialActiveToolNames: string[] = requestedToolNames
+		? [...requestedToolNames]
 		: options.noTools
 			? []
 			: defaultActiveToolNames;
 
 	let agent: Agent;
+	let session: AgentSession;
 
 	// Create convertToLlm wrapper that filters images if blockImages is enabled (defense-in-depth)
 	const convertToLlmWithBlockImages = (messages: AgentMessage[]): Message[] => {
@@ -323,6 +406,59 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	};
 
 	const extensionRunnerRef: { current?: ExtensionRunner } = {};
+	const supervisorManager =
+		role === "root"
+			? new SupervisorManager(async (request) => {
+					const childModelSelector = request.definition.model;
+					const childModel = childModelSelector
+						? modelRegistry.find(childModelSelector.provider, childModelSelector.id)
+						: (session?.model ?? model);
+					if (childModelSelector && !childModel) {
+						throw new Error(`Blueprint model not found: ${childModelSelector.provider}/${childModelSelector.id}`);
+					}
+
+					const childSessionManager =
+						request.definition.memory.session === "persistent"
+							? SessionManager.create(cwd, getDefaultSessionDir(cwd, agentDir))
+							: SessionManager.inMemory(cwd);
+					const childResourceLoader = new DefaultResourceLoader({
+						cwd,
+						agentDir,
+						settingsManager,
+						additionalExtensionPaths: request.definition.hooks.extensions,
+					});
+					await childResourceLoader.reload();
+
+					const childResult = await createAgentSession({
+						cwd,
+						agentDir,
+						authStorage,
+						modelRegistry,
+						model: childModel,
+						thinkingLevel: request.definition.model?.thinkingLevel ?? session?.thinkingLevel,
+						scopedModels: options.scopedModels,
+						tools:
+							request.definition.capabilities.tools.length > 0
+								? request.definition.capabilities.tools
+								: undefined,
+						customTools: options.customTools,
+						resourceLoader: childResourceLoader,
+						sessionManager: childSessionManager,
+						settingsManager,
+						blueprint: request.definition,
+						role: "child",
+						workingMemorySeed: request.definition.memory.working,
+						discourse,
+						review,
+						runtimeId: request.runtimeId,
+						discourseObjectId: request.discourseObjectId ?? request.topicId ?? request.threadId,
+						topicId: request.topicId,
+						threadId: request.threadId,
+					});
+					await childResult.session.bindExtensions({});
+					return childResult.session;
+				}, discourse)
+			: undefined;
 
 	agent = new Agent({
 		initialState: {
@@ -397,7 +533,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		sessionManager.appendThinkingLevelChange(thinkingLevel);
 	}
 
-	const session = new AgentSession({
+	session = new AgentSession({
 		agent,
 		sessionManager,
 		settingsManager,
@@ -410,6 +546,17 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		allowedToolNames,
 		extensionRunnerRef,
 		sessionStartEvent: options.sessionStartEvent,
+		role,
+		agentDefinition: compiledDefinition,
+		workingMemory: options.workingMemory,
+		workingMemorySeed: options.workingMemorySeed ?? compiledDefinition?.memory.working,
+		discourse,
+		review,
+		supervisorManager,
+		runtimeId: options.runtimeId,
+		discourseObjectId: options.discourseObjectId ?? options.topicId ?? options.threadId,
+		topicId: options.topicId,
+		threadId: options.threadId,
 	});
 	const extensionsResult = resourceLoader.getExtensions();
 

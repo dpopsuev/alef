@@ -230,7 +230,7 @@ function preRenderCustomTools(
 
 /**
  * Export session to HTML using SessionManager and AgentState.
- * Used by TUI's /export command.
+ * Used by TUI's :export command.
  */
 export async function exportSessionToHtml(
 	sm: SessionManager,

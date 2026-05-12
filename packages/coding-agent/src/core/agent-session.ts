@@ -71,6 +71,21 @@ import {
 import { emitSessionShutdownEvent } from "./extensions/runner.js";
 import type { BashExecutionMessage, CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
+import {
+	type AgentDiscoursePort,
+	type AgentPlatformContext,
+	type AgentRole,
+	type CompiledAgentDefinition,
+	createAgentMemoryPorts,
+	createDefaultDoltStoreDriver,
+	createPlatformActionInfoFromToolDefinition,
+	PlatformActionRegistry,
+	type ReviewBoardPort,
+	SessionBackedDiscourseStore,
+	SessionBackedReviewBoard,
+	type SupervisorPort,
+	type WorkingMemoryPort,
+} from "./platform/index.js";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.js";
 import type { BranchSummaryEntry, CompactionEntry, SessionManager } from "./session-manager.js";
@@ -78,9 +93,11 @@ import { CURRENT_SESSION_VERSION, getLatestCompactionEntry, type SessionHeader }
 import type { SettingsManager } from "./settings-manager.js";
 import type { SlashCommandInfo } from "./slash-commands.js";
 import { createSyntheticSourceInfo, type SourceInfo } from "./source-info.js";
+import { parsePrefixedCommand } from "./symbolic-commands.js";
 import { type BuildSystemPromptOptions, buildSystemPrompt } from "./system-prompt.js";
 import { type BashOperations, createLocalBashOperations } from "./tools/bash.js";
 import { createAllToolDefinitions } from "./tools/index.js";
+import { createSupervisorToolDefinition } from "./tools/supervisor.js";
 import { createToolDefinitionFromAgentTool } from "./tools/tool-definition-wrapper.js";
 
 // ============================================================================
@@ -167,6 +184,28 @@ export interface AgentSessionConfig {
 	extensionRunnerRef?: { current?: ExtensionRunner };
 	/** Session start event metadata emitted when extensions bind to this runtime. */
 	sessionStartEvent?: SessionStartEvent;
+	/** Platform role for this runtime. Root sessions get supervisor capability by default. */
+	role?: AgentRole;
+	/** Compiled agent definition used to compose this runtime. */
+	agentDefinition?: CompiledAgentDefinition;
+	/** Optional working-memory port override. */
+	workingMemory?: WorkingMemoryPort;
+	/** Initial working-memory values. */
+	workingMemorySeed?: Record<string, unknown>;
+	/** Shared contract/topic/thread discourse store. */
+	discourse?: AgentDiscoursePort;
+	/** Shared review board projection over discourse. */
+	review?: ReviewBoardPort;
+	/** Root-only supervisor capability implementation. */
+	supervisorManager?: SupervisorPort;
+	/** Optional persistent runtime UUID for this session. */
+	runtimeId?: string;
+	/** Optional discourse object UUID bound to this session. */
+	discourseObjectId?: string;
+	/** Optional topic UUID bound to this session. */
+	topicId?: string;
+	/** Optional thread UUID bound to this session. */
+	threadId?: string;
 }
 
 export interface ExtensionBindings {
@@ -289,6 +328,17 @@ export class AgentSession {
 	private _extensionShutdownHandler?: ShutdownHandler;
 	private _extensionErrorListener?: ExtensionErrorListener;
 	private _extensionErrorUnsubscriber?: () => void;
+	private _role: AgentRole;
+	private _agentDefinition?: CompiledAgentDefinition;
+	private _memory!: AgentPlatformContext["memory"];
+	private _discourse: AgentDiscoursePort;
+	private _review: ReviewBoardPort;
+	private _supervisorManager?: SupervisorPort;
+	private _actionRegistry = new PlatformActionRegistry();
+	private _runtimeId?: string;
+	private _discourseObjectId?: string;
+	private _topicId?: string;
+	private _threadId?: string;
 
 	// Model registry for API key resolution
 	private _modelRegistry: ModelRegistry;
@@ -317,6 +367,28 @@ export class AgentSession {
 		this._allowedToolNames = config.allowedToolNames ? new Set(config.allowedToolNames) : undefined;
 		this._baseToolsOverride = config.baseToolsOverride;
 		this._sessionStartEvent = config.sessionStartEvent ?? { type: "session_start", reason: "startup" };
+		this._role = config.role ?? "root";
+		this._agentDefinition = config.agentDefinition;
+		const workingMemory =
+			config.workingMemory ??
+			createAgentMemoryPorts({
+				sessionManager: this.sessionManager,
+				getMessages: () => this.agent.state.messages,
+				workingMemorySeed: config.workingMemorySeed,
+			}).working;
+		this._memory = createAgentMemoryPorts({
+			sessionManager: this.sessionManager,
+			getMessages: () => this.agent.state.messages,
+			workingMemory,
+		});
+		const doltDriver = createDefaultDoltStoreDriver(this.sessionManager);
+		this._discourse = config.discourse ?? new SessionBackedDiscourseStore(this.sessionManager, doltDriver);
+		this._review = config.review ?? new SessionBackedReviewBoard(this.sessionManager, this._discourse, doltDriver);
+		this._supervisorManager = config.supervisorManager;
+		this._runtimeId = config.runtimeId;
+		this._discourseObjectId = config.discourseObjectId;
+		this._topicId = config.topicId;
+		this._threadId = config.threadId;
 
 		// Always subscribe to agent events for internal handling
 		// (session persistence, extensions, auto-compaction, retry logic)
@@ -354,7 +426,7 @@ export class AgentSession {
 			throw new Error(
 				`Authentication failed for "${model.provider}". ` +
 					`Credentials may have expired or network is unavailable. ` +
-					`Run '/login ${model.provider}' to re-authenticate.`,
+					`Run ':login ${model.provider}' to re-authenticate.`,
 			);
 		}
 		throw new Error(formatNoApiKeyFoundMessage(model.provider));
@@ -371,19 +443,42 @@ export class AgentSession {
 	private _installAgentToolHooks(): void {
 		this.agent.beforeToolCall = async ({ toolCall, args }) => {
 			const runner = this._extensionRunner;
-			if (!runner.hasHandlers("tool_call")) {
+			const input = args as Record<string, unknown>;
+			const action = this._getActionInfo(toolCall.name);
+
+			if (!runner.hasHandlers("action_call") && !runner.hasHandlers("tool_call")) {
 				return undefined;
 			}
 
 			await this._agentEventQueue;
 
 			try {
-				return await runner.emitToolCall({
+				const actionResult = runner.hasHandlers("action_call")
+					? await runner.emitActionCall({
+							type: "action_call",
+							actionId: toolCall.id,
+							actionName: toolCall.name,
+							action,
+							source: "llm_tool_call",
+							input,
+						})
+					: undefined;
+
+				if (actionResult?.block) {
+					return actionResult;
+				}
+
+				if (!runner.hasHandlers("tool_call")) {
+					return actionResult;
+				}
+
+				const toolResult = await runner.emitToolCall({
 					type: "tool_call",
 					toolName: toolCall.name,
 					toolCallId: toolCall.id,
-					input: args as Record<string, unknown>,
+					input,
 				});
+				return toolResult ?? actionResult;
 			} catch (err) {
 				if (err instanceof Error) {
 					throw err;
@@ -394,28 +489,56 @@ export class AgentSession {
 
 		this.agent.afterToolCall = async ({ toolCall, args, result, isError }) => {
 			const runner = this._extensionRunner;
-			if (!runner.hasHandlers("tool_result")) {
+			const input = args as Record<string, unknown>;
+			const action = this._getActionInfo(toolCall.name);
+			if (!runner.hasHandlers("action_result") && !runner.hasHandlers("tool_result")) {
 				return undefined;
 			}
 
-			const hookResult = await runner.emitToolResult({
-				type: "tool_result",
-				toolName: toolCall.name,
-				toolCallId: toolCall.id,
-				input: args as Record<string, unknown>,
-				content: result.content,
-				details: result.details,
-				isError,
-			});
+			const actionResult = runner.hasHandlers("action_result")
+				? await runner.emitActionResult({
+						type: "action_result",
+						actionId: toolCall.id,
+						actionName: toolCall.name,
+						action,
+						source: "llm_tool_call",
+						input,
+						content: result.content,
+						details: result.details,
+						isError,
+					})
+				: undefined;
 
-			if (!hookResult) {
+			let currentContent = actionResult?.content ?? result.content;
+			let currentDetails = actionResult?.details ?? result.details;
+			let currentIsError = actionResult?.isError ?? isError;
+
+			if (runner.hasHandlers("tool_result")) {
+				const hookResult = await runner.emitToolResult({
+					type: "tool_result",
+					toolName: toolCall.name,
+					toolCallId: toolCall.id,
+					input,
+					content: currentContent,
+					details: currentDetails,
+					isError: currentIsError,
+				});
+
+				if (hookResult) {
+					currentContent = hookResult.content ?? currentContent;
+					currentDetails = hookResult.details ?? currentDetails;
+					currentIsError = hookResult.isError ?? currentIsError;
+				}
+			}
+
+			if (!actionResult && !runner.hasHandlers("tool_result")) {
 				return undefined;
 			}
 
 			return {
-				content: hookResult.content,
-				details: hookResult.details,
-				isError: hookResult.isError ?? isError,
+				content: currentContent,
+				details: currentDetails,
+				isError: currentIsError,
 			};
 		};
 	}
@@ -537,6 +660,10 @@ export class AgentSession {
 			) {
 				// Regular LLM message - persist as SessionMessageEntry
 				this.sessionManager.appendMessage(event.message);
+				if (event.message.role === "assistant") {
+					this._recordRootDiscourseReply(event.message);
+					void this._recordBudgetUsage(event.message);
+				}
 			}
 			// Other message types (bashExecution, compactionSummary, branchSummary) are persisted elsewhere
 
@@ -594,6 +721,172 @@ export class AgentSession {
 		if (typeof content === "string") return content;
 		const textBlocks = content.filter((c) => c.type === "text");
 		return textBlocks.map((c) => (c as TextContent).text).join("");
+	}
+
+	private _getAgentMessageText(message: AgentMessage): string {
+		if (message.role === "assistant") {
+			return message.content
+				.filter((content): content is { type: "text"; text: string } => content.type === "text")
+				.map((content) => content.text)
+				.join("")
+				.trim();
+		}
+		if (message.role === "user" || message.role === "toolResult") {
+			if (typeof message.content === "string") {
+				return message.content.trim();
+			}
+			return message.content
+				.filter((content): content is { type: "text"; text: string } => content.type === "text")
+				.map((content) => content.text)
+				.join("")
+				.trim();
+		}
+		if (message.role === "custom") {
+			if (typeof message.content === "string") {
+				return message.content.trim();
+			}
+			return message.content
+				.filter((content): content is { type: "text"; text: string } => content.type === "text")
+				.map((content) => content.text)
+				.join("")
+				.trim();
+		}
+		return "";
+	}
+
+	private _recordRootDiscourseReply(message: AgentMessage): void {
+		if (this._role !== "root" || message.role !== "assistant") {
+			return;
+		}
+		const body = this._getAgentMessageText(message);
+		if (!body) {
+			return;
+		}
+		const activeSummary = this._discourse
+			.listTopics()
+			.filter((entry) => entry.topic.affinityKey === this.sessionId)
+			.sort((a, b) => a.topic.updatedAt - b.topic.updatedAt)
+			.slice(-1)[0];
+		if (!activeSummary) {
+			return;
+		}
+		this._discourse.postLetter({
+			threadId: activeSummary.thread.id,
+			scope: "dialog",
+			author: "gensec",
+			body,
+			labels: [{ key: "origin", value: "gensec", source: "gensec" }],
+			metadata: {
+				stopReason: message.stopReason,
+			},
+		});
+	}
+
+	private _getBudgetAgentId(): string {
+		return this._runtimeId ?? this.sessionId;
+	}
+
+	private _getBoundDiscourseObjectId(): string | undefined {
+		if (this._discourseObjectId) {
+			return this._discourseObjectId;
+		}
+		if (this._topicId) {
+			return this._topicId;
+		}
+		if (this._threadId) {
+			return this._threadId;
+		}
+		if (this._role !== "root") {
+			return undefined;
+		}
+		const activeSummary = this._discourse
+			.listTopics()
+			.filter((entry) => entry.topic.affinityKey === this.sessionId)
+			.sort((a, b) => a.topic.updatedAt - b.topic.updatedAt)
+			.slice(-1)[0];
+		return activeSummary?.topic.id;
+	}
+
+	private _formatBudgetNotice(action: string, scope: string, window: string, used: number, max: number): string {
+		return `Budget ${action}: ${scope} ${window} ${used}/${max} tokens.`;
+	}
+
+	private async _emitBudgetNotice(message: string): Promise<void> {
+		await this.sendCustomMessage(
+			{
+				customType: "budget_notice",
+				content: message,
+				display: true,
+			},
+			{ triggerTurn: false },
+		);
+	}
+
+	private async _checkBudgetBeforePrompt(): Promise<void> {
+		const snapshots = this._discourse.readBudgetStatus({
+			agentId: this._getBudgetAgentId(),
+			discourseObjectId: this._getBoundDiscourseObjectId(),
+		});
+		const highest = snapshots.sort((a, b) => {
+			const rank = { abort: 4, throttle: 3, warn: 2, inform: 1, undefined: 0 } as const;
+			return (rank[b.action ?? "undefined"] ?? 0) - (rank[a.action ?? "undefined"] ?? 0);
+		})[0];
+		if (!highest?.action) {
+			return;
+		}
+		if (highest.action === "abort") {
+			throw new Error(
+				this._formatBudgetNotice(
+					highest.action,
+					highest.scope,
+					highest.window,
+					highest.usedTokens,
+					highest.maxTokens,
+				),
+			);
+		}
+		if (highest.action === "throttle") {
+			await this._emitBudgetNotice(
+				this._formatBudgetNotice(
+					highest.action,
+					highest.scope,
+					highest.window,
+					highest.usedTokens,
+					highest.maxTokens,
+				),
+			);
+			await sleep(250);
+			return;
+		}
+		await this._emitBudgetNotice(
+			this._formatBudgetNotice(highest.action, highest.scope, highest.window, highest.usedTokens, highest.maxTokens),
+		);
+	}
+
+	private async _recordBudgetUsage(message: AgentMessage): Promise<void> {
+		if (message.role !== "assistant") {
+			return;
+		}
+		const snapshots = this._discourse.recordBudgetUsage({
+			agentId: this._getBudgetAgentId(),
+			discourseObjectId: this._getBoundDiscourseObjectId(),
+			inputTokens: message.usage.input,
+			outputTokens: message.usage.output,
+			cacheReadTokens: message.usage.cacheRead,
+			cacheWriteTokens: message.usage.cacheWrite,
+			totalCost: message.usage.cost.total,
+			occurredAt: message.timestamp,
+		});
+		const highest = snapshots.sort((a, b) => {
+			const rank = { abort: 4, throttle: 3, warn: 2, inform: 1, undefined: 0 } as const;
+			return (rank[b.action ?? "undefined"] ?? 0) - (rank[a.action ?? "undefined"] ?? 0);
+		})[0];
+		if (!highest?.action) {
+			return;
+		}
+		await this._emitBudgetNotice(
+			this._formatBudgetNotice(highest.action, highest.scope, highest.window, highest.usedTokens, highest.maxTokens),
+		);
 	}
 
 	/** Find the last assistant message in agent state (including aborted ones) */
@@ -670,6 +963,15 @@ export class AgentSession {
 				this._replaceMessageInPlace(event.message, replacement);
 			}
 		} else if (event.type === "tool_execution_start") {
+			const action = this._getActionInfo(event.toolName);
+			await this._extensionRunner.emit({
+				type: "action_execution_start",
+				actionId: event.toolCallId,
+				actionName: event.toolName,
+				action,
+				source: "llm_tool_call",
+				input: event.args as Record<string, unknown>,
+			});
 			const extensionEvent: ToolExecutionStartEvent = {
 				type: "tool_execution_start",
 				toolCallId: event.toolCallId,
@@ -678,6 +980,16 @@ export class AgentSession {
 			};
 			await this._extensionRunner.emit(extensionEvent);
 		} else if (event.type === "tool_execution_update") {
+			const action = this._getActionInfo(event.toolName);
+			await this._extensionRunner.emit({
+				type: "action_execution_update",
+				actionId: event.toolCallId,
+				actionName: event.toolName,
+				action,
+				source: "llm_tool_call",
+				input: event.args as Record<string, unknown>,
+				partialResult: event.partialResult,
+			});
 			const extensionEvent: ToolExecutionUpdateEvent = {
 				type: "tool_execution_update",
 				toolCallId: event.toolCallId,
@@ -687,6 +999,17 @@ export class AgentSession {
 			};
 			await this._extensionRunner.emit(extensionEvent);
 		} else if (event.type === "tool_execution_end") {
+			const action = this._getActionInfo(event.toolName);
+			await this._extensionRunner.emit({
+				type: "action_execution_end",
+				actionId: event.toolCallId,
+				actionName: event.toolName,
+				action,
+				source: "llm_tool_call",
+				input: {},
+				result: event.result,
+				isError: event.isError,
+			});
 			const extensionEvent: ToolExecutionEndEvent = {
 				type: "tool_execution_end",
 				toolCallId: event.toolCallId,
@@ -869,6 +1192,56 @@ export class AgentSession {
 		return this.sessionManager.getSessionName();
 	}
 
+	/** Working directory for this runtime. */
+	get cwd(): string {
+		return this._cwd;
+	}
+
+	/** Platform role for this runtime. */
+	get role(): AgentRole {
+		return this._role;
+	}
+
+	/** Compiled blueprint, when this runtime was created from agent.yaml. */
+	get agentDefinition(): CompiledAgentDefinition | undefined {
+		return this._agentDefinition;
+	}
+
+	/** Explicit session and working-memory ports. */
+	get memory(): AgentPlatformContext["memory"] {
+		return this._memory;
+	}
+
+	/** Blackboard/discourse store shared by root and child sessions. */
+	get discourse(): AgentDiscoursePort {
+		return this._discourse;
+	}
+
+	/** Review board projection over platform discourse. */
+	get review(): ReviewBoardPort {
+		return this._review;
+	}
+
+	/** Root-only supervisor capability, when available. */
+	get supervisor(): SupervisorPort | undefined {
+		return this._supervisorManager;
+	}
+
+	/** Platform-core runtime surface independent from the interactive host. */
+	get platform(): AgentPlatformContext {
+		return {
+			role: this._role,
+			definition: this._agentDefinition,
+			memory: this._memory,
+			discourse: this._discourse,
+			review: this._review,
+			supervisor: this._supervisorManager,
+			actions: this._actionRegistry.getActions(),
+			getAction: (name: string) => this._actionRegistry.getAction(name),
+			getCapabilities: () => this._actionRegistry.getCapabilities(),
+		};
+	}
+
 	/** Scoped models for cycling (from --models flag) */
 	get scopedModels(): ReadonlyArray<{ model: Model<any>; thinkingLevel?: ThinkingLevel }> {
 		return this._scopedModels;
@@ -908,6 +1281,21 @@ export class AgentSession {
 		return Array.from(unique);
 	}
 
+	private _getActionInfo(name: string) {
+		return (
+			this._actionRegistry.getAction(name) ?? {
+				name,
+				label: name,
+				description: "",
+				action: {
+					kind: "tool" as const,
+					capability: name,
+					availability: "shared" as const,
+				},
+			}
+		);
+	}
+
 	private _rebuildSystemPrompt(toolNames: string[]): string {
 		const validToolNames = toolNames.filter((name) => this._toolRegistry.has(name));
 		const toolSnippets: Record<string, string> = {};
@@ -925,17 +1313,21 @@ export class AgentSession {
 		}
 
 		const loaderSystemPrompt = this._resourceLoader.getSystemPrompt();
+		const definitionSystemPrompt = this._agentDefinition?.systemPrompt;
 		const loaderAppendSystemPrompt = this._resourceLoader.getAppendSystemPrompt();
-		const appendSystemPrompt =
-			loaderAppendSystemPrompt.length > 0 ? loaderAppendSystemPrompt.join("\n\n") : undefined;
+		const appendParts = [...loaderAppendSystemPrompt, ...(this._agentDefinition?.policies.appendSystemPrompt ?? [])];
+		const appendSystemPrompt = appendParts.length > 0 ? appendParts.join("\n\n") : undefined;
 		const loadedSkills = this._resourceLoader.getSkills().skills;
 		const loadedContextFiles = this._resourceLoader.getAgentsFiles().agentsFiles;
+		const customPromptParts = [loaderSystemPrompt, definitionSystemPrompt].filter(
+			(part): part is string => typeof part === "string" && part.trim().length > 0,
+		);
 
 		this._baseSystemPromptOptions = {
 			cwd: this._cwd,
 			skills: loadedSkills,
 			contextFiles: loadedContextFiles,
-			customPrompt: loaderSystemPrompt,
+			customPrompt: customPromptParts.length > 0 ? customPromptParts.join("\n\n") : undefined,
 			appendSystemPrompt,
 			selectedTools: validToolNames,
 			toolSnippets,
@@ -965,7 +1357,7 @@ export class AgentSession {
 		try {
 			// Handle extension commands first (execute immediately, even during streaming)
 			// Extension commands manage their own LLM interaction via alef.sendMessage()
-			if (expandPromptTemplates && text.startsWith("/")) {
+			if (expandPromptTemplates && this._parseInteractiveCommand(text)) {
 				const handled = await this._tryExecuteExtensionCommand(text);
 				if (handled) {
 					// Extension command executed, no prompt to send
@@ -993,11 +1385,37 @@ export class AgentSession {
 				}
 			}
 
-			// Expand skill commands (/skill:name args) and prompt templates (/template args)
+			// Expand skill commands (:skill:name args) and prompt templates (:template args)
 			let expandedText = currentText;
 			if (expandPromptTemplates) {
 				expandedText = this._expandSkillCommand(expandedText);
-				expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
+				expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates], [":", "/"]);
+			}
+
+			const shouldRecordDiscourseInput =
+				this._role === "root" &&
+				(options?.source ?? "interactive") !== "extension" &&
+				currentText.trim().length > 0 &&
+				!this._parseInteractiveCommand(currentText);
+			if (shouldRecordDiscourseInput) {
+				this._discourse.postOperatorLetter({
+					body: currentText,
+					sessionId: this.sessionId,
+					author: "operator",
+					labels: currentImages?.length
+						? [{ key: "images", value: String(currentImages.length), source: "operator" }]
+						: undefined,
+					metadata: currentImages?.length
+						? {
+								imageCount: currentImages.length,
+								streamingBehavior: options?.streamingBehavior,
+							}
+						: options?.streamingBehavior
+							? {
+									streamingBehavior: options.streamingBehavior,
+								}
+							: undefined,
+				});
 			}
 
 			// If streaming, queue via steer() or followUp() based on option
@@ -1018,6 +1436,7 @@ export class AgentSession {
 
 			// Flush any pending bash messages before the new prompt
 			this._flushPendingBashMessages();
+			await this._checkBudgetBeforePrompt();
 
 			// Validate model
 			if (!this.model) {
@@ -1030,7 +1449,7 @@ export class AgentSession {
 					throw new Error(
 						`Authentication failed for "${this.model.provider}". ` +
 							`Credentials may have expired or network is unavailable. ` +
-							`Run '/login ${this.model.provider}' to re-authenticate.`,
+							`Run ':login ${this.model.provider}' to re-authenticate.`,
 					);
 				}
 				throw new Error(formatNoApiKeyFoundMessage(this.model.provider));
@@ -1106,11 +1525,18 @@ export class AgentSession {
 	/**
 	 * Try to execute an extension command. Returns true if command was found and executed.
 	 */
+	private _parseInteractiveCommand(text: string) {
+		return parsePrefixedCommand(text, ":") ?? parsePrefixedCommand(text, "/");
+	}
+
 	private async _tryExecuteExtensionCommand(text: string): Promise<boolean> {
-		// Parse command name and args
-		const spaceIndex = text.indexOf(" ");
-		const commandName = spaceIndex === -1 ? text.slice(1) : text.slice(1, spaceIndex);
-		const args = spaceIndex === -1 ? "" : text.slice(spaceIndex + 1);
+		const parsed = this._parseInteractiveCommand(text);
+		if (!parsed) {
+			return false;
+		}
+
+		const commandName = parsed.name;
+		const args = parsed.args;
 
 		const command = this._extensionRunner.getCommand(commandName);
 		if (!command) return false;
@@ -1133,16 +1559,16 @@ export class AgentSession {
 	}
 
 	/**
-	 * Expand skill commands (/skill:name args) to their full content.
+	 * Expand skill commands (:skill:name args) to their full content.
 	 * Returns the expanded text, or the original text if not a skill command or skill not found.
 	 * Emits errors via extension runner if file read fails.
 	 */
 	private _expandSkillCommand(text: string): string {
-		if (!text.startsWith("/skill:")) return text;
+		const parsed = this._parseInteractiveCommand(text);
+		if (!parsed || !parsed.name.startsWith("skill:")) return text;
 
-		const spaceIndex = text.indexOf(" ");
-		const skillName = spaceIndex === -1 ? text.slice(7) : text.slice(7, spaceIndex);
-		const args = spaceIndex === -1 ? "" : text.slice(spaceIndex + 1).trim();
+		const skillName = parsed.name.slice("skill:".length);
+		const args = parsed.args.trim();
 
 		const skill = this.resourceLoader.getSkills().skills.find((s) => s.name === skillName);
 		if (!skill) return text; // Unknown skill, pass through
@@ -1173,13 +1599,13 @@ export class AgentSession {
 	 */
 	async steer(text: string, images?: ImageContent[]): Promise<void> {
 		// Check for extension commands (cannot be queued)
-		if (text.startsWith("/")) {
+		if (this._parseInteractiveCommand(text)) {
 			this._throwIfExtensionCommand(text);
 		}
 
 		// Expand skill commands and prompt templates
 		let expandedText = this._expandSkillCommand(text);
-		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
+		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates], [":", "/"]);
 
 		await this._queueSteer(expandedText, images);
 	}
@@ -1193,13 +1619,13 @@ export class AgentSession {
 	 */
 	async followUp(text: string, images?: ImageContent[]): Promise<void> {
 		// Check for extension commands (cannot be queued)
-		if (text.startsWith("/")) {
+		if (this._parseInteractiveCommand(text)) {
 			this._throwIfExtensionCommand(text);
 		}
 
 		// Expand skill commands and prompt templates
 		let expandedText = this._expandSkillCommand(text);
-		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
+		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates], [":", "/"]);
 
 		await this._queueFollowUp(expandedText, images);
 	}
@@ -1242,13 +1668,16 @@ export class AgentSession {
 	 * Throw an error if the text is an extension command.
 	 */
 	private _throwIfExtensionCommand(text: string): void {
-		const spaceIndex = text.indexOf(" ");
-		const commandName = spaceIndex === -1 ? text.slice(1) : text.slice(1, spaceIndex);
+		const parsed = this._parseInteractiveCommand(text);
+		if (!parsed) {
+			return;
+		}
+		const commandName = parsed.name;
 		const command = this._extensionRunner.getCommand(commandName);
 
 		if (command) {
 			throw new Error(
-				`Extension command "/${commandName}" cannot be queued. Use prompt() or execute the command when not streaming.`,
+				`Extension command ":${commandName}" cannot be queued. Use prompt() or execute the command when not streaming.`,
 			);
 		}
 	}
@@ -2194,6 +2623,7 @@ export class AgentSession {
 			},
 			{
 				getModel: () => this.model,
+				getPlatformContext: () => this.platform,
 				isIdle: () => !this.isStreaming,
 				getSignal: () => this.agent.signal,
 				abort: () => this.abort(),
@@ -2260,6 +2690,12 @@ export class AgentSession {
 			});
 		}
 		this._toolDefinitions = definitionRegistry;
+		this._actionRegistry = new PlatformActionRegistry();
+		this._actionRegistry.registerMany(
+			Array.from(definitionRegistry.values()).map(({ definition, sourceInfo }) =>
+				createPlatformActionInfoFromToolDefinition(definition, sourceInfo),
+			),
+		);
 		this._toolPromptSnippets = new Map(
 			Array.from(definitionRegistry.values())
 				.map(({ definition }) => {
@@ -2327,7 +2763,7 @@ export class AgentSession {
 		const autoResizeImages = this.settingsManager.getImageAutoResize();
 		const shellCommandPrefix = this.settingsManager.getShellCommandPrefix();
 		const shellPath = this.settingsManager.getShellPath();
-		const baseToolDefinitions = this._baseToolsOverride
+		const baseToolDefinitions: Record<string, ToolDefinition> = this._baseToolsOverride
 			? Object.fromEntries(
 					Object.entries(this._baseToolsOverride).map(([name, tool]) => [
 						name,
@@ -2338,6 +2774,20 @@ export class AgentSession {
 					read: { autoResizeImages },
 					bash: { commandPrefix: shellCommandPrefix, shellPath },
 				});
+
+		if (
+			this._role === "root" &&
+			this._supervisorManager &&
+			(this._agentDefinition?.capabilities.supervisor ?? true)
+		) {
+			baseToolDefinitions.supervisor = createSupervisorToolDefinition({
+				manager: this._supervisorManager,
+				discourse: this._discourse,
+				getCurrentDefinition: () => this._agentDefinition,
+				cwd: this._cwd,
+				role: this._role,
+			}) as ToolDefinition;
+		}
 
 		this._baseToolDefinitions = new Map(
 			Object.entries(baseToolDefinitions).map(([name, tool]) => [name, tool as ToolDefinition]),
@@ -2364,8 +2814,18 @@ export class AgentSession {
 		this._applyExtensionBindings(this._extensionRunner);
 
 		const defaultActiveToolNames = this._baseToolsOverride
-			? Object.keys(this._baseToolsOverride)
-			: ["symbol_outline", "file_read", "file_bash", "file_edit", "file_write"];
+			? [
+					...Object.keys(this._baseToolsOverride),
+					...(this._baseToolDefinitions.has("supervisor") ? ["supervisor"] : []),
+				]
+			: [
+					"symbol_outline",
+					"file_read",
+					"file_bash",
+					"file_edit",
+					"file_write",
+					...(this._baseToolDefinitions.has("supervisor") ? ["supervisor"] : []),
+				];
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
 		this._refreshToolRegistry({
 			activeToolNames: baseActiveToolNames,

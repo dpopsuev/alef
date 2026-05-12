@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **`@alef/web-ui`** are recorded here.
+All notable changes to **`@dpopsuev/alef-web-ui`** are recorded here.
 
 Release history before **[v0.0.1]** belongs to upstream **[Pi](https://github.com/earendil-works/pi-mono)** (`earendil-works/pi-mono`).
 
@@ -8,4 +8,4 @@ Release history before **[v0.0.1]** belongs to upstream **[Pi](https://github.co
 
 ### Changed
 
-- Initial **`@alef/web-ui`** release from the **[alef](https://github.com/dpopsuev/alef)** fork baseline.
+- Initial **`@dpopsuev/alef-web-ui`** release from the **[alef](https://github.com/dpopsuev/alef)** fork baseline.

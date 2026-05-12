@@ -29,31 +29,31 @@ The editor can be replaced temporarily by built-in UI such as `/settings` or by 
 
 See [Keybindings](keybindings.md) for all shortcuts and customization.
 
-## Slash Commands
+## Operator Commands
 
-Type `/` in the editor to open command completion. Extensions can register custom commands, skills are available as `/skill:name`, and prompt templates expand via `/templatename`.
+Type `:` in the editor to open operator command completion. Extensions can register custom commands, skills are available as `:skill:name`, and prompt templates expand via `:templatename`. `!` remains shell execution, `/` is reserved for filesystem paths, `@agent` targets an agent or alias, and `#board.forum.topic.thread` targets discourse addresses.
 
 | Command | Description |
 |---------|-------------|
-| `/login`, `/logout` | Manage OAuth or API-key credentials |
-| `/model` | Switch models |
-| `/scoped-models` | Enable/disable models for Ctrl+P cycling |
-| `/settings` | Thinking level, theme, message delivery, transport |
-| `/resume` | Pick from previous sessions |
-| `/new` | Start a new session |
-| `/name <name>` | Set session display name |
-| `/session` | Show session file, ID, messages, tokens, and cost |
-| `/tree` | Jump to any point in the session and continue from there |
-| `/fork` | Create a new session from a previous user message |
-| `/clone` | Duplicate the current active branch into a new session |
-| `/compact [prompt]` | Manually compact context, optionally with custom instructions |
-| `/copy` | Copy last assistant message to clipboard |
-| `/export [file]` | Export session to HTML |
-| `/share` | Upload as private GitHub gist with shareable HTML link |
-| `/reload` | Reload keybindings, extensions, skills, prompts, and context files |
-| `/hotkeys` | Show all keyboard shortcuts |
-| `/changelog` | Display version history |
-| `/quit` | Quit alef |
+| `:login`, `:logout` | Manage OAuth or API-key credentials |
+| `:model` | Switch models |
+| `:scoped-models` | Enable/disable models for Ctrl+P cycling |
+| `:settings` | Thinking level, theme, message delivery, transport |
+| `:resume` | Pick from previous sessions |
+| `:new` | Start a new session |
+| `:name <name>` | Set session display name |
+| `:session` | Show session file, ID, messages, tokens, and cost |
+| `:tree` | Jump to any point in the session and continue from there |
+| `:fork` | Create a new session from a previous user message |
+| `:clone` | Duplicate the current active branch into a new session |
+| `:compact [prompt]` | Manually compact context, optionally with custom instructions |
+| `:copy` | Copy last assistant message to clipboard |
+| `:export [file]` | Export session to HTML |
+| `:share` | Upload as private GitHub gist with shareable HTML link |
+| `:reload` | Reload keybindings, extensions, skills, prompts, and context files |
+| `:hotkeys` | Show all keyboard shortcuts |
+| `:changelog` | Display version history |
+| `:quit` | Quit alef |
 
 ## Message Queue
 
@@ -82,11 +82,11 @@ alef --fork <path|id>    # Fork a session into a new session file
 
 Useful session commands:
 
-- `/session` shows the current session file and ID.
-- `/tree` navigates the in-file session tree and can summarize abandoned branches.
-- `/fork` creates a new session from an earlier user message.
-- `/clone` duplicates the current active branch into a new session file.
-- `/compact` summarizes older messages to free context.
+- `:session` shows the current session file and ID.
+- `:tree` navigates the in-file session tree and can summarize abandoned branches.
+- `:fork` creates a new session from an earlier user message.
+- `:clone` duplicates the current active branch into a new session file.
+- `:compact` summarizes older messages to free context.
 
 See [Sessions](sessions.md) and [Compaction](compaction.md) for details.
 
@@ -111,9 +111,9 @@ Append to the default prompt without replacing it with `APPEND_SYSTEM.md` in eit
 
 ## Exporting and Sharing Sessions
 
-Use `/export [file]` to write a session to HTML.
+Use `:export [file]` to write a session to HTML.
 
-Use `/share` to upload a private GitHub gist with a shareable HTML link.
+Use `:share` to upload a private GitHub gist with a shareable HTML link.
 
 If you use pi for open source work and want to publish sessions for model, prompt, tool, and evaluation research, see [`badlogic/pi-share-hf`](https://github.com/badlogic/pi-share-hf). It publishes sessions to Hugging Face datasets.
 

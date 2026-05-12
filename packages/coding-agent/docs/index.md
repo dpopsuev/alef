@@ -16,7 +16,7 @@ Then run it in a project directory:
 alef
 ```
 
-Authenticate with `/login` for subscription providers, or set an API key such as `ANTHROPIC_API_KEY` before starting Alef.
+Authenticate with `:login` for subscription providers, or set an API key such as `ANTHROPIC_API_KEY` before starting Alef.
 
 ## Guides
 

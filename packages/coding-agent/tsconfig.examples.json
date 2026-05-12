@@ -3,10 +3,10 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"paths": {
-			"@alef/coding-agent": ["./src/index.ts"],
-			"@alef/coding-agent/hooks": ["./src/core/hooks/index.ts"],
-			"@alef/tui": ["../tui/src/index.ts"],
-			"@alef/ai": ["../ai/src/index.ts"],
+			"@dpopsuev/alef-coding-agent": ["./src/index.ts"],
+			"@dpopsuev/alef-coding-agent/hooks": ["./src/core/hooks/index.ts"],
+			"@dpopsuev/alef-tui": ["../tui/src/index.ts"],
+			"@dpopsuev/alef-ai": ["../ai/src/index.ts"],
 			"typebox": ["../../node_modules/typebox"]
 		},
 		"skipLibCheck": true

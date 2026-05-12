@@ -11,17 +11,19 @@
 
 # Alef Agent Harness Monorepo
 
-This repository contains the Alef coding agent CLI and supporting packages.
+This repository contains the Alef CLI app, runtime, blueprint, and supporting packages.
 
-* **[@alef/coding-agent](packages/coding-agent)**: Interactive coding agent CLI
-* **[@alef/agent-core](packages/agent)**: Agent runtime with tool calling and state management
-* **[@alef/ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
+* **[@dpopsuev/alef-agent-core](packages/agent)**: Agent runtime with tool calling and state management
+* **[@dpopsuev/alef-agent-runtime](packages/runtime)**: Session runtime, services, transports, and backend orchestration
+* **[@dpopsuev/alef-agent-blueprint](packages/blueprint)**: Declarative blueprints, organ mapping, and shipped YAML defaults
+* **[@dpopsuev/alef-coding-agent](packages/coding-agent)**: Interactive CLI/TUI app built on the runtime packages
+* **[@dpopsuev/alef-ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
 
 ## Attribution
 
 **Alef Agent** is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (the upstream Pi coding agent / terminal harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)). The upstream open-source tree is **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 
-This fork keeps Mario’s design and implementation as its foundation; it adds Alef branding (`@alef/*` packages, `alef` CLI, `pkg.alef` extensions) and fork-owned defaults (optional version checks and install pings only when you set `ALEF_LATEST_VERSION_URL` / `ALEF_REPORT_INSTALL_URL`). Use the upstream repository for the original project line; use **[dpopsuev/alef](https://github.com/dpopsuev/alef)** for Alef packaging and fork-specific issues.
+This fork keeps Mario’s design and implementation as its foundation; it adds Alef branding (`@dpopsuev/alef-*` packages, `alef` CLI, `pkg.alef` extensions) and fork-owned defaults (optional version checks and install pings only when you set `ALEF_LATEST_VERSION_URL` / `ALEF_REPORT_INSTALL_URL`). Use the upstream repository for the original project line; use **[dpopsuev/alef](https://github.com/dpopsuev/alef)** for Alef packaging and fork-specific issues.
 
 ## Share your OSS coding agent sessions
 
@@ -43,11 +45,13 @@ I regularly publish my own `pi-mono` work sessions here:
 
 | Package | Description |
 |---------|-------------|
-| **[@alef/ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[@alef/agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@alef/coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
-| **[@alef/tui](packages/tui)** | Terminal UI library with differential rendering |
-| **[@alef/web-ui](packages/web-ui)** | Web components for AI chat interfaces |
+| **[@dpopsuev/alef-ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
+| **[@dpopsuev/alef-agent-core](packages/agent)** | Agent runtime with tool calling and state management |
+| **[@dpopsuev/alef-agent-runtime](packages/runtime)** | Session runtime, services, transports, and backend orchestration |
+| **[@dpopsuev/alef-agent-blueprint](packages/blueprint)** | Declarative blueprints, organ mapping, and shipped YAML defaults |
+| **[@dpopsuev/alef-coding-agent](packages/coding-agent)** | Interactive CLI/TUI app built on the runtime packages |
+| **[@dpopsuev/alef-tui](packages/tui)** | Terminal UI library with differential rendering |
+| **[@dpopsuev/alef-web-ui](packages/web-ui)** | Web components for AI chat interfaces |
 
 For Slack/chat automation and workflows see [earendil-works/pi-chat](https://github.com/earendil-works/pi-chat).
 

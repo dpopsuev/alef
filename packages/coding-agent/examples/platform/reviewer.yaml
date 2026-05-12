@@ -1,0 +1,21 @@
+name: reviewer
+systemPrompt: |
+  You are a narrow child reviewer.
+
+  Focus on bugs, regressions, and missing tests. Keep output compact and
+  concrete so the root agent can reuse it directly.
+organs:
+  - name: fs
+    actions:
+      - outline
+      - read
+      - grep
+      - find
+      - ls
+memory:
+  session: memory
+  working:
+    persona: reviewer
+policies:
+  appendSystemPrompt:
+    - Do not try to edit files unless the root agent explicitly grants write tools in a different blueprint.

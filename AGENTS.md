@@ -30,7 +30,8 @@
 - When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
 - For `packages/coding-agent/test/suite/`, use `test/suite/harness.ts` plus the faux provider. Do not use real provider APIs, real API keys, or paid tokens.
 - Put issue-specific regressions under `packages/coding-agent/test/suite/regressions/` and name them `<issue-number>-<short-slug>.test.ts`.
-- NEVER commit unless user asks
+- Commit in small, coherent checkpoints during implementation work (one logical change per commit), unless the user explicitly asks you not to commit.
+- Use Conventional Commits for commit messages: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `build`, `ci`, `revert` (format: `type(scope): summary`).
 
 ## Contribution Gate
 

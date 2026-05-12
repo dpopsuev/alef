@@ -7,6 +7,9 @@ Example code for the Alef coding-agent SDK and extensions.
 ### [sdk/](sdk/)
 Programmatic usage via `createAgentSession()`. Shows how to customize models, prompts, tools, extensions, and session management.
 
+### [platform/](platform/)
+Minimal `agent.yaml` blueprints for the root/child platform path, including organ-based root and reviewer compositions plus the built-in supervisor path.
+
 ### [extensions/](extensions/)
 Example extensions demonstrating:
 - Lifecycle event handlers (tool interception, safety gates, context modifications)

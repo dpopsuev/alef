@@ -1,7 +1,7 @@
 {
 	"name": "@dpopsuev/alef-coding-agent",
 	"version": "0.0.1",
-	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
+	"description": "Alef CLI app with interactive TUI, package management, and runtime wiring",
 	"type": "module",
 	"alefConfig": {
 		"name": "alef",
@@ -40,7 +40,9 @@
 		"prepublishOnly": "npm run clean && npm run build"
 	},
 	"dependencies": {
+		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
 		"@dpopsuev/alef-agent-core": "^0.0.1",
+		"@dpopsuev/alef-agent-runtime": "^0.0.1",
 		"@dpopsuev/alef-ai": "^0.0.1",
 		"@dpopsuev/alef-tui": "^0.0.1",
 		"@silvia-odwyer/photon-node": "^0.3.4",

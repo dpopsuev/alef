@@ -1,6 +1,6 @@
 # Providers
 
-Pi supports subscription-based providers via OAuth and API key providers via environment variables or auth file. For each provider, pi knows all available models. The list is updated with every pi release.
+Alef supports subscription-based providers via OAuth and API key providers via environment variables or auth file. For each provider, alef knows all available models. The list is updated with every alef release.
 
 ## Table of Contents
 
@@ -201,7 +201,7 @@ AI Gateway authentication uses `CLOUDFLARE_API_KEY` as `cf-aig-authorization`. U
 | Stored BYOK | Cloudflare token only | Cloudflare injects provider keys stored in the AI Gateway dashboard |
 | Inline BYOK | Cloudflare token plus upstream `Authorization` header | The request supplies the upstream provider key |
 
-For normal pi usage, prefer unified billing or stored BYOK. Inline BYOK requires configuring an additional upstream `Authorization` header for the Cloudflare AI Gateway provider, for example via a `models.json` provider/model override.
+For normal alef usage, prefer unified billing or stored BYOK. Inline BYOK requires configuring an additional upstream `Authorization` header for the Cloudflare AI Gateway provider, for example via a `models.json` provider/model override.
 
 ### Cloudflare Workers AI
 
@@ -213,7 +213,7 @@ export CLOUDFLARE_ACCOUNT_ID=...
 alef --provider cloudflare-workers-ai --model "@cf/moonshotai/kimi-k2.6"
 ```
 
-Pi automatically sets `x-session-affinity` for [prefix caching](https://developers.cloudflare.com/workers-ai/features/prompt-caching/) discounts.
+Alef automatically sets `x-session-affinity` for [prefix caching](https://developers.cloudflare.com/workers-ai/features/prompt-caching/) discounts.
 
 ### Google Vertex AI
 
@@ -229,18 +229,17 @@ Or set `GOOGLE_APPLICATION_CREDENTIALS` to a service account key file.
 
 ### Anthropic Claude on Vertex AI (partner models)
 
-To bill Claude through **Google Cloud** instead of `api.anthropic.com` / `ANTHROPIC_API_KEY`, enable Vertex routing for **catalog `anthropic` models** (same model IDs as on Vertex, e.g. `claude-opus-4-7`). Requires [Vertex AI API](https://cloud.google.com/vertex-ai/docs/start/cloud-environment), partner model enablement in Model Garden, and Application Default Credentials.
+To bill Claude through **Google Cloud** instead of `api.anthropic.com` / `ANTHROPIC_API_KEY`, configure Vertex project and region for **catalog `anthropic` models** (same model IDs as on Vertex, e.g. `claude-opus-4-7`). Requires [Vertex AI API](https://cloud.google.com/vertex-ai/docs/start/cloud-environment), partner model enablement in Model Garden, and Application Default Credentials.
 
 ```bash
-export ALEF_ANTHROPIC_VERTEX=1
 export GOOGLE_CLOUD_PROJECT=your-project   # or ANTHROPIC_VERTEX_PROJECT_ID
-export CLOUD_ML_REGION=global             # or GOOGLE_CLOUD_LOCATION (see GCP docs for supported regions)
+export CLOUD_ML_REGION=global              # or GOOGLE_CLOUD_LOCATION (see GCP docs for supported regions)
 gcloud auth application-default login      # or GOOGLE_APPLICATION_CREDENTIALS for a service account
 ```
 
-Use **`ALEF_ANTHROPIC_VERTEX=1`** (or **`true`** / **`yes`**). You do **not** need **`ANTHROPIC_API_KEY`** when Vertex routing is active—GCP ADC provides auth. Remove `anthropic` API keys from the environment or `auth.json` if you rely solely on Vertex billing.
+When Vertex project and region are configured, alef automatically routes catalog **`anthropic`** models through Vertex. You do **not** need **`ANTHROPIC_API_KEY`** when Vertex routing is active—GCP ADC provides auth. Remove `anthropic` API keys from the environment or `auth.json` if you rely solely on Vertex billing.
 
-If you still have Claude subscription OAuth or API credentials configured, **`ALEF_ANTHROPIC_VERTEX` forces Vertex** for catalog **`anthropic`** models so traffic does not go to `api.anthropic.com`.
+If you still have Claude subscription OAuth or API credentials configured, Vertex still wins for catalog **`anthropic`** models whenever the Vertex env is present, so traffic does not go to `api.anthropic.com`.
 
 Does **not** apply to GitHub Copilot or Cloudflare AI Gateway Anthropic routes.
 

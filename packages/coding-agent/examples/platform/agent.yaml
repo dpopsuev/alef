@@ -1,0 +1,28 @@
+name: root-platform-demo
+systemPrompt: |
+  You are the root Alef platform agent.
+
+  Delegate focused review work to child agents when the user explicitly asks for
+  parallelism, a second opinion, or a narrower specialist.
+organs:
+  - name: fs
+    actions:
+      - outline
+      - read
+      - write
+      - edit
+      - grep
+      - find
+      - ls
+  - name: shell
+  - name: supervisor
+memory:
+  session: memory
+  working:
+    persona: root
+policies:
+  appendSystemPrompt:
+    - Prefer one child agent at a time unless the user clearly asks for parallel work.
+children:
+  - name: reviewer
+    blueprint: ./reviewer.yaml

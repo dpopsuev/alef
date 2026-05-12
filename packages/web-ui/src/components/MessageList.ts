@@ -1,5 +1,8 @@
-import type { AgentMessage, AgentTool } from "@alef/agent-core";
-import type { AssistantMessage as AssistantMessageType, ToolResultMessage as ToolResultMessageType } from "@alef/ai";
+import type { AgentMessage, AgentTool } from "@dpopsuev/alef-agent-core";
+import type {
+	AssistantMessage as AssistantMessageType,
+	ToolResultMessage as ToolResultMessageType,
+} from "@dpopsuev/alef-ai";
 import { html, LitElement, type TemplateResult } from "lit";
 import { property } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";

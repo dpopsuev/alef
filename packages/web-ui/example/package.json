@@ -11,8 +11,8 @@
     "clean": "shx rm -rf dist"
   },
   "dependencies": {
-    "@alef/ai": "file:../../ai",
-    "@alef/web-ui": "file:../",
+    "@dpopsuev/alef-ai": "file:../../ai",
+    "@dpopsuev/alef-web-ui": "file:../",
     "@mariozechner/mini-lit": "^0.2.0",
     "@tailwindcss/vite": "^4.1.17",
     "lit": "^3.3.1",

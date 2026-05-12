@@ -5,10 +5,10 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
     "paths": {
-      "@alef/ai": ["../ai/src/index.ts"],
-      "@alef/ai/oauth": ["../ai/src/oauth.ts"],
-      "@alef/agent-core": ["../agent/src/index.ts"],
-      "@alef/tui": ["../tui/src/index.ts"]
+      "@dpopsuev/alef-ai": ["../ai/src/index.ts"],
+      "@dpopsuev/alef-ai/oauth": ["../ai/src/oauth.ts"],
+      "@dpopsuev/alef-agent-core": ["../agent/src/index.ts"],
+      "@dpopsuev/alef-tui": ["../tui/src/index.ts"]
     }
   },
   "include": ["src/**/*"]

@@ -641,7 +641,7 @@ export class Editor implements Component, Focusable {
 					this.state.cursorLine = result.cursorLine;
 					this.setCursorCol(result.cursorCol);
 
-					if (this.autocompletePrefix.startsWith("/")) {
+					if (this.autocompletePrefix.startsWith(":")) {
 						this.cancelAutocomplete();
 						// Fall through to submit
 					} else {
@@ -1050,8 +1050,8 @@ export class Editor implements Component, Focusable {
 
 		// Check if we should trigger or update autocomplete
 		if (!this.autocompleteState) {
-			// Auto-trigger for "/" at the start of a line (slash commands)
-			if (char === "/" && this.isAtStartOfMessage()) {
+			// Auto-trigger for ":" at the start of a line (operator commands)
+			if (char === ":" && this.isAtStartOfMessage()) {
 				this.tryTriggerAutocomplete();
 			}
 			// Auto-trigger for symbol-based completion like @ or # at token boundaries
@@ -1063,12 +1063,12 @@ export class Editor implements Component, Focusable {
 					this.tryTriggerAutocomplete();
 				}
 			}
-			// Also auto-trigger when typing letters in a slash command or symbol completion context
+			// Also auto-trigger when typing letters in an operator-command or symbol completion context
 			else if (/[a-zA-Z0-9.\-_]/.test(char)) {
 				const currentLine = this.state.lines[this.state.cursorLine] || "";
 				const textBeforeCursor = currentLine.slice(0, this.state.cursorCol);
-				// Check if we're in a slash command (with or without space for arguments)
-				if (this.isInSlashCommandContext(textBeforeCursor)) {
+				// Check if we're in an operator command (with or without space for arguments)
+				if (this.isInOperatorCommandContext(textBeforeCursor)) {
 					this.tryTriggerAutocomplete();
 				}
 				// Check if we're in a symbol-based completion context like @ or #
@@ -1247,8 +1247,8 @@ export class Editor implements Component, Focusable {
 			// If autocomplete was cancelled (no matches), re-trigger if we're in a completable context
 			const currentLine = this.state.lines[this.state.cursorLine] || "";
 			const textBeforeCursor = currentLine.slice(0, this.state.cursorCol);
-			// Slash command context
-			if (this.isInSlashCommandContext(textBeforeCursor)) {
+			// Operator command context
+			if (this.isInOperatorCommandContext(textBeforeCursor)) {
 				this.tryTriggerAutocomplete();
 			}
 			// Symbol-based completion context like @ or #
@@ -1611,8 +1611,8 @@ export class Editor implements Component, Focusable {
 		} else {
 			const currentLine = this.state.lines[this.state.cursorLine] || "";
 			const textBeforeCursor = currentLine.slice(0, this.state.cursorCol);
-			// Slash command context
-			if (this.isInSlashCommandContext(textBeforeCursor)) {
+			// Operator command context
+			if (this.isInOperatorCommandContext(textBeforeCursor)) {
 				this.tryTriggerAutocomplete();
 			}
 			// Symbol-based completion context like @ or #
@@ -2035,21 +2035,21 @@ export class Editor implements Component, Focusable {
 		this.setCursorCol(newCol);
 	}
 
-	// Slash menu only allowed on the first line of the editor
-	private isSlashMenuAllowed(): boolean {
+	// Operator command menu only allowed on the first line of the editor
+	private isOperatorMenuAllowed(): boolean {
 		return this.state.cursorLine === 0;
 	}
 
-	// Helper method to check if cursor is at start of message (for slash command detection)
+	// Helper method to check if cursor is at start of message (for operator command detection)
 	private isAtStartOfMessage(): boolean {
-		if (!this.isSlashMenuAllowed()) return false;
+		if (!this.isOperatorMenuAllowed()) return false;
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
 		const beforeCursor = currentLine.slice(0, this.state.cursorCol);
-		return beforeCursor.trim() === "" || beforeCursor.trim() === "/";
+		return beforeCursor.trim() === "" || beforeCursor.trim() === ":";
 	}
 
-	private isInSlashCommandContext(textBeforeCursor: string): boolean {
-		return this.isSlashMenuAllowed() && textBeforeCursor.trimStart().startsWith("/");
+	private isInOperatorCommandContext(textBeforeCursor: string): boolean {
+		return this.isOperatorMenuAllowed() && textBeforeCursor.trimStart().startsWith(":");
 	}
 
 	// Autocomplete methods
@@ -2086,7 +2086,7 @@ export class Editor implements Component, Focusable {
 		prefix: string,
 		items: Array<{ value: string; label: string; description?: string }>,
 	): SelectList {
-		const layout = prefix.startsWith("/") ? SLASH_COMMAND_SELECT_LIST_LAYOUT : undefined;
+		const layout = prefix.startsWith(":") ? SLASH_COMMAND_SELECT_LIST_LAYOUT : undefined;
 		return new SelectList(items, this.autocompleteMaxVisible, this.theme.selectList, layout);
 	}
 
@@ -2100,14 +2100,14 @@ export class Editor implements Component, Focusable {
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
 		const beforeCursor = currentLine.slice(0, this.state.cursorCol);
 
-		if (this.isInSlashCommandContext(beforeCursor) && !beforeCursor.trimStart().includes(" ")) {
-			this.handleSlashCommandCompletion();
+		if (this.isInOperatorCommandContext(beforeCursor) && !beforeCursor.trimStart().includes(" ")) {
+			this.handleOperatorCommandCompletion();
 		} else {
 			this.forceFileAutocomplete(true);
 		}
 	}
 
-	private handleSlashCommandCompletion(): void {
+	private handleOperatorCommandCompletion(): void {
 		this.requestAutocomplete({ force: false, explicitTab: true });
 	}
 

@@ -4,6 +4,8 @@ import { homedir } from "os";
 import { dirname, join } from "path";
 import lockfile from "proper-lockfile";
 import { CONFIG_DIR_NAME, getAgentDir } from "../config.js";
+import type { BootstrapState } from "./bootstrap/types.js";
+import type { UpsertBudgetPolicyRequest } from "./platform/types.js";
 
 export interface CompactionSettings {
 	enabled?: boolean; // default: true
@@ -77,7 +79,9 @@ export interface Settings {
 	lastChangelogVersion?: string;
 	defaultProvider?: string;
 	defaultModel?: string;
+	defaultBlueprint?: string;
 	defaultThinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+	bootstrap?: BootstrapState;
 	transport?: TransportSetting; // default: "auto"
 	steeringMode?: "all" | "one-at-a-time";
 	followUpMode?: "all" | "one-at-a-time";
@@ -97,13 +101,14 @@ export interface Settings {
 	skills?: string[]; // Array of local skill file paths or directories
 	prompts?: string[]; // Array of local prompt template paths or directories
 	themes?: string[]; // Array of local theme file paths or directories
-	enableSkillCommands?: boolean; // default: true - register skills as /skill:name commands
+	enableSkillCommands?: boolean; // default: true - register skills as :skill:name commands
 	terminal?: TerminalSettings;
 	images?: ImageSettings;
 	enabledModels?: string[]; // Model patterns for cycling (same format as --models CLI flag)
 	doubleEscapeAction?: "fork" | "tree" | "none"; // Action for double-escape with empty editor (default: "tree")
 	treeFilterMode?: "default" | "no-tools" | "user-only" | "labeled-only" | "all"; // Default filter when opening /tree
 	thinkingBudgets?: ThinkingBudgetsSettings; // Custom token budgets for thinking levels
+	burnBudgets?: UpsertBudgetPolicyRequest[]; // Durable token burn policy requests
 	editorPaddingX?: number; // Horizontal padding for input editor (default: 0)
 	autocompleteMaxVisible?: number; // Max visible items in autocomplete dropdown (default: 5)
 	showHardwareCursor?: boolean; // Show terminal cursor while still positioning it for IME
@@ -595,6 +600,14 @@ export class SettingsManager {
 		return this.settings.defaultModel;
 	}
 
+	getDefaultBlueprint(): string | undefined {
+		return this.settings.defaultBlueprint;
+	}
+
+	getBootstrapState(): BootstrapState | undefined {
+		return this.settings.bootstrap ? structuredClone(this.settings.bootstrap) : undefined;
+	}
+
 	setDefaultProvider(provider: string): void {
 		this.globalSettings.defaultProvider = provider;
 		this.markModified("defaultProvider");
@@ -612,6 +625,18 @@ export class SettingsManager {
 		this.globalSettings.defaultModel = modelId;
 		this.markModified("defaultProvider");
 		this.markModified("defaultModel");
+		this.save();
+	}
+
+	setDefaultBlueprint(blueprintPath: string | undefined): void {
+		this.globalSettings.defaultBlueprint = blueprintPath;
+		this.markModified("defaultBlueprint");
+		this.save();
+	}
+
+	setBootstrapState(bootstrap: BootstrapState | undefined): void {
+		this.globalSettings.bootstrap = bootstrap ? structuredClone(bootstrap) : undefined;
+		this.markModified("bootstrap");
 		this.save();
 	}
 
@@ -901,6 +926,16 @@ export class SettingsManager {
 
 	getThinkingBudgets(): ThinkingBudgetsSettings | undefined {
 		return this.settings.thinkingBudgets;
+	}
+
+	getBurnBudgets(): UpsertBudgetPolicyRequest[] {
+		return structuredClone(this.settings.burnBudgets ?? []);
+	}
+
+	setBurnBudgets(policies: UpsertBudgetPolicyRequest[]): void {
+		this.globalSettings.burnBudgets = structuredClone(policies);
+		this.markModified("burnBudgets");
+		this.save();
 	}
 
 	getShowImages(): boolean {

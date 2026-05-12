@@ -20,8 +20,16 @@ export type {
 } from "./runner.js";
 export { ExtensionRunner } from "./runner.js";
 export type {
+	ActionCallEvent,
+	ActionCallEventResult,
+	ActionExecutionEndEvent,
+	ActionExecutionStartEvent,
+	ActionExecutionUpdateEvent,
+	ActionResultEvent,
+	ActionResultEventResult,
 	AfterProviderResponseEvent,
 	AgentEndEvent,
+	AgentPlatformContext,
 	AgentStartEvent,
 	// Re-exports
 	AgentToolResult,
@@ -84,6 +92,7 @@ export type {
 	InputEvent,
 	InputEventResult,
 	InputSource,
+	InteractiveExtensionAPI,
 	KeybindingsManager,
 	LoadExtensionsResult,
 	LsToolCallEvent,
@@ -97,6 +106,10 @@ export type {
 	MessageUpdateEvent,
 	ModelSelectEvent,
 	ModelSelectSource,
+	PlatformActionInfo,
+	PlatformActionSource,
+	PlatformExtensionAPI,
+	PlatformExtensionContext,
 	// Provider Registration
 	ProviderConfig,
 	ProviderModelConfig,

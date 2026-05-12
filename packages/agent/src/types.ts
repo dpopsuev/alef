@@ -328,10 +328,74 @@ export interface AgentToolResult<T> {
 /** Callback used by tools to stream partial execution updates. */
 export type AgentToolUpdateCallback<T = any> = (partialResult: AgentToolResult<T>) => void;
 
+/** High-level capability kind for runtime actions. */
+export type AgentCapabilityKind = "tool" | "memory" | "session" | "model" | "supervisor";
+
+/** Where a capability can be exposed in the runtime hierarchy. */
+export type AgentCapabilityAvailability = "root" | "child" | "shared";
+
+/**
+ * Metadata for a runtime action.
+ *
+ * Alef still executes LLM-triggered work as tools, but this metadata lets higher
+ * layers treat tool, memory, and supervisor operations as one action model.
+ */
+export interface AgentActionMetadata {
+	kind: AgentCapabilityKind;
+	capability?: string;
+	availability?: AgentCapabilityAvailability;
+	description?: string;
+}
+
+/** General action definition used by platform runtimes built on top of the agent loop. */
+export interface AgentActionDefinition<TParameters extends TSchema = TSchema, TDetails = any>
+	extends Tool<TParameters> {
+	/** Human-readable label for UI display. */
+	label: string;
+	/** Action metadata for capability-aware runtimes. */
+	action: AgentActionMetadata;
+	/**
+	 * Optional compatibility shim for raw action arguments before schema validation.
+	 * Must return an object that matches `TParameters`.
+	 */
+	prepareArguments?: (args: unknown) => Static<TParameters>;
+	/** Execute the action. Throw on failure instead of encoding errors in `content`. */
+	execute: (
+		toolCallId: string,
+		params: Static<TParameters>,
+		signal?: AbortSignal,
+		onUpdate?: AgentToolUpdateCallback<TDetails>,
+	) => Promise<AgentToolResult<TDetails>>;
+	/**
+	 * Per-action execution mode override.
+	 * - "sequential": this action must execute one at a time with other actions.
+	 * - "parallel": this action can execute concurrently with other actions.
+	 *
+	 * If omitted, the default execution mode applies.
+	 */
+	executionMode?: ToolExecutionMode;
+}
+
+export type AgentAction<TParameters extends TSchema = TSchema, TDetails = any> = AgentActionDefinition<
+	TParameters,
+	TDetails
+>;
+
+/** Named capability bundle composed of one or more actions. */
+export interface AgentCapabilityDefinition {
+	name: string;
+	kind: AgentCapabilityKind;
+	description?: string;
+	availability?: AgentCapabilityAvailability;
+	actions: AgentAction[];
+}
+
 /** Tool definition used by the agent runtime. */
 export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any> extends Tool<TParameters> {
 	/** Human-readable label for UI display. */
 	label: string;
+	/** Optional action metadata so higher layers can treat tools as generic runtime actions. */
+	action?: AgentActionMetadata;
 	/**
 	 * Optional compatibility shim for raw tool-call arguments before schema validation.
 	 * Must return an object that matches `TParameters`.

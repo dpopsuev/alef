@@ -1,7 +1,7 @@
 import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } from "node:path";
-import type { AgentTool } from "@alef/agent-core";
-import type { Api, ImageContent, Model, TextContent } from "@alef/ai";
-import { Text } from "@alef/tui";
+import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import type { Api, ImageContent, Model, TextContent } from "@dpopsuev/alef-ai";
+import { Text } from "@dpopsuev/alef-tui";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile } from "fs/promises";
 import { type Static, Type } from "typebox";
@@ -98,7 +98,7 @@ function toPosixPath(filePath: string): string {
 	return filePath.split(sep).join("/");
 }
 
-function getAlfDocsClassification(absolutePath: string): CompactReadClassification | undefined {
+function getAlefDocsClassification(absolutePath: string): CompactReadClassification | undefined {
 	const packageRoot = dirname(getReadmePath());
 	const relativePath = relative(resolvePath(packageRoot), resolvePath(absolutePath));
 	if (
@@ -130,7 +130,7 @@ function getCompactReadClassification(
 		return { kind: "skill", label: basename(dirname(absolutePath)) || fileName };
 	}
 
-	const docsClassification = getAlfDocsClassification(absolutePath);
+	const docsClassification = getAlefDocsClassification(absolutePath);
 	if (docsClassification) return docsClassification;
 
 	if (COMPACT_RESOURCE_FILE_NAMES.has(fileName)) {

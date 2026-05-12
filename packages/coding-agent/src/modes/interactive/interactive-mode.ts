@@ -62,6 +62,21 @@ import {
 import { type AgentSessionEvent, parseSkillBlock } from "../../core/agent-session.js";
 import { type AgentSessionRuntime, SessionImportFileNotFoundError } from "../../core/agent-session-runtime.js";
 import type { AgentTransport } from "../../core/agent-transport.js";
+import {
+	type BootstrapHostProbe,
+	type BootstrapOpenAICompatibleEndpoint,
+	type BootstrapOutcome,
+	type BootstrapPolicyDecision,
+	type BootstrapState,
+	buildBootstrapLocalProviderSelection,
+	decideBootstrapPolicy,
+	ensureBootstrapBlueprints,
+	type MaterializedBootstrapBlueprint,
+	pickBootstrapModelId,
+	probeHostBootstrapEnvironment,
+	recommendLocalBootstrapModelId,
+	upsertBootstrapLocalProviderConfig,
+} from "../../core/bootstrap/index.js";
 import type {
 	AutocompleteProviderFactory,
 	EditorFactory,
@@ -82,8 +97,8 @@ import { BUILT_IN_PROVIDER_DISPLAY_NAMES } from "../../core/provider-display-nam
 import type { ResourceDiagnostic } from "../../core/resource-loader.js";
 import { formatMissingSessionCwdPrompt, MissingSessionCwdError } from "../../core/session-cwd.js";
 import { type SessionContext, SessionManager } from "../../core/session-manager.js";
-import { BUILTIN_SLASH_COMMANDS } from "../../core/slash-commands.js";
 import type { SourceInfo } from "../../core/source-info.js";
+import { BUILTIN_OPERATOR_COMMANDS, parsePrefixedCommand, parseSymbolicInput } from "../../core/symbolic-commands.js";
 import { isInstallTelemetryEnabled } from "../../core/telemetry.js";
 import type { TruncationResult } from "../../core/tools/truncate.js";
 import { getAlefUserAgent } from "../../utils/alef-user-agent.js";
@@ -115,6 +130,7 @@ import { formatKeyText, keyDisplayText, keyHint, keyText, rawKeyHint } from "./c
 import { LoginDialogComponent } from "./components/login-dialog.js";
 import { ModelSelectorComponent } from "./components/model-selector.js";
 import { type AuthSelectorProvider, OAuthSelectorComponent } from "./components/oauth-selector.js";
+import { ReviewBoardComponent } from "./components/review-board.js";
 import { ScopedModelsSelectorComponent } from "./components/scoped-models-selector.js";
 import { SessionSelectorComponent } from "./components/session-selector.js";
 import { SettingsSelectorComponent } from "./components/settings-selector.js";
@@ -462,7 +478,7 @@ export class InteractiveMode {
 	}
 
 	private getBuiltInCommandConflictDiagnostics(extensionRunner: ExtensionRunner): ResourceDiagnostic[] {
-		const builtinNames = new Set(BUILTIN_SLASH_COMMANDS.map((command) => command.name));
+		const builtinNames = new Set(BUILTIN_OPERATOR_COMMANDS.map((command) => command.name));
 		return extensionRunner
 			.getRegisteredCommands()
 			.filter((command) => builtinNames.has(command.name))
@@ -470,15 +486,15 @@ export class InteractiveMode {
 				type: "warning" as const,
 				message:
 					command.invocationName === command.name
-						? `Extension command '/${command.name}' conflicts with built-in interactive command. Skipping in autocomplete.`
-						: `Extension command '/${command.name}' conflicts with built-in interactive command. Available as '/${command.invocationName}'.`,
+						? `Extension command ':${command.name}' conflicts with built-in interactive command. Skipping in autocomplete.`
+						: `Extension command ':${command.name}' conflicts with built-in interactive command. Available as ':${command.invocationName}'.`,
 				path: command.sourceInfo.path,
 			}));
 	}
 
 	private createBaseAutocompleteProvider(): AutocompleteProvider {
 		// Define commands for autocomplete
-		const slashCommands: SlashCommand[] = BUILTIN_SLASH_COMMANDS.map((command) => ({
+		const slashCommands: SlashCommand[] = BUILTIN_OPERATOR_COMMANDS.map((command) => ({
 			name: command.name,
 			description: command.description,
 		}));
@@ -583,7 +599,7 @@ export class InteractiveMode {
 		if (this.settingsManager.getCollapseChangelog()) {
 			const versionMatch = this.changelogMarkdown.match(/##\s+\[?(\d+\.\d+\.\d+)\]?/);
 			const latestVersion = versionMatch ? versionMatch[1] : this.version;
-			const condensedText = `Updated to v${latestVersion}. Use ${theme.bold("/changelog")} to view full changelog.`;
+			const condensedText = `Updated to v${latestVersion}. Use ${theme.bold(":changelog")} to view full changelog.`;
 			this.chatContainer.addChild(new Text(condensedText, 1, 0));
 		} else {
 			this.chatContainer.addChild(new Text(theme.bold(theme.fg("accent", "What's New")), 1, 0));
@@ -632,19 +648,22 @@ export class InteractiveMode {
 				hint("app.tools.expand", "to expand tools"),
 				hint("app.thinking.toggle", "to expand thinking"),
 				hint("app.editor.external", "for external editor"),
-				rawKeyHint("/", "for commands"),
+				rawKeyHint(":", "for commands"),
 				rawKeyHint("!", "to run bash"),
 				rawKeyHint("!!", "to run bash (no context)"),
+				rawKeyHint("/", "for filesystem paths"),
+				rawKeyHint("@", "for agents"),
+				rawKeyHint("#", "for discourse"),
 				hint("app.message.followUp", "to queue follow-up"),
 				hint("app.message.dequeue", "to edit all queued messages"),
 				hint("app.clipboard.pasteImage", "to paste image"),
-				rawKeyHint("drop files", "to attach"),
 			].join("\n");
 			const compactInstructions = [
 				hint("app.interrupt", "interrupt"),
 				rawKeyHint(`${keyText("app.clear")}/${keyText("app.exit")}`, "clear/exit"),
-				rawKeyHint("/", "commands"),
+				rawKeyHint(":", "commands"),
 				rawKeyHint("!", "bash"),
+				rawKeyHint("/", "paths"),
 				hint("app.tools.expand", "more"),
 			].join(theme.fg("muted", " · "));
 			const compactOnboarding = theme.fg(
@@ -731,6 +750,7 @@ export class InteractiveMode {
 	 */
 	async run(): Promise<void> {
 		await this.init();
+		await this.maybeRunBootstrapCoolstart();
 
 		// Start version check asynchronously
 		checkForNewRelease(this.version).then((newVersion) => {
@@ -1662,6 +1682,7 @@ export class InteractiveMode {
 			sessionManager: this.sessionManager,
 			modelRegistry: this.session.modelRegistry,
 			model: this.session.model,
+			platform: this.session.platform,
 			isIdle: () => !this.session.isStreaming,
 			signal: this.session.agent.signal,
 			abort: () => this.session.abort(),
@@ -2411,7 +2432,7 @@ export class InteractiveMode {
 				this.isBashMode = false;
 				this.updateEditorBorderColor();
 			} else if (!this.editor.getText().trim()) {
-				// Double-escape with empty editor triggers /tree, /fork, or nothing based on setting
+				// Double-escape with empty editor triggers :tree, :fork, or nothing based on setting
 				const action = this.settingsManager.getDoubleEscapeAction();
 				if (action !== "none") {
 					const now = Date.now();
@@ -2491,146 +2512,26 @@ export class InteractiveMode {
 			text = text.trim();
 			if (!text) return;
 
-			// Handle commands
-			if (text === "/settings") {
-				this.showSettingsSelector();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/scoped-models") {
-				this.editor.setText("");
-				await this.showModelsSelector();
-				return;
-			}
-			if (text === "/model" || text.startsWith("/model ")) {
-				const searchTerm = text.startsWith("/model ") ? text.slice(7).trim() : undefined;
-				this.editor.setText("");
-				await this.handleModelCommand(searchTerm);
-				return;
-			}
-			if (text === "/export" || text.startsWith("/export ")) {
-				await this.handleExportCommand(text);
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/import" || text.startsWith("/import ")) {
-				await this.handleImportCommand(text);
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/share") {
-				await this.handleShareCommand();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/copy") {
-				await this.handleCopyCommand();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/name" || text.startsWith("/name ")) {
-				this.handleNameCommand(text);
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/session") {
-				this.handleSessionCommand();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/changelog") {
-				this.handleChangelogCommand();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/hotkeys") {
-				this.handleHotkeysCommand();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/fork") {
-				this.showUserMessageSelector();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/clone") {
-				this.editor.setText("");
-				await this.handleCloneCommand();
-				return;
-			}
-			if (text === "/tree") {
-				this.showTreeSelector();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/login") {
-				this.showOAuthSelector("login");
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/logout") {
-				this.showOAuthSelector("logout");
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/new") {
-				this.editor.setText("");
-				await this.handleClearCommand();
-				return;
-			}
-			if (text === "/compact" || text.startsWith("/compact ")) {
-				const customInstructions = text.startsWith("/compact ") ? text.slice(9).trim() : undefined;
-				this.editor.setText("");
-				await this.handleCompactCommand(customInstructions);
-				return;
-			}
-			if (text === "/reload") {
-				this.editor.setText("");
-				await this.handleReloadCommand();
-				return;
-			}
-			if (text === "/debug") {
-				this.handleDebugCommand();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/arminsayshi") {
-				this.handleArminSaysHi();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/dementedelves") {
-				this.handleDementedDelves();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/resume") {
-				this.showSessionSelector();
-				this.editor.setText("");
-				return;
-			}
-			if (text === "/quit") {
-				this.editor.setText("");
-				await this.shutdown();
-				return;
-			}
-
-			// Handle bash command (! for normal, !! for excluded from context)
-			if (text.startsWith("!")) {
-				const isExcluded = text.startsWith("!!");
-				const command = isExcluded ? text.slice(2).trim() : text.slice(1).trim();
-				if (command) {
-					if (this.session.isBashRunning) {
-						this.showWarning("A bash command is already running. Press Esc to cancel it first.");
-						this.editor.setText(text);
-						return;
-					}
-					this.editor.addToHistory?.(text);
-					await this.handleBashCommand(command, isExcluded);
-					this.isBashMode = false;
-					this.updateEditorBorderColor();
+			const parsedInput = parseSymbolicInput(text, {
+				legacyCommandNames: BUILTIN_OPERATOR_COMMANDS.map((command) => command.name),
+			});
+			if (parsedInput.kind === "operator_command" || parsedInput.kind === "legacy_slash_command") {
+				if (await this.handleOperatorCommandSubmission(parsedInput.name, parsedInput.args)) {
 					return;
 				}
+			}
+
+			if (parsedInput.kind === "shell" && parsedInput.command) {
+				if (this.session.isBashRunning) {
+					this.showWarning("A bash command is already running. Press Esc to cancel it first.");
+					this.editor.setText(text);
+					return;
+				}
+				this.editor.addToHistory?.(text);
+				await this.handleBashCommand(parsedInput.command, parsedInput.excludeFromContext);
+				this.isBashMode = false;
+				this.updateEditorBorderColor();
+				return;
 			}
 
 			// Queue input during compaction (extension commands execute immediately)
@@ -2665,6 +2566,119 @@ export class InteractiveMode {
 			}
 			this.editor.addToHistory?.(text);
 		};
+	}
+
+	private async handleOperatorCommandSubmission(name: string, args: string): Promise<boolean> {
+		const trimmedArgs = args.trim();
+		switch (name) {
+			case "settings":
+				this.showSettingsSelector();
+				this.editor.setText("");
+				return true;
+			case "scoped-models":
+				this.editor.setText("");
+				await this.showModelsSelector();
+				return true;
+			case "model":
+				this.editor.setText("");
+				await this.handleModelCommand(trimmedArgs || undefined);
+				return true;
+			case "export":
+				await this.handleExportCommand(trimmedArgs);
+				this.editor.setText("");
+				return true;
+			case "import":
+				await this.handleImportCommand(trimmedArgs);
+				this.editor.setText("");
+				return true;
+			case "share":
+				await this.handleShareCommand();
+				this.editor.setText("");
+				return true;
+			case "copy":
+				await this.handleCopyCommand();
+				this.editor.setText("");
+				return true;
+			case "name":
+				this.handleNameCommand(trimmedArgs);
+				this.editor.setText("");
+				return true;
+			case "session":
+				this.handleSessionCommand();
+				this.editor.setText("");
+				return true;
+			case "changelog":
+				this.handleChangelogCommand();
+				this.editor.setText("");
+				return true;
+			case "hotkeys":
+				this.handleHotkeysCommand();
+				this.editor.setText("");
+				return true;
+			case "fork":
+				this.showUserMessageSelector();
+				this.editor.setText("");
+				return true;
+			case "clone":
+				this.editor.setText("");
+				await this.handleCloneCommand();
+				return true;
+			case "tree":
+				this.showTreeSelector();
+				this.editor.setText("");
+				return true;
+			case "review":
+				this.editor.setText("");
+				await this.handleReviewCommand();
+				return true;
+			case "login":
+				this.showOAuthSelector("login");
+				this.editor.setText("");
+				return true;
+			case "logout":
+				this.showOAuthSelector("logout");
+				this.editor.setText("");
+				return true;
+			case "bootstrap":
+			case "coolstart":
+				this.editor.setText("");
+				await this.runBootstrapCoolstart({ force: true });
+				return true;
+			case "new":
+				this.editor.setText("");
+				await this.handleClearCommand();
+				return true;
+			case "compact":
+				this.editor.setText("");
+				await this.handleCompactCommand(trimmedArgs || undefined);
+				return true;
+			case "reload":
+				this.editor.setText("");
+				await this.handleReloadCommand();
+				return true;
+			case "debug":
+				this.handleDebugCommand();
+				this.editor.setText("");
+				return true;
+			case "arminsayshi":
+				this.handleArminSaysHi();
+				this.editor.setText("");
+				return true;
+			case "dementedelves":
+				this.handleDementedDelves();
+				this.editor.setText("");
+				return true;
+			case "resume":
+				this.showSessionSelector();
+				this.editor.setText("");
+				return true;
+			case "quit":
+				this.editor.setText("");
+				await this.shutdown();
+				return true;
+			default:
+				return false;
+		}
 	}
 
 	private subscribeToAgent(): void {
@@ -3717,13 +3731,12 @@ export class InteractiveMode {
 	}
 
 	private isExtensionCommand(text: string): boolean {
-		if (!text.startsWith("/")) return false;
+		const parsed = parsePrefixedCommand(text, ":") ?? parsePrefixedCommand(text, "/");
+		if (!parsed) {
+			return false;
+		}
 
-		const extensionRunner = this.session.extensionRunner;
-
-		const spaceIndex = text.indexOf(" ");
-		const commandName = spaceIndex === -1 ? text.slice(1) : text.slice(1, spaceIndex);
-		return !!extensionRunner.getCommand(commandName);
+		return !!this.session.extensionRunner.getCommand(parsed.name);
 	}
 
 	private async flushCompactionQueue(options?: { willRetry?: boolean }): Promise<void> {
@@ -4370,6 +4383,84 @@ export class InteractiveMode {
 		});
 	}
 
+	private async handleReviewCommand(): Promise<void> {
+		let documents: ReturnType<typeof this.session.platform.review.listDocuments>;
+		try {
+			documents = this.session.platform.review.listDocuments();
+		} catch (error) {
+			this.showError(error instanceof Error ? error.message : String(error));
+			return;
+		}
+		if (documents.length === 0) {
+			this.showStatus("No review documents available");
+			return;
+		}
+
+		let documentId = documents[0].id;
+		if (documents.length > 1) {
+			const options = documents.map((document) => {
+				const updatedAt = new Date(document.updatedAt).toLocaleString();
+				return `${document.title} · ${document.description ?? "review"} · ${updatedAt}`;
+			});
+			const selected = await this.showExtensionSelector("Select review document", options);
+			if (!selected) {
+				return;
+			}
+			const selectedIndex = options.indexOf(selected);
+			if (selectedIndex < 0) {
+				this.showError("Selected review document is no longer available");
+				return;
+			}
+			documentId = documents[selectedIndex].id;
+		}
+
+		this.showReviewBoard(documentId);
+	}
+
+	private showReviewBoard(documentId: string): void {
+		let document: ReturnType<typeof this.session.platform.review.getDocument>;
+		try {
+			document = this.session.platform.review.getDocument(documentId);
+		} catch (error) {
+			this.showError(error instanceof Error ? error.message : String(error));
+			return;
+		}
+		if (!document) {
+			this.showError(`Review document not found: ${documentId}`);
+			return;
+		}
+
+		this.showSelector((done) => {
+			const selector = new ReviewBoardComponent(
+				document,
+				this.ui.terminal.rows,
+				(nodeId, body) => {
+					try {
+						this.session.platform.review.addComment({
+							documentId,
+							nodeId,
+							author: "operator",
+							body,
+						});
+						const updatedDocument = this.session.platform.review.getDocument(documentId);
+						if (updatedDocument) {
+							selector.setDocument(updatedDocument);
+						}
+						this.showStatus("Review comment added");
+						this.ui.requestRender();
+					} catch (error) {
+						this.showError(error instanceof Error ? error.message : String(error));
+					}
+				},
+				() => {
+					done();
+					this.ui.requestRender();
+				},
+			);
+			return { component: selector, focus: selector };
+		});
+	}
+
 	private showSessionSelector(): void {
 		this.showSelector((done) => {
 			const selector = new SessionSelectorComponent(
@@ -4561,7 +4652,7 @@ export class InteractiveMode {
 		const providerOptions = this.getLogoutProviderOptions();
 		if (providerOptions.length === 0) {
 			this.showStatus(
-				"No stored credentials to remove. /logout only removes credentials saved by /login; environment variables and models.json config are unchanged.",
+				"No stored credentials to remove. :logout only removes credentials saved by :login; environment variables and models.json config are unchanged.",
 			);
 			return;
 		}
@@ -4606,32 +4697,34 @@ export class InteractiveMode {
 		providerName: string,
 		authType: "oauth" | "api_key",
 		previousModel: Model<any> | undefined,
-	): Promise<void> {
+		options?: { switchToProviderDefault?: boolean },
+	): Promise<Model<any> | undefined> {
 		this.session.modelRegistry.refresh();
 
 		const actionLabel = authType === "oauth" ? `Logged in to ${providerName}` : `Saved API key for ${providerName}`;
 
 		let selectedModel: Model<any> | undefined;
 		let selectionError: string | undefined;
-		if (isUnknownModel(previousModel)) {
+		const shouldSwitchToProviderDefault = options?.switchToProviderDefault || isUnknownModel(previousModel);
+		if (shouldSwitchToProviderDefault) {
 			const availableModels = this.session.modelRegistry.getAvailable();
 			const providerModels = availableModels.filter((model) => model.provider === providerId);
 			if (!hasDefaultModelProvider(providerId)) {
-				selectionError = `${actionLabel}, but no default model is configured for provider "${providerId}". Use /model to select a model.`;
+				selectionError = `${actionLabel}, but no default model is configured for provider "${providerId}". Use :model to select a model.`;
 			} else if (providerModels.length === 0) {
-				selectionError = `${actionLabel}, but no models are available for that provider. Use /model to select a model.`;
+				selectionError = `${actionLabel}, but no models are available for that provider. Use :model to select a model.`;
 			} else {
 				const defaultModelId = defaultModelPerProvider[providerId];
 				selectedModel = providerModels.find((model) => model.id === defaultModelId);
 				if (!selectedModel) {
-					selectionError = `${actionLabel}, but its default model "${defaultModelId}" is not available. Use /model to select a model.`;
+					selectionError = `${actionLabel}, but its default model "${defaultModelId}" is not available. Use :model to select a model.`;
 				} else {
 					try {
 						await this.session.setModel(selectedModel);
 					} catch (error: unknown) {
 						selectedModel = undefined;
 						const errorMessage = error instanceof Error ? error.message : String(error);
-						selectionError = `${actionLabel}, but selecting its default model failed: ${errorMessage}. Use /model to select a model.`;
+						selectionError = `${actionLabel}, but selecting its default model failed: ${errorMessage}. Use :model to select a model.`;
 					}
 				}
 			}
@@ -4652,6 +4745,7 @@ export class InteractiveMode {
 				void this.maybeWarnAboutAnthropicSubscriptionAuth();
 			}
 		}
+		return selectedModel;
 	}
 
 	private showBedrockSetupDialog(providerId: string, providerName: string): void {
@@ -4682,7 +4776,11 @@ export class InteractiveMode {
 		this.ui.requestRender();
 	}
 
-	private async showApiKeyLoginDialog(providerId: string, providerName: string): Promise<void> {
+	private async showApiKeyLoginDialog(
+		providerId: string,
+		providerName: string,
+		options?: { switchToProviderDefault?: boolean },
+	): Promise<boolean> {
 		const previousModel = this.session.model;
 
 		const dialog = new LoginDialogComponent(
@@ -4715,13 +4813,15 @@ export class InteractiveMode {
 			this.session.modelRegistry.authStorage.set(providerId, { type: "api_key", key: apiKey });
 
 			restoreEditor();
-			await this.completeProviderAuthentication(providerId, providerName, "api_key", previousModel);
+			await this.completeProviderAuthentication(providerId, providerName, "api_key", previousModel, options);
+			return true;
 		} catch (error: unknown) {
 			restoreEditor();
 			const errorMsg = error instanceof Error ? error.message : String(error);
 			if (errorMsg !== "Login cancelled") {
 				this.showError(`Failed to save API key for ${providerName}: ${errorMsg}`);
 			}
+			return false;
 		}
 	}
 
@@ -4753,7 +4853,11 @@ export class InteractiveMode {
 		});
 	}
 
-	private async showLoginDialog(providerId: string, providerName: string): Promise<void> {
+	private async showLoginDialog(
+		providerId: string,
+		providerName: string,
+		options?: { switchToProviderDefault?: boolean },
+	): Promise<boolean> {
 		const providerInfo = this.session.modelRegistry.authStorage
 			.getOAuthProviders()
 			.find((provider) => provider.id === providerId);
@@ -4839,14 +4943,443 @@ export class InteractiveMode {
 
 			// Success
 			restoreEditor();
-			await this.completeProviderAuthentication(providerId, providerName, "oauth", previousModel);
+			await this.completeProviderAuthentication(providerId, providerName, "oauth", previousModel, options);
+			return true;
 		} catch (error: unknown) {
 			restoreEditor();
 			const errorMsg = error instanceof Error ? error.message : String(error);
 			if (errorMsg !== "Login cancelled") {
 				this.showError(`Failed to login to ${providerName}: ${errorMsg}`);
 			}
+			return false;
 		}
+	}
+
+	private formatBootstrapBytes(bytes: number | undefined): string {
+		if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes <= 0) {
+			return "unknown";
+		}
+		const gib = bytes / 1024 ** 3;
+		return `${gib >= 10 ? gib.toFixed(0) : gib.toFixed(1)} GiB`;
+	}
+
+	private formatBootstrapSummary(
+		probe: BootstrapHostProbe,
+		decision: BootstrapPolicyDecision,
+		options?: { force?: boolean },
+	): string {
+		const endpointLines = probe.endpoints.map((endpoint) => {
+			if (!endpoint.reachable) {
+				return `- ${endpoint.label}: not detected`;
+			}
+			const modelsText = endpoint.modelIds.length > 0 ? endpoint.modelIds.join(", ") : "no loaded models";
+			return `- ${endpoint.label}: ${modelsText}`;
+		});
+		const runtimeLines = probe.runtimes.map((runtime) => {
+			if (!runtime.installed) {
+				return `- ${runtime.label}: not installed`;
+			}
+			const runningText = runtime.running ? "running" : "installed, not serving yet";
+			return `- ${runtime.label}: ${runningText}`;
+		});
+		const recommendationText =
+			decision.path === "local"
+				? `Use a temporary local OSS bootstrap via ${decision.recommendedEndpointId === "lmstudio" ? "LM Studio" : "Ollama"}.`
+				: "Go directly to provider login.";
+
+		return [
+			options?.force ? "Alef Bootstrap" : "Alef Coolstart",
+			"",
+			`Host: ${probe.hardware.platform}/${probe.hardware.arch} · ${probe.hardware.cpuCount} cores · ${this.formatBootstrapBytes(probe.hardware.totalMemoryBytes)} RAM`,
+			`Disk: ${this.formatBootstrapBytes(probe.hardware.freeDiskBytes)} free`,
+			`GPU: ${probe.hardware.gpuDescriptions.join(", ") || "none detected"}`,
+			`Network: ${
+				probe.hardware.offlineMode ? "offline mode" : probe.hardware.networkReachable ? "reachable" : "unreachable"
+			}`,
+			"",
+			"Local endpoints:",
+			...endpointLines.map((line) => `  ${line}`),
+			"",
+			"Local runtimes:",
+			...runtimeLines.map((line) => `  ${line}`),
+			"",
+			`Recommendation: ${recommendationText}`,
+			...decision.rationale.map((line) => `- ${line}`),
+		].join("\n");
+	}
+
+	private shouldOfferBootstrap(force = false): boolean {
+		if (force) {
+			return true;
+		}
+		if (this.settingsManager.getBootstrapState()?.completedAt) {
+			return false;
+		}
+		if (this.session.state.messages.length > 0) {
+			return false;
+		}
+		if (this.options.initialMessage) {
+			return false;
+		}
+		return (this.options.initialMessages?.length ?? 0) === 0;
+	}
+
+	private async ensureOllamaEndpoint(
+		existingEndpoint: BootstrapOpenAICompatibleEndpoint | undefined,
+	): Promise<BootstrapOpenAICompatibleEndpoint | undefined> {
+		if (existingEndpoint?.reachable) {
+			return existingEndpoint;
+		}
+
+		const confirmed = await this.showExtensionConfirm(
+			"Start local Ollama runtime",
+			"Start `ollama serve` in the background so Alef can use a temporary local bootstrap model?",
+		);
+		if (!confirmed) {
+			return undefined;
+		}
+
+		try {
+			const proc = spawn("ollama", ["serve"], {
+				detached: true,
+				stdio: "ignore",
+			});
+			proc.unref();
+		} catch (error) {
+			this.showError(`Failed to start Ollama: ${error instanceof Error ? error.message : String(error)}`);
+			return undefined;
+		}
+
+		for (let attempt = 0; attempt < 10; attempt += 1) {
+			await new Promise((resolve) => setTimeout(resolve, 500));
+			const probe = await probeHostBootstrapEnvironment({ cwd: this.sessionManager.getCwd() });
+			const endpoint = probe.endpoints.find((candidate) => candidate.id === "ollama");
+			if (endpoint?.reachable) {
+				return endpoint;
+			}
+		}
+
+		this.showError("Ollama did not become reachable on http://127.0.0.1:11434/v1.");
+		return undefined;
+	}
+
+	private async pullOllamaBootstrapModel(modelId: string): Promise<boolean> {
+		const loader = new BorderedLoader(this.ui, theme, `Pulling ${modelId} with Ollama...`);
+		this.editorContainer.clear();
+		this.editorContainer.addChild(loader);
+		this.ui.setFocus(loader);
+		this.ui.requestRender();
+
+		const restoreEditor = () => {
+			loader.dispose();
+			this.editorContainer.clear();
+			this.editorContainer.addChild(this.editor);
+			this.ui.setFocus(this.editor);
+			this.ui.requestRender();
+		};
+
+		let proc: ReturnType<typeof spawn> | null = null;
+		loader.onAbort = () => {
+			proc?.kill();
+			restoreEditor();
+			this.showStatus(`Cancelled Ollama pull for ${modelId}`);
+		};
+
+		try {
+			await new Promise<void>((resolve, reject) => {
+				proc = spawn("ollama", ["pull", modelId], {
+					stdio: ["ignore", "ignore", "pipe"],
+				});
+				let stderr = "";
+				proc.stderr?.on("data", (chunk) => {
+					stderr += chunk.toString();
+				});
+				proc.on("error", reject);
+				proc.on("close", (code) => {
+					if (code === 0) {
+						resolve();
+						return;
+					}
+					reject(new Error(stderr.trim() || `ollama pull exited with code ${code ?? "unknown"}`));
+				});
+			});
+			if (loader.signal.aborted) {
+				return false;
+			}
+			restoreEditor();
+			this.showStatus(`Pulled ${modelId} with Ollama`);
+			return true;
+		} catch (error) {
+			if (!loader.signal.aborted) {
+				restoreEditor();
+				this.showError(`Failed to pull ${modelId}: ${error instanceof Error ? error.message : String(error)}`);
+			}
+			return false;
+		}
+	}
+
+	private async runLocalBootstrapPath(
+		probe: BootstrapHostProbe,
+		decision: BootstrapPolicyDecision,
+	): Promise<BootstrapState["localFallback"] | undefined> {
+		const endpointId = decision.recommendedEndpointId;
+		if (!endpointId) {
+			this.showError("Local bootstrap was selected without a local endpoint recommendation.");
+			return undefined;
+		}
+
+		let endpoint = probe.endpoints.find((candidate) => candidate.id === endpointId);
+		if (endpointId === "ollama") {
+			endpoint = await this.ensureOllamaEndpoint(endpoint);
+			if (!endpoint) {
+				return undefined;
+			}
+		}
+		if (!endpoint) {
+			this.showError("The selected local bootstrap endpoint is no longer available.");
+			return undefined;
+		}
+
+		let modelId = pickBootstrapModelId(endpoint.modelIds, probe.hardware.totalMemoryBytes);
+		if (!modelId) {
+			modelId = decision.recommendedModelId ?? recommendLocalBootstrapModelId(probe.hardware.totalMemoryBytes);
+			const confirmed = await this.showExtensionConfirm(
+				"Pull local bootstrap model",
+				`Pull ${modelId} with Ollama so Alef has a temporary local bootstrap backend?`,
+			);
+			if (!confirmed) {
+				return undefined;
+			}
+			const pulled = await this.pullOllamaBootstrapModel(modelId);
+			if (!pulled) {
+				return undefined;
+			}
+			const refreshedProbe = await probeHostBootstrapEnvironment({ cwd: this.sessionManager.getCwd() });
+			endpoint = refreshedProbe.endpoints.find((candidate) => candidate.id === endpointId) ?? endpoint;
+		}
+
+		const selection = buildBootstrapLocalProviderSelection(endpoint, modelId);
+		const modelsJsonPath = path.join(this.runtimeHost.services.agentDir, "models.json");
+		try {
+			upsertBootstrapLocalProviderConfig(modelsJsonPath, selection);
+		} catch (error) {
+			this.showError(error instanceof Error ? error.message : String(error));
+			return undefined;
+		}
+
+		this.session.modelRegistry.refresh();
+		await this.updateAvailableProviderCount();
+
+		const localModel = this.session.modelRegistry.find(selection.providerId, selection.modelId);
+		if (!localModel) {
+			this.showError(
+				`Bootstrap model ${selection.providerId}/${selection.modelId} is not available after updating models.json.`,
+			);
+			return undefined;
+		}
+
+		try {
+			await this.session.setModel(localModel);
+		} catch (error) {
+			this.showError(error instanceof Error ? error.message : String(error));
+			return undefined;
+		}
+
+		this.footer.invalidate();
+		this.updateEditorBorderColor();
+		this.showStatus(`Configured local bootstrap model ${selection.providerId}/${selection.modelId}`);
+		return {
+			providerId: selection.providerId,
+			modelId: selection.modelId,
+			baseUrl: selection.baseUrl,
+		};
+	}
+
+	private async runBootstrapProviderLoginFlow(): Promise<BootstrapState["durableProvider"] | undefined> {
+		const authChoice = await this.showExtensionSelector("Select authentication method:", [
+			"Use a subscription",
+			"Use an API key",
+		]);
+		if (!authChoice) {
+			return undefined;
+		}
+
+		const authType = authChoice === "Use a subscription" ? "oauth" : "api_key";
+		const providerOptions = this.getLoginProviderOptions(authType).filter(
+			(provider) => provider.id !== BEDROCK_PROVIDER_ID,
+		);
+		if (providerOptions.length === 0) {
+			this.showStatus(
+				authType === "oauth" ? "No subscription providers available." : "No API key providers available.",
+			);
+			return undefined;
+		}
+
+		const optionLabels = providerOptions.map((provider) => provider.name);
+		const selectedProviderLabel = await this.showExtensionSelector("Select provider:", optionLabels);
+		if (!selectedProviderLabel) {
+			return undefined;
+		}
+
+		const selectedIndex = optionLabels.indexOf(selectedProviderLabel);
+		const providerOption = selectedIndex >= 0 ? providerOptions[selectedIndex] : undefined;
+		if (!providerOption) {
+			return undefined;
+		}
+
+		const success =
+			providerOption.authType === "oauth"
+				? await this.showLoginDialog(providerOption.id, providerOption.name, { switchToProviderDefault: true })
+				: await this.showApiKeyLoginDialog(providerOption.id, providerOption.name, {
+						switchToProviderDefault: true,
+					});
+		if (!success) {
+			return undefined;
+		}
+
+		const currentModel = this.session.model;
+		return {
+			providerId: providerOption.id,
+			modelId: currentModel?.provider === providerOption.id ? currentModel.id : undefined,
+		};
+	}
+
+	private async chooseBootstrapCoordinator(
+		entries: Record<"gensec" | "2sec", MaterializedBootstrapBlueprint>,
+		decision: BootstrapPolicyDecision,
+	): Promise<MaterializedBootstrapBlueprint> {
+		const orderedIds: Array<"gensec" | "2sec"> =
+			decision.recommendedCoordinatorId === "2sec" ? ["2sec", "gensec"] : ["gensec", "2sec"];
+		const labels: string[] = orderedIds.map((id) =>
+			id === "gensec" ? "GenSec (delegating coordinator)" : "2Sec (lean coordinator)",
+		);
+		const selectedLabel = await this.showExtensionSelector("Select the initial coordinator blueprint:", labels);
+		if (!selectedLabel) {
+			return entries[decision.recommendedCoordinatorId];
+		}
+
+		const selectedIndex = labels.indexOf(selectedLabel);
+		const selectedId = selectedIndex >= 0 ? orderedIds[selectedIndex] : decision.recommendedCoordinatorId;
+		return entries[selectedId];
+	}
+
+	private async runBootstrapCoolstart(options?: { force?: boolean }): Promise<void> {
+		const force = options?.force ?? false;
+		if (!this.shouldOfferBootstrap(force)) {
+			return;
+		}
+
+		const probe = await probeHostBootstrapEnvironment({ cwd: this.sessionManager.getCwd() });
+		const decision = decideBootstrapPolicy(probe);
+		const blueprints = ensureBootstrapBlueprints(this.runtimeHost.services.agentDir);
+
+		const skipLabel = force ? "Cancel" : "Skip for now";
+		const localLabel =
+			decision.path === "local"
+				? decision.recommendedEndpointId === "lmstudio"
+					? "Use LM Studio as a temporary local bootstrap"
+					: "Use a temporary local OSS bootstrap"
+				: undefined;
+		const providerLabel = "Connect a provider now";
+		const optionsList = [localLabel, providerLabel, skipLabel].filter(
+			(value): value is string => typeof value === "string",
+		);
+		const selectedPath = await this.showExtensionSelector(
+			this.formatBootstrapSummary(probe, decision, { force }),
+			optionsList,
+		);
+
+		const timestamp = new Date().toISOString();
+		if (!selectedPath || selectedPath === skipLabel) {
+			if (force) {
+				this.showStatus("Bootstrap cancelled");
+				return;
+			}
+			this.settingsManager.setBootstrapState({
+				...(this.settingsManager.getBootstrapState() ?? {}),
+				lastRunAt: timestamp,
+				completedAt: timestamp,
+				outcome: "skipped",
+				hostProbe: probe,
+				recommendation: decision,
+			});
+			await this.settingsManager.flush();
+			this.showStatus("Bootstrap skipped. Run :bootstrap anytime to revisit setup.");
+			return;
+		}
+
+		let outcome: BootstrapOutcome | undefined;
+		let localFallback: BootstrapState["localFallback"];
+		let durableProvider: BootstrapState["durableProvider"];
+		if (localLabel && selectedPath === localLabel) {
+			localFallback = await this.runLocalBootstrapPath(probe, decision);
+			if (!localFallback) {
+				this.showStatus("Bootstrap cancelled");
+				return;
+			}
+			outcome = "local";
+
+			const connectDurableProvider = await this.showExtensionConfirm(
+				"Durable provider handoff",
+				"Keep the local model as a temporary bootstrap backend and connect a durable provider now?",
+			);
+			if (connectDurableProvider) {
+				durableProvider = await this.runBootstrapProviderLoginFlow();
+				if (durableProvider) {
+					outcome = "hybrid";
+				}
+			}
+		} else {
+			durableProvider = await this.runBootstrapProviderLoginFlow();
+			if (!durableProvider) {
+				this.showStatus("Bootstrap cancelled");
+				return;
+			}
+			outcome = "provider";
+		}
+
+		const coordinatorBlueprint = await this.chooseBootstrapCoordinator(blueprints.entries, decision);
+		this.settingsManager.setDefaultBlueprint(coordinatorBlueprint.targetPath);
+		this.settingsManager.setBootstrapState({
+			...(this.settingsManager.getBootstrapState() ?? {}),
+			lastRunAt: timestamp,
+			completedAt: timestamp,
+			outcome,
+			hostProbe: probe,
+			recommendation: decision,
+			coordinatorBlueprint: coordinatorBlueprint.targetPath,
+			localFallback,
+			durableProvider,
+		});
+		await this.settingsManager.flush();
+
+		let startedFreshSession = false;
+		if (this.session.state.messages.length === 0) {
+			const result = await this.runtimeHost.newSession();
+			if (!result.cancelled) {
+				this.renderCurrentSessionState();
+				startedFreshSession = true;
+			}
+		}
+
+		this.footer.invalidate();
+		this.updateEditorBorderColor();
+		const currentModel = this.session.model;
+		const currentModelLabel = currentModel
+			? `${currentModel.provider}/${currentModel.id}`
+			: "no default model selected";
+		this.showStatus(
+			startedFreshSession
+				? `Bootstrap saved. Started a fresh ${coordinatorBlueprint.label} session with ${currentModelLabel}.`
+				: `Bootstrap saved. ${coordinatorBlueprint.label} will be used for new sessions. Current default: ${currentModelLabel}.`,
+		);
+	}
+
+	private async maybeRunBootstrapCoolstart(): Promise<void> {
+		if (!this.shouldOfferBootstrap(false)) {
+			return;
+		}
+		await this.runBootstrapCoolstart();
 	}
 
 	// =========================================================================
@@ -4933,8 +5466,8 @@ export class InteractiveMode {
 		}
 	}
 
-	private async handleExportCommand(text: string): Promise<void> {
-		const outputPath = this.getPathCommandArgument(text, "/export");
+	private async handleExportCommand(argsString: string): Promise<void> {
+		const outputPath = this.getPathCommandArgument(argsString);
 
 		try {
 			if (outputPath?.endsWith(".jsonl")) {
@@ -4949,39 +5482,32 @@ export class InteractiveMode {
 		}
 	}
 
-	private getPathCommandArgument(text: string, command: "/export" | "/import"): string | undefined {
-		if (text === command) {
-			return undefined;
-		}
-		if (!text.startsWith(`${command} `)) {
-			return undefined;
-		}
-
-		const argsString = text.slice(command.length + 1).trimStart();
-		if (!argsString) {
+	private getPathCommandArgument(argsString: string): string | undefined {
+		const normalizedArgs = argsString.trimStart();
+		if (!normalizedArgs) {
 			return undefined;
 		}
 
-		const firstChar = argsString[0];
+		const firstChar = normalizedArgs[0];
 		if (firstChar === '"' || firstChar === "'") {
-			const closingQuoteIndex = argsString.indexOf(firstChar, 1);
+			const closingQuoteIndex = normalizedArgs.indexOf(firstChar, 1);
 			if (closingQuoteIndex < 0) {
 				return undefined;
 			}
-			return argsString.slice(1, closingQuoteIndex);
+			return normalizedArgs.slice(1, closingQuoteIndex);
 		}
 
-		const firstWhitespaceIndex = argsString.search(/\s/);
+		const firstWhitespaceIndex = normalizedArgs.search(/\s/);
 		if (firstWhitespaceIndex < 0) {
-			return argsString;
+			return normalizedArgs;
 		}
-		return argsString.slice(0, firstWhitespaceIndex);
+		return normalizedArgs.slice(0, firstWhitespaceIndex);
 	}
 
-	private async handleImportCommand(text: string): Promise<void> {
-		const inputPath = this.getPathCommandArgument(text, "/import");
+	private async handleImportCommand(argsString: string): Promise<void> {
+		const inputPath = this.getPathCommandArgument(argsString);
 		if (!inputPath) {
-			this.showError("Usage: /import <path.jsonl>");
+			this.showError("Usage: :import <path.jsonl>");
 			return;
 		}
 
@@ -5137,15 +5663,15 @@ export class InteractiveMode {
 		}
 	}
 
-	private handleNameCommand(text: string): void {
-		const name = text.replace(/^\/name\s*/, "").trim();
+	private handleNameCommand(argsString: string): void {
+		const name = argsString.trim();
 		if (!name) {
 			const currentName = this.sessionManager.getSessionName();
 			if (currentName) {
 				this.chatContainer.addChild(new Spacer(1));
 				this.chatContainer.addChild(new Text(theme.fg("dim", `Session name: ${currentName}`), 1, 0));
 			} else {
-				this.showWarning("Usage: /name <name>");
+				this.showWarning("Usage: :name <name>");
 			}
 			this.ui.requestRender();
 			return;
@@ -5314,7 +5840,7 @@ export class InteractiveMode {
 | \`${followUp}\` | Queue follow-up message |
 | \`${dequeue}\` | Restore queued messages |
 | \`${pasteImage}\` | Paste image from clipboard |
-| \`/\` | Slash commands |
+| \`:\` | Operator commands |
 | \`!\` | Run bash command |
 | \`!!\` | Run bash command (excluded from context) |
 `;

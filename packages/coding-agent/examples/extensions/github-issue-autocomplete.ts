@@ -1,8 +1,13 @@
 // Requires GitHub CLI (`gh`) and a GitHub repository checkout.
 // Preloads the latest open issues once per session, then filters them locally for fast `#...` completion.
 
-import type { ExtensionAPI } from "@alef/coding-agent";
-import { type AutocompleteItem, type AutocompleteProvider, type AutocompleteSuggestions, fuzzyFilter } from "@alef/tui";
+import type { ExtensionAPI } from "@dpopsuev/alef-coding-agent";
+import {
+	type AutocompleteItem,
+	type AutocompleteProvider,
+	type AutocompleteSuggestions,
+	fuzzyFilter,
+} from "@dpopsuev/alef-tui";
 
 type GitHubIssue = {
 	number: number;

@@ -1,6 +1,11 @@
-import { CustomEditor, type ExtensionAPI, type ExtensionContext, type KeybindingsManager } from "@alef/coding-agent";
-import type { Component, EditorTheme, TUI } from "@alef/tui";
-import { truncateToWidth, visibleWidth } from "@alef/tui";
+import {
+	CustomEditor,
+	type ExtensionAPI,
+	type ExtensionContext,
+	type KeybindingsManager,
+} from "@dpopsuev/alef-coding-agent";
+import type { Component, EditorTheme, TUI } from "@dpopsuev/alef-tui";
+import { truncateToWidth, visibleWidth } from "@dpopsuev/alef-tui";
 
 function fitBorder(
 	left: string,

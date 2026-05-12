@@ -85,7 +85,7 @@ Or use your existing subscription:
 
 ```bash
 alef
-/login  # Then select provider
+:login  # Then select provider
 ```
 
 Then just talk to Alef. By default, Alef exposes four tools to the model: `read`, `write`, `edit`, and `bash`. The model uses these to fulfill your requests. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [Alef packages](#alef-packages).
@@ -96,7 +96,7 @@ Then just talk to Alef. By default, Alef exposes four tools to the model: `read`
 
 ## Providers & Models
 
-For each built-in provider, Alef ships a list of tool-capable models, updated with every release. Authenticate via subscription (`/login`) or API key, then select any model from that provider via `/model` (or Ctrl+L).
+For each built-in provider, Alef ships a list of tool-capable models, updated with every release. Authenticate via subscription (`:login`) or API key, then select any model from that provider via `:model` (or Ctrl+L).
 
 **Subscriptions:**
 - Anthropic Claude Pro/Max
@@ -155,38 +155,39 @@ The editor can be temporarily replaced by other UI, like built-in `/settings` or
 
 | Feature | How |
 |---------|-----|
-| File reference | Type `@` to fuzzy-search project files |
+| Agent reference | Type `@agent` to target an agent or alias |
 | Path completion | Tab to complete paths |
 | Multi-line | Shift+Enter (or Ctrl+Enter on Windows Terminal) |
 | Images | Ctrl+V to paste (Alt+V on Windows), or drag onto terminal |
 | Bash commands | `!command` runs and sends output to LLM, `!!command` runs without sending |
+| Discourse address | Type `#board.forum.topic.thread` to target review/discourse nodes |
 
 Standard editing keybindings for delete word, undo, etc. See [docs/keybindings.md](docs/keybindings.md).
 
 ### Commands
 
-Type `/` in the editor to trigger commands. [Extensions](#extensions) can register custom commands, [skills](#skills) are available as `/skill:name`, and [prompt templates](#prompt-templates) expand via `/templatename`.
+Type `:` in the editor to trigger operator commands. [Extensions](#extensions) can register custom commands, [skills](#skills) are available as `:skill:name`, and [prompt templates](#prompt-templates) expand via `:templatename`. `!` remains shell execution and `/` is reserved for filesystem paths.
 
 | Command | Description |
 |---------|-------------|
-| `/login`, `/logout` | OAuth authentication |
-| `/model` | Switch models |
-| `/scoped-models` | Enable/disable models for Ctrl+P cycling |
-| `/settings` | Thinking level, theme, message delivery, transport |
-| `/resume` | Pick from previous sessions |
-| `/new` | Start a new session |
-| `/name <name>` | Set session display name |
-| `/session` | Show session info (file, ID, messages, tokens, cost) |
-| `/tree` | Jump to any point in the session and continue from there |
-| `/fork` | Create a new session from a previous user message |
-| `/clone` | Duplicate the current active branch into a new session |
-| `/compact [prompt]` | Manually compact context, optional custom instructions |
-| `/copy` | Copy last assistant message to clipboard |
-| `/export [file]` | Export session to HTML file |
-| `/share` | Upload as private GitHub gist with shareable HTML link |
-| `/reload` | Reload keybindings, extensions, skills, prompts, and context files (themes hot-reload automatically) |
-| `/hotkeys` | Show all keyboard shortcuts |
-| `/changelog` | Display version history |
+| `:login`, `:logout` | OAuth authentication |
+| `:model` | Switch models |
+| `:scoped-models` | Enable/disable models for Ctrl+P cycling |
+| `:settings` | Thinking level, theme, message delivery, transport |
+| `:resume` | Pick from previous sessions |
+| `:new` | Start a new session |
+| `:name <name>` | Set session display name |
+| `:session` | Show session info (file, ID, messages, tokens, cost) |
+| `:tree` | Jump to any point in the session and continue from there |
+| `:fork` | Create a new session from a previous user message |
+| `:clone` | Duplicate the current active branch into a new session |
+| `:compact [prompt]` | Manually compact context, optional custom instructions |
+| `:copy` | Copy last assistant message to clipboard |
+| `:export [file]` | Export session to HTML file |
+| `:share` | Upload as private GitHub gist with shareable HTML link |
+| `:reload` | Reload keybindings, extensions, skills, prompts, and context files (themes hot-reload automatically) |
+| `:hotkeys` | Show all keyboard shortcuts |
+| `:changelog` | Display version history |
 | `/quit` | Quit alef |
 
 ### Keyboard Shortcuts
@@ -331,7 +332,7 @@ Place in `<agent-dir>/prompts/`, `.alef/prompts/`, or an [Alef package](#alef-pa
 
 ### Skills
 
-On-demand capability packages following the [Agent Skills standard](https://agentskills.io). Invoke via `/skill:name` or let the agent load them automatically.
+On-demand capability packages following the [Agent Skills standard](https://agentskills.io). Invoke via `:skill:name` or let the agent load them automatically.
 
 ```markdown
 <!-- <agent-dir>/skills/my-skill/SKILL.md -->

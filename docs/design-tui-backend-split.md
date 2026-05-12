@@ -4,7 +4,7 @@
 
 ## Problem
 
-The TUI (interactive mode) and the agent backend run in the same process. Rebuilding any core package (`@alef/ai`, `@alef/agent-core`, `@alef/coding-agent`, `@alef/tui`) requires restarting the entire process, losing the terminal session, scroll position, and visual state. `/reload` only covers extensions, skills, prompts, and themes — not core code.
+The TUI (interactive mode) and the agent backend run in the same process. Rebuilding any core package (`@dpopsuev/alef-ai`, `@dpopsuev/alef-agent-core`, `@dpopsuev/alef-coding-agent`, `@dpopsuev/alef-tui`) requires restarting the entire process, losing the terminal session, scroll position, and visual state. `/reload` only covers extensions, skills, prompts, and themes — not core code.
 
 ## Goal
 
@@ -169,7 +169,7 @@ pi.registerCommand("rebuild", {
 | Extension UI over RPC | Complete | `RpcExtensionUIRequest/Response` |
 | Session persistence (JSONL files) | Complete | `session-manager.ts` |
 | Message replay from session | Complete | `renderInitialMessages()` in interactive-mode |
-| Event types | Complete | `@alef/agent-core` AgentEvent |
+| Event types | Complete | `@dpopsuev/alef-agent-core` AgentEvent |
 
 ## What Needs to Be Built
 
@@ -219,5 +219,5 @@ None for users. The `InProcessTransport` preserves exact current behavior. The s
 
 - Remote backends (TCP/WebSocket transport) — future, same interface
 - Multiple simultaneous backends — future
-- TUI hot-reload (rebuilding `@alef/tui` itself) — would require restarting the supervisor too
-- Web UI as a frontend — already exists as `@alef/web-ui`, could share `AgentTransport`
+- TUI hot-reload (rebuilding `@dpopsuev/alef-tui` itself) — would require restarting the supervisor too
+- Web UI as a frontend — already exists as `@dpopsuev/alef-web-ui`, could share `AgentTransport`

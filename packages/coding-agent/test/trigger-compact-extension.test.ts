@@ -10,6 +10,153 @@ function createContext(tokens: number | null, compact = vi.fn()): ExtensionConte
 		sessionManager: {} as ExtensionContext["sessionManager"],
 		modelRegistry: {} as ExtensionContext["modelRegistry"],
 		model: undefined,
+		platform: {
+			role: "root",
+			memory: {
+				session: {
+					getMessages: () => [],
+					getEntries: () => [],
+					buildContext: () => ({ messages: [], thinkingLevel: "off", model: null }),
+					getSessionId: () => "test-session",
+					getSessionFile: () => undefined,
+				},
+				working: {
+					get: () => undefined,
+					set: () => {},
+					delete: () => false,
+					clear: () => {},
+					list: () => [],
+					snapshot: () => ({}),
+				},
+			},
+			discourse: {
+				ensureBoard: () => {
+					throw new Error("not implemented");
+				},
+				ensureForum: () => {
+					throw new Error("not implemented");
+				},
+				createTemplate: () => {
+					throw new Error("not implemented");
+				},
+				createContract: () => {
+					throw new Error("not implemented");
+				},
+				approveTemplate: () => {
+					throw new Error("not implemented");
+				},
+				approveContract: () => {
+					throw new Error("not implemented");
+				},
+				rejectTemplate: () => {
+					throw new Error("not implemented");
+				},
+				rejectContract: () => {
+					throw new Error("not implemented");
+				},
+				createTopic: () => {
+					throw new Error("not implemented");
+				},
+				relocateTopic: () => {
+					throw new Error("not implemented");
+				},
+				assignTopic: () => {
+					throw new Error("not implemented");
+				},
+				updateTopic: () => {
+					throw new Error("not implemented");
+				},
+				postLetter: () => {
+					throw new Error("not implemented");
+				},
+				postOperatorLetter: () => {
+					throw new Error("not implemented");
+				},
+				claimTarget: () => {
+					throw new Error("not implemented");
+				},
+				renewClaim: () => {
+					throw new Error("not implemented");
+				},
+				releaseClaim: () => {
+					throw new Error("not implemented");
+				},
+				listClaims: () => [],
+				expireClaims: () => [],
+				requestStamp: () => {
+					throw new Error("not implemented");
+				},
+				decideStamp: () => {
+					throw new Error("not implemented");
+				},
+				listStamps: () => [],
+				listBoards: () => [],
+				listForums: () => [],
+				listTemplates: () => [],
+				listContracts: () => [],
+				listTopics: () => [],
+				readThread: () => {
+					throw new Error("not implemented");
+				},
+				archiveTopic: () => {
+					throw new Error("not implemented");
+				},
+				registerRuntime: () => {
+					throw new Error("not implemented");
+				},
+				updateRuntime: () => {
+					throw new Error("not implemented");
+				},
+				listRuntimes: () => [],
+				getRuntime: () => undefined,
+				createKnowledgeAtom: () => {
+					throw new Error("not implemented");
+				},
+				createKnowledgeMolecule: () => {
+					throw new Error("not implemented");
+				},
+				listKnowledgeAtoms: () => [],
+				listKnowledgeMolecules: () => [],
+				upsertBudgetPolicy: () => {
+					throw new Error("not implemented");
+				},
+				listBudgetPolicies: () => [],
+				recordBudgetUsage: () => [],
+				readBudgetStatus: () => [],
+				listBudgetLedger: () => [],
+				getAgentCapacity: () => ({
+					id: "global",
+					maxConcurrent: 1,
+					activeRuntimeIds: [],
+					updatedAt: 0,
+				}),
+				setAgentCapacity: () => ({
+					id: "global",
+					maxConcurrent: 1,
+					activeRuntimeIds: [],
+					updatedAt: 0,
+				}),
+				getBoard: () => undefined,
+				getForum: () => undefined,
+				getTemplate: () => undefined,
+				getContract: () => undefined,
+				getTopic: () => undefined,
+				getTopicByAddress: () => undefined,
+				getThread: () => undefined,
+				getThreadByAddress: () => undefined,
+			},
+			review: {
+				listDocuments: () => [],
+				getDocument: () => undefined,
+				getDocumentByAddress: () => undefined,
+				addComment: () => {
+					throw new Error("not implemented");
+				},
+			},
+			actions: [],
+			getAction: () => undefined,
+			getCapabilities: () => [],
+		},
 		isIdle: () => true,
 		signal: undefined,
 		abort: vi.fn(),

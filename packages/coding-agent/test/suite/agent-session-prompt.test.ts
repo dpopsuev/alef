@@ -183,7 +183,7 @@ describe("AgentSession prompt characterization", () => {
 			},
 		]);
 
-		await harness.session.prompt("/skill:test explain this");
+		await harness.session.prompt(":skill:test explain this");
 
 		expect(expandedPrompt).toContain('<skill name="test" location="');
 		expect(expandedPrompt).toContain("Use the skill body.");
@@ -218,7 +218,7 @@ describe("AgentSession prompt characterization", () => {
 			},
 		]);
 
-		await harness.session.prompt("/review src/index.ts");
+		await harness.session.prompt(":review src/index.ts");
 
 		expect(expandedPrompt).toBe("Review this code: src/index.ts");
 	});
@@ -240,7 +240,7 @@ describe("AgentSession prompt characterization", () => {
 		harnesses.push(harness);
 		harness.setResponses([fauxAssistantMessage("should stay queued")]);
 
-		await harness.session.prompt("/testcmd hello world");
+		await harness.session.prompt(":testcmd hello world");
 
 		expect(commandRuns).toEqual(["hello world"]);
 		expect(harness.session.messages).toEqual([]);

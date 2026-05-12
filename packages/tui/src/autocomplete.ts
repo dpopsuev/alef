@@ -77,13 +77,6 @@ function extractQuotedPrefix(text: string): string | null {
 		return null;
 	}
 
-	if (quoteStart > 0 && text[quoteStart - 1] === "@") {
-		if (!isTokenStart(text, quoteStart - 1)) {
-			return null;
-		}
-		return text.slice(quoteStart - 1);
-	}
-
 	if (!isTokenStart(text, quoteStart)) {
 		return null;
 	}
@@ -91,33 +84,21 @@ function extractQuotedPrefix(text: string): string | null {
 	return text.slice(quoteStart);
 }
 
-function parsePathPrefix(prefix: string): { rawPrefix: string; isAtPrefix: boolean; isQuotedPrefix: boolean } {
-	if (prefix.startsWith('@"')) {
-		return { rawPrefix: prefix.slice(2), isAtPrefix: true, isQuotedPrefix: true };
-	}
+function parsePathPrefix(prefix: string): { rawPrefix: string; isQuotedPrefix: boolean } {
 	if (prefix.startsWith('"')) {
-		return { rawPrefix: prefix.slice(1), isAtPrefix: false, isQuotedPrefix: true };
+		return { rawPrefix: prefix.slice(1), isQuotedPrefix: true };
 	}
-	if (prefix.startsWith("@")) {
-		return { rawPrefix: prefix.slice(1), isAtPrefix: true, isQuotedPrefix: false };
-	}
-	return { rawPrefix: prefix, isAtPrefix: false, isQuotedPrefix: false };
+	return { rawPrefix: prefix, isQuotedPrefix: false };
 }
 
-function buildCompletionValue(
-	path: string,
-	options: { isDirectory: boolean; isAtPrefix: boolean; isQuotedPrefix: boolean },
-): string {
+function buildCompletionValue(path: string, options: { isQuotedPrefix: boolean }): string {
 	const needsQuotes = options.isQuotedPrefix || path.includes(" ");
-	const prefix = options.isAtPrefix ? "@" : "";
 
 	if (!needsQuotes) {
-		return `${prefix}${path}`;
+		return path;
 	}
 
-	const openQuote = `${prefix}"`;
-	const closeQuote = '"';
-	return `${openQuote}${path}${closeQuote}`;
+	return `"${path}"`;
 }
 
 // Use fd to walk directory tree (fast, respects .gitignore)
@@ -266,7 +247,7 @@ export interface AutocompleteProvider {
 	shouldTriggerFileCompletion?(lines: string[], cursorLine: number, cursorCol: number): boolean;
 }
 
-// Combined provider that handles both slash commands and file paths
+// Combined provider that handles both operator commands and file paths
 export class CombinedAutocompleteProvider implements AutocompleteProvider {
 	private commands: (SlashCommand | AutocompleteItem)[];
 	private basePath: string;
@@ -287,22 +268,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		const currentLine = lines[cursorLine] || "";
 		const textBeforeCursor = currentLine.slice(0, cursorCol);
 
-		const atPrefix = this.extractAtPrefix(textBeforeCursor);
-		if (atPrefix) {
-			const { rawPrefix, isQuotedPrefix } = parsePathPrefix(atPrefix);
-			const suggestions = await this.getFuzzyFileSuggestions(rawPrefix, {
-				isQuotedPrefix,
-				signal: options.signal,
-			});
-			if (suggestions.length === 0) return null;
-
-			return {
-				items: suggestions,
-				prefix: atPrefix,
-			};
-		}
-
-		if (!options.force && textBeforeCursor.startsWith("/")) {
+		if (!options.force && textBeforeCursor.startsWith(":")) {
 			const spaceIndex = textBeforeCursor.indexOf(" ");
 
 			if (spaceIndex === -1) {
@@ -360,7 +326,17 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			return null;
 		}
 
-		const suggestions = this.getFileSuggestions(pathMatch);
+		const { rawPrefix, isQuotedPrefix } = parsePathPrefix(pathMatch);
+		const suggestions =
+			!options.force && this.fdPath && rawPrefix.length > 0
+				? await this.getFuzzyFileSuggestions(rawPrefix, {
+						isQuotedPrefix,
+						signal: options.signal,
+					})
+				: this.getFileSuggestions(pathMatch);
+		if (options.signal.aborted) {
+			return null;
+		}
 		if (suggestions.length === 0) return null;
 
 		return {
@@ -379,51 +355,29 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		const currentLine = lines[cursorLine] || "";
 		const beforePrefix = currentLine.slice(0, cursorCol - prefix.length);
 		const afterCursor = currentLine.slice(cursorCol);
-		const isQuotedPrefix = prefix.startsWith('"') || prefix.startsWith('@"');
+		const isQuotedPrefix = prefix.startsWith('"');
 		const hasLeadingQuoteAfterCursor = afterCursor.startsWith('"');
 		const hasTrailingQuoteInItem = item.value.endsWith('"');
 		const adjustedAfterCursor =
 			isQuotedPrefix && hasTrailingQuoteInItem && hasLeadingQuoteAfterCursor ? afterCursor.slice(1) : afterCursor;
 
-		// Check if we're completing a slash command (prefix starts with "/" but NOT a file path)
-		// Slash commands are at the start of the line and don't contain path separators after the first /
-		const isSlashCommand = prefix.startsWith("/") && beforePrefix.trim() === "" && !prefix.slice(1).includes("/");
-		if (isSlashCommand) {
+		const isOperatorCommand = prefix.startsWith(":") && beforePrefix.trim() === "";
+		if (isOperatorCommand) {
 			// This is a command name completion
-			const newLine = `${beforePrefix}/${item.value} ${adjustedAfterCursor}`;
+			const newLine = `${beforePrefix}:${item.value} ${adjustedAfterCursor}`;
 			const newLines = [...lines];
 			newLines[cursorLine] = newLine;
 
 			return {
 				lines: newLines,
 				cursorLine,
-				cursorCol: beforePrefix.length + item.value.length + 2, // +2 for "/" and space
+				cursorCol: beforePrefix.length + item.value.length + 2, // +2 for ":" and space
 			};
 		}
 
-		// Check if we're completing a file attachment (prefix starts with "@")
-		if (prefix.startsWith("@")) {
-			// This is a file attachment completion
-			// Don't add space after directories so user can continue autocompleting
-			const isDirectory = item.label.endsWith("/");
-			const suffix = isDirectory ? "" : " ";
-			const newLine = `${beforePrefix + item.value}${suffix}${adjustedAfterCursor}`;
-			const newLines = [...lines];
-			newLines[cursorLine] = newLine;
-
-			const hasTrailingQuote = item.value.endsWith('"');
-			const cursorOffset = isDirectory && hasTrailingQuote ? item.value.length - 1 : item.value.length;
-
-			return {
-				lines: newLines,
-				cursorLine,
-				cursorCol: beforePrefix.length + cursorOffset + suffix.length,
-			};
-		}
-
-		// Check if we're in a slash command context (beforePrefix contains "/command ")
+		// Check if we're in an operator command context (beforePrefix contains ":command ")
 		const textBeforeCursor = currentLine.slice(0, cursorCol);
-		if (textBeforeCursor.includes("/") && textBeforeCursor.includes(" ")) {
+		if (textBeforeCursor.trimStart().startsWith(":") && textBeforeCursor.includes(" ")) {
 			// This is likely a command argument completion
 			const newLine = beforePrefix + item.value + adjustedAfterCursor;
 			const newLines = [...lines];
@@ -454,23 +408,6 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			cursorLine,
 			cursorCol: beforePrefix.length + cursorOffset,
 		};
-	}
-
-	// Extract @ prefix for fuzzy file suggestions
-	private extractAtPrefix(text: string): string | null {
-		const quotedPrefix = extractQuotedPrefix(text);
-		if (quotedPrefix?.startsWith('@"')) {
-			return quotedPrefix;
-		}
-
-		const lastDelimiterIndex = findLastDelimiter(text);
-		const tokenStart = lastDelimiterIndex === -1 ? 0 : lastDelimiterIndex + 1;
-
-		if (text[tokenStart] === "@") {
-			return text.slice(tokenStart);
-		}
-
-		return null;
 	}
 
 	// Extract a path-like prefix from the text before cursor
@@ -558,7 +495,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		try {
 			let searchDir: string;
 			let searchPrefix: string;
-			const { rawPrefix, isAtPrefix, isQuotedPrefix } = parsePathPrefix(prefix);
+			const { rawPrefix, isQuotedPrefix } = parsePathPrefix(prefix);
 			let expandedPrefix = rawPrefix;
 
 			// Handle home directory expansion
@@ -572,8 +509,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 				rawPrefix === "../" ||
 				rawPrefix === "~" ||
 				rawPrefix === "~/" ||
-				rawPrefix === "/" ||
-				(isAtPrefix && rawPrefix === "");
+				rawPrefix === "/";
 
 			if (isRootPrefix) {
 				// Complete from specified position
@@ -661,11 +597,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 
 				relativePath = toDisplayPath(relativePath);
 				const pathValue = isDirectory ? `${relativePath}/` : relativePath;
-				const value = buildCompletionValue(pathValue, {
-					isDirectory,
-					isAtPrefix,
-					isQuotedPrefix,
-				});
+				const value = buildCompletionValue(pathValue, { isQuotedPrefix });
 
 				suggestions.push({
 					value,
@@ -749,11 +681,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 					: pathWithoutSlash;
 				const entryName = basename(pathWithoutSlash);
 				const completionPath = isDirectory ? `${displayPath}/` : displayPath;
-				const value = buildCompletionValue(completionPath, {
-					isDirectory,
-					isAtPrefix: true,
-					isQuotedPrefix: options.isQuotedPrefix,
-				});
+				const value = buildCompletionValue(completionPath, { isQuotedPrefix: options.isQuotedPrefix });
 
 				suggestions.push({
 					value,
@@ -773,8 +701,8 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		const currentLine = lines[cursorLine] || "";
 		const textBeforeCursor = currentLine.slice(0, cursorCol);
 
-		// Don't trigger if we're typing a slash command at the start of the line
-		if (textBeforeCursor.trim().startsWith("/") && !textBeforeCursor.trim().includes(" ")) {
+		// Don't trigger if we're typing an operator command at the start of the line
+		if (textBeforeCursor.trim().startsWith(":") && !textBeforeCursor.trim().includes(" ")) {
 			return false;
 		}
 

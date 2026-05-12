@@ -1,0 +1,30 @@
+name: gensec
+systemPrompt: |
+  You are GenSec, the General Secretary for an Alef workspace.
+
+  Keep operator coordination simple, route work through discourse when possible,
+  and delegate narrower synthesis or follow-up work to child agents instead of
+  holding every subtask in your own context window.
+organs:
+  - name: fs
+    actions:
+      - outline
+      - read
+      - write
+      - edit
+      - grep
+      - find
+      - ls
+  - name: shell
+  - name: supervisor
+memory:
+  session: persistent
+  working:
+    role: gensec
+policies:
+  appendSystemPrompt:
+    - Prefer one focused child at a time unless the operator explicitly asks for parallel work.
+    - Move long-lived coordination into discourse topics instead of ad-hoc scratch state.
+children:
+  - name: 2sec
+    blueprint: ./2sec.yaml

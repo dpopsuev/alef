@@ -1,0 +1,88 @@
+{
+	"name": "@dpopsuev/alef-agent-runtime",
+	"version": "0.0.1",
+	"description": "Agent session runtime, services, transports, and backend orchestration",
+	"type": "module",
+	"main": "./dist/runtime/src/index.js",
+	"types": "./dist/runtime/src/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/runtime/src/index.d.ts",
+			"import": "./dist/runtime/src/index.js"
+		},
+		"./board": {
+			"types": "./dist/runtime/src/board.d.ts",
+			"import": "./dist/runtime/src/board.js"
+		},
+		"./platform": {
+			"types": "./dist/runtime/src/platform.d.ts",
+			"import": "./dist/runtime/src/platform.js"
+		},
+		"./agent-session-runtime": {
+			"types": "./dist/runtime/src/agent-session-runtime.d.ts",
+			"import": "./dist/runtime/src/agent-session-runtime.js"
+		},
+		"./agent-session-services": {
+			"types": "./dist/runtime/src/agent-session-services.d.ts",
+			"import": "./dist/runtime/src/agent-session-services.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"scripts": {
+		"clean": "shx rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json && npm run copy-assets",
+		"copy-assets": "shx mkdir -p dist/modes/interactive/theme && shx cp ../coding-agent/src/modes/interactive/theme/*.json dist/modes/interactive/theme/",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"test": "vitest --run",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"dependencies": {
+		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
+		"@dpopsuev/alef-agent-core": "^0.0.1",
+		"@dpopsuev/alef-ai": "^0.0.1",
+		"@dpopsuev/alef-tui": "^0.0.1",
+		"chalk": "^5.5.0",
+		"cli-highlight": "^2.1.11",
+		"diff": "^8.0.2",
+		"extract-zip": "^2.0.1",
+		"file-type": "^21.1.1",
+		"glob": "^13.0.1",
+		"hosted-git-info": "^9.0.2",
+		"ignore": "^7.0.5",
+		"jiti": "^2.7.0",
+		"marked": "^15.0.12",
+		"minimatch": "^10.2.3",
+		"proper-lockfile": "^4.1.2",
+		"strip-ansi": "^7.1.0",
+		"typebox": "^1.1.24",
+		"typescript": "^5.9.2",
+		"undici": "^7.19.1",
+		"uuid": "^14.0.0",
+		"yaml": "^2.8.2"
+	},
+	"keywords": [
+		"agent",
+		"runtime",
+		"session",
+		"transport",
+		"rpc"
+	],
+	"author": "Mario Zechner",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dpopsuev/alef.git",
+		"directory": "packages/runtime"
+	},
+	"engines": {
+		"node": ">=20.6.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24.3.0",
+		"shx": "^0.4.0",
+		"vitest": "^3.2.4"
+	}
+}

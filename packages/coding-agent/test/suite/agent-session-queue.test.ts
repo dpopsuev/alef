@@ -82,7 +82,7 @@ describe("AgentSession queue characterization", () => {
 		});
 		harnesses.push(harness);
 
-		await harness.session.prompt("/testcmd hello world");
+		await harness.session.prompt(":testcmd hello world");
 
 		expect(commandRuns).toEqual(["hello world"]);
 		expect(harness.getPendingResponseCount()).toBe(0);
@@ -397,8 +397,8 @@ describe("AgentSession queue characterization", () => {
 		});
 		harnesses.push(harness);
 
-		await expect(harness.session.steer("/testcmd queued")).rejects.toThrow(
-			'Extension command "/testcmd" cannot be queued. Use prompt() or execute the command when not streaming.',
+		await expect(harness.session.steer(":testcmd queued")).rejects.toThrow(
+			'Extension command ":testcmd" cannot be queued. Use prompt() or execute the command when not streaming.',
 		);
 	});
 
@@ -415,8 +415,8 @@ describe("AgentSession queue characterization", () => {
 		});
 		harnesses.push(harness);
 
-		await expect(harness.session.followUp("/testcmd queued")).rejects.toThrow(
-			'Extension command "/testcmd" cannot be queued. Use prompt() or execute the command when not streaming.',
+		await expect(harness.session.followUp(":testcmd queued")).rejects.toThrow(
+			'Extension command ":testcmd" cannot be queued. Use prompt() or execute the command when not streaming.',
 		);
 	});
 });

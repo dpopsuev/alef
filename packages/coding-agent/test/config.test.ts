@@ -146,29 +146,31 @@ describe("detectInstallMethod", () => {
 		);
 
 		expect(detectInstallMethod()).toBe("pnpm");
-		expect(getUpdateInstruction("@alef/coding-agent")).toBe("Run: pnpm install -g @alef/coding-agent");
+		expect(getUpdateInstruction("@dpopsuev/alef-coding-agent")).toBe(
+			"Run: pnpm install -g @dpopsuev/alef-coding-agent",
+		);
 	});
 
 	test("does not self-update unknown wrapper installs", () => {
 		setExecPath("/usr/local/bin/node");
 
 		expect(detectInstallMethod()).toBe("unknown");
-		expect(getSelfUpdateCommand("@alef/coding-agent")).toBeUndefined();
-		expect(getUpdateInstruction("@alef/coding-agent")).toBe(
-			"Update @alef/coding-agent using the package manager, wrapper, or source checkout that provides this installation.",
+		expect(getSelfUpdateCommand("@dpopsuev/alef-coding-agent")).toBeUndefined();
+		expect(getUpdateInstruction("@dpopsuev/alef-coding-agent")).toBe(
+			"Update @dpopsuev/alef-coding-agent using the package manager, wrapper, or source checkout that provides this installation.",
 		);
 	});
 
 	test("self-updates npm installs from custom prefixes", () => {
 		const { prefix } = createNpmPrefixInstall();
 
-		const command = getSelfUpdateCommand("@alef/coding-agent");
+		const command = getSelfUpdateCommand("@dpopsuev/alef-coding-agent");
 
 		expect(detectInstallMethod()).toBe("npm");
 		expect(command).toEqual({
 			command: "npm",
-			args: ["--prefix", prefix, "install", "-g", "@alef/coding-agent"],
-			display: `npm --prefix ${prefix} install -g @alef/coding-agent`,
+			args: ["--prefix", prefix, "install", "-g", "@dpopsuev/alef-coding-agent"],
+			display: `npm --prefix ${prefix} install -g @dpopsuev/alef-coding-agent`,
 		});
 	});
 
@@ -199,29 +201,29 @@ describe("detectInstallMethod", () => {
 	test("self-update respects configured npmCommand", () => {
 		const { prefix } = createNpmPrefixInstall();
 
-		const command = getSelfUpdateCommand("@alef/coding-agent", ["npm", "--prefix", prefix]);
+		const command = getSelfUpdateCommand("@dpopsuev/alef-coding-agent", ["npm", "--prefix", prefix]);
 
 		expect(command).toEqual({
 			command: "npm",
-			args: ["--prefix", prefix, "install", "-g", "@alef/coding-agent"],
-			display: `npm --prefix ${prefix} install -g @alef/coding-agent`,
+			args: ["--prefix", prefix, "install", "-g", "@dpopsuev/alef-coding-agent"],
+			display: `npm --prefix ${prefix} install -g @dpopsuev/alef-coding-agent`,
 		});
 	});
 
 	test("self-update treats empty npmCommand as unset", () => {
 		const { prefix } = createNpmPrefixInstall();
 
-		const command = getSelfUpdateCommand("@alef/coding-agent", []);
+		const command = getSelfUpdateCommand("@dpopsuev/alef-coding-agent", []);
 
-		expect(command?.args).toEqual(["--prefix", prefix, "install", "-g", "@alef/coding-agent"]);
+		expect(command?.args).toEqual(["--prefix", prefix, "install", "-g", "@dpopsuev/alef-coding-agent"]);
 	});
 
 	test("quotes npm self-update display paths", () => {
 		const { prefix } = createNpmPrefixInstall("alef prefix ");
 
-		const command = getSelfUpdateCommand("@alef/coding-agent");
+		const command = getSelfUpdateCommand("@dpopsuev/alef-coding-agent");
 
-		expect(command?.display).toBe(`npm --prefix "${prefix}" install -g @alef/coding-agent`);
+		expect(command?.display).toBe(`npm --prefix "${prefix}" install -g @dpopsuev/alef-coding-agent`);
 	});
 
 	test("does not infer Windows npm custom prefixes from package paths", () => {
@@ -230,19 +232,21 @@ describe("detectInstallMethod", () => {
 		setExecPath(`${packageDir}\\dist\\cli.js`);
 
 		expect(detectInstallMethod()).toBe("npm");
-		expect(getUpdateInstruction("@alef/coding-agent")).toBe("Run: npm install -g @alef/coding-agent");
+		expect(getUpdateInstruction("@dpopsuev/alef-coding-agent")).toBe(
+			"Run: npm install -g @dpopsuev/alef-coding-agent",
+		);
 	});
 
 	test("self-updates bun global installs from bun pm bin", () => {
 		createBunGlobalInstall();
 
-		const command = getSelfUpdateCommand("@alef/coding-agent");
+		const command = getSelfUpdateCommand("@dpopsuev/alef-coding-agent");
 
 		expect(detectInstallMethod()).toBe("bun");
 		expect(command).toEqual({
 			command: "bun",
-			args: ["install", "-g", "@alef/coding-agent"],
-			display: "bun install -g @alef/coding-agent",
+			args: ["install", "-g", "@dpopsuev/alef-coding-agent"],
+			display: "bun install -g @dpopsuev/alef-coding-agent",
 		});
 	});
 
@@ -325,15 +329,17 @@ describe("detectInstallMethod", () => {
 		const { packageDir } = createNpmPrefixInstall();
 		chmodSync(packageDir, 0o500);
 
-		expect(getSelfUpdateCommand("@alef/coding-agent")).toBeUndefined();
-		expect(getSelfUpdateUnavailableInstruction("@alef/coding-agent")).toContain("the install path is not writable");
+		expect(getSelfUpdateCommand("@dpopsuev/alef-coding-agent")).toBeUndefined();
+		expect(getSelfUpdateUnavailableInstruction("@dpopsuev/alef-coding-agent")).toContain(
+			"the install path is not writable",
+		);
 	});
 });
 
 describe.skipIf(process.platform !== "linux")("getAgentDir (Linux XDG)", () => {
 	const originalHome = process.env.HOME;
 	const originalXdgConfig = process.env.XDG_CONFIG_HOME;
-	const originalAlfDir = process.env.ALEF_CODING_AGENT_DIR;
+	const originalAlefDir = process.env.ALEF_CODING_AGENT_DIR;
 	const originalPiDir = process.env.ALEF_CODING_AGENT_DIR;
 	let xdgTempHome: string | undefined;
 
@@ -349,10 +355,10 @@ describe.skipIf(process.platform !== "linux")("getAgentDir (Linux XDG)", () => {
 		} else {
 			process.env.XDG_CONFIG_HOME = originalXdgConfig;
 		}
-		if (originalAlfDir === undefined) {
+		if (originalAlefDir === undefined) {
 			delete process.env.ALEF_CODING_AGENT_DIR;
 		} else {
-			process.env.ALEF_CODING_AGENT_DIR = originalAlfDir;
+			process.env.ALEF_CODING_AGENT_DIR = originalAlefDir;
 		}
 		if (originalPiDir === undefined) {
 			delete process.env.ALEF_CODING_AGENT_DIR;

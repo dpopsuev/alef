@@ -69,12 +69,12 @@ describe("issue #2023 queued slash-command follow-up", () => {
 		await sawToolStart;
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		extensionApi?.sendUserMessage("/testcmd queued", { deliverAs: "followUp" });
+		extensionApi?.sendUserMessage(":testcmd queued", { deliverAs: "followUp" });
 		releaseToolExecution?.();
 		await promptPromise;
 
 		expect(commandRuns).toEqual([]);
-		expect(getUserTexts(harness)).toEqual(["start", "/testcmd queued"]);
+		expect(getUserTexts(harness)).toEqual(["start", ":testcmd queued"]);
 		expect(getAssistantTexts(harness)).toContain("queued follow-up handled by model");
 	});
 });

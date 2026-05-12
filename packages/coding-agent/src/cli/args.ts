@@ -3,7 +3,7 @@
  */
 
 import { join } from "node:path";
-import type { ThinkingLevel } from "@alef/agent-core";
+import type { ThinkingLevel } from "@dpopsuev/alef-agent-core";
 import chalk from "chalk";
 import {
 	APP_NAME,
@@ -309,8 +309,7 @@ ${chalk.bold("Examples:")}
 ${chalk.bold("Environment Variables:")}
   ANTHROPIC_API_KEY                - Anthropic Claude API key
   ANTHROPIC_OAUTH_TOKEN            - Anthropic OAuth token (alternative to API key)
-  ALEF_ANTHROPIC_VERTEX             - When 1/true/yes, route catalog anthropic models via Vertex (GCP billing); see docs/providers.md
-  ANTHROPIC_VERTEX_PROJECT_ID      - GCP project id for Claude on Vertex (optional if GOOGLE_CLOUD_PROJECT/GCLOUD_PROJECT is set)
+  ANTHROPIC_VERTEX_PROJECT_ID      - GCP project id for Claude on Vertex; with a Vertex region, catalog anthropic models route through Vertex
   CLOUD_ML_REGION                  - Vertex region for Anthropic partner models (often global or regional per GCP docs)
   GOOGLE_CLOUD_LOCATION            - Region fallback when CLOUD_ML_REGION is unset
   GOOGLE_CLOUD_PROJECT             - GCP project fallback when ANTHROPIC_VERTEX_PROJECT_ID is unset

@@ -247,24 +247,15 @@ const ANTHROPIC_MESSAGE_EVENTS: ReadonlySet<string> = new Set([
 	"content_block_stop",
 ]);
 
-function isAlfAnthropicVertexEnabled(): boolean {
-	if (typeof process === "undefined") {
-		return false;
-	}
-	const v = process.env.ALEF_ANTHROPIC_VERTEX?.trim().toLowerCase();
-	return v === "1" || v === "true" || v === "yes";
-}
-
 function resolveAnthropicVertexProjectAndRegion(): { projectId: string; region: string } | undefined {
 	if (typeof process === "undefined") {
 		return undefined;
 	}
-	if (!isAlfAnthropicVertexEnabled()) {
-		return undefined;
-	}
 	const projectId =
-		process.env.ANTHROPIC_VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
-	const region = process.env.CLOUD_ML_REGION || process.env.GOOGLE_CLOUD_LOCATION;
+		process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ||
+		process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
+		process.env.GCLOUD_PROJECT?.trim();
+	const region = process.env.CLOUD_ML_REGION?.trim() || process.env.GOOGLE_CLOUD_LOCATION?.trim();
 	if (!projectId || !region) {
 		return undefined;
 	}
@@ -272,7 +263,8 @@ function resolveAnthropicVertexProjectAndRegion(): { projectId: string; region: 
 }
 
 /**
- * Route direct Anthropic catalog models through Vertex partner endpoint when opted in.
+ * Route direct Anthropic catalog models through Vertex partner endpoint when
+ * Vertex project and region are configured in the environment.
  * Does not apply to GitHub Copilot or Cloudflare AI Gateway.
  */
 function shouldRouteAnthropicThroughVertex(model: Model<"anthropic-messages">): boolean {

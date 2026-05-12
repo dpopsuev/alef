@@ -6,8 +6,8 @@
  * - `pi --mode json "prompt"` - JSON event stream
  */
 
+import type { AgentSessionRuntime } from "@dpopsuev/alef-agent-runtime";
 import type { AssistantMessage, ImageContent } from "@dpopsuev/alef-ai";
-import type { AgentSessionRuntime } from "../core/agent-session-runtime.js";
 import { flushRawStdout, writeRawStdout } from "../core/output-guard.js";
 import { killTrackedDetachedChildren } from "../utils/shell.js";
 

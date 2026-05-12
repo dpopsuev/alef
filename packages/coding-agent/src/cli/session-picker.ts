@@ -2,9 +2,9 @@
  * TUI session selector for --resume flag
  */
 
+import { KeybindingsManager, type SessionInfo } from "@dpopsuev/alef-agent-runtime";
 import { ProcessTerminal, setKeybindings, TUI } from "@dpopsuev/alef-tui";
-import { KeybindingsManager } from "../core/keybindings.js";
-import type { SessionInfo, SessionListProgress } from "../core/session-manager.js";
+import type { SessionListProgress } from "../core/session-manager.js";
 import { SessionSelectorComponent } from "../modes/interactive/components/session-selector.js";
 
 type SessionsLoader = (onProgress?: SessionListProgress) => Promise<SessionInfo[]>;

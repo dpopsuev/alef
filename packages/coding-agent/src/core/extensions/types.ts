@@ -9,6 +9,7 @@
  */
 
 import type {
+	AgentActionMetadata,
 	AgentMessage,
 	AgentToolResult,
 	AgentToolUpdateCallback,
@@ -49,6 +50,7 @@ import type { ReadonlyFooterDataProvider } from "../footer-data-provider.js";
 import type { KeybindingsManager } from "../keybindings.js";
 import type { CustomMessage } from "../messages.js";
 import type { ModelRegistry } from "../model-registry.js";
+import type { AgentPlatformContext, PlatformActionInfo, PlatformActionSource } from "../platform/types.js";
 import type {
 	BranchSummaryEntry,
 	CompactionEntry,
@@ -82,6 +84,7 @@ export type { ExecOptions, ExecResult } from "../exec.js";
 export type { BuildSystemPromptOptions } from "../system-prompt.js";
 export type { AgentToolResult, AgentToolUpdateCallback, ToolExecutionMode };
 export type { AppKeybinding, KeybindingsManager } from "../keybindings.js";
+export type { AgentPlatformContext, PlatformActionInfo, PlatformActionSource } from "../platform/types.js";
 
 // ============================================================================
 // UI Context
@@ -297,11 +300,7 @@ export interface CompactOptions {
 /**
  * Context passed to extension event handlers.
  */
-export interface ExtensionContext {
-	/** UI methods for user interaction */
-	ui: ExtensionUIContext;
-	/** Whether UI is available (false in print/RPC mode) */
-	hasUI: boolean;
+export interface PlatformExtensionContext {
 	/** Current working directory */
 	cwd: string;
 	/** Session manager (read-only) */
@@ -326,6 +325,21 @@ export interface ExtensionContext {
 	compact(options?: CompactOptions): void;
 	/** Get the current effective system prompt. */
 	getSystemPrompt(): string;
+	/** Platform-core runtime surface. */
+	platform: AgentPlatformContext;
+}
+
+/**
+ * Full extension context passed to event handlers and tools.
+ *
+ * Platform-core state is exposed via `ctx.platform`, while interactive host
+ * features stay under `ctx.ui`.
+ */
+export interface ExtensionContext extends PlatformExtensionContext {
+	/** UI methods for user interaction */
+	ui: ExtensionUIContext;
+	/** Whether UI is available (false in print/RPC mode) */
+	hasUI: boolean;
 }
 
 /**
@@ -430,6 +444,8 @@ export interface ToolDefinition<TParams extends TSchema = TSchema, TDetails = un
 	name: string;
 	/** Human-readable label for UI */
 	label: string;
+	/** Optional capability metadata for the platform action registry. */
+	action?: AgentActionMetadata;
 	/** Description for LLM */
 	description: string;
 	/** Optional one-line snippet for the Available tools section in the default system prompt. Custom tools are omitted from that section when this is not provided. */
@@ -703,6 +719,48 @@ export interface ToolExecutionEndEvent {
 	toolCallId: string;
 	toolName: string;
 	result: any;
+	isError: boolean;
+}
+
+// ============================================================================
+// Platform Action Events
+// ============================================================================
+
+interface PlatformActionEventBase {
+	actionId: string;
+	actionName: string;
+	action: PlatformActionInfo;
+	source: PlatformActionSource;
+}
+
+export interface ActionExecutionStartEvent extends PlatformActionEventBase {
+	type: "action_execution_start";
+	input: Record<string, unknown>;
+}
+
+export interface ActionExecutionUpdateEvent extends PlatformActionEventBase {
+	type: "action_execution_update";
+	input: Record<string, unknown>;
+	partialResult: unknown;
+}
+
+export interface ActionExecutionEndEvent extends PlatformActionEventBase {
+	type: "action_execution_end";
+	input: Record<string, unknown>;
+	result: unknown;
+	isError: boolean;
+}
+
+export interface ActionCallEvent extends PlatformActionEventBase {
+	type: "action_call";
+	input: Record<string, unknown>;
+}
+
+export interface ActionResultEvent extends PlatformActionEventBase {
+	type: "action_result";
+	input: Record<string, unknown>;
+	content: (TextContent | ImageContent)[];
+	details: unknown;
 	isError: boolean;
 }
 
@@ -982,6 +1040,11 @@ export type ExtensionEvent =
 	| MessageStartEvent
 	| MessageUpdateEvent
 	| MessageEndEvent
+	| ActionExecutionStartEvent
+	| ActionExecutionUpdateEvent
+	| ActionExecutionEndEvent
+	| ActionCallEvent
+	| ActionResultEvent
 	| ToolExecutionStartEvent
 	| ToolExecutionUpdateEvent
 	| ToolExecutionEndEvent
@@ -1001,6 +1064,17 @@ export interface ContextEventResult {
 }
 
 export type BeforeProviderRequestEventResult = unknown;
+
+export interface ActionCallEventResult {
+	block?: boolean;
+	reason?: string;
+}
+
+export interface ActionResultEventResult {
+	content?: (TextContent | ImageContent)[];
+	details?: unknown;
+	isError?: boolean;
+}
 
 export interface ToolCallEventResult {
 	/** Block tool execution. To modify arguments, mutate `event.input` in place instead. */
@@ -1136,6 +1210,11 @@ export interface ExtensionAPI {
 	on(event: "message_start", handler: ExtensionHandler<MessageStartEvent>): void;
 	on(event: "message_update", handler: ExtensionHandler<MessageUpdateEvent>): void;
 	on(event: "message_end", handler: ExtensionHandler<MessageEndEvent, MessageEndEventResult>): void;
+	on(event: "action_execution_start", handler: ExtensionHandler<ActionExecutionStartEvent>): void;
+	on(event: "action_execution_update", handler: ExtensionHandler<ActionExecutionUpdateEvent>): void;
+	on(event: "action_execution_end", handler: ExtensionHandler<ActionExecutionEndEvent>): void;
+	on(event: "action_call", handler: ExtensionHandler<ActionCallEvent, ActionCallEventResult>): void;
+	on(event: "action_result", handler: ExtensionHandler<ActionResultEvent, ActionResultEventResult>): void;
 	on(event: "tool_execution_start", handler: ExtensionHandler<ToolExecutionStartEvent>): void;
 	on(event: "tool_execution_update", handler: ExtensionHandler<ToolExecutionUpdateEvent>): void;
 	on(event: "tool_execution_end", handler: ExtensionHandler<ToolExecutionEndEvent>): void;
@@ -1238,7 +1317,7 @@ export interface ExtensionAPI {
 	/** Set the active tools by name. */
 	setActiveTools(toolNames: string[]): void;
 
-	/** Get available slash commands in the current session. */
+	/** Get available operator commands in the current session. */
 	getCommands(): SlashCommandInfo[];
 
 	// =========================================================================
@@ -1330,6 +1409,35 @@ export interface ExtensionAPI {
 	/** Shared event bus for extension communication. */
 	events: EventBus;
 }
+
+export interface PlatformExtensionAPI
+	extends Pick<
+		ExtensionAPI,
+		| "on"
+		| "registerTool"
+		| "sendMessage"
+		| "sendUserMessage"
+		| "appendEntry"
+		| "setSessionName"
+		| "getSessionName"
+		| "setLabel"
+		| "exec"
+		| "getActiveTools"
+		| "getAllTools"
+		| "setActiveTools"
+		| "setModel"
+		| "getThinkingLevel"
+		| "setThinkingLevel"
+		| "registerProvider"
+		| "unregisterProvider"
+		| "events"
+	> {}
+
+export interface InteractiveExtensionAPI
+	extends Pick<
+		ExtensionAPI,
+		"registerCommand" | "registerShortcut" | "registerFlag" | "getFlag" | "registerMessageRenderer" | "getCommands"
+	> {}
 
 // ============================================================================
 // Provider Registration Types
@@ -1521,6 +1629,7 @@ export interface ExtensionContextActions {
 	getContextUsage: () => ContextUsage | undefined;
 	compact: (options?: CompactOptions) => void;
 	getSystemPrompt: () => string;
+	getPlatformContext?: () => AgentPlatformContext;
 }
 
 /**

@@ -20,6 +20,7 @@ import type { CompactionResult } from "./compaction/index.js";
 import type { ContextUsage, ToolDefinition } from "./extensions/index.js";
 import type { ExtensionRunner } from "./extensions/runner.js";
 import type { ModelRegistry } from "./model-registry.js";
+import type { AgentPlatformContext } from "./platform/index.js";
 import type { PromptTemplate } from "./prompt-templates.js";
 import type { ResourceLoader } from "./resource-loader.js";
 import type { SessionManager } from "./session-manager.js";
@@ -207,6 +208,9 @@ export class InProcessTransport implements AgentTransport {
 	}
 	get settingsManager(): SettingsManager {
 		return this._session.settingsManager;
+	}
+	get platform(): AgentPlatformContext {
+		return this._session.platform;
 	}
 
 	setSessionName(name: string): void {

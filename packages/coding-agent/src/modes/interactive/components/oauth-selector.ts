@@ -1,4 +1,12 @@
-import { Container, type Focusable, fuzzyFilter, getKeybindings, Input, Spacer, TruncatedText } from "@alef/tui";
+import {
+	Container,
+	type Focusable,
+	fuzzyFilter,
+	getKeybindings,
+	Input,
+	Spacer,
+	TruncatedText,
+} from "@dpopsuev/alef-tui";
 import type { AuthStatus, AuthStorage } from "../../../core/auth-storage.js";
 import { theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
@@ -134,7 +142,7 @@ export class OAuthSelectorComponent extends Container implements Focusable {
 				this.allProviders.length === 0
 					? this.mode === "login"
 						? "No providers available"
-						: "No providers logged in. Use /login first."
+						: "No providers logged in. Use :login first."
 					: "No matching providers";
 			this.listContainer.addChild(new TruncatedText(theme.fg("muted", `  ${message}`), 1, 0));
 		}

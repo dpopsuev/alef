@@ -31,6 +31,7 @@ import type {
 } from "./extensions/index.js";
 import type { ExtensionRunner } from "./extensions/runner.js";
 import type { ModelRegistry } from "./model-registry.js";
+import type { AgentPlatformContext } from "./platform/index.js";
 import type { PromptTemplate } from "./prompt-templates.js";
 import type { ResourceLoader } from "./resource-loader.js";
 import type { SessionManager } from "./session-manager.js";
@@ -123,6 +124,7 @@ export interface AgentTransport {
 	// Session
 	readonly sessionManager: SessionManager;
 	readonly settingsManager: SettingsManager;
+	readonly platform: AgentPlatformContext;
 	setSessionName(name: string): void;
 	getSessionStats(): SessionStats;
 	getContextUsage(): ContextUsage | undefined;

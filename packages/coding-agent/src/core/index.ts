@@ -30,7 +30,15 @@ export type { CompactionResult } from "./compaction/index.js";
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
 // Extensions system
 export {
+	type ActionCallEvent,
+	type ActionCallEventResult,
+	type ActionExecutionEndEvent,
+	type ActionExecutionStartEvent,
+	type ActionExecutionUpdateEvent,
+	type ActionResultEvent,
+	type ActionResultEventResult,
 	type AgentEndEvent,
+	type AgentPlatformContext,
 	type AgentStartEvent,
 	type AgentToolResult,
 	type AgentToolUpdateCallback,
@@ -54,8 +62,13 @@ export {
 	ExtensionRunner,
 	type ExtensionShortcut,
 	type ExtensionUIContext,
+	type InteractiveExtensionAPI,
 	type LoadExtensionsResult,
 	type MessageRenderer,
+	type PlatformActionInfo,
+	type PlatformActionSource,
+	type PlatformExtensionAPI,
+	type PlatformExtensionContext,
 	type RegisteredCommand,
 	type SessionBeforeCompactEvent,
 	type SessionBeforeForkEvent,
@@ -74,4 +87,16 @@ export {
 	type TurnStartEvent,
 	type WorkingIndicatorOptions,
 } from "./extensions/index.js";
+export * from "./platform/index.js";
 export { createSyntheticSourceInfo } from "./source-info.js";
+export {
+	createPlatformShellAdapter,
+	createSupervisorToolDefinition,
+	PosixShellAdapter,
+	type ShellAdapter,
+	type ShellAdapterContext,
+	type SupervisorToolDetails,
+	type SupervisorToolInput,
+	SupervisorToolInputSchema,
+	WindowsShellAdapter,
+} from "./tools/index.js";

@@ -21,9 +21,9 @@ import * as _bundledTypebox from "typebox";
 import * as _bundledTypeboxCompile from "typebox/compile";
 import * as _bundledTypeboxValue from "typebox/value";
 import { CONFIG_DIR_NAME, getAgentDir, isBunBinary } from "../../config.js";
-// NOTE: This import works because loader.ts exports are NOT re-exported from index.ts,
-// avoiding a circular dependency. Extensions can import from @dpopsuev/alef-coding-agent.
-import * as _bundledPiCodingAgent from "../../index.js";
+// Extensions need the compatibility bundle rather than the thin CLI entrypoint.
+// This avoids a loader/runtime cycle while preserving the historical package surface.
+import * as _bundledPiCodingAgent from "../../extension-api.js";
 import { createEventBus, type EventBus } from "../event-bus.js";
 import type { ExecOptions } from "../exec.js";
 import { execCommand } from "../exec.js";
@@ -67,7 +67,7 @@ function getAliases(): Record<string, string> {
 	if (_aliases) return _aliases;
 
 	const __dirname = path.dirname(fileURLToPath(import.meta.url));
-	const packageIndex = path.resolve(__dirname, "../..", "index.js");
+	const packageIndex = path.resolve(__dirname, "../..", "extension-api.js");
 
 	const typeboxEntry = require.resolve("typebox");
 	const typeboxCompileEntry = require.resolve("typebox/compile");

@@ -2,11 +2,10 @@
  * List available models with optional fuzzy search
  */
 
+import { formatNoModelsAvailableMessage, type ModelRegistry } from "@dpopsuev/alef-agent-runtime";
 import type { Api, Model } from "@dpopsuev/alef-ai";
 import { fuzzyFilter } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
-import { formatNoModelsAvailableMessage } from "../core/auth-guidance.js";
-import type { ModelRegistry } from "../core/model-registry.js";
 
 /**
  * Format a number as human-readable (e.g., 200000 -> "200K", 1000000 -> "1M")

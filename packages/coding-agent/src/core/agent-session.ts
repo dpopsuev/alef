@@ -69,7 +69,6 @@ import {
 	type TreePreparation,
 	type TurnEndEvent,
 	type TurnStartEvent,
-	wrapRegisteredTools,
 } from "./extensions/index.js";
 import { emitSessionShutdownEvent } from "./extensions/runner.js";
 import { LectorRuntime } from "./lector-runtime.js";
@@ -82,9 +81,7 @@ import {
 	type CompiledAgentDefinition,
 	createAgentMemoryPorts,
 	createDefaultDoltStoreDriver,
-	createPlatformActionInfoFromToolDefinition,
 	getCompiledAgentOrgan,
-	PlatformActionRegistry,
 	type ReviewBoardPort,
 	SessionBackedDiscourseStore,
 	SessionBackedReviewBoard,
@@ -95,9 +92,10 @@ import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.js
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.js";
 import type { BranchSummaryEntry, CompactionEntry, SessionManager } from "./session-manager.js";
 import { CURRENT_SESSION_VERSION, getLatestCompactionEntry, type SessionHeader } from "./session-manager.js";
+import { SessionToolRegistry } from "./session-tool-registry.js";
 import type { SettingsManager } from "./settings-manager.js";
 import type { SlashCommandInfo } from "./slash-commands.js";
-import { createSyntheticSourceInfo, type SourceInfo } from "./source-info.js";
+
 import { parsePrefixedCommand } from "./symbolic-commands.js";
 import { type BuildSystemPromptOptions, buildSystemPrompt } from "./system-prompt.js";
 import { type BashOperations, createLocalBashOperations } from "./tools/bash.js";
@@ -269,11 +267,6 @@ export interface SessionStats {
 	contextUsage?: ContextUsage;
 }
 
-interface ToolDefinitionEntry {
-	definition: ToolDefinition;
-	sourceInfo: SourceInfo;
-}
-
 // ============================================================================
 // Constants
 // ============================================================================
@@ -327,13 +320,14 @@ export class AgentSession {
 	private _turnIndex = 0;
 
 	private _resourceLoader: ResourceLoader;
-	private _customTools: ToolDefinition[];
-	private _baseToolDefinitions: Map<string, ToolDefinition> = new Map();
+	private _toolReg!: SessionToolRegistry;
 	private _cwd: string;
 	private _extensionRunnerRef?: { current?: ExtensionRunner };
 	private _initialActiveToolNames?: string[];
 	private _allowedToolNames?: Set<string>;
 	private _baseToolsOverride?: Record<string, AgentTool>;
+	// customTools kept for _buildRuntime composition
+	private _customTools: ToolDefinition[];
 	private _sessionStartEvent: SessionStartEvent;
 	private _extensionUIContext?: ExtensionUIContext;
 	private _extensionCommandContextActions?: ExtensionCommandContextActions;
@@ -346,7 +340,7 @@ export class AgentSession {
 	private _discourse: AgentDiscoursePort;
 	private _review: ReviewBoardPort;
 	private _supervisorManager?: SupervisorPort;
-	private _actionRegistry = new PlatformActionRegistry();
+
 	private _runtimeId?: string;
 	private _discourseObjectId?: string;
 	private _topicId?: string;
@@ -355,12 +349,6 @@ export class AgentSession {
 
 	// Model registry for API key resolution
 	private _modelRegistry: ModelRegistry;
-
-	// Tool registry for extension getTools/setTools
-	private _toolRegistry: Map<string, AgentTool> = new Map();
-	private _toolDefinitions: Map<string, ToolDefinitionEntry> = new Map();
-	private _toolPromptSnippets: Map<string, string> = new Map();
-	private _toolPromptGuidelines: Map<string, string[]> = new Map();
 
 	// Base system prompt (without extension appends) - used to apply fresh appends each turn
 	private _baseSystemPrompt = "";
@@ -379,6 +367,10 @@ export class AgentSession {
 		this._initialActiveToolNames = config.initialActiveToolNames;
 		this._allowedToolNames = config.allowedToolNames ? new Set(config.allowedToolNames) : undefined;
 		this._baseToolsOverride = config.baseToolsOverride;
+		this._toolReg = new SessionToolRegistry({
+			customTools: this._customTools,
+			allowedToolNames: this._allowedToolNames,
+		});
 		this._sessionStartEvent = config.sessionStartEvent ?? { type: "session_start", reason: "startup" };
 		this._role = config.role ?? "root";
 		this._agentDefinition = config.agentDefinition;
@@ -1133,16 +1125,11 @@ export class AgentSession {
 	 * Get all configured tools with name, description, parameter schema, and source metadata.
 	 */
 	getAllTools(): ToolInfo[] {
-		return Array.from(this._toolDefinitions.values()).map(({ definition, sourceInfo }) => ({
-			name: definition.name,
-			description: definition.description,
-			parameters: definition.parameters,
-			sourceInfo,
-		}));
+		return this._toolReg.getAllTools();
 	}
 
 	getToolDefinition(name: string): ToolDefinition | undefined {
-		return this._toolDefinitions.get(name)?.definition;
+		return this._toolReg.getToolDefinition(name);
 	}
 
 	/**
@@ -1152,15 +1139,8 @@ export class AgentSession {
 	 * Changes take effect on the next agent turn.
 	 */
 	setActiveToolsByName(toolNames: string[]): void {
-		const tools: AgentTool[] = [];
-		const validToolNames: string[] = [];
-		for (const name of toolNames) {
-			const tool = this._toolRegistry.get(name);
-			if (tool) {
-				tools.push(tool);
-				validToolNames.push(name);
-			}
-		}
+		const { tools, validNames: validToolNames } = this._toolReg.resolveActive(toolNames);
+		this._toolReg.setActiveNames(validToolNames);
 		this.agent.state.tools = tools;
 
 		// Rebuild base system prompt with new tool set
@@ -1251,9 +1231,9 @@ export class AgentSession {
 			discourse: this._discourse,
 			review: this._review,
 			supervisor: this._supervisorManager,
-			actions: this._actionRegistry.getActions(),
-			getAction: (name: string) => this._actionRegistry.getAction(name),
-			getCapabilities: () => this._actionRegistry.getCapabilities(),
+			actions: this._toolReg.getActionRegistry().getActions(),
+			getAction: (name: string) => this._toolReg.getActionRegistry().getAction(name),
+			getCapabilities: () => this._toolReg.getActionRegistry().getCapabilities(),
 		};
 	}
 
@@ -1272,33 +1252,9 @@ export class AgentSession {
 		return this._resourceLoader.getPrompts().prompts;
 	}
 
-	private _normalizePromptSnippet(text: string | undefined): string | undefined {
-		if (!text) return undefined;
-		const oneLine = text
-			.replace(/[\r\n]+/g, " ")
-			.replace(/\s+/g, " ")
-			.trim();
-		return oneLine.length > 0 ? oneLine : undefined;
-	}
-
-	private _normalizePromptGuidelines(guidelines: string[] | undefined): string[] {
-		if (!guidelines || guidelines.length === 0) {
-			return [];
-		}
-
-		const unique = new Set<string>();
-		for (const guideline of guidelines) {
-			const normalized = guideline.trim();
-			if (normalized.length > 0) {
-				unique.add(normalized);
-			}
-		}
-		return Array.from(unique);
-	}
-
 	private _getActionInfo(name: string) {
 		return (
-			this._actionRegistry.getAction(name) ?? {
+			this._toolReg.getActionRegistry().getAction(name) ?? {
 				name,
 				label: name,
 				description: "",
@@ -1312,16 +1268,18 @@ export class AgentSession {
 	}
 
 	private _rebuildSystemPrompt(toolNames: string[]): string {
-		const validToolNames = toolNames.filter((name) => this._toolRegistry.has(name));
+		const snippets = this._toolReg.getPromptSnippets();
+		const guidelineMap = this._toolReg.getPromptGuidelines();
+		const validToolNames = toolNames.filter((name) => this._toolReg.getToolRegistry().has(name));
 		const toolSnippets: Record<string, string> = {};
 		const promptGuidelines: string[] = [];
 		for (const name of validToolNames) {
-			const snippet = this._toolPromptSnippets.get(name);
+			const snippet = snippets.get(name);
 			if (snippet) {
 				toolSnippets[name] = snippet;
 			}
 
-			const toolGuidelines = this._toolPromptGuidelines.get(name);
+			const toolGuidelines = guidelineMap.get(name);
 			if (toolGuidelines) {
 				promptGuidelines.push(...toolGuidelines);
 			}
@@ -2708,100 +2666,8 @@ export class AgentSession {
 	}
 
 	private _refreshToolRegistry(options?: { activeToolNames?: string[]; includeAllExtensionTools?: boolean }): void {
-		const previousRegistryNames = new Set(this._toolRegistry.keys());
-		const previousActiveToolNames = this.getActiveToolNames();
-		const allowedToolNames = this._allowedToolNames;
-		const isAllowedTool = (name: string): boolean => !allowedToolNames || allowedToolNames.has(name);
-
-		const registeredTools = this._extensionRunner.getAllRegisteredTools();
-		const allCustomTools = [
-			...registeredTools,
-			...this._customTools.map((definition) => ({
-				definition,
-				sourceInfo: createSyntheticSourceInfo(`<sdk:${definition.name}>`, { source: "sdk" }),
-			})),
-		].filter((tool) => isAllowedTool(tool.definition.name));
-		const definitionRegistry = new Map<string, ToolDefinitionEntry>(
-			Array.from(this._baseToolDefinitions.entries())
-				.filter(([name]) => isAllowedTool(name))
-				.map(([name, definition]) => [
-					name,
-					{
-						definition,
-						sourceInfo: createSyntheticSourceInfo(`<builtin:${name}>`, { source: "builtin" }),
-					},
-				]),
-		);
-		for (const tool of allCustomTools) {
-			definitionRegistry.set(tool.definition.name, {
-				definition: tool.definition,
-				sourceInfo: tool.sourceInfo,
-			});
-		}
-		this._toolDefinitions = definitionRegistry;
-		this._actionRegistry = new PlatformActionRegistry();
-		this._actionRegistry.registerMany(
-			Array.from(definitionRegistry.values()).map(({ definition, sourceInfo }) =>
-				createPlatformActionInfoFromToolDefinition(definition, sourceInfo),
-			),
-		);
-		this._toolPromptSnippets = new Map(
-			Array.from(definitionRegistry.values())
-				.map(({ definition }) => {
-					const snippet = this._normalizePromptSnippet(definition.promptSnippet);
-					return snippet ? ([definition.name, snippet] as const) : undefined;
-				})
-				.filter((entry): entry is readonly [string, string] => entry !== undefined),
-		);
-		this._toolPromptGuidelines = new Map(
-			Array.from(definitionRegistry.values())
-				.map(({ definition }) => {
-					const guidelines = this._normalizePromptGuidelines(definition.promptGuidelines);
-					return guidelines.length > 0 ? ([definition.name, guidelines] as const) : undefined;
-				})
-				.filter((entry): entry is readonly [string, string[]] => entry !== undefined),
-		);
-		const runner = this._extensionRunner;
-		const wrappedExtensionTools = wrapRegisteredTools(allCustomTools, runner);
-		const wrappedBuiltInTools = wrapRegisteredTools(
-			Array.from(this._baseToolDefinitions.values())
-				.filter((definition) => isAllowedTool(definition.name))
-				.map((definition) => ({
-					definition,
-					sourceInfo: createSyntheticSourceInfo(`<builtin:${definition.name}>`, { source: "builtin" }),
-				})),
-			runner,
-		);
-
-		const toolRegistry = new Map(wrappedBuiltInTools.map((tool) => [tool.name, tool]));
-		for (const tool of wrappedExtensionTools as AgentTool[]) {
-			toolRegistry.set(tool.name, tool);
-		}
-		this._toolRegistry = toolRegistry;
-
-		const nextActiveToolNames = (
-			options?.activeToolNames ? [...options.activeToolNames] : [...previousActiveToolNames]
-		).filter((name) => isAllowedTool(name));
-
-		if (allowedToolNames) {
-			for (const toolName of this._toolRegistry.keys()) {
-				if (allowedToolNames.has(toolName)) {
-					nextActiveToolNames.push(toolName);
-				}
-			}
-		} else if (options?.includeAllExtensionTools) {
-			for (const tool of wrappedExtensionTools) {
-				nextActiveToolNames.push(tool.name);
-			}
-		} else if (!options?.activeToolNames) {
-			for (const toolName of this._toolRegistry.keys()) {
-				if (!previousRegistryNames.has(toolName)) {
-					nextActiveToolNames.push(toolName);
-				}
-			}
-		}
-
-		this.setActiveToolsByName([...new Set(nextActiveToolNames)]);
+		this._toolReg.refresh(this._extensionRunner, options);
+		this.setActiveToolsByName(this._toolReg.getActiveToolNames());
 	}
 
 	private _buildRuntime(options: {
@@ -2874,8 +2740,8 @@ export class AgentSession {
 			}) as ToolDefinition;
 		}
 
-		this._baseToolDefinitions = new Map(
-			Object.entries(baseToolDefinitions).map(([name, tool]) => [name, tool as ToolDefinition]),
+		this._toolReg.setBaseToolDefinitions(
+			new Map(Object.entries(baseToolDefinitions).map(([name, tool]) => [name, tool as ToolDefinition])),
 		);
 
 		const extensionsResult = this._resourceLoader.getExtensions();
@@ -2899,14 +2765,8 @@ export class AgentSession {
 		this._applyExtensionBindings(this._extensionRunner);
 
 		const defaultActiveToolNames = this._baseToolsOverride
-			? [
-					...Object.keys(this._baseToolsOverride),
-					...(this._baseToolDefinitions.has("supervisor") ? ["supervisor"] : []),
-				]
-			: [
-					...getCoreOrganToolNames(this._role),
-					...(this._baseToolDefinitions.has("supervisor") ? ["supervisor"] : []),
-				];
+			? [...Object.keys(this._baseToolsOverride), ...(this._toolReg.hasBaseTool("supervisor") ? ["supervisor"] : [])]
+			: [...getCoreOrganToolNames(this._role), ...(this._toolReg.hasBaseTool("supervisor") ? ["supervisor"] : [])];
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
 		this._refreshToolRegistry({
 			activeToolNames: baseActiveToolNames,

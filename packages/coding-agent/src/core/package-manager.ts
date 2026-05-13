@@ -98,7 +98,7 @@ export interface PackageManager {
 	update(source?: string): Promise<void>;
 	listConfiguredPackages(): ConfiguredPackage[];
 	resolveExtensionSources(
-		sources: string[],
+		sources: PackageSource[],
 		options?: { local?: boolean; temporary?: boolean },
 	): Promise<ResolvedPaths>;
 	addSourceToSettings(source: string, options?: { local?: boolean }): boolean;
@@ -903,12 +903,12 @@ export class DefaultPackageManager implements PackageManager {
 	}
 
 	async resolveExtensionSources(
-		sources: string[],
+		sources: PackageSource[],
 		options?: { local?: boolean; temporary?: boolean },
 	): Promise<ResolvedPaths> {
 		const accumulator = this.createAccumulator();
 		const scope: SourceScope = options?.temporary ? "temporary" : options?.local ? "project" : "user";
-		const packageSources = sources.map((source) => ({ pkg: source as PackageSource, scope }));
+		const packageSources = sources.map((source) => ({ pkg: source, scope }));
 		await this.resolvePackageSources(packageSources, accumulator);
 		return this.toResolvedPaths(accumulator);
 	}

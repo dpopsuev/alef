@@ -96,6 +96,46 @@ Prompt content.`,
 			expect(prompts.some((p) => p.name === "test-prompt")).toBe(true);
 		});
 
+		it("loads resources from additional package sources", async () => {
+			const packageDir = join(tempDir, "resource-package");
+			const packageExtensionsDir = join(packageDir, "extensions");
+			mkdirSync(packageExtensionsDir, { recursive: true });
+			writeFileSync(
+				join(packageExtensionsDir, "resource-ext.ts"),
+				`export default function(pi) {
+	pi.registerCommand("resource-extension", {
+		description: "loaded from resource package",
+		handler: async () => {},
+	});
+}`,
+			);
+			writeFileSync(
+				join(packageDir, "package.json"),
+				JSON.stringify(
+					{
+						name: "@alef/test-resource-package",
+						version: "0.0.1",
+						alef: {
+							extensions: ["extensions/*.ts"],
+						},
+					},
+					null,
+					2,
+				),
+			);
+
+			const loader = new DefaultResourceLoader({
+				cwd,
+				agentDir,
+				additionalPackageSources: [packageDir],
+			});
+			await loader.reload();
+
+			const { extensions, errors } = loader.getExtensions();
+			expect(errors).toEqual([]);
+			expect(extensions.some((extension) => extension.path.endsWith("resource-ext.ts"))).toBe(true);
+		});
+
 		it("should prefer project resources over user on name collisions", async () => {
 			const userPromptsDir = join(agentDir, "prompts");
 			const projectPromptsDir = join(cwd, ".alef", "prompts");

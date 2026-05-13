@@ -2,13 +2,23 @@
  * System prompt construction and project context loading
  */
 
+import {
+	assembleDirectiveContext,
+	type DirectiveAssemblyAudit,
+	type DirectiveEventContext,
+	type DirectiveRuntimeMetadata,
+	type RuntimeDirective,
+} from "@dpopsuev/alef-agent-runtime";
 import { getDocsPath, getExamplesPath, getReadmePath } from "../config.js";
+import { getCoreOrganToolNames } from "./core-organs.js";
 import { formatSkillsForPrompt, type Skill } from "./skills.js";
+
+const DEFAULT_SELECTED_TOOLS = getCoreOrganToolNames("root");
 
 export interface BuildSystemPromptOptions {
 	/** Custom system prompt (replaces default). */
 	customPrompt?: string;
-	/** Tools to include in prompt. Default: [symbol_outline, file_read, file_bash, file_edit, file_write] */
+	/** Tools to include in prompt. Default: core fs/shell/lector organ tool set. */
 	selectedTools?: string[];
 	/** Optional one-line tool snippets keyed by tool name. */
 	toolSnippets?: Record<string, string>;
@@ -16,6 +26,14 @@ export interface BuildSystemPromptOptions {
 	promptGuidelines?: string[];
 	/** Text to append to system prompt. */
 	appendSystemPrompt?: string;
+	/** Optional directives layered above base prompt in deterministic order. */
+	directives?: RuntimeDirective[];
+	/** Optional event digest injected into prompt context. */
+	eventContext?: DirectiveEventContext[];
+	/** Runtime metadata attached by the runtime/cerebrum composition layer. */
+	runtimeMetadata?: DirectiveRuntimeMetadata;
+	/** Optional callback to consume deterministic directive application audit. */
+	onDirectiveAudit?: (audit: DirectiveAssemblyAudit) => void;
 	/** Working directory. */
 	cwd: string;
 	/** Pre-loaded context files. */
@@ -32,6 +50,10 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 		toolSnippets,
 		promptGuidelines,
 		appendSystemPrompt,
+		directives,
+		eventContext,
+		runtimeMetadata,
+		onDirectiveAudit,
 		cwd,
 		contextFiles: providedContextFiles,
 		skills: providedSkills,
@@ -72,11 +94,20 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 			prompt += formatSkillsForPrompt(skills);
 		}
 
-		// Add date and working directory last
 		prompt += `\nCurrent date: ${date}`;
 		prompt += `\nCurrent working directory: ${promptCwd}`;
 
-		return prompt;
+		const assembled = assembleDirectiveContext({
+			basePrompt: prompt,
+			directives,
+			eventContext,
+			runtimeMetadata: {
+				...runtimeMetadata,
+				tools: runtimeMetadata?.tools ?? selectedTools,
+			},
+		});
+		onDirectiveAudit?.(assembled.audit);
+		return assembled.prompt;
 	}
 
 	// Get absolute paths to documentation and examples
@@ -86,7 +117,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 
 	// Build tools list based on selected tools.
 	// A tool appears in Available tools only when the caller provides a one-line snippet.
-	const tools = selectedTools || ["symbol_outline", "file_read", "file_bash", "file_edit", "file_write"];
+	const tools = selectedTools || DEFAULT_SELECTED_TOOLS;
 	const visibleTools = tools.filter((name) => !!toolSnippets?.[name]);
 	const toolsList =
 		visibleTools.length > 0 ? visibleTools.map((name) => `- ${name}: ${toolSnippets![name]}`).join("\n") : "(none)";
@@ -105,13 +136,22 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 	const hasBash = tools.includes("file_bash");
 	const hasGrep = tools.includes("file_grep");
 	const hasFind = tools.includes("file_find");
-	const hasLs = tools.includes("file_ls");
+	const hasLs = false; // file_ls removed — file_find(depth=1) replaces it
 	const hasRead = tools.includes("file_read");
 	const hasSymbolOutline = tools.includes("symbol_outline");
+	const hasSymbolGraph = tools.includes("symbol_graph");
+	const hasSymbolCallers = tools.includes("symbol_callers");
+	const hasSymbolCallees = tools.includes("symbol_callees");
+	const hasSymbolDataflow = tools.includes("symbol_dataflow");
 
 	if (hasSymbolOutline && hasRead) {
 		addGuideline(
-			"For JavaScript and TypeScript files, use symbol_outline before file_read when mapping imports, exports, and declarations",
+			"For JavaScript and TypeScript files, start with symbol_outline to map symbol graph boundaries before file_read",
+		);
+	}
+	if (hasSymbolGraph || hasSymbolCallers || hasSymbolCallees || hasSymbolDataflow) {
+		addGuideline(
+			"Use symbol_graph/symbol_callers/symbol_callees/symbol_dataflow before broad grep when mapping TypeScript call structure",
 		);
 	}
 
@@ -120,7 +160,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 		addGuideline("Use file_bash for file operations like ls, rg, find");
 	} else if (hasBash && (hasGrep || hasFind || hasLs)) {
 		addGuideline(
-			"Prefer file_grep/file_find/file_ls over file_bash for file exploration (faster, respects .gitignore)",
+			"Prefer file_grep/file_find over file_bash for file exploration (faster, respects .gitignore). Use file_find with depth=1 to list directory contents.",
 		);
 	}
 
@@ -173,9 +213,18 @@ Alef documentation (read only when the user asks about Alef itself, its SDK, ext
 		prompt += formatSkillsForPrompt(skills);
 	}
 
-	// Add date and working directory last
 	prompt += `\nCurrent date: ${date}`;
 	prompt += `\nCurrent working directory: ${promptCwd}`;
 
-	return prompt;
+	const assembled = assembleDirectiveContext({
+		basePrompt: prompt,
+		directives,
+		eventContext,
+		runtimeMetadata: {
+			...runtimeMetadata,
+			tools: runtimeMetadata?.tools ?? tools,
+		},
+	});
+	onDirectiveAudit?.(assembled.audit);
+	return assembled.prompt;
 }

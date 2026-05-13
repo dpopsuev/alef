@@ -5,14 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeBashWithOperations } from "../src/core/bash-executor.js";
 import { type BashOperations, createBashTool, createLocalBashOperations } from "../src/core/tools/bash.js";
 import { computeEditsDiff } from "../src/core/tools/edit-diff.js";
-import {
-	createEditTool,
-	createFindTool,
-	createGrepTool,
-	createLsTool,
-	createReadTool,
-	createWriteTool,
-} from "../src/index.js";
+import { createEditTool, createFindTool, createGrepTool, createReadTool, createWriteTool } from "../src/index.js";
 import * as shellModule from "../src/utils/shell.js";
 
 const readTool = createReadTool(process.cwd());
@@ -21,7 +14,6 @@ const editTool = createEditTool(process.cwd());
 const bashTool = createBashTool(process.cwd());
 const grepTool = createGrepTool(process.cwd());
 const findTool = createFindTool(process.cwd());
-const lsTool = createLsTool(process.cwd());
 
 // Helper to extract text from content blocks
 function getTextOutput(result: any): string {
@@ -763,16 +755,16 @@ describe("Coding Agent Tools", () => {
 		});
 	});
 
-	describe("ls tool", () => {
-		it("should list dotfiles and directories", async () => {
+	describe("find tool depth=1 (replaces ls)", () => {
+		it("should list dotfiles and directories using depth=1", async () => {
 			writeFileSync(join(testDir, ".hidden-file"), "secret");
 			mkdirSync(join(testDir, ".hidden-dir"));
 
-			const result = await lsTool.execute("test-call-15", { path: testDir });
+			const result = await findTool.execute("test-call-15", { pattern: "*", path: testDir, depth: 1 });
 			const output = getTextOutput(result);
 
 			expect(output).toContain(".hidden-file");
-			expect(output).toContain(".hidden-dir/");
+			expect(output).toContain(".hidden-dir");
 		});
 	});
 });

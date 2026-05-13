@@ -2,13 +2,10 @@ import type { Organ, OrganBus, OrganResult } from "@dpopsuev/alef-nerve";
 import {
 	DEFAULT_FIND_LIMIT,
 	DEFAULT_GREP_LIMIT,
-	DEFAULT_LS_LIMIT,
 	executeFindQuery,
 	executeGrepQuery,
-	executeLsQuery,
 	type FindToolInput,
 	type GrepToolInput,
-	type LsToolInput,
 } from "./file-queries.js";
 import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
 
@@ -84,22 +81,6 @@ async function handleFind(args: Record<string, unknown>, opts: FsOrganOptions): 
 	};
 }
 
-async function handleLs(args: Record<string, unknown>, opts: FsOrganOptions): Promise<OrganResult> {
-	const input: LsToolInput = {
-		path: args.path !== undefined ? String(args.path) : ".",
-		limit: typeof args.limit === "number" ? args.limit : DEFAULT_LS_LIMIT,
-	};
-	const response = await executeLsQuery(input, {
-		cwd: opts.cwd,
-		cache: getCache(opts.runtime, "ls"),
-	});
-	return {
-		ok: true,
-		content: response,
-		contentLength: contentLength(response),
-	};
-}
-
 /**
  * Create the filesystem organ.
  *
@@ -121,7 +102,7 @@ async function handleLs(args: Record<string, unknown>, opts: FsOrganOptions): Pr
 export function createFsOrgan(options: FsOrganOptions): Organ {
 	return {
 		name: "fs",
-		actions: ["grep", "find", "ls"],
+		actions: ["grep", "find"],
 
 		mount(bus: OrganBus): () => void {
 			return bus.handle("fs", async (action, args) => {
@@ -130,14 +111,12 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 						return handleGrep(args, options);
 					case "find":
 						return handleFind(args, options);
-					case "ls":
-						return handleLs(args, options);
 					default:
 						return {
 							ok: false,
 							content: null,
 							contentLength: 0,
-							error: `fs organ: unknown action "${action}". Supported: grep, find, ls.`,
+							error: `fs organ: unknown action "${action}". Supported: grep, find.`,
 						};
 				}
 			});

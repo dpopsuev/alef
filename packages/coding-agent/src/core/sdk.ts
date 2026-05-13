@@ -47,7 +47,6 @@ import {
 	createEditTool,
 	createFindTool,
 	createGrepTool,
-	createLsTool,
 	createReadOnlyTools,
 	createReadTool,
 	createSymbolOutlineTool,
@@ -191,7 +190,6 @@ export {
 	createWriteTool,
 	createGrepTool,
 	createFindTool,
-	createLsTool,
 };
 
 // Helper Functions

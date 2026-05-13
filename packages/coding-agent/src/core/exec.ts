@@ -3,7 +3,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { waitForChildProcess } from "../utils/child-process.js";
+import { waitForChildProcess } from "@dpopsuev/alef-organ-shell";
 
 /**
  * Options for executing shell commands.

@@ -1,4 +1,17 @@
 export {
+	InMemoryToolResultCache,
+	type InMemoryToolResultCacheOptions,
+	type ToolResultCache,
+	type ToolResultCacheHit,
+} from "@dpopsuev/alef-organ-fs";
+export {
+	createPlatformShellAdapter,
+	PosixShellAdapter,
+	type ShellAdapter,
+	type ShellAdapterContext,
+	WindowsShellAdapter,
+} from "@dpopsuev/alef-organ-shell";
+export {
 	type BashOperations,
 	type BashSpawnContext,
 	type BashSpawnHook,
@@ -35,12 +48,6 @@ export {
 	type GrepToolOptions,
 } from "./grep.js";
 export {
-	InMemoryToolResultCache,
-	type InMemoryToolResultCacheOptions,
-	type ToolResultCache,
-	type ToolResultCacheHit,
-} from "./query-cache.js";
-export {
 	createReadTool,
 	createReadToolDefinition,
 	type ReadOperations,
@@ -48,13 +55,6 @@ export {
 	type ReadToolInput,
 	type ReadToolOptions,
 } from "./read.js";
-export {
-	createPlatformShellAdapter,
-	PosixShellAdapter,
-	type ShellAdapter,
-	type ShellAdapterContext,
-	WindowsShellAdapter,
-} from "./shell-adapter.js";
 export {
 	createSupervisorToolDefinition,
 	type SupervisorToolDetails,

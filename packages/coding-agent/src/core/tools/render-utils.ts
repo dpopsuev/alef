@@ -1,8 +1,8 @@
 import * as os from "node:os";
 import type { ImageContent, TextContent } from "@dpopsuev/alef-ai";
+import { sanitizeBinaryOutput } from "@dpopsuev/alef-organ-shell";
 import { getCapabilities, getImageDimensions, imageFallback } from "@dpopsuev/alef-tui";
 import stripAnsi from "strip-ansi";
-import { sanitizeBinaryOutput } from "../../utils/shell.js";
 
 export function shortenPath(path: unknown): string {
 	if (typeof path !== "string") return "";

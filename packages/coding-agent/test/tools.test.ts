@@ -1,3 +1,4 @@
+import * as shellModule from "@dpopsuev/alef-organ-shell";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -6,7 +7,6 @@ import { executeBashWithOperations } from "../src/core/bash-executor.js";
 import { type BashOperations, createBashTool, createLocalBashOperations } from "../src/core/tools/bash.js";
 import { computeEditsDiff } from "../src/core/tools/edit-diff.js";
 import { createEditTool, createFindTool, createGrepTool, createReadTool, createWriteTool } from "../src/index.js";
-import * as shellModule from "../src/utils/shell.js";
 
 const readTool = createReadTool(process.cwd());
 const writeTool = createWriteTool(process.cwd());

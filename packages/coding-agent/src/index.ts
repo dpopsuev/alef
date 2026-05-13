@@ -1,5 +1,10 @@
-export * from "@dpopsuev/alef-agent-runtime";
+// Shell utilities
+export { getShellConfig } from "@dpopsuev/alef-organ-shell";
 export { getAgentDir, VERSION } from "./config.js";
+export { AuthStorage } from "./core/auth-storage.js";
+export { SessionManager } from "./core/session-manager.js";
+export { SettingsManager } from "./core/settings-manager.js";
+export * from "./extension-api.js";
 export { type MainOptions, main } from "./main.js";
 // UI components for extensions
 export {
@@ -57,5 +62,4 @@ export { type PrintModeOptions, runPrintMode } from "./modes/print-mode.js";
 // Clipboard utilities
 export { copyToClipboard } from "./utils/clipboard.js";
 export { parseFrontmatter, stripFrontmatter } from "./utils/frontmatter.js";
-// Shell utilities
-export { getShellConfig } from "./utils/shell.js";
+export { runYamlRunner } from "./yaml-runner.js";

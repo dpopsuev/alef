@@ -1,4 +1,5 @@
 import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import type { ToolResultCache } from "@dpopsuev/alef-organ-fs";
 import {
 	DEFAULT_FIND_LIMIT,
 	DEFAULT_MAX_BYTES,
@@ -11,7 +12,6 @@ import { type Static, Type } from "typebox";
 import { keyHint } from "../../modes/interactive/components/keybinding-hints.js";
 import { ensureTool } from "../../utils/tools-manager.js";
 import type { ToolDefinition, ToolRenderResultOptions } from "../extensions/types.js";
-import type { ToolResultCache } from "./query-cache.js";
 import { getTextOutput, invalidArgText, shortenPath, str } from "./render-utils.js";
 import { wrapToolDefinition } from "./tool-definition-wrapper.js";
 import type { TruncationResult } from "./truncate.js";

@@ -1,4 +1,6 @@
 // Config paths
+
+export { getShellConfig } from "@dpopsuev/alef-organ-shell";
 export { getAgentDir, VERSION } from "./config.js";
 export {
 	AgentSession,
@@ -367,4 +369,3 @@ export {
 } from "./modes/interactive/theme/theme.js";
 export { copyToClipboard } from "./utils/clipboard.js";
 export { parseFrontmatter, stripFrontmatter } from "./utils/frontmatter.js";
-export { getShellConfig } from "./utils/shell.js";

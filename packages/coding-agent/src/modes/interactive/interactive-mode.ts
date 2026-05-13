@@ -17,6 +17,7 @@ import {
 	type OAuthProviderId,
 	type OAuthSelectPrompt,
 } from "@dpopsuev/alef-ai";
+import { killTrackedDetachedChildren } from "@dpopsuev/alef-organ-shell";
 import type {
 	AutocompleteItem,
 	AutocompleteProvider,
@@ -107,7 +108,6 @@ import { copyToClipboard } from "../../utils/clipboard.js";
 import { extensionForImageMimeType, readClipboardImage } from "../../utils/clipboard-image.js";
 import { parseGitUrl } from "../../utils/git.js";
 import { getCwdRelativePath } from "../../utils/paths.js";
-import { killTrackedDetachedChildren } from "../../utils/shell.js";
 import { ensureTool } from "../../utils/tools-manager.js";
 import { checkForNewRelease } from "../../utils/version-check.js";
 import { ArminComponent } from "./components/armin.js";
@@ -5245,22 +5245,29 @@ export class InteractiveMode {
 	}
 
 	private async chooseBootstrapCoordinator(
-		entries: Record<"gensec" | "2sec", MaterializedBootstrapBlueprint>,
+		entries: Record<string, MaterializedBootstrapBlueprint>,
 		decision: BootstrapPolicyDecision,
 	): Promise<MaterializedBootstrapBlueprint> {
-		const orderedIds: Array<"gensec" | "2sec"> =
-			decision.recommendedCoordinatorId === "2sec" ? ["2sec", "gensec"] : ["gensec", "2sec"];
-		const labels: string[] = orderedIds.map((id) =>
-			id === "gensec" ? "GenSec (delegating coordinator)" : "2Sec (lean coordinator)",
+		const available = Object.values(entries);
+		if (available.length === 0) {
+			throw new Error("No bootstrap coordinator blueprints were materialized.");
+		}
+		const recommended =
+			entries[decision.recommendedCoordinatorId] ??
+			entries.primordial ??
+			available.find((entry) => entry.id === "primordial");
+		const recommendedEntry = recommended ?? available[0];
+		const orderedEntries = [recommendedEntry, ...available.filter((entry) => entry.id !== recommendedEntry.id)];
+		const labels: string[] = orderedEntries.map((entry, index) =>
+			index === 0 ? `${entry.label} (recommended)` : entry.label,
 		);
 		const selectedLabel = await this.showExtensionSelector("Select the initial coordinator blueprint:", labels);
 		if (!selectedLabel) {
-			return entries[decision.recommendedCoordinatorId];
+			return recommendedEntry;
 		}
 
 		const selectedIndex = labels.indexOf(selectedLabel);
-		const selectedId = selectedIndex >= 0 ? orderedIds[selectedIndex] : decision.recommendedCoordinatorId;
-		return entries[selectedId];
+		return selectedIndex >= 0 ? orderedEntries[selectedIndex] : recommendedEntry;
 	}
 
 	private async runBootstrapCoolstart(options?: { force?: boolean }): Promise<void> {

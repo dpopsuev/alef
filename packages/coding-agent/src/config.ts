@@ -1,9 +1,9 @@
+import { shouldUseWindowsShell } from "@dpopsuev/alef-organ-shell";
 import { spawnSync } from "child_process";
 import { accessSync, constants, existsSync, readFileSync, realpathSync } from "fs";
 import { homedir } from "os";
 import { basename, dirname, join, resolve, sep, win32 } from "path";
 import { fileURLToPath } from "url";
-import { shouldUseWindowsShell } from "./utils/child-process.js";
 
 // =============================================================================
 // Package Detection

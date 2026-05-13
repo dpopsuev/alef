@@ -1,14 +1,14 @@
 import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import { createPlatformShellAdapter, getShellEnv, type ShellAdapter } from "@dpopsuev/alef-organ-shell";
 import { Container, Text, truncateToWidth } from "@dpopsuev/alef-tui";
 import { type Static, Type } from "typebox";
+import { getBinDir } from "../../config.js";
 import { keyHint } from "../../modes/interactive/components/keybinding-hints.js";
 import { truncateToVisualLines } from "../../modes/interactive/components/visual-truncate.js";
 import { theme } from "../../modes/interactive/theme/theme.js";
-import { getShellEnv } from "../../utils/shell.js";
 import type { ToolDefinition, ToolRenderResultOptions } from "../extensions/types.js";
 import { OutputAccumulator } from "./output-accumulator.js";
 import { getTextOutput, invalidArgText, str } from "./render-utils.js";
-import { createPlatformShellAdapter, type ShellAdapter } from "./shell-adapter.js";
 import { wrapToolDefinition } from "./tool-definition-wrapper.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult } from "./truncate.js";
 
@@ -83,7 +83,7 @@ export interface BashSpawnContext {
 export type BashSpawnHook = (context: BashSpawnContext) => BashSpawnContext;
 
 function resolveSpawnContext(command: string, cwd: string, spawnHook?: BashSpawnHook): BashSpawnContext {
-	const baseContext: BashSpawnContext = { command, cwd, env: { ...getShellEnv() } };
+	const baseContext: BashSpawnContext = { command, cwd, env: { ...getShellEnv({ binDir: getBinDir() }) } };
 	return spawnHook ? spawnHook(baseContext) : baseContext;
 }
 

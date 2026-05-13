@@ -1,3 +1,4 @@
+import { shouldUseWindowsShell } from "@dpopsuev/alef-organ-shell";
 import chalk from "chalk";
 import { spawn } from "child_process";
 import { selectConfig } from "./cli/config-selector.js";
@@ -13,7 +14,6 @@ import {
 } from "./config.js";
 import { DefaultPackageManager } from "./core/package-manager.js";
 import { SettingsManager } from "./core/settings-manager.js";
-import { shouldUseWindowsShell } from "./utils/child-process.js";
 import { getLatestRelease, isNewerPackageVersion } from "./utils/version-check.js";
 
 export type PackageCommand = "install" | "remove" | "update" | "list";

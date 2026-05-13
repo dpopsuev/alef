@@ -1,0 +1,36 @@
+{
+	"name": "@dpopsuev/alef-organ-fs",
+	"version": "0.0.1",
+	"description": "Filesystem organ runtime for cache policy and query acceleration",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": ["dist", "README.md"],
+	"scripts": {
+		"clean": "shx rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"test": "vitest --run",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"keywords": ["agent", "organ", "filesystem", "cache"],
+	"author": "Mario Zechner",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dpopsuev/alef.git",
+		"directory": "packages/organ-fs"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"dependencies": {
+		"@dpopsuev/alef-nerve": "^0.0.1"
+	},
+	"devDependencies": {
+		"@types/node": "^24.3.0",
+		"shx": "^0.4.0",
+		"typescript": "^5.9.2",
+		"vitest": "^3.2.4"
+	}
+}

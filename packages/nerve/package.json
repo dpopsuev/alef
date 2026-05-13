@@ -1,0 +1,68 @@
+{
+	"name": "@dpopsuev/alef-nerve",
+	"version": "0.0.1",
+	"description": "Canonical EDA contracts, event log, and event spine for Alef organs",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		"./bus": {
+			"types": "./dist/bus.d.ts",
+			"import": "./dist/bus.js"
+		},
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./protocol": {
+			"types": "./dist/protocol.d.ts",
+			"import": "./dist/protocol.js"
+		},
+		"./event-log": {
+			"types": "./dist/event-log.d.ts",
+			"import": "./dist/event-log.js"
+		},
+		"./spine": {
+			"types": "./dist/spine.d.ts",
+			"import": "./dist/spine.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"scripts": {
+		"clean": "shx rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"test": "vitest --run",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"dependencies": {
+		"@dpopsuev/alef-agent-core": "^0.0.1",
+		"ajv": "^8.20.0"
+	},
+	"keywords": [
+		"agent",
+		"nerve",
+		"eda",
+		"event-spine",
+		"contracts"
+	],
+	"author": "Mario Zechner",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dpopsuev/alef.git",
+		"directory": "packages/nerve"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24.3.0",
+		"shx": "^0.4.0",
+		"typescript": "^5.9.2",
+		"vitest": "^3.2.4"
+	}
+}

@@ -1,11 +1,21 @@
 import { join, resolve } from "node:path";
 import { Agent, type AgentMessage, type ThinkingLevel } from "@dpopsuev/alef-agent-core";
-import { clampThinkingLevel, type Message, type Model, streamSimple } from "@dpopsuev/alef-ai";
+import type { CompletionPort } from "@dpopsuev/alef-agent-runtime/platform";
+import { clampThinkingLevel, type Message, type Model } from "@dpopsuev/alef-ai";
+import { createCompleterOrganAdapter } from "@dpopsuev/alef-organ-ai";
 import { APP_NAME, getAgentDir } from "../config.js";
+import { AblationMetricsRecorder } from "./ablation-metrics.js";
 import { AgentSession } from "./agent-session.js";
 import { formatNoModelsAvailableMessage } from "./auth-guidance.js";
 import { AuthStorage } from "./auth-storage.js";
+import { getCoreOrganToolNames } from "./core-organs.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
+import {
+	type DomainEventSpine,
+	type OrganGraphSnapshot,
+	RuntimeDomainEventSpine,
+	type SeamAuditSnapshot,
+} from "./domain-event-spine.js";
 import type { ExtensionRunner, LoadExtensionsResult, SessionStartEvent, ToolDefinition } from "./extensions/index.js";
 import { convertToLlm } from "./messages.js";
 import { ModelRegistry } from "./model-registry.js";
@@ -22,6 +32,7 @@ import {
 	SessionBackedDiscourseStore,
 	SessionBackedReviewBoard,
 	SupervisorManager,
+	splitDiscourseOrgans,
 	type WorkingMemoryPort,
 } from "./platform/index.js";
 import type { ResourceLoader } from "./resource-loader.js";
@@ -66,14 +77,14 @@ export interface CreateAgentSessionOptions {
 	 * Optional default tool suppression mode when no explicit allowlist is provided.
 	 *
 	 * - "all": start with no tools enabled
-	 * - "builtin": disable the default built-in tools (symbol_outline, file_read, file_bash, file_edit, file_write)
+	 * - "builtin": disable the core built-in tool set derived from fs/shell/lector organs
 	 *   but keep extension/custom tools enabled
 	 */
 	noTools?: "all" | "builtin";
 	/**
 	 * Optional allowlist of tool names.
 	 *
-	 * When omitted, pi enables the default built-in tools (symbol_outline, file_read, file_bash, file_edit, file_write)
+	 * When omitted, pi enables the core fs/shell/lector organ tool set
 	 * and leaves extension/custom tools enabled unless `noTools` changes that default.
 	 * When provided, only the listed tool names are enabled.
 	 */
@@ -117,19 +128,34 @@ export interface CreateAgentSessionOptions {
 export interface CreateAgentSessionResult {
 	/** The created session */
 	session: AgentSession;
+	/** Runtime EDA spine with session and extension events */
+	eventSpine: DomainEventSpine;
+	/** Deterministic composition snapshot for organ graph + seam audit. */
+	compositionAudit: RuntimeCompositionAudit;
 	/** Extensions result (for UI context setup in interactive mode) */
 	extensionsResult: LoadExtensionsResult;
 	/** Warning if session was restored with a different model than saved */
 	modelFallbackMessage?: string;
 }
 
+export interface RuntimeCompositionAudit {
+	organGraph: OrganGraphSnapshot;
+	seamAudit: SeamAuditSnapshot;
+}
+
 // Re-exports
 
+export {
+	type AblationMetricsProfile,
+	AblationMetricsRecorder,
+	collectTurnMetrics,
+} from "./ablation-metrics.js";
 export * from "./agent-session-runtime.js";
 export type {
 	AgentTransport,
 	TransportExtensionBindings,
 } from "./agent-transport.js";
+export { type DomainEventSpine, RuntimeDomainEventSpine } from "./domain-event-spine.js";
 export type {
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -142,6 +168,15 @@ export type {
 export { InProcessTransport } from "./in-process-transport.js";
 export type { PromptTemplate } from "./prompt-templates.js";
 export type { Skill } from "./skills.js";
+export {
+	DEFAULT_TERMINALBENCH_THRESHOLDS,
+	evaluateTerminalBenchAcceptance,
+	type TerminalBenchRun,
+	type TerminalBenchSummary,
+	type TerminalBenchThresholds,
+	type TerminalBenchTrack,
+	type TerminalBenchVerdict,
+} from "./terminalbench.js";
 export type { Tool } from "./tools/index.js";
 
 export {
@@ -193,6 +228,34 @@ function getAttributionHeaders(
 	}
 
 	return undefined;
+}
+
+function mergeUniquePaths(...groups: Array<string[] | undefined>): string[] {
+	const deduped = new Set<string>();
+	for (const group of groups) {
+		for (const entry of group ?? []) {
+			const normalized = entry.trim();
+			if (normalized.length > 0) {
+				deduped.add(normalized);
+			}
+		}
+	}
+	return Array.from(deduped);
+}
+
+function registerBlueprintOrgans(eventSpine: DomainEventSpine, definition: CompiledAgentDefinition | undefined): void {
+	if (!definition) {
+		return;
+	}
+	for (const organ of definition.organs) {
+		eventSpine.registerOrgan(`${organ.name}.*`, organ.name);
+		for (const actionName of organ.actions) {
+			eventSpine.registerOrgan(actionName, organ.name);
+		}
+		for (const toolName of organ.toolNames) {
+			eventSpine.registerOrgan(toolName, organ.name);
+		}
+	}
 }
 
 /**
@@ -251,11 +314,17 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		typeof blueprintSource === "string"
 			? loadAgentDefinition(blueprintSource.startsWith("/") ? blueprintSource : resolve(cwd, blueprintSource))
 			: blueprintSource;
+	const blueprintDependencies = compiledDefinition?.dependencies;
+	const blueprintExtensionPaths = mergeUniquePaths(
+		compiledDefinition?.hooks.extensions,
+		blueprintDependencies?.extensions,
+	);
 	if (role === "child" && getCompiledAgentOrgan(compiledDefinition, "supervisor")) {
 		throw new Error("Supervisor organ is only available to root agents.");
 	}
 	const doltDriver = createDefaultDoltStoreDriver(sessionManager);
 	const discourse = options.discourse ?? new SessionBackedDiscourseStore(sessionManager, doltDriver);
+	const discourseOrgans = splitDiscourseOrgans(discourse);
 	const review = options.review ?? new SessionBackedReviewBoard(sessionManager, discourse, doltDriver);
 	for (const policy of settingsManager.getBurnBudgets()) {
 		discourse.upsertBudgetPolicy(policy);
@@ -266,7 +335,11 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 			cwd,
 			agentDir,
 			settingsManager,
-			additionalExtensionPaths: compiledDefinition?.hooks.extensions,
+			additionalPackageSources: blueprintDependencies?.packages,
+			additionalExtensionPaths: blueprintExtensionPaths,
+			additionalSkillPaths: blueprintDependencies?.skills,
+			additionalPromptTemplatePaths: blueprintDependencies?.prompts,
+			additionalThemePaths: blueprintDependencies?.themes,
 		});
 		await resourceLoader.reload();
 		time("resourceLoader.reload");
@@ -339,14 +412,36 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	} else {
 		thinkingLevel = clampThinkingLevel(model, thinkingLevel) as ThinkingLevel;
 	}
+	const loopPolicy = compiledDefinition?.loop;
+	const loopToolExecution = loopPolicy?.ablation?.forceSequentialTools ? "sequential" : loopPolicy?.toolExecution;
+	const loopMaxTurnsPerRun = loopPolicy?.maxTurnsPerRun;
+	const steeringMode = loopPolicy?.steeringMode ?? settingsManager.getSteeringMode();
+	const followUpMode = loopPolicy?.followUpMode ?? settingsManager.getFollowUpMode();
+	const toolExecution = loopToolExecution ?? "parallel";
+	const disableSteering = loopPolicy?.ablation?.disableSteering ?? false;
+	const disableFollowUp = loopPolicy?.ablation?.disableFollowUp ?? false;
+	const forceSequentialTools = loopPolicy?.ablation?.forceSequentialTools ?? false;
+	const shouldStopAfterTurn = loopMaxTurnsPerRun
+		? ({ newMessages }: { newMessages: AgentMessage[] }) => {
+				let assistantTurns = 0;
+				for (const message of newMessages) {
+					if (message.role === "assistant") {
+						assistantTurns += 1;
+						if (assistantTurns >= loopMaxTurnsPerRun) {
+							return true;
+						}
+					}
+				}
+				return false;
+			}
+		: undefined;
+	const delegationMode = compiledDefinition?.delegation?.mode ?? "manual";
+	const supervisorEnabledForSession =
+		role === "root" && (compiledDefinition?.capabilities.supervisor ?? false) && delegationMode !== "off";
 
 	const defaultActiveToolNames: string[] = [
-		"symbol_outline",
-		"file_read",
-		"file_bash",
-		"file_edit",
-		"file_write",
-		...(role === "root" ? ["supervisor"] : []),
+		...getCoreOrganToolNames(role),
+		...(supervisorEnabledForSession ? ["supervisor"] : []),
 	];
 	const blueprintToolNames =
 		compiledDefinition && compiledDefinition.capabilities.tools.length > 0
@@ -367,6 +462,14 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 
 	let agent: Agent;
 	let session: AgentSession;
+	const eventSpine = new RuntimeDomainEventSpine();
+	eventSpine.registerOrgan("cerebrum.complete", "ai");
+	eventSpine.registerOrgan("completer.*", "ai");
+	eventSpine.registerOrgan("completer.complete", "ai");
+	registerBlueprintOrgans(eventSpine, compiledDefinition);
+	if (supervisorEnabledForSession) {
+		eventSpine.registerOrgan("supervisor", "supervisor");
+	}
 
 	// Create convertToLlm wrapper that filters images if blockImages is enabled (defense-in-depth)
 	const convertToLlmWithBlockImages = (messages: AgentMessage[]): Message[] => {
@@ -406,9 +509,13 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	};
 
 	const extensionRunnerRef: { current?: ExtensionRunner } = {};
-	const supervisorManager =
-		role === "root"
-			? new SupervisorManager(async (request) => {
+	const completerPort: CompletionPort = createCompleterOrganAdapter({
+		resolveAuth: async (candidateModel) => modelRegistry.getApiKeyAndHeaders(candidateModel),
+		headersForModel: (candidateModel) => getAttributionHeaders(candidateModel, settingsManager),
+	});
+	const supervisorManager = supervisorEnabledForSession
+		? new SupervisorManager(
+				async (request) => {
 					const childModelSelector = request.definition.model;
 					const childModel = childModelSelector
 						? modelRegistry.find(childModelSelector.provider, childModelSelector.id)
@@ -425,7 +532,14 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 						cwd,
 						agentDir,
 						settingsManager,
-						additionalExtensionPaths: request.definition.hooks.extensions,
+						additionalPackageSources: request.definition.dependencies?.packages,
+						additionalExtensionPaths: mergeUniquePaths(
+							request.definition.hooks.extensions,
+							request.definition.dependencies?.extensions,
+						),
+						additionalSkillPaths: request.definition.dependencies?.skills,
+						additionalPromptTemplatePaths: request.definition.dependencies?.prompts,
+						additionalThemePaths: request.definition.dependencies?.themes,
 					});
 					await childResourceLoader.reload();
 
@@ -457,8 +571,11 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 					});
 					await childResult.session.bindExtensions({});
 					return childResult.session;
-				}, discourse)
-			: undefined;
+				},
+				discourseOrgans.dialog,
+				discourseOrgans.monolog,
+			)
+		: undefined;
 
 	agent = new Agent({
 		initialState: {
@@ -469,22 +586,16 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		},
 		convertToLlm: convertToLlmWithBlockImages,
 		streamFn: async (model, context, options) => {
-			const auth = await modelRegistry.getApiKeyAndHeaders(model);
-			if (!auth.ok) {
-				throw new Error(auth.error);
-			}
 			const providerRetrySettings = settingsManager.getProviderRetrySettings();
-			const attributionHeaders = getAttributionHeaders(model, settingsManager);
-			return streamSimple(model, context, {
-				...options,
-				apiKey: auth.apiKey,
-				timeoutMs: options?.timeoutMs ?? providerRetrySettings.timeoutMs,
-				maxRetries: options?.maxRetries ?? providerRetrySettings.maxRetries,
-				maxRetryDelayMs: options?.maxRetryDelayMs ?? providerRetrySettings.maxRetryDelayMs,
-				headers:
-					attributionHeaders || auth.headers || options?.headers
-						? { ...attributionHeaders, ...auth.headers, ...options?.headers }
-						: undefined,
+			return completerPort.complete({
+				model,
+				context,
+				options: {
+					...options,
+					timeoutMs: options?.timeoutMs ?? providerRetrySettings.timeoutMs,
+					maxRetries: options?.maxRetries ?? providerRetrySettings.maxRetries,
+					maxRetryDelayMs: options?.maxRetryDelayMs ?? providerRetrySettings.maxRetryDelayMs,
+				},
 			});
 		},
 		onPayload: async (payload, _model) => {
@@ -511,8 +622,12 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 			if (!runner) return messages;
 			return runner.emitContext(messages);
 		},
-		steeringMode: settingsManager.getSteeringMode(),
-		followUpMode: settingsManager.getFollowUpMode(),
+		steeringMode,
+		followUpMode,
+		toolExecution: loopToolExecution,
+		shouldStopAfterTurn,
+		disableSteering,
+		disableFollowUp,
 		transport: settingsManager.getTransport(),
 		thinkingBudgets: settingsManager.getThinkingBudgets(),
 		maxRetryDelayMs: settingsManager.getProviderRetrySettings().maxRetryDelayMs,
@@ -557,11 +672,70 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		discourseObjectId: options.discourseObjectId ?? options.topicId ?? options.threadId,
 		topicId: options.topicId,
 		threadId: options.threadId,
+		emitDomainEvent: (event) => {
+			eventSpine.emit(event);
+		},
 	});
+	eventSpine.recordControlEvent({
+		schemaVersion: "v1",
+		plane: "control",
+		lane: "signatory",
+		seam: "supervisor.corpus",
+		event: "session.created",
+		sessionId: session.sessionId,
+		runtimeId: options.runtimeId,
+		reason: role === "root" ? "root runtime initialized" : "child runtime initialized",
+	});
+	const supervisorPolicy = compiledDefinition?.supervisor ?? settingsManager.getSupervisorSettings();
+	eventSpine.recordControlEvent({
+		schemaVersion: "v1",
+		plane: "control",
+		lane: "signatory",
+		seam: "supervisor.corpus",
+		event: "policy.updated",
+		sessionId: session.sessionId,
+		runtimeId: options.runtimeId,
+		policy: {
+			thinkingLevel,
+			steeringMode,
+			followUpMode,
+			toolExecution,
+			stopOnBudgetAction: loopPolicy?.stopOnBudgetAction,
+			supervisor: supervisorPolicy,
+		},
+	});
+	const ablationMetrics = new AblationMetricsRecorder(eventSpine, {
+		strategy: loopPolicy?.strategy ?? "default",
+		steeringMode,
+		followUpMode,
+		toolExecution,
+		disableSteering,
+		disableFollowUp,
+		forceSequentialTools,
+	});
+	const unsubscribeSessionEvents = session.subscribe((event) => {
+		eventSpine.recordSessionEvent(event);
+		ablationMetrics.record(event);
+	});
+	const unsubscribeExtensionErrors = session.extensionRunner.onError((error) => {
+		eventSpine.recordExtensionError(error);
+	});
+	const dispose = session.dispose.bind(session);
+	session.dispose = () => {
+		unsubscribeSessionEvents();
+		unsubscribeExtensionErrors();
+		dispose();
+	};
 	const extensionsResult = resourceLoader.getExtensions();
+	const compositionAudit: RuntimeCompositionAudit = {
+		organGraph: eventSpine.snapshotOrganGraph(),
+		seamAudit: eventSpine.snapshotSeamAudit(),
+	};
 
 	return {
 		session,
+		eventSpine,
+		compositionAudit,
 		extensionsResult,
 		modelFallbackMessage,
 	};

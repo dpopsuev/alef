@@ -7,29 +7,6 @@
 
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
-import {
-	type AgentSessionRuntimeDiagnostic,
-	AuthStorage,
-	type CreateAgentSessionOptions,
-	type CreateAgentSessionRuntimeFactory,
-	createAgentSessionFromServices,
-	createAgentSessionRuntime,
-	createAgentSessionServices,
-	type ExtensionFactory,
-	formatMissingSessionCwdPrompt,
-	formatNoModelsAvailableMessage,
-	getMissingSessionCwdIssue,
-	KeybindingsManager,
-	MissingSessionCwdError,
-	type ModelRegistry,
-	resolveCliModel,
-	resolveModelScope,
-	runRpcMode,
-	type ScopedModel,
-	type SessionCwdIssue,
-	SessionManager,
-	SettingsManager,
-} from "@dpopsuev/alef-agent-runtime";
 import { type ImageContent, modelsAreEqual } from "@dpopsuev/alef-ai";
 import { ProcessTerminal, setKeybindings, TUI } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
@@ -39,14 +16,37 @@ import { buildInitialMessage } from "./cli/initial-message.js";
 import { listModels } from "./cli/list-models.js";
 import { selectSession } from "./cli/session-picker.js";
 import { ENV_SESSION_DIR, expandTildePath, getAgentDir, VERSION } from "./config.js";
+import {
+	type AgentSessionRuntimeDiagnostic,
+	type CreateAgentSessionRuntimeFactory,
+	createAgentSessionFromServices,
+	createAgentSessionRuntime,
+	createAgentSessionServices,
+} from "./core/agent-session-runtime.js";
+import { formatNoModelsAvailableMessage } from "./core/auth-guidance.js";
+import { AuthStorage } from "./core/auth-storage.js";
 import { exportFromFile } from "./core/export-html/index.js";
+import type { ExtensionFactory } from "./core/extensions/index.js";
+import { KeybindingsManager } from "./core/keybindings.js";
+import type { ModelRegistry } from "./core/model-registry.js";
+import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/model-resolver.js";
 import { restoreStdout, takeOverStdout } from "./core/output-guard.js";
+import type { CreateAgentSessionOptions } from "./core/sdk.js";
+import {
+	formatMissingSessionCwdPrompt,
+	getMissingSessionCwdIssue,
+	MissingSessionCwdError,
+	type SessionCwdIssue,
+} from "./core/session-cwd.js";
+import { SessionManager } from "./core/session-manager.js";
+import { SettingsManager } from "./core/settings-manager.js";
 import { printTimings, resetTimings, time } from "./core/timings.js";
 import { runMigrations, showDeprecationWarnings } from "./migrations.js";
 import { ExtensionSelectorComponent } from "./modes/interactive/components/extension-selector.js";
 import { InteractiveMode } from "./modes/interactive/interactive-mode.js";
 import { initTheme, stopThemeWatcher } from "./modes/interactive/theme/theme.js";
 import { runPrintMode } from "./modes/print-mode.js";
+import { runRpcMode } from "./modes/rpc/rpc-mode.js";
 import { handleConfigCommand, handlePackageCommand } from "./package-manager-cli.js";
 import { isLocalPath } from "./utils/paths.js";
 
@@ -589,6 +589,7 @@ export async function main(args: string[], options?: MainOptions) {
 			services,
 			sessionManager,
 			sessionStartEvent,
+			blueprint: parsed.blueprint,
 			model: sessionOptions.model,
 			thinkingLevel: sessionOptions.thinkingLevel,
 			scopedModels: sessionOptions.scopedModels,

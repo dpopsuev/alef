@@ -15,7 +15,7 @@ import type { Extension, ExtensionFactory, ExtensionRuntime, LoadExtensionsResul
 import { DefaultPackageManager, type PathMetadata } from "./package-manager.js";
 import type { PromptTemplate } from "./prompt-templates.js";
 import { loadPromptTemplates } from "./prompt-templates.js";
-import { SettingsManager } from "./settings-manager.js";
+import { type PackageSource, SettingsManager } from "./settings-manager.js";
 import type { Skill } from "./skills.js";
 import { loadSkills } from "./skills.js";
 import { createSourceInfo, type SourceInfo } from "./source-info.js";
@@ -118,6 +118,7 @@ export interface DefaultResourceLoaderOptions {
 	agentDir: string;
 	settingsManager?: SettingsManager;
 	eventBus?: EventBus;
+	additionalPackageSources?: PackageSource[];
 	additionalExtensionPaths?: string[];
 	additionalSkillPaths?: string[];
 	additionalPromptTemplatePaths?: string[];
@@ -156,6 +157,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 	private settingsManager: SettingsManager;
 	private eventBus: EventBus;
 	private packageManager: DefaultPackageManager;
+	private additionalPackageSources: PackageSource[];
 	private additionalExtensionPaths: string[];
 	private additionalSkillPaths: string[];
 	private additionalPromptTemplatePaths: string[];
@@ -214,6 +216,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 			agentDir: this.agentDir,
 			settingsManager: this.settingsManager,
 		});
+		this.additionalPackageSources = options.additionalPackageSources ?? [];
 		this.additionalExtensionPaths = options.additionalExtensionPaths ?? [];
 		this.additionalSkillPaths = options.additionalSkillPaths ?? [];
 		this.additionalPromptTemplatePaths = options.additionalPromptTemplatePaths ?? [];
@@ -322,6 +325,9 @@ export class DefaultResourceLoader implements ResourceLoader {
 	async reload(): Promise<void> {
 		await this.settingsManager.reload();
 		const resolvedPaths = await this.packageManager.resolve();
+		const dependencyPackagePaths = await this.packageManager.resolveExtensionSources(this.additionalPackageSources, {
+			temporary: true,
+		});
 		const cliExtensionPaths = await this.packageManager.resolveExtensionSources(this.additionalExtensionPaths, {
 			temporary: true,
 		});
@@ -350,6 +356,10 @@ export class DefaultResourceLoader implements ResourceLoader {
 		const enabledSkillResources = getEnabledResources(resolvedPaths.skills);
 		const enabledPrompts = getEnabledPaths(resolvedPaths.prompts);
 		const enabledThemes = getEnabledPaths(resolvedPaths.themes);
+		const dependencyEnabledExtensions = getEnabledPaths(dependencyPackagePaths.extensions);
+		const dependencyEnabledSkillResources = getEnabledResources(dependencyPackagePaths.skills);
+		const dependencyEnabledPrompts = getEnabledPaths(dependencyPackagePaths.prompts);
+		const dependencyEnabledThemes = getEnabledPaths(dependencyPackagePaths.themes);
 
 		const mapSkillPath = (resource: { path: string; metadata: PathMetadata }): string => {
 			if (resource.metadata.source !== "auto" && resource.metadata.origin !== "package") {
@@ -374,6 +384,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 		};
 
 		const enabledSkills = enabledSkillResources.map(mapSkillPath);
+		const dependencyEnabledSkills = dependencyEnabledSkillResources.map(mapSkillPath);
 
 		// Add CLI paths metadata
 		for (const r of cliExtensionPaths.extensions) {
@@ -392,9 +403,10 @@ export class DefaultResourceLoader implements ResourceLoader {
 		const cliEnabledPrompts = getEnabledPaths(cliExtensionPaths.prompts);
 		const cliEnabledThemes = getEnabledPaths(cliExtensionPaths.themes);
 
+		const runnerEnabledExtensions = this.mergePaths(dependencyEnabledExtensions, cliEnabledExtensions);
 		const extensionPaths = this.noExtensions
-			? cliEnabledExtensions
-			: this.mergePaths(cliEnabledExtensions, enabledExtensions);
+			? runnerEnabledExtensions
+			: this.mergePaths(runnerEnabledExtensions, enabledExtensions);
 
 		const extensionsResult = await loadExtensions(extensionPaths, this.cwd, this.eventBus);
 		const inlineExtensions = await this.loadExtensionFactories(extensionsResult.runtime);
@@ -417,8 +429,11 @@ export class DefaultResourceLoader implements ResourceLoader {
 		this.applyExtensionSourceInfo(this.extensionsResult.extensions, metadataByPath);
 
 		const skillPaths = this.noSkills
-			? this.mergePaths(cliEnabledSkills, this.additionalSkillPaths)
-			: this.mergePaths([...cliEnabledSkills, ...enabledSkills], this.additionalSkillPaths);
+			? this.mergePaths([...dependencyEnabledSkills, ...cliEnabledSkills], this.additionalSkillPaths)
+			: this.mergePaths(
+					[...dependencyEnabledSkills, ...cliEnabledSkills, ...enabledSkills],
+					this.additionalSkillPaths,
+				);
 
 		this.lastSkillPaths = skillPaths;
 		this.updateSkillsFromPaths(skillPaths, metadataByPath);
@@ -429,8 +444,11 @@ export class DefaultResourceLoader implements ResourceLoader {
 		}
 
 		const promptPaths = this.noPromptTemplates
-			? this.mergePaths(cliEnabledPrompts, this.additionalPromptTemplatePaths)
-			: this.mergePaths([...cliEnabledPrompts, ...enabledPrompts], this.additionalPromptTemplatePaths);
+			? this.mergePaths([...dependencyEnabledPrompts, ...cliEnabledPrompts], this.additionalPromptTemplatePaths)
+			: this.mergePaths(
+					[...dependencyEnabledPrompts, ...cliEnabledPrompts, ...enabledPrompts],
+					this.additionalPromptTemplatePaths,
+				);
 
 		this.lastPromptPaths = promptPaths;
 		this.updatePromptsFromPaths(promptPaths, metadataByPath);
@@ -441,8 +459,11 @@ export class DefaultResourceLoader implements ResourceLoader {
 		}
 
 		const themePaths = this.noThemes
-			? this.mergePaths(cliEnabledThemes, this.additionalThemePaths)
-			: this.mergePaths([...cliEnabledThemes, ...enabledThemes], this.additionalThemePaths);
+			? this.mergePaths([...dependencyEnabledThemes, ...cliEnabledThemes], this.additionalThemePaths)
+			: this.mergePaths(
+					[...dependencyEnabledThemes, ...cliEnabledThemes, ...enabledThemes],
+					this.additionalThemePaths,
+				);
 
 		this.lastThemePaths = themePaths;
 		this.updateThemesFromPaths(themePaths, metadataByPath);

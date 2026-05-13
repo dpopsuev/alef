@@ -352,8 +352,6 @@ export class AgentSession {
 	private _topicId?: string;
 	private _threadId?: string;
 	private _emitDomainEvent?: (event: EventInput) => void;
-	private _fsRuntime?: FsRuntime;
-	private _lectorRuntime?: LectorRuntime;
 
 	// Model registry for API key resolution
 	private _modelRegistry: ModelRegistry;
@@ -2821,7 +2819,7 @@ export class AgentSession {
 			1,
 			Math.floor(fsOrgan?.cache?.maxEntries ?? DEFAULT_FS_ORGAN_CACHE_MAX_ENTRIES),
 		);
-		this._fsRuntime = new FsRuntime({
+		const fsRuntime = new FsRuntime({
 			cacheEnabled: fsCacheEnabled,
 			cacheTtlMs: fsCacheTtlMs,
 			cacheMaxEntries: fsCacheMaxEntries,
@@ -2835,7 +2833,7 @@ export class AgentSession {
 			1,
 			Math.floor(symbolOrgan?.cache?.maxEntries ?? DEFAULT_LECTOR_ORGAN_CACHE_MAX_ENTRIES),
 		);
-		this._lectorRuntime = new LectorRuntime({
+		const lectorRuntime = new LectorRuntime({
 			cwd: this._cwd,
 			cacheEnabled: symbolCacheEnabled,
 			cacheTtlMs: symbolCacheTtlMs,
@@ -2851,15 +2849,15 @@ export class AgentSession {
 					]),
 				)
 			: createAllToolDefinitions(this._cwd, {
-					symbolOutline: { runtime: this._lectorRuntime },
-					symbolGraph: { runtime: this._lectorRuntime },
-					symbolCallers: { runtime: this._lectorRuntime },
-					symbolCallees: { runtime: this._lectorRuntime },
-					symbolDataflow: { runtime: this._lectorRuntime },
+					symbolOutline: { runtime: lectorRuntime },
+					symbolGraph: { runtime: lectorRuntime },
+					symbolCallers: { runtime: lectorRuntime },
+					symbolCallees: { runtime: lectorRuntime },
+					symbolDataflow: { runtime: lectorRuntime },
 					read: { autoResizeImages },
 					bash: { commandPrefix: shellCommandPrefix, shellPath },
-					grep: { cache: this._fsRuntime.getCache("grep") },
-					find: { cache: this._fsRuntime.getCache("find") },
+					grep: { cache: fsRuntime.getCache("grep") },
+					find: { cache: fsRuntime.getCache("find") },
 				});
 
 		if (

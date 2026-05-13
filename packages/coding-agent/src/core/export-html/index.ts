@@ -174,7 +174,7 @@ function generateHtml(sessionData: SessionData, themeName?: string): string {
 }
 
 /** Tools rendered directly by the HTML template (not pre-rendered via TUI→ANSI→HTML pipeline) */
-const TEMPLATE_RENDERED_TOOLS = new Set(["file_bash", "file_read", "file_write", "file_edit", "file_ls"]);
+const TEMPLATE_RENDERED_TOOLS = new Set(["file_bash", "file_read", "file_write", "file_edit"]);
 
 /**
  * Pre-render custom tools to HTML using their TUI renderers.

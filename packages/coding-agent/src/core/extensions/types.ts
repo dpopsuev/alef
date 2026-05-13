@@ -71,8 +71,6 @@ import type {
 	FindToolInput,
 	GrepToolDetails,
 	GrepToolInput,
-	LsToolDetails,
-	LsToolInput,
 	ReadToolDetails,
 	ReadToolInput,
 	SymbolOutlineToolDetails,
@@ -863,11 +861,6 @@ export interface FindToolCallEvent extends ToolCallEventBase {
 	input: FindToolInput;
 }
 
-export interface LsToolCallEvent extends ToolCallEventBase {
-	toolName: "file_ls";
-	input: LsToolInput;
-}
-
 export interface SymbolOutlineToolCallEvent extends ToolCallEventBase {
 	toolName: "symbol_outline";
 	input: SymbolOutlineToolInput;
@@ -891,7 +884,6 @@ export type ToolCallEvent =
 	| WriteToolCallEvent
 	| GrepToolCallEvent
 	| FindToolCallEvent
-	| LsToolCallEvent
 	| SymbolOutlineToolCallEvent
 	| CustomToolCallEvent;
 
@@ -933,11 +925,6 @@ export interface FindToolResultEvent extends ToolResultEventBase {
 	details: FindToolDetails | undefined;
 }
 
-export interface LsToolResultEvent extends ToolResultEventBase {
-	toolName: "file_ls";
-	details: LsToolDetails | undefined;
-}
-
 export interface SymbolOutlineToolResultEvent extends ToolResultEventBase {
 	toolName: "symbol_outline";
 	details: SymbolOutlineToolDetails | undefined;
@@ -956,7 +943,6 @@ export type ToolResultEvent =
 	| WriteToolResultEvent
 	| GrepToolResultEvent
 	| FindToolResultEvent
-	| LsToolResultEvent
 	| SymbolOutlineToolResultEvent
 	| CustomToolResultEvent;
 
@@ -978,9 +964,6 @@ export function isGrepToolResult(e: ToolResultEvent): e is GrepToolResultEvent {
 }
 export function isFindToolResult(e: ToolResultEvent): e is FindToolResultEvent {
 	return e.toolName === "file_find";
-}
-export function isLsToolResult(e: ToolResultEvent): e is LsToolResultEvent {
-	return e.toolName === "file_ls";
 }
 export function isSymbolOutlineToolResult(e: ToolResultEvent): e is SymbolOutlineToolResultEvent {
 	return e.toolName === "symbol_outline";
@@ -1012,7 +995,6 @@ export function isToolCallEventType(toolName: "file_edit", event: ToolCallEvent)
 export function isToolCallEventType(toolName: "file_write", event: ToolCallEvent): event is WriteToolCallEvent;
 export function isToolCallEventType(toolName: "file_grep", event: ToolCallEvent): event is GrepToolCallEvent;
 export function isToolCallEventType(toolName: "file_find", event: ToolCallEvent): event is FindToolCallEvent;
-export function isToolCallEventType(toolName: "file_ls", event: ToolCallEvent): event is LsToolCallEvent;
 export function isToolCallEventType(
 	toolName: "symbol_outline",
 	event: ToolCallEvent,

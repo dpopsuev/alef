@@ -25,6 +25,8 @@ import {
 	modelsAreEqual,
 	resetApiProviders,
 } from "@dpopsuev/alef-ai";
+import { FsRuntime } from "@dpopsuev/alef-organ-fs";
+import type { EventInput } from "../board/event-log.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { stripFrontmatter } from "../utils/frontmatter.js";
 import { sleep } from "../utils/sleep.js";
@@ -40,6 +42,7 @@ import {
 	prepareCompaction,
 	shouldCompact,
 } from "./compaction/index.js";
+import { getCoreOrganToolNames } from "./core-organs.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
 import { exportSessionToHtml, type ToolHtmlRenderer } from "./export-html/index.js";
 import { createToolHtmlRenderer } from "./export-html/tool-renderer.js";
@@ -69,6 +72,7 @@ import {
 	wrapRegisteredTools,
 } from "./extensions/index.js";
 import { emitSessionShutdownEvent } from "./extensions/runner.js";
+import { LectorRuntime } from "./lector-runtime.js";
 import type { BashExecutionMessage, CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
 import {
@@ -79,6 +83,7 @@ import {
 	createAgentMemoryPorts,
 	createDefaultDoltStoreDriver,
 	createPlatformActionInfoFromToolDefinition,
+	getCompiledAgentOrgan,
 	PlatformActionRegistry,
 	type ReviewBoardPort,
 	SessionBackedDiscourseStore,
@@ -99,6 +104,11 @@ import { type BashOperations, createLocalBashOperations } from "./tools/bash.js"
 import { createAllToolDefinitions } from "./tools/index.js";
 import { createSupervisorToolDefinition } from "./tools/supervisor.js";
 import { createToolDefinitionFromAgentTool } from "./tools/tool-definition-wrapper.js";
+
+const DEFAULT_FS_ORGAN_CACHE_TTL_MS = 10_000;
+const DEFAULT_FS_ORGAN_CACHE_MAX_ENTRIES = 256;
+const DEFAULT_LECTOR_ORGAN_CACHE_TTL_MS = 10_000;
+const DEFAULT_LECTOR_ORGAN_CACHE_MAX_ENTRIES = 256;
 
 // ============================================================================
 // Skill Block Parsing
@@ -206,6 +216,8 @@ export interface AgentSessionConfig {
 	topicId?: string;
 	/** Optional thread UUID bound to this session. */
 	threadId?: string;
+	/** Optional domain-event emitter used by organ runtimes (for example lector). */
+	emitDomainEvent?: (event: EventInput) => void;
 }
 
 export interface ExtensionBindings {
@@ -339,6 +351,9 @@ export class AgentSession {
 	private _discourseObjectId?: string;
 	private _topicId?: string;
 	private _threadId?: string;
+	private _emitDomainEvent?: (event: EventInput) => void;
+	private _fsRuntime?: FsRuntime;
+	private _lectorRuntime?: LectorRuntime;
 
 	// Model registry for API key resolution
 	private _modelRegistry: ModelRegistry;
@@ -389,6 +404,7 @@ export class AgentSession {
 		this._discourseObjectId = config.discourseObjectId;
 		this._topicId = config.topicId;
 		this._threadId = config.threadId;
+		this._emitDomainEvent = config.emitDomainEvent;
 
 		// Always subscribe to agent events for internal handling
 		// (session persistence, extensions, auto-compaction, retry logic)
@@ -770,12 +786,13 @@ export class AgentSession {
 		if (!activeSummary) {
 			return;
 		}
+		const coordinatorId = this._agentDefinition?.name?.trim() || "coordinator";
 		this._discourse.postLetter({
 			threadId: activeSummary.thread.id,
 			scope: "dialog",
-			author: "gensec",
+			author: coordinatorId,
 			body,
-			labels: [{ key: "origin", value: "gensec", source: "gensec" }],
+			labels: [{ key: "origin", value: coordinatorId, source: "coordinator" }],
 			metadata: {
 				stopReason: message.stopReason,
 			},
@@ -1316,7 +1333,12 @@ export class AgentSession {
 		const definitionSystemPrompt = this._agentDefinition?.systemPrompt;
 		const loaderAppendSystemPrompt = this._resourceLoader.getAppendSystemPrompt();
 		const appendParts = [...loaderAppendSystemPrompt, ...(this._agentDefinition?.policies.appendSystemPrompt ?? [])];
-		const appendSystemPrompt = appendParts.length > 0 ? appendParts.join("\n\n") : undefined;
+		const directives = appendParts.map((content, index) => ({
+			id: `directive.pre.${index + 1}`,
+			kind: "pre" as const,
+			content,
+			source: "system-prompt",
+		}));
 		const loadedSkills = this._resourceLoader.getSkills().skills;
 		const loadedContextFiles = this._resourceLoader.getAgentsFiles().agentsFiles;
 		const customPromptParts = [loaderSystemPrompt, definitionSystemPrompt].filter(
@@ -1328,7 +1350,36 @@ export class AgentSession {
 			skills: loadedSkills,
 			contextFiles: loadedContextFiles,
 			customPrompt: customPromptParts.length > 0 ? customPromptParts.join("\n\n") : undefined,
-			appendSystemPrompt,
+			appendSystemPrompt: undefined,
+			directives,
+			runtimeMetadata: {
+				runtimeId: this._runtimeId,
+				sessionId: this.sessionId,
+				model: this.model ? this.model.id : undefined,
+				tools: validToolNames,
+				organs: this._agentDefinition?.organs.map((organ) => organ.name),
+			},
+			onDirectiveAudit: (audit) => {
+				if (audit.applied.length === 0 && audit.dropped.length === 0) {
+					return;
+				}
+				this._emitDomainEvent?.({
+					kind: "signal.events.v1",
+					source: "session",
+					direction: "outbound",
+					data: {
+						schemaVersion: "v1",
+						plane: "signal",
+						lane: "signatory",
+						seam: "corpus.organ",
+						signal: "policy.notice",
+						details: JSON.stringify({
+							applied: audit.applied,
+							dropped: audit.dropped,
+						}),
+					},
+				});
+			},
 			selectedTools: validToolNames,
 			toolSnippets,
 			promptGuidelines,
@@ -2763,6 +2814,35 @@ export class AgentSession {
 		const autoResizeImages = this.settingsManager.getImageAutoResize();
 		const shellCommandPrefix = this.settingsManager.getShellCommandPrefix();
 		const shellPath = this.settingsManager.getShellPath();
+		const fsOrgan = getCompiledAgentOrgan(this._agentDefinition, "fs");
+		const fsCacheEnabled = fsOrgan?.cache?.enabled ?? true;
+		const fsCacheTtlMs = Math.max(1, Math.floor(fsOrgan?.cache?.ttlMs ?? DEFAULT_FS_ORGAN_CACHE_TTL_MS));
+		const fsCacheMaxEntries = Math.max(
+			1,
+			Math.floor(fsOrgan?.cache?.maxEntries ?? DEFAULT_FS_ORGAN_CACHE_MAX_ENTRIES),
+		);
+		this._fsRuntime = new FsRuntime({
+			cacheEnabled: fsCacheEnabled,
+			cacheTtlMs: fsCacheTtlMs,
+			cacheMaxEntries: fsCacheMaxEntries,
+		});
+		const symbolOrgan =
+			getCompiledAgentOrgan(this._agentDefinition, "lector") ??
+			getCompiledAgentOrgan(this._agentDefinition, "symbols");
+		const symbolCacheEnabled = symbolOrgan?.cache?.enabled ?? true;
+		const symbolCacheTtlMs = Math.max(1, Math.floor(symbolOrgan?.cache?.ttlMs ?? DEFAULT_LECTOR_ORGAN_CACHE_TTL_MS));
+		const symbolCacheMaxEntries = Math.max(
+			1,
+			Math.floor(symbolOrgan?.cache?.maxEntries ?? DEFAULT_LECTOR_ORGAN_CACHE_MAX_ENTRIES),
+		);
+		this._lectorRuntime = new LectorRuntime({
+			cwd: this._cwd,
+			cacheEnabled: symbolCacheEnabled,
+			cacheTtlMs: symbolCacheTtlMs,
+			cacheMaxEntries: symbolCacheMaxEntries,
+			runtimeConfig: symbolOrgan?.name === "lector" ? symbolOrgan.runtime : undefined,
+			emitDomainEvent: this._emitDomainEvent,
+		});
 		const baseToolDefinitions: Record<string, ToolDefinition> = this._baseToolsOverride
 			? Object.fromEntries(
 					Object.entries(this._baseToolsOverride).map(([name, tool]) => [
@@ -2771,8 +2851,15 @@ export class AgentSession {
 					]),
 				)
 			: createAllToolDefinitions(this._cwd, {
+					symbolOutline: { runtime: this._lectorRuntime },
+					symbolGraph: { runtime: this._lectorRuntime },
+					symbolCallers: { runtime: this._lectorRuntime },
+					symbolCallees: { runtime: this._lectorRuntime },
+					symbolDataflow: { runtime: this._lectorRuntime },
 					read: { autoResizeImages },
 					bash: { commandPrefix: shellCommandPrefix, shellPath },
+					grep: { cache: this._fsRuntime.getCache("grep") },
+					find: { cache: this._fsRuntime.getCache("find") },
 				});
 
 		if (
@@ -2819,11 +2906,7 @@ export class AgentSession {
 					...(this._baseToolDefinitions.has("supervisor") ? ["supervisor"] : []),
 				]
 			: [
-					"symbol_outline",
-					"file_read",
-					"file_bash",
-					"file_edit",
-					"file_write",
+					...getCoreOrganToolNames(this._role),
 					...(this._baseToolDefinitions.has("supervisor") ? ["supervisor"] : []),
 				];
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;

@@ -95,8 +95,6 @@ export type {
 	InteractiveExtensionAPI,
 	KeybindingsManager,
 	LoadExtensionsResult,
-	LsToolCallEvent,
-	LsToolResultEvent,
 	// Events - Message
 	MessageEndEvent,
 	// Message Rendering
@@ -179,7 +177,6 @@ export {
 	isEditToolResult,
 	isFindToolResult,
 	isGrepToolResult,
-	isLsToolResult,
 	isReadToolResult,
 	isSymbolOutlineToolResult,
 	isToolCallEventType,

@@ -22,7 +22,6 @@ import {
 	createEditTool,
 	createFindTool,
 	createGrepTool,
-	createLsTool,
 	createReadTool,
 	createWriteTool,
 } from "@dpopsuev/alef-coding-agent";
@@ -51,7 +50,6 @@ function createBuiltInTools(cwd: string) {
 		file_write: createWriteTool(cwd),
 		file_find: createFindTool(cwd),
 		file_grep: createGrepTool(cwd),
-		file_ls: createLsTool(cwd),
 	};
 }
 
@@ -368,59 +366,5 @@ export default function (alef: ExtensionAPI) {
 		},
 	});
 
-	// =========================================================================
-	// Ls Tool
-	// =========================================================================
-	alef.registerTool({
-		name: "file_ls",
-		label: "file_ls",
-		description:
-			"List directory contents with file sizes. Shows files and directories with their sizes. Output limited to 500 entries.",
-		parameters: getBuiltInTools(process.cwd()).file_ls.parameters,
-
-		async execute(toolCallId, params, signal, onUpdate, ctx) {
-			const tools = getBuiltInTools(ctx.cwd);
-			return tools.file_ls.execute(toolCallId, params, signal, onUpdate);
-		},
-
-		renderCall(args, theme, _context) {
-			const path = shortenPath(args.path || ".");
-			const limit = args.limit;
-
-			let text = `${theme.fg("toolTitle", theme.bold("file_ls"))} ${theme.fg("accent", path)}`;
-			if (limit !== undefined) {
-				text += theme.fg("toolOutput", ` (limit ${limit})`);
-			}
-
-			return new Text(text, 0, 0);
-		},
-
-		renderResult(result, { expanded }, theme, _context) {
-			if (!expanded) {
-				// Minimal: just show entry count
-				const textContent = result.content.find((c) => c.type === "text");
-				if (textContent?.type === "text") {
-					const count = textContent.text.trim().split("\n").filter(Boolean).length;
-					if (count > 0) {
-						return new Text(theme.fg("muted", ` → ${count} entries`), 0, 0);
-					}
-				}
-				return new Text("", 0, 0);
-			}
-
-			// Expanded: show full listing
-			const textContent = result.content.find((c) => c.type === "text");
-			if (!textContent || textContent.type !== "text") {
-				return new Text("", 0, 0);
-			}
-
-			const output = textContent.text
-				.trim()
-				.split("\n")
-				.map((line) => theme.fg("toolOutput", line))
-				.join("\n");
-
-			return new Text(`\n${output}`, 0, 0);
-		},
-	});
+	// file_ls removed — use file_find({ pattern: "*", depth: 1 }) to list directory contents.
 }

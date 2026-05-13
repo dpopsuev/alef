@@ -884,10 +884,7 @@ class TreeList implements Component {
 				const path = shortenPath(String(args.path || "."));
 				return `[file_find: ${pattern} in ${path}]`;
 			}
-			case "file_ls": {
-				const path = shortenPath(String(args.path || "."));
-				return `[file_ls: ${path}]`;
-			}
+
 			case "symbol_outline": {
 				const path = shortenPath(String(args.path || ""));
 				const depth = args.memberDepth as number | undefined;

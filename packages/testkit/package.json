@@ -31,7 +31,7 @@
 		"node": ">=20.0.0"
 	},
 	"dependencies": {
-		"@dpopsuev/alef-nerve": "^0.0.1",
+		"@dpopsuev/alef-spine": "^0.0.1",
 		"@dpopsuev/alef-corpus": "^0.0.1"
 	},
 	"devDependencies": {

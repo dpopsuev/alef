@@ -129,26 +129,23 @@ export interface Nerve {
 }
 
 // ---------------------------------------------------------------------------
-// NerveOrgan — the contract for organs in the Pub-Sub model.
-//
-// Distinct from the legacy Organ interface (which uses OrganBus.invoke).
-// New organs implement NerveOrgan. Legacy organs continue to implement Organ.
+// Organ — the contract every organ in the Pub-Sub model must satisfy.
 // ---------------------------------------------------------------------------
 
-export interface NerveOrgan {
+export interface Organ {
 	/** Canonical organ name. */
 	readonly name: string;
 	/**
 	 * LLM tool definitions this organ exposes.
 	 * The tool name IS the Motor/tool_call.toolName the organ subscribes to.
-	 * Empty for organs that don't expose LLM tools (e.g. internal organs).
+	 * Empty array for organs that don't expose LLM tools.
 	 */
 	readonly tools: readonly ToolDefinition[];
 	/**
 	 * Mount onto the Nerve: subscribe to bus channels, return unmount.
 	 * Called once by Corpus at load time. After this, events drive execution.
 	 */
-	mountNerve(nerve: Nerve): () => void;
+	mount(nerve: Nerve): () => void;
 }
 
 // ---------------------------------------------------------------------------

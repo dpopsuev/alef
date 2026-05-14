@@ -15,6 +15,7 @@ function makeUserMessage(text = "hello", correlationId = newCorrelationId()) {
 	return {
 		type: "user_message" as const,
 		text,
+		tools: [],
 		correlationId,
 		timestamp: Date.now(),
 	};

@@ -5,76 +5,42 @@ import { randomUUID } from "node:crypto";
 // ---------------------------------------------------------------------------
 
 export interface NerveEvent {
-	/** Discriminant. Unique within each bus (Sense / Motor / Signal). */
 	readonly type: string;
-	/** Ties all events belonging to one logical turn together. */
 	readonly correlationId: string;
-	/** Unix ms. */
 	readonly timestamp: number;
 }
 
 // ---------------------------------------------------------------------------
 // ToolDefinition — what an organ exposes to the LLM as a callable tool.
-// The tool name IS the Motor/tool_call event type the organ subscribes to.
+// The tool name IS the Motor event type the organ subscribes to.
 // ---------------------------------------------------------------------------
 
 export interface ToolDefinition {
 	readonly name: string;
 	readonly description: string;
-	/** JSON Schema for the tool's input arguments. */
 	readonly inputSchema: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
-// Sense events — afferent, flowing INTO the system (perceptions).
+// Bus events — domain-agnostic. Spine knows nothing about payload schemas.
+// Routing is by type string. Each organ package defines its own payloads.
+//
+//   MotorEvent: commands flowing OUT from cerebrum to corpus organs.
+//   SenseEvent: observations flowing IN from corpus organs to cerebrum.
+//   SignalEvent: audit events on both seams.
 // ---------------------------------------------------------------------------
 
-export interface UserMessageEvent extends NerveEvent {
-	readonly type: "user_message";
-	readonly text: string;
-	/** Tool definitions from all organs loaded into Corpus at the time of this message. */
-	readonly tools: readonly ToolDefinition[];
+export interface MotorEvent extends NerveEvent {
+	readonly type: string;
+	readonly payload: Record<string, unknown>;
 }
 
-export interface ToolResultEvent extends NerveEvent {
-	readonly type: "tool_result";
-	readonly toolName: string;
-	readonly result: unknown;
+export interface SenseEvent extends NerveEvent {
+	readonly type: string;
+	readonly payload: Record<string, unknown>;
 	readonly isError: boolean;
 	readonly errorMessage?: string;
 }
-
-export type SenseEvent = UserMessageEvent | ToolResultEvent;
-
-// ---------------------------------------------------------------------------
-// Motor events — efferent, flowing OUT FROM the system (actions).
-// ---------------------------------------------------------------------------
-
-export interface LLMRequestEvent extends NerveEvent {
-	readonly type: "llm_request";
-	/** Conversation messages in AI provider format. */
-	readonly messages: readonly unknown[];
-	/** Tool definitions from all loaded organs, including send_message. */
-	readonly tools: readonly ToolDefinition[];
-}
-
-export interface ToolCallEvent extends NerveEvent {
-	readonly type: "tool_call";
-	/** Matches the tool's ToolDefinition.name — routes to the subscribed organ. */
-	readonly toolName: string;
-	readonly args: Record<string, unknown>;
-}
-
-export interface UserReplyEvent extends NerveEvent {
-	readonly type: "user_reply";
-	readonly text: string;
-}
-
-export type MotorEvent = LLMRequestEvent | ToolCallEvent | UserReplyEvent;
-
-// ---------------------------------------------------------------------------
-// Signal events — audit, both seams (supervisor.corpus and corpus.organ).
-// ---------------------------------------------------------------------------
 
 export interface SignalEvent extends NerveEvent {
 	readonly type: "signal";
@@ -85,91 +51,81 @@ export interface SignalEvent extends NerveEvent {
 }
 
 // ---------------------------------------------------------------------------
-// Typed bus interfaces.
-// ---------------------------------------------------------------------------
-
-type SenseHandler = (event: SenseEvent) => void | Promise<void>;
-type MotorHandler = (event: MotorEvent) => void | Promise<void>;
-type SignalHandler = (event: SignalEvent) => void | Promise<void>;
-
-export interface SenseBus {
-	/** Emit a Sense event (perception entering the system). */
-	emit(event: SenseEvent): void;
-	/**
-	 * Subscribe to a Sense event type.
-	 * @returns unsubscribe function.
-	 */
-	on(type: SenseEvent["type"], handler: SenseHandler): () => void;
-}
-
-export interface MotorBus {
-	/** Emit a Motor event (action leaving the system). */
-	emit(event: MotorEvent): void;
-	/**
-	 * Subscribe to a Motor event type.
-	 * For tool organs: subscribe to "tool_call" and filter by toolName.
-	 * @returns unsubscribe function.
-	 */
-	on(type: MotorEvent["type"], handler: MotorHandler): () => void;
-}
-
-export interface SignalBus {
-	/** Emit a Signal event (audit record). */
-	emit(event: SignalEvent): void;
-	/** Subscribe to all Signal events. @returns unsubscribe function. */
-	on(type: SignalEvent["type"], handler: SignalHandler): () => void;
-}
-
-// ---------------------------------------------------------------------------
-// Nerve — the 3-bus bundle passed to organs at mount time.
-// ---------------------------------------------------------------------------
-
-export interface Nerve {
-	readonly sense: SenseBus;
-	readonly motor: MotorBus;
-	readonly signal: SignalBus;
-}
-
-// ---------------------------------------------------------------------------
-// Organ — the contract every organ in the Pub-Sub model must satisfy.
-// ---------------------------------------------------------------------------
-
-export interface Organ {
-	/** Canonical organ name. */
-	readonly name: string;
-	/**
-	 * LLM tool definitions this organ exposes.
-	 * The tool name IS the Motor/tool_call.toolName the organ subscribes to.
-	 * Empty array for organs that don't expose LLM tools.
-	 */
-	readonly tools: readonly ToolDefinition[];
-	/**
-	 * Mount onto the Nerve: subscribe to bus channels, return unmount.
-	 * Called once by Corpus at load time. After this, events drive execution.
-	 */
-	mount(nerve: Nerve): () => void;
-}
-
-// ---------------------------------------------------------------------------
-// InProcessNerve — the single in-process Nerve implementation.
+// Nerve interfaces — ISP-segregated by mutation target.
 //
-// Fan-out delivery: all subscribers for an event type are called in
-// registration order. Async handlers are fire-and-forget (not awaited by
-// emit) — organs must handle their own error boundaries.
+// CerebrumNerve — given to CerebrumOrgans (organs that mutate agent state).
+//   The brain is shielded from the external world. It only sees the Spine.
+//   Subscribes Sense (observations), publishes Motor (commands).
+//   Example: LLMOrgan — mutates agent reasoning.
+//
+// CorpusNerve — given to CorpusOrgans (organs that mutate the world).
+//   Body organs cross the external boundary: files, processes, users.
+//   Subscribes Motor (commands), publishes Sense (results).
+//   Example: FilesystemOrgan, ShellOrgan, TextMessageOrgan.
 // ---------------------------------------------------------------------------
 
-class InProcessBus<TEvent extends NerveEvent> {
-	private readonly handlers = new Map<string, Set<(event: TEvent) => void | Promise<void>>>();
+type MotorHandler = (event: MotorEvent) => void | Promise<void>;
+type SenseHandler = (event: SenseEvent) => void | Promise<void>;
 
-	emit(event: TEvent): void {
-		const set = this.handlers.get(event.type);
-		if (!set) return;
-		for (const h of set) {
-			void h(event);
-		}
+export interface CerebrumNerve {
+	readonly sense: {
+		subscribe(type: string, handler: SenseHandler): () => void;
+	};
+	readonly motor: {
+		publish(event: MotorEvent): void;
+	};
+	readonly signal: {
+		publish(event: SignalEvent): void;
+	};
+}
+
+export interface CorpusNerve {
+	readonly motor: {
+		subscribe(type: string, handler: MotorHandler): () => void;
+	};
+	readonly sense: {
+		publish(event: SenseEvent): void;
+	};
+	readonly signal: {
+		publish(event: SignalEvent): void;
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Organ interfaces — discriminated by kind so Corpus can route the nerve.
+// ---------------------------------------------------------------------------
+
+export interface CerebrumOrgan {
+	/** Discriminant — Corpus routes CerebrumNerve to this organ. */
+	readonly kind: "cerebrum";
+	readonly name: string;
+	readonly tools: readonly ToolDefinition[];
+	mount(nerve: CerebrumNerve): () => void;
+}
+
+export interface CorpusOrgan {
+	/** Discriminant — Corpus routes CorpusNerve to this organ. */
+	readonly kind: "corpus";
+	readonly name: string;
+	readonly tools: readonly ToolDefinition[];
+	mount(nerve: CorpusNerve): () => void;
+}
+
+// ---------------------------------------------------------------------------
+// InProcessBus — internal routing with wildcard support for observability.
+// ---------------------------------------------------------------------------
+
+class InProcessBus {
+	private readonly handlers = new Map<string, Set<(event: NerveEvent) => void | Promise<void>>>();
+
+	emit(event: NerveEvent): void {
+		const specific = this.handlers.get(event.type);
+		if (specific) for (const h of specific) void h(event);
+		const wildcard = this.handlers.get("*");
+		if (wildcard) for (const h of wildcard) void h(event);
 	}
 
-	on(type: string, handler: (event: TEvent) => void | Promise<void>): () => void {
+	on(type: string, handler: (event: NerveEvent) => void | Promise<void>): () => void {
 		let set = this.handlers.get(type);
 		if (!set) {
 			set = new Set();
@@ -186,27 +142,62 @@ class InProcessBus<TEvent extends NerveEvent> {
 	}
 }
 
-export class InProcessNerve implements Nerve {
-	private readonly _sense = new InProcessBus<SenseEvent>();
-	private readonly _motor = new InProcessBus<MotorEvent>();
-	private readonly _signal = new InProcessBus<SignalEvent>();
+// ---------------------------------------------------------------------------
+// InProcessNerve — provides CerebrumNerve and CorpusNerve views.
+// Also exposes direct methods for the Corpus composition root.
+// ---------------------------------------------------------------------------
 
-	readonly sense: SenseBus = {
-		emit: (e) => this._sense.emit(e),
-		on: (type, h) => this._sense.on(type, h),
-	};
+export class InProcessNerve {
+	private readonly _sense = new InProcessBus();
+	private readonly _motor = new InProcessBus();
+	private readonly _signal = new InProcessBus();
 
-	readonly motor: MotorBus = {
-		emit: (e) => this._motor.emit(e),
-		on: (type, h) => this._motor.on(type, h),
-	};
+	/** View for CerebrumOrgans: subscribe Sense, publish Motor. */
+	asCerebrumNerve(): CerebrumNerve {
+		return {
+			sense: { subscribe: (type, h) => this._sense.on(type, h as (e: NerveEvent) => void | Promise<void>) },
+			motor: { publish: (e) => this._motor.emit(e) },
+			signal: { publish: (e) => this._signal.emit(e) },
+		};
+	}
 
-	readonly signal: SignalBus = {
-		emit: (e) => this._signal.emit(e),
-		on: (type, h) => this._signal.on(type, h),
-	};
+	/** View for CorpusOrgans: subscribe Motor, publish Sense. */
+	asCorpusNerve(): CorpusNerve {
+		return {
+			motor: { subscribe: (type, h) => this._motor.on(type, h as (e: NerveEvent) => void | Promise<void>) },
+			sense: { publish: (e) => this._sense.emit(e) },
+			signal: { publish: (e) => this._signal.emit(e) },
+		};
+	}
 
-	/** Convenience: how many handlers are subscribed on a given bus + type. */
+	// ── Direct access for the Corpus composition root ──────────────────────
+
+	publishMotor(event: MotorEvent): void {
+		this._motor.emit(event);
+	}
+
+	subscribeSense(type: string, handler: SenseHandler): () => void {
+		return this._sense.on(type, handler as (e: NerveEvent) => void | Promise<void>);
+	}
+
+	publishSignal(event: SignalEvent): void {
+		this._signal.emit(event);
+	}
+
+	// ── Wildcard subscriptions for observability (BusEventRecorder) ────────
+
+	onAnyMotor(handler: (event: NerveEvent) => void): () => void {
+		return this._motor.on("*", handler);
+	}
+
+	onAnySense(handler: (event: NerveEvent) => void): () => void {
+		return this._sense.on("*", handler);
+	}
+
+	onAnySignal(handler: (event: NerveEvent) => void): () => void {
+		return this._signal.on("*", handler);
+	}
+
 	listenerCount(bus: "sense" | "motor" | "signal", type: string): number {
 		return bus === "sense"
 			? this._sense.listenerCount(type)
@@ -220,7 +211,6 @@ export class InProcessNerve implements Nerve {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Create a correlationId for a new top-level turn. */
 export function newCorrelationId(): string {
 	return randomUUID();
 }

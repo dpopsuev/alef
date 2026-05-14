@@ -25,9 +25,9 @@ import {
 	modelsAreEqual,
 	resetApiProviders,
 } from "@dpopsuev/alef-ai";
-import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-nerve";
 import { createFsOrgan, FsRuntime } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-spine";
 import type { EventInput } from "../board/event-log.js";
 import { getBinDir } from "../config.js";
 import { theme } from "../modes/interactive/theme/theme.js";

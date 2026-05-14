@@ -61,7 +61,8 @@
 		"typescript": "^5.9.2",
 		"undici": "^7.19.1",
 		"uuid": "^14.0.0",
-		"yaml": "^2.8.2"
+		"yaml": "^2.8.2",
+		"@dpopsuev/alef-spine": "^0.0.1"
 	},
 	"keywords": [
 		"agent",

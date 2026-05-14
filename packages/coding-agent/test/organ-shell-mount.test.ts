@@ -9,8 +9,8 @@
  *   - unmount removes the handler
  */
 
-import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-nerve";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-spine";
 import { describe, expect, it } from "vitest";
 
 describe("ShellOrgan via OrganBus", () => {

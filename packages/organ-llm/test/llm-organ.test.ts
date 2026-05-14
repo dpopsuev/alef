@@ -4,11 +4,6 @@ import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { LLMOrgan } from "../src/index.js";
 
-// ---------------------------------------------------------------------------
-// These tests make real LLM API calls.
-// Requires ANTHROPIC_API_KEY in the environment.
-// ---------------------------------------------------------------------------
-
 const SKIP = !process.env.ANTHROPIC_API_KEY;
 
 function makeModel() {
@@ -29,10 +24,8 @@ function makeModel() {
 function makeHarness() {
 	const recorder = new BusEventRecorder();
 	const corpus = new Corpus({ timeoutMs: 60_000 });
-	corpus
-		.load(recorder)
-		.load(new TextMessageOrgan())
-		.load(new LLMOrgan({ model: makeModel() }));
+	corpus.load(new TextMessageOrgan()).load(new LLMOrgan({ model: makeModel() }));
+	corpus.observe(recorder);
 	return { corpus, recorder, dispose: () => corpus.dispose() };
 }
 
@@ -46,8 +39,6 @@ function make() {
 	return h;
 }
 
-// ---------------------------------------------------------------------------
-
 describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 	it("resolves corpus.prompt() with a non-empty reply", async () => {
 		const { corpus } = make();
@@ -60,32 +51,33 @@ describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("Say hi in one word.");
 
-		recorder.assertSenseEmitted("user_message");
-		recorder.assertMotorEmitted("llm_request");
-		recorder.assertToolCallEmitted("send_message");
-		recorder.assertMotorEmitted("user_reply");
+		recorder.assertMotorEmitted("text.input");
+		recorder.assertSenseEmitted("llm.prompt");
+		recorder.assertMotorEmitted("text.message");
+		recorder.assertSenseEmitted("text.reply");
 	}, 30_000);
 
-	it("send_message tool_call args contain the reply text", async () => {
+	it("text.message args contain the reply text", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("What is 2+2? Reply with just the number.");
 
-		const call = recorder.assertToolCallEmitted("send_message");
-		expect(typeof call.args.text).toBe("string");
-		expect((call.args.text as string).length).toBeGreaterThan(0);
+		const msg = recorder.assertMotorEmitted("text.message");
+		const payload = (msg as unknown as { payload: { text: string } }).payload;
+		expect(typeof payload.text).toBe("string");
+		expect(payload.text.length).toBeGreaterThan(0);
 	}, 30_000);
 
 	it("all turn events share the same correlationId", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("Say yes.");
 
-		const msg = recorder.assertSenseEmitted("user_message");
-		const req = recorder.assertMotorEmitted("llm_request");
-		const call = recorder.assertToolCallEmitted("send_message");
-		const reply = recorder.assertMotorEmitted("user_reply");
+		const input = recorder.assertMotorEmitted("text.input");
+		const prompt = recorder.assertSenseEmitted("llm.prompt");
+		const msg = recorder.assertMotorEmitted("text.message");
+		const reply = recorder.assertSenseEmitted("text.reply");
 
-		expect(req.correlationId).toBe(msg.correlationId);
-		expect(call.correlationId).toBe(msg.correlationId);
-		expect(reply.correlationId).toBe(msg.correlationId);
+		expect(prompt.correlationId).toBe(input.correlationId);
+		expect(msg.correlationId).toBe(input.correlationId);
+		expect(reply.correlationId).toBe(input.correlationId);
 	}, 30_000);
 });

@@ -167,7 +167,7 @@ export interface ToolsOptions {
 	grep?: GrepToolOptions;
 	find?: FindToolOptions;
 	/** Organ bus for routing grep/find through mounted organs. */
-	organBus?: import("@dpopsuev/alef-nerve").OrganBus;
+	organBus?: import("@dpopsuev/alef-spine").OrganBus;
 }
 
 function createRawToolDefinition(toolName: ToolName, cwd: string, options?: ToolsOptions): ToolDef {

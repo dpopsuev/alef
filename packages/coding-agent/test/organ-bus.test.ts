@@ -8,8 +8,8 @@
  *   - Unmounting a handler removes it cleanly
  */
 
-import type { Organ, OrganBus } from "@dpopsuev/alef-nerve";
-import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-nerve";
+import type { BusOrgan as Organ, OrganBus } from "@dpopsuev/alef-spine";
+import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-spine";
 import { describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------

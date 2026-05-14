@@ -1,1 +1,1 @@
-export * from "@dpopsuev/alef-nerve/event-log";
+export * from "@dpopsuev/alef-spine/event-log";

@@ -1,4 +1,4 @@
-import type { Organ, OrganBus, OrganResult } from "@dpopsuev/alef-nerve";
+import type { BusOrgan as Organ, OrganBus, OrganResult } from "@dpopsuev/alef-spine";
 import {
 	DEFAULT_FIND_LIMIT,
 	DEFAULT_GREP_LIMIT,
@@ -87,7 +87,7 @@ async function handleFind(args: Record<string, unknown>, opts: FsOrganOptions): 
  * @example
  * ```typescript
  * import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
- * import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-nerve";
+ * import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-spine";
  *
  * const log = new MemLog();
  * const bus = new InProcessOrganBus(log);

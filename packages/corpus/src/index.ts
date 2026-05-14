@@ -1,5 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { InProcessNerve, type Organ, type ToolDefinition, type UserMessageEvent } from "@dpopsuev/alef-spine";
+import {
+	type CerebrumOrgan,
+	type CorpusOrgan,
+	InProcessNerve,
+	type NerveEvent,
+	type ToolDefinition,
+} from "@dpopsuev/alef-spine";
+
+// Corpus event type constants
+export const MOTOR_TEXT_INPUT = "text.input" as const;
+export const SENSE_TEXT_REPLY = "text.reply" as const;
 
 // ---------------------------------------------------------------------------
 // CorpusTimeoutError
@@ -16,21 +26,31 @@ export class CorpusTimeoutError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Corpus — Pub-Sub entity seam, external boundary of the agent.
+// BusObserver — full read access to the Nerve for observability tools.
+// Used by BusEventRecorder in testkit. Not an organ — not routed.
+// ---------------------------------------------------------------------------
+
+export interface BusObserver {
+	onMotorEvent(event: NerveEvent): void;
+	onSenseEvent(event: NerveEvent): void;
+	onSignalEvent(event: NerveEvent): void;
+}
+
+// ---------------------------------------------------------------------------
+// Corpus — the composition root and external boundary of the agent.
 //
 // Responsibilities:
-//  - Creates the Spine (InProcessNerve) and owns it.
-//  - Loads organs: mounts them onto the Spine and collects their tool definitions.
-//  - Provides prompt(): the single external entry point. Emits Sense/user_message
-//    (with all loaded tools), awaits Motor/user_reply by correlationId.
-//  - Provides dispose(): tears down all organ subscriptions cleanly.
-//
-// Corpus does NOT call organ methods directly after load().
-// All execution after load() is driven by events on the Spine.
+//  - Creates the Spine (InProcessNerve) and owns it exclusively.
+//  - Loads organs: mounts them onto the correct Nerve view based on kind.
+//    CerebrumOrgans (mutate agent) → CerebrumNerve (sense.subscribe, motor.publish)
+//    CorpusOrgans  (mutate world)  → CorpusNerve  (motor.subscribe, sense.publish)
+//  - Collects ToolDefinition from all loaded organs for LLMOrgan's prompts.
+//  - prompt(): injects Motor/"text.input", awaits Sense/"text.reply".
+//  - observe(): attaches a BusObserver (e.g. BusEventRecorder in tests).
+//  - dispose(): tears down all subscriptions cleanly.
 // ---------------------------------------------------------------------------
 
 export interface CorpusOptions {
-	/** Default timeout for prompt() in ms. Default: 30_000. */
 	timeoutMs?: number;
 }
 
@@ -46,25 +66,47 @@ export class Corpus {
 	}
 
 	/**
-	 * Load an organ onto the Spine.
-	 * The organ subscribes to bus channels during mount().
-	 * Its tool definitions are collected for inclusion in all future prompts.
-	 * Returns `this` for chaining.
+	 * Load a CerebrumOrgan or CorpusOrgan onto the Spine.
+	 * Routes the correct Nerve view based on organ.kind.
 	 */
-	load(organ: Organ): this {
+	load(organ: CerebrumOrgan | CorpusOrgan): this {
 		if (this.disposed) throw new Error("Corpus is disposed — cannot load organs.");
-		const unmount = organ.mount(this.nerve);
+		const unmount =
+			organ.kind === "cerebrum"
+				? organ.mount(this.nerve.asCerebrumNerve())
+				: organ.mount(this.nerve.asCorpusNerve());
 		this.unmounts.push(unmount);
 		this.tools.push(...organ.tools);
 		return this;
 	}
 
 	/**
+	 * Attach a BusObserver for full read access to all bus events.
+	 * Used by BusEventRecorder in testkit. Returns unobserve function.
+	 */
+	observe(observer: BusObserver): () => void {
+		const offs = [
+			this.nerve.onAnyMotor((e) => {
+				observer.onMotorEvent(e);
+			}),
+			this.nerve.onAnySense((e) => {
+				observer.onSenseEvent(e);
+			}),
+			this.nerve.onAnySignal((e) => {
+				observer.onSignalEvent(e);
+			}),
+		];
+		const off = () => {
+			for (const o of offs) o();
+		};
+		this.unmounts.push(off);
+		return off;
+	}
+
+	/**
 	 * Send a text prompt into the Corpus.
-	 *
-	 * Emits Sense/user_message (with all loaded tool definitions) onto the Spine,
-	 * then awaits Motor/user_reply with the matching correlationId.
-	 * Rejects with CorpusTimeoutError if no reply arrives within timeoutMs.
+	 * Publishes Motor/"text.input" with the current tool list,
+	 * then awaits Sense/"text.reply" with the matching correlationId.
 	 */
 	prompt(text: string, options: { timeoutMs?: number } = {}): Promise<string> {
 		if (this.disposed) return Promise.reject(new Error("Corpus is disposed."));
@@ -82,10 +124,11 @@ export class Corpus {
 			};
 
 			// Subscribe BEFORE emitting to avoid missing an immediate reply.
-			off = this.nerve.motor.on("user_reply", (event) => {
-				if (event.type === "user_reply" && event.correlationId === correlationId) {
+			off = this.nerve.subscribeSense("text.reply", (event) => {
+				if (event.correlationId === correlationId) {
 					cleanup();
-					resolve(event.text);
+					const text = typeof event.payload.text === "string" ? event.payload.text : "";
+					resolve(text);
 				}
 			});
 
@@ -94,27 +137,19 @@ export class Corpus {
 				reject(new CorpusTimeoutError(text, timeoutMs));
 			}, timeoutMs);
 
-			const event: UserMessageEvent = {
-				type: "user_message",
-				text,
-				tools: [...this.tools],
+			this.nerve.publishMotor({
+				type: "text.input",
+				payload: { text, tools: [...this.tools] },
 				correlationId,
 				timestamp: Date.now(),
-			};
-			this.nerve.sense.emit(event);
+			});
 		});
 	}
 
-	/**
-	 * Tear down all organ subscriptions.
-	 * Safe to call multiple times.
-	 */
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;
-		for (const unmount of this.unmounts) {
-			unmount();
-		}
+		for (const unmount of this.unmounts) unmount();
 		this.unmounts.length = 0;
 	}
 }

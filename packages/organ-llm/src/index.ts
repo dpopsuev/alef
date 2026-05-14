@@ -1,93 +1,73 @@
 import { type Api, type AssistantMessage, type Message, type Model, streamSimple, type Tool } from "@dpopsuev/alef-ai";
-import type { LLMRequestEvent, Nerve, Organ, ToolResultEvent } from "@dpopsuev/alef-spine";
+import type { CerebrumNerve, CerebrumOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 
-// ---------------------------------------------------------------------------
-// LLMOrganOptions
-// ---------------------------------------------------------------------------
+// LLM organ event type constants
+const SENSE_LLM_PROMPT = "llm.prompt";
+const MOTOR_TEXT_MESSAGE = "text.message";
+const MOTOR_LLM_TOOL_CALL = "llm.tool_call";
+const SENSE_LLM_TOOL_RESULT = "llm.tool_result";
 
 export interface LLMOrganOptions {
 	model: Model<Api>;
-	/**
-	 * API key passed to the provider. When omitted, the provider reads from
-	 * its default environment variable (e.g. ANTHROPIC_API_KEY).
-	 */
 	apiKey?: string;
-	/** Timeout per LLM call in ms. Default: 60_000. */
 	timeoutMs?: number;
-	/** Max retries per LLM call. Default: 3. */
 	maxRetries?: number;
-	/**
-	 * Name of the terminal tool — when the LLM calls this, the turn ends.
-	 * Defaults to "send_message" (handled by TextMessageOrgan).
-	 */
-	terminalTool?: string;
 }
 
-// ---------------------------------------------------------------------------
-// LLMOrgan
-//
-// Subscribes to Motor/llm_request. Runs a turn loop:
-//   1. Call LLM via streamSimple with messages + tools.
-//   2. On toolcall_end: emit Motor/tool_call(name, args, correlationId).
-//   3. If the tool is the terminal tool (send_message): stop. TextMessageOrgan
-//      handles it and emits Motor/user_reply back to Corpus.
-//   4. For non-terminal tools: wait for Sense/tool_result, append to messages,
-//      loop back to step 1.
-//   5. On text response (LLM ignored tool_choice): synthesize a send_message
-//      tool call so the turn still terminates cleanly.
-// ---------------------------------------------------------------------------
-
-export class LLMOrgan implements Organ {
+export class LLMOrgan implements CerebrumOrgan {
+	readonly kind = "cerebrum" as const;
 	readonly name = "llm";
-
-	/** LLMOrgan does not expose tools to itself — it IS the LLM. */
 	readonly tools = [] as const;
 
-	private readonly terminalTool: string;
 	private readonly timeoutMs: number;
 	private readonly maxRetries: number;
 
 	constructor(private readonly options: LLMOrganOptions) {
-		this.terminalTool = options.terminalTool ?? "send_message";
 		this.timeoutMs = options.timeoutMs ?? 60_000;
 		this.maxRetries = options.maxRetries ?? 3;
 	}
 
-	mount(nerve: Nerve): () => void {
-		return nerve.motor.on("llm_request", (event) => {
-			if (event.type !== "llm_request") return;
-			void this.handleRequest(nerve, event);
+	mount(nerve: CerebrumNerve): () => void {
+		// Subscribe Sense/"llm.prompt" — TextMessageOrgan sent a prompt.
+		return nerve.sense.subscribe(SENSE_LLM_PROMPT, (event) => {
+			const payload = event.payload as { messages: readonly unknown[]; tools: readonly ToolDefinition[] };
+			void this.handlePrompt(nerve, payload, event.correlationId);
 		});
 	}
 
-	private async handleRequest(nerve: Nerve, event: LLMRequestEvent): Promise<void> {
-		const { correlationId } = event;
-		const tools = toAiTools(event.tools);
+	private async handlePrompt(
+		nerve: CerebrumNerve,
+		payload: {
+			messages: readonly unknown[];
+			tools: readonly { name: string; description: string; inputSchema: Record<string, unknown> }[];
+		},
+		correlationId: string,
+	): Promise<void> {
+		const tools: Tool[] = payload.tools.map((t) => ({
+			name: t.name,
+			description: t.description,
+			parameters: t.inputSchema,
+		}));
 
-		// Messages accumulate across tool-use turns.
-		const messages: Message[] = (event.messages as Message[]).map((m) => {
+		const messages: Message[] = (payload.messages as Message[]).map((m) => {
 			if ("timestamp" in m && typeof (m as { timestamp?: unknown }).timestamp === "number") return m;
 			return { ...(m as object), timestamp: Date.now() } as Message;
 		});
 
-		// Turn loop: call LLM → process tool calls → repeat until terminal.
+		// Turn loop: call LLM → process tool calls → repeat until text.message fires.
 		while (true) {
 			const stream = streamSimple(
 				this.options.model,
 				{ messages, tools },
-				{
-					apiKey: this.options.apiKey,
-					timeoutMs: this.timeoutMs,
-					maxRetries: this.maxRetries,
-				},
+				{ apiKey: this.options.apiKey, timeoutMs: this.timeoutMs, maxRetries: this.maxRetries },
 			);
 
 			let finalMessage: AssistantMessage | undefined;
-			const pendingToolCalls: Array<{ name: string; args: Record<string, unknown>; id: string }> = [];
+			const pendingCalls: Array<{ name: string; args: Record<string, unknown>; id: string }> = [];
 
 			for await (const evt of stream) {
 				if (evt.type === "toolcall_end") {
-					pendingToolCalls.push({
+					pendingCalls.push({
 						name: evt.toolCall.name,
 						args: evt.toolCall.arguments as Record<string, unknown>,
 						id: evt.toolCall.id,
@@ -100,18 +80,15 @@ export class LLMOrgan implements Organ {
 			}
 
 			if (!finalMessage) break;
-
-			// Append the assistant turn to history.
 			messages.push(finalMessage);
 
-			// ── Text response (LLM chose not to use a tool) ───────────────
-			if (pendingToolCalls.length === 0) {
+			// Text response — synthesize a text.message tool call.
+			if (pendingCalls.length === 0) {
 				const text = extractText(finalMessage);
 				if (text) {
-					nerve.motor.emit({
-						type: "tool_call",
-						toolName: this.terminalTool,
-						args: { text },
+					nerve.motor.publish({
+						type: MOTOR_TEXT_MESSAGE,
+						payload: { text },
 						correlationId,
 						timestamp: Date.now(),
 					});
@@ -119,66 +96,58 @@ export class LLMOrgan implements Organ {
 				break;
 			}
 
-			// ── Tool-use response ──────────────────────────────────────────
-			let reachedTerminal = false;
+			// Tool calls — emit each as Motor/"llm.tool_call".
+			let sentTextMessage = false;
+			for (const tc of pendingCalls) {
+				if (tc.name === "text.message") {
+					// Terminal: text reply via tool call.
+					nerve.motor.publish({
+						type: MOTOR_TEXT_MESSAGE,
+						payload: { text: typeof tc.args.text === "string" ? tc.args.text : "" },
+						correlationId,
+						timestamp: Date.now(),
+					});
+					sentTextMessage = true;
+					break;
+				}
 
-			for (const tc of pendingToolCalls) {
-				nerve.motor.emit({
-					type: "tool_call",
-					toolName: tc.name,
-					args: tc.args,
+				// Non-terminal tool — emit and wait for result.
+				nerve.motor.publish({
+					type: MOTOR_LLM_TOOL_CALL,
+					payload: { toolName: tc.name, toolCallId: tc.id, args: tc.args },
 					correlationId,
 					timestamp: Date.now(),
 				});
 
-				if (tc.name === this.terminalTool) {
-					reachedTerminal = true;
-					break; // Terminal tool — TextMessageOrgan handles the rest.
-				}
-
-				// Non-terminal: wait for the organ that owns this tool to respond.
-				const result = await this.waitForToolResult(nerve, tc.name, correlationId);
-
+				const result = await this.waitForToolResult(nerve, tc.id, correlationId);
 				messages.push({
 					role: "toolResult",
 					toolCallId: tc.id,
 					toolName: tc.name,
-					content: [{ type: "text", text: String(result.result) }],
-					isError: result.isError,
+					content: [{ type: "text", text: String(result.payload.result) }],
+					isError: result.payload.isError === true,
 					timestamp: Date.now(),
 				});
 			}
 
-			if (reachedTerminal) break;
+			if (sentTextMessage) break;
 		}
 	}
 
-	/**
-	 * Subscribe to Sense/tool_result and resolve when a result arrives for
-	 * the given toolName in the current turn (matched by correlationId).
-	 */
-	private waitForToolResult(nerve: Nerve, toolName: string, correlationId: string): Promise<ToolResultEvent> {
+	private waitForToolResult(
+		nerve: CerebrumNerve,
+		toolCallId: string,
+		correlationId: string,
+	): Promise<{ payload: Record<string, unknown> }> {
 		return new Promise((resolve) => {
-			const off = nerve.sense.on("tool_result", (event) => {
-				if (event.type === "tool_result" && event.toolName === toolName && event.correlationId === correlationId) {
+			const off = nerve.sense.subscribe(SENSE_LLM_TOOL_RESULT, (event) => {
+				if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
 					off();
 					resolve(event);
 				}
 			});
 		});
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toAiTools(tools: LLMRequestEvent["tools"]): Tool[] {
-	return tools.map((t) => ({
-		name: t.name,
-		description: t.description,
-		parameters: t.inputSchema,
-	}));
 }
 
 function extractText(message: AssistantMessage): string {

@@ -65,7 +65,7 @@ export interface GrepToolOptions {
 	/** Optional in-memory cache for repeated grep queries */
 	cache?: ToolResultCache;
 	/** When set and the fs organ is mounted, routes grep through the organ bus. */
-	organBus?: import("@dpopsuev/alef-nerve").OrganBus;
+	organBus?: import("@dpopsuev/alef-spine").OrganBus;
 }
 
 function formatGrepCall(

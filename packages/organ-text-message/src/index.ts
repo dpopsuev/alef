@@ -1,29 +1,18 @@
-import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { CorpusNerve, CorpusOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 
-// ---------------------------------------------------------------------------
-// TextMessageOrgan — text I/O boundary organ.
-//
-// Subscribes to:
-//   Sense/user_message  — user sends text in
-//   Motor/tool_call("send_message") — LLM replies via its send_message tool
-//
-// Emits:
-//   Motor/llm_request   — triggers the LLMOrgan with messages + tools
-//   Motor/user_reply    — delivers the LLM's reply back to Corpus
-//
-// Exposes:
-//   send_message tool   — the only way the LLM can reply to the user
-//
-// Note: no message history. History belongs in a future STM organ.
-// TextMessageOrgan is stateless — one user_message → one llm_request.
-// ---------------------------------------------------------------------------
+// TextMessageOrgan event type constants
+const MOTOR_TEXT_INPUT = "text.input";
+const SENSE_LLM_PROMPT = "llm.prompt";
+const MOTOR_TEXT_MESSAGE = "text.message";
+const SENSE_TEXT_REPLY = "text.reply";
 
-export class TextMessageOrgan implements Organ {
+export class TextMessageOrgan implements CorpusOrgan {
+	readonly kind = "corpus" as const;
 	readonly name = "text-message";
 
 	readonly tools: readonly ToolDefinition[] = [
 		{
-			name: "send_message",
+			name: "text.message",
 			description: "Send a text reply to the user.",
 			inputSchema: {
 				type: "object",
@@ -36,34 +25,37 @@ export class TextMessageOrgan implements Organ {
 		},
 	];
 
-	mount(nerve: Nerve): () => void {
-		// Sense/user_message → Motor/llm_request
-		const offUserMessage = nerve.sense.on("user_message", (event) => {
-			if (event.type !== "user_message") return;
-			nerve.motor.emit({
-				type: "llm_request",
-				messages: [{ role: "user", content: event.text }],
-				tools: event.tools,
+	mount(nerve: CorpusNerve): () => void {
+		// Motor/"text.input" → Sense/"llm.prompt"
+		// Corpus delivered a user message. Forward to LLMOrgan as a prompt.
+		const offInput = nerve.motor.subscribe(MOTOR_TEXT_INPUT, (event) => {
+			nerve.sense.publish({
+				type: SENSE_LLM_PROMPT,
+				payload: {
+					messages: [{ role: "user", content: event.payload.text }],
+					tools: event.payload.tools,
+				},
 				correlationId: event.correlationId,
 				timestamp: Date.now(),
+				isError: false,
 			});
 		});
 
-		// Motor/tool_call("send_message") → Motor/user_reply
-		const offToolCall = nerve.motor.on("tool_call", (event) => {
-			if (event.type !== "tool_call" || event.toolName !== "send_message") return;
-			const text = typeof event.args.text === "string" ? event.args.text : "";
-			nerve.motor.emit({
-				type: "user_reply",
-				text,
+		// Motor/"text.message" → Sense/"text.reply"
+		// LLMOrgan sent its text reply. Forward back to Corpus.
+		const offMessage = nerve.motor.subscribe(MOTOR_TEXT_MESSAGE, (event) => {
+			nerve.sense.publish({
+				type: SENSE_TEXT_REPLY,
+				payload: { text: event.payload.text },
 				correlationId: event.correlationId,
 				timestamp: Date.now(),
+				isError: false,
 			});
 		});
 
 		return () => {
-			offUserMessage();
-			offToolCall();
+			offInput();
+			offMessage();
 		};
 	}
 }

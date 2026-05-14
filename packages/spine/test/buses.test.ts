@@ -1,313 +1,240 @@
-/**
- * Nerve typed Pub-Sub — SenseBus, MotorBus, SignalBus.
- *
- * Pure in-memory. No I/O, no organs, no process spawn.
- */
-
 import { describe, expect, it, vi } from "vitest";
-import { InProcessNerve, type MotorEvent, newCorrelationId, type SenseEvent, type SignalEvent } from "../src/buses.js";
+import { InProcessNerve, type NerveEvent, newCorrelationId } from "../src/buses.js";
+
+// ---------------------------------------------------------------------------
+// Register test event schemas via module augmentation.
+// ---------------------------------------------------------------------------
+
+declare module "../src/buses.js" {
+	interface MotorEventRegistry {
+		"test.command": { value: string };
+		"test.tool_call": { toolName: string; args: Record<string, unknown> };
+	}
+	interface SenseEventRegistry {
+		"test.result": { output: string };
+		"test.observation": { data: unknown };
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeUserMessage(text = "hello", correlationId = newCorrelationId()) {
-	return {
-		type: "user_message" as const,
-		text,
-		tools: [],
-		correlationId,
-		timestamp: Date.now(),
-	};
+function makeMotorEvent(type: "test.command" | "test.tool_call" = "test.command", correlationId = newCorrelationId()) {
+	if (type === "test.command") {
+		return { type, payload: { value: "hello" }, correlationId, timestamp: Date.now() } as const;
+	}
+	return { type, payload: { toolName: "bash", args: {} }, correlationId, timestamp: Date.now() } as const;
 }
 
-function makeToolResult(toolName = "file_read", correlationId = newCorrelationId()) {
-	return {
-		type: "tool_result" as const,
-		toolName,
-		result: "file contents",
-		isError: false,
-		correlationId,
-		timestamp: Date.now(),
-	};
-}
-
-function makeLLMRequest(correlationId = newCorrelationId()) {
-	return {
-		type: "llm_request" as const,
-		messages: [{ role: "user", content: "hello" }],
-		tools: [],
-		correlationId,
-		timestamp: Date.now(),
-	};
-}
-
-function makeToolCall(toolName = "file_read", correlationId = newCorrelationId()) {
-	return {
-		type: "tool_call" as const,
-		toolName,
-		args: { path: "/tmp/test.ts" },
-		correlationId,
-		timestamp: Date.now(),
-	};
-}
-
-function makeUserReply(text = "world", correlationId = newCorrelationId()) {
-	return {
-		type: "user_reply" as const,
-		text,
-		correlationId,
-		timestamp: Date.now(),
-	};
-}
-
-function makeSignal(correlationId = newCorrelationId()) {
-	return {
-		type: "signal" as const,
-		signal: "execute" as const,
-		organ: "llm",
-		correlationId,
-		timestamp: Date.now(),
-	};
+function makeSenseEvent(type: "test.result" | "test.observation" = "test.result", correlationId = newCorrelationId()) {
+	if (type === "test.result") {
+		return { type, payload: { output: "done" }, correlationId, timestamp: Date.now(), isError: false } as const;
+	}
+	return { type, payload: { data: 42 }, correlationId, timestamp: Date.now(), isError: false } as const;
 }
 
 // ---------------------------------------------------------------------------
-// SenseBus
+// CerebrumNerve — sense.subscribe, motor.publish
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — SenseBus", () => {
-	it("delivers user_message to subscriber", () => {
+describe("CerebrumNerve — sense.subscribe", () => {
+	it("delivers sense event to subscriber", () => {
 		const nerve = new InProcessNerve();
-		const received: SenseEvent[] = [];
-		nerve.sense.on("user_message", (e) => void received.push(e));
+		const cerebrum = nerve.asCerebrumNerve();
+		const received: NerveEvent[] = [];
+		cerebrum.sense.subscribe("test.result", (e) => void received.push(e));
 
-		const event = makeUserMessage("ping");
-		nerve.sense.emit(event);
+		nerve.asCorpusNerve().sense.publish(makeSenseEvent("test.result"));
 
 		expect(received).toHaveLength(1);
-		expect(received[0]).toMatchObject({ type: "user_message", text: "ping" });
-	});
-
-	it("delivers tool_result to subscriber", () => {
-		const nerve = new InProcessNerve();
-		const received: SenseEvent[] = [];
-		nerve.sense.on("tool_result", (e) => void received.push(e));
-
-		nerve.sense.emit(makeToolResult("bash"));
-
-		expect(received).toHaveLength(1);
-		expect(received[0]).toMatchObject({ type: "tool_result", toolName: "bash" });
-	});
-
-	it("does not deliver to wrong event type", () => {
-		const nerve = new InProcessNerve();
-		const received: SenseEvent[] = [];
-		nerve.sense.on("tool_result", (e) => void received.push(e));
-
-		nerve.sense.emit(makeUserMessage());
-
-		expect(received).toHaveLength(0);
-	});
-
-	it("delivers to multiple subscribers for same type", () => {
-		const nerve = new InProcessNerve();
-		const a: SenseEvent[] = [];
-		const b: SenseEvent[] = [];
-		nerve.sense.on("user_message", (e) => void a.push(e));
-		nerve.sense.on("user_message", (e) => void b.push(e));
-
-		nerve.sense.emit(makeUserMessage());
-
-		expect(a).toHaveLength(1);
-		expect(b).toHaveLength(1);
+		expect(received[0]).toMatchObject({ type: "test.result" });
 	});
 
 	it("unsubscribes cleanly", () => {
 		const nerve = new InProcessNerve();
-		const received: SenseEvent[] = [];
-		const off = nerve.sense.on("user_message", (e) => void received.push(e));
+		const cerebrum = nerve.asCerebrumNerve();
+		const received: NerveEvent[] = [];
+		const off = cerebrum.sense.subscribe("test.result", (e) => void received.push(e));
 
-		nerve.sense.emit(makeUserMessage("first"));
+		nerve.asCorpusNerve().sense.publish(makeSenseEvent("test.result"));
 		off();
-		nerve.sense.emit(makeUserMessage("second"));
+		nerve.asCorpusNerve().sense.publish(makeSenseEvent("test.result"));
 
 		expect(received).toHaveLength(1);
-		expect(received[0]).toMatchObject({ text: "first" });
 	});
 
-	it("carries correlationId through", () => {
+	it("does not receive wrong event type", () => {
+		const nerve = new InProcessNerve();
+		const cerebrum = nerve.asCerebrumNerve();
+		const received: NerveEvent[] = [];
+		cerebrum.sense.subscribe("test.result", (e) => void received.push(e));
+
+		nerve.asCorpusNerve().sense.publish(makeSenseEvent("test.observation"));
+
+		expect(received).toHaveLength(0);
+	});
+});
+
+describe("CerebrumNerve — motor.publish", () => {
+	it("delivers motor event to CorpusNerve subscriber", () => {
+		const nerve = new InProcessNerve();
+		const cerebrum = nerve.asCerebrumNerve();
+		const corpus = nerve.asCorpusNerve();
+		const received: NerveEvent[] = [];
+		corpus.motor.subscribe("test.command", (e) => void received.push(e));
+
+		cerebrum.motor.publish(makeMotorEvent("test.command"));
+
+		expect(received).toHaveLength(1);
+		expect(received[0]).toMatchObject({ type: "test.command" });
+	});
+});
+
+// ---------------------------------------------------------------------------
+// CorpusNerve — motor.subscribe, sense.publish
+// ---------------------------------------------------------------------------
+
+describe("CorpusNerve — motor.subscribe", () => {
+	it("delivers motor event to subscriber", () => {
+		const nerve = new InProcessNerve();
+		const corpus = nerve.asCorpusNerve();
+		const received: NerveEvent[] = [];
+		corpus.motor.subscribe("test.command", (e) => void received.push(e));
+
+		nerve.publishMotor(makeMotorEvent("test.command"));
+
+		expect(received).toHaveLength(1);
+	});
+
+	it("unsubscribes cleanly", () => {
+		const nerve = new InProcessNerve();
+		const corpus = nerve.asCorpusNerve();
+		const received: NerveEvent[] = [];
+		const off = corpus.motor.subscribe("test.command", (e) => void received.push(e));
+
+		nerve.publishMotor(makeMotorEvent("test.command"));
+		off();
+		nerve.publishMotor(makeMotorEvent("test.command"));
+
+		expect(received).toHaveLength(1);
+	});
+});
+
+describe("CorpusNerve — sense.publish", () => {
+	it("delivers sense event to CerebrumNerve subscriber", () => {
+		const nerve = new InProcessNerve();
+		const corpus = nerve.asCorpusNerve();
+		const cerebrum = nerve.asCerebrumNerve();
+		const received: NerveEvent[] = [];
+		cerebrum.sense.subscribe("test.result", (e) => void received.push(e));
+
+		corpus.sense.publish(makeSenseEvent("test.result"));
+
+		expect(received).toHaveLength(1);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Corpus root methods
+// ---------------------------------------------------------------------------
+
+describe("InProcessNerve — corpus root methods", () => {
+	it("publishMotor reaches CorpusNerve subscriber", () => {
+		const nerve = new InProcessNerve();
+		const received: NerveEvent[] = [];
+		nerve.asCorpusNerve().motor.subscribe("test.command", (e) => void received.push(e));
+
+		nerve.publishMotor(makeMotorEvent("test.command"));
+
+		expect(received).toHaveLength(1);
+	});
+
+	it("subscribeSense receives from CorpusNerve publish", () => {
+		const nerve = new InProcessNerve();
+		const received: NerveEvent[] = [];
+		nerve.subscribeSense("test.result", (e) => void received.push(e));
+
+		nerve.asCorpusNerve().sense.publish(makeSenseEvent("test.result"));
+
+		expect(received).toHaveLength(1);
+	});
+
+	it("correlationId threads through Motor→Sense round-trip", () => {
 		const nerve = new InProcessNerve();
 		const id = newCorrelationId();
-		let received: SenseEvent | undefined;
-		nerve.sense.on("user_message", (e) => {
+		let received: NerveEvent | undefined;
+
+		nerve.asCorpusNerve().motor.subscribe("test.command", (motorEvent) => {
+			nerve.asCorpusNerve().sense.publish({
+				type: "test.result",
+				payload: { output: "echo" },
+				correlationId: motorEvent.correlationId,
+				timestamp: Date.now(),
+				isError: false,
+			});
+		});
+		nerve.subscribeSense("test.result", (e) => {
 			received = e;
 		});
 
-		nerve.sense.emit(makeUserMessage("hi", id));
+		nerve.publishMotor({
+			type: "test.command",
+			payload: { value: "ping" },
+			correlationId: id,
+			timestamp: Date.now(),
+		});
 
 		expect(received?.correlationId).toBe(id);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// MotorBus
+// Wildcard subscriptions (for BusEventRecorder)
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — MotorBus", () => {
-	it("delivers llm_request to subscriber", () => {
+describe("InProcessNerve — wildcard subscriptions", () => {
+	it("onAnyMotor receives all motor events", () => {
 		const nerve = new InProcessNerve();
-		const received: MotorEvent[] = [];
-		nerve.motor.on("llm_request", (e) => void received.push(e));
+		const received: NerveEvent[] = [];
+		nerve.onAnyMotor((e) => received.push(e));
 
-		nerve.motor.emit(makeLLMRequest());
+		nerve.publishMotor(makeMotorEvent("test.command"));
+		nerve.publishMotor(makeMotorEvent("test.tool_call"));
 
-		expect(received).toHaveLength(1);
-		expect(received[0]?.type).toBe("llm_request");
+		expect(received).toHaveLength(2);
 	});
 
-	it("delivers tool_call to subscriber", () => {
+	it("onAnySense receives all sense events", () => {
 		const nerve = new InProcessNerve();
-		const received: MotorEvent[] = [];
-		nerve.motor.on("tool_call", (e) => void received.push(e));
+		const received: NerveEvent[] = [];
+		nerve.onAnySense((e) => received.push(e));
 
-		nerve.motor.emit(makeToolCall("bash"));
+		nerve.asCorpusNerve().sense.publish(makeSenseEvent("test.result"));
+		nerve.asCorpusNerve().sense.publish(makeSenseEvent("test.observation"));
 
-		expect(received).toHaveLength(1);
-		expect(received[0]).toMatchObject({ type: "tool_call", toolName: "bash" });
-	});
-
-	it("delivers user_reply to subscriber", () => {
-		const nerve = new InProcessNerve();
-		const received: MotorEvent[] = [];
-		nerve.motor.on("user_reply", (e) => void received.push(e));
-
-		nerve.motor.emit(makeUserReply("done"));
-
-		expect(received).toHaveLength(1);
-		expect(received[0]).toMatchObject({ type: "user_reply", text: "done" });
-	});
-
-	it("tool_call subscribers can filter by toolName", () => {
-		const nerve = new InProcessNerve();
-		const fileReads: MotorEvent[] = [];
-		const bashCalls: MotorEvent[] = [];
-
-		nerve.motor.on("tool_call", (e) => {
-			if (e.type === "tool_call" && e.toolName === "file_read") void fileReads.push(e);
-			if (e.type === "tool_call" && e.toolName === "bash") void bashCalls.push(e);
-		});
-
-		nerve.motor.emit(makeToolCall("file_read"));
-		nerve.motor.emit(makeToolCall("bash"));
-
-		expect(fileReads).toHaveLength(1);
-		expect(bashCalls).toHaveLength(1);
-	});
-
-	it("unsubscribes cleanly", () => {
-		const nerve = new InProcessNerve();
-		const received: MotorEvent[] = [];
-		const off = nerve.motor.on("llm_request", (e) => void received.push(e));
-
-		nerve.motor.emit(makeLLMRequest());
-		off();
-		nerve.motor.emit(makeLLMRequest());
-
-		expect(received).toHaveLength(1);
+		expect(received).toHaveLength(2);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// SignalBus
-// ---------------------------------------------------------------------------
-
-describe("InProcessNerve — SignalBus", () => {
-	it("delivers signal events to subscriber", () => {
-		const nerve = new InProcessNerve();
-		const received: SignalEvent[] = [];
-		nerve.signal.on("signal", (e) => void received.push(e));
-
-		nerve.signal.emit(makeSignal());
-
-		expect(received).toHaveLength(1);
-		expect(received[0]?.type).toBe("signal");
-	});
-
-	it("unsubscribes cleanly", () => {
-		const nerve = new InProcessNerve();
-		const received: SignalEvent[] = [];
-		const off = nerve.signal.on("signal", (e) => void received.push(e));
-
-		nerve.signal.emit(makeSignal());
-		off();
-		nerve.signal.emit(makeSignal());
-
-		expect(received).toHaveLength(1);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// Buses are independent — events on one bus don't bleed to others
-// ---------------------------------------------------------------------------
-
-describe("InProcessNerve — bus isolation", () => {
-	it("sense and motor buses are independent", () => {
-		const nerve = new InProcessNerve();
-		const senseReceived: SenseEvent[] = [];
-		const motorReceived: MotorEvent[] = [];
-
-		nerve.sense.on("user_message", (e) => void senseReceived.push(e));
-		nerve.motor.on("user_reply", (e) => void motorReceived.push(e));
-
-		nerve.sense.emit(makeUserMessage());
-		nerve.motor.emit(makeUserReply());
-
-		expect(senseReceived).toHaveLength(1);
-		expect(motorReceived).toHaveLength(1);
-		expect(senseReceived[0]?.type).toBe("user_message");
-		expect(motorReceived[0]?.type).toBe("user_reply");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// listenerCount helper
+// listenerCount
 // ---------------------------------------------------------------------------
 
 describe("InProcessNerve — listenerCount", () => {
 	it("returns 0 for unregistered type", () => {
 		const nerve = new InProcessNerve();
-		expect(nerve.listenerCount("sense", "user_message")).toBe(0);
+		expect(nerve.listenerCount("motor", "test.command")).toBe(0);
 	});
 
-	it("counts registered handlers", () => {
+	it("counts and decrements correctly", () => {
 		const nerve = new InProcessNerve();
-		const off1 = nerve.sense.on("user_message", vi.fn());
-		const off2 = nerve.sense.on("user_message", vi.fn());
-		expect(nerve.listenerCount("sense", "user_message")).toBe(2);
+		const off1 = nerve.asCorpusNerve().motor.subscribe("test.command", vi.fn());
+		const off2 = nerve.asCorpusNerve().motor.subscribe("test.command", vi.fn());
+		expect(nerve.listenerCount("motor", "test.command")).toBe(2);
 		off1();
-		expect(nerve.listenerCount("sense", "user_message")).toBe(1);
+		expect(nerve.listenerCount("motor", "test.command")).toBe(1);
 		off2();
-		expect(nerve.listenerCount("sense", "user_message")).toBe(0);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// Async handlers — fire-and-forget, errors don't propagate to emit()
-// ---------------------------------------------------------------------------
-
-describe("InProcessNerve — async handlers", () => {
-	it("async handler receives event", async () => {
-		const nerve = new InProcessNerve();
-		let resolved = false;
-		nerve.sense.on("user_message", async () => {
-			await Promise.resolve();
-			resolved = true;
-		});
-
-		nerve.sense.emit(makeUserMessage());
-		await Promise.resolve(); // flush microtasks
-		await Promise.resolve();
-
-		expect(resolved).toBe(true);
+		expect(nerve.listenerCount("motor", "test.command")).toBe(0);
 	});
 });

@@ -1,4 +1,4 @@
-import type { Organ, OrganBus, OrganResult } from "@dpopsuev/alef-nerve";
+import type { BusOrgan as Organ, OrganBus, OrganResult } from "@dpopsuev/alef-spine";
 import { getShellEnv } from "./shell.js";
 import { createPlatformShellAdapter } from "./shell-adapter.js";
 

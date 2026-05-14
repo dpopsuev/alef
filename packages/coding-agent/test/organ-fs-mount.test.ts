@@ -11,8 +11,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-nerve";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
+import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-spine";
 import { beforeAll, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------

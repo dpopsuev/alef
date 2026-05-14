@@ -39,6 +39,10 @@ function makeAbort(updateId = "upd-1", reason = "cancelled") {
 	return { type: "abort" as const, commandId: `cmd-abort-${updateId}`, updateId, reason };
 }
 
+function makeRetireOld(updateId = "upd-1") {
+	return { type: "retire_old" as const, commandId: `cmd-retire-${updateId}`, updateId };
+}
+
 // ---------------------------------------------------------------------------
 // Basic transitions (existing coverage)
 // ---------------------------------------------------------------------------
@@ -89,7 +93,7 @@ describe("SupervisorLifecycleMachine — basic transitions", () => {
 // ---------------------------------------------------------------------------
 
 describe("SupervisorLifecycleMachine — full promote path", () => {
-	it("idle -> spawn_requested -> staging_healthy -> idle (promote)", () => {
+	it("idle -> spawn_requested -> staging_healthy -> promoted -> idle (promote + retire_old)", () => {
 		const fsm = new SupervisorLifecycleMachine();
 		expect(fsm.getState().name).toBe("idle");
 
@@ -101,33 +105,40 @@ describe("SupervisorLifecycleMachine — full promote path", () => {
 
 		const promote = fsm.apply(makePromote("upd-1"));
 		expect(promote.accepted).toBe(true);
+		expect(fsm.getState().name).toBe("promoted");
+
+		const retire = fsm.apply(makeRetireOld("upd-1"));
+		expect(retire.accepted).toBe(true);
 		expect(fsm.getState().name).toBe("idle");
 	});
 
-	it("activeSlot flips from green to blue after promote", () => {
+	it("activeSlot flips from green to blue after promote + retire_old", () => {
 		const fsm = new SupervisorLifecycleMachine({ name: "idle", activeSlot: "green" });
 		fsm.apply(makeSpawn("upd-1", "blue"));
 		fsm.apply(makeHealthy("upd-1"));
 		fsm.apply(makePromote("upd-1"));
+		fsm.apply(makeRetireOld("upd-1"));
 
 		const state = fsm.getState();
 		expect(state.name).toBe("idle");
 		expect(state.activeSlot).toBe("blue");
 	});
 
-	it("activeSlot flips from blue to green after second promote", () => {
+	it("activeSlot flips from blue to green after second promote + retire_old", () => {
 		const fsm = new SupervisorLifecycleMachine({ name: "idle", activeSlot: "green" });
 
 		// First cycle: green active → blue promoted
 		fsm.apply(makeSpawn("upd-1", "blue"));
 		fsm.apply(makeHealthy("upd-1"));
 		fsm.apply(makePromote("upd-1"));
+		fsm.apply(makeRetireOld("upd-1"));
 		expect(fsm.getState().activeSlot).toBe("blue");
 
 		// Second cycle: blue active → green promoted
 		fsm.apply(makeSpawn("upd-2", "green"));
 		fsm.apply(makeHealthy("upd-2"));
 		fsm.apply(makePromote("upd-2"));
+		fsm.apply(makeRetireOld("upd-2"));
 		expect(fsm.getState().activeSlot).toBe("green");
 	});
 
@@ -172,11 +183,13 @@ describe("SupervisorLifecycleMachine — rollback path", () => {
 		expect(result.diagnostics[0]?.code).toBe("invalid_transition");
 	});
 
-	it("cannot rollback from spawn_requested", () => {
+	it("can rollback from spawn_requested (build not yet started)", () => {
 		const fsm = new SupervisorLifecycleMachine();
 		fsm.apply(makeSpawn("upd-1"));
 		const result = fsm.apply(makeRollback("upd-1"));
-		expect(result.accepted).toBe(false);
+		// Rollback is allowed from any non-idle state. spawn_requested = pre-build.
+		expect(result.accepted).toBe(true);
+		expect(fsm.getState().name).toBe("idle");
 	});
 
 	it("new update cycle succeeds after rollback", () => {
@@ -189,9 +202,110 @@ describe("SupervisorLifecycleMachine — rollback path", () => {
 		fsm.apply(makeSpawn("upd-2", "blue"));
 		fsm.apply(makeHealthy("upd-2"));
 		const promote = fsm.apply(makePromote("upd-2"));
-
 		expect(promote.accepted).toBe(true);
+		expect(fsm.getState().name).toBe("promoted");
+
+		const retire = fsm.apply(makeRetireOld("upd-2"));
+		expect(retire.accepted).toBe(true);
 		expect(fsm.getState().activeSlot).toBe("blue");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Promoted state and retire_old (Hegemony-derived explicit slot retirement)
+// ---------------------------------------------------------------------------
+
+describe("SupervisorLifecycleMachine — promoted state and retire_old", () => {
+	it("promote transitions staging_healthy -> promoted, not idle", () => {
+		const fsm = new SupervisorLifecycleMachine({ name: "idle", activeSlot: "green" });
+		fsm.apply(makeSpawn("upd-1", "blue"));
+		fsm.apply(makeHealthy("upd-1"));
+		const promote = fsm.apply(makePromote("upd-1"));
+		expect(promote.accepted).toBe(true);
+		expect(promote.to.name).toBe("promoted");
+	});
+
+	it("promoted state records retiringSlot and the new activeSlot", () => {
+		const fsm = new SupervisorLifecycleMachine({ name: "idle", activeSlot: "green" });
+		fsm.apply(makeSpawn("upd-1", "blue"));
+		fsm.apply(makeHealthy("upd-1"));
+		fsm.apply(makePromote("upd-1"));
+
+		const state = fsm.getState();
+		if (state.name !== "promoted") throw new Error("expected promoted");
+		expect(state.activeSlot).toBe("blue"); // formerly staging
+		expect(state.retiringSlot).toBe("green"); // old active
+		expect(state.updateId).toBe("upd-1");
+	});
+
+	it("retire_old transitions promoted -> idle", () => {
+		const fsm = new SupervisorLifecycleMachine({ name: "idle", activeSlot: "green" });
+		fsm.apply(makeSpawn("upd-1", "blue"));
+		fsm.apply(makeHealthy("upd-1"));
+		fsm.apply(makePromote("upd-1"));
+		const retire = fsm.apply(makeRetireOld("upd-1"));
+		expect(retire.accepted).toBe(true);
+		expect(fsm.getState().name).toBe("idle");
+		expect(fsm.getState().activeSlot).toBe("blue");
+	});
+
+	it("retire_old rejected from idle", () => {
+		const fsm = new SupervisorLifecycleMachine();
+		const result = fsm.apply(makeRetireOld());
+		expect(result.accepted).toBe(false);
+		expect(result.diagnostics[0]?.code).toBe("invalid_transition");
+	});
+
+	it("retire_old rejected from spawn_requested", () => {
+		const fsm = new SupervisorLifecycleMachine();
+		fsm.apply(makeSpawn("upd-1"));
+		const result = fsm.apply(makeRetireOld("upd-1"));
+		expect(result.accepted).toBe(false);
+		expect(result.diagnostics[0]?.code).toBe("invalid_transition");
+	});
+
+	it("retire_old rejected from staging_healthy", () => {
+		const fsm = new SupervisorLifecycleMachine();
+		fsm.apply(makeSpawn("upd-1"));
+		fsm.apply(makeHealthy("upd-1"));
+		const result = fsm.apply(makeRetireOld("upd-1"));
+		expect(result.accepted).toBe(false);
+		expect(result.diagnostics[0]?.code).toBe("invalid_transition");
+	});
+
+	it("rollback from promoted restores retiringSlot as activeSlot", () => {
+		const fsm = new SupervisorLifecycleMachine({ name: "idle", activeSlot: "green" });
+		fsm.apply(makeSpawn("upd-1", "blue"));
+		fsm.apply(makeHealthy("upd-1"));
+		fsm.apply(makePromote("upd-1"));
+
+		const rollback = fsm.apply(makeRollback("upd-1", "crisis"));
+		expect(rollback.accepted).toBe(true);
+		const state = fsm.getState();
+		expect(state.name).toBe("idle");
+		expect(state.activeSlot).toBe("green"); // restored to pre-promote slot
+	});
+
+	it("abort from promoted restores retiringSlot as activeSlot", () => {
+		const fsm = new SupervisorLifecycleMachine({ name: "idle", activeSlot: "blue" });
+		fsm.apply(makeSpawn("upd-1", "green"));
+		fsm.apply(makeHealthy("upd-1"));
+		fsm.apply(makePromote("upd-1"));
+
+		fsm.apply(makeAbort("upd-1"));
+		expect(fsm.getState().activeSlot).toBe("blue"); // restored
+	});
+
+	it("retire_old replayed idempotently via commandId cache", () => {
+		const fsm = new SupervisorLifecycleMachine();
+		fsm.apply(makeSpawn("upd-1"));
+		fsm.apply(makeHealthy("upd-1"));
+		fsm.apply(makePromote("upd-1"));
+		const first = fsm.apply(makeRetireOld("upd-1"));
+		const second = fsm.apply(makeRetireOld("upd-1")); // same commandId
+		expect(first.accepted).toBe(true);
+		expect(second.replayed).toBe(true);
+		expect(fsm.getState().name).toBe("idle");
 	});
 });
 

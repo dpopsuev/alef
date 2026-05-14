@@ -561,6 +561,19 @@ class Supervisor {
 				return;
 			}
 			console.log("[supervisor] Smoke tests passed. Promoted staging slot.");
+			// Explicit retirement: close the update cycle and clear the retiring slot.
+			const retireTransition = this.lifecycle.apply({
+				type: "retire_old",
+				commandId: `retire-old:${updateId}`,
+				updateId,
+			});
+			this.reportTransition(retireTransition);
+			if (!retireTransition.accepted) {
+				console.error("[supervisor] FSM rejected retire_old; rolling back.");
+				this.rollbackBuild(updateId, "fsm_rejected_retire_old");
+				this.spawnGreen();
+				return;
+			}
 			this.cleanupDistBackup();
 		} else {
 			console.error("[supervisor] Smoke tests failed. Rolling back to previous active slot.");
@@ -675,7 +688,8 @@ class Supervisor {
 					result.command.type === "mark_staging_healthy" ||
 					result.command.type === "promote" ||
 					result.command.type === "rollback" ||
-					result.command.type === "abort"
+					result.command.type === "abort" ||
+					result.command.type === "retire_old"
 						? result.command.updateId
 						: undefined,
 				command: result.command.type,

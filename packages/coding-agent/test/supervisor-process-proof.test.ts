@@ -125,7 +125,8 @@ describe("supervisor process proofs", () => {
 			await harness.waitForOutput(/Running packages pre-step\.\.\./, 20_000);
 			await harness.waitForOutput(/Verified build hash [a-f0-9]{64} for tag v0\.0\.1\./, 20_000);
 			await harness.waitForOutput(/Smoke tests passed\. Promoted staging slot\./, 20_000);
-			expect(harness.output).toContain("FSM accepted promote: staging_healthy -> idle");
+			expect(harness.output).toContain("FSM accepted promote: staging_healthy -> promoted");
+			expect(harness.output).toContain("FSM accepted retire_old: promoted -> idle");
 		} finally {
 			await harness.stop();
 		}

@@ -20,7 +20,7 @@
  *   ./alef-dev.sh [alef args...]
  */
 
-import { type ChildProcess, execSync, spawn } from "node:child_process";
+import { type ChildProcess, execSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -805,9 +805,37 @@ class Supervisor {
 			return false;
 		}
 
-		console.log("[supervisor] Probe passed. Re-executing supervisor process.");
+		console.log("[supervisor] Probe passed. Tearing down and re-executing supervisor.");
+
+		// Tear down cleanly BEFORE starting the replacement.
+		// The old spawn+unref+exit approach started the replacement first, creating a
+		// window where both old and new supervisors had a green running simultaneously.
+		// Kill green and wait for it to exit before handing off.
+		this.rebuildingGreen = true;
+		const dyingGreen = this.green;
+		this.green = undefined;
+		if (dyingGreen && !dyingGreen.killed) {
+			dyingGreen.kill("SIGTERM");
+		}
+		await this.broker.killAll();
+		if (dyingGreen) {
+			await new Promise<void>((resolve) => {
+				if (dyingGreen.exitCode !== null || dyingGreen.signalCode !== null) {
+					resolve();
+				} else {
+					dyingGreen.once("exit", () => resolve());
+				}
+			});
+		}
+
+		// spawnSync replaces the current supervisor's role:
+		// - the new supervisor inherits stdin/stdout/stderr (terminal continuity)
+		// - this process blocks until the new supervisor exits
+		// - the new supervisor's exit code is propagated
+		// Node.js has no native execv(2), so spawnSync is the closest equivalent:
+		// no gap between old and new, stdio is continuous, exit code propagates.
 		try {
-			const replacement = spawn(process.execPath, [supervisorEntry, ...this.baseArgs], {
+			const result = spawnSync(process.execPath, [supervisorEntry, ...this.baseArgs], {
 				cwd: process.cwd(),
 				stdio: "inherit",
 				env: {
@@ -816,17 +844,11 @@ class Supervisor {
 					ALEF_SUPERVISOR_REEXEC_UPDATE_ID: updateId,
 				},
 			});
-			replacement.unref();
-			await this.broker.killAll();
-			if (this.green && !this.green.killed) {
-				this.green.kill("SIGTERM");
-			}
-			process.exit(0);
+			process.exit(result.status ?? (result.signal ? 1 : 0));
 		} catch (error) {
 			console.error(`[supervisor] Reexec failed: ${String(error)}`);
 			return false;
 		}
-		return true;
 	}
 
 	private handleShutdown(): void {

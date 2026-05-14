@@ -32,7 +32,7 @@
 	},
 	"dependencies": {
 		"@dpopsuev/alef-spine": "^0.0.1",
-		"@dpopsuev/alef-organ-ai": "^0.0.1"
+		"@dpopsuev/alef-ai": "^0.0.1"
 	},
 	"devDependencies": {
 		"@dpopsuev/alef-testkit": "^0.0.1",

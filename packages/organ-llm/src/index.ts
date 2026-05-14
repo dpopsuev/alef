@@ -4,8 +4,6 @@ import type { CerebrumNerve, CerebrumOrgan, ToolDefinition } from "@dpopsuev/ale
 // LLM organ event type constants
 const SENSE_LLM_PROMPT = "llm.prompt";
 const MOTOR_TEXT_MESSAGE = "text.message";
-const MOTOR_LLM_TOOL_CALL = "llm.tool_call";
-const SENSE_LLM_TOOL_RESULT = "llm.tool_result";
 
 export interface LLMOrganOptions {
 	model: Model<Api>;
@@ -111,15 +109,15 @@ export class LLMOrgan implements CerebrumOrgan {
 					break;
 				}
 
-				// Non-terminal tool — emit and wait for result.
+				// Non-terminal tool — publish Motor/<toolName> directly, await Sense/<toolName>.result.
 				nerve.motor.publish({
-					type: MOTOR_LLM_TOOL_CALL,
-					payload: { toolName: tc.name, toolCallId: tc.id, args: tc.args },
+					type: tc.name,
+					payload: { ...tc.args, toolCallId: tc.id },
 					correlationId,
 					timestamp: Date.now(),
 				});
 
-				const result = await this.waitForToolResult(nerve, tc.id, correlationId);
+				const result = await this.waitForToolResult(nerve, tc.name, tc.id, correlationId);
 				messages.push({
 					role: "toolResult",
 					toolCallId: tc.id,
@@ -136,11 +134,12 @@ export class LLMOrgan implements CerebrumOrgan {
 
 	private waitForToolResult(
 		nerve: CerebrumNerve,
+		toolName: string,
 		toolCallId: string,
 		correlationId: string,
 	): Promise<{ payload: Record<string, unknown> }> {
 		return new Promise((resolve) => {
-			const off = nerve.sense.subscribe(SENSE_LLM_TOOL_RESULT, (event) => {
+			const off = nerve.sense.subscribe(`${toolName}.result`, (event) => {
 				if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
 					off();
 					resolve(event);

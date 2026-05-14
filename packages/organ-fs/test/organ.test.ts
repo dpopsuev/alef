@@ -67,13 +67,13 @@ describe("FsCorpusOrgan", () => {
 	});
 
 	describe("fs.read", () => {
-		it("reads a file and publishes fs.read.result", async () => {
+		it("reads a file and publishes Sense/fs.read", async () => {
 			await writeFile(join(testDir, "hello.txt"), "line1\nline2\nline3\n");
 			const { nerve, corpus } = makeNerve();
 			const organ = createFsOrgan({ cwd: testDir });
 			const unmount = organ.mount(corpus);
 
-			const resultP = waitForSense(nerve, "fs.read.result");
+			const resultP = waitForSense(nerve, "fs.read");
 			publishMotor(nerve, "fs.read", { path: "hello.txt" });
 			const result = await resultP;
 
@@ -89,7 +89,7 @@ describe("FsCorpusOrgan", () => {
 			const organ = createFsOrgan({ cwd: testDir });
 			const unmount = organ.mount(corpus);
 
-			const resultP = waitForSense(nerve, "fs.read.result");
+			const resultP = waitForSense(nerve, "fs.read");
 			publishMotor(nerve, "fs.read", { path: "lines.txt", offset: 3 });
 			const result = await resultP;
 
@@ -105,7 +105,7 @@ describe("FsCorpusOrgan", () => {
 			const organ = createFsOrgan({ cwd: testDir });
 			const unmount = organ.mount(corpus);
 
-			const resultP = waitForSense(nerve, "fs.read.result");
+			const resultP = waitForSense(nerve, "fs.read");
 			publishMotor(nerve, "fs.read", { path: "nonexistent.txt" });
 			const result = await resultP;
 
@@ -122,7 +122,7 @@ describe("FsCorpusOrgan", () => {
 			const correlationId = "my-correlation-id";
 
 			let received: import("@dpopsuev/alef-spine").SenseEvent | null = null;
-			const unsub = nerve.asCerebrumNerve().sense.subscribe("fs.read.result", (e) => {
+			const unsub = nerve.asCerebrumNerve().sense.subscribe("fs.read", (e) => {
 				received = e;
 			});
 			nerve.asCerebrumNerve().motor.publish({
@@ -141,13 +141,13 @@ describe("FsCorpusOrgan", () => {
 	});
 
 	describe("fs.grep", () => {
-		it("finds pattern matches and publishes fs.grep.result", async () => {
+		it("finds pattern matches and publishes Sense/fs.grep", async () => {
 			await writeFile(join(testDir, "src.ts"), "const foo = 1;\nconst bar = 2;\n");
 			const { nerve, corpus } = makeNerve();
 			const organ = createFsOrgan({ cwd: testDir });
 			const unmount = organ.mount(corpus);
 
-			const resultP = waitForSense(nerve, "fs.grep.result");
+			const resultP = waitForSense(nerve, "fs.grep");
 			publishMotor(nerve, "fs.grep", { pattern: "foo" });
 			const result = await resultP;
 
@@ -157,7 +157,7 @@ describe("FsCorpusOrgan", () => {
 	});
 
 	describe("fs.find", () => {
-		it("finds files by pattern and publishes fs.find.result", async () => {
+		it("finds files by pattern and publishes Sense/fs.find", async () => {
 			await writeFile(join(testDir, "a.ts"), "");
 			await writeFile(join(testDir, "b.ts"), "");
 			await writeFile(join(testDir, "c.txt"), "");
@@ -165,7 +165,7 @@ describe("FsCorpusOrgan", () => {
 			const organ = createFsOrgan({ cwd: testDir });
 			const unmount = organ.mount(corpus);
 
-			const resultP = waitForSense(nerve, "fs.find.result");
+			const resultP = waitForSense(nerve, "fs.find");
 			publishMotor(nerve, "fs.find", { pattern: "*.ts" });
 			const result = await resultP;
 

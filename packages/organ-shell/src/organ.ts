@@ -2,7 +2,7 @@
  * ShellCorpusOrgan — ShellOrgan as a CorpusOrgan.
  *
  * Subscribes Motor/"shell.exec", executes the command, publishes
- * Sense/"shell.exec.result" with stdout+stderr and exit code.
+ * Sense/"shell.exec" with stdout+stderr and exit code.
  *
  * Note: this is the non-streaming path. The bash tool in coding-agent
  * has its own streaming via onUpdate for TUI use. This organ handles
@@ -58,7 +58,7 @@ function makeSense(
 	// Mirror toolCallId if present so LLMOrgan can correlate tool results.
 	const toolCallId = typeof motor.payload.toolCallId === "string" ? motor.payload.toolCallId : undefined;
 	return {
-		type: `${motor.type}.result`,
+		type: motor.type,
 		correlationId: motor.correlationId,
 		timestamp: Date.now(),
 		payload: toolCallId ? { ...payload, toolCallId } : payload,

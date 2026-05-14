@@ -30,7 +30,6 @@ export {
 	type LsToolResponse,
 } from "./file-queries.js";
 export { type FsCacheScope, FsRuntime, type FsRuntimeOptions } from "./fs-runtime.js";
-export { createFsOrgan, type FsOrganOptions } from "./mount.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,

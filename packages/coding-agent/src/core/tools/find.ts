@@ -70,8 +70,6 @@ export interface FindToolOptions {
 	operations?: FindOperations;
 	/** Optional in-memory cache for repeated find queries */
 	cache?: ToolResultCache;
-	/** When set and the fs organ is mounted, routes find through the organ bus. */
-	organBus?: import("@dpopsuev/alef-spine").OrganBus;
 }
 
 function formatFindCall(
@@ -133,7 +131,6 @@ export function createFindToolDefinition(
 ): ToolDefinition<typeof findSchema, FindToolDetails | undefined> {
 	const customOps = options?.operations;
 	const cache = options?.cache;
-	const organBus = options?.organBus;
 	return {
 		name: "file_find",
 		label: "file_find",
@@ -163,25 +160,6 @@ export function createFindToolDefinition(
 			_onUpdate?,
 			_ctx?,
 		) {
-			if (organBus?.isMounted("fs")) {
-				const busResult = await organBus.invoke("fs", "find", {
-					pattern,
-					path: searchDir,
-					limit,
-					type,
-					extension,
-					depth,
-					hidden,
-				});
-				if (!busResult.ok) {
-					return {
-						content: [{ type: "text" as const, text: busResult.error ?? "find failed" }],
-						isError: true,
-						details: undefined,
-					};
-				}
-				return busResult.content as FindToolResponse;
-			}
 			const response = await executeFindQuery(
 				{
 					pattern,

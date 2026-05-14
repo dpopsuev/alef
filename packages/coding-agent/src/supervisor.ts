@@ -448,12 +448,27 @@ class Supervisor {
 
 	private async handleRebuild(updateId: string): Promise<void> {
 		// Signal the green exit handler that this kill is intentional — not a crash.
+		// We must keep rebuildingGreen=true until Green-1 has ACTUALLY exited.
+		// broker.killAll() resolves instantly (no agents), so clearing the flag
+		// immediately after would be a race: Green-1's exit event fires ~150ms
+		// after SIGTERM, long after rebuildingGreen was already reset to false.
 		this.rebuildingGreen = true;
-		if (this.green && !this.green.killed) {
-			this.green.kill("SIGTERM");
+		const oldGreen = this.green;
+		if (oldGreen && !oldGreen.killed) {
+			oldGreen.kill("SIGTERM");
 		}
 		this.green = undefined;
 		await this.broker.killAll();
+		// Await the actual process exit before clearing the flag.
+		if (oldGreen) {
+			await new Promise<void>((resolve) => {
+				if (oldGreen.exitCode !== null || oldGreen.signalCode !== null) {
+					resolve();
+				} else {
+					oldGreen.once("exit", () => resolve());
+				}
+			});
+		}
 		this.rebuildingGreen = false;
 
 		this.distBackupDir = this.createDistBackup();

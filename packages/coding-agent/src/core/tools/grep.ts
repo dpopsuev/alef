@@ -64,8 +64,6 @@ export interface GrepToolOptions {
 	operations?: GrepOperations;
 	/** Optional in-memory cache for repeated grep queries */
 	cache?: ToolResultCache;
-	/** When set and the fs organ is mounted, routes grep through the organ bus. */
-	organBus?: import("@dpopsuev/alef-spine").OrganBus;
 }
 
 function formatGrepCall(
@@ -139,7 +137,6 @@ export function createGrepToolDefinition(
 ): ToolDefinition<typeof grepSchema, GrepToolDetails | undefined> {
 	const customOps = options?.operations;
 	const cache = options?.cache;
-	const organBus = options?.organBus;
 	return {
 		name: "file_grep",
 		label: "file_grep",
@@ -175,28 +172,6 @@ export function createGrepToolDefinition(
 			_onUpdate?,
 			_ctx?,
 		) {
-			if (organBus?.isMounted("fs")) {
-				const busResult = await organBus.invoke("fs", "grep", {
-					pattern,
-					path: searchDir,
-					glob,
-					ignoreCase,
-					literal,
-					context,
-					limit,
-					type,
-					filesWithMatches,
-					countOnly,
-				});
-				if (!busResult.ok) {
-					return {
-						content: [{ type: "text" as const, text: busResult.error ?? "grep failed" }],
-						isError: true,
-						details: undefined,
-					};
-				}
-				return busResult.content as GrepToolResponse;
-			}
 			const response = await executeGrepQuery(
 				{
 					pattern,

@@ -18,8 +18,8 @@ import type {
 	KnowledgeAtom,
 	KnowledgeMolecule,
 	ReviewComment,
-} from "../../../coding-agent/src/core/platform/types.js";
-import type { SessionManager } from "../../../coding-agent/src/core/session-manager.js";
+	SessionManagerLike,
+} from "./contracts.js";
 
 export interface DoltStoreSnapshot {
 	boards: DiscourseBoard[];
@@ -523,20 +523,35 @@ export class DoltCliStoreDriver implements DoltStoreDriver {
 	}
 }
 
+function isDoltCliAvailable(): boolean {
+	const result = spawnSync("dolt", ["version"], { stdio: "ignore", timeout: 2000 });
+	return result.status === 0;
+}
+
 export function shouldUseInMemoryDoltDriver(): boolean {
-	return (
+	if (
 		process.env.VITEST === "true" ||
 		process.env.VITEST === "1" ||
 		process.env.NODE_ENV === "test" ||
 		process.env.ALEF_DISCOURSE_DRIVER === "memory"
-	);
+	) {
+		return true;
+	}
+	// Fall back to in-memory driver when dolt CLI is not installed.
+	// This avoids a hard crash at startup; discourse persistence is simply disabled.
+	if (!isDoltCliAvailable()) {
+		return true;
+	}
+	return false;
 }
 
-export function getDefaultDoltRepoPath(sessionManager: Pick<SessionManager, "getSessionDir">): string {
+export function getDefaultDoltRepoPath(sessionManager: Pick<SessionManagerLike, "getSessionDir">): string {
 	return join(sessionManager.getSessionDir(), "dolt-discourse");
 }
 
-export function createDefaultDoltStoreDriver(sessionManager: Pick<SessionManager, "getSessionDir">): DoltStoreDriver {
+export function createDefaultDoltStoreDriver(
+	sessionManager: Pick<SessionManagerLike, "getSessionDir">,
+): DoltStoreDriver {
 	const repoPath = getDefaultDoltRepoPath(sessionManager);
 	if (shouldUseInMemoryDoltDriver()) {
 		const cacheKey = sessionManager as object;

@@ -51,7 +51,9 @@ export class LLMOrgan implements CerebrumOrgan {
 			return { ...(m as object), timestamp: Date.now() } as Message;
 		});
 
-		// Turn loop: call LLM → process tool calls → repeat until text.message fires.
+		// Turn loop: call LLM → fan-out all tool calls in parallel → repeat.
+		// Termination = quiescence: LLM produced zero tool calls in a turn.
+		// text.message is a regular tool call — not a termination signal.
 		while (true) {
 			const stream = streamSimple(
 				this.options.model,
@@ -79,7 +81,7 @@ export class LLMOrgan implements CerebrumOrgan {
 			if (!finalMessage) break;
 			messages.push(finalMessage);
 
-			// Text response — synthesize a text.message tool call.
+			// Quiescence: no tool calls this turn — also emit any inline text.
 			if (pendingCalls.length === 0) {
 				const text = extractText(finalMessage);
 				if (text) {
@@ -93,41 +95,32 @@ export class LLMOrgan implements CerebrumOrgan {
 				break;
 			}
 
-			// Tool calls — emit each as Motor/"llm.tool_call".
-			let sentTextMessage = false;
-			for (const tc of pendingCalls) {
-				if (tc.name === "text.message") {
-					// Terminal: text reply via tool call.
+			// Fan-out: publish ALL Motor events simultaneously, await ALL Sense results.
+			const results = await Promise.all(
+				pendingCalls.map((tc) => {
 					nerve.motor.publish({
-						type: TEXT_MESSAGE,
-						payload: { text: typeof tc.args.text === "string" ? tc.args.text : "" },
+						type: tc.name,
+						payload: { ...tc.args, toolCallId: tc.id },
 						correlationId,
 						timestamp: Date.now(),
 					});
-					sentTextMessage = true;
-					break;
-				}
+					return this.waitForToolResult(nerve, tc.name, tc.id, correlationId);
+				}),
+			);
 
-				// Non-terminal tool — publish Motor/<toolName> directly, await Sense/<toolName>.
-				nerve.motor.publish({
-					type: tc.name,
-					payload: { ...tc.args, toolCallId: tc.id },
-					correlationId,
-					timestamp: Date.now(),
-				});
-
-				const result = await this.waitForToolResult(nerve, tc.name, tc.id, correlationId);
+			// Feed all results back to LLM in original call order.
+			for (let i = 0; i < pendingCalls.length; i++) {
+				const tc = pendingCalls[i];
+				const result = results[i];
 				messages.push({
 					role: "toolResult",
 					toolCallId: tc.id,
 					toolName: tc.name,
-					content: [{ type: "text", text: String(result.payload.result) }],
-					isError: result.payload.isError === true,
+					content: [{ type: "text", text: payloadToText(result.payload, result.isError, result.errorMessage) }],
+					isError: result.isError,
 					timestamp: Date.now(),
 				});
 			}
-
-			if (sentTextMessage) break;
 		}
 	}
 
@@ -136,7 +129,7 @@ export class LLMOrgan implements CerebrumOrgan {
 		toolName: string,
 		toolCallId: string,
 		correlationId: string,
-	): Promise<{ payload: Record<string, unknown> }> {
+	): Promise<import("@dpopsuev/alef-spine").SenseEvent> {
 		return new Promise((resolve) => {
 			const off = nerve.sense.subscribe(toolName, (event) => {
 				if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
@@ -146,6 +139,17 @@ export class LLMOrgan implements CerebrumOrgan {
 			});
 		});
 	}
+}
+
+/** Render a Sense payload as text for the LLM tool result. */
+function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
+	if (isError) return errorMessage ?? JSON.stringify(payload);
+	// Common fields from organ responses
+	if (typeof payload.content === "string") return payload.content;
+	if (typeof payload.text === "string") return payload.text;
+	// Structured payloads (fs.find, fs.grep, web.search, etc.) — serialize
+	const { toolCallId: _id, ...rest } = payload;
+	return JSON.stringify(rest);
 }
 
 function extractText(message: AssistantMessage): string {

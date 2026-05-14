@@ -16,6 +16,8 @@
 			"@dpopsuev/alef-agent-runtime/*": ["./packages/runtime/src/*.ts"],
 			"@dpopsuev/alef-spine": ["./packages/spine/src/index.ts"],
 			"@dpopsuev/alef-spine/*": ["./packages/spine/src/*.ts"],
+			"@dpopsuev/alef-corpus": ["./packages/corpus/src/index.ts"],
+			"@dpopsuev/alef-corpus/*": ["./packages/corpus/src/*.ts"],
 			"@dpopsuev/alef-discourse": ["./packages/discourse/src/index.ts"],
 			"@dpopsuev/alef-discourse/*": ["./packages/discourse/src/*.ts"],
 			"@dpopsuev/alef-organ-fs": ["./packages/organ-fs/src/index.ts"],

@@ -109,7 +109,7 @@ export class LLMOrgan implements CerebrumOrgan {
 					break;
 				}
 
-				// Non-terminal tool — publish Motor/<toolName> directly, await Sense/<toolName>.result.
+				// Non-terminal tool — publish Motor/<toolName> directly, await Sense/<toolName>.
 				nerve.motor.publish({
 					type: tc.name,
 					payload: { ...tc.args, toolCallId: tc.id },
@@ -139,7 +139,7 @@ export class LLMOrgan implements CerebrumOrgan {
 		correlationId: string,
 	): Promise<{ payload: Record<string, unknown> }> {
 		return new Promise((resolve) => {
-			const off = nerve.sense.subscribe(`${toolName}.result`, (event) => {
+			const off = nerve.sense.subscribe(toolName, (event) => {
 				if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
 					off();
 					resolve(event);

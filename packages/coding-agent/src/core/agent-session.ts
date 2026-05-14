@@ -25,8 +25,11 @@ import {
 	modelsAreEqual,
 	resetApiProviders,
 } from "@dpopsuev/alef-ai";
-import { FsRuntime } from "@dpopsuev/alef-organ-fs";
+import { InProcessOrganBus, MemLog } from "@dpopsuev/alef-nerve";
+import { createFsOrgan, FsRuntime } from "@dpopsuev/alef-organ-fs";
+import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import type { EventInput } from "../board/event-log.js";
+import { getBinDir } from "../config.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { stripFrontmatter } from "../utils/frontmatter.js";
 import { sleep } from "../utils/sleep.js";
@@ -2159,35 +2162,47 @@ export class AgentSession implements ExtensionAdapterSource {
 		const autoResizeImages = this.settingsManager.getImageAutoResize();
 		const shellCommandPrefix = this.settingsManager.getShellCommandPrefix();
 		const shellPath = this.settingsManager.getShellPath();
-		const fsOrgan = getCompiledAgentOrgan(this._agentDefinition, "fs");
-		const fsCacheEnabled = fsOrgan?.cache?.enabled ?? true;
-		const fsCacheTtlMs = Math.max(1, Math.floor(fsOrgan?.cache?.ttlMs ?? DEFAULT_FS_ORGAN_CACHE_TTL_MS));
-		const fsCacheMaxEntries = Math.max(
-			1,
-			Math.floor(fsOrgan?.cache?.maxEntries ?? DEFAULT_FS_ORGAN_CACHE_MAX_ENTRIES),
-		);
-		const fsRuntime = new FsRuntime({
-			cacheEnabled: fsCacheEnabled,
-			cacheTtlMs: fsCacheTtlMs,
-			cacheMaxEntries: fsCacheMaxEntries,
-		});
+		// ── Organ bus ─────────────────────────────────────────────────────────
+		// Mount fs and shell organs. grep/find route through the bus;
+		// bash keeps its direct streaming path.
+		const organBus = new InProcessOrganBus(new MemLog());
+
+		const fsOrganDef = getCompiledAgentOrgan(this._agentDefinition, "fs");
+		createFsOrgan({
+			cwd: this._cwd,
+			runtime: new FsRuntime({
+				cacheEnabled: fsOrganDef?.cache?.enabled ?? true,
+				cacheTtlMs: Math.max(1, Math.floor(fsOrganDef?.cache?.ttlMs ?? DEFAULT_FS_ORGAN_CACHE_TTL_MS)),
+				cacheMaxEntries: Math.max(
+					1,
+					Math.floor(fsOrganDef?.cache?.maxEntries ?? DEFAULT_FS_ORGAN_CACHE_MAX_ENTRIES),
+				),
+			}),
+		}).mount(organBus);
+
+		createShellOrgan({
+			cwd: this._cwd,
+			shellPath,
+			commandPrefix: shellCommandPrefix,
+			binDir: getBinDir(),
+		}).mount(organBus);
+
+		// ── Lector runtime (symbol tools — deleted when Lector v2 ships) ───
 		const symbolOrgan =
 			getCompiledAgentOrgan(this._agentDefinition, "lector") ??
 			getCompiledAgentOrgan(this._agentDefinition, "symbols");
-		const symbolCacheEnabled = symbolOrgan?.cache?.enabled ?? true;
-		const symbolCacheTtlMs = Math.max(1, Math.floor(symbolOrgan?.cache?.ttlMs ?? DEFAULT_LECTOR_ORGAN_CACHE_TTL_MS));
-		const symbolCacheMaxEntries = Math.max(
-			1,
-			Math.floor(symbolOrgan?.cache?.maxEntries ?? DEFAULT_LECTOR_ORGAN_CACHE_MAX_ENTRIES),
-		);
 		const lectorRuntime = new LectorRuntime({
 			cwd: this._cwd,
-			cacheEnabled: symbolCacheEnabled,
-			cacheTtlMs: symbolCacheTtlMs,
-			cacheMaxEntries: symbolCacheMaxEntries,
+			cacheEnabled: symbolOrgan?.cache?.enabled ?? true,
+			cacheTtlMs: Math.max(1, Math.floor(symbolOrgan?.cache?.ttlMs ?? DEFAULT_LECTOR_ORGAN_CACHE_TTL_MS)),
+			cacheMaxEntries: Math.max(
+				1,
+				Math.floor(symbolOrgan?.cache?.maxEntries ?? DEFAULT_LECTOR_ORGAN_CACHE_MAX_ENTRIES),
+			),
 			runtimeConfig: symbolOrgan?.name === "lector" ? symbolOrgan.runtime : undefined,
 			emitDomainEvent: this._emitDomainEvent,
 		});
+
 		const baseToolDefinitions: Record<string, ToolDefinition> = this._baseToolsOverride
 			? Object.fromEntries(
 					Object.entries(this._baseToolsOverride).map(([name, tool]) => [
@@ -2203,8 +2218,8 @@ export class AgentSession implements ExtensionAdapterSource {
 					symbolDataflow: { runtime: lectorRuntime },
 					read: { autoResizeImages },
 					bash: { commandPrefix: shellCommandPrefix, shellPath },
-					grep: { cache: fsRuntime.getCache("grep") },
-					find: { cache: fsRuntime.getCache("find") },
+					// grep and find route through the organ bus (cache lives inside the organ)
+					organBus,
 				});
 
 		if (

@@ -64,13 +64,13 @@ describe("FsOrgan via OrganBus", () => {
 		unmount();
 	});
 
-	it("ls routes through bus and returns directory listing", async () => {
+	it("find with depth=1 replaces ls", async () => {
 		const log = new MemLog();
 		const bus = new InProcessOrganBus(log);
 		const organ = createFsOrgan({ cwd: fixtureDir });
 		const unmount = organ.mount(bus);
 
-		const result = await bus.invoke("fs", "ls", { path: "." });
+		const result = await bus.invoke("fs", "find", { pattern: "*", depth: 1 });
 
 		expect(result.ok).toBe(true);
 		const content = JSON.stringify(result.content);
@@ -134,6 +134,6 @@ describe("FsOrgan via OrganBus", () => {
 		expect(organ.name).toBe("fs");
 		expect(organ.actions).toContain("grep");
 		expect(organ.actions).toContain("find");
-		expect(organ.actions).toContain("ls");
+		expect(organ.actions).not.toContain("ls"); // dropped — use find depth=1 instead
 	});
 });

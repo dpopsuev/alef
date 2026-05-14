@@ -1,7 +1,7 @@
 {
 	"name": "@dpopsuev/alef-organ-llm",
 	"version": "0.0.1",
-	"description": "LLMOrgan — LLM computation organ, tool_choice: any, routes tool calls as Motor events",
+	"description": "LLMOrgan \u2014 LLM computation organ, tool_choice: any, routes tool calls as Motor events",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -9,9 +9,16 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./events": {
+			"types": "./dist/events.d.ts",
+			"import": "./dist/events.js"
 		}
 	},
-	"files": ["dist", "README.md"],
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"clean": "shx rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json",
@@ -19,7 +26,13 @@
 		"test": "vitest --run",
 		"prepublishOnly": "npm run clean && npm run build"
 	},
-	"keywords": ["agent", "organ", "llm", "nerve", "eda"],
+	"keywords": [
+		"agent",
+		"organ",
+		"llm",
+		"nerve",
+		"eda"
+	],
 	"author": "Daniel Popsuevich",
 	"license": "MIT",
 	"repository": {

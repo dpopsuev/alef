@@ -1,26 +1,25 @@
-import type { MotorEvent, Nerve, Organ, SenseEvent, SignalEvent } from "@dpopsuev/alef-spine";
+import type { BusObserver } from "@dpopsuev/alef-corpus";
+import type { CerebrumNerve, CerebrumOrgan, NerveEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
 // MockLLMOrgan
 //
-// Behaves like the real LLMOrgan: subscribes to Motor/llm_request, emits
-// Motor/tool_call("send_message", { text }) with the same correlationId.
-// Canned response text is configurable at construction time.
+// CerebrumOrgan: subscribes Sense/"llm.prompt", publishes Motor/"text.message".
+// Canned response — no real LLM call.
 // ---------------------------------------------------------------------------
 
-export class MockLLMOrgan implements Organ {
+export class MockLLMOrgan implements CerebrumOrgan {
+	readonly kind = "cerebrum" as const;
 	readonly name = "mock-llm";
-	readonly tools = [];
+	readonly tools: readonly ToolDefinition[] = [];
 
 	constructor(private readonly cannedText: string = "mock response") {}
 
-	mount(nerve: Nerve): () => void {
-		return nerve.motor.on("llm_request", (event) => {
-			if (event.type !== "llm_request") return;
-			nerve.motor.emit({
-				type: "tool_call",
-				toolName: "send_message",
-				args: { text: this.cannedText },
+	mount(nerve: CerebrumNerve): () => void {
+		return nerve.sense.subscribe("llm.prompt", (event) => {
+			nerve.motor.publish({
+				type: "text.message" as const,
+				payload: { text: this.cannedText },
 				correlationId: event.correlationId,
 				timestamp: Date.now(),
 			});
@@ -31,100 +30,88 @@ export class MockLLMOrgan implements Organ {
 // ---------------------------------------------------------------------------
 // BusEventRecorder
 //
-// An organ that subscribes to all event types on all 3 buses and records them.
-// Load it into Corpus like any other organ: corpus.load(recorder).
-// Use it to assert event sequences after a prompt() call.
+// Attaches to a Corpus via corpus.observe(recorder).
+// Records all events on all 3 buses for assertion in tests.
 // ---------------------------------------------------------------------------
 
-export class BusEventRecorder implements Organ {
-	readonly name = "bus-event-recorder";
-	readonly tools = [];
+export class BusEventRecorder implements BusObserver {
+	private readonly _motor: NerveEvent[] = [];
+	private readonly _sense: NerveEvent[] = [];
+	private readonly _signal: NerveEvent[] = [];
 
-	private readonly _sense: SenseEvent[] = [];
-	private readonly _motor: MotorEvent[] = [];
-	private readonly _signal: SignalEvent[] = [];
-
-	get sense(): readonly SenseEvent[] {
-		return this._sense;
+	onMotorEvent(event: NerveEvent): void {
+		this._motor.push(event);
 	}
-	get motor(): readonly MotorEvent[] {
+	onSenseEvent(event: NerveEvent): void {
+		this._sense.push(event);
+	}
+	onSignalEvent(event: NerveEvent): void {
+		this._signal.push(event);
+	}
+
+	get motor(): readonly NerveEvent[] {
 		return this._motor;
 	}
-	get signal(): readonly SignalEvent[] {
+	get sense(): readonly NerveEvent[] {
+		return this._sense;
+	}
+	get signal(): readonly NerveEvent[] {
 		return this._signal;
 	}
 
-	mount(nerve: Nerve): () => void {
-		const offs = [
-			nerve.sense.on("user_message", (e) => void this._sense.push(e)),
-			nerve.sense.on("tool_result", (e) => void this._sense.push(e)),
-			nerve.motor.on("llm_request", (e) => void this._motor.push(e)),
-			nerve.motor.on("tool_call", (e) => void this._motor.push(e)),
-			nerve.motor.on("user_reply", (e) => void this._motor.push(e)),
-			nerve.signal.on("signal", (e) => void this._signal.push(e)),
-		];
-		return () => {
-			for (const off of offs) off();
-		};
-	}
-
-	/** Assert a Sense event of the given type was emitted. Returns the first match. */
-	assertSenseEmitted(type: SenseEvent["type"]): SenseEvent {
+	assertSenseEmitted(type: string): NerveEvent {
 		const found = this._sense.find((e) => e.type === type);
 		if (!found) {
 			throw new Error(
 				`Expected Sense/${type} to be emitted.\n` +
-					`Sense events recorded: [${this._sense.map((e) => e.type).join(", ") || "none"}]`,
+					`Sense events: [${this._sense.map((e) => e.type).join(", ") || "none"}]`,
 			);
 		}
 		return found;
 	}
 
-	/** Assert a Motor event of the given type was emitted. Returns the first match. */
-	assertMotorEmitted(type: MotorEvent["type"]): MotorEvent {
+	assertMotorEmitted(type: string): NerveEvent {
 		const found = this._motor.find((e) => e.type === type);
 		if (!found) {
 			throw new Error(
 				`Expected Motor/${type} to be emitted.\n` +
-					`Motor events recorded: [${this._motor.map((e) => e.type).join(", ") || "none"}]`,
+					`Motor events: [${this._motor.map((e) => e.type).join(", ") || "none"}]`,
 			);
 		}
 		return found;
 	}
 
-	/** Assert a Motor/tool_call with a specific toolName was emitted. */
-	assertToolCallEmitted(toolName: string): MotorEvent & { type: "tool_call" } {
-		const found = this._motor.find(
-			(e): e is MotorEvent & { type: "tool_call" } => e.type === "tool_call" && e.toolName === toolName,
-		);
+	assertToolCallEmitted(toolName: string): NerveEvent {
+		const found = this._motor.find((e) => {
+			if (e.type !== "llm.tool_call") return false;
+			const p = (e as unknown as { payload?: { toolName?: string } }).payload;
+			return p?.toolName === toolName;
+		});
 		if (!found) {
 			const calls = this._motor
-				.filter((e) => e.type === "tool_call")
-				.map((e) => (e as { toolName: string }).toolName);
+				.filter((e) => e.type === "llm.tool_call")
+				.map((e) => (e as unknown as { payload?: { toolName?: string } }).payload?.toolName ?? "?");
 			throw new Error(
-				`Expected Motor/tool_call("${toolName}") to be emitted.\n` +
-					`Tool calls recorded: [${calls.join(", ") || "none"}]`,
+				`Expected Motor/llm.tool_call("${toolName}").\n` + `Tool calls: [${calls.join(", ") || "none"}]`,
 			);
 		}
 		return found;
 	}
 
-	/** Assert Sense and Motor events with the same correlationId were both emitted. */
 	assertCorrelationPaired(correlationId: string): void {
 		const inSense = this._sense.some((e) => e.correlationId === correlationId);
 		const inMotor = this._motor.some((e) => e.correlationId === correlationId);
 		if (!inSense || !inMotor) {
 			throw new Error(
 				`Expected both Sense and Motor events with correlationId "${correlationId}".\n` +
-					`Found in sense: ${inSense}, found in motor: ${inMotor}`,
+					`In sense: ${inSense}, in motor: ${inMotor}`,
 			);
 		}
 	}
 
-	/** Clear all recorded events. */
 	clear(): void {
-		this._sense.length = 0;
 		this._motor.length = 0;
+		this._sense.length = 0;
 		this._signal.length = 0;
 	}
 }

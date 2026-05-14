@@ -71,7 +71,7 @@ export interface FindToolOptions {
 	/** Optional in-memory cache for repeated find queries */
 	cache?: ToolResultCache;
 	/** When set and the fs organ is mounted, routes find through the organ bus. */
-	organBus?: import("@dpopsuev/alef-nerve").OrganBus;
+	organBus?: import("@dpopsuev/alef-spine").OrganBus;
 }
 
 function formatFindCall(

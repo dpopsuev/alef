@@ -1,5 +1,5 @@
 export { shouldUseWindowsShell, waitForChildProcess } from "./child-process.js";
-export { createShellOrgan, type ShellOrganOptions } from "./mount.js";
+export { createShellCorpusOrgan, type ShellCorpusOrganOptions } from "./corpus-organ.js";
 export {
 	getShellConfig,
 	getShellEnv,

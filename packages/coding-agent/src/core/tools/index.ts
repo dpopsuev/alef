@@ -166,6 +166,8 @@ export interface ToolsOptions {
 	edit?: EditToolOptions;
 	grep?: GrepToolOptions;
 	find?: FindToolOptions;
+	/** Organ bus for routing grep/find through mounted organs. */
+	organBus?: import("@dpopsuev/alef-nerve").OrganBus;
 }
 
 function createRawToolDefinition(toolName: ToolName, cwd: string, options?: ToolsOptions): ToolDef {
@@ -189,9 +191,9 @@ function createRawToolDefinition(toolName: ToolName, cwd: string, options?: Tool
 		case "file_write":
 			return createWriteToolDefinition(cwd, options?.write);
 		case "file_grep":
-			return createGrepToolDefinition(cwd, options?.grep);
+			return createGrepToolDefinition(cwd, { ...options?.grep, organBus: options?.organBus });
 		case "file_find":
-			return createFindToolDefinition(cwd, options?.find);
+			return createFindToolDefinition(cwd, { ...options?.find, organBus: options?.organBus });
 		default:
 			throw new Error(`Unknown tool name: ${toolName}`);
 	}

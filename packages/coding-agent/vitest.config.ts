@@ -14,6 +14,7 @@ const runtimeSrcIndex = fileURLToPath(new URL("../runtime/src/index.ts", import.
 const tuiSrcIndex = fileURLToPath(new URL("../tui/src/index.ts", import.meta.url));
 const organFsSrcIndex = fileURLToPath(new URL("../organ-fs/src/index.ts", import.meta.url));
 const organShellSrcIndex = fileURLToPath(new URL("../organ-shell/src/index.ts", import.meta.url));
+const organShellMount = fileURLToPath(new URL("../organ-shell/src/mount.ts", import.meta.url));
 const organLectorSrcIndex = fileURLToPath(new URL("../organ-lector/src/index.ts", import.meta.url));
 const organAiSrcIndex = fileURLToPath(new URL("../organ-ai/src/index.ts", import.meta.url));
 const organAiCompleterAdapter = fileURLToPath(new URL("../organ-ai/src/completer/adapter.ts", import.meta.url));
@@ -57,6 +58,7 @@ export default defineConfig({
 			{ find: /^@dpopsuev\/alef-agent-runtime\/agent-session-services$/, replacement: runtimeAgentSessionServices },
 			{ find: /^@dpopsuev\/alef-organ-fs$/, replacement: organFsSrcIndex },
 			{ find: /^@dpopsuev\/alef-organ-shell$/, replacement: organShellSrcIndex },
+			{ find: /^@dpopsuev\/alef-organ-shell\/mount$/, replacement: organShellMount },
 			{ find: /^@dpopsuev\/alef-organ-lector$/, replacement: organLectorSrcIndex },
 			{ find: /^@dpopsuev\/alef-organ-ai$/, replacement: organAiSrcIndex },
 			{ find: /^@dpopsuev\/alef-organ-ai\/completer\/adapter$/, replacement: organAiCompleterAdapter },

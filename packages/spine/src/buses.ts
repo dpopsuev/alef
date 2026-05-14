@@ -32,6 +32,8 @@ export interface ToolDefinition {
 export interface UserMessageEvent extends NerveEvent {
 	readonly type: "user_message";
 	readonly text: string;
+	/** Tool definitions from all organs loaded into Corpus at the time of this message. */
+	readonly tools: readonly ToolDefinition[];
 }
 
 export interface ToolResultEvent extends NerveEvent {

@@ -44,12 +44,12 @@ describe("ShellCorpusOrgan", () => {
 		expect(nerve.listenerCount("motor", "shell.exec")).toBe(0);
 	});
 
-	it("executes a command and publishes shell.exec.result", async () => {
+	it("executes a command and publishes Sense/shell.exec", async () => {
 		const { nerve, corpus } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		const unmount = organ.mount(corpus);
 
-		const resultP = waitForSense(nerve, "shell.exec.result");
+		const resultP = waitForSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "echo hello" });
 		const result = await resultP;
 
@@ -65,7 +65,7 @@ describe("ShellCorpusOrgan", () => {
 		const unmount = organ.mount(corpus);
 		const correlationId = "corr-123";
 
-		const resultP = waitForSense(nerve, "shell.exec.result");
+		const resultP = waitForSense(nerve, "shell.exec");
 		nerve.asCerebrumNerve().motor.publish({
 			type: "shell.exec",
 			correlationId,
@@ -83,7 +83,7 @@ describe("ShellCorpusOrgan", () => {
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		const unmount = organ.mount(corpus);
 
-		const resultP = waitForSense(nerve, "shell.exec.result");
+		const resultP = waitForSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "exit 1" });
 		const result = await resultP;
 
@@ -97,7 +97,7 @@ describe("ShellCorpusOrgan", () => {
 		const organ = createShellOrgan({ cwd: process.cwd(), commandPrefix: "export MYVAR=prefixed" });
 		const unmount = organ.mount(corpus);
 
-		const resultP = waitForSense(nerve, "shell.exec.result");
+		const resultP = waitForSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "echo $MYVAR" });
 		const result = await resultP;
 

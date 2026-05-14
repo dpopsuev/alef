@@ -11,9 +11,9 @@
  *   "fs.find"  — fd file-find
  *
  * Sense events published (correlationId mirrored from Motor):
- *   "fs.read.result"  — { content: string, truncated: boolean, ... }
- *   "fs.grep.result"  — { matches: ..., limitReached: boolean, ... }
- *   "fs.find.result"  — { entries: ..., limitReached: boolean, ... }
+ *   "fs.read"  — { content: string, truncated: boolean, ... }
+ *   "fs.grep"  — { matches: ..., limitReached: boolean, ... }
+ *   "fs.find"  — { entries: ..., limitReached: boolean, ... }
  */
 import { readFile as fsReadFile } from "node:fs/promises";
 import { isAbsolute, resolve as nodeResolve } from "node:path";
@@ -135,7 +135,7 @@ function makeSense(
 	// Mirror toolCallId if present so LLMOrgan can correlate tool results.
 	const toolCallId = typeof motor.payload.toolCallId === "string" ? motor.payload.toolCallId : undefined;
 	return {
-		type: `${motor.type}.result`,
+		type: motor.type,
 		correlationId: motor.correlationId,
 		timestamp: Date.now(),
 		payload: toolCallId ? { ...payload, toolCallId } : payload,

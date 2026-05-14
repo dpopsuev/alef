@@ -1,5 +1,5 @@
 {
-	"name": "@dpopsuev/alef-nerve",
+	"name": "@dpopsuev/alef-spine",
 	"version": "0.0.1",
 	"description": "Canonical EDA contracts, event log, and event spine for Alef organs",
 	"type": "module",

@@ -23,14 +23,18 @@ export interface OrganResult {
 
 /**
  * A function registered by an organ to handle its actions.
- * @param action    - action name (e.g. "grep", "find", "ls")
- * @param args      - validated input arguments
+ * @param action        - action name (e.g. "grep", "find", "exec")
+ * @param args          - validated input arguments
  * @param correlationId - request correlation ID for tracing
+ * @param signal        - abort signal; organ should cancel/kill work when aborted
+ * @param onUpdate      - optional streaming callback; call with partial results during execution
  */
 export type OrganHandler = (
 	action: string,
 	args: Record<string, unknown>,
 	correlationId: string,
+	signal?: AbortSignal,
+	onUpdate?: (partial: OrganResult) => void,
 ) => Promise<OrganResult>;
 
 // ---------------------------------------------------------------------------
@@ -46,7 +50,8 @@ export type OrganHandler = (
 // the bus will throw an explicit error, not silently bypass.
 // ---------------------------------------------------------------------------
 
-export interface Organ {
+/** @deprecated Use Organ from buses.ts (Pub-Sub model). Legacy RPC-over-bus organ. */
+export interface BusOrgan {
 	/** Canonical organ name. Must match ^[a-z][a-z0-9_.-]*$ */
 	readonly name: string;
 	/** Actions this organ handles (e.g. ["grep", "find", "ls"]). */
@@ -71,8 +76,16 @@ export interface OrganBus {
 	 * Invoke an organ action and wait for the result.
 	 * Emits organ.invoke.v1 before dispatch and organ.result.v1 after.
 	 * Throws if no organ is mounted for the given organName.
+	 * @param signal   - forwarded to the organ handler for cooperative cancellation
+	 * @param onUpdate - streaming callback; the organ calls this with partial results during execution
 	 */
-	invoke(organ: string, action: string, args: Record<string, unknown>): Promise<OrganResult>;
+	invoke(
+		organ: string,
+		action: string,
+		args: Record<string, unknown>,
+		signal?: AbortSignal,
+		onUpdate?: (partial: OrganResult) => void,
+	): Promise<OrganResult>;
 
 	/**
 	 * Register an action handler for an organ. Called by organs during mount().
@@ -106,7 +119,13 @@ export class InProcessOrganBus implements OrganBus {
 	 */
 	constructor(private readonly log: EventLog) {}
 
-	async invoke(organName: string, action: string, args: Record<string, unknown>): Promise<OrganResult> {
+	async invoke(
+		organName: string,
+		action: string,
+		args: Record<string, unknown>,
+		signal?: AbortSignal,
+		onUpdate?: (partial: OrganResult) => void,
+	): Promise<OrganResult> {
 		const handler = this.handlers.get(organName);
 		if (!handler) {
 			const mounted = this.mountedOrgans();
@@ -140,7 +159,7 @@ export class InProcessOrganBus implements OrganBus {
 
 		let result: OrganResult;
 		try {
-			result = await handler(action, args, correlationId);
+			result = await handler(action, args, correlationId, signal, onUpdate);
 		} catch (err) {
 			result = {
 				ok: false,

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { InProcessNerve, type MotorEvent, newCorrelationId, type SenseEvent, type SignalEvent } from "../src/nerve.js";
+import { InProcessNerve, type MotorEvent, newCorrelationId, type SenseEvent, type SignalEvent } from "../src/buses.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

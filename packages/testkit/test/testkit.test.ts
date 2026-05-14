@@ -61,10 +61,10 @@ describe("BusEventRecorder", () => {
 		recorder.assertMotorEmitted("text.input");
 	});
 
-	it("records Sense/llm.prompt", async () => {
+	it("records Sense/text.input", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("ping");
-		recorder.assertSenseEmitted("llm.prompt");
+		recorder.assertSenseEmitted("text.input");
 	});
 
 	it("records Motor/text.message", async () => {
@@ -73,15 +73,15 @@ describe("BusEventRecorder", () => {
 		recorder.assertMotorEmitted("text.message");
 	});
 
-	it("records Sense/text.reply", async () => {
+	it("records Sense/text.message", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("ping");
-		recorder.assertSenseEmitted("text.reply");
+		recorder.assertSenseEmitted("text.message");
 	});
 
 	it("assertSenseEmitted throws with helpful message when missing", () => {
 		const recorder = new BusEventRecorder();
-		expect(() => recorder.assertSenseEmitted("llm.prompt")).toThrow("Expected Sense/llm.prompt");
+		expect(() => recorder.assertSenseEmitted("text.input")).toThrow("Expected Sense/text.input");
 	});
 
 	it("assertMotorEmitted throws with helpful message when missing", () => {
@@ -115,7 +115,7 @@ describe("Harness round-trip", () => {
 		expect(await corpus.prompt("ping")).toBe("pong");
 	});
 
-	it("full event sequence: text.input → llm.prompt → text.message → text.reply", async () => {
+	it("full event sequence: text.input → text.input → text.message → text.message", async () => {
 		const { corpus, recorder } = make("done");
 		await corpus.prompt("start");
 
@@ -123,8 +123,8 @@ describe("Harness round-trip", () => {
 		const senseTypes = recorder.sense.map((e) => e.type);
 
 		expect(motorTypes).toContain("text.input");
-		expect(senseTypes).toContain("llm.prompt");
+		expect(senseTypes).toContain("text.input");
 		expect(motorTypes).toContain("text.message");
-		expect(senseTypes).toContain("text.reply");
+		expect(senseTypes).toContain("text.message");
 	});
 });

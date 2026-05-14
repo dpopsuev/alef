@@ -25,7 +25,7 @@ function makeToolOrgan(toolNames: string[]): CerebrumOrgan {
 	};
 }
 
-/** Echo organ — CorpusOrgan that subscribes Motor/"text.input", replies via Sense/"text.reply". */
+/** Echo organ — CorpusOrgan that subscribes Motor/"text.input", replies via Sense/"text.message". */
 function makeEchoOrgan(): CorpusOrgan {
 	return {
 		kind: "corpus",
@@ -34,7 +34,7 @@ function makeEchoOrgan(): CorpusOrgan {
 		mount: (nerve: CorpusNerve) => {
 			return nerve.motor.subscribe("text.input", (event) => {
 				nerve.sense.publish({
-					type: "text.reply",
+					type: "text.message",
 					payload: { text: `echo: ${event.payload.text}` },
 					correlationId: event.correlationId,
 					timestamp: Date.now(),
@@ -81,7 +81,7 @@ describe("Corpus — load()", () => {
 				return nerve.motor.subscribe("text.input", (e) => {
 					capturedTools = (e.payload.tools as { name: string }[]) ?? [];
 					nerve.sense.publish({
-						type: "text.reply",
+						type: "text.message",
 						payload: { text: "ok" },
 						correlationId: e.correlationId,
 						timestamp: Date.now(),

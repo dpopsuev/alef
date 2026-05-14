@@ -7,6 +7,6 @@ declare module "@dpopsuev/alef-spine" {
 	}
 	interface SenseEventRegistry {
 		/** TextMessageOrgan delivers the agent's final reply back to Corpus. */
-		"text.reply": { text: string };
+		"text.message": { text: string };
 	}
 }

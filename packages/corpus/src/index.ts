@@ -9,7 +9,7 @@ import {
 
 // Corpus event type constants
 export const MOTOR_TEXT_INPUT = "text.input" as const;
-export const SENSE_TEXT_REPLY = "text.reply" as const;
+export const SENSE_TEXT_MESSAGE = "text.message" as const;
 
 // ---------------------------------------------------------------------------
 // CorpusTimeoutError
@@ -45,7 +45,7 @@ export interface BusObserver {
 //    CerebrumOrgans (mutate agent) → CerebrumNerve (sense.subscribe, motor.publish)
 //    CorpusOrgans  (mutate world)  → CorpusNerve  (motor.subscribe, sense.publish)
 //  - Collects ToolDefinition from all loaded organs for LLMOrgan's prompts.
-//  - prompt(): injects Motor/"text.input", awaits Sense/"text.reply".
+//  - prompt(): injects Motor/"text.input", awaits Sense/"text.message".
 //  - observe(): attaches a BusObserver (e.g. BusEventRecorder in tests).
 //  - dispose(): tears down all subscriptions cleanly.
 // ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ export class Corpus {
 	/**
 	 * Send a text prompt into the Corpus.
 	 * Publishes Motor/"text.input" with the current tool list,
-	 * then awaits Sense/"text.reply" with the matching correlationId.
+	 * then awaits Sense/"text.message" with the matching correlationId.
 	 */
 	prompt(text: string, options: { timeoutMs?: number } = {}): Promise<string> {
 		if (this.disposed) return Promise.reject(new Error("Corpus is disposed."));
@@ -124,7 +124,7 @@ export class Corpus {
 			};
 
 			// Subscribe BEFORE emitting to avoid missing an immediate reply.
-			off = this.nerve.subscribeSense("text.reply", (event) => {
+			off = this.nerve.subscribeSense("text.message", (event) => {
 				if (event.correlationId === correlationId) {
 					cleanup();
 					const text = typeof event.payload.text === "string" ? event.payload.text : "";

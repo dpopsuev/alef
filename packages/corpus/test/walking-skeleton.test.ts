@@ -6,10 +6,10 @@
  *
  * Event chain:
  *   Corpus.publishMotor("text.input")
- *     → TextMessageOrgan → Sense.publish("llm.prompt")
+ *     → TextMessageOrgan → Sense.publish("text.input")
  *       → MockLLMOrgan  → Motor.publish("text.message")
- *     → TextMessageOrgan → Sense.publish("text.reply")
- *   Corpus.subscribeSense("text.reply") → resolves
+ *     → TextMessageOrgan → Sense.publish("text.message")
+ *   Corpus.subscribeSense("text.message") → resolves
  */
 
 import { TextMessageOrgan } from "@dpopsuev/alef-organ-text-message";
@@ -65,11 +65,11 @@ describe("Walking Skeleton", () => {
 		expect(Array.isArray(payload.tools)).toBe(true);
 	});
 
-	it("Sense/llm.prompt carries user message content", async () => {
+	it("Sense/text.input carries user message content", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("what is 2+2?");
 
-		const req = recorder.assertSenseEmitted("llm.prompt");
+		const req = recorder.assertSenseEmitted("text.input");
 		const payload = (req as unknown as { payload: { messages: { role: string; content: string }[] } }).payload;
 		expect(payload.messages[0]?.role).toBe("user");
 		expect(payload.messages[0]?.content).toBe("what is 2+2?");
@@ -84,11 +84,11 @@ describe("Walking Skeleton", () => {
 		expect(payload.text).toBe("the answer is 4");
 	});
 
-	it("Sense/text.reply carries the final reply", async () => {
+	it("Sense/text.message carries the final reply", async () => {
 		const { corpus, recorder } = make("done");
 		await corpus.prompt("go");
 
-		const reply = recorder.assertSenseEmitted("text.reply");
+		const reply = recorder.assertSenseEmitted("text.message");
 		const payload = (reply as unknown as { payload: { text: string } }).payload;
 		expect(payload.text).toBe("done");
 	});
@@ -98,9 +98,9 @@ describe("Walking Skeleton", () => {
 		await corpus.prompt("test");
 
 		const input = recorder.assertMotorEmitted("text.input");
-		const prompt = recorder.assertSenseEmitted("llm.prompt");
+		const prompt = recorder.assertSenseEmitted("text.input");
 		const msg = recorder.assertMotorEmitted("text.message");
-		const reply = recorder.assertSenseEmitted("text.reply");
+		const reply = recorder.assertSenseEmitted("text.message");
 
 		const id = input.correlationId;
 		expect(prompt.correlationId).toBe(id);
@@ -116,9 +116,9 @@ describe("Walking Skeleton", () => {
 		const senseTypes = recorder.sense.map((e) => e.type);
 
 		expect(motorTypes).toContain("text.input");
-		expect(senseTypes).toContain("llm.prompt");
+		expect(senseTypes).toContain("text.input");
 		expect(motorTypes).toContain("text.message");
-		expect(senseTypes).toContain("text.reply");
+		expect(senseTypes).toContain("text.message");
 	});
 
 	it("concurrent prompts resolve independently", async () => {

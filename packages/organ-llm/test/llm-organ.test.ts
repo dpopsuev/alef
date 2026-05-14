@@ -52,9 +52,9 @@ describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 		await corpus.prompt("Say hi in one word.");
 
 		recorder.assertMotorEmitted("text.input");
-		recorder.assertSenseEmitted("llm.prompt");
+		recorder.assertSenseEmitted("text.input");
 		recorder.assertMotorEmitted("text.message");
-		recorder.assertSenseEmitted("text.reply");
+		recorder.assertSenseEmitted("text.message");
 	}, 30_000);
 
 	it("text.message args contain the reply text", async () => {
@@ -72,9 +72,9 @@ describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 		await corpus.prompt("Say yes.");
 
 		const input = recorder.assertMotorEmitted("text.input");
-		const prompt = recorder.assertSenseEmitted("llm.prompt");
+		const prompt = recorder.assertSenseEmitted("text.input");
 		const msg = recorder.assertMotorEmitted("text.message");
-		const reply = recorder.assertSenseEmitted("text.reply");
+		const reply = recorder.assertSenseEmitted("text.message");
 
 		expect(prompt.correlationId).toBe(input.correlationId);
 		expect(msg.correlationId).toBe(input.correlationId);

@@ -316,7 +316,7 @@ export function createSupervisorToolDefinition(options: {
 						reason: params.reason?.trim() || undefined,
 						labels: (params.labels ?? []).map((selector) => {
 							const [key, value] = selector.split(":", 2);
-							return { key, value, source: "gensec" as const };
+							return { key, value, source: "coordinator" as const };
 						}),
 					});
 					return {

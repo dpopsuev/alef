@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type BootstrapBlueprintId = "gensec" | "2sec";
+export type BootstrapBlueprintId = "gensec" | "2sec" | "primordial";
 
 export interface MaterializedBootstrapBlueprint {
 	id: BootstrapBlueprintId;
@@ -18,6 +18,7 @@ export interface MaterializedBootstrapBlueprintSet {
 const SHIPPED_BLUEPRINT_FILES: Record<BootstrapBlueprintId, { fileName: string; label: string }> = {
 	gensec: { fileName: "gensec.yaml", label: "GenSec" },
 	"2sec": { fileName: "2sec.yaml", label: "2Sec" },
+	primordial: { fileName: "primordial.yaml", label: "Primordial" },
 };
 
 function getShippedBootstrapBlueprintDir(): string {

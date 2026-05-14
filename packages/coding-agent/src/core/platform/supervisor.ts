@@ -77,6 +77,8 @@ export class SupervisorManager implements SupervisorPort {
 	constructor(
 		private readonly createSession: (request: SpawnChildAgentRequest) => Promise<AgentSession>,
 		private readonly discourse: AgentDiscoursePort,
+		// monolog port is structurally compatible with AgentDiscoursePort; accept but unify into discourse
+		_monolog?: AgentDiscoursePort,
 	) {}
 
 	private syncTopicState(child: ManagedChildAgent, status: ChildAgentStatus, summary?: string): void {

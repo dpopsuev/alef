@@ -23,6 +23,10 @@ export type {
 	EventLog,
 	EventStore,
 	FilterFn,
+	LectorCacheEventData,
+	LectorErrorData,
+	LectorIndexUpdatedData,
+	TurnMetricsData,
 } from "./event-log.js";
 export { assertNever, byDirection, byKind, bySource, byTrace, Cursor, MemLog } from "./event-log.js";
 export type { AgentInstance, AgentSchema } from "./gensec.js";

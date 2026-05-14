@@ -18,6 +18,8 @@
 			"@dpopsuev/alef-spine/*": ["./packages/spine/src/*.ts"],
 			"@dpopsuev/alef-corpus": ["./packages/corpus/src/index.ts"],
 			"@dpopsuev/alef-corpus/*": ["./packages/corpus/src/*.ts"],
+			"@dpopsuev/alef-testkit": ["./packages/testkit/src/index.ts"],
+			"@dpopsuev/alef-testkit/*": ["./packages/testkit/src/*.ts"],
 			"@dpopsuev/alef-discourse": ["./packages/discourse/src/index.ts"],
 			"@dpopsuev/alef-discourse/*": ["./packages/discourse/src/*.ts"],
 			"@dpopsuev/alef-organ-fs": ["./packages/organ-fs/src/index.ts"],

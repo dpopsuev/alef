@@ -1,0 +1,42 @@
+{
+	"name": "@dpopsuev/alef-corpus",
+	"version": "0.0.1",
+	"description": "Corpus — Pub-Sub entity seam, external boundary for the agent nerve system",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": ["dist", "README.md"],
+	"scripts": {
+		"clean": "shx rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"test": "vitest --run",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"keywords": ["agent", "corpus", "nerve", "pubsub", "eda"],
+	"author": "Daniel Popsuevich",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dpopsuev/alef.git",
+		"directory": "packages/corpus"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"dependencies": {
+		"@dpopsuev/alef-nerve": "^0.0.1"
+	},
+	"devDependencies": {
+		"@types/node": "^24.3.0",
+		"shx": "^0.4.0",
+		"typescript": "^5.9.2",
+		"vitest": "^3.2.4"
+	}
+}

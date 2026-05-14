@@ -170,6 +170,15 @@ function shuffle<T>(arr: T[]): void {
 	}
 }
 
+export const COORDINATOR_COLOR: AgentColor = {
+	family: "blue",
+	shade: "cobalt",
+	name: "cobalt",
+	role: "coordinator",
+	collective: "system",
+	hex: "#0047AB",
+};
+
 export const GENSEC_COLOR: AgentColor = {
 	family: "black",
 	shade: "onyx",

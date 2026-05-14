@@ -5,6 +5,7 @@ import { getAgentDir } from "../../coding-agent/src/config.js";
 import { AuthStorage } from "../../coding-agent/src/core/auth-storage.js";
 import type { SessionStartEvent, ToolDefinition } from "../../coding-agent/src/core/extensions/index.js";
 import { ModelRegistry } from "../../coding-agent/src/core/model-registry.js";
+import type { CompiledAgentDefinition } from "../../coding-agent/src/core/platform/index.js";
 import {
 	DefaultResourceLoader,
 	type DefaultResourceLoaderOptions,
@@ -57,6 +58,8 @@ export interface CreateAgentSessionFromServicesOptions {
 	services: AgentSessionServices;
 	sessionManager: SessionManager;
 	sessionStartEvent?: SessionStartEvent;
+	/** Compiled blueprint, when this runtime was created from agent.yaml. */
+	blueprint?: string | CompiledAgentDefinition;
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
 	scopedModels?: Array<{ model: Model<any>; thinkingLevel?: ThinkingLevel }>;
@@ -195,6 +198,7 @@ export async function createAgentSessionFromServices(
 		modelRegistry: options.services.modelRegistry,
 		resourceLoader: options.services.resourceLoader,
 		sessionManager: options.sessionManager,
+		blueprint: options.blueprint,
 		model: options.model,
 		thinkingLevel: options.thinkingLevel,
 		scopedModels: options.scopedModels,

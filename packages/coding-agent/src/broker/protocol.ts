@@ -76,7 +76,28 @@ export interface RebuildRequest {
 	sessionFile?: string;
 }
 
-export type AgentToSupervisor = SpawnRequest | KillRequest | StatusRequest | RebuildRequest;
+export type UpdateScope = "rebuild" | "packages" | "self";
+
+export interface UpdateRequest {
+	type: "update";
+	scope: UpdateScope;
+	updateId: string;
+	/** Current session file to restore after update */
+	sessionFile?: string;
+}
+
+export interface HandoffAckRequest {
+	type: "handoff_ack";
+	updateId: string;
+}
+
+export type AgentToSupervisor =
+	| SpawnRequest
+	| KillRequest
+	| StatusRequest
+	| RebuildRequest
+	| UpdateRequest
+	| HandoffAckRequest;
 
 // ---------------------------------------------------------------------------
 // Supervisor → Agent (responses & events)
@@ -154,7 +175,7 @@ export function isAgentToSupervisor(msg: unknown): msg is AgentToSupervisor {
 		typeof msg === "object" &&
 		msg !== null &&
 		"type" in msg &&
-		["spawn", "kill", "status", "rebuild"].includes((msg as { type: string }).type)
+		["spawn", "kill", "status", "rebuild", "update", "handoff_ack"].includes((msg as { type: string }).type)
 	);
 }
 

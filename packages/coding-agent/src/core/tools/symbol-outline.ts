@@ -6,6 +6,7 @@ import { Text } from "@dpopsuev/alef-tui";
 import { type Static, Type } from "typebox";
 import ts from "typescript";
 import type { ToolDefinition, ToolRenderResultOptions } from "../extensions/types.js";
+import type { LectorRuntime } from "../lector-runtime.js";
 import { resolveReadPath } from "./path-utils.js";
 import { invalidArgText, shortenPath, str } from "./render-utils.js";
 import { wrapToolDefinition } from "./tool-definition-wrapper.js";
@@ -43,6 +44,7 @@ const defaultSymbolOutlineOperations: SymbolOutlineOperations = {
 
 export interface SymbolOutlineToolOptions {
 	operations?: SymbolOutlineOperations;
+	runtime?: LectorRuntime;
 }
 
 function getScriptKind(filePath: string): ts.ScriptKind {

@@ -44,7 +44,9 @@ import { getCoreOrganToolNames } from "./core-organs.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
 import { exportSessionToHtml, type ToolHtmlRenderer } from "./export-html/index.js";
 import { createToolHtmlRenderer } from "./export-html/tool-renderer.js";
+import { buildExtensionAdapter, type ExtensionAdapterSource } from "./extensions/adapter.js";
 import {
+	type CompactOptions,
 	type ContextUsage,
 	type ExtensionCommandContextActions,
 	type ExtensionErrorListener,
@@ -91,7 +93,6 @@ import type { BranchSummaryEntry, SessionHeader, SessionManager } from "./sessio
 import { CURRENT_SESSION_VERSION, getLatestCompactionEntry } from "./session-manager.js";
 import { SessionToolRegistry } from "./session-tool-registry.js";
 import type { SettingsManager } from "./settings-manager.js";
-import type { SlashCommandInfo } from "./slash-commands.js";
 
 import { parsePrefixedCommand } from "./symbolic-commands.js";
 import { type BuildSystemPromptOptions, buildSystemPrompt } from "./system-prompt.js";
@@ -275,7 +276,7 @@ const THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "hi
 // AgentSession Class
 // ============================================================================
 
-export class AgentSession {
+export class AgentSession implements ExtensionAdapterSource {
 	readonly agent: Agent;
 	readonly sessionManager: SessionManager;
 	readonly settingsManager: SettingsManager;
@@ -1254,6 +1255,46 @@ export class AgentSession {
 		return this._resourceLoader.getPrompts().prompts;
 	}
 
+	/** Skills loaded by resource loader (for ExtensionAdapterSource). */
+	get skills(): ReadonlyArray<import("./skills.js").Skill> {
+		return this._resourceLoader.getSkills().skills;
+	}
+
+	/** AbortSignal of the running agent (for ExtensionAdapterSource). */
+	get agentSignal(): AbortSignal | undefined {
+		return this.agent.signal;
+	}
+
+	/** Execute the registered extension shutdown handler (for ExtensionAdapterSource). */
+	executeShutdown(): void {
+		this._extensionShutdownHandler?.();
+	}
+
+	/** Append a custom session entry (for ExtensionAdapterSource). */
+	appendSessionEntry<T = unknown>(customType: string, data?: T): void {
+		this.sessionManager.appendCustomEntry(customType, data);
+	}
+
+	/** Append a label change to the session (for ExtensionAdapterSource). */
+	appendLabelChange(entryId: string, label: string | undefined): void {
+		this.sessionManager.appendLabelChange(entryId, label);
+	}
+
+	/** Get session name (for ExtensionAdapterSource). */
+	getSessionName(): string | undefined {
+		return this.sessionManager.getSessionName();
+	}
+
+	/** Refresh model from registry after provider changes (for ExtensionAdapterSource). */
+	refreshCurrentModelFromRegistry(): void {
+		this._refreshCurrentModelFromRegistry();
+	}
+
+	/** Rebuild the tool registry (for ExtensionAdapterSource). */
+	refreshToolRegistry(): void {
+		this._refreshToolRegistry();
+	}
+
 	private _getActionInfo(name: string) {
 		return (
 			this._toolReg.getActionRegistry().getAction(name) ?? {
@@ -2042,6 +2083,19 @@ export class AgentSession {
 		return this._compactionSvc.runManual(customInstructions);
 	}
 
+	/** Fire-and-forget compaction for ExtensionAdapterSource. */
+	triggerCompact(options?: CompactOptions): void {
+		void (async () => {
+			try {
+				const result = await this.compact(options?.customInstructions);
+				options?.onComplete?.(result);
+			} catch (error) {
+				const err = error instanceof Error ? error : new Error(String(error));
+				options?.onError?.(err);
+			}
+		})();
+	}
+
 	/**
 	 * Internal: Run auto-compaction with events.
 	 */
@@ -2166,111 +2220,8 @@ export class AgentSession {
 	}
 
 	private _bindExtensionCore(runner: ExtensionRunner): void {
-		const getCommands = (): SlashCommandInfo[] => {
-			const extensionCommands: SlashCommandInfo[] = runner.getRegisteredCommands().map((command) => ({
-				name: command.invocationName,
-				description: command.description,
-				source: "extension",
-				sourceInfo: command.sourceInfo,
-			}));
-
-			const templates: SlashCommandInfo[] = this.promptTemplates.map((template) => ({
-				name: template.name,
-				description: template.description,
-				source: "prompt",
-				sourceInfo: template.sourceInfo,
-			}));
-
-			const skills: SlashCommandInfo[] = this._resourceLoader.getSkills().skills.map((skill) => ({
-				name: `skill:${skill.name}`,
-				description: skill.description,
-				source: "skill",
-				sourceInfo: skill.sourceInfo,
-			}));
-
-			return [...extensionCommands, ...templates, ...skills];
-		};
-
-		runner.bindCore(
-			{
-				sendMessage: (message, options) => {
-					this.sendCustomMessage(message, options).catch((err) => {
-						runner.emitError({
-							extensionPath: "<runtime>",
-							event: "send_message",
-							error: err instanceof Error ? err.message : String(err),
-						});
-					});
-				},
-				sendUserMessage: (content, options) => {
-					this.sendUserMessage(content, options).catch((err) => {
-						runner.emitError({
-							extensionPath: "<runtime>",
-							event: "send_user_message",
-							error: err instanceof Error ? err.message : String(err),
-						});
-					});
-				},
-				appendEntry: (customType, data) => {
-					this.sessionManager.appendCustomEntry(customType, data);
-				},
-				setSessionName: (name) => {
-					this.setSessionName(name);
-				},
-				getSessionName: () => {
-					return this.sessionManager.getSessionName();
-				},
-				setLabel: (entryId, label) => {
-					this.sessionManager.appendLabelChange(entryId, label);
-				},
-				getActiveTools: () => this.getActiveToolNames(),
-				getAllTools: () => this.getAllTools(),
-				setActiveTools: (toolNames) => this.setActiveToolsByName(toolNames),
-				refreshTools: () => this._refreshToolRegistry(),
-				getCommands,
-				setModel: async (model) => {
-					if (!this.modelRegistry.hasConfiguredAuth(model)) return false;
-					await this.setModel(model);
-					return true;
-				},
-				getThinkingLevel: () => this.thinkingLevel,
-				setThinkingLevel: (level) => this.setThinkingLevel(level),
-			},
-			{
-				getModel: () => this.model,
-				getPlatformContext: () => this.platform,
-				isIdle: () => !this.isStreaming,
-				getSignal: () => this.agent.signal,
-				abort: () => this.abort(),
-				hasPendingMessages: () => this.pendingMessageCount > 0,
-				shutdown: () => {
-					this._extensionShutdownHandler?.();
-				},
-				getContextUsage: () => this.getContextUsage(),
-				compact: (options) => {
-					void (async () => {
-						try {
-							const result = await this.compact(options?.customInstructions);
-							options?.onComplete?.(result);
-						} catch (error) {
-							const err = error instanceof Error ? error : new Error(String(error));
-							options?.onError?.(err);
-						}
-					})();
-				},
-				getSystemPrompt: () => this.systemPrompt,
-			},
-			{
-				registerProvider: (name, config) => {
-					this._modelRegistry.registerProvider(name, config);
-					this._refreshCurrentModelFromRegistry();
-				},
-				unregisterProvider: (name) => {
-					this._modelRegistry.unregisterProvider(name);
-					this._refreshCurrentModelFromRegistry();
-				},
-			},
-		);
+		const { actions, contextActions, providerActions } = buildExtensionAdapter(this, runner);
+		runner.bindCore(actions, contextActions, providerActions);
 	}
 
 	private _refreshToolRegistry(options?: { activeToolNames?: string[]; includeAllExtensionTools?: boolean }): void {

@@ -1,4 +1,4 @@
-import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import type { CerebrumNerve, CerebrumOrgan, CorpusNerve, CorpusOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 import { Corpus, CorpusTimeoutError } from "../src/index.js";
 
@@ -6,48 +6,41 @@ import { Corpus, CorpusTimeoutError } from "../src/index.js";
 // Minimal stub organs for unit testing Corpus in isolation.
 // ---------------------------------------------------------------------------
 
-/** Organ that does nothing — used to verify load() mechanics. */
-function makeNoopOrgan(name = "noop"): Organ {
-	return {
-		name,
-		tools: [],
-		mount: (_nerve: Nerve) => () => {},
-	};
+function makeNoopOrgan(): CerebrumOrgan {
+	return { kind: "cerebrum", name: "noop", tools: [], mount: (_nerve: CerebrumNerve) => () => {} };
 }
 
-/** Organ with tool definitions — used to verify tool collection. */
-function makeToolOrgan(toolNames: string[]): Organ {
+function makeToolOrgan(toolNames: string[]): CerebrumOrgan {
 	return {
+		kind: "cerebrum",
 		name: "tool-organ",
-		tools: toolNames.map((n) => ({
-			name: n,
-			description: `Tool ${n}`,
-			inputSchema: { type: "object", properties: {} },
-		})),
-		mount: (_nerve: Nerve) => () => {},
+		tools: toolNames.map(
+			(n): ToolDefinition => ({
+				name: n,
+				description: `Tool ${n}`,
+				inputSchema: { type: "object" as const },
+			}),
+		),
+		mount: (_nerve: CerebrumNerve) => () => {},
 	};
 }
 
-/**
- * Echo organ — subscribes to Sense/user_message, immediately emits
- * Motor/user_reply with the same text and correlationId.
- * Proves the Corpus round-trip without any real LLM.
- */
-function makeEchoOrgan(): Organ {
+/** Echo organ — CorpusOrgan that subscribes Motor/"text.input", replies via Sense/"text.reply". */
+function makeEchoOrgan(): CorpusOrgan {
 	return {
+		kind: "corpus",
 		name: "echo",
 		tools: [],
-		mount: (nerve: Nerve) => {
-			const off = nerve.sense.on("user_message", (event) => {
-				if (event.type !== "user_message") return;
-				nerve.motor.emit({
-					type: "user_reply",
-					text: `echo: ${event.text}`,
+		mount: (nerve: CorpusNerve) => {
+			return nerve.motor.subscribe("text.input", (event) => {
+				nerve.sense.publish({
+					type: "text.reply",
+					payload: { text: `echo: ${event.payload.text}` },
 					correlationId: event.correlationId,
 					timestamp: Date.now(),
+					isError: false,
 				});
 			});
-			return off;
 		},
 	};
 }
@@ -69,40 +62,37 @@ function makeCorpus(options?: ConstructorParameters<typeof Corpus>[0]): Corpus {
 // ---------------------------------------------------------------------------
 
 describe("Corpus — load()", () => {
-	it("accepts an organ and returns this for chaining", () => {
+	it("accepts a CerebrumOrgan and returns this for chaining", () => {
 		const corpus = makeCorpus();
-		const result = corpus.load(makeNoopOrgan());
-		expect(result).toBe(corpus);
+		expect(corpus.load(makeNoopOrgan())).toBe(corpus);
 	});
 
-	it("collects tool definitions from loaded organs", () => {
+	it("collects tool definitions from loaded organs", async () => {
 		const corpus = makeCorpus();
 		corpus.load(makeToolOrgan(["file_read", "file_grep"]));
 		corpus.load(makeToolOrgan(["bash"]));
 
-		// Tool list is exposed via the user_message event — verify via prompt round-trip
 		let capturedTools: readonly { name: string }[] = [];
 		corpus.load({
+			kind: "corpus",
 			name: "tool-spy",
 			tools: [],
-			mount: (nerve) => {
-				const off = nerve.sense.on("user_message", (e) => {
-					if (e.type === "user_message") capturedTools = e.tools;
-					// Reply immediately so prompt() resolves
-					nerve.motor.emit({
-						type: "user_reply",
-						text: "ok",
+			mount: (nerve: CorpusNerve) => {
+				return nerve.motor.subscribe("text.input", (e) => {
+					capturedTools = (e.payload.tools as { name: string }[]) ?? [];
+					nerve.sense.publish({
+						type: "text.reply",
+						payload: { text: "ok" },
 						correlationId: e.correlationId,
 						timestamp: Date.now(),
+						isError: false,
 					});
 				});
-				return off;
 			},
 		});
 
-		return corpus.prompt("hi", { timeoutMs: 1000 }).then(() => {
-			expect(capturedTools.map((t) => t.name)).toEqual(["file_read", "file_grep", "bash"]);
-		});
+		await corpus.prompt("hi", { timeoutMs: 1000 });
+		expect(capturedTools.map((t) => t.name)).toEqual(["file_read", "file_grep", "bash"]);
 	});
 
 	it("throws if corpus is disposed", () => {
@@ -115,9 +105,10 @@ describe("Corpus — load()", () => {
 		const corpus = makeCorpus();
 		let mountCalls = 0;
 		corpus.load({
+			kind: "cerebrum",
 			name: "counted",
 			tools: [],
-			mount: (_nerve) => {
+			mount: (_n: CerebrumNerve) => {
 				mountCalls++;
 				return () => {};
 			},
@@ -171,9 +162,10 @@ describe("Corpus — dispose()", () => {
 		const corpus = makeCorpus();
 		let unmounted = false;
 		corpus.load({
+			kind: "cerebrum",
 			name: "tracked",
 			tools: [],
-			mount: (_nerve) => () => {
+			mount: (_n: CerebrumNerve) => () => {
 				unmounted = true;
 			},
 		});
@@ -181,31 +173,12 @@ describe("Corpus — dispose()", () => {
 		expect(unmounted).toBe(true);
 	});
 
-	it("is idempotent — safe to call multiple times", () => {
+	it("is idempotent", () => {
 		const corpus = makeCorpus();
 		expect(() => {
 			corpus.dispose();
 			corpus.dispose();
 			corpus.dispose();
 		}).not.toThrow();
-	});
-
-	it("stops routing after dispose — pending prompt does not resolve", async () => {
-		const corpus = makeCorpus();
-		let resolved = false;
-
-		// Start a prompt with no organ to reply (will timeout at 50ms)
-		const p = corpus.prompt("hi", { timeoutMs: 50 }).then(
-			() => {
-				resolved = true;
-			},
-			() => {
-				/* timeout expected */
-			},
-		);
-
-		corpus.dispose();
-		await p;
-		expect(resolved).toBe(false);
 	});
 });

@@ -5,7 +5,10 @@
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
-	"files": ["dist", "README.md"],
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"clean": "shx rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json",
@@ -13,7 +16,12 @@
 		"test": "vitest --run",
 		"prepublishOnly": "npm run clean && npm run build"
 	},
-	"keywords": ["agent", "organ", "shell", "runtime"],
+	"keywords": [
+		"agent",
+		"organ",
+		"shell",
+		"runtime"
+	],
 	"author": "Mario Zechner",
 	"license": "MIT",
 	"repository": {
@@ -25,7 +33,7 @@
 		"node": ">=20.0.0"
 	},
 	"dependencies": {
-		"@dpopsuev/alef-nerve": "^0.0.1"
+		"@dpopsuev/alef-spine": "^0.0.1"
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",

@@ -78,3 +78,5 @@ export {
 export { runRpcMode } from "../../coding-agent/src/modes/rpc/rpc-mode.js";
 export type { RpcCommand, RpcResponse, RpcSessionState } from "../../coding-agent/src/modes/rpc/rpc-types.js";
 export * from "./board/index.js";
+export * from "./composer/index.js";
+export * from "./lifecycle/index.js";

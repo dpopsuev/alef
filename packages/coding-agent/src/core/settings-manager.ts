@@ -5,7 +5,7 @@ import { dirname, join } from "path";
 import lockfile from "proper-lockfile";
 import { CONFIG_DIR_NAME, getAgentDir } from "../config.js";
 import type { BootstrapState } from "./bootstrap/types.js";
-import type { UpsertBudgetPolicyRequest } from "./platform/types.js";
+import type { AgentDefinitionSupervisorPolicyConfig, UpsertBudgetPolicyRequest } from "./platform/types.js";
 
 export interface CompactionSettings {
 	enabled?: boolean; // default: true
@@ -678,6 +678,18 @@ export class SettingsManager {
 		this.globalSettings.defaultThinkingLevel = level;
 		this.markModified("defaultThinkingLevel");
 		this.save();
+	}
+
+	getSupervisorSettings(): AgentDefinitionSupervisorPolicyConfig {
+		return {
+			heartbeatIntervalMs: 5000,
+			heartbeatTimeoutMs: 10000,
+			maxMissedHeartbeats: 3,
+			smokeTestTimeoutMs: 30000,
+			handoffTimeoutMs: 60000,
+			maxFixIterations: 3,
+			upgradePolicy: "rebuild_only",
+		};
 	}
 
 	getTransport(): TransportSetting {

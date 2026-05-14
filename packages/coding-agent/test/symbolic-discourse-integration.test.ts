@@ -39,7 +39,7 @@ describe("symbolic discourse integration", () => {
 			forumId: "release",
 			relocatedBy: "gensec",
 			reason: "release review",
-			labels: [{ key: "domain", value: "release", source: "gensec" }],
+			labels: [{ key: "domain", value: "release", source: "coordinator" }],
 		});
 		const relocatedAddress = boardPathToAddress(relocated.thread.address);
 		expect(relocated.forum?.key).toBe("release");

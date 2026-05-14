@@ -37,6 +37,7 @@ export {
 	REVIEW_CUSTOM_ENTRY_TYPE,
 } from "./review.js";
 export { DiscourseScheduler, deriveTopicLifecycleFromRuntimes } from "./scheduler.js";
+export { createDialogDiscoursePort, createMonologDiscoursePort, splitDiscourseOrgans } from "./split-discourse.js";
 export { SupervisorManager } from "./supervisor.js";
 export type {
 	AddReviewCommentRequest,

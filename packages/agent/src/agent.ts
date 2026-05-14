@@ -20,6 +20,7 @@ import type {
 	AgentTool,
 	BeforeToolCallContext,
 	BeforeToolCallResult,
+	ShouldStopAfterTurnContext,
 	StreamFn,
 	ToolExecutionMode,
 } from "./types.js";
@@ -110,6 +111,15 @@ export interface AgentOptions {
 	/** Max provider/SDK-level retry attempts (e.g., Anthropic SDK default: 2) */
 	maxRetries?: number;
 	toolExecution?: ToolExecutionMode;
+	/**
+	 * Called after each assistant turn (after tool results are processed).
+	 * Return true to stop the agent loop early.
+	 */
+	shouldStopAfterTurn?: (context: ShouldStopAfterTurnContext) => boolean | Promise<boolean>;
+	/** When true, steering messages are never polled (ablation). */
+	disableSteering?: boolean;
+	/** When true, follow-up messages are never polled (ablation). */
+	disableFollowUp?: boolean;
 }
 
 class PendingMessageQueue {
@@ -189,6 +199,10 @@ export class Agent {
 	public maxRetries?: number;
 	/** Tool execution strategy for assistant messages that contain multiple tool calls. */
 	public toolExecution: ToolExecutionMode;
+	/** Optional per-turn stop predicate forwarded to the agent loop. */
+	public shouldStopAfterTurn?: (context: ShouldStopAfterTurnContext) => boolean | Promise<boolean>;
+	public disableSteering: boolean;
+	public disableFollowUp: boolean;
 
 	constructor(options: AgentOptions = {}) {
 		this._state = createMutableAgentState(options.initialState);
@@ -208,6 +222,9 @@ export class Agent {
 		this.maxRetryDelayMs = options.maxRetryDelayMs;
 		this.maxRetries = options.maxRetries;
 		this.toolExecution = options.toolExecution ?? "parallel";
+		this.shouldStopAfterTurn = options.shouldStopAfterTurn;
+		this.disableSteering = options.disableSteering ?? false;
+		this.disableFollowUp = options.disableFollowUp ?? false;
 	}
 
 	/**
@@ -430,13 +447,14 @@ export class Agent {
 			transformContext: this.transformContext,
 			getApiKey: this.getApiKey,
 			getSteeringMessages: async () => {
-				if (skipInitialSteeringPoll) {
+				if (this.disableSteering || skipInitialSteeringPoll) {
 					skipInitialSteeringPoll = false;
 					return [];
 				}
 				return this.steeringQueue.drain();
 			},
-			getFollowUpMessages: async () => this.followUpQueue.drain(),
+			getFollowUpMessages: async () => (this.disableFollowUp ? [] : this.followUpQueue.drain()),
+			shouldStopAfterTurn: this.shouldStopAfterTurn,
 		};
 	}
 

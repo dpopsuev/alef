@@ -8,6 +8,10 @@ export type {
 	EventLog,
 	EventStore,
 	FilterFn,
+	LectorCacheEventData,
+	LectorErrorData,
+	LectorIndexUpdatedData,
+	TurnMetricsData,
 } from "@dpopsuev/alef-agent-runtime/board";
 export {
 	assertNever,

@@ -5,6 +5,7 @@ export {
 	type ToolResultCache,
 	type ToolResultCacheHit,
 } from "./cache.js";
+export { createFsCorpusOrgan, type FsCorpusOrganOptions } from "./corpus-organ.js";
 export {
 	DEFAULT_FIND_LIMIT,
 	DEFAULT_GREP_LIMIT,

@@ -55,11 +55,13 @@ function makeSense(
 	isError = false,
 	errorMessage?: string,
 ): SenseEvent {
+	// Mirror toolCallId if present so LLMOrgan can correlate tool results.
+	const toolCallId = typeof motor.payload.toolCallId === "string" ? motor.payload.toolCallId : undefined;
 	return {
 		type: `${motor.type}.result`,
 		correlationId: motor.correlationId,
 		timestamp: Date.now(),
-		payload,
+		payload: toolCallId ? { ...payload, toolCallId } : payload,
 		isError,
 		errorMessage,
 	};

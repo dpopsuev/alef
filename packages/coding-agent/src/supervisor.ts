@@ -64,11 +64,13 @@ function findRepoRoot(): string {
 }
 
 function findAlefBin(repoRoot: string): string {
-	const mainPath = join(repoRoot, "packages", "coding-agent", "dist", "main.js");
-	if (existsSync(mainPath)) return mainPath;
-	const srcPath = join(repoRoot, "packages", "coding-agent", "src", "main.ts");
-	if (existsSync(srcPath)) return srcPath;
-	throw new Error("Could not find Alef entry point");
+	// cli.ts/cli.js is the real entry point — it sets up undici and calls main().
+	// main.ts/main.js only exports main() and is not self-executing.
+	const cliDistPath = join(repoRoot, "packages", "coding-agent", "dist", "cli.js");
+	if (existsSync(cliDistPath)) return cliDistPath;
+	const cliSrcPath = join(repoRoot, "packages", "coding-agent", "src", "cli.ts");
+	if (existsSync(cliSrcPath)) return cliSrcPath;
+	throw new Error("Could not find Alef entry point (cli.js / cli.ts)");
 }
 
 export function parseSessionFromArgs(args: string[]): string | undefined {

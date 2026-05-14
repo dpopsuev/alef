@@ -1,9 +1,8 @@
 import { type Api, type AssistantMessage, type Message, type Model, streamSimple, type Tool } from "@dpopsuev/alef-ai";
 import type { CerebrumNerve, CerebrumOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 
-// LLM organ event type constants
-const SENSE_LLM_PROMPT = "llm.prompt";
-const MOTOR_TEXT_MESSAGE = "text.message";
+const TEXT_INPUT = "text.input";
+const TEXT_MESSAGE = "text.message";
 
 export interface LLMOrganOptions {
 	model: Model<Api>;
@@ -26,8 +25,8 @@ export class LLMOrgan implements CerebrumOrgan {
 	}
 
 	mount(nerve: CerebrumNerve): () => void {
-		// Subscribe Sense/"llm.prompt" — TextMessageOrgan sent a prompt.
-		return nerve.sense.subscribe(SENSE_LLM_PROMPT, (event) => {
+		// Subscribe Sense/"text.input" — TextMessageOrgan sent a prompt.
+		return nerve.sense.subscribe(TEXT_INPUT, (event) => {
 			const payload = event.payload as { messages: readonly unknown[]; tools: readonly ToolDefinition[] };
 			void this.handlePrompt(nerve, payload, event.correlationId);
 		});
@@ -85,7 +84,7 @@ export class LLMOrgan implements CerebrumOrgan {
 				const text = extractText(finalMessage);
 				if (text) {
 					nerve.motor.publish({
-						type: MOTOR_TEXT_MESSAGE,
+						type: TEXT_MESSAGE,
 						payload: { text },
 						correlationId,
 						timestamp: Date.now(),
@@ -100,7 +99,7 @@ export class LLMOrgan implements CerebrumOrgan {
 				if (tc.name === "text.message") {
 					// Terminal: text reply via tool call.
 					nerve.motor.publish({
-						type: MOTOR_TEXT_MESSAGE,
+						type: TEXT_MESSAGE,
 						payload: { text: typeof tc.args.text === "string" ? tc.args.text : "" },
 						correlationId,
 						timestamp: Date.now(),

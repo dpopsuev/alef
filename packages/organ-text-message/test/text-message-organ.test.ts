@@ -36,56 +36,56 @@ describe("TextMessageOrgan — tool definition", () => {
 		expect(new TextMessageOrgan().kind).toBe("corpus");
 	});
 
-	it("text.message tool definition is included in llm.prompt tools", async () => {
+	it("text.message tool definition is included in text.input tools", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("hi");
 
-		const req = recorder.assertSenseEmitted("llm.prompt");
+		const req = recorder.assertSenseEmitted("text.input");
 		const payload = (req as unknown as { payload: { tools: { name: string }[] } }).payload;
 		expect(payload.tools.some((t) => t.name === "text.message")).toBe(true);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// text.input → llm.prompt
+// text.input → text.input
 // ---------------------------------------------------------------------------
 
-describe("TextMessageOrgan — text.input → llm.prompt", () => {
-	it("emits llm.prompt when text.input arrives", async () => {
+describe("TextMessageOrgan — text.input → text.input", () => {
+	it("emits text.input when text.input arrives", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("hello");
-		recorder.assertSenseEmitted("llm.prompt");
+		recorder.assertSenseEmitted("text.input");
 	});
 
-	it("llm.prompt carries user text as message content", async () => {
+	it("text.input carries user text as message content", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("what time is it?");
 
-		const req = recorder.assertSenseEmitted("llm.prompt");
+		const req = recorder.assertSenseEmitted("text.input");
 		const payload = (req as unknown as { payload: { messages: { role: string; content: string }[] } }).payload;
 		expect(payload.messages[0]?.role).toBe("user");
 		expect(payload.messages[0]?.content).toBe("what time is it?");
 	});
 
-	it("llm.prompt carries the same correlationId as text.input", async () => {
+	it("text.input carries the same correlationId as text.input", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("test");
 
 		const motor = recorder.assertMotorEmitted("text.input");
-		const sense = recorder.assertSenseEmitted("llm.prompt");
+		const sense = recorder.assertSenseEmitted("text.input");
 		expect(sense.correlationId).toBe(motor.correlationId);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// text.message → text.reply
+// text.message → text.message
 // ---------------------------------------------------------------------------
 
-describe("TextMessageOrgan — text.message → text.reply", () => {
-	it("emits text.reply when text.message arrives", async () => {
+describe("TextMessageOrgan — text.message → text.message", () => {
+	it("emits text.message when text.message arrives", async () => {
 		const { corpus, recorder } = make("response text");
 		await corpus.prompt("hi");
-		recorder.assertSenseEmitted("text.reply");
+		recorder.assertSenseEmitted("text.message");
 	});
 
 	it("corpus.prompt() resolves with canned text", async () => {
@@ -93,12 +93,12 @@ describe("TextMessageOrgan — text.message → text.reply", () => {
 		expect(await corpus.prompt("what is the answer?")).toBe("the answer is 42");
 	});
 
-	it("text.reply carries same correlationId as text.message", async () => {
+	it("text.message carries same correlationId as text.message", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("test");
 
 		const msg = recorder.assertMotorEmitted("text.message");
-		const reply = recorder.assertSenseEmitted("text.reply");
+		const reply = recorder.assertSenseEmitted("text.message");
 		expect(reply.correlationId).toBe(msg.correlationId);
 	});
 });
@@ -127,8 +127,8 @@ describe("TextMessageOrgan — full round-trip", () => {
 		const senseTypes = recorder.sense.map((e) => e.type);
 
 		expect(motorTypes).toContain("text.input");
-		expect(senseTypes).toContain("llm.prompt");
+		expect(senseTypes).toContain("text.input");
 		expect(motorTypes).toContain("text.message");
-		expect(senseTypes).toContain("text.reply");
+		expect(senseTypes).toContain("text.message");
 	});
 });

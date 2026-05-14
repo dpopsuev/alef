@@ -1,10 +1,7 @@
 import type { CorpusNerve, CorpusOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 
-// TextMessageOrgan event type constants
-const MOTOR_TEXT_INPUT = "text.input";
-const SENSE_LLM_PROMPT = "llm.prompt";
-const MOTOR_TEXT_MESSAGE = "text.message";
-const SENSE_TEXT_REPLY = "text.reply";
+const TEXT_INPUT = "text.input";
+const TEXT_MESSAGE = "text.message";
 
 export class TextMessageOrgan implements CorpusOrgan {
 	readonly kind = "corpus" as const;
@@ -26,11 +23,11 @@ export class TextMessageOrgan implements CorpusOrgan {
 	];
 
 	mount(nerve: CorpusNerve): () => void {
-		// Motor/"text.input" → Sense/"llm.prompt"
+		// Motor/"text.input" → Sense/"text.input"
 		// Corpus delivered a user message. Forward to LLMOrgan as a prompt.
-		const offInput = nerve.motor.subscribe(MOTOR_TEXT_INPUT, (event) => {
+		const offInput = nerve.motor.subscribe(TEXT_INPUT, (event) => {
 			nerve.sense.publish({
-				type: SENSE_LLM_PROMPT,
+				type: TEXT_INPUT,
 				payload: {
 					messages: [{ role: "user", content: event.payload.text }],
 					tools: event.payload.tools,
@@ -41,11 +38,11 @@ export class TextMessageOrgan implements CorpusOrgan {
 			});
 		});
 
-		// Motor/"text.message" → Sense/"text.reply"
+		// Motor/"text.message" → Sense/"text.message"
 		// LLMOrgan sent its text reply. Forward back to Corpus.
-		const offMessage = nerve.motor.subscribe(MOTOR_TEXT_MESSAGE, (event) => {
+		const offMessage = nerve.motor.subscribe(TEXT_MESSAGE, (event) => {
 			nerve.sense.publish({
-				type: SENSE_TEXT_REPLY,
+				type: TEXT_MESSAGE,
 				payload: { text: event.payload.text },
 				correlationId: event.correlationId,
 				timestamp: Date.now(),

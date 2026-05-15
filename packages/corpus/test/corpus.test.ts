@@ -1,4 +1,4 @@
-import type { CerebrumNerve, CerebrumOrgan, CorpusNerve, CorpusOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { CerebrumNerve, CerebrumOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 import { Corpus, CorpusTimeoutError } from "../src/index.js";
 
@@ -25,20 +25,19 @@ function makeToolOrgan(toolNames: string[]): CerebrumOrgan {
 	};
 }
 
-/** Echo organ — CorpusOrgan that subscribes Motor/"text.input", replies via Sense/"text.message". */
-function makeEchoOrgan(): CorpusOrgan {
+/** Echo organ — CerebrumOrgan: subscribes Sense/"dialog.message", publishes Motor/"dialog.message". */
+function makeEchoOrgan(): CerebrumOrgan {
 	return {
-		kind: "corpus",
+		kind: "cerebrum",
 		name: "echo",
 		tools: [],
-		mount: (nerve: CorpusNerve) => {
-			return nerve.motor.subscribe("text.input", (event) => {
-				nerve.sense.publish({
-					type: "text.message",
+		mount: (nerve: CerebrumNerve) => {
+			return nerve.sense.subscribe("dialog.message", (event) => {
+				nerve.motor.publish({
+					type: "dialog.message",
 					payload: { text: `echo: ${event.payload.text}` },
 					correlationId: event.correlationId,
 					timestamp: Date.now(),
-					isError: false,
 				});
 			});
 		},
@@ -74,18 +73,17 @@ describe("Corpus — load()", () => {
 
 		let capturedTools: readonly { name: string }[] = [];
 		corpus.load({
-			kind: "corpus",
+			kind: "cerebrum",
 			name: "tool-spy",
 			tools: [],
-			mount: (nerve: CorpusNerve) => {
-				return nerve.motor.subscribe("text.input", (e) => {
+			mount: (nerve: CerebrumNerve) => {
+				return nerve.sense.subscribe("dialog.message", (e) => {
 					capturedTools = (e.payload.tools as { name: string }[]) ?? [];
-					nerve.sense.publish({
-						type: "text.message",
+					nerve.motor.publish({
+						type: "dialog.message",
 						payload: { text: "ok" },
 						correlationId: e.correlationId,
 						timestamp: Date.now(),
-						isError: false,
 					});
 				});
 			},

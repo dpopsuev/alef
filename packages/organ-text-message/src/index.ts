@@ -1,7 +1,7 @@
 import type { CorpusNerve, CorpusOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 
-const TEXT_INPUT = "text.input";
-const TEXT_MESSAGE = "text.message";
+const TEXT_INPUT = "dialog.message";
+const TEXT_MESSAGE = "dialog.message";
 
 export class TextMessageOrgan implements CorpusOrgan {
 	readonly kind = "corpus" as const;
@@ -9,7 +9,7 @@ export class TextMessageOrgan implements CorpusOrgan {
 
 	readonly tools: readonly ToolDefinition[] = [
 		{
-			name: "text.message",
+			name: "dialog.message",
 			description: "Send a text reply to the user.",
 			inputSchema: {
 				type: "object",
@@ -23,7 +23,7 @@ export class TextMessageOrgan implements CorpusOrgan {
 	];
 
 	mount(nerve: CorpusNerve): () => void {
-		// Motor/"text.input" → Sense/"text.input"
+		// Motor/"dialog.message" → Sense/"dialog.message"
 		// Corpus delivered a user message. Forward to LLMOrgan as a prompt.
 		const offInput = nerve.motor.subscribe(TEXT_INPUT, (event) => {
 			nerve.sense.publish({
@@ -38,7 +38,7 @@ export class TextMessageOrgan implements CorpusOrgan {
 			});
 		});
 
-		// Motor/"text.message" → Sense/"text.message"
+		// Motor/"dialog.message" → Sense/"dialog.message"
 		// LLMOrgan sent its text reply. Forward back to Corpus.
 		const offMessage = nerve.motor.subscribe(TEXT_MESSAGE, (event) => {
 			nerve.sense.publish({

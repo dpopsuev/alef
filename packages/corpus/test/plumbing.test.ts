@@ -11,9 +11,9 @@
 
 import type { CerebrumNerve, CerebrumOrgan, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 import { describe, expect, it } from "vitest";
+import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { createFsOrgan } from "../../organ-fs/src/organ.js";
 import { createShellOrgan } from "../../organ-shell/src/organ.js";
-import { TextMessageOrgan } from "../../organ-text-message/src/index.js";
 import { Corpus } from "../src/index.js";
 
 // ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ class SingleToolLLM implements CerebrumOrgan {
 	readonly receivedResults: unknown[] = [];
 
 	mount(nerve: CerebrumNerve): () => void {
-		return nerve.sense.subscribe("text.input", async (event) => {
+		return nerve.sense.subscribe("dialog.message", async (event) => {
 			const corr = event.correlationId;
 			this.receivedTools.push(...(event.payload.tools as ToolDefinition[]).map((t) => t.name));
 
@@ -57,7 +57,7 @@ class SingleToolLLM implements CerebrumOrgan {
 			const result = await waitSense(nerve, "fs.find", toolCallId, corr);
 			this.receivedResults.push(result.payload);
 
-			publishMotor(nerve, "text.message", { text: "Found TypeScript files." }, corr);
+			publishMotor(nerve, "dialog.message", { text: "Found TypeScript files." }, corr);
 		});
 	}
 }
@@ -71,7 +71,7 @@ class FanOutLLM implements CerebrumOrgan {
 	finishedAt = 0;
 
 	mount(nerve: CerebrumNerve): () => void {
-		return nerve.sense.subscribe("text.input", async (event) => {
+		return nerve.sense.subscribe("dialog.message", async (event) => {
 			const corr = event.correlationId;
 
 			// Publish both simultaneously
@@ -94,7 +94,7 @@ class FanOutLLM implements CerebrumOrgan {
 			void findResult;
 			void shellResult;
 
-			publishMotor(nerve, "text.message", { text: "Both done." }, corr);
+			publishMotor(nerve, "dialog.message", { text: "Both done." }, corr);
 		});
 	}
 }
@@ -106,9 +106,9 @@ class QuiescentLLM implements CerebrumOrgan {
 	readonly tools = [] as const;
 
 	mount(nerve: CerebrumNerve): () => void {
-		return nerve.sense.subscribe("text.input", (event) => {
+		return nerve.sense.subscribe("dialog.message", (event) => {
 			// No tool calls — publish text immediately. Loop should terminate.
-			publishMotor(nerve, "text.message", { text: "No tools needed." }, event.correlationId);
+			publishMotor(nerve, "dialog.message", { text: "No tools needed." }, event.correlationId);
 		});
 	}
 }
@@ -122,7 +122,7 @@ describe("Corpus plumbing — full EDA loop", () => {
 		const llm = new SingleToolLLM();
 		const corpus = new Corpus({ timeoutMs: 5_000 });
 		corpus
-			.load(new TextMessageOrgan())
+			.load(new DialogOrgan({ sink: () => {} }))
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }));
 
@@ -135,7 +135,7 @@ describe("Corpus plumbing — full EDA loop", () => {
 		const llm = new SingleToolLLM();
 		const corpus = new Corpus({ timeoutMs: 5_000 });
 		corpus
-			.load(new TextMessageOrgan())
+			.load(new DialogOrgan({ sink: () => {} }))
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }))
 			.load(createShellOrgan({ cwd: process.cwd() }));
@@ -146,7 +146,7 @@ describe("Corpus plumbing — full EDA loop", () => {
 		expect(llm.receivedTools).toContain("fs.grep");
 		expect(llm.receivedTools).toContain("fs.find");
 		expect(llm.receivedTools).toContain("shell.exec");
-		expect(llm.receivedTools).toContain("text.message");
+		expect(llm.receivedTools).toContain("dialog.message");
 		corpus.dispose();
 	});
 
@@ -154,7 +154,7 @@ describe("Corpus plumbing — full EDA loop", () => {
 		const llm = new SingleToolLLM();
 		const corpus = new Corpus({ timeoutMs: 5_000 });
 		corpus
-			.load(new TextMessageOrgan())
+			.load(new DialogOrgan({ sink: () => {} }))
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }));
 
@@ -169,7 +169,7 @@ describe("Corpus plumbing — full EDA loop", () => {
 		const llm = new FanOutLLM();
 		const corpus = new Corpus({ timeoutMs: 5_000 });
 		corpus
-			.load(new TextMessageOrgan())
+			.load(new DialogOrgan({ sink: () => {} }))
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }))
 			.load(createShellOrgan({ cwd: process.cwd() }));
@@ -187,7 +187,7 @@ describe("Corpus plumbing — full EDA loop", () => {
 	it("quiescence: LLM with no tool calls terminates immediately", async () => {
 		const llm = new QuiescentLLM();
 		const corpus = new Corpus({ timeoutMs: 5_000 });
-		corpus.load(new TextMessageOrgan()).load(llm);
+		corpus.load(new DialogOrgan({ sink: () => {} })).load(llm);
 
 		const reply = await corpus.prompt("anything");
 		expect(reply).toBe("No tools needed.");

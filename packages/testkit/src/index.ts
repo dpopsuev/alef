@@ -4,7 +4,7 @@ import type { CerebrumNerve, CerebrumOrgan, NerveEvent, ToolDefinition } from "@
 // ---------------------------------------------------------------------------
 // MockLLMOrgan
 //
-// CerebrumOrgan: subscribes Sense/"text.input", publishes Motor/"text.message".
+// CerebrumOrgan: subscribes Sense/"dialog.message", publishes Motor/"dialog.message".
 // Canned response — no real LLM call.
 // ---------------------------------------------------------------------------
 
@@ -16,9 +16,9 @@ export class MockLLMOrgan implements CerebrumOrgan {
 	constructor(private readonly cannedText: string = "mock response") {}
 
 	mount(nerve: CerebrumNerve): () => void {
-		return nerve.sense.subscribe("text.input", (event) => {
+		return nerve.sense.subscribe("dialog.message", (event) => {
 			nerve.motor.publish({
-				type: "text.message" as const,
+				type: "dialog.message" as const,
 				payload: { text: this.cannedText },
 				correlationId: event.correlationId,
 				timestamp: Date.now(),

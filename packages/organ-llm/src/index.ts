@@ -1,8 +1,7 @@
 import { type Api, type AssistantMessage, type Message, type Model, streamSimple, type Tool } from "@dpopsuev/alef-ai";
 import type { CerebrumNerve, CerebrumOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 
-const TEXT_INPUT = "text.input";
-const TEXT_MESSAGE = "text.message";
+const DIALOG_MESSAGE = "dialog.message";
 
 export interface LLMOrganOptions {
 	model: Model<Api>;
@@ -26,7 +25,7 @@ export class LLMOrgan implements CerebrumOrgan {
 
 	mount(nerve: CerebrumNerve): () => void {
 		// Subscribe Sense/"text.input" — TextMessageOrgan sent a prompt.
-		return nerve.sense.subscribe(TEXT_INPUT, (event) => {
+		return nerve.sense.subscribe(DIALOG_MESSAGE, (event) => {
 			const payload = event.payload as { messages: readonly unknown[]; tools: readonly ToolDefinition[] };
 			void this.handlePrompt(nerve, payload, event.correlationId);
 		});
@@ -86,7 +85,7 @@ export class LLMOrgan implements CerebrumOrgan {
 				const text = extractText(finalMessage);
 				if (text) {
 					nerve.motor.publish({
-						type: TEXT_MESSAGE,
+						type: DIALOG_MESSAGE,
 						payload: { text },
 						correlationId,
 						timestamp: Date.now(),

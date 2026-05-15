@@ -33,6 +33,8 @@
 			"@dpopsuev/alef-organ-lector/*": ["./packages/organ-lector/src/*.ts"],
 			"@dpopsuev/alef-organ-dialog": ["./packages/organ-dialog/src/index.ts"],
 			"@dpopsuev/alef-organ-dialog/*": ["./packages/organ-dialog/src/*.ts"],
+			"@dpopsuev/alef-organ-llm": ["./packages/organ-llm/src/index.ts"],
+			"@dpopsuev/alef-organ-llm/*": ["./packages/organ-llm/src/*.ts"],
 			"@dpopsuev/alef-organ-monolog": ["./packages/organ-monolog/src/index.ts"],
 			"@dpopsuev/alef-organ-monolog/*": ["./packages/organ-monolog/src/*.ts"],
 			"@dpopsuev/alef-organ-ai": ["./packages/organ-ai/src/index.ts"],

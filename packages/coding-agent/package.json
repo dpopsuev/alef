@@ -48,7 +48,6 @@
 		"@dpopsuev/alef-organ-ai": "^0.0.1",
 		"@dpopsuev/alef-spine": "^0.0.1",
 		"@dpopsuev/alef-organ-dialog": "^0.0.1",
-		"@dpopsuev/alef-organ-discourse": "^0.0.1",
 		"@dpopsuev/alef-organ-fs": "^0.0.1",
 		"@dpopsuev/alef-organ-lector": "^0.0.1",
 		"@dpopsuev/alef-organ-monolog": "^0.0.1",

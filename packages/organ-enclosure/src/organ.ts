@@ -16,7 +16,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { CorpusNerve, CorpusOrgan, MotorEvent, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, CorpusOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
+import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import type { ExecOptions, Space } from "./space.js";
 import { OverlaySpace, StubSpace } from "./space.js";
 
@@ -142,220 +143,111 @@ export interface EnclosureOrganOptions {
 // ---------------------------------------------------------------------------
 
 export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): CorpusOrgan {
-	return {
-		kind: "corpus",
-		name: "enclosure",
-		tools: TOOLS,
+	// Session-scoped space registry — lives until unmount.
+	const spaces = new Map<string, Space>();
 
-		mount(nerve: CorpusNerve): () => void {
-			// Session-scoped space registry — lives until unmount.
-			const spaces = new Map<string, Space>();
+	const base = defineCorpusOrgan("enclosure", {
+		"enclosure.create": { tool: TOOLS[0], handle: (ctx) => handleCreate(ctx, spaces, options) },
+		"enclosure.diff": { tool: TOOLS[1], handle: (ctx) => handleDiff(ctx, spaces) },
+		"enclosure.commit": { tool: TOOLS[2], handle: (ctx) => handleCommit(ctx, spaces) },
+		"enclosure.reset": { tool: TOOLS[3], handle: (ctx) => handleReset(ctx, spaces) },
+		"enclosure.snapshot": { tool: TOOLS[4], handle: (ctx) => handleSnapshot(ctx, spaces) },
+		"enclosure.restore": { tool: TOOLS[5], handle: (ctx) => handleRestore(ctx, spaces) },
+		"enclosure.exec": { tool: TOOLS[6], handle: (ctx) => handleExec(ctx, spaces) },
+		"enclosure.destroy": { tool: TOOLS[7], handle: (ctx) => handleDestroy(ctx, spaces) },
+	});
 
-			const handlers: Array<() => void> = [
-				nerve.motor.subscribe("enclosure.create", (e) => handleCreate(e, nerve, spaces, options)),
-				nerve.motor.subscribe("enclosure.diff", (e) => handleDiff(e, nerve, spaces)),
-				nerve.motor.subscribe("enclosure.commit", (e) => handleCommit(e, nerve, spaces)),
-				nerve.motor.subscribe("enclosure.reset", (e) => handleReset(e, nerve, spaces)),
-				nerve.motor.subscribe("enclosure.snapshot", (e) => handleSnapshot(e, nerve, spaces)),
-				nerve.motor.subscribe("enclosure.restore", (e) => handleRestore(e, nerve, spaces)),
-				nerve.motor.subscribe("enclosure.exec", (e) => handleExec(e, nerve, spaces)),
-				nerve.motor.subscribe("enclosure.destroy", (e) => handleDestroy(e, nerve, spaces)),
-			];
-
-			return () => {
-				for (const off of handlers) off();
-				// Best-effort cleanup of any surviving spaces.
-				for (const space of spaces.values()) void space.destroy();
-				spaces.clear();
-			};
-		},
+	// Wrap mount to add cleanup of surviving spaces on unmount.
+	const originalMount = base.mount.bind(base);
+	base.mount = (nerve) => {
+		const unmount = originalMount(nerve);
+		return () => {
+			unmount();
+			for (const space of spaces.values()) void space.destroy();
+			spaces.clear();
+		};
 	};
+
+	return base;
 }
 
 // ---------------------------------------------------------------------------
-// Handlers
+// Handlers — return payloads or throw; framework handles Sense publishing
 // ---------------------------------------------------------------------------
 
-function sense(
-	motor: MotorEvent,
-	payload: Record<string, unknown>,
-	isError = false,
-	errorMessage?: string,
-): SenseEvent {
-	const toolCallId = typeof motor.payload.toolCallId === "string" ? motor.payload.toolCallId : undefined;
-	return {
-		type: motor.type,
-		correlationId: motor.correlationId,
-		timestamp: Date.now(),
-		payload: toolCallId ? { ...payload, toolCallId } : payload,
-		isError,
-		errorMessage,
-	};
-}
-
-function err(motor: MotorEvent, message: string): SenseEvent {
-	const toolCallId = typeof motor.payload.toolCallId === "string" ? motor.payload.toolCallId : undefined;
-	return {
-		type: motor.type,
-		correlationId: motor.correlationId,
-		timestamp: Date.now(),
-		payload: toolCallId ? { toolCallId } : {},
-		isError: true,
-		errorMessage: message,
-	};
-}
-
-function getSpace(spaceId: unknown, spaces: Map<string, Space>): Space | undefined {
-	return typeof spaceId === "string" ? spaces.get(spaceId) : undefined;
+function getSpace(spaceId: unknown, spaces: Map<string, Space>): Space {
+	const space = typeof spaceId === "string" ? spaces.get(spaceId) : undefined;
+	if (!space) throw new Error(`enclosure: unknown spaceId: ${String(spaceId)}`);
+	return space;
 }
 
 async function handleCreate(
-	motor: MotorEvent,
-	nerve: CorpusNerve,
+	ctx: CorpusHandlerCtx,
 	spaces: Map<string, Space>,
 	opts: EnclosureOrganOptions,
-): Promise<void> {
-	const workspace = String(motor.payload.workspace ?? "");
-	if (!workspace) {
-		nerve.sense.publish(err(motor, "enclosure.create: workspace is required"));
-		return;
-	}
-	try {
-		const spaceId = randomUUID();
-		const space = opts.stub ? new StubSpace(workspace) : await OverlaySpace.create({ workspace });
-		spaces.set(spaceId, space);
-		nerve.sense.publish(sense(motor, { spaceId, workDir: space.workDir() }));
-	} catch (e) {
-		nerve.sense.publish(err(motor, `enclosure.create: ${e instanceof Error ? e.message : String(e)}`));
-	}
+): Promise<Record<string, unknown>> {
+	const workspace = String(ctx.payload.workspace ?? "");
+	if (!workspace) throw new Error("enclosure.create: workspace is required");
+	const spaceId = randomUUID();
+	const space = opts.stub ? new StubSpace(workspace) : await OverlaySpace.create({ workspace });
+	spaces.set(spaceId, space);
+	return { spaceId, workDir: space.workDir() };
 }
 
-async function handleDiff(motor: MotorEvent, nerve: CorpusNerve, spaces: Map<string, Space>): Promise<void> {
-	const space = getSpace(motor.payload.spaceId, spaces);
-	if (!space) {
-		nerve.sense.publish(err(motor, `enclosure: unknown spaceId: ${motor.payload.spaceId}`));
-		return;
-	}
-	try {
-		const changes = await space.diff();
-		nerve.sense.publish(sense(motor, { changes }));
-	} catch (e) {
-		nerve.sense.publish(err(motor, `enclosure.diff: ${e instanceof Error ? e.message : String(e)}`));
-	}
+async function handleDiff(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+	const space = getSpace(ctx.payload.spaceId, spaces);
+	const changes = await space.diff();
+	return { changes };
 }
 
-async function handleCommit(motor: MotorEvent, nerve: CorpusNerve, spaces: Map<string, Space>): Promise<void> {
-	const space = getSpace(motor.payload.spaceId, spaces);
-	if (!space) {
-		nerve.sense.publish(err(motor, `enclosure: unknown spaceId: ${motor.payload.spaceId}`));
-		return;
-	}
-	try {
-		const paths = Array.isArray(motor.payload.paths) ? (motor.payload.paths as string[]) : undefined;
-		await space.commit(paths);
-		nerve.sense.publish(sense(motor, { committed: paths?.length ?? "all" }));
-	} catch (e) {
-		nerve.sense.publish(err(motor, `enclosure.commit: ${e instanceof Error ? e.message : String(e)}`));
-	}
+async function handleCommit(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+	const space = getSpace(ctx.payload.spaceId, spaces);
+	const paths = Array.isArray(ctx.payload.paths) ? (ctx.payload.paths as string[]) : undefined;
+	await space.commit(paths);
+	return { committed: paths?.length ?? "all" };
 }
 
-async function handleReset(motor: MotorEvent, nerve: CorpusNerve, spaces: Map<string, Space>): Promise<void> {
-	const space = getSpace(motor.payload.spaceId, spaces);
-	if (!space) {
-		nerve.sense.publish(err(motor, `enclosure: unknown spaceId: ${motor.payload.spaceId}`));
-		return;
-	}
-	try {
-		await space.reset();
-		nerve.sense.publish(sense(motor, { ok: true }));
-	} catch (e) {
-		nerve.sense.publish(err(motor, `enclosure.reset: ${e instanceof Error ? e.message : String(e)}`));
-	}
+async function handleReset(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+	const space = getSpace(ctx.payload.spaceId, spaces);
+	await space.reset();
+	return { ok: true };
 }
 
-async function handleSnapshot(motor: MotorEvent, nerve: CorpusNerve, spaces: Map<string, Space>): Promise<void> {
-	const space = getSpace(motor.payload.spaceId, spaces);
-	if (!space) {
-		nerve.sense.publish(err(motor, `enclosure: unknown spaceId: ${motor.payload.spaceId}`));
-		return;
-	}
-	const name = String(motor.payload.name ?? "");
-	if (!name) {
-		nerve.sense.publish(err(motor, "enclosure.snapshot: name is required"));
-		return;
-	}
-	try {
-		await space.snapshot(name);
-		nerve.sense.publish(sense(motor, { ok: true, name }));
-	} catch (e) {
-		nerve.sense.publish(err(motor, `enclosure.snapshot: ${e instanceof Error ? e.message : String(e)}`));
-	}
+async function handleSnapshot(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+	const space = getSpace(ctx.payload.spaceId, spaces);
+	const name = String(ctx.payload.name ?? "");
+	if (!name) throw new Error("enclosure.snapshot: name is required");
+	await space.snapshot(name);
+	return { ok: true, name };
 }
 
-async function handleRestore(motor: MotorEvent, nerve: CorpusNerve, spaces: Map<string, Space>): Promise<void> {
-	const space = getSpace(motor.payload.spaceId, spaces);
-	if (!space) {
-		nerve.sense.publish(err(motor, `enclosure: unknown spaceId: ${motor.payload.spaceId}`));
-		return;
-	}
-	const name = String(motor.payload.name ?? "");
-	if (!name) {
-		nerve.sense.publish(err(motor, "enclosure.restore: name is required"));
-		return;
-	}
-	try {
-		await space.restore(name);
-		nerve.sense.publish(sense(motor, { ok: true, name }));
-	} catch (e) {
-		nerve.sense.publish(err(motor, `enclosure.restore: ${e instanceof Error ? e.message : String(e)}`));
-	}
+async function handleRestore(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+	const space = getSpace(ctx.payload.spaceId, spaces);
+	const name = String(ctx.payload.name ?? "");
+	if (!name) throw new Error("enclosure.restore: name is required");
+	await space.restore(name);
+	return { ok: true, name };
 }
 
-async function handleExec(motor: MotorEvent, nerve: CorpusNerve, spaces: Map<string, Space>): Promise<void> {
-	const space = getSpace(motor.payload.spaceId, spaces);
-	if (!space) {
-		nerve.sense.publish(err(motor, `enclosure: unknown spaceId: ${motor.payload.spaceId}`));
-		return;
-	}
-	const command = Array.isArray(motor.payload.command) ? (motor.payload.command as string[]) : [];
-	if (!command.length) {
-		nerve.sense.publish(err(motor, "enclosure.exec: command is required"));
-		return;
-	}
+async function handleExec(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+	const space = getSpace(ctx.payload.spaceId, spaces);
+	const command = Array.isArray(ctx.payload.command) ? (ctx.payload.command as string[]) : [];
+	if (!command.length) throw new Error("enclosure.exec: command is required");
 	const opts: ExecOptions = {
-		confine: Boolean(motor.payload.confine ?? false),
-		timeoutMs: typeof motor.payload.timeoutMs === "number" ? motor.payload.timeoutMs : undefined,
-		memoryMaxBytes: typeof motor.payload.memoryMaxBytes === "number" ? motor.payload.memoryMaxBytes : undefined,
-		cpuQuotaUs: typeof motor.payload.cpuQuotaUs === "number" ? motor.payload.cpuQuotaUs : undefined,
+		confine: Boolean(ctx.payload.confine ?? false),
+		timeoutMs: typeof ctx.payload.timeoutMs === "number" ? ctx.payload.timeoutMs : undefined,
+		memoryMaxBytes: typeof ctx.payload.memoryMaxBytes === "number" ? ctx.payload.memoryMaxBytes : undefined,
+		cpuQuotaUs: typeof ctx.payload.cpuQuotaUs === "number" ? ctx.payload.cpuQuotaUs : undefined,
 	};
-	try {
-		const result = await space.exec(command, opts);
-		const isError = result.exitCode !== 0;
-		nerve.sense.publish(
-			sense(
-				motor,
-				{ exitCode: result.exitCode, output: result.output },
-				isError,
-				isError ? `exit code ${result.exitCode}` : undefined,
-			),
-		);
-	} catch (e) {
-		nerve.sense.publish(err(motor, `enclosure.exec: ${e instanceof Error ? e.message : String(e)}`));
-	}
+	const result = await space.exec(command, opts);
+	if (result.exitCode !== 0) throw new Error(`exit code ${result.exitCode}`);
+	return { exitCode: result.exitCode, output: result.output };
 }
 
-async function handleDestroy(motor: MotorEvent, nerve: CorpusNerve, spaces: Map<string, Space>): Promise<void> {
-	const spaceId = typeof motor.payload.spaceId === "string" ? motor.payload.spaceId : "";
-	const space = spaces.get(spaceId);
-	if (!space) {
-		nerve.sense.publish(err(motor, `enclosure: unknown spaceId: ${spaceId}`));
-		return;
-	}
-	try {
-		await space.destroy();
-		spaces.delete(spaceId);
-		nerve.sense.publish(sense(motor, { ok: true }));
-	} catch (e) {
-		nerve.sense.publish(err(motor, `enclosure.destroy: ${e instanceof Error ? e.message : String(e)}`));
-	}
+async function handleDestroy(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+	const space = getSpace(ctx.payload.spaceId, spaces);
+	await space.destroy();
+	const spaceId = String(ctx.payload.spaceId ?? "");
+	spaces.delete(spaceId);
+	return { ok: true };
 }

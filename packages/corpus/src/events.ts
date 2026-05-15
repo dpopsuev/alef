@@ -2,11 +2,11 @@ import type { ToolDefinition } from "@dpopsuev/alef-spine";
 
 declare module "@dpopsuev/alef-spine" {
 	interface MotorEventRegistry {
-		/** Corpus delivers a user text message to TextMessageOrgan. */
+		/** DialogOrgan delivers a user message to the agent. */
 		"text.input": { text: string; tools: ToolDefinition[] };
 	}
 	interface SenseEventRegistry {
-		/** TextMessageOrgan delivers the agent's final reply back to Corpus. */
+		/** Agent delivers reply via DialogOrgan. */
 		"text.message": { text: string };
 	}
 }

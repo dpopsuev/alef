@@ -1,5 +1,6 @@
 import { Corpus } from "@dpopsuev/alef-corpus";
 import { afterEach, describe, expect, it } from "vitest";
+import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { BusEventRecorder, MockLLMOrgan } from "../src/index.js";
 
 // ---------------------------------------------------------------------------
@@ -8,10 +9,11 @@ import { BusEventRecorder, MockLLMOrgan } from "../src/index.js";
 
 function makeHarness(cannedText = "mock response") {
 	const recorder = new BusEventRecorder();
-	const corpus = new Corpus({ timeoutMs: 1000 });
-	corpus.load(new MockLLMOrgan(cannedText));
+	const corpus = new Corpus();
+	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
+	corpus.load(dialog).load(new MockLLMOrgan(cannedText));
 	corpus.observe(recorder);
-	return { corpus, recorder, dispose: () => corpus.dispose() };
+	return { corpus, dialog, recorder, dispose: () => corpus.dispose() };
 }
 
 const harnesses: ReturnType<typeof makeHarness>[] = [];
@@ -29,20 +31,20 @@ function make(canned?: string) {
 // ---------------------------------------------------------------------------
 
 describe("MockLLMOrgan", () => {
-	it("corpus.prompt() resolves with canned text", async () => {
-		const { corpus } = make("hello from mock");
-		const reply = await corpus.prompt("hi");
+	it("dialog.send() resolves with canned text", async () => {
+		const { corpus: _corpus, dialog } = make("hello from mock");
+		const reply = await dialog.send("hi");
 		expect(reply).toBe("hello from mock");
 	});
 
 	it("canned text is configurable", async () => {
-		const { corpus } = make("custom reply");
-		expect(await corpus.prompt("anything")).toBe("custom reply");
+		const { corpus: _corpus, dialog } = make("custom reply");
+		expect(await dialog.send("anything")).toBe("custom reply");
 	});
 
 	it("emits Motor/dialog.message with canned text", async () => {
-		const { corpus, recorder } = make("response text");
-		await corpus.prompt("hi");
+		const { corpus: _corpus, dialog, recorder } = make("response text");
+		await dialog.send("hi");
 		const msg = recorder.assertMotorEmitted("dialog.message");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(payload.text).toBe("response text");
@@ -55,26 +57,26 @@ describe("MockLLMOrgan", () => {
 
 describe("BusEventRecorder", () => {
 	it("records Motor/dialog.message", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("ping");
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("ping");
 		recorder.assertMotorEmitted("dialog.message");
 	});
 
 	it("records Sense/dialog.message", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("ping");
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("ping");
 		recorder.assertSenseEmitted("dialog.message");
 	});
 
 	it("records Motor/dialog.message", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("ping");
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("ping");
 		recorder.assertMotorEmitted("dialog.message");
 	});
 
 	it("records Sense/dialog.message", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("ping");
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("ping");
 		recorder.assertSenseEmitted("dialog.message");
 	});
 
@@ -89,16 +91,16 @@ describe("BusEventRecorder", () => {
 	});
 
 	it("clear() resets all recorded events", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("first");
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("first");
 		recorder.clear();
 		expect(recorder.sense).toHaveLength(0);
 		expect(recorder.motor).toHaveLength(0);
 	});
 
 	it("assertCorrelationPaired passes when both buses carry the id", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("ping");
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("ping");
 		const msg = recorder.assertMotorEmitted("dialog.message");
 		expect(() => recorder.assertCorrelationPaired(msg.correlationId)).not.toThrow();
 	});
@@ -110,13 +112,13 @@ describe("BusEventRecorder", () => {
 
 describe("Harness round-trip", () => {
 	it("resolves with canned text", async () => {
-		const { corpus } = make("pong");
-		expect(await corpus.prompt("ping")).toBe("pong");
+		const { corpus: _corpus, dialog } = make("pong");
+		expect(await dialog.send("ping")).toBe("pong");
 	});
 
 	it("full event sequence: dialog.message → dialog.message → dialog.message → dialog.message", async () => {
-		const { corpus, recorder } = make("done");
-		await corpus.prompt("start");
+		const { corpus: _corpus, dialog, recorder } = make("done");
+		await dialog.send("start");
 
 		const motorTypes = recorder.motor.map((e) => e.type);
 		const senseTypes = recorder.sense.map((e) => e.type);

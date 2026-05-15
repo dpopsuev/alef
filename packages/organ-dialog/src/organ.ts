@@ -47,10 +47,16 @@ export type MessageSink = (text: string, sender: string) => void;
 
 export interface DialogOrganOptions {
 	/**
-	 * Called when the agent publishes Motor/"message".
+	 * Called when the agent publishes Motor/"dialog.message".
 	 * Defaults to console.log with a simple prefix.
 	 */
 	sink?: MessageSink;
+	/**
+	 * Returns the current tool definitions available to the LLM.
+	 * Pass () => corpus.tools so DialogOrgan includes the tool list
+	 * in each Sense/"dialog.message" payload.
+	 */
+	getTools?: () => readonly ToolDefinition[];
 }
 
 // ---------------------------------------------------------------------------
@@ -63,25 +69,45 @@ export class DialogOrgan implements CorpusOrgan {
 	readonly tools: readonly ToolDefinition[] = [MESSAGE_TOOL];
 
 	private readonly sink: MessageSink;
+	private readonly getTools: () => readonly ToolDefinition[];
 	private nerve: CorpusNerve | null = null;
+	private readonly pending = new Map<
+		string,
+		{ resolve: (text: string) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
+	>();
 
 	constructor(options: DialogOrganOptions = {}) {
 		this.sink = options.sink ?? ((text) => process.stdout.write(`agent: ${text}\n`));
+		this.getTools = options.getTools ?? (() => []);
 	}
 
 	mount(nerve: CorpusNerve): () => void {
 		this.nerve = nerve;
 
-		// Outbound: agent publishes Motor/"dialog.message" → deliver via sink
+		// Outbound: agent publishes Motor/"dialog.message" → deliver via sink + resolve pending send()
 		const off = nerve.motor.subscribe(DIALOG_MESSAGE, (event) => {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
 			this.sink(text, sender);
+
+			// Resolve any awaiting send() with matching correlationId
+			const pending = this.pending.get(event.correlationId);
+			if (pending) {
+				clearTimeout(pending.timer);
+				this.pending.delete(event.correlationId);
+				pending.resolve(text);
+			}
 		});
 
 		return () => {
 			off();
 			this.nerve = null;
+			// Reject any pending sends — organ was unmounted
+			for (const [, p] of this.pending) {
+				clearTimeout(p.timer);
+				p.reject(new Error("DialogOrgan: unmounted"));
+			}
+			this.pending.clear();
 		};
 	}
 
@@ -100,10 +126,27 @@ export class DialogOrgan implements CorpusOrgan {
 		if (!this.nerve) throw new Error("DialogOrgan: not mounted");
 		this.nerve.sense.publish({
 			type: DIALOG_MESSAGE,
-			payload: { text, sender },
+			payload: { text, sender, tools: this.getTools() },
 			correlationId,
 			timestamp: Date.now(),
 			isError: false,
+		});
+	}
+
+	/**
+	 * Send a message and await the agent's reply.
+	 * Replaces corpus.prompt() — the dialog organ owns request-reply tracking.
+	 */
+	send(text: string, sender = "human", timeoutMs = 30_000): Promise<string> {
+		if (!this.nerve) return Promise.reject(new Error("DialogOrgan: not mounted"));
+		const correlationId = randomUUID();
+		return new Promise<string>((resolve, reject) => {
+			const timer = setTimeout(() => {
+				this.pending.delete(correlationId);
+				reject(new Error(`DialogOrgan.send timed out after ${timeoutMs}ms`));
+			}, timeoutMs);
+			this.pending.set(correlationId, { resolve, reject, timer });
+			this.receive(text, sender, correlationId);
 		});
 	}
 

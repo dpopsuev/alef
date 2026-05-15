@@ -61,7 +61,7 @@ export interface SignalEvent extends NerveEvent {
 // CorpusNerve — given to CorpusOrgans (organs that mutate the world).
 //   Body organs cross the external boundary: files, processes, users.
 //   Subscribes Motor (commands), publishes Sense (results).
-//   Example: FilesystemOrgan, ShellOrgan, TextMessageOrgan.
+//   Example: FilesystemOrgan, ShellOrgan, DialogOrgan.
 // ---------------------------------------------------------------------------
 
 type MotorHandler = (event: MotorEvent) => void | Promise<void>;

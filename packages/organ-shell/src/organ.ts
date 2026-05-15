@@ -1,25 +1,21 @@
 /**
- * ShellCorpusOrgan — ShellOrgan as a CorpusOrgan.
+ * ShellOrgan — shell execution CorpusOrgan.
  *
- * Subscribes Motor/"shell.exec", executes the command, publishes
- * Sense/"shell.exec" with stdout+stderr and exit code.
- *
- * Note: this is the non-streaming path. The bash tool in coding-agent
- * has its own streaming via onUpdate for TUI use. This organ handles
- * headless/bus-routed execution.
+ * shell.exec — streaming: yields chunks as they arrive via spawn(),
+ *              final event carries exitCode + isFinal: true.
  */
-import type { CorpusNerve, CorpusOrgan, MotorEvent, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import { spawn } from "node:child_process";
+import type { CorpusHandlerCtx, CorpusOrgan } from "@dpopsuev/alef-spine";
+import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import { getShellEnv } from "./shell.js";
-import { createPlatformShellAdapter } from "./shell-adapter.js";
 
 // ---------------------------------------------------------------------------
 // Tool definition
 // ---------------------------------------------------------------------------
 
-const SHELL_EXEC_TOOL: ToolDefinition = {
+const SHELL_EXEC_TOOL = {
 	name: "shell.exec",
-	description:
-		"Execute a shell command and return stdout+stderr. Non-streaming. Use for headless/scripted execution. For interactive TUI sessions use the bash tool instead.",
+	description: "Execute a shell command. Streams stdout+stderr as chunks arrive. Final event carries exitCode.",
 	inputSchema: {
 		type: "object",
 		properties: {
@@ -28,110 +24,100 @@ const SHELL_EXEC_TOOL: ToolDefinition = {
 		},
 		required: ["command"],
 	},
-};
+} as const;
 
 // ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
 
 export interface ShellOrganOptions {
-	/** Working directory for command execution. */
 	cwd: string;
-	/** Optional shell path override. */
 	shellPath?: string;
-	/** Optional shell command prefix. */
 	commandPrefix?: string;
-	/** Optional bin dir to inject into PATH. */
 	binDir?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Streaming handler
 // ---------------------------------------------------------------------------
 
-function makeSense(
-	motor: MotorEvent,
-	payload: Record<string, unknown>,
-	isError = false,
-	errorMessage?: string,
-): SenseEvent {
-	// Mirror toolCallId if present so LLMOrgan can correlate tool results.
-	const toolCallId = typeof motor.payload.toolCallId === "string" ? motor.payload.toolCallId : undefined;
-	return {
-		type: motor.type,
-		correlationId: motor.correlationId,
-		timestamp: Date.now(),
-		payload: toolCallId ? { ...payload, toolCallId } : payload,
-		isError,
-		errorMessage,
-	};
-}
-
-// ---------------------------------------------------------------------------
-// Action handler
-// ---------------------------------------------------------------------------
-
-async function handleExec(motor: MotorEvent, nerve: CorpusNerve, opts: ShellOrganOptions): Promise<void> {
-	const args = motor.payload;
-	const command = String(args.command ?? "");
-	const timeout = typeof args.timeout === "number" ? args.timeout : undefined;
+async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): AsyncIterable<Record<string, unknown>> {
+	const command = String(ctx.payload.command ?? "");
+	if (!command) throw new Error("shell.exec: command is required");
+	const timeoutMs = typeof ctx.payload.timeout === "number" ? ctx.payload.timeout * 1000 : undefined;
 	const resolvedCommand = opts.commandPrefix ? `${opts.commandPrefix}\n${command}` : command;
 
+	const shell = opts.shellPath ?? (process.platform === "win32" ? "cmd.exe" : "/bin/sh");
+	const args = process.platform === "win32" ? ["/c", resolvedCommand] : ["-c", resolvedCommand];
+
+	const child = spawn(shell, args, {
+		cwd: opts.cwd,
+		env: { ...getShellEnv({ binDir: opts.binDir }) },
+	});
+
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	if (timeoutMs) {
+		timer = setTimeout(() => {
+			child.kill("SIGTERM");
+		}, timeoutMs);
+	}
+
 	try {
-		const adapter = createPlatformShellAdapter();
+		// Yield stdout/stderr chunks as they arrive
 		const chunks: Buffer[] = [];
+		let exitCode = 0;
 
-		const { exitCode } = await adapter.execute({
-			command: resolvedCommand,
-			cwd: opts.cwd,
-			onData: (data) => chunks.push(data),
-			timeout,
-			shellPath: opts.shellPath,
-			env: getShellEnv({ binDir: opts.binDir }),
-		});
+		yield* (async function* () {
+			const dataQueue: Buffer[] = [];
+			let resolve: (() => void) | null = null;
+			let done = false;
 
-		const text = Buffer.concat(chunks).toString("utf-8");
-		const ok = exitCode === 0 || exitCode === null;
+			const push = (buf: Buffer) => {
+				dataQueue.push(buf);
+				resolve?.();
+			};
 
-		nerve.sense.publish(
-			makeSense(
-				motor,
-				{ text: text || "(no output)", exitCode: exitCode ?? 0 },
-				!ok,
-				!ok ? `Exit code ${exitCode}` : undefined,
-			),
-		);
-	} catch (err) {
-		nerve.sense.publish(
-			makeSense(motor, { text: "", exitCode: -1 }, true, err instanceof Error ? err.message : String(err)),
-		);
+			child.stdout?.on("data", push);
+			child.stderr?.on("data", push);
+
+			child.on("close", (code) => {
+				exitCode = code ?? 0;
+				done = true;
+				resolve?.();
+			});
+
+			while (!done || dataQueue.length > 0) {
+				if (dataQueue.length === 0) {
+					await new Promise<void>((r) => {
+						resolve = r;
+					});
+					resolve = null;
+				}
+				while (dataQueue.length > 0) {
+					const buf = dataQueue.shift()!;
+					chunks.push(buf);
+					yield { chunk: buf.toString("utf-8") };
+				}
+			}
+
+			// Final event with full output summary + exitCode
+			const output = Buffer.concat(chunks).toString("utf-8");
+			if (exitCode !== 0) {
+				throw Object.assign(new Error(`exit code ${exitCode}`), { exitCode, output });
+			}
+			yield { output, exitCode };
+		})();
+	} finally {
+		if (timer) clearTimeout(timer);
 	}
 }
 
 // ---------------------------------------------------------------------------
-// CorpusOrgan factory
+// Factory
 // ---------------------------------------------------------------------------
 
-/**
- * Create the shell organ as a CorpusOrgan.
- *
- * @example
- * ```typescript
- * import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
- * import { Corpus } from "@dpopsuev/alef-corpus";
- *
- * const corpus = new Corpus();
- * corpus.load(createShellOrgan({ cwd: process.cwd() }));
- * ```
- */
 export function createShellOrgan(options: ShellOrganOptions): CorpusOrgan {
-	return {
-		kind: "corpus",
-		name: "shell",
-		tools: [SHELL_EXEC_TOOL],
-
-		mount(nerve: CorpusNerve): () => void {
-			return nerve.motor.subscribe("shell.exec", (event) => handleExec(event, nerve, options));
-		},
-	};
+	return defineCorpusOrgan("shell", {
+		"shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
+	});
 }

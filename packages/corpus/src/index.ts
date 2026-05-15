@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
 	type CerebrumOrgan,
 	type CorpusOrgan,
@@ -9,20 +8,6 @@ import {
 
 // Corpus event type constants
 export const DIALOG_MESSAGE = "dialog.message" as const;
-
-// ---------------------------------------------------------------------------
-// CorpusTimeoutError
-// ---------------------------------------------------------------------------
-
-export class CorpusTimeoutError extends Error {
-	constructor(text: string, timeoutMs: number) {
-		super(
-			`Corpus.prompt() timed out after ${timeoutMs}ms. ` +
-				`Prompt: "${text.length > 60 ? `${text.slice(0, 60)}…` : text}"`,
-		);
-		this.name = "CorpusTimeoutError";
-	}
-}
 
 // ---------------------------------------------------------------------------
 // BusObserver — full read access to the Nerve for observability tools.
@@ -43,26 +28,20 @@ export interface BusObserver {
 //  - Loads organs: mounts them onto the correct Nerve view based on kind.
 //    CerebrumOrgans (mutate agent) → CerebrumNerve (sense.subscribe, motor.publish)
 //    CorpusOrgans  (mutate world)  → CorpusNerve  (motor.subscribe, sense.publish)
-//  - Collects ToolDefinition from all loaded organs for LLMOrgan's prompts.
-//  - prompt(): injects Motor/"dialog.message", awaits Sense/"dialog.message".
+//  - Collects ToolDefinition from all loaded organs.
 //  - observe(): attaches a BusObserver (e.g. BusEventRecorder in tests).
 //  - dispose(): tears down all subscriptions cleanly.
 // ---------------------------------------------------------------------------
 
-export interface CorpusOptions {
-	timeoutMs?: number;
-}
+/** Reserved for future Corpus configuration. */
+export interface CorpusOptions {}
 
 export class Corpus {
 	private readonly nerve = new InProcessNerve();
 	private readonly unmounts: Array<() => void> = [];
-	private readonly tools: ToolDefinition[] = [];
+	/** Tool definitions collected from all loaded organs. */
+	readonly tools: ToolDefinition[] = [];
 	private disposed = false;
-	private readonly defaultTimeoutMs: number;
-
-	constructor(options: CorpusOptions = {}) {
-		this.defaultTimeoutMs = options.timeoutMs ?? 30_000;
-	}
 
 	/**
 	 * Load a CerebrumOrgan or CorpusOrgan onto the Spine.
@@ -100,54 +79,6 @@ export class Corpus {
 		};
 		this.unmounts.push(off);
 		return off;
-	}
-
-	/**
-	 * Send a text prompt into the Corpus (test/embedding convenience).
-	 *
-	 * Publishes Sense/"dialog.message" directly — bypasses Motor bus.
-	 * Awaits Motor/"dialog.message" reply with matching correlationId.
-	 *
-	 * For production use, mount a DialogOrgan and call organ.receive().
-	 */
-	prompt(text: string, options: { timeoutMs?: number } = {}): Promise<string> {
-		if (this.disposed) return Promise.reject(new Error("Corpus is disposed."));
-
-		const correlationId = randomUUID();
-		const timeoutMs = options.timeoutMs ?? this.defaultTimeoutMs;
-
-		return new Promise<string>((resolve, reject) => {
-			let timer: ReturnType<typeof setTimeout> | undefined;
-			let off: (() => void) | undefined;
-
-			const cleanup = () => {
-				off?.();
-				if (timer !== undefined) clearTimeout(timer);
-			};
-
-			// Await Motor/"dialog.message" — the agent's outbound reply.
-			off = this.nerve.onAnyMotor((event) => {
-				if (event.type === DIALOG_MESSAGE && event.correlationId === correlationId) {
-					cleanup();
-					const payload = (event as unknown as { payload: Record<string, unknown> }).payload;
-					resolve(typeof payload.text === "string" ? payload.text : "");
-				}
-			});
-
-			timer = setTimeout(() => {
-				cleanup();
-				reject(new CorpusTimeoutError(text, timeoutMs));
-			}, timeoutMs);
-
-			// Inject Sense/"dialog.message" directly — no Motor intermediary.
-			this.nerve.publishSense({
-				type: DIALOG_MESSAGE,
-				payload: { text, sender: "human", tools: [...this.tools] },
-				correlationId,
-				timestamp: Date.now(),
-				isError: false,
-			});
-		});
 	}
 
 	dispose(): void {

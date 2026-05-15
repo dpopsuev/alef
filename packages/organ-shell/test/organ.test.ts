@@ -8,20 +8,23 @@ function makeNerve() {
 	return { nerve, corpus: nerve.asCorpusNerve(), cerebrum: nerve.asCerebrumNerve() };
 }
 
-function publishMotor(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
-	nerve.asCerebrumNerve().motor.publish({
-		type,
-		correlationId: `test-${Math.random().toString(36).slice(2)}`,
-		timestamp: Date.now(),
-		payload,
-	});
+function publishMotor(
+	nerve: InProcessNerve,
+	type: string,
+	payload: Record<string, unknown>,
+	correlationId = "test-corr",
+) {
+	nerve.asCerebrumNerve().motor.publish({ type, correlationId, timestamp: Date.now(), payload });
 }
 
-function waitForSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
+/** Collect Sense events until isFinal: true, return the final event. */
+function waitForFinalSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
 	return new Promise((resolve) => {
 		const unsub = nerve.asCerebrumNerve().sense.subscribe(type, (event) => {
-			unsub();
-			resolve(event);
+			if ((event.payload as { isFinal?: boolean }).isFinal || event.isError) {
+				unsub();
+				resolve(event);
+			}
 		});
 	});
 }
@@ -44,51 +47,46 @@ describe("ShellCorpusOrgan", () => {
 		expect(nerve.listenerCount("motor", "shell.exec")).toBe(0);
 	});
 
-	it("executes a command and publishes Sense/shell.exec", async () => {
+	it("executes a command and streams Sense/shell.exec, final has output", async () => {
 		const { nerve, corpus } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		const unmount = organ.mount(corpus);
 
-		const resultP = waitForSense(nerve, "shell.exec");
+		const finalP = waitForFinalSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "echo hello" });
-		const result = await resultP;
+		const final = await finalP;
 
-		expect(result.isError).toBe(false);
-		expect(result.payload.text).toContain("hello");
-		expect(result.payload.exitCode).toBe(0);
+		expect(final.isError).toBe(false);
+		expect(final.payload.isFinal).toBe(true);
+		const output = String(final.payload.output ?? "");
+		expect(output).toContain("hello");
 		unmount();
 	});
 
-	it("mirrors correlationId from motor event", async () => {
+	it("mirrors correlationId across all streaming events", async () => {
 		const { nerve, corpus } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		const unmount = organ.mount(corpus);
-		const correlationId = "corr-123";
+		const correlationId = "corr-stream";
 
-		const resultP = waitForSense(nerve, "shell.exec");
-		nerve.asCerebrumNerve().motor.publish({
-			type: "shell.exec",
-			correlationId,
-			timestamp: Date.now(),
-			payload: { command: "echo test" },
-		});
-		const result = await resultP;
+		const finalP = waitForFinalSense(nerve, "shell.exec");
+		publishMotor(nerve, "shell.exec", { command: "echo test" }, correlationId);
+		const final = await finalP;
 
-		expect(result.correlationId).toBe(correlationId);
+		expect(final.correlationId).toBe(correlationId);
 		unmount();
 	});
 
-	it("reports non-zero exit code as isError", async () => {
+	it("reports non-zero exit code as isError on final event", async () => {
 		const { nerve, corpus } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		const unmount = organ.mount(corpus);
 
-		const resultP = waitForSense(nerve, "shell.exec");
+		const finalP = waitForFinalSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "exit 1" });
-		const result = await resultP;
+		const final = await finalP;
 
-		expect(result.isError).toBe(true);
-		expect(result.payload.exitCode).toBe(1);
+		expect(final.isError).toBe(true);
 		unmount();
 	});
 
@@ -97,12 +95,13 @@ describe("ShellCorpusOrgan", () => {
 		const organ = createShellOrgan({ cwd: process.cwd(), commandPrefix: "export MYVAR=prefixed" });
 		const unmount = organ.mount(corpus);
 
-		const resultP = waitForSense(nerve, "shell.exec");
+		const finalP = waitForFinalSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "echo $MYVAR" });
-		const result = await resultP;
+		const final = await finalP;
 
-		expect(result.isError).toBe(false);
-		expect(result.payload.text).toContain("prefixed");
+		expect(final.isError).toBe(false);
+		const output = String(final.payload.output ?? "");
+		expect(output).toContain("prefixed");
 		unmount();
 	});
 });

@@ -1,7 +1,7 @@
 import { Corpus } from "@dpopsuev/alef-corpus";
-import { TextMessageOrgan } from "@dpopsuev/alef-organ-text-message";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
+import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { LLMOrgan } from "../src/index.js";
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
@@ -23,10 +23,11 @@ function makeModel() {
 
 function makeHarness() {
 	const recorder = new BusEventRecorder();
-	const corpus = new Corpus({ timeoutMs: 60_000 });
-	corpus.load(new TextMessageOrgan()).load(new LLMOrgan({ model: makeModel() }));
+	const corpus = new Corpus();
+	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
+	corpus.load(dialog).load(new LLMOrgan({ model: makeModel() }));
 	corpus.observe(recorder);
-	return { corpus, recorder, dispose: () => corpus.dispose() };
+	return { corpus, dialog, recorder, dispose: () => corpus.dispose() };
 }
 
 const harnesses: ReturnType<typeof makeHarness>[] = [];
@@ -40,41 +41,41 @@ function make() {
 }
 
 describe.skipIf(SKIP)("LLMOrgan — real API", () => {
-	it("resolves corpus.prompt() with a non-empty reply", async () => {
-		const { corpus } = make();
-		const reply = await corpus.prompt("Respond with exactly: HEALTH_CHECK_OK");
+	it("resolves dialog.send() with a non-empty reply", async () => {
+		const { corpus: _corpus, dialog } = make();
+		const reply = await dialog.send("Respond with exactly: HEALTH_CHECK_OK");
 		expect(reply.length).toBeGreaterThan(0);
 		expect(reply).toContain("HEALTH_CHECK_OK");
 	}, 30_000);
 
 	it("emits the full event sequence on all buses", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("Say hi in one word.");
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("Say hi in one word.");
 
-		recorder.assertMotorEmitted("text.input");
-		recorder.assertSenseEmitted("text.input");
-		recorder.assertMotorEmitted("text.message");
-		recorder.assertSenseEmitted("text.message");
+		recorder.assertMotorEmitted("dialog.message");
+		recorder.assertSenseEmitted("dialog.message");
+		recorder.assertMotorEmitted("dialog.message");
+		recorder.assertSenseEmitted("dialog.message");
 	}, 30_000);
 
-	it("text.message args contain the reply text", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("What is 2+2? Reply with just the number.");
+	it("dialog.message args contain the reply text", async () => {
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("What is 2+2? Reply with just the number.");
 
-		const msg = recorder.assertMotorEmitted("text.message");
+		const msg = recorder.assertMotorEmitted("dialog.message");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(typeof payload.text).toBe("string");
 		expect(payload.text.length).toBeGreaterThan(0);
 	}, 30_000);
 
 	it("all turn events share the same correlationId", async () => {
-		const { corpus, recorder } = make();
-		await corpus.prompt("Say yes.");
+		const { corpus: _corpus, dialog, recorder } = make();
+		await dialog.send("Say yes.");
 
-		const input = recorder.assertMotorEmitted("text.input");
-		const prompt = recorder.assertSenseEmitted("text.input");
-		const msg = recorder.assertMotorEmitted("text.message");
-		const reply = recorder.assertSenseEmitted("text.message");
+		const input = recorder.assertMotorEmitted("dialog.message");
+		const prompt = recorder.assertSenseEmitted("dialog.message");
+		const msg = recorder.assertMotorEmitted("dialog.message");
+		const reply = recorder.assertSenseEmitted("dialog.message");
 
 		expect(prompt.correlationId).toBe(input.correlationId);
 		expect(msg.correlationId).toBe(input.correlationId);

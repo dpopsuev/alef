@@ -26,66 +26,66 @@ function make(canned?: string) {
 // ---------------------------------------------------------------------------
 
 describe("TextMessageOrgan — tool definition", () => {
-	it("exposes text.message as its only tool", () => {
+	it("exposes dialog.message as its only tool", () => {
 		const organ = new TextMessageOrgan();
 		expect(organ.tools).toHaveLength(1);
-		expect(organ.tools[0]?.name).toBe("text.message");
+		expect(organ.tools[0]?.name).toBe("dialog.message");
 	});
 
 	it("kind is corpus", () => {
 		expect(new TextMessageOrgan().kind).toBe("corpus");
 	});
 
-	it("text.message tool definition is included in text.input tools", async () => {
+	it("dialog.message tool definition is included in dialog.message tools", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("hi");
 
-		const req = recorder.assertSenseEmitted("text.input");
+		const req = recorder.assertSenseEmitted("dialog.message");
 		const payload = (req as unknown as { payload: { tools: { name: string }[] } }).payload;
-		expect(payload.tools.some((t) => t.name === "text.message")).toBe(true);
+		expect(payload.tools.some((t) => t.name === "dialog.message")).toBe(true);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// text.input → text.input
+// dialog.message → dialog.message
 // ---------------------------------------------------------------------------
 
-describe("TextMessageOrgan — text.input → text.input", () => {
-	it("emits text.input when text.input arrives", async () => {
+describe("TextMessageOrgan — dialog.message → dialog.message", () => {
+	it("emits dialog.message when dialog.message arrives", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("hello");
-		recorder.assertSenseEmitted("text.input");
+		recorder.assertSenseEmitted("dialog.message");
 	});
 
-	it("text.input carries user text as message content", async () => {
+	it("dialog.message carries user text as message content", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("what time is it?");
 
-		const req = recorder.assertSenseEmitted("text.input");
+		const req = recorder.assertSenseEmitted("dialog.message");
 		const payload = (req as unknown as { payload: { messages: { role: string; content: string }[] } }).payload;
 		expect(payload.messages[0]?.role).toBe("user");
 		expect(payload.messages[0]?.content).toBe("what time is it?");
 	});
 
-	it("text.input carries the same correlationId as text.input", async () => {
+	it("dialog.message carries the same correlationId as dialog.message", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("test");
 
-		const motor = recorder.assertMotorEmitted("text.input");
-		const sense = recorder.assertSenseEmitted("text.input");
+		const motor = recorder.assertMotorEmitted("dialog.message");
+		const sense = recorder.assertSenseEmitted("dialog.message");
 		expect(sense.correlationId).toBe(motor.correlationId);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// text.message → text.message
+// dialog.message → dialog.message
 // ---------------------------------------------------------------------------
 
-describe("TextMessageOrgan — text.message → text.message", () => {
-	it("emits text.message when text.message arrives", async () => {
+describe("TextMessageOrgan — dialog.message → dialog.message", () => {
+	it("emits dialog.message when dialog.message arrives", async () => {
 		const { corpus, recorder } = make("response text");
 		await corpus.prompt("hi");
-		recorder.assertSenseEmitted("text.message");
+		recorder.assertSenseEmitted("dialog.message");
 	});
 
 	it("corpus.prompt() resolves with canned text", async () => {
@@ -93,12 +93,12 @@ describe("TextMessageOrgan — text.message → text.message", () => {
 		expect(await corpus.prompt("what is the answer?")).toBe("the answer is 42");
 	});
 
-	it("text.message carries same correlationId as text.message", async () => {
+	it("dialog.message carries same correlationId as dialog.message", async () => {
 		const { corpus, recorder } = make();
 		await corpus.prompt("test");
 
-		const msg = recorder.assertMotorEmitted("text.message");
-		const reply = recorder.assertSenseEmitted("text.message");
+		const msg = recorder.assertMotorEmitted("dialog.message");
+		const reply = recorder.assertSenseEmitted("dialog.message");
 		expect(reply.correlationId).toBe(msg.correlationId);
 	});
 });
@@ -126,9 +126,9 @@ describe("TextMessageOrgan — full round-trip", () => {
 		const motorTypes = recorder.motor.map((e) => e.type);
 		const senseTypes = recorder.sense.map((e) => e.type);
 
-		expect(motorTypes).toContain("text.input");
-		expect(senseTypes).toContain("text.input");
-		expect(motorTypes).toContain("text.message");
-		expect(senseTypes).toContain("text.message");
+		expect(motorTypes).toContain("dialog.message");
+		expect(senseTypes).toContain("dialog.message");
+		expect(motorTypes).toContain("dialog.message");
+		expect(senseTypes).toContain("dialog.message");
 	});
 });

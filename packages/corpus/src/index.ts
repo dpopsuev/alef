@@ -8,8 +8,7 @@ import {
 } from "@dpopsuev/alef-spine";
 
 // Corpus event type constants
-export const MOTOR_TEXT_INPUT = "text.input" as const;
-export const SENSE_TEXT_MESSAGE = "text.message" as const;
+export const DIALOG_MESSAGE = "dialog.message" as const;
 
 // ---------------------------------------------------------------------------
 // CorpusTimeoutError
@@ -45,7 +44,7 @@ export interface BusObserver {
 //    CerebrumOrgans (mutate agent) → CerebrumNerve (sense.subscribe, motor.publish)
 //    CorpusOrgans  (mutate world)  → CorpusNerve  (motor.subscribe, sense.publish)
 //  - Collects ToolDefinition from all loaded organs for LLMOrgan's prompts.
-//  - prompt(): injects Motor/"text.input", awaits Sense/"text.message".
+//  - prompt(): injects Motor/"dialog.message", awaits Sense/"dialog.message".
 //  - observe(): attaches a BusObserver (e.g. BusEventRecorder in tests).
 //  - dispose(): tears down all subscriptions cleanly.
 // ---------------------------------------------------------------------------
@@ -104,9 +103,12 @@ export class Corpus {
 	}
 
 	/**
-	 * Send a text prompt into the Corpus.
-	 * Publishes Motor/"text.input" with the current tool list,
-	 * then awaits Sense/"text.message" with the matching correlationId.
+	 * Send a text prompt into the Corpus (test/embedding convenience).
+	 *
+	 * Publishes Sense/"dialog.message" directly — bypasses Motor bus.
+	 * Awaits Motor/"dialog.message" reply with matching correlationId.
+	 *
+	 * For production use, mount a DialogOrgan and call organ.receive().
 	 */
 	prompt(text: string, options: { timeoutMs?: number } = {}): Promise<string> {
 		if (this.disposed) return Promise.reject(new Error("Corpus is disposed."));
@@ -123,12 +125,12 @@ export class Corpus {
 				if (timer !== undefined) clearTimeout(timer);
 			};
 
-			// Subscribe BEFORE emitting to avoid missing an immediate reply.
-			off = this.nerve.subscribeSense("text.message", (event) => {
-				if (event.correlationId === correlationId) {
+			// Await Motor/"dialog.message" — the agent's outbound reply.
+			off = this.nerve.onAnyMotor((event) => {
+				if (event.type === DIALOG_MESSAGE && event.correlationId === correlationId) {
 					cleanup();
-					const text = typeof event.payload.text === "string" ? event.payload.text : "";
-					resolve(text);
+					const payload = (event as unknown as { payload: Record<string, unknown> }).payload;
+					resolve(typeof payload.text === "string" ? payload.text : "");
 				}
 			});
 
@@ -137,11 +139,13 @@ export class Corpus {
 				reject(new CorpusTimeoutError(text, timeoutMs));
 			}, timeoutMs);
 
-			this.nerve.publishMotor({
-				type: "text.input",
-				payload: { text, tools: [...this.tools] },
+			// Inject Sense/"dialog.message" directly — no Motor intermediary.
+			this.nerve.publishSense({
+				type: DIALOG_MESSAGE,
+				payload: { text, sender: "human", tools: [...this.tools] },
 				correlationId,
 				timestamp: Date.now(),
+				isError: false,
 			});
 		});
 	}

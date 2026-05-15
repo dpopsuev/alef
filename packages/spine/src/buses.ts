@@ -180,6 +180,10 @@ export class InProcessNerve {
 		return this._sense.on(type, handler as (e: NerveEvent) => void | Promise<void>);
 	}
 
+	publishSense(event: SenseEvent): void {
+		this._sense.emit(event);
+	}
+
 	publishSignal(event: SignalEvent): void {
 		this._signal.emit(event);
 	}

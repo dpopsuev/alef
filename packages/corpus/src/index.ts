@@ -17,7 +17,6 @@ export const DIALOG_MESSAGE = "dialog.message" as const;
 export interface BusObserver {
 	onMotorEvent(event: NerveEvent): void;
 	onSenseEvent(event: NerveEvent): void;
-	onSignalEvent(event: NerveEvent): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,9 +68,6 @@ export class Corpus {
 			}),
 			this.nerve.onAnySense((e) => {
 				observer.onSenseEvent(e);
-			}),
-			this.nerve.onAnySignal((e) => {
-				observer.onSignalEvent(e);
 			}),
 		];
 		const off = () => {

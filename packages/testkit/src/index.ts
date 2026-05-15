@@ -37,7 +37,6 @@ export class MockLLMOrgan implements CerebrumOrgan {
 export class BusEventRecorder implements BusObserver {
 	private readonly _motor: NerveEvent[] = [];
 	private readonly _sense: NerveEvent[] = [];
-	private readonly _signal: NerveEvent[] = [];
 
 	onMotorEvent(event: NerveEvent): void {
 		this._motor.push(event);
@@ -45,18 +44,12 @@ export class BusEventRecorder implements BusObserver {
 	onSenseEvent(event: NerveEvent): void {
 		this._sense.push(event);
 	}
-	onSignalEvent(event: NerveEvent): void {
-		this._signal.push(event);
-	}
 
 	get motor(): readonly NerveEvent[] {
 		return this._motor;
 	}
 	get sense(): readonly NerveEvent[] {
 		return this._sense;
-	}
-	get signal(): readonly NerveEvent[] {
-		return this._signal;
 	}
 
 	assertSenseEmitted(type: string): NerveEvent {
@@ -112,6 +105,5 @@ export class BusEventRecorder implements BusObserver {
 	clear(): void {
 		this._motor.length = 0;
 		this._sense.length = 0;
-		this._signal.length = 0;
 	}
 }

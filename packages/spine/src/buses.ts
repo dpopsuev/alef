@@ -42,14 +42,6 @@ export interface SenseEvent extends NerveEvent {
 	readonly errorMessage?: string;
 }
 
-export interface SignalEvent extends NerveEvent {
-	readonly type: "signal";
-	readonly signal: "execute" | "result.ok" | "result.error";
-	readonly organ?: string;
-	readonly eventType?: string;
-	readonly details?: string;
-}
-
 // ---------------------------------------------------------------------------
 // Nerve interfaces — ISP-segregated by mutation target.
 //
@@ -74,9 +66,6 @@ export interface CerebrumNerve {
 	readonly motor: {
 		publish(event: MotorEvent): void;
 	};
-	readonly signal: {
-		publish(event: SignalEvent): void;
-	};
 }
 
 export interface CorpusNerve {
@@ -85,9 +74,6 @@ export interface CorpusNerve {
 	};
 	readonly sense: {
 		publish(event: SenseEvent): void;
-	};
-	readonly signal: {
-		publish(event: SignalEvent): void;
 	};
 }
 
@@ -150,14 +136,12 @@ class InProcessBus {
 export class InProcessNerve {
 	private readonly _sense = new InProcessBus();
 	private readonly _motor = new InProcessBus();
-	private readonly _signal = new InProcessBus();
 
 	/** View for CerebrumOrgans: subscribe Sense, publish Motor. */
 	asCerebrumNerve(): CerebrumNerve {
 		return {
 			sense: { subscribe: (type, h) => this._sense.on(type, h as (e: NerveEvent) => void | Promise<void>) },
 			motor: { publish: (e) => this._motor.emit(e) },
-			signal: { publish: (e) => this._signal.emit(e) },
 		};
 	}
 
@@ -166,7 +150,6 @@ export class InProcessNerve {
 		return {
 			motor: { subscribe: (type, h) => this._motor.on(type, h as (e: NerveEvent) => void | Promise<void>) },
 			sense: { publish: (e) => this._sense.emit(e) },
-			signal: { publish: (e) => this._signal.emit(e) },
 		};
 	}
 
@@ -184,11 +167,7 @@ export class InProcessNerve {
 		this._sense.emit(event);
 	}
 
-	publishSignal(event: SignalEvent): void {
-		this._signal.emit(event);
-	}
-
-	// ── Wildcard subscriptions for observability (BusEventRecorder) ────────
+	// ── Wildcard subscriptions for observability ────────────────────────────
 
 	onAnyMotor(handler: (event: NerveEvent) => void): () => void {
 		return this._motor.on("*", handler);
@@ -198,16 +177,8 @@ export class InProcessNerve {
 		return this._sense.on("*", handler);
 	}
 
-	onAnySignal(handler: (event: NerveEvent) => void): () => void {
-		return this._signal.on("*", handler);
-	}
-
-	listenerCount(bus: "sense" | "motor" | "signal", type: string): number {
-		return bus === "sense"
-			? this._sense.listenerCount(type)
-			: bus === "motor"
-				? this._motor.listenerCount(type)
-				: this._signal.listenerCount(type);
+	listenerCount(bus: "sense" | "motor", type: string): number {
+		return bus === "sense" ? this._sense.listenerCount(type) : this._motor.listenerCount(type);
 	}
 }
 

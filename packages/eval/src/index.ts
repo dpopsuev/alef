@@ -8,3 +8,4 @@ export {
 	scoreSpans,
 	WRITE_RULES,
 } from "./metrics.js";
+export { getEvalModel, SKIP_REAL_LLM } from "./model.js";

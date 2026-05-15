@@ -14,7 +14,7 @@
 
 import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Corpus } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
@@ -110,9 +110,11 @@ export class EvalHarness {
 		try {
 			const ctx: ScenarioContext = {
 				workspace,
-				send: (text) => dialog.send(text),
+				send: (text) => dialog.send(text, "human", 120_000),
 				writeFile: async (rel, content) => {
-					await writeFile(join(workspace, rel), content, "utf-8");
+					const abs = join(workspace, rel);
+					await mkdir(dirname(abs), { recursive: true });
+					await writeFile(abs, content, "utf-8");
 				},
 				readFile: async (rel) => fsReadFile(join(workspace, rel), "utf-8"),
 			};

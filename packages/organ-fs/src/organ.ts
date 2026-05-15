@@ -6,7 +6,7 @@
  *   fs.grep   — ripgrep content search
  *   fs.find   — fd file-find
  */
-import { readFile as fsReadFile } from "node:fs/promises";
+import { readFile as fsReadFile, writeFile as fsWriteFile } from "node:fs/promises";
 import { isAbsolute, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
@@ -78,6 +78,34 @@ const FS_FIND_TOOL = {
 	},
 } as const;
 
+const FS_WRITE_TOOL = {
+	name: "fs.write",
+	description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
+	inputSchema: {
+		type: "object",
+		properties: {
+			path: { type: "string", description: "Path to the file (relative or absolute)" },
+			content: { type: "string", description: "Content to write" },
+		},
+		required: ["path", "content"],
+	},
+} as const;
+
+const FS_EDIT_TOOL = {
+	name: "fs.edit",
+	description:
+		"Replace the first exact occurrence of oldText with newText in a file. Throws if oldText is not found or is not unique.",
+	inputSchema: {
+		type: "object",
+		properties: {
+			path: { type: "string", description: "Path to the file (relative or absolute)" },
+			oldText: { type: "string", description: "Exact text to find and replace" },
+			newText: { type: "string", description: "Replacement text" },
+		},
+		required: ["path", "oldText", "newText"],
+	},
+} as const;
+
 // ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
@@ -124,6 +152,37 @@ async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 	};
 }
 
+async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
+	const filePath = String(ctx.payload.path ?? "");
+	if (!filePath) throw new Error("fs.write: path is required");
+	const content = typeof ctx.payload.content === "string" ? ctx.payload.content : "";
+	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	await fsWriteFile(absolutePath, content, "utf-8");
+	return { path: filePath, bytes: Buffer.byteLength(content, "utf-8") };
+}
+
+async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
+	const filePath = String(ctx.payload.path ?? "");
+	if (!filePath) throw new Error("fs.edit: path is required");
+	const oldText = typeof ctx.payload.oldText === "string" ? ctx.payload.oldText : "";
+	const newText = typeof ctx.payload.newText === "string" ? ctx.payload.newText : "";
+	if (!oldText) throw new Error("fs.edit: oldText is required");
+
+	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	const original = await fsReadFile(absolutePath, "utf-8");
+
+	const firstIdx = original.indexOf(oldText);
+	if (firstIdx === -1) throw new Error(`fs.edit: oldText not found in ${filePath}`);
+
+	const lastIdx = original.lastIndexOf(oldText);
+	if (lastIdx !== firstIdx)
+		throw new Error(`fs.edit: oldText matches multiple locations in ${filePath} — make it unique`);
+
+	const updated = original.slice(0, firstIdx) + newText + original.slice(firstIdx + oldText.length);
+	await fsWriteFile(absolutePath, updated, "utf-8");
+	return { path: filePath, applied: true };
+}
+
 async function handleGrep(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
 	const input: GrepToolInput = {
 		pattern: String(ctx.payload.pattern ?? ""),
@@ -162,10 +221,31 @@ async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 // Factory
 // ---------------------------------------------------------------------------
 
+/** Cache-invalidation prefix list for all write-path actions. */
+const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
+
 export function createFsOrgan(options: FsOrganOptions): Organ {
 	return defineCorpusOrgan("fs", {
-		"fs.read": { tool: FS_READ_TOOL, handle: (ctx) => handleRead(ctx, options) },
-		"fs.grep": { tool: FS_GREP_TOOL, handle: (ctx) => handleGrep(ctx, options) },
+		"fs.read": {
+			tool: FS_READ_TOOL,
+			handle: (ctx) => handleRead(ctx, options),
+			shouldCache: () => true,
+		},
+		"fs.grep": {
+			tool: FS_GREP_TOOL,
+			handle: (ctx) => handleGrep(ctx, options),
+			shouldCache: () => true,
+		},
 		"fs.find": { tool: FS_FIND_TOOL, handle: (ctx) => handleFind(ctx, options) },
+		"fs.write": {
+			tool: FS_WRITE_TOOL,
+			handle: (ctx) => handleWrite(ctx, options),
+			invalidates: () => WRITE_INVALIDATES,
+		},
+		"fs.edit": {
+			tool: FS_EDIT_TOOL,
+			handle: (ctx) => handleEdit(ctx, options),
+			invalidates: () => WRITE_INVALIDATES,
+		},
 	});
 }

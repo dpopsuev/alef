@@ -45,10 +45,16 @@ const MESSAGE_TOOL: ToolDefinition = {
 /** Sink for outbound Motor/"message" events. */
 export type MessageSink = (text: string, sender: string) => void;
 
+/** Minimal conversation turn — role + text content. Compatible with alef-ai Message. */
+export interface ConversationMessage {
+	role: "user" | "assistant" | "system";
+	content: string;
+}
+
 export interface DialogOrganOptions {
 	/**
 	 * Called when the agent publishes Motor/"dialog.message".
-	 * Defaults to console.log with a simple prefix.
+	 * Defaults to writing to stdout with a simple prefix.
 	 */
 	sink?: MessageSink;
 	/**
@@ -57,6 +63,11 @@ export interface DialogOrganOptions {
 	 * in each Sense/"dialog.message" payload.
 	 */
 	getTools?: () => readonly ToolDefinition[];
+	/**
+	 * Optional system prompt prepended to every conversation.
+	 * Injected as a system message at position 0 of each payload.messages.
+	 */
+	systemPrompt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +80,9 @@ export class DialogOrgan implements Organ {
 
 	private readonly sink: MessageSink;
 	private readonly getTools: () => readonly ToolDefinition[];
+	private readonly systemPrompt: string | undefined;
+	/** Conversation history — accumulates across turns. */
+	private readonly history: ConversationMessage[] = [];
 	private nerve: Nerve | null = null;
 	private readonly pending = new Map<
 		string,
@@ -78,6 +92,25 @@ export class DialogOrgan implements Organ {
 	constructor(options: DialogOrganOptions = {}) {
 		this.sink = options.sink ?? ((text) => process.stdout.write(`agent: ${text}\n`));
 		this.getTools = options.getTools ?? (() => []);
+		this.systemPrompt = options.systemPrompt;
+	}
+
+	/** Reset conversation history. Useful between independent sessions. */
+	clearHistory(): void {
+		this.history.length = 0;
+	}
+
+	/** Read-only snapshot of current history. */
+	get messages(): readonly ConversationMessage[] {
+		return this.history;
+	}
+
+	private buildPayload(text: string, sender: string): Record<string, unknown> {
+		const userMsg: ConversationMessage = { role: "user", content: text };
+		const messages: ConversationMessage[] = this.systemPrompt
+			? [{ role: "system", content: this.systemPrompt }, ...this.history, userMsg]
+			: [...this.history, userMsg];
+		return { text, sender, messages, tools: this.getTools() };
 	}
 
 	mount(nerve: Nerve): () => void {
@@ -87,9 +120,12 @@ export class DialogOrgan implements Organ {
 		const off = nerve.motor.subscribe(DIALOG_MESSAGE, (event) => {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
+
+			// Append assistant reply to history before resolving.
+			this.history.push({ role: "assistant", content: text });
 			this.sink(text, sender);
 
-			// Resolve any awaiting send() with matching correlationId
+			// Resolve any awaiting send() with matching correlationId.
 			const pending = this.pending.get(event.correlationId);
 			if (pending) {
 				clearTimeout(pending.timer);
@@ -123,9 +159,13 @@ export class DialogOrgan implements Organ {
 	 */
 	receive(text: string, sender = "human", correlationId = randomUUID()): void {
 		if (!this.nerve) throw new Error("DialogOrgan: not mounted");
+		// Build payload from history BEFORE appending — payload includes userMsg explicitly.
+		const payload = this.buildPayload(text, sender);
+		// Append user message to history after building payload.
+		this.history.push({ role: "user", content: text });
 		this.nerve.sense.publish({
 			type: DIALOG_MESSAGE,
-			payload: { text, sender, tools: this.getTools() },
+			payload,
 			correlationId,
 			timestamp: Date.now(),
 			isError: false,

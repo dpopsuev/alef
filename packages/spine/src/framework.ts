@@ -27,7 +27,10 @@
  *   Yellow: log.debug on cache hits, successful dispatches
  */
 
+import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { MotorEvent, Nerve, Organ, SenseEvent, ToolDefinition } from "./buses.js";
+
+const tracer = trace.getTracer("alef.spine", "0.0.1");
 
 // ---------------------------------------------------------------------------
 // Logger interface — pino-compatible. Pass a scoped pino instance in prod.
@@ -204,7 +207,16 @@ async function dispatchMotorAction(
 	};
 
 	if (isStreaming(action)) {
-		// Streaming path — emit chunks as Sense events; no caching.
+		// Streaming path — CONSUMER span wraps the full stream.
+		const span = tracer.startSpan(`alef.motor/${motor.type}`, {
+			kind: SpanKind.CONSUMER,
+			attributes: {
+				"alef.event.type": motor.type,
+				"alef.correlation.id": motor.correlationId,
+				"alef.tool.call.id": ctx.toolCallId ?? "",
+				"alef.stream": true,
+			},
+		});
 		try {
 			let last: Record<string, unknown> | undefined;
 			for await (const chunk of action.stream(ctx)) {
@@ -218,51 +230,79 @@ async function dispatchMotorAction(
 			} else {
 				nerve.sense.publish(buildSense(motor, { isFinal: true }));
 			}
+			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (e) {
 			// Orange: streaming failure
 			log.warn({ op: motor.type, correlationId: motor.correlationId, error: String(e) }, "stream action failed");
+			span.recordException(e instanceof Error ? e : new Error(String(e)));
+			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
 			nerve.sense.publish(buildErrSense(motor, e instanceof Error ? e.message : String(e)));
+		} finally {
+			span.end();
 		}
 		return;
 	}
 
-	// Standard (non-streaming) path.
-	// Check cache first.
-	const cacheKey = makeCacheKey(motor.type, motor.payload);
-	const cached = cache.get(cacheKey);
-	if (cached !== undefined) {
-		// Yellow: cache hit — success signal
-		log.debug({ op: motor.type, correlationId: motor.correlationId, cacheKey }, "cache hit");
-		nerve.sense.publish(buildSense(motor, cached));
-		return;
-	}
+	// Standard (non-streaming) path — CONSUMER span wraps handle().
+	const span = tracer.startSpan(`alef.motor/${motor.type}`, {
+		kind: SpanKind.CONSUMER,
+		attributes: {
+			"alef.event.type": motor.type,
+			"alef.correlation.id": motor.correlationId,
+			"alef.tool.call.id": ctx.toolCallId ?? "",
+		},
+	});
 
-	try {
-		const result = await action.handle(ctx);
+	await context.with(trace.setSpan(context.active(), span), async () => {
+		// Check cache first.
+		const cacheKey = makeCacheKey(motor.type, motor.payload);
+		const cached = cache.get(cacheKey);
+		if (cached !== undefined) {
+			// Yellow: cache hit
+			span.setAttribute("alef.cache.hit", true);
+			log.debug({ op: motor.type, correlationId: motor.correlationId, cacheKey }, "cache hit");
+			nerve.sense.publish(buildSense(motor, cached));
+			span.setStatus({ code: SpanStatusCode.OK });
+			span.end();
+			return;
+		}
 
-		// Invalidate BEFORE caching the new result (write-then-read order).
-		if (action.invalidates) {
-			const types = action.invalidates(ctx);
-			const purged = invalidateByPrefix(cache, types);
-			if (purged.length > 0) {
-				// Yellow: invalidation — success signal for write path
-				log.debug({ op: motor.type, correlationId: motor.correlationId, purged }, "cache invalidated");
+		span.setAttribute("alef.cache.hit", false);
+
+		try {
+			const result = await action.handle(ctx);
+
+			// Invalidate BEFORE caching the new result.
+			if (action.invalidates) {
+				const types = action.invalidates(ctx);
+				const purged = invalidateByPrefix(cache, types);
+				if (purged.length > 0) {
+					span.setAttribute("alef.cache.invalidated", purged.join(","));
+					// Yellow: write-path invalidation
+					log.debug({ op: motor.type, correlationId: motor.correlationId, purged }, "cache invalidated");
+				}
 			}
-		}
 
-		// Cache if action opts in.
-		if (action.shouldCache?.(ctx, result)) {
-			cache.set(cacheKey, result);
-			// Yellow: cached result
-			log.debug({ op: motor.type, correlationId: motor.correlationId, cacheKey }, "result cached");
-		}
+			// Cache if action opts in.
+			if (action.shouldCache?.(ctx, result)) {
+				cache.set(cacheKey, result);
+				span.setAttribute("alef.cache.stored", true);
+				// Yellow: cached result
+				log.debug({ op: motor.type, correlationId: motor.correlationId, cacheKey }, "result cached");
+			}
 
-		nerve.sense.publish(buildSense(motor, result));
-	} catch (e) {
-		// Orange: handle() failure
-		log.warn({ op: motor.type, correlationId: motor.correlationId, error: String(e) }, "corpus action failed");
-		nerve.sense.publish(buildErrSense(motor, e instanceof Error ? e.message : String(e)));
-	}
+			nerve.sense.publish(buildSense(motor, result));
+			span.setStatus({ code: SpanStatusCode.OK });
+		} catch (e) {
+			// Orange: handle() failure
+			log.warn({ op: motor.type, correlationId: motor.correlationId, error: String(e) }, "corpus action failed");
+			span.recordException(e instanceof Error ? e : new Error(String(e)));
+			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+			nerve.sense.publish(buildErrSense(motor, e instanceof Error ? e.message : String(e)));
+		} finally {
+			span.end();
+		}
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -324,13 +364,29 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 							motor: nerve.motor,
 							sense: nerve.sense,
 						};
-						void cerebrumAction.handle(ctx).catch((e) => {
-							// Orange: cerebrum action failure (owns its own error handling)
-							log.warn(
-								{ op: eventType, correlationId: event.correlationId, error: String(e) },
-								"cerebrum action failed",
-							);
+						// CONSUMER span wraps the cerebrum handler.
+						const span = tracer.startSpan(`alef.sense/${eventType}`, {
+							kind: SpanKind.CONSUMER,
+							attributes: {
+								"alef.event.type": eventType,
+								"alef.correlation.id": event.correlationId,
+							},
 						});
+						void context.with(trace.setSpan(context.active(), span), () =>
+							cerebrumAction
+								.handle(ctx)
+								.then(() => span.setStatus({ code: SpanStatusCode.OK }))
+								.catch((e: unknown) => {
+									// Orange: cerebrum action failure
+									log.warn(
+										{ op: eventType, correlationId: event.correlationId, error: String(e) },
+										"cerebrum action failed",
+									);
+									span.recordException(e instanceof Error ? e : new Error(String(e)));
+									span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+								})
+								.finally(() => span.end()),
+						);
 					});
 				}
 				// Orange: misconfigured key — log and skip

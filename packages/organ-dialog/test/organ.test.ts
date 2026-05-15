@@ -4,7 +4,7 @@ import { DIALOG_MESSAGE, DialogOrgan } from "../src/organ.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
+	return { nerve, n: nerve.asNerve(), corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
 }
 
 describe("DialogOrgan", () => {
@@ -106,5 +106,88 @@ describe("DialogOrgan", () => {
 
 		expect(ids).toHaveLength(1);
 		expect(ids[0]).toBe(id);
+	});
+});
+
+describe("DialogOrgan — history + system prompt", () => {
+	it("payload.messages contains the user message on first send", () => {
+		const { n } = makeNerve();
+		const organ = new DialogOrgan({ sink: () => {} });
+		organ.mount(n);
+
+		const captured: unknown[] = [];
+		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
+			captured.push(e.payload.messages);
+		});
+
+		organ.receive("hello");
+
+		expect(captured).toHaveLength(1);
+		const msgs = captured[0] as Array<{ role: string; content: string }>;
+		expect(msgs).toHaveLength(1);
+		expect(msgs[0]).toMatchObject({ role: "user", content: "hello" });
+	});
+
+	it("history accumulates across turns", async () => {
+		const { n } = makeNerve();
+		const organ = new DialogOrgan({ sink: () => {} });
+		organ.mount(n);
+
+		// Echo organ publishes Motor/"dialog.message" in response.
+		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
+			n.motor.publish({
+				type: DIALOG_MESSAGE,
+				payload: { text: "echo: " + String((e.payload.messages as Array<{ content: string }>).at(-1)?.content) },
+				correlationId: e.correlationId,
+				timestamp: Date.now(),
+			});
+		});
+
+		await organ.send("turn1");
+		await organ.send("turn2");
+
+		// After two turns, history = [user, assistant, user, assistant]
+		expect(organ.messages).toHaveLength(4);
+		expect(organ.messages[0]).toMatchObject({ role: "user", content: "turn1" });
+		expect(organ.messages[1]).toMatchObject({ role: "assistant" });
+		expect(organ.messages[2]).toMatchObject({ role: "user", content: "turn2" });
+		expect(organ.messages[3]).toMatchObject({ role: "assistant" });
+	});
+
+	it("systemPrompt is prepended to messages", () => {
+		const { n } = makeNerve();
+		const organ = new DialogOrgan({ sink: () => {}, systemPrompt: "You are a coding assistant." });
+		organ.mount(n);
+
+		const captured: unknown[] = [];
+		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
+			captured.push(e.payload.messages);
+		});
+
+		organ.receive("hi");
+
+		const msgs = captured[0] as Array<{ role: string; content: string }>;
+		expect(msgs[0]).toMatchObject({ role: "system", content: "You are a coding assistant." });
+		expect(msgs[1]).toMatchObject({ role: "user", content: "hi" });
+	});
+
+	it("clearHistory resets messages", async () => {
+		const { n } = makeNerve();
+		const organ = new DialogOrgan({ sink: () => {} });
+		organ.mount(n);
+
+		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
+			n.motor.publish({
+				type: DIALOG_MESSAGE,
+				payload: { text: "ok" },
+				correlationId: e.correlationId,
+				timestamp: Date.now(),
+			});
+		});
+
+		await organ.send("one");
+		expect(organ.messages).toHaveLength(2);
+		organ.clearHistory();
+		expect(organ.messages).toHaveLength(0);
 	});
 });

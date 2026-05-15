@@ -118,29 +118,31 @@ class QuiescentLLM implements CerebrumOrgan {
 // ---------------------------------------------------------------------------
 
 describe("Corpus plumbing — full EDA loop", () => {
-	it("single tool call round-trip resolves corpus.prompt()", async () => {
+	it("single tool call round-trip resolves dialog.send()", async () => {
 		const llm = new SingleToolLLM();
-		const corpus = new Corpus({ timeoutMs: 5_000 });
+		const dialog = new DialogOrgan({ sink: () => {} });
+		const corpus = new Corpus();
 		corpus
-			.load(new DialogOrgan({ sink: () => {} }))
+			.load(dialog)
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }));
 
-		const reply = await corpus.prompt("Find TypeScript files");
+		const reply = await dialog.send("Find TypeScript files");
 		expect(reply).toBe("Found TypeScript files.");
 		corpus.dispose();
 	});
 
 	it("LLM receives tool definitions from all loaded organs", async () => {
 		const llm = new SingleToolLLM();
-		const corpus = new Corpus({ timeoutMs: 5_000 });
+		const corpus = new Corpus();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
 		corpus
-			.load(new DialogOrgan({ sink: () => {} }))
+			.load(dialog)
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }))
 			.load(createShellOrgan({ cwd: process.cwd() }));
 
-		await corpus.prompt("go");
+		await dialog.send("go");
 
 		expect(llm.receivedTools).toContain("fs.read");
 		expect(llm.receivedTools).toContain("fs.grep");
@@ -152,13 +154,14 @@ describe("Corpus plumbing — full EDA loop", () => {
 
 	it("toolCallId is mirrored in Sense result for correlation", async () => {
 		const llm = new SingleToolLLM();
-		const corpus = new Corpus({ timeoutMs: 5_000 });
+		const dialog = new DialogOrgan({ sink: () => {} });
+		const corpus = new Corpus();
 		corpus
-			.load(new DialogOrgan({ sink: () => {} }))
+			.load(dialog)
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }));
 
-		await corpus.prompt("go");
+		await dialog.send("go");
 
 		expect(llm.receivedResults).toHaveLength(1);
 		expect((llm.receivedResults[0] as { toolCallId: string }).toolCallId).toBe("tc-001");
@@ -167,14 +170,15 @@ describe("Corpus plumbing — full EDA loop", () => {
 
 	it("fan-out: both tool calls execute in parallel, both complete before reply", async () => {
 		const llm = new FanOutLLM();
-		const corpus = new Corpus({ timeoutMs: 5_000 });
+		const dialog = new DialogOrgan({ sink: () => {} });
+		const corpus = new Corpus();
 		corpus
-			.load(new DialogOrgan({ sink: () => {} }))
+			.load(dialog)
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }))
 			.load(createShellOrgan({ cwd: process.cwd() }));
 
-		const reply = await corpus.prompt("do both");
+		const reply = await dialog.send("do both");
 
 		expect(reply).toBe("Both done.");
 		// Both Sense events arrived before the reply was sent
@@ -186,10 +190,11 @@ describe("Corpus plumbing — full EDA loop", () => {
 
 	it("quiescence: LLM with no tool calls terminates immediately", async () => {
 		const llm = new QuiescentLLM();
-		const corpus = new Corpus({ timeoutMs: 5_000 });
-		corpus.load(new DialogOrgan({ sink: () => {} })).load(llm);
+		const corpus = new Corpus();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
+		corpus.load(dialog).load(llm);
 
-		const reply = await corpus.prompt("anything");
+		const reply = await dialog.send("anything");
 		expect(reply).toBe("No tools needed.");
 		corpus.dispose();
 	});

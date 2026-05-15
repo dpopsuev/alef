@@ -1,6 +1,7 @@
 import type { CerebrumNerve, CerebrumOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
-import { Corpus, CorpusTimeoutError } from "../src/index.js";
+import { DialogOrgan } from "../../organ-dialog/src/organ.js";
+import { Corpus } from "../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Minimal stub organs for unit testing Corpus in isolation.
@@ -50,8 +51,8 @@ const corpora: Corpus[] = [];
 afterEach(() => {
 	for (const c of corpora.splice(0)) c.dispose();
 });
-function makeCorpus(options?: ConstructorParameters<typeof Corpus>[0]): Corpus {
-	const c = new Corpus(options);
+function makeCorpus(): Corpus {
+	const c = new Corpus();
 	corpora.push(c);
 	return c;
 }
@@ -89,8 +90,13 @@ describe("Corpus — load()", () => {
 			},
 		});
 
-		await corpus.prompt("hi", { timeoutMs: 1000 });
-		expect(capturedTools.map((t) => t.name)).toEqual(["file_read", "file_grep", "bash"]);
+		const dialog2 = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
+		corpus.load(dialog2);
+		await dialog2.send("hi");
+		// includes dialog.message from DialogOrgan + the 3 explicit tool organs
+		expect(capturedTools.map((t) => t.name)).toContain("file_read");
+		expect(capturedTools.map((t) => t.name)).toContain("file_grep");
+		expect(capturedTools.map((t) => t.name)).toContain("bash");
 	});
 
 	it("throws if corpus is disposed", () => {
@@ -119,35 +125,36 @@ describe("Corpus — load()", () => {
 // prompt()
 // ---------------------------------------------------------------------------
 
-describe("Corpus — prompt()", () => {
+describe("Corpus — dialog.send()", () => {
 	it("resolves with reply text from an echo organ", async () => {
 		const corpus = makeCorpus();
-		corpus.load(makeEchoOrgan());
-		const reply = await corpus.prompt("hello", { timeoutMs: 1000 });
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
+		corpus.load(dialog).load(makeEchoOrgan());
+		const reply = await dialog.send("hello");
 		expect(reply).toBe("echo: hello");
 	});
 
 	it("correlates concurrent prompts independently", async () => {
 		const corpus = makeCorpus();
-		corpus.load(makeEchoOrgan());
-		const [a, b, c] = await Promise.all([
-			corpus.prompt("one", { timeoutMs: 1000 }),
-			corpus.prompt("two", { timeoutMs: 1000 }),
-			corpus.prompt("three", { timeoutMs: 1000 }),
-		]);
-		expect([a, b, c].sort()).toEqual(["echo: one", "echo: three", "echo: two"]);
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
+		corpus.load(dialog).load(makeEchoOrgan());
+		const [a, b, cv] = await Promise.all([dialog.send("one"), dialog.send("two"), dialog.send("three")]);
+		expect([a, b, cv].sort()).toEqual(["echo: one", "echo: three", "echo: two"]);
 	});
 
-	it("rejects with CorpusTimeoutError when no organ replies", async () => {
+	it("rejects when no organ replies within timeout", async () => {
 		const corpus = makeCorpus();
-		corpus.load(makeNoopOrgan());
-		await expect(corpus.prompt("ping", { timeoutMs: 20 })).rejects.toBeInstanceOf(CorpusTimeoutError);
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
+		corpus.load(dialog).load(makeNoopOrgan());
+		await expect(dialog.send("ping", "human", 20)).rejects.toThrow("timed out");
 	});
 
-	it("rejects immediately if corpus is disposed", async () => {
+	it("rejects immediately if dialog is unmounted", async () => {
 		const corpus = makeCorpus();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
+		corpus.load(dialog);
 		corpus.dispose();
-		await expect(corpus.prompt("hi")).rejects.toThrow("disposed");
+		await expect(dialog.send("hi")).rejects.toThrow();
 	});
 });
 

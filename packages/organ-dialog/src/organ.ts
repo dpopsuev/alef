@@ -13,7 +13,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { CorpusNerve, CorpusOrgan, MotorEvent, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { MotorEvent, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
 // Event name — one name, two buses
@@ -63,14 +63,13 @@ export interface DialogOrganOptions {
 // DialogOrgan
 // ---------------------------------------------------------------------------
 
-export class DialogOrgan implements CorpusOrgan {
-	readonly kind = "corpus" as const;
+export class DialogOrgan implements Organ {
 	readonly name = "dialog";
 	readonly tools: readonly ToolDefinition[] = [MESSAGE_TOOL];
 
 	private readonly sink: MessageSink;
 	private readonly getTools: () => readonly ToolDefinition[];
-	private nerve: CorpusNerve | null = null;
+	private nerve: Nerve | null = null;
 	private readonly pending = new Map<
 		string,
 		{ resolve: (text: string) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
@@ -81,7 +80,7 @@ export class DialogOrgan implements CorpusOrgan {
 		this.getTools = options.getTools ?? (() => []);
 	}
 
-	mount(nerve: CorpusNerve): () => void {
+	mount(nerve: Nerve): () => void {
 		this.nerve = nerve;
 
 		// Outbound: agent publishes Motor/"dialog.message" → deliver via sink + resolve pending send()

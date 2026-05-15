@@ -4,13 +4,12 @@ import { DIALOG_MESSAGE, DialogOrgan } from "../src/organ.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, corpus: nerve.asCorpusNerve(), cerebrum: nerve.asCerebrumNerve() };
+	return { nerve, corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
 }
 
 describe("DialogOrgan", () => {
 	it("has kind=corpus, name=dialog, tool=dialog.message", () => {
 		const organ = new DialogOrgan();
-		expect(organ.kind).toBe("corpus");
 		expect(organ.name).toBe("dialog");
 		expect(organ.tools).toHaveLength(1);
 		expect(organ.tools[0].name).toBe(DIALOG_MESSAGE);

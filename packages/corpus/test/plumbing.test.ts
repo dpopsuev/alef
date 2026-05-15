@@ -9,7 +9,7 @@
  *   - Quiescence: loop terminates when LLM produces zero tool calls
  */
 
-import type { CerebrumNerve, CerebrumOrgan, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 import { describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { createFsOrgan } from "../../organ-fs/src/organ.js";
@@ -20,7 +20,7 @@ import { Corpus } from "../src/index.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function waitSense(nerve: CerebrumNerve, type: string, toolCallId: string, correlationId: string): Promise<SenseEvent> {
+function waitSense(nerve: Nerve, type: string, toolCallId: string, correlationId: string): Promise<SenseEvent> {
 	return new Promise((resolve) => {
 		const off = nerve.sense.subscribe(type, (e) => {
 			if (e.payload.toolCallId === toolCallId && e.correlationId === correlationId) {
@@ -31,7 +31,7 @@ function waitSense(nerve: CerebrumNerve, type: string, toolCallId: string, corre
 	});
 }
 
-function publishMotor(nerve: CerebrumNerve, type: string, payload: Record<string, unknown>, correlationId: string) {
+function publishMotor(nerve: Nerve, type: string, payload: Record<string, unknown>, correlationId: string) {
 	nerve.motor.publish({ type, payload, correlationId, timestamp: Date.now() });
 }
 
@@ -40,14 +40,13 @@ function publishMotor(nerve: CerebrumNerve, type: string, payload: Record<string
 // ---------------------------------------------------------------------------
 
 /** Calls fs.find once, then sends text reply. */
-class SingleToolLLM implements CerebrumOrgan {
-	readonly kind = "cerebrum" as const;
+class SingleToolLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly receivedTools: string[] = [];
 	readonly receivedResults: unknown[] = [];
 
-	mount(nerve: CerebrumNerve): () => void {
+	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("dialog.message", async (event) => {
 			const corr = event.correlationId;
 			this.receivedTools.push(...(event.payload.tools as ToolDefinition[]).map((t) => t.name));
@@ -63,22 +62,18 @@ class SingleToolLLM implements CerebrumOrgan {
 }
 
 /** Fan-out: publishes fs.find AND shell.exec simultaneously, collects both before replying. */
-class FanOutLLM implements CerebrumOrgan {
-	readonly kind = "cerebrum" as const;
+class FanOutLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly completionOrder: string[] = [];
-	finishedAt = 0;
 
-	mount(nerve: CerebrumNerve): () => void {
+	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("dialog.message", async (event) => {
 			const corr = event.correlationId;
 
-			// Publish both simultaneously
 			publishMotor(nerve, "fs.find", { pattern: "*.ts", toolCallId: "tc-find" }, corr);
 			publishMotor(nerve, "shell.exec", { command: "echo hello", toolCallId: "tc-shell" }, corr);
 
-			// Await both in parallel
 			const [findResult, shellResult] = await Promise.all([
 				waitSense(nerve, "fs.find", "tc-find", corr).then((r) => {
 					this.completionOrder.push("fs.find");
@@ -90,7 +85,6 @@ class FanOutLLM implements CerebrumOrgan {
 				}),
 			]);
 
-			this.finishedAt = Date.now();
 			void findResult;
 			void shellResult;
 
@@ -99,15 +93,13 @@ class FanOutLLM implements CerebrumOrgan {
 	}
 }
 
-/** Quiescence: produces zero tool calls — just sends text directly. */
-class QuiescentLLM implements CerebrumOrgan {
-	readonly kind = "cerebrum" as const;
+/** Quiescence: no tool calls — publishes text immediately. */
+class QuiescentLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 
-	mount(nerve: CerebrumNerve): () => void {
+	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("dialog.message", (event) => {
-			// No tool calls — publish text immediately. Loop should terminate.
 			publishMotor(nerve, "dialog.message", { text: "No tools needed." }, event.correlationId);
 		});
 	}
@@ -181,7 +173,6 @@ describe("Corpus plumbing — full EDA loop", () => {
 		const reply = await dialog.send("do both");
 
 		expect(reply).toBe("Both done.");
-		// Both Sense events arrived before the reply was sent
 		expect(llm.completionOrder).toContain("fs.find");
 		expect(llm.completionOrder).toContain("shell.exec");
 		expect(llm.completionOrder).toHaveLength(2);

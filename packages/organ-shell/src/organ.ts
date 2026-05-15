@@ -5,7 +5,7 @@
  *              final event carries exitCode + isFinal: true.
  */
 import { spawn } from "node:child_process";
-import type { CorpusHandlerCtx, CorpusOrgan } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import { getShellEnv } from "./shell.js";
 
@@ -116,7 +116,7 @@ async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): Asyn
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createShellOrgan(options: ShellOrganOptions): CorpusOrgan {
+export function createShellOrgan(options: ShellOrganOptions): Organ {
 	return defineCorpusOrgan("shell", {
 		"shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
 	});

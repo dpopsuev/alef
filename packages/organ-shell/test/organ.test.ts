@@ -5,7 +5,7 @@ import { createShellOrgan } from "../src/organ.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, corpus: nerve.asCorpusNerve(), cerebrum: nerve.asCerebrumNerve() };
+	return { nerve, corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
 }
 
 function publishMotor(
@@ -14,13 +14,13 @@ function publishMotor(
 	payload: Record<string, unknown>,
 	correlationId = "test-corr",
 ) {
-	nerve.asCerebrumNerve().motor.publish({ type, correlationId, timestamp: Date.now(), payload });
+	nerve.asNerve().motor.publish({ type, correlationId, timestamp: Date.now(), payload });
 }
 
 /** Collect Sense events until isFinal: true, return the final event. */
 function waitForFinalSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
 	return new Promise((resolve) => {
-		const unsub = nerve.asCerebrumNerve().sense.subscribe(type, (event) => {
+		const unsub = nerve.asNerve().sense.subscribe(type, (event) => {
 			if ((event.payload as { isFinal?: boolean }).isFinal || event.isError) {
 				unsub();
 				resolve(event);
@@ -32,7 +32,6 @@ function waitForFinalSense(nerve: InProcessNerve, type: string): Promise<SenseEv
 describe("ShellCorpusOrgan", () => {
 	it("has kind=corpus, name=shell, and 1 tool", () => {
 		const organ = createShellOrgan({ cwd: process.cwd() });
-		expect(organ.kind).toBe("corpus");
 		expect(organ.name).toBe("shell");
 		expect(organ.tools).toHaveLength(1);
 		expect(organ.tools[0].name).toBe("shell.exec");

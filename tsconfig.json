@@ -20,7 +20,6 @@
 			"@dpopsuev/alef-corpus/*": ["./packages/corpus/src/*.ts"],
 			"@dpopsuev/alef-testkit": ["./packages/testkit/src/index.ts"],
 			"@dpopsuev/alef-testkit/*": ["./packages/testkit/src/*.ts"],
-			"@dpopsuev/alef-organ-dialog": ["./packages/organ-dialog/src/index.ts"],
 		"@dpopsuev/alef-organ-enclosure": ["./packages/organ-enclosure/src/index.ts"],
 		"@dpopsuev/alef-organ-web": ["./packages/organ-web/src/index.ts"],
 		"@dpopsuev/alef-organ-text-message": ["./packages/organ-text-message/src/index.ts"],

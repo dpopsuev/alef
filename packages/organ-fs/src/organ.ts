@@ -8,7 +8,7 @@
  */
 import { readFile as fsReadFile } from "node:fs/promises";
 import { isAbsolute, resolve as nodeResolve } from "node:path";
-import type { CorpusHandlerCtx, CorpusOrgan } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import {
 	DEFAULT_FIND_LIMIT,
@@ -162,7 +162,7 @@ async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createFsOrgan(options: FsOrganOptions): CorpusOrgan {
+export function createFsOrgan(options: FsOrganOptions): Organ {
 	return defineCorpusOrgan("fs", {
 		"fs.read": { tool: FS_READ_TOOL, handle: (ctx) => handleRead(ctx, options) },
 		"fs.grep": { tool: FS_GREP_TOOL, handle: (ctx) => handleGrep(ctx, options) },

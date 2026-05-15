@@ -22,12 +22,12 @@ afterEach(async () => {
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, corpus: nerve.asCorpusNerve(), cerebrum: nerve.asCerebrumNerve() };
+	return { nerve, corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
 }
 
 function waitForSense(nerve: InProcessNerve, type: string): Promise<import("@dpopsuev/alef-spine").SenseEvent> {
 	return new Promise((resolve) => {
-		const unsub = nerve.asCerebrumNerve().sense.subscribe(type, (event) => {
+		const unsub = nerve.asNerve().sense.subscribe(type, (event) => {
 			unsub();
 			resolve(event);
 		});
@@ -35,7 +35,7 @@ function waitForSense(nerve: InProcessNerve, type: string): Promise<import("@dpo
 }
 
 function publishMotor(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
-	nerve.asCerebrumNerve().motor.publish({
+	nerve.asNerve().motor.publish({
 		type,
 		correlationId: `test-${Math.random().toString(36).slice(2)}`,
 		timestamp: Date.now(),
@@ -50,7 +50,6 @@ function publishMotor(nerve: InProcessNerve, type: string, payload: Record<strin
 describe("FsCorpusOrgan", () => {
 	it("has kind=corpus, name=fs, and 3 tools", () => {
 		const organ = createFsOrgan({ cwd: testDir });
-		expect(organ.kind).toBe("corpus");
 		expect(organ.name).toBe("fs");
 		expect(organ.tools.map((t) => t.name)).toEqual(["fs.read", "fs.grep", "fs.find"]);
 	});
@@ -122,10 +121,10 @@ describe("FsCorpusOrgan", () => {
 			const correlationId = "my-correlation-id";
 
 			let received: import("@dpopsuev/alef-spine").SenseEvent | null = null;
-			const unsub = nerve.asCerebrumNerve().sense.subscribe("fs.read", (e) => {
+			const unsub = nerve.asNerve().sense.subscribe("fs.read", (e) => {
 				received = e;
 			});
-			nerve.asCerebrumNerve().motor.publish({
+			nerve.asNerve().motor.publish({
 				type: "fs.read",
 				correlationId,
 				timestamp: Date.now(),

@@ -1,4 +1,4 @@
-import type { CerebrumNerve, CerebrumOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { Corpus } from "../src/index.js";
@@ -7,13 +7,12 @@ import { Corpus } from "../src/index.js";
 // Minimal stub organs for unit testing Corpus in isolation.
 // ---------------------------------------------------------------------------
 
-function makeNoopOrgan(): CerebrumOrgan {
-	return { kind: "cerebrum", name: "noop", tools: [], mount: (_nerve: CerebrumNerve) => () => {} };
+function makeNoopOrgan(): Organ {
+	return { name: "noop", tools: [], mount: (_nerve: Nerve) => () => {} };
 }
 
-function makeToolOrgan(toolNames: string[]): CerebrumOrgan {
+function makeToolOrgan(toolNames: string[]): Organ {
 	return {
-		kind: "cerebrum",
 		name: "tool-organ",
 		tools: toolNames.map(
 			(n): ToolDefinition => ({
@@ -22,17 +21,16 @@ function makeToolOrgan(toolNames: string[]): CerebrumOrgan {
 				inputSchema: { type: "object" as const },
 			}),
 		),
-		mount: (_nerve: CerebrumNerve) => () => {},
+		mount: (_nerve: Nerve) => () => {},
 	};
 }
 
-/** Echo organ — CerebrumOrgan: subscribes Sense/"dialog.message", publishes Motor/"dialog.message". */
-function makeEchoOrgan(): CerebrumOrgan {
+/** Echo organ: subscribes Sense/"dialog.message", publishes Motor/"dialog.message". */
+function makeEchoOrgan(): Organ {
 	return {
-		kind: "cerebrum",
 		name: "echo",
 		tools: [],
-		mount: (nerve: CerebrumNerve) => {
+		mount: (nerve: Nerve) => {
 			return nerve.sense.subscribe("dialog.message", (event) => {
 				nerve.motor.publish({
 					type: "dialog.message",
@@ -62,7 +60,7 @@ function makeCorpus(): Corpus {
 // ---------------------------------------------------------------------------
 
 describe("Corpus — load()", () => {
-	it("accepts a CerebrumOrgan and returns this for chaining", () => {
+	it("accepts an Organ and returns this for chaining", () => {
 		const corpus = makeCorpus();
 		expect(corpus.load(makeNoopOrgan())).toBe(corpus);
 	});
@@ -74,10 +72,9 @@ describe("Corpus — load()", () => {
 
 		let capturedTools: readonly { name: string }[] = [];
 		corpus.load({
-			kind: "cerebrum",
 			name: "tool-spy",
 			tools: [],
-			mount: (nerve: CerebrumNerve) => {
+			mount: (nerve: Nerve) => {
 				return nerve.sense.subscribe("dialog.message", (e) => {
 					capturedTools = (e.payload.tools as { name: string }[]) ?? [];
 					nerve.motor.publish({
@@ -93,7 +90,6 @@ describe("Corpus — load()", () => {
 		const dialog2 = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
 		corpus.load(dialog2);
 		await dialog2.send("hi");
-		// includes dialog.message from DialogOrgan + the 3 explicit tool organs
 		expect(capturedTools.map((t) => t.name)).toContain("file_read");
 		expect(capturedTools.map((t) => t.name)).toContain("file_grep");
 		expect(capturedTools.map((t) => t.name)).toContain("bash");
@@ -109,10 +105,9 @@ describe("Corpus — load()", () => {
 		const corpus = makeCorpus();
 		let mountCalls = 0;
 		corpus.load({
-			kind: "cerebrum",
 			name: "counted",
 			tools: [],
-			mount: (_n: CerebrumNerve) => {
+			mount: (_n: Nerve) => {
 				mountCalls++;
 				return () => {};
 			},
@@ -167,10 +162,9 @@ describe("Corpus — dispose()", () => {
 		const corpus = makeCorpus();
 		let unmounted = false;
 		corpus.load({
-			kind: "cerebrum",
 			name: "tracked",
 			tools: [],
-			mount: (_n: CerebrumNerve) => () => {
+			mount: (_n: Nerve) => () => {
 				unmounted = true;
 			},
 		});

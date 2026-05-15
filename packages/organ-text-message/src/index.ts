@@ -1,10 +1,9 @@
-import type { CorpusNerve, CorpusOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 
 const TEXT_INPUT = "dialog.message";
 const TEXT_MESSAGE = "dialog.message";
 
-export class TextMessageOrgan implements CorpusOrgan {
-	readonly kind = "corpus" as const;
+export class TextMessageOrgan implements Organ {
 	readonly name = "text-message";
 
 	readonly tools: readonly ToolDefinition[] = [
@@ -22,7 +21,7 @@ export class TextMessageOrgan implements CorpusOrgan {
 		},
 	];
 
-	mount(nerve: CorpusNerve): () => void {
+	mount(nerve: Nerve): () => void {
 		// Motor/"dialog.message" → Sense/"dialog.message"
 		// Corpus delivered a user message. Forward to LLMOrgan as a prompt.
 		const offInput = nerve.motor.subscribe(TEXT_INPUT, (event) => {

@@ -1,5 +1,5 @@
 import type { BusObserver } from "@dpopsuev/alef-corpus";
-import type { CerebrumNerve, CerebrumOrgan, NerveEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
 // MockLLMOrgan
@@ -8,14 +8,13 @@ import type { CerebrumNerve, CerebrumOrgan, NerveEvent, ToolDefinition } from "@
 // Canned response — no real LLM call.
 // ---------------------------------------------------------------------------
 
-export class MockLLMOrgan implements CerebrumOrgan {
-	readonly kind = "cerebrum" as const;
+export class MockLLMOrgan implements Organ {
 	readonly name = "mock-llm";
 	readonly tools: readonly ToolDefinition[] = [];
 
 	constructor(private readonly cannedText: string = "mock response") {}
 
-	mount(nerve: CerebrumNerve): () => void {
+	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("dialog.message", (event) => {
 			nerve.motor.publish({
 				type: "dialog.message" as const,

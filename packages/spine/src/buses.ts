@@ -43,58 +43,34 @@ export interface SenseEvent extends NerveEvent {
 }
 
 // ---------------------------------------------------------------------------
-// Nerve interfaces — ISP-segregated by mutation target.
+// Nerve — unified bidirectional view of both buses.
 //
-// CerebrumNerve — given to CerebrumOrgans (organs that mutate agent state).
-//   The brain is shielded from the external world. It only sees the Spine.
-//   Subscribes Sense (observations), publishes Motor (commands).
-//   Example: LLMOrgan — mutates agent reasoning.
-//
-// CorpusNerve — given to CorpusOrgans (organs that mutate the world).
-//   Body organs cross the external boundary: files, processes, users.
-//   Subscribes Motor (commands), publishes Sense (results).
-//   Example: FilesystemOrgan, ShellOrgan, DialogOrgan.
+// Every organ receives a Nerve. Direction is declared via the action-map key
+// prefix in defineOrgan: "motor/" subscribes Motor, "sense/" subscribes Sense.
 // ---------------------------------------------------------------------------
 
-type MotorHandler = (event: MotorEvent) => void | Promise<void>;
-type SenseHandler = (event: SenseEvent) => void | Promise<void>;
+export type MotorHandler = (event: MotorEvent) => void | Promise<void>;
+export type SenseHandler = (event: SenseEvent) => void | Promise<void>;
 
-export interface CerebrumNerve {
-	readonly sense: {
-		subscribe(type: string, handler: SenseHandler): () => void;
-	};
-	readonly motor: {
-		publish(event: MotorEvent): void;
-	};
-}
-
-export interface CorpusNerve {
+export interface Nerve {
 	readonly motor: {
 		subscribe(type: string, handler: MotorHandler): () => void;
+		publish(event: MotorEvent): void;
 	};
 	readonly sense: {
+		subscribe(type: string, handler: SenseHandler): () => void;
 		publish(event: SenseEvent): void;
 	};
 }
 
 // ---------------------------------------------------------------------------
-// Organ interfaces — discriminated by kind so Corpus can route the nerve.
+// Organ — unified interface. mount(nerve: Nerve) handles both bus directions.
 // ---------------------------------------------------------------------------
 
-export interface CerebrumOrgan {
-	/** Discriminant — Corpus routes CerebrumNerve to this organ. */
-	readonly kind: "cerebrum";
+export interface Organ {
 	readonly name: string;
 	readonly tools: readonly ToolDefinition[];
-	mount(nerve: CerebrumNerve): () => void;
-}
-
-export interface CorpusOrgan {
-	/** Discriminant — Corpus routes CorpusNerve to this organ. */
-	readonly kind: "corpus";
-	readonly name: string;
-	readonly tools: readonly ToolDefinition[];
-	mount(nerve: CorpusNerve): () => void;
+	mount(nerve: Nerve): () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,19 +113,16 @@ export class InProcessNerve {
 	private readonly _sense = new InProcessBus();
 	private readonly _motor = new InProcessBus();
 
-	/** View for CerebrumOrgans: subscribe Sense, publish Motor. */
-	asCerebrumNerve(): CerebrumNerve {
+	asNerve(): Nerve {
 		return {
-			sense: { subscribe: (type, h) => this._sense.on(type, h as (e: NerveEvent) => void | Promise<void>) },
-			motor: { publish: (e) => this._motor.emit(e) },
-		};
-	}
-
-	/** View for CorpusOrgans: subscribe Motor, publish Sense. */
-	asCorpusNerve(): CorpusNerve {
-		return {
-			motor: { subscribe: (type, h) => this._motor.on(type, h as (e: NerveEvent) => void | Promise<void>) },
-			sense: { publish: (e) => this._sense.emit(e) },
+			motor: {
+				subscribe: (type, h) => this._motor.on(type, h as (e: NerveEvent) => void | Promise<void>),
+				publish: (e) => this._motor.emit(e),
+			},
+			sense: {
+				subscribe: (type, h) => this._sense.on(type, h as (e: NerveEvent) => void | Promise<void>),
+				publish: (e) => this._sense.emit(e),
+			},
 		};
 	}
 

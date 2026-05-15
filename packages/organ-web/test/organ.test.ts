@@ -5,11 +5,11 @@ import { createWebOrgan } from "../src/organ.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, corpus: nerve.asCorpusNerve(), cerebrum: nerve.asCerebrumNerve() };
+	return { nerve, corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
 }
 
 function publishMotor(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
-	nerve.asCerebrumNerve().motor.publish({
+	nerve.asNerve().motor.publish({
 		type,
 		payload: { ...payload, toolCallId: `tc-${Math.random().toString(36).slice(2)}` },
 		correlationId: "test-corr",
@@ -19,7 +19,7 @@ function publishMotor(nerve: InProcessNerve, type: string, payload: Record<strin
 
 function waitSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
 	return new Promise((resolve) => {
-		const off = nerve.asCerebrumNerve().sense.subscribe(type, (e) => {
+		const off = nerve.asNerve().sense.subscribe(type, (e) => {
 			off();
 			resolve(e);
 		});
@@ -29,7 +29,6 @@ function waitSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
 describe("WebOrgan", () => {
 	it("has kind=corpus, name=web, and 4 tools", () => {
 		const organ = createWebOrgan();
-		expect(organ.kind).toBe("corpus");
 		expect(organ.name).toBe("web");
 		expect(organ.tools).toHaveLength(4);
 		expect(organ.tools.map((t) => t.name)).toEqual(["web.fetch", "web.search", "web.crawl", "web.graph"]);
@@ -130,7 +129,7 @@ describe("WebOrgan", () => {
 		const unmount = createWebOrgan().mount(corpus);
 		const p = waitSense(nerve, "web.graph");
 		const correlationId = "corr-abc";
-		nerve.asCerebrumNerve().motor.publish({
+		nerve.asNerve().motor.publish({
 			type: "web.graph",
 			payload: { action: "snapshot", toolCallId: "tc-xyz" },
 			correlationId,

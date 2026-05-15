@@ -1,5 +1,5 @@
 import { type Api, type AssistantMessage, type Message, type Model, streamSimple, type Tool } from "@dpopsuev/alef-ai";
-import type { CerebrumHandlerCtx, CerebrumOrgan, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineCerebrumOrgan } from "@dpopsuev/alef-spine";
 
 const DIALOG_MESSAGE = "dialog.message";
@@ -141,7 +141,7 @@ function extractText(message: AssistantMessage): string {
 // Factory — now two lines
 // ---------------------------------------------------------------------------
 
-export function createLLMOrgan(options: LLMOrganOptions): CerebrumOrgan {
+export function createLLMOrgan(options: LLMOrganOptions): Organ {
 	return defineCerebrumOrgan("llm", {
 		[DIALOG_MESSAGE]: { handle: (ctx) => runLLMLoop(ctx, options) },
 	});
@@ -149,8 +149,7 @@ export function createLLMOrgan(options: LLMOrganOptions): CerebrumOrgan {
 
 // Backward-compat class export — delegates to factory
 export class LLMOrgan {
-	private readonly organ: CerebrumOrgan;
-	readonly kind = "cerebrum" as const;
+	private readonly organ: Organ;
 	readonly name = "llm";
 	readonly tools = [] as const;
 
@@ -158,7 +157,7 @@ export class LLMOrgan {
 		this.organ = createLLMOrgan(options);
 	}
 
-	mount(nerve: Parameters<CerebrumOrgan["mount"]>[0]): ReturnType<CerebrumOrgan["mount"]> {
+	mount(nerve: Nerve): () => void {
 		return this.organ.mount(nerve);
 	}
 }

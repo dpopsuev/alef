@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { CorpusHandlerCtx, CorpusOrgan, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import type { ExecOptions, Space } from "./space.js";
 import { OverlaySpace, StubSpace } from "./space.js";
@@ -142,7 +142,7 @@ export interface EnclosureOrganOptions {
 // Organ
 // ---------------------------------------------------------------------------
 
-export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): CorpusOrgan {
+export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ {
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
 

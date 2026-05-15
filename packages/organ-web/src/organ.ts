@@ -7,7 +7,7 @@
  *   web.fetch, web.search, web.crawl, web.graph
  */
 
-import type { CorpusHandlerCtx, CorpusOrgan } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import type { SpideredPage } from "@dpopsuev/web-spider";
 import { batchSpider, crawl, PageGraph, SpiderCache, spider } from "@dpopsuev/web-spider";
@@ -253,7 +253,7 @@ function handleGraph(ctx: CorpusHandlerCtx, graph: PageGraph): Record<string, un
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createWebOrgan(options: WebOrganOptions = {}): CorpusOrgan {
+export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 	// Session-scoped state — created once per mount lifecycle
 	const cache = new SpiderCache({
 		maxSize: options.cacheMaxSize ?? 200,

@@ -1,10 +1,4 @@
-import {
-	type CerebrumOrgan,
-	type CorpusOrgan,
-	InProcessNerve,
-	type NerveEvent,
-	type ToolDefinition,
-} from "@dpopsuev/alef-spine";
+import { InProcessNerve, type NerveEvent, type Organ, type ToolDefinition } from "@dpopsuev/alef-spine";
 
 // Corpus event type constants
 export const DIALOG_MESSAGE = "dialog.message" as const;
@@ -25,8 +19,6 @@ export interface BusObserver {
 // Responsibilities:
 //  - Creates the Spine (InProcessNerve) and owns it exclusively.
 //  - Loads organs: mounts them onto the correct Nerve view based on kind.
-//    CerebrumOrgans (mutate agent) → CerebrumNerve (sense.subscribe, motor.publish)
-//    CorpusOrgans  (mutate world)  → CorpusNerve  (motor.subscribe, sense.publish)
 //  - Collects ToolDefinition from all loaded organs.
 //  - observe(): attaches a BusObserver (e.g. BusEventRecorder in tests).
 //  - dispose(): tears down all subscriptions cleanly.
@@ -42,16 +34,10 @@ export class Corpus {
 	readonly tools: ToolDefinition[] = [];
 	private disposed = false;
 
-	/**
-	 * Load a CerebrumOrgan or CorpusOrgan onto the Spine.
-	 * Routes the correct Nerve view based on organ.kind.
-	 */
-	load(organ: CerebrumOrgan | CorpusOrgan): this {
+	/** Load an organ onto the Spine. */
+	load(organ: Organ): this {
 		if (this.disposed) throw new Error("Corpus is disposed — cannot load organs.");
-		const unmount =
-			organ.kind === "cerebrum"
-				? organ.mount(this.nerve.asCerebrumNerve())
-				: organ.mount(this.nerve.asCorpusNerve());
+		const unmount = organ.mount(this.nerve.asNerve());
 		this.unmounts.push(unmount);
 		this.tools.push(...organ.tools);
 		return this;

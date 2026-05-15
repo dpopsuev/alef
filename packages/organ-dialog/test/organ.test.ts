@@ -137,7 +137,7 @@ describe("DialogOrgan — history + system prompt", () => {
 		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
 			n.motor.publish({
 				type: DIALOG_MESSAGE,
-				payload: { text: "echo: " + String((e.payload.messages as Array<{ content: string }>).at(-1)?.content) },
+				payload: { text: `echo: ${String((e.payload.messages as Array<{ content: string }>).at(-1)?.content)}` },
 				correlationId: e.correlationId,
 				timestamp: Date.now(),
 			});

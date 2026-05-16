@@ -22,7 +22,7 @@ afterEach(async () => {
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
+	return { nerve, n: nerve.asNerve(), cerebrum: nerve.asNerve() };
 }
 
 function waitForSense(nerve: InProcessNerve, type: string): Promise<import("@dpopsuev/alef-spine").SenseEvent> {

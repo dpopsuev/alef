@@ -1,22 +1,30 @@
 /**
  * Interactive mode — read lines from stdin, send each to the agent, print replies.
  *
+ * The caller owns agent lifecycle. This function only drives the dialog loop.
+ *
  * Type /exit or press Ctrl+D to quit.
  * Conversation history accumulates across turns (DialogOrgan.history).
  */
 
-import type { BootOptions } from "./boot.js";
-import { bootAgent } from "./boot.js";
+import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { readStdinLines } from "./stdin.js";
 
 const EXIT_COMMAND = "/exit";
 
-export async function runInteractive(opts: BootOptions): Promise<void> {
-	const session = bootAgent(opts);
+export interface InteractiveOptions {
+	cwd: string;
+	modelId: string;
+}
 
+export async function runInteractive(
+	dialog: DialogOrgan,
+	opts: InteractiveOptions,
+	dispose: () => void,
+): Promise<void> {
 	if (process.stdin.isTTY) {
 		console.log(`Alef agent ready. Working directory: ${opts.cwd}`);
-		console.log(`Model: ${opts.model.id}`);
+		console.log(`Model: ${opts.modelId}`);
 		console.log(`Type ${EXIT_COMMAND} or Ctrl+D to quit.\n`);
 	}
 
@@ -26,14 +34,13 @@ export async function runInteractive(opts: BootOptions): Promise<void> {
 				break;
 			}
 
-			const reply = await session.dialog.send(line);
-			console.log(reply);
+			await dialog.send(line);
 
 			if (process.stdin.isTTY) {
 				console.log(); // blank line between turns for readability
 			}
 		}
 	} finally {
-		session.dispose();
+		dispose();
 	}
 }

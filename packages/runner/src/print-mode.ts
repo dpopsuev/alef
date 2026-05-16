@@ -1,20 +1,20 @@
 /**
- * Print mode — send one message, print the reply, exit.
+ * Print mode — send one message, let the sink print the reply, exit.
+ *
+ * The caller owns agent lifecycle. This function only drives the dialog.
  *
  * Used for scripting and pipe composition:
  *   alef -p "What does src/auth.ts export?"
  *   echo "Fix the bug in src/math.ts" | alef
  */
 
-import type { BootOptions } from "./boot.js";
-import { bootAgent } from "./boot.js";
+import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 
-export async function runPrintMode(prompt: string, opts: BootOptions): Promise<void> {
-	const session = bootAgent(opts);
+export async function runPrintMode(prompt: string, dialog: DialogOrgan, dispose: () => void): Promise<void> {
 	try {
-		// sink in boot.ts handles output — await here just ensures completion before dispose.
-		await session.dialog.send(prompt);
+		// sink in main.ts handles output — await here ensures completion before dispose.
+		await dialog.send(prompt);
 	} finally {
-		session.dispose();
+		dispose();
 	}
 }

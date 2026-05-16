@@ -6,8 +6,8 @@
  *   fs.grep   — ripgrep content search
  *   fs.find   — fd file-find
  */
-import { readFile as fsReadFile, writeFile as fsWriteFile } from "node:fs/promises";
-import { isAbsolute, resolve as nodeResolve } from "node:path";
+import { readFile as fsReadFile, writeFile as fsWriteFile, mkdir } from "node:fs/promises";
+import { dirname, isAbsolute, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import {
@@ -157,6 +157,7 @@ async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise
 	if (!filePath) throw new Error("fs.write: path is required");
 	const content = typeof ctx.payload.content === "string" ? ctx.payload.content : "";
 	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	await mkdir(dirname(absolutePath), { recursive: true });
 	await fsWriteFile(absolutePath, content, "utf-8");
 	return { path: filePath, bytes: Buffer.byteLength(content, "utf-8") };
 }

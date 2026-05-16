@@ -3,7 +3,7 @@
  */
 
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
-import { SeamValidationError } from "@dpopsuev/alef-spine";
+import { PortValidationError } from "@dpopsuev/alef-spine";
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/index.js";
 
@@ -58,21 +58,21 @@ describe("Agent.validate()", () => {
 		agent.dispose();
 	});
 
-	it("throws SeamValidationError when no reasoning organ is loaded", () => {
+	it("throws PortValidationError when no reasoning organ is loaded", () => {
 		const agent = new Agent().load(makeFsOrgan());
-		expect(() => agent.validate()).toThrow(SeamValidationError);
+		expect(() => agent.validate()).toThrow(PortValidationError);
 		agent.dispose();
 	});
 
 	it("throws when no organs are loaded at all", () => {
 		const agent = new Agent();
-		expect(() => agent.validate()).toThrow(SeamValidationError);
+		expect(() => agent.validate()).toThrow(PortValidationError);
 		agent.dispose();
 	});
 
 	it("throws when two LLMOrgans are loaded", () => {
 		const agent = new Agent().load(makeLLMOrgan("llm")).load(makeLLMOrgan("mock-llm"));
-		expect(() => agent.validate()).toThrow(SeamValidationError);
+		expect(() => agent.validate()).toThrow(PortValidationError);
 		agent.dispose();
 	});
 
@@ -82,8 +82,8 @@ describe("Agent.validate()", () => {
 			agent.validate();
 			expect.fail("should have thrown");
 		} catch (e) {
-			expect(e).toBeInstanceOf(SeamValidationError);
-			expect((e as SeamValidationError).message).toMatch(/primary_cognition/);
+			expect(e).toBeInstanceOf(PortValidationError);
+			expect((e as PortValidationError).message).toMatch(/reasoning/);
 		}
 		agent.dispose();
 	});

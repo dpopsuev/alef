@@ -113,6 +113,8 @@ const FS_EDIT_TOOL = {
 export interface FsOrganOptions {
 	cwd: string;
 	runtime?: FsRuntime;
+	/** Allowlist of fs action names to mount (e.g. ['fs.read', 'fs.grep']). Default: all. */
+	actions?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -226,27 +228,31 @@ async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 
 export function createFsOrgan(options: FsOrganOptions): Organ {
-	return defineCorpusOrgan("fs", {
-		"fs.read": {
-			tool: FS_READ_TOOL,
-			handle: (ctx) => handleRead(ctx, options),
-			shouldCache: () => true,
+	return defineCorpusOrgan(
+		"fs",
+		{
+			"fs.read": {
+				tool: FS_READ_TOOL,
+				handle: (ctx) => handleRead(ctx, options),
+				shouldCache: () => true,
+			},
+			"fs.grep": {
+				tool: FS_GREP_TOOL,
+				handle: (ctx) => handleGrep(ctx, options),
+				shouldCache: () => true,
+			},
+			"fs.find": { tool: FS_FIND_TOOL, handle: (ctx) => handleFind(ctx, options) },
+			"fs.write": {
+				tool: FS_WRITE_TOOL,
+				handle: (ctx) => handleWrite(ctx, options),
+				invalidates: () => WRITE_INVALIDATES,
+			},
+			"fs.edit": {
+				tool: FS_EDIT_TOOL,
+				handle: (ctx) => handleEdit(ctx, options),
+				invalidates: () => WRITE_INVALIDATES,
+			},
 		},
-		"fs.grep": {
-			tool: FS_GREP_TOOL,
-			handle: (ctx) => handleGrep(ctx, options),
-			shouldCache: () => true,
-		},
-		"fs.find": { tool: FS_FIND_TOOL, handle: (ctx) => handleFind(ctx, options) },
-		"fs.write": {
-			tool: FS_WRITE_TOOL,
-			handle: (ctx) => handleWrite(ctx, options),
-			invalidates: () => WRITE_INVALIDATES,
-		},
-		"fs.edit": {
-			tool: FS_EDIT_TOOL,
-			handle: (ctx) => handleEdit(ctx, options),
-			invalidates: () => WRITE_INVALIDATES,
-		},
-	});
+		{ actions: options.actions },
+	);
 }

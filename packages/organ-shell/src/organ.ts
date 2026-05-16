@@ -34,6 +34,8 @@ export interface ShellOrganOptions {
 	cwd: string;
 	shellPath?: string;
 	commandPrefix?: string;
+	/** Allowlist of shell action names to mount. Default: all. */
+	actions?: readonly string[];
 	binDir?: string;
 }
 
@@ -117,7 +119,11 @@ async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): Asyn
 // ---------------------------------------------------------------------------
 
 export function createShellOrgan(options: ShellOrganOptions): Organ {
-	return defineCorpusOrgan("shell", {
-		"shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
-	});
+	return defineCorpusOrgan(
+		"shell",
+		{
+			"shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
+		},
+		{ actions: options.actions },
+	);
 }

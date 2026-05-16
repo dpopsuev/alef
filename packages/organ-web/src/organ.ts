@@ -82,6 +82,8 @@ export interface WebOrganOptions {
 	cacheMaxSize?: number;
 	cacheTtlMs?: number;
 	fetchTimeoutMs?: number;
+	/** Allowlist of web action names to mount. Default: all. */
+	actions?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -262,10 +264,14 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 	const graph = new PageGraph();
 	const timeoutMs = options.fetchTimeoutMs ?? 12_000;
 
-	return defineCorpusOrgan("web", {
-		"web.fetch": { tool: WEB_FETCH_TOOL, handle: (ctx) => handleFetch(ctx, cache, graph, timeoutMs) },
-		"web.search": { tool: WEB_SEARCH_TOOL, handle: (ctx) => handleSearch(ctx, cache, graph) },
-		"web.crawl": { tool: WEB_CRAWL_TOOL, handle: (ctx) => handleCrawl(ctx, cache, graph) },
-		"web.graph": { tool: WEB_GRAPH_TOOL, handle: async (ctx) => handleGraph(ctx, graph) },
-	});
+	return defineCorpusOrgan(
+		"web",
+		{
+			"web.fetch": { tool: WEB_FETCH_TOOL, handle: (ctx) => handleFetch(ctx, cache, graph, timeoutMs) },
+			"web.search": { tool: WEB_SEARCH_TOOL, handle: (ctx) => handleSearch(ctx, cache, graph) },
+			"web.crawl": { tool: WEB_CRAWL_TOOL, handle: (ctx) => handleCrawl(ctx, cache, graph) },
+			"web.graph": { tool: WEB_GRAPH_TOOL, handle: async (ctx) => handleGraph(ctx, graph) },
+		},
+		{ actions: options.actions },
+	);
 }

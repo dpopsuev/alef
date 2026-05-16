@@ -312,6 +312,16 @@ async function dispatchMotorAction(
 export interface OrganOptions {
 	/** Pino-compatible logger. Default: no-op. */
 	logger?: OrganLogger;
+	/**
+	 * Allowlist of unprefixed event types to mount (e.g. ['fs.read', 'fs.grep']).
+	 * Actions not in the list are never constructed, never mounted on the bus,
+	 * and never appear in organ.tools — principle of least privilege.
+	 * Default: undefined (all actions mounted).
+	 *
+	 * Use this to implement blueprint action ablation: only mount what the
+	 * blueprint declares, so the agent cannot call tools it was not given.
+	 */
+	actions?: readonly string[];
 }
 
 /**
@@ -333,6 +343,24 @@ export interface OrganOptions {
  */
 export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions = {}): Organ {
 	const log = opts.logger ?? noopLogger;
+
+	// Apply action allowlist — ablate anything not in the list.
+	// Unknown names in the allowlist are ignored (forward-compat, not an error).
+	if (opts.actions !== undefined) {
+		const allowed = new Set(opts.actions);
+		const filtered: ActionMap = {};
+		for (const [key, action] of Object.entries(actions)) {
+			const eventType = key.startsWith("motor/")
+				? key.slice("motor/".length)
+				: key.startsWith("sense/")
+					? key.slice("sense/".length)
+					: key;
+			if (allowed.has(eventType)) {
+				filtered[key] = action;
+			}
+		}
+		actions = filtered;
+	}
 
 	const tools: ToolDefinition[] = Object.values(actions)
 		.filter((a) => "tool" in a && a.tool !== undefined)

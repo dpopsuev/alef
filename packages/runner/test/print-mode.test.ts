@@ -15,7 +15,7 @@ describe("runPrintMode", () => {
 		await runPrintMode("hello", dialog as never, dispose);
 
 		expect(dialog.send).toHaveBeenCalledOnce();
-		expect(dialog.send).toHaveBeenCalledWith("hello");
+		expect(dialog.send).toHaveBeenCalledWith("hello", "human", 120_000);
 	});
 
 	it("calls dispose after send resolves", async () => {

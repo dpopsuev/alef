@@ -16,6 +16,7 @@ import { EvalHarness } from "../src/harness.js";
 class LoopingLLMOrgan implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
+	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
 
 	constructor(private readonly loopCount: number) {}
 

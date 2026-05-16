@@ -15,8 +15,8 @@ export const DIALOG_MESSAGE = "dialog.message" as const;
 export { PortValidationError, STANDARD_PORTS, validatePorts } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
-// BusObserver — full read access to the Nerve for observability tools.
-// Used by BusEventRecorder in testkit. Not an organ — not routed.
+// BusObserver - full read access to the Nerve for observability tools.
+// Used by BusEventRecorder in testkit. Not an organ - not routed.
 // ---------------------------------------------------------------------------
 
 export interface BusObserver {
@@ -25,7 +25,7 @@ export interface BusObserver {
 }
 
 // ---------------------------------------------------------------------------
-// Corpus — the composition root and external boundary of the agent.
+// Corpus - the composition root and external boundary of the agent.
 //
 // Responsibilities:
 //  - Creates the Spine (InProcessNerve) and owns it exclusively.
@@ -49,10 +49,10 @@ export class Agent {
 
 	/**
 	 * Load an organ onto the agent.
-	 * Always calls mount() exactly once — port detection is deferred to validate().
+	 * Always calls mount() exactly once - port detection is deferred to validate().
 	 */
 	load(organ: Organ): this {
-		if (this.disposed) throw new Error("Agent is disposed — cannot load organs.");
+		if (this.disposed) throw new Error("Agent is disposed - cannot load organs.");
 		this.organs.push(organ);
 		const unmount = organ.mount(this.nerve.asNerve());
 		this.unmounts.push(unmount);
@@ -63,47 +63,19 @@ export class Agent {
 	/**
 	 * Validate port cardinality. Call before the first dialog.send().
 	 *
-	 * Seam info is collected lazily here (not in load()) so that mount() is always
-	 * called exactly once. For organs created with defineOrgan, subscriptions are
-	 * read from organ.subscriptions (declared from the action map keys). For
-	 * hand-crafted organs that don’t declare subscriptions, a throw-away probe nerve
-	 * intercepts subscribe() calls to detect coverage — mount() is called once extra
-	 * on that probe nerve only at validate() time.
+	 * Reads organ.subscriptions directly — no probe mount, no state corruption.
+	 * The Organ interface requires subscriptions, so TypeScript enforces declaration.
+	 * mount() is always called exactly once (in load()).
 	 *
 	 * Throws PortValidationError on errors (missing/duplicate exactly-one ports).
 	 * Logs warnings for zero-or-one violations.
 	 */
 	validate(seams: PortDefinition[] = STANDARD_PORTS): this {
-		const infos: OrganPortInfo[] = this.organs.map((organ) => {
-			if (organ.subscriptions) {
-				return {
-					name: organ.name,
-					motorSubscriptions: [...(organ.subscriptions.motor ?? [])],
-					senseSubscriptions: [...(organ.subscriptions.sense ?? [])],
-				};
-			}
-			// Probe for hand-crafted organs without declared subscriptions.
-			const motorSubs: string[] = [];
-			const senseSubs: string[] = [];
-			const probe = {
-				motor: {
-					subscribe: (type: string, _h: unknown) => {
-						motorSubs.push(type);
-						return () => {};
-					},
-					publish: () => {},
-				},
-				sense: {
-					subscribe: (type: string, _h: unknown) => {
-						senseSubs.push(type);
-						return () => {};
-					},
-					publish: () => {},
-				},
-			};
-			organ.mount(probe as never);
-			return { name: organ.name, motorSubscriptions: motorSubs, senseSubscriptions: senseSubs };
-		});
+		const infos: OrganPortInfo[] = this.organs.map((organ) => ({
+			name: organ.name,
+			motorSubscriptions: [...organ.subscriptions.motor],
+			senseSubscriptions: [...organ.subscriptions.sense],
+		}));
 
 		const result = validatePorts(infos, seams);
 		for (const w of result.violations.filter((v) => v.severity === "warning")) {

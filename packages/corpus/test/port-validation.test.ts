@@ -16,6 +16,7 @@ function makeLLMOrgan(name = "llm"): Organ {
 	return {
 		name,
 		tools: [],
+		subscriptions: { motor: [] as const, sense: ["dialog.message"] as const },
 		mount: (nerve: Nerve) => nerve.sense.subscribe("dialog.message", () => {}),
 	};
 }
@@ -25,6 +26,7 @@ function makeFsOrgan(): Organ {
 	return {
 		name: "fs",
 		tools: [],
+		subscriptions: { motor: ["fs.read", "fs.write"] as const, sense: [] as const },
 		mount: (nerve: Nerve) => {
 			const offs = [nerve.motor.subscribe("fs.read", () => {}), nerve.motor.subscribe("fs.write", () => {})];
 			return () => {
@@ -39,6 +41,7 @@ function makeInertOrgan(): Organ {
 	return {
 		name: "inert",
 		tools: [],
+		subscriptions: { motor: [] as const, sense: [] as const },
 		mount: () => () => {},
 	};
 }

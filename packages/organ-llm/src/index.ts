@@ -175,6 +175,10 @@ export class LLMOrgan {
 	private readonly organ: Organ;
 	readonly name = "llm";
 	readonly tools = [] as const;
+	// Delegated from the inner defineCerebrumOrgan — always sense/dialog.message.
+	get subscriptions() {
+		return this.organ.subscriptions;
+	}
 
 	constructor(options: LLMOrganOptions) {
 		this.organ = createLLMOrgan(options);

@@ -16,6 +16,7 @@ import { EvalHarness } from "../src/harness.js";
 class FileReaderLLMOrgan implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
+	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
 	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("dialog.message", async (event) => {
 			const corr = event.correlationId;

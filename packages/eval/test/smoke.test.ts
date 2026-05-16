@@ -16,6 +16,7 @@ import { EvalHarness, formatReport } from "../src/harness.js";
 class QuiescentLLMOrgan implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
+	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
 
 	constructor(private readonly reply: string = "smoke ok") {}
 

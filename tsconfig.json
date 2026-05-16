@@ -22,6 +22,8 @@
 			"@dpopsuev/alef-testkit/*": ["./packages/testkit/src/*.ts"],
 			"@dpopsuev/alef-eval": ["./packages/eval/src/index.ts"],
 			"@dpopsuev/alef-eval/*": ["./packages/eval/src/*.ts"],
+			"@dpopsuev/alef-runner": ["./packages/runner/src/main.ts"],
+			"@dpopsuev/alef-runner/*": ["./packages/runner/src/*.ts"],
 		"@dpopsuev/alef-organ-enclosure": ["./packages/organ-enclosure/src/index.ts"],
 		"@dpopsuev/alef-organ-web": ["./packages/organ-web/src/index.ts"],			"@dpopsuev/alef-discourse": ["./packages/discourse/src/index.ts"],
 			"@dpopsuev/alef-discourse/*": ["./packages/discourse/src/*.ts"],

@@ -21,6 +21,7 @@ import { parseArgs } from "./args.js";
 import { runInteractive } from "./interactive.js";
 import { buildModel, hasCredentials } from "./model.js";
 import { runPrintMode } from "./print-mode.js";
+import { buildSystemPrompt } from "./prompt.js";
 import { makeSink } from "./sink.js";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +48,7 @@ const agent = new Agent();
 const dialog = new DialogOrgan({
 	sink: makeSink(args.json),
 	getTools: () => agent.tools,
+	systemPrompt: buildSystemPrompt(args.cwd),
 });
 
 agent

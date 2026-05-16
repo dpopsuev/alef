@@ -27,14 +27,17 @@ describe("runPrintMode", () => {
 		expect(dispose).toHaveBeenCalledOnce();
 	});
 
-	it("calls dispose even when send rejects", async () => {
+	it("calls dispose and sets exitCode=1 when send rejects", async () => {
 		const dialog = {
 			send: vi.fn().mockRejectedValue(new Error("LLM error")),
 		};
 		const dispose = vi.fn();
+		const originalExitCode = process.exitCode;
 
-		await expect(runPrintMode("hi", dialog as never, dispose)).rejects.toThrow("LLM error");
+		await runPrintMode("hi", dialog as never, dispose); // does NOT throw now
 
 		expect(dispose).toHaveBeenCalledOnce();
+		expect(process.exitCode).toBe(1);
+		process.exitCode = originalExitCode; // restore
 	});
 });

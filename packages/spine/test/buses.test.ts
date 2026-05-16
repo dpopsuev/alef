@@ -136,7 +136,7 @@ describe("Nerve — sense.publish", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Corpus root methods
+// Agent root methods
 // ---------------------------------------------------------------------------
 
 describe("InProcessNerve — corpus root methods", () => {

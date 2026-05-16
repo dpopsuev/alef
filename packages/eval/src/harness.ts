@@ -1,5 +1,5 @@
 /**
- * EvalHarness — boots a Corpus for evaluation runs.
+ * EvalHarness — boots an Agent for evaluation runs.
  *
  * Design decisions:
  *   - Workspace: plain mkdtemp + cleanup. No EnclosureOrgan needed —
@@ -15,7 +15,7 @@
 import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { Corpus } from "@dpopsuev/alef-corpus";
+import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
@@ -87,21 +87,21 @@ export class EvalHarness {
 
 		const evaluator = new EvaluatorOrgan({ loopThreshold: opts.loopThreshold });
 
-		const corpus = new Corpus();
+		const agent = new Agent();
 		const dialog = new DialogOrgan({
 			sink: () => {},
-			getTools: () => corpus.tools,
+			getTools: () => agent.tools,
 			systemPrompt: opts.systemPrompt,
 		});
 
-		corpus
+		agent
 			.load(dialog)
 			.load(createFsOrgan({ cwd: workspace }))
 			.load(createShellOrgan({ cwd: workspace }))
 			.load(evaluator);
 
 		for (const organ of opts.extraOrgans ?? []) {
-			corpus.load(organ);
+			agent.load(organ);
 		}
 
 		let passed = false;
@@ -123,7 +123,7 @@ export class EvalHarness {
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
-			corpus.dispose();
+			agent.dispose();
 			await rm(workspace, { recursive: true, force: true });
 		}
 

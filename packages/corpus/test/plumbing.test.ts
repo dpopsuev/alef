@@ -43,6 +43,7 @@ function publishMotor(nerve: Nerve, type: string, payload: Record<string, unknow
 class SingleToolLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
+	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
 	readonly receivedTools: string[] = [];
 	readonly receivedResults: unknown[] = [];
 
@@ -65,6 +66,7 @@ class SingleToolLLM implements Organ {
 class FanOutLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
+	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
 	readonly completionOrder: string[] = [];
 
 	mount(nerve: Nerve): () => void {
@@ -97,6 +99,7 @@ class FanOutLLM implements Organ {
 class QuiescentLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
+	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
 
 	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("dialog.message", (event) => {

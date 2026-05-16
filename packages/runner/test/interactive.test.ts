@@ -32,8 +32,8 @@ describe("runInteractive", () => {
 		await runInteractive(dialog as never, OPTS, dispose);
 
 		expect(dialog.send).toHaveBeenCalledTimes(2);
-		expect(dialog.send).toHaveBeenNthCalledWith(1, "line one");
-		expect(dialog.send).toHaveBeenNthCalledWith(2, "line two");
+		expect(dialog.send).toHaveBeenNthCalledWith(1, "line one", "human", 120_000);
+		expect(dialog.send).toHaveBeenNthCalledWith(2, "line two", "human", 120_000);
 	});
 
 	it("stops on /exit command without sending it", async () => {
@@ -50,7 +50,7 @@ describe("runInteractive", () => {
 		await runInteractive(dialog as never, OPTS, dispose);
 
 		expect(dialog.send).toHaveBeenCalledOnce();
-		expect(dialog.send).toHaveBeenCalledWith("hello");
+		expect(dialog.send).toHaveBeenCalledWith("hello", "human", 120_000);
 	});
 
 	it("calls dispose after the loop ends normally", async () => {

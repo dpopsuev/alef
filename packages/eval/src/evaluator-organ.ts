@@ -32,6 +32,7 @@ export interface EvaluatorOrganState {
 export class EvaluatorOrgan implements Organ {
 	readonly name = "evaluator";
 	readonly tools = [] as const;
+	readonly subscriptions = { motor: ["*"] as const, sense: ["*"] as const };
 
 	private readonly threshold: number;
 	private readonly onLoop?: EvaluatorOrganOptions["onLoop"];

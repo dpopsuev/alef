@@ -11,6 +11,7 @@ import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-sp
 export class MockLLMOrgan implements Organ {
 	readonly name = "mock-llm";
 	readonly tools: readonly ToolDefinition[] = [];
+	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
 
 	constructor(private readonly cannedText: string = "mock response") {}
 

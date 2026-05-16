@@ -18,6 +18,7 @@ class ScriptedReadTwiceLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly reads: Array<{ cacheHit: boolean }> = [];
+	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
 
 	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("dialog.message", async (event) => {

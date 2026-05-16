@@ -8,7 +8,12 @@ import { Agent } from "../src/index.js";
 // ---------------------------------------------------------------------------
 
 function makeNoopOrgan(): Organ {
-	return { name: "noop", tools: [], mount: (_nerve: Nerve) => () => {} };
+	return {
+		name: "noop",
+		tools: [],
+		subscriptions: { motor: [] as const, sense: [] as const },
+		mount: (_nerve: Nerve) => () => {},
+	};
 }
 
 function makeToolOrgan(toolNames: string[]): Organ {
@@ -21,6 +26,7 @@ function makeToolOrgan(toolNames: string[]): Organ {
 				inputSchema: { type: "object" as const },
 			}),
 		),
+		subscriptions: { motor: [] as const, sense: [] as const },
 		mount: (_nerve: Nerve) => () => {},
 	};
 }
@@ -30,6 +36,7 @@ function makeEchoOrgan(): Organ {
 	return {
 		name: "echo",
 		tools: [],
+		subscriptions: { motor: [] as const, sense: [] as const },
 		mount: (nerve: Nerve) => {
 			return nerve.sense.subscribe("dialog.message", (event) => {
 				nerve.motor.publish({
@@ -74,6 +81,7 @@ describe("Agent — load()", () => {
 		agent.load({
 			name: "tool-spy",
 			tools: [],
+			subscriptions: { motor: [] as const, sense: [] as const },
 			mount: (nerve: Nerve) => {
 				return nerve.sense.subscribe("dialog.message", (e) => {
 					capturedTools = (e.payload.tools as { name: string }[]) ?? [];
@@ -107,6 +115,7 @@ describe("Agent — load()", () => {
 		agent.load({
 			name: "counted",
 			tools: [],
+			subscriptions: { motor: [] as const, sense: [] as const },
 			mount: (_n: Nerve) => {
 				mountCalls++;
 				return () => {};
@@ -164,6 +173,7 @@ describe("Agent — dispose()", () => {
 		agent.load({
 			name: "tracked",
 			tools: [],
+			subscriptions: { motor: [] as const, sense: [] as const },
 			mount: (_n: Nerve) => () => {
 				unmounted = true;
 			},

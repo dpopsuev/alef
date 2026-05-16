@@ -77,9 +77,16 @@ export interface Organ {
 	 * Hand-crafted organs can declare this explicitly for SeamRegistry detection.
 	 * If absent, the Agent probes by calling mount on a throw-away nerve.
 	 */
-	readonly subscriptions?: {
-		readonly motor?: readonly string[];
-		readonly sense?: readonly string[];
+	/**
+	 * Declares which Motor and Sense event types this organ subscribes to.
+	 * Required — the framework enforces this at compile time.
+	 * defineOrgan fills it automatically from the action map keys.
+	 * Hand-crafted organs must declare it explicitly.
+	 * Agent.validate() reads this directly — no probe mount, no state corruption.
+	 */
+	readonly subscriptions: {
+		readonly motor: readonly string[];
+		readonly sense: readonly string[];
 	};
 }
 

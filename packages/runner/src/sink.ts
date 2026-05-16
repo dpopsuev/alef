@@ -22,7 +22,7 @@ export function textSink(): Sink {
 
 export function jsonSink(): Sink {
 	return (text) => {
-		process.stdout.write(JSON.stringify({ type: "reply", text, ts: Date.now() }) + "\n");
+		process.stdout.write(`${JSON.stringify({ type: "reply", text, ts: Date.now() })}\n`);
 	};
 }
 

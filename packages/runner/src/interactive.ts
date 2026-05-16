@@ -34,7 +34,7 @@ export async function runInteractive(
 				break;
 			}
 
-			await dialog.send(line);
+			await dialog.send(line, "human", 120_000);
 
 			if (process.stdin.isTTY) {
 				console.log(); // blank line between turns for readability

@@ -77,6 +77,12 @@ export interface DialogOrganOptions {
 export class DialogOrgan implements Organ {
 	readonly name = "dialog";
 	readonly tools: readonly ToolDefinition[] = [MESSAGE_TOOL];
+	/**
+	 * Declare subscriptions so Agent.validate() never probes via a second mount().
+	 * DialogOrgan subscribes Motor/dialog.message (receives agent replies).
+	 * It does not subscribe Sense — it publishes Sense via receive().
+	 */
+	readonly subscriptions = { motor: ["dialog.message"] as const, sense: [] as const };
 
 	private readonly sink: MessageSink;
 	private readonly getTools: () => readonly ToolDefinition[];

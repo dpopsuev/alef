@@ -10,10 +10,12 @@
 
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 
+const SEND_TIMEOUT_MS = 120_000; // 2 min — Vertex latency can exceed 30s
+
 export async function runPrintMode(prompt: string, dialog: DialogOrgan, dispose: () => void): Promise<void> {
 	try {
 		// sink in main.ts handles output — await here ensures completion before dispose.
-		await dialog.send(prompt);
+		await dialog.send(prompt, "human", SEND_TIMEOUT_MS);
 	} finally {
 		dispose();
 	}

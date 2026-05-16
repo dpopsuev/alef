@@ -26,15 +26,31 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 	// Build initial messages from payload
 	const rawMessages =
 		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
-	const tools: Tool[] = (payload.tools ?? []).map((t) => ({
-		name: t.name,
-		description: t.description,
-		parameters: t.inputSchema,
-	}));
+
+	// Anthropic tool names must match ^[a-zA-Z0-9_-]{1,128}$.
+	// Motor event types use dots (fs.read, shell.exec) — sanitize for the API
+	// and keep a reverse map to recover the Motor event type from the LLM's response.
+	const motorNameByLlmName = new Map<string, string>();
+	const tools: Tool[] = (payload.tools ?? []).map((t) => {
+		const llmName = t.name.replace(/\./g, "_");
+		motorNameByLlmName.set(llmName, t.name);
+		return { name: llmName, description: t.description, parameters: t.inputSchema };
+	});
+	const toMotorName = (llmName: string): string => motorNameByLlmName.get(llmName) ?? llmName;
 
 	const messages: Message[] = (rawMessages as Message[]).map((m) => {
-		if ("timestamp" in m && typeof (m as { timestamp?: unknown }).timestamp === "number") return m;
-		return { ...(m as object), timestamp: Date.now() } as Message;
+		const base =
+			"timestamp" in m && typeof (m as { timestamp?: unknown }).timestamp === "number"
+				? (m as Message)
+				: ({ ...(m as object), timestamp: Date.now() } as Message);
+		// Normalize assistant messages: plain-string content → content-block array.
+		// DialogOrgan stores replies as { role: "assistant", content: "text" } but
+		// Anthropic requires content: [{ type: "text", text: "..." }].
+		if (base.role === "assistant" && typeof (base as { content?: unknown }).content === "string") {
+			const text = (base as unknown as { content: string }).content;
+			return { ...base, content: [{ type: "text", text }] } as Message;
+		}
+		return base;
 	});
 
 	const { correlationId, motor, sense } = ctx;
@@ -69,35 +85,42 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		if (!finalMessage) break;
 		messages.push(finalMessage);
 
-		// Quiescence — emit inline text if present
-		if (pendingCalls.length === 0) {
-			const text = extractText(finalMessage);
+		// Quiescence — no tool calls, or LLM called dialog.message as its reply tool.
+		// pendingCalls have LLM names (underscored) — resolve to Motor event types.
+		const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
+		const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
+
+		if (toolCalls.length === 0) {
+			// Extract reply text: from dialog.message tool args, or from inline text.
+			const text =
+				(typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined) ?? extractText(finalMessage);
 			if (text) {
 				motor.publish({ type: DIALOG_MESSAGE, payload: { text }, correlationId, timestamp: Date.now() });
 			}
 			break;
 		}
 
-		// Fan-out: all tool calls simultaneously
+		// Fan-out: real tool calls (not dialog.message) simultaneously.
 		const results = await Promise.all(
-			pendingCalls.map((tc) => {
+			toolCalls.map((tc) => {
+				const motorType = toMotorName(tc.name);
 				motor.publish({
-					type: tc.name,
+					type: motorType,
 					payload: { ...tc.args, toolCallId: tc.id },
 					correlationId,
 					timestamp: Date.now(),
 				});
-				return waitForToolResult(sense, tc.name, tc.id, correlationId);
+				return waitForToolResult(sense, motorType, tc.id, correlationId);
 			}),
 		);
 
-		for (let i = 0; i < pendingCalls.length; i++) {
-			const tc = pendingCalls[i];
+		for (let i = 0; i < toolCalls.length; i++) {
+			const tc = toolCalls[i];
 			const result = results[i];
 			messages.push({
 				role: "toolResult",
 				toolCallId: tc.id,
-				toolName: tc.name,
+				toolName: toMotorName(tc.name),
 				content: [{ type: "text", text: payloadToText(result.payload, result.isError, result.errorMessage) }],
 				isError: result.isError,
 				timestamp: Date.now(),

@@ -66,19 +66,26 @@ describe("runInteractive", () => {
 		expect(dispose).toHaveBeenCalledOnce();
 	});
 
-	it("calls dispose even when dialog.send rejects", async () => {
+	it("continues loop on error and disposes cleanly", async () => {
 		mockedReadStdinLines.mockReturnValue(
 			(async function* () {
 				yield "trigger error";
+				yield "this still sends";
 			})(),
 		);
+		let callCount = 0;
 		const dialog = {
-			send: vi.fn().mockRejectedValue(new Error("LLM unavailable")),
+			send: vi.fn().mockImplementation(async () => {
+				callCount++;
+				if (callCount === 1) throw new Error("LLM unavailable");
+				return "ok";
+			}),
 		};
 		const dispose = vi.fn();
 
-		await expect(runInteractive(dialog as never, OPTS, dispose)).rejects.toThrow("LLM unavailable");
+		await runInteractive(dialog as never, OPTS, dispose); // does NOT throw
 
+		expect(dialog.send).toHaveBeenCalledTimes(2); // both turns attempted
 		expect(dispose).toHaveBeenCalledOnce();
 	});
 

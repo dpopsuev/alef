@@ -21,6 +21,7 @@ import { parseArgs } from "./args.js";
 import { runInteractive } from "./interactive.js";
 import { buildModel, hasCredentials } from "./model.js";
 import { runPrintMode } from "./print-mode.js";
+import { makeSink } from "./sink.js";
 
 // ---------------------------------------------------------------------------
 // Parse arguments
@@ -44,7 +45,7 @@ const model = buildModel(args.modelId);
 const agent = new Agent();
 
 const dialog = new DialogOrgan({
-	sink: (text) => console.log(text),
+	sink: makeSink(args.json),
 	getTools: () => agent.tools,
 });
 

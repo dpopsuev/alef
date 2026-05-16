@@ -1,15 +1,30 @@
 #!/usr/bin/env tsx
 /**
- * Alef agent runner.
+ * Alef agent runner — composition root and entry point.
  *
- * Entry point — parses arguments and dispatches to the correct mode.
- * All business logic lives in the mode files; this file only coordinates.
+ * This file is the only place that knows about organs.
+ * Everything below it (print-mode, interactive) receives only
+ * dialog + dispose — they have no organ dependencies.
+ *
+ * Organ wiring lives here because this IS the composition root.
+ * When the blueprint system lands (TSK-107), this wiring moves
+ * to a blueprint materializer and this file becomes truly thin.
  */
+
+import { Agent } from "@dpopsuev/alef-corpus";
+import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
+import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
+import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 
 import { parseArgs } from "./args.js";
 import { runInteractive } from "./interactive.js";
 import { buildModel, hasCredentials } from "./model.js";
 import { runPrintMode } from "./print-mode.js";
+
+// ---------------------------------------------------------------------------
+// Parse arguments
+// ---------------------------------------------------------------------------
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -20,13 +35,31 @@ if (!hasCredentials()) {
 	);
 }
 
-const opts = {
-	cwd: args.cwd,
-	model: buildModel(args.modelId),
-};
+const model = buildModel(args.modelId);
+
+// ---------------------------------------------------------------------------
+// Compose the agent — the only place organs are imported and wired.
+// ---------------------------------------------------------------------------
+
+const agent = new Agent();
+
+const dialog = new DialogOrgan({
+	sink: (text) => console.log(text),
+	getTools: () => agent.tools,
+});
+
+agent
+	.load(dialog)
+	.load(createFsOrgan({ cwd: args.cwd }))
+	.load(createShellOrgan({ cwd: args.cwd }))
+	.load(new LLMOrgan({ model }));
+
+// ---------------------------------------------------------------------------
+// Dispatch to the correct run mode.
+// ---------------------------------------------------------------------------
 
 if (args.print) {
-	await runPrintMode(args.prompt, opts);
+	await runPrintMode(args.prompt, dialog, () => agent.dispose());
 } else {
-	await runInteractive(opts);
+	await runInteractive(dialog, { cwd: args.cwd, modelId: args.modelId }, () => agent.dispose());
 }

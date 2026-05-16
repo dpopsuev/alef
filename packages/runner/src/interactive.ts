@@ -8,6 +8,7 @@
  */
 
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { formatError } from "./errors.js";
 import { readStdinLines } from "./stdin.js";
 
 const EXIT_COMMAND = "/exit";
@@ -34,7 +35,11 @@ export async function runInteractive(
 				break;
 			}
 
-			await dialog.send(line, "human", 120_000);
+			try {
+				await dialog.send(line, "human", 120_000);
+			} catch (e) {
+				console.error(formatError(e));
+			}
 
 			if (process.stdin.isTTY) {
 				console.log(); // blank line between turns for readability

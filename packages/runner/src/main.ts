@@ -59,6 +59,10 @@ agent
 // Dispatch to the correct run mode.
 // ---------------------------------------------------------------------------
 
+// Validate seam cardinality before the first turn.
+// Errors mean the agent cannot respond (missing reasoning organ).
+agent.validate();
+
 if (args.print) {
 	await runPrintMode(args.prompt, dialog, () => agent.dispose());
 } else {

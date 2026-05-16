@@ -71,6 +71,16 @@ export interface Organ {
 	readonly name: string;
 	readonly tools: readonly ToolDefinition[];
 	mount(nerve: Nerve): () => void;
+	/**
+	 * Optional: declares which Motor and Sense event types this organ subscribes to.
+	 * Set automatically by defineOrgan from the action map keys.
+	 * Hand-crafted organs can declare this explicitly for SeamRegistry detection.
+	 * If absent, the Agent probes by calling mount on a throw-away nerve.
+	 */
+	readonly subscriptions?: {
+		readonly motor?: readonly string[];
+		readonly sense?: readonly string[];
+	};
 }
 
 // ---------------------------------------------------------------------------

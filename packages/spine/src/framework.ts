@@ -338,9 +338,21 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		.filter((a) => "tool" in a && a.tool !== undefined)
 		.map((a) => (a as { tool: ToolDefinition }).tool);
 
+	// Derive subscriptions from action map keys for SeamRegistry detection.
+	const motorSubscriptions = Object.keys(actions)
+		.filter((k) => k.startsWith("motor/"))
+		.map((k) => k.slice("motor/".length));
+	const senseSubscriptions = Object.keys(actions)
+		.filter((k) => k.startsWith("sense/"))
+		.map((k) => k.slice("sense/".length));
+
 	return {
 		name,
 		tools,
+		subscriptions: {
+			motor: motorSubscriptions,
+			sense: senseSubscriptions,
+		},
 		mount(nerve: Nerve): () => void {
 			// Session-scoped cache — lives for the lifetime of this mount.
 			const cache = new Map<string, Record<string, unknown>>();

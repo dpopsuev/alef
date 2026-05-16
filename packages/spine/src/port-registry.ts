@@ -1,5 +1,5 @@
 /**
- * SeamRegistry — kernel seam cardinality validation.
+ * PortRegistry — kernel seam cardinality validation.
  *
  * A seam is a named event channel with a declared cardinality constraint.
  * The registry validates that each loaded organ set satisfies all seam constraints
@@ -14,13 +14,13 @@
  * Seam detection: an organ covers a seam if any of its action map keys matches
  * the seam's event pattern. Wildcards in action keys (motor/*) cover all motor seams.
  *
- * EIP: SeamRegistry implements the Content-Based Router pattern at boot time —
+ * EIP: PortRegistry implements the Content-Based Router pattern at boot time —
  * routing organs to seams based on their declared action map key prefixes.
  */
 
-export type SeamCardinality = "exactly-one" | "zero-or-one" | "zero-or-many";
+export type PortCardinality = "exactly-one" | "zero-or-one" | "zero-or-many";
 
-export interface SeamDefinition {
+export interface PortDefinition {
 	/** Human-readable name. */
 	name: string;
 	/**
@@ -29,20 +29,20 @@ export interface SeamDefinition {
 	 * Use "*" suffix for wildcard: "motor/*" matches any motor action.
 	 */
 	eventPattern: string;
-	cardinality: SeamCardinality;
+	cardinality: PortCardinality;
 }
 
-export interface SeamViolation {
-	seam: SeamDefinition;
+export interface PortViolation {
+	seam: PortDefinition;
 	organCount: number;
 	organNames: string[];
 	severity: "error" | "warning";
 	message: string;
 }
 
-export interface SeamValidationResult {
+export interface PortValidationResult {
 	valid: boolean;
-	violations: SeamViolation[];
+	violations: PortViolation[];
 }
 
 // ---------------------------------------------------------------------------
@@ -53,9 +53,9 @@ export interface SeamValidationResult {
  * The canonical seam registry for the standard Alef agent.
  * Override or extend for custom agent topologies.
  */
-export const STANDARD_SEAMS: SeamDefinition[] = [
+export const STANDARD_PORTS: PortDefinition[] = [
 	{
-		name: "primary_cognition",
+		name: "reasoning",
 		eventPattern: "sense/dialog.message",
 		cardinality: "exactly-one",
 	},
@@ -103,7 +103,7 @@ export const STANDARD_SEAMS: SeamDefinition[] = [
  * Strategy: mount the organ onto a probe nerve, record which event types it
  * subscribes to on Motor and Sense buses, then unmount.
  */
-export interface OrganSeamInfo {
+export interface OrganPortInfo {
 	name: string;
 	motorSubscriptions: string[]; // event types subscribed on Motor bus
 	senseSubscriptions: string[]; // event types subscribed on Sense bus
@@ -113,7 +113,7 @@ export interface OrganSeamInfo {
 // Seam matching
 // ---------------------------------------------------------------------------
 
-function organCoverSeam(info: OrganSeamInfo, seam: SeamDefinition): boolean {
+function organCoversPort(info: OrganPortInfo, seam: PortDefinition): boolean {
 	const pattern = seam.eventPattern;
 
 	if (pattern.startsWith("motor/")) {
@@ -145,11 +145,11 @@ function organCoverSeam(info: OrganSeamInfo, seam: SeamDefinition): boolean {
 // Validation
 // ---------------------------------------------------------------------------
 
-export function validateSeams(organs: OrganSeamInfo[], seams: SeamDefinition[] = STANDARD_SEAMS): SeamValidationResult {
-	const violations: SeamViolation[] = [];
+export function validatePorts(organs: OrganPortInfo[], seams: PortDefinition[] = STANDARD_PORTS): PortValidationResult {
+	const violations: PortViolation[] = [];
 
 	for (const seam of seams) {
-		const covering = organs.filter((o) => organCoverSeam(o, seam));
+		const covering = organs.filter((o) => organCoversPort(o, seam));
 		const count = covering.length;
 		const names = covering.map((o) => o.name);
 
@@ -190,10 +190,10 @@ export function validateSeams(organs: OrganSeamInfo[], seams: SeamDefinition[] =
 	};
 }
 
-export class SeamValidationError extends Error {
-	constructor(public readonly violations: SeamViolation[]) {
+export class PortValidationError extends Error {
+	constructor(public readonly violations: PortViolation[]) {
 		const errors = violations.filter((v) => v.severity === "error");
 		super(`Agent seam validation failed:\n${errors.map((v) => `  - ${v.message}`).join("\n")}`);
-		this.name = "SeamValidationError";
+		this.name = "PortValidationError";
 	}
 }

@@ -59,8 +59,8 @@ agent
 // Dispatch to the correct run mode.
 // ---------------------------------------------------------------------------
 
-// Validate seam cardinality before the first turn.
-// Errors mean the agent cannot respond (missing reasoning organ).
+// Validate port cardinality (hexagonal architecture) before the first turn.
+// Errors mean the agent cannot respond (missing reasoning adapter).
 agent.validate();
 
 if (args.print) {

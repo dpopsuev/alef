@@ -2,17 +2,17 @@ import {
 	InProcessNerve,
 	type NerveEvent,
 	type Organ,
-	type OrganSeamInfo,
-	type SeamDefinition,
-	SeamValidationError,
-	STANDARD_SEAMS,
+	type OrganPortInfo,
+	type PortDefinition,
+	PortValidationError,
+	STANDARD_PORTS,
 	type ToolDefinition,
-	validateSeams,
+	validatePorts,
 } from "@dpopsuev/alef-spine";
 
 // Corpus event type constants
 export const DIALOG_MESSAGE = "dialog.message" as const;
-export { SeamValidationError, STANDARD_SEAMS, validateSeams } from "@dpopsuev/alef-spine";
+export { PortValidationError, STANDARD_PORTS, validatePorts } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
 // BusObserver — full read access to the Nerve for observability tools.
@@ -43,13 +43,13 @@ export class Agent {
 	private readonly unmounts: Array<() => void> = [];
 	/** Tool definitions collected from all loaded organs. */
 	readonly tools: ToolDefinition[] = [];
-	/** Organs stored for lazy seam detection in validate(). */
+	/** Organs stored for lazy port detection in validate(). */
 	private readonly organs: Organ[] = [];
 	private disposed = false;
 
 	/**
 	 * Load an organ onto the agent.
-	 * Always calls mount() exactly once — seam detection is deferred to validate().
+	 * Always calls mount() exactly once — port detection is deferred to validate().
 	 */
 	load(organ: Organ): this {
 		if (this.disposed) throw new Error("Agent is disposed — cannot load organs.");
@@ -61,7 +61,7 @@ export class Agent {
 	}
 
 	/**
-	 * Validate seam cardinality. Call before the first dialog.send().
+	 * Validate port cardinality. Call before the first dialog.send().
 	 *
 	 * Seam info is collected lazily here (not in load()) so that mount() is always
 	 * called exactly once. For organs created with defineOrgan, subscriptions are
@@ -70,11 +70,11 @@ export class Agent {
 	 * intercepts subscribe() calls to detect coverage — mount() is called once extra
 	 * on that probe nerve only at validate() time.
 	 *
-	 * Throws SeamValidationError on errors (missing/duplicate exactly-one seams).
+	 * Throws PortValidationError on errors (missing/duplicate exactly-one ports).
 	 * Logs warnings for zero-or-one violations.
 	 */
-	validate(seams: SeamDefinition[] = STANDARD_SEAMS): this {
-		const infos: OrganSeamInfo[] = this.organs.map((organ) => {
+	validate(seams: PortDefinition[] = STANDARD_PORTS): this {
+		const infos: OrganPortInfo[] = this.organs.map((organ) => {
 			if (organ.subscriptions) {
 				return {
 					name: organ.name,
@@ -105,12 +105,12 @@ export class Agent {
 			return { name: organ.name, motorSubscriptions: motorSubs, senseSubscriptions: senseSubs };
 		});
 
-		const result = validateSeams(infos, seams);
+		const result = validatePorts(infos, seams);
 		for (const w of result.violations.filter((v) => v.severity === "warning")) {
-			console.warn(`[SeamRegistry] ${w.message}`);
+			console.warn(`[PortRegistry] ${w.message}`);
 		}
 		if (!result.valid) {
-			throw new SeamValidationError(result.violations.filter((v) => v.severity === "error"));
+			throw new PortValidationError(result.violations.filter((v) => v.severity === "error"));
 		}
 		return this;
 	}

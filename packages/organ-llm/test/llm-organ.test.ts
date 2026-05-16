@@ -1,4 +1,4 @@
-import { Corpus } from "@dpopsuev/alef-corpus";
+import { Agent } from "@dpopsuev/alef-corpus";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
@@ -23,11 +23,11 @@ function makeModel() {
 
 function makeHarness() {
 	const recorder = new BusEventRecorder();
-	const corpus = new Corpus();
-	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
-	corpus.load(dialog).load(new LLMOrgan({ model: makeModel() }));
-	corpus.observe(recorder);
-	return { corpus, dialog, recorder, dispose: () => corpus.dispose() };
+	const agent = new Agent();
+	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+	agent.load(dialog).load(new LLMOrgan({ model: makeModel() }));
+	agent.observe(recorder);
+	return { agent, dialog, recorder, dispose: () => agent.dispose() };
 }
 
 const harnesses: ReturnType<typeof makeHarness>[] = [];
@@ -42,14 +42,14 @@ function make() {
 
 describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 	it("resolves dialog.send() with a non-empty reply", async () => {
-		const { corpus: _corpus, dialog } = make();
+		const { agent: _corpus, dialog } = make();
 		const reply = await dialog.send("Respond with exactly: HEALTH_CHECK_OK");
 		expect(reply.length).toBeGreaterThan(0);
 		expect(reply).toContain("HEALTH_CHECK_OK");
 	}, 30_000);
 
 	it("emits the full event sequence on all buses", async () => {
-		const { corpus: _corpus, dialog, recorder } = make();
+		const { agent: _corpus, dialog, recorder } = make();
 		await dialog.send("Say hi in one word.");
 
 		recorder.assertMotorEmitted("dialog.message");
@@ -59,7 +59,7 @@ describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 	}, 30_000);
 
 	it("dialog.message args contain the reply text", async () => {
-		const { corpus: _corpus, dialog, recorder } = make();
+		const { agent: _corpus, dialog, recorder } = make();
 		await dialog.send("What is 2+2? Reply with just the number.");
 
 		const msg = recorder.assertMotorEmitted("dialog.message");
@@ -69,7 +69,7 @@ describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 	}, 30_000);
 
 	it("all turn events share the same correlationId", async () => {
-		const { corpus: _corpus, dialog, recorder } = make();
+		const { agent: _corpus, dialog, recorder } = make();
 		await dialog.send("Say yes.");
 
 		const input = recorder.assertMotorEmitted("dialog.message");

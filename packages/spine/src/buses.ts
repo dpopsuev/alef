@@ -106,7 +106,7 @@ class InProcessBus {
 
 // ---------------------------------------------------------------------------
 // InProcessNerve — provides CerebrumNerve and CorpusNerve views.
-// Also exposes direct methods for the Corpus composition root.
+// Also exposes direct methods for the Agent composition root.
 // ---------------------------------------------------------------------------
 
 export class InProcessNerve {
@@ -126,7 +126,7 @@ export class InProcessNerve {
 		};
 	}
 
-	// ── Direct access for the Corpus composition root ──────────────────────
+	// ── Direct access for the Agent ──────────────────────────────────────
 
 	publishMotor(event: MotorEvent): void {
 		this._motor.emit(event);

@@ -29,7 +29,7 @@ export class MockLLMOrgan implements Organ {
 // ---------------------------------------------------------------------------
 // BusEventRecorder
 //
-// Attaches to a Corpus via corpus.observe(recorder).
+// Attaches to a Corpus via agent.observe(recorder).
 // Records all events on all 3 buses for assertion in tests.
 // ---------------------------------------------------------------------------
 

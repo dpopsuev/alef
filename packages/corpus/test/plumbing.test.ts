@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { createFsOrgan } from "../../organ-fs/src/organ.js";
 import { createShellOrgan } from "../../organ-shell/src/organ.js";
-import { Corpus } from "../src/index.js";
+import { Agent } from "../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -109,26 +109,26 @@ class QuiescentLLM implements Organ {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Corpus plumbing — full EDA loop", () => {
+describe("Agent plumbing — full EDA loop", () => {
 	it("single tool call round-trip resolves dialog.send()", async () => {
 		const llm = new SingleToolLLM();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		const corpus = new Corpus();
-		corpus
+		const agent = new Agent();
+		agent
 			.load(dialog)
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }));
 
 		const reply = await dialog.send("Find TypeScript files");
 		expect(reply).toBe("Found TypeScript files.");
-		corpus.dispose();
+		agent.dispose();
 	});
 
 	it("LLM receives tool definitions from all loaded organs", async () => {
 		const llm = new SingleToolLLM();
-		const corpus = new Corpus();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
-		corpus
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent
 			.load(dialog)
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }))
@@ -141,14 +141,14 @@ describe("Corpus plumbing — full EDA loop", () => {
 		expect(llm.receivedTools).toContain("fs.find");
 		expect(llm.receivedTools).toContain("shell.exec");
 		expect(llm.receivedTools).toContain("dialog.message");
-		corpus.dispose();
+		agent.dispose();
 	});
 
 	it("toolCallId is mirrored in Sense result for correlation", async () => {
 		const llm = new SingleToolLLM();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		const corpus = new Corpus();
-		corpus
+		const agent = new Agent();
+		agent
 			.load(dialog)
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }));
@@ -157,14 +157,14 @@ describe("Corpus plumbing — full EDA loop", () => {
 
 		expect(llm.receivedResults).toHaveLength(1);
 		expect((llm.receivedResults[0] as { toolCallId: string }).toolCallId).toBe("tc-001");
-		corpus.dispose();
+		agent.dispose();
 	});
 
 	it("fan-out: both tool calls execute in parallel, both complete before reply", async () => {
 		const llm = new FanOutLLM();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		const corpus = new Corpus();
-		corpus
+		const agent = new Agent();
+		agent
 			.load(dialog)
 			.load(llm)
 			.load(createFsOrgan({ cwd: process.cwd() }))
@@ -176,17 +176,17 @@ describe("Corpus plumbing — full EDA loop", () => {
 		expect(llm.completionOrder).toContain("fs.find");
 		expect(llm.completionOrder).toContain("shell.exec");
 		expect(llm.completionOrder).toHaveLength(2);
-		corpus.dispose();
+		agent.dispose();
 	});
 
 	it("quiescence: LLM with no tool calls terminates immediately", async () => {
 		const llm = new QuiescentLLM();
-		const corpus = new Corpus();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
-		corpus.load(dialog).load(llm);
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent.load(dialog).load(llm);
 
 		const reply = await dialog.send("anything");
 		expect(reply).toBe("No tools needed.");
-		corpus.dispose();
+		agent.dispose();
 	});
 });

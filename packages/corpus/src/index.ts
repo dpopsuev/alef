@@ -24,19 +24,19 @@ export interface BusObserver {
 //  - dispose(): tears down all subscriptions cleanly.
 // ---------------------------------------------------------------------------
 
-/** Reserved for future Corpus configuration. */
-export interface CorpusOptions {}
+/** Reserved for future Agent configuration. */
+export interface AgentOptions {}
 
-export class Corpus {
+export class Agent {
 	private readonly nerve = new InProcessNerve();
 	private readonly unmounts: Array<() => void> = [];
 	/** Tool definitions collected from all loaded organs. */
 	readonly tools: ToolDefinition[] = [];
 	private disposed = false;
 
-	/** Load an organ onto the Spine. */
+	/** Load an organ onto the agent. */
 	load(organ: Organ): this {
-		if (this.disposed) throw new Error("Corpus is disposed — cannot load organs.");
+		if (this.disposed) throw new Error("Agent is disposed — cannot load organs.");
 		const unmount = organ.mount(this.nerve.asNerve());
 		this.unmounts.push(unmount);
 		this.tools.push(...organ.tools);

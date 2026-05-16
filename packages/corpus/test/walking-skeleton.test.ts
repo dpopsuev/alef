@@ -5,24 +5,24 @@
  * Mock organs: MockLLMOrgan (CerebrumOrgan, canned reply).
  *
  * Event chain:
- *   Corpus.publishMotor("dialog.message")
+ *   Agent.publishMotor("dialog.message")
  *     → TextMessageOrgan → Sense.publish("dialog.message")
  *       → MockLLMOrgan  → Motor.publish("dialog.message")
  *     → TextMessageOrgan → Sense.publish("dialog.message")
- *   Corpus.subscribeSense("dialog.message") → resolves
+ *   Agent.subscribeSense("dialog.message") → resolves
  */
 
 import { BusEventRecorder, MockLLMOrgan } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
-import { Corpus } from "../src/index.js";
+import { Agent } from "../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Harness
 // ---------------------------------------------------------------------------
 
 interface Harness {
-	corpus: Corpus;
+	agent: Agent;
 	dialog: DialogOrgan;
 	recorder: BusEventRecorder;
 	dispose(): void;
@@ -30,11 +30,11 @@ interface Harness {
 
 function createHarness(cannedText = "walking skeleton reply"): Harness {
 	const recorder = new BusEventRecorder();
-	const corpus = new Corpus();
-	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => corpus.tools });
-	corpus.load(dialog).load(new MockLLMOrgan(cannedText));
-	corpus.observe(recorder);
-	return { corpus, dialog, recorder, dispose: () => corpus.dispose() };
+	const agent = new Agent();
+	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+	agent.load(dialog).load(new MockLLMOrgan(cannedText));
+	agent.observe(recorder);
+	return { agent, dialog, recorder, dispose: () => agent.dispose() };
 }
 
 const harnesses: Harness[] = [];
@@ -53,12 +53,12 @@ function make(canned?: string): Harness {
 
 describe("Walking Skeleton", () => {
 	it("dialog.send() resolves with MockLLMOrgan canned text", async () => {
-		const { corpus: _corpus, dialog } = make("pong");
+		const { agent: _corpus, dialog } = make("pong");
 		expect(await dialog.send("ping")).toBe("pong");
 	});
 
 	it("Sense/dialog.message (input) carries prompt text and loaded tools", async () => {
-		const { corpus: _corpus, dialog, recorder } = make();
+		const { agent: _corpus, dialog, recorder } = make();
 		await dialog.send("hello world");
 
 		const msg = recorder.assertSenseEmitted("dialog.message");
@@ -68,7 +68,7 @@ describe("Walking Skeleton", () => {
 	});
 
 	it("Sense/dialog.message carries user message content", async () => {
-		const { corpus: _corpus, dialog, recorder } = make();
+		const { agent: _corpus, dialog, recorder } = make();
 		await dialog.send("what is 2+2?");
 
 		const req = recorder.assertSenseEmitted("dialog.message");
@@ -78,7 +78,7 @@ describe("Walking Skeleton", () => {
 	});
 
 	it("Motor/dialog.message carries canned reply text", async () => {
-		const { corpus: _corpus, dialog, recorder } = make("the answer is 4");
+		const { agent: _corpus, dialog, recorder } = make("the answer is 4");
 		await dialog.send("what is 2+2?");
 
 		const msg = recorder.assertMotorEmitted("dialog.message");
@@ -87,7 +87,7 @@ describe("Walking Skeleton", () => {
 	});
 
 	it("Motor/dialog.message carries the agent reply", async () => {
-		const { corpus: _corpus, dialog, recorder } = make("done");
+		const { agent: _corpus, dialog, recorder } = make("done");
 		await dialog.send("go");
 
 		// The LLM reply is Motor/"dialog.message" — dialog.send() awaits it
@@ -98,7 +98,7 @@ describe("Walking Skeleton", () => {
 	});
 
 	it("all events in a turn share the same correlationId", async () => {
-		const { corpus: _corpus, dialog, recorder } = make();
+		const { agent: _corpus, dialog, recorder } = make();
 		await dialog.send("test");
 
 		const senseInput = recorder.assertSenseEmitted("dialog.message");
@@ -108,7 +108,7 @@ describe("Walking Skeleton", () => {
 	});
 
 	it("full event sequence fires on correct buses", async () => {
-		const { corpus: _corpus, dialog, recorder } = make();
+		const { agent: _corpus, dialog, recorder } = make();
 		await dialog.send("sequence test");
 
 		const motorTypes = recorder.motor.map((e) => e.type);
@@ -121,7 +121,7 @@ describe("Walking Skeleton", () => {
 	});
 
 	it("concurrent prompts resolve independently", async () => {
-		const { corpus: _corpus, dialog } = make("ok");
+		const { agent: _corpus, dialog } = make("ok");
 		const replies = await Promise.all([dialog.send("one"), dialog.send("two"), dialog.send("three")]);
 		expect(replies).toEqual(["ok", "ok", "ok"]);
 	});

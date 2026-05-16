@@ -408,7 +408,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 
 /**
  * defineCorpusOrgan — prepends "motor/" to each action key.
- * Corpus organs subscribe Motor and publish Sense (they mutate the world).
+ * Corpus-style organs subscribe Motor and publish Sense (they mutate the world).
  *
  * @example
  * ```ts

@@ -5,7 +5,7 @@ import { createShellOrgan } from "../src/organ.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
+	return { nerve, n: nerve.asNerve(), cerebrum: nerve.asNerve() };
 }
 
 function publishMotor(
@@ -30,7 +30,7 @@ function waitForFinalSense(nerve: InProcessNerve, type: string): Promise<SenseEv
 }
 
 describe("ShellCorpusOrgan", () => {
-	it("has kind=corpus, name=shell, and 1 tool", () => {
+	it("has name=shell, name=shell, and 1 tool", () => {
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		expect(organ.name).toBe("shell");
 		expect(organ.tools).toHaveLength(1);
@@ -38,18 +38,18 @@ describe("ShellCorpusOrgan", () => {
 	});
 
 	it("unmount unsubscribes motor handler", () => {
-		const { nerve, corpus } = makeNerve();
+		const { nerve } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(corpus);
+		const unmount = organ.mount(nerve.asNerve());
 		expect(nerve.listenerCount("motor", "shell.exec")).toBe(1);
 		unmount();
 		expect(nerve.listenerCount("motor", "shell.exec")).toBe(0);
 	});
 
 	it("executes a command and streams Sense/shell.exec, final has output", async () => {
-		const { nerve, corpus } = makeNerve();
+		const { nerve } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(corpus);
+		const unmount = organ.mount(nerve.asNerve());
 
 		const finalP = waitForFinalSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "echo hello" });
@@ -63,9 +63,9 @@ describe("ShellCorpusOrgan", () => {
 	});
 
 	it("mirrors correlationId across all streaming events", async () => {
-		const { nerve, corpus } = makeNerve();
+		const { nerve } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(corpus);
+		const unmount = organ.mount(nerve.asNerve());
 		const correlationId = "corr-stream";
 
 		const finalP = waitForFinalSense(nerve, "shell.exec");
@@ -77,9 +77,9 @@ describe("ShellCorpusOrgan", () => {
 	});
 
 	it("reports non-zero exit code as isError on final event", async () => {
-		const { nerve, corpus } = makeNerve();
+		const { nerve } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(corpus);
+		const unmount = organ.mount(nerve.asNerve());
 
 		const finalP = waitForFinalSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "exit 1" });
@@ -90,9 +90,9 @@ describe("ShellCorpusOrgan", () => {
 	});
 
 	it("applies commandPrefix", async () => {
-		const { nerve, corpus } = makeNerve();
+		const { nerve } = makeNerve();
 		const organ = createShellOrgan({ cwd: process.cwd(), commandPrefix: "export MYVAR=prefixed" });
-		const unmount = organ.mount(corpus);
+		const unmount = organ.mount(nerve.asNerve());
 
 		const finalP = waitForFinalSense(nerve, "shell.exec");
 		publishMotor(nerve, "shell.exec", { command: "echo $MYVAR" });

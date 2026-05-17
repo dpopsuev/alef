@@ -16,10 +16,42 @@ const KNOWN_MODEL_NAMES: Record<string, string> = {
 	"claude-3-5-haiku-20241022": "Claude 3.5 Haiku",
 };
 
+const OLLAMA_BASE_URL = process.env.OLLAMA_HOST ?? "http://localhost:11434/v1";
+
+/**
+ * Parse a model ID string into a Model<Api>.
+ *
+ * Routing:
+ *   ollama/<name>    → openai-completions at OLLAMA_HOST (default: localhost:11434)
+ *   anthropic/<name> → anthropic-messages (explicit)
+ *   <name>           → anthropic-messages (default, backward-compat)
+ *
+ * Vertex AI routing activated by ANTHROPIC_VERTEX_PROJECT_ID + CLOUD_ML_REGION env vars
+ * (handled inside organ-llm, not here).
+ */
 export function buildModel(id: string): Model<Api> {
+	// Ollama: ollama/llama3, ollama/codestral, etc.
+	if (id.startsWith("ollama/")) {
+		const modelId = id.slice("ollama/".length);
+		return {
+			id: modelId,
+			name: modelId,
+			api: "openai-completions" as Api,
+			provider: "ollama" as const,
+			baseUrl: OLLAMA_BASE_URL,
+			reasoning: false,
+			input: ["text" as const],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 8_192,
+			maxTokens: 4_096,
+		};
+	}
+
+	// Anthropic: explicit prefix or bare model name
+	const anthropicId = id.startsWith("anthropic/") ? id.slice("anthropic/".length) : id;
 	return {
-		id,
-		name: KNOWN_MODEL_NAMES[id] ?? id,
+		id: anthropicId,
+		name: KNOWN_MODEL_NAMES[anthropicId] ?? anthropicId,
 		api: "anthropic-messages" as Api,
 		provider: "anthropic" as const,
 		baseUrl: "https://api.anthropic.com",
@@ -37,6 +69,9 @@ export function buildModel(id: string): Model<Api> {
  */
 export function hasCredentials(): boolean {
 	return Boolean(
-		process.env.ANTHROPIC_API_KEY || (process.env.ANTHROPIC_VERTEX_PROJECT_ID && process.env.CLOUD_ML_REGION),
+		process.env.ANTHROPIC_API_KEY ||
+			(process.env.ANTHROPIC_VERTEX_PROJECT_ID && process.env.CLOUD_ML_REGION) ||
+			// Ollama is local — always has credentials if the server is running.
+			process.env.OLLAMA_HOST !== undefined,
 	);
 }

@@ -12,7 +12,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { EvalHarness, formatReport } from "../src/harness.js";
+import { assertToolNotUsed, assertToolUsed, EvalHarness, formatReport } from "../src/harness.js";
 import { SKIP_REAL_LLM } from "../src/model.js";
 
 // ---------------------------------------------------------------------------
@@ -32,27 +32,6 @@ beforeAll(() => {
 afterAll(() => {
 	harness = undefined!;
 });
-
-// Helper: assert a specific motor span was emitted.
-function assertToolUsed(spans: { name: string }[], eventType: string): void {
-	const spanName = `alef.motor/${eventType}`;
-	const used = spans.some((s) => s.name === spanName);
-	if (!used) {
-		const usedTools = spans
-			.filter((s) => s.name.startsWith("alef.motor/"))
-			.map((s) => s.name.replace("alef.motor/", ""));
-		throw new Error(`Expected tool '${eventType}' to be called, but only these were used: [${usedTools.join(", ")}]`);
-	}
-}
-
-// Helper: assert a tool was NOT used.
-function assertToolNotUsed(spans: { name: string }[], eventType: string): void {
-	const spanName = `alef.motor/${eventType}`;
-	const used = spans.some((s) => s.name === spanName);
-	if (used) {
-		throw new Error(`Expected tool '${eventType}' NOT to be called, but it was.`);
-	}
-}
 
 const EXTRA_OPTS = {
 	systemPrompt: SYSTEM_PROMPT,
@@ -75,7 +54,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.read (pi-mono: file_read)", () => {
 			{ scenario: "fs.read-parity", ...EXTRA_OPTS },
 		);
 		console.log(formatReport(metrics));
-		assertToolUsed(metrics.spans, "fs.read");
+		assertToolUsed(metrics, "fs.read");
 		expect(metrics.passed).toBe(true);
 	}, 120_000);
 });
@@ -99,7 +78,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.write (pi-mono: file_write)", () => {
 			{ scenario: "fs.write-parity", ...EXTRA_OPTS },
 		);
 		console.log(formatReport(metrics));
-		assertToolUsed(metrics.spans, "fs.write");
+		assertToolUsed(metrics, "fs.write");
 		expect(metrics.passed).toBe(true);
 	}, 120_000);
 });
@@ -134,7 +113,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.edit (pi-mono: file_edit)", () => {
 		if (!writePathUsed) throw new Error("Expected fs.edit or fs.write to be called");
 		// Prefer fs.edit when it was used
 		if (metrics.spans.some((s) => s.name === "alef.motor/fs.edit")) {
-			assertToolUsed(metrics.spans, "fs.edit");
+			assertToolUsed(metrics, "fs.edit");
 		}
 		expect(metrics.passed).toBe(true);
 	}, 120_000);
@@ -162,7 +141,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.grep (pi-mono: file_grep)", () => {
 			{ scenario: "fs.grep-parity", ...EXTRA_OPTS },
 		);
 		console.log(formatReport(metrics));
-		assertToolUsed(metrics.spans, "fs.grep");
+		assertToolUsed(metrics, "fs.grep");
 		expect(metrics.passed).toBe(true);
 	}, 120_000);
 });
@@ -188,7 +167,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.find (pi-mono: file_find)", () => {
 			{ scenario: "fs.find-parity", ...EXTRA_OPTS },
 		);
 		console.log(formatReport(metrics));
-		assertToolUsed(metrics.spans, "fs.find");
+		assertToolUsed(metrics, "fs.find");
 		expect(metrics.passed).toBe(true);
 	}, 120_000);
 });
@@ -211,7 +190,7 @@ describe.skipIf(SKIP_REAL_LLM)("shell.exec (pi-mono: file_bash)", () => {
 			{ scenario: "shell.exec-parity", ...EXTRA_OPTS },
 		);
 		console.log(formatReport(metrics));
-		assertToolUsed(metrics.spans, "shell.exec");
+		assertToolUsed(metrics, "shell.exec");
 		expect(metrics.passed).toBe(true);
 	}, 120_000);
 });
@@ -241,7 +220,7 @@ describe.skipIf(SKIP_REAL_LLM)("ablation enforcement — read-only tool set", ()
 			},
 		);
 		console.log(formatReport(metrics));
-		assertToolNotUsed(metrics.spans, "fs.write");
-		assertToolNotUsed(metrics.spans, "fs.edit");
+		assertToolNotUsed(metrics, "fs.write");
+		assertToolNotUsed(metrics, "fs.edit");
 	}, 120_000);
 });

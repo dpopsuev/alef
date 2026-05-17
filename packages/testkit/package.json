@@ -11,7 +11,10 @@
 			"import": "./dist/index.js"
 		}
 	},
-	"files": ["dist", "README.md"],
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"clean": "shx rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json",
@@ -19,7 +22,13 @@
 		"test": "vitest --run",
 		"prepublishOnly": "npm run clean && npm run build"
 	},
-	"keywords": ["agent", "testkit", "mock", "nerve", "eda"],
+	"keywords": [
+		"agent",
+		"testkit",
+		"mock",
+		"nerve",
+		"eda"
+	],
 	"author": "Daniel Popsuevich",
 	"license": "MIT",
 	"repository": {
@@ -31,8 +40,12 @@
 		"node": ">=20.0.0"
 	},
 	"dependencies": {
-		"@dpopsuev/alef-spine": "^0.0.1",
-		"@dpopsuev/alef-corpus": "^0.0.1"
+		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
+		"@dpopsuev/alef-corpus": "^0.0.1",
+		"@dpopsuev/alef-organ-dialog": "^0.0.1",
+		"@dpopsuev/alef-organ-fs": "^0.0.1",
+		"@dpopsuev/alef-organ-shell": "^0.0.1",
+		"@dpopsuev/alef-spine": "^0.0.1"
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",

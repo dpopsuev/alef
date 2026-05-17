@@ -11,6 +11,7 @@ import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import type { SpideredPage } from "@dpopsuev/web-spider";
 import { batchSpider, crawl, PageGraph, SpiderCache, spider } from "@dpopsuev/web-spider";
+import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
@@ -20,59 +21,43 @@ const WEB_FETCH_TOOL = {
 	name: "web.fetch",
 	description:
 		"Fetch a single URL and return structured content: title, description, headings, chunks, links. Cached per session.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			url: { type: "string", description: "Fully qualified URL (https://...)" },
-			full: { type: "boolean", description: "Include full markdown body (default false)" },
-		},
-		required: ["url"],
-	},
-} as const;
+	inputSchema: z.object({
+		url: z.string().describe("Fully qualified URL (https://...)"),
+		full: z.boolean().optional().describe("Include full markdown body (default false)"),
+	}),
+};
 
 const WEB_SEARCH_TOOL = {
 	name: "web.search",
 	description: "Search DuckDuckGo and spider top results. Returns structured content for each page.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			query: { type: "string", description: "Search query" },
-			maxResults: { type: "number", description: "Max pages to fetch (1–8, default 4)", minimum: 1, maximum: 8 },
-			concurrency: { type: "number", description: "Parallel fetches (default 3)" },
-		},
-		required: ["query"],
-	},
-} as const;
+	inputSchema: z.object({
+		query: z.string().describe("Search query"),
+		maxResults: z.number().min(1).max(8).optional().describe("Max pages to fetch (1–8, default 4)"),
+		concurrency: z.number().optional().describe("Parallel fetches (default 3)"),
+	}),
+};
 
 const WEB_CRAWL_TOOL = {
 	name: "web.crawl",
 	description: "Recursively spider a site from a start URL. Returns all pages and graph statistics.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			url: { type: "string", description: "Start URL" },
-			maxDepth: { type: "number", description: "Link hops from start (default 1, max 4)", minimum: 0, maximum: 4 },
-			maxPages: { type: "number", description: "Hard cap on pages (default 10, max 50)", minimum: 1, maximum: 50 },
-			sameDomainOnly: { type: "boolean", description: "Stay on same domain (default true)" },
-		},
-		required: ["url"],
-	},
-} as const;
+	inputSchema: z.object({
+		url: z.string().describe("Start URL"),
+		maxDepth: z.number().min(0).max(4).optional().describe("Link hops from start (default 1, max 4)"),
+		maxPages: z.number().min(1).max(50).optional().describe("Hard cap on pages (default 10, max 50)"),
+		sameDomainOnly: z.boolean().optional().describe("Stay on same domain (default true)"),
+	}),
+};
 
 const WEB_GRAPH_TOOL = {
 	name: "web.graph",
 	description: "Query the session knowledge graph of fetched pages. Actions: snapshot | path | neighbors | rank.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			action: { type: "string", enum: ["snapshot", "path", "neighbors", "rank"] },
-			url: { type: "string", description: "Source URL (path, neighbors)" },
-			target: { type: "string", description: "Target URL (path)" },
-			topN: { type: "number", description: "Limit for rank (default 10)" },
-		},
-		required: ["action"],
-	},
-} as const;
+	inputSchema: z.object({
+		action: z.enum(["snapshot", "path", "neighbors", "rank"]).describe("Action to perform"),
+		url: z.string().optional().describe("Source URL (path, neighbors)"),
+		target: z.string().optional().describe("Target URL (path)"),
+		topN: z.number().optional().describe("Limit for rank (default 10)"),
+	}),
+};
 
 // ---------------------------------------------------------------------------
 // Options
@@ -100,10 +85,10 @@ function summarise(page: SpideredPage) {
 		publishedAt: page.publishedAt,
 		wordCount: page.wordCount,
 		readingTimeMinutes: page.readingTimeMinutes,
-		headings: page.headings.map((h) => `${"#".repeat(h.level)} ${h.text}`),
+		headings: page.headings.map((h: { level: number; text: string }) => `${"#".repeat(h.level)} ${h.text}`),
 		chunkCount: page.chunks.length,
 		linkCount: page.links.length,
-		preview: page.chunks.slice(0, 3).map((c) => ({
+		preview: page.chunks.slice(0, 3).map((c: { heading?: string; wordCount: number; text: string }) => ({
 			heading: c.heading,
 			wordCount: c.wordCount,
 			text: c.text.slice(0, 400),

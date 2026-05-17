@@ -16,6 +16,7 @@
 
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import { z } from "zod";
 import type { LectorBackend } from "./backend.js";
 import { LocalLectorBackend } from "./local-backend.js";
 
@@ -28,105 +29,77 @@ const READ_TOOL = {
 	description:
 		"Read a file and its symbol map. Use symbol= to zoom into a single function/class/type block. " +
 		"Always returns all declared symbols regardless of zoom.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			path: { type: "string", description: "File path (relative or absolute)" },
-			symbol: { type: "string", description: "Name of a symbol to zoom into (returns just that block)" },
-			maxLines: { type: "number", description: "Max lines to return (default: 2000 full, 300 symbol)" },
-			offset: { type: "number", description: "Start line for full-file reads (1-indexed)" },
-		},
-		required: ["path"],
-	},
-} as const;
+	inputSchema: z.object({
+		path: z.string().describe("File path (relative or absolute)"),
+		symbol: z.string().optional().describe("Name of a symbol to zoom into (returns just that block)"),
+		maxLines: z.number().optional().describe("Max lines to return (default: 2000 full, 300 symbol)"),
+		offset: z.number().optional().describe("Start line for full-file reads (1-indexed)"),
+	}),
+};
 
 const WRITE_TOOL = {
 	name: "lector.write",
 	description: "Write content to a file. Creates parent directories if needed. Overwrites existing content.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			path: { type: "string", description: "File path (relative or absolute)" },
-			content: { type: "string", description: "Content to write" },
-		},
-		required: ["path", "content"],
-	},
-} as const;
+	inputSchema: z.object({
+		path: z.string().describe("File path (relative or absolute)"),
+		content: z.string().describe("Content to write"),
+	}),
+};
 
 const EDIT_TOOL = {
 	name: "lector.edit",
 	description:
 		"Apply targeted text replacements to a file. Each edit must match exactly one location. " +
 		"Edits are applied in order. Use lector.read first to get the exact text.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			path: { type: "string", description: "File path (relative or absolute)" },
-			edits: {
-				type: "array",
-				description: "Ordered list of replacements",
-				items: {
-					type: "object",
-					properties: {
-						oldText: { type: "string", description: "Exact text to replace (must be unique in file)" },
-						newText: { type: "string", description: "Replacement text" },
-					},
-					required: ["oldText", "newText"],
-				},
-			},
-		},
-		required: ["path", "edits"],
-	},
-} as const;
+	inputSchema: z.object({
+		path: z.string().describe("File path (relative or absolute)"),
+		edits: z
+			.array(
+				z.object({
+					oldText: z.string().describe("Exact text to replace (must be unique in file)"),
+					newText: z.string().describe("Replacement text"),
+				}),
+			)
+			.describe("Ordered list of replacements"),
+	}),
+};
 
 const SEARCH_TOOL = {
 	name: "lector.search",
 	description:
 		"Search file contents with ripgrep (grep fallback). Returns matching lines with file path and line number.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			pattern: { type: "string", description: "Search pattern (regex or literal)" },
-			path: { type: "string", description: "Directory or file to search (default: cwd)" },
-			caseInsensitive: { type: "boolean", description: "Case-insensitive search (default: false)" },
-			maxResults: { type: "number", description: "Max matches to return (default: 200)" },
-			extension: { type: "string", description: "Filter by file extension, e.g. 'ts'" },
-		},
-		required: ["pattern"],
-	},
-} as const;
+	inputSchema: z.object({
+		pattern: z.string().describe("Search pattern (regex or literal)"),
+		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
+		caseInsensitive: z.boolean().optional().describe("Case-insensitive search (default: false)"),
+		maxResults: z.number().optional().describe("Max matches to return (default: 200)"),
+		extension: z.string().optional().describe("Filter by file extension, e.g. 'ts'"),
+	}),
+};
 
 const FIND_TOOL = {
 	name: "lector.find",
 	description: "Find files by glob pattern. Use depth=1 to list immediate children of a directory.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			glob: { type: "string", description: "Glob pattern, e.g. '*.ts' or '*.test.ts'" },
-			path: { type: "string", description: "Root directory to search (default: cwd)" },
-			maxResults: { type: "number", description: "Max results (default: 500)" },
-			depth: { type: "number", description: "Max directory depth (depth=1 = immediate children)" },
-			hidden: { type: "boolean", description: "Include hidden files (default: false)" },
-		},
-		required: ["glob"],
-	},
-} as const;
+	inputSchema: z.object({
+		glob: z.string().describe("Glob pattern, e.g. '*.ts' or '*.test.ts'"),
+		path: z.string().optional().describe("Root directory to search (default: cwd)"),
+		maxResults: z.number().optional().describe("Max results (default: 500)"),
+		depth: z.number().optional().describe("Max directory depth (depth=1 = immediate children)"),
+		hidden: z.boolean().optional().describe("Include hidden files (default: false)"),
+	}),
+};
 
 const CALLERS_TOOL = {
 	name: "lector.callers",
 	description:
 		"Find all call sites that reference a symbol by name. " +
 		"Phase 1: grep-based (fast, no LSP). Returns file, line, and surrounding context.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			symbol: { type: "string", description: "Symbol name to search for" },
-			path: { type: "string", description: "Restrict search to this path (default: entire workspace)" },
-			maxResults: { type: "number", description: "Max results (default: 100)" },
-		},
-		required: ["symbol"],
-	},
-} as const;
+	inputSchema: z.object({
+		symbol: z.string().describe("Symbol name to search for"),
+		path: z.string().optional().describe("Restrict search to this path (default: entire workspace)"),
+		maxResults: z.number().optional().describe("Max results (default: 100)"),
+	}),
+};
 
 // ---------------------------------------------------------------------------
 // Organ factory

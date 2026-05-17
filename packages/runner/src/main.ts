@@ -34,6 +34,7 @@ import { runPrintMode } from "./print-mode.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
+import { runTuiMode } from "./tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Parse arguments
@@ -118,7 +119,8 @@ const basePrompt = buildSystemPrompt(args.cwd);
 const systemPrompt = assembleSystemPrompt(basePrompt, [...corpusOrgans]);
 
 const dialog = new DialogOrgan({
-	sink: makeSink(args.json),
+	// TUI mode reads replies via dialog.send() — sink must be silent to avoid double-output.
+	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
 	getTools: () => agent.tools,
 	systemPrompt,
 	maxTurns: args.maxTurns,
@@ -156,8 +158,12 @@ if (args.listTools) {
 	process.exit(0);
 }
 
+const useTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
+
 if (args.print) {
 	await runPrintMode(args.prompt, dialog, () => agent.dispose());
+} else if (useTui) {
+	await runTuiMode(dialog, { cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id }, () => agent.dispose());
 } else {
 	await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId }, () => agent.dispose());
 }

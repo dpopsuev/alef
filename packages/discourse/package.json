@@ -1,0 +1,45 @@
+{
+  "name": "@dpopsuev/alef-discourse",
+  "version": "0.0.1",
+  "description": "[DEPRECATED] Canonical discourse contracts, DTOs, and port seams",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "tsgo -p tsconfig.build.json",
+    "dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+    "test": "vitest --run",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-agent-blueprint": "^0.0.1"
+  },
+  "keywords": [
+    "agent",
+    "discourse",
+    "contracts",
+    "dialog",
+    "monolog"
+  ],
+  "author": "Mario Zechner",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dpopsuev/alef.git",
+    "directory": "packages/discourse"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "shx": "^0.4.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

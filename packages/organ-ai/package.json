@@ -1,0 +1,56 @@
+{
+  "name": "@dpopsuev/alef-organ-ai",
+  "version": "0.0.1",
+  "description": "[DEPRECATED] Unified AI organ: provider surface plus completion adapter",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./completer/adapter": {
+      "types": "./dist/completer/adapter.d.ts",
+      "import": "./dist/completer/adapter.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "tsgo -p tsconfig.build.json",
+    "dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+    "test": "vitest --run",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-agent-runtime": "^0.0.1",
+    "@dpopsuev/alef-ai": "^0.0.1"
+  },
+  "keywords": [
+    "agent",
+    "organ",
+    "ai",
+    "llm",
+    "completer"
+  ],
+  "author": "Mario Zechner",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dpopsuev/alef.git",
+    "directory": "packages/organ-ai"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "shx": "^0.4.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

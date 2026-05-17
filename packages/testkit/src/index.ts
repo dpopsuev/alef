@@ -1,3 +1,7 @@
+export { type BlueprintFromFileOptions, BlueprintHarness, type BlueprintHarnessOptions } from "./blueprint-harness.js";
+export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
+export { ScriptedLLMOrgan } from "./scripted-llm-organ.js";
+
 import type { BusObserver } from "@dpopsuev/alef-corpus";
 import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 

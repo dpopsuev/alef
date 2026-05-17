@@ -1,30 +1,14 @@
 {
 	"name": "@dpopsuev/alef-spine",
 	"version": "0.0.1",
-	"description": "Canonical EDA contracts, event log, and event spine for Alef organs",
+	"description": "Canonical EDA bus, framework, and port registry for Alef organs",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
-		"./bus": {
-			"types": "./dist/bus.d.ts",
-			"import": "./dist/bus.js"
-		},
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
-		},
-		"./protocol": {
-			"types": "./dist/protocol.d.ts",
-			"import": "./dist/protocol.js"
-		},
-		"./event-log": {
-			"types": "./dist/event-log.d.ts",
-			"import": "./dist/event-log.js"
-		},
-		"./spine": {
-			"types": "./dist/spine.d.ts",
-			"import": "./dist/spine.js"
 		}
 	},
 	"files": [
@@ -39,7 +23,6 @@
 		"prepublishOnly": "npm run clean && npm run build"
 	},
 	"dependencies": {
-		"@dpopsuev/alef-agent-core": "^0.0.1",
 		"@opentelemetry/api": "^1.9.1",
 		"ajv": "^8.20.0"
 	},

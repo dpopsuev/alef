@@ -7,10 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import * as blueprintExports from "../../blueprint/src/index.js";
 import * as discourseExports from "../../discourse/src/index.js";
 import * as organAiExports from "../../organ-ai/src/index.js";
-import * as organDialogExports from "../../organ-dialog/src/index.js";
 import * as organMonologExports from "../../organ-monolog/src/index.js";
 import * as runtimeExports from "../../runtime/src/index.js";
-import * as nerveExports from "../../spine/src/index.js";
 import * as codingAgentBoardExports from "../src/board/index.js";
 import * as codingAgentPlatformExports from "../src/core/platform/index.js";
 import * as codingAgentExports from "../src/index.js";
@@ -185,10 +183,11 @@ spec:
 		expect(typeof codingAgentExports.InteractiveMode).toBe("function");
 	});
 
-	it("uses nerve as canonical contract owner", () => {
-		expect(typeof nerveExports.RuntimeDomainEventSpine).toBe("function");
-		expect(typeof nerveExports.MemLog).toBe("function");
-		expect(typeof nerveExports.validateProtocolEvent).toBe("function");
+	it("uses board as canonical contract owner (protocol and event-log live in coding-agent/board)", () => {
+		// RuntimeDomainEventSpine, MemLog, validateProtocolEvent moved from spine to coding-agent/board
+		expect(typeof codingAgentBoardExports.RuntimeDomainEventSpine).toBe("function");
+		expect(typeof codingAgentBoardExports.MemLog).toBe("function");
+		expect(typeof codingAgentBoardExports.validateProtocolEvent).toBe("function");
 		expect(codingAgentBoardExports.MemLog).toBe(runtimeBoardExports.MemLog);
 	});
 
@@ -200,9 +199,9 @@ spec:
 	it("exposes discourse library and explicit dialog/monolog organs", () => {
 		expect(typeof discourseExports.createDiscourseOrganPorts).toBe("function");
 		expect(typeof discourseExports.asAgentDiscoursePort).toBe("function");
-		expect(typeof organDialogExports.createDialogDiscoursePort).toBe("function");
-		expect(typeof organMonologExports.createMonologDiscoursePort).toBe("function");
+		// createDialogDiscoursePort moved from organ-dialog/legacy to coding-agent/platform
 		expect(typeof codingAgentPlatformExports.createDialogDiscoursePort).toBe("function");
+		expect(typeof organMonologExports.createMonologDiscoursePort).toBe("function");
 		expect(typeof codingAgentPlatformExports.createMonologDiscoursePort).toBe("function");
 	});
 

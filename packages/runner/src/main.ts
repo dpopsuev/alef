@@ -131,15 +131,7 @@ const dialog = new DialogOrgan({
 });
 
 const thinkingLevel = args.thinking as import("@dpopsuev/alef-ai").ThinkingLevel | undefined;
-agent.load(dialog).load(
-	new LLMOrgan({
-		model,
-		thinking: thinkingLevel,
-		onCompact: (summary) => {
-			process.stderr.write(`\n[compaction] Context summarised (${summary.length} chars).\n`);
-		},
-	}),
-);
+agent.load(dialog).load(new LLMOrgan({ model, thinking: thinkingLevel }));
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }

@@ -29,6 +29,7 @@ import type {
 } from "./backend.js";
 import { BlockCache } from "./block-cache.js";
 import { extractBlock, extractSymbols } from "./symbol-extractor.js";
+import { extractSymbolsTs, isTsFile } from "./ts-symbol-extractor.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -127,7 +128,9 @@ export class LocalLectorBackend implements LectorBackend {
 		let cached = this.cache.get(abs);
 		if (!cached) {
 			const content = await readFile(abs, "utf-8");
-			const symbols = extractSymbols(content);
+			// Use TypeScript compiler API for .ts/.tsx (Phase 2 accuracy).
+			// Fall back to regex extractor for other languages.
+			const symbols = isTsFile(path) ? extractSymbolsTs(content, path) : extractSymbols(content);
 			cached = { content, symbols, storedAt: process.hrtime.bigint() };
 			this.cache.set(abs, cached);
 		}

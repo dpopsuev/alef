@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { CorpusHandlerCtx, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import type { DockerSpaceOptions } from "./docker-space.js";
 import { DockerSpace } from "./docker-space.js";
@@ -165,18 +165,24 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 		"enclosure.destroy": { tool: TOOLS[7], handle: (ctx) => handleDestroy(ctx, spaces) },
 	});
 
-	// Wrap mount to add cleanup of surviving spaces on unmount.
-	const originalMount = base.mount.bind(base);
-	base.mount = (nerve) => {
-		const unmount = originalMount(nerve);
-		return () => {
-			unmount();
-			for (const space of spaces.values()) void space.destroy();
-			spaces.clear();
-		};
+	// Return a wrapper that adds space cleanup on unmount.
+	// Uses a new object rather than mutating base.mount (TSK-153).
+	const organ: Organ = {
+		name: base.name,
+		tools: base.tools,
+		subscriptions: base.subscriptions,
+		directives: base.directives,
+		mount(nerve: Nerve): () => void {
+			const unmount = base.mount(nerve);
+			return () => {
+				unmount();
+				for (const space of spaces.values()) void space.destroy();
+				spaces.clear();
+			};
+		},
 	};
 
-	return base;
+	return organ;
 }
 
 // ---------------------------------------------------------------------------

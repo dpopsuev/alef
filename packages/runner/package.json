@@ -19,7 +19,8 @@
 		"@dpopsuev/alef-organ-lector": "^0.0.1",
 		"@dpopsuev/alef-organ-llm": "^0.0.1",
 		"@dpopsuev/alef-organ-shell": "^0.0.1",
-		"@dpopsuev/alef-spine": "^0.0.1"
+		"@dpopsuev/alef-spine": "^0.0.1",
+		"@dpopsuev/alef-tui": "^0.0.1"
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",

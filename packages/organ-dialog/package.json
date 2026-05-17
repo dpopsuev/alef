@@ -5,7 +5,10 @@
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
-	"files": ["dist", "README.md"],
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"clean": "shx rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json",
@@ -14,10 +17,15 @@
 		"prepublishOnly": "npm run clean && npm run build"
 	},
 	"dependencies": {
-		"@dpopsuev/alef-discourse": "^0.0.1",
 		"@dpopsuev/alef-spine": "^0.0.1"
 	},
-	"keywords": ["agent", "organ", "dialog", "discourse", "corpus"],
+	"keywords": [
+		"agent",
+		"organ",
+		"dialog",
+		"discourse",
+		"corpus"
+	],
 	"author": "Mario Zechner",
 	"license": "MIT",
 	"repository": {

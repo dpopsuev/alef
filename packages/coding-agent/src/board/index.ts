@@ -29,6 +29,18 @@ export type { AgentInstance, AgentSchema } from "./gensec.js";
 export { GeneralSecretary } from "./gensec.js";
 export type { PaletteColor, Shade } from "./palette.js";
 export { PALETTE, PALETTE_SIZE } from "./palette.js";
+export {
+	type ProtocolValidationDiagnostic,
+	type ProtocolValidationResult,
+	validateProtocolEnvelopeReport,
+	validateProtocolEvent,
+} from "./protocol.js";
+export {
+	type DomainEventSpine,
+	type OrganGraphSnapshot,
+	RuntimeDomainEventSpine,
+	type SeamAuditSnapshot,
+} from "./spine.js";
 export type { Edge as StoreEdge, EdgeKind, ImportResult, Node, NodeKind, Store } from "./store.js";
 export { cosineSimilarity, InMemoryStore, importSession } from "./store.js";
 export type {

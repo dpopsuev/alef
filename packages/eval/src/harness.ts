@@ -154,6 +154,52 @@ export class EvalHarness {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// MustUse assertions — span-based proof of tool invocation
+// ---------------------------------------------------------------------------
+
+/**
+ * Assert that a specific motor event type was dispatched during a run.
+ * Throws with a descriptive message listing what WAS called if the expected
+ * tool is absent — fail-fast, no boolean returns.
+ *
+ * @param metrics  RunMetrics from harness.run()
+ * @param eventType  Motor event type, e.g. "fs.read" or "shell.exec"
+ */
+export function assertToolUsed(metrics: RunMetrics, eventType: string): void {
+	const spanName = `alef.motor/${eventType}`;
+	const used = metrics.spans.some((s) => s.name === spanName);
+	if (!used) {
+		const usedTools = metrics.spans
+			.filter((s) => s.name.startsWith("alef.motor/"))
+			.map((s) => s.name.replace("alef.motor/", ""))
+			.filter((name, i, arr) => arr.indexOf(name) === i);
+		throw new Error(`Expected tool '${eventType}' to be called, but only these were used: [${usedTools.join(", ")}]`);
+	}
+}
+
+/**
+ * Assert that a specific motor event type was NOT dispatched during a run.
+ * Throws if the tool WAS called (e.g. write tool in a read-only scenario).
+ */
+export function assertToolNotUsed(metrics: RunMetrics, eventType: string): void {
+	const spanName = `alef.motor/${eventType}`;
+	const used = metrics.spans.some((s) => s.name === spanName);
+	if (used) {
+		throw new Error(`Expected tool '${eventType}' NOT to be called, but it was.`);
+	}
+}
+
+/**
+ * Assert that all listed event types were dispatched.
+ * Fails on the first missing tool with a full diagnostic.
+ */
+export function assertAllToolsUsed(metrics: RunMetrics, eventTypes: string[]): void {
+	for (const et of eventTypes) {
+		assertToolUsed(metrics, et);
+	}
+}
+
 /**
  * Format RunMetrics as a human-readable summary.
  */

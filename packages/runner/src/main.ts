@@ -32,6 +32,7 @@ import { materializeBlueprint } from "./materializer.js";
 import { buildModel, hasCredentials } from "./model.js";
 import { runPrintMode } from "./print-mode.js";
 import { buildSystemPrompt } from "./prompt.js";
+import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,41 @@ if (!hasCredentials()) {
 		"Warning: no LLM credentials detected.\n" +
 			"Set ANTHROPIC_API_KEY or ANTHROPIC_VERTEX_PROJECT_ID + CLOUD_ML_REGION.\n",
 	);
+}
+
+// ---------------------------------------------------------------------------
+// Session: list or resume
+// ---------------------------------------------------------------------------
+
+if (args.listSessions) {
+	const sessions = await SessionStore.list(args.cwd);
+	if (sessions.length === 0) {
+		console.log("No sessions for", args.cwd);
+	} else {
+		for (const s of sessions) {
+			console.log(`${s.id}  ${s.mtime.toISOString().replace("T", " ").slice(0, 16)}  ${s.path}`);
+		}
+	}
+	process.exit(0);
+}
+
+let session: SessionStore;
+let initialHistory: Array<{ role: "user" | "assistant"; content: string }> | undefined;
+
+if (args.resume) {
+	const resumeId = args.resume === "last" ? undefined : args.resume;
+	const store = resumeId ? await SessionStore.resume(args.cwd, resumeId) : await SessionStore.resumeLatest(args.cwd);
+	if (!store) {
+		console.error("No session to resume. Start a new session first.");
+		process.exit(1);
+	}
+	session = store;
+	const msgs = await session.messages();
+	initialHistory = msgs.map((m) => ({ role: m.role, content: m.content }));
+	console.error(`[session] Resumed ${session.id} (${msgs.length} messages)`);
+} else {
+	session = await SessionStore.create(args.cwd);
+	console.error(`[session] ${session.id}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -86,10 +122,22 @@ const dialog = new DialogOrgan({
 	getTools: () => agent.tools,
 	systemPrompt,
 	maxTurns: args.maxTurns,
+	initialHistory,
+	onMessage: (msg) => {
+		void session.append({ role: msg.role as "user" | "assistant", content: msg.content, timestamp: Date.now() });
+	},
 });
 
 const thinkingLevel = args.thinking as import("@dpopsuev/alef-ai").ThinkingLevel | undefined;
-agent.load(dialog).load(new LLMOrgan({ model, thinking: thinkingLevel }));
+agent.load(dialog).load(
+	new LLMOrgan({
+		model,
+		thinking: thinkingLevel,
+		onCompact: (summary) => {
+			process.stderr.write(`\n[compaction] Context summarised (${summary.length} chars).\n`);
+		},
+	}),
+);
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }

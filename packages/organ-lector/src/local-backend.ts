@@ -16,6 +16,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import type {
 	CallersOptions,
 	CallSite,
@@ -29,6 +30,7 @@ import type {
 	SymbolBlock,
 } from "./backend.js";
 import { BlockCache } from "./block-cache.js";
+import { LspClient } from "./lsp-client.js";
 import { extractBlock, extractSymbols } from "./symbol-extractor.js";
 import { extractSymbolsTs, isTsFile } from "./ts-symbol-extractor.js";
 
@@ -152,6 +154,9 @@ export class LocalLectorBackend implements LectorBackend {
 	private readonly cwd: string;
 	private readonly cache: BlockCache;
 	private readonly allowAbsolutePaths: boolean;
+	/** LSP client — lazy-started on first callers() call for a TS file. */
+	private lsp: LspClient | null = null;
+	private lspStarting: Promise<LspClient> | null = null;
 
 	constructor(opts: LocalLectorBackendOptions) {
 		this.cwd = opts.cwd;
@@ -162,6 +167,30 @@ export class LocalLectorBackend implements LectorBackend {
 	/** Expose cache for organ unmount cleanup. */
 	get blockCache(): BlockCache {
 		return this.cache;
+	}
+
+	/** Stop the LSP server if one was started. Called on organ unmount. */
+	async stopLsp(): Promise<void> {
+		const lsp = this.lsp;
+		this.lsp = null;
+		this.lspStarting = null;
+		await lsp?.stop();
+	}
+
+	private async getLsp(): Promise<LspClient> {
+		if (this.lsp) return this.lsp;
+		if (!this.lspStarting) {
+			this.lspStarting = LspClient.start(this.cwd)
+				.then((c) => {
+					this.lsp = c;
+					return c;
+				})
+				.catch((e) => {
+					this.lspStarting = null;
+					throw e;
+				});
+		}
+		return this.lspStarting;
 	}
 
 	// -------------------------------------------------------------------------
@@ -390,19 +419,50 @@ export class LocalLectorBackend implements LectorBackend {
 	}
 
 	// -------------------------------------------------------------------------
-	// callers  (Phase 1: grep-based)
+	// callers  (Phase 1: grep-based; Phase 2: LSP callHierarchy for TS files)
 	// -------------------------------------------------------------------------
 
 	async callers(symbol: string, opts: CallersOptions = {}): Promise<CallSite[]> {
 		const maxResults = opts.maxResults ?? DEFAULT_MAX_RESULTS_CALLERS;
+
+		// Phase 2: LSP callHierarchy for TypeScript files.
+		// Requires the symbol to be found in a TS file via the cached symbol map.
+		if (opts.path && isTsFile(opts.path)) {
+			try {
+				return await this._callersViaLsp(symbol, opts.path, maxResults);
+			} catch {
+				// LSP not available or failed — fall through to grep
+			}
+		}
+
+		// Phase 1: grep-based fallback.
+		return this._callersViaGrep(symbol, opts, maxResults);
+	}
+
+	private async _callersViaLsp(symbol: string, filePath: string, maxResults: number): Promise<CallSite[]> {
+		const abs = resolvePath(this.cwd, filePath, this.allowAbsolutePaths);
+		const { readFile: rf } = await import("node:fs/promises");
+		const content = await rf(abs, "utf-8");
+		const fileUrl = pathToFileURL(abs).href;
+
+		// Find the symbol's position from the cached symbol map (or re-extract).
+		const symbols = isTsFile(filePath) ? extractSymbolsTs(content, filePath) : extractSymbols(content);
+		const sym = symbols.find((s) => s.name === symbol);
+		if (!sym) throw new Error(`LSP callers: symbol '${symbol}' not found in ${filePath}`);
+
+		const lsp = await this.getLsp();
+		await lsp.openFile(fileUrl, content);
+
+		// Use the start of the symbol's declaration line, column 0.
+		return lsp.incomingCalls(fileUrl, sym.startLine - 1, 0, maxResults);
+	}
+
+	private async _callersViaGrep(symbol: string, opts: CallersOptions, maxResults: number): Promise<CallSite[]> {
 		const matches = await this.search(symbol, {
 			path: opts.path,
-			maxResults: maxResults * 2, // over-fetch to filter self-declarations
+			maxResults: maxResults * 2,
 		});
-
-		// Filter out the declaration lines — they contain `function symbol` or `class symbol`.
 		const DECL_RE = new RegExp(`\\b(?:function|class|interface|type|const|let|var)\\s+${escapeRegex(symbol)}\\b`);
-
 		const callers: CallSite[] = [];
 		for (const m of matches) {
 			if (callers.length >= maxResults) break;

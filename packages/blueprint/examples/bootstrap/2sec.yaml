@@ -8,13 +8,11 @@ systemPrompt: |
 organs:
   - name: fs
     actions:
-      - outline
       - read
       - write
       - edit
       - grep
       - find
-      - ls
 memory:
   session: persistent
   working:

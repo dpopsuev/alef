@@ -35,10 +35,31 @@ export interface StorageRecord {
 	type: string;
 	/** Turn group key — same for all events in one user turn. */
 	correlationId: string;
-	/** Raw event payload. */
+	/** Payload after redaction — sensitive keys replaced with [REDACTED]. */
 	payload: Record<string, unknown>;
 	/** Wall-clock ms. NOT used for recency scoring (use turnIndex instead). */
 	timestamp: number;
+	/**
+	 * SHA-256 of { bus, type, correlationId, payload, timestamp } (post-redaction).
+	 * Detects tampering: any modification to the record changes this field.
+	 * Optional only for test-authored records; EventLogOrgan always sets it.
+	 */
+	hash?: string;
+}
+
+/**
+ * Compute the SHA-256 audit hash of a record's stable fields.
+ * Excludes the hash field itself so the computation is deterministic.
+ */
+export function hashRecord(record: Omit<StorageRecord, "hash">): string {
+	const stable = JSON.stringify({
+		bus: record.bus,
+		type: record.type,
+		correlationId: record.correlationId,
+		payload: record.payload,
+		timestamp: record.timestamp,
+	});
+	return createHash("sha256").update(stable, "utf-8").digest("hex");
 }
 
 /** Special internal record emitted by TurnAssembler after each context window selection. */
@@ -178,7 +199,10 @@ export class SessionStore {
 		}
 	}
 
-	/** Append a raw StorageRecord to the JSONL file. Fire-and-forget safe. */
+	/**
+	 * Append a raw StorageRecord to the JSONL file. Fire-and-forget safe.
+	 * The record must already have its hash field set (computed by EventLogOrgan).
+	 */
 	async append(record: StorageRecord): Promise<void> {
 		await appendFile(this.path, `${JSON.stringify(record)}\n`, "utf-8");
 	}

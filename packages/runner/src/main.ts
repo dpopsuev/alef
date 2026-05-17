@@ -181,6 +181,17 @@ agent.load(new EventLogOrgan(session));
 
 agent.validate();
 
+// SIGTERM: finish current turn then exit cleanly (TSK-150).
+process.once("SIGTERM", async () => {
+	process.stderr.write("\n[signal] SIGTERM — shutting down cleanly\n");
+	try {
+		agent.dispose();
+		await shutdownOTel();
+	} finally {
+		process.exit(0);
+	}
+});
+
 if (args.listTools) {
 	for (const tool of agent.tools) {
 		console.log(tool.name);

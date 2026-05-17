@@ -50,6 +50,11 @@ export interface Args {
 	resume: string | undefined;
 	/** Print all sessions for the current --cwd and exit. */
 	listSessions: boolean;
+	/**
+	 * Disable TUI and use the readline-based interactive mode.
+	 * TUI requires a TTY. Falls back automatically on non-TTY stdin.
+	 */
+	noTui: boolean;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -68,6 +73,7 @@ Options:
   --thinking <level>     Enable extended thinking: minimal|low|medium|high|xhigh
   --resume [id]          Resume a previous session (id or 'last' for most recent)
   --list-sessions        Print all sessions for current --cwd and exit
+  --no-tui               Use readline mode instead of TUI (also auto-set on non-TTY)
   --json                 Emit structured JSONL events (for TUI consumers)
   -h, --help             Show this help
 
@@ -93,6 +99,7 @@ export function parseArgs(argv: string[]): Args {
 		thinking: undefined,
 		resume: undefined,
 		listSessions: false,
+		noTui: false,
 	};
 
 	let i = 0;
@@ -170,6 +177,12 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--list-sessions") {
 			args.listSessions = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--no-tui") {
+			args.noTui = true;
 			i++;
 			continue;
 		}

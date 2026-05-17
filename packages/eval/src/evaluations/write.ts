@@ -6,6 +6,8 @@
 
 import type { Evaluation } from "../evaluation.js";
 import { all, fileContains, fileExists } from "../referee.js";
+import { compileCheck } from "../referees/compile.js";
+import { testCheck } from "../referees/test.js";
 
 const TYPES_SEED = `
 export interface User { id: string; name: string; }
@@ -61,7 +63,7 @@ export const createHTTPServer: Evaluation = {
 		"2. POST /echo → echoes the request body with 200\n" +
 		"3. Exports createServer(port: number)",
 	mustUse: ["fs.write"],
-	referee: all(fileContains("src/server.ts", "createServer", "/health", "/echo")),
+	referee: all(fileContains("src/server.ts", "createServer", "/health", "/echo"), compileCheck()),
 	fixture: {
 		files: {
 			"src/server.ts":
@@ -79,7 +81,7 @@ export const addTypeExport: Evaluation = {
 		"Read src/types.ts. The Session interface is defined but not exported. " +
 		"Fix it so Session is exported. Only change that file.",
 	mustUse: ["fs.read"],
-	referee: fileContains("src/types.ts", "export interface Session", "export"),
+	referee: all(fileContains("src/types.ts", "export interface Session", "export"), compileCheck()),
 	fixture: {
 		files: {
 			"src/types.ts":
@@ -100,11 +102,13 @@ export const fixFailingTest: Evaluation = {
 		"Read src/sum.ts and src/sum.test.ts. The test fails. Find the bug in sum.ts and fix it. " +
 		"Do not modify the test file.",
 	mustUse: ["fs.read"],
-	referee: all(fileContains("src/sum.ts", "< numbers.length")),
+	referee: all(fileContains("src/sum.ts", "< numbers.length"), compileCheck(), testCheck()),
 	fixture: {
 		files: {
 			"src/sum.ts":
 				"export function sum(numbers: number[]): number {\n  let total = 0;\n  for (let i = 0; i < numbers.length; i++) {\n    total += numbers[i];\n  }\n  return total;\n}",
+			"src/sum.test.ts":
+				"import { sum } from './sum.js';\nimport { expect, it } from 'vitest';\nit('sums correctly', () => { expect(sum([1,2,3])).toBe(6); expect(sum([])).toBe(0); });\n",
 		},
 	},
 };

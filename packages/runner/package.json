@@ -11,21 +11,28 @@
 		"check": "biome check --write --error-on-warnings . && tsc --noEmit"
 	},
 	"dependencies": {
+		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
+		"@dpopsuev/alef-ai": "^0.0.1",
 		"@dpopsuev/alef-corpus": "^0.0.1",
-		"@dpopsuev/alef-spine": "^0.0.1",
 		"@dpopsuev/alef-organ-dialog": "^0.0.1",
 		"@dpopsuev/alef-organ-fs": "^0.0.1",
-		"@dpopsuev/alef-organ-shell": "^0.0.1",
 		"@dpopsuev/alef-organ-llm": "^0.0.1",
-		"@dpopsuev/alef-ai": "^0.0.1"
+		"@dpopsuev/alef-organ-shell": "^0.0.1",
+		"@dpopsuev/alef-spine": "^0.0.1"
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",
-		"typescript": "^5.9.2",
-		"tsx": "^4.19.0"
+		"tsx": "^4.19.0",
+		"typescript": "^5.9.2"
 	},
-	"keywords": ["agent", "runner", "cli"],
+	"keywords": [
+		"agent",
+		"runner",
+		"cli"
+	],
 	"author": "Daniel Popsuevich",
 	"license": "MIT",
-	"engines": { "node": ">=20.0.0" }
+	"engines": {
+		"node": ">=20.0.0"
+	}
 }

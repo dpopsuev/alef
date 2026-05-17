@@ -2,23 +2,31 @@
 /**
  * Alef agent runner — composition root and entry point.
  *
- * This file is the only place that knows about organs.
- * Everything below it (print-mode, interactive) receives only
- * dialog + dispose — they have no organ dependencies.
+ * Two wiring modes:
  *
- * Organ wiring lives here because this IS the composition root.
- * When the blueprint system lands (TSK-107), this wiring moves
- * to a blueprint materializer and this file becomes truly thin.
+ *   Blueprint mode (--blueprint agent.yaml):
+ *     Reads a CompiledAgentDefinition from YAML. The materializer instantiates
+ *     organs declared in the blueprint. Model is taken from the blueprint unless
+ *     --model or ALEF_MODEL overrides it.
+ *
+ *   Default mode (no --blueprint):
+ *     Hardcoded organ set: FsOrgan + ShellOrgan. Same as before TSK-107.
+ *
+ * In both modes DialogOrgan and LLMOrgan are always mounted — they are the
+ * fixed application core (reasoning + conversation). Only the corpus adapters
+ * (fs, shell, web, enclosure, …) are variable.
  */
 
+import { findAgentDefinitionPath, loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 
-import { parseArgs } from "./args.js";
+import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { runInteractive } from "./interactive.js";
+import { materializeBlueprint } from "./materializer.js";
 import { buildModel, hasCredentials } from "./model.js";
 import { runPrintMode } from "./print-mode.js";
 import { buildSystemPrompt } from "./prompt.js";
@@ -37,10 +45,32 @@ if (!hasCredentials()) {
 	);
 }
 
-const model = buildModel(args.modelId);
+// ---------------------------------------------------------------------------
+// Resolve blueprint (if any) and organ set
+// ---------------------------------------------------------------------------
+
+// Resolve blueprint path: explicit flag → auto-discover agent.yaml in cwd
+const blueprintPath = args.blueprint ?? findAgentDefinitionPath(args.cwd);
+
+let corpusOrgans = [];
+let blueprintModelId: string | undefined;
+
+if (blueprintPath) {
+	const definition = loadAgentDefinition(blueprintPath);
+	const materialized = materializeBlueprint(definition, { cwd: args.cwd });
+	corpusOrgans = materialized.organs;
+	blueprintModelId = materialized.modelId;
+} else {
+	// Default organ set — mirrors what the runner has always done.
+	corpusOrgans = [createFsOrgan({ cwd: args.cwd }), createShellOrgan({ cwd: args.cwd })];
+}
+
+// Model resolution: CLI flag → blueprint → ALEF_MODEL env → DEFAULT_MODEL
+const resolvedModelId = args.modelId ?? blueprintModelId ?? DEFAULT_MODEL;
+const model = buildModel(resolvedModelId);
 
 // ---------------------------------------------------------------------------
-// Compose the agent — the only place organs are imported and wired.
+// Compose the agent — the only place organs are wired.
 // ---------------------------------------------------------------------------
 
 const agent = new Agent();
@@ -51,22 +81,26 @@ const dialog = new DialogOrgan({
 	systemPrompt: buildSystemPrompt(args.cwd),
 });
 
-agent
-	.load(dialog)
-	.load(createFsOrgan({ cwd: args.cwd }))
-	.load(createShellOrgan({ cwd: args.cwd }))
-	.load(new LLMOrgan({ model }));
+agent.load(dialog).load(new LLMOrgan({ model }));
+for (const organ of corpusOrgans) {
+	agent.load(organ);
+}
 
 // ---------------------------------------------------------------------------
-// Dispatch to the correct run mode.
+// Validate and dispatch
 // ---------------------------------------------------------------------------
 
-// Validate port cardinality (hexagonal architecture) before the first turn.
-// Errors mean the agent cannot respond (missing reasoning adapter).
 agent.validate();
+
+if (args.listTools) {
+	for (const tool of agent.tools) {
+		console.log(tool.name);
+	}
+	process.exit(0);
+}
 
 if (args.print) {
 	await runPrintMode(args.prompt, dialog, () => agent.dispose());
 } else {
-	await runInteractive(dialog, { cwd: args.cwd, modelId: args.modelId }, () => agent.dispose());
+	await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId }, () => agent.dispose());
 }

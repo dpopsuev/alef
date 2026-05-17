@@ -60,3 +60,23 @@ describe("parseArgs", () => {
 		expect(args.modelId).toBe("claude-haiku-4-5");
 	});
 });
+
+describe("parseArgs — blueprint", () => {
+	it("--blueprint sets blueprint path", () => {
+		const args = parseArgs(["--blueprint", "agent.yaml"]);
+		expect(args.blueprint).toBe("agent.yaml");
+	});
+
+	it("blueprint is undefined by default", () => {
+		const args = parseArgs([]);
+		expect(args.blueprint).toBeUndefined();
+	});
+
+	it("modelId is undefined when not set (deferred to main.ts)", () => {
+		const original = process.env.ALEF_MODEL;
+		delete process.env.ALEF_MODEL;
+		const args = parseArgs([]);
+		process.env.ALEF_MODEL = original;
+		expect(args.modelId).toBeUndefined();
+	});
+});

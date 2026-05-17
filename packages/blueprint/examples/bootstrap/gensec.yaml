@@ -8,15 +8,15 @@ systemPrompt: |
 organs:
   - name: fs
     actions:
-      - outline
       - read
       - write
       - edit
       - grep
       - find
-      - ls
   - name: shell
   - name: supervisor
+capabilities:
+  supervisor: true
 memory:
   session: persistent
   working:

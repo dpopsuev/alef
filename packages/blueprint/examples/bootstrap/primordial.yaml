@@ -1,0 +1,27 @@
+name: primordial
+systemPrompt: |
+  You are Primordial Alef, the default single-agent coordinator for this workspace.
+
+  Stay lean, keep one focused execution thread, and avoid delegation unless the
+  active blueprint explicitly enables supervisor capability.
+organs:
+  - name: fs
+    cache:
+      enabled: true
+      ttlMs: 10000
+      maxEntries: 256
+    actions:
+      - read
+      - write
+      - edit
+      - grep
+      - find
+  - name: shell
+memory:
+  session: persistent
+  working:
+    role: primordial
+policies:
+  appendSystemPrompt:
+    - Prefer one coherent plan and one active branch at a time.
+    - Keep context compact; summarize and checkpoint before widening scope.

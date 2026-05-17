@@ -276,6 +276,19 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 				invalidates: () => WRITE_INVALIDATES,
 			},
 		},
-		{ actions: options.actions },
+		{
+			actions: options.actions,
+			directives: FS_DIRECTIVES,
+		},
 	);
 }
+
+const FS_DIRECTIVES = [
+	`**fs (filesystem) tool guidance**
+- Always read a file with fs.read before editing it. Never guess its contents.
+- Use fs.edit for targeted changes to existing files. Provide oldText that is unique within the file.
+- Use fs.write only when creating a new file or completely rewriting one. It overwrites without warning.
+- Use fs.grep to search file contents across the workspace before assuming something doesn't exist.
+- Use fs.find to discover file paths when you don't know the exact name.
+- All paths must be within the working directory. Absolute paths outside the workspace are rejected.`,
+];

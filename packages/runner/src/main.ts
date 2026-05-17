@@ -36,6 +36,7 @@ import { buildSystemPrompt } from "./prompt.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { runTuiMode } from "./tui-mode.js";
+import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
 // ---------------------------------------------------------------------------
 // Parse arguments
@@ -126,7 +127,33 @@ const dialog = new DialogOrgan({
 });
 
 const thinkingLevel = args.thinking as import("@dpopsuev/alef-ai").ThinkingLevel | undefined;
-agent.load(dialog).load(new LLMOrgan({ model, thinking: thinkingLevel }));
+
+// Context window assembly via TurnAssembler (ALE-TSK-179).
+// prepareStep is called by LLMOrgan before each turn with the full message array.
+// It reads the event log, scores turns by relevance, and returns the budget-fitting subset.
+const prepareStep = async (
+	messages: import("@dpopsuev/alef-ai").Message[],
+): Promise<import("@dpopsuev/alef-ai").Message[]> => {
+	const turns = await session.turns();
+	const hitCounts = await session.hitCounts();
+	// Extract the current user query from the last message for keyword scoring.
+	const lastMsg = messages.at(-1);
+	const query =
+		lastMsg && typeof (lastMsg as { content?: unknown }).content === "string"
+			? (lastMsg as { content: string }).content
+			: "";
+	const selected = assembleTurns(turns, {
+		query,
+		contextWindow: model.contextWindow,
+		hitCounts,
+	});
+	// Convert to ConversationMessage[], then cast to Message[] (compatible shape).
+	const projected = turnsToMessages(selected) as unknown as import("@dpopsuev/alef-ai").Message[];
+	// If no history in the log yet, fall back to the original messages from payload.
+	return projected.length > 0 ? projected : messages;
+};
+
+agent.load(dialog).load(new LLMOrgan({ model, thinking: thinkingLevel, prepareStep }));
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }

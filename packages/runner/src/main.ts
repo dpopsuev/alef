@@ -26,6 +26,7 @@ import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { runInteractive } from "./interactive.js";
+import { LoopDetectorOrgan } from "./loop-detector.js";
 import { materializeBlueprint } from "./materializer.js";
 import { buildModel, hasCredentials } from "./model.js";
 import { runPrintMode } from "./print-mode.js";
@@ -79,12 +80,14 @@ const dialog = new DialogOrgan({
 	sink: makeSink(args.json),
 	getTools: () => agent.tools,
 	systemPrompt: buildSystemPrompt(args.cwd),
+	maxTurns: args.maxTurns,
 });
 
 agent.load(dialog).load(new LLMOrgan({ model }));
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
+agent.load(new LoopDetectorOrgan({ threshold: args.loopThreshold }));
 
 // ---------------------------------------------------------------------------
 // Validate and dispatch

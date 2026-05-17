@@ -68,6 +68,12 @@ export interface DialogOrganOptions {
 	 * Injected as a system message at position 0 of each payload.messages.
 	 */
 	systemPrompt?: string;
+	/**
+	 * Maximum number of send() calls (user turns) per session.
+	 * 0 = unlimited. Default: 0.
+	 * When exceeded, send() rejects with a clear error message.
+	 */
+	maxTurns?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +93,8 @@ export class DialogOrgan implements Organ {
 	private readonly sink: MessageSink;
 	private readonly getTools: () => readonly ToolDefinition[];
 	private readonly systemPrompt: string | undefined;
+	private readonly maxTurns: number;
+	private turnCount = 0;
 	/** Conversation history — accumulates across turns. */
 	private readonly history: ConversationMessage[] = [];
 	private nerve: Nerve | null = null;
@@ -99,6 +107,7 @@ export class DialogOrgan implements Organ {
 		this.sink = options.sink ?? ((text) => process.stdout.write(`agent: ${text}\n`));
 		this.getTools = options.getTools ?? (() => []);
 		this.systemPrompt = options.systemPrompt;
+		this.maxTurns = options.maxTurns ?? 0;
 	}
 
 	/** Reset conversation history. Useful between independent sessions. */
@@ -184,6 +193,10 @@ export class DialogOrgan implements Organ {
 	 */
 	send(text: string, sender = "human", timeoutMs = 30_000): Promise<string> {
 		if (!this.nerve) return Promise.reject(new Error("DialogOrgan: not mounted"));
+		if (this.maxTurns > 0 && this.turnCount >= this.maxTurns) {
+			return Promise.reject(new Error(`Max turns reached (${this.maxTurns}). Start a new session to continue.`));
+		}
+		this.turnCount++;
 		const correlationId = randomUUID();
 		return new Promise<string>((resolve, reject) => {
 			const timer = setTimeout(() => {

@@ -6,8 +6,10 @@
  *   fs.grep   — ripgrep content search
  *   fs.find   — fd file-find
  */
-import { readFile as fsReadFile, writeFile as fsWriteFile, mkdir } from "node:fs/promises";
-import { dirname, isAbsolute, resolve as nodeResolve } from "node:path";
+
+import { randomUUID } from "node:crypto";
+import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, mkdir, unlink } from "node:fs/promises";
+import { dirname, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import {
@@ -19,6 +21,7 @@ import {
 	type GrepToolInput,
 } from "./file-queries.js";
 import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
+import { assertWithinRoot } from "./path-guard.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
 
 // ---------------------------------------------------------------------------
@@ -115,6 +118,11 @@ export interface FsOrganOptions {
 	runtime?: FsRuntime;
 	/** Allowlist of fs action names to mount (e.g. ['fs.read', 'fs.grep']). Default: all. */
 	actions?: readonly string[];
+	/**
+	 * Allow paths outside cwd (e.g. absolute paths anywhere on disk).
+	 * Default: false — all paths must resolve within cwd.
+	 */
+	allowAbsolutePaths?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,8 +133,12 @@ function getCache(runtime: FsRuntime | undefined, scope: FsCacheScope) {
 	return runtime?.getCache(scope);
 }
 
-function resolveFilePath(cwd: string, filePath: string): string {
-	return isAbsolute(filePath) ? filePath : nodeResolve(cwd, filePath);
+function resolveFilePath(cwd: string, filePath: string, allowAbsolute = false): string {
+	const abs = nodeResolve(cwd, filePath);
+	if (!allowAbsolute) {
+		assertWithinRoot(abs, cwd);
+	}
+	return abs;
 }
 
 async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
@@ -135,7 +147,7 @@ async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 	const offset = typeof ctx.payload.offset === "number" ? ctx.payload.offset : undefined;
 	const limit = typeof ctx.payload.limit === "number" ? ctx.payload.limit : undefined;
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 	const rawContent = await fsReadFile(absolutePath, "utf-8");
 	const contentToRead =
 		offset && offset > 1
@@ -154,13 +166,24 @@ async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 	};
 }
 
+async function atomicWrite(dest: string, content: string): Promise<void> {
+	const tmp = `${dest}.tmp.${randomUUID()}`;
+	try {
+		await fsWriteFile(tmp, content, "utf-8");
+		await fsRename(tmp, dest);
+	} catch (err) {
+		await unlink(tmp).catch(() => {});
+		throw err;
+	}
+}
+
 async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
 	const filePath = String(ctx.payload.path ?? "");
 	if (!filePath) throw new Error("fs.write: path is required");
 	const content = typeof ctx.payload.content === "string" ? ctx.payload.content : "";
-	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 	await mkdir(dirname(absolutePath), { recursive: true });
-	await fsWriteFile(absolutePath, content, "utf-8");
+	await atomicWrite(absolutePath, content);
 	return { path: filePath, bytes: Buffer.byteLength(content, "utf-8") };
 }
 
@@ -171,7 +194,7 @@ async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 	const newText = typeof ctx.payload.newText === "string" ? ctx.payload.newText : "";
 	if (!oldText) throw new Error("fs.edit: oldText is required");
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 	const original = await fsReadFile(absolutePath, "utf-8");
 
 	const firstIdx = original.indexOf(oldText);
@@ -182,7 +205,7 @@ async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 		throw new Error(`fs.edit: oldText matches multiple locations in ${filePath} — make it unique`);
 
 	const updated = original.slice(0, firstIdx) + newText + original.slice(firstIdx + oldText.length);
-	await fsWriteFile(absolutePath, updated, "utf-8");
+	await atomicWrite(absolutePath, updated);
 	return { path: filePath, applied: true };
 }
 

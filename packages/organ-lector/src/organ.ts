@@ -138,6 +138,8 @@ export interface LectorOrganOptions {
 	 * Required when using the default LocalLectorBackend.
 	 */
 	cwd: string;
+	/** Allow paths outside cwd. Default: false. */
+	allowAbsolutePaths?: boolean;
 	/**
 	 * Override the backend (e.g. StubLectorBackend for tests,
 	 * DockerLectorBackend for EnclosureOrgan integration).
@@ -149,7 +151,12 @@ export interface LectorOrganOptions {
 }
 
 export function createLectorOrgan(opts: LectorOrganOptions): Organ {
-	const backend: LectorBackend = opts.backend ?? new LocalLectorBackend({ cwd: opts.cwd });
+	const backend: LectorBackend =
+		opts.backend ??
+		new LocalLectorBackend({
+			cwd: opts.cwd,
+			allowAbsolutePaths: opts.allowAbsolutePaths,
+		});
 
 	const base = defineCorpusOrgan(
 		"lector",

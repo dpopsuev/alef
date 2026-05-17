@@ -53,7 +53,9 @@
 			"@dpopsuev/alef-tui": ["./packages/tui/src/index.ts"],
 			"@dpopsuev/alef-tui/*": ["./packages/tui/src/*"],
 			"@dpopsuev/alef-web-ui": ["./packages/web-ui/src/index.ts"],
-			"@dpopsuev/alef-web-ui/*": ["./packages/web-ui/src/*"]
+			"@dpopsuev/alef-web-ui/*": ["./packages/web-ui/src/*"],
+			"@dpopsuev/web-spider": ["./node_modules/@dpopsuev/web-spider/dist/index.d.ts"],
+			"@dpopsuev/web-spider/*": ["./node_modules/@dpopsuev/web-spider/dist/*"]
 		}
 	},
 	"include": ["packages/*/src/**/*", "packages/*/test/**/*", "packages/coding-agent/examples/**/*"],

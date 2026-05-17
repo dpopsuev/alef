@@ -7,11 +7,13 @@
  * ToolLevel — which tool surface is available to the agent:
  *   ReadOnly   — fs.read, fs.grep, fs.find, lector.read, lector.search
  *   ReadWrite  — ReadOnly + fs.write, fs.edit, shell.exec
- *   Planning   — ReadWrite + PlanningOrgan (not yet built)
- *   Networked  — Planning + Router/MCP tools
  *
  * Run ReadOnly first: if the agent passes without write tools it didn't cheat.
  * Step up to ReadWrite only when the task genuinely requires mutation.
+ *
+ * Deferred tiers (add when prerequisites are built):
+ *   Planning   — ReadWrite + PlanningOrgan
+ *   Networked  — Planning + organ-recall + Router/MCP
  *
  * Graduated score from Referee.check():
  *   0.0 — hard fail (missing file, broken assertion)
@@ -27,7 +29,7 @@
 
 import type { WorkspaceFile } from "./harness.js";
 
-export type ToolLevel = "ReadOnly" | "ReadWrite" | "Planning" | "Networked";
+export type ToolLevel = "ReadOnly" | "ReadWrite";
 export type Template = "ReadOnly" | "Write" | "MultiTurn";
 
 export interface Evaluation {

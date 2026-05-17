@@ -30,10 +30,26 @@ const SHELL_EXEC_TOOL = {
 // Options
 // ---------------------------------------------------------------------------
 
+/** Default timeout when the LLM omits the timeout field. 120 seconds. */
+export const DEFAULT_SHELL_TIMEOUT_S = 120;
+/** Hard cap: the LLM cannot request a timeout longer than this. 600 seconds. */
+export const MAX_SHELL_TIMEOUT_S = 600;
+
 export interface ShellOrganOptions {
 	cwd: string;
 	shellPath?: string;
 	commandPrefix?: string;
+	/**
+	 * Default timeout in seconds when LLM does not specify one.
+	 * Default: 120. Set 0 to disable (not recommended).
+	 */
+	defaultTimeoutSeconds?: number;
+	/**
+	 * Hard cap on LLM-supplied timeout values in seconds.
+	 * LLM-requested timeouts above this are silently clamped.
+	 * Default: 600.
+	 */
+	maxTimeoutSeconds?: number;
 	/** Allowlist of shell action names to mount. Default: all. */
 	actions?: readonly string[];
 	binDir?: string;
@@ -46,7 +62,11 @@ export interface ShellOrganOptions {
 async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): AsyncIterable<Record<string, unknown>> {
 	const command = String(ctx.payload.command ?? "");
 	if (!command) throw new Error("shell.exec: command is required");
-	const timeoutMs = typeof ctx.payload.timeout === "number" ? ctx.payload.timeout * 1000 : undefined;
+	const defaultS = opts.defaultTimeoutSeconds ?? DEFAULT_SHELL_TIMEOUT_S;
+	const maxS = opts.maxTimeoutSeconds ?? MAX_SHELL_TIMEOUT_S;
+	const requestedS = typeof ctx.payload.timeout === "number" ? ctx.payload.timeout : defaultS;
+	const clampedS = maxS > 0 ? Math.min(requestedS, maxS) : requestedS;
+	const timeoutMs = clampedS > 0 ? clampedS * 1000 : undefined;
 	const resolvedCommand = opts.commandPrefix ? `${opts.commandPrefix}\n${command}` : command;
 
 	const shell = opts.shellPath ?? (process.platform === "win32" ? "cmd.exe" : "/bin/sh");
@@ -58,7 +78,7 @@ async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): Asyn
 	});
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	if (timeoutMs) {
+	if (timeoutMs !== undefined) {
 		timer = setTimeout(() => {
 			child.kill("SIGTERM");
 		}, timeoutMs);

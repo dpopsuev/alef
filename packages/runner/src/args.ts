@@ -36,6 +36,10 @@ export interface Args {
 	 * Useful for verifying which tools a blueprint exposes.
 	 */
 	listTools: boolean;
+	/** Maximum tool-call turns per conversation. 0 = unlimited. Default: 50. */
+	maxTurns: number;
+	/** Loop detection threshold — same tool N times in one turn triggers guard. Default: 15. */
+	loopThreshold: number;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -49,6 +53,8 @@ Options:
   --model <id>           Model ID (default: ${DEFAULT_MODEL}, or ALEF_MODEL env var)
   --blueprint <path>     Load agent.yaml blueprint (configures organs and model)
   --list-tools           Print active tool names and exit (for diagnostics)
+  --max-turns <n>        Max tool-call turns per run (default: 50, 0=unlimited)
+  --loop-threshold <n>   Repeated tool calls before loop guard fires (default: 15)
   --json                 Emit structured JSONL events (for TUI consumers)
   -h, --help             Show this help
 
@@ -69,6 +75,8 @@ export function parseArgs(argv: string[]): Args {
 		json: false,
 		blueprint: undefined,
 		listTools: false,
+		maxTurns: 50,
+		loopThreshold: 15,
 	};
 
 	let i = 0;
@@ -107,6 +115,20 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--list-tools") {
 			args.listTools = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--max-turns") {
+			const n = Number.parseInt(argv[++i] ?? "50", 10);
+			if (!Number.isNaN(n) && n >= 0) args.maxTurns = n;
+			i++;
+			continue;
+		}
+
+		if (arg === "--loop-threshold") {
+			const n = Number.parseInt(argv[++i] ?? "15", 10);
+			if (!Number.isNaN(n) && n > 0) args.loopThreshold = n;
 			i++;
 			continue;
 		}

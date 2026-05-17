@@ -15,6 +15,7 @@ export { EvaluationRunner } from "./evaluation-runner.js";
 export * as multiTurnEvaluations from "./evaluations/multi-turn.js";
 // Evaluation suites
 export * as readOnlyEvaluations from "./evaluations/read-only.js";
+export * as terminalBenchEvaluations from "./evaluations/terminal-bench.js";
 export * as writeEvaluations from "./evaluations/write.js";
 export type { EvaluatorOrganOptions, EvaluatorOrganState } from "./evaluator-organ.js";
 export { EvaluatorOrgan } from "./evaluator-organ.js";
@@ -36,4 +37,5 @@ export {
 export { getEvalModel, SKIP_REAL_LLM } from "./model.js";
 export { all, any, fileContains, fileExists, replyContains } from "./referee.js";
 export { compileCheck } from "./referees/compile.js";
+export { terminalScript, terminalScriptFile } from "./referees/terminal.js";
 export { testCheck } from "./referees/test.js";

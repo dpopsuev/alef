@@ -18,16 +18,27 @@ export interface Args {
 	prompt: string;
 	/** Working directory for FsOrgan and ShellOrgan. */
 	cwd: string;
-	/** Model ID override. Falls back to ALEF_MODEL env var, then default. */
-	modelId: string;
+	/** Model ID override. Falls back to blueprint model, then ALEF_MODEL env var, then default. */
+	modelId: string | undefined;
 	/**
 	 * JSON mode: emit structured JSONL events to stdout instead of plain text.
 	 * Used by TUI consumers (pi, programmatic callers) to render the conversation.
 	 */
 	json: boolean;
+	/**
+	 * Path to an agent.yaml blueprint file.
+	 * When provided, organs and model are configured from the blueprint.
+	 * Hardcoded organ defaults (fs + shell) are used otherwise.
+	 */
+	blueprint: string | undefined;
+	/**
+	 * Diagnostic: print one tool name per line and exit.
+	 * Useful for verifying which tools a blueprint exposes.
+	 */
+	listTools: boolean;
 }
 
-const DEFAULT_MODEL = "claude-sonnet-4-5";
+export const DEFAULT_MODEL = "claude-sonnet-4-5";
 
 const USAGE = `
 Usage: alef [options] [prompt]
@@ -36,6 +47,8 @@ Options:
   -p, --print <prompt>   Send one message, print reply, exit
   --cwd <path>           Working directory (default: current directory)
   --model <id>           Model ID (default: ${DEFAULT_MODEL}, or ALEF_MODEL env var)
+  --blueprint <path>     Load agent.yaml blueprint (configures organs and model)
+  --list-tools           Print active tool names and exit (for diagnostics)
   --json                 Emit structured JSONL events (for TUI consumers)
   -h, --help             Show this help
 
@@ -43,6 +56,7 @@ Examples:
   alef                                 # interactive mode
   alef -p "What files are in src/?"   # print mode
   alef --cwd ~/project -p "Audit src/auth.ts"
+  alef --blueprint agent.yaml -p "Fix the bug"  # blueprint-configured run
   alef --json -p "Fix the bug"        # machine-readable output
 `.trim();
 
@@ -51,8 +65,10 @@ export function parseArgs(argv: string[]): Args {
 		print: false,
 		prompt: "",
 		cwd: process.cwd(),
-		modelId: process.env.ALEF_MODEL ?? DEFAULT_MODEL,
+		modelId: process.env.ALEF_MODEL,
 		json: false,
+		blueprint: undefined,
+		listTools: false,
 	};
 
 	let i = 0;
@@ -79,6 +95,18 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--model") {
 			args.modelId = argv[++i] ?? args.modelId;
+			i++;
+			continue;
+		}
+
+		if (arg === "--blueprint") {
+			args.blueprint = argv[++i] ?? undefined;
+			i++;
+			continue;
+		}
+
+		if (arg === "--list-tools") {
+			args.listTools = true;
 			i++;
 			continue;
 		}

@@ -4,6 +4,9 @@
 		"rootDir": "src",
 		"noEmit": true,
 		"paths": {
+			"@dpopsuev/alef-agent-blueprint": ["../blueprint/src/index.ts"],
+			"@dpopsuev/alef-agent-blueprint/*": ["../blueprint/src/*.ts"],
+			"@dpopsuev/alef-agent-core": ["../agent/src/index.ts"],
 			"@dpopsuev/alef-ai": ["../ai/src/index.ts"],
 			"@dpopsuev/alef-ai/*": ["../ai/src/*"],
 			"@dpopsuev/alef-corpus": ["../corpus/src/index.ts"],

@@ -8,6 +8,7 @@
  * Blueprint → Organ mapping (EDA names only; legacy organs are skipped):
  *   fs         → createFsOrgan({ cwd, actions })
  *   shell      → createShellOrgan({ cwd, actions })
+ *   lector     → createLectorOrgan({ cwd, actions })
  *   (ai)       → LLMOrgan — always mounted; blueprint may override model
  *   (discourse) → DialogOrgan — always mounted; not controlled by blueprint
  *   lector     → not yet in EDA; skipped with a console.warn
@@ -23,11 +24,12 @@
 
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
+import { createLectorOrgan } from "@dpopsuev/alef-organ-lector";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import type { Organ } from "@dpopsuev/alef-spine";
 
 /** Organs that the materializer does not yet support in the EDA runtime. */
-const UNSUPPORTED_ORGANS = new Set(["lector", "symbols", "supervisor", "ai", "discourse"]);
+const UNSUPPORTED_ORGANS = new Set(["symbols", "supervisor", "ai", "discourse"]);
 
 export interface MaterializerOptions {
 	/** Working directory for FsOrgan and ShellOrgan. */
@@ -80,6 +82,17 @@ export function materializeBlueprint(
 					cwd: opts.cwd,
 					// Blueprint uses short names (exec); EDA expects full event types (shell.exec).
 					actions: organDef.actions.length > 0 ? organDef.actions.map((a) => `shell.${a}`) : undefined,
+				}),
+			);
+			continue;
+		}
+
+		if (organDef.name === "lector") {
+			organs.push(
+				createLectorOrgan({
+					cwd: opts.cwd,
+					// Blueprint uses short names (read, write, …); EDA expects lector.read, …
+					actions: organDef.actions.length > 0 ? organDef.actions.map((a) => `lector.${a}`) : undefined,
 				}),
 			);
 		}

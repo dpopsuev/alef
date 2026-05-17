@@ -252,7 +252,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 				},
 			},
 		},
-		{ actions: opts.actions },
+		{ actions: opts.actions, directives: LECTOR_DIRECTIVES },
 	);
 
 	// On unmount: clear the backend's block cache if using LocalLectorBackend.
@@ -269,3 +269,15 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 
 	return base;
 }
+
+const LECTOR_DIRECTIVES = [
+	`**lector tool guidance**
+- lector.read returns file content AND a symbol map on every call. Use symbol= to zoom into a single function or class without reading the whole file.
+- Always call lector.read before lector.edit. Never edit from memory or inference.
+- lector.edit applies targeted replacements. Each oldText must be unique within the file. Provide enough context to be unambiguous.
+- lector.write overwrites the entire file. Use it only to create new files or completely replace an existing one.
+- lector.search searches file contents across the workspace (regex or literal). Prefer this over reading every file individually.
+- lector.find lists files matching a glob pattern. Use depth=1 to list immediate children of a directory.
+- lector.callers finds all call sites of a named symbol. Use it before refactoring to understand blast radius.
+- All paths must resolve within the working directory.`,
+];

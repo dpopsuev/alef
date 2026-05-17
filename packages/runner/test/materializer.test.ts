@@ -43,14 +43,22 @@ describe("materializeBlueprint", () => {
 		expect(result.organs.map((o) => o.name)).toEqual(["fs", "shell"]);
 	});
 
-	it("skips unsupported organs without throwing", () => {
-		// lector is not in EDA runtime yet — silently skipped
+	it("lector organ is now supported in the EDA runtime", () => {
 		const def = compileAgentDefinition({
-			name: "advanced",
-			organs: [{ name: "fs" }, { name: "lector" }],
+			name: "lector-agent",
+			organs: [{ name: "lector" }],
 		});
 		const result = materializeBlueprint(def, { cwd: CWD });
-		// Only fs should be instantiated
+		expect(result.organs).toHaveLength(1);
+		expect(result.organs[0].name).toBe("lector");
+	});
+
+	it("skips truly unsupported organs (symbols) without throwing", () => {
+		const def = compileAgentDefinition({
+			name: "advanced",
+			organs: [{ name: "fs" }, { name: "symbols" }],
+		});
+		const result = materializeBlueprint(def, { cwd: CWD });
 		expect(result.organs).toHaveLength(1);
 		expect(result.organs[0].name).toBe("fs");
 	});

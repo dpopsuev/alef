@@ -61,10 +61,21 @@ export interface CallSite {
 }
 
 export interface EditSpec {
-	/** Exact text to replace. Must be unique within the file. */
-	oldText: string;
+	/**
+	 * Exact text to replace. Must be unique within the file.
+	 * Mutually exclusive with symbol.
+	 */
+	oldText?: string;
 	/** Replacement text. */
 	newText: string;
+	/**
+	 * Name of a symbol to replace entirely (Optimistic Lock).
+	 * When set, replaces the full span of the named symbol with newText.
+	 * Uses the cached symbol map from the last lector.read — throws if
+	 * the symbol map is stale (file was modified since last read).
+	 * Mutually exclusive with oldText.
+	 */
+	symbol?: string;
 }
 
 // ---------------------------------------------------------------------------

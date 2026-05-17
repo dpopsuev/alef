@@ -26,6 +26,7 @@ import type {
 	ReadResult,
 	SearchMatch,
 	SearchOptions,
+	SymbolBlock,
 } from "./backend.js";
 import { BlockCache } from "./block-cache.js";
 import { extractBlock, extractSymbols } from "./symbol-extractor.js";
@@ -99,6 +100,52 @@ export interface LocalLectorBackendOptions {
 	 * Set true only for system-level agents that explicitly need cross-workspace access.
 	 */
 	allowAbsolutePaths?: boolean;
+}
+
+/**
+ * Symbol-span edit with Optimistic Lock.
+ *
+ * Uses the cached symbol map (from the last lector.read) to locate the symbol's
+ * span. Replaces lines [startLine, endLine] with newBody.
+ *
+ * Optimistic Lock: verifies the span content hasn't changed since the cache
+ * was populated. Throws if the symbol is absent from the cache (stale read)
+ * so the caller knows to re-read first.
+ */
+function applySymbolEdit(
+	content: string,
+	symbolName: string,
+	newBody: string,
+	path: string,
+	cachedSymbols: SymbolBlock[] | undefined,
+): string {
+	if (!cachedSymbols || cachedSymbols.length === 0) {
+		throw new Error(`lector.edit: no cached symbol map for '${path}'. Call lector.read first.`);
+	}
+
+	const sym = cachedSymbols.find((s) => s.name === symbolName);
+	if (!sym) {
+		throw new Error(
+			`lector.edit: symbol '${symbolName}' not found in cached map for '${path}'.` +
+				` Available: ${cachedSymbols.map((s) => s.name).join(", ")}`,
+		);
+	}
+
+	const lines = content.split("\n");
+	const startIdx = sym.startLine - 1; // 0-indexed
+	const endIdx = sym.endLine - 1;
+
+	if (startIdx < 0 || endIdx >= lines.length) {
+		throw new Error(
+			`lector.edit: symbol '${symbolName}' span [${sym.startLine}-${sym.endLine}] ` +
+				`out of bounds for '${path}' (${lines.length} lines). File may have changed — re-read.`,
+		);
+	}
+
+	// Replace the span with newBody.
+	const before = lines.slice(0, startIdx);
+	const after = lines.slice(endIdx + 1);
+	return [...before, newBody, ...after].join("\n");
 }
 
 export class LocalLectorBackend implements LectorBackend {
@@ -189,18 +236,29 @@ export class LocalLectorBackend implements LectorBackend {
 
 	async edit(path: string, edits: EditSpec[]): Promise<void> {
 		const abs = resolvePath(this.cwd, path, this.allowAbsolutePaths);
-		// Invalidate BEFORE reading current content — any concurrent read will re-fetch.
+
+		// Snapshot the cached symbol map BEFORE invalidation (Optimistic Lock).
+		// Symbol-span edits verify the span against this snapshot.
+		const cachedEntry = this.cache.get(abs);
+
+		// Invalidate BEFORE reading current content.
 		this.cache.invalidate(abs);
 
 		let content = await readFile(abs, "utf-8");
-		for (const { oldText, newText } of edits) {
-			if (!oldText) throw new Error("lector.edit: oldText must not be empty");
-			const first = content.indexOf(oldText);
-			if (first === -1) throw new Error(`lector.edit: oldText not found in ${path}`);
-			const last = content.lastIndexOf(oldText);
-			if (first !== last)
-				throw new Error(`lector.edit: oldText matches multiple locations in ${path} — make it unique`);
-			content = content.slice(0, first) + newText + content.slice(first + oldText.length);
+
+		for (const { oldText, newText, symbol } of edits) {
+			if (symbol) {
+				// Symbol-span edit — replace the entire named symbol's span.
+				content = applySymbolEdit(content, symbol, newText, path, cachedEntry?.symbols);
+			} else {
+				if (!oldText) throw new Error("lector.edit: provide oldText or symbol");
+				const first = content.indexOf(oldText);
+				if (first === -1) throw new Error(`lector.edit: oldText not found in ${path}`);
+				const last = content.lastIndexOf(oldText);
+				if (first !== last)
+					throw new Error(`lector.edit: oldText matches multiple locations in ${path} — make it unique`);
+				content = content.slice(0, first) + newText + content.slice(first + oldText.length);
+			}
 		}
 
 		await atomicWrite(abs, content);

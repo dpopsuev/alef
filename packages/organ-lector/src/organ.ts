@@ -244,6 +244,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 			return () => {
 				unmount();
 				backend.blockCache.clear();
+				void backend.stopLsp();
 			};
 		};
 	}

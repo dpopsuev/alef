@@ -11,7 +11,10 @@
 			"import": "./dist/index.js"
 		}
 	},
-	"files": ["dist", "README.md"],
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"clean": "shx rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json",
@@ -19,7 +22,14 @@
 		"test": "vitest --run",
 		"prepublishOnly": "npm run clean && npm run build"
 	},
-	"keywords": ["agent", "organ", "web", "spider", "search", "crawl"],
+	"keywords": [
+		"agent",
+		"organ",
+		"web",
+		"spider",
+		"search",
+		"crawl"
+	],
 	"author": "Daniel Popsuevich",
 	"license": "MIT",
 	"repository": {
@@ -27,10 +37,13 @@
 		"url": "git+https://github.com/dpopsuev/alef.git",
 		"directory": "packages/organ-web"
 	},
-	"engines": { "node": ">=20.0.0" },
+	"engines": {
+		"node": ">=20.0.0"
+	},
 	"dependencies": {
 		"@dpopsuev/alef-spine": "^0.0.1",
-		"@dpopsuev/web-spider": "file:../../pi-mono/packages/web-spider"
+		"@dpopsuev/web-spider": "file:../../pi-mono/packages/web-spider",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { type ZodTypeAny, z } from "zod";
 
 // ---------------------------------------------------------------------------
 // NerveEvent — base shape every bus event must extend.
@@ -18,7 +19,26 @@ export interface NerveEvent {
 export interface ToolDefinition {
 	readonly name: string;
 	readonly description: string;
-	readonly inputSchema: Record<string, unknown>;
+	/**
+	 * Input schema for this tool. Either a Zod schema (preferred) or a raw
+	 * JSON Schema object (backward-compatible). LLMOrgan converts Zod schemas
+	 * to JSON Schema via z.toJSONSchema() before sending to the provider.
+	 */
+	readonly inputSchema: ZodTypeAny | Record<string, unknown>;
+}
+
+/**
+ * Convert a ToolDefinition's inputSchema to a plain JSON Schema object.
+ * Zod schemas are converted via z.toJSONSchema(). Raw objects pass through.
+ */
+export function toolInputToJsonSchema(schema: ZodTypeAny | Record<string, unknown>): Record<string, unknown> {
+	if (schema instanceof z.ZodType) {
+		const js = z.toJSONSchema(schema) as Record<string, unknown>;
+		// Remove $schema key — providers don't need it and some reject it
+		const { $schema: _, ...rest } = js as Record<string, unknown> & { $schema?: string };
+		return rest;
+	}
+	return schema as Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { MotorEvent, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Event name — one name, two buses
@@ -28,14 +29,9 @@ export const DIALOG_MESSAGE = "dialog.message";
 const MESSAGE_TOOL: ToolDefinition = {
 	name: DIALOG_MESSAGE,
 	description: "Send a message. Use this to reply to the user or to another agent.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			text: { type: "string", description: "The message text." },
-		},
-		required: ["text"],
-		additionalProperties: false,
-	},
+	inputSchema: z.object({
+		text: z.string().describe("The message text."),
+	}),
 };
 
 // ---------------------------------------------------------------------------

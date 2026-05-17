@@ -8,7 +8,7 @@ import {
 	type Tool,
 } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineCerebrumOrgan } from "@dpopsuev/alef-spine";
+import { defineCerebrumOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
 
 const DIALOG_MESSAGE = "dialog.message";
 
@@ -58,7 +58,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 	const tools: Tool[] = (payload.tools ?? []).map((t) => {
 		const llmName = t.name.replace(/\./g, "_");
 		motorNameByLlmName.set(llmName, t.name);
-		return { name: llmName, description: t.description, parameters: t.inputSchema };
+		return { name: llmName, description: t.description, parameters: toolInputToJsonSchema(t.inputSchema) };
 	});
 	const toMotorName = (llmName: string): string => motorNameByLlmName.get(llmName) ?? llmName;
 

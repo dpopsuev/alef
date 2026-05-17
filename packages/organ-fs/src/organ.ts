@@ -12,6 +12,7 @@ import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, m
 import { dirname, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import { z } from "zod";
 import {
 	DEFAULT_FIND_LIMIT,
 	DEFAULT_GREP_LIMIT,
@@ -31,83 +32,63 @@ import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.j
 const FS_READ_TOOL = {
 	name: "fs.read",
 	description: "Read the contents of a file. Truncated to 2000 lines or 50KB. Use offset/limit for large files.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			path: { type: "string", description: "Path to the file (relative or absolute)" },
-			offset: { type: "number", description: "Line number to start reading from (1-indexed)" },
-			limit: { type: "number", description: "Maximum number of lines to read" },
-		},
-		required: ["path"],
-	},
-} as const;
+	inputSchema: z.object({
+		path: z.string().describe("Path to the file (relative or absolute)"),
+		offset: z.number().optional().describe("Line number to start reading from (1-indexed)"),
+		limit: z.number().optional().describe("Maximum number of lines to read"),
+	}),
+};
 
 const FS_GREP_TOOL = {
 	name: "fs.grep",
 	description: "Search file contents using ripgrep. Returns matching lines with file paths and line numbers.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			pattern: { type: "string", description: "Search pattern (regex or literal string)" },
-			path: { type: "string", description: "Directory or file to search (default: cwd)" },
-			glob: { type: "string", description: "Filter files by glob pattern, e.g. '*.ts'" },
-			ignoreCase: { type: "boolean", description: "Case-insensitive search (default: false)" },
-			literal: { type: "boolean", description: "Treat pattern as literal string (default: false)" },
-			context: { type: "number", description: "Lines before/after each match (default: 0)" },
-			limit: { type: "number", description: `Max matches to return (default: ${DEFAULT_GREP_LIMIT})` },
-			type: { type: "string", description: "Filter by file type, e.g. 'ts', 'go', 'py'" },
-			filesWithMatches: { type: "boolean", description: "Return only file paths with matches" },
-			countOnly: { type: "boolean", description: "Return match count per file" },
-		},
-		required: ["pattern"],
-	},
-} as const;
+	inputSchema: z.object({
+		pattern: z.string().describe("Search pattern (regex or literal string)"),
+		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
+		glob: z.string().optional().describe("Filter files by glob pattern, e.g. '*.ts'"),
+		ignoreCase: z.boolean().optional().describe("Case-insensitive search (default: false)"),
+		literal: z.boolean().optional().describe("Treat pattern as literal string (default: false)"),
+		context: z.number().optional().describe("Lines before/after each match (default: 0)"),
+		limit: z.number().optional().describe(`Max matches to return (default: ${DEFAULT_GREP_LIMIT})`),
+		type: z.string().optional().describe("Filter by file type, e.g. 'ts', 'go', 'py'"),
+		filesWithMatches: z.boolean().optional().describe("Return only file paths with matches"),
+		countOnly: z.boolean().optional().describe("Return match count per file"),
+	}),
+};
 
 const FS_FIND_TOOL = {
 	name: "fs.find",
 	description: "Find files using fd. depth=1 lists immediate children (replaces ls).",
-	inputSchema: {
-		type: "object",
-		properties: {
-			pattern: { type: "string", description: "Glob pattern, e.g. '*.ts'. Use '*' to list all." },
-			path: { type: "string", description: "Directory to search (default: cwd)" },
-			limit: { type: "number", description: `Max results (default: ${DEFAULT_FIND_LIMIT})` },
-			type: { type: "string", enum: ["file", "directory", "symlink"], description: "Filter by entry type" },
-			extension: { type: "string", description: "Filter by extension, e.g. 'ts'" },
-			depth: { type: "number", description: "Max directory depth. depth=1 = immediate children." },
-			hidden: { type: "boolean", description: "Include hidden files (default: true)" },
-		},
-		required: ["pattern"],
-	},
-} as const;
+	inputSchema: z.object({
+		pattern: z.string().describe("Glob pattern, e.g. '*.ts'. Use '*' to list all."),
+		path: z.string().optional().describe("Directory to search (default: cwd)"),
+		limit: z.number().optional().describe(`Max results (default: ${DEFAULT_FIND_LIMIT})`),
+		type: z.enum(["file", "directory", "symlink"]).optional().describe("Filter by entry type"),
+		extension: z.string().optional().describe("Filter by extension, e.g. 'ts'"),
+		depth: z.number().optional().describe("Max directory depth. depth=1 = immediate children."),
+		hidden: z.boolean().optional().describe("Include hidden files (default: true)"),
+	}),
+};
 
 const FS_WRITE_TOOL = {
 	name: "fs.write",
 	description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			path: { type: "string", description: "Path to the file (relative or absolute)" },
-			content: { type: "string", description: "Content to write" },
-		},
-		required: ["path", "content"],
-	},
-} as const;
+	inputSchema: z.object({
+		path: z.string().describe("Path to the file (relative or absolute)"),
+		content: z.string().describe("Content to write"),
+	}),
+};
 
 const FS_EDIT_TOOL = {
 	name: "fs.edit",
 	description:
 		"Replace the first exact occurrence of oldText with newText in a file. Throws if oldText is not found or is not unique.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			path: { type: "string", description: "Path to the file (relative or absolute)" },
-			oldText: { type: "string", description: "Exact text to find and replace" },
-			newText: { type: "string", description: "Replacement text" },
-		},
-		required: ["path", "oldText", "newText"],
-	},
-} as const;
+	inputSchema: z.object({
+		path: z.string().describe("Path to the file (relative or absolute)"),
+		oldText: z.string().describe("Exact text to find and replace"),
+		newText: z.string().describe("Replacement text"),
+	}),
+};
 
 // ---------------------------------------------------------------------------
 // Options

@@ -7,6 +7,7 @@
 import { spawn } from "node:child_process";
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import { z } from "zod";
 import { getShellEnv } from "./shell.js";
 
 // ---------------------------------------------------------------------------
@@ -16,15 +17,11 @@ import { getShellEnv } from "./shell.js";
 const SHELL_EXEC_TOOL = {
 	name: "shell.exec",
 	description: "Execute a shell command. Streams stdout+stderr as chunks arrive. Final event carries exitCode.",
-	inputSchema: {
-		type: "object",
-		properties: {
-			command: { type: "string", description: "Shell command to execute" },
-			timeout: { type: "number", description: "Timeout in seconds (optional)" },
-		},
-		required: ["command"],
-	},
-} as const;
+	inputSchema: z.object({
+		command: z.string().describe("Shell command to execute"),
+		timeout: z.number().optional().describe("Timeout in seconds (optional)"),
+	}),
+};
 
 // ---------------------------------------------------------------------------
 // Options

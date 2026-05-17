@@ -1,7 +1,7 @@
 {
 	"name": "@dpopsuev/alef-organ-llm",
 	"version": "0.0.1",
-	"description": "LLMOrgan \u2014 LLM computation organ, tool_choice: any, routes tool calls as Motor events",
+	"description": "LLMOrgan — LLM computation organ, tool_choice: any, routes tool calls as Motor events",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -44,8 +44,9 @@
 		"node": ">=20.0.0"
 	},
 	"dependencies": {
+		"@dpopsuev/alef-ai": "^0.0.1",
 		"@dpopsuev/alef-spine": "^0.0.1",
-		"@dpopsuev/alef-ai": "^0.0.1"
+		"@opentelemetry/api": "^1.9.1"
 	},
 	"devDependencies": {
 		"@dpopsuev/alef-testkit": "^0.0.1",

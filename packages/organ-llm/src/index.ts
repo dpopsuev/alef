@@ -9,6 +9,9 @@ import {
 } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineCerebrumOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+
+const tracer = trace.getTracer("alef.organ-llm");
 
 const DIALOG_MESSAGE = "dialog.message";
 
@@ -88,6 +91,16 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 
 	// Turn loop — quiescence termination, fan-out tool calls.
 	while (true) {
+		// GenAI semantic conventions span: one span per LLM invocation.
+		const span = tracer.startSpan(`chat ${options.model.id}`, {
+			kind: SpanKind.CLIENT,
+			attributes: {
+				"gen_ai.operation.name": "chat",
+				"gen_ai.request.model": options.model.id,
+				"gen_ai.system": options.model.provider,
+			},
+		});
+
 		const stream = streamSimple(
 			options.model,
 			{ messages, tools },
@@ -102,18 +115,38 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		let finalMessage: AssistantMessage | undefined;
 		const pendingCalls: Array<{ name: string; args: Record<string, unknown>; id: string }> = [];
 
-		for await (const evt of stream) {
-			if (evt.type === "toolcall_end") {
-				pendingCalls.push({
-					name: evt.toolCall.name,
-					args: evt.toolCall.arguments as Record<string, unknown>,
-					id: evt.toolCall.id,
-				});
-			} else if (evt.type === "done") {
-				finalMessage = evt.message;
-			} else if (evt.type === "error") {
-				finalMessage = evt.error;
+		try {
+			for await (const evt of stream) {
+				if (evt.type === "toolcall_end") {
+					pendingCalls.push({
+						name: evt.toolCall.name,
+						args: evt.toolCall.arguments as Record<string, unknown>,
+						id: evt.toolCall.id,
+					});
+				} else if (evt.type === "done") {
+					finalMessage = evt.message;
+				} else if (evt.type === "error") {
+					finalMessage = evt.error;
+				}
 			}
+			// Record usage on the span when we have a final message.
+			if (finalMessage?.usage) {
+				const u = finalMessage.usage;
+				span.setAttributes({
+					"gen_ai.usage.input_tokens": u.input,
+					"gen_ai.usage.output_tokens": u.output,
+					"gen_ai.usage.total_tokens": u.totalTokens,
+					"gen_ai.usage.cache_read_tokens": u.cacheRead,
+					"alef.estimated_cost_usd": u.cost.total,
+				});
+			}
+			span.setStatus({ code: SpanStatusCode.OK });
+		} catch (err) {
+			span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+			span.end();
+			throw err;
+		} finally {
+			span.end();
 		}
 
 		if (!finalMessage) break;

@@ -72,12 +72,24 @@ export class StubLectorBackend implements LectorBackend {
 	async edit(path: string, edits: EditSpec[]): Promise<void> {
 		let content = this.files.get(path);
 		if (content === undefined) throw new Error(`StubLectorBackend: file not found: ${path}`);
-		for (const { oldText, newText } of edits) {
-			const first = content.indexOf(oldText);
-			if (first === -1) throw new Error(`lector.edit: oldText not found in ${path}`);
-			const last = content.lastIndexOf(oldText);
-			if (first !== last) throw new Error(`lector.edit: oldText not unique in ${path}`);
-			content = content.slice(0, first) + newText + content.slice(first + oldText.length);
+		for (const { oldText, newText, symbol } of edits) {
+			if (symbol) {
+				// Symbol edit in stub: find the symbol by name, replace its line block.
+				const { extractSymbols } = await import("./symbol-extractor.js");
+				const { extractBlock } = await import("./symbol-extractor.js");
+				const symbols = extractSymbols(content);
+				const block = extractBlock(content, symbols, symbol);
+				if (!block) throw new Error(`lector.edit: symbol '${symbol}' not found in ${path}`);
+				const allLines: string[] = content.split("\n");
+				content = [...allLines.slice(0, block.startLine - 1), newText, ...allLines.slice(block.endLine)].join("\n");
+			} else {
+				if (!oldText) throw new Error(`lector.edit: provide oldText or symbol for ${path}`);
+				const first = content.indexOf(oldText);
+				if (first === -1) throw new Error(`lector.edit: oldText not found in ${path}`);
+				const last = content.lastIndexOf(oldText);
+				if (first !== last) throw new Error(`lector.edit: oldText not unique in ${path}`);
+				content = content.slice(0, first) + newText + content.slice(first + oldText.length);
+			}
 		}
 		this.files.set(path, content);
 	}

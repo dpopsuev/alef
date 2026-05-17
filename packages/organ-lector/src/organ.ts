@@ -49,18 +49,25 @@ const WRITE_TOOL = {
 const EDIT_TOOL = {
 	name: "lector.edit",
 	description:
-		"Apply targeted text replacements to a file. Each edit must match exactly one location. " +
-		"Edits are applied in order. Use lector.read first to get the exact text.",
+		"Apply targeted edits to a file. Each edit uses either oldText (exact unique match) " +
+		"or symbol (replace an entire named symbol's span). Use lector.read first.",
 	inputSchema: z.object({
 		path: z.string().describe("File path (relative or absolute)"),
 		edits: z
 			.array(
 				z.object({
-					oldText: z.string().describe("Exact text to replace (must be unique in file)"),
+					oldText: z.string().optional().describe("Exact text to replace (must be unique in file)"),
 					newText: z.string().describe("Replacement text"),
+					symbol: z
+						.string()
+						.optional()
+						.describe(
+							"Name of a symbol to replace entirely (function, class, etc.). " +
+								"Replaces the full span. Requires prior lector.read.",
+						),
 				}),
 			)
-			.describe("Ordered list of replacements"),
+			.describe("Ordered list of replacements (each uses oldText or symbol)"),
 	}),
 };
 
@@ -170,8 +177,9 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 					const edits = rawEdits.map((e: unknown) => {
 						const edit = e as Record<string, unknown>;
 						return {
-							oldText: String(edit.oldText ?? ""),
+							oldText: typeof edit.oldText === "string" ? edit.oldText : undefined,
 							newText: String(edit.newText ?? ""),
+							symbol: typeof edit.symbol === "string" ? edit.symbol : undefined,
 						};
 					});
 					await backend.edit(path, edits);

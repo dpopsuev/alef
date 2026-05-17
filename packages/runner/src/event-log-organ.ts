@@ -15,7 +15,9 @@
  */
 
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
-import type { SessionStore, StorageRecord } from "./session-store.js";
+import { redactPayload } from "./redact.js";
+import type { SessionStore } from "./session-store.js";
+import { hashRecord } from "./session-store.js";
 
 export class EventLogOrgan implements Organ {
 	readonly name = "event-log";
@@ -33,24 +35,28 @@ export class EventLogOrgan implements Organ {
 
 	mount(nerve: Nerve): () => void {
 		const off1 = nerve.motor.subscribe("*", (event) => {
-			// Fire-and-forget — never block the event loop on disk I/O.
-			void this.store.append({
-				bus: "motor",
+			// Redact sensitive fields then hash before writing.
+			const payload = redactPayload(event.payload) as Record<string, unknown>;
+			const base = {
+				bus: "motor" as const,
 				type: event.type,
 				correlationId: event.correlationId,
-				payload: event.payload,
+				payload,
 				timestamp: event.timestamp,
-			} satisfies StorageRecord);
+			};
+			void this.store.append({ ...base, hash: hashRecord(base) });
 		});
 
 		const off2 = nerve.sense.subscribe("*", (event) => {
-			void this.store.append({
-				bus: "sense",
+			const payload = redactPayload(event.payload) as Record<string, unknown>;
+			const base = {
+				bus: "sense" as const,
 				type: event.type,
 				correlationId: event.correlationId,
-				payload: event.payload,
+				payload,
 				timestamp: event.timestamp,
-			} satisfies StorageRecord);
+			};
+			void this.store.append({ ...base, hash: hashRecord(base) });
 		});
 
 		return () => {

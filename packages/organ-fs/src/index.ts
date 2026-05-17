@@ -30,6 +30,7 @@ export {
 } from "./file-queries.js";
 export { type FsCacheScope, FsRuntime, type FsRuntimeOptions } from "./fs-runtime.js";
 export { createFsOrgan, type FsOrganOptions } from "./organ.js";
+export { assertWithinRoot, guardedResolve, type PathGuardOptions } from "./path-guard.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,

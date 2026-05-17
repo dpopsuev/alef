@@ -28,6 +28,7 @@ import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { assembleSystemPrompt } from "./directives.js";
 import { EventLogOrgan } from "./event-log-organ.js";
 import { runInteractive } from "./interactive.js";
+import { createLogger } from "./logger.js";
 import { LoopDetectorOrgan } from "./loop-detector.js";
 import { materializeBlueprint } from "./materializer.js";
 import { buildModel, hasCredentials } from "./model.js";
@@ -43,6 +44,7 @@ import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 // ---------------------------------------------------------------------------
 
 const args = parseArgs(process.argv.slice(2));
+const log = createLogger();
 
 if (!hasCredentials()) {
 	console.warn(
@@ -96,12 +98,18 @@ let blueprintModelId: string | undefined;
 
 if (blueprintPath) {
 	const definition = loadAgentDefinition(blueprintPath);
-	const materialized = materializeBlueprint(definition, { cwd: args.cwd });
+	const materialized = materializeBlueprint(definition, {
+		cwd: args.cwd,
+		loggerFor: (name) => log.child({ organ: name }),
+	});
 	corpusOrgans = materialized.organs;
 	blueprintModelId = materialized.modelId;
 } else {
 	// Default organ set — mirrors what the runner has always done.
-	corpusOrgans = [createFsOrgan({ cwd: args.cwd }), createShellOrgan({ cwd: args.cwd })];
+	corpusOrgans = [
+		createFsOrgan({ cwd: args.cwd, logger: log.child({ organ: "fs" }) }),
+		createShellOrgan({ cwd: args.cwd, logger: log.child({ organ: "shell" }) }),
+	];
 }
 
 // Model resolution: CLI flag → blueprint → ALEF_MODEL env → DEFAULT_MODEL

@@ -25,7 +25,7 @@ import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
-import { assembleSystemPrompt } from "./directives.js";
+import { DirectiveContextAssembler } from "./directives.js";
 import { EventLogOrgan } from "./event-log-organ.js";
 import { runInteractive } from "./interactive.js";
 import { createLogger } from "./logger.js";
@@ -128,7 +128,10 @@ const agent = new Agent();
 
 // Build system prompt after organs are loaded so directives are available.
 const basePrompt = buildSystemPrompt(args.cwd);
-const systemPrompt = assembleSystemPrompt(basePrompt, [...corpusOrgans]);
+const asm = new DirectiveContextAssembler(basePrompt);
+await asm.loadWorkspace(args.cwd); // reads .alef/directives/*.md
+asm.registerOrgans([...corpusOrgans]); // collects organ.directives strings
+const systemPrompt = asm.build(Math.floor(model.contextWindow * 0.1 * 4)); // ~10% of context in chars
 
 const dialog = new DialogOrgan({
 	// TUI mode reads replies via dialog.send() — sink must be silent to avoid double-output.

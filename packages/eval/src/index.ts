@@ -1,4 +1,6 @@
 // Evaluation framework
+
+export { type BaselineEntry, EvalBaseline, type RegressionReport } from "./baseline.js";
 export type {
 	Evaluation,
 	FixtureSet,
@@ -33,3 +35,5 @@ export {
 } from "./metrics.js";
 export { getEvalModel, SKIP_REAL_LLM } from "./model.js";
 export { all, any, fileContains, fileExists, replyContains } from "./referee.js";
+export { compileCheck } from "./referees/compile.js";
+export { testCheck } from "./referees/test.js";

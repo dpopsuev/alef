@@ -26,7 +26,7 @@ import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createLectorOrgan } from "@dpopsuev/alef-organ-lector";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-import type { Organ } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
 
 /** Organs that the materializer does not yet support in the EDA runtime. */
 const UNSUPPORTED_ORGANS = new Set(["symbols", "supervisor", "ai", "discourse"]);
@@ -34,6 +34,8 @@ const UNSUPPORTED_ORGANS = new Set(["symbols", "supervisor", "ai", "discourse"])
 export interface MaterializerOptions {
 	/** Working directory for FsOrgan and ShellOrgan. */
 	cwd: string;
+	/** Optional logger factory. Called with organ name to produce a child logger. */
+	loggerFor?: (organName: string) => OrganLogger;
 }
 
 export interface MaterializerResult {
@@ -69,8 +71,8 @@ export function materializeBlueprint(
 			organs.push(
 				createFsOrgan({
 					cwd: opts.cwd,
-					// Blueprint uses short names (read, write, ...); EDA expects full event types (fs.read, ...).
 					actions: organDef.actions.length > 0 ? organDef.actions.map((a) => `fs.${a}`) : undefined,
+					logger: opts.loggerFor?.("fs"),
 				}),
 			);
 			continue;
@@ -80,8 +82,8 @@ export function materializeBlueprint(
 			organs.push(
 				createShellOrgan({
 					cwd: opts.cwd,
-					// Blueprint uses short names (exec); EDA expects full event types (shell.exec).
 					actions: organDef.actions.length > 0 ? organDef.actions.map((a) => `shell.${a}`) : undefined,
+					logger: opts.loggerFor?.("shell"),
 				}),
 			);
 			continue;
@@ -91,7 +93,6 @@ export function materializeBlueprint(
 			organs.push(
 				createLectorOrgan({
 					cwd: opts.cwd,
-					// Blueprint uses short names (read, write, …); EDA expects lector.read, …
 					actions: organDef.actions.length > 0 ? organDef.actions.map((a) => `lector.${a}`) : undefined,
 				}),
 			);

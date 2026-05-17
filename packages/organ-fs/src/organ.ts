@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
-import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import {
@@ -104,6 +104,8 @@ export interface FsOrganOptions {
 	 * Default: false — all paths must resolve within cwd.
 	 */
 	allowAbsolutePaths?: boolean;
+	/** Pino-compatible logger. Passed to defineCorpusOrgan for Orange/Yellow ROGYB output. */
+	logger?: OrganLogger;
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +262,7 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 		{
 			actions: options.actions,
 			directives: FS_DIRECTIVES,
+			logger: options.logger,
 		},
 	);
 }

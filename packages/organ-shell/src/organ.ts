@@ -5,7 +5,7 @@
  *              final event carries exitCode + isFinal: true.
  */
 import { spawn } from "node:child_process";
-import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import { getShellEnv } from "./shell.js";
@@ -36,6 +36,8 @@ export interface ShellOrganOptions {
 	cwd: string;
 	shellPath?: string;
 	commandPrefix?: string;
+	/** Pino-compatible logger. */
+	logger?: OrganLogger;
 	/**
 	 * Default timeout in seconds when LLM does not specify one.
 	 * Default: 120. Set 0 to disable (not recommended).
@@ -141,7 +143,7 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 		{
 			"shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
 		},
-		{ actions: options.actions, directives: SHELL_DIRECTIVES },
+		{ actions: options.actions, directives: SHELL_DIRECTIVES, logger: options.logger },
 	);
 }
 

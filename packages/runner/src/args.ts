@@ -46,6 +46,10 @@ export interface Args {
 	 * Default: undefined (thinking off).
 	 */
 	thinking: string | undefined;
+	/** Resume a previous session by ID. 'last' resumes the most recent. */
+	resume: string | undefined;
+	/** Print all sessions for the current --cwd and exit. */
+	listSessions: boolean;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -62,6 +66,8 @@ Options:
   --max-turns <n>        Max tool-call turns per run (default: 50, 0=unlimited)
   --loop-threshold <n>   Repeated tool calls before loop guard fires (default: 15)
   --thinking <level>     Enable extended thinking: minimal|low|medium|high|xhigh
+  --resume [id]          Resume a previous session (id or 'last' for most recent)
+  --list-sessions        Print all sessions for current --cwd and exit
   --json                 Emit structured JSONL events (for TUI consumers)
   -h, --help             Show this help
 
@@ -85,6 +91,8 @@ export function parseArgs(argv: string[]): Args {
 		maxTurns: 50,
 		loopThreshold: 15,
 		thinking: undefined,
+		resume: undefined,
+		listSessions: false,
 	};
 
 	let i = 0;
@@ -143,6 +151,25 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--thinking") {
 			args.thinking = argv[++i] ?? undefined;
+			i++;
+			continue;
+		}
+
+		if (arg === "--resume") {
+			// Optional value: --resume <id> or bare --resume (= last)
+			const next = argv[i + 1];
+			if (next && !next.startsWith("-")) {
+				args.resume = next;
+				i++;
+			} else {
+				args.resume = "last";
+			}
+			i++;
+			continue;
+		}
+
+		if (arg === "--list-sessions") {
+			args.listSessions = true;
 			i++;
 			continue;
 		}

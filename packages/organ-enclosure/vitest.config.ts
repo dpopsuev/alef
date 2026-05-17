@@ -9,5 +9,9 @@ export default defineConfig({
 	},
 	test: {
 		include: ["test/**/*.test.ts"],
+		env: {
+			// Disable Ryuk cleanup daemon — not needed in dev, avoids Docker socket bind issues.
+			TESTCONTAINERS_RYUK_DISABLED: "true",
+		},
 	},
 });

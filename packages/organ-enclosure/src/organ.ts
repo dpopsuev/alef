@@ -18,6 +18,8 @@
 import { randomUUID } from "node:crypto";
 import type { CorpusHandlerCtx, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import type { DockerSpaceOptions } from "./docker-space.js";
+import { DockerSpace } from "./docker-space.js";
 import type { ExecOptions, Space } from "./space.js";
 import { OverlaySpace, StubSpace } from "./space.js";
 
@@ -132,9 +134,15 @@ const TOOLS: ToolDefinition[] = [
 
 export interface EnclosureOrganOptions {
 	/**
-	 * When true, uses StubSpace instead of OverlaySpace.
-	 * Useful for tests on systems without fuse-overlayfs.
+	 * Space backend to use. Default: 'overlay' (fuse-overlayfs, Linux).
+	 *   'overlay' — fuse-overlayfs, copy-on-write, Linux only
+	 *   'docker'  — testcontainers, any platform, benchmark-compatible
+	 *   'stub'    — in-memory, no I/O, for tests
 	 */
+	backend?: "overlay" | "docker" | "stub";
+	/** Options for the Docker backend. Required when backend='docker'. */
+	docker?: DockerSpaceOptions;
+	/** @deprecated Use backend='stub' instead. */
 	stub?: boolean;
 }
 
@@ -189,7 +197,17 @@ async function handleCreate(
 	const workspace = String(ctx.payload.workspace ?? "");
 	if (!workspace) throw new Error("enclosure.create: workspace is required");
 	const spaceId = randomUUID();
-	const space = opts.stub ? new StubSpace(workspace) : await OverlaySpace.create({ workspace });
+
+	const backend = opts.backend ?? (opts.stub ? "stub" : "overlay");
+	let space: Space;
+	if (backend === "docker") {
+		space = await DockerSpace.create({ ...opts.docker, workspace });
+	} else if (backend === "stub") {
+		space = new StubSpace(workspace);
+	} else {
+		space = await OverlaySpace.create({ workspace });
+	}
+
 	spaces.set(spaceId, space);
 	return { spaceId, workDir: space.workDir() };
 }

@@ -1,4 +1,12 @@
-import { type Api, type AssistantMessage, type Message, type Model, streamSimple, type Tool } from "@dpopsuev/alef-ai";
+import {
+	type Api,
+	type AssistantMessage,
+	type Message,
+	type Model,
+	streamSimple,
+	type ThinkingLevel,
+	type Tool,
+} from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineCerebrumOrgan } from "@dpopsuev/alef-spine";
 
@@ -9,6 +17,11 @@ export interface LLMOrganOptions {
 	apiKey?: string;
 	timeoutMs?: number;
 	maxRetries?: number;
+	/**
+	 * Extended thinking level. Requires a model that supports reasoning
+	 * (e.g. claude-3-7-sonnet-20250219). Default: off (no thinking).
+	 */
+	thinking?: ThinkingLevel;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +75,12 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		const stream = streamSimple(
 			options.model,
 			{ messages, tools },
-			{ apiKey: options.apiKey, timeoutMs, maxRetries },
+			{
+				apiKey: options.apiKey,
+				timeoutMs,
+				maxRetries,
+				...(options.thinking ? { reasoning: options.thinking } : {}),
+			},
 		);
 
 		let finalMessage: AssistantMessage | undefined;

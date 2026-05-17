@@ -40,6 +40,12 @@ export interface Args {
 	maxTurns: number;
 	/** Loop detection threshold — same tool N times in one turn triggers guard. Default: 15. */
 	loopThreshold: number;
+	/**
+	 * Extended thinking level for supported models (claude-3-7+).
+	 * Values: minimal | low | medium | high | xhigh
+	 * Default: undefined (thinking off).
+	 */
+	thinking: string | undefined;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -55,6 +61,7 @@ Options:
   --list-tools           Print active tool names and exit (for diagnostics)
   --max-turns <n>        Max tool-call turns per run (default: 50, 0=unlimited)
   --loop-threshold <n>   Repeated tool calls before loop guard fires (default: 15)
+  --thinking <level>     Enable extended thinking: minimal|low|medium|high|xhigh
   --json                 Emit structured JSONL events (for TUI consumers)
   -h, --help             Show this help
 
@@ -77,6 +84,7 @@ export function parseArgs(argv: string[]): Args {
 		listTools: false,
 		maxTurns: 50,
 		loopThreshold: 15,
+		thinking: undefined,
 	};
 
 	let i = 0;
@@ -129,6 +137,12 @@ export function parseArgs(argv: string[]): Args {
 		if (arg === "--loop-threshold") {
 			const n = Number.parseInt(argv[++i] ?? "15", 10);
 			if (!Number.isNaN(n) && n > 0) args.loopThreshold = n;
+			i++;
+			continue;
+		}
+
+		if (arg === "--thinking") {
+			args.thinking = argv[++i] ?? undefined;
 			i++;
 			continue;
 		}

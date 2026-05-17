@@ -16,6 +16,7 @@
 		"@dpopsuev/alef-corpus": "^0.0.1",
 		"@dpopsuev/alef-organ-dialog": "^0.0.1",
 		"@dpopsuev/alef-organ-fs": "^0.0.1",
+		"@dpopsuev/alef-organ-lector": "^0.0.1",
 		"@dpopsuev/alef-organ-llm": "^0.0.1",
 		"@dpopsuev/alef-organ-shell": "^0.0.1",
 		"@dpopsuev/alef-spine": "^0.0.1"

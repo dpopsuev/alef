@@ -322,6 +322,12 @@ export interface OrganOptions {
 	 * blueprint declares, so the agent cannot call tools it was not given.
 	 */
 	actions?: readonly string[];
+	/**
+	 * ACI directives injected into the system prompt by DirectiveContextAssembler.
+	 * Each string is a guidance block (prose or markdown) telling the LLM when,
+	 * how, and when NOT to use this organ's tools.
+	 */
+	directives?: readonly string[];
 }
 
 /**
@@ -381,6 +387,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			motor: motorSubscriptions,
 			sense: senseSubscriptions,
 		},
+		directives: opts.directives,
 		mount(nerve: Nerve): () => void {
 			// Session-scoped cache — lives for the lifetime of this mount.
 			const cache = new Map<string, Record<string, unknown>>();

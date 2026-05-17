@@ -13,6 +13,7 @@
 			"@dpopsuev/alef-spine": ["../spine/src/index.ts"],
 			"@dpopsuev/alef-organ-dialog": ["../organ-dialog/src/index.ts"],
 			"@dpopsuev/alef-organ-fs": ["../organ-fs/src/index.ts"],
+			"@dpopsuev/alef-organ-lector": ["../organ-lector/src/index.ts"],
 			"@dpopsuev/alef-organ-shell": ["../organ-shell/src/index.ts"],
 			"@dpopsuev/alef-organ-llm": ["../organ-llm/src/index.ts"]
 		}

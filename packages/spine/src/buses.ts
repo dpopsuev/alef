@@ -88,6 +88,12 @@ export interface Organ {
 		readonly motor: readonly string[];
 		readonly sense: readonly string[];
 	};
+	/**
+	 * Optional ACI directives — organ-specific guidance injected into the system prompt.
+	 * Assembled by DirectiveContextAssembler and prepended to the base prompt.
+	 * Each string is a freeform instruction block (markdown or prose).
+	 */
+	readonly directives?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------

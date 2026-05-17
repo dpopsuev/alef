@@ -25,6 +25,7 @@ import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
+import { assembleSystemPrompt } from "./directives.js";
 import { runInteractive } from "./interactive.js";
 import { LoopDetectorOrgan } from "./loop-detector.js";
 import { materializeBlueprint } from "./materializer.js";
@@ -76,14 +77,19 @@ const model = buildModel(resolvedModelId);
 
 const agent = new Agent();
 
+// Build system prompt after organs are loaded so directives are available.
+const basePrompt = buildSystemPrompt(args.cwd);
+const systemPrompt = assembleSystemPrompt(basePrompt, [...corpusOrgans]);
+
 const dialog = new DialogOrgan({
 	sink: makeSink(args.json),
 	getTools: () => agent.tools,
-	systemPrompt: buildSystemPrompt(args.cwd),
+	systemPrompt,
 	maxTurns: args.maxTurns,
 });
 
-agent.load(dialog).load(new LLMOrgan({ model }));
+const thinkingLevel = args.thinking as import("@dpopsuev/alef-ai").ThinkingLevel | undefined;
+agent.load(dialog).load(new LLMOrgan({ model, thinking: thinkingLevel }));
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }

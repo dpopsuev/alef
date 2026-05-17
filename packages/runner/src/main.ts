@@ -32,6 +32,7 @@ import { createLogger } from "./logger.js";
 import { LoopDetectorOrgan } from "./loop-detector.js";
 import { materializeBlueprint } from "./materializer.js";
 import { buildModel, hasCredentials } from "./model.js";
+import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { SessionStore } from "./session-store.js";
@@ -42,6 +43,9 @@ import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 // ---------------------------------------------------------------------------
 // Parse arguments
 // ---------------------------------------------------------------------------
+
+// OTel must be registered before any tracer is acquired.
+setupOTel();
 
 const args = parseArgs(process.argv.slice(2));
 const log = createLogger();
@@ -183,10 +187,16 @@ if (args.listTools) {
 
 const useTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
 
-if (args.print) {
-	await runPrintMode(args.prompt, dialog, () => agent.dispose());
-} else if (useTui) {
-	await runTuiMode(dialog, { cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id }, () => agent.dispose());
-} else {
-	await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId }, () => agent.dispose());
+try {
+	if (args.print) {
+		await runPrintMode(args.prompt, dialog, () => agent.dispose());
+	} else if (useTui) {
+		await runTuiMode(dialog, { cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id }, () =>
+			agent.dispose(),
+		);
+	} else {
+		await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId }, () => agent.dispose());
+	}
+} finally {
+	await shutdownOTel();
 }

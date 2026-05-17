@@ -26,6 +26,7 @@ import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { assembleSystemPrompt } from "./directives.js";
+import { EventLogOrgan } from "./event-log-organ.js";
 import { runInteractive } from "./interactive.js";
 import { LoopDetectorOrgan } from "./loop-detector.js";
 import { materializeBlueprint } from "./materializer.js";
@@ -66,7 +67,6 @@ if (args.listSessions) {
 }
 
 let session: SessionStore;
-let initialHistory: Array<{ role: "user" | "assistant"; content: string }> | undefined;
 
 if (args.resume) {
 	const resumeId = args.resume === "last" ? undefined : args.resume;
@@ -76,9 +76,8 @@ if (args.resume) {
 		process.exit(1);
 	}
 	session = store;
-	const msgs = await session.messages();
-	initialHistory = msgs.map((m) => ({ role: m.role, content: m.content }));
-	console.error(`[session] Resumed ${session.id} (${msgs.length} messages)`);
+	const turnCount = (await session.turns()).length;
+	console.error(`[session] Resumed ${session.id} (${turnCount} turns)`);
 } else {
 	session = await SessionStore.create(args.cwd);
 	console.error(`[session] ${session.id}`);
@@ -124,10 +123,6 @@ const dialog = new DialogOrgan({
 	getTools: () => agent.tools,
 	systemPrompt,
 	maxTurns: args.maxTurns,
-	initialHistory,
-	onMessage: (msg) => {
-		void session.append({ role: msg.role as "user" | "assistant", content: msg.content, timestamp: Date.now() });
-	},
 });
 
 const thinkingLevel = args.thinking as import("@dpopsuev/alef-ai").ThinkingLevel | undefined;
@@ -136,6 +131,7 @@ for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
 agent.load(new LoopDetectorOrgan({ threshold: args.loopThreshold }));
+agent.load(new EventLogOrgan(session));
 
 // ---------------------------------------------------------------------------
 // Validate and dispatch

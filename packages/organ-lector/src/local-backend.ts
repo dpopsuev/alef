@@ -209,6 +209,16 @@ export class LocalLectorBackend implements LectorBackend {
 			const symbols = isTsFile(path) ? extractSymbolsTs(content, path) : extractSymbols(content);
 			cached = { content, symbols, storedAt: process.hrtime.bigint() };
 			this.cache.set(abs, cached);
+
+			// Racer (Phase 4): pre-warm LSP in the background for TS files.
+			// lector.read() returns compiler API symbols immediately (fast).
+			// LSP indexes asynchronously so callers() gets exact results on
+			// the next call without blocking the current read.
+			if (isTsFile(path)) {
+				void this.getLsp()
+					.then((lsp) => lsp.openFile(pathToFileURL(abs).href, content))
+					.catch(() => {}); // LSP optional — never block read
+			}
 		}
 
 		const { content, symbols } = cached;

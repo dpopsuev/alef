@@ -118,12 +118,12 @@ function organCoversPort(info: OrganPortInfo, seam: PortDefinition): boolean {
 
 	if (pattern.startsWith("motor/")) {
 		const eventSuffix = pattern.slice("motor/".length);
+		// Wildcard subscriptions ("*") are observer patterns — they tap the bus
+		// but do not own any seam. Only specific event type subscriptions cover a seam.
 		return info.motorSubscriptions.some(
 			(sub) =>
-				sub === "*" || // wildcard organ covers all motor seams
-				sub === eventSuffix ||
-				(eventSuffix.endsWith(".") && sub.startsWith(eventSuffix)) ||
-				eventSuffix === "*",
+				sub !== "*" && // observers never cover specific seams
+				(sub === eventSuffix || (eventSuffix.endsWith(".") && sub.startsWith(eventSuffix)) || eventSuffix === "*"),
 		);
 	}
 
@@ -131,10 +131,8 @@ function organCoversPort(info: OrganPortInfo, seam: PortDefinition): boolean {
 		const eventSuffix = pattern.slice("sense/".length);
 		return info.senseSubscriptions.some(
 			(sub) =>
-				sub === "*" ||
-				sub === eventSuffix ||
-				(eventSuffix.endsWith(".") && sub.startsWith(eventSuffix)) ||
-				eventSuffix === "*",
+				sub !== "*" && // observers never cover specific seams
+				(sub === eventSuffix || (eventSuffix.endsWith(".") && sub.startsWith(eventSuffix)) || eventSuffix === "*"),
 		);
 	}
 

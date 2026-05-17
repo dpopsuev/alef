@@ -1,23 +1,22 @@
 /**
- * SessionStore — append-only JSONL session persistence.
+ * SessionStore — append-only JSONL event log.
  *
  * Storage layout:
  *   ~/.alef/sessions/<cwd-hash>/<session-id>.jsonl
- *   ~/.alef/sessions/<cwd-hash>/latest            — contains the last session ID
+ *   ~/.alef/sessions/<cwd-hash>/latest            — last session ID
  *
- * Each line is a JSON-serialised ConversationMessage:
- *   {"role":"user","content":"fix the bug","timestamp":1234567890000}
- *   {"role":"assistant","content":"I'll fix it by...","timestamp":1234567890123}
+ * Each line is a JSON-serialised StorageRecord — a raw Motor or Sense event,
+ * or a special window.assembled record written by TurnAssembler.
  *
- * Session IDs are 8-char hex prefixes of a UUID — short enough to type,
- * unique enough for a single user's history.
+ * Schema (per ALE-SPC-15):
+ *   { bus: 'motor'|'sense'|'internal', type, correlationId, payload, timestamp }
  *
- * Usage:
- *   const store = await SessionStore.create(cwd);          // new session
- *   const store = await SessionStore.resume(cwd, id);      // resume by ID
- *   const store = await SessionStore.resumeLatest(cwd);    // resume last session
- *   await store.append(message);
- *   const history = await store.messages();
+ * Projections are NEVER stored — they are computed from the log on read:
+ *   events()    → all StorageRecords
+ *   turns()     → grouped by correlationId into Turn[]
+ *   hitCounts() → counts window.assembled inclusions per turnId
+ *
+ * Session IDs: 8-char hex, typeable, unique per user per cwd.
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -25,11 +24,78 @@ import { appendFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/p
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export interface PersistedMessage {
-	role: "user" | "assistant";
-	content: string;
+// ---------------------------------------------------------------------------
+// StorageRecord — the raw event written to JSONL
+// ---------------------------------------------------------------------------
+
+export interface StorageRecord {
+	/** 'motor' or 'sense' for bus events; 'internal' for control records. */
+	bus: "motor" | "sense" | "internal";
+	/** Event type, e.g. 'fs.read', 'dialog.message', 'window.assembled'. */
+	type: string;
+	/** Turn group key — same for all events in one user turn. */
+	correlationId: string;
+	/** Raw event payload. */
+	payload: Record<string, unknown>;
+	/** Wall-clock ms. NOT used for recency scoring (use turnIndex instead). */
 	timestamp: number;
 }
+
+/** Special internal record emitted by TurnAssembler after each context window selection. */
+export interface WindowAssembledRecord extends StorageRecord {
+	bus: "internal";
+	type: "window.assembled";
+	payload: {
+		includedTurnIds: string[];
+		queryTokens: string[];
+		budgetUsed: number;
+		budgetTotal: number;
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Turn — grouping of StorageRecords by correlationId
+// ---------------------------------------------------------------------------
+
+export interface Turn {
+	id: string; // correlationId
+	events: StorageRecord[];
+	/** Ordinal position in the session (0-based). Used for recency scoring. */
+	turnIndex: number;
+	/** Estimated token cost: Σ(JSON.stringify(payload).length / 4) */
+	tokenCost: number;
+	/** Max event type weight across all events in this turn. */
+	typeWeight: number;
+}
+
+// ---------------------------------------------------------------------------
+// Event type weights for TurnAssembler scoring
+// ---------------------------------------------------------------------------
+
+export const EVENT_TYPE_WEIGHTS: Record<string, number> = {
+	"fs.write": 2.0,
+	"fs.edit": 2.0,
+	"lector.write": 2.0,
+	"lector.edit": 2.0,
+	"shell.exec": 1.5,
+	"lector.callers": 1.0,
+	"lector.read": 1.0,
+	"fs.read": 1.0,
+	"web.fetch": 0.9,
+	"dialog.message": 0.8,
+	"fs.grep": 0.6,
+	"fs.find": 0.6,
+	"lector.search": 0.6,
+	"lector.find": 0.6,
+};
+
+export function eventTypeWeight(type: string): number {
+	return EVENT_TYPE_WEIGHTS[type] ?? 0.5;
+}
+
+// ---------------------------------------------------------------------------
+// SessionStore
+// ---------------------------------------------------------------------------
 
 function cwdHash(cwd: string): string {
 	return createHash("sha1").update(cwd).digest("hex").slice(0, 12);
@@ -64,13 +130,12 @@ export class SessionStore {
 	static async create(cwd: string): Promise<SessionStore> {
 		const id = randomUUID().replace(/-/g, "").slice(0, 8);
 		await ensureDir(cwd);
-		// Touch the file to create it.
 		await appendFile(sessionPath(cwd, id), "");
 		await writeFile(latestPath(cwd), id, "utf-8");
 		return new SessionStore(cwd, id);
 	}
 
-	/** Resume a session by ID. Throws if the session file does not exist. */
+	/** Resume a session by ID. Throws if not found. */
 	static async resume(cwd: string, id: string): Promise<SessionStore> {
 		const path = sessionPath(cwd, id);
 		try {
@@ -78,12 +143,11 @@ export class SessionStore {
 		} catch {
 			throw new Error(`Session '${id}' not found in ${sessionDir(cwd)}`);
 		}
-		// Update latest pointer on resume.
 		await writeFile(latestPath(cwd), id, "utf-8");
 		return new SessionStore(cwd, id);
 	}
 
-	/** Resume the most recent session for this cwd. Returns null if none exists. */
+	/** Resume the most recent session. Returns null if none exists. */
 	static async resumeLatest(cwd: string): Promise<SessionStore | null> {
 		try {
 			const id = (await readFile(latestPath(cwd), "utf-8")).trim();
@@ -114,21 +178,68 @@ export class SessionStore {
 		}
 	}
 
-	/** Append a message to the JSONL file. */
-	async append(msg: PersistedMessage): Promise<void> {
-		await appendFile(this.path, `${JSON.stringify(msg)}\n`, "utf-8");
+	/** Append a raw StorageRecord to the JSONL file. Fire-and-forget safe. */
+	async append(record: StorageRecord): Promise<void> {
+		await appendFile(this.path, `${JSON.stringify(record)}\n`, "utf-8");
 	}
 
-	/** Read all messages from the JSONL file. */
-	async messages(): Promise<PersistedMessage[]> {
+	/** Read all StorageRecords from the JSONL file. */
+	async events(): Promise<StorageRecord[]> {
 		try {
 			const raw = await readFile(this.path, "utf-8");
 			return raw
 				.split("\n")
 				.filter(Boolean)
-				.map((line) => JSON.parse(line) as PersistedMessage);
+				.map((line) => JSON.parse(line) as StorageRecord);
 		} catch {
 			return [];
 		}
+	}
+
+	/**
+	 * Group all bus events (not internal records) into Turn[] by correlationId.
+	 * Ordered by first-event timestamp ascending (chronological).
+	 */
+	async turns(): Promise<Turn[]> {
+		const records = await this.events();
+		const busRecords = records.filter((r) => r.bus === "motor" || r.bus === "sense");
+
+		const turnMap = new Map<string, StorageRecord[]>();
+		for (const r of busRecords) {
+			let list = turnMap.get(r.correlationId);
+			if (!list) {
+				list = [];
+				turnMap.set(r.correlationId, list);
+			}
+			list.push(r);
+		}
+
+		const turns: Turn[] = [];
+		let index = 0;
+		for (const [id, events] of turnMap) {
+			const tokenCost = Math.ceil(events.reduce((n, e) => n + JSON.stringify(e.payload).length, 0) / 4);
+			const typeWeight = Math.max(...events.map((e) => eventTypeWeight(e.type)));
+			turns.push({ id, events, turnIndex: index++, tokenCost, typeWeight });
+		}
+
+		return turns;
+	}
+
+	/**
+	 * Count how many times each turn was included in a past context window.
+	 * Computed by replaying window.assembled records.
+	 * Higher hit count → higher LRU frequency score in TurnAssembler.
+	 */
+	async hitCounts(): Promise<Map<string, number>> {
+		const records = await this.events();
+		const counts = new Map<string, number>();
+		for (const r of records) {
+			if (r.bus !== "internal" || r.type !== "window.assembled") continue;
+			const ids = (r.payload as WindowAssembledRecord["payload"]).includedTurnIds ?? [];
+			for (const id of ids) {
+				counts.set(id, (counts.get(id) ?? 0) + 1);
+			}
+		}
+		return counts;
 	}
 }

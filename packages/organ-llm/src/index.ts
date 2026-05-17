@@ -23,54 +23,16 @@ export interface LLMOrganOptions {
 	 */
 	thinking?: ThinkingLevel;
 	/**
-	 * Auto-compaction threshold: fraction of the model's context window at which
-	 * conversation history is summarised. Range 0–1. Default: 0.8 (80%).
-	 * Set 0 to disable compaction.
+	 * Called before the turn loop with the full message array from the payload.
+	 * Return a filtered/scored subset to use as the context window.
+	 *
+	 * This is the TurnAssembler integration point (ALE-SPC-15, ALE-TSK-179).
+	 * Until TurnAssembler is wired, leave undefined — all messages are used as-is.
+	 *
+	 * Replaces the deleted compact() function which bypassed the event bus
+	 * and mutated only the local message copy without updating DialogOrgan.history.
 	 */
-	compactionThreshold?: number;
-	/**
-	 * Called when compaction runs, with the summary text produced.
-	 * Use to notify the user or persist the compaction event.
-	 */
-	onCompact?: (summary: string) => void;
-}
-
-// ---------------------------------------------------------------------------
-// Compaction — summarise conversation history when context fills
-// ---------------------------------------------------------------------------
-
-async function compact(messages: Message[], options: LLMOrganOptions): Promise<string | null> {
-	// Send just the non-system messages to the LLM with a summarise prompt.
-	const toSummarise = messages.filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult");
-	if (toSummarise.length < 4) return null;
-
-	const summaryPrompt: Message = {
-		role: "user",
-		content:
-			"Summarise the conversation above in 3–5 sentences. Capture: what the user asked, what was done, " +
-			"what was found or changed, and any open questions. Be concrete — include file names and key decisions.",
-		timestamp: Date.now(),
-	};
-
-	try {
-		const stream = streamSimple(
-			options.model,
-			{ messages: [...toSummarise, summaryPrompt], tools: [] },
-			{ apiKey: options.apiKey, timeoutMs: options.timeoutMs ?? 60_000, maxRetries: 1 },
-		);
-		let summary = "";
-		for await (const evt of stream) {
-			if (evt.type === "done") {
-				summary = evt.message.content
-					.filter((c): c is { type: "text"; text: string } => c.type === "text")
-					.map((c) => c.text)
-					.join("");
-			}
-		}
-		return summary || null;
-	} catch {
-		return null; // compaction is best-effort; never block the main loop
-	}
+	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +47,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		sender?: string;
 	};
 
-	// Build initial messages from payload
+	// Build initial messages from payload.
 	const rawMessages =
 		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
 
@@ -100,7 +62,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 	});
 	const toMotorName = (llmName: string): string => motorNameByLlmName.get(llmName) ?? llmName;
 
-	const messages: Message[] = (rawMessages as Message[]).map((m) => {
+	const rawMsgs: Message[] = (rawMessages as Message[]).map((m) => {
 		const base =
 			"timestamp" in m && typeof (m as { timestamp?: unknown }).timestamp === "number"
 				? (m as Message)
@@ -115,38 +77,16 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		return base;
 	});
 
+	// Context window assembly — TurnAssembler integration point.
+	// prepareStep receives all messages and returns the scored, budget-bounded subset.
+	// When not set: all messages passed through (current behaviour, no selection).
+	const messages: Message[] = options.prepareStep ? await options.prepareStep(rawMsgs) : rawMsgs;
+
 	const { correlationId, motor, sense } = ctx;
 	const timeoutMs = options.timeoutMs ?? 60_000;
 	const maxRetries = options.maxRetries ?? 3;
-	const compactionThreshold = options.compactionThreshold ?? 0.8;
 
-	// Auto-compaction: summarise when estimated token usage crosses the threshold.
-	if (compactionThreshold > 0 && options.model.contextWindow > 0) {
-		const estimatedTokens = Math.ceil(
-			messages.reduce((n, m) => {
-				const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
-				return n + Math.ceil(content.length / 4);
-			}, 0),
-		);
-		const limit = Math.floor(options.model.contextWindow * compactionThreshold);
-		if (estimatedTokens > limit && messages.length > 4) {
-			const summary = await compact(messages, options);
-			if (summary) {
-				// Replace history with a summary sentinel + recent messages.
-				const recent = messages.slice(-4);
-				messages.length = 0;
-				messages.push({
-					role: "user",
-					content: `[Conversation summary — earlier context compacted]\n${summary}`,
-					timestamp: Date.now(),
-				} as Message);
-				messages.push(...recent);
-				options.onCompact?.(summary);
-			}
-		}
-	}
-
-	// Turn loop — quiescence termination, fan-out tool calls
+	// Turn loop — quiescence termination, fan-out tool calls.
 	while (true) {
 		const stream = streamSimple(
 			options.model,
@@ -180,12 +120,10 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		messages.push(finalMessage);
 
 		// Quiescence — no tool calls, or LLM called dialog.message as its reply tool.
-		// pendingCalls have LLM names (underscored) — resolve to Motor event types.
 		const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
 		const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
 
 		if (toolCalls.length === 0) {
-			// Extract reply text: from dialog.message tool args, or from inline text.
 			const text =
 				(typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined) ?? extractText(finalMessage);
 			if (text) {
@@ -194,7 +132,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			break;
 		}
 
-		// Fan-out: real tool calls (not dialog.message) simultaneously.
+		// Fan-out: real tool calls simultaneously.
 		const results = await Promise.all(
 			toolCalls.map((tc) => {
 				const motorType = toMotorName(tc.name);
@@ -255,7 +193,7 @@ function extractText(message: AssistantMessage): string {
 }
 
 // ---------------------------------------------------------------------------
-// Factory — now two lines
+// Factory
 // ---------------------------------------------------------------------------
 
 export function createLLMOrgan(options: LLMOrganOptions): Organ {
@@ -264,12 +202,11 @@ export function createLLMOrgan(options: LLMOrganOptions): Organ {
 	});
 }
 
-// Backward-compat class export — delegates to factory
+// Backward-compat class export
 export class LLMOrgan {
 	private readonly organ: Organ;
 	readonly name = "llm";
 	readonly tools = [] as const;
-	// Delegated from the inner defineCerebrumOrgan — always sense/dialog.message.
 	get subscriptions() {
 		return this.organ.subscriptions;
 	}
@@ -283,5 +220,4 @@ export class LLMOrgan {
 	}
 }
 
-// Re-export for consumers that import the type
 export type { ToolDefinition };

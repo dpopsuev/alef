@@ -12,6 +12,7 @@
 			"@dpopsuev/alef-corpus": ["../corpus/src/index.ts"],
 			"@dpopsuev/alef-spine": ["../spine/src/index.ts"],
 			"@dpopsuev/alef-organ-dialog": ["../organ-dialog/src/index.ts"],
+			"@dpopsuev/alef-organ-router": ["../organ-router/src/index.ts"],
 			"@dpopsuev/alef-organ-fs": ["../organ-fs/src/index.ts"],
 			"@dpopsuev/alef-organ-lector": ["../organ-lector/src/index.ts"],
 			"@dpopsuev/alef-tui": ["../tui/src/index.ts"],

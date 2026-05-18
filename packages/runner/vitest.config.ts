@@ -11,6 +11,7 @@ export default defineConfig({
 			{ find: /^@dpopsuev\/alef-corpus$/, replacement: resolve("../corpus/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-spine$/, replacement: resolve("../spine/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-dialog$/, replacement: resolve("../organ-dialog/src/index.ts") },
+			{ find: /^@dpopsuev\/alef-organ-router$/, replacement: resolve("../organ-router/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-fs$/, replacement: resolve("../organ-fs/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-lector$/, replacement: resolve("../organ-lector/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-tui$/, replacement: resolve("../tui/src/index.ts") },

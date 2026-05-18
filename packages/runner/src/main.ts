@@ -17,7 +17,7 @@
  * (fs, shell, web, enclosure, …) are variable.
  */
 
-import { findAgentDefinitionPath, loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
+import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
@@ -99,15 +99,33 @@ const blueprintPath = args.blueprint ?? findAgentDefinitionPath(args.cwd);
 
 let corpusOrgans = [];
 let blueprintModelId: string | undefined;
+let blueprintSurfaces: import("@dpopsuev/alef-agent-blueprint").AgentDefinitionSurfaceInput[] = [];
 
 if (blueprintPath) {
-	const definition = loadAgentDefinition(blueprintPath);
+	let definition = loadAgentDefinition(blueprintPath);
+
+	// Profile overlay: load agent.<profile>.yaml from the same directory and
+	// deep-merge it over the base definition (overlay wins on conflicts).
+	if (args.profile) {
+		const { dirname: pathDirname, join: pathJoin } = await import("node:path");
+		const { existsSync: fsExistsSync } = await import("node:fs");
+		const baseDir = definition.baseDir ?? pathDirname(blueprintPath);
+		const overlayPath = pathJoin(baseDir, `agent.${args.profile}.yaml`);
+		if (fsExistsSync(overlayPath)) {
+			const overlay = loadAgentDefinition(overlayPath);
+			definition = mergeAgentDefinitions(definition, overlay);
+		} else {
+			console.error(`[alef] Profile overlay not found: ${overlayPath} (continuing without it)`);
+		}
+	}
+
 	const materialized = materializeBlueprint(definition, {
 		cwd: args.cwd,
 		loggerFor: (name) => log.child({ organ: name }),
 	});
 	corpusOrgans = materialized.organs;
 	blueprintModelId = materialized.modelId;
+	blueprintSurfaces = definition.surfaces;
 } else {
 	// Default organ set — mirrors what the runner has always done.
 	corpusOrgans = [
@@ -176,7 +194,11 @@ agent.load(new LoopDetectorOrgan({ threshold: args.loopThreshold }));
 agent.load(new EventLogOrgan(session));
 
 if (args.serve !== undefined) {
-	const router = createRouterOrgan({ port: args.serve });
+	// Build the event allowlist from surface declarations in the blueprint.
+	// Multiple sse surfaces are merged into one allowlist (union).
+	const sseSurface = blueprintSurfaces.filter((s) => s.type === "sse");
+	const allowedEvents = sseSurface.flatMap((s) => s.events ?? []);
+	const router = createRouterOrgan({ port: args.serve, allowedEvents });
 	agent.load(router);
 	await router.ready();
 	const addr = router.address()!;

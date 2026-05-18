@@ -63,6 +63,12 @@ export interface Args {
 	 * Default: undefined (router disabled).
 	 */
 	serve: number | undefined;
+	/**
+	 * Blueprint profile name. When set, loads agent.<profile>.yaml alongside
+	 * the base agent.yaml and deep-merges it (overlay wins on conflicts).
+	 * Example: --profile dev loads agent.dev.yaml from the same directory.
+	 */
+	profile: string | undefined;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -109,6 +115,7 @@ export function parseArgs(argv: string[]): Args {
 		listSessions: false,
 		noTui: false,
 		serve: undefined,
+		profile: undefined,
 	};
 
 	let i = 0;
@@ -199,6 +206,12 @@ export function parseArgs(argv: string[]): Args {
 		if (arg === "--serve") {
 			const n = Number.parseInt(argv[++i] ?? "3000", 10);
 			args.serve = Number.isNaN(n) ? 3000 : n;
+			i++;
+			continue;
+		}
+
+		if (arg === "--profile") {
+			args.profile = argv[++i] ?? undefined;
 			i++;
 			continue;
 		}

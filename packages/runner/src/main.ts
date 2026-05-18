@@ -22,8 +22,8 @@ import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
+import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { DirectiveContextAssembler } from "./directives.js";
 import { EventLogOrgan } from "./event-log-organ.js";
@@ -174,6 +174,14 @@ for (const organ of corpusOrgans) {
 }
 agent.load(new LoopDetectorOrgan({ threshold: args.loopThreshold }));
 agent.load(new EventLogOrgan(session));
+
+if (args.serve !== undefined) {
+	const router = createRouterOrgan({ port: args.serve });
+	agent.load(router);
+	await router.ready();
+	const addr = router.address()!;
+	console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
+}
 
 // ---------------------------------------------------------------------------
 // Validate and dispatch

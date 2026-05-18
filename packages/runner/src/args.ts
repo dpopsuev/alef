@@ -55,6 +55,14 @@ export interface Args {
 	 * TUI requires a TTY. Falls back automatically on non-TTY stdin.
 	 */
 	noTui: boolean;
+	/**
+	 * HTTP port for the Router organ (HTTP/SSE bridge).
+	 * When set, the router is mounted and the agent accepts requests on this port.
+	 * External processes connect to GET /events for the SSE stream and
+	 * POST /message to send user messages.
+	 * Default: undefined (router disabled).
+	 */
+	serve: number | undefined;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -100,6 +108,7 @@ export function parseArgs(argv: string[]): Args {
 		resume: undefined,
 		listSessions: false,
 		noTui: false,
+		serve: undefined,
 	};
 
 	let i = 0;
@@ -183,6 +192,13 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--no-tui") {
 			args.noTui = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--serve") {
+			const n = Number.parseInt(argv[++i] ?? "3000", 10);
+			args.serve = Number.isNaN(n) ? 3000 : n;
 			i++;
 			continue;
 		}

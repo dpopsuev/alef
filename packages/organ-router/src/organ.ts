@@ -43,6 +43,15 @@ export interface RouterOptions {
 	 * Omit or set to [] to broadcast all events.
 	 */
 	allowedEvents?: string[];
+	/**
+	 * Called when POST /message is received with a validated text payload.
+	 * Use this to route user messages through the DialogOrgan:
+	 *   onMessage: (text) => dialog.receive(text, 'user')
+	 *
+	 * When not provided, the router publishes motor/dialog.message directly
+	 * (legacy behaviour — user messages appear on motor bus, not sense bus).
+	 */
+	onMessage?: (text: string) => void;
 }
 
 /** Resolved bind address returned by createRouterOrgan().address(). */
@@ -61,7 +70,10 @@ export class RouterOrgan implements Organ {
 
 	private server: Server | null = null;
 	private readonly sse = new SseManager();
-	private readonly options: Required<Omit<RouterOptions, "allowedEvents">> & { allowedEvents: string[] };
+	private readonly options: Required<Omit<RouterOptions, "allowedEvents" | "onMessage">> & {
+		allowedEvents: string[];
+		onMessage?: (text: string) => void;
+	};
 	private _ready: Promise<void> = Promise.resolve();
 
 	constructor(options: RouterOptions = {}) {
@@ -69,6 +81,7 @@ export class RouterOrgan implements Organ {
 			port: options.port ?? 3000,
 			host: options.host ?? "127.0.0.1",
 			allowedEvents: options.allowedEvents ?? [],
+			onMessage: options.onMessage,
 		};
 	}
 
@@ -207,16 +220,24 @@ export class RouterOrgan implements Organ {
 			}
 
 			const text = (parsed as { text: string }).text;
+			const correlationId = randomUUID();
 
-			const event: MotorEvent = {
-				type: "dialog.message",
-				payload: { role: "user", text },
-				correlationId: randomUUID(),
-				timestamp: Date.now(),
-			};
+			if (this.options.onMessage) {
+				// Route through the DialogOrgan so history is tracked and
+				// the message arrives on the sense bus for LLMOrgan/ScriptedLLMOrgan.
+				this.options.onMessage(text);
+			} else {
+				// Legacy: publish directly on motor bus.
+				const event: MotorEvent = {
+					type: "dialog.message",
+					payload: { role: "user", text },
+					correlationId,
+					timestamp: Date.now(),
+				};
+				nerve.motor.publish(event);
+			}
 
-			nerve.motor.publish(event);
-			this.sendJson(res, 202, { ok: true, correlationId: event.correlationId });
+			this.sendJson(res, 202, { ok: true, correlationId });
 		});
 	}
 

@@ -213,27 +213,29 @@ describe("Lifecycle — boot and serve", () => {
 });
 
 describe("Lifecycle — POST /message → SSE stream", () => {
-	it("POST /message fires motor/dialog.message on SSE", async () => {
+	it("POST /message → agent reply arrives on SSE as motor/dialog.message", async () => {
+		// bootFixture uses dialog.send directly (no HTTP /message wiring in-process).
+		// This test verifies that the agent's scripted reply is broadcast over SSE.
 		const fix = await bootFixture({ script: step.reply("I am ready.") });
 		try {
-			// Start collecting SSE before posting (gives connection time to establish).
 			const ssePromise = collectSse(
 				fix.baseUrl,
-				(ev) =>
-					(ev as { bus?: string; type?: string }).bus === "motor" &&
-					(ev as { type?: string }).type === "dialog.message",
+				(ev) => {
+					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
+					return e.bus === "motor" && e.type === "dialog.message" && e.payload?.text === "I am ready.";
+				},
 				1,
 			);
 
 			await new Promise((r) => setTimeout(r, 30));
-			await post(`${fix.baseUrl}/message`, { text: "hello agent" });
+			void fix.dialog.send("hello agent", "human");
 
 			const events = await ssePromise;
 			expect(events).toHaveLength(1);
 			const ev = events[0] as { bus: string; type: string; payload: Record<string, unknown> };
 			expect(ev.bus).toBe("motor");
 			expect(ev.type).toBe("dialog.message");
-			expect(ev.payload.role).toBe("user");
+			expect(ev.payload.text).toBe("I am ready.");
 		} finally {
 			await fix.unmountAgent();
 		}

@@ -17,6 +17,7 @@ export default defineConfig({
 			{ find: /^@dpopsuev\/alef-tui$/, replacement: resolve("../tui/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-shell$/, replacement: resolve("../organ-shell/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-llm$/, replacement: resolve("../organ-llm/src/index.ts") },
+			{ find: /^@dpopsuev\/alef-testkit$/, replacement: resolve("../testkit/src/index.ts") },
 		],
 	},
 	test: {

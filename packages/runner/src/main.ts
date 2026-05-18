@@ -24,6 +24,7 @@ import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { DirectiveContextAssembler } from "./directives.js";
 import { EventLogOrgan } from "./event-log-organ.js";
@@ -186,7 +187,14 @@ const prepareStep = async (
 	return projected.length > 0 ? projected : messages;
 };
 
-agent.load(dialog).load(new LLMOrgan({ model, thinking: thinkingLevel, prepareStep }));
+// ALEF_SCRIPTED_REPLIES — boot without a real LLM (for tests and demos).
+// Value: JSON array of reply strings, e.g. '["hello","done"]'.
+// Each string becomes a simple text reply step consumed in order.
+const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
+const llmOrgan = scriptedRepliesEnv
+	? new ScriptedLLMOrgan((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
+	: new LLMOrgan({ model, thinking: thinkingLevel, prepareStep });
+agent.load(dialog).load(llmOrgan);
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
@@ -198,7 +206,13 @@ if (args.serve !== undefined) {
 	// Multiple sse surfaces are merged into one allowlist (union).
 	const sseSurface = blueprintSurfaces.filter((s) => s.type === "sse");
 	const allowedEvents = sseSurface.flatMap((s) => s.events ?? []);
-	const router = createRouterOrgan({ port: args.serve, allowedEvents });
+	const router = createRouterOrgan({
+		port: args.serve,
+		allowedEvents,
+		// Route HTTP messages through DialogOrgan so history is tracked
+		// and the message arrives on the sense bus for LLMOrgan to process.
+		onMessage: (text) => dialog.receive(text, "user"),
+	});
 	agent.load(router);
 	await router.ready();
 	const addr = router.address()!;
@@ -211,7 +225,22 @@ if (args.serve !== undefined) {
 
 agent.validate();
 
-// SIGTERM: finish current turn then exit cleanly (TSK-150).
+// Supervisor IPC — when running under a supervisor (ALEF_SUPERVISOR=1),
+// handle handoff_prepare and other control messages.
+// The supervisor spawns the runner with stdio: ['inherit','inherit','inherit','ipc']
+// which makes process.send available.
+if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
+	process.on("message", (msg: unknown) => {
+		const m = msg as { type?: string; envelope?: { updateId?: string } };
+		if (m.type === "handoff_prepare" && m.envelope?.updateId) {
+			// Acknowledge the handoff so the supervisor can finalize and promote.
+			process.send!({ type: "handoff_ack", updateId: m.envelope.updateId });
+		}
+		// supervisor_transition: informational, no action needed.
+	});
+}
+
+// SIGTERM: finish current turn then exit cleanly.
 process.once("SIGTERM", async () => {
 	process.stderr.write("\n[signal] SIGTERM — shutting down cleanly\n");
 	try {
@@ -238,6 +267,10 @@ try {
 		await runTuiMode(dialog, { cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id }, () =>
 			agent.dispose(),
 		);
+	} else if (args.serve !== undefined && !process.stdin.isTTY) {
+		// --serve without a TTY: RouterOrgan is the sole interface.
+		// Block forever — the process stays alive until SIGTERM.
+		await new Promise<void>(() => {});
 	} else {
 		await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId }, () => agent.dispose());
 	}

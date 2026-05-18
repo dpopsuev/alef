@@ -23,6 +23,7 @@
 import { type ChildProcess, execSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import http from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { AgentBroker } from "./broker/agent-broker.js";
@@ -77,6 +78,19 @@ function findRepoRoot(): string {
 		dir = resolve(dir, "..");
 	}
 	throw new Error(`Could not find monorepo root from ${import.meta.dirname}`);
+}
+
+/**
+ * Find the runner entry point (packages/runner) which supports --serve.
+ * Returns undefined when the runner has not been built yet — health check
+ * is then skipped gracefully.
+ */
+function findRunnerBin(repoRoot: string): string | undefined {
+	const distPath = join(repoRoot, "packages", "runner", "dist", "main.js");
+	if (existsSync(distPath)) return distPath;
+	const srcPath = join(repoRoot, "packages", "runner", "src", "main.ts");
+	if (existsSync(srcPath)) return srcPath;
+	return undefined;
 }
 
 function findAlefBin(repoRoot: string): string {
@@ -160,6 +174,117 @@ export function getGreenInvocation(repoRoot: string, childArgs: string[]): { com
 		command: "node",
 		args: [alefBin, ...childArgs],
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Blue-slot health check (process liveness via HTTP)
+// ---------------------------------------------------------------------------
+
+const HEALTH_CHECK_TIMEOUT_MS = 30_000;
+
+/**
+ * Poll GET /health until it returns { ok: true } or the timeout expires.
+ * Uses Node's built-in http — no external dependencies.
+ */
+async function pollHealth(url: string, deadlineMs: number): Promise<boolean> {
+	const deadline = Date.now() + deadlineMs;
+	while (Date.now() < deadline) {
+		const ok = await new Promise<boolean>((resolve) => {
+			http
+				.get(url, (res) => {
+					let body = "";
+					res.on("data", (chunk: Buffer) => {
+						body += chunk.toString();
+					});
+					res.on("end", () => {
+						try {
+							const json = JSON.parse(body) as Record<string, unknown>;
+							resolve(json.ok === true);
+						} catch {
+							resolve(false);
+						}
+					});
+				})
+				.on("error", () => resolve(false));
+		});
+		if (ok) return true;
+		await new Promise((r) => setTimeout(r, 300));
+	}
+	return false;
+}
+
+/**
+ * runHealthCheck — spawns an ephemeral runner process with --serve 0,
+ * waits for the router to bind, polls GET /health, then kills the process.
+ *
+ * Proves the new binary starts cleanly and the HTTP surface is responsive
+ * before the eval gate runs static compile+test checks.
+ *
+ * Env overrides:
+ *   ALEF_SUPERVISOR_TEST_HEALTH_RESULT=pass|fail  — force result (tests)
+ *   ALEF_SUPERVISOR_SKIP_HEALTH=1                 — skip entirely (CI shortcut)
+ */
+async function runHealthCheck(repoRoot: string): Promise<{ passed: boolean; error?: string }> {
+	const forced = process.env.ALEF_SUPERVISOR_TEST_HEALTH_RESULT;
+	if (forced === "pass") return { passed: true };
+	if (forced === "fail") return { passed: false, error: "forced fail" };
+	if (process.env.ALEF_SUPERVISOR_SKIP_HEALTH === "1") return { passed: true };
+
+	const runnerBin = findRunnerBin(repoRoot);
+	if (!runnerBin) {
+		console.log("[supervisor] Health check: runner binary not found, skipping.");
+		return { passed: true };
+	}
+
+	return new Promise((resolve) => {
+		let settled = false;
+		let portFound = false;
+
+		const isTs = runnerBin.endsWith(".ts");
+		const cmd = isTs ? "npx" : "node";
+		const cmdArgs = isTs ? ["tsx", runnerBin, "--serve", "0", "--no-tui"] : [runnerBin, "--serve", "0", "--no-tui"];
+
+		const proc = spawn(cmd, cmdArgs, {
+			cwd: repoRoot,
+			stdio: ["ignore", "ignore", "pipe"],
+			env: { ...process.env, ALEF_SUPERVISOR_BLUE: "1" },
+		});
+
+		const timer = setTimeout(() => {
+			if (!settled) {
+				settled = true;
+				proc.kill("SIGTERM");
+				resolve({ passed: false, error: `Health check timed out after ${HEALTH_CHECK_TIMEOUT_MS}ms` });
+			}
+		}, HEALTH_CHECK_TIMEOUT_MS);
+
+		// The runner logs: [alef] router listening on http://<host>:<port>
+		let stderrBuf = "";
+		proc.stderr.on("data", (chunk: Buffer) => {
+			if (portFound) return;
+			stderrBuf += chunk.toString();
+			const match = stderrBuf.match(/router listening on http:\/\/[\d.]+:(\d+)/);
+			if (!match) return;
+			portFound = true;
+			const port = Number.parseInt(match[1], 10);
+			void pollHealth(`http://127.0.0.1:${port}/health`, 10_000).then((ok) => {
+				if (!settled) {
+					settled = true;
+					clearTimeout(timer);
+					proc.kill("SIGTERM");
+					resolve(ok ? { passed: true } : { passed: false, error: "GET /health did not return ok:true" });
+				}
+			});
+		});
+
+		proc.on("exit", (code) => {
+			if (!settled) {
+				settled = true;
+				clearTimeout(timer);
+				resolve({ passed: false, error: `Process exited (${code}) before router was ready` });
+			}
+		});
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -564,7 +689,18 @@ class Supervisor {
 			}
 		}
 
-		// Step 2: Blue-slot eval gate (compile + tests).
+		// Step 2: Health check — spawn ephemeral runner, poll GET /health.
+		console.log("[supervisor] Running health check...");
+		const health = await runHealthCheck(this.repoRoot);
+		if (!health.passed) {
+			console.error(`[supervisor] Health check failed: ${health.error ?? "unknown"}`);
+			this.rollbackBuild(updateId, "health_check_failed");
+			this.spawnGreen();
+			return;
+		}
+		console.log("[supervisor] Health check passed.");
+
+		// Step 3: Blue-slot eval gate (compile + tests).
 		console.log("[supervisor] Running blue-slot eval gate...");
 		const probe = await runBlueProbe(this.repoRoot);
 

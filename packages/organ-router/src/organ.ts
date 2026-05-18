@@ -62,6 +62,8 @@ export interface RouterAddress {
 
 export class RouterOrgan implements Organ {
 	readonly name = "router";
+	readonly description = "HTTP/SSE bridge: exposes motor/sense events over GET /events and accepts POST /message.";
+	readonly labels = ["http", "sse", "bridge", "observability"] as const;
 	readonly tools = [] as const;
 	readonly subscriptions = {
 		motor: ["*"] as const,

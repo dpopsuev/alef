@@ -263,6 +263,8 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 			actions: options.actions,
 			directives: FS_DIRECTIVES,
 			logger: options.logger,
+			description: "Read, write, edit, search, and find files within the workspace.",
+			labels: ["filesystem", "read", "write", "search"],
 		},
 	);
 }

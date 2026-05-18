@@ -1,7 +1,7 @@
 {
 	"name": "@dpopsuev/alef-organ-web",
 	"version": "0.0.1",
-	"description": "Web organ — fetch, search, crawl, and graph web pages for Alef agents",
+	"description": "Web organ — fetch public web pages and return plain text. No external dependencies.",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -22,14 +22,7 @@
 		"test": "vitest --run",
 		"prepublishOnly": "npm run clean && npm run build"
 	},
-	"keywords": [
-		"agent",
-		"organ",
-		"web",
-		"spider",
-		"search",
-		"crawl"
-	],
+	"keywords": ["agent", "organ", "web", "fetch", "html"],
 	"author": "Daniel Popsuevich",
 	"license": "MIT",
 	"repository": {
@@ -42,7 +35,6 @@
 	},
 	"dependencies": {
 		"@dpopsuev/alef-spine": "^0.0.1",
-		"@dpopsuev/web-spider": "file:../../pi-mono/packages/web-spider",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {

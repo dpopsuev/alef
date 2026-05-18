@@ -36,6 +36,11 @@ export interface Args {
 	 * Useful for verifying which tools a blueprint exposes.
 	 */
 	listTools: boolean;
+	/**
+	 * Diagnostic: print one organ per line (name, labels, description) and exit.
+	 * Useful for verifying which organs are loaded and their metadata.
+	 */
+	listOrgans: boolean;
 	/** Maximum tool-call turns per conversation. 0 = unlimited. Default: 50. */
 	maxTurns: number;
 	/** Loop detection threshold — same tool N times in one turn triggers guard. Default: 15. */
@@ -108,6 +113,7 @@ export function parseArgs(argv: string[]): Args {
 		json: false,
 		blueprint: undefined,
 		listTools: false,
+		listOrgans: false,
 		maxTurns: 50,
 		loopThreshold: 15,
 		thinking: undefined,
@@ -154,6 +160,12 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--list-tools") {
 			args.listTools = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--list-organs") {
+			args.listOrgans = true;
 			i++;
 			continue;
 		}

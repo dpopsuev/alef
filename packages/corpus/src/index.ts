@@ -44,7 +44,11 @@ export class Agent {
 	/** Tool definitions collected from all loaded organs. */
 	readonly tools: ToolDefinition[] = [];
 	/** Organs stored for lazy port detection in validate(). */
-	private readonly organs: Organ[] = [];
+	private readonly _organs: Organ[] = [];
+	/** Loaded organs in mount order. Includes metadata (description, labels). */
+	get organs(): readonly Organ[] {
+		return this._organs;
+	}
 	private disposed = false;
 
 	/**
@@ -53,7 +57,7 @@ export class Agent {
 	 */
 	load(organ: Organ): this {
 		if (this.disposed) throw new Error("Agent is disposed - cannot load organs.");
-		this.organs.push(organ);
+		this._organs.push(organ);
 		const unmount = organ.mount(this.nerve.asNerve());
 		this.unmounts.push(unmount);
 		this.tools.push(...organ.tools);
@@ -71,7 +75,7 @@ export class Agent {
 	 * Logs warnings for zero-or-one violations.
 	 */
 	validate(seams: PortDefinition[] = STANDARD_PORTS): this {
-		const infos: OrganPortInfo[] = this.organs.map((organ) => ({
+		const infos: OrganPortInfo[] = this._organs.map((organ) => ({
 			name: organ.name,
 			motorSubscriptions: [...organ.subscriptions.motor],
 			senseSubscriptions: [...organ.subscriptions.sense],

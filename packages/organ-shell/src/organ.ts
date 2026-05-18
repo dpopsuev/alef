@@ -143,7 +143,13 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 		{
 			"shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
 		},
-		{ actions: options.actions, directives: SHELL_DIRECTIVES, logger: options.logger },
+		{
+			actions: options.actions,
+			directives: SHELL_DIRECTIVES,
+			logger: options.logger,
+			description: "Execute shell commands in the workspace.",
+			labels: ["shell", "exec", "process"],
+		},
 	);
 }
 

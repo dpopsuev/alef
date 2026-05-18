@@ -234,13 +234,12 @@ function extractExecOutput(err: unknown): string {
  *   ALEF_SUPERVISOR_TEST_EVAL_RESULT=pass|fail  — force result
  *   ALEF_SUPERVISOR_SKIP_EVAL=1                 — skip gate entirely
  */
-async function runBlueProbe(repoRoot: string): Promise<boolean> {
+async function runBlueProbe(repoRoot: string): Promise<{ passed: boolean; report: string }> {
 	const forced = process.env.ALEF_SUPERVISOR_TEST_EVAL_RESULT;
-	if (forced === "pass") return true;
-	if (forced === "fail") return false;
-	if (process.env.ALEF_SUPERVISOR_SKIP_EVAL === "1") return true;
-	const result = await runEvalGate(repoRoot);
-	return result.passed;
+	if (forced === "pass") return { passed: true, report: "forced pass" };
+	if (forced === "fail") return { passed: false, report: "forced fail" };
+	if (process.env.ALEF_SUPERVISOR_SKIP_EVAL === "1") return { passed: true, report: "eval gate skipped" };
+	return runEvalGate(repoRoot);
 }
 
 export function collectFilePaths(root: string): string[] {
@@ -296,6 +295,14 @@ class Supervisor {
 	private rebuildingGreen = false;
 	private pendingHandoff: RuntimeHandoffEnvelope | undefined;
 	private distBackupDir: string | undefined;
+	/**
+	 * Failure report from the most recent blue-slot eval gate.
+	 * Set when runBlueProbe() returns passed=false. Passed to the new green
+	 * via ALEF_SUPERVISOR_EVAL_GATE_REPORT so the agent can read the errors
+	 * and attempt a self-repair before triggering another rebuild.
+	 * Cleared after each spawnGreen() call.
+	 */
+	private evalGateReport: string | undefined;
 
 	constructor(args: string[]) {
 		this.repoRoot = findRepoRoot();
@@ -339,6 +346,12 @@ class Supervisor {
 		const childArgs = buildChildArgs(this.sessionFile, this.baseArgs);
 		const invocation = getGreenInvocation(this.repoRoot, childArgs);
 
+		// Pass the eval gate failure report to the new green so the agent can
+		// read the compile/test errors and attempt a self-repair before triggering
+		// another rebuild. Cleared immediately after the process is spawned.
+		const evalGateReport = this.evalGateReport;
+		this.evalGateReport = undefined;
+
 		// stdio: inherit stdin/stdout/stderr + IPC channel on fd 3
 		this.green = spawn(invocation.command, invocation.args, {
 			stdio: ["inherit", "inherit", "inherit", "ipc"],
@@ -348,6 +361,7 @@ class Supervisor {
 				ALEF_SUPERVISOR: "1",
 				ALEF_REBUILD_EXIT_CODE: String(REBUILD_EXIT_CODE),
 				ALEF_SUPERVISOR_ACTIVE_SLOT: this.lifecycle.getState().activeSlot,
+				...(evalGateReport ? { ALEF_SUPERVISOR_EVAL_GATE_REPORT: evalGateReport } : {}),
 			},
 		});
 
@@ -552,9 +566,9 @@ class Supervisor {
 
 		// Step 2: Blue-slot eval gate (compile + tests).
 		console.log("[supervisor] Running blue-slot eval gate...");
-		const passed = await runBlueProbe(this.repoRoot);
+		const probe = await runBlueProbe(this.repoRoot);
 
-		if (passed) {
+		if (probe.passed) {
 			const healthyTransition = this.lifecycle.apply({
 				type: "mark_staging_healthy",
 				commandId: `mark-healthy:${updateId}`,
@@ -595,7 +609,9 @@ class Supervisor {
 			}
 			this.cleanupDistBackup();
 		} else {
-			console.error("[supervisor] Smoke tests failed. Rolling back to previous active slot.");
+			console.error("[supervisor] Eval gate failed. Rolling back to previous active slot.");
+			// Store the failure report so the new green can read it and attempt self-repair.
+			this.evalGateReport = probe.report;
 			this.rollbackBuild(updateId, "eval_gate_failed");
 		}
 

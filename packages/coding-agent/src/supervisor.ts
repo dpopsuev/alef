@@ -7,14 +7,14 @@
  *   - Spawns the "green" agent (interactive session) with an IPC channel
  *   - Receives spawn/kill/status requests from the green agent via IPC
  *   - Delegates agent spawning to AgentBroker
- *   - Handles /rebuild: build → blue smoke test → promote → restart green
+ *   - Handles /rebuild: build → blue-slot eval gate → promote → restart green
  *
  * Architecture:
  *   Supervisor (this file)
  *     ├── Green Agent (interactive, IPC channel on fd 3)
  *     ├── Subagent 1 (spawned by broker on green's request)
  *     ├── Subagent 2
- *     └── Blue Agent (smoke test, ephemeral)
+ *     └── Blue Agent (eval gate, ephemeral)
  *
  * Usage:
  *   ./alef-dev.sh [alef args...]
@@ -44,9 +44,25 @@ const ALLOW_UNVERIFIED_UPDATES_ENV = "ALEF_SUPERVISOR_ALLOW_UNVERIFIED_UPDATES";
 const SEMVER_TAG_PATTERN = /^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/i;
 
-const SMOKE_TESTS = ["Respond with exactly: HEALTH_CHECK_OK", "What is 2+2? Reply with just the number."];
+// Packages whose vitest suites are run as part of the blue-slot eval gate.
+// Extend this list when new packages are added to the monorepo.
+const EVAL_GATE_PACKAGES = [
+	"packages/spine",
+	"packages/corpus",
+	"packages/organ-fs",
+	"packages/organ-shell",
+	"packages/organ-dialog",
+	"packages/organ-lector",
+	"packages/organ-llm",
+	"packages/organ-enclosure",
+	"packages/organ-router",
+	"packages/testkit",
+	"packages/eval",
+	"packages/runner",
+] as const;
 
-const SMOKE_TEST_TIMEOUT = 30_000;
+const EVAL_CHECK_TIMEOUT = 180_000;
+const EVAL_TEST_TIMEOUT = 600_000;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -147,75 +163,84 @@ export function getGreenInvocation(repoRoot: string, childArgs: string[]): { com
 }
 
 // ---------------------------------------------------------------------------
-// Blue-green smoke tests (run without IPC — pure JSON mode)
+// Blue-slot eval gate
 // ---------------------------------------------------------------------------
 
-function runBlueProbe(
-	repoRoot: string,
-	prompt: string,
-	timeout: number,
-): Promise<{ passed: boolean; output: string; error?: string }> {
-	return new Promise((res) => {
-		const alefBin = findAlefBin(repoRoot);
-		const isTs = alefBin.endsWith(".ts");
-		const cmd = isTs ? "npx" : "node";
-		const cmdArgs = isTs
-			? ["tsx", alefBin, "--mode", "json", "-p", "--no-session", prompt]
-			: [alefBin, "--mode", "json", "-p", "--no-session", prompt];
-
-		const proc = spawn(cmd, cmdArgs, {
+/**
+ * runEvalGate — the assertion set for the blue-slot probe.
+ *
+ * Runs two checks against the repo:
+ *   1. npm run check — type check + lint (biome + tsgo)
+ *   2. vitest run per EVAL_GATE_PACKAGES — full unit/integration test suite
+ *
+ * Returns { passed, report } where report is a human-readable summary
+ * suitable for feeding back to the agent on failure (TSK-77).
+ */
+async function runEvalGate(repoRoot: string): Promise<{ passed: boolean; report: string }> {
+	// 1. Type check + lint.
+	try {
+		execSync("npm run check", {
 			cwd: repoRoot,
 			stdio: ["ignore", "pipe", "pipe"],
-			env: { ...process.env, ALEF_SUPERVISOR_BLUE: "1" },
+			timeout: EVAL_CHECK_TIMEOUT,
 		});
+		console.log("[supervisor] Eval gate: check passed.");
+	} catch (err) {
+		const out = extractExecOutput(err);
+		console.error("[supervisor] Eval gate: check failed.");
+		return { passed: false, report: `check failed:\n${out}` };
+	}
 
-		let stdout = "";
-		let stderr = "";
-		const timer = setTimeout(() => {
-			proc.kill("SIGTERM");
-			res({ passed: false, output: "", error: `Timed out after ${timeout}ms` });
-		}, timeout);
-
-		proc.stdout.on("data", (d: Buffer) => {
-			stdout += d.toString();
-		});
-		proc.stderr.on("data", (d: Buffer) => {
-			stderr += d.toString();
-		});
-
-		proc.on("exit", (code) => {
-			clearTimeout(timer);
-			let text = "";
-			for (const line of stdout.split("\n")) {
-				try {
-					const e = JSON.parse(line);
-					if (e.type === "message_end" && e.message?.role === "assistant") {
-						for (const c of e.message.content ?? []) {
-							if (c.type === "text") text += c.text;
-						}
-					}
-				} catch {
-					/* skip */
-				}
-			}
-			const passed = text.trim().length > 0;
-			res({ passed, output: text.trim(), error: passed ? undefined : `Exit ${code}: ${stderr.slice(-500)}` });
-		});
-	});
-}
-
-async function runSmokeTests(repoRoot: string): Promise<boolean> {
-	for (const prompt of SMOKE_TESTS) {
-		console.log(`[supervisor] Smoke: "${prompt.slice(0, 50)}..."`);
-		const result = await runBlueProbe(repoRoot, prompt, SMOKE_TEST_TIMEOUT);
-		if (result.passed) {
-			console.log(`[supervisor]   PASS: ${result.output.slice(0, 80)}`);
-		} else {
-			console.log(`[supervisor]   FAIL: ${result.error}`);
-			return false;
+	// 2. Test suite — per package.
+	for (const pkg of EVAL_GATE_PACKAGES) {
+		const pkgDir = join(repoRoot, pkg);
+		if (!existsSync(pkgDir)) continue;
+		try {
+			execSync("npx vitest run", {
+				cwd: pkgDir,
+				stdio: ["ignore", "pipe", "pipe"],
+				timeout: EVAL_TEST_TIMEOUT,
+				env: { ...process.env, TESTCONTAINERS_RYUK_DISABLED: "true" },
+			});
+			console.log(`[supervisor] Eval gate: ${pkg} passed.`);
+		} catch (err) {
+			const out = extractExecOutput(err);
+			console.error(`[supervisor] Eval gate: ${pkg} failed.`);
+			return { passed: false, report: `${pkg} tests failed:\n${out}` };
 		}
 	}
-	return true;
+
+	return { passed: true, report: "check + all package tests passed" };
+}
+
+/** Extract stdout+stderr from an execSync error for reporting and agent feedback. */
+function extractExecOutput(err: unknown): string {
+	if (err && typeof err === "object") {
+		const e = err as Record<string, unknown>;
+		const stdout = Buffer.isBuffer(e.stdout) ? e.stdout.toString() : String(e.stdout ?? "");
+		const stderr = Buffer.isBuffer(e.stderr) ? e.stderr.toString() : String(e.stderr ?? "");
+		return [stdout, stderr].filter(Boolean).join("\n").slice(-4000);
+	}
+	return String(err);
+}
+
+/**
+ * runBlueProbe — semantic wrapper: "is the blue slot ready to promote?"
+ *
+ * Delegates to runEvalGate(). Named runBlueProbe to preserve the blue-green
+ * vocabulary: this gates promotion of the staging (blue) slot to active (green).
+ *
+ * Env overrides for testing without running the full suite:
+ *   ALEF_SUPERVISOR_TEST_EVAL_RESULT=pass|fail  — force result
+ *   ALEF_SUPERVISOR_SKIP_EVAL=1                 — skip gate entirely
+ */
+async function runBlueProbe(repoRoot: string): Promise<boolean> {
+	const forced = process.env.ALEF_SUPERVISOR_TEST_EVAL_RESULT;
+	if (forced === "pass") return true;
+	if (forced === "fail") return false;
+	if (process.env.ALEF_SUPERVISOR_SKIP_EVAL === "1") return true;
+	const result = await runEvalGate(repoRoot);
+	return result.passed;
 }
 
 export function collectFilePaths(root: string): string[] {
@@ -525,17 +550,9 @@ class Supervisor {
 			}
 		}
 
-		// Step 2: Blue-green smoke tests
-		console.log("[supervisor] Running smoke tests...");
-		const forcedSmokeResult = process.env.ALEF_SUPERVISOR_TEST_SMOKE_RESULT;
-		const passed =
-			forcedSmokeResult === "pass"
-				? true
-				: forcedSmokeResult === "fail"
-					? false
-					: process.env.ALEF_SUPERVISOR_SKIP_SMOKE === "1"
-						? true
-						: await runSmokeTests(this.repoRoot);
+		// Step 2: Blue-slot eval gate (compile + tests).
+		console.log("[supervisor] Running blue-slot eval gate...");
+		const passed = await runBlueProbe(this.repoRoot);
 
 		if (passed) {
 			const healthyTransition = this.lifecycle.apply({
@@ -562,7 +579,7 @@ class Supervisor {
 				this.spawnGreen();
 				return;
 			}
-			console.log("[supervisor] Smoke tests passed. Promoted staging slot.");
+			console.log("[supervisor] Eval gate passed. Promoted staging slot.");
 			// Explicit retirement: close the update cycle and clear the retiring slot.
 			const retireTransition = this.lifecycle.apply({
 				type: "retire_old",
@@ -579,7 +596,7 @@ class Supervisor {
 			this.cleanupDistBackup();
 		} else {
 			console.error("[supervisor] Smoke tests failed. Rolling back to previous active slot.");
-			this.rollbackBuild(updateId, "smoke_failed");
+			this.rollbackBuild(updateId, "eval_gate_failed");
 		}
 
 		// Step 3: Restart green with new build
@@ -887,7 +904,7 @@ async function runSupervisorProbe(baseArgs: string[], cwd: string, sessionFile: 
 
 async function runProbeMode(): Promise<void> {
 	const repoRoot = findRepoRoot();
-	const passed = process.env.ALEF_SUPERVISOR_SKIP_SMOKE === "1" ? true : await runSmokeTests(repoRoot);
+	const passed = await runBlueProbe(repoRoot);
 	process.exit(passed ? 0 : 1);
 }
 

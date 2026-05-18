@@ -453,6 +453,7 @@ class Supervisor {
 		process.on("SIGINT", () => this.handleShutdown());
 		process.on("SIGTERM", () => this.handleShutdown());
 
+		await this.resumePendingHandoff();
 		this.spawnGreen();
 		const autoUpdateScope = parseUpdateScope(process.env.ALEF_SUPERVISOR_AUTO_UPDATE_SCOPE);
 		if (autoUpdateScope) {
@@ -515,6 +516,11 @@ class Supervisor {
 		const handoffTimer = setInterval(() => {
 			if (!this.pendingHandoff || this.pendingHandoff.phase === "finalized") {
 				clearInterval(handoffTimer);
+				// Clear the file when the finalized envelope was carried in from a
+				// crash-recovery resume (phase was already finalized on entry).
+				if (this.pendingHandoff?.phase === "finalized") {
+					this.clearPendingHandoff();
+				}
 				return;
 			}
 			handoffAttempts += 1;
@@ -549,6 +555,100 @@ class Supervisor {
 			this.broker.killAll();
 			process.exit(code ?? 0);
 		});
+	}
+
+	/**
+	 * resumePendingHandoff — crash-safe cold-start recovery.
+	 *
+	 * If a handoff envelope exists from a previous run, complete the promotion
+	 * based on phase before spawning the green agent. Modelled on hegemony's
+	 * resume_pending_handoff() pattern.
+	 *
+	 *   prepared  → canary was spawned but health unknown. Re-probe.
+	 *               Pass: promote FSM, clear envelope, let spawnGreen() start new active.
+	 *               Fail: rollback FSM, clear envelope, spawnGreen() restarts old slot.
+	 *
+	 *   acked     → canary was healthy but old slot not yet killed.
+	 *               Skip health check. Finalize, update FSM, clear envelope.
+	 *               The new green will receive handoff_finalize after spawn.
+	 *
+	 *   finalized → stale file from a completed promotion. Just delete it.
+	 */
+	private async resumePendingHandoff(): Promise<void> {
+		if (!this.pendingHandoff) return;
+
+		const envelope = this.pendingHandoff;
+		const { phase, updateId, targetSlot } = envelope;
+
+		if (phase === "finalized") {
+			console.log("[supervisor] crash-recovery: clearing stale finalized handoff.");
+			this.clearPendingHandoff();
+			return;
+		}
+
+		if (phase === "acked") {
+			console.log(
+				`[supervisor] crash-recovery: acked envelope found — completing finalization (updateId=${updateId}).`,
+			);
+			// Canary was already healthy. Complete finalization and update FSM slot.
+			const finalized = markRuntimeHandoffFinalized(markRuntimeHandoffAcked(envelope));
+			this.persistPendingHandoff(finalized);
+			this.lifecycle.apply({
+				type: "spawn_staging",
+				commandId: `resume-acked-spawn:${updateId}`,
+				updateId,
+				stagingSlot: targetSlot,
+			});
+			this.lifecycle.apply({
+				type: "mark_staging_healthy",
+				commandId: `resume-acked-healthy:${updateId}`,
+				updateId,
+			});
+			const promoteResult = this.lifecycle.apply({
+				type: "promote",
+				commandId: `resume-acked-promote:${updateId}`,
+				updateId,
+			});
+			this.lifecycle.apply({
+				type: "retire_old",
+				commandId: `resume-acked-retire:${updateId}`,
+				updateId,
+			});
+			if (promoteResult.accepted) {
+				console.log(`[supervisor] crash-recovery: acked handoff finalized — active slot is now ${targetSlot}.`);
+			}
+			// spawnGreen() will send handoff_finalize to the new green after it starts.
+			// Keep pendingHandoff set so spawnGreen()'s polling loop delivers it.
+			this.pendingHandoff = finalized;
+			return;
+		}
+
+		// phase === "prepared": canary was spawned but health is unknown. Re-probe.
+		console.log(
+			`[supervisor] crash-recovery: prepared envelope found — re-probing canary health (updateId=${updateId}).`,
+		);
+		const probe = await runHealthCheck(this.repoRoot);
+
+		if (probe.passed) {
+			console.log("[supervisor] crash-recovery: canary healthy — completing promotion.");
+			const finalized = markRuntimeHandoffFinalized(markRuntimeHandoffAcked(envelope));
+			this.persistPendingHandoff(finalized);
+			// Advance FSM through the full promotion cycle.
+			this.lifecycle.apply({
+				type: "spawn_staging",
+				commandId: `resume-prep-spawn:${updateId}`,
+				updateId,
+				stagingSlot: targetSlot,
+			});
+			this.lifecycle.apply({ type: "mark_staging_healthy", commandId: `resume-prep-healthy:${updateId}`, updateId });
+			this.lifecycle.apply({ type: "promote", commandId: `resume-prep-promote:${updateId}`, updateId });
+			this.lifecycle.apply({ type: "retire_old", commandId: `resume-prep-retire:${updateId}`, updateId });
+			console.log(`[supervisor] crash-recovery: promotion complete — active slot is now ${targetSlot}.`);
+			this.pendingHandoff = finalized;
+		} else {
+			console.log("[supervisor] crash-recovery: canary unhealthy — rolling back.");
+			this.clearPendingHandoff();
+		}
 	}
 
 	private handleHandoffAck(updateId: string): void {

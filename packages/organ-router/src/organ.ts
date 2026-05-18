@@ -33,6 +33,16 @@ export interface RouterOptions {
 	port?: number;
 	/** Host/interface to bind. Default: '127.0.0.1'. */
 	host?: string;
+	/**
+	 * Push-side event allowlist. Only motor/sense events whose type matches
+	 * one of these patterns are forwarded to SSE clients.
+	 *
+	 * Patterns support a single trailing wildcard: 'fs.*' matches 'fs.read',
+	 * 'fs.write', etc. The bare '*' matches everything.
+	 *
+	 * Omit or set to [] to broadcast all events.
+	 */
+	allowedEvents?: string[];
 }
 
 /** Resolved bind address returned by createRouterOrgan().address(). */
@@ -51,14 +61,30 @@ export class RouterOrgan implements Organ {
 
 	private server: Server | null = null;
 	private readonly sse = new SseManager();
-	private readonly options: Required<RouterOptions>;
+	private readonly options: Required<Omit<RouterOptions, "allowedEvents">> & { allowedEvents: string[] };
 	private _ready: Promise<void> = Promise.resolve();
 
 	constructor(options: RouterOptions = {}) {
 		this.options = {
 			port: options.port ?? 3000,
 			host: options.host ?? "127.0.0.1",
+			allowedEvents: options.allowedEvents ?? [],
 		};
+	}
+
+	/**
+	 * Returns true if the given event type should be forwarded to SSE clients.
+	 * When allowedEvents is empty, all events pass. Otherwise the type must
+	 * match at least one pattern (exact or trailing-wildcard 'prefix.*').
+	 */
+	private isAllowed(eventType: string): boolean {
+		if (this.options.allowedEvents.length === 0) return true;
+		for (const pattern of this.options.allowedEvents) {
+			if (pattern === "*") return true;
+			if (pattern === eventType) return true;
+			if (pattern.endsWith(".*") && eventType.startsWith(pattern.slice(0, -1))) return true;
+		}
+		return false;
 	}
 
 	/**
@@ -83,6 +109,7 @@ export class RouterOrgan implements Organ {
 	mount(nerve: Nerve): () => void {
 		// Subscribe wildcards — forward every bus event to SSE clients.
 		const off1 = nerve.motor.subscribe("*", (event) => {
+			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
 				bus: "motor",
 				type: event.type,
@@ -93,6 +120,7 @@ export class RouterOrgan implements Organ {
 		});
 
 		const off2 = nerve.sense.subscribe("*", (event) => {
+			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
 				bus: "sense",
 				type: event.type,

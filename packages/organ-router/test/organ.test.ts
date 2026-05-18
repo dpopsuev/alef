@@ -378,3 +378,130 @@ describe("RouterOrgan — unknown routes", () => {
 		}
 	});
 });
+
+describe("RouterOrgan — allowedEvents filter", () => {
+	it("broadcasts all events when allowedEvents is empty (default)", async () => {
+		const { nerve, unmount, baseUrl } = await setup();
+		try {
+			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
+			await new Promise((r) => setTimeout(r, 30));
+			nerve.asNerve().motor.publish({ type: "internal.debug", payload: {}, correlationId: "c-1", timestamp: 1 });
+			const events = await eventsPromise;
+			expect((events[0] as Record<string, unknown>).type).toBe("internal.debug");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("passes events matching an exact allowed type", async () => {
+		const organ = createRouterOrgan({ port: 0, allowedEvents: ["dialog.message"] });
+		const nerve = new InProcessNerve();
+		const unmount = organ.mount(nerve.asNerve());
+		await organ.ready();
+		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
+		try {
+			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
+			await new Promise((r) => setTimeout(r, 30));
+			nerve
+				.asNerve()
+				.motor.publish({ type: "dialog.message", payload: { text: "hi" }, correlationId: "c-1", timestamp: 1 });
+			const events = await eventsPromise;
+			expect((events[0] as Record<string, unknown>).type).toBe("dialog.message");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("drops events not in the allowedEvents list", async () => {
+		const organ = createRouterOrgan({ port: 0, allowedEvents: ["dialog.message"] });
+		const nerve = new InProcessNerve();
+		const unmount = organ.mount(nerve.asNerve());
+		await organ.ready();
+		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
+		try {
+			const collectedFrames: string[] = [];
+			const connectedPromise = new Promise<void>((resolve, reject) => {
+				http
+					.get(`${baseUrl}/events`, (res) => {
+						res.on("data", (chunk: Buffer) => {
+							collectedFrames.push(chunk.toString());
+						});
+						res.on("error", (err) => {
+							if ((err as NodeJS.ErrnoException).code !== "ERR_STREAM_DESTROYED") reject(err);
+						});
+						setTimeout(() => {
+							res.destroy();
+							resolve();
+						}, 200);
+					})
+					.on("error", reject);
+			});
+			await new Promise((r) => setTimeout(r, 30));
+			// Publish a blocked event then an allowed event.
+			nerve.asNerve().motor.publish({ type: "loop.detected", payload: {}, correlationId: "c-2", timestamp: 2 });
+			nerve.asNerve().motor.publish({ type: "dialog.message", payload: {}, correlationId: "c-3", timestamp: 3 });
+			await connectedPromise;
+			const full = collectedFrames.join("");
+			expect(full).not.toContain("loop.detected");
+			expect(full).toContain("dialog.message");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("passes events matching a wildcard pattern (fs.*)", async () => {
+		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"] });
+		const nerve = new InProcessNerve();
+		const unmount = organ.mount(nerve.asNerve());
+		await organ.ready();
+		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
+		try {
+			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 2);
+			await new Promise((r) => setTimeout(r, 30));
+			nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-1", timestamp: 1 });
+			nerve.asNerve().motor.publish({ type: "fs.write", payload: {}, correlationId: "c-2", timestamp: 2 });
+			const events = await eventsPromise;
+			const types = events.map((e) => (e as Record<string, unknown>).type);
+			expect(types).toContain("fs.read");
+			expect(types).toContain("fs.write");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("drops events not matching wildcard (shell.exec blocked by fs.*)", async () => {
+		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"] });
+		const nerve = new InProcessNerve();
+		const unmount = organ.mount(nerve.asNerve());
+		await organ.ready();
+		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
+		try {
+			const collectedFrames: string[] = [];
+			const connectedPromise = new Promise<void>((resolve, reject) => {
+				http
+					.get(`${baseUrl}/events`, (res) => {
+						res.on("data", (chunk: Buffer) => {
+							collectedFrames.push(chunk.toString());
+						});
+						res.on("error", (err) => {
+							if ((err as NodeJS.ErrnoException).code !== "ERR_STREAM_DESTROYED") reject(err);
+						});
+						setTimeout(() => {
+							res.destroy();
+							resolve();
+						}, 200);
+					})
+					.on("error", reject);
+			});
+			await new Promise((r) => setTimeout(r, 30));
+			nerve.asNerve().motor.publish({ type: "shell.exec", payload: {}, correlationId: "c-1", timestamp: 1 });
+			nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-2", timestamp: 2 });
+			await connectedPromise;
+			const full = collectedFrames.join("");
+			expect(full).not.toContain("shell.exec");
+			expect(full).toContain("fs.read");
+		} finally {
+			unmount();
+		}
+	});
+});

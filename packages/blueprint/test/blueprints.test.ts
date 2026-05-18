@@ -13,6 +13,7 @@ import {
 	compileAgentDefinition,
 	findAgentDefinitionPath,
 	loadAgentDefinition,
+	mergeAgentDefinitions,
 	parseAgentDefinitionYaml,
 	resolveAgentChildDefinition,
 } from "../src/blueprints.js";
@@ -423,5 +424,85 @@ describe("shipped bootstrap blueprints", () => {
 	it("gensec declares children pointing to 2sec", () => {
 		const def = loadAgentDefinition(join(BLUEPRINT_DIR, "gensec.yaml"));
 		expect(def.children.some((c) => c.name === "2sec")).toBe(true);
+	});
+});
+
+describe("surfaces", () => {
+	it("parses surfaces from YAML", () => {
+		const def = parseAgentDefinitionYaml(`
+name: test-agent
+surfaces:
+  - type: sse
+    events:
+      - dialog.message
+      - fs.*
+`);
+		expect(def.surfaces).toHaveLength(1);
+		expect(def.surfaces[0].type).toBe("sse");
+		expect(def.surfaces[0].events).toEqual(["dialog.message", "fs.*"]);
+	});
+
+	it("defaults surfaces to empty array when not specified", () => {
+		const def = parseAgentDefinitionYaml("name: test-agent\n");
+		expect(def.surfaces).toEqual([]);
+	});
+});
+
+describe("mergeAgentDefinitions", () => {
+	it("overlay surfaces replace base surfaces when non-empty", () => {
+		const base = parseAgentDefinitionYaml(`
+name: base
+surfaces:
+  - type: sse
+    events: ["dialog.message"]
+`);
+		const overlay = parseAgentDefinitionYaml(`
+name: base
+surfaces:
+  - type: sse
+    events: ["dialog.message", "fs.*", "shell.*"]
+`);
+		const merged = mergeAgentDefinitions(base, overlay);
+		expect(merged.surfaces[0].events).toEqual(["dialog.message", "fs.*", "shell.*"]);
+	});
+
+	it("base surfaces preserved when overlay has none", () => {
+		const base = parseAgentDefinitionYaml(`
+name: base
+surfaces:
+  - type: sse
+    events: ["dialog.message"]
+`);
+		const overlay = parseAgentDefinitionYaml("name: base\n");
+		const merged = mergeAgentDefinitions(base, overlay);
+		expect(merged.surfaces[0].events).toEqual(["dialog.message"]);
+	});
+
+	it("overlay model overrides base model", () => {
+		const base = parseAgentDefinitionYaml("name: base\nmodel: anthropic/claude-haiku-3\n");
+		const overlay = parseAgentDefinitionYaml("name: base\nmodel: anthropic/claude-sonnet-4-5\n");
+		const merged = mergeAgentDefinitions(base, overlay);
+		expect(merged.model?.id).toBe("claude-sonnet-4-5");
+	});
+
+	it("base model preserved when overlay has none", () => {
+		const base = parseAgentDefinitionYaml("name: base\nmodel: anthropic/claude-haiku-3\n");
+		const overlay = parseAgentDefinitionYaml("name: base\n");
+		const merged = mergeAgentDefinitions(base, overlay);
+		expect(merged.model?.id).toBe("claude-haiku-3");
+	});
+
+	it("overlay organs replace base organs when non-empty", () => {
+		const base = parseAgentDefinitionYaml("name: base\norgans:\n  - name: fs\n  - name: shell\n");
+		const overlay = parseAgentDefinitionYaml("name: base\norgans:\n  - name: lector\n");
+		const merged = mergeAgentDefinitions(base, overlay);
+		expect(merged.organs.map((o) => o.name)).toEqual(["lector"]);
+	});
+
+	it("working memory is deep-merged, overlay wins per key", () => {
+		const base = parseAgentDefinitionYaml("name: base\nmemory:\n  working:\n    a: 1\n    b: 2\n");
+		const overlay = parseAgentDefinitionYaml("name: base\nmemory:\n  working:\n    b: 99\n    c: 3\n");
+		const merged = mergeAgentDefinitions(base, overlay);
+		expect(merged.memory.working).toEqual({ a: 1, b: 99, c: 3 });
 	});
 });

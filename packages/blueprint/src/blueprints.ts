@@ -92,6 +92,14 @@ const AgentDefinitionSchema = Type.Object({
 	model: Type.Optional(Type.Union([Type.String({ minLength: 1 }), AgentModelSchema])),
 	systemPrompt: Type.Optional(Type.String()),
 	organs: Type.Optional(Type.Array(AgentDefinitionOrganSchema)),
+	surfaces: Type.Optional(
+		Type.Array(
+			Type.Object({
+				type: Type.Literal("sse"),
+				events: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+			}),
+		),
+	),
 	capabilities: Type.Optional(
 		Type.Object({
 			tools: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
@@ -451,6 +459,7 @@ export function compileAgentDefinition(
 		hooks: {
 			extensions: normalizeStringArray(input.hooks?.extensions),
 		},
+		surfaces: (input.surfaces ?? []).filter((s) => s.type === "sse"),
 		children: resolveChildBlueprints(input.children, baseDir),
 	};
 	const dependencies = normalizeDependencies(input.dependencies);
@@ -548,4 +557,58 @@ export function resolveAgentChildDefinition(
 			: resolve(cwd, normalizedReference);
 
 	return loadAgentDefinition(resolvedPath);
+}
+
+/**
+ * mergeAgentDefinitions — deep-merge an overlay definition over a base.
+ *
+ * Follows the Docker Compose overlay convention:
+ *   - Scalar fields: overlay wins if defined.
+ *   - Array fields (organs, surfaces, children): overlay replaces base if non-empty.
+ *   - Deeply-nested objects: merged recursively, overlay wins on conflicts.
+ *
+ * Intended for profile overlays: loadAgentDefinition(base) + loadAgentDefinition(overlay).
+ * The overlay file is typically a sparse file with only the fields that differ per profile.
+ */
+export function mergeAgentDefinitions(
+	base: CompiledAgentDefinition,
+	overlay: CompiledAgentDefinition,
+): CompiledAgentDefinition {
+	return {
+		// Scalars: overlay wins when defined.
+		name: overlay.name ?? base.name,
+		sourcePath: base.sourcePath,
+		baseDir: base.baseDir,
+		model: overlay.model ?? base.model,
+		systemPrompt: overlay.systemPrompt ?? base.systemPrompt,
+
+		// Arrays: overlay replaces base when non-empty.
+		organs: overlay.organs.length > 0 ? overlay.organs : base.organs,
+		surfaces: overlay.surfaces.length > 0 ? overlay.surfaces : base.surfaces,
+		children: overlay.children.length > 0 ? overlay.children : base.children,
+
+		// Structured: merge at field level, overlay wins per key.
+		capabilities: {
+			tools: overlay.capabilities.tools.length > 0 ? overlay.capabilities.tools : base.capabilities.tools,
+			supervisor: overlay.capabilities.supervisor || base.capabilities.supervisor,
+		},
+		memory: {
+			session: overlay.memory.session !== "memory" ? overlay.memory.session : base.memory.session,
+			working: { ...base.memory.working, ...overlay.memory.working },
+		},
+		policies: {
+			appendSystemPrompt:
+				overlay.policies.appendSystemPrompt.length > 0
+					? overlay.policies.appendSystemPrompt
+					: base.policies.appendSystemPrompt,
+		},
+		loop: overlay.loop ?? base.loop,
+		delegation: overlay.delegation ?? base.delegation,
+		supervisor: overlay.supervisor ?? base.supervisor,
+		hooks: {
+			extensions: overlay.hooks.extensions.length > 0 ? overlay.hooks.extensions : base.hooks.extensions,
+		},
+		dependencies: overlay.dependencies ?? base.dependencies,
+		resource: overlay.resource ?? base.resource,
+	};
 }

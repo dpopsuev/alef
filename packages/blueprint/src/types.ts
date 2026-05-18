@@ -181,11 +181,28 @@ export interface AgentResourceConfig {
 	metadata: AgentResourceMetadata;
 }
 
+export interface AgentDefinitionSurfaceInput {
+	/** Transport type. Currently only 'sse' is supported (via RouterOrgan). */
+	type: "sse";
+	/**
+	 * Event type allowlist. Only motor/sense events whose type matches one of
+	 * these patterns are forwarded to connected clients.
+	 *
+	 * Patterns support a single trailing wildcard: 'fs.*' matches 'fs.read',
+	 * 'fs.write', etc. Use '*' alone to pass all events.
+	 *
+	 * Omit or set to [] to forward all events (open broadcast).
+	 */
+	events?: string[];
+}
+
 export interface AgentDefinitionInput {
 	name: string;
 	model?: string | AgentModelSelector;
 	systemPrompt?: string;
 	organs?: AgentDefinitionOrganInput[];
+	/** Event surface declarations — controls what the RouterOrgan broadcasts. */
+	surfaces?: AgentDefinitionSurfaceInput[];
 	capabilities?: {
 		tools?: string[];
 		supervisor?: boolean;
@@ -233,6 +250,8 @@ export interface CompiledAgentDefinition {
 	model?: AgentModelSelector;
 	systemPrompt?: string;
 	organs: CompiledAgentOrganDefinition[];
+	/** Compiled surface declarations. Empty array = broadcast all events. */
+	surfaces: AgentDefinitionSurfaceInput[];
 	capabilities: AgentDefinitionCapabilities;
 	memory: AgentDefinitionMemory;
 	policies: AgentDefinitionPolicies;

@@ -641,12 +641,20 @@ export async function main(args: string[], options?: MainOptions) {
 	}
 	time("readPipedStdin");
 
-	const { initialMessage, initialImages } = await prepareInitialMessage(
+	const { initialMessage: rawInitialMessage, initialImages } = await prepareInitialMessage(
 		parsed,
 		settingsManager.getImageAutoResize(),
 		stdinContent,
 	);
 	time("prepareInitialMessage");
+
+	// When the supervisor's eval gate failed on the previous build attempt, it
+	// passes the compile/test error output here so the agent can read the
+	// failures and attempt a self-repair before triggering another rebuild.
+	const evalGateReport = process.env.ALEF_SUPERVISOR_EVAL_GATE_REPORT?.trim();
+	const initialMessage = evalGateReport
+		? `The previous build failed the promotion gate. Fix the errors below, then trigger a rebuild.\n\n${evalGateReport}${rawInitialMessage ? `\n\n${rawInitialMessage}` : ""}`
+		: rawInitialMessage;
 	initTheme(settingsManager.getTheme(), appMode === "interactive");
 	time("initTheme");
 

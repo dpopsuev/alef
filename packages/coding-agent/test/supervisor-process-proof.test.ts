@@ -265,6 +265,50 @@ describe("supervisor process proofs", () => {
 			await harness.stop();
 		}
 	}, 60_000);
+
+	it("rolls back when health check fails before eval gate", async () => {
+		const fixture = createFixture();
+		const harness = new SupervisorHarness({
+			greenScriptPath: fixture.greenScriptPath,
+			hashScriptPath: fixture.hashScriptPath,
+			handoffPath: fixture.handoffPath,
+			forcedEvalResult: "pass",
+			forcedHealthResult: "fail",
+			skipHealth: false,
+			autoRebuild: true,
+		});
+		try {
+			await harness.start();
+			await harness.waitForOutput(/Health check failed: forced fail/, 30_000);
+			// Eval gate must NOT run after a failed health check.
+			expect(harness.output).not.toContain("Running blue-slot eval gate");
+			// Rollback is triggered.
+			expect(harness.output).toContain("FSM accepted rollback");
+		} finally {
+			await harness.stop();
+		}
+	}, 60_000);
+
+	it("proceeds to eval gate when health check passes", async () => {
+		const fixture = createFixture();
+		const harness = new SupervisorHarness({
+			greenScriptPath: fixture.greenScriptPath,
+			hashScriptPath: fixture.hashScriptPath,
+			handoffPath: fixture.handoffPath,
+			forcedEvalResult: "pass",
+			forcedHealthResult: "pass",
+			skipHealth: false,
+			autoRebuild: true,
+		});
+		try {
+			await harness.start();
+			await harness.waitForOutput(/Health check passed\./, 30_000);
+			await harness.waitForOutput(/Running blue-slot eval gate/, 10_000);
+			await harness.waitForOutput(/Eval gate passed\. Promoted staging slot\./, 30_000);
+		} finally {
+			await harness.stop();
+		}
+	}, 60_000);
 });
 
 function createFixture(): { root: string; greenScriptPath: string; hashScriptPath: string; handoffPath: string } {
@@ -359,6 +403,10 @@ class SupervisorHarness {
 			targetTag?: string;
 			expectedBuildHash?: string;
 			buildHashOutput?: string;
+			/** Force health check result without spawning the runner. Default: skip. */
+			forcedHealthResult?: "pass" | "fail";
+			/** Set to false to disable the default SKIP_HEALTH=1 override. */
+			skipHealth?: boolean;
 		},
 	) {}
 
@@ -376,6 +424,11 @@ class SupervisorHarness {
 			ALEF_SUPERVISOR_GREEN_SCRIPT: this.options.greenScriptPath,
 			ALEF_SUPERVISOR_BUILD_COMMAND: 'node -e "process.exit(0)"',
 			ALEF_SUPERVISOR_PACKAGE_UPDATE_COMMAND: 'node -e "process.exit(0)"',
+			// Default: skip health check so tests don't spawn a real runner binary.
+			ALEF_SUPERVISOR_SKIP_HEALTH: this.options.skipHealth === false ? undefined : "1",
+			...(this.options.forcedHealthResult
+				? { ALEF_SUPERVISOR_TEST_HEALTH_RESULT: this.options.forcedHealthResult }
+				: {}),
 			ALEF_SUPERVISOR_BUILD_HASH_COMMAND: `node ${JSON.stringify(this.options.hashScriptPath)}`,
 			ALEF_SUPERVISOR_TEST_BUILD_HASH_OUTPUT: this.options.buildHashOutput ?? "",
 			ALEF_SUPERVISOR_TEST_EVAL_RESULT: this.options.forcedEvalResult,

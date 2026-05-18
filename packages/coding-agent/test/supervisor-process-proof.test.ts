@@ -224,6 +224,47 @@ describe("supervisor process proofs", () => {
 			await optOutHarness.stop();
 		}
 	}, 60_000);
+
+	it("passes eval gate failure report to new green via env var", async () => {
+		const fixture = createFixture();
+		const harness = new SupervisorHarness({
+			greenScriptPath: fixture.greenScriptPath,
+			hashScriptPath: fixture.hashScriptPath,
+			handoffPath: fixture.handoffPath,
+			forcedEvalResult: "fail",
+			autoRebuild: true,
+		});
+		try {
+			await harness.start();
+			// First green starts, rebuild is triggered, eval gate fails, second green spawned.
+			await harness.waitForOutput(/Rolling back to previous active slot\./, 30_000);
+			// Second green receives the report env var.
+			await harness.waitForOutput(/FAKE_GREEN_EVAL_REPORT/, 20_000);
+			expect(harness.output).toContain("FAKE_GREEN_EVAL_REPORT forced fail");
+		} finally {
+			await harness.stop();
+		}
+	}, 60_000);
+
+	it("does not set eval gate report env var when probe passes", async () => {
+		const fixture = createFixture();
+		const harness = new SupervisorHarness({
+			greenScriptPath: fixture.greenScriptPath,
+			hashScriptPath: fixture.hashScriptPath,
+			handoffPath: fixture.handoffPath,
+			forcedEvalResult: "pass",
+			autoRebuild: true,
+		});
+		try {
+			await harness.start();
+			await harness.waitForOutput(/Eval gate passed\. Promoted staging slot\./, 30_000);
+			// Green after successful promotion must NOT receive an error report.
+			await harness.waitForOutput(/FAKE_GREEN_NO_EVAL_REPORT/, 20_000);
+			expect(harness.output).not.toContain("FAKE_GREEN_EVAL_REPORT ");
+		} finally {
+			await harness.stop();
+		}
+	}, 60_000);
 });
 
 function createFixture(): { root: string; greenScriptPath: string; hashScriptPath: string; handoffPath: string } {
@@ -236,6 +277,12 @@ function createFixture(): { root: string; greenScriptPath: string; hashScriptPat
 		greenScriptPath,
 		`process.stdout.write("FAKE_GREEN_STARTED\\n");
 process.stdout.write("FAKE_GREEN_ARGS " + JSON.stringify(process.argv.slice(2)) + "\\n");
+const evalReport = process.env.ALEF_SUPERVISOR_EVAL_GATE_REPORT;
+if (evalReport) {
+  process.stdout.write("FAKE_GREEN_EVAL_REPORT " + evalReport.slice(0, 200) + "\\n");
+} else {
+  process.stdout.write("FAKE_GREEN_NO_EVAL_REPORT\\n");
+}
 process.on("message", (msg) => {
   if (msg && typeof msg === "object" && msg.type === "handoff_prepare" && msg.envelope && msg.envelope.updateId) {
     if (typeof process.send === "function") {

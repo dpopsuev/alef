@@ -88,6 +88,9 @@ export interface DialogOrganOptions {
 
 export class DialogOrgan implements Organ {
 	readonly name = "dialog";
+	readonly description =
+		"Conversation boundary: accumulates history, routes user messages to the LLM, delivers replies.";
+	readonly labels = ["conversation", "history", "messaging"] as const;
 	readonly tools: readonly ToolDefinition[] = [MESSAGE_TOOL];
 	/**
 	 * Declare subscriptions so Agent.validate() never probes via a second mount().

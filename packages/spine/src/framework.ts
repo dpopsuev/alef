@@ -328,6 +328,10 @@ export interface OrganOptions {
 	 * how, and when NOT to use this organ's tools.
 	 */
 	directives?: readonly string[];
+	/** Short human-readable description shown in --list-organs and diagnostics. */
+	description?: string;
+	/** Freeform labels for categorisation and discovery (e.g. ['filesystem', 'readonly']). */
+	labels?: readonly string[];
 }
 
 /**
@@ -388,6 +392,8 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			sense: senseSubscriptions,
 		},
 		directives: opts.directives,
+		description: opts.description,
+		labels: opts.labels,
 		mount(nerve: Nerve): () => void {
 			// Session-scoped cache — lives for the lifetime of this mount.
 			const cache = new Map<string, Record<string, unknown>>();

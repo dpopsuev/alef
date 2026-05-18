@@ -233,7 +233,12 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 				},
 			},
 		},
-		{ actions: opts.actions, directives: LECTOR_DIRECTIVES },
+		{
+			actions: opts.actions,
+			directives: LECTOR_DIRECTIVES,
+			description: "Symbol-aware code reading and editing with LSP caller analysis.",
+			labels: ["code", "symbols", "lsp", "read", "edit"],
+		},
 	);
 
 	// On unmount: clear the backend's block cache if using LocalLectorBackend.

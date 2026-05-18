@@ -114,6 +114,17 @@ export interface Organ {
 	 * Each string is a freeform instruction block (markdown or prose).
 	 */
 	readonly directives?: readonly string[];
+	/**
+	 * Short human-readable description of what this organ does.
+	 * Shown in --list-organs and blueprint validation output.
+	 */
+	readonly description?: string;
+	/**
+	 * Freeform labels for categorisation and discovery.
+	 * Examples: ["filesystem", "readonly"], ["shell", "exec"], ["llm", "reasoning"]
+	 * Used for filtering in --list-organs and future organ registries.
+	 */
+	readonly labels?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------

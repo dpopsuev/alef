@@ -239,6 +239,8 @@ export function createLLMOrgan(options: LLMOrganOptions): Organ {
 export class LLMOrgan {
 	private readonly organ: Organ;
 	readonly name = "llm";
+	readonly description = "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.";
+	readonly labels = ["llm", "reasoning", "ai"] as const;
 	readonly tools = [] as const;
 	get subscriptions() {
 		return this.organ.subscriptions;

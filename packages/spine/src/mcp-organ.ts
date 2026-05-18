@@ -31,6 +31,8 @@ import type { Nerve, Organ, ToolDefinition } from "./buses.js";
 
 class McpOrganImpl implements Organ {
 	readonly name: string;
+	readonly description: string;
+	readonly labels = ["mcp", "external"] as const;
 	readonly tools: readonly ToolDefinition[];
 	readonly subscriptions: { readonly motor: readonly string[]; readonly sense: readonly string[] };
 	readonly directives?: readonly string[];
@@ -41,6 +43,7 @@ class McpOrganImpl implements Organ {
 
 	constructor(name: string, tools: ToolDefinition[], client: MCPClient, nameMap: Map<string, string>) {
 		this.name = name;
+		this.description = `MCP organ wrapping the '${name}' server (${tools.length} tools).`;
 		this.tools = tools;
 		this.client = client;
 		this.nameMap = nameMap;

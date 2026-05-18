@@ -101,6 +101,7 @@ const blueprintPath = args.blueprint ?? findAgentDefinitionPath(args.cwd);
 let corpusOrgans = [];
 let blueprintModelId: string | undefined;
 let blueprintSurfaces: import("@dpopsuev/alef-agent-blueprint").AgentDefinitionSurfaceInput[] = [];
+let blueprintUpgradePolicy: "rebuild_only" | "packages" | "self" = "rebuild_only";
 
 if (blueprintPath) {
 	let definition = loadAgentDefinition(blueprintPath);
@@ -127,6 +128,7 @@ if (blueprintPath) {
 	corpusOrgans = materialized.organs;
 	blueprintModelId = materialized.modelId;
 	blueprintSurfaces = definition.surfaces;
+	blueprintUpgradePolicy = definition.supervisor?.upgradePolicy ?? "rebuild_only";
 } else {
 	// Default organ set — mirrors what the runner has always done.
 	corpusOrgans = [
@@ -238,6 +240,24 @@ if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 		}
 		// supervisor_transition: informational, no action needed.
 	});
+
+	// Blueprint supervisor policy — upgradePolicy from the blueprint controls
+	// which IPC scope is sent when the agent requests a rebuild.
+	// rebuild_only → scope 'rebuild'  (build + eval gate, no dep update)
+	// packages     → scope 'packages' (npm update + rebuild)
+	// self         → scope 'self'     (full stack: verify-and-reexec supervisor)
+	const ipcScope =
+		blueprintUpgradePolicy === "self" ? "self" : blueprintUpgradePolicy === "packages" ? "packages" : "rebuild";
+	console.error(`[alef] supervisor upgrade policy: ${blueprintUpgradePolicy} (scope=${ipcScope})`);
+
+	// Expose globally so organs/tools can trigger a supervisor-managed upgrade.
+	(globalThis as Record<string, unknown>).alefRequestRebuild = () => {
+		if (ipcScope === "rebuild") {
+			process.send!({ type: "rebuild" });
+		} else {
+			process.send!({ type: "update", scope: ipcScope, updateId: crypto.randomUUID() });
+		}
+	};
 }
 
 // SIGTERM: finish current turn then exit cleanly.
@@ -254,6 +274,15 @@ process.once("SIGTERM", async () => {
 if (args.listTools) {
 	for (const tool of agent.tools) {
 		console.log(tool.name);
+	}
+	process.exit(0);
+}
+
+if (args.listOrgans) {
+	for (const organ of agent.organs) {
+		const labels = organ.labels?.length ? ` [${organ.labels.join(", ")}]` : "";
+		const desc = organ.description ? ` — ${organ.description}` : "";
+		console.log(`${organ.name}${labels}${desc}`);
 	}
 	process.exit(0);
 }

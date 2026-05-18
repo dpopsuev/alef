@@ -1,262 +1,198 @@
 /**
- * WebOrgan — web fetch, search, crawl, and graph CorpusOrgan.
+ * WebOrgan — fetch web pages and convert them to plain text.
  *
- * Session-scoped SpiderCache + PageGraph created at mount, torn down on unmount.
+ * Tools:
+ *   web.fetch(url, { format?, timeoutMs? })
+ *     Fetches a URL and returns the content as plain text (default) or raw HTML.
+ *     Strips scripts, styles, and navigation elements before returning.
+ *     Returns { content, title, url, statusCode, truncated }.
  *
- * Motor → Sense (same name, different bus):
- *   web.fetch, web.search, web.crawl, web.graph
+ * No external dependencies — uses Node.js built-in fetch (available since Node 18).
+ * HTML-to-text conversion is handled inline: strips tags, collapses whitespace.
+ *
+ * Ref: TSK-181
  */
 
-import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-spine";
 import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
-import type { SpideredPage } from "@dpopsuev/web-spider";
-import { batchSpider, crawl, PageGraph, SpiderCache, spider } from "@dpopsuev/web-spider";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
-// Tool definitions
+// Constants
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TIMEOUT_MS = 15_000;
+const MAX_CONTENT_BYTES = 100_000; // ~25k tokens, generous but bounded
+
+// ---------------------------------------------------------------------------
+// HTML → text conversion (inline, no deps)
+// ---------------------------------------------------------------------------
+
+/** Strip tags that contain non-content (scripts, styles, nav, etc.). */
+function stripNonContent(html: string): string {
+	return html
+		.replace(/<script[\s\S]*?<\/script>/gi, " ")
+		.replace(/<style[\s\S]*?<\/style>/gi, " ")
+		.replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+		.replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+		.replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+		.replace(/<header[\s\S]*?<\/header>/gi, " ")
+		.replace(/<aside[\s\S]*?<\/aside>/gi, " ");
+}
+
+/** Extract the <title> tag content. */
+function extractTitle(html: string): string {
+	const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+	return m ? m[1].replace(/\s+/g, " ").trim() : "";
+}
+
+/** Convert HTML to readable plain text. */
+function htmlToText(html: string): string {
+	// Block elements that should become newlines.
+	let text = html
+		.replace(/<\/?(p|div|section|article|h[1-6]|li|dt|dd|blockquote|pre|br)[^>]*>/gi, "\n")
+		.replace(/<\/?(tr|thead|tbody|tfoot)[^>]*>/gi, "\n")
+		.replace(/<td[^>]*>/gi, "\t")
+		.replace(/<[^>]+>/g, "") // strip remaining tags
+		.replace(/&amp;/g, "&")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/&nbsp;/g, " ")
+		.replace(/&#\d+;/g, " ")
+		.replace(/&[a-z]+;/gi, " ");
+
+	// Collapse runs of blank lines to at most two.
+	text = text.replace(/\n{3,}/g, "\n\n");
+	// Collapse spaces within lines.
+	text = text
+		.split("\n")
+		.map((l) => l.replace(/[ \t]+/g, " ").trim())
+		.join("\n");
+
+	return text.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Tool definition
 // ---------------------------------------------------------------------------
 
 const WEB_FETCH_TOOL = {
 	name: "web.fetch",
 	description:
-		"Fetch a single URL and return structured content: title, description, headings, chunks, links. Cached per session.",
+		"Fetch a web page and return its content as plain text. " +
+		"Use this to read documentation, articles, GitHub READMEs, or any public URL. " +
+		"Content is stripped of scripts and navigation elements. " +
+		"Set format='html' to get raw HTML when you need structure.",
 	inputSchema: z.object({
-		url: z.string().describe("Fully qualified URL (https://...)"),
-		full: z.boolean().optional().describe("Include full markdown body (default false)"),
-	}),
-};
-
-const WEB_SEARCH_TOOL = {
-	name: "web.search",
-	description: "Search DuckDuckGo and spider top results. Returns structured content for each page.",
-	inputSchema: z.object({
-		query: z.string().describe("Search query"),
-		maxResults: z.number().min(1).max(8).optional().describe("Max pages to fetch (1–8, default 4)"),
-		concurrency: z.number().optional().describe("Parallel fetches (default 3)"),
-	}),
-};
-
-const WEB_CRAWL_TOOL = {
-	name: "web.crawl",
-	description: "Recursively spider a site from a start URL. Returns all pages and graph statistics.",
-	inputSchema: z.object({
-		url: z.string().describe("Start URL"),
-		maxDepth: z.number().min(0).max(4).optional().describe("Link hops from start (default 1, max 4)"),
-		maxPages: z.number().min(1).max(50).optional().describe("Hard cap on pages (default 10, max 50)"),
-		sameDomainOnly: z.boolean().optional().describe("Stay on same domain (default true)"),
-	}),
-};
-
-const WEB_GRAPH_TOOL = {
-	name: "web.graph",
-	description: "Query the session knowledge graph of fetched pages. Actions: snapshot | path | neighbors | rank.",
-	inputSchema: z.object({
-		action: z.enum(["snapshot", "path", "neighbors", "rank"]).describe("Action to perform"),
-		url: z.string().optional().describe("Source URL (path, neighbors)"),
-		target: z.string().optional().describe("Target URL (path)"),
-		topN: z.number().optional().describe("Limit for rank (default 10)"),
+		url: z.string().describe("The URL to fetch. Must start with http:// or https://."),
+		format: z
+			.enum(["text", "html"])
+			.optional()
+			.describe("Output format. 'text' (default) strips HTML tags. 'html' returns raw HTML."),
+		timeoutMs: z.number().optional().describe("Request timeout in milliseconds. Default: 15000."),
 	}),
 };
 
 // ---------------------------------------------------------------------------
-// Options
-// ---------------------------------------------------------------------------
-
-export interface WebOrganOptions {
-	cacheMaxSize?: number;
-	cacheTtlMs?: number;
-	fetchTimeoutMs?: number;
-	/** Allowlist of web action names to mount. Default: all. */
-	actions?: readonly string[];
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function summarise(page: SpideredPage) {
-	return {
-		url: page.url,
-		domain: page.domain,
-		title: page.title,
-		description: page.description,
-		author: page.author,
-		publishedAt: page.publishedAt,
-		wordCount: page.wordCount,
-		readingTimeMinutes: page.readingTimeMinutes,
-		headings: page.headings.map((h: { level: number; text: string }) => `${"#".repeat(h.level)} ${h.text}`),
-		chunkCount: page.chunks.length,
-		linkCount: page.links.length,
-		preview: page.chunks.slice(0, 3).map((c: { heading?: string; wordCount: number; text: string }) => ({
-			heading: c.heading,
-			wordCount: c.wordCount,
-			text: c.text.slice(0, 400),
-		})),
-	};
-}
-
-async function ddgSearch(query: string, maxResults = 8): Promise<string[]> {
-	const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-	const res = await fetch(url, { headers: { "User-Agent": "alef-web-organ/0.1 (agent research tool)" } });
-	const html = await res.text();
-	const seen = new Set<string>();
-	const urls: string[] = [];
-	for (const match of html.matchAll(/uddg=([^&"]+)/g)) {
-		try {
-			const decoded = decodeURIComponent(match[1]);
-			if (!seen.has(decoded) && decoded.startsWith("http")) {
-				seen.add(decoded);
-				urls.push(decoded);
-				if (urls.length >= maxResults) break;
-			}
-		} catch {
-			/* skip malformed */
-		}
-	}
-	return urls;
-}
-
-// ---------------------------------------------------------------------------
-// Handlers (pure functions — no nerve, no makeSense)
+// Handler
 // ---------------------------------------------------------------------------
 
 async function handleFetch(
-	ctx: CorpusHandlerCtx,
-	cache: SpiderCache,
-	graph: PageGraph,
+	url: string,
+	format: "text" | "html",
 	timeoutMs: number,
-): Promise<Record<string, unknown>> {
-	const url = String(ctx.payload.url ?? "");
-	if (!url) throw new Error("web.fetch: url is required");
-	const cached = cache.get(url);
-	const page = cached ?? (await spider(url, { timeoutMs }));
-	if (!cached) {
-		cache.set(url, page);
-		graph.addPage(page);
+): Promise<{ content: string; title: string; url: string; statusCode: number; truncated: boolean }> {
+	if (!url.startsWith("http://") && !url.startsWith("https://")) {
+		throw new Error(`web.fetch: url must start with http:// or https://, got: ${url}`);
 	}
-	return ctx.payload.full
-		? ({ ...summarise(page), markdown: page.markdown } as Record<string, unknown>)
-		: (summarise(page) as unknown as Record<string, unknown>);
-}
 
-async function handleSearch(
-	ctx: CorpusHandlerCtx,
-	cache: SpiderCache,
-	graph: PageGraph,
-): Promise<Record<string, unknown>> {
-	const query = String(ctx.payload.query ?? "");
-	if (!query) throw new Error("web.search: query is required");
-	const max = typeof ctx.payload.maxResults === "number" ? ctx.payload.maxResults : 4;
-	const concurrency = typeof ctx.payload.concurrency === "number" ? ctx.payload.concurrency : 3;
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-	const urls = await ddgSearch(query, max);
-	if (urls.length === 0) return { query, pages: [], errors: [] };
-
-	const results = await batchSpider(urls, {
-		concurrency,
-		delayMs: 300,
-		cache,
-		onProgress: (_done: number, _total: number, url: string) => {
-			const page = cache.get(url);
-			if (page) graph.addPage(page);
-		},
-	});
-
-	const pages: ReturnType<typeof summarise>[] = [];
-	const errors: { url: string; error: string }[] = [];
-	for (const [url, result] of results) {
-		if (result instanceof Error) errors.push({ url, error: result.message });
-		else pages.push(summarise(result));
+	let response: Response;
+	try {
+		response = await fetch(url, {
+			signal: controller.signal,
+			headers: {
+				"User-Agent": "Alef/1.0 (agent; +https://github.com/dpopsuev/alef)",
+				Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
+			},
+			redirect: "follow",
+		});
+	} finally {
+		clearTimeout(timer);
 	}
-	return { query, pages, errors } as unknown as Record<string, unknown>;
-}
 
-async function handleCrawl(
-	ctx: CorpusHandlerCtx,
-	cache: SpiderCache,
-	graph: PageGraph,
-): Promise<Record<string, unknown>> {
-	const url = String(ctx.payload.url ?? "");
-	if (!url) throw new Error("web.crawl: url is required");
+	const statusCode = response.status;
+	const rawBytes = await response.arrayBuffer();
+	const rawText = new TextDecoder("utf-8", { fatal: false }).decode(rawBytes);
 
-	const { pages, errors } = await crawl(url, {
-		maxDepth: typeof ctx.payload.maxDepth === "number" ? ctx.payload.maxDepth : 1,
-		maxPages: typeof ctx.payload.maxPages === "number" ? ctx.payload.maxPages : 10,
-		sameDomainOnly: ctx.payload.sameDomainOnly !== false,
-		concurrency: 3,
-		delayMs: 400,
-		cache,
-		graph,
-	});
+	if (format === "html") {
+		const truncated = rawText.length > MAX_CONTENT_BYTES;
+		return {
+			content: truncated ? rawText.slice(0, MAX_CONTENT_BYTES) : rawText,
+			title: extractTitle(rawText),
+			url: response.url,
+			statusCode,
+			truncated,
+		};
+	}
 
-	const snap = graph.toJSON();
-	const byRank = graph.byPageRank().slice(0, 10);
+	// Strip non-content elements then convert to text.
+	const stripped = stripNonContent(rawText);
+	const title = extractTitle(rawText);
+	const text = htmlToText(stripped);
+	const truncated = text.length > MAX_CONTENT_BYTES;
+
 	return {
-		startUrl: url,
-		pageCount: pages.size,
-		errorCount: errors.size,
-		graph: {
-			nodes: snap.nodes.length,
-			edges: snap.edges.length,
-			roots: graph.roots().map((n: { url: string }) => n.url),
-			sinks: graph.sinks().map((n: { url: string }) => n.url),
-			topByInboundLinks: byRank.map((r: { node: { url: string; title: string }; inboundCount: number }) => ({
-				url: r.node.url,
-				title: r.node.title,
-				inbound: r.inboundCount,
-			})),
-		},
-		pages: [...pages.values()].map(summarise),
-		errors: [...errors.entries()].map(([u, e]) => ({ url: u, error: e.message })),
-	} as unknown as Record<string, unknown>;
-}
-
-function handleGraph(ctx: CorpusHandlerCtx, graph: PageGraph): Record<string, unknown> {
-	const action = String(ctx.payload.action ?? "");
-	switch (action) {
-		case "snapshot":
-			return graph.toJSON() as unknown as Record<string, unknown>;
-		case "path": {
-			const from = String(ctx.payload.url ?? "");
-			const to = String(ctx.payload.target ?? "");
-			if (!from || !to) throw new Error("web.graph path requires url and target");
-			const path = graph.findPath(from, to);
-			return { from, to, path, reachable: path !== null };
-		}
-		case "neighbors": {
-			const url = String(ctx.payload.url ?? "");
-			if (!url) throw new Error("web.graph neighbors requires url");
-			return { url, outbound: graph.outbound(url), inbound: graph.inbound(url) };
-		}
-		case "rank":
-			return { rank: graph.byPageRank().slice(0, typeof ctx.payload.topN === "number" ? ctx.payload.topN : 10) };
-		default:
-			throw new Error(`web.graph: unknown action: ${action}. Use: snapshot | path | neighbors | rank`);
-	}
+		content: truncated ? text.slice(0, MAX_CONTENT_BYTES) : text,
+		title,
+		url: response.url,
+		statusCode,
+		truncated,
+	};
 }
 
 // ---------------------------------------------------------------------------
-// Factory
+// Organ factory
 // ---------------------------------------------------------------------------
+
+export interface WebOrganOptions {
+	/** Default request timeout in milliseconds. Default: 15000. */
+	defaultTimeoutMs?: number;
+}
+
+const WEB_DIRECTIVES = [
+	`**web.fetch tool guidance**
+- Use web.fetch to read documentation, API references, GitHub READMEs, changelogs, and articles.
+- Always prefer fs.read or lector.read for local files. web.fetch is for public URLs only.
+- Content is returned as plain text by default. Use format='html' only when you need page structure.
+- Respect robots.txt and rate limits. Do not fetch the same URL repeatedly in a loop.
+- If a URL requires authentication or returns 4xx/5xx, report the statusCode and stop.`,
+];
 
 export function createWebOrgan(options: WebOrganOptions = {}): Organ {
-	// Session-scoped state — created once per mount lifecycle
-	const cache = new SpiderCache({
-		maxSize: options.cacheMaxSize ?? 200,
-		ttlMs: options.cacheTtlMs ?? 20 * 60 * 1000,
-	});
-	const graph = new PageGraph();
-	const timeoutMs = options.fetchTimeoutMs ?? 12_000;
+	const defaultTimeout = options.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS;
 
 	return defineCorpusOrgan(
 		"web",
 		{
-			"web.fetch": { tool: WEB_FETCH_TOOL, handle: (ctx) => handleFetch(ctx, cache, graph, timeoutMs) },
-			"web.search": { tool: WEB_SEARCH_TOOL, handle: (ctx) => handleSearch(ctx, cache, graph) },
-			"web.crawl": { tool: WEB_CRAWL_TOOL, handle: (ctx) => handleCrawl(ctx, cache, graph) },
-			"web.graph": { tool: WEB_GRAPH_TOOL, handle: async (ctx) => handleGraph(ctx, graph) },
+			"web.fetch": {
+				tool: WEB_FETCH_TOOL,
+				handle: async (ctx) => {
+					const url = String(ctx.payload.url ?? "");
+					const format = ctx.payload.format === "html" ? "html" : "text";
+					const timeoutMs = typeof ctx.payload.timeoutMs === "number" ? ctx.payload.timeoutMs : defaultTimeout;
+					return handleFetch(url, format, timeoutMs) as unknown as Record<string, unknown>;
+				},
+			},
 		},
-		{ actions: options.actions },
+		{
+			directives: WEB_DIRECTIVES,
+			description: "Fetch and read public web pages, documentation, and articles.",
+			labels: ["web", "fetch", "http", "read"],
+		},
 	);
 }

@@ -2,11 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "rootDir": "src",
-    "noEmit": true,
-    "paths": {
-      "@dpopsuev/web-spider": ["../../../pi-mono/packages/web-spider/dist/index.d.ts"],
-      "@dpopsuev/web-spider/*": ["../../../pi-mono/packages/web-spider/dist/*"]
-    }
+    "noEmit": true
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

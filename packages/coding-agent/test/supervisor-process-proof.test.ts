@@ -25,7 +25,7 @@ describe("supervisor process proofs", () => {
 			greenScriptPath: fixture.greenScriptPath,
 			hashScriptPath: fixture.hashScriptPath,
 			handoffPath: fixture.handoffPath,
-			forcedSmokeResult: "pass",
+			forcedEvalResult: "pass",
 			autoRebuild: true,
 		});
 		try {
@@ -49,7 +49,7 @@ describe("supervisor process proofs", () => {
 			greenScriptPath: fixture.greenScriptPath,
 			hashScriptPath: fixture.hashScriptPath,
 			handoffPath: fixture.handoffPath,
-			forcedSmokeResult: "fail",
+			forcedEvalResult: "fail",
 			autoRebuild: true,
 		});
 		try {
@@ -88,7 +88,7 @@ describe("supervisor process proofs", () => {
 			greenScriptPath: fixture.greenScriptPath,
 			hashScriptPath: fixture.hashScriptPath,
 			handoffPath: fixture.handoffPath,
-			forcedSmokeResult: "pass",
+			forcedEvalResult: "pass",
 			autoRebuild: false,
 		});
 		try {
@@ -113,7 +113,7 @@ describe("supervisor process proofs", () => {
 			greenScriptPath: fixture.greenScriptPath,
 			hashScriptPath: fixture.hashScriptPath,
 			handoffPath: fixture.handoffPath,
-			forcedSmokeResult: "pass",
+			forcedEvalResult: "pass",
 			autoRebuild: false,
 			autoUpdateScope: "packages",
 			targetTag: "v0.0.1",
@@ -124,7 +124,7 @@ describe("supervisor process proofs", () => {
 			await harness.start();
 			await harness.waitForOutput(/Running packages pre-step\.\.\./, 20_000);
 			await harness.waitForOutput(/Verified build hash [a-f0-9]{64} for tag v0\.0\.1\./, 20_000);
-			await harness.waitForOutput(/Smoke tests passed\. Promoted staging slot\./, 20_000);
+			await harness.waitForOutput(/Eval gate passed. Promoted staging slot./, 20_000);
 			expect(harness.output).toContain("FSM accepted promote: staging_healthy -> promoted");
 			expect(harness.output).toContain("FSM accepted retire_old: promoted -> idle");
 		} finally {
@@ -138,7 +138,7 @@ describe("supervisor process proofs", () => {
 			greenScriptPath: fixture.greenScriptPath,
 			hashScriptPath: fixture.hashScriptPath,
 			handoffPath: fixture.handoffPath,
-			forcedSmokeResult: "pass",
+			forcedEvalResult: "pass",
 			autoRebuild: false,
 			autoUpdateScope: "packages",
 			targetTag: "v0.0.1",
@@ -161,7 +161,7 @@ describe("supervisor process proofs", () => {
 			greenScriptPath: fixture.greenScriptPath,
 			hashScriptPath: fixture.hashScriptPath,
 			handoffPath: fixture.handoffPath,
-			forcedSmokeResult: "pass",
+			forcedEvalResult: "pass",
 			autoRebuild: false,
 			autoUpdateScope: "packages",
 			targetTag: "latest",
@@ -184,7 +184,7 @@ describe("supervisor process proofs", () => {
 			greenScriptPath: fixture.greenScriptPath,
 			hashScriptPath: fixture.hashScriptPath,
 			handoffPath: fixture.handoffPath,
-			forcedSmokeResult: "pass",
+			forcedEvalResult: "pass",
 			autoRebuild: false,
 			autoUpdateScope: "self",
 			targetTag: "v0.0.2",
@@ -207,7 +207,7 @@ describe("supervisor process proofs", () => {
 			greenScriptPath: fixture.greenScriptPath,
 			hashScriptPath: fixture.hashScriptPath,
 			handoffPath: fixture.handoffPath,
-			forcedSmokeResult: "pass",
+			forcedEvalResult: "pass",
 			autoRebuild: false,
 			autoUpdateScope: "packages",
 			allowUnverifiedUpdates: true,
@@ -219,7 +219,7 @@ describe("supervisor process proofs", () => {
 				/Security policy opt-out active via ALEF_SUPERVISOR_ALLOW_UNVERIFIED_UPDATES=1/,
 				20_000,
 			);
-			await optOutHarness.waitForOutput(/Smoke tests passed\. Promoted staging slot\./, 20_000);
+			await optOutHarness.waitForOutput(/Eval gate passed. Promoted staging slot./, 20_000);
 		} finally {
 			await optOutHarness.stop();
 		}
@@ -305,7 +305,7 @@ class SupervisorHarness {
 			greenScriptPath: string;
 			hashScriptPath: string;
 			handoffPath: string;
-			forcedSmokeResult: "pass" | "fail";
+			forcedEvalResult: "pass" | "fail";
 			autoRebuild: boolean;
 			autoUpdateScope?: "rebuild" | "packages" | "self";
 			allowUnverifiedUpdates?: boolean;
@@ -331,7 +331,7 @@ class SupervisorHarness {
 			ALEF_SUPERVISOR_PACKAGE_UPDATE_COMMAND: 'node -e "process.exit(0)"',
 			ALEF_SUPERVISOR_BUILD_HASH_COMMAND: `node ${JSON.stringify(this.options.hashScriptPath)}`,
 			ALEF_SUPERVISOR_TEST_BUILD_HASH_OUTPUT: this.options.buildHashOutput ?? "",
-			ALEF_SUPERVISOR_TEST_SMOKE_RESULT: this.options.forcedSmokeResult,
+			ALEF_SUPERVISOR_TEST_EVAL_RESULT: this.options.forcedEvalResult,
 			ALEF_SUPERVISOR_HANDOFF_PATH: this.options.handoffPath,
 			ALEF_SUPERVISOR_AUTO_REBUILD_ON_START: autoUpdateScope ? "0" : this.options.autoRebuild ? "1" : "0",
 			TSX_TSCONFIG_PATH: tsconfigPath,

@@ -311,6 +311,63 @@ describe("supervisor process proofs", () => {
 	}, 60_000);
 });
 
+// ---------------------------------------------------------------------------
+// verify-and-reexec proof tests (TSK-27 / TSK-28)
+// ---------------------------------------------------------------------------
+
+describe("supervisor verify-and-reexec (scope=self)", () => {
+	it("probes itself, tears down green, and re-execs new supervisor binary on pass", async () => {
+		const fixture = createFixture();
+		const harness = new SupervisorHarness({
+			greenScriptPath: fixture.greenScriptPath,
+			hashScriptPath: fixture.hashScriptPath,
+			handoffPath: fixture.handoffPath,
+			forcedEvalResult: "pass",
+			autoRebuild: false,
+			autoUpdateScope: "self",
+			allowUnverifiedUpdates: true, // skip tag/hash policy for test
+		});
+		try {
+			await harness.start();
+			// Supervisor runs the probe against itself (--probe flag).
+			await harness.waitForOutput(/Running verify-and-reexec probe/, 20_000);
+			// Probe passes → supervisor tears down and execs new binary.
+			await harness.waitForOutput(/Probe passed\. Tearing down and re-executing supervisor\./, 20_000);
+			// New supervisor spawns a fresh green.
+			await harness.waitForOutput(/FAKE_GREEN_STARTED/, 25_000);
+		} finally {
+			await harness.stop();
+		}
+	}, 75_000);
+
+	it("falls back to rebuild lane when probe fails", async () => {
+		const fixture = createFixture();
+		const harness = new SupervisorHarness({
+			greenScriptPath: fixture.greenScriptPath,
+			hashScriptPath: fixture.hashScriptPath,
+			handoffPath: fixture.handoffPath,
+			forcedEvalResult: "fail", // probe fails
+			autoRebuild: false,
+			autoUpdateScope: "self",
+			allowUnverifiedUpdates: true,
+		});
+		try {
+			await harness.start();
+			// Probe is attempted.
+			await harness.waitForOutput(/Running verify-and-reexec probe/, 20_000);
+			// Probe fails — supervisor falls back to rebuild lane.
+			await harness.waitForOutput(
+				/Reexec verification failed|verify failed|rebuild lane|child verify failed/,
+				20_000,
+			);
+			// Green still starts (rebuild or fresh start).
+			await harness.waitForOutput(/FAKE_GREEN_STARTED/, 25_000);
+		} finally {
+			await harness.stop();
+		}
+	}, 75_000);
+});
+
 function createFixture(): { root: string; greenScriptPath: string; hashScriptPath: string; handoffPath: string } {
 	const root = mkdtempSync(join(tmpdir(), "alef-supervisor-proof-"));
 	tempDirs.push(root);

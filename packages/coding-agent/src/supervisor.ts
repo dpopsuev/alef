@@ -103,6 +103,33 @@ function findAlefBin(repoRoot: string): string {
 	throw new Error("Could not find Alef entry point (cli.js / cli.ts)");
 }
 
+/**
+ * Build the argument list for spawning a new supervisor instance.
+ *
+ * tsx patches process.argv[1] to the TypeScript source file and does not
+ * add itself to argv. When the supervisor is running from source (`.ts`),
+ * we must prepend the tsx CLI so Node.js can execute TypeScript.
+ * In production (compiled `.js`), the entry is already executable by Node.
+ */
+export function buildSupervisorSpawnArgs(baseArgs: string[]): string[] {
+	const entry = process.argv[1] ?? "";
+	if (entry.endsWith(".ts")) {
+		// Running under tsx in development — find tsx relative to the repo root.
+		let searchDir = dirname(entry);
+		for (let i = 0; i < 6; i++) {
+			const tsxCli = join(searchDir, "node_modules", "tsx", "dist", "cli.mjs");
+			if (existsSync(tsxCli)) {
+				return [tsxCli, entry, ...baseArgs];
+			}
+			const parent = dirname(searchDir);
+			if (parent === searchDir) break;
+			searchDir = parent;
+		}
+	}
+	// Production compiled JS — Node can execute directly.
+	return [entry, ...baseArgs];
+}
+
 export function parseSessionFromArgs(args: string[]): string | undefined {
 	for (let i = 0; i < args.length; i++) {
 		if (args[i] === "--session" && i + 1 < args.length) {
@@ -1067,10 +1094,7 @@ class Supervisor {
 
 	private async verifyAndReexec(updateId: string): Promise<boolean> {
 		console.log("[supervisor] Running verify-and-reexec probe...");
-		const supervisorEntry = process.argv[1];
-		if (!supervisorEntry) {
-			return false;
-		}
+		if (!process.argv[1]) return false;
 		const probeResult = await runSupervisorProbe(this.baseArgs, process.cwd(), this.sessionFile);
 		if (!probeResult) {
 			return false;
@@ -1106,7 +1130,8 @@ class Supervisor {
 		// Node.js has no native execv(2), so spawnSync is the closest equivalent:
 		// no gap between old and new, stdio is continuous, exit code propagates.
 		try {
-			const result = spawnSync(process.execPath, [supervisorEntry, ...this.baseArgs], {
+			const reexecArgs = buildSupervisorSpawnArgs(this.baseArgs);
+			const result = spawnSync(process.execPath, reexecArgs, {
 				cwd: process.cwd(),
 				stdio: "inherit",
 				env: {
@@ -1134,16 +1159,14 @@ class Supervisor {
 }
 
 async function runSupervisorProbe(baseArgs: string[], cwd: string, sessionFile: string | undefined): Promise<boolean> {
-	const supervisorEntry = process.argv[1];
-	if (!supervisorEntry) {
-		return false;
+	if (!process.argv[1]) return false;
+	const probeArgs = [...baseArgs, SUPERVISOR_PROBE_FLAG];
+	if (sessionFile && !probeArgs.includes("--session")) {
+		probeArgs.push("--session", sessionFile);
 	}
-	const args = [supervisorEntry, ...baseArgs, SUPERVISOR_PROBE_FLAG];
-	if (sessionFile && !args.includes("--session")) {
-		args.push("--session", sessionFile);
-	}
+	const spawnArgs = buildSupervisorSpawnArgs(probeArgs);
 	return await new Promise<boolean>((resolvePromise) => {
-		const proc = spawn(process.execPath, args, {
+		const proc = spawn(process.execPath, spawnArgs, {
 			cwd,
 			stdio: "inherit",
 			env: process.env,
@@ -1156,8 +1179,8 @@ async function runSupervisorProbe(baseArgs: string[], cwd: string, sessionFile: 
 
 async function runProbeMode(): Promise<void> {
 	const repoRoot = findRepoRoot();
-	const passed = await runBlueProbe(repoRoot);
-	process.exit(passed ? 0 : 1);
+	const result = await runBlueProbe(repoRoot);
+	process.exit(result.passed ? 0 : 1);
 }
 
 // ---------------------------------------------------------------------------

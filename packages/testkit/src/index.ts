@@ -1,3 +1,6 @@
+// BDD test primitives — re-exported from @amiceli/vitest-cucumber so every
+// test package has a single import point. Use defineFeature (no .feature files).
+export { defineFeature } from "@amiceli/vitest-cucumber";
 export { type BlueprintFromFileOptions, BlueprintHarness, type BlueprintHarnessOptions } from "./blueprint-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
 export { ScriptedLLMOrgan } from "./scripted-llm-organ.js";

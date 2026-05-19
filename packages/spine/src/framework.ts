@@ -28,6 +28,7 @@
  */
 
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import type { ZodTypeAny } from "zod";
 import type { MotorEvent, Nerve, Organ, SenseEvent, ToolDefinition } from "./buses.js";
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
@@ -332,6 +333,11 @@ export interface OrganOptions {
 	description?: string;
 	/** Freeform labels for categorisation and discovery (e.g. ['filesystem', 'readonly']). */
 	labels?: readonly string[];
+	/** Zod payload schemas validated at publish time in non-production environments. */
+	publishSchemas?: {
+		motor?: Record<string, ZodTypeAny>;
+		sense?: Record<string, ZodTypeAny>;
+	};
 }
 
 /**
@@ -394,6 +400,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		directives: opts.directives,
 		description: opts.description,
 		labels: opts.labels,
+		publishSchemas: opts.publishSchemas,
 		mount(nerve: Nerve): () => void {
 			// Session-scoped cache — lives for the lifetime of this mount.
 			const cache = new Map<string, Record<string, unknown>>();

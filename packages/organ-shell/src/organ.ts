@@ -149,6 +149,15 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 			logger: options.logger,
 			description: "Execute shell commands in the workspace.",
 			labels: ["shell", "exec", "process"],
+			publishSchemas: {
+				sense: {
+					"shell.exec": z.object({
+						output: z.string(),
+						exitCode: z.number(),
+						isFinal: z.boolean(),
+					}),
+				},
+			},
 		},
 	);
 }

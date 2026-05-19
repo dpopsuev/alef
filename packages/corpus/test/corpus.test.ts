@@ -1,5 +1,6 @@
 import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { Agent } from "../src/index.js";
 
@@ -189,5 +190,118 @@ describe("Agent — dispose()", () => {
 			agent.dispose();
 			agent.dispose();
 		}).not.toThrow();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Payload validation tests
+// ---------------------------------------------------------------------------
+
+describe("Agent payload validation", () => {
+	it("passes when motor publish matches declared schema", async () => {
+		const agent = new Agent();
+		const organ: Organ = {
+			name: "v-organ",
+			tools: [],
+			subscriptions: { motor: [], sense: [] },
+			publishSchemas: {
+				motor: { "v.event": z.object({ count: z.number() }) },
+			},
+			mount(nerve) {
+				nerve.motor.publish({ type: "v.event", payload: { count: 1 }, correlationId: "c1", timestamp: 1 });
+				return () => {};
+			},
+		};
+		expect(() => agent.load(organ)).not.toThrow();
+	});
+
+	it("throws when motor publish violates declared schema", () => {
+		const agent = new Agent();
+		const organ: Organ = {
+			name: "bad-organ",
+			tools: [],
+			subscriptions: { motor: [], sense: [] },
+			publishSchemas: {
+				motor: { "strict.event": z.object({ required: z.string() }) },
+			},
+			mount(nerve) {
+				// Missing the required field.
+				nerve.motor.publish({ type: "strict.event", payload: { wrong: true }, correlationId: "c1", timestamp: 1 });
+				return () => {};
+			},
+		};
+		expect(() => agent.load(organ)).toThrow(/PayloadValidation.*bad-organ.*strict\.event.*required/);
+	});
+
+	it("throws when sense publish violates declared schema", () => {
+		const agent = new Agent();
+		const organ: Organ = {
+			name: "bad-sense-organ",
+			tools: [],
+			subscriptions: { motor: [], sense: [] },
+			publishSchemas: {
+				sense: { "sense.event": z.object({ value: z.number() }) },
+			},
+			mount(nerve) {
+				// Wrong type — string instead of number.
+				nerve.sense.publish({
+					type: "sense.event",
+					payload: { value: "not-a-number" },
+					correlationId: "c1",
+					timestamp: 1,
+					isError: false,
+				});
+				return () => {};
+			},
+		};
+		expect(() => agent.load(organ)).toThrow(/PayloadValidation.*bad-sense-organ.*sense\.event.*value/);
+	});
+
+	it("skips validation for event types with no registered schema", () => {
+		const agent = new Agent();
+		const organ: Organ = {
+			name: "partial-organ",
+			tools: [],
+			subscriptions: { motor: [], sense: [] },
+			publishSchemas: {
+				motor: { "only.this": z.object({ x: z.number() }) },
+			},
+			mount(nerve) {
+				// Publishes an event type with no schema — passes through unchecked.
+				nerve.motor.publish({
+					type: "other.event",
+					payload: { anything: true },
+					correlationId: "c1",
+					timestamp: 1,
+				});
+				return () => {};
+			},
+		};
+		expect(() => agent.load(organ)).not.toThrow();
+	});
+
+	it("error message includes organ name, event type, and field path", () => {
+		const agent = new Agent();
+		const organ: Organ = {
+			name: "named-organ",
+			tools: [],
+			subscriptions: { motor: [], sense: [] },
+			publishSchemas: {
+				motor: { "typed.event": z.object({ score: z.number() }) },
+			},
+			mount(nerve) {
+				nerve.motor.publish({ type: "typed.event", payload: {}, correlationId: "c1", timestamp: 1 });
+				return () => {};
+			},
+		};
+		let error: Error | undefined;
+		try {
+			agent.load(organ);
+		} catch (e) {
+			error = e as Error;
+		}
+		expect(error?.message).toContain("named-organ");
+		expect(error?.message).toContain("motor/typed.event");
+		expect(error?.message).toContain("score");
 	});
 });

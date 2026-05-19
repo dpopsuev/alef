@@ -92,6 +92,17 @@ export class DialogOrgan implements Organ {
 		"Conversation boundary: accumulates history, routes user messages to the LLM, delivers replies.";
 	readonly labels = ["conversation", "history", "messaging"] as const;
 	readonly tools: readonly ToolDefinition[] = [MESSAGE_TOOL];
+	// Sense/dialog.message carries the full conversation payload sent to the LLM.
+	readonly publishSchemas = {
+		sense: {
+			"dialog.message": z.object({
+				text: z.string(),
+				sender: z.string(),
+				messages: z.array(z.object({ role: z.string(), content: z.string() })).min(1),
+				tools: z.array(z.object({ name: z.string(), description: z.string() })),
+			}),
+		},
+	} as const;
 	/**
 	 * Declare subscriptions so Agent.validate() never probes via a second mount().
 	 * DialogOrgan subscribes Motor/dialog.message (receives agent replies).

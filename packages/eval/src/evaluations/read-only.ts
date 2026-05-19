@@ -4,8 +4,8 @@
  * mustNotUse: fs.write, fs.edit — no mutations.
  */
 
+import { replyContains } from "../checker.js";
 import type { Evaluation } from "../evaluation.js";
-import { replyContains } from "../referee.js";
 
 const HTTP_SERVER = `
 import http from "node:http";
@@ -78,7 +78,7 @@ export const planRefactoring: Evaluation = {
 		"For each: state what to change and why. Be specific about line numbers and function names.",
 	mustUse: ["fs.read"],
 	mustNotUse: ["fs.write", "fs.edit"],
-	referee: replyContains("createServer", "refactor"),
+	checker: replyContains("createServer", "refactor"),
 };
 
 export const auditModule: Evaluation = {
@@ -91,7 +91,7 @@ export const auditModule: Evaluation = {
 		"within this file. List the function names.",
 	mustUse: ["fs.read"],
 	mustNotUse: ["fs.write", "fs.edit"],
-	referee: replyContains("_internalHelper"),
+	checker: replyContains("_internalHelper"),
 };
 
 export const blastRadius: Evaluation = {
@@ -111,7 +111,7 @@ export const blastRadius: Evaluation = {
 		"which files and lines would need to change?",
 	mustUse: ["fs.read"],
 	mustNotUse: ["fs.write", "fs.edit"],
-	referee: replyContains("api.ts"),
+	checker: replyContains("api.ts"),
 };
 
 export const contextWarming: Evaluation = {
@@ -131,5 +131,5 @@ export const contextWarming: Evaluation = {
 		"with two items of quantity 3 and 5?",
 	mustUse: ["fs.read"],
 	mustNotUse: ["fs.write", "fs.edit"],
-	referee: replyContains("8"),
+	checker: replyContains("8"),
 };

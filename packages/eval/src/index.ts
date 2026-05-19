@@ -1,12 +1,16 @@
 // Evaluation framework
 
 export { type BaselineEntry, EvalBaseline, type RegressionReport } from "./baseline.js";
+export { all, any, fileContains, fileExists, replyContains } from "./checker.js";
+export { compileCheck } from "./checkers/compile.js";
+export { terminalScript, terminalScriptFile } from "./checkers/terminal.js";
+export { testCheck } from "./checkers/test.js";
 export type {
+	Checker,
+	CheckerContext,
+	CheckerResult,
 	Evaluation,
 	FixtureSet,
-	Referee,
-	RefereeContext,
-	RefereeResult,
 	Template,
 	ToolLevel,
 } from "./evaluation.js";
@@ -35,7 +39,3 @@ export {
 	WRITE_RULES,
 } from "./metrics.js";
 export { getEvalModel, SKIP_REAL_LLM } from "./model.js";
-export { all, any, fileContains, fileExists, replyContains } from "./referee.js";
-export { compileCheck } from "./referees/compile.js";
-export { terminalScript, terminalScriptFile } from "./referees/terminal.js";
-export { testCheck } from "./referees/test.js";

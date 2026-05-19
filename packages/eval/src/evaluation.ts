@@ -2,7 +2,7 @@
  * Evaluation — declarative scenario for eval.
  *
  * An Evaluation is pure data — no I/O, no assertions inline.
- * EvaluationRunner executes it. Referee checks it deterministically.
+ * EvaluationRunner executes it. Checker checks it deterministically.
  *
  * ToolLevel — which tool surface is available to the agent:
  *   ReadOnly   — fs.read, fs.grep, fs.find, lector.read, lector.search
@@ -15,16 +15,16 @@
  *   Planning   — ReadWrite + PlanningOrgan
  *   Networked  — Planning + organ-recall + Router/MCP
  *
- * Graduated score from Referee.check():
+ * Graduated score from Checker.check():
  *   0.0 — hard fail (missing file, broken assertion)
  *   0.5 — partial (file exists but content wrong)
  *   1.0 — full pass
  *
  * mustUse/mustNotUse: tool event types that MUST/MUST NOT appear in OTel spans.
- * MustUse failure overrides score to 0 regardless of referee result.
+ * MustUse failure overrides score to 0 regardless of checker result.
  *
- * fixture: a known-good implementation. Referee must score >= 0.9 on it.
- *          Runs in CI without any LLM — proves the referee is correct.
+ * fixture: a known-good implementation. Checker must score >= 0.9 on it.
+ *          Runs in CI without any LLM — proves the checker is correct.
  */
 
 import type { WorkspaceFile } from "./harness.js";
@@ -51,19 +51,19 @@ export interface Evaluation {
 	/** Motor event types that MUST NOT appear in OTel spans. */
 	readonly mustNotUse?: readonly string[];
 	/** Deterministic post-run verifier. */
-	readonly referee: Referee;
+	readonly checker: Checker;
 	/**
-	 * Known-good files for referee self-test (no LLM).
-	 * EvaluationRunner.fixtureCheck() writes these and runs the referee.
+	 * Known-good files for checker self-test (no LLM).
+	 * EvaluationRunner.fixtureCheck() writes these and runs the checker.
 	 */
 	readonly fixture?: FixtureSet;
 }
 
 // ---------------------------------------------------------------------------
-// Referee
+// Checker
 // ---------------------------------------------------------------------------
 
-export interface RefereeResult {
+export interface CheckerResult {
 	pass: boolean;
 	/** Graduated score 0–1. */
 	score: number;
@@ -71,7 +71,7 @@ export interface RefereeResult {
 	errors: string[];
 }
 
-export interface RefereeContext {
+export interface CheckerContext {
 	/** Absolute path to the workspace directory. */
 	workspace: string;
 	/** OTel spans from the run. */
@@ -80,8 +80,8 @@ export interface RefereeContext {
 	lastReply?: string;
 }
 
-export interface Referee {
-	check(ctx: RefereeContext): RefereeResult | Promise<RefereeResult>;
+export interface Checker {
+	check(ctx: CheckerContext): CheckerResult | Promise<CheckerResult>;
 }
 
 // ---------------------------------------------------------------------------

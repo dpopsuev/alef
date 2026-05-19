@@ -1,13 +1,13 @@
 /**
  * Write evaluations — ToolLevel: ReadWrite
- * Agent reads then writes. Referee checks the resulting files.
+ * Agent reads then writes. Checker checks the resulting files.
  * mustUse: fs.read (read before edit), fs.write or fs.edit.
  */
 
+import { all, fileContains, fileExists } from "../checker.js";
+import { compileCheck } from "../checkers/compile.js";
+import { testCheck } from "../checkers/test.js";
 import type { Evaluation } from "../evaluation.js";
-import { all, fileContains, fileExists } from "../referee.js";
-import { compileCheck } from "../referees/compile.js";
-import { testCheck } from "../referees/test.js";
 
 const TYPES_SEED = `
 export interface User { id: string; name: string; }
@@ -63,7 +63,7 @@ export const createHTTPServer: Evaluation = {
 		"2. POST /echo → echoes the request body with 200\n" +
 		"3. Exports createServer(port: number)",
 	mustUse: ["fs.write"],
-	referee: all(fileContains("src/server.ts", "createServer", "/health", "/echo"), compileCheck()),
+	checker: all(fileContains("src/server.ts", "createServer", "/health", "/echo"), compileCheck()),
 	fixture: {
 		files: {
 			"src/server.ts":
@@ -81,7 +81,7 @@ export const addTypeExport: Evaluation = {
 		"Read src/types.ts. The Session interface is defined but not exported. " +
 		"Fix it so Session is exported. Only change that file.",
 	mustUse: ["fs.read"],
-	referee: all(fileContains("src/types.ts", "export interface Session", "export"), compileCheck()),
+	checker: all(fileContains("src/types.ts", "export interface Session", "export"), compileCheck()),
 	fixture: {
 		files: {
 			"src/types.ts":
@@ -102,7 +102,7 @@ export const fixFailingTest: Evaluation = {
 		"Read src/sum.ts and src/sum.test.ts. The test fails. Find the bug in sum.ts and fix it. " +
 		"Do not modify the test file.",
 	mustUse: ["fs.read"],
-	referee: all(fileContains("src/sum.ts", "< numbers.length"), compileCheck(), testCheck()),
+	checker: all(fileContains("src/sum.ts", "< numbers.length"), compileCheck(), testCheck()),
 	fixture: {
 		files: {
 			"src/sum.ts":
@@ -122,7 +122,7 @@ export const refactorAsync: Evaluation = {
 		"Read src/fetch.ts. Refactor fetchData to use async/await instead of callbacks. " +
 		"Keep the same behaviour — reject on invalid URLs, resolve with data string on valid ones.",
 	mustUse: ["fs.read"],
-	referee: all(fileContains("src/fetch.ts", "async", "await")),
+	checker: all(fileContains("src/fetch.ts", "async", "await")),
 	fixture: {
 		files: {
 			"src/fetch.ts":
@@ -141,7 +141,7 @@ export const writeMiddleware: Evaluation = {
 		"Create src/logging-middleware.ts that exports a default Express-compatible " +
 		"middleware function matching the spec.",
 	mustUse: ["fs.read"],
-	referee: all(
+	checker: all(
 		fileExists("src/logging-middleware.ts"),
 		fileContains("src/logging-middleware.ts", "next", "req", "res"),
 	),

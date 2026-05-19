@@ -3,8 +3,8 @@
  * Multi-step conversations: agent proposes then implements, or recalls earlier context.
  */
 
+import { all, fileContains, fileExists, replyContains } from "../checker.js";
 import type { Evaluation } from "../evaluation.js";
-import { all, fileContains, fileExists, replyContains } from "../referee.js";
 
 const PROPOSAL_SEED = `
 // Existing auth module — needs rate limiting added
@@ -32,7 +32,7 @@ export const proposeFirst: Evaluation = {
 		"Good. Now implement the rate limiting you described. Edit src/auth.ts.",
 	],
 	mustUse: ["fs.read"],
-	referee: all(fileContains("src/auth.ts", "rate", "login")),
+	checker: all(fileContains("src/auth.ts", "rate", "login")),
 };
 
 export const memoRecall: Evaluation = {
@@ -46,7 +46,7 @@ export const memoRecall: Evaluation = {
 	],
 	mustUse: ["fs.read"],
 	mustNotUse: ["fs.write", "fs.edit"],
-	referee: replyContains("number"),
+	checker: replyContains("number"),
 };
 
 export const approveProposal: Evaluation = {
@@ -58,5 +58,5 @@ export const approveProposal: Evaluation = {
 			"if it was truncated. What function signature would you propose?",
 		"Good. Create src/truncate.ts implementing that function.",
 	],
-	referee: all(fileExists("src/truncate.ts"), fileContains("src/truncate.ts", "...")),
+	checker: all(fileExists("src/truncate.ts"), fileContains("src/truncate.ts", "...")),
 };

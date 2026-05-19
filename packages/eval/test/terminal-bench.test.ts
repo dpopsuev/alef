@@ -1,7 +1,7 @@
 /**
  * TerminalBench adapter tests.
  *
- * Fixture tests: referee self-validation on oracle solutions. No LLM, always CI.
+ * Fixture tests: checker self-validation on oracle solutions. No LLM, always CI.
  * Real-LLM tests: skipped without ANTHROPIC_API_KEY.
  *
  * Ref: ALE-TSK-161
@@ -21,27 +21,27 @@ import { EvalHarness } from "../src/harness.js";
 import { SKIP_REAL_LLM } from "../src/model.js";
 
 // ---------------------------------------------------------------------------
-// Fixture tests — referee self-validation, no LLM
+// Fixture tests — checker self-validation, no LLM
 // ---------------------------------------------------------------------------
 
 describe("TerminalBench — fixture tests (no LLM)", () => {
-	it("helloWorld referee passes on oracle", async () => {
+	it("helloWorld checker passes on oracle", async () => {
 		await expect(EvaluationRunner.fixtureCheck(helloWorld)).resolves.not.toThrow();
 	});
 
-	it("wordFrequency referee passes on oracle", async () => {
+	it("wordFrequency checker passes on oracle", async () => {
 		await expect(EvaluationRunner.fixtureCheck(wordFrequency)).resolves.not.toThrow();
 	});
 
-	it("lineCounter referee passes on oracle", async () => {
+	it("lineCounter checker passes on oracle", async () => {
 		await expect(EvaluationRunner.fixtureCheck(lineCounter)).resolves.not.toThrow();
 	});
 
-	it("jsonConfig referee passes on oracle", async () => {
+	it("jsonConfig checker passes on oracle", async () => {
 		await expect(EvaluationRunner.fixtureCheck(jsonConfig)).resolves.not.toThrow();
 	});
 
-	it("csvSummary referee passes on oracle", async () => {
+	it("csvSummary checker passes on oracle", async () => {
 		await expect(EvaluationRunner.fixtureCheck(csvSummary)).resolves.not.toThrow();
 	});
 
@@ -60,9 +60,9 @@ describe("TerminalBench — fixture tests (no LLM)", () => {
 // TerminalReferee unit tests
 // ---------------------------------------------------------------------------
 
-describe("terminalScript referee", () => {
+describe("terminalScript checker", () => {
 	it("passes when bash script exits 0", async () => {
-		const { terminalScript } = await import("../src/referees/terminal.js");
+		const { terminalScript } = await import("../src/checkers/terminal.js");
 		const { mkdtempSync, rmSync } = await import("node:fs");
 		const { tmpdir } = await import("node:os");
 		const { join } = await import("node:path");
@@ -79,7 +79,7 @@ describe("terminalScript referee", () => {
 	});
 
 	it("fails when bash script exits 1", async () => {
-		const { terminalScript } = await import("../src/referees/terminal.js");
+		const { terminalScript } = await import("../src/checkers/terminal.js");
 		const { mkdtempSync, rmSync } = await import("node:fs");
 		const { tmpdir } = await import("node:os");
 		const { join } = await import("node:path");
@@ -96,7 +96,7 @@ describe("terminalScript referee", () => {
 	});
 
 	it("can check file content written by agent", async () => {
-		const { terminalScript } = await import("../src/referees/terminal.js");
+		const { terminalScript } = await import("../src/checkers/terminal.js");
 		const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
 		const { tmpdir } = await import("node:os");
 		const { join } = await import("node:path");

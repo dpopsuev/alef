@@ -18,8 +18,8 @@
  * Ref: ALE-TSK-161
  */
 
+import { terminalScript } from "../checkers/terminal.js";
 import type { Evaluation } from "../evaluation.js";
-import { terminalScript } from "../referees/terminal.js";
 
 // ---------------------------------------------------------------------------
 // L1 / ReadOnly — file operations + text processing
@@ -33,7 +33,7 @@ export const helloWorld: Evaluation = {
 		"Create a file called `hello.py` in the current directory. " +
 		"It should print exactly `Hello, World!` (with exclamation mark) when run with `python3 hello.py`.",
 	mustUse: ["fs.write"],
-	referee: terminalScript("python3 hello.py | grep -qF 'Hello, World!'"),
+	checker: terminalScript("python3 hello.py | grep -qF 'Hello, World!'"),
 	fixture: {
 		files: { "hello.py": "print('Hello, World!')\n" },
 	},
@@ -49,7 +49,7 @@ export const wordFrequency: Evaluation = {
 		"Write the results to `word_count.txt` in the format `word: count`, " +
 		"one entry per line, sorted alphabetically by word.",
 	mustUse: ["fs.read"],
-	referee: terminalScript(`
+	checker: terminalScript(`
 grep -q "apple: 3" word_count.txt
 grep -q "banana: 2" word_count.txt
 grep -q "cherry: 3" word_count.txt
@@ -73,7 +73,7 @@ export const lineCounter: Evaluation = {
 		"and prints the number of lines in that file. " +
 		"Running `bash count_lines.sh data.txt` must print `5`.",
 	mustUse: ["fs.write"],
-	referee: terminalScript(`
+	checker: terminalScript(`
 result=$(bash count_lines.sh data.txt)
 [ "$result" = "5" ]
 `),
@@ -94,7 +94,7 @@ export const jsonConfig: Evaluation = {
 		'`host` (string, value "localhost"), `port` (number, value 8080), ' +
 		'`debug` (boolean, value false), `tags` (array containing at least "api" and "v1").',
 	mustUse: ["fs.write"],
-	referee: terminalScript(`
+	checker: terminalScript(`
 python3 -c "
 import json, sys
 c = json.load(open('config.json'))
@@ -120,7 +120,7 @@ export const csvSummary: Evaluation = {
 		"1. `Average: X.XX` (the average score, 2 decimal places). " +
 		"2. `Top scorer: NAME` (the person with the highest score).",
 	mustUse: ["fs.read"],
-	referee: terminalScript(`
+	checker: terminalScript(`
 output=$(python3 analyze.py)
 echo "$output" | grep -q "Average: 87.60"
 echo "$output" | grep -q "Top scorer: Dan"

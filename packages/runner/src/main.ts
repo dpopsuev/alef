@@ -281,6 +281,11 @@ if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 	};
 }
 
+// SIGINT: Ctrl+C outside raw TUI mode (e.g. during boot or print mode).
+process.once("SIGINT", () => {
+	process.exit(0);
+});
+
 // SIGTERM: finish current turn then exit cleanly.
 // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Node.js process.once does not await the handler
 process.once("SIGTERM", async () => {

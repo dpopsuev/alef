@@ -92,7 +92,7 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 	}
 }
 
-import { bold, boldColor, color, DIM, dim, getTheme, RESET } from "./theme.js";
+import { bold, boldColor, color, DIM, dim, getTheme, RESET, spinnerFrames } from "./theme.js";
 
 // ---------------------------------------------------------------------------
 // Markdown theme — pulls from active token set
@@ -190,13 +190,14 @@ export async function runTuiMode(
 	const chat = new Container();
 	tui.addChild(chat);
 
-	// Loader
+	// Loader — spinner glyphs from the user's locale script
 	const loaderTheme = getTheme();
 	const loader = new Loader(
 		tui,
-		(s) => s,
 		(s) => color(s, loaderTheme.warnFg),
-		`${color("●", loaderTheme.warnFg)} Thinking…`,
+		(s) => color(s, loaderTheme.dimFg),
+		"Thinking…",
+		{ frames: spinnerFrames(12), intervalMs: 180 },
 	);
 
 	// Hint
@@ -228,7 +229,10 @@ export async function runTuiMode(
 	});
 
 	tui.addInputListener((data) => {
-		if (data === "\x03") handleCtrlC(ctx());
+		if (data === "\x03") {
+			handleCtrlC(ctx());
+			return { consume: true };
+		}
 		return undefined;
 	});
 

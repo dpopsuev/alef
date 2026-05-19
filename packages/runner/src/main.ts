@@ -172,18 +172,16 @@ const prepareStep = async (
 		hitCounts,
 	});
 	const projected = turnsToMessages(selected) as unknown as import("@dpopsuev/alef-ai").Message[];
-	const src = messages.length > 2 ? "payload" : projected.length > 0 ? "jsonl" : "fallback";
+	const src = projected.length > 0 ? "jsonl" : "fallback";
 	let result: typeof messages;
-	if (messages.length > 2) {
-		result = messages; // conversationHistory already correct
-	} else if (projected.length > 0) {
+	if (projected.length > 0) {
 		const currentMsg = messages.at(-1);
 		result =
 			currentMsg && (currentMsg as { role?: string }).role === "user"
 				? ([...projected, currentMsg] as typeof messages)
 				: projected;
 	} else {
-		result = messages; // no JSONL history yet
+		result = messages;
 	}
 	// Orange: log prepareStep output so API hangs are diagnosable.
 	log.debug(

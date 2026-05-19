@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Turn } from "../src/session-store.js";
-import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY } from "../src/turn-assembler.js";
+import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "../src/turn-assembler.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -238,59 +238,152 @@ describe("assembleTurns — edge cases", () => {
 });
 
 // ---------------------------------------------------------------------------
+// turnsToMessages
+// ---------------------------------------------------------------------------
+
+function makeDialogTurn(
+	id: string,
+	index: number,
+	events: Array<{ bus: "motor" | "sense"; payload: Record<string, unknown> }>,
+): Turn {
+	return {
+		id,
+		turnIndex: index,
+		tokenCost: 10,
+		typeWeight: 0.8,
+		events: events.map((e) => ({
+			bus: e.bus,
+			type: "dialog.message",
+			correlationId: id,
+			payload: e.payload,
+			timestamp: Date.now(),
+		})),
+	};
+}
+
+describe("turnsToMessages — conversationHistory primary path", () => {
+	it("returns conversationHistory from the most recent motor/dialog.message", () => {
+		const history = [
+			{ role: "user", content: "Read the file" },
+			{ role: "assistant", content: [{ type: "toolCall", id: "t1" }] },
+			{ role: "toolResult", content: "file contents" },
+			{ role: "assistant", content: "The token is ABC" },
+		];
+		const turns = [
+			makeDialogTurn("c-0", 0, [
+				{ bus: "sense", payload: { text: "Read the file" } },
+				{ bus: "motor", payload: { text: "The token is ABC", conversationHistory: history } },
+			]),
+		];
+		const result = turnsToMessages(turns);
+		expect(result).toBe(history);
+	});
+
+	it("prefers the most recent turn with conversationHistory", () => {
+		const history1 = [
+			{ role: "user", content: "turn 1" },
+			{ role: "assistant", content: "reply 1" },
+		];
+		const history2 = [
+			{ role: "user", content: "turn 1" },
+			{ role: "assistant", content: "reply 1" },
+			{ role: "user", content: "turn 2" },
+			{ role: "assistant", content: "reply 2" },
+		];
+		const turns = [
+			makeDialogTurn("c-0", 0, [{ bus: "motor", payload: { text: "reply 1", conversationHistory: history1 } }]),
+			makeDialogTurn("c-1", 1, [{ bus: "motor", payload: { text: "reply 2", conversationHistory: history2 } }]),
+		];
+		const result = turnsToMessages(turns);
+		expect(result).toBe(history2);
+		expect(result).toHaveLength(4);
+	});
+
+	it("falls back to text-only when no conversationHistory present", () => {
+		const turns = [
+			makeDialogTurn("c-0", 0, [
+				{ bus: "sense", payload: { text: "hello" } },
+				{ bus: "motor", payload: { text: "hi" } },
+			]),
+		];
+		const result = turnsToMessages(turns);
+		expect(result).toEqual([
+			{ role: "user", content: "hello" },
+			{ role: "assistant", content: "hi" },
+		]);
+	});
+
+	it("returns empty array for turns with no dialog.message events", () => {
+		const turn: Turn = {
+			id: "c-0",
+			turnIndex: 0,
+			tokenCost: 10,
+			typeWeight: 1.0,
+			events: [{ bus: "motor", type: "fs.read", correlationId: "c-0", payload: { path: "x.ts" }, timestamp: 0 }],
+		};
+		expect(turnsToMessages([turn])).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
 // prepareStep contract — BDD scenarios (defineFeature, no .feature files needed)
 // ---------------------------------------------------------------------------
 
 import { defineFeature } from "@dpopsuev/alef-testkit";
 
 defineFeature("prepareStep context-window selection", (f) => {
-	// Rule 1: messages.length > 2 → payload already has conversationHistory with
-	//   tool blocks. Return it directly; bypass JSONL.
-	// Rule 2: projected.length > 0 → first turn, JSONL history available.
-	//   Return projected + current user message.
-	// Rule 3: fallback → return payload unchanged (first turn, no JSONL yet).
+	// Rule A: turnsToMessages finds conversationHistory in JSONL → return it + currentMsg.
+	// Rule B: no conversationHistory → text-only fallback → return it + currentMsg.
+	// Rule C: no JSONL history at all → return payload unchanged.
 
-	f.Scenario("payload already has conversationHistory (multi-turn)", (s) => {
+	f.Scenario("JSONL has conversationHistory from prior turn — tool blocks preserved", (s) => {
 		type Msg = { role: string; content: unknown };
-		let messages: Msg[] = [];
-		let result: Msg[] = [];
+		let conversationHistory: Msg[];
+		let currentMsg: Msg;
+		let result: Msg[];
 
-		s.Given("messages.length is greater than 2", () => {
-			messages = [
-				{ role: "system", content: "system prompt" },
-				{ role: "user", content: "turn 1" },
-				{ role: "assistant", content: [{ type: "toolCall", id: "t1" }] },
-				{ role: "toolResult", content: [{ type: "text", text: "content" }] },
-				{ role: "assistant", content: [{ type: "text", text: "done" }] },
-				{ role: "user", content: "turn 2" },
+		s.Given("a motor/dialog.message event in JSONL carries conversationHistory with tool blocks", () => {
+			conversationHistory = [
+				{ role: "user", content: "Read the file" },
+				{ role: "assistant", content: [{ type: "toolCall", id: "t1", toolName: "fs.read" }] },
+				{ role: "toolResult", content: [{ type: "text", text: "ACCESS_CODE=ABC" }] },
+				{ role: "assistant", content: "The code is ABC" },
 			];
+			currentMsg = { role: "user", content: "What was the access code?" };
 		});
-		s.When("prepareStep evaluates messages.length > 2", () => {
-			result = messages.length > 2 ? messages : [];
+		s.When("turnsToMessages returns the conversationHistory and prepareStep appends current message", () => {
+			result = [...conversationHistory, currentMsg];
 		});
-		s.Then("payload is returned unchanged — tool blocks preserved", () => {
-			expect(result).toBe(messages);
+		s.Then("result contains tool blocks from the prior turn", () => {
 			expect(result.some((m) => m.role === "toolResult")).toBe(true);
+			expect(
+				result.some(
+					(m) =>
+						m.role === "toolCall" ||
+						(Array.isArray(m.content) && (m.content as { type: string }[])[0]?.type === "toolCall"),
+				),
+			).toBe(true);
 		});
-		s.And("result ends with role user not assistant", () => {
+		s.And("result ends with the current user message", () => {
 			expect(result.at(-1)?.role).toBe("user");
+			expect(result.at(-1)?.content).toBe("What was the access code?");
 		});
 	});
 
-	f.Scenario("JSONL has prior turn history (first turn with context)", (s) => {
+	f.Scenario("JSONL has text-only history (no conversationHistory) — fallback reconstruction", (s) => {
 		type Msg = { role: string; content: string };
-		let projected: Msg[] = [];
+		let projected: Msg[];
 		let currentMsg: Msg;
-		let result: Msg[] = [];
+		let result: Msg[];
 
-		s.Given("JSONL projected has user and assistant from turn 1", () => {
+		s.Given("motor/dialog.message events in JSONL have no conversationHistory field", () => {
 			projected = [
 				{ role: "user", content: "turn 1 text" },
 				{ role: "assistant", content: "turn 1 reply" },
 			];
 			currentMsg = { role: "user", content: "turn 2 question" };
 		});
-		s.When("prepareStep appends current user message", () => {
+		s.When("turnsToMessages returns text-only reconstruction and prepareStep appends current message", () => {
 			result = [...projected, currentMsg];
 		});
 		s.Then("result contains prior turns plus current message", () => {
@@ -302,44 +395,51 @@ defineFeature("prepareStep context-window selection", (f) => {
 		});
 	});
 
-	f.Scenario("first turn — no JSONL history yet", (s) => {
-		let messages: { role: string; content: string }[] = [];
+	f.Scenario("first turn — no JSONL history yet — payload passed through", (s) => {
+		let projected: unknown[];
+		let messages: { role: string; content: string }[];
+		let result: { role: string; content: string }[];
 
-		s.Given("messages.length equals 2 (system + user only)", () => {
+		s.Given("no prior turns in JSONL and turnsToMessages returns empty", () => {
+			projected = [];
 			messages = [
 				{ role: "system", content: "You are a coding assistant." },
 				{ role: "user", content: "Read secret.txt" },
 			];
 		});
-		s.Then("length equals 2 which is the first-turn threshold", () => {
-			expect(messages.length).toBe(2);
+		s.When("prepareStep finds projected is empty", () => {
+			result = projected.length > 0 ? [] : messages;
 		});
-		s.And("messages.length > 2 check is false so JSONL path activates", () => {
-			expect(messages.length > 2).toBe(false);
+		s.Then("payload is returned unchanged", () => {
+			expect(result).toBe(messages);
+		});
+		s.And("result ends with the user message", () => {
+			expect(result.at(-1)?.role).toBe("user");
 		});
 	});
 
-	f.Scenario("turnsToMessages drops tool blocks — assistant message has no following tool_result", (s) => {
-		type Msg = { role: string; content: string };
-		let strippedHistory: Msg[];
-		let withNewUser: Msg[];
-		let withoutNewUser: Msg[];
+	f.Scenario("text-only reconstruction loses tool blocks — conversationHistory path preserves them", (s) => {
+		type Msg = { role: string; content: unknown };
+		let richHistory: Msg[];
+		let textOnlyHistory: Msg[];
 
-		s.Given("JSONL returns text-only history via turnsToMessages", () => {
-			strippedHistory = [
+		s.Given("a prior turn that used tools", () => {
+			richHistory = [
+				{ role: "user", content: "Read the file" },
+				{ role: "assistant", content: [{ type: "toolCall", id: "t1" }] },
+				{ role: "toolResult", content: "file contents" },
+				{ role: "assistant", content: "The token is ABC" },
+			];
+			textOnlyHistory = [
 				{ role: "user", content: "Read the file" },
 				{ role: "assistant", content: "The token is ABC" },
 			];
 		});
-		s.When("current user message is appended correctly", () => {
-			withNewUser = [...strippedHistory, { role: "user", content: "What was the token?" }];
-			withoutNewUser = strippedHistory; // old bug: current message dropped
+		s.Then("rich history from conversationHistory contains tool blocks the API requires", () => {
+			expect(richHistory.some((m) => m.role === "toolResult")).toBe(true);
 		});
-		s.Then("appended result ends with user — API call succeeds", () => {
-			expect(withNewUser.at(-1)?.role).toBe("user");
-		});
-		s.And("missing current message ends with assistant — Anthropic API hangs", () => {
-			expect(withoutNewUser.at(-1)?.role).toBe("assistant");
+		s.And("text-only reconstruction drops tool blocks — Anthropic API hangs on next turn", () => {
+			expect(textOnlyHistory.every((m) => m.role !== "toolResult")).toBe(true);
 		});
 	});
 });

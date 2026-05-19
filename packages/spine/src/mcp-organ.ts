@@ -85,7 +85,6 @@ class McpOrganImpl implements Organ {
 								: { value: result }),
 						},
 						correlationId: event.correlationId,
-						timestamp: Date.now(),
 						isError: false,
 					});
 				} catch (err) {
@@ -93,7 +92,6 @@ class McpOrganImpl implements Organ {
 						type: toolName,
 						payload: { toolCallId },
 						correlationId: event.correlationId,
-						timestamp: Date.now(),
 						isError: true,
 						errorMessage: err instanceof Error ? err.message : String(err),
 					});

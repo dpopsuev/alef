@@ -33,14 +33,12 @@ class FileReaderLLMOrgan implements Organ {
 				type: "fs.read",
 				payload: { path: "test.txt", toolCallId: "tc-1" },
 				correlationId: corr,
-				timestamp: Date.now(),
 			});
 			await done;
 			nerve.motor.publish({
 				type: "dialog.message",
 				payload: { text: "read done" },
 				correlationId: corr,
-				timestamp: Date.now(),
 			});
 		});
 	}

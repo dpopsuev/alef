@@ -60,7 +60,6 @@ function motorAndAwaitSense(
 			type,
 			payload: { ...payload, toolCallId },
 			correlationId,
-			timestamp: Date.now(),
 		});
 	});
 }
@@ -203,7 +202,6 @@ describe("ShellOrgan contracts", () => {
 				type: "shell.exec",
 				payload: { command: "echo hello", toolCallId },
 				correlationId,
-				timestamp: Date.now(),
 			});
 		});
 
@@ -250,7 +248,6 @@ describe("ShellOrgan contracts", () => {
 				type: "shell.exec",
 				payload: { command: "echo hi", toolCallId },
 				correlationId,
-				timestamp: Date.now(),
 			});
 		});
 		expect(finalEvent.payload.toolCallId).toBe(toolCallId);

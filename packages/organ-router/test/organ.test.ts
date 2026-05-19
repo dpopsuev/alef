@@ -219,7 +219,6 @@ describe("RouterOrgan — GET /events (SSE)", () => {
 				type: "test.ping",
 				payload: { msg: "hello" },
 				correlationId: "c-1",
-				timestamp: 1000,
 			});
 
 			const events = await eventsPromise;
@@ -243,7 +242,6 @@ describe("RouterOrgan — GET /events (SSE)", () => {
 				type: "fs.read",
 				payload: { content: "hello world", truncated: false },
 				correlationId: "c-2",
-				timestamp: 2000,
 				isError: false,
 			});
 
@@ -282,7 +280,7 @@ describe("RouterOrgan — GET /events (SSE)", () => {
 			});
 
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "custom.event", payload: {}, correlationId: "c-3", timestamp: 3000 });
+			nerve.asNerve().motor.publish({ type: "custom.event", payload: {}, correlationId: "c-3" });
 
 			const frame = await framePromise;
 			expect(frame).toContain("event: motor/custom.event");
@@ -385,7 +383,7 @@ describe("RouterOrgan — allowedEvents filter", () => {
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "internal.debug", payload: {}, correlationId: "c-1", timestamp: 1 });
+			nerve.asNerve().motor.publish({ type: "internal.debug", payload: {}, correlationId: "c-1" });
 			const events = await eventsPromise;
 			expect((events[0] as Record<string, unknown>).type).toBe("internal.debug");
 		} finally {
@@ -402,9 +400,7 @@ describe("RouterOrgan — allowedEvents filter", () => {
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
-			nerve
-				.asNerve()
-				.motor.publish({ type: "dialog.message", payload: { text: "hi" }, correlationId: "c-1", timestamp: 1 });
+			nerve.asNerve().motor.publish({ type: "dialog.message", payload: { text: "hi" }, correlationId: "c-1" });
 			const events = await eventsPromise;
 			expect((events[0] as Record<string, unknown>).type).toBe("dialog.message");
 		} finally {
@@ -438,8 +434,8 @@ describe("RouterOrgan — allowedEvents filter", () => {
 			});
 			await new Promise((r) => setTimeout(r, 30));
 			// Publish a blocked event then an allowed event.
-			nerve.asNerve().motor.publish({ type: "loop.detected", payload: {}, correlationId: "c-2", timestamp: 2 });
-			nerve.asNerve().motor.publish({ type: "dialog.message", payload: {}, correlationId: "c-3", timestamp: 3 });
+			nerve.asNerve().motor.publish({ type: "loop.detected", payload: {}, correlationId: "c-2" });
+			nerve.asNerve().motor.publish({ type: "dialog.message", payload: {}, correlationId: "c-3" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("loop.detected");
@@ -458,8 +454,8 @@ describe("RouterOrgan — allowedEvents filter", () => {
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 2);
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-1", timestamp: 1 });
-			nerve.asNerve().motor.publish({ type: "fs.write", payload: {}, correlationId: "c-2", timestamp: 2 });
+			nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-1" });
+			nerve.asNerve().motor.publish({ type: "fs.write", payload: {}, correlationId: "c-2" });
 			const events = await eventsPromise;
 			const types = events.map((e) => (e as Record<string, unknown>).type);
 			expect(types).toContain("fs.read");
@@ -494,8 +490,8 @@ describe("RouterOrgan — allowedEvents filter", () => {
 					.on("error", reject);
 			});
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "shell.exec", payload: {}, correlationId: "c-1", timestamp: 1 });
-			nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-2", timestamp: 2 });
+			nerve.asNerve().motor.publish({ type: "shell.exec", payload: {}, correlationId: "c-1" });
+			nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-2" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("shell.exec");

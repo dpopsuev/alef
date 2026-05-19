@@ -51,7 +51,6 @@ describe("WebOrgan — web.fetch validation", () => {
 			type: "web.fetch",
 			payload: { url: "ftp://bad-scheme.example.com", toolCallId: "t1" },
 			correlationId: "c1",
-			timestamp: Date.now(),
 		});
 
 		const result = await resultPromise;
@@ -75,7 +74,6 @@ describe("WebOrgan — web.fetch validation", () => {
 			type: "web.fetch",
 			payload: { url: "http://127.0.0.1:19999", toolCallId: "t2" },
 			correlationId: "c2",
-			timestamp: Date.now(),
 		});
 
 		const result = await resultPromise;
@@ -113,7 +111,6 @@ describe("WebOrgan — html-to-text (inline)", () => {
 				type: "web.fetch",
 				payload: { url: "https://example.com", toolCallId: "t3" },
 				correlationId: "c3",
-				timestamp: Date.now(),
 			});
 
 			const result = await resultPromise;
@@ -154,7 +151,6 @@ describe("WebOrgan — html-to-text (inline)", () => {
 				type: "web.fetch",
 				payload: { url: "https://example.com", format: "html", toolCallId: "t4" },
 				correlationId: "c4",
-				timestamp: Date.now(),
 			});
 
 			const result = await resultPromise;

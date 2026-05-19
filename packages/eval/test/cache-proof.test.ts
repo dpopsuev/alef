@@ -37,7 +37,6 @@ class ScriptedReadTwiceLLM implements Organ {
 						type: "fs.read",
 						payload: { path, toolCallId },
 						correlationId: corr,
-						timestamp: Date.now(),
 					});
 				});
 
@@ -50,7 +49,6 @@ class ScriptedReadTwiceLLM implements Organ {
 				type: "dialog.message",
 				payload: { text: "read twice" },
 				correlationId: corr,
-				timestamp: Date.now(),
 			});
 		});
 	}

@@ -19,7 +19,7 @@ function waitSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
 }
 
 function publishMotor(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
-	nerve.asNerve().motor.publish({ type, payload, correlationId: "corr-1", timestamp: Date.now() });
+	nerve.asNerve().motor.publish({ type, payload, correlationId: "corr-1" });
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +105,6 @@ describe("defineOrgan (motor/ prefix)", () => {
 			type: "test.tool",
 			payload: { toolCallId: "tc-42" },
 			correlationId: "corr-1",
-			timestamp: Date.now(),
 		});
 		const result = await p;
 
@@ -128,7 +127,6 @@ describe("defineOrgan (motor/ prefix)", () => {
 			type: "test.fail",
 			payload: { toolCallId: "tc-err" },
 			correlationId: "corr-1",
-			timestamp: Date.now(),
 		});
 		const result = await p;
 
@@ -213,7 +211,6 @@ describe("defineOrgan (sense/ prefix)", () => {
 			type: "test.input",
 			payload: { text: "hello", sender: "human" },
 			correlationId: "corr-x",
-			timestamp: Date.now(),
 			isError: false,
 		});
 
@@ -236,13 +233,11 @@ describe("defineOrgan (sense/ prefix)", () => {
 						type: "tool.a",
 						payload: {},
 						correlationId: ctx.correlationId,
-						timestamp: Date.now(),
 					});
 					ctx.motor.publish({
 						type: "tool.b",
 						payload: {},
 						correlationId: ctx.correlationId,
-						timestamp: Date.now(),
 					});
 				},
 			},
@@ -252,7 +247,6 @@ describe("defineOrgan (sense/ prefix)", () => {
 			type: "test.trigger",
 			payload: {},
 			correlationId: "c1",
-			timestamp: Date.now(),
 			isError: false,
 		});
 		await new Promise((r) => setTimeout(r, 10));
@@ -307,12 +301,8 @@ describe("defineOrgan — wildcard motor/*", () => {
 			},
 		}).mount(n);
 
-		nerve
-			.asNerve()
-			.motor.publish({ type: "fs.read", payload: { op: "read" }, correlationId: "c", timestamp: Date.now() });
-		nerve
-			.asNerve()
-			.motor.publish({ type: "fs.edit", payload: { op: "edit" }, correlationId: "c", timestamp: Date.now() });
+		nerve.asNerve().motor.publish({ type: "fs.read", payload: { op: "read" }, correlationId: "c" });
+		nerve.asNerve().motor.publish({ type: "fs.edit", payload: { op: "edit" }, correlationId: "c" });
 		await new Promise((r) => setTimeout(r, 10));
 
 		expect(seen).toContain("read");

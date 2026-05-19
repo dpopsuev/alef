@@ -112,7 +112,6 @@ describe("McpOrgan — Motor/Sense routing", () => {
 				type: "fs.list_files",
 				payload: { path: "/workspace", toolCallId: "tc-1" },
 				correlationId: "c-1",
-				timestamp: Date.now(),
 			});
 		});
 
@@ -140,7 +139,6 @@ describe("McpOrgan — Motor/Sense routing", () => {
 				type: "bad.boom",
 				payload: { toolCallId: "tc-2" },
 				correlationId: "c-2",
-				timestamp: Date.now(),
 			});
 		});
 

@@ -110,7 +110,6 @@ describe.skipIf(SKIP)("EnclosureOrgan — docker backend", () => {
 					type: "enclosure.create",
 					payload: { workspace, toolCallId: "tc-1" },
 					correlationId: "corr-1",
-					timestamp: Date.now(),
 				});
 			});
 
@@ -130,7 +129,6 @@ describe.skipIf(SKIP)("EnclosureOrgan — docker backend", () => {
 					type: "enclosure.exec",
 					payload: { spaceId, command: ["echo", "organ-exec-works"], toolCallId: "tc-2" },
 					correlationId: "corr-1",
-					timestamp: Date.now(),
 				});
 			});
 

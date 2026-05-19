@@ -28,7 +28,6 @@ class LoopingLLMOrgan implements Organ {
 					type: "fs.read",
 					payload: { path: "nonexistent.txt", toolCallId: `tc-${i}` },
 					correlationId: event.correlationId,
-					timestamp: Date.now(),
 				});
 				// Small delay so sense events propagate.
 				await new Promise((r) => setTimeout(r, 2));
@@ -38,7 +37,6 @@ class LoopingLLMOrgan implements Organ {
 				type: "dialog.message",
 				payload: { text: "done looping" },
 				correlationId: event.correlationId,
-				timestamp: Date.now(),
 			});
 		});
 	}

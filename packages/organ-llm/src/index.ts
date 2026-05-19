@@ -186,7 +186,6 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 					type: DIALOG_MESSAGE,
 					payload: { text, conversationHistory },
 					correlationId,
-					timestamp: Date.now(),
 				});
 			}
 			break;
@@ -199,7 +198,6 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 					type: motorType,
 					payload: { ...tc.args, toolCallId: tc.id },
 					correlationId,
-					timestamp: Date.now(),
 				});
 				return waitForToolResult(sense, motorType, tc.id, correlationId);
 			}),
@@ -267,7 +265,6 @@ export function createLLMOrgan(options: LLMOrganOptions): Organ {
 						type: DIALOG_MESSAGE,
 						payload: { text: `LLM error: ${String(err)}` },
 						correlationId: ctx.correlationId,
-						timestamp: Date.now(),
 					});
 					throw err; // re-throw so OTel span is marked as error
 				}

@@ -70,7 +70,6 @@ describe("organ ablation — read-only allowlist", () => {
 			type: "fs.write",
 			payload: { path: "x.ts", content: "bad" },
 			correlationId: "c1",
-			timestamp: Date.now(),
 		});
 
 		await new Promise((r) => setTimeout(r, 10));
@@ -89,7 +88,6 @@ describe("organ ablation — read-only allowlist", () => {
 			type: "fs.read",
 			payload: { path: "x.ts" },
 			correlationId: "c1",
-			timestamp: Date.now(),
 		});
 
 		await new Promise((r) => setTimeout(r, 20));

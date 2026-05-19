@@ -8,7 +8,10 @@ import { type ZodTypeAny, z } from "zod";
 export interface NerveEvent {
 	readonly type: string;
 	readonly correlationId: string;
+	/** Epoch ms — set by the bus at emit time. Organs do not set this. */
 	readonly timestamp: number;
+	/** Ms since the first event with this correlationId was seen. Set by the bus. */
+	readonly elapsed: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,14 +75,21 @@ export interface SenseEvent extends NerveEvent {
 export type MotorHandler = (event: MotorEvent) => void | Promise<void>;
 export type SenseHandler = (event: SenseEvent) => void | Promise<void>;
 
+/**
+ * What organs pass to publish. The bus stamps timestamp and elapsed — organs
+ * must not set them. Passing a timestamp is a compile-time error.
+ */
+export type MotorPublishInput = Omit<MotorEvent, "timestamp" | "elapsed">;
+export type SensePublishInput = Omit<SenseEvent, "timestamp" | "elapsed">;
+
 export interface Nerve {
 	readonly motor: {
 		subscribe(type: string, handler: MotorHandler): () => void;
-		publish(event: MotorEvent): void;
+		publish(event: MotorPublishInput): void;
 	};
 	readonly sense: {
 		subscribe(type: string, handler: SenseHandler): () => void;
-		publish(event: SenseEvent): void;
+		publish(event: SensePublishInput): void;
 	};
 }
 
@@ -153,8 +163,15 @@ export interface Organ {
 
 class InProcessBus {
 	private readonly handlers = new Map<string, Set<(event: NerveEvent) => void | Promise<void>>>();
+	private readonly firstSeen = new Map<string, number>();
 
-	emit(event: NerveEvent): void {
+	emit(input: Omit<NerveEvent, "timestamp" | "elapsed">): void {
+		const now = Date.now();
+		if (!this.firstSeen.has(input.correlationId)) {
+			this.firstSeen.set(input.correlationId, now);
+		}
+		const elapsed = now - this.firstSeen.get(input.correlationId)!;
+		const event: NerveEvent = { ...input, timestamp: now, elapsed };
 		const specific = this.handlers.get(event.type);
 		if (specific) for (const h of specific) void h(event);
 		const wildcard = this.handlers.get("*");
@@ -202,7 +219,7 @@ export class InProcessNerve {
 
 	// ── Direct access for the Agent ──────────────────────────────────────
 
-	publishMotor(event: MotorEvent): void {
+	publishMotor(event: MotorPublishInput): void {
 		this._motor.emit(event);
 	}
 
@@ -210,7 +227,7 @@ export class InProcessNerve {
 		return this._sense.on(type, handler as (e: NerveEvent) => void | Promise<void>);
 	}
 
-	publishSense(event: SenseEvent): void {
+	publishSense(event: SensePublishInput): void {
 		this._sense.emit(event);
 	}
 

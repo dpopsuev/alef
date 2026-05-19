@@ -28,7 +28,6 @@ export class MockLLMOrgan implements Organ {
 				type: "dialog.message" as const,
 				payload: { text: this.cannedText },
 				correlationId: event.correlationId,
-				timestamp: Date.now(),
 			});
 		});
 	}

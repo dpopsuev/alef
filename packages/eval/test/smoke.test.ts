@@ -26,7 +26,6 @@ class QuiescentLLMOrgan implements Organ {
 				type: "dialog.message",
 				payload: { text: this.reply },
 				correlationId: event.correlationId,
-				timestamp: Date.now(),
 			});
 		});
 	}

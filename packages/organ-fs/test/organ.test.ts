@@ -38,7 +38,6 @@ function publishMotor(nerve: InProcessNerve, type: string, payload: Record<strin
 	nerve.asNerve().motor.publish({
 		type,
 		correlationId: `test-${Math.random().toString(36).slice(2)}`,
-		timestamp: Date.now(),
 		payload,
 	});
 }
@@ -134,7 +133,6 @@ describe("FsCorpusOrgan", () => {
 			nerve.asNerve().motor.publish({
 				type: "fs.read",
 				correlationId,
-				timestamp: Date.now(),
 				payload: { path: "foo.txt" },
 			});
 			await new Promise((r) => setTimeout(r, 50));

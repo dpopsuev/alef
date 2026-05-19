@@ -18,7 +18,6 @@ function publishMotor(nerve: InProcessNerve, type: string, payload: Record<strin
 		type,
 		payload: { ...payload, toolCallId: `tc-${Math.random().toString(36).slice(2)}` },
 		correlationId: "test-corr",
-		timestamp: Date.now(),
 	});
 }
 

@@ -25,7 +25,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
-import type { MotorEvent, Nerve, Organ } from "@dpopsuev/alef-spine";
+import type { MotorPublishInput, Nerve, Organ } from "@dpopsuev/alef-spine";
 import { SseManager } from "./sse.js";
 
 export interface RouterOptions {
@@ -230,11 +230,10 @@ export class RouterOrgan implements Organ {
 				this.options.onMessage(text);
 			} else {
 				// Legacy: publish directly on motor bus.
-				const event: MotorEvent = {
+				const event: MotorPublishInput = {
 					type: "dialog.message",
 					payload: { role: "user", text },
 					correlationId,
-					timestamp: Date.now(),
 				};
 				nerve.motor.publish(event);
 			}

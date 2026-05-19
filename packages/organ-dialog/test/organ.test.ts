@@ -85,7 +85,6 @@ describe("DialogOrgan", () => {
 			type: DIALOG_MESSAGE,
 			payload: { text: "done", sender: "agent" },
 			correlationId: "c1",
-			timestamp: Date.now(),
 		});
 
 		expect(sink).toHaveBeenCalledWith("done", "agent");
@@ -139,7 +138,6 @@ describe("DialogOrgan — history + system prompt", () => {
 				type: DIALOG_MESSAGE,
 				payload: { text: `echo: ${String((e.payload.messages as Array<{ content: string }>).at(-1)?.content)}` },
 				correlationId: e.correlationId,
-				timestamp: Date.now(),
 			});
 		});
 
@@ -181,7 +179,6 @@ describe("DialogOrgan — history + system prompt", () => {
 				type: DIALOG_MESSAGE,
 				payload: { text: "ok" },
 				correlationId: e.correlationId,
-				timestamp: Date.now(),
 			});
 		});
 

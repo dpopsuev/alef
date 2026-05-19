@@ -32,6 +32,16 @@ install-deps: ## Install Node dependencies only (npm install; runs Husky prepare
 install-global: build ## Build all packages and install alef into npm global bin
 	$(NPM) install -g ./packages/coding-agent
 
+install-runner: install-deps ## Install the EDA runner globally as alef (no build step — runs from source via tsx)
+	$(NPM) install -g ./packages/runner
+
+.PHONY: run
+run: ## Run the EDA runner from source (interactive TUI)
+	npx tsx packages/runner/src/main.ts
+
+run-serve: ## Run the EDA runner in HTTP/SSE serve mode on a random port
+	npx tsx packages/runner/src/main.ts --serve 0
+
 install: install-deps install-global ## Install deps, build, and install alef globally (`npm install -g`)
 
 .PHONY: ci

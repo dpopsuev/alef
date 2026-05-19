@@ -4,7 +4,7 @@
 	"description": "Minimal Alef agent runner \u2014 print mode and interactive stdin loop",
 	"type": "module",
 	"bin": {
-		"alef": "./src/main.ts"
+		"alef": "bin/alef-runner.js"
 	},
 	"scripts": {
 		"start": "tsx src/main.ts",

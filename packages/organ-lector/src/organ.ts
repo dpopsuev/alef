@@ -15,7 +15,7 @@
  */
 
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
-import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import { defineOrgan } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import type { LectorBackend } from "./backend.js";
 import { LocalLectorBackend } from "./local-backend.js";
@@ -138,10 +138,10 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 			allowAbsolutePaths: opts.allowAbsolutePaths,
 		});
 
-	const base = defineCorpusOrgan(
+	const base = defineOrgan(
 		"lector",
 		{
-			"lector.read": {
+			"motor/lector.read": {
 				tool: READ_TOOL,
 				shouldCache: (_ctx, result) => result !== undefined,
 				handle: async (ctx: CorpusHandlerCtx) => {
@@ -155,7 +155,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 				},
 			},
 
-			"lector.write": {
+			"motor/lector.write": {
 				tool: WRITE_TOOL,
 				invalidates: (ctx) => [String(ctx.payload.path ?? "")],
 				handle: async (ctx: CorpusHandlerCtx) => {
@@ -167,7 +167,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 				},
 			},
 
-			"lector.edit": {
+			"motor/lector.edit": {
 				tool: EDIT_TOOL,
 				invalidates: (ctx) => [String(ctx.payload.path ?? "")],
 				handle: async (ctx: CorpusHandlerCtx) => {
@@ -187,7 +187,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 				},
 			},
 
-			"lector.search": {
+			"motor/lector.search": {
 				tool: SEARCH_TOOL,
 				shouldCache: (_ctx, result) => result !== undefined,
 				handle: async (ctx: CorpusHandlerCtx) => {
@@ -203,7 +203,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 				},
 			},
 
-			"lector.find": {
+			"motor/lector.find": {
 				tool: FIND_TOOL,
 				shouldCache: (_ctx, result) => result !== undefined,
 				handle: async (ctx: CorpusHandlerCtx) => {
@@ -219,7 +219,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 				},
 			},
 
-			"lector.callers": {
+			"motor/lector.callers": {
 				tool: CALLERS_TOOL,
 				shouldCache: (_ctx, result) => result !== undefined,
 				handle: async (ctx: CorpusHandlerCtx) => {

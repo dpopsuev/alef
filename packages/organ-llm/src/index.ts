@@ -8,7 +8,7 @@ import {
 	type Tool,
 } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineCerebrumOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
+import { defineOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { z } from "zod";
 
@@ -240,9 +240,9 @@ function extractText(message: AssistantMessage): string {
 // ---------------------------------------------------------------------------
 
 export function createLLMOrgan(options: LLMOrganOptions): Organ {
-	return defineCerebrumOrgan("llm", {
-		[DIALOG_MESSAGE]: {
-			handle: async (ctx) => {
+	return defineOrgan("llm", {
+		[`sense/${DIALOG_MESSAGE}`]: {
+			handle: async (ctx: CerebrumHandlerCtx) => {
 				try {
 					await runLLMLoop(ctx, options);
 				} catch (err) {

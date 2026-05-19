@@ -13,8 +13,8 @@
  * Ref: TSK-181
  */
 
-import type { Organ } from "@dpopsuev/alef-spine";
-import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
+import { defineOrgan } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -176,12 +176,12 @@ const WEB_DIRECTIVES = [
 export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 	const defaultTimeout = options.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-	return defineCorpusOrgan(
+	return defineOrgan(
 		"web",
 		{
-			"web.fetch": {
+			"motor/web.fetch": {
 				tool: WEB_FETCH_TOOL,
-				handle: async (ctx) => {
+				handle: async (ctx: CorpusHandlerCtx) => {
 					const url = String(ctx.payload.url ?? "");
 					const format = ctx.payload.format === "html" ? "html" : "text";
 					const timeoutMs = typeof ctx.payload.timeoutMs === "number" ? ctx.payload.timeoutMs : defaultTimeout;

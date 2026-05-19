@@ -1,5 +1,5 @@
 /**
- * Organ framework — defineOrgan / defineCorpusOrgan / defineCerebrumOrgan.
+ * Organ framework — defineOrgan with explicit motor/ or sense/ prefixed action keys.
  *
  * Eliminates the four patterns every organ repeats:
  *   1. try/catch error wrapping
@@ -13,8 +13,6 @@
  *   "motor/*"            → wildcard: subscribes all Motor events (Observer organs)
  *   "sense/*"            → wildcard: subscribes all Sense events
  *
- * defineCorpusOrgan(name, actions) — prepends "motor/" to each key.
- * defineCerebrumOrgan(name, actions) — prepends "sense/" to each key.
  *
  * Cache (session-scoped per organ):
  *   CorpusAction.shouldCache?(ctx, result) → boolean  — called after handle(), opt-in
@@ -463,39 +461,3 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 }
 
 // ---------------------------------------------------------------------------
-// Convenience wrappers
-// ---------------------------------------------------------------------------
-
-/**
- * @deprecated Use defineOrgan with explicit "motor/" prefixes instead.
- *
- * defineCorpusOrgan("fs", { "fs.read": action })
- * → defineOrgan("fs", { "motor/fs.read": action })
- *
- * The wrapper adds no information the key prefix doesn’t already carry.
- * Removing it keeps one concept (defineOrgan) instead of three.
- */
-export function defineCorpusOrgan(name: string, actions: CorpusActionMap, opts: OrganOptions = {}): Organ {
-	const prefixed: ActionMap = {};
-	for (const [key, action] of Object.entries(actions)) {
-		prefixed[`motor/${key}`] = action;
-	}
-	return defineOrgan(name, prefixed, opts);
-}
-
-/**
- * @deprecated Use defineOrgan with explicit "sense/" prefixes instead.
- *
- * defineCerebrumOrgan("llm", { "dialog.message": action })
- * → defineOrgan("llm", { "sense/dialog.message": action })
- *
- * The wrapper adds no information the key prefix doesn’t already carry.
- * Removing it keeps one concept (defineOrgan) instead of three.
- */
-export function defineCerebrumOrgan(name: string, actions: CerebrumActionMap, opts: OrganOptions = {}): Organ {
-	const prefixed: ActionMap = {};
-	for (const [key, action] of Object.entries(actions)) {
-		prefixed[`sense/${key}`] = action;
-	}
-	return defineOrgan(name, prefixed, opts);
-}

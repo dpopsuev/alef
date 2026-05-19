@@ -22,6 +22,7 @@ import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
+import { createReactorOrgan } from "@dpopsuev/alef-organ-reactor";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
@@ -197,14 +198,24 @@ const prepareStep = async (
 	return result;
 };
 
-// ALEF_SCRIPTED_REPLIES — boot without a real LLM (for tests and demos).
-// Value: JSON array of reply strings, e.g. '["hello","done"]'.
-// Each string becomes a simple text reply step consumed in order.
+// ReactorOrgan: tracks in-flight motor events across concurrent turns.
+// Provides a chained prepareStep that injects pending-operation context
+// into the system message when another turn's tool call is unresolved.
+const reactor = createReactorOrgan();
+const chainedPrepareStep = async (
+	msgs: import("@dpopsuev/alef-ai").Message[],
+): Promise<import("@dpopsuev/alef-ai").Message[]> => {
+	const afterTurnAssembler = await prepareStep(msgs);
+	return reactor.prepareStep(
+		afterTurnAssembler as { role: string; content: string }[],
+	) as import("@dpopsuev/alef-ai").Message[];
+};
+
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 const llmOrgan = scriptedRepliesEnv
 	? new ScriptedLLMOrgan((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
-	: new LLMOrgan({ model, thinking: thinkingLevel, prepareStep });
-agent.load(dialog).load(llmOrgan);
+	: new LLMOrgan({ model, thinking: thinkingLevel, prepareStep: chainedPrepareStep });
+agent.load(dialog).load(llmOrgan).load(reactor);
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }

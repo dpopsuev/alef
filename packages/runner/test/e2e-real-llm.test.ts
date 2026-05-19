@@ -25,6 +25,14 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve as pathResolve } from "node:path";
 import { afterEach, describe, expect, it, onTestFailed } from "vitest";
 import type { StorageRecord } from "../src/session-store.js";
+import {
+	assertFileReadWorkflow,
+	assertHashesPresent,
+	assertMultiTurnHistory,
+	assertOrganSelection,
+	assertSseFilter,
+	assertToolSequence,
+} from "./e2e-verifiers.js";
 
 // ---------------------------------------------------------------------------
 // Debug collector — dumps full event log on test failure (Orange instrumentation)
@@ -329,22 +337,18 @@ describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)"
 
 		sse.stop();
 
-		// Reply must contain the secret code.
 		const replyEvent = sse.events.find((ev) => {
 			const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
 			return e.bus === "motor" && e.type === "dialog.message" && Boolean(e.payload?.text);
 		}) as { payload: { text: string } } | undefined;
 		expect(replyEvent).toBeDefined();
-		expect(replyEvent!.payload.text).toContain(secret);
 
-		// JSONL must have a fs.read or lector.read record.
 		await new Promise((r) => setTimeout(r, 300));
 		const records = readJSONL(cwd);
-		const toolTypes = new Set(records.map((r) => r.type));
-		expect(toolTypes.has("fs.read") || toolTypes.has("lector.read")).toBe(true);
 
-		// Every record has a hash.
-		expect(records.every((r) => typeof r.hash === "string")).toBe(true);
+		assertFileReadWorkflow(records, replyEvent!.payload.text, secret);
+		assertHashesPresent(records);
+		assertToolSequence(records, ["fs.read"]);
 	}, 120_000);
 
 	it("multi-turn: second reply references content from first turn", async () => {
@@ -386,7 +390,7 @@ describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)"
 				return e.bus === "motor" && e.type === "dialog.message";
 			})
 			.at(-1) as { payload: { text: string } } | undefined;
-		expect(firstReply?.payload.text).toContain(code);
+		expect(firstReply).toBeDefined();
 
 		// Turn 2 — agent should recall from history.
 		const prevCount = sse.events.filter((ev) => {
@@ -415,7 +419,9 @@ describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)"
 				return e.bus === "motor" && e.type === "dialog.message";
 			})
 			.at(-1) as { payload: { text: string } } | undefined;
-		expect(secondReply?.payload.text).toContain(code);
+		expect(secondReply).toBeDefined();
+
+		assertMultiTurnHistory(firstReply!.payload.text, secondReply!.payload.text, code);
 	}, 180_000);
 });
 
@@ -454,20 +460,17 @@ describe.skipIf(!HAVE_LLM)("E2E-185: Blueprint organ selection (real LLM)", () =
 		);
 		sse.stop();
 
-		// Agent reply must contain the secret.
 		const reply = sse.events.find((ev) => {
 			const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
 			return e.bus === "motor" && e.type === "dialog.message";
 		}) as { payload: { text: string } } | undefined;
-		expect(reply?.payload.text).toContain(secret);
+		expect(reply).toBeDefined();
 
-		// JSONL: fs.read must appear, lector.* and shell.* must not.
 		await new Promise((r) => setTimeout(r, 300));
 		const records = readJSONL(cwd);
-		const types = new Set(records.map((r) => r.type));
-		expect(types.has("fs.read")).toBe(true);
-		expect([...types].some((t) => t.startsWith("lector."))).toBe(false);
-		expect([...types].some((t) => t.startsWith("shell."))).toBe(false);
+
+		assertFileReadWorkflow(records, reply!.payload.text, secret);
+		assertOrganSelection(records, ["fs.read"], ["lector.", "shell."]);
 	}, 120_000);
 });
 
@@ -519,18 +522,10 @@ describe.skipIf(!HAVE_LLM)("E2E-187: RouterOrgan SSE filter (real LLM)", () => {
 		);
 		sse.stop();
 
-		// dialog.message appears on SSE.
-		const dialogEvents = sse.events.filter((ev) => (ev as { type?: string }).type === "dialog.message");
-		expect(dialogEvents.length).toBeGreaterThan(0);
-
-		// fs.read does NOT appear on SSE (filtered by surfaces declaration).
-		const fsReadOnSse = sse.events.filter((ev) => (ev as { type?: string }).type === "fs.read");
-		expect(fsReadOnSse).toHaveLength(0);
-
-		// But fs.read DID happen (proven by JSONL).
 		await new Promise((r) => setTimeout(r, 300));
 		const records = readJSONL(cwd);
-		const types = new Set(records.map((r) => r.type));
-		expect(types.has("fs.read")).toBe(true);
+		const sseTypes = sse.events.map((ev) => (ev as { type?: string }).type ?? "");
+
+		assertSseFilter(sseTypes, new Set(records.map((r) => r.type)), ["dialog.message"], ["fs.read"]);
 	}, 120_000);
 });

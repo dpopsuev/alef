@@ -350,10 +350,10 @@ describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)"
 		expect(records.every((r) => typeof r.hash === "string")).toBe(true);
 	}, 120_000);
 
-	// Known gap: DialogOrgan.history only stores text (role+content).
-	// Tool call/result blocks from turn 1 are stripped before turn 2, which
-	// may cause the runner to exit with an LLM API error on complex histories.
-	// Tracked for fix when ConversationMessage supports tool blocks.
+	// Turn 2's conversationHistory (with tool blocks) passes through correctly.
+	// Remaining gap: the alef-ai Message.timestamp field may cause Anthropic API
+	// retries when embedded in conversationHistory on turn 2.
+	// Tracked under ALE-TSK-189 (transformMessages normalization).
 	it.skip("multi-turn: second reply references content from first turn", async () => {
 		withDebugDump();
 		const cwd = makeTmp();

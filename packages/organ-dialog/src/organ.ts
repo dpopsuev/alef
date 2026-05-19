@@ -93,12 +93,14 @@ export class DialogOrgan implements Organ {
 	readonly labels = ["conversation", "history", "messaging"] as const;
 	readonly tools: readonly ToolDefinition[] = [MESSAGE_TOOL];
 	// Sense/dialog.message carries the full conversation payload sent to the LLM.
+	// messages entries have heterogeneous content (string for text-only turns,
+	// array of blocks for tool-using turns) so content is typed permissively.
 	readonly publishSchemas = {
 		sense: {
 			"dialog.message": z.object({
 				text: z.string(),
 				sender: z.string(),
-				messages: z.array(z.object({ role: z.string(), content: z.string() })).min(1),
+				messages: z.array(z.object({ role: z.string() }).passthrough()).min(1),
 				tools: z.array(z.object({ name: z.string(), description: z.string() })),
 			}),
 		},
@@ -116,8 +118,19 @@ export class DialogOrgan implements Organ {
 	private readonly maxTurns: number;
 	private turnCount = 0;
 	private readonly onMessage: ((msg: ConversationMessage) => void) | undefined;
-	/** Conversation history — accumulates across turns. */
-	private readonly history: ConversationMessage[] = [];
+	/**
+	 * Conversation history — accumulates across turns.
+	 *
+	 * Each entry is either:
+	 *   ConversationMessage (simple user/assistant text turn), or
+	 *   unknown[] (full API-ready message block array returned by LLMOrgan
+	 *   via motor/dialog.message.conversationHistory).
+	 *
+	 * buildPayload() flattens the history into the messages array sent to the LLM.
+	 * Storing the full block array preserves tool_use and tool_result blocks
+	 * that the Anthropic API requires for correct multi-turn conversations.
+	 */
+	private history: ConversationMessage[] | unknown[] = [];
 	private nerve: Nerve | null = null;
 	private readonly pending = new Map<
 		string,
@@ -131,9 +144,10 @@ export class DialogOrgan implements Organ {
 		this.maxTurns = options.maxTurns ?? 0;
 		this.onMessage = options.onMessage;
 		if (options.initialHistory) {
+			const simpleHistory = this.history as ConversationMessage[];
 			for (const msg of options.initialHistory) {
 				if (msg.role === "user" || msg.role === "assistant") {
-					this.history.push({ role: msg.role, content: msg.content });
+					simpleHistory.push({ role: msg.role, content: msg.content });
 				}
 			}
 		}
@@ -141,19 +155,34 @@ export class DialogOrgan implements Organ {
 
 	/** Reset conversation history. Useful between independent sessions. */
 	clearHistory(): void {
-		this.history.length = 0;
+		this.history = [];
 	}
 
-	/** Read-only snapshot of current history. */
+	/**
+	 * Read-only snapshot of the simple text history.
+	 * For the full structured history (with tool blocks), read conversationHistory.
+	 */
 	get messages(): readonly ConversationMessage[] {
-		return this.history;
+		// Filter to only ConversationMessage entries (text turns) for backward compat.
+		return (this.history as ConversationMessage[]).filter(
+			(m): m is ConversationMessage =>
+				typeof m === "object" &&
+				m !== null &&
+				"role" in m &&
+				"content" in m &&
+				typeof (m as ConversationMessage).content === "string",
+		);
 	}
 
 	private buildPayload(text: string, sender: string): Record<string, unknown> {
 		const userMsg: ConversationMessage = { role: "user", content: text };
-		const messages: ConversationMessage[] = this.systemPrompt
-			? [{ role: "system", content: this.systemPrompt }, ...this.history, userMsg]
-			: [...this.history, userMsg];
+		// When history is a full API-ready block array (from LLMOrgan's conversationHistory),
+		// use it directly. The LLM already sanitised tool_use and tool_result blocks.
+		// When it's a simple ConversationMessage[] (text-only, e.g. ScriptedLLMOrgan), wrap normally.
+		const historyMessages: unknown[] = this.history as unknown[];
+		const messages: unknown[] = this.systemPrompt
+			? [{ role: "system", content: this.systemPrompt }, ...historyMessages, userMsg]
+			: [...historyMessages, userMsg];
 		return { text, sender, messages, tools: this.getTools() };
 	}
 
@@ -165,10 +194,18 @@ export class DialogOrgan implements Organ {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
 
-			// Append assistant reply to history before resolving.
+			// When LLMOrgan provides the full conversation history (including
+			// tool_use and tool_result blocks), store it wholesale so the next
+			// turn passes a complete, API-valid message array to the LLM.
+			const fullHistory = event.payload.conversationHistory;
+			if (Array.isArray(fullHistory) && fullHistory.length > 0) {
+				this.history = fullHistory as unknown[];
+			} else {
+				// Fallback for organs that publish text-only (ScriptedLLMOrgan, tests).
+				(this.history as ConversationMessage[]).push({ role: "assistant", content: text });
+			}
 			const assistantMsg: ConversationMessage = { role: "assistant", content: text };
 			this.onMessage?.(assistantMsg);
-			this.history.push(assistantMsg);
 			this.sink(text, sender);
 
 			// Resolve any awaiting send() with matching correlationId.

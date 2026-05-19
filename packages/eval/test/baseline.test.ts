@@ -24,21 +24,21 @@ describe("EvalBaseline", () => {
 		const b = EvalBaseline.empty();
 		b.record("PlanRefactoring", { pass: true, score: 1.0 });
 		expect(b.size).toBe(1);
-		expect(b.snapshot()["PlanRefactoring"].pass).toBe(true);
+		expect(b.snapshot().PlanRefactoring.pass).toBe(true);
 	});
 
 	it("increments passStreak on consecutive passes", () => {
 		const b = EvalBaseline.empty();
 		b.record("A", { pass: true, score: 1.0 });
 		b.record("A", { pass: true, score: 1.0 });
-		expect(b.snapshot()["A"].passStreak).toBe(2);
+		expect(b.snapshot().A.passStreak).toBe(2);
 	});
 
 	it("resets passStreak on failure", () => {
 		const b = EvalBaseline.empty();
 		b.record("A", { pass: true, score: 1.0 });
 		b.record("A", { pass: false, score: 0 });
-		expect(b.snapshot()["A"].passStreak).toBe(0);
+		expect(b.snapshot().A.passStreak).toBe(0);
 	});
 
 	it("round-trips through save + load", async () => {
@@ -50,7 +50,7 @@ describe("EvalBaseline", () => {
 
 		const b2 = await EvalBaseline.load(path);
 		expect(b2.size).toBe(1);
-		expect(b2.snapshot()["CreateHTTPServer"].score).toBe(1.0);
+		expect(b2.snapshot().CreateHTTPServer.score).toBe(1.0);
 	});
 
 	it("returns empty array when no baseline file exists", async () => {

@@ -25,7 +25,6 @@ function drive(
 			type: eventType,
 			payload: { ...payload, toolCallId: "tc-1" },
 			correlationId: "test",
-			timestamp: Date.now(),
 		});
 	});
 }
@@ -105,7 +104,6 @@ describe("LectorOrgan — motor/sense contract", () => {
 				type: "lector.read",
 				payload: { path: "nonexistent.ts", toolCallId: "tc-2" },
 				correlationId: "test",
-				timestamp: Date.now(),
 			});
 		});
 		expect(result.isError).toBe(true);

@@ -13,7 +13,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { MotorEvent, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -252,7 +252,6 @@ export class DialogOrgan implements Organ {
 			type: DIALOG_MESSAGE,
 			payload,
 			correlationId,
-			timestamp: Date.now(),
 			isError: false,
 		});
 	}
@@ -302,12 +301,11 @@ export function makeMessageSense(
 	payload: Record<string, unknown>,
 	isError = false,
 	errorMessage?: string,
-): SenseEvent {
+): SensePublishInput {
 	const toolCallId = typeof motor.payload.toolCallId === "string" ? motor.payload.toolCallId : undefined;
 	return {
 		type: motor.type,
 		correlationId: motor.correlationId,
-		timestamp: Date.now(),
 		payload: toolCallId ? { ...payload, toolCallId } : payload,
 		isError,
 		errorMessage,

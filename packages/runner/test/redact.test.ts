@@ -73,8 +73,8 @@ describe("hashRecord", () => {
 			bus: "motor",
 			type: "fs.read",
 			correlationId: "c-1",
+			timestamp: 0,
 			payload: { path: "auth.ts" },
-			timestamp: 1000,
 		});
 		expect(hash).toMatch(/^[0-9a-f]{64}$/);
 	});
@@ -85,8 +85,8 @@ describe("hashRecord", () => {
 			bus: "motor" as const,
 			type: "fs.read",
 			correlationId: "c-1",
+			timestamp: 0,
 			payload: { path: "a.ts" },
-			timestamp: 1000,
 		};
 		expect(hashRecord(base)).toBe(hashRecord(base));
 	});
@@ -97,23 +97,23 @@ describe("hashRecord", () => {
 			bus: "motor",
 			type: "fs.read",
 			correlationId: "c-1",
+			timestamp: 0,
 			payload: { path: "a.ts" },
-			timestamp: 1000,
 		});
 		const h2 = hashRecord({
 			bus: "motor",
 			type: "fs.read",
 			correlationId: "c-1",
+			timestamp: 0,
 			payload: { path: "b.ts" },
-			timestamp: 1000,
 		});
 		expect(h1).not.toBe(h2);
 	});
 
 	it("modifying type changes the hash (tamper detection)", async () => {
 		const { hashRecord } = await import("../src/session-store.js");
-		const h1 = hashRecord({ bus: "motor", type: "fs.read", correlationId: "c-1", payload: {}, timestamp: 1000 });
-		const h2 = hashRecord({ bus: "motor", type: "fs.WRITE", correlationId: "c-1", payload: {}, timestamp: 1000 });
+		const h1 = hashRecord({ bus: "motor", type: "fs.read", correlationId: "c-1", payload: {}, timestamp: 0 });
+		const h2 = hashRecord({ bus: "motor", type: "fs.WRITE", correlationId: "c-1", payload: {}, timestamp: 0 });
 		expect(h1).not.toBe(h2);
 	});
 });
@@ -139,7 +139,6 @@ describe("EventLogOrgan integration — redact + hash", () => {
 				type: "test.event",
 				payload: { command: "echo hi", apiKey: "super-secret", path: "/tmp" },
 				correlationId: "c-1",
-				timestamp: Date.now(),
 			});
 
 			// Give fire-and-forget a moment to settle

@@ -32,7 +32,7 @@ function waitSense(nerve: Nerve, type: string, toolCallId: string, correlationId
 }
 
 function publishMotor(nerve: Nerve, type: string, payload: Record<string, unknown>, correlationId: string) {
-	nerve.motor.publish({ type, payload, correlationId, timestamp: Date.now() });
+	nerve.motor.publish({ type, payload, correlationId });
 }
 
 // ---------------------------------------------------------------------------

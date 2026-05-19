@@ -14,7 +14,7 @@ function publishMotor(
 	payload: Record<string, unknown>,
 	correlationId = "test-corr",
 ) {
-	nerve.asNerve().motor.publish({ type, correlationId, timestamp: Date.now(), payload });
+	nerve.publishMotor({ type, payload, correlationId });
 }
 
 /** Collect Sense events until isFinal: true, return the final event. */

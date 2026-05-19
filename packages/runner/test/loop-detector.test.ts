@@ -21,7 +21,6 @@ describe("LoopDetectorOrgan", () => {
 				type,
 				payload: { toolCallId: "t1" },
 				correlationId: "corr-1",
-				timestamp: Date.now(),
 			});
 		}
 
@@ -39,7 +38,6 @@ describe("LoopDetectorOrgan", () => {
 				type: "fs.read",
 				payload: { toolCallId: `t${i}` },
 				correlationId: "corr-1",
-				timestamp: Date.now(),
 			});
 		}
 
@@ -59,7 +57,6 @@ describe("LoopDetectorOrgan", () => {
 				type: "fs.read",
 				payload: { toolCallId: `t${i}` },
 				correlationId: "corr-1",
-				timestamp: Date.now(),
 			});
 		}
 
@@ -69,7 +66,6 @@ describe("LoopDetectorOrgan", () => {
 				type: "fs.read",
 				payload: { toolCallId: `t${i}` },
 				correlationId: "corr-2",
-				timestamp: Date.now(),
 			});
 		}
 
@@ -88,7 +84,6 @@ describe("LoopDetectorOrgan", () => {
 				type: "fs.read",
 				payload: { toolCallId: `t${i}` },
 				correlationId: "corr-1",
-				timestamp: Date.now(),
 			});
 		}
 

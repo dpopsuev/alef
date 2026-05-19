@@ -27,7 +27,7 @@
 
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny } from "zod";
-import type { MotorEvent, Nerve, Organ, SenseEvent, ToolDefinition } from "./buses.js";
+import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "./buses.js";
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
 
@@ -160,24 +160,22 @@ export function buildSense(
 	payload: Record<string, unknown>,
 	isError = false,
 	errorMessage?: string,
-): SenseEvent {
+): SensePublishInput {
 	const toolCallId = extractToolCallId(motor.payload);
 	return {
 		type: motor.type,
 		correlationId: motor.correlationId,
-		timestamp: Date.now(),
 		payload: toolCallId ? { ...payload, toolCallId } : payload,
 		isError,
 		errorMessage,
 	};
 }
 
-export function buildErrSense(motor: MotorEvent, message: string): SenseEvent {
+export function buildErrSense(motor: MotorEvent, message: string): SensePublishInput {
 	const toolCallId = extractToolCallId(motor.payload);
 	return {
 		type: motor.type,
 		correlationId: motor.correlationId,
-		timestamp: Date.now(),
 		payload: toolCallId ? { toolCallId } : {},
 		isError: true,
 		errorMessage: message,

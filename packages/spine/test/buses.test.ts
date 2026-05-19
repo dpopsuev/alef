@@ -22,16 +22,16 @@ declare module "../src/buses.js" {
 
 function makeMotorEvent(type: "test.command" | "test.tool_call" = "test.command", correlationId = newCorrelationId()) {
 	if (type === "test.command") {
-		return { type, payload: { value: "hello" }, correlationId, timestamp: Date.now() } as const;
+		return { type, payload: { value: "hello" }, correlationId } as const;
 	}
-	return { type, payload: { toolName: "bash", args: {} }, correlationId, timestamp: Date.now() } as const;
+	return { type, payload: { toolName: "bash", args: {} }, correlationId } as const;
 }
 
 function makeSenseEvent(type: "test.result" | "test.observation" = "test.result", correlationId = newCorrelationId()) {
 	if (type === "test.result") {
-		return { type, payload: { output: "done" }, correlationId, timestamp: Date.now(), isError: false } as const;
+		return { type, payload: { output: "done" }, correlationId, isError: false } as const;
 	}
-	return { type, payload: { data: 42 }, correlationId, timestamp: Date.now(), isError: false } as const;
+	return { type, payload: { data: 42 }, correlationId, isError: false } as const;
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +170,6 @@ describe("InProcessNerve — corpus root methods", () => {
 				type: "test.result",
 				payload: { output: "echo" },
 				correlationId: motorEvent.correlationId,
-				timestamp: Date.now(),
 				isError: false,
 			});
 		});
@@ -182,7 +181,6 @@ describe("InProcessNerve — corpus root methods", () => {
 			type: "test.command",
 			payload: { value: "ping" },
 			correlationId: id,
-			timestamp: Date.now(),
 		});
 
 		expect(received?.correlationId).toBe(id);

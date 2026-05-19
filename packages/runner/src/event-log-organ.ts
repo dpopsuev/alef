@@ -35,7 +35,6 @@ export class EventLogOrgan implements Organ {
 
 	mount(nerve: Nerve): () => void {
 		const off1 = nerve.motor.subscribe("*", (event) => {
-			// Redact sensitive fields then hash before writing.
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			const base = {
 				bus: "motor" as const,
@@ -43,6 +42,7 @@ export class EventLogOrgan implements Organ {
 				correlationId: event.correlationId,
 				payload,
 				timestamp: event.timestamp,
+				elapsed: event.elapsed,
 			};
 			void this.store.append({ ...base, hash: hashRecord(base) });
 		});
@@ -55,6 +55,7 @@ export class EventLogOrgan implements Organ {
 				correlationId: event.correlationId,
 				payload,
 				timestamp: event.timestamp,
+				elapsed: event.elapsed,
 			};
 			void this.store.append({ ...base, hash: hashRecord(base) });
 		});

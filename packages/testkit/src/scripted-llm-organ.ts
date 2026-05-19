@@ -69,7 +69,6 @@ export class ScriptedLLMOrgan implements Organ {
 				type: DIALOG_MESSAGE,
 				payload: { text: "(ScriptedLLMOrgan: script exhausted)" },
 				correlationId: event.correlationId,
-				timestamp: Date.now(),
 			});
 			return;
 		}
@@ -80,7 +79,6 @@ export class ScriptedLLMOrgan implements Organ {
 					type: DIALOG_MESSAGE,
 					payload: { text: step.text },
 					correlationId: event.correlationId,
-					timestamp: Date.now(),
 				});
 				return;
 			}
@@ -96,7 +94,6 @@ export class ScriptedLLMOrgan implements Organ {
 						type: call.name,
 						payload: { ...call.args, toolCallId },
 						correlationId: event.correlationId,
-						timestamp: Date.now(),
 					});
 					await waitForSense(nerve, call.name, toolCallId, event.correlationId);
 				}),
@@ -106,7 +103,6 @@ export class ScriptedLLMOrgan implements Organ {
 				type: DIALOG_MESSAGE,
 				payload: { text: replyText },
 				correlationId: event.correlationId,
-				timestamp: Date.now(),
 			});
 		} catch (err) {
 			// Publish error as dialog reply so dialog.send() resolves rather than hanging.
@@ -114,7 +110,6 @@ export class ScriptedLLMOrgan implements Organ {
 				type: DIALOG_MESSAGE,
 				payload: { text: `(ScriptedLLMOrgan error: ${String(err)})` },
 				correlationId: event.correlationId,
-				timestamp: Date.now(),
 			});
 		}
 	}

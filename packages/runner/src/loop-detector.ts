@@ -70,7 +70,6 @@ export class LoopDetectorOrgan implements Organ {
 					isError: true,
 					errorMessage: `Loop detected: '${event.type}' called ${next} times in one turn. Stop repeating this tool.`,
 					correlationId: corr,
-					timestamp: Date.now(),
 				});
 			}
 		});

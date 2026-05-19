@@ -44,7 +44,6 @@ function makeEchoOrgan(): Organ {
 					type: "dialog.message",
 					payload: { text: `echo: ${event.payload.text}` },
 					correlationId: event.correlationId,
-					timestamp: Date.now(),
 				});
 			});
 		},
@@ -90,7 +89,6 @@ describe("Agent — load()", () => {
 						type: "dialog.message",
 						payload: { text: "ok" },
 						correlationId: e.correlationId,
-						timestamp: Date.now(),
 					});
 				});
 			},
@@ -208,7 +206,7 @@ describe("Agent payload validation", () => {
 				motor: { "v.event": z.object({ count: z.number() }) },
 			},
 			mount(nerve) {
-				nerve.motor.publish({ type: "v.event", payload: { count: 1 }, correlationId: "c1", timestamp: 1 });
+				nerve.motor.publish({ type: "v.event", payload: { count: 1 }, correlationId: "c1" });
 				return () => {};
 			},
 		};
@@ -226,7 +224,7 @@ describe("Agent payload validation", () => {
 			},
 			mount(nerve) {
 				// Missing the required field.
-				nerve.motor.publish({ type: "strict.event", payload: { wrong: true }, correlationId: "c1", timestamp: 1 });
+				nerve.motor.publish({ type: "strict.event", payload: { wrong: true }, correlationId: "c1" });
 				return () => {};
 			},
 		};
@@ -248,7 +246,7 @@ describe("Agent payload validation", () => {
 					type: "sense.event",
 					payload: { value: "not-a-number" },
 					correlationId: "c1",
-					timestamp: 1,
+
 					isError: false,
 				});
 				return () => {};
@@ -272,7 +270,6 @@ describe("Agent payload validation", () => {
 					type: "other.event",
 					payload: { anything: true },
 					correlationId: "c1",
-					timestamp: 1,
 				});
 				return () => {};
 			},
@@ -290,7 +287,7 @@ describe("Agent payload validation", () => {
 				motor: { "typed.event": z.object({ score: z.number() }) },
 			},
 			mount(nerve) {
-				nerve.motor.publish({ type: "typed.event", payload: {}, correlationId: "c1", timestamp: 1 });
+				nerve.motor.publish({ type: "typed.event", payload: {}, correlationId: "c1" });
 				return () => {};
 			},
 		};

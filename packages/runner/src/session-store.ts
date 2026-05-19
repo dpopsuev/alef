@@ -36,8 +36,10 @@ export interface StorageRecord {
 	correlationId: string;
 	/** Payload after redaction — sensitive keys replaced with [REDACTED]. */
 	payload: Record<string, unknown>;
-	/** Wall-clock ms. NOT used for recency scoring (use turnIndex instead). */
+	/** Epoch ms — set by the bus at publish time. */
 	timestamp: number;
+	/** Ms since the first event with this correlationId was seen. Set by the bus. */
+	elapsed?: number;
 	/**
 	 * SHA-256 of { bus, type, correlationId, payload, timestamp } (post-redaction).
 	 * Detects tampering: any modification to the record changes this field.

@@ -444,3 +444,85 @@ describe("defineOrgan — cache", () => {
 		expect(callCount).toBe(2);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// inputSchemas validation
+// ---------------------------------------------------------------------------
+
+describe("defineOrgan — inputSchemas validation", () => {
+	it("rejects malformed motor payload with error sense in test env", async () => {
+		const { z } = await import("zod");
+		const nerve = new InProcessNerve();
+		const received: SenseEvent[] = [];
+		nerve.subscribeSense("typed.op", (e) => void received.push(e));
+
+		const organ = defineOrgan(
+			"typed",
+			{
+				"motor/typed.op": { handle: async (ctx: CorpusHandlerCtx) => ({ ok: true, input: ctx.payload.value }) },
+			},
+			{
+				inputSchemas: { motor: { "typed.op": z.object({ value: z.string() }) } },
+			},
+		);
+		organ.mount(nerve.asNerve());
+
+		publishMotor(nerve, "typed.op", { value: 42 }); // wrong type
+		await new Promise((r) => setTimeout(r, 20));
+
+		expect(received.length).toBeGreaterThan(0);
+		expect(received[0].isError).toBe(true);
+		expect(received[0].errorMessage).toMatch(/InputValidation/);
+	});
+
+	it("passes valid payload through to handler", async () => {
+		const { z } = await import("zod");
+		const nerve = new InProcessNerve();
+		const received: SenseEvent[] = [];
+		nerve.subscribeSense("valid.op", (e) => void received.push(e));
+
+		const organ = defineOrgan(
+			"valid-organ",
+			{
+				"motor/valid.op": { handle: async () => ({ result: "ok" }) },
+			},
+			{
+				inputSchemas: { motor: { "valid.op": z.object({ value: z.string() }) } },
+			},
+		);
+		organ.mount(nerve.asNerve());
+
+		publishMotor(nerve, "valid.op", { value: "hello" });
+		await new Promise((r) => setTimeout(r, 20));
+
+		expect(received.length).toBeGreaterThan(0);
+		expect(received[0].isError).toBe(false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// ready() hook
+// ---------------------------------------------------------------------------
+
+describe("defineOrgan — ready() hook", () => {
+	it("ready() is exposed on the organ and awaitable", async () => {
+		let initialized = false;
+		const organ = defineOrgan(
+			"async-init",
+			{},
+			{
+				ready: async () => {
+					initialized = true;
+				},
+			},
+		);
+		expect(typeof organ.ready).toBe("function");
+		await organ.ready?.();
+		expect(initialized).toBe(true);
+	});
+
+	it("organ without ready() has ready undefined", () => {
+		const organ = defineOrgan("no-init", {}, {});
+		expect(organ.ready).toBeUndefined();
+	});
+});

@@ -166,6 +166,23 @@ export class Agent {
 		return off;
 	}
 
+	/**
+	 * Await all organs that declare ready() before routing events.
+	 * Call once after all agent.load() calls, before accepting user input.
+	 * If any organ's ready() rejects, the error includes the organ name.
+	 */
+	async ready(): Promise<void> {
+		await Promise.all(
+			this._organs
+				.filter((o) => typeof o.ready === "function")
+				.map((o) =>
+					o.ready!().catch((err: unknown) => {
+						throw new Error(`Agent.ready: organ '${o.name}' failed: ${String(err)}`);
+					}),
+				),
+		);
+	}
+
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;

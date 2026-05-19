@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+
 /**
  * Alef agent runner — composition root and entry point.
  *
@@ -17,7 +18,9 @@
  * (fs, shell, web, enclosure, …) are variable.
  */
 
+import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
+import type { Message, ThinkingLevel } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
@@ -97,7 +100,7 @@ const blueprintPath = args.blueprint ?? findAgentDefinitionPath(args.cwd);
 
 let corpusOrgans = [];
 let blueprintModelId: string | undefined;
-let blueprintSurfaces: import("@dpopsuev/alef-agent-blueprint").AgentDefinitionSurfaceInput[] = [];
+let blueprintSurfaces: AgentDefinitionSurfaceInput[] = [];
 let blueprintUpgradePolicy: "rebuild_only" | "packages" | "self" = "rebuild_only";
 
 if (blueprintPath) {
@@ -155,11 +158,9 @@ const dialog = new DialogOrgan({
 	maxTurns: args.maxTurns,
 });
 
-const thinkingLevel = args.thinking as import("@dpopsuev/alef-ai").ThinkingLevel | undefined;
+const thinkingLevel = args.thinking as ThinkingLevel | undefined;
 
-const prepareStep = async (
-	messages: import("@dpopsuev/alef-ai").Message[],
-): Promise<import("@dpopsuev/alef-ai").Message[]> => {
+const prepareStep = async (messages: Message[]): Promise<Message[]> => {
 	const turns = await session.turns();
 	const hitCounts = await session.hitCounts();
 	const lastMsg = messages.at(-1);
@@ -172,7 +173,7 @@ const prepareStep = async (
 		contextWindow: model.contextWindow,
 		hitCounts,
 	});
-	const projected = turnsToMessages(selected) as unknown as import("@dpopsuev/alef-ai").Message[];
+	const projected = turnsToMessages(selected) as unknown as Message[];
 	const src = projected.length > 0 ? "jsonl" : "fallback";
 	let result: typeof messages;
 	if (projected.length > 0) {
@@ -202,13 +203,9 @@ const prepareStep = async (
 // Provides a chained prepareStep that injects pending-operation context
 // into the system message when another turn's tool call is unresolved.
 const reactor = createReactorOrgan();
-const chainedPrepareStep = async (
-	msgs: import("@dpopsuev/alef-ai").Message[],
-): Promise<import("@dpopsuev/alef-ai").Message[]> => {
+const chainedPrepareStep = async (msgs: Message[]): Promise<Message[]> => {
 	const afterTurnAssembler = await prepareStep(msgs);
-	return reactor.prepareStep(
-		afterTurnAssembler as { role: string; content: string }[],
-	) as import("@dpopsuev/alef-ai").Message[];
+	return reactor.prepareStep(afterTurnAssembler as { role: string; content: string }[]) as Message[];
 };
 
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
@@ -232,7 +229,7 @@ if (args.serve !== undefined) {
 	});
 	agent.load(router);
 	await router.ready();
-	const addr = router.address()!;
+	const addr = router.address() ?? { host: "127.0.0.1", port: 0 };
 	console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
 }
 
@@ -247,7 +244,7 @@ if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 		const m = msg as { type?: string; envelope?: { updateId?: string } };
 		if (m.type === "handoff_prepare" && m.envelope?.updateId) {
 			// Acknowledge the handoff so the supervisor can finalize and promote.
-			process.send!({ type: "handoff_ack", updateId: m.envelope.updateId });
+			process.send?.({ type: "handoff_ack", updateId: m.envelope.updateId });
 		}
 	});
 
@@ -263,14 +260,15 @@ if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 	// Expose globally so organs/tools can trigger a supervisor-managed upgrade.
 	(globalThis as Record<string, unknown>).alefRequestRebuild = () => {
 		if (ipcScope === "rebuild") {
-			process.send!({ type: "rebuild" });
+			process.send?.({ type: "rebuild" });
 		} else {
-			process.send!({ type: "update", scope: ipcScope, updateId: crypto.randomUUID() });
+			process.send?.({ type: "update", scope: ipcScope, updateId: crypto.randomUUID() });
 		}
 	};
 }
 
 // SIGTERM: finish current turn then exit cleanly.
+// eslint-disable-next-line @typescript-eslint/no-misused-promises -- Node.js process.once does not await the handler
 process.once("SIGTERM", async () => {
 	process.stderr.write("\n[signal] SIGTERM — shutting down cleanly\n");
 	try {

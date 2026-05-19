@@ -115,7 +115,7 @@ async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): Asyn
 					resolve = null;
 				}
 				while (dataQueue.length > 0) {
-					const buf = dataQueue.shift()!;
+					const buf = dataQueue.shift() as Buffer;
 					chunks.push(buf);
 					yield { chunk: buf.toString("utf-8") };
 				}

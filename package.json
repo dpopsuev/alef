@@ -15,7 +15,7 @@
 		"build": "cd packages/tui && npm run build && cd ../ai && npm run build && cd ../agent && npm run build && cd ../blueprint && npm run build && cd ../runtime && npm run build && cd ../coding-agent && npm run build && cd ../web-ui && npm run build",
 		"dev": "concurrently --names \"ai,agent,blueprint,runtime,coding-agent,web-ui,tui\" --prefix-colors \"cyan,yellow,blue,white,red,green,magenta\" \"cd packages/ai && npm run dev\" \"cd packages/agent && npm run dev\" \"cd packages/blueprint && npm run dev\" \"cd packages/runtime && npm run dev\" \"cd packages/coding-agent && npm run dev\" \"cd packages/web-ui && npm run dev\" \"cd packages/tui && npm run dev\"",
 		"dev:tsc": "concurrently --names \"ai,web-ui\" --prefix-colors \"cyan,green\" \"cd packages/ai && npm run dev:tsc\" \"cd packages/web-ui && npm run dev:tsc\"",
-		"check": "biome check --write --error-on-warnings . && tsgo --noEmit && npm run check:browser-smoke && cd packages/web-ui && npm run check",
+		"check": "biome check --write --error-on-warnings . && tsgo --noEmit && npm run check:lint && npm run check:browser-smoke && cd packages/web-ui && npm run check",
 		"check:browser-smoke": "node scripts/check-browser-smoke.mjs",
 		"profile:tui": "node scripts/profile-coding-agent-node.mjs --mode tui",
 		"profile:rpc": "node scripts/profile-coding-agent-node.mjs --mode rpc",
@@ -30,19 +30,24 @@
 		"release:patch": "node scripts/release.mjs patch",
 		"release:minor": "node scripts/release.mjs minor",
 		"release:major": "node scripts/release.mjs major",
-		"prepare": "husky"
+		"prepare": "husky",
+		"check:lint": "eslint packages/spine/src/ packages/corpus/src/ packages/organ-llm/src/ packages/organ-dialog/src/ packages/organ-fs/src/ packages/organ-shell/src/ packages/organ-web/src/ packages/organ-reactor/src/ packages/runner/src/ --max-warnings 50"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",
 		"@biomejs/biome": "2.3.5",
 		"@types/node": "^22.10.5",
+		"@typescript-eslint/eslint-plugin": "^8.59.4",
+		"@typescript-eslint/parser": "^8.59.4",
 		"@typescript/native-preview": "7.0.0-dev.20260120.1",
 		"concurrently": "^9.2.1",
+		"eslint": "^10.4.0",
 		"husky": "^9.1.7",
 		"jiti": "^2.7.0",
 		"shx": "^0.4.0",
 		"tsx": "^4.20.3",
-		"typescript": "^5.9.2"
+		"typescript": "^5.9.2",
+		"typescript-eslint": "^8.59.4"
 	},
 	"engines": {
 		"node": ">=20.0.0"

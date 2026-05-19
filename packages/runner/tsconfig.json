@@ -4,22 +4,64 @@
 		"rootDir": "src",
 		"noEmit": true,
 		"paths": {
-			"@dpopsuev/alef-agent-blueprint": ["../blueprint/src/index.ts"],
-			"@dpopsuev/alef-agent-blueprint/*": ["../blueprint/src/*.ts"],
-			"@dpopsuev/alef-agent-core": ["../agent/src/index.ts"],
-			"@dpopsuev/alef-ai": ["../ai/src/index.ts"],
-			"@dpopsuev/alef-ai/*": ["../ai/src/*"],
-			"@dpopsuev/alef-corpus": ["../corpus/src/index.ts"],
-			"@dpopsuev/alef-spine": ["../spine/src/index.ts"],
-			"@dpopsuev/alef-organ-dialog": ["../organ-dialog/src/index.ts"],
-			"@dpopsuev/alef-organ-router": ["../organ-router/src/index.ts"],
-			"@dpopsuev/alef-organ-fs": ["../organ-fs/src/index.ts"],
-			"@dpopsuev/alef-organ-lector": ["../organ-lector/src/index.ts"],
-			"@dpopsuev/alef-tui": ["../tui/src/index.ts"],
-			"@dpopsuev/alef-tui/*": ["../tui/src/*"],
-			"@dpopsuev/alef-organ-shell": ["../organ-shell/src/index.ts"],
-			"@dpopsuev/alef-organ-llm": ["../organ-llm/src/index.ts"]
+			"@dpopsuev/alef-agent-blueprint": [
+				"../blueprint/src/index.ts"
+			],
+			"@dpopsuev/alef-agent-blueprint/*": [
+				"../blueprint/src/*.ts"
+			],
+			"@dpopsuev/alef-agent-core": [
+				"../agent/src/index.ts"
+			],
+			"@dpopsuev/alef-ai": [
+				"../ai/src/index.ts"
+			],
+			"@dpopsuev/alef-ai/*": [
+				"../ai/src/*"
+			],
+			"@dpopsuev/alef-corpus": [
+				"../corpus/src/index.ts"
+			],
+			"@dpopsuev/alef-spine": [
+				"../spine/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-dialog": [
+				"../organ-dialog/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-router": [
+				"../organ-router/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-fs": [
+				"../organ-fs/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-lector": [
+				"../organ-lector/src/index.ts"
+			],
+			"@dpopsuev/alef-tui": [
+				"../tui/src/index.ts"
+			],
+			"@dpopsuev/alef-tui/*": [
+				"../tui/src/*"
+			],
+			"@dpopsuev/alef-organ-shell": [
+				"../organ-shell/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-llm": [
+				"../organ-llm/src/index.ts"
+			],
+			"@dpopsuev/alef-testkit": [
+				"../testkit/src/index.ts"
+			],
+			"@dpopsuev/alef-testkit/*": [
+				"../testkit/src/*.ts"
+			],
+			"@dpopsuev/alef-organ-reactor": [
+				"../organ-reactor/src/index.ts"
+			]
 		}
 	},
-	"include": ["src/**/*.ts", "test/**/*.ts"]
+	"include": [
+		"src/**/*.ts",
+		"test/**/*.ts"
+	]
 }

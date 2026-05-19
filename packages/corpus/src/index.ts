@@ -174,9 +174,9 @@ export class Agent {
 	async ready(): Promise<void> {
 		await Promise.all(
 			this._organs
-				.filter((o) => typeof o.ready === "function")
+				.filter((o): o is Organ & { ready: () => Promise<void> } => typeof o.ready === "function")
 				.map((o) =>
-					o.ready!().catch((err: unknown) => {
+					o.ready().catch((err: unknown) => {
 						throw new Error(`Agent.ready: organ '${o.name}' failed: ${String(err)}`);
 					}),
 				),

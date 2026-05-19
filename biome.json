@@ -37,5 +37,30 @@
 			"!packages/mom/data/**/*",
 			"!!**/node_modules"
 		]
-	}
+	},
+	"overrides": [
+		{
+			"linter": {
+				"rules": {
+					"style": {
+						"noNonNullAssertion": "error"
+					},
+					"suspicious": {
+						"noExplicitAny": "error"
+					},
+					"nursery": {
+						"noFloatingPromises": "error"
+					}
+				}
+			},
+			"includes": [
+				"packages/spine/src/**/*.ts",
+				"packages/corpus/src/**/*.ts",
+				"packages/organ-*/src/**/*.ts",
+				"packages/runner/src/**/*.ts",
+				"packages/eval/src/**/*.ts",
+				"packages/testkit/src/**/*.ts"
+			]
+		}
+	]
 }

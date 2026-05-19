@@ -101,6 +101,7 @@ class McpOrganImpl implements Organ {
 			offs.push(off);
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-misused-promises -- Organ.mount returns () => void; Promise<void> is structurally compatible and the caller does not await unmount
 		return async () => {
 			for (const off of offs) off();
 			await this.client.close();

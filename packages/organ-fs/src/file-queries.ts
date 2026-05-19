@@ -120,7 +120,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 	const customOps = options.operations;
 	const cache = options.cache;
 	const signal = options.signal;
-	const resolveFdPath = options.resolveFdPath ?? (async () => "fd");
+	const resolveFdPath = options.resolveFdPath ?? (() => "fd");
 	const { pattern, path: searchDir, limit, type: entryType, extension, depth, hidden } = input;
 	return new Promise((resolve, reject) => {
 		if (signal?.aborted) {
@@ -145,7 +145,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 		};
 		signal?.addEventListener("abort", onAbort, { once: true });
 
-		(async () => {
+		void (async () => {
 			try {
 				const searchPath = resolveToCwd(searchDir || ".", options.cwd);
 				const effectiveLimit = limit ?? DEFAULT_FIND_LIMIT;
@@ -535,7 +535,7 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 	const customOps = options.operations;
 	const cache = options.cache;
 	const signal = options.signal;
-	const resolveRgPath = options.resolveRgPath ?? (async () => "rg");
+	const resolveRgPath = options.resolveRgPath ?? (() => "rg");
 	const {
 		pattern,
 		path: searchDir,
@@ -561,7 +561,7 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 			}
 		};
 
-		(async () => {
+		void (async () => {
 			try {
 				const rgPath = await resolveRgPath();
 				if (!rgPath) {
@@ -756,6 +756,7 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 					settle(() => reject(new Error(`Failed to run ripgrep: ${error.message}`)));
 				});
 
+				// eslint-disable-next-line @typescript-eslint/no-misused-promises -- Node.js EventEmitter does not await handlers
 				child.on("close", async (code) => {
 					cleanup();
 					if (aborted) {
@@ -955,7 +956,7 @@ export async function executeLsQuery(input: LsToolInput, options: LsQueryOptions
 		};
 		signal?.addEventListener("abort", onAbort, { once: true });
 
-		(async () => {
+		void (async () => {
 			try {
 				const dirPath = resolveToCwd(input.path || ".", options.cwd);
 				const effectiveLimit = input.limit ?? DEFAULT_LS_LIMIT;

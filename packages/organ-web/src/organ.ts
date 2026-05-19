@@ -175,7 +175,7 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 					const url = String(ctx.payload.url ?? "");
 					const format = ctx.payload.format === "html" ? "html" : "text";
 					const timeoutMs = typeof ctx.payload.timeoutMs === "number" ? ctx.payload.timeoutMs : defaultTimeout;
-					return handleFetch(url, format, timeoutMs) as unknown as Record<string, unknown>;
+					return (await handleFetch(url, format, timeoutMs)) as unknown as Record<string, unknown>;
 				},
 			},
 		},

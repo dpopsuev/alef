@@ -63,12 +63,12 @@ export class LspClient {
 		this.proc = proc;
 
 		// Parse incoming messages.
-		proc.stdout!.on("data", (data: Buffer) => {
+		proc.stdout?.on("data", (data: Buffer) => {
 			this.buf += data.toString("utf-8");
 			this._drain();
 		});
 
-		proc.stderr!.on("data", () => {}); // suppress
+		proc.stderr?.on("data", () => {}); // suppress
 
 		// Initialize the server.
 		this.initPromise = this._initialize(cwd);
@@ -130,7 +130,7 @@ export class LspClient {
 			params,
 		};
 		if (id !== undefined) msg.id = id;
-		this.proc.stdin!.write(encode(msg));
+		this.proc.stdin?.write(encode(msg));
 	}
 
 	private _request(method: string, params: unknown, timeoutMs = 10_000): Promise<unknown> {

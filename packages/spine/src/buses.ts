@@ -186,7 +186,8 @@ class InProcessBus {
 		if (!this.firstSeen.has(input.correlationId)) {
 			this.firstSeen.set(input.correlationId, now);
 		}
-		const elapsed = now - this.firstSeen.get(input.correlationId)!;
+		const startedAt = this.firstSeen.get(input.correlationId) ?? now;
+		const elapsed = now - startedAt;
 		const event: NerveEvent = { ...input, timestamp: now, elapsed };
 		const specific = this.handlers.get(event.type);
 		if (specific && specific.size > 0) {
@@ -206,7 +207,7 @@ class InProcessBus {
 		}
 		set.add(handler);
 		return () => {
-			set!.delete(handler);
+			set?.delete(handler);
 		};
 	}
 

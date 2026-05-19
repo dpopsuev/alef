@@ -131,6 +131,7 @@ export async function runTuiMode(
 	});
 
 	// ── Input submit handler ──────────────────────────────────────────────────
+	// eslint-disable-next-line @typescript-eslint/no-misused-promises -- TUI onSubmit callback is fire-and-forget by design
 	input.onSubmit = async (rawText: string) => {
 		const text = rawText.trim();
 		if (!text) return;

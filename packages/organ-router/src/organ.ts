@@ -148,8 +148,8 @@ export class RouterOrgan implements Organ {
 		// Start the HTTP server. _ready resolves once the port is bound.
 		this.server = createServer((req, res) => this.handle(req, res, nerve));
 		this._ready = new Promise<void>((resolve, reject) => {
-			this.server!.once("listening", resolve);
-			this.server!.once("error", reject);
+			this.server?.once("listening", resolve);
+			this.server?.once("error", reject);
 		});
 		this.server.listen(this.options.port, this.options.host);
 

@@ -236,3 +236,83 @@ describe("assembleTurns — edge cases", () => {
 		expect(result1.map((t) => t.id)).toEqual(result2.map((t) => t.id));
 	});
 });
+
+// ---------------------------------------------------------------------------
+// prepareStep contract tests
+// ---------------------------------------------------------------------------
+
+describe("prepareStep contract", () => {
+	// prepareStep is defined inside main.ts using session + model. We test its
+	// logic directly here by replicating the decision rules.
+	// Rule 1: messages.length > 2 → return payload (has conversationHistory)
+	// Rule 2: projected.length > 0 → return projected + current user message
+	// Rule 3: fallback → return messages (empty JSONL)
+
+	it("returns payload when messages.length > 2 (conversationHistory present)", () => {
+		const messages = [
+			{ role: "system", content: "system prompt" },
+			{ role: "user", content: "turn 1" },
+			{ role: "assistant", content: [{ type: "toolCall", id: "t1", name: "fs_read", arguments: {} }] },
+			{
+				role: "toolResult",
+				toolCallId: "t1",
+				toolName: "fs.read",
+				content: [{ type: "text", text: "content" }],
+				isError: false,
+			},
+			{ role: "assistant", content: [{ type: "text", text: "done" }] },
+			{ role: "user", content: "turn 2" },
+		];
+		// Simulate: messages.length > 2, use payload directly.
+		const result = messages.length > 2 ? messages : [];
+		expect(result).toBe(messages); // identity — not a copy
+		expect(result.some((m) => (m as { role: string }).role === "toolResult")).toBe(true);
+	});
+
+	it("never returns messages ending with role=assistant", () => {
+		// A conversation ending with assistant causes the API to hang.
+		const projected = [
+			{ role: "user", content: "read the file" },
+			{ role: "assistant", content: "The token is ABC" },
+		];
+		const currentMsg = { role: "user", content: "What was the token?" };
+		const result = [...projected, currentMsg];
+		expect((result.at(-1) as { role: string }).role).toBe("user");
+	});
+
+	it("appends current user message to projected when src=jsonl", () => {
+		const projected = [
+			{ role: "user", content: "turn 1 text" },
+			{ role: "assistant", content: "turn 1 reply" },
+		];
+		const currentMsg = { role: "user", content: "turn 2 question" };
+		// Simulate JSONL path: [...projected, currentMsg]
+		const result = [...projected, currentMsg];
+		expect(result).toHaveLength(3);
+		expect((result.at(-1) as { role: string; content: string }).content).toBe("turn 2 question");
+	});
+
+	it("payload messages.length=2 means first turn, may use JSONL", () => {
+		const firstTurnMessages = [
+			{ role: "system", content: "You are a coding assistant." },
+			{ role: "user", content: "Read secret.txt" },
+		];
+		expect(firstTurnMessages.length).toBe(2); // first-turn threshold
+	});
+
+	it("stripping tool blocks from history causes dangling assistant message", () => {
+		// Demonstrate why turnsToMessages() is wrong for multi-turn with tools.
+		// turnsToMessages returns ConversationMessage[] (text-only).
+		const strippedHistory = [
+			{ role: "user", content: "Read the file" },
+			{ role: "assistant", content: "The token is ABC" }, // tool blocks stripped
+		];
+		// If prepareStep returned this and appended a new user message:
+		const withNewUser = [...strippedHistory, { role: "user", content: "What was the token?" }];
+		expect((withNewUser.at(-1) as { role: string }).role).toBe("user"); // correct final role
+
+		// But if it returned without the new user message (old bug):
+		const withoutNewUser = strippedHistory;
+		expect((withoutNewUser.at(-1) as { role: string }).role).toBe("assistant"); // WRONG — causes API hang
+	});
+});

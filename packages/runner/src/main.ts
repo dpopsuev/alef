@@ -185,8 +185,36 @@ const prepareStep = async (
 	});
 	// Convert to ConversationMessage[], then cast to Message[] (compatible shape).
 	const projected = turnsToMessages(selected) as unknown as import("@dpopsuev/alef-ai").Message[];
-	// If no history in the log yet, fall back to the original messages from payload.
-	return projected.length > 0 ? projected : messages;
+	// When the payload already has conversation history (messages.length > 2),
+	// it contains the full conversationHistory from DialogOrgan including tool_use
+	// and tool_result blocks the Anthropic API requires for faithful replay.
+	// Using turnsToMessages() here strips those blocks and causes the API to hang.
+	const src = messages.length > 2 ? "payload" : projected.length > 0 ? "jsonl" : "fallback";
+	let result: typeof messages;
+	if (messages.length > 2) {
+		result = messages; // conversationHistory already correct
+	} else if (projected.length > 0) {
+		// First turn: JSONL has history. Append current user message (not yet committed).
+		const currentMsg = messages.at(-1);
+		result =
+			currentMsg && (currentMsg as { role?: string }).role === "user"
+				? ([...projected, currentMsg] as typeof messages)
+				: projected;
+	} else {
+		result = messages; // no JSONL history yet
+	}
+	// Orange: log prepareStep output so API hangs are diagnosable.
+	log.debug(
+		{
+			src,
+			projectedCount: projected.length,
+			payloadCount: messages.length,
+			resultCount: result.length,
+			resultRoles: result.map((m) => (m as { role?: string }).role),
+		},
+		"prepareStep",
+	);
+	return result;
 };
 
 // ALEF_SCRIPTED_REPLIES — boot without a real LLM (for tests and demos).

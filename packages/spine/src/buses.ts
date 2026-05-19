@@ -155,6 +155,16 @@ export interface Organ {
 		readonly motor?: Readonly<Record<string, ZodTypeAny>>;
 		readonly sense?: Readonly<Record<string, ZodTypeAny>>;
 	};
+	/** Zod schemas for incoming motor payloads, validated by the framework before dispatch. */
+	readonly inputSchemas?: {
+		readonly motor?: Readonly<Record<string, ZodTypeAny>>;
+	};
+	/**
+	 * Optional async initialization. Agent.ready() awaits all loaded organs that
+	 * declare ready() before routing any events. Use for LSP warm-up, DB connections,
+	 * container starts — anything that must complete before the first event arrives.
+	 */
+	ready?(): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +174,12 @@ export interface Organ {
 class InProcessBus {
 	private readonly handlers = new Map<string, Set<(event: NerveEvent) => void | Promise<void>>>();
 	private readonly firstSeen = new Map<string, number>();
+	/**
+	 * Called when a motor event has no specific subscribers.
+	 * Set by InProcessNerve to publish an error sense response.
+	 * Wildcard subscribers (EventLogOrgan, EvaluatorOrgan) do not count.
+	 */
+	deadLetterSink?: (event: NerveEvent) => void;
 
 	emit(input: Omit<NerveEvent, "timestamp" | "elapsed">): void {
 		const now = Date.now();
@@ -173,7 +189,11 @@ class InProcessBus {
 		const elapsed = now - this.firstSeen.get(input.correlationId)!;
 		const event: NerveEvent = { ...input, timestamp: now, elapsed };
 		const specific = this.handlers.get(event.type);
-		if (specific) for (const h of specific) void h(event);
+		if (specific && specific.size > 0) {
+			for (const h of specific) void h(event);
+		} else {
+			this.deadLetterSink?.(event);
+		}
 		const wildcard = this.handlers.get("*");
 		if (wildcard) for (const h of wildcard) void h(event);
 	}
@@ -203,6 +223,22 @@ class InProcessBus {
 export class InProcessNerve {
 	private readonly _sense = new InProcessBus();
 	private readonly _motor = new InProcessBus();
+
+	constructor() {
+		this._motor.deadLetterSink = (event) => {
+			const payload = (event as MotorEvent).payload;
+			const toolCallId = typeof payload?.toolCallId === "string" ? payload.toolCallId : undefined;
+			// Cast required: _sense.emit takes Omit<NerveEvent, temporal fields>
+			// but the dead letter carries SenseEvent fields (payload, isError).
+			this._sense.emit({
+				type: event.type,
+				correlationId: event.correlationId,
+				payload: toolCallId ? { toolCallId } : {},
+				isError: true,
+				errorMessage: `no organ handles motor/${event.type}`,
+			} as unknown as Omit<NerveEvent, "timestamp" | "elapsed">);
+		};
+	}
 
 	asNerve(): Nerve {
 		return {

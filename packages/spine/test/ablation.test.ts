@@ -73,7 +73,9 @@ describe("organ ablation — read-only allowlist", () => {
 		});
 
 		await new Promise((r) => setTimeout(r, 10));
-		expect(received).toHaveLength(0); // no handler → no Sense event
+		// Dead letter detection: ablated motor event produces an error sense response.
+		expect(received).toHaveLength(1);
+		expect(received[0]).toBe("fs.write");
 	});
 
 	it("allowed action still dispatches correctly", async () => {

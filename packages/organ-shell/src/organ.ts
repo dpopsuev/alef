@@ -6,7 +6,7 @@
  */
 import { spawn } from "node:child_process";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan } from "@dpopsuev/alef-spine";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, defineOrgan, truncateTail } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import { getShellEnv } from "./shell.js";
 
@@ -121,12 +121,18 @@ async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): Asyn
 				}
 			}
 
-			// Final event with full output summary + exitCode
-			const output = Buffer.concat(chunks).toString("utf-8");
+			const raw = Buffer.concat(chunks).toString("utf-8");
+			const tr = truncateTail(raw, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
 			if (exitCode !== 0) {
-				throw Object.assign(new Error(`exit code ${exitCode}`), { exitCode, output });
+				throw Object.assign(new Error(`exit code ${exitCode}`), { exitCode, output: tr.content });
 			}
-			yield { output, exitCode };
+			yield {
+				output: tr.content,
+				exitCode,
+				truncated: tr.truncated,
+				totalLines: tr.totalLines,
+				totalBytes: tr.totalBytes,
+			};
 		})();
 	} finally {
 		if (timer) clearTimeout(timer);
@@ -155,6 +161,9 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 						output: z.string(),
 						exitCode: z.number(),
 						isFinal: z.boolean(),
+						truncated: z.boolean().optional(),
+						totalLines: z.number().optional(),
+						totalBytes: z.number().optional(),
 					}),
 				},
 			},

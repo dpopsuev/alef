@@ -196,7 +196,16 @@ async function dispatchMotorAction(
 	nerve: Nerve,
 	cache: Map<string, Record<string, unknown>>,
 	log: OrganLogger,
+	inputSchemas?: Record<string, ZodTypeAny>,
 ): Promise<void> {
+	if (inputSchemas?.[motor.type] && (process.env.ALEF_VALIDATE_PAYLOADS === "1" || process.env.NODE_ENV === "test")) {
+		const result = inputSchemas[motor.type].safeParse(motor.payload);
+		if (!result.success) {
+			const msg = result.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
+			nerve.sense.publish(buildErrSense(motor, `[InputValidation] motor/${motor.type}: ${msg}`));
+			return;
+		}
+	}
 	const ctx: CorpusHandlerCtx = {
 		correlationId: motor.correlationId,
 		toolCallId: extractToolCallId(motor.payload),
@@ -334,6 +343,17 @@ export interface OrganOptions {
 		motor?: Record<string, ZodTypeAny>;
 		sense?: Record<string, ZodTypeAny>;
 	};
+	/**
+	 * Zod schemas for incoming motor event payloads, validated before dispatch.
+	 * Complement to publishSchemas: catches malformed tool calls from the LLM
+	 * before they reach the handler. A failure publishes an error sense response.
+	 * Active only when ALEF_VALIDATE_PAYLOADS=1 or NODE_ENV=test.
+	 */
+	inputSchemas?: {
+		motor?: Record<string, ZodTypeAny>;
+	};
+	/** Async initialization called by Agent.ready() before the first event is routed. */
+	ready?: () => Promise<void>;
 }
 
 /**
@@ -397,8 +417,9 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		description: opts.description,
 		labels: opts.labels,
 		publishSchemas: opts.publishSchemas,
+		inputSchemas: opts.inputSchemas,
+		ready: opts.ready,
 		mount(nerve: Nerve): () => void {
-			// Session-scoped cache — lives for the lifetime of this mount.
 			const cache = new Map<string, Record<string, unknown>>();
 
 			const unsubs = Object.entries(actions).map(([prefixedKey, action]) => {
@@ -407,7 +428,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 					const corpusAction = action as CorpusAction | StreamingCorpusAction;
 					return nerve.motor.subscribe(
 						eventType,
-						(event) => void dispatchMotorAction(event, corpusAction, nerve, cache, log),
+						(event) => void dispatchMotorAction(event, corpusAction, nerve, cache, log, opts.inputSchemas?.motor),
 					);
 				}
 				if (prefixedKey.startsWith("sense/")) {

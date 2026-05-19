@@ -14,7 +14,7 @@
  */
 
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan } from "@dpopsuev/alef-spine";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, defineOrgan, truncateHead } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -22,7 +22,6 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 
 const DEFAULT_TIMEOUT_MS = 15_000;
-const MAX_CONTENT_BYTES = 100_000; // ~25k tokens, generous but bounded
 
 // ---------------------------------------------------------------------------
 // HTML → text conversion (inline, no deps)
@@ -130,29 +129,20 @@ async function handleFetch(
 	const rawText = new TextDecoder("utf-8", { fatal: false }).decode(rawBytes);
 
 	if (format === "html") {
-		const truncated = rawText.length > MAX_CONTENT_BYTES;
+		const tr = truncateHead(rawText, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
 		return {
-			content: truncated ? rawText.slice(0, MAX_CONTENT_BYTES) : rawText,
+			content: tr.content,
 			title: extractTitle(rawText),
 			url: response.url,
 			statusCode,
-			truncated,
+			truncated: tr.truncated,
 		};
 	}
 
-	// Strip non-content elements then convert to text.
 	const stripped = stripNonContent(rawText);
 	const title = extractTitle(rawText);
-	const text = htmlToText(stripped);
-	const truncated = text.length > MAX_CONTENT_BYTES;
-
-	return {
-		content: truncated ? text.slice(0, MAX_CONTENT_BYTES) : text,
-		title,
-		url: response.url,
-		statusCode,
-		truncated,
-	};
+	const tr = truncateHead(htmlToText(stripped), { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
+	return { content: tr.content, title, url: response.url, statusCode, truncated: tr.truncated };
 }
 
 // ---------------------------------------------------------------------------

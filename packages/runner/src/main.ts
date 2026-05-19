@@ -229,6 +229,7 @@ if (args.serve !== undefined) {
 // ---------------------------------------------------------------------------
 
 agent.validate();
+await agent.ready();
 
 if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 	process.on("message", (msg: unknown) => {

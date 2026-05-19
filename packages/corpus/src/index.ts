@@ -1,14 +1,69 @@
 import {
 	InProcessNerve,
+	type MotorEvent,
+	type Nerve,
 	type NerveEvent,
 	type Organ,
 	type OrganPortInfo,
 	type PortDefinition,
 	PortValidationError,
+	type SenseEvent,
 	STANDARD_PORTS,
 	type ToolDefinition,
 	validatePorts,
 } from "@dpopsuev/alef-spine";
+
+// ---------------------------------------------------------------------------
+// Payload validation — enforces organ-to-organ bus contracts in non-production.
+// Active when ALEF_VALIDATE_PAYLOADS=1 or NODE_ENV=test.
+// Throws immediately at publish time: organ name + event type + Zod error.
+// Zero runtime overhead in production.
+// ---------------------------------------------------------------------------
+
+const VALIDATE_PAYLOADS = process.env.ALEF_VALIDATE_PAYLOADS === "1" || process.env.NODE_ENV === "test";
+
+/**
+ * Wrap a Nerve so publish calls are validated against the organ's publishSchemas.
+ * Returns the original nerve when validation is disabled or the organ declares no schemas.
+ */
+function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
+	const { motor: motorSchemas, sense: senseSchemas } = organ.publishSchemas ?? {};
+	if (!VALIDATE_PAYLOADS || (!motorSchemas && !senseSchemas)) return nerve;
+
+	const validate = (
+		busLabel: "motor" | "sense",
+		schemas: Readonly<Record<string, import("zod").ZodTypeAny>> | undefined,
+		event: NerveEvent,
+	) => {
+		const schema = schemas?.[event.type];
+		if (!schema) return;
+		const result = schema.safeParse((event as { payload?: unknown }).payload);
+		if (!result.success) {
+			throw new Error(
+				`[PayloadValidation] ${organ.name} → ${busLabel}/${event.type}: ${result.error.issues
+					.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+					.join("; ")}`,
+			);
+		}
+	};
+
+	return {
+		motor: {
+			subscribe: nerve.motor.subscribe.bind(nerve.motor),
+			publish: (event: MotorEvent) => {
+				validate("motor", motorSchemas, event);
+				nerve.motor.publish(event);
+			},
+		},
+		sense: {
+			subscribe: nerve.sense.subscribe.bind(nerve.sense),
+			publish: (event: SenseEvent) => {
+				validate("sense", senseSchemas, event);
+				nerve.sense.publish(event);
+			},
+		},
+	};
+}
 
 // Corpus event type constants
 export const DIALOG_MESSAGE = "dialog.message" as const;
@@ -58,7 +113,7 @@ export class Agent {
 	load(organ: Organ): this {
 		if (this.disposed) throw new Error("Agent is disposed - cannot load organs.");
 		this._organs.push(organ);
-		const unmount = organ.mount(this.nerve.asNerve());
+		const unmount = organ.mount(withPayloadValidation(this.nerve.asNerve(), organ));
 		this.unmounts.push(unmount);
 		this.tools.push(...organ.tools);
 		return this;

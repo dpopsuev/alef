@@ -10,6 +10,7 @@ import {
 import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineCerebrumOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { z } from "zod";
 
 const tracer = trace.getTracer("alef.organ-llm");
 
@@ -242,6 +243,13 @@ export class LLMOrgan {
 	readonly description = "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.";
 	readonly labels = ["llm", "reasoning", "ai"] as const;
 	readonly tools = [] as const;
+	// Motor/dialog.message must carry a non-empty text string.
+	// When tool blocks are added (ALE-TSK-190), extend this schema.
+	readonly publishSchemas = {
+		motor: {
+			"dialog.message": z.object({ text: z.string().min(1) }),
+		},
+	} as const;
 	get subscriptions() {
 		return this.organ.subscriptions;
 	}

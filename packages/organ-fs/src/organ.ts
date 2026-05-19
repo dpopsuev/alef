@@ -265,6 +265,17 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 			logger: options.logger,
 			description: "Read, write, edit, search, and find files within the workspace.",
 			labels: ["filesystem", "read", "write", "search"],
+			publishSchemas: {
+				sense: {
+					"fs.read": z.object({
+						content: z.string(),
+						truncated: z.boolean(),
+						totalLines: z.number(),
+					}),
+					"fs.write": z.object({ path: z.string(), bytes: z.number() }),
+					"fs.edit": z.object({ path: z.string(), applied: z.boolean() }),
+				},
+			},
 		},
 	);
 }

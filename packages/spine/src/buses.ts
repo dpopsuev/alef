@@ -125,6 +125,26 @@ export interface Organ {
 	 * Used for filtering in --list-organs and future organ registries.
 	 */
 	readonly labels?: readonly string[];
+	/**
+	 * Zod payload schemas for events this organ publishes.
+	 *
+	 * Validated by Agent.load() when ALEF_VALIDATE_PAYLOADS=1 or NODE_ENV=test.
+	 * A failing schema throws immediately at publish time with the organ name,
+	 * event type, and Zod error — not two turns into a real LLM session.
+	 *
+	 * motor: schemas for events published on the motor bus.
+	 * sense: schemas for events published on the sense bus.
+	 *
+	 * @example
+	 * publishSchemas: {
+	 *   motor: { "dialog.message": z.object({ text: z.string() }) },
+	 *   sense: { "fs.read":        z.object({ content: z.string(), truncated: z.boolean() }) },
+	 * }
+	 */
+	readonly publishSchemas?: {
+		readonly motor?: Readonly<Record<string, ZodTypeAny>>;
+		readonly sense?: Readonly<Record<string, ZodTypeAny>>;
+	};
 }
 
 // ---------------------------------------------------------------------------

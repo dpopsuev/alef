@@ -42,7 +42,6 @@ import { runTuiMode } from "./tui-mode.js";
 import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
 // ---------------------------------------------------------------------------
-// Parse arguments
 // ---------------------------------------------------------------------------
 
 // OTel must be registered before any tracer is acquired.
@@ -59,7 +58,6 @@ if (!hasCredentials()) {
 }
 
 // ---------------------------------------------------------------------------
-// Session: list or resume
 // ---------------------------------------------------------------------------
 
 if (args.listSessions) {
@@ -92,10 +90,8 @@ if (args.resume) {
 }
 
 // ---------------------------------------------------------------------------
-// Resolve blueprint (if any) and organ set
 // ---------------------------------------------------------------------------
 
-// Resolve blueprint path: explicit flag → auto-discover agent.yaml in cwd
 const blueprintPath = args.blueprint ?? findAgentDefinitionPath(args.cwd);
 
 let corpusOrgans = [];
@@ -130,24 +126,20 @@ if (blueprintPath) {
 	blueprintSurfaces = definition.surfaces;
 	blueprintUpgradePolicy = definition.supervisor?.upgradePolicy ?? "rebuild_only";
 } else {
-	// Default organ set — mirrors what the runner has always done.
 	corpusOrgans = [
 		createFsOrgan({ cwd: args.cwd, logger: log.child({ organ: "fs" }) }),
 		createShellOrgan({ cwd: args.cwd, logger: log.child({ organ: "shell" }) }),
 	];
 }
 
-// Model resolution: CLI flag → blueprint → ALEF_MODEL env → DEFAULT_MODEL
 const resolvedModelId = args.modelId ?? blueprintModelId ?? DEFAULT_MODEL;
 const model = buildModel(resolvedModelId);
 
 // ---------------------------------------------------------------------------
-// Compose the agent — the only place organs are wired.
 // ---------------------------------------------------------------------------
 
 const agent = new Agent();
 
-// Build system prompt after organs are loaded so directives are available.
 const basePrompt = buildSystemPrompt(args.cwd);
 const asm = new DirectiveContextAssembler(basePrompt);
 await asm.loadWorkspace(args.cwd); // reads .alef/directives/*.md
@@ -164,15 +156,11 @@ const dialog = new DialogOrgan({
 
 const thinkingLevel = args.thinking as import("@dpopsuev/alef-ai").ThinkingLevel | undefined;
 
-// Context window assembly via TurnAssembler (ALE-TSK-179).
-// prepareStep is called by LLMOrgan before each turn with the full message array.
-// It reads the event log, scores turns by relevance, and returns the budget-fitting subset.
 const prepareStep = async (
 	messages: import("@dpopsuev/alef-ai").Message[],
 ): Promise<import("@dpopsuev/alef-ai").Message[]> => {
 	const turns = await session.turns();
 	const hitCounts = await session.hitCounts();
-	// Extract the current user query from the last message for keyword scoring.
 	const lastMsg = messages.at(-1);
 	const query =
 		lastMsg && typeof (lastMsg as { content?: unknown }).content === "string"
@@ -183,18 +171,12 @@ const prepareStep = async (
 		contextWindow: model.contextWindow,
 		hitCounts,
 	});
-	// Convert to ConversationMessage[], then cast to Message[] (compatible shape).
 	const projected = turnsToMessages(selected) as unknown as import("@dpopsuev/alef-ai").Message[];
-	// When the payload already has conversation history (messages.length > 2),
-	// it contains the full conversationHistory from DialogOrgan including tool_use
-	// and tool_result blocks the Anthropic API requires for faithful replay.
-	// Using turnsToMessages() here strips those blocks and causes the API to hang.
 	const src = messages.length > 2 ? "payload" : projected.length > 0 ? "jsonl" : "fallback";
 	let result: typeof messages;
 	if (messages.length > 2) {
 		result = messages; // conversationHistory already correct
 	} else if (projected.length > 0) {
-		// First turn: JSONL has history. Append current user message (not yet committed).
 		const currentMsg = messages.at(-1);
 		result =
 			currentMsg && (currentMsg as { role?: string }).role === "user"
@@ -232,15 +214,11 @@ agent.load(new LoopDetectorOrgan({ threshold: args.loopThreshold }));
 agent.load(new EventLogOrgan(session));
 
 if (args.serve !== undefined) {
-	// Build the event allowlist from surface declarations in the blueprint.
-	// Multiple sse surfaces are merged into one allowlist (union).
 	const sseSurface = blueprintSurfaces.filter((s) => s.type === "sse");
 	const allowedEvents = sseSurface.flatMap((s) => s.events ?? []);
 	const router = createRouterOrgan({
 		port: args.serve,
 		allowedEvents,
-		// Route HTTP messages through DialogOrgan so history is tracked
-		// and the message arrives on the sense bus for LLMOrgan to process.
 		onMessage: (text) => dialog.receive(text, "user"),
 	});
 	agent.load(router);
@@ -250,15 +228,10 @@ if (args.serve !== undefined) {
 }
 
 // ---------------------------------------------------------------------------
-// Validate and dispatch
 // ---------------------------------------------------------------------------
 
 agent.validate();
 
-// Supervisor IPC — when running under a supervisor (ALEF_SUPERVISOR=1),
-// handle handoff_prepare and other control messages.
-// The supervisor spawns the runner with stdio: ['inherit','inherit','inherit','ipc']
-// which makes process.send available.
 if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 	process.on("message", (msg: unknown) => {
 		const m = msg as { type?: string; envelope?: { updateId?: string } };
@@ -266,7 +239,6 @@ if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 			// Acknowledge the handoff so the supervisor can finalize and promote.
 			process.send!({ type: "handoff_ack", updateId: m.envelope.updateId });
 		}
-		// supervisor_transition: informational, no action needed.
 	});
 
 	// Blueprint supervisor policy — upgradePolicy from the blueprint controls

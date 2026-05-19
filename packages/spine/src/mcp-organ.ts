@@ -47,7 +47,6 @@ class McpOrganImpl implements Organ {
 		this.tools = tools;
 		this.client = client;
 		this.nameMap = nameMap;
-		// Subscribe to Motor events for each discovered tool name.
 		this.subscriptions = {
 			motor: tools.map((t) => t.name),
 			sense: [],
@@ -64,9 +63,6 @@ class McpOrganImpl implements Organ {
 			const off = nerve.motor.subscribe(toolName, async (event) => {
 				const { toolCallId, ...args } = event.payload;
 				try {
-					// Execute via MCP client using raw tool call.
-					// @ai-sdk/mcp tools() returns AI SDK tools with execute().
-					// We call them directly by accessing the tools map.
 					const aiTools = await this.client.tools();
 					const aiTool = aiTools[mcpName];
 
@@ -137,16 +133,13 @@ export async function createMcpOrganFromClient(client: MCPClient, name: string):
 
 	for (const mcpName of toolNames) {
 		const tool = aiTools[mcpName];
-		// Motor event name: organ.mcpToolName
 		const motorName = organToolName(name, mcpName);
 		nameMap.set(motorName, mcpName);
 
-		// Build ToolDefinition — description from MCP server metadata, schema as-is.
 		tools.push({
 			name: motorName,
 			description: (tool as { description?: string }).description ?? mcpName,
 			// inputSchema stays as raw JSON Schema (MCP returns JSON Schema natively).
-			// toolInputToJsonSchema() will pass it through unchanged.
 			inputSchema: (tool as { inputSchema?: Record<string, unknown> }).inputSchema ?? {
 				type: "object",
 				properties: {},

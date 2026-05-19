@@ -51,7 +51,6 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		sender?: string;
 	};
 
-	// Build initial messages from payload.
 	const rawMessages =
 		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
 
@@ -81,18 +80,13 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		return base;
 	});
 
-	// Context window assembly — TurnAssembler integration point.
-	// prepareStep receives all messages and returns the scored, budget-bounded subset.
-	// When not set: all messages passed through (current behaviour, no selection).
 	const messages: Message[] = options.prepareStep ? await options.prepareStep(rawMsgs) : rawMsgs;
 
 	const { correlationId, motor, sense } = ctx;
 	const timeoutMs = options.timeoutMs ?? 60_000;
 	const maxRetries = options.maxRetries ?? 3;
 
-	// Turn loop — quiescence termination, fan-out tool calls.
 	while (true) {
-		// GenAI semantic conventions span: one span per LLM invocation.
 		const span = tracer.startSpan(`chat ${options.model.id}`, {
 			kind: SpanKind.CLIENT,
 			attributes: {
@@ -137,7 +131,6 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 					finalMessage = evt.error;
 				}
 			}
-			// Record usage on the span when we have a final message.
 			if (finalMessage?.usage) {
 				const u = finalMessage.usage;
 				span.setAttributes({
@@ -160,7 +153,6 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		if (!finalMessage) break;
 		messages.push(finalMessage);
 
-		// Quiescence — no tool calls, or LLM called dialog.message as its reply tool.
 		const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
 		const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
 
@@ -168,13 +160,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			const text =
 				(typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined) ?? extractText(finalMessage);
 			if (text) {
-				// Publish the full message history alongside the text so DialogOrgan
-				// can preserve tool_use and tool_result blocks across turns.
-				// Strip system messages — DialogOrgan always re-adds them fresh.
-				// Strip system messages and all internal tracking fields before publishing.
-				// Only role + content (+ toolResult identifiers) survive — internal fields
-				// (timestamp, api, provider, model, usage, stopReason, diagnostics, details)
-				// cause provider retries when replayed verbatim on turn 2.
+				// Anthropic API hangs if internal fields (timestamp, usage, etc.) are replayed — strip to role+content only.
 				const conversationHistory = messages
 					.filter((m) => (m as { role?: string }).role !== "system")
 					.map((m): unknown => {
@@ -206,7 +192,6 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			break;
 		}
 
-		// Fan-out: real tool calls simultaneously.
 		const results = await Promise.all(
 			toolCalls.map((tc) => {
 				const motorType = toMotorName(tc.name);
@@ -291,15 +276,12 @@ export function createLLMOrgan(options: LLMOrganOptions): Organ {
 	});
 }
 
-// Backward-compat class export
 export class LLMOrgan {
 	private readonly organ: Organ;
 	readonly name = "llm";
 	readonly description = "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.";
 	readonly labels = ["llm", "reasoning", "ai"] as const;
 	readonly tools = [] as const;
-	// Motor/dialog.message carries the reply text and optionally the full
-	// conversation history with tool blocks for multi-turn fidelity.
 	readonly publishSchemas = {
 		motor: {
 			"dialog.message": z.object({

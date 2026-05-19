@@ -25,24 +25,20 @@ help: ## Show this list
 		sort | \
 		awk 'BEGIN {FS = ":.*## "}; {printf "  %-22s %s\n", $$1, $$2}'
 
-.PHONY: install-deps install-global install
-install-deps: ## Install Node dependencies only (npm install; runs Husky prepare)
+.PHONY: install-deps install
+install-deps: ## Install Node dependencies (npm install; runs Husky prepare)
 	$(NPM) install
 
-install-global: build ## Build all packages and install alef into npm global bin
-	$(NPM) install -g ./packages/coding-agent
-
-install-runner: install-deps ## Install the EDA runner globally as alef (no build step — runs from source via tsx)
+install: install-deps ## Install alef globally (no build step — runs from source via tsx)
 	$(NPM) install -g ./packages/runner
 
 .PHONY: run
-run: ## Run the EDA runner from source (interactive TUI)
+run: ## Run alef from source (interactive TUI)
 	npx tsx packages/runner/src/main.ts
 
-run-serve: ## Run the EDA runner in HTTP/SSE serve mode on a random port
+run-serve: ## Run alef in HTTP/SSE serve mode on a random port
 	npx tsx packages/runner/src/main.ts --serve 0
 
-install: install-deps install-global ## Install deps, build, and install alef globally (`npm install -g`)
 
 .PHONY: ci
 ci: ## Install dependencies for CI (npm ci)

@@ -92,41 +92,45 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 	}
 }
 
+import { bold, boldColor, color, DIM, dim, getTheme, RESET } from "./theme.js";
+
 // ---------------------------------------------------------------------------
-// Minimal no-color themes
+// Markdown theme — pulls from active token set
 // ---------------------------------------------------------------------------
 
-const id = (s: string) => s;
-
-const MARKDOWN_THEME: MarkdownTheme = {
-	heading: (s) => `\x1b[1m${s}\x1b[0m`, // bold
-	link: id,
-	linkUrl: id,
-	code: (s) => `\x1b[2m${s}\x1b[0m`, // dim
-	codeBlock: id,
-	codeBlockBorder: id,
-	quote: id,
-	quoteBorder: id,
-	hr: id,
-	listBullet: id,
-	bold: (s) => `\x1b[1m${s}\x1b[0m`,
-	italic: (s) => `\x1b[3m${s}\x1b[0m`,
-	strikethrough: id,
-	underline: (s) => `\x1b[4m${s}\x1b[0m`,
-};
+function makeMarkdownTheme(): MarkdownTheme {
+	const t = getTheme();
+	return {
+		heading: (s) => bold(s),
+		link: (s) => color(s, t.toolNameFg),
+		linkUrl: (s) => dim(s),
+		code: (s) => color(s, t.accentFg),
+		codeBlock: (s) => s,
+		codeBlockBorder: (s) => dim(s),
+		quote: (s) => dim(s),
+		quoteBorder: (s) => dim(s),
+		hr: (s) => dim(s),
+		listBullet: (s) => color(s, t.accentFg),
+		bold: (s) => bold(s),
+		italic: (s) => `\x1b[3m${s}${RESET}`,
+		strikethrough: (s) => s,
+		underline: (s) => `\x1b[4m${s}${RESET}`,
+	};
+}
 
 // ---------------------------------------------------------------------------
 // Layout helpers
 // ---------------------------------------------------------------------------
 
 function appendUserMsg(chat: Container, text: string): void {
-	chat.addChild(new Text(`\x1b[2m> ${text}\x1b[0m`, 1, 0));
+	const t = getTheme();
+	chat.addChild(new Text(`${DIM}${color("▸", t.accentFg)} ${RESET}${text}`, 1, 0));
 }
 
 function appendAgentMsg(chat: Container, text: string): void {
 	chat.addChild(new Spacer(1));
 	try {
-		chat.addChild(new Markdown(text, 1, 0, MARKDOWN_THEME));
+		chat.addChild(new Markdown(text, 1, 0, makeMarkdownTheme()));
 	} catch {
 		chat.addChild(new Text(text, 1, 0));
 	}
@@ -134,7 +138,15 @@ function appendAgentMsg(chat: Container, text: string): void {
 }
 
 function appendNotice(chat: Container, text: string): void {
-	chat.addChild(new Text(`\x1b[2m${text}\x1b[0m`, 1, 0));
+	const t = getTheme();
+	chat.addChild(new Text(`${color("─", t.dimFg)} ${dim(text)}`, 1, 0));
+}
+
+export function renderToolLine(type: string, keyArg: string, elapsedMs: number, ok: boolean): string {
+	const t = getTheme();
+	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
+	const status = ok ? color("✓", t.toolOkFg) : color("✗", t.toolErrFg);
+	return `${color("●", t.warnFg)} ${color(type, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}  ${color(elapsed, t.timeFg)}  ${status}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,20 +179,28 @@ export async function runTuiMode(
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
 
-	// Header
-	const headerText = `Alef  ·  ${opts.modelId}  ·  session:${opts.sessionId}`;
-	tui.addChild(new Text(`\x1b[1m${headerText}\x1b[0m`, 1, 0));
+	// Header: ▪ Alef ─ {model} ─ {session[:8]}
+	const t = getTheme();
+	const sessionShort = opts.sessionId.slice(0, 8);
+	const header = `${boldColor("▪ Alef", t.accentFg)} ${color("─", t.dimFg)} ${color(opts.modelId, t.modelFg)} ${color("─", t.dimFg)} ${color(sessionShort, t.dimFg)}`;
+	tui.addChild(new Text(header, 1, 0));
 	tui.addChild(new Spacer(1));
 
 	// Chat container
 	const chat = new Container();
 	tui.addChild(chat);
 
-	// Loader (added/removed dynamically while agent runs)
-	const loader = new Loader(tui, id, id, "● Thinking…");
+	// Loader
+	const loaderTheme = getTheme();
+	const loader = new Loader(
+		tui,
+		(s) => s,
+		(s) => color(s, loaderTheme.warnFg),
+		`${color("●", loaderTheme.warnFg)} Thinking…`,
+	);
 
 	// Hint
-	const hint = new Text("\x1b[2m/exit  /new  /resume  /help\x1b[0m", 1, 0);
+	const hint = new Text(dim("/exit  /new  /resume  /help"), 1, 0);
 	tui.addChild(hint);
 
 	// Input

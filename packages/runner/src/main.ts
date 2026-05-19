@@ -42,6 +42,7 @@ import { runPrintMode } from "./print-mode.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
+import { loadTheme } from "./theme-loader.js";
 import { runTuiMode } from "./tui-mode.js";
 import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
@@ -250,6 +251,7 @@ if (args.serve !== undefined) {
 
 agent.validate();
 await agent.ready();
+loadTheme(blueprintPath ? new URL("..", `file://${blueprintPath}`).pathname : undefined);
 
 if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 	process.on("message", (msg: unknown) => {

@@ -39,6 +39,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 		sessionId: "test-1234",
 		abortCurrentTurn: undefined,
 		setAbortCurrentTurn: vi.fn(),
+		setLLMController: vi.fn(),
 		...overrides,
 	};
 }

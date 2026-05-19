@@ -22,6 +22,12 @@ export interface LLMOrganOptions {
 	timeoutMs?: number;
 	maxRetries?: number;
 	/**
+	 * Called at the start of each LLM call to obtain the current AbortSignal.
+	 * The caller creates a new AbortController per turn and passes its signal here.
+	 * When the controller is aborted (Ctrl+C mid-turn), the HTTP stream is cancelled.
+	 */
+	getSignal?: () => AbortSignal | undefined;
+	/**
 	 * Extended thinking level. Requires a model that supports reasoning
 	 * (e.g. claude-3-7-sonnet-20250219). Default: off (no thinking).
 	 */
@@ -112,6 +118,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 				timeoutMs,
 				maxRetries,
 				...(options.thinking ? { reasoning: options.thinking } : {}),
+				...(options.getSignal ? { signal: options.getSignal() } : {}),
 			},
 		);
 

@@ -37,6 +37,8 @@ export interface TuiHandlerContext {
 	sessionId: string;
 	abortCurrentTurn: (() => void) | undefined;
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
+	/** Update the LLMOrgan AbortController for the current turn. */
+	setLLMController(ctrl: AbortController | undefined): void;
 }
 
 /**
@@ -47,6 +49,7 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 	if (ctx.abortCurrentTurn) {
 		ctx.abortCurrentTurn();
 		ctx.setAbortCurrentTurn(undefined);
+		ctx.setLLMController(undefined);
 		appendNotice(ctx.chat, "(interrupted)");
 		ctx.tui.requestRender(true);
 	} else {
@@ -159,6 +162,7 @@ export async function runTuiMode(
 	dialog: DialogOrgan,
 	opts: InteractiveOptions & { sessionId: string },
 	dispose: () => void,
+	setLLMAbortController: (ctrl: AbortController | undefined) => void = () => {},
 ): Promise<void> {
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
@@ -198,6 +202,9 @@ export async function runTuiMode(
 		setAbortCurrentTurn: (fn) => {
 			abortCurrentTurn = fn;
 		},
+		setLLMController: (ctrl) => {
+			setLLMAbortController(ctrl);
+		},
 	});
 
 	tui.addInputListener((data) => {
@@ -225,8 +232,11 @@ export async function runTuiMode(
 		tui.requestRender(true);
 
 		let aborted = false;
+		const controller = new AbortController();
+		setLLMAbortController(controller);
 		abortCurrentTurn = () => {
 			aborted = true;
+			controller.abort();
 		};
 
 		try {
@@ -235,9 +245,10 @@ export async function runTuiMode(
 				appendAgentMsg(chat, reply);
 			}
 		} catch (e) {
-			appendNotice(chat, `[error] ${formatError(e)}`);
+			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 		} finally {
 			abortCurrentTurn = undefined;
+			setLLMAbortController(undefined);
 			tui.removeChild(loader);
 			tui.addChild(hint);
 			tui.requestRender(true);

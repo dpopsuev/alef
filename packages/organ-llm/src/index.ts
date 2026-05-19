@@ -161,7 +161,16 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			const text =
 				(typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined) ?? extractText(finalMessage);
 			if (text) {
-				motor.publish({ type: DIALOG_MESSAGE, payload: { text }, correlationId, timestamp: Date.now() });
+				// Publish the full message history alongside the text so DialogOrgan
+				// can preserve tool_use and tool_result blocks across turns.
+				// Strip system messages — DialogOrgan always re-adds them fresh.
+				const conversationHistory = messages.filter((m) => (m as { role?: string }).role !== "system") as unknown[];
+				motor.publish({
+					type: DIALOG_MESSAGE,
+					payload: { text, conversationHistory },
+					correlationId,
+					timestamp: Date.now(),
+				});
 			}
 			break;
 		}
@@ -232,7 +241,22 @@ function extractText(message: AssistantMessage): string {
 
 export function createLLMOrgan(options: LLMOrganOptions): Organ {
 	return defineCerebrumOrgan("llm", {
-		[DIALOG_MESSAGE]: { handle: (ctx) => runLLMLoop(ctx, options) },
+		[DIALOG_MESSAGE]: {
+			handle: async (ctx) => {
+				try {
+					await runLLMLoop(ctx, options);
+				} catch (err) {
+					// Orange: surface LLM errors so dialog.send() resolves rather than hanging.
+					ctx.motor.publish({
+						type: DIALOG_MESSAGE,
+						payload: { text: `LLM error: ${String(err)}` },
+						correlationId: ctx.correlationId,
+						timestamp: Date.now(),
+					});
+					throw err; // re-throw so OTel span is marked as error
+				}
+			},
+		},
 	});
 }
 
@@ -243,11 +267,14 @@ export class LLMOrgan {
 	readonly description = "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.";
 	readonly labels = ["llm", "reasoning", "ai"] as const;
 	readonly tools = [] as const;
-	// Motor/dialog.message must carry a non-empty text string.
-	// When tool blocks are added (ALE-TSK-190), extend this schema.
+	// Motor/dialog.message carries the reply text and optionally the full
+	// conversation history with tool blocks for multi-turn fidelity.
 	readonly publishSchemas = {
 		motor: {
-			"dialog.message": z.object({ text: z.string().min(1) }),
+			"dialog.message": z.object({
+				text: z.string().min(1),
+				conversationHistory: z.array(z.unknown()).optional(),
+			}),
 		},
 	} as const;
 	get subscriptions() {

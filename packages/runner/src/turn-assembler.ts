@@ -199,17 +199,34 @@ export interface ConversationMessage {
 }
 
 /**
- * Project selected turns into a flat ConversationMessage[] for LLMOrgan payload.
- * Extracts dialog.message events only — other events (tool calls, reads) become
- * context hints in the assistant message when available.
+ * Project selected turns into a message array for LLMOrgan payload.
+ *
+ * Primary path: find the most recent motor/dialog.message event that carries a
+ * conversationHistory array (published by LLMOrgan after each quiescent turn).
+ * That array already contains role+content blocks including tool_use and
+ * tool_result — use it directly. This is durable across runner restarts because
+ * the value is stored in the JSONL by EventLogOrgan.
+ *
+ * Fallback: text-only reconstruction from dialog.message events (ScriptedLLMOrgan,
+ * first turn, or any organ that does not publish conversationHistory).
  */
 export function turnsToMessages(turns: Turn[]): ConversationMessage[] {
-	const messages: ConversationMessage[] = [];
+	for (let i = turns.length - 1; i >= 0; i--) {
+		const turn = turns[i];
+		for (let j = turn.events.length - 1; j >= 0; j--) {
+			const event = turn.events[j];
+			if (event.bus !== "motor" || event.type !== "dialog.message") continue;
+			const hist = event.payload.conversationHistory;
+			if (Array.isArray(hist) && hist.length > 0) {
+				return hist as ConversationMessage[];
+			}
+		}
+	}
 
+	const messages: ConversationMessage[] = [];
 	for (const turn of turns) {
 		for (const event of turn.events) {
 			if (event.type !== "dialog.message") continue;
-
 			if (event.bus === "sense") {
 				const text = typeof event.payload.text === "string" ? event.payload.text : "";
 				if (text) messages.push({ role: "user", content: text });
@@ -219,6 +236,5 @@ export function turnsToMessages(turns: Turn[]): ConversationMessage[] {
 			}
 		}
 	}
-
 	return messages;
 }

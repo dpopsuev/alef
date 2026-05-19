@@ -169,6 +169,19 @@ export class LocalLectorBackend implements LectorBackend {
 		return this.cache;
 	}
 
+	/**
+	 * Pre-warm the LSP client. Called by Organ.ready() before the first event.
+	 * LSP is optional — warm-up failure is silently swallowed so the organ
+	 * still mounts and serves tree-sitter results without LSP callers.
+	 */
+	async warmUp(): Promise<void> {
+		try {
+			await this.getLsp();
+		} catch {
+			// LSP is optional — warm-up failure is non-fatal
+		}
+	}
+
 	/** Stop the LSP server if one was started. Called on organ unmount. */
 	async stopLsp(): Promise<void> {
 		const lsp = this.lsp;

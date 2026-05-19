@@ -157,14 +157,19 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 			labels: ["shell", "exec", "process"],
 			publishSchemas: {
 				sense: {
-					"shell.exec": z.object({
-						output: z.string(),
-						exitCode: z.number(),
-						isFinal: z.boolean(),
-						truncated: z.boolean().optional(),
-						totalLines: z.number().optional(),
-						totalBytes: z.number().optional(),
-					}),
+					// Streaming: discriminate on isFinal — intermediate events carry chunk,
+					// final event carries output + exitCode.
+					"shell.exec": z.discriminatedUnion("isFinal", [
+						z.object({ chunk: z.string(), isFinal: z.literal(false) }),
+						z.object({
+							output: z.string(),
+							exitCode: z.number(),
+							isFinal: z.literal(true),
+							truncated: z.boolean().optional(),
+							totalLines: z.number().optional(),
+							totalBytes: z.number().optional(),
+						}),
+					]),
 				},
 			},
 		},

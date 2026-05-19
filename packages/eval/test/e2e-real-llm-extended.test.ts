@@ -23,6 +23,13 @@ import { createLectorOrgan } from "@dpopsuev/alef-organ-lector";
 import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
 import { createWebOrgan } from "@dpopsuev/alef-organ-web";
 import { afterEach, describe, expect, it } from "vitest";
+import type { ToolRecord } from "../../runner/test/e2e-verifiers.js";
+import {
+	assertFileReadWorkflow,
+	assertMultiTurnHistory,
+	assertToolSequence,
+	assertWebFetch,
+} from "../../runner/test/e2e-verifiers.js";
 import { getEvalModel } from "../src/model.js";
 
 // ---------------------------------------------------------------------------
@@ -59,6 +66,24 @@ function makeTmp(): string {
 	return d;
 }
 
+/** Organ that records every motor event type for sequence assertions. */
+function makeTracker(): { organ: Parameters<Agent["load"]>[0]; motorEvents: ToolRecord[] } {
+	const motorEvents: ToolRecord[] = [];
+	return {
+		organ: {
+			name: "tracker",
+			tools: [] as const,
+			subscriptions: { motor: ["*"] as const, sense: [] as const },
+			mount(nerve) {
+				return nerve.motor.subscribe("*", (event) => {
+					motorEvents.push({ type: event.type, bus: "motor" });
+				});
+			},
+		},
+		motorEvents,
+	};
+}
+
 function makeAgent(organs: Parameters<Agent["load"]>[0][]): { agent: Agent; dialog: DialogOrgan } {
 	const agent = new Agent();
 	agents.push(agent);
@@ -85,7 +110,6 @@ describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
 	it("agent uses lector.read then lector.edit — no fs.read", async () => {
 		const cwd = makeTmp();
 
-		// Create a TypeScript file with a named function to edit.
 		writeFileSync(
 			join(cwd, "math.ts"),
 			[
@@ -100,7 +124,11 @@ describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
 			"utf-8",
 		);
 
-		const { dialog } = makeAgent([createLectorOrgan({ cwd }), createFsOrgan({ cwd })]);
+		const { tracker, motorEvents } = (() => {
+			const t = makeTracker();
+			return { tracker: t.organ, motorEvents: t.motorEvents };
+		})();
+		const { dialog } = makeAgent([createLectorOrgan({ cwd }), createFsOrgan({ cwd }), tracker]);
 
 		const reply = await dialog.send(
 			"Add a JSDoc comment to the add() function in math.ts. Use lector tools.",
@@ -110,9 +138,10 @@ describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
 
 		expect(reply.length).toBeGreaterThan(0);
 
-		// Verify the file was actually modified.
 		const content = readFileSync(join(cwd, "math.ts"), "utf-8");
-		expect(content).toMatch(/\/\*\*|@param|@returns/); // JSDoc added
+		expect(content).toMatch(/\/\*\*|@param|@returns/);
+
+		assertToolSequence(motorEvents, ["lector.read", "lector.edit"]);
 	}, 120_000);
 
 	it("agent reads a specific symbol without reading the whole file", async () => {
@@ -133,7 +162,11 @@ describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
 			"utf-8",
 		);
 
-		const { dialog } = makeAgent([createLectorOrgan({ cwd })]);
+		const { tracker, motorEvents } = (() => {
+			const t = makeTracker();
+			return { tracker: t.organ, motorEvents: t.motorEvents };
+		})();
+		const { dialog } = makeAgent([createLectorOrgan({ cwd }), tracker]);
 
 		const reply = await dialog.send(
 			"Read the login function from auth.ts and tell me what it checks.",
@@ -141,8 +174,8 @@ describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
 			60_000,
 		);
 
-		// Agent should mention password length (what the function actually checks).
-		expect(reply).toMatch(/password|length|8|character/i);
+		assertFileReadWorkflow(motorEvents, reply, "login");
+		assertToolSequence(motorEvents, ["lector.read"]);
 	}, 90_000);
 });
 
@@ -153,24 +186,18 @@ describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
 describe.skipIf(!HAVE_NETWORK)("E2E-188: WebOrgan real network fetch (real LLM)", () => {
 	it("agent fetches example.com and extracts the title", async () => {
 		const { dialog } = makeAgent([createWebOrgan()]);
-
 		const reply = await dialog.send("Fetch https://example.com and tell me the page title.", "user", 60_000);
-
-		// example.com title is "Example Domain".
-		expect(reply).toMatch(/example\s*domain/i);
+		assertWebFetch(reply, /example\s*domain/i);
 	}, 90_000);
 
 	it("agent handles a 404 gracefully without hallucinating content", async () => {
 		const { dialog } = makeAgent([createWebOrgan()]);
-
 		const reply = await dialog.send(
 			"Fetch https://httpbin.org/status/404 and tell me what status code you got.",
 			"user",
 			60_000,
 		);
-
-		// Agent must report 404, not invent content.
-		expect(reply).toMatch(/404/);
+		assertWebFetch(reply, /404/);
 	}, 90_000);
 });
 
@@ -184,19 +211,20 @@ describe.skipIf(!HAVE_LLM)("E2E-189: Multi-turn conversationHistory (real LLM)",
 		const secret = randomUUID().slice(0, 8).toUpperCase();
 		writeFileSync(join(cwd, "token.txt"), `token=${secret}\n`, "utf-8");
 
-		const { agent, dialog } = makeAgent([createFsOrgan({ cwd })]);
-		void agent; // validate called inside makeAgent
+		const { tracker, motorEvents } = (() => {
+			const t = makeTracker();
+			return { tracker: t.organ, motorEvents: t.motorEvents };
+		})();
+		const { dialog } = makeAgent([createFsOrgan({ cwd }), tracker]);
 
-		// Turn 1: read the file.
 		const reply1 = await dialog.send(
 			"Read token.txt and tell me the token value. You must use a tool.",
 			"user",
 			60_000,
 		);
-		expect(reply1).toContain(secret);
-
-		// Turn 2: agent should recall from conversationHistory.
 		const reply2 = await dialog.send("What was the token value you just told me?", "user", 60_000);
-		expect(reply2).toContain(secret);
+
+		assertMultiTurnHistory(reply1, reply2, secret);
+		assertToolSequence(motorEvents, ["fs.read"]);
 	}, 150_000);
 });

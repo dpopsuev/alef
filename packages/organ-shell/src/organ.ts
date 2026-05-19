@@ -6,7 +6,7 @@
  */
 import { spawn } from "node:child_process";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import { defineOrgan } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import { getShellEnv } from "./shell.js";
 
@@ -138,10 +138,10 @@ async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): Asyn
 // ---------------------------------------------------------------------------
 
 export function createShellOrgan(options: ShellOrganOptions): Organ {
-	return defineCorpusOrgan(
+	return defineOrgan(
 		"shell",
 		{
-			"shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
+			"motor/shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
 		},
 		{
 			actions: options.actions,

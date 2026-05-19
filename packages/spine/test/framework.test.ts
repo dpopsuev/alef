@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SenseEvent } from "../src/buses.js";
 import { InProcessNerve } from "../src/buses.js";
-import type { CorpusHandlerCtx } from "../src/framework.js";
-import { defineCerebrumOrgan, defineCorpusOrgan, defineOrgan } from "../src/framework.js";
+import type { CerebrumHandlerCtx, CorpusHandlerCtx } from "../src/framework.js";
+import { defineOrgan } from "../src/framework.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
@@ -23,29 +23,28 @@ function publishMotor(nerve: InProcessNerve, type: string, payload: Record<strin
 }
 
 // ---------------------------------------------------------------------------
-// defineCorpusOrgan
 // ---------------------------------------------------------------------------
 
-describe("defineCorpusOrgan", () => {
+describe("defineOrgan (motor/ prefix)", () => {
 	it("sets name", () => {
-		const organ = defineCorpusOrgan("test", {});
+		const organ = defineOrgan("test", {});
 		expect(organ.name).toBe("test");
 	});
 
 	it("collects tools from actions that declare them", () => {
-		const organ = defineCorpusOrgan("test", {
-			"test.a": { tool: { name: "test.a", description: "A", inputSchema: {} }, handle: async () => ({}) },
-			"test.b": { handle: async () => ({}) },
-			"test.c": { tool: { name: "test.c", description: "C", inputSchema: {} }, handle: async () => ({}) },
+		const organ = defineOrgan("test", {
+			"motor/test.a": { tool: { name: "test.a", description: "A", inputSchema: {} }, handle: async () => ({}) },
+			"motor/test.b": { handle: async () => ({}) },
+			"motor/test.c": { tool: { name: "test.c", description: "C", inputSchema: {} }, handle: async () => ({}) },
 		});
-		expect(organ.tools.map((t) => t.name)).toEqual(["test.a", "test.c"]);
+		expect(organ.tools.map((t: { name: string }) => t.name)).toEqual(["test.a", "test.c"]);
 	});
 
 	it("mount subscribes to Motor events", () => {
 		const { nerve, n } = makeNerve();
-		defineCorpusOrgan("test", {
-			"test.x": { handle: async () => ({}) },
-			"test.y": { handle: async () => ({}) },
+		defineOrgan("test", {
+			"motor/test.x": { handle: async () => ({}) },
+			"motor/test.y": { handle: async () => ({}) },
 		}).mount(n);
 		expect(nerve.listenerCount("motor", "test.x")).toBe(1);
 		expect(nerve.listenerCount("motor", "test.y")).toBe(1);
@@ -53,9 +52,9 @@ describe("defineCorpusOrgan", () => {
 
 	it("unmount cleans up all subscriptions", () => {
 		const { nerve, n } = makeNerve();
-		const unmount = defineCorpusOrgan("test", {
-			"test.x": { handle: async () => ({}) },
-			"test.y": { handle: async () => ({}) },
+		const unmount = defineOrgan("test", {
+			"motor/test.x": { handle: async () => ({}) },
+			"motor/test.y": { handle: async () => ({}) },
 		}).mount(n);
 		unmount();
 		expect(nerve.listenerCount("motor", "test.x")).toBe(0);
@@ -64,8 +63,8 @@ describe("defineCorpusOrgan", () => {
 
 	it("handle success publishes Sense with result payload", async () => {
 		const { nerve, n } = makeNerve();
-		defineCorpusOrgan("test", {
-			"test.echo": { handle: async (ctx) => ({ echoed: ctx.payload.value }) },
+		defineOrgan("test", {
+			"motor/test.echo": { handle: async (ctx: CorpusHandlerCtx) => ({ echoed: ctx.payload.value }) },
 		}).mount(n);
 
 		const p = waitSense(nerve, "test.echo");
@@ -79,8 +78,8 @@ describe("defineCorpusOrgan", () => {
 
 	it("handle throw publishes Sense with isError=true", async () => {
 		const { nerve, n } = makeNerve();
-		defineCorpusOrgan("test", {
-			"test.fail": {
+		defineOrgan("test", {
+			"motor/test.fail": {
 				handle: async () => {
 					throw new Error("boom");
 				},
@@ -97,8 +96,8 @@ describe("defineCorpusOrgan", () => {
 
 	it("toolCallId from Motor payload is mirrored to Sense payload", async () => {
 		const { nerve, n } = makeNerve();
-		defineCorpusOrgan("test", {
-			"test.tool": { handle: async () => ({ ok: true }) },
+		defineOrgan("test", {
+			"motor/test.tool": { handle: async () => ({ ok: true }) },
 		}).mount(n);
 
 		const p = waitSense(nerve, "test.tool");
@@ -116,8 +115,8 @@ describe("defineCorpusOrgan", () => {
 
 	it("toolCallId mirrored even on error", async () => {
 		const { nerve, n } = makeNerve();
-		defineCorpusOrgan("test", {
-			"test.fail": {
+		defineOrgan("test", {
+			"motor/test.fail": {
 				handle: async () => {
 					throw new Error("bad");
 				},
@@ -139,8 +138,8 @@ describe("defineCorpusOrgan", () => {
 
 	it("streaming action emits N partial Sense events then one final", async () => {
 		const { nerve, n } = makeNerve();
-		defineCorpusOrgan("test", {
-			"test.stream": {
+		defineOrgan("test", {
+			"motor/test.stream": {
 				stream: async function* () {
 					yield { chunk: "a" };
 					yield { chunk: "b" };
@@ -174,25 +173,25 @@ describe("defineCorpusOrgan", () => {
 // defineCerebrumOrgan
 // ---------------------------------------------------------------------------
 
-describe("defineCerebrumOrgan", () => {
+describe("defineOrgan (sense/ prefix)", () => {
 	it("sets name and tools=[]", () => {
-		const organ = defineCerebrumOrgan("test", {});
+		const organ = defineOrgan("test", {});
 		expect(organ.name).toBe("test");
 		expect(organ.tools).toHaveLength(0);
 	});
 
 	it("mount subscribes to Sense events", () => {
 		const { nerve, n } = makeNerve();
-		defineCerebrumOrgan("test", {
-			"sense.a": { handle: async () => {} },
+		defineOrgan("test", {
+			"sense/sense.a": { handle: async () => {} },
 		}).mount(n);
 		expect(nerve.listenerCount("sense", "sense.a")).toBe(1);
 	});
 
 	it("unmount cleans up", () => {
 		const { nerve, n } = makeNerve();
-		const unmount = defineCerebrumOrgan("test", {
-			"sense.a": { handle: async () => {} },
+		const unmount = defineOrgan("test", {
+			"sense/sense.a": { handle: async () => {} },
 		}).mount(n);
 		unmount();
 		expect(nerve.listenerCount("sense", "sense.a")).toBe(0);
@@ -202,9 +201,9 @@ describe("defineCerebrumOrgan", () => {
 		const { nerve, n } = makeNerve();
 		let capturedCtx: { correlationId: string; payload: Record<string, unknown> } | null = null;
 
-		defineCerebrumOrgan("test", {
-			"test.input": {
-				handle: async (ctx) => {
+		defineOrgan("test", {
+			"sense/test.input": {
+				handle: async (ctx: CerebrumHandlerCtx) => {
 					capturedCtx = { correlationId: ctx.correlationId, payload: ctx.payload };
 				},
 			},
@@ -230,9 +229,9 @@ describe("defineCerebrumOrgan", () => {
 		const motorEvents: string[] = [];
 		nerve.onAnyMotor((e) => motorEvents.push(e.type));
 
-		defineCerebrumOrgan("test", {
-			"test.trigger": {
-				handle: async (ctx) => {
+		defineOrgan("test", {
+			"sense/test.trigger": {
+				handle: async (ctx: CerebrumHandlerCtx) => {
 					ctx.motor.publish({
 						type: "tool.a",
 						payload: {},
@@ -325,8 +324,8 @@ describe("defineOrgan — cache", () => {
 	it("caches result on second call (same payload)", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
-		defineCorpusOrgan("test", {
-			"test.read": {
+		defineOrgan("test", {
+			"motor/test.read": {
 				handle: async () => {
 					callCount++;
 					return { data: "result" };
@@ -349,9 +348,9 @@ describe("defineOrgan — cache", () => {
 	it("different payloads are cached separately", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
-		defineCorpusOrgan("test", {
-			"test.read": {
-				handle: async (ctx) => {
+		defineOrgan("test", {
+			"motor/test.read": {
+				handle: async (ctx: CorpusHandlerCtx) => {
 					callCount++;
 					return { path: ctx.payload.path };
 				},
@@ -370,15 +369,15 @@ describe("defineOrgan — cache", () => {
 	it("invalidates cache entries by event-type prefix", async () => {
 		const { nerve, n } = makeNerve();
 		let readCount = 0;
-		defineCorpusOrgan("test", {
-			"test.read": {
+		defineOrgan("test", {
+			"motor/test.read": {
 				handle: async () => {
 					readCount++;
 					return { data: "v1" };
 				},
 				shouldCache: () => true,
 			},
-			"test.write": {
+			"motor/test.write": {
 				handle: async () => ({}),
 				invalidates: () => ["test.read"],
 			},
@@ -402,8 +401,8 @@ describe("defineOrgan — cache", () => {
 	it("streaming action is never cached", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
-		defineCorpusOrgan("test", {
-			"test.stream": {
+		defineOrgan("test", {
+			"motor/test.stream": {
 				stream: async function* () {
 					callCount++;
 					yield { chunk: "x" };
@@ -432,8 +431,8 @@ describe("defineOrgan — cache", () => {
 	it("unmount clears the cache", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
-		const organ = defineCorpusOrgan("test", {
-			"test.read": {
+		const organ = defineOrgan("test", {
+			"motor/test.read": {
 				handle: async () => {
 					callCount++;
 					return {};

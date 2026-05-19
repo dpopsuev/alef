@@ -17,7 +17,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { CorpusHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import { defineOrgan } from "@dpopsuev/alef-spine";
 import type { DockerSpaceOptions } from "./docker-space.js";
 import { DockerSpace } from "./docker-space.js";
 import type { ExecOptions, Space } from "./space.js";
@@ -154,15 +154,18 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
 
-	const base = defineCorpusOrgan("enclosure", {
-		"enclosure.create": { tool: TOOLS[0], handle: (ctx) => handleCreate(ctx, spaces, options) },
-		"enclosure.diff": { tool: TOOLS[1], handle: (ctx) => handleDiff(ctx, spaces) },
-		"enclosure.commit": { tool: TOOLS[2], handle: (ctx) => handleCommit(ctx, spaces) },
-		"enclosure.reset": { tool: TOOLS[3], handle: (ctx) => handleReset(ctx, spaces) },
-		"enclosure.snapshot": { tool: TOOLS[4], handle: (ctx) => handleSnapshot(ctx, spaces) },
-		"enclosure.restore": { tool: TOOLS[5], handle: (ctx) => handleRestore(ctx, spaces) },
-		"enclosure.exec": { tool: TOOLS[6], handle: (ctx) => handleExec(ctx, spaces) },
-		"enclosure.destroy": { tool: TOOLS[7], handle: (ctx) => handleDestroy(ctx, spaces) },
+	const base = defineOrgan("enclosure", {
+		"motor/enclosure.create": {
+			tool: TOOLS[0],
+			handle: (ctx: CorpusHandlerCtx) => handleCreate(ctx, spaces, options),
+		},
+		"motor/enclosure.diff": { tool: TOOLS[1], handle: (ctx: CorpusHandlerCtx) => handleDiff(ctx, spaces) },
+		"motor/enclosure.commit": { tool: TOOLS[2], handle: (ctx: CorpusHandlerCtx) => handleCommit(ctx, spaces) },
+		"motor/enclosure.reset": { tool: TOOLS[3], handle: (ctx: CorpusHandlerCtx) => handleReset(ctx, spaces) },
+		"motor/enclosure.snapshot": { tool: TOOLS[4], handle: (ctx: CorpusHandlerCtx) => handleSnapshot(ctx, spaces) },
+		"motor/enclosure.restore": { tool: TOOLS[5], handle: (ctx: CorpusHandlerCtx) => handleRestore(ctx, spaces) },
+		"motor/enclosure.exec": { tool: TOOLS[6], handle: (ctx: CorpusHandlerCtx) => handleExec(ctx, spaces) },
+		"motor/enclosure.destroy": { tool: TOOLS[7], handle: (ctx: CorpusHandlerCtx) => handleDestroy(ctx, spaces) },
 	});
 
 	// Return a wrapper that adds space cleanup on unmount.

@@ -7,19 +7,19 @@
 
 import { describe, expect, it } from "vitest";
 import { InProcessNerve } from "../src/buses.js";
-import { defineCorpusOrgan } from "../src/framework.js";
+import { defineOrgan } from "../src/framework.js";
 
 const READ_TOOL = { name: "fs.read", description: "Read", inputSchema: {} };
 const WRITE_TOOL = { name: "fs.write", description: "Write", inputSchema: {} };
 const EDIT_TOOL = { name: "fs.edit", description: "Edit", inputSchema: {} };
 
 function makeFsOrgan(actions?: readonly string[]) {
-	return defineCorpusOrgan(
+	return defineOrgan(
 		"fs",
 		{
-			"fs.read": { tool: READ_TOOL, handle: async () => ({ content: "ok" }) },
-			"fs.write": { tool: WRITE_TOOL, handle: async () => ({ path: "ok" }) },
-			"fs.edit": { tool: EDIT_TOOL, handle: async () => ({ path: "ok" }) },
+			"motor/fs.read": { tool: READ_TOOL, handle: async () => ({ content: "ok" }) },
+			"motor/fs.write": { tool: WRITE_TOOL, handle: async () => ({ path: "ok" }) },
+			"motor/fs.edit": { tool: EDIT_TOOL, handle: async () => ({ path: "ok" }) },
 		},
 		{ actions },
 	);
@@ -38,7 +38,7 @@ describe("organ ablation — no filter (default)", () => {
 
 	it("exposes all tools when no allowlist is specified", () => {
 		const organ = makeFsOrgan();
-		expect(organ.tools.map((t) => t.name)).toEqual(["fs.read", "fs.write", "fs.edit"]);
+		expect(organ.tools.map((t: { name: string }) => t.name)).toEqual(["fs.read", "fs.write", "fs.edit"]);
 	});
 });
 
@@ -55,7 +55,7 @@ describe("organ ablation — read-only allowlist", () => {
 
 	it("exposes only allowed tools", () => {
 		const organ = makeFsOrgan(["fs.read"]);
-		expect(organ.tools.map((t) => t.name)).toEqual(["fs.read"]);
+		expect(organ.tools.map((t: { name: string }) => t.name)).toEqual(["fs.read"]);
 	});
 
 	it("ablated action motor event finds no handler", async () => {
@@ -106,7 +106,7 @@ describe("organ ablation — subscriptions reflect allowlist", () => {
 
 	it("unknown names in allowlist are silently ignored", () => {
 		const organ = makeFsOrgan(["fs.read", "fs.nonexistent"]);
-		expect(organ.tools.map((t) => t.name)).toEqual(["fs.read"]);
+		expect(organ.tools.map((t: { name: string }) => t.name)).toEqual(["fs.read"]);
 	});
 
 	it("empty allowlist mounts nothing", () => {

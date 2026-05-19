@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineCorpusOrgan } from "@dpopsuev/alef-spine";
+import { defineOrgan } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import {
 	DEFAULT_FIND_LIMIT,
@@ -104,7 +104,7 @@ export interface FsOrganOptions {
 	 * Default: false — all paths must resolve within cwd.
 	 */
 	allowAbsolutePaths?: boolean;
-	/** Pino-compatible logger. Passed to defineCorpusOrgan for Orange/Yellow ROGYB output. */
+	/** Pino-compatible logger. Passed to defineOrgan for Orange/Yellow ROGYB output. */
 	logger?: OrganLogger;
 }
 
@@ -234,28 +234,28 @@ async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 
 export function createFsOrgan(options: FsOrganOptions): Organ {
-	return defineCorpusOrgan(
+	return defineOrgan(
 		"fs",
 		{
-			"fs.read": {
+			"motor/fs.read": {
 				tool: FS_READ_TOOL,
-				handle: (ctx) => handleRead(ctx, options),
+				handle: (ctx: CorpusHandlerCtx) => handleRead(ctx, options),
 				shouldCache: () => true,
 			},
-			"fs.grep": {
+			"motor/fs.grep": {
 				tool: FS_GREP_TOOL,
-				handle: (ctx) => handleGrep(ctx, options),
+				handle: (ctx: CorpusHandlerCtx) => handleGrep(ctx, options),
 				shouldCache: () => true,
 			},
-			"fs.find": { tool: FS_FIND_TOOL, handle: (ctx) => handleFind(ctx, options) },
-			"fs.write": {
+			"motor/fs.find": { tool: FS_FIND_TOOL, handle: (ctx: CorpusHandlerCtx) => handleFind(ctx, options) },
+			"motor/fs.write": {
 				tool: FS_WRITE_TOOL,
-				handle: (ctx) => handleWrite(ctx, options),
+				handle: (ctx: CorpusHandlerCtx) => handleWrite(ctx, options),
 				invalidates: () => WRITE_INVALIDATES,
 			},
-			"fs.edit": {
+			"motor/fs.edit": {
 				tool: FS_EDIT_TOOL,
-				handle: (ctx) => handleEdit(ctx, options),
+				handle: (ctx: CorpusHandlerCtx) => handleEdit(ctx, options),
 				invalidates: () => WRITE_INVALIDATES,
 			},
 		},

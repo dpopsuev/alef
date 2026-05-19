@@ -23,7 +23,6 @@
 import type { Turn } from "./session-store.js";
 
 // ---------------------------------------------------------------------------
-// ContextWindowPolicy — all fields have defaults
 // ---------------------------------------------------------------------------
 
 export interface ContextWindowPolicy {
@@ -71,7 +70,6 @@ export const DEFAULT_CONTEXT_WINDOW_POLICY: ContextWindowPolicy = {
 };
 
 // ---------------------------------------------------------------------------
-// Scoring
 // ---------------------------------------------------------------------------
 
 /**
@@ -80,7 +78,6 @@ export const DEFAULT_CONTEXT_WINDOW_POLICY: ContextWindowPolicy = {
  */
 function termOverlap(turn: Turn, queryTokens: string[]): number {
 	if (queryTokens.length === 0) return 0;
-	// Collect all string values from all event payloads
 	const haystack = turn.events
 		.flatMap((e) => Object.values(e.payload))
 		.filter((v): v is string => typeof v === "string")
@@ -119,7 +116,6 @@ function scoreTurn(
 }
 
 // ---------------------------------------------------------------------------
-// Tokenize query
 // ---------------------------------------------------------------------------
 
 function tokenize(text: string): string[] {
@@ -130,7 +126,6 @@ function tokenize(text: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// assembleTurns — the core algorithm
 // ---------------------------------------------------------------------------
 
 export interface AssembleOptions {
@@ -156,7 +151,6 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 	const historyBudget = Math.floor(opts.contextWindow * policy.historyFraction);
 	const maxSingleTurnCost = Math.floor(historyBudget * policy.maxSingleTurnFraction);
 
-	// Step 1: Always include the last recentGuarantee turns.
 	const recentCount = Math.min(policy.recentGuarantee, turns.length);
 	const recentTurns = turns.slice(-recentCount);
 	const recentIds = new Set(recentTurns.map((t) => t.id));
@@ -169,7 +163,6 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 		return recentTurns.slice().sort((a, b) => a.turnIndex - b.turnIndex);
 	}
 
-	// Step 2: Score candidates.
 	const queryTokens = tokenize(opts.query);
 	const maxHitCount = Math.max(1, ...Array.from(hitCounts.values()));
 	const maxTurnIndex = Math.max(1, turns.at(-1)?.turnIndex ?? 1);
@@ -184,7 +177,6 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 		return { turn, score: rawScore, cost, evictionPriority: cost > 0 ? rawScore / cost : 0 };
 	});
 
-	// Step 3: Greedy fill — highest evictionPriority first.
 	scored.sort((a, b) => b.evictionPriority - a.evictionPriority);
 
 	for (const { turn, cost } of scored) {
@@ -195,12 +187,10 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 		if (remaining <= 0) break;
 	}
 
-	// Step 4: Re-sort chronologically for the LLM.
 	return included.sort((a, b) => a.turnIndex - b.turnIndex);
 }
 
 // ---------------------------------------------------------------------------
-// turnsToMessages — flatten selected turns into ConversationMessage[]
 // ---------------------------------------------------------------------------
 
 export interface ConversationMessage {
@@ -221,11 +211,9 @@ export function turnsToMessages(turns: Turn[]): ConversationMessage[] {
 			if (event.type !== "dialog.message") continue;
 
 			if (event.bus === "sense") {
-				// Motor/dialog.message = user sent message
 				const text = typeof event.payload.text === "string" ? event.payload.text : "";
 				if (text) messages.push({ role: "user", content: text });
 			} else if (event.bus === "motor") {
-				// Sense/dialog.message = agent replied
 				const text = typeof event.payload.text === "string" ? event.payload.text : "";
 				if (text) messages.push({ role: "assistant", content: text });
 			}

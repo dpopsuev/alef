@@ -25,7 +25,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
-// StorageRecord — the raw event written to JSONL
 // ---------------------------------------------------------------------------
 
 export interface StorageRecord {
@@ -75,7 +74,6 @@ export interface WindowAssembledRecord extends StorageRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Turn — grouping of StorageRecords by correlationId
 // ---------------------------------------------------------------------------
 
 export interface Turn {
@@ -90,7 +88,6 @@ export interface Turn {
 }
 
 // ---------------------------------------------------------------------------
-// Event type weights for TurnAssembler scoring
 // ---------------------------------------------------------------------------
 
 export const EVENT_TYPE_WEIGHTS: Record<string, number> = {
@@ -115,7 +112,6 @@ export function eventTypeWeight(type: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// SessionStore
 // ---------------------------------------------------------------------------
 
 function cwdHash(cwd: string): string {

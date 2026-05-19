@@ -467,17 +467,13 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 // ---------------------------------------------------------------------------
 
 /**
- * defineCorpusOrgan — prepends "motor/" to each action key.
- * Corpus-style organs subscribe Motor and publish Sense (they mutate the world).
+ * @deprecated Use defineOrgan with explicit "motor/" prefixes instead.
  *
- * @example
- * ```ts
- * export const createFsOrgan = (opts: FsOrganOptions) =>
- *   defineCorpusOrgan("fs", {
- *     "fs.read": { tool: FS_READ_TOOL, handle: (ctx) => readFile(ctx, opts) },
- *     "fs.grep": { tool: FS_GREP_TOOL, handle: (ctx) => grepFiles(ctx, opts) },
- *   });
- * ```
+ * defineCorpusOrgan("fs", { "fs.read": action })
+ * → defineOrgan("fs", { "motor/fs.read": action })
+ *
+ * The wrapper adds no information the key prefix doesn’t already carry.
+ * Removing it keeps one concept (defineOrgan) instead of three.
  */
 export function defineCorpusOrgan(name: string, actions: CorpusActionMap, opts: OrganOptions = {}): Organ {
 	const prefixed: ActionMap = {};
@@ -488,16 +484,13 @@ export function defineCorpusOrgan(name: string, actions: CorpusActionMap, opts: 
 }
 
 /**
- * defineCerebrumOrgan — prepends "sense/" to each action key.
- * Cerebrum organs subscribe Sense and publish Motor (they mutate agent state).
+ * @deprecated Use defineOrgan with explicit "sense/" prefixes instead.
  *
- * @example
- * ```ts
- * export const createLLMOrgan = (opts: LLMOrganOptions) =>
- *   defineCerebrumOrgan("llm", {
- *     "dialog.message": { handle: (ctx) => runLLMLoop(ctx, opts) },
- *   });
- * ```
+ * defineCerebrumOrgan("llm", { "dialog.message": action })
+ * → defineOrgan("llm", { "sense/dialog.message": action })
+ *
+ * The wrapper adds no information the key prefix doesn’t already carry.
+ * Removing it keeps one concept (defineOrgan) instead of three.
  */
 export function defineCerebrumOrgan(name: string, actions: CerebrumActionMap, opts: OrganOptions = {}): Organ {
 	const prefixed: ActionMap = {};

@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BUILT_IN_THEMES, bold, color, colorDepth, dim, getTheme, setThemeByName } from "../src/theme.js";
+import {
+	BUILT_IN_THEMES,
+	bold,
+	color,
+	colorDepth,
+	dim,
+	getTheme,
+	setThemeByName,
+	spinnerFrames,
+} from "../src/theme.js";
 
 afterEach(() => {
 	setThemeByName("akko");
@@ -123,5 +132,52 @@ describe("akko palette spot checks", () => {
 
 	it("warnFg is gold #d09e48", () => {
 		expect(BUILT_IN_THEMES.akko.warnFg.truecolor).toBe("#d09e48");
+	});
+});
+
+describe("spinnerFrames — locale-aware", () => {
+	it("returns the requested count of frames", () => {
+		const frames = spinnerFrames(8);
+		expect(frames).toHaveLength(8);
+	});
+
+	it("returns glyphs for Japanese locale", () => {
+		process.env.LANG = "ja_JP.UTF-8";
+		const frames = spinnerFrames(4);
+		// All glyphs should be from Katakana or Hiragana blocks (U+30A0–U+30FF or U+3040–U+309F)
+		for (const g of frames) {
+			const cp = g.codePointAt(0) ?? 0;
+			expect(cp >= 0x3040 && cp <= 0x30ff, `${g} not in Japanese block`).toBe(true);
+		}
+	});
+
+	it("returns glyphs for Arabic locale", () => {
+		process.env.LANG = "ar_EG.UTF-8";
+		const frames = spinnerFrames(4);
+		for (const g of frames) {
+			const cp = g.codePointAt(0) ?? 0;
+			expect(cp >= 0x0600 && cp <= 0x06ff, `${g} not in Arabic block`).toBe(true);
+		}
+	});
+
+	it("returns mathematical symbols for English locale", () => {
+		process.env.LANG = "en_GB.UTF-8";
+		const frames = spinnerFrames(4);
+		// Mathematical/geometric block U+2200–U+27FF or geometric U+25A0–U+25FF
+		for (const g of frames) {
+			const cp = g.codePointAt(0) ?? 0;
+			expect(cp >= 0x2200 && cp <= 0x27ff, `${g} not in math block`).toBe(true);
+		}
+	});
+
+	it("falls back to default for unknown locale", () => {
+		process.env.LANG = "xx_XX.UTF-8";
+		const frames = spinnerFrames(4);
+		expect(frames.length).toBe(4);
+		// Should be from the default (mathematical) set
+		for (const g of frames) {
+			const cp = g.codePointAt(0) ?? 0;
+			expect(cp >= 0x2200 && cp <= 0x27ff).toBe(true);
+		}
 	});
 });

@@ -154,6 +154,65 @@ export function setTheme(tokens: ThemeTokens): void {
 	_active = tokens;
 }
 
+// ---------------------------------------------------------------------------
+// Spinner glyphs — locale-aware
+// ---------------------------------------------------------------------------
+
+// Glyphs chosen from each script for visual weight at terminal font sizes.
+const SCRIPT_GLYPHS: Record<string, readonly string[]> = {
+	ja: ["ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク", "ケ", "コ", "あ", "い", "う", "え", "お", "か"],
+	zh: ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "百", "千", "万", "天", "地", "人"],
+	ko: ["가", "나", "다", "라", "마", "바", "사", "아", "자", "차", "카", "타", "파", "하", "가", "나"],
+	ar: ["ب", "ج", "د", "ر", "ز", "س", "ش", "ص", "ط", "ع", "ف", "ق", "ك", "ل", "م", "ن"],
+	he: ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "כ", "ל", "מ", "נ", "ס", "ע"],
+	hi: ["अ", "आ", "इ", "ई", "उ", "ए", "ओ", "क", "ग", "ज", "ड", "न", "प", "म", "र", "व"],
+	th: ["ก", "ข", "ค", "ง", "จ", "ฉ", "ช", "ด", "ต", "น", "บ", "ผ", "ม", "ร", "ว", "ส"],
+	ru: ["Б", "В", "Г", "Д", "Ж", "З", "И", "К", "Л", "М", "Н", "П", "Р", "С", "Т", "Ф"],
+	el: ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ", "ν", "ξ", "π", "ρ"],
+	ka: ["ა", "ბ", "გ", "დ", "ე", "ვ", "ზ", "თ", "ი", "კ", "ლ", "მ", "ნ", "ო", "პ", "ჟ"],
+	hy: ["Ա", "Բ", "Գ", "Դ", "Ե", "Զ", "Է", "Ը", "Թ", "Ժ", "Ի", "Լ", "Խ", "Ծ", "Կ", "Հ"],
+	am: ["ሀ", "ሁ", "ሂ", "ሃ", "ለ", "ሉ", "ሊ", "ሐ", "መ", "ሠ", "ረ", "ሰ", "ሸ", "ቀ", "በ", "ተ"],
+	// Latin-script languages: use mathematical/geometric symbols (universally supported)
+	default: ["∀", "∂", "∃", "∅", "∆", "∇", "∏", "∑", "∞", "∫", "≈", "≠", "≤", "≥", "◆", "◊"],
+};
+
+// Language code aliases — maps to the canonical key in SCRIPT_GLYPHS.
+const LANG_ALIAS: Record<string, string> = {
+	zh_tw: "zh",
+	zh_hk: "zh",
+	zh_sg: "zh",
+	mr: "hi",
+	ne: "hi",
+	kok: "hi",
+	uk: "ru",
+	bg: "ru",
+	sr: "ru",
+	mk: "ru",
+	be: "ru",
+	ti: "am",
+};
+
+/** Parse locale env vars and return the primary language code. */
+function systemLang(): string {
+	const raw =
+		[process.env.LC_ALL, process.env.LC_MESSAGES, process.env.LANG, process.env.LANGUAGE]
+			.filter(Boolean)
+			.flatMap((v) => (v as string).split(":"))[0] ?? "en";
+	const code = raw.split("_")[0].split(".")[0].toLowerCase();
+	return LANG_ALIAS[code] ?? code;
+}
+
+/** Return shuffled spinner frames from the user's locale script. */
+export function spinnerFrames(count = 12): string[] {
+	const lang = systemLang();
+	const pool = [...(SCRIPT_GLYPHS[lang] ?? SCRIPT_GLYPHS.default ?? [])];
+	for (let i = pool.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[pool[i], pool[j]] = [pool[j], pool[i]];
+	}
+	return pool.slice(0, count);
+}
+
 export function setThemeByName(name: string): void {
 	const t = BUILT_IN_THEMES[name.toLowerCase()];
 	if (!t) {

@@ -18,6 +18,78 @@ import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 
 // ---------------------------------------------------------------------------
+// Handler context — passed to extracted handler functions for testability.
+// Tests construct this directly with mock collaborators.
+// ---------------------------------------------------------------------------
+
+export interface TuiHandlerContext {
+	chat: Container;
+	tui: {
+		stop(): void;
+		removeChild(c: unknown): void;
+		addChild(c: unknown): void;
+		requestRender(force?: boolean): void;
+	};
+	hint: unknown;
+	loader: unknown;
+	dialog: { clearHistory(): void };
+	dispose(): void;
+	sessionId: string;
+	abortCurrentTurn: (() => void) | undefined;
+	setAbortCurrentTurn(fn: (() => void) | undefined): void;
+}
+
+/**
+ * Handle Ctrl+C \x03.
+ * Idle: dispose + stop. Mid-turn: cancel the turn.
+ */
+export function handleCtrlC(ctx: TuiHandlerContext): void {
+	if (ctx.abortCurrentTurn) {
+		ctx.abortCurrentTurn();
+		ctx.setAbortCurrentTurn(undefined);
+		appendNotice(ctx.chat, "(interrupted)");
+		ctx.tui.requestRender(true);
+	} else {
+		ctx.dispose();
+		ctx.tui.stop();
+	}
+}
+
+/**
+ * Handle a slash command string (e.g. "/exit", "/help").
+ * Returns true if the command was recognised, false otherwise.
+ */
+export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolean {
+	const cmd = text.split(" ")[0].toLowerCase();
+	switch (cmd) {
+		case "/exit":
+			ctx.dispose();
+			ctx.tui.stop();
+			return true;
+		case "/new":
+			ctx.dialog.clearHistory();
+			while (ctx.chat.children.length > 0) {
+				ctx.chat.removeChild(ctx.chat.children[0]);
+			}
+			appendNotice(ctx.chat, "(conversation cleared)");
+			ctx.tui.requestRender(true);
+			return true;
+		case "/resume":
+			appendNotice(ctx.chat, `session: ${ctx.sessionId}`);
+			ctx.tui.requestRender(true);
+			return true;
+		case "/help":
+			appendNotice(ctx.chat, helpText());
+			ctx.tui.requestRender(true);
+			return true;
+		default:
+			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type /help for list.`);
+			ctx.tui.requestRender(true);
+			return false;
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Minimal no-color themes
 // ---------------------------------------------------------------------------
 
@@ -111,22 +183,25 @@ export async function runTuiMode(
 	const input = new Input();
 	tui.addChild(input);
 
-	// ── Ctrl+C handler ────────────────────────────────────────────────────────
+	// ── Ctrl+C + slash command handlers ──────────────────────────────────────
 	let abortCurrentTurn: (() => void) | undefined;
 
+	const ctx = (): TuiHandlerContext => ({
+		chat,
+		tui,
+		hint,
+		loader,
+		dialog,
+		dispose,
+		sessionId: opts.sessionId,
+		abortCurrentTurn,
+		setAbortCurrentTurn: (fn) => {
+			abortCurrentTurn = fn;
+		},
+	});
+
 	tui.addInputListener((data) => {
-		if (data === "\x03") {
-			// Ctrl+C
-			if (abortCurrentTurn) {
-				abortCurrentTurn();
-				abortCurrentTurn = undefined;
-				appendNotice(chat, "(interrupted)");
-				tui.requestRender(true);
-			} else {
-				dispose();
-				tui.stop();
-			}
-		}
+		if (data === "\x03") handleCtrlC(ctx());
 		return undefined;
 	});
 
@@ -136,36 +211,9 @@ export async function runTuiMode(
 		const text = rawText.trim();
 		if (!text) return;
 
-		// Slash commands
 		if (text.startsWith("/")) {
-			const cmd = text.split(" ")[0].toLowerCase();
-			switch (cmd) {
-				case "/exit":
-					dispose();
-					tui.stop();
-					return;
-				case "/new":
-					dialog.clearHistory();
-					// Clear chat
-					while (chat.children.length > 0) {
-						chat.removeChild(chat.children[0]);
-					}
-					appendNotice(chat, "(conversation cleared)");
-					tui.requestRender(true);
-					return;
-				case "/resume":
-					appendNotice(chat, `session: ${opts.sessionId}`);
-					tui.requestRender(true);
-					return;
-				case "/help":
-					appendNotice(chat, helpText());
-					tui.requestRender(true);
-					return;
-				default:
-					appendNotice(chat, `Unknown command: ${cmd}. Type /help for list.`);
-					tui.requestRender(true);
-					return;
-			}
+			handleSlashCommand(text, ctx());
+			return;
 		}
 
 		// User message → agent turn

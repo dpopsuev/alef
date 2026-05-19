@@ -314,3 +314,5 @@ try {
 } finally {
 	await shutdownOTel();
 }
+
+process.exit(0);

@@ -14,7 +14,14 @@
  */
 
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, defineOrgan, truncateHead } from "@dpopsuev/alef-spine";
+import {
+	DEFAULT_MAX_BYTES,
+	DEFAULT_MAX_LINES,
+	defineOrgan,
+	getNumber,
+	getString,
+	truncateHead,
+} from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -172,9 +179,9 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 			"motor/web.fetch": {
 				tool: WEB_FETCH_TOOL,
 				handle: async (ctx: CorpusHandlerCtx) => {
-					const url = String(ctx.payload.url ?? "");
-					const format = ctx.payload.format === "html" ? "html" : "text";
-					const timeoutMs = typeof ctx.payload.timeoutMs === "number" ? ctx.payload.timeoutMs : defaultTimeout;
+					const url = getString(ctx.payload, "url") ?? "";
+					const format = getString(ctx.payload, "format") === "html" ? "html" : "text";
+					const timeoutMs = getNumber(ctx.payload, "timeoutMs") ?? defaultTimeout;
 					return (await handleFetch(url, format, timeoutMs)) as unknown as Record<string, unknown>;
 				},
 			},

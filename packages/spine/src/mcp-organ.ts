@@ -61,7 +61,8 @@ class McpOrganImpl implements Organ {
 			const mcpName = this.nameMap.get(toolName) ?? toolName; // original MCP name
 
 			const off = nerve.motor.subscribe(toolName, async (event) => {
-				const { toolCallId, ...args } = event.payload;
+				const { toolCallId: rawToolCallId, ...args } = event.payload;
+				const toolCallId = typeof rawToolCallId === "string" ? rawToolCallId : undefined;
 				try {
 					const aiTools = await this.client.tools();
 					const aiTool = aiTools[mcpName];

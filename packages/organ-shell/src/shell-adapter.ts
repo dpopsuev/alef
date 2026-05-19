@@ -89,7 +89,7 @@ async function executeWithDetachedMode(
 				}
 				resolve({ exitCode: code });
 			})
-			.catch((error) => {
+			.catch((error: unknown) => {
 				if (child.pid) {
 					untrackDetachedChildPid(child.pid);
 				}

@@ -66,16 +66,17 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 	const toMotorName = (llmName: string): string => motorNameByLlmName.get(llmName) ?? llmName;
 
 	const rawMsgs: Message[] = (rawMessages as Message[]).map((m) => {
-		const base =
+		const base: Message =
 			"timestamp" in m && typeof (m as { timestamp?: unknown }).timestamp === "number"
-				? (m as Message)
-				: ({ ...(m as object), timestamp: Date.now() } as Message);
+				? m
+				: ({ ...(m as object), timestamp: Date.now() } as unknown as Message);
 		// Normalize assistant messages: plain-string content → content-block array.
 		// DialogOrgan stores replies as { role: "assistant", content: "text" } but
 		// Anthropic requires content: [{ type: "text", text: "..." }].
 		if (base.role === "assistant" && typeof (base as { content?: unknown }).content === "string") {
 			const text = (base as unknown as { content: string }).content;
-			return { ...base, content: [{ type: "text", text }] } as Message;
+			const normalized: Message = { ...base, content: [{ type: "text", text }] } as unknown as Message;
+			return normalized;
 		}
 		return base;
 	});

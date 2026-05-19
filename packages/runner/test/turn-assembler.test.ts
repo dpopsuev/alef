@@ -329,7 +329,7 @@ describe("turnsToMessages — conversationHistory primary path", () => {
 // prepareStep contract — BDD scenarios (defineFeature, no .feature files needed)
 // ---------------------------------------------------------------------------
 
-import { defineFeature } from "@dpopsuev/alef-testkit";
+import { defineFeature } from "@dpopsuev/alef-testkit/bdd";
 
 defineFeature("prepareStep context-window selection", (f) => {
 	// Rule A: turnsToMessages finds conversationHistory in JSONL → return it + currentMsg.

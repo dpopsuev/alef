@@ -1,6 +1,6 @@
-// BDD test primitives — re-exported from @amiceli/vitest-cucumber so every
-// test package has a single import point. Use defineFeature (no .feature files).
-export { defineFeature } from "@amiceli/vitest-cucumber";
+// defineFeature is in a separate subpath export: @dpopsuev/alef-testkit/bdd
+// It is not in the main index because @amiceli/vitest-cucumber is a devDependency
+// and would break production installs that import from this package.
 export { type BlueprintFromFileOptions, BlueprintHarness, type BlueprintHarnessOptions } from "./blueprint-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
 export { ScriptedLLMOrgan } from "./scripted-llm-organ.js";

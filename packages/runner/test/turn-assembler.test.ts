@@ -319,7 +319,7 @@ defineFeature("prepareStep context-window selection", (f) => {
 		});
 	});
 
-	f.Scenario("tool blocks stripped from JSONL causes dangling assistant (the original bug)", (s) => {
+	f.Scenario("turnsToMessages drops tool blocks — assistant message has no following tool_result", (s) => {
 		type Msg = { role: string; content: string };
 		let strippedHistory: Msg[];
 		let withNewUser: Msg[];

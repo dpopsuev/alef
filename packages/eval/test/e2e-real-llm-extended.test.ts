@@ -11,6 +11,7 @@
  * Vertex routing is automatic when project/region env vars are set.
  */
 
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -171,4 +172,31 @@ describe.skipIf(!HAVE_NETWORK)("E2E-188: WebOrgan real network fetch (real LLM)"
 		// Agent must report 404, not invent content.
 		expect(reply).toMatch(/404/);
 	}, 90_000);
+});
+
+// ---------------------------------------------------------------------------
+// Multi-turn: conversationHistory round-trip
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!HAVE_LLM)("E2E-189: Multi-turn conversationHistory (real LLM)", () => {
+	it("turn 2 can reference tool result from turn 1", async () => {
+		const cwd = makeTmp();
+		const secret = randomUUID().slice(0, 8).toUpperCase();
+		writeFileSync(join(cwd, "token.txt"), `token=${secret}\n`, "utf-8");
+
+		const { agent, dialog } = makeAgent([createFsOrgan({ cwd })]);
+		void agent; // validate called inside makeAgent
+
+		// Turn 1: read the file.
+		const reply1 = await dialog.send(
+			"Read token.txt and tell me the token value. You must use a tool.",
+			"user",
+			60_000,
+		);
+		expect(reply1).toContain(secret);
+
+		// Turn 2: agent should recall from conversationHistory.
+		const reply2 = await dialog.send("What was the token value you just told me?", "user", 60_000);
+		expect(reply2).toContain(secret);
+	}, 150_000);
 });

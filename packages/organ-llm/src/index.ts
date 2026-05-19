@@ -102,6 +102,13 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			},
 		});
 
+		// Orange: log API call entry so hangs are diagnosable without adding debug prints.
+		span.addEvent("llm.call", {
+			"alef.message_count": messages.length,
+			"alef.message_roles": messages.map((m) => (m as { role?: string }).role ?? "?").join(","),
+			"alef.tool_count": tools.length,
+		});
+
 		const stream = streamSimple(
 			options.model,
 			{ messages, tools },
@@ -164,7 +171,31 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 				// Publish the full message history alongside the text so DialogOrgan
 				// can preserve tool_use and tool_result blocks across turns.
 				// Strip system messages — DialogOrgan always re-adds them fresh.
-				const conversationHistory = messages.filter((m) => (m as { role?: string }).role !== "system") as unknown[];
+				// Strip system messages and all internal tracking fields before publishing.
+				// Only role + content (+ toolResult identifiers) survive — internal fields
+				// (timestamp, api, provider, model, usage, stopReason, diagnostics, details)
+				// cause provider retries when replayed verbatim on turn 2.
+				const conversationHistory = messages
+					.filter((m) => (m as { role?: string }).role !== "system")
+					.map((m): unknown => {
+						const msg = m as {
+							role: string;
+							content: unknown;
+							toolCallId?: string;
+							toolName?: string;
+							isError?: boolean;
+						};
+						if (msg.role === "toolResult") {
+							return {
+								role: "toolResult",
+								toolCallId: msg.toolCallId,
+								toolName: msg.toolName,
+								content: msg.content,
+								isError: msg.isError,
+							};
+						}
+						return { role: msg.role, content: msg.content };
+					});
 				motor.publish({
 					type: DIALOG_MESSAGE,
 					payload: { text, conversationHistory },

@@ -140,28 +140,25 @@ async function bootRunner(
 		procs.push(proc);
 
 		let buf = "";
+		let resolved = false;
+		// Single persistent listener: feeds debug.runnerOutput for the full lifetime
+		// of the process AND detects the bind address. Never removed after bind.
 		const onData = (chunk: Buffer) => {
 			const text = chunk.toString();
 			buf += text;
-			debug.runnerOutput += text; // feed debug collector
-			const m = buf.match(/router listening on (http:\/\/[\d.]+:\d+)/);
-			if (m) {
-				clearTimeout(timer);
-				proc.stdout?.off("data", onData);
-				proc.stderr?.off("data", onData);
-				resolve({ proc, baseUrl: m[1] });
+			debug.runnerOutput += text;
+			if (!resolved) {
+				const m = buf.match(/router listening on (http:\/\/[\d.]+:\d+)/);
+				if (m) {
+					resolved = true;
+					clearTimeout(timer);
+					resolve({ proc, baseUrl: m[1] });
+				}
 			}
 		};
 		const timer = setTimeout(() => reject(new Error(`Runner did not bind within 30s\n${buf.slice(-500)}`)), 30_000);
 		proc.stdout?.on("data", onData);
 		proc.stderr?.on("data", onData);
-		// Keep draining output after bind so debug.runnerOutput stays complete.
-		proc.stdout?.on("data", (c: Buffer) => {
-			debug.runnerOutput += c.toString();
-		});
-		proc.stderr?.on("data", (c: Buffer) => {
-			debug.runnerOutput += c.toString();
-		});
 		proc.on("exit", (code) => {
 			clearTimeout(timer);
 			reject(new Error(`Runner exited (${code}) before binding\n${buf.slice(-500)}`));
@@ -350,11 +347,7 @@ describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)"
 		expect(records.every((r) => typeof r.hash === "string")).toBe(true);
 	}, 120_000);
 
-	// Turn 2's conversationHistory (with tool blocks) passes through correctly.
-	// Remaining gap: the alef-ai Message.timestamp field may cause Anthropic API
-	// retries when embedded in conversationHistory on turn 2.
-	// Tracked under ALE-TSK-189 (transformMessages normalization).
-	it.skip("multi-turn: second reply references content from first turn", async () => {
+	it("multi-turn: second reply references content from first turn", async () => {
 		withDebugDump();
 		const cwd = makeTmp();
 

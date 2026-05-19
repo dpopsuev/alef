@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan } from "@dpopsuev/alef-spine";
+import { defineOrgan, getBoolean, getNumber, getString } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import {
 	DEFAULT_FIND_LIMIT,
@@ -125,10 +125,10 @@ function resolveFilePath(cwd: string, filePath: string, allowAbsolute = false): 
 }
 
 async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
-	const filePath = String(ctx.payload.path ?? "");
+	const filePath = getString(ctx.payload, "path") ?? "";
 	if (!filePath) throw new Error("fs.read: path is required");
-	const offset = typeof ctx.payload.offset === "number" ? ctx.payload.offset : undefined;
-	const limit = typeof ctx.payload.limit === "number" ? ctx.payload.limit : undefined;
+	const offset = getNumber(ctx.payload, "offset");
+	const limit = getNumber(ctx.payload, "limit");
 
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 	const rawContent = await fsReadFile(absolutePath, "utf-8");
@@ -161,9 +161,9 @@ async function atomicWrite(dest: string, content: string): Promise<void> {
 }
 
 async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
-	const filePath = String(ctx.payload.path ?? "");
+	const filePath = getString(ctx.payload, "path") ?? "";
 	if (!filePath) throw new Error("fs.write: path is required");
-	const content = typeof ctx.payload.content === "string" ? ctx.payload.content : "";
+	const content = getString(ctx.payload, "content") ?? "";
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 	await mkdir(dirname(absolutePath), { recursive: true });
 	await atomicWrite(absolutePath, content);
@@ -171,10 +171,10 @@ async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise
 }
 
 async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
-	const filePath = String(ctx.payload.path ?? "");
+	const filePath = getString(ctx.payload, "path") ?? "";
 	if (!filePath) throw new Error("fs.edit: path is required");
-	const oldText = typeof ctx.payload.oldText === "string" ? ctx.payload.oldText : "";
-	const newText = typeof ctx.payload.newText === "string" ? ctx.payload.newText : "";
+	const oldText = getString(ctx.payload, "oldText") ?? "";
+	const newText = getString(ctx.payload, "newText") ?? "";
 	if (!oldText) throw new Error("fs.edit: oldText is required");
 
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
@@ -194,33 +194,31 @@ async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 
 async function handleGrep(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
 	const input: GrepToolInput = {
-		pattern: String(ctx.payload.pattern ?? ""),
-		path: ctx.payload.path !== undefined ? String(ctx.payload.path) : undefined,
-		glob: ctx.payload.glob !== undefined ? String(ctx.payload.glob) : undefined,
-		ignoreCase: Boolean(ctx.payload.ignoreCase ?? false),
-		literal: Boolean(ctx.payload.literal ?? false),
-		context: typeof ctx.payload.context === "number" ? ctx.payload.context : 0,
-		limit: typeof ctx.payload.limit === "number" ? ctx.payload.limit : DEFAULT_GREP_LIMIT,
-		type: ctx.payload.type !== undefined ? String(ctx.payload.type) : undefined,
-		filesWithMatches: Boolean(ctx.payload.filesWithMatches ?? false),
-		countOnly: Boolean(ctx.payload.countOnly ?? false),
+		pattern: getString(ctx.payload, "pattern") ?? "",
+		path: getString(ctx.payload, "path"),
+		glob: getString(ctx.payload, "glob"),
+		ignoreCase: getBoolean(ctx.payload, "ignoreCase") ?? false,
+		literal: getBoolean(ctx.payload, "literal") ?? false,
+		context: getNumber(ctx.payload, "context") ?? 0,
+		limit: getNumber(ctx.payload, "limit") ?? DEFAULT_GREP_LIMIT,
+		type: getString(ctx.payload, "type"),
+		filesWithMatches: getBoolean(ctx.payload, "filesWithMatches") ?? false,
+		countOnly: getBoolean(ctx.payload, "countOnly") ?? false,
 	};
 	const response = await executeGrepQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "grep") });
 	return response as unknown as Record<string, unknown>;
 }
 
 async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
+	const rawType = getString(ctx.payload, "type");
 	const input: FindToolInput = {
-		pattern: String(ctx.payload.pattern ?? ""),
-		path: ctx.payload.path !== undefined ? String(ctx.payload.path) : undefined,
-		limit: typeof ctx.payload.limit === "number" ? ctx.payload.limit : DEFAULT_FIND_LIMIT,
-		type:
-			ctx.payload.type === "file" || ctx.payload.type === "directory" || ctx.payload.type === "symlink"
-				? ctx.payload.type
-				: undefined,
-		extension: ctx.payload.extension !== undefined ? String(ctx.payload.extension) : undefined,
-		depth: typeof ctx.payload.depth === "number" ? ctx.payload.depth : undefined,
-		hidden: ctx.payload.hidden !== undefined ? Boolean(ctx.payload.hidden) : undefined,
+		pattern: getString(ctx.payload, "pattern") ?? "",
+		path: getString(ctx.payload, "path"),
+		limit: getNumber(ctx.payload, "limit") ?? DEFAULT_FIND_LIMIT,
+		type: rawType === "file" || rawType === "directory" || rawType === "symlink" ? rawType : undefined,
+		extension: getString(ctx.payload, "extension"),
+		depth: getNumber(ctx.payload, "depth"),
+		hidden: getBoolean(ctx.payload, "hidden"),
 	};
 	const response = await executeFindQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "find") });
 	return response as unknown as Record<string, unknown>;

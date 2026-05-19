@@ -41,7 +41,7 @@ export function toolInputToJsonSchema(schema: ZodTypeAny | Record<string, unknow
 		const { $schema: _, ...rest } = js as Record<string, unknown> & { $schema?: string };
 		return rest;
 	}
-	return schema as Record<string, unknown>;
+	return schema;
 }
 
 // ---------------------------------------------------------------------------

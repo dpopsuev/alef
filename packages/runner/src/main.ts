@@ -208,10 +208,22 @@ const chainedPrepareStep = async (msgs: Message[]): Promise<Message[]> => {
 	return reactor.prepareStep(afterTurnAssembler as { role: string; content: string }[]) as Message[];
 };
 
+// AbortController for mid-turn cancellation (Ctrl+C while LLM is streaming).
+// tui-mode.ts replaces this per-turn via setLLMAbortController.
+let currentLLMController: AbortController | undefined;
+export function setLLMAbortController(ctrl: AbortController | undefined): void {
+	currentLLMController = ctrl;
+}
+
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 const llmOrgan = scriptedRepliesEnv
 	? new ScriptedLLMOrgan((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
-	: new LLMOrgan({ model, thinking: thinkingLevel, prepareStep: chainedPrepareStep });
+	: new LLMOrgan({
+			model,
+			thinking: thinkingLevel,
+			prepareStep: chainedPrepareStep,
+			getSignal: () => currentLLMController?.signal,
+		});
 agent.load(dialog).load(llmOrgan).load(reactor);
 for (const organ of corpusOrgans) {
 	agent.load(organ);
@@ -301,8 +313,11 @@ try {
 	if (args.print) {
 		await runPrintMode(args.prompt, dialog, () => agent.dispose());
 	} else if (useTui) {
-		await runTuiMode(dialog, { cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id }, () =>
-			agent.dispose(),
+		await runTuiMode(
+			dialog,
+			{ cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id },
+			() => agent.dispose(),
+			setLLMAbortController,
 		);
 	} else if (args.serve !== undefined && !process.stdin.isTTY) {
 		// --serve without a TTY: RouterOrgan is the sole interface.

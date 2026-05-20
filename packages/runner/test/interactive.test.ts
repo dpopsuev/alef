@@ -16,7 +16,7 @@ function makeDialog(reply = "mock reply") {
 	};
 }
 
-const OPTS = { cwd: "/tmp", modelId: "claude-haiku-4-5" };
+const OPTS = { cwd: "/tmp", modelId: "claude-haiku-4-5", sessionId: "test-session" };
 
 describe("runInteractive", () => {
 	it("sends each line to dialog.send", async () => {

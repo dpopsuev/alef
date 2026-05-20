@@ -149,3 +149,35 @@ describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 		expect(reply.correlationId).toBe(input.correlationId);
 	}, 30_000);
 });
+
+// ---------------------------------------------------------------------------
+// payloadToText — unit tests for ToolCallEnd.result conversion
+// ---------------------------------------------------------------------------
+
+import { payloadToText } from "../src/index.js";
+
+describe("payloadToText", () => {
+	it("returns errorMessage when isError is true", () => {
+		expect(payloadToText({}, true, "organ failure")).toBe("organ failure");
+	});
+
+	it("falls back to JSON when isError is true and no errorMessage", () => {
+		const result = payloadToText({ toolCallId: "x" }, true, undefined);
+		expect(result).toContain("toolCallId");
+	});
+
+	it("returns content string when present", () => {
+		expect(payloadToText({ content: "file contents here" }, false)).toBe("file contents here");
+	});
+
+	it("returns text string when content absent", () => {
+		expect(payloadToText({ text: "hello" }, false)).toBe("hello");
+	});
+
+	it("falls back to JSON of remaining fields (strips toolCallId and isFinal)", () => {
+		const result = payloadToText({ toolCallId: "x", isFinal: true, exitCode: 0 }, false);
+		expect(result).toContain("exitCode");
+		expect(result).not.toContain("toolCallId");
+		expect(result).not.toContain("isFinal");
+	});
+});

@@ -64,7 +64,7 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 		ctx.setAbortCurrentTurn(undefined);
 		ctx.setLLMController(undefined);
 		appendNotice(ctx.chat, "(interrupted)");
-		ctx.tui.requestRender(true);
+		ctx.tui.requestRender();
 	} else {
 		trace("ctrl+c:idle:dispose");
 		ctx.dispose();
@@ -85,19 +85,19 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			ctx.dialog.clearHistory();
 			while (ctx.chat.children.length > 0) ctx.chat.removeChild(ctx.chat.children[0]);
 			appendNotice(ctx.chat, "(conversation cleared)");
-			ctx.tui.requestRender(true);
+			ctx.tui.requestRender();
 			return true;
 		case "/resume":
 			appendNotice(ctx.chat, `session: ${ctx.sessionId}`);
-			ctx.tui.requestRender(true);
+			ctx.tui.requestRender();
 			return true;
 		case "/help":
 			appendNotice(ctx.chat, helpText());
-			ctx.tui.requestRender(true);
+			ctx.tui.requestRender();
 			return true;
 		default:
 			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type /help for list.`);
-			ctx.tui.requestRender(true);
+			ctx.tui.requestRender();
 			return false;
 	}
 }
@@ -135,13 +135,13 @@ function zoneOpen(): DynamicText {
 	return new DynamicText((w) => color(`╭${"─".repeat(Math.max(0, w - 2))}╮`, t.dimFg));
 }
 
-function pillHeaderStr(label: string, width: number): string {
+export function pillHeaderStr(label: string, width: number): string {
 	const inner = `─ ${label} `;
-	const fill = Math.max(0, width - inner.length - 3);
+	const fill = Math.max(0, width - inner.length - 2);
 	return `╭${inner}${"─".repeat(fill)}╮`;
 }
 
-function pillFooterStr(width: number): string {
+export function pillFooterStr(width: number): string {
 	return `╰${"─".repeat(Math.max(0, width - 2))}╯`;
 }
 
@@ -345,7 +345,7 @@ export async function runTuiMode(
 		chunksDirty = false;
 		if (streamingTextNode) streamingTextNode.setText(pendingText);
 		if (streamingThinkNode) streamingThinkNode.setText(italic(dim(pendingThinking)));
-		tui.requestRender(true);
+		tui.requestRender();
 	}
 
 	function startChunkThrottle(): void {
@@ -426,14 +426,14 @@ export async function runTuiMode(
 			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
 			activeCalls.set(callId, { text: line, name, keyArg });
 			chat.addChild(line);
-			tui.requestRender(true);
+			tui.requestRender();
 		};
 		toolSlot.onToolEnd = (callId, elapsedMs, ok) => {
 			const entry = activeCalls.get(callId);
 			if (entry) {
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok));
 				activeCalls.delete(callId);
-				tui.requestRender(true);
+				tui.requestRender();
 			}
 		};
 		toolSlot.onTokenUsage = (tokenIn, tokenOut) => {
@@ -441,7 +441,7 @@ export async function runTuiMode(
 			if (pendingTokenFooter) {
 				pendingTokenFooter.setText(footer);
 				pendingTokenFooter = null;
-				tui.requestRender(true);
+				tui.requestRender();
 			}
 		};
 
@@ -489,7 +489,7 @@ export async function runTuiMode(
 		input.setValue("");
 		appendUserMsg(chat, text);
 		startThinking();
-		tui.requestRender(true);
+		tui.requestRender();
 
 		let aborted = false;
 		const controller = new AbortController();
@@ -507,13 +507,13 @@ export async function runTuiMode(
 				const footerSlot = { text: null as Text | null };
 				appendAgentMsg(chat, reply, footerSlot);
 				pendingTokenFooter = footerSlot.text;
-				tui.requestRender(true);
+				tui.requestRender();
 			}
 		} catch (e) {
 			stopThinking();
 			clearStreamingSegments();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
-			tui.requestRender(true);
+			tui.requestRender();
 		} finally {
 			abortCurrentTurn = undefined;
 			setLLMAbortController(undefined);

@@ -25,6 +25,19 @@ const ConfigSchema = z.object({
 
 	model: z.string().optional(),
 
+	thinking: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).optional(),
+
+	llm: z
+		.object({
+			/** Max retry attempts on transient provider errors. Default: 4. */
+			maxRetries: z.number().int().min(0).optional(),
+			/** Cap on retry delay in ms. Default: 8000. */
+			maxRetryDelayMs: z.number().int().min(0).optional(),
+			/** Per-request timeout in ms. Default: 60000. */
+			timeoutMs: z.number().int().min(0).optional(),
+		})
+		.optional(),
+
 	you: z.string().optional(),
 	agent: z.string().optional(),
 });

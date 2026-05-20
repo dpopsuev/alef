@@ -30,6 +30,7 @@ import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
+import { resolveApiKey } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
 import { DirectiveContextAssembler } from "./directives.js";
@@ -42,6 +43,7 @@ import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
 import { buildSystemPrompt } from "./prompt.js";
+import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { detectDark, readAlacrittyOpacity } from "./terminal-bg.js";
@@ -104,8 +106,17 @@ if (args.resume) {
 	const turnCount = (await session.turns()).length;
 	console.error(`[session] Resumed ${session.id} (${turnCount} turns)`);
 } else {
-	session = await SessionStore.create(args.cwd);
-	console.error(`[session] ${session.id}`);
+	// In TUI mode with no explicit --resume, offer a session picker when sessions exist.
+	const existingSessions = willUseTui ? await SessionStore.list(args.cwd) : [];
+	const pickedId = existingSessions.length > 0 ? await pickSession(existingSessions) : undefined;
+	if (pickedId) {
+		session = await SessionStore.resume(args.cwd, pickedId);
+		const turnCount = (await session.turns()).length;
+		console.error(`[session] Resumed ${session.id} (${turnCount} turns)`);
+	} else {
+		session = await SessionStore.create(args.cwd);
+		console.error(`[session] ${session.id}`);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +186,7 @@ const dialog = new DialogOrgan({
 	maxTurns: args.maxTurns,
 });
 
-const thinkingLevel = args.thinking as ThinkingLevel | undefined;
+const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
 
 const prepareStep = async (messages: Message[]): Promise<Message[]> => {
 	const turns = await session.turns();
@@ -247,7 +258,11 @@ const llmOrgan = scriptedRepliesEnv
 	? new ScriptedLLMOrgan((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
 	: new LLMOrgan({
 			model,
+			apiKey: resolveApiKey(model.provider),
 			thinking: thinkingLevel,
+			maxRetries: cfg.llm?.maxRetries,
+			maxRetryDelayMs: cfg.llm?.maxRetryDelayMs,
+			timeoutMs: cfg.llm?.timeoutMs,
 			prepareStep: chainedPrepareStep,
 			getSignal: () => currentLLMController?.signal,
 			onToolStart: (event) => toolSlot.onToolStart?.(event),

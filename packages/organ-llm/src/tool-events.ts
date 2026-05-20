@@ -8,6 +8,8 @@ export interface ToolCallEnd {
 	callId: string;
 	elapsedMs: number;
 	ok: boolean;
+	/** Text content from the Sense event payload — what the organ actually returned. */
+	result?: string;
 }
 
 export interface TokenUsage {

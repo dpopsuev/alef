@@ -265,7 +265,8 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 					correlationId,
 				});
 				return waitForToolResult(sense, motorType, tc.id, correlationId).then((r) => {
-					options.onToolEnd?.({ callId: tc.id, elapsedMs: Date.now() - startedAt, ok: !r.isError });
+					const result = payloadToText(r.payload, r.isError, r.errorMessage);
+					options.onToolEnd?.({ callId: tc.id, elapsedMs: Date.now() - startedAt, ok: !r.isError, result });
 					return r;
 				});
 			}),

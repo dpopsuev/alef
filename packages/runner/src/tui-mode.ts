@@ -239,6 +239,16 @@ function keyArgFromPayload(args: Record<string, unknown>): string {
 	return "";
 }
 
+/** Truncate tool output for inline display: max 20 lines, max 1000 chars. */
+function truncateToolOutput(text: string): string {
+	const lines = text.split("\n");
+	const capped = lines.length > 20 ? lines.slice(0, 20) : lines;
+	let out = capped.join("\n");
+	if (out.length > 1000) out = `${out.slice(0, 1000)}\u2026`;
+	if (lines.length > 20) out += `\n  […${lines.length - 20} more lines]`;
+	return out;
+}
+
 function compact(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -312,6 +322,7 @@ export async function runTuiMode(
 	let streamingSegment: Container | null = null;
 	let streamingTextNode: Text | null = null;
 	let streamingThinkNode: Text | null = null;
+	let accumulatedThinking = ""; // persists across sealStreamingSegment calls
 	// Two Typewriter instances — one for response text, one for thinking.
 	// Each wraps its DOM Text node behind a TypewriterSink, decoupling the
 	// pressure/tick logic from TUI concretions (Dependency Inversion).
@@ -341,6 +352,7 @@ export async function runTuiMode(
 
 	function receiveThinkingChunk(chunk: string): void {
 		consoleZone.pulse();
+		accumulatedThinking += chunk;
 		const box = openStreamingSegment();
 		if (!streamingThinkNode) {
 			const t = getTheme();
@@ -387,11 +399,16 @@ export async function runTuiMode(
 			chat.addChild(line);
 			tui.requestRender();
 		};
-		toolSlot.onToolEnd = ({ callId, elapsedMs, ok }) => {
+		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result }) => {
 			const entry = activeCalls.get(callId);
 			if (entry) {
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok));
 				activeCalls.delete(callId);
+				// Show truncated output below the tool line.
+				if (result?.trim()) {
+					const t = getTheme();
+					chat.addChild(new Text(color(dim(truncateToolOutput(result)), t.dimFg), 3, 0));
+				}
 				tui.requestRender();
 			}
 		};
@@ -470,7 +487,18 @@ export async function runTuiMode(
 				thinkTypewriter.markStreamDone();
 				await textTypewriter.whenDrained();
 				if (!aborted) {
+					// Capture and clear thinking before wiping streaming segments.
+					const savedThinking = accumulatedThinking.trim();
+					accumulatedThinking = "";
 					clearStreamingSegments();
+					// Persist thinking block above the final reply.
+					if (savedThinking) {
+						const t = getTheme();
+						chat.addChild(new Spacer(1));
+						chat.addChild(new Text(color(dim("┊ thinking"), t.dimFg), 2, 0));
+						chat.addChild(new Text(italic(dim(truncateToolOutput(savedThinking))), 2, 0));
+						chat.addChild(new Spacer(1));
+					}
 					const footerSlot = { text: null as Text | null };
 					appendAgentMsg(chat, reply, footerSlot);
 					pendingTokenFooter = footerSlot.text;
@@ -479,6 +507,7 @@ export async function runTuiMode(
 			}
 		} catch (e) {
 			consoleZone.stopThinking();
+			accumulatedThinking = "";
 			clearStreamingSegments();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 			tui.requestRender();

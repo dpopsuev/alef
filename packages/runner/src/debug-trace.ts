@@ -1,0 +1,38 @@
+/**
+ * Debug lifecycle trace — writes timestamped events to ~/.alef/debug.log.
+ *
+ * Bypasses pino and the TUI entirely: uses synchronous appendFileSync so
+ * events are flushed even if the process hangs immediately after.
+ *
+ * Enabled by --debug flag or ALEF_DEBUG=1. The log path is always the same
+ * file (overwritten on each run) so `tail -f ~/.alef/debug.log` works.
+ */
+
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+const LOG_PATH = join(homedir(), ".alef", "debug.log");
+let enabled = false;
+
+export function initDebugTrace(on: boolean): void {
+	enabled = on || process.env.ALEF_DEBUG === "1";
+	if (!enabled) return;
+	mkdirSync(join(homedir(), ".alef"), { recursive: true });
+	writeFileSync(LOG_PATH, `--- alef debug trace ${new Date().toISOString()} ---\n`, "utf-8");
+	trace("init");
+}
+
+export function trace(event: string, extra?: Record<string, unknown>): void {
+	if (!enabled) return;
+	const line = `${JSON.stringify({ t: new Date().toISOString(), event, ...extra })}\n`;
+	try {
+		appendFileSync(LOG_PATH, line, "utf-8");
+	} catch {
+		// If the log itself fails, don't crash the process.
+	}
+}
+
+export function debugLogPath(): string {
+	return LOG_PATH;
+}

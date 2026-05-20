@@ -30,6 +30,7 @@ import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
+import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
 import { DirectiveContextAssembler } from "./directives.js";
 import { EventLogOrgan } from "./event-log-organ.js";
 import { runInteractive } from "./interactive.js";
@@ -53,7 +54,10 @@ import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 setupOTel();
 
 const args = parseArgs(process.argv.slice(2));
-const log = createLogger();
+const log = createLogger(args.debug ? "debug" : undefined);
+initDebugTrace(args.debug);
+if (args.debug) process.stderr.write(`[alef] debug log: ${debugLogPath()}\n`);
+trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui });
 
 if (!hasCredentials()) {
 	console.warn(
@@ -334,7 +338,10 @@ try {
 		await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId }, () => agent.dispose());
 	}
 } finally {
-	await shutdownOTel();
+	trace("shutdownOTel:start");
+	await Promise.race([shutdownOTel(), new Promise<void>((r) => setTimeout(r, 2000).unref())]);
+	trace("shutdownOTel:done");
 }
 
+trace("process.exit");
 process.exit(0);

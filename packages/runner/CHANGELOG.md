@@ -4,6 +4,7 @@
 
 ### Added
 
+- `test/strangler-fig.test.ts`: 28 deterministic tests validating the full runner composition path — auth, model detection, config schema, blueprint→organ materializer, real tool execution via `BlueprintHarness`, session JSONL, `TurnAssembler`, and CLI subprocess. No real LLM required.
 - File-based credential storage (`auth.ts`): reads/writes `~/.config/alef/auth.json`. `resolveApiKey()` checks stored keys before env vars. API key passed to `LLMOrgan` at startup.
 - TUI session picker: on startup in TUI mode, shows a `SelectList` of recent sessions. Enter resumes, Escape starts new.
 - `config.yaml` additions: `thinking` default level; `llm.maxRetries`, `llm.maxRetryDelayMs`, `llm.timeoutMs` forwarded to `LLMOrgan`.

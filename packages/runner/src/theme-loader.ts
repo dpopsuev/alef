@@ -40,14 +40,14 @@ export function loadTheme(blueprintDir?: string, cfgThemeName?: string, cfgColor
 		if (manifest) break;
 	}
 
-	// Fall back to values from config.yaml
-	const baseName = manifest?.theme ?? cfgThemeName ?? "akko";
+	// Default is 'terminal' - inherits the user's terminal color palette via ANSI 16-color codes.
+	const baseName = manifest?.theme ?? cfgThemeName ?? "terminal";
 	setThemeByName(baseName);
 
 	const allColors: Record<string, string> = { ...cfgColors, ...manifest?.colors };
 	if (Object.keys(allColors).length === 0) return;
 
-	const base = BUILT_IN_THEMES[baseName.toLowerCase()] ?? BUILT_IN_THEMES.akko;
+	const base = BUILT_IN_THEMES[baseName.toLowerCase()] ?? BUILT_IN_THEMES.terminal;
 	const overrides: Partial<Record<keyof ThemeTokens, ColorToken>> = {};
 	for (const [k, v] of Object.entries(allColors)) {
 		if (typeof v === "string") overrides[k as keyof ThemeTokens] = hexToken(v);

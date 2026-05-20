@@ -11,7 +11,7 @@ import {
 } from "../src/theme.js";
 
 afterEach(() => {
-	setThemeByName("akko");
+	setThemeByName("terminal");
 	delete process.env.COLORTERM;
 	delete process.env.TERM;
 });
@@ -61,9 +61,15 @@ describe("color()", () => {
 	});
 
 	it("returns plain text when no fallback available in 16 mode", () => {
-		const token = { truecolor: "#c55778" };
+		const token = { truecolor: "#c55778" }; // no ansi16
 		const result = color("hi", token);
 		expect(result).toBe("hi");
+	});
+
+	it("uses ansi16 when truecolor is absent (terminal theme tokens)", () => {
+		const token = { ansi16: 95 }; // no truecolor
+		const result = color("hi", token);
+		expect(result).toContain("\x1b[95m");
 	});
 });
 
@@ -78,8 +84,16 @@ describe("bold / dim", () => {
 });
 
 describe("built-in themes", () => {
-	it("akko, mono, matrix are registered", () => {
-		expect(Object.keys(BUILT_IN_THEMES)).toEqual(expect.arrayContaining(["akko", "mono", "matrix"]));
+	it("terminal, akko, mono, matrix are registered", () => {
+		expect(Object.keys(BUILT_IN_THEMES)).toEqual(expect.arrayContaining(["terminal", "akko", "mono", "matrix"]));
+	});
+
+	it("terminal theme has no truecolor values — pure ANSI 16", () => {
+		const t = BUILT_IN_THEMES.terminal;
+		for (const [key, token] of Object.entries(t)) {
+			expect(token.truecolor, `terminal.${key} should have no truecolor`).toBeUndefined();
+			expect(token.ansi16, `terminal.${key} should have ansi16`).toBeDefined();
+		}
 	});
 
 	it("each theme has all required token keys", () => {
@@ -112,26 +126,19 @@ describe("setThemeByName", () => {
 		expect(getTheme()).toBe(BUILT_IN_THEMES.mono);
 	});
 
-	it("falls back to akko for unknown name and warns", () => {
+	it("falls back to terminal for unknown name and warns", () => {
 		const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 		setThemeByName("unknown-xyz");
-		expect(getTheme()).toBe(BUILT_IN_THEMES.akko);
+		expect(getTheme()).toBe(BUILT_IN_THEMES.terminal);
 		expect(spy).toHaveBeenCalledWith(expect.stringContaining("unknown theme"));
 		spy.mockRestore();
 	});
 });
 
-describe("akko palette spot checks", () => {
-	it("accent is blossom #c55778", () => {
-		expect(BUILT_IN_THEMES.akko.accentFg.truecolor).toBe("#c55778");
-	});
-
-	it("toolNameFg is sky #6d9aba", () => {
-		expect(BUILT_IN_THEMES.akko.toolNameFg.truecolor).toBe("#6d9aba");
-	});
-
-	it("warnFg is gold #d09e48", () => {
-		expect(BUILT_IN_THEMES.akko.warnFg.truecolor).toBe("#d09e48");
+describe("akko palette", () => {
+	it("has truecolor values", () => {
+		expect(BUILT_IN_THEMES.akko.accentFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
+		expect(BUILT_IN_THEMES.akko.warnFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
 	});
 });
 

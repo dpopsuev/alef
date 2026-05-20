@@ -17,7 +17,7 @@ export function colorDepth(): ColorDepth {
 // ---------------------------------------------------------------------------
 
 export interface ColorToken {
-	truecolor: string;
+	truecolor?: string; // absent in terminal theme — falls through to ansi16
 	ansi256?: number;
 	ansi16?: number;
 }
@@ -52,11 +52,13 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 function fgCode(token: ColorToken, depth: ColorDepth): string {
-	if (depth === "truecolor") {
+	if (depth === "truecolor" && token.truecolor) {
 		const [r, g, b] = hexToRgb(token.truecolor);
 		return `\x1b[38;2;${r};${g};${b}m`;
 	}
-	if (depth === "256" && token.ansi256 !== undefined) return `\x1b[38;5;${token.ansi256}m`;
+	if ((depth === "truecolor" || depth === "256") && token.ansi256 !== undefined) {
+		return `\x1b[38;5;${token.ansi256}m`;
+	}
 	if (token.ansi16 !== undefined) return `\x1b[${token.ansi16}m`;
 	return "";
 }
@@ -83,7 +85,25 @@ export function dim(text: string): string {
 // Built-in themes
 // ---------------------------------------------------------------------------
 
-// Akko Blossom palette — hues: blossom H≈352, sky H≈207, gold H≈38
+// Terminal theme — pure ANSI 16-color, no hex.
+// The terminal maps these SGR codes to whatever the user configured.
+const TERMINAL: ThemeTokens = {
+	userFg: { ansi16: 95 }, // bright magenta
+	agentFg: { ansi16: 96 }, // bright cyan
+	toolNameFg: { ansi16: 34 }, // blue
+	toolArgFg: { ansi16: 90 }, // dark grey
+	toolOkFg: { ansi16: 32 }, // green
+	toolErrFg: { ansi16: 31 }, // red
+	accentFg: { ansi16: 95 }, // bright magenta
+	dimFg: { ansi16: 90 }, // dark grey
+	okFg: { ansi16: 32 }, // green
+	warnFg: { ansi16: 33 }, // yellow
+	errFg: { ansi16: 31 }, // red
+	timeFg: { ansi16: 90 }, // dark grey
+	modelFg: { ansi16: 37 }, // light grey
+};
+
+// Akko Blossom — opt-in truecolor palette for users who want exact hex.
 const AKKO: ThemeTokens = {
 	userFg: { truecolor: "#e890a8", ansi256: 211, ansi16: 95 }, // bloom
 	agentFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 }, // cloud
@@ -133,6 +153,7 @@ const MATRIX: ThemeTokens = {
 };
 
 export const BUILT_IN_THEMES: Record<string, ThemeTokens> = {
+	terminal: TERMINAL,
 	akko: AKKO,
 	mono: MONO,
 	matrix: MATRIX,
@@ -142,7 +163,7 @@ export const BUILT_IN_THEMES: Record<string, ThemeTokens> = {
 // Active theme singleton
 // ---------------------------------------------------------------------------
 
-let _active: ThemeTokens = AKKO;
+let _active: ThemeTokens = TERMINAL;
 
 export function getTheme(): ThemeTokens {
 	return _active;
@@ -191,7 +212,7 @@ const LANG_ALIAS: Record<string, string> = {
 };
 
 /** Parse locale env vars and return the primary language code. */
-function systemLang(): string {
+export function systemLang(): string {
 	const raw =
 		[process.env.LC_ALL, process.env.LC_MESSAGES, process.env.LANG, process.env.LANGUAGE]
 			.filter(Boolean)
@@ -214,8 +235,8 @@ export function spinnerFrames(count = 12): string[] {
 export function setThemeByName(name: string): void {
 	const t = BUILT_IN_THEMES[name.toLowerCase()];
 	if (!t) {
-		process.stderr.write(`[alef] unknown theme '${name}', using akko\n`);
-		_active = AKKO;
+		process.stderr.write(`[alef] unknown theme '${name}', using terminal\n`);
+		_active = TERMINAL;
 	} else {
 		_active = t;
 	}

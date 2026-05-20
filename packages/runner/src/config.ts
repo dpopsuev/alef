@@ -19,6 +19,7 @@ const ConfigSchema = z.object({
 		.object({
 			name: z.string().optional(),
 			colors: z.record(z.string(), z.string()).optional(),
+			background_opacity: z.number().min(0).max(1).optional(),
 		})
 		.optional(),
 

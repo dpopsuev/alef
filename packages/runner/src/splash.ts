@@ -2,6 +2,7 @@
 
 import { execSync } from "node:child_process";
 import { getConfig } from "./config.js";
+import { rasterise, rasterToShaded } from "./splash-render.js";
 import { BOLD, colorDepth, DIM, fgCode, getTheme, RESET, systemLang } from "./theme.js";
 
 // ---------------------------------------------------------------------------
@@ -85,131 +86,6 @@ function fontPathForLang(lang: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Grayscale rasteriser — returns darkness map (0 = white, 1 = black ink)
-// ---------------------------------------------------------------------------
-
-async function rasterise(glyph: string, fontPath: string, ptSize: number): Promise<number[][] | null> {
-	try {
-		const { createCanvas, GlobalFonts } = await import("@napi-rs/canvas");
-		GlobalFonts.registerFromPath(fontPath, "SplashFont");
-
-		const probe = createCanvas(1, 1);
-		const pctx = probe.getContext("2d");
-		pctx.font = `${ptSize}px SplashFont`;
-		const metrics = pctx.measureText(glyph);
-		const w = Math.ceil(metrics.width) + 4;
-		const h = ptSize + 8;
-		if (w <= 4) return null;
-
-		const canvas = createCanvas(w, h);
-		const ctx = canvas.getContext("2d");
-		ctx.fillStyle = "white";
-		ctx.fillRect(0, 0, w, h);
-		ctx.fillStyle = "black";
-		ctx.font = `${ptSize}px SplashFont`;
-		ctx.fillText(glyph, 2, ptSize - 2);
-
-		const data = ctx.getImageData(0, 0, w, h).data;
-		let totalInk = 0;
-		const pixels = Array.from({ length: h }, (_, y) =>
-			Array.from({ length: w }, (_, x) => {
-				const darkness = 1 - (data[(y * w + x) * 4] ?? 255) / 255;
-				if (darkness > 0.15) totalInk++;
-				return darkness;
-			}),
-		);
-
-		return totalInk < 20 ? null : pixels;
-	} catch {
-		return null;
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Braille shading — Bayer ordered dithering + 3 ANSI intensity levels
-//
-// Braille dot layout (2 cols × 4 rows per terminal cell):
-//   col 0  col 1
-//   0x01   0x08   row 0
-//   0x02   0x10   row 1
-//   0x04   0x20   row 2
-//   0x40   0x80   row 3
-//
-// Bayer 2×4 threshold matrix — a dot is set when local darkness exceeds
-// its threshold, producing smooth edge antialiasing without hard cutoffs.
-// ---------------------------------------------------------------------------
-
-const BRAILLE_BIT: readonly (readonly number[])[] = [
-	[0x01, 0x08],
-	[0x02, 0x10],
-	[0x04, 0x20],
-	[0x40, 0x80],
-];
-
-const BAYER_2X4: readonly (readonly number[])[] = [
-	[0 / 8, 4 / 8],
-	[2 / 8, 6 / 8],
-	[1 / 8, 5 / 8],
-	[3 / 8, 7 / 8],
-];
-
-function rasterToShaded(pixels: readonly (readonly number[])[], fg: string): string {
-	const H = pixels.length;
-	const W = pixels[0]?.length ?? 0;
-	const lines: string[] = [];
-
-	for (let cellY = 0; cellY * 4 < H; cellY++) {
-		let line = "";
-
-		for (let cellX = 0; cellX * 2 < W; cellX++) {
-			// Average darkness of the 2×4 cell — drives intensity level selection.
-			let sum = 0;
-			let count = 0;
-			for (let dr = 0; dr < 4; dr++) {
-				for (let dc = 0; dc < 2; dc++) {
-					const py = cellY * 4 + dr;
-					const px = cellX * 2 + dc;
-					if (py < H && px < W) {
-						sum += pixels[py]?.[px] ?? 0;
-						count++;
-					}
-				}
-			}
-			const avg = count > 0 ? sum / count : 0;
-
-			if (avg < 0.08) {
-				line += "  ";
-				continue;
-			}
-
-			// Bayer dithering: each dot fires when its pixel's darkness exceeds
-			// the positional threshold, giving smooth sub-cell antialiasing.
-			let mask = 0;
-			for (let dr = 0; dr < 4; dr++) {
-				for (let dc = 0; dc < 2; dc++) {
-					const py = cellY * 4 + dr;
-					const px = cellX * 2 + dc;
-					const darkness = py < H && px < W ? (pixels[py]?.[px] ?? 0) : 0;
-					if (darkness > (BAYER_2X4[dr]?.[dc] ?? 0)) {
-						mask |= BRAILLE_BIT[dr]?.[dc] ?? 0;
-					}
-				}
-			}
-
-			const ch = String.fromCodePoint(0x2800 | mask);
-
-			// Three intensity levels: bright core, mid stroke, faint edge.
-			const prefix = avg > 0.65 ? `${BOLD}${fg}` : avg > 0.28 ? fg : `${DIM}${fg}`;
-			line += `${prefix}${ch}${RESET}`;
-		}
-
-		lines.push(line);
-	}
-
-	return lines.join("\n");
-}
-
-// ---------------------------------------------------------------------------
 // Pool selection
 // ---------------------------------------------------------------------------
 
@@ -243,10 +119,10 @@ export async function renderSplash(): Promise<string> {
 		const fontPath = fontPathForLang(block.lang);
 		if (!fontPath) continue;
 
-		const pixels = await rasterise(randomCodePoint(block), fontPath, 48);
+		const pixels = await rasterise(randomCodePoint(block), fontPath, 64);
 		if (!pixels) continue;
 
-		const art = rasterToShaded(pixels, fg);
+		const art = rasterToShaded(pixels, `${BOLD}${fg}`, fg, `${DIM}${fg}`, RESET);
 		if (!art.trim()) continue;
 
 		_cached = art;

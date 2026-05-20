@@ -7,6 +7,7 @@
  * No assertions — prints rendered output for human inspection.
  */
 
+import chalk from "chalk";
 import { describe, it } from "vitest";
 import { rasterise, rasterToBlocks } from "../src/splash-render.js";
 
@@ -14,18 +15,21 @@ const LATIN_FONT = "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regula
 const LATIN_BOLD = "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Bold.ttf";
 const HEBREW_FONT = "/usr/share/fonts/google-noto-vf/NotoSerifHebrew[wght].ttf";
 
-const RESET = "\x1b[0m";
-const BOLD = "\x1b[1m";
-const FG_MAG = "\x1b[35m";
+const mag = chalk.magenta;
 
 async function renderGlyph(glyph: string, fontPath: string, ptSize = 64): Promise<string> {
 	const pixels = await rasterise(glyph, fontPath, ptSize);
 	if (!pixels) return `(rasterise returned null for '${glyph}')`;
-	return rasterToBlocks(pixels, FG_MAG);
+	return rasterToBlocks(
+		pixels,
+		(ch) => mag.bold(ch),
+		(ch) => mag(ch),
+		(ch) => mag.dim(ch),
+	);
 }
 
 function section(label: string): void {
-	process.stdout.write(`\n${BOLD}── ${label} ${"─".repeat(40 - label.length)}${RESET}\n\n`);
+	process.stdout.write(`\n${chalk.bold(`── ${label} ${"─".repeat(40 - label.length)}`)}\n\n`);
 }
 
 describe("splash render — visual block elements", () => {

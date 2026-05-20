@@ -3,11 +3,7 @@
 import { execSync } from "node:child_process";
 import { getConfig } from "./config.js";
 import { rasterise, rasterToBlocks } from "./splash-render.js";
-import { colorDepth, fgCode, getTheme, systemLang } from "./theme.js";
-
-// ---------------------------------------------------------------------------
-// Script block registry
-// ---------------------------------------------------------------------------
+import { chalkForToken, getTheme, systemLang } from "./theme.js";
 
 interface ScriptBlock {
 	lang: string;
@@ -43,10 +39,6 @@ function randomCodePoint(block: ScriptBlock): string {
 	const cp = Math.floor(Math.random() * (block.end - block.start + 1)) + block.start;
 	return String.fromCodePoint(cp);
 }
-
-// ---------------------------------------------------------------------------
-// Font discovery via fc-list
-// ---------------------------------------------------------------------------
 
 function installedLangs(): Set<string> {
 	const langs = new Set<string>();
@@ -91,10 +83,6 @@ function fontPathForLang(lang: string): string | null {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Pool selection
-// ---------------------------------------------------------------------------
-
 function buildPool(): ScriptBlock[] {
 	const langs = installedLangs();
 	const available = BLOCKS.filter((b) => langs.has(b.lang));
@@ -105,17 +93,13 @@ function buildPool(): ScriptBlock[] {
 	return preferred ? [preferred, ...pool.filter((b) => b !== preferred)] : pool;
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 let _cached: string | null = null;
 
 export async function renderSplash(): Promise<string> {
 	if (process.env.ALEF_NO_SPLASH === "1") return "";
 	if (_cached !== null) return _cached;
 
-	const fg = fgCode(getTheme().accentFg, colorDepth());
+	const tokenChalk = chalkForToken(getTheme().accentFg);
 	const pool = buildPool();
 
 	for (let attempt = 0; attempt < 8; attempt++) {
@@ -128,7 +112,12 @@ export async function renderSplash(): Promise<string> {
 		const pixels = await rasterise(randomCodePoint(block), fontPath, 20);
 		if (!pixels) continue;
 
-		const art = rasterToBlocks(pixels, fg);
+		const art = rasterToBlocks(
+			pixels,
+			(ch) => tokenChalk.bold(ch),
+			(ch) => tokenChalk(ch),
+			(ch) => tokenChalk.dim(ch),
+		);
 		if (!art.trim()) continue;
 
 		_cached = art;

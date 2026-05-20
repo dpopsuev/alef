@@ -20,16 +20,13 @@
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Component, MarkdownTheme } from "@dpopsuev/alef-tui";
 import { Container, Input, Markdown, matchesKey, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
+import chalk from "chalk";
 import { getConfig } from "./config.js";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
-import { bold, boldColor, color, dim, getTheme, glyph, ITALIC, RESET, spinnerFrames } from "./theme.js";
-
-// ---------------------------------------------------------------------------
-// Dynamic component — renders by calling a function at render time.
-// ---------------------------------------------------------------------------
+import { bold, boldColor, color, dim, getTheme, glyph, italic, spinnerFrames } from "./theme.js";
 
 class DynamicText implements Component {
 	private fn: (width: number) => string;
@@ -41,10 +38,6 @@ class DynamicText implements Component {
 	}
 	invalidate(): void {}
 }
-
-// ---------------------------------------------------------------------------
-// Handler context
-// ---------------------------------------------------------------------------
 
 export interface TuiHandlerContext {
 	chat: Container;
@@ -109,10 +102,6 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Rendering helpers
-// ---------------------------------------------------------------------------
-
 function makeMarkdownTheme(): MarkdownTheme {
 	const t = getTheme();
 	return {
@@ -127,9 +116,9 @@ function makeMarkdownTheme(): MarkdownTheme {
 		hr: (s) => dim(s),
 		listBullet: (s) => color(s, t.accentFg),
 		bold: (s) => bold(s),
-		italic: (s) => `\x1b[3m${s}${RESET}`,
+		italic: (s) => italic(s),
 		strikethrough: (s) => s,
-		underline: (s) => `\x1b[4m${s}${RESET}`,
+		underline: (s) => chalk.underline(s),
 	};
 }
 
@@ -258,10 +247,6 @@ function helpText(): string {
 		.join("\n");
 }
 
-// ---------------------------------------------------------------------------
-// Tool slot
-// ---------------------------------------------------------------------------
-
 export interface TuiToolSlot {
 	onToolStart: ((callId: string, name: string, args: Record<string, unknown>) => void) | undefined;
 	onToolEnd: ((callId: string, elapsedMs: number, ok: boolean) => void) | undefined;
@@ -269,10 +254,6 @@ export interface TuiToolSlot {
 	receiveTextChunk: ((chunk: string) => void) | undefined;
 	receiveThinkingChunk: ((chunk: string) => void) | undefined;
 }
-
-// ---------------------------------------------------------------------------
-// TUI mode
-// ---------------------------------------------------------------------------
 
 export async function runTuiMode(
 	dialog: DialogOrgan,
@@ -284,8 +265,6 @@ export async function runTuiMode(
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
 	const t = getTheme();
-
-	// ── StreamZone (terminal owns) ────────────────────────────────────
 
 	const sessionShort = opts.sessionId.slice(0, 8);
 	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${sessionShort}`;
@@ -303,8 +282,6 @@ export async function runTuiMode(
 	const chat = new Container();
 	tui.addChild(chat);
 
-	// ── ConsoleZone (we own) ─────────────────────────────────────────────────
-
 	// Spinner sits ABOVE the zone delimiter so it's always the first thing visible.
 	const statusText = new Text("", 0, 0);
 	tui.addChild(statusText);
@@ -318,8 +295,6 @@ export async function runTuiMode(
 	tui.addChild(hintBar);
 
 	tui.addChild(new Text(dim(opts.modelId), 0, 0));
-
-	// ── Spinner state ─────────────────────────────────────────────────────────
 
 	const frames = spinnerFrames(12);
 	let frameIdx = 0;
@@ -344,9 +319,6 @@ export async function runTuiMode(
 		statusText.setText("");
 	}
 
-	// ── Live streaming state ─────────────────────────────────────────────
-
-	// ── Live streaming ─────────────────────────────────────────────────────────
 	//
 	// Each LLM generation phase gets its own streamingSegment. When tool calls
 	// start (sealStreamingSegment), the current container is frozen in place so it
@@ -356,7 +328,7 @@ export async function runTuiMode(
 	// clearStreamingSegments() removes all accumulated live containers at turn end
 	// (the final formatted reply then takes their place).
 
-	const streamingSegments: Container[] = []; // all containers, sealed + active
+	const streamingSegments: Container[] = [];
 	let streamingSegment: Container | null = null;
 	let streamingTextNode: Text | null = null;
 	let streamingThinkNode: Text | null = null;
@@ -372,7 +344,7 @@ export async function runTuiMode(
 		if (!chunksDirty) return;
 		chunksDirty = false;
 		if (streamingTextNode) streamingTextNode.setText(pendingText);
-		if (streamingThinkNode) streamingThinkNode.setText(`${ITALIC}${dim(pendingThinking)}${RESET}`);
+		if (streamingThinkNode) streamingThinkNode.setText(italic(dim(pendingThinking)));
 		tui.requestRender(true);
 	}
 
@@ -444,8 +416,6 @@ export async function runTuiMode(
 		pendingThinking = "";
 	}
 
-	// ── Tool call live tracking ───────────────────────────────────────────────
-
 	const activeCalls = new Map<string, { text: Text; name: string; keyArg: string }>();
 	let pendingTokenFooter: Text | null = null;
 
@@ -478,8 +448,6 @@ export async function runTuiMode(
 		toolSlot.receiveTextChunk = (chunk) => receiveTextChunk(chunk);
 		toolSlot.receiveThinkingChunk = (chunk) => receiveThinkingChunk(chunk);
 	}
-
-	// ── Input / Ctrl+C ────────────────────────────────────────────────────────
 
 	let abortCurrentTurn: (() => void) | undefined;
 
@@ -552,8 +520,6 @@ export async function runTuiMode(
 			if (thinkingTimer) stopThinking();
 		}
 	};
-
-	// ── Start ─────────────────────────────────────────────────────────────────
 
 	tui.start();
 	tui.setFocus(input);

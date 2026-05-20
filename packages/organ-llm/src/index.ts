@@ -105,6 +105,13 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 	const maxRetries = options.maxRetries ?? 4;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
 
+	// Application-level transient error patterns — returned as clean stopReason:"error"
+	// messages by the provider (not HTTP errors). The SDK retries HTTP failures;
+	// we retry these at the LLM loop level.
+	const RETRYABLE =
+		/overloaded_error|network.?connection.?lost|connection.?error|request.?timeout|service.?unavailable|internal.?server.?error/i;
+	let appRetryCount = 0;
+
 	while (true) {
 		const span = tracer.startSpan(`chat ${options.model.id}`, {
 			kind: SpanKind.CLIENT,
@@ -176,6 +183,21 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		}
 
 		if (!finalMessage) break;
+
+		// Application-level retry: pop error message and retry with backoff.
+		if (
+			finalMessage.stopReason === "error" &&
+			typeof finalMessage.errorMessage === "string" &&
+			RETRYABLE.test(finalMessage.errorMessage) &&
+			appRetryCount < maxRetries
+		) {
+			appRetryCount++;
+			const delayMs = Math.min(1_000 * 2 ** (appRetryCount - 1), maxRetryDelayMs);
+			await new Promise<void>((res) => setTimeout(res, delayMs));
+			pendingCalls.length = 0;
+			continue;
+		}
+
 		messages.push(finalMessage);
 
 		const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
@@ -213,6 +235,13 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 				motor.publish({
 					type: DIALOG_MESSAGE,
 					payload: { text, conversationHistory },
+					correlationId,
+				});
+			} else {
+				// Error response with no text — publish empty reply so dialog.send() resolves.
+				motor.publish({
+					type: DIALOG_MESSAGE,
+					payload: { text: finalMessage.errorMessage ?? "" },
 					correlationId,
 				});
 			}

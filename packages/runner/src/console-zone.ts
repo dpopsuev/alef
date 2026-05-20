@@ -3,10 +3,6 @@ import { DynamicText } from "./dynamic-text.js";
 import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, color, dim, glyph, type ThemeTokens } from "./theme.js";
 
-function zoneOpen(t: ThemeTokens): DynamicText {
-	return new DynamicText((w) => color(`╭${"─".repeat(Math.max(0, w - 2))}╮`, t.dimFg));
-}
-
 /**
  * ConsoleZone — the fixed interactive surface at the bottom of the TUI.
  *
@@ -57,7 +53,6 @@ export class ConsoleZone {
 
 	mount(): void {
 		this.tui.addChild(this.statusText);
-		this.tui.addChild(zoneOpen(this.t));
 		this.tui.addChild(this.editor);
 		this.tui.addChild(new DynamicText((_w) => dim("/exit · /new · /resume · /help")));
 		this.tui.addChild(new Text(dim(this._modelId), 0, 0));

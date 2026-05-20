@@ -136,12 +136,12 @@ function makeMarkdownTheme(): MarkdownTheme {
 const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? getConfig().you ?? "@you";
 const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? getConfig().agent ?? "@alef";
 
-function zoneClose(): DynamicText {
+function _zoneClose(): DynamicText {
 	const t = getTheme();
 	return new DynamicText((w) => color(`╰${"─".repeat(Math.max(0, w - 2))}╯`, t.dimFg));
 }
 
-function _zoneOpen(): DynamicText {
+function zoneOpen(): DynamicText {
 	const t = getTheme();
 	return new DynamicText((w) => color(`╭${"─".repeat(Math.max(0, w - 2))}╮`, t.dimFg));
 }
@@ -303,7 +303,7 @@ export async function runTuiMode(
 
 	// ── ConsoleZone (we own) ─────────────────────────────────────────────────
 
-	tui.addChild(zoneClose());
+	tui.addChild(zoneOpen());
 
 	// ConsoleZone: input FIRST (highest), hints below, model/status lowest
 	const input = new Input();

@@ -1,7 +1,8 @@
+import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
-import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
+import { BusEventRecorder } from "../../testkit/src/index.js";
 import { LLMOrgan } from "../src/index.js";
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
@@ -39,6 +40,72 @@ function make() {
 	harnesses.push(h);
 	return h;
 }
+
+describe("LLMOrgan — application-level retry", () => {
+	const disposes: Array<() => void> = [];
+	afterEach(() => {
+		for (const d of disposes.splice(0)) d();
+	});
+
+	function makeRetryHarness(faux: ReturnType<typeof registerFauxProvider>, maxRetries: number) {
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent
+			.load(dialog)
+			.load(new LLMOrgan({ model: faux.getModel(), apiKey: "faux-key", maxRetries, maxRetryDelayMs: 0 }));
+		disposes.push(() => agent.dispose());
+		return { dialog };
+	}
+
+	it("retries overloaded_error and succeeds on second attempt", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
+			fauxAssistantMessage("recovered"),
+		]);
+		const { dialog } = makeRetryHarness(faux, 2);
+		const reply = await dialog.send("test", "human", 5_000);
+		expect(reply).toBe("recovered");
+		expect(faux.state.callCount).toBe(2);
+	});
+
+	it("retries network connection lost and succeeds", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "Network connection lost." }),
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "Network connection lost." }),
+			fauxAssistantMessage("back online"),
+		]);
+		const { dialog } = makeRetryHarness(faux, 3);
+		const reply = await dialog.send("test", "human", 5_000);
+		expect(reply).toBe("back online");
+		expect(faux.state.callCount).toBe(3);
+	});
+
+	it("gives up after maxRetries exhausted and resolves (does not hang)", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
+		]);
+		const { dialog } = makeRetryHarness(faux, 2);
+		const reply = await dialog.send("test", "human", 5_000);
+		expect(faux.state.callCount).toBe(3); // initial + 2 retries
+		expect(typeof reply).toBe("string");
+	});
+
+	it("does not retry non-transient errors", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "invalid_request" }),
+			fauxAssistantMessage("unreachable"),
+		]);
+		const { dialog } = makeRetryHarness(faux, 2);
+		await dialog.send("test", "human", 5_000);
+		expect(faux.state.callCount).toBe(1);
+	});
+});
 
 describe.skipIf(SKIP)("LLMOrgan — real API", () => {
 	it("resolves dialog.send() with a non-empty reply", async () => {

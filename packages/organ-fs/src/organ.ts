@@ -91,6 +91,35 @@ const FS_EDIT_TOOL = {
 };
 
 // ---------------------------------------------------------------------------
+// Per-path write serialization queue
+//
+// Concurrent fs.write / fs.edit calls on the same path chain onto a single
+// promise so each operation sees the committed result of the previous one.
+// The queue is per-organ-instance (not global) and cleans up resolved entries.
+// ---------------------------------------------------------------------------
+
+function makeWriteQueue() {
+	const queues = new Map<string, Promise<void>>();
+
+	return async function withQueue<T>(absolutePath: string, fn: () => Promise<T>): Promise<T> {
+		const prev = queues.get(absolutePath) ?? Promise.resolve();
+		let resolve!: () => void;
+		const gate = new Promise<void>((res) => {
+			resolve = res;
+		});
+		queues.set(absolutePath, gate);
+		try {
+			await prev;
+			return await fn();
+		} finally {
+			resolve();
+			// Clean up resolved entry so the Map does not grow unbounded.
+			if (queues.get(absolutePath) === gate) queues.delete(absolutePath);
+		}
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
 
@@ -232,6 +261,8 @@ async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 
 export function createFsOrgan(options: FsOrganOptions): Organ {
+	const withQueue = makeWriteQueue();
+
 	return defineOrgan(
 		"fs",
 		{
@@ -248,12 +279,20 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 			"motor/fs.find": { tool: FS_FIND_TOOL, handle: (ctx: CorpusHandlerCtx) => handleFind(ctx, options) },
 			"motor/fs.write": {
 				tool: FS_WRITE_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => handleWrite(ctx, options),
+				handle: (ctx: CorpusHandlerCtx) => {
+					const filePath = getString(ctx.payload, "path") ?? "";
+					const absolutePath = nodeResolve(options.cwd, filePath);
+					return withQueue(absolutePath, () => handleWrite(ctx, options));
+				},
 				invalidates: () => WRITE_INVALIDATES,
 			},
 			"motor/fs.edit": {
 				tool: FS_EDIT_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => handleEdit(ctx, options),
+				handle: (ctx: CorpusHandlerCtx) => {
+					const filePath = getString(ctx.payload, "path") ?? "";
+					const absolutePath = nodeResolve(options.cwd, filePath);
+					return withQueue(absolutePath, () => handleEdit(ctx, options));
+				},
 				invalidates: () => WRITE_INVALIDATES,
 			},
 		},

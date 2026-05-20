@@ -295,3 +295,173 @@ describe("FsCorpusOrgan", () => {
 		});
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Concurrent write serialization
+// ---------------------------------------------------------------------------
+
+describe("write serialization — file mutation queue", () => {
+	it("serializes concurrent fs.write calls on the same path", async () => {
+		const { nerve } = makeNerve();
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const filePath = "concurrent.txt";
+		const abs = join(testDir, filePath);
+		await writeFile(abs, "");
+
+		// Fire two writes concurrently — second must see first committed.
+		const order: string[] = [];
+
+		const p1 = new Promise<void>((resolve) => {
+			const unsub = nerve.asNerve().sense.subscribe("fs.write", (event) => {
+				if ((event.payload as { path?: string }).path === filePath) {
+					order.push("write-1");
+					unsub();
+					resolve();
+				}
+			});
+		});
+		const p2 = new Promise<void>((resolve) => {
+			let count = 0;
+			const unsub = nerve.asNerve().sense.subscribe("fs.write", () => {
+				count++;
+				if (count === 2) {
+					order.push("write-2");
+					unsub();
+					resolve();
+				}
+			});
+		});
+
+		nerve.publishMotor({ type: "fs.write", correlationId: "c1", payload: { path: filePath, content: "from-1" } });
+		nerve.publishMotor({ type: "fs.write", correlationId: "c2", payload: { path: filePath, content: "from-2" } });
+
+		await Promise.all([p1, p2]);
+
+		// Both writes settled — file must have one of the two values (not corrupted).
+		const content = await readFile(abs, "utf-8");
+		expect(content).toMatch(/^(from-1|from-2)$/);
+		// Order must be deterministic: write-1 before write-2.
+		expect(order).toEqual(["write-1", "write-2"]);
+
+		unmount();
+	});
+
+	it("serializes concurrent fs.edit calls on the same path", async () => {
+		const { nerve } = makeNerve();
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const filePath = "edit-concurrent.txt";
+		await writeFile(join(testDir, filePath), "AAA");
+
+		const collect = (n: number) =>
+			new Promise<void>((resolve) => {
+				let count = 0;
+				const unsub = nerve.asNerve().sense.subscribe("fs.edit", () => {
+					count++;
+					if (count === n) {
+						unsub();
+						resolve();
+					}
+				});
+			});
+
+		const done = collect(2);
+
+		nerve.publishMotor({
+			type: "fs.edit",
+			correlationId: "e1",
+			payload: { path: filePath, oldText: "AAA", newText: "BBB" },
+		});
+		// Second edit must see the result of the first (BBB → CCC), not race on AAA.
+		nerve.publishMotor({
+			type: "fs.edit",
+			correlationId: "e2",
+			payload: { path: filePath, oldText: "BBB", newText: "CCC" },
+		});
+
+		await done;
+
+		const content = await readFile(join(testDir, filePath), "utf-8");
+		expect(content).toBe("CCC");
+
+		unmount();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Find regressions (ALE-TSK-227, ALE-TSK-228)
+// ---------------------------------------------------------------------------
+
+describe("fs.find — path-based glob patterns", () => {
+	it("pattern containing / uses --full-path and matches nested files", async () => {
+		const { nerve } = makeNerve();
+		await mkdir(join(testDir, "src", "auth"), { recursive: true });
+		await writeFile(join(testDir, "src", "auth", "login.test.ts"), "");
+		await writeFile(join(testDir, "src", "auth", "logout.ts"), "");
+		await writeFile(join(testDir, "other.ts"), "");
+
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.find");
+		nerve.publishMotor({ type: "fs.find", correlationId: "r1", payload: { pattern: "src/**/*.test.ts" } });
+		const result = await p;
+
+		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
+		expect(text).toContain("login.test.ts");
+		expect(text).not.toContain("logout.ts");
+		expect(text).not.toContain("other.ts");
+
+		unmount();
+	});
+
+	it("basename-only pattern still matches without --full-path", async () => {
+		const { nerve } = makeNerve();
+		await mkdir(join(testDir, "deep", "nested"), { recursive: true });
+		await writeFile(join(testDir, "deep", "nested", "target.ts"), "");
+
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.find");
+		nerve.publishMotor({ type: "fs.find", correlationId: "r2", payload: { pattern: "*.ts" } });
+		const result = await p;
+
+		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
+		expect(text).toContain("target.ts");
+
+		unmount();
+	});
+});
+
+describe("fs.find — nested gitignore rules", () => {
+	it("gitignore in one sibling does not suppress files in another sibling", async () => {
+		const { nerve } = makeNerve();
+
+		// sibling-a has a .gitignore that ignores *.log
+		await mkdir(join(testDir, "sibling-a"), { recursive: true });
+		await writeFile(join(testDir, "sibling-a", ".gitignore"), "*.log\n");
+		await writeFile(join(testDir, "sibling-a", "app.ts"), "");
+
+		// sibling-b should not be affected by sibling-a's .gitignore
+		await mkdir(join(testDir, "sibling-b"), { recursive: true });
+		await writeFile(join(testDir, "sibling-b", "debug.log"), "");
+		await writeFile(join(testDir, "sibling-b", "app.ts"), "");
+
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.find");
+		nerve.publishMotor({ type: "fs.find", correlationId: "r3", payload: { pattern: "*.log" } });
+		const result = await p;
+
+		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
+		// sibling-b/debug.log must appear — not suppressed by sibling-a's gitignore
+		expect(text).toContain("debug.log");
+
+		unmount();
+	});
+});

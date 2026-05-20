@@ -299,6 +299,7 @@ export async function runTuiMode(
 	}
 
 	function receiveTextChunk(chunk: string): void {
+		consoleZone.pulse();
 		const box = openStreamingSegment();
 		if (!streamingTextNode) {
 			streamingTextNode = new Text("", 2, 0);
@@ -308,6 +309,7 @@ export async function runTuiMode(
 	}
 
 	function receiveThinkingChunk(chunk: string): void {
+		consoleZone.pulse();
 		const box = openStreamingSegment();
 		if (!streamingThinkNode) {
 			const t = getTheme();
@@ -346,6 +348,7 @@ export async function runTuiMode(
 
 	if (toolSlot) {
 		toolSlot.onToolStart = ({ callId, name, args }) => {
+			consoleZone.pulse();
 			sealStreamingSegment(); // freeze current generation block; tool lines go below it
 			const keyArg = keyArgFromPayload(args);
 			const line = new Text(toolActiveLine(name, keyArg), 1, 0);

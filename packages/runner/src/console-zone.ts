@@ -26,8 +26,9 @@ class ArcEditorWrapper implements Component {
 }
 
 import { DynamicText } from "./dynamic-text.js";
+import { EventPressure, pressureToHueShift, pressureToInterval } from "./event-pressure.js";
 import { buildPool, randomCodePoint } from "./splash.js";
-import { bold, color, dim, glyph, type ThemeTokens } from "./theme.js";
+import { bold, type ColorToken, color, colorDepth, dim, fgCode, glyph, type ThemeTokens } from "./theme.js";
 
 /**
  * ConsoleZone — the fixed interactive surface at the bottom of the TUI.
@@ -35,6 +36,39 @@ import { bold, color, dim, glyph, type ThemeTokens } from "./theme.js";
  * Owns: zone delimiter, spinner/status slot, editor, hint bar, model label.
  * Mounted once via mount(); structure never changes after that.
  */
+function shiftedAccentAnsi(token: ColorToken, hueDegrees: number): string {
+	if (colorDepth() !== "truecolor" || !token.truecolor) return fgCode(token, colorDepth());
+	const hex = token.truecolor.replace("#", "");
+	const r0 = parseInt(hex.slice(0, 2), 16) / 255;
+	const g0 = parseInt(hex.slice(2, 4), 16) / 255;
+	const b0 = parseInt(hex.slice(4, 6), 16) / 255;
+	const vv = Math.max(r0, g0, b0);
+	const d = vv - Math.min(r0, g0, b0);
+	const ss = vv === 0 ? 0 : d / vv;
+	let hh = 0;
+	if (d > 0) {
+		if (vv === r0) hh = ((g0 - b0) / d + (g0 < b0 ? 6 : 0)) / 6;
+		else if (vv === g0) hh = ((b0 - r0) / d + 2) / 6;
+		else hh = ((r0 - g0) / d + 4) / 6;
+	}
+	const nh = (hh + hueDegrees / 360) % 1;
+	const i = Math.floor(nh * 6);
+	const f = nh * 6 - i;
+	const p = vv * (1 - ss);
+	const q = vv * (1 - f * ss);
+	const t2 = vv * (1 - (1 - f) * ss);
+	const sectors: Array<[number, number, number]> = [
+		[vv, t2, p],
+		[q, vv, p],
+		[p, vv, t2],
+		[p, q, vv],
+		[t2, p, vv],
+		[vv, p, q],
+	];
+	const [fr, fg2, fb] = sectors[i % 6] ?? [vv, vv, vv];
+	return `\x1b[38;2;${Math.round(fr * 255)};${Math.round(fg2 * 255)};${Math.round(fb * 255)}m`;
+}
+
 export class ConsoleZone {
 	readonly editor: Editor;
 
@@ -42,7 +76,8 @@ export class ConsoleZone {
 	private readonly frames: string[];
 	private frameIdx = 0;
 	private thinkingStart = 0;
-	private thinkingTimer: ReturnType<typeof setInterval> | undefined;
+	private thinkingTimer: ReturnType<typeof setTimeout> | undefined;
+	private readonly pressure = new EventPressure();
 	private readonly tui: TUI;
 	private readonly t: ThemeTokens;
 
@@ -84,24 +119,33 @@ export class ConsoleZone {
 		this.tui.addChild(new Text(dim(this._modelId), 0, 0));
 	}
 
+	pulse(): void {
+		this.pressure.pulse();
+	}
+
 	startThinking(): void {
 		if (this.thinkingTimer) {
-			clearInterval(this.thinkingTimer);
+			clearTimeout(this.thinkingTimer);
 			this.thinkingTimer = undefined;
 		}
 		this.thinkingStart = Date.now();
 		this.frameIdx = 0;
-		this.thinkingTimer = setInterval(() => {
+		const tick = (): void => {
 			this.frameIdx = (this.frameIdx + 1) % this.frames.length;
 			const elapsed = Math.floor((Date.now() - this.thinkingStart) / 1000);
 			const frame = this.frames[this.frameIdx] ?? glyph("state:active");
-			this.statusText.setText(`  ${color(frame, this.t.warnFg)} ${color(`${elapsed}s`, this.t.dimFg)}`);
+			const level = this.pressure.level();
+			const hue = pressureToHueShift(level);
+			const ansi = shiftedAccentAnsi(this.t.accentFg, hue) || fgCode(this.t.warnFg, colorDepth());
+			this.statusText.setText(`  ${ansi}${frame}\x1b[0m ${color(`${elapsed}s`, this.t.dimFg)}`);
 			this.tui.requestRender();
-		}, 180);
+			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
+		};
+		this.thinkingTimer = setTimeout(tick, pressureToInterval(0));
 	}
 
 	stopThinking(): void {
-		clearInterval(this.thinkingTimer);
+		clearTimeout(this.thinkingTimer);
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");
 	}

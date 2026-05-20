@@ -38,7 +38,7 @@ import { runInteractive } from "./interactive.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
 import { LoopDetectorOrgan } from "./loop-detector.js";
 import { materializeBlueprint } from "./materializer.js";
-import { buildModel, hasCredentials } from "./model.js";
+import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
 import { buildSystemPrompt } from "./prompt.js";
@@ -70,8 +70,10 @@ trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args
 if (!hasCredentials()) {
 	console.warn(
 		"Warning: no LLM credentials detected.\n" +
-			"Set ANTHROPIC_API_KEY or ANTHROPIC_VERTEX_PROJECT_ID + CLOUD_ML_REGION.\n",
+			"Set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY).\n",
 	);
+} else if (args.debug) {
+	process.stderr.write(`[alef] detected providers: ${detectedProviders().join(", ")}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -149,8 +151,10 @@ if (blueprintPath) {
 	];
 }
 
-const resolvedModelId = args.modelId ?? blueprintModelId ?? cfg.model ?? DEFAULT_MODEL;
-const model = buildModel(resolvedModelId);
+const resolvedModelId = args.modelId ?? blueprintModelId ?? cfg.model;
+const model = resolvedModelId ? buildModel(resolvedModelId) : (autoDetectModel() ?? buildModel(DEFAULT_MODEL));
+const resolvedModelDisplay =
+	model.name !== model.id ? `${model.provider}/${model.id} (${model.name})` : `${model.provider}/${model.id}`;
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -355,7 +359,7 @@ try {
 	} else if (useTui) {
 		await runTuiMode(
 			dialog,
-			{ cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id },
+			{ cwd: args.cwd, modelId: resolvedModelDisplay, sessionId: session.id },
 			() => agent.dispose(),
 			setLLMAbortController,
 			toolSlot,
@@ -365,7 +369,7 @@ try {
 		// Block forever — the process stays alive until SIGTERM.
 		await new Promise<void>(() => {});
 	} else {
-		await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id }, () =>
+		await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelDisplay, sessionId: session.id }, () =>
 			agent.dispose(),
 		);
 	}

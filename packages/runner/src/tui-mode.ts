@@ -1,15 +1,16 @@
 /**
- * TUI layout — two ownership zones:
+ * TUI layout — StreamZone + ConsoleZone.
  *
- *   Top (terminal owns scrolling):
- *     header   — printed once, lives in scrollback
+ *   StreamZone (terminal owns):
+ *     splash   — Braille glyph art, printed once
+ *     header   — identity line, printed once
  *     ───────────────────────────────────────────
  *     chat     — append-only, grows into scrollback
  *
- *   Bottom (we own — always visible, fixed height):
+ *   ConsoleZone (we own — always visible, fixed height):
  *     ───────────────────────────────────────────
  *     status   — "" | "⬡ Thinking… 3s" | "─ (interrupted)"
- *     hint     — mode + keybindings
+ *     hint     — keybindings
  *     input    — editor, always present
  *
  * No addChild/removeChild after startup. Content changes, structure doesn't.
@@ -23,7 +24,7 @@ import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
-import { bold, boldColor, color, DIM, dim, getTheme, glyph, RESET, spinnerFrames } from "./theme.js";
+import { bold, boldColor, color, dim, getTheme, glyph, RESET, spinnerFrames } from "./theme.js";
 
 // ---------------------------------------------------------------------------
 // Dynamic component — renders by calling a function at render time.
@@ -131,39 +132,94 @@ function makeMarkdownTheme(): MarkdownTheme {
 	};
 }
 
-function horizontalRule(): DynamicText {
+const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? "@you";
+const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
+
+function zoneClose(): DynamicText {
 	const t = getTheme();
-	return new DynamicText((w) => color(glyph("sep").repeat(Math.max(1, w - 2)), t.dimFg));
+	return new DynamicText((w) => color(`╰${"─".repeat(Math.max(0, w - 2))}╯`, t.dimFg));
+}
+
+function zoneOpen(): DynamicText {
+	const t = getTheme();
+	return new DynamicText((w) => color(`╭${"─".repeat(Math.max(0, w - 2))}╮`, t.dimFg));
+}
+
+function pillHeaderStr(label: string, width: number): string {
+	const inner = `─ ${label} `;
+	const fill = Math.max(0, width - inner.length - 3);
+	return `╭${inner}${"─".repeat(fill)}╮`;
+}
+
+function pillFooterStr(width: number): string {
+	return `╰${"─".repeat(Math.max(0, width - 2))}╯`;
+}
+
+function appendPillBlock(
+	chat: Container,
+	label: string,
+	colorFn: (s: string) => string,
+	body: () => void,
+	tokenSlot?: { text: Text | null },
+): void {
+	chat.addChild(new Spacer(1));
+	chat.addChild(new DynamicText((w) => colorFn(pillHeaderStr(label, w))));
+	body();
+	if (tokenSlot !== undefined) {
+		const tf = new Text("", 1, 0);
+		chat.addChild(tf);
+		tokenSlot.text = tf;
+	}
+	chat.addChild(new DynamicText((w) => colorFn(pillFooterStr(w))));
+	chat.addChild(new Spacer(1));
 }
 
 function appendUserMsg(chat: Container, text: string): void {
 	const t = getTheme();
-	chat.addChild(new Text(`${DIM}${color(glyph("user"), t.accentFg)} ${RESET}${text}`, 1, 0));
+	appendPillBlock(
+		chat,
+		YOU_LABEL,
+		(s) => color(s, t.accentFg),
+		() => {
+			chat.addChild(new Text(text, 2, 0));
+		},
+	);
 }
 
 function appendAgentMsg(chat: Container, text: string, tokenSlot?: { text: Text | null }): void {
-	chat.addChild(new Spacer(1));
-	try {
-		chat.addChild(new Markdown(text, 1, 0, makeMarkdownTheme()));
-	} catch {
-		chat.addChild(new Text(text, 1, 0));
-	}
-	if (tokenSlot !== undefined) {
-		const footer = new Text("", 1, 0);
-		chat.addChild(footer);
-		tokenSlot.text = footer;
-	}
-	chat.addChild(new Spacer(1));
+	const t = getTheme();
+	appendPillBlock(
+		chat,
+		AGENT_LABEL,
+		(s) => color(s, t.modelFg),
+		() => {
+			try {
+				chat.addChild(new Markdown(text, 2, 0, makeMarkdownTheme()));
+			} catch {
+				chat.addChild(new Text(text, 2, 0));
+			}
+		},
+		tokenSlot,
+	);
 }
 
 function appendNotice(chat: Container, text: string): void {
 	const t = getTheme();
-	chat.addChild(new Text(`${color(glyph("sep"), t.dimFg)} ${dim(text)}`, 1, 0));
+	appendPillBlock(
+		chat,
+		"─",
+		(s) => dim(color(s, t.dimFg)),
+		() => {
+			chat.addChild(new Text(dim(text), 2, 0));
+		},
+	);
 }
 
 function toolActiveLine(name: string, keyArg: string): string {
 	const t = getTheme();
-	return `  ${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}`;
+	const label = `${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}`;
+	const body = keyArg ? `  ${color(keyArg, t.toolArgFg)}` : "";
+	return `  ${label}${body}`;
 }
 
 export function renderToolLine(name: string, keyArg: string, elapsedMs: number, ok: boolean): string {
@@ -226,24 +282,28 @@ export async function runTuiMode(
 	const tui = new TUI(terminal);
 	const t = getTheme();
 
-	// ── Top zone (terminal owns scrolling) ────────────────────────────────────
+	// ── StreamZone (terminal owns) ────────────────────────────────────
 
 	// Splash: random world-script glyph as Braille art — printed once, lives in scrollback
 	const splash = await renderSplash();
 	if (splash) tui.addChild(new Text(splash, 0, 0));
 
 	const sessionShort = opts.sessionId.slice(0, 8);
-	const header = `${boldColor(`${glyph("bullet")} ALEF`, t.accentFg)}  ${color(glyph("sep"), t.dimFg)}  ${color(opts.modelId, t.modelFg)}  ${color(glyph("sep"), t.dimFg)}  ${color(sessionShort, t.dimFg)}`;
-	tui.addChild(new Text(header, 1, 0));
-	tui.addChild(horizontalRule());
+	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${opts.modelId}  ${glyph("sep")}  ${sessionShort}`;
+	const streamHeader = new DynamicText((w) => {
+		const inner = `─ ${headerLabel} `;
+		const fill = Math.max(0, w - inner.length - 3);
+		return boldColor(`╭${inner}${"─".repeat(fill)}╮`, t.accentFg);
+	});
+	tui.addChild(streamHeader);
 
 	const chat = new Container();
 	tui.addChild(chat);
 
-	// ── Bottom zone (we own) ──────────────────────────────────────────────────
-	// Fixed structure — content changes, nothing is added or removed.
+	// ── ConsoleZone (we own) ─────────────────────────────────────────────────
 
-	tui.addChild(horizontalRule());
+	tui.addChild(zoneClose());
+	tui.addChild(zoneOpen());
 
 	// Status slot: empty when idle, animated when thinking, notice on interrupt.
 	const statusText = new Text("", 0, 0);

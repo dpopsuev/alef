@@ -104,3 +104,29 @@ describe("ShellCorpusOrgan", () => {
 		unmount();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// COLUMNS env var injection
+// ---------------------------------------------------------------------------
+
+describe("ShellCorpusOrgan — COLUMNS injection", () => {
+	it("COLUMNS is set to 220 in spawned command environment", async () => {
+		const { nerve } = makeNerve();
+		const organ = createShellOrgan({ cwd: process.cwd() });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForFinalSense(nerve, "shell.exec");
+		nerve.publishMotor({
+			type: "shell.exec",
+			correlationId: "cols-1",
+			payload: { command: "echo COLS=$COLUMNS" },
+		});
+		const result = await p;
+
+		expect(result.isError).toBe(false);
+		const output = (result.payload as { output?: string }).output ?? "";
+		expect(output).toContain("COLS=220");
+
+		unmount();
+	});
+});

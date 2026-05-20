@@ -79,15 +79,28 @@ const FS_WRITE_TOOL = {
 	}),
 };
 
+const EditEntrySchema = z.object({
+	oldText: z.string().describe("Exact text to find (must be unique in the file)"),
+	newText: z.string().describe("Replacement text"),
+});
+
 const FS_EDIT_TOOL = {
 	name: "fs.edit",
 	description:
-		"Replace the first exact occurrence of oldText with newText in a file. Throws if oldText is not found or is not unique.",
-	inputSchema: z.object({
-		path: z.string().describe("Path to the file (relative or absolute)"),
-		oldText: z.string().describe("Exact text to find and replace"),
-		newText: z.string().describe("Replacement text"),
-	}),
+		"Edit a file by replacing exact text. Pass edits[] for multiple replacements in one atomic call. " +
+		"Each oldText must be unique in the file. All edits are matched against the original — not incrementally. " +
+		"Overlapping edits are rejected. Throws if any oldText is not found or not unique.",
+	inputSchema: z.union([
+		z.object({
+			path: z.string().describe("Path to the file (relative or absolute)"),
+			edits: z.array(EditEntrySchema).min(1).describe("One or more replacements to apply atomically"),
+		}),
+		z.object({
+			path: z.string().describe("Path to the file (relative or absolute)"),
+			oldText: z.string().describe("Exact text to find (must be unique in the file)"),
+			newText: z.string().describe("Replacement text"),
+		}),
+	]),
 };
 
 // ---------------------------------------------------------------------------
@@ -153,6 +166,25 @@ function resolveFilePath(cwd: string, filePath: string, allowAbsolute = false): 
 	return abs;
 }
 
+// Detect image/binary files by magic bytes. Returns the MIME type string or
+// null when the file appears to be text.
+function detectBinaryMime(buf: Buffer): string | null {
+	if (buf.length < 4) return null;
+	const b = buf;
+	if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+	if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+	if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return "image/gif";
+	if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57) return "image/webp";
+	if (b[0] === 0x42 && b[1] === 0x4d) return "image/bmp";
+	if (b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) return "application/pdf";
+	// Null-byte heuristic: text files don't contain null bytes.
+	const slice = b.slice(0, Math.min(512, b.length));
+	for (let i = 0; i < slice.length; i++) {
+		if (slice[i] === 0) return "application/octet-stream";
+	}
+	return null;
+}
+
 async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
 	const filePath = getString(ctx.payload, "path") ?? "";
 	if (!filePath) throw new Error("fs.read: path is required");
@@ -160,7 +192,18 @@ async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 	const limit = getNumber(ctx.payload, "limit");
 
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
-	const rawContent = await fsReadFile(absolutePath, "utf-8");
+
+	// Read as buffer first to detect binary/image files by magic bytes.
+	const rawBuf = await fsReadFile(absolutePath);
+	const mimeType = detectBinaryMime(rawBuf);
+	if (mimeType !== null) {
+		throw new Error(
+			`fs.read: '${filePath}' is a binary file (detected: ${mimeType}). ` +
+				`Use a dedicated tool to handle binary content.`,
+		);
+	}
+
+	const rawContent = rawBuf.toString("utf-8");
 	const contentToRead =
 		offset && offset > 1
 			? rawContent
@@ -202,23 +245,60 @@ async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise
 async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
 	const filePath = getString(ctx.payload, "path") ?? "";
 	if (!filePath) throw new Error("fs.edit: path is required");
-	const oldText = getString(ctx.payload, "oldText") ?? "";
-	const newText = getString(ctx.payload, "newText") ?? "";
-	if (!oldText) throw new Error("fs.edit: oldText is required");
+
+	// Normalise input: accept edits[] array OR single oldText/newText.
+	type EditEntry = { oldText: string; newText: string };
+	let editList: EditEntry[];
+	const rawEdits = ctx.payload.edits;
+	if (Array.isArray(rawEdits) && rawEdits.length > 0) {
+		editList = rawEdits as EditEntry[];
+	} else {
+		const oldText = getString(ctx.payload, "oldText") ?? "";
+		const newText = getString(ctx.payload, "newText") ?? "";
+		if (!oldText) throw new Error("fs.edit: oldText is required");
+		editList = [{ oldText, newText }];
+	}
 
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
-	const original = await fsReadFile(absolutePath, "utf-8");
+	let original: string;
+	try {
+		original = await fsReadFile(absolutePath, "utf-8");
+	} catch (err) {
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code === "ENOENT") throw new Error(`fs.edit: file not found: ${filePath}`);
+		if (code === "EACCES") throw new Error(`fs.edit: permission denied: ${filePath}`);
+		throw err;
+	}
 
-	const firstIdx = original.indexOf(oldText);
-	if (firstIdx === -1) throw new Error(`fs.edit: oldText not found in ${filePath}`);
+	// Locate each edit in the original (not incrementally).
+	type LocatedEdit = { start: number; end: number; newText: string };
+	const located: LocatedEdit[] = [];
+	for (const { oldText, newText } of editList) {
+		const firstIdx = original.indexOf(oldText);
+		if (firstIdx === -1)
+			throw new Error(`fs.edit: oldText not found in ${filePath}: ${JSON.stringify(oldText.slice(0, 40))}`);
+		const lastIdx = original.lastIndexOf(oldText);
+		if (lastIdx !== firstIdx)
+			throw new Error(`fs.edit: oldText matches multiple locations in ${filePath} — make it unique`);
+		located.push({ start: firstIdx, end: firstIdx + oldText.length, newText });
+	}
 
-	const lastIdx = original.lastIndexOf(oldText);
-	if (lastIdx !== firstIdx)
-		throw new Error(`fs.edit: oldText matches multiple locations in ${filePath} — make it unique`);
+	// Detect overlaps between edit ranges.
+	const sorted = [...located].sort((a, b) => a.start - b.start);
+	for (let i = 1; i < sorted.length; i++) {
+		if ((sorted[i]?.start ?? 0) < (sorted[i - 1]?.end ?? 0)) {
+			throw new Error(`fs.edit: edits overlap — check that edit regions do not intersect`);
+		}
+	}
 
-	const updated = original.slice(0, firstIdx) + newText + original.slice(firstIdx + oldText.length);
+	// Apply all edits in reverse order to preserve indices.
+	let updated = original;
+	for (const { start, end, newText } of [...sorted].reverse()) {
+		updated = updated.slice(0, start) + newText + updated.slice(end);
+	}
+
 	await atomicWrite(absolutePath, updated);
-	return { path: filePath, applied: true };
+	return { path: filePath, applied: true, editCount: editList.length };
 }
 
 async function handleGrep(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {

@@ -80,7 +80,7 @@ async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): Asyn
 
 	const child = spawn(shell, args, {
 		cwd: opts.cwd,
-		env: { ...getShellEnv({ binDir: opts.binDir }) },
+		env: { ...getShellEnv({ binDir: opts.binDir }), COLUMNS: "220", LINES: "50" },
 	});
 
 	let timer: ReturnType<typeof setTimeout> | undefined;

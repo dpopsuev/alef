@@ -51,6 +51,7 @@ import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 // ---------------------------------------------------------------------------
 
 // OTel must be registered before any tracer is acquired.
+process.title = "alef";
 setupOTel();
 
 const args = parseArgs(process.argv.slice(2));

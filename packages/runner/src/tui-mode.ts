@@ -140,7 +140,7 @@ function zoneClose(): DynamicText {
 	return new DynamicText((w) => color(`╰${"─".repeat(Math.max(0, w - 2))}╯`, t.dimFg));
 }
 
-function zoneOpen(): DynamicText {
+function _zoneOpen(): DynamicText {
 	const t = getTheme();
 	return new DynamicText((w) => color(`╭${"─".repeat(Math.max(0, w - 2))}╮`, t.dimFg));
 }
@@ -303,21 +303,16 @@ export async function runTuiMode(
 	// ── ConsoleZone (we own) ─────────────────────────────────────────────────
 
 	tui.addChild(zoneClose());
-	tui.addChild(zoneOpen());
 
-	// Status slot: empty when idle, animated when thinking, notice on interrupt.
-	const statusText = new Text("", 0, 0);
-	tui.addChild(statusText);
-
-	// Hint bar: left = commands, right = active state (only when non-empty)
-	const hintBar = new DynamicText((_w) => {
-		const hints = dim(["/exit", "/new", "/resume", "/help"].join(` ${color(glyph("dot"), t.dimFg)} `));
-		return hints;
-	});
-	tui.addChild(hintBar);
-
+	// ConsoleZone: input FIRST (highest), hints below, model/status lowest
 	const input = new Input();
 	tui.addChild(input);
+
+	const hintBar = new DynamicText((_w) => dim("/exit · /new · /resume · /help"));
+	tui.addChild(hintBar);
+
+	const statusText = new Text(dim(`${opts.modelId} · ${opts.sessionId.slice(0, 8)}`), 0, 0);
+	tui.addChild(statusText);
 
 	// ── Spinner state ─────────────────────────────────────────────────────────
 
@@ -341,7 +336,7 @@ export async function runTuiMode(
 	function stopThinking(): void {
 		clearInterval(thinkingTimer);
 		thinkingTimer = undefined;
-		statusText.setText("");
+		statusText.setText(dim(`${opts.modelId} · ${opts.sessionId.slice(0, 8)}`));
 	}
 
 	// ── Tool call live tracking ───────────────────────────────────────────────
@@ -366,7 +361,7 @@ export async function runTuiMode(
 			}
 		};
 		toolSlot.onTokenUsage = (tokenIn, tokenOut) => {
-			const footer = `${dim(`${compact(tokenIn)} in`)} ${color(glyph("dot"), t.dimFg)} ${dim(`${compact(tokenOut)} out`)}`;
+			const footer = dim(`${compact(tokenIn)} in · ${compact(tokenOut)} out`);
 			if (pendingTokenFooter) {
 				pendingTokenFooter.setText(footer);
 				pendingTokenFooter = null;

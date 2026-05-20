@@ -19,7 +19,18 @@
 
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Component, MarkdownTheme } from "@dpopsuev/alef-tui";
-import { Container, Input, Markdown, matchesKey, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
+import {
+	Container,
+	Editor,
+	type EditorTheme,
+	Markdown,
+	matchesKey,
+	ProcessTerminal,
+	type SelectListTheme,
+	Spacer,
+	Text,
+	TUI,
+} from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 import { getConfig } from "./config.js";
 import { trace } from "./debug-trace.js";
@@ -289,8 +300,19 @@ export async function runTuiMode(
 
 	tui.addChild(zoneOpen());
 
-	const input = new Input();
-	tui.addChild(input);
+	const selectListTheme: SelectListTheme = {
+		selectedPrefix: (s) => bold(s),
+		selectedText: (s) => bold(s),
+		description: (s) => dim(s),
+		scrollInfo: (s) => dim(s),
+		noMatch: (s) => dim(s),
+	};
+	const editorTheme: EditorTheme = {
+		borderColor: (s) => color(s, t.dimFg),
+		selectList: selectListTheme,
+	};
+	const editor = new Editor(tui, editorTheme);
+	tui.addChild(editor);
 
 	const hintBar = new DynamicText((_w) => dim("/exit · /new · /resume · /help"));
 	tui.addChild(hintBar);
@@ -465,20 +487,21 @@ export async function runTuiMode(
 	};
 
 	// eslint-disable-next-line @typescript-eslint/no-misused-promises
-	input.onSubmit = async (rawText: string) => {
+	editor.onSubmit = async (rawText: string) => {
 		const text = rawText.trim();
 		if (!text) return;
 		if (text.startsWith("/")) {
 			handleSlashCommand(text, ctx());
 			return;
 		}
+		editor.addToHistory(text);
 
 		if (abortCurrentTurn) {
 			abortCurrentTurn();
 			abortCurrentTurn = undefined;
 		}
 
-		input.setValue("");
+		editor.setText("");
 		appendUserMsg(chat, text);
 		startThinking();
 		tui.requestRender();
@@ -519,7 +542,7 @@ export async function runTuiMode(
 	};
 
 	tui.start();
-	tui.setFocus(input);
+	tui.setFocus(editor);
 	tui.requestRender();
 	trace("tui:start");
 

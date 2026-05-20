@@ -25,7 +25,7 @@ import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
-import { bold, boldColor, color, dim, getTheme, glyph, RESET, spinnerFrames } from "./theme.js";
+import { bold, boldColor, color, dim, getTheme, glyph, ITALIC, RESET, spinnerFrames } from "./theme.js";
 
 // ---------------------------------------------------------------------------
 // Dynamic component — renders by calling a function at render time.
@@ -346,17 +346,52 @@ export async function runTuiMode(
 
 	// ── Live streaming state ─────────────────────────────────────────────
 
-	// Live streaming — all in-progress content lives in liveContainer.
-	// At turn end, removeChild clears it; final formatted reply replaces it.
+	// ── Live streaming ─────────────────────────────────────────────────────────
+	//
+	// Each LLM generation phase gets its own liveContainer. When tool calls
+	// start (sealLiveStream), the current container is frozen in place so it
+	// stays visible while tool lines are added below it. The next generation
+	// creates a fresh container below the tool lines — correct chronological order.
+	//
+	// clearLiveStream() removes all accumulated live containers at turn end
+	// (the final formatted reply then takes their place).
+
+	const liveContainers: Container[] = []; // all containers, sealed + active
 	let liveContainer: Container | null = null;
 	let liveTextNode: Text | null = null;
 	let liveThinkNode: Text | null = null;
 	let liveTextBuf = "";
 	let liveThinkBuf = "";
 
+	// Drip buffer — flush at ~20fps to prevent render thrash.
+	const DRIP_MS = 50;
+	let dripTimer: NodeJS.Timeout | undefined;
+	let dripDirty = false;
+
+	function dripFlush(): void {
+		if (!dripDirty) return;
+		dripDirty = false;
+		if (liveTextNode) liveTextNode.setText(liveTextBuf);
+		if (liveThinkNode) liveThinkNode.setText(`${ITALIC}${dim(liveThinkBuf)}${RESET}`);
+		tui.requestRender(true);
+	}
+
+	function startDrip(): void {
+		if (!dripTimer) dripTimer = setInterval(dripFlush, DRIP_MS);
+	}
+
+	function stopDrip(): void {
+		if (dripTimer) {
+			clearInterval(dripTimer);
+			dripTimer = undefined;
+		}
+		dripFlush();
+	}
+
 	function ensureLive(): Container {
 		if (!liveContainer) {
 			liveContainer = new Container();
+			liveContainers.push(liveContainer);
 			chat.addChild(liveContainer);
 		}
 		return liveContainer;
@@ -369,24 +404,39 @@ export async function runTuiMode(
 			box.addChild(liveTextNode);
 		}
 		liveTextBuf += chunk;
-		liveTextNode.setText(liveTextBuf);
-		tui.requestRender(true);
+		dripDirty = true;
+		startDrip();
 	}
 
 	function onThinkingChunk(chunk: string): void {
 		const box = ensureLive();
 		if (!liveThinkNode) {
-			box.addChild(new Text(dim("…thinking"), 2, 0));
+			const t = getTheme();
+			box.addChild(new Text(color(dim("┊ thinking"), t.dimFg), 2, 0));
 			liveThinkNode = new Text("", 2, 0);
 			box.addChild(liveThinkNode);
 		}
 		liveThinkBuf += chunk;
-		liveThinkNode.setText(dim(liveThinkBuf));
-		tui.requestRender(true);
+		dripDirty = true;
+		startDrip();
 	}
 
+	// Seal the current generation's container so tool call lines go below it.
+	// Called when the first tool call fires (generation phase ended).
+	function sealLiveStream(): void {
+		stopDrip();
+		liveContainer = null;
+		liveTextNode = null;
+		liveTextBuf = "";
+		liveThinkNode = null;
+		liveThinkBuf = "";
+	}
+
+	// Remove all accumulated live containers; called after final reply is added.
 	function clearLiveStream(): void {
-		if (liveContainer) chat.removeChild(liveContainer);
+		stopDrip();
+		for (const c of liveContainers) chat.removeChild(c);
+		liveContainers.length = 0;
 		liveContainer = null;
 		liveTextNode = null;
 		liveTextBuf = "";
@@ -401,6 +451,7 @@ export async function runTuiMode(
 
 	if (toolSlot) {
 		toolSlot.onToolStart = (callId, name, args) => {
+			sealLiveStream(); // freeze current generation block; tool lines go below it
 			const keyArg = keyArgFromPayload(args);
 			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
 			activeCalls.set(callId, { text: line, name, keyArg });

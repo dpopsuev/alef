@@ -465,3 +465,159 @@ describe("fs.find — nested gitignore rules", () => {
 		unmount();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// fs.edit — multi-edit, overlap detection, ENOENT/EACCES
+// ---------------------------------------------------------------------------
+
+describe("fs.edit — multi-edit", () => {
+	it("applies multiple disjoint edits atomically", async () => {
+		const { nerve } = makeNerve();
+		await writeFile(join(testDir, "multi.ts"), "AAA BBB CCC");
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.edit");
+		nerve.publishMotor({
+			type: "fs.edit",
+			correlationId: "m1",
+			payload: {
+				path: "multi.ts",
+				edits: [
+					{ oldText: "AAA", newText: "111" },
+					{ oldText: "CCC", newText: "333" },
+				],
+			},
+		});
+		const result = await p;
+
+		expect(result.isError).toBe(false);
+		expect(await readFile(join(testDir, "multi.ts"), "utf-8")).toBe("111 BBB 333");
+		expect((result.payload as { editCount?: number }).editCount).toBe(2);
+
+		unmount();
+	});
+
+	it("matches edits against original, not incrementally", async () => {
+		const { nerve } = makeNerve();
+		await writeFile(join(testDir, "orig.ts"), "AAA AAA");
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		// Both edits search for "AAA" in original — second edit finds it not unique
+		const p = waitForSense(nerve, "fs.edit");
+		nerve.publishMotor({
+			type: "fs.edit",
+			correlationId: "m2",
+			payload: { path: "orig.ts", edits: [{ oldText: "AAA", newText: "111" }] },
+		});
+		const result = await p;
+		expect(result.isError).toBe(true); // "AAA" appears twice
+
+		unmount();
+	});
+
+	it("rejects overlapping edits", async () => {
+		const { nerve } = makeNerve();
+		await writeFile(join(testDir, "over.ts"), "ABCDEF");
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.edit");
+		nerve.publishMotor({
+			type: "fs.edit",
+			correlationId: "m3",
+			payload: {
+				path: "over.ts",
+				edits: [
+					{ oldText: "ABC", newText: "X" },
+					{ oldText: "BCD", newText: "Y" },
+				],
+			},
+		});
+		const result = await p;
+		expect(result.isError).toBe(true);
+		expect(result.errorMessage).toMatch(/overlap/i);
+
+		unmount();
+	});
+
+	it("reports ENOENT clearly", async () => {
+		const { nerve } = makeNerve();
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.edit");
+		nerve.publishMotor({
+			type: "fs.edit",
+			correlationId: "m4",
+			payload: { path: "nonexistent.ts", oldText: "X", newText: "Y" },
+		});
+		const result = await p;
+		expect(result.isError).toBe(true);
+		expect(result.errorMessage).toMatch(/not found|ENOENT/i);
+
+		unmount();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// fs.read — image MIME detection by magic bytes
+// ---------------------------------------------------------------------------
+
+describe("fs.read — binary/image detection", () => {
+	it("rejects a PNG file by magic bytes, not extension", async () => {
+		const { nerve } = makeNerve();
+		// Write minimal PNG magic bytes
+		const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+		await writeFile(join(testDir, "image.notapng"), pngMagic);
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.read");
+		nerve.publishMotor({ type: "fs.read", correlationId: "r1", payload: { path: "image.notapng" } });
+		const result = await p;
+
+		expect(result.isError).toBe(true);
+		expect(result.errorMessage).toMatch(/binary|image\/png/i);
+
+		unmount();
+	});
+
+	it("rejects a JPEG file", async () => {
+		const { nerve } = makeNerve();
+		const jpegMagic = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+		await writeFile(join(testDir, "photo.ts"), jpegMagic);
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.read");
+		nerve.publishMotor({ type: "fs.read", correlationId: "r2", payload: { path: "photo.ts" } });
+		const result = await p;
+
+		expect(result.isError).toBe(true);
+		expect(result.errorMessage).toMatch(/binary|image\/jpeg/i);
+
+		unmount();
+	});
+
+	it("reads a text file with .png extension correctly", async () => {
+		const { nerve } = makeNerve();
+		await writeFile(join(testDir, "data.png"), "export const x = 1;\n");
+		const organ = createFsOrgan({ cwd: testDir });
+		const unmount = organ.mount(nerve.asNerve());
+
+		const p = waitForSense(nerve, "fs.read");
+		nerve.publishMotor({ type: "fs.read", correlationId: "r3", payload: { path: "data.png" } });
+		const result = await p;
+
+		expect(result.isError).toBe(false);
+		expect((result.payload as { content?: string }).content).toContain("export const x");
+
+		unmount();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// shell.exec — COLUMNS env var injection
+// ---------------------------------------------------------------------------

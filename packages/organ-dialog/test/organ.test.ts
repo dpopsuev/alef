@@ -1,4 +1,6 @@
+import { Agent } from "@dpopsuev/alef-corpus";
 import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
 import { describe, expect, it, vi } from "vitest";
 import { DIALOG_MESSAGE, DialogOrgan } from "../src/organ.js";
 
@@ -186,5 +188,51 @@ describe("DialogOrgan — history + system prompt", () => {
 		expect(organ.messages).toHaveLength(2);
 		organ.clearHistory();
 		expect(organ.messages).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Max turns enforcement (ALE-TSK-230)
+// ---------------------------------------------------------------------------
+
+describe("DialogOrgan — max turns enforcement", () => {
+	it("allows sends up to maxTurns", async () => {
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 2 });
+		const llm = new ScriptedLLMOrgan([step.reply("one"), step.reply("two")]);
+		agent.load(dialog).load(llm);
+		agent.validate();
+
+		expect(await dialog.send("first")).toBe("one");
+		expect(await dialog.send("second")).toBe("two");
+
+		agent.dispose();
+	});
+
+	it("rejects sends beyond maxTurns with a clear error", async () => {
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 1 });
+		const llm = new ScriptedLLMOrgan([step.reply("only one")]);
+		agent.load(dialog).load(llm);
+		agent.validate();
+
+		await dialog.send("turn 1");
+		await expect(dialog.send("turn 2")).rejects.toThrow(/max turns/i);
+
+		agent.dispose();
+	});
+
+	it("maxTurns: 0 means unlimited", async () => {
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 0 });
+		const llm = new ScriptedLLMOrgan([step.reply("a"), step.reply("b"), step.reply("c")]);
+		agent.load(dialog).load(llm);
+		agent.validate();
+
+		expect(await dialog.send("1")).toBe("a");
+		expect(await dialog.send("2")).toBe("b");
+		expect(await dialog.send("3")).toBe("c");
+
+		agent.dispose();
 	});
 });

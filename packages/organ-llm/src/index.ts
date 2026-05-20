@@ -33,6 +33,10 @@ export interface LLMOrganOptions {
 	onToolEnd?: (callId: string, elapsedMs: number, ok: boolean) => void;
 	/** Called after the LLM reply is complete with token usage for the turn. */
 	onTokenUsage?: (tokenIn: number, tokenOut: number) => void;
+	/** Called with each streamed text delta as the LLM generates. */
+	onTextChunk?: (chunk: string) => void;
+	/** Called with each streamed thinking/reasoning delta. */
+	onThinkingChunk?: (chunk: string) => void;
 	/**
 	 * Extended thinking level. Requires a model that supports reasoning
 	 * (e.g. claude-3-7-sonnet-20250219). Default: off (no thinking).
@@ -133,7 +137,11 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 
 		try {
 			for await (const evt of stream) {
-				if (evt.type === "toolcall_end") {
+				if (evt.type === "text_delta") {
+					options.onTextChunk?.(evt.delta);
+				} else if (evt.type === "thinking_delta") {
+					options.onThinkingChunk?.(evt.delta);
+				} else if (evt.type === "toolcall_end") {
 					pendingCalls.push({
 						name: evt.toolCall.name,
 						args: evt.toolCall.arguments as Record<string, unknown>,

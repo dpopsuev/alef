@@ -266,6 +266,8 @@ export interface TuiToolSlot {
 	onToolStart: ((callId: string, name: string, args: Record<string, unknown>) => void) | undefined;
 	onToolEnd: ((callId: string, elapsedMs: number, ok: boolean) => void) | undefined;
 	onTokenUsage: ((tokenIn: number, tokenOut: number) => void) | undefined;
+	onTextChunk: ((chunk: string) => void) | undefined;
+	onThinkingChunk: ((chunk: string) => void) | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -303,17 +305,19 @@ export async function runTuiMode(
 
 	// ── ConsoleZone (we own) ─────────────────────────────────────────────────
 
+	// Spinner sits ABOVE the zone delimiter so it's always the first thing visible.
+	const statusText = new Text("", 0, 0);
+	tui.addChild(statusText);
+
 	tui.addChild(zoneOpen());
 
-	// ConsoleZone: input FIRST (highest), hints below, model/status lowest
 	const input = new Input();
 	tui.addChild(input);
 
 	const hintBar = new DynamicText((_w) => dim("/exit · /new · /resume · /help"));
 	tui.addChild(hintBar);
 
-	const statusText = new Text(dim(opts.modelId), 0, 0);
-	tui.addChild(statusText);
+	tui.addChild(new Text(dim(opts.modelId), 0, 0));
 
 	// ── Spinner state ─────────────────────────────────────────────────────────
 
@@ -337,7 +341,39 @@ export async function runTuiMode(
 	function stopThinking(): void {
 		clearInterval(thinkingTimer);
 		thinkingTimer = undefined;
-		statusText.setText(dim(`${opts.modelId}`));
+		statusText.setText("");
+		streamNode = null;
+		streamBuf = "";
+		thinkNode = null;
+		thinkBuf = "";
+	}
+
+	// ── Live streaming state ─────────────────────────────────────────────
+
+	let streamNode: Text | null = null;
+	let streamBuf = "";
+	let thinkNode: Text | null = null;
+	let thinkBuf = "";
+
+	function onTextChunk(chunk: string): void {
+		if (!streamNode) {
+			streamNode = new Text("", 2, 0);
+			chat.addChild(streamNode);
+		}
+		streamBuf += chunk;
+		streamNode.setText(streamBuf);
+		tui.requestRender(true);
+	}
+
+	function onThinkingChunk(chunk: string): void {
+		if (!thinkNode) {
+			chat.addChild(new Text(dim("…thinking"), 2, 0));
+			thinkNode = new Text("", 2, 0);
+			chat.addChild(thinkNode);
+		}
+		thinkBuf += chunk;
+		thinkNode.setText(dim(thinkBuf));
+		tui.requestRender(true);
 	}
 
 	// ── Tool call live tracking ───────────────────────────────────────────────
@@ -369,6 +405,9 @@ export async function runTuiMode(
 				tui.requestRender(true);
 			}
 		};
+
+		toolSlot.onTextChunk = (chunk) => onTextChunk(chunk);
+		toolSlot.onThinkingChunk = (chunk) => onThinkingChunk(chunk);
 	}
 
 	// ── Input / Ctrl+C ────────────────────────────────────────────────────────

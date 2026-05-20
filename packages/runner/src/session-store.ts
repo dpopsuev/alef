@@ -239,7 +239,21 @@ export class SessionStore {
 		const turns: Turn[] = [];
 		let index = 0;
 		for (const [id, events] of turnMap) {
-			const tokenCost = Math.ceil(events.reduce((n, e) => n + JSON.stringify(e.payload).length, 0) / 4);
+			// Anchor on provider-reported totalTokens when available (motor/dialog.message
+			// payload includes usage written by LLMOrgan). Falls back to char/4 heuristic
+			// for test turns (ScriptedLLMOrgan) or turns without a usage receipt.
+			const usageAnchor = (() => {
+				for (let i = events.length - 1; i >= 0; i--) {
+					const e = events[i];
+					if (e.bus === "motor" && e.type === "dialog.message") {
+						const total = (e.payload as { usage?: { totalTokens?: number } }).usage?.totalTokens;
+						if (typeof total === "number" && total > 0) return total;
+					}
+				}
+				return undefined;
+			})();
+			const tokenCost =
+				usageAnchor ?? Math.ceil(events.reduce((n, e) => n + JSON.stringify(e.payload).length, 0) / 4);
 			const typeWeight = Math.max(...events.map((e) => eventTypeWeight(e.type)));
 			turns.push({ id, events, turnIndex: index++, tokenCost, typeWeight });
 		}

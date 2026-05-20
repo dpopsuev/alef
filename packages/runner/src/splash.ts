@@ -35,7 +35,7 @@ const BLOCKS: readonly ScriptBlock[] = [
 	{ lang: "kn", name: "Kannada", start: 0x0c85, end: 0x0cb9 },
 ];
 
-function randomCodePoint(block: ScriptBlock): string {
+export function randomCodePoint(block: ScriptBlock): string {
 	const cp = Math.floor(Math.random() * (block.end - block.start + 1)) + block.start;
 	return String.fromCodePoint(cp);
 }
@@ -83,7 +83,7 @@ function fontPathForLang(lang: string): string | null {
 	}
 }
 
-function buildPool(): ScriptBlock[] {
+export function buildPool(): ScriptBlock[] {
 	const langs = installedLangs();
 	const available = BLOCKS.filter((b) => langs.has(b.lang));
 	const pool = available.length > 0 ? available : BLOCKS.slice(0, 5);

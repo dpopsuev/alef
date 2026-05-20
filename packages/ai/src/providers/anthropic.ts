@@ -247,6 +247,35 @@ const ANTHROPIC_MESSAGE_EVENTS: ReadonlySet<string> = new Set([
 	"content_block_stop",
 ]);
 
+/**
+ * Serialize an error to a human-readable string, traversing the cause chain.
+ * Gaxios/node-fetch errors store the root cause in `.error` (FetchError) or
+ * `.cause`, and the syscall error code in `.code`. Without this traversal,
+ * messages like "request to URL failed, reason: " appear with an empty reason.
+ */
+function serializeError(error: unknown): string {
+	const parts: string[] = [];
+	let current: unknown = error;
+	const seen = new Set<unknown>();
+	while (current != null && !seen.has(current)) {
+		seen.add(current);
+		if (current instanceof Error) {
+			if (current.message) parts.push(current.message);
+			// Append error code if not already in the message (e.g. ECONNREFUSED)
+			const code = (current as { code?: string }).code;
+			if (code && !current.message.includes(code)) parts.push(code);
+			// gaxios FetchError stores the inner system error in `.error`
+			const inner =
+				(current as { error?: unknown; cause?: unknown }).error ?? (current as { cause?: unknown }).cause;
+			current = inner;
+		} else {
+			parts.push(String(current));
+			break;
+		}
+	}
+	return parts.length > 0 ? parts.join(" — ") : JSON.stringify(error);
+}
+
 function resolveAnthropicVertexProjectAndRegion(): { projectId: string; region: string } | undefined {
 	if (typeof process === "undefined") {
 		return undefined;
@@ -707,7 +736,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				delete (block as { partialJson?: string }).partialJson;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+			output.errorMessage = serializeError(error);
 			stream.push({ type: "error", reason: output.stopReason, error: output });
 			stream.end();
 		}

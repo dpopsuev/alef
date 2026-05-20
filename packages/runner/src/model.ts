@@ -24,6 +24,7 @@ import {
 	type KnownProvider,
 	type Model,
 } from "@dpopsuev/alef-ai";
+import { getConfig } from "./config.js";
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_HOST ?? "http://localhost:11434/v1";
 
@@ -87,7 +88,8 @@ function syntheticModel(provider: string, modelId: string, api: Api, baseUrl: st
 		reasoning: false,
 		input: ["text" as const],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 128_000,
+		// Use config override when set; registry models use their published value.
+		contextWindow: getConfig().llm?.contextWindow ?? 128_000,
 		maxTokens: 8_192,
 	};
 }

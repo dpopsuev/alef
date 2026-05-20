@@ -35,6 +35,12 @@ const ConfigSchema = z.object({
 			maxRetryDelayMs: z.number().int().min(0).optional(),
 			/** Per-request timeout in ms. Default: 60000. */
 			timeoutMs: z.number().int().min(0).optional(),
+			/**
+			 * Override context window size in tokens for synthetic/unlisted models.
+			 * Registry models use their published contextWindow; this only applies
+			 * when the model is not in the static registry (custom routes, local models).
+			 */
+			contextWindow: z.number().int().min(1024).optional(),
 		})
 		.optional(),
 

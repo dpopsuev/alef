@@ -12,7 +12,18 @@
 
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Component, MarkdownTheme } from "@dpopsuev/alef-tui";
-import { Container, GrowSpacer, Input, Loader, Markdown, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
+import {
+	Container,
+	GrowSpacer,
+	Input,
+	Loader,
+	Markdown,
+	matchesKey,
+	ProcessTerminal,
+	Spacer,
+	Text,
+	TUI,
+} from "@dpopsuev/alef-tui";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
@@ -327,9 +338,11 @@ export async function runTuiMode(
 		},
 	});
 
+	// Use matchesKey instead of === "\x03" so Kitty protocol terminals
+	// (Alacritty sends \x1b[99;5u for Ctrl+C) are handled correctly.
 	tui.onRawInput = (data) => {
-		if (data === "\x03") {
-			trace("raw:x03");
+		if (matchesKey(data, "ctrl+c")) {
+			trace("raw:ctrl+c", { seq: JSON.stringify(data) });
 			handleCtrlC(ctx());
 			return true;
 		}

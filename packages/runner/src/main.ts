@@ -34,7 +34,7 @@ import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
 import { DirectiveContextAssembler } from "./directives.js";
 import { EventLogOrgan } from "./event-log-organ.js";
 import { runInteractive } from "./interactive.js";
-import { createLogger } from "./logger.js";
+import { createLogger, createLoggerForTui } from "./logger.js";
 import { LoopDetectorOrgan } from "./loop-detector.js";
 import { materializeBlueprint } from "./materializer.js";
 import { buildModel, hasCredentials } from "./model.js";
@@ -54,7 +54,11 @@ import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 setupOTel();
 
 const args = parseArgs(process.argv.slice(2));
-const log = createLogger(args.debug ? "debug" : undefined);
+const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
+const log =
+	willUseTui && (args.debug || process.env.ALEF_LOG_LEVEL === "debug")
+		? createLoggerForTui(debugLogPath(), args.debug ? "debug" : undefined)
+		: createLogger(args.debug ? "debug" : undefined);
 initDebugTrace(args.debug);
 if (args.debug) process.stderr.write(`[alef] debug log: ${debugLogPath()}\n`);
 trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui });

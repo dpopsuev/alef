@@ -149,6 +149,15 @@ function inferBaseUrl(provider: string): string {
  * its default model. Used when no --model flag or ALEF_MODEL is set.
  */
 export function autoDetectModel(): Model<Api> | undefined {
+	// Anthropic-on-Vertex: project + region configured, no API key needed.
+	if (hasAnthropicOnVertex() && !getEnvApiKey("anthropic")) {
+		const defaultId = DEFAULT_MODEL_PER_PROVIDER.anthropic ?? "claude-sonnet-4-5";
+		return (
+			lookupModel("anthropic", defaultId) ??
+			syntheticModel("anthropic", defaultId, "anthropic-messages", "https://api.anthropic.com")
+		);
+	}
+
 	// Check preference list first
 	for (const provider of PROVIDER_PREFERENCE) {
 		const apiKey = getEnvApiKey(provider);
@@ -164,11 +173,22 @@ export function autoDetectModel(): Model<Api> | undefined {
 }
 
 /**
+ * True when Anthropic-on-Vertex is configured (project + region env vars set).
+ * These models route through the Vertex partner endpoint without an API key.
+ */
+function hasAnthropicOnVertex(): boolean {
+	const project =
+		process.env.ANTHROPIC_VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+	const region = process.env.CLOUD_ML_REGION || process.env.GOOGLE_CLOUD_LOCATION;
+	return !!(project && region);
+}
+
+/**
  * Returns true if any supported provider credentials are detected.
  */
 export function hasCredentials(): boolean {
-	// Ollama is always reachable locally if OLLAMA_HOST is set
 	if (process.env.OLLAMA_HOST) return true;
+	if (hasAnthropicOnVertex()) return true;
 
 	for (const provider of getProviders()) {
 		if (getEnvApiKey(provider)) return true;
@@ -182,6 +202,7 @@ export function hasCredentials(): boolean {
 export function detectedProviders(): string[] {
 	const found: string[] = [];
 	if (process.env.OLLAMA_HOST) found.push("ollama");
+	if (hasAnthropicOnVertex()) found.push("anthropic (vertex)");
 	for (const provider of getProviders()) {
 		const keys = findEnvKeys(provider);
 		if (keys?.length) found.push(`${provider} (${keys.join(", ")})`);

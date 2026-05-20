@@ -20,6 +20,12 @@ const DIALOG_MESSAGE = "dialog.message";
 export interface LLMOrganOptions {
 	model: Model<Api>;
 	apiKey?: string;
+	/**
+	 * Called before each LLM call to obtain the current API key.
+	 * Takes precedence over apiKey when both are set.
+	 * Use this so a key saved by /login is picked up without restarting.
+	 */
+	getApiKey?: () => string | undefined;
 	timeoutMs?: number;
 	/** Max retry attempts on transient errors. Default: 4. */
 	maxRetries?: number;
@@ -133,7 +139,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			options.model,
 			{ messages, tools },
 			{
-				apiKey: options.apiKey,
+				apiKey: options.getApiKey?.() ?? options.apiKey,
 				timeoutMs,
 				maxRetries,
 				maxRetryDelayMs,

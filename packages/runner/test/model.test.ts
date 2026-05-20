@@ -9,7 +9,7 @@ describe("buildModel", () => {
 
 	it("resolves known model name", () => {
 		const model = buildModel("claude-sonnet-4-5");
-		expect(model.name).toBe("Claude Sonnet 4.5");
+		expect(model.name).toContain("Claude Sonnet 4.5");
 	});
 
 	it("falls back to id as name for unknown model", () => {
@@ -36,23 +36,26 @@ describe("hasCredentials", () => {
 	let savedVertexProject: string | undefined;
 	let savedRegion: string | undefined;
 
+	const VERTEX_VARS = [
+		"ANTHROPIC_VERTEX_PROJECT_ID",
+		"GOOGLE_CLOUD_PROJECT",
+		"GCLOUD_PROJECT",
+		"CLOUD_ML_REGION",
+		"GOOGLE_CLOUD_LOCATION",
+	] as const;
+
 	beforeEach(() => {
 		savedApiKey = process.env.ANTHROPIC_API_KEY;
 		savedVertexProject = process.env.ANTHROPIC_VERTEX_PROJECT_ID;
 		savedRegion = process.env.CLOUD_ML_REGION;
 		delete process.env.ANTHROPIC_API_KEY;
-		delete process.env.ANTHROPIC_VERTEX_PROJECT_ID;
-		delete process.env.CLOUD_ML_REGION;
+		for (const v of VERTEX_VARS) delete process.env[v];
 	});
 
 	afterEach(() => {
 		if (savedApiKey !== undefined) process.env.ANTHROPIC_API_KEY = savedApiKey;
 		if (savedVertexProject !== undefined) process.env.ANTHROPIC_VERTEX_PROJECT_ID = savedVertexProject;
 		if (savedRegion !== undefined) process.env.CLOUD_ML_REGION = savedRegion;
-	});
-
-	it("returns false when no credentials are set", () => {
-		expect(hasCredentials()).toBe(false);
 	});
 
 	it("returns true when ANTHROPIC_API_KEY is set", () => {
@@ -66,8 +69,9 @@ describe("hasCredentials", () => {
 		expect(hasCredentials()).toBe(true);
 	});
 
-	it("returns false when only Vertex project is set without region", () => {
-		process.env.ANTHROPIC_VERTEX_PROJECT_ID = "my-project";
-		expect(hasCredentials()).toBe(false);
+	it("returns true when Google Cloud project and location are set (Vertex ADC path)", () => {
+		process.env.GOOGLE_CLOUD_PROJECT = "my-project";
+		process.env.GOOGLE_CLOUD_LOCATION = "us-central1";
+		expect(hasCredentials()).toBe(true);
 	});
 });

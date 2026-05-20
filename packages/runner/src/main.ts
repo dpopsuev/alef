@@ -225,6 +225,7 @@ export function setLLMAbortController(ctrl: AbortController | undefined): void {
 const toolSlot = {
 	onToolStart: undefined as ((id: string, name: string, args: Record<string, unknown>) => void) | undefined,
 	onToolEnd: undefined as ((id: string, elapsedMs: number, ok: boolean) => void) | undefined,
+	onTokenUsage: undefined as ((tokenIn: number, tokenOut: number) => void) | undefined,
 };
 
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
@@ -237,6 +238,7 @@ const llmOrgan = scriptedRepliesEnv
 			getSignal: () => currentLLMController?.signal,
 			onToolStart: (id, name, args) => toolSlot.onToolStart?.(id, name, args),
 			onToolEnd: (id, ms, ok) => toolSlot.onToolEnd?.(id, ms, ok),
+			onTokenUsage: (tokenIn, tokenOut) => toolSlot.onTokenUsage?.(tokenIn, tokenOut),
 		});
 agent.load(dialog).load(llmOrgan).load(reactor);
 for (const organ of corpusOrgans) {

@@ -25,8 +25,8 @@ import { getConfig } from "./config.js";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
-import { renderSplash } from "./splash.js";
-import { bold, boldColor, color, dim, getTheme, glyph, italic, spinnerFrames } from "./theme.js";
+import { buildPool, randomCodePoint, renderSplash } from "./splash.js";
+import { bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
 import { Typewriter } from "./typewriter.js";
 
 class DynamicText implements Component {
@@ -297,12 +297,20 @@ export async function runTuiMode(
 
 	tui.addChild(new Text(dim(opts.modelId), 0, 0));
 
-	const frames = spinnerFrames(12);
+	const spinnerPool = buildPool();
+	const frames = Array.from({ length: 12 }, () => {
+		const block = spinnerPool[Math.floor(Math.random() * spinnerPool.length)];
+		return block ? randomCodePoint(block) : glyph("state:active");
+	});
 	let frameIdx = 0;
 	let thinkingStart = 0;
 	let thinkingTimer: NodeJS.Timeout | undefined;
 
 	function startThinking(): void {
+		if (thinkingTimer) {
+			clearInterval(thinkingTimer);
+			thinkingTimer = undefined;
+		}
 		thinkingStart = Date.now();
 		frameIdx = 0;
 		thinkingTimer = setInterval(() => {
@@ -461,6 +469,11 @@ export async function runTuiMode(
 		if (text.startsWith("/")) {
 			handleSlashCommand(text, ctx());
 			return;
+		}
+
+		if (abortCurrentTurn) {
+			abortCurrentTurn();
+			abortCurrentTurn = undefined;
 		}
 
 		input.setValue("");

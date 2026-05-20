@@ -1,5 +1,5 @@
 // Pure rendering pipeline — rasterise a glyph to a grayscale map,
-// then shade it into Braille characters. No side effects, fully testable.
+// then render it using Unicode block elements. No side effects, fully testable.
 
 // ---------------------------------------------------------------------------
 // Grayscale rasteriser
@@ -11,7 +11,6 @@ export async function rasterise(glyph: string, fontPath: string, ptSize: number)
 		const { createCanvas, GlobalFonts } = await import("@napi-rs/canvas");
 		GlobalFonts.registerFromPath(fontPath, "__SplashFont__");
 
-		// Measure to get exact glyph bounds.
 		const probe = createCanvas(1, 1);
 		const pctx = probe.getContext("2d");
 		pctx.font = `${ptSize}px __SplashFont__`;
@@ -32,7 +31,6 @@ export async function rasterise(glyph: string, fontPath: string, ptSize: number)
 		let totalInk = 0;
 		const pixels = Array.from({ length: h }, (_, y) =>
 			Array.from({ length: w }, (_, x) => {
-				// Use only the red channel — canvas renders black ink on white background.
 				const darkness = 1 - (data[(y * w + x) * 4] ?? 255) / 255;
 				if (darkness > 0.15) totalInk++;
 				return darkness;
@@ -46,100 +44,82 @@ export async function rasterise(glyph: string, fontPath: string, ptSize: number)
 }
 
 // ---------------------------------------------------------------------------
-// Braille shading with Bayer ordered dithering
-//
-// Braille dot layout (2 cols × 4 rows per terminal cell → U+2800):
-//   col 0  col 1
-//   0x01   0x08   row 0
-//   0x02   0x10   row 1
-//   0x04   0x20   row 2
-//   0x40   0x80   row 3
-//
-// Bayer 2×4 threshold matrix — each dot fires when its pixel's darkness
-// exceeds the positional threshold. Produces smooth antialiased edges
-// rather than hard binary cutoffs.
+// Column crop — remove blank left/right margins so every glyph is flush left.
 // ---------------------------------------------------------------------------
 
-const BRAILLE_BIT: readonly (readonly number[])[] = [
-	[0x01, 0x08],
-	[0x02, 0x10],
-	[0x04, 0x20],
-	[0x40, 0x80],
-];
-
-const BAYER_2X4: readonly (readonly number[])[] = [
-	[0 / 8, 4 / 8],
-	[2 / 8, 6 / 8],
-	[1 / 8, 5 / 8],
-	[3 / 8, 7 / 8],
-];
-
-/**
- * Convert a grayscale darkness map to shaded Braille art.
- *
- * Three ANSI intensity levels are applied based on average cell darkness:
- *   high   (avg > 0.55) → boldFg  — solid stroke core
- *   medium (avg > 0.20) → fg      — mid stroke
- *   low    (avg > 0.05) → dimFg   — faint antialiased edge
- *
- * Pass raw ANSI escape strings for each level, e.g.:
- *   boldFg = "\x1b[1m\x1b[35m"
- *   fg     = "\x1b[35m"
- *   dimFg  = "\x1b[2m\x1b[35m"
- *   reset  = "\x1b[0m"
- */
-export function rasterToShaded(
-	pixels: readonly (readonly number[])[],
-	boldFg: string,
-	fg: string,
-	dimFg: string,
-	reset: string,
-): string {
+export function cropColumns(pixels: readonly (readonly number[])[]): readonly (readonly number[])[] {
 	const H = pixels.length;
 	const W = pixels[0]?.length ?? 0;
+
+	let left = W;
+	let right = -1;
+	for (let y = 0; y < H; y++) {
+		for (let x = 0; x < W; x++) {
+			if ((pixels[y]?.[x] ?? 0) > 0.05) {
+				if (x < left) left = x;
+				if (x > right) right = x;
+			}
+		}
+	}
+
+	if (left > right) return pixels;
+	return pixels.map((row) => row.slice(left, right + 1));
+}
+
+// ---------------------------------------------------------------------------
+// Block element renderer
+//
+// Each terminal cell covers 1 column × 2 pixel rows using half-blocks:
+//   top dark + bot dark  → █  full block
+//   top dark + bot empty → ▀  upper half
+//   top empty + bot dark → ▄  lower half
+//   both partially dark  → ▓ ▒ ░  shade characters for anti-aliasing
+//   both empty           → (space)
+//
+// Produces solid, filled letterforms — completely different from Braille dots.
+// ---------------------------------------------------------------------------
+
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const RESET = "\x1b[0m";
+
+export function rasterToBlocks(pixels: readonly (readonly number[])[], fg: string): string {
+	const cropped = cropColumns(pixels);
+	const H = cropped.length;
+	const W = cropped[0]?.length ?? 0;
 	const lines: string[] = [];
 
-	for (let cellY = 0; cellY * 4 < H; cellY++) {
+	for (let cellY = 0; cellY * 2 < H; cellY++) {
 		let line = "";
 
-		for (let cellX = 0; cellX * 2 < W; cellX++) {
-			// Average darkness of the 2×4 cell — selects intensity level.
-			let sum = 0;
-			let count = 0;
-			for (let dr = 0; dr < 4; dr++) {
-				for (let dc = 0; dc < 2; dc++) {
-					const py = cellY * 4 + dr;
-					const px = cellX * 2 + dc;
-					if (py < H && px < W) {
-						sum += pixels[py]?.[px] ?? 0;
-						count++;
-					}
-				}
-			}
-			const avg = count > 0 ? sum / count : 0;
+		for (let cellX = 0; cellX < W; cellX++) {
+			const top = cropped[cellY * 2]?.[cellX] ?? 0;
+			const bot = cropped[cellY * 2 + 1]?.[cellX] ?? 0;
+			const avg = (top + bot) / 2;
 
-			if (avg < 0.05) {
-				line += "  ";
+			if (avg < 0.06) {
+				line += " ";
 				continue;
 			}
 
-			// Bayer dithering: set a dot when its pixel's darkness exceeds
-			// the positional threshold. Gives smooth sub-cell antialiasing.
-			let mask = 0;
-			for (let dr = 0; dr < 4; dr++) {
-				for (let dc = 0; dc < 2; dc++) {
-					const py = cellY * 4 + dr;
-					const px = cellX * 2 + dc;
-					const darkness = py < H && px < W ? (pixels[py]?.[px] ?? 0) : 0;
-					if (darkness > (BAYER_2X4[dr]?.[dc] ?? 0)) {
-						mask |= BRAILLE_BIT[dr]?.[dc] ?? 0;
-					}
-				}
-			}
+			const topOn = top > 0.35;
+			const botOn = bot > 0.35;
 
-			const ch = String.fromCodePoint(0x2800 | mask);
-			const prefix = avg > 0.55 ? boldFg : avg > 0.2 ? fg : dimFg;
-			line += `${prefix}${ch}${reset}`;
+			let ch: string;
+			if (topOn && botOn)
+				ch = "\u2588"; // █
+			else if (topOn)
+				ch = "\u2580"; // ▀
+			else if (botOn)
+				ch = "\u2584"; // ▄
+			else if (avg > 0.25)
+				ch = "\u2593"; // ▓
+			else if (avg > 0.15)
+				ch = "\u2592"; // ▒
+			else ch = "\u2591"; // ░
+
+			const prefix = avg > 0.5 ? `${BOLD}${fg}` : avg > 0.2 ? fg : `${DIM}${fg}`;
+			line += `${prefix}${ch}${RESET}`;
 		}
 
 		lines.push(line);

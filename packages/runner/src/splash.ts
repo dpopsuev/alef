@@ -125,7 +125,7 @@ export async function renderSplash(): Promise<string> {
 		const fontPath = fontPathForLang(block.lang);
 		if (!fontPath) continue;
 
-		const pixels = await rasterise(randomCodePoint(block), fontPath, 64);
+		const pixels = await rasterise(randomCodePoint(block), fontPath, 32);
 		if (!pixels) continue;
 
 		const art = rasterToBlocks(pixels, fg);

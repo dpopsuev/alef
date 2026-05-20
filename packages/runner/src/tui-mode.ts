@@ -266,8 +266,8 @@ export interface TuiToolSlot {
 	onToolStart: ((callId: string, name: string, args: Record<string, unknown>) => void) | undefined;
 	onToolEnd: ((callId: string, elapsedMs: number, ok: boolean) => void) | undefined;
 	onTokenUsage: ((tokenIn: number, tokenOut: number) => void) | undefined;
-	onTextChunk: ((chunk: string) => void) | undefined;
-	onThinkingChunk: ((chunk: string) => void) | undefined;
+	receiveTextChunk: ((chunk: string) => void) | undefined;
+	receiveThinkingChunk: ((chunk: string) => void) | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -348,100 +348,100 @@ export async function runTuiMode(
 
 	// ── Live streaming ─────────────────────────────────────────────────────────
 	//
-	// Each LLM generation phase gets its own liveContainer. When tool calls
-	// start (sealLiveStream), the current container is frozen in place so it
+	// Each LLM generation phase gets its own streamingSegment. When tool calls
+	// start (sealStreamingSegment), the current container is frozen in place so it
 	// stays visible while tool lines are added below it. The next generation
 	// creates a fresh container below the tool lines — correct chronological order.
 	//
-	// clearLiveStream() removes all accumulated live containers at turn end
+	// clearStreamingSegments() removes all accumulated live containers at turn end
 	// (the final formatted reply then takes their place).
 
-	const liveContainers: Container[] = []; // all containers, sealed + active
-	let liveContainer: Container | null = null;
-	let liveTextNode: Text | null = null;
-	let liveThinkNode: Text | null = null;
-	let liveTextBuf = "";
-	let liveThinkBuf = "";
+	const streamingSegments: Container[] = []; // all containers, sealed + active
+	let streamingSegment: Container | null = null;
+	let streamingTextNode: Text | null = null;
+	let streamingThinkNode: Text | null = null;
+	let pendingText = "";
+	let pendingThinking = "";
 
 	// Drip buffer — flush at ~20fps to prevent render thrash.
-	const DRIP_MS = 50;
-	let dripTimer: NodeJS.Timeout | undefined;
-	let dripDirty = false;
+	const CHUNK_THROTTLE_MS = 50;
+	let chunkThrottleTimer: NodeJS.Timeout | undefined;
+	let chunksDirty = false;
 
-	function dripFlush(): void {
-		if (!dripDirty) return;
-		dripDirty = false;
-		if (liveTextNode) liveTextNode.setText(liveTextBuf);
-		if (liveThinkNode) liveThinkNode.setText(`${ITALIC}${dim(liveThinkBuf)}${RESET}`);
+	function flushPendingChunks(): void {
+		if (!chunksDirty) return;
+		chunksDirty = false;
+		if (streamingTextNode) streamingTextNode.setText(pendingText);
+		if (streamingThinkNode) streamingThinkNode.setText(`${ITALIC}${dim(pendingThinking)}${RESET}`);
 		tui.requestRender(true);
 	}
 
-	function startDrip(): void {
-		if (!dripTimer) dripTimer = setInterval(dripFlush, DRIP_MS);
+	function startChunkThrottle(): void {
+		if (!chunkThrottleTimer) chunkThrottleTimer = setInterval(flushPendingChunks, CHUNK_THROTTLE_MS);
 	}
 
-	function stopDrip(): void {
-		if (dripTimer) {
-			clearInterval(dripTimer);
-			dripTimer = undefined;
+	function stopChunkThrottle(): void {
+		if (chunkThrottleTimer) {
+			clearInterval(chunkThrottleTimer);
+			chunkThrottleTimer = undefined;
 		}
-		dripFlush();
+		flushPendingChunks();
 	}
 
-	function ensureLive(): Container {
-		if (!liveContainer) {
-			liveContainer = new Container();
-			liveContainers.push(liveContainer);
-			chat.addChild(liveContainer);
+	function openStreamingSegment(): Container {
+		if (!streamingSegment) {
+			streamingSegment = new Container();
+			streamingSegments.push(streamingSegment);
+			chat.addChild(streamingSegment);
 		}
-		return liveContainer;
+		return streamingSegment;
 	}
 
-	function onTextChunk(chunk: string): void {
-		const box = ensureLive();
-		if (!liveTextNode) {
-			liveTextNode = new Text("", 2, 0);
-			box.addChild(liveTextNode);
+	function receiveTextChunk(chunk: string): void {
+		const box = openStreamingSegment();
+		if (!streamingTextNode) {
+			streamingTextNode = new Text("", 2, 0);
+			box.addChild(streamingTextNode);
 		}
-		liveTextBuf += chunk;
-		dripDirty = true;
-		startDrip();
+		pendingText += chunk;
+		chunksDirty = true;
+		startChunkThrottle();
 	}
 
-	function onThinkingChunk(chunk: string): void {
-		const box = ensureLive();
-		if (!liveThinkNode) {
+	function receiveThinkingChunk(chunk: string): void {
+		const box = openStreamingSegment();
+		if (!streamingThinkNode) {
 			const t = getTheme();
 			box.addChild(new Text(color(dim("┊ thinking"), t.dimFg), 2, 0));
-			liveThinkNode = new Text("", 2, 0);
-			box.addChild(liveThinkNode);
+			streamingThinkNode = new Text("", 2, 0);
+			box.addChild(streamingThinkNode);
 		}
-		liveThinkBuf += chunk;
-		dripDirty = true;
-		startDrip();
+		pendingThinking += chunk;
+		chunksDirty = true;
+		startChunkThrottle();
 	}
 
 	// Seal the current generation's container so tool call lines go below it.
 	// Called when the first tool call fires (generation phase ended).
-	function sealLiveStream(): void {
-		stopDrip();
-		liveContainer = null;
-		liveTextNode = null;
-		liveTextBuf = "";
-		liveThinkNode = null;
-		liveThinkBuf = "";
+	function sealStreamingSegment(): void {
+		stopChunkThrottle();
+		streamingSegment = null;
+		streamingTextNode = null;
+		pendingText = "";
+		streamingThinkNode = null;
+		pendingThinking = "";
 	}
 
 	// Remove all accumulated live containers; called after final reply is added.
-	function clearLiveStream(): void {
-		stopDrip();
-		for (const c of liveContainers) chat.removeChild(c);
-		liveContainers.length = 0;
-		liveContainer = null;
-		liveTextNode = null;
-		liveTextBuf = "";
-		liveThinkNode = null;
-		liveThinkBuf = "";
+	function clearStreamingSegments(): void {
+		stopChunkThrottle();
+		for (const c of streamingSegments) chat.removeChild(c);
+		streamingSegments.length = 0;
+		streamingSegment = null;
+		streamingTextNode = null;
+		pendingText = "";
+		streamingThinkNode = null;
+		pendingThinking = "";
 	}
 
 	// ── Tool call live tracking ───────────────────────────────────────────────
@@ -451,7 +451,7 @@ export async function runTuiMode(
 
 	if (toolSlot) {
 		toolSlot.onToolStart = (callId, name, args) => {
-			sealLiveStream(); // freeze current generation block; tool lines go below it
+			sealStreamingSegment(); // freeze current generation block; tool lines go below it
 			const keyArg = keyArgFromPayload(args);
 			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
 			activeCalls.set(callId, { text: line, name, keyArg });
@@ -475,8 +475,8 @@ export async function runTuiMode(
 			}
 		};
 
-		toolSlot.onTextChunk = (chunk) => onTextChunk(chunk);
-		toolSlot.onThinkingChunk = (chunk) => onThinkingChunk(chunk);
+		toolSlot.receiveTextChunk = (chunk) => receiveTextChunk(chunk);
+		toolSlot.receiveThinkingChunk = (chunk) => receiveThinkingChunk(chunk);
 	}
 
 	// ── Input / Ctrl+C ────────────────────────────────────────────────────────
@@ -535,7 +535,7 @@ export async function runTuiMode(
 			const reply = await dialog.send(text, "human", 300_000);
 			if (!aborted) {
 				stopThinking();
-				clearLiveStream();
+				clearStreamingSegments();
 				const footerSlot = { text: null as Text | null };
 				appendAgentMsg(chat, reply, footerSlot);
 				pendingTokenFooter = footerSlot.text;
@@ -543,7 +543,7 @@ export async function runTuiMode(
 			}
 		} catch (e) {
 			stopThinking();
-			clearLiveStream();
+			clearStreamingSegments();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 			tui.requestRender(true);
 		} finally {

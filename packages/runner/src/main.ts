@@ -234,8 +234,8 @@ const toolSlot = {
 	onToolStart: undefined as ((id: string, name: string, args: Record<string, unknown>) => void) | undefined,
 	onToolEnd: undefined as ((id: string, elapsedMs: number, ok: boolean) => void) | undefined,
 	onTokenUsage: undefined as ((tokenIn: number, tokenOut: number) => void) | undefined,
-	onTextChunk: undefined as ((chunk: string) => void) | undefined,
-	onThinkingChunk: undefined as ((chunk: string) => void) | undefined,
+	receiveTextChunk: undefined as ((chunk: string) => void) | undefined,
+	receiveThinkingChunk: undefined as ((chunk: string) => void) | undefined,
 };
 
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
@@ -249,8 +249,8 @@ const llmOrgan = scriptedRepliesEnv
 			onToolStart: (id, name, args) => toolSlot.onToolStart?.(id, name, args),
 			onToolEnd: (id, ms, ok) => toolSlot.onToolEnd?.(id, ms, ok),
 			onTokenUsage: (tokenIn, tokenOut) => toolSlot.onTokenUsage?.(tokenIn, tokenOut),
-			onTextChunk: (chunk) => toolSlot.onTextChunk?.(chunk),
-			onThinkingChunk: (chunk) => toolSlot.onThinkingChunk?.(chunk),
+			onResponseChunk: (chunk) => toolSlot.receiveTextChunk?.(chunk),
+			onThinkingChunk: (chunk) => toolSlot.receiveThinkingChunk?.(chunk),
 		});
 agent.load(dialog).load(llmOrgan).load(reactor);
 for (const organ of corpusOrgans) {

@@ -2315,7 +2315,10 @@ export class AgentSession implements ExtensionAdapterSource {
 			return false;
 		}
 
-		const delayMs = settings.baseDelayMs * 2 ** (this._retryAttempt - 1);
+		// Full jitter: random(0, min(maxDelayMs, baseDelayMs * 2^attempt))
+		// Spreads retries to avoid synchronized hammering; cap prevents unbounded growth.
+		const cap = Math.min(settings.maxDelayMs, settings.baseDelayMs * 2 ** this._retryAttempt);
+		const delayMs = Math.floor(Math.random() * cap);
 
 		this._emit({
 			type: "auto_retry_start",

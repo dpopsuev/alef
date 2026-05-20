@@ -234,7 +234,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 					});
 				motor.publish({
 					type: DIALOG_MESSAGE,
-					payload: { text, conversationHistory },
+					payload: { text, conversationHistory, usage: finalMessage.usage },
 					correlationId,
 				});
 			} else {
@@ -346,6 +346,7 @@ export class LLMOrgan {
 			"dialog.message": z.object({
 				text: z.string().min(1),
 				conversationHistory: z.array(z.unknown()).optional(),
+				usage: z.object({ totalTokens: z.number() }).passthrough().optional(),
 			}),
 		},
 	} as const;

@@ -180,3 +180,64 @@ describe("SessionStore.list", () => {
 		expect(await SessionStore.list(cwd)).toHaveLength(2);
 	});
 });
+
+describe("SessionStore.turns() — usage anchor", () => {
+	it("uses provider totalTokens from motor/dialog.message payload instead of char/4", async () => {
+		const cwd = tmpCwd();
+		const store = await SessionStore.create(cwd);
+
+		const realUsage = { input: 1800, output: 420, cacheRead: 0, cacheWrite: 0, totalTokens: 2220 };
+
+		// Simulate a turn: sense dialog.message (user prompt) + motor dialog.message (LLM reply with usage)
+		await store.append(senseRecord("dialog.message", "c-1", { text: "hi" }));
+		await store.append({
+			bus: "motor",
+			type: "dialog.message",
+			correlationId: "c-1",
+			payload: { text: "hello", conversationHistory: [{ role: "user", content: "hi" }], usage: realUsage },
+			timestamp: Date.now(),
+		});
+
+		const turns = await store.turns();
+		expect(turns).toHaveLength(1);
+		// tokenCost must equal totalTokens, not the char/4 estimate of the payload
+		expect(turns[0].tokenCost).toBe(2220);
+	});
+
+	it("falls back to char/4 when no usage is present (ScriptedLLMOrgan / first turn)", async () => {
+		const cwd = tmpCwd();
+		const store = await SessionStore.create(cwd);
+
+		await store.append(senseRecord("dialog.message", "c-1", { text: "hi" }));
+		await store.append({
+			bus: "motor",
+			type: "dialog.message",
+			correlationId: "c-1",
+			payload: { text: "hello" }, // no usage field
+			timestamp: Date.now(),
+		});
+
+		const turns = await store.turns();
+		expect(turns).toHaveLength(1);
+		// char/4 estimate — just verify it's a positive number and not the real usage value
+		expect(turns[0].tokenCost).toBeGreaterThan(0);
+		expect(turns[0].tokenCost).not.toBe(2220);
+	});
+
+	it("ignores zero totalTokens and falls back to char/4", async () => {
+		const cwd = tmpCwd();
+		const store = await SessionStore.create(cwd);
+
+		await store.append(senseRecord("dialog.message", "c-1", { text: "hi" }));
+		await store.append({
+			bus: "motor",
+			type: "dialog.message",
+			correlationId: "c-1",
+			payload: { text: "hello", usage: { totalTokens: 0 } },
+			timestamp: Date.now(),
+		});
+
+		const turns = await store.turns();
+		expect(turns[0].tokenCost).toBeGreaterThan(0);
+	});
+});

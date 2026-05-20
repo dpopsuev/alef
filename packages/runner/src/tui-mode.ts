@@ -18,38 +18,18 @@
  */
 
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import type { Component, MarkdownTheme } from "@dpopsuev/alef-tui";
-import {
-	Container,
-	Editor,
-	type EditorTheme,
-	Markdown,
-	matchesKey,
-	ProcessTerminal,
-	type SelectListTheme,
-	Spacer,
-	Text,
-	TUI,
-} from "@dpopsuev/alef-tui";
+import type { MarkdownTheme } from "@dpopsuev/alef-tui";
+import { Container, Markdown, matchesKey, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 import { getConfig } from "./config.js";
+import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
+import { DynamicText } from "./dynamic-text.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
-import { buildPool, randomCodePoint, renderSplash } from "./splash.js";
+import { renderSplash } from "./splash.js";
 import { bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
 import { Typewriter } from "./typewriter.js";
-
-class DynamicText implements Component {
-	private fn: (width: number) => string;
-	constructor(fn: (width: number) => string) {
-		this.fn = fn;
-	}
-	render(width: number): string[] {
-		return [this.fn(width)];
-	}
-	invalidate(): void {}
-}
 
 export interface TuiHandlerContext {
 	chat: Container;
@@ -59,8 +39,7 @@ export interface TuiHandlerContext {
 		addChild(c: unknown): void;
 		requestRender(force?: boolean): void;
 	};
-	hintBar: unknown;
-	loader: unknown;
+
 	dialog: { clearHistory(): void };
 	dispose(): void;
 	sessionId: string;
@@ -136,16 +115,6 @@ function makeMarkdownTheme(): MarkdownTheme {
 
 const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? getConfig().you ?? "@you";
 const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? getConfig().agent ?? "@alef";
-
-function _zoneClose(): DynamicText {
-	const t = getTheme();
-	return new DynamicText((w) => color(`╰${"─".repeat(Math.max(0, w - 2))}╯`, t.dimFg));
-}
-
-function zoneOpen(): DynamicText {
-	const t = getTheme();
-	return new DynamicText((w) => color(`╭${"─".repeat(Math.max(0, w - 2))}╮`, t.dimFg));
-}
 
 export function pillHeaderStr(label: string, width: number): string {
 	const inner = `─ ${label} `;
@@ -294,63 +263,9 @@ export async function runTuiMode(
 	const chat = new Container();
 	tui.addChild(chat);
 
-	// Spinner sits ABOVE the zone delimiter so it's always the first thing visible.
-	const statusText = new Text("", 0, 0);
-	tui.addChild(statusText);
-
-	tui.addChild(zoneOpen());
-
-	const selectListTheme: SelectListTheme = {
-		selectedPrefix: (s) => bold(s),
-		selectedText: (s) => bold(s),
-		description: (s) => dim(s),
-		scrollInfo: (s) => dim(s),
-		noMatch: (s) => dim(s),
-	};
-	const editorTheme: EditorTheme = {
-		borderColor: (s) => color(s, t.dimFg),
-		selectList: selectListTheme,
-	};
-	const editor = new Editor(tui, editorTheme);
-	tui.addChild(editor);
-
-	const hintBar = new DynamicText((_w) => dim("/exit · /new · /resume · /help"));
-	tui.addChild(hintBar);
-
-	tui.addChild(new Text(dim(opts.modelId), 0, 0));
-
-	const spinnerPool = buildPool();
-	// Use only the preferred-language block so the spinner stays consistent.
-	// buildPool() floats the preferred lang to index 0; the rest are fallbacks.
-	const spinnerBlock = spinnerPool[0];
-	const frames = Array.from({ length: 12 }, () =>
-		spinnerBlock ? randomCodePoint(spinnerBlock) : glyph("state:active"),
-	);
-	let frameIdx = 0;
-	let thinkingStart = 0;
-	let thinkingTimer: NodeJS.Timeout | undefined;
-
-	function startThinking(): void {
-		if (thinkingTimer) {
-			clearInterval(thinkingTimer);
-			thinkingTimer = undefined;
-		}
-		thinkingStart = Date.now();
-		frameIdx = 0;
-		thinkingTimer = setInterval(() => {
-			frameIdx = (frameIdx + 1) % frames.length;
-			const elapsed = Math.floor((Date.now() - thinkingStart) / 1000);
-			const frame = frames[frameIdx] ?? glyph("state:active");
-			statusText.setText(`  ${color(frame, t.warnFg)} ${color(`${elapsed}s`, t.dimFg)}`);
-			tui.requestRender();
-		}, 180);
-	}
-
-	function stopThinking(): void {
-		clearInterval(thinkingTimer);
-		thinkingTimer = undefined;
-		statusText.setText("");
-	}
+	const consoleZone = new ConsoleZone(tui, t, opts.modelId);
+	consoleZone.mount();
+	const { editor } = consoleZone;
 
 	//
 	// Each LLM generation phase gets its own streamingSegment. When tool calls
@@ -463,8 +378,6 @@ export async function runTuiMode(
 	const ctx = (): TuiHandlerContext => ({
 		chat,
 		tui,
-		hintBar,
-		loader: statusText,
 		dialog,
 		dispose,
 		sessionId: opts.sessionId,
@@ -503,7 +416,7 @@ export async function runTuiMode(
 
 		editor.setText("");
 		appendUserMsg(chat, text);
-		startThinking();
+		consoleZone.startThinking();
 		tui.requestRender();
 
 		let aborted = false;
@@ -517,7 +430,7 @@ export async function runTuiMode(
 		try {
 			const reply = await dialog.send(text, "human", 300_000);
 			if (!aborted) {
-				stopThinking();
+				consoleZone.stopThinking();
 				textTypewriter.markStreamDone();
 				thinkTypewriter.markStreamDone();
 				await textTypewriter.whenDrained();
@@ -530,14 +443,14 @@ export async function runTuiMode(
 				}
 			}
 		} catch (e) {
-			stopThinking();
+			consoleZone.stopThinking();
 			clearStreamingSegments();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 			tui.requestRender();
 		} finally {
 			abortCurrentTurn = undefined;
 			setLLMAbortController(undefined);
-			if (thinkingTimer) stopThinking();
+			if (consoleZone.isThinking) consoleZone.stopThinking();
 		}
 	};
 
@@ -553,6 +466,6 @@ export async function runTuiMode(
 		};
 	});
 
-	if (thinkingTimer) stopThinking();
+	if (consoleZone.isThinking) consoleZone.stopThinking();
 	trace("tui:stopped");
 }

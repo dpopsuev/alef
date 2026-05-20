@@ -342,38 +342,56 @@ export async function runTuiMode(
 		clearInterval(thinkingTimer);
 		thinkingTimer = undefined;
 		statusText.setText("");
-		streamNode = null;
-		streamBuf = "";
-		thinkNode = null;
-		thinkBuf = "";
 	}
 
 	// ── Live streaming state ─────────────────────────────────────────────
 
-	let streamNode: Text | null = null;
-	let streamBuf = "";
-	let thinkNode: Text | null = null;
-	let thinkBuf = "";
+	// Live streaming — all in-progress content lives in liveContainer.
+	// At turn end, removeChild clears it; final formatted reply replaces it.
+	let liveContainer: Container | null = null;
+	let liveTextNode: Text | null = null;
+	let liveThinkNode: Text | null = null;
+	let liveTextBuf = "";
+	let liveThinkBuf = "";
+
+	function ensureLive(): Container {
+		if (!liveContainer) {
+			liveContainer = new Container();
+			chat.addChild(liveContainer);
+		}
+		return liveContainer;
+	}
 
 	function onTextChunk(chunk: string): void {
-		if (!streamNode) {
-			streamNode = new Text("", 2, 0);
-			chat.addChild(streamNode);
+		const box = ensureLive();
+		if (!liveTextNode) {
+			liveTextNode = new Text("", 2, 0);
+			box.addChild(liveTextNode);
 		}
-		streamBuf += chunk;
-		streamNode.setText(streamBuf);
+		liveTextBuf += chunk;
+		liveTextNode.setText(liveTextBuf);
 		tui.requestRender(true);
 	}
 
 	function onThinkingChunk(chunk: string): void {
-		if (!thinkNode) {
-			chat.addChild(new Text(dim("…thinking"), 2, 0));
-			thinkNode = new Text("", 2, 0);
-			chat.addChild(thinkNode);
+		const box = ensureLive();
+		if (!liveThinkNode) {
+			box.addChild(new Text(dim("…thinking"), 2, 0));
+			liveThinkNode = new Text("", 2, 0);
+			box.addChild(liveThinkNode);
 		}
-		thinkBuf += chunk;
-		thinkNode.setText(dim(thinkBuf));
+		liveThinkBuf += chunk;
+		liveThinkNode.setText(dim(liveThinkBuf));
 		tui.requestRender(true);
+	}
+
+	function clearLiveStream(): void {
+		if (liveContainer) chat.removeChild(liveContainer);
+		liveContainer = null;
+		liveTextNode = null;
+		liveTextBuf = "";
+		liveThinkNode = null;
+		liveThinkBuf = "";
 	}
 
 	// ── Tool call live tracking ───────────────────────────────────────────────
@@ -466,6 +484,7 @@ export async function runTuiMode(
 			const reply = await dialog.send(text, "human", 300_000);
 			if (!aborted) {
 				stopThinking();
+				clearLiveStream();
 				const footerSlot = { text: null as Text | null };
 				appendAgentMsg(chat, reply, footerSlot);
 				pendingTokenFooter = footerSlot.text;
@@ -473,6 +492,7 @@ export async function runTuiMode(
 			}
 		} catch (e) {
 			stopThinking();
+			clearLiveStream();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 			tui.requestRender(true);
 		} finally {

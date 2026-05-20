@@ -25,14 +25,14 @@ describe("Typewriter — pressure and step size", () => {
 		expect(tw.pressureStep(1)).toBe(1);
 	});
 
-	it("pressureStep escalates with gap while streaming", () => {
+	it("pressureStep escalates with gap while streaming, capped at 12", () => {
 		const { tw } = makeTypewriter(makeSink());
 		tw.receive("x"); // mark streaming active
 		expect(tw.pressureStep(8)).toBe(2);
 		expect(tw.pressureStep(25)).toBe(4);
 		expect(tw.pressureStep(70)).toBe(8);
-		expect(tw.pressureStep(180)).toBe(15);
-		expect(tw.pressureStep(400)).toBe(100); // ceil(400/4)
+		expect(tw.pressureStep(180)).toBe(12); // capped
+		expect(tw.pressureStep(400)).toBe(12); // still capped
 	});
 
 	it("pressureStep drains half the gap when stream is done", () => {
@@ -210,6 +210,52 @@ describe("Typewriter — flush and reset", () => {
 		expect(tw.pressure).toBe(0);
 		vi.advanceTimersByTime(500);
 		expect(sink.value).toBe("hello"); // flushed before reset
+	});
+});
+
+describe("Typewriter — whenDrained", () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	it("resolves immediately when pressure is zero", async () => {
+		const { tw } = makeTypewriter(makeSink());
+		await expect(tw.whenDrained()).resolves.toBeUndefined();
+	});
+
+	it("resolves after buffer is fully revealed", async () => {
+		const sink = makeSink();
+		const { tw } = makeTypewriter(sink);
+		tw.receive("hello");
+		tw.markStreamDone();
+
+		const drained = tw.whenDrained();
+		vi.advanceTimersByTime(500);
+		await expect(drained).resolves.toBeUndefined();
+		expect(sink.value).toBe("hello");
+	});
+
+	it("multiple whenDrained calls all resolve", async () => {
+		const { tw } = makeTypewriter(makeSink());
+		tw.receive("abc");
+		tw.markStreamDone();
+
+		const [a, b] = [tw.whenDrained(), tw.whenDrained()];
+		vi.advanceTimersByTime(500);
+		await expect(Promise.all([a, b])).resolves.toBeDefined();
+	});
+
+	it("reset clears pending drainedCallbacks", async () => {
+		const { tw } = makeTypewriter(makeSink());
+		tw.receive("abc");
+		let resolved = false;
+		const p = tw.whenDrained().then(() => {
+			resolved = true;
+		});
+		tw.reset(); // clears callbacks
+		vi.advanceTimersByTime(500);
+		// Promise is orphaned — it won't resolve after reset
+		expect(resolved).toBe(false);
+		void p; // prevent unhandled rejection lint
 	});
 });
 

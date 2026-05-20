@@ -298,10 +298,12 @@ export async function runTuiMode(
 	tui.addChild(new Text(dim(opts.modelId), 0, 0));
 
 	const spinnerPool = buildPool();
-	const frames = Array.from({ length: 12 }, () => {
-		const block = spinnerPool[Math.floor(Math.random() * spinnerPool.length)];
-		return block ? randomCodePoint(block) : glyph("state:active");
-	});
+	// Use only the preferred-language block so the spinner stays consistent.
+	// buildPool() floats the preferred lang to index 0; the rest are fallbacks.
+	const spinnerBlock = spinnerPool[0];
+	const frames = Array.from({ length: 12 }, () =>
+		spinnerBlock ? randomCodePoint(spinnerBlock) : glyph("state:active"),
+	);
 	let frameIdx = 0;
 	let thinkingStart = 0;
 	let thinkingTimer: NodeJS.Timeout | undefined;
@@ -493,11 +495,16 @@ export async function runTuiMode(
 			const reply = await dialog.send(text, "human", 300_000);
 			if (!aborted) {
 				stopThinking();
-				clearStreamingSegments();
-				const footerSlot = { text: null as Text | null };
-				appendAgentMsg(chat, reply, footerSlot);
-				pendingTokenFooter = footerSlot.text;
-				tui.requestRender();
+				textTypewriter.markStreamDone();
+				thinkTypewriter.markStreamDone();
+				await textTypewriter.whenDrained();
+				if (!aborted) {
+					clearStreamingSegments();
+					const footerSlot = { text: null as Text | null };
+					appendAgentMsg(chat, reply, footerSlot);
+					pendingTokenFooter = footerSlot.text;
+					tui.requestRender();
+				}
 			}
 		} catch (e) {
 			stopThinking();

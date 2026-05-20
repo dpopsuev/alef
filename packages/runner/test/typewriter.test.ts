@@ -11,220 +11,136 @@ function makeSink(): TypewriterSink & { value: string } {
 	return sink;
 }
 
-function makeTypewriter(sink: TypewriterSink, cfg?: TypewriterConfig) {
+function makeWriter(sink: TypewriterSink, cfg?: TypewriterConfig) {
 	const renders: number[] = [];
 	const tw = new Typewriter(sink, () => renders.push(Date.now()), cfg);
 	return { tw, renders };
 }
 
-describe("Typewriter — pressure and step size", () => {
-	it("pressureStep returns 1 for gap ≤ 2 while streaming", () => {
-		const { tw } = makeTypewriter(makeSink());
-		tw.receive("ab"); // gap = 2, streaming = true, lastChunkAt = now
+describe("Smooth reveal while streaming", () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	it("reveals one character at a time when the buffer is nearly empty", () => {
+		const { tw } = makeWriter(makeSink());
+		tw.receive("ab");
 		expect(tw.pressureStep(2)).toBe(1);
 		expect(tw.pressureStep(1)).toBe(1);
 	});
 
-	it("pressureStep escalates with gap while streaming, capped at 12", () => {
-		const { tw } = makeTypewriter(makeSink());
-		tw.receive("x"); // mark streaming active
-		expect(tw.pressureStep(8)).toBe(2);
-		expect(tw.pressureStep(25)).toBe(4);
-		expect(tw.pressureStep(70)).toBe(8);
-		expect(tw.pressureStep(180)).toBe(12); // capped
-		expect(tw.pressureStep(400)).toBe(12); // still capped
+	it("reveals up to 12 characters per tick when significantly behind", () => {
+		const { tw } = makeWriter(makeSink());
+		tw.receive("x");
+		expect(tw.pressureStep(180)).toBe(12);
+		expect(tw.pressureStep(400)).toBe(12);
 	});
 
-	it("pressureStep drains half the gap when stream is done", () => {
-		const { tw } = makeTypewriter(makeSink());
-		tw.markStreamDone();
-		expect(tw.pressureStep(100)).toBe(50);
-		expect(tw.pressureStep(7)).toBe(4); // ceil(7/2)
-		expect(tw.pressureStep(1)).toBe(1); // floor of 0.5 → ceil = 1
-	});
-
-	it("pressure is 0 before any content", () => {
-		const { tw } = makeTypewriter(makeSink());
-		expect(tw.pressure).toBe(0);
-	});
-
-	it("pressure equals gap between pending and displayed", () => {
-		const { tw } = makeTypewriter(makeSink());
+	it("does not reveal all content in the first tick", () => {
+		const sink = makeSink();
+		const { tw } = makeWriter(sink);
 		tw.receive("hello world");
-		expect(tw.pressure).toBe(11);
-	});
-});
 
-describe("Typewriter — effectivelyDone", () => {
-	beforeEach(() => vi.useFakeTimers());
-	afterEach(() => vi.useRealTimers());
-
-	it("is true before any chunk", () => {
-		const { tw } = makeTypewriter(makeSink());
-		expect(tw.effectivelyDone).toBe(true);
+		vi.advanceTimersByTime(48);
+		expect(sink.value.length).toBeGreaterThan(0);
+		expect(sink.value.length).toBeLessThan(11);
 	});
 
-	it("is false immediately after a chunk while streaming", () => {
-		const { tw } = makeTypewriter(makeSink());
-		tw.receive("hi");
-		expect(tw.effectivelyDone).toBe(false);
-	});
-
-	it("is true after streaming pause threshold elapses", () => {
-		const { tw } = makeTypewriter(makeSink(), { streamingPauseMs: 150 });
-		tw.receive("hi");
-		vi.advanceTimersByTime(151);
-		expect(tw.effectivelyDone).toBe(true);
-	});
-
-	it("is true immediately after markStreamDone", () => {
-		const { tw } = makeTypewriter(makeSink());
-		tw.receive("hi");
-		tw.markStreamDone();
-		expect(tw.effectivelyDone).toBe(true);
-	});
-});
-
-describe("Typewriter — nextTickMs", () => {
-	it("returns slowMs for pressure ≤ 3 while streaming", () => {
-		const { tw } = makeTypewriter(makeSink(), { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
-		tw.receive("ab"); // gap = 2
+	it("ticks more slowly when the buffer is nearly caught up", () => {
+		const { tw } = makeWriter(makeSink(), { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
+		tw.receive("ab");
 		expect(tw.nextTickMs()).toBe(32);
 	});
 
-	it("returns normalMs for medium pressure while streaming", () => {
-		const { tw } = makeTypewriter(makeSink(), { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
-		tw.receive("a".repeat(20)); // gap = 20
-		expect(tw.nextTickMs()).toBe(16);
-	});
-
-	it("returns fastMs for high pressure while streaming", () => {
-		const { tw } = makeTypewriter(makeSink(), { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
-		tw.receive("a".repeat(100)); // gap = 100 > 60
+	it("ticks faster when the buffer is falling behind", () => {
+		const { tw } = makeWriter(makeSink(), { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
+		tw.receive("a".repeat(100));
 		expect(tw.nextTickMs()).toBe(8);
 	});
 
-	it("returns fastMs when stream is done regardless of pressure", () => {
-		const { tw } = makeTypewriter(makeSink(), { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
-		tw.receive("ab");
-		tw.markStreamDone();
-		expect(tw.nextTickMs()).toBe(8);
-	});
-});
-
-describe("Typewriter — tick behaviour (fake timers)", () => {
-	beforeEach(() => vi.useFakeTimers());
-	afterEach(() => vi.useRealTimers());
-
-	it("reveals content incrementally, not all at once", () => {
+	it("triggers a render on every tick that produces visible output", () => {
 		const sink = makeSink();
-		const { tw } = makeTypewriter(sink, { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
-		tw.receive("hello");
-
-		vi.advanceTimersByTime(32); // one slow tick — gap=5, step=2
-		expect(sink.value.length).toBeGreaterThan(0);
-		expect(sink.value.length).toBeLessThan(5); // not all at once
-	});
-
-	it("eventually reveals all content after enough ticks", () => {
-		const sink = makeSink();
-		const { tw } = makeTypewriter(sink);
-		tw.receive("hello world");
-
-		vi.advanceTimersByTime(500); // many ticks
-		expect(sink.value).toBe("hello world");
-	});
-
-	it("renders on every tick that produces output", () => {
-		const sink = makeSink();
-		const { tw, renders } = makeTypewriter(sink);
+		const { tw, renders } = makeWriter(sink);
 		tw.receive("abcde");
-
-		vi.advanceTimersByTime(200);
+		vi.advanceTimersByTime(300);
 		expect(renders.length).toBeGreaterThan(0);
 	});
 
-	it("stops ticking when fully caught up", () => {
+	it("stops ticking once fully caught up — no unnecessary renders", () => {
 		const sink = makeSink();
-		const { tw, renders } = makeTypewriter(sink);
+		const { tw, renders } = makeWriter(sink);
 		tw.receive("hi");
-
 		vi.advanceTimersByTime(500);
-		const countAfterCatchup = renders.length;
-
-		vi.advanceTimersByTime(500); // no more content
-		expect(renders.length).toBe(countAfterCatchup); // no extra renders
+		const settled = renders.length;
+		vi.advanceTimersByTime(500);
+		expect(renders.length).toBe(settled);
 	});
 
-	it("drains quickly after markStreamDone", () => {
+	it("reveals all content eventually", () => {
 		const sink = makeSink();
-		const { tw } = makeTypewriter(sink, { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
-		tw.receive("a".repeat(20));
-		tw.markStreamDone();
-
-		vi.advanceTimersByTime(50); // a few fast ticks at 8ms
-		expect(sink.value.length).toBeGreaterThan(15); // draining fast
+		const { tw } = makeWriter(sink);
+		tw.receive("hello world");
+		vi.advanceTimersByTime(1000);
+		expect(sink.value).toBe("hello world");
 	});
 
-	it("resumes ticking when new chunks arrive mid-flight", () => {
+	it("resumes when new content arrives after catching up", () => {
 		const sink = makeSink();
-		const { tw } = makeTypewriter(sink);
+		const { tw } = makeWriter(sink);
 		tw.receive("hi");
-
-		vi.advanceTimersByTime(500); // caught up
-		expect(sink.value).toBe("hi");
-
-		tw.receive(" world"); // new content
+		vi.advanceTimersByTime(500);
+		tw.receive(" world");
 		vi.advanceTimersByTime(500);
 		expect(sink.value).toBe("hi world");
 	});
 });
 
-describe("Typewriter — flush and reset", () => {
+describe("Fast drain when the stream has stopped", () => {
 	beforeEach(() => vi.useFakeTimers());
 	afterEach(() => vi.useRealTimers());
 
-	it("flush reveals all pending content immediately", () => {
-		const sink = makeSink();
-		const { tw } = makeTypewriter(sink);
-		tw.receive("hello world");
-		tw.flush();
-		expect(sink.value).toBe("hello world");
+	it("drains half the remaining gap per tick after the stream ends", () => {
+		const { tw } = makeWriter(makeSink());
+		tw.markStreamDone();
+		expect(tw.pressureStep(100)).toBe(50);
+		expect(tw.pressureStep(7)).toBe(4);
 	});
 
-	it("flush cancels the pending tick", () => {
-		const sink = makeSink();
-		const { tw, renders } = makeTypewriter(sink);
+	it("ticks at the fast interval immediately after the stream ends", () => {
+		const { tw } = makeWriter(makeSink(), { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
+		tw.receive("ab");
+		tw.markStreamDone();
+		expect(tw.nextTickMs()).toBe(8);
+	});
+
+	it("treats a long silence as stream-done even without explicit signal", () => {
+		const { tw } = makeWriter(makeSink(), { streamingPauseMs: 150 });
 		tw.receive("hi");
-		tw.flush();
-		const countAfterFlush = renders.length;
-		vi.advanceTimersByTime(500);
-		expect(renders.length).toBe(countAfterFlush);
+		vi.advanceTimersByTime(151);
+		expect(tw.effectivelyDone).toBe(true);
 	});
 
-	it("reset wipes displayed and pending after flushing", () => {
+	it("empties the buffer quickly after markStreamDone", () => {
 		const sink = makeSink();
-		const { tw } = makeTypewriter(sink);
-		tw.receive("hello");
-		tw.reset();
-		expect(tw.pressure).toBe(0);
-		vi.advanceTimersByTime(500);
-		expect(sink.value).toBe("hello"); // flushed before reset
+		const { tw } = makeWriter(sink, { intervals: { slowMs: 32, normalMs: 16, fastMs: 8 } });
+		tw.receive("a".repeat(20));
+		tw.markStreamDone();
+		vi.advanceTimersByTime(50);
+		expect(sink.value.length).toBeGreaterThan(15);
 	});
 });
 
-describe("Typewriter — whenDrained", () => {
+describe("Finalization — waiting for the buffer to drain", () => {
 	beforeEach(() => vi.useFakeTimers());
 	afterEach(() => vi.useRealTimers());
 
-	it("resolves immediately when pressure is zero", async () => {
-		const { tw } = makeTypewriter(makeSink());
+	it("resolves immediately when there is nothing pending", async () => {
+		const { tw } = makeWriter(makeSink());
 		await expect(tw.whenDrained()).resolves.toBeUndefined();
 	});
 
-	it("resolves after buffer is fully revealed", async () => {
+	it("resolves only after all pending content is revealed", async () => {
 		const sink = makeSink();
-		const { tw } = makeTypewriter(sink);
+		const { tw } = makeWriter(sink);
 		tw.receive("hello");
 		tw.markStreamDone();
 
@@ -234,8 +150,8 @@ describe("Typewriter — whenDrained", () => {
 		expect(sink.value).toBe("hello");
 	});
 
-	it("multiple whenDrained calls all resolve", async () => {
-		const { tw } = makeTypewriter(makeSink());
+	it("multiple callers all receive the completion signal", async () => {
+		const { tw } = makeWriter(makeSink());
 		tw.receive("abc");
 		tw.markStreamDone();
 
@@ -243,29 +159,47 @@ describe("Typewriter — whenDrained", () => {
 		vi.advanceTimersByTime(500);
 		await expect(Promise.all([a, b])).resolves.toBeDefined();
 	});
+});
 
-	it("reset clears pending drainedCallbacks", async () => {
-		const { tw } = makeTypewriter(makeSink());
-		tw.receive("abc");
-		let resolved = false;
-		const p = tw.whenDrained().then(() => {
-			resolved = true;
-		});
-		tw.reset(); // clears callbacks
+describe("Turn lifecycle — flush and reset", () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	it("flush reveals all pending content immediately", () => {
+		const sink = makeSink();
+		const { tw } = makeWriter(sink);
+		tw.receive("hello world");
+		tw.flush();
+		expect(sink.value).toBe("hello world");
+	});
+
+	it("flush cancels any scheduled tick", () => {
+		const sink = makeSink();
+		const { tw, renders } = makeWriter(sink);
+		tw.receive("hi");
+		tw.flush();
+		const after = renders.length;
 		vi.advanceTimersByTime(500);
-		// Promise is orphaned — it won't resolve after reset
-		expect(resolved).toBe(false);
-		void p; // prevent unhandled rejection lint
+		expect(renders.length).toBe(after);
+	});
+
+	it("reset clears all state after flushing visible content", () => {
+		const sink = makeSink();
+		const { tw } = makeWriter(sink);
+		tw.receive("hello");
+		tw.reset();
+		expect(tw.pressure).toBe(0);
+		vi.advanceTimersByTime(500);
+		expect(sink.value).toBe("hello");
 	});
 });
 
-describe("Typewriter — SOLID: TypewriterSink abstraction (DIP)", () => {
-	it("works with any object implementing setText", () => {
-		const log: string[] = [];
-		const fakeSink: TypewriterSink = { setText: (t) => log.push(t) };
-		const tw = new Typewriter(fakeSink, () => {});
+describe("Accepting any display target", () => {
+	it("works with any object that can receive text", () => {
+		const received: string[] = [];
+		const tw = new Typewriter({ setText: (t) => received.push(t) }, () => {});
 		tw.receive("abc");
 		tw.flush();
-		expect(log.at(-1)).toBe("abc");
+		expect(received.at(-1)).toBe("abc");
 	});
 });

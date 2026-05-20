@@ -2,18 +2,17 @@
 
 import { execSync } from "node:child_process";
 import { getConfig } from "./config.js";
-import { BOLD, getTheme, RESET, systemLang } from "./theme.js";
+import { BOLD, colorDepth, DIM, fgCode, getTheme, RESET, systemLang } from "./theme.js";
 
 // ---------------------------------------------------------------------------
-// Script block registry — Unicode ranges known to be predominantly letters.
-// Ranges deliberately avoid leading diacritics / combining marks.
+// Script block registry
 // ---------------------------------------------------------------------------
 
 interface ScriptBlock {
-	lang: string; // fc-list lang tag
+	lang: string;
 	name: string;
-	start: number; // first code point (inclusive)
-	end: number; // last code point (inclusive)
+	start: number;
+	end: number;
 }
 
 const BLOCKS: readonly ScriptBlock[] = [
@@ -45,6 +44,7 @@ function randomCodePoint(block: ScriptBlock): string {
 }
 
 // ---------------------------------------------------------------------------
+// Font discovery via fc-list
 // ---------------------------------------------------------------------------
 
 function installedLangs(): Set<string> {
@@ -56,8 +56,8 @@ function installedLangs(): Set<string> {
 			stdio: ["ignore", "pipe", "ignore"],
 		});
 		for (const line of out.split("\n")) {
-			for (const lang of line.split("|")) {
-				const code = lang.trim().split("-")[0].toLowerCase();
+			for (const tag of line.split("|")) {
+				const code = tag.trim().split("-")[0].toLowerCase();
 				if (code) langs.add(code);
 			}
 		}
@@ -85,73 +85,21 @@ function fontPathForLang(lang: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Braille encoding — 2×4 pixel grid per cell → U+2800
-//
-// Dot layout:
-//   col0  col1
-//    1     4    row 0
-//    2     5    row 1
-//    3     6    row 2
-//    7     8    row 3
+// Grayscale rasteriser — returns darkness map (0 = white, 1 = black ink)
 // ---------------------------------------------------------------------------
 
-const BRAILLE_BITS: readonly (readonly [number, number])[] = [
-	[0x01, 0x08],
-	[0x02, 0x10],
-	[0x04, 0x20],
-	[0x40, 0x80],
-];
-
-function imageToBraille(pixels: readonly (readonly boolean[])[], fgAnsi: string): string {
-	const H = pixels.length;
-	const W = pixels[0]?.length ?? 0;
-	const lines: string[] = [];
-
-	for (let cellY = 0; cellY * 4 < H; cellY++) {
-		let line = "";
-		for (let cellX = 0; cellX * 2 < W; cellX++) {
-			let mask = 0;
-			let anyLit = false;
-			for (let dotRow = 0; dotRow < 4; dotRow++) {
-				const py = cellY * 4 + dotRow;
-				if (py >= H) break;
-				for (let dotCol = 0; dotCol < 2; dotCol++) {
-					const px = cellX * 2 + dotCol;
-					if (px >= W) break;
-					if (pixels[py]?.[px]) {
-						mask |= BRAILLE_BITS[dotRow]?.[dotCol] ?? 0;
-						anyLit = true;
-					}
-				}
-			}
-			if (!anyLit) {
-				line += "  ";
-				continue;
-			}
-			const ch = String.fromCodePoint(0x2800 | mask);
-			line += `${BOLD}${fgAnsi}${ch}${RESET}`;
-		}
-		lines.push(line);
-	}
-
-	return lines.join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
-async function rasterise(glyph: string, fontPath: string, ptSize: number): Promise<boolean[][] | null> {
+async function rasterise(glyph: string, fontPath: string, ptSize: number): Promise<number[][] | null> {
 	try {
 		const { createCanvas, GlobalFonts } = await import("@napi-rs/canvas");
 		GlobalFonts.registerFromPath(fontPath, "SplashFont");
 
-		const measure = createCanvas(1, 1);
-		const mctx = measure.getContext("2d");
-		mctx.font = `${ptSize}px SplashFont`;
-		const metrics = mctx.measureText(glyph);
+		const probe = createCanvas(1, 1);
+		const pctx = probe.getContext("2d");
+		pctx.font = `${ptSize}px SplashFont`;
+		const metrics = pctx.measureText(glyph);
 		const w = Math.ceil(metrics.width) + 4;
 		const h = ptSize + 8;
-		if (w <= 4) return null; // font doesn't cover this glyph
+		if (w <= 4) return null;
 
 		const canvas = createCanvas(w, h);
 		const ctx = canvas.getContext("2d");
@@ -162,27 +110,121 @@ async function rasterise(glyph: string, fontPath: string, ptSize: number): Promi
 		ctx.fillText(glyph, 2, ptSize - 2);
 
 		const data = ctx.getImageData(0, 0, w, h).data;
-		const pixels: boolean[][] = [];
-		let totalLit = 0;
-		for (let y = 0; y < h; y++) {
-			const row: boolean[] = [];
-			for (let x = 0; x < w; x++) {
-				const lit = (data[(y * w + x) * 4] ?? 255) < 128;
-				row.push(lit);
-				if (lit) totalLit++;
-			}
-			pixels.push(row);
-		}
+		let totalInk = 0;
+		const pixels = Array.from({ length: h }, (_, y) =>
+			Array.from({ length: w }, (_, x) => {
+				const darkness = 1 - (data[(y * w + x) * 4] ?? 255) / 255;
+				if (darkness > 0.15) totalInk++;
+				return darkness;
+			}),
+		);
 
-		// Reject if the glyph rendered as a tofu box or is empty
-		if (totalLit < 20) return null;
-		return pixels;
+		return totalInk < 20 ? null : pixels;
 	} catch {
 		return null;
 	}
 }
 
 // ---------------------------------------------------------------------------
+// Braille shading — Bayer ordered dithering + 3 ANSI intensity levels
+//
+// Braille dot layout (2 cols × 4 rows per terminal cell):
+//   col 0  col 1
+//   0x01   0x08   row 0
+//   0x02   0x10   row 1
+//   0x04   0x20   row 2
+//   0x40   0x80   row 3
+//
+// Bayer 2×4 threshold matrix — a dot is set when local darkness exceeds
+// its threshold, producing smooth edge antialiasing without hard cutoffs.
+// ---------------------------------------------------------------------------
+
+const BRAILLE_BIT: readonly (readonly number[])[] = [
+	[0x01, 0x08],
+	[0x02, 0x10],
+	[0x04, 0x20],
+	[0x40, 0x80],
+];
+
+const BAYER_2X4: readonly (readonly number[])[] = [
+	[0 / 8, 4 / 8],
+	[2 / 8, 6 / 8],
+	[1 / 8, 5 / 8],
+	[3 / 8, 7 / 8],
+];
+
+function rasterToShaded(pixels: readonly (readonly number[])[], fg: string): string {
+	const H = pixels.length;
+	const W = pixels[0]?.length ?? 0;
+	const lines: string[] = [];
+
+	for (let cellY = 0; cellY * 4 < H; cellY++) {
+		let line = "";
+
+		for (let cellX = 0; cellX * 2 < W; cellX++) {
+			// Average darkness of the 2×4 cell — drives intensity level selection.
+			let sum = 0;
+			let count = 0;
+			for (let dr = 0; dr < 4; dr++) {
+				for (let dc = 0; dc < 2; dc++) {
+					const py = cellY * 4 + dr;
+					const px = cellX * 2 + dc;
+					if (py < H && px < W) {
+						sum += pixels[py]?.[px] ?? 0;
+						count++;
+					}
+				}
+			}
+			const avg = count > 0 ? sum / count : 0;
+
+			if (avg < 0.08) {
+				line += "  ";
+				continue;
+			}
+
+			// Bayer dithering: each dot fires when its pixel's darkness exceeds
+			// the positional threshold, giving smooth sub-cell antialiasing.
+			let mask = 0;
+			for (let dr = 0; dr < 4; dr++) {
+				for (let dc = 0; dc < 2; dc++) {
+					const py = cellY * 4 + dr;
+					const px = cellX * 2 + dc;
+					const darkness = py < H && px < W ? (pixels[py]?.[px] ?? 0) : 0;
+					if (darkness > (BAYER_2X4[dr]?.[dc] ?? 0)) {
+						mask |= BRAILLE_BIT[dr]?.[dc] ?? 0;
+					}
+				}
+			}
+
+			const ch = String.fromCodePoint(0x2800 | mask);
+
+			// Three intensity levels: bright core, mid stroke, faint edge.
+			const prefix = avg > 0.65 ? `${BOLD}${fg}` : avg > 0.28 ? fg : `${DIM}${fg}`;
+			line += `${prefix}${ch}${RESET}`;
+		}
+
+		lines.push(line);
+	}
+
+	return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Pool selection
+// ---------------------------------------------------------------------------
+
+function buildPool(): ScriptBlock[] {
+	const langs = installedLangs();
+	const available = BLOCKS.filter((b) => langs.has(b.lang));
+	const pool = available.length > 0 ? available : BLOCKS.slice(0, 5);
+
+	const preferredLang = process.env.ALEF_SPLASH_LANG ?? getConfig().splash?.lang ?? systemLang();
+	const preferred = pool.find((b) => b.lang === preferredLang);
+	return preferred ? [preferred, ...pool.filter((b) => b !== preferred)] : pool;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
 // ---------------------------------------------------------------------------
 
 let _cached: string | null = null;
@@ -191,35 +233,20 @@ export async function renderSplash(): Promise<string> {
 	if (process.env.ALEF_NO_SPLASH === "1") return "";
 	if (_cached !== null) return _cached;
 
-	const t = getTheme();
-	const hex = (t.accentFg.truecolor ?? "#c55778").replace("#", "");
-	const r = parseInt(hex.slice(0, 2), 16);
-	const g = parseInt(hex.slice(2, 4), 16);
-	const b = parseInt(hex.slice(4, 6), 16);
-	const blossom = `\x1b[38;2;${r};${g};${b}m`;
-
-	const langs = installedLangs();
-	const available = BLOCKS.filter((s) => langs.has(s.lang));
-	const pool = available.length > 0 ? available : BLOCKS.slice(0, 5);
-
-	// Preferred lang: ALEF_SPLASH_LANG > config.yaml splash.lang > system locale auto-detect
-	const preferredLang = process.env.ALEF_SPLASH_LANG ?? getConfig().splash?.lang ?? systemLang();
-	const preferredBlock = pool.find((b) => b.lang === preferredLang);
-	const orderedPool = preferredBlock ? [preferredBlock, ...pool.filter((b) => b !== preferredBlock)] : pool;
+	const fg = fgCode(getTheme().accentFg, colorDepth());
+	const pool = buildPool();
 
 	for (let attempt = 0; attempt < 8; attempt++) {
-		const block =
-			attempt === 0 ? (orderedPool[0] ?? pool[0]) : orderedPool[Math.floor(Math.random() * orderedPool.length)];
+		const block = attempt === 0 ? pool[0] : pool[Math.floor(Math.random() * pool.length)];
 		if (!block) continue;
 
-		const glyph = randomCodePoint(block);
 		const fontPath = fontPathForLang(block.lang);
 		if (!fontPath) continue;
 
-		const pixels = await rasterise(glyph, fontPath, 48);
+		const pixels = await rasterise(randomCodePoint(block), fontPath, 48);
 		if (!pixels) continue;
 
-		const art = imageToBraille(pixels, blossom);
+		const art = rasterToShaded(pixels, fg);
 		if (!art.trim()) continue;
 
 		_cached = art;

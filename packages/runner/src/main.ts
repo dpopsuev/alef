@@ -30,6 +30,7 @@ import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
+import { loadConfig } from "./config.js";
 import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
 import { DirectiveContextAssembler } from "./directives.js";
 import { EventLogOrgan } from "./event-log-organ.js";
@@ -52,6 +53,7 @@ import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
 // OTel must be registered before any tracer is acquired.
 process.title = "alef";
+const cfg = loadConfig();
 setupOTel();
 
 const args = parseArgs(process.argv.slice(2));
@@ -146,7 +148,7 @@ if (blueprintPath) {
 	];
 }
 
-const resolvedModelId = args.modelId ?? blueprintModelId ?? DEFAULT_MODEL;
+const resolvedModelId = args.modelId ?? blueprintModelId ?? cfg.model ?? DEFAULT_MODEL;
 const model = buildModel(resolvedModelId);
 
 // ---------------------------------------------------------------------------
@@ -271,7 +273,11 @@ if (args.serve !== undefined) {
 
 agent.validate();
 await agent.ready();
-loadTheme(blueprintPath ? new URL("..", `file://${blueprintPath}`).pathname : undefined);
+loadTheme(
+	blueprintPath ? new URL("..", `file://${blueprintPath}`).pathname : undefined,
+	cfg.theme?.name,
+	cfg.theme?.colors,
+);
 
 if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
 	process.on("message", (msg: unknown) => {

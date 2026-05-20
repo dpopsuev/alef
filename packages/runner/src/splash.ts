@@ -1,7 +1,8 @@
 // ALEF_NO_SPLASH=1 disables the splash.
 
 import { execSync } from "node:child_process";
-import { BOLD, getTheme, RESET } from "./theme.js";
+import { getConfig } from "./config.js";
+import { BOLD, getTheme, RESET, systemLang } from "./theme.js";
 
 // ---------------------------------------------------------------------------
 // Script block registry — Unicode ranges known to be predominantly letters.
@@ -201,8 +202,14 @@ export async function renderSplash(): Promise<string> {
 	const available = BLOCKS.filter((s) => langs.has(s.lang));
 	const pool = available.length > 0 ? available : BLOCKS.slice(0, 5);
 
+	// Preferred lang: ALEF_SPLASH_LANG > config.yaml splash.lang > system locale auto-detect
+	const preferredLang = process.env.ALEF_SPLASH_LANG ?? getConfig().splash?.lang ?? systemLang();
+	const preferredBlock = pool.find((b) => b.lang === preferredLang);
+	const orderedPool = preferredBlock ? [preferredBlock, ...pool.filter((b) => b !== preferredBlock)] : pool;
+
 	for (let attempt = 0; attempt < 8; attempt++) {
-		const block = pool[Math.floor(Math.random() * pool.length)];
+		const block =
+			attempt === 0 ? (orderedPool[0] ?? pool[0]) : orderedPool[Math.floor(Math.random() * orderedPool.length)];
 		if (!block) continue;
 
 		const glyph = randomCodePoint(block);

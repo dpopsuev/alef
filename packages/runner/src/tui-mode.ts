@@ -20,6 +20,7 @@
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Component, MarkdownTheme } from "@dpopsuev/alef-tui";
 import { Container, Input, Markdown, matchesKey, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
+import { getConfig } from "./config.js";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
@@ -132,8 +133,8 @@ function makeMarkdownTheme(): MarkdownTheme {
 	};
 }
 
-const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? "@you";
-const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
+const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? getConfig().you ?? "@you";
+const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? getConfig().agent ?? "@alef";
 
 function zoneClose(): DynamicText {
 	const t = getTheme();

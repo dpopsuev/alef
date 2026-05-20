@@ -27,6 +27,7 @@ import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
 import { bold, boldColor, color, dim, getTheme, glyph, italic, spinnerFrames } from "./theme.js";
+import { Typewriter } from "./typewriter.js";
 
 class DynamicText implements Component {
 	private fn: (width: number) => string;
@@ -332,33 +333,13 @@ export async function runTuiMode(
 	let streamingSegment: Container | null = null;
 	let streamingTextNode: Text | null = null;
 	let streamingThinkNode: Text | null = null;
-	let pendingText = "";
-	let pendingThinking = "";
-
-	// Drip buffer — flush at ~20fps to prevent render thrash.
-	const CHUNK_THROTTLE_MS = 50;
-	let chunkThrottleTimer: NodeJS.Timeout | undefined;
-	let chunksDirty = false;
-
-	function flushPendingChunks(): void {
-		if (!chunksDirty) return;
-		chunksDirty = false;
-		if (streamingTextNode) streamingTextNode.setText(pendingText);
-		if (streamingThinkNode) streamingThinkNode.setText(italic(dim(pendingThinking)));
-		tui.requestRender();
-	}
-
-	function startChunkThrottle(): void {
-		if (!chunkThrottleTimer) chunkThrottleTimer = setInterval(flushPendingChunks, CHUNK_THROTTLE_MS);
-	}
-
-	function stopChunkThrottle(): void {
-		if (chunkThrottleTimer) {
-			clearInterval(chunkThrottleTimer);
-			chunkThrottleTimer = undefined;
-		}
-		flushPendingChunks();
-	}
+	// Two Typewriter instances — one for response text, one for thinking.
+	// Each wraps its DOM Text node behind a TypewriterSink, decoupling the
+	// pressure/tick logic from TUI concretions (Dependency Inversion).
+	const textTypewriter = new Typewriter({ setText: (t) => streamingTextNode?.setText(t) }, () => tui.requestRender());
+	const thinkTypewriter = new Typewriter({ setText: (t) => streamingThinkNode?.setText(italic(dim(t))) }, () =>
+		tui.requestRender(),
+	);
 
 	function openStreamingSegment(): Container {
 		if (!streamingSegment) {
@@ -375,9 +356,7 @@ export async function runTuiMode(
 			streamingTextNode = new Text("", 2, 0);
 			box.addChild(streamingTextNode);
 		}
-		pendingText += chunk;
-		chunksDirty = true;
-		startChunkThrottle();
+		textTypewriter.receive(chunk);
 	}
 
 	function receiveThinkingChunk(chunk: string): void {
@@ -388,32 +367,30 @@ export async function runTuiMode(
 			streamingThinkNode = new Text("", 2, 0);
 			box.addChild(streamingThinkNode);
 		}
-		pendingThinking += chunk;
-		chunksDirty = true;
-		startChunkThrottle();
+		thinkTypewriter.receive(chunk);
 	}
 
 	// Seal the current generation's container so tool call lines go below it.
 	// Called when the first tool call fires (generation phase ended).
 	function sealStreamingSegment(): void {
-		stopChunkThrottle();
+		textTypewriter.flush();
+		thinkTypewriter.flush();
+		textTypewriter.reset();
+		thinkTypewriter.reset();
 		streamingSegment = null;
 		streamingTextNode = null;
-		pendingText = "";
 		streamingThinkNode = null;
-		pendingThinking = "";
 	}
 
 	// Remove all accumulated live containers; called after final reply is added.
 	function clearStreamingSegments(): void {
-		stopChunkThrottle();
+		textTypewriter.reset();
+		thinkTypewriter.reset();
 		for (const c of streamingSegments) chat.removeChild(c);
 		streamingSegments.length = 0;
 		streamingSegment = null;
 		streamingTextNode = null;
-		pendingText = "";
 		streamingThinkNode = null;
-		pendingThinking = "";
 	}
 
 	const activeCalls = new Map<string, { text: Text; name: string; keyArg: string }>();

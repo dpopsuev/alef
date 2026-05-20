@@ -128,8 +128,7 @@ function imageToBraille(pixels: readonly (readonly boolean[])[], fgAnsi: string)
 				continue;
 			}
 			const ch = String.fromCodePoint(0x2800 | mask);
-			// Duplicate for visual width balance (Braille is single-column)
-			line += `${BOLD}${fgAnsi}${ch}${ch}${RESET}`;
+			line += `${BOLD}${fgAnsi}${ch}${RESET}`;
 		}
 		lines.push(line);
 	}

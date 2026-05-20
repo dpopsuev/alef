@@ -14,6 +14,7 @@
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { MarkdownTheme } from "@dpopsuev/alef-tui";
 import { Container, Input, Loader, Markdown, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
+import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 
@@ -47,14 +48,18 @@ export interface TuiHandlerContext {
  */
 export function handleCtrlC(ctx: TuiHandlerContext): void {
 	if (ctx.abortCurrentTurn) {
+		trace("ctrl+c:mid-turn");
 		ctx.abortCurrentTurn();
 		ctx.setAbortCurrentTurn(undefined);
 		ctx.setLLMController(undefined);
 		appendNotice(ctx.chat, "(interrupted)");
 		ctx.tui.requestRender(true);
 	} else {
+		trace("ctrl+c:idle:dispose");
 		ctx.dispose();
+		trace("ctrl+c:idle:tui.stop");
 		ctx.tui.stop();
+		trace("ctrl+c:idle:done");
 	}
 }
 
@@ -284,12 +289,18 @@ export async function runTuiMode(
 	tui.setFocus(input);
 	tui.requestRender();
 
+	trace("tui:start");
+
 	// Block until stopped
 	await new Promise<void>((resolve) => {
 		const origStop = tui.stop.bind(tui);
 		tui.stop = () => {
+			trace("tui:stop:origStop");
 			origStop();
+			trace("tui:stop:resolve");
 			resolve();
 		};
 	});
+
+	trace("tui:stopped");
 }

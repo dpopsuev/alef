@@ -74,6 +74,12 @@ export interface Args {
 	 * Example: --profile dev loads agent.dev.yaml from the same directory.
 	 */
 	profile: string | undefined;
+	/**
+	 * Debug mode: sets log level to debug and writes a trace to ~/.alef/debug.log.
+	 * Lifecycle events (Ctrl+C, tui.stop, shutdownOTel, process.exit) are always
+	 * written to the trace regardless of this flag.
+	 */
+	debug: boolean;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -94,6 +100,7 @@ Options:
   --list-sessions        Print all sessions for current --cwd and exit
   --no-tui               Use readline mode instead of TUI (also auto-set on non-TTY)
   --json                 Emit structured JSONL events (for TUI consumers)
+  --debug                Debug mode: verbose logs + lifecycle trace to ~/.alef/debug.log
   -h, --help             Show this help
 
 Examples:
@@ -122,6 +129,7 @@ export function parseArgs(argv: string[]): Args {
 		noTui: false,
 		serve: undefined,
 		profile: undefined,
+		debug: false,
 	};
 
 	let i = 0;
@@ -230,6 +238,12 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--json") {
 			args.json = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--debug") {
+			args.debug = true;
 			i++;
 			continue;
 		}

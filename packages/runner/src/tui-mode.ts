@@ -284,18 +284,18 @@ export async function runTuiMode(
 
 	// ── StreamZone (terminal owns) ────────────────────────────────────
 
-	// Splash: random world-script glyph as Braille art — printed once, lives in scrollback
-	const splash = await renderSplash();
-	if (splash) tui.addChild(new Text(splash, 0, 0));
-
 	const sessionShort = opts.sessionId.slice(0, 8);
 	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${opts.modelId}  ${glyph("sep")}  ${sessionShort}`;
-	const streamHeader = new DynamicText((w) => {
-		const inner = `─ ${headerLabel} `;
-		const fill = Math.max(0, w - inner.length - 3);
-		return boldColor(`╭${inner}${"─".repeat(fill)}╮`, t.accentFg);
-	});
-	tui.addChild(streamHeader);
+	// StreamZone: header pill wraps the splash glyph — same pattern as @you / @alef
+	tui.addChild(
+		new DynamicText((w) => {
+			const inner = `─ ${headerLabel} `;
+			return boldColor(`╭${inner}${"─".repeat(Math.max(0, w - inner.length - 3))}╮`, t.accentFg);
+		}),
+	);
+	const splash = await renderSplash();
+	if (splash) tui.addChild(new Text(splash, 2, 0));
+	tui.addChild(new DynamicText((w) => boldColor(`╰${"─".repeat(Math.max(0, w - 2))}╯`, t.accentFg)));
 
 	const chat = new Container();
 	tui.addChild(chat);
@@ -311,7 +311,8 @@ export async function runTuiMode(
 	const hintBar = new DynamicText((_w) => dim("/exit · /new · /resume · /help"));
 	tui.addChild(hintBar);
 
-	const statusText = new Text(dim(`${opts.modelId} · ${opts.sessionId.slice(0, 8)}`), 0, 0);
+	// Status: shows thinking state when active, empty when idle (model is in the header)
+	const statusText = new Text("", 0, 0);
 	tui.addChild(statusText);
 
 	// ── Spinner state ─────────────────────────────────────────────────────────
@@ -336,7 +337,7 @@ export async function runTuiMode(
 	function stopThinking(): void {
 		clearInterval(thinkingTimer);
 		thinkingTimer = undefined;
-		statusText.setText(dim(`${opts.modelId} · ${opts.sessionId.slice(0, 8)}`));
+		statusText.setText("");
 	}
 
 	// ── Tool call live tracking ───────────────────────────────────────────────

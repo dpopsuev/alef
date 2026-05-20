@@ -1,9 +1,4 @@
-import type {
-	AgentCapacity,
-	BudgetStatusSnapshot,
-	ChildAgentSummary,
-	DiscourseTopic,
-} from "../../../coding-agent/src/core/platform/types.js";
+import type { AgentCapacity, BudgetStatusSnapshot, ChildAgentSummary, DiscourseTopic } from "./contracts.js";
 
 export type SchedulerDecisionType = "spawn" | "keep_alive" | "sleep" | "drain" | "archive" | "throttle" | "abort";
 

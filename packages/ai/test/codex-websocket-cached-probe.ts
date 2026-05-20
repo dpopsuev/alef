@@ -9,7 +9,7 @@
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Type } from "typebox";
-import { AuthStorage } from "../../coding-agent/src/core/auth-storage.js";
+import { getEnvApiKey } from "../src/env-api-keys.js";
 import { getModel } from "../src/models.js";
 import {
 	closeOpenAICodexWebSocketSessions,
@@ -159,10 +159,9 @@ async function main(): Promise<void> {
 	const model = getModel("openai-codex", "gpt-5.5") as Model<"openai-codex-responses"> | undefined;
 	if (!model) throw new Error("Model openai-codex/gpt-5.5 not found");
 	const modelWithMaxTokens = { ...model, maxTokens: args.maxTokens };
-	const authStorage = AuthStorage.create();
-	const apiKey = (await authStorage.getApiKey("openai-codex")) ?? (await authStorage.getApiKey("openai"));
+	const apiKey = getEnvApiKey("openai") ?? process.env.OPENAI_CODEX_API_KEY;
 	if (!apiKey) {
-		throw new Error("No OpenAI Codex API key found in coding-agent auth storage.");
+		throw new Error("No OpenAI API key found. Set OPENAI_API_KEY env var.");
 	}
 	const context: Context = {
 		systemPrompt:

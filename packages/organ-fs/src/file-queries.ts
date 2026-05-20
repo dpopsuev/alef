@@ -102,7 +102,7 @@ function withFindCacheHit(cacheHit: ToolResultCacheHit | undefined): FindToolRes
 	if (!cached || !Array.isArray(cached.content)) {
 		return undefined;
 	}
-	const cloned = structuredClone(cached) as FindToolResponse;
+	const cloned = structuredClone(cached);
 	return {
 		...cloned,
 		details: {
@@ -164,7 +164,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 
 				const resolveWithOptionalCache = (response: FindToolResponse): void => {
 					if (cache && cacheKey) {
-						const storable = structuredClone(response) as FindToolResponse;
+						const storable = structuredClone(response);
 						if (storable.details?.cache) {
 							delete storable.details.cache;
 							if (Object.keys(storable.details).length === 0) {
@@ -517,7 +517,7 @@ function withGrepCacheHit(cacheHit: ToolResultCacheHit | undefined): GrepToolRes
 	if (!cached || !Array.isArray(cached.content)) {
 		return undefined;
 	}
-	const cloned = structuredClone(cached) as GrepToolResponse;
+	const cloned = structuredClone(cached);
 	return {
 		...cloned,
 		details: {
@@ -597,7 +597,7 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 					: undefined;
 				const resolveWithOptionalCache = (response: GrepToolResponse): void => {
 					if (cache && cacheKey) {
-						const storable = structuredClone(response) as GrepToolResponse;
+						const storable = structuredClone(response);
 						if (storable.details?.cache) {
 							delete storable.details.cache;
 							if (Object.keys(storable.details).length === 0) {
@@ -918,7 +918,7 @@ function withLsCacheHit(cacheHit: ToolResultCacheHit | undefined): LsToolRespons
 	if (!cached || !Array.isArray(cached.content)) {
 		return undefined;
 	}
-	const cloned = structuredClone(cached) as LsToolResponse;
+	const cloned = structuredClone(cached);
 	return {
 		...cloned,
 		details: {
@@ -969,7 +969,7 @@ export async function executeLsQuery(input: LsToolInput, options: LsQueryOptions
 
 				const resolveWithOptionalCache = (response: LsToolResponse): void => {
 					if (cache && cacheKey) {
-						const storable = structuredClone(response) as LsToolResponse;
+						const storable = structuredClone(response);
 						if (storable.details?.cache) {
 							delete storable.details.cache;
 							if (Object.keys(storable.details).length === 0) {

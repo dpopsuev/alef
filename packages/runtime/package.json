@@ -34,7 +34,7 @@
 	"scripts": {
 		"clean": "shx rm -rf dist",
 		"build": "tsgo -p tsconfig.build.json && npm run copy-assets",
-		"copy-assets": "shx mkdir -p dist/modes/interactive/theme && shx cp ../coding-agent/src/modes/interactive/theme/*.json dist/modes/interactive/theme/",
+		"copy-assets": "echo \"no assets to copy\"",
 		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
 		"test": "vitest --run",
 		"prepublishOnly": "npm run clean && npm run build"

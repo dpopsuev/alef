@@ -17,11 +17,13 @@
  * Terminal scrollback handles history — we never manage viewport.
  */
 
+import { getProviders } from "@dpopsuev/alef-ai";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import type { MarkdownTheme } from "@dpopsuev/alef-tui";
 import { Container, Markdown, matchesKey, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
+import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
 import { getConfig } from "./config.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
@@ -83,6 +85,33 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			appendNotice(ctx.chat, `session: ${ctx.sessionId}`);
 			ctx.tui.requestRender();
 			return true;
+		case "/login": {
+			const parts = text.trim().split(/\s+/);
+			const provider = parts[1];
+			const key = parts.slice(2).join(" ").trim();
+			if (!provider || !key) {
+				const known = getProviders().slice(0, 8).join(", ");
+				appendNotice(ctx.chat, `Usage: /login <provider> <api-key>\nKnown providers: ${known}`);
+			} else {
+				setStoredApiKey(provider, key);
+				appendNotice(ctx.chat, `Saved API key for ${provider}. Takes effect on the next message.`);
+			}
+			ctx.tui.requestRender();
+			return true;
+		}
+		case "/logout": {
+			const provider = text.trim().split(/\s+/)[1];
+			if (!provider) {
+				appendNotice(ctx.chat, "Usage: /logout <provider>");
+			} else if (!getStoredApiKey(provider)) {
+				appendNotice(ctx.chat, `No stored key for ${provider}.`);
+			} else {
+				removeStoredApiKey(provider);
+				appendNotice(ctx.chat, `Removed stored key for ${provider}.`);
+			}
+			ctx.tui.requestRender();
+			return true;
+		}
 		case "/help":
 			appendNotice(ctx.chat, helpText());
 			ctx.tui.requestRender();
@@ -220,6 +249,8 @@ const COMMANDS: Record<string, string> = {
 	"/exit": "Quit",
 	"/new": "Clear conversation",
 	"/resume": "Show session ID",
+	"/login": "Save API key: /login <provider> <key>",
+	"/logout": "Remove stored API key: /logout <provider>",
 	"/help": "Show this help",
 };
 

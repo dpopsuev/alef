@@ -258,7 +258,7 @@ const llmOrgan = scriptedRepliesEnv
 	? new ScriptedLLMOrgan((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
 	: new LLMOrgan({
 			model,
-			apiKey: resolveApiKey(model.provider),
+			getApiKey: () => resolveApiKey(model.provider),
 			thinking: thinkingLevel,
 			maxRetries: cfg.llm?.maxRetries,
 			maxRetryDelayMs: cfg.llm?.maxRetryDelayMs,

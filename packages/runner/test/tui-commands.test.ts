@@ -32,7 +32,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 	return {
 		chat: new Container(),
 		tui: makeTui(),
-		hint: {},
+		hintBar: {},
 		loader: {},
 		dialog: { clearHistory: vi.fn() },
 		dispose: vi.fn(),

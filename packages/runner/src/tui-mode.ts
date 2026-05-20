@@ -22,6 +22,7 @@ import { Container, Input, Markdown, matchesKey, ProcessTerminal, Spacer, Text, 
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
+import { renderSplash } from "./splash.js";
 import { bold, boldColor, color, DIM, dim, getTheme, glyph, RESET, spinnerFrames } from "./theme.js";
 
 // ---------------------------------------------------------------------------
@@ -226,6 +227,10 @@ export async function runTuiMode(
 	const t = getTheme();
 
 	// ── Top zone (terminal owns scrolling) ────────────────────────────────────
+
+	// Splash: random world-script glyph as Braille art — printed once, lives in scrollback
+	const splash = await renderSplash();
+	if (splash) tui.addChild(new Text(splash, 0, 0));
 
 	const sessionShort = opts.sessionId.slice(0, 8);
 	const header = `${boldColor(`${glyph("bullet")} ALEF`, t.accentFg)}  ${color(glyph("sep"), t.dimFg)}  ${color(opts.modelId, t.modelFg)}  ${color(glyph("sep"), t.dimFg)}  ${color(sessionShort, t.dimFg)}`;

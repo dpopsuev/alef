@@ -4,95 +4,86 @@
  *   cd packages/runner
  *   npx tsx ../../node_modules/vitest/dist/cli.js --run test/splash-visual.test.ts
  *
- * This test never asserts — it prints rendered output so a human can judge
- * whether the Braille shading looks correct.
+ * No assertions — prints rendered output for human inspection.
  */
 
 import { describe, it } from "vitest";
-import { rasterise, rasterToShaded } from "../src/splash-render.js";
+import { rasterise, rasterToBlocks } from "../src/splash-render.js";
 
 const LATIN_FONT = "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regular.ttf";
 const LATIN_BOLD = "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Bold.ttf";
-const HEBREW_FONT = "/usr/share/fonts/terminus-fonts/TerminessNerdFontPropo-Regular.ttf";
+const HEBREW_FONT = "/usr/share/fonts/google-noto-vf/NotoSerifHebrew[wght].ttf";
 
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
-const DIM = "\x1b[2m";
-const FG_MAG = "\x1b[35m"; // magenta — representative terminal theme color
+const FG_MAG = "\x1b[35m";
 
 async function renderGlyph(glyph: string, fontPath: string, ptSize = 64): Promise<string> {
 	const pixels = await rasterise(glyph, fontPath, ptSize);
 	if (!pixels) return `(rasterise returned null for '${glyph}')`;
-	return rasterToShaded(pixels, `${BOLD}${FG_MAG}`, FG_MAG, `${DIM}${FG_MAG}`, RESET);
+	return rasterToBlocks(pixels, FG_MAG);
 }
 
-function printDivider(label: string): void {
+function section(label: string): void {
 	process.stdout.write(`\n${BOLD}── ${label} ${"─".repeat(40 - label.length)}${RESET}\n\n`);
 }
 
-describe("splash render — visual", () => {
-	it("renders Latin letters A B C H I O at different sizes", async () => {
-		for (const size of [32, 64, 96]) {
-			printDivider(`Latin ${size}pt`);
-			for (const ch of ["A", "B", "C", "H", "I", "O"]) {
-				process.stdout.write(`  ${ch}:\n`);
-				const art = await renderGlyph(ch, LATIN_FONT, size);
-				for (const line of art.split("\n")) {
-					process.stdout.write(`    ${line}\n`);
-				}
-				process.stdout.write("\n");
-			}
+describe("splash render — visual block elements", () => {
+	it("renders Latin letters at 64pt", async () => {
+		section("Latin 64pt — block elements");
+		for (const ch of ["A", "B", "C", "H", "O", "8"]) {
+			process.stdout.write(`  ${ch}:\n`);
+			const art = await renderGlyph(ch, LATIN_FONT, 64);
+			for (const line of art.split("\n")) process.stdout.write(`    ${line}\n`);
+			process.stdout.write("\n");
 		}
 	});
 
-	it("renders bold vs regular — stroke weight comparison", async () => {
-		printDivider("Regular vs Bold at 64pt");
+	it("renders bold E vs regular E", async () => {
+		section("Regular vs Bold E at 64pt");
 		for (const [label, font] of [
 			["Regular", LATIN_FONT],
 			["Bold", LATIN_BOLD],
 		] as const) {
 			process.stdout.write(`  ${label}:\n`);
 			const art = await renderGlyph("E", font, 64);
-			for (const line of art.split("\n")) {
-				process.stdout.write(`    ${line}\n`);
-			}
+			for (const line of art.split("\n")) process.stdout.write(`    ${line}\n`);
 			process.stdout.write("\n");
 		}
 	});
 
-	it("renders Hebrew alef at 64pt", async () => {
-		printDivider("Hebrew \u05d0 (alef) 64pt");
-		const art = await renderGlyph("\u05d0", HEBREW_FONT, 64);
-		for (const line of art.split("\n")) {
-			process.stdout.write(`  ${line}\n`);
+	it("renders Hebrew letters with NotoSerif at 64pt", async () => {
+		section("Hebrew — NotoSerifHebrew 64pt");
+		for (const ch of ["\u05d0", "\u05d1", "\u05d2", "\u05de", "\u05e9", "\u05ea"]) {
+			process.stdout.write(`  ${ch}:\n`);
+			const art = await renderGlyph(ch, HEBREW_FONT, 64);
+			for (const line of art.split("\n")) process.stdout.write(`    ${line}\n`);
+			process.stdout.write("\n");
 		}
-		process.stdout.write("\n");
 	});
 
-	it("renders digit 8 — symmetry check", async () => {
-		printDivider("Digit 8 — symmetry check");
-		const art = await renderGlyph("8", LATIN_FONT, 64);
-		for (const line of art.split("\n")) {
-			process.stdout.write(`  ${line}\n`);
+	it("compares pt sizes for Hebrew alef", async () => {
+		section("Hebrew \u05d0 at 32 / 64 / 96pt");
+		for (const size of [32, 64, 96]) {
+			process.stdout.write(`  ${size}pt:\n`);
+			const art = await renderGlyph("\u05d0", HEBREW_FONT, size);
+			for (const line of art.split("\n")) process.stdout.write(`    ${line}\n`);
+			process.stdout.write("\n");
 		}
-		process.stdout.write("\n");
 	});
 
-	it("prints raw pixel map for 'I' — debugging aid", async () => {
-		printDivider("'I' raw darkness map (64pt)");
-		const pixels = await rasterise("I", LATIN_FONT, 64);
+	it("prints raw darkness map for A", async () => {
+		section("'A' raw pixel map (64pt)");
+		const pixels = await rasterise("A", LATIN_FONT, 64);
 		if (!pixels) {
 			process.stdout.write("  null\n");
 			return;
 		}
-
 		const SHADES = " .:-=+*#%@";
 		for (const row of pixels) {
 			process.stdout.write("  ");
-			for (const v of row) {
-				const idx = Math.min(SHADES.length - 1, Math.floor(v * SHADES.length));
-				process.stdout.write(SHADES[idx] ?? " ");
-			}
+			for (const v of row)
+				process.stdout.write(SHADES[Math.min(SHADES.length - 1, Math.floor(v * SHADES.length))] ?? " ");
 			process.stdout.write("\n");
 		}
 		process.stdout.write(`\n  (${pixels[0]?.length ?? 0}w × ${pixels.length}h px)\n`);

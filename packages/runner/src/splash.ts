@@ -2,8 +2,8 @@
 
 import { execSync } from "node:child_process";
 import { getConfig } from "./config.js";
-import { rasterise, rasterToShaded } from "./splash-render.js";
-import { BOLD, colorDepth, DIM, fgCode, getTheme, RESET, systemLang } from "./theme.js";
+import { rasterise, rasterToBlocks } from "./splash-render.js";
+import { colorDepth, fgCode, getTheme, systemLang } from "./theme.js";
 
 // ---------------------------------------------------------------------------
 // Script block registry
@@ -78,8 +78,14 @@ function fontPathForLang(lang: string): string | null {
 		const files = out
 			.split("\n")
 			.map((l) => l.trim())
-			.filter(Boolean);
-		return files.find((f) => f.endsWith(".ttf") || f.endsWith(".otf")) ?? files[0] ?? null;
+			.filter((f) => f.endsWith(".ttf") || f.endsWith(".otf"));
+		// Prefer Noto / Google fonts over bitmap/terminal fonts (Terminus, etc.)
+		return (
+			files.find((f) => /noto/i.test(f)) ??
+			files.find((f) => !/terminus|terminess|nerd/i.test(f)) ??
+			files[0] ??
+			null
+		);
 	} catch {
 		return null;
 	}
@@ -122,7 +128,7 @@ export async function renderSplash(): Promise<string> {
 		const pixels = await rasterise(randomCodePoint(block), fontPath, 64);
 		if (!pixels) continue;
 
-		const art = rasterToShaded(pixels, `${BOLD}${fg}`, fg, `${DIM}${fg}`, RESET);
+		const art = rasterToBlocks(pixels, fg);
 		if (!art.trim()) continue;
 
 		_cached = art;

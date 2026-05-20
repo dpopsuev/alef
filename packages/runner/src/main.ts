@@ -220,6 +220,13 @@ export function setLLMAbortController(ctrl: AbortController | undefined): void {
 	currentLLMController = ctrl;
 }
 
+// Mutable callback holder — runTuiMode fills .onToolStart/.onToolEnd
+// synchronously during setup, before the first user message arrives.
+const toolSlot = {
+	onToolStart: undefined as ((id: string, name: string, args: Record<string, unknown>) => void) | undefined,
+	onToolEnd: undefined as ((id: string, elapsedMs: number, ok: boolean) => void) | undefined,
+};
+
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 const llmOrgan = scriptedRepliesEnv
 	? new ScriptedLLMOrgan((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
@@ -228,6 +235,8 @@ const llmOrgan = scriptedRepliesEnv
 			thinking: thinkingLevel,
 			prepareStep: chainedPrepareStep,
 			getSignal: () => currentLLMController?.signal,
+			onToolStart: (id, name, args) => toolSlot.onToolStart?.(id, name, args),
+			onToolEnd: (id, ms, ok) => toolSlot.onToolEnd?.(id, ms, ok),
 		});
 agent.load(dialog).load(llmOrgan).load(reactor);
 for (const organ of corpusOrgans) {
@@ -329,6 +338,7 @@ try {
 			{ cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id },
 			() => agent.dispose(),
 			setLLMAbortController,
+			toolSlot,
 		);
 	} else if (args.serve !== undefined && !process.stdin.isTTY) {
 		// --serve without a TTY: RouterOrgan is the sole interface.

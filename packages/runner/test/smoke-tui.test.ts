@@ -129,7 +129,7 @@ describe("TUI process-exit smoke (node-pty)", () => {
 		const cwd = makeTmp();
 		const result = await runInPty(cwd, ["scripted reply"], async (write, waitFor) => {
 			// Wait for the TUI header to appear.
-			await waitFor(/Alef|session:/);
+			await waitFor(/ALEF|session:/);
 			// Small settle — TUI needs to be ready for input.
 			await new Promise((r) => setTimeout(r, 300));
 			write("/exit\r");
@@ -141,7 +141,7 @@ describe("TUI process-exit smoke (node-pty)", () => {
 	it("Ctrl+C when idle terminates the process with exit code 0", async () => {
 		const cwd = makeTmp();
 		const result = await runInPty(cwd, ["scripted reply"], async (write, waitFor) => {
-			await waitFor(/Alef|session:/);
+			await waitFor(/ALEF|session:/);
 			await new Promise((r) => setTimeout(r, 300));
 			write("\x03"); // Ctrl+C
 		});
@@ -152,7 +152,7 @@ describe("TUI process-exit smoke (node-pty)", () => {
 	it("Ctrl+C mid-turn cancels the turn without exiting, second Ctrl+C exits", async () => {
 		const cwd = makeTmp();
 		const result = await runInPty(cwd, ["scripted reply"], async (write, waitFor) => {
-			await waitFor(/Alef|session:/);
+			await waitFor(/ALEF|session:/);
 			await new Promise((r) => setTimeout(r, 300));
 
 			// Send a message to start a turn.

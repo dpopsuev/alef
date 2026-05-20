@@ -1,5 +1,3 @@
-import type {} from "node:process";
-
 // ---------------------------------------------------------------------------
 // Color depth
 // ---------------------------------------------------------------------------
@@ -221,4 +219,38 @@ export function setThemeByName(name: string): void {
 	} else {
 		_active = t;
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Nerd Font detection + glyph system
+// ---------------------------------------------------------------------------
+
+// Opt-in via ALEF_NERD_FONTS=1. Without it, ASCII fallbacks are used so the
+// TUI works on any terminal without special font requirements.
+const _nerdFonts = process.env.ALEF_NERD_FONTS === "1";
+
+export function nerdFontsAvailable(): boolean {
+	return _nerdFonts;
+}
+
+interface GlyphPair {
+	nerd: string;
+	ascii: string;
+}
+
+const GLYPHS: Record<string, GlyphPair> = {
+	"state:done": { nerd: "⬢", ascii: "✓" },
+	"state:active": { nerd: "⬡", ascii: "*" },
+	"state:error": { nerd: "●", ascii: "!" },
+	"state:pending": { nerd: "○", ascii: "." },
+	user: { nerd: "▸", ascii: ">" },
+	bullet: { nerd: "▪", ascii: "*" },
+	sep: { nerd: "─", ascii: "-" },
+	dot: { nerd: "·", ascii: "." },
+};
+
+export function glyph(key: string): string {
+	const pair = GLYPHS[key];
+	if (!pair) return key;
+	return _nerdFonts ? pair.nerd : pair.ascii;
 }

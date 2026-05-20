@@ -247,6 +247,10 @@ export class TUI extends Container {
 
 	/** Global callback for debug key (Shift+Ctrl+D). Called before input is forwarded to focused component. */
 	public onDebug?: () => void;
+	/** Called synchronously at the end of stop(). Use instead of monkey-patching stop(). */
+	public onStop?: () => void;
+	/** Called with every raw input byte before any other processing. Return true to consume and stop propagation. */
+	public onRawInput?: (data: string) => boolean;
 	private renderRequested = false;
 	private renderTimer: NodeJS.Timeout | undefined;
 	private lastRenderAt = 0;
@@ -490,6 +494,7 @@ export class TUI extends Container {
 
 		this.terminal.showCursor();
 		this.terminal.stop();
+		this.onStop?.();
 	}
 
 	requestRender(force = false): void {
@@ -542,6 +547,7 @@ export class TUI extends Container {
 	}
 
 	private handleInput(data: string): void {
+		if (this.onRawInput?.(data)) return;
 		if (this.inputListeners.size > 0) {
 			let current = data;
 			for (const listener of this.inputListeners) {

@@ -27,6 +27,10 @@ export interface LLMOrganOptions {
 	 * When the controller is aborted (Ctrl+C mid-turn), the HTTP stream is cancelled.
 	 */
 	getSignal?: () => AbortSignal | undefined;
+	/** Called when a tool call is dispatched. callId is unique per call. */
+	onToolStart?: (callId: string, name: string, args: Record<string, unknown>) => void;
+	/** Called when a tool call resolves (success or error). */
+	onToolEnd?: (callId: string, elapsedMs: number, ok: boolean) => void;
 	/**
 	 * Extended thinking level. Requires a model that supports reasoning
 	 * (e.g. claude-3-7-sonnet-20250219). Default: off (no thinking).
@@ -202,12 +206,17 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		const results = await Promise.all(
 			toolCalls.map((tc) => {
 				const motorType = toMotorName(tc.name);
+				const startedAt = Date.now();
+				options.onToolStart?.(tc.id, motorType, tc.args);
 				motor.publish({
 					type: motorType,
 					payload: { ...tc.args, toolCallId: tc.id },
 					correlationId,
 				});
-				return waitForToolResult(sense, motorType, tc.id, correlationId);
+				return waitForToolResult(sense, motorType, tc.id, correlationId).then((r) => {
+					options.onToolEnd?.(tc.id, Date.now() - startedAt, !r.isError);
+					return r;
+				});
 			}),
 		);
 

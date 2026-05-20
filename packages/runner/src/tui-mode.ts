@@ -285,7 +285,7 @@ export async function runTuiMode(
 	// ── StreamZone (terminal owns) ────────────────────────────────────
 
 	const sessionShort = opts.sessionId.slice(0, 8);
-	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${opts.modelId}  ${glyph("sep")}  ${sessionShort}`;
+	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${sessionShort}`;
 	// StreamZone: header pill wraps the splash glyph — same pattern as @you / @alef
 	tui.addChild(
 		new DynamicText((w) => {
@@ -311,8 +311,7 @@ export async function runTuiMode(
 	const hintBar = new DynamicText((_w) => dim("/exit · /new · /resume · /help"));
 	tui.addChild(hintBar);
 
-	// Status: shows thinking state when active, empty when idle (model is in the header)
-	const statusText = new Text("", 0, 0);
+	const statusText = new Text(dim(opts.modelId), 0, 0);
 	tui.addChild(statusText);
 
 	// ── Spinner state ─────────────────────────────────────────────────────────
@@ -337,7 +336,7 @@ export async function runTuiMode(
 	function stopThinking(): void {
 		clearInterval(thinkingTimer);
 		thinkingTimer = undefined;
-		statusText.setText("");
+		statusText.setText(dim(`${opts.modelId}`));
 	}
 
 	// ── Tool call live tracking ───────────────────────────────────────────────

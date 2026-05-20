@@ -27,7 +27,7 @@ export interface TypewriterConfig {
 	streamingPauseMs?: number; // treat stream as done after N ms silence (default 150)
 }
 
-const DEFAULT_INTERVALS: TypewriterTickIntervals = { slowMs: 32, normalMs: 16, fastMs: 8 };
+const DEFAULT_INTERVALS: TypewriterTickIntervals = { slowMs: 48, normalMs: 24, fastMs: 8 };
 const DEFAULT_STREAMING_PAUSE_MS = 150;
 
 export class Typewriter {
@@ -41,6 +41,7 @@ export class Typewriter {
 	private readonly onRender: () => void;
 	private readonly intervals: TypewriterTickIntervals;
 	private readonly streamingPauseMs: number;
+	private drainedCallbacks: Array<() => void> = [];
 
 	constructor(sink: TypewriterSink, onRender: () => void, config: TypewriterConfig = {}) {
 		this.sink = sink;
@@ -71,6 +72,17 @@ export class Typewriter {
 		this.scheduleIfIdle();
 	}
 
+	/**
+	 * Returns a Promise that resolves once the display buffer is fully caught up.
+	 * Resolves immediately if pressure is already zero.
+	 */
+	whenDrained(): Promise<void> {
+		if (this.pressure === 0) return Promise.resolve();
+		return new Promise((resolve) => {
+			this.drainedCallbacks.push(resolve);
+		});
+	}
+
 	/** Instantly reveal all pending content — used when a segment is sealed. */
 	flush(): void {
 		if (this.timer) {
@@ -90,6 +102,7 @@ export class Typewriter {
 		this.displayed = "";
 		this.streamingActive = false;
 		this.lastChunkAt = 0;
+		this.drainedCallbacks = [];
 	}
 
 	/**
@@ -102,12 +115,14 @@ export class Typewriter {
 	 */
 	pressureStep(gap: number): number {
 		if (this.effectivelyDone) return Math.ceil(Math.max(gap, 1) / 2);
+		// Cap at 12 while streaming — prevents fast bursts from draining instantly.
+		// The cap means at 60fps the max visible rate is ~720 chars/s, which reads
+		// as a typewriter rather than a page flip.
 		if (gap <= 2) return 1;
 		if (gap <= 8) return 2;
 		if (gap <= 25) return 4;
 		if (gap <= 70) return 8;
-		if (gap <= 180) return 15;
-		return Math.ceil(gap / 4);
+		return 12;
 	}
 
 	/** Tick interval based on current pressure and streaming state. */
@@ -136,6 +151,9 @@ export class Typewriter {
 
 		if (this.pressure > 0) {
 			this.timer = setTimeout(() => this.tick(), this.nextTickMs());
+		} else {
+			const cbs = this.drainedCallbacks.splice(0);
+			for (const cb of cbs) cb();
 		}
 	}
 }

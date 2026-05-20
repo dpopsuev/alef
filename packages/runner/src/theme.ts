@@ -1,7 +1,3 @@
-// ---------------------------------------------------------------------------
-// Color depth
-// ---------------------------------------------------------------------------
-
 export type ColorDepth = "truecolor" | "256" | "16";
 
 export function colorDepth(): ColorDepth {
@@ -11,10 +7,6 @@ export function colorDepth(): ColorDepth {
 	if (term.includes("256color") || ct === "256color") return "256";
 	return "16";
 }
-
-// ---------------------------------------------------------------------------
-// Token types
-// ---------------------------------------------------------------------------
 
 export interface ColorToken {
 	truecolor?: string; // absent in terminal theme — falls through to ansi16
@@ -38,20 +30,39 @@ export interface ThemeTokens {
 	modelFg: ColorToken;
 }
 
-// ---------------------------------------------------------------------------
-// ANSI rendering
-// ---------------------------------------------------------------------------
+import chalk from "chalk";
 
-export const RESET = "\x1b[0m";
-export const BOLD = "\x1b[1m";
-export const DIM = "\x1b[2m";
-export const ITALIC = "\x1b[3m";
+// Used only inside fgCode where chalk has no ColorToken concept.
+const RESET = "\x1b[0m";
 
 function hexToRgb(hex: string): [number, number, number] {
 	const h = hex.replace("#", "");
 	return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
+/**
+ * Return a chalk instance pre-configured for a theme token's color.
+ * Use this instead of fgCode() wherever chalk can drive the output.
+ */
+export function chalkForToken(token: ColorToken): typeof chalk {
+	const depth = colorDepth();
+	if (depth === "truecolor" && token.truecolor) {
+		const [r, g, b] = hexToRgb(token.truecolor);
+		return chalk.rgb(r, g, b);
+	}
+	if ((depth === "truecolor" || depth === "256") && token.ansi256 !== undefined) {
+		return chalk.ansi256(token.ansi256);
+	}
+	if (token.ansi16 !== undefined) {
+		// SGR 30-37 → palette index 0-7, SGR 90-97 → palette index 8-15
+		const code = token.ansi16;
+		const idx = code >= 90 ? code - 90 + 8 : code - 30;
+		if (idx >= 0 && idx <= 15) return chalk.ansi256(idx);
+	}
+	return chalk;
+}
+
+/** Raw ANSI fg escape for a theme token. Used in splash where chalk cannot apply ColorToken colors. */
 export function fgCode(token: ColorToken, depth: ColorDepth): string {
 	if (depth === "truecolor" && token.truecolor) {
 		const [r, g, b] = hexToRgb(token.truecolor);
@@ -64,61 +75,52 @@ export function fgCode(token: ColorToken, depth: ColorDepth): string {
 	return "";
 }
 
+/** Apply a theme token color to text. */
 export function color(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
 	return c ? `${c}${text}${RESET}` : text;
 }
 
-export function bold(text: string): string {
-	return `${BOLD}${text}${RESET}`;
-}
-
+/** Apply a theme token color and bold. */
 export function boldColor(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
-	return c ? `${BOLD}${c}${text}${RESET}` : `${BOLD}${text}${RESET}`;
+	return c ? chalk.bold(`${c}${text}${RESET}`) : chalk.bold(text);
 }
 
-export function dim(text: string): string {
-	return `${DIM}${text}${RESET}`;
-}
+export const bold = (text: string): string => chalk.bold(text);
+export const dim = (text: string): string => chalk.dim(text);
+export const italic = (text: string): string => chalk.italic(text);
 
-// ---------------------------------------------------------------------------
-// Built-in themes
-// ---------------------------------------------------------------------------
-
-// Terminal theme — pure ANSI 16-color, no hex.
-// The terminal maps these SGR codes to whatever the user configured.
 const TERMINAL: ThemeTokens = {
 	userFg: { ansi16: 95 }, // bright magenta
 	agentFg: { ansi16: 96 }, // bright cyan
 	toolNameFg: { ansi16: 34 }, // blue
-	toolArgFg: { ansi16: 90 }, // dark grey
+	toolArgFg: { ansi16: 90 },
 	toolOkFg: { ansi16: 32 }, // green
 	toolErrFg: { ansi16: 31 }, // red
 	accentFg: { ansi16: 95 }, // bright magenta
-	dimFg: { ansi16: 90 }, // dark grey
+	dimFg: { ansi16: 90 },
 	okFg: { ansi16: 32 }, // green
 	warnFg: { ansi16: 33 }, // yellow
 	errFg: { ansi16: 31 }, // red
-	timeFg: { ansi16: 90 }, // dark grey
-	modelFg: { ansi16: 37 }, // light grey
+	timeFg: { ansi16: 90 },
+	modelFg: { ansi16: 37 },
 };
 
-// Akko Blossom — opt-in truecolor palette for users who want exact hex.
 const AKKO: ThemeTokens = {
-	userFg: { truecolor: "#e890a8", ansi256: 211, ansi16: 95 }, // bloom
-	agentFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 }, // cloud
-	toolNameFg: { truecolor: "#6d9aba", ansi256: 67, ansi16: 34 }, // sky
-	toolArgFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 }, // dim
-	toolOkFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 }, // ok
-	toolErrFg: { truecolor: "#c22848", ansi256: 161, ansi16: 31 }, // err
-	accentFg: { truecolor: "#c55778", ansi256: 168, ansi16: 35 }, // blossom
-	dimFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 }, // dim
-	okFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 }, // ok
-	warnFg: { truecolor: "#d09e48", ansi256: 178, ansi16: 33 }, // gold
-	errFg: { truecolor: "#c22848", ansi256: 161, ansi16: 31 }, // err
-	timeFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 }, // dim
-	modelFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 }, // cloud
+	userFg: { truecolor: "#e890a8", ansi256: 211, ansi16: 95 },
+	agentFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 },
+	toolNameFg: { truecolor: "#6d9aba", ansi256: 67, ansi16: 34 },
+	toolArgFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
+	toolOkFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 },
+	toolErrFg: { truecolor: "#c22848", ansi256: 161, ansi16: 31 },
+	accentFg: { truecolor: "#c55778", ansi256: 168, ansi16: 35 },
+	dimFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
+	okFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 },
+	warnFg: { truecolor: "#d09e48", ansi256: 178, ansi16: 33 },
+	errFg: { truecolor: "#c22848", ansi256: 161, ansi16: 31 },
+	timeFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
+	modelFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 },
 };
 
 const MONO: ThemeTokens = {
@@ -160,10 +162,6 @@ export const BUILT_IN_THEMES: Record<string, ThemeTokens> = {
 	matrix: MATRIX,
 };
 
-// ---------------------------------------------------------------------------
-// Active theme singleton
-// ---------------------------------------------------------------------------
-
 let _active: ThemeTokens = TERMINAL;
 
 export function getTheme(): ThemeTokens {
@@ -174,11 +172,6 @@ export function setTheme(tokens: ThemeTokens): void {
 	_active = tokens;
 }
 
-// ---------------------------------------------------------------------------
-// Spinner glyphs — locale-aware
-// ---------------------------------------------------------------------------
-
-// Glyphs chosen from each script for visual weight at terminal font sizes.
 const SCRIPT_GLYPHS: Record<string, readonly string[]> = {
 	ja: ["ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク", "ケ", "コ", "あ", "い", "う", "え", "お", "か"],
 	zh: ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "百", "千", "万", "天", "地", "人"],
@@ -196,7 +189,6 @@ const SCRIPT_GLYPHS: Record<string, readonly string[]> = {
 	default: ["∀", "∂", "∃", "∅", "∆", "∇", "∏", "∑", "∞", "∫", "≈", "≠", "≤", "≥", "◆", "◊"],
 };
 
-// Language code aliases — maps to the canonical key in SCRIPT_GLYPHS.
 const LANG_ALIAS: Record<string, string> = {
 	zh_tw: "zh",
 	zh_hk: "zh",
@@ -242,10 +234,6 @@ export function setThemeByName(name: string): void {
 		_active = t;
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Nerd Font detection + glyph system
-// ---------------------------------------------------------------------------
 
 // Opt-in via ALEF_NERD_FONTS=1. Without it, ASCII fallbacks are used so the
 // TUI works on any terminal without special font requirements.

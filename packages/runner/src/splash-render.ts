@@ -1,11 +1,3 @@
-// Pure rendering pipeline — rasterise a glyph to a grayscale map,
-// then render it using Unicode block elements. No side effects, fully testable.
-
-// ---------------------------------------------------------------------------
-// Grayscale rasteriser
-// Returns darkness per pixel: 0.0 = white/empty, 1.0 = black ink.
-// ---------------------------------------------------------------------------
-
 export async function rasterise(glyph: string, fontPath: string, ptSize: number): Promise<number[][] | null> {
 	try {
 		const { createCanvas, GlobalFonts } = await import("@napi-rs/canvas");
@@ -43,10 +35,6 @@ export async function rasterise(glyph: string, fontPath: string, ptSize: number)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Column crop — remove blank left/right margins so every glyph is flush left.
-// ---------------------------------------------------------------------------
-
 export function cropColumns(pixels: readonly (readonly number[])[]): readonly (readonly number[])[] {
 	const H = pixels.length;
 	const W = pixels[0]?.length ?? 0;
@@ -66,24 +54,15 @@ export function cropColumns(pixels: readonly (readonly number[])[]): readonly (r
 	return pixels.map((row) => row.slice(left, right + 1));
 }
 
-// ---------------------------------------------------------------------------
-// Block element renderer
 //
-// Each terminal cell covers 1 column × 2 pixel rows using half-blocks:
-//   top dark + bot dark  → █  full block
-//   top dark + bot empty → ▀  upper half
-//   top empty + bot dark → ▄  lower half
-//   both partially dark  → ▓ ▒ ░  shade characters for anti-aliasing
-//   both empty           → (space)
 //
-// Produces solid, filled letterforms — completely different from Braille dots.
-// ---------------------------------------------------------------------------
 
-const BOLD = "\x1b[1m";
-const DIM = "\x1b[2m";
-const RESET = "\x1b[0m";
-
-export function rasterToBlocks(pixels: readonly (readonly number[])[], fg: string): string {
+export function rasterToBlocks(
+	pixels: readonly (readonly number[])[],
+	dense: (ch: string) => string,
+	mid: (ch: string) => string,
+	faint: (ch: string) => string,
+): string {
 	const cropped = cropColumns(pixels);
 	const H = cropped.length;
 	const W = cropped[0]?.length ?? 0;
@@ -118,8 +97,8 @@ export function rasterToBlocks(pixels: readonly (readonly number[])[], fg: strin
 				ch = "\u2592"; // ▒
 			else ch = "\u2591"; // ░
 
-			const prefix = avg > 0.5 ? `${BOLD}${fg}` : avg > 0.2 ? fg : `${DIM}${fg}`;
-			line += `${prefix}${ch}${RESET}`;
+			const style = avg > 0.5 ? dense : avg > 0.2 ? mid : faint;
+			line += style(ch);
 		}
 
 		lines.push(line);

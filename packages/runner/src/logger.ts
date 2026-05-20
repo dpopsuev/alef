@@ -22,16 +22,25 @@ export type { Logger };
 export function createLogger(level?: string): Logger {
 	return pino({
 		level: level ?? process.env.ALEF_LOG_LEVEL ?? "warn",
-		// Write to stderr — agent reply goes to stdout.
-		transport: process.stderr.isTTY
-			? {
-					// Pretty-print in dev TTY sessions.
-					target: "pino/file",
-					options: { destination: 2 }, // fd 2 = stderr
-				}
-			: undefined,
-		// stderr destination for non-TTY (pipes, CI).
+		transport: process.stderr.isTTY ? { target: "pino/file", options: { destination: 2 } } : undefined,
 		...(process.stderr.isTTY ? {} : { destination: 2 }),
+		base: { pid: process.pid },
+		timestamp: pino.stdTimeFunctions.isoTime,
+	});
+}
+
+/**
+ * Logger for TUI mode: writes to a file instead of stderr.
+ * Prevents structured log lines from leaking into the TUI viewport,
+ * which shares the PTY with stderr in terminal emulators.
+ */
+export function createLoggerForTui(logPath: string, level?: string): Logger {
+	return pino({
+		level: level ?? process.env.ALEF_LOG_LEVEL ?? "warn",
+		transport: {
+			target: "pino/file",
+			options: { destination: logPath, append: true },
+		},
 		base: { pid: process.pid },
 		timestamp: pino.stdTimeFunctions.isoTime,
 	});

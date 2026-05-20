@@ -132,15 +132,16 @@ describe("handleSlashCommand /new", () => {
 		expect(ctx.dialog.clearHistory).toHaveBeenCalledOnce();
 	});
 
-	it("clears all children from chat container", () => {
+	it("clears pre-existing children and replaces with notice pill", () => {
 		const ctx = makeCtx();
 		// Add some children to chat first.
 		ctx.chat.addChild(new Container());
 		ctx.chat.addChild(new Container());
 		expect(ctx.chat.children).toHaveLength(2);
 		handleSlashCommand("/new", ctx);
-		// One notice child remains after clear.
-		expect(ctx.chat.children.length).toBeLessThanOrEqual(1);
+		// Pre-existing children cleared; only the notice pill remains.
+		// appendPillBlock adds: Spacer + DynText(header) + Text(body) + DynText(footer) + Spacer = 5
+		expect(ctx.chat.children.length).toBe(5);
 	});
 
 	it("appends '(conversation cleared)' notice", () => {

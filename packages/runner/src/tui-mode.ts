@@ -58,7 +58,7 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 		ctx.setAbortCurrentTurn(undefined);
 		ctx.setLLMController(undefined);
 		appendNotice(ctx.chat, "(interrupted)");
-		ctx.tui.requestRender();
+		ctx.tui.requestRender(true);
 	} else {
 		trace("ctrl+c:idle:dispose");
 		ctx.dispose();
@@ -79,7 +79,7 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			ctx.dialog.clearHistory();
 			while (ctx.chat.children.length > 0) ctx.chat.removeChild(ctx.chat.children[0]);
 			appendNotice(ctx.chat, "(conversation cleared)");
-			ctx.tui.requestRender();
+			ctx.tui.requestRender(true);
 			return true;
 		case "/resume":
 			appendNotice(ctx.chat, `session: ${ctx.sessionId}`);

@@ -1,4 +1,30 @@
+import type { Component } from "@dpopsuev/alef-tui";
 import { Editor, type EditorTheme, type SelectListTheme, Text, type TUI } from "@dpopsuev/alef-tui";
+
+class ArcEditorWrapper implements Component {
+	constructor(
+		private readonly inner: Editor,
+		private readonly arcColor: (s: string) => string,
+	) {}
+
+	render(width: number): string[] {
+		const lines = this.inner.render(width);
+		const arc = (_l: string, open: boolean): string => {
+			const fill = Math.max(0, width - 2);
+			return this.arcColor(open ? `╭${"─".repeat(fill)}╮` : `╰${"─".repeat(fill)}╯`);
+		};
+		if (lines.length >= 2) {
+			lines[0] = arc(lines[0], true);
+			lines[lines.length - 1] = arc(lines[lines.length - 1], false);
+		}
+		return lines;
+	}
+
+	invalidate(): void {
+		this.inner.invalidate();
+	}
+}
+
 import { DynamicText } from "./dynamic-text.js";
 import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, color, dim, glyph, type ThemeTokens } from "./theme.js";
@@ -53,7 +79,7 @@ export class ConsoleZone {
 
 	mount(): void {
 		this.tui.addChild(this.statusText);
-		this.tui.addChild(this.editor);
+		this.tui.addChild(new ArcEditorWrapper(this.editor, (s) => color(s, this.t.dimFg)));
 		this.tui.addChild(new DynamicText((_w) => dim("/exit · /new · /resume · /help")));
 		this.tui.addChild(new Text(dim(this._modelId), 0, 0));
 	}

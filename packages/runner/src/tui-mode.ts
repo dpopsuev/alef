@@ -12,7 +12,7 @@
 
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Component, MarkdownTheme } from "@dpopsuev/alef-tui";
-import { Container, Input, Loader, Markdown, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
+import { Container, GrowSpacer, Input, Loader, Markdown, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
@@ -134,24 +134,34 @@ function horizontalRule(): DynamicText {
 	return new DynamicText((w) => color(glyph("sep").repeat(Math.max(1, w - 2)), t.dimFg));
 }
 
-function appendUserMsg(chat: Container, text: string): void {
+function appendUserMsg(chat: Container, text: string, grow?: GrowSpacer): void {
 	const t = getTheme();
 	chat.addChild(new Text(`${DIM}${color(glyph("user"), t.accentFg)} ${RESET}${text}`, 1, 0));
+	grow?.addContentLines(1);
 }
 
-function appendAgentMsg(chat: Container, text: string): void {
+function appendAgentMsg(chat: Container, text: string, grow?: GrowSpacer, tokenSlot?: { text: Text | null }): void {
 	chat.addChild(new Spacer(1));
+	const lines = text.split("\n").length + 2; // rough line estimate + spacers
 	try {
 		chat.addChild(new Markdown(text, 1, 0, makeMarkdownTheme()));
 	} catch {
 		chat.addChild(new Text(text, 1, 0));
 	}
+	if (tokenSlot !== undefined) {
+		const footer = new Text("", 1, 0);
+		chat.addChild(footer);
+		tokenSlot.text = footer;
+		grow?.addContentLines(1);
+	}
 	chat.addChild(new Spacer(1));
+	grow?.addContentLines(lines);
 }
 
-function appendNotice(chat: Container, text: string): void {
+function appendNotice(chat: Container, text: string, grow?: GrowSpacer): void {
 	const t = getTheme();
 	chat.addChild(new Text(`${color(glyph("sep"), t.dimFg)} ${dim(text)}`, 1, 0));
+	grow?.addContentLines(1);
 }
 
 /** Render a tool call line in active state (no elapsed yet). */
@@ -167,6 +177,12 @@ export function renderToolLine(name: string, keyArg: string, elapsedMs: number, 
 	const statusGlyph = ok ? glyph("state:done") : glyph("state:error");
 	const statusColor = ok ? t.toolOkFg : t.toolErrFg;
 	return `  ${color(statusGlyph, statusColor)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}  ${color(elapsed, t.timeFg)}`;
+}
+
+function compact(n: number): string {
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+	return String(n);
 }
 
 function keyArgFromPayload(args: Record<string, unknown>): string {
@@ -197,6 +213,7 @@ function helpText(): string {
 export interface TuiToolSlot {
 	onToolStart: ((callId: string, name: string, args: Record<string, unknown>) => void) | undefined;
 	onToolEnd: ((callId: string, elapsedMs: number, ok: boolean) => void) | undefined;
+	onTokenUsage: ((tokenIn: number, tokenOut: number) => void) | undefined;
 }
 
 export async function runTuiMode(
@@ -217,6 +234,10 @@ export async function runTuiMode(
 	tui.addChild(horizontalRule());
 
 	// ── Conversation zone ──────────────────────────────────────────────────────
+	// GrowSpacer pushes conversation to bottom when few messages exist.
+	// Occupied: header(1) + 2 rules(2) + hintBar(1) + input(1) = 5 fixed lines.
+	const growSpacer = new GrowSpacer(5);
+	tui.addChild(growSpacer);
 	const chat = new Container();
 	tui.addChild(chat);
 
@@ -256,8 +277,19 @@ export async function runTuiMode(
 	// Maps callId → { textComponent, name, keyArg }
 	const activeCalls = new Map<string, { text: Text; name: string; keyArg: string }>();
 
+	// Pending token footer — appended after agent reply when usage arrives.
+	let pendingTokenFooter: Text | null = null;
+
 	// Fill the tool slot synchronously — these handlers are ready before any turn starts.
 	if (toolSlot) {
+		toolSlot.onTokenUsage = (tokenIn, tokenOut) => {
+			const footer = `${dim(`${compact(tokenIn)} in`)} · ${dim(`${compact(tokenOut)} out`)}`;
+			if (pendingTokenFooter) {
+				pendingTokenFooter.setText(footer);
+				pendingTokenFooter = null;
+				tui.requestRender(true);
+			}
+		};
 		toolSlot.onToolStart = (callId, name, args) => {
 			const keyArg = keyArgFromPayload(args);
 			const textComponent = new Text(toolActiveLine(name, keyArg), 1, 0);
@@ -315,7 +347,7 @@ export async function runTuiMode(
 		}
 
 		input.setValue("");
-		appendUserMsg(chat, text);
+		appendUserMsg(chat, text, growSpacer);
 
 		tui.removeChild(hintBar);
 		tui.removeChild(input);
@@ -340,9 +372,13 @@ export async function runTuiMode(
 
 		try {
 			const reply = await dialog.send(text, "human", 300_000);
-			if (!aborted) appendAgentMsg(chat, reply);
+			if (!aborted) {
+				const footerSlot = { text: null as Text | null };
+				appendAgentMsg(chat, reply, growSpacer, footerSlot);
+				pendingTokenFooter = footerSlot.text;
+			}
 		} catch (e) {
-			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
+			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`, growSpacer);
 		} finally {
 			abortCurrentTurn = undefined;
 			setLLMAbortController(undefined);

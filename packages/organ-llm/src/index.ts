@@ -31,6 +31,8 @@ export interface LLMOrganOptions {
 	onToolStart?: (callId: string, name: string, args: Record<string, unknown>) => void;
 	/** Called when a tool call resolves (success or error). */
 	onToolEnd?: (callId: string, elapsedMs: number, ok: boolean) => void;
+	/** Called after the LLM reply is complete with token usage for the turn. */
+	onTokenUsage?: (tokenIn: number, tokenOut: number) => void;
 	/**
 	 * Extended thinking level. Requires a model that supports reasoning
 	 * (e.g. claude-3-7-sonnet-20250219). Default: off (no thinking).
@@ -169,6 +171,9 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
 
 		if (toolCalls.length === 0) {
+			if (finalMessage.usage) {
+				options.onTokenUsage?.(finalMessage.usage.input, finalMessage.usage.output);
+			}
 			const text =
 				(typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined) ?? extractText(finalMessage);
 			if (text) {

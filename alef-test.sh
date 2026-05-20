@@ -60,4 +60,4 @@ if [[ ! -x "$TSX_BIN" ]]; then
   exit 1
 fi
 
-"$TSX_BIN" "$SCRIPT_DIR/packages/coding-agent/src/cli.ts" ${ARGS[@]+"${ARGS[@]}"}
+"$TSX_BIN" "$SCRIPT_DIR/packages/runner/src/main.ts" ${ARGS[@]+"${ARGS[@]}"}

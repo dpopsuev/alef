@@ -1,7 +1,7 @@
 import type { AgentCapabilityDefinition, AgentTool } from "@dpopsuev/alef-agent-core";
-import type { ToolDefinition } from "../../../coding-agent/src/core/extensions/types.js";
-import type { PlatformActionInfo } from "../../../coding-agent/src/core/platform/types.js";
-import type { SourceInfo } from "../../../coding-agent/src/core/source-info.js";
+import type { PlatformActionInfo, SourceInfo, ToolDefinitionLike } from "./contracts.js";
+
+type ToolDefinition = ToolDefinitionLike;
 
 function normalizeActionInfo(options: {
 	name: string;

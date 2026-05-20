@@ -1,11 +1,13 @@
 import type { AgentMessage } from "@dpopsuev/alef-agent-core";
 import type {
 	AgentMemoryPorts,
+	SessionManagerLike,
 	SessionMemoryPort,
 	WorkingMemoryEntry,
 	WorkingMemoryPort,
-} from "../../../coding-agent/src/core/platform/types.js";
-import type { SessionManager } from "../../../coding-agent/src/core/session-manager.js";
+} from "./contracts.js";
+
+type SessionManager = SessionManagerLike;
 
 function cloneValue<T>(value: T): T {
 	return structuredClone(value);

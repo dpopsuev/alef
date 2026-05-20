@@ -17,7 +17,7 @@ function expandTildePath(dir: string): string {
 	return dir;
 }
 
-/** Mirrors coding-agent `getAgentDir()` resolution for tests. */
+/** Mirrors runner `authFilePath()` resolution for tests. */
 function resolveAlefAgentDir(): string {
 	const envDir = process.env.ALEF_CODING_AGENT_DIR?.trim();
 	if (envDir) {

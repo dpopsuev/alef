@@ -2,7 +2,7 @@
  * Strangler fig validation suite.
  *
  * Proves that the runner (packages/runner) is a correct replacement for
- * packages/coding-agent as the alef entry point. Tests the full chain:
+ * the organ-based runner as the alef entry point. Tests the full chain:
  *
  *   auth.ts        — credential storage and resolution
  *   model.ts       — multi-provider detection and registry lookup

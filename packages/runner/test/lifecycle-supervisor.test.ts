@@ -29,7 +29,9 @@ import { afterEach, describe, expect, it } from "vitest";
 const ROOT = resolve(__dirname, "../../..");
 const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
 const RUNNER_MAIN = resolve(__dirname, "../src/main.ts");
-const SUPERVISOR = resolve(__dirname, "../../coding-agent/src/supervisor.ts");
+// Supervisor binary removed with coding-agent. Tests below that use SUPERVISOR
+// are skipped until an organ-native supervisor is implemented (ALE-GOL-11).
+const SUPERVISOR = resolve(__dirname, "../src/main.ts"); // placeholder — no supervisor yet
 const TSCONFIG = resolve(ROOT, "tsconfig.json");
 
 // ---------------------------------------------------------------------------

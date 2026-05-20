@@ -166,11 +166,7 @@ export class DialogOrgan implements Organ {
 		// Filter to only ConversationMessage entries (text turns) for backward compat.
 		return (this.history as ConversationMessage[]).filter(
 			(m): m is ConversationMessage =>
-				typeof m === "object" &&
-				m !== null &&
-				"role" in m &&
-				"content" in m &&
-				typeof (m as ConversationMessage).content === "string",
+				typeof m === "object" && m !== null && "role" in m && "content" in m && typeof m.content === "string",
 		);
 	}
 

@@ -27,10 +27,11 @@ function hexToken(hex: string): ColorToken {
  * Load theme from ~/.config/alef/theme.yaml or the blueprint's agent.yaml.
  * Merges color overrides on top of the named built-in.
  */
-export function loadTheme(blueprintDir?: string): void {
+export function loadTheme(blueprintDir?: string, cfgThemeName?: string, cfgColors?: Record<string, string>): void {
+	// Priority: blueprint agent.yaml > ~/.config/alef/theme.yaml > config.yaml theme section
 	const candidates = [
-		join(homedir(), ".config", "alef", "theme.yaml"),
 		blueprintDir ? join(blueprintDir, "agent.yaml") : null,
+		join(homedir(), ".config", "alef", "theme.yaml"),
 	].filter(Boolean) as string[];
 
 	let manifest: ThemeManifest | null = null;
@@ -39,16 +40,16 @@ export function loadTheme(blueprintDir?: string): void {
 		if (manifest) break;
 	}
 
-	if (!manifest) return;
-
-	const baseName = manifest.theme ?? "akko";
+	// Fall back to values from config.yaml
+	const baseName = manifest?.theme ?? cfgThemeName ?? "akko";
 	setThemeByName(baseName);
 
-	if (!manifest.colors) return;
+	const allColors: Record<string, string> = { ...cfgColors, ...manifest?.colors };
+	if (Object.keys(allColors).length === 0) return;
 
 	const base = BUILT_IN_THEMES[baseName.toLowerCase()] ?? BUILT_IN_THEMES.akko;
 	const overrides: Partial<Record<keyof ThemeTokens, ColorToken>> = {};
-	for (const [k, v] of Object.entries(manifest.colors)) {
+	for (const [k, v] of Object.entries(allColors)) {
 		if (typeof v === "string") overrides[k as keyof ThemeTokens] = hexToken(v);
 	}
 

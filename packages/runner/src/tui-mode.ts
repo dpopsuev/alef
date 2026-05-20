@@ -1,29 +1,24 @@
 /**
- * TUI interactive mode.
+ * TUI layout — two ownership zones:
  *
- * Three Bauhaus zones:
- *   Identity:     ▪ ALEF  ─  model  ─  session
- *                 ──────────────────────────────  (rule)
- *   Conversation: turns, tool events, agent replies
- *                 ──────────────────────────────  (rule)
- *   Action:       /exit · /new · /help        ⬡ 5s
- *                 ▸ input
+ *   Top (terminal owns scrolling):
+ *     header   — printed once, lives in scrollback
+ *     ───────────────────────────────────────────
+ *     chat     — append-only, grows into scrollback
+ *
+ *   Bottom (we own — always visible, fixed height):
+ *     ───────────────────────────────────────────
+ *     status   — "" | "⬡ Thinking… 3s" | "─ (interrupted)"
+ *     hint     — mode + keybindings
+ *     input    — editor, always present
+ *
+ * No addChild/removeChild after startup. Content changes, structure doesn't.
+ * Terminal scrollback handles history — we never manage viewport.
  */
 
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Component, MarkdownTheme } from "@dpopsuev/alef-tui";
-import {
-	Container,
-	GrowSpacer,
-	Input,
-	Loader,
-	Markdown,
-	matchesKey,
-	ProcessTerminal,
-	Spacer,
-	Text,
-	TUI,
-} from "@dpopsuev/alef-tui";
+import { Container, Input, Markdown, matchesKey, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
@@ -31,7 +26,6 @@ import { bold, boldColor, color, DIM, dim, getTheme, glyph, RESET, spinnerFrames
 
 // ---------------------------------------------------------------------------
 // Dynamic component — renders by calling a function at render time.
-// Used for horizontal rules (width-aware) and the hint/status bar.
 // ---------------------------------------------------------------------------
 
 class DynamicText implements Component {
@@ -46,7 +40,7 @@ class DynamicText implements Component {
 }
 
 // ---------------------------------------------------------------------------
-// Handler context — testable via direct construction with mock collaborators.
+// Handler context
 // ---------------------------------------------------------------------------
 
 export interface TuiHandlerContext {
@@ -113,7 +107,7 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 }
 
 // ---------------------------------------------------------------------------
-// Markdown theme
+// Rendering helpers
 // ---------------------------------------------------------------------------
 
 function makeMarkdownTheme(): MarkdownTheme {
@@ -136,24 +130,18 @@ function makeMarkdownTheme(): MarkdownTheme {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Layout helpers
-// ---------------------------------------------------------------------------
-
 function horizontalRule(): DynamicText {
 	const t = getTheme();
 	return new DynamicText((w) => color(glyph("sep").repeat(Math.max(1, w - 2)), t.dimFg));
 }
 
-function appendUserMsg(chat: Container, text: string, grow?: GrowSpacer): void {
+function appendUserMsg(chat: Container, text: string): void {
 	const t = getTheme();
 	chat.addChild(new Text(`${DIM}${color(glyph("user"), t.accentFg)} ${RESET}${text}`, 1, 0));
-	grow?.addContentLines(1);
 }
 
-function appendAgentMsg(chat: Container, text: string, grow?: GrowSpacer, tokenSlot?: { text: Text | null }): void {
+function appendAgentMsg(chat: Container, text: string, tokenSlot?: { text: Text | null }): void {
 	chat.addChild(new Spacer(1));
-	const lines = text.split("\n").length + 2; // rough line estimate + spacers
 	try {
 		chat.addChild(new Markdown(text, 1, 0, makeMarkdownTheme()));
 	} catch {
@@ -163,37 +151,26 @@ function appendAgentMsg(chat: Container, text: string, grow?: GrowSpacer, tokenS
 		const footer = new Text("", 1, 0);
 		chat.addChild(footer);
 		tokenSlot.text = footer;
-		grow?.addContentLines(1);
 	}
 	chat.addChild(new Spacer(1));
-	grow?.addContentLines(lines);
 }
 
-function appendNotice(chat: Container, text: string, grow?: GrowSpacer): void {
+function appendNotice(chat: Container, text: string): void {
 	const t = getTheme();
 	chat.addChild(new Text(`${color(glyph("sep"), t.dimFg)} ${dim(text)}`, 1, 0));
-	grow?.addContentLines(1);
 }
 
-/** Render a tool call line in active state (no elapsed yet). */
 function toolActiveLine(name: string, keyArg: string): string {
 	const t = getTheme();
 	return `  ${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}`;
 }
 
-/** Render a tool call line in done/error state. */
 export function renderToolLine(name: string, keyArg: string, elapsedMs: number, ok: boolean): string {
 	const t = getTheme();
 	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
-	const statusGlyph = ok ? glyph("state:done") : glyph("state:error");
-	const statusColor = ok ? t.toolOkFg : t.toolErrFg;
-	return `  ${color(statusGlyph, statusColor)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}  ${color(elapsed, t.timeFg)}`;
-}
-
-function compact(n: number): string {
-	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-	return String(n);
+	const g = ok ? glyph("state:done") : glyph("state:error");
+	const fg = ok ? t.toolOkFg : t.toolErrFg;
+	return `  ${color(g, fg)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}  ${color(elapsed, t.timeFg)}`;
 }
 
 function keyArgFromPayload(args: Record<string, unknown>): string {
@@ -204,10 +181,16 @@ function keyArgFromPayload(args: Record<string, unknown>): string {
 	return "";
 }
 
+function compact(n: number): string {
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+	return String(n);
+}
+
 const COMMANDS: Record<string, string> = {
-	"/exit": "Quit Alef",
-	"/new": "Clear conversation history",
-	"/resume": "Show current session ID",
+	"/exit": "Quit",
+	"/new": "Clear conversation",
+	"/resume": "Show session ID",
 	"/help": "Show this help",
 };
 
@@ -218,7 +201,7 @@ function helpText(): string {
 }
 
 // ---------------------------------------------------------------------------
-// TUI mode entry point
+// Tool slot
 // ---------------------------------------------------------------------------
 
 export interface TuiToolSlot {
@@ -226,6 +209,10 @@ export interface TuiToolSlot {
 	onToolEnd: ((callId: string, elapsedMs: number, ok: boolean) => void) | undefined;
 	onTokenUsage: ((tokenIn: number, tokenOut: number) => void) | undefined;
 }
+
+// ---------------------------------------------------------------------------
+// TUI mode
+// ---------------------------------------------------------------------------
 
 export async function runTuiMode(
 	dialog: DialogOrgan,
@@ -238,74 +225,71 @@ export async function runTuiMode(
 	const tui = new TUI(terminal);
 	const t = getTheme();
 
-	// ── Identity zone ─────────────────────────────────────────────────────────
+	// ── Top zone (terminal owns scrolling) ────────────────────────────────────
+
 	const sessionShort = opts.sessionId.slice(0, 8);
 	const header = `${boldColor(`${glyph("bullet")} ALEF`, t.accentFg)}  ${color(glyph("sep"), t.dimFg)}  ${color(opts.modelId, t.modelFg)}  ${color(glyph("sep"), t.dimFg)}  ${color(sessionShort, t.dimFg)}`;
 	tui.addChild(new Text(header, 1, 0));
 	tui.addChild(horizontalRule());
 
-	// ── Conversation zone ──────────────────────────────────────────────────────
-	// GrowSpacer pushes conversation to bottom when few messages exist.
-	// Occupied: header(1) + 2 rules(2) + hintBar(1) + input(1) = 5 fixed lines.
-	const growSpacer = new GrowSpacer(5);
-	tui.addChild(growSpacer);
 	const chat = new Container();
 	tui.addChild(chat);
 
-	// ── Loader ────────────────────────────────────────────────────────────────
-	const loader = new Loader(
-		tui,
-		(s) => color(s, t.warnFg),
-		(s) => color(s, t.dimFg),
-		"Thinking…",
-		{ frames: spinnerFrames(12), intervalMs: 180 },
-	);
+	// ── Bottom zone (we own) ──────────────────────────────────────────────────
+	// Fixed structure — content changes, nothing is added or removed.
 
-	// ── Action zone ────────────────────────────────────────────────────────────
-	// Zone rule + dynamic hint/status bar on one line + input
 	tui.addChild(horizontalRule());
 
-	// Thinking elapsed timer — updated while loader is visible
-	let thinkingStart = 0;
-	let thinkingTimer: NodeJS.Timeout | undefined;
-	let thinkingText = "";
+	// Status slot: empty when idle, animated when thinking, notice on interrupt.
+	const statusText = new Text("", 0, 0);
+	tui.addChild(statusText);
 
-	const hintBar = new DynamicText((w) => {
+	// Hint bar: left = commands, right = active state (only when non-empty)
+	const hintBar = new DynamicText((_w) => {
 		const hints = dim(["/exit", "/new", "/resume", "/help"].join(` ${color(glyph("dot"), t.dimFg)} `));
-		const status = thinkingText ? `${color(glyph("state:active"), t.warnFg)} ${color(thinkingText, t.dimFg)}` : "";
-		if (!status) return hints;
-		// Right-align status
-		const hintsPlain = "/exit · /new · /resume · /help";
-		const gap = Math.max(1, w - hintsPlain.length - status.replace(/\x1b\[[0-9;]*m/g, "").length - 2);
-		return `${hints}${" ".repeat(gap)}${status}`;
+		return hints;
 	});
 	tui.addChild(hintBar);
 
 	const input = new Input();
 	tui.addChild(input);
 
-	// ── Tool call live tracking ────────────────────────────────────────────────
-	// Maps callId → { textComponent, name, keyArg }
-	const activeCalls = new Map<string, { text: Text; name: string; keyArg: string }>();
+	// ── Spinner state ─────────────────────────────────────────────────────────
 
-	// Pending token footer — appended after agent reply when usage arrives.
+	const frames = spinnerFrames(12);
+	let frameIdx = 0;
+	let thinkingStart = 0;
+	let thinkingTimer: NodeJS.Timeout | undefined;
+
+	function startThinking(): void {
+		thinkingStart = Date.now();
+		frameIdx = 0;
+		thinkingTimer = setInterval(() => {
+			frameIdx = (frameIdx + 1) % frames.length;
+			const elapsed = Math.floor((Date.now() - thinkingStart) / 1000);
+			const frame = frames[frameIdx] ?? glyph("state:active");
+			statusText.setText(`  ${color(frame, t.warnFg)} ${color(`${elapsed}s`, t.dimFg)}`);
+			tui.requestRender();
+		}, 180);
+	}
+
+	function stopThinking(): void {
+		clearInterval(thinkingTimer);
+		thinkingTimer = undefined;
+		statusText.setText("");
+	}
+
+	// ── Tool call live tracking ───────────────────────────────────────────────
+
+	const activeCalls = new Map<string, { text: Text; name: string; keyArg: string }>();
 	let pendingTokenFooter: Text | null = null;
 
-	// Fill the tool slot synchronously — these handlers are ready before any turn starts.
 	if (toolSlot) {
-		toolSlot.onTokenUsage = (tokenIn, tokenOut) => {
-			const footer = `${dim(`${compact(tokenIn)} in`)} · ${dim(`${compact(tokenOut)} out`)}`;
-			if (pendingTokenFooter) {
-				pendingTokenFooter.setText(footer);
-				pendingTokenFooter = null;
-				tui.requestRender(true);
-			}
-		};
 		toolSlot.onToolStart = (callId, name, args) => {
 			const keyArg = keyArgFromPayload(args);
-			const textComponent = new Text(toolActiveLine(name, keyArg), 1, 0);
-			activeCalls.set(callId, { text: textComponent, name, keyArg });
-			chat.addChild(textComponent);
+			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
+			activeCalls.set(callId, { text: line, name, keyArg });
+			chat.addChild(line);
 			tui.requestRender(true);
 		};
 		toolSlot.onToolEnd = (callId, elapsedMs, ok) => {
@@ -316,16 +300,25 @@ export async function runTuiMode(
 				tui.requestRender(true);
 			}
 		};
+		toolSlot.onTokenUsage = (tokenIn, tokenOut) => {
+			const footer = `${dim(`${compact(tokenIn)} in`)} ${color(glyph("dot"), t.dimFg)} ${dim(`${compact(tokenOut)} out`)}`;
+			if (pendingTokenFooter) {
+				pendingTokenFooter.setText(footer);
+				pendingTokenFooter = null;
+				tui.requestRender(true);
+			}
+		};
 	}
 
-	// ── Ctrl+C handler ─────────────────────────────────────────────────────────
+	// ── Input / Ctrl+C ────────────────────────────────────────────────────────
+
 	let abortCurrentTurn: (() => void) | undefined;
 
 	const ctx = (): TuiHandlerContext => ({
 		chat,
 		tui,
 		hintBar,
-		loader,
+		loader: statusText,
 		dialog,
 		dispose,
 		sessionId: opts.sessionId,
@@ -338,8 +331,6 @@ export async function runTuiMode(
 		},
 	});
 
-	// Use matchesKey instead of === "\x03" so Kitty protocol terminals
-	// (Alacritty sends \x1b[99;5u for Ctrl+C) are handled correctly.
 	tui.onRawInput = (data) => {
 		if (matchesKey(data, "ctrl+c")) {
 			trace("raw:ctrl+c", { seq: JSON.stringify(data) });
@@ -349,7 +340,6 @@ export async function runTuiMode(
 		return false;
 	};
 
-	// ── Submit handler ─────────────────────────────────────────────────────────
 	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	input.onSubmit = async (rawText: string) => {
 		const text = rawText.trim();
@@ -360,20 +350,9 @@ export async function runTuiMode(
 		}
 
 		input.setValue("");
-		appendUserMsg(chat, text, growSpacer);
-
-		tui.removeChild(hintBar);
-		tui.removeChild(input);
-		tui.addChild(loader);
+		appendUserMsg(chat, text);
+		startThinking();
 		tui.requestRender(true);
-
-		// Start elapsed timer for status bar
-		thinkingStart = Date.now();
-		thinkingText = "0s";
-		thinkingTimer = setInterval(() => {
-			thinkingText = `${Math.floor((Date.now() - thinkingStart) / 1000)}s`;
-			tui.requestRender();
-		}, 1000);
 
 		let aborted = false;
 		const controller = new AbortController();
@@ -386,26 +365,25 @@ export async function runTuiMode(
 		try {
 			const reply = await dialog.send(text, "human", 300_000);
 			if (!aborted) {
+				stopThinking();
 				const footerSlot = { text: null as Text | null };
-				appendAgentMsg(chat, reply, growSpacer, footerSlot);
+				appendAgentMsg(chat, reply, footerSlot);
 				pendingTokenFooter = footerSlot.text;
+				tui.requestRender(true);
 			}
 		} catch (e) {
-			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`, growSpacer);
+			stopThinking();
+			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
+			tui.requestRender(true);
 		} finally {
 			abortCurrentTurn = undefined;
 			setLLMAbortController(undefined);
-			clearInterval(thinkingTimer);
-			thinkingTimer = undefined;
-			thinkingText = "";
-			tui.removeChild(loader);
-			tui.addChild(hintBar);
-			tui.addChild(input);
-			tui.requestRender(true);
+			if (thinkingTimer) stopThinking();
 		}
 	};
 
-	// ── Start ──────────────────────────────────────────────────────────────────
+	// ── Start ─────────────────────────────────────────────────────────────────
+
 	tui.start();
 	tui.setFocus(input);
 	tui.requestRender();
@@ -418,6 +396,6 @@ export async function runTuiMode(
 		};
 	});
 
-	if (thinkingTimer) clearInterval(thinkingTimer);
+	if (thinkingTimer) stopThinking();
 	trace("tui:stopped");
 }

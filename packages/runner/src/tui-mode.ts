@@ -240,7 +240,7 @@ function keyArgFromPayload(args: Record<string, unknown>): string {
 }
 
 /** Truncate tool output for inline display: max 20 lines, max 1000 chars. */
-function truncateToolOutput(text: string): string {
+export function truncateToolOutput(text: string): string {
 	const lines = text.split("\n");
 	const capped = lines.length > 20 ? lines.slice(0, 20) : lines;
 	let out = capped.join("\n");

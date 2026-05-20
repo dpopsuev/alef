@@ -11,9 +11,10 @@
  */
 
 import { Container } from "@dpopsuev/alef-tui";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
-import { handleCtrlC, handleSlashCommand } from "../src/tui-mode.js";
+import { handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Fake context factory
@@ -216,5 +217,100 @@ describe("handleSlashCommand — unknown command", () => {
 		handleSlashCommand("/frobnitz", ctx);
 		expect(ctx.dispose).not.toHaveBeenCalled();
 		expect(ctx.tui.stop).not.toHaveBeenCalled();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// truncateToolOutput
+// ---------------------------------------------------------------------------
+
+describe("truncateToolOutput", () => {
+	it("passes short text unchanged", () => {
+		const text = "line one\nline two";
+		expect(truncateToolOutput(text)).toBe(text);
+	});
+
+	it("truncates at 20 lines and appends continuation notice", () => {
+		const lines = Array.from({ length: 25 }, (_, i) => `line ${i}`);
+		const result = truncateToolOutput(lines.join("\n"));
+		const resultLines = result.split("\n");
+		// 20 content lines + 1 notice line
+		expect(resultLines.length).toBe(21);
+		expect(result).toContain("[…5 more lines]");
+	});
+
+	it("truncates at 1000 chars and appends ellipsis", () => {
+		const long = "x".repeat(1200);
+		const result = truncateToolOutput(long);
+		expect(result.length).toBeLessThanOrEqual(1002); // 1000 + "…"
+		expect(result.endsWith("…")).toBe(true);
+	});
+
+	it("handles empty string", () => {
+		expect(truncateToolOutput("")).toBe("");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// handleSlashCommand /login and /logout
+// ---------------------------------------------------------------------------
+
+describe("handleSlashCommand /login", () => {
+	const TEST_PROVIDER = `test-provider-${Date.now()}`;
+
+	afterEach(() => {
+		removeStoredApiKey(TEST_PROVIDER);
+	});
+
+	it("saves key and confirms in chat", () => {
+		const ctx = makeCtx();
+		handleSlashCommand(`/login ${TEST_PROVIDER} sk-test-key`, ctx);
+		expect(getStoredApiKey(TEST_PROVIDER)).toBe("sk-test-key");
+		expect(chatText(ctx)).toContain("Saved API key");
+	});
+
+	it("shows usage when no provider given", () => {
+		const ctx = makeCtx();
+		handleSlashCommand("/login", ctx);
+		expect(chatText(ctx)).toContain("Usage:");
+	});
+
+	it("shows usage when no key given", () => {
+		const ctx = makeCtx();
+		handleSlashCommand(`/login ${TEST_PROVIDER}`, ctx);
+		expect(chatText(ctx)).toContain("Usage:");
+	});
+
+	it("returns true", () => {
+		const ctx = makeCtx();
+		expect(handleSlashCommand(`/login ${TEST_PROVIDER} sk-x`, ctx)).toBe(true);
+	});
+});
+
+describe("handleSlashCommand /logout", () => {
+	const TEST_PROVIDER = `test-logout-provider-${Date.now()}`;
+
+	afterEach(() => {
+		removeStoredApiKey(TEST_PROVIDER);
+	});
+
+	it("removes stored key and confirms", () => {
+		const ctx = makeCtx();
+		handleSlashCommand(`/login ${TEST_PROVIDER} sk-to-remove`, ctx);
+		handleSlashCommand(`/logout ${TEST_PROVIDER}`, ctx);
+		expect(getStoredApiKey(TEST_PROVIDER)).toBeUndefined();
+		expect(chatText(ctx)).toContain("Removed");
+	});
+
+	it("reports when no key is stored", () => {
+		const ctx = makeCtx();
+		handleSlashCommand(`/logout ${TEST_PROVIDER}`, ctx);
+		expect(chatText(ctx)).toContain("No stored key");
+	});
+
+	it("shows usage when no provider given", () => {
+		const ctx = makeCtx();
+		handleSlashCommand("/logout", ctx);
+		expect(chatText(ctx)).toContain("Usage:");
 	});
 });

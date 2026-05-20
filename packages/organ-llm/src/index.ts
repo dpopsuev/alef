@@ -303,7 +303,7 @@ function waitForToolResult(
 	});
 }
 
-function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
+export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
 	if (isError) return errorMessage ?? JSON.stringify(payload);
 	if (typeof payload.content === "string") return payload.content;
 	if (typeof payload.text === "string") return payload.text;

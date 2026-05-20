@@ -26,8 +26,9 @@ export interface ProviderRetrySettings {
 
 export interface RetrySettings {
 	enabled?: boolean; // default: true
-	maxRetries?: number; // default: 3
-	baseDelayMs?: number; // default: 2000 (exponential backoff: 2s, 4s, 8s)
+	maxRetries?: number; // default: 8
+	baseDelayMs?: number; // default: 1000ms — base for full-jitter exponential backoff
+	maxDelayMs?: number; // default: 60000ms — cap on per-attempt delay growth
 	provider?: ProviderRetrySettings;
 }
 
@@ -370,29 +371,8 @@ export class SettingsManager {
 			}
 		}
 
-		// Migrate retry.maxDelayMs -> retry.provider.maxRetryDelayMs
-		if (
-			"retry" in settings &&
-			typeof settings.retry === "object" &&
-			settings.retry !== null &&
-			!Array.isArray(settings.retry)
-		) {
-			const retrySettings = settings.retry as Record<string, unknown>;
-			const providerSettings =
-				typeof retrySettings.provider === "object" && retrySettings.provider !== null
-					? (retrySettings.provider as Record<string, unknown>)
-					: undefined;
-			if (
-				typeof retrySettings.maxDelayMs === "number" &&
-				(providerSettings?.maxRetryDelayMs === undefined || providerSettings?.maxRetryDelayMs === null)
-			) {
-				retrySettings.provider = {
-					...(providerSettings ?? {}),
-					maxRetryDelayMs: retrySettings.maxDelayMs,
-				};
-			}
-			delete retrySettings.maxDelayMs;
-		}
+		// (Migration retry.maxDelayMs -> retry.provider.maxRetryDelayMs removed:
+		//  retry.maxDelayMs is now a first-class agent-level cap field.)
 
 		return settings as Settings;
 	}
@@ -755,11 +735,12 @@ export class SettingsManager {
 		this.save();
 	}
 
-	getRetrySettings(): { enabled: boolean; maxRetries: number; baseDelayMs: number } {
+	getRetrySettings(): { enabled: boolean; maxRetries: number; baseDelayMs: number; maxDelayMs: number } {
 		return {
 			enabled: this.getRetryEnabled(),
-			maxRetries: this.settings.retry?.maxRetries ?? 3,
-			baseDelayMs: this.settings.retry?.baseDelayMs ?? 2000,
+			maxRetries: this.settings.retry?.maxRetries ?? 8,
+			baseDelayMs: this.settings.retry?.baseDelayMs ?? 1000,
+			maxDelayMs: this.settings.retry?.maxDelayMs ?? 60000,
 		};
 	}
 

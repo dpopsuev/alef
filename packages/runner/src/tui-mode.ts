@@ -18,6 +18,7 @@
  */
 
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import type { MarkdownTheme } from "@dpopsuev/alef-tui";
 import { Container, Markdown, matchesKey, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
@@ -229,16 +230,16 @@ function helpText(): string {
 }
 
 export interface TuiToolSlot {
-	onToolStart: ((callId: string, name: string, args: Record<string, unknown>) => void) | undefined;
-	onToolEnd: ((callId: string, elapsedMs: number, ok: boolean) => void) | undefined;
-	onTokenUsage: ((tokenIn: number, tokenOut: number) => void) | undefined;
+	onToolStart: ((event: ToolCallStart) => void) | undefined;
+	onToolEnd: ((event: ToolCallEnd) => void) | undefined;
+	onTokenUsage: ((usage: TokenUsage) => void) | undefined;
 	receiveTextChunk: ((chunk: string) => void) | undefined;
 	receiveThinkingChunk: ((chunk: string) => void) | undefined;
 }
 
 export async function runTuiMode(
 	dialog: DialogOrgan,
-	opts: InteractiveOptions & { sessionId: string },
+	opts: InteractiveOptions,
 	dispose: () => void,
 	setLLMAbortController: (ctrl: AbortController | undefined) => void = () => {},
 	toolSlot?: TuiToolSlot,
@@ -344,7 +345,7 @@ export async function runTuiMode(
 	let pendingTokenFooter: Text | null = null;
 
 	if (toolSlot) {
-		toolSlot.onToolStart = (callId, name, args) => {
+		toolSlot.onToolStart = ({ callId, name, args }) => {
 			sealStreamingSegment(); // freeze current generation block; tool lines go below it
 			const keyArg = keyArgFromPayload(args);
 			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
@@ -352,7 +353,7 @@ export async function runTuiMode(
 			chat.addChild(line);
 			tui.requestRender();
 		};
-		toolSlot.onToolEnd = (callId, elapsedMs, ok) => {
+		toolSlot.onToolEnd = ({ callId, elapsedMs, ok }) => {
 			const entry = activeCalls.get(callId);
 			if (entry) {
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok));
@@ -360,8 +361,8 @@ export async function runTuiMode(
 				tui.requestRender();
 			}
 		};
-		toolSlot.onTokenUsage = (tokenIn, tokenOut) => {
-			const footer = dim(`${compact(tokenIn)} in · ${compact(tokenOut)} out`);
+		toolSlot.onTokenUsage = ({ input, output }) => {
+			const footer = dim(`${compact(input)} in · ${compact(output)} out`);
 			if (pendingTokenFooter) {
 				pendingTokenFooter.setText(footer);
 				pendingTokenFooter = null;

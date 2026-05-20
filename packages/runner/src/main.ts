@@ -24,7 +24,7 @@ import type { Message, ThinkingLevel } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
-import { LLMOrgan } from "@dpopsuev/alef-organ-llm";
+import { LLMOrgan, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { createReactorOrgan } from "@dpopsuev/alef-organ-reactor";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
@@ -231,9 +231,9 @@ export function setLLMAbortController(ctrl: AbortController | undefined): void {
 // Mutable callback holder — runTuiMode fills .onToolStart/.onToolEnd
 // synchronously during setup, before the first user message arrives.
 const toolSlot = {
-	onToolStart: undefined as ((id: string, name: string, args: Record<string, unknown>) => void) | undefined,
-	onToolEnd: undefined as ((id: string, elapsedMs: number, ok: boolean) => void) | undefined,
-	onTokenUsage: undefined as ((tokenIn: number, tokenOut: number) => void) | undefined,
+	onToolStart: undefined as ((event: ToolCallStart) => void) | undefined,
+	onToolEnd: undefined as ((event: ToolCallEnd) => void) | undefined,
+	onTokenUsage: undefined as ((usage: TokenUsage) => void) | undefined,
 	receiveTextChunk: undefined as ((chunk: string) => void) | undefined,
 	receiveThinkingChunk: undefined as ((chunk: string) => void) | undefined,
 };
@@ -246,9 +246,9 @@ const llmOrgan = scriptedRepliesEnv
 			thinking: thinkingLevel,
 			prepareStep: chainedPrepareStep,
 			getSignal: () => currentLLMController?.signal,
-			onToolStart: (id, name, args) => toolSlot.onToolStart?.(id, name, args),
-			onToolEnd: (id, ms, ok) => toolSlot.onToolEnd?.(id, ms, ok),
-			onTokenUsage: (tokenIn, tokenOut) => toolSlot.onTokenUsage?.(tokenIn, tokenOut),
+			onToolStart: (event) => toolSlot.onToolStart?.(event),
+			onToolEnd: (event) => toolSlot.onToolEnd?.(event),
+			onTokenUsage: (usage) => toolSlot.onTokenUsage?.(usage),
 			onResponseChunk: (chunk) => toolSlot.receiveTextChunk?.(chunk),
 			onThinkingChunk: (chunk) => toolSlot.receiveThinkingChunk?.(chunk),
 		});
@@ -365,7 +365,9 @@ try {
 		// Block forever — the process stays alive until SIGTERM.
 		await new Promise<void>(() => {});
 	} else {
-		await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId }, () => agent.dispose());
+		await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelId, sessionId: session.id }, () =>
+			agent.dispose(),
+		);
 	}
 } finally {
 	trace("shutdownOTel:start");

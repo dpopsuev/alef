@@ -16,6 +16,7 @@ const EXIT_COMMAND = "/exit";
 export interface InteractiveOptions {
 	cwd: string;
 	modelId: string;
+	sessionId: string;
 }
 
 export async function runInteractive(

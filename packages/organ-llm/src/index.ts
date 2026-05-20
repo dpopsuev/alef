@@ -11,6 +11,7 @@ import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } fro
 import { defineOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { z } from "zod";
+import type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
 
 const tracer = trace.getTracer("alef.organ-llm");
 
@@ -20,19 +21,19 @@ export interface LLMOrganOptions {
 	model: Model<Api>;
 	apiKey?: string;
 	timeoutMs?: number;
+	/** Max retry attempts on transient errors. Default: 4. */
 	maxRetries?: number;
+	/** Cap on retry delay in ms — prevents exponential backoff from stalling for minutes. Default: 8000. */
+	maxRetryDelayMs?: number;
 	/**
 	 * Called at the start of each LLM call to obtain the current AbortSignal.
 	 * The caller creates a new AbortController per turn and passes its signal here.
 	 * When the controller is aborted (Ctrl+C mid-turn), the HTTP stream is cancelled.
 	 */
 	getSignal?: () => AbortSignal | undefined;
-	/** Called when a tool call is dispatched. callId is unique per call. */
-	onToolStart?: (callId: string, name: string, args: Record<string, unknown>) => void;
-	/** Called when a tool call resolves (success or error). */
-	onToolEnd?: (callId: string, elapsedMs: number, ok: boolean) => void;
-	/** Called after the LLM reply is complete with token usage for the turn. */
-	onTokenUsage?: (tokenIn: number, tokenOut: number) => void;
+	onToolStart?: (event: ToolCallStart) => void;
+	onToolEnd?: (event: ToolCallEnd) => void;
+	onTokenUsage?: (usage: TokenUsage) => void;
 	/** Called with each streamed text delta as the LLM generates. */
 	onResponseChunk?: (chunk: string) => void;
 	/** Called with each streamed thinking/reasoning delta. */
@@ -101,7 +102,8 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 
 	const { correlationId, motor, sense } = ctx;
 	const timeoutMs = options.timeoutMs ?? 60_000;
-	const maxRetries = options.maxRetries ?? 3;
+	const maxRetries = options.maxRetries ?? 4;
+	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
 
 	while (true) {
 		const span = tracer.startSpan(`chat ${options.model.id}`, {
@@ -127,6 +129,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 				apiKey: options.apiKey,
 				timeoutMs,
 				maxRetries,
+				maxRetryDelayMs,
 				...(options.thinking ? { reasoning: options.thinking } : {}),
 				...(options.getSignal ? { signal: options.getSignal() } : {}),
 			},
@@ -180,7 +183,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 
 		if (toolCalls.length === 0) {
 			if (finalMessage.usage) {
-				options.onTokenUsage?.(finalMessage.usage.input, finalMessage.usage.output);
+				options.onTokenUsage?.({ input: finalMessage.usage.input, output: finalMessage.usage.output });
 			}
 			const text =
 				(typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined) ?? extractText(finalMessage);
@@ -220,14 +223,14 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			toolCalls.map((tc) => {
 				const motorType = toMotorName(tc.name);
 				const startedAt = Date.now();
-				options.onToolStart?.(tc.id, motorType, tc.args);
+				options.onToolStart?.({ callId: tc.id, name: motorType, args: tc.args });
 				motor.publish({
 					type: motorType,
 					payload: { ...tc.args, toolCallId: tc.id },
 					correlationId,
 				});
 				return waitForToolResult(sense, motorType, tc.id, correlationId).then((r) => {
-					options.onToolEnd?.(tc.id, Date.now() - startedAt, !r.isError);
+					options.onToolEnd?.({ callId: tc.id, elapsedMs: Date.now() - startedAt, ok: !r.isError });
 					return r;
 				});
 			}),
@@ -331,3 +334,4 @@ export class LLMOrgan {
 }
 
 export type { ToolDefinition };
+export type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";

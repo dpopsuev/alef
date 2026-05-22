@@ -105,6 +105,18 @@ describe("LLMOrgan — application-level retry", () => {
 		await dialog.send("test", "human", 5_000);
 		expect(faux.state.callCount).toBe(1);
 	});
+
+	it("retries APIConnectionTimeoutError ('Request timed out.')", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "Request timed out." }),
+			fauxAssistantMessage("recovered after timeout"),
+		]);
+		const { dialog } = makeRetryHarness(faux, 2);
+		const reply = await dialog.send("test", "human", 5_000);
+		expect(reply).toBe("recovered after timeout");
+		expect(faux.state.callCount).toBe(2);
+	});
 });
 
 describe.skipIf(SKIP)("LLMOrgan — real API", () => {
@@ -180,4 +192,4 @@ describe("payloadToText", () => {
 		expect(result).not.toContain("toolCallId");
 		expect(result).not.toContain("isFinal");
 	});
-});
+}); // end payloadToText

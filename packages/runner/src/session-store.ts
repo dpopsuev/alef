@@ -27,9 +27,12 @@ import { join } from "node:path";
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
+/** Discriminant for which bus an event record originated from. */
+export type BusKind = "motor" | "sense" | "internal";
+
 export interface StorageRecord {
 	/** 'motor' or 'sense' for bus events; 'internal' for control records. */
-	bus: "motor" | "sense" | "internal";
+	bus: BusKind;
 	/** Event type, e.g. 'fs.read', 'dialog.message', 'window.assembled'. */
 	type: string;
 	/** Turn group key — same for all events in one user turn. */
@@ -65,7 +68,7 @@ export function hashRecord(record: Omit<StorageRecord, "hash">): string {
 
 /** Special internal record emitted by TurnAssembler after each context window selection. */
 export interface WindowAssembledRecord extends StorageRecord {
-	bus: "internal";
+	bus: Extract<BusKind, "internal">;
 	type: "window.assembled";
 	payload: {
 		includedTurnIds: string[];

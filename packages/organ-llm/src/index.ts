@@ -8,14 +8,12 @@ import {
 	type Tool,
 } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
+import { DIALOG_MESSAGE, defineOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { z } from "zod";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
 
 const tracer = trace.getTracer("alef.organ-llm");
-
-const DIALOG_MESSAGE = "dialog.message";
 
 export interface LLMOrganOptions {
 	model: Model<Api>;
@@ -66,6 +64,33 @@ export interface LLMOrganOptions {
 // Core loop — pure function, receives ctx from framework
 // ---------------------------------------------------------------------------
 
+/**
+ * Classify provider errors as retryable from the serialized error message.
+ *
+ * This is a compensating control for the loss of type information when
+ * providers serialize errors to strings. Each case is documented to its source.
+ *
+ * TODO(alef-ai): add retryable?: boolean to the error stream event so
+ * providers classify at the source with typed information, eliminating this.
+ */
+function isRetryableError(msg: string | undefined): boolean {
+	if (!msg) return false;
+	// Anthropic SDK APIConnectionTimeoutError.message = "Request timed out."
+	// Also matches: "Connect Timeout Error", "Operation timed out"
+	if (/timed[\s_]?out/i.test(msg)) return true;
+	// Anthropic API 529: anthropic overloaded
+	if (msg.includes("overloaded_error")) return true;
+	// Network layer drops: "Network connection lost." (Anthropic)
+	if (/network[\s_]connection[\s_]lost/i.test(msg)) return true;
+	// TCP connect failure: "ConnectTimeoutError", "connection error"
+	if (/connection[\s_]?(?:timed[\s_]?out|error)/i.test(msg)) return true;
+	// HTTP 503
+	if (/service[\s_]unavailable/i.test(msg)) return true;
+	// HTTP 500
+	if (/internal[\s_]server[\s_]error/i.test(msg)) return true;
+	return false;
+}
+
 async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Promise<void> {
 	const payload = ctx.payload as {
 		messages?: readonly unknown[];
@@ -114,8 +139,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 	// Application-level transient error patterns — returned as clean stopReason:"error"
 	// messages by the provider (not HTTP errors). The SDK retries HTTP failures;
 	// we retry these at the LLM loop level.
-	const RETRYABLE =
-		/overloaded_error|network.?connection.?lost|connection.?error|request.?timeout|service.?unavailable|internal.?server.?error/i;
+
 	let appRetryCount = 0;
 
 	while (true) {
@@ -194,7 +218,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		if (
 			finalMessage.stopReason === "error" &&
 			typeof finalMessage.errorMessage === "string" &&
-			RETRYABLE.test(finalMessage.errorMessage) &&
+			isRetryableError(finalMessage.errorMessage) &&
 			appRetryCount < maxRetries
 		) {
 			appRetryCount++;

@@ -16,7 +16,7 @@
 
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
 import { redactPayload } from "./redact.js";
-import type { SessionStore } from "./session-store.js";
+import type { BusKind, SessionStore } from "./session-store.js";
 import { hashRecord } from "./session-store.js";
 
 export class EventLogOrgan implements Organ {
@@ -37,7 +37,7 @@ export class EventLogOrgan implements Organ {
 		const off1 = nerve.motor.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			const base = {
-				bus: "motor" as const,
+				bus: "motor" as BusKind,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,
@@ -50,7 +50,7 @@ export class EventLogOrgan implements Organ {
 		const off2 = nerve.sense.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			const base = {
-				bus: "sense" as const,
+				bus: "sense" as BusKind,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,

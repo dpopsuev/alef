@@ -22,9 +22,8 @@
 
 import { randomUUID } from "node:crypto";
 import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-spine";
 import type { ScriptStep } from "./script.js";
-
-const DIALOG_MESSAGE = "dialog.message";
 
 export class ScriptedLLMOrgan implements Organ {
 	readonly name = "scripted-llm";

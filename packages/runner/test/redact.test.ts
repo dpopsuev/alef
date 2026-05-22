@@ -147,7 +147,8 @@ describe("EventLogOrgan integration — redact + hash", () => {
 			const events = await store.events();
 			expect(events.length).toBeGreaterThan(0);
 
-			const record = events.find((e) => e.type === "test.event");
+			// Motor bus event has the full redacted payload; sense has the dead-letter {}.
+			const record = events.find((e) => e.type === "test.event" && e.bus === "motor");
 			expect(record).toBeDefined();
 
 			// Hash is present

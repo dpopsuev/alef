@@ -289,8 +289,15 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 					correlationId,
 				});
 				return waitForToolResult(sense, motorType, tc.id, correlationId).then((r) => {
+					const display = extractDisplay(r.payload);
 					const result = payloadToText(r.payload, r.isError, r.errorMessage);
-					options.onToolEnd?.({ callId: tc.id, elapsedMs: Date.now() - startedAt, ok: !r.isError, result });
+					options.onToolEnd?.({
+						callId: tc.id,
+						elapsedMs: Date.now() - startedAt,
+						ok: !r.isError,
+						result,
+						display,
+					});
 					return r;
 				});
 			}),
@@ -327,12 +334,22 @@ function waitForToolResult(
 	});
 }
 
+/** Extract the human-readable display text from a sense payload’s _display block, if present. */
+function extractDisplay(payload: Record<string, unknown>): string | undefined {
+	const d = payload._display;
+	if (d !== null && typeof d === "object" && typeof (d as Record<string, unknown>).text === "string") {
+		return (d as { text: string }).text;
+	}
+	return undefined;
+}
+
 export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
 	if (isError) return errorMessage ?? JSON.stringify(payload);
-	if (typeof payload.content === "string") return payload.content;
-	if (typeof payload.text === "string") return payload.text;
-	const { toolCallId: _id, isFinal: _f, ...rest } = payload;
-	return JSON.stringify(rest);
+	// Strip the human-facing display block — it must not reach the LLM context.
+	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;
+	if (typeof llm.content === "string") return llm.content;
+	if (typeof llm.text === "string") return llm.text;
+	return JSON.stringify(llm);
 }
 
 function extractText(message: AssistantMessage): string {

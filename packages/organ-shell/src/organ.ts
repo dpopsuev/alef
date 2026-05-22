@@ -13,6 +13,7 @@ import {
 	getNumber,
 	getString,
 	truncateTail,
+	withDisplay,
 } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import { getShellEnv } from "./shell.js";
@@ -133,13 +134,17 @@ async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): Asyn
 			if (exitCode !== 0) {
 				throw Object.assign(new Error(`exit code ${exitCode}`), { exitCode, output: tr.content });
 			}
-			yield {
-				output: tr.content,
-				exitCode,
-				truncated: tr.truncated,
-				totalLines: tr.totalLines,
-				totalBytes: tr.totalBytes,
-			};
+			const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
+			yield withDisplay(
+				{
+					output: tr.content,
+					exitCode,
+					truncated: tr.truncated,
+					totalLines: tr.totalLines,
+					totalBytes: tr.totalBytes,
+				},
+				{ text: `\`\`\`\n${tr.content}${truncNote}\n\`\`\``, mimeType: "text/markdown" },
+			);
 		})();
 	} finally {
 		if (timer) clearTimeout(timer);

@@ -118,7 +118,7 @@ describe("Agent reply is typewritten, not dumped", () => {
 				this.value = t;
 			},
 		};
-		const tw = new Typewriter(sink, () => {});
+		const tw = new Typewriter(sink, () => {}, { tickMs: 4 });
 		const reply = "Based on my exploration, the codebase follows an EDA architecture.";
 
 		tw.receive(reply);
@@ -126,7 +126,7 @@ describe("Agent reply is typewritten, not dumped", () => {
 
 		expect(sink.value).toBe("");
 
-		vi.advanceTimersByTime(8);
+		vi.advanceTimersByTime(6); // one 4ms tick fires, partial drain
 		expect(sink.value.length).toBeGreaterThan(0);
 		expect(sink.value.length).toBeLessThan(reply.length);
 

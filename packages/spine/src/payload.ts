@@ -21,6 +21,37 @@
  */
 export const DIALOG_MESSAGE = "dialog.message" as const;
 
+// ---------------------------------------------------------------------------
+// Dual-channel tool output
+// ---------------------------------------------------------------------------
+
+/**
+ * Human-readable display block attached to sense payloads.
+ *
+ * Organs include this on their sense results so the TUI can render
+ * something meaningful instead of raw JSON. organ-llm strips it before
+ * encoding the payload into the LLM’s tool-result context.
+ *
+ * Mirrors the MCP content-block `annotations.audience` pattern:
+ *   audience:["assistant"] → the main payload (LLM channel)
+ *   audience:["user"]      → _display (TUI channel)
+ */
+export interface SenseDisplayBlock {
+	/** Human-readable text. Markdown is rendered by the TUI; plain is shown verbatim. */
+	text: string;
+	mimeType: "text/markdown" | "text/plain";
+}
+
+/**
+ * Attach a display block to a sense payload without mutating the original.
+ *
+ * Usage in organ handlers:
+ *   return withDisplay({ content, truncated }, { text: `Read **${path}**`, mimeType: "text/plain" });
+ */
+export function withDisplay(payload: Record<string, unknown>, display: SenseDisplayBlock): Record<string, unknown> {
+	return { ...payload, _display: display };
+}
+
 export function getString(payload: Record<string, unknown>, key: string): string | undefined {
 	const v = payload[key];
 	return typeof v === "string" ? v : undefined;

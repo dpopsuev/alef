@@ -20,7 +20,7 @@
 
 import vm from "node:vm";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, getNumber, getString } from "@dpopsuev/alef-spine";
+import { defineOrgan, getNumber, getString, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -178,11 +178,13 @@ async function handleEval(ctx: CorpusHandlerCtx, opts: NodeshOrganOptions): Prom
 	// Explicit `result = ...` wins; otherwise use the expression return value.
 	const finalResult = sandbox.result !== undefined ? sandbox.result : returnValue;
 
-	return {
-		result: safeSerialize(finalResult),
-		stdout: stdout.join("\n"),
-		type: typeof finalResult,
-	};
+	const serialized = safeSerialize(finalResult);
+	const resultLine = `result: ${JSON.stringify(serialized)}`;
+	const stdoutSection = stdout.length > 0 ? `\nstdout:\n${stdout.join("\n")}` : "";
+	return withDisplay(
+		{ result: serialized, stdout: stdout.join("\n"), type: typeof finalResult },
+		{ text: `${resultLine}${stdoutSection}`, mimeType: "text/plain" },
+	);
 }
 
 /** Serialize result safely — circular refs and non-JSON types handled. */

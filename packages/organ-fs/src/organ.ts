@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, getBoolean, getNumber, getString } from "@dpopsuev/alef-spine";
+import { defineOrgan, getBoolean, getNumber, getString, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import {
 	DEFAULT_FIND_LIMIT,
@@ -154,6 +154,15 @@ export interface FsOrganOptions {
 // Handlers
 // ---------------------------------------------------------------------------
 
+/** Extract text from file-query responses shaped { content: [{ type, text }] }. */
+function extractContentText(response: unknown): string | undefined {
+	if (response === null || typeof response !== "object") return undefined;
+	const { content } = response as { content?: unknown };
+	if (!Array.isArray(content) || content.length === 0) return undefined;
+	const first = content[0] as { type?: string; text?: string };
+	return typeof first.text === "string" ? first.text : undefined;
+}
+
 function getCache(runtime: FsRuntime | undefined, scope: FsCacheScope) {
 	return runtime?.getCache(scope);
 }
@@ -212,13 +221,19 @@ async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 					.join("\n")
 			: rawContent;
 	const truncated = truncateHead(contentToRead, { maxLines: limit ?? DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-	return {
-		content: truncated.content,
-		truncated: truncated.truncated,
-		truncatedBy: truncated.truncatedBy,
-		totalLines: truncated.totalLines,
-		outputLines: truncated.outputLines,
-	};
+	const truncNote = truncated.truncated
+		? ` (truncated to ${truncated.outputLines ?? "?"} / ${truncated.totalLines} lines)`
+		: ` (${truncated.totalLines} lines)`;
+	return withDisplay(
+		{
+			content: truncated.content,
+			truncated: truncated.truncated,
+			truncatedBy: truncated.truncatedBy,
+			totalLines: truncated.totalLines,
+			outputLines: truncated.outputLines,
+		},
+		{ text: `Read **${filePath}**${truncNote}`, mimeType: "text/plain" },
+	);
 }
 
 async function atomicWrite(dest: string, content: string): Promise<void> {
@@ -239,7 +254,11 @@ async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 	await mkdir(dirname(absolutePath), { recursive: true });
 	await atomicWrite(absolutePath, content);
-	return { path: filePath, bytes: Buffer.byteLength(content, "utf-8") };
+	const bytes = Buffer.byteLength(content, "utf-8");
+	return withDisplay(
+		{ path: filePath, bytes },
+		{ text: `Wrote **${filePath}** (${bytes} bytes)`, mimeType: "text/plain" },
+	);
 }
 
 async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
@@ -298,7 +317,11 @@ async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 	}
 
 	await atomicWrite(absolutePath, updated);
-	return { path: filePath, applied: true, editCount: editList.length };
+	const editCount = editList.length;
+	return withDisplay(
+		{ path: filePath, applied: true, editCount },
+		{ text: `Applied ${editCount} edit(s) to **${filePath}**`, mimeType: "text/plain" },
+	);
 }
 
 async function handleGrep(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
@@ -315,7 +338,8 @@ async function handleGrep(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 		countOnly: getBoolean(ctx.payload, "countOnly") ?? false,
 	};
 	const response = await executeGrepQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "grep") });
-	return response as unknown as Record<string, unknown>;
+	const displayText = extractContentText(response) ?? JSON.stringify(response);
+	return withDisplay(response as unknown as Record<string, unknown>, { text: displayText, mimeType: "text/plain" });
 }
 
 async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
@@ -330,7 +354,8 @@ async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 		hidden: getBoolean(ctx.payload, "hidden"),
 	};
 	const response = await executeFindQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "find") });
-	return response as unknown as Record<string, unknown>;
+	const displayText = extractContentText(response) ?? JSON.stringify(response);
+	return withDisplay(response as unknown as Record<string, unknown>, { text: displayText, mimeType: "text/plain" });
 }
 
 // ---------------------------------------------------------------------------

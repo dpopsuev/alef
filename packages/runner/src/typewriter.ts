@@ -65,6 +65,11 @@ export class Typewriter {
 		return this.pending.length - this.displayed.length;
 	}
 
+	/** Full accumulated text (pending + already displayed). Used by flush-fade transitions. */
+	get pendingText(): string {
+		return this.pending;
+	}
+
 	/** Append a received chunk from the source. */
 	receive(chunk: string): void {
 		this.pending += chunk;
@@ -89,8 +94,35 @@ export class Typewriter {
 	}
 
 	/**
+	 * Drain remaining content rapidly into a ghost sink (15 chars / 4ms ticks)
+	 * then call onComplete. The caller starts the color animation in onComplete.
+	 * ghostSink should render text in a dim/ghost color for the scan effect.
+	 * The normal sink is NOT called during rapid flush — ghost appearance only.
+	 */
+	rapidFlush(ghostSink: TypewriterSink, onComplete: () => void): void {
+		if (this.timer) {
+			clearTimeout(this.timer);
+			this.timer = undefined;
+		}
+		const RAPID_CHARS = 15;
+		const RAPID_MS = 4;
+		const drain = (): void => {
+			const gap = this.pending.length - this.displayed.length;
+			if (gap <= 0) {
+				onComplete();
+				return;
+			}
+			this.displayed = this.pending.slice(0, this.displayed.length + Math.min(RAPID_CHARS, gap));
+			ghostSink.setText(this.displayed);
+			this.onRender();
+			this.timer = setTimeout(drain, RAPID_MS);
+		};
+		drain();
+	}
+
+	/**
 	 * Instantly reveal all pending content.
-	 * For internal use only (abort, reset, sealStreamingSegment).
+	 * For internal use only (abort, reset, clearStreamingSegments).
 	 * Never call this to "show" user-visible text — it bypasses frame pacing.
 	 */
 	flush(): void {

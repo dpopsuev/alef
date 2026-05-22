@@ -40,6 +40,7 @@ import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
 import { bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
+import { fadeTextIn, ghostWrap } from "./tui-fade.js";
 import { Typewriter } from "./typewriter.js";
 
 export interface TuiHandlerContext {
@@ -360,10 +361,31 @@ export async function runTuiMode(
 	// Seal the current generation's container so tool call lines go below it.
 	// Called when the first tool call fires (generation phase ended).
 	function sealStreamingSegment(): void {
+		// Reply (Markdown): instant flush — Markdown manages its own colors, fade not possible.
 		replyTypewriter.flush();
 		replyTypewriter.reset();
-		thinkTypewriter.flush();
-		thinkTypewriter.reset();
+
+		// Thinking (Text node): rapid ghost reveal + color fade.
+		// rapidFlush scans remaining chars at 15/4ms into ghost gray, then
+		// fadeTextIn animates ghost → dim over 320ms at 60fps.
+		const thinkNode = streamingThinkNode;
+		if (thinkNode && thinkTypewriter.pressure > 0) {
+			const ghostSink = { setText: (t: string) => thinkNode.setText(ghostWrap(t)) };
+			thinkTypewriter.rapidFlush(ghostSink, () => {
+				const fullText = thinkTypewriter.pendingText;
+				thinkTypewriter.reset();
+				fadeTextIn(
+					thinkNode,
+					fullText,
+					(t) => italic(dim(t)),
+					() => tui.requestRender(),
+				);
+			});
+		} else {
+			thinkTypewriter.flush();
+			thinkTypewriter.reset();
+		}
+
 		streamingSegment = null;
 		streamingMarkdownNode = null;
 		streamingThinkNode = null;

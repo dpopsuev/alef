@@ -8,8 +8,10 @@ export interface ToolCallEnd {
 	callId: string;
 	elapsedMs: number;
 	ok: boolean;
-	/** Text content from the Sense event payload — what the organ actually returned. */
+	/** Raw text encoded for LLM context (payloadToText output). Used as TUI fallback. */
 	result?: string;
+	/** Human-readable display text from the organ’s _display block. Shown in TUI instead of result. */
+	display?: string;
 }
 
 export interface TokenUsage {

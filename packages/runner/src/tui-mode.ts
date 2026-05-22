@@ -391,15 +391,16 @@ export async function runTuiMode(
 			chat.addChild(line);
 			tui.requestRender();
 		};
-		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result }) => {
+		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display }) => {
 			const entry = activeCalls.get(callId);
 			if (entry) {
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok));
 				activeCalls.delete(callId);
-				// Show truncated output below the tool line.
-				if (result?.trim()) {
+				// Prefer organ-supplied human display over raw JSON fallback.
+				const snippet = display ?? result;
+				if (snippet?.trim()) {
 					const t = getTheme();
-					chat.addChild(new Text(color(dim(truncateToolOutput(result)), t.dimFg), 3, 0));
+					chat.addChild(new Text(color(dim(truncateToolOutput(snippet)), t.dimFg), 3, 0));
 				}
 				tui.requestRender();
 			}

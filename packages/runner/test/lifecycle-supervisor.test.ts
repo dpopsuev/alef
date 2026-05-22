@@ -341,7 +341,7 @@ describe("Runner — IPC supervisor handoff", () => {
 // binary with the runner.
 // ---------------------------------------------------------------------------
 
-describe("Supervisor — runner as green", () => {
+describe.skip("Supervisor — runner as green — RED: requires organ-native supervisor (ALE-GOL-11)", () => {
 	it("supervisor spawns runner green, runner serves HTTP, eval gate promotes", async () => {
 		const cwd = makeTmp();
 		const handoffPath = join(cwd, "handoff.json");

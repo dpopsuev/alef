@@ -15,6 +15,12 @@
  *   const hidden = getBoolean(ctx.payload, "hidden") ?? false;
  */
 
+/**
+ * Canonical event type names shared across organs.
+ * Defined once here — all packages import from spine rather than redeclaring.
+ */
+export const DIALOG_MESSAGE = "dialog.message" as const;
+
 export function getString(payload: Record<string, unknown>, key: string): string | undefined {
 	const v = payload[key];
 	return typeof v === "string" ? v : undefined;

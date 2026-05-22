@@ -66,8 +66,7 @@ function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
 }
 
 // Corpus event type constants
-export const DIALOG_MESSAGE = "dialog.message" as const;
-export { PortValidationError, STANDARD_PORTS, validatePorts } from "@dpopsuev/alef-spine";
+export { DIALOG_MESSAGE, PortValidationError, STANDARD_PORTS, validatePorts } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
 // BusObserver - full read access to the Nerve for observability tools.

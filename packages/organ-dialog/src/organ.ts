@@ -14,13 +14,10 @@
 
 import { randomUUID } from "node:crypto";
 import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "@dpopsuev/alef-spine";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Event name — one name, two buses
-// ---------------------------------------------------------------------------
-
-export const DIALOG_MESSAGE = "dialog.message";
+export { DIALOG_MESSAGE };
 
 // ---------------------------------------------------------------------------
 // Tool definition — LLM sends a message via this tool

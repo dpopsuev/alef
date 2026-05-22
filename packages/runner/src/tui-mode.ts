@@ -20,8 +20,16 @@
 import { getProviders } from "@dpopsuev/alef-ai";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
-import type { MarkdownTheme } from "@dpopsuev/alef-tui";
-import { Container, Markdown, matchesKey, ProcessTerminal, Spacer, Text, TUI } from "@dpopsuev/alef-tui";
+import {
+	Container,
+	Markdown,
+	type MarkdownTheme,
+	matchesKey,
+	ProcessTerminal,
+	Spacer,
+	Text,
+	TUI,
+} from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
 import { getConfig } from "./config.js";
@@ -144,7 +152,6 @@ function makeMarkdownTheme(): MarkdownTheme {
 }
 
 const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? getConfig().you ?? "@you";
-const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? getConfig().agent ?? "@alef";
 
 export function pillHeaderStr(label: string, width: number): string {
 	const inner = `─ ${label} `;
@@ -184,23 +191,6 @@ function appendUserMsg(chat: Container, text: string): void {
 		() => {
 			chat.addChild(new Text(text, 2, 0));
 		},
-	);
-}
-
-function appendAgentMsg(chat: Container, text: string, tokenSlot?: { text: Text | null }): void {
-	const t = getTheme();
-	appendPillBlock(
-		chat,
-		AGENT_LABEL,
-		(s) => color(s, t.modelFg),
-		() => {
-			try {
-				chat.addChild(new Markdown(text, 2, 0, makeMarkdownTheme()));
-			} catch {
-				chat.addChild(new Text(text, 2, 0));
-			}
-		},
-		tokenSlot,
 	);
 }
 
@@ -320,13 +310,11 @@ export async function runTuiMode(
 
 	const streamingSegments: Container[] = [];
 	let streamingSegment: Container | null = null;
-	let streamingTextNode: Text | null = null;
+	let streamingMarkdownNode: Markdown | null = null; // streams text directly into Markdown — no clear-and-replace
+	let streamingAccumulated = ""; // full text accumulated so far this generation
 	let streamingThinkNode: Text | null = null;
 	let accumulatedThinking = ""; // persists across sealStreamingSegment calls
-	// Two Typewriter instances — one for response text, one for thinking.
-	// Each wraps its DOM Text node behind a TypewriterSink, decoupling the
-	// pressure/tick logic from TUI concretions (Dependency Inversion).
-	const textTypewriter = new Typewriter({ setText: (t) => streamingTextNode?.setText(t) }, () => tui.requestRender());
+	// Typewriter for thinking only — text streams directly into Markdown node.
 	const thinkTypewriter = new Typewriter({ setText: (t) => streamingThinkNode?.setText(italic(dim(t))) }, () =>
 		tui.requestRender(),
 	);
@@ -343,11 +331,16 @@ export async function runTuiMode(
 	function receiveTextChunk(chunk: string): void {
 		consoleZone.pulse();
 		const box = openStreamingSegment();
-		if (!streamingTextNode) {
-			streamingTextNode = new Text("", 2, 0);
-			box.addChild(streamingTextNode);
+		if (!streamingMarkdownNode) {
+			streamingAccumulated = "";
+			streamingMarkdownNode = new Markdown("", 2, 0, makeMarkdownTheme());
+			box.addChild(streamingMarkdownNode);
 		}
-		textTypewriter.receive(chunk);
+		streamingAccumulated += chunk;
+		// Update Markdown in-place — re-parses on next render frame.
+		// Matches Pi's AssistantMessageComponent.updateContent() pattern.
+		streamingMarkdownNode.setText(streamingAccumulated);
+		tui.requestRender();
 	}
 
 	function receiveThinkingChunk(chunk: string): void {
@@ -366,23 +359,22 @@ export async function runTuiMode(
 	// Seal the current generation's container so tool call lines go below it.
 	// Called when the first tool call fires (generation phase ended).
 	function sealStreamingSegment(): void {
-		textTypewriter.flush();
 		thinkTypewriter.flush();
-		textTypewriter.reset();
 		thinkTypewriter.reset();
 		streamingSegment = null;
-		streamingTextNode = null;
+		streamingMarkdownNode = null;
+		streamingAccumulated = "";
 		streamingThinkNode = null;
 	}
 
-	// Remove all accumulated live containers; called after final reply is added.
+	// Remove all accumulated live containers (abort / error path only).
 	function clearStreamingSegments(): void {
-		textTypewriter.reset();
 		thinkTypewriter.reset();
 		for (const c of streamingSegments) chat.removeChild(c);
 		streamingSegments.length = 0;
 		streamingSegment = null;
-		streamingTextNode = null;
+		streamingMarkdownNode = null;
+		streamingAccumulated = "";
 		streamingThinkNode = null;
 	}
 
@@ -480,18 +472,17 @@ export async function runTuiMode(
 		};
 
 		try {
-			const reply = await dialog.send(text, "human", 300_000);
+			await dialog.send(text, "human", 300_000);
 			if (!aborted) {
 				consoleZone.stopThinking();
-				textTypewriter.markStreamDone();
 				thinkTypewriter.markStreamDone();
-				await textTypewriter.whenDrained();
 				if (!aborted) {
-					// Capture and clear thinking before wiping streaming segments.
+					// Persist thinking block if any, then add token footer.
+					// The streaming Markdown node is already in chat with the full reply —
+					// no clear-and-replace needed (Pi pattern: updateContent() in place).
 					const savedThinking = accumulatedThinking.trim();
 					accumulatedThinking = "";
-					clearStreamingSegments();
-					// Persist thinking block above the final reply.
+					sealStreamingSegment();
 					if (savedThinking) {
 						const t = getTheme();
 						chat.addChild(new Spacer(1));
@@ -499,10 +490,11 @@ export async function runTuiMode(
 						chat.addChild(new Text(italic(dim(truncateToolOutput(savedThinking))), 2, 0));
 						chat.addChild(new Spacer(1));
 					}
-					const footerSlot = { text: null as Text | null };
-					appendAgentMsg(chat, reply, footerSlot);
-					pendingTokenFooter = footerSlot.text;
-					tui.requestRender();
+					// Token footer appended after the existing Markdown content.
+					const tokenText = new Text("", 1, 0);
+					chat.addChild(tokenText);
+					pendingTokenFooter = tokenText;
+					tui.requestRender(true);
 				}
 			}
 		} catch (e) {

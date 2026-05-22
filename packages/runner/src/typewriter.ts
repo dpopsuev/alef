@@ -15,10 +15,14 @@
  *   At 60fps: 500/60 ≈ 8 chars/frame min, 2000/60 ≈ 33 chars/frame max
  *
  * charsPerFrame schedule (adaptive, but hard-capped):
- *   pressure  0–10   →  4 chars   (slow, smooth trickle)
- *   pressure 10–50   → 16 chars   (normal LLM pace at 60fps)
- *   pressure 50–200  → 32 chars   (catching up, still paced)
- *   pressure 200+    → 64 chars   (high catchup, hard cap)
+ *   pressure  0–20   →  1 char    (letter-by-letter trickle, most LLMs)
+ *   pressure 20–80   →  2 chars   (moderate pace, still looks like typing)
+ *   pressure 80–250  →  4 chars   (catchup, remains readable at 60fps)
+ *   pressure 250+    →  8 chars   (drain mode — hard cap, never a dump)
+ *
+ * At 60fps these rates map to: 60 / 120 / 240 / 480 chars/sec.
+ * Typical LLM output is 50–200 chars/sec — the 1–2 char range covers it.
+ * The TUI enforces MIN_RENDER_INTERVAL_MS=16 so ticking faster is wasteful.
  *
  * markStreamDone() is a metadata flag only — it does NOT change drain speed.
  * flush() is kept for internal resets (abort, clear) but must NOT be called
@@ -36,8 +40,8 @@ export interface TypewriterConfig {
 	maxCharsPerTick?: number;
 }
 
-const DEFAULT_TICK_MS = 16; // 60fps
-const DEFAULT_MAX_CHARS_PER_TICK = 64;
+const DEFAULT_TICK_MS = 16; // 60fps — aligned with TUI.MIN_RENDER_INTERVAL_MS
+const DEFAULT_MAX_CHARS_PER_TICK = 8;
 
 export class Typewriter {
 	private pending = "";
@@ -117,10 +121,10 @@ export class Typewriter {
 	 */
 	charsPerTick(gap: number): number {
 		if (gap <= 0) return 0;
-		if (gap <= 10) return 4;
-		if (gap <= 50) return 16;
-		if (gap <= 200) return 32;
-		return this.maxCharsPerTick; // 64 — hard cap, never a dump
+		if (gap <= 20) return 1; // letter-by-letter: ~60 chars/sec at 60fps
+		if (gap <= 80) return 2; // gentle catchup: ~120 chars/sec
+		if (gap <= 250) return 4; // moderate catchup: ~240 chars/sec
+		return this.maxCharsPerTick; // drain mode: ~480 chars/sec, hard cap
 	}
 
 	private scheduleIfIdle(): void {

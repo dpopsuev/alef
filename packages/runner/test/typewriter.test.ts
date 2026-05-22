@@ -32,33 +32,33 @@ function makeWriter(sink: TypewriterSink, cfg?: TypewriterConfig) {
 // ---------------------------------------------------------------------------
 
 describe("charsPerTick — frame-budget character reveal", () => {
-	it("reveals 4 chars when pressure is low (≤10)", () => {
+	it("reveals 1 char when pressure is low (≤20) — letter-by-letter trickle", () => {
 		const { tw } = makeWriter(makeSink());
-		expect(tw.charsPerTick(1)).toBe(4);
-		expect(tw.charsPerTick(10)).toBe(4);
+		expect(tw.charsPerTick(1)).toBe(1);
+		expect(tw.charsPerTick(20)).toBe(1);
 	});
 
-	it("reveals 16 chars at normal pressure (10–50)", () => {
+	it("reveals 2 chars at moderate pressure (20–80)", () => {
 		const { tw } = makeWriter(makeSink());
-		expect(tw.charsPerTick(11)).toBe(16);
-		expect(tw.charsPerTick(50)).toBe(16);
+		expect(tw.charsPerTick(21)).toBe(2);
+		expect(tw.charsPerTick(80)).toBe(2);
 	});
 
-	it("reveals 32 chars at high pressure (50–200)", () => {
+	it("reveals 4 chars at high pressure (80–250)", () => {
 		const { tw } = makeWriter(makeSink());
-		expect(tw.charsPerTick(51)).toBe(32);
-		expect(tw.charsPerTick(200)).toBe(32);
+		expect(tw.charsPerTick(81)).toBe(4);
+		expect(tw.charsPerTick(250)).toBe(4);
 	});
 
-	it("caps at maxCharsPerTick (64) — never dumps the whole buffer", () => {
+	it("caps at maxCharsPerTick (8) — drain mode, never a dump", () => {
 		const { tw } = makeWriter(makeSink());
-		expect(tw.charsPerTick(201)).toBe(64);
-		expect(tw.charsPerTick(10_000)).toBe(64);
+		expect(tw.charsPerTick(251)).toBe(8);
+		expect(tw.charsPerTick(10_000)).toBe(8);
 	});
 
 	it("respects custom maxCharsPerTick config", () => {
-		const { tw } = makeWriter(makeSink(), { maxCharsPerTick: 32 });
-		expect(tw.charsPerTick(1000)).toBe(32);
+		const { tw } = makeWriter(makeSink(), { maxCharsPerTick: 16 });
+		expect(tw.charsPerTick(1000)).toBe(16);
 	});
 });
 
@@ -81,18 +81,18 @@ describe("markStreamDone — metadata only, no rate change", () => {
 
 	it("drain rate after markStreamDone is capped — not a dump", () => {
 		const sink = makeSink();
-		const { tw } = makeWriter(sink, { tickMs: 16, maxCharsPerTick: 64 });
+		const { tw } = makeWriter(sink, { tickMs: 16, maxCharsPerTick: 8 });
 		tw.receive("a".repeat(500));
 		tw.markStreamDone();
 
-		// After one tick (16ms): at most 64 chars revealed
+		// After one tick (16ms): at most 8 chars revealed (drain mode cap)
 		vi.advanceTimersByTime(16);
-		expect(sink.value.length).toBeLessThanOrEqual(64);
+		expect(sink.value.length).toBeLessThanOrEqual(8);
 	});
 
 	it("buffer drains fully at paced rate after markStreamDone", () => {
 		const sink = makeSink();
-		const { tw } = makeWriter(sink, { tickMs: 16, maxCharsPerTick: 64 });
+		const { tw } = makeWriter(sink, { tickMs: 16, maxCharsPerTick: 8 });
 		tw.receive("hello world");
 		tw.markStreamDone();
 		vi.advanceTimersByTime(500);
@@ -115,7 +115,7 @@ describe("Streaming — smooth reveal per frame", () => {
 
 		vi.advanceTimersByTime(16);
 		expect(sink.value.length).toBeGreaterThan(0);
-		expect(sink.value.length).toBeLessThanOrEqual(64); // hard cap
+		expect(sink.value.length).toBeLessThanOrEqual(8); // hard cap = 8
 	});
 
 	it("triggers a render on every tick with visible output", () => {

@@ -310,11 +310,15 @@ export async function runTuiMode(
 
 	const streamingSegments: Container[] = [];
 	let streamingSegment: Container | null = null;
-	let streamingMarkdownNode: Markdown | null = null; // streams text directly into Markdown — no clear-and-replace
-	let streamingAccumulated = ""; // full text accumulated so far this generation
+	let streamingMarkdownNode: Markdown | null = null;
 	let streamingThinkNode: Text | null = null;
 	let accumulatedThinking = ""; // persists across sealStreamingSegment calls
-	// Typewriter for thinking only — text streams directly into Markdown node.
+
+	// Both reply text and thinking are paced by a Typewriter for smooth letter-by-letter reveal.
+	// Tick rate matches TUI.MIN_RENDER_INTERVAL_MS (16ms = 60fps) so every tick maps to one frame.
+	const replyTypewriter = new Typewriter({ setText: (t) => streamingMarkdownNode?.setText(t) }, () =>
+		tui.requestRender(),
+	);
 	const thinkTypewriter = new Typewriter({ setText: (t) => streamingThinkNode?.setText(italic(dim(t))) }, () =>
 		tui.requestRender(),
 	);
@@ -332,15 +336,12 @@ export async function runTuiMode(
 		consoleZone.pulse();
 		const box = openStreamingSegment();
 		if (!streamingMarkdownNode) {
-			streamingAccumulated = "";
 			streamingMarkdownNode = new Markdown("", 2, 0, makeMarkdownTheme());
 			box.addChild(streamingMarkdownNode);
 		}
-		streamingAccumulated += chunk;
-		// Update Markdown in-place — re-parses on next render frame.
-		// Matches Pi's AssistantMessageComponent.updateContent() pattern.
-		streamingMarkdownNode.setText(streamingAccumulated);
-		tui.requestRender();
+		// Feed the chunk to the typewriter — it reveals it letter-by-letter at 60fps
+		// via sink.setText(revealedPrefix), which calls streamingMarkdownNode.setText().
+		replyTypewriter.receive(chunk);
 	}
 
 	function receiveThinkingChunk(chunk: string): void {
@@ -359,22 +360,23 @@ export async function runTuiMode(
 	// Seal the current generation's container so tool call lines go below it.
 	// Called when the first tool call fires (generation phase ended).
 	function sealStreamingSegment(): void {
+		replyTypewriter.flush();
+		replyTypewriter.reset();
 		thinkTypewriter.flush();
 		thinkTypewriter.reset();
 		streamingSegment = null;
 		streamingMarkdownNode = null;
-		streamingAccumulated = "";
 		streamingThinkNode = null;
 	}
 
 	// Remove all accumulated live containers (abort / error path only).
 	function clearStreamingSegments(): void {
+		replyTypewriter.reset();
 		thinkTypewriter.reset();
 		for (const c of streamingSegments) chat.removeChild(c);
 		streamingSegments.length = 0;
 		streamingSegment = null;
 		streamingMarkdownNode = null;
-		streamingAccumulated = "";
 		streamingThinkNode = null;
 	}
 
@@ -476,6 +478,7 @@ export async function runTuiMode(
 			await dialog.send(text, "human", 300_000);
 			if (!aborted) {
 				consoleZone.stopThinking();
+				replyTypewriter.markStreamDone();
 				thinkTypewriter.markStreamDone();
 				if (!aborted) {
 					// Persist thinking block if any, then add token footer.

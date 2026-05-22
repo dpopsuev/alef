@@ -155,7 +155,7 @@ describe("Thinking text appears during extended thinking", () => {
 
 		tw.receive(chunk);
 		tw.markStreamDone();
-		vi.advanceTimersByTime(500);
+		vi.advanceTimersByTime(2000); // 68 chars / 2 per tick / 60fps = ~544ms, give margin
 
 		expect(sink.value).toBe(chunk);
 	});

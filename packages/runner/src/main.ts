@@ -275,7 +275,16 @@ agent.load(dialog).load(llmOrgan).load(reactor);
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
-agent.load(new LoopDetectorOrgan({ threshold: args.loopThreshold }));
+agent.load(
+	new LoopDetectorOrgan({
+		onLoop: (_type, reason) => {
+			process.stderr.write(`\n[loop-detector] ${reason}\n`);
+			// Abort the in-flight turn. The AbortSignal propagates through
+			// the LLM call and all pending waitForToolResult promises.
+			currentLLMController?.abort(new Error(`[loop-detector] ${reason}`));
+		},
+	}),
+);
 agent.load(new EventLogOrgan(session));
 
 if (args.serve !== undefined) {

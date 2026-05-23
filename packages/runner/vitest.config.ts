@@ -16,6 +16,9 @@ export default defineConfig({
 			{ find: /^@dpopsuev\/alef-organ-lector$/, replacement: resolve("../organ-lector/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-tui$/, replacement: resolve("../tui/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-nodesh$/, replacement: resolve("../organ-nodesh/src/index.ts") },
+			// VirtualTerminal is imported by path (../../tui/test/virtual-terminal.js)
+			// @xterm/headless needs to resolve from node_modules
+			{ find: /^@dpopsuev\/alef-tui$/, replacement: resolve("../tui/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-supervisor$/, replacement: resolve("../organ-supervisor/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-eval$/, replacement: resolve("../organ-eval/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-shell$/, replacement: resolve("../organ-shell/src/index.ts") },

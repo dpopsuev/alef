@@ -112,7 +112,6 @@ describe("compileAgentDefinition", () => {
 		expect(() =>
 			compileAgentDefinition({
 				name: "bad",
-				// @ts-expect-error — deliberately invalid
 				organs: [{ name: "weather" }],
 			}),
 		).toThrow();

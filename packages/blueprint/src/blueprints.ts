@@ -39,14 +39,8 @@ const AgentDefinitionChildSchema = Type.Object({
 });
 
 const AgentDefinitionOrganSchema = Type.Object({
-	name: Type.Union([
-		Type.Literal("fs"),
-		Type.Literal("shell"),
-		Type.Literal("nodesh"),
-		Type.Literal("symbols"),
-		Type.Literal("lector"),
-		Type.Literal("supervisor"),
-	]),
+	name: Type.Optional(Type.String({ minLength: 1 })),
+	path: Type.Optional(Type.String({ minLength: 1 })),
 	actions: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
 	cache: Type.Optional(
 		Type.Object({

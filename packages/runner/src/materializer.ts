@@ -1,48 +1,58 @@
 /**
- * Blueprint materializer — instantiates Alef EDA organs from a CompiledAgentDefinition.
+ * Blueprint materializer — loads Organ instances from a CompiledAgentDefinition.
  *
- * This is the bridge between the declarative YAML blueprint format and the
- * organ instances that Agent.load() accepts. It replaces the hardcoded organ
- * wiring in main.ts when --blueprint is supplied.
+ * No per-organ knowledge. No if-chains. No pre-registration.
+ * Each organ is loaded dynamically and must export createOrgan(opts).
  *
- * Blueprint → Organ mapping (EDA names only; legacy organs are skipped):
- *   fs         → createFsOrgan({ cwd, actions })
- *   shell      → createShellOrgan({ cwd, actions })
- *   lector     → createLectorOrgan({ cwd, actions })
- *   (ai)       → LLMOrgan — always mounted; blueprint may override model
- *   (discourse) → DialogOrgan — always mounted; not controlled by blueprint
- *   lector     → not yet in EDA; skipped with a console.warn
- *   symbols    → not yet in EDA; skipped with a console.warn
- *   supervisor → not yet in EDA; skipped with a console.warn
+ * Resolution order per organ entry:
+ *   path  → jiti.import(resolvedPath)       — TypeScript file, no build step
+ *   name  → import(BUILTIN_PACKAGES[name])  — built-in alias
+ *   name  → import(name)                    — treated as npm package specifier
  *
- * Model resolution priority:
- *   1. --model CLI flag (already resolved by args.ts before materializer runs)
- *   2. blueprint.model field
- *   3. ALEF_MODEL env var
- *   4. default model (claude-sonnet-4-5)
+ * Factory convention:
+ *   Each organ module exports createOrgan(opts: OrganFactoryOptions): Organ.
+ *   The materializer calls it with { cwd, actions, logger }. Unknown options
+ *   are ignored — each organ's factory handles only what it needs.
  */
 
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
-import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
-import { createLectorOrgan } from "@dpopsuev/alef-organ-lector";
-import { createNodeshOrgan } from "@dpopsuev/alef-organ-nodesh";
-import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { BUILTIN_PACKAGES } from "@dpopsuev/alef-agent-blueprint";
 import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import { createJiti } from "jiti";
 
-/** Organs that the materializer does not yet support in the EDA runtime. */
-const UNSUPPORTED_ORGANS = new Set(["symbols", "supervisor", "ai", "discourse"]);
+/** Common options passed to every organ factory. */
+export interface OrganFactoryOptions {
+	cwd: string;
+	actions?: string[];
+	logger?: OrganLogger;
+}
+
+/** Expected shape of an organ module — must export createOrgan. */
+interface OrganModule {
+	createOrgan: (opts: OrganFactoryOptions) => Organ;
+}
+
+export interface MaterializerOptions {
+	cwd: string;
+	loggerFor?: (organName: string) => OrganLogger;
+}
+
+export interface MaterializerResult {
+	organs: Organ[];
+	modelId: string | undefined;
+}
 
 /**
  * Default organ set used when no --blueprint is supplied.
- * Keeps main.ts free of organ imports — the materializer is the single
+ * Keeps main.ts free of organ imports — the materializer is the only
  * instantiation path for both blueprint and bare invocations.
  */
 export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
 	name: "default",
 	organs: [
-		{ name: "fs", actions: ["read", "write", "edit", "grep", "find"], toolNames: [] },
-		{ name: "shell", actions: ["exec"], toolNames: [] },
-		{ name: "nodesh", actions: ["eval"], toolNames: [] },
+		{ name: "fs", package: BUILTIN_PACKAGES.fs, path: undefined, actions: [], toolNames: [] },
+		{ name: "shell", package: BUILTIN_PACKAGES.shell, path: undefined, actions: [], toolNames: [] },
+		{ name: "nodesh", package: BUILTIN_PACKAGES.nodesh, path: undefined, actions: [], toolNames: [] },
 	],
 	model: undefined,
 	children: [],
@@ -53,80 +63,73 @@ export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
 	hooks: { extensions: [] },
 };
 
-export interface MaterializerOptions {
-	/** Working directory for FsOrgan and ShellOrgan. */
-	cwd: string;
-	/** Optional logger factory. Called with organ name to produce a child logger. */
-	loggerFor?: (organName: string) => OrganLogger;
+let _jiti: ReturnType<typeof createJiti> | undefined;
+function getJiti(): ReturnType<typeof createJiti> {
+	if (!_jiti) {
+		_jiti = createJiti(import.meta.url, { moduleCache: false, tryNative: false });
+	}
+	return _jiti;
 }
 
-export interface MaterializerResult {
-	/** Organs to load into Agent, in mount order. */
-	organs: Organ[];
-	/**
-	 * Model ID from the blueprint, if specified and not overridden by CLI.
-	 * Format: "provider/model-id" or undefined.
-	 */
-	modelId: string | undefined;
+async function loadOrganModule(organDef: CompiledAgentDefinition["organs"][number]): Promise<OrganModule> {
+	if (organDef.path) {
+		// TypeScript file — load via jiti without a build step.
+		const jitiMod = await getJiti().import(organDef.path);
+		const mod = jitiMod as Record<string, unknown>;
+		if (typeof mod.createOrgan !== "function") {
+			throw new Error(
+				`Organ at '${organDef.path}' does not export createOrgan(opts). ` +
+					`Export a function named createOrgan that returns an Organ.`,
+			);
+		}
+		return mod as unknown as OrganModule;
+	}
+
+	const pkg = organDef.package ?? organDef.name;
+	// Dynamic import — works for both built-in monorepo packages and npm packages.
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	const rawMod = await import(pkg);
+	const mod = rawMod as unknown as Record<string, unknown>;
+	if (typeof mod.createOrgan !== "function") {
+		throw new Error(
+			`Organ package '${pkg}' does not export createOrgan(opts). ` +
+				`Add \`export { createYourOrgan as createOrgan } from "./organ.js"\` to its index.`,
+		);
+	}
+	return mod as unknown as OrganModule;
 }
 
-/**
- * Turn a compiled blueprint definition into concrete organ instances.
- * Only organs known to the EDA runtime are instantiated.
- */
-export function materializeBlueprint(
+export async function materializeBlueprint(
 	definition: CompiledAgentDefinition,
 	opts: MaterializerOptions,
-): MaterializerResult {
+): Promise<MaterializerResult> {
 	const organs: Organ[] = [];
 
 	for (const organDef of definition.organs) {
-		if (UNSUPPORTED_ORGANS.has(organDef.name)) {
-			// ai and discourse are always added by main.ts; lector/symbols/supervisor are roadmap.
-			if (organDef.name !== "ai" && organDef.name !== "discourse") {
-				console.warn(`[blueprint] Organ '${organDef.name}' is not yet supported in the EDA runtime. Skipping.`);
+		// Skip legacy/unimplemented organs silently.
+		// ai and discourse are mounted by main.ts; symbols/supervisor are roadmap.
+		if (["ai", "discourse", "symbols", "supervisor"].includes(organDef.name)) continue;
+
+		const label = organDef.path ? organDef.path : (organDef.package ?? organDef.name);
+		try {
+			const mod = await loadOrganModule(organDef);
+			const organ = mod.createOrgan({
+				cwd: opts.cwd,
+				actions: organDef.actions.length > 0 ? organDef.actions : undefined,
+				logger: opts.loggerFor?.(organDef.name),
+			});
+			organs.push(organ);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			// Warn but don't crash for unsupported/roadmap organs.
+			if (msg.includes("does not export createOrgan")) {
+				console.warn(`[blueprint] ${msg} Skipping.`);
+			} else {
+				throw new Error(`[blueprint] Failed to load organ '${label}': ${msg}`);
 			}
-			continue;
-		}
-
-		if (organDef.name === "fs") {
-			organs.push(
-				createFsOrgan({
-					cwd: opts.cwd,
-					actions: organDef.actions.length > 0 ? organDef.actions.map((a) => `fs.${a}`) : undefined,
-					logger: opts.loggerFor?.("fs"),
-				}),
-			);
-			continue;
-		}
-
-		if (organDef.name === "shell") {
-			organs.push(
-				createShellOrgan({
-					cwd: opts.cwd,
-					actions: organDef.actions.length > 0 ? organDef.actions.map((a) => `shell.${a}`) : undefined,
-					logger: opts.loggerFor?.("shell"),
-				}),
-			);
-			continue;
-		}
-
-		if (organDef.name === "nodesh") {
-			organs.push(createNodeshOrgan({ cwd: opts.cwd }));
-			continue;
-		}
-
-		if (organDef.name === "lector") {
-			organs.push(
-				createLectorOrgan({
-					cwd: opts.cwd,
-					actions: organDef.actions.length > 0 ? organDef.actions.map((a) => `lector.${a}`) : undefined,
-				}),
-			);
 		}
 	}
 
-	// Resolve model from blueprint if present.
 	let modelId: string | undefined;
 	if (definition.model) {
 		modelId = `${definition.model.provider}/${definition.model.id}`;

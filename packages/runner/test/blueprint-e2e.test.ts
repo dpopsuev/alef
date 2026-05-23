@@ -250,16 +250,17 @@ describe("error handling", () => {
 		expect(result.exitCode).toBe(1);
 	});
 
-	it("exits 1 when blueprint has an unknown organ action", async () => {
+	it("unknown organ actions are silently ignored — organs self-describe their tools", async () => {
 		const dir = tmpDir();
 		writeFileSync(
 			join(dir, "bad.yaml"),
 			["name: bad", "organs:", "  - name: fs", "    actions: [teleport]"].join("\n"),
 		);
 
+		// Unknown action = organ mounts with zero tools (ablated). Not an error.
 		const result = await run(["--blueprint", join(dir, "bad.yaml"), "--list-tools"]);
-		expect(result.exitCode).toBe(1);
-		expect(result.stderr + result.stdout).toMatch(/unsupported action/i);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).not.toContain("fs."); // all fs tools ablated
 	});
 
 	it("exits 1 when blueprint is missing required name field", async () => {

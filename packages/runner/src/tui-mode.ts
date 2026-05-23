@@ -332,15 +332,16 @@ export async function runTuiMode(
 		return streamingSegment;
 	}
 
+	let _totalChunksReceived = 0; // debug counter, reset per turn
 	function receiveTextChunk(chunk: string): void {
 		consoleZone.pulse();
 		const box = openStreamingSegment();
 		if (!streamingMarkdownNode) {
 			streamingMarkdownNode = new Markdown("", 2, 0, makeMarkdownTheme());
 			box.addChild(streamingMarkdownNode);
+			trace("receiveTextChunk:first", { markdownNode: true });
 		}
-		// Feed the chunk to the typewriter — it reveals it letter-by-letter at 60fps
-		// via sink.setText(revealedPrefix), which calls streamingMarkdownNode.setText().
+		_totalChunksReceived++;
 		replyTypewriter.receive(chunk);
 	}
 
@@ -360,6 +361,12 @@ export async function runTuiMode(
 	// Seal the current generation's container so tool call lines go below it.
 	// Called when the first tool call fires (generation phase ended).
 	function sealStreamingSegment(): void {
+		trace("sealStreamingSegment", {
+			chunks: _totalChunksReceived,
+			markdownNode: streamingMarkdownNode !== null,
+			pending: replyTypewriter.pendingText.length,
+		});
+		_totalChunksReceived = 0;
 		// Reply (Markdown): instant flush — Markdown manages its own colors, fade not possible.
 		replyTypewriter.flush();
 		replyTypewriter.reset();

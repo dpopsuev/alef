@@ -15,7 +15,7 @@
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import { defineOrgan, getString } from "@dpopsuev/alef-spine";
 import { z } from "zod";
-import type { TodoItem, TodoStatus, TodosResult } from "./types.js";
+import type { TodoItem, TodoStatus } from "./types.js";
 
 export interface TodosOrganOptions {
 	logger?: OrganLogger;
@@ -78,8 +78,7 @@ export function createTodosOrgan(opts: TodosOrganOptions = {}): Organ {
 		}
 
 		currentTodos = newTodos;
-
-		const result: TodosResult = {
+		return {
 			todos: currentTodos,
 			justCompleted,
 			justStarted,
@@ -87,7 +86,6 @@ export function createTodosOrgan(opts: TodosOrganOptions = {}): Organ {
 			completed: newTodos.filter((t) => t.status === "completed").length,
 			total: newTodos.length,
 		};
-		return result as unknown as Record<string, unknown>;
 	}
 
 	return defineOrgan(

@@ -307,10 +307,11 @@ describe("turnsToMessages — conversationHistory primary path", () => {
 			]),
 		];
 		const result = turnsToMessages(turns);
-		expect(result).toEqual([
-			{ role: "user", content: "hello" },
-			{ role: "assistant", content: "hi" },
-		]);
+		expect(result).toHaveLength(2);
+		expect(result[0]).toMatchObject({ role: "user", content: "hello" });
+		// Fallback path: assistant text is preserved as a user message with [assistant] prefix
+		// so it doesn't need to satisfy the full AssistantMessage type shape.
+		expect(result[1]).toMatchObject({ role: "user", content: "[assistant] hi" });
 	});
 
 	it("returns empty array for turns with no dialog.message events", () => {

@@ -20,6 +20,7 @@
  * Ref: ALE-SPC-15, ALE-TSK-179
  */
 
+import type { AssistantMessage, Message, UserMessage } from "@dpopsuev/alef-ai";
 import type { Turn } from "./session-store.js";
 
 // ---------------------------------------------------------------------------
@@ -193,10 +194,11 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-export interface ConversationMessage {
-	role: "user" | "assistant" | "system";
-	content: string;
-}
+/**
+ * @deprecated Use Message from @dpopsuev/alef-ai directly.
+ * Kept as an alias for callsites that have not been updated yet.
+ */
+export type ConversationMessage = Pick<UserMessage | AssistantMessage, "role" | "content">;
 
 /**
  * Project selected turns into a message array for LLMOrgan payload.
@@ -210,7 +212,16 @@ export interface ConversationMessage {
  * Fallback: text-only reconstruction from dialog.message events (ScriptedLLMOrgan,
  * first turn, or any organ that does not publish conversationHistory).
  */
-export function turnsToMessages(turns: Turn[]): ConversationMessage[] {
+/**
+ * Project selected turns into a Message array for LLMOrgan.
+ *
+ * Primary path: find the most recent motor/dialog.message that carries
+ * conversationHistory (published by LLMOrgan). That array is already a
+ * proper Message[] — use it directly.
+ *
+ * Fallback: text-only reconstruction from dialog.message events.
+ */
+export function turnsToMessages(turns: Turn[]): Message[] {
 	for (let i = turns.length - 1; i >= 0; i--) {
 		const turn = turns[i];
 		for (let j = turn.events.length - 1; j >= 0; j--) {
@@ -218,21 +229,26 @@ export function turnsToMessages(turns: Turn[]): ConversationMessage[] {
 			if (event.bus !== "motor" || event.type !== "dialog.message") continue;
 			const hist = event.payload.conversationHistory;
 			if (Array.isArray(hist) && hist.length > 0) {
-				return hist as ConversationMessage[];
+				// LLMOrgan stores properly typed Message objects in conversationHistory.
+				return hist as Message[];
 			}
 		}
 	}
 
-	const messages: ConversationMessage[] = [];
+	// Fallback: reconstruct from raw dialog.message events.
+	const now = Date.now();
+	const messages: Message[] = [];
 	for (const turn of turns) {
 		for (const event of turn.events) {
 			if (event.type !== "dialog.message") continue;
+			const text = typeof event.payload.text === "string" ? event.payload.text : "";
+			if (!text) continue;
 			if (event.bus === "sense") {
-				const text = typeof event.payload.text === "string" ? event.payload.text : "";
-				if (text) messages.push({ role: "user", content: text });
+				messages.push({ role: "user", content: text, timestamp: now });
 			} else if (event.bus === "motor") {
-				const text = typeof event.payload.text === "string" ? event.payload.text : "";
-				if (text) messages.push({ role: "assistant", content: text });
+				// Simple text-only assistant message. Real assistant messages come from
+				// the conversationHistory primary path above.
+				messages.push({ role: "user", content: `[assistant] ${text}`, timestamp: now });
 			}
 		}
 	}

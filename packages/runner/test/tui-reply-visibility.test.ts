@@ -208,7 +208,9 @@ describe("RED-GREEN: reply text reaches the screen after tool-call turn", () => 
 		const reply = paragraphs.join("\n\n");
 		// SENTINEL: a unique string we'll search for at the end of the reply
 		const sentinel = "SENTINEL_END_OF_REPLY_VISIBLE";
-		const fullReply = reply + "\n\n" + sentinel;
+		const fullReply = `${reply}
+
+${sentinel}`;
 
 		for (const ch of fullReply) {
 			receiveChunk(ch);

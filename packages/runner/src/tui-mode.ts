@@ -245,13 +245,15 @@ export function truncateToolOutput(text: string): string {
  * The header line ("edit path") is rendered bold.
  */
 export function renderDiffDisplay(diffText: string): string {
+	const t = getTheme();
 	const lines = diffText.split("\n");
 	return lines
 		.map((line, i) => {
 			if (i === 0) return bold(line); // header: "edit path/to/file"
 			if (line === "") return line;
-			if (line.startsWith("+")) return chalk.green(line);
-			if (line.startsWith("-")) return chalk.red(line);
+			// Use raw ANSI theme tokens — chalk skips colors when stdout is not a TTY.
+			if (line.startsWith("+")) return color(line, t.toolOkFg);
+			if (line.startsWith("-")) return color(line, t.toolErrFg);
 			return dim(line); // context and ellipsis
 		})
 		.join("\n");

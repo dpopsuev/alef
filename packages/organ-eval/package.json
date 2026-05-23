@@ -1,7 +1,7 @@
 {
-	"name": "@dpopsuev/alef-organ-supervisor",
+	"name": "@dpopsuev/alef-organ-eval",
 	"version": "0.0.1",
-	"description": "Supervisor organ — child-Alef lifecycle management: spawn, kill, list, status, promote",
+	"description": "Eval organ — send prompts to a child Alef endpoint and score responses with structural validators and LLM-as-judge",
 	"type": "module",
 	"main": "./src/index.ts",
 	"exports": {
@@ -15,8 +15,8 @@
 		"clean": "shx rm -rf dist"
 	},
 	"dependencies": {
+		"@dpopsuev/alef-ai": "^0.0.1",
 		"@dpopsuev/alef-spine": "^0.0.1",
-		"yaml": "^2.8.0",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {

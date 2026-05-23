@@ -46,6 +46,12 @@
 			"@dpopsuev/alef-organ-nodesh": [
 				"../organ-nodesh/src/index.ts"
 			],
+			"@dpopsuev/alef-organ-supervisor": [
+				"../organ-supervisor/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-eval": [
+				"../organ-eval/src/index.ts"
+			],
 			"@dpopsuev/alef-organ-shell": [
 				"../organ-shell/src/index.ts"
 			],

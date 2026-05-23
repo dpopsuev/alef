@@ -23,11 +23,9 @@ import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } f
 import type { Message, ThinkingLevel } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { LLMOrgan, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { createReactorOrgan } from "@dpopsuev/alef-organ-reactor";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
-import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { resolveApiKey } from "./auth.js";
@@ -38,7 +36,7 @@ import { EventLogOrgan } from "./event-log-organ.js";
 import { runInteractive } from "./interactive.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
 import { LoopDetectorOrgan } from "./loop-detector.js";
-import { materializeBlueprint } from "./materializer.js";
+import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "./materializer.js";
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
@@ -156,10 +154,13 @@ if (blueprintPath) {
 	blueprintSurfaces = definition.surfaces;
 	blueprintUpgradePolicy = definition.supervisor?.upgradePolicy ?? "rebuild_only";
 } else {
-	corpusOrgans = [
-		createFsOrgan({ cwd: args.cwd, logger: log.child({ organ: "fs" }) }),
-		createShellOrgan({ cwd: args.cwd, logger: log.child({ organ: "shell" }) }),
-	];
+	// No --blueprint supplied: use the default organ set through the same
+	// materializer path so main.ts stays free of organ imports.
+	const defaultMaterialized = materializeBlueprint(DEFAULT_COMPILED_DEFINITION, {
+		cwd: args.cwd,
+		loggerFor: (name) => log.child({ organ: name }),
+	});
+	corpusOrgans = defaultMaterialized.organs;
 }
 
 const resolvedModelId = args.modelId ?? blueprintModelId ?? cfg.model;

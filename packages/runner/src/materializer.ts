@@ -25,11 +25,33 @@
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createLectorOrgan } from "@dpopsuev/alef-organ-lector";
+import { createNodeshOrgan } from "@dpopsuev/alef-organ-nodesh";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
 
 /** Organs that the materializer does not yet support in the EDA runtime. */
 const UNSUPPORTED_ORGANS = new Set(["symbols", "supervisor", "ai", "discourse"]);
+
+/**
+ * Default organ set used when no --blueprint is supplied.
+ * Keeps main.ts free of organ imports — the materializer is the single
+ * instantiation path for both blueprint and bare invocations.
+ */
+export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
+	name: "default",
+	organs: [
+		{ name: "fs", actions: ["read", "write", "edit", "grep", "find"], toolNames: [] },
+		{ name: "shell", actions: ["exec"], toolNames: [] },
+		{ name: "nodesh", actions: ["eval"], toolNames: [] },
+	],
+	model: undefined,
+	children: [],
+	surfaces: [],
+	capabilities: { tools: [], supervisor: false },
+	memory: { session: "memory", working: {} },
+	policies: { appendSystemPrompt: [] },
+	hooks: { extensions: [] },
+};
 
 export interface MaterializerOptions {
 	/** Working directory for FsOrgan and ShellOrgan. */
@@ -86,6 +108,11 @@ export function materializeBlueprint(
 					logger: opts.loggerFor?.("shell"),
 				}),
 			);
+			continue;
+		}
+
+		if (organDef.name === "nodesh") {
+			organs.push(createNodeshOrgan({ cwd: opts.cwd }));
 			continue;
 		}
 

@@ -43,6 +43,9 @@
 			"@dpopsuev/alef-tui/*": [
 				"../tui/src/*"
 			],
+			"@dpopsuev/alef-organ-nodesh": [
+				"../organ-nodesh/src/index.ts"
+			],
 			"@dpopsuev/alef-organ-shell": [
 				"../organ-shell/src/index.ts"
 			],

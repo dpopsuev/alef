@@ -414,6 +414,15 @@ export async function runTuiMode(
 			thinkingStartedAt = 0;
 		}
 
+		// Remove the container from chat if it never received any content.
+		// An empty Container renders as zero lines but can perturb clearOnShrink
+		// and produces a blank gap in the layout (ALE-BUG-7).
+		if (streamingSegment && !streamingMarkdownNode && !streamingThinkNode) {
+			chat.removeChild(streamingSegment);
+			const idx = streamingSegments.indexOf(streamingSegment);
+			if (idx >= 0) streamingSegments.splice(idx, 1);
+		}
+
 		streamingSegment = null;
 		streamingMarkdownNode = null;
 		streamingThinkNode = null;
@@ -531,11 +540,15 @@ export async function runTuiMode(
 		try {
 			await dialog.send(text, "human", 300_000);
 			if (!aborted) {
-				consoleZone.stopThinking();
 				replyTypewriter.markStreamDone();
 				thinkTypewriter.markStreamDone();
 				if (!aborted) {
+					// Seal and stop-thinking atomically before the force render.
+					// stopThinking() before seal clears the ConsoleZone status text,
+					// triggering a stale render that shows an empty box before the
+					// reply content reaches the DOM (ALE-BUG-7).
 					sealStreamingSegment();
+					consoleZone.stopThinking();
 					const tokenText = new Text("", 1, 0);
 					chat.addChild(tokenText);
 					pendingTokenFooter = tokenText;

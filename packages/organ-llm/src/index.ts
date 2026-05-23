@@ -91,7 +91,12 @@ function isRetryableError(msg: string | undefined): boolean {
 	return false;
 }
 
-async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Promise<void> {
+async function runLLMLoop(
+	ctx: CerebrumHandlerCtx,
+	options: LLMOrganOptions,
+	/** Called with a snapshot of messages after each tool round completes. */
+	onCheckpoint?: (messages: Message[]) => void,
+): Promise<void> {
 	const payload = ctx.payload as {
 		messages?: readonly unknown[];
 		tools?: readonly { name: string; description: string; inputSchema: Record<string, unknown> }[];
@@ -327,6 +332,10 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 				timestamp: Date.now(),
 			});
 		}
+
+		// Checkpoint: save the accumulated message array after every completed
+		// tool round so the caller can publish it on abort/error (ALE-BUG-8).
+		onCheckpoint?.(messages.slice() as Message[]);
 	}
 }
 
@@ -380,13 +389,20 @@ export function createLLMOrgan(options: LLMOrganOptions): Organ {
 	return defineOrgan("llm", {
 		[`sense/${DIALOG_MESSAGE}`]: {
 			handle: async (ctx: CerebrumHandlerCtx) => {
+				// Holds the last tool-round snapshot so partial history can be
+				// published on abort/error, preventing conversation amnesia (ALE-BUG-8).
+				let partialHistory: Message[] | undefined;
 				try {
-					await runLLMLoop(ctx, options);
+					await runLLMLoop(ctx, options, (snapshot) => {
+						partialHistory = snapshot;
+					});
 				} catch (err) {
 					// Orange: surface LLM errors so dialog.send() resolves rather than hanging.
+					// Include partial history so the next turn retains tool context.
+					const text = `LLM error: ${String(err)}`;
 					ctx.motor.publish({
 						type: DIALOG_MESSAGE,
-						payload: { text: `LLM error: ${String(err)}` },
+						payload: { text, ...(partialHistory ? { conversationHistory: partialHistory } : {}) },
 						correlationId: ctx.correlationId,
 					});
 					throw err; // re-throw so OTel span is marked as error

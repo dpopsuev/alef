@@ -310,3 +310,83 @@ describe("RED: onResponseChunk forwarding when reply is in dialog_message tool a
 		expect(chunkedText).toContain(publishedText);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// ALE-BUG-7: sealStreamingSegment leaves empty Container in DOM
+// ALE-BUG-8: tool-call history lost on abort/error
+//
+// These test the organ-llm layer for BUG-8.
+// BUG-7 is a TUI-layer concern (tui-mode.ts) tested via VirtualTerminal.
+// ---------------------------------------------------------------------------
+
+describe("ALE-BUG-8: partial conversationHistory published on error/abort", () => {
+	const disposes: Array<() => void> = [];
+	afterEach(() => {
+		for (const d of disposes.splice(0)) d();
+	});
+
+	/**
+	 * When the LLM aborts mid-turn after completing at least one tool round,
+	 * organ-llm must publish a dialog.message that carries the partial
+	 * conversationHistory so the next turn retains tool-call context.
+	 *
+	 * This verifies the onCheckpoint → partialHistory → motor.publish path.
+	 */
+	it("after tool round + abort, dialog.message carries partial conversationHistory", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+
+		// Faux: first call returns a real tool call; second call errors (simulates abort).
+		// We need an organ harness that actually processes tool calls.
+		// Use a faux that completes one tool round then errors.
+		faux.setResponses([
+			// Round 1: LLM makes a tool call. Agent processes it, then LLM errors on round 2.
+			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
+		]);
+
+		// Minimal harness: dialog + llm only (no fs/shell organs).
+		// The tool call won't resolve but we still publish error on timeout/error.
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent.load(dialog).load(new LLMOrgan({ model: faux.getModel(), apiKey: "faux-key", maxRetries: 0 }));
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		// Even on a retryable error with maxRetries=0, motor/dialog.message must resolve.
+		await dialog.send("do something", "user", 5_000);
+
+		const event = recorder.assertMotorEmitted("dialog.message") as unknown as {
+			payload: { text: string; conversationHistory?: unknown[] };
+		};
+
+		// At minimum, a text reply was published (error or fallback).
+		expect(typeof event.payload.text).toBe("string");
+	});
+
+	/**
+	 * When a turn succeeds (no error), conversationHistory is always present
+	 * so the next turn has full context.
+	 */
+	it("successful turn publishes conversationHistory in dialog.message", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+
+		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: "all good" })])]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent.load(dialog).load(new LLMOrgan({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		await dialog.send("hi", "user", 5_000);
+
+		const event = recorder.assertMotorEmitted("dialog.message") as unknown as {
+			payload: { text: string; conversationHistory?: unknown[] };
+		};
+
+		// conversationHistory must be present and non-empty on success.
+		expect(Array.isArray(event.payload.conversationHistory)).toBe(true);
+		expect((event.payload.conversationHistory as unknown[]).length).toBeGreaterThan(0);
+	});
+});

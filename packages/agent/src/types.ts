@@ -49,54 +49,43 @@ export interface BeforeToolCallResult {
 	reason?: string;
 }
 
+/** Context passed to `beforeToolCall`. */
+export interface BeforeToolCallContext {
+	/** The assistant message that triggered the tool call. */
+	assistantMessage: AssistantMessage;
+	/** The tool call to be executed. */
+	toolCall: AgentToolCall;
+	/** Validated arguments from the tool call. */
+	args: unknown;
+	/** Current agent context. */
+	context: AgentContext;
+}
+
 /**
- * Partial override returned from `afterToolCall`.
+ * Result returned from `afterToolCall`.
  *
- * Merge semantics are field-by-field:
- * - `content`: if provided, replaces the tool result content array in full
- * - `details`: if provided, replaces the tool result details value in full
- * - `isError`: if provided, replaces the tool result error flag
- * - `terminate`: if provided, replaces the early-termination hint
- *
- * Omitted fields keep the original executed tool result values.
- * There is no deep merge for `content` or `details`.
+ * Allows modifying or replacing a tool's result before it becomes a ToolResultMessage artifact.
  */
 export interface AfterToolCallResult {
 	content?: (TextContent | ImageContent)[];
 	details?: unknown;
-	isError?: boolean;
-	/**
-	 * Hint that the agent should stop after the current tool batch.
-	 * Early termination only happens when every finalized tool result in the batch sets this to true.
-	 */
 	terminate?: boolean;
-}
-
-/** Context passed to `beforeToolCall`. */
-export interface BeforeToolCallContext {
-	/** The assistant message that requested the tool call. */
-	assistantMessage: AssistantMessage;
-	/** The raw tool call block from `assistantMessage.content`. */
-	toolCall: AgentToolCall;
-	/** Validated tool arguments for the target tool schema. */
-	args: unknown;
-	/** Current agent context at the time the tool call is prepared. */
-	context: AgentContext;
+	isError?: boolean;
 }
 
 /** Context passed to `afterToolCall`. */
 export interface AfterToolCallContext {
-	/** The assistant message that requested the tool call. */
+	/** The assistant message that triggered the tool call. */
 	assistantMessage: AssistantMessage;
-	/** The raw tool call block from `assistantMessage.content`. */
+	/** The tool call that was executed. */
 	toolCall: AgentToolCall;
-	/** Validated tool arguments for the target tool schema. */
+	/** Validated arguments passed to the tool. */
 	args: unknown;
-	/** The executed tool result before any `afterToolCall` overrides are applied. */
-	result: AgentToolResult<any>;
-	/** Whether the executed tool result is currently treated as an error. */
+	/** The result returned by the tool. */
+	result: AgentToolResult<unknown>;
+	/** Whether the tool failed. */
 	isError: boolean;
-	/** Current agent context at the time the tool call is finalized. */
+	/** Current agent context. */
 	context: AgentContext;
 }
 
@@ -113,7 +102,7 @@ export interface ShouldStopAfterTurnContext {
 }
 
 export interface AgentLoopConfig extends SimpleStreamOptions {
-	model: Model<any>;
+	model: Model<unknown>;
 
 	/**
 	 * Converts AgentMessage[] to LLM-compatible Message[] before each LLM call.
@@ -201,231 +190,88 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	getSteeringMessages?: () => Promise<AgentMessage[]>;
 
 	/**
-	 * Returns follow-up messages to process after the agent would otherwise stop.
+	 * Returns follow-up messages when the agent would otherwise stop.
 	 *
-	 * Called when the agent has no more tool calls and no steering messages.
-	 * If messages are returned, they're added to the context and the agent
-	 * continues with another turn.
+	 * Called when `shouldStopAfterTurn` doesn't request an exit, tool calls finish,
+	 * and `getSteeringMessages` returns []. If messages are returned, the loop starts
+	 * another turn. If [] is returned, the loop emits `agent_end` and exits.
 	 *
-	 * Use this for follow-up messages that should wait until the agent finishes.
+	 * Use this to queue planned work after the main prompt finishes.
 	 *
 	 * Contract: must not throw or reject. Return [] when no follow-up messages are available.
 	 */
 	getFollowUpMessages?: () => Promise<AgentMessage[]>;
 
 	/**
-	 * Tool execution mode.
-	 * - "sequential": execute tool calls one by one
-	 * - "parallel": preflight tool calls sequentially, then execute allowed tools concurrently;
-	 *   emit `tool_execution_end` in tool completion order after each tool is finalized,
-	 *   then emit tool-result message artifacts later in assistant source order
+	 * Hook called before each tool call is executed.
 	 *
-	 * Default: "parallel"
-	 */
-	toolExecution?: ToolExecutionMode;
-
-	/**
-	 * Called before a tool is executed, after arguments have been validated.
+	 * Useful for logging or blocking specific tool calls.
 	 *
-	 * Return `{ block: true }` to prevent execution. The loop emits an error tool result instead.
-	 * The hook receives the agent abort signal and is responsible for honoring it.
+	 * Contract: must not throw or reject. Throwing interrupts the low-level agent loop.
 	 */
 	beforeToolCall?: (context: BeforeToolCallContext, signal?: AbortSignal) => Promise<BeforeToolCallResult | undefined>;
 
 	/**
-	 * Called after a tool finishes executing, before `tool_execution_end` and tool-result message events are emitted.
+	 * Hook called after each tool call completes.
 	 *
-	 * Return an `AfterToolCallResult` to override parts of the executed tool result:
-	 * - `content` replaces the full content array
-	 * - `details` replaces the full details payload
-	 * - `isError` replaces the error flag
-	 * - `terminate` replaces the early-termination hint
+	 * Allows modifying tool results before they're passed to the LLM.
 	 *
-	 * Any omitted fields keep their original values. No deep merge is performed.
-	 * The hook receives the agent abort signal and is responsible for honoring it.
+	 * Contract: must not throw or reject. Throwing interrupts the low-level agent loop.
 	 */
 	afterToolCall?: (context: AfterToolCallContext, signal?: AbortSignal) => Promise<AfterToolCallResult | undefined>;
+
+	/** Tool execution mode for batches. */
+	toolExecution?: ToolExecutionMode;
 }
 
 /**
- * Thinking/reasoning level for models that support it.
- * Note: "xhigh" is only supported by selected model families. Use model thinking-level metadata
- * from @dpopsuev/alef-ai to detect support for a concrete model.
+ * User message with text and optional images.
  */
-export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
-
-/**
- * Extensible interface for custom app messages.
- * Apps can extend via declaration merging:
- *
- * @example
- * ```typescript
- * declare module "@mariozechner/agent" {
- *   interface CustomAgentMessages {
- *     artifact: ArtifactMessage;
- *     notification: NotificationMessage;
- *   }
- * }
- * ```
- */
-export interface CustomAgentMessages {
-	// Empty by default - apps extend via declaration merging
-}
-
-/**
- * AgentMessage: Union of LLM messages + custom messages.
- * This abstraction allows apps to add custom message types while maintaining
- * type safety and compatibility with the base LLM messages.
- */
-export type AgentMessage = Message | CustomAgentMessages[keyof CustomAgentMessages];
-
-/**
- * Public agent state.
- *
- * `tools` and `messages` use accessor properties so implementations can copy
- * assigned arrays before storing them.
- */
-export interface AgentState {
-	/** System prompt sent with each model request. */
-	systemPrompt: string;
-	/** Active model used for future turns. */
-	model: Model<any>;
-	/** Requested reasoning level for future turns. */
-	thinkingLevel: ThinkingLevel;
-	/** Available tools. Assigning a new array copies the top-level array. */
-	set tools(tools: AgentTool<any>[]);
-	get tools(): AgentTool<any>[];
-	/** Conversation transcript. Assigning a new array copies the top-level array. */
-	set messages(messages: AgentMessage[]);
-	get messages(): AgentMessage[];
-	/**
-	 * True while the agent is processing a prompt or continuation.
-	 *
-	 * This remains true until awaited `agent_end` listeners settle.
-	 */
-	readonly isStreaming: boolean;
-	/** Partial assistant message for the current streamed response, if any. */
-	readonly streamingMessage?: AgentMessage;
-	/** Tool call ids currently executing. */
-	readonly pendingToolCalls: ReadonlySet<string>;
-	/** Error message from the most recent failed or aborted assistant turn, if any. */
-	readonly errorMessage?: string;
-}
-
-/** Final or partial result produced by a tool. */
-export interface AgentToolResult<T> {
-	/** Text or image content returned to the model. */
+export interface UserMessage {
+	role: "user";
 	content: (TextContent | ImageContent)[];
-	/** Arbitrary structured details for logs or UI rendering. */
-	details: T;
-	/**
-	 * Hint that the agent should stop after the current tool batch.
-	 * Early termination only happens when every finalized tool result in the batch sets this to true.
-	 */
-	terminate?: boolean;
+	timestamp: number;
 }
-
-/** Callback used by tools to stream partial execution updates. */
-export type AgentToolUpdateCallback<T = any> = (partialResult: AgentToolResult<T>) => void;
-
-/** High-level capability kind for runtime actions. */
-export type AgentCapabilityKind = "tool" | "memory" | "session" | "model" | "supervisor";
-
-/** Where a capability can be exposed in the runtime hierarchy. */
-export type AgentCapabilityAvailability = "root" | "child" | "shared";
 
 /**
- * Metadata for a runtime action.
- *
- * Alef still executes LLM-triggered work as tools, but this metadata lets higher
- * layers treat tool, memory, and supervisor operations as one action model.
+ * User message that includes file attachments.
  */
-export interface AgentActionMetadata {
-	kind: AgentCapabilityKind;
-	capability?: string;
-	availability?: AgentCapabilityAvailability;
-	description?: string;
+export interface UserWithAttachmentsMessage {
+	role: "user-with-attachments";
+	content: (TextContent | ImageContent)[];
+	attachments: Array<{ name: string; mimeType: string; data: string }>;
+	timestamp: number;
 }
 
-/** General action definition used by platform runtimes built on top of the agent loop. */
-export interface AgentActionDefinition<TParameters extends TSchema = TSchema, TDetails = any>
-	extends Tool<TParameters> {
-	/** Human-readable label for UI display. */
-	label: string;
-	/** Action metadata for capability-aware runtimes. */
-	action: AgentActionMetadata;
-	/**
-	 * Optional compatibility shim for raw action arguments before schema validation.
-	 * Must return an object that matches `TParameters`.
-	 */
-	prepareArguments?: (args: unknown) => Static<TParameters>;
-	/** Execute the action. Throw on failure instead of encoding errors in `content`. */
-	execute: (
-		toolCallId: string,
-		params: Static<TParameters>,
-		signal?: AbortSignal,
-		onUpdate?: AgentToolUpdateCallback<TDetails>,
-	) => Promise<AgentToolResult<TDetails>>;
-	/**
-	 * Per-action execution mode override.
-	 * - "sequential": this action must execute one at a time with other actions.
-	 * - "parallel": this action can execute concurrently with other actions.
-	 *
-	 * If omitted, the default execution mode applies.
-	 */
-	executionMode?: ToolExecutionMode;
+/**
+ * Artifact message - persisted but not sent to the LLM.
+ * Used for storing session data.
+ */
+export interface ArtifactMessage {
+	role: "artifact";
+	artifactType: string;
+	content: (TextContent | ImageContent)[];
+	timestamp: number;
 }
 
-export type AgentAction<TParameters extends TSchema = TSchema, TDetails = any> = AgentActionDefinition<
-	TParameters,
-	TDetails
->;
+/**
+ * Union of all supported agent message types.
+ */
+export type AgentMessage =
+	| UserMessage
+	| UserWithAttachmentsMessage
+	| AssistantMessage
+	| ToolResultMessage
+	| ArtifactMessage;
 
-/** Named capability bundle composed of one or more actions. */
-export interface AgentCapabilityDefinition {
-	name: string;
-	kind: AgentCapabilityKind;
-	description?: string;
-	availability?: AgentCapabilityAvailability;
-	actions: AgentAction[];
-}
-
-/** Tool definition used by the agent runtime. */
-export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any> extends Tool<TParameters> {
-	/** Human-readable label for UI display. */
-	label: string;
-	/** Optional action metadata so higher layers can treat tools as generic runtime actions. */
-	action?: AgentActionMetadata;
-	/**
-	 * Optional compatibility shim for raw tool-call arguments before schema validation.
-	 * Must return an object that matches `TParameters`.
-	 */
-	prepareArguments?: (args: unknown) => Static<TParameters>;
-	/** Execute the tool call. Throw on failure instead of encoding errors in `content`. */
-	execute: (
-		toolCallId: string,
-		params: Static<TParameters>,
-		signal?: AbortSignal,
-		onUpdate?: AgentToolUpdateCallback<TDetails>,
-	) => Promise<AgentToolResult<TDetails>>;
-	/**
-	 * Per-tool execution mode override.
-	 * - "sequential": this tool must execute one at a time with other tool calls.
-	 * - "parallel": this tool can execute concurrently with other tool calls.
-	 *
-	 * If omitted, the default execution mode applies.
-	 */
-	executionMode?: ToolExecutionMode;
-}
-
-/** Context snapshot passed into the low-level agent loop. */
+/** Context passed to the agent loop. */
 export interface AgentContext {
-	/** System prompt included with the request. */
+	/** System prompt. */
 	systemPrompt: string;
 	/** Transcript visible to the model. */
 	messages: AgentMessage[];
 	/** Tools available for this run. */
-	tools?: AgentTool<any>[];
+	tools?: AgentTool<TSchema>[];
 }
 
 /**
@@ -448,6 +294,148 @@ export type AgentEvent =
 	| { type: "message_update"; message: AgentMessage; assistantMessageEvent: AssistantMessageEvent }
 	| { type: "message_end"; message: AgentMessage }
 	// Tool execution lifecycle
-	| { type: "tool_execution_start"; toolCallId: string; toolName: string; args: any }
-	| { type: "tool_execution_update"; toolCallId: string; toolName: string; args: any; partialResult: any }
-	| { type: "tool_execution_end"; toolCallId: string; toolName: string; result: any; isError: boolean };
+	| { type: "tool_execution_start"; toolCallId: string; toolName: string; args: Record<string, unknown> }
+	| {
+			type: "tool_execution_update";
+			toolCallId: string;
+			toolName: string;
+			args: Record<string, unknown>;
+			partialResult: AgentToolResult<unknown>;
+	  }
+	| {
+			type: "tool_execution_end";
+			toolCallId: string;
+			toolName: string;
+			result: AgentToolResult<unknown>;
+			isError: boolean;
+	  };
+
+/**
+ * Agent state exposed via the `Agent.state` getter.
+ */
+export interface AgentState {
+	/** System prompt used for all turns. */
+	systemPrompt: string;
+	/** Model configuration. */
+	model: Model<unknown>;
+	/** Thinking level preference. */
+	thinkingLevel: "off" | "low" | "medium" | "high";
+	/** Tools available to the agent. */
+	tools: AgentTool<TSchema>[];
+	/** Complete message history including user, assistant, and tool result messages. */
+	messages: AgentMessage[];
+	/** True if actively streaming an assistant response. */
+	readonly isStreaming: boolean;
+	/** Partial assistant message being streamed, if any. */
+	readonly streamingMessage?: AgentMessage;
+	/** IDs of tool calls currently being executed. */
+	readonly pendingToolCalls: ReadonlySet<string>;
+	/** Error message from the most recent failed or aborted assistant turn, if any. */
+	readonly errorMessage?: string;
+}
+
+/** Final or partial result produced by a tool. */
+export interface AgentToolResult<T> {
+	/** Text or image content returned to the model. */
+	content: (TextContent | ImageContent)[];
+	/** Arbitrary structured details for logs or UI rendering. */
+	details: T;
+	/**
+	 * Hint that the agent should stop after the current tool batch.
+	 * Early termination only happens when every finalized tool result in the batch sets this to true.
+	 */
+	terminate?: boolean;
+}
+
+/** Callback used by tools to stream partial execution updates. */
+export type AgentToolUpdateCallback<T = unknown> = (partialResult: AgentToolResult<T>) => void;
+
+/** High-level capability kind for runtime actions. */
+export type AgentCapabilityKind = "tool" | "memory" | "session" | "model" | "supervisor";
+
+/** Where a capability can be exposed in the runtime hierarchy. */
+export type AgentCapabilityAvailability = "root" | "child" | "shared";
+
+/**
+ * Metadata for a runtime action.
+ *
+ * Alef still executes LLM-triggered work as tools, but this metadata lets higher
+ * layers treat tool, memory, and supervisor operations as one action model.
+ */
+export interface AgentActionMetadata {
+	kind: AgentCapabilityKind;
+	capability?: string;
+	availability?: AgentCapabilityAvailability;
+	description?: string;
+}
+
+/** General action definition used by platform runtimes built on top of the agent loop. */
+export interface AgentActionDefinition<TParameters extends TSchema = TSchema, TDetails = unknown>
+	extends Tool<TParameters> {
+	/** Human-readable label for UI display. */
+	label: string;
+	/** Action metadata for capability-aware runtimes. */
+	action: AgentActionMetadata;
+	/**
+	 * Optional compatibility shim for raw action arguments before schema validation.
+	 * Must return an object that matches `TParameters`.
+	 */
+	prepareArguments?: (rawArgs: Record<string, unknown>) => Record<string, unknown>;
+	/**
+	 * Execute the action.
+	 *
+	 * @param toolCallId - Unique identifier for this call instance.
+	 * @param args - Validated arguments matching TParameters.
+	 * @param signal - Abort signal for cancellation.
+	 * @param update - Callback for streaming partial results.
+	 * @returns Final result with content and optional structured details.
+	 */
+	execute: (
+		toolCallId: string,
+		args: Static<TParameters>,
+		signal?: AbortSignal,
+		update?: AgentToolUpdateCallback<TDetails>,
+	) => Promise<AgentToolResult<TDetails>>;
+	/**
+	 * Sequential execution mode hint.
+	 * When true, this tool always runs sequentially even when toolExecution is "parallel".
+	 */
+	executionMode?: "sequential" | "parallel";
+}
+
+/** Simpler tool definition for tools that don't need the full action metadata. */
+export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = unknown> {
+	/** Tool label for UI display. */
+	label?: string;
+	/** Tool name exposed to the LLM. */
+	name: string;
+	/** Tool description shown to the LLM. */
+	description: string;
+	/** TypeBox schema for tool parameters. */
+	parameters: TParameters;
+	/**
+	 * Optional compatibility shim for raw action arguments before schema validation.
+	 * Must return an object that matches `TParameters`.
+	 */
+	prepareArguments?: (rawArgs: Record<string, unknown>) => Record<string, unknown>;
+	/**
+	 * Execute the tool.
+	 *
+	 * @param toolCallId - Unique identifier for this call instance.
+	 * @param args - Validated arguments matching TParameters.
+	 * @param signal - Abort signal for cancellation.
+	 * @param update - Callback for streaming partial results.
+	 * @returns Final result with content and optional structured details.
+	 */
+	execute: (
+		toolCallId: string,
+		args: Static<TParameters>,
+		signal?: AbortSignal,
+		update?: AgentToolUpdateCallback<TDetails>,
+	) => Promise<AgentToolResult<TDetails>>;
+	/**
+	 * Sequential execution mode hint.
+	 * When true, this tool always runs sequentially even when toolExecution is "parallel".
+	 */
+	executionMode?: "sequential" | "parallel";
+}

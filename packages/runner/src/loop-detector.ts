@@ -133,42 +133,39 @@ export class LoopDetectorOrgan implements Organ {
 		});
 
 		// Sense subscriber: complete the interaction hash with the result.
-		const offSense = (nerve.sense.subscribe as (type: "*", handler: (e: SenseEvent) => void) => () => void)(
-			"*",
-			(event: SenseEvent) => {
-				const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
-				if (!toolCallId) return;
+		const offSense = nerve.sense.subscribe("*" as const, (event: SenseEvent) => {
+			const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+			if (!toolCallId) return;
 
-				const call = pending.get(toolCallId);
-				if (!call) return;
+			const call = pending.get(toolCallId);
+			if (!call) return;
 
-				const resultHash = hashResult(event.payload);
-				// Intermediate streaming chunks: skip (hashResult returns "").
-				if (resultHash === "") return;
+			const resultHash = hashResult(event.payload);
+			// Intermediate streaming chunks: skip (hashResult returns "").
+			if (resultHash === "") return;
 
-				pending.delete(toolCallId);
+			pending.delete(toolCallId);
 
-				const interactionHash = `${call.argsHash}\x00${resultHash}`;
-				const type = call.type;
+			const interactionHash = `${call.argsHash}\x00${resultHash}`;
+			const type = call.type;
 
-				let perType = interactionCounts.get(type);
-				if (!perType) {
-					perType = new Map();
-					interactionCounts.set(type, perType);
-				}
-				const prev = perType.get(interactionHash) ?? 0;
-				const next = prev + 1;
-				perType.set(interactionHash, next);
+			let perType = interactionCounts.get(type);
+			if (!perType) {
+				perType = new Map();
+				interactionCounts.set(type, perType);
+			}
+			const prev = perType.get(interactionHash) ?? 0;
+			const next = prev + 1;
+			perType.set(interactionHash, next);
 
-				if (next > this.repeatedInteractionThreshold) {
-					this.onLoop(
-						type,
-						`Tool '${type}' produced identical output ${next} times with the same arguments ` +
-							`(limit: ${this.repeatedInteractionThreshold}). Stuck in a loop.`,
-					);
-				}
-			},
-		);
+			if (next > this.repeatedInteractionThreshold) {
+				this.onLoop(
+					type,
+					`Tool '${type}' produced identical output ${next} times with the same arguments ` +
+						`(limit: ${this.repeatedInteractionThreshold}). Stuck in a loop.`,
+				);
+			}
+		});
 
 		return () => {
 			offMotor();

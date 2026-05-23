@@ -26,7 +26,7 @@ class ArcEditorWrapper implements Component {
 }
 
 import { DynamicText } from "./dynamic-text.js";
-import { EventPressure, pressureToHueShift, pressureToInterval } from "./event-pressure.js";
+import { EventPressure, pressureToInterval, timeBasedHue } from "./event-pressure.js";
 import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, type ColorToken, color, colorDepth, dim, fgCode, glyph, type ThemeTokens } from "./theme.js";
 
@@ -132,12 +132,15 @@ export class ConsoleZone {
 		this.frameIdx = 0;
 		const tick = (): void => {
 			this.frameIdx = (this.frameIdx + 1) % this.frames.length;
-			const elapsed = Math.floor((Date.now() - this.thinkingStart) / 1000);
+			const elapsedMs = Date.now() - this.thinkingStart;
+			const elapsedS = Math.floor(elapsedMs / 1000);
 			const frame = this.frames[this.frameIdx] ?? glyph("state:active");
 			const level = this.pressure.level();
-			const hue = pressureToHueShift(level);
+			// Hue cycles through the full 360° spectrum over time;
+			// pressure multiplies the rotation rate so busy turns spin faster.
+			const hue = timeBasedHue(elapsedMs, level);
 			const ansi = shiftedAccentAnsi(this.t.accentFg, hue) || fgCode(this.t.warnFg, colorDepth());
-			this.statusText.setText(`  ${ansi}${frame}\x1b[0m ${color(`${elapsed}s`, this.t.dimFg)}`);
+			this.statusText.setText(`  ${ansi}${frame}\x1b[0m ${color(`${elapsedS}s`, this.t.dimFg)}`);
 			this.tui.requestRender();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
 		};

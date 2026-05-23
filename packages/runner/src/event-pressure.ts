@@ -37,14 +37,29 @@ export class EventPressure {
  * Map a pressure level (0–1) to a spinner tick interval in ms.
  * Idle → slowMs, saturated → fastMs.
  */
-export function pressureToInterval(level: number, slowMs = 160, fastMs = 55): number {
+export function pressureToInterval(level: number, slowMs = 80, fastMs = 28): number {
 	return Math.round(slowMs - level * (slowMs - fastMs));
 }
 
 /**
- * Map a pressure level (0–1) to an HSL hue offset in degrees.
- * Used to shift the spinner color away from the base accent hue.
+ * Compute spinner hue for a given elapsed time and pressure level.
+ *
+ * The hue rotates continuously through the full 360° wheel over `cyclePeriodMs`
+ * at idle. Pressure multiplies the rotation rate (more activity → faster spin)
+ * and also adds a forward boost so busy turns visibly accelerate.
+ *
+ * Formula:
+ *   baseRate  = 1 full rotation per cyclePeriodMs
+ *   speedMult = 1 + pressure × pressureSpeedBoost   (1× idle, 4× saturated)
+ *   hue       = (elapsedMs × baseRate × speedMult × 360) % 360
  */
-export function pressureToHueShift(level: number, maxDegrees = 80): number {
-	return level * maxDegrees;
+export function timeBasedHue(
+	elapsedMs: number,
+	pressureLevel: number,
+	cyclePeriodMs = 3500,
+	pressureSpeedBoost = 3,
+): number {
+	const baseRate = 1 / cyclePeriodMs; // rotations per ms
+	const speedMult = 1 + pressureLevel * pressureSpeedBoost;
+	return (elapsedMs * baseRate * speedMult * 360) % 360;
 }

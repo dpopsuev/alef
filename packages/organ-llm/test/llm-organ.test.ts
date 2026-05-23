@@ -193,3 +193,120 @@ describe("payloadToText", () => {
 		expect(result).not.toContain("isFinal");
 	});
 }); // end payloadToText
+
+// ---------------------------------------------------------------------------
+// RED: onResponseChunk — dialog.message tool call body not forwarded (bug)
+//
+// The LLM uses `dialog_message` as a tool to send its reply. The reply body
+// lives in `replyCall.args.text`, NOT in `text_delta` events. organ-llm must
+// forward that text to `onResponseChunk` so the TUI can render it.
+//
+// All three tests below currently FAIL because runLLMLoop never calls
+// onResponseChunk for replyCall.args.text.
+// ---------------------------------------------------------------------------
+
+import { fauxText, fauxToolCall } from "@dpopsuev/alef-ai";
+
+function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onResponseChunk?: (chunk: string) => void) {
+	const chunks: string[] = [];
+	const capture = (c: string): void => {
+		chunks.push(c);
+		onResponseChunk?.(c);
+	};
+
+	const agent = new Agent();
+	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+	agent.load(dialog).load(
+		new LLMOrgan({
+			model: faux.getModel(),
+			apiKey: "faux-key",
+			onResponseChunk: capture,
+		}),
+	);
+	return { agent, dialog, chunks, dispose: () => agent.dispose() };
+}
+
+describe("RED: onResponseChunk forwarding when reply is in dialog_message tool args", () => {
+	const disposes: Array<() => void> = [];
+	afterEach(() => {
+		for (const d of disposes.splice(0)) d();
+	});
+
+	/**
+	 * Simplest case: LLM responds with ONLY a dialog_message tool call (no prior text_delta).
+	 * The entire reply lives in args.text. onResponseChunk must be called with that text.
+	 */
+	it("RED: onResponseChunk receives reply text from dialog_message tool call args", async () => {
+		const faux = registerFauxProvider();
+		const replyBody = "Here is the complete bug report: 1. Off-by-one in evaluations/write.ts";
+		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: replyBody })])]);
+		const { dialog, chunks, dispose } = makeFauxHarness(faux);
+		disposes.push(dispose);
+
+		await dialog.send("find bugs", "user", 5_000);
+
+		// The reply body MUST appear in onResponseChunk calls.
+		// Currently FAILS: chunks is empty because runLLMLoop never calls
+		// onResponseChunk for replyCall.args.text.
+		const combined = chunks.join("");
+		expect(combined).toContain(replyBody);
+	});
+
+	/**
+	 * Realistic case: LLM produces introductory text_delta ("Let me summarize:")
+	 * THEN calls dialog_message with the actual body. Both parts must reach onResponseChunk.
+	 */
+	it("RED: onResponseChunk receives both intro text_delta AND dialog_message args.text", async () => {
+		const faux = registerFauxProvider();
+		const introText = "Let me summarize the findings:";
+		const replyBody = "## Bug Report\n\n1. Race condition in organ-fs\n2. Off-by-one in write.ts";
+		faux.setResponses([
+			fauxAssistantMessage([fauxText(introText), fauxToolCall("dialog_message", { text: replyBody })]),
+		]);
+		const { dialog, chunks, dispose } = makeFauxHarness(faux);
+		disposes.push(dispose);
+
+		await dialog.send("look for bugs", "user", 5_000);
+
+		const combined = chunks.join("");
+		// Both the intro AND the body must be visible.
+		// Currently FAILS: only introText is forwarded, replyBody is absent.
+		expect(combined).toContain(introText);
+		expect(combined).toContain(replyBody);
+	});
+
+	/**
+	 * Invariant: sum of onResponseChunk calls must equal the text published
+	 * in the motor/dialog.message event. This ensures the TUI always shows
+	 * exactly what the agent replied.
+	 */
+	it("RED: total onResponseChunk chars equals dialog.message payload text", async () => {
+		const faux = registerFauxProvider();
+		const replyBody = "Complete analysis:\n\n- Bug A\n- Bug B\n- Bug C";
+		const recorder = new BusEventRecorder();
+		const chunks: string[] = [];
+
+		const agent2 = new Agent();
+		const dialog2 = new DialogOrgan({ sink: () => {}, getTools: () => agent2.tools });
+		agent2
+			.load(dialog2)
+			.load(new LLMOrgan({ model: faux.getModel(), apiKey: "faux-key", onResponseChunk: (c) => chunks.push(c) }));
+		agent2.observe(recorder);
+		disposes.push(() => agent2.dispose());
+
+		faux.setResponses([
+			fauxAssistantMessage([fauxText("Analyzing now..."), fauxToolCall("dialog_message", { text: replyBody })]),
+		]);
+		await dialog2.send("find bugs", "user", 5_000);
+
+		const motionEvent = recorder.assertMotorEmitted("dialog.message") as unknown as {
+			payload: { text: string };
+		};
+		const publishedText = motionEvent.payload.text;
+		const chunkedText = chunks.join("");
+
+		// The TUI sees chunkedText. The JSONL records publishedText.
+		// They must contain the same reply body so the screen matches the log.
+		expect(chunkedText).toContain(publishedText);
+	});
+});

@@ -237,8 +237,14 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			if (finalMessage.usage) {
 				options.onTokenUsage?.({ input: finalMessage.usage.input, output: finalMessage.usage.output });
 			}
-			const text =
-				(typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined) ?? extractText(finalMessage);
+			const replyBodyFromTool = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
+			const text = replyBodyFromTool ?? extractText(finalMessage);
+			// When the reply body arrived inside a dialog_message tool call, the content was NOT
+			// streamed as text_delta events — onResponseChunk was never called for it. Forward
+			// it now so the TUI renders the full reply, not just the pre-tool intro text.
+			if (replyBodyFromTool) {
+				options.onResponseChunk?.(replyBodyFromTool);
+			}
 			if (text) {
 				// Anthropic API hangs if internal fields (timestamp, usage, etc.) are replayed — strip to role+content only.
 				const conversationHistory = messages

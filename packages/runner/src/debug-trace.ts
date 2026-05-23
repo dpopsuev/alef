@@ -17,14 +17,17 @@ let enabled = false;
 
 export function initDebugTrace(on: boolean): void {
 	enabled = on || process.env.ALEF_DEBUG === "1";
-	if (!enabled) return;
+	// Always ensure the log file exists — ALWAYS_TRACE events write to it regardless of --debug.
 	mkdirSync(join(homedir(), ".alef"), { recursive: true });
 	writeFileSync(LOG_PATH, `--- alef debug trace ${new Date().toISOString()} ---\n`, "utf-8");
 	trace("init");
 }
 
+/** Events that are always written regardless of --debug flag. Fires ≤ once per turn. */
+const ALWAYS_TRACE = new Set(["receiveTextChunk:first", "sealStreamingSegment"]);
+
 export function trace(event: string, extra?: Record<string, unknown>): void {
-	if (!enabled) return;
+	if (!enabled && !ALWAYS_TRACE.has(event)) return;
 	const line = `${JSON.stringify({ t: new Date().toISOString(), event, ...extra })}\n`;
 	try {
 		appendFileSync(LOG_PATH, line, "utf-8");

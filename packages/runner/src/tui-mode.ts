@@ -339,6 +339,7 @@ export async function runTuiMode(
 		if (!streamingMarkdownNode) {
 			streamingMarkdownNode = new Markdown("", 2, 0, makeMarkdownTheme());
 			box.addChild(streamingMarkdownNode);
+			// Always trace — fires once per streaming segment, negligible overhead.
 			trace("receiveTextChunk:first", { markdownNode: true });
 		}
 		_totalChunksReceived++;

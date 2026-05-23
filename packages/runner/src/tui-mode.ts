@@ -40,7 +40,7 @@ import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
 import { bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
-import { fadeTextIn, ghostWrap } from "./tui-fade.js";
+import { fadeTextIn } from "./tui-fade.js";
 import { Typewriter } from "./typewriter.js";
 
 export interface TuiHandlerContext {
@@ -363,25 +363,30 @@ export async function runTuiMode(
 		replyTypewriter.flush();
 		replyTypewriter.reset();
 
-		// Thinking (Text node): rapid ghost reveal + color fade.
-		// rapidFlush scans remaining chars at 15/4ms into ghost gray, then
-		// fadeTextIn animates ghost → dim over 320ms at 60fps.
+		// Thinking (Text node): cap display to avoid pushing the reply off-screen.
+		// Extended thinking can produce thousands of chars (58s ≈ 10k+ tokens).
+		// At full height in the streaming segment, it would push the reply below the fold.
+		// Cap at MAX_THINK_LINES; show a count notice for the remainder.
+		const MAX_THINK_LINES = 8;
 		const thinkNode = streamingThinkNode;
-		if (thinkNode && thinkTypewriter.pressure > 0) {
-			const ghostSink = { setText: (t: string) => thinkNode.setText(ghostWrap(t)) };
-			thinkTypewriter.rapidFlush(ghostSink, () => {
-				const fullText = thinkTypewriter.pendingText;
-				thinkTypewriter.reset();
+		const pendingThinking = thinkTypewriter.pendingText;
+		thinkTypewriter.flush();
+		thinkTypewriter.reset();
+		if (thinkNode && pendingThinking) {
+			const thinkLines = pendingThinking.split("\n");
+			if (thinkLines.length > MAX_THINK_LINES) {
+				const truncated = thinkLines.slice(0, MAX_THINK_LINES).join("\n");
+				const th = getTheme();
+				const notice = color(dim(`… (${thinkLines.length - MAX_THINK_LINES} more lines)`), th.dimFg);
+				thinkNode.setText(`${italic(dim(truncated))}\n${notice}`);
+			} else {
 				fadeTextIn(
 					thinkNode,
-					fullText,
+					pendingThinking,
 					(t) => italic(dim(t)),
 					() => tui.requestRender(),
 				);
-			});
-		} else {
-			thinkTypewriter.flush();
-			thinkTypewriter.reset();
+			}
 		}
 
 		streamingSegment = null;

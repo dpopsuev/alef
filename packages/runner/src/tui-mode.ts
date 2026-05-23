@@ -21,6 +21,7 @@ import { getProviders } from "@dpopsuev/alef-ai";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import {
+	Box,
 	Container,
 	Markdown,
 	type MarkdownTheme,
@@ -39,7 +40,7 @@ import { DynamicText } from "./dynamic-text.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
-import { bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
+import { bg, bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
 import { Typewriter } from "./typewriter.js";
 
 export interface TuiHandlerContext {
@@ -184,14 +185,13 @@ function appendPillBlock(
 
 function appendUserMsg(chat: Container, text: string): void {
 	const t = getTheme();
-	appendPillBlock(
-		chat,
-		YOU_LABEL,
-		(s) => color(s, t.accentFg),
-		() => {
-			chat.addChild(new Text(text, 2, 0));
-		},
-	);
+	// Label line above the block.
+	chat.addChild(new Text(color(YOU_LABEL, t.userFg), 1, 0));
+	// Full-width background block — Pi pattern: Box(bgFn=userMessageBg).
+	const box = new Box(2, 0, (s) => bg(s, t.userBg));
+	box.addChild(new Text(color(text, t.userFg), 0, 0));
+	chat.addChild(box);
+	chat.addChild(new Spacer(1));
 }
 
 function appendNotice(chat: Container, text: string): void {
@@ -360,17 +360,8 @@ export async function runTuiMode(
 	// Seal the current generation's container so tool call lines go below it.
 	// Called when the first tool call fires (generation phase ended).
 	function sealStreamingSegment(): void {
-		if (process.env.ALEF_RENDER_DEBUG === "1")
-			process.stderr.write(
-				`[render] seal: markdownNode=${streamingMarkdownNode !== null} ` +
-					`pending=${replyTypewriter.pendingText.length} displayed=${replyTypewriter.pressure}\n`,
-			);
 		// Reply (Markdown): instant flush — Markdown manages its own colors, fade not possible.
 		replyTypewriter.flush();
-		if (process.env.ALEF_RENDER_DEBUG === "1")
-			process.stderr.write(
-				`[render] after-flush: markdownNode=${streamingMarkdownNode !== null} text=${streamingMarkdownNode ? "set" : "null"}\n`,
-			);
 		replyTypewriter.reset();
 
 		// Thinking (Text node): collapse to a compact one-liner at turn end.
@@ -515,24 +506,11 @@ export async function runTuiMode(
 				replyTypewriter.markStreamDone();
 				thinkTypewriter.markStreamDone();
 				if (!aborted) {
-					const _dbg = process.env.ALEF_RENDER_DEBUG === "1";
-					if (_dbg)
-						process.stderr.write(
-							`[render] turn-end: markdownNode=${streamingMarkdownNode !== null} ` +
-								`pending=${replyTypewriter.pendingText.length} ` +
-								`chatChildren=${chat.children.length}\n`,
-						);
 					sealStreamingSegment();
-					if (_dbg)
-						process.stderr.write(
-							`[render] after-seal: chatChildren=${chat.children.length} ` +
-								`tuiChildren=${tui.children.length}\n`,
-						);
 					const tokenText = new Text("", 1, 0);
 					chat.addChild(tokenText);
 					pendingTokenFooter = tokenText;
 					tui.requestRender(true);
-					if (_dbg) process.stderr.write(`[render] requestRender(true) called\n`);
 				}
 			}
 		} catch (e) {

@@ -81,6 +81,15 @@ const ORGAN_SPECS: Record<AgentOrganName, OrganSpec> = {
 			exec: { toolNames: ["file_bash"] },
 		},
 	},
+	nodesh: {
+		kind: "tool",
+		availability: "shared",
+		description: "JavaScript REPL organ for structured computation and data transformation.",
+		defaultActions: ["eval"],
+		actions: {
+			eval: { toolNames: [] },
+		},
+	},
 	lector: {
 		kind: "tool",
 		availability: "shared",

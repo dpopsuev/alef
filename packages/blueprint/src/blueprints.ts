@@ -42,6 +42,7 @@ const AgentDefinitionOrganSchema = Type.Object({
 	name: Type.Union([
 		Type.Literal("fs"),
 		Type.Literal("shell"),
+		Type.Literal("nodesh"),
 		Type.Literal("symbols"),
 		Type.Literal("lector"),
 		Type.Literal("supervisor"),

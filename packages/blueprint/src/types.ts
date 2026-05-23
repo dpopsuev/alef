@@ -17,7 +17,7 @@ export interface AgentModelSelector {
 	thinkingLevel?: ThinkingLevel;
 }
 
-export type AgentOrganName = "ai" | "discourse" | "fs" | "shell" | "symbols" | "lector" | "supervisor";
+export type AgentOrganName = "ai" | "discourse" | "fs" | "shell" | "nodesh" | "symbols" | "lector" | "supervisor";
 
 export interface AgentDefinitionOrganCacheInput {
 	enabled?: boolean;

@@ -132,6 +132,34 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 	}
 }
 
+/**
+ * Markdown theme for tool output display blocks (text/plain).
+ * All text is rendered dim except **bold** spans (e.g. file paths).
+ * Uses raw ANSI so it works regardless of chalk's TTY detection.
+ */
+function makeToolOutputMarkdownTheme(): MarkdownTheme {
+	return {
+		heading: (s) => `${ANSI_BOLD}${s}${ANSI_RESET}`,
+		link: (s) => s,
+		linkUrl: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
+		code: (s) => s,
+		codeBlock: (s) => s,
+		codeBlockBorder: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
+		quote: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
+		quoteBorder: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
+		hr: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
+		listBullet: (s) => s,
+		// Bold spans (e.g. **path**) are rendered bold, everything else dim.
+		// The Markdown component wraps each paragraph line; we rely on the
+		// caller (onToolEnd) not passing a customBgFn so the overall Text
+		// doesn't apply a background.
+		bold: (s) => `${ANSI_BOLD}${s}\x1b[22m`,
+		italic: (s) => `\x1b[3m${s}\x1b[23m`,
+		strikethrough: (s) => s,
+		underline: (s) => s,
+	};
+}
+
 function makeMarkdownTheme(): MarkdownTheme {
 	const t = getTheme();
 	return {
@@ -469,11 +497,15 @@ export async function runTuiMode(
 				// Prefer organ-supplied human display over raw JSON fallback.
 				const snippet = display ?? result;
 				if (snippet?.trim()) {
-					const rendered =
-						displayKind === "text/x-diff"
-							? renderDiffDisplay(snippet)
-							: color(dim(truncateToolOutput(snippet)), getTheme().dimFg);
-					chat.addChild(new Text(rendered, 3, 0));
+					if (displayKind === "text/x-diff") {
+						// Colored unified diff — rendered with raw ANSI, not Markdown.
+						chat.addChild(new Text(renderDiffDisplay(snippet), 3, 0));
+					} else {
+						// text/plain or unknown — render through Markdown so **bold** and
+						// inline formatting in display strings (e.g. "Read **path**") work.
+						const truncated = truncateToolOutput(snippet);
+						chat.addChild(new Markdown(truncated, 3, 0, makeToolOutputMarkdownTheme()));
+					}
 				}
 				tui.requestRender();
 			}

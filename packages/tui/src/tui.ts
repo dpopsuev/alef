@@ -513,11 +513,24 @@ export class TUI extends Container {
 			this.renderRequested = true;
 			process.nextTick(() => {
 				if (this.stopped || !this.renderRequested) {
+					if (process.env.ALEF_RENDER_DEBUG === "1")
+						process.stderr.write(
+							`[tui] force-render skipped: stopped=${this.stopped} requested=${this.renderRequested}\n`,
+						);
 					return;
 				}
 				this.renderRequested = false;
 				this.lastRenderAt = performance.now();
-				this.doRender();
+				if (process.env.ALEF_RENDER_DEBUG === "1")
+					process.stderr.write(
+						`[tui] force-render: lines=${this.children.reduce((s, c) => s + c.render(this.terminal.columns).length, 0)}\n`,
+					);
+				try {
+					this.doRender();
+					if (process.env.ALEF_RENDER_DEBUG === "1") process.stderr.write(`[tui] force-render: complete\n`);
+				} catch (err) {
+					process.stderr.write(`[tui] RENDER ERROR: ${String(err)}\n`);
+				}
 			});
 			return;
 		}

@@ -27,7 +27,7 @@ export interface LLMOrganOptions {
 	timeoutMs?: number;
 	/** Max retry attempts on transient errors. Default: 4. */
 	maxRetries?: number;
-	/** Cap on retry delay in ms — prevents exponential backoff from stalling for minutes. Default: 8000. */
+	/** Cap on retry delay in ms - prevents exponential backoff from stalling for minutes. Default: 8000. */
 	maxRetryDelayMs?: number;
 	/**
 	 * Called at the start of each LLM call to obtain the current AbortSignal.
@@ -52,7 +52,7 @@ export interface LLMOrganOptions {
 	 * Return a filtered/scored subset to use as the context window.
 	 *
 	 * This is the TurnAssembler integration point (ALE-SPC-15, ALE-TSK-179).
-	 * Until TurnAssembler is wired, leave undefined — all messages are used as-is.
+	 * Until TurnAssembler is wired, leave undefined - all messages are used as-is.
 	 *
 	 * Replaces the deleted compact() function which bypassed the event bus
 	 * and mutated only the local message copy without updating DialogOrgan.history.
@@ -61,7 +61,7 @@ export interface LLMOrganOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Core loop — pure function, receives ctx from framework
+// Core loop - pure function, receives ctx from framework
 // ---------------------------------------------------------------------------
 
 /**
@@ -103,7 +103,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
 
 	// Anthropic tool names must match ^[a-zA-Z0-9_-]{1,128}$.
-	// Motor event types use dots (fs.read, shell.exec) — sanitize for the API
+	// Motor event types use dots (fs.read, shell.exec) - sanitize for the API
 	// and keep a reverse map to recover the Motor event type from the LLM's response.
 	const motorNameByLlmName = new Map<string, string>();
 	const tools: Tool[] = (payload.tools ?? []).map((t) => {
@@ -136,7 +136,7 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 	const maxRetries = options.maxRetries ?? 4;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
 
-	// Application-level transient error patterns — returned as clean stopReason:"error"
+	// Application-level transient error patterns - returned as clean stopReason:"error"
 	// messages by the provider (not HTTP errors). The SDK retries HTTP failures;
 	// we retry these at the LLM loop level.
 
@@ -240,13 +240,13 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 			const replyBodyFromTool = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
 			const text = replyBodyFromTool ?? extractText(finalMessage);
 			// When the reply body arrived inside a dialog_message tool call, the content was NOT
-			// streamed as text_delta events — onResponseChunk was never called for it. Forward
+			// streamed as text_delta events - onResponseChunk was never called for it. Forward
 			// it now so the TUI renders the full reply, not just the pre-tool intro text.
 			if (replyBodyFromTool) {
 				options.onResponseChunk?.(replyBodyFromTool);
 			}
 			if (text) {
-				// Anthropic API hangs if internal fields (timestamp, usage, etc.) are replayed — strip to role+content only.
+				// Anthropic API hangs if internal fields (timestamp, usage, etc.) are replayed - strip to role+content only.
 				const conversationHistory = messages
 					.filter((m) => (m as { role?: string }).role !== "system")
 					.map((m): unknown => {
@@ -300,14 +300,15 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 					correlationId,
 				});
 				return waitForToolResult(sense, motorType, tc.id, correlationId).then((r) => {
-					const display = extractDisplay(r.payload);
+					const displayBlock = extractDisplay(r.payload);
 					const result = payloadToText(r.payload, r.isError, r.errorMessage);
 					options.onToolEnd?.({
 						callId: tc.id,
 						elapsedMs: Date.now() - startedAt,
 						ok: !r.isError,
 						result,
-						display,
+						display: displayBlock?.text,
+						displayKind: displayBlock?.mimeType,
 					});
 					return r;
 				});
@@ -345,18 +346,19 @@ function waitForToolResult(
 	});
 }
 
-/** Extract the human-readable display text from a sense payload’s _display block, if present. */
-function extractDisplay(payload: Record<string, unknown>): string | undefined {
+/** Extract the human-readable display text and kind from a sense payload's _display block, if present. */
+function extractDisplay(payload: Record<string, unknown>): { text: string; mimeType?: string } | undefined {
 	const d = payload._display;
 	if (d !== null && typeof d === "object" && typeof (d as Record<string, unknown>).text === "string") {
-		return (d as { text: string }).text;
+		const block = d as { text: string; mimeType?: string };
+		return { text: block.text, mimeType: block.mimeType };
 	}
 	return undefined;
 }
 
 export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
 	if (isError) return errorMessage ?? JSON.stringify(payload);
-	// Strip the human-facing display block — it must not reach the LLM context.
+	// Strip the human-facing display block - it must not reach the LLM context.
 	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;
 	if (typeof llm.content === "string") return llm.content;
 	if (typeof llm.text === "string") return llm.text;

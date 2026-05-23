@@ -239,6 +239,24 @@ export function truncateToolOutput(text: string): string {
 	return out;
 }
 
+/**
+ * Render a text/x-diff display block with ANSI colors.
+ * Lines starting with '+' are green, '-' are red, context is dim.
+ * The header line ("edit path") is rendered bold.
+ */
+export function renderDiffDisplay(diffText: string): string {
+	const lines = diffText.split("\n");
+	return lines
+		.map((line, i) => {
+			if (i === 0) return bold(line); // header: "edit path/to/file"
+			if (line === "") return line;
+			if (line.startsWith("+")) return chalk.green(line);
+			if (line.startsWith("-")) return chalk.red(line);
+			return dim(line); // context and ellipsis
+		})
+		.join("\n");
+}
+
 function compact(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -426,7 +444,7 @@ export async function runTuiMode(
 			chat.addChild(line);
 			tui.requestRender();
 		};
-		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display }) => {
+		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display, displayKind }) => {
 			const entry = activeCalls.get(callId);
 			if (entry) {
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok));
@@ -434,8 +452,11 @@ export async function runTuiMode(
 				// Prefer organ-supplied human display over raw JSON fallback.
 				const snippet = display ?? result;
 				if (snippet?.trim()) {
-					const t = getTheme();
-					chat.addChild(new Text(color(dim(truncateToolOutput(snippet)), t.dimFg), 3, 0));
+					const rendered =
+						displayKind === "text/x-diff"
+							? renderDiffDisplay(snippet)
+							: color(dim(truncateToolOutput(snippet)), getTheme().dimFg);
+					chat.addChild(new Text(rendered, 3, 0));
 				}
 				tui.requestRender();
 			}

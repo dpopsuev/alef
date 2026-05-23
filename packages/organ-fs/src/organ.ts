@@ -12,6 +12,7 @@ import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, m
 import { dirname, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import { defineOrgan, getBoolean, getNumber, getString, withDisplay } from "@dpopsuev/alef-spine";
+import { diffLines } from "diff";
 import { z } from "zod";
 import {
 	DEFAULT_FIND_LIMIT,
@@ -292,6 +293,67 @@ async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise
 	);
 }
 
+/**
+ * Generate a compact unified diff suitable for TUI display.
+ * Format mirrors pi's edit-diff.ts output: `+N line` / `-N line` / ` N ...`
+ * with 4 lines of context around each changed region.
+ */
+function generateEditDiff(oldContent: string, newContent: string, filePath: string): string {
+	const CONTEXT = 4;
+	const parts = diffLines(oldContent, newContent);
+	const maxLineNum = Math.max(oldContent.split("\n").length, newContent.split("\n").length);
+	const w = String(maxLineNum).length;
+	const out: string[] = [`edit ${filePath}`, ""];
+
+	let oldLine = 1;
+	let newLine = 1;
+
+	for (let i = 0; i < parts.length; i++) {
+		const part = parts[i];
+		const raw = part.value.split("\n");
+		if (raw[raw.length - 1] === "") raw.pop();
+
+		if (part.added || part.removed) {
+			for (const line of raw) {
+				if (part.added) {
+					out.push(`+${String(newLine).padStart(w)} ${line}`);
+					newLine++;
+				} else {
+					out.push(`-${String(oldLine).padStart(w)} ${line}`);
+					oldLine++;
+				}
+			}
+		} else {
+			const prevChange = i > 0 && (parts[i - 1]?.added || parts[i - 1]?.removed);
+			const nextChange = i < parts.length - 1 && (parts[i + 1]?.added || parts[i + 1]?.removed);
+			if (!prevChange && !nextChange) {
+				oldLine += raw.length;
+				newLine += raw.length;
+				continue;
+			}
+			const leading = prevChange ? Math.min(CONTEXT, raw.length) : 0;
+			const trailing = nextChange ? Math.min(CONTEXT, raw.length - leading) : 0;
+			const skipped = raw.length - leading - trailing;
+			for (let j = 0; j < leading; j++) {
+				out.push(` ${String(oldLine).padStart(w)} ${raw[j]}`);
+				oldLine++;
+				newLine++;
+			}
+			if (skipped > 0) {
+				out.push(` ${" ".repeat(w)} ...`);
+				oldLine += skipped;
+				newLine += skipped;
+			}
+			for (let j = raw.length - trailing; j < raw.length; j++) {
+				out.push(` ${String(oldLine).padStart(w)} ${raw[j]}`);
+				oldLine++;
+				newLine++;
+			}
+		}
+	}
+	return out.join("\n");
+}
+
 async function handleEdit(
 	ctx: CorpusHandlerCtx,
 	opts: FsOrganOptions,
@@ -384,10 +446,8 @@ async function handleEdit(
 
 	await atomicWrite(absolutePath, updated);
 	const editCount = editList.length;
-	return withDisplay(
-		{ path: filePath, applied: true, editCount },
-		{ text: `Applied ${editCount} edit(s) to **${filePath}**`, mimeType: "text/plain" },
-	);
+	const diff = generateEditDiff(original, updated, filePath);
+	return withDisplay({ path: filePath, applied: true, editCount }, { text: diff, mimeType: "text/x-diff" });
 }
 
 async function handleGrep(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {

@@ -39,7 +39,7 @@ export const DIALOG_MESSAGE = "dialog.message" as const;
 export interface SenseDisplayBlock {
 	/** Human-readable text. Markdown is rendered by the TUI; plain is shown verbatim. */
 	text: string;
-	mimeType: "text/markdown" | "text/plain";
+	mimeType: "text/markdown" | "text/plain" | "text/x-diff";
 }
 
 /**

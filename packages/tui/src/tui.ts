@@ -3,6 +3,7 @@
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { performance } from "node:perf_hooks";
 import { resolveAlefAgentDir } from "./alef-agent-dir.js";
@@ -10,6 +11,22 @@ import { isKeyRelease, matchesKey } from "./keys.js";
 import type { Terminal } from "./terminal.js";
 import { deleteKittyImage, getCapabilities, isImageLine, setCellDimensions } from "./terminal-image.js";
 import { extractSegments, normalizeTerminalOutput, sliceByColumn, sliceWithWidth, visibleWidth } from "./utils.js";
+
+/**
+ * Write a timestamped render-debug line to ~/.alef/debug.log.
+ * Only active when ALEF_RENDER_DEBUG=1. Uses appendFileSync so it works
+ * inside nextTick/doRender without corrupting the TUI display.
+ */
+function renderLog(msg: string): void {
+	if (process.env.ALEF_RENDER_DEBUG !== "1") return;
+	const logPath = path.join(os.homedir(), ".alef", "debug.log");
+	const line = `${new Date().toISOString()} [render] ${msg}\n`;
+	try {
+		fs.appendFileSync(logPath, line);
+	} catch {
+		// Never crash the TUI over a log write failure.
+	}
+}
 
 const KITTY_SEQUENCE_PREFIX = "\x1b_G";
 
@@ -513,23 +530,16 @@ export class TUI extends Container {
 			this.renderRequested = true;
 			process.nextTick(() => {
 				if (this.stopped || !this.renderRequested) {
-					if (process.env.ALEF_RENDER_DEBUG === "1")
-						process.stderr.write(
-							`[tui] force-render skipped: stopped=${this.stopped} requested=${this.renderRequested}\n`,
-						);
+					renderLog(`force-render skipped stopped=${this.stopped} requested=${this.renderRequested}`);
 					return;
 				}
 				this.renderRequested = false;
 				this.lastRenderAt = performance.now();
-				if (process.env.ALEF_RENDER_DEBUG === "1")
-					process.stderr.write(
-						`[tui] force-render: lines=${this.children.reduce((s, c) => s + c.render(this.terminal.columns).length, 0)}\n`,
-					);
 				try {
 					this.doRender();
-					if (process.env.ALEF_RENDER_DEBUG === "1") process.stderr.write(`[tui] force-render: complete\n`);
+					renderLog("force-render complete");
 				} catch (err) {
-					process.stderr.write(`[tui] RENDER ERROR: ${String(err)}\n`);
+					renderLog(`RENDER ERROR ${String(err)}`);
 				}
 			});
 			return;

@@ -40,7 +40,6 @@ import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
 import { bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
-import { fadeTextIn } from "./tui-fade.js";
 import { Typewriter } from "./typewriter.js";
 
 export interface TuiHandlerContext {
@@ -313,6 +312,7 @@ export async function runTuiMode(
 	let streamingSegment: Container | null = null;
 	let streamingMarkdownNode: Markdown | null = null;
 	let streamingThinkNode: Text | null = null;
+	let thinkingStartedAt = 0; // ms timestamp when first thinking chunk arrived
 
 	// Both reply text and thinking are paced by a Typewriter for smooth letter-by-letter reveal.
 	// Tick rate matches TUI.MIN_RENDER_INTERVAL_MS (16ms = 60fps) so every tick maps to one frame.
@@ -348,6 +348,7 @@ export async function runTuiMode(
 		consoleZone.pulse();
 		const box = openStreamingSegment();
 		if (!streamingThinkNode) {
+			thinkingStartedAt = Date.now();
 			const t = getTheme();
 			box.addChild(new Text(color(dim("┊ thinking"), t.dimFg), 2, 0));
 			streamingThinkNode = new Text("", 2, 0);
@@ -363,30 +364,28 @@ export async function runTuiMode(
 		replyTypewriter.flush();
 		replyTypewriter.reset();
 
-		// Thinking (Text node): cap display to avoid pushing the reply off-screen.
-		// Extended thinking can produce thousands of chars (58s ≈ 10k+ tokens).
-		// At full height in the streaming segment, it would push the reply below the fold.
-		// Cap at MAX_THINK_LINES; show a count notice for the remainder.
-		const MAX_THINK_LINES = 8;
+		// Thinking (Text node): collapse to a compact one-liner at turn end.
+		//
+		// During streaming the user sees thinking text reveal in real time (Pi
+		// pattern). At seal time we swap the full streamed content for a compact
+		// "thought for Xs (N lines)" label so the reply is never pushed off-screen
+		// by thousands of thinking chars (58s ≈ 10k chars ≈ 100+ rendered lines).
 		const thinkNode = streamingThinkNode;
 		const pendingThinking = thinkTypewriter.pendingText;
 		thinkTypewriter.flush();
 		thinkTypewriter.reset();
-		if (thinkNode && pendingThinking) {
-			const thinkLines = pendingThinking.split("\n");
-			if (thinkLines.length > MAX_THINK_LINES) {
-				const truncated = thinkLines.slice(0, MAX_THINK_LINES).join("\n");
-				const th = getTheme();
-				const notice = color(dim(`… (${thinkLines.length - MAX_THINK_LINES} more lines)`), th.dimFg);
-				thinkNode.setText(`${italic(dim(truncated))}\n${notice}`);
-			} else {
-				fadeTextIn(
-					thinkNode,
-					pendingThinking,
-					(t) => italic(dim(t)),
-					() => tui.requestRender(),
-				);
-			}
+		if (thinkNode) {
+			const elapsedS = thinkingStartedAt > 0 ? Math.round((Date.now() - thinkingStartedAt) / 1000) : 0;
+			const lineCount = pendingThinking ? pendingThinking.split("\n").length : 0;
+			const th = getTheme();
+			const label =
+				elapsedS > 0
+					? `thought for ${elapsedS}s (${lineCount} lines)`
+					: lineCount > 0
+						? `thought (${lineCount} lines)`
+						: "";
+			thinkNode.setText(label ? color(dim(label), th.dimFg) : "");
+			thinkingStartedAt = 0;
 		}
 
 		streamingSegment = null;
@@ -403,6 +402,7 @@ export async function runTuiMode(
 		streamingSegment = null;
 		streamingMarkdownNode = null;
 		streamingThinkNode = null;
+		thinkingStartedAt = 0;
 	}
 
 	const activeCalls = new Map<string, { text: Text; name: string; keyArg: string }>();

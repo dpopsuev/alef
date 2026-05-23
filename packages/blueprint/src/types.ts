@@ -17,7 +17,12 @@ export interface AgentModelSelector {
 	thinkingLevel?: ThinkingLevel;
 }
 
-export type AgentOrganName = "ai" | "discourse" | "fs" | "shell" | "nodesh" | "symbols" | "lector" | "supervisor";
+/**
+ * Built-in organ short names. Used as aliases in agent.yaml — the materializer
+ * resolves these to their npm packages via BUILTIN_PACKAGES.
+ * Treat as documentation; do NOT validate against this at parse time.
+ */
+export type AgentOrganName = string;
 
 export interface AgentDefinitionOrganCacheInput {
 	enabled?: boolean;
@@ -58,15 +63,33 @@ export interface AgentDefinitionLectorRuntimeConfig {
 }
 
 export interface AgentDefinitionOrganInput {
-	name: AgentOrganName;
+	/**
+	 * Built-in alias (e.g. "fs") or npm package name (e.g. "@company/my-organ").
+	 * Mutually exclusive with `path`.
+	 */
+	name?: string;
+	/**
+	 * Path to a TypeScript file that exports createOrgan().
+	 * Loaded at runtime via jiti — no build step required.
+	 * Mutually exclusive with `name`. Relative to the blueprint file.
+	 */
+	path?: string;
+	/** Action subset to mount. Omit for all defaults. */
 	actions?: string[];
 	cache?: AgentDefinitionOrganCacheInput;
 	runtime?: AgentDefinitionLectorRuntimeInput;
 }
 
 export interface CompiledAgentOrganDefinition {
-	name: AgentOrganName;
+	/** Built-in alias name or "_external" for path-loaded organs. */
+	name: string;
+	/** Resolved npm package specifier. Set for name-based organs. */
+	package?: string;
+	/** Resolved absolute path. Set for path-based organs. */
+	path?: string;
+	/** Action filter passed to the organ factory. */
 	actions: string[];
+	/** @deprecated EDA organs self-describe. Always empty. */
 	toolNames: string[];
 	cache?: AgentDefinitionOrganCacheConfig;
 	runtime?: AgentDefinitionLectorRuntimeConfig;

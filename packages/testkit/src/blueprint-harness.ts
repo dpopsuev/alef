@@ -86,7 +86,7 @@ export class BlueprintHarness {
 		const { materializeBlueprint } = await import("../../runner/src/materializer.js");
 
 		const definition = loadAgentDefinition(blueprintPath);
-		const materialized = materializeBlueprint(definition, { cwd: opts.cwd });
+		const materialized = await materializeBlueprint(definition, { cwd: opts.cwd });
 
 		const corpusOrgans = [...materialized.organs, ...(opts.extraOrgans ?? [])];
 		return BlueprintHarness.create({ ...opts, organs: corpusOrgans });

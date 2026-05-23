@@ -1,5 +1,12 @@
 export { shouldUseWindowsShell, waitForChildProcess } from "./child-process.js";
 export { createShellOrgan, type ShellOrganOptions } from "./organ.js";
+
+import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import { createShellOrgan } from "./organ.js";
+export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: OrganLogger }): Organ {
+	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `shell.${a}`));
+	return createShellOrgan({ ...opts, actions });
+}
 export {
 	getShellConfig,
 	getShellEnv,

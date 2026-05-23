@@ -145,7 +145,7 @@ if (blueprintPath) {
 		}
 	}
 
-	const materialized = materializeBlueprint(definition, {
+	const materialized = await materializeBlueprint(definition, {
 		cwd: args.cwd,
 		loggerFor: (name) => log.child({ organ: name }),
 	});
@@ -156,7 +156,7 @@ if (blueprintPath) {
 } else {
 	// No --blueprint supplied: use the default organ set through the same
 	// materializer path so main.ts stays free of organ imports.
-	const defaultMaterialized = materializeBlueprint(DEFAULT_COMPILED_DEFINITION, {
+	const defaultMaterialized = await materializeBlueprint(DEFAULT_COMPILED_DEFINITION, {
 		cwd: args.cwd,
 		loggerFor: (name) => log.child({ organ: name }),
 	});

@@ -19,7 +19,7 @@ import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine"
 import { defineOrgan, getNumber, getString } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
-import type { EvalPrompt, EvalResult, TranscriptEvent, Validator } from "./types.js";
+import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";
 import { runValidators } from "./validators.js";
 
 export interface EvalOrganOptions {
@@ -141,38 +141,23 @@ export function createEvalOrgan(opts: EvalOrganOptions = {}): Organ {
 		// Phase 1: structural validators.
 		const failures = runValidators(transcript, validators);
 		if (failures.length > 0) {
-			const result: EvalResult = {
-				passed: false,
-				score: 0,
-				failures,
-				reasoning: "Structural validation failed",
-				transcript,
-			};
-			return result as unknown as Record<string, unknown>;
+			return { passed: false, score: 0, failures, reasoning: "Structural validation failed", transcript };
 		}
 
 		// Phase 2: LLM-as-judge (if rubric provided).
 		if (judgeRubric) {
 			const { score, reasoning } = await runLLMJudge(transcript, judgeRubric);
-			const result: EvalResult = {
+			return {
 				passed: score >= judgeThreshold,
 				score,
 				failures: score < judgeThreshold ? [`Score ${score} below threshold ${judgeThreshold}`] : [],
 				reasoning,
 				transcript,
 			};
-			return result as unknown as Record<string, unknown>;
 		}
 
-		// No judge rubric — structural pass is sufficient.
-		const result: EvalResult = {
-			passed: true,
-			score: 100,
-			failures: [],
-			reasoning: "All structural validators passed",
-			transcript,
-		};
-		return result as unknown as Record<string, unknown>;
+		// No judge rubric — structural validators alone determine pass.
+		return { passed: true, score: 100, failures: [], reasoning: "All structural validators passed", transcript };
 	}
 
 	return defineOrgan(

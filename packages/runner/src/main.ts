@@ -204,7 +204,7 @@ const prepareStep = async (messages: Message[]): Promise<Message[]> => {
 		contextWindow: model.contextWindow,
 		hitCounts,
 	});
-	const projected = turnsToMessages(selected) as unknown as Message[];
+	const projected = turnsToMessages(selected);
 	const src = projected.length > 0 ? "jsonl" : "fallback";
 	let result: typeof messages;
 	if (projected.length > 0) {

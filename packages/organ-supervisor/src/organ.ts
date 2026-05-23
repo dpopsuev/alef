@@ -22,7 +22,7 @@ import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine"
 import { defineOrgan, getString } from "@dpopsuev/alef-spine";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
-import type { ChildEntry, SpawnResult } from "./types.js";
+import type { ChildEntry } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -184,13 +184,7 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 			if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
 		});
 
-		const result: SpawnResult = {
-			name,
-			endpoint: ready.endpoint,
-			sessionId: ready.sessionId ?? "",
-			pid: entry.pid,
-		};
-		return result as unknown as Record<string, unknown>;
+		return { name, endpoint: ready.endpoint, sessionId: ready.sessionId ?? "", pid: entry.pid };
 	}
 
 	// -------------------------------------------------------------------------

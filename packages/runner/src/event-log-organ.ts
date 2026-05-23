@@ -44,7 +44,9 @@ export class EventLogOrgan implements Organ {
 				timestamp: event.timestamp,
 				elapsed: event.elapsed,
 			};
-			void this.store.append({ ...base, hash: hashRecord(base) });
+			this.store
+				.append({ ...base, hash: hashRecord(base) })
+				.catch((e: unknown) => process.stderr.write(`[event-log] motor append failed: ${String(e)}\n`));
 		});
 
 		const off2 = nerve.sense.subscribe("*", (event) => {
@@ -57,7 +59,9 @@ export class EventLogOrgan implements Organ {
 				timestamp: event.timestamp,
 				elapsed: event.elapsed,
 			};
-			void this.store.append({ ...base, hash: hashRecord(base) });
+			this.store
+				.append({ ...base, hash: hashRecord(base) })
+				.catch((e: unknown) => process.stderr.write(`[event-log] sense append failed: ${String(e)}\n`));
 		});
 
 		return () => {

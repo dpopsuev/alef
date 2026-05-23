@@ -244,17 +244,23 @@ export function truncateToolOutput(text: string): string {
  * Lines starting with '+' are green, '-' are red, context is dim.
  * The header line ("edit path") is rendered bold.
  */
+// Raw ANSI sequences for diff rendering — never use chalk here because chalk
+// sets level=0 when stdout is not a TTY (e.g. in tests, piped output).
+const ANSI_BOLD = "\x1b[1m";
+const ANSI_DIM = "\x1b[2m";
+const ANSI_RESET = "\x1b[0m";
+
 export function renderDiffDisplay(diffText: string): string {
 	const t = getTheme();
 	const lines = diffText.split("\n");
 	return lines
 		.map((line, i) => {
-			if (i === 0) return bold(line); // header: "edit path/to/file"
+			if (i === 0) return `${ANSI_BOLD}${line}${ANSI_RESET}`; // header
 			if (line === "") return line;
-			// Use raw ANSI theme tokens — chalk skips colors when stdout is not a TTY.
+			// color() uses fgCode() / raw ANSI — works regardless of chalk level.
 			if (line.startsWith("+")) return color(line, t.toolOkFg);
 			if (line.startsWith("-")) return color(line, t.toolErrFg);
-			return dim(line); // context and ellipsis
+			return `${ANSI_DIM}${line}${ANSI_RESET}`; // context and ellipsis
 		})
 		.join("\n");
 }

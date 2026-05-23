@@ -9,7 +9,7 @@
 
 import { Container, Text } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EventPressure, pressureToHueShift, pressureToInterval } from "../src/event-pressure.js";
+import { EventPressure, pressureToInterval, timeBasedHue } from "../src/event-pressure.js";
 import { pillHeaderStr } from "../src/tui-mode.js";
 import { Typewriter } from "../src/typewriter.js";
 
@@ -57,49 +57,69 @@ describe("EventPressure gauge", () => {
 });
 
 describe("Pressure → spinner interval mapping", () => {
-	it("idle pressure gives slow interval", () => {
-		expect(pressureToInterval(0)).toBe(160);
+	it("idle pressure gives slow interval (80ms)", () => {
+		expect(pressureToInterval(0)).toBe(80);
 	});
 
-	it("full pressure gives fast interval", () => {
-		expect(pressureToInterval(1)).toBe(55);
+	it("full pressure gives fast interval (28ms)", () => {
+		expect(pressureToInterval(1)).toBe(28);
 	});
 
-	it("half pressure interpolates", () => {
+	it("half pressure interpolates between slow and fast", () => {
 		const mid = pressureToInterval(0.5);
-		expect(mid).toBeGreaterThan(55);
-		expect(mid).toBeLessThan(160);
+		expect(mid).toBeGreaterThan(28);
+		expect(mid).toBeLessThan(80);
 	});
 
-	it("fast interval is ≤ 80ms", () => {
-		expect(pressureToInterval(1)).toBeLessThanOrEqual(80);
+	it("fast interval is ≤ 35ms", () => {
+		expect(pressureToInterval(1)).toBeLessThanOrEqual(35);
 	});
 });
 
-describe("Pressure → hue shift mapping", () => {
-	it("zero pressure gives zero hue shift", () => {
-		expect(pressureToHueShift(0)).toBe(0);
+describe("Time-based hue animation", () => {
+	it("hue is 0 at time 0 with no pressure", () => {
+		expect(timeBasedHue(0, 0)).toBeCloseTo(0);
 	});
 
-	it("full pressure gives maximum hue shift", () => {
-		expect(pressureToHueShift(1, 80)).toBe(80);
+	it("hue completes one full cycle over cyclePeriodMs at idle", () => {
+		const period = 3500;
+		// One period elapsed at zero pressure: should be back near 0 (mod 360)
+		const hue = timeBasedHue(period, 0, period);
+		expect(hue).toBeCloseTo(0, 0);
 	});
 
-	it("partial pressure gives proportional shift", () => {
-		expect(pressureToHueShift(0.5, 80)).toBeCloseTo(40);
+	it("pressure accelerates the hue cycle", () => {
+		const t = 1000;
+		const idleHue = timeBasedHue(t, 0);
+		const busyHue = timeBasedHue(t, 1);
+		// busy should have advanced further through the spectrum
+		expect(busyHue).not.toBeCloseTo(idleHue);
+	});
+
+	it("hue is always in [0, 360)", () => {
+		for (const [t, p] of [
+			[0, 0],
+			[500, 0.5],
+			[10000, 1],
+			[99999, 0.3],
+		] as [number, number][]) {
+			const h = timeBasedHue(t, p);
+			expect(h).toBeGreaterThanOrEqual(0);
+			expect(h).toBeLessThan(360);
+		}
 	});
 });
 
 describe("Spinner reads from EventPressure (integration)", () => {
-	it("spinner interval at zero pressure is slow (≥ 140ms)", () => {
+	it("spinner interval at zero pressure is the slow default", () => {
 		const p = new EventPressure();
-		expect(pressureToInterval(p.level())).toBeGreaterThanOrEqual(140);
+		expect(pressureToInterval(p.level())).toBe(80);
 	});
 
-	it("spinner interval at peak pressure is fast (≤ 80ms)", () => {
+	it("spinner interval at peak pressure is fast (≤ 35ms)", () => {
 		const p = new EventPressure();
 		for (let i = 0; i < 10; i++) p.pulse();
-		expect(pressureToInterval(p.level())).toBeLessThanOrEqual(80);
+		expect(pressureToInterval(p.level())).toBeLessThanOrEqual(35);
 	});
 });
 

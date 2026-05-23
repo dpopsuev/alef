@@ -268,10 +268,15 @@ async function runLLMLoop(ctx: CerebrumHandlerCtx, options: LLMOrganOptions): Pr
 					correlationId,
 				});
 			} else {
-				// Error response with no text — publish empty reply so dialog.send() resolves.
+				// LLM ended the turn with no text (e.g. after a tool batch or on error).
+				// Publish a non-empty sentinel so dialog.send() resolves and the user
+				// gets visible feedback instead of a silent empty screen.
+				const fallback =
+					finalMessage.errorMessage ||
+					(finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
 				motor.publish({
 					type: DIALOG_MESSAGE,
-					payload: { text: finalMessage.errorMessage ?? "" },
+					payload: { text: fallback },
 					correlationId,
 				});
 			}

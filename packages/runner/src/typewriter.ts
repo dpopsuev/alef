@@ -133,6 +133,10 @@ export class Typewriter {
 		if (this.displayed !== this.pending) {
 			this.displayed = this.pending;
 			this.sink.setText(this.displayed);
+			// Always request a render after a forced flush so the text is
+			// visible immediately — the regular tick path calls onRender() but
+			// flush() bypasses it.
+			this.onRender();
 		}
 	}
 

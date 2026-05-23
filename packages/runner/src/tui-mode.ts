@@ -313,7 +313,6 @@ export async function runTuiMode(
 	let streamingSegment: Container | null = null;
 	let streamingMarkdownNode: Markdown | null = null;
 	let streamingThinkNode: Text | null = null;
-	let accumulatedThinking = ""; // persists across sealStreamingSegment calls
 
 	// Both reply text and thinking are paced by a Typewriter for smooth letter-by-letter reveal.
 	// Tick rate matches TUI.MIN_RENDER_INTERVAL_MS (16ms = 60fps) so every tick maps to one frame.
@@ -347,7 +346,6 @@ export async function runTuiMode(
 
 	function receiveThinkingChunk(chunk: string): void {
 		consoleZone.pulse();
-		accumulatedThinking += chunk;
 		const box = openStreamingSegment();
 		if (!streamingThinkNode) {
 			const t = getTheme();
@@ -503,19 +501,12 @@ export async function runTuiMode(
 				replyTypewriter.markStreamDone();
 				thinkTypewriter.markStreamDone();
 				if (!aborted) {
-					// Persist thinking block if any, then add token footer.
-					// The streaming Markdown node is already in chat with the full reply —
-					// no clear-and-replace needed (Pi pattern: updateContent() in place).
-					const savedThinking = accumulatedThinking.trim();
-					accumulatedThinking = "";
+					// The streaming segment already contains the thinking label +
+					// content node + reply Markdown node in the correct order.
+					// sealStreamingSegment() flushes and freezes them in place.
+					// Do NOT re-add thinking here — that caused duplicate nodes
+					// appearing after the reply with truncated content.
 					sealStreamingSegment();
-					if (savedThinking) {
-						const t = getTheme();
-						chat.addChild(new Spacer(1));
-						chat.addChild(new Text(color(dim("┊ thinking"), t.dimFg), 2, 0));
-						chat.addChild(new Text(italic(dim(truncateToolOutput(savedThinking))), 2, 0));
-						chat.addChild(new Spacer(1));
-					}
 					// Token footer appended after the existing Markdown content.
 					const tokenText = new Text("", 1, 0);
 					chat.addChild(tokenText);
@@ -525,7 +516,6 @@ export async function runTuiMode(
 			}
 		} catch (e) {
 			consoleZone.stopThinking();
-			accumulatedThinking = "";
 			clearStreamingSegments();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 			tui.requestRender();

@@ -134,6 +134,12 @@
 			"@dpopsuev/alef-organ-supervisor/*": [
 				"./packages/organ-supervisor/src/*.ts"
 			],
+			"@dpopsuev/alef-organ-eval": [
+				"./packages/organ-eval/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-eval/*": [
+				"./packages/organ-eval/src/*.ts"
+			],
 			"@dpopsuev/alef-organ-completer": [
 				"./packages/organ-completer/src/index.ts"
 			],

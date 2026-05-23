@@ -17,6 +17,8 @@ export const BUILTIN_PACKAGES: Record<string, string> = {
 	shell: "@dpopsuev/alef-organ-shell",
 	nodesh: "@dpopsuev/alef-organ-nodesh",
 	lector: "@dpopsuev/alef-organ-lector",
+	supervisor: "@dpopsuev/alef-organ-supervisor",
+	eval: "@dpopsuev/alef-organ-eval",
 };
 
 /**

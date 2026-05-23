@@ -1,1 +1,2 @@
-export { type AgentSessionLike, type SessionEventLike, SupervisorManager } from "./supervisor-manager.js";
+export { createSupervisorOrgan, createSupervisorOrgan as createOrgan, type SupervisorOrganOptions } from "./organ.js";
+export type { ChildEntry, EvalResult as SupervisorEvalResult, SpawnResult } from "./types.js";

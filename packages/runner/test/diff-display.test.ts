@@ -162,3 +162,65 @@ describe("generateEditDiff output format contract", () => {
 		expect(contextLine).toMatch(/^ \d+ /);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// 4. Tool output Markdown rendering: **bold** in display text is rendered bold
+// ---------------------------------------------------------------------------
+
+import { Markdown } from "@dpopsuev/alef-tui";
+
+describe("tool output Markdown rendering (text/plain display)", () => {
+	const PLAIN_MD_THEME = {
+		heading: (s: string) => `\x1b[1m${s}\x1b[0m`,
+		link: (s: string) => s,
+		linkUrl: (s: string) => `\x1b[2m${s}\x1b[0m`,
+		code: (s: string) => s,
+		codeBlock: (s: string) => s,
+		codeBlockBorder: (s: string) => s,
+		quote: (s: string) => s,
+		quoteBorder: (s: string) => s,
+		hr: (s: string) => s,
+		listBullet: (s: string) => s,
+		bold: (s: string) => `\x1b[1m${s}\x1b[22m`,
+		italic: (s: string) => `\x1b[3m${s}\x1b[23m`,
+		strikethrough: (s: string) => s,
+		underline: (s: string) => s,
+	};
+
+	/**
+	 * "Read **README.md** (77 lines)" should render "README.md" as bold.
+	 * Previously this was passed through color(dim(text)) which showed ** literally.
+	 */
+	it("**bold** in display text renders as ANSI bold, not literal **", () => {
+		const display = "Read **README.md** (77 lines)";
+		const md = new Markdown(display, 3, 0, PLAIN_MD_THEME);
+		const lines = md.render(120);
+		const rendered = lines.join("\n");
+
+		// Must contain bold ANSI
+		expect(rendered).toMatch(/\x1b\[1m/);
+		// Must NOT contain literal ** markers
+		expect(stripVTControlCharacters(rendered)).not.toContain("**");
+		// Must contain the actual file name
+		expect(stripVTControlCharacters(rendered)).toContain("README.md");
+	});
+
+	it("plain text display (no markers) renders without spurious ANSI", () => {
+		const display = "agent/\nai/\nblueprint/";
+		const md = new Markdown(display, 3, 0, PLAIN_MD_THEME);
+		const lines = md.render(120);
+		const plain = stripVTControlCharacters(lines.join("\n"));
+		expect(plain).toContain("agent/");
+		expect(plain).toContain("ai/");
+		expect(plain).toContain("blueprint/");
+	});
+
+	it("Markdown component preserves multiline tool output", () => {
+		const display = "file.ts:10: match\nfile.ts:20: other match";
+		const md = new Markdown(display, 3, 0, PLAIN_MD_THEME);
+		const lines = md.render(120);
+		const plain = stripVTControlCharacters(lines.join("\n"));
+		expect(plain).toContain("file.ts:10:");
+		expect(plain).toContain("file.ts:20:");
+	});
+});

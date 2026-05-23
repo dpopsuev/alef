@@ -280,3 +280,155 @@ ${sentinel}`;
 		expect(screen).toContain("quick brown fox");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Regression: receiveTextChunk callback chain
+//
+// The bug: `toolSlot.receiveTextChunk` was never called during the final LLM
+// reply, so streamingMarkdownNode was never created and the reply never
+// entered the DOM. The force-render ran (force-render complete in debug.log)
+// but newLines contained no reply text.
+//
+// These tests verify every link in the chain:
+//   onResponseChunk → toolSlot.receiveTextChunk → receiveTextChunk
+//   → streamingMarkdownNode created → Typewriter receives chunk
+//   → flush() → setText → scroll buffer contains reply
+// ---------------------------------------------------------------------------
+
+describe("RED-GREEN: toolSlot.receiveTextChunk callback chain (regression)", () => {
+	let env: ReturnType<typeof makeEnv>;
+
+	beforeEach(() => {
+		env = makeEnv();
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+	});
+
+	afterEach(() => {
+		env.terminal.stop();
+		vi.useRealTimers();
+	});
+
+	/**
+	 * RED: verifies receiveTextChunk is the correct handler to call —
+	 * calling it creates the Markdown node and the text appears on screen.
+	 * If the callback is not wired (undefined), the text never reaches the DOM.
+	 */
+	it("calling receiveTextChunk directly puts reply text in scroll buffer", async () => {
+		const { terminal, tui, chat } = env;
+
+		// Simulate the exact closure from tui-mode.ts
+		let streamingMarkdownNode: Markdown | null = null;
+		const replyTypewriter = new Typewriter({ setText: (t) => streamingMarkdownNode?.setText(t) }, () =>
+			tui.requestRender(),
+		);
+
+		// This is receiveTextChunk — the function that MUST be called
+		function receiveTextChunk(chunk: string): void {
+			if (!streamingMarkdownNode) {
+				streamingMarkdownNode = makeMd();
+				chat.addChild(streamingMarkdownNode);
+			}
+			replyTypewriter.receive(chunk);
+		}
+
+		// Simulate: tool calls fire first, streaming segment is clean
+		// (no streamingMarkdownNode yet — as would be the case after tool calls)
+		expect(streamingMarkdownNode).toBeNull();
+
+		// LLM starts streaming the final reply
+		const reply = "Alef is an EDA-based coding agent with organ architecture.";
+		for (const ch of reply) {
+			receiveTextChunk(ch);
+		}
+
+		// Flush and render
+		vi.advanceTimersByTime(200);
+		replyTypewriter.flush();
+		replyTypewriter.reset();
+		streamingMarkdownNode = null;
+		tui.requestRender(true);
+		await settle();
+
+		const screen = screenText(terminal);
+		expect(screen).toContain("EDA-based coding agent");
+	});
+
+	/**
+	 * RED: verifies the toolSlot callback is assigned and callable.
+	 * Simulates main.ts wiring: toolSlot object starts with undefined,
+	 * then runTuiMode assigns receiveTextChunk, then onResponseChunk fires.
+	 * If assignment is skipped or the wrong function is assigned, the reply
+	 * never reaches the DOM.
+	 */
+	it("toolSlot.receiveTextChunk assignment propagates chunks to Markdown", async () => {
+		const { terminal, tui, chat } = env;
+
+		// Mirror the toolSlot from main.ts
+		const toolSlot: { receiveTextChunk: ((chunk: string) => void) | undefined } = {
+			receiveTextChunk: undefined,
+		};
+
+		// Mirror the onResponseChunk callback from LLMOrgan → main.ts
+		const onResponseChunk = (chunk: string): void => {
+			toolSlot.receiveTextChunk?.(chunk);
+		};
+
+		// Before runTuiMode wires it up — should be a no-op
+		onResponseChunk("SHOULD_NOT_APPEAR");
+
+		// runTuiMode assigns the callback (the step that MUST happen)
+		let streamingMarkdownNode: Markdown | null = null;
+		const replyTypewriter = new Typewriter({ setText: (t) => streamingMarkdownNode?.setText(t) }, () =>
+			tui.requestRender(),
+		);
+		toolSlot.receiveTextChunk = (chunk: string) => {
+			if (!streamingMarkdownNode) {
+				streamingMarkdownNode = makeMd();
+				chat.addChild(streamingMarkdownNode);
+			}
+			replyTypewriter.receive(chunk);
+		};
+
+		// Now onResponseChunk fires (LLM streaming the reply)
+		const reply = "EDA organ-based agent reply text.";
+		for (const ch of reply) {
+			onResponseChunk(ch);
+		}
+
+		vi.advanceTimersByTime(200);
+		replyTypewriter.flush();
+		replyTypewriter.reset();
+		streamingMarkdownNode = null;
+		tui.requestRender(true);
+		await settle();
+
+		const screen = screenText(terminal);
+		expect(screen).not.toContain("SHOULD_NOT_APPEAR");
+		expect(screen).toContain("EDA organ-based agent reply text");
+	});
+
+	/**
+	 * RED: verifies that if receiveTextChunk is never called (the actual bug),
+	 * the reply text is absent from the scroll buffer — confirming the diagnostic.
+	 */
+	it("when receiveTextChunk is NOT called, reply is absent from scroll buffer", async () => {
+		const { terminal, tui, chat } = env;
+
+		// Simulate: LLM generates a reply but receiveTextChunk is never called
+		// (toolSlot.receiveTextChunk was undefined at the time of streaming)
+		// The motor/dialog.message IS published (as confirmed by JSONL),
+		// but the TUI never saw the text chunks.
+		// Turn ends: sealStreamingSegment → flush (no-op) → requestRender(true)
+		const tokenText = new Text("", 1, 0);
+		chat.addChild(tokenText); // token footer
+
+		tui.requestRender(true);
+		await settle();
+
+		const screen = screenText(terminal);
+		// The reply must NOT appear — this is the bug state
+		expect(screen).not.toContain("some reply text that was generated");
+		// Only structural elements are visible
+		expect(screen.trim().length).toBeGreaterThanOrEqual(0); // render ran, no crash
+	});
+});

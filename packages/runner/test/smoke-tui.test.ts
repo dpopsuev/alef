@@ -93,7 +93,7 @@ function runInPty(
 			resolve({ exitCode, output: out });
 		});
 
-		const waitFor = (pattern: RegExp, ms = 10_000): Promise<void> =>
+		const waitFor = (pattern: RegExp, ms = 15_000): Promise<void> =>
 			new Promise((res, rej) => {
 				if (pattern.test(out)) {
 					res();

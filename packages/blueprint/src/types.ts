@@ -81,11 +81,12 @@ export interface AgentDefinitionOrganInput {
 }
 
 export interface CompiledAgentOrganDefinition {
-	/** Built-in alias name or "_external" for path-loaded organs. */
+	/**
+	 * Organ name as written in agent.yaml: an npm package specifier, a short
+	 * alias (resolved by the materializer), or "_external" for path-loaded organs.
+	 */
 	name: string;
-	/** Resolved npm package specifier. Set for name-based organs. */
-	package?: string;
-	/** Resolved absolute path. Set for path-based organs. */
+	/** Resolved absolute path. Set for path-based organs (materializer fills this). */
 	path?: string;
 	/** Action filter passed to the organ factory. */
 	actions: string[];

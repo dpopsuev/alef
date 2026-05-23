@@ -151,6 +151,30 @@ export interface FsOrganOptions {
 }
 
 // ---------------------------------------------------------------------------
+// FileTracker
+//
+// Records when each file was last read by fs.read.
+// fs.edit enforces two guards before applying changes:
+//   1. Read-before-edit: reject if the file has never been read this session.
+//   2. Staleness: reject if the file mtime is newer than lastReadAt.
+//
+// In-memory per organ instance (one alef process = one instance = one session).
+// Mirrors Crush's filetracker.Service pattern (internal/filetracker/service.go).
+// ---------------------------------------------------------------------------
+
+class FileTracker {
+	private readonly reads = new Map<string, number>(); // absolutePath → Date.now()
+
+	record(absolutePath: string): void {
+		this.reads.set(absolutePath, Date.now());
+	}
+
+	lastReadAt(absolutePath: string): number | undefined {
+		return this.reads.get(absolutePath);
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
@@ -194,7 +218,11 @@ function detectBinaryMime(buf: Buffer): string | null {
 	return null;
 }
 
-async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
+async function handleRead(
+	ctx: CorpusHandlerCtx,
+	opts: FsOrganOptions,
+	tracker: FileTracker,
+): Promise<Record<string, unknown>> {
 	const filePath = getString(ctx.payload, "path") ?? "";
 	if (!filePath) throw new Error("fs.read: path is required");
 	const offset = getNumber(ctx.payload, "offset");
@@ -221,6 +249,9 @@ async function handleRead(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 					.join("\n")
 			: rawContent;
 	const truncated = truncateHead(contentToRead, { maxLines: limit ?? DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
+	// Record that this file was read — enables read-before-edit enforcement.
+	tracker.record(absolutePath);
+
 	const truncNote = truncated.truncated
 		? ` (truncated to ${truncated.outputLines ?? "?"} / ${truncated.totalLines} lines)`
 		: ` (${truncated.totalLines} lines)`;
@@ -261,7 +292,11 @@ async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise
 	);
 }
 
-async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
+async function handleEdit(
+	ctx: CorpusHandlerCtx,
+	opts: FsOrganOptions,
+	tracker: FileTracker,
+): Promise<Record<string, unknown>> {
 	const filePath = getString(ctx.payload, "path") ?? "";
 	if (!filePath) throw new Error("fs.edit: path is required");
 
@@ -279,6 +314,37 @@ async function handleEdit(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<
 	}
 
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
+
+	// FileTracker: guard 1 — read-before-edit.
+	const lastReadAt = tracker.lastReadAt(absolutePath);
+	if (lastReadAt === undefined) {
+		throw new Error(
+			`fs.edit: '${filePath}' has not been read this session. ` +
+				`Use fs.read first so you can see the current content before editing.`,
+		);
+	}
+
+	// FileTracker: guard 2 — staleness check.
+	let fileStat: import("node:fs").Stats;
+	try {
+		fileStat = await import("node:fs/promises").then((m) => m.stat(absolutePath));
+	} catch (err) {
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code === "ENOENT") throw new Error(`fs.edit: file not found: ${filePath}`);
+		if (code === "EACCES") throw new Error(`fs.edit: permission denied: ${filePath}`);
+		throw err;
+	}
+	const mtimeMs = fileStat.mtimeMs;
+	if (mtimeMs > lastReadAt) {
+		const readStr = new Date(lastReadAt).toISOString();
+		const modStr = new Date(mtimeMs).toISOString();
+		throw new Error(
+			`fs.edit: '${filePath}' was modified after you last read it ` +
+				`(last read: ${readStr}, file mtime: ${modStr}). ` +
+				`Re-read the file with fs.read before editing.`,
+		);
+	}
+
 	let original: string;
 	try {
 		original = await fsReadFile(absolutePath, "utf-8");
@@ -367,13 +433,14 @@ const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 
 export function createFsOrgan(options: FsOrganOptions): Organ {
 	const withQueue = makeWriteQueue();
+	const tracker = new FileTracker();
 
 	return defineOrgan(
 		"fs",
 		{
 			"motor/fs.read": {
 				tool: FS_READ_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => handleRead(ctx, options),
+				handle: (ctx: CorpusHandlerCtx) => handleRead(ctx, options, tracker),
 				shouldCache: () => true,
 			},
 			"motor/fs.grep": {
@@ -396,7 +463,7 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 				handle: (ctx: CorpusHandlerCtx) => {
 					const filePath = getString(ctx.payload, "path") ?? "";
 					const absolutePath = nodeResolve(options.cwd, filePath);
-					return withQueue(absolutePath, () => handleEdit(ctx, options));
+					return withQueue(absolutePath, () => handleEdit(ctx, options, tracker));
 				},
 				invalidates: () => WRITE_INVALIDATES,
 			},

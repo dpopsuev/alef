@@ -46,6 +46,25 @@ const ConfigSchema = z.object({
 
 	you: z.string().optional(),
 	agent: z.string().optional(),
+
+	/**
+	 * Tool execution permissions.
+	 * allowed_tools: list of tool event types permitted without prompting.
+	 * Omit or set to [] to allow nothing (deny-all).
+	 * Set to ["*"] to allow everything (same effect as --yolo).
+	 */
+	permissions: z
+		.object({
+			allowed_tools: z.array(z.string()).optional(),
+		})
+		.optional(),
+
+	/** Skills organ configuration. */
+	skills: z
+		.object({
+			paths: z.array(z.string()).optional(),
+		})
+		.optional(),
 });
 
 export type AlefConfig = z.infer<typeof ConfigSchema>;

@@ -16,8 +16,25 @@
  */
 
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
-import { BUILTIN_PACKAGES } from "@dpopsuev/alef-agent-blueprint";
-import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+
+/**
+ * Short alias → npm package for organs shipped with Alef.
+ * Lives here — not in blueprint — because the materializer is the
+ * composition root that knows what it ships. Blueprint has zero organ knowledge.
+ * Add a new organ here only; blueprint needs no change.
+ */
+const BUILTIN_PACKAGES: Record<string, string> = {
+	fs: "@dpopsuev/alef-organ-fs",
+	shell: "@dpopsuev/alef-organ-shell",
+	nodesh: "@dpopsuev/alef-organ-nodesh",
+	lector: "@dpopsuev/alef-organ-lector",
+	supervisor: "@dpopsuev/alef-organ-supervisor",
+	eval: "@dpopsuev/alef-organ-eval",
+	todos: "@dpopsuev/alef-organ-todos",
+	skills: "@dpopsuev/alef-organ-skills",
+};
+
+import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-spine";
 import { createJiti } from "jiti";
 
 /** Common options passed to every organ factory. */
@@ -35,6 +52,12 @@ interface OrganModule {
 export interface MaterializerOptions {
 	cwd: string;
 	loggerFor?: (organName: string) => OrganLogger;
+	/**
+	 * Tool event types the agent is permitted to call.
+	 * "*" = allow all (yolo). Omit = no gate applied.
+	 * Source: config.yaml permissions.allowed_tools.
+	 */
+	allowedTools?: string[];
 }
 
 export interface MaterializerResult {
@@ -47,12 +70,67 @@ export interface MaterializerResult {
  * Keeps main.ts free of organ imports — the materializer is the only
  * instantiation path for both blueprint and bare invocations.
  */
+// ---------------------------------------------------------------------------
+// Permission wrapper
+// ---------------------------------------------------------------------------
+
+/**
+ * Wrap an organ with a permission gate.
+ *
+ * Before any motor event reaches the organ's handler, the gate checks the
+ * allowlist. If the tool is not permitted it publishes a sense error with the
+ * matching toolCallId so waitForToolResult in organ-llm resolves with an error
+ * the LLM can read, rather than hanging.
+ *
+ * allowedTools format:
+ *   "*"         — allow everything (yolo mode)
+ *   "fs.read"   — exact tool event type
+ *   (empty/[])  — deny all (not useful in practice)
+ */
+export function wrapWithPermissions(organ: Organ, allowedTools: string[]): Organ {
+	if (allowedTools.includes("*")) return organ; // yolo — bypass
+	const allowed = new Set(allowedTools);
+
+	return {
+		...organ,
+		mount(nerve: Nerve): () => void {
+			// Intercept every motor event on the wildcard channel before the
+			// organ's own subscriptions fire.
+			const offGate = nerve.motor.subscribe("*", (event) => {
+				if (allowed.has(event.type)) return; // permitted — organ handles it
+
+				// Denied: publish a sense error with the matching toolCallId.
+				const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+				const sensePayload: SensePublishInput = {
+					type: event.type,
+					payload: toolCallId !== undefined ? { toolCallId } : {},
+					isError: true,
+					errorMessage:
+						`Permission denied: '${event.type}' is not in allowed_tools. ` +
+						`Add it to permissions.allowed_tools in config.yaml to enable it.`,
+					correlationId: event.correlationId,
+				};
+				nerve.sense.publish(sensePayload);
+			});
+
+			// Mount the underlying organ normally — its own motor subscribers fire
+			// in addition to the gate, but the gate's sense error is published first
+			// so waitForToolResult resolves with the error before the organ's result.
+			const offOrgan = organ.mount(nerve);
+			return () => {
+				offGate();
+				offOrgan();
+			};
+		},
+	};
+}
+
 export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
 	name: "default",
 	organs: [
-		{ name: "fs", package: BUILTIN_PACKAGES.fs, path: undefined, actions: [], toolNames: [] },
-		{ name: "shell", package: BUILTIN_PACKAGES.shell, path: undefined, actions: [], toolNames: [] },
-		{ name: "nodesh", package: BUILTIN_PACKAGES.nodesh, path: undefined, actions: [], toolNames: [] },
+		{ name: "fs", actions: [], toolNames: [] },
+		{ name: "shell", actions: [], toolNames: [] },
+		{ name: "nodesh", actions: [], toolNames: [] },
 	],
 	model: undefined,
 	children: [],
@@ -85,7 +163,8 @@ async function loadOrganModule(organDef: CompiledAgentDefinition["organs"][numbe
 		return mod as unknown as OrganModule;
 	}
 
-	const pkg = organDef.package ?? organDef.name;
+	// Resolve alias → package. Unknown names are treated as npm specifiers directly.
+	const pkg = BUILTIN_PACKAGES[organDef.name] ?? organDef.name;
 	// Dynamic import — works for both built-in monorepo packages and npm packages.
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 	const rawMod = await import(pkg);
@@ -110,7 +189,7 @@ export async function materializeBlueprint(
 		// ai and discourse are mounted by main.ts; symbols/supervisor are roadmap.
 		if (["ai", "discourse", "symbols", "supervisor"].includes(organDef.name)) continue;
 
-		const label = organDef.path ? organDef.path : (organDef.package ?? organDef.name);
+		const label = organDef.path ? organDef.path : (BUILTIN_PACKAGES[organDef.name] ?? organDef.name);
 		try {
 			const mod = await loadOrganModule(organDef);
 			const organ = mod.createOrgan({
@@ -118,7 +197,9 @@ export async function materializeBlueprint(
 				actions: organDef.actions.length > 0 ? organDef.actions : undefined,
 				logger: opts.loggerFor?.(organDef.name),
 			});
-			organs.push(organ);
+			const gated =
+				opts.allowedTools && opts.allowedTools.length > 0 ? wrapWithPermissions(organ, opts.allowedTools) : organ;
+			organs.push(gated);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			// Warn but don't crash for unsupported/roadmap organs.

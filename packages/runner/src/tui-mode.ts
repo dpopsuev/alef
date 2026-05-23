@@ -360,8 +360,17 @@ export async function runTuiMode(
 	// Seal the current generation's container so tool call lines go below it.
 	// Called when the first tool call fires (generation phase ended).
 	function sealStreamingSegment(): void {
+		if (process.env.ALEF_RENDER_DEBUG === "1")
+			process.stderr.write(
+				`[render] seal: markdownNode=${streamingMarkdownNode !== null} ` +
+					`pending=${replyTypewriter.pendingText.length} displayed=${replyTypewriter.pressure}\n`,
+			);
 		// Reply (Markdown): instant flush — Markdown manages its own colors, fade not possible.
 		replyTypewriter.flush();
+		if (process.env.ALEF_RENDER_DEBUG === "1")
+			process.stderr.write(
+				`[render] after-flush: markdownNode=${streamingMarkdownNode !== null} text=${streamingMarkdownNode ? "set" : "null"}\n`,
+			);
 		replyTypewriter.reset();
 
 		// Thinking (Text node): collapse to a compact one-liner at turn end.
@@ -506,17 +515,24 @@ export async function runTuiMode(
 				replyTypewriter.markStreamDone();
 				thinkTypewriter.markStreamDone();
 				if (!aborted) {
-					// The streaming segment already contains the thinking label +
-					// content node + reply Markdown node in the correct order.
-					// sealStreamingSegment() flushes and freezes them in place.
-					// Do NOT re-add thinking here — that caused duplicate nodes
-					// appearing after the reply with truncated content.
+					const _dbg = process.env.ALEF_RENDER_DEBUG === "1";
+					if (_dbg)
+						process.stderr.write(
+							`[render] turn-end: markdownNode=${streamingMarkdownNode !== null} ` +
+								`pending=${replyTypewriter.pendingText.length} ` +
+								`chatChildren=${chat.children.length}\n`,
+						);
 					sealStreamingSegment();
-					// Token footer appended after the existing Markdown content.
+					if (_dbg)
+						process.stderr.write(
+							`[render] after-seal: chatChildren=${chat.children.length} ` +
+								`tuiChildren=${tui.children.length}\n`,
+						);
 					const tokenText = new Text("", 1, 0);
 					chat.addChild(tokenText);
 					pendingTokenFooter = tokenText;
 					tui.requestRender(true);
+					if (_dbg) process.stderr.write(`[render] requestRender(true) called\n`);
 				}
 			}
 		} catch (e) {

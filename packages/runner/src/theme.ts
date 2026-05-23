@@ -16,6 +16,8 @@ export interface ColorToken {
 
 export interface ThemeTokens {
 	userFg: ColorToken;
+	/** Background color for the user message block (Pi pattern: Box with bgFn). */
+	userBg: ColorToken;
 	agentFg: ColorToken;
 	toolNameFg: ColorToken;
 	toolArgFg: ColorToken;
@@ -81,6 +83,24 @@ export function color(text: string, token: ColorToken): string {
 	return c ? `${c}${text}${RESET}` : text;
 }
 
+/** Apply a theme token background color to text (for Box bgFn). */
+export function bg(text: string, token: ColorToken): string {
+	const depth = colorDepth();
+	if (depth === "truecolor" && token.truecolor) {
+		const [r, g, b] = hexToRgb(token.truecolor);
+		return chalk.bgRgb(r, g, b)(text);
+	}
+	if ((depth === "truecolor" || depth === "256") && token.ansi256 !== undefined) {
+		return chalk.bgAnsi256(token.ansi256)(text);
+	}
+	// 16-color: map fg code to bg (add 10: 30→40, 90→100)
+	if (token.ansi16 !== undefined) {
+		const bgCode = token.ansi16 >= 90 ? token.ansi16 + 10 : token.ansi16 + 10;
+		return `\x1b[${bgCode}m${text}\x1b[49m`;
+	}
+	return text;
+}
+
 /** Apply a theme token color and bold. */
 export function boldColor(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
@@ -93,6 +113,7 @@ export const italic = (text: string): string => chalk.italic(text);
 
 const TERMINAL: ThemeTokens = {
 	userFg: { ansi16: 95 }, // bright magenta
+	userBg: { ansi16: 45 }, // magenta bg — 16-color only
 	agentFg: { ansi16: 96 }, // bright cyan
 	toolNameFg: { ansi16: 34 }, // blue
 	toolArgFg: { ansi16: 90 },
@@ -109,6 +130,7 @@ const TERMINAL: ThemeTokens = {
 
 const AKKO: ThemeTokens = {
 	userFg: { truecolor: "#e890a8", ansi256: 211, ansi16: 95 },
+	userBg: { truecolor: "#2a1a22", ansi256: 52, ansi16: 45 }, // very dark rose
 	agentFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 },
 	toolNameFg: { truecolor: "#6d9aba", ansi256: 67, ansi16: 34 },
 	toolArgFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
@@ -125,6 +147,7 @@ const AKKO: ThemeTokens = {
 
 const MONO: ThemeTokens = {
 	userFg: { truecolor: "#ffffff", ansi256: 15, ansi16: 97 },
+	userBg: { truecolor: "#1a1a1a", ansi256: 235, ansi16: 40 }, // near-black
 	agentFg: { truecolor: "#cccccc", ansi256: 7, ansi16: 37 },
 	toolNameFg: { truecolor: "#aaaaaa", ansi256: 7, ansi16: 37 },
 	toolArgFg: { truecolor: "#777777", ansi256: 8, ansi16: 90 },
@@ -141,6 +164,7 @@ const MONO: ThemeTokens = {
 
 const MATRIX: ThemeTokens = {
 	userFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
+	userBg: { truecolor: "#001a00", ansi256: 22, ansi16: 42 }, // very dark green
 	agentFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
 	toolNameFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
 	toolArgFg: { truecolor: "#006614", ansi256: 22, ansi16: 32 },

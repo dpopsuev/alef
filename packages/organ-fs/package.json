@@ -34,7 +34,8 @@
 	},
 	"dependencies": {
 		"@dpopsuev/alef-spine": "^0.0.1",
-		"zod": "^4.4.3"
+		"zod": "^4.4.3",
+		"diff": "^5.2.0"
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",

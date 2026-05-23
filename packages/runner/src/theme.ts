@@ -83,20 +83,23 @@ export function color(text: string, token: ColorToken): string {
 	return c ? `${c}${text}${RESET}` : text;
 }
 
-/** Apply a theme token background color to text (for Box bgFn). */
+/** Apply a theme token background color to text (for Box bgFn).
+ * Uses raw ANSI escape codes like fgCode() — never goes through chalk
+ * so it works regardless of chalk's TTY/color-level detection. */
 export function bg(text: string, token: ColorToken): string {
 	const depth = colorDepth();
 	if (depth === "truecolor" && token.truecolor) {
 		const [r, g, b] = hexToRgb(token.truecolor);
-		return chalk.bgRgb(r, g, b)(text);
+		// [48;2;R;G;Bm = truecolor background, [49m = default background
+		return `\x1b[48;2;${r};${g};${b}m${text}\x1b[49m`;
 	}
 	if ((depth === "truecolor" || depth === "256") && token.ansi256 !== undefined) {
-		return chalk.bgAnsi256(token.ansi256)(text);
+		return `\x1b[48;5;${token.ansi256}m${text}\x1b[49m`;
 	}
-	// 16-color: map fg code to bg (add 10: 30→40, 90→100)
+	// For 16-color: token.ansi16 IS already the background code (40-47, 100-107).
+	// The userBg token stores bg codes directly; do NOT add 10.
 	if (token.ansi16 !== undefined) {
-		const bgCode = token.ansi16 >= 90 ? token.ansi16 + 10 : token.ansi16 + 10;
-		return `\x1b[${bgCode}m${text}\x1b[49m`;
+		return `\x1b[${token.ansi16}m${text}\x1b[49m`;
 	}
 	return text;
 }

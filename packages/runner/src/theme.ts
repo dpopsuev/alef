@@ -123,7 +123,7 @@ export const italic = (text: string): string => chalk.italic(text);
 
 const TERMINAL: ThemeTokens = {
 	userFg: { ansi16: 95 }, // bright magenta
-	userBg: { ansi16: 45 }, // magenta bg — 16-color only
+	userBg: { ansi16: 45 }, // magenta bg — 16-color only (dark terminals)
 	agentFg: { ansi16: 96 }, // bright cyan
 	toolNameFg: { ansi16: 34 }, // blue
 	toolArgFg: { ansi16: 90 },
@@ -189,8 +189,17 @@ const MATRIX: ThemeTokens = {
 	modelFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
 };
 
+/** Terminal theme variant for light backgrounds — same 16-color palette but a
+ * lighter userBg (bright white bg, ansi16=107) so the user block is visible
+ * on light terminals without clashing with the background. */
+const TERMINAL_LIGHT: ThemeTokens = {
+	...TERMINAL,
+	userBg: { ansi16: 107 }, // bright green bg — visible on white/light terminals
+};
+
 export const BUILT_IN_THEMES: Record<string, ThemeTokens> = {
 	terminal: TERMINAL,
+	"terminal-light": TERMINAL_LIGHT,
 	akko: AKKO,
 	mono: MONO,
 	matrix: MATRIX,

@@ -181,6 +181,7 @@ function makeMarkdownTheme(): MarkdownTheme {
 }
 
 const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? getConfig().you ?? "@you";
+const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
 
 export function pillHeaderStr(label: string, width: number): string {
 	const inner = `─ ${label} `;
@@ -364,6 +365,24 @@ export async function runTuiMode(
 
 	const streamingSegments: Container[] = [];
 	let streamingSegment: Container | null = null;
+
+	// Agent pill cap — wraps the entire agent turn (tool calls + reply).
+	let agentPillOpen = false;
+
+	function openAgentPill(): void {
+		if (agentPillOpen) return;
+		agentPillOpen = true;
+		const th = getTheme();
+		chat.addChild(new Spacer(1));
+		chat.addChild(new DynamicText((w) => color(pillHeaderStr(AGENT_LABEL, w), th.agentFg)));
+	}
+
+	function closeAgentPill(): void {
+		if (!agentPillOpen) return;
+		agentPillOpen = false;
+		const th = getTheme();
+		chat.addChild(new DynamicText((w) => color(pillFooterStr(w), th.agentFg)));
+	}
 	let streamingMarkdownNode: Markdown | null = null;
 	let streamingThinkNode: Text | null = null;
 	let thinkingStartedAt = 0; // ms timestamp when first thinking chunk arrived
@@ -389,6 +408,7 @@ export async function runTuiMode(
 	let _totalChunksReceived = 0; // debug counter, reset per turn
 	function receiveTextChunk(chunk: string): void {
 		consoleZone.pulse();
+		openAgentPill(); // open @alef pill on first text chunk of the turn
 		const box = openStreamingSegment();
 		if (!streamingMarkdownNode) {
 			streamingMarkdownNode = new Markdown("", 2, 0, makeMarkdownTheme());
@@ -482,6 +502,7 @@ export async function runTuiMode(
 	if (toolSlot) {
 		toolSlot.onToolStart = ({ callId, name, args }) => {
 			consoleZone.pulse();
+			openAgentPill(); // open @alef pill on first tool call of the turn
 			sealStreamingSegment(); // freeze current generation block; tool lines go below it
 			const keyArg = keyArgFromPayload(args);
 			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
@@ -565,6 +586,7 @@ export async function runTuiMode(
 		}
 
 		editor.setText("");
+		agentPillOpen = false; // reset pill state for the new turn
 		appendUserMsg(chat, text);
 		consoleZone.startThinking();
 		tui.requestRender();
@@ -592,6 +614,7 @@ export async function runTuiMode(
 					const tokenText = new Text("", 1, 0);
 					chat.addChild(tokenText);
 					pendingTokenFooter = tokenText;
+					closeAgentPill(); // close @alef pill after reply + token footer
 					tui.requestRender(true);
 				}
 			}
@@ -604,6 +627,7 @@ export async function runTuiMode(
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, 0, false));
 			}
 			activeCalls.clear();
+			closeAgentPill(); // close pill even on error/abort
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 			tui.requestRender();
 		} finally {

@@ -310,11 +310,12 @@ if (args.serve !== undefined) {
 agent.validate();
 await agent.ready();
 const opacity = cfg.theme?.background_opacity ?? readAlacrittyOpacity();
-const _isDark = await detectDark(opacity);
+const isDark = await detectDark(opacity);
 loadTheme(
 	blueprintPath ? new URL("..", `file://${blueprintPath}`).pathname : undefined,
 	cfg.theme?.name,
 	cfg.theme?.colors,
+	isDark,
 );
 
 if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {

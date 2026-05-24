@@ -38,6 +38,7 @@ import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
 import { DynamicText } from "./dynamic-text.js";
 import { formatError } from "./errors.js";
+import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
@@ -355,6 +356,12 @@ export async function runTuiMode(
 	consoleZone.mount();
 	const { editor } = consoleZone;
 
+	// History autocomplete: up-arrow cycles history; ghost text appears for prefix matches.
+	const historyProvider = new HistoryAutocompleteProvider();
+	if (editor.setAutocompleteProvider) {
+		editor.setAutocompleteProvider(historyProvider);
+	}
+
 	//
 	// Each LLM generation phase gets its own streamingSegment. When tool calls
 	// start (sealStreamingSegment), the current container is frozen in place so it
@@ -587,6 +594,7 @@ export async function runTuiMode(
 		}
 
 		editor.setText("");
+		historyProvider.addEntry(text); // record for ghost-text autocomplete
 		agentPillOpen = false; // reset pill state for the new turn
 		appendUserMsg(chat, text);
 		consoleZone.startThinking();

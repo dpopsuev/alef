@@ -598,6 +598,12 @@ export async function runTuiMode(
 		} catch (e) {
 			consoleZone.stopThinking();
 			clearStreamingSegments();
+			// Drain in-flight tool spinner entries so no ghost lines survive the turn.
+			// onToolEnd never fires for calls aborted mid-turn (ALE-BUG-16).
+			for (const [, entry] of activeCalls) {
+				entry.text.setText(renderToolLine(entry.name, entry.keyArg, 0, false));
+			}
+			activeCalls.clear();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 			tui.requestRender();
 		} finally {

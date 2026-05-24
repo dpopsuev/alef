@@ -35,7 +35,6 @@ export interface ThemeTokens {
 import chalk from "chalk";
 
 // Used only inside fgCode where chalk has no ColorToken concept.
-const RESET = "\x1b[0m";
 /** Resets foreground only — preserves background set by outer Box/bgFn. */
 const FG_RESET = "\x1b[39m";
 
@@ -108,10 +107,14 @@ export function bg(text: string, token: ColorToken): string {
 	return text;
 }
 
-/** Apply a theme token color and bold. */
+/** Apply a theme token color and bold.
+ * Uses raw ANSI so it works regardless of chalk's TTY/color-level detection,
+ * and uses FG_RESET (\x1b[39m) to preserve any background set by an outer Box.
+ */
 export function boldColor(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
-	return c ? chalk.bold(`${c}${text}${RESET}`) : chalk.bold(text);
+	// \x1b[1m = bold on, \x1b[22m = bold off (intensity reset only, not full reset)
+	return c ? `\x1b[1m${c}${text}${FG_RESET}\x1b[22m` : `\x1b[1m${text}\x1b[22m`;
 }
 
 export const bold = (text: string): string => chalk.bold(text);

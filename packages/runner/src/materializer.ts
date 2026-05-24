@@ -94,33 +94,38 @@ export function wrapWithPermissions(organ: Organ, allowedTools: string[]): Organ
 	return {
 		...organ,
 		mount(nerve: Nerve): () => void {
-			// Intercept every motor event on the wildcard channel before the
-			// organ's own subscriptions fire.
-			const offGate = nerve.motor.subscribe("*", (event) => {
-				if (allowed.has(event.type)) return; // permitted — organ handles it
-
-				// Denied: publish a sense error with the matching toolCallId.
-				const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
-				const sensePayload: SensePublishInput = {
-					type: event.type,
-					payload: toolCallId !== undefined ? { toolCallId } : {},
-					isError: true,
-					errorMessage:
-						`Permission denied: '${event.type}' is not in allowed_tools. ` +
-						`Add it to permissions.allowed_tools in config.yaml to enable it.`,
-					correlationId: event.correlationId,
-				};
-				nerve.sense.publish(sensePayload);
-			});
-
-			// Mount the underlying organ normally — its own motor subscribers fire
-			// in addition to the gate, but the gate's sense error is published first
-			// so waitForToolResult resolves with the error before the organ's result.
-			const offOrgan = organ.mount(nerve);
-			return () => {
-				offGate();
-				offOrgan();
+			// Wrap the nerve so the organ's own motor subscribers receive a gated
+			// version of every handler. This fires at subscription time, so the
+			// check runs before the organ's logic and does not race with wildcards.
+			const gatedNerve: Nerve = {
+				...nerve,
+				motor: {
+					...nerve.motor,
+					subscribe: (type, handler) => {
+						// Wildcard subscriptions (observability organs) bypass gating.
+						if (type === "*") return nerve.motor.subscribe(type, handler);
+						return nerve.motor.subscribe(type, (event) => {
+							if (allowed.has(event.type)) {
+								void handler(event);
+								return;
+							}
+							// Denied: publish sense error with matching toolCallId.
+							const toolCallId =
+								typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+							nerve.sense.publish({
+								type: event.type,
+								payload: toolCallId !== undefined ? { toolCallId } : {},
+								isError: true,
+								errorMessage:
+									`Permission denied: '${event.type}' is not in allowed_tools. ` +
+									`Add it to permissions.allowed_tools in config.yaml to enable it.`,
+								correlationId: event.correlationId,
+							} satisfies SensePublishInput);
+						});
+					},
+				},
 			};
+			return organ.mount(gatedNerve);
 		},
 	};
 }
@@ -186,8 +191,8 @@ export async function materializeBlueprint(
 
 	for (const organDef of definition.organs) {
 		// Skip legacy/unimplemented organs silently.
-		// ai and discourse are mounted by main.ts; symbols/supervisor are roadmap.
-		if (["ai", "discourse", "symbols", "supervisor"].includes(organDef.name)) continue;
+		// ai and discourse are mounted by main.ts; symbols is roadmap.
+		if (["ai", "discourse", "symbols"].includes(organDef.name)) continue;
 
 		const label = organDef.path ? organDef.path : (BUILTIN_PACKAGES[organDef.name] ?? organDef.name);
 		try {

@@ -59,6 +59,8 @@ export interface Args {
 	 * TUI requires a TTY. Falls back automatically on non-TTY stdin.
 	 */
 	noTui: boolean;
+	/** Skip permission gates — allow all tool calls. */
+	yolo: boolean;
 	/**
 	 * HTTP port for the Router organ (HTTP/SSE bridge).
 	 * When set, the router is mounted and the agent accepts requests on this port.
@@ -124,6 +126,7 @@ export function parseArgs(argv: string[]): Args {
 		resume: undefined,
 		listSessions: false,
 		noTui: false,
+		yolo: false,
 		serve: undefined,
 		profile: undefined,
 		debug: false,
@@ -209,6 +212,12 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--no-tui") {
 			args.noTui = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--yolo") {
+			args.yolo = true;
 			i++;
 			continue;
 		}

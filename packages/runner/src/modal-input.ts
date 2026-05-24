@@ -30,26 +30,55 @@ const SEQ = {
 	deleteWordBackward: "\x17", // ctrl+w
 } as const;
 
+const WHICHKEY_TIMEOUT_MS = Number(process.env.ALEF_WHICHKEY_TIMEOUT_MS ?? 600);
+
+const WHICHKEY_HINT = "hjkl move  w/b word  i/a insert  dd delete line  u undo  0/$ line start/end";
+
 export class ModalInputHandler {
 	private mode: ModalMode = "insert";
 	private pendingD = false; // tracks first 'd' in 'dd'
+	private hintTimer: ReturnType<typeof setTimeout> | undefined;
 	private readonly onModeChange: (mode: ModalMode) => void;
+	private readonly onHint: (text: string) => void;
 
 	constructor(
 		private readonly editor: Editor,
 		onModeChange: (mode: ModalMode) => void,
+		/** Called with hint text after idle timeout, or empty string to clear. */
+		onHint: (text: string) => void = () => {},
 	) {
 		this.onModeChange = onModeChange;
+		this.onHint = onHint;
 	}
 
 	getMode(): ModalMode {
 		return this.mode;
 	}
 
+	/** Start or restart the which-key idle timer (ALE-TSK-213). */
+	private armHint(): void {
+		clearTimeout(this.hintTimer);
+		this.hintTimer = setTimeout(() => {
+			if (this.mode === "normal") this.onHint(WHICHKEY_HINT);
+		}, WHICHKEY_TIMEOUT_MS);
+	}
+
+	/** Cancel the timer and clear the hint text. */
+	private clearHint(): void {
+		clearTimeout(this.hintTimer);
+		this.hintTimer = undefined;
+		this.onHint("");
+	}
+
 	private setMode(m: ModalMode): void {
 		this.mode = m;
 		this.pendingD = false;
 		this.onModeChange(m);
+		if (m === "normal") {
+			this.armHint();
+		} else {
+			this.clearHint();
+		}
 	}
 
 	/**
@@ -58,84 +87,89 @@ export class ModalInputHandler {
 	 * Returns undefined to let the editor handle it in insert mode.
 	 */
 	readonly handle = (data: string): { consume?: boolean } | undefined => {
-		// Escape always enters normal mode (from insert or resets pending state).
+		// Escape: insert → normal, or cancel pending chord in normal.
 		if (data === "\x1b") {
 			if (this.mode === "insert") {
 				this.setMode("normal");
-				return { consume: true };
+			} else {
+				this.pendingD = false;
+				this.clearHint();
+				this.armHint();
 			}
-			// Already normal — cancel any pending chord.
-			this.pendingD = false;
 			return { consume: true };
 		}
 
 		if (this.mode === "insert") {
-			// Passthrough — let editor handle everything.
-			return undefined;
+			return undefined; // passthrough — let editor handle everything
 		}
 
-		// ── NORMAL MODE ─────────────────────────────────────────────────────
+		// ── NORMAL MODE ──────────────────────────────────────────────────────
+		// Clear the hint on any key; re-arm at the end if mode stays normal.
+		this.clearHint();
 
-		// Pending 'd' chord: second 'd' = delete line.
+		// Pending 'd' chord: second 'd' = delete entire line.
 		if (this.pendingD) {
 			this.pendingD = false;
 			if (data === "d") {
 				this.editor.handleInput(SEQ.lineStart);
 				this.editor.handleInput(SEQ.deleteToLineEnd);
-				// Also remove the newline to collapse the line.
-				this.editor.handleInput(SEQ.deleteCharForward);
+				this.editor.handleInput(SEQ.deleteCharForward); // collapse newline
+				this.armHint();
 				return { consume: true };
 			}
-			// Unrecognised chord — fall through to check for other commands.
+			// Unrecognised chord — fall through to handle as standalone key.
 		}
 
 		switch (data) {
 			// ── Motion ──────────────────────────────────────────────────────
 			case "h":
 				this.editor.handleInput(SEQ.left);
-				return { consume: true };
+				break;
 			case "l":
 				this.editor.handleInput(SEQ.right);
-				return { consume: true };
+				break;
 			case "j":
 				this.editor.handleInput(SEQ.down);
-				return { consume: true };
+				break;
 			case "k":
 				this.editor.handleInput(SEQ.up);
-				return { consume: true };
+				break;
 			case "w":
 				this.editor.handleInput(SEQ.wordRight);
-				return { consume: true };
+				break;
 			case "b":
 				this.editor.handleInput(SEQ.wordLeft);
-				return { consume: true };
+				break;
 			case "0":
 				this.editor.handleInput(SEQ.lineStart);
-				return { consume: true };
+				break;
 			case "$":
 				this.editor.handleInput(SEQ.lineEnd);
-				return { consume: true };
+				break;
 
 			// ── Editing ─────────────────────────────────────────────────────
 			case "x":
 				this.editor.handleInput(SEQ.deleteCharForward);
-				return { consume: true };
+				break;
 			case "X":
-				this.editor.handleInput("\x08"); // backspace
-				return { consume: true };
+				this.editor.handleInput("\x08");
+				break; // backspace
 			case "D":
 				this.editor.handleInput(SEQ.deleteToLineEnd);
-				return { consume: true };
+				break;
 			case "d":
 				this.pendingD = true;
-				return { consume: true };
+				break;
+			case "u":
+				this.editor.handleInput("\x1f");
+				break; // ctrl+- = undo
 
 			// ── Enter insert mode ────────────────────────────────────────────
 			case "i":
 				this.setMode("insert");
 				return { consume: true };
 			case "a":
-				this.editor.handleInput(SEQ.right); // cursor one right before insert
+				this.editor.handleInput(SEQ.right);
 				this.setMode("insert");
 				return { consume: true };
 			case "A":
@@ -148,7 +182,7 @@ export class ModalInputHandler {
 				return { consume: true };
 			case "o":
 				this.editor.handleInput(SEQ.lineEnd);
-				this.editor.handleInput("\n"); // new line below
+				this.editor.handleInput("\n");
 				this.setMode("insert");
 				return { consume: true };
 			case "O":
@@ -158,13 +192,12 @@ export class ModalInputHandler {
 				this.setMode("insert");
 				return { consume: true };
 
-			// ── Undo ────────────────────────────────────────────────────────
-			case "u":
-				this.editor.handleInput("\x1f"); // ctrl+- (undo)
-				return { consume: true };
-
 			default:
-				return { consume: true }; // consume unknown keys in normal mode
+				break; // unknown key: consumed silently
 		}
+
+		// Re-arm which-key hint after any motion/edit that stays in normal mode.
+		this.armHint();
+		return { consume: true };
 	};
 }

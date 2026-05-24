@@ -163,7 +163,8 @@ export interface FsOrganOptions {
 // Mirrors Crush's filetracker.Service pattern (internal/filetracker/service.go).
 // ---------------------------------------------------------------------------
 
-class FileTracker {
+/** Exported for testing. Tracks per-path last-read timestamps to enforce read-before-edit. */
+export class FileTracker {
 	private readonly reads = new Map<string, number>(); // absolutePath → Date.now()
 
 	record(absolutePath: string): void {
@@ -172,6 +173,11 @@ class FileTracker {
 
 	lastReadAt(absolutePath: string): number | undefined {
 		return this.reads.get(absolutePath);
+	}
+
+	/** Number of tracked paths (for testing). */
+	get size(): number {
+		return this.reads.size;
 	}
 }
 

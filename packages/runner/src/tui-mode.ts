@@ -639,14 +639,25 @@ export async function runTuiMode(
 	};
 
 	// Modal input: Escape → normal mode, i/a/A/I/o/O → insert mode.
-	const modal = new ModalInputHandler(editor, (mode) => {
-		// Show mode indicator in ConsoleZone when not thinking.
-		if (!consoleZone.isThinking) {
-			const indicator = mode === "normal" ? dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`) : "";
-			consoleZone.setStatus(indicator);
-		}
-		tui.requestRender();
-	});
+	const modal = new ModalInputHandler(
+		editor,
+		(mode) => {
+			// Show mode indicator in ConsoleZone when not thinking.
+			if (!consoleZone.isThinking) {
+				const indicator = mode === "normal" ? dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`) : "";
+				consoleZone.setStatus(indicator);
+			}
+			tui.requestRender();
+		},
+		(hint) => {
+			// Which-key hint: show after 600ms idle in normal mode (TSK-213).
+			if (!consoleZone.isThinking) {
+				const text = hint ? dim(hint) : dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`);
+				consoleZone.setStatus(hint ? text : dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`));
+			}
+			tui.requestRender();
+		},
+	);
 	tui.addInputListener(modal.handle);
 
 	tui.start();

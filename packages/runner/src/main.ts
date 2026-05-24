@@ -148,7 +148,7 @@ if (blueprintPath) {
 	const materialized = await materializeBlueprint(definition, {
 		cwd: args.cwd,
 		loggerFor: (name) => log.child({ organ: name }),
-		allowedTools: cfg.permissions?.allowed_tools,
+		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 	});
 	corpusOrgans = materialized.organs;
 	blueprintModelId = materialized.modelId;
@@ -160,7 +160,7 @@ if (blueprintPath) {
 	const defaultMaterialized = await materializeBlueprint(DEFAULT_COMPILED_DEFINITION, {
 		cwd: args.cwd,
 		loggerFor: (name) => log.child({ organ: name }),
-		allowedTools: cfg.permissions?.allowed_tools,
+		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 	});
 	corpusOrgans = defaultMaterialized.organs;
 }

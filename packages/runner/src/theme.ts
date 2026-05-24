@@ -36,6 +36,8 @@ import chalk from "chalk";
 
 // Used only inside fgCode where chalk has no ColorToken concept.
 const RESET = "\x1b[0m";
+/** Resets foreground only — preserves background set by outer Box/bgFn. */
+const FG_RESET = "\x1b[39m";
 
 function hexToRgb(hex: string): [number, number, number] {
 	const h = hex.replace("#", "");
@@ -80,7 +82,9 @@ export function fgCode(token: ColorToken, depth: ColorDepth): string {
 /** Apply a theme token color to text. */
 export function color(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
-	return c ? `${c}${text}${RESET}` : text;
+	// Use FG_RESET (\x1b[39m) not RESET (\x1b[0m) so background colors set by
+	// outer Box components are preserved. Matches pi's theme.fg() behaviour.
+	return c ? `${c}${text}${FG_RESET}` : text;
 }
 
 /** Apply a theme token background color to text (for Box bgFn).

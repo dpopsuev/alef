@@ -44,7 +44,9 @@ describe("color()", () => {
 		const result = color("hello", token);
 		expect(result).toContain("\x1b[38;2;");
 		expect(result).toContain("hello");
-		expect(result).toContain("\x1b[0m");
+		// color() uses \x1b[39m (fg-only reset) to preserve outer Box backgrounds.
+		expect(result).toContain("\x1b[39m");
+		expect(result).not.toContain("\x1b[0m"); // must NOT full-reset (kills bg)
 	});
 
 	it("uses ansi256 fallback in 256 mode", () => {

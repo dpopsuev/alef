@@ -27,7 +27,12 @@ function hexToken(hex: string): ColorToken {
  * Load theme from ~/.config/alef/theme.yaml or the blueprint's agent.yaml.
  * Merges color overrides on top of the named built-in.
  */
-export function loadTheme(blueprintDir?: string, cfgThemeName?: string, cfgColors?: Record<string, string>): void {
+export function loadTheme(
+	blueprintDir?: string,
+	cfgThemeName?: string,
+	cfgColors?: Record<string, string>,
+	isDark = true,
+): void {
 	// Priority: blueprint agent.yaml > ~/.config/alef/theme.yaml > config.yaml theme section
 	const candidates = [
 		blueprintDir ? join(blueprintDir, "agent.yaml") : null,
@@ -40,8 +45,10 @@ export function loadTheme(blueprintDir?: string, cfgThemeName?: string, cfgColor
 		if (manifest) break;
 	}
 
-	// Default is 'terminal' - inherits the user's terminal color palette via ANSI 16-color codes.
-	const baseName = manifest?.theme ?? cfgThemeName ?? "terminal";
+	// Default is 'terminal' for dark terminals, 'terminal-light' for light terminals.
+	// OSC 11 detection in detectDark() already ran before this call.
+	const defaultTheme = isDark ? "terminal" : "terminal-light";
+	const baseName = manifest?.theme ?? cfgThemeName ?? defaultTheme;
 	setThemeByName(baseName);
 
 	const allColors: Record<string, string> = { ...cfgColors, ...manifest?.colors };

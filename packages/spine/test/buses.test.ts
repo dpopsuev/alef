@@ -236,3 +236,52 @@ describe("InProcessNerve — listenerCount", () => {
 		expect(nerve.listenerCount("motor", "test.command")).toBe(0);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// RED: ALE-BUG-15 — firstSeen Map grows unboundedly (memory leak)
+// ---------------------------------------------------------------------------
+
+describe("RED: ALE-BUG-15 — InProcessBus.firstSeen memory leak", () => {
+	it("firstSeen size stays bounded after many unique correlationIds", () => {
+		const nerve = new InProcessNerve();
+		const n = nerve.asNerve();
+
+		// Subscribe so events don't go to dead-letter (which returns immediately).
+		n.motor.subscribe("test.command", () => {});
+
+		// Publish 200 events each with a unique correlationId.
+		const LIMIT = 200;
+		for (let i = 0; i < LIMIT; i++) {
+			n.motor.publish({ type: "test.command", payload: { value: `x${i}` }, correlationId: `corr-${i}` });
+		}
+
+		// Access internals via reflection.
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const motorBus = (nerve as any)._motor as { firstSeen: Map<string, number> };
+
+		// RED: currently firstSeen.size === 200 — it should be bounded by some cap.
+		// After the fix, size must be ≤ cap (e.g. ≤ 100).
+		expect(motorBus.firstSeen.size).toBeLessThanOrEqual(100);
+	});
+
+	it("firstSeen entries are evicted after correlation completes", async () => {
+		const nerve = new InProcessNerve();
+		const n = nerve.asNerve();
+		const correlationId = "eviction-test";
+
+		// Complete a full request/response cycle.
+		n.motor.subscribe("test.command", () => {
+			// tool handler publishes the sense response
+			n.sense.publish({ type: "test.result", payload: { output: "done" }, correlationId, isError: false });
+		});
+		n.motor.publish({ type: "test.command", payload: { value: "hi" }, correlationId });
+
+		// Allow event loop to settle.
+		await new Promise((r) => setTimeout(r, 10));
+
+		// RED: after the correlation is resolved, firstSeen should not retain the entry.
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const motorBus = (nerve as any)._motor as { firstSeen: Map<string, number> };
+		expect(motorBus.firstSeen.has(correlationId)).toBe(false);
+	});
+});

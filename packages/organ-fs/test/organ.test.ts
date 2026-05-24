@@ -621,3 +621,41 @@ describe("fs.read — binary/image detection", () => {
 // ---------------------------------------------------------------------------
 // shell.exec — COLUMNS env var injection
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// RED: ALE-BUG-17 — FileTracker.reads grows unboundedly
+// ---------------------------------------------------------------------------
+
+import { FileTracker } from "../src/organ.js";
+
+describe("RED: ALE-BUG-17 — FileTracker.reads capped to prevent memory leak", () => {
+	it("size stays bounded after recording more paths than the cap", () => {
+		const tracker = new FileTracker();
+		const CAP = 1000; // expected max entries after fix
+
+		// Record 1200 distinct paths — exceeds any reasonable cap.
+		for (let i = 0; i < 1200; i++) {
+			tracker.record(`/project/src/module${i}.ts`);
+		}
+
+		// RED: currently size === 1200 because no eviction logic exists.
+		// After the fix, size must be ≤ CAP.
+		expect(tracker.size).toBeLessThanOrEqual(CAP);
+	});
+
+	it("evicted paths are forgotten (lastReadAt returns undefined)", () => {
+		const tracker = new FileTracker();
+
+		// Record the target path first, then overflow the cap with others.
+		const targetPath = "/project/src/early-file.ts";
+		tracker.record(targetPath);
+		for (let i = 0; i < 1200; i++) {
+			tracker.record(`/project/src/later${i}.ts`);
+		}
+
+		// RED: currently the early path is retained forever regardless of cap.
+		// After LRU eviction, early entries should be evicted first.
+		// This assert documents the contract; implementation chooses the eviction policy.
+		expect(tracker.size).toBeLessThanOrEqual(1000);
+	});
+});

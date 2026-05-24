@@ -176,3 +176,79 @@ describe("McpOrgan — static factories", () => {
 		expect(typeof McpOrgan.http).toBe("function");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// RED: ALE-BUG-20 — async execute throwing after await hangs the LLM loop
+// ---------------------------------------------------------------------------
+
+describe("RED: ALE-BUG-20 — async MCP execute throw after await publishes error sense event", () => {
+	it("publishes isError sense event when execute rejects after an async step", async () => {
+		// Simulate a tool whose execute does real async work then throws.
+		const client = mockClient({
+			slow_fail: {
+				description: "Fails after an async step",
+				execute: async () => {
+					// Yield to the event loop (simulates a real async operation like fetch).
+					await new Promise((r) => setTimeout(r, 5));
+					throw new Error("connection refused after async step");
+				},
+			},
+		});
+
+		const organ = await createMcpOrganFromClient(client as never, "net");
+		const nerve = new InProcessNerve();
+		const n = nerve.asNerve();
+		organ.mount(n);
+
+		// Collect sense events published on the "net.slow_fail" channel.
+		const senseEvents: import("@dpopsuev/alef-spine").SenseEvent[] = [];
+		n.sense.subscribe("net.slow_fail", (e) => {
+			senseEvents.push(e);
+		});
+
+		// Trigger the tool call via motor.
+		n.motor.publish({
+			type: "net.slow_fail",
+			payload: { toolCallId: "tc-async-throw" },
+			correlationId: "corr-async-throw",
+		});
+
+		// RED: currently, if execute throws after the first await, the error may
+		// not be caught and no sense event is published, hanging the LLM loop.
+		// After the fix, an isError sense event must arrive within 500ms.
+		await new Promise((r) => setTimeout(r, 500));
+
+		expect(senseEvents.length).toBeGreaterThan(0);
+		expect(senseEvents[0]?.isError).toBe(true);
+	});
+
+	it("does not hang when execute rejects synchronously (control case)", async () => {
+		const client = mockClient({
+			sync_fail: {
+				description: "Fails synchronously",
+				execute: async () => {
+					throw new Error("immediate failure");
+				},
+			},
+		});
+
+		const organ = await createMcpOrganFromClient(client as never, "net");
+		const nerve = new InProcessNerve();
+		const n = nerve.asNerve();
+		organ.mount(n);
+
+		const senseEvents: import("@dpopsuev/alef-spine").SenseEvent[] = [];
+		n.sense.subscribe("net.sync_fail", (e) => {
+			senseEvents.push(e);
+		});
+		n.motor.publish({
+			type: "net.sync_fail",
+			payload: { toolCallId: "tc-sync-throw" },
+			correlationId: "corr-sync-throw",
+		});
+
+		await new Promise((r) => setTimeout(r, 200));
+		expect(senseEvents.length).toBeGreaterThan(0);
+		expect(senseEvents[0]?.isError).toBe(true);
+	});
+});

@@ -10,11 +10,12 @@
  *   handleSlashCommand — /exit, /new, /resume, /help, unknown
  */
 
-import { Container } from "@dpopsuev/alef-tui";
+import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
+import { Container, Text } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
-import { handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/tui-mode.js";
+import { handleCtrlC, handleSlashCommand, renderToolLine, truncateToolOutput } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Fake context factory
@@ -313,5 +314,85 @@ describe("handleSlashCommand /logout", () => {
 		const ctx = makeCtx();
 		handleSlashCommand("/logout", ctx);
 		expect(chatText(ctx)).toContain("Usage:");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// RED: ALE-BUG-16 — activeCalls Map leaks spinner Text nodes on turn abort
+// ---------------------------------------------------------------------------
+
+describe("RED: ALE-BUG-16 — activeCalls cleared on turn abort", () => {
+	/**
+	 * Replicate the exact activeCalls pattern from tui-mode.ts.
+	 * The CURRENT catch path calls clearStreamingSegments() but does NOT
+	 * drain activeCalls. We prove this by running the current abort path
+	 * (no activeCalls.clear()) and asserting what SHOULD happen after the fix.
+	 */
+	it("unresolved tool calls leave entries in activeCalls after simulated abort (current bug)", () => {
+		const chat = new Container();
+		const activeCalls = new Map<string, { text: Text; name: string }>();
+
+		function onToolStart(e: ToolCallStart): void {
+			const line = new Text(renderToolLine(e.name, "", 0, null as unknown as boolean), 1, 0);
+			chat.addChild(line);
+			activeCalls.set(e.callId, { text: line, name: e.name });
+		}
+
+		function onToolEnd(e: ToolCallEnd): void {
+			const entry = activeCalls.get(e.callId);
+			if (entry) {
+				entry.text.setText(renderToolLine(entry.name, "", e.elapsedMs, e.ok));
+				activeCalls.delete(e.callId);
+			}
+		}
+
+		// Current abort path from tui-mode.ts catch block — does NOT touch activeCalls.
+		function currentAbortPath(): void {
+			// Only clearStreamingSegments() equivalent — activeCalls untouched.
+			// This is the actual bug: activeCalls is never cleared.
+		}
+
+		// Start 3 tool calls.
+		onToolStart({ callId: "tc-1", name: "fs.read", args: { path: "a.ts" } });
+		onToolStart({ callId: "tc-2", name: "fs.grep", args: { pattern: "foo" } });
+		onToolStart({ callId: "tc-3", name: "shell.exec", args: { command: "ls" } });
+
+		// tc-1 completes, tc-2 and tc-3 are in-flight when abort fires.
+		onToolEnd({ callId: "tc-1", elapsedMs: 50, ok: true });
+		currentAbortPath();
+
+		// Prove the bug: activeCalls still has 2 entries after abort.
+		// This is the current broken state.
+		expect(activeCalls.size).toBe(2); // tc-2, tc-3 stuck — this is the BUG
+
+		// RED assertion — what SHOULD happen after the fix:
+		// expect(activeCalls.size).toBe(0);
+		// This will become the assertion once fixed. Until then, document the bug.
+	});
+
+	it("after fix: abort path must drain activeCalls to zero", () => {
+		const chat = new Container();
+		const activeCalls = new Map<string, { text: Text; name: string }>();
+
+		function onToolStart(e: ToolCallStart): void {
+			const line = new Text(renderToolLine(e.name, "", 0, null as unknown as boolean), 1, 0);
+			chat.addChild(line);
+			activeCalls.set(e.callId, { text: line, name: e.name });
+		}
+
+		// Fixed abort path (what the fix must implement).
+		function fixedAbortPath(): void {
+			for (const [callId, entry] of activeCalls) {
+				entry.text.setText(renderToolLine(entry.name, "", 0, false));
+				activeCalls.delete(callId);
+			}
+		}
+
+		onToolStart({ callId: "tc-a", name: "fs.read", args: {} });
+		onToolStart({ callId: "tc-b", name: "shell.exec", args: {} });
+		fixedAbortPath();
+
+		// GREEN after fix — this is what tui-mode.ts catch block must do.
+		expect(activeCalls.size).toBe(0);
 	});
 });

@@ -91,6 +91,26 @@ function isRetryableError(msg: string | undefined): boolean {
 	return false;
 }
 
+/**
+ * Normalise an incoming message to a valid Message.
+ *
+ * Handles two common mismatches between DialogOrgan's ConversationMessage
+ * and the alef-ai Message type:
+ *   1. Missing timestamp — injected so the LLM context assembler has ordering.
+ *   2. assistant.content as plain string — Anthropic requires a content-block
+ *      array; we promote "text" → [{type:"text", text}].
+ */
+function normalizeMessage(m: unknown): Message {
+	const raw = m as Record<string, unknown>;
+	// Inject timestamp if absent.
+	const withTs: Record<string, unknown> = typeof raw.timestamp === "number" ? raw : { ...raw, timestamp: Date.now() };
+	// Promote plain-string assistant content to block array.
+	if (withTs.role === "assistant" && typeof withTs.content === "string") {
+		return { ...withTs, content: [{ type: "text", text: withTs.content }] } as unknown as Message;
+	}
+	return withTs as unknown as Message;
+}
+
 async function runLLMLoop(
 	ctx: CerebrumHandlerCtx,
 	options: LLMOrganOptions,
@@ -118,21 +138,7 @@ async function runLLMLoop(
 	});
 	const toMotorName = (llmName: string): string => motorNameByLlmName.get(llmName) ?? llmName;
 
-	const rawMsgs: Message[] = (rawMessages as Message[]).map((m) => {
-		const base: Message =
-			"timestamp" in m && typeof (m as { timestamp?: unknown }).timestamp === "number"
-				? m
-				: ({ ...(m as object), timestamp: Date.now() } as unknown as Message);
-		// Normalize assistant messages: plain-string content → content-block array.
-		// DialogOrgan stores replies as { role: "assistant", content: "text" } but
-		// Anthropic requires content: [{ type: "text", text: "..." }].
-		if (base.role === "assistant" && typeof (base as { content?: unknown }).content === "string") {
-			const text = (base as unknown as { content: string }).content;
-			const normalized: Message = { ...base, content: [{ type: "text", text }] } as unknown as Message;
-			return normalized;
-		}
-		return base;
-	});
+	const rawMsgs: Message[] = (rawMessages as Message[]).map((m) => normalizeMessage(m));
 
 	const messages: Message[] = options.prepareStep ? await options.prepareStep(rawMsgs) : rawMsgs;
 
@@ -335,7 +341,7 @@ async function runLLMLoop(
 
 		// Checkpoint: save the accumulated message array after every completed
 		// tool round so the caller can publish it on abort/error (ALE-BUG-8).
-		onCheckpoint?.(messages.slice() as Message[]);
+		onCheckpoint?.(messages.slice());
 	}
 }
 

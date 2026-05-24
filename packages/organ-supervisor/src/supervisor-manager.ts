@@ -123,7 +123,31 @@ export class SupervisorManager implements SupervisorPort {
 		private readonly dialogDiscourse: DialogDiscoursePort,
 		monologDiscourse?: MonologDiscoursePort,
 	) {
-		this.monologDiscourse = monologDiscourse ?? (dialogDiscourse as unknown as MonologDiscoursePort);
+		// Prefer the explicit monologDiscourse. If absent, check whether dialogDiscourse
+		// also implements MonologDiscoursePort at runtime (e.g. AgentDiscoursePort which
+		// extends both). Falls back to a no-op null object rather than an unsafe cast.
+		this.monologDiscourse = monologDiscourse ?? SupervisorManager.extractMonolog(dialogDiscourse);
+	}
+
+	/** Extract MonologDiscoursePort from port if it satisfies the interface, else return no-op. */
+	private static extractMonolog(port: DialogDiscoursePort): MonologDiscoursePort {
+		if (
+			typeof (port as { createKnowledgeAtom?: unknown }).createKnowledgeAtom === "function" &&
+			typeof (port as { createKnowledgeMolecule?: unknown }).createKnowledgeMolecule === "function"
+		) {
+			return port as unknown as MonologDiscoursePort;
+		}
+		// Null object: monolog methods are optional in contexts without a full discourse port.
+		return {
+			createKnowledgeAtom: () => {
+				throw new Error("MonologDiscoursePort not provided");
+			},
+			createKnowledgeMolecule: () => {
+				throw new Error("MonologDiscoursePort not provided");
+			},
+			listKnowledgeAtoms: () => [],
+			listKnowledgeMolecules: () => [],
+		};
 	}
 
 	private syncTopicState(child: ManagedChildAgent, status: ChildAgentStatus, summary?: string): void {

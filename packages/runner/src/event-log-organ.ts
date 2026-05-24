@@ -15,6 +15,7 @@
  */
 
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import { trace } from "./debug-trace.js";
 import { redactPayload } from "./redact.js";
 import type { BusKind, SessionStore } from "./session-store.js";
 import { hashRecord } from "./session-store.js";
@@ -46,7 +47,7 @@ export class EventLogOrgan implements Organ {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => process.stderr.write(`[event-log] motor append failed: ${String(e)}\n`));
+				.catch((e: unknown) => trace("event-log:motor-append-failed", { error: String(e) }));
 		});
 
 		const off2 = nerve.sense.subscribe("*", (event) => {
@@ -61,7 +62,7 @@ export class EventLogOrgan implements Organ {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => process.stderr.write(`[event-log] sense append failed: ${String(e)}\n`));
+				.catch((e: unknown) => trace("event-log:sense-append-failed", { error: String(e) }));
 		});
 
 		return () => {

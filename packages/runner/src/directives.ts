@@ -52,19 +52,32 @@ const DEFAULT_WEIGHTS: Record<Directive["layer"], number> = {
 // DirectiveContextAssembler
 // ---------------------------------------------------------------------------
 
+/** Max dedup entries in seenIds before evicting the oldest half (ALE-TSK-255). */
+const SEEN_IDS_MAX = 10_000;
+
 export class DirectiveContextAssembler {
 	private readonly base: string;
 	private readonly directives: Directive[] = [];
+	/** Insertion-ordered Set for O(1) has/add; front = oldest for eviction. */
 	private readonly seenIds = new Set<string>();
 
 	constructor(basePrompt: string) {
 		this.base = basePrompt;
 	}
 
-	/** Add a single directive. Deduplicates by id. */
+	/** Add a single directive. Deduplicates by id. Caps seenIds at SEEN_IDS_MAX. */
 	register(directive: Directive): void {
 		if (this.seenIds.has(directive.id)) return;
 		this.seenIds.add(directive.id);
+		// Evict oldest half when cap is exceeded — prevents unbounded growth.
+		if (this.seenIds.size > SEEN_IDS_MAX) {
+			const evictCount = Math.ceil(SEEN_IDS_MAX / 2);
+			const iter = this.seenIds.keys();
+			for (let i = 0; i < evictCount; i++) {
+				const key = iter.next().value;
+				if (key !== undefined) this.seenIds.delete(key);
+			}
+		}
 		this.directives.push(directive);
 	}
 

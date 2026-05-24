@@ -31,7 +31,7 @@ const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
 const RUNNER_MAIN = resolve(__dirname, "../src/main.ts");
 // Supervisor binary removed with coding-agent. Tests below that use SUPERVISOR
 // are skipped until an organ-native supervisor is implemented (ALE-GOL-11).
-const SUPERVISOR = resolve(__dirname, "../src/main.ts"); // placeholder — no supervisor yet
+const SUPERVISOR = resolve(__dirname, "../src/supervisor.ts");
 const TSCONFIG = resolve(ROOT, "tsconfig.json");
 
 // ---------------------------------------------------------------------------
@@ -341,7 +341,7 @@ describe("Runner — IPC supervisor handoff", () => {
 // binary with the runner.
 // ---------------------------------------------------------------------------
 
-describe.skip("Supervisor — runner as green — RED: requires organ-native supervisor (ALE-GOL-11)", () => {
+describe("Supervisor — runner as green", () => {
 	it("supervisor spawns runner green, runner serves HTTP, eval gate promotes", async () => {
 		const cwd = makeTmp();
 		const handoffPath = join(cwd, "handoff.json");
@@ -377,7 +377,7 @@ process.on("SIGTERM", () => proc.kill("SIGTERM"));
 			"utf-8",
 		);
 
-		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR, "--no-tui"], {
+		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR], {
 			cwd,
 			stdio: ["ignore", "pipe", "pipe"],
 			env: {
@@ -437,7 +437,7 @@ process.on("SIGTERM", () => proc.kill("SIGTERM"));
 			"utf-8",
 		);
 
-		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR, "--no-tui"], {
+		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR], {
 			cwd,
 			stdio: ["ignore", "pipe", "pipe"],
 			env: {
@@ -549,7 +549,7 @@ proc.stderr.on("data", (chunk) => {
 			"utf-8",
 		);
 
-		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR, "--no-tui"], {
+		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR], {
 			cwd,
 			stdio: ["ignore", "pipe", "pipe"],
 			env: {

@@ -90,8 +90,12 @@ function spawnGreen(sessionId?: string): ChildProcess {
 		process.stderr.write(chunk);
 		const text = chunk.toString();
 		// Capture session ID for handoff continuity.
-		const sessionMatch = text.match(/\[session\]\s+(\S+)/);
-		if (sessionMatch) currentSessionId = sessionMatch[1];
+		// Lines are either "[session] <id>" (new) or "[session] Resumed <id> (N turns)" (resume).
+		const sessionMatch = text.match(/\[session\]\s+(?:Resumed\s+)?(\S+)/);
+		// Guard: ignore the word count suffix, parentheses, etc.
+		const rawId = sessionMatch?.[1];
+		const sessionId = rawId && !/^\(|turns/.test(rawId) ? rawId : undefined;
+		if (sessionId) currentSessionId = sessionId;
 		if (text.includes("router listening on")) {
 			readyResolve?.();
 			readyResolve = undefined;

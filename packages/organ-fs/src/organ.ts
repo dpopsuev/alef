@@ -165,10 +165,20 @@ export interface FsOrganOptions {
 
 /** Exported for testing. Tracks per-path last-read timestamps to enforce read-before-edit. */
 export class FileTracker {
+	/** Maximum number of paths retained. Oldest entries evicted when exceeded (ALE-BUG-17). */
+	static readonly MAX_SIZE = 1_000;
+
 	private readonly reads = new Map<string, number>(); // absolutePath → Date.now()
 
 	record(absolutePath: string): void {
+		// Delete before re-insert to refresh insertion order (Map is insertion-ordered).
+		this.reads.delete(absolutePath);
 		this.reads.set(absolutePath, Date.now());
+		// Evict oldest entries when cap is exceeded.
+		if (this.reads.size > FileTracker.MAX_SIZE) {
+			const oldest = this.reads.keys().next().value;
+			if (oldest !== undefined) this.reads.delete(oldest);
+		}
 	}
 
 	lastReadAt(absolutePath: string): number | undefined {

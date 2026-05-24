@@ -171,9 +171,17 @@ export interface Organ {
 // InProcessBus — internal routing with wildcard support for observability.
 // ---------------------------------------------------------------------------
 
+/** Max correlationId entries retained in firstSeen before LRU eviction (ALE-BUG-15). */
+const FIRST_SEEN_MAX = 500;
+
 class InProcessBus {
 	private readonly handlers = new Map<string, Set<(event: NerveEvent) => void | Promise<void>>>();
-	private readonly firstSeen = new Map<string, number>();
+	/**
+	 * Tracks the first-seen timestamp per correlationId to compute elapsed time.
+	 * Insertion-ordered Map — oldest entry is first(). Capped at FIRST_SEEN_MAX
+	 * to prevent unbounded growth in long-running sessions (ALE-BUG-15).
+	 */
+	readonly firstSeen = new Map<string, number>();
 	/**
 	 * Called when a motor event has no specific subscribers.
 	 * Set by InProcessNerve to publish an error sense response.
@@ -181,10 +189,20 @@ class InProcessBus {
 	 */
 	deadLetterSink?: (event: NerveEvent) => void;
 
+	/** Remove a correlationId from firstSeen (call when sense response arrives). */
+	evictCorrelation(correlationId: string): void {
+		this.firstSeen.delete(correlationId);
+	}
+
 	emit(input: Omit<NerveEvent, "timestamp" | "elapsed">): void {
 		const now = Date.now();
 		if (!this.firstSeen.has(input.correlationId)) {
 			this.firstSeen.set(input.correlationId, now);
+			// LRU eviction: remove oldest entry when cap is exceeded.
+			if (this.firstSeen.size > FIRST_SEEN_MAX) {
+				const oldest = this.firstSeen.keys().next().value;
+				if (oldest !== undefined) this.firstSeen.delete(oldest);
+			}
 		}
 		const startedAt = this.firstSeen.get(input.correlationId) ?? now;
 		const elapsed = now - startedAt;
@@ -249,7 +267,12 @@ export class InProcessNerve {
 			},
 			sense: {
 				subscribe: (type, h) => this._sense.on(type, h as (e: NerveEvent) => void | Promise<void>),
-				publish: (e) => this._sense.emit(e),
+				// Evict the correlationId from motor's firstSeen on sense publish:
+				// the sense response marks the correlation as complete (ALE-BUG-15).
+				publish: (e) => {
+					this._motor.evictCorrelation(e.correlationId);
+					this._sense.emit(e);
+				},
 			},
 		};
 	}
@@ -265,6 +288,7 @@ export class InProcessNerve {
 	}
 
 	publishSense(event: SensePublishInput): void {
+		this._motor.evictCorrelation(event.correlationId);
 		this._sense.emit(event);
 	}
 

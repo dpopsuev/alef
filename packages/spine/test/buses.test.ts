@@ -249,9 +249,10 @@ describe("RED: ALE-BUG-15 — InProcessBus.firstSeen memory leak", () => {
 		// Subscribe so events don't go to dead-letter (which returns immediately).
 		n.motor.subscribe("test.command", () => {});
 
-		// Publish 200 events each with a unique correlationId.
-		const LIMIT = 200;
-		for (let i = 0; i < LIMIT; i++) {
+		// Publish more events than the cap (FIRST_SEEN_MAX = 500) with unique correlationIds.
+		// Without sense-eviction, the LRU cap is the only bound.
+		const OVER_CAP = 700;
+		for (let i = 0; i < OVER_CAP; i++) {
 			n.motor.publish({ type: "test.command", payload: { value: `x${i}` }, correlationId: `corr-${i}` });
 		}
 
@@ -259,9 +260,9 @@ describe("RED: ALE-BUG-15 — InProcessBus.firstSeen memory leak", () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const motorBus = (nerve as any)._motor as { firstSeen: Map<string, number> };
 
-		// RED: currently firstSeen.size === 200 — it should be bounded by some cap.
-		// After the fix, size must be ≤ cap (e.g. ≤ 100).
-		expect(motorBus.firstSeen.size).toBeLessThanOrEqual(100);
+		// After the fix, size is capped at FIRST_SEEN_MAX (500) via LRU eviction.
+		// RED before fix: size === 700 (unbounded).
+		expect(motorBus.firstSeen.size).toBeLessThanOrEqual(500);
 	});
 
 	it("firstSeen entries are evicted after correlation completes", async () => {

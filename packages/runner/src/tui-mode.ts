@@ -39,6 +39,7 @@ import { trace } from "./debug-trace.js";
 import { DynamicText } from "./dynamic-text.js";
 import { formatError } from "./errors.js";
 import type { InteractiveOptions } from "./interactive.js";
+import { ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
 import { bg, bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
 import { Typewriter } from "./typewriter.js";
@@ -636,6 +637,17 @@ export async function runTuiMode(
 			if (consoleZone.isThinking) consoleZone.stopThinking();
 		}
 	};
+
+	// Modal input: Escape → normal mode, i/a/A/I/o/O → insert mode.
+	const modal = new ModalInputHandler(editor, (mode) => {
+		// Show mode indicator in ConsoleZone when not thinking.
+		if (!consoleZone.isThinking) {
+			const indicator = mode === "normal" ? dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`) : "";
+			consoleZone.setStatus(indicator);
+		}
+		tui.requestRender();
+	});
+	tui.addInputListener(modal.handle);
 
 	tui.start();
 	tui.setFocus(editor);

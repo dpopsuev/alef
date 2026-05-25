@@ -59,6 +59,16 @@ export interface ReasonerOptions {
 	 * Default: false — zero overhead in sequential interactive mode.
 	 */
 	trackConcurrentOps?: boolean;
+	/**
+	 * How long to wait (ms) for a sense/llm.phase response after publishing
+	 * motor/llm.phase at the start of each reasoning iteration.
+	 *
+	 * Default: 0 — seam disabled, zero overhead. Set to a positive value when
+	 * a phase organ is loaded (planning, enrichment, caching, etc.).
+	 * If the timeout elapses with no response, the loop proceeds with the
+	 * original messages unchanged.
+	 */
+	phaseTimeoutMs?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,8 +163,25 @@ async function runLLMLoop(
 	// we retry these at the LLM loop level.
 
 	let appRetryCount = 0;
+	let turn = 0;
 
 	while (true) {
+		turn++;
+
+		// motor/llm.phase seam: zero-or-one organ may intercept each iteration.
+		// When phaseTimeoutMs is 0 (default), the seam is disabled — zero overhead.
+		if (options.phaseTimeoutMs) {
+			motor.publish({
+				type: "llm.phase",
+				payload: { messages: messages as unknown[], turn, toolCount: tools.length },
+				correlationId,
+			});
+			const transformed = await waitForPhaseResult(sense, correlationId, options.phaseTimeoutMs);
+			if (transformed && transformed.length > 0) {
+				messages.splice(0, messages.length, ...transformed);
+			}
+		}
+
 		const span = tracer.startSpan(`chat ${options.model.id}`, {
 			kind: SpanKind.CLIENT,
 			attributes: {
@@ -346,6 +373,31 @@ async function runLLMLoop(
 	}
 }
 
+/**
+ * Wait for a sense/llm.phase response matching correlationId.
+ * Returns the transformed messages when a phase organ replies, or undefined
+ * when the timeout elapses (loop proceeds with original messages).
+ */
+function waitForPhaseResult(
+	sense: CerebrumHandlerCtx["sense"],
+	correlationId: string,
+	timeoutMs: number,
+): Promise<Message[] | undefined> {
+	return new Promise((resolve) => {
+		const timer = setTimeout(() => {
+			off();
+			resolve(undefined);
+		}, timeoutMs);
+		const off = sense.subscribe("llm.phase", (event) => {
+			if (event.correlationId !== correlationId) return;
+			clearTimeout(timer);
+			off();
+			const msgs = (event.payload as { messages?: unknown }).messages;
+			resolve(Array.isArray(msgs) ? (msgs as Message[]) : undefined);
+		});
+	});
+}
+
 function waitForToolResult(
 	sense: CerebrumHandlerCtx["sense"],
 	toolName: string,
@@ -457,6 +509,11 @@ export class Reasoner {
 				text: z.string().min(1),
 				conversationHistory: z.array(z.unknown()).optional(),
 				usage: z.object({ totalTokens: z.number() }).passthrough().optional(),
+			}),
+			"llm.phase": z.object({
+				messages: z.array(z.unknown()),
+				turn: z.number().int().positive(),
+				toolCount: z.number().int().nonnegative(),
 			}),
 		},
 	} as const;

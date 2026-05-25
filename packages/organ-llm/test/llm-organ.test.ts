@@ -382,3 +382,113 @@ describe("ALE-BUG-8: partial conversationHistory published on error/abort", () =
 		expect((event.payload.conversationHistory as unknown[]).length).toBeGreaterThan(0);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// motor/llm.phase seam
+// ---------------------------------------------------------------------------
+
+describe("Reasoner — motor/llm.phase seam", () => {
+	const disposes: Array<() => void> = [];
+	afterEach(() => {
+		for (const d of disposes.splice(0)) d();
+	});
+
+	it("disabled by default (phaseTimeoutMs=0): no motor/llm.phase published", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("hello")]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent.load(dialog).load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		await dialog.send("hi", "user", 5_000);
+
+		const phaseEvents = recorder.motor.filter((e) => e.type === "llm.phase");
+		expect(phaseEvents).toHaveLength(0);
+	});
+
+	it("publishes motor/llm.phase before each LLM call when phaseTimeoutMs > 0", async () => {
+		const { fauxToolCall } = await import("@dpopsuev/alef-ai");
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: "done" })])]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent.load(dialog).load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 50 }));
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		await dialog.send("hi", "user", 5_000);
+
+		const phaseEvents = recorder.motor.filter((e) => e.type === "llm.phase");
+		expect(phaseEvents.length).toBeGreaterThanOrEqual(1);
+		const first = phaseEvents[0] as unknown as { payload: { messages: unknown[]; turn: number; toolCount: number } };
+		expect(first.payload.turn).toBe(1);
+		expect(Array.isArray(first.payload.messages)).toBe(true);
+	});
+
+	it("phase organ receives messages and its sense/llm.phase reply is awaited", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("ok")]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+
+		// Phase organ: records received messages, then passes them through unchanged.
+		let phaseReceivedMessages: unknown[] = [];
+		const phaseOrgan = {
+			name: "phase-spy",
+			description: "test phase interceptor",
+			labels: [] as const,
+			tools: [] as const,
+			publishSchemas: {} as const,
+			subscriptions: { motor: ["llm.phase"] as const, sense: [] as const },
+			mount(nerve: import("@dpopsuev/alef-spine").Nerve) {
+				nerve.motor.subscribe("llm.phase", (event) => {
+					const payload = event.payload as { messages: unknown[] };
+					phaseReceivedMessages = payload.messages;
+					// Echo messages back unchanged so the Reasoner continues.
+					nerve.sense.publish({
+						type: "llm.phase",
+						payload: { messages: payload.messages },
+						correlationId: event.correlationId,
+						isError: false,
+					});
+				});
+				return () => {};
+			},
+		};
+
+		agent
+			.load(dialog)
+			.load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }))
+			.load(phaseOrgan);
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		await dialog.send("hi", "user", 5_000);
+
+		// Phase organ must have received the messages for this turn.
+		expect(phaseReceivedMessages.length).toBeGreaterThan(0);
+		// Turn still completed normally.
+		recorder.assertMotorEmitted("dialog.message");
+	});
+
+	it("proceeds with original messages when phase organ times out", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage("ok")]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent.load(dialog).load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 50 }));
+		disposes.push(() => agent.dispose());
+
+		const reply = await dialog.send("hi", "user", 5_000);
+		expect(typeof reply).toBe("string");
+	});
+});

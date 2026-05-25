@@ -21,20 +21,17 @@
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
 import type { Message, ThinkingLevel } from "@dpopsuev/alef-ai";
-import { Agent } from "@dpopsuev/alef-corpus";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { LLMOrgan, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
+import { AgentKernel } from "./agent-kernel.js";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { resolveApiKey } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
 import { DirectiveContextAssembler } from "./directives.js";
-import { EventLogOrgan } from "./event-log-organ.js";
 import { runInteractive } from "./interactive.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
-import { LoopDetectorOrgan } from "./loop-detector.js";
 import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "./materializer.js";
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
@@ -172,21 +169,11 @@ const resolvedModelDisplay =
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-const agent = new Agent();
-
 const basePrompt = buildSystemPrompt(args.cwd);
 const asm = new DirectiveContextAssembler(basePrompt);
 await asm.loadWorkspace(args.cwd); // reads .alef/directives/*.md
 asm.registerOrgans([...corpusOrgans]); // collects organ.directives strings
 const systemPrompt = asm.build(Math.floor(model.contextWindow * 0.1 * 4)); // ~10% of context in chars
-
-const dialog = new DialogOrgan({
-	// TUI mode reads replies via dialog.send() — sink must be silent to avoid double-output.
-	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
-	getTools: () => agent.tools,
-	systemPrompt,
-	maxTurns: args.maxTurns,
-});
 
 const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
 
@@ -232,8 +219,6 @@ const prepareStep = async (messages: Message[]): Promise<Message[]> => {
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
 // LLMOrgan tracks cross-turn in-flight ops and injects pending-operations
 // context before each LLM call when trackConcurrentOps=true.
-const isConcurrent = args.serve !== undefined;
-
 // AbortController for mid-turn cancellation (Ctrl+C while LLM is streaming).
 // tui-mode.ts replaces this per-turn via setLLMAbortController.
 let currentLLMController: AbortController | undefined;
@@ -262,7 +247,7 @@ const llmOrgan = scriptedRepliesEnv
 			maxRetryDelayMs: cfg.llm?.maxRetryDelayMs,
 			timeoutMs: cfg.llm?.timeoutMs,
 			prepareStep,
-			trackConcurrentOps: isConcurrent,
+			trackConcurrentOps: args.serve !== undefined,
 			getSignal: () => currentLLMController?.signal,
 			onToolStart: (event) => toolSlot.onToolStart?.(event),
 			onToolEnd: (event) => toolSlot.onToolEnd?.(event),
@@ -270,21 +255,22 @@ const llmOrgan = scriptedRepliesEnv
 			onResponseChunk: (chunk) => toolSlot.receiveTextChunk?.(chunk),
 			onThinkingChunk: (chunk) => toolSlot.receiveThinkingChunk?.(chunk),
 		});
-agent.load(dialog).load(llmOrgan);
+
+const { agent, dialog } = AgentKernel.create({
+	llm: llmOrgan,
+	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
+	systemPrompt,
+	maxTurns: args.maxTurns,
+	session,
+	onLoop: (_type, reason) => {
+		process.stderr.write(`\n[loop-detector] ${reason}\n`);
+		currentLLMController?.abort(new Error(`[loop-detector] ${reason}`));
+	},
+});
+
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
-agent.load(
-	new LoopDetectorOrgan({
-		onLoop: (_type, reason) => {
-			process.stderr.write(`\n[loop-detector] ${reason}\n`);
-			// Abort the in-flight turn. The AbortSignal propagates through
-			// the LLM call and all pending waitForToolResult promises.
-			currentLLMController?.abort(new Error(`[loop-detector] ${reason}`));
-		},
-	}),
-);
-agent.load(new EventLogOrgan(session));
 
 if (args.serve !== undefined) {
 	const sseSurface = blueprintSurfaces.filter((s) => s.type === "sse");

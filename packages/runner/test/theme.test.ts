@@ -197,36 +197,31 @@ describe("spinnerFrames — locale-aware", () => {
 });
 
 // ---------------------------------------------------------------------------
-// RED: ALE-BUG-19 — boldColor() uses full reset \x1b[0m, kills Box backgrounds
+// ALE-BUG-19 — boldColor() raw ANSI, fg-only reset (regression)
 // ---------------------------------------------------------------------------
 
 import { boldColor } from "../src/theme.js";
 
-describe("RED: ALE-BUG-19 — boldColor() uses fg-only reset, not full reset", () => {
+describe("boldColor() — raw ANSI, fg-only reset (ALE-BUG-19)", () => {
 	beforeEach(() => {
 		process.env.COLORTERM = "truecolor";
 	});
 
-	it("boldColor() must NOT contain \\x1b[0m (full reset kills outer Box background)", () => {
+	it("does not use full reset \\x1b[0m (would kill outer Box background)", () => {
 		const token = { truecolor: "#c55778", ansi256: 168, ansi16: 31 };
 		const result = boldColor("hello", token);
-		// RED: currently boldColor uses chalk.bold(\`${fgCode}${text}${RESET}\`)
-		// which embeds \x1b[0m — the same bug color() had before the FG_RESET fix.
 		expect(result).not.toContain("\x1b[0m");
 	});
 
-	it("boldColor() must contain \\x1b[39m (fg-only reset, preserves background)", () => {
+	it("uses \\x1b[39m fg-only reset to preserve background", () => {
 		const token = { truecolor: "#c55778", ansi256: 168, ansi16: 31 };
 		const result = boldColor("hello", token);
-		// RED: not present until the fix.
 		expect(result).toContain("\x1b[39m");
 	});
 
-	it("boldColor() contains bold marker (raw ANSI, not chalk)", () => {
+	it("uses raw \\x1b[1m bold (not chalk, which silences in non-TTY)", () => {
 		const token = { ansi16: 31 };
 		const result = boldColor("hello", token);
-		// RED: boldColor currently uses chalk.bold() which emits nothing in non-TTY.
-		// After fix: must use raw \x1b[1m so it works regardless of chalk level.
 		expect(result).toMatch(/\x1b\[1m/);
 	});
 });

@@ -238,10 +238,10 @@ describe("InProcessNerve — listenerCount", () => {
 });
 
 // ---------------------------------------------------------------------------
-// RED: ALE-BUG-15 — firstSeen Map grows unboundedly (memory leak)
+// ALE-BUG-15 — InProcessBus.firstSeen LRU cap
 // ---------------------------------------------------------------------------
 
-describe("RED: ALE-BUG-15 — InProcessBus.firstSeen memory leak", () => {
+describe("InProcessBus.firstSeen LRU cap (ALE-BUG-15)", () => {
 	it("firstSeen size stays bounded after many unique correlationIds", () => {
 		const nerve = new InProcessNerve();
 		const n = nerve.asNerve();
@@ -260,8 +260,6 @@ describe("RED: ALE-BUG-15 — InProcessBus.firstSeen memory leak", () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const motorBus = (nerve as any)._motor as { firstSeen: Map<string, number> };
 
-		// After the fix, size is capped at FIRST_SEEN_MAX (500) via LRU eviction.
-		// RED before fix: size === 700 (unbounded).
 		expect(motorBus.firstSeen.size).toBeLessThanOrEqual(500);
 	});
 
@@ -280,7 +278,6 @@ describe("RED: ALE-BUG-15 — InProcessBus.firstSeen memory leak", () => {
 		// Allow event loop to settle.
 		await new Promise((r) => setTimeout(r, 10));
 
-		// RED: after the correlation is resolved, firstSeen should not retain the entry.
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const motorBus = (nerve as any)._motor as { firstSeen: Map<string, number> };
 		expect(motorBus.firstSeen.has(correlationId)).toBe(false);

@@ -48,11 +48,8 @@ describe("logger: TUI mode must not write to stderr", () => {
 });
 
 describe("createLoggerForTui: debug output goes to file not stderr", () => {
-	it("createLoggerForTui exists and is exported from logger.ts", async () => {
-		// After the fix, logger.ts exports createLoggerForTui(logPath, level)
-		// which writes to a file instead of stderr.
+	it("createLoggerForTui is exported from logger.ts", async () => {
 		const loggerModule = await import("../src/logger.js");
-		// This will FAIL until createLoggerForTui is implemented:
 		expect(typeof (loggerModule as Record<string, unknown>).createLoggerForTui).toBe("function");
 	});
 });

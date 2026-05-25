@@ -178,10 +178,10 @@ describe("McpOrgan — static factories", () => {
 });
 
 // ---------------------------------------------------------------------------
-// RED: ALE-BUG-20 — async execute throwing after await hangs the LLM loop
+// ALE-BUG-20 — async MCP execute error handling (regression)
 // ---------------------------------------------------------------------------
 
-describe("RED: ALE-BUG-20 — async MCP execute throw after await publishes error sense event", () => {
+describe("async MCP execute error handling — regression ALE-BUG-20", () => {
 	it("publishes isError sense event when execute rejects after an async step", async () => {
 		// Simulate a tool whose execute does real async work then throws.
 		const client = mockClient({
@@ -213,9 +213,6 @@ describe("RED: ALE-BUG-20 — async MCP execute throw after await publishes erro
 			correlationId: "corr-async-throw",
 		});
 
-		// RED: currently, if execute throws after the first await, the error may
-		// not be caught and no sense event is published, hanging the LLM loop.
-		// After the fix, an isError sense event must arrive within 500ms.
 		await new Promise((r) => setTimeout(r, 500));
 
 		expect(senseEvents.length).toBeGreaterThan(0);

@@ -166,3 +166,85 @@ describe("LoopDetectorOrgan", () => {
 		expect(onLoop).toHaveBeenCalled();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// hashResult — Anthropic array-format content (ALE-BUG fix)
+// ---------------------------------------------------------------------------
+
+describe("hashResult — Anthropic array-format content", () => {
+	it("detects loop when content is Anthropic-format array", () => {
+		const loops: string[] = [];
+		const nerve = new InProcessNerve();
+		const organ = new LoopDetectorOrgan({
+			repeatedInteractionThreshold: 3,
+			onLoop: (type) => loops.push(type),
+		});
+		organ.mount(nerve.asNerve());
+
+		// Publish the same tool call with array-format content 3 times.
+		const arrayContent = [{ type: "text", text: "identical output from tool" }];
+		for (let i = 0; i < 4; i++) {
+			const toolCallId = `tc-arr-${i}`;
+			nerve.asNerve().motor.publish({
+				type: "fs.read",
+				payload: { toolCallId, path: "file.ts" },
+				correlationId: "corr-arr",
+			});
+			nerve.asNerve().sense.publish({
+				type: "fs.read",
+				payload: { toolCallId, content: arrayContent },
+				isError: false,
+				correlationId: "corr-arr",
+			});
+		}
+
+		expect(loops).toContain("fs.read");
+	});
+
+	it("array content and string content with same text produce the same hash (stable)", () => {
+		// Both formats must detect the loop — the text is identical.
+		const loopsArr: string[] = [];
+		const loopsStr: string[] = [];
+
+		const nerveArr = new InProcessNerve();
+		new LoopDetectorOrgan({
+			repeatedInteractionThreshold: 3,
+			onLoop: (t) => loopsArr.push(t),
+		}).mount(nerveArr.asNerve());
+
+		const nerveStr = new InProcessNerve();
+		new LoopDetectorOrgan({
+			repeatedInteractionThreshold: 3,
+			onLoop: (t) => loopsStr.push(t),
+		}).mount(nerveStr.asNerve());
+
+		const text = "same output text";
+
+		for (let i = 0; i < 4; i++) {
+			const tcArr = `tc-fmt-arr-${i}`;
+			nerveArr
+				.asNerve()
+				.motor.publish({ type: "shell.exec", payload: { toolCallId: tcArr, command: "ls" }, correlationId: "c" });
+			nerveArr.asNerve().sense.publish({
+				type: "shell.exec",
+				payload: { toolCallId: tcArr, content: [{ type: "text", text }] },
+				isError: false,
+				correlationId: "c",
+			});
+
+			const tcStr = `tc-fmt-str-${i}`;
+			nerveStr
+				.asNerve()
+				.motor.publish({ type: "shell.exec", payload: { toolCallId: tcStr, command: "ls" }, correlationId: "c" });
+			nerveStr.asNerve().sense.publish({
+				type: "shell.exec",
+				payload: { toolCallId: tcStr, content: text },
+				isError: false,
+				correlationId: "c",
+			});
+		}
+
+		expect(loopsArr).toContain("shell.exec");
+		expect(loopsStr).toContain("shell.exec");
+	});
+});

@@ -59,6 +59,12 @@ function hashResult(payload: Record<string, unknown>): string {
 	// Only hash the final payload.
 	if (payload.isFinal === false) return "";
 	if (typeof rest.content === "string") return rest.content.slice(0, 512);
+	// Anthropic-format content array: [{ type: "text", text: "..." }]
+	// typeof check above misses this case, causing false-negative loop detection.
+	if (Array.isArray(rest.content)) {
+		const block = (rest.content as { type?: string; text?: unknown }[]).find((b) => b?.type === "text");
+		if (typeof block?.text === "string") return block.text.slice(0, 512);
+	}
 	if (typeof rest.text === "string") return rest.text.slice(0, 512);
 	if (typeof rest.output === "string") return rest.output.slice(0, 512);
 	return JSON.stringify(rest).slice(0, 512);

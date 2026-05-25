@@ -158,7 +158,6 @@ describe("RED-GREEN: reply text reaches the screen after tool-call turn", () => 
 		await settle();
 
 		const screen = screenText(terminal);
-		// GREEN: the reply must be visible somewhere in the scroll buffer
 		expect(screen).toContain("Alef is an EDA-based AI coding agent");
 	});
 
@@ -252,7 +251,6 @@ ${sentinel}`;
 		// flush() before any tick has fired
 		tw.flush();
 
-		// GREEN: text must be set AND render must have been requested
 		expect(markdownText).toBe("Hello world");
 		expect(renders.length).toBeGreaterThan(0);
 

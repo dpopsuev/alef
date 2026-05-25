@@ -42,6 +42,13 @@ function publishMotor(nerve: InProcessNerve, type: string, payload: Record<strin
 	});
 }
 
+/** Read a file through the organ so FileTracker allows subsequent fs.edit calls. */
+async function readViaOrgan(nerve: InProcessNerve, path: string): Promise<void> {
+	const p = waitForSense(nerve, "fs.read");
+	publishMotor(nerve, "fs.read", { path });
+	await p;
+}
+
 /** Mount a fresh FsOrgan on the nerve and return unmount. */
 function createfsOrgan(nerve: InProcessNerve) {
 	const organ = createFsOrgan({ cwd: testDir });
@@ -211,6 +218,7 @@ describe("FsCorpusOrgan", () => {
 			await writeFile(join(testDir, "source.ts"), "const x = 1;\nconst y = 2;");
 			const { nerve } = makeNerve();
 			createfsOrgan(nerve);
+			await readViaOrgan(nerve, "source.ts");
 
 			const resultP = waitForSense(nerve, "fs.edit");
 			publishMotor(nerve, "fs.edit", { path: "source.ts", oldText: "const x = 1;", newText: "const x = 99;" });
@@ -226,6 +234,7 @@ describe("FsCorpusOrgan", () => {
 			await writeFile(join(testDir, "source.ts"), "const x = 1;");
 			const { nerve } = makeNerve();
 			createfsOrgan(nerve);
+			await readViaOrgan(nerve, "source.ts");
 
 			const resultP = waitForSense(nerve, "fs.edit");
 			publishMotor(nerve, "fs.edit", { path: "source.ts", oldText: "not here", newText: "x" });
@@ -239,6 +248,7 @@ describe("FsCorpusOrgan", () => {
 			await writeFile(join(testDir, "dup.ts"), "foo\nfoo");
 			const { nerve } = makeNerve();
 			createfsOrgan(nerve);
+			await readViaOrgan(nerve, "dup.ts");
 
 			const resultP = waitForSense(nerve, "fs.edit");
 			publishMotor(nerve, "fs.edit", { path: "dup.ts", oldText: "foo", newText: "bar" });
@@ -355,6 +365,7 @@ describe("write serialization — file mutation queue", () => {
 
 		const filePath = "edit-concurrent.txt";
 		await writeFile(join(testDir, filePath), "AAA");
+		await readViaOrgan(nerve, filePath);
 
 		const collect = (n: number) =>
 			new Promise<void>((resolve) => {
@@ -476,6 +487,7 @@ describe("fs.edit — multi-edit", () => {
 		await writeFile(join(testDir, "multi.ts"), "AAA BBB CCC");
 		const organ = createFsOrgan({ cwd: testDir });
 		const unmount = organ.mount(nerve.asNerve());
+		await readViaOrgan(nerve, "multi.ts");
 
 		const p = waitForSense(nerve, "fs.edit");
 		nerve.publishMotor({
@@ -503,6 +515,7 @@ describe("fs.edit — multi-edit", () => {
 		await writeFile(join(testDir, "orig.ts"), "AAA AAA");
 		const organ = createFsOrgan({ cwd: testDir });
 		const unmount = organ.mount(nerve.asNerve());
+		await readViaOrgan(nerve, "orig.ts");
 
 		// Both edits search for "AAA" in original — second edit finds it not unique
 		const p = waitForSense(nerve, "fs.edit");
@@ -522,6 +535,7 @@ describe("fs.edit — multi-edit", () => {
 		await writeFile(join(testDir, "over.ts"), "ABCDEF");
 		const organ = createFsOrgan({ cwd: testDir });
 		const unmount = organ.mount(nerve.asNerve());
+		await readViaOrgan(nerve, "over.ts");
 
 		const p = waitForSense(nerve, "fs.edit");
 		nerve.publishMotor({

@@ -13,7 +13,7 @@
  *   Default mode (no --blueprint):
  *     Hardcoded organ set: FsOrgan + ShellOrgan. Same as before TSK-107.
  *
- * In both modes DialogOrgan and LLMOrgan are always mounted — they are the
+ * In both modes DialogOrgan and Reasoner are always mounted — they are the
  * fixed application core (reasoning + conversation). Only the corpus adapters
  * (fs, shell, web, enclosure, …) are variable.
  */
@@ -21,9 +21,9 @@
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
 import type { Message, ThinkingLevel } from "@dpopsuev/alef-ai";
-import { LLMOrgan, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
+import { Reasoner, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
-import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
+import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
 import { AgentKernel } from "./agent-kernel.js";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { resolveApiKey } from "./auth.js";
@@ -217,7 +217,7 @@ const prepareStep = async (messages: Message[]): Promise<Message[]> => {
 };
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
-// LLMOrgan tracks cross-turn in-flight ops and injects pending-operations
+// Reasoner tracks cross-turn in-flight ops and injects pending-operations
 // context before each LLM call when trackConcurrentOps=true.
 // AbortController for mid-turn cancellation (Ctrl+C while LLM is streaming).
 // tui-mode.ts replaces this per-turn via setLLMAbortController.
@@ -238,8 +238,8 @@ const toolSlot = {
 
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 const llmOrgan = scriptedRepliesEnv
-	? new ScriptedLLMOrgan((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
-	: new LLMOrgan({
+	? new ScriptedReasoner((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
+	: new Reasoner({
 			model,
 			getApiKey: () => resolveApiKey(model.provider),
 			thinking: thinkingLevel,

@@ -1,5 +1,5 @@
 /**
- * EventLogOrgan — tap Motor and Sense buses, write every event to the session JSONL.
+ * SessionLog — tap Motor and Sense buses, write every event to the session JSONL.
  *
  * Same wildcard pattern as EvaluatorOrgan: subscribes motor/* and sense/*.
  * Writes each event as a StorageRecord to the session file (fire-and-forget).
@@ -20,7 +20,7 @@ import { redactPayload } from "./redact.js";
 import type { BusKind, SessionStore } from "./session-store.js";
 import { hashRecord } from "./session-store.js";
 
-export class EventLogOrgan implements Organ {
+export class SessionLog implements Organ {
 	readonly name = "event-log";
 	readonly tools = [] as const;
 	readonly subscriptions = {

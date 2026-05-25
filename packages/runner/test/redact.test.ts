@@ -118,19 +118,19 @@ describe("hashRecord", () => {
 	});
 });
 
-describe("EventLogOrgan integration — redact + hash", () => {
+describe("SessionLog integration — redact + hash", () => {
 	it("appended record has hash and redacted payload", async () => {
 		const { mkdtempSync, rmSync } = await import("node:fs");
 		const { join } = await import("node:path");
 		const { tmpdir } = await import("node:os");
 		const { InProcessNerve } = await import("../../spine/src/buses.js");
-		const { EventLogOrgan } = await import("../src/event-log-organ.js");
+		const { SessionLog } = await import("../src/event-log-organ.js");
 		const { SessionStore } = await import("../src/session-store.js");
 
 		const cwd = mkdtempSync(join(tmpdir(), "alef-audit-"));
 		try {
 			const store = await SessionStore.create(cwd);
-			const organ = new EventLogOrgan(store);
+			const organ = new SessionLog(store);
 			const nerve = new InProcessNerve();
 			organ.mount(nerve.asNerve());
 

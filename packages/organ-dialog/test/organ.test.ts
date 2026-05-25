@@ -1,6 +1,6 @@
 import { Agent } from "@dpopsuev/alef-corpus";
 import { InProcessNerve } from "@dpopsuev/alef-spine";
-import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
+import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
 import { describe, expect, it, vi } from "vitest";
 import { DIALOG_MESSAGE, DialogOrgan } from "../src/organ.js";
 
@@ -199,7 +199,7 @@ describe("DialogOrgan — max turns enforcement", () => {
 	it("allows sends up to maxTurns", async () => {
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 2 });
-		const llm = new ScriptedLLMOrgan([step.reply("one"), step.reply("two")]);
+		const llm = new ScriptedReasoner([step.reply("one"), step.reply("two")]);
 		agent.load(dialog).load(llm);
 		agent.validate();
 
@@ -212,7 +212,7 @@ describe("DialogOrgan — max turns enforcement", () => {
 	it("rejects sends beyond maxTurns with a clear error", async () => {
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 1 });
-		const llm = new ScriptedLLMOrgan([step.reply("only one")]);
+		const llm = new ScriptedReasoner([step.reply("only one")]);
 		agent.load(dialog).load(llm);
 		agent.validate();
 
@@ -225,7 +225,7 @@ describe("DialogOrgan — max turns enforcement", () => {
 	it("maxTurns: 0 means unlimited", async () => {
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 0 });
-		const llm = new ScriptedLLMOrgan([step.reply("a"), step.reply("b"), step.reply("c")]);
+		const llm = new ScriptedReasoner([step.reply("a"), step.reply("b"), step.reply("c")]);
 		agent.load(dialog).load(llm);
 		agent.validate();
 

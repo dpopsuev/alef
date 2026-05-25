@@ -120,7 +120,7 @@ export class DialogOrgan implements Organ {
 	 *
 	 * Each entry is either:
 	 *   ConversationMessage (simple user/assistant text turn), or
-	 *   unknown[] (full API-ready message block array returned by LLMOrgan
+	 *   unknown[] (full API-ready message block array returned by Reasoner
 	 *   via motor/dialog.message.conversationHistory).
 	 *
 	 * buildPayload() flattens the history into the messages array sent to the LLM.
@@ -169,9 +169,9 @@ export class DialogOrgan implements Organ {
 
 	private buildPayload(text: string, sender: string): Record<string, unknown> {
 		const userMsg: ConversationMessage = { role: "user", content: text };
-		// When history is a full API-ready block array (from LLMOrgan's conversationHistory),
+		// When history is a full API-ready block array (from "Reasoner"'s conversationHistory),
 		// use it directly. The LLM already sanitised tool_use and tool_result blocks.
-		// When it's a simple ConversationMessage[] (text-only, e.g. ScriptedLLMOrgan), wrap normally.
+		// When it's a simple ConversationMessage[] (text-only, e.g. ScriptedReasoner), wrap normally.
 		const historyMessages: unknown[] = this.history as unknown[];
 		const messages: unknown[] = this.systemPrompt
 			? [{ role: "system", content: this.systemPrompt }, ...historyMessages, userMsg]
@@ -187,14 +187,14 @@ export class DialogOrgan implements Organ {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
 
-			// When LLMOrgan provides the full conversation history (including
+			// When Reasoner provides the full conversation history (including
 			// tool_use and tool_result blocks), store it wholesale so the next
 			// turn passes a complete, API-valid message array to the LLM.
 			const fullHistory = event.payload.conversationHistory;
 			if (Array.isArray(fullHistory) && fullHistory.length > 0) {
 				this.history = fullHistory as unknown[];
 			} else {
-				// Fallback for organs that publish text-only (ScriptedLLMOrgan, tests).
+				// Fallback for organs that publish text-only (ScriptedReasoner, tests).
 				(this.history as ConversationMessage[]).push({ role: "assistant", content: text });
 			}
 			const assistantMsg: ConversationMessage = { role: "assistant", content: text };

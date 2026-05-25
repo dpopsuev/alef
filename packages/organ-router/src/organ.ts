@@ -226,7 +226,7 @@ export class RouterOrgan implements Organ {
 
 			if (this.options.onMessage) {
 				// Route through the DialogOrgan so history is tracked and
-				// the message arrives on the sense bus for LLMOrgan/ScriptedLLMOrgan.
+				// the message arrives on the sense bus for Reasoner/ScriptedReasoner.
 				this.options.onMessage(text);
 			} else {
 				// Legacy: publish directly on motor bus.

@@ -2,17 +2,17 @@
  * Walking Skeleton — end-to-end proof of the Spine event architecture.
  *
  * Real organs: TextMessageOrgan (CorpusOrgan).
- * Mock organs: MockLLMOrgan (CerebrumOrgan, canned reply).
+ * Mock organs: MockReasoner (CerebrumOrgan, canned reply).
  *
  * Event chain:
  *   Agent.publishMotor("dialog.message")
  *     → TextMessageOrgan → Sense.publish("dialog.message")
- *       → MockLLMOrgan  → Motor.publish("dialog.message")
+ *       → MockReasoner  → Motor.publish("dialog.message")
  *     → TextMessageOrgan → Sense.publish("dialog.message")
  *   Agent.subscribeSense("dialog.message") → resolves
  */
 
-import { BusEventRecorder, MockLLMOrgan } from "@dpopsuev/alef-testkit";
+import { BusEventRecorder, MockReasoner } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { Agent } from "../src/index.js";
@@ -32,7 +32,7 @@ function createHarness(cannedText = "walking skeleton reply"): Harness {
 	const recorder = new BusEventRecorder();
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
-	agent.load(dialog).load(new MockLLMOrgan(cannedText));
+	agent.load(dialog).load(new MockReasoner(cannedText));
 	agent.observe(recorder);
 	return { agent, dialog, recorder, dispose: () => agent.dispose() };
 }
@@ -52,7 +52,7 @@ function make(canned?: string): Harness {
 // ---------------------------------------------------------------------------
 
 describe("Walking Skeleton", () => {
-	it("dialog.send() resolves with MockLLMOrgan canned text", async () => {
+	it("dialog.send() resolves with MockReasoner canned text", async () => {
 		const { agent: _corpus, dialog } = make("pong");
 		expect(await dialog.send("ping")).toBe("pong");
 	});

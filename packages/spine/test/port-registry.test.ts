@@ -120,7 +120,7 @@ describe("seam pattern matching", () => {
 // ---------------------------------------------------------------------------
 
 describe("STANDARD_PORTS — full agent stack", () => {
-	it("valid: LLMOrgan on sense + FsOrgan on motor/fs.*", () => {
+	it("valid: Reasoner on sense + FsOrgan on motor/fs.*", () => {
 		const organs = [
 			organ("llm", [], ["dialog.message"]),
 			organ("fs", ["fs.read", "fs.grep", "fs.find", "fs.write", "fs.edit"]),

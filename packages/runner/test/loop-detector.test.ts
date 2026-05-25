@@ -1,6 +1,6 @@
 import { InProcessNerve } from "@dpopsuev/alef-spine";
 import { describe, expect, it, vi } from "vitest";
-import { LoopDetectorOrgan } from "../src/loop-detector.js";
+import { LoopGuard } from "../src/loop-detector.js";
 
 /** Publish a motor event and its matching sense result (full interaction). */
 function interact(
@@ -26,9 +26,9 @@ function motorOnly(nerve: InProcessNerve, type: string, args: Record<string, unk
 	nerve.asNerve().motor.publish({ type, payload: { toolCallId: `t-${Math.random()}`, ...args }, correlationId: corr });
 }
 
-describe("LoopDetectorOrgan", () => {
+describe("LoopGuard", () => {
 	it("exposes organ interface", () => {
-		const organ = new LoopDetectorOrgan();
+		const organ = new LoopGuard();
 		expect(organ.name).toBe("loop-detector");
 		expect(organ.tools).toHaveLength(0);
 		expect(organ.subscriptions.motor).toContain("*");
@@ -36,7 +36,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("does not fire for many calls to the same tool with different args and results", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ repeatedInteractionThreshold: 3, onLoop });
+		const organ = new LoopGuard({ repeatedInteractionThreshold: 3, onLoop });
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -50,7 +50,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("does not fire when same args produce different results (file changed between reads)", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ repeatedInteractionThreshold: 2, onLoop });
+		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -64,7 +64,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("fires when same tool produces the same result with the same args more than threshold times", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ repeatedInteractionThreshold: 2, onLoop });
+		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -80,7 +80,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("does not fire when same interaction appears exactly at threshold", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ repeatedInteractionThreshold: 3, onLoop });
+		const organ = new LoopGuard({ repeatedInteractionThreshold: 3, onLoop });
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -93,7 +93,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("fires safety net when total calls for one tool exceed totalCallThreshold regardless of results", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ totalCallThreshold: 5, onLoop });
+		const organ = new LoopGuard({ totalCallThreshold: 5, onLoop });
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -108,7 +108,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("resets counts on new correlationId", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ repeatedInteractionThreshold: 2, onLoop });
+		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -126,7 +126,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("unmount stops observing", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ repeatedInteractionThreshold: 2, onLoop });
+		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
 		const unmount = organ.mount(nerve.asNerve());
 		unmount();
@@ -140,7 +140,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("toolCallId is stripped before hashing — same logical call detected despite different ids", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ repeatedInteractionThreshold: 2, onLoop });
+		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -154,7 +154,7 @@ describe("LoopDetectorOrgan", () => {
 
 	it("total safety net fires on motor event alone (before sense result)", () => {
 		const onLoop = vi.fn();
-		const organ = new LoopDetectorOrgan({ totalCallThreshold: 3, onLoop });
+		const organ = new LoopGuard({ totalCallThreshold: 3, onLoop });
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -175,7 +175,7 @@ describe("hashResult — Anthropic array-format content", () => {
 	it("detects loop when content is Anthropic-format array", () => {
 		const loops: string[] = [];
 		const nerve = new InProcessNerve();
-		const organ = new LoopDetectorOrgan({
+		const organ = new LoopGuard({
 			repeatedInteractionThreshold: 3,
 			onLoop: (type) => loops.push(type),
 		});
@@ -207,13 +207,13 @@ describe("hashResult — Anthropic array-format content", () => {
 		const loopsStr: string[] = [];
 
 		const nerveArr = new InProcessNerve();
-		new LoopDetectorOrgan({
+		new LoopGuard({
 			repeatedInteractionThreshold: 3,
 			onLoop: (t) => loopsArr.push(t),
 		}).mount(nerveArr.asNerve());
 
 		const nerveStr = new InProcessNerve();
-		new LoopDetectorOrgan({
+		new LoopGuard({
 			repeatedInteractionThreshold: 3,
 			onLoop: (t) => loopsStr.push(t),
 		}).mount(nerveStr.asNerve());

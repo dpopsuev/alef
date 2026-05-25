@@ -3,7 +3,7 @@ import { Agent } from "@dpopsuev/alef-corpus";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { BusEventRecorder } from "../../testkit/src/index.js";
-import { LLMOrgan } from "../src/index.js";
+import { Reasoner } from "../src/index.js";
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
 
@@ -26,7 +26,7 @@ function makeHarness() {
 	const recorder = new BusEventRecorder();
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
-	agent.load(dialog).load(new LLMOrgan({ model: makeModel() }));
+	agent.load(dialog).load(new Reasoner({ model: makeModel() }));
 	agent.observe(recorder);
 	return { agent, dialog, recorder, dispose: () => agent.dispose() };
 }
@@ -41,7 +41,7 @@ function make() {
 	return h;
 }
 
-describe("LLMOrgan — application-level retry", () => {
+describe("Reasoner — application-level retry", () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -52,7 +52,7 @@ describe("LLMOrgan — application-level retry", () => {
 		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
 		agent
 			.load(dialog)
-			.load(new LLMOrgan({ model: faux.getModel(), apiKey: "faux-key", maxRetries, maxRetryDelayMs: 0 }));
+			.load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key", maxRetries, maxRetryDelayMs: 0 }));
 		disposes.push(() => agent.dispose());
 		return { dialog };
 	}
@@ -119,7 +119,7 @@ describe("LLMOrgan — application-level retry", () => {
 	});
 });
 
-describe.skipIf(SKIP)("LLMOrgan — real API", () => {
+describe.skipIf(SKIP)("Reasoner — real API", () => {
 	it("resolves dialog.send() with a non-empty reply", async () => {
 		const { agent: _corpus, dialog } = make();
 		const reply = await dialog.send("Respond with exactly: HEALTH_CHECK_OK");
@@ -214,7 +214,7 @@ function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onRespon
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
 	agent.load(dialog).load(
-		new LLMOrgan({
+		new Reasoner({
 			model: faux.getModel(),
 			apiKey: "faux-key",
 			onResponseChunk: capture,
@@ -282,7 +282,7 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 		const dialog2 = new DialogOrgan({ sink: () => {}, getTools: () => agent2.tools });
 		agent2
 			.load(dialog2)
-			.load(new LLMOrgan({ model: faux.getModel(), apiKey: "faux-key", onResponseChunk: (c) => chunks.push(c) }));
+			.load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key", onResponseChunk: (c) => chunks.push(c) }));
 		agent2.observe(recorder);
 		disposes.push(() => agent2.dispose());
 
@@ -340,7 +340,7 @@ describe("ALE-BUG-8: partial conversationHistory published on error/abort", () =
 		// The tool call won't resolve but we still publish error on timeout/error.
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
-		agent.load(dialog).load(new LLMOrgan({ model: faux.getModel(), apiKey: "faux-key", maxRetries: 0 }));
+		agent.load(dialog).load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key", maxRetries: 0 }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
 
@@ -367,7 +367,7 @@ describe("ALE-BUG-8: partial conversationHistory published on error/abort", () =
 
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
-		agent.load(dialog).load(new LLMOrgan({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent.load(dialog).load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key" }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
 

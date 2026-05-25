@@ -1,5 +1,5 @@
 /**
- * BlueprintHarness + ScriptedLLMOrgan tests.
+ * BlueprintHarness + ScriptedReasoner tests.
  *
  * These tests prove the full blueprint testing framework:
  * - Simple text replies (no tool calls)
@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// ScriptedLLMOrgan — simple reply
+// ScriptedReasoner — simple reply
 // ---------------------------------------------------------------------------
 
 describe("BlueprintHarness — simple reply (no tools)", () => {
@@ -90,7 +90,7 @@ describe("BlueprintHarness — simple reply (no tools)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ScriptedLLMOrgan — tool calls with real organ execution
+// ScriptedReasoner — tool calls with real organ execution
 // ---------------------------------------------------------------------------
 
 describe("BlueprintHarness — tool calls (real organ handlers)", () => {

@@ -1,5 +1,5 @@
 /**
- * LoopDetectorOrgan — production loop guard.
+ * LoopGuard — production loop guard.
  *
  * Detects two distinct loop patterns:
  *
@@ -24,7 +24,7 @@
 
 import type { Nerve, Organ, SenseEvent } from "@dpopsuev/alef-spine";
 
-export interface LoopDetectorOptions {
+export interface LoopGuardOptions {
 	/**
 	 * How many times the same (tool, args, result) triple may appear
 	 * before it is considered a loop. Default: 3.
@@ -70,7 +70,7 @@ function hashResult(payload: Record<string, unknown>): string {
 	return JSON.stringify(rest).slice(0, 512);
 }
 
-export class LoopDetectorOrgan implements Organ {
+export class LoopGuard implements Organ {
 	readonly name = "loop-detector";
 	readonly tools = [];
 	readonly subscriptions = { motor: ["*" as const], sense: [] as const };
@@ -79,7 +79,7 @@ export class LoopDetectorOrgan implements Organ {
 	private readonly totalCallThreshold: number;
 	private readonly onLoop: (eventType: string, reason: string) => void;
 
-	constructor(opts: LoopDetectorOptions = {}) {
+	constructor(opts: LoopGuardOptions = {}) {
 		this.repeatedInteractionThreshold = opts.repeatedInteractionThreshold ?? 3;
 		this.totalCallThreshold = opts.totalCallThreshold ?? 40;
 		this.onLoop =

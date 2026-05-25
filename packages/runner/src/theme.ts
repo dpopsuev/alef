@@ -18,6 +18,8 @@ export interface ThemeTokens {
 	userFg: ColorToken;
 	/** Background color for the user message block (Pi pattern: Box with bgFn). */
 	userBg: ColorToken;
+	/** Background for agent reply blocks. Empty token = no background (transparent). */
+	agentBg: ColorToken;
 	agentFg: ColorToken;
 	toolNameFg: ColorToken;
 	toolArgFg: ColorToken;
@@ -124,6 +126,7 @@ export const italic = (text: string): string => chalk.italic(text);
 const TERMINAL: ThemeTokens = {
 	userFg: { ansi16: 95 }, // bright magenta
 	userBg: { ansi16: 45 }, // magenta bg — 16-color only (dark terminals)
+	agentBg: { ansi16: 40 }, // dark green bg — visible but subtle on dark terminals
 	agentFg: { ansi16: 96 }, // bright cyan
 	toolNameFg: { ansi16: 34 }, // blue
 	toolArgFg: { ansi16: 90 },
@@ -141,6 +144,7 @@ const TERMINAL: ThemeTokens = {
 const AKKO: ThemeTokens = {
 	userFg: { truecolor: "#e890a8", ansi256: 211, ansi16: 95 },
 	userBg: { truecolor: "#2a1a22", ansi256: 52, ansi16: 45 }, // very dark rose
+	agentBg: { truecolor: "#0e1a22", ansi256: 17, ansi16: 40 }, // very dark blue-gray
 	agentFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 },
 	toolNameFg: { truecolor: "#6d9aba", ansi256: 67, ansi16: 34 },
 	toolArgFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
@@ -158,6 +162,7 @@ const AKKO: ThemeTokens = {
 const MONO: ThemeTokens = {
 	userFg: { truecolor: "#ffffff", ansi256: 15, ansi16: 97 },
 	userBg: { truecolor: "#1a1a1a", ansi256: 235, ansi16: 40 }, // near-black
+	agentBg: { truecolor: "#111111", ansi256: 233, ansi16: 40 }, // slightly lighter near-black
 	agentFg: { truecolor: "#cccccc", ansi256: 7, ansi16: 37 },
 	toolNameFg: { truecolor: "#aaaaaa", ansi256: 7, ansi16: 37 },
 	toolArgFg: { truecolor: "#777777", ansi256: 8, ansi16: 90 },
@@ -175,6 +180,7 @@ const MONO: ThemeTokens = {
 const MATRIX: ThemeTokens = {
 	userFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
 	userBg: { truecolor: "#001a00", ansi256: 22, ansi16: 42 }, // very dark green
+	agentBg: { truecolor: "#001400", ansi256: 22, ansi16: 42 }, // slightly different green-black
 	agentFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
 	toolNameFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
 	toolArgFg: { truecolor: "#006614", ansi256: 22, ansi16: 32 },

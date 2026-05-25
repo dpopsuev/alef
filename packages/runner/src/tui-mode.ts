@@ -216,12 +216,15 @@ function appendPillBlock(
 
 function appendUserMsg(chat: Container, text: string): void {
 	const t = getTheme();
-	// Label line above the block.
-	chat.addChild(new Text(color(YOU_LABEL, t.userFg), 1, 0));
-	// Full-width background block — Pi pattern: Box(bgFn=userMessageBg).
+	chat.addChild(new Spacer(1));
+	// Pill header with userFg color.
+	chat.addChild(new DynamicText((w) => color(pillHeaderStr(YOU_LABEL, w), t.userFg)));
+	// Body: full-width background block for contrast.
 	const box = new Box(2, 0, (s) => bg(s, t.userBg));
 	box.addChild(new Text(color(text, t.userFg), 0, 0));
 	chat.addChild(box);
+	// Pill footer with userFg color.
+	chat.addChild(new DynamicText((w) => color(pillFooterStr(w), t.userFg)));
 	chat.addChild(new Spacer(1));
 }
 
@@ -376,6 +379,9 @@ export async function runTuiMode(
 
 	// Agent pill cap — wraps the entire agent turn (tool calls + reply).
 	let agentPillOpen = false;
+	// Inner Box for agent turn content — holds tool lines and streaming segments.
+	// Provides background contrast when agentBg is set in the active theme.
+	let agentContentBox: Box | null = null;
 
 	function openAgentPill(): void {
 		if (agentPillOpen) return;
@@ -383,13 +389,26 @@ export async function runTuiMode(
 		const th = getTheme();
 		chat.addChild(new Spacer(1));
 		chat.addChild(new DynamicText((w) => color(pillHeaderStr(AGENT_LABEL, w), th.agentFg)));
+		// Background Box for agent content — transparent when agentBg has no color code.
+		const hasBg = th.agentBg.truecolor || th.agentBg.ansi256 !== undefined || th.agentBg.ansi16 !== undefined;
+		agentContentBox = hasBg ? new Box(2, 0, (s) => bg(s, th.agentBg)) : new Box(2, 0);
+		chat.addChild(agentContentBox);
 	}
 
 	function closeAgentPill(): void {
 		if (!agentPillOpen) return;
 		agentPillOpen = false;
+		agentContentBox = null;
 		const th = getTheme();
 		chat.addChild(new DynamicText((w) => color(pillFooterStr(w), th.agentFg)));
+	}
+
+	/** Route content to the agent Box when the pill is open, otherwise to chat. */
+	function agentChild(component: import("@dpopsuev/alef-tui").Component): void {
+		(agentContentBox ?? chat).addChild(component);
+	}
+	function removeAgentChild(component: import("@dpopsuev/alef-tui").Component): void {
+		(agentContentBox ?? chat).removeChild(component);
 	}
 	let streamingMarkdownNode: Markdown | null = null;
 	let streamingThinkNode: Text | null = null;
@@ -408,7 +427,7 @@ export async function runTuiMode(
 		if (!streamingSegment) {
 			streamingSegment = new Container();
 			streamingSegments.push(streamingSegment);
-			chat.addChild(streamingSegment);
+			agentChild(streamingSegment);
 		}
 		return streamingSegment;
 	}
@@ -482,7 +501,7 @@ export async function runTuiMode(
 		// An empty Container renders as zero lines but can perturb clearOnShrink
 		// and produces a blank gap in the layout (ALE-BUG-7).
 		if (streamingSegment && !streamingMarkdownNode && !streamingThinkNode) {
-			chat.removeChild(streamingSegment);
+			removeAgentChild(streamingSegment);
 			const idx = streamingSegments.indexOf(streamingSegment);
 			if (idx >= 0) streamingSegments.splice(idx, 1);
 		}
@@ -496,7 +515,7 @@ export async function runTuiMode(
 	function clearStreamingSegments(): void {
 		replyTypewriter.reset();
 		thinkTypewriter.reset();
-		for (const c of streamingSegments) chat.removeChild(c);
+		for (const c of streamingSegments) removeAgentChild(c);
 		streamingSegments.length = 0;
 		streamingSegment = null;
 		streamingMarkdownNode = null;
@@ -515,7 +534,7 @@ export async function runTuiMode(
 			const keyArg = keyArgFromPayload(args);
 			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
 			activeCalls.set(callId, { text: line, name, keyArg });
-			chat.addChild(line);
+			agentChild(line);
 			tui.requestRender();
 		};
 		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display, displayKind }) => {
@@ -528,12 +547,12 @@ export async function runTuiMode(
 				if (snippet?.trim()) {
 					if (displayKind === "text/x-diff") {
 						// Colored unified diff — rendered with raw ANSI, not Markdown.
-						chat.addChild(new Text(renderDiffDisplay(snippet), 3, 0));
+						agentChild(new Text(renderDiffDisplay(snippet), 3, 0));
 					} else {
 						// text/plain or unknown — render through Markdown so **bold** and
 						// inline formatting in display strings (e.g. "Read **path**") work.
 						const truncated = truncateToolOutput(snippet);
-						chat.addChild(new Markdown(truncated, 3, 0, makeToolOutputMarkdownTheme()));
+						agentChild(new Markdown(truncated, 3, 0, makeToolOutputMarkdownTheme()));
 					}
 				}
 				tui.requestRender();

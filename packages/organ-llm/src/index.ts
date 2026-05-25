@@ -15,7 +15,7 @@ import type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
 
 const tracer = trace.getTracer("alef.organ-llm");
 
-export interface LLMOrganOptions {
+export interface ReasonerOptions {
 	model: Model<Api>;
 	apiKey?: string;
 	/**
@@ -114,7 +114,7 @@ function normalizeMessage(m: unknown): Message {
 
 async function runLLMLoop(
 	ctx: CerebrumHandlerCtx,
-	options: LLMOrganOptions,
+	options: ReasonerOptions,
 	/** Called with a snapshot of messages after each tool round completes. */
 	onCheckpoint?: (messages: Message[]) => void,
 ): Promise<void> {
@@ -392,7 +392,7 @@ function extractText(message: AssistantMessage): string {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createLLMOrgan(options: LLMOrganOptions): Organ {
+export function createReasoner(options: ReasonerOptions): Organ {
 	return defineOrgan("llm", {
 		[`sense/${DIALOG_MESSAGE}`]: {
 			handle: async (ctx: CerebrumHandlerCtx) => {
@@ -441,9 +441,9 @@ function pickKeyArg(payload: Record<string, unknown>): string {
 	return "";
 }
 
-export class LLMOrgan {
+export class Reasoner {
 	private readonly organ: Organ;
-	private readonly options: LLMOrganOptions;
+	private readonly options: ReasonerOptions;
 	/** In-flight motor events from concurrent turns. Populated only when trackConcurrentOps=true. */
 	private readonly inflight = new Map<string, InflightEntry>();
 
@@ -472,9 +472,9 @@ export class LLMOrgan {
 		};
 	}
 
-	constructor(options: LLMOrganOptions) {
+	constructor(options: ReasonerOptions) {
 		this.options = options;
-		const wrappedOptions: LLMOrganOptions = options.trackConcurrentOps
+		const wrappedOptions: ReasonerOptions = options.trackConcurrentOps
 			? {
 					...options,
 					prepareStep: async (msgs: Message[]) => {
@@ -483,7 +483,7 @@ export class LLMOrgan {
 					},
 				}
 			: options;
-		this.organ = createLLMOrgan(wrappedOptions);
+		this.organ = createReasoner(wrappedOptions);
 	}
 
 	private applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {

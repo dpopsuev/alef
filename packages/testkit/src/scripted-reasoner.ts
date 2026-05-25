@@ -1,7 +1,7 @@
 /**
- * ScriptedLLMOrgan — deterministic LLM organ for blueprint testing.
+ * ScriptedReasoner — deterministic LLM organ for blueprint testing.
  *
- * Replaces LLMOrgan in tests. No real API call. Reads from a ScriptStep queue.
+ * Replaces Reasoner in tests. No real API call. Reads from a ScriptStep queue.
  *
  * On each sense/dialog.message:
  *   1. Pops next ScriptStep from the queue
@@ -15,7 +15,7 @@
  *   - Only the LLM's decision (which tools to call + final text) is scripted
  *   - Tests are deterministic, no API key needed, but organ behaviour is real
  *
- * Extends (replaces) MockLLMOrgan which only supports a single canned reply.
+ * Extends (replaces) MockReasoner which only supports a single canned reply.
  *
  * Ref: ALE-SPC-17
  */
@@ -25,7 +25,7 @@ import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-sp
 import { DIALOG_MESSAGE } from "@dpopsuev/alef-spine";
 import type { ScriptStep } from "./script.js";
 
-export class ScriptedLLMOrgan implements Organ {
+export class ScriptedReasoner implements Organ {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
 	readonly subscriptions = {
@@ -62,11 +62,11 @@ export class ScriptedLLMOrgan implements Organ {
 
 		if (!step) {
 			process.stderr.write(
-				`[ScriptedLLMOrgan] Script exhausted after ${this.stepIndex - 1} steps. Replying with sentinel.\n`,
+				`[ScriptedReasoner] Script exhausted after ${this.stepIndex - 1} steps. Replying with sentinel.\n`,
 			);
 			nerve.motor.publish({
 				type: DIALOG_MESSAGE,
-				payload: { text: "(ScriptedLLMOrgan: script exhausted)" },
+				payload: { text: "(ScriptedReasoner: script exhausted)" },
 				correlationId: event.correlationId,
 			});
 			return;
@@ -85,7 +85,7 @@ export class ScriptedLLMOrgan implements Organ {
 			const calls = step.kind === "toolCall" ? [step.call] : step.calls;
 			const replyText = step.reply;
 
-			// Execute tool calls in parallel — same semantics as LLMOrgan.
+			// Execute tool calls in parallel — same semantics as Reasoner.
 			await Promise.all(
 				calls.map(async (call) => {
 					const toolCallId = randomUUID();
@@ -107,7 +107,7 @@ export class ScriptedLLMOrgan implements Organ {
 			// Publish error as dialog reply so dialog.send() resolves rather than hanging.
 			nerve.motor.publish({
 				type: DIALOG_MESSAGE,
-				payload: { text: `(ScriptedLLMOrgan error: ${String(err)})` },
+				payload: { text: `(ScriptedReasoner error: ${String(err)})` },
 				correlationId: event.correlationId,
 			});
 		}
@@ -128,7 +128,7 @@ function waitForSense(
 	return new Promise((resolve, reject) => {
 		const timer = setTimeout(() => {
 			off();
-			reject(new Error(`ScriptedLLMOrgan: timeout waiting for sense/${eventType} (toolCallId=${toolCallId})`));
+			reject(new Error(`ScriptedReasoner: timeout waiting for sense/${eventType} (toolCallId=${toolCallId})`));
 		}, timeoutMs);
 
 		const off = nerve.sense.subscribe(eventType, (e: SenseEvent) => {

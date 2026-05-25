@@ -4,9 +4,9 @@
  * Exercises the complete organ stack end-to-end without a real LLM or API key:
  *
  *   Boot  → POST /message via RouterOrgan HTTP
- *         → ScriptedLLMOrgan calls real fs.read tool
+ *         → ScriptedReasoner calls real fs.read tool
  *         → SSE stream delivers motor + sense events
- *         → EventLogOrgan writes StorageRecord to JSONL
+ *         → SessionLog writes StorageRecord to JSONL
  *         → TurnAssembler reconstructs turn from JSONL
  *         → Multi-turn: DialogOrgan accumulates history
  *         → SSE filter: allowedEvents blocks internal events
@@ -26,9 +26,9 @@ import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
-import { ScriptedLLMOrgan, type ScriptStep, step } from "@dpopsuev/alef-testkit";
+import { ScriptedReasoner, type ScriptStep, step } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { EventLogOrgan } from "../src/event-log-organ.js";
+import { SessionLog } from "../src/event-log-organ.js";
 import { SessionStore } from "../src/session-store.js";
 import { assembleTurns } from "../src/turn-assembler.js";
 
@@ -155,10 +155,10 @@ async function bootFixture(
 		},
 	});
 
-	const scripted = new ScriptedLLMOrgan(Array.isArray(opts.script) ? opts.script : [opts.script]);
+	const scripted = new ScriptedReasoner(Array.isArray(opts.script) ? opts.script : [opts.script]);
 	const fs = createFsOrgan({ cwd });
 	const router = createRouterOrgan({ port: 0, allowedEvents: opts.allowedEvents });
-	const eventLog = new EventLogOrgan(store);
+	const eventLog = new SessionLog(store);
 
 	const agent = new Agent();
 	agent.load(dialog).load(scripted).load(fs).load(router).load(eventLog);
@@ -241,7 +241,7 @@ describe("Lifecycle — POST /message → SSE stream", () => {
 		}
 	});
 
-	it("ScriptedLLMOrgan tool call — sense/fs.read arrives on SSE", async () => {
+	it("ScriptedReasoner tool call — sense/fs.read arrives on SSE", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "I read the README."),
 		});
@@ -296,7 +296,7 @@ describe("Lifecycle — POST /message → SSE stream", () => {
 	});
 });
 
-describe("Lifecycle — JSONL persistence (EventLogOrgan)", () => {
+describe("Lifecycle — JSONL persistence (SessionLog)", () => {
 	it("motor and sense events are written to JSONL after a turn", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
@@ -304,13 +304,13 @@ describe("Lifecycle — JSONL persistence (EventLogOrgan)", () => {
 		try {
 			await fix.dialog.send("read the file", "human");
 
-			// Give fire-and-forget EventLogOrgan writes time to settle.
+			// Give fire-and-forget SessionLog writes time to settle.
 			await new Promise((r) => setTimeout(r, 80));
 
 			const records = await fix.store.events();
 			expect(records.length).toBeGreaterThan(0);
 
-			// Every record has the audit hash set by EventLogOrgan.
+			// Every record has the audit hash set by SessionLog.
 			for (const rec of records) {
 				expect(rec.hash).toMatch(/^[0-9a-f]{64}$/);
 			}
@@ -543,7 +543,7 @@ describe("Lifecycle — audit log integrity", () => {
 		// Boot with a scripted step that doesn't involve apiKey.
 		// We verify that if a payload contained an apiKey, it would be redacted.
 		// The redact unit tests cover the actual redaction; here we verify
-		// EventLogOrgan wires it correctly by checking fs.read payload is clean.
+		// SessionLog wires it correctly by checking fs.read payload is clean.
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
 		});

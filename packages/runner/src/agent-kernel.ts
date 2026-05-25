@@ -7,9 +7,9 @@
  *
  * Mandatory components (never in a blueprint manifest):
  *   DialogOrgan      — conversation boundary, session history, MESSAGE_TOOL
- *   LLMOrgan         — reasoning loop (or ScriptedLLMOrgan in tests)
- *   LoopDetectorOrgan — safety watchdog, aborts runaway tool loops
- *   EventLogOrgan    — write-ahead log to session JSONL (optional: needs session)
+ *   Reasoner         — reasoning loop (or ScriptedReasoner in tests)
+ *   LoopGuard — safety watchdog, aborts runaway tool loops
+ *   SessionLog    — write-ahead log to session JSONL (optional: needs session)
  *
  * Corpus organs (optional, manifest-declared) are loaded by the caller via
  *   kernel.load(organ)
@@ -21,13 +21,13 @@
 import { Agent } from "@dpopsuev/alef-corpus";
 import { type ConversationMessage, DialogOrgan, type MessageSink } from "@dpopsuev/alef-organ-dialog";
 import type { Organ } from "@dpopsuev/alef-spine";
-import { EventLogOrgan } from "./event-log-organ.js";
-import { LoopDetectorOrgan } from "./loop-detector.js";
+import { SessionLog } from "./event-log-organ.js";
+import { LoopGuard } from "./loop-detector.js";
 import type { SessionStore } from "./session-store.js";
 
 export interface AgentKernelOptions {
 	/**
-	 * The reasoning organ: LLMOrgan in production, ScriptedLLMOrgan in tests.
+	 * The reasoning organ: Reasoner in production, ScriptedReasoner in tests.
 	 * Required — without it the agent cannot respond to dialog.message.
 	 */
 	llm: Organ;
@@ -45,7 +45,7 @@ export interface AgentKernelOptions {
 	maxTurns?: number;
 
 	/**
-	 * Session store for EventLogOrgan. Omit to skip event logging
+	 * Session store for SessionLog. Omit to skip event logging
 	 * (e.g. in unit tests where persistence is not needed).
 	 */
 	session?: SessionStore;
@@ -99,14 +99,14 @@ export const AgentKernel = {
 		agent.load(dialog).load(opts.llm);
 
 		agent.load(
-			new LoopDetectorOrgan({
+			new LoopGuard({
 				repeatedInteractionThreshold: opts.loopThreshold,
 				onLoop: opts.onLoop,
 			}),
 		);
 
 		if (opts.session) {
-			agent.load(new EventLogOrgan(opts.session));
+			agent.load(new SessionLog(opts.session));
 		}
 
 		return { agent, dialog };

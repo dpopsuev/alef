@@ -2,7 +2,7 @@
  * TurnAssembler — scored per-turn context window assembly from the event log.
  *
  * Pure function. No organ. No bus event. No LLM call.
- * Called from prepareStep in LLMOrgan (or directly from DialogOrgan.buildPayload).
+ * Called from "Reasoner" (or directly from DialogOrgan.buildPayload).
  *
  * Algorithm:
  *   1. Always include last recentGuarantee turns (recency guarantee)
@@ -201,22 +201,22 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 export type ConversationMessage = Pick<UserMessage | AssistantMessage, "role" | "content">;
 
 /**
- * Project selected turns into a message array for LLMOrgan payload.
+ * Project selected turns into a message array for Reasoner payload.
  *
  * Primary path: find the most recent motor/dialog.message event that carries a
- * conversationHistory array (published by LLMOrgan after each quiescent turn).
+ * conversationHistory array (published by Reasoner after each quiescent turn).
  * That array already contains role+content blocks including tool_use and
  * tool_result — use it directly. This is durable across runner restarts because
- * the value is stored in the JSONL by EventLogOrgan.
+ * the value is stored in the JSONL by SessionLog.
  *
- * Fallback: text-only reconstruction from dialog.message events (ScriptedLLMOrgan,
+ * Fallback: text-only reconstruction from dialog.message events (ScriptedReasoner,
  * first turn, or any organ that does not publish conversationHistory).
  */
 /**
- * Project selected turns into a Message array for LLMOrgan.
+ * Project selected turns into a Message array for Reasoner.
  *
  * Primary path: find the most recent motor/dialog.message that carries
- * conversationHistory (published by LLMOrgan). That array is already a
+ * conversationHistory (published by Reasoner). That array is already a
  * proper Message[] — use it directly.
  *
  * Fallback: text-only reconstruction from dialog.message events.
@@ -229,7 +229,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 			if (event.bus !== "motor" || event.type !== "dialog.message") continue;
 			const hist = event.payload.conversationHistory;
 			if (Array.isArray(hist) && hist.length > 0) {
-				// LLMOrgan stores properly typed Message objects in conversationHistory.
+				// Reasoner stores properly typed Message objects in conversationHistory.
 				return hist as Message[];
 			}
 		}

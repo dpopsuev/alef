@@ -1,7 +1,7 @@
 /**
  * ScriptStep — describes one LLM turn's scripted behaviour.
  *
- * Used by ScriptedLLMOrgan to simulate the LLM without a real API call.
+ * Used by ScriptedReasoner to simulate the LLM without a real API call.
  *
  * ScriptStep types:
  *   reply(text)                  — simple text reply, no tool calls

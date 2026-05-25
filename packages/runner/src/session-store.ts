@@ -46,7 +46,7 @@ export interface StorageRecord {
 	/**
 	 * SHA-256 of { bus, type, correlationId, payload, timestamp } (post-redaction).
 	 * Detects tampering: any modification to the record changes this field.
-	 * Optional only for test-authored records; EventLogOrgan always sets it.
+	 * Optional only for test-authored records; SessionLog always sets it.
 	 */
 	hash?: string;
 }
@@ -202,7 +202,7 @@ export class SessionStore {
 
 	/**
 	 * Append a raw StorageRecord to the JSONL file. Fire-and-forget safe.
-	 * The record must already have its hash field set (computed by EventLogOrgan).
+	 * The record must already have its hash field set (computed by SessionLog).
 	 */
 	async append(record: StorageRecord): Promise<void> {
 		await appendFile(this.path, `${JSON.stringify(record)}\n`, "utf-8");
@@ -243,8 +243,8 @@ export class SessionStore {
 		let index = 0;
 		for (const [id, events] of turnMap) {
 			// Anchor on provider-reported totalTokens when available (motor/dialog.message
-			// payload includes usage written by LLMOrgan). Falls back to char/4 heuristic
-			// for test turns (ScriptedLLMOrgan) or turns without a usage receipt.
+			// payload includes usage written by Reasoner). Falls back to char/4 heuristic
+			// for test turns (ScriptedReasoner) or turns without a usage receipt.
 			const usageAnchor = (() => {
 				for (let i = events.length - 1; i >= 0; i--) {
 					const e = events[i];

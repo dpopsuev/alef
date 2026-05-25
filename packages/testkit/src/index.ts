@@ -3,19 +3,19 @@
 // and would break production installs that import from this package.
 export { type BlueprintFromFileOptions, BlueprintHarness, type BlueprintHarnessOptions } from "./blueprint-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
-export { ScriptedLLMOrgan } from "./scripted-llm-organ.js";
+export { ScriptedReasoner } from "./scripted-reasoner.js";
 
 import type { BusObserver } from "@dpopsuev/alef-corpus";
 import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
-// MockLLMOrgan
+// MockReasoner
 //
 // CerebrumOrgan: subscribes Sense/"dialog.message", publishes Motor/"dialog.message".
 // Canned response — no real LLM call.
 // ---------------------------------------------------------------------------
 
-export class MockLLMOrgan implements Organ {
+export class MockReasoner implements Organ {
 	readonly name = "mock-llm";
 	readonly tools: readonly ToolDefinition[] = [];
 	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };

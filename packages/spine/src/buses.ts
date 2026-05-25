@@ -24,7 +24,7 @@ export interface ToolDefinition {
 	readonly description: string;
 	/**
 	 * Input schema for this tool. Either a Zod schema (preferred) or a raw
-	 * JSON Schema object (backward-compatible). LLMOrgan converts Zod schemas
+	 * JSON Schema object (backward-compatible). Reasoner converts Zod schemas
 	 * to JSON Schema via z.toJSONSchema() before sending to the provider.
 	 */
 	readonly inputSchema: ZodTypeAny | Record<string, unknown>;
@@ -185,7 +185,7 @@ class InProcessBus {
 	/**
 	 * Called when a motor event has no specific subscribers.
 	 * Set by InProcessNerve to publish an error sense response.
-	 * Wildcard subscribers (EventLogOrgan, EvaluatorOrgan) do not count.
+	 * Wildcard subscribers (SessionLog, EvaluatorOrgan) do not count.
 	 */
 	deadLetterSink?: (event: NerveEvent) => void;
 

@@ -1,7 +1,7 @@
 /**
  * BlueprintHarness — deterministic blueprint test harness.
  *
- * Loads a blueprint (file or inline organs), wires ScriptedLLMOrgan,
+ * Loads a blueprint (file or inline organs), wires ScriptedReasoner,
  * provides send() + assertion API. No real LLM call. No API key needed.
  *
  * Two factory methods:
@@ -28,7 +28,7 @@ import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { MotorEvent, NerveEvent, Organ } from "@dpopsuev/alef-spine";
 import { BusEventRecorder } from "./index.js";
 import type { ScriptStep } from "./script.js";
-import { ScriptedLLMOrgan } from "./scripted-llm-organ.js";
+import { ScriptedReasoner } from "./scripted-reasoner.js";
 
 // ---------------------------------------------------------------------------
 // BlueprintHarness
@@ -37,7 +37,7 @@ import { ScriptedLLMOrgan } from "./scripted-llm-organ.js";
 export interface BlueprintHarnessOptions {
 	/** Working directory for corpus organs. Required. */
 	cwd: string;
-	/** Script steps for ScriptedLLMOrgan. */
+	/** Script steps for ScriptedReasoner. */
 	script: ScriptStep[];
 	/** Optional system prompt override. */
 	systemPrompt?: string;
@@ -55,7 +55,7 @@ export class BlueprintHarness {
 	private readonly dialog: DialogOrgan;
 	private readonly recorder: BusEventRecorder;
 	/** Exposed for advanced test scenarios (e.g. reset between turns). */
-	readonly scriptedLlm: ScriptedLLMOrgan;
+	readonly scriptedLlm: ScriptedReasoner;
 	private readonly timeoutMs: number;
 	private _lastReply = "";
 
@@ -63,7 +63,7 @@ export class BlueprintHarness {
 		agent: Agent,
 		dialog: DialogOrgan,
 		recorder: BusEventRecorder,
-		scriptedLlm: ScriptedLLMOrgan,
+		scriptedLlm: ScriptedReasoner,
 		timeoutMs: number,
 	) {
 		this.agent = agent;
@@ -79,7 +79,7 @@ export class BlueprintHarness {
 
 	/**
 	 * Load a blueprint from a YAML file, instantiate its organs, inject
-	 * ScriptedLLMOrgan. Real corpus organs execute (FsOrgan, ShellOrgan, etc.).
+	 * ScriptedReasoner. Real corpus organs execute (FsOrgan, ShellOrgan, etc.).
 	 */
 	static async fromBlueprint(blueprintPath: string, opts: BlueprintFromFileOptions): Promise<BlueprintHarness> {
 		const { loadAgentDefinition } = await import("@dpopsuev/alef-agent-blueprint");
@@ -102,7 +102,7 @@ export class BlueprintHarness {
 	 */
 	static create(opts: BlueprintHarnessOptions & { organs?: Organ[] }): BlueprintHarness {
 		const recorder = new BusEventRecorder();
-		const scriptedLlm = new ScriptedLLMOrgan(opts.script);
+		const scriptedLlm = new ScriptedReasoner(opts.script);
 		const agent = new Agent();
 
 		const dialog = new DialogOrgan({

@@ -366,7 +366,7 @@ describe("RED-GREEN: toolSlot.receiveTextChunk callback chain (regression)", () 
 			receiveTextChunk: undefined,
 		};
 
-		// Mirror the onResponseChunk callback from LLMOrgan → main.ts
+		// Mirror the onResponseChunk callback from "Reasoner" → main.ts
 		const onResponseChunk = (chunk: string): void => {
 			toolSlot.receiveTextChunk?.(chunk);
 		};

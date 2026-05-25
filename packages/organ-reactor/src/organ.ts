@@ -51,7 +51,7 @@ export interface ReactorOrgan extends Organ {
 	/** Current in-flight entries keyed by entryKey. */
 	inflight(): Map<string, InFlightEntry>;
 	/**
-	 * prepareStep function to pass to LLMOrgan.options.prepareStep.
+	 * prepareStep function to pass to Reasoner.options.prepareStep.
 	 * Appends a pending-operations block to the system message when the
 	 * in-flight map is non-empty. Returns messages unchanged otherwise.
 	 */

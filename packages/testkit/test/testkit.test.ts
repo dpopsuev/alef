@@ -1,7 +1,7 @@
 import { Agent } from "@dpopsuev/alef-corpus";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
-import { BusEventRecorder, MockLLMOrgan } from "../src/index.js";
+import { BusEventRecorder, MockReasoner } from "../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -11,7 +11,7 @@ function makeHarness(cannedText = "mock response") {
 	const recorder = new BusEventRecorder();
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
-	agent.load(dialog).load(new MockLLMOrgan(cannedText));
+	agent.load(dialog).load(new MockReasoner(cannedText));
 	agent.observe(recorder);
 	return { agent, dialog, recorder, dispose: () => agent.dispose() };
 }
@@ -27,10 +27,10 @@ function make(canned?: string) {
 }
 
 // ---------------------------------------------------------------------------
-// MockLLMOrgan
+// MockReasoner
 // ---------------------------------------------------------------------------
 
-describe("MockLLMOrgan", () => {
+describe("MockReasoner", () => {
 	it("dialog.send() resolves with canned text", async () => {
 		const { agent: _corpus, dialog } = make("hello from mock");
 		const reply = await dialog.send("hi");

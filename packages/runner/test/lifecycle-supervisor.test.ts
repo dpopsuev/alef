@@ -191,8 +191,8 @@ function collectSse(
 // Test 1: Runner boots without API key via ALEF_SCRIPTED_REPLIES
 //
 // RED because: runner exits with "no model configured" — ALEF_SCRIPTED_REPLIES
-// is not yet recognised. When green: runner replaces LLMOrgan with
-// ScriptedLLMOrgan when this env var is set.
+// is not yet recognised. When green: runner replaces Reasoner with
+// ScriptedReasoner when this env var is set.
 // ---------------------------------------------------------------------------
 
 describe("Runner — ALEF_SCRIPTED_REPLIES", () => {

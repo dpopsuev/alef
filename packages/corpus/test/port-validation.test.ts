@@ -12,7 +12,7 @@ import { Agent } from "../src/index.js";
 // ---------------------------------------------------------------------------
 
 /** Subscribes sense/dialog.message — satisfies primary_cognition seam. */
-function makeLLMOrgan(name = "llm"): Organ {
+function makeReasoner(name = "llm"): Organ {
 	return {
 		name,
 		tools: [],
@@ -50,13 +50,13 @@ function makeInertOrgan(): Organ {
 
 describe("Agent.validate()", () => {
 	it("passes with a standard agent stack (LLM + FS)", () => {
-		const agent = new Agent().load(makeLLMOrgan()).load(makeFsOrgan());
+		const agent = new Agent().load(makeReasoner()).load(makeFsOrgan());
 		expect(() => agent.validate()).not.toThrow();
 		agent.dispose();
 	});
 
-	it("passes with only LLMOrgan (fs is zero-or-one, not required)", () => {
-		const agent = new Agent().load(makeLLMOrgan());
+	it("passes with only Reasoner (fs is zero-or-one, not required)", () => {
+		const agent = new Agent().load(makeReasoner());
 		expect(() => agent.validate()).not.toThrow();
 		agent.dispose();
 	});
@@ -73,8 +73,8 @@ describe("Agent.validate()", () => {
 		agent.dispose();
 	});
 
-	it("throws when two LLMOrgans are loaded", () => {
-		const agent = new Agent().load(makeLLMOrgan("llm")).load(makeLLMOrgan("mock-llm"));
+	it("throws when two Reasoners are loaded", () => {
+		const agent = new Agent().load(makeReasoner("llm")).load(makeReasoner("mock-llm"));
 		expect(() => agent.validate()).toThrow(PortValidationError);
 		agent.dispose();
 	});
@@ -92,7 +92,7 @@ describe("Agent.validate()", () => {
 	});
 
 	it("returns this for chaining", () => {
-		const agent = new Agent().load(makeLLMOrgan());
+		const agent = new Agent().load(makeReasoner());
 		const result = agent.validate();
 		expect(result).toBe(agent);
 		agent.dispose();

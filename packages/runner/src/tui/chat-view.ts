@@ -29,7 +29,6 @@ export function appendUserMsg(chat: Container, text: string): void {
 	box.addChild(new Text(color(text, t.userFg), 0, 0));
 	chat.addChild(box);
 	chat.addChild(new DynamicText((w) => bgFn(color(pillFooterStr(w), t.userFg))));
-	chat.addChild(new Spacer(1));
 }
 
 /**
@@ -46,7 +45,6 @@ export function appendNotice(chat: Container, text: string): void {
 	chat.addChild(new DynamicText((w) => colorFn(pillHeaderStr("─", w))));
 	chat.addChild(new Text(dim(text), 2, 0));
 	chat.addChild(new DynamicText((w) => colorFn(pillFooterStr(w))));
-	chat.addChild(new Spacer(1));
 }
 
 /**

@@ -24,7 +24,6 @@ import type { Message, ThinkingLevel } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { LLMOrgan, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
-import { createReactorOrgan } from "@dpopsuev/alef-organ-reactor";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { ScriptedLLMOrgan, step } from "@dpopsuev/alef-testkit";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
@@ -230,14 +229,10 @@ const prepareStep = async (messages: Message[]): Promise<Message[]> => {
 	return result;
 };
 
-// ReactorOrgan: tracks in-flight motor events across concurrent turns.
-// Provides a chained prepareStep that injects pending-operation context
-// into the system message when another turn's tool call is unresolved.
-const reactor = createReactorOrgan();
-const chainedPrepareStep = async (msgs: Message[]): Promise<Message[]> => {
-	const afterTurnAssembler = await prepareStep(msgs);
-	return reactor.prepareStep(afterTurnAssembler as { role: string; content: string }[]) as Message[];
-};
+// In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
+// LLMOrgan tracks cross-turn in-flight ops and injects pending-operations
+// context before each LLM call when trackConcurrentOps=true.
+const isConcurrent = args.serve !== undefined;
 
 // AbortController for mid-turn cancellation (Ctrl+C while LLM is streaming).
 // tui-mode.ts replaces this per-turn via setLLMAbortController.
@@ -266,7 +261,8 @@ const llmOrgan = scriptedRepliesEnv
 			maxRetries: cfg.llm?.maxRetries,
 			maxRetryDelayMs: cfg.llm?.maxRetryDelayMs,
 			timeoutMs: cfg.llm?.timeoutMs,
-			prepareStep: chainedPrepareStep,
+			prepareStep,
+			trackConcurrentOps: isConcurrent,
 			getSignal: () => currentLLMController?.signal,
 			onToolStart: (event) => toolSlot.onToolStart?.(event),
 			onToolEnd: (event) => toolSlot.onToolEnd?.(event),
@@ -274,7 +270,7 @@ const llmOrgan = scriptedRepliesEnv
 			onResponseChunk: (chunk) => toolSlot.receiveTextChunk?.(chunk),
 			onThinkingChunk: (chunk) => toolSlot.receiveThinkingChunk?.(chunk),
 		});
-agent.load(dialog).load(llmOrgan).load(reactor);
+agent.load(dialog).load(llmOrgan);
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }

@@ -63,9 +63,6 @@
 			],
 			"@dpopsuev/alef-testkit/*": [
 				"../testkit/src/*.ts"
-			],
-			"@dpopsuev/alef-organ-reactor": [
-				"../organ-reactor/src/index.ts"
 			]
 		}
 	},

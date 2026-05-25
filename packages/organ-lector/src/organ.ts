@@ -15,7 +15,7 @@
  */
 
 import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan } from "@dpopsuev/alef-spine";
+import { defineOrgan, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import type { LectorBackend } from "./backend.js";
 import { LocalLectorBackend } from "./local-backend.js";
@@ -151,7 +151,11 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 					const maxLines = typeof ctx.payload.maxLines === "number" ? ctx.payload.maxLines : undefined;
 					const offset = typeof ctx.payload.offset === "number" ? ctx.payload.offset : undefined;
 					const r = await backend.read(path, { symbol, maxLines, offset });
-					return r as unknown as Record<string, unknown>;
+					const readLabel = symbol ? `Read **${symbol}** in ${path}` : `Read **${path}**`;
+					return withDisplay(r as unknown as Record<string, unknown>, {
+						text: readLabel,
+						mimeType: "text/markdown",
+					});
 				},
 			},
 
@@ -163,7 +167,10 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 					const content = String(ctx.payload.content ?? "");
 					if (!path) throw new Error("lector.write: path is required");
 					await backend.write(path, content);
-					return { path, written: content.length };
+					return withDisplay(
+						{ path, written: content.length },
+						{ text: `Wrote **${path}** (${content.length} bytes)`, mimeType: "text/markdown" },
+					);
 				},
 			},
 
@@ -183,7 +190,13 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						};
 					});
 					await backend.edit(path, edits);
-					return { path, edits: edits.length };
+					return withDisplay(
+						{ path, edits: edits.length },
+						{
+							text: `Edited **${path}** (${edits.length} edit${edits.length === 1 ? "" : "s"})`,
+							mimeType: "text/markdown",
+						},
+					);
 				},
 			},
 
@@ -199,7 +212,13 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						maxResults: typeof ctx.payload.maxResults === "number" ? ctx.payload.maxResults : undefined,
 						extension: typeof ctx.payload.extension === "string" ? ctx.payload.extension : undefined,
 					});
-					return { matches, count: matches.length };
+					return withDisplay(
+						{ matches, count: matches.length },
+						{
+							text: `Found ${matches.length} match${matches.length === 1 ? "" : "es"} for \`${pattern}\``,
+							mimeType: "text/markdown",
+						},
+					);
 				},
 			},
 
@@ -215,7 +234,13 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						depth: typeof ctx.payload.depth === "number" ? ctx.payload.depth : undefined,
 						hidden: ctx.payload.hidden === true,
 					});
-					return { paths, count: paths.length };
+					return withDisplay(
+						{ paths, count: paths.length },
+						{
+							text: `Found ${paths.length} file${paths.length === 1 ? "" : "s"} matching \`${glob}\``,
+							mimeType: "text/markdown",
+						},
+					);
 				},
 			},
 
@@ -229,7 +254,13 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						path: typeof ctx.payload.path === "string" ? ctx.payload.path : undefined,
 						maxResults: typeof ctx.payload.maxResults === "number" ? ctx.payload.maxResults : undefined,
 					});
-					return { callers, count: callers.length };
+					return withDisplay(
+						{ callers, count: callers.length },
+						{
+							text: `Found ${callers.length} caller${callers.length === 1 ? "" : "s"} of \`${symbol}\``,
+							mimeType: "text/markdown",
+						},
+					);
 				},
 			},
 		},

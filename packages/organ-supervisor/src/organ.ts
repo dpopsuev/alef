@@ -19,7 +19,7 @@ import http from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, getString } from "@dpopsuev/alef-spine";
+import { defineOrgan, getString, withDisplay } from "@dpopsuev/alef-spine";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
 import type { ChildEntry } from "./types.js";
@@ -184,7 +184,10 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 			if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
 		});
 
-		return { name, endpoint: ready.endpoint, sessionId: ready.sessionId ?? "", pid: entry.pid };
+		return withDisplay(
+			{ name, endpoint: ready.endpoint, sessionId: ready.sessionId ?? "", pid: entry.pid },
+			{ text: `Spawned **${name}** (pid ${entry.pid}) at ${ready.endpoint}`, mimeType: "text/markdown" },
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -216,7 +219,7 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 			});
 		});
 		children.delete(name);
-		return { stopped: true, name };
+		return withDisplay({ stopped: true, name }, { text: `Stopped **${name}**`, mimeType: "text/markdown" });
 	}
 
 	// -------------------------------------------------------------------------
@@ -240,7 +243,11 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 				alive: await healthCheck(e.endpoint),
 			})),
 		);
-		return { children: items };
+		const summary =
+			items.length === 0
+				? "No running children."
+				: items.map((c) => `- **${c.name}** pid=${c.pid} ${c.alive ? "✅" : "❌"} ${c.endpoint}`).join("\n");
+		return withDisplay({ children: items }, { text: summary, mimeType: "text/markdown" });
 	}
 
 	// -------------------------------------------------------------------------
@@ -260,13 +267,14 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 		const entry = children.get(name);
 		if (!entry) return { alive: false, reason: `no child named '${name}'` };
 		const alive = await healthCheck(entry.endpoint);
-		return {
-			name,
-			alive,
-			endpoint: entry.endpoint,
-			sessionId: entry.sessionId ?? null,
-			uptimeMs: Date.now() - entry.startedAt,
-		};
+		const uptimeMs = Date.now() - entry.startedAt;
+		return withDisplay(
+			{ name, alive, endpoint: entry.endpoint, sessionId: entry.sessionId ?? null, uptimeMs },
+			{
+				text: `**${name}** ${alive ? "✅ alive" : "❌ dead"} — uptime ${Math.round(uptimeMs / 1000)}s`,
+				mimeType: "text/markdown",
+			},
+		);
 	}
 
 	// -------------------------------------------------------------------------

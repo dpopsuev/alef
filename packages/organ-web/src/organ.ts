@@ -21,6 +21,7 @@ import {
 	getNumber,
 	getString,
 	truncateHead,
+	withDisplay,
 } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
@@ -105,11 +106,7 @@ const WEB_FETCH_TOOL = {
 // Handler
 // ---------------------------------------------------------------------------
 
-async function handleFetch(
-	url: string,
-	format: "text" | "html",
-	timeoutMs: number,
-): Promise<{ content: string; title: string; url: string; statusCode: number; truncated: boolean }> {
+async function handleFetch(url: string, format: "text" | "html", timeoutMs: number): Promise<Record<string, unknown>> {
 	if (!url.startsWith("http://") && !url.startsWith("https://")) {
 		throw new Error(`web.fetch: url must start with http:// or https://, got: ${url}`);
 	}
@@ -136,20 +133,23 @@ async function handleFetch(
 	const rawText = new TextDecoder("utf-8", { fatal: false }).decode(rawBytes);
 
 	if (format === "html") {
+		const htmlTitle = extractTitle(rawText);
 		const tr = truncateHead(rawText, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-		return {
-			content: tr.content,
-			title: extractTitle(rawText),
-			url: response.url,
-			statusCode,
-			truncated: tr.truncated,
-		};
+		const label = htmlTitle ? `**${htmlTitle}** — ${response.url}` : response.url;
+		return withDisplay(
+			{ content: tr.content, title: htmlTitle, url: response.url, statusCode, truncated: tr.truncated },
+			{ text: label, mimeType: "text/markdown" },
+		);
 	}
 
 	const stripped = stripNonContent(rawText);
 	const title = extractTitle(rawText);
 	const tr = truncateHead(htmlToText(stripped), { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-	return { content: tr.content, title, url: response.url, statusCode, truncated: tr.truncated };
+	const label = title ? `**${title}** — ${response.url}` : response.url;
+	return withDisplay(
+		{ content: tr.content, title, url: response.url, statusCode, truncated: tr.truncated },
+		{ text: label, mimeType: "text/markdown" },
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -182,7 +182,7 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 					const url = getString(ctx.payload, "url") ?? "";
 					const format = getString(ctx.payload, "format") === "html" ? "html" : "text";
 					const timeoutMs = getNumber(ctx.payload, "timeoutMs") ?? defaultTimeout;
-					return (await handleFetch(url, format, timeoutMs)) as unknown as Record<string, unknown>;
+					return handleFetch(url, format, timeoutMs);
 				},
 			},
 		},

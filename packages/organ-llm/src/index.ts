@@ -290,7 +290,7 @@ async function runLLMLoop(
 		motor.publish({
 			type: "llm.result",
 			payload: {
-				response: { ...finalMessage } as Record<string, unknown>,
+				response: { ...finalMessage } satisfies Record<string, unknown>,
 				toolCalls: toolCalls.map((tc) => ({ name: toMotorName(tc.name), args: tc.args, id: tc.id })),
 				turn,
 			},
@@ -427,7 +427,7 @@ function waitForPhaseResult(
 			if (event.correlationId !== correlationId) return;
 			clearTimeout(timer);
 			off();
-			const p = event.payload as unknown as PhaseResult;
+			const p = event.payload as PhaseResult;
 			resolve({
 				messages: Array.isArray(p.messages) ? (p.messages as Message[]) : undefined,
 				skip: p.skip,

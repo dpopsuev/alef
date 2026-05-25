@@ -171,14 +171,27 @@ async function runLLMLoop(
 		// motor/llm.phase seam: zero-or-one organ may intercept each iteration.
 		// When phaseTimeoutMs is 0 (default), the seam is disabled — zero overhead.
 		if (options.phaseTimeoutMs) {
+			// Subscribe before publishing — event delivery may be synchronous.
+			const phasePromise = waitForPhaseResult(sense, correlationId, options.phaseTimeoutMs);
 			motor.publish({
 				type: "llm.phase",
 				payload: { messages: messages as unknown[], turn, toolCount: tools.length },
 				correlationId,
 			});
-			const transformed = await waitForPhaseResult(sense, correlationId, options.phaseTimeoutMs);
-			if (transformed && transformed.length > 0) {
-				messages.splice(0, messages.length, ...transformed);
+			const phase = await phasePromise;
+			if (phase) {
+				if (phase.abort) break;
+				if (phase.skip) {
+					motor.publish({
+						type: DIALOG_MESSAGE,
+						payload: { text: phase.reply ?? "(skipped)" },
+						correlationId,
+					});
+					break;
+				}
+				if (phase.messages && phase.messages.length > 0) {
+					messages.splice(0, messages.length, ...phase.messages);
+				}
 			}
 		}
 
@@ -271,6 +284,18 @@ async function runLLMLoop(
 
 		const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
 		const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
+
+		// motor/llm.result: fire-and-forget post-LLM hook. Organs can observe every
+		// LLM decision (response text + tool call list) before execution begins.
+		motor.publish({
+			type: "llm.result",
+			payload: {
+				response: { ...finalMessage } as Record<string, unknown>,
+				toolCalls: toolCalls.map((tc) => ({ name: toMotorName(tc.name), args: tc.args, id: tc.id })),
+				turn,
+			},
+			correlationId,
+		});
 
 		if (toolCalls.length === 0) {
 			if (finalMessage.usage) {
@@ -378,11 +403,21 @@ async function runLLMLoop(
  * Returns the transformed messages when a phase organ replies, or undefined
  * when the timeout elapses (loop proceeds with original messages).
  */
+interface PhaseResult {
+	/** Transformed message context. Replaces current messages when present. */
+	messages?: Message[];
+	/** Skip the LLM call. Publish reply as dialog.message and break the loop. */
+	skip?: boolean;
+	reply?: string;
+	/** Abort the loop without publishing a reply. */
+	abort?: boolean;
+}
+
 function waitForPhaseResult(
 	sense: CerebrumHandlerCtx["sense"],
 	correlationId: string,
 	timeoutMs: number,
-): Promise<Message[] | undefined> {
+): Promise<PhaseResult | undefined> {
 	return new Promise((resolve) => {
 		const timer = setTimeout(() => {
 			off();
@@ -392,8 +427,13 @@ function waitForPhaseResult(
 			if (event.correlationId !== correlationId) return;
 			clearTimeout(timer);
 			off();
-			const msgs = (event.payload as { messages?: unknown }).messages;
-			resolve(Array.isArray(msgs) ? (msgs as Message[]) : undefined);
+			const p = event.payload as unknown as PhaseResult;
+			resolve({
+				messages: Array.isArray(p.messages) ? (p.messages as Message[]) : undefined,
+				skip: p.skip,
+				reply: p.reply,
+				abort: p.abort,
+			});
 		});
 	});
 }
@@ -514,6 +554,11 @@ export class Reasoner {
 				messages: z.array(z.unknown()),
 				turn: z.number().int().positive(),
 				toolCount: z.number().int().nonnegative(),
+			}),
+			"llm.result": z.object({
+				response: z.record(z.string(), z.unknown()),
+				toolCalls: z.array(z.object({ name: z.string(), args: z.record(z.string(), z.unknown()), id: z.string() })),
+				turn: z.number().int().positive(),
 			}),
 		},
 	} as const;

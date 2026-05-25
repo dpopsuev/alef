@@ -492,3 +492,113 @@ describe("Reasoner — motor/llm.phase seam", () => {
 		expect(typeof reply).toBe("string");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// motor/llm.phase: skip, abort + motor/llm.result
+// ---------------------------------------------------------------------------
+
+describe("Reasoner — phase skip, abort, and llm.result", () => {
+	const disposes: Array<() => void> = [];
+	afterEach(() => {
+		for (const d of disposes.splice(0)) d();
+	});
+
+	function makePhaseOrgan(
+		handler: (
+			payload: { messages: unknown[]; turn: number },
+			reply: (response: Record<string, unknown>) => void,
+		) => void,
+	) {
+		return {
+			name: "phase-organ",
+			description: "test",
+			labels: [] as const,
+			tools: [] as const,
+			publishSchemas: {} as const,
+			subscriptions: { motor: ["llm.phase"] as const, sense: [] as const },
+			mount(nerve: import("@dpopsuev/alef-spine").Nerve) {
+				nerve.motor.subscribe("llm.phase", (event) => {
+					handler(event.payload as { messages: unknown[]; turn: number }, (response) => {
+						nerve.sense.publish({
+							type: "llm.phase",
+							payload: response,
+							correlationId: event.correlationId,
+							isError: false,
+						});
+					});
+				});
+				return () => {};
+			},
+		};
+	}
+
+	it("skip: phase organ bypasses LLM and injects its own reply", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("should not appear")]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent
+			.load(dialog)
+			.load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }))
+			.load(
+				makePhaseOrgan((_payload, reply) => {
+					reply({ skip: true, reply: "phase shortcut" });
+				}),
+			);
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		const result = await dialog.send("hi", "user", 5_000);
+		expect(result).toBe("phase shortcut");
+	});
+
+	it("abort: phase organ exits loop without publishing dialog.message", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("should not appear")]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent
+			.load(dialog)
+			.load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }))
+			.load(
+				makePhaseOrgan((_payload, reply) => {
+					reply({ abort: true });
+				}),
+			);
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		// dialog.send resolves with empty string when no dialog.message published.
+		const result = await dialog.send("hi", "user", 2_000).catch(() => "timeout");
+		const dialogMessages = recorder.motor.filter((e) => e.type === "dialog.message");
+		expect(dialogMessages).toHaveLength(0);
+		expect(result).toBeDefined();
+	});
+
+	it("motor/llm.result fires after each LLM response with response and toolCalls", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("hello")]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent.load(dialog).load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		await dialog.send("hi", "user", 5_000);
+
+		const resultEvents = recorder.motor.filter((e) => e.type === "llm.result");
+		expect(resultEvents.length).toBeGreaterThanOrEqual(1);
+		const first = resultEvents[0] as unknown as {
+			payload: { response: Record<string, unknown>; toolCalls: unknown[]; turn: number };
+		};
+		expect(first.payload.turn).toBe(1);
+		expect(Array.isArray(first.payload.toolCalls)).toBe(true);
+		expect(typeof first.payload.response).toBe("object");
+	});
+});

@@ -22,7 +22,7 @@ import { stripVTControlCharacters } from "node:util";
 import { Container, Markdown, type MarkdownTheme, Text, TUI } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal.js";
-import { Typewriter } from "../src/typewriter.js";
+import { Typewriter } from "../src/tui/typewriter.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

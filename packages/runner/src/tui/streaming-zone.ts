@@ -13,9 +13,9 @@
 import { Container, Markdown, Text } from "@dpopsuev/alef-tui";
 import { trace } from "../debug-trace.js";
 import { color, dim, getTheme, italic } from "../theme.js";
-import { Typewriter } from "../typewriter.js";
 import type { AgentBlock } from "./chat-view.js";
 import { makeMarkdownTheme } from "./markdown-themes.js";
+import { Typewriter } from "./typewriter.js";
 
 export class StreamingZone {
 	/** Exposed for testing only. */

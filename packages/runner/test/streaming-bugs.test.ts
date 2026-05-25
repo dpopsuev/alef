@@ -10,8 +10,8 @@
 import { Container, Text } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventPressure, pressureToInterval, timeBasedHue } from "../src/event-pressure.js";
+import { Typewriter } from "../src/tui/typewriter.js";
 import { pillHeaderStr } from "../src/tui-mode.js";
-import { Typewriter } from "../src/typewriter.js";
 
 // ---------------------------------------------------------------------------
 // 1. Pressure-sensitive spinner

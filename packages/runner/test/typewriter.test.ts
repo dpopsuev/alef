@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Typewriter, type TypewriterConfig, type TypewriterSink } from "../src/typewriter.js";
+import { Typewriter, type TypewriterConfig, type TypewriterSink } from "../src/tui/typewriter.js";
 
 function makeSink(): TypewriterSink & { value: string } {
 	const sink = {

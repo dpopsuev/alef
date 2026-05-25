@@ -20,7 +20,7 @@
 
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
-import type { Message, ThinkingLevel } from "@dpopsuev/alef-ai";
+import type { ThinkingLevel } from "@dpopsuev/alef-ai";
 import { Reasoner, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
@@ -43,7 +43,6 @@ import { makeSink } from "./sink.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
 import { runTuiMode } from "./tui-mode.js";
-import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -177,44 +176,7 @@ const systemPrompt = asm.build(Math.floor(model.contextWindow * 0.1 * 4)); // ~1
 
 const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
 
-const prepareStep = async (messages: Message[]): Promise<Message[]> => {
-	const turns = await session.turns();
-	const hitCounts = await session.hitCounts();
-	const lastMsg = messages.at(-1);
-	const query =
-		lastMsg && typeof (lastMsg as { content?: unknown }).content === "string"
-			? (lastMsg as { content: string }).content
-			: "";
-	const selected = assembleTurns(turns, {
-		query,
-		contextWindow: model.contextWindow,
-		hitCounts,
-	});
-	const projected = turnsToMessages(selected);
-	const src = projected.length > 0 ? "jsonl" : "fallback";
-	let result: typeof messages;
-	if (projected.length > 0) {
-		const currentMsg = messages.at(-1);
-		result =
-			currentMsg && (currentMsg as { role?: string }).role === "user"
-				? ([...projected, currentMsg] as typeof messages)
-				: projected;
-	} else {
-		result = messages;
-	}
-	// Orange: log prepareStep output so API hangs are diagnosable.
-	log.debug(
-		{
-			src,
-			projectedCount: projected.length,
-			payloadCount: messages.length,
-			resultCount: result.length,
-			resultRoles: result.map((m) => (m as { role?: string }).role),
-		},
-		"prepareStep",
-	);
-	return result;
-};
+const prepareStep = AgentKernel.buildContextPrepareStep(session, model.contextWindow);
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
 // Reasoner tracks cross-turn in-flight ops and injects pending-operations

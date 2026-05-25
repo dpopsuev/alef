@@ -14,8 +14,8 @@ describe("appendUserMsg", () => {
 	it("adds children to the chat container", () => {
 		const chat = makeChat();
 		appendUserMsg(chat, "hello world");
-		// Spacer + header DynamicText + Box + footer DynamicText + Spacer = 5
-		expect(chat.children.length).toBe(5);
+		// Spacer + header DynamicText + Box + footer DynamicText = 4
+		expect(chat.children.length).toBe(4);
 	});
 
 	it("does not throw for multi-line text", () => {
@@ -28,8 +28,8 @@ describe("appendNotice", () => {
 	it("adds children to the chat container", () => {
 		const chat = makeChat();
 		appendNotice(chat, "(interrupted)");
-		// Spacer + header + Text + footer + Spacer = 5
-		expect(chat.children.length).toBe(5);
+		// Spacer + header + Text + footer = 4
+		expect(chat.children.length).toBe(4);
 	});
 });
 

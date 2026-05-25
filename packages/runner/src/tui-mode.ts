@@ -217,14 +217,13 @@ function appendPillBlock(
 function appendUserMsg(chat: Container, text: string): void {
 	const t = getTheme();
 	chat.addChild(new Spacer(1));
-	// Pill header with userFg color.
-	chat.addChild(new DynamicText((w) => color(pillHeaderStr(YOU_LABEL, w), t.userFg)));
-	// Body: full-width background block for contrast.
-	const box = new Box(2, 0, (s) => bg(s, t.userBg));
+	// Header, body, footer all share the same background so the block is coherent.
+	const bgFn = (s: string): string => bg(s, t.userBg);
+	chat.addChild(new DynamicText((w) => bgFn(color(pillHeaderStr(YOU_LABEL, w), t.userFg))));
+	const box = new Box(2, 0, bgFn);
 	box.addChild(new Text(color(text, t.userFg), 0, 0));
 	chat.addChild(box);
-	// Pill footer with userFg color.
-	chat.addChild(new DynamicText((w) => color(pillFooterStr(w), t.userFg)));
+	chat.addChild(new DynamicText((w) => bgFn(color(pillFooterStr(w), t.userFg))));
 	chat.addChild(new Spacer(1));
 }
 
@@ -387,20 +386,34 @@ export async function runTuiMode(
 		if (agentPillOpen) return;
 		agentPillOpen = true;
 		const th = getTheme();
-		chat.addChild(new Spacer(1));
-		chat.addChild(new DynamicText((w) => color(pillHeaderStr(AGENT_LABEL, w), th.agentFg)));
-		// Background Box for agent content — transparent when agentBg has no color code.
 		const hasBg = th.agentBg.truecolor || th.agentBg.ansi256 !== undefined || th.agentBg.ansi16 !== undefined;
-		agentContentBox = hasBg ? new Box(2, 0, (s) => bg(s, th.agentBg)) : new Box(2, 0);
+		const agentBgFn = hasBg ? (s: string) => bg(s, th.agentBg) : null;
+		chat.addChild(new Spacer(1));
+		// Header carries the same background as the body for a coherent block.
+		const header = agentBgFn
+			? new DynamicText((w) => agentBgFn(color(pillHeaderStr(AGENT_LABEL, w), th.agentFg)))
+			: new DynamicText((w) => color(pillHeaderStr(AGENT_LABEL, w), th.agentFg));
+		chat.addChild(header);
+		agentContentBox = agentBgFn ? new Box(2, 0, agentBgFn) : new Box(2, 0);
 		chat.addChild(agentContentBox);
+		// Store bgFn on the pill so closeAgentPill can apply it to the footer.
+		// We capture it in the closure via agentBgFn; closeAgentPill reads the saved ref.
+		_agentBgFn = agentBgFn;
 	}
+
+	let _agentBgFn: ((s: string) => string) | null = null;
 
 	function closeAgentPill(): void {
 		if (!agentPillOpen) return;
 		agentPillOpen = false;
 		agentContentBox = null;
 		const th = getTheme();
-		chat.addChild(new DynamicText((w) => color(pillFooterStr(w), th.agentFg)));
+		const savedBgFn = _agentBgFn;
+		const footer = savedBgFn
+			? new DynamicText((w) => savedBgFn(color(pillFooterStr(w), th.agentFg)))
+			: new DynamicText((w) => color(pillFooterStr(w), th.agentFg));
+		chat.addChild(footer);
+		_agentBgFn = null;
 	}
 
 	/** Route content to the agent Box when the pill is open, otherwise to chat. */

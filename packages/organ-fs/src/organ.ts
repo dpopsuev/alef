@@ -393,6 +393,17 @@ async function handleEdit(
 
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 
+	// Existence check first — ENOENT surfaces before the tracker guard.
+	let fileStat: import("node:fs").Stats;
+	try {
+		fileStat = await import("node:fs/promises").then((m) => m.stat(absolutePath));
+	} catch (err) {
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code === "ENOENT") throw new Error(`fs.edit: file not found: ${filePath}`);
+		if (code === "EACCES") throw new Error(`fs.edit: permission denied: ${filePath}`);
+		throw err;
+	}
+
 	// FileTracker: guard 1 — read-before-edit.
 	const lastReadAt = tracker.lastReadAt(absolutePath);
 	if (lastReadAt === undefined) {
@@ -403,15 +414,6 @@ async function handleEdit(
 	}
 
 	// FileTracker: guard 2 — staleness check.
-	let fileStat: import("node:fs").Stats;
-	try {
-		fileStat = await import("node:fs/promises").then((m) => m.stat(absolutePath));
-	} catch (err) {
-		const code = (err as NodeJS.ErrnoException).code;
-		if (code === "ENOENT") throw new Error(`fs.edit: file not found: ${filePath}`);
-		if (code === "EACCES") throw new Error(`fs.edit: permission denied: ${filePath}`);
-		throw err;
-	}
 	const mtimeMs = fileStat.mtimeMs;
 	if (mtimeMs > lastReadAt) {
 		const readStr = new Date(lastReadAt).toISOString();
@@ -461,6 +463,8 @@ async function handleEdit(
 	}
 
 	await atomicWrite(absolutePath, updated);
+	// Refresh tracker so subsequent edits in the same turn don't fail staleness.
+	tracker.record(absolutePath);
 	const editCount = editList.length;
 	const diff = generateEditDiff(original, updated, filePath);
 	return withDisplay({ path: filePath, applied: true, editCount }, { text: diff, mimeType: "text/x-diff" });

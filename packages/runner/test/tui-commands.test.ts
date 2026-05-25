@@ -15,7 +15,13 @@ import { Container, Text } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
-import { handleCtrlC, handleSlashCommand, renderToolLine, truncateToolOutput } from "../src/tui-mode.js";
+import {
+	handleCtrlC,
+	handleSlashCommand,
+	renderHeaderTopBorder,
+	renderToolLine,
+	truncateToolOutput,
+} from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Fake context factory
@@ -141,8 +147,8 @@ describe("handleSlashCommand /new", () => {
 		expect(ctx.chat.children).toHaveLength(2);
 		handleSlashCommand("/new", ctx);
 		// Pre-existing children cleared; only the notice pill remains.
-		// appendPillBlock adds: Spacer + DynText(header) + Text(body) + DynText(footer) + Spacer = 5
-		expect(ctx.chat.children.length).toBe(5);
+		// appendNotice adds: Spacer + DynText(header) + Text(body) + DynText(footer) = 4
+		expect(ctx.chat.children.length).toBe(4);
 	});
 
 	it("appends '(conversation cleared)' notice", () => {
@@ -354,5 +360,29 @@ describe("activeCalls drained on turn abort (ALE-BUG-16)", () => {
 		abortPath();
 
 		expect(activeCalls.size).toBe(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Header border width regression
+// ---------------------------------------------------------------------------
+
+describe("renderHeaderTopBorder — visible width equals terminal width", () => {
+	const label = "* ALEF  -  3a80e561";
+
+	for (const width of [40, 80, 120, 200]) {
+		it(`fills exactly ${width} columns`, () => {
+			const rendered = renderHeaderTopBorder(label, width);
+			// Strip any ANSI escapes before measuring (function returns plain text).
+			const visible = rendered.replace(/\x1b\[[0-9;]*m/g, "");
+			expect(visible.length).toBe(width);
+		});
+	}
+
+	it("clamps to zero filler at minimum width without throwing", () => {
+		const rendered = renderHeaderTopBorder(label, 0);
+		const visible = rendered.replace(/\x1b\[[0-9;]*m/g, "");
+		// ╭ + inner + ╮  with zero filler — length is inner.length + 2, not 0
+		expect(visible.length).toBeGreaterThan(0);
 	});
 });

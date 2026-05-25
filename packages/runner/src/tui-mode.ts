@@ -39,6 +39,15 @@ export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-t
 export { pillFooterStr, pillHeaderStr } from "./tui/pill.js";
 export { renderDiffDisplay, renderToolLine, truncateToolOutput } from "./tui/tool-view.js";
 
+/**
+ * Render the TUI header top border at a given terminal width.
+ * Exported for unit testing — verifies the border fills exactly `width` visible chars.
+ */
+export function renderHeaderTopBorder(label: string, width: number): string {
+	const inner = `─ ${label} `;
+	return `╭${inner}${"─".repeat(Math.max(0, width - inner.length - 2))}╮`;
+}
+
 const ANSI_BOLD = "\x1b[1m";
 const ANSI_RESET = "\x1b[0m";
 
@@ -190,7 +199,7 @@ export async function runTuiMode(
 	tui.addChild(
 		new DynamicText((w) => {
 			const inner = `─ ${headerLabel} `;
-			return boldColor(`╭${inner}${"─".repeat(Math.max(0, w - inner.length - 3))}╮`, t.accentFg);
+			return boldColor(`╭${inner}${"─".repeat(Math.max(0, w - inner.length - 2))}╮`, t.accentFg);
 		}),
 	);
 	const splash = await renderSplash();

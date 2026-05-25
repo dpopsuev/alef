@@ -18,12 +18,14 @@
  * ALE-SPC-24
  */
 
+import type { Message } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { type ConversationMessage, DialogOrgan, type MessageSink } from "@dpopsuev/alef-organ-dialog";
 import type { Organ } from "@dpopsuev/alef-spine";
 import { SessionLog } from "./event-log-organ.js";
 import { LoopGuard } from "./loop-detector.js";
 import type { SessionStore } from "./session-store.js";
+import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
 export interface AgentKernelOptions {
 	/**
@@ -84,6 +86,36 @@ export interface AgentKernelResult {
  *   agent.validate();
  */
 export const AgentKernel = {
+	/**
+	 * Build a prepareStep function that assembles the context window from the
+	 * session JSONL before each LLM call. Pass the result to ReasonerOptions.
+	 *
+	 * When session is undefined (test path), returns a pass-through.
+	 */
+	buildContextPrepareStep(
+		session: SessionStore | undefined,
+		contextWindow: number,
+	): (messages: Message[]) => Promise<Message[]> {
+		if (!session) return (msgs) => Promise.resolve(msgs);
+		return async (messages: Message[]): Promise<Message[]> => {
+			const turns = await session.turns();
+			const hitCounts = await session.hitCounts();
+			const lastMsg = messages.at(-1);
+			const query =
+				lastMsg && typeof (lastMsg as { content?: unknown }).content === "string"
+					? (lastMsg as { content: string }).content
+					: "";
+			const selected = assembleTurns(turns, { query, contextWindow, hitCounts });
+			const projected = turnsToMessages(selected);
+			if (projected.length === 0) return messages;
+			const currentMsg = messages.at(-1);
+			if (currentMsg && (currentMsg as { role?: string }).role === "user") {
+				return [...projected, currentMsg] as Message[];
+			}
+			return projected;
+		};
+	},
+
 	create(opts: AgentKernelOptions): AgentKernelResult {
 		const agent = new Agent();
 

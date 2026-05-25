@@ -1,39 +1,19 @@
 /**
- * TUI layout — StreamZone + ConsoleZone.
+ * TUI orchestration — wires StreamingZone, AgentBlock, ConsoleZone,
+ * and the dialog.send() turn loop.
  *
- *   StreamZone (terminal owns):
- *     splash   — Braille glyph art, printed once
- *     header   — identity line, printed once
- *     ───────────────────────────────────────────
- *     chat     — append-only, grows into scrollback
+ * Layout (append-only, terminal scrollback handles history):
  *
- *   ConsoleZone (we own — always visible, fixed height):
- *     ───────────────────────────────────────────
- *     status   — "" | "⬡ Thinking… 3s" | "─ (interrupted)"
- *     hint     — keybindings
- *     input    — editor, always present
- *
- * No addChild/removeChild after startup. Content changes, structure doesn't.
- * Terminal scrollback handles history — we never manage viewport.
+ *   StreamZone  splash · header · chat (grows into scrollback)
+ *   ─────────────────────────────────────────────────────────
+ *   ConsoleZone status · hint · editor (always visible)
  */
 
 import { getProviders } from "@dpopsuev/alef-ai";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
-import {
-	Box,
-	Container,
-	Markdown,
-	type MarkdownTheme,
-	matchesKey,
-	ProcessTerminal,
-	Spacer,
-	Text,
-	TUI,
-} from "@dpopsuev/alef-tui";
-import chalk from "chalk";
+import { Container, matchesKey, ProcessTerminal, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
-import { getConfig } from "./config.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
 import { DynamicText } from "./dynamic-text.js";
@@ -42,8 +22,29 @@ import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
-import { bg, bold, boldColor, color, dim, getTheme, glyph, italic } from "./theme.js";
-import { Typewriter } from "./typewriter.js";
+import { boldColor, dim, getTheme, glyph } from "./theme.js";
+import { AgentBlock, appendNotice, appendUserMsg } from "./tui/chat-view.js";
+
+import { StreamingZone } from "./tui/streaming-zone.js";
+import {
+	formatTokenUsage,
+	keyArgFromPayload,
+	makeToolOutputComponent,
+	renderToolLine,
+	toolActiveLine,
+} from "./tui/tool-view.js";
+
+export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
+// Re-export primitives still used by tests and tui-commands.test.ts
+export { pillFooterStr, pillHeaderStr } from "./tui/pill.js";
+export { renderDiffDisplay, renderToolLine, truncateToolOutput } from "./tui/tool-view.js";
+
+const ANSI_BOLD = "\x1b[1m";
+const ANSI_RESET = "\x1b[0m";
+
+// ---------------------------------------------------------------------------
+// TuiHandlerContext — passed to command handlers
+// ---------------------------------------------------------------------------
 
 export interface TuiHandlerContext {
 	chat: Container;
@@ -53,7 +54,6 @@ export interface TuiHandlerContext {
 		addChild(c: unknown): void;
 		requestRender(force?: boolean): void;
 	};
-
 	dialog: { clearHistory(): void };
 	dispose(): void;
 	sessionId: string;
@@ -61,6 +61,10 @@ export interface TuiHandlerContext {
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
 	setLLMController(ctrl: AbortController | undefined): void;
 }
+
+// ---------------------------------------------------------------------------
+// Ctrl+C handler
+// ---------------------------------------------------------------------------
 
 export function handleCtrlC(ctx: TuiHandlerContext): void {
 	if (ctx.abortCurrentTurn) {
@@ -77,6 +81,25 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 		ctx.tui.stop();
 		trace("ctrl+c:idle:done");
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Slash command handler
+// ---------------------------------------------------------------------------
+
+const COMMANDS: Record<string, string> = {
+	"/exit": "Quit",
+	"/new": "Clear conversation",
+	"/resume": "Show session ID",
+	"/login": "Save API key: /login <provider> <key>",
+	"/logout": "Remove stored API key: /logout <provider>",
+	"/help": "Show this help",
+};
+
+function helpText(): string {
+	return Object.entries(COMMANDS)
+		.map(([cmd, desc]) => `  ${cmd.padEnd(12)} ${desc}`)
+		.join("\n");
 }
 
 export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolean {
@@ -134,190 +157,9 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 	}
 }
 
-/**
- * Markdown theme for tool output display blocks (text/plain).
- * All text is rendered dim except **bold** spans (e.g. file paths).
- * Uses raw ANSI so it works regardless of chalk's TTY detection.
- */
-function makeToolOutputMarkdownTheme(): MarkdownTheme {
-	return {
-		heading: (s) => `${ANSI_BOLD}${s}${ANSI_RESET}`,
-		link: (s) => s,
-		linkUrl: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
-		code: (s) => s,
-		codeBlock: (s) => s,
-		codeBlockBorder: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
-		quote: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
-		quoteBorder: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
-		hr: (s) => `${ANSI_DIM}${s}${ANSI_RESET}`,
-		listBullet: (s) => s,
-		// Bold spans (e.g. **path**) are rendered bold, everything else dim.
-		// The Markdown component wraps each paragraph line; we rely on the
-		// caller (onToolEnd) not passing a customBgFn so the overall Text
-		// doesn't apply a background.
-		bold: (s) => `${ANSI_BOLD}${s}\x1b[22m`,
-		italic: (s) => `\x1b[3m${s}\x1b[23m`,
-		strikethrough: (s) => s,
-		underline: (s) => s,
-	};
-}
-
-function makeMarkdownTheme(): MarkdownTheme {
-	const t = getTheme();
-	return {
-		heading: (s) => bold(s),
-		link: (s) => color(s, t.toolNameFg),
-		linkUrl: (s) => dim(s),
-		code: (s) => color(s, t.accentFg),
-		codeBlock: (s) => s,
-		codeBlockBorder: (s) => dim(s),
-		quote: (s) => dim(s),
-		quoteBorder: (s) => dim(s),
-		hr: (s) => dim(s),
-		listBullet: (s) => color(s, t.accentFg),
-		bold: (s) => bold(s),
-		italic: (s) => italic(s),
-		strikethrough: (s) => s,
-		underline: (s) => chalk.underline(s),
-	};
-}
-
-const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? getConfig().you ?? "@you";
-const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
-
-export function pillHeaderStr(label: string, width: number): string {
-	const inner = `─ ${label} `;
-	const fill = Math.max(0, width - inner.length - 2);
-	return `╭${inner}${"─".repeat(fill)}╮`;
-}
-
-export function pillFooterStr(width: number): string {
-	return `╰${"─".repeat(Math.max(0, width - 2))}╯`;
-}
-
-function appendPillBlock(
-	chat: Container,
-	label: string,
-	colorFn: (s: string) => string,
-	body: () => void,
-	tokenSlot?: { text: Text | null },
-): void {
-	chat.addChild(new Spacer(1));
-	chat.addChild(new DynamicText((w) => colorFn(pillHeaderStr(label, w))));
-	body();
-	if (tokenSlot !== undefined) {
-		const tf = new Text("", 1, 0);
-		chat.addChild(tf);
-		tokenSlot.text = tf;
-	}
-	chat.addChild(new DynamicText((w) => colorFn(pillFooterStr(w))));
-	chat.addChild(new Spacer(1));
-}
-
-function appendUserMsg(chat: Container, text: string): void {
-	const t = getTheme();
-	chat.addChild(new Spacer(1));
-	// Header, body, footer all share the same background so the block is coherent.
-	const bgFn = (s: string): string => bg(s, t.userBg);
-	chat.addChild(new DynamicText((w) => bgFn(color(pillHeaderStr(YOU_LABEL, w), t.userFg))));
-	const box = new Box(2, 0, bgFn);
-	box.addChild(new Text(color(text, t.userFg), 0, 0));
-	chat.addChild(box);
-	chat.addChild(new DynamicText((w) => bgFn(color(pillFooterStr(w), t.userFg))));
-	chat.addChild(new Spacer(1));
-}
-
-function appendNotice(chat: Container, text: string): void {
-	const t = getTheme();
-	appendPillBlock(
-		chat,
-		"─",
-		(s) => dim(color(s, t.dimFg)),
-		() => {
-			chat.addChild(new Text(dim(text), 2, 0));
-		},
-	);
-}
-
-function toolActiveLine(name: string, keyArg: string): string {
-	const t = getTheme();
-	const label = `${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}`;
-	const body = keyArg ? `  ${color(keyArg, t.toolArgFg)}` : "";
-	return `  ${label}${body}`;
-}
-
-export function renderToolLine(name: string, keyArg: string, elapsedMs: number, ok: boolean): string {
-	const t = getTheme();
-	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
-	const g = ok ? glyph("state:done") : glyph("state:error");
-	const fg = ok ? t.toolOkFg : t.toolErrFg;
-	return `  ${color(g, fg)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}  ${color(elapsed, t.timeFg)}`;
-}
-
-function keyArgFromPayload(args: Record<string, unknown>): string {
-	for (const key of ["command", "path", "url", "pattern", "glob", "symbol", "query"]) {
-		const v = args[key];
-		if (typeof v === "string" && v.length > 0) return v.slice(0, 60);
-	}
-	return "";
-}
-
-/** Truncate tool output for inline display: max 20 lines, max 1000 chars. */
-export function truncateToolOutput(text: string): string {
-	const lines = text.split("\n");
-	const capped = lines.length > 20 ? lines.slice(0, 20) : lines;
-	let out = capped.join("\n");
-	if (out.length > 1000) out = `${out.slice(0, 1000)}\u2026`;
-	if (lines.length > 20) out += `\n  […${lines.length - 20} more lines]`;
-	return out;
-}
-
-/**
- * Render a text/x-diff display block with ANSI colors.
- * Lines starting with '+' are green, '-' are red, context is dim.
- * The header line ("edit path") is rendered bold.
- */
-// Raw ANSI sequences for diff rendering — never use chalk here because chalk
-// sets level=0 when stdout is not a TTY (e.g. in tests, piped output).
-const ANSI_BOLD = "\x1b[1m";
-const ANSI_DIM = "\x1b[2m";
-const ANSI_RESET = "\x1b[0m";
-
-export function renderDiffDisplay(diffText: string): string {
-	const t = getTheme();
-	const lines = diffText.split("\n");
-	return lines
-		.map((line, i) => {
-			if (i === 0) return `${ANSI_BOLD}${line}${ANSI_RESET}`; // header
-			if (line === "") return line;
-			// color() uses fgCode() / raw ANSI — works regardless of chalk level.
-			if (line.startsWith("+")) return color(line, t.toolOkFg);
-			if (line.startsWith("-")) return color(line, t.toolErrFg);
-			return `${ANSI_DIM}${line}${ANSI_RESET}`; // context and ellipsis
-		})
-		.join("\n");
-}
-
-function compact(n: number): string {
-	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-	return String(n);
-}
-
-const COMMANDS: Record<string, string> = {
-	"/exit": "Quit",
-	"/new": "Clear conversation",
-	"/resume": "Show session ID",
-	"/login": "Save API key: /login <provider> <key>",
-	"/logout": "Remove stored API key: /logout <provider>",
-	"/help": "Show this help",
-};
-
-function helpText(): string {
-	return Object.entries(COMMANDS)
-		.map(([cmd, desc]) => `  ${cmd.padEnd(12)} ${desc}`)
-		.join("\n");
-}
+// ---------------------------------------------------------------------------
+// Tool slot interface
+// ---------------------------------------------------------------------------
 
 export interface TuiToolSlot {
 	onToolStart: ((event: ToolCallStart) => void) | undefined;
@@ -326,6 +168,10 @@ export interface TuiToolSlot {
 	receiveTextChunk: ((chunk: string) => void) | undefined;
 	receiveThinkingChunk: ((chunk: string) => void) | undefined;
 }
+
+// ---------------------------------------------------------------------------
+// runTuiMode — turn orchestration
+// ---------------------------------------------------------------------------
 
 export async function runTuiMode(
 	dialog: DialogOrgan,
@@ -338,9 +184,9 @@ export async function runTuiMode(
 	const tui = new TUI(terminal);
 	const t = getTheme();
 
+	// ── Header ────────────────────────────────────────────────────────────
 	const sessionShort = opts.sessionId.slice(0, 8);
 	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${sessionShort}`;
-	// StreamZone: header pill wraps the splash glyph — same pattern as @you / @alef
 	tui.addChild(
 		new DynamicText((w) => {
 			const inner = `─ ${headerLabel} `;
@@ -351,239 +197,74 @@ export async function runTuiMode(
 	if (splash) tui.addChild(new Text(splash, 2, 0));
 	tui.addChild(new DynamicText((w) => boldColor(`╰${"─".repeat(Math.max(0, w - 2))}╯`, t.accentFg)));
 
+	// ── Chat container ────────────────────────────────────────────────────
 	const chat = new Container();
 	tui.addChild(chat);
 
+	// ── ConsoleZone ───────────────────────────────────────────────────────
 	const consoleZone = new ConsoleZone(tui, t, opts.modelId);
 	consoleZone.mount();
 	const { editor } = consoleZone;
 
-	// History autocomplete: up-arrow cycles history; ghost text appears for prefix matches.
 	const historyProvider = new HistoryAutocompleteProvider();
 	if (editor.setAutocompleteProvider) {
 		editor.setAutocompleteProvider(historyProvider);
 	}
 
-	//
-	// Each LLM generation phase gets its own streamingSegment. When tool calls
-	// start (sealStreamingSegment), the current container is frozen in place so it
-	// stays visible while tool lines are added below it. The next generation
-	// creates a fresh container below the tool lines — correct chronological order.
-	//
-	// clearStreamingSegments() removes all accumulated live containers at turn end
-	// (the final formatted reply then takes their place).
+	// ── Agent block + streaming zone ──────────────────────────────────────
+	const agentBlock = new AgentBlock(chat);
+	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender());
 
-	const streamingSegments: Container[] = [];
-	let streamingSegment: Container | null = null;
-
-	// Agent pill cap — wraps the entire agent turn (tool calls + reply).
-	let agentPillOpen = false;
-	// Inner Box for agent turn content — holds tool lines and streaming segments.
-	// Provides background contrast when agentBg is set in the active theme.
-	let agentContentBox: Box | null = null;
-
-	function openAgentPill(): void {
-		if (agentPillOpen) return;
-		agentPillOpen = true;
-		const th = getTheme();
-		const hasBg = th.agentBg.truecolor || th.agentBg.ansi256 !== undefined || th.agentBg.ansi16 !== undefined;
-		const agentBgFn = hasBg ? (s: string) => bg(s, th.agentBg) : null;
-		chat.addChild(new Spacer(1));
-		// Header carries the same background as the body for a coherent block.
-		const header = agentBgFn
-			? new DynamicText((w) => agentBgFn(color(pillHeaderStr(AGENT_LABEL, w), th.agentFg)))
-			: new DynamicText((w) => color(pillHeaderStr(AGENT_LABEL, w), th.agentFg));
-		chat.addChild(header);
-		agentContentBox = agentBgFn ? new Box(2, 0, agentBgFn) : new Box(2, 0);
-		chat.addChild(agentContentBox);
-		// Store bgFn on the pill so closeAgentPill can apply it to the footer.
-		// We capture it in the closure via agentBgFn; closeAgentPill reads the saved ref.
-		_agentBgFn = agentBgFn;
-	}
-
-	let _agentBgFn: ((s: string) => string) | null = null;
-
-	function closeAgentPill(): void {
-		if (!agentPillOpen) return;
-		agentPillOpen = false;
-		agentContentBox = null;
-		const th = getTheme();
-		const savedBgFn = _agentBgFn;
-		const footer = savedBgFn
-			? new DynamicText((w) => savedBgFn(color(pillFooterStr(w), th.agentFg)))
-			: new DynamicText((w) => color(pillFooterStr(w), th.agentFg));
-		chat.addChild(footer);
-		_agentBgFn = null;
-	}
-
-	/** Route content to the agent Box when the pill is open, otherwise to chat. */
-	function agentChild(component: import("@dpopsuev/alef-tui").Component): void {
-		(agentContentBox ?? chat).addChild(component);
-	}
-	function removeAgentChild(component: import("@dpopsuev/alef-tui").Component): void {
-		(agentContentBox ?? chat).removeChild(component);
-	}
-	let streamingMarkdownNode: Markdown | null = null;
-	let streamingThinkNode: Text | null = null;
-	let thinkingStartedAt = 0; // ms timestamp when first thinking chunk arrived
-
-	// Both reply text and thinking are paced by a Typewriter for smooth letter-by-letter reveal.
-	// Tick rate matches TUI.MIN_RENDER_INTERVAL_MS (16ms = 60fps) so every tick maps to one frame.
-	const replyTypewriter = new Typewriter({ setText: (t) => streamingMarkdownNode?.setText(t) }, () =>
-		tui.requestRender(),
-	);
-	const thinkTypewriter = new Typewriter({ setText: (t) => streamingThinkNode?.setText(italic(dim(t))) }, () =>
-		tui.requestRender(),
-	);
-
-	function openStreamingSegment(): Container {
-		if (!streamingSegment) {
-			streamingSegment = new Container();
-			streamingSegments.push(streamingSegment);
-			agentChild(streamingSegment);
-		}
-		return streamingSegment;
-	}
-
-	let _totalChunksReceived = 0; // debug counter, reset per turn
-	function receiveTextChunk(chunk: string): void {
-		consoleZone.pulse();
-		openAgentPill(); // open @alef pill on first text chunk of the turn
-		const box = openStreamingSegment();
-		if (!streamingMarkdownNode) {
-			streamingMarkdownNode = new Markdown("", 2, 0, makeMarkdownTheme());
-			box.addChild(streamingMarkdownNode);
-			// Always trace — fires once per streaming segment, negligible overhead.
-			trace("receiveTextChunk:first", { markdownNode: true });
-		}
-		_totalChunksReceived++;
-		replyTypewriter.receive(chunk);
-	}
-
-	function receiveThinkingChunk(chunk: string): void {
-		consoleZone.pulse();
-		const box = openStreamingSegment();
-		if (!streamingThinkNode) {
-			thinkingStartedAt = Date.now();
-			const t = getTheme();
-			box.addChild(new Text(color(dim("┊ thinking"), t.dimFg), 2, 0));
-			streamingThinkNode = new Text("", 2, 0);
-			box.addChild(streamingThinkNode);
-		}
-		thinkTypewriter.receive(chunk);
-	}
-
-	// Seal the current generation's container so tool call lines go below it.
-	// Called when the first tool call fires (generation phase ended).
-	function sealStreamingSegment(): void {
-		trace("sealStreamingSegment", {
-			chunks: _totalChunksReceived,
-			markdownNode: streamingMarkdownNode !== null,
-			pending: replyTypewriter.pendingText.length,
-		});
-		_totalChunksReceived = 0;
-		// Reply (Markdown): instant flush — Markdown manages its own colors, fade not possible.
-		replyTypewriter.flush();
-		replyTypewriter.reset();
-
-		// Thinking (Text node): collapse to a compact one-liner at turn end.
-		//
-		// During streaming the user sees thinking text reveal in real time (Pi
-		// pattern). At seal time we swap the full streamed content for a compact
-		// "thought for Xs (N lines)" label so the reply is never pushed off-screen
-		// by thousands of thinking chars (58s ≈ 10k chars ≈ 100+ rendered lines).
-		const thinkNode = streamingThinkNode;
-		const pendingThinking = thinkTypewriter.pendingText;
-		thinkTypewriter.flush();
-		thinkTypewriter.reset();
-		if (thinkNode) {
-			const elapsedS = thinkingStartedAt > 0 ? Math.round((Date.now() - thinkingStartedAt) / 1000) : 0;
-			const lineCount = pendingThinking ? pendingThinking.split("\n").length : 0;
-			const th = getTheme();
-			const label =
-				elapsedS > 0
-					? `thought for ${elapsedS}s (${lineCount} lines)`
-					: lineCount > 0
-						? `thought (${lineCount} lines)`
-						: "";
-			thinkNode.setText(label ? color(dim(label), th.dimFg) : "");
-			thinkingStartedAt = 0;
-		}
-
-		// Remove the container from chat if it never received any content.
-		// An empty Container renders as zero lines but can perturb clearOnShrink
-		// and produces a blank gap in the layout (ALE-BUG-7).
-		if (streamingSegment && !streamingMarkdownNode && !streamingThinkNode) {
-			removeAgentChild(streamingSegment);
-			const idx = streamingSegments.indexOf(streamingSegment);
-			if (idx >= 0) streamingSegments.splice(idx, 1);
-		}
-
-		streamingSegment = null;
-		streamingMarkdownNode = null;
-		streamingThinkNode = null;
-	}
-
-	// Remove all accumulated live containers (abort / error path only).
-	function clearStreamingSegments(): void {
-		replyTypewriter.reset();
-		thinkTypewriter.reset();
-		for (const c of streamingSegments) removeAgentChild(c);
-		streamingSegments.length = 0;
-		streamingSegment = null;
-		streamingMarkdownNode = null;
-		streamingThinkNode = null;
-		thinkingStartedAt = 0;
-	}
-
-	const activeCalls = new Map<string, { text: Text; name: string; keyArg: string }>();
-	let pendingTokenFooter: Text | null = null;
+	// ── Tool call tracking ────────────────────────────────────────────────
+	const activeCalls = new Map<string, { text: { setText(s: string): void }; name: string; keyArg: string }>();
+	let pendingTokenFooter: { setText(s: string): void } | null = null;
 
 	if (toolSlot) {
 		toolSlot.onToolStart = ({ callId, name, args }) => {
 			consoleZone.pulse();
-			openAgentPill(); // open @alef pill on first tool call of the turn
-			sealStreamingSegment(); // freeze current generation block; tool lines go below it
+			agentBlock.start();
+			streamingZone.seal();
 			const keyArg = keyArgFromPayload(args);
 			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
 			activeCalls.set(callId, { text: line, name, keyArg });
-			agentChild(line);
+			agentBlock.addContent(line);
 			tui.requestRender();
 		};
+
 		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display, displayKind }) => {
 			const entry = activeCalls.get(callId);
 			if (entry) {
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok));
 				activeCalls.delete(callId);
-				// Prefer organ-supplied human display over raw JSON fallback.
 				const snippet = display ?? result;
 				if (snippet?.trim()) {
-					if (displayKind === "text/x-diff") {
-						// Colored unified diff — rendered with raw ANSI, not Markdown.
-						agentChild(new Text(renderDiffDisplay(snippet), 3, 0));
-					} else {
-						// text/plain or unknown — render through Markdown so **bold** and
-						// inline formatting in display strings (e.g. "Read **path**") work.
-						const truncated = truncateToolOutput(snippet);
-						agentChild(new Markdown(truncated, 3, 0, makeToolOutputMarkdownTheme()));
-					}
+					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind));
 				}
 				tui.requestRender();
 			}
 		};
+
 		toolSlot.onTokenUsage = ({ input, output }) => {
-			const footer = dim(`${compact(input)} in · ${compact(output)} out`);
 			if (pendingTokenFooter) {
-				pendingTokenFooter.setText(footer);
+				pendingTokenFooter.setText(formatTokenUsage(input, output));
 				pendingTokenFooter = null;
 				tui.requestRender();
 			}
 		};
 
-		toolSlot.receiveTextChunk = (chunk) => receiveTextChunk(chunk);
-		toolSlot.receiveThinkingChunk = (chunk) => receiveThinkingChunk(chunk);
+		toolSlot.receiveTextChunk = (chunk) => {
+			consoleZone.pulse();
+			agentBlock.start();
+			streamingZone.receiveText(chunk);
+		};
+
+		toolSlot.receiveThinkingChunk = (chunk) => {
+			consoleZone.pulse();
+			streamingZone.receiveThinking(chunk);
+		};
 	}
 
+	// ── Input handling ────────────────────────────────────────────────────
 	let abortCurrentTurn: (() => void) | undefined;
 
 	const ctx = (): TuiHandlerContext => ({
@@ -619,15 +300,13 @@ export async function runTuiMode(
 			return;
 		}
 		editor.addToHistory(text);
-
 		if (abortCurrentTurn) {
 			abortCurrentTurn();
 			abortCurrentTurn = undefined;
 		}
-
 		editor.setText("");
-		historyProvider.addEntry(text); // record for ghost-text autocomplete
-		agentPillOpen = false; // reset pill state for the new turn
+		historyProvider.addEntry(text);
+		agentBlock.reset(); // clear pill state for the new turn
 		appendUserMsg(chat, text);
 		consoleZone.startThinking();
 		tui.requestRender();
@@ -643,32 +322,27 @@ export async function runTuiMode(
 		try {
 			await dialog.send(text, "human", 300_000);
 			if (!aborted) {
-				replyTypewriter.markStreamDone();
-				thinkTypewriter.markStreamDone();
+				streamingZone.replyTypewriter.markStreamDone();
+				streamingZone.thinkTypewriter.markStreamDone();
 				if (!aborted) {
-					// Seal and stop-thinking atomically before the force render.
-					// stopThinking() before seal clears the ConsoleZone status text,
-					// triggering a stale render that shows an empty box before the
-					// reply content reaches the DOM (ALE-BUG-7).
-					sealStreamingSegment();
+					// Seal before stopThinking to avoid the empty-box flash (ALE-BUG-7).
+					streamingZone.seal();
 					consoleZone.stopThinking();
 					const tokenText = new Text("", 1, 0);
-					chat.addChild(tokenText);
+					agentBlock.addContent(tokenText);
 					pendingTokenFooter = tokenText;
-					closeAgentPill(); // close @alef pill after reply + token footer
+					agentBlock.end();
 					tui.requestRender(true);
 				}
 			}
 		} catch (e) {
 			consoleZone.stopThinking();
-			clearStreamingSegments();
-			// Drain in-flight tool spinner entries so no ghost lines survive the turn.
-			// onToolEnd never fires for calls aborted mid-turn (ALE-BUG-16).
+			streamingZone.clear();
 			for (const [, entry] of activeCalls) {
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, 0, false));
 			}
 			activeCalls.clear();
-			closeAgentPill(); // close pill even on error/abort
+			agentBlock.end();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
 			tui.requestRender();
 		} finally {
@@ -678,22 +352,18 @@ export async function runTuiMode(
 		}
 	};
 
-	// Modal input: Escape → normal mode, i/a/A/I/o/O → insert mode.
+	// ── Modal input (Escape → normal mode) ────────────────────────────────
 	const modal = new ModalInputHandler(
 		editor,
 		(mode) => {
-			// Show mode indicator in ConsoleZone when not thinking.
 			if (!consoleZone.isThinking) {
-				const indicator = mode === "normal" ? dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`) : "";
-				consoleZone.setStatus(indicator);
+				consoleZone.setStatus(mode === "normal" ? dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`) : "");
 			}
 			tui.requestRender();
 		},
 		(hint) => {
-			// Which-key hint: show after 600ms idle in normal mode (TSK-213).
 			if (!consoleZone.isThinking) {
-				const text = hint ? dim(hint) : dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`);
-				consoleZone.setStatus(hint ? text : dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`));
+				consoleZone.setStatus(hint ? dim(hint) : dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`));
 			}
 			tui.requestRender();
 		},

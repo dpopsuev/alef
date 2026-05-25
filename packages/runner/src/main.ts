@@ -44,7 +44,7 @@ import { buildSystemPrompt } from "./prompt.js";
 import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
-import { detectDark, readAlacrittyOpacity } from "./terminal-bg.js";
+import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
 import { runTuiMode } from "./tui-mode.js";
 import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
@@ -310,12 +310,16 @@ if (args.serve !== undefined) {
 agent.validate();
 await agent.ready();
 const opacity = cfg.theme?.background_opacity ?? readAlacrittyOpacity();
-const isDark = await detectDark(opacity);
+const [isDark, terminalPalette] = await Promise.all([
+	detectDark(opacity),
+	queryPalette(Array.from({ length: 10 }, (_, i) => i + 5)), // slots 5-14
+]);
 loadTheme(
 	blueprintPath ? new URL("..", `file://${blueprintPath}`).pathname : undefined,
 	cfg.theme?.name,
 	cfg.theme?.colors,
 	isDark,
+	terminalPalette,
 );
 
 if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {

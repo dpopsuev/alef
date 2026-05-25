@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { ColorToken, ThemeTokens } from "./theme.js";
-import { BUILT_IN_THEMES, setTheme, setThemeByName } from "./theme.js";
+import { BUILT_IN_THEMES, buildTerminalTheme, setTheme, setThemeByName } from "./theme.js";
 
 interface ThemeManifest {
 	theme?: string;
@@ -32,6 +32,8 @@ export function loadTheme(
 	cfgThemeName?: string,
 	cfgColors?: Record<string, string>,
 	isDark = true,
+	/** Terminal palette from OSC 4 queries — used to enrich the terminal theme with real colors. */
+	terminalPalette: Record<number, string> = {},
 ): void {
 	// Priority: blueprint agent.yaml > ~/.config/alef/theme.yaml > config.yaml theme section
 	const candidates = [
@@ -49,7 +51,14 @@ export function loadTheme(
 	// OSC 11 detection in detectDark() already ran before this call.
 	const defaultTheme = isDark ? "terminal" : "terminal-light";
 	const baseName = manifest?.theme ?? cfgThemeName ?? defaultTheme;
-	setThemeByName(baseName);
+
+	// When using the terminal theme, replace the static defaults with a live
+	// theme built from the actual terminal palette colors (OSC 4 query).
+	if ((baseName === "terminal" || baseName === "terminal-light") && Object.keys(terminalPalette).length > 0) {
+		setTheme(buildTerminalTheme(terminalPalette));
+	} else {
+		setThemeByName(baseName);
+	}
 
 	const allColors: Record<string, string> = { ...cfgColors, ...manifest?.colors };
 	if (Object.keys(allColors).length === 0) return;

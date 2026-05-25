@@ -134,6 +134,81 @@ export function detectDarkSync(opacity?: number): boolean {
 // Alacritty opacity reader — reads opacity from alacritty.toml if available
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// OSC 4 terminal palette query
+// ---------------------------------------------------------------------------
+
+/**
+ * Query the terminal's actual RGB values for a set of ANSI color slots via OSC 4.
+ *
+ * OSC 4 format: \x1b]4;N;?\x07 — terminal replies \x1b]4;N;rgb:RRRR/GGGG/BBBB\x07
+ *
+ * Sends all queries at once, collects responses until all slots are answered
+ * or the timeout fires. Returns a map of { slot: "#rrggbb" }.
+ *
+ * Skips in non-TTY contexts and under multiplexers (tmux/screen intercept OSC).
+ */
+export async function queryPalette(slots: readonly number[], timeoutMs = 200): Promise<Record<number, string>> {
+	if (!process.stdin.isTTY || !process.stdout.isTTY) return {};
+	const term = process.env.TERM ?? "";
+	if (term.startsWith("tmux") || term.startsWith("screen")) return {};
+	if (slots.length === 0) return {};
+
+	return new Promise((resolve) => {
+		const stdin = process.stdin as NodeJS.ReadStream & { isRaw?: boolean };
+		const wasRaw = stdin.isRaw ?? false;
+		const result: Record<number, string> = {};
+		const pending = new Set(slots);
+		let settled = false;
+
+		const finish = (): void => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			stdin.off("data", onData);
+			try {
+				if (!wasRaw) stdin.setRawMode(false);
+			} catch {
+				/* ignore */
+			}
+			resolve(result);
+		};
+
+		const timer = setTimeout(finish, timeoutMs);
+
+		let buf = "";
+		const onData = (chunk: Buffer): void => {
+			buf += chunk.toString();
+			// Parse any complete OSC 4 responses in the buffer.
+			// Format: \x1b]4;N;rgb:RRRR/GGGG/BBBB\x07
+			const re = /\x1b\]4;(\d+);rgb:([\da-fA-F]+)\/([\da-fA-F]+)\/([\da-fA-F]+)[\x07\x1b\\]/g;
+			for (;;) {
+				const m = re.exec(buf);
+				if (!m) break;
+				const slot = Number(m[1]);
+				const scale = (m[2]?.length ?? 2) <= 2 ? 255 : 65535;
+				const r = Math.round((parseInt(m[2] ?? "0", 16) / scale) * 255);
+				const g = Math.round((parseInt(m[3] ?? "0", 16) / scale) * 255);
+				const b = Math.round((parseInt(m[4] ?? "0", 16) / scale) * 255);
+				result[slot] =
+					`#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+				pending.delete(slot);
+			}
+			if (pending.size === 0) finish();
+		};
+
+		try {
+			stdin.setRawMode(true);
+			stdin.resume();
+			stdin.on("data", onData);
+			// Send all queries in one write to minimize round-trips.
+			process.stdout.write(slots.map((n) => `\x1b]4;${n};?\x07`).join(""));
+		} catch {
+			finish();
+		}
+	});
+}
+
 export function readAlacrittyOpacity(): number | undefined {
 	const candidates = [
 		`${process.env.XDG_CONFIG_HOME ?? `${process.env.HOME ?? ""}/.config`}/alacritty/alacritty.toml`,

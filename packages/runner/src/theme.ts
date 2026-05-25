@@ -274,6 +274,58 @@ export function spinnerFrames(count = 12): string[] {
 	return pool.slice(0, count);
 }
 
+/**
+ * Build a TERMINAL theme variant enriched with the user's actual terminal
+ * palette colors from OSC 4 queries.
+ *
+ * Slot → semantic role mapping:
+ *   13 bright magenta → userFg / accentFg
+ *    5 dark magenta   → userBg  (as fg code; bg() applies the +10 offset)
+ *   14 bright cyan    → agentFg
+ *    6 dark cyan      → agentBg
+ *   12 bright blue    → toolNameFg
+ *    8 bright black   → dimFg / toolArgFg / timeFg
+ *   10 bright green   → toolOkFg / okFg
+ *    9 bright red     → toolErrFg / errFg
+ *   11 bright yellow  → warnFg
+ *    7 light gray     → modelFg
+ *
+ * When a slot's truecolor is known, it is stored alongside the ansi16 fallback
+ * so fgCode() / bg() can use it on truecolor-capable terminals.
+ */
+export function buildTerminalTheme(palette: Record<number, string>): ThemeTokens {
+	const tok = (slot: number, ansi16: number): ColorToken => {
+		const truecolor = palette[slot];
+		return truecolor ? { truecolor, ansi16 } : { ansi16 };
+	};
+	// Background slots: the ansi16 bg codes are fg+10, but ColorToken.ansi16
+	// stores the raw background code (40-47) directly — bg() never adds 10.
+	const bgTok = (slot: number, bgCode: number): ColorToken => {
+		const truecolor = palette[slot];
+		return truecolor ? { truecolor, ansi16: bgCode } : { ansi16: bgCode };
+	};
+	return {
+		userFg: tok(13, 95), // bright magenta
+		userBg: bgTok(5, 45), // dark magenta bg
+		agentBg: bgTok(6, 40), // dark cyan bg
+		agentFg: tok(14, 96), // bright cyan
+		toolNameFg: tok(12, 34), // bright blue (ansi16=34 = dark blue; some terms map bright blue)
+		toolArgFg: tok(8, 90), // bright black
+		toolOkFg: tok(10, 32), // bright green
+		toolErrFg: tok(9, 31), // bright red
+		accentFg: tok(13, 95), // same as userFg
+		dimFg: tok(8, 90), // bright black
+		okFg: tok(10, 32), // bright green
+		warnFg: tok(11, 33), // bright yellow
+		errFg: tok(9, 31), // bright red
+		timeFg: tok(8, 90), // bright black
+		modelFg: tok(7, 37), // light gray
+	};
+}
+
+/** Palette slots queried at startup to build the terminal theme. */
+export const TERMINAL_PALETTE_SLOTS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14] as const;
+
 export function setThemeByName(name: string): void {
 	const t = BUILT_IN_THEMES[name.toLowerCase()];
 	if (!t) {

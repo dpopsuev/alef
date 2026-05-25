@@ -50,14 +50,15 @@ export interface LLMOrganOptions {
 	/**
 	 * Called before the turn loop with the full message array from the payload.
 	 * Return a filtered/scored subset to use as the context window.
-	 *
-	 * This is the TurnAssembler integration point (ALE-SPC-15, ALE-TSK-179).
-	 * Until TurnAssembler is wired, leave undefined - all messages are used as-is.
-	 *
-	 * Replaces the deleted compact() function which bypassed the event bus
-	 * and mutated only the local message copy without updating DialogOrgan.history.
 	 */
 	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
+	/**
+	 * Track in-flight motor events from concurrent turns and inject a
+	 * "Pending operations" context block before each LLM call.
+	 * Only useful in HTTP/SSE mode where multiple turns run concurrently.
+	 * Default: false — zero overhead in sequential interactive mode.
+	 */
+	trackConcurrentOps?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -418,8 +419,34 @@ export function createLLMOrgan(options: LLMOrganOptions): Organ {
 	});
 }
 
+/** Entry tracked while a concurrent turn's tool call is in flight. */
+interface InflightEntry {
+	type: string;
+	correlationId: string;
+	startedAt: number;
+	keyArg: string;
+}
+
+const INFLIGHT_EXCLUDED = new Set(["dialog.message"]);
+
+function inflightKey(type: string, correlationId: string, toolCallId: string | undefined): string {
+	return `${type}::${correlationId}::${toolCallId ?? ""}`;
+}
+
+function pickKeyArg(payload: Record<string, unknown>): string {
+	for (const k of ["command", "path", "url", "pattern", "glob", "symbol", "query"]) {
+		const v = payload[k];
+		if (typeof v === "string" && v.length > 0) return v.slice(0, 80);
+	}
+	return "";
+}
+
 export class LLMOrgan {
 	private readonly organ: Organ;
+	private readonly options: LLMOrganOptions;
+	/** In-flight motor events from concurrent turns. Populated only when trackConcurrentOps=true. */
+	private readonly inflight = new Map<string, InflightEntry>();
+
 	readonly name = "llm";
 	readonly description = "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.";
 	readonly labels = ["llm", "reasoning", "ai"] as const;
@@ -433,16 +460,76 @@ export class LLMOrgan {
 			}),
 		},
 	} as const;
+
 	get subscriptions() {
-		return this.organ.subscriptions;
+		// When tracking concurrent ops, declare the wildcard subscriptions so
+		// agent.validate() sees them and Port validation passes.
+		const base = this.organ.subscriptions;
+		if (!this.options.trackConcurrentOps) return base;
+		return {
+			motor: [...base.motor, "*"] as readonly string[],
+			sense: [...base.sense, "*"] as readonly string[],
+		};
 	}
 
 	constructor(options: LLMOrganOptions) {
-		this.organ = createLLMOrgan(options);
+		this.options = options;
+		const wrappedOptions: LLMOrganOptions = options.trackConcurrentOps
+			? {
+					...options,
+					prepareStep: async (msgs: Message[]) => {
+						const afterUser = options.prepareStep ? await options.prepareStep(msgs) : msgs;
+						return this.applyInflightContext(afterUser as { role: string; content: string }[]) as Message[];
+					},
+				}
+			: options;
+		this.organ = createLLMOrgan(wrappedOptions);
+	}
+
+	private applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {
+		if (this.inflight.size === 0) return messages;
+		const now = Date.now();
+		const lines = [...this.inflight.values()].map((e) => {
+			const elapsed = Math.floor((now - e.startedAt) / 1000);
+			const corr = e.correlationId.slice(0, 8);
+			return `  - ${e.type} (${corr}, ${elapsed}s)${e.keyArg ? `: ${e.keyArg}` : ""}`;
+		});
+		const block = `\nPending operations:\n${lines.join("\n")}`;
+		const sysIdx = messages.findIndex((m) => m.role === "system");
+		if (sysIdx >= 0) {
+			const updated = [...messages] as T[];
+			updated[sysIdx] = { ...messages[sysIdx], content: messages[sysIdx].content + block };
+			return updated;
+		}
+		return [{ role: "system", content: block.trimStart() } as unknown as T, ...messages];
 	}
 
 	mount(nerve: Nerve): () => void {
-		return this.organ.mount(nerve);
+		const offOrgan = this.organ.mount(nerve);
+		if (!this.options.trackConcurrentOps) return offOrgan;
+
+		// Wire wildcard subscriptions for concurrent-ops tracking.
+		const offMotor = nerve.motor.subscribe("*", (event) => {
+			if (INFLIGHT_EXCLUDED.has(event.type)) return;
+			const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+			this.inflight.set(inflightKey(event.type, event.correlationId, toolCallId), {
+				type: event.type,
+				correlationId: event.correlationId,
+				startedAt: event.timestamp,
+				keyArg: pickKeyArg(event.payload),
+			});
+		});
+		const offSense = nerve.sense.subscribe("*", (event) => {
+			const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+			this.inflight.delete(inflightKey(event.type, event.correlationId, toolCallId));
+		});
+
+		return () => {
+			offOrgan();
+			offMotor();
+			offSense();
+			this.inflight.clear();
+		};
 	}
 }
 

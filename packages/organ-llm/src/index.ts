@@ -429,7 +429,7 @@ function waitForPhaseResult(
 			off();
 			const p = event.payload as PhaseResult;
 			resolve({
-				messages: Array.isArray(p.messages) ? (p.messages as Message[]) : undefined,
+				messages: Array.isArray(p.messages) ? p.messages : undefined,
 				skip: p.skip,
 				reply: p.reply,
 				abort: p.abort,

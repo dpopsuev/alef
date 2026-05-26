@@ -327,6 +327,7 @@ export async function runTuiMode(
 		editor.setText("");
 		historyProvider.addEntry(text);
 		agentBlock.reset(); // clear pill state for the new turn
+		consoleZone.hidePendingFooter(); // guard: clear any leftover footer from prior turn
 		appendUserMsg(chat, text, t);
 		consoleZone.startThinking();
 		tui.requestRender();
@@ -345,9 +346,11 @@ export async function runTuiMode(
 				streamingZone.replyTypewriter.markStreamDone();
 				streamingZone.thinkTypewriter.markStreamDone();
 				if (!aborted) {
+					// success path — hide the pending footer before landing real footer
 					// Seal before stopThinking to avoid the empty-box flash (ALE-BUG-7).
 					streamingZone.seal();
 					consoleZone.stopThinking();
+					consoleZone.hidePendingFooter();
 					const tokenText = new Text("", 1, 0);
 					agentBlock.addContent(tokenText);
 					pendingTokenFooter = tokenText;

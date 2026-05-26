@@ -64,6 +64,11 @@ export class VirtualTerminal implements Terminal {
 		return true;
 	}
 
+	get dec2026Active(): boolean {
+		// Virtual terminal always reports DEC 2026 as supported for testing
+		return true;
+	}
+
 	moveBy(lines: number): void {
 		if (lines > 0) {
 			// Move down

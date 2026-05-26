@@ -84,6 +84,8 @@ export class LoopGuard implements Organ {
 		this.totalCallThreshold = opts.totalCallThreshold ?? 40;
 		this.onLoop =
 			opts.onLoop ??
+			// Default writes to stderr — safe only before TUI starts.
+			// TUI callers must pass onLoop that routes through trace() instead.
 			((_, reason) => {
 				process.stderr.write(`\n[loop-detector] ${reason}\n`);
 			});

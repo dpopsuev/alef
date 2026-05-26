@@ -243,7 +243,8 @@ const { agent, dialog: _dialog } = AgentKernel.create({
 	session,
 	modelId: model.id,
 	onLoop: (_type, reason) => {
-		process.stderr.write(`\n[loop-detector] ${reason}\n`);
+		// Route through trace() not stderr — stderr violates the one-writer rule during TUI mode.
+		trace("loop:detected", { reason });
 		currentLLMController?.abort(new Error(`[loop-detector] ${reason}`));
 	},
 });

@@ -19,4 +19,6 @@ export interface ToolCallEnd {
 export interface TokenUsage {
 	input: number;
 	output: number;
+	/** Cumulative tokens in the context window for this LLM call (input + cached). */
+	totalTokens: number;
 }

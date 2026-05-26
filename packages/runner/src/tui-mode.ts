@@ -299,11 +299,28 @@ export async function runTuiMode(
 			}
 		};
 
-		toolSlot.onTokenUsage = ({ input, output }) => {
+		toolSlot.onTokenUsage = ({ input, output, totalTokens }) => {
 			if (pendingTokenFooter) {
 				pendingTokenFooter.setText(formatTokenUsage(input, output, t, Date.now() - turnStartedAt));
 				pendingTokenFooter = null;
 				tui.requestRender();
+			}
+			// Warn when context window is filling. The turn assembler drops old turns
+			// but its char/4 estimates can be optimistic; actual LLM input is the ground truth.
+			const cw = opts.contextWindow;
+			if (cw && totalTokens > 0) {
+				const fill = totalTokens / cw;
+				if (fill > 0.9) {
+					appendNotice(
+						chat,
+						`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${cw.toLocaleString()} tokens) — start a new session soon`,
+						t,
+					);
+					tui.requestRender();
+				} else if (fill > 0.75) {
+					appendNotice(chat, `context ${Math.round(fill * 100)}% full`, t);
+					tui.requestRender();
+				}
 			}
 		};
 

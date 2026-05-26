@@ -193,10 +193,11 @@ export async function runTuiMode(
 	// Read last frame: alef debug frame  (or: cat /tmp/alef-frames.jsonl | tail -1)
 	const frameFile = "/tmp/alef-frames.jsonl";
 	if (process.env.ALEF_DEBUG === "1") {
-		tui.onRender = (frame: string, width: number, height: number) => {
+		tui.onRender = (frame: string, width: number, _height: number) => {
 			try {
-				const record = JSON.stringify({ frame, width, height, ts: Date.now() });
-				appendFileSync(frameFile, record + "\n", "utf-8");
+				const meta = tui.renderMeta;
+				const record = JSON.stringify({ frame, width, ...meta });
+				appendFileSync(frameFile, `${record}\n`, "utf-8");
 			} catch {
 				// Never crash the TUI over debug I/O.
 			}
@@ -254,6 +255,7 @@ export async function runTuiMode(
 			agentBlock.start();
 			streamingZone.seal();
 			const keyArg = keyArgFromPayload(args);
+			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
 			const row = new ToolCallRow(name, keyArg, t);
 			activeCalls.set(callId, row);
 			agentBlock.addContent(row);
@@ -263,6 +265,13 @@ export async function runTuiMode(
 		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display, displayKind }) => {
 			const row = activeCalls.get(callId);
 			if (row) {
+				trace("tool:end", {
+					callId: callId.slice(0, 8),
+					name: row.name,
+					elapsedMs,
+					ok,
+					remainingActive: activeCalls.size - 1,
+				});
 				row.seal(elapsedMs, ok);
 				activeCalls.delete(callId);
 				const snippet = display ?? result;

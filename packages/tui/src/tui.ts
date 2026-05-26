@@ -106,6 +106,46 @@ export function isFocusable(component: Component | null): component is Component
  */
 export const CURSOR_MARKER = "\x1b_pi:c\x07";
 
+/**
+ * Render decision metadata — populated after every doRender() call.
+ * Read via TUI.renderMeta immediately after requestRender() resolves,
+ * or via the onRender callback's meta parameter (TODO: thread through).
+ *
+ * renderPath values:
+ *   first        — initial blank-screen write
+ *   width-change — terminal resized horizontally; full clear redraw
+ *   height-change— terminal resized vertically; full clear redraw
+ *   clear-shrink — content shrank below max rendered; full clear redraw
+ *   scrollback   — firstChanged < prevViewportTop; full clear redraw (scrollback risk)
+ *   deleted      — lines deleted and moved viewport up; full clear redraw
+ *   diff         — differential update; cursor moved to changed line and rewritten
+ *   append       — lines appended at end; cursor advanced, no upward movement
+ *   no-change    — virtual frame identical; only cursor repositioned
+ */
+export interface RenderMeta {
+	renderPath:
+		| "first"
+		| "width-change"
+		| "height-change"
+		| "clear-shrink"
+		| "scrollback"
+		| "deleted"
+		| "diff"
+		| "append"
+		| "no-change"
+		| "none";
+	/** Index of the first changed virtual line (-1 if none). */
+	firstChanged: number;
+	/** First virtual line index that is within the visible viewport. */
+	prevViewportTop: number;
+	/** Total virtual lines rendered. */
+	totalLines: number;
+	/** Terminal height in rows. */
+	height: number;
+	/** Date.now() when this render completed. */
+	ts: number;
+}
+
 export { visibleWidth };
 
 /**
@@ -266,6 +306,19 @@ export class TUI extends Container {
 	public onDebug?: () => void;
 	/** Called synchronously at the end of stop(). Use instead of monkey-patching stop(). */
 	public onStop?: () => void;
+	/**
+	 * Metadata emitted with every onRender call.
+	 * Identifies which doRender branch ran so instrumentation can distinguish
+	 * full-clear redraws (potential scrollback duplication) from differential updates.
+	 */
+	public renderMeta: RenderMeta = {
+		renderPath: "none",
+		firstChanged: -1,
+		prevViewportTop: 0,
+		totalLines: 0,
+		height: 0,
+		ts: 0,
+	};
 	/** Called after each render with the full rendered frame. Used for debug frame capture (ALEF_DEBUG=1). */
 	public onRender?: (frame: string, width: number, height: number) => void;
 	/** Called with every raw input byte before any other processing. Return true to consume and stop propagation. */
@@ -1042,6 +1095,20 @@ export class TUI extends Container {
 			this.onRender?.(newLines.join("\n"), width, height);
 		};
 
+		// Tag the render decision into this.renderMeta so onRender callers can inspect it.
+		// firstChanged and prevViewportTop may not be computed yet for early-exit branches;
+		// those sites pass their own values explicitly via the override params.
+		const tagRender = (path: RenderMeta["renderPath"], fcOverride = -1, vptOverride = prevViewportTop): void => {
+			this.renderMeta = {
+				renderPath: path,
+				firstChanged: fcOverride,
+				prevViewportTop: vptOverride,
+				totalLines: newLines.length,
+				height,
+				ts: Date.now(),
+			};
+		};
+
 		const debugRedraw = process.env.ALEF_DEBUG_REDRAW === "1";
 		const logRedraw = (reason: string): void => {
 			if (!debugRedraw) return;
@@ -1053,6 +1120,7 @@ export class TUI extends Container {
 		// First render - just output everything without clearing (assumes clean screen)
 		if (this.previousLines.length === 0 && !widthChanged && !heightChanged) {
 			logRedraw("first render");
+			tagRender("first");
 			fullRender(false);
 			return;
 		}
@@ -1060,6 +1128,7 @@ export class TUI extends Container {
 		// Width changes always need a full re-render because wrapping changes.
 		if (widthChanged) {
 			logRedraw(`terminal width changed (${this.previousWidth} -> ${width})`);
+			tagRender("width-change");
 			fullRender(true);
 			return;
 		}
@@ -1069,6 +1138,7 @@ export class TUI extends Container {
 		// In that environment, a full redraw causes the entire history to replay on every toggle.
 		if (heightChanged && !isTermuxSession()) {
 			logRedraw(`terminal height changed (${this.previousHeight} -> ${height})`);
+			tagRender("height-change");
 			fullRender(true);
 			return;
 		}
@@ -1078,6 +1148,7 @@ export class TUI extends Container {
 		// Configurable via setClearOnShrink() or ALEF_CLEAR_ON_SHRINK=0 env var
 		if (this.clearOnShrink && newLines.length < this.maxLinesRendered && this.overlayStack.length === 0) {
 			logRedraw(`clearOnShrink (maxLinesRendered=${this.maxLinesRendered})`);
+			tagRender("clear-shrink");
 			fullRender(true);
 			return;
 		}
@@ -1111,6 +1182,7 @@ export class TUI extends Container {
 
 		// No changes - but still need to update hardware cursor position if it moved
 		if (firstChanged === -1) {
+			tagRender("no-change", firstChanged);
 			this.positionHardwareCursor(cursorPos, newLines.length);
 			this.previousViewportTop = prevViewportTop;
 			this.previousHeight = height;
@@ -1126,6 +1198,7 @@ export class TUI extends Container {
 				const targetRow = Math.max(0, newLines.length - 1);
 				if (targetRow < prevViewportTop) {
 					logRedraw(`deleted lines moved viewport up (${targetRow} < ${prevViewportTop})`);
+					tagRender("deleted", firstChanged);
 					fullRender(true);
 					return;
 				}
@@ -1137,6 +1210,7 @@ export class TUI extends Container {
 				const extraLines = this.previousLines.length - newLines.length;
 				if (extraLines > height) {
 					logRedraw(`extraLines > height (${extraLines} > ${height})`);
+					tagRender("deleted", firstChanged);
 					fullRender(true);
 					return;
 				}
@@ -1168,12 +1242,14 @@ export class TUI extends Container {
 		// If the first changed line is above the previous viewport, we need a full redraw.
 		if (firstChanged < prevViewportTop) {
 			logRedraw(`firstChanged < viewportTop (${firstChanged} < ${prevViewportTop})`);
+			tagRender("scrollback", firstChanged);
 			fullRender(true);
 			return;
 		}
 
 		// Render from first changed line to end
 		// Build buffer with all updates wrapped in synchronized output
+		tagRender(appendStart ? "append" : "diff", firstChanged);
 		let buffer = "\x1b[?2026h"; // Begin synchronized output
 		buffer += this.deleteChangedKittyImages(firstChanged, lastChanged);
 		const prevViewportBottom = prevViewportTop + height - 1;

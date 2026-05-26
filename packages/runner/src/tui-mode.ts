@@ -376,8 +376,14 @@ export async function runTuiMode(
 			if (!aborted) {
 				streamingZone.replyTypewriter.markStreamDone();
 				streamingZone.thinkTypewriter.markStreamDone();
+				// Drain both typewriters at their natural frame rate before sealing.
+				// Without this, seal() calls flush() which dumps all pending chars in
+				// one frame — fast models (haiku) appear to hang then dump a block.
+				await Promise.all([
+					streamingZone.replyTypewriter.whenDrained(),
+					streamingZone.thinkTypewriter.whenDrained(),
+				]);
 				if (!aborted) {
-					// success path — hide the pending footer before landing real footer
 					// Seal before stopThinking to avoid the empty-box flash (ALE-BUG-7).
 					streamingZone.seal();
 					consoleZone.stopThinking();

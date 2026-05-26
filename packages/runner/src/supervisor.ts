@@ -24,7 +24,7 @@
  *   ALEF_SUPERVISOR_AUTO_REBUILD_ON_START "0" to skip initial rebuild
  */
 
-import { type ChildProcess, exec as execCb, spawn } from "node:child_process";
+import { type ChildProcess, exec as execCb, type Serializable, spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { promisify } from "node:util";
 
@@ -222,7 +222,7 @@ function handleGreenMessage(msg: unknown): void {
 process.on("message", (msg: unknown) => {
 	// Forward to current green (which bridges to the runner).
 	if (current?.connected) {
-		current.send(msg as import("node:child_process").Serializable);
+		current.send(msg as Serializable);
 	}
 });
 

@@ -51,9 +51,9 @@ export default tseslint.config(
 				assertionStyle: "as",
 				objectLiteralTypeAssertions: "allow-as-parameter",
 			}],
-			// Inline dynamic imports are banned by AGENTS.md, but this rule fires
-			// on valid module() patterns too — handled by Biome useImportType.
-			"@typescript-eslint/consistent-type-imports": "off",
+			// Enforce top-level imports — no import("pkg").Type in type positions (AGENTS.md).
+			"@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "inline-type-imports" }],
+			"@typescript-eslint/no-import-type-side-effects": "error",
 			// Empty interfaces are used for future extension points — Biome checks this.
 			"@typescript-eslint/no-empty-object-type": "off",
 			// Unbound methods are intentional in EDA subscriber patterns.

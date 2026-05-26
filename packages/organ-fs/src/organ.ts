@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { Stats } from "node:fs";
 import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
 import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
@@ -394,7 +395,7 @@ async function handleEdit(
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 
 	// Existence check first — ENOENT surfaces before the tracker guard.
-	let fileStat: import("node:fs").Stats;
+	let fileStat: Stats;
 	try {
 		fileStat = await import("node:fs/promises").then((m) => m.stat(absolutePath));
 	} catch (err) {

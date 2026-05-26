@@ -54,10 +54,6 @@ export interface PortValidationResult {
  * Override or extend for custom agent topologies.
  */
 export const STANDARD_PORTS: PortDefinition[] = [
-	// reasoning seam removed: the trigger event is configurable on the Reasoner
-	// (triggerEvent option, default: dialog.message). Any sense event can activate
-	// a reasoning turn — hardcoding dialog.message here would reject autonomous
-	// agents that use git.push, cron.tick, metric.alert, etc. as their trigger.
 	{
 		name: "llm_execution",
 		eventPattern: "motor/llm.phase",

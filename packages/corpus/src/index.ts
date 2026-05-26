@@ -8,10 +8,12 @@ import {
 	type PortDefinition,
 	PortValidationError,
 	type SenseEvent,
+	type SensePublishInput,
 	STANDARD_PORTS,
 	type ToolDefinition,
 	validatePorts,
 } from "@dpopsuev/alef-spine";
+import type { ZodTypeAny } from "zod";
 
 // ---------------------------------------------------------------------------
 // Payload validation — enforces organ-to-organ bus contracts in non-production.
@@ -32,7 +34,7 @@ function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
 
 	const validate = (
 		busLabel: "motor" | "sense",
-		schemas: Readonly<Record<string, import("zod").ZodTypeAny>> | undefined,
+		schemas: Readonly<Record<string, ZodTypeAny>> | undefined,
 		event: NerveEvent,
 	) => {
 		const schema = schemas?.[event.type];
@@ -150,7 +152,7 @@ export class Agent {
 	 * Used by autonomous-agent test harnesses to trigger the Reasoner
 	 * without going through DialogOrgan.send().
 	 */
-	publishSense(event: import("@dpopsuev/alef-spine").SensePublishInput): void {
+	publishSense(event: SensePublishInput): void {
 		this.nerve.publishSense(event);
 	}
 
@@ -158,7 +160,7 @@ export class Agent {
 	 * Subscribe to a motor event published by the agent.
 	 * Returns an unsubscribe function.
 	 */
-	subscribeMotor(type: string, callback: (event: import("@dpopsuev/alef-spine").MotorEvent) => void): () => void {
+	subscribeMotor(type: string, callback: (event: MotorEvent) => void): () => void {
 		return this.nerve.asNerve().motor.subscribe(type, callback);
 	}
 

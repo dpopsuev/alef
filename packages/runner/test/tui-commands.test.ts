@@ -11,18 +11,13 @@
  */
 
 import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
-import { Container, Text } from "@dpopsuev/alef-tui";
+import { Container } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import { getTheme } from "../src/theme.js";
+import { ToolCallRow } from "../src/tui/tool-view.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
-import {
-	handleCtrlC,
-	handleSlashCommand,
-	renderHeaderTopBorder,
-	renderToolLine,
-	truncateToolOutput,
-} from "../src/tui-mode.js";
+import { handleCtrlC, handleSlashCommand, renderHeaderTopBorder, truncateToolOutput } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Fake context factory
@@ -331,28 +326,25 @@ describe("handleSlashCommand /logout", () => {
 
 describe("activeCalls drained on turn abort (ALE-BUG-16)", () => {
 	it("abort path marks in-flight calls as failed and clears the map", () => {
-		const chat = new Container();
-		const activeCalls = new Map<string, { text: Text; name: string }>();
+		const t = getTheme();
+		const activeCalls = new Map<string, ToolCallRow>();
 
 		function onToolStart(e: ToolCallStart): void {
-			const line = new Text(renderToolLine(e.name, "", 0, null as unknown as boolean, getTheme()), 1, 0);
-			chat.addChild(line);
-			activeCalls.set(e.callId, { text: line, name: e.name });
+			const row = new ToolCallRow(e.name, "", t);
+			activeCalls.set(e.callId, row);
 		}
 
 		function onToolEnd(e: ToolCallEnd): void {
-			const entry = activeCalls.get(e.callId);
-			if (entry) {
-				entry.text.setText(renderToolLine(entry.name, "", e.elapsedMs, e.ok, getTheme()));
+			const row = activeCalls.get(e.callId);
+			if (row) {
+				row.seal(e.elapsedMs, e.ok);
 				activeCalls.delete(e.callId);
 			}
 		}
 
 		function abortPath(): void {
-			for (const [callId, entry] of activeCalls) {
-				entry.text.setText(renderToolLine(entry.name, "", 0, false, getTheme()));
-				activeCalls.delete(callId);
-			}
+			for (const row of activeCalls.values()) row.seal(0, false);
+			activeCalls.clear();
 		}
 
 		onToolStart({ callId: "tc-1", name: "fs.read", args: { path: "a.ts" } });

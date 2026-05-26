@@ -27,13 +27,7 @@ import { AgentBlock, appendNotice, appendUserMsg } from "./tui/chat-view.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
-import {
-	formatTokenUsage,
-	keyArgFromPayload,
-	makeToolOutputComponent,
-	renderToolLine,
-	toolActiveLine,
-} from "./tui/tool-view.js";
+import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent, ToolCallRow } from "./tui/tool-view.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
 // Re-export primitives still used by tests and tui-commands.test.ts
@@ -241,7 +235,9 @@ export async function runTuiMode(
 	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender(), t, trace);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
-	const activeCalls = new Map<string, { text: { setText(s: string): void }; name: string; keyArg: string }>();
+	// Each entry is a live ToolCallRow component owned by the agentBlock.
+	// While sealed=false, the row re-renders every TUI frame showing live elapsed time.
+	const activeCalls = new Map<string, ToolCallRow>();
 	let pendingTokenFooter: { setText(s: string): void } | null = null;
 
 	// Show pending footer whenever the agent block opens, matching its colours.
@@ -258,22 +254,18 @@ export async function runTuiMode(
 			agentBlock.start();
 			streamingZone.seal();
 			const keyArg = keyArgFromPayload(args);
-			const line = new Text(toolActiveLine(name, keyArg, t), 1, 0);
-			activeCalls.set(callId, { text: line, name, keyArg });
-			agentBlock.addContent(line);
+			const row = new ToolCallRow(name, keyArg, t);
+			activeCalls.set(callId, row);
+			agentBlock.addContent(row);
 			tui.requestRender();
 		};
 
 		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display, displayKind }) => {
-			const entry = activeCalls.get(callId);
-			if (entry) {
-				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok, t));
+			const row = activeCalls.get(callId);
+			if (row) {
+				row.seal(elapsedMs, ok);
 				activeCalls.delete(callId);
 				const snippet = display ?? result;
-				// Debug: verify display propagation (remove after testing)
-				if (process.env.ALEF_DEBUG_TOOLS) {
-					trace("tool:display", { name: entry.name, hasDisplay: !!display, hasResult: !!result, displayKind });
-				}
 				if (snippet?.trim()) {
 					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind, t));
 				}
@@ -381,9 +373,7 @@ export async function runTuiMode(
 			consoleZone.stopThinking();
 			consoleZone.hidePendingFooter();
 			streamingZone.clear();
-			for (const [, entry] of activeCalls) {
-				entry.text.setText(renderToolLine(entry.name, entry.keyArg, 0, false, t));
-			}
+			for (const row of activeCalls.values()) row.seal(0, false);
 			activeCalls.clear();
 			agentBlock.end();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`, t);

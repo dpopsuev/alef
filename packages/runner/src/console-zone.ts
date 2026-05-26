@@ -90,6 +90,7 @@ export class ConsoleZone {
 
 	private readonly inFlightQueue = new Container();
 	private readonly inFlightCalls = new Map<string, { dt: DynamicText; startedAt: number }>();
+	private hintBar!: Text;
 
 	constructor(tui: TUI, t: ThemeTokens, modelId: string) {
 		this.tui = tui;
@@ -134,7 +135,8 @@ export class ConsoleZone {
 		this.tui.addChild(this.inFlightQueue);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(new ArcEditorWrapper(this.editor, (s) => color(s, this.t.dimFg)));
-		this.tui.addChild(new DynamicText((_w) => dim("/exit · /new · /resume · /help")));
+		this.hintBar = new Text(dim("/exit · /new · /resume · /help"), 0, 0);
+		this.tui.addChild(this.hintBar);
 		this.tui.addChild(new Text(dim(this._modelId), 0, 0));
 	}
 
@@ -164,12 +166,14 @@ export class ConsoleZone {
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
 		};
 		this.thinkingTimer = setTimeout(tick, pressureToInterval(0));
+		this.hintBar.setText(""); // Hick's Law: hide hints during agent turn
 	}
 
 	stopThinking(): void {
 		clearTimeout(this.thinkingTimer);
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");
+		this.hintBar.setText(dim("/exit \u00b7 /new \u00b7 /resume \u00b7 /help"));
 	}
 
 	setStatus(text: string): void {

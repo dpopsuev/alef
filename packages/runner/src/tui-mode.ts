@@ -345,6 +345,13 @@ export async function runTuiMode(
 			handleCtrlC(ctx());
 			return true;
 		}
+		if (matchesKey(data, "ctrl+t")) {
+			const next = !streamingZone.hideThinking;
+			streamingZone.setHideThinking(next);
+			appendNotice(chat, next ? "Thinking: hidden" : "Thinking: visible", t);
+			tui.requestRender();
+			return true;
+		}
 		return false;
 	};
 

@@ -26,7 +26,9 @@ export class StreamingZone {
 	private thinkHeaderNode: Text | null = null;
 
 	private thinkingStartedAt = 0;
-	private _chunksReceived = 0; // debug counter, reset per seal
+	private _chunksReceived = 0;
+	private _hideThinking: boolean;
+	private readonly requestRender: () => void;
 
 	readonly replyTypewriter: Typewriter;
 	readonly thinkTypewriter: Typewriter;
@@ -36,9 +38,32 @@ export class StreamingZone {
 		requestRender: () => void,
 		private readonly t: ThemeTokens,
 		private readonly trace: (event: string, data?: Record<string, unknown>) => void = () => {},
+		hideThinking = true,
 	) {
+		this._hideThinking = hideThinking;
+		this.requestRender = requestRender;
 		this.replyTypewriter = new Typewriter({ setText: (text) => this.markdownNode?.setText(text) }, requestRender);
 		this.thinkTypewriter = new Typewriter({ setText: (text) => this.thinkNode?.setText(text) }, requestRender);
+	}
+
+	get hideThinking(): boolean {
+		return this._hideThinking;
+	}
+
+	/** Toggle thinking visibility. Affects the current streaming segment immediately. */
+	setHideThinking(hide: boolean): void {
+		if (this._hideThinking === hide) return;
+		this._hideThinking = hide;
+		if (this.thinkNode) {
+			// Flush any pending content into the node before toggling visibility.
+			this.thinkTypewriter.flush();
+			if (hide) {
+				this.activeSegment?.removeChild(this.thinkNode);
+			} else {
+				this.activeSegment?.addChild(this.thinkNode);
+			}
+		}
+		this.requestRender();
 	}
 
 	// ---------------------------------------------------------------------------
@@ -125,7 +150,8 @@ export class StreamingZone {
 			this.thinkHeaderNode = new Text(color(dim("┊ thinking"), this.t.dimFg), 2, 0);
 			seg.addChild(this.thinkHeaderNode);
 			this.thinkNode = new Markdown("", 2, 0, makeThinkingMarkdownTheme(this.t));
-			seg.addChild(this.thinkNode);
+			// Only attach content node when not hidden.
+			if (!this._hideThinking) seg.addChild(this.thinkNode);
 		}
 		this.thinkTypewriter.receive(chunk);
 	}

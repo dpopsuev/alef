@@ -6,8 +6,9 @@
  */
 
 import { Markdown, Text } from "@dpopsuev/alef-tui";
+import type { ThemeTokens } from "../theme.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
-import { color, dim, getTheme, glyph } from "./theme.js";
+import { color, dim, glyph } from "./theme.js";
 
 /** Raw ANSI for diff rendering (chalk silences itself outside TTY). */
 const ANSI_BOLD = "\x1b[1m";
@@ -15,16 +16,14 @@ const ANSI_DIM = "\x1b[2m";
 const ANSI_RESET = "\x1b[0m";
 
 /** Spinner line shown while a tool call is in-flight. */
-export function toolActiveLine(name: string, keyArg: string): string {
-	const t = getTheme();
+export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens): string {
 	const label = `${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}`;
 	const body = keyArg ? `  ${color(keyArg, t.toolArgFg)}` : "";
 	return `  ${label}${body}`;
 }
 
 /** Completed tool call line with elapsed time and ok/err glyph. */
-export function renderToolLine(name: string, keyArg: string, elapsedMs: number, ok: boolean): string {
-	const t = getTheme();
+export function renderToolLine(name: string, keyArg: string, elapsedMs: number, ok: boolean, t: ThemeTokens): string {
 	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
 	const g = ok ? glyph("state:done") : glyph("state:error");
 	const fg = ok ? t.toolOkFg : t.toolErrFg;
@@ -54,8 +53,7 @@ export function truncateToolOutput(text: string): string {
  * Render a text/x-diff display block with ANSI colors.
  * Header line bold, added lines green, removed lines red, context dim.
  */
-export function renderDiffDisplay(diffText: string): string {
-	const t = getTheme();
+export function renderDiffDisplay(diffText: string, t: ThemeTokens): string {
 	const lines = diffText.split("\n");
 	return lines
 		.map((line, i) => {
@@ -72,15 +70,19 @@ export function renderDiffDisplay(diffText: string): string {
  * Build a TUI component for a tool's display output.
  * Returns a Text (diff) or Markdown (plain) node ready to addChild().
  */
-export function makeToolOutputComponent(snippet: string, displayKind?: string): Text | Markdown {
+export function makeToolOutputComponent(
+	snippet: string,
+	displayKind: string | undefined,
+	t: ThemeTokens,
+): Text | Markdown {
 	if (displayKind === "text/x-diff") {
-		return new Text(renderDiffDisplay(snippet), 3, 0);
+		return new Text(renderDiffDisplay(snippet, t), 3, 0);
 	}
 	return new Markdown(truncateToolOutput(snippet), 3, 0, makeToolOutputMarkdownTheme());
 }
 
 /** Format token usage footer: "7 in · 1.0k out" */
-export function formatTokenUsage(input: number, output: number): string {
+export function formatTokenUsage(input: number, output: number, _t: ThemeTokens): string {
 	function compact(n: number): string {
 		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 		if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;

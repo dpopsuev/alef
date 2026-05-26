@@ -4,6 +4,7 @@
  */
 import { Container } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
+import { getTheme } from "../src/theme.js";
 import { AgentBlock, appendNotice, appendUserMsg } from "../src/tui/chat-view.js";
 
 function makeChat() {
@@ -13,21 +14,21 @@ function makeChat() {
 describe("appendUserMsg", () => {
 	it("adds children to the chat container", () => {
 		const chat = makeChat();
-		appendUserMsg(chat, "hello world");
+		appendUserMsg(chat, "hello world", getTheme());
 		// Spacer + header DynamicText + Box + footer DynamicText = 4
 		expect(chat.children.length).toBe(4);
 	});
 
 	it("does not throw for multi-line text", () => {
 		const chat = makeChat();
-		expect(() => appendUserMsg(chat, "line1\nline2\nline3")).not.toThrow();
+		expect(() => appendUserMsg(chat, "line1\nline2\nline3", getTheme())).not.toThrow();
 	});
 });
 
 describe("appendNotice", () => {
 	it("adds children to the chat container", () => {
 		const chat = makeChat();
-		appendNotice(chat, "(interrupted)");
+		appendNotice(chat, "(interrupted)", getTheme());
 		// Spacer + header + Text + footer = 4
 		expect(chat.children.length).toBe(4);
 	});
@@ -36,7 +37,7 @@ describe("appendNotice", () => {
 describe("AgentBlock", () => {
 	it("start() is idempotent — calling twice adds header only once", () => {
 		const chat = makeChat();
-		const block = new AgentBlock(chat);
+		const block = new AgentBlock(chat, getTheme());
 		block.start();
 		const countAfterFirst = chat.children.length;
 		block.start(); // no-op
@@ -46,7 +47,7 @@ describe("AgentBlock", () => {
 
 	it("end() adds footer and closes block", () => {
 		const chat = makeChat();
-		const block = new AgentBlock(chat);
+		const block = new AgentBlock(chat, getTheme());
 		block.start();
 		const beforeEnd = chat.children.length;
 		block.end();
@@ -56,7 +57,7 @@ describe("AgentBlock", () => {
 
 	it("end() is idempotent when already closed", () => {
 		const chat = makeChat();
-		const block = new AgentBlock(chat);
+		const block = new AgentBlock(chat, getTheme());
 		block.start();
 		block.end();
 		const countAfterEnd = chat.children.length;
@@ -66,7 +67,7 @@ describe("AgentBlock", () => {
 
 	it("addContent() routes to contentBox when open", () => {
 		const chat = makeChat();
-		const block = new AgentBlock(chat);
+		const block = new AgentBlock(chat, getTheme());
 		block.start();
 		const { Text } = require("@dpopsuev/alef-tui") as typeof import("@dpopsuev/alef-tui");
 		const item = new Text("tool output", 1, 0);
@@ -78,7 +79,7 @@ describe("AgentBlock", () => {
 
 	it("addContent() routes to chat directly when not open", () => {
 		const chat = makeChat();
-		const block = new AgentBlock(chat);
+		const block = new AgentBlock(chat, getTheme());
 		const { Text } = require("@dpopsuev/alef-tui") as typeof import("@dpopsuev/alef-tui");
 		const item = new Text("notice", 1, 0);
 		block.addContent(item);
@@ -87,7 +88,7 @@ describe("AgentBlock", () => {
 
 	it("reset() clears open state without adding footer", () => {
 		const chat = makeChat();
-		const block = new AgentBlock(chat);
+		const block = new AgentBlock(chat, getTheme());
 		block.start();
 		const countAfterStart = chat.children.length;
 		block.reset();
@@ -98,7 +99,7 @@ describe("AgentBlock", () => {
 
 	it("can be reopened after reset()", () => {
 		const chat = makeChat();
-		const block = new AgentBlock(chat);
+		const block = new AgentBlock(chat, getTheme());
 		block.start();
 		block.reset();
 		block.start(); // should work again

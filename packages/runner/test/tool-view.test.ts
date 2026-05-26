@@ -4,6 +4,7 @@
 
 import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vitest";
+import { getTheme } from "../src/theme.js";
 import {
 	formatTokenUsage,
 	keyArgFromPayload,
@@ -44,14 +45,14 @@ describe("truncateToolOutput", () => {
 
 describe("renderToolLine", () => {
 	it("contains tool name", () => {
-		const line = stripVTControlCharacters(renderToolLine("fs.read", "foo.ts", 42, true));
+		const line = stripVTControlCharacters(renderToolLine("fs.read", "foo.ts", 42, true, getTheme()));
 		expect(line).toContain("fs.read");
 	});
 
 	it("contains elapsed time", () => {
-		const ms = stripVTControlCharacters(renderToolLine("fs.read", "", 500, true));
+		const ms = stripVTControlCharacters(renderToolLine("fs.read", "", 500, true, getTheme()));
 		expect(ms).toContain("500ms");
-		const sec = stripVTControlCharacters(renderToolLine("fs.read", "", 1500, true));
+		const sec = stripVTControlCharacters(renderToolLine("fs.read", "", 1500, true, getTheme()));
 		expect(sec).toContain("1.5s");
 	});
 });
@@ -59,30 +60,30 @@ describe("renderToolLine", () => {
 describe("renderDiffDisplay", () => {
 	it("header line is bold", () => {
 		const diff = "edit src/foo.ts\n+1 new\n-1 old";
-		const out = renderDiffDisplay(diff);
+		const out = renderDiffDisplay(diff, getTheme());
 		expect(out.split("\n")[0]).toMatch(/\x1b\[1m/);
 	});
 
 	it("added lines are green", () => {
-		const out = renderDiffDisplay("edit x\n+1 new line");
+		const out = renderDiffDisplay("edit x\n+1 new line", getTheme());
 		expect(out).toMatch(/\x1b\[32m/);
 	});
 
 	it("removed lines are red", () => {
-		const out = renderDiffDisplay("edit x\n-1 old line");
+		const out = renderDiffDisplay("edit x\n-1 old line", getTheme());
 		expect(out).toMatch(/\x1b\[31m/);
 	});
 });
 
 describe("formatTokenUsage", () => {
 	it("formats small numbers", () => {
-		const s = stripVTControlCharacters(formatTokenUsage(7, 100));
+		const s = stripVTControlCharacters(formatTokenUsage(7, 100, getTheme()));
 		expect(s).toContain("7");
 		expect(s).toContain("100");
 	});
 
 	it("formats large numbers with suffix", () => {
-		const s = stripVTControlCharacters(formatTokenUsage(1500, 2_000_000));
+		const s = stripVTControlCharacters(formatTokenUsage(1500, 2_000_000, getTheme()));
 		expect(s).toContain("1.5k");
 		expect(s).toContain("2.0M");
 	});

@@ -22,7 +22,7 @@ import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
-import { boldColor, dim, getTheme, glyph } from "./theme.js";
+import { boldColor, dim, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { AgentBlock, appendNotice, appendUserMsg } from "./tui/chat-view.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
@@ -56,6 +56,7 @@ const ANSI_RESET = "\x1b[0m";
 // ---------------------------------------------------------------------------
 
 export interface TuiHandlerContext {
+	t: ThemeTokens;
 	chat: Container;
 	tui: {
 		stop(): void;
@@ -81,7 +82,7 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 		ctx.abortCurrentTurn();
 		ctx.setAbortCurrentTurn(undefined);
 		ctx.setLLMController(undefined);
-		appendNotice(ctx.chat, "(interrupted)");
+		appendNotice(ctx.chat, "(interrupted)", ctx.t);
 		ctx.tui.requestRender(true);
 	} else {
 		trace("ctrl+c:idle:dispose");
@@ -121,11 +122,11 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 		case "/new":
 			ctx.dialog.clearHistory();
 			while (ctx.chat.children.length > 0) ctx.chat.removeChild(ctx.chat.children[0]);
-			appendNotice(ctx.chat, "(conversation cleared)");
+			appendNotice(ctx.chat, "(conversation cleared)", ctx.t);
 			ctx.tui.requestRender(true);
 			return true;
 		case "/resume":
-			appendNotice(ctx.chat, `session: ${ctx.sessionId}`);
+			appendNotice(ctx.chat, `session: ${ctx.sessionId}`, ctx.t);
 			ctx.tui.requestRender();
 			return true;
 		case "/login": {
@@ -134,10 +135,10 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			const key = parts.slice(2).join(" ").trim();
 			if (!provider || !key) {
 				const known = getProviders().slice(0, 8).join(", ");
-				appendNotice(ctx.chat, `Usage: /login <provider> <api-key>\nKnown providers: ${known}`);
+				appendNotice(ctx.chat, `Usage: /login <provider> <api-key>\nKnown providers: ${known}`, ctx.t);
 			} else {
 				setStoredApiKey(provider, key);
-				appendNotice(ctx.chat, `Saved API key for ${provider}. Takes effect on the next message.`);
+				appendNotice(ctx.chat, `Saved API key for ${provider}. Takes effect on the next message.`, ctx.t);
 			}
 			ctx.tui.requestRender();
 			return true;
@@ -145,22 +146,22 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 		case "/logout": {
 			const provider = text.trim().split(/\s+/)[1];
 			if (!provider) {
-				appendNotice(ctx.chat, "Usage: /logout <provider>");
+				appendNotice(ctx.chat, "Usage: /logout <provider>", ctx.t);
 			} else if (!getStoredApiKey(provider)) {
-				appendNotice(ctx.chat, `No stored key for ${provider}.`);
+				appendNotice(ctx.chat, `No stored key for ${provider}.`, ctx.t);
 			} else {
 				removeStoredApiKey(provider);
-				appendNotice(ctx.chat, `Removed stored key for ${provider}.`);
+				appendNotice(ctx.chat, `Removed stored key for ${provider}.`, ctx.t);
 			}
 			ctx.tui.requestRender();
 			return true;
 		}
 		case "/help":
-			appendNotice(ctx.chat, helpText());
+			appendNotice(ctx.chat, helpText(), ctx.t);
 			ctx.tui.requestRender();
 			return true;
 		default:
-			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type /help for list.`);
+			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type /help for list.`, ctx.t);
 			ctx.tui.requestRender();
 			return false;
 	}
@@ -221,8 +222,8 @@ export async function runTuiMode(
 	}
 
 	// ── Agent block + streaming zone ──────────────────────────────────────
-	const agentBlock = new AgentBlock(chat);
-	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender());
+	const agentBlock = new AgentBlock(chat, t);
+	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender(), t);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
 	const activeCalls = new Map<string, { text: { setText(s: string): void }; name: string; keyArg: string }>();
@@ -234,7 +235,7 @@ export async function runTuiMode(
 			agentBlock.start();
 			streamingZone.seal();
 			const keyArg = keyArgFromPayload(args);
-			const line = new Text(toolActiveLine(name, keyArg), 1, 0);
+			const line = new Text(toolActiveLine(name, keyArg, t), 1, 0);
 			activeCalls.set(callId, { text: line, name, keyArg });
 			agentBlock.addContent(line);
 			tui.requestRender();
@@ -243,11 +244,11 @@ export async function runTuiMode(
 		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display, displayKind }) => {
 			const entry = activeCalls.get(callId);
 			if (entry) {
-				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok));
+				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok, t));
 				activeCalls.delete(callId);
 				const snippet = display ?? result;
 				if (snippet?.trim()) {
-					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind));
+					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind, t));
 				}
 				tui.requestRender();
 			}
@@ -255,7 +256,7 @@ export async function runTuiMode(
 
 		toolSlot.onTokenUsage = ({ input, output }) => {
 			if (pendingTokenFooter) {
-				pendingTokenFooter.setText(formatTokenUsage(input, output));
+				pendingTokenFooter.setText(formatTokenUsage(input, output, t));
 				pendingTokenFooter = null;
 				tui.requestRender();
 			}
@@ -277,6 +278,7 @@ export async function runTuiMode(
 	let abortCurrentTurn: (() => void) | undefined;
 
 	const ctx = (): TuiHandlerContext => ({
+		t,
 		chat,
 		tui,
 		dialog,
@@ -316,7 +318,7 @@ export async function runTuiMode(
 		editor.setText("");
 		historyProvider.addEntry(text);
 		agentBlock.reset(); // clear pill state for the new turn
-		appendUserMsg(chat, text);
+		appendUserMsg(chat, text, t);
 		consoleZone.startThinking();
 		tui.requestRender();
 
@@ -348,11 +350,11 @@ export async function runTuiMode(
 			consoleZone.stopThinking();
 			streamingZone.clear();
 			for (const [, entry] of activeCalls) {
-				entry.text.setText(renderToolLine(entry.name, entry.keyArg, 0, false));
+				entry.text.setText(renderToolLine(entry.name, entry.keyArg, 0, false, t));
 			}
 			activeCalls.clear();
 			agentBlock.end();
-			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`);
+			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`, t);
 			tui.requestRender();
 		} finally {
 			abortCurrentTurn = undefined;

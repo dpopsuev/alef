@@ -1,5 +1,5 @@
 import type { Component } from "@dpopsuev/alef-tui";
-import { Editor, type EditorTheme, type SelectListTheme, Text, type TUI } from "@dpopsuev/alef-tui";
+import { Container, Editor, type EditorTheme, type SelectListTheme, Text, type TUI } from "@dpopsuev/alef-tui";
 
 class ArcEditorWrapper implements Component {
 	constructor(
@@ -30,6 +30,7 @@ import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, type ColorToken, color, colorDepth, dim, fgCode, glyph, type ThemeTokens } from "./theme.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 import { pillFooterStr } from "./tui/pill.js";
+import { toolActiveLine } from "./tui/tool-view.js";
 
 /**
  * ConsoleZone — the fixed interactive surface at the bottom of the TUI.
@@ -82,11 +83,13 @@ export class ConsoleZone {
 	private readonly tui: TUI;
 	private readonly t: ThemeTokens;
 
-	// Pending footer — shown while the agent block is open, above the input.
 	private readonly pendingFooter: DynamicText;
 	private pendingFooterFg: ColorToken = { ansi16: 96 };
 	private pendingFooterBgFn: ((s: string) => string) | null = null;
 	private pendingFooterActive = false;
+
+	private readonly inFlightQueue = new Container();
+	private readonly inFlightCalls = new Map<string, { dt: DynamicText; startedAt: number }>();
 
 	constructor(tui: TUI, t: ThemeTokens, modelId: string) {
 		this.tui = tui;
@@ -128,6 +131,7 @@ export class ConsoleZone {
 
 	mount(): void {
 		this.tui.addChild(this.pendingFooter);
+		this.tui.addChild(this.inFlightQueue);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(new ArcEditorWrapper(this.editor, (s) => color(s, this.t.dimFg)));
 		this.tui.addChild(new DynamicText((_w) => dim("/exit · /new · /resume · /help")));
@@ -176,11 +180,26 @@ export class ConsoleZone {
 		return this.thinkingTimer !== undefined;
 	}
 
-	/**
-	 * Show the pending agent footer above the input while the agent block is open.
-	 * The footer mirrors the pill bottom border and disappears when the real
-	 * footer is appended to the chat scrollback.
-	 */
+	/** Add a live-updating in-flight call row to the fixed console zone. */
+	showInFlightCall(callId: string, name: string, keyArg: string): void {
+		const startedAt = Date.now();
+		const t = this.t;
+		const dt = new DynamicText((_w) => toolActiveLine(name, keyArg, t, Date.now() - startedAt));
+		this.inFlightCalls.set(callId, { dt, startedAt });
+		this.inFlightQueue.addChild(dt);
+		this.tui.requestRender();
+	}
+
+	/** Remove an in-flight call row once the call completes. */
+	removeInFlightCall(callId: string): void {
+		const entry = this.inFlightCalls.get(callId);
+		if (entry) {
+			this.inFlightQueue.removeChild(entry.dt);
+			this.inFlightCalls.delete(callId);
+			this.tui.requestRender();
+		}
+	}
+
 	showPendingFooter(fg: ColorToken, bgFn: ((s: string) => string) | null = null): void {
 		this.pendingFooterFg = fg;
 		this.pendingFooterBgFn = bgFn;

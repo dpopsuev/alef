@@ -465,6 +465,8 @@ function waitForToolResult(
 	return new Promise((resolve) => {
 		const off = sense.subscribe(toolName, (event) => {
 			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
+				// Skip streaming intermediate events — isFinal:false means more chunks are coming.
+				if (event.payload.isFinal === false) return;
 				off();
 				resolve(event);
 			}

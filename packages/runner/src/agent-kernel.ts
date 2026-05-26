@@ -30,9 +30,19 @@ import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 export interface AgentKernelOptions {
 	/**
 	 * The reasoning organ: Reasoner in production, ScriptedReasoner in tests.
-	 * Required — without it the agent cannot respond to dialog.message.
 	 */
 	llm: Organ;
+	/**
+	 * The trigger organ — the organ whose external-facing sensory detector
+	 * injects events into the spine to activate the Reasoner.
+	 *
+	 * Default: DialogOrgan (conversation-driven agent, sense/dialog.message trigger).
+	 * Override for autonomous agents: GitEventOrgan, CronOrgan, MetricAlertOrgan, etc.
+	 *
+	 * When trigger is provided, the sink/systemPrompt/maxTurns options are ignored
+	 * (they are DialogOrgan-specific). The returned dialog will be undefined.
+	 */
+	trigger?: Organ;
 
 	/** Sink for outbound Motor/dialog.message events. */
 	sink?: MessageSink;
@@ -73,8 +83,11 @@ export interface AgentKernelOptions {
 
 export interface AgentKernelResult {
 	agent: Agent;
-	/** The dialog organ — use dialog.send() to drive turns. */
-	dialog: DialogOrgan;
+	/**
+	 * The dialog organ — use dialog.send() to drive turns.
+	 * Undefined when a custom trigger organ was provided (non-conversation agent).
+	 */
+	dialog: DialogOrgan | undefined;
 }
 
 /**
@@ -119,16 +132,21 @@ export const AgentKernel = {
 	create(opts: AgentKernelOptions): AgentKernelResult {
 		const agent = new Agent();
 
-		const dialog = new DialogOrgan({
-			sink: opts.sink ?? (() => {}),
-			getTools: opts.getTools ?? (() => agent.tools),
-			systemPrompt: opts.systemPrompt,
-			maxTurns: opts.maxTurns,
-			initialHistory: opts.initialHistory,
-			onMessage: opts.onMessage,
-		});
-
-		agent.load(dialog).load(opts.llm);
+		// Use the provided trigger organ, or default to DialogOrgan for conversation agents.
+		let dialog: DialogOrgan | undefined;
+		if (opts.trigger) {
+			agent.load(opts.trigger).load(opts.llm);
+		} else {
+			dialog = new DialogOrgan({
+				sink: opts.sink ?? (() => {}),
+				getTools: opts.getTools ?? (() => agent.tools),
+				systemPrompt: opts.systemPrompt,
+				maxTurns: opts.maxTurns,
+				initialHistory: opts.initialHistory,
+				onMessage: opts.onMessage,
+			});
+			agent.load(dialog).load(opts.llm);
+		}
 
 		agent.load(
 			new LoopGuard({

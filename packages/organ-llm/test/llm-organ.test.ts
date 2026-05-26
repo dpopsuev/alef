@@ -602,3 +602,63 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 		expect(typeof first.payload.response).toBe("object");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Configurable trigger (ALE-SPC-29)
+// ---------------------------------------------------------------------------
+
+describe("Reasoner — configurable triggerEvent", () => {
+	const disposes: Array<() => void> = [];
+	afterEach(() => {
+		for (const d of disposes.splice(0)) d();
+	});
+
+	it("fires on custom triggerEvent instead of dialog.message", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("acted on git event")]);
+
+		const agent = new Agent();
+		// No DialogOrgan — autonomous agent with git.push trigger.
+		agent.load(
+			new Reasoner({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				triggerEvent: "git.push",
+				replyEvent: "git.review",
+			}),
+		);
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		// Inject the trigger directly via publishSense.
+		const replyP = new Promise<void>((resolve) => {
+			agent.subscribeMotor("git.review", () => resolve());
+		});
+		agent.publishSense({
+			type: "git.push",
+			payload: { pr: 42, diff: "some changes" },
+			correlationId: "git-turn-1",
+			isError: false,
+		});
+		await replyP;
+
+		// Reply published on git.review, not dialog.message.
+		const gitReview = recorder.motor.find((e) => e.type === "git.review");
+		expect(gitReview).toBeDefined();
+		expect(recorder.motor.find((e) => e.type === "dialog.message")).toBeUndefined();
+	});
+
+	it("conversation trigger still works with defaults", async () => {
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("hello")]);
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent.load(dialog).load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+		const reply = await dialog.send("hi", "user", 5_000);
+		expect(reply).toBe("hello");
+	});
+});

@@ -54,11 +54,10 @@ export interface PortValidationResult {
  * Override or extend for custom agent topologies.
  */
 export const STANDARD_PORTS: PortDefinition[] = [
-	{
-		name: "reasoning",
-		eventPattern: "sense/dialog.message",
-		cardinality: "exactly-one",
-	},
+	// reasoning seam removed: the trigger event is configurable on the Reasoner
+	// (triggerEvent option, default: dialog.message). Any sense event can activate
+	// a reasoning turn — hardcoding dialog.message here would reject autonomous
+	// agents that use git.push, cron.tick, metric.alert, etc. as their trigger.
 	{
 		name: "llm_execution",
 		eventPattern: "motor/llm.phase",
@@ -158,7 +157,7 @@ export function validatePorts(organs: OrganPortInfo[], seams: PortDefinition[] =
 					organCount: 0,
 					organNames: [],
 					severity: "error",
-					message: `Seam '${seam.name}' (${seam.eventPattern}) requires exactly one organ but got 0. The agent cannot respond to dialog messages.`,
+					message: `Seam '${seam.name}' (${seam.eventPattern}) requires exactly one organ but got 0. Load an organ that handles this event.`,
 				});
 			} else if (count > 1) {
 				violations.push({

@@ -146,6 +146,23 @@ export class Agent {
 	}
 
 	/**
+	 * Inject a sense event directly into the agent's spine.
+	 * Used by autonomous-agent test harnesses to trigger the Reasoner
+	 * without going through DialogOrgan.send().
+	 */
+	publishSense(event: import("@dpopsuev/alef-spine").SensePublishInput): void {
+		this.nerve.publishSense(event);
+	}
+
+	/**
+	 * Subscribe to a motor event published by the agent.
+	 * Returns an unsubscribe function.
+	 */
+	subscribeMotor(type: string, callback: (event: import("@dpopsuev/alef-spine").MotorEvent) => void): () => void {
+		return this.nerve.asNerve().motor.subscribe(type, callback);
+	}
+
+	/**
 	 * Attach a BusObserver for full read access to all bus events.
 	 * Used by BusEventRecorder in testkit. Returns unobserve function.
 	 */

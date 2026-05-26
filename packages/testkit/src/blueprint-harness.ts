@@ -126,12 +126,46 @@ export class BlueprintHarness {
 	// API
 	// -------------------------------------------------------------------------
 
-	/** Send a message to the agent and return its reply. */
+	/** Send a message to the agent and return its reply (conversation agents). */
 	async send(text: string): Promise<string> {
 		this.recorder.clear();
 		const reply = await this.dialog.send(text, "human", this.timeoutMs);
 		this._lastReply = reply;
 		return reply;
+	}
+
+	/**
+	 * Inject an arbitrary sense event to trigger the Reasoner (autonomous agents).
+	 * Waits for the configured replyEvent to arrive on the motor bus.
+	 * @param eventType - the sense event type (e.g. 'git.push', 'cron.tick')
+	 * @param payload - the event payload
+	 * @param replyEvent - motor event type to wait for (default: same as eventType)
+	 */
+	async trigger(
+		eventType: string,
+		payload: Record<string, unknown>,
+		replyEvent?: string,
+	): Promise<Record<string, unknown>> {
+		this.recorder.clear();
+		const waitFor = replyEvent ?? eventType;
+		const replyP = new Promise<Record<string, unknown>>((resolve, reject) => {
+			const timer = setTimeout(
+				() => reject(new Error(`trigger: no ${waitFor} reply within ${this.timeoutMs}ms`)),
+				this.timeoutMs,
+			);
+			const unsub = this.agent.subscribeMotor(waitFor, (event) => {
+				clearTimeout(timer);
+				unsub();
+				resolve(event.payload as Record<string, unknown>);
+			});
+		});
+		this.agent.publishSense({
+			type: eventType,
+			payload,
+			correlationId: `trigger-${Date.now()}`,
+			isError: false,
+		});
+		return replyP;
 	}
 
 	/** Last reply returned by send(). */

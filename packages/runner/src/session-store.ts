@@ -141,7 +141,7 @@ async function ensureDir(cwd: string): Promise<void> {
 
 export class SessionStore {
 	readonly id: string;
-	private readonly path: string;
+	readonly path: string;
 
 	private constructor(cwd: string, id: string) {
 		this.id = id;

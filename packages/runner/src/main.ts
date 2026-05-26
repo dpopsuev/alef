@@ -225,6 +225,7 @@ const { agent, dialog: _dialog } = AgentKernel.create({
 	systemPrompt,
 	maxTurns: args.maxTurns,
 	session,
+	modelId: model.id,
 	onLoop: (_type, reason) => {
 		process.stderr.write(`\n[loop-detector] ${reason}\n`);
 		currentLLMController?.abort(new Error(`[loop-detector] ${reason}`));

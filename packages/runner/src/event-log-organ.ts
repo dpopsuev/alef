@@ -14,11 +14,25 @@
  * Ref: ALE-SPC-15, ALE-TSK-178
  */
 
+import { writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
 import { trace } from "./debug-trace.js";
 import { redactPayload } from "./redact.js";
 import type { BusKind, SessionStore } from "./session-store.js";
 import { hashRecord } from "./session-store.js";
+
+export interface SessionSummary {
+	id: string;
+	model: string;
+	started_at: string;
+	duration_ms: number;
+	turns: number;
+	tokens: { input: number; output: number };
+	tools: Array<{ name: string; calls: number }>;
+	errors: number;
+}
 
 export class SessionLog implements Organ {
 	readonly name = "event-log";
@@ -29,12 +43,37 @@ export class SessionLog implements Organ {
 	};
 
 	private readonly store: SessionStore;
+	private readonly model: string;
 
-	constructor(store: SessionStore) {
+	constructor(store: SessionStore, model = "unknown") {
 		this.store = store;
+		this.model = model;
 	}
 
 	mount(nerve: Nerve): () => void {
+		const startedAt = Date.now();
+		let turns = 0;
+		let inputTokens = 0;
+		let outputTokens = 0;
+		let errors = 0;
+		const toolCounts = new Map<string, number>();
+
+		const offAgg1 = nerve.motor.subscribe("*", (event) => {
+			if (event.type === "dialog.message") {
+				turns++;
+				const u = (event.payload as { usage?: { input?: number; output?: number } }).usage;
+				if (u) {
+					inputTokens += u.input ?? 0;
+					outputTokens += u.output ?? 0;
+				}
+			} else if (!event.type.startsWith("llm.")) {
+				toolCounts.set(event.type, (toolCounts.get(event.type) ?? 0) + 1);
+			}
+		});
+		const offAgg2 = nerve.sense.subscribe("*", (event) => {
+			if (event.isError) errors++;
+		});
+
 		const off1 = nerve.motor.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			const base = {
@@ -66,8 +105,36 @@ export class SessionLog implements Organ {
 		});
 
 		return () => {
+			offAgg1();
+			offAgg2();
 			off1();
 			off2();
+			void this._writeSummary({
+				id: this.store.id,
+				model: this.model,
+				started_at: new Date(startedAt).toISOString(),
+				duration_ms: Date.now() - startedAt,
+				turns,
+				tokens: { input: inputTokens, output: outputTokens },
+				tools: [...toolCounts.entries()]
+					.map(([name, calls]) => ({ name, calls }))
+					.sort((a, b) => b.calls - a.calls),
+				errors,
+			});
 		};
+	}
+
+	private async _writeSummary(summary: SessionSummary): Promise<void> {
+		const json = `${JSON.stringify(summary, null, 2)}\n`;
+		const perSession = this.store.path.replace(/\.jsonl$/, ".summary.json");
+		const last = join(homedir(), ".alef", "last-session.json");
+		await Promise.all([
+			writeFile(perSession, json, "utf-8").catch((e: unknown) =>
+				trace("session-summary:write-failed", { path: perSession, error: String(e) }),
+			),
+			writeFile(last, json, "utf-8").catch((e: unknown) =>
+				trace("session-summary:write-failed", { path: last, error: String(e) }),
+			),
+		]);
 	}
 }

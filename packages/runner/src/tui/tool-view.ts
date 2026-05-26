@@ -7,6 +7,8 @@
 
 import { Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
+import { sanitizeForDisplay } from "./ansi-utils.js";
+import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 import { color, dim, glyph } from "./theme.js";
 
@@ -19,7 +21,8 @@ const ANSI_RESET = "\x1b[0m";
 export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens): string {
 	const label = `${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}`;
 	const body = keyArg ? `  ${color(keyArg, t.toolArgFg)}` : "";
-	return `  ${label}${body}`;
+	const indent = " ".repeat(INDENT.TOOL_LINE);
+	return `${indent}${label}${body}`;
 }
 
 /** Completed tool call line with elapsed time and ok/err glyph. */
@@ -27,7 +30,8 @@ export function renderToolLine(name: string, keyArg: string, elapsedMs: number, 
 	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
 	const g = ok ? glyph("state:done") : glyph("state:error");
 	const fg = ok ? t.toolOkFg : t.toolErrFg;
-	return `  ${color(g, fg)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}  ${color(elapsed, t.timeFg)}`;
+	const indent = " ".repeat(INDENT.TOOL_LINE);
+	return `${indent}${color(g, fg)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}  ${color(elapsed, t.timeFg)}`;
 }
 
 /** Extract the primary key argument from a tool payload for display. */
@@ -69,16 +73,24 @@ export function renderDiffDisplay(diffText: string, t: ThemeTokens): string {
 /**
  * Build a TUI component for a tool's display output.
  * Returns a Text (diff) or Markdown (plain) node ready to addChild().
+ *
+ * Applies sanitization to strip ANSI codes from tool output (e.g. shell.exec
+ * capturing colored terminal output) to prevent literal \x1b[1m in the TUI.
  */
 export function makeToolOutputComponent(
 	snippet: string,
 	displayKind: string | undefined,
 	t: ThemeTokens,
 ): Text | Markdown {
+	// Sanitize display text — strip ANSI codes that might have leaked from shell/log output.
+	const sanitized = sanitizeForDisplay(snippet);
+
 	if (displayKind === "text/x-diff") {
-		return new Text(renderDiffDisplay(snippet, t), 3, 0);
+		// Diff rendering applies its own ANSI colors, so we use the sanitized text.
+		return new Text(renderDiffDisplay(sanitized, t), INDENT.TOOL_OUTPUT, 0);
 	}
-	return new Markdown(truncateToolOutput(snippet), 3, 0, makeToolOutputMarkdownTheme());
+	// Markdown rendering for plain text output.
+	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme());
 }
 
 /** Format token usage footer: "7 in · 1.0k out" */

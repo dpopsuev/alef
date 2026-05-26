@@ -1,6 +1,6 @@
 /**
  * WebOrgan tests — no real network.
- * Validates organ structure, tool definition, and error handling.
+ * Validates organ structure, tool definitions, and error handling.
  * The html-to-text logic is also tested inline with static HTML.
  */
 
@@ -19,11 +19,17 @@ describe("WebOrgan — structure", () => {
 		expect(organ.description).toBeTruthy();
 		expect(organ.labels).toContain("web");
 		expect(organ.labels).toContain("fetch");
+		expect(organ.labels).toContain("search");
 	});
 
 	it("exposes web.fetch tool", () => {
 		const organ = createWebOrgan();
 		expect(organ.tools.some((t) => t.name === "web.fetch")).toBe(true);
+	});
+
+	it("exposes web.search tool", () => {
+		const organ = createWebOrgan();
+		expect(organ.tools.some((t) => t.name === "web.search")).toBe(true);
 	});
 
 	it("mounts and unmounts cleanly", () => {
@@ -79,6 +85,30 @@ describe("WebOrgan — web.fetch validation", () => {
 		const result = await resultPromise;
 		expect(result.isError).toBe(true);
 	}, 3000);
+});
+
+describe("WebOrgan — web.search validation", () => {
+	it("rejects empty query", async () => {
+		const organ = createWebOrgan();
+		const nerve = new InProcessNerve();
+		organ.mount(nerve.asNerve());
+
+		const resultPromise = new Promise<{ isError: boolean; errorMessage?: string }>((resolve) => {
+			nerve.asNerve().sense.subscribe("web.search", (e) => {
+				resolve({ isError: e.isError, errorMessage: e.errorMessage });
+			});
+		});
+
+		nerve.asNerve().motor.publish({
+			type: "web.search",
+			payload: { query: "", toolCallId: "s1" },
+			correlationId: "c1",
+		});
+
+		const result = await resultPromise;
+		expect(result.isError).toBe(true);
+		expect(result.errorMessage).toMatch(/empty/i);
+	});
 });
 
 describe("WebOrgan — html-to-text (inline)", () => {

@@ -32,6 +32,7 @@ const BUILTIN_PACKAGES: Record<string, string> = {
 	eval: "@dpopsuev/alef-organ-eval",
 	todos: "@dpopsuev/alef-organ-todos",
 	skills: "@dpopsuev/alef-organ-skills",
+	web: "@dpopsuev/alef-organ-web",
 };
 
 import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-spine";
@@ -136,6 +137,7 @@ export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
 		{ name: "fs", actions: [], toolNames: [] },
 		{ name: "shell", actions: [], toolNames: [] },
 		{ name: "nodesh", actions: [], toolNames: [] },
+		{ name: "web", actions: [], toolNames: [] },
 	],
 	model: undefined,
 	children: [],

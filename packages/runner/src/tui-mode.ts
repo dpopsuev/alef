@@ -255,6 +255,10 @@ export async function runTuiMode(
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok, t));
 				activeCalls.delete(callId);
 				const snippet = display ?? result;
+				// Debug: verify display propagation (remove after testing)
+				if (process.env.ALEF_DEBUG_TOOLS) {
+					trace("tool:display", { name: entry.name, hasDisplay: !!display, hasResult: !!result, displayKind });
+				}
 				if (snippet?.trim()) {
 					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind, t));
 				}

@@ -1,11 +1,16 @@
 /**
- * WebOrgan — fetch web pages and convert them to plain text.
+ * WebOrgan — fetch web pages, search the web, and convert content to plain text.
  *
  * Tools:
  *   web.fetch(url, { format?, timeoutMs? })
  *     Fetches a URL and returns the content as plain text (default) or raw HTML.
  *     Strips scripts, styles, and navigation elements before returning.
  *     Returns { content, title, url, statusCode, truncated }.
+ *
+ *   web.search(query, { numResults?, engine? })
+ *     Searches the web and returns ranked results with URLs, titles, and snippets.
+ *     Uses Brave/Tavily/Exa (if API keys are set) or falls back to DuckDuckGo.
+ *     Returns { results: [{ url, title, snippet, publishedAt? }] }.
  *
  * No external dependencies — uses Node.js built-in fetch (available since Node 18).
  * HTML-to-text conversion is handled inline: strips tags, collapses whitespace.
@@ -24,6 +29,7 @@ import {
 	withDisplay,
 } from "@dpopsuev/alef-spine";
 import { z } from "zod";
+import { defaultSearchEngine, resolveSearchEngine } from "./search-engines.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -82,7 +88,7 @@ function htmlToText(html: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Tool definition
+// Tool definitions
 // ---------------------------------------------------------------------------
 
 const WEB_FETCH_TOOL = {
@@ -102,8 +108,25 @@ const WEB_FETCH_TOOL = {
 	}),
 };
 
+const WEB_SEARCH_TOOL = {
+	name: "web.search",
+	description:
+		"Search the web and return ranked results with URLs, titles, and snippets. " +
+		"Use this when you don't know the exact URL or need to find current information. " +
+		"Automatically tries Brave Search, Tavily, Exa, or falls back to DuckDuckGo. " +
+		"Returns a list of results that you can then fetch with web.fetch.",
+	inputSchema: z.object({
+		query: z.string().describe("The search query. Natural language questions work well."),
+		numResults: z.number().optional().describe("Maximum number of results to return. Default: 10."),
+		engine: z
+			.enum(["brave", "tavily", "exa", "ddg"])
+			.optional()
+			.describe("Specific search engine to use. Omit to use auto-fallback (Brave → Tavily → Exa → DDG)."),
+	}),
+};
+
 // ---------------------------------------------------------------------------
-// Handler
+// Handlers
 // ---------------------------------------------------------------------------
 
 async function handleFetch(url: string, format: "text" | "html", timeoutMs: number): Promise<Record<string, unknown>> {
@@ -152,6 +175,24 @@ async function handleFetch(url: string, format: "text" | "html", timeoutMs: numb
 	);
 }
 
+async function handleSearch(query: string, numResults: number, engine?: string): Promise<Record<string, unknown>> {
+	if (!query.trim()) {
+		throw new Error("web.search: query cannot be empty");
+	}
+
+	const searchEngine = engine ? resolveSearchEngine(engine) : defaultSearchEngine();
+	const results = await searchEngine.search({ query, numResults });
+
+	return withDisplay(
+		{
+			query,
+			results,
+			hint: results.length > 0 ? "Use web.fetch(url=...) to read the full content of any result." : undefined,
+		},
+		{ text: `Web search: **${query}** (${results.length} results)`, mimeType: "text/markdown" },
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Organ factory
 // ---------------------------------------------------------------------------
@@ -167,7 +208,14 @@ const WEB_DIRECTIVES = [
 - Always prefer fs.read or lector.read for local files. web.fetch is for public URLs only.
 - Content is returned as plain text by default. Use format='html' only when you need page structure.
 - Respect robots.txt and rate limits. Do not fetch the same URL repeatedly in a loop.
-- If a URL requires authentication or returns 4xx/5xx, report the statusCode and stop.`,
+- If a URL requires authentication or returns 4xx/5xx, report the statusCode and stop.
+
+**web.search tool guidance**
+- Use web.search when you don't know the exact URL or need to find current information.
+- Pass natural language queries: "latest TypeScript features" or "Martin Fowler dependency injection".
+- Never guess or hallucinate URLs. Search first, then fetch the result URLs.
+- The tool automatically tries Brave → Tavily → Exa → DuckDuckGo based on available API keys.
+- Results include url, title, snippet, and sometimes publishedAt. Use web.fetch to read full content.`,
 ];
 
 export function createWebOrgan(options: WebOrganOptions = {}): Organ {
@@ -185,11 +233,20 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 					return handleFetch(url, format, timeoutMs);
 				},
 			},
+			"motor/web.search": {
+				tool: WEB_SEARCH_TOOL,
+				handle: async (ctx: CorpusHandlerCtx) => {
+					const query = getString(ctx.payload, "query") ?? "";
+					const numResults = getNumber(ctx.payload, "numResults") ?? 10;
+					const engine = getString(ctx.payload, "engine");
+					return handleSearch(query, numResults, engine);
+				},
+			},
 		},
 		{
 			directives: WEB_DIRECTIVES,
-			description: "Fetch and read public web pages, documentation, and articles.",
-			labels: ["web", "fetch", "http", "read"],
+			description: "Fetch and read public web pages, search the web for information.",
+			labels: ["web", "fetch", "search", "http", "read"],
 		},
 	);
 }

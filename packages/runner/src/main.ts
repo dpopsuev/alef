@@ -218,7 +218,8 @@ const llmOrgan = scriptedRepliesEnv
 			onThinkingChunk: (chunk) => toolSlot.receiveThinkingChunk?.(chunk),
 		});
 
-const { agent, dialog } = AgentKernel.create({
+// main.ts is always a conversation agent — dialog is always defined.
+const { agent, dialog: _dialog } = AgentKernel.create({
 	llm: llmOrgan,
 	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
 	systemPrompt,
@@ -233,6 +234,9 @@ const { agent, dialog } = AgentKernel.create({
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
+// Assert dialog is defined: main.ts is always a conversation agent.
+if (!_dialog) throw new Error("AgentKernel did not return a DialogOrgan — main.ts requires one");
+const dialog = _dialog;
 
 if (args.serve !== undefined) {
 	const sseSurface = blueprintSurfaces.filter((s) => s.type === "sse");

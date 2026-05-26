@@ -3,7 +3,7 @@
  */
 
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
-import { PortValidationError } from "@dpopsuev/alef-spine";
+
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/index.js";
 
@@ -36,16 +36,6 @@ function makeFsOrgan(): Organ {
 	};
 }
 
-/** Does not subscribe to any relevant seam. */
-function makeInertOrgan(): Organ {
-	return {
-		name: "inert",
-		tools: [],
-		subscriptions: { motor: [] as const, sense: [] as const },
-		mount: () => () => {},
-	};
-}
-
 // ---------------------------------------------------------------------------
 
 describe("Agent.validate()", () => {
@@ -61,33 +51,25 @@ describe("Agent.validate()", () => {
 		agent.dispose();
 	});
 
-	it("throws PortValidationError when no reasoning organ is loaded", () => {
+	it("does not throw when no reasoning organ is loaded — autonomous agents are valid", () => {
+		// The 'reasoning' seam was removed from STANDARD_PORTS.
+		// An agent with only corpus organs is valid — it waits for external trigger events.
 		const agent = new Agent().load(makeFsOrgan());
-		expect(() => agent.validate()).toThrow(PortValidationError);
+		expect(() => agent.validate()).not.toThrow();
 		agent.dispose();
 	});
 
-	it("throws when no organs are loaded at all", () => {
+	it("does not throw when no organs are loaded — empty agent is valid at port level", () => {
 		const agent = new Agent();
-		expect(() => agent.validate()).toThrow(PortValidationError);
+		expect(() => agent.validate()).not.toThrow();
 		agent.dispose();
 	});
 
-	it("throws when two Reasoners are loaded", () => {
+	it("does not throw when two Reasoners are loaded — no exactly-one constraint on trigger", () => {
+		// Without the 'reasoning' seam, there is no cardinality constraint on
+		// how many organs handle sense/dialog.message. Agent author's responsibility.
 		const agent = new Agent().load(makeReasoner("llm")).load(makeReasoner("mock-llm"));
-		expect(() => agent.validate()).toThrow(PortValidationError);
-		agent.dispose();
-	});
-
-	it("error message names the missing seam", () => {
-		const agent = new Agent().load(makeInertOrgan());
-		try {
-			agent.validate();
-			expect.fail("should have thrown");
-		} catch (e) {
-			expect(e).toBeInstanceOf(PortValidationError);
-			expect((e as PortValidationError).message).toMatch(/reasoning/);
-		}
+		expect(() => agent.validate()).not.toThrow();
 		agent.dispose();
 	});
 

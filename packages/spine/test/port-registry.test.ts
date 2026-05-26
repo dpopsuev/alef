@@ -131,20 +131,20 @@ describe("STANDARD_PORTS — full agent stack", () => {
 		expect(result.violations).toHaveLength(0);
 	});
 
-	it("error: no reasoning organ loaded", () => {
+	it("valid: no reasoning organ loaded — autonomous agents have no dialog trigger", () => {
+		// The 'reasoning' seam was removed from STANDARD_PORTS. An agent with no
+		// dialog trigger is valid — it waits for external events (git.push, cron.tick, etc.)
 		const organs = [organ("fs", ["fs.read"])];
 		const result = validatePorts(organs, STANDARD_PORTS);
-		expect(result.valid).toBe(false);
-		const err = result.violations.find((v) => v.seam.name === "reasoning");
-		expect(err?.severity).toBe("error");
+		expect(result.valid).toBe(true);
 	});
 
-	it("error: two LLMOrgans loaded (race condition)", () => {
+	it("valid: two organs handling the same sense event — no race constraint on triggers", () => {
+		// Without the 'reasoning' exactly-one constraint, multiple trigger organs are allowed.
+		// The agent author is responsible for ensuring only one fires per event.
 		const organs = [organ("llm", [], ["dialog.message"]), organ("mock-llm", [], ["dialog.message"])];
 		const result = validatePorts(organs, STANDARD_PORTS);
-		expect(result.valid).toBe(false);
-		expect(result.violations[0].organNames).toContain("llm");
-		expect(result.violations[0].organNames).toContain("mock-llm");
+		expect(result.valid).toBe(true);
 	});
 });
 

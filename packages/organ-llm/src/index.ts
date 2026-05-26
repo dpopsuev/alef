@@ -69,6 +69,23 @@ export interface ReasonerOptions {
 	 * original messages unchanged.
 	 */
 	phaseTimeoutMs?: number;
+	/**
+	 * Sense event type that triggers a reasoning turn.
+	 * Default: 'dialog.message' (conversation-driven agent).
+	 * Set to any other event type for autonomous/reactive agents:
+	 *   e.g. 'git.push', 'metric.alert', 'cron.tick'
+	 * The Reasoner subscribes to sense/${triggerEvent}.
+	 */
+	triggerEvent?: string;
+	/**
+	 * Motor event type published as the final reply.
+	 * Default: same as triggerEvent (mirrors the trigger channel).
+	 * For conversation agents this is 'dialog.message'.
+	 * For autonomous agents this can be any motor event type.
+	 * conversationHistory is only included in the payload when
+	 * triggerEvent === 'dialog.message'.
+	 */
+	replyEvent?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -282,6 +299,7 @@ async function runLLMLoop(
 
 		messages.push(finalMessage);
 
+		const replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
 		const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
 		const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
 
@@ -309,43 +327,43 @@ async function runLLMLoop(
 			if (replyBodyFromTool) {
 				options.onResponseChunk?.(replyBodyFromTool);
 			}
+			const isConversation = replyType === DIALOG_MESSAGE;
 			if (text) {
-				// Anthropic API hangs if internal fields (timestamp, usage, etc.) are replayed - strip to role+content only.
-				const conversationHistory = messages
-					.filter((m) => (m as { role?: string }).role !== "system")
-					.map((m): unknown => {
-						const msg = m as {
-							role: string;
-							content: unknown;
-							toolCallId?: string;
-							toolName?: string;
-							isError?: boolean;
-						};
-						if (msg.role === "toolResult") {
-							return {
-								role: "toolResult",
-								toolCallId: msg.toolCallId,
-								toolName: msg.toolName,
-								content: msg.content,
-								isError: msg.isError,
-							};
-						}
-						return { role: msg.role, content: msg.content };
-					});
+				// conversationHistory only makes sense for conversation-driven agents.
+				const conversationHistory = isConversation
+					? messages
+							.filter((m) => (m as { role?: string }).role !== "system")
+							.map((m): unknown => {
+								const msg = m as {
+									role: string;
+									content: unknown;
+									toolCallId?: string;
+									toolName?: string;
+									isError?: boolean;
+								};
+								if (msg.role === "toolResult") {
+									return {
+										role: "toolResult",
+										toolCallId: msg.toolCallId,
+										toolName: msg.toolName,
+										content: msg.content,
+										isError: msg.isError,
+									};
+								}
+								return { role: msg.role, content: msg.content };
+							})
+					: undefined;
 				motor.publish({
-					type: DIALOG_MESSAGE,
-					payload: { text, conversationHistory, usage: finalMessage.usage },
+					type: replyType,
+					payload: { text, ...(conversationHistory ? { conversationHistory } : {}), usage: finalMessage.usage },
 					correlationId,
 				});
 			} else {
-				// LLM ended the turn with no text (e.g. after a tool batch or on error).
-				// Publish a non-empty sentinel so dialog.send() resolves and the user
-				// gets visible feedback instead of a silent empty screen.
 				const fallback =
 					finalMessage.errorMessage ||
 					(finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
 				motor.publish({
-					type: DIALOG_MESSAGE,
+					type: replyType,
 					payload: { text: fallback },
 					correlationId,
 				});
@@ -485,8 +503,11 @@ function extractText(message: AssistantMessage): string {
 // ---------------------------------------------------------------------------
 
 export function createReasoner(options: ReasonerOptions): Organ {
+	const trigger = options.triggerEvent ?? DIALOG_MESSAGE;
+	const reply = options.replyEvent ?? trigger;
+	const isConversation = reply === DIALOG_MESSAGE;
 	return defineOrgan("llm", {
-		[`sense/${DIALOG_MESSAGE}`]: {
+		[`sense/${trigger}`]: {
 			handle: async (ctx: CerebrumHandlerCtx) => {
 				// Holds the last tool-round snapshot so partial history can be
 				// published on abort/error, preventing conversation amnesia (ALE-BUG-8).
@@ -496,12 +517,13 @@ export function createReasoner(options: ReasonerOptions): Organ {
 						partialHistory = snapshot;
 					});
 				} catch (err) {
-					// Orange: surface LLM errors so dialog.send() resolves rather than hanging.
-					// Include partial history so the next turn retains tool context.
 					const text = `LLM error: ${String(err)}`;
 					ctx.motor.publish({
-						type: DIALOG_MESSAGE,
-						payload: { text, ...(partialHistory ? { conversationHistory: partialHistory } : {}) },
+						type: reply,
+						payload: {
+							text,
+							...(isConversation && partialHistory ? { conversationHistory: partialHistory } : {}),
+						},
 						correlationId: ctx.correlationId,
 					});
 					throw err; // re-throw so OTel span is marked as error
@@ -519,7 +541,11 @@ interface InflightEntry {
 	keyArg: string;
 }
 
-const INFLIGHT_EXCLUDED = new Set(["dialog.message"]);
+// Event types excluded from in-flight concurrent-turn tracking.
+// The reply event signals turn completion, not an in-flight op.
+function makeInflightExcluded(replyType: string): Set<string> {
+	return new Set([replyType, "llm.phase", "llm.result"]);
+}
 
 function inflightKey(type: string, correlationId: string, toolCallId: string | undefined): string {
 	return `${type}::${correlationId}::${toolCallId ?? ""}`;
@@ -543,25 +569,30 @@ export class Reasoner {
 	readonly description = "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.";
 	readonly labels = ["llm", "reasoning", "ai"] as const;
 	readonly tools = [] as const;
-	readonly publishSchemas = {
-		motor: {
-			"dialog.message": z.object({
-				text: z.string().min(1),
-				conversationHistory: z.array(z.unknown()).optional(),
-				usage: z.object({ totalTokens: z.number() }).passthrough().optional(),
-			}),
-			"llm.phase": z.object({
-				messages: z.array(z.unknown()),
-				turn: z.number().int().positive(),
-				toolCount: z.number().int().nonnegative(),
-			}),
-			"llm.result": z.object({
-				response: z.record(z.string(), z.unknown()),
-				toolCalls: z.array(z.object({ name: z.string(), args: z.record(z.string(), z.unknown()), id: z.string() })),
-				turn: z.number().int().positive(),
-			}),
-		},
-	} as const;
+	get publishSchemas() {
+		const reply = this.options.replyEvent ?? this.options.triggerEvent ?? DIALOG_MESSAGE;
+		return {
+			motor: {
+				[reply]: z.object({
+					text: z.string().min(1),
+					conversationHistory: z.array(z.unknown()).optional(),
+					usage: z.object({ totalTokens: z.number() }).passthrough().optional(),
+				}),
+				"llm.phase": z.object({
+					messages: z.array(z.unknown()),
+					turn: z.number().int().positive(),
+					toolCount: z.number().int().nonnegative(),
+				}),
+				"llm.result": z.object({
+					response: z.record(z.string(), z.unknown()),
+					toolCalls: z.array(
+						z.object({ name: z.string(), args: z.record(z.string(), z.unknown()), id: z.string() }),
+					),
+					turn: z.number().int().positive(),
+				}),
+			},
+		};
+	}
 
 	get subscriptions() {
 		// When tracking concurrent ops, declare the wildcard subscriptions so
@@ -611,8 +642,11 @@ export class Reasoner {
 		if (!this.options.trackConcurrentOps) return offOrgan;
 
 		// Wire wildcard subscriptions for concurrent-ops tracking.
+		const inflightExcluded = makeInflightExcluded(
+			this.options.replyEvent ?? this.options.triggerEvent ?? DIALOG_MESSAGE,
+		);
 		const offMotor = nerve.motor.subscribe("*", (event) => {
-			if (INFLIGHT_EXCLUDED.has(event.type)) return;
+			if (inflightExcluded.has(event.type)) return;
 			const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
 			this.inflight.set(inflightKey(event.type, event.correlationId, toolCallId), {
 				type: event.type,

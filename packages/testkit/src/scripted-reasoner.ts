@@ -25,19 +25,36 @@ import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-sp
 import { DIALOG_MESSAGE } from "@dpopsuev/alef-spine";
 import type { ScriptStep } from "./script.js";
 
+export interface ScriptedReasonerOptions {
+	/**
+	 * Sense event type that triggers a reasoning step.
+	 * Default: 'dialog.message'. Set to any event for autonomous agents.
+	 */
+	triggerEvent?: string;
+	/** Motor event type published as the reply. Default: same as triggerEvent. */
+	replyEvent?: string;
+}
+
 export class ScriptedReasoner implements Organ {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
-	readonly subscriptions = {
-		motor: [] as const,
-		sense: [DIALOG_MESSAGE] as const,
-	};
 
+	private readonly triggerEvent: string;
+	private readonly replyEvent: string;
 	private readonly queue: ScriptStep[];
 	private stepIndex = 0;
 
-	constructor(script: ScriptStep[] | ScriptStep) {
+	get subscriptions() {
+		return {
+			motor: [] as const,
+			sense: [this.triggerEvent] as readonly string[],
+		};
+	}
+
+	constructor(script: ScriptStep[] | ScriptStep, opts: ScriptedReasonerOptions = {}) {
 		this.queue = Array.isArray(script) ? script : [script];
+		this.triggerEvent = opts.triggerEvent ?? DIALOG_MESSAGE;
+		this.replyEvent = opts.replyEvent ?? this.triggerEvent;
 	}
 
 	/** Number of script steps remaining. */
@@ -51,7 +68,7 @@ export class ScriptedReasoner implements Organ {
 	}
 
 	mount(nerve: Nerve): () => void {
-		const off = nerve.sense.subscribe(DIALOG_MESSAGE, (event) => {
+		const off = nerve.sense.subscribe(this.triggerEvent, (event) => {
 			void this._handle(nerve, event);
 		});
 		return off;
@@ -65,7 +82,7 @@ export class ScriptedReasoner implements Organ {
 				`[ScriptedReasoner] Script exhausted after ${this.stepIndex - 1} steps. Replying with sentinel.\n`,
 			);
 			nerve.motor.publish({
-				type: DIALOG_MESSAGE,
+				type: this.replyEvent,
 				payload: { text: "(ScriptedReasoner: script exhausted)" },
 				correlationId: event.correlationId,
 			});
@@ -75,7 +92,7 @@ export class ScriptedReasoner implements Organ {
 		try {
 			if (step.kind === "reply") {
 				nerve.motor.publish({
-					type: DIALOG_MESSAGE,
+					type: this.replyEvent,
 					payload: { text: step.text },
 					correlationId: event.correlationId,
 				});
@@ -99,14 +116,14 @@ export class ScriptedReasoner implements Organ {
 			);
 
 			nerve.motor.publish({
-				type: DIALOG_MESSAGE,
+				type: this.replyEvent,
 				payload: { text: replyText },
 				correlationId: event.correlationId,
 			});
 		} catch (err) {
 			// Publish error as dialog reply so dialog.send() resolves rather than hanging.
 			nerve.motor.publish({
-				type: DIALOG_MESSAGE,
+				type: this.replyEvent,
 				payload: { text: `(ScriptedReasoner error: ${String(err)})` },
 				correlationId: event.correlationId,
 			});

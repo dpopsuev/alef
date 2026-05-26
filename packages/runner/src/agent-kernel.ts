@@ -61,6 +61,8 @@ export interface AgentKernelOptions {
 	 * (e.g. in unit tests where persistence is not needed).
 	 */
 	session?: SessionStore;
+	/** Model identifier written into the session summary. */
+	modelId?: string;
 
 	/**
 	 * Maximum number of identical (tool, args, result) triples before the
@@ -156,7 +158,7 @@ export const AgentKernel = {
 		);
 
 		if (opts.session) {
-			agent.load(new SessionLog(opts.session));
+			agent.load(new SessionLog(opts.session, opts.modelId));
 		}
 
 		return { agent, dialog };

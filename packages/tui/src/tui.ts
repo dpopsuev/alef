@@ -266,6 +266,8 @@ export class TUI extends Container {
 	public onDebug?: () => void;
 	/** Called synchronously at the end of stop(). Use instead of monkey-patching stop(). */
 	public onStop?: () => void;
+	/** Called after each render with the full rendered frame. Used for debug frame capture (ALEF_DEBUG=1). */
+	public onRender?: (frame: string, width: number, height: number) => void;
 	/** Called with every raw input byte before any other processing. Return true to consume and stop propagation. */
 	public onRawInput?: (data: string) => boolean;
 	private renderRequested = false;
@@ -1037,6 +1039,7 @@ export class TUI extends Container {
 			this.previousKittyImageIds = this.collectKittyImageIds(newLines);
 			this.previousWidth = width;
 			this.previousHeight = height;
+			this.onRender?.(newLines.join("\n"), width, height);
 		};
 
 		const debugRedraw = process.env.ALEF_DEBUG_REDRAW === "1";

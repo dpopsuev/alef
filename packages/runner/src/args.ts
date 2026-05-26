@@ -52,6 +52,12 @@ export interface Args {
 	thinking: string | undefined;
 	/** Resume a previous session by ID. 'last' resumes the most recent. */
 	resume: string | undefined;
+	/**
+	 * debug subcommand and its args: 'session [id|--list]'
+	 * Invoked as: alef debug session [args...]
+	 */
+	debugSubcmd: string | undefined;
+	debugSubcmdArgs: string[];
 	/** Print all sessions for the current --cwd and exit. */
 	listSessions: boolean;
 	/**
@@ -122,6 +128,8 @@ export function parseArgs(argv: string[]): Args {
 		listTools: false,
 		listOrgans: false,
 		maxTurns: 50,
+		debugSubcmd: undefined,
+		debugSubcmdArgs: [],
 		thinking: undefined,
 		resume: undefined,
 		listSessions: false,
@@ -135,6 +143,13 @@ export function parseArgs(argv: string[]): Args {
 	let i = 0;
 	while (i < argv.length) {
 		const arg = argv[i];
+
+		if (arg === "debug") {
+			// alef debug <subcmd> [args...]
+			args.debugSubcmd = argv[++i] ?? "session";
+			args.debugSubcmdArgs = argv.slice(i + 1);
+			break;
+		}
 
 		if (arg === "-h" || arg === "--help") {
 			console.log(USAGE);

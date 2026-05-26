@@ -9,6 +9,7 @@
  *   ConsoleZone status · hint · editor (always visible)
  */
 
+import { appendFileSync } from "node:fs";
 import { getProviders } from "@dpopsuev/alef-ai";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
@@ -193,6 +194,20 @@ export async function runTuiMode(
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
 	const t = getTheme();
+
+	// TUI frame capture — written when ALEF_DEBUG=1 for offline hang diagnosis.
+	// Read last frame: alef debug frame  (or: cat /tmp/alef-frames.jsonl | tail -1)
+	const frameFile = "/tmp/alef-frames.jsonl";
+	if (process.env.ALEF_DEBUG === "1") {
+		tui.onRender = (frame: string, width: number, height: number) => {
+			try {
+				const record = JSON.stringify({ frame, width, height, ts: Date.now() });
+				appendFileSync(frameFile, record + "\n", "utf-8");
+			} catch {
+				// Never crash the TUI over debug I/O.
+			}
+		};
+	}
 
 	// ── Header ────────────────────────────────────────────────────────────
 	const sessionShort = opts.sessionId.slice(0, 8);

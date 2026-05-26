@@ -8,6 +8,7 @@
  */
 import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vitest";
+import { getTheme } from "../src/theme.js";
 import { renderDiffDisplay, truncateToolOutput } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
@@ -28,7 +29,7 @@ describe("renderDiffDisplay", () => {
 	].join("\n");
 
 	it("header line (index 0) is bold", () => {
-		const rendered = renderDiffDisplay(DIFF);
+		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
 		// Bold ANSI: \x1b[1m ... \x1b[0m (or \x1b[22m)
 		expect(lines[0]).toMatch(/\x1b\[1m/);
@@ -36,7 +37,7 @@ describe("renderDiffDisplay", () => {
 	});
 
 	it("removed line (-) is colored red (ansi16=31)", () => {
-		const rendered = renderDiffDisplay(DIFF);
+		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
 		const removedLine = lines.find((l) => stripVTControlCharacters(l).startsWith("-"));
 		expect(removedLine).toBeDefined();
@@ -46,7 +47,7 @@ describe("renderDiffDisplay", () => {
 	});
 
 	it("added line (+) is colored green (ansi16=32)", () => {
-		const rendered = renderDiffDisplay(DIFF);
+		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
 		const addedLine = lines.find((l) => stripVTControlCharacters(l).startsWith("+"));
 		expect(addedLine).toBeDefined();
@@ -56,7 +57,7 @@ describe("renderDiffDisplay", () => {
 	});
 
 	it("context lines are dim (not red or green)", () => {
-		const rendered = renderDiffDisplay(DIFF);
+		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
 		const contextLine = lines.find((l) => stripVTControlCharacters(l).startsWith(" 92"));
 		expect(contextLine).toBeDefined();
@@ -67,13 +68,13 @@ describe("renderDiffDisplay", () => {
 	});
 
 	it("blank separator line is preserved as empty string", () => {
-		const rendered = renderDiffDisplay(DIFF);
+		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
 		expect(lines[1]).toBe("");
 	});
 
 	it("plain text content is unchanged (strip ANSI)", () => {
-		const rendered = renderDiffDisplay(DIFF);
+		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const plain = stripVTControlCharacters(rendered);
 		// All original lines should be present verbatim in the plain output.
 		for (const line of DIFF.split("\n")) {
@@ -97,7 +98,7 @@ describe("diff display routing (displayKind = text/x-diff)", () => {
 
 	it("renderDiffDisplay DOES color + and - lines unlike truncateToolOutput", () => {
 		const diff = ["edit some/file.ts", "", "-1 old line", "+1 new line"].join("\n");
-		const rendered = renderDiffDisplay(diff);
+		const rendered = renderDiffDisplay(diff, getTheme());
 		expect(rendered).toMatch(/\x1b\[32m/); // green for +
 		expect(rendered).toMatch(/\x1b\[31m/); // red for -
 	});

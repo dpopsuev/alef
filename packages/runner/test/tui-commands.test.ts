@@ -14,6 +14,7 @@ import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { Container, Text } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
+import { getTheme } from "../src/theme.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
 import {
 	handleCtrlC,
@@ -38,6 +39,7 @@ function makeTui() {
 
 function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext {
 	return {
+		t: getTheme(),
 		chat: new Container(),
 		tui: makeTui(),
 		dialog: { clearHistory: vi.fn() },
@@ -333,7 +335,7 @@ describe("activeCalls drained on turn abort (ALE-BUG-16)", () => {
 		const activeCalls = new Map<string, { text: Text; name: string }>();
 
 		function onToolStart(e: ToolCallStart): void {
-			const line = new Text(renderToolLine(e.name, "", 0, null as unknown as boolean), 1, 0);
+			const line = new Text(renderToolLine(e.name, "", 0, null as unknown as boolean, getTheme()), 1, 0);
 			chat.addChild(line);
 			activeCalls.set(e.callId, { text: line, name: e.name });
 		}
@@ -341,14 +343,14 @@ describe("activeCalls drained on turn abort (ALE-BUG-16)", () => {
 		function onToolEnd(e: ToolCallEnd): void {
 			const entry = activeCalls.get(e.callId);
 			if (entry) {
-				entry.text.setText(renderToolLine(entry.name, "", e.elapsedMs, e.ok));
+				entry.text.setText(renderToolLine(entry.name, "", e.elapsedMs, e.ok, getTheme()));
 				activeCalls.delete(e.callId);
 			}
 		}
 
 		function abortPath(): void {
 			for (const [callId, entry] of activeCalls) {
-				entry.text.setText(renderToolLine(entry.name, "", 0, false));
+				entry.text.setText(renderToolLine(entry.name, "", 0, false, getTheme()));
 				activeCalls.delete(callId);
 			}
 		}

@@ -7,8 +7,9 @@
 
 import { Box, type Component, type Container, Spacer, Text } from "@dpopsuev/alef-tui";
 import { DynamicText } from "../dynamic-text.js";
+import type { ThemeTokens } from "../theme.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
-import { bg, color, dim, getTheme } from "./theme.js";
+import { bg, color, dim } from "./theme.js";
 
 const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? "@you";
 const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
@@ -20,8 +21,7 @@ const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
  *   Hello                      ← userBg
  * ╰─────────────────────────╯  ← userBg
  */
-export function appendUserMsg(chat: Container, text: string): void {
-	const t = getTheme();
+export function appendUserMsg(chat: Container, text: string, t: ThemeTokens): void {
 	const bgFn = (s: string): string => bg(s, t.userBg);
 	chat.addChild(new Spacer(1));
 	chat.addChild(new DynamicText((w) => bgFn(color(pillHeaderStr(YOU_LABEL, w), t.userFg))));
@@ -38,8 +38,7 @@ export function appendUserMsg(chat: Container, text: string): void {
  *   (interrupted)
  * ╰─────────────────────────╯
  */
-export function appendNotice(chat: Container, text: string): void {
-	const t = getTheme();
+export function appendNotice(chat: Container, text: string, t: ThemeTokens): void {
 	const colorFn = (s: string): string => dim(color(s, t.dimFg));
 	chat.addChild(new Spacer(1));
 	chat.addChild(new DynamicText((w) => colorFn(pillHeaderStr("─", w))));
@@ -60,13 +59,16 @@ export class AgentBlock {
 	/** Saved during start() for use by end(). Null outside an open block. */
 	private savedBgFn: ((s: string) => string) | null = null;
 
-	constructor(private readonly chat: Container) {}
+	constructor(
+		private readonly chat: Container,
+		private readonly t: ThemeTokens,
+	) {}
 
 	/** Open the block. No-op if already open. */
 	start(): void {
 		if (this.open) return;
 		this.open = true;
-		const t = getTheme();
+		const t = this.t;
 		const hasBg = t.agentBg.truecolor || t.agentBg.ansi256 !== undefined || t.agentBg.ansi16 !== undefined;
 		this.savedBgFn = hasBg ? (s: string) => bg(s, t.agentBg) : null;
 		const bgFn = this.savedBgFn;
@@ -85,7 +87,7 @@ export class AgentBlock {
 	end(): void {
 		if (!this.open) return;
 		this.open = false;
-		const t = getTheme();
+		const t = this.t;
 		const bgFn = this.savedBgFn;
 		this.chat.addChild(
 			bgFn

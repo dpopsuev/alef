@@ -7,7 +7,8 @@
 
 import type { MarkdownTheme } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
-import { bold, color, dim, getTheme, italic } from "./theme.js";
+import type { ThemeTokens } from "../theme.js";
+import { bold, color, dim, italic } from "./theme.js";
 
 /** Raw ANSI — never chalk, so these work regardless of chalk's TTY detection. */
 const ANSI_BOLD = "\x1b[1m";
@@ -15,8 +16,7 @@ const ANSI_DIM = "\x1b[2m";
 const ANSI_RESET = "\x1b[0m";
 
 /** Theme for the streaming reply block. Colors sourced from active theme tokens. */
-export function makeMarkdownTheme(): MarkdownTheme {
-	const t = getTheme();
+export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	return {
 		heading: (s) => bold(s),
 		link: (s) => color(s, t.toolNameFg),

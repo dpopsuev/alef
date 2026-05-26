@@ -9,6 +9,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
 import { rasterise, rasterToBlocks } from "../src/splash-render.js";
+import { getTheme } from "../src/theme.js";
 import { pillFooterStr, pillHeaderStr, renderToolLine } from "../src/tui-mode.js";
 import { goldenPath, requireGolden, stripANSI } from "./golden.js";
 
@@ -34,19 +35,19 @@ describe("Pill delimiters", () => {
 
 describe("Tool lines", () => {
 	it("active tool line", () => {
-		g("tool_active", renderToolLine("fs.read", "README.md", 0, true));
+		g("tool_active", renderToolLine("fs.read", "README.md", 0, true, getTheme()));
 	});
 
 	it("successful tool line", () => {
-		g("tool_ok", renderToolLine("fs.read", "README.md", 42, true));
+		g("tool_ok", renderToolLine("fs.read", "README.md", 42, true, getTheme()));
 	});
 
 	it("failed tool line", () => {
-		g("tool_err", renderToolLine("shell.exec", "npm test", 1800, false));
+		g("tool_err", renderToolLine("shell.exec", "npm test", 1800, false, getTheme()));
 	});
 
 	it("tool line without key arg", () => {
-		g("tool_no_arg", renderToolLine("fs.find", "", 15, true));
+		g("tool_no_arg", renderToolLine("fs.find", "", 15, true, getTheme()));
 	});
 });
 

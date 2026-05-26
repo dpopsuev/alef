@@ -12,9 +12,10 @@
 
 import { Container, Markdown, Text } from "@dpopsuev/alef-tui";
 import { trace } from "../debug-trace.js";
+import type { ThemeTokens } from "../theme.js";
 import type { AgentBlock } from "./chat-view.js";
 import { makeMarkdownTheme } from "./markdown-themes.js";
-import { color, dim, getTheme, italic } from "./theme.js";
+import { color, dim, italic } from "./theme.js";
 import { Typewriter } from "./typewriter.js";
 
 export class StreamingZone {
@@ -33,8 +34,9 @@ export class StreamingZone {
 	constructor(
 		private readonly agentBlock: AgentBlock,
 		requestRender: () => void,
+		private readonly t: ThemeTokens,
 	) {
-		this.replyTypewriter = new Typewriter({ setText: (t) => this.markdownNode?.setText(t) }, requestRender);
+		this.replyTypewriter = new Typewriter({ setText: (text) => this.markdownNode?.setText(text) }, requestRender);
 		this.thinkTypewriter = new Typewriter({ setText: (t) => this.thinkNode?.setText(italic(dim(t))) }, requestRender);
 	}
 
@@ -71,7 +73,7 @@ export class StreamingZone {
 		if (thinkNode) {
 			const elapsedS = this.thinkingStartedAt > 0 ? Math.round((Date.now() - this.thinkingStartedAt) / 1000) : 0;
 			const lineCount = pendingThinking ? pendingThinking.split("\n").length : 0;
-			const t = getTheme();
+			const t = this.t;
 			const label =
 				elapsedS > 0
 					? `thought for ${elapsedS}s (${lineCount} lines)`
@@ -113,7 +115,7 @@ export class StreamingZone {
 	receiveText(chunk: string): void {
 		const seg = this.openSegment();
 		if (!this.markdownNode) {
-			this.markdownNode = new Markdown("", 2, 0, makeMarkdownTheme());
+			this.markdownNode = new Markdown("", 2, 0, makeMarkdownTheme(this.t));
 			seg.addChild(this.markdownNode);
 			trace("receiveTextChunk:first", { markdownNode: true });
 		}
@@ -125,8 +127,7 @@ export class StreamingZone {
 		const seg = this.openSegment();
 		if (!this.thinkNode) {
 			this.thinkingStartedAt = Date.now();
-			const t = getTheme();
-			seg.addChild(new Text(color(dim("┊ thinking"), t.dimFg), 2, 0));
+			seg.addChild(new Text(color(dim("┊ thinking"), this.t.dimFg), 2, 0));
 			this.thinkNode = new Text("", 2, 0);
 			seg.addChild(this.thinkNode);
 		}

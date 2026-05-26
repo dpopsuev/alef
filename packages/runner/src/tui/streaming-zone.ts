@@ -71,8 +71,9 @@ export class StreamingZone {
 
 		// Update the header to show elapsed time; leave the full content visible.
 		if (this.thinkHeaderNode && this.thinkingStartedAt > 0) {
-			const elapsedS = Math.round((Date.now() - this.thinkingStartedAt) / 1000);
-			const label = elapsedS > 0 ? `┈ thought for ${elapsedS}s` : "┈ thought";
+			const elapsedMs = Date.now() - this.thinkingStartedAt;
+			const elapsedStr = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
+			const label = elapsedMs > 0 ? `┈ thought for ${elapsedStr}` : "┈ thought";
 			this.thinkHeaderNode.setText(color(dim(label), this.t.dimFg));
 			this.thinkingStartedAt = 0;
 		}

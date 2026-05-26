@@ -35,6 +35,27 @@ export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	};
 }
 
+/** Theme for streaming thinking blocks — italic, dim, using dimFg token. */
+export function makeThinkingMarkdownTheme(t: ThemeTokens): MarkdownTheme {
+	const wrap = (s: string): string => color(dim(s), t.dimFg);
+	return {
+		heading: (s) => wrap(`${ANSI_BOLD}${s}${ANSI_RESET}`),
+		link: (s) => wrap(s),
+		linkUrl: (s) => wrap(s),
+		code: (s) => wrap(s),
+		codeBlock: (s) => wrap(s),
+		codeBlockBorder: (s) => wrap(s),
+		quote: (s) => wrap(s),
+		quoteBorder: (s) => wrap(s),
+		hr: (s) => wrap(s),
+		listBullet: (s) => wrap(s),
+		bold: (s) => wrap(`${ANSI_BOLD}${s}${ANSI_RESET}`),
+		italic: (s) => wrap(`\x1b[3m${s}\x1b[23m`),
+		strikethrough: (s) => wrap(s),
+		underline: (s) => wrap(s),
+	};
+}
+
 /** Theme for tool output display blocks (text/plain).
  * All text dim except **bold** spans (e.g. file paths). Raw ANSI throughout. */
 export function makeToolOutputMarkdownTheme(): MarkdownTheme {

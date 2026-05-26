@@ -25,10 +25,10 @@ class ArcEditorWrapper implements Component {
 	}
 }
 
-import { DynamicText } from "./dynamic-text.js";
 import { EventPressure, pressureToInterval, timeBasedHue } from "./event-pressure.js";
 import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, type ColorToken, color, colorDepth, dim, fgCode, glyph, type ThemeTokens } from "./theme.js";
+import { DynamicText } from "./tui/dynamic-text.js";
 
 /**
  * ConsoleZone — the fixed interactive surface at the bottom of the TUI.

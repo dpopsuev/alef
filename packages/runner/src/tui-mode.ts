@@ -16,7 +16,6 @@ import { Container, matchesKey, ProcessTerminal, Text, TUI } from "@dpopsuev/ale
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
-import { DynamicText } from "./dynamic-text.js";
 import { formatError } from "./errors.js";
 import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
@@ -24,6 +23,7 @@ import { ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, dim, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { AgentBlock, appendNotice, appendUserMsg } from "./tui/chat-view.js";
+import { DynamicText } from "./tui/dynamic-text.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
 import {
@@ -223,7 +223,7 @@ export async function runTuiMode(
 
 	// ── Agent block + streaming zone ──────────────────────────────────────
 	const agentBlock = new AgentBlock(chat, t);
-	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender(), t);
+	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender(), t, trace);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
 	const activeCalls = new Map<string, { text: { setText(s: string): void }; name: string; keyArg: string }>();

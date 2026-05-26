@@ -11,7 +11,6 @@
  */
 
 import { Container, Markdown, Text } from "@dpopsuev/alef-tui";
-import { trace } from "../debug-trace.js";
 import type { ThemeTokens } from "../theme.js";
 import type { AgentBlock } from "./chat-view.js";
 import { makeMarkdownTheme } from "./markdown-themes.js";
@@ -35,6 +34,7 @@ export class StreamingZone {
 		private readonly agentBlock: AgentBlock,
 		requestRender: () => void,
 		private readonly t: ThemeTokens,
+		private readonly trace: (event: string, data?: Record<string, unknown>) => void = () => {},
 	) {
 		this.replyTypewriter = new Typewriter({ setText: (text) => this.markdownNode?.setText(text) }, requestRender);
 		this.thinkTypewriter = new Typewriter({ setText: (t) => this.thinkNode?.setText(italic(dim(t))) }, requestRender);
@@ -55,7 +55,7 @@ export class StreamingZone {
 
 	/** Freeze the active segment and reset streaming state. */
 	seal(): void {
-		trace("sealStreamingSegment", {
+		this.trace("sealStreamingSegment", {
 			chunks: this._chunksReceived,
 			markdownNode: this.markdownNode !== null,
 			pending: this.replyTypewriter.pendingText.length,
@@ -117,7 +117,7 @@ export class StreamingZone {
 		if (!this.markdownNode) {
 			this.markdownNode = new Markdown("", 2, 0, makeMarkdownTheme(this.t));
 			seg.addChild(this.markdownNode);
-			trace("receiveTextChunk:first", { markdownNode: true });
+			this.trace("receiveTextChunk:first", { markdownNode: true });
 		}
 		this._chunksReceived++;
 		this.replyTypewriter.receive(chunk);

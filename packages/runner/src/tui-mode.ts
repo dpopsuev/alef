@@ -27,7 +27,7 @@ import { AgentBlock, appendNotice, appendUserMsg } from "./tui/chat-view.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
-import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent, ToolCallRow } from "./tui/tool-view.js";
+import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent, renderToolLine } from "./tui/tool-view.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
 // Re-export primitives still used by tests and tui-commands.test.ts
@@ -236,7 +236,7 @@ export async function runTuiMode(
 	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender(), t, trace);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
-	const activeCalls = new Map<string, ToolCallRow>();
+	const activeCalls = new Map<string, { name: string; keyArg: string }>();
 	let batchStartedAt = 0;
 	let turnStartedAt = 0;
 	let pendingTokenFooter: { setText(s: string): void } | null = null;
@@ -257,24 +257,24 @@ export async function runTuiMode(
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
 			if (activeCalls.size === 0) batchStartedAt = Date.now();
-			const row = new ToolCallRow(name, keyArg, t);
-			activeCalls.set(callId, row);
-			agentBlock.addContent(row);
+			activeCalls.set(callId, { name, keyArg });
+			consoleZone.showInFlightCall(callId, name, keyArg);
 			tui.requestRender();
 		};
 
 		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display, displayKind }) => {
-			const row = activeCalls.get(callId);
-			if (row) {
+			const entry = activeCalls.get(callId);
+			if (entry) {
 				trace("tool:end", {
 					callId: callId.slice(0, 8),
-					name: row.name,
+					name: entry.name,
 					elapsedMs,
 					ok,
 					remainingActive: activeCalls.size - 1,
 				});
-				row.seal(elapsedMs, ok);
+				consoleZone.removeInFlightCall(callId);
 				activeCalls.delete(callId);
+				agentBlock.addContent(new Text(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok, t), 0, 0));
 				const snippet = display ?? result;
 				if (snippet?.trim()) {
 					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind, t));
@@ -394,7 +394,10 @@ export async function runTuiMode(
 			consoleZone.stopThinking();
 			consoleZone.hidePendingFooter();
 			streamingZone.clear();
-			for (const row of activeCalls.values()) row.seal(0, false);
+			for (const [callId, entry] of activeCalls) {
+				consoleZone.removeInFlightCall(callId);
+				agentBlock.addContent(new Text(renderToolLine(entry.name, entry.keyArg, 0, false, t), 0, 0));
+			}
 			activeCalls.clear();
 			agentBlock.end();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`, t);

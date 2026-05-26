@@ -100,6 +100,7 @@ export {
 	type OverlayHandle,
 	type OverlayMargin,
 	type OverlayOptions,
+	type RenderMeta,
 	type SizeValue,
 	TUI,
 } from "./tui.js";

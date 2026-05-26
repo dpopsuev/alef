@@ -1385,6 +1385,7 @@ export class TUI extends Container {
 		this.previousKittyImageIds = this.collectKittyImageIds(newLines);
 		this.previousWidth = width;
 		this.previousHeight = height;
+		this.onRender?.(newLines.join("\n"), width, height);
 	}
 
 	/**

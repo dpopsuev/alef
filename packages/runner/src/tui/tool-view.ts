@@ -5,6 +5,7 @@
  * into ANSI-formatted strings and TUI components.
  */
 
+import type { Component } from "@dpopsuev/alef-tui";
 import { Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
 import { sanitizeForDisplay } from "./ansi-utils.js";
@@ -18,11 +19,51 @@ const ANSI_DIM = "\x1b[2m";
 const ANSI_RESET = "\x1b[0m";
 
 /** Spinner line shown while a tool call is in-flight. */
-export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens): string {
+export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens, elapsedMs = 0): string {
+	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
 	const label = `${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}`;
 	const body = keyArg ? `  ${color(keyArg, t.toolArgFg)}` : "";
+	const timing = elapsedMs > 0 ? `  ${color(elapsed, t.timeFg)}` : "";
 	const indent = " ".repeat(INDENT.TOOL_LINE);
-	return `${indent}${label}${body}`;
+	return `${indent}${label}${body}${timing}`;
+}
+
+/**
+ * A live-updating tool call row.
+ *
+ * While in-flight: re-renders on every TUI frame showing a spinner + live
+ * elapsed time (driven by ConsoleZone.startThinking's requestRender loop).
+ * After seal(): renders the static completed line — no more Date.now() calls.
+ */
+export class ToolCallRow implements Component {
+	private startedAt: number;
+	private doneElapsedMs = 0;
+	private doneOk = false;
+	private sealed = false;
+
+	constructor(
+		readonly name: string,
+		readonly keyArg: string,
+		private readonly t: ThemeTokens,
+	) {
+		this.startedAt = Date.now();
+	}
+
+	render(_width: number): string[] {
+		if (this.sealed) {
+			return [renderToolLine(this.name, this.keyArg, this.doneElapsedMs, this.doneOk, this.t)];
+		}
+		return [toolActiveLine(this.name, this.keyArg, this.t, Date.now() - this.startedAt)];
+	}
+
+	invalidate(): void {}
+
+	/** Transition to completed state. */
+	seal(elapsedMs: number, ok: boolean): void {
+		this.doneElapsedMs = elapsedMs;
+		this.doneOk = ok;
+		this.sealed = true;
+	}
 }
 
 /** Completed tool call line with elapsed time and ok/err glyph. */

@@ -5,4 +5,4 @@
  * runner/src ↔ runner/src/tui directory cycle. The parent theme.ts
  * remains the canonical implementation — nothing is duplicated.
  */
-export { bg, bold, color, dim, glyph, italic } from "../ansi.js";
+export { bg, bold, color, dim, glyph, italic } from "./ansi.js";

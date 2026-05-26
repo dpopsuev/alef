@@ -134,12 +134,13 @@ export function makeToolOutputComponent(
 	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme());
 }
 
-/** Format token usage footer: "7 in · 1.0k out" */
-export function formatTokenUsage(input: number, output: number, _t: ThemeTokens): string {
+/** Format token usage footer: "7 in · 1.0k out · 14.2s" */
+export function formatTokenUsage(input: number, output: number, _t: ThemeTokens, turnMs?: number): string {
 	function compact(n: number): string {
 		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 		if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
 		return String(n);
 	}
-	return dim(`${compact(input)} in · ${compact(output)} out`);
+	const timing = turnMs !== undefined ? ` · ${(turnMs / 1000).toFixed(1)}s` : "";
+	return dim(`${compact(input)} in · ${compact(output)} out${timing}`);
 }

@@ -239,6 +239,8 @@ export async function runTuiMode(
 	// Each entry is a live ToolCallRow component owned by the agentBlock.
 	// While sealed=false, the row re-renders every TUI frame showing live elapsed time.
 	const activeCalls = new Map<string, ToolCallRow>();
+	let batchStartedAt = 0; // wall-clock start of the current parallel tool batch
+	let turnStartedAt = 0; // wall-clock start of the current user turn
 	let pendingTokenFooter: { setText(s: string): void } | null = null;
 
 	// Show pending footer whenever the agent block opens, matching its colours.
@@ -256,6 +258,7 @@ export async function runTuiMode(
 			streamingZone.seal();
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
+			if (activeCalls.size === 0) batchStartedAt = Date.now();
 			const row = new ToolCallRow(name, keyArg, t);
 			activeCalls.set(callId, row);
 			agentBlock.addContent(row);
@@ -278,13 +281,20 @@ export async function runTuiMode(
 				if (snippet?.trim()) {
 					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind, t));
 				}
+				// Last call in the batch — append a compact summary.
+				if (activeCalls.size === 0 && batchStartedAt > 0) {
+					const batchMs = Date.now() - batchStartedAt;
+					const batchStr = batchMs >= 1000 ? `${(batchMs / 1000).toFixed(1)}s` : `${batchMs}ms`;
+					agentBlock.addContent(new Text(dim(`  ⊞ · ${batchStr}`), 0, 0));
+					batchStartedAt = 0;
+				}
 				tui.requestRender();
 			}
 		};
 
 		toolSlot.onTokenUsage = ({ input, output }) => {
 			if (pendingTokenFooter) {
-				pendingTokenFooter.setText(formatTokenUsage(input, output, t));
+				pendingTokenFooter.setText(formatTokenUsage(input, output, t, Date.now() - turnStartedAt));
 				pendingTokenFooter = null;
 				tui.requestRender();
 			}
@@ -349,6 +359,7 @@ export async function runTuiMode(
 		agentBlock.reset(); // clear pill state for the new turn
 		consoleZone.hidePendingFooter(); // guard: clear any leftover footer from prior turn
 		appendUserMsg(chat, text, t);
+		turnStartedAt = Date.now();
 		consoleZone.startThinking();
 		tui.requestRender();
 

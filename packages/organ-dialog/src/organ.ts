@@ -116,16 +116,15 @@ export class DialogOrgan implements Organ {
 	private turnCount = 0;
 	private readonly onMessage: ((msg: ConversationMessage) => void) | undefined;
 	/**
-	 * Conversation history — accumulates across turns.
+	 * Conversation history — kept only for the ScriptedReasoner / test path.
 	 *
-	 * Each entry is either:
-	 *   ConversationMessage (simple user/assistant text turn), or
-	 *   unknown[] (full API-ready message block array returned by Reasoner
-	 *   via motor/dialog.message.conversationHistory).
+	 * In production: Reasoner's prepareStep (AgentKernel.buildContextPrepareStep)
+	 * replaces the messages array before the LLM call using assembleTurns() from
+	 * the SessionStore JSONL. history[] is therefore vestigial for the production
+	 * path — it exists only so ScriptedReasoner tests that don’t wire prepareStep
+	 * still receive a sensible messages array.
 	 *
-	 * buildPayload() flattens the history into the messages array sent to the LLM.
-	 * Storing the full block array preserves tool_use and tool_result blocks
-	 * that the Anthropic API requires for correct multi-turn conversations.
+	 * ALE-BUG-27: this array should be removed once all callers use prepareStep.
 	 */
 	private history: ConversationMessage[] | unknown[] = [];
 	private nerve: Nerve | null = null;
@@ -187,16 +186,16 @@ export class DialogOrgan implements Organ {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
 
-			// When Reasoner provides the full conversation history (including
-			// tool_use and tool_result blocks), store it wholesale so the next
-			// turn passes a complete, API-valid message array to the LLM.
+			// In production the Reasoner's prepareStep replaces history before
+			// the LLM sees it, so accumulating fullHistory here is redundant.
+			// Keep the fallback for ScriptedReasoner / test paths that don't
+			// wire prepareStep.
 			const fullHistory = event.payload.conversationHistory;
-			if (Array.isArray(fullHistory) && fullHistory.length > 0) {
-				this.history = fullHistory as unknown[];
-			} else {
-				// Fallback for organs that publish text-only (ScriptedReasoner, tests).
+			if (!Array.isArray(fullHistory) || fullHistory.length === 0) {
 				(this.history as ConversationMessage[]).push({ role: "assistant", content: text });
 			}
+			// Production path: do NOT store fullHistory — SessionLog already persisted
+			// the turn to JSONL and assembleTurns() will rebuild context next turn.
 			const assistantMsg: ConversationMessage = { role: "assistant", content: text };
 			this.onMessage?.(assistantMsg);
 			this.sink(text, sender);

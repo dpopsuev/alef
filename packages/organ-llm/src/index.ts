@@ -317,7 +317,11 @@ async function runLLMLoop(
 
 		if (toolCalls.length === 0) {
 			if (finalMessage.usage) {
-				options.onTokenUsage?.({ input: finalMessage.usage.input, output: finalMessage.usage.output });
+				options.onTokenUsage?.({
+					input: finalMessage.usage.input,
+					output: finalMessage.usage.output,
+					totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
+				});
 			}
 			const replyBodyFromTool = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
 			const text = replyBodyFromTool ?? extractText(finalMessage);

@@ -357,7 +357,7 @@ try {
 	} else if (useTui) {
 		await runTuiMode(
 			dialog,
-			{ cwd: args.cwd, modelId: resolvedModelDisplay, sessionId: session.id },
+			{ cwd: args.cwd, modelId: resolvedModelDisplay, sessionId: session.id, contextWindow: model.contextWindow },
 			() => agent.dispose(),
 			setLLMAbortController,
 			toolSlot,

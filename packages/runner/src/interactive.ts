@@ -17,6 +17,8 @@ export interface InteractiveOptions {
 	cwd: string;
 	modelId: string;
 	sessionId: string;
+	/** Model context window size in tokens. Used to warn when context fills. */
+	contextWindow?: number;
 }
 
 export async function runInteractive(

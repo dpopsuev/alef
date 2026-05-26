@@ -23,8 +23,8 @@ export function initDebugTrace(on: boolean): void {
 	trace("init");
 }
 
-/** Events that are always written regardless of --debug flag. Fires ≤ once per turn. */
-const ALWAYS_TRACE = new Set(["receiveTextChunk:first", "sealStreamingSegment"]);
+/** Events that are always written regardless of --debug flag. Each fires ≤ once per tool call or turn. */
+const ALWAYS_TRACE = new Set(["receiveTextChunk:first", "sealStreamingSegment", "tool:start", "tool:end"]);
 
 export function trace(event: string, extra?: Record<string, unknown>): void {
 	if (!enabled && !ALWAYS_TRACE.has(event)) return;

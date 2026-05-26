@@ -20,7 +20,7 @@
  * Ref: ALE-SPC-15, ALE-TSK-179
  */
 
-import type { AssistantMessage, Message, UserMessage } from "@dpopsuev/alef-ai";
+import type { AssistantMessage, Message, UserMessage } from "@dpopsuev/alef-organ-llm";
 import type { Turn } from "./session-store.js";
 
 // ---------------------------------------------------------------------------

@@ -18,9 +18,9 @@
  * ALE-SPC-24
  */
 
-import type { Message } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { type ConversationMessage, DialogOrgan, type MessageSink } from "@dpopsuev/alef-organ-dialog";
+import type { Message } from "@dpopsuev/alef-organ-llm";
 import type { Organ } from "@dpopsuev/alef-spine";
 import { SessionLog } from "./event-log-organ.js";
 import { LoopGuard } from "./loop-detector.js";

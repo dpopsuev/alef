@@ -636,4 +636,6 @@ export class Reasoner {
 }
 
 export type { ToolDefinition };
+// LLM message protocol types — re-exported so callers don't need @dpopsuev/alef-ai directly.
+export type { AssistantMessage, Message, ThinkingLevel, UserMessage } from "@dpopsuev/alef-ai";
 export type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";

@@ -6,8 +6,8 @@
  */
 
 import { Markdown, Text } from "@dpopsuev/alef-tui";
-import { color, dim, getTheme, glyph } from "../theme.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
+import { color, dim, getTheme, glyph } from "./theme.js";
 
 /** Raw ANSI for diff rendering (chalk silences itself outside TTY). */
 const ANSI_BOLD = "\x1b[1m";

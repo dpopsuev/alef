@@ -7,8 +7,8 @@
 
 import { Box, type Component, type Container, Spacer, Text } from "@dpopsuev/alef-tui";
 import { DynamicText } from "../dynamic-text.js";
-import { bg, color, dim, getTheme } from "../theme.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
+import { bg, color, dim, getTheme } from "./theme.js";
 
 const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? "@you";
 const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";

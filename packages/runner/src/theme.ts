@@ -1,18 +1,11 @@
-export type ColorDepth = "truecolor" | "256" | "16";
+// Pure ANSI primitives are defined in ansi.ts and re-exported here for
+// backward-compat. theme.ts owns the theme singleton and ThemeTokens.
 
-export function colorDepth(): ColorDepth {
-	const ct = (process.env.COLORTERM ?? "").toLowerCase();
-	if (ct === "truecolor" || ct === "24bit") return "truecolor";
-	const term = process.env.TERM ?? "";
-	if (term.includes("256color") || ct === "256color") return "256";
-	return "16";
-}
+export type { ColorDepth, ColorToken } from "./ansi.js";
+export { bg, bold, color, colorDepth, dim, fgCode, glyph, italic, nerdFontsAvailable } from "./ansi.js";
 
-export interface ColorToken {
-	truecolor?: string; // absent in terminal theme — falls through to ansi16
-	ansi256?: number;
-	ansi16?: number;
-}
+// FG_RESET kept internal — consumers should use color() instead.
+import { type ColorToken, colorDepth, FG_RESET, fgCode } from "./ansi.js";
 
 export interface ThemeTokens {
 	userFg: ColorToken;
@@ -35,15 +28,7 @@ export interface ThemeTokens {
 }
 
 import chalk from "chalk";
-
-// Used only inside fgCode where chalk has no ColorToken concept.
-/** Resets foreground only — preserves background set by outer Box/bgFn. */
-const FG_RESET = "\x1b[39m";
-
-function hexToRgb(hex: string): [number, number, number] {
-	const h = hex.replace("#", "");
-	return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
+import { hexToRgb } from "./ansi.js";
 
 /**
  * Return a chalk instance pre-configured for a theme token's color.
@@ -67,48 +52,6 @@ export function chalkForToken(token: ColorToken): typeof chalk {
 	return chalk;
 }
 
-/** Raw ANSI fg escape for a theme token. Used in splash where chalk cannot apply ColorToken colors. */
-export function fgCode(token: ColorToken, depth: ColorDepth): string {
-	if (depth === "truecolor" && token.truecolor) {
-		const [r, g, b] = hexToRgb(token.truecolor);
-		return `\x1b[38;2;${r};${g};${b}m`;
-	}
-	if ((depth === "truecolor" || depth === "256") && token.ansi256 !== undefined) {
-		return `\x1b[38;5;${token.ansi256}m`;
-	}
-	if (token.ansi16 !== undefined) return `\x1b[${token.ansi16}m`;
-	return "";
-}
-
-/** Apply a theme token color to text. */
-export function color(text: string, token: ColorToken): string {
-	const c = fgCode(token, colorDepth());
-	// Use FG_RESET (\x1b[39m) not RESET (\x1b[0m) so background colors set by
-	// outer Box components are preserved. Matches pi's theme.fg() behaviour.
-	return c ? `${c}${text}${FG_RESET}` : text;
-}
-
-/** Apply a theme token background color to text (for Box bgFn).
- * Uses raw ANSI escape codes like fgCode() — never goes through chalk
- * so it works regardless of chalk's TTY/color-level detection. */
-export function bg(text: string, token: ColorToken): string {
-	const depth = colorDepth();
-	if (depth === "truecolor" && token.truecolor) {
-		const [r, g, b] = hexToRgb(token.truecolor);
-		// [48;2;R;G;Bm = truecolor background, [49m = default background
-		return `\x1b[48;2;${r};${g};${b}m${text}\x1b[49m`;
-	}
-	if ((depth === "truecolor" || depth === "256") && token.ansi256 !== undefined) {
-		return `\x1b[48;5;${token.ansi256}m${text}\x1b[49m`;
-	}
-	// For 16-color: token.ansi16 IS already the background code (40-47, 100-107).
-	// The userBg token stores bg codes directly; do NOT add 10.
-	if (token.ansi16 !== undefined) {
-		return `\x1b[${token.ansi16}m${text}\x1b[49m`;
-	}
-	return text;
-}
-
 /** Apply a theme token color and bold.
  * Uses raw ANSI so it works regardless of chalk's TTY/color-level detection,
  * and uses FG_RESET (\x1b[39m) to preserve any background set by an outer Box.
@@ -118,10 +61,6 @@ export function boldColor(text: string, token: ColorToken): string {
 	// \x1b[1m = bold on, \x1b[22m = bold off (intensity reset only, not full reset)
 	return c ? `\x1b[1m${c}${text}${FG_RESET}\x1b[22m` : `\x1b[1m${text}\x1b[22m`;
 }
-
-export const bold = (text: string): string => chalk.bold(text);
-export const dim = (text: string): string => chalk.dim(text);
-export const italic = (text: string): string => chalk.italic(text);
 
 const TERMINAL: ThemeTokens = {
 	userFg: { ansi16: 95 }, // bright magenta
@@ -334,34 +273,4 @@ export function setThemeByName(name: string): void {
 	} else {
 		_active = t;
 	}
-}
-
-// Opt-in via ALEF_NERD_FONTS=1. Without it, ASCII fallbacks are used so the
-// TUI works on any terminal without special font requirements.
-const _nerdFonts = process.env.ALEF_NERD_FONTS === "1";
-
-export function nerdFontsAvailable(): boolean {
-	return _nerdFonts;
-}
-
-interface GlyphPair {
-	nerd: string;
-	ascii: string;
-}
-
-const GLYPHS: Record<string, GlyphPair> = {
-	"state:done": { nerd: "⬢", ascii: "✓" },
-	"state:active": { nerd: "⬡", ascii: "*" },
-	"state:error": { nerd: "●", ascii: "!" },
-	"state:pending": { nerd: "○", ascii: "." },
-	user: { nerd: "▸", ascii: ">" },
-	bullet: { nerd: "▪", ascii: "*" },
-	sep: { nerd: "─", ascii: "-" },
-	dot: { nerd: "·", ascii: "." },
-};
-
-export function glyph(key: string): string {
-	const pair = GLYPHS[key];
-	if (!pair) return key;
-	return _nerdFonts ? pair.nerd : pair.ascii;
 }

@@ -6,8 +6,8 @@
  */
 
 import { Box, type Component, type Container, Spacer, Text } from "@dpopsuev/alef-tui";
-import { DynamicText } from "../dynamic-text.js";
 import type { ThemeTokens } from "../theme.js";
+import { DynamicText } from "./dynamic-text.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
 import { bg, color, dim } from "./theme.js";
 

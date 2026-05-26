@@ -69,7 +69,6 @@ export class StreamingZone {
 		this.thinkTypewriter.flush();
 		this.thinkTypewriter.reset();
 
-		// Update the header to show elapsed time; leave the full content visible.
 		if (this.thinkHeaderNode && this.thinkingStartedAt > 0) {
 			const elapsedMs = Date.now() - this.thinkingStartedAt;
 			const elapsedStr = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;

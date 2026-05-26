@@ -236,11 +236,9 @@ export async function runTuiMode(
 	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender(), t, trace);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
-	// Each entry is a live ToolCallRow component owned by the agentBlock.
-	// While sealed=false, the row re-renders every TUI frame showing live elapsed time.
 	const activeCalls = new Map<string, ToolCallRow>();
-	let batchStartedAt = 0; // wall-clock start of the current parallel tool batch
-	let turnStartedAt = 0; // wall-clock start of the current user turn
+	let batchStartedAt = 0;
+	let turnStartedAt = 0;
 	let pendingTokenFooter: { setText(s: string): void } | null = null;
 
 	// Show pending footer whenever the agent block opens, matching its colours.
@@ -281,7 +279,6 @@ export async function runTuiMode(
 				if (snippet?.trim()) {
 					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind, t));
 				}
-				// Last call in the batch — append a compact summary.
 				if (activeCalls.size === 0 && batchStartedAt > 0) {
 					const batchMs = Date.now() - batchStartedAt;
 					const batchStr = batchMs >= 1000 ? `${(batchMs / 1000).toFixed(1)}s` : `${batchMs}ms`;
@@ -376,9 +373,7 @@ export async function runTuiMode(
 			if (!aborted) {
 				streamingZone.replyTypewriter.markStreamDone();
 				streamingZone.thinkTypewriter.markStreamDone();
-				// Drain both typewriters at their natural frame rate before sealing.
-				// Without this, seal() calls flush() which dumps all pending chars in
-				// one frame — fast models (haiku) appear to hang then dump a block.
+				// seal() calls flush() which dumps pending chars in one frame; drain first.
 				await Promise.all([
 					streamingZone.replyTypewriter.whenDrained(),
 					streamingZone.thinkTypewriter.whenDrained(),

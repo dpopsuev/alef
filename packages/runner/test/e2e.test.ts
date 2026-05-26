@@ -12,6 +12,7 @@ import { hasCredentials } from "../src/model.js";
 
 const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));
+const TSCONFIG = fileURLToPath(new URL("../../../tsconfig.json", import.meta.url));
 
 const SKIP_LLM = !hasCredentials();
 
@@ -24,7 +25,7 @@ interface RunResult {
 function run(args: string[], stdinInput?: string): Promise<RunResult> {
 	return new Promise((resolve) => {
 		const proc = spawn(TSX, [MAIN, ...args], {
-			env: { ...process.env },
+			env: { ...process.env, TSX_TSCONFIG_PATH: TSCONFIG },
 			stdio: ["pipe", "pipe", "pipe"],
 		});
 

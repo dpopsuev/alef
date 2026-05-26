@@ -28,6 +28,7 @@ import { AgentKernel } from "./agent-kernel.js";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { resolveApiKey } from "./auth.js";
 import { loadConfig } from "./config.js";
+import { runDebugSession } from "./debug-session.js";
 import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
 import { DirectiveContextAssembler } from "./directives.js";
 import { runInteractive } from "./interactive.js";
@@ -53,6 +54,21 @@ const cfg = loadConfig();
 setupOTel();
 
 const args = parseArgs(process.argv.slice(2));
+
+// Handle debug subcommands before any session/agent setup.
+if (args.debugSubcmd) {
+	switch (args.debugSubcmd) {
+		case "session":
+			await runDebugSession(args.debugSubcmdArgs, args.cwd);
+			break;
+		default:
+			console.error(`Unknown debug subcommand: ${args.debugSubcmd}`);
+			console.error("Available: session");
+			process.exit(1);
+	}
+	process.exit(0);
+}
+
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
 const log =
 	willUseTui && (args.debug || process.env.ALEF_LOG_LEVEL === "debug")

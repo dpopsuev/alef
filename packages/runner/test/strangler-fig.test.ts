@@ -32,6 +32,7 @@ import { assembleTurns } from "../src/turn-assembler.js";
 
 const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));
+const TSCONFIG = fileURLToPath(new URL("../../../tsconfig.json", import.meta.url));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -65,7 +66,7 @@ interface RunResult {
 function run(args: string[], opts: { stdinInput?: string; env?: Record<string, string> } = {}): Promise<RunResult> {
 	return new Promise((resolve) => {
 		const proc = spawn(TSX, [MAIN, ...args], {
-			env: { ...process.env, ...opts.env },
+			env: { ...process.env, TSX_TSCONFIG_PATH: TSCONFIG, ...opts.env },
 			stdio: ["pipe", "pipe", "pipe"],
 		});
 		let stdout = "";

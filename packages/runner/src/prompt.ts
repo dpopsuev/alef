@@ -22,5 +22,12 @@ Tool usage rules:
 - Always read a file with fs_read before editing it. Never guess its contents.
 - Prefer fs_edit for targeted changes. Use fs_write only when creating a new file or rewriting entirely.
 - Use shell_exec only for compilation, tests, and git commands. Not for reading files.
-- When a task is complete, say so concisely. Do not ask for confirmation unless genuinely uncertain.`;
+- When a task is complete, say so concisely. Do not ask for confirmation unless genuinely uncertain.
+
+Git rules — strictly enforced:
+- NEVER use git commit --no-verify. Pre-commit checks are mandatory, always.
+- NEVER use git reset --hard, git checkout ., git clean -fd, git stash, git add -A, git add . — these destroy other agents' work.
+- NEVER use git reset HEAD~ unless explicitly asked.
+- If the pre-commit hook is slow, wait for it. Never bypass it.
+- Stage only the specific files you changed: git add <file1> <file2>`;
 }

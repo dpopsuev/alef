@@ -1064,9 +1064,15 @@ export class TUI extends Container {
 		newLines = this.applyLineResets(newLines);
 
 		// Helper to clear scrollback and viewport and render all new lines
+		// Gate: use DEC 2026 sync brackets only when the terminal supports it and
+		// we are not inside a multiplexer. Fall back to cursor-hide/show alone.
+		const useDec2026 =
+			"dec2026Active" in this.terminal ? (this.terminal as { dec2026Active: boolean }).dec2026Active : true; // VirtualTerminal and other test doubles: assume supported
+
 		const fullRender = (clear: boolean): void => {
 			this.fullRedrawCount += 1;
-			let buffer = "\x1b[?2026h"; // Begin synchronized output
+			let buffer = useDec2026 ? "\x1b[?2026h" : ""; // Begin synchronized output (if supported)
+			buffer += "\x1b[?25l"; // T-1: hide cursor — fallback for terminals without DEC 2026
 			if (clear) {
 				buffer += this.deleteKittyImages(this.previousKittyImageIds);
 				buffer += "\x1b[2J\x1b[H\x1b[3J"; // Clear screen, home, then clear scrollback
@@ -1075,7 +1081,8 @@ export class TUI extends Container {
 				if (i > 0) buffer += "\r\n";
 				buffer += newLines[i];
 			}
-			buffer += "\x1b[?2026l"; // End synchronized output
+			buffer += "\x1b[?25h"; // T-1: show cursor
+			if (useDec2026) buffer += "\x1b[?2026l"; // End synchronized output
 			this.terminal.write(buffer);
 			this.cursorRow = Math.max(0, newLines.length - 1);
 			this.hardwareCursorRow = this.cursorRow;
@@ -1238,19 +1245,46 @@ export class TUI extends Container {
 			return;
 		}
 
-		// Differential rendering can only touch what was actually visible.
-		// If the first changed line is above the previous viewport, we need a full redraw.
+		// Differential rendering can only touch what was in the visible viewport.
+		// Lines above prevViewportTop are in scrollback — the terminal cannot update them.
+		// T-3: instead of fullRender (which emits \x1b[2J causing a blank-frame flash),
+		// accept the above-viewport change as lost and render only the visible portion.
 		if (firstChanged < prevViewportTop) {
-			logRedraw(`firstChanged < viewportTop (${firstChanged} < ${prevViewportTop})`);
 			tagRender("scrollback", firstChanged);
-			fullRender(true);
-			return;
+			// Find if anything in the visible viewport also changed.
+			let viewFirstChanged = -1;
+			let viewLastChanged = -1;
+			const vMax = Math.max(newLines.length, this.previousLines.length);
+			for (let i = prevViewportTop; i < vMax; i++) {
+				const o = i < this.previousLines.length ? this.previousLines[i] : "";
+				const n = i < newLines.length ? newLines[i] : "";
+				if (o !== n) {
+					if (viewFirstChanged === -1) viewFirstChanged = i;
+					viewLastChanged = i;
+				}
+			}
+			if (viewFirstChanged === -1) {
+				// Nothing visible changed — commit new state, no write.
+				this.positionHardwareCursor(cursorPos, newLines.length);
+				this.previousLines = newLines;
+				this.previousKittyImageIds = this.collectKittyImageIds(newLines);
+				this.previousWidth = width;
+				this.previousHeight = height;
+				this.previousViewportTop = prevViewportTop;
+				this.onRender?.(newLines.join("\n"), width, height);
+				return;
+			}
+			// Viewport has changes too — override firstChanged to start from viewport,
+			// then fall through to the differential render path.
+			firstChanged = viewFirstChanged;
+			lastChanged = viewLastChanged;
 		}
 
 		// Render from first changed line to end
 		// Build buffer with all updates wrapped in synchronized output
 		tagRender(appendStart ? "append" : "diff", firstChanged);
-		let buffer = "\x1b[?2026h"; // Begin synchronized output
+		let buffer = useDec2026 ? "\x1b[?2026h" : ""; // Begin synchronized output (if supported)
+		buffer += "\x1b[?25l"; // T-1: hide cursor before any cursor movement
 		buffer += this.deleteChangedKittyImages(firstChanged, lastChanged);
 		const prevViewportBottom = prevViewportTop + height - 1;
 		const moveTargetRow = appendStart ? firstChanged - 1 : firstChanged;
@@ -1335,7 +1369,8 @@ export class TUI extends Container {
 			buffer += `\x1b[${extraLines}A`;
 		}
 
-		buffer += "\x1b[?2026l"; // End synchronized output
+		buffer += "\x1b[?25h"; // T-1: show cursor after all movement
+		if (useDec2026) buffer += "\x1b[?2026l"; // End synchronized output
 
 		if (process.env.ALEF_TUI_DEBUG === "1") {
 			const debugDir = "/tmp/tui";

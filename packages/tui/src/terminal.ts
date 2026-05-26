@@ -37,6 +37,8 @@ export interface Terminal {
 
 	// Whether Kitty keyboard protocol is active
 	get kittyProtocolActive(): boolean;
+	// Whether DEC 2026 synchronized output is supported and safe (not in a multiplexer)
+	get dec2026Active(): boolean;
 
 	// Cursor positioning (relative to current position)
 	moveBy(lines: number): void; // Move cursor up (negative) or down (positive) by N lines
@@ -66,6 +68,10 @@ export class ProcessTerminal implements Terminal {
 	private resizeHandler?: () => void;
 	private _kittyProtocolActive = false;
 	private _modifyOtherKeysActive = false;
+	/** DEC 2026 (synchronized output) supported and safe to use. */
+	private _dec2026Active = false;
+	/** Multiplexer detected — DEC 2026 unconditionally disabled. */
+	private readonly _inMux = !!(process.env.TMUX ?? process.env.STY ?? process.env.ZELLIJ);
 	private stdinBuffer?: StdinBuffer;
 	private stdinDataHandler?: (data: string) => void;
 	private progressInterval?: ReturnType<typeof setInterval>;
@@ -86,6 +92,10 @@ export class ProcessTerminal implements Terminal {
 
 	get kittyProtocolActive(): boolean {
 		return this._kittyProtocolActive;
+	}
+
+	get dec2026Active(): boolean {
+		return this._dec2026Active;
 	}
 
 	start(onInput: (data: string) => void, onResize: () => void): void {
@@ -137,9 +147,21 @@ export class ProcessTerminal implements Terminal {
 
 		// Kitty protocol response pattern: \x1b[?<flags>u
 		const kittyResponsePattern = /^\x1b\[\?(\d+)u$/;
+		// DECRPM response pattern for mode 2026: \x1b[?2026;N$y  (N=1 or N=2 = supported)
+		const dec2026ResponsePattern = /^\x1b\[\?2026;(\d+)\$y$/;
 
 		// Forward individual sequences to the input handler
 		this.stdinBuffer.on("data", (sequence) => {
+			// Check for DEC 2026 DECRPM response: \x1b[?2026;N$y
+			if (!this._dec2026Active && !this._inMux) {
+				const dec2026Match = sequence.match(dec2026ResponsePattern);
+				if (dec2026Match) {
+					const n = Number(dec2026Match[1]);
+					// N=1 (set) or N=2 (reset but supported) = supported
+					if (n === 1 || n === 2) this._dec2026Active = true;
+					return; // Don't forward DECRPM response to TUI
+				}
+			}
 			// Check for Kitty protocol response (only if not already enabled)
 			if (!this._kittyProtocolActive) {
 				const match = sequence.match(kittyResponsePattern);
@@ -193,6 +215,9 @@ export class ProcessTerminal implements Terminal {
 		this.setupStdinBuffer();
 		process.stdin.on("data", this.stdinDataHandler!);
 		process.stdout.write("\x1b[?u");
+		// Probe DEC 2026 support: send DECRQM, expect DECRPM response within 100ms.
+		// Mux environments skip the probe unconditionally (TMUX/STY/ZELLIJ set).
+		if (!this._inMux) process.stdout.write("\x1b[?2026$p");
 		setTimeout(() => {
 			if (!this._kittyProtocolActive && !this._modifyOtherKeysActive) {
 				process.stdout.write("\x1b[>4;2m");

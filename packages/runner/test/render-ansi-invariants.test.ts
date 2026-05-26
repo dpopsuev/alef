@@ -161,7 +161,7 @@ describe("RC-2 — no \\x1b[2J in differential renders", () => {
 		tui.stop();
 	});
 
-	it("above-viewport DynamicText emits clear screen (documents RC-2, RED until T-3)", async () => {
+	it("above-viewport DynamicText no longer emits clear screen after T-3 fix", async () => {
 		// DynamicText at index 0, pushed above viewport by 8 more lines.
 		const { terminal, tui, chat } = makeEnv(40, 5);
 
@@ -180,9 +180,9 @@ describe("RC-2 — no \\x1b[2J in differential renders", () => {
 
 		const frames = terminal.getFrames();
 		const clearFrames = frames.filter((f) => f.hasClearScreen);
-		// Currently emits clear screen — this is the RC-2 bug.
-		// When T-3 (skip fullRender for above-viewport changes) lands, expect 0.
-		expect(clearFrames.length).toBeGreaterThan(0); // RED: documents RC-2
+		// T-3 fix: above-viewport changes no longer trigger fullRender(clear=true).
+		// The stale line stays in scrollback; the visible viewport renders cleanly.
+		expect(clearFrames.length).toBe(0);
 		tui.stop();
 	});
 });

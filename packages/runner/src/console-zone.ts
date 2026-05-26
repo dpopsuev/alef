@@ -29,6 +29,7 @@ import { EventPressure, pressureToInterval, timeBasedHue } from "./event-pressur
 import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, type ColorToken, color, colorDepth, dim, fgCode, glyph, type ThemeTokens } from "./theme.js";
 import { DynamicText } from "./tui/dynamic-text.js";
+import { pillFooterStr } from "./tui/pill.js";
 
 /**
  * ConsoleZone — the fixed interactive surface at the bottom of the TUI.
@@ -81,6 +82,12 @@ export class ConsoleZone {
 	private readonly tui: TUI;
 	private readonly t: ThemeTokens;
 
+	// Pending footer — shown while the agent block is open, above the input.
+	private readonly pendingFooter: DynamicText;
+	private pendingFooterFg: ColorToken = { ansi16: 96 };
+	private pendingFooterBgFn: ((s: string) => string) | null = null;
+	private pendingFooterActive = false;
+
 	constructor(tui: TUI, t: ThemeTokens, modelId: string) {
 		this.tui = tui;
 		this.t = t;
@@ -106,6 +113,13 @@ export class ConsoleZone {
 		};
 		this.editor = new Editor(tui, editorTheme);
 
+		this.pendingFooter = new DynamicText((w) => {
+			if (!this.pendingFooterActive) return "";
+			const line = pillFooterStr(w);
+			const colored = color(line, this.pendingFooterFg);
+			return this.pendingFooterBgFn ? this.pendingFooterBgFn(colored) : colored;
+		});
+
 		void modelId; // stored via addChild below
 		this._modelId = modelId;
 	}
@@ -113,6 +127,7 @@ export class ConsoleZone {
 	private readonly _modelId: string;
 
 	mount(): void {
+		this.tui.addChild(this.pendingFooter);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(new ArcEditorWrapper(this.editor, (s) => color(s, this.t.dimFg)));
 		this.tui.addChild(new DynamicText((_w) => dim("/exit · /new · /resume · /help")));
@@ -159,5 +174,23 @@ export class ConsoleZone {
 
 	get isThinking(): boolean {
 		return this.thinkingTimer !== undefined;
+	}
+
+	/**
+	 * Show the pending agent footer above the input while the agent block is open.
+	 * The footer mirrors the pill bottom border and disappears when the real
+	 * footer is appended to the chat scrollback.
+	 */
+	showPendingFooter(fg: ColorToken, bgFn: ((s: string) => string) | null = null): void {
+		this.pendingFooterFg = fg;
+		this.pendingFooterBgFn = bgFn;
+		this.pendingFooterActive = true;
+		this.tui.requestRender();
+	}
+
+	/** Remove the pending footer — call once the real footer lands in scrollback. */
+	hidePendingFooter(): void {
+		this.pendingFooterActive = false;
+		this.tui.requestRender();
 	}
 }

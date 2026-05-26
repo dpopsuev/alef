@@ -77,8 +77,12 @@ export class CapturingTerminal extends VirtualTerminal {
 	 */
 	getFrames(): FrameRecord[] {
 		const raw = this.getRawLog();
-		// Split on the sync-end marker, keeping the delimiter with each frame.
 		const parts = raw.split(/(?<=\x1b\[\?2026l)/);
 		return parts.filter((p) => p.trim().length > 0).map((p) => analyzeFrame(p));
+	}
+
+	/** RC-8: number of write() calls since last clearLog(). Each frame must be exactly 1. */
+	getWriteCount(): number {
+		return this.writeLog.length;
 	}
 }

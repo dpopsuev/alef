@@ -21,7 +21,7 @@ import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
-import { boldColor, dim, getTheme, glyph, type ThemeTokens } from "./theme.js";
+import { bg, boldColor, dim, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { AgentBlock, appendNotice, appendUserMsg } from "./tui/chat-view.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
@@ -229,9 +229,17 @@ export async function runTuiMode(
 	const activeCalls = new Map<string, { text: { setText(s: string): void }; name: string; keyArg: string }>();
 	let pendingTokenFooter: { setText(s: string): void } | null = null;
 
+	// Show pending footer whenever the agent block opens, matching its colours.
+	const agentHasBg = t.agentBg.truecolor || t.agentBg.ansi256 !== undefined || t.agentBg.ansi16 !== undefined;
+	const agentBgFn = agentHasBg ? (s: string) => bg(s, t.agentBg) : null;
+	const showFooter = (): void => {
+		if (!agentBlock.isOpen) consoleZone.showPendingFooter(t.agentFg, agentBgFn);
+	};
+
 	if (toolSlot) {
 		toolSlot.onToolStart = ({ callId, name, args }) => {
 			consoleZone.pulse();
+			showFooter();
 			agentBlock.start();
 			streamingZone.seal();
 			const keyArg = keyArgFromPayload(args);
@@ -264,6 +272,7 @@ export async function runTuiMode(
 
 		toolSlot.receiveTextChunk = (chunk) => {
 			consoleZone.pulse();
+			showFooter();
 			agentBlock.start();
 			streamingZone.receiveText(chunk);
 		};
@@ -348,6 +357,7 @@ export async function runTuiMode(
 			}
 		} catch (e) {
 			consoleZone.stopThinking();
+			consoleZone.hidePendingFooter();
 			streamingZone.clear();
 			for (const [, entry] of activeCalls) {
 				entry.text.setText(renderToolLine(entry.name, entry.keyArg, 0, false, t));

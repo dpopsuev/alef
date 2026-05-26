@@ -76,10 +76,6 @@ alef: ## Run Alef from source (./alef-test.sh)
 debug: ## Run Alef in debug mode (ALEF_DEBUG=1, haiku model for speed)
 	ALEF_DEBUG=1 ALEF_MODEL=claude-haiku-4-5 ./alef-test.sh
 
-.PHONY: log
-log: ## Tail the Alef debug log (written when ALEF_DEBUG=1 or --debug)
-	tail -f ~/.alef/debug.log
-
 .PHONY: dev
 dev: ## Start package dev watchers (long-running)
 	$(NPM) run dev

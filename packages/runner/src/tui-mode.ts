@@ -27,7 +27,12 @@ import { AgentBlock, appendNotice, appendUserMsg } from "./tui/chat-view.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
-import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent, renderToolLine } from "./tui/tool-view.js";
+import {
+	appendCompletedToolBlock,
+	formatTokenUsage,
+	keyArgFromPayload,
+	makeToolOutputComponent,
+} from "./tui/tool-view.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
 // Re-export primitives still used by tests and tui-commands.test.ts
@@ -274,11 +279,16 @@ export async function runTuiMode(
 				});
 				consoleZone.removeInFlightCall(callId);
 				activeCalls.delete(callId);
-				agentBlock.addContent(new Text(renderToolLine(entry.name, entry.keyArg, elapsedMs, ok, t), 0, 0));
 				const snippet = display ?? result;
-				if (snippet?.trim()) {
-					agentBlock.addContent(makeToolOutputComponent(snippet, displayKind, t));
-				}
+				appendCompletedToolBlock(
+					agentBlock,
+					entry.name,
+					entry.keyArg,
+					elapsedMs,
+					ok,
+					snippet?.trim() ? makeToolOutputComponent(snippet, displayKind, t) : null,
+					t,
+				);
 				if (activeCalls.size === 0 && batchStartedAt > 0) {
 					const batchMs = Date.now() - batchStartedAt;
 					const batchStr = batchMs >= 1000 ? `${(batchMs / 1000).toFixed(1)}s` : `${batchMs}ms`;
@@ -396,7 +406,7 @@ export async function runTuiMode(
 			streamingZone.clear();
 			for (const [callId, entry] of activeCalls) {
 				consoleZone.removeInFlightCall(callId);
-				agentBlock.addContent(new Text(renderToolLine(entry.name, entry.keyArg, 0, false, t), 0, 0));
+				appendCompletedToolBlock(agentBlock, entry.name, entry.keyArg, 0, false, null, t);
 			}
 			activeCalls.clear();
 			agentBlock.end();

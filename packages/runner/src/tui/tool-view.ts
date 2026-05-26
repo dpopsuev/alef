@@ -6,11 +6,13 @@
  */
 
 import type { Component } from "@dpopsuev/alef-tui";
-import { Markdown, Text } from "@dpopsuev/alef-tui";
+import { Box, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
-import { sanitizeForDisplay } from "./ansi-utils.js";
+import { sanitizeForDisplay, stripAnsi } from "./ansi-utils.js";
+import { DynamicText } from "./dynamic-text.js";
 import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
+import { pillFooterStr } from "./pill.js";
 import { color, dim, glyph } from "./theme.js";
 
 /** Raw ANSI for diff rendering (chalk silences itself outside TTY). */
@@ -143,4 +145,44 @@ export function formatTokenUsage(input: number, output: number, _t: ThemeTokens,
 	}
 	const timing = turnMs !== undefined ? ` · ${(turnMs / 1000).toFixed(1)}s` : "";
 	return dim(`${compact(input)} in · ${compact(output)} out${timing}`);
+}
+
+/**
+ * Append a completed tool call as a self-contained pill block in the chat.
+ *
+ * Header: ╭─ ✓ shell.exec  ls  1.2s ──────╮
+ * Body:   output content (if any)
+ * Footer: ╰────────────────────────────────╯ (only when body exists)
+ *
+ * The header width is computed from the ANSI-stripped label so colored glyphs
+ * and names don't throw off the fill calculation.
+ */
+export function appendCompletedToolBlock(
+	parent: { addContent(c: Component): void },
+	name: string,
+	keyArg: string,
+	elapsedMs: number,
+	ok: boolean,
+	outputComponent: Component | null,
+	t: ThemeTokens,
+): void {
+	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
+	const g = ok ? glyph("state:done") : glyph("state:error");
+	const gFg = ok ? t.toolOkFg : t.toolErrFg;
+
+	parent.addContent(
+		new DynamicText((w) => {
+			const coloredLabel = `${color(g, gFg)} ${color(name, t.toolNameFg)}${keyArg ? `  ${color(keyArg, t.toolArgFg)}` : ""}  ${color(elapsed, t.timeFg)}`;
+			const visLen = stripAnsi(coloredLabel).length;
+			const fill = Math.max(0, w - visLen - 4);
+			return `${dim("╭─")} ${coloredLabel} ${dim(`${"─".repeat(fill)}╮`)}`;
+		}),
+	);
+
+	if (outputComponent) {
+		const box = new Box(INDENT.BLOCK, 0);
+		box.addChild(outputComponent);
+		parent.addContent(box);
+		parent.addContent(new DynamicText((w) => dim(pillFooterStr(w))));
+	}
 }

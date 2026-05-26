@@ -8,6 +8,7 @@
 import { Box, type Component, type Container, Spacer, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
 import { DynamicText } from "./dynamic-text.js";
+import { INDENT, SPACING } from "./layout-constants.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
 import { bg, color, dim } from "./theme.js";
 
@@ -23,9 +24,9 @@ const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
  */
 export function appendUserMsg(chat: Container, text: string, t: ThemeTokens): void {
 	const bgFn = (s: string): string => bg(s, t.userBg);
-	chat.addChild(new Spacer(1));
+	chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
 	chat.addChild(new DynamicText((w) => bgFn(color(pillHeaderStr(YOU_LABEL, w), t.userFg))));
-	const box = new Box(2, 0, bgFn);
+	const box = new Box(INDENT.BLOCK, 0, bgFn);
 	box.addChild(new Text(color(text, t.userFg), 0, 0));
 	chat.addChild(box);
 	chat.addChild(new DynamicText((w) => bgFn(color(pillFooterStr(w), t.userFg))));
@@ -40,9 +41,9 @@ export function appendUserMsg(chat: Container, text: string, t: ThemeTokens): vo
  */
 export function appendNotice(chat: Container, text: string, t: ThemeTokens): void {
 	const colorFn = (s: string): string => dim(color(s, t.dimFg));
-	chat.addChild(new Spacer(1));
+	chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
 	chat.addChild(new DynamicText((w) => colorFn(pillHeaderStr("─", w))));
-	chat.addChild(new Text(dim(text), 2, 0));
+	chat.addChild(new Text(dim(text), INDENT.BLOCK, 0));
 	chat.addChild(new DynamicText((w) => colorFn(pillFooterStr(w))));
 }
 
@@ -73,13 +74,13 @@ export class AgentBlock {
 		this.savedBgFn = hasBg ? (s: string) => bg(s, t.agentBg) : null;
 		const bgFn = this.savedBgFn;
 
-		this.chat.addChild(new Spacer(1));
+		this.chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
 		this.chat.addChild(
 			bgFn
 				? new DynamicText((w) => bgFn(color(pillHeaderStr(AGENT_LABEL, w), t.agentFg)))
 				: new DynamicText((w) => color(pillHeaderStr(AGENT_LABEL, w), t.agentFg)),
 		);
-		this.contentBox = bgFn ? new Box(2, 0, bgFn) : new Box(2, 0);
+		this.contentBox = bgFn ? new Box(INDENT.BLOCK, 0, bgFn) : new Box(INDENT.BLOCK, 0);
 		this.chat.addChild(this.contentBox);
 	}
 

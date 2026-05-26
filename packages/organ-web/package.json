@@ -1,7 +1,7 @@
 {
 	"name": "@dpopsuev/alef-organ-web",
 	"version": "0.0.1",
-	"description": "Web organ — fetch public web pages and return plain text. No external dependencies.",
+	"description": "Web organ — fetch pages and search the web. Supports Brave, Tavily, Exa, and DuckDuckGo.",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -22,7 +22,7 @@
 		"test": "vitest --run",
 		"prepublishOnly": "npm run clean && npm run build"
 	},
-	"keywords": ["agent", "organ", "web", "fetch", "html"],
+	"keywords": ["agent", "organ", "web", "fetch", "search", "html"],
 	"author": "Daniel Popsuevich",
 	"license": "MIT",
 	"repository": {

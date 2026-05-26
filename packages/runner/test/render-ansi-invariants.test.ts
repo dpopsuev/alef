@@ -186,3 +186,56 @@ describe("RC-2 — no \\x1b[2J in differential renders", () => {
 		tui.stop();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// RC-8 — single write() syscall per render frame
+// ---------------------------------------------------------------------------
+
+describe("RC-8 — one write() call per render frame", () => {
+	it("fullRender produces exactly 1 write() call", async () => {
+		const { terminal, tui, chat } = makeEnv();
+		chat.addChild(new Text("hello", 0, 0));
+		terminal.clearLog();
+
+		tui.requestRender(true);
+		await settle();
+
+		// One render = one terminal.write() call = one PTY write() syscall.
+		// Multiple calls would let the terminal render intermediate states.
+		expect(terminal.getWriteCount()).toBe(1);
+		tui.stop();
+	});
+
+	it("differential render produces exactly 1 write() call", async () => {
+		const { terminal, tui, chat } = makeEnv();
+		const node = new Text("v1", 0, 0);
+		chat.addChild(node);
+		tui.requestRender(true);
+		await settle();
+		terminal.clearLog();
+
+		node.setText("v2");
+		tui.requestRender();
+		await settle();
+
+		expect(terminal.getWriteCount()).toBe(1);
+		tui.stop();
+	});
+
+	it("1000 rapid requestRender() calls still produce exactly 1 write() per frame", async () => {
+		const { terminal, tui, chat } = makeEnv();
+		chat.addChild(new Text("content", 0, 0));
+		tui.requestRender(true);
+		await settle();
+		terminal.clearLog();
+
+		for (let i = 0; i < 1000; i++) tui.requestRender();
+		await settle(50);
+
+		// Coalescing ensures at most a few renders. Each render = 1 write().
+		// Total writes == total renders, never writes > renders.
+		const frames = terminal.getFrames();
+		expect(terminal.getWriteCount()).toBe(frames.length);
+		tui.stop();
+	});
+});

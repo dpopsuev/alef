@@ -13,8 +13,8 @@
 import { Container, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
 import type { AgentBlock } from "./chat-view.js";
-import { makeMarkdownTheme } from "./markdown-themes.js";
-import { color, dim, italic } from "./theme.js";
+import { makeMarkdownTheme, makeThinkingMarkdownTheme } from "./markdown-themes.js";
+import { color, dim } from "./theme.js";
 import { Typewriter } from "./typewriter.js";
 
 export class StreamingZone {
@@ -22,7 +22,8 @@ export class StreamingZone {
 	readonly segments: Container[] = [];
 	activeSegment: Container | null = null;
 	markdownNode: Markdown | null = null;
-	thinkNode: Text | null = null;
+	thinkNode: Markdown | null = null;
+	private thinkHeaderNode: Text | null = null;
 
 	private thinkingStartedAt = 0;
 	private _chunksReceived = 0; // debug counter, reset per seal
@@ -37,7 +38,7 @@ export class StreamingZone {
 		private readonly trace: (event: string, data?: Record<string, unknown>) => void = () => {},
 	) {
 		this.replyTypewriter = new Typewriter({ setText: (text) => this.markdownNode?.setText(text) }, requestRender);
-		this.thinkTypewriter = new Typewriter({ setText: (t) => this.thinkNode?.setText(italic(dim(t))) }, requestRender);
+		this.thinkTypewriter = new Typewriter({ setText: (text) => this.thinkNode?.setText(text) }, requestRender);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -65,27 +66,19 @@ export class StreamingZone {
 		this.replyTypewriter.flush();
 		this.replyTypewriter.reset();
 
-		// Collapse thinking to a compact label so it doesn't push reply off-screen.
-		const thinkNode = this.thinkNode;
-		const pendingThinking = this.thinkTypewriter.pendingText;
 		this.thinkTypewriter.flush();
 		this.thinkTypewriter.reset();
-		if (thinkNode) {
-			const elapsedS = this.thinkingStartedAt > 0 ? Math.round((Date.now() - this.thinkingStartedAt) / 1000) : 0;
-			const lineCount = pendingThinking ? pendingThinking.split("\n").length : 0;
-			const t = this.t;
-			const label =
-				elapsedS > 0
-					? `thought for ${elapsedS}s (${lineCount} lines)`
-					: lineCount > 0
-						? `thought (${lineCount} lines)`
-						: "";
-			thinkNode.setText(label ? color(dim(label), t.dimFg) : "");
+
+		// Update the header to show elapsed time; leave the full content visible.
+		if (this.thinkHeaderNode && this.thinkingStartedAt > 0) {
+			const elapsedS = Math.round((Date.now() - this.thinkingStartedAt) / 1000);
+			const label = elapsedS > 0 ? `┈ thought for ${elapsedS}s` : "┈ thought";
+			this.thinkHeaderNode.setText(color(dim(label), this.t.dimFg));
 			this.thinkingStartedAt = 0;
 		}
 
 		// Remove empty segments — they produce blank lines in the layout (ALE-BUG-7).
-		if (this.activeSegment && !this.markdownNode && !this.thinkNode) {
+		if (this.activeSegment && !this.markdownNode && !this.thinkHeaderNode) {
 			this.agentBlock.removeContent(this.activeSegment);
 			const idx = this.segments.indexOf(this.activeSegment);
 			if (idx >= 0) this.segments.splice(idx, 1);
@@ -94,6 +87,7 @@ export class StreamingZone {
 		this.activeSegment = null;
 		this.markdownNode = null;
 		this.thinkNode = null;
+		this.thinkHeaderNode = null;
 	}
 
 	/** Remove all segments — abort/error path only. */
@@ -105,6 +99,7 @@ export class StreamingZone {
 		this.activeSegment = null;
 		this.markdownNode = null;
 		this.thinkNode = null;
+		this.thinkHeaderNode = null;
 		this.thinkingStartedAt = 0;
 	}
 
@@ -127,8 +122,9 @@ export class StreamingZone {
 		const seg = this.openSegment();
 		if (!this.thinkNode) {
 			this.thinkingStartedAt = Date.now();
-			seg.addChild(new Text(color(dim("┊ thinking"), this.t.dimFg), 2, 0));
-			this.thinkNode = new Text("", 2, 0);
+			this.thinkHeaderNode = new Text(color(dim("┊ thinking"), this.t.dimFg), 2, 0);
+			seg.addChild(this.thinkHeaderNode);
+			this.thinkNode = new Markdown("", 2, 0, makeThinkingMarkdownTheme(this.t));
 			seg.addChild(this.thinkNode);
 		}
 		this.thinkTypewriter.receive(chunk);

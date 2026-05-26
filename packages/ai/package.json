@@ -49,6 +49,10 @@
 		"./bedrock-provider": {
 			"types": "./dist/bedrock-provider.d.ts",
 			"import": "./dist/bedrock-provider.js"
+		},
+		"./faux": {
+			"types": "./src/providers/faux.ts",
+			"import": "./src/providers/faux.ts"
 		}
 	},
 	"bin": {

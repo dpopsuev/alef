@@ -1,13 +1,28 @@
+/**
+ * FauxProvider — in-process mock LLM for deterministic testing.
+ *
+ * Implements the full streaming API at the TypeScript function boundary.
+ * No HTTP, no subprocess, no API keys required.
+ *
+ * Emits real token-by-token events with configurable tokensPerSecond so
+ * tests can exercise the full pipe: FauxProvider → organ-llm → TUI render.
+ *
+ * Ported from pi-mono packages/ai/src/providers/faux.ts (MIT).
+ *
+ * Usage:
+ *   const faux = registerFauxProvider({ tokensPerSecond: 200 });
+ *   faux.setResponses([fauxAssistantMessage("Hello from faux LLM")]);
+ *   // ... run agent ...
+ *   faux.unregister();
+ */
+
 import { registerApiProvider, unregisterApiProviders } from "../api-registry.js";
 import type {
 	AssistantMessage,
-	AssistantMessageEventStream,
 	Context,
 	ImageContent,
 	Message,
 	Model,
-	SimpleStreamOptions,
-	StreamFunction,
 	StreamOptions,
 	TextContent,
 	ThinkingContent,
@@ -15,9 +30,10 @@ import type {
 	ToolResultMessage,
 	Usage,
 } from "../types.js";
+import { formatThrownValue } from "../utils/diagnostics.js";
 import { createAssistantMessageEventStream } from "../utils/event-stream.js";
 
-const DEFAULT_API = "faux";
+const DEFAULT_API_PREFIX = "faux";
 const DEFAULT_PROVIDER = "faux";
 const DEFAULT_MODEL_ID = "faux-1";
 const DEFAULT_MODEL_NAME = "Faux Model";
@@ -54,19 +70,17 @@ export function fauxThinking(thinking: string): ThinkingContent {
 	return { type: "thinking", thinking };
 }
 
-export function fauxToolCall(name: string, arguments_: ToolCall["arguments"], options: { id?: string } = {}): ToolCall {
-	return {
-		type: "toolCall",
-		id: options.id ?? randomId("tool"),
-		name,
-		arguments: arguments_,
-	};
+export function fauxToolCall(name: string, args: ToolCall["arguments"], options: { id?: string } = {}): ToolCall {
+	const id =
+		options.id ??
+		(typeof globalThis.crypto?.randomUUID === "function"
+			? globalThis.crypto.randomUUID()
+			: `tool:${Math.random().toString(36).slice(2)}`);
+	return { type: "toolCall", id, name, arguments: args };
 }
 
-function normalizeFauxAssistantContent(content: string | FauxContentBlock | FauxContentBlock[]): FauxContentBlock[] {
-	if (typeof content === "string") {
-		return [fauxText(content)];
-	}
+function normalizeContent(content: string | FauxContentBlock | FauxContentBlock[]): FauxContentBlock[] {
+	if (typeof content === "string") return [fauxText(content)];
 	return Array.isArray(content) ? content : [content];
 }
 
@@ -75,21 +89,18 @@ export function fauxAssistantMessage(
 	options: {
 		stopReason?: AssistantMessage["stopReason"];
 		errorMessage?: string;
-		responseId?: string;
-		timestamp?: number;
 	} = {},
 ): AssistantMessage {
 	return {
 		role: "assistant",
-		content: normalizeFauxAssistantContent(content),
-		api: DEFAULT_API,
+		content: normalizeContent(content),
+		api: DEFAULT_API_PREFIX,
 		provider: DEFAULT_PROVIDER,
 		model: DEFAULT_MODEL_ID,
 		usage: DEFAULT_USAGE,
 		stopReason: options.stopReason ?? "stop",
 		errorMessage: options.errorMessage,
-		responseId: options.responseId,
-		timestamp: options.timestamp ?? Date.now(),
+		timestamp: Date.now(),
 	};
 }
 
@@ -103,130 +114,112 @@ export type FauxResponseFactory = (
 export type FauxResponseStep = AssistantMessage | FauxResponseFactory;
 
 export interface RegisterFauxProviderOptions {
+	/** Override the API identifier (default: auto-generated unique string). */
 	api?: string;
+	/** Override the provider name (default: 'faux'). */
 	provider?: string;
+	/** Model definitions exposed by this provider. Default: one model "faux-1". */
 	models?: FauxModelDefinition[];
+	/** Simulated token delivery speed. 0 = instant (microtask). Default: instant. */
 	tokensPerSecond?: number;
-	tokenSize?: {
-		min?: number;
-		max?: number;
-	};
+	/** Chunk size range (chars per chunk ≈ token). Default: 3–5. */
+	tokenSize?: { min?: number; max?: number };
 }
 
 export interface FauxProviderRegistration {
+	/** API identifier — use when registering with ModelRegistry. */
 	api: string;
 	models: [Model<string>, ...Model<string>[]];
 	getModel(): Model<string>;
 	getModel(modelId: string): Model<string> | undefined;
 	state: { callCount: number };
-	setResponses: (responses: FauxResponseStep[]) => void;
-	appendResponses: (responses: FauxResponseStep[]) => void;
-	getPendingResponseCount: () => number;
-	unregister: () => void;
+	setResponses(responses: FauxResponseStep[]): void;
+	appendResponses(responses: FauxResponseStep[]): void;
+	getPendingResponseCount(): number;
+	unregister(): void;
 }
 
 function estimateTokens(text: string): number {
 	return Math.ceil(text.length / 4);
 }
 
-function randomId(prefix: string): string {
-	return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+function splitByTokenSize(text: string, min: number, max: number): string[] {
+	const chunks: string[] = [];
+	let i = 0;
+	while (i < text.length) {
+		const tokenSize = min + Math.floor(Math.random() * (max - min + 1));
+		const charSize = Math.max(1, tokenSize * 4);
+		chunks.push(text.slice(i, i + charSize));
+		i += charSize;
+	}
+	return chunks.length > 0 ? chunks : [""];
 }
 
 function contentToText(content: string | Array<TextContent | ImageContent>): string {
-	if (typeof content === "string") {
-		return content;
-	}
-	return content
-		.map((block) => {
-			if (block.type === "text") {
-				return block.text;
-			}
-			return `[image:${block.mimeType}:${block.data.length}]`;
-		})
-		.join("\n");
+	if (typeof content === "string") return content;
+	return content.map((b) => (b.type === "text" ? b.text : `[image:${b.mimeType}]`)).join("\n");
 }
 
-function assistantContentToText(content: Array<TextContent | ThinkingContent | ToolCall>): string {
-	return content
-		.map((block) => {
-			if (block.type === "text") {
-				return block.text;
-			}
-			if (block.type === "thinking") {
-				return block.thinking;
-			}
-			return `${block.name}:${JSON.stringify(block.arguments)}`;
-		})
-		.join("\n");
+function messageToText(msg: Message): string {
+	if (msg.role === "user") return contentToText(msg.content);
+	if (msg.role === "assistant")
+		return msg.content
+			.map((b) =>
+				b.type === "text"
+					? b.text
+					: b.type === "thinking"
+						? b.thinking
+						: `${b.name}:${JSON.stringify(b.arguments)}`,
+			)
+			.join("\n");
+	const tr = msg as ToolResultMessage;
+	return [tr.toolName, ...tr.content.map((b) => contentToText([b]))].join("\n");
 }
 
-function toolResultToText(message: ToolResultMessage): string {
-	return [message.toolName, ...message.content.map((block) => contentToText([block]))].join("\n");
-}
-
-function messageToText(message: Message): string {
-	if (message.role === "user") {
-		return contentToText(message.content);
-	}
-	if (message.role === "assistant") {
-		return assistantContentToText(message.content);
-	}
-	return toolResultToText(message);
-}
-
-function serializeContext(context: Context): string {
+function serializeContext(ctx: Context): string {
 	const parts: string[] = [];
-	if (context.systemPrompt) {
-		parts.push(`system:${context.systemPrompt}`);
-	}
-	for (const message of context.messages) {
-		parts.push(`${message.role}:${messageToText(message)}`);
-	}
-	if (context.tools?.length) {
-		parts.push(`tools:${JSON.stringify(context.tools)}`);
-	}
+	if (ctx.systemPrompt) parts.push(`system:${ctx.systemPrompt}`);
+	for (const m of ctx.messages) parts.push(`${m.role}:${messageToText(m)}`);
+	if (ctx.tools?.length) parts.push(`tools:${JSON.stringify(ctx.tools)}`);
 	return parts.join("\n\n");
 }
 
-function commonPrefixLength(a: string, b: string): number {
-	const length = Math.min(a.length, b.length);
-	let index = 0;
-	while (index < length && a[index] === b[index]) {
-		index++;
-	}
-	return index;
+function commonPrefixLen(a: string, b: string): number {
+	const len = Math.min(a.length, b.length);
+	let i = 0;
+	while (i < len && a[i] === b[i]) i++;
+	return i;
 }
 
-function withUsageEstimate(
-	message: AssistantMessage,
-	context: Context,
-	options: StreamOptions | undefined,
-	promptCache: Map<string, string>,
+function withUsage(
+	msg: AssistantMessage,
+	ctx: Context,
+	opts: StreamOptions | undefined,
+	cache: Map<string, string>,
 ): AssistantMessage {
-	const promptText = serializeContext(context);
-	const promptTokens = estimateTokens(promptText);
-	const outputTokens = estimateTokens(assistantContentToText(message.content));
+	const prompt = serializeContext(ctx);
+	const promptTokens = estimateTokens(prompt);
+	const outputTokens = estimateTokens(
+		msg.content.map((b) => (b.type === "text" ? b.text : b.type === "thinking" ? b.thinking : "")).join(""),
+	);
 	let input = promptTokens;
 	let cacheRead = 0;
 	let cacheWrite = 0;
-	const sessionId = options?.sessionId;
-
-	if (sessionId && options?.cacheRetention !== "none") {
-		const previousPrompt = promptCache.get(sessionId);
-		if (previousPrompt) {
-			const cachedChars = commonPrefixLength(previousPrompt, promptText);
-			cacheRead = estimateTokens(previousPrompt.slice(0, cachedChars));
-			cacheWrite = estimateTokens(promptText.slice(cachedChars));
+	const sid = opts?.sessionId;
+	if (sid && opts?.cacheRetention !== "none") {
+		const prev = cache.get(sid);
+		if (prev) {
+			const cached = commonPrefixLen(prev, prompt);
+			cacheRead = estimateTokens(prev.slice(0, cached));
+			cacheWrite = estimateTokens(prompt.slice(cached));
 			input = Math.max(0, promptTokens - cacheRead);
 		} else {
 			cacheWrite = promptTokens;
 		}
-		promptCache.set(sessionId, promptText);
+		cache.set(sid, prompt);
 	}
-
 	return {
-		...message,
+		...msg,
 		usage: {
 			input,
 			output: outputTokens,
@@ -238,31 +231,24 @@ function withUsageEstimate(
 	};
 }
 
-function splitStringByTokenSize(text: string, minTokenSize: number, maxTokenSize: number): string[] {
-	const chunks: string[] = [];
-	let index = 0;
-	while (index < text.length) {
-		const tokenSize = minTokenSize + Math.floor(Math.random() * (maxTokenSize - minTokenSize + 1));
-		const charSize = Math.max(1, tokenSize * 4);
-		chunks.push(text.slice(index, index + charSize));
-		index += charSize;
-	}
-	return chunks.length > 0 ? chunks : [""];
+function scheduleChunk(chunk: string, tps: number | undefined): Promise<void> {
+	if (!tps || tps <= 0) return new Promise((r) => queueMicrotask(r));
+	const delayMs = (estimateTokens(chunk) / tps) * 1000;
+	return new Promise((r) => setTimeout(r, delayMs));
 }
 
-function cloneMessage(message: AssistantMessage, api: string, provider: string, modelId: string): AssistantMessage {
-	const cloned = structuredClone(message);
+function cloneMsg(msg: AssistantMessage, api: string, provider: string, modelId: string): AssistantMessage {
 	return {
-		...cloned,
+		...structuredClone(msg),
 		api,
 		provider,
 		model: modelId,
-		timestamp: cloned.timestamp ?? Date.now(),
-		usage: cloned.usage ?? DEFAULT_USAGE,
+		timestamp: msg.timestamp ?? Date.now(),
+		usage: msg.usage ?? DEFAULT_USAGE,
 	};
 }
 
-function createErrorMessage(error: unknown, api: string, provider: string, modelId: string): AssistantMessage {
+function errorMsg(err: unknown, api: string, provider: string, modelId: string): AssistantMessage {
 	return {
 		role: "assistant",
 		content: [],
@@ -271,138 +257,122 @@ function createErrorMessage(error: unknown, api: string, provider: string, model
 		model: modelId,
 		usage: DEFAULT_USAGE,
 		stopReason: "error",
-		errorMessage: error instanceof Error ? error.message : String(error),
+		errorMessage: formatThrownValue(err),
 		timestamp: Date.now(),
 	};
 }
 
-function createAbortedMessage(partial: AssistantMessage): AssistantMessage {
-	return {
-		...partial,
-		stopReason: "aborted",
-		errorMessage: "Request was aborted",
-		timestamp: Date.now(),
-	};
+function abortedMsg(partial: AssistantMessage): AssistantMessage {
+	return { ...partial, stopReason: "aborted", errorMessage: "Request was aborted", timestamp: Date.now() };
 }
 
-function scheduleChunk(chunk: string, tokensPerSecond: number | undefined): Promise<void> {
-	if (!tokensPerSecond || tokensPerSecond <= 0) {
-		return new Promise((resolve) => queueMicrotask(resolve));
-	}
-	const delayMs = (estimateTokens(chunk) / tokensPerSecond) * 1000;
-	return new Promise((resolve) => setTimeout(resolve, delayMs));
-}
+type Stream = ReturnType<typeof createAssistantMessageEventStream>;
 
 async function streamWithDeltas(
-	stream: AssistantMessageEventStream,
-	message: AssistantMessage,
-	minTokenSize: number,
-	maxTokenSize: number,
-	tokensPerSecond: number | undefined,
+	stream: Stream,
+	msg: AssistantMessage,
+	minTok: number,
+	maxTok: number,
+	tps: number | undefined,
 	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const partial: AssistantMessage = { ...message, content: [] };
+	const partial: AssistantMessage = { ...msg, content: [] };
 	if (signal?.aborted) {
-		const aborted = createAbortedMessage(partial);
-		stream.push({ type: "error", reason: "aborted", error: aborted });
-		stream.end(aborted);
+		const ab = abortedMsg(partial);
+		stream.push({ type: "error", reason: "aborted", error: ab });
+		stream.end(ab);
 		return;
 	}
-
 	stream.push({ type: "start", partial: { ...partial } });
 
-	for (let index = 0; index < message.content.length; index++) {
+	for (let idx = 0; idx < msg.content.length; idx++) {
 		if (signal?.aborted) {
-			const aborted = createAbortedMessage(partial);
-			stream.push({ type: "error", reason: "aborted", error: aborted });
-			stream.end(aborted);
+			const ab = abortedMsg(partial);
+			stream.push({ type: "error", reason: "aborted", error: ab });
+			stream.end(ab);
 			return;
 		}
-
-		const block = message.content[index];
+		const block = msg.content[idx];
+		if (!block) continue;
 
 		if (block.type === "thinking") {
 			partial.content = [...partial.content, { type: "thinking", thinking: "" }];
-			stream.push({ type: "thinking_start", contentIndex: index, partial: { ...partial } });
-			for (const chunk of splitStringByTokenSize(block.thinking, minTokenSize, maxTokenSize)) {
-				await scheduleChunk(chunk, tokensPerSecond);
+			stream.push({ type: "thinking_start", contentIndex: idx, partial: { ...partial } });
+			for (const chunk of splitByTokenSize(block.thinking, minTok, maxTok)) {
+				await scheduleChunk(chunk, tps);
 				if (signal?.aborted) {
-					const aborted = createAbortedMessage(partial);
-					stream.push({ type: "error", reason: "aborted", error: aborted });
-					stream.end(aborted);
+					const ab = abortedMsg(partial);
+					stream.push({ type: "error", reason: "aborted", error: ab });
+					stream.end(ab);
 					return;
 				}
-				(partial.content[index] as ThinkingContent).thinking += chunk;
-				stream.push({ type: "thinking_delta", contentIndex: index, delta: chunk, partial: { ...partial } });
+				(partial.content[idx] as ThinkingContent).thinking += chunk;
+				stream.push({ type: "thinking_delta", contentIndex: idx, delta: chunk, partial: { ...partial } });
 			}
-			stream.push({
-				type: "thinking_end",
-				contentIndex: index,
-				content: block.thinking,
-				partial: { ...partial },
-			});
+			stream.push({ type: "thinking_end", contentIndex: idx, content: block.thinking, partial: { ...partial } });
 			continue;
 		}
 
 		if (block.type === "text") {
 			partial.content = [...partial.content, { type: "text", text: "" }];
-			stream.push({ type: "text_start", contentIndex: index, partial: { ...partial } });
-			for (const chunk of splitStringByTokenSize(block.text, minTokenSize, maxTokenSize)) {
-				await scheduleChunk(chunk, tokensPerSecond);
+			stream.push({ type: "text_start", contentIndex: idx, partial: { ...partial } });
+			for (const chunk of splitByTokenSize(block.text, minTok, maxTok)) {
+				await scheduleChunk(chunk, tps);
 				if (signal?.aborted) {
-					const aborted = createAbortedMessage(partial);
-					stream.push({ type: "error", reason: "aborted", error: aborted });
-					stream.end(aborted);
+					const ab = abortedMsg(partial);
+					stream.push({ type: "error", reason: "aborted", error: ab });
+					stream.end(ab);
 					return;
 				}
-				(partial.content[index] as TextContent).text += chunk;
-				stream.push({ type: "text_delta", contentIndex: index, delta: chunk, partial: { ...partial } });
+				(partial.content[idx] as TextContent).text += chunk;
+				stream.push({ type: "text_delta", contentIndex: idx, delta: chunk, partial: { ...partial } });
 			}
-			stream.push({ type: "text_end", contentIndex: index, content: block.text, partial: { ...partial } });
+			stream.push({ type: "text_end", contentIndex: idx, content: block.text, partial: { ...partial } });
 			continue;
 		}
 
+		// toolCall
 		partial.content = [...partial.content, { type: "toolCall", id: block.id, name: block.name, arguments: {} }];
-		stream.push({ type: "toolcall_start", contentIndex: index, partial: { ...partial } });
-		for (const chunk of splitStringByTokenSize(JSON.stringify(block.arguments), minTokenSize, maxTokenSize)) {
-			await scheduleChunk(chunk, tokensPerSecond);
+		stream.push({ type: "toolcall_start", contentIndex: idx, partial: { ...partial } });
+		for (const chunk of splitByTokenSize(JSON.stringify(block.arguments), minTok, maxTok)) {
+			await scheduleChunk(chunk, tps);
 			if (signal?.aborted) {
-				const aborted = createAbortedMessage(partial);
-				stream.push({ type: "error", reason: "aborted", error: aborted });
-				stream.end(aborted);
+				const ab = abortedMsg(partial);
+				stream.push({ type: "error", reason: "aborted", error: ab });
+				stream.end(ab);
 				return;
 			}
-			stream.push({ type: "toolcall_delta", contentIndex: index, delta: chunk, partial: { ...partial } });
+			stream.push({ type: "toolcall_delta", contentIndex: idx, delta: chunk, partial: { ...partial } });
 		}
-		(partial.content[index] as ToolCall).arguments = block.arguments;
-		stream.push({ type: "toolcall_end", contentIndex: index, toolCall: block, partial: { ...partial } });
+		(partial.content[idx] as ToolCall).arguments = block.arguments;
+		stream.push({ type: "toolcall_end", contentIndex: idx, toolCall: block, partial: { ...partial } });
 	}
 
-	if (message.stopReason === "error" || message.stopReason === "aborted") {
-		stream.push({ type: "error", reason: message.stopReason, error: message });
-		stream.end(message);
+	if (msg.stopReason === "error" || msg.stopReason === "aborted") {
+		stream.push({ type: "error", reason: msg.stopReason, error: msg });
+		stream.end(msg);
 		return;
 	}
-
-	stream.push({ type: "done", reason: message.stopReason, message });
-	stream.end(message);
+	stream.push({ type: "done", reason: msg.stopReason, message: msg });
+	stream.end(msg);
 }
 
 export function registerFauxProvider(options: RegisterFauxProviderOptions = {}): FauxProviderRegistration {
-	const api = options.api ?? randomId(DEFAULT_API);
+	const uuid = (): string =>
+		typeof globalThis.crypto?.randomUUID === "function"
+			? globalThis.crypto.randomUUID()
+			: Math.random().toString(36).slice(2);
+	const api = options.api ?? `${DEFAULT_API_PREFIX}:${uuid()}`;
 	const provider = options.provider ?? DEFAULT_PROVIDER;
-	const sourceId = randomId("faux-provider");
-	const minTokenSize = Math.max(
-		1,
-		Math.min(options.tokenSize?.min ?? DEFAULT_MIN_TOKEN_SIZE, options.tokenSize?.max ?? DEFAULT_MAX_TOKEN_SIZE),
-	);
-	const maxTokenSize = Math.max(minTokenSize, options.tokenSize?.max ?? DEFAULT_MAX_TOKEN_SIZE);
-	let pendingResponses: FauxResponseStep[] = [];
-	const tokensPerSecond = options.tokensPerSecond;
+	const sourceId = `faux-source:${uuid()}`;
+	const minTok = Math.max(1, options.tokenSize?.min ?? DEFAULT_MIN_TOKEN_SIZE);
+	const maxTok = Math.max(minTok, options.tokenSize?.max ?? DEFAULT_MAX_TOKEN_SIZE);
+	const tps = options.tokensPerSecond;
 	const state = { callCount: 0 };
 	const promptCache = new Map<string, string>();
+	let pendingResponses: FauxResponseStep[] = [];
 
-	const modelDefinitions = options.models?.length
+	const modelDefs = options.models?.length
 		? options.models
 		: [
 				{
@@ -410,72 +380,58 @@ export function registerFauxProvider(options: RegisterFauxProviderOptions = {}):
 					name: DEFAULT_MODEL_NAME,
 					reasoning: false,
 					input: ["text", "image"] as ("text" | "image")[],
-					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-					contextWindow: 128000,
-					maxTokens: 16384,
+					contextWindow: 128_000,
+					maxTokens: 16_384,
 				},
 			];
-	const models = modelDefinitions.map((definition) => ({
-		id: definition.id,
-		name: definition.name ?? definition.id,
+
+	const models = modelDefs.map((d) => ({
+		id: d.id,
+		name: d.name ?? d.id,
 		api,
 		provider,
 		baseUrl: DEFAULT_BASE_URL,
-		reasoning: definition.reasoning ?? false,
-		input: definition.input ?? ["text", "image"],
-		cost: definition.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: definition.contextWindow ?? 128000,
-		maxTokens: definition.maxTokens ?? 16384,
+		reasoning: d.reasoning ?? false,
+		input: d.input ?? (["text", "image"] as ("text" | "image")[]),
+		cost: d.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: d.contextWindow ?? 128_000,
+		maxTokens: d.maxTokens ?? 16_384,
 	})) as [Model<string>, ...Model<string>[]];
 
-	const stream: StreamFunction<string, StreamOptions> = (requestModel, context, streamOptions) => {
+	const streamFn = (requestModel: Model<string>, ctx: Context, opts?: StreamOptions) => {
 		const outer = createAssistantMessageEventStream();
 		const step = pendingResponses.shift();
 		state.callCount++;
-
 		queueMicrotask(async () => {
 			try {
-				await streamOptions?.onResponse?.({ status: 200, headers: {} }, requestModel);
+				await opts?.onResponse?.({ status: 200, headers: {} }, requestModel);
 				if (!step) {
-					let message = createErrorMessage(
-						new Error("No more faux responses queued"),
-						api,
-						provider,
-						requestModel.id,
-					);
-					message = withUsageEstimate(message, context, streamOptions, promptCache);
-					outer.push({ type: "error", reason: "error", error: message });
-					outer.end(message);
+					let msg = errorMsg(new Error("No more faux responses queued"), api, provider, requestModel.id);
+					msg = withUsage(msg, ctx, opts, promptCache);
+					outer.push({ type: "error", reason: "error", error: msg });
+					outer.end(msg);
 					return;
 				}
-
-				const resolved =
-					typeof step === "function" ? await step(context, streamOptions, state, requestModel) : step;
-				let message = cloneMessage(resolved, api, provider, requestModel.id);
-				message = withUsageEstimate(message, context, streamOptions, promptCache);
-				await streamWithDeltas(outer, message, minTokenSize, maxTokenSize, tokensPerSecond, streamOptions?.signal);
-			} catch (error) {
-				const message = createErrorMessage(error, api, provider, requestModel.id);
-				outer.push({ type: "error", reason: "error", error: message });
-				outer.end(message);
+				const resolved = typeof step === "function" ? await step(ctx, opts, state, requestModel) : step;
+				let msg = cloneMsg(resolved, api, provider, requestModel.id);
+				msg = withUsage(msg, ctx, opts, promptCache);
+				await streamWithDeltas(outer, msg, minTok, maxTok, tps, opts?.signal);
+			} catch (err) {
+				const msg = errorMsg(err, api, provider, requestModel.id);
+				outer.push({ type: "error", reason: "error", error: msg });
+				outer.end(msg);
 			}
 		});
-
 		return outer;
 	};
 
-	const streamSimple: StreamFunction<string, SimpleStreamOptions> = (streamModel, context, streamOptions) =>
-		stream(streamModel, context, streamOptions);
-
-	registerApiProvider({ api, stream, streamSimple }, sourceId);
+	registerApiProvider({ api, stream: streamFn, streamSimple: streamFn as typeof streamFn }, sourceId);
 
 	function getModel(): Model<string>;
-	function getModel(requestedModelId: string): Model<string> | undefined;
-	function getModel(requestedModelId?: string): Model<string> | undefined {
-		if (!requestedModelId) {
-			return models[0];
-		}
-		return models.find((candidate) => candidate.id === requestedModelId);
+	function getModel(id: string): Model<string> | undefined;
+	function getModel(id?: string): Model<string> | undefined {
+		if (!id) return models[0];
+		return models.find((m) => m.id === id);
 	}
 
 	return {

@@ -7,11 +7,17 @@ import { getTheme } from "../src/theme.js";
 import { AgentBlock } from "../src/tui/chat-view.js";
 import { StreamingZone } from "../src/tui/streaming-zone.js";
 
-function makeZone() {
+function makeZone(hideThinking = false) {
 	const chat = new Container();
 	const agent = new AgentBlock(chat, getTheme());
 	agent.start();
-	const zone = new StreamingZone(agent, () => {}, getTheme());
+	const zone = new StreamingZone(
+		agent,
+		() => {},
+		getTheme(),
+		() => {},
+		hideThinking,
+	);
 	return { chat, agent, zone };
 }
 

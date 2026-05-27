@@ -158,7 +158,7 @@ export function formatTokenUsage(input: number, output: number, _t: ThemeTokens,
  * and names don't throw off the fill calculation.
  */
 export function appendCompletedToolBlock(
-	parent: { addContent(c: Component): void },
+	parent: { addChild(c: Component): void } | { addContent(c: Component): void },
 	name: string,
 	keyArg: string,
 	elapsedMs: number,
@@ -170,7 +170,12 @@ export function appendCompletedToolBlock(
 	const g = ok ? glyph("state:done") : glyph("state:error");
 	const gFg = ok ? t.toolOkFg : t.toolErrFg;
 
-	parent.addContent(
+	const add = (c: Component): void => {
+		if ("addChild" in parent) parent.addChild(c);
+		else parent.addContent(c);
+	};
+
+	add(
 		new DynamicText((w) => {
 			const coloredLabel = `${color(g, gFg)} ${color(name, t.toolNameFg)}${keyArg ? `  ${color(keyArg, t.toolArgFg)}` : ""}  ${color(elapsed, t.timeFg)}`;
 			const visLen = stripAnsi(coloredLabel).length;
@@ -182,7 +187,7 @@ export function appendCompletedToolBlock(
 	if (outputComponent) {
 		const box = new Box(INDENT.BLOCK, 0);
 		box.addChild(outputComponent);
-		parent.addContent(box);
-		parent.addContent(new DynamicText((w) => dim(pillFooterStr(w))));
+		add(box);
+		add(new DynamicText((w) => dim(pillFooterStr(w))));
 	}
 }

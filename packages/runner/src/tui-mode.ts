@@ -23,7 +23,7 @@ import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
 import { bg, boldColor, dim, getTheme, glyph, type ThemeTokens } from "./theme.js";
-import { AgentBlock, appendNotice, appendUserMsg } from "./tui/chat-view.js";
+import { appendNotice, appendUserMsg } from "./tui/chat-view.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
@@ -239,8 +239,7 @@ export async function runTuiMode(
 	}
 
 	// ── Agent block + streaming zone ──────────────────────────────────────
-	const agentBlock = new AgentBlock(chat, t);
-	const streamingZone = new StreamingZone(agentBlock, () => tui.requestRender(), t, trace);
+	const streamingZone = new StreamingZone(chat, () => tui.requestRender(), t, trace);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
 	const activeCalls = new Map<string, { name: string; keyArg: string }>();
@@ -251,15 +250,18 @@ export async function runTuiMode(
 	// Show pending footer whenever the agent block opens, matching its colours.
 	const agentHasBg = t.agentBg.truecolor || t.agentBg.ansi256 !== undefined || t.agentBg.ansi16 !== undefined;
 	const agentBgFn = agentHasBg ? (s: string) => bg(s, t.agentBg) : null;
+	let pendingFooterShown = false;
 	const showFooter = (): void => {
-		if (!agentBlock.isOpen) consoleZone.showPendingFooter(t.agentFg, agentBgFn);
+		if (!pendingFooterShown) {
+			consoleZone.showPendingFooter(t.agentFg, agentBgFn);
+			pendingFooterShown = true;
+		}
 	};
 
 	if (toolSlot) {
 		toolSlot.onToolStart = ({ callId, name, args }) => {
 			consoleZone.pulse();
 			showFooter();
-			agentBlock.start();
 			streamingZone.seal();
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
@@ -283,7 +285,7 @@ export async function runTuiMode(
 				activeCalls.delete(callId);
 				const snippet = display ?? result;
 				appendCompletedToolBlock(
-					agentBlock,
+					chat,
 					entry.name,
 					entry.keyArg,
 					elapsedMs,
@@ -294,7 +296,7 @@ export async function runTuiMode(
 				if (activeCalls.size === 0 && batchStartedAt > 0) {
 					const batchMs = Date.now() - batchStartedAt;
 					const batchStr = batchMs >= 1000 ? `${(batchMs / 1000).toFixed(1)}s` : `${batchMs}ms`;
-					agentBlock.addContent(new Text(dim(`  ⊞ · ${batchStr}`), 0, 0));
+					chat.addChild(new Text(dim(`  ⊞ · ${batchStr}`), 0, 0));
 					batchStartedAt = 0;
 				}
 				tui.requestRender();
@@ -329,7 +331,6 @@ export async function runTuiMode(
 		toolSlot.receiveTextChunk = (chunk) => {
 			consoleZone.pulse();
 			showFooter();
-			agentBlock.start();
 			streamingZone.receiveText(chunk);
 		};
 
@@ -389,7 +390,7 @@ export async function runTuiMode(
 		}
 		editor.setText("");
 		historyProvider.addEntry(text);
-		agentBlock.reset(); // clear pill state for the new turn
+		pendingFooterShown = false;
 		consoleZone.hidePendingFooter(); // guard: clear any leftover footer from prior turn
 		appendUserMsg(chat, text, t);
 		turnStartedAt = Date.now();
@@ -419,10 +420,10 @@ export async function runTuiMode(
 					streamingZone.seal();
 					consoleZone.stopThinking();
 					consoleZone.hidePendingFooter();
+					pendingFooterShown = false;
 					const tokenText = new Text("", 1, 0);
-					agentBlock.addContent(tokenText);
+					chat.addChild(tokenText);
 					pendingTokenFooter = tokenText;
-					agentBlock.end();
 					tui.requestRender(true);
 				}
 			}
@@ -432,10 +433,9 @@ export async function runTuiMode(
 			streamingZone.clear();
 			for (const [callId, entry] of activeCalls) {
 				consoleZone.removeInFlightCall(callId);
-				appendCompletedToolBlock(agentBlock, entry.name, entry.keyArg, 0, false, null, t);
+				appendCompletedToolBlock(chat, entry.name, entry.keyArg, 0, false, null, t);
 			}
 			activeCalls.clear();
-			agentBlock.end();
 			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`, t);
 			tui.requestRender();
 		} finally {

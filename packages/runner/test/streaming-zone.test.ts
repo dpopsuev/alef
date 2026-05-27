@@ -4,21 +4,19 @@
 import { Container } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../src/theme.js";
-import { AgentBlock } from "../src/tui/chat-view.js";
+
 import { StreamingZone } from "../src/tui/streaming-zone.js";
 
 function makeZone(hideThinking = false) {
 	const chat = new Container();
-	const agent = new AgentBlock(chat, getTheme());
-	agent.start();
 	const zone = new StreamingZone(
-		agent,
+		chat,
 		() => {},
 		getTheme(),
 		() => {},
 		hideThinking,
 	);
-	return { chat, agent, zone };
+	return { chat, zone };
 }
 
 describe("StreamingZone", () => {

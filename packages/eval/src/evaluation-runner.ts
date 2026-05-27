@@ -92,6 +92,8 @@ export class EvaluationRunner {
 				scenario: evaluation.id,
 				...this.harnessOptions,
 				keepWorkspace: true,
+				// Evaluation-level timeout overrides harness default.
+				...(evaluation.scenarioTimeoutMs !== undefined && { scenarioTimeoutMs: evaluation.scenarioTimeoutMs }),
 			},
 		);
 

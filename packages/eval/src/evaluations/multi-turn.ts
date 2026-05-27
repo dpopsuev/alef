@@ -33,6 +33,7 @@ export const proposeFirst: Evaluation = {
 	],
 	mustUse: ["fs.read"],
 	checker: all(fileContains("src/auth.ts", "rate", "login")),
+	scenarioTimeoutMs: 300_000,
 };
 
 export const memoRecall: Evaluation = {
@@ -59,4 +60,5 @@ export const approveProposal: Evaluation = {
 		"Good. Create src/truncate.ts implementing that function.",
 	],
 	checker: all(fileExists("src/truncate.ts"), fileContains("src/truncate.ts", "...")),
+	scenarioTimeoutMs: 300_000, // two dialog turns on Vertex needs ~5 min
 };

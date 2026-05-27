@@ -19,7 +19,7 @@
  */
 
 import { Agent } from "@dpopsuev/alef-corpus";
-import { type ConversationMessage, DialogOrgan, type MessageSink } from "@dpopsuev/alef-organ-dialog";
+import { DialogOrgan, type MessageSink } from "@dpopsuev/alef-organ-dialog";
 import type { Message } from "@dpopsuev/alef-organ-llm";
 import type { Organ } from "@dpopsuev/alef-spine";
 import { SessionLog } from "./event-log-organ.js";
@@ -75,12 +75,6 @@ export interface AgentKernelOptions {
 	 * the provided controller.
 	 */
 	onLoop?: (eventType: string, reason: string) => void;
-
-	/** Seed conversation history (e.g. from a resumed session). */
-	initialHistory?: ReadonlyArray<{ role: "user" | "assistant"; content: string }>;
-
-	/** Called when a message is appended to history (for session persistence). */
-	onMessage?: (msg: ConversationMessage) => void;
 }
 
 export interface AgentKernelResult {
@@ -144,8 +138,6 @@ export const AgentKernel = {
 				getTools: opts.getTools ?? (() => agent.tools),
 				systemPrompt: opts.systemPrompt,
 				maxTurns: opts.maxTurns,
-				initialHistory: opts.initialHistory,
-				onMessage: opts.onMessage,
 			});
 			agent.load(dialog).load(opts.llm);
 		}

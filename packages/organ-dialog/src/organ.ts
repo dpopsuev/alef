@@ -67,16 +67,6 @@ export interface DialogOrganOptions {
 	 * When exceeded, send() rejects with a clear error message.
 	 */
 	maxTurns?: number;
-	/**
-	 * Seed the conversation history (e.g. from a resumed session).
-	 * System messages are excluded — they are injected via systemPrompt.
-	 */
-	initialHistory?: ReadonlyArray<{ role: "user" | "assistant"; content: string }>;
-	/**
-	 * Called whenever a message is appended to history (user or assistant).
-	 * Use for session persistence. Called synchronously before history push.
-	 */
-	onMessage?: (msg: ConversationMessage) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,17 +104,10 @@ export class DialogOrgan implements Organ {
 	private readonly systemPrompt: string | undefined;
 	private readonly maxTurns: number;
 	private turnCount = 0;
-	private readonly onMessage: ((msg: ConversationMessage) => void) | undefined;
 	/**
-	 * Conversation history — kept only for the ScriptedReasoner / test path.
-	 *
-	 * In production: Reasoner's prepareStep (AgentKernel.buildContextPrepareStep)
-	 * replaces the messages array before the LLM call using assembleTurns() from
-	 * the SessionStore JSONL. history[] is therefore vestigial for the production
-	 * path — it exists only so ScriptedReasoner tests that don’t wire prepareStep
-	 * still receive a sensible messages array.
-	 *
-	 * ALE-BUG-27: this array should be removed once all callers use prepareStep.
+	 * Minimal history for the ScriptedReasoner / no-prepareStep test path.
+	 * In production, AgentKernel.buildContextPrepareStep replaces these messages
+	 * before the LLM sees them via assembleTurns(SessionStore.turns()).
 	 */
 	private history: ConversationMessage[] | unknown[] = [];
 	private nerve: Nerve | null = null;
@@ -138,15 +121,6 @@ export class DialogOrgan implements Organ {
 		this.getTools = options.getTools ?? (() => []);
 		this.systemPrompt = options.systemPrompt;
 		this.maxTurns = options.maxTurns ?? 0;
-		this.onMessage = options.onMessage;
-		if (options.initialHistory) {
-			const simpleHistory = this.history as ConversationMessage[];
-			for (const msg of options.initialHistory) {
-				if (msg.role === "user" || msg.role === "assistant") {
-					simpleHistory.push({ role: msg.role, content: msg.content });
-				}
-			}
-		}
 	}
 
 	/** Reset conversation history. Useful between independent sessions. */
@@ -196,8 +170,6 @@ export class DialogOrgan implements Organ {
 			}
 			// Production path: do NOT store fullHistory — SessionLog already persisted
 			// the turn to JSONL and assembleTurns() will rebuild context next turn.
-			const assistantMsg: ConversationMessage = { role: "assistant", content: text };
-			this.onMessage?.(assistantMsg);
 			this.sink(text, sender);
 
 			// Resolve any awaiting send() with matching correlationId.
@@ -237,9 +209,7 @@ export class DialogOrgan implements Organ {
 		// Build payload from history BEFORE appending — payload includes userMsg explicitly.
 		const payload = this.buildPayload(text, sender);
 		// Append user message to history after building payload.
-		const userMsg2: ConversationMessage = { role: "user", content: text };
-		this.onMessage?.(userMsg2);
-		this.history.push(userMsg2);
+		this.history.push({ role: "user", content: text } satisfies ConversationMessage);
 		this.nerve.sense.publish({
 			type: DIALOG_MESSAGE,
 			payload,

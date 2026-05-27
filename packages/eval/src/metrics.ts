@@ -15,6 +15,74 @@ export interface SpanRecord {
 	result?: string;
 }
 
+/**
+ * Structured record for a single LLM call within a run.
+ * Populated from OTel spans emitted by organ-llm.
+ * Mirrors Tako cerebrum.TurnRecord.
+ */
+export interface TurnRecord {
+	/** 1-based turn index within the run. */
+	turn: number;
+	/** LLM model id (gen_ai.request.model). */
+	model: string;
+	/** Input tokens consumed (gen_ai.usage.input_tokens). */
+	tokensIn: number;
+	/** Output tokens produced (gen_ai.usage.output_tokens). */
+	tokensOut: number;
+	/** Cache read tokens (gen_ai.usage.cache_read_tokens). */
+	cacheReadTokens: number;
+	/** Estimated cost in USD (alef.estimated_cost_usd). */
+	estimatedCostUsd: number;
+	/** Number of tool calls dispatched from this LLM response. */
+	toolCalls: number;
+	/** Names of tools called in this turn (from alef.motor/* spans after this LLM span). */
+	toolNames: string[];
+	/** Cache hits for tool calls dispatched from this turn. */
+	cacheHits: number;
+	/** Wall-clock duration of the LLM call in ms. */
+	elapsedMs: number;
+}
+
+/**
+ * Derive TurnRecord[] from a flat SpanRecord array.
+ * LLM call spans (name starts with 'chat ') are the anchors;
+ * motor spans following each LLM call are attributed to that turn.
+ */
+export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
+	const turns: TurnRecord[] = [];
+	let turnIndex = 0;
+
+	for (let i = 0; i < spans.length; i++) {
+		const s = spans[i];
+		if (!s.name.startsWith("chat ")) continue;
+
+		turnIndex++;
+		// Collect motor tool spans that follow this LLM call until the next LLM call
+		const toolSpans: SpanRecord[] = [];
+		for (let j = i + 1; j < spans.length; j++) {
+			if (spans[j].name.startsWith("chat ")) break;
+			if (spans[j].name.startsWith("alef.motor/")) toolSpans.push(spans[j]);
+		}
+
+		const toolNames = toolSpans.map((ts) => ts.name.replace("alef.motor/", "")).filter((n) => n !== "dialog.message");
+
+		turns.push({
+			turn: turnIndex,
+			model: String(s.attributes["gen_ai.request.model"] ?? ""),
+			tokensIn: Number(s.attributes["gen_ai.usage.input_tokens"] ?? 0),
+			tokensOut: Number(s.attributes["gen_ai.usage.output_tokens"] ?? 0),
+			cacheReadTokens: Number(s.attributes["gen_ai.usage.cache_read_tokens"] ?? 0),
+			estimatedCostUsd: Number(s.attributes["alef.estimated_cost_usd"] ?? 0),
+			toolCalls: toolNames.length,
+			toolNames,
+			cacheHits: toolSpans.filter((ts) => ts.attributes["alef.cache.hit"] === true).length,
+			elapsedMs: Math.round(s.durationMs),
+		});
+	}
+
+	return turns;
+}
+
 export interface RunMetrics {
 	/** Scenario identifier. */
 	scenario: string;
@@ -24,6 +92,12 @@ export interface RunMetrics {
 	 * Undefined otherwise (workspace already cleaned up).
 	 */
 	workspace?: string;
+	/**
+	 * Per-LLM-call structured records.
+	 * Populated automatically by EvalHarness from OTel spans.
+	 * Mirrors Tako cerebrum.TurnRecord.
+	 */
+	turns: TurnRecord[];
 	/** true if the agent produced the expected output without errors. */
 	passed: boolean;
 	/** Error message if passed=false. */

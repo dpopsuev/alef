@@ -21,9 +21,14 @@ import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import type { Organ } from "@dpopsuev/alef-spine";
+import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { EvaluatorOrgan } from "./evaluator-organ.js";
 import type { RunMetrics, SpanRecord } from "./metrics.js";
+import { deriveturns } from "./metrics.js";
 import { globalSpanExporter } from "./otel-setup.js";
+import { TraceRecorder } from "./trace-recorder.js";
+
+const tracer = trace.getTracer("alef.eval", "0.0.1");
 
 export interface WorkspaceFile {
 	path: string;
@@ -71,6 +76,13 @@ export interface HarnessOptions {
 	 * Used by EvaluationRunner so checkers can read files after agent completes.
 	 */
 	keepWorkspace?: boolean;
+	/**
+	 * Directory to write a JSONL execution trace file.
+	 * File is named `{scenario}.trace.jsonl` in this directory.
+	 * When unset, no trace file is written.
+	 * Mirrors Tako engine/trace.TraceRecorder.
+	 */
+	traceDir?: string;
 }
 
 export class EvalHarness {
@@ -116,6 +128,15 @@ export class EvalHarness {
 		// Reset exporter at start of each run — shared global exporter.
 		globalSpanExporter.reset();
 
+		// Parent span: all tool + LLM spans during this run become children.
+		// Enables Jaeger/Honeycomb to show one eval as a trace tree.
+		// Mirrors Tako observe.OTelObserver.StartFab().
+		const rootSpan = tracer.startSpan("eval.run", {
+			kind: SpanKind.INTERNAL,
+			attributes: { "alef.eval.scenario": opts.scenario },
+		});
+		const rootCtx = trace.setSpan(context.active(), rootSpan);
+
 		// Neutral workspace name — no 'eval' prefix to avoid eval-awareness sandbagging.
 		// AISI finding: agents detect eval context from workspace path signals.
 		const workspace = join(tmpdir(), randomUUID());
@@ -155,6 +176,17 @@ export class EvalHarness {
 			agent.load(organ);
 		}
 
+		// Optional JSONL trace — attach before the run, close after.
+		let busTracer: TraceRecorder | undefined;
+		let unobserve: (() => void) | undefined;
+		if (opts.traceDir) {
+			const safeName = opts.scenario.replace(/[^a-z0-9_-]/gi, "_");
+			const tracePath = join(opts.traceDir, `${safeName}.trace.jsonl`);
+			busTracer = new TraceRecorder(tracePath);
+			busTracer.signal("session_start", { scenario: opts.scenario, workspace });
+			unobserve = agent.observe(busTracer);
+		}
+
 		let passed = false;
 		let error: string | undefined;
 
@@ -173,15 +205,23 @@ export class EvalHarness {
 				},
 				readFile: async (rel) => fsReadFile(join(workspace, rel), "utf-8"),
 			};
-			await Promise.race([scenarioFn(ctx), timeoutPromise]);
+			// Run the scenario under the root OTel context so child spans attach.
+			await context.with(rootCtx, () => Promise.race([scenarioFn(ctx), timeoutPromise]));
 			passed = true;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
+			if (busTracer) {
+				busTracer.signal("session_end", { passed, error });
+				unobserve?.();
+				await busTracer.close();
+			}
 			agent.dispose();
 			if (!opts.keepWorkspace) {
 				await rm(workspace, { recursive: true, force: true });
 			}
+			rootSpan.setStatus(passed ? { code: SpanStatusCode.OK } : { code: SpanStatusCode.ERROR, message: error });
+			rootSpan.end();
 		}
 
 		const spans = this.collectAndResetSpans();
@@ -193,6 +233,7 @@ export class EvalHarness {
 		const metrics: RunMetrics = {
 			scenario: opts.scenario,
 			workspace: opts.keepWorkspace ? workspace : undefined,
+			turns: deriveturns(spans),
 			passed: passed && !evaluator.state.loopDetected,
 			error: evaluator.state.loopDetected
 				? `Loop detected: ${evaluator.state.loopEventType} called >${opts.loopThreshold ?? 10} times`

@@ -13,7 +13,7 @@ import { DynamicText } from "./dynamic-text.js";
 import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 import { pillFooterStr } from "./pill.js";
-import { color, dim, glyph } from "./theme.js";
+import { color, glyph } from "./theme.js";
 
 /** Raw ANSI for diff rendering (chalk silences itself outside TTY). */
 const ANSI_BOLD = "\x1b[1m";
@@ -144,7 +144,7 @@ export function formatTokenUsage(input: number, output: number, _t: ThemeTokens,
 		return String(n);
 	}
 	const timing = turnMs !== undefined ? ` · ${(turnMs / 1000).toFixed(1)}s` : "";
-	return dim(`${compact(input)} in · ${compact(output)} out${timing}`);
+	return color(`${compact(input)} in · ${compact(output)} out${timing}`, _t.dimFg);
 }
 
 /**
@@ -180,7 +180,7 @@ export function appendCompletedToolBlock(
 			const coloredLabel = `${color(g, gFg)} ${color(name, t.toolNameFg)}${keyArg ? `  ${color(keyArg, t.toolArgFg)}` : ""}  ${color(elapsed, t.timeFg)}`;
 			const visLen = stripAnsi(coloredLabel).length;
 			const fill = Math.max(0, w - visLen - 4);
-			return `${dim("╭─")} ${coloredLabel} ${dim(`${"─".repeat(fill)}╮`)}`;
+			return `${color("╭─", t.dimFg)} ${coloredLabel} ${color(`${"─".repeat(fill)}╮`, t.dimFg)}`;
 		}),
 	);
 
@@ -188,6 +188,6 @@ export function appendCompletedToolBlock(
 		const box = new Box(INDENT.BLOCK, 0);
 		box.addChild(outputComponent);
 		add(box);
-		add(new DynamicText((w) => dim(pillFooterStr(w))));
+		add(new DynamicText((w) => color(pillFooterStr(w), t.dimFg)));
 	}
 }

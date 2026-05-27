@@ -8,7 +8,7 @@
  * Override model: ALEF_EVAL_MODEL=claude-haiku-4-5 npx vitest --run test/real-llm.test.ts
  */
 
-import { Reasoner } from "@dpopsuev/alef-organ-llm";
+import { Cerebrum } from "@dpopsuev/alef-organ-llm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RunMetrics } from "../src/index.js";
 import { EvalHarness, formatReport, scoreSpans } from "../src/index.js";
@@ -36,7 +36,7 @@ Rules:
 // ---------------------------------------------------------------------------
 
 function makeLLMOrgan() {
-	return new Reasoner({ model: getEvalModel() });
+	return new Cerebrum({ model: getEvalModel() });
 }
 
 function makeHarness() {

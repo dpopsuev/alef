@@ -21,7 +21,7 @@
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
 import type { ThinkingLevel } from "@dpopsuev/alef-organ-llm";
-import { Reasoner, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
+import { Cerebrum, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
 import { AgentKernel } from "./agent-kernel.js";
@@ -220,7 +220,7 @@ const toolSlot = {
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 const llmOrgan = scriptedRepliesEnv
 	? new ScriptedReasoner((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
-	: new Reasoner({
+	: new Cerebrum({
 			model,
 			getApiKey: () => resolveApiKey(model.provider),
 			thinking: thinkingLevel,

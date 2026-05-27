@@ -23,7 +23,6 @@
 
 import { Box, type Component, type Container, Markdown, Spacer, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
-import { boldColor } from "../theme.js";
 import { DynamicText } from "./dynamic-text.js";
 import { INDENT, SPACING } from "./layout-constants.js";
 import { makeMarkdownTheme, makeThinkingMarkdownTheme } from "./markdown-themes.js";
@@ -105,10 +104,9 @@ export class StreamingZone {
 			const bgFn = hasBg ? (s: string) => bg(s, agentBg) : null;
 
 			const spacer = new Spacer(SPACING.BETWEEN_BLOCKS);
-			const header = new DynamicText((w) => {
-				const raw = pillHeaderStr(AGENT_LABEL, w);
-				return bgFn ? bgFn(boldColor(raw, agentFg)) : boldColor(raw, agentFg);
-			});
+			const header = new DynamicText((w) =>
+				bgFn ? bgFn(color(pillHeaderStr(AGENT_LABEL, w), agentFg)) : color(pillHeaderStr(AGENT_LABEL, w), agentFg),
+			);
 			const box = bgFn ? new Box(INDENT.BLOCK, 0, bgFn) : new Box(INDENT.BLOCK, 0);
 
 			this.chat.addChild(spacer);
@@ -160,10 +158,9 @@ export class StreamingZone {
 			const { agentFg, agentBg } = this.t;
 			const hasBg = agentBg.truecolor !== undefined || agentBg.ansi256 !== undefined || agentBg.ansi16 !== undefined;
 			const bgFn = hasBg ? (s: string) => bg(s, agentBg) : null;
-			const footer = new DynamicText((w) => {
-				const raw = pillFooterStr(w);
-				return bgFn ? bgFn(boldColor(raw, agentFg)) : boldColor(raw, agentFg);
-			});
+			const footer = new DynamicText((w) =>
+				bgFn ? bgFn(color(pillFooterStr(w), agentFg)) : color(pillFooterStr(w), agentFg),
+			);
 			this.chat.addChild(footer);
 			entry.footer = footer;
 		}

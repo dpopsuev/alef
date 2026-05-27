@@ -15,10 +15,16 @@ import { AgentKernel } from "../src/agent-kernel.js";
 // ---------------------------------------------------------------------------
 
 function makeSession(turns: unknown[] = [], hitCounts: Record<string, number> = {}) {
-	return {
+	const appended: unknown[] = [];
+	const session = {
 		turns: async () => turns,
-		hitCounts: async () => hitCounts,
-	} as unknown as import("../src/session-store.js").SessionStore;
+		hitCounts: async () => new Map(Object.entries(hitCounts)),
+		append: async (r: unknown) => {
+			appended.push(r);
+		},
+		_appended: appended,
+	};
+	return session as unknown as import("../src/session-store.js").SessionStore & { _appended: unknown[] };
 }
 
 const USER_MSG = { role: "user", content: "hello", timestamp: Date.now() } as Message;
@@ -102,5 +108,80 @@ describe("AgentKernel.buildContextPrepareStep", () => {
 		const result = await fn(input);
 		// Falls back to raw payload unchanged.
 		expect(result).toEqual(input);
+	});
+});
+
+describe("window.assembled LRU writes", () => {
+	it("appends a window.assembled record after each prepareStep call", async () => {
+		const turn = {
+			id: "t1",
+			turnIndex: 0,
+			tokenCost: 10,
+			typeWeight: 0.8,
+			events: [
+				{
+					bus: "motor",
+					type: "dialog.message",
+					correlationId: "t1",
+					payload: {
+						text: "hello",
+						conversationHistory: [{ role: "user", content: "hello" }],
+					},
+					timestamp: 1,
+				},
+			],
+		};
+		const session = makeSession([turn] as unknown[]);
+		const fn = AgentKernel.buildContextPrepareStep(
+			session as import("../src/session-store.js").SessionStore,
+			200_000,
+		);
+
+		await fn([USER_MSG]);
+
+		// Give the fire-and-forget append a tick to complete.
+		await new Promise((r) => setTimeout(r, 10));
+
+		const appended = (session as unknown as { _appended: unknown[] })._appended;
+		expect(appended).toHaveLength(1);
+		const record = appended[0] as Record<string, unknown>;
+		expect(record.bus).toBe("internal");
+		expect(record.type).toBe("window.assembled");
+		expect((record.payload as { includedTurnIds: string[] }).includedTurnIds).toContain("t1");
+	});
+
+	it("hitCounts become non-zero after two prepareStep calls with same turn", async () => {
+		// Real SessionStore to verify hitCounts() actually reads window.assembled.
+		const { mkdtempSync } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+		const { rmSync } = await import("node:fs");
+		const { SessionStore } = await import("../src/session-store.js");
+
+		const cwd = mkdtempSync(join(tmpdir(), "alef-lru-"));
+		try {
+			const store = await SessionStore.create(cwd);
+			// Write the turn event so turns() returns it.
+			await store.append({
+				bus: "motor",
+				type: "dialog.message",
+				correlationId: "t1",
+				payload: { text: "hello", conversationHistory: [{ role: "user", content: "hello" }] },
+				timestamp: 1,
+			});
+
+			const fn = AgentKernel.buildContextPrepareStep(store, 200_000);
+			// First call — writes window.assembled for t1.
+			await fn([USER_MSG]);
+			await new Promise((r) => setTimeout(r, 20));
+			// Second call — reads window.assembled, t1 should have hitCount=1.
+			await fn([USER_MSG]);
+			await new Promise((r) => setTimeout(r, 20));
+
+			const counts = await store.hitCounts();
+			expect(counts.get("t1")).toBeGreaterThanOrEqual(1);
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
 	});
 });

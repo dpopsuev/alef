@@ -32,7 +32,10 @@ import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY } from "../src/turn-assemb
 
 const CONTEXT_WINDOW = 4_000;
 const HISTORY_BUDGET = Math.floor(CONTEXT_WINDOW * DEFAULT_CONTEXT_WINDOW_POLICY.historyFraction);
-const COST_PER_TURN = 400; // via usage.totalTokens anchor
+// 400 tokens per turn: text content of 1600 chars / 4 = 400 tokens.
+// extractContentLength uses the 'text' field of dialog.message payloads.
+const COST_PER_TURN = 400;
+const CHARS_PER_TURN = COST_PER_TURN * 4; // 1600 chars of text content
 const RECENT_GUARANTEE = 4;
 const KEYWORD = "jwt_authentication_token"; // unique — won't appear in irrelevant payloads
 
@@ -51,7 +54,11 @@ function tmpCwd(): string {
 	return d;
 }
 
-function motorDialogRecord(correlationId: string, text: string, totalTokens: number): StorageRecord {
+/**
+ * Motor dialog.message with text content sized to produce a predictable tokenCost.
+ * extractContentLength picks the 'text' field → text.length / 4 = tokenCost.
+ */
+function motorDialogRecord(correlationId: string, text: string): StorageRecord {
 	return {
 		bus: "motor",
 		type: "dialog.message",
@@ -60,10 +67,8 @@ function motorDialogRecord(correlationId: string, text: string, totalTokens: num
 			text,
 			conversationHistory: [
 				{ role: "user", content: text },
-				{ role: "assistant", content: `reply to: ${text}` },
+				{ role: "assistant", content: text },
 			],
-			// Usage anchor — SessionStore.turns() will use this as tokenCost.
-			usage: { input: totalTokens - 50, output: 50, cacheRead: 0, cacheWrite: 0, totalTokens },
 		},
 		timestamp: Date.now(),
 	};
@@ -88,30 +93,35 @@ describe("assembleTurns — eviction proof", () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
 
+		// Pad text to CHARS_PER_TURN so extractContentLength gives COST_PER_TURN tokens.
+		const padText = (label: string): string => label.padEnd(CHARS_PER_TURN, ".");
+
 		// 9 old irrelevant turns (no keyword match)
 		for (let i = 0; i < 9; i++) {
 			const id = `old-irr-${i}`;
 			await store.append(senseDialogRecord(id, `user message about unrelated topic ${i}`));
-			await store.append(motorDialogRecord(id, `assistant reply about unrelated topic ${i}`, COST_PER_TURN));
+			await store.append(motorDialogRecord(id, padText(`assistant reply about unrelated topic ${i}`)));
 		}
 
 		// 1 old relevant turn (contains the keyword the query will use)
 		const relevantId = "old-relevant";
 		await store.append(senseDialogRecord(relevantId, `how does ${KEYWORD} work?`));
-		await store.append(motorDialogRecord(relevantId, `${KEYWORD} is used for authentication`, COST_PER_TURN));
+		await store.append(motorDialogRecord(relevantId, padText(`${KEYWORD} is used for authentication`)));
 
 		// 4 recent turns (covered by recentGuarantee)
 		for (let i = 0; i < RECENT_GUARANTEE; i++) {
 			const id = `recent-${i}`;
 			await store.append(senseDialogRecord(id, `recent user message ${i}`));
-			await store.append(motorDialogRecord(id, `recent assistant reply ${i}`, COST_PER_TURN));
+			await store.append(motorDialogRecord(id, padText(`recent assistant reply ${i}`)));
 		}
 
 		const turns = await store.turns();
 
-		// Verify usage anchor was applied — each turn should cost exactly COST_PER_TURN
+		// Verify content-based cost — padded motor text dominates, cost ≈ COST_PER_TURN.
+		// Sense record adds a small amount of text, so allow a small margin.
 		for (const t of turns) {
-			expect(t.tokenCost).toBe(COST_PER_TURN);
+			expect(t.tokenCost).toBeGreaterThanOrEqual(COST_PER_TURN);
+			expect(t.tokenCost).toBeLessThanOrEqual(COST_PER_TURN + 20);
 		}
 
 		// Total turns: 9 irrelevant + 1 relevant + 4 recent = 14
@@ -167,7 +177,7 @@ describe("assembleTurns — eviction proof", () => {
 		for (let i = 0; i < 5; i++) {
 			const id = `turn-${i}`;
 			await store.append(senseDialogRecord(id, `message ${i}`));
-			await store.append(motorDialogRecord(id, `reply ${i}`, COST_PER_TURN));
+			await store.append(motorDialogRecord(id, `reply ${i}`));
 		}
 
 		const turns = await store.turns();

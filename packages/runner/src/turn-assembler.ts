@@ -64,7 +64,7 @@ export interface ContextWindowPolicy {
 export const DEFAULT_CONTEXT_WINDOW_POLICY: ContextWindowPolicy = {
 	historyFraction: 0.7,
 	maxSingleTurnFraction: 0.25,
-	recentGuarantee: 8,
+	recentGuarantee: 4,
 	termOverlapWeight: 0.4,
 	hitFrequencyWeight: 0.3,
 	recencyWeight: 0.3,

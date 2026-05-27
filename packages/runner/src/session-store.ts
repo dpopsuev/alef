@@ -116,6 +116,25 @@ export function eventTypeWeight(type: string): number {
 	return EVENT_TYPE_WEIGHTS[type] ?? 0.5;
 }
 
+/**
+ * Extract the LLM-relevant content length from an event payload.
+ *
+ * Priority: _display.text (human-facing, already clean) → content → text →
+ * output → JSON.stringify remainder. Skips metadata fields (toolCallId,
+ * correlationId, usage, isFinal) that inflate JSON.stringify estimates
+ * without contributing to actual LLM token counts.
+ */
+export function extractContentLength(payload: Record<string, unknown>): number {
+	const display = (payload._display as { text?: string } | undefined)?.text;
+	if (typeof display === "string") return display.length;
+	if (typeof payload.content === "string") return payload.content.length;
+	if (typeof payload.text === "string") return payload.text.length;
+	if (typeof payload.output === "string") return payload.output.length;
+	// Fallback: JSON of payload minus known metadata keys.
+	const { _display: _d, toolCallId: _t, isFinal: _f, usage: _u, ...rest } = payload;
+	return JSON.stringify(rest).length;
+}
+
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
@@ -242,21 +261,10 @@ export class SessionStore {
 		const turns: Turn[] = [];
 		let index = 0;
 		for (const [id, events] of turnMap) {
-			// Anchor on provider-reported totalTokens when available (motor/dialog.message
-			// payload includes usage written by Reasoner). Falls back to char/4 heuristic
-			// for test turns (ScriptedReasoner) or turns without a usage receipt.
-			const usageAnchor = (() => {
-				for (let i = events.length - 1; i >= 0; i--) {
-					const e = events[i];
-					if (e.bus === "motor" && e.type === "dialog.message") {
-						const total = (e.payload as { usage?: { totalTokens?: number } }).usage?.totalTokens;
-						if (typeof total === "number" && total > 0) return total;
-					}
-				}
-				return undefined;
-			})();
-			const tokenCost =
-				usageAnchor ?? Math.ceil(events.reduce((n, e) => n + JSON.stringify(e.payload).length, 0) / 4);
+			// Estimate token cost from LLM-relevant content only.
+			// totalTokens from usage is the cumulative context size (all turns + system
+			// prompt + tools), not the per-turn cost — do not use it as usageAnchor.
+			const tokenCost = Math.ceil(events.reduce((n, e) => n + extractContentLength(e.payload), 0) / 4);
 			const typeWeight = Math.max(...events.map((e) => eventTypeWeight(e.type)));
 			turns.push({ id, events, turnIndex: index++, tokenCost, typeWeight });
 		}

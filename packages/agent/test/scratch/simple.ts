@@ -1,15 +1,13 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { getModel } from "@dpopsuev/alef-ai";
+import { NodeExecutionEnv } from "../../src/harness/env/nodejs.js";
+import { createAgentHarness } from "../../src/harness/factory.js";
+import { loadSourcedPromptTemplates } from "../../src/harness/prompt-templates.js";
+import { Session } from "../../src/harness/session/session.js";
 import { InMemorySessionStorage } from "../../src/harness/session/storage/memory.js";
-import {
-	createAgentHarness,
-	formatSkillsForSystemPrompt,
-	loadSourcedPromptTemplates,
-	loadSourcedSkills,
-	NodeExecutionEnv,
-	Session,
-} from "../../src/index.js";
+import { loadSourcedSkills } from "../../src/harness/skills.js";
+import { formatSkillsForSystemPrompt } from "../../src/harness/system-prompt.js";
 
 type Source = { type: "project" | "user" | "path"; dir: string };
 

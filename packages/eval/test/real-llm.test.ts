@@ -1,170 +1,183 @@
 /**
- * TSK-117 — Real-LLM evaluation suite.
+ * Real-LLM evaluation suite.
  *
- * 14 scenarios across ReadOnly, Write, and MultiTurn categories.
- * Skipped entirely if ANTHROPIC_API_KEY is not set.
+ * 12 Evaluation objects across ReadOnly, Write, and MultiTurn categories.
+ * Uses EvaluationRunner (new API) — proper checkers, MaxErrorRate gate,
+ * and clean beforeEach span assertion.
  *
- * Run: cd packages/eval && npx vitest --run test/real-llm.test.ts
- * Override model: ALEF_EVAL_MODEL=claude-haiku-4-5 npx vitest --run test/real-llm.test.ts
+ * Skipped entirely if no provider credentials are detected.
+ *
+ * Run:
+ *   cd packages/eval
+ *   ANTHROPIC_API_KEY=sk-ant-... npx vitest --run test/real-llm.test.ts
+ *
+ * Override model:
+ *   ALEF_EVAL_MODEL=claude-haiku-4-5 npx vitest --run test/real-llm.test.ts
  */
 
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { RunMetrics } from "../src/index.js";
-import { EvalHarness, formatReport, scoreSpans } from "../src/index.js";
-import { READ_ONLY_RULES, WRITE_RULES } from "../src/metrics.js";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import * as multiTurnEvals from "../src/evaluations/multi-turn.js";
+import * as readOnlyEvals from "../src/evaluations/read-only.js";
+import * as writeEvals from "../src/evaluations/write.js";
+import type { EvaluationResult } from "../src/index.js";
+import { EvalHarness, EvaluationRunner } from "../src/index.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../src/model.js";
-import * as multiTurn from "../src/scenarios/multi-turn.js";
-import * as readOnly from "../src/scenarios/read-only.js";
-import * as write from "../src/scenarios/write.js";
+import { globalSpanExporter } from "../src/otel-setup.js";
 
 // ---------------------------------------------------------------------------
-// System prompt — coding assistant with tool discipline
+// Setup
 // ---------------------------------------------------------------------------
-
-const SYSTEM_PROMPT = `You are a precise coding assistant. You have access to filesystem tools.
-
-Rules:
-- Always read files before modifying them.
-- Make minimal, targeted edits. Do not rewrite files unless asked.
-- When asked to create a file, write it immediately using fs.write or fs.edit.
-- When asked to analyse code, use fs.read or fs.grep to examine the actual files.
-- Reply concisely. No apologies, no filler.`;
-
-// ---------------------------------------------------------------------------
-// Harness + LLM setup
-// ---------------------------------------------------------------------------
-
-function makeLLMOrgan() {
-	return new Cerebrum({ model: getEvalModel() });
-}
-
-function makeHarness() {
-	return new EvalHarness();
-}
-
-// ---------------------------------------------------------------------------
-// Results accumulator (for final report)
-// ---------------------------------------------------------------------------
-
-const allResults: RunMetrics[] = [];
 
 beforeAll(() => {
-	if (SKIP_REAL_LLM) console.log("⚠ ANTHROPIC_API_KEY not set — skipping real-LLM suite");
-	else console.log(`Running real-LLM suite with model: ${getEvalModel().id}`);
+	if (SKIP_REAL_LLM) console.log("No provider credentials — skipping real-LLM suite");
+	else console.log(`Real-LLM suite: model=${getEvalModel().id}`);
 });
 
-afterAll(() => {
-	if (SKIP_REAL_LLM) return;
-
-	console.log("\n═══ EVALUATION REPORT ═══\n");
-	let passed = 0;
-	for (const m of allResults) {
-		console.log(formatReport(m));
-		if (m.passed) passed++;
+/**
+ * Before each test: assert the span exporter is clean.
+ * Catches contamination from concurrent tests or leaked runs.
+ * The EvalHarness.run() resets the exporter at the start of each run,
+ * but if two tests somehow ran concurrently this assertion fires first.
+ */
+beforeEach(() => {
+	const leaked = globalSpanExporter.getFinishedSpans().length;
+	if (leaked > 0) {
+		globalSpanExporter.reset();
+		throw new Error(
+			`[beforeEach] globalSpanExporter had ${leaked} leaked spans from a previous test. ` +
+				`Tests must not run concurrently — check vitest config.`,
+		);
 	}
-	console.log(`\nTotal: ${passed}/${allResults.length} passed`);
-
-	const totalOAE = allResults.reduce((sum, m) => sum + m.oae, 0) / allResults.length;
-	console.log(`Avg OAE: ${(totalOAE * 100).toFixed(1)}%`);
 });
 
 // ---------------------------------------------------------------------------
-// Helper
+// Runner factory — fresh harness + cerebrum per test for isolation
 // ---------------------------------------------------------------------------
 
-async function runScenario(
-	name: string,
-	scenarioFn: Parameters<EvalHarness["run"]>[0],
-	rules = READ_ONLY_RULES,
-): Promise<RunMetrics> {
-	const harness = makeHarness();
-	const metrics = await harness.run(scenarioFn, {
-		scenario: name,
-		extraOrgans: [makeLLMOrgan()],
-		systemPrompt: SYSTEM_PROMPT,
-		loopThreshold: 12,
+function makeRunner() {
+	const harness = new EvalHarness();
+	const llm = new Cerebrum({ model: getEvalModel() });
+	return new EvaluationRunner(harness, {
+		extraOrgans: [llm],
+		// Fail the suite if >30% of trials have runtime errors.
+		// n=1 here so this catches a single hard crash.
+		maxErrorRate: 0.3,
 	});
-	allResults.push(metrics);
-	const score = scoreSpans(metrics.spans, rules);
-	console.log(`  score=${score}  oae=${(metrics.oae * 100).toFixed(1)}%`);
-	return metrics;
 }
 
 // ---------------------------------------------------------------------------
-// ReadOnly scenarios
+// Results accumulator — per-describe, not module-level
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("ReadOnly scenarios", () => {
+const allResults: EvaluationResult[] = [];
+
+afterAll(() => {
+	if (SKIP_REAL_LLM || allResults.length === 0) return;
+
+	const passed = allResults.filter((r) => r.pass).length;
+	const scores = allResults.map((r) => r.score);
+	const meanScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+	console.log(`\n═══ REAL-LLM REPORT ═══`);
+	console.log(`Passed: ${passed}/${allResults.length}`);
+	console.log(`Mean score: ${(meanScore * 100).toFixed(1)}%`);
+	console.log(
+		`OAE (mean): ${((allResults.reduce((a, r) => a + r.metrics.oae, 0) / allResults.length) * 100).toFixed(1)}%`,
+	);
+	for (const r of allResults) {
+		const icon = r.pass ? "✓" : "✗";
+		const errs = r.errors.length > 0 ? ` — ${r.errors.join("; ")}` : "";
+		console.log(`  ${icon} ${r.metrics.scenario} score=${(r.score * 100).toFixed(0)}%${errs}`);
+	}
+});
+
+// ---------------------------------------------------------------------------
+// ReadOnly
+// ---------------------------------------------------------------------------
+
+describe.skipIf(SKIP_REAL_LLM)("ReadOnly evaluations", () => {
 	it("PlanRefactoring — reads file, produces concrete refactoring plan", async () => {
-		const m = await runScenario("PlanRefactoring", readOnly.planRefactoring);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(readOnlyEvals.planRefactoring);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("AuditModule — reads file, identifies dead code", async () => {
-		const m = await runScenario("AuditModule", readOnly.auditModule);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(readOnlyEvals.auditModule);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("BlastRadius — reads two files, traces change impact", async () => {
-		const m = await runScenario("BlastRadius", readOnly.blastRadius);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(readOnlyEvals.blastRadius);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("ContextWarming — reads multiple files, answers cross-file question", async () => {
-		const m = await runScenario("ContextWarming", readOnly.contextWarming);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(readOnlyEvals.contextWarming);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// Write scenarios
+// Write
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("Write scenarios", () => {
+describe.skipIf(SKIP_REAL_LLM)("Write evaluations", () => {
 	it("CreateHTTPServer — creates file with correct structure", async () => {
-		const m = await runScenario("CreateHTTPServer", write.createHTTPServer, WRITE_RULES);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(writeEvals.createHTTPServer);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("AddTypeExport — adds missing export to existing file", async () => {
-		const m = await runScenario("AddTypeExport", write.addTypeExport, WRITE_RULES);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(writeEvals.addTypeExport);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("FixFailingTest — finds bug, fixes implementation", async () => {
-		const m = await runScenario("FixFailingTest", write.fixFailingTest, WRITE_RULES);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(writeEvals.fixFailingTest);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("RefactorAsync — refactors callbacks to async/await", async () => {
-		const m = await runScenario("RefactorAsync", write.refactorAsync, WRITE_RULES);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(writeEvals.refactorAsync);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("WriteMiddleware — creates new middleware file", async () => {
-		const m = await runScenario("WriteMiddleware", write.writeMiddleware, WRITE_RULES);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(writeEvals.writeMiddleware);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// MultiTurn scenarios
+// MultiTurn
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("MultiTurn scenarios", () => {
+describe.skipIf(SKIP_REAL_LLM)("MultiTurn evaluations", () => {
 	it("ProposeFirst — proposes approach then implements on approval", async () => {
-		const m = await runScenario("ProposeFirst", multiTurn.proposeFirst, WRITE_RULES);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(multiTurnEvals.proposeFirst);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("MemoRecall — uses information from earlier turn", async () => {
-		const m = await runScenario("MemoRecall", multiTurn.memoRecall, WRITE_RULES);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(multiTurnEvals.memoRecall);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 
 	it("ApproveProposal — asks for clarification then implements correctly", async () => {
-		const m = await runScenario("ApproveProposal", multiTurn.approveProposal, WRITE_RULES);
-		expect(m.passed, m.error).toBe(true);
+		const result = await makeRunner().run(multiTurnEvals.approveProposal);
+		allResults.push(result);
+		expect(result.pass, result.errors.join("; ")).toBe(true);
 	});
 });

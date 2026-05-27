@@ -181,6 +181,40 @@ export interface Organ {
 }
 
 // ---------------------------------------------------------------------------
+// GimpedOrgan — explicit ablation primitive.
+//
+// An organ is "gimped" when it has no tools and no subscriptions: it receives
+// nothing, contributes nothing, but the system still runs. Gimped organs are
+// used in ablation studies to measure a real organ's contribution by replacing
+// it with a pass-through and comparing scores.
+//
+// Mirrors Tako reactivity.GimpedNode: no directives → always pass-through.
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when an organ contributes nothing to the system:
+ * zero tools, zero motor subscriptions, zero sense subscriptions.
+ * Use in ablation studies to assert a component was effectively removed.
+ */
+export function isGimped(organ: Organ): boolean {
+	return organ.tools.length === 0 && organ.subscriptions.motor.length === 0 && organ.subscriptions.sense.length === 0;
+}
+
+/**
+ * Create an explicit no-op organ for ablation.
+ * Mounts cleanly, subscribes to nothing, exposes no tools.
+ * Replaces a real organ to establish a baseline (ablated) measurement.
+ */
+export function gimpedOrgan(name: string): Organ {
+	return {
+		name,
+		tools: [],
+		subscriptions: { motor: [], sense: [] },
+		mount: () => () => {},
+	};
+}
+
+// ---------------------------------------------------------------------------
 // InProcessBus — internal routing with wildcard support for observability.
 // ---------------------------------------------------------------------------
 

@@ -1,6 +1,13 @@
 // Evaluation framework
 
 export { type BaselineEntry, EvalBaseline, type RegressionReport } from "./baseline.js";
+export {
+	type CalibrationContract,
+	type ContractField,
+	type ContractFieldType,
+	extractFields,
+	foldContracts,
+} from "./calibration-contract.js";
 export { all, any, fileContains, fileExists, lintPasses, llmJudge, replyContains } from "./checker.js";
 export { compileCheck } from "./checkers/compile.js";
 export { terminalScript, terminalScriptFile } from "./checkers/terminal.js";
@@ -15,7 +22,7 @@ export type {
 	Template,
 	ToolLevel,
 } from "./evaluation.js";
-export type { EvaluationResult, PassAtK } from "./evaluation-runner.js";
+export type { EvaluationResult, EvaluationRunnerOptions, PassAtK } from "./evaluation-runner.js";
 export { EvaluationRunner } from "./evaluation-runner.js";
 export * as multiTurnEvaluations from "./evaluations/multi-turn.js";
 // Evaluation suites
@@ -35,8 +42,21 @@ export {
 } from "./harness.js";
 export type { RunMetrics, ScoringRule, SpanRecord } from "./metrics.js";
 export {
+	batchCorrelation,
+	pearsonCorrelation,
 	READ_ONLY_RULES,
 	scoreSpans,
 	WRITE_RULES,
 } from "./metrics.js";
 export { getEvalModel, SKIP_REAL_LLM } from "./model.js";
+export { type PreflightConfig, type PreflightError, type PreflightReport, preflight } from "./preflight.js";
+export {
+	defaultUnitScorer,
+	type PortStub,
+	runUnitEval,
+	runUnitEvalBaseline,
+	type UnitCaseResult,
+	type UnitEvalConfig,
+	type UnitEvalReport,
+	type UnitScorer,
+} from "./resolution-unit.js";

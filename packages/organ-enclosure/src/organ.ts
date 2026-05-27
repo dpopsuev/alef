@@ -16,8 +16,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { CorpusHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineOrgan } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import type { DockerSpaceOptions } from "./docker-space.js";
 import { DockerSpace } from "./docker-space.js";
@@ -28,74 +28,59 @@ import { OverlaySpace, StubSpace } from "./space.js";
 // Tool definitions
 // ---------------------------------------------------------------------------
 
-const TOOLS: ToolDefinition[] = [
-	{
-		name: "enclosure.create",
-		description:
-			"Create an isolated copy-on-write workspace (Space). Returns a spaceId. Reads come from the real workspace; writes land in the overlay. Use the returned workDir as the working directory for subsequent operations.",
-		inputSchema: z.object({
-			workspace: z.string().describe("Absolute path to the real workspace directory."),
-		}),
-	},
-	{
-		name: "enclosure.diff",
-		description: "List files changed in the overlay since the space was created or last reset.",
-		inputSchema: z.object({
-			spaceId: z.string(),
-		}),
-	},
-	{
-		name: "enclosure.commit",
-		description: "Promote overlay changes to the real workspace. If paths is omitted, all changes are promoted.",
-		inputSchema: z.object({
-			spaceId: z.string(),
-			paths: z.array(z.string()).optional().describe("Specific paths to commit. Omit to commit all."),
-		}),
-	},
-	{
-		name: "enclosure.reset",
-		description: "Discard all overlay changes. The real workspace is untouched.",
-		inputSchema: z.object({
-			spaceId: z.string(),
-		}),
-	},
-	{
-		name: "enclosure.snapshot",
-		description: "Save the current overlay state as a named snapshot for later restore.",
-		inputSchema: z.object({
-			spaceId: z.string(),
-			name: z.string().describe("Snapshot name."),
-		}),
-	},
-	{
-		name: "enclosure.restore",
-		description: "Restore a named snapshot, discarding current overlay changes.",
-		inputSchema: z.object({
-			spaceId: z.string(),
-			name: z.string(),
-		}),
-	},
-	{
-		name: "enclosure.exec",
-		description:
-			"Run a command inside the space's workDir. Optionally confine the process in Linux namespaces (user+mount+pid+net) with cgroup resource limits.",
-		inputSchema: z.object({
-			spaceId: z.string(),
-			command: z.array(z.string()).describe("Command and arguments."),
-			confine: z.boolean().optional().describe("Run inside Linux namespaces (default: false)."),
-			timeoutMs: z.number().optional().describe("Timeout in milliseconds."),
-			memoryMaxBytes: z.number().optional().describe("Memory limit in bytes (confine=true only)."),
-			cpuQuotaUs: z.number().optional().describe("CPU quota µs per 100ms (confine=true only)."),
-		}),
-	},
-	{
-		name: "enclosure.destroy",
-		description: "Tear down the space and remove all overlay directories. Commits nothing.",
-		inputSchema: z.object({
-			spaceId: z.string(),
-		}),
-	},
-];
+// Named tool consts — individual consts preserve schema types for typedAction() inference.
+const CREATE_TOOL = {
+	name: "enclosure.create",
+	description:
+		"Create an isolated copy-on-write workspace (Space). Returns a spaceId. Reads come from the real workspace; writes land in the overlay. Use the returned workDir as the working directory for subsequent operations.",
+	inputSchema: z.object({ workspace: z.string().describe("Absolute path to the real workspace directory.") }),
+};
+const DIFF_TOOL = {
+	name: "enclosure.diff",
+	description: "List files changed in the overlay since the space was created or last reset.",
+	inputSchema: z.object({ spaceId: z.string() }),
+};
+const COMMIT_TOOL = {
+	name: "enclosure.commit",
+	description: "Promote overlay changes to the real workspace. If paths is omitted, all changes are promoted.",
+	inputSchema: z.object({
+		spaceId: z.string(),
+		paths: z.array(z.string()).optional().describe("Specific paths to commit. Omit to commit all."),
+	}),
+};
+const RESET_TOOL = {
+	name: "enclosure.reset",
+	description: "Discard all overlay changes. The real workspace is untouched.",
+	inputSchema: z.object({ spaceId: z.string() }),
+};
+const SNAPSHOT_TOOL = {
+	name: "enclosure.snapshot",
+	description: "Save the current overlay state as a named snapshot for later restore.",
+	inputSchema: z.object({ spaceId: z.string(), name: z.string().describe("Snapshot name.") }),
+};
+const RESTORE_TOOL = {
+	name: "enclosure.restore",
+	description: "Restore a named snapshot, discarding current overlay changes.",
+	inputSchema: z.object({ spaceId: z.string(), name: z.string() }),
+};
+const EXEC_TOOL = {
+	name: "enclosure.exec",
+	description:
+		"Run a command inside the space's workDir. Optionally confine the process in Linux namespaces (user+mount+pid+net) with cgroup resource limits.",
+	inputSchema: z.object({
+		spaceId: z.string(),
+		command: z.array(z.string()).describe("Command and arguments."),
+		confine: z.boolean().optional().describe("Run inside Linux namespaces (default: false)."),
+		timeoutMs: z.number().optional().describe("Timeout in milliseconds."),
+		memoryMaxBytes: z.number().optional().describe("Memory limit in bytes (confine=true only)."),
+		cpuQuotaUs: z.number().optional().describe("CPU quota µs per 100ms (confine=true only)."),
+	}),
+};
+const DESTROY_TOOL = {
+	name: "enclosure.destroy",
+	description: "Tear down the space and remove all overlay directories. Commits nothing.",
+	inputSchema: z.object({ spaceId: z.string() }),
+};
 
 // ---------------------------------------------------------------------------
 // Options
@@ -124,17 +109,14 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 	const spaces = new Map<string, Space>();
 
 	const base = defineOrgan("enclosure", {
-		"motor/enclosure.create": {
-			tool: TOOLS[0],
-			handle: (ctx: CorpusHandlerCtx) => handleCreate(ctx, spaces, options),
-		},
-		"motor/enclosure.diff": { tool: TOOLS[1], handle: (ctx: CorpusHandlerCtx) => handleDiff(ctx, spaces) },
-		"motor/enclosure.commit": { tool: TOOLS[2], handle: (ctx: CorpusHandlerCtx) => handleCommit(ctx, spaces) },
-		"motor/enclosure.reset": { tool: TOOLS[3], handle: (ctx: CorpusHandlerCtx) => handleReset(ctx, spaces) },
-		"motor/enclosure.snapshot": { tool: TOOLS[4], handle: (ctx: CorpusHandlerCtx) => handleSnapshot(ctx, spaces) },
-		"motor/enclosure.restore": { tool: TOOLS[5], handle: (ctx: CorpusHandlerCtx) => handleRestore(ctx, spaces) },
-		"motor/enclosure.exec": { tool: TOOLS[6], handle: (ctx: CorpusHandlerCtx) => handleExec(ctx, spaces) },
-		"motor/enclosure.destroy": { tool: TOOLS[7], handle: (ctx: CorpusHandlerCtx) => handleDestroy(ctx, spaces) },
+		"motor/enclosure.create": typedAction(CREATE_TOOL, (ctx) => handleCreate(ctx, spaces, options)),
+		"motor/enclosure.diff": typedAction(DIFF_TOOL, (ctx) => handleDiff(ctx, spaces)),
+		"motor/enclosure.commit": typedAction(COMMIT_TOOL, (ctx) => handleCommit(ctx, spaces)),
+		"motor/enclosure.reset": typedAction(RESET_TOOL, (ctx) => handleReset(ctx, spaces)),
+		"motor/enclosure.snapshot": typedAction(SNAPSHOT_TOOL, (ctx) => handleSnapshot(ctx, spaces)),
+		"motor/enclosure.restore": typedAction(RESTORE_TOOL, (ctx) => handleRestore(ctx, spaces)),
+		"motor/enclosure.exec": typedAction(EXEC_TOOL, (ctx) => handleExec(ctx, spaces)),
+		"motor/enclosure.destroy": typedAction(DESTROY_TOOL, (ctx) => handleDestroy(ctx, spaces)),
 	});
 
 	// Return a wrapper that adds space cleanup on unmount.
@@ -168,11 +150,11 @@ function getSpace(spaceId: unknown, spaces: Map<string, Space>): Space {
 }
 
 async function handleCreate(
-	ctx: CorpusHandlerCtx,
+	ctx: { payload: { workspace: string } },
 	spaces: Map<string, Space>,
 	opts: EnclosureOrganOptions,
 ): Promise<Record<string, unknown>> {
-	const workspace = String(ctx.payload.workspace ?? "");
+	const { workspace } = ctx.payload;
 	if (!workspace) throw new Error("enclosure.create: workspace is required");
 	const spaceId = randomUUID();
 
@@ -190,60 +172,84 @@ async function handleCreate(
 	return { spaceId, workDir: space.workDir() };
 }
 
-async function handleDiff(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+async function handleDiff(
+	ctx: { payload: { spaceId: string } },
+	spaces: Map<string, Space>,
+): Promise<Record<string, unknown>> {
 	const space = getSpace(ctx.payload.spaceId, spaces);
 	const changes = await space.diff();
 	return { changes };
 }
 
-async function handleCommit(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+async function handleCommit(
+	ctx: { payload: { spaceId: string; paths?: string[] } },
+	spaces: Map<string, Space>,
+): Promise<Record<string, unknown>> {
 	const space = getSpace(ctx.payload.spaceId, spaces);
-	const paths = Array.isArray(ctx.payload.paths) ? (ctx.payload.paths as string[]) : undefined;
+	const { paths } = ctx.payload;
 	await space.commit(paths);
 	return { committed: paths?.length ?? "all" };
 }
 
-async function handleReset(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+async function handleReset(
+	ctx: { payload: { spaceId: string } },
+	spaces: Map<string, Space>,
+): Promise<Record<string, unknown>> {
 	const space = getSpace(ctx.payload.spaceId, spaces);
 	await space.reset();
 	return { ok: true };
 }
 
-async function handleSnapshot(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+async function handleSnapshot(
+	ctx: { payload: { spaceId: string; name: string } },
+	spaces: Map<string, Space>,
+): Promise<Record<string, unknown>> {
 	const space = getSpace(ctx.payload.spaceId, spaces);
-	const name = String(ctx.payload.name ?? "");
+	const { name } = ctx.payload;
 	if (!name) throw new Error("enclosure.snapshot: name is required");
 	await space.snapshot(name);
 	return { ok: true, name };
 }
 
-async function handleRestore(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+async function handleRestore(
+	ctx: { payload: { spaceId: string; name: string } },
+	spaces: Map<string, Space>,
+): Promise<Record<string, unknown>> {
 	const space = getSpace(ctx.payload.spaceId, spaces);
-	const name = String(ctx.payload.name ?? "");
+	const { name } = ctx.payload;
 	if (!name) throw new Error("enclosure.restore: name is required");
 	await space.restore(name);
 	return { ok: true, name };
 }
 
-async function handleExec(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+async function handleExec(
+	ctx: {
+		payload: {
+			spaceId: string;
+			command: string[];
+			confine?: boolean;
+			timeoutMs?: number;
+			memoryMaxBytes?: number;
+			cpuQuotaUs?: number;
+		};
+	},
+	spaces: Map<string, Space>,
+): Promise<Record<string, unknown>> {
 	const space = getSpace(ctx.payload.spaceId, spaces);
-	const command = Array.isArray(ctx.payload.command) ? (ctx.payload.command as string[]) : [];
+	const { command, confine, timeoutMs, memoryMaxBytes, cpuQuotaUs } = ctx.payload;
 	if (!command.length) throw new Error("enclosure.exec: command is required");
-	const opts: ExecOptions = {
-		confine: Boolean(ctx.payload.confine ?? false),
-		timeoutMs: typeof ctx.payload.timeoutMs === "number" ? ctx.payload.timeoutMs : undefined,
-		memoryMaxBytes: typeof ctx.payload.memoryMaxBytes === "number" ? ctx.payload.memoryMaxBytes : undefined,
-		cpuQuotaUs: typeof ctx.payload.cpuQuotaUs === "number" ? ctx.payload.cpuQuotaUs : undefined,
-	};
+	const opts: ExecOptions = { confine: confine ?? false, timeoutMs, memoryMaxBytes, cpuQuotaUs };
 	const result = await space.exec(command, opts);
 	if (result.exitCode !== 0) throw new Error(`exit code ${result.exitCode}`);
 	return { exitCode: result.exitCode, output: result.output };
 }
 
-async function handleDestroy(ctx: CorpusHandlerCtx, spaces: Map<string, Space>): Promise<Record<string, unknown>> {
+async function handleDestroy(
+	ctx: { payload: { spaceId: string } },
+	spaces: Map<string, Space>,
+): Promise<Record<string, unknown>> {
 	const space = getSpace(ctx.payload.spaceId, spaces);
 	await space.destroy();
-	const spaceId = String(ctx.payload.spaceId ?? "");
-	spaces.delete(spaceId);
+	spaces.delete(ctx.payload.spaceId);
 	return { ok: true };
 }

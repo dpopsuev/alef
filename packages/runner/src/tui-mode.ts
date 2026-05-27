@@ -10,9 +10,9 @@
  */
 
 import { appendFileSync } from "node:fs";
-import { getProviders } from "@dpopsuev/alef-ai";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
+import { getProviders } from "@dpopsuev/alef-organ-llm";
 import { Container, matchesKey, ProcessTerminal, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
 import { ConsoleZone } from "./console-zone.js";

@@ -23,7 +23,7 @@ import {
 	getProviders,
 	type KnownProvider,
 	type Model,
-} from "@dpopsuev/alef-ai";
+} from "@dpopsuev/alef-organ-llm";
 import { getConfig } from "./config.js";
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_HOST ?? "http://localhost:11434/v1";

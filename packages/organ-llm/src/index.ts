@@ -676,6 +676,15 @@ export class Cerebrum {
 }
 
 export type { ToolDefinition };
-// LLM message protocol types — re-exported so callers don't need @dpopsuev/alef-ai directly.
-export type { AssistantMessage, Message, ThinkingLevel, UserMessage } from "@dpopsuev/alef-ai";
+// AI types and utilities — re-exported so callers don't import @dpopsuev/alef-ai directly.
+export type {
+	Api,
+	AssistantMessage,
+	KnownProvider,
+	Message,
+	Model,
+	ThinkingLevel,
+	UserMessage,
+} from "@dpopsuev/alef-ai";
+export { findEnvKeys, getEnvApiKey, getModels, getProviders } from "@dpopsuev/alef-ai";
 export type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";

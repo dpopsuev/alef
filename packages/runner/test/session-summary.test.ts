@@ -13,7 +13,7 @@ import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
-import { Reasoner } from "../../organ-llm/src/index.js";
+import { Cerebrum } from "../../organ-llm/src/index.js";
 import { SessionLog, type SessionSummary } from "../src/event-log-organ.js";
 import { SessionStore } from "../src/session-store.js";
 
@@ -42,7 +42,7 @@ describe("SessionSummary (ALE-TSK-276)", () => {
 		const log = new SessionLog(store, "test-model");
 		agent
 			.load(dialog)
-			.load(new Reasoner({ model: faux.getModel(), apiKey: "faux-key" }))
+			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }))
 			.load(log);
 
 		await dialog.send("hello", "user", 10_000);

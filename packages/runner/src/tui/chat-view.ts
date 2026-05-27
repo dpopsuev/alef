@@ -10,7 +10,7 @@ import type { ThemeTokens } from "../theme.js";
 import { DynamicText } from "./dynamic-text.js";
 import { INDENT, SPACING } from "./layout-constants.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
-import { bg, color, dim } from "./theme.js";
+import { bg, color } from "./theme.js";
 
 const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? "@you";
 const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
@@ -40,10 +40,10 @@ export function appendUserMsg(chat: Container, text: string, t: ThemeTokens): vo
  * ╰─────────────────────────╯
  */
 export function appendNotice(chat: Container, text: string, t: ThemeTokens): void {
-	const colorFn = (s: string): string => dim(color(s, t.dimFg));
+	const colorFn = (s: string): string => color(s, t.dimFg);
 	chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
 	chat.addChild(new DynamicText((w) => colorFn(pillHeaderStr("─", w))));
-	chat.addChild(new Text(dim(text), INDENT.BLOCK, 0));
+	chat.addChild(new Text(color(text, t.dimFg), INDENT.BLOCK, 0));
 	chat.addChild(new DynamicText((w) => colorFn(pillFooterStr(w))));
 }
 

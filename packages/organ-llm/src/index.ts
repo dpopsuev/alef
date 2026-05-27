@@ -15,7 +15,7 @@ import type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
 
 const tracer = trace.getTracer("alef.organ-llm");
 
-export interface ReasonerOptions {
+export interface CerebrumOptions {
 	model: Model<Api>;
 	apiKey?: string;
 	/**
@@ -141,7 +141,7 @@ function normalizeMessage(m: unknown): Message {
 
 async function runLLMLoop(
 	ctx: CerebrumHandlerCtx,
-	options: ReasonerOptions,
+	options: CerebrumOptions,
 	/** Called with a snapshot of messages after each tool round completes. */
 	onCheckpoint?: (messages: Message[]) => void,
 ): Promise<void> {
@@ -508,7 +508,7 @@ function extractText(message: AssistantMessage): string {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createReasoner(options: ReasonerOptions): Organ {
+export function createCerebrum(options: CerebrumOptions): Organ {
 	const trigger = options.triggerEvent ?? DIALOG_MESSAGE;
 	const reply = options.replyEvent ?? trigger;
 	const isConversation = reply === DIALOG_MESSAGE;
@@ -565,9 +565,9 @@ function pickKeyArg(payload: Record<string, unknown>): string {
 	return "";
 }
 
-export class Reasoner {
+export class Cerebrum {
 	private readonly organ: Organ;
-	private readonly options: ReasonerOptions;
+	private readonly options: CerebrumOptions;
 	/** In-flight motor events from concurrent turns. Populated only when trackConcurrentOps=true. */
 	private readonly inflight = new Map<string, InflightEntry>();
 
@@ -611,9 +611,9 @@ export class Reasoner {
 		};
 	}
 
-	constructor(options: ReasonerOptions) {
+	constructor(options: CerebrumOptions) {
 		this.options = options;
-		const wrappedOptions: ReasonerOptions = options.trackConcurrentOps
+		const wrappedOptions: CerebrumOptions = options.trackConcurrentOps
 			? {
 					...options,
 					prepareStep: async (msgs: Message[]) => {
@@ -622,7 +622,7 @@ export class Reasoner {
 					},
 				}
 			: options;
-		this.organ = createReasoner(wrappedOptions);
+		this.organ = createCerebrum(wrappedOptions);
 	}
 
 	private applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {

@@ -20,7 +20,7 @@ import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createLectorOrgan } from "@dpopsuev/alef-organ-lector";
-import { Reasoner } from "@dpopsuev/alef-organ-llm";
+import { Cerebrum } from "@dpopsuev/alef-organ-llm";
 import { createWebOrgan } from "@dpopsuev/alef-organ-web";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ToolRecord } from "../../runner/test/e2e-verifiers.js";
@@ -97,7 +97,7 @@ function makeAgent(organs: Parameters<Agent["load"]>[0][]): { agent: Agent; dial
 	for (const organ of organs) {
 		agent.load(organ);
 	}
-	agent.load(new Reasoner({ model: getEvalModel() }));
+	agent.load(new Cerebrum({ model: getEvalModel() }));
 	agent.validate();
 	return { agent, dialog };
 }

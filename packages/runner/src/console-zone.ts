@@ -27,7 +27,7 @@ class ArcEditorWrapper implements Component {
 
 import { EventPressure, pressureToInterval, timeBasedHue } from "./event-pressure.js";
 import { buildPool, randomCodePoint } from "./splash.js";
-import { bold, type ColorToken, color, colorDepth, dim, fgCode, glyph, type ThemeTokens } from "./theme.js";
+import { bold, type ColorToken, color, colorDepth, fgCode, glyph, type ThemeTokens } from "./theme.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 import { pillFooterStr } from "./tui/pill.js";
 import { toolActiveLine } from "./tui/tool-view.js";
@@ -107,9 +107,9 @@ export class ConsoleZone {
 		const selectListTheme: SelectListTheme = {
 			selectedPrefix: (s) => bold(s),
 			selectedText: (s) => bold(s),
-			description: (s) => dim(s),
-			scrollInfo: (s) => dim(s),
-			noMatch: (s) => dim(s),
+			description: (s) => color(s, t.dimFg),
+			scrollInfo: (s) => color(s, t.dimFg),
+			noMatch: (s) => color(s, t.dimFg),
 		};
 		const editorTheme: EditorTheme = {
 			borderColor: (s) => color(s, t.dimFg),
@@ -130,7 +130,7 @@ export class ConsoleZone {
 		this.tui.addChild(this.inFlightQueue);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(new ArcEditorWrapper(this.editor, (s) => color(s, this.t.dimFg)));
-		this.hintBar = new Text(dim("/exit · /new · /resume · /help"), 0, 0);
+		this.hintBar = new Text(color("/exit · /new · /resume · /help", this.t.dimFg), 0, 0);
 		this.tui.addChild(this.hintBar);
 	}
 
@@ -167,7 +167,7 @@ export class ConsoleZone {
 		clearTimeout(this.thinkingTimer);
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");
-		this.hintBar.setText(dim("/exit \u00b7 /new \u00b7 /resume \u00b7 /help"));
+		this.hintBar.setText(color("/exit · /new · /resume · /help", this.t.dimFg));
 	}
 
 	setStatus(text: string): void {

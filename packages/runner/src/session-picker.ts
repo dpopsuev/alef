@@ -6,7 +6,7 @@
  */
 
 import { ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
-import { bold, color, dim, getTheme } from "./theme.js";
+import { bold, color, getTheme } from "./theme.js";
 
 export async function pickSession(sessions: Array<{ id: string; mtime: Date }>): Promise<string | undefined> {
 	if (sessions.length === 0) return undefined;
@@ -25,9 +25,9 @@ export async function pickSession(sessions: Array<{ id: string; mtime: Date }>):
 	const theme = {
 		selectedPrefix: (s: string) => color(s, t.accentFg),
 		selectedText: (s: string) => bold(s),
-		description: (s: string) => dim(s),
-		scrollInfo: (s: string) => dim(s),
-		noMatch: (s: string) => dim(s),
+		description: (s: string) => color(s, t.dimFg),
+		scrollInfo: (s: string) => color(s, t.dimFg),
+		noMatch: (s: string) => color(s, t.dimFg),
 	};
 
 	return new Promise<string | undefined>((resolve) => {

@@ -8,7 +8,7 @@
 import type { MarkdownTheme } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
 import type { ThemeTokens } from "../theme.js";
-import { bold, color, dim, italic } from "./theme.js";
+import { bold, color, italic } from "./theme.js";
 
 /** Raw ANSI — never chalk, so these work regardless of chalk's TTY detection. */
 const ANSI_BOLD = "\x1b[1m";
@@ -20,13 +20,13 @@ export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	return {
 		heading: (s) => bold(s),
 		link: (s) => color(s, t.toolNameFg),
-		linkUrl: (s) => dim(s),
+		linkUrl: (s) => color(s, t.dimFg),
 		code: (s) => color(s, t.accentFg),
 		codeBlock: (s) => s,
-		codeBlockBorder: (s) => dim(s),
-		quote: (s) => dim(s),
-		quoteBorder: (s) => dim(s),
-		hr: (s) => dim(s),
+		codeBlockBorder: (s) => color(s, t.dimFg),
+		quote: (s) => color(s, t.dimFg),
+		quoteBorder: (s) => color(s, t.dimFg),
+		hr: (s) => color(s, t.dimFg),
 		listBullet: (s) => color(s, t.accentFg),
 		bold: (s) => bold(s),
 		italic: (s) => italic(s),
@@ -37,7 +37,7 @@ export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 
 /** Theme for streaming thinking blocks — italic, dim, using dimFg token. */
 export function makeThinkingMarkdownTheme(t: ThemeTokens): MarkdownTheme {
-	const wrap = (s: string): string => color(dim(s), t.dimFg);
+	const wrap = (s: string): string => color(s, t.dimFg);
 	return {
 		heading: (s) => wrap(`${ANSI_BOLD}${s}${ANSI_RESET}`),
 		link: (s) => wrap(s),

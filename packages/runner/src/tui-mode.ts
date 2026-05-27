@@ -22,7 +22,7 @@ import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
-import { bg, boldColor, dim, getTheme, glyph, type ThemeTokens } from "./theme.js";
+import { bg, boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { appendNotice, appendUserMsg } from "./tui/chat-view.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
@@ -296,7 +296,7 @@ export async function runTuiMode(
 				if (activeCalls.size === 0 && batchStartedAt > 0) {
 					const batchMs = Date.now() - batchStartedAt;
 					const batchStr = batchMs >= 1000 ? `${(batchMs / 1000).toFixed(1)}s` : `${batchMs}ms`;
-					chat.addChild(new Text(dim(`  ⊞ · ${batchStr}`), 0, 0));
+					chat.addChild(new Text(color(`  ⊞ · ${batchStr}`, t.dimFg), 0, 0));
 					batchStartedAt = 0;
 				}
 				tui.requestRender();
@@ -450,13 +450,13 @@ export async function runTuiMode(
 		editor,
 		(mode) => {
 			if (!consoleZone.isThinking) {
-				consoleZone.setStatus(mode === "normal" ? dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`) : "");
+				consoleZone.setStatus(mode === "normal" ? color(`${ANSI_BOLD}NORMAL${ANSI_RESET}`, t.dimFg) : "");
 			}
 			tui.requestRender();
 		},
 		(hint) => {
 			if (!consoleZone.isThinking) {
-				consoleZone.setStatus(hint ? dim(hint) : dim(`${ANSI_BOLD}NORMAL${ANSI_RESET}`));
+				consoleZone.setStatus(hint ? color(hint, t.dimFg) : color(`${ANSI_BOLD}NORMAL${ANSI_RESET}`, t.dimFg));
 			}
 			tui.requestRender();
 		},

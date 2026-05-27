@@ -32,6 +32,21 @@ import type { WorkspaceFile } from "./harness.js";
 export type ToolLevel = "ReadOnly" | "ReadWrite";
 export type Template = "ReadOnly" | "Write" | "MultiTurn";
 
+/**
+ * EvalKind controls how an evaluation is executed.
+ *
+ * CAPABILITY — exploratory, variance matters:
+ *   - temperature: model default
+ *   - n: 5 trials (configurable via ALEF_EVAL_N)
+ *   - reports pass@k distribution + variance
+ *
+ * REGRESSION — protective, determinism matters:
+ *   - temperature: 0
+ *   - n: 1 trial
+ *   - fast CI gate, catches breakage not capability limits
+ */
+export type EvalKind = "capability" | "regression";
+
 export interface Evaluation {
 	/** Unique identifier — used in metrics and test names. */
 	readonly id: string;
@@ -39,6 +54,11 @@ export interface Evaluation {
 	readonly toolLevel: ToolLevel;
 	/** Template category. */
 	readonly template: Template;
+	/**
+	 * Execution kind. Defaults to 'regression' (n=1, temperature=0).
+	 * Use 'capability' for exploratory evals that need pass@k distribution.
+	 */
+	readonly kind?: EvalKind;
 	/**
 	 * Prompt(s) to send. string = single-turn. string[] = multi-turn conversation.
 	 * Each string is sent as a separate dialog.send() call.

@@ -28,6 +28,23 @@ export interface EvaluationResult extends CheckerResult {
 	mustUseErrors: string[];
 }
 
+/**
+ * Pass@k result for RunN() — statistical summary across n trials.
+ *
+ * pass_at_k: fraction of trials that passed (0–1).
+ * variance: spread of scores across trials.
+ * trials: individual EvaluationResults for inspection.
+ */
+export interface PassAtK {
+	evaluation: string;
+	n: number;
+	pass_at_k: number;
+	variance: number;
+	min_score: number;
+	max_score: number;
+	trials: EvaluationResult[];
+}
+
 export class EvaluationRunner {
 	private readonly harness: EvalHarness;
 	private readonly harnessOptions: Partial<HarnessOptions>;
@@ -93,6 +110,41 @@ export class EvaluationRunner {
 			errors,
 			metrics,
 			mustUseErrors,
+		};
+	}
+
+	/**
+	 * Run n trials of an evaluation and return pass@k statistics.
+	 *
+	 * Concurrency is capped at ALEF_EVAL_CONCURRENCY (default 3) to avoid
+	 * rate-limiting. Capability evals default to n=5; regression evals to n=1
+	 * and should use temperature=0 at the provider level.
+	 *
+	 * τ-bench finding: 60% pass@1 may mean only 25% consistency across trials.
+	 */
+	async runN(evaluation: Evaluation, n?: number): Promise<PassAtK> {
+		const defaultN = n ?? (evaluation.kind === "capability" ? Number(process.env.ALEF_EVAL_N) || 5 : 1);
+		const concurrency = Number(process.env.ALEF_EVAL_CONCURRENCY) || 3;
+
+		const results: EvaluationResult[] = [];
+		for (let i = 0; i < defaultN; i += concurrency) {
+			const batch = Array.from({ length: Math.min(concurrency, defaultN - i) }, () => this.run(evaluation));
+			results.push(...(await Promise.all(batch)));
+		}
+
+		const scores = results.map((r) => r.score);
+		const passed = results.filter((r) => r.pass).length;
+		const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+		const variance = scores.reduce((acc, s) => acc + (s - mean) ** 2, 0) / scores.length;
+
+		return {
+			evaluation: evaluation.id,
+			n: defaultN,
+			pass_at_k: passed / defaultN,
+			variance,
+			min_score: Math.min(...scores),
+			max_score: Math.max(...scores),
+			trials: results,
 		};
 	}
 

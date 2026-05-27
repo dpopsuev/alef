@@ -9,6 +9,10 @@ export interface SpanRecord {
 	attributes: Record<string, unknown>;
 	status: "OK" | "ERROR" | "UNSET";
 	durationMs: number;
+	/** Tool call input args, if captured from the span event. */
+	args?: Record<string, unknown>;
+	/** Tool call result text, if captured from the span event. */
+	result?: string;
 }
 
 export interface RunMetrics {

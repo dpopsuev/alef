@@ -11,6 +11,7 @@
  * Composing referees: AllReferee runs multiple and takes the min score.
  */
 
+import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Checker, CheckerContext, CheckerResult } from "./evaluation.js";
@@ -93,6 +94,97 @@ export function all(...referees: Checker[]): Checker {
 			const errors = results.flatMap((r) => r.errors);
 			const score = Math.min(...results.map((r) => r.score));
 			return { pass: errors.length === 0, score, errors };
+		},
+	};
+}
+
+// ---------------------------------------------------------------------------
+// LLMJudgeReferee — semantic quality scoring via a cheap LLM
+//
+// Tier 3 checker: only for capability evals where keyword matching is
+// insufficient. Expensive — skip in regression evals and CI.
+// Anthropic: model-based graders handle subjective quality dimensions.
+//
+// Requires ANTHROPIC_API_KEY. Returns score 0.0–1.0 from the judge.
+// Example: llmJudge('Does the reply correctly explain the error without hallucinating?')
+// ---------------------------------------------------------------------------
+
+export function llmJudge(rubric: string, modelId = "claude-haiku-4-5"): Checker {
+	return {
+		async check({ lastReply }: CheckerContext): Promise<CheckerResult> {
+			if (!lastReply) return { pass: false, score: 0, errors: ["No reply to judge"] };
+			const apiKey = process.env.ANTHROPIC_API_KEY;
+			if (!apiKey) {
+				return { pass: false, score: 0, errors: ["ANTHROPIC_API_KEY not set — LLMJudge skipped"] };
+			}
+
+			// Direct Anthropic API call via fetch — avoids inline import (AGENTS.md).
+			const prompt = `You are an evaluation judge. Score the following reply on this rubric:\n\nRUBRIC: ${rubric}\n\nREPLY:\n${lastReply}\n\nRespond with ONLY a number between 0.0 and 1.0. No other text.`;
+			const res = await fetch("https://api.anthropic.com/v1/messages", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					"x-api-key": apiKey,
+					"anthropic-version": "2023-06-01",
+				},
+				body: JSON.stringify({
+					model: modelId,
+					max_tokens: 64,
+					messages: [{ role: "user", content: prompt }],
+				}),
+			});
+
+			if (!res.ok) {
+				return { pass: false, score: 0, errors: [`LLMJudge API error: ${res.status}`] };
+			}
+
+			const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+			const text = json.content?.find((b) => b.type === "text")?.text ?? "";
+			const score = Math.max(0, Math.min(1, parseFloat(text.trim())));
+			if (Number.isNaN(score)) {
+				return { pass: false, score: 0, errors: [`LLMJudge returned non-numeric: '${text}'`] };
+			}
+			return {
+				pass: score >= 0.7,
+				score,
+				errors: score < 0.7 ? [`LLMJudge score ${score.toFixed(2)} < 0.7 for rubric: ${rubric}`] : [],
+			};
+		},
+	};
+}
+
+// ---------------------------------------------------------------------------
+// LintPassesReferee — runs a command in the workspace, asserts exit code 0
+//
+// Outcome checker: verifies what the agent DID, not what it SAID.
+// Anthropic principle: the outcome is the final state in the environment.
+//
+// Example: lintPasses('npx', ['tsc', '--noEmit'])
+//          lintPasses('npx', ['eslint', 'src/'])
+// ---------------------------------------------------------------------------
+
+export function lintPasses(cmd: string, args: string[] = []): Checker {
+	return {
+		check({ workspace }: CheckerContext): Promise<CheckerResult> {
+			return new Promise((resolve) => {
+				const child = spawn(cmd, args, { cwd: workspace, stdio: "pipe" });
+				const stderr: string[] = [];
+				child.stderr?.on("data", (chunk: Buffer) => stderr.push(chunk.toString()));
+				child.on("close", (code) => {
+					if (code === 0) {
+						resolve({ pass: true, score: 1.0, errors: [] });
+					} else {
+						resolve({
+							pass: false,
+							score: 0,
+							errors: [`${cmd} exited ${code}:\n${stderr.join("").trim()}`],
+						});
+					}
+				});
+				child.on("error", (err) => {
+					resolve({ pass: false, score: 0, errors: [`Failed to run ${cmd}: ${err.message}`] });
+				});
+			});
 		},
 	};
 }

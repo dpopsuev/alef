@@ -12,6 +12,7 @@
  *   - Skip: if no API key detected, scenario is skipped (not failed).
  */
 
+import { randomUUID } from "node:crypto";
 import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -53,28 +54,72 @@ export interface HarnessOptions {
 	loopThreshold?: number;
 	/** Initial workspace files to write before the scenario runs. */
 	seed?: WorkspaceFile[];
+	/**
+	 * Per-scenario wall-clock timeout in ms. Default: 180_000 (3 min).
+	 * The harness aborts and marks the run failed if this is exceeded.
+	 */
+	scenarioTimeoutMs?: number;
+	/**
+	 * Whether to seed the workspace with realistic noise files.
+	 * Default: true. Mitigates eval-awareness sandbagging (AISI finding):
+	 * agents can detect eval context from sparse workspace structure.
+	 */
+	noiseSeeding?: boolean;
 }
 
 export class EvalHarness {
 	private collectAndResetSpans(): SpanRecord[] {
-		const spans = globalSpanExporter.getFinishedSpans().map((s) => ({
-			name: s.name,
-			attributes: Object.fromEntries(Object.entries(s.attributes ?? {})),
-			status: (s.status.code === 1 ? "ERROR" : s.status.code === 2 ? "OK" : "UNSET") as "ERROR" | "OK" | "UNSET",
-			durationMs: (s.duration[0] * 1e9 + s.duration[1]) / 1e6,
-		}));
+		const spans = globalSpanExporter.getFinishedSpans().map((s) => {
+			const attrs = Object.fromEntries(Object.entries(s.attributes ?? {}));
+			// Extract args and result from span events if present (Anthropic pattern:
+			// outcome = env state, not just transcript text).
+			let args: Record<string, unknown> | undefined;
+			let result: string | undefined;
+			for (const event of s.events ?? []) {
+				if (event.name === "tool.args" && event.attributes) {
+					const raw = event.attributes["args"];
+					if (typeof raw === "string") {
+						try {
+							args = JSON.parse(raw) as Record<string, unknown>;
+						} catch {
+							/* ignore */
+						}
+					}
+				}
+				if (event.name === "tool.result" && event.attributes) {
+					const raw = event.attributes["result"];
+					if (typeof raw === "string") result = raw;
+				}
+			}
+			return {
+				name: s.name,
+				attributes: attrs,
+				status: (s.status.code === 1 ? "ERROR" : s.status.code === 2 ? "OK" : "UNSET") as "ERROR" | "OK" | "UNSET",
+				durationMs: (s.duration[0] * 1e9 + s.duration[1]) / 1e6,
+				...(args !== undefined && { args }),
+				...(result !== undefined && { result }),
+			};
+		});
 		globalSpanExporter.reset();
 		return spans;
 	}
 
 	async run(scenarioFn: ScenarioFn, opts: HarnessOptions): Promise<RunMetrics> {
 		const start = Date.now();
+		const scenarioTimeoutMs = opts.scenarioTimeoutMs ?? 180_000;
 		// Reset exporter at start of each run — shared global exporter.
 		globalSpanExporter.reset();
 
-		// Create temp workspace.
-		const workspace = join(tmpdir(), `alef-eval-${opts.scenario}-${Date.now()}`);
+		// Neutral workspace name — no 'eval' prefix to avoid eval-awareness sandbagging.
+		// AISI finding: agents detect eval context from workspace path signals.
+		const workspace = join(tmpdir(), randomUUID());
 		await mkdir(workspace, { recursive: true });
+
+		// Realistic noise files — a completely empty workspace is itself a signal.
+		if (opts.noiseSeeding !== false) {
+			await writeFile(join(workspace, ".gitignore"), "node_modules/\ndist/\n", "utf-8");
+			await writeFile(join(workspace, "README.md"), "# Project\n\nA TypeScript project.\n", "utf-8");
+		}
 
 		// Seed workspace files.
 		if (opts.seed) {
@@ -107,6 +152,10 @@ export class EvalHarness {
 		let passed = false;
 		let error: string | undefined;
 
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error(`scenario timeout after ${scenarioTimeoutMs}ms`)), scenarioTimeoutMs),
+		);
+
 		try {
 			const ctx: ScenarioContext = {
 				workspace,
@@ -118,7 +167,7 @@ export class EvalHarness {
 				},
 				readFile: async (rel) => fsReadFile(join(workspace, rel), "utf-8"),
 			};
-			await scenarioFn(ctx);
+			await Promise.race([scenarioFn(ctx), timeoutPromise]);
 			passed = true;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);

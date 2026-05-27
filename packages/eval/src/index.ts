@@ -1,7 +1,7 @@
 // Evaluation framework
 
 export { type BaselineEntry, EvalBaseline, type RegressionReport } from "./baseline.js";
-export { all, any, fileContains, fileExists, replyContains } from "./checker.js";
+export { all, any, fileContains, fileExists, lintPasses, llmJudge, replyContains } from "./checker.js";
 export { compileCheck } from "./checkers/compile.js";
 export { terminalScript, terminalScriptFile } from "./checkers/terminal.js";
 export { testCheck } from "./checkers/test.js";
@@ -9,12 +9,13 @@ export type {
 	Checker,
 	CheckerContext,
 	CheckerResult,
+	EvalKind,
 	Evaluation,
 	FixtureSet,
 	Template,
 	ToolLevel,
 } from "./evaluation.js";
-export type { EvaluationResult } from "./evaluation-runner.js";
+export type { EvaluationResult, PassAtK } from "./evaluation-runner.js";
 export { EvaluationRunner } from "./evaluation-runner.js";
 export * as multiTurnEvaluations from "./evaluations/multi-turn.js";
 // Evaluation suites

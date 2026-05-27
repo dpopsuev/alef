@@ -168,3 +168,45 @@ describe("formatTokenUsage", () => {
 		expect(out).toContain("1.0k");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Pill header width regression — crash: Rendered line N exceeds terminal width
+// ---------------------------------------------------------------------------
+
+import { stripVTControlCharacters } from "node:util";
+
+describe("StreamingZone pill header width", () => {
+	for (const w of [80, 120, 200, 273]) {
+		it(`header visible width === ${w} at terminal width ${w}`, () => {
+			const { zone, chat } = makeZone();
+			zone.receiveText("hello");
+
+			// The header is the second child added to chat (after the Spacer).
+			// Render it at width w and check visible chars.
+			const headerComponent = chat.children[1];
+			expect(headerComponent).toBeDefined();
+			const lines: string[] = (headerComponent as unknown as { render(w: number): string[] }).render(w);
+			expect(lines).toHaveLength(1);
+
+			const visible = stripVTControlCharacters(lines[0]!).length;
+			expect(visible).toBe(w);
+		});
+	}
+
+	it("footer visible width === w after seal", () => {
+		const { zone, chat } = makeZone();
+		zone.receiveText("hello");
+		zone.replyTypewriter.flush();
+		zone.seal();
+
+		// After seal: children are [Spacer, header, Box, footer]
+		const footerComponent = chat.children[3];
+		expect(footerComponent).toBeDefined();
+		const w = 120;
+		const lines: string[] = (footerComponent as unknown as { render(w: number): string[] }).render(w);
+		expect(lines).toHaveLength(1);
+
+		const visible = stripVTControlCharacters(lines[0]!).length;
+		expect(visible).toBe(w);
+	});
+});

@@ -26,7 +26,7 @@
  */
 
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import type { ZodTypeAny } from "zod";
+import type { ZodTypeAny, z } from "zod";
 import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "./buses.js";
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
@@ -49,14 +49,20 @@ const noopLogger: OrganLogger = {
 // CorpusOrgan actions (Motor → handle/stream → Sense)
 // ---------------------------------------------------------------------------
 
-/** Context passed to every CorpusOrgan action handler. */
-export interface CorpusHandlerCtx {
+/**
+ * Context passed to every CorpusOrgan action handler.
+ *
+ * TPayload defaults to Record<string,unknown> for backward compatibility.
+ * Use typedAction() to get a statically-typed payload with no manual casts.
+ * Lex SOLID-D: handlers depend on their domain type, not on Record<string,unknown>.
+ */
+export interface CorpusHandlerCtx<TPayload = Record<string, unknown>> {
 	/** Correlation ID from the Motor event — thread through to Sense. */
 	readonly correlationId: string;
 	/** toolCallId from Motor payload — mirrored to Sense payload for LLM correlation. */
 	readonly toolCallId: string | undefined;
-	/** The full Motor payload. */
-	readonly payload: Record<string, unknown>;
+	/** The Zod-parsed Motor payload. Validated before dispatch. */
+	readonly payload: TPayload;
 }
 
 /** Standard (non-streaming) CorpusOrgan action. Returns result payload or throws. */
@@ -75,6 +81,42 @@ export interface CorpusAction {
 	 * Implement for write-path actions (fs.edit, fs.write).
 	 */
 	invalidates?(ctx: CorpusHandlerCtx): string[];
+}
+
+/**
+ * typedAction — Papert adapter: turns a Zod-typed handler into a CorpusAction.
+ *
+ * The handler receives ctx.payload typed as z.infer<TSchema> — no getString(),
+ * no manual casts, no Record<string,unknown> narrowing.
+ *
+ * Lex Papert Paradigm: "Adapter functions — Every single-method interface has a
+ * corresponding function adapter so plain functions satisfy it without boilerplate."
+ *
+ * @example
+ * ```ts
+ * typedAction(
+ *   { name: "fs.read", description: "Read a file", inputSchema: z.object({ path: z.string() }) },
+ *   async (ctx) => {
+ *     const content = await readFile(ctx.payload.path); // ctx.payload.path is string
+ *     return { content };
+ *   },
+ * )
+ * ```
+ */
+export function typedAction<TSchema extends ZodTypeAny>(
+	tool: ToolDefinition & { readonly inputSchema: TSchema },
+	handle: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
+	opts?: {
+		shouldCache?: (ctx: CorpusHandlerCtx<z.infer<TSchema>>, result: Record<string, unknown>) => boolean;
+		invalidates?: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => string[];
+	},
+): CorpusAction {
+	return {
+		tool,
+		handle: handle as CorpusAction["handle"],
+		...(opts?.shouldCache && { shouldCache: opts.shouldCache as CorpusAction["shouldCache"] }),
+		...(opts?.invalidates && { invalidates: opts.invalidates as CorpusAction["invalidates"] }),
+	};
 }
 
 /**
@@ -198,18 +240,23 @@ async function dispatchMotorAction(
 	log: OrganLogger,
 	inputSchemas?: Record<string, ZodTypeAny>,
 ): Promise<void> {
-	if (inputSchemas?.[motor.type] && (process.env.ALEF_VALIDATE_PAYLOADS === "1" || process.env.NODE_ENV === "test")) {
+	// Always validate when a schema is available — Lex DIP: handlers depend on typed
+	// domain payloads, not raw Record<string,unknown>. Pass result.data so handlers
+	// receive Zod-coerced values (strings are strings, numbers are numbers).
+	let payload: Record<string, unknown> = motor.payload;
+	if (inputSchemas?.[motor.type]) {
 		const result = inputSchemas[motor.type].safeParse(motor.payload);
 		if (!result.success) {
 			const msg = result.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
 			nerve.sense.publish(buildErrSense(motor, `[InputValidation] motor/${motor.type}: ${msg}`));
 			return;
 		}
+		payload = result.data as Record<string, unknown>;
 	}
 	const ctx: CorpusHandlerCtx = {
 		correlationId: motor.correlationId,
 		toolCallId: extractToolCallId(motor.payload),
-		payload: motor.payload,
+		payload,
 	};
 
 	if (isStreaming(action)) {
@@ -453,13 +500,28 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		mount(nerve: Nerve): () => void {
 			const cache = new Map<string, Record<string, unknown>>();
 
+			// Auto-build inputSchemas from tool definitions — organs don't need to
+			// declare them separately. Explicit opts.inputSchemas.motor takes precedence.
+			// Lex SOLID-O: new organs get validation for free without modifying framework.
+			const autoMotorSchemas: Record<string, ZodTypeAny> = {};
+			for (const [key, action] of Object.entries(actions)) {
+				if (key.startsWith("motor/")) {
+					const schema = (action as CorpusAction | StreamingCorpusAction).tool?.inputSchema;
+					if (schema) autoMotorSchemas[key.slice("motor/".length)] = schema;
+				}
+			}
+			const motorInputSchemas: Record<string, ZodTypeAny> = {
+				...autoMotorSchemas,
+				...opts.inputSchemas?.motor,
+			};
+
 			const unsubs = Object.entries(actions).map(([prefixedKey, action]) => {
 				if (prefixedKey.startsWith("motor/")) {
 					const eventType = prefixedKey.slice("motor/".length);
 					const corpusAction = action as CorpusAction | StreamingCorpusAction;
 					return nerve.motor.subscribe(
 						eventType,
-						(event) => void dispatchMotorAction(event, corpusAction, nerve, cache, log, opts.inputSchemas?.motor),
+						(event) => void dispatchMotorAction(event, corpusAction, nerve, cache, log, motorInputSchemas),
 					);
 				}
 				if (prefixedKey.startsWith("sense/")) {

@@ -14,8 +14,8 @@
  *   lector.write, lector.edit — invalidates: [path] (evicts read + callers cache)
  */
 
-import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan, withDisplay } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import type { LectorBackend } from "./backend.js";
 import { LocalLectorBackend } from "./local-backend.js";
@@ -141,15 +141,11 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 	const base = defineOrgan(
 		"lector",
 		{
-			"motor/lector.read": {
-				tool: READ_TOOL,
-				shouldCache: (_ctx, result) => result !== undefined,
-				handle: async (ctx: CorpusHandlerCtx) => {
-					const path = String(ctx.payload.path ?? "");
+			"motor/lector.read": typedAction(
+				READ_TOOL,
+				async (ctx) => {
+					const { path, symbol, maxLines, offset } = ctx.payload;
 					if (!path) throw new Error("lector.read: path is required");
-					const symbol = typeof ctx.payload.symbol === "string" ? ctx.payload.symbol : undefined;
-					const maxLines = typeof ctx.payload.maxLines === "number" ? ctx.payload.maxLines : undefined;
-					const offset = typeof ctx.payload.offset === "number" ? ctx.payload.offset : undefined;
 					const r = await backend.read(path, { symbol, maxLines, offset });
 					const readLabel = symbol ? `Read **${symbol}** in ${path}` : `Read **${path}**`;
 					return withDisplay(r as unknown as Record<string, unknown>, {
@@ -157,14 +153,13 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						mimeType: "text/markdown",
 					});
 				},
-			},
+				{ shouldCache: (_ctx, result) => result !== undefined },
+			),
 
-			"motor/lector.write": {
-				tool: WRITE_TOOL,
-				invalidates: (ctx) => [String(ctx.payload.path ?? "")],
-				handle: async (ctx: CorpusHandlerCtx) => {
-					const path = String(ctx.payload.path ?? "");
-					const content = String(ctx.payload.content ?? "");
+			"motor/lector.write": typedAction(
+				WRITE_TOOL,
+				async (ctx) => {
+					const { path, content } = ctx.payload;
 					if (!path) throw new Error("lector.write: path is required");
 					await backend.write(path, content);
 					return withDisplay(
@@ -172,23 +167,14 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						{ text: `Wrote **${path}** (${content.length} bytes)`, mimeType: "text/markdown" },
 					);
 				},
-			},
+				{ invalidates: (ctx) => [ctx.payload.path] },
+			),
 
-			"motor/lector.edit": {
-				tool: EDIT_TOOL,
-				invalidates: (ctx) => [String(ctx.payload.path ?? "")],
-				handle: async (ctx: CorpusHandlerCtx) => {
-					const path = String(ctx.payload.path ?? "");
+			"motor/lector.edit": typedAction(
+				EDIT_TOOL,
+				async (ctx) => {
+					const { path, edits } = ctx.payload;
 					if (!path) throw new Error("lector.edit: path is required");
-					const rawEdits = Array.isArray(ctx.payload.edits) ? ctx.payload.edits : [];
-					const edits = rawEdits.map((e: unknown) => {
-						const edit = e as Record<string, unknown>;
-						return {
-							oldText: typeof edit.oldText === "string" ? edit.oldText : undefined,
-							newText: String(edit.newText ?? ""),
-							symbol: typeof edit.symbol === "string" ? edit.symbol : undefined,
-						};
-					});
 					await backend.edit(path, edits);
 					return withDisplay(
 						{ path, edits: edits.length },
@@ -198,20 +184,15 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						},
 					);
 				},
-			},
+				{ invalidates: (ctx) => [ctx.payload.path] },
+			),
 
-			"motor/lector.search": {
-				tool: SEARCH_TOOL,
-				shouldCache: (_ctx, result) => result !== undefined,
-				handle: async (ctx: CorpusHandlerCtx) => {
-					const pattern = String(ctx.payload.pattern ?? "");
+			"motor/lector.search": typedAction(
+				SEARCH_TOOL,
+				async (ctx) => {
+					const { pattern, path, caseInsensitive, maxResults, extension } = ctx.payload;
 					if (!pattern) throw new Error("lector.search: pattern is required");
-					const matches = await backend.search(pattern, {
-						path: typeof ctx.payload.path === "string" ? ctx.payload.path : undefined,
-						caseInsensitive: ctx.payload.caseInsensitive === true,
-						maxResults: typeof ctx.payload.maxResults === "number" ? ctx.payload.maxResults : undefined,
-						extension: typeof ctx.payload.extension === "string" ? ctx.payload.extension : undefined,
-					});
+					const matches = await backend.search(pattern, { path, caseInsensitive, maxResults, extension });
 					return withDisplay(
 						{ matches, count: matches.length },
 						{
@@ -220,20 +201,15 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						},
 					);
 				},
-			},
+				{ shouldCache: (_ctx, result) => result !== undefined },
+			),
 
-			"motor/lector.find": {
-				tool: FIND_TOOL,
-				shouldCache: (_ctx, result) => result !== undefined,
-				handle: async (ctx: CorpusHandlerCtx) => {
-					const glob = String(ctx.payload.glob ?? "");
+			"motor/lector.find": typedAction(
+				FIND_TOOL,
+				async (ctx) => {
+					const { glob, path, maxResults, depth, hidden } = ctx.payload;
 					if (!glob) throw new Error("lector.find: glob is required");
-					const paths = await backend.find(glob, {
-						path: typeof ctx.payload.path === "string" ? ctx.payload.path : undefined,
-						maxResults: typeof ctx.payload.maxResults === "number" ? ctx.payload.maxResults : undefined,
-						depth: typeof ctx.payload.depth === "number" ? ctx.payload.depth : undefined,
-						hidden: ctx.payload.hidden === true,
-					});
+					const paths = await backend.find(glob, { path, maxResults, depth, hidden });
 					return withDisplay(
 						{ paths, count: paths.length },
 						{
@@ -242,18 +218,15 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						},
 					);
 				},
-			},
+				{ shouldCache: (_ctx, result) => result !== undefined },
+			),
 
-			"motor/lector.callers": {
-				tool: CALLERS_TOOL,
-				shouldCache: (_ctx, result) => result !== undefined,
-				handle: async (ctx: CorpusHandlerCtx) => {
-					const symbol = String(ctx.payload.symbol ?? "");
+			"motor/lector.callers": typedAction(
+				CALLERS_TOOL,
+				async (ctx) => {
+					const { symbol, path, maxResults } = ctx.payload;
 					if (!symbol) throw new Error("lector.callers: symbol is required");
-					const callers = await backend.callers(symbol, {
-						path: typeof ctx.payload.path === "string" ? ctx.payload.path : undefined,
-						maxResults: typeof ctx.payload.maxResults === "number" ? ctx.payload.maxResults : undefined,
-					});
+					const callers = await backend.callers(symbol, { path, maxResults });
 					return withDisplay(
 						{ callers, count: callers.length },
 						{
@@ -262,7 +235,8 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 						},
 					);
 				},
-			},
+				{ shouldCache: (_ctx, result) => result !== undefined },
+			),
 		},
 		{
 			actions: opts.actions,

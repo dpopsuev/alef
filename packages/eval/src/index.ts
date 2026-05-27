@@ -40,9 +40,10 @@ export {
 	formatReport,
 	serializeReport,
 } from "./harness.js";
-export type { RunMetrics, ScoringRule, SpanRecord } from "./metrics.js";
+export type { RunMetrics, ScoringRule, SpanRecord, TurnRecord } from "./metrics.js";
 export {
 	batchCorrelation,
+	deriveturns,
 	pearsonCorrelation,
 	READ_ONLY_RULES,
 	scoreSpans,
@@ -60,3 +61,14 @@ export {
 	type UnitEvalReport,
 	type UnitScorer,
 } from "./resolution-unit.js";
+export {
+	assertPath,
+	assertToolInTrace,
+	loadTrace,
+	summarizeTrace,
+	type ToolSummary,
+	type TraceEvent,
+	type TraceLevel,
+	TraceRecorder,
+	type TraceSummary,
+} from "./trace-recorder.js";

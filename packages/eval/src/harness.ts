@@ -77,7 +77,7 @@ export class EvalHarness {
 			let result: string | undefined;
 			for (const event of s.events ?? []) {
 				if (event.name === "tool.args" && event.attributes) {
-					const raw = event.attributes["args"];
+					const raw = event.attributes.args;
 					if (typeof raw === "string") {
 						try {
 							args = JSON.parse(raw) as Record<string, unknown>;
@@ -87,7 +87,7 @@ export class EvalHarness {
 					}
 				}
 				if (event.name === "tool.result" && event.attributes) {
-					const raw = event.attributes["result"];
+					const raw = event.attributes.result;
 					if (typeof raw === "string") result = raw;
 				}
 			}

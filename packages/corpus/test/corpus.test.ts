@@ -24,7 +24,7 @@ function makeToolOrgan(toolNames: string[]): Organ {
 			(n): ToolDefinition => ({
 				name: n,
 				description: `Tool ${n}`,
-				inputSchema: { type: "object" as const },
+				inputSchema: z.object({}),
 			}),
 		),
 		subscriptions: { motor: [] as const, sense: [] as const },

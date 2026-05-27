@@ -23,25 +23,38 @@ export interface ToolDefinition {
 	readonly name: string;
 	readonly description: string;
 	/**
-	 * Input schema for this tool. Either a Zod schema (preferred) or a raw
-	 * JSON Schema object (backward-compatible). Reasoner converts Zod schemas
-	 * to JSON Schema via z.toJSONSchema() before sending to the provider.
+	 * Input schema for this tool. Must be a Zod schema — enforced by the
+	 * framework. Use z.object({}) for tools that take no arguments.
+	 * Cerebrum converts to JSON Schema via z.toJSONSchema() before the provider.
 	 */
-	readonly inputSchema: ZodTypeAny | Record<string, unknown>;
+	readonly inputSchema: ZodTypeAny;
+}
+
+/**
+ * Wrap a raw JSON Schema object as a ZodTypeAny so it satisfies ToolDefinition.inputSchema.
+ * Use this in adapters (e.g. McpOrgan) where the schema arrives as JSON Schema at runtime
+ * and cannot be expressed as a Zod schema at compile time.
+ *
+ * toolInputToJsonSchema() detects this wrapper and returns the raw schema directly.
+ */
+export function passthroughSchema(raw: Record<string, unknown>): ZodTypeAny {
+	const schema = z.unknown();
+	(schema as unknown as { _passthroughRaw: Record<string, unknown> })._passthroughRaw = raw;
+	return schema;
 }
 
 /**
  * Convert a ToolDefinition's inputSchema to a plain JSON Schema object.
- * Zod schemas are converted via z.toJSONSchema(). Raw objects pass through.
  */
-export function toolInputToJsonSchema(schema: ZodTypeAny | Record<string, unknown>): Record<string, unknown> {
-	if (schema instanceof z.ZodType) {
-		const js = z.toJSONSchema(schema) as Record<string, unknown>;
-		// Remove $schema key — providers don't need it and some reject it
-		const { $schema: _, ...rest } = js as Record<string, unknown> & { $schema?: string };
-		return rest;
-	}
-	return schema;
+export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
+	// Passthrough schemas (e.g. from McpOrgan) carry raw JSON Schema directly.
+	const raw = (schema as unknown as { _passthroughRaw?: Record<string, unknown> })._passthroughRaw;
+	if (raw !== undefined) return raw;
+
+	const js = z.toJSONSchema(schema) as Record<string, unknown>;
+	// Remove $schema key — providers don't need it and some reject it.
+	const { $schema: _, ...rest } = js as Record<string, unknown> & { $schema?: string };
+	return rest;
 }
 
 // ---------------------------------------------------------------------------

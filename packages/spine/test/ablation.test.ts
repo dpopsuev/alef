@@ -6,12 +6,13 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { InProcessNerve } from "../src/buses.js";
 import { defineOrgan } from "../src/framework.js";
 
-const READ_TOOL = { name: "fs.read", description: "Read", inputSchema: {} };
-const WRITE_TOOL = { name: "fs.write", description: "Write", inputSchema: {} };
-const EDIT_TOOL = { name: "fs.edit", description: "Edit", inputSchema: {} };
+const READ_TOOL = { name: "fs.read", description: "Read", inputSchema: z.object({}) };
+const WRITE_TOOL = { name: "fs.write", description: "Write", inputSchema: z.object({}) };
+const EDIT_TOOL = { name: "fs.edit", description: "Edit", inputSchema: z.object({}) };
 
 function makeFsOrgan(actions?: readonly string[]) {
 	return defineOrgan(
@@ -21,7 +22,11 @@ function makeFsOrgan(actions?: readonly string[]) {
 			"motor/fs.write": { tool: WRITE_TOOL, handle: async () => ({ path: "ok" }) },
 			"motor/fs.edit": { tool: EDIT_TOOL, handle: async () => ({ path: "ok" }) },
 		},
-		{ actions },
+		{
+			actions,
+			description: "File system organ stub for ablation tests.",
+			directives: ["Use these tools to read, write, and edit files."],
+		},
 	);
 }
 

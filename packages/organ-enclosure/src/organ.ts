@@ -18,6 +18,7 @@
 import { randomUUID } from "node:crypto";
 import type { CorpusHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineOrgan } from "@dpopsuev/alef-spine";
+import { z } from "zod";
 import type { DockerSpaceOptions } from "./docker-space.js";
 import { DockerSpace } from "./docker-space.js";
 import type { ExecOptions, Space } from "./space.js";
@@ -32,99 +33,67 @@ const TOOLS: ToolDefinition[] = [
 		name: "enclosure.create",
 		description:
 			"Create an isolated copy-on-write workspace (Space). Returns a spaceId. Reads come from the real workspace; writes land in the overlay. Use the returned workDir as the working directory for subsequent operations.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				workspace: { type: "string", description: "Absolute path to the real workspace directory." },
-			},
-			required: ["workspace"],
-		},
+		inputSchema: z.object({
+			workspace: z.string().describe("Absolute path to the real workspace directory."),
+		}),
 	},
 	{
 		name: "enclosure.diff",
 		description: "List files changed in the overlay since the space was created or last reset.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				spaceId: { type: "string" },
-			},
-			required: ["spaceId"],
-		},
+		inputSchema: z.object({
+			spaceId: z.string(),
+		}),
 	},
 	{
 		name: "enclosure.commit",
 		description: "Promote overlay changes to the real workspace. If paths is omitted, all changes are promoted.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				spaceId: { type: "string" },
-				paths: {
-					type: "array",
-					items: { type: "string" },
-					description: "Specific paths to commit. Omit to commit all.",
-				},
-			},
-			required: ["spaceId"],
-		},
+		inputSchema: z.object({
+			spaceId: z.string(),
+			paths: z.array(z.string()).optional().describe("Specific paths to commit. Omit to commit all."),
+		}),
 	},
 	{
 		name: "enclosure.reset",
 		description: "Discard all overlay changes. The real workspace is untouched.",
-		inputSchema: {
-			type: "object",
-			properties: { spaceId: { type: "string" } },
-			required: ["spaceId"],
-		},
+		inputSchema: z.object({
+			spaceId: z.string(),
+		}),
 	},
 	{
 		name: "enclosure.snapshot",
 		description: "Save the current overlay state as a named snapshot for later restore.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				spaceId: { type: "string" },
-				name: { type: "string", description: "Snapshot name." },
-			},
-			required: ["spaceId", "name"],
-		},
+		inputSchema: z.object({
+			spaceId: z.string(),
+			name: z.string().describe("Snapshot name."),
+		}),
 	},
 	{
 		name: "enclosure.restore",
 		description: "Restore a named snapshot, discarding current overlay changes.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				spaceId: { type: "string" },
-				name: { type: "string" },
-			},
-			required: ["spaceId", "name"],
-		},
+		inputSchema: z.object({
+			spaceId: z.string(),
+			name: z.string(),
+		}),
 	},
 	{
 		name: "enclosure.exec",
 		description:
 			"Run a command inside the space's workDir. Optionally confine the process in Linux namespaces (user+mount+pid+net) with cgroup resource limits.",
-		inputSchema: {
-			type: "object",
-			properties: {
-				spaceId: { type: "string" },
-				command: { type: "array", items: { type: "string" }, description: "Command and arguments." },
-				confine: { type: "boolean", description: "Run inside Linux namespaces (default: false)." },
-				timeoutMs: { type: "number", description: "Timeout in milliseconds." },
-				memoryMaxBytes: { type: "number", description: "Memory limit in bytes (confine=true only)." },
-				cpuQuotaUs: { type: "number", description: "CPU quota µs per 100ms (confine=true only)." },
-			},
-			required: ["spaceId", "command"],
-		},
+		inputSchema: z.object({
+			spaceId: z.string(),
+			command: z.array(z.string()).describe("Command and arguments."),
+			confine: z.boolean().optional().describe("Run inside Linux namespaces (default: false)."),
+			timeoutMs: z.number().optional().describe("Timeout in milliseconds."),
+			memoryMaxBytes: z.number().optional().describe("Memory limit in bytes (confine=true only)."),
+			cpuQuotaUs: z.number().optional().describe("CPU quota µs per 100ms (confine=true only)."),
+		}),
 	},
 	{
 		name: "enclosure.destroy",
 		description: "Tear down the space and remove all overlay directories. Commits nothing.",
-		inputSchema: {
-			type: "object",
-			properties: { spaceId: { type: "string" } },
-			required: ["spaceId"],
-		},
+		inputSchema: z.object({
+			spaceId: z.string(),
+		}),
 	},
 ];
 

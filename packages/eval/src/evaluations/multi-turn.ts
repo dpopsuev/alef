@@ -48,6 +48,7 @@ export const memoRecall: Evaluation = {
 	mustUse: ["fs.read"],
 	mustNotUse: ["fs.write", "fs.edit"],
 	checker: replyContains("number"),
+	scenarioTimeoutMs: 300_000, // two dialog turns on Vertex needs ~5 min
 };
 
 export const approveProposal: Evaluation = {

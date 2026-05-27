@@ -181,14 +181,32 @@ describe("SessionStore.list", () => {
 	});
 });
 
-describe("SessionStore.turns() — usage anchor", () => {
-	it("uses provider totalTokens from motor/dialog.message payload instead of char/4", async () => {
+describe("SessionStore.turns() — token cost estimation", () => {
+	it("uses _display.text length for cost when available (clean content estimate)", async () => {
+		const cwd = tmpCwd();
+		const store = await SessionStore.create(cwd);
+
+		const displayText = "a".repeat(400); // 400 chars → 100 tokens
+		await store.append(
+			senseRecord("fs.read", "c-1", {
+				path: "/some/file.ts",
+				toolCallId: "tc-1",
+				_display: { text: displayText, mimeType: "text/markdown" },
+			}),
+		);
+
+		const turns = await store.turns();
+		expect(turns).toHaveLength(1);
+		// Cost derived from _display.text length / 4 = 100 tokens
+		expect(turns[0].tokenCost).toBe(100);
+	});
+
+	it("does NOT use totalTokens as per-turn cost (totalTokens is cumulative context size, not per-turn)", async () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
 
 		const realUsage = { input: 1800, output: 420, cacheRead: 0, cacheWrite: 0, totalTokens: 2220 };
 
-		// Simulate a turn: sense dialog.message (user prompt) + motor dialog.message (LLM reply with usage)
 		await store.append(senseRecord("dialog.message", "c-1", { text: "hi" }));
 		await store.append({
 			bus: "motor",
@@ -200,8 +218,10 @@ describe("SessionStore.turns() — usage anchor", () => {
 
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
-		// tokenCost must equal totalTokens, not the char/4 estimate of the payload
-		expect(turns[0].tokenCost).toBe(2220);
+		// Must NOT be totalTokens (2220) — that is the cumulative context, not this turn's cost.
+		expect(turns[0].tokenCost).not.toBe(2220);
+		// Should be derived from actual content: "hi" + "hello" = 10 chars → ~3 tokens
+		expect(turns[0].tokenCost).toBeLessThan(50);
 	});
 
 	it("falls back to char/4 when no usage is present (ScriptedLLMOrgan / first turn)", async () => {

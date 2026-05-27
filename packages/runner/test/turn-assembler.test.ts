@@ -44,8 +44,9 @@ describe("assembleTurns — recentGuarantee", () => {
 		const result = assembleTurns(turns, { query: "unrelated", contextWindow: LARGE_CONTEXT });
 
 		const resultIds = new Set(result.map((t) => t.id));
-		// Last 8 (default recentGuarantee) must always be present
-		for (let i = 12; i < 20; i++) {
+		// Last N (default recentGuarantee) must always be present
+		const g = DEFAULT_CONTEXT_WINDOW_POLICY.recentGuarantee;
+		for (let i = 20 - g; i < 20; i++) {
 			expect(resultIds.has(`c-${i}`), `c-${i} missing`).toBe(true);
 		}
 	});

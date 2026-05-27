@@ -45,13 +45,31 @@ export interface PassAtK {
 	trials: EvaluationResult[];
 }
 
+export interface EvaluationRunnerOptions {
+	/**
+	 * Maximum fraction of trials allowed to have a runtime error (metrics.error set).
+	 * If errorRate > maxErrorRate after all trials, RunN throws immediately.
+	 * Default: 0 (disabled, backward compatible). Recommended: 0.10.
+	 *
+	 * Prevents silent zero-score reports where the harness threw on every trial
+	 * but PassAtK still returned 0.0 as if it were a valid measurement.
+	 *
+	 * Mirrors Tako HarnessConfig.MaxErrorRate.
+	 */
+	maxErrorRate?: number;
+}
+
 export class EvaluationRunner {
 	private readonly harness: EvalHarness;
 	private readonly harnessOptions: Partial<HarnessOptions>;
+	private readonly maxErrorRate: number;
 
-	constructor(harness: EvalHarness, options: Partial<HarnessOptions> = {}) {
+	constructor(harness: EvalHarness, options: Partial<HarnessOptions & EvaluationRunnerOptions> = {}) {
 		this.harness = harness;
-		this.harnessOptions = options;
+		this.maxErrorRate = options.maxErrorRate ?? 0;
+		const { maxErrorRate: _me, ...rest } = options;
+		void _me;
+		this.harnessOptions = rest;
 	}
 
 	async run(evaluation: Evaluation): Promise<EvaluationResult> {
@@ -130,6 +148,20 @@ export class EvaluationRunner {
 		for (let i = 0; i < defaultN; i += concurrency) {
 			const batch = Array.from({ length: Math.min(concurrency, defaultN - i) }, () => this.run(evaluation));
 			results.push(...(await Promise.all(batch)));
+		}
+
+		// MaxErrorRate gate: fail fast if too many trials had runtime errors.
+		if (this.maxErrorRate > 0) {
+			const errorCount = results.filter((r) => r.metrics.error !== undefined).length;
+			const errorRate = errorCount / results.length;
+			if (errorRate > this.maxErrorRate) {
+				const firstError = results.find((r) => r.metrics.error)?.metrics.error;
+				throw new Error(
+					`[MaxErrorRate] ${(errorRate * 100).toFixed(0)}% of trials errored ` +
+						`(${errorCount}/${results.length}), threshold ${(this.maxErrorRate * 100).toFixed(0)}%. ` +
+						`First error: ${firstError}`,
+				);
+			}
 		}
 
 		const scores = results.map((r) => r.score);

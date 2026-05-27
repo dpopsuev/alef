@@ -55,6 +55,68 @@ export interface ScoringRule {
 	attribute?: { key: string; value: unknown };
 }
 
+// ---------------------------------------------------------------------------
+// Statistical helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Pearson correlation coefficient between two equal-length numeric arrays.
+ * Returns 0 when n < 2 or one array has zero variance.
+ * Range: [-1, 1]. Positive = correlated, 0 = uncorrelated, -1 = anti-correlated.
+ *
+ * Primary use: confidence_calibration — does the agent's self-reported
+ * confidence correlate with whether it actually got the answer right?
+ *
+ * Mirrors Tako calibrate.batch_correlation.
+ */
+export function pearsonCorrelation(xs: number[], ys: number[]): number {
+	const n = Math.min(xs.length, ys.length);
+	if (n < 2) return 0;
+
+	const meanX = xs.slice(0, n).reduce((a, b) => a + b, 0) / n;
+	const meanY = ys.slice(0, n).reduce((a, b) => a + b, 0) / n;
+
+	let num = 0;
+	let denX = 0;
+	let denY = 0;
+	for (let i = 0; i < n; i++) {
+		const dx = xs[i] - meanX;
+		const dy = ys[i] - meanY;
+		num += dx * dy;
+		denX += dx * dx;
+		denY += dy * dy;
+	}
+
+	const den = Math.sqrt(denX * denY);
+	return den === 0 ? 0 : num / den;
+}
+
+/**
+ * Compute Pearson r between two named fields across a batch of EvaluationResults.
+ * Fields are extracted from metrics.spans attributes.
+ *
+ * @param field1 - Span attribute key for x-axis (e.g. "alef.confidence")
+ * @param field2 - Span attribute key for y-axis (e.g. "alef.correct")
+ * @param results - Array of EvaluationResults from RunN()
+ */
+export function batchCorrelation(field1: string, field2: string, results: Array<{ metrics: RunMetrics }>): number {
+	const xs: number[] = [];
+	const ys: number[] = [];
+
+	for (const r of results) {
+		for (const span of r.metrics.spans) {
+			const x = span.attributes[field1];
+			const y = span.attributes[field2];
+			if (typeof x === "number" && typeof y === "number") {
+				xs.push(x);
+				ys.push(y);
+			}
+		}
+	}
+
+	return pearsonCorrelation(xs, ys);
+}
+
 /** Standard ReadOnly scoring rules — agent should read more than it writes. */
 export const READ_ONLY_RULES: ScoringRule[] = [
 	{ match: "alef.motor/fs.read", points: 10 },

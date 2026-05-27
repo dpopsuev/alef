@@ -5,14 +5,13 @@
  *              final event carries exitCode + isFinal: true.
  */
 import { spawn } from "node:child_process";
-import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	defineOrgan,
-	getNumber,
-	getString,
 	truncateTail,
+	typedStreamAction,
 	withDisplay,
 } from "@dpopsuev/alef-spine";
 import { z } from "zod";
@@ -66,12 +65,15 @@ export interface ShellOrganOptions {
 // Streaming handler
 // ---------------------------------------------------------------------------
 
-async function* streamExec(ctx: CorpusHandlerCtx, opts: ShellOrganOptions): AsyncIterable<Record<string, unknown>> {
-	const command = getString(ctx.payload, "command") ?? "";
+async function* streamExec(
+	ctx: { payload: { command: string; timeout?: number } },
+	opts: ShellOrganOptions,
+): AsyncIterable<Record<string, unknown>> {
+	const { command, timeout } = ctx.payload;
 	if (!command) throw new Error("shell.exec: command is required");
 	const defaultS = opts.defaultTimeoutSeconds ?? DEFAULT_SHELL_TIMEOUT_S;
 	const maxS = opts.maxTimeoutSeconds ?? MAX_SHELL_TIMEOUT_S;
-	const requestedS = getNumber(ctx.payload, "timeout") ?? defaultS;
+	const requestedS = timeout ?? defaultS;
 	const clampedS = maxS > 0 ? Math.min(requestedS, maxS) : requestedS;
 	const timeoutMs = clampedS > 0 ? clampedS * 1000 : undefined;
 	const resolvedCommand = opts.commandPrefix ? `${opts.commandPrefix}\n${command}` : command;
@@ -159,7 +161,7 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 	return defineOrgan(
 		"shell",
 		{
-			"motor/shell.exec": { tool: SHELL_EXEC_TOOL, stream: (ctx) => streamExec(ctx, options) },
+			"motor/shell.exec": typedStreamAction(SHELL_EXEC_TOOL, (ctx) => streamExec(ctx, options)),
 		},
 		{
 			actions: options.actions,

@@ -195,7 +195,7 @@ const systemPrompt = appendEnvironment(assembled, args.cwd); // date+cwd last
 
 const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
 
-const prepareStep = AgentKernel.buildContextPrepareStep(session, model.contextWindow);
+const prepareStep = AgentKernel.buildContextAssembler(session, model.contextWindow);
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
 // Reasoner tracks cross-turn in-flight ops and injects pending-operations

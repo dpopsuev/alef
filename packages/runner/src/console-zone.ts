@@ -92,7 +92,7 @@ export class ConsoleZone {
 	private readonly inFlightCalls = new Map<string, { dt: DynamicText; startedAt: number }>();
 	private hintBar!: Text;
 
-	constructor(tui: TUI, t: ThemeTokens, modelId: string) {
+	constructor(tui: TUI, t: ThemeTokens, _modelId: string) {
 		this.tui = tui;
 		this.t = t;
 
@@ -123,12 +123,7 @@ export class ConsoleZone {
 			const colored = color(line, this.pendingFooterFg);
 			return this.pendingFooterBgFn ? this.pendingFooterBgFn(colored) : colored;
 		});
-
-		void modelId; // stored via addChild below
-		this._modelId = modelId;
 	}
-
-	private readonly _modelId: string;
 
 	mount(): void {
 		this.tui.addChild(this.pendingFooter);
@@ -137,7 +132,6 @@ export class ConsoleZone {
 		this.tui.addChild(new ArcEditorWrapper(this.editor, (s) => color(s, this.t.dimFg)));
 		this.hintBar = new Text(dim("/exit · /new · /resume · /help"), 0, 0);
 		this.tui.addChild(this.hintBar);
-		this.tui.addChild(new Text(dim(this._modelId), 0, 0));
 	}
 
 	pulse(): void {

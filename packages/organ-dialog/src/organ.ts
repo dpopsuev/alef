@@ -106,7 +106,7 @@ export class DialogOrgan implements Organ {
 	private turnCount = 0;
 	/**
 	 * Minimal history for the ScriptedReasoner / no-prepareStep test path.
-	 * In production, AgentKernel.buildContextPrepareStep replaces these messages
+	 * In production, AgentKernel.buildContextAssembler replaces these messages
 	 * before the LLM sees them via assembleTurns(SessionStore.turns()).
 	 */
 	private history: ConversationMessage[] | unknown[] = [];

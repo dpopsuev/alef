@@ -2,8 +2,6 @@ import { randomUUID } from "node:crypto";
 import type { AssistantMessage, ImageContent, Model } from "@dpopsuev/alef-ai";
 import { Agent } from "../agent.js";
 import type { AgentEvent, AgentMessage, AgentTool, ThinkingLevel } from "../types.js";
-import { collectEntriesForBranchSummary, generateBranchSummary } from "./compaction/branch-summarization.js";
-import { compact, DEFAULT_COMPACTION_SETTINGS, prepareCompaction } from "./compaction/compaction.js";
 import { formatPromptTemplateInvocation } from "./prompt-templates.js";
 import { formatSkillInvocation } from "./skills.js";
 import type {
@@ -17,7 +15,6 @@ import type {
 	AgentHarnessOwnEvent,
 	AgentHarnessResources,
 	ExecutionEnv,
-	NavigateTreeResult,
 	Session,
 } from "./types.js";
 
@@ -387,149 +384,19 @@ export class AgentHarness {
 		return await this.env.exec(command, options);
 	}
 
+	/** @deprecated Compaction removed — use context window management via ContextOrgan. */
 	async compact(
-		customInstructions?: string,
+		_customInstructions?: string,
 	): Promise<{ summary: string; firstKeptEntryId: string; tokensBefore: number; details?: unknown }> {
-		if (!this.operation.idle) throw new Error("compact() requires idle harness");
-		const model = this.conversation.model;
-		if (!model) throw new Error("No model set for compaction");
-		const auth = await this.requestAuth?.(model);
-		if (!auth) throw new Error("No auth available for compaction");
-		const branchEntries = await this.session.getBranch();
-		const preparation = prepareCompaction(branchEntries, DEFAULT_COMPACTION_SETTINGS);
-		if (!preparation) throw new Error("Nothing to compact");
-		const hookResult = await this.emitHook("session_before_compact", {
-			type: "session_before_compact",
-			preparation,
-			branchEntries,
-			customInstructions,
-			signal: new AbortController().signal,
-		});
-		if (hookResult?.cancel) throw new Error("Compaction cancelled");
-		const provided = hookResult?.compaction;
-		const result =
-			provided ??
-			(await compact(
-				preparation,
-				model,
-				auth.apiKey,
-				auth.headers,
-				customInstructions,
-				undefined,
-				this.conversation.thinkingLevel,
-			));
-		const entryId = await this.session.appendCompaction(
-			result.summary,
-			result.firstKeptEntryId,
-			result.tokensBefore,
-			result.details,
-			provided !== undefined,
-		);
-		const entry = await this.session.getEntry(entryId);
-		await this.syncFromTree();
-		if (entry?.type === "compaction") {
-			await this.emitOwn({ type: "session_compact", compactionEntry: entry, fromHook: provided !== undefined });
-		}
-		return result;
+		throw new Error("compact() has been removed");
 	}
 
+	/** @deprecated navigateTree removed — branch navigation not implemented in EDA runner. */
 	async navigateTree(
-		targetId: string,
-		options?: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string },
-	): Promise<NavigateTreeResult> {
-		if (!this.operation.idle) throw new Error("navigateTree() requires idle harness");
-		const oldLeafId = await this.session.getLeafId();
-		if (oldLeafId === targetId) return { cancelled: false };
-		const targetEntry = await this.session.getEntry(targetId);
-		if (!targetEntry) throw new Error(`Entry ${targetId} not found`);
-		const { entries, commonAncestorId } = await collectEntriesForBranchSummary(this.session, oldLeafId, targetId);
-		const preparation = {
-			targetId,
-			oldLeafId,
-			commonAncestorId,
-			entriesToSummarize: entries,
-			userWantsSummary: options?.summarize ?? false,
-			customInstructions: options?.customInstructions,
-			replaceInstructions: options?.replaceInstructions,
-			label: options?.label,
-		};
-		const signal = new AbortController().signal;
-		const hookResult = await this.emitHook("session_before_tree", {
-			type: "session_before_tree",
-			preparation,
-			signal,
-		});
-		if (hookResult?.cancel) return { cancelled: true };
-		let summaryEntry: any | undefined;
-		let summaryText: string | undefined = hookResult?.summary?.summary;
-		let summaryDetails: unknown = hookResult?.summary?.details;
-		if (!summaryText && options?.summarize && entries.length > 0) {
-			const model = this.conversation.model;
-			if (!model) throw new Error("No model set for branch summary");
-			const auth = await this.requestAuth?.(model);
-			if (!auth) throw new Error("No auth available for branch summary");
-			const branchSummary = await generateBranchSummary(entries, {
-				model,
-				apiKey: auth.apiKey,
-				headers: auth.headers,
-				signal: new AbortController().signal,
-				customInstructions: hookResult?.customInstructions ?? options?.customInstructions,
-				replaceInstructions: hookResult?.replaceInstructions ?? options?.replaceInstructions,
-			});
-			if (branchSummary.aborted) return { cancelled: true };
-			if (branchSummary.error) throw new Error(branchSummary.error);
-			summaryText = branchSummary.summary;
-			summaryDetails = {
-				readFiles: branchSummary.readFiles ?? [],
-				modifiedFiles: branchSummary.modifiedFiles ?? [],
-			};
-		}
-		let editorText: string | undefined;
-		let newLeafId: string | null;
-		if (targetEntry.type === "message" && targetEntry.message.role === "user") {
-			newLeafId = targetEntry.parentId;
-			const content = targetEntry.message.content;
-			editorText =
-				typeof content === "string"
-					? content
-					: content
-							.filter((c): c is { readonly type: "text"; readonly text: string } => c.type === "text")
-							.map((c) => c.text)
-							.join("");
-		} else if (targetEntry.type === "custom_message") {
-			newLeafId = targetEntry.parentId;
-			editorText =
-				typeof targetEntry.content === "string"
-					? targetEntry.content
-					: targetEntry.content
-							.filter((c): c is { readonly type: "text"; readonly text: string } => c.type === "text")
-							.map((c) => c.text)
-							.join("");
-		} else {
-			newLeafId = targetId;
-		}
-		const summaryId = await this.session.moveTo(
-			newLeafId,
-			summaryText
-				? {
-						summary: summaryText,
-						details: summaryDetails,
-						fromHook: hookResult?.summary !== undefined,
-					}
-				: undefined,
-		);
-		if (summaryId) {
-			summaryEntry = await this.session.getEntry(summaryId);
-		}
-		await this.syncFromTree();
-		await this.emitOwn({
-			type: "session_tree",
-			newLeafId: await this.session.getLeafId(),
-			oldLeafId,
-			summaryEntry,
-			fromHook: hookResult?.summary !== undefined,
-		});
-		return { cancelled: false, editorText, summaryEntry };
+		_targetId: string,
+		_options?: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string },
+	): Promise<{ cancelled: boolean; editorText?: string; summaryEntry?: unknown }> {
+		throw new Error("navigateTree() has been removed");
 	}
 
 	async setModel(model: Model<any>): Promise<void> {

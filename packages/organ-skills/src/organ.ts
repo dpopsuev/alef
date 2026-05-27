@@ -34,8 +34,8 @@ const INVOKE_TOOL = {
 	name: "skills.invoke",
 	description:
 		"Load the full instructions of a user-invocable skill into context. " +
-		"Use this when the user explicitly asks for a skill, or when a skill is highly relevant " +
-		"to the current task but not already auto-loaded.",
+		"Use this when the user explicitly asks for a skill, or when a skill name in the index " +
+		"is clearly relevant to the current task.",
 	inputSchema: z.object({
 		name: z.string().describe("Skill name as shown in skills.list"),
 	}),
@@ -47,13 +47,14 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 	const skills: Skill[] = discoverSkills(opts.cwd, opts.skillsPaths ?? []);
 	const byName = new Map(skills.map((s) => [s.name, s]));
 
-	// Active skills injected as directives → system prompt.
+	// Skills index injected as directive → system prompt (name + description only).
+	// Full instructions are loaded on demand via skills.invoke when relevant.
 	const activeSkillsXml = skillsToXml(skills);
 	const directives: string[] = activeSkillsXml
 		? [
 				`**Available skills (from SKILL.md discovery)**\n\n` +
-					`The following skills provide specialised instructions. ` +
-					`Follow them when relevant to the current task.\n\n` +
+					`The following skills are available. Each has specialised instructions for a specific task. ` +
+					`Call skills.invoke with the skill name to load the full instructions when a skill is relevant.\n\n` +
 					activeSkillsXml,
 			]
 		: [];

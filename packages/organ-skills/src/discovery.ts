@@ -101,12 +101,21 @@ export function discoverSkills(cwd: string, extraPaths: string[] = []): Skill[] 
 	return skills;
 }
 
-/** Format active skills as XML for system prompt injection. */
+/**
+ * Format active skills as an index for system prompt injection.
+ *
+ * Progressive disclosure (agentskills.io standard, Hermes pattern):
+ *   Level 0 — index only: name + description (~3 tokens per skill)
+ *   Level 1 — full body: loaded on demand via skills.invoke
+ *
+ * Injecting full instruction bodies at mount time wastes context budget
+ * for every session regardless of whether any skill is relevant.
+ */
 export function skillsToXml(skills: Skill[]): string {
 	if (skills.length === 0) return "";
 	const items = skills
 		.filter((s) => !s.disableModelInvocation)
-		.map((s) => `<skill name="${s.name}" description="${s.description}">\n${s.instructions}\n</skill>`)
+		.map((s) => `<skill name="${s.name}" description="${s.description}" />`)
 		.join("\n");
 	return items ? `<skills>\n${items}\n</skills>` : "";
 }

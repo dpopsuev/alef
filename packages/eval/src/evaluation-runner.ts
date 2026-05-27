@@ -74,12 +74,11 @@ export class EvaluationRunner {
 
 	async run(evaluation: Evaluation): Promise<EvaluationResult> {
 		let lastReply = "";
-		let workspacePath = "";
 
+		// keepWorkspace: checker must read files after agent completes — workspace
+		// must outlive EvalHarness.run(). EvaluationRunner owns cleanup.
 		const metrics = await this.harness.run(
 			async (ctx) => {
-				workspacePath = ctx.workspace;
-
 				for (const file of evaluation.seed ?? []) {
 					await ctx.writeFile(file.path, file.content);
 				}
@@ -92,43 +91,51 @@ export class EvaluationRunner {
 			{
 				scenario: evaluation.id,
 				...this.harnessOptions,
+				keepWorkspace: true,
 			},
 		);
 
-		// MustUse / MustNotUse checks.
-		const mustUseErrors: string[] = [];
-		for (const tool of evaluation.mustUse ?? []) {
-			try {
-				assertToolUsed(metrics, tool);
-			} catch (e) {
-				mustUseErrors.push(e instanceof Error ? e.message : String(e));
+		const workspace = metrics.workspace ?? "";
+
+		try {
+			// MustUse / MustNotUse checks.
+			const mustUseErrors: string[] = [];
+			for (const tool of evaluation.mustUse ?? []) {
+				try {
+					assertToolUsed(metrics, tool);
+				} catch (e) {
+					mustUseErrors.push(e instanceof Error ? e.message : String(e));
+				}
 			}
-		}
-		for (const tool of evaluation.mustNotUse ?? []) {
-			try {
-				assertToolNotUsed(metrics, tool);
-			} catch (e) {
-				mustUseErrors.push(e instanceof Error ? e.message : String(e));
+			for (const tool of evaluation.mustNotUse ?? []) {
+				try {
+					assertToolNotUsed(metrics, tool);
+				} catch (e) {
+					mustUseErrors.push(e instanceof Error ? e.message : String(e));
+				}
 			}
+
+			// Run checker — workspace still alive here.
+			const checkerResult = await evaluation.checker.check({
+				workspace,
+				spans: metrics.spans,
+				lastReply,
+			});
+
+			const score = mustUseErrors.length > 0 ? 0 : checkerResult.score;
+			const errors = [...mustUseErrors, ...checkerResult.errors];
+
+			return {
+				pass: errors.length === 0 && metrics.passed,
+				score,
+				errors,
+				metrics,
+				mustUseErrors,
+			};
+		} finally {
+			// EvaluationRunner owns cleanup when keepWorkspace was set.
+			if (workspace) await rm(workspace, { recursive: true, force: true });
 		}
-
-		// Run checker.
-		const checkerResult = await evaluation.checker.check({
-			workspace: workspacePath,
-			spans: metrics.spans,
-			lastReply,
-		});
-
-		const score = mustUseErrors.length > 0 ? 0 : checkerResult.score;
-		const errors = [...mustUseErrors, ...checkerResult.errors];
-
-		return {
-			pass: errors.length === 0 && metrics.passed,
-			score,
-			errors,
-			metrics,
-			mustUseErrors,
-		};
 	}
 
 	/**

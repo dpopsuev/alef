@@ -65,6 +65,12 @@ export interface HarnessOptions {
 	 * agents can detect eval context from sparse workspace structure.
 	 */
 	noiseSeeding?: boolean;
+	/**
+	 * When true, skip workspace cleanup after the run.
+	 * The caller is responsible for calling rm(metrics.workspace).
+	 * Used by EvaluationRunner so checkers can read files after agent completes.
+	 */
+	keepWorkspace?: boolean;
 }
 
 export class EvalHarness {
@@ -173,7 +179,9 @@ export class EvalHarness {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			agent.dispose();
-			await rm(workspace, { recursive: true, force: true });
+			if (!opts.keepWorkspace) {
+				await rm(workspace, { recursive: true, force: true });
+			}
 		}
 
 		const spans = this.collectAndResetSpans();
@@ -184,6 +192,7 @@ export class EvalHarness {
 
 		const metrics: RunMetrics = {
 			scenario: opts.scenario,
+			workspace: opts.keepWorkspace ? workspace : undefined,
 			passed: passed && !evaluator.state.loopDetected,
 			error: evaluator.state.loopDetected
 				? `Loop detected: ${evaluator.state.loopEventType} called >${opts.loopThreshold ?? 10} times`

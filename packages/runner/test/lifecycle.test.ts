@@ -134,11 +134,7 @@ interface Fixture {
 }
 
 async function bootFixture(
-	opts: {
-		script: ScriptStep | ScriptStep[];
-		allowedEvents?: string[];
-		initialHistory?: { role: "user" | "assistant"; content: string }[];
-	} = { script: step.reply("hello") },
+	opts: { script: ScriptStep | ScriptStep[]; allowedEvents?: string[] } = { script: step.reply("hello") },
 ): Promise<Fixture> {
 	const cwd = mkdtempSync(join(tmpdir(), "alef-lifecycle-"));
 
@@ -149,7 +145,6 @@ async function bootFixture(
 
 	const dialog = new DialogOrgan({
 		systemPrompt: "You are a coding agent.",
-		initialHistory: opts.initialHistory,
 		sink: () => {
 			/* swallow output */
 		},

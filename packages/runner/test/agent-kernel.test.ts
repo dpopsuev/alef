@@ -1,5 +1,5 @@
 /**
- * AgentKernel.buildContextPrepareStep unit tests.
+ * AgentKernel.buildContextAssembler unit tests.
  *
  * The session-integration path is covered by lifecycle.test.ts.
  * These tests cover the pure logic: context window selection,
@@ -31,16 +31,16 @@ const USER_MSG = { role: "user", content: "hello", timestamp: Date.now() } as Me
 
 // ---------------------------------------------------------------------------
 
-describe("AgentKernel.buildContextPrepareStep", () => {
+describe("AgentKernel.buildContextAssembler", () => {
 	it("pass-through when session is undefined", async () => {
-		const fn = AgentKernel.buildContextPrepareStep(undefined, 100_000);
+		const fn = AgentKernel.buildContextAssembler(undefined, 100_000);
 		const input = [USER_MSG];
 		const result = await fn(input);
 		expect(result).toBe(input);
 	});
 
 	it("pass-through when session has no turns", async () => {
-		const fn = AgentKernel.buildContextPrepareStep(makeSession([]), 100_000);
+		const fn = AgentKernel.buildContextAssembler(makeSession([]), 100_000);
 		const input = [USER_MSG];
 		const result = await fn(input);
 		expect(result).toEqual(input);
@@ -81,7 +81,7 @@ describe("AgentKernel.buildContextPrepareStep", () => {
 				},
 			],
 		};
-		const fn = AgentKernel.buildContextPrepareStep(makeSession([pastTurn] as unknown[]), 200_000);
+		const fn = AgentKernel.buildContextAssembler(makeSession([pastTurn] as unknown[]), 200_000);
 
 		const currentUserMsg = { role: "user", content: "new question", timestamp: Date.now() } as Message;
 		const result = await fn([currentUserMsg]);
@@ -99,7 +99,7 @@ describe("AgentKernel.buildContextPrepareStep", () => {
 			typeWeight: 1,
 			events: [],
 		};
-		const fn = AgentKernel.buildContextPrepareStep(
+		const fn = AgentKernel.buildContextAssembler(
 			makeSession([bigTurn] as unknown[]),
 			1, // contextWindow of 1 token — no turn fits
 		);
@@ -132,10 +132,7 @@ describe("window.assembled LRU writes", () => {
 			],
 		};
 		const session = makeSession([turn] as unknown[]);
-		const fn = AgentKernel.buildContextPrepareStep(
-			session as import("../src/session-store.js").SessionStore,
-			200_000,
-		);
+		const fn = AgentKernel.buildContextAssembler(session as import("../src/session-store.js").SessionStore, 200_000);
 
 		await fn([USER_MSG]);
 
@@ -170,7 +167,7 @@ describe("window.assembled LRU writes", () => {
 				timestamp: 1,
 			});
 
-			const fn = AgentKernel.buildContextPrepareStep(store, 200_000);
+			const fn = AgentKernel.buildContextAssembler(store, 200_000);
 			// First call — writes window.assembled for t1.
 			await fn([USER_MSG]);
 			await new Promise((r) => setTimeout(r, 20));

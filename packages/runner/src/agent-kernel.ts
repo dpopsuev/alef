@@ -96,12 +96,13 @@ export interface AgentKernelResult {
  */
 export const AgentKernel = {
 	/**
-	 * Build a prepareStep function that assembles the context window from the
-	 * session JSONL before each LLM call. Pass the result to ReasonerOptions.
+	 * Build a context assembler prepareStep function.
+	 * Runner-internal infrastructure — not an organ. See ALE-SPC-35 for the
+	 * pluggable ContextOrgan that will replace this via Motor/llm.phase.
 	 *
 	 * When session is undefined (test path), returns a pass-through.
 	 */
-	buildContextPrepareStep(
+	buildContextAssembler(
 		session: SessionStore | undefined,
 		contextWindow: number,
 	): (messages: Message[]) => Promise<Message[]> {

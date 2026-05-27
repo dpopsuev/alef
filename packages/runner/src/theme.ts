@@ -88,7 +88,7 @@ const AKKO: ThemeTokens = {
 	toolNameFg: { truecolor: "#6d9aba", ansi256: 67, ansi16: 34 },
 	toolArgFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
 	toolOkFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 },
-	toolErrFg: { truecolor: "#c22848", ansi256: 161, ansi16: 31 },
+	toolErrFg: { truecolor: "#f04060", ansi256: 204, ansi16: 91 }, // brightened: #c22848 was 3.1:1 on agentBg (need 4.5:1)
 	accentFg: { truecolor: "#c55778", ansi256: 168, ansi16: 35 },
 	dimFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
 	okFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 },
@@ -126,7 +126,7 @@ const MATRIX: ThemeTokens = {
 	toolOkFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
 	toolErrFg: { truecolor: "#ff0000", ansi256: 196, ansi16: 91 },
 	accentFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
-	dimFg: { truecolor: "#003b00", ansi256: 22, ansi16: 32 },
+	dimFg: { truecolor: "#1a5c1a", ansi256: 22, ansi16: 32 }, // brightened: #003b00 was 1.48:1 on agentBg (need 1.5:1)
 	okFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
 	warnFg: { truecolor: "#ffff00", ansi256: 226, ansi16: 93 },
 	errFg: { truecolor: "#ff0000", ansi256: 196, ansi16: 91 },

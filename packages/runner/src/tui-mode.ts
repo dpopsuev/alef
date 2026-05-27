@@ -211,7 +211,9 @@ export async function runTuiMode(
 
 	// ── Header ────────────────────────────────────────────────────────────
 	const sessionShort = opts.sessionId.slice(0, 8);
-	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${sessionShort}`;
+	// Model name in top-right (recency zone, Z-pattern right anchor).
+	// Format: * ALEF  -  <session>  -  <model>
+	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${sessionShort}  ${glyph("sep")}  ${opts.modelId}`;
 	tui.addChild(
 		new DynamicText((w) => {
 			const inner = `─ ${headerLabel} `;

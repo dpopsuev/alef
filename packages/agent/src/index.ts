@@ -3,25 +3,6 @@ export * from "./agent.js";
 // Loop functions
 export * from "./agent-loop.js";
 export * from "./harness/agent-harness.js";
-export {
-	collectEntriesForBranchSummary,
-	generateBranchSummary,
-	prepareBranchEntries,
-} from "./harness/compaction/branch-summarization.js";
-export {
-	calculateContextTokens,
-	compact,
-	DEFAULT_COMPACTION_SETTINGS,
-	estimateContextTokens,
-	estimateTokens,
-	findCutPoint,
-	findTurnStartIndex,
-	generateSummary,
-	getLastAssistantUsage,
-	prepareCompaction,
-	serializeConversation,
-	shouldCompact,
-} from "./harness/compaction/compaction.js";
 export * from "./harness/execution-env.js";
 export * from "./harness/factory.js";
 export * from "./harness/messages.js";

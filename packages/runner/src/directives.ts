@@ -89,13 +89,15 @@ export class DirectiveContextAssembler {
 	registerOrgans(organs: readonly Organ[]): void {
 		for (const organ of organs) {
 			if (!organ.directives?.length) continue;
-			organ.directives.forEach((content, i) => {
-				this.register({
-					id: `organ.${organ.name}.${i}`,
-					layer: "organ",
-					content: content.trim(),
-					weight: DEFAULT_WEIGHTS.organ,
-				});
+			// Prefix with organ.description as a named header so the LLM can
+			// attribute each guidance block to its organ.
+			const header = organ.description ? `### ${organ.name}: ${organ.description}` : `### ${organ.name}`;
+			const body = organ.directives.map((d) => d.trim()).join("\n\n");
+			this.register({
+				id: `organ.${organ.name}`,
+				layer: "organ",
+				content: `${header}\n\n${body}`,
+				weight: DEFAULT_WEIGHTS.organ,
 			});
 		}
 	}

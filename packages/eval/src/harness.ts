@@ -197,7 +197,7 @@ export class EvalHarness {
 		try {
 			const ctx: ScenarioContext = {
 				workspace,
-				send: (text) => dialog.send(text, "human", 120_000),
+				send: (text) => dialog.send(text, "human", scenarioTimeoutMs),
 				writeFile: async (rel, content) => {
 					const abs = join(workspace, rel);
 					await mkdir(dirname(abs), { recursive: true });

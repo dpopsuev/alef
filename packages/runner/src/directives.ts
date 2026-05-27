@@ -167,7 +167,10 @@ export class DirectiveContextAssembler {
 		});
 
 		const body = selected.map((d) => d.content).join("\n\n");
-		return `${this.base}\n\n## Tool Guidance\n\n${body}`;
+		// Workspace and organ directives appended after the base prompt.
+		// The base already contains ## Guidelines; keep additional directives
+		// under a separate header so they stand out as project/organ-specific.
+		return `${this.base}\n\n## Project & Organ Directives\n\n${body}`;
 	}
 }
 

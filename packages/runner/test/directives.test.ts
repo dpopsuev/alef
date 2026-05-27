@@ -33,7 +33,7 @@ describe("DirectiveContextAssembler.register + build", () => {
 		const out = asm.build();
 		expect(out).toContain(BASE);
 		expect(out).toContain("Always read before editing.");
-		expect(out).toContain("## Tool Guidance");
+		expect(out).toContain("## Project & Organ Directives");
 	});
 
 	it("deduplicates by id", () => {

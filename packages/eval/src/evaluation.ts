@@ -77,6 +77,12 @@ export interface Evaluation {
 	 * EvaluationRunner.fixtureCheck() writes these and runs the checker.
 	 */
 	readonly fixture?: FixtureSet;
+	/**
+	 * Per-scenario timeout in ms. Overrides HarnessOptions.scenarioTimeoutMs.
+	 * Use for multi-turn evaluations that need more time than single-turn.
+	 * Default: inherits scenarioTimeoutMs from HarnessOptions (180_000).
+	 */
+	readonly scenarioTimeoutMs?: number;
 }
 
 // ---------------------------------------------------------------------------

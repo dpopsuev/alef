@@ -78,7 +78,9 @@ export const planRefactoring: Evaluation = {
 		"For each: state what to change and why. Be specific about line numbers and function names.",
 	mustUse: ["fs.read"],
 	mustNotUse: ["fs.write", "fs.edit"],
-	checker: replyContains("createServer", "refactor"),
+	// Checker requires generic refactoring terms, not the specific function name.
+	// The LLM may describe createServer as 'the server function' or 'the handler'.
+	checker: replyContains("refactor", "extract"),
 };
 
 export const auditModule: Evaluation = {

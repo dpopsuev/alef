@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import type { SenseEvent } from "../src/buses.js";
 import { InProcessNerve } from "../src/buses.js";
 import type { CerebrumHandlerCtx, CorpusHandlerCtx } from "../src/framework.js";
@@ -32,11 +33,18 @@ describe("defineOrgan (motor/ prefix)", () => {
 	});
 
 	it("collects tools from actions that declare them", () => {
-		const organ = defineOrgan("test", {
-			"motor/test.a": { tool: { name: "test.a", description: "A", inputSchema: {} }, handle: async () => ({}) },
-			"motor/test.b": { handle: async () => ({}) },
-			"motor/test.c": { tool: { name: "test.c", description: "C", inputSchema: {} }, handle: async () => ({}) },
-		});
+		const organ = defineOrgan(
+			"test",
+			{
+				"motor/test.a": { tool: { name: "test.a", description: "A", inputSchema: {} }, handle: async () => ({}) },
+				"motor/test.b": { handle: async () => ({}) },
+				"motor/test.c": { tool: { name: "test.c", description: "C", inputSchema: {} }, handle: async () => ({}) },
+			},
+			{
+				description: "Test organ with tools.",
+				directives: ["Use test.a and test.c for testing. Provide all required parameters."],
+			},
+		);
 		expect(organ.tools.map((t: { name: string }) => t.name)).toEqual(["test.a", "test.c"]);
 	});
 
@@ -524,5 +532,59 @@ describe("defineOrgan — ready() hook", () => {
 	it("organ without ready() has ready undefined", () => {
 		const organ = defineOrgan("no-init", {}, {});
 		expect(organ.ready).toBeUndefined();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// ALE-SPC-34 — context metadata enforcement
+// ---------------------------------------------------------------------------
+
+describe("defineOrgan — context metadata enforcement", () => {
+	const minTool = {
+		"motor/my.tool": {
+			tool: { name: "my.tool", description: "Does something.", inputSchema: z.object({}) },
+			handle: async () => ({ result: "ok" }),
+		},
+	};
+
+	it("throws when tool-bearing organ has no description", () => {
+		expect(() =>
+			defineOrgan("bad", minTool, { directives: ["Use my.tool to do something meaningful here."] }),
+		).toThrow(/description/);
+	});
+
+	it("throws when tool-bearing organ has no directives", () => {
+		expect(() => defineOrgan("bad", minTool, { description: "Does something." })).toThrow(/directives/);
+	});
+
+	it("throws when a directive block is shorter than 20 chars", () => {
+		expect(() =>
+			defineOrgan("bad", minTool, {
+				description: "Does something.",
+				directives: ["Too short."],
+			}),
+		).toThrow(/shorter than 20/);
+	});
+
+	it("throws when total directive chars exceed 2000", () => {
+		expect(() =>
+			defineOrgan("bad", minTool, {
+				description: "Does something.",
+				directives: ["x".repeat(2001)],
+			}),
+		).toThrow(/max 2000/);
+	});
+
+	it("accepts a valid tool-bearing organ with description and directives", () => {
+		expect(() =>
+			defineOrgan("good", minTool, {
+				description: "Does something useful.",
+				directives: ["Use my.tool when you need to do something. Always provide required parameters."],
+			}),
+		).not.toThrow();
+	});
+
+	it("allows organs without tools to omit directives", () => {
+		expect(() => defineOrgan("kernel", {}, { description: "Kernel component with no tools." })).not.toThrow();
 	});
 });

@@ -406,6 +406,37 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		.filter((k) => k.startsWith("sense/"))
 		.map((k) => k.slice("sense/".length));
 
+	// Validate context metadata for tool-bearing organs.
+	// Organs with no tools are exempt from the directive requirement.
+	if (tools.length > 0) {
+		if (!opts.description || opts.description.trim().length === 0) {
+			throw new Error(
+				`[defineOrgan] '${name}' exposes ${tools.length} tool(s) but has no description. ` +
+					`Add description: "One-sentence summary of what this organ does."`,
+			);
+		}
+		if (!opts.directives || opts.directives.length === 0) {
+			throw new Error(
+				`[defineOrgan] '${name}' exposes ${tools.length} tool(s) but has no directives. ` +
+					`Add directives: ["Guidance block telling the LLM how and when to use these tools."]`,
+			);
+		}
+		const shortBlocks = opts.directives.filter((d) => d.trim().length < 20);
+		if (shortBlocks.length > 0) {
+			throw new Error(
+				`[defineOrgan] '${name}' has directive block(s) shorter than 20 chars. ` +
+					`Each block must be meaningful guidance, not a placeholder.`,
+			);
+		}
+		const totalChars = opts.directives.reduce((n, d) => n + d.length, 0);
+		if (totalChars > 2000) {
+			throw new Error(
+				`[defineOrgan] '${name}' directives total ${totalChars} chars (max 2000). ` +
+					`Keep guidance concise — the system prompt budget is shared across all organs.`,
+			);
+		}
+	}
+
 	return {
 		name,
 		tools,

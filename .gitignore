@@ -12,6 +12,9 @@ packages/*/dist-firefox/
 # Environment
 .env
 
+# ESLint cache
+.eslintcache
+
 # Editor / local tooling
 .cursor/
 limes.db

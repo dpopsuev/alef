@@ -147,7 +147,7 @@ async function runLLMLoop(
 ): Promise<void> {
 	const payload = ctx.payload as {
 		messages?: readonly unknown[];
-		tools?: readonly { name: string; description: string; inputSchema: Record<string, unknown> }[];
+		tools?: readonly { name: string; description: string; inputSchema: z.ZodTypeAny }[];
 		text?: string;
 		sender?: string;
 	};

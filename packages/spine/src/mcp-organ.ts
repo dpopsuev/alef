@@ -24,6 +24,7 @@ import type { MCPClient } from "@ai-sdk/mcp";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { Nerve, Organ, ToolDefinition } from "./buses.js";
+import { passthroughSchema } from "./buses.js";
 
 // ---------------------------------------------------------------------------
 // McpOrgan
@@ -139,11 +140,11 @@ export async function createMcpOrganFromClient(client: MCPClient, name: string):
 		tools.push({
 			name: motorName,
 			description: (tool as { description?: string }).description ?? mcpName,
-			// inputSchema stays as raw JSON Schema (MCP returns JSON Schema natively).
-			inputSchema: (tool as { inputSchema?: Record<string, unknown> }).inputSchema ?? {
-				type: "object",
-				properties: {},
-			},
+			// MCP returns JSON Schema natively — wrap with passthroughSchema so
+			// toolInputToJsonSchema() returns it unchanged to the LLM provider.
+			inputSchema: passthroughSchema(
+				(tool as { inputSchema?: Record<string, unknown> }).inputSchema ?? { type: "object", properties: {} },
+			),
 		});
 	}
 

@@ -36,9 +36,15 @@ describe("defineOrgan (motor/ prefix)", () => {
 		const organ = defineOrgan(
 			"test",
 			{
-				"motor/test.a": { tool: { name: "test.a", description: "A", inputSchema: {} }, handle: async () => ({}) },
+				"motor/test.a": {
+					tool: { name: "test.a", description: "A", inputSchema: z.object({}) },
+					handle: async () => ({}),
+				},
 				"motor/test.b": { handle: async () => ({}) },
-				"motor/test.c": { tool: { name: "test.c", description: "C", inputSchema: {} }, handle: async () => ({}) },
+				"motor/test.c": {
+					tool: { name: "test.c", description: "C", inputSchema: z.object({}) },
+					handle: async () => ({}),
+				},
 			},
 			{
 				description: "Test organ with tools.",

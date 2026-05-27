@@ -115,6 +115,27 @@ export const AgentKernel = {
 					? (lastMsg as { content: string }).content
 					: "";
 			const selected = assembleTurns(turns, { query, contextWindow, hitCounts });
+
+			// Record which turns were included so hitCounts() can compute LRU frequency.
+			// Without this write the 0.3 hitFrequency scoring weight is always zero.
+			const budgetTotal = Math.floor(contextWindow * 0.7);
+			const budgetUsed = selected.reduce((n, t) => n + t.tokenCost, 0);
+			void session.append({
+				bus: "internal",
+				type: "window.assembled",
+				correlationId: `wa-${Date.now()}`,
+				payload: {
+					includedTurnIds: selected.map((t) => t.id),
+					queryTokens: query
+						.toLowerCase()
+						.split(/\W+/)
+						.filter((t) => t.length > 2),
+					budgetUsed,
+					budgetTotal,
+				},
+				timestamp: Date.now(),
+			});
+
 			const projected = turnsToMessages(selected);
 			if (projected.length === 0) return messages;
 			const currentMsg = messages.at(-1);

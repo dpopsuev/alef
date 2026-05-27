@@ -18,6 +18,12 @@ export interface SpanRecord {
 export interface RunMetrics {
 	/** Scenario identifier. */
 	scenario: string;
+	/**
+	 * Absolute path to the workspace directory.
+	 * Only populated when HarnessOptions.keepWorkspace is true.
+	 * Undefined otherwise (workspace already cleaned up).
+	 */
+	workspace?: string;
 	/** true if the agent produced the expected output without errors. */
 	passed: boolean;
 	/** Error message if passed=false. */

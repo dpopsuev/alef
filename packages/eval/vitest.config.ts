@@ -20,8 +20,8 @@ export default defineConfig({
 	},
 	test: {
 		include: ["test/**/*.test.ts"],
-		// Real-LLM scenarios are slow — give them room.
-		testTimeout: 120_000,
+		// Real-LLM scenarios are slow — write+multi-turn scenarios need extra time.
+		testTimeout: 240_000,
 		hookTimeout: 30_000,
 		// Register OTel provider once before any test runs.
 		setupFiles: ["./src/otel-setup.ts"],

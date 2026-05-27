@@ -1,8 +1,8 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { getModel } from "@dpopsuev/alef-ai";
-import { NodeExecutionEnv } from "../../src/harness/env/nodejs.js";
 import { createAgentHarness } from "../../src/harness/factory.js";
+import { NodeExecutionEnv } from "../../src/harness/nodejs-env.js";
 import { loadSourcedPromptTemplates } from "../../src/harness/prompt-templates.js";
 import { Session } from "../../src/harness/session/session.js";
 import { InMemorySessionStorage } from "../../src/harness/session/storage/memory.js";

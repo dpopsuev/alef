@@ -1,8 +1,8 @@
 import type { AutocompleteProvider, AutocompleteSuggestions } from "../autocomplete.js";
+import { type Component, CURSOR_MARKER, type Focusable, type ITUIHandle } from "../component.js";
 import { getKeybindings } from "../keybindings.js";
 import { decodePrintableKey, matchesKey } from "../keys.js";
 import { KillRing } from "../kill-ring.js";
-import { type Component, CURSOR_MARKER, type Focusable, type TUI } from "../tui.js";
 import { UndoStack } from "../undo-stack.js";
 import { getSegmenter, isPunctuationChar, isWhitespaceChar, truncateToWidth, visibleWidth } from "../utils.js";
 import { SelectList, type SelectListLayoutOptions, type SelectListTheme } from "./select-list.js";
@@ -224,7 +224,7 @@ export class Editor implements Component, Focusable {
 	/** Focusable interface - set by TUI when focus changes */
 	focused: boolean = false;
 
-	protected tui: TUI;
+	protected tui: ITUIHandle;
 	private theme: EditorTheme;
 	private paddingX: number = 0;
 
@@ -285,7 +285,7 @@ export class Editor implements Component, Focusable {
 	public onChange?: (text: string) => void;
 	public disableSubmit: boolean = false;
 
-	constructor(tui: TUI, theme: EditorTheme, options: EditorOptions = {}) {
+	constructor(tui: ITUIHandle, theme: EditorTheme, options: EditorOptions = {}) {
 		this.tui = tui;
 		this.theme = theme;
 		this.borderColor = theme.borderColor;

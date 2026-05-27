@@ -4,7 +4,7 @@ import { constants } from "node:fs";
 import { access, lstat, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { type ExecutionEnv, FileError, type FileInfo, type FileKind } from "../types.js";
+import { type ExecutionEnv, FileError, type FileInfo, type FileKind } from "./types.js";
 
 function resolvePath(cwd: string, path: string): string {
 	return isAbsolute(path) ? path : resolve(cwd, path);

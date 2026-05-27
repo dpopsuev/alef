@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { getEnvApiKey } from "@dpopsuev/alef-ai";
+import { getEnvApiKey } from "@dpopsuev/alef-organ-llm";
 
 type StoredApiKeyCredential = { type: "api_key"; key: string };
 type StoredCredential = StoredApiKeyCredential;

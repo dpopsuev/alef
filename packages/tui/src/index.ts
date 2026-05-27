@@ -95,6 +95,7 @@ export {
 	Container,
 	CURSOR_MARKER,
 	type Focusable,
+	type ITUIHandle,
 	isFocusable,
 	type OverlayAnchor,
 	type OverlayHandle,

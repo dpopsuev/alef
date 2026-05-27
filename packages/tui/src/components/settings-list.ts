@@ -1,6 +1,6 @@
+import type { Component } from "../component.js";
 import { fuzzyFilter } from "../fuzzy.js";
 import { getKeybindings } from "../keybindings.js";
-import type { Component } from "../tui.js";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "../utils.js";
 import { Input } from "./input.js";
 

@@ -1,4 +1,4 @@
-import type { Component } from "../tui.js";
+import type { Component } from "../component.js";
 import { applyBackgroundToLine, visibleWidth, wrapTextWithAnsi } from "../utils.js";
 
 /**

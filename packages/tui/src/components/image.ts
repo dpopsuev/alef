@@ -1,3 +1,4 @@
+import type { Component } from "../component.js";
 import {
 	allocateImageId,
 	getCapabilities,
@@ -6,7 +7,6 @@ import {
 	imageFallback,
 	renderImage,
 } from "../terminal-image.js";
-import type { Component } from "../tui.js";
 
 export interface ImageTheme {
 	fallbackColor: (str: string) => string;

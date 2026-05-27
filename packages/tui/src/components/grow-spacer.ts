@@ -1,4 +1,4 @@
-import type { Component } from "../tui.js";
+import type { Component } from "../component.js";
 
 /**
  * GrowSpacer fills available vertical space so content below it anchors to

@@ -1,4 +1,4 @@
-import type { TUI } from "../tui.js";
+import type { ITUIHandle } from "../component.js";
 import { Text } from "./text.js";
 
 export interface LoaderIndicatorOptions {
@@ -19,11 +19,11 @@ export class Loader extends Text {
 	private intervalMs = DEFAULT_INTERVAL_MS;
 	private currentFrame = 0;
 	private intervalId: NodeJS.Timeout | null = null;
-	private ui: TUI | null = null;
+	private ui: ITUIHandle | null = null;
 	private renderIndicatorVerbatim = false;
 
 	constructor(
-		ui: TUI,
+		ui: ITUIHandle,
 		private spinnerColorFn: (str: string) => string,
 		private messageColorFn: (str: string) => string,
 		private message: string = "Loading...",

@@ -1,5 +1,5 @@
+import type { Component } from "../component.js";
 import { getKeybindings } from "../keybindings.js";
-import type { Component } from "../tui.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
 const DEFAULT_PRIMARY_COLUMN_WIDTH = 32;

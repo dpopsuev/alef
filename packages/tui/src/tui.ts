@@ -7,6 +7,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { performance } from "node:perf_hooks";
 import { resolveAlefAgentDir } from "./alef-agent-dir.js";
+import { type Component, CURSOR_MARKER, isFocusable, type RenderMeta } from "./component.js";
 import { isKeyRelease, matchesKey } from "./keys.js";
 import type { Terminal } from "./terminal.js";
 import { deleteKittyImage, getCapabilities, isImageLine, setCellDimensions } from "./terminal-image.js";
@@ -50,103 +51,12 @@ function extractKittyImageIds(line: string): number[] {
 	return [];
 }
 
-/**
- * Component interface - all components must implement this
- */
-export interface Component {
-	/**
-	 * Render the component to lines for the given viewport width
-	 * @param width - Current viewport width
-	 * @returns Array of strings, each representing a line
-	 */
-	render(width: number): string[];
-
-	/**
-	 * Optional handler for keyboard input when component has focus
-	 */
-	handleInput?(data: string): void;
-
-	/**
-	 * If true, component receives key release events (Kitty protocol).
-	 * Default is false - release events are filtered out.
-	 */
-	wantsKeyRelease?: boolean;
-
-	/**
-	 * Invalidate any cached rendering state.
-	 * Called when theme changes or when component needs to re-render from scratch.
-	 */
-	invalidate(): void;
-}
+export type { Component, Focusable, ITUIHandle, RenderMeta } from "./component.js";
+export { CURSOR_MARKER, isFocusable } from "./component.js";
+export { visibleWidth };
 
 type InputListenerResult = { consume?: boolean; data?: string } | undefined;
 type InputListener = (data: string) => InputListenerResult;
-
-/**
- * Interface for components that can receive focus and display a hardware cursor.
- * When focused, the component should emit CURSOR_MARKER at the cursor position
- * in its render output. TUI will find this marker and position the hardware
- * cursor there for proper IME candidate window positioning.
- */
-export interface Focusable {
-	/** Set by TUI when focus changes. Component should emit CURSOR_MARKER when true. */
-	focused: boolean;
-}
-
-/** Type guard to check if a component implements Focusable */
-export function isFocusable(component: Component | null): component is Component & Focusable {
-	return component !== null && "focused" in component;
-}
-
-/**
- * Cursor position marker - APC (Application Program Command) sequence.
- * This is a zero-width escape sequence that terminals ignore.
- * Components emit this at the cursor position when focused.
- * TUI finds and strips this marker, then positions the hardware cursor there.
- */
-export const CURSOR_MARKER = "\x1b_pi:c\x07";
-
-/**
- * Render decision metadata — populated after every doRender() call.
- * Read via TUI.renderMeta immediately after requestRender() resolves,
- * or via the onRender callback's meta parameter (TODO: thread through).
- *
- * renderPath values:
- *   first        — initial blank-screen write
- *   width-change — terminal resized horizontally; full clear redraw
- *   height-change— terminal resized vertically; full clear redraw
- *   clear-shrink — content shrank below max rendered; full clear redraw
- *   scrollback   — firstChanged < prevViewportTop; full clear redraw (scrollback risk)
- *   deleted      — lines deleted and moved viewport up; full clear redraw
- *   diff         — differential update; cursor moved to changed line and rewritten
- *   append       — lines appended at end; cursor advanced, no upward movement
- *   no-change    — virtual frame identical; only cursor repositioned
- */
-export interface RenderMeta {
-	renderPath:
-		| "first"
-		| "width-change"
-		| "height-change"
-		| "clear-shrink"
-		| "scrollback"
-		| "deleted"
-		| "diff"
-		| "append"
-		| "no-change"
-		| "none";
-	/** Index of the first changed virtual line (-1 if none). */
-	firstChanged: number;
-	/** First virtual line index that is within the visible viewport. */
-	prevViewportTop: number;
-	/** Total virtual lines rendered. */
-	totalLines: number;
-	/** Terminal height in rows. */
-	height: number;
-	/** Date.now() when this render completed. */
-	ts: number;
-}
-
-export { visibleWidth };
 
 /**
  * Anchor position for overlays

@@ -11,8 +11,8 @@ import { randomUUID } from "node:crypto";
 import type { Stats } from "node:fs";
 import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
-import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, getBoolean, getNumber, getString, withDisplay } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { diffLines } from "diff";
 import { z } from "zod";
 import {
@@ -237,14 +237,12 @@ function detectBinaryMime(buf: Buffer): string | null {
 }
 
 async function handleRead(
-	ctx: CorpusHandlerCtx,
+	ctx: { payload: { path: string; offset?: number; limit?: number } },
 	opts: FsOrganOptions,
 	tracker: FileTracker,
 ): Promise<Record<string, unknown>> {
-	const filePath = getString(ctx.payload, "path") ?? "";
+	const { path: filePath, offset, limit } = ctx.payload;
 	if (!filePath) throw new Error("fs.read: path is required");
-	const offset = getNumber(ctx.payload, "offset");
-	const limit = getNumber(ctx.payload, "limit");
 
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 
@@ -296,10 +294,12 @@ async function atomicWrite(dest: string, content: string): Promise<void> {
 	}
 }
 
-async function handleWrite(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
-	const filePath = getString(ctx.payload, "path") ?? "";
+async function handleWrite(
+	ctx: { payload: { path: string; content: string } },
+	opts: FsOrganOptions,
+): Promise<Record<string, unknown>> {
+	const { path: filePath, content } = ctx.payload;
 	if (!filePath) throw new Error("fs.write: path is required");
-	const content = getString(ctx.payload, "content") ?? "";
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 	await mkdir(dirname(absolutePath), { recursive: true });
 	await atomicWrite(absolutePath, content);
@@ -371,23 +371,25 @@ function generateEditDiff(oldContent: string, newContent: string, filePath: stri
 	return out.join("\n");
 }
 
+type EditPayload =
+	| { path: string; edits: Array<{ oldText: string; newText: string }> }
+	| { path: string; oldText: string; newText: string };
+
 async function handleEdit(
-	ctx: CorpusHandlerCtx,
+	ctx: { payload: EditPayload },
 	opts: FsOrganOptions,
 	tracker: FileTracker,
 ): Promise<Record<string, unknown>> {
-	const filePath = getString(ctx.payload, "path") ?? "";
+	const { path: filePath } = ctx.payload;
 	if (!filePath) throw new Error("fs.edit: path is required");
 
 	// Normalise input: accept edits[] array OR single oldText/newText.
 	type EditEntry = { oldText: string; newText: string };
 	let editList: EditEntry[];
-	const rawEdits = ctx.payload.edits;
-	if (Array.isArray(rawEdits) && rawEdits.length > 0) {
-		editList = rawEdits as EditEntry[];
+	if ("edits" in ctx.payload) {
+		editList = ctx.payload.edits;
 	} else {
-		const oldText = getString(ctx.payload, "oldText") ?? "";
-		const newText = getString(ctx.payload, "newText") ?? "";
+		const { oldText, newText } = ctx.payload;
 		if (!oldText) throw new Error("fs.edit: oldText is required");
 		editList = [{ oldText, newText }];
 	}
@@ -471,34 +473,64 @@ async function handleEdit(
 	return withDisplay({ path: filePath, applied: true, editCount }, { text: diff, mimeType: "text/x-diff" });
 }
 
-async function handleGrep(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
+async function handleGrep(
+	ctx: {
+		payload: {
+			pattern: string;
+			path?: string;
+			glob?: string;
+			ignoreCase?: boolean;
+			literal?: boolean;
+			context?: number;
+			limit?: number;
+			type?: string;
+			filesWithMatches?: boolean;
+			countOnly?: boolean;
+		};
+	},
+	opts: FsOrganOptions,
+): Promise<Record<string, unknown>> {
+	const { pattern, path, glob, ignoreCase, literal, context, limit, type, filesWithMatches, countOnly } = ctx.payload;
 	const input: GrepToolInput = {
-		pattern: getString(ctx.payload, "pattern") ?? "",
-		path: getString(ctx.payload, "path"),
-		glob: getString(ctx.payload, "glob"),
-		ignoreCase: getBoolean(ctx.payload, "ignoreCase") ?? false,
-		literal: getBoolean(ctx.payload, "literal") ?? false,
-		context: getNumber(ctx.payload, "context") ?? 0,
-		limit: getNumber(ctx.payload, "limit") ?? DEFAULT_GREP_LIMIT,
-		type: getString(ctx.payload, "type"),
-		filesWithMatches: getBoolean(ctx.payload, "filesWithMatches") ?? false,
-		countOnly: getBoolean(ctx.payload, "countOnly") ?? false,
+		pattern,
+		path,
+		glob,
+		ignoreCase: ignoreCase ?? false,
+		literal: literal ?? false,
+		context: context ?? 0,
+		limit: limit ?? DEFAULT_GREP_LIMIT,
+		type,
+		filesWithMatches: filesWithMatches ?? false,
+		countOnly: countOnly ?? false,
 	};
 	const response = await executeGrepQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "grep") });
 	const displayText = extractContentText(response) ?? JSON.stringify(response);
 	return withDisplay(response as unknown as Record<string, unknown>, { text: displayText, mimeType: "text/plain" });
 }
 
-async function handleFind(ctx: CorpusHandlerCtx, opts: FsOrganOptions): Promise<Record<string, unknown>> {
-	const rawType = getString(ctx.payload, "type");
+async function handleFind(
+	ctx: {
+		payload: {
+			pattern: string;
+			path?: string;
+			limit?: number;
+			type?: "file" | "directory" | "symlink";
+			extension?: string;
+			depth?: number;
+			hidden?: boolean;
+		};
+	},
+	opts: FsOrganOptions,
+): Promise<Record<string, unknown>> {
+	const { pattern, path, limit, type, extension, depth, hidden } = ctx.payload;
 	const input: FindToolInput = {
-		pattern: getString(ctx.payload, "pattern") ?? "",
-		path: getString(ctx.payload, "path"),
-		limit: getNumber(ctx.payload, "limit") ?? DEFAULT_FIND_LIMIT,
-		type: rawType === "file" || rawType === "directory" || rawType === "symlink" ? rawType : undefined,
-		extension: getString(ctx.payload, "extension"),
-		depth: getNumber(ctx.payload, "depth"),
-		hidden: getBoolean(ctx.payload, "hidden"),
+		pattern,
+		path,
+		limit: limit ?? DEFAULT_FIND_LIMIT,
+		type,
+		extension,
+		depth,
+		hidden,
 	};
 	const response = await executeFindQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "find") });
 	const displayText = extractContentText(response) ?? JSON.stringify(response);
@@ -519,35 +551,27 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 	return defineOrgan(
 		"fs",
 		{
-			"motor/fs.read": {
-				tool: FS_READ_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => handleRead(ctx, options, tracker),
+			"motor/fs.read": typedAction(FS_READ_TOOL, (ctx) => handleRead(ctx, options, tracker), {
 				shouldCache: () => true,
-			},
-			"motor/fs.grep": {
-				tool: FS_GREP_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => handleGrep(ctx, options),
-				shouldCache: () => true,
-			},
-			"motor/fs.find": { tool: FS_FIND_TOOL, handle: (ctx: CorpusHandlerCtx) => handleFind(ctx, options) },
-			"motor/fs.write": {
-				tool: FS_WRITE_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => {
-					const filePath = getString(ctx.payload, "path") ?? "";
-					const absolutePath = nodeResolve(options.cwd, filePath);
+			}),
+			"motor/fs.grep": typedAction(FS_GREP_TOOL, (ctx) => handleGrep(ctx, options), { shouldCache: () => true }),
+			"motor/fs.find": typedAction(FS_FIND_TOOL, (ctx) => handleFind(ctx, options)),
+			"motor/fs.write": typedAction(
+				FS_WRITE_TOOL,
+				async (ctx) => {
+					const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
 					return withQueue(absolutePath, () => handleWrite(ctx, options));
 				},
-				invalidates: () => WRITE_INVALIDATES,
-			},
-			"motor/fs.edit": {
-				tool: FS_EDIT_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => {
-					const filePath = getString(ctx.payload, "path") ?? "";
-					const absolutePath = nodeResolve(options.cwd, filePath);
+				{ invalidates: () => WRITE_INVALIDATES },
+			),
+			"motor/fs.edit": typedAction(
+				FS_EDIT_TOOL,
+				async (ctx) => {
+					const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
 					return withQueue(absolutePath, () => handleEdit(ctx, options, tracker));
 				},
-				invalidates: () => WRITE_INVALIDATES,
-			},
+				{ invalidates: () => WRITE_INVALIDATES },
+			),
 		},
 		{
 			actions: options.actions,

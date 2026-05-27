@@ -120,6 +120,19 @@ export function typedAction<TSchema extends ZodTypeAny>(
 }
 
 /**
+ * typedStreamAction — typedAction equivalent for streaming CorpusOrgan actions.
+ *
+ * The stream generator receives ctx.payload typed as z.infer<TSchema> — no getString(),
+ * no manual casts. Validated by auto-built inputSchema from the tool definition.
+ */
+export function typedStreamAction<TSchema extends ZodTypeAny>(
+	tool: ToolDefinition & { readonly inputSchema: TSchema },
+	stream: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
+): StreamingCorpusAction {
+	return { tool, stream: stream as StreamingCorpusAction["stream"] };
+}
+
+/**
  * Streaming CorpusOrgan action — Channel pattern.
  * Yields partial payloads; framework emits each as a Sense event.
  * The last yielded value is marked isFinal: true.
@@ -238,14 +251,15 @@ async function dispatchMotorAction(
 	nerve: Nerve,
 	cache: Map<string, Record<string, unknown>>,
 	log: OrganLogger,
-	inputSchemas?: Record<string, ZodTypeAny>,
+	// Single schema for this specific action — resolved by mount() from the auto-built map.
+	schema?: ZodTypeAny,
 ): Promise<void> {
 	// Always validate when a schema is available — Lex DIP: handlers depend on typed
 	// domain payloads, not raw Record<string,unknown>. Pass result.data so handlers
 	// receive Zod-coerced values (strings are strings, numbers are numbers).
 	let payload: Record<string, unknown> = motor.payload;
-	if (inputSchemas?.[motor.type]) {
-		const result = inputSchemas[motor.type].safeParse(motor.payload);
+	if (schema) {
+		const result = schema.safeParse(motor.payload);
 		if (!result.success) {
 			const msg = result.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
 			nerve.sense.publish(buildErrSense(motor, `[InputValidation] motor/${motor.type}: ${msg}`));
@@ -521,7 +535,8 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 					const corpusAction = action as CorpusAction | StreamingCorpusAction;
 					return nerve.motor.subscribe(
 						eventType,
-						(event) => void dispatchMotorAction(event, corpusAction, nerve, cache, log, motorInputSchemas),
+						(event) =>
+							void dispatchMotorAction(event, corpusAction, nerve, cache, log, motorInputSchemas[eventType]),
 					);
 				}
 				if (prefixedKey.startsWith("sense/")) {

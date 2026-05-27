@@ -18,14 +18,13 @@
  * Ref: TSK-181
  */
 
-import type { CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-spine";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	defineOrgan,
-	getNumber,
-	getString,
 	truncateHead,
+	typedAction,
 	withDisplay,
 } from "@dpopsuev/alef-spine";
 import { z } from "zod";
@@ -224,24 +223,14 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 	return defineOrgan(
 		"web",
 		{
-			"motor/web.fetch": {
-				tool: WEB_FETCH_TOOL,
-				handle: async (ctx: CorpusHandlerCtx) => {
-					const url = getString(ctx.payload, "url") ?? "";
-					const format = getString(ctx.payload, "format") === "html" ? "html" : "text";
-					const timeoutMs = getNumber(ctx.payload, "timeoutMs") ?? defaultTimeout;
-					return handleFetch(url, format, timeoutMs);
-				},
-			},
-			"motor/web.search": {
-				tool: WEB_SEARCH_TOOL,
-				handle: async (ctx: CorpusHandlerCtx) => {
-					const query = getString(ctx.payload, "query") ?? "";
-					const numResults = getNumber(ctx.payload, "numResults") ?? 10;
-					const engine = getString(ctx.payload, "engine");
-					return handleSearch(query, numResults, engine);
-				},
-			},
+			"motor/web.fetch": typedAction(WEB_FETCH_TOOL, async (ctx) => {
+				const { url, format, timeoutMs } = ctx.payload;
+				return handleFetch(url, format ?? "text", timeoutMs ?? defaultTimeout);
+			}),
+			"motor/web.search": typedAction(WEB_SEARCH_TOOL, async (ctx) => {
+				const { query, numResults, engine } = ctx.payload;
+				return handleSearch(query, numResults ?? 10, engine);
+			}),
 		},
 		{
 			directives: WEB_DIRECTIVES,

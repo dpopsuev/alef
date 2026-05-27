@@ -12,8 +12,8 @@
  * In-memory per organ instance (one process = one session). No persistence.
  */
 
-import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, getString } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import type { TodoItem, TodoStatus } from "./types.js";
 
@@ -42,21 +42,15 @@ const TODOS_TOOL = {
 export function createTodosOrgan(opts: TodosOrganOptions = {}): Organ {
 	let currentTodos: TodoItem[] = [];
 
-	function handleUpdate(ctx: CorpusHandlerCtx): Record<string, unknown> {
-		const rawTodos = ctx.payload.todos;
-		if (!Array.isArray(rawTodos)) throw new Error("todos.update: todos must be an array");
-
-		const newTodos: TodoItem[] = (rawTodos as Array<Record<string, unknown>>).map((item) => {
-			const status = getString(item, "status") as TodoStatus;
-			if (!["pending", "in_progress", "completed"].includes(status)) {
-				throw new Error(`todos.update: invalid status "${status}" for "${getString(item, "content")}"`);
-			}
-			return {
-				content: getString(item, "content") ?? "",
-				status,
-				activeForm: getString(item, "activeForm"),
-			};
-		});
+	function handleUpdate(ctx: {
+		payload: { todos: Array<{ content: string; status: TodoStatus; activeForm?: string }> };
+	}): Record<string, unknown> {
+		// Zod validates todos[] items before dispatch — no manual checks needed.
+		const newTodos: TodoItem[] = ctx.payload.todos.map((item) => ({
+			content: item.content,
+			status: item.status,
+			activeForm: item.activeForm,
+		}));
 
 		const oldByContent = new Map(currentTodos.map((t) => [t.content, t.status]));
 		const justCompleted: string[] = [];
@@ -91,10 +85,7 @@ export function createTodosOrgan(opts: TodosOrganOptions = {}): Organ {
 	return defineOrgan(
 		"todos",
 		{
-			"motor/todos.update": {
-				tool: TODOS_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => Promise.resolve(handleUpdate(ctx)),
-			},
+			"motor/todos.update": typedAction(TODOS_TOOL, async (ctx) => handleUpdate(ctx)),
 		},
 		{
 			logger: opts.logger,

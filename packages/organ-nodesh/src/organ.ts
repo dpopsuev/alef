@@ -19,8 +19,8 @@
  */
 
 import vm from "node:vm";
-import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, getNumber, getString, withDisplay } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -127,13 +127,16 @@ function makeSandboxedRequire(allowed: Set<string>): (mod: string) => unknown {
 // Handler
 // ---------------------------------------------------------------------------
 
-async function handleEval(ctx: CorpusHandlerCtx, opts: NodeshOrganOptions): Promise<Record<string, unknown>> {
-	const code = getString(ctx.payload, "code") ?? "";
+async function handleEval(
+	ctx: { payload: { code: string; timeout?: number } },
+	opts: NodeshOrganOptions,
+): Promise<Record<string, unknown>> {
+	const { code, timeout } = ctx.payload;
 	if (!code.trim()) throw new Error("nodesh.eval: code is required");
 
 	const defaultS = opts.defaultTimeoutSeconds ?? DEFAULT_NODESH_TIMEOUT_S;
 	const maxS = opts.maxTimeoutSeconds ?? MAX_NODESH_TIMEOUT_S;
-	const requestedS = getNumber(ctx.payload, "timeout") ?? defaultS;
+	const requestedS = timeout ?? defaultS;
 	const timeoutMs = Math.min(requestedS, maxS) * 1000;
 
 	const allowed = new Set([...ALLOWED_BUILTINS, ...(opts.extraAllowedModules ?? [])]);
@@ -205,10 +208,7 @@ export function createNodeshOrgan(options: NodeshOrganOptions): Organ {
 	return defineOrgan(
 		"nodesh",
 		{
-			"motor/nodesh.eval": {
-				tool: NODESH_EVAL_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => handleEval(ctx, options),
-			},
+			"motor/nodesh.eval": typedAction(NODESH_EVAL_TOOL, (ctx) => handleEval(ctx, options)),
 		},
 		{
 			actions: options.actions,

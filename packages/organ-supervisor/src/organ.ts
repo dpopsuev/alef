@@ -18,8 +18,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, getString, withDisplay } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
 import type { ChildEntry } from "./types.js";
@@ -118,12 +118,13 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 		}),
 	};
 
-	async function handleSpawn(ctx: CorpusHandlerCtx): Promise<Record<string, unknown>> {
-		const childCwd = getString(ctx.payload, "cwd") ?? cwd;
-		const blueprintPathRaw = getString(ctx.payload, "blueprintPath");
-		const resumeSession = getString(ctx.payload, "sessionId");
-		const organsRaw = ctx.payload.organs;
-		const organPaths: string[] = Array.isArray(organsRaw) ? (organsRaw as string[]) : [];
+	async function handleSpawn(ctx: {
+		payload: { blueprintPath?: string; organs?: string[]; cwd?: string; sessionId?: string };
+	}): Promise<Record<string, unknown>> {
+		const childCwd = ctx.payload.cwd ?? cwd;
+		const blueprintPathRaw = ctx.payload.blueprintPath;
+		const resumeSession = ctx.payload.sessionId;
+		const organPaths: string[] = ctx.payload.organs ?? [];
 
 		let blueprintPath = blueprintPathRaw ? resolvePath(blueprintPathRaw, childCwd) : undefined;
 		let tmpDir: string | undefined;
@@ -202,8 +203,8 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 		}),
 	};
 
-	async function handleKill(ctx: CorpusHandlerCtx): Promise<Record<string, unknown>> {
-		const name = getString(ctx.payload, "name") ?? "";
+	async function handleKill(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
+		const { name } = ctx.payload;
 		const entry = children.get(name);
 		if (!entry) return { stopped: false, reason: `no child named '${name}'` };
 
@@ -232,7 +233,7 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 		inputSchema: z.object({}),
 	};
 
-	async function handleList(_ctx: CorpusHandlerCtx): Promise<Record<string, unknown>> {
+	async function handleList(_ctx: unknown): Promise<Record<string, unknown>> {
 		const items = await Promise.all(
 			[...children.values()].map(async (e) => ({
 				name: e.name,
@@ -262,8 +263,8 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 		}),
 	};
 
-	async function handleStatus(ctx: CorpusHandlerCtx): Promise<Record<string, unknown>> {
-		const name = getString(ctx.payload, "name") ?? "";
+	async function handleStatus(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
+		const { name } = ctx.payload;
 		const entry = children.get(name);
 		if (!entry) return { alive: false, reason: `no child named '${name}'` };
 		const alive = await healthCheck(entry.endpoint);
@@ -299,13 +300,10 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 		}),
 	};
 
-	function handlePromote(ctx: CorpusHandlerCtx): Record<string, unknown> {
-		const organPathRaw = getString(ctx.payload, "organPath") ?? "";
-		const organPath = resolvePath(organPathRaw, cwd);
-
-		const bpRaw = getString(ctx.payload, "blueprintPath");
-		const blueprintPath = bpRaw
-			? resolvePath(bpRaw, cwd)
+	function handlePromote(ctx: { payload: { organPath: string; blueprintPath?: string } }): Record<string, unknown> {
+		const organPath = resolvePath(ctx.payload.organPath, cwd);
+		const blueprintPath = ctx.payload.blueprintPath
+			? resolvePath(ctx.payload.blueprintPath, cwd)
 			: (process.env.ALEF_BLUEPRINT_PATH ?? join(homedir(), ".config", "alef", "agent.yaml"));
 
 		// Parse, append, write.
@@ -346,14 +344,11 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 	return defineOrgan(
 		"supervisor",
 		{
-			"motor/supervisor.spawn": { tool: SPAWN_TOOL, handle: handleSpawn },
-			"motor/supervisor.kill": { tool: KILL_TOOL, handle: handleKill },
+			"motor/supervisor.spawn": typedAction(SPAWN_TOOL, handleSpawn),
+			"motor/supervisor.kill": typedAction(KILL_TOOL, handleKill),
 			"motor/supervisor.list": { tool: LIST_TOOL, handle: handleList },
-			"motor/supervisor.status": { tool: STATUS_TOOL, handle: handleStatus },
-			"motor/supervisor.promote": {
-				tool: PROMOTE_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => Promise.resolve(handlePromote(ctx)),
-			},
+			"motor/supervisor.status": typedAction(STATUS_TOOL, handleStatus),
+			"motor/supervisor.promote": typedAction(PROMOTE_TOOL, async (ctx) => handlePromote(ctx)),
 		},
 		{
 			logger: opts.logger,

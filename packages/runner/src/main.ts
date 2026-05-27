@@ -37,7 +37,7 @@ import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "./materialize
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
-import { buildSystemPrompt } from "./prompt.js";
+import { appendEnvironment, buildSystemPrompt } from "./prompt.js";
 import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
@@ -184,11 +184,14 @@ const resolvedModelDisplay =
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-const basePrompt = buildSystemPrompt(args.cwd);
+// Tool list is known after corpus organs are materialized — pass them in.
+// Date+cwd appended LAST (recency position — highest LLM attention).
+const basePrompt = buildSystemPrompt({ tools: corpusOrgans.flatMap((o) => o.tools) });
 const asm = new DirectiveContextAssembler(basePrompt);
 await asm.loadWorkspace(args.cwd); // reads .alef/directives/*.md
 asm.registerOrgans([...corpusOrgans]); // collects organ.directives strings
-const systemPrompt = asm.build(Math.floor(model.contextWindow * 0.1 * 4)); // ~10% of context in chars
+const assembled = asm.build(Math.floor(model.contextWindow * 0.1 * 4)); // ~10% of context in chars
+const systemPrompt = appendEnvironment(assembled, args.cwd); // date+cwd last
 
 const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
 

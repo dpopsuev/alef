@@ -189,6 +189,20 @@ export class EvalHarness {
 			agent.load(organ);
 		}
 
+		// Capture the conversation transcript from the last Motor dialog.message event.
+		// conversationHistory is published by organ-llm as plain JSON: [{role, content, ...}].
+		// Anthropic: "transcript = complete record of a trial, including tool calls".
+		let transcript: Array<Record<string, unknown>> = [];
+		const transcriptObserver = agent.observe({
+			onMotorEvent(event) {
+				const p = event as unknown as { type?: string; payload?: Record<string, unknown> };
+				if (p.type === "dialog.message" && Array.isArray(p.payload?.conversationHistory)) {
+					transcript = p.payload.conversationHistory as Array<Record<string, unknown>>;
+				}
+			},
+			onSenseEvent() {},
+		});
+
 		// Optional JSONL trace — attach before the run, close after.
 		let busTracer: TraceRecorder | undefined;
 		let unobserve: (() => void) | undefined;
@@ -224,6 +238,7 @@ export class EvalHarness {
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
+			transcriptObserver();
 			if (busTracer) {
 				busTracer.signal("session_end", { passed, error });
 				unobserve?.();
@@ -247,6 +262,7 @@ export class EvalHarness {
 			scenario: opts.scenario,
 			workspace: opts.keepWorkspace ? workspace : undefined,
 			turns: deriveturns(spans),
+			transcript,
 			passed: passed && !evaluator.state.loopDetected,
 			error: evaluator.state.loopDetected
 				? `Loop detected: ${evaluator.state.loopEventType} called >${opts.loopThreshold ?? 10} times`
@@ -314,15 +330,65 @@ export function assertAllToolsUsed(metrics: RunMetrics, eventTypes: string[]): v
 
 /**
  * Format RunMetrics as a human-readable summary.
+ * Includes Anthropic-recommended tracked_metrics: n_turns, n_toolcalls, n_total_tokens.
  */
 export function formatReport(metrics: RunMetrics): string {
 	const status = metrics.passed ? "PASS" : "FAIL";
+	const nTurns = metrics.turns.length;
+	const nToolcalls = metrics.turns.reduce((a, t) => a + t.toolCalls, 0);
+	const nTotalTokens = metrics.turns.reduce((a, t) => a + t.tokensIn + t.tokensOut, 0);
+	const toolPath = metrics.turns.flatMap((t) => t.toolNames).join(" → ") || "(none)";
+
 	const lines = [
 		`[${status}] ${metrics.scenario} (${metrics.durationMs}ms)`,
-		`  spans: ${metrics.totalSpans}  cache hits: ${metrics.cacheHits}  misses: ${metrics.cacheMisses}  OAE: ${(metrics.oae * 100).toFixed(1)}%`,
-		`  events: ${metrics.totalEvents}  loop: ${metrics.loopDetected ? `YES (${metrics.loopEventType})` : "no"}`,
+		`  turns: ${nTurns}  tool_calls: ${nToolcalls}  tokens: ${nTotalTokens}  OAE: ${(metrics.oae * 100).toFixed(1)}%`,
+		`  path: ${toolPath}`,
+		`  transcript: ${metrics.transcript.length} messages  loop: ${metrics.loopDetected ? `YES (${metrics.loopEventType})` : "no"}`,
 	];
 	if (metrics.error) lines.push(`  error: ${metrics.error}`);
+	return lines.join("\n");
+}
+
+/**
+ * Format the full conversation transcript for manual review.
+ * Anthropic: "Once you have pass-or-fail tests, it's useful to also grade the transcript."
+ */
+export function formatTranscript(metrics: RunMetrics): string {
+	if (metrics.transcript.length === 0) return `[${metrics.scenario}] no transcript captured`;
+
+	const lines: string[] = [`=== TRANSCRIPT: ${metrics.scenario} ===`];
+	for (const msg of metrics.transcript) {
+		const role = String(msg.role ?? "?").toUpperCase();
+		if (role === "TOOLRESULT") {
+			const content =
+				typeof msg.content === "string" ? msg.content.slice(0, 300) : JSON.stringify(msg.content).slice(0, 300);
+			const truncated = content.length === 300 ? "..." : "";
+			lines.push(`\n[TOOL RESULT: ${msg.toolName ?? "?"}]`);
+			lines.push(content + truncated);
+		} else if (role === "ASSISTANT") {
+			const content = msg.content;
+			if (Array.isArray(content)) {
+				for (const block of content) {
+					const b = block as Record<string, unknown>;
+					if (b.type === "text") {
+						lines.push(`\n[ASSISTANT]`);
+						lines.push(String(b.text ?? "").slice(0, 500));
+					} else if (b.type === "tool_use") {
+						lines.push(`\n[TOOL CALL: ${b.name}]`);
+						lines.push(JSON.stringify(b.input ?? {}, null, 2).slice(0, 400));
+					}
+				}
+			} else {
+				lines.push(`\n[ASSISTANT]`);
+				lines.push(String(content ?? "").slice(0, 500));
+			}
+		} else {
+			lines.push(`\n[${role}]`);
+			const content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+			lines.push(content.slice(0, 500));
+		}
+	}
+	lines.push(`\n=== END TRANSCRIPT (${metrics.transcript.length} messages) ===`);
 	return lines.join("\n");
 }
 

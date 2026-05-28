@@ -98,6 +98,15 @@ export interface RunMetrics {
 	 * Mirrors Tako cerebrum.TurnRecord.
 	 */
 	turns: TurnRecord[];
+	/**
+	 * Full conversation transcript: the complete messages array at end of the eval run.
+	 * Each entry is { role, content, toolCallId?, toolName?, isError? }.
+	 * Populated from the conversationHistory field on the last Motor dialog.message event.
+	 *
+	 * Anthropic: "A transcript is the complete record of a trial, including outputs,
+	 * tool calls, reasoning, and intermediate results."
+	 */
+	transcript: Array<Record<string, unknown>>;
 	/** true if the agent produced the expected output without errors. */
 	passed: boolean;
 	/** Error message if passed=false. */

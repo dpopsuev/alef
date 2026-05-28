@@ -38,6 +38,7 @@ export {
 	assertToolUsed,
 	EvalHarness,
 	formatReport,
+	formatTranscript,
 	serializeReport,
 } from "./harness.js";
 export type { RunMetrics, ScoringRule, SpanRecord, TurnRecord } from "./metrics.js";

@@ -34,6 +34,7 @@ import { DynamicText } from "./tui/dynamic-text.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
 import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent } from "./tui/tool-view.js";
+import { Typewriter } from "./tui/typewriter.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
 // Re-export primitives still used by tests and tui-commands.test.ts
@@ -324,6 +325,10 @@ export async function runTuiMode(
 
 	// ── Agent block + streaming zone ──────────────────────────────────────
 	const streamingZone = new StreamingZone(chat, () => tui.requestRender(), t);
+	const replyTW = new Typewriter(
+		(delta) => streamingZone.receiveText(delta),
+		() => tui.requestRender(),
+	);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
 	const activeCalls = new Map<string, { name: string; keyArg: string }>();
@@ -343,6 +348,7 @@ export async function runTuiMode(
 		toolSlot.onToolStart = ({ callId, name, args }) => {
 			consoleZone.pulse();
 			showFooter();
+			replyTW.flush();
 			streamingZone.reset(); // close @alef block so post-tool text opens a new one
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
@@ -410,7 +416,7 @@ export async function runTuiMode(
 		toolSlot.receiveTextChunk = (chunk) => {
 			consoleZone.pulse();
 			showFooter();
-			streamingZone.receiveText(chunk);
+			replyTW.receive(chunk);
 		};
 
 		toolSlot.receiveThinkingChunk = (chunk) => {
@@ -487,6 +493,7 @@ export async function runTuiMode(
 		try {
 			await dialog.send(text, "human", 300_000);
 			if (!aborted) {
+				replyTW.flush();
 				streamingZone.reset();
 				consoleZone.stopThinking();
 				consoleZone.hidePendingFooter();
@@ -497,6 +504,7 @@ export async function runTuiMode(
 		} catch (e) {
 			consoleZone.stopThinking();
 			consoleZone.hidePendingFooter();
+			replyTW.reset();
 			streamingZone.clear();
 			for (const [callId, entry] of activeCalls) {
 				consoleZone.removeInFlightCall(callId);

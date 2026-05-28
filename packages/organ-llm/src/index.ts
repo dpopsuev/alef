@@ -30,6 +30,12 @@ export interface CerebrumOptions {
 	/** Cap on retry delay in ms - prevents exponential backoff from stalling for minutes. Default: 8000. */
 	maxRetryDelayMs?: number;
 	/**
+	 * Called each time the LLM loop retries a transient error (timeout, 429, overloaded).
+	 * Use in eval pools to implement AIMD concurrency control: reduce pool size on retry,
+	 * increase on consecutive successes. Does not affect retry behaviour.
+	 */
+	onRetry?: (attempt: number, reason: string) => void;
+	/**
 	 * Called at the start of each LLM call to obtain the current AbortSignal.
 	 * The caller creates a new AbortController per turn and passes its signal here.
 	 * When the controller is aborted (Ctrl+C mid-turn), the HTTP stream is cancelled.
@@ -293,6 +299,7 @@ async function runLLMLoop(
 			appRetryCount < maxRetries
 		) {
 			appRetryCount++;
+			options.onRetry?.(appRetryCount, finalMessage.errorMessage);
 			const delayMs = Math.min(1_000 * 2 ** (appRetryCount - 1), maxRetryDelayMs);
 			await new Promise<void>((res) => setTimeout(res, delayMs));
 			pendingCalls.length = 0;

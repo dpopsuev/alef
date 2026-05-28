@@ -49,16 +49,54 @@ const ALL_EVALS: Evaluation[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Concurrency pool — bounded, respects Vertex rate limits
+// AIMD concurrency scheduler — TCP congestion control applied to API rate limits
+// RFC 5681: Multiplicative Decrease on throttle, Additive Increase on recovery.
 // ---------------------------------------------------------------------------
 
+class AimdScheduler {
+	private concurrency: number;
+	private readonly max: number;
+	private streak = 0; // consecutive successes since last decrease
+	private readonly successThreshold: number;
+
+	constructor(initial: number, max: number, successThreshold = 3) {
+		this.concurrency = initial;
+		this.max = max;
+		this.successThreshold = successThreshold;
+	}
+
+	/** Multiplicative decrease on 429 / throttle. */
+	onRetry(attempt: number, reason: string): void {
+		const prev = this.concurrency;
+		this.concurrency = Math.max(1, Math.floor(this.concurrency / 2));
+		this.streak = 0;
+		if (this.concurrency !== prev)
+			console.warn(
+				`[AIMD] throttle (attempt ${attempt}) — concurrency ${prev}→${this.concurrency} (${reason.slice(0, 50)})`,
+			);
+	}
+
+	/** Additive increase after N consecutive successes. */
+	onSuccess(): void {
+		if (++this.streak >= this.successThreshold && this.concurrency < this.max) {
+			this.concurrency++;
+			this.streak = 0;
+			console.log(`[AIMD] recovery — concurrency ↑${this.concurrency}`);
+		}
+	}
+
+	get current(): number {
+		return this.concurrency;
+	}
+}
+
 /**
- * Run evaluations concurrently up to ALEF_EVAL_CONCURRENCY (default 3).
- * Each eval gets a fresh Agent + Cerebrum, isolated OTel trace, and its
- * own AbortController. 429 / RESOURCE_EXHAUSTED errors are retried with
- * exponential backoff inside organ-llm (isRetryableError).
+ * Run evaluations through an AIMD-controlled concurrent pool.
+ * Pool adapts: shrinks on 429 (MD), grows on consecutive successes (AI).
+ * Each eval gets a fresh Agent + Cerebrum wired to the scheduler's onRetry.
  */
-async function runPool(evals: Evaluation[], concurrency: number): Promise<EvaluationResult[]> {
+async function runPool(evals: Evaluation[], maxConcurrency: number): Promise<EvaluationResult[]> {
+	const scheduler = new AimdScheduler(Math.min(3, maxConcurrency), maxConcurrency);
 	const results: (EvaluationResult | null)[] = new Array(evals.length).fill(null);
 	const queue = evals.map((e, i) => ({ eval: e, index: i }));
 	const inFlight: Promise<void>[] = [];
@@ -66,16 +104,22 @@ async function runPool(evals: Evaluation[], concurrency: number): Promise<Evalua
 	async function runOne(item: { eval: Evaluation; index: number }): Promise<void> {
 		const harness = new EvalHarness();
 		const runner = new EvaluationRunner(harness, {
-			organFactory: (signal) => [new Cerebrum({ model: getEvalModel(), getSignal: () => signal })],
+			organFactory: (signal) => [
+				new Cerebrum({
+					model: getEvalModel(),
+					getSignal: () => signal,
+					onRetry: (attempt, reason) => scheduler.onRetry(attempt, reason),
+				}),
+			],
 			maxErrorRate: 0.5,
 		});
 		results[item.index] = await runner.run(item.eval);
+		scheduler.onSuccess();
 	}
 
-	// Drain queue with bounded concurrency
 	let next = 0;
 	function dispatch(): void {
-		while (inFlight.length < concurrency && next < queue.length) {
+		while (inFlight.length < scheduler.current && next < queue.length) {
 			const item = queue[next++];
 			const p = runOne(item).finally(() => {
 				inFlight.splice(inFlight.indexOf(p), 1);
@@ -86,9 +130,7 @@ async function runPool(evals: Evaluation[], concurrency: number): Promise<Evalua
 	}
 
 	dispatch();
-	while (inFlight.length > 0) {
-		await Promise.race(inFlight);
-	}
+	while (inFlight.length > 0) await Promise.race(inFlight);
 
 	return results.filter((r): r is EvaluationResult => r !== null);
 }

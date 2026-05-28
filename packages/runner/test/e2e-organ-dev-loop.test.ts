@@ -18,6 +18,7 @@
 
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createEvalOrgan } from "@dpopsuev/alef-organ-eval";
 import { createSupervisorOrgan } from "@dpopsuev/alef-organ-supervisor";
@@ -33,13 +34,10 @@ afterEach(() => {
 	for (const d of tempDirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-// Temp dirs must be inside the monorepo root so jiti can resolve workspace
-// packages (@dpopsuev/alef-spine etc.) by traversing up to node_modules.
-const WORKSPACE_ROOT = resolve(__dirname, "../../..");
-
 function makeTmp(): string {
-	// Use workspace root as parent so jiti finds node_modules when loading organs.
-	const d = mkdtempSync(join(WORKSPACE_ROOT, ".tmp-organ-loop-"));
+	// Now safe to use OS tmpdir — supervisor.spawn sets NODE_PATH so jiti
+	// resolves @dpopsuev/* packages regardless of organ file location (ALE-BUG-31).
+	const d = mkdtempSync(join(tmpdir(), "alef-organ-loop-"));
 	tempDirs.push(d);
 	return d;
 }
@@ -67,9 +65,8 @@ function motorCall(
 
 describe("ALE-TSK-340: organ-dev-loop via supervisor + eval organs", () => {
 	it("spawn child via supervisor.spawn, eval via eval.run, assert passes", async () => {
-		// organ files live inside workspace so jiti resolves @dpopsuev/* packages.
 		const organDir = makeTmp();
-		const cwd = organDir; // child Alef cwd — workspace adjacent
+		const cwd = organDir;
 
 		// ── Step 1: write echo organ to disk ─────────────────────────────
 		// Simulates what the agent does via nodesh.eval in the real loop.
@@ -91,18 +88,23 @@ export function createOrgan() {
       handle: async (ctx) => ({ reply: \`pong:\${ctx.payload.message}\` }),
     },
   }, {
-    description: "Simple echo organ for integration testing.",
-    directives: ["Use echo.ping to verify the child agent is responsive."],
+    description: "Simple echo organ for integration testing — replies pong to any message.",
+    directives: ["Use echo.ping to verify the child agent is alive and processing requests correctly."],
   });
 }
 			`.trim(),
 			"utf-8",
 		);
 
-		// Scripted reply: the child inherits process.env, so this drives
-		// the child's dialog.message without a real LLM call.
+		// Scripted reply: the child inherits process.env.
 		const SCRIPTED_REPLY = "Echo organ loaded and responding.";
 		process.env.ALEF_SCRIPTED_REPLIES = JSON.stringify([SCRIPTED_REPLY]);
+		// Also set NODE_PATH directly in the test process env so the supervisor
+		// inherits it — belt-and-suspenders with the fix in organ-supervisor.
+		const alefNodeModules = join(resolve(__dirname, "../../.."), "node_modules");
+		if (!process.env.NODE_PATH?.includes(alefNodeModules)) {
+			process.env.NODE_PATH = [alefNodeModules, process.env.NODE_PATH].filter(Boolean).join(":");
+		}
 
 		// ── Step 2: mount organs on a shared nerve ────────────────────────
 		const nerve = new InProcessNerve();

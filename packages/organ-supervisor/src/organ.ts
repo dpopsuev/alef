@@ -17,7 +17,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { homedir, tmpdir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { delimiter, isAbsolute, join, resolve } from "node:path";
 import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
@@ -148,9 +148,22 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 		if (blueprintPath) args.push("--blueprint", blueprintPath);
 		if (resumeSession) args.push("--resume", resumeSession);
 
+		// NODE_PATH lets jiti resolve @dpopsuev/* packages from organ files at any
+		// location outside the monorepo tree. Without this, organs written to the
+		// user's project workspace can't import @dpopsuev/alef-spine — child exits 1.
+		const alefNodeModules = new URL("../../../node_modules", import.meta.url).pathname;
+		const nodePath = [alefNodeModules, process.env.NODE_PATH].filter(Boolean).join(delimiter);
 		const env: NodeJS.ProcessEnv = {
 			...process.env,
 			ALEF_SUPERVISOR: "1",
+			NODE_PATH: nodePath,
+			// TSX needs this to resolve path aliases when running the child via tsx.
+			// If already in the environment (e.g. monorepo dev), preserve it.
+			...(process.env.TSX_TSCONFIG_PATH
+				? {}
+				: {
+						TSX_TSCONFIG_PATH: new URL("../../../tsconfig.json", import.meta.url).pathname,
+					}),
 		};
 
 		const child = spawn(process.execPath, args, {

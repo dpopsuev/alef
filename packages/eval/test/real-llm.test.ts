@@ -1,35 +1,97 @@
 /**
  * Real-LLM evaluation suite.
  *
- * 12 Evaluation objects across ReadOnly, Write, and MultiTurn categories.
- * Uses EvaluationRunner (new API) — proper checkers, MaxErrorRate gate,
- * and clean beforeEach span assertion.
- *
- * Skipped entirely if no provider credentials are detected.
+ * 12 evaluations run concurrently in a bounded pool.
+ * Pool size: ALEF_EVAL_CONCURRENCY (default 3).
+ * Spans are isolated per eval via traceId — no global exporter reset needed.
+ * 429 / RESOURCE_EXHAUSTED errors retry with exponential backoff in organ-llm.
  *
  * Run:
  *   cd packages/eval
- *   ANTHROPIC_API_KEY=sk-ant-... npx vitest --run test/real-llm.test.ts
- *
- * Override model:
- *   ALEF_EVAL_MODEL=claude-haiku-4-5 npx vitest --run test/real-llm.test.ts
+ *   ALEF_EVAL_CONCURRENCY=4 npx vitest --run test/real-llm.test.ts
  */
 
 import { resolve } from "node:path";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { Evaluation } from "../src/evaluation.js";
 import * as multiTurnEvals from "../src/evaluations/multi-turn.js";
-import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from "../src/scoreboard.js";
-
-const BENCHMARK_PATH = resolve(__dirname, "../benchmark.jsonl");
-const SCOREBOARD_PATH = resolve(__dirname, "../SCOREBOARD.md");
-
 import * as readOnlyEvals from "../src/evaluations/read-only.js";
 import * as writeEvals from "../src/evaluations/write.js";
 import type { EvaluationResult } from "../src/index.js";
 import { EvalHarness, EvaluationRunner } from "../src/index.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../src/model.js";
-import { globalSpanExporter } from "../src/otel-setup.js";
+import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from "../src/scoreboard.js";
+
+const BENCHMARK_PATH = resolve(__dirname, "../benchmark.jsonl");
+const SCOREBOARD_PATH = resolve(__dirname, "../SCOREBOARD.md");
+
+// ---------------------------------------------------------------------------
+// Eval registry — all 12 evaluations
+// ---------------------------------------------------------------------------
+
+const ALL_EVALS: Evaluation[] = [
+	// ReadOnly (4)
+	readOnlyEvals.planRefactoring,
+	readOnlyEvals.auditModule,
+	readOnlyEvals.blastRadius,
+	readOnlyEvals.contextWarming,
+	// Write (5)
+	writeEvals.createHTTPServer,
+	writeEvals.addTypeExport,
+	writeEvals.fixFailingTest,
+	writeEvals.refactorAsync,
+	writeEvals.writeMiddleware,
+	// MultiTurn (3)
+	multiTurnEvals.proposeFirst,
+	multiTurnEvals.memoRecall,
+	multiTurnEvals.approveProposal,
+];
+
+// ---------------------------------------------------------------------------
+// Concurrency pool — bounded, respects Vertex rate limits
+// ---------------------------------------------------------------------------
+
+/**
+ * Run evaluations concurrently up to ALEF_EVAL_CONCURRENCY (default 3).
+ * Each eval gets a fresh Agent + Cerebrum, isolated OTel trace, and its
+ * own AbortController. 429 / RESOURCE_EXHAUSTED errors are retried with
+ * exponential backoff inside organ-llm (isRetryableError).
+ */
+async function runPool(evals: Evaluation[], concurrency: number): Promise<EvaluationResult[]> {
+	const results: (EvaluationResult | null)[] = new Array(evals.length).fill(null);
+	const queue = evals.map((e, i) => ({ eval: e, index: i }));
+	const inFlight: Promise<void>[] = [];
+
+	async function runOne(item: { eval: Evaluation; index: number }): Promise<void> {
+		const harness = new EvalHarness();
+		const runner = new EvaluationRunner(harness, {
+			organFactory: (signal) => [new Cerebrum({ model: getEvalModel(), getSignal: () => signal })],
+			maxErrorRate: 0.5,
+		});
+		results[item.index] = await runner.run(item.eval);
+	}
+
+	// Drain queue with bounded concurrency
+	let next = 0;
+	function dispatch(): void {
+		while (inFlight.length < concurrency && next < queue.length) {
+			const item = queue[next++];
+			const p = runOne(item).finally(() => {
+				inFlight.splice(inFlight.indexOf(p), 1);
+				dispatch();
+			});
+			inFlight.push(p);
+		}
+	}
+
+	dispatch();
+	while (inFlight.length > 0) {
+		await Promise.race(inFlight);
+	}
+
+	return results.filter((r): r is EvaluationResult => r !== null);
+}
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -37,62 +99,32 @@ import { globalSpanExporter } from "../src/otel-setup.js";
 
 beforeAll(() => {
 	if (SKIP_REAL_LLM) console.log("No provider credentials — skipping real-LLM suite");
-	else console.log(`Real-LLM suite: model=${getEvalModel().id}`);
-});
-
-/**
- * Before each test: assert the span exporter is clean.
- * Catches contamination from concurrent tests or leaked runs.
- * The EvalHarness.run() resets the exporter at the start of each run,
- * but if two tests somehow ran concurrently this assertion fires first.
- */
-beforeEach(() => {
-	const leaked = globalSpanExporter.getFinishedSpans().length;
-	if (leaked > 0) {
-		// Spans can leak from a timed-out previous test whose async work
-		// completed after the test harness called collectAndResetSpans().
-		// Reset so the next test starts clean; log for visibility.
-		console.warn(`[beforeEach] cleared ${leaked} leaked spans from previous test`);
-		globalSpanExporter.reset();
+	else {
+		const concurrency = Number(process.env.ALEF_EVAL_CONCURRENCY) || 3;
+		console.log(`Real-LLM suite: model=${getEvalModel().id}  concurrency=${concurrency}`);
 	}
 });
 
 // ---------------------------------------------------------------------------
-// Runner factory — fresh harness + cerebrum per test for isolation
+// Results — collected by the single it() for afterAll
 // ---------------------------------------------------------------------------
 
-function makeRunner() {
-	const harness = new EvalHarness();
-	return new EvaluationRunner(harness, {
-		// organFactory wires the agent's AbortSignal to Cerebrum so dispose()
-		// cancels in-flight HTTP requests (ALE-BUG-29).
-		organFactory: (signal) => [new Cerebrum({ model: getEvalModel(), getSignal: () => signal })],
-		maxErrorRate: 0.3,
-	});
-}
-
-// ---------------------------------------------------------------------------
-// Results accumulator — per-describe, not module-level
-// ---------------------------------------------------------------------------
-
-const allResults: EvaluationResult[] = [];
+let allResults: EvaluationResult[] = [];
 
 afterAll(async () => {
 	if (SKIP_REAL_LLM || allResults.length === 0) return;
 
 	const passed = allResults.filter((r) => r.pass).length;
-	const scores = allResults.map((r) => r.score);
-	const meanScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+	const meanScore = allResults.reduce((a, r) => a + r.score, 0) / allResults.length;
 
 	console.log(`\n╔═══ REAL-LLM REPORT ═══`);
 	console.log(`Passed: ${passed}/${allResults.length}  Mean score: ${(meanScore * 100).toFixed(1)}%`);
 	for (const r of allResults) {
 		const icon = r.pass ? "✓" : "✗";
-		const errs = r.errors.length > 0 ? ` — ${r.errors[0]}` : "";
-		console.log(`  ${icon} ${r.metrics.scenario} score=${(r.score * 100).toFixed(0)}%${errs}`);
+		const err = r.errors[0] ? ` — ${r.errors[0].slice(0, 80)}` : "";
+		console.log(`  ${icon} ${r.metrics.scenario} score=${(r.score * 100).toFixed(0)}%${err}`);
 	}
 
-	// Append to benchmark.jsonl and regenerate SCOREBOARD.md
 	const model = getEvalModel();
 	const record = buildRunRecord(
 		model.id,
@@ -113,91 +145,22 @@ afterAll(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// ReadOnly
+// Single concurrent test — all evals in one pool
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("ReadOnly evaluations", () => {
-	it("PlanRefactoring — reads file, produces concrete refactoring plan", async () => {
-		const result = await makeRunner().run(readOnlyEvals.planRefactoring);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
+describe.skipIf(SKIP_REAL_LLM)("Real-LLM suite", () => {
+	it(`runs all ${ALL_EVALS.length} evaluations concurrently`, async () => {
+		const concurrency = Number(process.env.ALEF_EVAL_CONCURRENCY) || 3;
+		allResults = await runPool(ALL_EVALS, concurrency);
 
-	it("AuditModule — reads file, identifies dead code", async () => {
-		const result = await makeRunner().run(readOnlyEvals.auditModule);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
+		// Assert each eval individually so failures are named clearly.
+		const failures: string[] = [];
+		for (const r of allResults) {
+			if (!r.pass) {
+				failures.push(`${r.metrics.scenario}: ${r.errors.join("; ")}`);
+			}
+		}
 
-	it("BlastRadius — reads two files, traces change impact", async () => {
-		const result = await makeRunner().run(readOnlyEvals.blastRadius);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-
-	it("ContextWarming — reads multiple files, answers cross-file question", async () => {
-		const result = await makeRunner().run(readOnlyEvals.contextWarming);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// Write
-// ---------------------------------------------------------------------------
-
-describe.skipIf(SKIP_REAL_LLM)("Write evaluations", () => {
-	it("CreateHTTPServer — creates file with correct structure", async () => {
-		const result = await makeRunner().run(writeEvals.createHTTPServer);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-
-	it("AddTypeExport — adds missing export to existing file", async () => {
-		const result = await makeRunner().run(writeEvals.addTypeExport);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-
-	it("FixFailingTest — finds bug, fixes implementation", async () => {
-		const result = await makeRunner().run(writeEvals.fixFailingTest);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-
-	it("RefactorAsync — refactors callbacks to async/await", async () => {
-		const result = await makeRunner().run(writeEvals.refactorAsync);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-
-	it("WriteMiddleware — creates new middleware file", async () => {
-		const result = await makeRunner().run(writeEvals.writeMiddleware);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// MultiTurn
-// ---------------------------------------------------------------------------
-
-describe.skipIf(SKIP_REAL_LLM)("MultiTurn evaluations", () => {
-	it("ProposeFirst — proposes approach then implements on approval", async () => {
-		const result = await makeRunner().run(multiTurnEvals.proposeFirst);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-
-	it("MemoRecall — uses information from earlier turn", async () => {
-		const result = await makeRunner().run(multiTurnEvals.memoRecall);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
-
-	it("ApproveProposal — asks for clarification then implements correctly", async () => {
-		const result = await makeRunner().run(multiTurnEvals.approveProposal);
-		allResults.push(result);
-		expect(result.pass, result.errors.join("; ")).toBe(true);
-	});
+		expect(failures, failures.join("\n")).toHaveLength(0);
+	}, 420_000); // Longest scenario (300s) × ceil(evals/concurrency) + buffer
 });

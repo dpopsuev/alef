@@ -19,6 +19,12 @@
  *   ╭─ @alef ────────────────────╮  ← new openSegment (reply text phase)
  *     [reply text]
  *   ╰────────────────────────────╯  ← seal
+ *
+ * Text updates are direct — no Typewriter timer. Each chunk calls
+ * markdownNode.setText(accumulated) and requestRender(). The TUI's
+ * differential renderer handles efficient partial redraws at its own
+ * frame rate (MIN_RENDER_INTERVAL_MS=16). The terminal's own scrollback
+ * owns history; we never write raw scroll escape sequences.
  */
 
 import { Box, type Component, type Container, Markdown, Spacer, Text } from "@dpopsuev/alef-tui";
@@ -28,7 +34,6 @@ import { INDENT, SPACING } from "./layout-constants.js";
 import { makeMarkdownTheme, makeThinkingMarkdownTheme } from "./markdown-themes.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
 import { bg, color, dim } from "./theme.js";
-import { Typewriter } from "./typewriter.js";
 
 const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
 
@@ -54,8 +59,9 @@ export class StreamingZone {
 	private readonly requestRender: () => void;
 	private readonly entries: SegmentEntry[] = [];
 
-	readonly replyTypewriter: Typewriter;
-	readonly thinkTypewriter: Typewriter;
+	// Accumulated text for the active segment — reset on seal/clear.
+	private replyText = "";
+	private thinkText = "";
 
 	constructor(
 		private readonly chat: Container,
@@ -66,8 +72,6 @@ export class StreamingZone {
 	) {
 		this._hideThinking = hideThinking;
 		this.requestRender = requestRender;
-		this.replyTypewriter = new Typewriter({ setText: (text) => this.markdownNode?.setText(text) }, requestRender);
-		this.thinkTypewriter = new Typewriter({ setText: (text) => this.thinkNode?.setText(text) }, requestRender);
 	}
 
 	get hideThinking(): boolean {
@@ -83,7 +87,6 @@ export class StreamingZone {
 		if (this._hideThinking === hide) return;
 		this._hideThinking = hide;
 		if (this.thinkNode) {
-			this.thinkTypewriter.flush();
 			if (hide) {
 				this.activeSegment?.removeChild(this.thinkNode);
 			} else {
@@ -120,19 +123,14 @@ export class StreamingZone {
 		return this.activeSegment;
 	}
 
-	/** Freeze the active segment: flush typewriters, add pill footer. */
+	/** Freeze the active segment: add pill footer. */
 	seal(): void {
 		this.trace("sealStreamingSegment", {
 			chunks: this._chunksReceived,
 			markdownNode: this.markdownNode !== null,
-			pending: this.replyTypewriter.pendingText.length,
+			replyTextLen: this.replyText.length,
 		});
 		this._chunksReceived = 0;
-
-		this.replyTypewriter.flush();
-		this.replyTypewriter.reset();
-		this.thinkTypewriter.flush();
-		this.thinkTypewriter.reset();
 
 		if (this.thinkHeaderNode && this.thinkingStartedAt > 0) {
 			const elapsedMs = Date.now() - this.thinkingStartedAt;
@@ -169,12 +167,12 @@ export class StreamingZone {
 		this.markdownNode = null;
 		this.thinkNode = null;
 		this.thinkHeaderNode = null;
+		this.replyText = "";
+		this.thinkText = "";
 	}
 
 	/** Remove all segments — abort/error path only. */
 	clear(): void {
-		this.replyTypewriter.reset();
-		this.thinkTypewriter.reset();
 		for (const entry of this.entries) {
 			this.chat.removeChild(entry.spacer);
 			this.chat.removeChild(entry.header);
@@ -188,10 +186,12 @@ export class StreamingZone {
 		this.thinkNode = null;
 		this.thinkHeaderNode = null;
 		this.thinkingStartedAt = 0;
+		this.replyText = "";
+		this.thinkText = "";
 	}
 
 	// ---------------------------------------------------------------------------
-	// Content ingestion
+	// Content ingestion — direct setText, no buffering or timer
 	// ---------------------------------------------------------------------------
 
 	receiveText(chunk: string): void {
@@ -202,7 +202,9 @@ export class StreamingZone {
 			this.trace("receiveTextChunk:first", { markdownNode: true });
 		}
 		this._chunksReceived++;
-		this.replyTypewriter.receive(chunk);
+		this.replyText += chunk;
+		this.markdownNode.setText(this.replyText);
+		this.requestRender();
 	}
 
 	receiveThinking(chunk: string): void {
@@ -214,7 +216,9 @@ export class StreamingZone {
 			this.thinkNode = new Markdown("", 2, 0, makeThinkingMarkdownTheme(this.t));
 			if (!this._hideThinking) seg.addChild(this.thinkNode);
 		}
-		this.thinkTypewriter.receive(chunk);
+		this.thinkText += chunk;
+		this.thinkNode.setText(this.thinkText);
+		if (!this._hideThinking) this.requestRender();
 	}
 
 	/** Add a component directly to the currently-open segment box (or chat if none open). */

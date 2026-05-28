@@ -63,8 +63,7 @@ export class ModalInputHandler {
 	private cmdBuffer = "";
 	private cmdTabIndex = -1; // cycling through completions
 
-	/** Double-press state for gg (scroll top) and dd (delete line). */
-	private pendingG = false;
+	/** Double-press state for dd (delete line). */
 	private pendingD = false;
 
 	private hintTimer: ReturnType<typeof setTimeout> | undefined;
@@ -73,8 +72,6 @@ export class ModalInputHandler {
 	private readonly onModeChange: (mode: ModalMode) => void;
 	private readonly onHint: (text: string) => void;
 	private readonly onColonCommand: (cmd: string) => void;
-	/** Called with lines > 0 (scroll down) or < 0 (scroll up) when j/k/ctrl+d/ctrl+u pressed in Normal. */
-	private readonly onScroll: (lines: number) => void;
 
 	constructor(
 		private readonly editor: Editor,
@@ -82,12 +79,10 @@ export class ModalInputHandler {
 		onHint: (text: string) => void = () => {},
 		onColonCommand: (cmd: string) => void = () => {},
 		kb?: KeybindingsManager,
-		onScroll: (lines: number) => void = () => {},
 	) {
 		this.onModeChange = onModeChange;
 		this.onHint = onHint;
 		this.onColonCommand = onColonCommand;
-		this.onScroll = onScroll;
 		// Use provided manager or create a default one with APP_KEYBINDINGS.
 		this.kb = kb ?? new KeybindingsManager(APP_KEYBINDINGS);
 	}
@@ -112,7 +107,6 @@ export class ModalInputHandler {
 	private setOuterMode(m: ModalMode): void {
 		this.outerMode = m;
 		this.pendingD = false;
-		this.pendingG = false;
 		this.cmdMode = false;
 		this.cmdBuffer = "";
 		this.cmdTabIndex = -1;
@@ -133,7 +127,6 @@ export class ModalInputHandler {
 		this.cmdBuffer = "";
 		this.cmdTabIndex = -1;
 		this.pendingD = false;
-		this.pendingG = false;
 		this.clearHint();
 		this.onHint(":");
 	}
@@ -227,7 +220,6 @@ export class ModalInputHandler {
 			} else {
 				// Already Normal: clear pending chords.
 				this.pendingD = false;
-				this.pendingG = false;
 				this.clearHint();
 				this.armHint();
 			}
@@ -247,17 +239,7 @@ export class ModalInputHandler {
 			return { consume: true };
 		}
 
-		// ── Double-press chords (gg, dd) ───────────────────────────────────────
-		if (this.pendingG) {
-			this.pendingG = false;
-			if (this.kb.matches(data, "app.scroll.top")) {
-				// gg → scroll to top
-				this.armHint();
-				return { consume: true };
-			}
-			// Unrecognised second key — fall through.
-		}
-
+		// ── Double-press chord: dd (delete line) ─────────────────────────────
 		if (this.pendingD) {
 			this.pendingD = false;
 			if (this.kb.matches(data, "app.delete.line")) {
@@ -270,41 +252,23 @@ export class ModalInputHandler {
 		}
 
 		// ── Dispatch table (Djinn normalCmds pattern) ─────────────────────────
-		if (this.kb.matches(data, "app.scroll.top")) {
-			this.pendingG = true;
-			this.armHint();
-			return { consume: true };
-		}
 		if (this.kb.matches(data, "app.delete.line")) {
 			this.pendingD = true;
 			this.armHint();
 			return { consume: true };
 		}
 
-		// Scroll — fire onScroll; tui-mode.ts writes ANSI scroll sequences
-		const scrollLines = Number(process.env.ALEF_SCROLL_LINES ?? 3);
-		if (this.kb.matches(data, "app.scroll.down")) {
-			this.onScroll(scrollLines);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.scroll.up")) {
-			this.onScroll(-scrollLines);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.scroll.halfPageDown")) {
-			this.onScroll(scrollLines * 3);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.scroll.halfPageUp")) {
-			this.onScroll(-scrollLines * 3);
-			this.armHint();
-			return { consume: true };
-		}
-		if (this.kb.matches(data, "app.scroll.bottom")) {
-			this.onScroll(Number.MAX_SAFE_INTEGER);
+		// Scroll — the terminal owns scrollback; use shift+pageup or mouse wheel.
+		// Show a one-shot hint and consume the key so it doesn't reach the editor.
+		const SCROLL_HINT = "Use shift+pageup / mouse wheel to scroll history";
+		if (
+			this.kb.matches(data, "app.scroll.down") ||
+			this.kb.matches(data, "app.scroll.up") ||
+			this.kb.matches(data, "app.scroll.halfPageDown") ||
+			this.kb.matches(data, "app.scroll.halfPageUp") ||
+			this.kb.matches(data, "app.scroll.bottom")
+		) {
+			this.onHint(SCROLL_HINT);
 			this.armHint();
 			return { consume: true };
 		}

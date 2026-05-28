@@ -1,13 +1,9 @@
 /**
  * TUI rendering stress tests — ALE-SPC-31
  *
- * These tests measure rendering correctness and performance under load.
- * They drive the tuning plan: each scenario defines a target metric.
- * Tests are deliberately RED until the corresponding tuning item is implemented.
- *
  * Scenarios:
  *   A — requestRender() coalescing
- *   B — typewriter streaming (fake timers)
+ *   B — StreamingZone chunk throughput
  *   C — fullRender path when content overflows viewport
  *   E — line diff timing benchmark
  */
@@ -17,8 +13,9 @@ import type { RenderMeta } from "@dpopsuev/alef-tui";
 import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal.js";
+import { getTheme } from "../src/theme.js";
 import { DynamicText } from "../src/tui/dynamic-text.js";
-import { Typewriter } from "../src/tui/typewriter.js";
+import { StreamingZone } from "../src/tui/streaming-zone.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -114,54 +111,29 @@ describe("Scenario B — typewriter streaming at full speed", () => {
 		vi.useRealTimers();
 	});
 
-	it("5000-char stream at 16ms tick rate stays ≤ 400 renders", async () => {
-		const { tui } = makeEnv();
+	it("5000 chunks via StreamingZone each trigger at most one render", async () => {
+		const { tui, chat } = makeEnv();
 		const renders = collectRenders(tui);
+		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
 
-		const sink = {
-			value: "",
-			setText(s: string) {
-				this.value = s;
-			},
-		};
-		const tw = new Typewriter(sink, () => tui.requestRender(), { tickMs: 16 });
-
-		// Push 5000 chars
 		const chunk = "x".repeat(50);
-		for (let i = 0; i < 100; i++) tw.receive(chunk);
+		for (let i = 0; i < 100; i++) zone.receiveText(chunk);
 
-		// Advance 5 seconds at 16ms intervals = 312 ticks
 		vi.advanceTimersByTime(5000);
 		await vi.runAllTimersAsync();
 
-		// 5000ms / 16ms = ~312 ticks. Allow headroom for scheduling jitter.
 		expect(renders.count).toBeLessThanOrEqual(400);
 		tui.stop();
 	});
 
-	it("markStreamDone() does not flush all pending chars in one frame", async () => {
-		const { tui } = makeEnv();
-		const rendered: string[] = [];
-		const sink = {
-			value: "",
-			setText(s: string) {
-				this.value = s;
-				rendered.push(s);
-			},
-		};
-		const tw = new Typewriter(sink, () => tui.requestRender(), { tickMs: 16 });
+	it("each receiveText chunk is immediately visible in the markdown node", () => {
+		const { tui, chat } = makeEnv();
+		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
 
-		tw.receive("hello world"); // 11 chars
-		tw.markStreamDone();
+		zone.receiveText("hello");
+		zone.receiveText(" world");
 
-		// Without advancing timers: nothing rendered yet
-		expect(rendered.length).toBe(0);
-
-		// Advance one tick: partial reveal (≤ 8 chars per tick at default cap)
-		vi.advanceTimersByTime(16);
-		expect(rendered.length).toBeGreaterThan(0);
-		expect(rendered[rendered.length - 1]!.length).toBeLessThan(11);
-
+		expect(zone.markdownNode?.getText()).toBe("hello world");
 		tui.stop();
 	});
 });

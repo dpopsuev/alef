@@ -27,11 +27,11 @@ describe("StreamingZone", () => {
 		expect(zone.markdownNode).not.toBeNull();
 	});
 
-	it("receiveText() accumulates chunks in the typewriter", () => {
+	it("receiveText() accumulates chunks in the markdown node", () => {
 		const { zone } = makeZone();
 		zone.receiveText("hello");
 		zone.receiveText(" world");
-		expect(zone.replyTypewriter.pendingText).toBe("hello world");
+		expect(zone.markdownNode?.getText()).toBe("hello world");
 	});
 
 	it("seal() resets active segment and markdown node", () => {
@@ -42,12 +42,13 @@ describe("StreamingZone", () => {
 		expect(zone.markdownNode).toBeNull();
 	});
 
-	it("seal() flushes the typewriter before resetting", () => {
+	it("seal() resets accumulated text state", () => {
 		const { zone } = makeZone();
 		zone.receiveText("pending content");
-		expect(zone.replyTypewriter.pendingText.length).toBeGreaterThan(0);
+		expect(zone.markdownNode).not.toBeNull();
 		zone.seal();
-		expect(zone.replyTypewriter.pendingText.length).toBe(0);
+		// After seal the markdown node reference is cleared.
+		expect(zone.markdownNode).toBeNull();
 	});
 
 	it("clear() removes all segments", () => {
@@ -72,11 +73,11 @@ describe("StreamingZone", () => {
 		expect(zone.segments.length).toBeLessThan(segsBefore);
 	});
 
-	it("receiveThinking() creates a think node", () => {
-		const { zone } = makeZone();
+	it("receiveThinking() creates a think node with accumulated text", () => {
+		const { zone } = makeZone(false);
 		zone.receiveThinking("interesting thought");
 		expect(zone.thinkNode).not.toBeNull();
-		expect(zone.thinkTypewriter.pendingText).toBe("interesting thought");
+		expect(zone.thinkNode?.getText()).toBe("interesting thought");
 	});
 
 	it("multiple seal() calls are safe", () => {
@@ -99,7 +100,6 @@ describe("thinking content after seal", () => {
 	it("seal() leaves thinking content in the segment tree — not replaced with compact label", () => {
 		const { zone } = makeZone();
 		zone.receiveThinking("The answer is 42 because of deep philosophical reasons.");
-		zone.thinkTypewriter.flush();
 		zone.seal();
 		// The segment container still holds children (header + content node).
 		// Compact-label behavior would have replaced the Markdown with a one-liner;
@@ -114,7 +114,6 @@ describe("thinking content after seal", () => {
 	it("seal() resets thinkNode pointer (correct) while keeping segment content", () => {
 		const { zone } = makeZone();
 		zone.receiveThinking("some reasoning");
-		zone.thinkTypewriter.flush();
 		zone.seal();
 		// thinkNode is reset to null — correct, so next receiveThinking opens a fresh node.
 		// The content remains in segments[0].children.
@@ -125,10 +124,8 @@ describe("thinking content after seal", () => {
 	it("thinking content survives across a tool call seal+reopen cycle", () => {
 		const { zone } = makeZone();
 		zone.receiveThinking("pre-tool thought");
-		zone.thinkTypewriter.flush();
 		zone.seal(); // first seal (before tool call)
 		zone.receiveText("post-tool reply");
-		zone.replyTypewriter.flush();
 		zone.seal(); // second seal
 		// Original thinkNode from segment 0 still has content
 		expect(zone.segments.length).toBe(2);
@@ -196,7 +193,6 @@ describe("StreamingZone pill header width", () => {
 	it("footer visible width === w after seal", () => {
 		const { zone, chat } = makeZone();
 		zone.receiveText("hello");
-		zone.replyTypewriter.flush();
 		zone.seal();
 
 		// After seal: children are [Spacer, header, Box, footer]

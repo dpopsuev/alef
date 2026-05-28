@@ -490,24 +490,15 @@ export async function runTuiMode(
 		try {
 			await dialog.send(text, "human", 300_000);
 			if (!aborted) {
-				streamingZone.replyTypewriter.markStreamDone();
-				streamingZone.thinkTypewriter.markStreamDone();
-				// seal() calls flush() which dumps pending chars in one frame; drain first.
-				await Promise.all([
-					streamingZone.replyTypewriter.whenDrained(),
-					streamingZone.thinkTypewriter.whenDrained(),
-				]);
-				if (!aborted) {
-					// Seal before stopThinking to avoid the empty-box flash (ALE-BUG-7).
-					streamingZone.seal();
-					consoleZone.stopThinking();
-					consoleZone.hidePendingFooter();
-					pendingFooterShown = false;
-					const tokenText = new Text("", 1, 0);
-					chat.addChild(tokenText);
-					pendingTokenFooter = tokenText;
-					tui.requestRender(true);
-				}
+				// Seal before stopThinking to avoid the empty-box flash (ALE-BUG-7).
+				streamingZone.seal();
+				consoleZone.stopThinking();
+				consoleZone.hidePendingFooter();
+				pendingFooterShown = false;
+				const tokenText = new Text("", 1, 0);
+				chat.addChild(tokenText);
+				pendingTokenFooter = tokenText;
+				tui.requestRender(true);
 			}
 		} catch (e) {
 			consoleZone.stopThinking();
@@ -547,18 +538,6 @@ export async function runTuiMode(
 		// onColonCommand: dispatch ':cmd' executed from Normal mode
 		(colonCmd) => {
 			handleColonCommand(colonCmd, ctx());
-		},
-		undefined, // kb — use default APP_KEYBINDINGS
-		// onScroll: write ANSI scroll sequence to terminal viewport
-		(lines) => {
-			if (lines === Number.MAX_SAFE_INTEGER) {
-				// G — scroll to very bottom
-				process.stdout.write("\x1b[9999S");
-			} else if (lines > 0) {
-				process.stdout.write(`\x1b[${lines}S`); // scroll down
-			} else if (lines < 0) {
-				process.stdout.write(`\x1b[${-lines}T`); // scroll up
-			}
 		},
 	);
 	tui.addInputListener(modal.handle);

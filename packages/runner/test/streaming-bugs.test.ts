@@ -7,10 +7,8 @@
  *   3. Thinking text not visible (regression)
  */
 
-import { Container, Text } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventPressure, pressureToInterval, timeBasedHue } from "../src/event-pressure.js";
-import { Typewriter } from "../src/tui/typewriter.js";
 import { pillHeaderStr } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
@@ -120,74 +118,6 @@ describe("Spinner reads from EventPressure (integration)", () => {
 		const p = new EventPressure();
 		for (let i = 0; i < 10; i++) p.pulse();
 		expect(pressureToInterval(p.level())).toBeLessThanOrEqual(35);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// 2. Final reply typewriting
-// ---------------------------------------------------------------------------
-
-describe("Agent reply is typewritten, not dumped", () => {
-	beforeEach(() => vi.useFakeTimers());
-	afterEach(() => vi.useRealTimers());
-
-	it("body text starts empty and reveals gradually", () => {
-		const sink = {
-			value: "",
-			setText(t: string) {
-				this.value = t;
-			},
-		};
-		const tw = new Typewriter(sink, () => {}, { tickMs: 4 });
-		const reply = "Based on my exploration, the codebase follows an EDA architecture.";
-
-		tw.receive(reply);
-		tw.markStreamDone();
-
-		expect(sink.value).toBe("");
-
-		vi.advanceTimersByTime(6); // one 4ms tick fires, partial drain
-		expect(sink.value.length).toBeGreaterThan(0);
-		expect(sink.value.length).toBeLessThan(reply.length);
-
-		vi.advanceTimersByTime(500);
-		expect(sink.value).toBe(reply);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// 3. Thinking visibility
-// ---------------------------------------------------------------------------
-
-describe("Thinking text appears during extended thinking", () => {
-	beforeEach(() => vi.useFakeTimers());
-	afterEach(() => vi.useRealTimers());
-
-	it("thinking chunk is revealed by thinkTypewriter", () => {
-		const sink = {
-			value: "",
-			setText(t: string) {
-				this.value = t;
-			},
-		};
-		const tw = new Typewriter(sink, () => {});
-		const chunk = "Analyzing the repository structure to understand the architecture...";
-
-		tw.receive(chunk);
-		tw.markStreamDone();
-		vi.advanceTimersByTime(2000); // 68 chars / 2 per tick / 60fps = ~544ms, give margin
-
-		expect(sink.value).toBe(chunk);
-	});
-
-	it("thinking segment gets a label node and a content node", () => {
-		const segment = new Container();
-		segment.addChild(new Text("…thinking", 2, 0));
-		const contentNode = new Text("", 2, 0);
-		segment.addChild(contentNode);
-
-		expect(segment.children.length).toBe(2);
-		expect(segment.children[0]).toBeInstanceOf(Text);
 	});
 });
 

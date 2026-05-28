@@ -24,16 +24,13 @@ function makeEditorStub() {
 function makeHandler() {
 	const editor = makeEditorStub();
 	const modes: string[] = [];
-	const scrollDeltas: number[] = [];
+	const hints: string[] = [];
 	const h = new ModalInputHandler(
 		editor as never,
 		(m) => modes.push(m),
-		undefined,
-		undefined,
-		undefined,
-		(delta) => scrollDeltas.push(delta),
+		(hint) => hints.push(hint),
 	);
-	return { h, editor, modes, scrollDeltas };
+	return { h, editor, modes, hints };
 }
 
 // ---------------------------------------------------------------------------
@@ -149,22 +146,22 @@ describe("ModalInputHandler — normal mode motion", () => {
 		expect(editor.calls).toContain("\x1b[C");
 	});
 
-	it("j triggers scroll down (not editor cursor)", () => {
-		const { h, editor, scrollDeltas } = makeHandler();
+	it("j shows scroll hint and does not move editor cursor", () => {
+		const { h, editor, hints } = makeHandler();
 		h.handle("\x1b");
 		editor.reset();
 		h.handle("j");
-		expect(editor.calls).toHaveLength(0); // j no longer moves editor cursor
-		expect(scrollDeltas[0]).toBeGreaterThan(0); // fires onScroll with positive delta
+		expect(editor.calls).toHaveLength(0);
+		expect(hints.some((hint) => hint.includes("scroll"))).toBe(true);
 	});
 
-	it("k triggers scroll up (not editor cursor)", () => {
-		const { h, editor, scrollDeltas } = makeHandler();
+	it("k shows scroll hint and does not move editor cursor", () => {
+		const { h, editor, hints } = makeHandler();
 		h.handle("\x1b");
 		editor.reset();
 		h.handle("k");
-		expect(editor.calls).toHaveLength(0); // k no longer moves editor cursor
-		expect(scrollDeltas[0]).toBeLessThan(0); // fires onScroll with negative delta
+		expect(editor.calls).toHaveLength(0);
+		expect(hints.some((hint) => hint.includes("scroll"))).toBe(true);
 	});
 
 	it("w sends word-right (alt+right)", () => {

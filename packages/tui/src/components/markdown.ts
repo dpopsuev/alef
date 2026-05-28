@@ -102,6 +102,10 @@ export class Markdown implements Component {
 		this.defaultTextStyle = defaultTextStyle;
 	}
 
+	getText(): string {
+		return this.text;
+	}
+
 	setText(text: string): void {
 		this.text = text;
 		this.invalidate();

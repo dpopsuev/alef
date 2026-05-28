@@ -57,8 +57,6 @@ export function appendNotice(chat: Container, text: string, t: ThemeTokens): voi
 export class AgentBlock {
 	private open = false;
 	private contentBox: Box | null = null;
-	/** Saved during start() for use by end(). Null outside an open block. */
-	private savedBgFn: ((s: string) => string) | null = null;
 
 	constructor(
 		private readonly chat: Container,
@@ -69,18 +67,10 @@ export class AgentBlock {
 	start(): void {
 		if (this.open) return;
 		this.open = true;
-		const t = this.t;
-		const hasBg = t.agentBg.truecolor || t.agentBg.ansi256 !== undefined || t.agentBg.ansi16 !== undefined;
-		this.savedBgFn = hasBg ? (s: string) => bg(s, t.agentBg) : null;
-		const bgFn = this.savedBgFn;
-
+		const { agentFg } = this.t;
 		this.chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
-		this.chat.addChild(
-			bgFn
-				? new DynamicText((w) => bgFn(color(pillHeaderStr(AGENT_LABEL, w), t.agentFg)))
-				: new DynamicText((w) => color(pillHeaderStr(AGENT_LABEL, w), t.agentFg)),
-		);
-		this.contentBox = bgFn ? new Box(INDENT.BLOCK, 0, bgFn) : new Box(INDENT.BLOCK, 0);
+		this.chat.addChild(new DynamicText((w) => color(pillHeaderStr(AGENT_LABEL, w), agentFg)));
+		this.contentBox = new Box(INDENT.BLOCK, 0);
 		this.chat.addChild(this.contentBox);
 	}
 
@@ -88,15 +78,9 @@ export class AgentBlock {
 	end(): void {
 		if (!this.open) return;
 		this.open = false;
-		const t = this.t;
-		const bgFn = this.savedBgFn;
-		this.chat.addChild(
-			bgFn
-				? new DynamicText((w) => bgFn(color(pillFooterStr(w), t.agentFg)))
-				: new DynamicText((w) => color(pillFooterStr(w), t.agentFg)),
-		);
+		const { agentFg } = this.t;
+		this.chat.addChild(new DynamicText((w) => color(pillFooterStr(w), agentFg)));
 		this.contentBox = null;
-		this.savedBgFn = null;
 	}
 
 	/** Route a component into the inner Box (or direct to chat if not open). */
@@ -117,6 +101,5 @@ export class AgentBlock {
 	reset(): void {
 		this.open = false;
 		this.contentBox = null;
-		this.savedBgFn = null;
 	}
 }

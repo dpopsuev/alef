@@ -358,13 +358,26 @@ try {
 	if (args.print) {
 		await runPrintMode(args.prompt, dialog, () => agent.dispose());
 	} else if (useTui) {
-		await runTuiMode(
-			dialog,
-			{ cwd: args.cwd, modelId: resolvedModelDisplay, sessionId: session.id, contextWindow: model.contextWindow },
-			() => agent.dispose(),
-			setLLMAbortController,
-			toolSlot,
-		);
+		// Suppress stderr during TUI — stderr shares the PTY and corrupts the display.
+		// Node.js deprecation warnings, library noise, etc. are silently dropped.
+		// Callbacks are honoured to satisfy the Node.js stream contract.
+		const originalStderrWrite = process.stderr.write.bind(process.stderr);
+		process.stderr.write = ((_chunk: unknown, encOrCb?: unknown, cb?: unknown) => {
+			const callback = typeof encOrCb === "function" ? encOrCb : (cb as (() => void) | undefined);
+			callback?.();
+			return true;
+		}) as typeof process.stderr.write;
+		try {
+			await runTuiMode(
+				dialog,
+				{ cwd: args.cwd, modelId: resolvedModelDisplay, sessionId: session.id, contextWindow: model.contextWindow },
+				() => agent.dispose(),
+				setLLMAbortController,
+				toolSlot,
+			);
+		} finally {
+			process.stderr.write = originalStderrWrite;
+		}
 	} else if (args.serve !== undefined && !process.stdin.isTTY) {
 		// --serve without a TTY: RouterOrgan is the sole interface.
 		// Block forever — the process stays alive until SIGTERM.

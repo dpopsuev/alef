@@ -33,7 +33,8 @@ import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.j
 
 const FS_READ_TOOL = {
 	name: "fs.read",
-	description: "Read the contents of a file. Truncated to 2000 lines or 50KB. Use offset/limit for large files.",
+	description:
+		"Read raw text from any file. Returns up to 2000 lines or 50KB; use offset/limit to paginate. For code files where you need symbol awareness, prefer lector.read.",
 	inputSchema: z.object({
 		path: z.string().describe("Path to the file (relative or absolute)"),
 		offset: z.number().optional().describe("Line number to start reading from (1-indexed)"),
@@ -43,7 +44,8 @@ const FS_READ_TOOL = {
 
 const FS_GREP_TOOL = {
 	name: "fs.grep",
-	description: "Search file contents using ripgrep. Returns matching lines with file paths and line numbers.",
+	description:
+		"Search file contents by regex or literal pattern using ripgrep. Returns matching lines with file paths and line numbers. To find callers of a specific symbol, use lector.callers instead.",
 	inputSchema: z.object({
 		pattern: z.string().describe("Search pattern (regex or literal string)"),
 		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
@@ -60,7 +62,8 @@ const FS_GREP_TOOL = {
 
 const FS_FIND_TOOL = {
 	name: "fs.find",
-	description: "Find files using fd. depth=1 lists immediate children (replaces ls).",
+	description:
+		"Find files by glob pattern. Use depth=1 to list a directory's immediate children (equivalent to ls). Returns file paths.",
 	inputSchema: z.object({
 		pattern: z.string().describe("Glob pattern, e.g. '*.ts'. Use '*' to list all."),
 		path: z.string().optional().describe("Directory to search (default: cwd)"),
@@ -74,7 +77,8 @@ const FS_FIND_TOOL = {
 
 const FS_WRITE_TOOL = {
 	name: "fs.write",
-	description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does.",
+	description:
+		"Write full content to a file, creating or overwriting it. For targeted in-place replacements, use fs.edit instead.",
 	inputSchema: z.object({
 		path: z.string().describe("Path to the file (relative or absolute)"),
 		content: z.string().describe("Content to write"),
@@ -89,9 +93,9 @@ const EditEntrySchema = z.object({
 const FS_EDIT_TOOL = {
 	name: "fs.edit",
 	description:
-		"Edit a file by replacing exact text. Pass edits[] for multiple replacements in one atomic call. " +
-		"Each oldText must be unique in the file. All edits are matched against the original — not incrementally. " +
-		"Overlapping edits are rejected. Throws if any oldText is not found or not unique.",
+		"Apply exact-text replacements to a file atomically. Requires reading the file first with fs.read. " +
+		"Each oldText must be unique; overlapping edits are rejected. " +
+		"For symbol-level replacement by function/class name, use lector.edit instead.",
 	inputSchema: z.union([
 		z.object({
 			path: z.string().describe("Path to the file (relative or absolute)"),

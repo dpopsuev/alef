@@ -27,8 +27,8 @@ import { LocalLectorBackend } from "./local-backend.js";
 const READ_TOOL = {
 	name: "lector.read",
 	description:
-		"Read a file and its symbol map. Use symbol= to zoom into a single function/class/type block. " +
-		"Always returns all declared symbols regardless of zoom.",
+		"Read a code file with its symbol map (functions, classes, types). Use symbol= to zoom into one declaration. " +
+		"Always returns all declared symbols. For non-code files, use fs.read instead.",
 	inputSchema: z.object({
 		path: z.string().describe("File path (relative or absolute)"),
 		symbol: z.string().optional().describe("Name of a symbol to zoom into (returns just that block)"),
@@ -39,7 +39,8 @@ const READ_TOOL = {
 
 const WRITE_TOOL = {
 	name: "lector.write",
-	description: "Write content to a file. Creates parent directories if needed. Overwrites existing content.",
+	description:
+		"Write full content to a code file, creating parent directories if needed. For targeted symbol-level edits, use lector.edit instead.",
 	inputSchema: z.object({
 		path: z.string().describe("File path (relative or absolute)"),
 		content: z.string().describe("Content to write"),
@@ -49,8 +50,8 @@ const WRITE_TOOL = {
 const EDIT_TOOL = {
 	name: "lector.edit",
 	description:
-		"Apply targeted edits to a file. Each edit uses either oldText (exact unique match) " +
-		"or symbol (replace an entire named symbol's span). Use lector.read first.",
+		"Edit a code file by exact text or by symbol name (replaces the full function/class span). " +
+		"Requires lector.read first. More precise than fs.edit for code symbols.",
 	inputSchema: z.object({
 		path: z.string().describe("File path (relative or absolute)"),
 		edits: z
@@ -74,7 +75,8 @@ const EDIT_TOOL = {
 const SEARCH_TOOL = {
 	name: "lector.search",
 	description:
-		"Search file contents with ripgrep (grep fallback). Returns matching lines with file path and line number.",
+		"Search file contents by pattern using ripgrep. Returns matching lines with file path and line number. " +
+		"To find all callers of a specific symbol by name, use lector.callers instead.",
 	inputSchema: z.object({
 		pattern: z.string().describe("Search pattern (regex or literal)"),
 		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
@@ -99,8 +101,8 @@ const FIND_TOOL = {
 const CALLERS_TOOL = {
 	name: "lector.callers",
 	description:
-		"Find all call sites that reference a symbol by name. " +
-		"Phase 1: grep-based (fast, no LSP). Returns file, line, and surrounding context.",
+		"Find every call site referencing a named symbol (function, class, variable). " +
+		"Returns file, line, and surrounding context. Use before refactoring to understand blast radius.",
 	inputSchema: z.object({
 		symbol: z.string().describe("Symbol name to search for"),
 		path: z.string().optional().describe("Restrict search to this path (default: entire workspace)"),

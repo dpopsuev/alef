@@ -2,10 +2,11 @@
  * Unit tests for chat-view.ts — UserBlock, AgentBlock, NoticeBlock.
  * No TUI process needed; tests DOM structure directly.
  */
-import { Container } from "@dpopsuev/alef-tui";
+import { stripVTControlCharacters } from "node:util";
+import { Container, visibleWidth } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../src/theme.js";
-import { AgentBlock, appendNotice, appendUserMsg } from "../src/tui/chat-view.js";
+import { AgentBlock, appendCompletedToolBlock, appendNotice, appendUserMsg } from "../src/tui/chat-view.js";
 
 function makeChat() {
 	return new Container();
@@ -104,5 +105,46 @@ describe("AgentBlock", () => {
 		block.reset();
 		block.start(); // should work again
 		expect(block.isOpen).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// appendCompletedToolBlock — pill header width invariant
+// ALE-BUG: header was off by one (fill used -4 instead of -5), causing
+// "Rendered line N exceeds terminal width" crash in TUI.doRender.
+// ---------------------------------------------------------------------------
+
+describe("appendCompletedToolBlock — pill header width", () => {
+	const t = getTheme();
+
+	function renderHeader(width: number, name: string, keyArg: string, elapsedMs: number): string {
+		const chat = new Container();
+		appendCompletedToolBlock(chat, name, keyArg, elapsedMs, true, null, t);
+		// First child is the header DynamicText
+		const header = chat.children[0] as unknown as { render(w: number): string[] };
+		const lines = header.render(width);
+		return lines[0] ?? "";
+	}
+
+	for (const width of [80, 120, 179, 200]) {
+		it(`header visible width === terminal width at w=${width}`, () => {
+			const line = renderHeader(width, "fs.find", "*", 29);
+			const visible = visibleWidth(stripVTControlCharacters(line));
+			expect(visible).toBe(width);
+		});
+	}
+
+	it("header visible width === terminal width with long tool name", () => {
+		const width = 120;
+		const line = renderHeader(width, "shell.exec", "npm run build --verbose", 1234);
+		const visible = visibleWidth(stripVTControlCharacters(line));
+		expect(visible).toBe(width);
+	});
+
+	it("header visible width === terminal width with no keyArg", () => {
+		const width = 80;
+		const line = renderHeader(width, "nodesh.eval", "", 5);
+		const visible = visibleWidth(stripVTControlCharacters(line));
+		expect(visible).toBe(width);
 	});
 });

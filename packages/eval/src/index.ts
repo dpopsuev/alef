@@ -63,6 +63,15 @@ export {
 	type UnitScorer,
 } from "./resolution-unit.js";
 export {
+	appendRunRecord,
+	buildRunRecord,
+	type EvalScore,
+	generateScoreboard,
+	loadRunHistory,
+	type RunRecord,
+	writeScoreboard,
+} from "./scoreboard.js";
+export {
 	assertPath,
 	assertToolInTrace,
 	loadTrace,

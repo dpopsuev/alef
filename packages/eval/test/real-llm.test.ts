@@ -15,9 +15,15 @@
  *   ALEF_EVAL_MODEL=claude-haiku-4-5 npx vitest --run test/real-llm.test.ts
  */
 
+import { resolve } from "node:path";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import * as multiTurnEvals from "../src/evaluations/multi-turn.js";
+import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from "../src/scoreboard.js";
+
+const BENCHMARK_PATH = resolve(__dirname, "../benchmark.jsonl");
+const SCOREBOARD_PATH = resolve(__dirname, "../SCOREBOARD.md");
+
 import * as readOnlyEvals from "../src/evaluations/read-only.js";
 import * as writeEvals from "../src/evaluations/write.js";
 import type { EvaluationResult } from "../src/index.js";
@@ -71,24 +77,39 @@ function makeRunner() {
 
 const allResults: EvaluationResult[] = [];
 
-afterAll(() => {
+afterAll(async () => {
 	if (SKIP_REAL_LLM || allResults.length === 0) return;
 
 	const passed = allResults.filter((r) => r.pass).length;
 	const scores = allResults.map((r) => r.score);
 	const meanScore = scores.reduce((a, b) => a + b, 0) / scores.length;
 
-	console.log(`\n═══ REAL-LLM REPORT ═══`);
-	console.log(`Passed: ${passed}/${allResults.length}`);
-	console.log(`Mean score: ${(meanScore * 100).toFixed(1)}%`);
-	console.log(
-		`OAE (mean): ${((allResults.reduce((a, r) => a + r.metrics.oae, 0) / allResults.length) * 100).toFixed(1)}%`,
-	);
+	console.log(`\n╔═══ REAL-LLM REPORT ═══`);
+	console.log(`Passed: ${passed}/${allResults.length}  Mean score: ${(meanScore * 100).toFixed(1)}%`);
 	for (const r of allResults) {
 		const icon = r.pass ? "✓" : "✗";
-		const errs = r.errors.length > 0 ? ` — ${r.errors.join("; ")}` : "";
+		const errs = r.errors.length > 0 ? ` — ${r.errors[0]}` : "";
 		console.log(`  ${icon} ${r.metrics.scenario} score=${(r.score * 100).toFixed(0)}%${errs}`);
 	}
+
+	// Append to benchmark.jsonl and regenerate SCOREBOARD.md
+	const model = getEvalModel();
+	const record = buildRunRecord(
+		model.id,
+		model.provider ?? "unknown",
+		allResults.map((r) => ({
+			id: r.metrics.scenario,
+			pass: r.pass,
+			score: r.score,
+			error: r.errors[0],
+			durationMs: r.metrics.durationMs,
+			oae: r.metrics.oae,
+		})),
+	);
+	await appendRunRecord(BENCHMARK_PATH, record);
+	const history = await loadRunHistory(BENCHMARK_PATH);
+	await writeScoreboard(SCOREBOARD_PATH, history);
+	console.log(`Scoreboard updated — ${history.length} run(s) recorded.`);
 });
 
 // ---------------------------------------------------------------------------

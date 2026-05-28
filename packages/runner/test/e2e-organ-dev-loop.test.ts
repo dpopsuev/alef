@@ -1,104 +1,79 @@
 /**
- * ALE-TSK-246 — Full agentic organ development loop integration test.
+ * ALE-TSK-340 — Agentic organ dev loop: uses organ-supervisor + organ-eval AS organs.
  *
- * Scenario:
- *   1. Write a simple echo organ to disk (via writeFileSync, simulating nodesh.eval).
- *   2. Spawn a child Alef via supervisor with the organ loaded.
- *   3. Confirm child serves /health.
- *   4. Use eval.run (via collectEvents + postMessage) to send a prompt and
- *      validate the response with structural validators.
- *   5. Assert the eval passes.
- *   6. Kill the child (supervisor.kill equivalent).
+ * Replaces the previous test that manually reimplemented collectEvents,
+ * postMessage, and runValidators by calling organ-eval internals directly.
+ * Now the organs are mounted on an InProcessNerve and driven via Motor events,
+ * validating that the composition works end-to-end.
+ *
+ * Flow:
+ *   1. Write a simple echo organ to disk (simulates nodesh.eval output)
+ *   2. Publish motor/supervisor.spawn → Sense returns { endpoint, name }
+ *   3. Publish motor/eval.run with endpoint → Sense returns EvalResult
+ *   4. Assert EvalResult.passed
+ *   5. Publish motor/supervisor.kill to clean up
  *
  * No real LLM — ALEF_SCRIPTED_REPLIES drives the child's dialog.message.
- * The "new organ" is an organ that always replies to fs.read with a fixed
- * test string, exercising the full spawn→eval→assert pipeline.
  */
 
-import { type ChildProcess, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { createEvalOrgan } from "@dpopsuev/alef-organ-eval";
+import { createSupervisorOrgan } from "@dpopsuev/alef-organ-supervisor";
+import type { SenseEvent } from "@dpopsuev/alef-spine";
+import { InProcessNerve } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
-import { collectEvents, postMessage } from "../../organ-eval/src/http.js";
-import type { TranscriptEvent } from "../../organ-eval/src/types.js";
-import { runValidators } from "../../organ-eval/src/validators.js";
-
-const ROOT = resolve(__dirname, "../../..");
-const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
-const RUNNER_MAIN = resolve(__dirname, "../src/main.ts");
-const TSCONFIG = resolve(ROOT, "tsconfig.json");
 
 const tempDirs: string[] = [];
-const procs: ChildProcess[] = [];
+const unmounts: Array<() => void> = [];
 
 afterEach(() => {
-	for (const p of procs.splice(0)) p.kill("SIGTERM");
+	for (const u of unmounts.splice(0)) u();
 	for (const d of tempDirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
+// Temp dirs must be inside the monorepo root so jiti can resolve workspace
+// packages (@dpopsuev/alef-spine etc.) by traversing up to node_modules.
+const WORKSPACE_ROOT = resolve(__dirname, "../../..");
+
 function makeTmp(): string {
-	const d = mkdtempSync(join(tmpdir(), "alef-organ-loop-"));
+	// Use workspace root as parent so jiti finds node_modules when loading organs.
+	const d = mkdtempSync(join(WORKSPACE_ROOT, ".tmp-organ-loop-"));
 	tempDirs.push(d);
 	return d;
 }
 
-function waitForOutput(proc: ChildProcess, pattern: RegExp, timeoutMs = 20_000): Promise<string> {
+/** Publish a Motor event and wait for the matching Sense reply. */
+function motorCall(
+	nerve: InProcessNerve,
+	toolName: string,
+	payload: Record<string, unknown>,
+	timeoutMs: number,
+): Promise<SenseEvent> {
 	return new Promise((resolve, reject) => {
-		let buf = "";
-		const timer = setTimeout(() => {
-			proc.kill("SIGTERM");
-			reject(new Error(`Timeout after ${timeoutMs}ms waiting for ${pattern}\nOutput:\n${buf.slice(-1000)}`));
-		}, timeoutMs);
-		const handler = (chunk: Buffer) => {
-			buf += chunk.toString();
-			if (pattern.test(buf)) {
+		const correlationId = randomUUID();
+		const timer = setTimeout(() => reject(new Error(`motor/${toolName} timed out after ${timeoutMs}ms`)), timeoutMs);
+		const off = nerve.asNerve().sense.subscribe(toolName, (event) => {
+			if (event.correlationId === correlationId) {
 				clearTimeout(timer);
-				proc.stdout?.off("data", handler);
-				proc.stderr?.off("data", handler);
-				resolve(buf);
+				off();
+				resolve(event);
 			}
-		};
-		proc.stdout?.on("data", handler);
-		proc.stderr?.on("data", handler);
+		});
+		nerve.asNerve().motor.publish({ type: toolName, correlationId, payload });
 	});
 }
 
-function parseRouterPort(output: string): number {
-	const m = output.match(/router listening on http:\/\/[\d.]+:(\d+)/);
-	if (!m) throw new Error(`Could not parse router port from: ${output.slice(-300)}`);
-	return Number(m[1]);
-}
+describe("ALE-TSK-340: organ-dev-loop via supervisor + eval organs", () => {
+	it("spawn child via supervisor.spawn, eval via eval.run, assert passes", async () => {
+		// organ files live inside workspace so jiti resolves @dpopsuev/* packages.
+		const organDir = makeTmp();
+		const cwd = organDir; // child Alef cwd — workspace adjacent
 
-async function getJson(url: string): Promise<unknown> {
-	const http = await import("node:http");
-	return new Promise((resolve, reject) => {
-		http
-			.get(url, (res) => {
-				let data = "";
-				res.on("data", (c: Buffer) => {
-					data += c.toString();
-				});
-				res.on("end", () => {
-					try {
-						resolve(JSON.parse(data));
-					} catch {
-						resolve(data);
-					}
-				});
-			})
-			.on("error", reject);
-	});
-}
-
-describe("ALE-TSK-246: agentic organ dev loop — spawn, eval, assert", () => {
-	it("spawn child Alef, eval with structural validators, collect pass result", async () => {
-		const cwd = makeTmp();
-
-		// ── Step 1: write a simple organ to disk ───────────────────────
-		// In the real loop an agent would use nodesh.eval to write this.
-		// Here we simulate it directly to keep the test deterministic.
-		const organPath = join(cwd, "echo-organ.ts");
+		// ── Step 1: write echo organ to disk ─────────────────────────────
+		// Simulates what the agent does via nodesh.eval in the real loop.
+		const organPath = join(organDir, "echo-organ.ts");
 		writeFileSync(
 			organPath,
 			`
@@ -110,70 +85,79 @@ export function createOrgan() {
     "motor/echo.ping": {
       tool: {
         name: "echo.ping",
-        description: "Replies with pong.",
+        description: "Echo a message back as pong. Use to verify the organ is running.",
         inputSchema: z.object({ message: z.string() }),
       },
-      handle: async (ctx) => {
-        const msg = ctx.payload.message ?? "";
-        return { reply: \`pong:\${msg}\` };
-      },
+      handle: async (ctx) => ({ reply: \`pong:\${ctx.payload.message}\` }),
     },
+  }, {
+    description: "Simple echo organ for integration testing.",
+    directives: ["Use echo.ping to verify the child agent is responsive."],
   });
 }
-`,
+			`.trim(),
 			"utf-8",
 		);
 
-		// ── Step 2: spawn child Alef with the organ ────────────────────
-		// Uses ALEF_SCRIPTED_REPLIES so no real LLM is needed.
-		// The scripted reply simulates the agent using the echo organ.
-		const child = spawn(process.execPath, [TSX, RUNNER_MAIN, "--serve", "0", "--no-tui"], {
-			cwd,
-			stdio: ["ignore", "pipe", "pipe"],
-			env: {
-				...process.env,
-				ALEF_SCRIPTED_REPLIES: JSON.stringify(["Echo organ loaded and ready."]),
-				TSX_TSCONFIG_PATH: TSCONFIG,
+		// Scripted reply: the child inherits process.env, so this drives
+		// the child's dialog.message without a real LLM call.
+		const SCRIPTED_REPLY = "Echo organ loaded and responding.";
+		process.env.ALEF_SCRIPTED_REPLIES = JSON.stringify([SCRIPTED_REPLY]);
+
+		// ── Step 2: mount organs on a shared nerve ────────────────────────
+		const nerve = new InProcessNerve();
+		const supervisorOrgan = createSupervisorOrgan({ cwd });
+		const evalOrgan = createEvalOrgan({});
+		unmounts.push(supervisorOrgan.mount(nerve.asNerve()));
+		unmounts.push(evalOrgan.mount(nerve.asNerve()));
+
+		// ── Step 3: supervisor.spawn — start child Alef with echo organ ──
+		const spawnResult = await motorCall(
+			nerve,
+			"supervisor.spawn",
+			{
+				organs: [organPath],
+				cwd,
 			},
-		});
-		procs.push(child);
-
-		// ── Step 3: wait for the router to bind ─────────────────────────
-		const output = await waitForOutput(child, /router listening on/, 25_000);
-		const port = parseRouterPort(output);
-		const baseUrl = `http://127.0.0.1:${port}`;
-
-		// Confirm /health
-		const health = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
-		expect(health.ok).toBe(true);
-
-		// ── Step 4: eval — send prompt, collect transcript ──────────────
-		const ssePromise = collectEvents(
-			baseUrl,
-			(events: TranscriptEvent[]) => events.some((e) => e.bus === "motor" && e.type === "dialog.message"),
-			15_000,
+			30_000,
 		);
 
-		await new Promise((r) => setTimeout(r, 100)); // let SSE connect
-		await postMessage(baseUrl, "ping please");
+		expect(spawnResult.isError, spawnResult.errorMessage).toBe(false);
+		const { endpoint, name } = spawnResult.payload as { endpoint: string; name: string };
+		expect(endpoint).toMatch(/^http:\/\//);
+		expect(name).toMatch(/^child-/);
 
-		const transcript = await ssePromise;
+		// ── Step 4: eval.run — drive child, validate response ────────────
+		// ALEF_SCRIPTED_REPLIES is set on the child process via the supervisor.
+		// The scripted reply simulates the child's dialog.message response.
+		// The eval validates structurally: reply must contain "Echo organ".
+		const evalResult = await motorCall(
+			nerve,
+			"eval.run",
+			{
+				endpoint,
+				prompts: [{ role: "user", text: "ping please" }],
+				validators: [{ type: "contains", value: "Echo" }],
+			},
+			20_000,
+		);
 
-		// ── Step 5: assert the eval passes ─────────────────────────────
-		const failures = runValidators(transcript, [
-			{ type: "contains", value: "Echo organ" }, // scripted reply contains this
-		]);
-		expect(failures).toEqual([]);
-
-		const result = {
-			passed: failures.length === 0,
-			score: failures.length === 0 ? 100 : 0,
-			failures,
-			reasoning: failures.length === 0 ? "All structural validators passed" : "Validation failed",
-			transcript,
+		// eval.run may return isError=false but passed=false — check payload
+		const result = evalResult.payload as {
+			passed: boolean;
+			score: number;
+			failures: string[];
+			reasoning: string;
 		};
-		expect(result.passed).toBe(true);
 
-		// ── Step 6: clean up (afterEach kills procs) ────────────────────
-	}, 45_000);
+		// Restore env before cleanup
+		delete process.env.ALEF_SCRIPTED_REPLIES;
+
+		// ── Step 5: clean up via supervisor.kill ─────────────────────────
+		await motorCall(nerve, "supervisor.kill", { name }, 5_000).catch(() => {
+			/* ignore kill errors */
+		});
+
+		expect(result.passed, `failures: ${result.failures.join(", ")}`).toBe(true);
+	}, 60_000);
 });

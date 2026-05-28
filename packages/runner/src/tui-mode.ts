@@ -321,7 +321,7 @@ export async function runTuiMode(
 	}
 
 	// ── Agent block + streaming zone ──────────────────────────────────────
-	const streamingZone = new StreamingZone(chat, () => tui.requestRender(), t, trace);
+	const streamingZone = new StreamingZone(chat, () => tui.requestRender(), t);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
 	const activeCalls = new Map<string, { name: string; keyArg: string }>();
@@ -344,7 +344,7 @@ export async function runTuiMode(
 		toolSlot.onToolStart = ({ callId, name, args }) => {
 			consoleZone.pulse();
 			showFooter();
-			streamingZone.seal();
+			streamingZone.stampThinkingLabel();
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
 			if (activeCalls.size === 0) batchStartedAt = Date.now();
@@ -490,8 +490,7 @@ export async function runTuiMode(
 		try {
 			await dialog.send(text, "human", 300_000);
 			if (!aborted) {
-				// Seal before stopThinking to avoid the empty-box flash (ALE-BUG-7).
-				streamingZone.seal();
+				streamingZone.reset();
 				consoleZone.stopThinking();
 				consoleZone.hidePendingFooter();
 				pendingFooterShown = false;

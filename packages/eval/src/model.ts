@@ -37,7 +37,9 @@ export function getEvalModel(): Model<Api> {
 
 	// Vertex AI — uses Google ADC or ANTHROPIC_VERTEX_PROJECT_ID
 	const project = process.env.ANTHROPIC_VERTEX_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
-	const region = process.env.CLOUD_ML_REGION ?? "us-east5";
+	// CLOUD_ML_REGION=global is not a valid Vertex AI region; fall back to us-east5.
+	const rawRegion = process.env.CLOUD_ML_REGION;
+	const region = rawRegion && rawRegion !== "global" ? rawRegion : "us-east5";
 	return {
 		id,
 		name: `${id} (Vertex)`,

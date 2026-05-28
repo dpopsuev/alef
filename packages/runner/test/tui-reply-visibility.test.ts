@@ -50,13 +50,13 @@ describe("reply reaches screen via StreamingZone", () => {
 		const { terminal, tui, chat } = env;
 		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
 
-		zone.seal();
-		zone.seal();
+		zone.reset();
+		zone.reset();
 
 		const reply = "# Overview\n\nAlef is an EDA-based AI coding agent.";
 		for (const ch of reply) zone.receiveText(ch);
 
-		zone.seal();
+		zone.reset();
 		tui.requestRender(true);
 		await settle();
 
@@ -68,7 +68,7 @@ describe("reply reaches screen via StreamingZone", () => {
 		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
 
 		for (let i = 0; i < 10; i++) {
-			zone.seal();
+			zone.reset();
 			chat.addChild(new Text(`  ✓ fs.read  file${i}.ts  12ms`, 1, 0));
 		}
 
@@ -76,7 +76,7 @@ describe("reply reaches screen via StreamingZone", () => {
 		const body = Array.from({ length: 20 }, (_, i) => `## Section ${i + 1}\n\nParagraph ${i + 1}.`).join("\n\n");
 		for (const ch of `${body}\n\n${sentinel}`) zone.receiveText(ch);
 
-		zone.seal();
+		zone.reset();
 		tui.requestRender(true);
 		await settle();
 
@@ -97,7 +97,7 @@ describe("reply reaches screen via StreamingZone", () => {
 		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
 
 		zone.receiveText("The quick brown fox");
-		zone.seal();
+		zone.reset();
 		tui.requestRender(true);
 		await settle();
 
@@ -125,7 +125,7 @@ describe("toolSlot.receiveTextChunk wiring", () => {
 		const reply = "Alef is an EDA-based coding agent.";
 		for (const ch of reply) zone.receiveText(ch);
 
-		zone.seal();
+		zone.reset();
 		tui.requestRender(true);
 		await settle();
 
@@ -143,7 +143,7 @@ describe("toolSlot.receiveTextChunk wiring", () => {
 
 		for (const ch of "EDA organ-based agent reply.") slot.fn(ch);
 
-		zone.seal();
+		zone.reset();
 		tui.requestRender(true);
 		await settle();
 
@@ -171,7 +171,7 @@ describe("ALE-BUG-7: empty segment pruned on seal", () => {
 		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
 		const childsBefore = chat.children.length;
 
-		zone.seal();
+		zone.reset();
 
 		tui.requestRender(true);
 		await settle();
@@ -184,7 +184,7 @@ describe("ALE-BUG-7: empty segment pruned on seal", () => {
 		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
 
 		zone.receiveText("The full reply text.");
-		zone.seal();
+		zone.reset();
 		tui.requestRender(true);
 		await settle();
 

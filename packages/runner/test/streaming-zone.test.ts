@@ -5,13 +5,7 @@ import { StreamingZone } from "../src/tui/streaming-zone.js";
 
 function makeZone(hideThinking = false) {
 	const chat = new Container();
-	const zone = new StreamingZone(
-		chat,
-		() => {},
-		getTheme(),
-		() => {},
-		hideThinking,
-	);
+	const zone = new StreamingZone(chat, () => {}, getTheme(), hideThinking);
 	return { chat, zone };
 }
 
@@ -29,88 +23,57 @@ describe("StreamingZone", () => {
 		expect(zone.markdownNode?.getText()).toBe("hello world");
 	});
 
-	it("seal resets markdownNode and thinkNode", () => {
-		const { zone } = makeZone();
+	it("reset clears pointers; wrapper and footer stay in chat", () => {
+		const { zone, chat } = makeZone();
 		zone.receiveText("some text");
-		zone.seal();
+		zone.reset();
 		expect(zone.markdownNode).toBeNull();
-		expect(zone.thinkNode).toBeNull();
+		expect(chat.children.length).toBeGreaterThan(0);
 	});
 
-	it("seal resets accumulated text", () => {
-		const { zone } = makeZone();
-		zone.receiveText("pending content");
-		expect(zone.markdownNode).not.toBeNull();
-		zone.seal();
-		expect(zone.markdownNode).toBeNull();
-	});
-
-	it("content added before seal stays in chat", () => {
+	it("clear removes the wrapper from chat", () => {
 		const { zone, chat } = makeZone();
-		zone.receiveText("chunk1");
-		const childsBefore = chat.children.length;
-		zone.seal();
-		expect(chat.children.length).toBe(childsBefore);
-	});
-
-	it("clear removes all wrappers from chat", () => {
-		const { zone, chat } = makeZone();
-		zone.receiveText("chunk1");
-		zone.seal();
-		zone.receiveText("chunk2");
-		const childsBefore = chat.children.length;
-		expect(childsBefore).toBeGreaterThan(0);
+		zone.receiveText("chunk");
 		zone.clear();
 		expect(chat.children.length).toBe(0);
 		expect(zone.markdownNode).toBeNull();
 	});
 
-	it("receiveThinking creates a think node", () => {
+	it("receiveThinking creates a think node with accumulated text", () => {
 		const { zone } = makeZone(false);
 		zone.receiveThinking("interesting thought");
 		expect(zone.thinkNode).not.toBeNull();
 		expect(zone.thinkNode?.getText()).toBe("interesting thought");
 	});
 
-	it("multiple seal calls are safe", () => {
-		const { zone } = makeZone();
-		zone.receiveText("hi");
-		zone.seal();
-		expect(() => zone.seal()).not.toThrow();
-	});
-
-	it("seal on empty zone is a no-op", () => {
+	it("reset on empty zone is a no-op", () => {
 		const { chat, zone } = makeZone();
-		expect(() => zone.seal()).not.toThrow();
+		expect(() => zone.reset()).not.toThrow();
 		expect(chat.children.length).toBe(0);
 	});
 
-	it("two seals produce two separate wrappers in chat", () => {
+	it("after reset new text appends to a fresh wrapper", () => {
 		const { zone, chat } = makeZone();
-		zone.receiveText("pre-tool");
-		zone.seal();
-		zone.receiveText("post-tool");
-		zone.seal();
-		expect(chat.children.length).toBe(2);
+		zone.receiveText("before tool");
+		zone.reset(); // adds wrapper + footer to chat
+		zone.receiveText("after tool"); // adds new wrapper
+		expect(zone.markdownNode?.getText()).toBe("after tool");
+		// chat has: [wrapper1, footer1, wrapper2]
+		expect(chat.children.length).toBe(3);
 	});
 });
 
-describe("thinking content after seal", () => {
-	it("thinking content stays in chat after seal", () => {
-		const { zone, chat } = makeZone(false);
-		zone.receiveThinking("deep reasoning");
-		zone.seal();
-		expect(chat.children.length).toBeGreaterThan(0);
-		expect(zone.thinkNode).toBeNull();
+describe("thinking label", () => {
+	it("stampThinkingLabel updates the header text", () => {
+		const { zone } = makeZone(false);
+		zone.receiveThinking("reasoning");
+		zone.stampThinkingLabel();
+		expect(zone.thinkNode).not.toBeNull();
 	});
 
-	it("thinking and reply survive across a seal+reopen cycle", () => {
-		const { zone, chat } = makeZone(false);
-		zone.receiveThinking("pre-tool thought");
-		zone.seal();
-		zone.receiveText("post-tool reply");
-		zone.seal();
-		expect(chat.children.length).toBe(2);
+	it("stampThinkingLabel is safe when no thinking occurred", () => {
+		const { zone } = makeZone();
+		expect(() => zone.stampThinkingLabel()).not.toThrow();
 	});
 });
 

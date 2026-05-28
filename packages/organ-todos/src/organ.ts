@@ -30,10 +30,8 @@ const TodoItemSchema = z.object({
 const TODOS_TOOL = {
 	name: "todos.update",
 	description:
-		"Replace the current task list with the provided todos. " +
-		"Use this to track progress on multi-step tasks. " +
-		"Keep exactly one task in_progress at a time. " +
-		"Skip for simple single-step work.",
+		"Replace the full task list for multi-step work tracking. Keep exactly one task in_progress at a time. " +
+		"Skip for single-step tasks. Returns updated todo state with progress diff.",
 	inputSchema: z.object({
 		todos: z.array(TodoItemSchema).describe("The complete updated task list"),
 	}),

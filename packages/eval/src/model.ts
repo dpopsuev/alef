@@ -37,15 +37,16 @@ export function getEvalModel(): Model<Api> {
 
 	// Vertex AI — uses Google ADC or ANTHROPIC_VERTEX_PROJECT_ID
 	const project = process.env.ANTHROPIC_VERTEX_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
-	// CLOUD_ML_REGION=global is not a valid Vertex AI region; fall back to us-east5.
-	const rawRegion = process.env.CLOUD_ML_REGION;
-	const region = rawRegion && rawRegion !== "global" ? rawRegion : "us-east5";
+	const region = process.env.CLOUD_ML_REGION ?? "us-east5";
+	// Global location uses a different hostname: aiplatform.googleapis.com (no region prefix).
+	// Regional locations use: {region}-aiplatform.googleapis.com.
+	const hostname = region === "global" ? "aiplatform.googleapis.com" : `${region}-aiplatform.googleapis.com`;
 	return {
 		id,
 		name: `${id} (Vertex)`,
 		api: "anthropic-messages",
 		provider: "anthropic",
-		baseUrl: `https://${region}-aiplatform.googleapis.com/v1/projects/${project}/locations/${region}/publishers/anthropic/models`,
+		baseUrl: `https://${hostname}/v1/projects/${project}/locations/${region}/publishers/anthropic/models`,
 		...base(),
 	};
 }

@@ -18,14 +18,15 @@
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { Cerebrum } from "../../organ-llm/src/index.js";
 import { addTypeExport } from "../src/evaluations/write.js";
 import { EvalHarness, EvaluationRunner } from "../src/index.js";
-import { SKIP_REAL_LLM } from "../src/model.js";
+import { getEvalModel, SKIP_REAL_LLM } from "../src/model.js";
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -84,25 +85,46 @@ function waitForOutput(proc: ChildProcess, pattern: RegExp, timeoutMs: number): 
 describe.skipIf(SKIP_REAL_LLM)("Real-LLM blue-green survival", () => {
 	it("file written by LLM survives supervisor blue-green swap", async () => {
 		// ── Step 1: real LLM makes a minor code change ────────────────────────
+		// EvaluationRunner deletes the workspace after the checker runs.
+		// Wrap the checker to copy the workspace to a stable location before deletion,
+		// and capture the file content we want to assert on.
+		const stableWorkspace = makeTmp();
+		let capturedContent = "";
+		const wrappedEval = {
+			...addTypeExport,
+			scenarioTimeoutMs: 120_000,
+			checker: {
+				check: async (ctx: Parameters<typeof addTypeExport.checker.check>[0]) => {
+					const r = await addTypeExport.checker.check(ctx);
+					try {
+						// Copy workspace to stable dir so supervisor can use it post-deletion.
+						cpSync(ctx.workspace, stableWorkspace, { recursive: true });
+						capturedContent = readFileSync(join(ctx.workspace, "src/types.ts"), "utf-8");
+					} catch {}
+					return r;
+				},
+			},
+		};
+
 		const harness = new EvalHarness();
-		const runner = new EvaluationRunner(harness);
-		const result = await runner.run({ ...addTypeExport, scenarioTimeoutMs: 120_000 });
+		const runner = new EvaluationRunner(harness, {
+			organFactory: (signal) => [new Cerebrum({ model: getEvalModel(), getSignal: () => signal })],
+		});
+		const result = await runner.run(wrappedEval);
+
+		const workspace = result.metrics.workspace;
+		if (!workspace) throw new Error("metrics.workspace must be set");
 
 		if (result.errors.length > 0) {
 			throw new Error(
-				`Eval step failed (not a blue-green bug): ${result.errors.join("; ")}\n` +
+				`Eval failed: ${result.errors.join("; ")}\n` +
 					`Score: ${result.score}  Error: ${result.metrics.error ?? "none"}`,
 			);
 		}
 		expect(result.score).toBeGreaterThan(0);
 
-		const workspace = result.metrics.workspace;
-		if (!workspace) throw new Error("metrics.workspace must be set — EvaluationRunner must use keepWorkspace: true");
-
-		// Confirm the LLM wrote the correct change before the swap.
-		const typesPath = join(workspace, "src/types.ts");
-		const contentBefore = readFileSync(typesPath, "utf-8");
-		expect(contentBefore).toMatch(/export\s+interface\s+Session/);
+		// capturedContent was read inside the checker before workspace deletion.
+		expect(capturedContent).toMatch(/export\s+interface\s+Session/);
 
 		// ── Step 2: blue-green swap ──────────────────────────────────────────
 		//
@@ -166,7 +188,7 @@ proc.stderr.on("data", (chunk) => {
 			stdio: ["ignore", "pipe", "pipe"],
 			env: {
 				...process.env,
-				ALEF_GREEN_CWD: workspace,
+				ALEF_GREEN_CWD: stableWorkspace,
 				ALEF_SUPERVISOR_GREEN_SCRIPT: greenScript,
 				ALEF_SUPERVISOR_BUILD_COMMAND: `${process.execPath} -e "process.exit(0)"`,
 				ALEF_SUPERVISOR_SKIP_HEALTH: "1",
@@ -185,8 +207,9 @@ proc.stderr.on("data", (chunk) => {
 		}
 
 		// ── Step 3: assert file survived the swap ─────────────────────────────
+		const typesPath = join(stableWorkspace, "src/types.ts");
 		const contentAfter = readFileSync(typesPath, "utf-8");
 		expect(contentAfter).toMatch(/export\s+interface\s+Session/);
-		expect(contentAfter).toBe(contentBefore); // byte-for-byte identical
+		expect(contentAfter).toBe(capturedContent); // byte-for-byte identical
 	}, 360_000); // eval (up to 180s) + supervisor boot + swap + buffer
 });

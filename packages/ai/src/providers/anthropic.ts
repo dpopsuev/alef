@@ -503,6 +503,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 		try {
 			let client: Anthropic;
 			let isOAuth: boolean;
+			let isVertex = false;
 
 			if (options?.client) {
 				client = options.client;
@@ -522,6 +523,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 						region: vertexCfg.region,
 					}) as unknown as Anthropic;
 					isOAuth = false;
+					isVertex = true;
 				} else {
 					let copilotDynamicHeaders: Record<string, string> | undefined;
 					if (model.provider === "github-copilot") {
@@ -544,7 +546,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					isOAuth = created.isOAuthToken;
 				}
 			}
-			let params = buildParams(model, context, isOAuth, options);
+			let params = buildParams(model, context, isOAuth, options, isVertex);
 			const nextParams = await options?.onPayload?.(params, model);
 			if (nextParams !== undefined) {
 				params = nextParams as MessageCreateParamsStreaming;
@@ -608,7 +610,9 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 							id: event.content_block.id,
 							name: isOAuth
 								? fromClaudeCodeName(event.content_block.name, context.tools)
-								: event.content_block.name,
+								: isVertex
+									? unsanitizeToolName(event.content_block.name, context.tools)
+									: event.content_block.name,
 							arguments: (event.content_block.input as Record<string, any>) ?? {},
 							partialJson: "",
 							index: event.index,
@@ -936,11 +940,22 @@ function createClient(
 	return { client, isOAuthToken: false };
 }
 
+/** Vertex AI rejects tool names with dots; replace with underscores and reverse on receipt. */
+function sanitizeToolName(name: string): string {
+	return name.replace(/\./g, "_");
+}
+
+function unsanitizeToolName(name: string, tools: Tool[] | undefined): string {
+	// Find the original tool name that sanitizes to this name.
+	return tools?.find((t) => sanitizeToolName(t.name) === name)?.name ?? name;
+}
+
 function buildParams(
 	model: Model<"anthropic-messages">,
 	context: Context,
 	isOAuthToken: boolean,
 	options?: AnthropicOptions,
+	isVertex = false,
 ): MessageCreateParamsStreaming {
 	const { cacheControl } = getCacheControl(model, options?.cacheRetention);
 	const params: MessageCreateParamsStreaming = {
@@ -988,6 +1003,7 @@ function buildParams(
 			isOAuthToken,
 			getAnthropicCompat(model).supportsEagerToolInputStreaming,
 			cacheControl,
+			isVertex,
 		);
 	}
 
@@ -1219,6 +1235,7 @@ function convertTools(
 	isOAuthToken: boolean,
 	supportsEagerToolInputStreaming: boolean,
 	cacheControl?: CacheControlEphemeral,
+	isVertex = false,
 ): Anthropic.Messages.Tool[] {
 	if (!tools) return [];
 
@@ -1226,7 +1243,7 @@ function convertTools(
 		const schema = tool.parameters as { properties?: unknown; required?: string[] };
 
 		return {
-			name: isOAuthToken ? toClaudeCodeName(tool.name) : tool.name,
+			name: isOAuthToken ? toClaudeCodeName(tool.name) : isVertex ? sanitizeToolName(tool.name) : tool.name,
 			description: tool.description,
 			...(supportsEagerToolInputStreaming ? { eager_input_streaming: true } : {}),
 			input_schema: {

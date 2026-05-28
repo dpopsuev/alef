@@ -194,9 +194,9 @@ export class ConsoleZone {
 		}
 	}
 
-	showPendingFooter(fg: ColorToken, bgFn: ((s: string) => string) | null = null): void {
+	showPendingFooter(fg: ColorToken): void {
 		this.pendingFooterFg = fg;
-		this.pendingFooterBgFn = bgFn;
+		this.pendingFooterBgFn = null;
 		this.pendingFooterActive = true;
 		this.tui.requestRender();
 	}

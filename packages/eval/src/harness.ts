@@ -77,6 +77,16 @@ export interface HarnessOptions {
 	 */
 	keepWorkspace?: boolean;
 	/**
+	 * Factory for abort-aware extra organs. Called inside run() with the Agent's
+	 * AbortSignal so organs (e.g. Cerebrum) can cancel in-flight HTTP requests
+	 * when the agent disposes. Prefer this over extraOrgans when the organ
+	 * needs an AbortSignal.
+	 *
+	 * @example
+	 * organFactory: (signal) => [new Cerebrum({ model, getSignal: () => signal })]
+	 */
+	organFactory?: (signal: AbortSignal) => Organ[];
+	/**
 	 * Directory to write a JSONL execution trace file.
 	 * File is named `{scenario}.trace.jsonl` in this directory.
 	 * When unset, no trace file is written.
@@ -173,6 +183,9 @@ export class EvalHarness {
 			.load(evaluator);
 
 		for (const organ of opts.extraOrgans ?? []) {
+			agent.load(organ);
+		}
+		for (const organ of opts.organFactory?.(agent.signal) ?? []) {
 			agent.load(organ);
 		}
 

@@ -57,11 +57,10 @@ beforeEach(() => {
 
 function makeRunner() {
 	const harness = new EvalHarness();
-	const llm = new Cerebrum({ model: getEvalModel() });
 	return new EvaluationRunner(harness, {
-		extraOrgans: [llm],
-		// Fail the suite if >30% of trials have runtime errors.
-		// n=1 here so this catches a single hard crash.
+		// organFactory wires the agent's AbortSignal to Cerebrum so dispose()
+		// cancels in-flight HTTP requests (ALE-BUG-29).
+		organFactory: (signal) => [new Cerebrum({ model: getEvalModel(), getSignal: () => signal })],
 		maxErrorRate: 0.3,
 	});
 }

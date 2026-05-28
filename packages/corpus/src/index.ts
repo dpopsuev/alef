@@ -60,7 +60,9 @@ function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
 		sense: {
 			subscribe: nerve.sense.subscribe.bind(nerve.sense),
 			publish: (event: SenseEvent) => {
-				validate("sense", senseSchemas, event);
+				// Error Sense events carry { toolCallId } not the success payload shape.
+				// Validating them against the success schema always fails — skip.
+				if (!event.isError) validate("sense", senseSchemas, event);
 				nerve.sense.publish(event);
 			},
 		},
@@ -106,6 +108,16 @@ export class Agent {
 		return this._organs;
 	}
 	private disposed = false;
+	/**
+	 * AbortController fired on dispose(). Pass signal to long-running organs
+	 * (e.g. Cerebrum) so in-flight HTTP requests are cancelled when the agent
+	 * shuts down. Prevents runLLMLoop from continuing after dispose.
+	 */
+	private readonly controller = new AbortController();
+	/** AbortSignal that fires when this agent is disposed. */
+	get signal(): AbortSignal {
+		return this.controller.signal;
+	}
 
 	/**
 	 * Load an organ onto the agent.
@@ -204,6 +216,7 @@ export class Agent {
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;
+		this.controller.abort(); // cancel in-flight LLM HTTP requests
 		for (const unmount of this.unmounts) unmount();
 		this.unmounts.length = 0;
 	}

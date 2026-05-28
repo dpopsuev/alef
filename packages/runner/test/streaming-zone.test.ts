@@ -23,7 +23,7 @@ describe("StreamingZone", () => {
 		expect(zone.markdownNode?.getText()).toBe("hello world");
 	});
 
-	it("reset clears pointers; wrapper and footer stay in chat", () => {
+	it("reset clears pointers; pill content stays in chat", () => {
 		const { zone, chat } = makeZone();
 		zone.receiveText("some text");
 		zone.reset();
@@ -31,12 +31,12 @@ describe("StreamingZone", () => {
 		expect(chat.children.length).toBeGreaterThan(0);
 	});
 
-	it("clear removes the wrapper from chat", () => {
+	it("clear leaves pill footer in chat on abort", () => {
 		const { zone, chat } = makeZone();
 		zone.receiveText("chunk");
 		zone.clear();
-		expect(chat.children.length).toBe(0);
 		expect(zone.markdownNode).toBeNull();
+		expect(chat.children.length).toBeGreaterThan(0);
 	});
 
 	it("receiveThinking creates a think node with accumulated text", () => {
@@ -52,28 +52,26 @@ describe("StreamingZone", () => {
 		expect(chat.children.length).toBe(0);
 	});
 
-	it("after reset new text appends to a fresh wrapper", () => {
-		const { zone, chat } = makeZone();
+	it("after reset new text opens a new pill block", () => {
+		const { zone } = makeZone();
 		zone.receiveText("before tool");
-		zone.reset(); // adds wrapper + footer to chat
-		zone.receiveText("after tool"); // adds new wrapper
+		zone.reset();
+		zone.receiveText("after tool");
 		expect(zone.markdownNode?.getText()).toBe("after tool");
-		// chat has: [wrapper1, footer1, wrapper2]
-		expect(chat.children.length).toBe(3);
 	});
 });
 
 describe("thinking label", () => {
+	it("stampThinkingLabel is safe when no thinking occurred", () => {
+		const { zone } = makeZone();
+		expect(() => zone.stampThinkingLabel()).not.toThrow();
+	});
+
 	it("stampThinkingLabel updates the header text", () => {
 		const { zone } = makeZone(false);
 		zone.receiveThinking("reasoning");
 		zone.stampThinkingLabel();
 		expect(zone.thinkNode).not.toBeNull();
-	});
-
-	it("stampThinkingLabel is safe when no thinking occurred", () => {
-		const { zone } = makeZone();
-		expect(() => zone.stampThinkingLabel()).not.toThrow();
 	});
 });
 

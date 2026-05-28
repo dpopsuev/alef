@@ -1,19 +1,16 @@
-import { Box, type Component, type Container, Markdown, Text } from "@dpopsuev/alef-tui";
+import { type Component, type Container, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
-import { boldColor } from "../theme.js";
-import { DynamicText } from "./dynamic-text.js";
+import { AgentBlock } from "./chat-view.js";
 import { makeMarkdownTheme, makeThinkingMarkdownTheme } from "./markdown-themes.js";
 import { color, dim } from "./theme.js";
 
-const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
-
 /**
- * One streaming component per assistant turn — pi-mono AssistantMessageComponent pattern.
- * Created on first chunk, updated in place, left in chat as history when the turn ends.
- * Header added at wrapper creation; footer stamped in reset().
+ * One streaming component per assistant turn.
+ * Delegates pill header/footer to AgentBlock for visual consistency with user messages.
+ * Opened on first chunk, closed in reset(), left in chat as history.
  */
 export class StreamingZone {
-	private wrapper: Box | null = null;
+	private readonly block: AgentBlock;
 
 	markdownNode: Markdown | null = null;
 	thinkNode: Markdown | null = null;
@@ -24,12 +21,13 @@ export class StreamingZone {
 	private _hideThinking: boolean;
 
 	constructor(
-		private readonly chat: Container,
+		chat: Container,
 		private readonly requestRender: () => void,
 		private readonly t: ThemeTokens,
 		hideThinking = true,
 	) {
 		this._hideThinking = hideThinking;
+		this.block = new AgentBlock(chat, t);
 	}
 
 	get hideThinking(): boolean {
@@ -39,30 +37,23 @@ export class StreamingZone {
 	setHideThinking(hide: boolean): void {
 		if (this._hideThinking === hide) return;
 		this._hideThinking = hide;
-		if (this.wrapper && this.thinkNode) {
-			this.wrapper.clear();
-			if (this.thinkHeader) this.wrapper.addChild(this.thinkHeader);
-			if (!hide) this.wrapper.addChild(this.thinkNode);
-			if (this.markdownNode) this.wrapper.addChild(this.markdownNode);
+		if (this.block.isOpen && this.thinkNode) {
+			if (hide) {
+				this.block.removeContent(this.thinkNode);
+			} else {
+				if (this.markdownNode) this.block.removeContent(this.markdownNode);
+				this.block.addContent(this.thinkNode);
+				if (this.markdownNode) this.block.addContent(this.markdownNode);
+			}
 		}
 		this.requestRender();
 	}
 
-	private ensureWrapper(): Box {
-		if (!this.wrapper) {
-			const { accentFg } = this.t;
-			this.wrapper = new Box(1, 0);
-			this.chat.addChild(this.wrapper);
-			this.wrapper.addChild(new Text(boldColor(AGENT_LABEL, accentFg), 0, 0));
-		}
-		return this.wrapper;
-	}
-
 	receiveText(chunk: string): void {
-		const w = this.ensureWrapper();
+		if (!this.block.isOpen) this.block.start();
 		if (!this.markdownNode) {
 			this.markdownNode = new Markdown("", 0, 0, makeMarkdownTheme(this.t));
-			w.addChild(this.markdownNode);
+			this.block.addContent(this.markdownNode);
 		}
 		this.replyText += chunk;
 		this.markdownNode.setText(this.replyText);
@@ -70,20 +61,19 @@ export class StreamingZone {
 	}
 
 	receiveThinking(chunk: string): void {
-		const w = this.ensureWrapper();
+		if (!this.block.isOpen) this.block.start();
 		if (!this.thinkNode) {
 			this.thinkStartedAt = Date.now();
 			this.thinkHeader = new Text(color(dim("┊ thinking"), this.t.dimFg), 0, 0);
-			w.addChild(this.thinkHeader);
+			this.block.addContent(this.thinkHeader);
 			this.thinkNode = new Markdown("", 0, 0, makeThinkingMarkdownTheme(this.t));
-			if (!this._hideThinking) w.addChild(this.thinkNode);
+			if (!this._hideThinking) this.block.addContent(this.thinkNode);
 		}
 		this.thinkText += chunk;
 		this.thinkNode.setText(this.thinkText);
 		if (!this._hideThinking) this.requestRender();
 	}
 
-	/** Stamp the thinking elapsed label. Call when thinking ends (tool start or turn end). */
 	stampThinkingLabel(): void {
 		if (this.thinkHeader && this.thinkStartedAt > 0) {
 			const ms = Date.now() - this.thinkStartedAt;
@@ -93,14 +83,9 @@ export class StreamingZone {
 		}
 	}
 
-	/** Reset for a new turn. Stamps thinking label and footer, leaves content in chat. */
 	reset(): void {
 		this.stampThinkingLabel();
-		if (this.wrapper) {
-			const { accentFg } = this.t;
-			this.chat.addChild(new DynamicText((w) => color("─".repeat(w), accentFg)));
-		}
-		this.wrapper = null;
+		if (this.block.isOpen) this.block.end();
 		this.markdownNode = null;
 		this.thinkNode = null;
 		this.thinkHeader = null;
@@ -108,12 +93,8 @@ export class StreamingZone {
 		this.thinkText = "";
 	}
 
-	/** Remove current turn's content. Abort path only. */
 	clear(): void {
-		if (this.wrapper) {
-			this.chat.removeChild(this.wrapper);
-			this.wrapper = null;
-		}
+		if (this.block.isOpen) this.block.end();
 		this.markdownNode = null;
 		this.thinkNode = null;
 		this.thinkHeader = null;
@@ -123,10 +104,6 @@ export class StreamingZone {
 	}
 
 	addToCurrentSegment(component: Component): void {
-		if (this.wrapper) {
-			this.wrapper.addChild(component);
-		} else {
-			this.chat.addChild(component);
-		}
+		this.block.addContent(component);
 	}
 }

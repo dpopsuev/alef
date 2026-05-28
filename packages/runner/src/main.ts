@@ -362,11 +362,15 @@ try {
 		// Node.js deprecation warnings, library noise, etc. are silently dropped.
 		// Callbacks are honoured to satisfy the Node.js stream contract.
 		const originalStderrWrite = process.stderr.write.bind(process.stderr);
-		process.stderr.write = ((_chunk: unknown, encOrCb?: unknown, cb?: unknown) => {
-			const callback = typeof encOrCb === "function" ? encOrCb : (cb as (() => void) | undefined);
+		process.stderr.write = (
+			_chunk: string | Uint8Array,
+			encOrCb?: BufferEncoding | ((err?: Error | null) => void),
+			cb?: (err?: Error | null) => void,
+		): boolean => {
+			const callback = typeof encOrCb === "function" ? encOrCb : cb;
 			callback?.();
 			return true;
-		}) as typeof process.stderr.write;
+		};
 		try {
 			await runTuiMode(
 				dialog,

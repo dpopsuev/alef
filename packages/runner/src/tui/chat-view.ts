@@ -75,7 +75,7 @@ export function appendCompletedToolBlock(
 	add(
 		new DynamicText((w) => {
 			const label = `${color(g, gFg)} ${color(name, t.toolNameFg)}${keyArg ? `  ${color(keyArg, t.toolArgFg)}` : ""}  ${color(elapsed, t.timeFg)}`;
-			const fill = Math.max(0, w - stripAnsi(label).length - 4);
+			const fill = Math.max(0, w - stripAnsi(label).length - 5);
 			return `${color("╭─", t.dimFg)} ${label} ${color(`${"─".repeat(fill)}╮`, t.dimFg)}`;
 		}),
 	);

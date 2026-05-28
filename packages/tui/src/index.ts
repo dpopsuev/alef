@@ -34,6 +34,7 @@ export type { EditorComponent } from "./editor-component.js";
 export { type FuzzyMatch, fuzzyFilter, fuzzyMatch } from "./fuzzy.js";
 // Keybindings
 export {
+	APP_KEYBINDINGS,
 	getKeybindings,
 	type Keybinding,
 	type KeybindingConflict,

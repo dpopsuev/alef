@@ -1,78 +1,121 @@
 /**
- * Lightweight Neovim-style modal input handler for the ConsoleZone editor.
+ * Neovim-style modal input handler for the ConsoleZone editor.
  *
- * Modes:
- *   INSERT (default): all input passes through to the editor unchanged.
- *   NORMAL: hjkl/w/b movement, x delete char, dd delete line, i/a/A/I/o/O enter insert.
+ * Modes (Djinn shell/modes.go pattern — Mode interface, dispatch table, no switch chains):
+ *   INSERT  (default): all input passes through to the editor unchanged.
+ *   NORMAL: vim motions (hjkl/w/b/0/$), dd, x, i/a/A/I/o/O enter insert.
+ *   COMMAND: triggered by ':' in Normal — accumulates a cmdline, dispatches on Enter.
+ *            NOT a third external mode — an internal state on top of Normal,
+ *            matching Neovim's command_line_enter(firstc=':') nested-loop design.
  *
- * Wired via tui.addInputListener() which intercepts before the focused component.
- * Returns {consume: true} in normal mode to prevent the editor from seeing raw keys.
+ * All keybindings configurable via APP_KEYBINDINGS + KeybindingsManager.
+ * Prior art: Djinn shell/modes.go, Neovim ex_getln.c:command_line_enter().
  */
 
 import type { Editor } from "@dpopsuev/alef-tui";
+import { APP_KEYBINDINGS, KeybindingsManager } from "@dpopsuev/alef-tui";
 
 export type ModalMode = "insert" | "normal";
 
-// Raw sequences forwarded to the editor for normal-mode movement/editing.
-// These match the keybindings already registered in tui/src/keybindings.ts.
+// Raw sequences forwarded to the editor for Normal-mode motion/editing.
 const SEQ = {
 	left: "\x1b[D",
 	right: "\x1b[C",
 	up: "\x1b[A",
 	down: "\x1b[B",
-	wordLeft: "\x1b[1;3D", // alt+left
-	wordRight: "\x1b[1;3C", // alt+right
-	lineStart: "\x01", // ctrl+a
-	lineEnd: "\x05", // ctrl+e
-	deleteCharForward: "\x04", // ctrl+d
-	deleteToLineEnd: "\x0b", // ctrl+k
-	deleteToLineStart: "\x15", // ctrl+u
-	deleteWordBackward: "\x17", // ctrl+w
+	wordLeft: "\x1b[1;3D",
+	wordRight: "\x1b[1;3C",
+	lineStart: "\x01",
+	lineEnd: "\x05",
+	deleteCharForward: "\x04",
+	deleteToLineEnd: "\x0b",
+	deleteToLineStart: "\x15",
+	deleteWordBackward: "\x17",
 } as const;
 
 const WHICHKEY_TIMEOUT_MS = Number(process.env.ALEF_WHICHKEY_TIMEOUT_MS ?? 600);
 
-const WHICHKEY_HINT = "hjkl move  w/b word  i/a insert  dd delete line  u undo  0/$ line start/end";
+const WHICHKEY_HINT = "hjkl move  w/b word  i/a insert  dd delete line  u undo  0/$ line start/end  : command";
+
+/** Colon command registry — shown in tab completion and :help. */
+export const COLON_COMMANDS: Record<string, string> = {
+	":q": "Quit",
+	":quit": "Quit",
+	":exit": "Quit",
+	":new": "Clear conversation",
+	":clear": "Clear conversation",
+	":session": "Show session ID",
+	":login": "Save API key — :login <provider> <key>",
+	":logout": "Remove stored API key — :logout <provider>",
+	":help": "Show help",
+	":h": "Show help",
+	":reload": "Hot-reload an organ — :reload <name>",
+	":install": "Install an organ — :install npm:<package>",
+	":model": "Change model — :model <id>",
+};
+
+const allCommandNames = Object.keys(COLON_COMMANDS).sort();
 
 export class ModalInputHandler {
-	private mode: ModalMode = "insert";
-	private pendingD = false; // tracks first 'd' in 'dd'
+	private outerMode: ModalMode = "insert";
+	/** Internal command-line state — active when user presses ':' in Normal. */
+	private cmdMode = false;
+	private cmdBuffer = "";
+	private cmdTabIndex = -1; // cycling through completions
+
+	/** Double-press state for gg (scroll top) and dd (delete line). */
+	private pendingG = false;
+	private pendingD = false;
+
 	private hintTimer: ReturnType<typeof setTimeout> | undefined;
+
+	private readonly kb: KeybindingsManager;
 	private readonly onModeChange: (mode: ModalMode) => void;
 	private readonly onHint: (text: string) => void;
+	private readonly onColonCommand: (cmd: string) => void;
+	/** Called with lines > 0 (scroll down) or < 0 (scroll up) when j/k/ctrl+d/ctrl+u pressed in Normal. */
+	private readonly onScroll: (lines: number) => void;
 
 	constructor(
 		private readonly editor: Editor,
 		onModeChange: (mode: ModalMode) => void,
-		/** Called with hint text after idle timeout, or empty string to clear. */
 		onHint: (text: string) => void = () => {},
+		onColonCommand: (cmd: string) => void = () => {},
+		kb?: KeybindingsManager,
+		onScroll: (lines: number) => void = () => {},
 	) {
 		this.onModeChange = onModeChange;
 		this.onHint = onHint;
+		this.onColonCommand = onColonCommand;
+		this.onScroll = onScroll;
+		// Use provided manager or create a default one with APP_KEYBINDINGS.
+		this.kb = kb ?? new KeybindingsManager(APP_KEYBINDINGS);
 	}
 
 	getMode(): ModalMode {
-		return this.mode;
+		return this.outerMode;
 	}
 
-	/** Start or restart the which-key idle timer (ALE-TSK-213). */
 	private armHint(): void {
 		clearTimeout(this.hintTimer);
 		this.hintTimer = setTimeout(() => {
-			if (this.mode === "normal") this.onHint(WHICHKEY_HINT);
+			if (this.outerMode === "normal" && !this.cmdMode) this.onHint(WHICHKEY_HINT);
 		}, WHICHKEY_TIMEOUT_MS);
 	}
 
-	/** Cancel the timer and clear the hint text. */
 	private clearHint(): void {
 		clearTimeout(this.hintTimer);
 		this.hintTimer = undefined;
 		this.onHint("");
 	}
 
-	private setMode(m: ModalMode): void {
-		this.mode = m;
+	private setOuterMode(m: ModalMode): void {
+		this.outerMode = m;
 		this.pendingD = false;
+		this.pendingG = false;
+		this.cmdMode = false;
+		this.cmdBuffer = "";
+		this.cmdTabIndex = -1;
 		this.onModeChange(m);
 		if (m === "normal") {
 			this.armHint();
@@ -81,122 +124,295 @@ export class ModalInputHandler {
 		}
 	}
 
-	/**
-	 * Input listener for tui.addInputListener().
-	 * Returns {consume: true} when the key was handled in normal mode.
-	 * Returns undefined to let the editor handle it in insert mode.
-	 */
-	readonly handle = (data: string): { consume?: boolean } | undefined => {
-		// Escape: insert → normal, or cancel pending chord in normal.
+	// ---------------------------------------------------------------------------
+	// Command-line mode (Neovim firstc=':' pattern)
+	// ---------------------------------------------------------------------------
+
+	private enterCmdMode(): void {
+		this.cmdMode = true;
+		this.cmdBuffer = "";
+		this.cmdTabIndex = -1;
+		this.pendingD = false;
+		this.pendingG = false;
+		this.clearHint();
+		this.onHint(":");
+	}
+
+	private exitCmdMode(): void {
+		this.cmdMode = false;
+		this.cmdBuffer = "";
+		this.cmdTabIndex = -1;
+		this.onHint("");
+		this.armHint();
+	}
+
+	private updateCmdPrompt(): void {
+		this.onHint(`:${this.cmdBuffer}`);
+	}
+
+	private tabComplete(): void {
+		const prefix = `:${this.cmdBuffer.split(" ")[0]}`;
+		const matches = allCommandNames.filter((n) => n.startsWith(prefix));
+		if (matches.length === 0) return;
+		this.cmdTabIndex = (this.cmdTabIndex + 1) % matches.length;
+		const completion = matches[this.cmdTabIndex].slice(1); // strip ':'
+		// Keep args if any were typed after the command name
+		const parts = this.cmdBuffer.split(" ");
+		parts[0] = completion;
+		this.cmdBuffer = parts.join(" ");
+		this.updateCmdPrompt();
+	}
+
+	private dispatchColonCommand(): void {
+		const raw = this.cmdBuffer.trim();
+		if (raw) this.onColonCommand(`:${raw}`);
+		this.exitCmdMode();
+		// After executing a command the user typically wants to type — go to Insert.
+		this.setOuterMode("insert");
+	}
+
+	private handleCmdModeKey(data: string): { consume: boolean } {
+		// Esc — cancel command line, stay in Normal.
 		if (data === "\x1b") {
-			if (this.mode === "insert") {
-				this.setMode("normal");
+			this.exitCmdMode();
+			return { consume: true };
+		}
+		// Enter — execute.
+		if (data === "\r" || data === "\n") {
+			this.dispatchColonCommand();
+			return { consume: true };
+		}
+		// Tab — cycle completions.
+		if (data === "\t") {
+			this.tabComplete();
+			return { consume: true };
+		}
+		// Backspace — delete last char.
+		if (data === "\x7f" || data === "\x08") {
+			if (this.cmdBuffer.length > 0) {
+				this.cmdBuffer = this.cmdBuffer.slice(0, -1);
+				this.cmdTabIndex = -1;
+				this.updateCmdPrompt();
 			} else {
+				// Empty buffer + backspace = cancel command mode.
+				this.exitCmdMode();
+			}
+			return { consume: true };
+		}
+		// Printable ASCII — accumulate.
+		if (data.length === 1 && data.charCodeAt(0) >= 32 && data.charCodeAt(0) < 127) {
+			this.cmdBuffer += data;
+			this.cmdTabIndex = -1;
+			this.updateCmdPrompt();
+			return { consume: true };
+		}
+		// Anything else (arrow keys etc.) — consume silently in cmd mode.
+		return { consume: true };
+	}
+
+	// ---------------------------------------------------------------------------
+	// Main input handler
+	// ---------------------------------------------------------------------------
+
+	readonly handle = (data: string): { consume?: boolean } | undefined => {
+		// ── Command mode (internal — ':', Neovim firstc=':' pattern) ──────────
+		if (this.cmdMode) {
+			return this.handleCmdModeKey(data);
+		}
+
+		// ── Escape → Normal mode ───────────────────────────────────────────────
+		if (this.kb.matches(data, "app.mode.normal")) {
+			if (this.outerMode === "insert") {
+				this.setOuterMode("normal");
+			} else {
+				// Already Normal: clear pending chords.
 				this.pendingD = false;
+				this.pendingG = false;
 				this.clearHint();
 				this.armHint();
 			}
 			return { consume: true };
 		}
 
-		if (this.mode === "insert") {
-			return undefined; // passthrough — let editor handle everything
+		if (this.outerMode === "insert") {
+			return undefined; // passthrough — editor owns Insert-mode keys
 		}
 
-		// ── NORMAL MODE ──────────────────────────────────────────────────────
-		// Clear the hint on any key; re-arm at the end if mode stays normal.
+		// ── NORMAL MODE ────────────────────────────────────────────────────────
 		this.clearHint();
 
-		// Pending 'd' chord: second 'd' = delete entire line.
-		if (this.pendingD) {
-			this.pendingD = false;
-			if (data === "d") {
-				this.editor.handleInput(SEQ.lineStart);
-				this.editor.handleInput(SEQ.deleteToLineEnd);
-				this.editor.handleInput(SEQ.deleteCharForward); // collapse newline
+		// ':' — enter command line (Neovim: nv_colon → command_line_enter).
+		if (this.kb.matches(data, "app.mode.command")) {
+			this.enterCmdMode();
+			return { consume: true };
+		}
+
+		// ── Double-press chords (gg, dd) ───────────────────────────────────────
+		if (this.pendingG) {
+			this.pendingG = false;
+			if (this.kb.matches(data, "app.scroll.top")) {
+				// gg → scroll to top
 				this.armHint();
 				return { consume: true };
 			}
-			// Unrecognised chord — fall through to handle as standalone key.
+			// Unrecognised second key — fall through.
 		}
 
-		switch (data) {
-			// ── Motion ──────────────────────────────────────────────────────
-			case "h":
-				this.editor.handleInput(SEQ.left);
-				break;
-			case "l":
-				this.editor.handleInput(SEQ.right);
-				break;
-			case "j":
-				this.editor.handleInput(SEQ.down);
-				break;
-			case "k":
-				this.editor.handleInput(SEQ.up);
-				break;
-			case "w":
-				this.editor.handleInput(SEQ.wordRight);
-				break;
-			case "b":
-				this.editor.handleInput(SEQ.wordLeft);
-				break;
-			case "0":
+		if (this.pendingD) {
+			this.pendingD = false;
+			if (this.kb.matches(data, "app.delete.line")) {
 				this.editor.handleInput(SEQ.lineStart);
-				break;
-			case "$":
-				this.editor.handleInput(SEQ.lineEnd);
-				break;
-
-			// ── Editing ─────────────────────────────────────────────────────
-			case "x":
-				this.editor.handleInput(SEQ.deleteCharForward);
-				break;
-			case "X":
-				this.editor.handleInput("\x08");
-				break; // backspace
-			case "D":
 				this.editor.handleInput(SEQ.deleteToLineEnd);
-				break;
-			case "d":
-				this.pendingD = true;
-				break;
-			case "u":
-				this.editor.handleInput("\x1f");
-				break; // ctrl+- = undo
-
-			// ── Enter insert mode ────────────────────────────────────────────
-			case "i":
-				this.setMode("insert");
+				this.editor.handleInput(SEQ.deleteCharForward);
+				this.armHint();
 				return { consume: true };
-			case "a":
-				this.editor.handleInput(SEQ.right);
-				this.setMode("insert");
-				return { consume: true };
-			case "A":
-				this.editor.handleInput(SEQ.lineEnd);
-				this.setMode("insert");
-				return { consume: true };
-			case "I":
-				this.editor.handleInput(SEQ.lineStart);
-				this.setMode("insert");
-				return { consume: true };
-			case "o":
-				this.editor.handleInput(SEQ.lineEnd);
-				this.editor.handleInput("\n");
-				this.setMode("insert");
-				return { consume: true };
-			case "O":
-				this.editor.handleInput(SEQ.lineStart);
-				this.editor.handleInput("\n");
-				this.editor.handleInput(SEQ.up);
-				this.setMode("insert");
-				return { consume: true };
-
-			default:
-				break; // unknown key: consumed silently
+			}
 		}
 
-		// Re-arm which-key hint after any motion/edit that stays in normal mode.
+		// ── Dispatch table (Djinn normalCmds pattern) ─────────────────────────
+		if (this.kb.matches(data, "app.scroll.top")) {
+			this.pendingG = true;
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.delete.line")) {
+			this.pendingD = true;
+			this.armHint();
+			return { consume: true };
+		}
+
+		// Scroll — fire onScroll; tui-mode.ts writes ANSI scroll sequences
+		const scrollLines = Number(process.env.ALEF_SCROLL_LINES ?? 3);
+		if (this.kb.matches(data, "app.scroll.down")) {
+			this.onScroll(scrollLines);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.scroll.up")) {
+			this.onScroll(-scrollLines);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.scroll.halfPageDown")) {
+			this.onScroll(scrollLines * 3);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.scroll.halfPageUp")) {
+			this.onScroll(-scrollLines * 3);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.scroll.bottom")) {
+			this.onScroll(Number.MAX_SAFE_INTEGER);
+			this.armHint();
+			return { consume: true };
+		}
+
+		// Cursor motions → forwarded to editor
+		if (this.kb.matches(data, "app.cursor.left")) {
+			this.editor.handleInput(SEQ.left);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.cursor.right")) {
+			this.editor.handleInput(SEQ.right);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.cursor.wordLeft")) {
+			this.editor.handleInput(SEQ.wordLeft);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.cursor.wordRight")) {
+			this.editor.handleInput(SEQ.wordRight);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.cursor.lineStart")) {
+			this.editor.handleInput(SEQ.lineStart);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.cursor.lineEnd")) {
+			this.editor.handleInput(SEQ.lineEnd);
+			this.armHint();
+			return { consume: true };
+		}
+
+		// Editing
+		if (this.kb.matches(data, "app.delete.char")) {
+			this.editor.handleInput(SEQ.deleteCharForward);
+			this.armHint();
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.delete.toLineEnd")) {
+			this.editor.handleInput(SEQ.deleteToLineEnd);
+			this.armHint();
+			return { consume: true };
+		}
+
+		// Undo: 'u' in Normal mode sends ctrl+- to editor (vim convention)
+		if (data === "u") {
+			this.editor.handleInput("\x1f");
+			this.armHint();
+			return { consume: true };
+		}
+		// Also forward raw ctrl+- if it arrives
+		if (data === "\x1f") {
+			this.editor.handleInput("\x1f");
+			this.armHint();
+			return { consume: true };
+		}
+
+		// Quit in Normal mode
+		if (this.kb.matches(data, "app.quit")) {
+			// Signal handled by caller via onColonCommand(":q")
+			this.onColonCommand(":q");
+			this.armHint();
+			return { consume: true };
+		}
+
+		// Enter Insert mode
+		if (this.kb.matches(data, "app.mode.insert")) {
+			this.setOuterMode("insert");
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.mode.insert.append")) {
+			this.editor.handleInput(SEQ.right);
+			this.setOuterMode("insert");
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.mode.insert.appendLineEnd")) {
+			// A
+			this.editor.handleInput(SEQ.lineEnd);
+			this.setOuterMode("insert");
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.mode.insert.lineStart")) {
+			// I
+			this.editor.handleInput(SEQ.lineStart);
+			this.setOuterMode("insert");
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.mode.insert.openBelow")) {
+			// o
+			this.editor.handleInput(SEQ.lineEnd);
+			this.editor.handleInput("\n");
+			this.setOuterMode("insert");
+			return { consume: true };
+		}
+		if (this.kb.matches(data, "app.mode.insert.openAbove")) {
+			// O
+			this.editor.handleInput(SEQ.lineStart);
+			this.editor.handleInput("\n");
+			this.editor.handleInput(SEQ.up);
+			this.setOuterMode("insert");
+			return { consume: true };
+		}
+
+		// Unknown key in Normal — consume silently (no unintended editor edits).
 		this.armHint();
 		return { consume: true };
 	};

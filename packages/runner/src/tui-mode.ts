@@ -343,7 +343,7 @@ export async function runTuiMode(
 		toolSlot.onToolStart = ({ callId, name, args }) => {
 			consoleZone.pulse();
 			showFooter();
-			streamingZone.stampThinkingLabel();
+			streamingZone.reset(); // close @alef block so post-tool text opens a new one
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
 			if (activeCalls.size === 0) batchStartedAt = Date.now();

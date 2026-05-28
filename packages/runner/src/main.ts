@@ -215,11 +215,27 @@ const toolSlot = {
 	onTokenUsage: undefined as ((usage: TokenUsage) => void) | undefined,
 	receiveTextChunk: undefined as ((chunk: string) => void) | undefined,
 	receiveThinkingChunk: undefined as ((chunk: string) => void) | undefined,
+	/** Set to true when at least one text chunk was streamed this turn (Cerebrum path). */
+	chunksStreamed: false,
 };
+
+type SerializedStep =
+	| string
+	| { kind: "reply"; text: string }
+	| { kind: "toolCall"; call: { name: string; args: Record<string, unknown> }; reply: string }
+	| { kind: "toolCalls"; calls: Array<{ name: string; args: Record<string, unknown> }>; reply: string };
+
+function deserializeStep(s: SerializedStep): ReturnType<typeof step.reply> {
+	if (typeof s === "string") return step.reply(s);
+	if (s.kind === "reply") return step.reply(s.text);
+	if (s.kind === "toolCall") return step.toolCall(s.call.name, s.call.args, s.reply);
+	if (s.kind === "toolCalls") return step.toolCalls(s.calls, s.reply);
+	return step.reply(String(s));
+}
 
 const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 const llmOrgan = scriptedRepliesEnv
-	? new ScriptedReasoner((JSON.parse(scriptedRepliesEnv) as string[]).map((text) => step.reply(text)))
+	? new ScriptedReasoner((JSON.parse(scriptedRepliesEnv) as SerializedStep[]).map(deserializeStep))
 	: new Cerebrum({
 			model,
 			getApiKey: () => resolveApiKey(model.provider),
@@ -240,7 +256,14 @@ const llmOrgan = scriptedRepliesEnv
 // main.ts is always a conversation agent — dialog is always defined.
 const { agent, dialog: _dialog } = AgentKernel.create({
 	llm: llmOrgan,
-	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
+	sink:
+		!args.print && !args.json && !args.noTui && process.stdin.isTTY
+			? (text: string) => {
+					// Cerebrum streams text via onResponseChunk (toolSlot.chunksStreamed=true).
+					// ScriptedReasoner does not stream — deliver via receiveTextChunk instead.
+					if (!toolSlot.chunksStreamed) toolSlot.receiveTextChunk?.(text);
+				}
+			: makeSink(args.json),
 	systemPrompt,
 	maxTurns: args.maxTurns,
 	session,

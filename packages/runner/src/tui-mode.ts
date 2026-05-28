@@ -261,6 +261,8 @@ export interface TuiToolSlot {
 	onTokenUsage: ((usage: TokenUsage) => void) | undefined;
 	receiveTextChunk: ((chunk: string) => void) | undefined;
 	receiveThinkingChunk: ((chunk: string) => void) | undefined;
+	/** True when at least one text chunk was streamed this turn (Cerebrum path). */
+	chunksStreamed: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,6 +416,7 @@ export async function runTuiMode(
 		};
 
 		toolSlot.receiveTextChunk = (chunk) => {
+			toolSlot.chunksStreamed = true;
 			consoleZone.pulse();
 			showFooter();
 			replyTW.receive(chunk);
@@ -476,6 +479,7 @@ export async function runTuiMode(
 		editor.setText("");
 		historyProvider.addEntry(text);
 		pendingFooterShown = false;
+		if (toolSlot) toolSlot.chunksStreamed = false;
 		consoleZone.hidePendingFooter(); // guard: clear any leftover footer from prior turn
 		appendUserMsg(chat, text, t);
 		turnStartedAt = Date.now();

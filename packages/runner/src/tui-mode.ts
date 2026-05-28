@@ -22,7 +22,7 @@ import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { COLON_COMMANDS, ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
-import { bg, boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
+import { boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { appendNotice, appendUserMsg } from "./tui/chat-view.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
@@ -330,13 +330,10 @@ export async function runTuiMode(
 	let turnStartedAt = 0;
 	let pendingTokenFooter: { setText(s: string): void } | null = null;
 
-	// Show pending footer whenever the agent block opens, matching its colours.
-	const agentHasBg = t.agentBg.truecolor || t.agentBg.ansi256 !== undefined || t.agentBg.ansi16 !== undefined;
-	const agentBgFn = agentHasBg ? (s: string) => bg(s, t.agentBg) : null;
 	let pendingFooterShown = false;
 	const showFooter = (): void => {
 		if (!pendingFooterShown) {
-			consoleZone.showPendingFooter(t.agentFg, agentBgFn);
+			consoleZone.showPendingFooter(t.agentFg);
 			pendingFooterShown = true;
 		}
 	};

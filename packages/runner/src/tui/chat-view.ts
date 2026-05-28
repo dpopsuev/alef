@@ -1,9 +1,10 @@
 import { Box, type Component, type Container, Spacer, Text } from "@dpopsuev/alef-tui";
 import type { ColorToken, ThemeTokens } from "../theme.js";
+import { stripAnsi } from "./ansi-utils.js";
 import { DynamicText } from "./dynamic-text.js";
 import { INDENT, SPACING } from "./layout-constants.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
-import { bg, color } from "./theme.js";
+import { bg, color, glyph } from "./theme.js";
 
 const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? "@you";
 const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
@@ -30,11 +31,65 @@ export function appendUserMsg(chat: Container, text: string, t: ThemeTokens): vo
 	chat.addChild(makePillFooter(t.userFg, bgFn));
 }
 
+/** Dim batch-timing line after the last tool call in a batch: `  ⊞ · 1.2s` */
+export function appendBatchTiming(chat: Container, ms: number, t: ThemeTokens): void {
+	const s = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+	chat.addChild(new Text(color(`  ⊞ · ${s}`, t.dimFg), 0, 0));
+}
+
+/**
+ * Append a mutable token-usage footer. Returns the Text node so the caller
+ * can call setText() when the usage event arrives.
+ */
+export function appendTokenFooter(chat: Container): Text {
+	const node = new Text("", 1, 0);
+	chat.addChild(node);
+	return node;
+}
+
 export function appendNotice(chat: Container, text: string, t: ThemeTokens): void {
 	chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
 	chat.addChild(makePillHeader("─", t.dimFg, null));
 	chat.addChild(new Text(color(text, t.dimFg), INDENT.BLOCK, 0));
 	chat.addChild(makePillFooter(t.dimFg, null));
+}
+
+/**
+ * Append a completed tool call pill.
+ *
+ * Header: ╭─ ✓ shell.exec  ls  1.2s ──────╮
+ * Body:   output content (if any)
+ * Footer: ╰────────────────────────────────╯
+ */
+export function appendCompletedToolBlock(
+	parent: { addChild(c: Component): void } | { addContent(c: Component): void },
+	name: string,
+	keyArg: string,
+	elapsedMs: number,
+	ok: boolean,
+	outputComponent: Component | null,
+	t: ThemeTokens,
+): void {
+	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
+	const g = ok ? glyph("state:done") : glyph("state:error");
+	const gFg = ok ? t.toolOkFg : t.toolErrFg;
+	const add = (c: Component): void => {
+		if ("addChild" in parent) parent.addChild(c);
+		else parent.addContent(c);
+	};
+	add(
+		new DynamicText((w) => {
+			const label = `${color(g, gFg)} ${color(name, t.toolNameFg)}${keyArg ? `  ${color(keyArg, t.toolArgFg)}` : ""}  ${color(elapsed, t.timeFg)}`;
+			const fill = Math.max(0, w - stripAnsi(label).length - 4);
+			return `${color("╭─", t.dimFg)} ${label} ${color(`${"-".repeat(fill)}╮`, t.dimFg)}`;
+		}),
+	);
+	if (outputComponent) {
+		const box = new Box(INDENT.BLOCK, 0);
+		box.addChild(outputComponent);
+		add(box);
+		add(makePillFooter(t.dimFg, null));
+	}
 }
 
 /**

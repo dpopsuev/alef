@@ -5,14 +5,11 @@
  * into ANSI-formatted strings and TUI components.
  */
 
-import type { Component } from "@dpopsuev/alef-tui";
-import { Box, Markdown, Text } from "@dpopsuev/alef-tui";
+import { type Component, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
-import { sanitizeForDisplay, stripAnsi } from "./ansi-utils.js";
-import { DynamicText } from "./dynamic-text.js";
+import { sanitizeForDisplay } from "./ansi-utils.js";
 import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
-import { pillFooterStr } from "./pill.js";
 import { color, glyph } from "./theme.js";
 
 /** Raw ANSI for diff rendering (chalk silences itself outside TTY). */
@@ -145,49 +142,4 @@ export function formatTokenUsage(input: number, output: number, _t: ThemeTokens,
 	}
 	const timing = turnMs !== undefined ? ` · ${(turnMs / 1000).toFixed(1)}s` : "";
 	return color(`${compact(input)} in · ${compact(output)} out${timing}`, _t.dimFg);
-}
-
-/**
- * Append a completed tool call as a self-contained pill block in the chat.
- *
- * Header: ╭─ ✓ shell.exec  ls  1.2s ──────╮
- * Body:   output content (if any)
- * Footer: ╰────────────────────────────────╯ (only when body exists)
- *
- * The header width is computed from the ANSI-stripped label so colored glyphs
- * and names don't throw off the fill calculation.
- */
-export function appendCompletedToolBlock(
-	parent: { addChild(c: Component): void } | { addContent(c: Component): void },
-	name: string,
-	keyArg: string,
-	elapsedMs: number,
-	ok: boolean,
-	outputComponent: Component | null,
-	t: ThemeTokens,
-): void {
-	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
-	const g = ok ? glyph("state:done") : glyph("state:error");
-	const gFg = ok ? t.toolOkFg : t.toolErrFg;
-
-	const add = (c: Component): void => {
-		if ("addChild" in parent) parent.addChild(c);
-		else parent.addContent(c);
-	};
-
-	add(
-		new DynamicText((w) => {
-			const coloredLabel = `${color(g, gFg)} ${color(name, t.toolNameFg)}${keyArg ? `  ${color(keyArg, t.toolArgFg)}` : ""}  ${color(elapsed, t.timeFg)}`;
-			const visLen = stripAnsi(coloredLabel).length;
-			const fill = Math.max(0, w - visLen - 4);
-			return `${color("╭─", t.dimFg)} ${coloredLabel} ${color(`${"─".repeat(fill)}╮`, t.dimFg)}`;
-		}),
-	);
-
-	if (outputComponent) {
-		const box = new Box(INDENT.BLOCK, 0);
-		box.addChild(outputComponent);
-		add(box);
-		add(new DynamicText((w) => color(pillFooterStr(w), t.dimFg)));
-	}
 }

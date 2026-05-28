@@ -23,16 +23,17 @@ import type { InteractiveOptions } from "./interactive.js";
 import { COLON_COMMANDS, ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
-import { appendNotice, appendUserMsg } from "./tui/chat-view.js";
+import {
+	appendBatchTiming,
+	appendCompletedToolBlock,
+	appendNotice,
+	appendTokenFooter,
+	appendUserMsg,
+} from "./tui/chat-view.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
-import {
-	appendCompletedToolBlock,
-	formatTokenUsage,
-	keyArgFromPayload,
-	makeToolOutputComponent,
-} from "./tui/tool-view.js";
+import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent } from "./tui/tool-view.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
 // Re-export primitives still used by tests and tui-commands.test.ts
@@ -374,9 +375,7 @@ export async function runTuiMode(
 					t,
 				);
 				if (activeCalls.size === 0 && batchStartedAt > 0) {
-					const batchMs = Date.now() - batchStartedAt;
-					const batchStr = batchMs >= 1000 ? `${(batchMs / 1000).toFixed(1)}s` : `${batchMs}ms`;
-					chat.addChild(new Text(color(`  ⊞ · ${batchStr}`, t.dimFg), 0, 0));
+					appendBatchTiming(chat, Date.now() - batchStartedAt, t);
 					batchStartedAt = 0;
 				}
 				tui.requestRender();
@@ -492,9 +491,7 @@ export async function runTuiMode(
 				consoleZone.stopThinking();
 				consoleZone.hidePendingFooter();
 				pendingFooterShown = false;
-				const tokenText = new Text("", 1, 0);
-				chat.addChild(tokenText);
-				pendingTokenFooter = tokenText;
+				pendingTokenFooter = appendTokenFooter(chat);
 				tui.requestRender(true);
 			}
 		} catch (e) {

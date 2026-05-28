@@ -120,6 +120,7 @@ export const refactorAsync: Evaluation = {
 	seed: [{ path: "src/fetch.ts", content: CALLBACK_SEED }],
 	prompt:
 		"Read src/fetch.ts. Refactor fetchData to use async/await instead of callbacks. " +
+		"Use the await keyword explicitly inside the function body. " +
 		"Keep the same behaviour — reject on invalid URLs, resolve with data string on valid ones.",
 	mustUse: ["fs.read"],
 	checker: all(fileContains("src/fetch.ts", "async", "await")),

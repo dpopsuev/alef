@@ -5,6 +5,31 @@ import { type KeyId, matchesKey } from "./keys.js";
  * Downstream packages can add keybindings via declaration merging.
  */
 export interface Keybindings {
+	// App-level modal keybindings
+	"app.mode.normal": true;
+	"app.mode.insert": true;
+	"app.mode.insert.append": true;
+	"app.mode.insert.appendLineEnd": true;
+	"app.mode.insert.openBelow": true;
+	"app.mode.insert.openAbove": true;
+	"app.mode.insert.lineStart": true;
+	"app.mode.command": true;
+	"app.quit": true;
+	"app.scroll.down": true;
+	"app.scroll.up": true;
+	"app.scroll.halfPageDown": true;
+	"app.scroll.halfPageUp": true;
+	"app.scroll.bottom": true;
+	"app.scroll.top": true;
+	"app.cursor.left": true;
+	"app.cursor.right": true;
+	"app.cursor.wordLeft": true;
+	"app.cursor.wordRight": true;
+	"app.cursor.lineStart": true;
+	"app.cursor.lineEnd": true;
+	"app.delete.char": true;
+	"app.delete.line": true;
+	"app.delete.toLineEnd": true;
 	// Editor navigation and editing
 	"tui.editor.cursorUp": true;
 	"tui.editor.cursorDown": true;
@@ -50,6 +75,38 @@ export interface KeybindingDefinition {
 
 export type KeybindingDefinitions = Record<string, KeybindingDefinition>;
 export type KeybindingsConfig = Record<string, KeyId | KeyId[] | undefined>;
+
+/** App-level modal keybindings — Normal/Insert/Command mode transitions and Normal-mode actions. */
+export const APP_KEYBINDINGS: KeybindingDefinitions = {
+	// Mode transitions
+	"app.mode.normal": { defaultKeys: "escape", description: "Enter Normal mode" },
+	"app.mode.insert": { defaultKeys: "i", description: "Enter Insert mode" },
+	"app.mode.insert.append": { defaultKeys: "a", description: "Enter Insert mode after cursor" },
+	"app.mode.insert.appendLineEnd": { defaultKeys: "shift+a", description: "Enter Insert mode at end of line" },
+	"app.mode.insert.openBelow": { defaultKeys: "o", description: "Open new line below, enter Insert" },
+	"app.mode.insert.openAbove": { defaultKeys: "shift+o", description: "Open new line above, enter Insert" },
+	"app.mode.insert.lineStart": { defaultKeys: "shift+i", description: "Enter Insert mode at line start" },
+	"app.mode.command": { defaultKeys: ":", description: "Open command line (:command)" },
+	// Normal-mode actions
+	"app.quit": { defaultKeys: "q", description: "Quit (Normal mode)" },
+	"app.scroll.down": { defaultKeys: "j", description: "Scroll down" },
+	"app.scroll.up": { defaultKeys: "k", description: "Scroll up" },
+	"app.scroll.halfPageDown": { defaultKeys: "ctrl+d", description: "Scroll half page down" },
+	"app.scroll.halfPageUp": { defaultKeys: "ctrl+u", description: "Scroll half page up" },
+	"app.scroll.bottom": { defaultKeys: "shift+g", description: "Scroll to bottom (G)" },
+	"app.scroll.top": { defaultKeys: "g", description: "Scroll to top (gg = two presses)" },
+	// Normal-mode cursor motions (forwarded to editor)
+	"app.cursor.left": { defaultKeys: "h", description: "Cursor left" },
+	"app.cursor.right": { defaultKeys: "l", description: "Cursor right" },
+	"app.cursor.wordLeft": { defaultKeys: "b", description: "Word left" },
+	"app.cursor.wordRight": { defaultKeys: "w", description: "Word right" },
+	"app.cursor.lineStart": { defaultKeys: "0", description: "Cursor to line start" },
+	"app.cursor.lineEnd": { defaultKeys: "$", description: "Cursor to line end" },
+	// Normal-mode editing
+	"app.delete.char": { defaultKeys: "x", description: "Delete character under cursor" },
+	"app.delete.line": { defaultKeys: "d", description: "Delete line (dd = two presses)" },
+	"app.delete.toLineEnd": { defaultKeys: "shift+d", description: "Delete to end of line (D)" },
+};
 
 export const TUI_KEYBINDINGS = {
 	"tui.editor.cursorUp": { defaultKeys: "up", description: "Move cursor up" },

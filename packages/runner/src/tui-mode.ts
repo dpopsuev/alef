@@ -20,7 +20,7 @@ import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
-import { ModalInputHandler } from "./modal-input.js";
+import { COLON_COMMANDS, ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
 import { bg, boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { appendNotice, appendUserMsg } from "./tui/chat-view.js";
@@ -97,19 +97,27 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 // Slash command handler
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Slash commands — Insert-mode aliases (e.g. typing /exit in the editor).
+// In Normal mode, use ':' commands instead (Neovim convention).
+// ---------------------------------------------------------------------------
 const COMMANDS: Record<string, string> = {
-	"/exit": "Quit",
-	"/new": "Clear conversation",
-	"/resume": "Show session ID",
+	"/exit": "Quit (alias: :q)",
+	"/new": "Clear conversation (alias: :new)",
+	"/resume": "Show session ID (alias: :session)",
 	"/login": "Save API key: /login <provider> <key>",
 	"/logout": "Remove stored API key: /logout <provider>",
 	"/help": "Show this help",
 };
 
 function helpText(): string {
-	return Object.entries(COMMANDS)
+	const slashLines = Object.entries(COMMANDS)
 		.map(([cmd, desc]) => `  ${cmd.padEnd(12)} ${desc}`)
 		.join("\n");
+	const colonLines = Object.entries(COLON_COMMANDS)
+		.map(([cmd, desc]) => `  ${cmd.padEnd(12)} ${desc}`)
+		.join("\n");
+	return `Normal-mode commands (press ':' then type):\n${colonLines}\n\nInsert-mode slash aliases:\n${slashLines}`;
 }
 
 export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolean {
@@ -162,6 +170,80 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			return true;
 		default:
 			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type /help for list.`, ctx.t);
+			ctx.tui.requestRender();
+			return false;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Colon command handler — Normal-mode ':commands' (Neovim convention).
+// Dispatched by ModalInputHandler when user types ':cmd' and presses Enter.
+// ---------------------------------------------------------------------------
+
+export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolean {
+	const parts = text.trim().split(/\s+/);
+	const cmd = (parts[0] ?? "").toLowerCase();
+	switch (cmd) {
+		case ":q":
+		case ":quit":
+		case ":exit":
+			ctx.dispose();
+			ctx.tui.stop();
+			return true;
+		case ":new":
+		case ":clear":
+			ctx.dialog.clearHistory();
+			while (ctx.chat.children.length > 0) ctx.chat.removeChild(ctx.chat.children[0]);
+			appendNotice(ctx.chat, "(conversation cleared)", ctx.t);
+			ctx.tui.requestRender(true);
+			return true;
+		case ":session":
+			appendNotice(ctx.chat, `session: ${ctx.sessionId}`, ctx.t);
+			ctx.tui.requestRender();
+			return true;
+		case ":login": {
+			const provider = parts[1];
+			const key = parts.slice(2).join(" ").trim();
+			if (!provider || !key) {
+				const known = getProviders().slice(0, 8).join(", ");
+				appendNotice(ctx.chat, `Usage: :login <provider> <api-key>\nKnown providers: ${known}`, ctx.t);
+			} else {
+				setStoredApiKey(provider, key);
+				appendNotice(ctx.chat, `Saved API key for ${provider}. Takes effect on the next message.`, ctx.t);
+			}
+			ctx.tui.requestRender();
+			return true;
+		}
+		case ":logout": {
+			const provider = parts[1];
+			if (!provider) {
+				appendNotice(ctx.chat, "Usage: :logout <provider>", ctx.t);
+			} else if (!getStoredApiKey(provider)) {
+				appendNotice(ctx.chat, `No stored key for ${provider}.`, ctx.t);
+			} else {
+				removeStoredApiKey(provider);
+				appendNotice(ctx.chat, `Removed stored key for ${provider}.`, ctx.t);
+			}
+			ctx.tui.requestRender();
+			return true;
+		}
+		case ":help":
+		case ":h":
+			appendNotice(ctx.chat, helpText(), ctx.t);
+			ctx.tui.requestRender();
+			return true;
+		case ":reload":
+			// ALE-TSK-348 — placeholder until in-process reload is implemented.
+			appendNotice(ctx.chat, ":reload is not yet implemented. Restart Alef to pick up organ changes.", ctx.t);
+			ctx.tui.requestRender();
+			return true;
+		case ":install":
+			// ALE-SPC-10 — placeholder until alef install is implemented.
+			appendNotice(ctx.chat, ":install is not yet implemented. Run 'alef install' from the terminal.", ctx.t);
+			ctx.tui.requestRender();
+			return true;
+		default:
+			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type :help for list or :h for help.`, ctx.t);
 			ctx.tui.requestRender();
 			return false;
 	}
@@ -448,17 +530,35 @@ export async function runTuiMode(
 	// ── Modal input (Escape → normal mode) ────────────────────────────────
 	const modal = new ModalInputHandler(
 		editor,
+		// onModeChange: update status bar indicator
 		(mode) => {
 			if (!consoleZone.isThinking) {
 				consoleZone.setStatus(mode === "normal" ? color(`${ANSI_BOLD}NORMAL${ANSI_RESET}`, t.dimFg) : "");
 			}
 			tui.requestRender();
 		},
+		// onHint: which-key hint or ':cmdBuffer' in command mode
 		(hint) => {
 			if (!consoleZone.isThinking) {
 				consoleZone.setStatus(hint ? color(hint, t.dimFg) : color(`${ANSI_BOLD}NORMAL${ANSI_RESET}`, t.dimFg));
 			}
 			tui.requestRender();
+		},
+		// onColonCommand: dispatch ':cmd' executed from Normal mode
+		(colonCmd) => {
+			handleColonCommand(colonCmd, ctx());
+		},
+		undefined, // kb — use default APP_KEYBINDINGS
+		// onScroll: write ANSI scroll sequence to terminal viewport
+		(lines) => {
+			if (lines === Number.MAX_SAFE_INTEGER) {
+				// G — scroll to very bottom
+				process.stdout.write("\x1b[9999S");
+			} else if (lines > 0) {
+				process.stdout.write(`\x1b[${lines}S`); // scroll down
+			} else if (lines < 0) {
+				process.stdout.write(`\x1b[${-lines}T`); // scroll up
+			}
 		},
 	);
 	tui.addInputListener(modal.handle);

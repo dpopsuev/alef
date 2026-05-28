@@ -24,8 +24,16 @@ function makeEditorStub() {
 function makeHandler() {
 	const editor = makeEditorStub();
 	const modes: string[] = [];
-	const h = new ModalInputHandler(editor as never, (m) => modes.push(m));
-	return { h, editor, modes };
+	const scrollDeltas: number[] = [];
+	const h = new ModalInputHandler(
+		editor as never,
+		(m) => modes.push(m),
+		undefined,
+		undefined,
+		undefined,
+		(delta) => scrollDeltas.push(delta),
+	);
+	return { h, editor, modes, scrollDeltas };
 }
 
 // ---------------------------------------------------------------------------
@@ -141,20 +149,22 @@ describe("ModalInputHandler — normal mode motion", () => {
 		expect(editor.calls).toContain("\x1b[C");
 	});
 
-	it("j sends down arrow", () => {
-		const { h, editor } = makeHandler();
+	it("j triggers scroll down (not editor cursor)", () => {
+		const { h, editor, scrollDeltas } = makeHandler();
 		h.handle("\x1b");
 		editor.reset();
 		h.handle("j");
-		expect(editor.calls).toContain("\x1b[B");
+		expect(editor.calls).toHaveLength(0); // j no longer moves editor cursor
+		expect(scrollDeltas[0]).toBeGreaterThan(0); // fires onScroll with positive delta
 	});
 
-	it("k sends up arrow", () => {
-		const { h, editor } = makeHandler();
+	it("k triggers scroll up (not editor cursor)", () => {
+		const { h, editor, scrollDeltas } = makeHandler();
 		h.handle("\x1b");
 		editor.reset();
 		h.handle("k");
-		expect(editor.calls).toContain("\x1b[A");
+		expect(editor.calls).toHaveLength(0); // k no longer moves editor cursor
+		expect(scrollDeltas[0]).toBeLessThan(0); // fires onScroll with negative delta
 	});
 
 	it("w sends word-right (alt+right)", () => {
@@ -231,12 +241,12 @@ describe("ModalInputHandler — normal mode editing", () => {
 		expect(editor.calls).toContain("\x1b[1;3C"); // word right (w after pending d reset)
 	});
 
-	it("u sends undo (ctrl+-)", () => {
+	it("u sends undo (ctrl+-) to editor", () => {
 		const { h, editor } = makeHandler();
 		h.handle("\x1b");
 		editor.reset();
 		h.handle("u");
-		expect(editor.calls).toContain("\x1f");
+		expect(editor.calls).toContain("\x1f"); // ctrl+- = undo
 	});
 
 	it("unknown keys in normal mode are consumed and do not reach editor", () => {

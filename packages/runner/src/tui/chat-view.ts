@@ -1,6 +1,6 @@
 import { Box, type Component, type Container, Spacer, Text } from "@dpopsuev/alef-tui";
 import type { ColorToken, ThemeTokens } from "../theme.js";
-import { stripAnsi } from "./ansi-utils.js";
+import { fmtMs, stripAnsi } from "./ansi-utils.js";
 import { DynamicText } from "./dynamic-text.js";
 import { INDENT, SPACING } from "./layout-constants.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
@@ -70,7 +70,7 @@ export function appendCompletedToolBlock(
 	outputComponent: Component | null,
 	t: ThemeTokens,
 ): void {
-	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
+	const elapsed = fmtMs(elapsedMs);
 	const g = ok ? glyph("state:done") : glyph("state:error");
 	const gFg = ok ? t.toolOkFg : t.toolErrFg;
 	const add = (c: Component): void => {
@@ -81,7 +81,7 @@ export function appendCompletedToolBlock(
 		new DynamicText((w) => {
 			const label = `${color(g, gFg)} ${color(name, t.toolNameFg)}${keyArg ? `  ${color(keyArg, t.toolArgFg)}` : ""}  ${color(elapsed, t.timeFg)}`;
 			const fill = Math.max(0, w - stripAnsi(label).length - 4);
-			return `${color("╭─", t.dimFg)} ${label} ${color(`${"-".repeat(fill)}╮`, t.dimFg)}`;
+			return `${color("╭─", t.dimFg)} ${label} ${color(`${"─".repeat(fill)}╮`, t.dimFg)}`;
 		}),
 	);
 	if (outputComponent) {

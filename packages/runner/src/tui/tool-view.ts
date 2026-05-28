@@ -7,7 +7,7 @@
 
 import { type Component, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
-import { sanitizeForDisplay } from "./ansi-utils.js";
+import { fmtMs, sanitizeForDisplay } from "./ansi-utils.js";
 import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 import { color, glyph } from "./theme.js";
@@ -19,7 +19,7 @@ const ANSI_RESET = "\x1b[0m";
 
 /** Spinner line shown while a tool call is in-flight. */
 export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens, elapsedMs = 0): string {
-	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
+	const elapsed = fmtMs(elapsedMs);
 	const label = `${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}`;
 	const body = keyArg ? `  ${color(keyArg, t.toolArgFg)}` : "";
 	const timing = elapsedMs > 0 ? `  ${color(elapsed, t.timeFg)}` : "";
@@ -67,7 +67,7 @@ export class ToolCallRow implements Component {
 
 /** Completed tool call line with elapsed time and ok/err glyph. */
 export function renderToolLine(name: string, keyArg: string, elapsedMs: number, ok: boolean, t: ThemeTokens): string {
-	const elapsed = elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`;
+	const elapsed = fmtMs(elapsedMs);
 	const g = ok ? glyph("state:done") : glyph("state:error");
 	const fg = ok ? t.toolOkFg : t.toolErrFg;
 	const indent = " ".repeat(INDENT.TOOL_LINE);

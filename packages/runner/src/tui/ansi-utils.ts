@@ -30,6 +30,11 @@ export function hasAnsi(text: string): boolean {
 	return ANSI_SGR_PATTERN.test(text);
 }
 
+/** Format a millisecond duration as a compact string: `1.2s` or `450ms`. */
+export function fmtMs(ms: number): string {
+	return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+}
+
 /**
  * Sanitize text for TUI display:
  *   1. Strip ANSI codes (prevents literal \x1b[1m in output)

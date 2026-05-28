@@ -1,5 +1,6 @@
 import { type Component, type Container, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
+import { fmtMs } from "./ansi-utils.js";
 import { AgentBlock } from "./chat-view.js";
 import { makeMarkdownTheme, makeThinkingMarkdownTheme } from "./markdown-themes.js";
 import { color, dim } from "./theme.js";
@@ -77,7 +78,7 @@ export class StreamingZone {
 	stampThinkingLabel(): void {
 		if (this.thinkHeader && this.thinkStartedAt > 0) {
 			const ms = Date.now() - this.thinkStartedAt;
-			const elapsed = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+			const elapsed = fmtMs(ms);
 			this.thinkHeader.setText(color(dim(`┈ thought for ${elapsed}`), this.t.dimFg));
 			this.thinkStartedAt = 0;
 		}

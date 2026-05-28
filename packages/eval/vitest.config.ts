@@ -26,10 +26,7 @@ export default defineConfig({
 		hookTimeout: 30_000,
 		// Register OTel provider once before any test runs.
 		setupFiles: ["./src/otel-setup.ts"],
-		// Serial execution within each file. The globalSpanExporter is a
-		// process-level singleton — concurrent tests in the same file would
-		// corrupt each other's span data. Each file already runs in its own
-		// fork (vitest default), so cross-file contamination is not an issue.
-		sequence: { concurrent: false },
+		// Spans are isolated per eval via traceId (see EvalHarness.collectSpansByTrace).
+		// No need for sequence: { concurrent: false } — concurrent tests are safe.
 	},
 });

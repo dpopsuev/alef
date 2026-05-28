@@ -96,47 +96,56 @@ export interface HarnessOptions {
 }
 
 export class EvalHarness {
-	private collectAndResetSpans(): SpanRecord[] {
-		const spans = globalSpanExporter.getFinishedSpans().map((s) => {
-			const attrs = Object.fromEntries(Object.entries(s.attributes ?? {}));
-			// Extract args and result from span events if present (Anthropic pattern:
-			// outcome = env state, not just transcript text).
-			let args: Record<string, unknown> | undefined;
-			let result: string | undefined;
-			for (const event of s.events ?? []) {
-				if (event.name === "tool.args" && event.attributes) {
-					const raw = event.attributes.args;
-					if (typeof raw === "string") {
-						try {
-							args = JSON.parse(raw) as Record<string, unknown>;
-						} catch {
-							/* ignore */
+	/**
+	 * Collect spans belonging to a specific trace (by traceId).
+	 * Concurrent eval runs each have a unique traceId from their rootSpan
+	 * (via AsyncLocalStorageContextManager), so filtering is safe without
+	 * a global reset. Replaces the old collectAndResetSpans() pattern.
+	 */
+	private collectSpansByTrace(traceId: string): SpanRecord[] {
+		const spans = globalSpanExporter
+			.getFinishedSpans()
+			.filter((s) => s.spanContext().traceId === traceId)
+			.map((s) => {
+				const attrs = Object.fromEntries(Object.entries(s.attributes ?? {}));
+				// Extract args and result from span events if present (Anthropic pattern:
+				// outcome = env state, not just transcript text).
+				let args: Record<string, unknown> | undefined;
+				let result: string | undefined;
+				for (const event of s.events ?? []) {
+					if (event.name === "tool.args" && event.attributes) {
+						const raw = event.attributes.args;
+						if (typeof raw === "string") {
+							try {
+								args = JSON.parse(raw) as Record<string, unknown>;
+							} catch {
+								/* ignore */
+							}
 						}
 					}
+					if (event.name === "tool.result" && event.attributes) {
+						const raw = event.attributes.result;
+						if (typeof raw === "string") result = raw;
+					}
 				}
-				if (event.name === "tool.result" && event.attributes) {
-					const raw = event.attributes.result;
-					if (typeof raw === "string") result = raw;
-				}
-			}
-			return {
-				name: s.name,
-				attributes: attrs,
-				status: (s.status.code === 1 ? "ERROR" : s.status.code === 2 ? "OK" : "UNSET") as "ERROR" | "OK" | "UNSET",
-				durationMs: (s.duration[0] * 1e9 + s.duration[1]) / 1e6,
-				...(args !== undefined && { args }),
-				...(result !== undefined && { result }),
-			};
-		});
-		globalSpanExporter.reset();
+				return {
+					name: s.name,
+					attributes: attrs,
+					status: (s.status.code === 1 ? "ERROR" : s.status.code === 2 ? "OK" : "UNSET") as
+						| "ERROR"
+						| "OK"
+						| "UNSET",
+					durationMs: (s.duration[0] * 1e9 + s.duration[1]) / 1e6,
+					...(args !== undefined && { args }),
+					...(result !== undefined && { result }),
+				};
+			});
 		return spans;
 	}
 
 	async run(scenarioFn: ScenarioFn, opts: HarnessOptions): Promise<RunMetrics> {
 		const start = Date.now();
 		const scenarioTimeoutMs = opts.scenarioTimeoutMs ?? 180_000;
-		// Reset exporter at start of each run — shared global exporter.
-		globalSpanExporter.reset();
 
 		// Parent span: all tool + LLM spans during this run become children.
 		// Enables Jaeger/Honeycomb to show one eval as a trace tree.
@@ -252,7 +261,7 @@ export class EvalHarness {
 			rootSpan.end();
 		}
 
-		const spans = this.collectAndResetSpans();
+		const spans = this.collectSpansByTrace(rootSpan.spanContext().traceId);
 		const cacheHits = spans.filter((s) => s.attributes["alef.cache.hit"] === true).length;
 		const cacheMisses = spans.filter((s) => s.attributes["alef.cache.hit"] === false).length;
 		const totalSpans = spans.length;

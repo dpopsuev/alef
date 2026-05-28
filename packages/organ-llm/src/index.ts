@@ -116,6 +116,8 @@ function isRetryableError(msg: string | undefined): boolean {
 	if (/service[\s_]unavailable/i.test(msg)) return true;
 	// HTTP 500
 	if (/internal[\s_]server[\s_]error/i.test(msg)) return true;
+	// HTTP 429 / Vertex RESOURCE_EXHAUSTED — rate limit, retry with backoff
+	if (/429|rate[\s_]limit|too[\s_]many[\s_]requests|resource[\s_]exhausted|quota[\s_]exceeded/i.test(msg)) return true;
 	return false;
 }
 

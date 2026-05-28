@@ -1,14 +1,5 @@
 /**
- * TUI process-exit smoke tests using node-pty.
- *
- * node-pty creates a real pseudo-terminal. The runner process believes it
- * has a TTY, activates TUI mode, and responds to actual keystrokes.
- *
- * These tests prove the wiring the unit tests cannot:
- *   - Typing /exit actually terminates the process
- *   - Ctrl+C when idle actually terminates the process
- *   - Neither hangs (process exits within timeout)
- *
+ * TUI smoke tests — process lifecycle via a real PTY.
  * Uses ALEF_SCRIPTED_REPLIES so no real LLM is needed.
  */
 
@@ -38,24 +29,21 @@ afterEach(() => {
 });
 
 function makeTmp(): string {
-	const d = mkdtempSync(join(tmpdir(), "alef-tui-smoke-"));
+	const d = mkdtempSync(join(tmpdir(), "alef-test-"));
 	tmps.push(d);
 	return d;
 }
 
 interface PtyResult {
-	exitCode: number | null;
+	exitCode: number;
 	output: string;
 }
 
-/**
- * Spawn the runner in a PTY and run a scenario function.
- * The scenario receives the pty instance and a helper to wait for output.
- * Returns exit code and full output when the process exits.
- */
+type SmokeStep = string | { kind: "toolCall"; call: { name: string; args: Record<string, unknown> }; reply: string };
+
 function runInPty(
 	cwd: string,
-	replies: string[],
+	replies: SmokeStep[],
 	scenario: (
 		write: (data: string) => void,
 		waitFor: (pattern: RegExp, timeoutMs?: number) => Promise<void>,
@@ -169,4 +157,41 @@ describe("TUI process-exit smoke (node-pty)", () => {
 
 		expect(result.exitCode).toBe(0);
 	}, 30_000);
+
+	// ScriptedReasoner runs real tools but does not call onToolStart/onToolEnd,
+	// so tool blocks do not render in the TUI. The test verifies two things:
+	//   1. The reply text arrives via the sink (chunksStreamed=false path).
+	//   2. The turn completes without hanging — TUI accepts /exit after.
+	it("tool-call step: post-tool reply text appears and TUI does not hang", async () => {
+		const cwd = makeTmp();
+		const steps: SmokeStep[] = [
+			{
+				kind: "toolCall",
+				call: { name: "fs.find", args: { path: cwd, pattern: "*" } },
+				reply: "Explored and found nothing unusual.",
+			},
+		];
+		const result = await runInPty(
+			cwd,
+			steps,
+			async (write, waitFor) => {
+				await waitFor(/ALEF|session:/);
+				await new Promise((r) => setTimeout(r, 300));
+
+				write("explore\r");
+
+				// Reply text must appear in the TUI (via sink, not onResponseChunk).
+				await waitFor(/found nothing unusual/, 20_000);
+
+				// TUI must still accept input — no hang.
+				write("/exit\r");
+			},
+			40_000,
+		);
+
+		if (result.exitCode !== 0) {
+			process.stderr.write(`\n[smoke-tui] tool-call PTY output:\n${result.output.slice(-800)}\n`);
+		}
+		expect(result.exitCode).toBe(0);
+	}, 45_000);
 });

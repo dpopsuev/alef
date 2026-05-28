@@ -9,14 +9,10 @@ class ArcEditorWrapper implements Component {
 
 	render(width: number): string[] {
 		const lines = this.inner.render(width);
-		const arc = (_l: string, open: boolean): string => {
-			const fill = Math.max(0, width - 2);
-			return this.arcColor(open ? `╭${"─".repeat(fill)}╮` : `╰${"─".repeat(fill)}╯`);
-		};
-		if (lines.length >= 2) {
-			lines[0] = arc(lines[0], true);
-			lines[lines.length - 1] = arc(lines[lines.length - 1], false);
-		}
+		if (lines.length < 2) return lines;
+		const fill = Math.max(0, width - 2);
+		lines[0] = this.arcColor(`╭${"─".repeat(fill)}╮`);
+		lines[lines.length - 1] = this.arcColor(`╰${"─".repeat(fill)}╯`);
 		return lines;
 	}
 

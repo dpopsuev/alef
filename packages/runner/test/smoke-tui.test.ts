@@ -24,8 +24,11 @@ const TSCONFIG = pathResolve(ROOT, "tsconfig.json");
 
 const tmps: string[] = [];
 
-afterEach(() => {
+afterEach(async () => {
 	for (const d of tmps.splice(0)) rmSync(d, { recursive: true, force: true });
+	// Drain the terminal buffer between PTY tests — prevents Ctrl+C from test 3
+	// leaking into test 4's PTY allocation through the shared terminal state.
+	await new Promise((r) => setTimeout(r, 150));
 });
 
 function makeTmp(): string {
@@ -69,6 +72,8 @@ function runInPty(
 				TSX_TSCONFIG_PATH: TSCONFIG,
 				// Suppress colour/box-drawing for easier pattern matching
 				NO_COLOR: "1",
+				// ALEF_DEBUG emits [ALEF_READY] when the TUI input loop is live.
+				ALEF_DEBUG: "1",
 			},
 		});
 
@@ -116,10 +121,7 @@ describe("TUI process-exit smoke (node-pty)", () => {
 	it("/exit terminates the process with exit code 0", async () => {
 		const cwd = makeTmp();
 		const result = await runInPty(cwd, ["scripted reply"], async (write, waitFor) => {
-			// Wait for the TUI header to appear.
-			await waitFor(/ALEF|session:/);
-			// Small settle — TUI needs to be ready for input.
-			await new Promise((r) => setTimeout(r, 300));
+			await waitFor(/\[ALEF_READY\]/);
 			write("/exit\r");
 		});
 
@@ -129,8 +131,7 @@ describe("TUI process-exit smoke (node-pty)", () => {
 	it("Ctrl+C when idle terminates the process with exit code 0", async () => {
 		const cwd = makeTmp();
 		const result = await runInPty(cwd, ["scripted reply"], async (write, waitFor) => {
-			await waitFor(/ALEF|session:/);
-			await new Promise((r) => setTimeout(r, 300));
+			await waitFor(/\[ALEF_READY\]/);
 			write("\x03"); // Ctrl+C
 		});
 
@@ -140,7 +141,7 @@ describe("TUI process-exit smoke (node-pty)", () => {
 	it("Ctrl+C mid-turn cancels the turn without exiting, second Ctrl+C exits", async () => {
 		const cwd = makeTmp();
 		const result = await runInPty(cwd, ["scripted reply"], async (write, waitFor) => {
-			await waitFor(/ALEF|session:/);
+			await waitFor(/\[ALEF_READY\]/);
 			await new Promise((r) => setTimeout(r, 300));
 
 			// Send a message to start a turn.
@@ -173,8 +174,7 @@ describe("TUI process-exit smoke (node-pty)", () => {
 			cwd,
 			steps,
 			async (write, waitFor) => {
-				await waitFor(/ALEF|session:/);
-				await new Promise((r) => setTimeout(r, 300));
+				await waitFor(/\[ALEF_READY\]/);
 
 				write("explore\r");
 
@@ -190,7 +190,7 @@ describe("TUI process-exit smoke (node-pty)", () => {
 		);
 
 		if (result.exitCode !== 0) {
-			process.stderr.write(`\n[smoke-tui] tool-call PTY output:\n${result.output.slice(-800)}\n`);
+			process.stderr.write(`\n[smoke-tui] tool-call PTY output:\n${result.output}\n`);
 		}
 		expect(result.exitCode).toBe(0);
 	}, 45_000);

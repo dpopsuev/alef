@@ -627,6 +627,9 @@ export async function runTuiMode(
 	tui.setFocus(editor);
 	tui.requestRender();
 	trace("tui:start");
+	// Signal for smoke tests: TUI is fully initialised and accepting input.
+	// Written only when ALEF_DEBUG=1 to avoid polluting normal output.
+	if (process.env.ALEF_DEBUG === "1") process.stdout.write("[ALEF_READY]\n");
 
 	await new Promise<void>((resolve) => {
 		tui.onStop = () => {

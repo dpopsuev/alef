@@ -900,4 +900,49 @@ if (isOldGreen) {
 			supervisor.kill("SIGTERM");
 		}
 	}, 70_000);
+
+	// ALE-TSK-358: scope:packages triggers alef-pm upgrade without crashing supervisor.
+	it("scope:packages update — supervisor calls alef-pm.upgrade() and rebuilds", async () => {
+		const cwd = makeTmp();
+		const greenScript = join(cwd, "green.mjs");
+
+		// Green sends { type: "update", scope: "packages" } once it is ready.
+		writeSelfTriggerGreen(
+			greenScript,
+			`
+let pkgTriggered = false;
+let pkgBuf = "";
+proc.stderr.on("data", (chunk) => {
+  pkgBuf += chunk.toString();
+  if (!pkgTriggered && pkgBuf.includes("router listening on")) {
+    pkgTriggered = true;
+    if (typeof process.send === "function") process.send({ type: "update", scope: "packages" });
+  }
+});
+`,
+		);
+
+		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR], {
+			cwd,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: {
+				...process.env,
+				ALEF_SUPERVISOR_GREEN_SCRIPT: greenScript,
+				ALEF_SUPERVISOR_BUILD_COMMAND: `${process.execPath} -e "process.exit(0)"`,
+				ALEF_SUPERVISOR_SKIP_HEALTH: "1",
+				ALEF_SUPERVISOR_AUTO_REBUILD_ON_START: "0",
+				ALEF_PM_SKIP_NPM: "1",
+				ALEF_PM_ROOT: cwd,
+				TSX_TSCONFIG_PATH: TSCONFIG,
+			},
+		});
+
+		try {
+			await waitForOutput(supervisor, /router listening on/, 25_000);
+			// Supervisor logs the scope:packages path and proceeds to rebuild.
+			await waitForOutput(supervisor, /upgrading organs/, 15_000);
+		} finally {
+			supervisor.kill("SIGTERM");
+		}
+	}, 55_000);
 });

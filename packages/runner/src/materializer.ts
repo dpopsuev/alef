@@ -15,7 +15,11 @@
  *   are ignored — each organ's factory handles only what it needs.
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
+import { parse as parseYaml } from "yaml";
 
 /**
  * Short alias → npm package for organs shipped with Alef.
@@ -147,6 +151,47 @@ export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
 	policies: { appendSystemPrompt: [] },
 	hooks: { extensions: [] },
 };
+
+/** Path to the user organs config file. Read at call time so ALEF_PM_ROOT overrides work in tests. */
+export function userOrgansConfigPath(): string {
+	const root = process.env.ALEF_PM_ROOT ?? join(homedir(), ".config", "alef");
+	return join(root, "organs.yaml");
+}
+
+type OrganEntry = string | { name: string; path?: string; actions?: string[] };
+
+/**
+ * Load user organs config from ~/.config/alef/organs.yaml.
+ * Returns null when the file does not exist (caller falls back to default).
+ *
+ * Format:
+ *   organs:
+ *     - fs
+ *     - shell
+ *     - name: my-organ
+ *       path: /absolute/path/to/organ.ts
+ *       actions: [read]
+ */
+export function loadUserOrgansConfig(): CompiledAgentDefinition["organs"] | null {
+	const configPath = userOrgansConfigPath();
+	if (!existsSync(configPath)) return null;
+	const text = readFileSync(configPath, "utf-8");
+	const parsed = parseYaml(text) as unknown;
+	if (!parsed || typeof parsed !== "object" || !("organs" in parsed)) return null;
+	const raw = (parsed as { organs: unknown }).organs;
+	if (!Array.isArray(raw)) return null;
+	return (raw as OrganEntry[]).map((entry) => {
+		if (typeof entry === "string") {
+			return { name: entry, actions: [], toolNames: [] };
+		}
+		return {
+			name: entry.name,
+			path: entry.path,
+			actions: entry.actions ?? [],
+			toolNames: [],
+		};
+	});
+}
 
 let _jiti: ReturnType<typeof createJiti> | undefined;
 function getJiti(): ReturnType<typeof createJiti> {

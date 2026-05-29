@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadOrganFromPath, materializeBlueprint } from "../src/materializer.js";
+import { loadOrganFromPath, loadUserOrgansConfig, materializeBlueprint } from "../src/materializer.js";
 
 const CWD = "/tmp/test-workspace";
 
@@ -130,5 +130,72 @@ export function createOrgan(_opts: unknown): Organ {
 		const organFile = join(dir, "bad-organ.ts");
 		writeFileSync(organFile, "export const foo = 42;");
 		await expect(loadOrganFromPath(organFile, { cwd: dir })).rejects.toThrow("createOrgan");
+	});
+});
+
+describe("loadUserOrgansConfig", () => {
+	it("returns null when organs.yaml does not exist", () => {
+		const dir = makeTmp();
+		process.env.ALEF_PM_ROOT = dir;
+		try {
+			expect(loadUserOrgansConfig()).toBeNull();
+		} finally {
+			delete process.env.ALEF_PM_ROOT;
+		}
+	});
+
+	it("parses a flat string list", () => {
+		const dir = makeTmp();
+		writeFileSync(join(dir, "organs.yaml"), "organs:\n  - fs\n  - shell\n");
+		process.env.ALEF_PM_ROOT = dir;
+		try {
+			const result = loadUserOrgansConfig();
+			expect(result).not.toBeNull();
+			expect(result?.map((o) => o.name)).toEqual(["fs", "shell"]);
+			expect(result?.every((o) => o.actions.length === 0)).toBe(true);
+		} finally {
+			delete process.env.ALEF_PM_ROOT;
+		}
+	});
+
+	it("parses object entries with name, path, and actions", () => {
+		const dir = makeTmp();
+		writeFileSync(
+			join(dir, "organs.yaml"),
+			["organs:", "  - name: fs", "    actions: [read]", "  - name: my-organ", "    path: /organs/my-organ.ts"].join(
+				"\n",
+			),
+		);
+		process.env.ALEF_PM_ROOT = dir;
+		try {
+			const result = loadUserOrgansConfig();
+			expect(result).toHaveLength(2);
+			expect(result?.[0]).toMatchObject({ name: "fs", actions: ["read"] });
+			expect(result?.[1]).toMatchObject({ name: "my-organ", path: "/organs/my-organ.ts" });
+		} finally {
+			delete process.env.ALEF_PM_ROOT;
+		}
+	});
+
+	it("returns null for a file with no organs key", () => {
+		const dir = makeTmp();
+		writeFileSync(join(dir, "organs.yaml"), "model: anthropic/claude\n");
+		process.env.ALEF_PM_ROOT = dir;
+		try {
+			expect(loadUserOrgansConfig()).toBeNull();
+		} finally {
+			delete process.env.ALEF_PM_ROOT;
+		}
+	});
+
+	it("returns null for an empty file", () => {
+		const dir = makeTmp();
+		writeFileSync(join(dir, "organs.yaml"), "");
+		process.env.ALEF_PM_ROOT = dir;
+		try {
+			expect(loadUserOrgansConfig()).toBeNull();
+		} finally {
+			delete process.env.ALEF_PM_ROOT;
+		}
 	});
 });

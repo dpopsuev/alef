@@ -33,7 +33,7 @@ import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
 import { DirectiveContextAssembler } from "./directives.js";
 import { runInteractive } from "./interactive.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
-import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "./materializer.js";
+import { DEFAULT_COMPILED_DEFINITION, loadUserOrgansConfig, materializeBlueprint } from "./materializer.js";
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
@@ -214,9 +214,12 @@ if (blueprintPath) {
 	blueprintSurfaces = definition.surfaces;
 	blueprintUpgradePolicy = definition.supervisor?.upgradePolicy ?? "rebuild_only";
 } else {
-	// No --blueprint supplied: use the default organ set through the same
-	// materializer path so main.ts stays free of organ imports.
-	const defaultMaterialized = await materializeBlueprint(DEFAULT_COMPILED_DEFINITION, {
+	// No --blueprint: check ~/.config/alef/organs.yaml (user tier), then fall
+	// back to DEFAULT_COMPILED_DEFINITION (fs, shell, nodesh, web).
+	const userOrgans = loadUserOrgansConfig();
+	const definition = userOrgans ? { ...DEFAULT_COMPILED_DEFINITION, organs: userOrgans } : DEFAULT_COMPILED_DEFINITION;
+	if (userOrgans) log.info({ count: userOrgans.length }, "loaded user organs config");
+	const defaultMaterialized = await materializeBlueprint(definition, {
 		cwd: args.cwd,
 		loggerFor: (name) => log.child({ organ: name }),
 		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,

@@ -17,6 +17,10 @@ function makeNoopOrgan(): Organ {
 	};
 }
 
+function makeNamedOrgan(name: string): Organ {
+	return { name, tools: [], subscriptions: { motor: [] as const, sense: [] as const }, mount: () => () => {} };
+}
+
 function makeToolOrgan(toolNames: string[]): Organ {
 	return {
 		name: "tool-organ",
@@ -300,5 +304,115 @@ describe("Agent payload validation", () => {
 		expect(error?.message).toContain("named-organ");
 		expect(error?.message).toContain("motor/typed.event");
 		expect(error?.message).toContain("score");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// unload() + reload()
+// ---------------------------------------------------------------------------
+
+describe("Agent — unload()", () => {
+	it("returns false when organ name not found", () => {
+		const agent = makeAgent();
+		expect(agent.unload("nonexistent")).toBe(false);
+	});
+
+	it("returns true and removes the organ by name", () => {
+		const agent = makeAgent();
+		const organ = makeNamedOrgan("my-organ");
+		agent.load(organ);
+		expect(agent.organs.some((o) => o.name === "my-organ")).toBe(true);
+		expect(agent.unload("my-organ")).toBe(true);
+		expect(agent.organs.some((o) => o.name === "my-organ")).toBe(false);
+	});
+
+	it("calls the unmount function returned by mount()", () => {
+		const agent = makeAgent();
+		let unmounted = false;
+		agent.load({
+			name: "tracked",
+			tools: [],
+			subscriptions: { motor: [] as const, sense: [] as const },
+			mount: (_n: Nerve) => () => {
+				unmounted = true;
+			},
+		});
+		agent.unload("tracked");
+		expect(unmounted).toBe(true);
+	});
+
+	it("removes tools from the unloaded organ", () => {
+		const agent = makeAgent();
+		agent.load(makeToolOrgan(["tool-a", "tool-b"]));
+		expect(agent.tools.some((t) => t.name === "tool-a")).toBe(true);
+		agent.unload("tool-organ");
+		expect(agent.tools.some((t) => t.name === "tool-a")).toBe(false);
+	});
+
+	it("leaves other organs and their tools intact", () => {
+		const agent = makeAgent();
+		agent.load(makeToolOrgan(["keep-this"]));
+		const keep = makeNamedOrgan("keep");
+		agent.load(keep);
+		agent.load(makeNamedOrgan("remove"));
+		agent.unload("remove");
+		expect(agent.organs.some((o) => o.name === "keep")).toBe(true);
+		expect(agent.tools.some((t) => t.name === "keep-this")).toBe(true);
+	});
+});
+
+describe("Agent — reload()", () => {
+	it("replaces an existing organ with a new instance", () => {
+		const agent = makeAgent();
+		let v1Unmounted = false;
+		agent.load({
+			name: "hot-organ",
+			tools: [],
+			subscriptions: { motor: [] as const, sense: [] as const },
+			mount: (_n: Nerve) => () => {
+				v1Unmounted = true;
+			},
+		});
+
+		let v2Mounted = false;
+		const v2: Organ = {
+			name: "hot-organ",
+			tools: [],
+			subscriptions: { motor: [] as const, sense: [] as const },
+			mount: (_n: Nerve) => {
+				v2Mounted = true;
+				return () => {};
+			},
+		};
+
+		agent.reload(v2);
+
+		expect(v1Unmounted).toBe(true);
+		expect(v2Mounted).toBe(true);
+		expect(agent.organs.filter((o) => o.name === "hot-organ")).toHaveLength(1);
+	});
+
+	it("loads a new organ when name was not previously loaded", () => {
+		const agent = makeAgent();
+		agent.reload(makeNamedOrgan("fresh"));
+		expect(agent.organs.some((o) => o.name === "fresh")).toBe(true);
+	});
+
+	it("updates tools to reflect the new organ's tool list", () => {
+		const agent = makeAgent();
+		agent.load({
+			name: "organ",
+			tools: [{ name: "old-tool", description: "", inputSchema: z.object({}) }],
+			subscriptions: { motor: [] as const, sense: [] as const },
+			mount: () => () => {},
+		});
+		agent.reload({
+			name: "organ",
+			tools: [{ name: "new-tool", description: "", inputSchema: z.object({}) }],
+			subscriptions: { motor: [] as const, sense: [] as const },
+			mount: () => () => {},
+		});
+		expect(agent.tools.some((t) => t.name === "old-tool")).toBe(false);
+		expect(agent.tools.some((t) => t.name === "new-tool")).toBe(true);
 	});
 });

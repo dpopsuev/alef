@@ -178,9 +178,9 @@ export function loadUserOrgansConfig(): CompiledAgentDefinition["organs"] | null
 	const text = readFileSync(configPath, "utf-8");
 	const parsed = parseYaml(text) as unknown;
 	if (!parsed || typeof parsed !== "object" || !("organs" in parsed)) return null;
-	const raw = (parsed as { organs: unknown }).organs;
-	if (!Array.isArray(raw)) return null;
-	return (raw as OrganEntry[]).map((entry) => {
+	const rec = parsed as Record<string, unknown>;
+	if (!Array.isArray(rec.organs)) return null;
+	return (rec.organs as OrganEntry[]).map((entry) => {
 		if (typeof entry === "string") {
 			return { name: entry, actions: [], toolNames: [] };
 		}

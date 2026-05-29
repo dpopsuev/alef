@@ -55,6 +55,54 @@ setupOTel();
 
 const args = parseArgs(process.argv.slice(2));
 
+// Handle package manager subcommands before any session/agent setup.
+if (
+	args.pmInstall ||
+	args.pmRemove ||
+	args.pmUpgrade ||
+	args.pmRollback !== undefined ||
+	args.pmHistory ||
+	args.pmAudit ||
+	args.pmGc
+) {
+	const pm = await import("./alef-pm.js");
+	pm.init();
+	if (args.pmInstall) {
+		const [name, version] = args.pmInstall.split("@");
+		const gen = await pm.install(name, version);
+		console.log(`Installed ${args.pmInstall} (generation ${gen})`);
+	} else if (args.pmRemove) {
+		const gen = await pm.remove(args.pmRemove);
+		console.log(`Removed ${args.pmRemove} (generation ${gen})`);
+	} else if (args.pmUpgrade) {
+		const gen = await pm.upgrade();
+		console.log(`Upgraded organs (generation ${gen})`);
+	} else if (args.pmRollback !== undefined) {
+		const entries = pm.history();
+		const target = args.pmRollback === -1 ? (entries[1]?.id ?? 1) : args.pmRollback;
+		await pm.rollback(target);
+		console.log(`Rolled back to generation ${target}`);
+	} else if (args.pmHistory) {
+		const entries = pm.history();
+		if (entries.length === 0) {
+			console.log("No generations recorded.");
+		}
+		for (const e of entries) {
+			const organs =
+				Object.entries(e.organs)
+					.map(([k, v]) => `${k}@${v}`)
+					.join(", ") || "(none)";
+			console.log(`  Gen ${e.id}  ${e.ts.slice(0, 19)}  alef=${e.alef}  organs: ${organs}`);
+		}
+	} else if (args.pmAudit) {
+		await pm.audit();
+	} else if (args.pmGc) {
+		const { removedGenerations, removedStoreEntries } = pm.gc();
+		console.log(`GC: removed ${removedGenerations} generations, ${removedStoreEntries} store entries`);
+	}
+	process.exit(0);
+}
+
 // Handle debug subcommands before any session/agent setup.
 if (args.debugSubcmd) {
 	switch (args.debugSubcmd) {

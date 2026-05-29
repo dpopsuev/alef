@@ -50,7 +50,9 @@ export const COLON_COMMANDS: Record<string, string> = {
 	":help": "Show help",
 	":h": "Show help",
 	":reload": "Hot-reload an organ — :reload <name>",
-	":install": "Install an organ — :install npm:<package>",
+	":install": "Install an organ — :install <organ>[@version]",
+	":upgrade": "Upgrade installed organs",
+	":rollback": "Roll back to previous organ generation — :rollback [N]",
 	":model": "Change model — :model <id>",
 };
 

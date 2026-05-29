@@ -87,6 +87,22 @@ export interface Args {
 	 * written to the trace regardless of this flag.
 	 */
 	debug: boolean;
+
+	// ── Package manager subcommands ──────────────────────────────────────────
+	/** alef install <organ>[@version] */
+	pmInstall: string | undefined;
+	/** alef remove <organ> */
+	pmRemove: string | undefined;
+	/** alef upgrade [organ...] */
+	pmUpgrade: boolean;
+	/** alef rollback [N] */
+	pmRollback: number | undefined;
+	/** alef history */
+	pmHistory: boolean;
+	/** alef audit */
+	pmAudit: boolean;
+	/** alef gc */
+	pmGc: boolean;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -108,6 +124,15 @@ Options:
   --json                 Emit structured JSONL events (for TUI consumers)
   --debug                Debug mode: verbose logs + lifecycle trace to ~/.alef/debug.log
   -h, --help             Show this help
+
+Package manager:
+  install <organ>[@ver]  Install an organ (e.g. alef install organ-fs@0.1.2)
+  remove  <organ>        Remove an organ
+  upgrade [organ...]     Upgrade all or specific organs
+  rollback [N]           Roll back to generation N (default: previous)
+  history                List generation history
+  audit                  Run npm audit on installed organs
+  gc                     Remove old generations (keeps last 10)
 
 Examples:
   alef                                 # interactive mode
@@ -138,6 +163,13 @@ export function parseArgs(argv: string[]): Args {
 		serve: undefined,
 		profile: undefined,
 		debug: false,
+		pmInstall: undefined,
+		pmRemove: undefined,
+		pmUpgrade: false,
+		pmRollback: undefined,
+		pmHistory: false,
+		pmAudit: false,
+		pmGc: false,
 	};
 
 	let i = 0;
@@ -258,6 +290,45 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--debug") {
 			args.debug = true;
+			i++;
+			continue;
+		}
+
+		// Package manager subcommands
+		if (arg === "install") {
+			args.pmInstall = argv[++i] ?? "";
+			i++;
+			continue;
+		}
+		if (arg === "remove") {
+			args.pmRemove = argv[++i] ?? "";
+			i++;
+			continue;
+		}
+		if (arg === "upgrade") {
+			args.pmUpgrade = true;
+			i++;
+			continue;
+		}
+		if (arg === "rollback") {
+			const n = parseInt(argv[i + 1] ?? "");
+			args.pmRollback = Number.isNaN(n) ? -1 : n; // -1 = previous
+			if (!Number.isNaN(n)) i++;
+			i++;
+			continue;
+		}
+		if (arg === "history") {
+			args.pmHistory = true;
+			i++;
+			continue;
+		}
+		if (arg === "audit") {
+			args.pmAudit = true;
+			i++;
+			continue;
+		}
+		if (arg === "gc") {
+			args.pmGc = true;
 			i++;
 			continue;
 		}

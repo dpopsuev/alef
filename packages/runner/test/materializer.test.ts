@@ -1,8 +1,22 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { compileAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
-import { describe, expect, it } from "vitest";
-import { materializeBlueprint } from "../src/materializer.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { loadOrganFromPath, materializeBlueprint } from "../src/materializer.js";
 
 const CWD = "/tmp/test-workspace";
+
+const temps: string[] = [];
+afterEach(() => {
+	for (const d of temps.splice(0)) rmSync(d, { recursive: true, force: true });
+});
+
+function makeTmp(): string {
+	const d = mkdtempSync(join(tmpdir(), "mat-test-"));
+	temps.push(d);
+	return d;
+}
 
 function makeDefinition(organs: { name: string; actions?: string[] }[]) {
 	return compileAgentDefinition({
@@ -82,9 +96,39 @@ describe("materializeBlueprint", () => {
 		const def = makeDefinition([{ name: "fs", actions: ["read"] }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.organs).toHaveLength(1);
-		// FsOrgan with read-only actions — only fs.read tool exposed
 		const organ = result.organs[0];
 		expect(organ.tools.some((t) => t.name === "fs.read")).toBe(true);
 		expect(organ.tools.some((t) => t.name === "fs.write")).toBe(false);
+	});
+});
+
+describe("loadOrganFromPath", () => {
+	it("loads a TypeScript organ file and calls createOrgan()", async () => {
+		const dir = makeTmp();
+		const organFile = join(dir, "my-organ.ts");
+		writeFileSync(
+			organFile,
+			`
+import type { Organ } from "@dpopsuev/alef-spine";
+export function createOrgan(_opts: unknown): Organ {
+	return {
+		name: "my-organ",
+		tools: [],
+		subscriptions: { motor: [], sense: [] },
+		mount: () => () => {},
+	};
+}
+`,
+		);
+		const organ = await loadOrganFromPath(organFile, { cwd: dir });
+		expect(organ.name).toBe("my-organ");
+		expect(organ.tools).toHaveLength(0);
+	});
+
+	it("throws when file does not export createOrgan", async () => {
+		const dir = makeTmp();
+		const organFile = join(dir, "bad-organ.ts");
+		writeFileSync(organFile, "export const foo = 42;");
+		await expect(loadOrganFromPath(organFile, { cwd: dir })).rejects.toThrow("createOrgan");
 	});
 });

@@ -170,7 +170,18 @@ async function loadOrganModule(organDef: CompiledAgentDefinition["organs"][numbe
 		return mod as unknown as OrganModule;
 	}
 
-	// Resolve alias → package. Unknown names are treated as npm specifiers directly.
+	// Resolve alias → package. Check alef-pm managed node_modules first,
+	// then fall back to built-in monorepo packages and bare npm specifiers.
+	const { resolveOrganPath } = await import("./alef-pm.js");
+	const pmPath = resolveOrganPath(organDef.name);
+	if (pmPath) {
+		const jitiMod = await getJiti().import(pmPath);
+		const mod = jitiMod as Record<string, unknown>;
+		if (typeof mod.createOrgan !== "function") {
+			throw new Error(`Organ at '${pmPath}' (alef-pm managed) does not export createOrgan(opts).`);
+		}
+		return mod as unknown as OrganModule;
+	}
 	const pkg = BUILTIN_PACKAGES[organDef.name] ?? organDef.name;
 	// Dynamic import — works for both built-in monorepo packages and npm packages.
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

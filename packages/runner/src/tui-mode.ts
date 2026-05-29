@@ -235,15 +235,68 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 			ctx.tui.requestRender();
 			return true;
 		case ":reload":
-			// ALE-TSK-348 — placeholder until in-process reload is implemented.
 			appendNotice(ctx.chat, ":reload is not yet implemented. Restart Alef to pick up organ changes.", ctx.t);
 			ctx.tui.requestRender();
 			return true;
-		case ":install":
-			// ALE-SPC-10 — placeholder until alef install is implemented.
-			appendNotice(ctx.chat, ":install is not yet implemented. Run 'alef install' from the terminal.", ctx.t);
+		case ":install": {
+			const spec = parts[1];
+			if (!spec) {
+				appendNotice(ctx.chat, "Usage: :install <organ>[@version]", ctx.t);
+				ctx.tui.requestRender();
+				return true;
+			}
+			appendNotice(ctx.chat, `Installing ${spec}…`, ctx.t);
 			ctx.tui.requestRender();
+			import("./alef-pm.js")
+				.then(async (pm) => {
+					pm.init();
+					const [name, version] = spec.split("@");
+					const gen = await pm.install(name, version);
+					appendNotice(ctx.chat, `Installed ${spec} (generation ${gen})`, ctx.t);
+					ctx.tui.requestRender();
+				})
+				.catch((e: unknown) => {
+					appendNotice(ctx.chat, `Install failed: ${e instanceof Error ? e.message : String(e)}`, ctx.t);
+					ctx.tui.requestRender();
+				});
 			return true;
+		}
+		case ":upgrade": {
+			appendNotice(ctx.chat, "Upgrading organs…", ctx.t);
+			ctx.tui.requestRender();
+			import("./alef-pm.js")
+				.then(async (pm) => {
+					pm.init();
+					const gen = await pm.upgrade();
+					appendNotice(ctx.chat, `Organs upgraded (generation ${gen})`, ctx.t);
+					ctx.tui.requestRender();
+				})
+				.catch((e: unknown) => {
+					appendNotice(ctx.chat, `Upgrade failed: ${e instanceof Error ? e.message : String(e)}`, ctx.t);
+					ctx.tui.requestRender();
+				});
+			return true;
+		}
+		case ":rollback": {
+			import("./alef-pm.js")
+				.then(async (pm) => {
+					pm.init();
+					const entries = pm.history();
+					const n = parts[1] ? parseInt(parts[1]) : (entries[1]?.id ?? 1);
+					await pm.rollback(n);
+					appendNotice(
+						ctx.chat,
+						`Rolled back to generation ${n}. Restart Alef to load the restored organs.`,
+						ctx.t,
+					);
+					ctx.tui.requestRender();
+				})
+				.catch((e: unknown) => {
+					appendNotice(ctx.chat, `Rollback failed: ${e instanceof Error ? e.message : String(e)}`, ctx.t);
+					ctx.tui.requestRender();
+				});
+			return true;
+		}
 		default:
 			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type :help for list or :h for help.`, ctx.t);
 			ctx.tui.requestRender();

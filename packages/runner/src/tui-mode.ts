@@ -306,7 +306,7 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				.then(async (pm) => {
 					pm.init();
 					const entries = pm.history();
-					const n = parts[1] ? parseInt(parts[1]) : (entries[1]?.id ?? 1);
+					const n = parts[1] ? parseInt(parts[1], 10) : (entries[1]?.id ?? 1);
 					await pm.rollback(n);
 					appendNotice(
 						ctx.chat,

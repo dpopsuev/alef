@@ -84,7 +84,7 @@ export function init(): void {
 
 function currentGenId(): number {
 	if (!existsSync(CURRENT_FILE)) return 0;
-	return parseInt(readFileSync(CURRENT_FILE, "utf-8").trim()) || 0;
+	return parseInt(readFileSync(CURRENT_FILE, "utf-8").trim(), 10) || 0;
 }
 
 function nextGenId(): number {
@@ -246,7 +246,7 @@ export function gc(keep = 10): { removedGenerations: number; removedStoreEntries
 
 	const files = readdirSync(GEN_DIR)
 		.filter((f) => f.endsWith(".json"))
-		.map((f) => ({ file: f, id: parseInt(f) }))
+		.map((f) => ({ file: f, id: parseInt(f, 10) }))
 		.sort((a, b) => b.id - a.id);
 
 	const toRemove = files.slice(keep);

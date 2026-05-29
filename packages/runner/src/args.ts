@@ -311,7 +311,7 @@ export function parseArgs(argv: string[]): Args {
 			continue;
 		}
 		if (arg === "rollback") {
-			const n = parseInt(argv[i + 1] ?? "");
+			const n = parseInt(argv[i + 1] ?? "", 10);
 			args.pmRollback = Number.isNaN(n) ? -1 : n; // -1 = previous
 			if (!Number.isNaN(n)) i++;
 			i++;

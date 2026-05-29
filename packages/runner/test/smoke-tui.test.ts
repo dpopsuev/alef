@@ -158,11 +158,9 @@ describe("TUI process-exit smoke (node-pty)", () => {
 		expect(result.exitCode).toBe(0);
 	}, 30_000);
 
-	// ScriptedReasoner runs real tools but does not call onToolStart/onToolEnd,
-	// so tool blocks do not render in the TUI. The test verifies two things:
-	//   1. The reply text arrives via the sink (chunksStreamed=false path).
-	//   2. The turn completes without hanging — TUI accepts /exit after.
-	it("tool-call step: post-tool reply text appears and TUI does not hang", async () => {
+	// ALE-TSK-350: ScriptedReasoner now fires onToolStart/onToolEnd/onResponseChunk.
+	// Tool pill block renders AND reply text appears via onResponseChunk (not sink).
+	it("tool-call step: tool block and reply text appear, TUI does not hang", async () => {
 		const cwd = makeTmp();
 		const steps: SmokeStep[] = [
 			{
@@ -180,10 +178,12 @@ describe("TUI process-exit smoke (node-pty)", () => {
 
 				write("explore\r");
 
-				// Reply text must appear in the TUI (via sink, not onResponseChunk).
-				await waitFor(/found nothing unusual/, 20_000);
+				// Tool pill block must appear (onToolStart/onToolEnd wired).
+				await waitFor(/fs\.find/, 20_000);
 
-				// TUI must still accept input — no hang.
+				// Reply text must appear via onResponseChunk.
+				await waitFor(/found nothing unusual/, 15_000);
+
 				write("/exit\r");
 			},
 			40_000,

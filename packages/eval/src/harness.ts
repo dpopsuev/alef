@@ -87,6 +87,12 @@ export interface HarnessOptions {
 	 */
 	organFactory?: (signal: AbortSignal) => Organ[];
 	/**
+	 * Override the tool list passed to DialogOrgan.
+	 * Default: () => agent.tools (all loaded tools).
+	 * Set to () => toolShell.metaTools when using ToolShell progressive disclosure.
+	 */
+	getTools?: () => readonly { name: string; description: string; inputSchema: unknown }[];
+	/**
 	 * Directory to write a JSONL execution trace file.
 	 * File is named `{scenario}.trace.jsonl` in this directory.
 	 * When unset, no trace file is written.
@@ -181,7 +187,9 @@ export class EvalHarness {
 		const agent = new Agent();
 		const dialog = new DialogOrgan({
 			sink: () => {},
-			getTools: () => agent.tools,
+			getTools: opts.getTools
+				? (opts.getTools as () => import("@dpopsuev/alef-spine").ToolDefinition[])
+				: () => agent.tools,
 			systemPrompt: opts.systemPrompt,
 		});
 

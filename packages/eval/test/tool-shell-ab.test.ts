@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../../organ-fs/src/organ.js";
 import { Cerebrum } from "../../organ-llm/src/index.js";
 import { createShellOrgan } from "../../organ-shell/src/organ.js";
-import { buildOrganDirectives, createToolShellOrgan } from "../../runner/src/tool-shell.js";
+import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "../../runner/src/tool-shell.js";
 import type { Evaluation } from "../src/evaluation.js";
 import { EvaluationRunner } from "../src/evaluation-runner.js";
 import { addTypeExport, createHTTPServer } from "../src/evaluations/write.js";
@@ -61,6 +61,12 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 				})
 			: undefined;
 
+		// Boot catalog injected as system prompt suffix when ToolShell is active.
+		// Tells the LLM which tools exist so it skips tools.search.
+		const systemPrompt = toolShell
+			? `You are a coding assistant.\n\n${buildBootCatalog(repOrgans.flatMap((o) => o.tools))}`
+			: undefined;
+
 		const runner = new EvaluationRunner(harness, {
 			// Domain organs (fs, shell) are loaded by the harness with the correct workspace cwd.
 			// organFactory adds only the LLM (and ToolShellOrgan when active).
@@ -69,6 +75,7 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 				return toolShell ? [toolShell, llm] : [llm];
 			},
 			...(toolShell ? { getTools: () => [...toolShell.metaTools] } : {}),
+			...(systemPrompt ? { systemPrompt } : {}),
 			scenarioTimeoutMs: 300_000,
 		});
 

@@ -43,7 +43,7 @@ import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
-import { buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
+import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
 import { runTuiMode } from "./tui-mode.js";
 
 // ---------------------------------------------------------------------------
@@ -242,6 +242,17 @@ const basePrompt = buildSystemPrompt({ tools: corpusOrgans.flatMap((o) => o.tool
 const asm = new DirectiveContextAssembler(basePrompt);
 await asm.loadWorkspace(args.cwd); // reads .alef/directives/*.md
 asm.registerOrgans([...corpusOrgans]); // collects organ.directives strings
+if (args.toolShell) {
+	// Boot catalog: compact tool list in the system prompt so the LLM skips
+	// tools.search and goes straight to tools.describe. Weight=90 puts it
+	// just below workspace directives (100) and above organ directives (80).
+	asm.register({
+		id: "tool-shell.boot-catalog",
+		layer: "organ",
+		content: buildBootCatalog(corpusOrgans.flatMap((o) => o.tools)),
+		weight: 90,
+	});
+}
 const assembled = asm.build(Math.floor(model.contextWindow * 0.1 * 4)); // ~10% of context in chars
 const systemPrompt = appendEnvironment(assembled, args.cwd); // date+cwd last
 

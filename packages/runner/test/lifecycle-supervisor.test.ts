@@ -272,6 +272,58 @@ describe("Runner — ALEF_SCRIPTED_REPLIES", () => {
 // ---------------------------------------------------------------------------
 
 describe("Runner — IPC supervisor handoff", () => {
+	// ALE-BUG-35: spurious message before handoff_prepare must not confuse the runner.
+	it("ignores unknown IPC messages and still acks the correct handoff_prepare", async () => {
+		const cwd = makeTmp();
+		const proc = spawn(process.execPath, [TSX, RUNNER_MAIN, "--serve", "0", "--no-tui"], {
+			cwd,
+			stdio: ["ignore", "pipe", "pipe", "ipc"],
+			env: {
+				...process.env,
+				ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]),
+				ALEF_SUPERVISOR: "1",
+				TSX_TSCONFIG_PATH: TSCONFIG,
+			},
+		});
+
+		const messages: unknown[] = [];
+		const ackPromise = new Promise<{ type: string; updateId: string }>((resolve, reject) => {
+			const timer = setTimeout(() => reject(new Error("Timeout: no handoff_ack received")), 15_000);
+			proc.on("message", (msg: unknown) => {
+				messages.push(msg);
+				const m = msg as { type?: string; updateId?: string };
+				if (m.type === "handoff_ack") {
+					clearTimeout(timer);
+					resolve(m as { type: string; updateId: string });
+				}
+			});
+			proc.on("exit", (code) => {
+				clearTimeout(timer);
+				reject(new Error(`Exited (${code}) before ack`));
+			});
+		});
+
+		try {
+			await waitForOutput(proc, /router listening on/, 20_000);
+
+			// Inject a spurious message before sending the real handoff_prepare.
+			proc.send({ type: "handoff_ack", updateId: "stale-from-previous-swap" });
+			proc.send({ type: "unknown_message_type", data: 42 });
+
+			// Now send the real handoff_prepare.
+			proc.send({ type: "handoff_prepare", envelope: { updateId: "correct-id", schemaVersion: "v1" } });
+
+			const ack = await ackPromise;
+			expect(ack.type).toBe("handoff_ack");
+			expect(ack.updateId).toBe("correct-id");
+			// Runner must emit exactly one ack (not confused by spurious messages).
+			const acks = messages.filter((m) => (m as { type?: string }).type === "handoff_ack");
+			expect(acks).toHaveLength(1);
+		} finally {
+			proc.kill("SIGTERM");
+		}
+	}, 30_000);
+
 	it("responds to handoff_prepare with handoff_ack", async () => {
 		const cwd = makeTmp();
 
@@ -606,4 +658,246 @@ proc.stderr.on("data", (chunk) => {
 			supervisor.kill("SIGTERM");
 		}
 	}, 90_000);
+});
+
+// ---------------------------------------------------------------------------
+// Supervisor — unhappy paths (ALE-BUG-32, 33, 34)
+// ---------------------------------------------------------------------------
+
+/** Self-triggering green: boots runner, sends { type:"rebuild" } once router is ready. */
+function writeSelfTriggerGreen(path: string, extra = ""): void {
+	writeFileSync(
+		path,
+		`
+import { spawn } from "node:child_process";
+const tsx = ${JSON.stringify(TSX)};
+const main = ${JSON.stringify(RUNNER_MAIN)};
+const tsconfig = ${JSON.stringify(TSCONFIG)};
+const proc = spawn(process.execPath, [tsx, main, "--serve", "0", "--no-tui"], {
+  cwd: process.cwd(),
+  stdio: ["inherit", "pipe", "pipe", "ipc"],
+  env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
+});
+proc.stdout.pipe(process.stdout);
+proc.stderr.pipe(process.stderr);
+process.on("message", (msg) => { if (proc.connected) proc.send(msg); });
+proc.on("message", (msg) => { if (process.connected) process.send(msg); });
+proc.on("exit", (code) => process.exit(code ?? 0));
+process.on("SIGTERM", () => proc.kill("SIGTERM"));
+let triggered = false;
+let buf = "";
+proc.stderr.on("data", (chunk) => {
+  buf += chunk.toString();
+  if (!triggered && buf.includes("router listening on")) {
+    triggered = true;
+    if (typeof process.send === "function") process.send({ type: "rebuild" });
+  }
+});
+${extra}
+`,
+		"utf-8",
+	);
+}
+
+describe("Supervisor — unhappy paths", () => {
+	// ALE-BUG-34: build command fails — old green must stay live, no promotion.
+	it("build failure: old green keeps serving, Promoted staging slot absent", async () => {
+		const cwd = makeTmp();
+		const greenScript = join(cwd, "green.mjs");
+		writeSelfTriggerGreen(greenScript);
+
+		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR], {
+			cwd,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: {
+				...process.env,
+				ALEF_SUPERVISOR_GREEN_SCRIPT: greenScript,
+				ALEF_SUPERVISOR_BUILD_COMMAND: `${process.execPath} -e "process.exit(1)"`,
+				ALEF_SUPERVISOR_SKIP_HEALTH: "1",
+				ALEF_SUPERVISOR_AUTO_REBUILD_ON_START: "0",
+				TSX_TSCONFIG_PATH: TSCONFIG,
+			},
+		});
+
+		let supervisorOut = "";
+		supervisor.stdout?.on("data", (c: Buffer) => {
+			supervisorOut += c.toString();
+		});
+		supervisor.stderr?.on("data", (c: Buffer) => {
+			supervisorOut += c.toString();
+		});
+
+		try {
+			const output = await waitForOutput(supervisor, /router listening on/, 25_000);
+			const baseUrl = parseRouterAddress(output);
+
+			const healthBefore = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
+			expect(healthBefore.ok).toBe(true);
+
+			// Green self-triggers rebuild; build exits 1; supervisor logs failure.
+			await waitForOutput(supervisor, /rebuild failed/, 15_000);
+
+			// Old green must still be alive after failed build.
+			const healthAfter = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
+			expect(healthAfter.ok).toBe(true);
+			expect(supervisorOut).not.toMatch(/Promoted staging slot/);
+		} finally {
+			supervisor.kill("SIGTERM");
+		}
+	}, 55_000);
+
+	// ALE-BUG-33: new green crashes during boot — supervisor rolls back to old green.
+	it("new green crash: supervisor rolls back, old green keeps serving", async () => {
+		const cwd = makeTmp();
+		const counterFile = join(cwd, "count");
+		const greenScript = join(cwd, "green.mjs");
+
+		// Invocation 0: normal runner that self-triggers rebuild.
+		// Invocation 1+: exit immediately — simulates a bad new build.
+		writeFileSync(
+			greenScript,
+			`
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { spawn } from "node:child_process";
+const tsx = ${JSON.stringify(TSX)};
+const main = ${JSON.stringify(RUNNER_MAIN)};
+const tsconfig = ${JSON.stringify(TSCONFIG)};
+const counterFile = ${JSON.stringify(counterFile)};
+const count = existsSync(counterFile) ? parseInt(readFileSync(counterFile, "utf8")) : 0;
+writeFileSync(counterFile, String(count + 1));
+if (count > 0) { process.exit(1); }
+const proc = spawn(process.execPath, [tsx, main, "--serve", "0", "--no-tui"], {
+  cwd: process.cwd(),
+  stdio: ["inherit", "pipe", "pipe", "ipc"],
+  env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
+});
+proc.stdout.pipe(process.stdout);
+proc.stderr.pipe(process.stderr);
+process.on("message", (msg) => { if (proc.connected) proc.send(msg); });
+proc.on("message", (msg) => { if (process.connected) process.send(msg); });
+proc.on("exit", (code) => process.exit(code ?? 0));
+process.on("SIGTERM", () => proc.kill("SIGTERM"));
+let triggered = false, buf = "";
+proc.stderr.on("data", (chunk) => {
+  buf += chunk.toString();
+  if (!triggered && buf.includes("router listening on")) {
+    triggered = true;
+    if (typeof process.send === "function") process.send({ type: "rebuild" });
+  }
+});
+`,
+			"utf-8",
+		);
+
+		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR], {
+			cwd,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: {
+				...process.env,
+				ALEF_SUPERVISOR_GREEN_SCRIPT: greenScript,
+				ALEF_SUPERVISOR_BUILD_COMMAND: `${process.execPath} -e "process.exit(0)"`,
+				// No SKIP_HEALTH — readyPromise must wait for "router listening on".
+				// New green (invocation 1) exits before emitting it → readyReject fires.
+				ALEF_SUPERVISOR_AUTO_REBUILD_ON_START: "0",
+				TSX_TSCONFIG_PATH: TSCONFIG,
+			},
+		});
+
+		let supervisorOut = "";
+		supervisor.stdout?.on("data", (c: Buffer) => {
+			supervisorOut += c.toString();
+		});
+		supervisor.stderr?.on("data", (c: Buffer) => {
+			supervisorOut += c.toString();
+		});
+
+		try {
+			const output = await waitForOutput(supervisor, /router listening on/, 25_000);
+			const baseUrl = parseRouterAddress(output);
+
+			const healthBefore = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
+			expect(healthBefore.ok).toBe(true);
+
+			// Green self-triggers rebuild; new green exits → readyReject → rollback.
+			await waitForOutput(supervisor, /rebuild failed/, 20_000);
+
+			const healthAfter = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
+			expect(healthAfter.ok).toBe(true);
+			expect(supervisorOut).not.toMatch(/Promoted staging slot/);
+		} finally {
+			supervisor.kill("SIGTERM");
+		}
+	}, 55_000);
+
+	// ALE-BUG-32: old green ignores handoff_prepare — supervisor must promote anyway after 5s.
+	it("handoff timeout: supervisor promotes after 5s even without ack", async () => {
+		const cwd = makeTmp();
+		const counterFile = join(cwd, "count");
+		const greenScript = join(cwd, "green.mjs");
+
+		// Invocation 0 (old green): self-triggers rebuild, drops handoff_prepare (no ack).
+		// Invocation 1 (new green): normal — boots and serves.
+		writeFileSync(
+			greenScript,
+			`
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { spawn } from "node:child_process";
+const tsx = ${JSON.stringify(TSX)};
+const main = ${JSON.stringify(RUNNER_MAIN)};
+const tsconfig = ${JSON.stringify(TSCONFIG)};
+const counterFile = ${JSON.stringify(counterFile)};
+const count = existsSync(counterFile) ? parseInt(readFileSync(counterFile, "utf8")) : 0;
+writeFileSync(counterFile, String(count + 1));
+const isOldGreen = count === 0;
+const proc = spawn(process.execPath, [tsx, main, "--serve", "0", "--no-tui"], {
+  cwd: process.cwd(),
+  stdio: ["inherit", "pipe", "pipe", "ipc"],
+  env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
+});
+proc.stdout.pipe(process.stdout);
+proc.stderr.pipe(process.stderr);
+process.on("message", (msg) => {
+  // Old green drops handoff_prepare instead of forwarding it.
+  const m = msg;
+  if (isOldGreen && m && m.type === "handoff_prepare") return;
+  if (proc.connected) proc.send(msg);
+});
+proc.on("message", (msg) => { if (process.connected) process.send(msg); });
+proc.on("exit", (code) => process.exit(code ?? 0));
+process.on("SIGTERM", () => proc.kill("SIGTERM"));
+if (isOldGreen) {
+  let triggered = false, buf = "";
+  proc.stderr.on("data", (chunk) => {
+    buf += chunk.toString();
+    if (!triggered && buf.includes("router listening on")) {
+      triggered = true;
+      if (typeof process.send === "function") process.send({ type: "rebuild" });
+    }
+  });
+}
+`,
+			"utf-8",
+		);
+
+		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR], {
+			cwd,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: {
+				...process.env,
+				ALEF_SUPERVISOR_GREEN_SCRIPT: greenScript,
+				ALEF_SUPERVISOR_BUILD_COMMAND: `${process.execPath} -e "process.exit(0)"`,
+				ALEF_SUPERVISOR_SKIP_HEALTH: "1",
+				ALEF_SUPERVISOR_AUTO_REBUILD_ON_START: "0",
+				TSX_TSCONFIG_PATH: TSCONFIG,
+			},
+		});
+
+		try {
+			await waitForOutput(supervisor, /router listening on/, 25_000);
+			// Supervisor must promote despite missing ack (5s handoff timeout + new green boot).
+			await waitForOutput(supervisor, /Promoted staging slot/, 30_000);
+		} finally {
+			supervisor.kill("SIGTERM");
+		}
+	}, 70_000);
 });

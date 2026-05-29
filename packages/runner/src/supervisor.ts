@@ -51,6 +51,8 @@ let rebuilding = false;
 
 /** Resolves when the current green has emitted "router listening on". */
 let readyResolve: (() => void) | undefined;
+/** Rejects readyPromise when the new green exits before becoming ready. */
+let readyReject: ((err: Error) => void) | undefined;
 let readyPromise: Promise<void> = Promise.resolve();
 
 // ---------------------------------------------------------------------------
@@ -63,9 +65,19 @@ function spawnGreen(sessionId?: string): ChildProcess {
 
 	// New readiness gate for this slot.
 	readyResolve = undefined;
+	readyReject = undefined;
 	if (!SKIP_HEALTH) {
-		readyPromise = new Promise<void>((resolve) => {
-			readyResolve = resolve;
+		readyPromise = new Promise<void>((resolve, reject) => {
+			readyResolve = () => {
+				resolve();
+				readyResolve = undefined;
+				readyReject = undefined;
+			};
+			readyReject = (err: Error) => {
+				reject(err);
+				readyResolve = undefined;
+				readyReject = undefined;
+			};
 		});
 	} else {
 		readyPromise = Promise.resolve();
@@ -111,6 +123,10 @@ function spawnGreen(sessionId?: string): ChildProcess {
 		if (!rebuilding) {
 			process.stderr.write(`[supervisor] green exited (code=${code} signal=${signal}), restarting…\n`);
 			current = spawnGreen(currentSessionId);
+		} else {
+			// Exited during a rebuild. If readyReject is still set the new green
+			// crashed before becoming ready — reject so doRebuild() can roll back.
+			readyReject?.(new Error(`Green exited (${code}/${signal}) before ready`));
 		}
 	});
 

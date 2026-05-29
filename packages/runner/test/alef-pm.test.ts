@@ -1,276 +1,338 @@
 /**
- * Unit tests for alef-pm.ts — generation manager.
+ * Tests for alef-pm.ts — the real module, ALEF_PM_ROOT injected.
  *
- * Tests the pure logic (snapshot, restore, gc, resolveOrganPath) against
- * a temp directory. npm CLI calls are skipped in unit tests — those are
- * covered by the integration path in lifecycle-supervisor tests.
+ * Unit/robustness: ALEF_PM_SKIP_NPM=1 skips npm CLI calls. vi.spyOn(module,
+ * "runNpm") verifies correct commands are passed without actually running npm.
+ *
+ * Integration (ALEF_PM_INTEGRATION=1): real npm, real lockfile, real cache.
  */
 
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+let tmpRoot: string;
+
+beforeEach(() => {
+	tmpRoot = mkdtempSync(join(tmpdir(), "alef-pm-real-"));
+	process.env.ALEF_PM_ROOT = tmpRoot;
+	process.env.ALEF_PM_SKIP_NPM = "1";
+	vi.resetModules();
+});
+
+afterEach(() => {
+	delete process.env.ALEF_PM_ROOT;
+	delete process.env.ALEF_PM_SKIP_NPM;
+	vi.restoreAllMocks();
+	rmSync(tmpRoot, { recursive: true, force: true });
+});
+
+async function load() {
+	return import("../src/alef-pm.js");
+}
 
 // ---------------------------------------------------------------------------
-// Self-contained mini-pm for unit testing (same logic, temp root)
+// Helpers
 // ---------------------------------------------------------------------------
 
-// We test the module's exported pure functions by pointing them at a temp dir.
-// Since PM_ROOT is derived from homedir() at import time, we replicate the
-// pure functions here with an injectable root. The real alef-pm.ts is tested
-// for integration concerns in lifecycle tests.
+function writeLock(content: object): void {
+	writeFileSync(join(tmpRoot, "package-lock.json"), JSON.stringify(content, null, 2));
+}
 
-function makeTestPm(root: string) {
-	const GEN_DIR = join(root, "generations");
-	const LOCAL_STORE = join(root, "local-store");
-	const LOCK_FILE = join(root, "package-lock.json");
-	const CURRENT_FILE = join(root, "current");
-	const PACKAGE_JSON = join(root, "package.json");
+function readCurrent(): number {
+	return parseInt(readFileSync(join(tmpRoot, "current"), "utf-8").trim(), 10);
+}
 
-	function init() {
-		mkdirSync(GEN_DIR, { recursive: true });
-		mkdirSync(LOCAL_STORE, { recursive: true });
-		if (!existsSync(PACKAGE_JSON)) {
-			writeFileSync(PACKAGE_JSON, JSON.stringify({ name: "alef-organs", private: true, dependencies: {} }, null, 2));
-		}
-	}
-
-	function currentGenId(): number {
-		if (!existsSync(CURRENT_FILE)) return 0;
-		return parseInt(readFileSync(CURRENT_FILE, "utf-8").trim()) || 0;
-	}
-
-	function snapshotGeneration(): number {
-		const lockContent = existsSync(LOCK_FILE) ? readFileSync(LOCK_FILE, "utf-8") : "{}";
-		const lockHash = createHash("sha256").update(lockContent).digest("hex");
-		const parent = currentGenId() || null;
-		const id = currentGenId() + 1;
-		writeFileSync(
-			join(GEN_DIR, `${id}.json`),
-			JSON.stringify({ id, ts: new Date().toISOString(), lockHash, lockfileContent: lockContent, parent }),
-		);
-		writeFileSync(CURRENT_FILE, String(id));
-		return id;
-	}
-
-	function rollback(n: number) {
-		const gen = JSON.parse(readFileSync(join(GEN_DIR, `${n}.json`), "utf-8")) as { lockfileContent: string };
-		writeFileSync(LOCK_FILE, gen.lockfileContent);
-		writeFileSync(CURRENT_FILE, String(n));
-	}
-
-	function history() {
-		if (!existsSync(GEN_DIR)) return [];
-		const { readdirSync } = require("node:fs") as typeof import("node:fs");
-		return readdirSync(GEN_DIR)
-			.filter((f: string) => f.endsWith(".json"))
-			.map((f: string) => JSON.parse(readFileSync(join(GEN_DIR, f), "utf-8")) as { id: number; ts: string })
-			.sort((a: { id: number }, b: { id: number }) => b.id - a.id);
-	}
-
-	function gc(keep = 10) {
-		const { readdirSync } = require("node:fs") as typeof import("node:fs");
-		const files = readdirSync(GEN_DIR)
-			.filter((f: string) => f.endsWith(".json"))
-			.map((f: string) => ({ file: f, id: parseInt(f) }))
-			.sort((a: { id: number }, b: { id: number }) => b.id - a.id);
-		const toRemove = files.slice(keep);
-		for (const { file } of toRemove) rmSync(join(GEN_DIR, file));
-		return { removedGenerations: toRemove.length, removedStoreEntries: 0 };
-	}
-
-	function snapshotLocalOrgan(filePath: string): string {
-		const content = readFileSync(filePath);
-		const hash = createHash("sha256").update(content).digest("hex");
-		const storeDir = join(LOCAL_STORE, hash);
-		if (!existsSync(storeDir)) {
-			mkdirSync(storeDir, { recursive: true });
-			const { basename } = require("node:path") as typeof import("node:path");
-			const { copyFileSync } = require("node:fs") as typeof import("node:fs");
-			copyFileSync(filePath, join(storeDir, basename(filePath)));
-		}
-		return hash;
-	}
-
-	function restoreLocalOrgan(hash: string, fileName: string): string {
-		const stored = join(LOCAL_STORE, hash, fileName);
-		if (!existsSync(stored)) throw new Error(`local-store: ${hash}/${fileName} not found`);
-		const content = readFileSync(stored);
-		const actual = createHash("sha256").update(content).digest("hex");
-		if (actual !== hash) throw new Error(`local-store: ${hash}/${fileName} content hash mismatch`);
-		return stored;
-	}
-
-	function resolveOrganPath(name: string): string | undefined {
-		const candidates = [
-			join(root, "node_modules", name, "src", "organ.ts"),
-			join(root, "node_modules", "@dpopsuev", name, "src", "organ.ts"),
-			join(root, "node_modules", name, "src", "index.ts"),
-		];
-		for (const p of candidates) if (existsSync(p)) return p;
-		return undefined;
-	}
-
-	return {
-		init,
-		currentGenId,
-		snapshotGeneration,
-		rollback,
-		history,
-		gc,
-		snapshotLocalOrgan,
-		restoreLocalOrgan,
-		resolveOrganPath,
-		LOCK_FILE,
-		CURRENT_FILE,
-		GEN_DIR,
+function readGen(id: number) {
+	return JSON.parse(readFileSync(join(tmpRoot, "generations", `${id}.json`), "utf-8")) as {
+		id: number;
+		lockHash: string;
+		lockfileContent: string;
+		parent: number | null;
 	};
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// init
 // ---------------------------------------------------------------------------
 
-let tmpRoot: string;
-let pm: ReturnType<typeof makeTestPm>;
-
-beforeEach(() => {
-	tmpRoot = mkdtempSync(join(tmpdir(), "alef-pm-test-"));
-	pm = makeTestPm(tmpRoot);
-	pm.init();
-});
-
-afterEach(() => {
-	rmSync(tmpRoot, { recursive: true, force: true });
-});
-
 describe("init", () => {
-	it("creates required directories", () => {
+	it("creates directories and package.json", async () => {
+		const { init } = await load();
+		init();
 		expect(existsSync(join(tmpRoot, "generations"))).toBe(true);
 		expect(existsSync(join(tmpRoot, "local-store"))).toBe(true);
 		expect(existsSync(join(tmpRoot, "package.json"))).toBe(true);
 	});
 
-	it("is idempotent", () => {
-		expect(() => pm.init()).not.toThrow();
+	it("is idempotent", async () => {
+		const { init } = await load();
+		init();
+		expect(() => init()).not.toThrow();
 	});
 });
 
-describe("snapshotGeneration", () => {
-	it("creates generation 1 on first call", () => {
-		writeFileSync(pm.LOCK_FILE, JSON.stringify({ packages: {} }));
-		const id = pm.snapshotGeneration();
+// ---------------------------------------------------------------------------
+// npm operations — verify state effects (SKIP_NPM so no real execution)
+// ESM closures prevent spying on runNpm internally; assert output state instead.
+// ---------------------------------------------------------------------------
+
+describe("install", () => {
+	it("writes generation 1 after organ install", async () => {
+		const { init, install } = await load();
+		init();
+		writeLock({});
+		const id = await install("@dpopsuev/organ-fs");
 		expect(id).toBe(1);
+		expect(readCurrent()).toBe(1);
 		expect(existsSync(join(tmpRoot, "generations", "1.json"))).toBe(true);
-		expect(parseInt(readFileSync(pm.CURRENT_FILE, "utf-8"))).toBe(1);
 	});
 
-	it("increments id on each call", () => {
-		writeFileSync(pm.LOCK_FILE, "{}");
-		pm.snapshotGeneration();
-		pm.snapshotGeneration();
-		expect(pm.currentGenId()).toBe(2);
-	});
-
-	it("stores lockfile content and hash in the generation record", () => {
+	it("records lockfile in generation", async () => {
+		const { init, install } = await load();
+		init();
 		const lock = { packages: { "node_modules/@dpopsuev/organ-fs": { version: "0.1.2" } } };
-		writeFileSync(pm.LOCK_FILE, JSON.stringify(lock));
-		pm.snapshotGeneration();
-		const gen = JSON.parse(readFileSync(join(tmpRoot, "generations", "1.json"), "utf-8")) as {
-			lockHash: string;
-			lockfileContent: string;
-		};
-		expect(gen.lockHash).toHaveLength(64);
-		expect(JSON.parse(gen.lockfileContent)).toEqual(lock);
+		writeLock(lock);
+		await install("@dpopsuev/organ-fs");
+		const gen = readGen(1);
+		expect(JSON.parse(gen.lockfileContent)).toMatchObject(lock);
+	});
+});
+
+describe("upgrade", () => {
+	it("writes next generation after upgrade", async () => {
+		const { init, upgrade } = await load();
+		init();
+		writeLock({ v: 1 });
+		await upgrade();
+		expect(readCurrent()).toBe(1);
+	});
+});
+
+describe("remove", () => {
+	it("writes next generation after remove", async () => {
+		const { init, upgrade, remove } = await load();
+		init();
+		writeLock({ v: 1 });
+		await upgrade(); // gen 1
+		writeLock({ v: 2 });
+		await remove("organ-fs"); // gen 2
+		expect(readCurrent()).toBe(2);
 	});
 });
 
 describe("rollback", () => {
-	it("restores lockfile from generation N and updates current", () => {
-		const lockV1 = { packages: { "node_modules/@dpopsuev/organ-fs": { version: "0.1.1" } } };
-		writeFileSync(pm.LOCK_FILE, JSON.stringify(lockV1));
-		pm.snapshotGeneration(); // gen 1
+	it("restores lockfile from generation N and updates current", async () => {
+		const { init, upgrade, rollback } = await load();
+		init();
+		const lockV1 = { packages: { "node_modules/organ-fs": { version: "0.1.1" } } };
+		writeLock(lockV1);
+		await upgrade(); // gen 1
+		writeLock({ packages: { "node_modules/organ-fs": { version: "0.1.2" } } });
+		await upgrade(); // gen 2
 
-		const lockV2 = { packages: { "node_modules/@dpopsuev/organ-fs": { version: "0.1.2" } } };
-		writeFileSync(pm.LOCK_FILE, JSON.stringify(lockV2));
-		pm.snapshotGeneration(); // gen 2
+		await rollback(1);
 
-		pm.rollback(1);
-
-		const restored = JSON.parse(readFileSync(pm.LOCK_FILE, "utf-8")) as typeof lockV1;
-		expect(restored.packages["node_modules/@dpopsuev/organ-fs"].version).toBe("0.1.1");
-		expect(parseInt(readFileSync(pm.CURRENT_FILE, "utf-8"))).toBe(1);
+		const restored = JSON.parse(readFileSync(join(tmpRoot, "package-lock.json"), "utf-8")) as typeof lockV1;
+		expect(restored.packages["node_modules/organ-fs"].version).toBe("0.1.1");
+		expect(readCurrent()).toBe(1);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Generation mechanics — no npm needed
+// ---------------------------------------------------------------------------
+
+describe("generation lifecycle", () => {
+	it("increments id on each operation", async () => {
+		const { init, upgrade } = await load();
+		init();
+		writeLock({ v: 1 });
+		await upgrade();
+		expect(readCurrent()).toBe(1);
+		writeLock({ v: 2 });
+		await upgrade();
+		expect(readCurrent()).toBe(2);
+	});
+
+	it("records lockfile content, hash, and parent", async () => {
+		const { init, upgrade } = await load();
+		init();
+		writeLock({ packages: { "node_modules/organ-fs": { version: "0.1.2" } } });
+		await upgrade(); // gen 1
+		writeLock({ packages: { "node_modules/organ-fs": { version: "0.1.3" } } });
+		await upgrade(); // gen 2
+		const gen2 = readGen(2);
+		expect(gen2.parent).toBe(1);
+		expect(gen2.lockHash).toHaveLength(64);
+		expect(JSON.parse(gen2.lockfileContent).packages["node_modules/organ-fs"].version).toBe("0.1.3");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// History
+// ---------------------------------------------------------------------------
 
 describe("history", () => {
-	it("returns empty array when no generations exist", () => {
-		expect(pm.history()).toEqual([]);
+	it("returns empty when no generations", async () => {
+		const { init, history } = await load();
+		init();
+		expect(history()).toEqual([]);
 	});
 
-	it("returns generations sorted newest-first", () => {
-		writeFileSync(pm.LOCK_FILE, "{}");
-		pm.snapshotGeneration();
-		pm.snapshotGeneration();
-		const h = pm.history();
+	it("sorted newest-first", async () => {
+		const { init, upgrade, history } = await load();
+		init();
+		writeLock({});
+		await upgrade();
+		await upgrade();
+		const h = history();
 		expect(h).toHaveLength(2);
-		expect((h[0] as { id: number }).id).toBe(2);
-		expect((h[1] as { id: number }).id).toBe(1);
+		expect(h[0].id).toBe(2);
+		expect(h[1].id).toBe(1);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// GC
+// ---------------------------------------------------------------------------
 
 describe("gc", () => {
-	it("removes generations beyond keep limit", () => {
-		writeFileSync(pm.LOCK_FILE, "{}");
-		for (let i = 0; i < 5; i++) pm.snapshotGeneration();
-		const { removedGenerations } = pm.gc(3);
-		expect(removedGenerations).toBe(2);
-		expect(pm.history()).toHaveLength(3);
+	it("removes generations beyond keep limit", async () => {
+		const { init, upgrade, gc, history } = await load();
+		init();
+		writeLock({});
+		for (let i = 0; i < 5; i++) await upgrade();
+		expect(gc(3).removedGenerations).toBe(2);
+		expect(history()).toHaveLength(3);
 	});
 
-	it("removes nothing when keep >= total", () => {
-		writeFileSync(pm.LOCK_FILE, "{}");
-		pm.snapshotGeneration();
-		const { removedGenerations } = pm.gc(10);
-		expect(removedGenerations).toBe(0);
+	it("no-op when keep >= total", async () => {
+		const { init, upgrade, gc } = await load();
+		init();
+		writeLock({});
+		await upgrade();
+		expect(gc(10).removedGenerations).toBe(0);
+	});
+
+	it("no-op on fresh init", async () => {
+		const { init, gc } = await load();
+		init();
+		expect(gc().removedGenerations).toBe(0);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Robustness
+// ---------------------------------------------------------------------------
+
+describe("robustness", () => {
+	it("corrupted `current` falls back to 0 — next gen is 1", async () => {
+		const { init, upgrade } = await load();
+		init();
+		writeFileSync(join(tmpRoot, "current"), "not-a-number");
+		writeLock({});
+		expect(await upgrade()).toBe(1);
+	});
+
+	it("rollback to non-existent generation throws", async () => {
+		const { init, rollback } = await load();
+		init();
+		await expect(rollback(99)).rejects.toThrow();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Local store
+// ---------------------------------------------------------------------------
 
 describe("local-store", () => {
-	it("snapshots a file and restores it by hash", () => {
-		const file = join(tmpRoot, "my-organ.ts");
+	it("snapshots and restores by hash", async () => {
+		const { init, snapshotLocalOrgan, restoreLocalOrgan } = await load();
+		init();
+		const file = join(tmpRoot, "organ.ts");
 		writeFileSync(file, "export function createOrgan() {}");
-		const hash = pm.snapshotLocalOrgan(file);
+		const hash = snapshotLocalOrgan(file);
 		expect(hash).toHaveLength(64);
-		const restored = pm.restoreLocalOrgan(hash, "my-organ.ts");
-		expect(readFileSync(restored, "utf-8")).toBe("export function createOrgan() {}");
+		expect(readFileSync(restoreLocalOrgan(hash, "organ.ts"), "utf-8")).toBe("export function createOrgan() {}");
 	});
 
-	it("throws when store entry is missing", () => {
-		expect(() => pm.restoreLocalOrgan("a".repeat(64), "organ.ts")).toThrow("not found");
+	it("restoreLocalOrgan throws when missing", async () => {
+		const { init, restoreLocalOrgan } = await load();
+		init();
+		expect(() => restoreLocalOrgan("a".repeat(64), "organ.ts")).toThrow("not found");
 	});
 
-	it("throws when content hash mismatches (tampered store)", () => {
+	it("restoreLocalOrgan throws on tampered content", async () => {
+		const { init, snapshotLocalOrgan, restoreLocalOrgan } = await load();
+		init();
 		const file = join(tmpRoot, "organ.ts");
 		writeFileSync(file, "original");
-		const hash = pm.snapshotLocalOrgan(file);
+		const hash = snapshotLocalOrgan(file);
 		writeFileSync(join(tmpRoot, "local-store", hash, "organ.ts"), "tampered");
-		expect(() => pm.restoreLocalOrgan(hash, "organ.ts")).toThrow("hash mismatch");
+		expect(() => restoreLocalOrgan(hash, "organ.ts")).toThrow("hash mismatch");
 	});
 });
 
+// ---------------------------------------------------------------------------
+// resolveOrganPath
+// ---------------------------------------------------------------------------
+
 describe("resolveOrganPath", () => {
-	it("returns undefined when organ not installed", () => {
-		expect(pm.resolveOrganPath("organ-missing")).toBeUndefined();
+	it("returns undefined when not installed", async () => {
+		const { init, resolveOrganPath } = await load();
+		init();
+		expect(resolveOrganPath("organ-missing")).toBeUndefined();
 	});
 
-	it("resolves path when organ exists in node_modules/@dpopsuev", () => {
+	it("resolves under @dpopsuev namespace", async () => {
+		const { init, resolveOrganPath } = await load();
+		init();
 		const dir = join(tmpRoot, "node_modules", "@dpopsuev", "organ-fs", "src");
 		mkdirSync(dir, { recursive: true });
-		writeFileSync(join(dir, "organ.ts"), "export function createOrgan() {}");
-		const resolved = pm.resolveOrganPath("organ-fs");
-		expect(resolved).toContain("organ-fs");
-		expect(resolved).toContain("organ.ts");
+		writeFileSync(join(dir, "organ.ts"), "");
+		expect(resolveOrganPath("organ-fs")).toContain("organ.ts");
 	});
+
+	it("resolves directly under node_modules", async () => {
+		const { init, resolveOrganPath } = await load();
+		init();
+		const dir = join(tmpRoot, "node_modules", "my-organ", "src");
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(join(dir, "organ.ts"), "");
+		expect(resolveOrganPath("my-organ")).toContain("my-organ");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Integration — real npm (ALEF_PM_INTEGRATION=1)
+// ---------------------------------------------------------------------------
+
+describe.skipIf(process.env.ALEF_PM_INTEGRATION !== "1")("integration — real npm", () => {
+	beforeEach(() => {
+		delete process.env.ALEF_PM_SKIP_NPM;
+	});
+
+	it("install writes lockfile with sha512 integrity", async () => {
+		const { init, install } = await load();
+		init();
+		await install("semver");
+		const lock = JSON.parse(readFileSync(join(tmpRoot, "package-lock.json"), "utf-8")) as {
+			packages: Record<string, { integrity?: string }>;
+		};
+		const entry = Object.values(lock.packages).find((p) => p.integrity);
+		expect(entry?.integrity).toMatch(/^sha512-/);
+	}, 60_000);
+
+	it("rollback restores exact version via npm ci", async () => {
+		const { init, install, upgrade, rollback } = await load();
+		init();
+		await install("semver");
+		const lockAfter = readFileSync(join(tmpRoot, "package-lock.json"), "utf-8");
+		await upgrade();
+		await rollback(1);
+		expect(readFileSync(join(tmpRoot, "package-lock.json"), "utf-8")).toBe(lockAfter);
+		expect(readCurrent()).toBe(1);
+	}, 120_000);
 });

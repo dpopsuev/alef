@@ -34,7 +34,7 @@ const exec = promisify(execCb);
 // Paths
 // ---------------------------------------------------------------------------
 
-const PM_ROOT = join(homedir(), ".config", "alef");
+const PM_ROOT = process.env.ALEF_PM_ROOT ?? join(homedir(), ".config", "alef");
 const GEN_DIR = join(PM_ROOT, "generations");
 const LOCAL_STORE = join(PM_ROOT, "local-store");
 const PACKAGE_JSON = join(PM_ROOT, "package.json");
@@ -166,7 +166,8 @@ export function restoreLocalOrgan(hash: string, fileName: string): string {
 // Core operations
 // ---------------------------------------------------------------------------
 
-async function runNpm(...args: string[]): Promise<void> {
+export async function runNpm(...args: string[]): Promise<void> {
+	if (process.env.ALEF_PM_SKIP_NPM === "1") return;
 	const cmd = `npm ${args.join(" ")} --prefix ${PM_ROOT}`;
 	process.stderr.write(`[alef-pm] ${cmd}\n`);
 	const { stderr } = await exec(cmd);

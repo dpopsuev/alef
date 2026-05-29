@@ -123,7 +123,9 @@ describe.skipIf(SKIP_REAL_LLM)("Real-LLM blue-green survival", () => {
 		}
 		expect(result.score).toBeGreaterThan(0);
 
-		// capturedContent was read inside the checker before workspace deletion.
+		// Guard: empty content means the agent wrote nothing — catch this clearly
+		// rather than letting a confusing regex-mismatch be the error.
+		if (!capturedContent) throw new Error("LLM wrote empty file — eval passed but agent produced no output");
 		expect(capturedContent).toMatch(/export\s+interface\s+Session/);
 
 		// ── Step 2: blue-green swap ──────────────────────────────────────────

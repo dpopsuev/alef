@@ -267,10 +267,15 @@ export class EvalHarness {
 		const totalSpans = spans.length;
 		const oae = totalSpans > 0 ? cacheHits / totalSpans : 0;
 
+		const turns = deriveturns(spans);
+		const schemaFractions = turns.filter((t) => t.tokensIn > 0).map((t) => t.schemaTokensEstimate / t.tokensIn);
+		const avgSchemaFraction =
+			schemaFractions.length > 0 ? schemaFractions.reduce((a, b) => a + b, 0) / schemaFractions.length : Number.NaN;
+
 		const metrics: RunMetrics = {
 			scenario: opts.scenario,
 			workspace: opts.keepWorkspace ? workspace : undefined,
-			turns: deriveturns(spans),
+			turns,
 			transcript,
 			passed: passed && !evaluator.state.loopDetected,
 			error: evaluator.state.loopDetected
@@ -285,6 +290,7 @@ export class EvalHarness {
 			loopEventType: evaluator.state.loopEventType,
 			spans,
 			durationMs: Date.now() - start,
+			avgSchemaFraction,
 		};
 
 		return metrics;
@@ -350,7 +356,7 @@ export function formatReport(metrics: RunMetrics): string {
 
 	const lines = [
 		`[${status}] ${metrics.scenario} (${metrics.durationMs}ms)`,
-		`  turns: ${nTurns}  tool_calls: ${nToolcalls}  tokens: ${nTotalTokens}  OAE: ${(metrics.oae * 100).toFixed(1)}%`,
+		`  turns: ${nTurns}  tool_calls: ${nToolcalls}  tokens: ${nTotalTokens}  OAE: ${(metrics.oae * 100).toFixed(1)}%  schema_frac: ${Number.isNaN(metrics.avgSchemaFraction) ? "n/a" : `${(metrics.avgSchemaFraction * 100).toFixed(1)}%`}`,
 		`  path: ${toolPath}`,
 		`  transcript: ${metrics.transcript.length} messages  loop: ${metrics.loopDetected ? `YES (${metrics.loopEventType})` : "no"}`,
 	];

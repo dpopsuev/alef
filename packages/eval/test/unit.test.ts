@@ -9,7 +9,7 @@ import { InProcessNerve } from "@dpopsuev/alef-spine";
 import { describe, expect, it } from "vitest";
 import { EvaluatorOrgan } from "../src/evaluator-organ.js";
 import type { SpanRecord } from "../src/metrics.js";
-import { READ_ONLY_RULES, scoreSpans, WRITE_RULES } from "../src/metrics.js";
+import { deriveturns, READ_ONLY_RULES, scoreSpans, WRITE_RULES } from "../src/metrics.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -189,6 +189,46 @@ describe("scoreSpans — Write rules", () => {
 
 	it("rewards fs.edit spans", () => {
 		expect(scoreSpans([span("alef.motor/fs.edit")], WRITE_RULES)).toBe(10);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// schemaTokensEstimate flows through deriveturns
+// ---------------------------------------------------------------------------
+
+describe("deriveturns — schemaTokensEstimate", () => {
+	function chatSpan(attrs: Record<string, unknown> = {}): SpanRecord {
+		return span("chat claude-3-5-haiku", {
+			"gen_ai.request.model": "claude-3-5-haiku",
+			"gen_ai.usage.input_tokens": 1000,
+			"gen_ai.usage.output_tokens": 100,
+			...attrs,
+		});
+	}
+
+	it("reads alef.schema_token_estimate from span attributes", () => {
+		const spans = [chatSpan({ "alef.schema_token_estimate": 250 })];
+		const turns = deriveturns(spans);
+		expect(turns).toHaveLength(1);
+		expect(turns[0].schemaTokensEstimate).toBe(250);
+	});
+
+	it("defaults to 0 when attribute is absent", () => {
+		const turns = deriveturns([chatSpan()]);
+		expect(turns[0].schemaTokensEstimate).toBe(0);
+	});
+
+	it("schemaFraction = schemaTokensEstimate / tokensIn", () => {
+		const turns = deriveturns([chatSpan({ "alef.schema_token_estimate": 250 })]);
+		const fraction = turns[0].schemaTokensEstimate / turns[0].tokensIn;
+		expect(fraction).toBeCloseTo(0.25);
+	});
+
+	it("handles multiple turns independently", () => {
+		const spans = [chatSpan({ "alef.schema_token_estimate": 300 }), chatSpan({ "alef.schema_token_estimate": 400 })];
+		const turns = deriveturns(spans);
+		expect(turns[0].schemaTokensEstimate).toBe(300);
+		expect(turns[1].schemaTokensEstimate).toBe(400);
 	});
 });
 

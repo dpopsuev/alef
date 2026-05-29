@@ -41,6 +41,8 @@ export interface TurnRecord {
 	cacheHits: number;
 	/** Wall-clock duration of the LLM call in ms. */
 	elapsedMs: number;
+	/** Estimated tokens consumed by tool schema definitions on this call (chars/4). */
+	schemaTokensEstimate: number;
 }
 
 /**
@@ -77,6 +79,7 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 			toolNames,
 			cacheHits: toolSpans.filter((ts) => ts.attributes["alef.cache.hit"] === true).length,
 			elapsedMs: Math.round(s.durationMs),
+			schemaTokensEstimate: Number(s.attributes["alef.schema_token_estimate"] ?? 0),
 		});
 	}
 
@@ -129,6 +132,12 @@ export interface RunMetrics {
 	spans: SpanRecord[];
 	/** Wall-clock duration of the full run. */
 	durationMs: number;
+	/**
+	 * Average fraction of input tokens attributable to tool schema definitions.
+	 * 0–1. NaN when no turns have tokensIn > 0.
+	 * Decision gate for ALE-TSK-335 (ToolShell): build if > 0.25.
+	 */
+	avgSchemaFraction: number;
 }
 
 /**

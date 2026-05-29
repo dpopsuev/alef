@@ -229,6 +229,11 @@ async function runLLMLoop(
 			},
 		});
 
+		// Estimate tokens consumed by tool schemas on this call (chars / 4).
+		// Recorded as a span attribute so EvalHarness can compute schemaFraction.
+		const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
+		span.setAttribute("alef.schema_token_estimate", schemaTokenEstimate);
+
 		// Orange: log API call entry so hangs are diagnosable without adding debug prints.
 		span.addEvent("llm.call", {
 			"alef.message_count": messages.length,

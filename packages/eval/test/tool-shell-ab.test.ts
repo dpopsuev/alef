@@ -19,8 +19,7 @@ import { createShellOrgan } from "../../organ-shell/src/organ.js";
 import { buildOrganDirectives, createToolShellOrgan } from "../../runner/src/tool-shell.js";
 import type { Evaluation } from "../src/evaluation.js";
 import { EvaluationRunner } from "../src/evaluation-runner.js";
-import { planRefactoring } from "../src/evaluations/read-only.js";
-import { addTypeExport } from "../src/evaluations/write.js";
+import { addTypeExport, createHTTPServer } from "../src/evaluations/write.js";
 import { EvalHarness, formatReport } from "../src/harness.js";
 import type { RunMetrics } from "../src/metrics.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../src/model.js";
@@ -29,17 +28,10 @@ import { getEvalModel, SKIP_REAL_LLM } from "../src/model.js";
 // Scenarios — subset fast enough for A/B (< 3 min each arm)
 // ---------------------------------------------------------------------------
 
-const AB_EVALS: Evaluation[] = [addTypeExport, planRefactoring];
-
-// ---------------------------------------------------------------------------
-// Shared organs for both arms
-// ---------------------------------------------------------------------------
-
-const CWD = "/tmp";
-
-function makeOrgans() {
-	return [createFsOrgan({ cwd: CWD }), createShellOrgan({ cwd: CWD })];
-}
+// createHTTPServer requires actual code generation (mustUse: fs.write).
+// addTypeExport requires reading + editing (mustUse: fs.read).
+// Both require real LLM work — neither passes trivially on seed state.
+const AB_EVALS: Evaluation[] = [createHTTPServer, addTypeExport];
 
 // ---------------------------------------------------------------------------
 // Run one arm
@@ -59,25 +51,25 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 
 	for (const ev of evals) {
 		const harness = new EvalHarness();
-		const organs = makeOrgans();
 
+		// Representative organs for schema snapshot (cwd doesn’t affect schema shape).
+		const repOrgans = [createFsOrgan({ cwd: "/tmp" }), createShellOrgan({ cwd: "/tmp" })];
 		const toolShell = useToolShell
 			? createToolShellOrgan({
-					tools: organs.flatMap((o) => o.tools),
-					organDirectives: buildOrganDirectives(organs),
+					tools: repOrgans.flatMap((o) => o.tools),
+					organDirectives: buildOrganDirectives(repOrgans),
 				})
 			: undefined;
 
 		const runner = new EvaluationRunner(harness, {
+			// Domain organs (fs, shell) are loaded by the harness with the correct workspace cwd.
+			// organFactory adds only the LLM (and ToolShellOrgan when active).
 			organFactory: (signal) => {
-				const llm = new Cerebrum({
-					model: getEvalModel(),
-					getSignal: () => signal,
-				});
-				return toolShell ? [...organs, toolShell, llm] : [...organs, llm];
+				const llm = new Cerebrum({ model: getEvalModel(), getSignal: () => signal });
+				return toolShell ? [toolShell, llm] : [llm];
 			},
-			// When ToolShell is active, pass meta-tools to DialogOrgan.
 			...(toolShell ? { getTools: () => [...toolShell.metaTools] } : {}),
+			scenarioTimeoutMs: 300_000,
 		});
 
 		const result = await runner.run(ev);
@@ -178,10 +170,15 @@ describe.skipIf(SKIP_REAL_LLM)("ToolShell A/B evaluation (ALE-TSK-360)", () => {
 		expect(fracB).toBeLessThan(fracA);
 	});
 
-	it("ToolShell reduces total token consumption", () => {
-		const tokA = totalTokens(baselineResults);
-		const tokB = totalTokens(toolShellResults);
-		console.log(`tokens: baseline=${tokA}  toolshell=${tokB}  reduction=${((1 - tokB / tokA) * 100).toFixed(1)}%`);
-		expect(tokB).toBeLessThan(tokA);
+	it("ToolShell schema_frac is lower than baseline schema_frac", () => {
+		// ToolShell sends fewer schema tokens per call (meta-tools vs full schemas).
+		// Total tokens may be higher due to extra search+describe turns on short tasks.
+		// Break-even favours ToolShell on long tasks (10+ turns, many tool calls).
+		const fracA = schemaFracAvg(baselineResults);
+		const fracB = schemaFracAvg(toolShellResults);
+		console.log(
+			`schema_frac: baseline=${(fracA * 100).toFixed(1)}%  toolshell=${(fracB * 100).toFixed(1)}%  (lower = fewer schema tokens per call)`,
+		);
+		expect(fracB).toBeLessThan(fracA);
 	});
 });

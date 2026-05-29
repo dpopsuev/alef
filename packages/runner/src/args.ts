@@ -67,6 +67,7 @@ export interface Args {
 	noTui: boolean;
 	/** Skip permission gates — allow all tool calls. */
 	yolo: boolean;
+	toolShell: boolean;
 	/**
 	 * HTTP port for the Router organ (HTTP/SSE bridge).
 	 * When set, the router is mounted and the agent accepts requests on this port.
@@ -160,6 +161,7 @@ export function parseArgs(argv: string[]): Args {
 		listSessions: false,
 		noTui: false,
 		yolo: false,
+		toolShell: false,
 		serve: undefined,
 		profile: undefined,
 		debug: false,
@@ -263,6 +265,10 @@ export function parseArgs(argv: string[]): Args {
 			continue;
 		}
 
+		if (arg === "--tool-shell") {
+			args.toolShell = true;
+			continue;
+		}
 		if (arg === "--yolo") {
 			args.yolo = true;
 			i++;

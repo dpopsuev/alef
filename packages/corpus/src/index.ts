@@ -213,6 +213,31 @@ export class Agent {
 		);
 	}
 
+	/**
+	 * Unload an organ by name — unmounts it and removes it from the agent.
+	 * Safe to call while the agent is running. Returns true if found.
+	 */
+	unload(name: string): boolean {
+		const idx = this._organs.findIndex((o) => o.name === name);
+		if (idx === -1) return false;
+		this.unmounts[idx]?.();
+		this._organs.splice(idx, 1);
+		this.unmounts.splice(idx, 1);
+		// Recompute tools from remaining organs.
+		this.tools.length = 0;
+		for (const organ of this._organs) this.tools.push(...organ.tools);
+		return true;
+	}
+
+	/**
+	 * Reload an organ in-place: unload the old instance, load the new one.
+	 * Preserves organ order if the name matches an existing organ.
+	 */
+	reload(organ: Organ): this {
+		this.unload(organ.name);
+		return this.load(organ);
+	}
+
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;

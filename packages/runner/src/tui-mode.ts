@@ -72,6 +72,8 @@ export interface TuiHandlerContext {
 	abortCurrentTurn: (() => void) | undefined;
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
 	setLLMController(ctrl: AbortController | undefined): void;
+	/** Hot-reload a named organ by path (ALE-TSK-348). Undefined when not supported. */
+	reloadOrgan?: (name: string, path: string) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,10 +236,32 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 			appendNotice(ctx.chat, helpText(), ctx.t);
 			ctx.tui.requestRender();
 			return true;
-		case ":reload":
-			appendNotice(ctx.chat, ":reload is not yet implemented. Restart Alef to pick up organ changes.", ctx.t);
+		case ":reload": {
+			const organName = parts[1];
+			const organPath = parts[2];
+			if (!organName || !organPath) {
+				appendNotice(ctx.chat, "Usage: :reload <name> <path>", ctx.t);
+				ctx.tui.requestRender();
+				return true;
+			}
+			if (!ctx.reloadOrgan) {
+				appendNotice(ctx.chat, ":reload not available in this session.", ctx.t);
+				ctx.tui.requestRender();
+				return true;
+			}
+			appendNotice(ctx.chat, `Reloading ${organName}…`, ctx.t);
 			ctx.tui.requestRender();
+			ctx.reloadOrgan(organName, organPath)
+				.then(() => {
+					appendNotice(ctx.chat, `Reloaded ${organName}.`, ctx.t);
+					ctx.tui.requestRender();
+				})
+				.catch((e: unknown) => {
+					appendNotice(ctx.chat, `Reload failed: ${e instanceof Error ? e.message : String(e)}`, ctx.t);
+					ctx.tui.requestRender();
+				});
 			return true;
+		}
 		case ":install": {
 			const spec = parts[1];
 			if (!spec) {
@@ -326,6 +350,7 @@ export async function runTuiMode(
 	dispose: () => void,
 	setLLMAbortController: (ctrl: AbortController | undefined) => void = () => {},
 	toolSlot?: TuiToolSlot,
+	reloadOrgan?: (name: string, path: string) => Promise<void>,
 ): Promise<void> {
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
@@ -495,6 +520,7 @@ export async function runTuiMode(
 		setLLMController: (ctrl) => {
 			setLLMAbortController(ctrl);
 		},
+		reloadOrgan,
 	});
 
 	tui.onRawInput = (data) => {

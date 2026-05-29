@@ -444,6 +444,14 @@ try {
 				() => agent.dispose(),
 				setLLMAbortController,
 				toolSlot,
+				async (_name, path) => {
+					const { loadOrganFromPath } = await import("./materializer.js");
+					const newOrgan = await loadOrganFromPath(path, {
+						cwd: args.cwd,
+						loggerFor: (n) => log.child({ organ: n }),
+					});
+					agent.reload(newOrgan);
+				},
 			);
 		} finally {
 			process.stderr.write = originalStderrWrite;

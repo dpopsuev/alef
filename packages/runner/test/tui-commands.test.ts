@@ -17,7 +17,13 @@ import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import { getTheme } from "../src/theme.js";
 import { ToolCallRow } from "../src/tui/tool-view.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
-import { handleCtrlC, handleSlashCommand, renderHeaderTopBorder, truncateToolOutput } from "../src/tui-mode.js";
+import {
+	handleColonCommand,
+	handleCtrlC,
+	handleSlashCommand,
+	renderHeaderTopBorder,
+	truncateToolOutput,
+} from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Fake context factory
@@ -378,5 +384,66 @@ describe("renderHeaderTopBorder — visible width equals terminal width", () => 
 		const visible = rendered.replace(/\x1b\[[0-9;]*m/g, "");
 		// ╭ + inner + ╮  with zero filler — length is inner.length + 2, not 0
 		expect(visible.length).toBeGreaterThan(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// handleColonCommand :reload
+// ---------------------------------------------------------------------------
+
+describe("handleColonCommand :reload — no reloadOrgan callback", () => {
+	it("shows usage when name or path missing", () => {
+		const ctx = makeCtx();
+		handleColonCommand(":reload", ctx);
+		expect(chatText(ctx)).toContain("Usage:");
+	});
+
+	it("shows 'not available' when reloadOrgan is not provided", () => {
+		const ctx = makeCtx();
+		handleColonCommand(":reload my-organ /path/to/organ.ts", ctx);
+		expect(chatText(ctx)).toContain("not available");
+	});
+
+	it("returns true in both cases (command recognised)", () => {
+		expect(handleColonCommand(":reload", makeCtx())).toBe(true);
+		expect(handleColonCommand(":reload my-organ /path/organ.ts", makeCtx())).toBe(true);
+	});
+});
+
+describe("handleColonCommand :reload — with reloadOrgan callback", () => {
+	it("calls reloadOrgan with name and path, shows 'Reloading' notice", async () => {
+		let called: [string, string] | undefined;
+		const reloadOrgan = vi.fn(async (name: string, path: string) => {
+			called = [name, path];
+		});
+		const ctx = makeCtx({ reloadOrgan });
+		handleColonCommand(":reload my-organ /organs/my-organ.ts", ctx);
+		expect(chatText(ctx)).toContain("Reloading my-organ");
+		await vi.waitFor(() => expect(called).toEqual(["my-organ", "/organs/my-organ.ts"]));
+	});
+
+	it("shows 'Reloaded' notice after successful reload", async () => {
+		const reloadOrgan = vi.fn(async () => {});
+		const ctx = makeCtx({ reloadOrgan });
+		handleColonCommand(":reload my-organ /organs/my-organ.ts", ctx);
+		await vi.waitFor(() => expect(chatText(ctx)).toContain("Reloaded my-organ."));
+	});
+
+	it("shows error notice when reloadOrgan rejects", async () => {
+		const reloadOrgan = vi.fn(async () => {
+			throw new Error("jiti: module not found");
+		});
+		const ctx = makeCtx({ reloadOrgan });
+		handleColonCommand(":reload bad-organ /organs/bad.ts", ctx);
+		await vi.waitFor(() => expect(chatText(ctx)).toContain("jiti: module not found"));
+	});
+
+	it("requests render after success and after failure", async () => {
+		const reloadOrgan = vi.fn(async () => {});
+		const ctx = makeCtx({ reloadOrgan });
+		handleColonCommand(":reload my-organ /path.ts", ctx);
+		// First render: 'Reloading...' notice
+		expect(ctx.tui.requestRender).toHaveBeenCalled();
+		await vi.waitFor(() => expect(ctx.tui.requestRender).toHaveBeenCalledTimes(2));
 	});
 });

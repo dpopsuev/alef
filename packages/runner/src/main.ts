@@ -43,6 +43,7 @@ import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
+import { buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
 import { runTuiMode } from "./tui-mode.js";
 
 // ---------------------------------------------------------------------------
@@ -307,6 +308,15 @@ const llmOrgan = scriptedRepliesEnv
 		});
 
 // main.ts is always a conversation agent — dialog is always defined.
+// ToolShell (ALE-TSK-335): progressive disclosure — opt-in via --tool-shell.
+// All corpus organs must be in corpusOrgans before this so the snapshot is complete.
+const toolShell = args.toolShell
+	? createToolShellOrgan({
+			tools: corpusOrgans.flatMap((o) => o.tools),
+			organDirectives: buildOrganDirectives(corpusOrgans),
+		})
+	: undefined;
+
 const { agent, dialog: _dialog } = AgentKernel.create({
 	llm: llmOrgan,
 	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
@@ -314,6 +324,7 @@ const { agent, dialog: _dialog } = AgentKernel.create({
 	maxTurns: args.maxTurns,
 	session,
 	modelId: model.id,
+	getTools: toolShell ? () => [...toolShell.metaTools] : undefined,
 	onLoop: (_type, reason) => {
 		// Route through trace() not stderr — stderr violates the one-writer rule during TUI mode.
 		trace("loop:detected", { reason });
@@ -324,6 +335,7 @@ const { agent, dialog: _dialog } = AgentKernel.create({
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
+if (toolShell) agent.load(toolShell);
 // Assert dialog is defined: main.ts is always a conversation agent.
 if (!_dialog) throw new Error("AgentKernel did not return a DialogOrgan — main.ts requires one");
 const dialog = _dialog;

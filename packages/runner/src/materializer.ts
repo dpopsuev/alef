@@ -196,6 +196,23 @@ async function loadOrganModule(organDef: CompiledAgentDefinition["organs"][numbe
 	return mod as unknown as OrganModule;
 }
 
+/**
+ * Load a single organ from an absolute TypeScript file path.
+ * Used by hot-reload (:reload) to swap an organ in-place without restart.
+ */
+export async function loadOrganFromPath(
+	path: string,
+	opts: Pick<MaterializerOptions, "cwd" | "loggerFor">,
+): Promise<Organ> {
+	const jitiMod = await getJiti().import(path);
+	const mod = jitiMod as Record<string, unknown>;
+	if (typeof mod.createOrgan !== "function") {
+		throw new Error(`Organ at '${path}' does not export createOrgan(opts).`);
+	}
+	const typed = mod as unknown as OrganModule;
+	return typed.createOrgan({ cwd: opts.cwd, logger: opts.loggerFor?.(path) });
+}
+
 export async function materializeBlueprint(
 	definition: CompiledAgentDefinition,
 	opts: MaterializerOptions,

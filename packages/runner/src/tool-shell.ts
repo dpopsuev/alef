@@ -20,15 +20,10 @@ import { z } from "zod";
 // Meta-tool definitions (keep as const so typedAction infers payload type)
 // ---------------------------------------------------------------------------
 
-const SEARCH_TOOL = {
-	name: "tools.search",
-	description:
-		"Search available tools by keyword. Returns tool names and one-line descriptions. Call this first to find the right tool, then call tools.describe to get the full schema before using it.",
-	inputSchema: z.object({
-		query: z.string().describe("Keywords to search for in tool names and descriptions"),
-	}),
-} satisfies ToolDefinition;
-
+// tools.search is intentionally NOT exposed as a callable meta-tool.
+// Discovery is handled by the boot catalog in the system prompt (buildBootCatalog).
+// Exposing search causes LLMs to call it reflexively even when the catalog
+// already answers the question, adding a wasteful round-trip per tool use.
 const DESCRIBE_TOOL = {
 	name: "tools.describe",
 	description:
@@ -123,26 +118,62 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	const organ = defineOrgan(
 		"tools",
 		{
-			"motor/tools.search": typedAction(SEARCH_TOOL, (ctx) => {
-				return Promise.resolve({ results: handleSearch(ctx.payload.query) });
-			}),
 			"motor/tools.describe": typedAction(DESCRIBE_TOOL, (ctx) => {
 				return Promise.resolve({ results: handleDescribe(ctx.payload.names) });
 			}),
 		},
 		{
-			description: "Progressive tool discovery — search and describe domain tools on demand.",
+			description: "Progressive tool discovery — describe domain tools on demand to get their full schema.",
 			directives: [
-				"Always call tools.search first to find the right tool by keyword, then call tools.describe to get its full schema before using it. Never guess parameter names — always describe first.",
+				'The Available Tools section in the system prompt lists every tool. Workflow: 1. Identify the tool from the system prompt list. 2. Call tools.describe(["tool-name"]) to get its full schema and guidance. 3. Call the tool with the correct parameters.',
 			],
 		},
 	);
 
 	return {
 		...organ,
-		/** Pass these to DialogOrgan.getTools instead of () => agent.tools. */
-		metaTools: [SEARCH_TOOL, DESCRIBE_TOOL] as const,
+		/**
+		 * Pass to DialogOrgan.getTools instead of () => agent.tools.
+		 * Only tools.describe is exposed — discovery is via boot catalog in system prompt.
+		 */
+		metaTools: [DESCRIBE_TOOL] as const,
+		/** Internal search — available for programmatic use, not exposed to LLM. */
+		search: handleSearch,
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Boot catalog — compact tool list for system prompt injection
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a compact tool catalog for the system prompt.
+ *
+ * The catalog gives the LLM upfront awareness of all available tools
+ * so it can skip tools.search and go straight to tools.describe.
+ * Each entry is ~25 tokens; 9 tools ≈ 225 tokens total — one-time cost
+ * amortized across all turns vs ~1200 tokens of full schemas per turn.
+ *
+ * Format:
+ *   ## Available Tools
+ *   Call tools.describe(["name"]) to get the full schema before using a tool.
+ *   - fs.read — Read raw text from a file
+ *   - fs.grep — Search file contents by regex pattern
+ *   ...
+ */
+export function buildBootCatalog(tools: readonly ToolDefinition[]): string {
+	const lines = tools
+		.slice()
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((t) => `- **${t.name}** — ${t.description}`);
+
+	return [
+		"## Available Tools",
+		"",
+		'This is the complete tool list. Do NOT call `tools.search`. Instead: call `tools.describe(["tool-name"])` to get the full schema for any tool you plan to use, then call the tool.',
+		"",
+		...lines,
+	].join("\n");
 }
 
 // ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ import type { ToolDefinition } from "@dpopsuev/alef-spine";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { buildOrganDirectives, createToolShellOrgan } from "../src/tool-shell.js";
+import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "../src/tool-shell.js";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -87,16 +87,15 @@ function make(opts: Parameters<typeof createToolShellOrgan>[0] = { tools: ALL_TO
 // ---------------------------------------------------------------------------
 
 describe("createToolShellOrgan — metaTools", () => {
-	it("exposes exactly two meta-tools: tools.search and tools.describe", () => {
+	it("exposes exactly one meta-tool: tools.describe (search removed, boot catalog handles discovery)", () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
-		expect(shell.metaTools).toHaveLength(2);
-		expect(shell.metaTools[0].name).toBe("tools.search");
-		expect(shell.metaTools[1].name).toBe("tools.describe");
+		expect(shell.metaTools).toHaveLength(1);
+		expect(shell.metaTools[0].name).toBe("tools.describe");
 	});
 
 	it("organ.tools mirrors metaTools", () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
-		expect(shell.tools.map((t) => t.name)).toEqual(["tools.search", "tools.describe"]);
+		expect(shell.tools.map((t) => t.name)).toEqual(["tools.describe"]);
 	});
 
 	it("organ.name is 'tools'", () => {
@@ -106,34 +105,26 @@ describe("createToolShellOrgan — metaTools", () => {
 });
 
 // ---------------------------------------------------------------------------
-// tools.search
+// internal search (not exposed as motor handler)
 // ---------------------------------------------------------------------------
 
-describe("tools.search — keyword matching", () => {
-	it("returns tools matching a single keyword", async () => {
-		const h = make();
-		h.publish("tools.search", { query: "file" });
-		await new Promise((r) => setTimeout(r, 100));
-		const { results } = h.senseResult("tools.search");
-		const names = (results as Array<{ name: string }>).map((r) => r.name);
+describe("ToolShellOrgan.search — internal keyword matching", () => {
+	it("returns tools matching a single keyword", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const results = shell.search("file");
+		const names = results.map((r) => r.name);
 		expect(names).toContain("fs.find");
 		expect(names).not.toContain("shell.exec");
 	});
 
-	it("returns all tools on empty query", async () => {
-		const h = make();
-		h.publish("tools.search", { query: "" });
-		await new Promise((r) => setTimeout(r, 100));
-		const { results } = h.senseResult("tools.search");
-		expect((results as unknown[]).length).toBe(ALL_TOOLS.length);
+	it("returns all tools on empty query", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		expect(shell.search("").length).toBe(ALL_TOOLS.length);
 	});
 
-	it("returns only name and description, not schema", async () => {
-		const h = make();
-		h.publish("tools.search", { query: "read" });
-		await new Promise((r) => setTimeout(r, 100));
-		const { results } = h.senseResult("tools.search");
-		for (const r of results as Array<Record<string, unknown>>) {
+	it("returns only name and description, not schema", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		for (const r of shell.search("read") as Array<Record<string, unknown>>) {
 			expect(r).not.toHaveProperty("schema");
 			expect(r).not.toHaveProperty("guidance");
 			expect(r).toHaveProperty("name");
@@ -141,12 +132,9 @@ describe("tools.search — keyword matching", () => {
 		}
 	});
 
-	it("matches on description words too", async () => {
-		const h = make();
-		h.publish("tools.search", { query: "regex" });
-		await new Promise((r) => setTimeout(r, 100));
-		const { results } = h.senseResult("tools.search");
-		const names = (results as Array<{ name: string }>).map((r) => r.name);
+	it("matches on description words too", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const names = shell.search("regex").map((r) => r.name);
 		expect(names).toContain("fs.grep");
 	});
 });
@@ -198,6 +186,45 @@ describe("tools.describe — full schema on demand", () => {
 // ---------------------------------------------------------------------------
 // buildOrganDirectives
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// buildBootCatalog
+// ---------------------------------------------------------------------------
+
+describe("buildBootCatalog", () => {
+	it("includes all tool names", () => {
+		const catalog = buildBootCatalog(ALL_TOOLS);
+		for (const t of ALL_TOOLS) {
+			expect(catalog).toContain(t.name);
+		}
+	});
+
+	it("includes all tool descriptions", () => {
+		const catalog = buildBootCatalog(ALL_TOOLS);
+		for (const t of ALL_TOOLS) {
+			expect(catalog).toContain(t.description);
+		}
+	});
+
+	it("contains tools.describe instruction and omits tools.search instruction", () => {
+		const catalog = buildBootCatalog(ALL_TOOLS);
+		expect(catalog).toContain("tools.describe");
+		expect(catalog).toContain("Do NOT call");
+	});
+
+	it("sorts tools alphabetically", () => {
+		const catalog = buildBootCatalog(ALL_TOOLS);
+		const names = ALL_TOOLS.map((t) => t.name).sort();
+		const positions = names.map((n) => catalog.indexOf(n));
+		expect(positions).toEqual([...positions].sort((a, b) => a - b));
+	});
+
+	it("returns empty catalog body for empty tool list", () => {
+		const catalog = buildBootCatalog([]);
+		expect(catalog).toContain("## Available Tools");
+		expect(catalog).not.toContain("**fs.");
+	});
+});
 
 describe("buildOrganDirectives", () => {
 	it("maps each tool in an organ to that organ's directives", () => {

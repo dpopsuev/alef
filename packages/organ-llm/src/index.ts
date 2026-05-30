@@ -197,6 +197,8 @@ async function runLLMLoop(
 		// When phaseTimeoutMs is 0 (default), the seam is disabled — zero overhead.
 		if (options.phaseTimeoutMs) {
 			// Subscribe before publishing — event delivery may be synchronous.
+			const phaseT0 = Date.now();
+			process.stderr.write(`[organ-llm] turn=${turn} llm.phase ENTER\n`);
 			const phasePromise = waitForPhaseResult(sense, correlationId, options.phaseTimeoutMs);
 			motor.publish({
 				type: "llm.phase",
@@ -204,6 +206,9 @@ async function runLLMLoop(
 				correlationId,
 			});
 			const phase = await phasePromise;
+			process.stderr.write(
+				`[organ-llm] turn=${turn} llm.phase EXIT in ${Date.now() - phaseT0}ms phase=${phase ? "modified" : "timeout/none"}\n`,
+			);
 			if (phase) {
 				if (phase.abort) break;
 				if (phase.skip) {
@@ -233,6 +238,7 @@ async function runLLMLoop(
 		// Recorded as a span attribute so EvalHarness can compute schemaFraction.
 		const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
 		span.setAttribute("alef.schema_token_estimate", schemaTokenEstimate);
+		span.setAttribute("alef.turn_number", turn);
 
 		// Orange: log API call entry so hangs are diagnosable without adding debug prints.
 		span.addEvent("llm.call", {
@@ -240,6 +246,11 @@ async function runLLMLoop(
 			"alef.message_roles": messages.map((m) => (m as { role?: string }).role ?? "?").join(","),
 			"alef.tool_count": tools.length,
 		});
+		// Orange diagnostic: log before and after HTTP call so hang location is pinpointed.
+		process.stderr.write(
+			`[organ-llm] turn=${turn} msg=${messages.length} tools=${tools.length} schema_est=${schemaTokenEstimate} → HTTP START\n`,
+		);
+		const httpStart = Date.now();
 
 		const stream = streamSimple(
 			options.model,
@@ -275,6 +286,10 @@ async function runLLMLoop(
 					finalMessage = evt.error;
 				}
 			}
+			// Orange diagnostic: log HTTP completion time.
+			process.stderr.write(
+				`[organ-llm] turn=${turn} HTTP DONE in ${Date.now() - httpStart}ms stopReason=${finalMessage?.stopReason ?? "none"}\n`,
+			);
 			if (finalMessage?.usage) {
 				const u = finalMessage.usage;
 				span.setAttributes({
@@ -294,6 +309,9 @@ async function runLLMLoop(
 				err instanceof Error &&
 				(err.name === "AbortError" || err.message.includes("aborted") || err.message.includes("AbortError"));
 			if (isAbort) span.setAttribute("alef.aborted", true);
+			process.stderr.write(
+				`[organ-llm] turn=${turn} HTTP ERROR in ${Date.now() - httpStart}ms abort=${isAbort} err=${String(err).slice(0, 120)}\n`,
+			);
 			if (appRetryCount > 0) span.setAttribute("alef.retry_count", appRetryCount);
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
 			span.end();
@@ -315,6 +333,9 @@ async function runLLMLoop(
 			options.onRetry?.(appRetryCount, finalMessage.errorMessage);
 			// ALE-BUG-39: record retry in span so post-mortem can distinguish throttle from slow model.
 			span.addEvent("llm.retry", { attempt: appRetryCount, reason: finalMessage.errorMessage });
+			process.stderr.write(
+				`[organ-llm] turn=${turn} RETRY attempt=${appRetryCount} reason=${finalMessage.errorMessage?.slice(0, 80) ?? "unknown"}\n`,
+			);
 			const delayMs = Math.min(1_000 * 2 ** (appRetryCount - 1), maxRetryDelayMs);
 			await new Promise<void>((res) => setTimeout(res, delayMs));
 			pendingCalls.length = 0;

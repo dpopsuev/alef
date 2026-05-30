@@ -11,6 +11,7 @@
 import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { describe, expect, it, vi } from "vitest";
 import { getTheme } from "../src/theme.js";
+import { ChatWriter } from "../src/tui/chat-writer.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
 import { handleCtrlC } from "../src/tui-mode.js";
 
@@ -23,9 +24,10 @@ function makeTui() {
 }
 
 function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext {
+	const t = getTheme();
 	return {
-		t: getTheme(),
-		chat: new Container(),
+		t,
+		writer: new ChatWriter(new Container(), t),
 		tui: makeTui(),
 		dialog: { clearHistory: vi.fn() },
 		dispose: vi.fn(),

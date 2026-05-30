@@ -15,6 +15,7 @@ import { Container } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import { getTheme } from "../src/theme.js";
+import { ChatWriter } from "../src/tui/chat-writer.js";
 import { ToolCallRow } from "../src/tui/tool-view.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
 import {
@@ -39,9 +40,11 @@ function makeTui() {
 }
 
 function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext {
+	const t = getTheme();
+	const chat = new Container();
 	return {
-		t: getTheme(),
-		chat: new Container(),
+		t,
+		writer: new ChatWriter(chat, t),
 		tui: makeTui(),
 		dialog: { clearHistory: vi.fn() },
 		dispose: vi.fn(),
@@ -54,7 +57,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 }
 
 function chatText(ctx: TuiHandlerContext): string {
-	return ctx.chat.children
+	return ctx.writer.container.children
 		.flatMap((c) => c.render(80))
 		.join("\n")
 		.replace(/\x1b\[[0-9;]*m/g, ""); // strip ANSI
@@ -145,13 +148,13 @@ describe("handleSlashCommand /new", () => {
 	it("clears pre-existing children and replaces with notice pill", () => {
 		const ctx = makeCtx();
 		// Add some children to chat first.
-		ctx.chat.addChild(new Container());
-		ctx.chat.addChild(new Container());
-		expect(ctx.chat.children).toHaveLength(2);
+		ctx.writer.container.addChild(new Container());
+		ctx.writer.container.addChild(new Container());
+		expect(ctx.writer.container.children).toHaveLength(2);
 		handleSlashCommand("/new", ctx);
 		// Pre-existing children cleared; only the notice pill remains.
 		// appendNotice adds: Spacer + DynText(header) + Text(body) + DynText(footer) = 4
-		expect(ctx.chat.children.length).toBe(4);
+		expect(ctx.writer.container.children.length).toBe(4);
 	});
 
 	it("appends '(conversation cleared)' notice", () => {

@@ -23,13 +23,7 @@ import type { InteractiveOptions } from "./interactive.js";
 import { COLON_COMMANDS, ModalInputHandler } from "./modal-input.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
-import {
-	appendBatchTiming,
-	appendCompletedToolBlock,
-	appendNotice,
-	appendTokenFooter,
-	appendUserMsg,
-} from "./tui/chat-view.js";
+import { ChatWriter } from "./tui/chat-writer.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
 import { StreamingZone } from "./tui/streaming-zone.js";
@@ -59,7 +53,7 @@ const ANSI_RESET = "\x1b[0m";
 
 export interface TuiHandlerContext {
 	t: ThemeTokens;
-	chat: Container;
+	writer: ChatWriter;
 	tui: {
 		stop(): void;
 		removeChild(c: unknown): void;
@@ -86,7 +80,7 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 		ctx.abortCurrentTurn();
 		ctx.setAbortCurrentTurn(undefined);
 		ctx.setLLMController(undefined);
-		appendNotice(ctx.chat, "(interrupted)", ctx.t);
+		ctx.writer.addNotice("(interrupted)");
 		ctx.tui.requestRender(true);
 	} else {
 		trace("ctrl+c:idle:dispose");
@@ -133,12 +127,12 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			return true;
 		case "/new":
 			ctx.dialog.clearHistory();
-			while (ctx.chat.children.length > 0) ctx.chat.removeChild(ctx.chat.children[0]);
-			appendNotice(ctx.chat, "(conversation cleared)", ctx.t);
+			ctx.writer.clearAll();
+			ctx.writer.addNotice("(conversation cleared)");
 			ctx.tui.requestRender(true);
 			return true;
 		case "/resume":
-			appendNotice(ctx.chat, `session: ${ctx.sessionId}`, ctx.t);
+			ctx.writer.addNotice(`session: ${ctx.sessionId}`);
 			ctx.tui.requestRender();
 			return true;
 		case "/login": {
@@ -147,10 +141,10 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			const key = parts.slice(2).join(" ").trim();
 			if (!provider || !key) {
 				const known = getProviders().slice(0, 8).join(", ");
-				appendNotice(ctx.chat, `Usage: /login <provider> <api-key>\nKnown providers: ${known}`, ctx.t);
+				ctx.writer.addNotice(`Usage: /login <provider> <api-key>\nKnown providers: ${known}`);
 			} else {
 				setStoredApiKey(provider, key);
-				appendNotice(ctx.chat, `Saved API key for ${provider}. Takes effect on the next message.`, ctx.t);
+				ctx.writer.addNotice(`Saved API key for ${provider}. Takes effect on the next message.`);
 			}
 			ctx.tui.requestRender();
 			return true;
@@ -158,22 +152,22 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 		case "/logout": {
 			const provider = text.trim().split(/\s+/)[1];
 			if (!provider) {
-				appendNotice(ctx.chat, "Usage: /logout <provider>", ctx.t);
+				ctx.writer.addNotice("Usage: /logout <provider>");
 			} else if (!getStoredApiKey(provider)) {
-				appendNotice(ctx.chat, `No stored key for ${provider}.`, ctx.t);
+				ctx.writer.addNotice(`No stored key for ${provider}.`);
 			} else {
 				removeStoredApiKey(provider);
-				appendNotice(ctx.chat, `Removed stored key for ${provider}.`, ctx.t);
+				ctx.writer.addNotice(`Removed stored key for ${provider}.`);
 			}
 			ctx.tui.requestRender();
 			return true;
 		}
 		case "/help":
-			appendNotice(ctx.chat, helpText(), ctx.t);
+			ctx.writer.addNotice(helpText());
 			ctx.tui.requestRender();
 			return true;
 		default:
-			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type /help for list.`, ctx.t);
+			ctx.writer.addNotice(`Unknown command: ${cmd}. Type /help for list.`);
 			ctx.tui.requestRender();
 			return false;
 	}
@@ -197,12 +191,12 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 		case ":new":
 		case ":clear":
 			ctx.dialog.clearHistory();
-			while (ctx.chat.children.length > 0) ctx.chat.removeChild(ctx.chat.children[0]);
-			appendNotice(ctx.chat, "(conversation cleared)", ctx.t);
+			ctx.writer.clearAll();
+			ctx.writer.addNotice("(conversation cleared)");
 			ctx.tui.requestRender(true);
 			return true;
 		case ":session":
-			appendNotice(ctx.chat, `session: ${ctx.sessionId}`, ctx.t);
+			ctx.writer.addNotice(`session: ${ctx.sessionId}`);
 			ctx.tui.requestRender();
 			return true;
 		case ":login": {
@@ -210,10 +204,10 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 			const key = parts.slice(2).join(" ").trim();
 			if (!provider || !key) {
 				const known = getProviders().slice(0, 8).join(", ");
-				appendNotice(ctx.chat, `Usage: :login <provider> <api-key>\nKnown providers: ${known}`, ctx.t);
+				ctx.writer.addNotice(`Usage: :login <provider> <api-key>\nKnown providers: ${known}`);
 			} else {
 				setStoredApiKey(provider, key);
-				appendNotice(ctx.chat, `Saved API key for ${provider}. Takes effect on the next message.`, ctx.t);
+				ctx.writer.addNotice(`Saved API key for ${provider}. Takes effect on the next message.`);
 			}
 			ctx.tui.requestRender();
 			return true;
@@ -221,43 +215,43 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 		case ":logout": {
 			const provider = parts[1];
 			if (!provider) {
-				appendNotice(ctx.chat, "Usage: :logout <provider>", ctx.t);
+				ctx.writer.addNotice("Usage: :logout <provider>");
 			} else if (!getStoredApiKey(provider)) {
-				appendNotice(ctx.chat, `No stored key for ${provider}.`, ctx.t);
+				ctx.writer.addNotice(`No stored key for ${provider}.`);
 			} else {
 				removeStoredApiKey(provider);
-				appendNotice(ctx.chat, `Removed stored key for ${provider}.`, ctx.t);
+				ctx.writer.addNotice(`Removed stored key for ${provider}.`);
 			}
 			ctx.tui.requestRender();
 			return true;
 		}
 		case ":help":
 		case ":h":
-			appendNotice(ctx.chat, helpText(), ctx.t);
+			ctx.writer.addNotice(helpText());
 			ctx.tui.requestRender();
 			return true;
 		case ":reload": {
 			const organName = parts[1];
 			const organPath = parts[2];
 			if (!organName || !organPath) {
-				appendNotice(ctx.chat, "Usage: :reload <name> <path>", ctx.t);
+				ctx.writer.addNotice("Usage: :reload <name> <path>");
 				ctx.tui.requestRender();
 				return true;
 			}
 			if (!ctx.reloadOrgan) {
-				appendNotice(ctx.chat, ":reload not available in this session.", ctx.t);
+				ctx.writer.addNotice(":reload not available in this session.");
 				ctx.tui.requestRender();
 				return true;
 			}
-			appendNotice(ctx.chat, `Reloading ${organName}…`, ctx.t);
+			ctx.writer.addNotice(`Reloading ${organName}…`);
 			ctx.tui.requestRender();
 			ctx.reloadOrgan(organName, organPath)
 				.then(() => {
-					appendNotice(ctx.chat, `Reloaded ${organName}.`, ctx.t);
+					ctx.writer.addNotice(`Reloaded ${organName}.`);
 					ctx.tui.requestRender();
 				})
 				.catch((e: unknown) => {
-					appendNotice(ctx.chat, `Reload failed: ${e instanceof Error ? e.message : String(e)}`, ctx.t);
+					ctx.writer.addNotice(`Reload failed: ${e instanceof Error ? e.message : String(e)}`);
 					ctx.tui.requestRender();
 				});
 			return true;
@@ -265,38 +259,38 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 		case ":install": {
 			const spec = parts[1];
 			if (!spec) {
-				appendNotice(ctx.chat, "Usage: :install <organ>[@version]", ctx.t);
+				ctx.writer.addNotice("Usage: :install <organ>[@version]");
 				ctx.tui.requestRender();
 				return true;
 			}
-			appendNotice(ctx.chat, `Installing ${spec}…`, ctx.t);
+			ctx.writer.addNotice(`Installing ${spec}…`);
 			ctx.tui.requestRender();
 			import("./alef-pm.js")
 				.then(async (pm) => {
 					pm.init();
 					const [name, version] = spec.split("@");
 					const gen = await pm.install(name, version);
-					appendNotice(ctx.chat, `Installed ${spec} (generation ${gen})`, ctx.t);
+					ctx.writer.addNotice(`Installed ${spec} (generation ${gen})`);
 					ctx.tui.requestRender();
 				})
 				.catch((e: unknown) => {
-					appendNotice(ctx.chat, `Install failed: ${e instanceof Error ? e.message : String(e)}`, ctx.t);
+					ctx.writer.addNotice(`Install failed: ${e instanceof Error ? e.message : String(e)}`);
 					ctx.tui.requestRender();
 				});
 			return true;
 		}
 		case ":upgrade": {
-			appendNotice(ctx.chat, "Upgrading organs…", ctx.t);
+			ctx.writer.addNotice("Upgrading organs…");
 			ctx.tui.requestRender();
 			import("./alef-pm.js")
 				.then(async (pm) => {
 					pm.init();
 					const gen = await pm.upgrade();
-					appendNotice(ctx.chat, `Organs upgraded (generation ${gen})`, ctx.t);
+					ctx.writer.addNotice(`Organs upgraded (generation ${gen})`);
 					ctx.tui.requestRender();
 				})
 				.catch((e: unknown) => {
-					appendNotice(ctx.chat, `Upgrade failed: ${e instanceof Error ? e.message : String(e)}`, ctx.t);
+					ctx.writer.addNotice(`Upgrade failed: ${e instanceof Error ? e.message : String(e)}`);
 					ctx.tui.requestRender();
 				});
 			return true;
@@ -308,21 +302,17 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 					const entries = pm.history();
 					const n = parts[1] ? parseInt(parts[1], 10) : (entries[1]?.id ?? 1);
 					await pm.rollback(n);
-					appendNotice(
-						ctx.chat,
-						`Rolled back to generation ${n}. Restart Alef to load the restored organs.`,
-						ctx.t,
-					);
+					ctx.writer.addNotice(`Rolled back to generation ${n}. Restart Alef to load the restored organs.`);
 					ctx.tui.requestRender();
 				})
 				.catch((e: unknown) => {
-					appendNotice(ctx.chat, `Rollback failed: ${e instanceof Error ? e.message : String(e)}`, ctx.t);
+					ctx.writer.addNotice(`Rollback failed: ${e instanceof Error ? e.message : String(e)}`);
 					ctx.tui.requestRender();
 				});
 			return true;
 		}
 		default:
-			appendNotice(ctx.chat, `Unknown command: ${cmd}. Type :help for list or :h for help.`, ctx.t);
+			ctx.writer.addNotice(`Unknown command: ${cmd}. Type :help for list or :h for help.`);
 			ctx.tui.requestRender();
 			return false;
 	}
@@ -402,6 +392,7 @@ export async function runTuiMode(
 	}
 
 	// ── Agent block + streaming zone ──────────────────────────────────────
+	const writer = new ChatWriter(chat, t);
 	const streamingZone = new StreamingZone(chat, () => tui.requestRender(), t);
 	const replyTW = new Typewriter(
 		(delta) => streamingZone.receiveText(delta),
@@ -449,17 +440,15 @@ export async function runTuiMode(
 				consoleZone.removeInFlightCall(callId);
 				activeCalls.delete(callId);
 				const snippet = display ?? result;
-				appendCompletedToolBlock(
-					chat,
+				writer.addCompletedToolBlock(
 					entry.name,
 					entry.keyArg,
 					elapsedMs,
 					ok,
 					snippet?.trim() ? makeToolOutputComponent(snippet, displayKind, t) : null,
-					t,
 				);
 				if (activeCalls.size === 0 && batchStartedAt > 0) {
-					appendBatchTiming(chat, Date.now() - batchStartedAt, t);
+					writer.addBatchTiming(Date.now() - batchStartedAt);
 					batchStartedAt = 0;
 				}
 				tui.requestRender();
@@ -478,14 +467,12 @@ export async function runTuiMode(
 			if (cw && totalTokens > 0) {
 				const fill = totalTokens / cw;
 				if (fill > 0.9) {
-					appendNotice(
-						chat,
+					writer.addNotice(
 						`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${cw.toLocaleString()} tokens) — start a new session soon`,
-						t,
 					);
 					tui.requestRender();
 				} else if (fill > 0.75) {
-					appendNotice(chat, `context ${Math.round(fill * 100)}% full`, t);
+					writer.addNotice(`context ${Math.round(fill * 100)}% full`);
 					tui.requestRender();
 				}
 			}
@@ -508,7 +495,7 @@ export async function runTuiMode(
 
 	const ctx = (): TuiHandlerContext => ({
 		t,
-		chat,
+		writer,
 		tui,
 		dialog,
 		dispose,
@@ -532,7 +519,7 @@ export async function runTuiMode(
 		if (matchesKey(data, "ctrl+t")) {
 			const next = !streamingZone.hideThinking;
 			streamingZone.setHideThinking(next);
-			appendNotice(chat, next ? "Thinking: hidden" : "Thinking: visible", t);
+			writer.addNotice(next ? "Thinking: hidden" : "Thinking: visible");
 			tui.requestRender();
 			return true;
 		}
@@ -556,7 +543,7 @@ export async function runTuiMode(
 		historyProvider.addEntry(text);
 		pendingFooterShown = false;
 		consoleZone.hidePendingFooter(); // guard: clear any leftover footer from prior turn
-		appendUserMsg(chat, text, t);
+		writer.addUserMessage(text);
 		turnStartedAt = Date.now();
 		consoleZone.startThinking();
 		tui.requestRender();
@@ -577,7 +564,7 @@ export async function runTuiMode(
 				consoleZone.stopThinking();
 				consoleZone.hidePendingFooter();
 				pendingFooterShown = false;
-				pendingTokenFooter = appendTokenFooter(chat);
+				pendingTokenFooter = writer.addTokenFooter();
 				tui.requestRender(true);
 			}
 		} catch (e) {
@@ -587,10 +574,10 @@ export async function runTuiMode(
 			streamingZone.clear();
 			for (const [callId, entry] of activeCalls) {
 				consoleZone.removeInFlightCall(callId);
-				appendCompletedToolBlock(chat, entry.name, entry.keyArg, 0, false, null, t);
+				writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null);
 			}
 			activeCalls.clear();
-			if (!aborted) appendNotice(chat, `[error] ${formatError(e)}`, t);
+			if (!aborted) writer.addNotice(`[error] ${formatError(e)}`);
 			tui.requestRender();
 		} finally {
 			abortCurrentTurn = undefined;

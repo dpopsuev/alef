@@ -23,12 +23,37 @@ import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import type { Organ } from "@dpopsuev/alef-spine";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { EvaluatorOrgan } from "./evaluator-organ.js";
-import type { RunMetrics, SpanRecord } from "./metrics.js";
+import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
 import { deriveturns } from "./metrics.js";
 import { globalSpanExporter } from "./otel-setup.js";
 import { TraceRecorder } from "./trace-recorder.js";
 
 const tracer = trace.getTracer("alef.eval", "0.0.1");
+
+// ---------------------------------------------------------------------------
+// Bus payload capture helpers
+// ---------------------------------------------------------------------------
+
+const BUS_PAYLOAD_MAX_CHARS = 400;
+
+/**
+ * Truncate a bus event payload for diagnostic capture.
+ * Preserves structure; truncates long string values individually.
+ */
+function truncateBusPayload(payload: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+	if (!payload) return undefined;
+	const out: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(payload)) {
+		// Skip internal metadata that adds noise without diagnostic value.
+		if (k === "toolCallId" || k === "conversationHistory" || k === "isFinal") continue;
+		if (typeof v === "string" && v.length > BUS_PAYLOAD_MAX_CHARS) {
+			out[k] = `${v.slice(0, BUS_PAYLOAD_MAX_CHARS)}…`;
+		} else {
+			out[k] = v;
+		}
+	}
+	return Object.keys(out).length > 0 ? out : undefined;
+}
 
 export interface WorkspaceFile {
 	path: string;
@@ -218,14 +243,55 @@ export class EvalHarness {
 		// conversationHistory is published by organ-llm as plain JSON: [{role, content, ...}].
 		// Anthropic: "transcript = complete record of a trial, including tool calls".
 		let transcript: Array<Record<string, unknown>> = [];
+		const busEvents: BusEvent[] = [];
+		// Motor start times keyed by correlationId for round-trip elapsed computation.
+		const motorTimes = new Map<string, number>();
+		// Events whose payloads are too large to capture verbatim.
+		const SKIP_BUS_EVENTS = new Set(["dialog.message", "llm.phase"]);
+
 		const transcriptObserver = agent.observe({
 			onMotorEvent(event) {
-				const p = event as unknown as { type?: string; payload?: Record<string, unknown> };
+				const p = event as unknown as {
+					type?: string;
+					correlationId?: string;
+					payload?: Record<string, unknown>;
+				};
 				if (p.type === "dialog.message" && Array.isArray(p.payload?.conversationHistory)) {
 					transcript = p.payload.conversationHistory as Array<Record<string, unknown>>;
 				}
+				if (!SKIP_BUS_EVENTS.has(p.type ?? "")) {
+					motorTimes.set(p.correlationId ?? "", Date.now());
+					busEvents.push({
+						bus: "motor",
+						event: p.type ?? "unknown",
+						correlationId: p.correlationId ?? "",
+						payload: truncateBusPayload(p.payload),
+					});
+				}
 			},
-			onSenseEvent() {},
+			onSenseEvent(event) {
+				const p = event as unknown as {
+					type?: string;
+					correlationId?: string;
+					payload?: Record<string, unknown>;
+					isError?: boolean;
+					errorMessage?: string;
+				};
+				if (!SKIP_BUS_EVENTS.has(p.type ?? "")) {
+					const startMs = motorTimes.get(p.correlationId ?? "");
+					const elapsedMs = startMs !== undefined ? Date.now() - startMs : undefined;
+					motorTimes.delete(p.correlationId ?? "");
+					busEvents.push({
+						bus: "sense",
+						event: p.type ?? "unknown",
+						correlationId: p.correlationId ?? "",
+						payload: truncateBusPayload(p.payload),
+						...(p.isError && { isError: true }),
+						...(p.errorMessage && { errorMessage: p.errorMessage }),
+						...(elapsedMs !== undefined && { elapsedMs }),
+					});
+				}
+			},
 		});
 
 		// Optional JSONL trace — attach before the run, close after.
@@ -307,6 +373,7 @@ export class EvalHarness {
 			workspace: opts.keepWorkspace ? workspace : undefined,
 			turns,
 			transcript,
+			busEvents,
 			passed: passed && !evaluator.state.loopDetected,
 			sendTimingsMs,
 			timedOut,
@@ -410,6 +477,33 @@ export function formatReport(metrics: RunMetrics): string {
 	if (totalRetries > 0) lines.push(`  retries: ${totalRetries}${retryReasons ? ` (${retryReasons})` : ""}`);
 	if (abortedTurns > 0) lines.push(`  aborted turns: ${abortedTurns}`);
 	if (metrics.error) lines.push(`  error: ${metrics.error}`);
+
+	// On failure: emit the bus event trace so the tool call sequence + payloads
+	// are visible without needing a separate debug run.
+	if (!metrics.passed && metrics.busEvents.length > 0) {
+		lines.push("  bus trace:");
+		for (const e of metrics.busEvents) {
+			const arrow = e.bus === "motor" ? "→" : "←";
+			const elapsed = e.elapsedMs !== undefined ? ` ${e.elapsedMs}ms` : "";
+			const err = e.isError ? ` ERROR: ${e.errorMessage ?? ""}` : "";
+			const payloadStr = e.payload ? ` ${JSON.stringify(e.payload)}` : "";
+			lines.push(`    ${arrow} ${e.bus}/${e.event}${elapsed}${err}${payloadStr}`);
+		}
+		// Surface any in-flight motor events with no matching sense response.
+		// These are the calls that were pending when the timeout fired.
+		const motorIds = new Set(metrics.busEvents.filter((e) => e.bus === "motor").map((e) => e.correlationId));
+		const senseIds = new Set(metrics.busEvents.filter((e) => e.bus === "sense").map((e) => e.correlationId));
+		const orphaned = [...motorIds].filter((id) => !senseIds.has(id));
+		if (orphaned.length > 0) {
+			const orphanedEvents = metrics.busEvents.filter(
+				(e) => e.bus === "motor" && orphaned.includes(e.correlationId),
+			);
+			for (const e of orphanedEvents) {
+				lines.push(`    ✗ no sense response for motor/${e.event} (correlationId=${e.correlationId.slice(0, 8)}…)`);
+			}
+		}
+	}
+
 	return lines.join("\n");
 }
 

@@ -1,29 +1,32 @@
 /**
- * ToolShellOrgan — progressive disclosure for organ tool schemas.
+ * ToolShellOrgan — progressive disclosure for organ tool schemas (ALE-SPC-42/46).
  *
- * Replaces full upfront schema injection with two meta-tools:
- *   tools.search   { query }   → [{ name, description }]
- *   tools.describe { names[] } → [{ name, description, schema, guidance }]
+ * Three-tier context lifecycle (ALE-SPC-46):
  *
- * The LLM receives only the meta-tool schemas (~100 tokens) instead of all
- * domain tool schemas (~1200+ tokens). Full schemas load on demand.
+ *   Turn 1 (boot):    Inject compact catalog as synthetic message via llm.phase.
+ *                     LLM knows all tools; calls tools.describe for schemas.
+ *   Turns 2–N:        Catalog persists in history. No additional cost.
+ *   Turn N+1 (evict): Replace catalog message with slim "used/remaining" summary.
+ *                     Reclaims ~175 tokens/turn for long sessions.
  *
- * Implements ALE-ADR-9 / ALE-SPC-42.
- * Measurement: 69.9% of input tokens were schema overhead before this.
+ * The LLM sees only tools.describe as a callable tool (~50 tokens/call).
+ * Full schemas enter the conversation only when the agent explicitly requests them.
+ *
+ * Token math (N=9 tools, K=2 used, T=3 turns):
+ *   Baseline:          T × N × 133 = 3,600 tokens
+ *   ToolShell lifecycle: 1×225 + 2×700 = 1,625 tokens  (55% reduction)
+ *
+ * Measurement: 69.9% of input tokens were schema overhead before this (2026-05-28).
  */
 
-import type { ToolDefinition } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineOrgan, toolInputToJsonSchema, typedAction } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
-// Meta-tool definitions (keep as const so typedAction infers payload type)
+// Meta-tool (only tools.describe is exposed to the LLM)
 // ---------------------------------------------------------------------------
 
-// tools.search is intentionally NOT exposed as a callable meta-tool.
-// Discovery is handled by the boot catalog in the system prompt (buildBootCatalog).
-// Exposing search causes LLMs to call it reflexively even when the catalog
-// already answers the question, adding a wasteful round-trip per tool use.
 const DESCRIBE_TOOL = {
 	name: "tools.describe",
 	description:
@@ -34,7 +37,7 @@ const DESCRIBE_TOOL = {
 } satisfies ToolDefinition;
 
 // ---------------------------------------------------------------------------
-// ToolShellOrgan
+// ToolShellOptions
 // ---------------------------------------------------------------------------
 
 export interface ToolShellOptions {
@@ -42,26 +45,37 @@ export interface ToolShellOptions {
 	tools: readonly ToolDefinition[];
 	/**
 	 * Organ guidance blocks indexed by tool name.
-	 * Populated from organ.directives — these move here from the system prompt.
+	 * Populated from organ.directives — travel with schemas instead of system prompt.
 	 */
 	organDirectives?: ReadonlyMap<string, readonly string[]>;
+	/**
+	 * Evict the boot catalog from conversation history after this many turns.
+	 * Default: 3. Set to Infinity to disable eviction.
+	 */
+	evictAfterTurn?: number;
 }
 
-/**
- * Build a ToolShellOrgan from a snapshot of all domain tools.
- *
- * The returned organ exposes two motor handlers (tools.search, tools.describe).
- * Pass toolShell.metaTools to DialogOrgan.getTools instead of () => agent.tools.
- */
-export function createToolShellOrgan(opts: ToolShellOptions) {
-	const { tools, organDirectives = new Map<string, readonly string[]>() } = opts;
+// Marker string embedded in the catalog message so eviction can find it.
+const CATALOG_MARKER = "\x00TOOL-CATALOG-v1\x00";
 
-	// Index tools by name for O(1) describe lookup.
+// ---------------------------------------------------------------------------
+// createToolShellOrgan
+// ---------------------------------------------------------------------------
+
+export function createToolShellOrgan(opts: ToolShellOptions) {
+	const { tools, organDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3 } = opts;
+
 	const byName = new Map<string, ToolDefinition>();
 	for (const t of tools) byName.set(t.name, t);
 
+	// Mutable lifecycle state — one instance per organ, scoped to this closure.
+	const state = {
+		catalogInjected: false,
+		toolsDescribed: new Set<string>(),
+	};
+
 	// ---------------------------------------------------------------------------
-	// tools.search — keyword match on name + description, returns slim results
+	// Internal search (not exposed to LLM — discovery is via boot catalog)
 	// ---------------------------------------------------------------------------
 	function handleSearch(query: string): Array<{ name: string; description: string }> {
 		const words = query
@@ -69,19 +83,16 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 			.split(/\s+/)
 			.filter((w) => w.length > 1);
 		if (words.length === 0) {
-			// Empty query: return all tools (sorted alphabetically, capped at 20)
 			return [...tools]
 				.sort((a, b) => a.name.localeCompare(b.name))
 				.slice(0, 20)
 				.map((t) => ({ name: t.name, description: t.description }));
 		}
-
 		const scored = tools.map((t) => {
 			const haystack = `${t.name} ${t.description}`.toLowerCase();
 			const score = words.filter((w) => haystack.includes(w)).length;
 			return { tool: t, score };
 		});
-
 		return scored
 			.filter((s) => s.score > 0)
 			.sort((a, b) => b.score - a.score)
@@ -90,7 +101,7 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	}
 
 	// ---------------------------------------------------------------------------
-	// tools.describe — full schema + guidance, returns rich results
+	// Describe — full schema + guidance
 	// ---------------------------------------------------------------------------
 	function handleDescribe(names: string[]): Array<{
 		name: string;
@@ -102,9 +113,9 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		for (const name of names) {
 			const t = byName.get(name);
 			if (!t) continue;
+			state.toolsDescribed.add(name);
 			const dirs: readonly string[] = organDirectives.get(name) ?? [];
 			const guidance = dirs.join("\n\n");
-			// toolInputToJsonSchema returns an untyped object; double-cast via unknown.
 			const raw: unknown = toolInputToJsonSchema(t.inputSchema);
 			const schema = raw as Record<string, unknown>;
 			results.push({ name: t.name, description: t.description, schema, guidance });
@@ -113,53 +124,135 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Organ
+	// Catalog message builders
+	// ---------------------------------------------------------------------------
+	function buildCatalogMessage(): { role: string; content: string } {
+		const lines = [...tools]
+			.sort((a, b) => a.name.localeCompare(b.name))
+			.map((t) => `- **${t.name}** — ${t.description}`);
+		const content = [
+			CATALOG_MARKER,
+			"**Available Tools** (complete list — do not call tools.search):",
+			'Call `tools.describe(["tool-name"])` to get the full schema before using any tool.',
+			"",
+			...lines,
+		].join("\n");
+		return { role: "user", content };
+	}
+
+	function buildEvictionMessage(): { role: string; content: string } {
+		const used = [...state.toolsDescribed].sort().join(", ") || "none";
+		const remaining = tools
+			.filter((t) => !state.toolsDescribed.has(t.name))
+			.sort((a, b) => a.name.localeCompare(b.name))
+			.map((t) => t.name)
+			.join(", ");
+		return {
+			role: "user",
+			content: `[Tool catalog compacted. Described so far: ${used}. Still available: ${remaining || "none"}. Call tools.describe([name]) to get any tool's schema.]`,
+		};
+	}
+
+	// ---------------------------------------------------------------------------
+	// Message array transformers (pure — no mutation of original)
+	// ---------------------------------------------------------------------------
+	type RawMsg = Record<string, unknown>;
+
+	function injectCatalog(messages: RawMsg[]): RawMsg[] {
+		return [buildCatalogMessage() as unknown as RawMsg, ...messages];
+	}
+
+	function evictCatalog(messages: RawMsg[]): RawMsg[] {
+		const eviction = buildEvictionMessage() as unknown as RawMsg;
+		return messages.map((m) => {
+			const content = m.content;
+			if (typeof content === "string" && content.startsWith(CATALOG_MARKER)) {
+				return eviction;
+			}
+			return m;
+		});
+	}
+
+	// ---------------------------------------------------------------------------
+	// Organ — motor handlers
 	// ---------------------------------------------------------------------------
 	const organ = defineOrgan(
 		"tools",
 		{
-			"motor/tools.describe": typedAction(DESCRIBE_TOOL, (ctx) => {
-				return Promise.resolve({ results: handleDescribe(ctx.payload.names) });
-			}),
+			"motor/tools.describe": typedAction(DESCRIBE_TOOL, (ctx) =>
+				Promise.resolve({ results: handleDescribe(ctx.payload.names) }),
+			),
+
+			// llm.phase — context lifecycle intercept.
+			// Activated only when phaseTimeoutMs > 0 in Cerebrum options.
+			"motor/llm.phase": {
+				handle: (ctx: CorpusHandlerCtx) => {
+					const payload = ctx.payload as { messages: RawMsg[]; turn: number };
+					let msgs = [...payload.messages];
+
+					if (payload.turn === 1 && !state.catalogInjected) {
+						msgs = injectCatalog(msgs);
+						state.catalogInjected = true;
+					} else if (state.catalogInjected && payload.turn > evictAfterTurn) {
+						msgs = evictCatalog(msgs);
+					}
+
+					// Return value auto-published to sense/llm.phase by defineOrgan framework.
+					return Promise.resolve({ messages: msgs } as Record<string, unknown>);
+				},
+			},
 		},
 		{
-			description: "Progressive tool discovery — describe domain tools on demand to get their full schema.",
+			description: "Progressive tool discovery — inject catalog once, evict after N turns, describe on demand.",
 			directives: [
-				'The Available Tools section in the system prompt lists every tool. Workflow: 1. Identify the tool from the system prompt list. 2. Call tools.describe(["tool-name"]) to get its full schema and guidance. 3. Call the tool with the correct parameters.',
+				'The tool catalog is provided at the start of this conversation. Identify the tool you need, then call tools.describe(["tool-name"]) to get its full schema and call it.',
 			],
 		},
 	);
 
+	// Stripped domain tools: name + description only, no parameter schemas.
+	// The LLM can call any tool but must first call tools.describe to learn
+	// the parameters. This is the Speakeasy progressive disclosure pattern.
+	const strippedTools: ToolDefinition[] = [...tools].map((t) => ({
+		name: t.name,
+		description: t.description,
+		inputSchema: z.object({}).passthrough(),
+	}));
+
 	return {
 		...organ,
 		/**
-		 * Pass to DialogOrgan.getTools instead of () => agent.tools.
-		 * Only tools.describe is exposed — discovery is via boot catalog in system prompt.
+		 * Pass to DialogOrgan.getTools.
+		 * Stripped domain tools (name + description, empty schema) + tools.describe.
+		 * LLM can call any tool but gets no parameter guidance until it calls describe.
 		 */
-		metaTools: [DESCRIBE_TOOL] as const,
-		/** Internal search — available for programmatic use, not exposed to LLM. */
+		metaTools: [...strippedTools, DESCRIBE_TOOL] as ToolDefinition[],
+		/** Internal keyword search — not exposed to LLM. */
 		search: handleSearch,
+		/**
+		 * Apply the catalog lifecycle transformation to a messages array.
+		 * Exposed for unit testing without needing a motor/sense round-trip.
+		 */
+		applyPhase(messages: RawMsg[], turn: number): RawMsg[] {
+			let msgs = [...messages];
+			if (turn === 1 && !state.catalogInjected) {
+				msgs = injectCatalog(msgs);
+				state.catalogInjected = true;
+			} else if (state.catalogInjected && turn > evictAfterTurn) {
+				msgs = evictCatalog(msgs);
+			}
+			return msgs;
+		},
 	};
 }
 
 // ---------------------------------------------------------------------------
-// Boot catalog — compact tool list for system prompt injection
+// buildBootCatalog — for system prompt fallback (no llm.phase)
 // ---------------------------------------------------------------------------
 
 /**
- * Build a compact tool catalog for the system prompt.
- *
- * The catalog gives the LLM upfront awareness of all available tools
- * so it can skip tools.search and go straight to tools.describe.
- * Each entry is ~25 tokens; 9 tools ≈ 225 tokens total — one-time cost
- * amortized across all turns vs ~1200 tokens of full schemas per turn.
- *
- * Format:
- *   ## Available Tools
- *   Call tools.describe(["name"]) to get the full schema before using a tool.
- *   - fs.read — Read raw text from a file
- *   - fs.grep — Search file contents by regex pattern
- *   ...
+ * Compact tool catalog string for system prompt injection.
+ * Used as fallback when phaseTimeoutMs is not set (llm.phase seam inactive).
  */
 export function buildBootCatalog(tools: readonly ToolDefinition[]): string {
 	const lines = tools
@@ -177,13 +270,9 @@ export function buildBootCatalog(tools: readonly ToolDefinition[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Helper — build organDirectives map from loaded organs
+// buildOrganDirectives
 // ---------------------------------------------------------------------------
 
-/**
- * Build the tool→directives index from a set of loaded organs.
- * Each tool in an organ inherits all of that organ's directive strings.
- */
 export function buildOrganDirectives(
 	organs: readonly { tools: readonly ToolDefinition[]; directives?: readonly string[] }[],
 ): ReadonlyMap<string, readonly string[]> {

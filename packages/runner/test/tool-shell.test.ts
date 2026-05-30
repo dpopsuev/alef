@@ -87,14 +87,20 @@ function make(opts: Parameters<typeof createToolShellOrgan>[0] = { tools: ALL_TO
 // ---------------------------------------------------------------------------
 
 describe("createToolShellOrgan — metaTools", () => {
-	it("exposes exactly one meta-tool: tools.describe (search removed, boot catalog handles discovery)", () => {
+	it("exposes stripped domain tools + tools.describe", () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
-		expect(shell.metaTools).toHaveLength(1);
-		expect(shell.metaTools[0].name).toBe("tools.describe");
+		// N domain tools (stripped) + 1 tools.describe = N+1
+		expect(shell.metaTools).toHaveLength(ALL_TOOLS.length + 1);
+		expect(shell.metaTools.at(-1)?.name).toBe("tools.describe");
+		// Domain tools have empty parameter schemas
+		const fsRead = shell.metaTools.find((t) => t.name === "fs.read");
+		expect(fsRead).toBeDefined();
+		expect(fsRead?.description).toBe(FS_READ.description);
 	});
 
-	it("organ.tools mirrors metaTools", () => {
+	it("organ.tools (internal) contains only tools.describe handler", () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		// organ.tools = tools with motor handlers (only tools.describe has one)
 		expect(shell.tools.map((t) => t.name)).toEqual(["tools.describe"]);
 	});
 
@@ -190,6 +196,69 @@ describe("tools.describe — full schema on demand", () => {
 // ---------------------------------------------------------------------------
 // buildBootCatalog
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Context lifecycle — catalog inject / evict
+// ---------------------------------------------------------------------------
+
+describe("ToolShellOrgan lifecycle — catalog injection and eviction", () => {
+	const MARKER = "\x00TOOL-CATALOG-v1\x00";
+
+	function msgs(n: number): Array<Record<string, unknown>> {
+		return Array.from({ length: n }, (_, i) => ({ role: "user", content: `msg ${i}` }));
+	}
+
+	it("injects catalog message on turn 1", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const result = shell.applyPhase(msgs(1), 1);
+		expect(result.length).toBe(2);
+		const first = result[0].content as string;
+		expect(first).toContain(MARKER);
+		expect(first).toContain("fs.read");
+	});
+
+	it("does not inject catalog twice", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const after1 = shell.applyPhase(msgs(1), 1);
+		const after2 = shell.applyPhase(after1, 2);
+		const count = after2.filter(
+			(m) => typeof m.content === "string" && (m.content as string).includes(MARKER),
+		).length;
+		expect(count).toBe(1);
+	});
+
+	it("evicts catalog after evictAfterTurn", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS, evictAfterTurn: 2 });
+		let m = msgs(1);
+		m = shell.applyPhase(m, 1); // inject
+		m = shell.applyPhase(m, 2); // persist
+		m = shell.applyPhase(m, 3); // evict
+		expect(
+			m.find((msg) => typeof msg.content === "string" && (msg.content as string).includes(MARKER)),
+		).toBeUndefined();
+		expect(
+			m.find((msg) => typeof msg.content === "string" && (msg.content as string).includes("compacted")),
+		).toBeDefined();
+	});
+
+	it("eviction message lists remaining tools", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS, evictAfterTurn: 1 });
+		let m = shell.applyPhase(msgs(1), 1);
+		m = shell.applyPhase(m, 2); // evict
+		const summary = m.find((msg) => typeof msg.content === "string" && (msg.content as string).includes("compacted"));
+		expect(summary?.content as string).toContain("Still available");
+	});
+
+	it("evictAfterTurn=Infinity disables eviction", () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS, evictAfterTurn: Infinity });
+		let m = msgs(1);
+		m = shell.applyPhase(m, 1);
+		for (let t = 2; t <= 20; t++) m = shell.applyPhase(m, t);
+		expect(
+			m.find((msg) => typeof msg.content === "string" && (msg.content as string).includes(MARKER)),
+		).toBeDefined();
+	});
+});
 
 describe("buildBootCatalog", () => {
 	it("includes all tool names", () => {

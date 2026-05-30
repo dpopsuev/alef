@@ -311,6 +311,8 @@ const llmOrgan = scriptedRepliesEnv
 			prepareStep,
 			trackConcurrentOps: args.serve !== undefined,
 			getSignal: () => currentLLMController?.signal,
+			// ToolShell uses llm.phase to inject/evict catalog. 100ms is ample for in-process.
+			...(args.toolShell ? { phaseTimeoutMs: 100 } : {}),
 			onToolStart: (event) => toolSlot.onToolStart?.(event),
 			onToolEnd: (event) => toolSlot.onToolEnd?.(event),
 			onTokenUsage: (usage) => toolSlot.onTokenUsage?.(usage),

@@ -49,6 +49,8 @@ export interface TurnRecord {
 	retryReasons: string[];
 	/** True if the LLM call was aborted (scenario timeout or AbortSignal). ALE-BUG-40. */
 	aborted: boolean;
+	/** Organ-llm turn number within the LLM loop (1-based). */
+	llmTurn: number;
 }
 
 /**
@@ -98,6 +100,7 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 			retries: Number(s.attributes["alef.retry_count"] ?? 0),
 			retryReasons,
 			aborted: s.attributes["alef.aborted"] === true,
+			llmTurn: Number(s.attributes["alef.turn_number"] ?? turnIndex),
 		});
 	}
 

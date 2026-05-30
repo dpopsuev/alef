@@ -73,7 +73,7 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 				});
 				return toolShell ? [toolShell, llm] : [llm];
 			},
-			...(toolShell ? { getTools: () => [...toolShell.metaTools] } : {}),
+			...(toolShell ? { getTools: () => toolShell.currentMetaTools() } : {}),
 			scenarioTimeoutMs: 300_000,
 		});
 

@@ -382,7 +382,7 @@ const { agent, dialog: _dialog } = AgentKernel.create({
 	maxTurns: args.maxTurns,
 	session,
 	modelId: model.id,
-	getTools: toolShell ? () => [...toolShell.metaTools] : undefined,
+	getTools: toolShell ? () => toolShell.currentMetaTools() : undefined,
 	onLoop: (_type, reason) => {
 		// Route through trace() not stderr — stderr violates the one-writer rule during TUI mode.
 		trace("loop:detected", { reason });

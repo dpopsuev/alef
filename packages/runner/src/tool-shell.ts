@@ -222,11 +222,28 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	return {
 		...organ,
 		/**
-		 * Pass to DialogOrgan.getTools.
-		 * Stripped domain tools (name + description, empty schema) + tools.describe.
-		 * LLM can call any tool but gets no parameter guidance until it calls describe.
+		 * Static snapshot: all tools stripped + tools.describe.
+		 * Use currentMetaTools() in getTools callbacks instead — it promotes
+		 * described tools to full schemas so the LLM avoids repeat describe calls.
 		 */
 		metaTools: [...strippedTools, DESCRIBE_TOOL] as ToolDefinition[],
+		/**
+		 * Dynamic tool list for getTools callbacks (ALE-TSK-362).
+		 *
+		 * Tools the LLM has already described are returned with their full schemas.
+		 * Tools not yet described are returned stripped (name + description only).
+		 * tools.describe is always appended last.
+		 *
+		 * Effect: after the LLM calls tools.describe(["fs.read"]), subsequent turns
+		 * include the full fs.read schema without another round-trip, eliminating
+		 * the stall that caused AddTypeExport to timeout in A/B eval run 2.
+		 */
+		currentMetaTools(): ToolDefinition[] {
+			const promoted: ToolDefinition[] = tools.map((t) =>
+				state.toolsDescribed.has(t.name) ? t : (strippedTools.find((s) => s.name === t.name) ?? t),
+			);
+			return [...promoted, DESCRIBE_TOOL];
+		},
 		/** Internal keyword search — not exposed to LLM. */
 		search: handleSearch,
 		/**

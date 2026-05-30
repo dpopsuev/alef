@@ -276,6 +276,103 @@ export function gc(keep = 10): { removedGenerations: number; removedStoreEntries
 	return { removedGenerations: toRemove.length, removedStoreEntries };
 }
 
+// ---------------------------------------------------------------------------
+// Discovery (ALE-TSK-346)
+// ---------------------------------------------------------------------------
+
+export interface SearchResult {
+	name: string;
+	description: string;
+	version: string;
+	author: string;
+	downloads: number;
+}
+
+/**
+ * Search npm for packages with the `alef-organ` keyword.
+ * Optional query further filters by name/description.
+ */
+export async function search(query: string): Promise<SearchResult[]> {
+	const terms = query.trim() ? `keywords:alef-organ ${query}` : "keywords:alef-organ";
+	const cmd = `npm search ${terms} --json`;
+	process.stderr.write(`[alef-pm] ${cmd}\n`);
+	const { stdout } = await exec(cmd);
+	const raw = JSON.parse(stdout.trim() || "[]") as Array<{
+		name?: string;
+		description?: string;
+		version?: string;
+		author?: { name?: string } | string;
+		downloads?: { weekly?: number };
+	}>;
+	return raw.map((r) => ({
+		name: r.name ?? "",
+		description: r.description ?? "",
+		version: r.version ?? "",
+		author: typeof r.author === "string" ? r.author : (r.author?.name ?? ""),
+		downloads: r.downloads?.weekly ?? 0,
+	}));
+}
+
+// ---------------------------------------------------------------------------
+// SBOM (ALE-TSK-347)
+// ---------------------------------------------------------------------------
+
+export interface SbomComponent {
+	SPDXID: string;
+	name: string;
+	versionInfo: string;
+	externalRefs: Array<{ referenceCategory: string; referenceType: string; referenceLocator: string }>;
+	checksums: Array<{ algorithm: string; checksumValue: string }>;
+}
+
+/**
+ * Produce an SPDX-2.3 software bill of materials for all installed organs.
+ * Built-in organs are identified from the alef monorepo package.json version.
+ * Installed organs are read from the PM_ROOT package-lock.json.
+ */
+export function sbom(): object {
+	const components: SbomComponent[] = [];
+
+	if (existsSync(LOCK_FILE)) {
+		const lock = JSON.parse(readFileSync(LOCK_FILE, "utf-8")) as {
+			packages?: Record<string, { version?: string; integrity?: string; resolved?: string }>;
+		};
+		for (const [key, entry] of Object.entries(lock.packages ?? {})) {
+			if (!key.startsWith("node_modules/")) continue;
+			const name = key.slice("node_modules/".length);
+			const version = entry.version ?? "0.0.0";
+			const integrity = entry.integrity ?? "";
+			const resolved = entry.resolved ?? "";
+			const hash = integrity.startsWith("sha512-") ? integrity.slice("sha512-".length) : integrity;
+			const spdxId = `SPDXRef-${name.replace(/[^A-Za-z0-9-.]/g, "-")}`;
+			components.push({
+				SPDXID: spdxId,
+				name,
+				versionInfo: version,
+				externalRefs: [
+					{ referenceCategory: "PACKAGE-MANAGER", referenceType: "npm", referenceLocator: resolved },
+					{
+						referenceCategory: "PACKAGE-MANAGER",
+						referenceType: "purl",
+						referenceLocator: `pkg:npm/${name}@${version}`,
+					},
+				],
+				checksums: hash ? [{ algorithm: "SHA512", checksumValue: hash }] : [],
+			});
+		}
+	}
+
+	return {
+		spdxVersion: "SPDX-2.3",
+		dataLicense: "CC0-1.0",
+		SPDXID: "SPDXRef-DOCUMENT",
+		name: "alef-organs-sbom",
+		documentNamespace: `https://alef.local/sbom/${Date.now()}`,
+		documentDescribes: components.map((c) => c.SPDXID),
+		packages: components,
+	};
+}
+
 /**
  * Resolve the node_modules path for a named organ installed via alef-pm.
  * Returns undefined if the organ is not installed in the PM_ROOT.

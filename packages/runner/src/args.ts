@@ -104,6 +104,14 @@ export interface Args {
 	pmAudit: boolean;
 	/** alef gc */
 	pmGc: boolean;
+	/** alef search <query> — discover organs on npm by keyword */
+	pmSearch: string | undefined;
+	/** alef sbom — SPDX JSON for installed organs */
+	pmSbom: boolean;
+	/** alef organ list — show installed organs from organs.yaml */
+	pmOrganList: boolean;
+	/** alef organ new <name> — scaffold a publishable organ package */
+	pmOrganNew: string | undefined;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5";
@@ -134,6 +142,10 @@ Package manager:
   history                List generation history
   audit                  Run npm audit on installed organs
   gc                     Remove old generations (keeps last 10)
+  search  <query>        Discover organs on npm by keyword
+  sbom                   Print SPDX JSON for all installed organs
+  organ list             Show organs registered in organs.yaml
+  organ new <name>       Scaffold a publishable organ package
 
 Examples:
   alef                                 # interactive mode
@@ -172,6 +184,10 @@ export function parseArgs(argv: string[]): Args {
 		pmHistory: false,
 		pmAudit: false,
 		pmGc: false,
+		pmSearch: undefined,
+		pmSbom: false,
+		pmOrganList: false,
+		pmOrganNew: undefined,
 	};
 
 	let i = 0;
@@ -335,6 +351,30 @@ export function parseArgs(argv: string[]): Args {
 		}
 		if (arg === "gc") {
 			args.pmGc = true;
+			i++;
+			continue;
+		}
+		if (arg === "search") {
+			args.pmSearch = argv[++i] ?? "";
+			i++;
+			continue;
+		}
+		if (arg === "sbom") {
+			args.pmSbom = true;
+			i++;
+			continue;
+		}
+		if (arg === "organ") {
+			const sub = argv[++i];
+			if (sub === "list") {
+				args.pmOrganList = true;
+			} else if (sub === "new") {
+				args.pmOrganNew = argv[++i] ?? "";
+				i++;
+			} else {
+				console.error(`Unknown organ subcommand: ${sub ?? "(none)"}. Available: list, new`);
+				process.exit(1);
+			}
 			i++;
 			continue;
 		}

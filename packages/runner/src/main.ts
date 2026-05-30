@@ -64,7 +64,11 @@ if (
 	args.pmRollback !== undefined ||
 	args.pmHistory ||
 	args.pmAudit ||
-	args.pmGc
+	args.pmGc ||
+	args.pmSearch !== undefined ||
+	args.pmSbom ||
+	args.pmOrganList ||
+	args.pmOrganNew !== undefined
 ) {
 	const pm = await import("./alef-pm.js");
 	pm.init();
@@ -100,6 +104,47 @@ if (
 	} else if (args.pmGc) {
 		const { removedGenerations, removedStoreEntries } = pm.gc();
 		console.log(`GC: removed ${removedGenerations} generations, ${removedStoreEntries} store entries`);
+	} else if (args.pmSearch !== undefined) {
+		const results = await pm.search(args.pmSearch);
+		if (results.length === 0) {
+			console.log("No organs found.");
+		} else {
+			const nameW = Math.max(4, ...results.map((r) => r.name.length));
+			const verW = Math.max(7, ...results.map((r) => r.version.length));
+			const dlW = 9;
+			console.log(`${"NAME".padEnd(nameW)}  ${"VERSION".padEnd(verW)}  ${"DOWNLOADS".padEnd(dlW)}  DESCRIPTION`);
+			for (const r of results) {
+				const dl = r.downloads.toLocaleString();
+				console.log(`${r.name.padEnd(nameW)}  ${r.version.padEnd(verW)}  ${dl.padEnd(dlW)}  ${r.description}`);
+			}
+		}
+	} else if (args.pmSbom) {
+		const doc = pm.sbom();
+		console.log(JSON.stringify(doc, null, 2));
+	} else if (args.pmOrganList) {
+		const { loadUserOrgansConfig, userOrgansConfigPath } = await import("./materializer.js");
+		const organs = loadUserOrgansConfig();
+		if (!organs || organs.length === 0) {
+			console.log(`No organs registered in ${userOrgansConfigPath()}`);
+		} else {
+			console.log(`Organs registered in ${userOrgansConfigPath()}:`);
+			for (const o of organs) {
+				const detail = o.path ? `  path: ${o.path}` : "";
+				console.log(`  ${o.name}${detail}`);
+			}
+		}
+	} else if (args.pmOrganNew !== undefined) {
+		if (!args.pmOrganNew.trim()) {
+			console.error("Usage: alef organ new <name>");
+			process.exit(1);
+		}
+		const { scaffoldOrgan } = await import("./organ-scaffold.js");
+		const dir = scaffoldOrgan(args.pmOrganNew, args.cwd);
+		console.log(`Scaffolded organ at ${dir}`);
+		console.log(`  cd ${dir}`);
+		console.log(`  npm install`);
+		console.log(`  npm run build`);
+		console.log(`  alef install ./${dir.split("/").pop() ?? ""}`);
 	}
 	process.exit(0);
 }

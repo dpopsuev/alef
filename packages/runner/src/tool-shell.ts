@@ -19,7 +19,7 @@
  * Measurement: 69.9% of input tokens were schema overhead before this (2026-05-28).
  */
 
-import type { CorpusHandlerCtx, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Nerve, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineOrgan, toolInputToJsonSchema, typedAction } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
@@ -226,8 +226,30 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		inputSchema: z.object({}).passthrough(),
 	}));
 
+	// ---------------------------------------------------------------------------
+	// Mount override — adds Sense wildcard for auto-promotion
+	// ---------------------------------------------------------------------------
+	function mountWithPromotion(nerve: Nerve): () => void {
+		const unmount = organ.mount(nerve);
+		// Auto-promote families when domain tools return Sense results.
+		// Triggers even when the LLM skips tools.describe and calls a tool
+		// directly — so the next turn's currentMetaTools() returns full schemas
+		// for all sibling tools without a second describe round-trip.
+		const offSense = nerve.sense.subscribe("*", (event) => {
+			if (byName.has(event.type)) {
+				const prefix = event.type.includes(".") ? event.type.slice(0, event.type.indexOf(".")) : event.type;
+				state.promotedPrefixes.add(prefix);
+			}
+		});
+		return () => {
+			unmount();
+			offSense();
+		};
+	}
+
 	return {
 		...organ,
+		mount: mountWithPromotion,
 		/**
 		 * Static snapshot: all tools stripped + tools.describe.
 		 * Use currentMetaTools() in getTools callbacks instead — it promotes

@@ -18,10 +18,9 @@ import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import { type BusKind, hashRecord, type SessionStore } from "@dpopsuev/alef-spine";
 import { trace } from "./debug-trace.js";
 import { redactPayload } from "./redact.js";
-import type { BusKind, SessionStore } from "./session-store.js";
-import { hashRecord } from "./session-store.js";
 
 export interface SessionSummary {
 	id: string;

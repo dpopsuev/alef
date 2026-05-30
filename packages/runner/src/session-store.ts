@@ -23,74 +23,17 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type {
+	BusKind,
+	SessionStore as ISessionStore,
+	StorageRecord,
+	Turn,
+	WindowAssembledRecord,
+} from "@dpopsuev/alef-spine";
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
-/** Discriminant for which bus an event record originated from. */
-export type BusKind = "motor" | "sense" | "internal";
-
-export interface StorageRecord {
-	/** 'motor' or 'sense' for bus events; 'internal' for control records. */
-	bus: BusKind;
-	/** Event type, e.g. 'fs.read', 'dialog.message', 'window.assembled'. */
-	type: string;
-	/** Turn group key — same for all events in one user turn. */
-	correlationId: string;
-	/** Payload after redaction — sensitive keys replaced with [REDACTED]. */
-	payload: Record<string, unknown>;
-	/** Epoch ms — set by the bus at publish time. */
-	timestamp: number;
-	/** Ms since the first event with this correlationId was seen. Set by the bus. */
-	elapsed?: number;
-	/**
-	 * SHA-256 of { bus, type, correlationId, payload, timestamp } (post-redaction).
-	 * Detects tampering: any modification to the record changes this field.
-	 * Optional only for test-authored records; SessionLog always sets it.
-	 */
-	hash?: string;
-}
-
-/**
- * Compute the SHA-256 audit hash of a record's stable fields.
- * Excludes the hash field itself so the computation is deterministic.
- */
-export function hashRecord(record: Omit<StorageRecord, "hash">): string {
-	const stable = JSON.stringify({
-		bus: record.bus,
-		type: record.type,
-		correlationId: record.correlationId,
-		payload: record.payload,
-		timestamp: record.timestamp,
-	});
-	return createHash("sha256").update(stable, "utf-8").digest("hex");
-}
-
-/** Special internal record emitted by TurnAssembler after each context window selection. */
-export interface WindowAssembledRecord extends StorageRecord {
-	bus: Extract<BusKind, "internal">;
-	type: "window.assembled";
-	payload: {
-		includedTurnIds: string[];
-		queryTokens: string[];
-		budgetUsed: number;
-		budgetTotal: number;
-	};
-}
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
-export interface Turn {
-	id: string; // correlationId
-	events: StorageRecord[];
-	/** Ordinal position in the session (0-based). Used for recency scoring. */
-	turnIndex: number;
-	/** Estimated token cost: Σ(JSON.stringify(payload).length / 4) */
-	tokenCost: number;
-	/** Max event type weight across all events in this turn. */
-	typeWeight: number;
-}
+// Re-export the types so existing internal imports within runner still work.
+export type { BusKind, StorageRecord, Turn, WindowAssembledRecord };
+export { hashRecord } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -158,7 +101,7 @@ async function ensureDir(cwd: string): Promise<void> {
 	await mkdir(sessionDir(cwd), { recursive: true });
 }
 
-export class SessionStore {
+export class SessionStore implements ISessionStore {
 	readonly id: string;
 	readonly path: string;
 

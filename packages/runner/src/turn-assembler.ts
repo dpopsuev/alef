@@ -21,7 +21,7 @@
  */
 
 import type { AssistantMessage, Message, UserMessage } from "@dpopsuev/alef-organ-llm";
-import type { Turn } from "./session-store.js";
+import type { Turn } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------

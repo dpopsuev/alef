@@ -43,6 +43,12 @@ export interface TurnRecord {
 	elapsedMs: number;
 	/** Estimated tokens consumed by tool schema definitions on this call (chars/4). */
 	schemaTokensEstimate: number;
+	/** Number of application-level retries on this turn (0 = no retries). ALE-BUG-39. */
+	retries: number;
+	/** Retry reasons (e.g. 'resource_exhausted', 'overloaded_error'). ALE-BUG-39. */
+	retryReasons: string[];
+	/** True if the LLM call was aborted (scenario timeout or AbortSignal). ALE-BUG-40. */
+	aborted: boolean;
 }
 
 /**
@@ -73,6 +79,10 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 			.map((ts) => ts.name.replace("alef.motor/", ""))
 			.filter((n) => !INTERNAL_EVENTS.has(n));
 
+		const retryReasonsRaw = s.attributes["alef.retry_reasons"];
+		const retryReasons =
+			typeof retryReasonsRaw === "string" && retryReasonsRaw.length > 0 ? retryReasonsRaw.split("|") : [];
+
 		turns.push({
 			turn: turnIndex,
 			model: String(s.attributes["gen_ai.request.model"] ?? ""),
@@ -85,6 +95,9 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 			cacheHits: toolSpans.filter((ts) => ts.attributes["alef.cache.hit"] === true).length,
 			elapsedMs: Math.round(s.durationMs),
 			schemaTokensEstimate: Number(s.attributes["alef.schema_token_estimate"] ?? 0),
+			retries: Number(s.attributes["alef.retry_count"] ?? 0),
+			retryReasons,
+			aborted: s.attributes["alef.aborted"] === true,
 		});
 	}
 
@@ -143,6 +156,14 @@ export interface RunMetrics {
 	 * Decision gate for ALE-TSK-335 (ToolShell): build if > 0.25.
 	 */
 	avgSchemaFraction: number;
+	/**
+	 * Wall-clock time for each ctx.send() call in ms. ALE-BUG-38 / ALE-BUG-41.
+	 * One entry per prompt. Partial when scenario times out mid-send.
+	 * Trailing entry marked with * in formatReport when scenario timed out.
+	 */
+	sendTimingsMs: number[];
+	/** True when the scenario was killed by the timeout ceiling. ALE-BUG-38. */
+	timedOut: boolean;
 }
 
 /**

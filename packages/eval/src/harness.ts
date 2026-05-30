@@ -118,6 +118,7 @@ export class EvalHarness {
 				// outcome = env state, not just transcript text).
 				let args: Record<string, unknown> | undefined;
 				let result: string | undefined;
+				const retryReasons: string[] = [];
 				for (const event of s.events ?? []) {
 					if (event.name === "tool.args" && event.attributes) {
 						const raw = event.attributes.args;
@@ -133,7 +134,14 @@ export class EvalHarness {
 						const raw = event.attributes.result;
 						if (typeof raw === "string") result = raw;
 					}
+					// ALE-BUG-39: collect retry reasons from llm.retry span events.
+					if (event.name === "llm.retry" && event.attributes) {
+						const reason = event.attributes.reason;
+						if (typeof reason === "string") retryReasons.push(reason);
+					}
 				}
+				// Merge retry reasons into attributes so deriveturns() can read them.
+				if (retryReasons.length > 0) attrs["alef.retry_reasons"] = retryReasons.join("|");
 				return {
 					name: s.name,
 					attributes: attrs,
@@ -233,15 +241,29 @@ export class EvalHarness {
 
 		let passed = false;
 		let error: string | undefined;
+		let timedOut = false;
+		const sendTimingsMs: number[] = [];
+		let sendStart = 0;
 
 		const timeoutPromise = new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error(`scenario timeout after ${scenarioTimeoutMs}ms`)), scenarioTimeoutMs),
+			setTimeout(() => {
+				timedOut = true;
+				// Record partial timing for the in-flight send (ALE-BUG-38 / ALE-BUG-41).
+				if (sendStart > 0) sendTimingsMs.push(Date.now() - sendStart);
+				reject(new Error(`scenario timeout after ${scenarioTimeoutMs}ms`));
+			}, scenarioTimeoutMs),
 		);
 
 		try {
 			const ctx: ScenarioContext = {
 				workspace,
-				send: (text) => dialog.send(text, "human", scenarioTimeoutMs),
+				send: async (text) => {
+					sendStart = Date.now();
+					const reply = await dialog.send(text, "human", scenarioTimeoutMs);
+					sendTimingsMs.push(Date.now() - sendStart);
+					sendStart = 0;
+					return reply;
+				},
 				writeFile: async (rel, content) => {
 					const abs = join(workspace, rel);
 					await mkdir(dirname(abs), { recursive: true });
@@ -286,6 +308,8 @@ export class EvalHarness {
 			turns,
 			transcript,
 			passed: passed && !evaluator.state.loopDetected,
+			sendTimingsMs,
+			timedOut,
 			error: evaluator.state.loopDetected
 				? `Loop detected: ${evaluator.state.loopEventType} called >${opts.loopThreshold ?? 10} times`
 				: error,
@@ -362,12 +386,29 @@ export function formatReport(metrics: RunMetrics): string {
 	const nTotalTokens = metrics.turns.reduce((a, t) => a + t.tokensIn + t.tokensOut, 0);
 	const toolPath = metrics.turns.flatMap((t) => t.toolNames).join(" → ") || "(none)";
 
+	// Send timings: mark last entry with * when scenario timed out (in-flight).
+	const sendStr = metrics.sendTimingsMs
+		.map((ms, i) => {
+			const isLast = i === metrics.sendTimingsMs.length - 1;
+			const label = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+			return isLast && metrics.timedOut ? `${label}*` : label;
+		})
+		.join(", ");
+
+	// Retry summary across all turns.
+	const totalRetries = metrics.turns.reduce((a, t) => a + t.retries, 0);
+	const retryReasons = [...new Set(metrics.turns.flatMap((t) => t.retryReasons))].join(", ");
+	const abortedTurns = metrics.turns.filter((t) => t.aborted).length;
+
 	const lines = [
-		`[${status}] ${metrics.scenario} (${metrics.durationMs}ms)`,
+		`[${status}] ${metrics.scenario} (${metrics.durationMs}ms)${metrics.timedOut ? " TIMEOUT" : ""}`,
 		`  turns: ${nTurns}  tool_calls: ${nToolcalls}  tokens: ${nTotalTokens}  OAE: ${(metrics.oae * 100).toFixed(1)}%  schema_frac: ${Number.isNaN(metrics.avgSchemaFraction) ? "n/a" : `${(metrics.avgSchemaFraction * 100).toFixed(1)}%`}`,
 		`  path: ${toolPath}`,
 		`  transcript: ${metrics.transcript.length} messages  loop: ${metrics.loopDetected ? `YES (${metrics.loopEventType})` : "no"}`,
 	];
+	if (sendStr) lines.push(`  send timings: [${sendStr}]`);
+	if (totalRetries > 0) lines.push(`  retries: ${totalRetries}${retryReasons ? ` (${retryReasons})` : ""}`);
+	if (abortedTurns > 0) lines.push(`  aborted turns: ${abortedTurns}`);
 	if (metrics.error) lines.push(`  error: ${metrics.error}`);
 	return lines.join("\n");
 }

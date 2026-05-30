@@ -285,8 +285,16 @@ async function runLLMLoop(
 					"alef.estimated_cost_usd": u.cost.total,
 				});
 			}
+			// ALE-BUG-39: stamp retry count on successful completion too (zero when no retries).
+			if (appRetryCount > 0) span.setAttribute("alef.retry_count", appRetryCount);
 			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (err) {
+			// ALE-BUG-40: distinguish abort (timeout/signal) from model error.
+			const isAbort =
+				err instanceof Error &&
+				(err.name === "AbortError" || err.message.includes("aborted") || err.message.includes("AbortError"));
+			if (isAbort) span.setAttribute("alef.aborted", true);
+			if (appRetryCount > 0) span.setAttribute("alef.retry_count", appRetryCount);
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
 			span.end();
 			throw err;
@@ -305,6 +313,8 @@ async function runLLMLoop(
 		) {
 			appRetryCount++;
 			options.onRetry?.(appRetryCount, finalMessage.errorMessage);
+			// ALE-BUG-39: record retry in span so post-mortem can distinguish throttle from slow model.
+			span.addEvent("llm.retry", { attempt: appRetryCount, reason: finalMessage.errorMessage });
 			const delayMs = Math.min(1_000 * 2 ** (appRetryCount - 1), maxRetryDelayMs);
 			await new Promise<void>((res) => setTimeout(res, delayMs));
 			pendingCalls.length = 0;

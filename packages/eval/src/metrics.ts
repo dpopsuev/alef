@@ -1,8 +1,26 @@
 /**
  * RunMetrics — collected after each scenario run.
  *
- * Source: OTel spans from InMemorySpanExporter + EvaluatorOrgan observations.
+ * Source: OTel spans from InMemorySpanExporter + EvaluatorOrgan observations
+ * + direct Bus event capture via agent.observe().
  */
+
+/**
+ * One Motor or Sense event captured in real-time from the bus.
+ * Complements OTel spans: spans only cover completed calls; BusEvents include
+ * the in-flight motor event that precedes a timeout.
+ */
+export interface BusEvent {
+	bus: "motor" | "sense";
+	event: string;
+	correlationId: string;
+	/** Key payload fields, truncated. Full fidelity for args; first 300 chars for results. */
+	payload?: Record<string, unknown>;
+	isError?: boolean;
+	errorMessage?: string;
+	/** Round-trip ms from paired Motor to this Sense event. Undefined on Motor events. */
+	elapsedMs?: number;
+}
 
 export interface SpanRecord {
 	name: string;
@@ -167,6 +185,15 @@ export interface RunMetrics {
 	sendTimingsMs: number[];
 	/** True when the scenario was killed by the timeout ceiling. ALE-BUG-38. */
 	timedOut: boolean;
+	/**
+	 * Real-time bus event capture: every Motor and Sense event observed during the run,
+	 * in chronological order, with truncated payloads. Populated by harness.ts via
+	 * agent.observe(). Skips dialog.message (large) and llm.phase (internal).
+	 *
+	 * Unlike OTel spans, this includes in-flight Motor events that never received a
+	 * Sense response — exactly what's needed to diagnose timeout scenarios.
+	 */
+	busEvents: BusEvent[];
 }
 
 /**

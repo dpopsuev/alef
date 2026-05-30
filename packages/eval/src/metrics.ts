@@ -66,7 +66,12 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 			if (spans[j].name.startsWith("alef.motor/")) toolSpans.push(spans[j]);
 		}
 
-		const toolNames = toolSpans.map((ts) => ts.name.replace("alef.motor/", "")).filter((n) => n !== "dialog.message");
+		// Exclude internal seam events from tool path tracking.
+		// llm.phase is ToolShellOrgan's context lifecycle interceptor, not an LLM tool call.
+		const INTERNAL_EVENTS = new Set(["dialog.message", "llm.phase"]);
+		const toolNames = toolSpans
+			.map((ts) => ts.name.replace("alef.motor/", ""))
+			.filter((n) => !INTERNAL_EVENTS.has(n));
 
 		turns.push({
 			turn: turnIndex,

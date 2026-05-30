@@ -72,6 +72,8 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	const state = {
 		catalogInjected: false,
 		toolsDescribed: new Set<string>(),
+		/** Namespace prefixes (text before first '.') whose full schemas are promoted. */
+		promotedPrefixes: new Set<string>(),
 	};
 
 	// ---------------------------------------------------------------------------
@@ -114,6 +116,11 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 			const t = byName.get(name);
 			if (!t) continue;
 			state.toolsDescribed.add(name);
+			// Family promotion: unlock all tools sharing the same namespace prefix.
+			// "fs.read" → prefix "fs" → promotes fs.edit, fs.write, fs.grep, fs.find.
+			// Eliminates the second describe round-trip for sequential read→edit tasks.
+			const prefix = name.includes(".") ? name.slice(0, name.indexOf(".")) : name;
+			state.promotedPrefixes.add(prefix);
 			const dirs: readonly string[] = organDirectives.get(name) ?? [];
 			const guidance = dirs.join("\n\n");
 			const raw: unknown = toolInputToJsonSchema(t.inputSchema);
@@ -230,18 +237,18 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		/**
 		 * Dynamic tool list for getTools callbacks (ALE-TSK-362).
 		 *
-		 * Tools the LLM has already described are returned with their full schemas.
-		 * Tools not yet described are returned stripped (name + description only).
-		 * tools.describe is always appended last.
+		 * Family promotion: once any tool in a namespace is described, all tools
+		 * sharing that prefix get full schemas injected into subsequent turns.
+		 * Describing "fs.read" promotes fs.edit, fs.write, fs.grep, fs.find —
+		 * no second describe call needed for the sequential read→edit pattern.
 		 *
-		 * Effect: after the LLM calls tools.describe(["fs.read"]), subsequent turns
-		 * include the full fs.read schema without another round-trip, eliminating
-		 * the stall that caused AddTypeExport to timeout in A/B eval run 2.
+		 * tools.describe is always appended last.
 		 */
 		currentMetaTools(): ToolDefinition[] {
-			const promoted: ToolDefinition[] = tools.map((t) =>
-				state.toolsDescribed.has(t.name) ? t : (strippedTools.find((s) => s.name === t.name) ?? t),
-			);
+			const promoted: ToolDefinition[] = tools.map((t) => {
+				const prefix = t.name.includes(".") ? t.name.slice(0, t.name.indexOf(".")) : t.name;
+				return state.promotedPrefixes.has(prefix) ? t : (strippedTools.find((s) => s.name === t.name) ?? t);
+			});
 			return [...promoted, DESCRIBE_TOOL];
 		},
 		/** Internal keyword search — not exposed to LLM. */

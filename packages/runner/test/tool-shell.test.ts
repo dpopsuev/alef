@@ -125,30 +125,38 @@ describe("currentMetaTools — schema promotion", () => {
 		expect(fsRead).toBeDefined();
 	});
 
-	it("promotes described tool to full schema after tools.describe call", async () => {
-		const h = make({ tools: ALL_TOOLS });
-		// Before describe: fs.read schema should be the passthrough empty schema
-		const before = h.agent.tools[0]?.name; // irrelevant — access shell directly
-		void before;
-
+	it("describing fs.read promotes all fs.* tools (family promotion)", async () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
-		// Simulate describing fs.read by publishing motor/tools.describe
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
+
 		harness.publish("tools.describe", { names: ["fs.read"] });
 		await new Promise((r) => setTimeout(r, 50));
 
 		const current = shell.currentMetaTools();
-		const fsRead = current.find((t) => t.name === "fs.read");
-		const fsGrep = current.find((t) => t.name === "fs.grep");
-
-		// fs.read was described — promoted to full schema
-		expect(fsRead?.inputSchema).toBe(FS_READ.inputSchema);
-		// fs.grep was not described — still stripped (passthrough)
-		expect(fsGrep?.inputSchema).not.toBe(FS_GREP.inputSchema);
+		// All fs.* tools promoted — LLM can call fs.edit without a second describe
+		expect(current.find((t) => t.name === "fs.read")?.inputSchema).toBe(FS_READ.inputSchema);
+		expect(current.find((t) => t.name === "fs.grep")?.inputSchema).toBe(FS_GREP.inputSchema);
+		expect(current.find((t) => t.name === "fs.find")?.inputSchema).toBe(FS_FIND.inputSchema);
+		// Different namespace — not promoted
+		expect(current.find((t) => t.name === "shell.exec")?.inputSchema).not.toBe(SHELL_EXEC.inputSchema);
+		expect(current.find((t) => t.name === "web.fetch")?.inputSchema).not.toBe(WEB_FETCH.inputSchema);
 	});
 
-	it("promotes multiple tools independently", async () => {
+	it("describing shell.exec promotes shell.* but not fs.*", async () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const harness = makeHarness(shell);
+		harnesses.push(harness);
+
+		harness.publish("tools.describe", { names: ["shell.exec"] });
+		await new Promise((r) => setTimeout(r, 50));
+
+		const current = shell.currentMetaTools();
+		expect(current.find((t) => t.name === "shell.exec")?.inputSchema).toBe(SHELL_EXEC.inputSchema);
+		expect(current.find((t) => t.name === "fs.read")?.inputSchema).not.toBe(FS_READ.inputSchema);
+	});
+
+	it("multiple describe calls union their promoted families", async () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
@@ -157,9 +165,11 @@ describe("currentMetaTools — schema promotion", () => {
 		await new Promise((r) => setTimeout(r, 50));
 
 		const current = shell.currentMetaTools();
-		expect(current.find((t) => t.name === "fs.read")?.inputSchema).toBe(FS_READ.inputSchema);
+		// Both fs.* and shell.* promoted
+		expect(current.find((t) => t.name === "fs.grep")?.inputSchema).toBe(FS_GREP.inputSchema);
 		expect(current.find((t) => t.name === "shell.exec")?.inputSchema).toBe(SHELL_EXEC.inputSchema);
-		expect(current.find((t) => t.name === "fs.grep")?.inputSchema).not.toBe(FS_GREP.inputSchema);
+		// web.* still stripped
+		expect(current.find((t) => t.name === "web.fetch")?.inputSchema).not.toBe(WEB_FETCH.inputSchema);
 	});
 
 	it("always appends tools.describe last", async () => {

@@ -125,7 +125,7 @@ describe("currentMetaTools — schema promotion", () => {
 		expect(fsRead).toBeDefined();
 	});
 
-	it("describing fs.read promotes all fs.* tools (family promotion)", async () => {
+	it("describing fs.read promotes all fs.* tools (family promotion via describe)", async () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
@@ -141,6 +141,32 @@ describe("currentMetaTools — schema promotion", () => {
 		// Different namespace — not promoted
 		expect(current.find((t) => t.name === "shell.exec")?.inputSchema).not.toBe(SHELL_EXEC.inputSchema);
 		expect(current.find((t) => t.name === "web.fetch")?.inputSchema).not.toBe(WEB_FETCH.inputSchema);
+	});
+
+	it("sense/fs.read result promotes all fs.* (auto-promotion without describe)", async () => {
+		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const recorder = new BusEventRecorder();
+		const agent = new Agent();
+		agent.load(shell);
+		agent.observe(recorder);
+		harnesses.push({
+			agent,
+			recorder,
+			publish: () => {},
+			senseResult: () => ({ results: [] }),
+			dispose: () => agent.dispose(),
+		});
+
+		// Publish a Sense event directly simulating fs.read returning a result.
+		agent.publishSense({ type: "fs.read", correlationId: "c1", payload: { content: "hello" }, isError: false });
+		await new Promise((r) => setTimeout(r, 20));
+
+		const current = shell.currentMetaTools();
+		// fs.* family promoted from the Sense event alone — no describe call needed
+		expect(current.find((t) => t.name === "fs.read")?.inputSchema).toBe(FS_READ.inputSchema);
+		expect(current.find((t) => t.name === "fs.grep")?.inputSchema).toBe(FS_GREP.inputSchema);
+		// shell.* not promoted
+		expect(current.find((t) => t.name === "shell.exec")?.inputSchema).not.toBe(SHELL_EXEC.inputSchema);
 	});
 
 	it("describing shell.exec promotes shell.* but not fs.*", async () => {

@@ -35,7 +35,7 @@ const SEQ = {
 
 const WHICHKEY_TIMEOUT_MS = Number(process.env.ALEF_WHICHKEY_TIMEOUT_MS ?? 600);
 
-const WHICHKEY_HINT = "hjkl move  w/b word  i/a insert  dd delete line  u undo  0/$ line start/end  : command";
+const WHICHKEY_HINT = "h/j/k/l move  w/b word  i/a insert  dd delete line  u undo  0/$ line start/end  : command";
 
 /** Colon command registry — shown in tab completion and :help. */
 export const COLON_COMMANDS: Record<string, string> = {
@@ -283,6 +283,16 @@ export class ModalInputHandler {
 		}
 		if (this.kb.matches(data, "app.cursor.right")) {
 			this.editor.handleInput(SEQ.right);
+			this.armHint();
+			return { consume: true };
+		}
+		if (data === "j") {
+			this.editor.handleInput(SEQ.down);
+			this.armHint();
+			return { consume: true };
+		}
+		if (data === "k") {
+			this.editor.handleInput(SEQ.up);
 			this.armHint();
 			return { consume: true };
 		}

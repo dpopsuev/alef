@@ -1,28 +1,50 @@
 /**
  * TUI session picker — shown at startup when sessions exist and --resume is not set.
  *
- * Returns the session ID to resume, or undefined to start a new session.
- * Press Enter to select, Escape/q to start new.
+ * Type to fuzzy-filter. ↑↓ navigate. Enter select. Esc start fresh.
  */
 
-import { ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
+import { readFile } from "node:fs/promises";
+import type { StorageRecord } from "@dpopsuev/alef-spine";
+import { Input, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { bold, color, getTheme } from "./theme.js";
 
-export async function pickSession(sessions: Array<{ id: string; mtime: Date }>): Promise<string | undefined> {
+async function readFirstUserMessage(jsonlPath: string): Promise<string> {
+	try {
+		const raw = await readFile(jsonlPath, "utf-8");
+		for (const line of raw.split("\n")) {
+			if (!line.trim()) continue;
+			const record = JSON.parse(line) as StorageRecord;
+			if (record.bus === "sense" && record.type === "dialog.message") {
+				const text = typeof record.payload.text === "string" ? record.payload.text : "";
+				if (text) return text.slice(0, 60).replace(/\n/g, " ");
+			}
+		}
+	} catch {
+		// unreadable — fall through
+	}
+	return "";
+}
+
+export async function pickSession(
+	sessions: Array<{ id: string; path: string; mtime: Date }>,
+): Promise<string | undefined> {
 	if (sessions.length === 0) return undefined;
 
 	const t = getTheme();
 
+	const previews = await Promise.all(sessions.slice(0, 20).map((s) => readFirstUserMessage(s.path)));
+
 	const items: SelectItem[] = [
 		{ value: "__new__", label: "New session", description: "Start fresh" },
-		...sessions.slice(0, 20).map((s) => ({
+		...sessions.slice(0, 20).map((s, i) => ({
 			value: s.id,
-			label: s.id,
+			label: previews[i] || s.id,
 			description: s.mtime.toISOString().replace("T", " ").slice(0, 16),
 		})),
 	];
 
-	const theme = {
+	const listTheme = {
 		selectedPrefix: (s: string) => color(s, t.accentFg),
 		selectedText: (s: string) => bold(s),
 		description: (s: string) => color(s, t.dimFg),
@@ -34,29 +56,39 @@ export async function pickSession(sessions: Array<{ id: string; mtime: Date }>):
 		const terminal = new ProcessTerminal();
 		const tui = new TUI(terminal);
 
-		tui.addChild(new Text(color("  Sessions — ↑↓ navigate, Enter select, Esc new", t.dimFg), 0, 0));
+		tui.addChild(new Text(color("  Sessions — type to filter  ↑↓ navigate  Enter select  Esc new", t.dimFg), 0, 0));
 		tui.addChild(new Text("", 0, 0));
 
-		const list = new SelectList(items, 10, theme);
+		const searchInput = new Input();
+		const list = new SelectList(items, 10, listTheme);
 
 		list.onSelect = (item) => {
 			tui.stop();
 			resolve(item.value === "__new__" ? undefined : item.value);
 		};
 
-		list.onCancel = () => {
-			tui.stop();
-			resolve(undefined);
-		};
-
+		tui.addChild(searchInput);
 		tui.addChild(list);
+
 		tui.onRawInput = (data) => {
-			list.handleInput(data);
+			if (data === "\x1b") {
+				tui.stop();
+				resolve(undefined);
+				return true;
+			}
+			// ↑↓ and Enter route to the list; everything else filters via searchInput.
+			if (data === "\x1b[A" || data === "\x1b[B" || data === "\r" || data === "\n") {
+				list.handleInput(data);
+			} else {
+				searchInput.handleInput(data);
+				list.setFilter(searchInput.getValue());
+			}
+			tui.requestRender(); // ALE-BUG-47 fix — repaint after every keystroke
 			return true;
 		};
 
 		tui.start();
-		tui.setFocus(list);
+		tui.setFocus(searchInput);
 		tui.requestRender();
 	});
 }

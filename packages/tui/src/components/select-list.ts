@@ -1,4 +1,5 @@
 import type { Component } from "../component.js";
+import { fuzzyFilter } from "../fuzzy.js";
 import { getKeybindings } from "../keybindings.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
@@ -58,8 +59,9 @@ export class SelectList implements Component {
 	}
 
 	setFilter(filter: string): void {
-		this.filteredItems = this.items.filter((item) => item.value.toLowerCase().startsWith(filter.toLowerCase()));
-		// Reset selection when filter changes
+		this.filteredItems = filter
+			? fuzzyFilter(this.items, filter, (item) => `${item.label} ${item.description ?? ""}`)
+			: this.items;
 		this.selectedIndex = 0;
 	}
 

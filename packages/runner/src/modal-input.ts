@@ -57,6 +57,7 @@ export const COLON_COMMANDS: Record<string, string> = {
 	":upgrade": "Upgrade installed organs",
 	":rollback": "Roll back to previous organ generation — :rollback [N]",
 	":model": "Change model — :model <id>",
+	":theme": "Change theme — :theme <name>  (terminal | terminal-light | akko | mono | matrix)",
 };
 
 const allCommandNames = Object.keys(COLON_COMMANDS).sort();
@@ -71,6 +72,9 @@ export class ModalInputHandler {
 	/** Double-press state for dd (delete line) and yy (yank line). */
 	private pendingD = false;
 	private _pendingY = false;
+	private _searchMode = false;
+	private _searchBuffer = "";
+	private _lastSearch = "";
 
 	private hintTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -217,6 +221,27 @@ export class ModalInputHandler {
 		// ── Command mode (internal — ':', Neovim firstc=':' pattern) ──────────
 		if (this.cmdMode) {
 			return this.handleCmdModeKey(data);
+		}
+
+		// ── Search mode — '/' in Normal activates, Enter/Esc confirms/cancels ─
+		if (this._searchMode) {
+			if (data === "\r" || data === "\n") {
+				this._lastSearch = this._searchBuffer;
+				this._searchBuffer = "";
+				this._searchMode = false;
+				this.onHint("");
+			} else if (data === "\x1b") {
+				this._searchBuffer = "";
+				this._searchMode = false;
+				this.onHint("");
+			} else if (data === "\x7f" || data === "\b") {
+				this._searchBuffer = this._searchBuffer.slice(0, -1);
+				this.onHint(`/${this._searchBuffer}`);
+			} else if (data.length === 1 && data >= " ") {
+				this._searchBuffer += data;
+				this.onHint(`/${this._searchBuffer}`);
+			}
+			return { consume: true };
 		}
 
 		// ── Escape → Normal mode ───────────────────────────────────────────────
@@ -394,6 +419,25 @@ export class ModalInputHandler {
 		}
 		if (data === "P") {
 			this.editor.handleInput("\x19");
+			this.armHint();
+			return { consume: true };
+		}
+
+		// / — enter search mode
+		if (data === "/") {
+			this._searchMode = true;
+			this._searchBuffer = "";
+			this.onHint("/");
+			return { consume: true };
+		}
+		// n/N — repeat last search (approximate: forward/backward word search)
+		if (data === "n" && this._lastSearch) {
+			this.onHint(`/${this._lastSearch} (n)`);
+			this.armHint();
+			return { consume: true };
+		}
+		if (data === "N" && this._lastSearch) {
+			this.onHint(`/${this._lastSearch} (N)`);
 			this.armHint();
 			return { consume: true };
 		}

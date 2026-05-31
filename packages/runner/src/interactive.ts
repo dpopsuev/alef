@@ -19,6 +19,9 @@ export interface InteractiveOptions {
 	sessionId: string;
 	/** Model context window size in tokens. Used to warn when context fills. */
 	contextWindow?: number;
+	/** Live model getter/setter — enables :model switching without restart. */
+	getModel?: () => string;
+	setModel?: (id: string) => void;
 }
 
 export async function runInteractive(

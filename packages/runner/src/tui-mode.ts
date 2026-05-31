@@ -21,6 +21,7 @@ import { formatError } from "./errors.js";
 import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { COLON_COMMANDS, ModalInputHandler } from "./modal-input.js";
+import { buildModel } from "./model.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { ChatWriter } from "./tui/chat-writer.js";
@@ -54,6 +55,7 @@ const ANSI_RESET = "\x1b[0m";
 export interface TuiHandlerContext {
 	t: ThemeTokens;
 	writer: ChatWriter;
+	opts?: InteractiveOptions;
 	tui: {
 		stop(): void;
 		removeChild(c: unknown): void;
@@ -311,6 +313,24 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				});
 			return true;
 		}
+		case ":model": {
+			const newId = parts[1];
+			if (!newId) {
+				const current = ctx.opts?.getModel?.() ?? "unknown";
+				ctx.writer.addNotice(`Current model: ${current}\nUsage: :model <id>  (e.g. :model claude-sonnet-4-6)`);
+				ctx.tui.requestRender();
+				return true;
+			}
+			try {
+				const built = buildModel(newId);
+				ctx.opts?.setModel?.(newId);
+				ctx.writer.addNotice(`Model switched to ${built.id}. Takes effect on the next message.`);
+			} catch (e) {
+				ctx.writer.addNotice(`Unknown model: ${newId}. ${e instanceof Error ? e.message : ""}`);
+			}
+			ctx.tui.requestRender();
+			return true;
+		}
 		default:
 			ctx.writer.addNotice(`Unknown command: ${cmd}. Type :help for list or :h for help.`);
 			ctx.tui.requestRender();
@@ -499,6 +519,7 @@ export async function runTuiMode(
 		tui,
 		dialog,
 		dispose,
+		opts,
 		sessionId: opts.sessionId,
 		abortCurrentTurn,
 		setAbortCurrentTurn: (fn) => {

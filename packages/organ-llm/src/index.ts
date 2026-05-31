@@ -17,6 +17,12 @@ const tracer = trace.getTracer("alef.organ-llm");
 
 export interface CerebrumOptions {
 	model: Model<Api>;
+	/**
+	 * Called before each LLM call to obtain the current model.
+	 * Takes precedence over model when set — enables live model switching
+	 * via :model without restarting the agent (ALE-TSK-371).
+	 */
+	getModel?: () => Model<Api>;
 	apiKey?: string;
 	/**
 	 * Called before each LLM call to obtain the current API key.
@@ -198,6 +204,9 @@ async function runLLMLoop(
 
 	while (true) {
 		turn++;
+		// Resolve current model at the start of each iteration so :model switches
+		// take effect on the next send without restarting the agent (ALE-TSK-371).
+		const model = options.getModel?.() ?? options.model;
 
 		// motor/llm.phase seam: zero-or-one organ may intercept each iteration.
 		// When phaseTimeoutMs is 0 (default), the seam is disabled — zero overhead.
@@ -243,12 +252,12 @@ async function runLLMLoop(
 			}
 		}
 
-		const span = tracer.startSpan(`chat ${options.model.id}`, {
+		const span = tracer.startSpan(`chat ${model.id}`, {
 			kind: SpanKind.CLIENT,
 			attributes: {
 				"gen_ai.operation.name": "chat",
-				"gen_ai.request.model": options.model.id,
-				"gen_ai.system": options.model.provider,
+				"gen_ai.request.model": model.id,
+				"gen_ai.system": model.provider,
 			},
 		});
 
@@ -271,7 +280,7 @@ async function runLLMLoop(
 		const httpStart = Date.now();
 
 		const stream = streamSimple(
-			options.model,
+			model,
 			{ messages, tools },
 			{
 				apiKey: options.getApiKey?.() ?? options.apiKey,

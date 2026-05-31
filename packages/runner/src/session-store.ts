@@ -167,6 +167,28 @@ export class SessionStore implements ISessionStore {
 		return Promise.resolve(this._cache.slice());
 	}
 
+	/** Return the most recently set session name, or undefined if never named. */
+	name(): string | undefined {
+		for (let i = this._cache.length - 1; i >= 0; i--) {
+			const r = this._cache[i];
+			if (r.bus === "internal" && r.type === "session.name") {
+				return typeof r.payload.name === "string" ? r.payload.name : undefined;
+			}
+		}
+		return undefined;
+	}
+
+	/** Persist a human-readable name for this session (WAL — last record wins). */
+	async setName(name: string): Promise<void> {
+		await this.append({
+			bus: "internal",
+			type: "session.name",
+			correlationId: "meta",
+			payload: { name },
+			timestamp: Date.now(),
+		});
+	}
+
 	static async list(cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>> {
 		try {
 			const dir = sessionDir(cwd);

@@ -24,12 +24,22 @@ export interface ApiProvider<TApi extends Api = Api, TOptions extends StreamOpti
 	api: TApi;
 	stream: StreamFunction<TApi, TOptions>;
 	streamSimple: StreamFunction<TApi, SimpleStreamOptions>;
+	/**
+	 * Optional predicate that narrows which models this strategy handles.
+	 * When multiple providers share the same api key (e.g. "anthropic-messages" for
+	 * both the direct API and Vertex), each declares a match() that self-selects.
+	 * Providers are evaluated in registration order; the first match wins.
+	 * A provider without match() is treated as a fallback (always matches its api).
+	 * Register specific strategies before fallback strategies.
+	 */
+	match?: (model: Model<Api>) => boolean;
 }
 
 interface ApiProviderInternal {
 	api: Api;
 	stream: ApiStreamFunction;
 	streamSimple: ApiStreamSimpleFunction;
+	match?: (model: Model<Api>) => boolean;
 }
 
 type RegisteredApiProvider = {
@@ -37,7 +47,10 @@ type RegisteredApiProvider = {
 	sourceId?: string;
 };
 
-const apiProviderRegistry = new Map<string, RegisteredApiProvider>();
+// Ordered list — registration order determines precedence when multiple providers
+// share the same api key. First match wins. Use an array, not a Map, so that
+// multiple strategies per api key can coexist.
+const apiProviderRegistry: RegisteredApiProvider[] = [];
 
 function wrapStream<TApi extends Api, TOptions extends StreamOptions>(
 	api: TApi,
@@ -67,32 +80,44 @@ export function registerApiProvider<TApi extends Api, TOptions extends StreamOpt
 	provider: ApiProvider<TApi, TOptions>,
 	sourceId?: string,
 ): void {
-	apiProviderRegistry.set(provider.api, {
+	apiProviderRegistry.push({
 		provider: {
 			api: provider.api,
 			stream: wrapStream(provider.api, provider.stream),
 			streamSimple: wrapStreamSimple(provider.api, provider.streamSimple),
+			match: provider.match as ((model: Model<Api>) => boolean) | undefined,
 		},
 		sourceId,
 	});
 }
 
-export function getApiProvider(api: Api): ApiProviderInternal | undefined {
-	return apiProviderRegistry.get(api)?.provider;
+/**
+ * Find the first registered provider that handles this model.
+ * Evaluates api equality first, then match() if present.
+ * Returns undefined if no provider claims the model.
+ */
+export function getApiProvider(model: Model<Api>): ApiProviderInternal | undefined {
+	for (const { provider } of apiProviderRegistry) {
+		if (provider.api !== model.api) continue;
+		if (provider.match && !provider.match(model)) continue;
+		return provider;
+	}
+	return undefined;
 }
 
 export function getApiProviders(): ApiProviderInternal[] {
-	return Array.from(apiProviderRegistry.values(), (entry) => entry.provider);
+	return apiProviderRegistry.map((entry) => entry.provider);
 }
 
 export function unregisterApiProviders(sourceId: string): void {
-	for (const [api, entry] of apiProviderRegistry.entries()) {
-		if (entry.sourceId === sourceId) {
-			apiProviderRegistry.delete(api);
+	let i = apiProviderRegistry.length;
+	while (i-- > 0) {
+		if (apiProviderRegistry[i]?.sourceId === sourceId) {
+			apiProviderRegistry.splice(i, 1);
 		}
 	}
 }
 
 export function clearApiProviders(): void {
-	apiProviderRegistry.clear();
+	apiProviderRegistry.length = 0;
 }

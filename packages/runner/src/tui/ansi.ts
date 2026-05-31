@@ -8,10 +8,6 @@
 
 import chalk from "chalk";
 
-// ---------------------------------------------------------------------------
-// Color types
-// ---------------------------------------------------------------------------
-
 export type ColorDepth = "truecolor" | "256" | "16";
 
 export interface ColorToken {
@@ -19,10 +15,6 @@ export interface ColorToken {
 	ansi256?: number;
 	ansi16?: number;
 }
-
-// ---------------------------------------------------------------------------
-// Color depth detection
-// ---------------------------------------------------------------------------
 
 export function colorDepth(): ColorDepth {
 	const ct = (process.env.COLORTERM ?? "").toLowerCase();
@@ -32,10 +24,6 @@ export function colorDepth(): ColorDepth {
 	return "16";
 }
 
-// ---------------------------------------------------------------------------
-// Raw ANSI primitives
-// ---------------------------------------------------------------------------
-
 /** Resets foreground only — preserves background set by outer Box/bgFn. */
 export const FG_RESET = "\x1b[39m";
 
@@ -44,7 +32,6 @@ export function hexToRgb(hex: string): [number, number, number] {
 	return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
-/** Raw ANSI fg escape for a theme token. */
 export function fgCode(token: ColorToken, depth: ColorDepth): string {
 	if (depth === "truecolor" && token.truecolor) {
 		const [r, g, b] = hexToRgb(token.truecolor);
@@ -57,13 +44,11 @@ export function fgCode(token: ColorToken, depth: ColorDepth): string {
 	return "";
 }
 
-/** Apply a theme token color to text. */
 export function color(text: string, token: ColorToken): string {
 	const c = fgCode(token, colorDepth());
 	return c ? `${c}${text}${FG_RESET}` : text;
 }
 
-/** Apply a theme token background color to text. */
 export function bg(text: string, token: ColorToken): string {
 	const depth = colorDepth();
 	if (depth === "truecolor" && token.truecolor) {
@@ -82,10 +67,6 @@ export function bg(text: string, token: ColorToken): string {
 export const bold = (text: string): string => chalk.bold(text);
 export const dim = (text: string): string => chalk.dim(text);
 export const italic = (text: string): string => chalk.italic(text);
-
-// ---------------------------------------------------------------------------
-// Glyphs
-// ---------------------------------------------------------------------------
 
 const _nerdFonts = process.env.ALEF_NERD_FONTS === "1";
 

@@ -15,7 +15,6 @@ class ArcEditorWrapper implements Component {
 		const fill = Math.max(0, width - 2);
 		lines[0] = this.arcColor(`╭${"─".repeat(fill)}╮`);
 		lines[lines.length - 1] = this.arcColor(`╰${"─".repeat(fill)}╯`);
-		// Indent content lines by 1 space to align the cursor with tool call lines.
 		for (let i = 1; i < lines.length - 1; i++) {
 			lines[i] = ` ${lines[i]}`;
 		}
@@ -34,12 +33,6 @@ import { DynamicText } from "./tui/dynamic-text.js";
 import { pillFooterStr } from "./tui/pill.js";
 import { toolActiveLine } from "./tui/tool-view.js";
 
-/**
- * ConsoleZone — the fixed interactive surface at the bottom of the TUI.
- *
- * Owns: zone delimiter, spinner/status slot, editor, hint bar, model label.
- * Mounted once via mount(); structure never changes after that.
- */
 function shiftedAccentAnsi(token: ColorToken, hueDegrees: number): string {
 	if (colorDepth() !== "truecolor" || !token.truecolor) return fgCode(token, colorDepth());
 	const hex = token.truecolor.replace("#", "");
@@ -157,7 +150,6 @@ export class ConsoleZone {
 			// pressure multiplies the rotation rate so busy turns spin faster.
 			const hue = timeBasedHue(elapsedMs, level);
 			const ansi = shiftedAccentAnsi(this.t.accentFg, hue) || fgCode(this.t.warnFg, colorDepth());
-			// Lock-step: time counter inherits the spinner's hue-shifted color.
 			this.statusText.setText(`  ${ansi}${frame}\x1b[0m ${ansi}${elapsedS}s\x1b[0m`);
 			this.tui.requestRender();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
@@ -181,7 +173,6 @@ export class ConsoleZone {
 		return this.thinkingTimer !== undefined;
 	}
 
-	/** Add a live-updating in-flight call row to the fixed console zone. */
 	showInFlightCall(callId: string, name: string, keyArg: string): void {
 		const startedAt = Date.now();
 		const t = this.t;
@@ -191,7 +182,6 @@ export class ConsoleZone {
 		this.tui.requestRender();
 	}
 
-	/** Remove an in-flight call row once the call completes. */
 	removeInFlightCall(callId: string): void {
 		const entry = this.inFlightCalls.get(callId);
 		if (entry) {

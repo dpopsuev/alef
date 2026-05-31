@@ -315,7 +315,7 @@ describe("turnsToMessages — conversationHistory primary path", () => {
 		expect(result[1]).toMatchObject({ role: "user", content: "[assistant] hi" });
 	});
 
-	it("returns empty array for turns with no dialog.message events", () => {
+	it("reconstructs context from tool-call events when no dialog.message exists (aborted turn)", () => {
 		const turn: Turn = {
 			id: "c-0",
 			turnIndex: 0,
@@ -323,7 +323,9 @@ describe("turnsToMessages — conversationHistory primary path", () => {
 			typeWeight: 1.0,
 			events: [{ bus: "motor", type: "fs.read", correlationId: "c-0", payload: { path: "x.ts" }, timestamp: 0 }],
 		};
-		expect(turnsToMessages([turn])).toHaveLength(0);
+		const result = turnsToMessages([turn]);
+		expect(result.length).toBeGreaterThan(0);
+		expect(JSON.stringify(result)).toContain("fs.read");
 	});
 });
 

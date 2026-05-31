@@ -13,7 +13,7 @@ import { appendFileSync } from "node:fs";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { getProviders } from "@dpopsuev/alef-organ-llm";
-import { Container, matchesKey, ProcessTerminal, Text, TUI } from "@dpopsuev/alef-tui";
+import { Container, matchesKey, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
@@ -23,7 +23,7 @@ import type { InteractiveOptions } from "./interactive.js";
 import { COLON_COMMANDS, ModalInputHandler } from "./modal-input.js";
 import { buildModel } from "./model.js";
 import { renderSplash } from "./splash.js";
-import { boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
+import { boldColor, color, getTheme, glyph, setThemeByName, type ThemeTokens } from "./theme.js";
 import { ChatWriter } from "./tui/chat-writer.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 
@@ -313,6 +313,24 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				});
 			return true;
 		}
+		case ":theme": {
+			const themes = ["terminal", "terminal-light", "akko", "mono", "matrix"];
+			const name = parts[1]?.toLowerCase();
+			if (!name) {
+				ctx.writer.addNotice(`Available themes: ${themes.join("  ")}\nUsage: :theme <name>`);
+				ctx.tui.requestRender();
+				return true;
+			}
+			if (!themes.includes(name)) {
+				ctx.writer.addNotice(`Unknown theme '${name}'. Available: ${themes.join(", ")}`);
+				ctx.tui.requestRender();
+				return true;
+			}
+			setThemeByName(name);
+			ctx.writer.addNotice(`Theme set to '${name}'.`);
+			ctx.tui.requestRender(true);
+			return true;
+		}
 		case ":model": {
 			const newId = parts[1];
 			if (!newId) {
@@ -531,7 +549,60 @@ export async function runTuiMode(
 		reloadOrgan,
 	});
 
+	// Ctrl+R: open inline history picker. Populated after each submit.
+	let historyPickerActive = false;
+	let historyPickerList: SelectList | null = null;
+
+	const openHistoryPicker = (): boolean => {
+		const entries = historyProvider.getEntries();
+		if (entries.length === 0) return false;
+		const items: SelectItem[] = entries.map((e) => ({
+			value: e,
+			label: e.length > 60 ? `${e.slice(0, 60)}…` : e,
+		}));
+		const pickTheme = {
+			selectedPrefix: (s: string) => color(s, t.accentFg),
+			selectedText: (s: string) => boldColor(s, t.accentFg),
+			description: (s: string) => color(s, t.dimFg),
+			scrollInfo: (s: string) => color(s, t.dimFg),
+			noMatch: (s: string) => color(s, t.dimFg),
+		};
+		const list = new SelectList(items, 6, pickTheme);
+		historyPickerList = list;
+		historyPickerActive = true;
+		list.onSelect = (item: SelectItem) => {
+			editor.setText(item.value);
+			tui.removeChild(list);
+			historyPickerActive = false;
+			historyPickerList = null;
+			tui.requestRender();
+		};
+		list.onCancel = () => {
+			tui.removeChild(list);
+			historyPickerActive = false;
+			historyPickerList = null;
+			tui.requestRender();
+		};
+		tui.addChild(list);
+		tui.requestRender();
+		return true;
+	};
+
 	tui.onRawInput = (data) => {
+		// Ctrl+R — history picker (Insert and Normal mode)
+		if (data === "\x12") {
+			if (historyPickerActive && historyPickerList) {
+				historyPickerList.handleInput("\x1b"); // close on second Ctrl+R
+			} else {
+				openHistoryPicker();
+			}
+			return true;
+		}
+		if (historyPickerActive && historyPickerList) {
+			historyPickerList.handleInput(data);
+			tui.requestRender();
+			return true;
+		}
 		if (matchesKey(data, "ctrl+c")) {
 			trace("raw:ctrl+c", { seq: JSON.stringify(data) });
 			handleCtrlC(ctx());

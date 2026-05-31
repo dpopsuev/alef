@@ -18,6 +18,10 @@ export class HistoryAutocompleteProvider implements AutocompleteProvider {
 	 */
 	private entries: string[] = [];
 
+	getEntries(): readonly string[] {
+		return this.entries;
+	}
+
 	addEntry(text: string): void {
 		const trimmed = text.trim();
 		if (!trimmed) return;

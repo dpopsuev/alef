@@ -33,14 +33,14 @@ const USER_MSG = { role: "user", content: "hello", timestamp: Date.now() } as Me
 
 describe("AgentKernel.buildContextAssembler", () => {
 	it("pass-through when session is undefined", async () => {
-		const fn = AgentKernel.buildContextAssembler(undefined, 100_000);
+		const fn = AgentKernel.buildContextAssembler(() => undefined, 100_000);
 		const input = [USER_MSG];
 		const result = await fn(input);
 		expect(result).toBe(input);
 	});
 
 	it("pass-through when session has no turns", async () => {
-		const fn = AgentKernel.buildContextAssembler(makeSession([]), 100_000);
+		const fn = AgentKernel.buildContextAssembler(() => makeSession([]), 100_000);
 		const input = [USER_MSG];
 		const result = await fn(input);
 		expect(result).toEqual(input);
@@ -81,7 +81,7 @@ describe("AgentKernel.buildContextAssembler", () => {
 				},
 			],
 		};
-		const fn = AgentKernel.buildContextAssembler(makeSession([pastTurn] as unknown[]), 200_000);
+		const fn = AgentKernel.buildContextAssembler(() => makeSession([pastTurn] as unknown[]), 200_000);
 
 		const currentUserMsg = { role: "user", content: "new question", timestamp: Date.now() } as Message;
 		const result = await fn([currentUserMsg]);
@@ -100,7 +100,7 @@ describe("AgentKernel.buildContextAssembler", () => {
 			events: [],
 		};
 		const fn = AgentKernel.buildContextAssembler(
-			makeSession([bigTurn] as unknown[]),
+			() => makeSession([bigTurn] as unknown[]),
 			1, // contextWindow of 1 token — no turn fits
 		);
 
@@ -132,7 +132,10 @@ describe("window.assembled LRU writes", () => {
 			],
 		};
 		const session = makeSession([turn] as unknown[]);
-		const fn = AgentKernel.buildContextAssembler(session as import("../src/session-store.js").SessionStore, 200_000);
+		const fn = AgentKernel.buildContextAssembler(
+			() => session as import("../src/session-store.js").SessionStore,
+			200_000,
+		);
 
 		await fn([USER_MSG]);
 
@@ -167,7 +170,7 @@ describe("window.assembled LRU writes", () => {
 				timestamp: 1,
 			});
 
-			const fn = AgentKernel.buildContextAssembler(store, 200_000);
+			const fn = AgentKernel.buildContextAssembler(() => store, 200_000);
 			// First call — writes window.assembled for t1.
 			await fn([USER_MSG]);
 			await new Promise((r) => setTimeout(r, 20));
@@ -177,6 +180,71 @@ describe("window.assembled LRU writes", () => {
 
 			const counts = await store.hitCounts();
 			expect(counts.get("t1")).toBeGreaterThanOrEqual(1);
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Session hot-swap — ALE-TSK-392
+// The getSession() getter lets the caller mutate the active session between
+// prepareStep calls without reconstructing the closure.
+// ---------------------------------------------------------------------------
+
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as joinPath } from "node:path";
+import type { StorageRecord } from "../src/session-store.js";
+import { SessionStore } from "../src/session-store.js";
+
+function makeDialogRecord(correlationId: string, text: string, conversationHistory: unknown[]): StorageRecord {
+	return {
+		bus: "motor",
+		type: "dialog.message",
+		correlationId,
+		payload: { text, conversationHistory } as Record<string, unknown>,
+		timestamp: Date.now(),
+	};
+}
+
+describe("buildContextAssembler — session hot-swap via getSession() ref", () => {
+	it("swapping the session ref changes what context prepareStep returns", async () => {
+		const cwd = mkdtempSync(joinPath(tmpdir(), "alef-swap-"));
+		try {
+			const sessionA = await SessionStore.create(cwd);
+			const sessionB = await SessionStore.create(cwd);
+
+			// Session A has a turn about 'alpha topic'
+			const histA = [
+				{ role: "user", content: "alpha topic" },
+				{ role: "assistant", content: "alpha reply" },
+			];
+			await sessionA.append(makeDialogRecord("corr-a", "alpha reply", histA));
+
+			// Session B has a turn about 'beta topic'
+			const histB = [
+				{ role: "user", content: "beta topic" },
+				{ role: "assistant", content: "beta reply" },
+			];
+			await sessionB.append(makeDialogRecord("corr-b", "beta reply", histB));
+
+			// Build prepareStep with a mutable ref
+			let sessionRef: SessionStore = sessionA;
+			const prepareStep = AgentKernel.buildContextAssembler(() => sessionRef, 200_000);
+
+			// First call — reads session A's history
+			const resultA = await prepareStep([USER_MSG]);
+			expect(JSON.stringify(resultA)).toContain("alpha");
+			expect(JSON.stringify(resultA)).not.toContain("beta");
+
+			// Hot-swap to session B
+			sessionRef = sessionB;
+
+			// Second call — reads session B's history without reconstructing closure
+			const resultB = await prepareStep([USER_MSG]);
+			expect(JSON.stringify(resultB)).toContain("beta");
+			expect(JSON.stringify(resultB)).not.toContain("alpha");
 		} finally {
 			rmSync(cwd, { recursive: true, force: true });
 		}

@@ -102,9 +102,11 @@ export const AgentKernel = {
 	 * tool round so turnsToMessages can recover context on abort (ALE-TSK-368).
 	 * Returns undefined when session is absent — Cerebrum skips the callback.
 	 */
-	buildCheckpointCallback(session: SessionStore | undefined): CheckpointCallback | undefined {
-		if (!session) return undefined;
+	buildCheckpointCallback(getSession: (() => SessionStore | undefined) | undefined): CheckpointCallback | undefined {
+		if (!getSession) return undefined;
 		return (messages: Message[], correlationId: string) => {
+			const session = getSession();
+			if (!session) return;
 			void session.append({
 				bus: "internal",
 				type: "llm.checkpoint",
@@ -116,11 +118,13 @@ export const AgentKernel = {
 	},
 
 	buildContextAssembler(
-		session: SessionStore | undefined,
+		getSession: (() => SessionStore | undefined) | undefined,
 		contextWindow: number,
 	): (messages: Message[]) => Promise<Message[]> {
-		if (!session) return (msgs) => Promise.resolve(msgs);
+		if (!getSession) return (msgs) => Promise.resolve(msgs);
 		return async (messages: Message[]): Promise<Message[]> => {
+			const session = getSession();
+			if (!session) return messages;
 			const turns = await session.turns();
 			const hitCounts = await session.hitCounts();
 			const lastMsg = messages.at(-1);
@@ -130,8 +134,6 @@ export const AgentKernel = {
 					: "";
 			const selected = assembleTurns(turns, { query, contextWindow, hitCounts });
 
-			// Record which turns were included so hitCounts() can compute LRU frequency.
-			// Without this write the 0.3 hitFrequency scoring weight is always zero.
 			const budgetTotal = Math.floor(contextWindow * 0.7);
 			const budgetUsed = selected.reduce((n, t) => n + t.tokenCost, 0);
 			void session.append({

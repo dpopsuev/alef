@@ -430,13 +430,19 @@ export async function runTuiMode(
 
 	// ── Header ────────────────────────────────────────────────────────────
 	const sessionShort = opts.sessionId.slice(0, 8);
-	// Model name in top-right (recency zone, Z-pattern right anchor).
-	// Format: * ALEF  -  <session>  -  <model>
 	const modelShort = opts.modelId.split("/").pop()?.split(" ")[0] ?? opts.modelId;
-	const headerLabel = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${sessionShort}  ${glyph("sep")}  ${modelShort}`;
+	const sessionTokens = { total: 0 };
+	const headerLabel = () => {
+		const base = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${sessionShort}  ${glyph("sep")}  ${modelShort}`;
+		if (sessionTokens.total === 0) return base;
+		const n = sessionTokens.total;
+		const fmt =
+			n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${Math.round(n / 1_000)}k` : String(n);
+		return `${base}  ${glyph("sep")}  ${fmt} tok`;
+	};
 	tui.addChild(
 		new DynamicText((w) => {
-			const inner = `─ ${headerLabel} `;
+			const inner = `─ ${headerLabel()} `;
 			return boldColor(`╭${inner}${"─".repeat(Math.max(0, w - inner.length - 2))}╮`, t.accentFg);
 		}),
 	);
@@ -523,6 +529,7 @@ export async function runTuiMode(
 		};
 
 		toolSlot.onTokenUsage = ({ input, output, totalTokens }) => {
+			sessionTokens.total += input + output;
 			if (pendingTokenFooter) {
 				pendingTokenFooter.setText(formatTokenUsage(input, output, t, Date.now() - turnStartedAt));
 				pendingTokenFooter = null;

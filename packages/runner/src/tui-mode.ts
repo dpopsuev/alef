@@ -320,13 +320,21 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				ctx.tui.requestRender();
 				return true;
 			}
-			ctx.writer.addNotice(`meta: ${prompt}`);
+			ctx.writer.addUserMessage(`[meta] ${prompt}`);
 			ctx.tui.requestRender();
 			import("./meta-agent.js")
 				.then(async (m) => {
-					const reply = await m.runMetaAgent(prompt, ctx.opts?.getModel?.());
-					ctx.writer.addNotice(`[meta] ${reply}`);
-					ctx.tui.requestRender();
+					const chunks: string[] = [];
+					const reply = await m.runMetaAgent(prompt, ctx.opts?.getModel?.(), (chunk) => {
+						chunks.push(chunk);
+						ctx.writer.addNotice(`[meta] ${chunks.join("")}`);
+						ctx.tui.requestRender();
+					});
+					// Final settled reply (in case streaming wasn't available)
+					if (chunks.length === 0 && reply) {
+						ctx.writer.addNotice(`[meta] ${reply}`);
+						ctx.tui.requestRender();
+					}
 				})
 				.catch((e: unknown) => {
 					ctx.writer.addNotice(`[meta] error: ${e instanceof Error ? e.message : String(e)}`);

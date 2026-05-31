@@ -22,7 +22,12 @@ function hasAnthropicVertex(): boolean {
 export const SKIP_REAL_LLM = !hasAnthropicDirect() && !hasAnthropicVertex();
 
 export function getEvalModel(): Model<Api> {
-	const id = process.env.ALEF_EVAL_MODEL ?? "claude-sonnet-4-5";
+	// On the direct Anthropic API "claude-sonnet-4-5" is an alias that resolves
+	// to claude-sonnet-4-5-20250929. On Vertex AI the model path must include the
+	// date stamp; bare "claude-sonnet-4-5" may silently resolve to the deprecated
+	// claude-sonnet-4@20250514. Use the explicit Vertex ID when routing through Vertex.
+	const defaultId = hasAnthropicDirect() ? "claude-sonnet-4-5" : "claude-sonnet-4-5@20250929";
+	const id = process.env.ALEF_EVAL_MODEL ?? defaultId;
 
 	if (hasAnthropicDirect()) {
 		return {
@@ -35,18 +40,15 @@ export function getEvalModel(): Model<Api> {
 		};
 	}
 
-	// Vertex AI — uses Google ADC or ANTHROPIC_VERTEX_PROJECT_ID
-	const project = process.env.ANTHROPIC_VERTEX_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
-	const region = process.env.CLOUD_ML_REGION ?? "us-east5";
-	// Global location uses a different hostname: aiplatform.googleapis.com (no region prefix).
-	// Regional locations use: {region}-aiplatform.googleapis.com.
-	const hostname = region === "global" ? "aiplatform.googleapis.com" : `${region}-aiplatform.googleapis.com`;
+	// Vertex AI — uses Google ADC (ANTHROPIC_VERTEX_PROJECT_ID + CLOUD_ML_REGION).
+	// The AnthropicVertex SDK builds the request path from env vars and ignores baseUrl.
+	// Region defaults to us-east5 if CLOUD_ML_REGION is unset.
 	return {
 		id,
 		name: `${id} (Vertex)`,
 		api: "anthropic-messages",
 		provider: "anthropic",
-		baseUrl: `https://${hostname}/v1/projects/${project}/locations/${region}/publishers/anthropic/models`,
+		baseUrl: "",
 		...base(),
 	};
 }

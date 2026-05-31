@@ -328,6 +328,96 @@ describe("turnsToMessages — conversationHistory primary path", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Abort-before-dialog.message — the dementia regression (ALE-BUG-46)
+//
+// When the user interrupts after tool calls complete but before the Reasoner
+// publishes motor/dialog.message, the turn has completed tool events in the
+// JSONL but no conversationHistory checkpoint. turnsToMessages currently
+// returns [] for such turns, causing the next LLM call to have no memory of
+// the tool work done (verified in debug trace 2026-05-31 session 0ccbc171).
+//
+// RED: these tests must FAIL with the current code. GREEN after the fix.
+// ---------------------------------------------------------------------------
+
+function makeAbortedTurn(
+	id: string,
+	index: number,
+	toolCalls: Array<{ type: string; motorPayload: Record<string, unknown>; sensePayload: Record<string, unknown> }>,
+): Turn {
+	const events = toolCalls.flatMap(({ type, motorPayload, sensePayload }) => [
+		{ bus: "motor" as const, type, correlationId: id, payload: motorPayload, timestamp: Date.now() },
+		{ bus: "sense" as const, type, correlationId: id, payload: sensePayload, timestamp: Date.now() },
+	]);
+	// No motor/dialog.message — simulates abort before Reasoner published the checkpoint.
+	return { id, turnIndex: index, tokenCost: 200, typeWeight: 2.0, events };
+}
+
+describe("turnsToMessages — aborted turn, ALE-BUG-46", () => {
+	it("non-empty result when turn has completed tool calls but no dialog.message", () => {
+		// Mirrors the 2026-05-31 session: 7 fs.write calls completed, then abort.
+		const turn = makeAbortedTurn("abort-1", 0, [
+			{
+				type: "fs.write",
+				motorPayload: { path: "CODEBASE_EXPLORATION.md", content: "# exploration", toolCallId: "tc1" },
+				sensePayload: { applied: true, toolCallId: "tc1" },
+			},
+			{
+				type: "fs.write",
+				motorPayload: { path: "ARCHITECTURE_DIAGRAMS.md", content: "# diagrams", toolCallId: "tc2" },
+				sensePayload: { applied: true, toolCallId: "tc2" },
+			},
+		]);
+		// FAIL currently: turnsToMessages returns [] — no dialog.message found.
+		// PASS after fix: returns at least the tool work as context.
+		const result = turnsToMessages([turn]);
+		expect(result.length).toBeGreaterThan(0);
+	});
+
+	it("tool names appear in the reconstructed context", () => {
+		const turn = makeAbortedTurn("abort-2", 0, [
+			{
+				type: "fs.write",
+				motorPayload: { path: "CODEBASE_EXPLORATION.md", content: "...", toolCallId: "tc1" },
+				sensePayload: { applied: true, toolCallId: "tc1" },
+			},
+		]);
+		const result = turnsToMessages([turn]);
+		const asText = JSON.stringify(result);
+		// The reconstructed context must reference the file that was written.
+		expect(asText).toContain("CODEBASE_EXPLORATION.md");
+	});
+
+	it("a completed prior turn + aborted turn both contribute context", () => {
+		// Normal completed turn provides conversationHistory checkpoint.
+		const completedTurn = makeDialogTurn("c-0", 0, [
+			{ bus: "sense", payload: { text: "Explore the codebase" } },
+			{
+				bus: "motor",
+				payload: {
+					text: "Starting exploration.",
+					conversationHistory: [
+						{ role: "user", content: "Explore the codebase" },
+						{ role: "assistant", content: "Starting exploration." },
+					],
+				},
+			},
+		]);
+		// Then an aborted turn with file writes but no dialog.message.
+		const abortedTurn = makeAbortedTurn("abort-3", 1, [
+			{
+				type: "fs.write",
+				motorPayload: { path: "CODEBASE_EXPLORATION.md", content: "...", toolCallId: "tc1" },
+				sensePayload: { applied: true, toolCallId: "tc1" },
+			},
+		]);
+		// The aborted turn's tool work must appear alongside the prior history.
+		const result = turnsToMessages([completedTurn, abortedTurn]);
+		const asText = JSON.stringify(result);
+		expect(asText).toContain("CODEBASE_EXPLORATION.md");
+	});
+});
+
+// ---------------------------------------------------------------------------
 // prepareStep contract — BDD scenarios (defineFeature, no .feature files needed)
 // ---------------------------------------------------------------------------
 

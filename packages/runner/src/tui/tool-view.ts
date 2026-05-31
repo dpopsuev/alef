@@ -17,10 +17,15 @@ const ANSI_BOLD = "\x1b[1m";
 const ANSI_DIM = "\x1b[2m";
 const ANSI_RESET = "\x1b[0m";
 
+// ANSI SGR 5 = slow blink; SGR 25 = blink off. Wraps only the circle glyph.
+const BLINK_ON = "\x1b[5m";
+const BLINK_OFF = "\x1b[25m";
+
 /** Spinner line shown while a tool call is in-flight. */
 export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens, elapsedMs = 0): string {
 	const elapsed = fmtMs(elapsedMs);
-	const label = `${color(glyph("state:active"), t.warnFg)} ${color(name, t.toolNameFg)}`;
+	const circle = `${BLINK_ON}${color(glyph("state:active"), t.warnFg)}${BLINK_OFF}`;
+	const label = `${circle} ${color(name, t.toolNameFg)}`;
 	const body = keyArg ? `  ${color(keyArg, t.toolArgFg)}` : "";
 	const timing = elapsedMs > 0 ? `  ${color(elapsed, t.timeFg)}` : "";
 	const indent = " ".repeat(INDENT.TOOL_LINE);

@@ -287,17 +287,15 @@ const basePrompt = buildSystemPrompt({ tools: corpusOrgans.flatMap((o) => o.tool
 const asm = new DirectiveContextAssembler(basePrompt);
 await asm.loadWorkspace(args.cwd); // reads .alef/directives/*.md
 asm.registerOrgans([...corpusOrgans]); // collects organ.directives strings
-if (args.toolShell) {
-	// Boot catalog: compact tool list in the system prompt so the LLM skips
-	// tools.search and goes straight to tools.describe. Weight=90 puts it
-	// just below workspace directives (100) and above organ directives (80).
-	asm.register({
-		id: "tool-shell.boot-catalog",
-		layer: "organ",
-		content: buildBootCatalog(corpusOrgans.flatMap((o) => o.tools)),
-		weight: 90,
-	});
-}
+// Boot catalog: compact tool list in the system prompt so the LLM skips
+// tools.search and goes straight to tools.describe. Weight=90 puts it
+// just below workspace directives (100) and above organ directives (80).
+asm.register({
+	id: "tool-shell.boot-catalog",
+	layer: "organ",
+	content: buildBootCatalog(corpusOrgans.flatMap((o) => o.tools)),
+	weight: 90,
+});
 const assembled = asm.build(Math.floor(model.contextWindow * 0.1 * 4)); // ~10% of context in chars
 const systemPrompt = appendEnvironment(assembled, args.cwd); // date+cwd last
 
@@ -356,8 +354,8 @@ const llmOrgan = scriptedRepliesEnv
 			prepareStep,
 			trackConcurrentOps: args.serve !== undefined,
 			getSignal: () => currentLLMController?.signal,
-			// ToolShell uses llm.phase to inject/evict catalog. 100ms is ample for in-process.
-			...(args.toolShell ? { phaseTimeoutMs: 100 } : {}),
+			// ToolShell uses llm.phase to inject/evict catalog and refresh schemas per turn.
+			phaseTimeoutMs: 100,
 			onToolStart: (event) => toolSlot.onToolStart?.(event),
 			onToolEnd: (event) => toolSlot.onToolEnd?.(event),
 			onTokenUsage: (usage) => toolSlot.onTokenUsage?.(usage),
@@ -365,15 +363,12 @@ const llmOrgan = scriptedRepliesEnv
 			onThinkingChunk: (chunk) => toolSlot.receiveThinkingChunk?.(chunk),
 		});
 
-// main.ts is always a conversation agent — dialog is always defined.
-// ToolShell (ALE-TSK-335): progressive disclosure — opt-in via --tool-shell.
+// ToolShell — progressive disclosure, now always active (ALE-TSK-362 promoted).
 // All corpus organs must be in corpusOrgans before this so the snapshot is complete.
-const toolShell = args.toolShell
-	? createToolShellOrgan({
-			tools: corpusOrgans.flatMap((o) => o.tools),
-			organDirectives: buildOrganDirectives(corpusOrgans),
-		})
-	: undefined;
+const toolShell = createToolShellOrgan({
+	tools: corpusOrgans.flatMap((o) => o.tools),
+	organDirectives: buildOrganDirectives(corpusOrgans),
+});
 
 const { agent, dialog: _dialog } = AgentKernel.create({
 	llm: llmOrgan,
@@ -382,7 +377,7 @@ const { agent, dialog: _dialog } = AgentKernel.create({
 	maxTurns: args.maxTurns,
 	session,
 	modelId: model.id,
-	getTools: toolShell ? () => toolShell.currentMetaTools() : undefined,
+	getTools: () => toolShell.currentMetaTools(),
 	onLoop: (_type, reason) => {
 		// Route through trace() not stderr — stderr violates the one-writer rule during TUI mode.
 		trace("loop:detected", { reason });
@@ -393,7 +388,7 @@ const { agent, dialog: _dialog } = AgentKernel.create({
 for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
-if (toolShell) agent.load(toolShell);
+agent.load(toolShell);
 // Assert dialog is defined: main.ts is always a conversation agent.
 if (!_dialog) throw new Error("AgentKernel did not return a DialogOrgan — main.ts requires one");
 const dialog = _dialog;

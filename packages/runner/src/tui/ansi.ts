@@ -80,9 +80,9 @@ interface GlyphPair {
 }
 
 const GLYPHS: Record<string, GlyphPair> = {
-	"state:done": { nerd: "●", ascii: "●" },
+	"state:done": { nerd: "■", ascii: "■" },
 	"state:active": { nerd: "●", ascii: "●" },
-	"state:error": { nerd: "●", ascii: "●" },
+	"state:error": { nerd: "▲", ascii: "▲" },
 	"state:pending": { nerd: "○", ascii: "." },
 	user: { nerd: "▸", ascii: ">" },
 	bullet: { nerd: "▪", ascii: "*" },

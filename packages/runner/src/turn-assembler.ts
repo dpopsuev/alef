@@ -17,23 +17,23 @@ export interface ContextWindowPolicy {
 	maxSingleTurnFraction: number;
 
 	recentGuarantee: number;
-	termOverlapWeight: number;
-	hitFrequencyWeight: number;
+	queryMatchWeight: number;
+	accessFrequencyWeight: number;
 
 	/**
 	 * Weight for ordinal recency (turn index, not wall-clock). Default: 0.30
 	 * Wall-clock time is NOT used — it's a false metric for semantic relevance.
 	 */
-	recencyWeight: number;
+	sessionRecencyWeight: number;
 }
 
 export const DEFAULT_CONTEXT_WINDOW_POLICY: ContextWindowPolicy = {
 	historyFraction: 0.7,
 	maxSingleTurnFraction: 0.25,
 	recentGuarantee: 4,
-	termOverlapWeight: 0.4,
-	hitFrequencyWeight: 0.3,
-	recencyWeight: 0.3,
+	queryMatchWeight: 0.4,
+	accessFrequencyWeight: 0.3,
+	sessionRecencyWeight: 0.3,
 };
 
 function termOverlap(turn: Turn, queryTokens: string[]): number {
@@ -68,9 +68,9 @@ function scoreTurn(
 	const recency = turn.turnIndex;
 
 	return (
-		policy.termOverlapWeight * overlap +
-		policy.hitFrequencyWeight * hitFreq +
-		policy.recencyWeight * recency +
+		policy.queryMatchWeight * overlap +
+		policy.accessFrequencyWeight * hitFreq +
+		policy.sessionRecencyWeight * recency +
 		turn.typeWeight // additive bonus, not multiplied by weight — breaks the uniform pattern intentionally
 	);
 }
@@ -116,7 +116,7 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 	const scored = candidateTurns.map((turn) => {
 		const rawScore = scoreTurn(turn, queryTokens, hitCounts, maxHitCount, {
 			...policy,
-			recencyWeight: policy.recencyWeight * (turn.turnIndex / maxTurnIndex),
+			sessionRecencyWeight: policy.sessionRecencyWeight * (turn.turnIndex / maxTurnIndex),
 		});
 		const cost = Math.min(turn.tokenCost, maxSingleTurnCost);
 		return { turn, score: rawScore, cost, evictionPriority: cost > 0 ? rawScore / cost : 0 };

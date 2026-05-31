@@ -14,6 +14,7 @@ import type { BedrockOptions } from "./amazon-bedrock.js";
 import type { AnthropicOptions } from "./anthropic.js";
 import { matchesAnthropicVertex } from "./anthropic-vertex.js";
 import type { AzureOpenAIResponsesOptions } from "./azure-openai-responses.js";
+import { matchesGitHubCopilot } from "./github-copilot-openai-completions.js";
 import type { GoogleOptions } from "./google.js";
 import type { GoogleVertexOptions } from "./google-vertex.js";
 import type { MistralOptions } from "./mistral.js";
@@ -42,6 +43,11 @@ interface AnthropicProviderModule {
 interface AnthropicVertexProviderModule {
 	streamAnthropicVertex: StreamFunction<"anthropic-messages", AnthropicOptions>;
 	streamSimpleAnthropicVertex: StreamFunction<"anthropic-messages", SimpleStreamOptions>;
+}
+
+interface GitHubCopilotCompletionsProviderModule {
+	streamGitHubCopilotCompletions: StreamFunction<"openai-completions", OpenAICompletionsOptions>;
+	streamSimpleGitHubCopilotCompletions: StreamFunction<"openai-completions", SimpleStreamOptions>;
 }
 
 interface AzureOpenAIResponsesProviderModule {
@@ -99,6 +105,9 @@ let anthropicProviderModulePromise:
 	| undefined;
 let anthropicVertexProviderModulePromise:
 	| Promise<LazyProviderModule<"anthropic-messages", AnthropicOptions, SimpleStreamOptions>>
+	| undefined;
+let gitHubCopilotCompletionsProviderModulePromise:
+	| Promise<LazyProviderModule<"openai-completions", OpenAICompletionsOptions, SimpleStreamOptions>>
 	| undefined;
 let azureOpenAIResponsesProviderModulePromise:
 	| Promise<LazyProviderModule<"azure-openai-responses", AzureOpenAIResponsesOptions, SimpleStreamOptions>>
@@ -235,6 +244,19 @@ function loadAnthropicVertexProviderModule(): Promise<
 	return anthropicVertexProviderModulePromise;
 }
 
+function loadGitHubCopilotCompletionsProviderModule(): Promise<
+	LazyProviderModule<"openai-completions", OpenAICompletionsOptions, SimpleStreamOptions>
+> {
+	gitHubCopilotCompletionsProviderModulePromise ||= import("./github-copilot-openai-completions.js").then((module) => {
+		const provider = module as GitHubCopilotCompletionsProviderModule;
+		return {
+			stream: provider.streamGitHubCopilotCompletions,
+			streamSimple: provider.streamSimpleGitHubCopilotCompletions,
+		};
+	});
+	return gitHubCopilotCompletionsProviderModulePromise;
+}
+
 function loadAzureOpenAIResponsesProviderModule(): Promise<
 	LazyProviderModule<"azure-openai-responses", AzureOpenAIResponsesOptions, SimpleStreamOptions>
 > {
@@ -344,6 +366,8 @@ function loadBedrockProviderModule(): Promise<
 
 export const streamAnthropicVertex = createLazyStream(loadAnthropicVertexProviderModule);
 export const streamSimpleAnthropicVertex = createLazySimpleStream(loadAnthropicVertexProviderModule);
+export const streamGitHubCopilotCompletions = createLazyStream(loadGitHubCopilotCompletionsProviderModule);
+export const streamSimpleGitHubCopilotCompletions = createLazySimpleStream(loadGitHubCopilotCompletionsProviderModule);
 export const streamAnthropic = createLazyStream(loadAnthropicProviderModule);
 export const streamSimpleAnthropic = createLazySimpleStream(loadAnthropicProviderModule);
 export const streamAzureOpenAIResponses = createLazyStream(loadAzureOpenAIResponsesProviderModule);
@@ -379,6 +403,16 @@ export function registerBuiltInApiProviders(): void {
 		streamSimple: streamSimpleAnthropic,
 	});
 
+	// GitHub Copilot — registered before generic openai-completions.
+	// Injects per-request Copilot dynamic headers before delegating.
+	registerApiProvider({
+		api: "openai-completions",
+		stream: streamGitHubCopilotCompletions,
+		streamSimple: streamSimpleGitHubCopilotCompletions,
+		match: matchesGitHubCopilot,
+	});
+
+	// Generic OpenAI-compatible completions — fallback for all other providers.
 	registerApiProvider({
 		api: "openai-completions",
 		stream: streamOpenAICompletions,

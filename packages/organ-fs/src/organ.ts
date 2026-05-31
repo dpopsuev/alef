@@ -90,6 +90,21 @@ const EditEntrySchema = z.object({
 	newText: z.string().describe("Replacement text"),
 });
 
+// Accept edits as a JSON array OR as a JSON-encoded string (LLMs sometimes
+// serialize arrays as strings when the schema was not visible on the first turn).
+const editsField = z
+	.preprocess((v) => {
+		if (typeof v === "string") {
+			try {
+				return JSON.parse(v) as unknown;
+			} catch {
+				return v;
+			}
+		}
+		return v;
+	}, z.array(EditEntrySchema).min(1))
+	.describe("One or more replacements to apply atomically");
+
 const FS_EDIT_TOOL = {
 	name: "fs.edit",
 	description:
@@ -99,7 +114,7 @@ const FS_EDIT_TOOL = {
 	inputSchema: z.union([
 		z.object({
 			path: z.string().describe("Path to the file (relative or absolute)"),
-			edits: z.array(EditEntrySchema).min(1).describe("One or more replacements to apply atomically"),
+			edits: editsField,
 		}),
 		z.object({
 			path: z.string().describe("Path to the file (relative or absolute)"),

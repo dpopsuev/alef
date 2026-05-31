@@ -228,14 +228,13 @@ describe("ModalInputHandler — normal mode editing", () => {
 		expect(editor.calls).toContain("\x0b"); // delete to line end
 	});
 
-	it("d then non-d character cancels the chord", () => {
+	it("dw deletes word forward", () => {
 		const { h, editor } = makeHandler();
 		h.handle("\x1b");
 		editor.reset();
 		h.handle("d");
-		h.handle("w"); // word delete — currently falls through to 'w' = word right
-		// The 'd' chord was pending and 'w' was processed as motion
-		expect(editor.calls).toContain("\x1b[1;3C"); // word right (w after pending d reset)
+		h.handle("w");
+		expect(editor.calls).toContain("\x1b[3;5~"); // delete word forward
 	});
 
 	it("u sends undo (ctrl+-) to editor", () => {

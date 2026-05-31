@@ -28,14 +28,17 @@ const SEQ = {
 	lineStart: "\x01",
 	lineEnd: "\x05",
 	deleteCharForward: "\x04",
+	deleteWordForward: "\x1b[3;5~",
 	deleteToLineEnd: "\x0b",
 	deleteToLineStart: "\x15",
 	deleteWordBackward: "\x17",
+	redo: "\x1e",
 } as const;
 
 const WHICHKEY_TIMEOUT_MS = Number(process.env.ALEF_WHICHKEY_TIMEOUT_MS ?? 600);
 
-const WHICHKEY_HINT = "h/j/k/l move  w/b word  i/a insert  dd delete line  u undo  0/$ line start/end  : command";
+const WHICHKEY_HINT =
+	"h/j/k/l move  w/b word  i/a insert  dd/dw delete  u/ctrl+r undo/redo  yy/p yank/paste  : command";
 
 /** Colon command registry — shown in tab completion and :help. */
 export const COLON_COMMANDS: Record<string, string> = {
@@ -65,8 +68,9 @@ export class ModalInputHandler {
 	private cmdBuffer = "";
 	private cmdTabIndex = -1; // cycling through completions
 
-	/** Double-press state for dd (delete line). */
+	/** Double-press state for dd (delete line) and yy (yank line). */
 	private pendingD = false;
+	private _pendingY = false;
 
 	private hintTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -241,16 +245,26 @@ export class ModalInputHandler {
 			return { consume: true };
 		}
 
-		// ── Double-press chord: dd (delete line) ─────────────────────────────
+		// ── Double-press chord: d<motion> ────────────────────────────────────
 		if (this.pendingD) {
 			this.pendingD = false;
 			if (this.kb.matches(data, "app.delete.line")) {
+				// dd — delete line
 				this.editor.handleInput(SEQ.lineStart);
 				this.editor.handleInput(SEQ.deleteToLineEnd);
 				this.editor.handleInput(SEQ.deleteCharForward);
 				this.armHint();
 				return { consume: true };
 			}
+			if (data === "w") {
+				// dw — delete word forward
+				this.editor.handleInput(SEQ.deleteWordForward);
+				this.armHint();
+				return { consume: true };
+			}
+			// unknown d<key> — cancel silently
+			this.armHint();
+			return { consume: true };
 		}
 
 		// ── Dispatch table (Djinn normalCmds pattern) ─────────────────────────
@@ -329,15 +343,57 @@ export class ModalInputHandler {
 			return { consume: true };
 		}
 
-		// Undo: 'u' in Normal mode sends ctrl+- to editor (vim convention)
+		// Undo: 'u' — ctrl+- to editor (vim convention)
 		if (data === "u") {
 			this.editor.handleInput("\x1f");
 			this.armHint();
 			return { consume: true };
 		}
-		// Also forward raw ctrl+- if it arrives
 		if (data === "\x1f") {
 			this.editor.handleInput("\x1f");
+			this.armHint();
+			return { consume: true };
+		}
+		// Redo: ctrl+r
+		if (data === "\x12") {
+			this.editor.handleInput(SEQ.redo);
+			this.armHint();
+			return { consume: true };
+		}
+
+		// C: change to line end (D + enter insert)
+		if (data === "C") {
+			this.editor.handleInput(SEQ.deleteToLineEnd);
+			this.setOuterMode("insert");
+			return { consume: true };
+		}
+
+		// yy: yank line into kill ring (ctrl+a to start, ctrl+k to kill, ctrl+y to restore)
+		if (data === "y" && !this._pendingY) {
+			this._pendingY = true;
+			this.armHint();
+			return { consume: true };
+		}
+		if (this._pendingY) {
+			this._pendingY = false;
+			if (data === "y") {
+				// yank current line: go to start, kill to end (stores in kill ring), then yank back
+				this.editor.handleInput(SEQ.lineStart);
+				this.editor.handleInput(SEQ.deleteToLineEnd);
+				this.editor.handleInput("\x19"); // ctrl+y — restore; kill ring now holds the line
+			}
+			this.armHint();
+			return { consume: true };
+		}
+		// p: paste after cursor from kill ring (ctrl+y)
+		if (data === "p") {
+			this.editor.handleInput(SEQ.right);
+			this.editor.handleInput("\x19");
+			this.armHint();
+			return { consume: true };
+		}
+		if (data === "P") {
+			this.editor.handleInput("\x19");
 			this.armHint();
 			return { consume: true };
 		}

@@ -214,6 +214,12 @@ export interface AnthropicOptions extends StreamOptions {
 	 * `AnthropicVertex` that shares the same messaging API.
 	 */
 	client?: Anthropic;
+	/**
+	 * Signal that the request is routed through Google Vertex AI.
+	 * Enables Vertex-compatible tool name sanitization (dots → underscores).
+	 * Set by the anthropic-vertex strategy; do not set directly.
+	 */
+	isVertex?: boolean;
 }
 
 function mergeHeaders(...headerSources: (Record<string, string | null> | undefined)[]): Record<string, string | null> {
@@ -274,33 +280,6 @@ function serializeError(error: unknown): string {
 		}
 	}
 	return parts.length > 0 ? parts.join(" — ") : JSON.stringify(error);
-}
-
-function resolveAnthropicVertexProjectAndRegion(): { projectId: string; region: string } | undefined {
-	if (typeof process === "undefined") {
-		return undefined;
-	}
-	const projectId =
-		process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ||
-		process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
-		process.env.GCLOUD_PROJECT?.trim();
-	const region = process.env.CLOUD_ML_REGION?.trim() || process.env.GOOGLE_CLOUD_LOCATION?.trim();
-	if (!projectId || !region) {
-		return undefined;
-	}
-	return { projectId, region };
-}
-
-/**
- * Route direct Anthropic catalog models through Vertex partner endpoint when
- * Vertex project and region are configured in the environment.
- * Does not apply to GitHub Copilot or Cloudflare AI Gateway.
- */
-function shouldRouteAnthropicThroughVertex(model: Model<"anthropic-messages">): boolean {
-	if (model.provider !== "anthropic") {
-		return false;
-	}
-	return Boolean(resolveAnthropicVertexProjectAndRegion());
 }
 
 function flushSseEvent(state: SseDecoderState): ServerSentEvent | null {
@@ -503,48 +482,47 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 		try {
 			let client: Anthropic;
 			let isOAuth: boolean;
-			let isVertex = false;
+			// isVertex: driven by options.isVertex set by the anthropic-vertex strategy.
+			// Env-var detection has moved to that strategy's match() predicate (ALE-SPC-47).
+			const isVertex = options?.isVertex ?? false;
 
 			if (options?.client) {
 				client = options.client;
 				isOAuth = false;
+			} else if (isVertex) {
+				// Vertex path — project/region resolved by the strategy before calling here.
+				const projectId =
+					process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ||
+					process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
+					process.env.GCLOUD_PROJECT?.trim() ||
+					"";
+				const region = process.env.CLOUD_ML_REGION?.trim() || process.env.GOOGLE_CLOUD_LOCATION?.trim() || "";
+				// Node-only SDK; lazy-loaded so browser bundles skip it.
+				const { AnthropicVertex } = await import("@anthropic-ai/vertex-sdk");
+				client = new AnthropicVertex({ projectId, region }) as unknown as Anthropic;
+				isOAuth = false;
 			} else {
 				const apiKey = options?.apiKey ?? getEnvApiKey(model.provider) ?? "";
 
-				if (shouldRouteAnthropicThroughVertex(model)) {
-					const vertexCfg = resolveAnthropicVertexProjectAndRegion();
-					if (!vertexCfg) {
-						throw new Error("Anthropic Vertex routing enabled but project/region not resolved");
-					}
-					// Node-only SDK (google-auth-library); lazy-loaded so browser smoke bundles skip it.
-					const { AnthropicVertex } = await import("@anthropic-ai/vertex-sdk");
-					client = new AnthropicVertex({
-						projectId: vertexCfg.projectId,
-						region: vertexCfg.region,
-					}) as unknown as Anthropic;
-					isOAuth = false;
-					isVertex = true;
-				} else {
-					let copilotDynamicHeaders: Record<string, string> | undefined;
-					if (model.provider === "github-copilot") {
-						const hasImages = hasCopilotVisionInput(context.messages);
-						copilotDynamicHeaders = buildCopilotDynamicHeaders({
-							messages: context.messages,
-							hasImages,
-						});
-					}
-
-					const created = createClient(
-						model,
-						apiKey,
-						options?.interleavedThinking ?? true,
-						shouldUseFineGrainedToolStreamingBeta(model, context),
-						options?.headers,
-						copilotDynamicHeaders,
-					);
-					client = created.client;
-					isOAuth = created.isOAuthToken;
+				let copilotDynamicHeaders: Record<string, string> | undefined;
+				if (model.provider === "github-copilot") {
+					const hasImages = hasCopilotVisionInput(context.messages);
+					copilotDynamicHeaders = buildCopilotDynamicHeaders({
+						messages: context.messages,
+						hasImages,
+					});
 				}
+
+				const created = createClient(
+					model,
+					apiKey,
+					options?.interleavedThinking ?? true,
+					shouldUseFineGrainedToolStreamingBeta(model, context),
+					options?.headers,
+					copilotDynamicHeaders,
+				);
+				client = created.client;
+				isOAuth = created.isOAuthToken;
 			}
 			let params = buildParams(model, context, isOAuth, options, isVertex);
 			const nextParams = await options?.onPayload?.(params, model);
@@ -788,20 +766,24 @@ function mapThinkingLevelToEffort(
 	}
 }
 
-export const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleStreamOptions> = (
+export const streamSimpleAnthropic: StreamFunction<
+	"anthropic-messages",
+	SimpleStreamOptions & { isVertex?: boolean }
+> = (
 	model: Model<"anthropic-messages">,
 	context: Context,
-	options?: SimpleStreamOptions,
+	options?: SimpleStreamOptions & { isVertex?: boolean },
 ): AssistantMessageEventStream => {
 	const apiKey = options?.apiKey ?? getEnvApiKey(model.provider) ?? "";
+	const isVertex = options?.isVertex ?? false;
 
-	if (!apiKey && !shouldRouteAnthropicThroughVertex(model)) {
+	if (!apiKey && !isVertex) {
 		throw new Error(`No API key for provider: ${model.provider}`);
 	}
 
 	const base = buildBaseOptions(model, options, apiKey);
 	if (!options?.reasoning) {
-		return streamAnthropic(model, context, { ...base, thinkingEnabled: false } satisfies AnthropicOptions);
+		return streamAnthropic(model, context, { ...base, thinkingEnabled: false, isVertex } satisfies AnthropicOptions);
 	}
 
 	// For Opus 4.6 and Sonnet 4.6: use adaptive thinking with effort level
@@ -812,6 +794,7 @@ export const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleS
 			...base,
 			thinkingEnabled: true,
 			effort,
+			isVertex,
 		} satisfies AnthropicOptions);
 	}
 
@@ -827,6 +810,7 @@ export const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleS
 		maxTokens: adjusted.maxTokens,
 		thinkingEnabled: true,
 		thinkingBudgetTokens: adjusted.thinkingBudget,
+		isVertex,
 	} satisfies AnthropicOptions);
 };
 

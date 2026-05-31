@@ -12,6 +12,7 @@ import type {
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import type { BedrockOptions } from "./amazon-bedrock.js";
 import type { AnthropicOptions } from "./anthropic.js";
+import { matchesAnthropicVertex } from "./anthropic-vertex.js";
 import type { AzureOpenAIResponsesOptions } from "./azure-openai-responses.js";
 import type { GoogleOptions } from "./google.js";
 import type { GoogleVertexOptions } from "./google-vertex.js";
@@ -36,6 +37,11 @@ interface LazyProviderModule<
 interface AnthropicProviderModule {
 	streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOptions>;
 	streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleStreamOptions>;
+}
+
+interface AnthropicVertexProviderModule {
+	streamAnthropicVertex: StreamFunction<"anthropic-messages", AnthropicOptions>;
+	streamSimpleAnthropicVertex: StreamFunction<"anthropic-messages", SimpleStreamOptions>;
 }
 
 interface AzureOpenAIResponsesProviderModule {
@@ -89,6 +95,9 @@ interface BedrockProviderModule {
 const importNodeOnlyProvider = (specifier: string): Promise<unknown> => import(specifier);
 
 let anthropicProviderModulePromise:
+	| Promise<LazyProviderModule<"anthropic-messages", AnthropicOptions, SimpleStreamOptions>>
+	| undefined;
+let anthropicVertexProviderModulePromise:
 	| Promise<LazyProviderModule<"anthropic-messages", AnthropicOptions, SimpleStreamOptions>>
 	| undefined;
 let azureOpenAIResponsesProviderModulePromise:
@@ -213,6 +222,19 @@ function loadAnthropicProviderModule(): Promise<
 	return anthropicProviderModulePromise;
 }
 
+function loadAnthropicVertexProviderModule(): Promise<
+	LazyProviderModule<"anthropic-messages", AnthropicOptions, SimpleStreamOptions>
+> {
+	anthropicVertexProviderModulePromise ||= import("./anthropic-vertex.js").then((module) => {
+		const provider = module as AnthropicVertexProviderModule;
+		return {
+			stream: provider.streamAnthropicVertex,
+			streamSimple: provider.streamSimpleAnthropicVertex,
+		};
+	});
+	return anthropicVertexProviderModulePromise;
+}
+
 function loadAzureOpenAIResponsesProviderModule(): Promise<
 	LazyProviderModule<"azure-openai-responses", AzureOpenAIResponsesOptions, SimpleStreamOptions>
 > {
@@ -320,6 +342,8 @@ function loadBedrockProviderModule(): Promise<
 	return bedrockProviderModulePromise;
 }
 
+export const streamAnthropicVertex = createLazyStream(loadAnthropicVertexProviderModule);
+export const streamSimpleAnthropicVertex = createLazySimpleStream(loadAnthropicVertexProviderModule);
 export const streamAnthropic = createLazyStream(loadAnthropicProviderModule);
 export const streamSimpleAnthropic = createLazySimpleStream(loadAnthropicProviderModule);
 export const streamAzureOpenAIResponses = createLazyStream(loadAzureOpenAIResponsesProviderModule);
@@ -340,6 +364,15 @@ const streamBedrockLazy = createLazyStream(loadBedrockProviderModule);
 const streamSimpleBedrockLazy = createLazySimpleStream(loadBedrockProviderModule);
 
 export function registerBuiltInApiProviders(): void {
+	// Vertex Claude — registered first so match() intercepts before the direct strategy.
+	registerApiProvider({
+		api: "anthropic-messages",
+		stream: streamAnthropicVertex,
+		streamSimple: streamSimpleAnthropicVertex,
+		match: matchesAnthropicVertex,
+	});
+
+	// Direct Anthropic API — fallback when Vertex env vars are absent.
 	registerApiProvider({
 		api: "anthropic-messages",
 		stream: streamAnthropic,

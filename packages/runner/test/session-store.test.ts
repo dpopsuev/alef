@@ -261,3 +261,86 @@ describe("SessionStore.turns() — token cost estimation", () => {
 		expect(turns[0].tokenCost).toBeGreaterThan(0);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// ALE-TSK-368 — in-memory cache + checkpoint race fix
+// ---------------------------------------------------------------------------
+
+describe("SessionStore in-memory cache — ALE-TSK-368", () => {
+	it("events() reflects append() synchronously without waiting for file flush", async () => {
+		const store = await SessionStore.create(tmpCwd());
+		const record = motorRecord("fs.write", "c-1", { path: "CODEBASE.md" });
+
+		// Fire-and-forget append — do NOT await.
+		void store.append(record);
+
+		// Immediately read — must see the record without awaiting the file write.
+		const events = await store.events();
+		expect(events).toHaveLength(1);
+		expect(events[0].type).toBe("fs.write");
+	});
+
+	it("llm.checkpoint internal record appears in turn events", async () => {
+		const store = await SessionStore.create(tmpCwd());
+		await store.append(motorRecord("fs.write", "c-1", { path: "x.md", toolCallId: "t1" }));
+		await store.append(senseRecord("fs.write", "c-1", { applied: true, toolCallId: "t1" }));
+		// Checkpoint written by onCheckpoint callback after tool round completes.
+		await store.append({
+			bus: "internal",
+			type: "llm.checkpoint",
+			correlationId: "c-1",
+			payload: {
+				conversationHistory: [
+					{ role: "user", content: "Write docs" },
+					{ role: "assistant", content: "Done." },
+				],
+			},
+			timestamp: Date.now(),
+		});
+
+		const turns = await store.turns();
+		expect(turns).toHaveLength(1);
+		const checkpointEvent = turns[0].events.find((e) => e.type === "llm.checkpoint");
+		expect(checkpointEvent).toBeDefined();
+		expect(checkpointEvent?.payload.conversationHistory).toHaveLength(2);
+	});
+
+	it("resume() warms cache from JSONL so events() returns prior records", async () => {
+		const cwd = tmpCwd();
+		const store = await SessionStore.create(cwd);
+		await store.append(motorRecord("fs.read", "c-1"));
+		await store.append(senseRecord("fs.read", "c-1", { content: "hello" }));
+
+		// Simulate restart — resume loads from file.
+		const resumed = await SessionStore.resume(cwd, store.id);
+		const events = await resumed.events();
+		expect(events).toHaveLength(2);
+		expect(events[0].type).toBe("fs.read");
+	});
+
+	it("turnsToMessages finds llm.checkpoint conversationHistory from aborted turn", async () => {
+		const { turnsToMessages } = await import("../src/turn-assembler.js");
+		const store = await SessionStore.create(tmpCwd());
+
+		await store.append(motorRecord("fs.write", "c-1", { path: "CODEBASE.md" }));
+		await store.append(senseRecord("fs.write", "c-1", { applied: true }));
+		const history = [
+			{ role: "user", content: "Write docs" },
+			{ role: "assistant", content: [{ type: "toolCall", name: "fs.write" }] },
+			{ role: "toolResult", content: "Applied." },
+		];
+		// Checkpoint written synchronously after tool round — no await on the file write.
+		void store.append({
+			bus: "internal",
+			type: "llm.checkpoint",
+			correlationId: "c-1",
+			payload: { conversationHistory: history },
+			timestamp: Date.now(),
+		});
+
+		// New turn reads immediately — race-free because cache is synchronous.
+		const turns = await store.turns();
+		const messages = turnsToMessages(turns);
+		expect(messages).toBe(history); // exact same reference from checkpoint
+	});
+});

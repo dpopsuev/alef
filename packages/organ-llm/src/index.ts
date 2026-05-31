@@ -59,6 +59,13 @@ export interface CerebrumOptions {
 	 */
 	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
 	/**
+	 * Called after each completed tool round with the full accumulated messages
+	 * and the turn's correlationId. Use to write a durable mid-turn checkpoint
+	 * so context survives an abort that fires before the final dialog.message
+	 * is published (ALE-TSK-368).
+	 */
+	onCheckpoint?: (messages: Message[], correlationId: string) => void;
+	/**
 	 * Track in-flight motor events from concurrent turns and inject a
 	 * "Pending operations" context block before each LLM call.
 	 * Only useful in HTTP/SSE mode where multiple turns run concurrently.
@@ -150,8 +157,7 @@ function normalizeMessage(m: unknown): Message {
 async function runLLMLoop(
 	ctx: CerebrumHandlerCtx,
 	options: CerebrumOptions,
-	/** Called with a snapshot of messages after each tool round completes. */
-	onCheckpoint?: (messages: Message[]) => void,
+	onCheckpoint?: (messages: Message[], correlationId: string) => void,
 ): Promise<void> {
 	const payload = ctx.payload as {
 		messages?: readonly unknown[];
@@ -473,7 +479,7 @@ async function runLLMLoop(
 
 		// Checkpoint: save the accumulated message array after every completed
 		// tool round so the caller can publish it on abort/error (ALE-BUG-8).
-		onCheckpoint?.(messages.slice());
+		onCheckpoint?.(messages.slice(), ctx.correlationId);
 	}
 }
 
@@ -583,8 +589,9 @@ export function createCerebrum(options: CerebrumOptions): Organ {
 				// published on abort/error, preventing conversation amnesia (ALE-BUG-8).
 				let partialHistory: Message[] | undefined;
 				try {
-					await runLLMLoop(ctx, options, (snapshot) => {
+					await runLLMLoop(ctx, options, (snapshot, correlationId) => {
 						partialHistory = snapshot;
+						options.onCheckpoint?.(snapshot, correlationId);
 					});
 				} catch (err) {
 					const text = `LLM error: ${String(err)}`;

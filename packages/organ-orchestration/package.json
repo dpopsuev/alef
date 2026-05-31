@@ -1,7 +1,7 @@
 {
-	"name": "@dpopsuev/alef-organ-supervisor",
+	"name": "@dpopsuev/alef-organ-orchestration",
 	"version": "0.0.1",
-	"description": "Supervisor organ — child-Alef lifecycle management: spawn, kill, list, status, promote",
+	"description": "Orchestration organ — child-Alef lifecycle management: spawn, kill, list, status, promote",
 	"type": "module",
 	"main": "./src/index.ts",
 	"exports": {

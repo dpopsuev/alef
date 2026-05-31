@@ -46,7 +46,7 @@ describe("compileAgentDefinition", () => {
 		expect(def.name).toBe("minimal");
 		expect(def.organs).toHaveLength(0);
 		expect(def.capabilities.tools).toHaveLength(0);
-		expect(def.capabilities.supervisor).toBe(false);
+		expect(def.capabilities.orchestration).toBe(false);
 		expect(def.memory.session).toBe("memory");
 		expect(def.policies.appendSystemPrompt).toHaveLength(0);
 		expect(def.children).toHaveLength(0);
@@ -117,22 +117,22 @@ describe("compileAgentDefinition", () => {
 		).toThrow();
 	});
 
-	it("rejects supervisor organ without capabilities.supervisor", () => {
+	it("rejects orchestration organ without capabilities.orchestration", () => {
 		expect(() =>
 			compileAgentDefinition({
-				name: "bad-super",
-				organs: [{ name: "supervisor" }],
+				name: "bad-orch",
+				organs: [{ name: "orchestration" }],
 			}),
-		).toThrow(/supervisor organ requires capabilities\.supervisor/i);
+		).toThrow(/orchestration organ requires capabilities\.orchestration/i);
 	});
 
-	it("rejects capabilities.supervisor without supervisor organ", () => {
+	it("rejects capabilities.orchestration without orchestration organ", () => {
 		expect(() =>
 			compileAgentDefinition({
-				name: "bad-super",
-				capabilities: { supervisor: true },
+				name: "bad-orch",
+				capabilities: { orchestration: true },
 			}),
-		).toThrow(/capabilities\.supervisor.*requires a supervisor organ/i);
+		).toThrow(/capabilities\.orchestration.*requires an orchestration organ/i);
 	});
 
 	it("rejects organ with zero selected actions", () => {

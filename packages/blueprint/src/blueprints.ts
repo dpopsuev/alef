@@ -98,7 +98,7 @@ const AgentDefinitionSchema = Type.Object({
 	capabilities: Type.Optional(
 		Type.Object({
 			tools: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
-			supervisor: Type.Optional(Type.Boolean()),
+			orchestration: Type.Optional(Type.Boolean()),
 		}),
 	),
 	memory: Type.Optional(
@@ -420,14 +420,18 @@ export function compileAgentDefinition(
 	const legacyToolNames = normalizeStringArray(input.capabilities?.tools);
 	const toolNames =
 		organs.length > 0 ? [...new Set([...listToolNamesForOrgans(organs), ...legacyToolNames])] : legacyToolNames;
-	const hasSupervisorOrgan = organs.some((organ) => organ.name === "supervisor");
-	if (hasSupervisorOrgan && input.capabilities?.supervisor !== true) {
+	const hasOrchestrationOrgan = organs.some((organ) => organ.name === "orchestration");
+	if (hasOrchestrationOrgan && input.capabilities?.orchestration !== true) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
-		throw new Error(`Invalid agent definition${location}: supervisor organ requires capabilities.supervisor: true`);
+		throw new Error(
+			`Invalid agent definition${location}: orchestration organ requires capabilities.orchestration: true`,
+		);
 	}
-	if (!hasSupervisorOrgan && input.capabilities?.supervisor === true) {
+	if (!hasOrchestrationOrgan && input.capabilities?.orchestration === true) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
-		throw new Error(`Invalid agent definition${location}: capabilities.supervisor: true requires a supervisor organ`);
+		throw new Error(
+			`Invalid agent definition${location}: capabilities.orchestration: true requires an orchestration organ`,
+		);
 	}
 
 	const compiled: CompiledAgentDefinition = {
@@ -439,7 +443,7 @@ export function compileAgentDefinition(
 		organs,
 		capabilities: {
 			tools: toolNames,
-			supervisor: input.capabilities?.supervisor ?? false,
+			orchestration: input.capabilities?.orchestration ?? false,
 		},
 		memory: {
 			session: input.memory?.session ?? "memory",
@@ -585,7 +589,7 @@ export function mergeAgentDefinitions(
 		// Structured: merge at field level, overlay wins per key.
 		capabilities: {
 			tools: overlay.capabilities.tools.length > 0 ? overlay.capabilities.tools : base.capabilities.tools,
-			supervisor: overlay.capabilities.supervisor || base.capabilities.supervisor,
+			orchestration: overlay.capabilities.orchestration || base.capabilities.orchestration,
 		},
 		memory: {
 			session: overlay.memory.session !== "memory" ? overlay.memory.session : base.memory.session,

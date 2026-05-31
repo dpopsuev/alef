@@ -48,7 +48,7 @@ const EVAL_TOOL = {
 		"Phase 2: LLM-as-judge scores the transcript against a rubric (0-100). " +
 		"Returns EvalResult { passed, score, failures, reasoning, transcript }.",
 	inputSchema: z.object({
-		endpoint: z.string().describe("Child Alef HTTP endpoint from supervisor.spawn"),
+		endpoint: z.string().describe("Child Alef HTTP endpoint from orchestration.spawn"),
 		prompts: z.array(PromptSchema).min(1).describe("Messages to send in sequence"),
 		validators: z.array(ValidatorSchema).optional().describe("Structural checks applied before LLM judge"),
 		judgeRubric: z

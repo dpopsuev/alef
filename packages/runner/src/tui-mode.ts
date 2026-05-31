@@ -313,6 +313,27 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				});
 			return true;
 		}
+		case ":meta": {
+			const prompt = parts.slice(1).join(" ").trim();
+			if (!prompt) {
+				ctx.writer.addNotice("Usage: :meta <free text prompt>\nExample: :meta list my sessions from last week");
+				ctx.tui.requestRender();
+				return true;
+			}
+			ctx.writer.addNotice(`meta: ${prompt}`);
+			ctx.tui.requestRender();
+			import("./meta-agent.js")
+				.then(async (m) => {
+					const reply = await m.runMetaAgent(prompt, ctx.opts?.getModel?.());
+					ctx.writer.addNotice(`[meta] ${reply}`);
+					ctx.tui.requestRender();
+				})
+				.catch((e: unknown) => {
+					ctx.writer.addNotice(`[meta] error: ${e instanceof Error ? e.message : String(e)}`);
+					ctx.tui.requestRender();
+				});
+			return true;
+		}
 		case ":theme": {
 			const themes = ["terminal", "terminal-light", "akko", "mono", "matrix"];
 			const name = parts[1]?.toLowerCase();

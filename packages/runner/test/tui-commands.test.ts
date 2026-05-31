@@ -450,3 +450,49 @@ describe("handleColonCommand :reload — with reloadOrgan callback", () => {
 		await vi.waitFor(() => expect(ctx.tui.requestRender).toHaveBeenCalledTimes(2));
 	});
 });
+
+// ---------------------------------------------------------------------------
+// ArcEditorWrapper — content lines must never exceed terminal width (ALE-BUG-44 regression)
+//
+// RED: written before the fix. The bug: render(width) then prepend a space
+// → width+1 chars → TUI crash "Rendered line exceeds terminal width".
+// ---------------------------------------------------------------------------
+
+import type { Component, TUI as TUIClass } from "@dpopsuev/alef-tui";
+
+// Reach into console-zone via its Component array after mount() to test ArcEditorWrapper.
+// Since ArcEditorWrapper is not exported, we test it through ConsoleZone.mount().
+import { ConsoleZone } from "../src/console-zone.js";
+
+describe("ArcEditorWrapper — rendered lines must not exceed terminal width", () => {
+	for (const width of [40, 80, 120, 179, 180, 200]) {
+		it(`all lines fit within ${width} columns`, () => {
+			const children: Component[] = [];
+			// Editor.render() reads tui.terminal.rows and tui.terminal.cols;
+			// provide a minimal stub so it doesn't crash in headless tests.
+			const fakeTui = {
+				addChild: (c: Component) => children.push(c),
+				removeChild: () => {},
+				requestRender: () => {},
+				addInputListener: () => {},
+				setFocus: () => {},
+				terminal: { rows: 40, cols: width },
+			} as unknown as TUIClass;
+
+			const t = getTheme();
+			const zone = new ConsoleZone(fakeTui, t, "test-model");
+			zone.mount();
+
+			// ConsoleZone.mount() adds: pendingFooter, inFlightQueue, statusText,
+			// ArcEditorWrapper, hintBar — ArcEditorWrapper is at index 3.
+			const arcWrapper = children[3];
+			if (!arcWrapper) throw new Error("ArcEditorWrapper not found at index 3");
+
+			const rendered = arcWrapper.render(width);
+			for (const line of rendered) {
+				const visible = line.replace(/\x1b\[[0-9;]*m/g, "");
+				expect(visible.length).toBeLessThanOrEqual(width);
+			}
+		});
+	}
+});

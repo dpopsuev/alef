@@ -8,14 +8,14 @@ class ArcEditorWrapper implements Component {
 	) {}
 
 	render(width: number): string[] {
-		const lines = this.inner.render(width);
+		// Render the inner editor 1 column narrower so prepending the leading
+		// space doesn't push content lines past the terminal width (ALE-BUG-44).
+		const lines = this.inner.render(Math.max(1, width - 1));
 		if (lines.length < 2) return lines;
 		const fill = Math.max(0, width - 2);
 		lines[0] = this.arcColor(`╭${"─".repeat(fill)}╮`);
 		lines[lines.length - 1] = this.arcColor(`╰${"─".repeat(fill)}╯`);
-		// Indent content lines by 1 space to align the cursor with tool call
-		// lines (INDENT.TOOL_LINE = 2 spaces + glyph puts content at col 4;
-		// col 1 from border + 1 space → col 2 aligns the text visually).
+		// Indent content lines by 1 space to align the cursor with tool call lines.
 		for (let i = 1; i < lines.length - 1; i++) {
 			lines[i] = ` ${lines[i]}`;
 		}

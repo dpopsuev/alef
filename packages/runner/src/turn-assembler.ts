@@ -64,7 +64,9 @@ function scoreTurn(
 	policy: ContextWindowPolicy,
 ): number {
 	const overlap = termOverlap(turn, queryTokens);
-	const hitFreq = normalize(hitCounts.get(turn.id) ?? 0, maxHitCount);
+	// Treat unseen turns as hitCount=1 (neutral) rather than 0 to avoid
+	// penalising turns that have never been assembled — cold-start fairness.
+	const hitFreq = normalize(hitCounts.get(turn.id) ?? 1, maxHitCount);
 	const recency = turn.turnIndex;
 
 	return (

@@ -1,12 +1,13 @@
 /**
- * SupervisorOrgan — child-Alef lifecycle management.
+ * OrchestrationOrgan — child-Alef lifecycle management and task delegation.
  *
  * Tools:
- *   supervisor.spawn   — start a child Alef, return endpoint + sessionId
- *   supervisor.kill    — stop a named child
- *   supervisor.list    — enumerate running children
- *   supervisor.status  — health-check a named child
- *   supervisor.promote — add an organ to the production blueprint, trigger blue-green
+ *   orchestration.spawn   — start a child Alef, return endpoint + sessionId
+ *   orchestration.ask     — delegate a prompt to a child and return its reply (EIP Request-Reply)
+ *   orchestration.kill    — stop a named child
+ *   orchestration.list    — enumerate running children
+ *   orchestration.status  — health-check a named child
+ *   orchestration.promote — add an organ to the production blueprint, trigger blue-green
  *
  * The organ owns the Map<name, ChildEntry> and kills all children on unmount.
  * promote() fires process.send({ type: "rebuild" }) when running under supervisor.ts
@@ -85,6 +86,75 @@ function healthCheck(endpoint: string): Promise<boolean> {
 	});
 }
 
+function postToChild(endpoint: string, text: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const body = JSON.stringify({ text });
+		const url = new URL(`${endpoint}/message`);
+		const req = http.request(
+			{
+				hostname: url.hostname,
+				port: Number(url.port),
+				path: url.pathname,
+				method: "POST",
+				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+			},
+			(res) => {
+				res.resume();
+				res.on("end", resolve);
+			},
+		);
+		req.on("error", reject);
+		req.write(body);
+		req.end();
+	});
+}
+
+function collectReply(endpoint: string, timeoutMs: number): Promise<string | undefined> {
+	return new Promise((resolve, reject) => {
+		let buf = "";
+		const url = new URL(`${endpoint}/events`);
+		const timer = setTimeout(() => {
+			req.destroy();
+			resolve(undefined);
+		}, timeoutMs);
+		const req = http.get({ hostname: url.hostname, port: Number(url.port), path: url.pathname }, (res) => {
+			res.on("data", (chunk: Buffer) => {
+				buf += chunk.toString();
+				const frames = buf.split("\n\n");
+				buf = frames.pop() ?? "";
+				for (const frame of frames) {
+					const line = frame.split("\n").find((l) => l.startsWith("data: "));
+					if (!line) continue;
+					try {
+						const ev = JSON.parse(line.slice(6)) as { bus?: string; type?: string; payload?: { text?: string } };
+						if (ev.bus === "motor" && ev.type === "dialog.message" && typeof ev.payload?.text === "string") {
+							clearTimeout(timer);
+							res.destroy();
+							resolve(ev.payload.text);
+							return;
+						}
+					} catch {
+						/* skip malformed */
+					}
+				}
+			});
+			res.on("error", (err) => {
+				if ((err as NodeJS.ErrnoException).code === "ERR_STREAM_DESTROYED") {
+					clearTimeout(timer);
+					resolve(undefined);
+					return;
+				}
+				clearTimeout(timer);
+				reject(err);
+			});
+		});
+		req.on("error", (err) => {
+			clearTimeout(timer);
+			reject(err);
+		});
+	});
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -93,6 +163,44 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 	const cwd = opts.cwd ?? process.cwd();
 	const readinessTimeoutMs = opts.readinessTimeoutMs ?? 30_000;
 	const children = new Map<string, ChildEntry>();
+
+	// -------------------------------------------------------------------------
+	// ask
+	// -------------------------------------------------------------------------
+
+	const ASK_TOOL = {
+		name: "orchestration.ask",
+		description:
+			"Send a prompt to a running child Alef and return its reply. " +
+			"Blocks until the child responds or timeoutMs elapses. " +
+			"Use after orchestration.spawn to delegate a task and get the result.",
+		inputSchema: z.object({
+			name: z.string().describe("Child name from orchestration.spawn"),
+			prompt: z.string().describe("Message to send to the child agent"),
+			timeoutMs: z.number().optional().describe("Max wait in ms (default: 60_000)"),
+		}),
+	};
+
+	async function handleAsk(ctx: {
+		payload: { name: string; prompt: string; timeoutMs?: number };
+	}): Promise<Record<string, unknown>> {
+		const { name: childName, prompt, timeoutMs = 60_000 } = ctx.payload;
+		const entry = children.get(childName);
+		if (!entry) throw new Error(`orchestration.ask: no child named '${childName}'`);
+		const replyPromise = collectReply(entry.endpoint, timeoutMs);
+		await postToChild(entry.endpoint, prompt);
+		const reply = await replyPromise;
+		if (reply === undefined) {
+			return withDisplay(
+				{ name: childName, reply: null, timedOut: true },
+				{
+					text: `**${childName}** did not reply within ${timeoutMs}ms`,
+					mimeType: "text/markdown",
+				},
+			);
+		}
+		return withDisplay({ name: childName, reply }, { text: reply, mimeType: "text/plain" });
+	}
 
 	// -------------------------------------------------------------------------
 	// spawn
@@ -361,6 +469,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		"orchestration",
 		{
 			"motor/orchestration.spawn": typedAction(SPAWN_TOOL, handleSpawn),
+			"motor/orchestration.ask": typedAction(ASK_TOOL, handleAsk),
 			"motor/orchestration.kill": typedAction(KILL_TOOL, handleKill),
 			"motor/orchestration.list": { tool: LIST_TOOL, handle: handleList },
 			"motor/orchestration.status": typedAction(STATUS_TOOL, handleStatus),
@@ -368,22 +477,26 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		},
 		{
 			logger: opts.logger,
-			description: "Child-Alef lifecycle management: spawn, kill, list, status, promote.",
+			description: "Child-Alef lifecycle management and task delegation: spawn, ask, kill, list, status, promote.",
 			labels: ["orchestration", "spawn", "blue-green", "lifecycle"],
 			directives: [
-				`**orchestration organ — agentic organ development loop**
-Use this organ to develop, test, and promote new organs without human intervention.
+				`**orchestration organ — task delegation and organ development**
 
-Loop:
+Task delegation (ask a child agent):
+1. orchestration.spawn({ blueprintPath? | organs? }) — start a child, get { name, endpoint }
+2. orchestration.ask({ name, prompt }) — send a task, get the reply
+3. orchestration.kill({ name }) — clean up when done
+
+Organ development loop:
 1. Write a new organ to disk as a .ts file using nodesh.eval (export createOrgan(opts))
-2. orchestration.spawn({ organs: ["./path/to/organ.ts"] }) — starts a staging Alef with the organ loaded
-3. Use eval.run (organ-eval) to send test prompts to the returned endpoint and validate behaviour
-4. If eval passes: orchestration.promote({ organPath }) — adds it to production and triggers blue-green swap
+2. orchestration.spawn({ organs: ["./path/to/organ.ts"] }) — start a staging Alef
+3. Use eval.run (organ-eval) to validate behaviour against the returned endpoint
+4. If eval passes: orchestration.promote({ organPath }) — adds it to production, triggers blue-green
 5. If eval fails: rewrite the organ via nodesh.eval and repeat from step 2
 
 Rules:
-- Always evaluate before promoting. Never promote an organ you have not tested.
-- orchestration.kill() the staging child after evaluation (pass or fail) to free resources.
+- orchestration.kill() every child after use — child processes are expensive.
+- Always evaluate before promoting. Never promote an untested organ.
 - organPath passed to orchestration.promote must be absolute.`,
 			],
 		},

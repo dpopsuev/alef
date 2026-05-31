@@ -1,30 +1,5 @@
-/**
- * TurnAssembler — scored per-turn context window assembly from the event log.
- *
- * Pure function. No organ. No bus event. No LLM call.
- * Called from "Reasoner" (or directly from DialogOrgan.buildPayload).
- *
- * Algorithm:
- *   1. Always include last recentGuarantee turns (recency guarantee)
- *   2. Score remaining turns by: termOverlap + LRU hit frequency + ordinal recency
- *   3. Greedily fill budget with highest score/tokenCost turns
- *   4. Cap any single turn at maxSingleTurnFraction of history budget
- *   5. Re-sort included turns chronologically for the LLM
- *
- * Key design decisions (ALE-SPC-15):
- *   - Turn index (ordinal position) is recency, NOT wall-clock time
- *   - Write/edit turns score 2× via typeWeight — never evicted lightly
- *   - Hit counts from window.assembled records — durable LRU signal
- *   - No embeddings required in Phase 1 — keyword overlap only
- *
- * Ref: ALE-SPC-15, ALE-TSK-179
- */
-
 import type { AssistantMessage, Message, UserMessage } from "@dpopsuev/alef-organ-llm";
 import type { Turn } from "@dpopsuev/alef-spine";
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 export interface ContextWindowPolicy {
 	/**
@@ -41,17 +16,8 @@ export interface ContextWindowPolicy {
 	 */
 	maxSingleTurnFraction: number;
 
-	/**
-	 * Always include the last N turns regardless of score.
-	 * Guarantees the LLM sees the most recent conversation thread.
-	 * Default: 8
-	 */
 	recentGuarantee: number;
-
-	/** Weight for keyword overlap with current query. Default: 0.40 */
 	termOverlapWeight: number;
-
-	/** Weight for LRU hit frequency (normalized). Default: 0.30 */
 	hitFrequencyWeight: number;
 
 	/**
@@ -70,13 +36,6 @@ export const DEFAULT_CONTEXT_WINDOW_POLICY: ContextWindowPolicy = {
 	recencyWeight: 0.3,
 };
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
-/**
- * Term overlap: fraction of query tokens found in any payload field of the turn.
- * Simple keyword matching — no embeddings required.
- */
 function termOverlap(turn: Turn, queryTokens: string[]): number {
 	if (queryTokens.length === 0) return 0;
 	const haystack = turn.events
@@ -106,44 +65,30 @@ function scoreTurn(
 ): number {
 	const overlap = termOverlap(turn, queryTokens);
 	const hitFreq = normalize(hitCounts.get(turn.id) ?? 0, maxHitCount);
-	const recency = turn.turnIndex; // raw index — normalized below per call
+	const recency = turn.turnIndex;
 
 	return (
 		policy.termOverlapWeight * overlap +
 		policy.hitFrequencyWeight * hitFreq +
-		policy.recencyWeight * recency + // normalized by caller
-		turn.typeWeight // additive bonus, not multiplied
+		policy.recencyWeight * recency +
+		turn.typeWeight // additive bonus, not multiplied by weight — breaks the uniform pattern intentionally
 	);
 }
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 function tokenize(text: string): string[] {
 	return text
 		.toLowerCase()
 		.split(/\W+/)
-		.filter((t) => t.length > 2); // skip stop words via length
+		.filter((t) => t.length > 2);
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
 export interface AssembleOptions {
-	/** Current user query — used for keyword scoring. */
 	query: string;
-	/** Total model context window in tokens. historyBudget = contextWindow * historyFraction. */
 	contextWindow: number;
-	/** Policy overrides. Merged with DEFAULT_CONTEXT_WINDOW_POLICY. */
 	policy?: Partial<ContextWindowPolicy>;
-	/** Hit counts from SessionStore.hitCounts() for LRU frequency scoring. */
 	hitCounts?: Map<string, number>;
 }
 
-/**
- * Select the most relevant turns from the event log to include in the context window.
- * Returns turns sorted chronologically (by turnIndex ascending) for the LLM.
- */
 export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 	if (turns.length === 0) return [];
 
@@ -171,7 +116,6 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 	const scored = candidateTurns.map((turn) => {
 		const rawScore = scoreTurn(turn, queryTokens, hitCounts, maxHitCount, {
 			...policy,
-			// Normalize recencyWeight component by maxTurnIndex so it stays in 0–1 range
 			recencyWeight: policy.recencyWeight * (turn.turnIndex / maxTurnIndex),
 		});
 		const cost = Math.min(turn.tokenCost, maxSingleTurnCost);
@@ -181,8 +125,8 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 	scored.sort((a, b) => b.evictionPriority - a.evictionPriority);
 
 	for (const { turn, cost } of scored) {
-		if (cost > remaining) continue; // doesn't fit — skip (don't evict others for it)
-		if (recentIds.has(turn.id)) continue; // already in recent
+		if (cost > remaining) continue;
+		if (recentIds.has(turn.id)) continue;
 		included.push(turn);
 		remaining -= cost;
 		if (remaining <= 0) break;
@@ -191,9 +135,6 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 	return included.sort((a, b) => a.turnIndex - b.turnIndex);
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
 /**
  * @deprecated Use Message from @dpopsuev/alef-ai directly.
  * Kept as an alias for callsites that have not been updated yet.
@@ -201,42 +142,67 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 export type ConversationMessage = Pick<UserMessage | AssistantMessage, "role" | "content">;
 
 /**
- * Project selected turns into a message array for Reasoner payload.
+ * Project selected turns into a Message array for the Reasoner.
  *
- * Primary path: find the most recent motor/dialog.message event that carries a
- * conversationHistory array (published by Reasoner after each quiescent turn).
- * That array already contains role+content blocks including tool_use and
- * tool_result — use it directly. This is durable across runner restarts because
- * the value is stored in the JSONL by SessionLog.
+ * Three paths, tried in order:
  *
- * Fallback: text-only reconstruction from dialog.message events (ScriptedReasoner,
- * first turn, or any organ that does not publish conversationHistory).
- */
-/**
- * Project selected turns into a Message array for Reasoner.
+ * 1. Primary — most recent motor/dialog.message with conversationHistory.
+ *    Published by the Reasoner at the end of each completed turn; contains
+ *    the full tool_use / tool_result block sequence.
  *
- * Primary path: find the most recent motor/dialog.message that carries
- * conversationHistory (published by Reasoner). That array is already a
- * proper Message[] — use it directly.
+ * 2. Aborted-turn supplement — any turns after the primary checkpoint that
+ *    have motor/sense tool-call pairs but no dialog.message (the agent was
+ *    interrupted mid-generation after all tool calls completed). Their work
+ *    is injected as a synthetic user context message so the next LLM call
+ *    is not amnesiac about what was done. ALE-BUG-46.
  *
- * Fallback: text-only reconstruction from dialog.message events.
+ * 3. Text-only fallback — when no primary checkpoint exists, reconstruct
+ *    plain-text turns from dialog.message events (ScriptedReasoner path or
+ *    first turn before any checkpoint has been written).
  */
 export function turnsToMessages(turns: Turn[]): Message[] {
-	for (let i = turns.length - 1; i >= 0; i--) {
-		const turn = turns[i];
-		for (let j = turn.events.length - 1; j >= 0; j--) {
-			const event = turn.events[j];
-			if (event.bus !== "motor" || event.type !== "dialog.message") continue;
-			const hist = event.payload.conversationHistory;
+	const now = Date.now();
+
+	let baseHistory: Message[] | undefined;
+	let baseFoundAt = -1;
+	outer: for (let i = turns.length - 1; i >= 0; i--) {
+		for (let j = turns[i].events.length - 1; j >= 0; j--) {
+			const e = turns[i].events[j];
+			if (e.bus !== "motor" || e.type !== "dialog.message") continue;
+			const hist = e.payload.conversationHistory;
 			if (Array.isArray(hist) && hist.length > 0) {
-				// Reasoner stores properly typed Message objects in conversationHistory.
-				return hist as Message[];
+				baseHistory = hist as Message[];
+				baseFoundAt = i;
+				break outer;
 			}
 		}
 	}
 
-	// Fallback: reconstruct from raw dialog.message events.
-	const now = Date.now();
+	const abortedFrom = baseFoundAt + 1; // 0 when no base found → scans all turns
+	const abortedMessages: Message[] = [];
+	for (let i = abortedFrom; i < turns.length; i++) {
+		const turn = turns[i];
+		if (turn.events.some((e) => e.type === "dialog.message")) continue;
+		const motorTools = turn.events.filter((e) => e.bus === "motor");
+		if (motorTools.length === 0) continue;
+		const lines = motorTools.map((e) => {
+			const { toolCallId: _tc, content: _c, ...args } = e.payload;
+			const argStr = Object.entries(args)
+				.map(([k, v]) => `${k}=${String(v).slice(0, 80)}`)
+				.join(", ");
+			return `${e.type}(${argStr})`;
+		});
+		abortedMessages.push({
+			role: "user" as const,
+			content: `[Interrupted turn — completed tool calls: ${lines.join("; ")}]`,
+			timestamp: now,
+		});
+	}
+
+	if (baseHistory) {
+		return abortedMessages.length ? [...baseHistory, ...abortedMessages] : baseHistory;
+	}
+
 	const messages: Message[] = [];
 	for (const turn of turns) {
 		for (const event of turn.events) {
@@ -246,11 +212,9 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 			if (event.bus === "sense") {
 				messages.push({ role: "user", content: text, timestamp: now });
 			} else if (event.bus === "motor") {
-				// Simple text-only assistant message. Real assistant messages come from
-				// the conversationHistory primary path above.
 				messages.push({ role: "user", content: `[assistant] ${text}`, timestamp: now });
 			}
 		}
 	}
-	return messages;
+	return [...messages, ...abortedMessages];
 }

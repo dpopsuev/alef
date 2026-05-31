@@ -1,10 +1,3 @@
-/**
- * Tool call rendering helpers — lines, output snippets, diff display.
- *
- * Single responsibility: turn ToolCallStart/End events + display payloads
- * into ANSI-formatted strings and TUI components.
- */
-
 import { type Component, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
 import { fmtMs, sanitizeForDisplay } from "./ansi-utils.js";
@@ -21,7 +14,6 @@ const ANSI_RESET = "\x1b[0m";
 const BLINK_ON = "\x1b[5m";
 const BLINK_OFF = "\x1b[25m";
 
-/** Spinner line shown while a tool call is in-flight. */
 export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens, elapsedMs = 0): string {
 	const elapsed = fmtMs(elapsedMs);
 	const circle = `${BLINK_ON}${color(glyph("state:active"), t.warnFg)}${BLINK_OFF}`;
@@ -62,7 +54,6 @@ export class ToolCallRow implements Component {
 
 	invalidate(): void {}
 
-	/** Transition to completed state. */
 	seal(elapsedMs: number, ok: boolean): void {
 		this.doneElapsedMs = elapsedMs;
 		this.doneOk = ok;
@@ -70,7 +61,6 @@ export class ToolCallRow implements Component {
 	}
 }
 
-/** Completed tool call line with elapsed time and ok/err glyph. */
 export function renderToolLine(name: string, keyArg: string, elapsedMs: number, ok: boolean, t: ThemeTokens): string {
 	const elapsed = fmtMs(elapsedMs);
 	const g = ok ? glyph("state:done") : glyph("state:error");
@@ -79,7 +69,6 @@ export function renderToolLine(name: string, keyArg: string, elapsedMs: number, 
 	return `${indent}${color(g, fg)} ${color(name, t.toolNameFg)}  ${color(keyArg, t.toolArgFg)}  ${color(elapsed, t.timeFg)}`;
 }
 
-/** Extract the primary key argument from a tool payload for display. */
 export function keyArgFromPayload(args: Record<string, unknown>): string {
 	for (const key of ["command", "path", "url", "pattern", "glob", "symbol", "query"]) {
 		const v = args[key];
@@ -88,7 +77,6 @@ export function keyArgFromPayload(args: Record<string, unknown>): string {
 	return "";
 }
 
-/** Truncate tool output for inline display: max 20 lines, max 1000 chars. */
 export function truncateToolOutput(text: string): string {
 	const lines = text.split("\n");
 	const capped = lines.length > 20 ? lines.slice(0, 20) : lines;
@@ -98,10 +86,6 @@ export function truncateToolOutput(text: string): string {
 	return out;
 }
 
-/**
- * Render a text/x-diff display block with ANSI colors.
- * Header line bold, added lines green, removed lines red, context dim.
- */
 export function renderDiffDisplay(diffText: string, t: ThemeTokens): string {
 	const lines = diffText.split("\n");
 	return lines
@@ -116,9 +100,6 @@ export function renderDiffDisplay(diffText: string, t: ThemeTokens): string {
 }
 
 /**
- * Build a TUI component for a tool's display output.
- * Returns a Text (diff) or Markdown (plain) node ready to addChild().
- *
  * Applies sanitization to strip ANSI codes from tool output (e.g. shell.exec
  * capturing colored terminal output) to prevent literal \x1b[1m in the TUI.
  */
@@ -127,18 +108,13 @@ export function makeToolOutputComponent(
 	displayKind: string | undefined,
 	t: ThemeTokens,
 ): Text | Markdown {
-	// Sanitize display text — strip ANSI codes that might have leaked from shell/log output.
 	const sanitized = sanitizeForDisplay(snippet);
-
 	if (displayKind === "text/x-diff") {
-		// Diff rendering applies its own ANSI colors, so we use the sanitized text.
 		return new Text(renderDiffDisplay(sanitized, t), INDENT.TOOL_OUTPUT, 0);
 	}
-	// Markdown rendering for plain text output.
 	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme());
 }
 
-/** Format token usage footer: "7 in · 1.0k out · 14.2s" */
 export function formatTokenUsage(input: number, output: number, _t: ThemeTokens, turnMs?: number): string {
 	function compact(n: number): string {
 		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;

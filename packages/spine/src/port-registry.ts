@@ -18,7 +18,13 @@
  * routing organs to seams based on their declared action map key prefixes.
  */
 
-export type PortCardinality = "exactly-one" | "zero-or-one" | "zero-or-many";
+/**
+ * "ordered-pipeline" — multiple organs may subscribe; they receive the event in
+ * registration order and the caller collects all their responses, merging them
+ * field-by-field. Used for llm.phase where ToolShell (schema injection) and
+ * MemoryOrgan (context enrichment) both run each turn.
+ */
+export type PortCardinality = "exactly-one" | "zero-or-one" | "zero-or-many" | "ordered-pipeline";
 
 export interface PortDefinition {
 	/** Human-readable name. */
@@ -57,7 +63,7 @@ export const STANDARD_PORTS: PortDefinition[] = [
 	{
 		name: "llm_execution",
 		eventPattern: "motor/llm.phase",
-		cardinality: "zero-or-one",
+		cardinality: "ordered-pipeline",
 	},
 	{
 		name: "filesystem",
@@ -175,6 +181,7 @@ export function validatePorts(organs: OrganPortInfo[], seams: PortDefinition[] =
 				message: `Seam '${seam.name}' (${seam.eventPattern}) expects at most one organ but got ${count}: [${names.join(", ")}]. Behaviour is undefined.`,
 			});
 		}
+		// "ordered-pipeline": multiple organs intentional — no violation.
 	}
 
 	return {

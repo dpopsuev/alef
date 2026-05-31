@@ -117,8 +117,8 @@ describe("fmtMs — sub-second individual tool timers", () => {
 describe("status timer format — ALE-BUG-43 sub-second total", () => {
 	it("(elapsedMs/1000).toFixed(1) gives sub-second resolution", () => {
 		// These pass trivially — they verify the math formula used in console-zone.ts
-		expect((143200 / 1000).toFixed(1) + "s").toBe("143.2s");
-		expect((500 / 1000).toFixed(1) + "s").toBe("0.5s");
-		expect((0 / 1000).toFixed(1) + "s").toBe("0.0s");
+		expect(`${(143200 / 1000).toFixed(1)}s`).toBe("143.2s");
+		expect(`${(500 / 1000).toFixed(1)}s`).toBe("0.5s");
+		expect(`${(0 / 1000).toFixed(1)}s`).toBe("0.0s");
 	});
 });

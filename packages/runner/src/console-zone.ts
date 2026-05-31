@@ -13,6 +13,12 @@ class ArcEditorWrapper implements Component {
 		const fill = Math.max(0, width - 2);
 		lines[0] = this.arcColor(`╭${"─".repeat(fill)}╮`);
 		lines[lines.length - 1] = this.arcColor(`╰${"─".repeat(fill)}╯`);
+		// Indent content lines by 1 space to align the cursor with tool call
+		// lines (INDENT.TOOL_LINE = 2 spaces + glyph puts content at col 4;
+		// col 1 from border + 1 space → col 2 aligns the text visually).
+		for (let i = 1; i < lines.length - 1; i++) {
+			lines[i] = ` ${lines[i]}`;
+		}
 		return lines;
 	}
 
@@ -144,14 +150,15 @@ export class ConsoleZone {
 		const tick = (): void => {
 			this.frameIdx = (this.frameIdx + 1) % this.frames.length;
 			const elapsedMs = Date.now() - this.thinkingStart;
-			const elapsedS = Math.floor(elapsedMs / 1000);
+			const elapsedS = (elapsedMs / 1000).toFixed(1);
 			const frame = this.frames[this.frameIdx] ?? glyph("state:active");
 			const level = this.pressure.level();
 			// Hue cycles through the full 360° spectrum over time;
 			// pressure multiplies the rotation rate so busy turns spin faster.
 			const hue = timeBasedHue(elapsedMs, level);
 			const ansi = shiftedAccentAnsi(this.t.accentFg, hue) || fgCode(this.t.warnFg, colorDepth());
-			this.statusText.setText(`  ${ansi}${frame}\x1b[0m ${color(`${elapsedS}s`, this.t.dimFg)}`);
+			// Lock-step: time counter inherits the spinner's hue-shifted color.
+			this.statusText.setText(`  ${ansi}${frame}\x1b[0m ${ansi}${elapsedS}s\x1b[0m`);
 			this.tui.requestRender();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
 		};

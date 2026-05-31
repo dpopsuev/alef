@@ -309,8 +309,12 @@ const systemPrompt = appendEnvironment(assembled, args.cwd); // date+cwd last
 
 const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
 
-const prepareStep = AgentKernel.buildContextAssembler(session, model.contextWindow);
-const onCheckpoint = AgentKernel.buildCheckpointCallback(session);
+let currentSession: typeof session | undefined = session;
+export function setCurrentSession(s: typeof session): void {
+	currentSession = s;
+}
+const prepareStep = AgentKernel.buildContextAssembler(() => currentSession, model.contextWindow);
+const onCheckpoint = AgentKernel.buildCheckpointCallback(() => currentSession);
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
 // Reasoner tracks cross-turn in-flight ops and injects pending-operations

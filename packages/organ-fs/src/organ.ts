@@ -25,6 +25,7 @@ import {
 } from "./file-queries.js";
 import { runFormatter } from "./formatter.js";
 import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
+import { applyOps, parsePatch, validateOps } from "./patch.js";
 import { assertWithinRoot } from "./path-guard.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
 
@@ -73,6 +74,17 @@ const FS_FIND_TOOL = {
 		extension: z.string().optional().describe("Filter by extension, e.g. 'ts'"),
 		depth: z.number().optional().describe("Max directory depth. depth=1 = immediate children."),
 		hidden: z.boolean().optional().describe("Include hidden files (default: true)"),
+	}),
+};
+
+const FS_PATCH_TOOL = {
+	name: "fs.patch",
+	description:
+		"Apply a multi-file patch atomically. Can add, update, move, and delete files in one call. " +
+		"Validation runs before any file is touched — if any operation fails, nothing is modified. " +
+		"Format: *** Begin Patch / *** Add File: path / *** Update File: path / *** Delete File: path / *** Move File: src -> dst / *** End Patch",
+	inputSchema: z.object({
+		patch: z.string().describe("Patch block starting with '*** Begin Patch' and ending with '*** End Patch'"),
 	}),
 };
 
@@ -559,6 +571,28 @@ async function handleFind(
 	return withDisplay(response as unknown as Record<string, unknown>, { text: displayText, mimeType: "text/plain" });
 }
 
+async function handlePatch(
+	ctx: { payload: { patch: string } },
+	opts: FsOrganOptions,
+): Promise<Record<string, unknown>> {
+	const { patch } = ctx.payload;
+	const ops = parsePatch(patch);
+	if (ops.length === 0) throw new Error("fs.patch: no operations found in patch block");
+
+	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, opts.allowAbsolutePaths);
+	const errors = await validateOps(ops, resolveAbs);
+	if (errors.length > 0) throw new Error(`fs.patch: validation failed:\n${errors.map((e) => `  ${e}`).join("\n")}`);
+
+	const results = await applyOps(ops, resolveAbs, (abs) => runFormatter(opts.cwd, abs));
+	const summary = results
+		.map(
+			(r) =>
+				`${r.operation} ${r.path}${r.linesAdded || r.linesRemoved ? ` (+${r.linesAdded}/-${r.linesRemoved})` : ""}`,
+		)
+		.join("\n");
+	return withDisplay({ results, fileCount: results.length }, { text: summary, mimeType: "text/plain" });
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -594,6 +628,9 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 				},
 				{ invalidates: () => WRITE_INVALIDATES },
 			),
+			"motor/fs.patch": typedAction(FS_PATCH_TOOL, (ctx) => handlePatch(ctx, options), {
+				invalidates: () => WRITE_INVALIDATES,
+			}),
 		},
 		{
 			actions: options.actions,
@@ -623,5 +660,6 @@ const FS_DIRECTIVES = [
 - Use fs.write only when creating a new file or completely rewriting one. It overwrites without warning.
 - Use fs.grep to search file contents across the workspace before assuming something doesn't exist.
 - Use fs.find to discover file paths when you don't know the exact name.
+- Use fs.patch when a refactor touches multiple files — one call, all-or-nothing validation before any file is written.
 - All paths must be within the working directory. Absolute paths outside the workspace are rejected.`,
 ];

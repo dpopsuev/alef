@@ -23,6 +23,7 @@ import {
 	type FindToolInput,
 	type GrepToolInput,
 } from "./file-queries.js";
+import { runFormatter } from "./formatter.js";
 import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
 import { assertWithinRoot } from "./path-guard.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
@@ -322,6 +323,7 @@ async function handleWrite(
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
 	await mkdir(dirname(absolutePath), { recursive: true });
 	await atomicWrite(absolutePath, content);
+	await runFormatter(opts.cwd, absolutePath);
 	const bytes = Buffer.byteLength(content, "utf-8");
 	return withDisplay(
 		{ path: filePath, bytes },
@@ -485,6 +487,7 @@ async function handleEdit(
 	}
 
 	await atomicWrite(absolutePath, updated);
+	await runFormatter(opts.cwd, absolutePath);
 	// Refresh tracker so subsequent edits in the same turn don't fail staleness.
 	tracker.record(absolutePath);
 	const editCount = editList.length;

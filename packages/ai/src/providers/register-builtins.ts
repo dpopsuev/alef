@@ -35,56 +35,6 @@ interface LazyProviderModule<
 	) => AsyncIterable<AssistantMessageEvent>;
 }
 
-interface AnthropicProviderModule {
-	streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOptions>;
-	streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleStreamOptions>;
-}
-
-interface AnthropicVertexProviderModule {
-	streamAnthropicVertex: StreamFunction<"anthropic-messages", AnthropicOptions>;
-	streamSimpleAnthropicVertex: StreamFunction<"anthropic-messages", SimpleStreamOptions>;
-}
-
-interface GitHubCopilotCompletionsProviderModule {
-	streamGitHubCopilotCompletions: StreamFunction<"openai-completions", OpenAICompletionsOptions>;
-	streamSimpleGitHubCopilotCompletions: StreamFunction<"openai-completions", SimpleStreamOptions>;
-}
-
-interface AzureOpenAIResponsesProviderModule {
-	streamAzureOpenAIResponses: StreamFunction<"azure-openai-responses", AzureOpenAIResponsesOptions>;
-	streamSimpleAzureOpenAIResponses: StreamFunction<"azure-openai-responses", SimpleStreamOptions>;
-}
-
-interface GoogleProviderModule {
-	streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>;
-	streamSimpleGoogle: StreamFunction<"google-generative-ai", SimpleStreamOptions>;
-}
-
-interface GoogleVertexProviderModule {
-	streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOptions>;
-	streamSimpleGoogleVertex: StreamFunction<"google-vertex", SimpleStreamOptions>;
-}
-
-interface MistralProviderModule {
-	streamMistral: StreamFunction<"mistral-conversations", MistralOptions>;
-	streamSimpleMistral: StreamFunction<"mistral-conversations", SimpleStreamOptions>;
-}
-
-interface OpenAICodexResponsesProviderModule {
-	streamOpenAICodexResponses: StreamFunction<"openai-codex-responses", OpenAICodexResponsesOptions>;
-	streamSimpleOpenAICodexResponses: StreamFunction<"openai-codex-responses", SimpleStreamOptions>;
-}
-
-interface OpenAICompletionsProviderModule {
-	streamOpenAICompletions: StreamFunction<"openai-completions", OpenAICompletionsOptions>;
-	streamSimpleOpenAICompletions: StreamFunction<"openai-completions", SimpleStreamOptions>;
-}
-
-interface OpenAIResponsesProviderModule {
-	streamOpenAIResponses: StreamFunction<"openai-responses", OpenAIResponsesOptions>;
-	streamSimpleOpenAIResponses: StreamFunction<"openai-responses", SimpleStreamOptions>;
-}
-
 interface BedrockProviderModule {
 	streamBedrock: (
 		model: Model<"bedrock-converse-stream">,
@@ -98,38 +48,94 @@ interface BedrockProviderModule {
 	) => AsyncIterable<AssistantMessageEvent>;
 }
 
+// Prevents bundlers from statically analysing the Bedrock import path.
 const importNodeOnlyProvider = (specifier: string): Promise<unknown> => import(specifier);
 
-let anthropicProviderModulePromise:
-	| Promise<LazyProviderModule<"anthropic-messages", AnthropicOptions, SimpleStreamOptions>>
-	| undefined;
-let anthropicVertexProviderModulePromise:
-	| Promise<LazyProviderModule<"anthropic-messages", AnthropicOptions, SimpleStreamOptions>>
-	| undefined;
-let gitHubCopilotCompletionsProviderModulePromise:
-	| Promise<LazyProviderModule<"openai-completions", OpenAICompletionsOptions, SimpleStreamOptions>>
-	| undefined;
-let azureOpenAIResponsesProviderModulePromise:
-	| Promise<LazyProviderModule<"azure-openai-responses", AzureOpenAIResponsesOptions, SimpleStreamOptions>>
-	| undefined;
-let googleProviderModulePromise:
-	| Promise<LazyProviderModule<"google-generative-ai", GoogleOptions, SimpleStreamOptions>>
-	| undefined;
-let googleVertexProviderModulePromise:
-	| Promise<LazyProviderModule<"google-vertex", GoogleVertexOptions, SimpleStreamOptions>>
-	| undefined;
-let mistralProviderModulePromise:
-	| Promise<LazyProviderModule<"mistral-conversations", MistralOptions, SimpleStreamOptions>>
-	| undefined;
-let openAICodexResponsesProviderModulePromise:
-	| Promise<LazyProviderModule<"openai-codex-responses", OpenAICodexResponsesOptions, SimpleStreamOptions>>
-	| undefined;
-let openAICompletionsProviderModulePromise:
-	| Promise<LazyProviderModule<"openai-completions", OpenAICompletionsOptions, SimpleStreamOptions>>
-	| undefined;
-let openAIResponsesProviderModulePromise:
-	| Promise<LazyProviderModule<"openai-responses", OpenAIResponsesOptions, SimpleStreamOptions>>
-	| undefined;
+// Memoises a factory so the dynamic import only fires once per process.
+function memoize<T>(fn: () => Promise<T>): () => Promise<T> {
+	let cached: Promise<T> | undefined;
+	return () => {
+		cached ||= fn();
+		return cached;
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Per-provider lazy loaders — one function per provider, one edit site each.
+// Adding a new provider: add one const here, one export pair below, one
+// registerApiProvider() call in registerBuiltInApiProviders().
+// ---------------------------------------------------------------------------
+
+const loadAnthropicProviderModule = memoize(() =>
+	import("./anthropic.js").then((m) => ({
+		stream: m.streamAnthropic as StreamFunction<"anthropic-messages", AnthropicOptions>,
+		streamSimple: m.streamSimpleAnthropic as StreamFunction<"anthropic-messages", SimpleStreamOptions>,
+	})),
+);
+
+const loadAnthropicVertexProviderModule = memoize(() =>
+	import("./anthropic-vertex.js").then((m) => ({
+		stream: m.streamAnthropicVertex as StreamFunction<"anthropic-messages", AnthropicOptions>,
+		streamSimple: m.streamSimpleAnthropicVertex as StreamFunction<"anthropic-messages", SimpleStreamOptions>,
+	})),
+);
+
+const loadGitHubCopilotCompletionsProviderModule = memoize(() =>
+	import("./github-copilot-openai-completions.js").then((m) => ({
+		stream: m.streamGitHubCopilotCompletions as StreamFunction<"openai-completions", OpenAICompletionsOptions>,
+		streamSimple: m.streamSimpleGitHubCopilotCompletions as StreamFunction<"openai-completions", SimpleStreamOptions>,
+	})),
+);
+
+const loadAzureOpenAIResponsesProviderModule = memoize(() =>
+	import("./azure-openai-responses.js").then((m) => ({
+		stream: m.streamAzureOpenAIResponses as StreamFunction<"azure-openai-responses", AzureOpenAIResponsesOptions>,
+		streamSimple: m.streamSimpleAzureOpenAIResponses as StreamFunction<"azure-openai-responses", SimpleStreamOptions>,
+	})),
+);
+
+const loadGoogleProviderModule = memoize(() =>
+	import("./google.js").then((m) => ({
+		stream: m.streamGoogle as StreamFunction<"google-generative-ai", GoogleOptions>,
+		streamSimple: m.streamSimpleGoogle as StreamFunction<"google-generative-ai", SimpleStreamOptions>,
+	})),
+);
+
+const loadGoogleVertexProviderModule = memoize(() =>
+	import("./google-vertex.js").then((m) => ({
+		stream: m.streamGoogleVertex as StreamFunction<"google-vertex", GoogleVertexOptions>,
+		streamSimple: m.streamSimpleGoogleVertex as StreamFunction<"google-vertex", SimpleStreamOptions>,
+	})),
+);
+
+const loadMistralProviderModule = memoize(() =>
+	import("./mistral.js").then((m) => ({
+		stream: m.streamMistral as StreamFunction<"mistral-conversations", MistralOptions>,
+		streamSimple: m.streamSimpleMistral as StreamFunction<"mistral-conversations", SimpleStreamOptions>,
+	})),
+);
+
+const loadOpenAICodexResponsesProviderModule = memoize(() =>
+	import("./openai-codex-responses.js").then((m) => ({
+		stream: m.streamOpenAICodexResponses as StreamFunction<"openai-codex-responses", OpenAICodexResponsesOptions>,
+		streamSimple: m.streamSimpleOpenAICodexResponses as StreamFunction<"openai-codex-responses", SimpleStreamOptions>,
+	})),
+);
+
+const loadOpenAICompletionsProviderModule = memoize(() =>
+	import("./openai-completions.js").then((m) => ({
+		stream: m.streamOpenAICompletions as StreamFunction<"openai-completions", OpenAICompletionsOptions>,
+		streamSimple: m.streamSimpleOpenAICompletions as StreamFunction<"openai-completions", SimpleStreamOptions>,
+	})),
+);
+
+const loadOpenAIResponsesProviderModule = memoize(() =>
+	import("./openai-responses.js").then((m) => ({
+		stream: m.streamOpenAIResponses as StreamFunction<"openai-responses", OpenAIResponsesOptions>,
+		streamSimple: m.streamSimpleOpenAIResponses as StreamFunction<"openai-responses", SimpleStreamOptions>,
+	})),
+);
+
 let bedrockProviderModuleOverride:
 	| LazyProviderModule<"bedrock-converse-stream", BedrockOptions, SimpleStreamOptions>
 	| undefined;
@@ -216,136 +222,6 @@ function createLazySimpleStream<
 
 		return outer;
 	};
-}
-
-function loadAnthropicProviderModule(): Promise<
-	LazyProviderModule<"anthropic-messages", AnthropicOptions, SimpleStreamOptions>
-> {
-	anthropicProviderModulePromise ||= import("./anthropic.js").then((module) => {
-		const provider = module as AnthropicProviderModule;
-		return {
-			stream: provider.streamAnthropic,
-			streamSimple: provider.streamSimpleAnthropic,
-		};
-	});
-	return anthropicProviderModulePromise;
-}
-
-function loadAnthropicVertexProviderModule(): Promise<
-	LazyProviderModule<"anthropic-messages", AnthropicOptions, SimpleStreamOptions>
-> {
-	anthropicVertexProviderModulePromise ||= import("./anthropic-vertex.js").then((module) => {
-		const provider = module as AnthropicVertexProviderModule;
-		return {
-			stream: provider.streamAnthropicVertex,
-			streamSimple: provider.streamSimpleAnthropicVertex,
-		};
-	});
-	return anthropicVertexProviderModulePromise;
-}
-
-function loadGitHubCopilotCompletionsProviderModule(): Promise<
-	LazyProviderModule<"openai-completions", OpenAICompletionsOptions, SimpleStreamOptions>
-> {
-	gitHubCopilotCompletionsProviderModulePromise ||= import("./github-copilot-openai-completions.js").then((module) => {
-		const provider = module as GitHubCopilotCompletionsProviderModule;
-		return {
-			stream: provider.streamGitHubCopilotCompletions,
-			streamSimple: provider.streamSimpleGitHubCopilotCompletions,
-		};
-	});
-	return gitHubCopilotCompletionsProviderModulePromise;
-}
-
-function loadAzureOpenAIResponsesProviderModule(): Promise<
-	LazyProviderModule<"azure-openai-responses", AzureOpenAIResponsesOptions, SimpleStreamOptions>
-> {
-	azureOpenAIResponsesProviderModulePromise ||= import("./azure-openai-responses.js").then((module) => {
-		const provider = module as AzureOpenAIResponsesProviderModule;
-		return {
-			stream: provider.streamAzureOpenAIResponses,
-			streamSimple: provider.streamSimpleAzureOpenAIResponses,
-		};
-	});
-	return azureOpenAIResponsesProviderModulePromise;
-}
-
-function loadGoogleProviderModule(): Promise<
-	LazyProviderModule<"google-generative-ai", GoogleOptions, SimpleStreamOptions>
-> {
-	googleProviderModulePromise ||= import("./google.js").then((module) => {
-		const provider = module as GoogleProviderModule;
-		return {
-			stream: provider.streamGoogle,
-			streamSimple: provider.streamSimpleGoogle,
-		};
-	});
-	return googleProviderModulePromise;
-}
-
-function loadGoogleVertexProviderModule(): Promise<
-	LazyProviderModule<"google-vertex", GoogleVertexOptions, SimpleStreamOptions>
-> {
-	googleVertexProviderModulePromise ||= import("./google-vertex.js").then((module) => {
-		const provider = module as GoogleVertexProviderModule;
-		return {
-			stream: provider.streamGoogleVertex,
-			streamSimple: provider.streamSimpleGoogleVertex,
-		};
-	});
-	return googleVertexProviderModulePromise;
-}
-
-function loadMistralProviderModule(): Promise<
-	LazyProviderModule<"mistral-conversations", MistralOptions, SimpleStreamOptions>
-> {
-	mistralProviderModulePromise ||= import("./mistral.js").then((module) => {
-		const provider = module as MistralProviderModule;
-		return {
-			stream: provider.streamMistral,
-			streamSimple: provider.streamSimpleMistral,
-		};
-	});
-	return mistralProviderModulePromise;
-}
-
-function loadOpenAICodexResponsesProviderModule(): Promise<
-	LazyProviderModule<"openai-codex-responses", OpenAICodexResponsesOptions, SimpleStreamOptions>
-> {
-	openAICodexResponsesProviderModulePromise ||= import("./openai-codex-responses.js").then((module) => {
-		const provider = module as OpenAICodexResponsesProviderModule;
-		return {
-			stream: provider.streamOpenAICodexResponses,
-			streamSimple: provider.streamSimpleOpenAICodexResponses,
-		};
-	});
-	return openAICodexResponsesProviderModulePromise;
-}
-
-function loadOpenAICompletionsProviderModule(): Promise<
-	LazyProviderModule<"openai-completions", OpenAICompletionsOptions, SimpleStreamOptions>
-> {
-	openAICompletionsProviderModulePromise ||= import("./openai-completions.js").then((module) => {
-		const provider = module as OpenAICompletionsProviderModule;
-		return {
-			stream: provider.streamOpenAICompletions,
-			streamSimple: provider.streamSimpleOpenAICompletions,
-		};
-	});
-	return openAICompletionsProviderModulePromise;
-}
-
-function loadOpenAIResponsesProviderModule(): Promise<
-	LazyProviderModule<"openai-responses", OpenAIResponsesOptions, SimpleStreamOptions>
-> {
-	openAIResponsesProviderModulePromise ||= import("./openai-responses.js").then((module) => {
-		const provider = module as OpenAIResponsesProviderModule;
-		return {
-			stream: provider.streamOpenAIResponses,
-			streamSimple: provider.streamSimpleOpenAIResponses,
-		};
-	});
-	return openAIResponsesProviderModulePromise;
 }
 
 function loadBedrockProviderModule(): Promise<

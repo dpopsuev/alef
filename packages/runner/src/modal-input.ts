@@ -58,6 +58,7 @@ export const COLON_COMMANDS: Record<string, string> = {
 	":rollback": "Roll back to previous organ generation — :rollback [N]",
 	":model": "Change model — :model <id>",
 	":theme": "Change theme — :theme <name>  (terminal | terminal-light | akko | mono | matrix)",
+	":meta": "Ask the Alef meta-agent — :meta <prompt>  (e.g. :meta list my sessions)",
 };
 
 const allCommandNames = Object.keys(COLON_COMMANDS).sort();

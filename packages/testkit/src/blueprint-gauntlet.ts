@@ -11,7 +11,7 @@
  *   - assertToolCalled() / assertToolCalledWith() verify organ behavior
  *   - withStubOrgan() replaces a real organ with a stub for isolation
  *
- * Gate/approval workflows are stubbed for now \u2014 the organ-supervisor integration
+ * Gate/approval workflows are stubbed for now \u2014 the organ-orchestration integration
  * will wire real approval gates when ALE-SPC-35 (ContextOrgan) is complete.
  *
  * Ref: ALE-TSK-328

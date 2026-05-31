@@ -159,7 +159,7 @@ export interface AgentDefinitionSupervisorPolicyConfig {
 
 export interface AgentDefinitionCapabilities {
 	tools: string[];
-	supervisor: boolean;
+	orchestration: boolean;
 }
 
 export interface AgentDefinitionMemory {
@@ -229,7 +229,7 @@ export interface AgentDefinitionInput {
 	surfaces?: AgentDefinitionSurfaceInput[];
 	capabilities?: {
 		tools?: string[];
-		supervisor?: boolean;
+		orchestration?: boolean;
 	};
 	memory?: {
 		session?: "memory" | "persistent";

@@ -1,5 +1,5 @@
 /**
- * ALE-TSK-340 — Agentic organ dev loop: uses organ-supervisor + organ-eval AS organs.
+ * ALE-TSK-340 — Agentic organ dev loop: uses organ-orchestration + organ-eval AS organs.
  *
  * Replaces the previous test that manually reimplemented collectEvents,
  * postMessage, and runValidators by calling organ-eval internals directly.
@@ -8,10 +8,10 @@
  *
  * Flow:
  *   1. Write a simple echo organ to disk (simulates nodesh.eval output)
- *   2. Publish motor/supervisor.spawn → Sense returns { endpoint, name }
+ *   2. Publish motor/orchestration.spawn → Sense returns { endpoint, name }
  *   3. Publish motor/eval.run with endpoint → Sense returns EvalResult
  *   4. Assert EvalResult.passed
- *   5. Publish motor/supervisor.kill to clean up
+ *   5. Publish motor/orchestration.kill to clean up
  *
  * No real LLM — ALEF_SCRIPTED_REPLIES drives the child's dialog.message.
  */
@@ -21,7 +21,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createEvalOrgan } from "@dpopsuev/alef-organ-eval";
-import { createSupervisorOrgan } from "@dpopsuev/alef-organ-supervisor";
+import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import type { SenseEvent } from "@dpopsuev/alef-spine";
 import { InProcessNerve } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
@@ -99,8 +99,8 @@ export function createOrgan() {
 		// Scripted reply: the child inherits process.env.
 		const SCRIPTED_REPLY = "Echo organ loaded and responding.";
 		process.env.ALEF_SCRIPTED_REPLIES = JSON.stringify([SCRIPTED_REPLY]);
-		// Also set NODE_PATH directly in the test process env so the supervisor
-		// inherits it — belt-and-suspenders with the fix in organ-supervisor.
+		// Also set NODE_PATH directly in the test process env so the orchestration organ
+		// inherits it — belt-and-suspenders with the fix in organ-orchestration.
 		const alefNodeModules = join(resolve(__dirname, "../../.."), "node_modules");
 		if (!process.env.NODE_PATH?.includes(alefNodeModules)) {
 			process.env.NODE_PATH = [alefNodeModules, process.env.NODE_PATH].filter(Boolean).join(":");
@@ -108,15 +108,15 @@ export function createOrgan() {
 
 		// ── Step 2: mount organs on a shared nerve ────────────────────────
 		const nerve = new InProcessNerve();
-		const supervisorOrgan = createSupervisorOrgan({ cwd });
+		const orchestrationOrgan = createOrchestrationOrgan({ cwd });
 		const evalOrgan = createEvalOrgan({});
-		unmounts.push(supervisorOrgan.mount(nerve.asNerve()));
+		unmounts.push(orchestrationOrgan.mount(nerve.asNerve()));
 		unmounts.push(evalOrgan.mount(nerve.asNerve()));
 
-		// ── Step 3: supervisor.spawn — start child Alef with echo organ ──
+		// ── Step 3: orchestration.spawn — start child Alef with echo organ ──
 		const spawnResult = await motorCall(
 			nerve,
-			"supervisor.spawn",
+			"orchestration.spawn",
 			{
 				organs: [organPath],
 				cwd,
@@ -155,8 +155,8 @@ export function createOrgan() {
 		// Restore env before cleanup
 		delete process.env.ALEF_SCRIPTED_REPLIES;
 
-		// ── Step 5: clean up via supervisor.kill ─────────────────────────
-		await motorCall(nerve, "supervisor.kill", { name }, 5_000).catch(() => {
+		// ── Step 5: clean up via orchestration.kill ─────────────────────────
+		await motorCall(nerve, "orchestration.kill", { name }, 5_000).catch(() => {
 			/* ignore kill errors */
 		});
 

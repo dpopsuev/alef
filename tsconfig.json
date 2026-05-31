@@ -128,11 +128,11 @@
 				"./packages/organ-ai/src/*.ts",
 				"./packages/organ-ai/src/completer/*.ts"
 			],
-			"@dpopsuev/alef-organ-supervisor": [
-				"./packages/organ-supervisor/src/index.ts"
+			"@dpopsuev/alef-organ-orchestration": [
+				"./packages/organ-orchestration/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-supervisor/*": [
-				"./packages/organ-supervisor/src/*.ts"
+			"@dpopsuev/alef-organ-orchestration/*": [
+				"./packages/organ-orchestration/src/*.ts"
 			],
 			"@dpopsuev/alef-organ-eval": [
 				"./packages/organ-eval/src/index.ts"

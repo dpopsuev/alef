@@ -28,7 +28,7 @@ import type { ChildEntry } from "./types.js";
 // Options
 // ---------------------------------------------------------------------------
 
-export interface SupervisorOrganOptions {
+export interface OrchestrationOrganOptions {
 	/** Working directory for child Alef processes. Defaults to process.cwd(). */
 	cwd?: string;
 	/** Timeout in ms waiting for a child to become ready. Default: 30_000. */
@@ -89,7 +89,7 @@ function healthCheck(endpoint: string): Promise<boolean> {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ {
+export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): Organ {
 	const cwd = opts.cwd ?? process.cwd();
 	const readinessTimeoutMs = opts.readinessTimeoutMs ?? 30_000;
 	const children = new Map<string, ChildEntry>();
@@ -99,11 +99,11 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 	// -------------------------------------------------------------------------
 
 	const SPAWN_TOOL = {
-		name: "supervisor.spawn",
+		name: "orchestration.spawn",
 		description:
 			"Start a child Alef process. Pass blueprintPath to an existing agent.yaml, or pass organs[] " +
 			"with paths to TypeScript organ files (loaded via jiti, no build step). " +
-			"Returns { name, endpoint, sessionId, pid } for subsequent supervisor.* calls.",
+			"Returns { name, endpoint, sessionId, pid } for subsequent orchestration.* calls.",
 		inputSchema: z.object({
 			blueprintPath: z
 				.string()
@@ -112,7 +112,7 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 			organs: z
 				.array(z.string())
 				.optional()
-				.describe("Paths to .ts organ files. Supervisor writes a temp agent.yaml."),
+				.describe("Paths to .ts organ files. Orchestration organ writes a temp agent.yaml."),
 			cwd: z.string().optional().describe("Working directory for the child. Defaults to parent cwd."),
 			sessionId: z.string().optional().describe("Resume a previous session by ID."),
 		}),
@@ -209,7 +209,7 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 	// -------------------------------------------------------------------------
 
 	const KILL_TOOL = {
-		name: "supervisor.kill",
+		name: "orchestration.kill",
 		description: "Stop a named child Alef process (SIGTERM, then SIGKILL after 3s).",
 		inputSchema: z.object({
 			name: z.string().describe("Child name from supervisor.spawn"),
@@ -217,9 +217,9 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 	};
 
 	async function handleKill(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
-		const { name } = ctx.payload;
-		const entry = children.get(name);
-		if (!entry) return { stopped: false, reason: `no child named '${name}'` };
+		const { name: childName } = ctx.payload;
+		const entry = children.get(childName);
+		if (!entry) return { stopped: false, reason: `no child named '${childName}'` };
 
 		entry.process.kill("SIGTERM");
 		await new Promise<void>((res) => {
@@ -232,8 +232,11 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 				res();
 			});
 		});
-		children.delete(name);
-		return withDisplay({ stopped: true, name }, { text: `Stopped **${name}**`, mimeType: "text/markdown" });
+		children.delete(childName);
+		return withDisplay(
+			{ stopped: true, name: childName },
+			{ text: `Stopped **${childName}**`, mimeType: "text/markdown" },
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -241,7 +244,7 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 	// -------------------------------------------------------------------------
 
 	const LIST_TOOL = {
-		name: "supervisor.list",
+		name: "orchestration.list",
 		description: "List all running child Alef processes with their endpoints and session IDs.",
 		inputSchema: z.object({}),
 	};
@@ -269,23 +272,23 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 	// -------------------------------------------------------------------------
 
 	const STATUS_TOOL = {
-		name: "supervisor.status",
+		name: "orchestration.status",
 		description: "Health-check a named child Alef process.",
 		inputSchema: z.object({
-			name: z.string().describe("Child name from supervisor.spawn"),
+			name: z.string().describe("Child name from orchestration.spawn"),
 		}),
 	};
 
 	async function handleStatus(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
-		const { name } = ctx.payload;
-		const entry = children.get(name);
-		if (!entry) return { alive: false, reason: `no child named '${name}'` };
+		const { name: childName } = ctx.payload;
+		const entry = children.get(childName);
+		if (!entry) return { alive: false, reason: `no child named '${childName}'` };
 		const alive = await healthCheck(entry.endpoint);
 		const uptimeMs = Date.now() - entry.startedAt;
 		return withDisplay(
-			{ name, alive, endpoint: entry.endpoint, sessionId: entry.sessionId ?? null, uptimeMs },
+			{ name: childName, alive, endpoint: entry.endpoint, sessionId: entry.sessionId ?? null, uptimeMs },
 			{
-				text: `**${name}** ${alive ? "✅ alive" : "❌ dead"} — uptime ${Math.round(uptimeMs / 1000)}s`,
+				text: `**${childName}** ${alive ? "✅ alive" : "❌ dead"} — uptime ${Math.round(uptimeMs / 1000)}s`,
 				mimeType: "text/markdown",
 			},
 		);
@@ -296,7 +299,7 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 	// -------------------------------------------------------------------------
 
 	const PROMOTE_TOOL = {
-		name: "supervisor.promote",
+		name: "orchestration.promote",
 		description:
 			"Add a new organ to the production blueprint and trigger a blue-green swap via the supervisor. " +
 			"Only fires when running under supervisor.ts (ALEF_SUPERVISOR=1). " +
@@ -355,33 +358,33 @@ export function createSupervisorOrgan(opts: SupervisorOrganOptions = {}): Organ 
 	// -------------------------------------------------------------------------
 
 	return defineOrgan(
-		"supervisor",
+		"orchestration",
 		{
-			"motor/supervisor.spawn": typedAction(SPAWN_TOOL, handleSpawn),
-			"motor/supervisor.kill": typedAction(KILL_TOOL, handleKill),
-			"motor/supervisor.list": { tool: LIST_TOOL, handle: handleList },
-			"motor/supervisor.status": typedAction(STATUS_TOOL, handleStatus),
-			"motor/supervisor.promote": typedAction(PROMOTE_TOOL, async (ctx) => handlePromote(ctx)),
+			"motor/orchestration.spawn": typedAction(SPAWN_TOOL, handleSpawn),
+			"motor/orchestration.kill": typedAction(KILL_TOOL, handleKill),
+			"motor/orchestration.list": { tool: LIST_TOOL, handle: handleList },
+			"motor/orchestration.status": typedAction(STATUS_TOOL, handleStatus),
+			"motor/orchestration.promote": typedAction(PROMOTE_TOOL, async (ctx) => handlePromote(ctx)),
 		},
 		{
 			logger: opts.logger,
 			description: "Child-Alef lifecycle management: spawn, kill, list, status, promote.",
-			labels: ["supervisor", "spawn", "blue-green", "lifecycle"],
+			labels: ["orchestration", "spawn", "blue-green", "lifecycle"],
 			directives: [
-				`**supervisor organ — agentic organ development loop**
+				`**orchestration organ — agentic organ development loop**
 Use this organ to develop, test, and promote new organs without human intervention.
 
 Loop:
 1. Write a new organ to disk as a .ts file using nodesh.eval (export createOrgan(opts))
-2. supervisor.spawn({ organs: ["./path/to/organ.ts"] }) — starts a staging Alef with the organ loaded
+2. orchestration.spawn({ organs: ["./path/to/organ.ts"] }) — starts a staging Alef with the organ loaded
 3. Use eval.run (organ-eval) to send test prompts to the returned endpoint and validate behaviour
-4. If eval passes: supervisor.promote({ organPath }) — adds it to production and triggers blue-green swap
+4. If eval passes: orchestration.promote({ organPath }) — adds it to production and triggers blue-green swap
 5. If eval fails: rewrite the organ via nodesh.eval and repeat from step 2
 
 Rules:
 - Always evaluate before promoting. Never promote an organ you have not tested.
-- supervisor.kill() the staging child after evaluation (pass or fail) to free resources.
-- organPath passed to supervisor.promote must be absolute.`,
+- orchestration.kill() the staging child after evaluation (pass or fail) to free resources.
+- organPath passed to orchestration.promote must be absolute.`,
 			],
 		},
 	);

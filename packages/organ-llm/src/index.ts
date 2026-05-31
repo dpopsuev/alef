@@ -493,9 +493,14 @@ async function runLLMLoop(
 }
 
 /**
- * Wait for a sense/llm.phase response matching correlationId.
- * Returns the transformed messages when a phase organ replies, or undefined
- * when the timeout elapses (loop proceeds with original messages).
+ * Wait for sense/llm.phase responses matching correlationId.
+ * Returns the merged result from all pipeline stages, or undefined when the
+ * timeout elapses with no responses.
+ *
+ * ordered-pipeline: multiple organs may each publish sense/llm.phase for the
+ * same correlationId (ToolShell injects schemas, MemoryOrgan enriches context).
+ * A short quiescence window collects all responses after the first one arrives,
+ * then merges them field-by-field (last non-undefined wins per field).
  */
 interface PhaseResult {
 	/** Transformed message context. Replaces current messages when present. */
@@ -513,28 +518,66 @@ interface PhaseResult {
 	abort?: boolean;
 }
 
+/** Quiescence window after the first phase response: collects additional pipeline stages. */
+const PHASE_PIPELINE_QUIESCENCE_MS = 30;
+
+function parsePhaseResult(payload: Record<string, unknown>): PhaseResult {
+	const p = payload as PhaseResult;
+	return {
+		messages: Array.isArray(p.messages) ? p.messages : undefined,
+		tools: Array.isArray(p.tools) ? p.tools : undefined,
+		skip: p.skip,
+		reply: p.reply,
+		abort: p.abort,
+	};
+}
+
+function lastDefined<T>(stages: PhaseResult[], pick: (s: PhaseResult) => T | undefined): T | undefined {
+	for (let i = stages.length - 1; i >= 0; i--) {
+		const stage = stages[i];
+		if (stage === undefined) continue;
+		const v = pick(stage);
+		if (v !== undefined) return v;
+	}
+	return undefined;
+}
+
+function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
+	if (stages.length === 0) return undefined;
+	return {
+		messages: lastDefined(stages, (s) => s.messages),
+		tools: lastDefined(stages, (s) => s.tools),
+		skip: stages.some((s) => s.skip),
+		reply: lastDefined(stages, (s) => s.reply),
+		abort: stages.some((s) => s.abort),
+	};
+}
+
 function waitForPhaseResult(
 	sense: CerebrumHandlerCtx["sense"],
 	correlationId: string,
 	timeoutMs: number,
 ): Promise<PhaseResult | undefined> {
 	return new Promise((resolve) => {
-		const timer = setTimeout(() => {
+		const collected: PhaseResult[] = [];
+		let quiescenceTimer: ReturnType<typeof setTimeout> | undefined;
+
+		const finish = () => {
+			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
+			clearTimeout(deadlineTimer);
 			off();
-			resolve(undefined);
-		}, timeoutMs);
+			resolve(mergePhaseResults(collected));
+		};
+
+		const deadlineTimer = setTimeout(finish, timeoutMs);
+
 		const off = sense.subscribe("llm.phase", (event) => {
 			if (event.correlationId !== correlationId) return;
-			clearTimeout(timer);
-			off();
-			const p = event.payload as PhaseResult;
-			resolve({
-				messages: Array.isArray(p.messages) ? p.messages : undefined,
-				tools: Array.isArray(p.tools) ? (p.tools as ToolDefinition[]) : undefined,
-				skip: p.skip,
-				reply: p.reply,
-				abort: p.abort,
-			});
+			collected.push(parsePhaseResult(event.payload));
+			// After first response, open a short quiescence window to collect
+			// additional pipeline stages (e.g. MemoryOrgan after ToolShell).
+			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
+			quiescenceTimer = setTimeout(finish, PHASE_PIPELINE_QUIESCENCE_MS);
 		});
 	});
 }

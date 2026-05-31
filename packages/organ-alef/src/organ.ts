@@ -17,10 +17,48 @@ import { z } from "zod";
 const SESSION_ROOT = join(homedir(), ".alef", "sessions");
 const CONFIG_ROOT = join(homedir(), ".config", "alef");
 
-async function listAllSessions(): Promise<
-	Array<{ id: string; cwdHash: string; mtime: string; firstMessage: string; eventCount: number }>
-> {
-	const results = [];
+interface SessionEntry {
+	id: string;
+	cwdHash: string;
+	mtime: string;
+	name: string | undefined;
+	firstMessage: string;
+	contentFingerprint: string;
+	eventCount: number;
+}
+
+async function parseSession(
+	path: string,
+): Promise<{ name: string | undefined; firstMessage: string; contentFingerprint: string; eventCount: number }> {
+	try {
+		const raw = await readFile(path, "utf-8");
+		const lines = raw.split("\n").filter(Boolean);
+		let name: string | undefined;
+		let firstMessage = "";
+		const contentParts: string[] = [];
+		for (const line of lines) {
+			try {
+				const r = JSON.parse(line) as { bus?: string; type?: string; payload?: { text?: string; name?: string } };
+				if (r.bus === "internal" && r.type === "session.name" && typeof r.payload?.name === "string") {
+					name = r.payload.name;
+				}
+				if (r.bus === "sense" && r.type === "dialog.message") {
+					const text = (r.payload?.text ?? "").replace(/\n/g, " ");
+					if (!firstMessage) firstMessage = text.slice(0, 80);
+					if (contentParts.length < 20) contentParts.push(text.slice(0, 200));
+				}
+			} catch {
+				break;
+			}
+		}
+		return { name, firstMessage, contentFingerprint: contentParts.join(" "), eventCount: lines.length };
+	} catch {
+		return { name: undefined, firstMessage: "", contentFingerprint: "", eventCount: 0 };
+	}
+}
+
+async function listAllSessions(): Promise<SessionEntry[]> {
+	const results: SessionEntry[] = [];
 	try {
 		const cwdHashes = await readdir(SESSION_ROOT);
 		for (const cwdHash of cwdHashes) {
@@ -33,27 +71,14 @@ async function listAllSessions(): Promise<
 					const path = join(dir, entry);
 					try {
 						const s = await stat(path);
-						const raw = await readFile(path, "utf-8");
-						const lines = raw.split("\n").filter(Boolean);
-						let firstMessage = "";
-						for (const line of lines) {
-							try {
-								const r = JSON.parse(line) as { bus?: string; type?: string; payload?: { text?: string } };
-								if (r.bus === "sense" && r.type === "dialog.message") {
-									firstMessage = (r.payload?.text ?? "").slice(0, 80).replace(/\n/g, " ");
-									break;
-								}
-							} catch {
-								break;
-							}
-						}
-						results.push({ id, cwdHash, mtime: s.mtime.toISOString(), firstMessage, eventCount: lines.length });
+						const parsed = await parseSession(path);
+						results.push({ id, cwdHash, mtime: s.mtime.toISOString(), ...parsed });
 					} catch {
 						/* skip unreadable */
 					}
 				}
 			} catch {
-				/* skip inaccessible cwd dir */
+				/* skip inaccessible */
 			}
 		}
 	} catch {
@@ -72,10 +97,7 @@ async function readSessionTurns(id: string, maxTurns = 10): Promise<{ turn: stri
 				const turns: { turn: string; type: string }[] = [];
 				for (const line of raw.split("\n").filter(Boolean)) {
 					try {
-						const r = JSON.parse(line) as {
-							type?: string;
-							payload?: { text?: string; conversationHistory?: unknown[] };
-						};
+						const r = JSON.parse(line) as { type?: string; payload?: { text?: string } };
 						if (r.type === "dialog.message") {
 							const text = r.payload?.text ?? "";
 							if (text) turns.push({ turn: text.slice(0, 200), type: "message" });
@@ -96,15 +118,48 @@ async function readSessionTurns(id: string, maxTurns = 10): Promise<{ turn: stri
 	return [];
 }
 
-async function searchSessions(query: string): Promise<Array<{ id: string; mtime: string; snippet: string }>> {
+async function renameSession(id: string, name: string): Promise<{ ok: boolean; error?: string }> {
+	try {
+		const cwdHashes = await readdir(SESSION_ROOT);
+		for (const cwdHash of cwdHashes) {
+			const path = join(SESSION_ROOT, cwdHash, `${id}.jsonl`);
+			try {
+				await stat(path);
+				const record = JSON.stringify({
+					bus: "internal",
+					type: "session.name",
+					correlationId: "meta",
+					payload: { name },
+					timestamp: Date.now(),
+				});
+				const { appendFile } = await import("node:fs/promises");
+				await appendFile(path, `${record}\n`, "utf-8");
+				return { ok: true };
+			} catch {
+				/* not in this cwdHash */
+			}
+		}
+		return { ok: false, error: `Session '${id}' not found` };
+	} catch (e) {
+		return { ok: false, error: String(e) };
+	}
+}
+
+async function searchSessions(
+	query: string,
+): Promise<Array<{ id: string; mtime: string; name: string | undefined; snippet: string }>> {
 	const all = await listAllSessions();
 	const lower = query.toLowerCase();
 	return all
-		.filter((s) => s.firstMessage.toLowerCase().includes(lower))
+		.filter((s) => {
+			const haystack = `${s.name ?? ""} ${s.firstMessage} ${s.contentFingerprint}`.toLowerCase();
+			return haystack.includes(lower);
+		})
 		.map((s) => ({
 			id: s.id,
 			mtime: s.mtime,
-			snippet: s.firstMessage,
+			name: s.name,
+			snippet: s.name ? `${s.name} — ${s.firstMessage}` : s.firstMessage,
 		}));
 }
 
@@ -172,10 +227,21 @@ export function createAlefApiOrgan() {
 			"motor/alef.sessions.search": typedAction(
 				{
 					name: "alef.sessions.search",
-					description: "Search sessions by keyword in their first user message.",
+					description: "Search sessions by keyword across name, first message, and conversation content.",
 					inputSchema: z.object({ query: z.string().describe("Keyword or phrase to search for") }),
 				},
 				async (ctx) => ({ results: await searchSessions(ctx.payload.query) }),
+			),
+			"motor/alef.sessions.rename": typedAction(
+				{
+					name: "alef.sessions.rename",
+					description: "Give a session a human-readable name so it can be found later.",
+					inputSchema: z.object({
+						id: z.string().describe("8-char session ID"),
+						name: z.string().describe("Concise descriptive name, e.g. 'ToolShell eval and amnesia fix'"),
+					}),
+				},
+				async (ctx) => renameSession(ctx.payload.id, ctx.payload.name),
 			),
 			"motor/alef.sessions.read": typedAction(
 				{
@@ -219,8 +285,9 @@ export function createAlefApiOrgan() {
 		{
 			description: "Query Alef sessions, config, organs, and package manager history.",
 			directives: [
-				"Use alef.sessions.list to discover all sessions. Use alef.sessions.search to find sessions matching a topic. " +
+				"Use alef.sessions.list to discover all sessions. Use alef.sessions.search to find sessions by topic — it searches name, first message, and content. " +
 					"Use alef.sessions.read to get the content of a specific session. " +
+					"Use alef.sessions.rename to give a session a memorable name when asked. " +
 					"Use alef.config.get, alef.organs.list, alef.pm.history for system information. " +
 					"Respond concisely with the most relevant data. Do not write files.",
 			],

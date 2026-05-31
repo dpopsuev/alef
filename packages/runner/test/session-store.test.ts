@@ -344,3 +344,32 @@ describe("SessionStore in-memory cache — ALE-TSK-368", () => {
 		expect(messages).toBe(history); // exact same reference from checkpoint
 	});
 });
+
+describe("SessionStore.name() + setName() — ALE-TSK-387", () => {
+	it("name() returns undefined for a new session", async () => {
+		const store = await SessionStore.create(tmpCwd());
+		expect(store.name()).toBeUndefined();
+	});
+
+	it("setName() stores the name and name() returns it", async () => {
+		const store = await SessionStore.create(tmpCwd());
+		await store.setName("ToolShell promotion + amnesia fix");
+		expect(store.name()).toBe("ToolShell promotion + amnesia fix");
+	});
+
+	it("last setName() wins (WAL)", async () => {
+		const store = await SessionStore.create(tmpCwd());
+		await store.setName("first name");
+		await store.setName("second name");
+		expect(store.name()).toBe("second name");
+	});
+
+	it("name() reads from _cache without disk I/O after resume", async () => {
+		const cwd = tmpCwd();
+		const store = await SessionStore.create(cwd);
+		await store.setName("cached name");
+
+		const resumed = await SessionStore.resume(cwd, store.id);
+		expect(resumed.name()).toBe("cached name");
+	});
+});

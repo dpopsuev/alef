@@ -9,6 +9,27 @@ import type { StorageRecord } from "@dpopsuev/alef-spine";
 import { Input, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { bold, color, getTheme } from "./theme.js";
 
+async function readSessionName(jsonlPath: string): Promise<string | undefined> {
+	try {
+		const raw = await readFile(jsonlPath, "utf-8");
+		const lines = raw.split("\n").filter(Boolean);
+		let name: string | undefined;
+		for (const line of lines) {
+			try {
+				const r = JSON.parse(line) as { bus?: string; type?: string; payload?: { name?: string } };
+				if (r.bus === "internal" && r.type === "session.name" && typeof r.payload?.name === "string") {
+					name = r.payload.name; // last one wins
+				}
+			} catch {
+				break;
+			}
+		}
+		return name;
+	} catch {
+		return undefined;
+	}
+}
+
 async function readFirstUserMessage(jsonlPath: string): Promise<string> {
 	try {
 		const raw = await readFile(jsonlPath, "utf-8");
@@ -33,13 +54,16 @@ export async function pickSession(
 
 	const t = getTheme();
 
-	const previews = await Promise.all(sessions.slice(0, 20).map((s) => readFirstUserMessage(s.path)));
+	const [names, previews] = await Promise.all([
+		Promise.all(sessions.slice(0, 20).map((s) => readSessionName(s.path))),
+		Promise.all(sessions.slice(0, 20).map((s) => readFirstUserMessage(s.path))),
+	]);
 
 	const items: SelectItem[] = [
 		{ value: "__new__", label: "New session", description: "Start fresh" },
 		...sessions.slice(0, 20).map((s, i) => ({
 			value: s.id,
-			label: previews[i] || s.id,
+			label: names[i] ?? previews[i] ?? s.id,
 			description: s.mtime.toISOString().replace("T", " ").slice(0, 16),
 		})),
 	];

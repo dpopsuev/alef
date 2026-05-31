@@ -131,6 +131,17 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	}
 
 	// ---------------------------------------------------------------------------
+	// Promoted tool list — shared by llm.phase handler and currentMetaTools()
+	// ---------------------------------------------------------------------------
+	function getPromotedTools(): ToolDefinition[] {
+		const promoted: ToolDefinition[] = tools.map((t) => {
+			const prefix = t.name.includes(".") ? t.name.slice(0, t.name.indexOf(".")) : t.name;
+			return state.promotedPrefixes.has(prefix) ? t : (strippedTools.find((s) => s.name === t.name) ?? t);
+		});
+		return [...promoted, DESCRIBE_TOOL];
+	}
+
+	// ---------------------------------------------------------------------------
 	// Catalog message builders
 	// ---------------------------------------------------------------------------
 	function buildCatalogMessage(): { role: string; content: string } {
@@ -204,8 +215,9 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 						msgs = evictCatalog(msgs);
 					}
 
-					// Return value auto-published to sense/llm.phase by defineOrgan framework.
-					return Promise.resolve({ messages: msgs } as Record<string, unknown>);
+					// Return updated tool list so organ-llm uses promoted schemas on this
+					// turn without waiting for the next dialog.send() to refresh getTools().
+					return Promise.resolve({ messages: msgs, tools: getPromotedTools() } as Record<string, unknown>);
 				},
 			},
 		},
@@ -259,20 +271,14 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		/**
 		 * Dynamic tool list for getTools callbacks (ALE-TSK-362).
 		 *
-		 * Family promotion: once any tool in a namespace is described, all tools
-		 * sharing that prefix get full schemas injected into subsequent turns.
-		 * Describing "fs.read" promotes fs.edit, fs.write, fs.grep, fs.find —
-		 * no second describe call needed for the sequential read→edit pattern.
+		 * Family promotion: once any tool in a namespace is described or called,
+		 * all tools sharing that prefix get full schemas in the next turn.
+		 * Describing or calling "fs.read" promotes fs.edit, fs.write, etc.
 		 *
-		 * tools.describe is always appended last.
+		 * Also returned by the motor/llm.phase handler so organ-llm refreshes
+		 * schemas on each iteration without waiting for the next dialog.send().
 		 */
-		currentMetaTools(): ToolDefinition[] {
-			const promoted: ToolDefinition[] = tools.map((t) => {
-				const prefix = t.name.includes(".") ? t.name.slice(0, t.name.indexOf(".")) : t.name;
-				return state.promotedPrefixes.has(prefix) ? t : (strippedTools.find((s) => s.name === t.name) ?? t);
-			});
-			return [...promoted, DESCRIBE_TOOL];
-		},
+		currentMetaTools: getPromotedTools,
 		/** Internal keyword search — not exposed to LLM. */
 		search: handleSearch,
 		/**

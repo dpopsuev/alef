@@ -222,6 +222,18 @@ async function runLLMLoop(
 				if (phase.messages && phase.messages.length > 0) {
 					messages.splice(0, messages.length, ...phase.messages);
 				}
+				if (phase.tools && phase.tools.length > 0) {
+					const newTools: Tool[] = phase.tools.map((t) => {
+						const llmName = t.name.replace(/\./g, "_");
+						motorNameByLlmName.set(llmName, t.name);
+						return {
+							name: llmName,
+							description: t.description,
+							parameters: toolInputToJsonSchema(t.inputSchema),
+						};
+					});
+					tools.splice(0, tools.length, ...newTools);
+				}
 			}
 		}
 
@@ -473,6 +485,12 @@ async function runLLMLoop(
 interface PhaseResult {
 	/** Transformed message context. Replaces current messages when present. */
 	messages?: Message[];
+	/**
+	 * Replacement tool list for this turn. When present, the loop re-maps
+	 * these ToolDefinitions into provider Tool objects before the HTTP call.
+	 * Used by ToolShell to inject promoted schemas after prior tool calls.
+	 */
+	tools?: ToolDefinition[];
 	/** Skip the LLM call. Publish reply as dialog.message and break the loop. */
 	skip?: boolean;
 	reply?: string;
@@ -497,6 +515,7 @@ function waitForPhaseResult(
 			const p = event.payload as PhaseResult;
 			resolve({
 				messages: Array.isArray(p.messages) ? p.messages : undefined,
+				tools: Array.isArray(p.tools) ? (p.tools as ToolDefinition[]) : undefined,
 				skip: p.skip,
 				reply: p.reply,
 				abort: p.abort,

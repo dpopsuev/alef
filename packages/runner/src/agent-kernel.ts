@@ -26,6 +26,8 @@ import { SessionLog } from "./event-log-organ.js";
 import { LoopGuard } from "./loop-detector.js";
 import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
+export type CheckpointCallback = (messages: Message[], correlationId: string) => void;
+
 export interface AgentKernelOptions {
 	/**
 	 * The reasoning organ: Reasoner in production, ScriptedReasoner in tests.
@@ -95,12 +97,24 @@ export interface AgentKernelResult {
  */
 export const AgentKernel = {
 	/**
-	 * Build a context assembler prepareStep function.
-	 * Runner-internal infrastructure — not an organ. See ALE-SPC-35 for the
-	 * pluggable ContextOrgan that will replace this via Motor/llm.phase.
-	 *
-	 * When session is undefined (test path), returns a pass-through.
+	 * Build the onCheckpoint callback to pass to Cerebrum.
+	 * Writes a durable internal/llm.checkpoint record to the session after each
+	 * tool round so turnsToMessages can recover context on abort (ALE-TSK-368).
+	 * Returns undefined when session is absent — Cerebrum skips the callback.
 	 */
+	buildCheckpointCallback(session: SessionStore | undefined): CheckpointCallback | undefined {
+		if (!session) return undefined;
+		return (messages: Message[], correlationId: string) => {
+			void session.append({
+				bus: "internal",
+				type: "llm.checkpoint",
+				correlationId,
+				payload: { conversationHistory: messages as unknown as Record<string, unknown>[] },
+				timestamp: Date.now(),
+			});
+		};
+	},
+
 	buildContextAssembler(
 		session: SessionStore | undefined,
 		contextWindow: number,

@@ -302,6 +302,7 @@ const systemPrompt = appendEnvironment(assembled, args.cwd); // date+cwd last
 const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
 
 const prepareStep = AgentKernel.buildContextAssembler(session, model.contextWindow);
+const onCheckpoint = AgentKernel.buildCheckpointCallback(session);
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
 // Reasoner tracks cross-turn in-flight ops and injects pending-operations
@@ -352,6 +353,7 @@ const llmOrgan = scriptedRepliesEnv
 			maxRetryDelayMs: cfg.llm?.maxRetryDelayMs,
 			timeoutMs: cfg.llm?.timeoutMs,
 			prepareStep,
+			onCheckpoint,
 			trackConcurrentOps: args.serve !== undefined,
 			getSignal: () => currentLLMController?.signal,
 			// ToolShell uses llm.phase to inject/evict catalog and refresh schemas per turn.

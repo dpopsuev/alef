@@ -168,7 +168,9 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	outer: for (let i = turns.length - 1; i >= 0; i--) {
 		for (let j = turns[i].events.length - 1; j >= 0; j--) {
 			const e = turns[i].events[j];
-			if (e.bus !== "motor" || e.type !== "dialog.message") continue;
+			const isDialogMessage = e.bus === "motor" && e.type === "dialog.message";
+			const isCheckpoint = e.type === "llm.checkpoint"; // internal bus, written by onCheckpoint
+			if (!isDialogMessage && !isCheckpoint) continue;
 			const hist = e.payload.conversationHistory;
 			if (Array.isArray(hist) && hist.length > 0) {
 				baseHistory = hist as Message[];

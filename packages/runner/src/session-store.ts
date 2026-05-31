@@ -105,21 +105,39 @@ export class SessionStore implements ISessionStore {
 	readonly id: string;
 	readonly path: string;
 
+	// In-memory event cache — written synchronously on every append so that
+	// readers (turns(), hitCounts()) always see the latest records without waiting
+	// for the async JSONL flush. Eliminates the read-before-write race that caused
+	// turnsToMessages to return stale context on mid-generation abort (ALE-BUG-46).
+	private readonly _cache: StorageRecord[] = [];
+
 	private constructor(cwd: string, id: string) {
 		this.id = id;
 		this.path = sessionPath(cwd, id);
 	}
 
-	/** Create a new session. */
+	private static async _warmCache(store: SessionStore): Promise<SessionStore> {
+		try {
+			const raw = await readFile(store.path, "utf-8");
+			const records = raw
+				.split("\n")
+				.filter(Boolean)
+				.map((line) => JSON.parse(line) as StorageRecord);
+			store._cache.push(...records);
+		} catch {
+			// Empty or missing file — cache stays empty.
+		}
+		return store;
+	}
+
 	static async create(cwd: string): Promise<SessionStore> {
 		const id = randomUUID().replace(/-/g, "").slice(0, 8);
 		await ensureDir(cwd);
 		await appendFile(sessionPath(cwd, id), "");
 		await writeFile(latestPath(cwd), id, "utf-8");
-		return new SessionStore(cwd, id);
+		return new SessionStore(cwd, id); // cache starts empty for a new session
 	}
 
-	/** Resume a session by ID. Throws if not found. */
 	static async resume(cwd: string, id: string): Promise<SessionStore> {
 		const path = sessionPath(cwd, id);
 		try {
@@ -128,10 +146,9 @@ export class SessionStore implements ISessionStore {
 			throw new Error(`Session '${id}' not found in ${sessionDir(cwd)}`);
 		}
 		await writeFile(latestPath(cwd), id, "utf-8");
-		return new SessionStore(cwd, id);
+		return SessionStore._warmCache(new SessionStore(cwd, id));
 	}
 
-	/** Resume the most recent session. Returns null if none exists. */
 	static async resumeLatest(cwd: string): Promise<SessionStore | null> {
 		try {
 			const id = (await readFile(latestPath(cwd), "utf-8")).trim();
@@ -141,7 +158,15 @@ export class SessionStore implements ISessionStore {
 		}
 	}
 
-	/** List all sessions for this cwd, newest first. */
+	async append(record: StorageRecord): Promise<void> {
+		this._cache.push(record); // synchronous — immediately visible to turns()
+		await appendFile(this.path, `${JSON.stringify(record)}\n`, "utf-8");
+	}
+
+	events(): Promise<StorageRecord[]> {
+		return Promise.resolve(this._cache.slice());
+	}
+
 	static async list(cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>> {
 		try {
 			const dir = sessionDir(cwd);
@@ -163,33 +188,14 @@ export class SessionStore implements ISessionStore {
 	}
 
 	/**
-	 * Append a raw StorageRecord to the JSONL file. Fire-and-forget safe.
-	 * The record must already have its hash field set (computed by SessionLog).
-	 */
-	async append(record: StorageRecord): Promise<void> {
-		await appendFile(this.path, `${JSON.stringify(record)}\n`, "utf-8");
-	}
-
-	/** Read all StorageRecords from the JSONL file. */
-	async events(): Promise<StorageRecord[]> {
-		try {
-			const raw = await readFile(this.path, "utf-8");
-			return raw
-				.split("\n")
-				.filter(Boolean)
-				.map((line) => JSON.parse(line) as StorageRecord);
-		} catch {
-			return [];
-		}
-	}
-
-	/**
 	 * Group all bus events (not internal records) into Turn[] by correlationId.
 	 * Ordered by first-event timestamp ascending (chronological).
 	 */
 	async turns(): Promise<Turn[]> {
 		const records = await this.events();
-		const busRecords = records.filter((r) => r.bus === "motor" || r.bus === "sense");
+		// Include llm.checkpoint internal records so turnsToMessages can find them
+		// alongside the motor/sense events for the same correlationId (ALE-TSK-368).
+		const busRecords = records.filter((r) => r.bus === "motor" || r.bus === "sense" || r.type === "llm.checkpoint");
 
 		const turnMap = new Map<string, StorageRecord[]>();
 		for (const r of busRecords) {

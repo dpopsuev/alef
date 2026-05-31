@@ -5,244 +5,86 @@
 - Keep answers short and concise
 - No emojis in commits, issues, PR comments, or code
 - No fluff or cheerful filler text
-- Technical prose only, be kind but direct (e.g., "Thanks @user" not "Thanks so much @user!")
+- Technical prose only, be kind but direct
 
 ## Code Quality
 
-- Read files in full before making wide-ranging changes, before editing files you have not already fully inspected, and when the user asks you to investigate or audit something. Do not rely only on search snippets for broad changes.
+- Read files in full before making wide-ranging changes or when investigating something. Do not rely on search snippets for broad changes.
 - No `any` types unless absolutely necessary
 - Check node_modules for external API type definitions instead of guessing
-- **NEVER use inline imports** - no `await import("./foo.js")`, no `import("pkg").Type` in type positions, no dynamic imports for types. Always use standard top-level imports.
-- NEVER remove or downgrade code to fix type errors from outdated dependencies; upgrade the dependency instead
-- Always ask before removing functionality or code that appears to be intentional
-- Do not preserve backward compatibility unless the user explicitly asks for it
-- Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)
-- NEVER modify `packages/ai/src/models.generated.ts` directly. Update `packages/ai/scripts/generate-models.ts` instead.
+- **NEVER use inline imports** — no `await import("./foo.js")`, no `import("pkg").Type` in type positions. Always use standard top-level imports.
+- NEVER remove or downgrade code to fix type errors; upgrade the dependency instead
+- Always ask before removing functionality that appears intentional
+- Do not preserve backward compatibility unless explicitly asked
+
+## Comments
+
+Zero by default. One line only when the WHY is non-obvious to a reader who knows the codebase. Never explain what the code does. Delete:
+
+- What-comments (`// Resolve agent definition` above `resolveInstanceConfig(...)`)
+- Decision lore (`// Using X because Y was slower`)
+- Alternative comparisons (`// Unlike foo(), this doesn't...`)
+- Version tags (`// Added in v0.2`)
+- Future-state markers (`// Replace once X ships`)
+
+Legitimate: external constraints, non-obvious regex, OS/API quirks that would surprise an expert.
 
 ## Commands
 
-- After code changes (not documentation changes): `npm run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
-- Note: `npm run check` does not run tests.
+- After code changes: `npm run check` — get full output, fix all errors and warnings before committing
+- `npm run check` does not run tests
 - NEVER run: `npm run dev`, `npm run build`, `npm test`
-- Only run specific tests if user instructs: `npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
-- Run tests from the package root, not the repo root.
-- If you create or modify a test file, you MUST run that test file and iterate until it passes.
-- When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
-- For `packages/coding-agent/test/suite/`, use `test/suite/harness.ts` plus the faux provider. Do not use real provider APIs, real API keys, or paid tokens.
-- Put issue-specific regressions under `packages/coding-agent/test/suite/regressions/` and name them `<issue-number>-<short-slug>.test.ts`.
-- Commit often in small, coherent checkpoints during implementation work (one logical change per commit) after required checks and relevant tests pass, unless the user explicitly asks you not to commit.
-- Use Conventional Commits for commit messages: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `build`, `ci`, `revert` (format: `type(scope): summary`).
+- Run specific tests from the package root: `npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
+- If you create or modify a test file, run it and iterate until it passes
 
-## Contribution Gate
+## Commits
 
-- This fork is **BDFL-maintained** and **does not accept outside contributions** (see `CONTRIBUTING.md`). The repository remains **open to read** and **open to fork** under the MIT license.
-- Inbound issues and pull requests from strangers may still be auto-closed by `.github/workflows/issue-gate.yml` and `.github/workflows/pr-gate.yml`.
+- One semantic change per commit
+- `type(scope): summary` — lowercase, no period, 72 chars max
+- Types: `feat` `fix` `refactor` `test` `docs` `chore` `ci` `perf`
+- Include `closes ALE-TSK-NNN` when a commit resolves a Scribe task
 
-When creating issues:
+## Organ Framework
 
-- Add `pkg:*` labels to indicate which package(s) the issue affects
-  - Available labels: `pkg:agent`, `pkg:ai`, `pkg:coding-agent`, `pkg:tui`, `pkg:web-ui`
-- If an issue spans multiple packages, add all relevant labels
+Organs live in `packages/organ-*`. Each organ depends only on `@dpopsuev/alef-spine` and `zod`.
 
-When posting issue/PR comments:
+Key spine exports:
+- `defineOrgan(name, actionMap, opts)` — create an organ
+- `typedAction(tool, handler)` / `typedStreamAction(tool, handler)` — typed handlers
+- `tool(name, description, schema)` — OrganTool with `.action()` / `.stream()`; motor key is `motor/${name}`
+- `BaseOrganOptions` / `TimeoutOrganOptions` / `spreadOrganOptions(opts)`
+- `withTruncatedDisplay(data, content, opts?)` — truncate + `_display` block in one call
+- `directive(...lines)` — sugar for `string[]` directives array
 
-- Write the full comment to a temp file and use `gh issue comment --body-file` or `gh pr comment --body-file`
-- Never pass multi-line markdown directly via `--body` in shell commands
-- Preview the exact comment text before posting
-- Post exactly one final comment unless the user explicitly asks for multiple comments
-- If a comment is malformed, delete it immediately, then post one corrected comment
-- Keep comments concise, technical, and in the user's tone
+Action map keys carry the bus prefix: `"motor/fs.read"` subscribes Motor, `"sense/dialog.message"` subscribes Sense.
 
-When closing issues via commit:
+The `llm.phase` seam has `ordered-pipeline` cardinality — multiple organs may subscribe. Responses are collected within a 30ms quiescence window and merged field-by-field.
 
-- Include `fixes #<number>` or `closes #<number>` in the commit message
-- This automatically closes the issue when the commit is merged
+## Memory / Context Scoring
 
-## PR Workflow
+Weights in `ContextWindowPolicy` (`packages/runner/src/turn-assembler.ts`):
+- `queryMatchWeight` — term overlap between turn content and current query (default 0.40)
+- `accessFrequencyWeight` — assembly hit count normalised to [0,1] (default 0.30)
+- `sessionRecencyWeight` — ordinal turn index (not wall-clock) (default 0.30)
 
-- Analyze PRs without pulling locally first
-- If the user approves: create a feature branch, pull PR, rebase on main, apply adjustments, commit, merge into main, push, close PR, and leave a comment in the user's tone
-- You never open PRs yourself. We work in feature branches until everything is according to the user's requirements, then merge into main, and push.
+Unseen turns score `hitCount=1` (neutral), not 0 — cold-start fairness.
 
-## Testing pi Interactive Mode with tmux
+## Architecture
 
-To test pi's TUI in a controlled terminal environment:
+Roadmap: `ALE-DOC-2` in Scribe. Current phase: Phase 1 (Memory Foundation).
 
-```bash
-# Create tmux session with specific dimensions
-tmux new-session -d -s pi-test -x 80 -y 24
+Active specs:
+- `ALE-SPC-55` — Memory Pyramid (five-level context model)
+- `ALE-SPC-57` — TUI render caching
+- `ALE-SPC-54` — Organ SDK (migration of 12 organs pending)
 
-# Start pi from source
-tmux send-keys -t pi-test "cd /Users/badlogic/workspaces/pi-mono && ./pi-test.sh" Enter
-
-# Wait for startup, then capture output
-sleep 3 && tmux capture-pane -t pi-test -p
-
-# Send input
-tmux send-keys -t pi-test "your prompt here" Enter
-
-# Send special keys
-tmux send-keys -t pi-test Escape
-tmux send-keys -t pi-test C-o  # ctrl+o
-
-# Cleanup
-tmux kill-session -t pi-test
-```
-
-## Changelog
-
-Location: `packages/*/CHANGELOG.md` (each package has its own)
-
-### Format
-
-Each changelog uses dated sections (**newest first**):
-
-```markdown
-## [x.y.z] - YYYY-MM-DD
-```
-
-Under each version, use when applicable:
-
-- `### Breaking Changes` - API changes requiring migration
-- `### Added` - New features
-- `### Changed` - Changes to existing functionality
-- `### Fixed` - Bug fixes
-- `### Removed` - Removed features
-
-### Rules
-
-- **Do not** maintain `## [Unreleased]` — record entries under the relevant **`## [x.y.z] - date`** heading (typically the **current lockstep version** in `packages/*/package.json`).
-- Append to existing subsections (e.g., `### Fixed`); avoid duplicate subsection headings in the same version block.
-- **`npm run release:patch`** / **`release:minor`** runs **`scripts/release.mjs`**, which **prepends** a fresh **`## [newVersion] - date`** section above older headings for the next edit cycle.
-- Prefer not rewriting shipped npm-version narrative except for typos or factual corrections.
-
-### Attribution
-
-- **Internal changes (from issues)**: `Fixed foo bar ([#123](https://github.com/earendil-works/pi-mono/issues/123))`
-- **External contributions**: `Added feature X ([#456](https://github.com/earendil-works/pi-mono/pull/456) by [@username](https://github.com/username))`
-
-## Adding a New LLM Provider (packages/ai)
-
-Adding a new provider requires changes across multiple files:
-
-### 1. Core Types (`packages/ai/src/types.ts`)
-
-- Add API identifier to `Api` type union (e.g., `"bedrock-converse-stream"`)
-- Create options interface extending `StreamOptions`
-- Add mapping to `ApiOptionsMap`
-- Add provider name to `KnownProvider` type union
-
-### 2. Provider Implementation (`packages/ai/src/providers/`)
-
-Create provider file exporting:
-
-- `stream<Provider>()` function returning `AssistantMessageEventStream`
-- `streamSimple<Provider>()` for `SimpleStreamOptions` mapping
-- Provider-specific options interface
-- Message/tool conversion functions
-- Response parsing emitting standardized events (`text`, `tool_call`, `thinking`, `usage`, `stop`)
-
-### 3. Provider Exports and Lazy Registration
-
-- Add a package subpath export in `packages/ai/package.json` pointing at `./dist/providers/<provider>.js`
-- Add `export type` re-exports in `packages/ai/src/index.ts` for provider option types that should remain available from the root entry
-- Register the provider in `packages/ai/src/providers/register-builtins.ts` via lazy loader wrappers, do not statically import provider implementation modules there
-- Add credential detection in `packages/ai/src/env-api-keys.ts`
-
-### 4. Model Generation (`packages/ai/scripts/generate-models.ts`)
-
-- Add logic to fetch/parse models from provider source
-- Map to standardized `Model` interface
-
-### 5. Tests (`packages/ai/test/`)
-
-- Always add the provider to `stream.test.ts` with at least one representative model, even if it reuses an existing API implementation such as `openai-completions`.
-- Add the provider to the broader provider matrix where applicable: `tokens.test.ts`, `abort.test.ts`, `empty.test.ts`, `context-overflow.test.ts`, `unicode-surrogate.test.ts`, `tool-call-without-result.test.ts`, `image-tool-result.test.ts`, `total-tokens.test.ts`, `cross-provider-handoff.test.ts`.
-- For `cross-provider-handoff.test.ts`, add at least one provider/model pair. If the provider exposes multiple model families (for example GPT and Claude), add at least one pair per family.
-- For non-standard auth, create utility (e.g., `bedrock-utils.ts`) with credential detection.
-
-### 6. Coding Agent (`packages/coding-agent/`)
-
-- `src/core/model-resolver.ts`: Add default model ID to `defaultModelPerProvider`
-- `src/core/provider-display-names.ts`: Add API-key login display name so `/login` and related UI show the provider for built-in API-key auth.
-- `src/cli/args.ts`: Add env var documentation
-- `README.md`: Add provider setup instructions
-- `docs/providers.md`: Add setup instructions, env var, and `auth.json` key
-
-### 7. Documentation
-
-- `packages/ai/README.md`: Add to providers table, document options/auth, add env vars
-- `packages/ai/CHANGELOG.md`: Add entry under the current **`## [x.y.z] - date`** section (same version as `package.json`)
-
-## Releasing
-
-**Lockstep versioning**: All packages always share the same version number. Every release updates all packages together.
-
-**Version semantics** (no major releases):
-
-- `patch`: Bug fixes and new features
-- `minor`: API breaking changes
-
-### Steps
-
-1. **Update CHANGELOGs**: Ensure each affected `packages/*/CHANGELOG.md` documents changes under the appropriate **`## [x.y.z] - date`** section (usually the version you are about to ship).
-
-2. **Run release script**:
-   ```bash
-   npm run release:patch    # Fixes and additions
-   npm run release:minor    # API breaking changes
-   ```
-
-The script handles: version bump, prepending a new dated section to each changelog, commit, tag, publish, and push.
-
-## **CRITICAL** Git Rules for Parallel Agents **CRITICAL**
-
-Multiple agents may work on different files in the same worktree simultaneously. You MUST follow these rules:
-
-### Committing
+## **CRITICAL** Git Rules
 
 - **ONLY commit files YOU changed in THIS session**
-- ALWAYS include `fixes #<number>` or `closes #<number>` in the commit message when there is a related issue or PR
-- NEVER use `git add -A` or `git add .` - these sweep up changes from other agents
-- ALWAYS use `git add <specific-file-paths>` listing only files you modified
-- Before committing, run `git status` and verify you are only staging YOUR files
-- Track which files you created/modified/deleted during the session
-- It is always fine to include `packages/ai/src/models.generated.ts` in a commit alongside the actual files you want to commit
+- NEVER use `git add -A` or `git add .`
+- ALWAYS use `git add <specific-file-paths>`
+- Run `git status` before committing; verify only your files are staged
 
-### Forbidden Git Operations
+Forbidden: `git reset --hard` · `git checkout .` · `git clean -fd` · `git stash` · `git commit --no-verify`
 
-These commands can destroy other agents' work:
-
-- `git reset --hard` - destroys uncommitted changes
-- `git checkout .` - destroys uncommitted changes
-- `git clean -fd` - deletes untracked files
-- `git stash` - stashes ALL changes including other agents' work
-- `git add -A` / `git add .` - stages other agents' uncommitted work
-- `git commit --no-verify` - bypasses required checks and is never allowed
-
-### Safe Workflow
-
-```bash
-# 1. Check status first
-git status
-
-# 2. Add ONLY your specific files
-git add packages/ai/src/providers/transform-messages.ts
-git add packages/ai/CHANGELOG.md
-
-# 3. Commit
-git commit -m "fix(ai): description"
-
-# 4. Push (pull --rebase if needed, but NEVER reset/checkout)
-git pull --rebase && git push
-```
-
-### If Rebase Conflicts Occur
-
-- Resolve conflicts in YOUR files only
-- If conflict is in a file you didn't modify, abort and ask the user
-- NEVER force push
-
-### User override
-
-If the user instructions conflict with rules set out here, ask for confirmation that they want to override the rules. Only then execute their instructions.
+Rebase conflicts: resolve only in files you modified. Abort and ask if the conflict is in a file you did not touch. Never force push.

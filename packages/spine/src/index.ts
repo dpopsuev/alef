@@ -1,6 +1,7 @@
 export * from "./buses.js";
 export * from "./framework.js";
 export * from "./mcp-organ.js";
+export * from "./organ-sdk.js";
 export * from "./payload.js";
 export * from "./port-registry.js";
 export * from "./session.js";

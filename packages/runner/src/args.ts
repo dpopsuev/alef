@@ -114,7 +114,7 @@ export interface Args {
 	pmOrganNew: string | undefined;
 }
 
-export const DEFAULT_MODEL = "claude-sonnet-4-5";
+export const DEFAULT_MODEL = "claude-sonnet-4-5@20250929";
 
 const USAGE = `
 Usage: alef [options] [prompt]

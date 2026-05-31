@@ -274,7 +274,15 @@ if (blueprintPath) {
 }
 
 const resolvedModelId = args.modelId ?? blueprintModelId ?? cfg.model;
-const model = resolvedModelId ? buildModel(resolvedModelId) : (autoDetectModel() ?? buildModel(DEFAULT_MODEL));
+// Mutable ref — :model colon command updates this so the next send uses the new model.
+let currentModel = resolvedModelId ? buildModel(resolvedModelId) : (autoDetectModel() ?? buildModel(DEFAULT_MODEL));
+const model = currentModel; // alias for backward-compat with code below that uses `model`
+export function setCurrentModel(m: typeof currentModel): void {
+	currentModel = m;
+}
+export function getCurrentModel(): typeof currentModel {
+	return currentModel;
+}
 const resolvedModelDisplay =
 	model.name !== model.id ? `${model.provider}/${model.id} (${model.name})` : `${model.provider}/${model.id}`;
 
@@ -347,7 +355,8 @@ const llmOrgan = scriptedRepliesEnv
 		})
 	: new Cerebrum({
 			model,
-			getApiKey: () => resolveApiKey(model.provider),
+			getModel: () => currentModel,
+			getApiKey: () => resolveApiKey(currentModel.provider),
 			thinking: thinkingLevel,
 			maxRetries: cfg.llm?.maxRetries,
 			maxRetryDelayMs: cfg.llm?.maxRetryDelayMs,
@@ -510,7 +519,16 @@ try {
 		try {
 			await runTuiMode(
 				dialog,
-				{ cwd: args.cwd, modelId: resolvedModelDisplay, sessionId: session.id, contextWindow: model.contextWindow },
+				{
+					cwd: args.cwd,
+					modelId: resolvedModelDisplay,
+					sessionId: session.id,
+					contextWindow: model.contextWindow,
+					getModel: () => currentModel.id,
+					setModel: (id: string) => {
+						currentModel = buildModel(id);
+					},
+				},
 				() => agent.dispose(),
 				setLLMAbortController,
 				toolSlot,

@@ -352,12 +352,16 @@ function getDirectiveAdapter() {
 const scrollBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
 
 // Default to "medium" when the model supports reasoning and no explicit level is set.
-// "medium" = adaptive: model decides when to think, skips for simple queries.
 // Default to "medium" when the model supports reasoning and no explicit level is set.
 // "medium" = adaptive: model decides when to think, skips for simple queries.
+// Haiku models are excluded — the registry marks them reasoning:true but
+// the Anthropic API does not support extended thinking for Haiku.
 // Wrapped in an object so the closure mutation in setThinking is visible to biome.
+const modelSupportsThinking = model.reasoning && !model.id.includes("haiku");
 const thinkingState = {
-	level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
+	level: (args.thinking ?? cfg.thinking ?? (modelSupportsThinking ? "medium" : undefined)) as
+		| ThinkingLevel
+		| undefined,
 };
 
 let currentSession: typeof session | undefined = session;

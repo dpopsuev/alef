@@ -185,6 +185,69 @@ function retryDelayMs(attempt: number, maxDelayMs: number): number {
 	return Math.min(1_000 * 2 ** (attempt - 1), maxDelayMs);
 }
 
+type MotorBus = CerebrumHandlerCtx["motor"];
+type SenseBus = CerebrumHandlerCtx["sense"];
+
+/** Fire motor/llm.phase, collect the ordered-pipeline result, return it. */
+async function runPhase(
+	motor: MotorBus,
+	sense: SenseBus,
+	correlationId: string,
+	messages: Message[],
+	tools: Tool[],
+	turn: number,
+	phaseTimeoutMs: number,
+): Promise<PhaseResult | undefined> {
+	const t0 = Date.now();
+	debugLog("llm:phase:enter", { turn });
+	const phasePromise = waitForPhaseResult(sense, correlationId, phaseTimeoutMs);
+	motor.publish({
+		type: "llm.phase",
+		payload: { messages: messages as unknown[], turn, toolCount: tools.length },
+		correlationId,
+	});
+	const phase = await phasePromise;
+	debugLog("llm:phase:exit", { turn, elapsedMs: Date.now() - t0, modified: !!phase });
+	return phase;
+}
+
+type ToolCall = { name: string; args: Record<string, unknown>; id: string };
+
+/**
+ * Dispatch a batch of tool calls in parallel and collect their sense results.
+ * Each call: motor.publish → waitForToolResult (with timeout) → onToolEnd hook.
+ */
+async function dispatchTools(
+	motor: MotorBus,
+	sense: SenseBus,
+	correlationId: string,
+	toolCalls: ToolCall[],
+	toMotorName: (llmName: string) => string,
+	timeoutMs: number,
+	options: Pick<CerebrumOptions, "onToolStart" | "onToolEnd">,
+): Promise<SenseEvent[]> {
+	return Promise.all(
+		toolCalls.map((tc) => {
+			const motorType = toMotorName(tc.name);
+			const startedAt = Date.now();
+			options.onToolStart?.({ callId: tc.id, name: motorType, args: tc.args });
+			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
+			return waitForToolResult(sense, motorType, tc.id, correlationId, timeoutMs).then((r) => {
+				const displayBlock = extractDisplay(r.payload);
+				options.onToolEnd?.({
+					callId: tc.id,
+					elapsedMs: Date.now() - startedAt,
+					ok: !r.isError,
+					result: payloadToText(r.payload, r.isError, r.errorMessage),
+					display: displayBlock?.text,
+					displayKind: displayBlock?.mimeType,
+				});
+				return r;
+			});
+		}),
+	);
+}
+
 async function runLLMLoop(
 	ctx: CerebrumHandlerCtx,
 	options: CerebrumOptions,
@@ -207,31 +270,19 @@ async function runLLMLoop(
 		const model = options.getModel?.() ?? options.model;
 
 		if (options.phaseTimeoutMs) {
-			const phaseT0 = Date.now();
-			debugLog("llm:phase:enter", { turn });
-			const phasePromise = waitForPhaseResult(sense, correlationId, options.phaseTimeoutMs);
-			motor.publish({
-				type: "llm.phase",
-				payload: { messages: messages as unknown[], turn, toolCount: tools.length },
-				correlationId,
-			});
-			const phase = await phasePromise;
-			debugLog("llm:phase:exit", { turn, elapsedMs: Date.now() - phaseT0, modified: !!phase });
-			if (phase) {
-				if (phase.abort) break;
-				if (phase.skip) {
-					motor.publish({
-						type: options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE,
-						payload: { text: phase.reply ?? "(skipped)" },
-						correlationId,
-					});
-					break;
-				}
-				if (phase.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
-				if (phase.tools && phase.tools.length > 0) {
-					tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
-				}
+			const phase = await runPhase(motor, sense, correlationId, messages, tools, turn, options.phaseTimeoutMs);
+			if (phase?.abort) break;
+			if (phase?.skip) {
+				motor.publish({
+					type: options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE,
+					payload: { text: phase.reply ?? "(skipped)" },
+					correlationId,
+				});
+				break;
 			}
+			if (phase?.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
+			if (phase?.tools && phase.tools.length > 0)
+				tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
 		}
 
 		const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
@@ -392,28 +443,7 @@ async function runLLMLoop(
 			break;
 		}
 
-		const results = await Promise.all(
-			toolCalls.map((tc) => {
-				const motorType = toMotorName(tc.name);
-				const startedAt = Date.now();
-				options.onToolStart?.({ callId: tc.id, name: motorType, args: tc.args });
-				motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
-				return waitForToolResult(sense, motorType, tc.id, correlationId).then((r) => {
-					const displayBlock = extractDisplay(r.payload);
-					const result = payloadToText(r.payload, r.isError, r.errorMessage);
-					options.onToolEnd?.({
-						callId: tc.id,
-						elapsedMs: Date.now() - startedAt,
-						ok: !r.isError,
-						result,
-						display: displayBlock?.text,
-						displayKind: displayBlock?.mimeType,
-					});
-					return r;
-				});
-			}),
-		);
-
+		const results = await dispatchTools(motor, sense, correlationId, toolCalls, toMotorName, timeoutMs, options);
 		for (let i = 0; i < toolCalls.length; i++) {
 			const tc = toolCalls[i];
 			const result = results[i];
@@ -521,18 +551,31 @@ function waitForPhaseResult(
 	});
 }
 
+/**
+ * Wait for sense/<toolName> matching the given toolCallId and correlationId.
+ * Rejects after timeoutMs — the only structural protection against a hung organ
+ * (ALE-BUG-50). Without a timeout here the outer dialog.send deadline is the
+ * only escape, which is 300 s in TUI mode.
+ */
 function waitForToolResult(
 	sense: CerebrumHandlerCtx["sense"],
 	toolName: string,
 	toolCallId: string,
 	correlationId: string,
+	timeoutMs: number,
 ): Promise<SenseEvent> {
 	const subscribedAt = Date.now();
 	debugLog("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
-	return new Promise((resolve) => {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => {
+			off();
+			debugLog("llm:tool:timeout", { name: toolName, elapsedMs: Date.now() - subscribedAt });
+			reject(new Error(`Tool timed out after ${timeoutMs}ms: ${toolName}`));
+		}, timeoutMs);
 		const off = sense.subscribe(toolName, (event) => {
 			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
 				if (event.payload.isFinal === false) return;
+				clearTimeout(timer);
 				off();
 				debugLog("llm:tool:resolved", {
 					name: toolName,

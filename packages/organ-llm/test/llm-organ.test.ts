@@ -27,7 +27,7 @@ function makeHarness() {
 	const recorder = new BusEventRecorder();
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {} });
-	agent.load(dialog).load(new Cerebrum({ model: makeModel() }));
+	agent.load(dialog).load(new Cerebrum({ model: makeModel(), getTools: () => agent.tools }));
 	agent.observe(recorder);
 	return { agent, dialog, recorder, dispose: () => agent.dispose() };
 }
@@ -219,6 +219,7 @@ function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onRespon
 			model: faux.getModel(),
 			apiKey: "faux-key",
 			onResponseChunk: capture,
+			getTools: () => agent.tools,
 		}),
 	);
 	return { agent, dialog, chunks, dispose: () => agent.dispose() };
@@ -281,9 +282,14 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 
 		const agent2 = new Agent();
 		const dialog2 = new DialogOrgan({ sink: () => {} });
-		agent2
-			.load(dialog2)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", onResponseChunk: (c) => chunks.push(c) }));
+		agent2.load(dialog2).load(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				onResponseChunk: (c) => chunks.push(c),
+				getTools: () => agent2.tools,
+			}),
+		);
 		agent2.observe(recorder);
 		disposes.push(() => agent2.dispose());
 
@@ -341,7 +347,11 @@ describe("ALE-BUG-8: partial conversationHistory published on error/abort", () =
 		// The tool call won't resolve but we still publish error on timeout/error.
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", maxRetries: 0 }));
+		agent
+			.load(dialog)
+			.load(
+				new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", maxRetries: 0, getTools: () => agent.tools }),
+			);
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
 
@@ -368,7 +378,9 @@ describe("ALE-BUG-8: partial conversationHistory published on error/abort", () =
 
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent
+			.load(dialog)
+			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
 
@@ -401,7 +413,9 @@ describe("Reasoner — motor/llm.phase seam", () => {
 
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent
+			.load(dialog)
+			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
 
@@ -419,7 +433,14 @@ describe("Reasoner — motor/llm.phase seam", () => {
 
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 50 }));
+		agent.load(dialog).load(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				phaseTimeoutMs: 50,
+				getTools: () => agent.tools,
+			}),
+		);
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
 
@@ -486,7 +507,14 @@ describe("Reasoner — motor/llm.phase seam", () => {
 
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 50 }));
+		agent.load(dialog).load(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				phaseTimeoutMs: 50,
+				getTools: () => agent.tools,
+			}),
+		);
 		disposes.push(() => agent.dispose());
 
 		const reply = await dialog.send("hi", "user", 5_000);
@@ -626,7 +654,9 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent
+			.load(dialog)
+			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
 
@@ -695,7 +725,9 @@ describe("Reasoner — configurable triggerEvent", () => {
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
+		agent
+			.load(dialog)
+			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
 		const reply = await dialog.send("hi", "user", 5_000);

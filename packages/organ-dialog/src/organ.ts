@@ -14,7 +14,7 @@
 
 import { randomUUID } from "node:crypto";
 import type {
-	DelegationStrategy,
+	ExecutionStrategy,
 	MotorEvent,
 	Nerve,
 	Organ,
@@ -80,7 +80,7 @@ export interface DialogOrganOptions {
 // DialogOrgan
 // ---------------------------------------------------------------------------
 
-export class DialogOrgan implements Organ, DelegationStrategy {
+export class DialogOrgan implements Organ, ExecutionStrategy {
 	readonly name = "dialog";
 	readonly description =
 		"Conversation boundary: accumulates history, routes user messages to the LLM, delivers replies.";

@@ -1,5 +1,5 @@
 import http from "node:http";
-import type { DelegationStrategy } from "@dpopsuev/alef-spine";
+import type { ExecutionStrategy } from "@dpopsuev/alef-spine";
 
 function postToChild(endpoint: string, text: string): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -70,7 +70,7 @@ function collectReply(endpoint: string, timeoutMs: number): Promise<string | und
 	});
 }
 
-export class RemoteProcessStrategy implements DelegationStrategy {
+export class RemoteProcessStrategy implements ExecutionStrategy {
 	constructor(private readonly endpoint: string) {}
 
 	async send(text: string, _sender?: string, timeoutMs = 60_000): Promise<string> {

@@ -20,7 +20,7 @@ import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-import type { DelegationStrategy, Organ } from "@dpopsuev/alef-spine";
+import type { ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { EvaluatorOrgan } from "./evaluator-organ.js";
 import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
@@ -60,7 +60,7 @@ export interface WorkspaceFile {
 	content: string;
 }
 
-export interface ScenarioContext extends DelegationStrategy {
+export interface ScenarioContext extends ExecutionStrategy {
 	/** Absolute path to the temp workspace directory. */
 	workspace: string;
 	/** Send a message to the agent and await the reply. */

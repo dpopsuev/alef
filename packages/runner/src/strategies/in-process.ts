@@ -2,9 +2,9 @@ import type { Api, Model } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
-import type { DelegationStrategy, Organ } from "@dpopsuev/alef-spine";
+import type { ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
 
-export class InProcessStrategy implements DelegationStrategy {
+export class InProcessStrategy implements ExecutionStrategy {
 	constructor(
 		private readonly organs: Organ[],
 		private readonly model: Model<Api>,

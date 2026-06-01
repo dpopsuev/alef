@@ -17,6 +17,7 @@ import type {
 	SearchMatch,
 	SearchOptions,
 } from "./backend.js";
+import { applyTextEdit, buildDeclRe } from "./edit-utils.js";
 import { extractBlock, extractSymbols } from "./symbol-extractor.js";
 
 export class StubLectorBackend implements LectorBackend {
@@ -74,9 +75,6 @@ export class StubLectorBackend implements LectorBackend {
 		if (content === undefined) throw new Error(`StubLectorBackend: file not found: ${path}`);
 		for (const { oldText, newText, symbol } of edits) {
 			if (symbol) {
-				// Symbol edit in stub: find the symbol by name, replace its line block.
-				const { extractSymbols } = await import("./symbol-extractor.js");
-				const { extractBlock } = await import("./symbol-extractor.js");
 				const symbols = extractSymbols(content);
 				const block = extractBlock(content, symbols, symbol);
 				if (!block) throw new Error(`lector.edit: symbol '${symbol}' not found in ${path}`);
@@ -84,11 +82,7 @@ export class StubLectorBackend implements LectorBackend {
 				content = [...allLines.slice(0, block.startLine - 1), newText, ...allLines.slice(block.endLine)].join("\n");
 			} else {
 				if (!oldText) throw new Error(`lector.edit: provide oldText or symbol for ${path}`);
-				const first = content.indexOf(oldText);
-				if (first === -1) throw new Error(`lector.edit: oldText not found in ${path}`);
-				const last = content.lastIndexOf(oldText);
-				if (first !== last) throw new Error(`lector.edit: oldText not unique in ${path}`);
-				content = content.slice(0, first) + newText + content.slice(first + oldText.length);
+				content = applyTextEdit(content, oldText, newText, path);
 			}
 		}
 		this.files.set(path, content);
@@ -134,7 +128,7 @@ export class StubLectorBackend implements LectorBackend {
 
 	async callers(symbol: string, opts: CallersOptions = {}): Promise<CallSite[]> {
 		const matches = await this.search(symbol, { maxResults: (opts.maxResults ?? 100) * 2 });
-		const DECL_RE = new RegExp(`\\b(?:function|class|interface|type|const|let|var)\\s+${symbol}\\b`);
+		const DECL_RE = buildDeclRe(symbol);
 		const callers: CallSite[] = [];
 		for (const m of matches) {
 			if (callers.length >= (opts.maxResults ?? 100)) break;

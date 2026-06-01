@@ -45,6 +45,8 @@ export interface FindQueryOptions {
 	cache?: ToolResultCache;
 	signal?: AbortSignal;
 	resolveFdPath?: () => Promise<string | undefined>;
+	/** Override the 30s hard kill deadline on the fd subprocess. Primarily for tests. */
+	subprocessTimeoutMs?: number;
 }
 
 function makeFindCacheKey(input: {
@@ -208,7 +210,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 					return;
 				}
 
-				const FD_SUBPROCESS_TIMEOUT_MS = 30_000;
+				const FD_SUBPROCESS_TIMEOUT_MS = options.subprocessTimeoutMs ?? 30_000;
 
 				const args: string[] = [
 					"--glob",

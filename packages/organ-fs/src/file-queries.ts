@@ -15,6 +15,16 @@ import {
 
 type ToolTextContent = Array<{ type: "text"; text: string }>;
 
+export interface BaseToolDetails {
+	truncation?: TruncationResult;
+	cache?: { hit: boolean; ageMs?: number; ttlMs?: number };
+}
+
+export interface ToolQueryResponse<D extends BaseToolDetails> {
+	content: ToolTextContent;
+	details: D | undefined;
+}
+
 function toPosixPath(value: string): string {
 	return value.split(path.sep).join("/");
 }
@@ -39,20 +49,11 @@ export interface FindToolInput {
 	hidden?: boolean;
 }
 
-export interface FindToolDetails {
-	truncation?: TruncationResult;
+export interface FindToolDetails extends BaseToolDetails {
 	resultLimitReached?: number;
-	cache?: {
-		hit: boolean;
-		ageMs?: number;
-		ttlMs?: number;
-	};
 }
 
-export interface FindToolResponse {
-	content: ToolTextContent;
-	details: FindToolDetails | undefined;
-}
+export type FindToolResponse = ToolQueryResponse<FindToolDetails>;
 
 export interface FindOperations {
 	exists: (absolutePath: string) => Promise<boolean> | boolean;
@@ -94,26 +95,21 @@ function makeFindCacheKey(input: {
 	});
 }
 
-function withFindCacheHit(cacheHit: ToolResultCacheHit | undefined): FindToolResponse | undefined {
-	if (!cacheHit) {
-		return undefined;
-	}
-	const cached = cacheHit.value as FindToolResponse | undefined;
-	if (!cached || !Array.isArray(cached.content)) {
-		return undefined;
-	}
+function withCacheHit<D extends BaseToolDetails>(
+	cacheHit: ToolResultCacheHit | undefined,
+): ToolQueryResponse<D> | undefined {
+	if (!cacheHit) return undefined;
+	const cached = cacheHit.value as ToolQueryResponse<D> | undefined;
+	if (!cached || !Array.isArray(cached.content)) return undefined;
 	const cloned = structuredClone(cached);
 	return {
 		...cloned,
-		details: {
-			...(cloned.details ?? {}),
-			cache: {
-				hit: true,
-				ageMs: cacheHit.ageMs,
-				ttlMs: cacheHit.ttlMs,
-			},
-		},
+		details: { ...(cloned.details ?? ({} as D)), cache: { hit: true, ageMs: cacheHit.ageMs, ttlMs: cacheHit.ttlMs } },
 	};
+}
+
+function withFindCacheHit(cacheHit: ToolResultCacheHit | undefined): FindToolResponse | undefined {
+	return withCacheHit<FindToolDetails>(cacheHit);
 }
 
 export async function executeFindQuery(input: FindToolInput, options: FindQueryOptions): Promise<FindToolResponse> {
@@ -412,21 +408,12 @@ export interface GrepToolInput {
 	countOnly?: boolean;
 }
 
-export interface GrepToolDetails {
-	truncation?: TruncationResult;
+export interface GrepToolDetails extends BaseToolDetails {
 	matchLimitReached?: number;
 	linesTruncated?: boolean;
-	cache?: {
-		hit: boolean;
-		ageMs?: number;
-		ttlMs?: number;
-	};
 }
 
-export interface GrepToolResponse {
-	content: ToolTextContent;
-	details: GrepToolDetails | undefined;
-}
+export type GrepToolResponse = ToolQueryResponse<GrepToolDetails>;
 
 export interface GrepOperations {
 	isDirectory: (absolutePath: string) => Promise<boolean> | boolean;
@@ -510,25 +497,7 @@ function makeGrepCacheKey(input: {
 }
 
 function withGrepCacheHit(cacheHit: ToolResultCacheHit | undefined): GrepToolResponse | undefined {
-	if (!cacheHit) {
-		return undefined;
-	}
-	const cached = cacheHit.value as GrepToolResponse | undefined;
-	if (!cached || !Array.isArray(cached.content)) {
-		return undefined;
-	}
-	const cloned = structuredClone(cached);
-	return {
-		...cloned,
-		details: {
-			...(cloned.details ?? {}),
-			cache: {
-				hit: true,
-				ageMs: cacheHit.ageMs,
-				ttlMs: cacheHit.ttlMs,
-			},
-		},
-	};
+	return withCacheHit<GrepToolDetails>(cacheHit);
 }
 
 export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryOptions): Promise<GrepToolResponse> {
@@ -863,20 +832,11 @@ export interface LsToolInput {
 	limit?: number;
 }
 
-export interface LsToolDetails {
-	truncation?: TruncationResult;
+export interface LsToolDetails extends BaseToolDetails {
 	entryLimitReached?: number;
-	cache?: {
-		hit: boolean;
-		ageMs?: number;
-		ttlMs?: number;
-	};
 }
 
-export interface LsToolResponse {
-	content: ToolTextContent;
-	details: LsToolDetails | undefined;
-}
+export type LsToolResponse = ToolQueryResponse<LsToolDetails>;
 
 interface LsStatResult {
 	isDirectory: () => boolean;
@@ -911,25 +871,7 @@ function makeLsCacheKey(input: { dirPath: string; limit: number }): string {
 }
 
 function withLsCacheHit(cacheHit: ToolResultCacheHit | undefined): LsToolResponse | undefined {
-	if (!cacheHit) {
-		return undefined;
-	}
-	const cached = cacheHit.value as LsToolResponse | undefined;
-	if (!cached || !Array.isArray(cached.content)) {
-		return undefined;
-	}
-	const cloned = structuredClone(cached);
-	return {
-		...cloned,
-		details: {
-			...(cloned.details ?? {}),
-			cache: {
-				hit: true,
-				ageMs: cacheHit.ageMs,
-				ttlMs: cacheHit.ttlMs,
-			},
-		},
-	};
+	return withCacheHit<LsToolDetails>(cacheHit);
 }
 
 export async function executeLsQuery(input: LsToolInput, options: LsQueryOptions): Promise<LsToolResponse> {

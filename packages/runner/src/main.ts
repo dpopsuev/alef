@@ -23,7 +23,7 @@ import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } f
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
-import type { ThinkingLevel } from "@dpopsuev/alef-organ-llm";
+import type { Message, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
 import { Cerebrum, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { createNodeshOrgan } from "@dpopsuev/alef-organ-nodesh";
 import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
@@ -37,14 +37,14 @@ import { resolveApiKey } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
-import { DirectiveContextAssembler } from "./directives.js";
 import { runInteractive } from "./interactive.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
 import { DEFAULT_COMPILED_DEFINITION, loadUserOrgansConfig, materializeBlueprint } from "./materializer.js";
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
-import { appendEnvironment, buildSystemPrompt } from "./prompt.js";
+import { createDefaultScroll, loadWorkspace, registerOrgans } from "./prompt.js";
+import type { PromptScroll } from "./prompt-scroll.js";
 import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
@@ -297,23 +297,27 @@ const resolvedModelDisplay =
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-// Tool list is known after corpus organs are materialized — pass them in.
-// Date+cwd appended LAST (recency position — highest LLM attention).
-const basePrompt = buildSystemPrompt({ tools: corpusOrgans.flatMap((o) => o.tools) });
-const asm = new DirectiveContextAssembler(basePrompt);
-await asm.loadWorkspace(args.cwd); // reads .alef/directives/*.md
-asm.registerOrgans([...corpusOrgans]); // collects organ.directives strings
-// Boot catalog: compact tool list in the system prompt so the LLM skips
-// tools.search and goes straight to tools.describe. Weight=90 puts it
-// just below workspace directives (100) and above organ directives (80).
-asm.register({
-	id: "tool-shell.boot-catalog",
-	layer: "organ",
-	content: buildBootCatalog(corpusOrgans.flatMap((o) => o.tools)),
-	weight: 90,
+// Build the live scroll — rebuilt each turn via prepareStep below.
+const currentScrollInstance = createDefaultScroll({
+	tools: corpusOrgans.flatMap((o) => o.tools),
+	cwd: args.cwd,
 });
-const assembled = asm.build(Math.floor(model.contextWindow * 0.1 * 4)); // ~10% of context in chars
-const systemPrompt = appendEnvironment(assembled, args.cwd); // date+cwd last
+await loadWorkspace(currentScrollInstance, args.cwd);
+registerOrgans(currentScrollInstance, corpusOrgans);
+currentScrollInstance.register({
+	id: "tool-shell.boot-catalog",
+	priority: 900,
+	content: buildBootCatalog(corpusOrgans.flatMap((o) => o.tools)),
+	enabled: true,
+	tags: ["organ", "dynamic"],
+});
+
+export let currentScroll: PromptScroll = currentScrollInstance;
+export function setCurrentScroll(s: PromptScroll): void {
+	currentScroll = s;
+}
+
+const scrollBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
 
 const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
 
@@ -321,7 +325,18 @@ let currentSession: typeof session | undefined = session;
 export function setCurrentSession(s: typeof session): void {
 	currentSession = s;
 }
-const prepareStep = AgentKernel.buildContextAssembler(() => currentSession, model.contextWindow);
+const contextAssembler = AgentKernel.buildContextAssembler(() => currentSession, model.contextWindow);
+
+// prepareStep: (1) run context scoring, (2) inject fresh system prompt from scroll.
+const prepareStep = async (messages: Message[]) => {
+	const scored = await contextAssembler(messages);
+	const freshPrompt = currentScroll.build(scrollBudgetChars);
+	type Msg = { role: string; content: string };
+	return [
+		{ role: "system", content: freshPrompt } as unknown as Message,
+		...((scored as Msg[]).filter((m) => m.role !== "system") as unknown as Message[]),
+	];
+};
 const onCheckpoint = AgentKernel.buildCheckpointCallback(() => currentSession);
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
@@ -396,8 +411,8 @@ const toolShell = createToolShellOrgan({
 const dialog = new DialogOrgan({
 	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
 	getTools: () => toolShell.currentMetaTools(),
-	systemPrompt,
 	maxTurns: args.maxTurns,
+	// systemPrompt intentionally omitted — prepareStep injects it from the live scroll each turn.
 });
 
 const { agent } = AgentKernel.create({

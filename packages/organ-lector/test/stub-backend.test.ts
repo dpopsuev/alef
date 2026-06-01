@@ -96,7 +96,7 @@ describe("StubLectorBackend — write / edit", () => {
 
 	it("edit throws when oldText not unique", async () => {
 		const b = new StubLectorBackend({ "f.ts": "foo foo" });
-		await expect(b.edit("f.ts", [{ oldText: "foo", newText: "bar" }])).rejects.toThrow(/not unique/);
+		await expect(b.edit("f.ts", [{ oldText: "foo", newText: "bar" }])).rejects.toThrow(/matches multiple/);
 	});
 
 	it("edit applies multiple edits in order", async () => {

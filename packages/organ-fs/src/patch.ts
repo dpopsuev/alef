@@ -18,8 +18,9 @@
  * validation, no files are modified.
  */
 
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
+import { atomicWrite } from "./fs-utils.js";
 
 export type PatchOpKind = "add" | "update" | "delete" | "move";
 
@@ -168,6 +169,51 @@ export async function validateOps(ops: PatchOp[], resolveAbs: (p: string) => str
 // Apply
 // ---------------------------------------------------------------------------
 
+type Applier = (
+	op: PatchOp,
+	resolveAbs: (p: string) => string,
+	runFmt: (abs: string) => Promise<void>,
+) => Promise<Pick<PatchResult, "linesAdded" | "linesRemoved">>;
+
+const APPLIERS: Record<PatchOpKind, Applier> = {
+	add: async (op, resolveAbs, runFmt) => {
+		const abs = resolveAbs(op.path);
+		const content = op.lines.map((l) => (l.startsWith("+") ? l.slice(1) : l)).join("\n");
+		await mkdir(dirname(abs), { recursive: true });
+		await atomicWrite(abs, content);
+		await runFmt(abs);
+		return { linesAdded: content.split("\n").length, linesRemoved: 0 };
+	},
+	update: async (op, resolveAbs, runFmt) => {
+		const abs = resolveAbs(op.path);
+		const original = await readFile(abs, "utf-8");
+		const updated = applyUpdateLines(original, op.lines);
+		await atomicWrite(abs, updated);
+		await runFmt(abs);
+		return {
+			linesAdded: Math.max(0, updated.split("\n").length - original.split("\n").length),
+			linesRemoved: Math.max(0, original.split("\n").length - updated.split("\n").length),
+		};
+	},
+	delete: async (op, resolveAbs) => {
+		await unlink(resolveAbs(op.path));
+		return { linesAdded: 0, linesRemoved: 0 };
+	},
+	move: async (op, resolveAbs, runFmt) => {
+		const abs = resolveAbs(op.path);
+		const dest = resolveAbs(op.dest ?? "");
+		await mkdir(dirname(dest), { recursive: true });
+		await rename(abs, dest);
+		if (op.lines.length > 0) {
+			const content = await readFile(dest, "utf-8");
+			const updated = applyUpdateLines(content, op.lines);
+			await atomicWrite(dest, updated);
+			await runFmt(dest);
+		}
+		return { linesAdded: 0, linesRemoved: 0 };
+	},
+};
+
 export async function applyOps(
 	ops: PatchOp[],
 	resolveAbs: (p: string) => string,
@@ -175,39 +221,8 @@ export async function applyOps(
 ): Promise<PatchResult[]> {
 	const results: PatchResult[] = [];
 	for (const op of ops) {
-		const abs = resolveAbs(op.path);
-		let linesAdded = 0;
-		let linesRemoved = 0;
-
-		if (op.kind === "add") {
-			const content = op.lines.map((l) => (l.startsWith("+") ? l.slice(1) : l)).join("\n");
-			linesAdded = content.split("\n").length;
-			await mkdir(dirname(abs), { recursive: true });
-			await writeFile(abs, content, "utf-8");
-			await runFmt(abs);
-		} else if (op.kind === "update") {
-			const original = await readFile(abs, "utf-8");
-			const updated = applyUpdateLines(original, op.lines);
-			const origLines = original.split("\n").length;
-			const newLines = updated.split("\n").length;
-			linesAdded = Math.max(0, newLines - origLines);
-			linesRemoved = Math.max(0, origLines - newLines);
-			await writeFile(abs, updated, "utf-8");
-			await runFmt(abs);
-		} else if (op.kind === "delete") {
-			await unlink(abs);
-		} else if (op.kind === "move") {
-			const dest = resolveAbs(op.dest ?? "");
-			await mkdir(dirname(dest), { recursive: true });
-			await rename(abs, dest);
-			if (op.lines.length > 0) {
-				const content = await readFile(dest, "utf-8");
-				const updated = applyUpdateLines(content, op.lines);
-				await writeFile(dest, updated, "utf-8");
-				await runFmt(dest);
-			}
-		}
-
+		const applier = APPLIERS[op.kind];
+		const { linesAdded, linesRemoved } = await applier(op, resolveAbs, runFmt);
 		results.push({ path: op.path, operation: op.kind, linesAdded, linesRemoved });
 	}
 	return results;

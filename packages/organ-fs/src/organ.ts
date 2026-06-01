@@ -7,9 +7,8 @@
  *   fs.find   — fd file-find
  */
 
-import { randomUUID } from "node:crypto";
 import type { Stats } from "node:fs";
-import { readFile as fsReadFile, rename as fsRename, writeFile as fsWriteFile, mkdir, unlink } from "node:fs/promises";
+import { readFile as fsReadFile, mkdir } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
 import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
@@ -25,6 +24,7 @@ import {
 } from "./file-queries.js";
 import { runFormatter } from "./formatter.js";
 import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
+import { atomicWrite } from "./fs-utils.js";
 import { applyOps, parsePatch, validateOps } from "./patch.js";
 import { assertWithinRoot } from "./path-guard.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
@@ -313,17 +313,6 @@ async function handleRead(
 		},
 		{ text: `Read **${filePath}**${truncNote}`, mimeType: "text/plain" },
 	);
-}
-
-async function atomicWrite(dest: string, content: string): Promise<void> {
-	const tmp = `${dest}.tmp.${randomUUID()}`;
-	try {
-		await fsWriteFile(tmp, content, "utf-8");
-		await fsRename(tmp, dest);
-	} catch (err) {
-		await unlink(tmp).catch(() => {});
-		throw err;
-	}
 }
 
 async function handleWrite(

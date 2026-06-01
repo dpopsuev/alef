@@ -1,11 +1,9 @@
-import type { DelegationStrategy, Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions, DelegationStrategy, Organ } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
-export interface DelegateOrganOptions {
+export interface DelegateOrganOptions extends BaseOrganOptions {
 	strategies: Record<string, DelegationStrategy>;
-	cwd?: string;
-	logger?: OrganLogger;
 }
 
 const AGENT_RUN_TOOL = {

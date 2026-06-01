@@ -14,7 +14,7 @@
  *   lector.write, lector.edit — invalidates: [path] (evicts read + callers cache)
  */
 
-import type { Organ } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import type { LectorBackend } from "./backend.js";
@@ -114,7 +114,7 @@ const CALLERS_TOOL = {
 // Organ factory
 // ---------------------------------------------------------------------------
 
-export interface LectorOrganOptions {
+export interface LectorOrganOptions extends BaseOrganOptions {
 	/**
 	 * Workspace root. All relative paths resolve against this.
 	 * Required when using the default LocalLectorBackend.
@@ -128,8 +128,6 @@ export interface LectorOrganOptions {
 	 * Default: LocalLectorBackend.
 	 */
 	backend?: LectorBackend;
-	/** Restrict which tools are mounted (organ ablation). */
-	actions?: readonly string[];
 }
 
 export function createLectorOrgan(opts: LectorOrganOptions): Organ {

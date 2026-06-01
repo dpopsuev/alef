@@ -19,7 +19,7 @@
  */
 
 import vm from "node:vm";
-import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
@@ -79,7 +79,7 @@ const ALLOWED_BUILTINS = new Set([
 export const DEFAULT_NODESH_TIMEOUT_S = 10;
 export const MAX_NODESH_TIMEOUT_S = 30;
 
-export interface NodeshOrganOptions {
+export interface NodeshOrganOptions extends BaseOrganOptions {
 	cwd: string;
 	/**
 	 * Prelude code evaluated once to seed each fresh context.
@@ -96,10 +96,6 @@ export interface NodeshOrganOptions {
 	defaultTimeoutSeconds?: number;
 	/** Hard cap on LLM-supplied timeout. Default: 30. */
 	maxTimeoutSeconds?: number;
-	/** Allowlist of nodesh action names to mount. Default: all. */
-	actions?: readonly string[];
-	/** Pino-compatible logger. */
-	logger?: OrganLogger;
 }
 
 // ---------------------------------------------------------------------------

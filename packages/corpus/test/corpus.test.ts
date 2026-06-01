@@ -98,7 +98,7 @@ describe("Agent — load()", () => {
 			},
 		});
 
-		const dialog2 = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog2 = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog2);
 		await dialog2.send("hi");
 		expect(capturedTools.map((t) => t.name)).toContain("file_read");
@@ -135,7 +135,7 @@ describe("Agent — load()", () => {
 describe("Agent — dialog.send()", () => {
 	it("resolves with reply text from an echo organ", async () => {
 		const agent = makeAgent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(makeEchoOrgan());
 		const reply = await dialog.send("hello");
 		expect(reply).toBe("echo: hello");
@@ -143,7 +143,7 @@ describe("Agent — dialog.send()", () => {
 
 	it("correlates concurrent prompts independently", async () => {
 		const agent = makeAgent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(makeEchoOrgan());
 		const [a, b, cv] = await Promise.all([dialog.send("one"), dialog.send("two"), dialog.send("three")]);
 		expect([a, b, cv].sort()).toEqual(["echo: one", "echo: three", "echo: two"]);
@@ -151,14 +151,14 @@ describe("Agent — dialog.send()", () => {
 
 	it("rejects when no organ replies within timeout", async () => {
 		const agent = makeAgent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(makeNoopOrgan());
 		await expect(dialog.send("ping", "human", 20)).rejects.toThrow("timed out");
 	});
 
 	it("rejects immediately if dialog is unmounted", async () => {
 		const agent = makeAgent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog);
 		agent.dispose();
 		await expect(dialog.send("hi")).rejects.toThrow();

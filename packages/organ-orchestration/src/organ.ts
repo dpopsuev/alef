@@ -480,22 +480,27 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			description: "Child-Alef lifecycle management and task delegation: spawn, ask, kill, list, status, promote.",
 			labels: ["orchestration", "spawn", "blue-green", "lifecycle"],
 			directives: [
-				`**orchestration organ — task delegation and organ development**
+				`**orchestration organ — process isolation and organ development loop**
 
-Task delegation (ask a child agent):
-1. orchestration.spawn({ blueprintPath? | organs? }) — start a child, get { name, endpoint }
-2. orchestration.ask({ name, prompt }) — send a task, get the reply
-3. orchestration.kill({ name }) — clean up when done
+orchestration.spawn starts a full child Alef process. Startup takes 15–30s.
+Never call spawn in parallel — three concurrent spawns will exceed the API timeout.
+For fast in-process delegation use agent.run instead (available when organ-delegate is loaded).
+
+When to use orchestration:
+- True process isolation (different blueprint, sandboxed environment)
+- The organ development loop (write → stage → eval → promote)
+- Long-running background agents that outlive a single turn
 
 Organ development loop:
 1. Write a new organ to disk as a .ts file using nodesh.eval (export createOrgan(opts))
-2. orchestration.spawn({ organs: ["./path/to/organ.ts"] }) — start a staging Alef
+2. orchestration.spawn({ organs: ["./path/to/organ.ts"] }) — one child at a time
 3. Use eval.run (organ-eval) to validate behaviour against the returned endpoint
 4. If eval passes: orchestration.promote({ organPath }) — adds it to production, triggers blue-green
 5. If eval fails: rewrite the organ via nodesh.eval and repeat from step 2
 
 Rules:
-- orchestration.kill() every child after use — child processes are expensive.
+- Never spawn more than one child at a time.
+- orchestration.kill() every child after use.
 - Always evaluate before promoting. Never promote an untested organ.
 - organPath passed to orchestration.promote must be absolute.`,
 			],

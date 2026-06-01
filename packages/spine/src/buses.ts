@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type ZodTypeAny, z } from "zod";
+import { extractToolCallId } from "./framework.js";
 
 // ---------------------------------------------------------------------------
 // NerveEvent — base shape every bus event must extend.
@@ -296,7 +297,7 @@ export class InProcessNerve {
 	constructor() {
 		this._motor.deadLetterSink = (event) => {
 			const payload = (event as MotorEvent).payload;
-			const toolCallId = typeof payload?.toolCallId === "string" ? payload.toolCallId : undefined;
+			const toolCallId = payload ? extractToolCallId(payload) : undefined;
 			// Cast required: _sense.emit takes Omit<NerveEvent, temporal fields>
 			// but the dead letter carries SenseEvent fields (payload, isError).
 			this._sense.emit({

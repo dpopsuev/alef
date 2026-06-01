@@ -41,6 +41,28 @@ export function formatSize(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+function noTruncResult(
+	content: string,
+	totalLines: number,
+	totalBytes: number,
+	maxLines: number,
+	maxBytes: number,
+): TruncationResult {
+	return {
+		content,
+		truncated: false,
+		truncatedBy: null,
+		totalLines,
+		totalBytes,
+		outputLines: totalLines,
+		outputBytes: totalBytes,
+		lastLinePartial: false,
+		firstLineExceedsLimit: false,
+		maxLines,
+		maxBytes,
+	};
+}
+
 export function truncateHead(content: string, options: TruncationOptions = {}): TruncationResult {
 	const maxLines = options.maxLines ?? DEFAULT_MAX_LINES;
 	const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
@@ -49,19 +71,7 @@ export function truncateHead(content: string, options: TruncationOptions = {}): 
 	const totalLines = lines.length;
 
 	if (totalLines <= maxLines && totalBytes <= maxBytes) {
-		return {
-			content,
-			truncated: false,
-			truncatedBy: null,
-			totalLines,
-			totalBytes,
-			outputLines: totalLines,
-			outputBytes: totalBytes,
-			lastLinePartial: false,
-			firstLineExceedsLimit: false,
-			maxLines,
-			maxBytes,
-		};
+		return noTruncResult(content, totalLines, totalBytes, maxLines, maxBytes);
 	}
 
 	const firstLineBytes = Buffer.byteLength(lines[0] ?? "", "utf-8");
@@ -119,19 +129,7 @@ export function truncateTail(content: string, options: TruncationOptions = {}): 
 	const totalLines = lines.length;
 
 	if (totalLines <= maxLines && totalBytes <= maxBytes) {
-		return {
-			content,
-			truncated: false,
-			truncatedBy: null,
-			totalLines,
-			totalBytes,
-			outputLines: totalLines,
-			outputBytes: totalBytes,
-			lastLinePartial: false,
-			firstLineExceedsLimit: false,
-			maxLines,
-			maxBytes,
-		};
+		return noTruncResult(content, totalLines, totalBytes, maxLines, maxBytes);
 	}
 
 	const out: string[] = [];

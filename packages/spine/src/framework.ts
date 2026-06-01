@@ -208,7 +208,7 @@ function invalidateByPrefix(cache: Map<string, Record<string, unknown>>, types: 
 // Sense builders (shared by framework and organs that need manual Sense)
 // ---------------------------------------------------------------------------
 
-function extractToolCallId(payload: Record<string, unknown>): string | undefined {
+export function extractToolCallId(payload: Record<string, unknown>): string | undefined {
 	return typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
 }
 
@@ -418,6 +418,13 @@ export interface OrganOptions {
 	/** Async initialization called by Agent.ready() before the first event is routed. */
 	ready?: () => Promise<void>;
 	/**
+	 * Called when the organ is unmounted (agent.dispose or hot-reload).
+	 * Use for cleanup that the organ's action handlers cannot do themselves:
+	 * cache clearing, LSP shutdown, child process termination.
+	 * Eliminates the need to monkey-patch the returned Organ object.
+	 */
+	onUnmount?: () => void;
+	/**
 	 * Hard resource limits enforced by middleware before the organ handles any event.
 	 * The LLM never sees these — they are enforced transparently.
 	 */
@@ -597,6 +604,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			return () => {
 				for (const off of unsubs) off();
 				cache.clear();
+				opts.onUnmount?.();
 			};
 		},
 	};

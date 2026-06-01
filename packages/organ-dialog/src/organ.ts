@@ -21,7 +21,7 @@ import type {
 	SensePublishInput,
 	ToolDefinition,
 } from "@dpopsuev/alef-spine";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-spine";
+import { DIALOG_MESSAGE, extractToolCallId } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 export { DIALOG_MESSAGE };
@@ -271,7 +271,7 @@ export function makeMessageSense(
 	isError = false,
 	errorMessage?: string,
 ): SensePublishInput {
-	const toolCallId = typeof motor.payload.toolCallId === "string" ? motor.payload.toolCallId : undefined;
+	const toolCallId = extractToolCallId(motor.payload);
 	return {
 		type: motor.type,
 		correlationId: motor.correlationId,

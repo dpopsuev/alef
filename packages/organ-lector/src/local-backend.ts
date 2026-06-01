@@ -30,6 +30,7 @@ import type {
 	SymbolBlock,
 } from "./backend.js";
 import { BlockCache } from "./block-cache.js";
+import { applyTextEdit, buildDeclRe } from "./edit-utils.js";
 import { LspClient } from "./lsp-client.js";
 import { extractBlock, extractSymbols } from "./symbol-extractor.js";
 import { extractSymbolsTs, isTsFile } from "./ts-symbol-extractor.js";
@@ -304,12 +305,7 @@ export class LocalLectorBackend implements LectorBackend {
 				content = applySymbolEdit(content, symbol, newText, path, cachedEntry?.symbols);
 			} else {
 				if (!oldText) throw new Error("lector.edit: provide oldText or symbol");
-				const first = content.indexOf(oldText);
-				if (first === -1) throw new Error(`lector.edit: oldText not found in ${path}`);
-				const last = content.lastIndexOf(oldText);
-				if (first !== last)
-					throw new Error(`lector.edit: oldText matches multiple locations in ${path} — make it unique`);
-				content = content.slice(0, first) + newText + content.slice(first + oldText.length);
+				content = applyTextEdit(content, oldText, newText, path);
 			}
 		}
 
@@ -485,7 +481,7 @@ export class LocalLectorBackend implements LectorBackend {
 			path: opts.path,
 			maxResults: maxResults * 2,
 		});
-		const DECL_RE = new RegExp(`\\b(?:function|class|interface|type|const|let|var)\\s+${escapeRegex(symbol)}\\b`);
+		const DECL_RE = buildDeclRe(symbol);
 		const callers: CallSite[] = [];
 		for (const m of matches) {
 			if (callers.length >= maxResults) break;
@@ -509,8 +505,4 @@ function matchGlob(pattern: string, name: string): boolean {
 			.replace(/\?/g, ".")}$`,
 	);
 	return re.test(name);
-}
-
-function escapeRegex(s: string): string {
-	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

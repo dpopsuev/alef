@@ -246,21 +246,15 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 			description: "Symbol-aware code reading and editing with LSP caller analysis.",
 			labels: ["code", "symbols", "lsp", "read", "edit"],
 			ready: backend instanceof LocalLectorBackend ? () => backend.warmUp() : undefined,
+			onUnmount:
+				backend instanceof LocalLectorBackend
+					? () => {
+							backend.blockCache.clear();
+							void backend.stopLsp();
+						}
+					: undefined,
 		},
 	);
-
-	// On unmount: clear the backend's block cache if using LocalLectorBackend.
-	if (backend instanceof LocalLectorBackend) {
-		const originalMount = base.mount.bind(base);
-		base.mount = (nerve) => {
-			const unmount = originalMount(nerve);
-			return () => {
-				unmount();
-				backend.blockCache.clear();
-				void backend.stopLsp();
-			};
-		};
-	}
 
 	return base;
 }

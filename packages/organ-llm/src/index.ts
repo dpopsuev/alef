@@ -185,8 +185,74 @@ function retryDelayMs(attempt: number, maxDelayMs: number): number {
 	return Math.min(1_000 * 2 ** (attempt - 1), maxDelayMs);
 }
 
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 type MotorBus = CerebrumHandlerCtx["motor"];
 type SenseBus = CerebrumHandlerCtx["sense"];
+
+/** Apply phase messages and tools to the mutable turn state. */
+function applyPhaseResult(phase: PhaseResult, messages: Message[], tools: Tool[], nameMap: Map<string, string>): void {
+	if (phase.messages && phase.messages.length > 0) {
+		messages.splice(0, messages.length, ...phase.messages);
+	}
+	if (phase.tools && phase.tools.length > 0) {
+		tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
+	}
+}
+
+interface PendingCallClassification {
+	replyCall: ToolCall | undefined;
+	toolCalls: ToolCall[];
+}
+
+/**
+ * The LLM may reply via a dialog.message tool call (replyCall) instead of
+ * plain text, or dispatch real tool calls, or both. Separate them.
+ */
+function classifyPendingCalls(
+	pendingCalls: ToolCall[],
+	toMotorName: (llmName: string) => string,
+): PendingCallClassification {
+	const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
+	const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
+	return { replyCall, toolCalls };
+}
+
+/** Fire token usage callbacks. Only fires onTokenUsage when the agent replied (no tool round follows). */
+function reportUsage(
+	finalMessage: AssistantMessage,
+	turn: number,
+	agentIsReplying: boolean,
+	options: Pick<CerebrumOptions, "onTurnComplete" | "onTokenUsage">,
+): void {
+	if (!finalMessage.usage) return;
+	const usage: TokenUsage = {
+		input: finalMessage.usage.input,
+		output: finalMessage.usage.output,
+		totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
+	};
+	options.onTurnComplete?.(turn, usage);
+	if (agentIsReplying) options.onTokenUsage?.(usage);
+}
+
+/** Append one tool result per tool call to the accumulated message history. */
+function appendToolResults(
+	messages: Message[],
+	toolCalls: ToolCall[],
+	results: SenseEvent[],
+	toMotorName: (llmName: string) => string,
+): void {
+	for (const [toolCall, result] of toolCalls.map((tc, i) => [tc, results[i]] as const)) {
+		messages.push({
+			role: "toolResult",
+			toolCallId: toolCall.id,
+			toolName: toMotorName(toolCall.name),
+			content: [{ type: "text", text: payloadToText(result.payload, result.isError, result.errorMessage) }],
+			isError: result.isError,
+			timestamp: Date.now(),
+		});
+	}
+}
 
 interface LLMCallResult {
 	finalMessage: AssistantMessage | undefined;
@@ -249,20 +315,26 @@ async function callLLM(
 
 	try {
 		for await (const event of stream) {
-			if (event.type === "text_delta") {
-				options.onResponseChunk?.(event.delta);
-			} else if (event.type === "thinking_delta") {
-				options.onThinkingChunk?.(event.delta);
-			} else if (event.type === "toolcall_end") {
-				pendingCalls.push({
-					name: event.toolCall.name,
-					args: event.toolCall.arguments as Record<string, unknown>,
-					id: event.toolCall.id,
-				});
-			} else if (event.type === "done") {
-				finalMessage = event.message;
-			} else if (event.type === "error") {
-				finalMessage = event.error;
+			switch (event.type) {
+				case "text_delta":
+					options.onResponseChunk?.(event.delta);
+					break;
+				case "thinking_delta":
+					options.onThinkingChunk?.(event.delta);
+					break;
+				case "toolcall_end":
+					pendingCalls.push({
+						name: event.toolCall.name,
+						args: event.toolCall.arguments as Record<string, unknown>,
+						id: event.toolCall.id,
+					});
+					break;
+				case "done":
+					finalMessage = event.message;
+					break;
+				case "error":
+					finalMessage = event.error;
+					break;
 			}
 		}
 
@@ -414,6 +486,7 @@ async function runLLMLoop(
 	const timeoutMs = options.timeoutMs ?? 60_000;
 	const maxRetries = options.maxRetries ?? 4;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
+	const replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
 
 	let appRetryCount = 0;
 	let turn = 0;
@@ -426,20 +499,13 @@ async function runLLMLoop(
 			const phase = await runPhase(motor, sense, correlationId, messages, tools, turn, options.phaseTimeoutMs);
 			if (phase?.abort) break;
 			if (phase?.skip) {
-				motor.publish({
-					type: options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE,
-					payload: { text: phase.reply ?? "(skipped)" },
-					correlationId,
-				});
+				motor.publish({ type: replyType, payload: { text: phase.reply ?? "(skipped)" }, correlationId });
 				break;
 			}
-			if (phase?.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
-			if (phase?.tools && phase.tools.length > 0)
-				tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
+			if (phase) applyPhaseResult(phase, messages, tools, nameMap);
 		}
 
 		const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, options);
-
 		if (!finalMessage) break;
 
 		if (shouldRetry(finalMessage, appRetryCount, maxRetries)) {
@@ -450,15 +516,14 @@ async function runLLMLoop(
 				attempt: appRetryCount,
 				reason: finalMessage.errorMessage?.slice(0, 80) ?? "unknown",
 			});
-			await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs(appRetryCount, maxRetryDelayMs)));
+			await sleep(retryDelayMs(appRetryCount, maxRetryDelayMs));
 			continue;
 		}
 
 		messages.push(finalMessage);
 
-		const replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
-		const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
-		const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
+		const { replyCall, toolCalls } = classifyPendingCalls(pendingCalls, toMotorName);
+		const agentIsReplying = toolCalls.length === 0;
 
 		motor.publish({
 			type: "llm.result",
@@ -470,35 +535,15 @@ async function runLLMLoop(
 			correlationId,
 		});
 
-		if (finalMessage.usage) {
-			const usage: TokenUsage = {
-				input: finalMessage.usage.input,
-				output: finalMessage.usage.output,
-				totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
-			};
-			options.onTurnComplete?.(turn, usage);
-			if (toolCalls.length === 0) options.onTokenUsage?.(usage);
-		}
+		reportUsage(finalMessage, turn, agentIsReplying, options);
 
-		if (toolCalls.length === 0) {
+		if (agentIsReplying) {
 			publishReply(motor, correlationId, replyType, finalMessage, replyCall, messages, options);
 			break;
 		}
 
 		const results = await dispatchTools(motor, sense, correlationId, toolCalls, toMotorName, timeoutMs, options);
-		for (let i = 0; i < toolCalls.length; i++) {
-			const tc = toolCalls[i];
-			const result = results[i];
-			messages.push({
-				role: "toolResult",
-				toolCallId: tc.id,
-				toolName: toMotorName(tc.name),
-				content: [{ type: "text", text: payloadToText(result.payload, result.isError, result.errorMessage) }],
-				isError: result.isError,
-				timestamp: Date.now(),
-			});
-		}
-
+		appendToolResults(messages, toolCalls, results, toMotorName);
 		onCheckpoint?.(messages.slice(), ctx.correlationId);
 	}
 }

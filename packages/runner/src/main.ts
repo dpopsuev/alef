@@ -351,7 +351,14 @@ function getDirectiveAdapter() {
 
 const scrollBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
 
-const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
+// Default to "medium" when the model supports reasoning and no explicit level is set.
+// "medium" = adaptive: model decides when to think, skips for simple queries.
+// Default to "medium" when the model supports reasoning and no explicit level is set.
+// "medium" = adaptive: model decides when to think, skips for simple queries.
+// Wrapped in an object so the closure mutation in setThinking is visible to biome.
+const thinkingState = {
+	level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
+};
 
 let currentSession: typeof session | undefined = session;
 export function setCurrentSession(s: typeof session): void {
@@ -416,7 +423,7 @@ const llmOrgan = scriptedRepliesEnv
 			model,
 			getModel: () => currentModel,
 			getApiKey: () => resolveApiKey(currentModel.provider),
-			thinking: thinkingLevel,
+			getThinking: () => thinkingState.level,
 			maxRetries: cfg.llm?.maxRetries,
 			maxRetryDelayMs: cfg.llm?.maxRetryDelayMs,
 			timeoutMs: cfg.llm?.timeoutMs,
@@ -624,6 +631,10 @@ try {
 					getModel: () => currentModel.id,
 					setModel: (id: string) => {
 						currentModel = buildModel(id);
+					},
+					getThinking: () => thinkingState.level ?? "off",
+					setThinking: (level: string) => {
+						thinkingState.level = level === "off" ? undefined : (level as ThinkingLevel);
 					},
 				},
 				() => agent.dispose(),

@@ -22,6 +22,9 @@ export interface InteractiveOptions {
 	/** Live model getter/setter — enables :model switching without restart. */
 	getModel?: () => string;
 	setModel?: (id: string) => void;
+	/** Live thinking level getter/setter — enables :think toggling without restart. */
+	getThinking?: () => string;
+	setThinking?: (level: string) => void;
 }
 
 export async function runInteractive(

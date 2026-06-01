@@ -317,7 +317,7 @@ export function setCurrentScroll(s: PromptScroll): void {
 	currentScroll = s;
 }
 
-function getScrollAdapter() {
+function getPromptAdapter() {
 	return {
 		list: () =>
 			currentScroll.list({ enabled: undefined }).map((b) => ({
@@ -631,7 +631,7 @@ try {
 					});
 					agent.reload(newOrgan);
 				},
-				getScrollAdapter,
+				getPromptAdapter,
 			);
 		} finally {
 			process.stderr.write = originalStderrWrite;

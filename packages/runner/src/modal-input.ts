@@ -59,7 +59,7 @@ export const COLON_COMMANDS: Record<string, string> = {
 	":model": "Change model — :model <id>",
 	":theme": "Change theme — :theme <name>  (terminal | terminal-light | akko | mono | matrix)",
 	":meta": "Ask the Alef meta-agent — :meta <prompt>  (e.g. :meta list my sessions)",
-	":scroll": "Manage prompt blocks — :scroll list | enable <id> | disable <id> | toggle <id> | reset",
+	":prompt": "Manage system prompt blocks — :prompt list | enable <id> | disable <id> | toggle <id>",
 };
 
 const allCommandNames = Object.keys(COLON_COMMANDS).sort();

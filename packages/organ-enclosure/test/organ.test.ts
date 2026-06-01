@@ -1,41 +1,16 @@
-import type { SenseEvent } from "@dpopsuev/alef-spine";
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { NerveFixture } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createEnclosureOrgan } from "../src/organ.js";
 import { StubSpace } from "../src/space.js";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeNerve() {
-	const nerve = new InProcessNerve();
-	return { nerve, corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
+function fixture() {
+	const f = new NerveFixture();
+	f.mount(createEnclosureOrgan({ stub: true }));
+	return f;
 }
-
-function publishMotor(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
-	nerve.asNerve().motor.publish({
-		type,
-		payload: { ...payload, toolCallId: `tc-${Math.random().toString(36).slice(2)}` },
-		correlationId: "test-corr",
-	});
-}
-
-function waitSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
-	return new Promise((resolve) => {
-		const off = nerve.asNerve().sense.subscribe(type, (e) => {
-			off();
-			resolve(e);
-		});
-	});
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("EnclosureOrgan", () => {
-	it("has kind=corpus, name=enclosure, and 8 tools", () => {
+	it("has name=enclosure and 8 tools", () => {
 		const organ = createEnclosureOrgan({ stub: true });
 		expect(organ.name).toBe("enclosure");
 		expect(organ.tools).toHaveLength(8);
@@ -52,139 +27,87 @@ describe("EnclosureOrgan", () => {
 	});
 
 	it("unmount cleans up all motor subscriptions", () => {
-		const { nerve, corpus } = makeNerve();
-		const unmount = createEnclosureOrgan({ stub: true }).mount(corpus);
-		expect(nerve.listenerCount("motor", "enclosure.create")).toBe(1);
+		const f = new NerveFixture();
+		const unmount = f.mount(createEnclosureOrgan({ stub: true }));
+		expect(f.nerve.listenerCount("motor", "enclosure.create")).toBe(1);
 		unmount();
-		expect(nerve.listenerCount("motor", "enclosure.create")).toBe(0);
+		expect(f.nerve.listenerCount("motor", "enclosure.create")).toBe(0);
 	});
 
 	describe("create → diff → commit → destroy lifecycle", () => {
 		it("create returns spaceId and workDir", async () => {
-			const { nerve, corpus } = makeNerve();
-			const unmount = createEnclosureOrgan({ stub: true }).mount(corpus);
-
-			const p = waitSense(nerve, "enclosure.create");
-			publishMotor(nerve, "enclosure.create", { workspace: "/tmp/test-ws" });
-			const result = await p;
-
+			const f = fixture();
+			const result = await f.call("enclosure.create", { workspace: "/tmp/test-ws" });
 			expect(result.isError).toBe(false);
 			expect(typeof result.payload.spaceId).toBe("string");
 			expect(result.payload.workDir).toBe("/tmp/test-ws");
-			unmount();
+			f.dispose();
 		});
 
 		it("diff returns empty changes on fresh space", async () => {
-			const { nerve, corpus } = makeNerve();
-			const unmount = createEnclosureOrgan({ stub: true }).mount(corpus);
-
-			const createP = waitSense(nerve, "enclosure.create");
-			publishMotor(nerve, "enclosure.create", { workspace: "/tmp/ws" });
-			const created = await createP;
+			const f = fixture();
+			const created = await f.call("enclosure.create", { workspace: "/tmp/ws" });
 			const spaceId = created.payload.spaceId as string;
-
-			const diffP = waitSense(nerve, "enclosure.diff");
-			publishMotor(nerve, "enclosure.diff", { spaceId });
-			const diff = await diffP;
-
+			const diff = await f.call("enclosure.diff", { spaceId });
 			expect(diff.isError).toBe(false);
 			expect(diff.payload.changes).toEqual([]);
-			unmount();
+			f.dispose();
 		});
 
 		it("reset clears changes", async () => {
-			const { nerve, corpus } = makeNerve();
-			const unmount = createEnclosureOrgan({ stub: true }).mount(corpus);
-
-			const createP = waitSense(nerve, "enclosure.create");
-			publishMotor(nerve, "enclosure.create", { workspace: "/tmp/ws" });
-			const created = await createP;
+			const f = fixture();
+			const created = await f.call("enclosure.create", { workspace: "/tmp/ws" });
 			const spaceId = created.payload.spaceId as string;
-
-			const resetP = waitSense(nerve, "enclosure.reset");
-			publishMotor(nerve, "enclosure.reset", { spaceId });
-			const reset = await resetP;
-
+			const reset = await f.call("enclosure.reset", { spaceId });
 			expect(reset.isError).toBe(false);
 			expect(reset.payload.ok).toBe(true);
-			unmount();
+			f.dispose();
 		});
 
 		it("snapshot and restore round-trip", async () => {
-			const { nerve, corpus } = makeNerve();
-			const unmount = createEnclosureOrgan({ stub: true }).mount(corpus);
-
-			const createP = waitSense(nerve, "enclosure.create");
-			publishMotor(nerve, "enclosure.create", { workspace: "/tmp/ws" });
-			const created = await createP;
+			const f = fixture();
+			const created = await f.call("enclosure.create", { workspace: "/tmp/ws" });
 			const spaceId = created.payload.spaceId as string;
 
-			const snapP = waitSense(nerve, "enclosure.snapshot");
-			publishMotor(nerve, "enclosure.snapshot", { spaceId, name: "before-edit" });
-			const snap = await snapP;
+			const snap = await f.call("enclosure.snapshot", { spaceId, name: "before-edit" });
 			expect(snap.isError).toBe(false);
 
-			const restP = waitSense(nerve, "enclosure.restore");
-			publishMotor(nerve, "enclosure.restore", { spaceId, name: "before-edit" });
-			const rest = await restP;
+			const rest = await f.call("enclosure.restore", { spaceId, name: "before-edit" });
 			expect(rest.isError).toBe(false);
 			expect(rest.payload.name).toBe("before-edit");
-
-			unmount();
+			f.dispose();
 		});
 
 		it("exec returns output from stub", async () => {
-			const { nerve, corpus } = makeNerve();
-			const unmount = createEnclosureOrgan({ stub: true }).mount(corpus);
-
-			const createP = waitSense(nerve, "enclosure.create");
-			publishMotor(nerve, "enclosure.create", { workspace: "/tmp/ws" });
-			const created = await createP;
+			const f = fixture();
+			const created = await f.call("enclosure.create", { workspace: "/tmp/ws" });
 			const spaceId = created.payload.spaceId as string;
-
-			const execP = waitSense(nerve, "enclosure.exec");
-			publishMotor(nerve, "enclosure.exec", { spaceId, command: ["echo", "hello"] });
-			const result = await execP;
-
+			const result = await f.call("enclosure.exec", { spaceId, command: ["echo", "hello"] });
 			expect(result.isError).toBe(false);
 			expect(result.payload.exitCode).toBe(0);
 			expect(result.payload.output).toContain("echo hello");
-			unmount();
+			f.dispose();
 		});
 
 		it("destroy removes the space from registry", async () => {
-			const { nerve, corpus } = makeNerve();
-			const unmount = createEnclosureOrgan({ stub: true }).mount(corpus);
-
-			const createP = waitSense(nerve, "enclosure.create");
-			publishMotor(nerve, "enclosure.create", { workspace: "/tmp/ws" });
-			const created = await createP;
+			const f = fixture();
+			const created = await f.call("enclosure.create", { workspace: "/tmp/ws" });
 			const spaceId = created.payload.spaceId as string;
 
-			const destroyP = waitSense(nerve, "enclosure.destroy");
-			publishMotor(nerve, "enclosure.destroy", { spaceId });
-			const destroyed = await destroyP;
+			const destroyed = await f.call("enclosure.destroy", { spaceId });
 			expect(destroyed.isError).toBe(false);
 
-			// Second destroy on same spaceId → error
-			const destroy2P = waitSense(nerve, "enclosure.destroy");
-			publishMotor(nerve, "enclosure.destroy", { spaceId });
-			const destroyed2 = await destroy2P;
+			const destroyed2 = await f.call("enclosure.destroy", { spaceId });
 			expect(destroyed2.isError).toBe(true);
-			unmount();
+			f.dispose();
 		});
 
 		it("unknown spaceId returns error", async () => {
-			const { nerve, corpus } = makeNerve();
-			const unmount = createEnclosureOrgan({ stub: true }).mount(corpus);
-
-			const p = waitSense(nerve, "enclosure.diff");
-			publishMotor(nerve, "enclosure.diff", { spaceId: "does-not-exist" });
-			const result = await p;
-
+			const f = fixture();
+			const result = await f.call("enclosure.diff", { spaceId: "does-not-exist" });
 			expect(result.isError).toBe(true);
 			expect(result.errorMessage).toContain("unknown spaceId");
-			unmount();
+			f.dispose();
 		});
 	});
 

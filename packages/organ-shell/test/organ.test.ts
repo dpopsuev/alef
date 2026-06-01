@@ -1,36 +1,15 @@
-import type { SenseEvent } from "@dpopsuev/alef-spine";
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { NerveFixture } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createShellOrgan } from "../src/organ.js";
 
-function makeNerve() {
-	const nerve = new InProcessNerve();
-	return { nerve, n: nerve.asNerve(), cerebrum: nerve.asNerve() };
-}
-
-function publishMotor(
-	nerve: InProcessNerve,
-	type: string,
-	payload: Record<string, unknown>,
-	correlationId = "test-corr",
-) {
-	nerve.publishMotor({ type, payload, correlationId });
-}
-
-/** Collect Sense events until isFinal: true, return the final event. */
-function waitForFinalSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
-	return new Promise((resolve) => {
-		const unsub = nerve.asNerve().sense.subscribe(type, (event) => {
-			if ((event.payload as { isFinal?: boolean }).isFinal || event.isError) {
-				unsub();
-				resolve(event);
-			}
-		});
-	});
+function fixture(opts: { commandPrefix?: string } = {}) {
+	const f = new NerveFixture();
+	f.mount(createShellOrgan({ cwd: process.cwd(), ...opts }));
+	return f;
 }
 
 describe("ShellCorpusOrgan", () => {
-	it("has name=shell, name=shell, and 1 tool", () => {
+	it("has name=shell and 1 tool", () => {
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		expect(organ.name).toBe("shell");
 		expect(organ.tools).toHaveLength(1);
@@ -38,95 +17,53 @@ describe("ShellCorpusOrgan", () => {
 	});
 
 	it("unmount unsubscribes motor handler", () => {
-		const { nerve } = makeNerve();
+		const f = new NerveFixture();
 		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-		expect(nerve.listenerCount("motor", "shell.exec")).toBe(1);
+		const unmount = f.mount(organ);
+		expect(f.nerve.listenerCount("motor", "shell.exec")).toBe(1);
 		unmount();
-		expect(nerve.listenerCount("motor", "shell.exec")).toBe(0);
+		expect(f.nerve.listenerCount("motor", "shell.exec")).toBe(0);
 	});
 
 	it("executes a command and streams Sense/shell.exec, final has output", async () => {
-		const { nerve } = makeNerve();
-		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const finalP = waitForFinalSense(nerve, "shell.exec");
-		publishMotor(nerve, "shell.exec", { command: "echo hello" });
-		const final = await finalP;
-
+		const f = fixture();
+		const final = await f.callStreaming("shell.exec", { command: "echo hello" });
 		expect(final.isError).toBe(false);
 		expect(final.payload.isFinal).toBe(true);
-		const output = String(final.payload.output ?? "");
-		expect(output).toContain("hello");
-		unmount();
+		expect(String(final.payload.output ?? "")).toContain("hello");
+		f.dispose();
 	});
 
 	it("mirrors correlationId across all streaming events", async () => {
-		const { nerve } = makeNerve();
-		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
+		const f = fixture();
 		const correlationId = "corr-stream";
-
-		const finalP = waitForFinalSense(nerve, "shell.exec");
-		publishMotor(nerve, "shell.exec", { command: "echo test" }, correlationId);
-		const final = await finalP;
-
+		const final = await f.callStreaming("shell.exec", { command: "echo test" }, { correlationId });
 		expect(final.correlationId).toBe(correlationId);
-		unmount();
+		f.dispose();
 	});
 
 	it("reports non-zero exit code as isError on final event", async () => {
-		const { nerve } = makeNerve();
-		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const finalP = waitForFinalSense(nerve, "shell.exec");
-		publishMotor(nerve, "shell.exec", { command: "exit 1" });
-		const final = await finalP;
-
+		const f = fixture();
+		const final = await f.callStreaming("shell.exec", { command: "exit 1" });
 		expect(final.isError).toBe(true);
-		unmount();
+		f.dispose();
 	});
 
 	it("applies commandPrefix", async () => {
-		const { nerve } = makeNerve();
-		const organ = createShellOrgan({ cwd: process.cwd(), commandPrefix: "export MYVAR=prefixed" });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const finalP = waitForFinalSense(nerve, "shell.exec");
-		publishMotor(nerve, "shell.exec", { command: "echo $MYVAR" });
-		const final = await finalP;
-
+		const f = fixture({ commandPrefix: "export MYVAR=prefixed" });
+		const final = await f.callStreaming("shell.exec", { command: "echo $MYVAR" });
 		expect(final.isError).toBe(false);
-		const output = String(final.payload.output ?? "");
-		expect(output).toContain("prefixed");
-		unmount();
+		expect(String(final.payload.output ?? "")).toContain("prefixed");
+		f.dispose();
 	});
 });
 
-// ---------------------------------------------------------------------------
-// COLUMNS env var injection
-// ---------------------------------------------------------------------------
-
 describe("ShellCorpusOrgan — COLUMNS injection", () => {
 	it("COLUMNS is set to 220 in spawned command environment", async () => {
-		const { nerve } = makeNerve();
-		const organ = createShellOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForFinalSense(nerve, "shell.exec");
-		nerve.publishMotor({
-			type: "shell.exec",
-			correlationId: "cols-1",
-			payload: { command: "echo COLS=$COLUMNS" },
-		});
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.callStreaming("shell.exec", { command: "echo COLS=$COLUMNS" });
 		expect(result.isError).toBe(false);
-		const output = (result.payload as { output?: string }).output ?? "";
-		expect(output).toContain("COLS=220");
-
-		unmount();
+		expect((result.payload as { output?: string }).output ?? "").toContain("COLS=220");
+		f.dispose();
 	});
 });

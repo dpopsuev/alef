@@ -1,29 +1,11 @@
-import type { SenseEvent } from "@dpopsuev/alef-spine";
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { NerveFixture } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createNodeshOrgan } from "../src/organ.js";
 
-function makeNerve() {
-	const nerve = new InProcessNerve();
-	return { nerve };
-}
-
-function publishMotor(
-	nerve: InProcessNerve,
-	type: string,
-	payload: Record<string, unknown>,
-	correlationId = "test-corr",
-) {
-	nerve.publishMotor({ type, payload, correlationId });
-}
-
-function waitForSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
-	return new Promise((resolve) => {
-		const unsub = nerve.asNerve().sense.subscribe(type, (event) => {
-			unsub();
-			resolve(event);
-		});
-	});
+function fixture(opts: { prelude?: string; defaultTimeoutSeconds?: number } = {}) {
+	const f = new NerveFixture();
+	f.mount(createNodeshOrgan({ cwd: process.cwd(), ...opts }));
+	return f;
 }
 
 describe("NodeshOrgan — organ metadata", () => {
@@ -35,211 +17,121 @@ describe("NodeshOrgan — organ metadata", () => {
 	});
 
 	it("unmount unsubscribes motor handler", () => {
-		const { nerve } = makeNerve();
+		const f = new NerveFixture();
 		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-		expect(nerve.listenerCount("motor", "nodesh.eval")).toBe(1);
+		const unmount = f.mount(organ);
+		expect(f.nerve.listenerCount("motor", "nodesh.eval")).toBe(1);
 		unmount();
-		expect(nerve.listenerCount("motor", "nodesh.eval")).toBe(0);
+		expect(f.nerve.listenerCount("motor", "nodesh.eval")).toBe(0);
 	});
 });
 
 describe("NodeshOrgan — expression evaluation", () => {
 	it("evaluates a simple arithmetic expression", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "1 + 2 + 3" });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "1 + 2 + 3" });
 		expect(result.isError).toBe(false);
 		expect((result.payload as { result: unknown }).result).toBe(6);
-		unmount();
+		f.dispose();
 	});
 
 	it("evaluates object literals and returns structured result", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "({ name: 'alef', version: 1 })" });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "({ name: 'alef', version: 1 })" });
 		expect(result.isError).toBe(false);
 		const r = result.payload as { result: { name: string; version: number } };
 		expect(r.result.name).toBe("alef");
 		expect(r.result.version).toBe(1);
-		unmount();
+		f.dispose();
 	});
 
 	it("explicit result = ... assignment wins over expression return", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "result = 42; 'ignored'" });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "result = 42; 'ignored'" });
 		expect((result.payload as { result: unknown }).result).toBe(42);
-		unmount();
+		f.dispose();
 	});
 
 	it("captures console.log output in stdout field", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "console.log('hello'); console.log('world'); 'done'" });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "console.log('hello'); console.log('world'); 'done'" });
 		expect(result.isError).toBe(false);
 		const payload = result.payload as { stdout: string };
 		expect(payload.stdout).toContain("hello");
 		expect(payload.stdout).toContain("world");
-		unmount();
+		f.dispose();
 	});
 
 	it("supports top-level await", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", {
-			code: "await Promise.resolve(); result = 'async ok'",
-		});
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "await Promise.resolve(); result = 'async ok'" });
 		expect(result.isError).toBe(false);
 		expect((result.payload as { result: unknown }).result).toBe("async ok");
-		unmount();
+		f.dispose();
 	});
 });
 
 describe("NodeshOrgan — prelude", () => {
 	it("prelude bindings are available in eval", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({
-			cwd: process.cwd(),
-			prelude: "const GREETING = 'hello from prelude';",
-		});
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "GREETING" });
-		const result = await p;
-
+		const f = fixture({ prelude: "const GREETING = 'hello from prelude';" });
+		const result = await f.call("nodesh.eval", { code: "GREETING" });
 		expect((result.payload as { result: unknown }).result).toBe("hello from prelude");
-		unmount();
+		f.dispose();
 	});
 });
 
 describe("NodeshOrgan — security", () => {
 	it("blocks require of child_process", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "require('child_process')" });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "require('child_process')" });
 		expect(result.isError).toBe(true);
 		expect(result.errorMessage).toMatch(/allowlist/i);
-		unmount();
+		f.dispose();
 	});
 
 	it("allows require of allowed modules (node:path)", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", {
-			code: "const p = require('path'); typeof p.join",
-		});
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "const p = require('path'); typeof p.join" });
 		expect(result.isError).toBe(false);
 		expect((result.payload as { result: unknown }).result).toBe("function");
-		unmount();
+		f.dispose();
 	});
 
 	it("each call gets a fresh context — no state leak between calls", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		// First call sets a variable.
-		const p1 = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "var SECRET = 42; SECRET" }, "corr-1");
-		await p1;
-
-		// Second call — SECRET must not exist.
-		const p2 = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "typeof SECRET" }, "corr-2");
-		const r2 = await p2;
-
+		const f = fixture();
+		await f.call("nodesh.eval", { code: "var SECRET = 42; SECRET" });
+		const r2 = await f.call("nodesh.eval", { code: "typeof SECRET" });
 		expect((r2.payload as { result: unknown }).result).toBe("undefined");
-		unmount();
+		f.dispose();
 	});
 
 	it("timeout fires on infinite loop", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd(), defaultTimeoutSeconds: 1 });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "while(true){}" });
-		const result = await p;
-
+		const f = fixture({ defaultTimeoutSeconds: 1 });
+		const result = await f.call("nodesh.eval", { code: "while(true){}" }, { timeoutMs: 5_000 });
 		expect(result.isError).toBe(true);
-		unmount();
+		f.dispose();
 	}, 5_000);
 });
 
 describe("NodeshOrgan — error handling", () => {
 	it("publishes error sense on syntax error", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "{{{{ invalid syntax" });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "{{{{ invalid syntax" });
 		expect(result.isError).toBe(true);
-		unmount();
+		f.dispose();
 	});
 
 	it("publishes error sense on runtime error", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "null.property" });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "null.property" });
 		expect(result.isError).toBe(true);
-		unmount();
+		f.dispose();
 	});
 
 	it("mirrors correlationId from motor event", async () => {
-		const { nerve } = makeNerve();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "nodesh.eval");
-		publishMotor(nerve, "nodesh.eval", { code: "1" }, "my-corr-id");
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("nodesh.eval", { code: "1" }, { correlationId: "my-corr-id" });
 		expect(result.correlationId).toBe("my-corr-id");
-		unmount();
+		f.dispose();
 	});
 });

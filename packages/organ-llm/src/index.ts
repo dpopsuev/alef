@@ -548,12 +548,18 @@ function waitForToolResult(
 	toolCallId: string,
 	correlationId: string,
 ): Promise<SenseEvent> {
+	const subscribedAt = Date.now();
+	debugLog("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
 	return new Promise((resolve) => {
 		const off = sense.subscribe(toolName, (event) => {
 			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
-				// Skip streaming intermediate events — isFinal:false means more chunks are coming.
 				if (event.payload.isFinal === false) return;
 				off();
+				debugLog("llm:tool:resolved", {
+					name: toolName,
+					elapsedMs: Date.now() - subscribedAt,
+					isError: event.isError,
+				});
 				resolve(event);
 			}
 		});

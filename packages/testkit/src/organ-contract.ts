@@ -114,8 +114,10 @@ export async function runOrganContract(organ: Organ, opts: OrganContractOptions 
 			if (invalidResult === null) {
 				fail(`probe-invalid:${tool.name}`, `no Sense event received within ${timeoutMs}ms for invalid payload`);
 			} else if (!invalidResult.isError) {
-				// Organs without schema validation won't produce an error here — soft warning
-				ok(`probe-invalid:${tool.name}`);
+				fail(
+					`probe-invalid:${tool.name}`,
+					`expected isError:true for invalid payload, got isError:false — organ must reject schema violations`,
+				);
 			} else {
 				ok(`probe-invalid:${tool.name}`);
 			}

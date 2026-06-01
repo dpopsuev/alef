@@ -15,7 +15,7 @@ import {
 	withDisplay,
 } from "@dpopsuev/alef-spine";
 import { z } from "zod";
-import { getShellEnv } from "./shell.js";
+import { getShellConfig, getShellEnv } from "./shell.js";
 
 // ---------------------------------------------------------------------------
 // Tool definition
@@ -79,10 +79,8 @@ async function* streamExec(
 	const timeoutMs = clampedS > 0 ? clampedS * 1000 : undefined;
 	const resolvedCommand = opts.commandPrefix ? `${opts.commandPrefix}\n${command}` : command;
 
-	const shell = opts.shellPath ?? (process.platform === "win32" ? "cmd.exe" : "/bin/sh");
-	const args = process.platform === "win32" ? ["/c", resolvedCommand] : ["-c", resolvedCommand];
-
-	const child = spawn(shell, args, {
+	const shellCfg = getShellConfig(opts.shellPath);
+	const child = spawn(shellCfg.shell, [...shellCfg.args, resolvedCommand], {
 		cwd: opts.cwd,
 		env: { ...getShellEnv({ binDir: opts.binDir }), COLUMNS: "220", LINES: "50" },
 	});

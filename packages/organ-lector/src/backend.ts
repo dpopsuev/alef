@@ -30,6 +30,8 @@ export interface SymbolBlock {
 	endLine: number;
 	/** Whether the symbol is exported. */
 	exported: boolean;
+	/** 0-indexed column of the identifier token — used for precise LSP prepareCallHierarchy. */
+	startCharacter?: number;
 }
 
 // ---------------------------------------------------------------------------

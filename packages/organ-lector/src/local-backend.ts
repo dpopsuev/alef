@@ -165,6 +165,8 @@ export class LocalLectorBackend implements LectorBackend {
 	/** LSP client — lazy-started on first callers() call for a TS file. */
 	private lsp: LspClient | null = null;
 	private lspStarting: Promise<LspClient> | null = null;
+	/** Permanently broken — spawn or initialize failed; never retry. */
+	private lspBroken = false;
 
 	constructor(opts: LocalLectorBackendOptions) {
 		this.cwd = opts.cwd;
@@ -200,6 +202,7 @@ export class LocalLectorBackend implements LectorBackend {
 
 	private async getLsp(): Promise<LspClient> {
 		if (this.lsp) return this.lsp;
+		if (this.lspBroken) throw new Error("LSP server unavailable for this session");
 		if (!this.lspStarting) {
 			this.lspStarting = LspClient.start(this.cwd)
 				.then((c) => {
@@ -207,6 +210,7 @@ export class LocalLectorBackend implements LectorBackend {
 					return c;
 				})
 				.catch((e) => {
+					this.lspBroken = true;
 					this.lspStarting = null;
 					throw e;
 				});
@@ -487,8 +491,8 @@ export class LocalLectorBackend implements LectorBackend {
 		const lsp = await this.getLsp();
 		await lsp.openFile(fileUrl, content);
 
-		// Use the start of the symbol's declaration line, column 0.
-		return lsp.incomingCalls(fileUrl, sym.startLine - 1, 0, maxResults);
+		// Use the identifier's exact column so prepareCallHierarchy hits the name token.
+		return lsp.incomingCalls(fileUrl, sym.startLine - 1, sym.startCharacter ?? 0, maxResults);
 	}
 
 	private async _callersViaGrep(symbol: string, opts: CallersOptions, maxResults: number): Promise<CallSite[]> {

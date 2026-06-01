@@ -19,7 +19,6 @@
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { CallSite } from "./backend.js";
 
@@ -27,10 +26,9 @@ import type { CallSite } from "./backend.js";
 // Path to typescript-language-server binary
 // ---------------------------------------------------------------------------
 
-const LSP_BIN = join(
-	dirname(fileURLToPath(import.meta.url)),
-	"../../../../node_modules/.bin/typescript-language-server",
-);
+// Resolved via import.meta.resolve so it works regardless of compiled output
+// location or workspace hoisting depth.
+const LSP_BIN = fileURLToPath(import.meta.resolve("typescript-language-server/lib/cli.mjs"));
 
 // ---------------------------------------------------------------------------
 // JSON-RPC framing

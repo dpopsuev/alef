@@ -35,6 +35,10 @@ function lineOf(source: ts.SourceFile, pos: number): number {
 	return source.getLineAndCharacterOfPosition(pos).line + 1; // 1-indexed
 }
 
+function characterOf(source: ts.SourceFile, pos: number): number {
+	return source.getLineAndCharacterOfPosition(pos).character; // 0-indexed
+}
+
 function endLineOf(source: ts.SourceFile, node: ts.Node): number {
 	return lineOf(source, node.getEnd());
 }
@@ -63,6 +67,7 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 				startLine: lineOf(source, node.getStart()),
 				endLine: endLineOf(source, node),
 				exported: hasExportModifier(node),
+				startCharacter: characterOf(source, node.name.getStart(source)),
 			});
 			// Visit children for nested functions (methods covered separately)
 			ts.forEachChild(node.body ?? node, visit);
@@ -79,6 +84,7 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 				startLine: classStart,
 				endLine: classEnd,
 				exported: hasExportModifier(node),
+				startCharacter: characterOf(source, node.name.getStart(source)),
 			});
 			// Extract methods and properties
 			for (const member of node.members) {
@@ -95,6 +101,7 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 							startLine: lineOf(source, member.getStart()),
 							endLine: endLineOf(source, member),
 							exported: false,
+							startCharacter: characterOf(source, name.getStart(source)),
 						});
 					}
 				} else if (ts.isPropertyDeclaration(member)) {
@@ -106,6 +113,7 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 							startLine: lineOf(source, member.getStart()),
 							endLine: endLineOf(source, member),
 							exported: false,
+							startCharacter: characterOf(source, name.getStart(source)),
 						});
 					}
 				}
@@ -121,6 +129,7 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 				startLine: lineOf(source, node.getStart()),
 				endLine: endLineOf(source, node),
 				exported: hasExportModifier(node),
+				startCharacter: characterOf(source, node.name.getStart(source)),
 			});
 			return;
 		}
@@ -133,6 +142,7 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 				startLine: lineOf(source, node.getStart()),
 				endLine: endLineOf(source, node),
 				exported: hasExportModifier(node),
+				startCharacter: characterOf(source, node.name.getStart(source)),
 			});
 			return;
 		}
@@ -157,6 +167,7 @@ export function extractSymbolsTs(content: string, fileName = "file.ts"): SymbolB
 					startLine: lineOf(source, node.getStart()),
 					endLine: endLineOf(source, decl),
 					exported,
+					startCharacter: characterOf(source, decl.name.getStart(source)),
 				});
 			}
 			return;

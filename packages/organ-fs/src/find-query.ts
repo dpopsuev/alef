@@ -208,12 +208,23 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 					return;
 				}
 
+				const FD_SUBPROCESS_TIMEOUT_MS = 30_000;
+
 				const args: string[] = [
 					"--glob",
 					"--color=never",
 					"--no-require-git",
 					"--max-results",
 					String(effectiveLimit),
+					// Always exclude directories that cause hangs in monorepos.
+					"--exclude",
+					"node_modules",
+					"--exclude",
+					".git",
+					"--exclude",
+					"dist",
+					"--exclude",
+					".turbo",
 				];
 				if (hidden !== false) {
 					args.push("--hidden");
@@ -253,8 +264,20 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 					}
 				};
 
+				const fdKillTimer = setTimeout(() => {
+					stopChild?.();
+					settle(() =>
+						reject(
+							new Error(
+								`fs.find: fd timed out after ${FD_SUBPROCESS_TIMEOUT_MS / 1000}s — pattern may be too broad`,
+							),
+						),
+					);
+				}, FD_SUBPROCESS_TIMEOUT_MS);
+
 				const cleanup = () => {
 					rl.close();
+					clearTimeout(fdKillTimer);
 				};
 
 				child.stderr?.on("data", (chunk: Buffer | string) => {

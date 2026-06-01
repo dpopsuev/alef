@@ -1,13 +1,9 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { NerveFixture } from "@dpopsuev/alef-testkit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../src/organ.js";
-
-// ---------------------------------------------------------------------------
-// Test harness helpers
-// ---------------------------------------------------------------------------
 
 let testDir: string;
 
@@ -20,45 +16,11 @@ afterEach(async () => {
 	await rm(testDir, { recursive: true, force: true });
 });
 
-function makeNerve() {
-	const nerve = new InProcessNerve();
-	return { nerve, n: nerve.asNerve(), cerebrum: nerve.asNerve() };
+function fixture() {
+	const f = new NerveFixture();
+	f.mount(createFsOrgan({ cwd: testDir }));
+	return f;
 }
-
-function waitForSense(nerve: InProcessNerve, type: string): Promise<import("@dpopsuev/alef-spine").SenseEvent> {
-	return new Promise((resolve) => {
-		const unsub = nerve.asNerve().sense.subscribe(type, (event) => {
-			unsub();
-			resolve(event);
-		});
-	});
-}
-
-function publishMotor(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
-	nerve.asNerve().motor.publish({
-		type,
-		correlationId: `test-${Math.random().toString(36).slice(2)}`,
-		payload,
-	});
-}
-
-/** Read a file through the organ so FileTracker allows subsequent fs.edit calls. */
-async function readViaOrgan(nerve: InProcessNerve, path: string): Promise<void> {
-	const p = waitForSense(nerve, "fs.read");
-	publishMotor(nerve, "fs.read", { path });
-	await p;
-}
-
-/** Mount a fresh FsOrgan on the nerve and return unmount. */
-function createfsOrgan(nerve: InProcessNerve) {
-	const organ = createFsOrgan({ cwd: testDir });
-	const unmount = organ.mount(nerve.asNerve());
-	return unmount;
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("FsCorpusOrgan", () => {
 	it("has name=fs and 6 tools", () => {
@@ -75,102 +37,63 @@ describe("FsCorpusOrgan", () => {
 	});
 
 	it("unmount unsubscribes all motor handlers", () => {
-		const { nerve } = makeNerve();
+		const f = new NerveFixture();
 		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-		expect(nerve.listenerCount("motor", "fs.read")).toBe(1);
+		const unmount = f.mount(organ);
+		expect(f.nerve.listenerCount("motor", "fs.read")).toBe(1);
 		unmount();
-		expect(nerve.listenerCount("motor", "fs.read")).toBe(0);
-		expect(nerve.listenerCount("motor", "fs.grep")).toBe(0);
-		expect(nerve.listenerCount("motor", "fs.find")).toBe(0);
+		expect(f.nerve.listenerCount("motor", "fs.read")).toBe(0);
+		expect(f.nerve.listenerCount("motor", "fs.grep")).toBe(0);
+		expect(f.nerve.listenerCount("motor", "fs.find")).toBe(0);
 	});
 
 	describe("fs.read", () => {
 		it("reads a file and publishes Sense/fs.read", async () => {
 			await writeFile(join(testDir, "hello.txt"), "line1\nline2\nline3\n");
-			const { nerve } = makeNerve();
-			const organ = createFsOrgan({ cwd: testDir });
-			const unmount = organ.mount(nerve.asNerve());
-
-			const resultP = waitForSense(nerve, "fs.read");
-			publishMotor(nerve, "fs.read", { path: "hello.txt" });
-			const result = await resultP;
-
+			const f = fixture();
+			const result = await f.call("fs.read", { path: "hello.txt" });
 			expect(result.isError).toBe(false);
 			expect(result.payload.content).toContain("line1");
 			expect(result.payload.content).toContain("line3");
-			unmount();
+			f.dispose();
 		});
 
 		it("applies offset", async () => {
 			await writeFile(join(testDir, "lines.txt"), "a\nb\nc\nd\n");
-			const { nerve } = makeNerve();
-			const organ = createFsOrgan({ cwd: testDir });
-			const unmount = organ.mount(nerve.asNerve());
-
-			const resultP = waitForSense(nerve, "fs.read");
-			publishMotor(nerve, "fs.read", { path: "lines.txt", offset: 3 });
-			const result = await resultP;
-
+			const f = fixture();
+			const result = await f.call("fs.read", { path: "lines.txt", offset: 3 });
 			expect(result.isError).toBe(false);
 			const content = result.payload.content as string;
 			expect(content).not.toContain("a\n");
 			expect(content).toContain("c");
-			unmount();
+			f.dispose();
 		});
 
 		it("publishes error on missing file", async () => {
-			const { nerve } = makeNerve();
-			const organ = createFsOrgan({ cwd: testDir });
-			const unmount = organ.mount(nerve.asNerve());
-
-			const resultP = waitForSense(nerve, "fs.read");
-			publishMotor(nerve, "fs.read", { path: "nonexistent.txt" });
-			const result = await resultP;
-
+			const f = fixture();
+			const result = await f.call("fs.read", { path: "nonexistent.txt" });
 			expect(result.isError).toBe(true);
 			expect(result.errorMessage).toMatch(/ENOENT/);
-			unmount();
+			f.dispose();
 		});
 
 		it("mirrors correlationId from motor event", async () => {
 			await writeFile(join(testDir, "foo.txt"), "foo");
-			const { nerve } = makeNerve();
-			const organ = createFsOrgan({ cwd: testDir });
-			const unmount = organ.mount(nerve.asNerve());
+			const f = fixture();
 			const correlationId = "my-correlation-id";
-
-			let received: import("@dpopsuev/alef-spine").SenseEvent | null = null;
-			const unsub = nerve.asNerve().sense.subscribe("fs.read", (e) => {
-				received = e;
-			});
-			nerve.asNerve().motor.publish({
-				type: "fs.read",
-				correlationId,
-				payload: { path: "foo.txt" },
-			});
-			await new Promise((r) => setTimeout(r, 50));
-
-			expect(received).not.toBeNull();
-			expect((received as unknown as import("@dpopsuev/alef-spine").SenseEvent).correlationId).toBe(correlationId);
-			unsub();
-			unmount();
+			const result = await f.call("fs.read", { path: "foo.txt" }, { correlationId });
+			expect(result.correlationId).toBe(correlationId);
+			f.dispose();
 		});
 	});
 
 	describe("fs.grep", () => {
 		it("finds pattern matches and publishes Sense/fs.grep", async () => {
 			await writeFile(join(testDir, "src.ts"), "const foo = 1;\nconst bar = 2;\n");
-			const { nerve } = makeNerve();
-			const organ = createFsOrgan({ cwd: testDir });
-			const unmount = organ.mount(nerve.asNerve());
-
-			const resultP = waitForSense(nerve, "fs.grep");
-			publishMotor(nerve, "fs.grep", { pattern: "foo" });
-			const result = await resultP;
-
+			const f = fixture();
+			const result = await f.call("fs.grep", { pattern: "foo" });
 			expect(result.isError).toBe(false);
-			unmount();
+			f.dispose();
 		});
 	});
 
@@ -179,90 +102,66 @@ describe("FsCorpusOrgan", () => {
 			await writeFile(join(testDir, "a.ts"), "");
 			await writeFile(join(testDir, "b.ts"), "");
 			await writeFile(join(testDir, "c.txt"), "");
-			const { nerve } = makeNerve();
-			const organ = createFsOrgan({ cwd: testDir });
-			const unmount = organ.mount(nerve.asNerve());
-
-			const resultP = waitForSense(nerve, "fs.find");
-			publishMotor(nerve, "fs.find", { pattern: "*.ts" });
-			const result = await resultP;
-
+			const f = fixture();
+			const result = await f.call("fs.find", { pattern: "*.ts" });
 			expect(result.isError).toBe(false);
-			unmount();
+			f.dispose();
 		});
 	});
 
 	describe("fs.write", () => {
 		it("creates a file and returns bytes written", async () => {
-			const { nerve } = makeNerve();
-			createfsOrgan(nerve);
-
-			const resultP = waitForSense(nerve, "fs.write");
-			publishMotor(nerve, "fs.write", { path: "hello.txt", content: "hello world" });
-			const result = await resultP;
-
+			const f = fixture();
+			const result = await f.call("fs.write", { path: "hello.txt", content: "hello world" });
 			expect(result.isError).toBe(false);
 			expect(result.payload.bytes).toBe(11);
-			const written = await readFile(join(testDir, "hello.txt"), "utf-8");
-			expect(written).toBe("hello world");
+			expect(await readFile(join(testDir, "hello.txt"), "utf-8")).toBe("hello world");
+			f.dispose();
 		});
 
 		it("overwrites an existing file", async () => {
 			await writeFile(join(testDir, "existing.txt"), "old content");
-			const { nerve } = makeNerve();
-			createfsOrgan(nerve);
-
-			const resultP = waitForSense(nerve, "fs.write");
-			publishMotor(nerve, "fs.write", { path: "existing.txt", content: "new content" });
-			await resultP;
-
+			const f = fixture();
+			await f.call("fs.write", { path: "existing.txt", content: "new content" });
 			expect(await readFile(join(testDir, "existing.txt"), "utf-8")).toBe("new content");
+			f.dispose();
 		});
 	});
 
 	describe("fs.edit", () => {
 		it("replaces first occurrence of oldText with newText", async () => {
 			await writeFile(join(testDir, "source.ts"), "const x = 1;\nconst y = 2;");
-			const { nerve } = makeNerve();
-			createfsOrgan(nerve);
-			await readViaOrgan(nerve, "source.ts");
-
-			const resultP = waitForSense(nerve, "fs.edit");
-			publishMotor(nerve, "fs.edit", { path: "source.ts", oldText: "const x = 1;", newText: "const x = 99;" });
-			const result = await resultP;
-
+			const f = fixture();
+			await f.call("fs.read", { path: "source.ts" });
+			const result = await f.call("fs.edit", {
+				path: "source.ts",
+				oldText: "const x = 1;",
+				newText: "const x = 99;",
+			});
 			expect(result.isError).toBe(false);
 			expect(result.payload.applied).toBe(true);
-			const after = await readFile(join(testDir, "source.ts"), "utf-8");
-			expect(after).toBe("const x = 99;\nconst y = 2;");
+			expect(await readFile(join(testDir, "source.ts"), "utf-8")).toBe("const x = 99;\nconst y = 2;");
+			f.dispose();
 		});
 
 		it("errors when oldText is not found", async () => {
 			await writeFile(join(testDir, "source.ts"), "const x = 1;");
-			const { nerve } = makeNerve();
-			createfsOrgan(nerve);
-			await readViaOrgan(nerve, "source.ts");
-
-			const resultP = waitForSense(nerve, "fs.edit");
-			publishMotor(nerve, "fs.edit", { path: "source.ts", oldText: "not here", newText: "x" });
-			const result = await resultP;
-
+			const f = fixture();
+			await f.call("fs.read", { path: "source.ts" });
+			const result = await f.call("fs.edit", { path: "source.ts", oldText: "not here", newText: "x" });
 			expect(result.isError).toBe(true);
 			expect(result.errorMessage).toMatch(/not found/);
+			f.dispose();
 		});
 
 		it("errors when oldText matches multiple locations", async () => {
 			await writeFile(join(testDir, "dup.ts"), "foo\nfoo");
-			const { nerve } = makeNerve();
-			createfsOrgan(nerve);
-			await readViaOrgan(nerve, "dup.ts");
-
-			const resultP = waitForSense(nerve, "fs.edit");
-			publishMotor(nerve, "fs.edit", { path: "dup.ts", oldText: "foo", newText: "bar" });
-			const result = await resultP;
-
+			const f = fixture();
+			await f.call("fs.read", { path: "dup.ts" });
+			const result = await f.call("fs.edit", { path: "dup.ts", oldText: "foo", newText: "bar" });
 			expect(result.isError).toBe(true);
 			expect(result.errorMessage).toMatch(/multiple/);
+			f.dispose();
 		});
 	});
 
@@ -270,68 +169,46 @@ describe("FsCorpusOrgan", () => {
 		it("fs.read result is served from cache on second call", async () => {
 			const filePath = join(testDir, "cached.txt");
 			await writeFile(filePath, "v1");
-			const { nerve } = makeNerve();
-			createfsOrgan(nerve);
-
-			// Subscribe before publishing — required for both cached and non-cached paths.
-			const r1p = waitForSense(nerve, "fs.read");
-			publishMotor(nerve, "fs.read", { path: filePath });
-			const r1 = await r1p;
+			const f = fixture();
+			const r1 = await f.call("fs.read", { path: filePath });
 			expect((r1.payload.content as string).trim()).toBe("v1");
 
-			// Mutate on disk — cache should still return v1.
 			await writeFile(filePath, "v2-on-disk");
-			const r2p = waitForSense(nerve, "fs.read");
-			publishMotor(nerve, "fs.read", { path: filePath });
-			const r2 = await r2p;
+			const r2 = await f.call("fs.read", { path: filePath });
 			expect((r2.payload.content as string).trim()).toBe("v1");
+			f.dispose();
 		});
 
 		it("fs.write invalidates the fs.read cache", async () => {
 			const filePath = join(testDir, "inv.txt");
 			await writeFile(filePath, "original");
-			const { nerve } = makeNerve();
-			createfsOrgan(nerve);
+			const f = fixture();
 
-			// Populate cache.
-			const r1p = waitForSense(nerve, "fs.read");
-			publishMotor(nerve, "fs.read", { path: filePath });
-			const r1 = await r1p;
+			const r1 = await f.call("fs.read", { path: filePath });
 			expect((r1.payload.content as string).trim()).toBe("original");
 
-			// Write new content — invalidates cache.
-			const wp = waitForSense(nerve, "fs.write");
-			publishMotor(nerve, "fs.write", { path: filePath, content: "updated" });
-			await wp;
+			await f.call("fs.write", { path: filePath, content: "updated" });
 
-			// Next read should hit disk.
-			const r2p = waitForSense(nerve, "fs.read");
-			publishMotor(nerve, "fs.read", { path: filePath });
-			const r2 = await r2p;
+			const r2 = await f.call("fs.read", { path: filePath });
 			expect((r2.payload.content as string).trim()).toBe("updated");
+			f.dispose();
 		});
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Concurrent write serialization
-// ---------------------------------------------------------------------------
-
 describe("write serialization — file mutation queue", () => {
 	it("serializes concurrent fs.write calls on the same path", async () => {
-		const { nerve } = makeNerve();
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
+		const f = new NerveFixture();
+		f.mount(createFsOrgan({ cwd: testDir }));
 
 		const filePath = "concurrent.txt";
 		const abs = join(testDir, filePath);
 		await writeFile(abs, "");
 
-		// Fire two writes concurrently — second must see first committed.
 		const order: string[] = [];
 
 		const p1 = new Promise<void>((resolve) => {
-			const unsub = nerve.asNerve().sense.subscribe("fs.write", (event) => {
+			const unsub = f.nerve.asNerve().sense.subscribe("fs.write", (event) => {
 				if ((event.payload as { path?: string }).path === filePath) {
 					order.push("write-1");
 					unsub();
@@ -341,7 +218,7 @@ describe("write serialization — file mutation queue", () => {
 		});
 		const p2 = new Promise<void>((resolve) => {
 			let count = 0;
-			const unsub = nerve.asNerve().sense.subscribe("fs.write", () => {
+			const unsub = f.nerve.asNerve().sense.subscribe("fs.write", () => {
 				count++;
 				if (count === 2) {
 					order.push("write-2");
@@ -351,33 +228,38 @@ describe("write serialization — file mutation queue", () => {
 			});
 		});
 
-		nerve.publishMotor({ type: "fs.write", correlationId: "c1", payload: { path: filePath, content: "from-1" } });
-		nerve.publishMotor({ type: "fs.write", correlationId: "c2", payload: { path: filePath, content: "from-2" } });
+		f.nerve.publishMotor({ type: "fs.write", correlationId: "c1", payload: { path: filePath, content: "from-1" } });
+		f.nerve.publishMotor({ type: "fs.write", correlationId: "c2", payload: { path: filePath, content: "from-2" } });
 
 		await Promise.all([p1, p2]);
 
-		// Both writes settled — file must have one of the two values (not corrupted).
 		const content = await readFile(abs, "utf-8");
 		expect(content).toMatch(/^(from-1|from-2)$/);
-		// Order must be deterministic: write-1 before write-2.
 		expect(order).toEqual(["write-1", "write-2"]);
-
-		unmount();
+		f.dispose();
 	});
 
 	it("serializes concurrent fs.edit calls on the same path", async () => {
-		const { nerve } = makeNerve();
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
+		const f = new NerveFixture();
+		f.mount(createFsOrgan({ cwd: testDir }));
 
 		const filePath = "edit-concurrent.txt";
 		await writeFile(join(testDir, filePath), "AAA");
-		await readViaOrgan(nerve, filePath);
+
+		// Read first so FileTracker permits edits. Use raw subscribe before
+		// publish — concurrent serialization tests are sensitive to async ordering.
+		await new Promise<void>((resolve) => {
+			const off = f.nerve.asNerve().sense.subscribe("fs.read", () => {
+				off();
+				resolve();
+			});
+			f.nerve.publishMotor({ type: "fs.read", correlationId: "r0", payload: { path: filePath } });
+		});
 
 		const collect = (n: number) =>
 			new Promise<void>((resolve) => {
 				let count = 0;
-				const unsub = nerve.asNerve().sense.subscribe("fs.edit", () => {
+				const unsub = f.nerve.asNerve().sense.subscribe("fs.edit", () => {
 					count++;
 					if (count === n) {
 						unsub();
@@ -387,284 +269,175 @@ describe("write serialization — file mutation queue", () => {
 			});
 
 		const done = collect(2);
-
-		nerve.publishMotor({
+		f.nerve.publishMotor({
 			type: "fs.edit",
 			correlationId: "e1",
 			payload: { path: filePath, oldText: "AAA", newText: "BBB" },
 		});
-		// Second edit must see the result of the first (BBB → CCC), not race on AAA.
-		nerve.publishMotor({
+		f.nerve.publishMotor({
 			type: "fs.edit",
 			correlationId: "e2",
 			payload: { path: filePath, oldText: "BBB", newText: "CCC" },
 		});
-
 		await done;
 
-		const content = await readFile(join(testDir, filePath), "utf-8");
-		expect(content).toBe("CCC");
-
-		unmount();
+		expect(await readFile(join(testDir, filePath), "utf-8")).toBe("CCC");
+		f.dispose();
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Find regressions (ALE-TSK-227, ALE-TSK-228)
-// ---------------------------------------------------------------------------
-
 describe("fs.find — path-based glob patterns", () => {
 	it("pattern containing / uses --full-path and matches nested files", async () => {
-		const { nerve } = makeNerve();
+		const f = new NerveFixture();
 		await mkdir(join(testDir, "src", "auth"), { recursive: true });
 		await writeFile(join(testDir, "src", "auth", "login.test.ts"), "");
 		await writeFile(join(testDir, "src", "auth", "logout.ts"), "");
 		await writeFile(join(testDir, "other.ts"), "");
+		f.mount(createFsOrgan({ cwd: testDir }));
 
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "fs.find");
-		nerve.publishMotor({ type: "fs.find", correlationId: "r1", payload: { pattern: "src/**/*.test.ts" } });
-		const result = await p;
-
+		const result = await f.call("fs.find", { pattern: "src/**/*.test.ts" });
 		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
 		expect(text).toContain("login.test.ts");
 		expect(text).not.toContain("logout.ts");
 		expect(text).not.toContain("other.ts");
-
-		unmount();
+		f.dispose();
 	});
 
 	it("basename-only pattern still matches without --full-path", async () => {
-		const { nerve } = makeNerve();
+		const f = new NerveFixture();
 		await mkdir(join(testDir, "deep", "nested"), { recursive: true });
 		await writeFile(join(testDir, "deep", "nested", "target.ts"), "");
+		f.mount(createFsOrgan({ cwd: testDir }));
 
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "fs.find");
-		nerve.publishMotor({ type: "fs.find", correlationId: "r2", payload: { pattern: "*.ts" } });
-		const result = await p;
-
+		const result = await f.call("fs.find", { pattern: "*.ts" });
 		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
 		expect(text).toContain("target.ts");
-
-		unmount();
+		f.dispose();
 	});
 });
 
 describe("fs.find — nested gitignore rules", () => {
 	it("gitignore in one sibling does not suppress files in another sibling", async () => {
-		const { nerve } = makeNerve();
-
-		// sibling-a has a .gitignore that ignores *.log
+		const f = new NerveFixture();
 		await mkdir(join(testDir, "sibling-a"), { recursive: true });
 		await writeFile(join(testDir, "sibling-a", ".gitignore"), "*.log\n");
 		await writeFile(join(testDir, "sibling-a", "app.ts"), "");
-
-		// sibling-b should not be affected by sibling-a's .gitignore
 		await mkdir(join(testDir, "sibling-b"), { recursive: true });
 		await writeFile(join(testDir, "sibling-b", "debug.log"), "");
 		await writeFile(join(testDir, "sibling-b", "app.ts"), "");
+		f.mount(createFsOrgan({ cwd: testDir }));
 
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "fs.find");
-		nerve.publishMotor({ type: "fs.find", correlationId: "r3", payload: { pattern: "*.log" } });
-		const result = await p;
-
+		const result = await f.call("fs.find", { pattern: "*.log" });
 		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
-		// sibling-b/debug.log must appear — not suppressed by sibling-a's gitignore
 		expect(text).toContain("debug.log");
-
-		unmount();
+		f.dispose();
 	});
 });
-
-// ---------------------------------------------------------------------------
-// fs.edit — multi-edit, overlap detection, ENOENT/EACCES
-// ---------------------------------------------------------------------------
 
 describe("fs.edit — multi-edit", () => {
 	it("applies multiple disjoint edits atomically", async () => {
-		const { nerve } = makeNerve();
+		const f = new NerveFixture();
 		await writeFile(join(testDir, "multi.ts"), "AAA BBB CCC");
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-		await readViaOrgan(nerve, "multi.ts");
+		f.mount(createFsOrgan({ cwd: testDir }));
+		await f.call("fs.read", { path: "multi.ts" });
 
-		const p = waitForSense(nerve, "fs.edit");
-		nerve.publishMotor({
-			type: "fs.edit",
-			correlationId: "m1",
-			payload: {
-				path: "multi.ts",
-				edits: [
-					{ oldText: "AAA", newText: "111" },
-					{ oldText: "CCC", newText: "333" },
-				],
-			},
+		const result = await f.call("fs.edit", {
+			path: "multi.ts",
+			edits: [
+				{ oldText: "AAA", newText: "111" },
+				{ oldText: "CCC", newText: "333" },
+			],
 		});
-		const result = await p;
-
 		expect(result.isError).toBe(false);
 		expect(await readFile(join(testDir, "multi.ts"), "utf-8")).toBe("111 BBB 333");
 		expect((result.payload as { editCount?: number }).editCount).toBe(2);
-
-		unmount();
+		f.dispose();
 	});
 
 	it("matches edits against original, not incrementally", async () => {
-		const { nerve } = makeNerve();
+		const f = new NerveFixture();
 		await writeFile(join(testDir, "orig.ts"), "AAA AAA");
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-		await readViaOrgan(nerve, "orig.ts");
+		f.mount(createFsOrgan({ cwd: testDir }));
+		await f.call("fs.read", { path: "orig.ts" });
 
-		// Both edits search for "AAA" in original — second edit finds it not unique
-		const p = waitForSense(nerve, "fs.edit");
-		nerve.publishMotor({
-			type: "fs.edit",
-			correlationId: "m2",
-			payload: { path: "orig.ts", edits: [{ oldText: "AAA", newText: "111" }] },
-		});
-		const result = await p;
-		expect(result.isError).toBe(true); // "AAA" appears twice
-
-		unmount();
+		const result = await f.call("fs.edit", { path: "orig.ts", edits: [{ oldText: "AAA", newText: "111" }] });
+		expect(result.isError).toBe(true);
+		f.dispose();
 	});
 
 	it("rejects overlapping edits", async () => {
-		const { nerve } = makeNerve();
+		const f = new NerveFixture();
 		await writeFile(join(testDir, "over.ts"), "ABCDEF");
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-		await readViaOrgan(nerve, "over.ts");
+		f.mount(createFsOrgan({ cwd: testDir }));
+		await f.call("fs.read", { path: "over.ts" });
 
-		const p = waitForSense(nerve, "fs.edit");
-		nerve.publishMotor({
-			type: "fs.edit",
-			correlationId: "m3",
-			payload: {
-				path: "over.ts",
-				edits: [
-					{ oldText: "ABC", newText: "X" },
-					{ oldText: "BCD", newText: "Y" },
-				],
-			},
+		const result = await f.call("fs.edit", {
+			path: "over.ts",
+			edits: [
+				{ oldText: "ABC", newText: "X" },
+				{ oldText: "BCD", newText: "Y" },
+			],
 		});
-		const result = await p;
 		expect(result.isError).toBe(true);
 		expect(result.errorMessage).toMatch(/overlap/i);
-
-		unmount();
+		f.dispose();
 	});
 
 	it("reports ENOENT clearly", async () => {
-		const { nerve } = makeNerve();
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
+		const f = new NerveFixture();
+		f.mount(createFsOrgan({ cwd: testDir }));
 
-		const p = waitForSense(nerve, "fs.edit");
-		nerve.publishMotor({
-			type: "fs.edit",
-			correlationId: "m4",
-			payload: { path: "nonexistent.ts", oldText: "X", newText: "Y" },
-		});
-		const result = await p;
+		const result = await f.call("fs.edit", { path: "nonexistent.ts", oldText: "X", newText: "Y" });
 		expect(result.isError).toBe(true);
 		expect(result.errorMessage).toMatch(/not found|ENOENT/i);
-
-		unmount();
+		f.dispose();
 	});
 });
-
-// ---------------------------------------------------------------------------
-// fs.read — image MIME detection by magic bytes
-// ---------------------------------------------------------------------------
 
 describe("fs.read — binary/image detection", () => {
 	it("rejects a PNG file by magic bytes, not extension", async () => {
-		const { nerve } = makeNerve();
-		// Write minimal PNG magic bytes
 		const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 		await writeFile(join(testDir, "image.notapng"), pngMagic);
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "fs.read");
-		nerve.publishMotor({ type: "fs.read", correlationId: "r1", payload: { path: "image.notapng" } });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("fs.read", { path: "image.notapng" });
 		expect(result.isError).toBe(true);
 		expect(result.errorMessage).toMatch(/binary|image\/png/i);
-
-		unmount();
+		f.dispose();
 	});
 
 	it("rejects a JPEG file", async () => {
-		const { nerve } = makeNerve();
 		const jpegMagic = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
 		await writeFile(join(testDir, "photo.ts"), jpegMagic);
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "fs.read");
-		nerve.publishMotor({ type: "fs.read", correlationId: "r2", payload: { path: "photo.ts" } });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("fs.read", { path: "photo.ts" });
 		expect(result.isError).toBe(true);
 		expect(result.errorMessage).toMatch(/binary|image\/jpeg/i);
-
-		unmount();
+		f.dispose();
 	});
 
 	it("reads a text file with .png extension correctly", async () => {
-		const { nerve } = makeNerve();
 		await writeFile(join(testDir, "data.png"), "export const x = 1;\n");
-		const organ = createFsOrgan({ cwd: testDir });
-		const unmount = organ.mount(nerve.asNerve());
-
-		const p = waitForSense(nerve, "fs.read");
-		nerve.publishMotor({ type: "fs.read", correlationId: "r3", payload: { path: "data.png" } });
-		const result = await p;
-
+		const f = fixture();
+		const result = await f.call("fs.read", { path: "data.png" });
 		expect(result.isError).toBe(false);
 		expect((result.payload as { content?: string }).content).toContain("export const x");
-
-		unmount();
+		f.dispose();
 	});
 });
 
-// ---------------------------------------------------------------------------
-// shell.exec — COLUMNS env var injection
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// ALE-BUG-17 — FileTracker.reads LRU cap
-// ---------------------------------------------------------------------------
-
 import { FileTracker } from "../src/organ.js";
 
-describe("FileTracker.reads capped to prevent memory leak (ALE-BUG-17)", () => {
+describe("FileTracker.reads capped to prevent memory leak", () => {
 	it("size stays bounded after recording more paths than the cap", () => {
 		const tracker = new FileTracker();
-		const CAP = 1000;
-		for (let i = 0; i < 1200; i++) {
-			tracker.record(`/project/src/module${i}.ts`);
-		}
-		expect(tracker.size).toBeLessThanOrEqual(CAP);
+		for (let i = 0; i < 1200; i++) tracker.record(`/project/src/module${i}.ts`);
+		expect(tracker.size).toBeLessThanOrEqual(1000);
 	});
 
 	it("oldest entries evicted first when cap is exceeded", () => {
 		const tracker = new FileTracker();
 		tracker.record("/project/src/early-file.ts");
-		for (let i = 0; i < 1200; i++) {
-			tracker.record(`/project/src/later${i}.ts`);
-		}
+		for (let i = 0; i < 1200; i++) tracker.record(`/project/src/later${i}.ts`);
 		expect(tracker.size).toBeLessThanOrEqual(1000);
 	});
 });

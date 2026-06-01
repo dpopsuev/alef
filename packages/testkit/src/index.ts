@@ -4,6 +4,7 @@
 
 export { BlueprintGauntlet, type GauntletOptions, type GauntletSendOptions } from "./blueprint-gauntlet.js";
 export { type BlueprintFromFileOptions, BlueprintHarness, type BlueprintHarnessOptions } from "./blueprint-harness.js";
+export { NerveFixture } from "./nerve-fixture.js";
 export {
 	assertOrganContract,
 	type OrganContractOptions,

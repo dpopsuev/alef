@@ -70,7 +70,6 @@ function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
 }
 
 // Corpus event type constants
-export { DIALOG_MESSAGE, PortValidationError, STANDARD_PORTS, validatePorts } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
 // BusObserver - full read access to the Nerve for observability tools.
@@ -94,13 +93,15 @@ export interface BusObserver {
 // ---------------------------------------------------------------------------
 
 /** Reserved for future Agent configuration. */
-export interface AgentOptions {}
 
 export class Agent {
 	private readonly nerve = new InProcessNerve();
 	private readonly unmounts: Array<() => void> = [];
 	/** Tool definitions collected from all loaded organs. */
-	readonly tools: ToolDefinition[] = [];
+	private readonly _tools: ToolDefinition[] = [];
+	get tools(): ReadonlyArray<ToolDefinition> {
+		return this._tools;
+	}
 	/** Organs stored for lazy port detection in validate(). */
 	private readonly _organs: Organ[] = [];
 	/** Loaded organs in mount order. Includes metadata (description, labels). */
@@ -128,7 +129,7 @@ export class Agent {
 		this._organs.push(organ);
 		const unmount = organ.mount(withPayloadValidation(this.nerve.asNerve(), organ));
 		this.unmounts.push(unmount);
-		this.tools.push(...organ.tools);
+		this._tools.push(...organ.tools);
 		return this;
 	}
 
@@ -224,8 +225,8 @@ export class Agent {
 		this._organs.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
 		// Recompute tools from remaining organs.
-		this.tools.length = 0;
-		for (const organ of this._organs) this.tools.push(...organ.tools);
+		this._tools.length = 0;
+		for (const organ of this._organs) this._tools.push(...organ.tools);
 		return true;
 	}
 

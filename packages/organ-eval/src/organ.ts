@@ -15,17 +15,16 @@
  * parses a 0-100 score and reasoning string.
  */
 
-import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions, CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
 import { defineOrgan, getNumber, getString } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
 import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";
 import { runValidators } from "./validators.js";
 
-export interface EvalOrganOptions {
+export interface EvalOrganOptions extends BaseOrganOptions {
 	/** Model to use for LLM-as-judge. Defaults to ALEF_MODEL or autoDetect. */
 	judgeModel?: string;
-	logger?: OrganLogger;
 }
 
 const PromptSchema = z.object({

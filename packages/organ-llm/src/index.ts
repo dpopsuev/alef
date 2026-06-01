@@ -702,6 +702,7 @@ function pickKeyArg(payload: Record<string, unknown>): string {
 export class Cerebrum {
 	private readonly organ: Organ;
 	private readonly options: CerebrumOptions;
+	private readonly replyType: string;
 	/** In-flight motor events from concurrent turns. Populated only when trackConcurrentOps=true. */
 	private readonly inflight = new Map<string, InflightEntry>();
 
@@ -710,7 +711,7 @@ export class Cerebrum {
 	readonly labels = ["llm", "reasoning", "ai"] as const;
 	readonly tools = [] as const;
 	get publishSchemas() {
-		const reply = this.options.replyEvent ?? this.options.triggerEvent ?? DIALOG_MESSAGE;
+		const reply = this.replyType;
 		return {
 			motor: {
 				[reply]: z.object({
@@ -747,6 +748,7 @@ export class Cerebrum {
 
 	constructor(options: CerebrumOptions) {
 		this.options = options;
+		this.replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
 		const wrappedOptions: CerebrumOptions = options.trackConcurrentOps
 			? {
 					...options,
@@ -782,9 +784,7 @@ export class Cerebrum {
 		if (!this.options.trackConcurrentOps) return offOrgan;
 
 		// Wire wildcard subscriptions for concurrent-ops tracking.
-		const inflightExcluded = makeInflightExcluded(
-			this.options.replyEvent ?? this.options.triggerEvent ?? DIALOG_MESSAGE,
-		);
+		const inflightExcluded = makeInflightExcluded(this.replyType);
 		const offMotor = nerve.motor.subscribe("*", (event) => {
 			if (inflightExcluded.has(event.type)) return;
 			const toolCallId = extractToolCallId(event.payload);

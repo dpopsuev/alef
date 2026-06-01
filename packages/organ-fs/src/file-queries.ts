@@ -102,10 +102,11 @@ function withCacheHit<D extends BaseToolDetails>(
 	const cached = cacheHit.value as ToolQueryResponse<D> | undefined;
 	if (!cached || !Array.isArray(cached.content)) return undefined;
 	const cloned = structuredClone(cached);
-	return {
-		...cloned,
-		details: { ...(cloned.details ?? ({} as D)), cache: { hit: true, ageMs: cacheHit.ageMs, ttlMs: cacheHit.ttlMs } },
-	};
+	const details: D = {
+		...cloned.details,
+		cache: { hit: true, ageMs: cacheHit.ageMs, ttlMs: cacheHit.ttlMs },
+	} as unknown as D;
+	return { ...cloned, details };
 }
 
 function withFindCacheHit(cacheHit: ToolResultCacheHit | undefined): FindToolResponse | undefined {

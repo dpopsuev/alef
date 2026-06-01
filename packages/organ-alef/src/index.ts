@@ -1,1 +1,1 @@
-export { createAlefApiOrgan } from "./organ.js";
+export { type AlefApiOrganOptions, createAlefApiOrgan, type ScrollAdapter } from "./organ.js";

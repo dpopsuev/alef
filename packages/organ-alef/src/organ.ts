@@ -11,8 +11,23 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { ActionMap } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
 import { z } from "zod";
+
+export interface ScrollAdapter {
+	list(): ReadonlyArray<{ id: string; priority: number; enabled: boolean; tags?: string[]; contentPreview: string }>;
+	enable(id: string): void;
+	disable(id: string): void;
+	toggle(id: string): void;
+	replace(id: string, content: string): void;
+	add(id: string, priority: number, content: string, tags?: string[]): void;
+	remove(id: string): void;
+}
+
+export interface AlefApiOrganOptions {
+	getScroll?: () => ScrollAdapter | undefined;
+}
 
 const SESSION_ROOT = join(homedir(), ".alef", "sessions");
 const CONFIG_ROOT = join(homedir(), ".config", "alef");
@@ -211,10 +226,97 @@ async function pmHistory(): Promise<Array<{ id: number; ts: string; organs: Reco
 	}
 }
 
-export function createAlefApiOrgan() {
+export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
+	const g = opts.getScroll;
+	const scrollTools: ActionMap = g
+		? {
+				"motor/alef.scroll.list": typedAction(
+					{
+						name: "alef.scroll.list",
+						description:
+							"List all prompt scroll blocks with id, priority, enabled state, tags, and content preview.",
+						inputSchema: z.object({}),
+					},
+					async () => ({ blocks: g()?.list() ?? [] }),
+				),
+				"motor/alef.scroll.enable": typedAction(
+					{
+						name: "alef.scroll.enable",
+						description: "Enable a prompt scroll block.",
+						inputSchema: z.object({ id: z.string() }),
+					},
+					async (ctx) => {
+						g()?.enable(ctx.payload.id);
+						return { ok: true };
+					},
+				),
+				"motor/alef.scroll.disable": typedAction(
+					{
+						name: "alef.scroll.disable",
+						description: "Disable a prompt scroll block.",
+						inputSchema: z.object({ id: z.string() }),
+					},
+					async (ctx) => {
+						g()?.disable(ctx.payload.id);
+						return { ok: true };
+					},
+				),
+				"motor/alef.scroll.toggle": typedAction(
+					{
+						name: "alef.scroll.toggle",
+						description: "Toggle a prompt scroll block on or off.",
+						inputSchema: z.object({ id: z.string() }),
+					},
+					async (ctx) => {
+						g()?.toggle(ctx.payload.id);
+						return { ok: true };
+					},
+				),
+				"motor/alef.scroll.replace": typedAction(
+					{
+						name: "alef.scroll.replace",
+						description: "Replace the content of a prompt scroll block.",
+						inputSchema: z.object({ id: z.string(), content: z.string() }),
+					},
+					async (ctx) => {
+						g()?.replace(ctx.payload.id, ctx.payload.content);
+						return { ok: true };
+					},
+				),
+				"motor/alef.scroll.add": typedAction(
+					{
+						name: "alef.scroll.add",
+						description: "Add a new block to the prompt scroll.",
+						inputSchema: z.object({
+							id: z.string(),
+							priority: z.number(),
+							content: z.string(),
+							tags: z.array(z.string()).optional(),
+						}),
+					},
+					async (ctx) => {
+						g()?.add(ctx.payload.id, ctx.payload.priority, ctx.payload.content, ctx.payload.tags);
+						return { ok: true };
+					},
+				),
+				"motor/alef.scroll.remove": typedAction(
+					{
+						name: "alef.scroll.remove",
+						description: "Remove a block from the prompt scroll.",
+						inputSchema: z.object({ id: z.string() }),
+					},
+					async (ctx) => {
+						g()?.remove(ctx.payload.id);
+						return { ok: true };
+					},
+				),
+			}
+		: {};
+
 	return defineOrgan(
 		"alef",
 		{
+			...scrollTools,
 			"motor/alef.sessions.list": typedAction(
 				{
 					name: "alef.sessions.list",
@@ -282,16 +384,19 @@ export function createAlefApiOrgan() {
 				{ shouldCache: () => true },
 			),
 		},
+
 		{
-			description: "Query Alef sessions, config, organs, and package manager history.",
+			description: "Query Alef sessions, config, organs, package manager history, and manage the prompt scroll.",
 			directives: [
 				"Use alef.sessions.list to discover all sessions. Use alef.sessions.search to find sessions by topic — it searches name, first message, and content. " +
 					"Use alef.sessions.read to get the content of a specific session. " +
 					"Use alef.sessions.rename to give a session a memorable name when asked. " +
 					"Use alef.config.get, alef.organs.list, alef.pm.history for system information. " +
+					"Use alef.scroll.list to show the active prompt blocks. Use alef.scroll.enable/disable/toggle to change which blocks are active. " +
+					"Use alef.scroll.replace to change block content. Use alef.scroll.add to inject a new block. " +
 					"Respond concisely with the most relevant data. Do not write files.",
 			],
-			labels: ["alef-api", "meta", "sessions"],
+			labels: ["alef-api", "meta", "sessions", "scroll"],
 		},
 	);
 }

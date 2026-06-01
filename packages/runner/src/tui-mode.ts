@@ -10,6 +10,7 @@
  */
 
 import { appendFileSync } from "node:fs";
+import type { ScrollAdapter } from "@dpopsuev/alef-organ-alef";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { getProviders } from "@dpopsuev/alef-organ-llm";
@@ -70,6 +71,8 @@ export interface TuiHandlerContext {
 	setLLMController(ctrl: AbortController | undefined): void;
 	/** Hot-reload a named organ by path (ALE-TSK-348). Undefined when not supported. */
 	reloadOrgan?: (name: string, path: string) => Promise<void>;
+	/** Returns the active prompt scroll adapter, or undefined when unavailable. */
+	getScroll?: () => ScrollAdapter | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -325,11 +328,16 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 			import("./meta-agent.js")
 				.then(async (m) => {
 					const chunks: string[] = [];
-					const reply = await m.runMetaAgent(prompt, ctx.opts?.getModel?.(), (chunk) => {
-						chunks.push(chunk);
-						ctx.writer.addNotice(`[meta] ${chunks.join("")}`);
-						ctx.tui.requestRender();
-					});
+					const reply = await m.runMetaAgent(
+						prompt,
+						ctx.opts?.getModel?.(),
+						(chunk) => {
+							chunks.push(chunk);
+							ctx.writer.addNotice(`[meta] ${chunks.join("")}`);
+							ctx.tui.requestRender();
+						},
+						ctx.getScroll,
+					);
 					// Final settled reply (in case streaming wasn't available)
 					if (chunks.length === 0 && reply) {
 						ctx.writer.addNotice(`[meta] ${reply}`);
@@ -408,6 +416,7 @@ export async function runTuiMode(
 	setLLMAbortController: (ctrl: AbortController | undefined) => void = () => {},
 	toolSlot?: TuiToolSlot,
 	reloadOrgan?: (name: string, path: string) => Promise<void>,
+	getScroll?: () => ScrollAdapter | undefined,
 ): Promise<void> {
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
@@ -583,6 +592,7 @@ export async function runTuiMode(
 			setLLMAbortController(ctrl);
 		},
 		reloadOrgan,
+		getScroll,
 	});
 
 	// Ctrl+R: open inline history picker. Populated after each submit.

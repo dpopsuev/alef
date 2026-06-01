@@ -317,6 +317,37 @@ export function setCurrentScroll(s: PromptScroll): void {
 	currentScroll = s;
 }
 
+function getScrollAdapter() {
+	return {
+		list: () =>
+			currentScroll.list({ enabled: undefined }).map((b) => ({
+				id: b.id,
+				priority: b.priority,
+				enabled: b.enabled,
+				tags: b.tags,
+				contentPreview: (typeof b.content === "function" ? b.content() : b.content).slice(0, 80),
+			})),
+		enable: (id: string) => {
+			currentScroll.enable(id);
+		},
+		disable: (id: string) => {
+			currentScroll.disable(id);
+		},
+		toggle: (id: string) => {
+			currentScroll.toggle(id);
+		},
+		replace: (id: string, content: string) => {
+			currentScroll.replace(id, content);
+		},
+		add: (id: string, priority: number, content: string, tags?: string[]) => {
+			currentScroll.register({ id, priority, content, enabled: true, tags });
+		},
+		remove: (id: string) => {
+			currentScroll.unregister(id);
+		},
+	};
+}
+
 const scrollBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
 
 const thinkingLevel = (args.thinking ?? cfg.thinking) as ThinkingLevel | undefined;
@@ -600,6 +631,7 @@ try {
 					});
 					agent.reload(newOrgan);
 				},
+				getScrollAdapter,
 			);
 		} finally {
 			process.stderr.write = originalStderrWrite;

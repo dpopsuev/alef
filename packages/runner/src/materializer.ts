@@ -143,7 +143,6 @@ export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
 		{ name: "shell", actions: [], toolNames: [] },
 		{ name: "nodesh", actions: [], toolNames: [] },
 		{ name: "web", actions: [], toolNames: [] },
-		{ name: "orchestration", actions: [], toolNames: [] },
 	],
 	model: undefined,
 	children: [],

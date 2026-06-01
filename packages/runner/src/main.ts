@@ -20,9 +20,15 @@
 
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
+import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import type { ThinkingLevel } from "@dpopsuev/alef-organ-llm";
 import { Cerebrum, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
+import { createNodeshOrgan } from "@dpopsuev/alef-organ-nodesh";
+import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
+import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { createWebOrgan } from "@dpopsuev/alef-organ-web";
 import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
 import { AgentKernel } from "./agent-kernel.js";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
@@ -41,6 +47,7 @@ import { appendEnvironment, buildSystemPrompt } from "./prompt.js";
 import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
+import { InProcessStrategy } from "./strategies/in-process.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
 import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
@@ -407,6 +414,39 @@ agent.load(toolShell);
 // Assert dialog is defined: main.ts is always a conversation agent.
 if (!_dialog) throw new Error("AgentKernel did not return a DialogOrgan — main.ts requires one");
 const dialog = _dialog;
+
+// ── Delegation profiles ───────────────────────────────────────────────────
+// Build InProcessStrategy profiles and wire organ-delegate.
+// organ-delegate holds a mutable strategy registry; orchestration.spawn
+// registers RemoteProcessStrategy instances via onChildReady.
+const delegateOrgan = createDelegateOrgan({
+	strategies: {
+		explore: new InProcessStrategy(
+			[createFsOrgan({ cwd: args.cwd }), createWebOrgan()],
+			currentModel,
+			"You are a read-only exploration agent. Read files, search code, fetch URLs. Never write or execute.",
+		),
+		general: new InProcessStrategy(
+			[
+				createFsOrgan({ cwd: args.cwd }),
+				createShellOrgan({ cwd: args.cwd }),
+				createWebOrgan(),
+				createNodeshOrgan({ cwd: args.cwd }),
+			],
+			currentModel,
+		),
+	},
+	cwd: args.cwd,
+});
+
+// Wire orchestration.spawn to register child strategies in organ-delegate.
+const orchestrationOrgan = createOrchestrationOrgan({
+	cwd: args.cwd,
+	onChildReady: (name, strategy) => delegateOrgan.registerStrategy(name, strategy),
+});
+
+agent.load(delegateOrgan);
+agent.load(orchestrationOrgan);
 
 if (args.serve !== undefined) {
 	const sseSurface = blueprintSurfaces.filter((s) => s.type === "sse");

@@ -188,6 +188,159 @@ function retryDelayMs(attempt: number, maxDelayMs: number): number {
 type MotorBus = CerebrumHandlerCtx["motor"];
 type SenseBus = CerebrumHandlerCtx["sense"];
 
+interface LLMCallResult {
+	finalMessage: AssistantMessage | undefined;
+	pendingCalls: ToolCall[];
+}
+
+/**
+ * Make one HTTP call to the LLM, consume the stream, return the result.
+ * Owns the OTel span so timing is captured even when the caller retries.
+ */
+async function callLLM(
+	model: Model<Api>,
+	messages: Message[],
+	tools: Tool[],
+	turn: number,
+	retryCount: number,
+	options: CerebrumOptions,
+): Promise<LLMCallResult> {
+	const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
+
+	const span = tracer.startSpan(`chat ${model.id}`, {
+		kind: SpanKind.CLIENT,
+		attributes: {
+			"gen_ai.operation.name": "chat",
+			"gen_ai.request.model": model.id,
+			"gen_ai.system": model.provider,
+			"alef.schema_token_estimate": schemaTokenEstimate,
+			"alef.turn_number": turn,
+		},
+	});
+	span.addEvent("llm.call", {
+		"alef.message_count": messages.length,
+		"alef.message_roles": messages.map((m) => (m as { role?: string }).role ?? "?").join(","),
+		"alef.tool_count": tools.length,
+	});
+	debugLog("llm:http:start", { turn, messages: messages.length, tools: tools.length, schemaEst: schemaTokenEstimate });
+
+	const timeoutMs = options.timeoutMs ?? 60_000;
+	const maxRetries = options.maxRetries ?? 4;
+	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
+	const thinking = options.getThinking?.() ?? options.thinking;
+
+	const stream = streamSimple(
+		model,
+		{ messages, tools },
+		{
+			apiKey: options.getApiKey?.() ?? options.apiKey,
+			timeoutMs,
+			maxRetries,
+			maxRetryDelayMs,
+			...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
+			...(thinking ? { reasoning: thinking } : {}),
+			...(options.getSignal ? { signal: options.getSignal() } : {}),
+		},
+	);
+
+	let finalMessage: AssistantMessage | undefined;
+	const pendingCalls: ToolCall[] = [];
+	const httpStart = Date.now();
+
+	try {
+		for await (const event of stream) {
+			if (event.type === "text_delta") {
+				options.onResponseChunk?.(event.delta);
+			} else if (event.type === "thinking_delta") {
+				options.onThinkingChunk?.(event.delta);
+			} else if (event.type === "toolcall_end") {
+				pendingCalls.push({
+					name: event.toolCall.name,
+					args: event.toolCall.arguments as Record<string, unknown>,
+					id: event.toolCall.id,
+				});
+			} else if (event.type === "done") {
+				finalMessage = event.message;
+			} else if (event.type === "error") {
+				finalMessage = event.error;
+			}
+		}
+
+		debugLog("llm:http:done", {
+			turn,
+			elapsedMs: Date.now() - httpStart,
+			stopReason: finalMessage?.stopReason ?? "none",
+		});
+
+		if (finalMessage?.usage) {
+			const usage = finalMessage.usage;
+			span.setAttributes({
+				"gen_ai.usage.input_tokens": usage.input,
+				"gen_ai.usage.output_tokens": usage.output,
+				"gen_ai.usage.total_tokens": usage.totalTokens,
+				"gen_ai.usage.cache_read_tokens": usage.cacheRead,
+				"alef.estimated_cost_usd": usage.cost.total,
+			});
+		}
+		if (retryCount > 0) span.setAttribute("alef.retry_count", retryCount);
+		span.setStatus({ code: SpanStatusCode.OK });
+	} catch (err) {
+		const isAbort =
+			err instanceof Error &&
+			(err.name === "AbortError" || err.message.includes("aborted") || err.message.includes("AbortError"));
+		if (isAbort) span.setAttribute("alef.aborted", true);
+		debugLog("llm:http:error", {
+			turn,
+			elapsedMs: Date.now() - httpStart,
+			abort: isAbort,
+			err: String(err).slice(0, 120),
+		});
+		if (retryCount > 0) span.setAttribute("alef.retry_count", retryCount);
+		span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+		throw err;
+	} finally {
+		span.end();
+	}
+
+	return { finalMessage, pendingCalls };
+}
+
+/**
+ * Publish the final text reply on the motor bus.
+ * When the LLM used the dialog_message tool to reply, the text lives in the
+ * tool args — not in text_delta events. Forward it to onResponseChunk so the
+ * TUI renders it, then publish on the reply channel.
+ */
+function publishReply(
+	motor: MotorBus,
+	correlationId: string,
+	replyType: string,
+	finalMessage: AssistantMessage,
+	replyCall: ToolCall | undefined,
+	messages: Message[],
+	options: Pick<LlmObservabilityOptions, "onResponseChunk">,
+): void {
+	const replyFromToolArgs = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
+	const text = replyFromToolArgs ?? extractText(finalMessage);
+
+	if (replyFromToolArgs) {
+		options.onResponseChunk?.(replyFromToolArgs);
+	}
+
+	if (text) {
+		const conversationHistory = replyType === DIALOG_MESSAGE ? serializeConversationHistory(messages) : undefined;
+		motor.publish({
+			type: replyType,
+			payload: { text, ...(conversationHistory ? { conversationHistory } : {}), usage: finalMessage.usage },
+			correlationId,
+		});
+	} else {
+		const fallback =
+			finalMessage.errorMessage || (finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
+		motor.publish({ type: replyType, payload: { text: fallback }, correlationId });
+	}
+}
+
 /** Fire motor/llm.phase, collect the ordered-pipeline result, return it. */
 async function runPhase(
 	motor: MotorBus,
@@ -285,96 +438,7 @@ async function runLLMLoop(
 				tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
 		}
 
-		const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
-		const span = tracer.startSpan(`chat ${model.id}`, {
-			kind: SpanKind.CLIENT,
-			attributes: {
-				"gen_ai.operation.name": "chat",
-				"gen_ai.request.model": model.id,
-				"gen_ai.system": model.provider,
-				"alef.schema_token_estimate": schemaTokenEstimate,
-				"alef.turn_number": turn,
-			},
-		});
-		span.addEvent("llm.call", {
-			"alef.message_count": messages.length,
-			"alef.message_roles": messages.map((m) => (m as { role?: string }).role ?? "?").join(","),
-			"alef.tool_count": tools.length,
-		});
-		debugLog("llm:http:start", {
-			turn,
-			messages: messages.length,
-			tools: tools.length,
-			schemaEst: schemaTokenEstimate,
-		});
-		const httpStart = Date.now();
-
-		const stream = streamSimple(
-			model,
-			{ messages, tools },
-			{
-				apiKey: options.getApiKey?.() ?? options.apiKey,
-				timeoutMs,
-				maxRetries,
-				maxRetryDelayMs,
-				...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
-				...((options.getThinking?.() ?? options.thinking)
-					? { reasoning: options.getThinking?.() ?? options.thinking }
-					: {}),
-				...(options.getSignal ? { signal: options.getSignal() } : {}),
-			},
-		);
-
-		let finalMessage: AssistantMessage | undefined;
-		const pendingCalls: Array<{ name: string; args: Record<string, unknown>; id: string }> = [];
-
-		try {
-			for await (const evt of stream) {
-				if (evt.type === "text_delta") options.onResponseChunk?.(evt.delta);
-				else if (evt.type === "thinking_delta") options.onThinkingChunk?.(evt.delta);
-				else if (evt.type === "toolcall_end")
-					pendingCalls.push({
-						name: evt.toolCall.name,
-						args: evt.toolCall.arguments as Record<string, unknown>,
-						id: evt.toolCall.id,
-					});
-				else if (evt.type === "done") finalMessage = evt.message;
-				else if (evt.type === "error") finalMessage = evt.error;
-			}
-			debugLog("llm:http:done", {
-				turn,
-				elapsedMs: Date.now() - httpStart,
-				stopReason: finalMessage?.stopReason ?? "none",
-			});
-			if (finalMessage?.usage) {
-				const u = finalMessage.usage;
-				span.setAttributes({
-					"gen_ai.usage.input_tokens": u.input,
-					"gen_ai.usage.output_tokens": u.output,
-					"gen_ai.usage.total_tokens": u.totalTokens,
-					"gen_ai.usage.cache_read_tokens": u.cacheRead,
-					"alef.estimated_cost_usd": u.cost.total,
-				});
-			}
-			if (appRetryCount > 0) span.setAttribute("alef.retry_count", appRetryCount);
-			span.setStatus({ code: SpanStatusCode.OK });
-		} catch (err) {
-			const isAbort =
-				err instanceof Error &&
-				(err.name === "AbortError" || err.message.includes("aborted") || err.message.includes("AbortError"));
-			if (isAbort) span.setAttribute("alef.aborted", true);
-			debugLog("llm:http:error", {
-				turn,
-				elapsedMs: Date.now() - httpStart,
-				abort: isAbort,
-				err: String(err).slice(0, 120),
-			});
-			if (appRetryCount > 0) span.setAttribute("alef.retry_count", appRetryCount);
-			span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
-			throw err;
-		} finally {
-			span.end();
-		}
+		const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, options);
 
 		if (!finalMessage) break;
 
@@ -386,8 +450,7 @@ async function runLLMLoop(
 				attempt: appRetryCount,
 				reason: finalMessage.errorMessage?.slice(0, 80) ?? "unknown",
 			});
-			await new Promise<void>((res) => setTimeout(res, retryDelayMs(appRetryCount, maxRetryDelayMs)));
-			pendingCalls.length = 0;
+			await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs(appRetryCount, maxRetryDelayMs)));
 			continue;
 		}
 
@@ -418,28 +481,7 @@ async function runLLMLoop(
 		}
 
 		if (toolCalls.length === 0) {
-			const replyBodyFromTool = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
-			const text = replyBodyFromTool ?? extractText(finalMessage);
-			if (replyBodyFromTool) options.onResponseChunk?.(replyBodyFromTool);
-			if (text) {
-				const conversationHistory =
-					replyType === DIALOG_MESSAGE ? serializeConversationHistory(messages) : undefined;
-				motor.publish({
-					type: replyType,
-					payload: { text, ...(conversationHistory ? { conversationHistory } : {}), usage: finalMessage.usage },
-					correlationId,
-				});
-			} else {
-				motor.publish({
-					type: replyType,
-					payload: {
-						text:
-							finalMessage.errorMessage ||
-							(finalMessage.stopReason === "error" ? "An error occurred." : "(no response)"),
-					},
-					correlationId,
-				});
-			}
+			publishReply(motor, correlationId, replyType, finalMessage, replyCall, messages, options);
 			break;
 		}
 

@@ -46,6 +46,7 @@ import { createMemoryOrgan } from "./organ-memory.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
 import { createDefaultScroll, loadWorkspace, registerOrgans } from "./prompt.js";
+import { SessionGuard } from "./session-guard.js";
 import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
@@ -449,8 +450,8 @@ const toolShell = createToolShellOrgan({
 
 const dialog = new DialogOrgan({
 	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
-	maxTurns: args.maxTurns,
 });
+const sessionGuard = new SessionGuard(dialog, args.maxTurns);
 
 const { agent } = AgentKernel.create({
 	dialog,
@@ -650,6 +651,7 @@ try {
 					agent.reload(newOrgan);
 				},
 				getDirectiveAdapter,
+				sessionGuard,
 			);
 		} finally {
 			process.stderr.write = originalStderrWrite;

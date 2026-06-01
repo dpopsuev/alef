@@ -29,11 +29,6 @@ export type MessageSink = (text: string, sender: string) => void;
 
 export interface DialogOrganOptions {
 	sink?: MessageSink;
-	/**
-	 * Maximum number of send() calls (user turns) per session.
-	 * 0 = unlimited. Default: 0.
-	 */
-	maxTurns?: number;
 }
 
 export class DialogOrgan implements Organ {
@@ -52,8 +47,6 @@ export class DialogOrgan implements Organ {
 	readonly subscriptions = { motor: ["dialog.message"] as const, sense: [] as const };
 
 	private readonly sink: MessageSink;
-	private readonly maxTurns: number;
-	private turnCount = 0;
 	private nerve: Nerve | null = null;
 	private readonly pending = new Map<
 		string,
@@ -62,7 +55,6 @@ export class DialogOrgan implements Organ {
 
 	constructor(options: DialogOrganOptions = {}) {
 		this.sink = options.sink ?? ((text) => process.stdout.write(`agent: ${text}\n`));
-		this.maxTurns = options.maxTurns ?? 0;
 	}
 
 	mount(nerve: Nerve): () => void {
@@ -104,10 +96,6 @@ export class DialogOrgan implements Organ {
 
 	send(text: string, sender = "human", timeoutMs = 30_000): Promise<string> {
 		if (!this.nerve) return Promise.reject(new Error("DialogOrgan: not mounted"));
-		if (this.maxTurns > 0 && this.turnCount >= this.maxTurns) {
-			return Promise.reject(new Error(`Max turns reached (${this.maxTurns}). Start a new session to continue.`));
-		}
-		this.turnCount++;
 		const correlationId = randomUUID();
 		return new Promise<string>((resolve, reject) => {
 			const timer = setTimeout(() => {

@@ -108,16 +108,25 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
 
-	const base = defineOrgan("enclosure", {
-		"motor/enclosure.create": typedAction(CREATE_TOOL, (ctx) => handleCreate(ctx, spaces, options)),
-		"motor/enclosure.diff": typedAction(DIFF_TOOL, (ctx) => handleDiff(ctx, spaces)),
-		"motor/enclosure.commit": typedAction(COMMIT_TOOL, (ctx) => handleCommit(ctx, spaces)),
-		"motor/enclosure.reset": typedAction(RESET_TOOL, (ctx) => handleReset(ctx, spaces)),
-		"motor/enclosure.snapshot": typedAction(SNAPSHOT_TOOL, (ctx) => handleSnapshot(ctx, spaces)),
-		"motor/enclosure.restore": typedAction(RESTORE_TOOL, (ctx) => handleRestore(ctx, spaces)),
-		"motor/enclosure.exec": typedAction(EXEC_TOOL, (ctx) => handleExec(ctx, spaces)),
-		"motor/enclosure.destroy": typedAction(DESTROY_TOOL, (ctx) => handleDestroy(ctx, spaces)),
-	});
+	const base = defineOrgan(
+		"enclosure",
+		{
+			"motor/enclosure.create": typedAction(CREATE_TOOL, (ctx) => handleCreate(ctx, spaces, options)),
+			"motor/enclosure.diff": typedAction(DIFF_TOOL, (ctx) => handleDiff(ctx, spaces)),
+			"motor/enclosure.commit": typedAction(COMMIT_TOOL, (ctx) => handleCommit(ctx, spaces)),
+			"motor/enclosure.reset": typedAction(RESET_TOOL, (ctx) => handleReset(ctx, spaces)),
+			"motor/enclosure.snapshot": typedAction(SNAPSHOT_TOOL, (ctx) => handleSnapshot(ctx, spaces)),
+			"motor/enclosure.restore": typedAction(RESTORE_TOOL, (ctx) => handleRestore(ctx, spaces)),
+			"motor/enclosure.exec": typedAction(EXEC_TOOL, (ctx) => handleExec(ctx, spaces)),
+			"motor/enclosure.destroy": typedAction(DESTROY_TOOL, (ctx) => handleDestroy(ctx, spaces)),
+		},
+		{
+			description: "Isolated workspace overlay: create, exec, diff, commit, snapshot, restore, destroy.",
+			directives: [
+				"Use enclosure.create to open a workspace, enclosure.exec to run commands inside it, enclosure.diff/commit to manage changes, and enclosure.destroy when done.",
+			],
+		},
+	);
 
 	// Return a wrapper that adds space cleanup on unmount.
 	// Uses a new object rather than mutating base.mount (TSK-153).

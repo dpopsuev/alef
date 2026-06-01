@@ -1,4 +1,5 @@
 export * from "./buses.js";
+export * from "./delegation.js";
 export * from "./framework.js";
 export * from "./mcp-organ.js";
 export * from "./organ-sdk.js";

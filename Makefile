@@ -73,8 +73,8 @@ alef: ## Run Alef from source (./alef-test.sh)
 	./alef-test.sh
 
 .PHONY: debug
-debug: ## Run Alef in debug mode (ALEF_DEBUG=1, haiku model for speed)
-	ALEF_DEBUG=1 ALEF_MODEL=claude-haiku-4-5 ./alef-test.sh --thinking off
+debug: ## Run Alef in debug mode (ALEF_DEBUG=1, sonnet with thinking)
+	ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 ./alef-test.sh
 
 .PHONY: dev
 dev: ## Start package dev watchers (long-running)

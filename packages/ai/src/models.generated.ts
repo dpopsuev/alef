@@ -79,7 +79,7 @@ export const MODELS = {
 			api: "bedrock-converse-stream",
 			provider: "amazon-bedrock",
 			baseUrl: "https://bedrock-runtime.us-east-1.amazonaws.com",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -200,7 +200,7 @@ export const MODELS = {
 			api: "bedrock-converse-stream",
 			provider: "amazon-bedrock",
 			baseUrl: "https://bedrock-runtime.us-east-1.amazonaws.com",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -320,7 +320,7 @@ export const MODELS = {
 			api: "bedrock-converse-stream",
 			provider: "amazon-bedrock",
 			baseUrl: "https://bedrock-runtime.eu-central-1.amazonaws.com",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -424,7 +424,7 @@ export const MODELS = {
 			api: "bedrock-converse-stream",
 			provider: "amazon-bedrock",
 			baseUrl: "https://bedrock-runtime.us-east-1.amazonaws.com",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -1192,7 +1192,7 @@ export const MODELS = {
 			api: "bedrock-converse-stream",
 			provider: "amazon-bedrock",
 			baseUrl: "https://bedrock-runtime.us-east-1.amazonaws.com",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -1587,7 +1587,7 @@ export const MODELS = {
 			api: "anthropic-messages",
 			provider: "anthropic",
 			baseUrl: "https://api.anthropic.com",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -1604,7 +1604,7 @@ export const MODELS = {
 			api: "anthropic-messages",
 			provider: "anthropic",
 			baseUrl: "https://api.anthropic.com",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -2758,7 +2758,7 @@ export const MODELS = {
 			api: "anthropic-messages",
 			provider: "cloudflare-ai-gateway",
 			baseUrl: "https://gateway.ai.cloudflare.com/v1/{CLOUDFLARE_ACCOUNT_ID}/{CLOUDFLARE_GATEWAY_ID}/anthropic",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -3732,7 +3732,7 @@ export const MODELS = {
 			baseUrl: "https://api.individual.githubcopilot.com",
 			headers: {"User-Agent":"GitHubCopilotChat/0.35.0","Editor-Version":"vscode/1.107.0","Editor-Plugin-Version":"copilot-chat/0.35.0","Copilot-Integration-Id":"vscode-chat"},
 			compat: {"supportsEagerToolInputStreaming":false},
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 0,
@@ -7108,7 +7108,7 @@ export const MODELS = {
 			api: "anthropic-messages",
 			provider: "opencode",
 			baseUrl: "https://opencode.ai/zen",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -8127,7 +8127,7 @@ export const MODELS = {
 			api: "openai-completions",
 			provider: "openrouter",
 			baseUrl: "https://openrouter.ai/api/v1",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -12382,7 +12382,7 @@ export const MODELS = {
 			api: "openai-completions",
 			provider: "openrouter",
 			baseUrl: "https://openrouter.ai/api/v1",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,
@@ -13218,7 +13218,7 @@ export const MODELS = {
 			api: "anthropic-messages",
 			provider: "vercel-ai-gateway",
 			baseUrl: "https://ai-gateway.vercel.sh",
-			reasoning: true,
+			reasoning: false,
 			input: ["text", "image"],
 			cost: {
 				input: 1,

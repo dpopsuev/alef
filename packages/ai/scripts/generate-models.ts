@@ -1168,6 +1168,12 @@ async function generateModels() {
 			candidate.cost.cacheRead = 0.119;
 		}
 
+		// models.dev incorrectly marks Claude Haiku 4.5 as reasoning: true.
+		// Anthropic does not support extended thinking for Haiku models.
+		if (candidate.id.includes("haiku")) {
+			candidate.reasoning = false;
+		}
+
 	}
 
 

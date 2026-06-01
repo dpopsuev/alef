@@ -50,6 +50,12 @@ export interface CerebrumOptions {
 	onToolStart?: (event: ToolCallStart) => void;
 	onToolEnd?: (event: ToolCallEnd) => void;
 	onTokenUsage?: (usage: TokenUsage) => void;
+	/**
+	 * Called at the end of every LLM iteration (whether or not tool calls follow),
+	 * passing the turn index and the usage for that call.
+	 * Enables maxTurns and maxTokens enforcement in Budget middleware.
+	 */
+	onTurnComplete?: (turn: number, usage: TokenUsage) => void;
 	/** Called with each streamed text delta as the LLM generates. */
 	onResponseChunk?: (chunk: string) => void;
 	/** Called with each streamed thinking/reasoning delta. */
@@ -387,14 +393,19 @@ async function runLLMLoop(
 			correlationId,
 		});
 
-		if (toolCalls.length === 0) {
-			if (finalMessage.usage) {
-				options.onTokenUsage?.({
-					input: finalMessage.usage.input,
-					output: finalMessage.usage.output,
-					totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
-				});
+		if (finalMessage.usage) {
+			const usage: TokenUsage = {
+				input: finalMessage.usage.input,
+				output: finalMessage.usage.output,
+				totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
+			};
+			options.onTurnComplete?.(turn, usage);
+			if (toolCalls.length === 0) {
+				options.onTokenUsage?.(usage);
 			}
+		}
+
+		if (toolCalls.length === 0) {
 			const replyBodyFromTool = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
 			const text = replyBodyFromTool ?? extractText(finalMessage);
 			// When the reply body arrived inside a dialog_message tool call, the content was NOT

@@ -25,7 +25,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
-import type { MotorPublishInput, Nerve, Organ } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ } from "@dpopsuev/alef-spine";
 import { SseManager } from "./sse.js";
 
 export interface RouterOptions {
@@ -48,10 +48,15 @@ export interface RouterOptions {
 	 * Use this to route user messages through the DialogOrgan:
 	 *   onMessage: (text) => dialog.receive(text, 'user')
 	 *
-	 * When not provided, the router publishes motor/dialog.message directly
-	 * (legacy behaviour — user messages appear on motor bus, not sense bus).
+	 * When not provided, the router publishes on motor/triggerEvent directly
+	 * (ambient agents can set triggerEvent to their own event type).
 	 */
 	onMessage?: (text: string) => void;
+	/**
+	 * Motor event type published when onMessage is absent.
+	 * Default: 'dialog.message' for backward compatibility.
+	 */
+	triggerEvent?: string;
 }
 
 /** Resolved bind address returned by createRouterOrgan().address(). */
@@ -72,9 +77,10 @@ export class RouterOrgan implements Organ {
 
 	private server: Server | null = null;
 	private readonly sse = new SseManager();
-	private readonly options: Required<Omit<RouterOptions, "allowedEvents" | "onMessage">> & {
+	private readonly options: Required<Omit<RouterOptions, "allowedEvents" | "onMessage" | "triggerEvent">> & {
 		allowedEvents: string[];
 		onMessage?: (text: string) => void;
+		triggerEvent: string;
 	};
 	private _ready: Promise<void> = Promise.resolve();
 
@@ -84,6 +90,7 @@ export class RouterOrgan implements Organ {
 			host: options.host ?? "127.0.0.1",
 			allowedEvents: options.allowedEvents ?? [],
 			onMessage: options.onMessage,
+			triggerEvent: options.triggerEvent ?? "dialog.message",
 		};
 	}
 
@@ -229,13 +236,11 @@ export class RouterOrgan implements Organ {
 				// the message arrives on the sense bus for Reasoner/ScriptedReasoner.
 				this.options.onMessage(text);
 			} else {
-				// Legacy: publish directly on motor bus.
-				const event: MotorPublishInput = {
-					type: "dialog.message",
+				nerve.motor.publish({
+					type: this.options.triggerEvent,
 					payload: { role: "user", text },
 					correlationId,
-				};
-				nerve.motor.publish(event);
+				});
 			}
 
 			this.sendJson(res, 202, { ok: true, correlationId });

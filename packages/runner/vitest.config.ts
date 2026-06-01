@@ -20,6 +20,7 @@ export default defineConfig({
 			// @xterm/headless needs to resolve from node_modules
 			{ find: /^@dpopsuev\/alef-tui$/, replacement: resolve("../tui/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-orchestration$/, replacement: resolve("../organ-orchestration/src/index.ts") },
+			{ find: /^@dpopsuev\/alef-organ-delegate$/, replacement: resolve("../organ-delegate/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-eval$/, replacement: resolve("../organ-eval/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-shell$/, replacement: resolve("../organ-shell/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-llm$/, replacement: resolve("../organ-llm/src/index.ts") },

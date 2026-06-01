@@ -15,103 +15,42 @@ import type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
 
 const tracer = trace.getTracer("alef.organ-llm");
 
-export interface CerebrumOptions {
+/** Core execution options — model identity, auth, retry, timeout. */
+export interface LlmCallOptions {
 	model: Model<Api>;
-	/**
-	 * Called before each LLM call to obtain the current model.
-	 * Takes precedence over model when set — enables live model switching
-	 * via :model without restarting the agent (ALE-TSK-371).
-	 */
 	getModel?: () => Model<Api>;
 	apiKey?: string;
-	/**
-	 * Called before each LLM call to obtain the current API key.
-	 * Takes precedence over apiKey when both are set.
-	 * Use this so a key saved by /login is picked up without restarting.
-	 */
 	getApiKey?: () => string | undefined;
 	timeoutMs?: number;
-	/** Max retry attempts on transient errors. Default: 4. */
 	maxRetries?: number;
-	/** Cap on retry delay in ms - prevents exponential backoff from stalling for minutes. Default: 8000. */
 	maxRetryDelayMs?: number;
-	/**
-	 * Called each time the LLM loop retries a transient error (timeout, 429, overloaded).
-	 * Use in eval pools to implement AIMD concurrency control: reduce pool size on retry,
-	 * increase on consecutive successes. Does not affect retry behaviour.
-	 */
 	onRetry?: (attempt: number, reason: string) => void;
-	/**
-	 * Called at the start of each LLM call to obtain the current AbortSignal.
-	 * The caller creates a new AbortController per turn and passes its signal here.
-	 * When the controller is aborted (Ctrl+C mid-turn), the HTTP stream is cancelled.
-	 */
 	getSignal?: () => AbortSignal | undefined;
+}
+
+/** Observability hooks — fired during the turn loop. Callers use only what they need. */
+export interface LlmObservabilityOptions {
 	onToolStart?: (event: ToolCallStart) => void;
 	onToolEnd?: (event: ToolCallEnd) => void;
 	onTokenUsage?: (usage: TokenUsage) => void;
-	/**
-	 * Called at the end of every LLM iteration (whether or not tool calls follow),
-	 * passing the turn index and the usage for that call.
-	 * Enables maxTurns and maxTokens enforcement in Budget middleware.
-	 */
 	onTurnComplete?: (turn: number, usage: TokenUsage) => void;
-	/** Called with each streamed text delta as the LLM generates. */
 	onResponseChunk?: (chunk: string) => void;
-	/** Called with each streamed thinking/reasoning delta. */
 	onThinkingChunk?: (chunk: string) => void;
-	/**
-	 * Extended thinking level. Requires a model that supports reasoning
-	 * (e.g. claude-3-7-sonnet-20250219). Default: off (no thinking).
-	 */
-	thinking?: ThinkingLevel;
-	/**
-	 * Called before the turn loop with the full message array from the payload.
-	 * Return a filtered/scored subset to use as the context window.
-	 */
-	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
-	/**
-	 * Called after each completed tool round with the full accumulated messages
-	 * and the turn's correlationId. Use to write a durable mid-turn checkpoint
-	 * so context survives an abort that fires before the final dialog.message
-	 * is published (ALE-TSK-368).
-	 */
 	onCheckpoint?: (messages: Message[], correlationId: string) => void;
-	/**
-	 * Track in-flight motor events from concurrent turns and inject a
-	 * "Pending operations" context block before each LLM call.
-	 * Only useful in HTTP/SSE mode where multiple turns run concurrently.
-	 * Default: false — zero overhead in sequential interactive mode.
-	 */
+}
+
+/** Topology and capability options — routing, pipeline, concurrency, context prep. */
+export interface LlmTopologyOptions {
+	thinking?: ThinkingLevel;
+	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
 	trackConcurrentOps?: boolean;
-	/**
-	 * How long to wait (ms) for a sense/llm.phase response after publishing
-	 * motor/llm.phase at the start of each reasoning iteration.
-	 *
-	 * Default: 0 — seam disabled, zero overhead. Set to a positive value when
-	 * a phase organ is loaded (planning, enrichment, caching, etc.).
-	 * If the timeout elapses with no response, the loop proceeds with the
-	 * original messages unchanged.
-	 */
 	phaseTimeoutMs?: number;
-	/**
-	 * Sense event type that triggers a reasoning turn.
-	 * Default: 'dialog.message' (conversation-driven agent).
-	 * Set to any other event type for autonomous/reactive agents:
-	 *   e.g. 'git.push', 'metric.alert', 'cron.tick'
-	 * The Reasoner subscribes to sense/${triggerEvent}.
-	 */
 	triggerEvent?: string;
-	/**
-	 * Motor event type published as the final reply.
-	 * Default: same as triggerEvent (mirrors the trigger channel).
-	 * For conversation agents this is 'dialog.message'.
-	 * For autonomous agents this can be any motor event type.
-	 * conversationHistory is only included in the payload when
-	 * triggerEvent === 'dialog.message'.
-	 */
 	replyEvent?: string;
 }
+
+/** Full options — intersection of all three groups. All existing callers still compile. */
+export type CerebrumOptions = LlmCallOptions & LlmObservabilityOptions & LlmTopologyOptions;
 
 // ---------------------------------------------------------------------------
 // Core loop - pure function, receives ctx from framework

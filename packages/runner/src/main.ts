@@ -21,6 +21,7 @@
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import type { ThinkingLevel } from "@dpopsuev/alef-organ-llm";
 import { Cerebrum, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
@@ -392,16 +393,19 @@ const toolShell = createToolShellOrgan({
 	organDirectives: buildOrganDirectives(corpusOrgans),
 });
 
-const { agent, dialog: _dialog } = AgentKernel.create({
-	llm: llmOrgan,
+const dialog = new DialogOrgan({
 	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
+	getTools: () => toolShell.currentMetaTools(),
 	systemPrompt,
 	maxTurns: args.maxTurns,
+});
+
+const { agent } = AgentKernel.create({
+	dialog,
+	llm: llmOrgan,
 	session,
 	modelId: model.id,
-	getTools: () => toolShell.currentMetaTools(),
 	onLoop: (_type, reason) => {
-		// Route through trace() not stderr — stderr violates the one-writer rule during TUI mode.
 		trace("loop:detected", { reason });
 		currentLLMController?.abort(new Error(`[loop-detector] ${reason}`));
 	},
@@ -411,9 +415,6 @@ for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
 agent.load(toolShell);
-// Assert dialog is defined: main.ts is always a conversation agent.
-if (!_dialog) throw new Error("AgentKernel did not return a DialogOrgan — main.ts requires one");
-const dialog = _dialog;
 
 // ── Delegation profiles ───────────────────────────────────────────────────
 // Build InProcessStrategy profiles and wire organ-delegate.

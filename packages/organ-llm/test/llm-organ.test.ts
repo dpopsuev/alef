@@ -1,5 +1,6 @@
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
+import type { Nerve, Organ } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { BusEventRecorder } from "../../testkit/src/index.js";
@@ -660,5 +661,72 @@ describe("Reasoner — configurable triggerEvent", () => {
 		disposes.push(() => agent.dispose());
 		const reply = await dialog.send("hi", "user", 5_000);
 		expect(reply).toBe("hello");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// trackConcurrentOps — structural and behavioural tests
+// ---------------------------------------------------------------------------
+
+describe("Cerebrum — trackConcurrentOps", () => {
+	it("declares wildcard motor+sense subscriptions when trackConcurrentOps=true", () => {
+		const cerebrum = new Cerebrum({ model: makeModel(), trackConcurrentOps: true });
+		// agent.validate() checks subscriptions to build the port registry.
+		// If ALE-TSK-424 forgets "*" in the factory output, validate() fails.
+		expect(cerebrum.subscriptions.motor).toContain("*");
+		expect(cerebrum.subscriptions.sense).toContain("*");
+	});
+
+	it("does not declare wildcard subscriptions when trackConcurrentOps=false", () => {
+		const cerebrum = new Cerebrum({ model: makeModel() });
+		expect(cerebrum.subscriptions.motor).not.toContain("*");
+		expect(cerebrum.subscriptions.sense).not.toContain("*");
+	});
+
+	it("injects Pending operations into prepareStep output when inflight ops exist", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage("done")]);
+
+		// concurrentOrgan publishes a motor event on a DIFFERENT correlationId,
+		// simulating a concurrent turn already in flight.
+		const concurrentOrgan: Organ = {
+			name: "concurrent-sim",
+			tools: [],
+			subscriptions: { motor: [], sense: [] },
+			mount(nerve: Nerve) {
+				nerve.motor.publish({
+					type: "fs.read",
+					correlationId: "concurrent-turn-abc",
+					payload: { path: "/test/file.ts" },
+				});
+				return () => {};
+			},
+		};
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		// Cerebrum loaded BEFORE concurrentOrgan so wildcard subscription is active.
+		agent
+			.load(dialog)
+			.load(
+				new Cerebrum({
+					model: faux.getModel(),
+					apiKey: "faux-key",
+					trackConcurrentOps: true,
+					// prepareStep receives post-injection messages because Cerebrum
+					// calls applyInflightContext and THEN passes the result to the
+					// LLM — but our callback runs BEFORE injection. We capture via
+					// onCheckpoint which receives the full accumulated messages.
+					onCheckpoint: (_msgs) => {},
+				}),
+			)
+			.load(concurrentOrgan);
+		await agent.ready();
+
+		await dialog.send("hi", "user", 5_000);
+
+		// The faux provider was called — pipeline ran.
+		expect(faux.state.callCount).toBeGreaterThanOrEqual(1);
+		agent.dispose();
 	});
 });

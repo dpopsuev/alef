@@ -10,11 +10,6 @@ export default defineConfig({
 			{ find: /^@dpopsuev\/alef-corpus$/, replacement: r("../corpus/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-testkit$/, replacement: r("../testkit/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-dialog$/, replacement: r("../organ-dialog/src/index.ts") },
-			{ find: /^@dpopsuev\/alef-organ-fs$/, replacement: r("../organ-fs/src/index.ts") },
-			{ find: /^@dpopsuev\/alef-organ-shell$/, replacement: r("../organ-shell/src/index.ts") },
-			{ find: /^@dpopsuev\/alef-agent-blueprint$/, replacement: r("../blueprint/src/index.ts") },
-			{ find: /^@dpopsuev\/alef-agent-core$/, replacement: r("../agent/src/index.ts") },
-			{ find: /^@dpopsuev\/alef-organ-lector$/, replacement: r("../organ-lector/src/index.ts") },
 		],
 	},
 	test: {

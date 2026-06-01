@@ -1,13 +1,8 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { waitForChildProcess } from "./child-process.js";
-import {
-	getShellConfig,
-	getShellEnv,
-	killProcessTree,
-	trackDetachedChildPid,
-	untrackDetachedChildPid,
-} from "./shell.js";
+import { killProcessTree, trackDetachedChildPid, untrackDetachedChildPid } from "./process-tree.js";
+import { getShellConfig, getShellEnv } from "./shell.js";
 
 export interface ShellAdapterContext {
 	command: string;

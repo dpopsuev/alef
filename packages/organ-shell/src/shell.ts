@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { delimiter } from "node:path";
 
@@ -118,42 +118,9 @@ export function sanitizeBinaryOutput(str: string): string {
 		.join("");
 }
 
-const trackedDetachedChildPids = new Set<number>();
-
-export function trackDetachedChildPid(pid: number): void {
-	trackedDetachedChildPids.add(pid);
-}
-
-export function untrackDetachedChildPid(pid: number): void {
-	trackedDetachedChildPids.delete(pid);
-}
-
-export function killTrackedDetachedChildren(): void {
-	for (const pid of trackedDetachedChildPids) {
-		killProcessTree(pid);
-	}
-	trackedDetachedChildPids.clear();
-}
-
-export function killProcessTree(pid: number): void {
-	if (process.platform === "win32") {
-		try {
-			spawn("taskkill", ["/F", "/T", "/PID", String(pid)], {
-				stdio: "ignore",
-				detached: true,
-			});
-		} catch {
-			// Ignore errors if taskkill fails.
-		}
-	} else {
-		try {
-			process.kill(-pid, "SIGKILL");
-		} catch {
-			try {
-				process.kill(pid, "SIGKILL");
-			} catch {
-				// Process already dead.
-			}
-		}
-	}
-}
+export {
+	killProcessTree,
+	killTrackedDetachedChildren,
+	trackDetachedChildPid,
+	untrackDetachedChildPid,
+} from "./process-tree.js";

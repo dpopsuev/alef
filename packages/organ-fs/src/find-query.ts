@@ -216,15 +216,6 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 					"--no-require-git",
 					"--max-results",
 					String(effectiveLimit),
-					// Always exclude directories that cause hangs in monorepos.
-					"--exclude",
-					"node_modules",
-					"--exclude",
-					".git",
-					"--exclude",
-					"dist",
-					"--exclude",
-					".turbo",
 				];
 				if (hidden !== false) {
 					args.push("--hidden");

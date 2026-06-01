@@ -11,6 +11,18 @@
 
 import type { ISearchEngine, SearchQuery, WebSearchResult } from "./search-ports.js";
 
+const DEFAULT_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		return await fetch(url, { ...init, signal: controller.signal });
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Brave Search
 // ---------------------------------------------------------------------------
@@ -37,21 +49,9 @@ export async function braveSearch(query: string, opts: BraveSearchOptions = {}):
 	url.searchParams.set("count", String(opts.numResults ?? 10));
 	if (opts.country) url.searchParams.set("country", opts.country);
 
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 15_000);
-	let res: Response;
-	try {
-		res = await fetch(url.toString(), {
-			signal: controller.signal,
-			headers: {
-				Accept: "application/json",
-				"X-Subscription-Token": apiKey,
-			},
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-
+	const res = await fetchWithTimeout(url.toString(), {
+		headers: { Accept: "application/json", "X-Subscription-Token": apiKey },
+	});
 	if (!res.ok) throw new Error(`Brave API error: ${res.status} ${res.statusText}`);
 
 	const data = (await res.json()) as {
@@ -94,27 +94,16 @@ export async function tavilySearch(query: string, opts: TavilySearchOptions = {}
 	const apiKey = opts.apiKey ?? process.env.TAVILY_API_KEY;
 	if (!apiKey) throw new Error("Tavily API key required — set TAVILY_API_KEY or pass opts.apiKey");
 
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 15_000);
-	let res: Response;
-	try {
-		res = await fetch("https://api.tavily.com/search", {
-			method: "POST",
-			signal: controller.signal,
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				api_key: apiKey,
-				query,
-				max_results: opts.numResults ?? 5,
-				search_depth: opts.depth ?? "basic",
-			}),
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-
+	const res = await fetchWithTimeout("https://api.tavily.com/search", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			api_key: apiKey,
+			query,
+			max_results: opts.numResults ?? 5,
+			search_depth: opts.depth ?? "basic",
+		}),
+	});
 	if (!res.ok) throw new Error(`Tavily API error: ${res.status} ${res.statusText}`);
 
 	const data = (await res.json()) as {
@@ -162,30 +151,16 @@ export async function exaSearch(query: string, opts: ExaSearchOptions = {}): Pro
 	const apiKey = opts.apiKey ?? process.env.EXA_API_KEY;
 	if (!apiKey) throw new Error("Exa API key required — set EXA_API_KEY or pass opts.apiKey");
 
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 15_000);
-	let res: Response;
-	try {
-		res = await fetch("https://api.exa.ai/search", {
-			method: "POST",
-			signal: controller.signal,
-			headers: {
-				"Content-Type": "application/json",
-				"x-api-key": apiKey,
-			},
-			body: JSON.stringify({
-				query,
-				numResults: opts.numResults ?? 10,
-				type: opts.type ?? "auto",
-				contents: {
-					highlights: { numSentences: 2, highlightsPerUrl: 3 },
-				},
-			}),
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-
+	const res = await fetchWithTimeout("https://api.exa.ai/search", {
+		method: "POST",
+		headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+		body: JSON.stringify({
+			query,
+			numResults: opts.numResults ?? 10,
+			type: opts.type ?? "auto",
+			contents: { highlights: { numSentences: 2, highlightsPerUrl: 3 } },
+		}),
+	});
 	if (!res.ok) throw new Error(`Exa API error: ${res.status} ${res.statusText}`);
 
 	const data = (await res.json()) as {
@@ -228,20 +203,9 @@ export async function ddgSearch(query: string, opts: DdgSearchOptions = {}): Pro
 	url.searchParams.set("no_html", "1");
 	url.searchParams.set("skip_disambig", "1");
 
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), 15_000);
-	let res: Response;
-	try {
-		res = await fetch(url.toString(), {
-			signal: controller.signal,
-			headers: {
-				"User-Agent": "Alef/1.0 (agent; +https://github.com/dpopsuev/alef)",
-			},
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-
+	const res = await fetchWithTimeout(url.toString(), {
+		headers: { "User-Agent": "Alef/1.0 (agent; +https://github.com/dpopsuev/alef)" },
+	});
 	if (!res.ok) throw new Error(`DDG API error: ${res.status} ${res.statusText}`);
 
 	const data = (await res.json()) as {
@@ -464,40 +428,25 @@ export class FallbackSearchEngine implements ISearchEngine {
  * The returned engine implements ISearchEngine — swap it for any stub
  * in tests without touching call sites.
  */
-export function defaultSearchEngine(): ISearchEngine {
+export function defaultSearchEngine(env: Record<string, string | undefined> = process.env): ISearchEngine {
 	const engines: ISearchEngine[] = [];
-
-	const brave = process.env.BRAVE_SEARCH_API_KEY;
+	const brave = env.BRAVE_SEARCH_API_KEY;
 	if (brave) engines.push(new BraveSearchEngine(brave));
-
-	const tavily = process.env.TAVILY_API_KEY;
+	const tavily = env.TAVILY_API_KEY;
 	if (tavily) engines.push(new TavilySearchEngine(tavily));
-
-	const exa = process.env.EXA_API_KEY;
+	const exa = env.EXA_API_KEY;
 	if (exa) engines.push(new ExaSearchEngine(exa));
-
-	// DDG always last — no key needed, never throws the "no key" error
 	engines.push(new DdgSearchEngine());
-
 	return new FallbackSearchEngine(engines);
 }
 
-/**
- * Convenience wrapper for quick one-off searches.
- *
- * Uses defaultSearchEngine() to auto-detect API keys from environment variables.
- * Falls back through Brave → Tavily → Exa → DDG.
- *
- * @example
- * const results = await webSearch("latest TypeScript features");
- * console.log(results.map(r => r.title));
- */
 export async function webSearch(
 	query: string,
-	opts: { numResults?: number; engine?: string } = {},
+	opts: { numResults?: number; engine?: string; env?: Record<string, string | undefined> } = {},
 ): Promise<WebSearchResult[]> {
+	const env = opts.env ?? process.env;
 	const engine = opts.engine
-		? resolveSearchEngine(opts.engine, process.env[envKeyForEngine(opts.engine)])
-		: defaultSearchEngine();
+		? resolveSearchEngine(opts.engine, env[envKeyForEngine(opts.engine)])
+		: defaultSearchEngine(env);
 	return engine.search({ query, numResults: opts.numResults });
 }

@@ -631,6 +631,9 @@ try {
 					getModel: () => currentModel.id,
 					setModel: (id: string) => {
 						currentModel = buildModel(id);
+						const supportsThinking = currentModel.reasoning && !currentModel.id.includes("haiku");
+						if (!supportsThinking) thinkingState.level = undefined;
+						else if (!thinkingState.level) thinkingState.level = "medium" as ThinkingLevel;
 					},
 					getThinking: () => thinkingState.level ?? "off",
 					setThinking: (level: string) => {

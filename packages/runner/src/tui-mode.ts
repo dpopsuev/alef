@@ -350,6 +350,59 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				});
 			return true;
 		}
+		case ":scroll": {
+			const scroll = ctx.getScroll?.();
+			if (!scroll) {
+				ctx.writer.addNotice(":scroll not available in this session.");
+				ctx.tui.requestRender();
+				return true;
+			}
+			const sub = (parts[1] ?? "").toLowerCase();
+			const id = parts[2];
+			switch (sub) {
+				case "list":
+				case "": {
+					const blocks = scroll.list();
+					const lines = blocks.map(
+						(b) =>
+							`  [${b.priority}] ${b.enabled ? "●" : "○"} ${b.id}${b.tags?.length ? ` (${b.tags.join(", ")})` : ""}`,
+					);
+					ctx.writer.addNotice(`Prompt scroll blocks:\n${lines.join("\n")}`);
+					break;
+				}
+				case "enable":
+					if (!id) {
+						ctx.writer.addNotice("Usage: :scroll enable <id>");
+						break;
+					}
+					scroll.enable(id);
+					ctx.writer.addNotice(`● Block '${id}' enabled. Takes effect next turn.`);
+					break;
+				case "disable":
+					if (!id) {
+						ctx.writer.addNotice("Usage: :scroll disable <id>");
+						break;
+					}
+					scroll.disable(id);
+					ctx.writer.addNotice(`○ Block '${id}' disabled. Takes effect next turn.`);
+					break;
+				case "toggle":
+					if (!id) {
+						ctx.writer.addNotice("Usage: :scroll toggle <id>");
+						break;
+					}
+					scroll.toggle(id);
+					ctx.writer.addNotice(`Toggled block '${id}'. Takes effect next turn.`);
+					break;
+				case "reset":
+					ctx.writer.addNotice("Use :meta 'reset the prompt scroll to defaults' to restore all blocks.");
+					break;
+				default:
+					ctx.writer.addNotice("Usage: :scroll list | enable <id> | disable <id> | toggle <id> | reset");
+			}
+			ctx.tui.requestRender();
+			return true;
+		}
 		case ":theme": {
 			const themes = ["terminal", "terminal-light", "akko", "mono", "matrix"];
 			const name = parts[1]?.toLowerCase();

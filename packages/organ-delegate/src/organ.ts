@@ -71,7 +71,10 @@ When to use which profile:
   - True isolation, different blueprint, organ dev loop: orchestration.spawn + agent.run(<name>)
 
 agent.run is blocking — it waits for the subagent's reply before returning.
-Multiple parallel agent.run(explore) calls are safe and fast.`,
+Multiple parallel agent.run(explore) calls are safe and fast.
+
+**Critical:** When asked to explore or research the codebase, use parallel agent.run(explore) calls.
+Do not read files sequentially yourself — delegate to subagents instead.`,
 			],
 		},
 	) as DelegateOrgan;

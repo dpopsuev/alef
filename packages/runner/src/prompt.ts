@@ -40,32 +40,13 @@ export function buildToolsBlock(tools: readonly ToolDefinition[]): string {
 	return `## Tools\n\n${lines.length > 0 ? lines.join("\n") : "(no tools loaded)"}`;
 }
 
-export function buildGuidelinesBlock(tools: readonly ToolDefinition[]): string {
-	const names = new Set(tools.map((t) => t.name));
-	const hasFs = names.has("fs.read") || names.has("fs.write");
-	const hasShell = names.has("shell.exec");
-	const hasWeb = names.has("web.fetch") || names.has("web.search");
-	const hasNodesh = names.has("nodesh.run");
-
-	const guidance: string[] = [];
-	if (hasFs) {
-		guidance.push("Read a file before editing it.");
-		guidance.push("Use fs.edit for targeted changes; fs.write only when creating or fully rewriting.");
-	}
-	if (hasShell) {
-		guidance.push("Use shell.exec for compilation, tests, and git — not for reading files.");
-		if (hasFs) guidance.push("Prefer fs.read over shell.exec when reading files.");
-	}
-	if (hasWeb) guidance.push("Use web.fetch for a known URL; web.search to discover URLs.");
-	if (hasNodesh)
-		guidance.push("Use nodesh.run for structured computation, JSON transformation, and Alef API introspection.");
-	if (names.has("agent.run"))
-		guidance.push(
-			"For codebase exploration, research, and parallel read tasks: use multiple agent.run(explore) calls. Do not read files sequentially yourself when a subagent can do it faster.",
-		);
-	guidance.push("When a tool call fails, diagnose the cause before retrying with a different approach.");
-	guidance.push("Report results concisely. Ask for confirmation only when genuinely uncertain.");
-
+export function buildGuidelinesBlock(_tools: readonly ToolDefinition[]): string {
+	// Tool-specific guidance lives in each organ's own directives — not here.
+	// Only universal workflow rules belong in this block.
+	const guidance = [
+		"When a tool call fails, diagnose the cause before retrying with a different approach.",
+		"Report results concisely. Ask for confirmation only when genuinely uncertain.",
+	];
 	return `## Guidelines\n\n${guidance.map((g) => `- ${g}`).join("\n")}`;
 }
 

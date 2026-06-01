@@ -27,7 +27,9 @@
 
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny, z } from "zod";
-import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "./buses.js";
+import type { Budget } from "./budget.js";
+import { withLimits } from "./budget.js";
+import type { MotorEvent, Nerve, NerveMiddleware, Organ, SensePublishInput, ToolDefinition } from "./buses.js";
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
 
@@ -415,6 +417,16 @@ export interface OrganOptions {
 	};
 	/** Async initialization called by Agent.ready() before the first event is routed. */
 	ready?: () => Promise<void>;
+	/**
+	 * Hard resource limits enforced by middleware before the organ handles any event.
+	 * The LLM never sees these — they are enforced transparently.
+	 */
+	limits?: Budget;
+	/**
+	 * Composable nerve middleware applied to the organ's nerve during mount().
+	 * Applied after limits, in array order (first = outermost wrapper).
+	 */
+	middlewares?: NerveMiddleware[];
 }
 
 /**
@@ -511,7 +523,10 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		publishSchemas: opts.publishSchemas,
 		inputSchemas: opts.inputSchemas,
 		ready: opts.ready,
-		mount(nerve: Nerve): () => void {
+		mount(rawNerve: Nerve): () => void {
+			let nerve = rawNerve;
+			if (opts.limits) nerve = withLimits(opts.limits)(nerve);
+			for (const mw of opts.middlewares ?? []) nerve = mw(nerve);
 			const cache = new Map<string, Record<string, unknown>>();
 
 			// Auto-build inputSchemas from tool definitions — organs don't need to

@@ -29,11 +29,18 @@ import type {
 	SearchOptions,
 	SymbolBlock,
 } from "./backend.js";
+
+interface CallersStrategy {
+	canHandle(opts: CallersOptions): boolean;
+	resolve(backend: LocalLectorBackend, symbol: string, opts: CallersOptions, maxResults: number): Promise<CallSite[]>;
+}
+
 import { BlockCache } from "./block-cache.js";
 import { applyTextEdit, buildDeclRe } from "./edit-utils.js";
 import { LspClient } from "./lsp-client.js";
-import { extractBlock, extractSymbols } from "./symbol-extractor.js";
-import { extractSymbolsTs, isTsFile } from "./ts-symbol-extractor.js";
+import { extractBlock } from "./symbol-extractor.js";
+import { extractSymbolsFor } from "./symbol-strategies.js";
+import { isTsFile } from "./ts-symbol-extractor.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -220,7 +227,7 @@ export class LocalLectorBackend implements LectorBackend {
 			const content = await readFile(abs, "utf-8");
 			// Use TypeScript compiler API for .ts/.tsx (Phase 2 accuracy).
 			// Fall back to regex extractor for other languages.
-			const symbols = isTsFile(path) ? extractSymbolsTs(content, path) : extractSymbols(content);
+			const symbols = extractSymbolsFor(content, path);
 			cached = { content, symbols, storedAt: process.hrtime.bigint() };
 			this.cache.set(abs, cached);
 
@@ -443,20 +450,28 @@ export class LocalLectorBackend implements LectorBackend {
 
 	async callers(symbol: string, opts: CallersOptions = {}): Promise<CallSite[]> {
 		const maxResults = opts.maxResults ?? DEFAULT_MAX_RESULTS_CALLERS;
-
-		// Phase 2: LSP callHierarchy for TypeScript files.
-		// Requires the symbol to be found in a TS file via the cached symbol map.
-		if (opts.path && isTsFile(opts.path)) {
+		for (const strategy of this._callersStrategies) {
+			if (!strategy.canHandle(opts)) continue;
 			try {
-				return await this._callersViaLsp(symbol, opts.path, maxResults);
+				return await strategy.resolve(this, symbol, opts, maxResults);
 			} catch {
-				// LSP not available or failed — fall through to grep
+				// strategy unavailable — try next
 			}
 		}
-
-		// Phase 1: grep-based fallback.
-		return this._callersViaGrep(symbol, opts, maxResults);
+		return [];
 	}
+
+	private readonly _callersStrategies: CallersStrategy[] = [
+		{
+			canHandle: (opts) => !!(opts.path && isTsFile(opts.path)),
+			resolve: async (backend, symbol, opts, maxResults) =>
+				backend._callersViaLsp(symbol, opts.path ?? "", maxResults),
+		},
+		{
+			canHandle: () => true,
+			resolve: async (backend, symbol, opts, maxResults) => backend._callersViaGrep(symbol, opts, maxResults),
+		},
+	];
 
 	private async _callersViaLsp(symbol: string, filePath: string, maxResults: number): Promise<CallSite[]> {
 		const abs = resolvePath(this.cwd, filePath, this.allowAbsolutePaths);
@@ -465,7 +480,7 @@ export class LocalLectorBackend implements LectorBackend {
 		const fileUrl = pathToFileURL(abs).href;
 
 		// Find the symbol's position from the cached symbol map (or re-extract).
-		const symbols = isTsFile(filePath) ? extractSymbolsTs(content, filePath) : extractSymbols(content);
+		const symbols = extractSymbolsFor(content, filePath);
 		const sym = symbols.find((s) => s.name === symbol);
 		if (!sym) throw new Error(`LSP callers: symbol '${symbol}' not found in ${filePath}`);
 

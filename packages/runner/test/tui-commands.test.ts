@@ -10,6 +10,7 @@
  *   handleSlashCommand — /exit, /new, /resume, /help, unknown
  */
 
+import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { Container } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -46,7 +47,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 		t,
 		writer: new ChatWriter(chat, t),
 		tui: makeTui(),
-		dialog: { clearHistory: vi.fn() },
+		dialog: {} as DialogOrgan,
 		dispose: vi.fn(),
 		sessionId: "test-1234",
 		abortCurrentTurn: undefined,
@@ -139,12 +140,6 @@ describe("handleSlashCommand /exit", () => {
 // ---------------------------------------------------------------------------
 
 describe("handleSlashCommand /new", () => {
-	it("calls dialog.clearHistory()", () => {
-		const ctx = makeCtx();
-		handleSlashCommand("/new", ctx);
-		expect(ctx.dialog.clearHistory).toHaveBeenCalledOnce();
-	});
-
 	it("clears pre-existing children and replaces with notice pill", () => {
 		const ctx = makeCtx();
 		// Add some children to chat first.

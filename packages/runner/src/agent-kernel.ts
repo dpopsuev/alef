@@ -172,8 +172,6 @@ export const AgentKernel = {
 		} else {
 			dialog = new DialogOrgan({
 				sink: opts.sink ?? (() => {}),
-				getTools: opts.getTools ?? (() => [...agent.tools]),
-				systemPrompt: opts.systemPrompt,
 				maxTurns: opts.maxTurns,
 			});
 			agent.load(dialog).load(opts.llm);

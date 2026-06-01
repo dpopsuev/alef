@@ -19,11 +19,8 @@ afterEach(() => {
 function makeAgent(opts: { timeoutMs?: number } = {}) {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
-	const dialog = new DialogOrgan({
-		sink: () => {},
-		getTools: () => [...agent.tools],
-	});
-	agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
+	const dialog = new DialogOrgan({ sink: () => {} });
+	agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
 	disposes.push(() => agent.dispose());
 	return { faux, agent, dialog, timeoutMs: opts.timeoutMs ?? 3_000 };
 }

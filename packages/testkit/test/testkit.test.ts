@@ -10,7 +10,7 @@ import { BusEventRecorder, MockReasoner } from "../src/index.js";
 function makeHarness(cannedText = "mock response") {
 	const recorder = new BusEventRecorder();
 	const agent = new Agent();
-	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+	const dialog = new DialogOrgan({ sink: () => {} });
 	agent.load(dialog).load(new MockReasoner(cannedText));
 	agent.observe(recorder);
 	return { agent, dialog, recorder, dispose: () => agent.dispose() };

@@ -105,11 +105,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 		const scriptedLlm = new ScriptedReasoner(opts.script);
 		const agent = new Agent();
 
-		const dialog = new DialogOrgan({
-			sink: () => {},
-			getTools: () => agent.tools,
-			systemPrompt: opts.systemPrompt,
-		});
+		const dialog = new DialogOrgan({ sink: () => {} });
 
 		agent.load(dialog).load(scriptedLlm);
 		for (const organ of opts.organs ?? []) {

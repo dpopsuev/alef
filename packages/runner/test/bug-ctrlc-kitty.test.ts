@@ -8,6 +8,7 @@
  * These tests FAIL before the fix and PASS after.
  */
 
+import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { describe, expect, it, vi } from "vitest";
 import { getTheme } from "../src/theme.js";
@@ -29,7 +30,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 		t,
 		writer: new ChatWriter(new Container(), t),
 		tui: makeTui(),
-		dialog: { clearHistory: vi.fn() },
+		dialog: {} as DialogOrgan,
 		dispose: vi.fn(),
 		sessionId: "test",
 		abortCurrentTurn: undefined,

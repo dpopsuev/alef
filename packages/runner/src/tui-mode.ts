@@ -63,7 +63,7 @@ export interface TuiHandlerContext {
 		addChild(c: unknown): void;
 		requestRender(force?: boolean): void;
 	};
-	dialog: { clearHistory(): void };
+	dialog: DialogOrgan;
 	dispose(): void;
 	sessionId: string;
 	abortCurrentTurn: (() => void) | undefined;
@@ -131,7 +131,6 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			ctx.tui.stop();
 			return true;
 		case "/new":
-			ctx.dialog.clearHistory();
 			ctx.writer.clearAll();
 			ctx.writer.addNotice("(conversation cleared)");
 			ctx.tui.requestRender(true);
@@ -195,7 +194,6 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 			return true;
 		case ":new":
 		case ":clear":
-			ctx.dialog.clearHistory();
 			ctx.writer.clearAll();
 			ctx.writer.addNotice("(conversation cleared)");
 			ctx.tui.requestRender(true);

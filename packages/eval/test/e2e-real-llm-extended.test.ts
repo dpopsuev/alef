@@ -87,17 +87,19 @@ function makeTracker(): { organ: Parameters<Agent["load"]>[0]; motorEvents: Tool
 function makeAgent(organs: Parameters<Agent["load"]>[0][]): { agent: Agent; dialog: DialogOrgan } {
 	const agent = new Agent();
 	agents.push(agent);
-	const dialog = new DialogOrgan({
-		sink: () => {},
-		getTools: () => agent.tools,
-		systemPrompt:
-			"You are a precise coding assistant. Use the available tools. Read file contents before answering. Reply concisely.",
-	});
+	const dialog = new DialogOrgan({ sink: () => {} });
 	agent.load(dialog);
 	for (const organ of organs) {
 		agent.load(organ);
 	}
-	agent.load(new Cerebrum({ model: getEvalModel() }));
+	agent.load(
+		new Cerebrum({
+			model: getEvalModel(),
+			getTools: () => agent.tools,
+			systemPrompt:
+				"You are a precise coding assistant. Use the available tools. Read file contents before answering. Reply concisely.",
+		}),
+	);
 	agent.validate();
 	return { agent, dialog };
 }

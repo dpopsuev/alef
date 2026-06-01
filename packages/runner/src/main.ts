@@ -431,8 +431,8 @@ const llmOrgan = scriptedRepliesEnv
 			onCheckpoint,
 			trackConcurrentOps: args.serve !== undefined,
 			getSignal: () => currentLLMController?.signal,
-			// ToolShell uses llm.phase to inject/evict catalog and refresh schemas per turn.
 			phaseTimeoutMs: 100,
+			getTools: () => toolShell.currentMetaTools(),
 			onToolStart: (event) => toolSlot.onToolStart?.(event),
 			onToolEnd: (event) => toolSlot.onToolEnd?.(event),
 			onTokenUsage: (usage) => toolSlot.onTokenUsage?.(usage),
@@ -449,9 +449,7 @@ const toolShell = createToolShellOrgan({
 
 const dialog = new DialogOrgan({
 	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
-	getTools: () => toolShell.currentMetaTools(),
 	maxTurns: args.maxTurns,
-	// systemPrompt intentionally omitted — prepareStep injects it from the live scroll each turn.
 });
 
 const { agent } = AgentKernel.create({

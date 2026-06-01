@@ -1,1 +1,1 @@
-export { type AlefApiOrganOptions, createAlefApiOrgan, type PromptAdapter } from "./organ.js";
+export { type AlefApiOrganOptions, createAlefApiOrgan, type DirectiveAdapter } from "./organ.js";

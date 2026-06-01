@@ -1,4 +1,4 @@
-export interface PromptBlock {
+export interface Directive {
 	id: string;
 	priority: number;
 	content: string | (() => string);
@@ -8,23 +8,26 @@ export interface PromptBlock {
 	meta?: Record<string, unknown>;
 }
 
-export interface ResolvedBlock extends Omit<PromptBlock, "content"> {
+export interface ResolvedDirective extends Omit<Directive, "content"> {
 	content: string;
 }
 
-export interface PromptScrollState {
-	blocks: Array<Omit<PromptBlock, "content"> & { content: string }>;
+export interface DirectiveScrollState {
+	blocks: Array<Omit<Directive, "content"> & { content: string }>;
 }
 
-export type BlockRenderer = (blocks: ReadonlyArray<ResolvedBlock>) => string;
-export type BudgetStrategy = (blocks: ReadonlyArray<ResolvedBlock>, budget: number) => ReadonlyArray<ResolvedBlock>;
-export type BlockComparator = (a: PromptBlock, b: PromptBlock) => number;
+export type DirectiveRenderer = (blocks: ReadonlyArray<ResolvedDirective>) => string;
+export type DirectiveBudgetStrategy = (
+	blocks: ReadonlyArray<ResolvedDirective>,
+	budget: number,
+) => ReadonlyArray<ResolvedDirective>;
+export type DirectiveComparator = (a: Directive, b: Directive) => number;
 
-const defaultRenderer: BlockRenderer = (blocks) => blocks.map((b) => b.content).join("\n\n");
+const defaultRenderer: DirectiveRenderer = (blocks) => blocks.map((b) => b.content).join("\n\n");
 
-const defaultBudgetStrategy: BudgetStrategy = (blocks, budget) => {
+const defaultDirectiveBudgetStrategy: DirectiveBudgetStrategy = (blocks, budget) => {
 	const sorted = [...blocks].sort((a, b) => a.priority - b.priority);
-	const selected: ResolvedBlock[] = [];
+	const selected: ResolvedDirective[] = [];
 	let used = 0;
 	for (const b of sorted) {
 		const cost = b.content.length;
@@ -35,16 +38,16 @@ const defaultBudgetStrategy: BudgetStrategy = (blocks, budget) => {
 	return selected;
 };
 
-const defaultComparator: BlockComparator = (a, b) => a.priority - b.priority;
+const defaultComparator: DirectiveComparator = (a, b) => a.priority - b.priority;
 
-export class PromptScroll {
-	private readonly _blocks = new Map<string, PromptBlock>();
+export class DirectiveScroll {
+	private readonly _blocks = new Map<string, Directive>();
 
-	renderer: BlockRenderer = defaultRenderer;
-	budgetStrategy: BudgetStrategy = defaultBudgetStrategy;
-	comparator: BlockComparator = defaultComparator;
+	renderer: DirectiveRenderer = defaultRenderer;
+	budgetStrategy: DirectiveBudgetStrategy = defaultDirectiveBudgetStrategy;
+	comparator: DirectiveComparator = defaultComparator;
 
-	register(block: PromptBlock): this {
+	register(block: Directive): this {
 		this._blocks.set(block.id, { ...block });
 		return this;
 	}
@@ -113,7 +116,7 @@ export class PromptScroll {
 		return this._blocks.has(id);
 	}
 
-	get(id: string): Readonly<PromptBlock> | undefined {
+	get(id: string): Readonly<Directive> | undefined {
 		return this._blocks.get(id);
 	}
 
@@ -123,7 +126,7 @@ export class PromptScroll {
 		anyTag?: string[];
 		minPriority?: number;
 		maxPriority?: number;
-	}): ReadonlyArray<PromptBlock> {
+	}): ReadonlyArray<Directive> {
 		let blocks = [...this._blocks.values()];
 		if (filter) {
 			if (filter.enabled !== undefined) blocks = blocks.filter((b) => b.enabled === filter.enabled);
@@ -147,8 +150,8 @@ export class PromptScroll {
 		return blocks.sort(this.comparator);
 	}
 
-	clone(): PromptScroll {
-		const s = new PromptScroll();
+	clone(): DirectiveScroll {
+		const s = new DirectiveScroll();
 		s.renderer = this.renderer;
 		s.budgetStrategy = this.budgetStrategy;
 		s.comparator = this.comparator;
@@ -156,7 +159,7 @@ export class PromptScroll {
 		return s;
 	}
 
-	merge(other: PromptScroll, strategy: "last-wins" | "keep-existing" = "last-wins"): PromptScroll {
+	merge(other: DirectiveScroll, strategy: "last-wins" | "keep-existing" = "last-wins"): DirectiveScroll {
 		const s = this.clone();
 		for (const b of other._blocks.values()) {
 			if (strategy === "keep-existing" && s._blocks.has(b.id)) continue;
@@ -165,8 +168,8 @@ export class PromptScroll {
 		return s;
 	}
 
-	subset(predicate: (block: PromptBlock) => boolean): PromptScroll {
-		const s = new PromptScroll();
+	subset(predicate: (block: Directive) => boolean): DirectiveScroll {
+		const s = new DirectiveScroll();
 		s.renderer = this.renderer;
 		s.budgetStrategy = this.budgetStrategy;
 		s.comparator = this.comparator;
@@ -176,12 +179,12 @@ export class PromptScroll {
 		return s;
 	}
 
-	without(...ids: string[]): PromptScroll {
+	without(...ids: string[]): DirectiveScroll {
 		const drop = new Set(ids);
 		return this.subset((b) => !drop.has(b.id));
 	}
 
-	resolve(): ReadonlyArray<ResolvedBlock> {
+	resolve(): ReadonlyArray<ResolvedDirective> {
 		return this.list({ enabled: true }).map((b) => ({
 			...b,
 			content: typeof b.content === "function" ? b.content() : b.content,
@@ -195,7 +198,7 @@ export class PromptScroll {
 		return this.renderer(sorted);
 	}
 
-	toJSON(): PromptScrollState {
+	toJSON(): DirectiveScrollState {
 		return {
 			blocks: [...this._blocks.values()].map((b) => ({
 				...b,
@@ -204,8 +207,8 @@ export class PromptScroll {
 		};
 	}
 
-	static fromJSON(state: PromptScrollState): PromptScroll {
-		const s = new PromptScroll();
+	static fromJSON(state: DirectiveScrollState): DirectiveScroll {
+		const s = new DirectiveScroll();
 		for (const b of state.blocks) s._blocks.set(b.id, { ...b });
 		return s;
 	}

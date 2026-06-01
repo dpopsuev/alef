@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { PromptScroll } from "./prompt-scroll.js";
+import { DirectiveScroll } from "./directive-scroll.js";
 
 // ---------------------------------------------------------------------------
 // Block content — each section is a named function returning a string.
@@ -71,7 +71,7 @@ export function buildEnvironmentBlock(cwd: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// PromptScroll factory — registers all built-in blocks.
+// DirectiveScroll factory — registers all built-in blocks.
 // ---------------------------------------------------------------------------
 
 export interface CreateScrollOptions {
@@ -79,9 +79,9 @@ export interface CreateScrollOptions {
 	cwd: string;
 }
 
-export function createDefaultScroll(opts: CreateScrollOptions): PromptScroll {
+export function createDefaultScroll(opts: CreateScrollOptions): DirectiveScroll {
 	const { tools, cwd } = opts;
-	const scroll = new PromptScroll();
+	const scroll = new DirectiveScroll();
 
 	scroll
 		.register({ id: "identity", priority: 0, content: BLOCK_IDENTITY, enabled: true, tags: ["core"] })
@@ -116,7 +116,7 @@ export function createDefaultScroll(opts: CreateScrollOptions): PromptScroll {
 // Workspace + organ loading — replaces DirectiveContextAssembler.
 // ---------------------------------------------------------------------------
 
-export async function loadWorkspace(scroll: PromptScroll, cwd: string): Promise<void> {
+export async function loadWorkspace(scroll: DirectiveScroll, cwd: string): Promise<void> {
 	const dir = join(cwd, ".alef", "directives");
 	let entries: string[];
 	try {
@@ -136,7 +136,7 @@ export async function loadWorkspace(scroll: PromptScroll, cwd: string): Promise<
 	}
 }
 
-export function registerOrgans(scroll: PromptScroll, organs: readonly Organ[]): void {
+export function registerOrgans(scroll: DirectiveScroll, organs: readonly Organ[]): void {
 	for (const organ of organs) {
 		if (!organ.directives?.length) continue;
 		const header = organ.description ? `### ${organ.name}: ${organ.description}` : `### ${organ.name}`;

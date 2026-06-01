@@ -638,72 +638,19 @@ function pickKeyArg(payload: Record<string, unknown>): string {
 	return "";
 }
 
-export class Cerebrum {
-	private readonly organ: Organ;
-	private readonly options: CerebrumOptions;
-	private readonly replyType: string;
-	/** In-flight motor events from concurrent turns. Populated only when trackConcurrentOps=true. */
-	private readonly inflight = new Map<string, InflightEntry>();
+/**
+ * Create a full Cerebrum organ with optional concurrent-ops inflight tracking.
+ * This is the canonical factory. The Cerebrum class below is a thin adapter
+ * kept for backward compatibility with `new Cerebrum(opts)` call sites.
+ */
+export function createConcurrentCerebrum(options: CerebrumOptions): Organ {
+	const replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
+	const inflight = new Map<string, InflightEntry>();
 
-	readonly name = "llm";
-	readonly description = "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.";
-	readonly labels = ["llm", "reasoning", "ai"] as const;
-	readonly tools = [] as const;
-	get publishSchemas() {
-		const reply = this.replyType;
-		return {
-			motor: {
-				[reply]: z.object({
-					text: z.string().min(1),
-					conversationHistory: z.array(z.unknown()).optional(),
-					usage: z.object({ totalTokens: z.number() }).passthrough().optional(),
-				}),
-				"llm.phase": z.object({
-					messages: z.array(z.unknown()),
-					turn: z.number().int().positive(),
-					toolCount: z.number().int().nonnegative(),
-				}),
-				"llm.result": z.object({
-					response: z.record(z.string(), z.unknown()),
-					toolCalls: z.array(
-						z.object({ name: z.string(), args: z.record(z.string(), z.unknown()), id: z.string() }),
-					),
-					turn: z.number().int().positive(),
-				}),
-			},
-		};
-	}
-
-	get subscriptions() {
-		// When tracking concurrent ops, declare the wildcard subscriptions so
-		// agent.validate() sees them and Port validation passes.
-		const base = this.organ.subscriptions;
-		if (!this.options.trackConcurrentOps) return base;
-		return {
-			motor: [...base.motor, "*"] as readonly string[],
-			sense: [...base.sense, "*"] as readonly string[],
-		};
-	}
-
-	constructor(options: CerebrumOptions) {
-		this.options = options;
-		this.replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
-		const wrappedOptions: CerebrumOptions = options.trackConcurrentOps
-			? {
-					...options,
-					prepareStep: async (msgs: Message[]) => {
-						const afterUser = options.prepareStep ? await options.prepareStep(msgs) : msgs;
-						return this.applyInflightContext(afterUser as { role: string; content: string }[]) as Message[];
-					},
-				}
-			: options;
-		this.organ = createCerebrum(wrappedOptions);
-	}
-
-	private applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {
-		if (this.inflight.size === 0) return messages;
+	function applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {
+		if (inflight.size === 0) return messages;
 		const now = Date.now();
-		const lines = [...this.inflight.values()].map((e) => {
+		const lines = [...inflight.values()].map((e) => {
 			const elapsed = Math.floor((now - e.startedAt) / 1000);
 			const corr = e.correlationId.slice(0, 8);
 			return `  - ${e.type} (${corr}, ${elapsed}s)${e.keyArg ? `: ${e.keyArg}` : ""}`;
@@ -718,33 +665,111 @@ export class Cerebrum {
 		return [{ role: "system", content: block.trimStart() } as unknown as T, ...messages];
 	}
 
-	mount(nerve: Nerve): () => void {
-		const offOrgan = this.organ.mount(nerve);
-		if (!this.options.trackConcurrentOps) return offOrgan;
+	const wrappedOptions: CerebrumOptions = options.trackConcurrentOps
+		? {
+				...options,
+				prepareStep: async (msgs: Message[]) => {
+					const afterUser = options.prepareStep ? await options.prepareStep(msgs) : msgs;
+					return applyInflightContext(afterUser as { role: string; content: string }[]) as Message[];
+				},
+			}
+		: options;
 
-		// Wire wildcard subscriptions for concurrent-ops tracking.
-		const inflightExcluded = makeInflightExcluded(this.replyType);
-		const offMotor = nerve.motor.subscribe("*", (event) => {
-			if (inflightExcluded.has(event.type)) return;
-			const toolCallId = extractToolCallId(event.payload);
-			this.inflight.set(inflightKey(event.type, event.correlationId, toolCallId), {
-				type: event.type,
-				correlationId: event.correlationId,
-				startedAt: event.timestamp,
-				keyArg: pickKeyArg(event.payload),
+	const innerOrgan = createCerebrum(wrappedOptions);
+
+	const publishSchemas = {
+		motor: {
+			[replyType]: z.object({
+				text: z.string().min(1),
+				conversationHistory: z.array(z.unknown()).optional(),
+				usage: z.object({ totalTokens: z.number() }).passthrough().optional(),
+			}),
+			"llm.phase": z.object({
+				messages: z.array(z.unknown()),
+				turn: z.number().int().positive(),
+				toolCount: z.number().int().nonnegative(),
+			}),
+			"llm.result": z.object({
+				response: z.record(z.string(), z.unknown()),
+				toolCalls: z.array(z.object({ name: z.string(), args: z.record(z.string(), z.unknown()), id: z.string() })),
+				turn: z.number().int().positive(),
+			}),
+		},
+	};
+
+	const baseSubscriptions = innerOrgan.subscriptions;
+	const subscriptions = options.trackConcurrentOps
+		? {
+				motor: [...baseSubscriptions.motor, "*"] as readonly string[],
+				sense: [...baseSubscriptions.sense, "*"] as readonly string[],
+			}
+		: baseSubscriptions;
+
+	return {
+		name: "llm",
+		description: "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.",
+		labels: ["llm", "reasoning", "ai"],
+		tools: [],
+		publishSchemas,
+		subscriptions,
+		mount(nerve: Nerve): () => void {
+			const offOrgan = innerOrgan.mount(nerve);
+			if (!options.trackConcurrentOps) return offOrgan;
+
+			const inflightExcluded = makeInflightExcluded(replyType);
+			const offMotor = nerve.motor.subscribe("*", (event) => {
+				if (inflightExcluded.has(event.type)) return;
+				const toolCallId = extractToolCallId(event.payload);
+				inflight.set(inflightKey(event.type, event.correlationId, toolCallId), {
+					type: event.type,
+					correlationId: event.correlationId,
+					startedAt: event.timestamp,
+					keyArg: pickKeyArg(event.payload),
+				});
 			});
-		});
-		const offSense = nerve.sense.subscribe("*", (event) => {
-			const toolCallId = extractToolCallId(event.payload);
-			this.inflight.delete(inflightKey(event.type, event.correlationId, toolCallId));
-		});
+			const offSense = nerve.sense.subscribe("*", (event) => {
+				const toolCallId = extractToolCallId(event.payload);
+				inflight.delete(inflightKey(event.type, event.correlationId, toolCallId));
+			});
 
-		return () => {
-			offOrgan();
-			offMotor();
-			offSense();
-			this.inflight.clear();
-		};
+			return () => {
+				offOrgan();
+				offMotor();
+				offSense();
+				inflight.clear();
+			};
+		},
+	};
+}
+
+/** Backward-compatible adapter. Prefer createConcurrentCerebrum for new code. */
+export class Cerebrum implements Organ {
+	private readonly _impl: Organ;
+
+	constructor(options: CerebrumOptions) {
+		this._impl = createConcurrentCerebrum(options);
+	}
+
+	get name() {
+		return this._impl.name;
+	}
+	get description() {
+		return this._impl.description;
+	}
+	get labels() {
+		return this._impl.labels;
+	}
+	get tools() {
+		return this._impl.tools;
+	}
+	get publishSchemas() {
+		return this._impl.publishSchemas;
+	}
+	get subscriptions() {
+		return this._impl.subscriptions;
+	}
+	mount(nerve: Nerve) {
+		return this._impl.mount(nerve);
 	}
 }
 

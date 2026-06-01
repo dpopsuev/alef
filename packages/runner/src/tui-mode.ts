@@ -439,6 +439,25 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 			ctx.tui.requestRender();
 			return true;
 		}
+		case ":think": {
+			const VALID_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+			const level = parts[1];
+			if (!level) {
+				const current = ctx.opts?.getThinking?.() ?? "off";
+				ctx.writer.addNotice(`Thinking: ${current}\nUsage: :think <level>  (${VALID_LEVELS.join(" | ")})`);
+				ctx.tui.requestRender();
+				return true;
+			}
+			if (!VALID_LEVELS.includes(level as (typeof VALID_LEVELS)[number])) {
+				ctx.writer.addNotice(`Unknown thinking level: ${level}. Valid: ${VALID_LEVELS.join(" | ")}`);
+				ctx.tui.requestRender();
+				return true;
+			}
+			ctx.opts?.setThinking?.(level);
+			ctx.writer.addNotice(`Thinking set to "${level}". Takes effect on the next message.`);
+			ctx.tui.requestRender();
+			return true;
+		}
 		default:
 			ctx.writer.addNotice(`Unknown command: ${cmd}. Type :help for list or :h for help.`);
 			ctx.tui.requestRender();
@@ -533,6 +552,10 @@ export async function runTuiMode(
 		(delta) => streamingZone.receiveText(delta),
 		() => tui.requestRender(),
 	);
+	const thinkingTW = new Typewriter(
+		(delta) => streamingZone.receiveThinking(delta),
+		() => tui.requestRender(),
+	);
 
 	// ── Tool call tracking ────────────────────────────────────────────────
 	const activeCalls = new Map<string, { name: string; keyArg: string }>();
@@ -553,6 +576,7 @@ export async function runTuiMode(
 			consoleZone.pulse();
 			showFooter();
 			replyTW.flush();
+			thinkingTW.flush();
 			streamingZone.reset(); // close @alef block so post-tool text opens a new one
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
@@ -622,7 +646,7 @@ export async function runTuiMode(
 
 		toolSlot.receiveThinkingChunk = (chunk) => {
 			consoleZone.pulse();
-			streamingZone.receiveThinking(chunk);
+			thinkingTW.receive(chunk);
 		};
 	}
 
@@ -751,6 +775,7 @@ export async function runTuiMode(
 			await dialog.send(text, "human", 300_000);
 			if (!aborted) {
 				replyTW.flush();
+				thinkingTW.flush();
 				streamingZone.reset();
 				consoleZone.stopThinking();
 				consoleZone.hidePendingFooter();
@@ -762,6 +787,7 @@ export async function runTuiMode(
 			consoleZone.stopThinking();
 			consoleZone.hidePendingFooter();
 			replyTW.reset();
+			thinkingTW.reset();
 			streamingZone.clear();
 			for (const [callId, entry] of activeCalls) {
 				consoleZone.removeInFlightCall(callId);

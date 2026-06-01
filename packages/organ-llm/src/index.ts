@@ -42,6 +42,8 @@ export interface LlmObservabilityOptions {
 /** Topology and capability options — routing, pipeline, concurrency, context prep. */
 export interface LlmTopologyOptions {
 	thinking?: ThinkingLevel;
+	/** Live getter — overrides `thinking` when provided. Enables :think runtime switching. */
+	getThinking?: () => ThinkingLevel | undefined;
 	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
 	trackConcurrentOps?: boolean;
 	phaseTimeoutMs?: number;
@@ -232,7 +234,9 @@ async function runLLMLoop(
 				timeoutMs,
 				maxRetries,
 				maxRetryDelayMs,
-				...(options.thinking ? { reasoning: options.thinking } : {}),
+				...((options.getThinking?.() ?? options.thinking)
+					? { reasoning: options.getThinking?.() ?? options.thinking }
+					: {}),
 				...(options.getSignal ? { signal: options.getSignal() } : {}),
 			},
 		);

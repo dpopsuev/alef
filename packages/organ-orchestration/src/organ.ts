@@ -19,10 +19,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
-import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { DelegationStrategy, Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
+import { RemoteProcessStrategy } from "./remote-process.js";
 import type { ChildEntry } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,12 @@ export interface OrchestrationOrganOptions {
 	/** Timeout in ms waiting for a child to become ready. Default: 30_000. */
 	readinessTimeoutMs?: number;
 	logger?: OrganLogger;
+	/**
+	 * Called after a child spawns successfully with a RemoteProcessStrategy
+	 * bound to that child's endpoint. organ-delegate uses this to register
+	 * the child as a named delegation target.
+	 */
+	onChildReady?: (name: string, strategy: DelegationStrategy) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,75 +93,6 @@ function healthCheck(endpoint: string): Promise<boolean> {
 	});
 }
 
-function postToChild(endpoint: string, text: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const body = JSON.stringify({ text });
-		const url = new URL(`${endpoint}/message`);
-		const req = http.request(
-			{
-				hostname: url.hostname,
-				port: Number(url.port),
-				path: url.pathname,
-				method: "POST",
-				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
-			},
-			(res) => {
-				res.resume();
-				res.on("end", resolve);
-			},
-		);
-		req.on("error", reject);
-		req.write(body);
-		req.end();
-	});
-}
-
-function collectReply(endpoint: string, timeoutMs: number): Promise<string | undefined> {
-	return new Promise((resolve, reject) => {
-		let buf = "";
-		const url = new URL(`${endpoint}/events`);
-		const timer = setTimeout(() => {
-			req.destroy();
-			resolve(undefined);
-		}, timeoutMs);
-		const req = http.get({ hostname: url.hostname, port: Number(url.port), path: url.pathname }, (res) => {
-			res.on("data", (chunk: Buffer) => {
-				buf += chunk.toString();
-				const frames = buf.split("\n\n");
-				buf = frames.pop() ?? "";
-				for (const frame of frames) {
-					const line = frame.split("\n").find((l) => l.startsWith("data: "));
-					if (!line) continue;
-					try {
-						const ev = JSON.parse(line.slice(6)) as { bus?: string; type?: string; payload?: { text?: string } };
-						if (ev.bus === "motor" && ev.type === "dialog.message" && typeof ev.payload?.text === "string") {
-							clearTimeout(timer);
-							res.destroy();
-							resolve(ev.payload.text);
-							return;
-						}
-					} catch {
-						/* skip malformed */
-					}
-				}
-			});
-			res.on("error", (err) => {
-				if ((err as NodeJS.ErrnoException).code === "ERR_STREAM_DESTROYED") {
-					clearTimeout(timer);
-					resolve(undefined);
-					return;
-				}
-				clearTimeout(timer);
-				reject(err);
-			});
-		});
-		req.on("error", (err) => {
-			clearTimeout(timer);
-			reject(err);
-		});
-	});
-}
-
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -187,16 +125,12 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		const { name: childName, prompt, timeoutMs = 60_000 } = ctx.payload;
 		const entry = children.get(childName);
 		if (!entry) throw new Error(`orchestration.ask: no child named '${childName}'`);
-		const replyPromise = collectReply(entry.endpoint, timeoutMs);
-		await postToChild(entry.endpoint, prompt);
-		const reply = await replyPromise;
-		if (reply === undefined) {
+		const strategy = new RemoteProcessStrategy(entry.endpoint);
+		const reply = await strategy.send(prompt, "human", timeoutMs);
+		if (!reply) {
 			return withDisplay(
 				{ name: childName, reply: null, timedOut: true },
-				{
-					text: `**${childName}** did not reply within ${timeoutMs}ms`,
-					mimeType: "text/markdown",
-				},
+				{ text: `**${childName}** did not reply within ${timeoutMs}ms`, mimeType: "text/markdown" },
 			);
 		}
 		return withDisplay({ name: childName, reply }, { text: reply, mimeType: "text/plain" });
@@ -299,6 +233,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			startedAt: Date.now(),
 		};
 		children.set(name, entry);
+		opts.onChildReady?.(name, new RemoteProcessStrategy(ready.endpoint));
 
 		// Cleanup tmpDir when child exits.
 		child.once("exit", () => {

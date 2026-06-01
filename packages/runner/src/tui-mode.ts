@@ -23,11 +23,11 @@ import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { COLON_COMMANDS, ModalInputHandler } from "./modal-input.js";
 import { buildModel } from "./model.js";
+import type { SessionGuard } from "./session-guard.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, color, getTheme, glyph, setThemeByName, type ThemeTokens } from "./theme.js";
 import { ChatWriter } from "./tui/chat-writer.js";
 import { DynamicText } from "./tui/dynamic-text.js";
-
 import { StreamingZone } from "./tui/streaming-zone.js";
 import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent } from "./tui/tool-view.js";
 import { Typewriter } from "./tui/typewriter.js";
@@ -487,6 +487,7 @@ export async function runTuiMode(
 	toolSlot?: TuiToolSlot,
 	reloadOrgan?: (name: string, path: string) => Promise<void>,
 	getDirective?: () => DirectiveAdapter | undefined,
+	guard?: SessionGuard,
 ): Promise<void> {
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
@@ -770,7 +771,7 @@ export async function runTuiMode(
 		};
 
 		try {
-			await dialog.send(text, "human", 300_000);
+			await (guard ?? dialog).send(text, "human", 300_000);
 			if (!aborted) {
 				replyTW.flush();
 				thinkingTW.flush();

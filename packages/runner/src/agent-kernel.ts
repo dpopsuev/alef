@@ -170,10 +170,7 @@ export const AgentKernel = {
 		} else if (opts.trigger) {
 			agent.load(opts.trigger).load(opts.llm);
 		} else {
-			dialog = new DialogOrgan({
-				sink: opts.sink ?? (() => {}),
-				maxTurns: opts.maxTurns,
-			});
+			dialog = new DialogOrgan({ sink: opts.sink ?? (() => {}) });
 			agent.load(dialog).load(opts.llm);
 		}
 

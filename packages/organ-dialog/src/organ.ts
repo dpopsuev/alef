@@ -13,14 +13,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type {
-	ExecutionStrategy,
-	MotorEvent,
-	Nerve,
-	Organ,
-	SensePublishInput,
-	ToolDefinition,
-} from "@dpopsuev/alef-spine";
+import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "@dpopsuev/alef-spine";
 import { DIALOG_MESSAGE, extractToolCallId } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
@@ -80,7 +73,7 @@ export interface DialogOrganOptions {
 // DialogOrgan
 // ---------------------------------------------------------------------------
 
-export class DialogOrgan implements Organ, ExecutionStrategy {
+export class DialogOrgan implements Organ {
 	readonly name = "dialog";
 	readonly description =
 		"Conversation boundary: accumulates history, routes user messages to the LLM, delivers replies.";

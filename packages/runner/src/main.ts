@@ -42,6 +42,7 @@ import { runInteractive } from "./interactive.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
 import { DEFAULT_COMPILED_DEFINITION, loadUserOrgansConfig, materializeBlueprint } from "./materializer.js";
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
+import { createMemoryOrgan } from "./organ-memory.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
 import { createDefaultScroll, loadWorkspace, registerOrgans } from "./prompt.js";
@@ -461,6 +462,11 @@ for (const organ of corpusOrgans) {
 	agent.load(organ);
 }
 agent.load(toolShell);
+
+// MemoryOrgan — stage 2 of the llm.phase pipeline (ALE-SPC-55 Phase 1 skeleton).
+// Phase 1: no-op participant — preserves ToolShell messages, holds the slot.
+const memoryOrgan = createMemoryOrgan({ sessionStore: () => session });
+agent.load(memoryOrgan);
 
 // ── Delegation profiles ───────────────────────────────────────────────────
 // Build InProcessStrategy profiles and wire organ-delegate.

@@ -20,7 +20,7 @@ import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-import type { Organ } from "@dpopsuev/alef-spine";
+import type { DelegationStrategy, Organ } from "@dpopsuev/alef-spine";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { EvaluatorOrgan } from "./evaluator-organ.js";
 import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
@@ -60,11 +60,11 @@ export interface WorkspaceFile {
 	content: string;
 }
 
-export interface ScenarioContext {
+export interface ScenarioContext extends DelegationStrategy {
 	/** Absolute path to the temp workspace directory. */
 	workspace: string;
 	/** Send a message to the agent and await the reply. */
-	send(text: string): Promise<string>;
+	send(text: string, sender?: string, timeoutMs?: number): Promise<string>;
 	/** Write a file into the workspace before or during the run. */
 	writeFile(relativePath: string, content: string): Promise<void>;
 	/** Read a file from the workspace. */

@@ -22,7 +22,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { gimpedOrgan, type Organ } from "@dpopsuev/alef-spine";
+import { type DelegationStrategy, gimpedOrgan, type Organ } from "@dpopsuev/alef-spine";
 import { BusEventRecorder, ScriptedReasoner, type ScriptStep, step } from "./index.js";
 
 export interface GauntletOptions {
@@ -55,7 +55,7 @@ export interface GauntletSendOptions {
  * g.assertToolCalled("fs.read");
  * await g.dispose();
  */
-export class BlueprintGauntlet {
+export class BlueprintGauntlet implements DelegationStrategy {
 	readonly workspace: string;
 	private readonly agent: Agent;
 	private readonly dialog: DialogOrgan;

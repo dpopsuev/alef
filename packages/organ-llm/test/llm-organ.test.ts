@@ -1,9 +1,7 @@
-import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
-import { Agent } from "@dpopsuev/alef-corpus";
+import { fauxAssistantMessage, fauxText, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
-import { DialogOrgan } from "../../organ-dialog/src/organ.js";
-import { BusEventRecorder } from "../../testkit/src/index.js";
+import { DIALOG_MESSAGE_TOOL, NerveFixture, TurnDriver } from "../../testkit/src/index.js";
 import { Cerebrum } from "../src/index.js";
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
@@ -23,24 +21,34 @@ function makeModel() {
 	};
 }
 
-function makeHarness() {
-	const recorder = new BusEventRecorder();
-	const agent = new Agent();
-	const dialog = new DialogOrgan({ sink: () => {} });
-	agent.load(dialog).load(new Cerebrum({ model: makeModel(), getTools: () => agent.tools }));
-	agent.observe(recorder);
-	return { agent, dialog, recorder, dispose: () => agent.dispose() };
+/**
+ * Standard test harness: bare nerve, TurnDriver, Cerebrum, optional BusEventRecorder.
+ * Replaces the Agent + DialogOrgan + Cerebrum construction that appeared in every test.
+ */
+function makeHarness(cerebrum: Cerebrum) {
+	const f = new NerveFixture();
+	const driver = new TurnDriver(f.nerve);
+	const recorder = f.observe();
+	f.mount(cerebrum);
+	return { f, driver, recorder };
 }
 
-const harnesses: ReturnType<typeof makeHarness>[] = [];
+const harnesses: Array<{ f: NerveFixture }> = [];
 afterEach(() => {
-	for (const h of harnesses.splice(0)) h.dispose();
+	for (const h of harnesses.splice(0)) h.f.dispose();
 });
-function make() {
-	const h = makeHarness();
+
+function make(fauxProvider: ReturnType<typeof registerFauxProvider>) {
+	const h = makeHarness(
+		new Cerebrum({ model: fauxProvider.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }),
+	);
 	harnesses.push(h);
 	return h;
 }
+
+// ---------------------------------------------------------------------------
+// Application-level retry
+// ---------------------------------------------------------------------------
 
 describe("Reasoner — application-level retry", () => {
 	const disposes: Array<() => void> = [];
@@ -49,13 +57,19 @@ describe("Reasoner — application-level retry", () => {
 	});
 
 	function makeRetryHarness(faux: ReturnType<typeof registerFauxProvider>, maxRetries: number) {
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", maxRetries, maxRetryDelayMs: 0 }));
-		disposes.push(() => agent.dispose());
-		return { dialog };
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		f.mount(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				maxRetries,
+				maxRetryDelayMs: 0,
+				getTools: () => [DIALOG_MESSAGE_TOOL],
+			}),
+		);
+		disposes.push(() => f.dispose());
+		return { driver };
 	}
 
 	it("retries overloaded_error and succeeds on second attempt", async () => {
@@ -64,8 +78,8 @@ describe("Reasoner — application-level retry", () => {
 			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
 			fauxAssistantMessage("recovered"),
 		]);
-		const { dialog } = makeRetryHarness(faux, 2);
-		const reply = await dialog.send("test", "human", 5_000);
+		const { driver } = makeRetryHarness(faux, 2);
+		const reply = await driver.send("test", "human", 5_000);
 		expect(reply).toBe("recovered");
 		expect(faux.state.callCount).toBe(2);
 	});
@@ -77,8 +91,8 @@ describe("Reasoner — application-level retry", () => {
 			fauxAssistantMessage("", { stopReason: "error", errorMessage: "Network connection lost." }),
 			fauxAssistantMessage("back online"),
 		]);
-		const { dialog } = makeRetryHarness(faux, 3);
-		const reply = await dialog.send("test", "human", 5_000);
+		const { driver } = makeRetryHarness(faux, 3);
+		const reply = await driver.send("test", "human", 5_000);
 		expect(reply).toBe("back online");
 		expect(faux.state.callCount).toBe(3);
 	});
@@ -90,9 +104,9 @@ describe("Reasoner — application-level retry", () => {
 			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
 			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
 		]);
-		const { dialog } = makeRetryHarness(faux, 2);
-		const reply = await dialog.send("test", "human", 5_000);
-		expect(faux.state.callCount).toBe(3); // initial + 2 retries
+		const { driver } = makeRetryHarness(faux, 2);
+		const reply = await driver.send("test", "human", 5_000);
+		expect(faux.state.callCount).toBe(3);
 		expect(typeof reply).toBe("string");
 	});
 
@@ -102,8 +116,8 @@ describe("Reasoner — application-level retry", () => {
 			fauxAssistantMessage("", { stopReason: "error", errorMessage: "invalid_request" }),
 			fauxAssistantMessage("unreachable"),
 		]);
-		const { dialog } = makeRetryHarness(faux, 2);
-		await dialog.send("test", "human", 5_000);
+		const { driver } = makeRetryHarness(faux, 2);
+		await driver.send("test", "human", 5_000);
 		expect(faux.state.callCount).toBe(1);
 	});
 
@@ -113,35 +127,38 @@ describe("Reasoner — application-level retry", () => {
 			fauxAssistantMessage("", { stopReason: "error", errorMessage: "Request timed out." }),
 			fauxAssistantMessage("recovered after timeout"),
 		]);
-		const { dialog } = makeRetryHarness(faux, 2);
-		const reply = await dialog.send("test", "human", 5_000);
+		const { driver } = makeRetryHarness(faux, 2);
+		const reply = await driver.send("test", "human", 5_000);
 		expect(reply).toBe("recovered after timeout");
 		expect(faux.state.callCount).toBe(2);
 	});
 });
 
+// ---------------------------------------------------------------------------
+// Real API (skipped without ANTHROPIC_API_KEY)
+// ---------------------------------------------------------------------------
+
 describe.skipIf(SKIP)("Reasoner — real API", () => {
-	it("resolves dialog.send() with a non-empty reply", async () => {
-		const { agent: _corpus, dialog } = make();
-		const reply = await dialog.send("Respond with exactly: HEALTH_CHECK_OK");
+	it("resolves driver.send() with a non-empty reply", async () => {
+		const faux = registerFauxProvider();
+		const { driver } = make(faux);
+		const reply = await driver.send("Respond with exactly: HEALTH_CHECK_OK");
 		expect(reply.length).toBeGreaterThan(0);
 		expect(reply).toContain("HEALTH_CHECK_OK");
 	}, 30_000);
 
 	it("emits the full event sequence on all buses", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
-		await dialog.send("Say hi in one word.");
-
-		recorder.assertMotorEmitted("dialog.message");
-		recorder.assertSenseEmitted("dialog.message");
+		const faux = registerFauxProvider();
+		const { driver, recorder } = make(faux);
+		await driver.send("Say hi in one word.");
 		recorder.assertMotorEmitted("dialog.message");
 		recorder.assertSenseEmitted("dialog.message");
 	}, 30_000);
 
-	it("dialog.message args contain the reply text", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
-		await dialog.send("What is 2+2? Reply with just the number.");
-
+	it("dialog.message payload contains the reply text", async () => {
+		const faux = registerFauxProvider();
+		const { driver, recorder } = make(faux);
+		await driver.send("What is 2+2? Reply with just the number.");
 		const msg = recorder.assertMotorEmitted("dialog.message");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(typeof payload.text).toBe("string");
@@ -149,22 +166,19 @@ describe.skipIf(SKIP)("Reasoner — real API", () => {
 	}, 30_000);
 
 	it("all turn events share the same correlationId", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
-		await dialog.send("Say yes.");
-
+		const faux = registerFauxProvider();
+		const { driver, recorder } = make(faux);
+		await driver.send("Say yes.");
 		const input = recorder.assertMotorEmitted("dialog.message");
 		const prompt = recorder.assertSenseEmitted("dialog.message");
 		const msg = recorder.assertMotorEmitted("dialog.message");
-		const reply = recorder.assertSenseEmitted("dialog.message");
-
 		expect(prompt.correlationId).toBe(input.correlationId);
 		expect(msg.correlationId).toBe(input.correlationId);
-		expect(reply.correlationId).toBe(input.correlationId);
 	}, 30_000);
 });
 
 // ---------------------------------------------------------------------------
-// payloadToText — unit tests for ToolCallEnd.result conversion
+// payloadToText
 // ---------------------------------------------------------------------------
 
 import { payloadToText } from "../src/index.js";
@@ -175,8 +189,7 @@ describe("payloadToText", () => {
 	});
 
 	it("falls back to JSON when isError is true and no errorMessage", () => {
-		const result = payloadToText({ toolCallId: "x" }, true, undefined);
-		expect(result).toContain("toolCallId");
+		expect(payloadToText({ toolCallId: "x" }, true, undefined)).toContain("toolCallId");
 	});
 
 	it("returns content string when present", () => {
@@ -193,37 +206,11 @@ describe("payloadToText", () => {
 		expect(result).not.toContain("toolCallId");
 		expect(result).not.toContain("isFinal");
 	});
-}); // end payloadToText
+});
 
 // ---------------------------------------------------------------------------
-// onResponseChunk forwarding — dialog_message tool args (ALE-BUG fix)
-//
-// The LLM uses dialog_message as a tool call; the reply body lives in
-// replyCall.args.text, not in text_delta events. organ-llm must forward
-// that text to onResponseChunk so the TUI renders the full reply.
+// onResponseChunk forwarding when reply arrives via dialog_message tool args
 // ---------------------------------------------------------------------------
-
-import { fauxText, fauxToolCall } from "@dpopsuev/alef-ai";
-
-function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onResponseChunk?: (chunk: string) => void) {
-	const chunks: string[] = [];
-	const capture = (c: string): void => {
-		chunks.push(c);
-		onResponseChunk?.(c);
-	};
-
-	const agent = new Agent();
-	const dialog = new DialogOrgan({ sink: () => {} });
-	agent.load(dialog).load(
-		new Cerebrum({
-			model: faux.getModel(),
-			apiKey: "faux-key",
-			onResponseChunk: capture,
-			getTools: () => agent.tools,
-		}),
-	);
-	return { agent, dialog, chunks, dispose: () => agent.dispose() };
-}
 
 describe("onResponseChunk forwarding when reply is in dialog_message tool args", () => {
 	const disposes: Array<() => void> = [];
@@ -231,27 +218,35 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 		for (const d of disposes.splice(0)) d();
 	});
 
-	/**
-	 * Simplest case: LLM responds with ONLY a dialog_message tool call (no prior text_delta).
-	 * The entire reply lives in args.text. onResponseChunk must be called with that text.
-	 */
+	function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onResponseChunk?: (chunk: string) => void) {
+		const chunks: string[] = [];
+		const capture = (c: string): void => {
+			chunks.push(c);
+			onResponseChunk?.(c);
+		};
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		f.mount(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				onResponseChunk: capture,
+				getTools: () => [DIALOG_MESSAGE_TOOL],
+			}),
+		);
+		disposes.push(() => f.dispose());
+		return { driver, chunks, recorder: f.observe() };
+	}
+
 	it("onResponseChunk receives reply text from dialog_message tool call args", async () => {
 		const faux = registerFauxProvider();
 		const replyBody = "Here is the complete bug report: 1. Off-by-one in evaluations/write.ts";
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: replyBody })])]);
-		const { dialog, chunks, dispose } = makeFauxHarness(faux);
-		disposes.push(dispose);
-
-		await dialog.send("find bugs", "user", 5_000);
-
-		const combined = chunks.join("");
-		expect(combined).toContain(replyBody);
+		const { driver, chunks } = makeFauxHarness(faux);
+		await driver.send("find bugs", "user", 5_000);
+		expect(chunks.join("")).toContain(replyBody);
 	});
 
-	/**
-	 * Realistic case: LLM produces introductory text_delta ("Let me summarize:")
-	 * THEN calls dialog_message with the actual body. Both parts must reach onResponseChunk.
-	 */
 	it("onResponseChunk receives both intro text_delta AND dialog_message args.text", async () => {
 		const faux = registerFauxProvider();
 		const introText = "Let me summarize the findings:";
@@ -259,63 +254,28 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 		faux.setResponses([
 			fauxAssistantMessage([fauxText(introText), fauxToolCall("dialog_message", { text: replyBody })]),
 		]);
-		const { dialog, chunks, dispose } = makeFauxHarness(faux);
-		disposes.push(dispose);
-
-		await dialog.send("look for bugs", "user", 5_000);
-
+		const { driver, chunks } = makeFauxHarness(faux);
+		await driver.send("look for bugs", "user", 5_000);
 		const combined = chunks.join("");
 		expect(combined).toContain(introText);
 		expect(combined).toContain(replyBody);
 	});
 
-	/**
-	 * Invariant: sum of onResponseChunk calls must equal the text published
-	 * in the motor/dialog.message event. This ensures the TUI always shows
-	 * exactly what the agent replied.
-	 */
 	it("total onResponseChunk chars equals dialog.message payload text", async () => {
 		const faux = registerFauxProvider();
 		const replyBody = "Complete analysis:\n\n- Bug A\n- Bug B\n- Bug C";
-		const recorder = new BusEventRecorder();
-		const chunks: string[] = [];
-
-		const agent2 = new Agent();
-		const dialog2 = new DialogOrgan({ sink: () => {} });
-		agent2.load(dialog2).load(
-			new Cerebrum({
-				model: faux.getModel(),
-				apiKey: "faux-key",
-				onResponseChunk: (c) => chunks.push(c),
-				getTools: () => agent2.tools,
-			}),
-		);
-		agent2.observe(recorder);
-		disposes.push(() => agent2.dispose());
-
 		faux.setResponses([
 			fauxAssistantMessage([fauxText("Analyzing now..."), fauxToolCall("dialog_message", { text: replyBody })]),
 		]);
-		await dialog2.send("find bugs", "user", 5_000);
-
-		const motionEvent = recorder.assertMotorEmitted("dialog.message") as unknown as {
-			payload: { text: string };
-		};
-		const publishedText = motionEvent.payload.text;
-		const chunkedText = chunks.join("");
-
-		// The TUI sees chunkedText. The JSONL records publishedText.
-		// They must contain the same reply body so the screen matches the log.
-		expect(chunkedText).toContain(publishedText);
+		const { driver, chunks, recorder } = makeFauxHarness(faux);
+		await driver.send("find bugs", "user", 5_000);
+		const motionEvent = recorder.assertMotorEmitted("dialog.message") as unknown as { payload: { text: string } };
+		expect(chunks.join("")).toContain(motionEvent.payload.text);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// ALE-BUG-7: sealStreamingSegment leaves empty Container in DOM
-// ALE-BUG-8: tool-call history lost on abort/error
-//
-// These test the organ-llm layer for BUG-8.
-// BUG-7 is a TUI-layer concern (tui-mode.ts) tested via VirtualTerminal.
+// ALE-BUG-8: partial conversationHistory on error/abort
 // ---------------------------------------------------------------------------
 
 describe("ALE-BUG-8: partial conversationHistory published on error/abort", () => {
@@ -324,73 +284,40 @@ describe("ALE-BUG-8: partial conversationHistory published on error/abort", () =
 		for (const d of disposes.splice(0)) d();
 	});
 
-	/**
-	 * When the LLM aborts mid-turn after completing at least one tool round,
-	 * organ-llm must publish a dialog.message that carries the partial
-	 * conversationHistory so the next turn retains tool-call context.
-	 *
-	 * This verifies the onCheckpoint → partialHistory → motor.publish path.
-	 */
-	it("after tool round + abort, dialog.message carries partial conversationHistory", async () => {
+	it("after error with maxRetries=0, motor/dialog.message carries text reply", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" })]);
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		const recorder = f.observe();
+		f.mount(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				maxRetries: 0,
+				getTools: () => [DIALOG_MESSAGE_TOOL],
+			}),
+		);
+		disposes.push(() => f.dispose());
 
-		// Faux: first call returns a real tool call; second call errors (simulates abort).
-		// We need an organ harness that actually processes tool calls.
-		// Use a faux that completes one tool round then errors.
-		faux.setResponses([
-			// Round 1: LLM makes a tool call. Agent processes it, then LLM errors on round 2.
-			fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" }),
-		]);
-
-		// Minimal harness: dialog + llm only (no fs/shell organs).
-		// The tool call won't resolve but we still publish error on timeout/error.
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(
-				new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", maxRetries: 0, getTools: () => agent.tools }),
-			);
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
-
-		// Even on a retryable error with maxRetries=0, motor/dialog.message must resolve.
-		await dialog.send("do something", "user", 5_000);
-
-		const event = recorder.assertMotorEmitted("dialog.message") as unknown as {
-			payload: { text: string; conversationHistory?: unknown[] };
-		};
-
-		// At minimum, a text reply was published (error or fallback).
+		await driver.send("do something", "user", 5_000);
+		const event = recorder.assertMotorEmitted("dialog.message") as unknown as { payload: { text: string } };
 		expect(typeof event.payload.text).toBe("string");
 	});
 
-	/**
-	 * When a turn succeeds (no error), conversationHistory is always present
-	 * so the next turn has full context.
-	 */
 	it("successful turn publishes conversationHistory in dialog.message", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
-
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: "all good" })])]);
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		const recorder = f.observe();
+		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		disposes.push(() => f.dispose());
 
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
-
-		await dialog.send("hi", "user", 5_000);
-
+		await driver.send("hi", "user", 5_000);
 		const event = recorder.assertMotorEmitted("dialog.message") as unknown as {
-			payload: { text: string; conversationHistory?: unknown[] };
+			payload: { conversationHistory?: unknown[] };
 		};
-
-		// conversationHistory must be present and non-empty on success.
 		expect(Array.isArray(event.payload.conversationHistory)).toBe(true);
 		expect((event.payload.conversationHistory as unknown[]).length).toBeGreaterThan(0);
 	});
@@ -408,60 +335,48 @@ describe("Reasoner — motor/llm.phase seam", () => {
 
 	it("disabled by default (phaseTimeoutMs=0): no motor/llm.phase published", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("hello")]);
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		const recorder = f.observe();
+		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		disposes.push(() => f.dispose());
 
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
-
-		await dialog.send("hi", "user", 5_000);
-
-		const phaseEvents = recorder.motor.filter((e) => e.type === "llm.phase");
-		expect(phaseEvents).toHaveLength(0);
+		await driver.send("hi", "user", 5_000);
+		expect(recorder.motor.filter((e) => e.type === "llm.phase")).toHaveLength(0);
 	});
 
 	it("publishes motor/llm.phase before each LLM call when phaseTimeoutMs > 0", async () => {
-		const { fauxToolCall } = await import("@dpopsuev/alef-ai");
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: "done" })])]);
-
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		const recorder = f.observe();
+		f.mount(
 			new Cerebrum({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				phaseTimeoutMs: 50,
-				getTools: () => agent.tools,
+				getTools: () => [DIALOG_MESSAGE_TOOL],
 			}),
 		);
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
+		disposes.push(() => f.dispose());
 
-		await dialog.send("hi", "user", 5_000);
-
+		await driver.send("hi", "user", 5_000);
 		const phaseEvents = recorder.motor.filter((e) => e.type === "llm.phase");
 		expect(phaseEvents.length).toBeGreaterThanOrEqual(1);
-		const first = phaseEvents[0] as unknown as { payload: { messages: unknown[]; turn: number; toolCount: number } };
+		const first = phaseEvents[0] as unknown as { payload: { messages: unknown[]; turn: number } };
 		expect(first.payload.turn).toBe(1);
 		expect(Array.isArray(first.payload.messages)).toBe(true);
 	});
 
 	it("phase organ receives messages and its sense/llm.phase reply is awaited", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("ok")]);
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		const recorder = f.observe();
 
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-
-		// Phase organ: records received messages, then passes them through unchanged.
 		let phaseReceivedMessages: unknown[] = [];
 		const phaseOrgan = {
 			name: "phase-spy",
@@ -470,11 +385,10 @@ describe("Reasoner — motor/llm.phase seam", () => {
 			tools: [] as const,
 			publishSchemas: {} as const,
 			subscriptions: { motor: ["llm.phase"] as const, sense: [] as const },
-			mount(nerve: import("@dpopsuev/alef-spine").Nerve) {
+			mount(nerve: Nerve) {
 				nerve.motor.subscribe("llm.phase", (event) => {
 					const payload = event.payload as { messages: unknown[] };
 					phaseReceivedMessages = payload.messages;
-					// Echo messages back unchanged so the Reasoner continues.
 					nerve.sense.publish({
 						type: "llm.phase",
 						payload: { messages: payload.messages },
@@ -486,44 +400,37 @@ describe("Reasoner — motor/llm.phase seam", () => {
 			},
 		};
 
-		agent
-			.load(dialog)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }))
-			.load(phaseOrgan);
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
+		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(phaseOrgan);
+		disposes.push(() => f.dispose());
 
-		await dialog.send("hi", "user", 5_000);
-
-		// Phase organ must have received the messages for this turn.
+		await driver.send("hi", "user", 5_000);
 		expect(phaseReceivedMessages.length).toBeGreaterThan(0);
-		// Turn still completed normally.
 		recorder.assertMotorEmitted("dialog.message");
 	});
 
 	it("proceeds with original messages when phase organ times out", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
-
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		f.mount(
 			new Cerebrum({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				phaseTimeoutMs: 50,
-				getTools: () => agent.tools,
+				getTools: () => [DIALOG_MESSAGE_TOOL],
 			}),
 		);
-		disposes.push(() => agent.dispose());
+		disposes.push(() => f.dispose());
 
-		const reply = await dialog.send("hi", "user", 5_000);
+		const reply = await driver.send("hi", "user", 5_000);
 		expect(typeof reply).toBe("string");
 	});
 });
 
 // ---------------------------------------------------------------------------
-// motor/llm.phase: skip, abort + motor/llm.result
+// motor/llm.phase: skip, abort, llm.result
 // ---------------------------------------------------------------------------
 
 describe("Reasoner — phase skip, abort, and llm.result", () => {
@@ -545,7 +452,7 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 			tools: [] as const,
 			publishSchemas: {} as const,
 			subscriptions: { motor: ["llm.phase"] as const, sense: [] as const },
-			mount(nerve: import("@dpopsuev/alef-spine").Nerve) {
+			mount(nerve: Nerve) {
 				nerve.motor.subscribe("llm.phase", (event) => {
 					handler(event.payload as { messages: unknown[]; turn: number }, (response) => {
 						nerve.sense.publish({
@@ -563,56 +470,42 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 
 	it("skip: phase organ bypasses LLM and injects its own reply", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(
+			makePhaseOrgan((_payload, reply) => {
+				reply({ skip: true, reply: "phase shortcut" });
+			}),
+		);
+		disposes.push(() => f.dispose());
 
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }))
-			.load(
-				makePhaseOrgan((_payload, reply) => {
-					reply({ skip: true, reply: "phase shortcut" });
-				}),
-			);
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
-
-		const result = await dialog.send("hi", "user", 5_000);
+		const result = await driver.send("hi", "user", 5_000);
 		expect(result).toBe("phase shortcut");
 	});
 
 	it("skip: phase.skip publishes on replyEvent, not hardcoded dialog.message", async () => {
-		// Regression for: phase.skip path used DIALOG_MESSAGE unconditionally.
-		// An ambient agent with triggerEvent='sensor.event' would get its reply
-		// on the wrong motor channel.
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
+		const f = new NerveFixture();
+		const recorder = f.observe();
+		f.mount(
+			new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500, replyEvent: "sensor.reply" }),
+		);
+		f.mount(
+			makePhaseOrgan((_payload, reply) => {
+				reply({ skip: true, reply: "ambient shortcut" });
+			}),
+		);
+		disposes.push(() => f.dispose());
 
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(
-				new Cerebrum({
-					model: faux.getModel(),
-					apiKey: "faux-key",
-					phaseTimeoutMs: 500,
-					replyEvent: "sensor.reply",
-				}),
-			)
-			.load(
-				makePhaseOrgan((_payload, reply) => {
-					reply({ skip: true, reply: "ambient shortcut" });
-				}),
-			);
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
-
-		dialog.receive("trigger", "system");
-		// Give the turn time to complete.
+		f.nerve.asNerve().sense.publish({
+			type: "dialog.message",
+			correlationId: "test-corr",
+			payload: { text: "trigger", sender: "system" },
+			isError: false,
+		});
 		await new Promise<void>((r) => setTimeout(r, 1_000));
 
 		const sensorReplies = recorder.motor.filter((e) => e.type === "sensor.reply");
@@ -624,43 +517,33 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 
 	it("abort: phase organ exits loop without publishing dialog.message", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		const recorder = f.observe();
+		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(
+			makePhaseOrgan((_payload, reply) => {
+				reply({ abort: true });
+			}),
+		);
+		disposes.push(() => f.dispose());
 
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }))
-			.load(
-				makePhaseOrgan((_payload, reply) => {
-					reply({ abort: true });
-				}),
-			);
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
-
-		// dialog.send resolves with empty string when no dialog.message published.
-		const result = await dialog.send("hi", "user", 2_000).catch(() => "timeout");
-		const dialogMessages = recorder.motor.filter((e) => e.type === "dialog.message");
-		expect(dialogMessages).toHaveLength(0);
+		const result = await driver.send("hi", "user", 2_000).catch(() => "timeout");
+		expect(recorder.motor.filter((e) => e.type === "dialog.message")).toHaveLength(0);
 		expect(result).toBeDefined();
 	});
 
 	it("motor/llm.result fires after each LLM response with response and toolCalls", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("hello")]);
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		const recorder = f.observe();
+		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		disposes.push(() => f.dispose());
 
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
-
-		await dialog.send("hi", "user", 5_000);
+		await driver.send("hi", "user", 5_000);
 
 		const resultEvents = recorder.motor.filter((e) => e.type === "llm.result");
 		expect(resultEvents.length).toBeGreaterThanOrEqual(1);
@@ -674,7 +557,7 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Configurable trigger (ALE-SPC-29)
+// Configurable triggerEvent
 // ---------------------------------------------------------------------------
 
 describe("Reasoner — configurable triggerEvent", () => {
@@ -685,12 +568,10 @@ describe("Reasoner — configurable triggerEvent", () => {
 
 	it("fires on custom triggerEvent instead of dialog.message", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("acted on git event")]);
-
-		const agent = new Agent();
-		// No DialogOrgan — autonomous agent with git.push trigger.
-		agent.load(
+		const f = new NerveFixture();
+		const recorder = f.observe();
+		f.mount(
 			new Cerebrum({
 				model: faux.getModel(),
 				apiKey: "faux-key",
@@ -698,14 +579,12 @@ describe("Reasoner — configurable triggerEvent", () => {
 				replyEvent: "git.review",
 			}),
 		);
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
+		disposes.push(() => f.dispose());
 
-		// Inject the trigger directly via publishSense.
 		const replyP = new Promise<void>((resolve) => {
-			agent.subscribeMotor("git.review", () => resolve());
+			f.nerve.asNerve().motor.subscribe("git.review", () => resolve());
 		});
-		agent.publishSense({
+		f.nerve.asNerve().sense.publish({
 			type: "git.push",
 			payload: { pr: 42, diff: "some changes" },
 			correlationId: "git-turn-1",
@@ -713,37 +592,30 @@ describe("Reasoner — configurable triggerEvent", () => {
 		});
 		await replyP;
 
-		// Reply published on git.review, not dialog.message.
-		const gitReview = recorder.motor.find((e) => e.type === "git.review");
-		expect(gitReview).toBeDefined();
+		expect(recorder.motor.find((e) => e.type === "git.review")).toBeDefined();
 		expect(recorder.motor.find((e) => e.type === "dialog.message")).toBeUndefined();
 	});
 
 	it("conversation trigger still works with defaults", async () => {
 		const faux = registerFauxProvider();
-		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("hello")]);
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
-		agent.observe(recorder);
-		disposes.push(() => agent.dispose());
-		const reply = await dialog.send("hi", "user", 5_000);
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		disposes.push(() => f.dispose());
+
+		const reply = await driver.send("hi", "user", 5_000);
 		expect(reply).toBe("hello");
 	});
 });
 
 // ---------------------------------------------------------------------------
-// trackConcurrentOps — structural and behavioural tests
+// trackConcurrentOps
 // ---------------------------------------------------------------------------
 
 describe("Cerebrum — trackConcurrentOps", () => {
 	it("declares wildcard motor+sense subscriptions when trackConcurrentOps=true", () => {
 		const cerebrum = new Cerebrum({ model: makeModel(), trackConcurrentOps: true });
-		// agent.validate() checks subscriptions to build the port registry.
-		// If ALE-TSK-424 forgets "*" in the factory output, validate() fails.
 		expect(cerebrum.subscriptions.motor).toContain("*");
 		expect(cerebrum.subscriptions.sense).toContain("*");
 	});
@@ -758,8 +630,6 @@ describe("Cerebrum — trackConcurrentOps", () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
 
-		// concurrentOrgan publishes a motor event on a DIFFERENT correlationId,
-		// simulating a concurrent turn already in flight.
 		const concurrentOrgan: Organ = {
 			name: "concurrent-sim",
 			tools: [],
@@ -774,30 +644,69 @@ describe("Cerebrum — trackConcurrentOps", () => {
 			},
 		};
 
-		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		// Cerebrum loaded BEFORE concurrentOrgan so wildcard subscription is active.
-		agent
-			.load(dialog)
-			.load(
-				new Cerebrum({
-					model: faux.getModel(),
-					apiKey: "faux-key",
-					trackConcurrentOps: true,
-					// prepareStep receives post-injection messages because Cerebrum
-					// calls applyInflightContext and THEN passes the result to the
-					// LLM — but our callback runs BEFORE injection. We capture via
-					// onCheckpoint which receives the full accumulated messages.
-					onCheckpoint: (_msgs) => {},
-				}),
-			)
-			.load(concurrentOrgan);
-		await agent.ready();
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		f.mount(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				trackConcurrentOps: true,
+				getTools: () => [DIALOG_MESSAGE_TOOL],
+				onCheckpoint: (_msgs) => {},
+			}),
+		);
+		f.mount(concurrentOrgan);
 
-		await dialog.send("hi", "user", 5_000);
-
-		// The faux provider was called — pipeline ran.
+		await driver.send("hi", "user", 5_000);
 		expect(faux.state.callCount).toBeGreaterThanOrEqual(1);
-		agent.dispose();
+		f.dispose();
 	});
+});
+
+// ---------------------------------------------------------------------------
+// Schema validation hang regression (ALE-BUG-50)
+// ---------------------------------------------------------------------------
+
+import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
+import { z } from "zod";
+
+describe("turn loop — schema validation failure", () => {
+	it("turn completes when LLM sends wrong type for a schema field", async () => {
+		const faux = registerFauxProvider();
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+
+		const strictOrgan = defineOrgan(
+			"strict",
+			{
+				"motor/strict.op": typedAction(
+					{
+						name: "strict.op",
+						description: "Op requiring a numeric count.",
+						inputSchema: z.object({ count: z.number() }),
+					},
+					async () => ({ result: "ok" }),
+				),
+			},
+			{ description: "Strict schema organ.", directives: ["Use strict.op when asked."] },
+		);
+
+		f.mount(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				getTools: () => [DIALOG_MESSAGE_TOOL, ...strictOrgan.tools],
+			}),
+		);
+		f.mount(strictOrgan);
+
+		faux.setResponses([
+			fauxAssistantMessage([fauxToolCall("strict_op", { count: "3" })]),
+			fauxAssistantMessage("I see the validation failed"),
+		]);
+
+		const reply = await driver.send("call strict.op", "human", 3_000);
+		expect(reply).toBe("I see the validation failed");
+		f.dispose();
+	}, 6_000);
 });

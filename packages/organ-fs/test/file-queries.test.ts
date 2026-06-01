@@ -1,4 +1,7 @@
+import { chmodSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { InMemoryToolResultCache } from "../src/cache.js";
 import { executeFindQuery, executeGrepQuery } from "../src/file-queries.js";
@@ -92,4 +95,37 @@ describe("executeFindQuery — cache hit", () => {
 		await executeFindQuery({ pattern: "*.js" }, opts);
 		expect(callCount).toBe(2);
 	});
+});
+
+// ---------------------------------------------------------------------------
+// Subprocess timeout — reproduces the 149s hang seen in production.
+// The fd process never exits; the 30s hard kill must fire and reject.
+// subprocessTimeoutMs is set to 300ms so the test completes in ~300ms.
+// ---------------------------------------------------------------------------
+
+describe("executeFindQuery — subprocess hang (ALE-BUG fd-hang)", () => {
+	it("rejects when the fd subprocess never exits", async () => {
+		// A script that sleeps forever — simulates fd scanning a massive tree.
+		const fakeScript = join(tmpdir(), `fake-fd-hang-${Date.now()}.sh`);
+		writeFileSync(fakeScript, "#!/bin/sh\nsleep 999\n");
+		chmodSync(fakeScript, 0o755);
+
+		const start = Date.now();
+		await expect(
+			executeFindQuery(
+				{ pattern: "*.ts" },
+				{
+					cwd: tmpdir(),
+					resolveFdPath: async () => fakeScript,
+					subprocessTimeoutMs: 300,
+				},
+			),
+		).rejects.toThrow(/timed out/i);
+
+		const elapsed = Date.now() - start;
+		expect(elapsed).toBeGreaterThan(250); // actually waited for the timeout
+		expect(elapsed).toBeLessThan(2_000); // but not for 30s
+
+		await rm(fakeScript, { force: true });
+	}, 5_000);
 });

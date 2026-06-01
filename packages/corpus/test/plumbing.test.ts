@@ -130,7 +130,7 @@ describe("Agent plumbing — full EDA loop", () => {
 	it("LLM receives tool definitions from all loaded organs", async () => {
 		const llm = new SingleToolLLM();
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent
 			.load(dialog)
 			.load(llm)
@@ -185,7 +185,7 @@ describe("Agent plumbing — full EDA loop", () => {
 	it("quiescence: LLM with no tool calls terminates immediately", async () => {
 		const llm = new QuiescentLLM();
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(llm);
 
 		const reply = await dialog.send("anything");

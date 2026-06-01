@@ -256,6 +256,12 @@ async function dispatchMotorAction(
 	// Single schema for this specific action — resolved by mount() from the auto-built map.
 	schema?: ZodTypeAny,
 ): Promise<void> {
+	// Yield before any sense.publish so waitForToolResult always subscribes first.
+	// Without this, the validation-error path publishes synchronously inside motor.publish,
+	// before organ-llm calls waitForToolResult — the sense event is lost and the turn hangs.
+	// ALE-BUG-50 manifestation: race between dispatchMotorAction and waitForToolResult.
+	await Promise.resolve();
+
 	// Always validate when a schema is available — Lex DIP: handlers depend on typed
 	// domain payloads, not raw Record<string,unknown>. Pass result.data so handlers
 	// receive Zod-coerced values (strings are strings, numbers are numbers).

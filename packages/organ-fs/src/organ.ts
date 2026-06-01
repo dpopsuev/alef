@@ -69,10 +69,10 @@ const FS_FIND_TOOL = {
 	inputSchema: z.object({
 		pattern: z.string().describe("Glob pattern, e.g. '*.ts'. Use '*' to list all."),
 		path: z.string().optional().describe("Directory to search (default: cwd)"),
-		limit: z.number().optional().describe(`Max results (default: ${DEFAULT_FIND_LIMIT})`),
+		limit: z.coerce.number().optional().describe(`Max results (default: ${DEFAULT_FIND_LIMIT})`),
 		type: z.enum(["file", "directory", "symlink"]).optional().describe("Filter by entry type"),
 		extension: z.string().optional().describe("Filter by extension, e.g. 'ts'"),
-		depth: z.number().optional().describe("Max directory depth. depth=1 = immediate children."),
+		depth: z.coerce.number().optional().describe("Max directory depth. depth=1 = immediate children."),
 		hidden: z.boolean().optional().describe("Include hidden files (default: true)"),
 	}),
 };

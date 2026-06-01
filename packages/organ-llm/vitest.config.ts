@@ -15,6 +15,7 @@ export default defineConfig({
 			{ find: /^@dpopsuev\/alef-agent-blueprint$/, replacement: r("../blueprint/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-agent-core$/, replacement: r("../agent/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-organ-lector$/, replacement: r("../organ-lector/src/index.ts") },
+			{ find: /^@dpopsuev\/alef-organ-llm$/, replacement: r("./src/index.ts") },
 		],
 	},
 	test: {

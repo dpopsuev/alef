@@ -173,7 +173,7 @@ async function runLLMLoop(
 				if (phase.abort) break;
 				if (phase.skip) {
 					motor.publish({
-						type: DIALOG_MESSAGE,
+						type: options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE,
 						payload: { text: phase.reply ?? "(skipped)" },
 						correlationId,
 					});

@@ -555,6 +555,45 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 		expect(result).toBe("phase shortcut");
 	});
 
+	it("skip: phase.skip publishes on replyEvent, not hardcoded dialog.message", async () => {
+		// Regression for: phase.skip path used DIALOG_MESSAGE unconditionally.
+		// An ambient agent with triggerEvent='sensor.event' would get its reply
+		// on the wrong motor channel.
+		const faux = registerFauxProvider();
+		const recorder = new BusEventRecorder();
+		faux.setResponses([fauxAssistantMessage("should not appear")]);
+
+		const agent = new Agent();
+		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		agent
+			.load(dialog)
+			.load(
+				new Cerebrum({
+					model: faux.getModel(),
+					apiKey: "faux-key",
+					phaseTimeoutMs: 500,
+					replyEvent: "sensor.reply",
+				}),
+			)
+			.load(
+				makePhaseOrgan((_payload, reply) => {
+					reply({ skip: true, reply: "ambient shortcut" });
+				}),
+			);
+		agent.observe(recorder);
+		disposes.push(() => agent.dispose());
+
+		dialog.receive("trigger", "system");
+		// Give the turn time to complete.
+		await new Promise<void>((r) => setTimeout(r, 1_000));
+
+		const sensorReplies = recorder.motor.filter((e) => e.type === "sensor.reply");
+		const dialogReplies = recorder.motor.filter((e) => e.type === "dialog.message");
+		expect(sensorReplies).toHaveLength(1);
+		expect((sensorReplies[0] as unknown as { payload: { text: string } }).payload.text).toBe("ambient shortcut");
+		expect(dialogReplies).toHaveLength(0);
+	}, 5_000);
+
 	it("abort: phase organ exits loop without publishing dialog.message", async () => {
 		const faux = registerFauxProvider();
 		const recorder = new BusEventRecorder();

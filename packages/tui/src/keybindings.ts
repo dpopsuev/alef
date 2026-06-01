@@ -176,8 +176,8 @@ export const TUI_KEYBINDINGS = {
 	"tui.input.submit": { defaultKeys: "enter", description: "Submit input" },
 	"tui.input.tab": { defaultKeys: "tab", description: "Tab / autocomplete" },
 	"tui.input.copy": { defaultKeys: "ctrl+c", description: "Copy selection" },
-	"tui.select.up": { defaultKeys: "up", description: "Move selection up" },
-	"tui.select.down": { defaultKeys: "down", description: "Move selection down" },
+	"tui.select.up": { defaultKeys: ["up", "k"], description: "Move selection up" },
+	"tui.select.down": { defaultKeys: ["down", "j"], description: "Move selection down" },
 	"tui.select.pageUp": { defaultKeys: "pageUp", description: "Selection page up" },
 	"tui.select.pageDown": {
 		defaultKeys: "pageDown",

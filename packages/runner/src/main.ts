@@ -37,6 +37,7 @@ import { resolveApiKey } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
+import type { DirectiveScroll } from "./directive-scroll.js";
 import { runInteractive } from "./interactive.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
 import { DEFAULT_COMPILED_DEFINITION, loadUserOrgansConfig, materializeBlueprint } from "./materializer.js";
@@ -44,7 +45,6 @@ import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
 import { createDefaultScroll, loadWorkspace, registerOrgans } from "./prompt.js";
-import type { PromptScroll } from "./prompt-scroll.js";
 import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
@@ -312,12 +312,12 @@ currentScrollInstance.register({
 	tags: ["organ", "dynamic"],
 });
 
-export let currentScroll: PromptScroll = currentScrollInstance;
-export function setCurrentScroll(s: PromptScroll): void {
+export let currentScroll: DirectiveScroll = currentScrollInstance;
+export function setCurrentScroll(s: DirectiveScroll): void {
 	currentScroll = s;
 }
 
-function getPromptAdapter() {
+function getDirectiveAdapter() {
 	return {
 		list: () =>
 			currentScroll.list({ enabled: undefined }).map((b) => ({
@@ -631,7 +631,7 @@ try {
 					});
 					agent.reload(newOrgan);
 				},
-				getPromptAdapter,
+				getDirectiveAdapter,
 			);
 		} finally {
 			process.stderr.write = originalStderrWrite;

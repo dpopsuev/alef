@@ -10,7 +10,7 @@
  */
 
 import { appendFileSync } from "node:fs";
-import type { PromptAdapter } from "@dpopsuev/alef-organ-alef";
+import type { DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { getProviders } from "@dpopsuev/alef-organ-llm";
@@ -72,7 +72,7 @@ export interface TuiHandlerContext {
 	/** Hot-reload a named organ by path (ALE-TSK-348). Undefined when not supported. */
 	reloadOrgan?: (name: string, path: string) => Promise<void>;
 	/** Returns the active prompt scroll adapter, or undefined when unavailable. */
-	getPrompt?: () => PromptAdapter | undefined;
+	getDirective?: () => DirectiveAdapter | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -336,7 +336,7 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 							ctx.writer.addNotice(`[meta] ${chunks.join("")}`);
 							ctx.tui.requestRender();
 						},
-						ctx.getPrompt,
+						ctx.getDirective,
 					);
 					// Final settled reply (in case streaming wasn't available)
 					if (chunks.length === 0 && reply) {
@@ -350,10 +350,10 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				});
 			return true;
 		}
-		case ":prompt": {
-			const scroll = ctx.getPrompt?.();
+		case ":directive": {
+			const scroll = ctx.getDirective?.();
 			if (!scroll) {
-				ctx.writer.addNotice(":prompt not available in this session.");
+				ctx.writer.addNotice(":directive not available in this session.");
 				ctx.tui.requestRender();
 				return true;
 			}
@@ -372,7 +372,7 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				}
 				case "enable":
 					if (!id) {
-						ctx.writer.addNotice("Usage: :prompt enable <id>");
+						ctx.writer.addNotice("Usage: :directive enable <id>");
 						break;
 					}
 					scroll.enable(id);
@@ -380,7 +380,7 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 					break;
 				case "disable":
 					if (!id) {
-						ctx.writer.addNotice("Usage: :prompt disable <id>");
+						ctx.writer.addNotice("Usage: :directive disable <id>");
 						break;
 					}
 					scroll.disable(id);
@@ -388,7 +388,7 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 					break;
 				case "toggle":
 					if (!id) {
-						ctx.writer.addNotice("Usage: :prompt toggle <id>");
+						ctx.writer.addNotice("Usage: :directive toggle <id>");
 						break;
 					}
 					scroll.toggle(id);
@@ -398,7 +398,7 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 					ctx.writer.addNotice("Use :meta 'reset the prompt scroll to defaults' to restore all blocks.");
 					break;
 				default:
-					ctx.writer.addNotice("Usage: :prompt list | enable <id> | disable <id> | toggle <id>");
+					ctx.writer.addNotice("Usage: :directive list | enable <id> | disable <id> | toggle <id>");
 			}
 			ctx.tui.requestRender();
 			return true;
@@ -469,7 +469,7 @@ export async function runTuiMode(
 	setLLMAbortController: (ctrl: AbortController | undefined) => void = () => {},
 	toolSlot?: TuiToolSlot,
 	reloadOrgan?: (name: string, path: string) => Promise<void>,
-	getPrompt?: () => PromptAdapter | undefined,
+	getDirective?: () => DirectiveAdapter | undefined,
 ): Promise<void> {
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
@@ -645,7 +645,7 @@ export async function runTuiMode(
 			setLLMAbortController(ctrl);
 		},
 		reloadOrgan,
-		getPrompt,
+		getDirective,
 	});
 
 	// Ctrl+R: open inline history picker. Populated after each submit.

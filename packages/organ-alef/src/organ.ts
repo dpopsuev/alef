@@ -15,7 +15,7 @@ import type { ActionMap } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
-export interface PromptAdapter {
+export interface DirectiveAdapter {
 	list(): ReadonlyArray<{ id: string; priority: number; enabled: boolean; tags?: string[]; contentPreview: string }>;
 	enable(id: string): void;
 	disable(id: string): void;
@@ -26,7 +26,7 @@ export interface PromptAdapter {
 }
 
 export interface AlefApiOrganOptions {
-	getPrompt?: () => PromptAdapter | undefined;
+	getDirective?: () => DirectiveAdapter | undefined;
 }
 
 const SESSION_ROOT = join(homedir(), ".alef", "sessions");
@@ -227,21 +227,21 @@ async function pmHistory(): Promise<Array<{ id: number; ts: string; organs: Reco
 }
 
 export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
-	const g = opts.getPrompt;
+	const g = opts.getDirective;
 	const promptTools: ActionMap = g
 		? {
-				"motor/alef.prompt.list": typedAction(
+				"motor/alef.directive.list": typedAction(
 					{
-						name: "alef.prompt.list",
+						name: "alef.directive.list",
 						description:
 							"List all system prompt blocks with id, priority, enabled state, tags, and content preview.",
 						inputSchema: z.object({}),
 					},
 					async () => ({ blocks: g()?.list() ?? [] }),
 				),
-				"motor/alef.prompt.enable": typedAction(
+				"motor/alef.directive.enable": typedAction(
 					{
-						name: "alef.prompt.enable",
+						name: "alef.directive.enable",
 						description: "Enable a system prompt block.",
 						inputSchema: z.object({ id: z.string() }),
 					},
@@ -250,9 +250,9 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 						return { ok: true };
 					},
 				),
-				"motor/alef.prompt.disable": typedAction(
+				"motor/alef.directive.disable": typedAction(
 					{
-						name: "alef.prompt.disable",
+						name: "alef.directive.disable",
 						description: "Disable a system prompt block.",
 						inputSchema: z.object({ id: z.string() }),
 					},
@@ -261,9 +261,9 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 						return { ok: true };
 					},
 				),
-				"motor/alef.prompt.toggle": typedAction(
+				"motor/alef.directive.toggle": typedAction(
 					{
-						name: "alef.prompt.toggle",
+						name: "alef.directive.toggle",
 						description: "Toggle a system prompt block on or off.",
 						inputSchema: z.object({ id: z.string() }),
 					},
@@ -272,9 +272,9 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 						return { ok: true };
 					},
 				),
-				"motor/alef.prompt.replace": typedAction(
+				"motor/alef.directive.replace": typedAction(
 					{
-						name: "alef.prompt.replace",
+						name: "alef.directive.replace",
 						description: "Replace the content of a system prompt block.",
 						inputSchema: z.object({ id: z.string(), content: z.string() }),
 					},
@@ -283,9 +283,9 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 						return { ok: true };
 					},
 				),
-				"motor/alef.prompt.add": typedAction(
+				"motor/alef.directive.add": typedAction(
 					{
-						name: "alef.prompt.add",
+						name: "alef.directive.add",
 						description: "Add a new block to the system prompt.",
 						inputSchema: z.object({
 							id: z.string(),
@@ -299,9 +299,9 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 						return { ok: true };
 					},
 				),
-				"motor/alef.prompt.remove": typedAction(
+				"motor/alef.directive.remove": typedAction(
 					{
-						name: "alef.prompt.remove",
+						name: "alef.directive.remove",
 						description: "Remove a block from the prompt scroll.",
 						inputSchema: z.object({ id: z.string() }),
 					},
@@ -392,8 +392,8 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					"Use alef.sessions.read to get the content of a specific session. " +
 					"Use alef.sessions.rename to give a session a memorable name when asked. " +
 					"Use alef.config.get, alef.organs.list, alef.pm.history for system information. " +
-					"Use alef.prompt.list to show the active prompt blocks. Use alef.prompt.enable/disable/toggle to change which blocks are active. " +
-					"Use alef.prompt.replace to change block content. Use alef.prompt.add to inject a new block. " +
+					"Use alef.directive.list to show the active prompt blocks. Use alef.directive.enable/disable/toggle to change which blocks are active. " +
+					"Use alef.directive.replace to change block content. Use alef.directive.add to inject a new block. " +
 					"Respond concisely with the most relevant data. Do not write files.",
 			],
 			labels: ["alef-api", "meta", "sessions", "scroll"],

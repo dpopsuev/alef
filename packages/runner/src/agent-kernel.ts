@@ -34,27 +34,25 @@ export interface AgentKernelOptions {
 	 */
 	llm: Organ;
 	/**
-	 * The trigger organ — the organ whose external-facing sensory detector
-	 * injects events into the spine to activate the Reasoner.
-	 *
-	 * Default: DialogOrgan (conversation-driven agent, sense/dialog.message trigger).
-	 * Override for autonomous agents: GitEventOrgan, CronOrgan, MetricAlertOrgan, etc.
-	 *
-	 * When trigger is provided, the sink/systemPrompt/maxTurns options are ignored
-	 * (they are DialogOrgan-specific). The returned dialog will be undefined.
+	 * Pre-constructed dialog organ. When provided, it is mounted directly — no
+	 * internal DialogOrgan construction. Preferred over the legacy sink/systemPrompt/maxTurns
+	 * path which constructs DialogOrgan internally (DI violation).
+	 */
+	dialog?: DialogOrgan;
+
+	/**
+	 * Non-dialog trigger organ for autonomous agents (GitEventOrgan, CronOrgan, etc.).
+	 * Mutually exclusive with dialog. The returned dialog will be undefined.
 	 */
 	trigger?: Organ;
 
-	/** Sink for outbound Motor/dialog.message events. */
+	/** @deprecated Pass dialog instead. Ignored when dialog is provided. */
 	sink?: MessageSink;
-
-	/** Returns all tools the LLM may call. Pass () => agent.tools. */
+	/** @deprecated Pass dialog instead. Ignored when dialog is provided. */
 	getTools?: () => ReturnType<Agent["tools"]["slice"]>;
-
-	/** System prompt prepended to every conversation turn. */
+	/** @deprecated Pass dialog instead. Ignored when dialog is provided. */
 	systemPrompt?: string;
-
-	/** Maximum number of user turns per session. 0 = unlimited. */
+	/** @deprecated Pass dialog instead. Ignored when dialog is provided. */
 	maxTurns?: number;
 
 	/**
@@ -164,15 +162,17 @@ export const AgentKernel = {
 
 	create(opts: AgentKernelOptions): AgentKernelResult {
 		const agent = new Agent();
-
-		// Use the provided trigger organ, or default to DialogOrgan for conversation agents.
 		let dialog: DialogOrgan | undefined;
-		if (opts.trigger) {
+
+		if (opts.dialog) {
+			dialog = opts.dialog;
+			agent.load(dialog).load(opts.llm);
+		} else if (opts.trigger) {
 			agent.load(opts.trigger).load(opts.llm);
 		} else {
 			dialog = new DialogOrgan({
 				sink: opts.sink ?? (() => {}),
-				getTools: opts.getTools ?? (() => agent.tools),
+				getTools: opts.getTools ?? (() => [...agent.tools]),
 				systemPrompt: opts.systemPrompt,
 				maxTurns: opts.maxTurns,
 			});

@@ -106,6 +106,9 @@ export interface Nerve {
 	};
 }
 
+/** A function that wraps a Nerve to intercept motor/sense events. Composable middleware. */
+export type NerveMiddleware = (nerve: Nerve) => Nerve;
+
 // ---------------------------------------------------------------------------
 // Organ — unified interface. mount(nerve: Nerve) handles both bus directions.
 // ---------------------------------------------------------------------------

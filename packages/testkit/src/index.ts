@@ -14,6 +14,7 @@ export {
 export { OrganHarness } from "./organ-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
 export { ScriptedReasoner } from "./scripted-reasoner.js";
+export { DIALOG_MESSAGE_TOOL, TurnDriver } from "./turn-driver.js";
 
 import type { BusObserver } from "@dpopsuev/alef-corpus";
 import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-spine";

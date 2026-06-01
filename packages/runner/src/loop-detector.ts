@@ -23,6 +23,7 @@
  */
 
 import type { Nerve, Organ, SenseEvent } from "@dpopsuev/alef-spine";
+import { extractToolCallId } from "@dpopsuev/alef-spine";
 
 export interface LoopGuardOptions {
 	/**
@@ -115,7 +116,7 @@ export class LoopGuard implements Organ {
 			resetIfNewTurn(corr);
 
 			const type = event.type;
-			const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+			const toolCallId = extractToolCallId(event.payload);
 
 			// Safety net: total calls per tool regardless of interaction.
 			const prevTotal = totalCounts.get(type) ?? 0;
@@ -142,7 +143,7 @@ export class LoopGuard implements Organ {
 
 		// Sense subscriber: complete the interaction hash with the result.
 		const offSense = nerve.sense.subscribe("*" as const, (event: SenseEvent) => {
-			const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+			const toolCallId = extractToolCallId(event.payload);
 			if (!toolCallId) return;
 
 			const call = pending.get(toolCallId);

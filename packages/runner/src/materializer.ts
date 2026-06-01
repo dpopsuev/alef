@@ -41,6 +41,7 @@ const BUILTIN_PACKAGES: Record<string, string> = {
 };
 
 import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-spine";
+import { extractToolCallId } from "@dpopsuev/alef-spine";
 import { createJiti } from "jiti";
 
 /** Common options passed to every organ factory. */
@@ -116,8 +117,7 @@ export function wrapWithPermissions(organ: Organ, allowedTools: string[]): Organ
 								return;
 							}
 							// Denied: publish sense error with matching toolCallId.
-							const toolCallId =
-								typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+							const toolCallId = extractToolCallId(event.payload);
 							nerve.sense.publish({
 								type: event.type,
 								payload: toolCallId !== undefined ? { toolCallId } : {},

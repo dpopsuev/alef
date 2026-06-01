@@ -8,7 +8,7 @@ import {
 	type Tool,
 } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
-import { DIALOG_MESSAGE, defineOrgan, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
+import { DIALOG_MESSAGE, defineOrgan, extractToolCallId, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { z } from "zod";
 import type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
@@ -787,7 +787,7 @@ export class Cerebrum {
 		);
 		const offMotor = nerve.motor.subscribe("*", (event) => {
 			if (inflightExcluded.has(event.type)) return;
-			const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+			const toolCallId = extractToolCallId(event.payload);
 			this.inflight.set(inflightKey(event.type, event.correlationId, toolCallId), {
 				type: event.type,
 				correlationId: event.correlationId,
@@ -796,7 +796,7 @@ export class Cerebrum {
 			});
 		});
 		const offSense = nerve.sense.subscribe("*", (event) => {
-			const toolCallId = typeof event.payload.toolCallId === "string" ? event.payload.toolCallId : undefined;
+			const toolCallId = extractToolCallId(event.payload);
 			this.inflight.delete(inflightKey(event.type, event.correlationId, toolCallId));
 		});
 

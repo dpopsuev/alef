@@ -19,7 +19,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
-import type { DelegationStrategy, Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { ExecutionStrategy, Organ, OrganLogger } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
@@ -41,7 +41,7 @@ export interface OrchestrationOrganOptions {
 	 * bound to that child's endpoint. organ-delegate uses this to register
 	 * the child as a named delegation target.
 	 */
-	onChildReady?: (name: string, strategy: DelegationStrategy) => void;
+	onChildReady?: (name: string, strategy: ExecutionStrategy) => void;
 }
 
 // ---------------------------------------------------------------------------

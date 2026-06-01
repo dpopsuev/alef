@@ -1,9 +1,9 @@
-import type { BaseOrganOptions, DelegationStrategy, Organ } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions, ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 export interface DelegateOrganOptions extends BaseOrganOptions {
-	strategies: Record<string, DelegationStrategy>;
+	strategies: Record<string, ExecutionStrategy>;
 }
 
 const AGENT_RUN_TOOL = {
@@ -25,11 +25,11 @@ const AGENT_RUN_TOOL = {
 };
 
 export interface DelegateOrgan extends Organ {
-	registerStrategy(name: string, strategy: DelegationStrategy): void;
+	registerStrategy(name: string, strategy: ExecutionStrategy): void;
 }
 
 export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
-	const strategies = new Map<string, DelegationStrategy>(Object.entries(opts.strategies));
+	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies));
 
 	async function handleRun(ctx: {
 		payload: { text: string; profile?: string; timeoutMs?: number };
@@ -76,7 +76,7 @@ Multiple parallel agent.run(explore) calls are safe and fast.`,
 		},
 	) as DelegateOrgan;
 
-	organ.registerStrategy = (name: string, strategy: DelegationStrategy): void => {
+	organ.registerStrategy = (name: string, strategy: ExecutionStrategy): void => {
 		strategies.set(name, strategy);
 	};
 

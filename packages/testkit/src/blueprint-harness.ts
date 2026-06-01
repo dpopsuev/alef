@@ -25,7 +25,7 @@
 
 import { Agent, type BusObserver } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import type { DelegationStrategy, MotorEvent, NerveEvent, Organ } from "@dpopsuev/alef-spine";
+import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ } from "@dpopsuev/alef-spine";
 import { BusEventRecorder } from "./index.js";
 import type { ScriptStep } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";
@@ -50,7 +50,7 @@ export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
 	extraOrgans?: Organ[];
 }
 
-export class BlueprintHarness implements DelegationStrategy {
+export class BlueprintHarness implements ExecutionStrategy {
 	private readonly agent: Agent;
 	private readonly dialog: DialogOrgan;
 	private readonly recorder: BusEventRecorder;

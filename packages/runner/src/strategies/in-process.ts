@@ -19,11 +19,14 @@ export class InProcessStrategy implements ExecutionStrategy {
 			sink: (t) => {
 				if (t) reply = t;
 			},
+		});
+
+		const llm = new Cerebrum({
+			model: this.model,
+			timeoutMs,
 			getTools: () => agent.tools,
 			systemPrompt: this.systemPrompt,
 		});
-
-		const llm = new Cerebrum({ model: this.model, timeoutMs });
 
 		for (const organ of this.organs) agent.load(organ);
 		agent.load(dialog).load(llm);

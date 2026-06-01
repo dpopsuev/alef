@@ -110,95 +110,32 @@ describe("DialogOrgan", () => {
 	});
 });
 
-describe("DialogOrgan — history + system prompt", () => {
-	it("payload.messages contains the user message on first send", () => {
+describe("DialogOrgan — receive() payload shape", () => {
+	it("publishes { text, sender } only — no messages array", () => {
 		const { n } = makeNerve();
 		const organ = new DialogOrgan({ sink: () => {} });
 		organ.mount(n);
 
 		const captured: unknown[] = [];
 		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
-			captured.push(e.payload.messages);
+			captured.push(e.payload);
 		});
 
 		organ.receive("hello");
 
 		expect(captured).toHaveLength(1);
-		const msgs = captured[0] as Array<{ role: string; content: string }>;
-		expect(msgs).toHaveLength(1);
-		expect(msgs[0]).toMatchObject({ role: "user", content: "hello" });
-	});
-
-	it("history accumulates across turns", async () => {
-		const { n } = makeNerve();
-		const organ = new DialogOrgan({ sink: () => {} });
-		organ.mount(n);
-
-		// Echo organ publishes Motor/"dialog.message" in response.
-		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
-			n.motor.publish({
-				type: DIALOG_MESSAGE,
-				payload: { text: `echo: ${String((e.payload.messages as Array<{ content: string }>).at(-1)?.content)}` },
-				correlationId: e.correlationId,
-			});
-		});
-
-		await organ.send("turn1");
-		await organ.send("turn2");
-
-		// After two turns, history = [user, assistant, user, assistant]
-		expect(organ.messages).toHaveLength(4);
-		expect(organ.messages[0]).toMatchObject({ role: "user", content: "turn1" });
-		expect(organ.messages[1]).toMatchObject({ role: "assistant" });
-		expect(organ.messages[2]).toMatchObject({ role: "user", content: "turn2" });
-		expect(organ.messages[3]).toMatchObject({ role: "assistant" });
-	});
-
-	it("systemPrompt is prepended to messages", () => {
-		const { n } = makeNerve();
-		const organ = new DialogOrgan({ sink: () => {}, systemPrompt: "You are a coding assistant." });
-		organ.mount(n);
-
-		const captured: unknown[] = [];
-		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
-			captured.push(e.payload.messages);
-		});
-
-		organ.receive("hi");
-
-		const msgs = captured[0] as Array<{ role: string; content: string }>;
-		expect(msgs[0]).toMatchObject({ role: "system", content: "You are a coding assistant." });
-		expect(msgs[1]).toMatchObject({ role: "user", content: "hi" });
-	});
-
-	it("clearHistory resets messages", async () => {
-		const { n } = makeNerve();
-		const organ = new DialogOrgan({ sink: () => {} });
-		organ.mount(n);
-
-		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
-			n.motor.publish({
-				type: DIALOG_MESSAGE,
-				payload: { text: "ok" },
-				correlationId: e.correlationId,
-			});
-		});
-
-		await organ.send("one");
-		expect(organ.messages).toHaveLength(2);
-		organ.clearHistory();
-		expect(organ.messages).toHaveLength(0);
+		const p = captured[0] as Record<string, unknown>;
+		expect(p.text).toBe("hello");
+		expect(p.sender).toBe("human");
+		expect(p.messages).toBeUndefined();
+		expect(p.tools).toBeUndefined();
 	});
 });
-
-// ---------------------------------------------------------------------------
-// Max turns enforcement (ALE-TSK-230)
-// ---------------------------------------------------------------------------
 
 describe("DialogOrgan — max turns enforcement", () => {
 	it("allows sends up to maxTurns", async () => {
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 2 });
+		const dialog = new DialogOrgan({ sink: () => {}, maxTurns: 2 });
 		const llm = new ScriptedReasoner([step.reply("one"), step.reply("two")]);
 		agent.load(dialog).load(llm);
 		agent.validate();
@@ -211,7 +148,7 @@ describe("DialogOrgan — max turns enforcement", () => {
 
 	it("rejects sends beyond maxTurns with a clear error", async () => {
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 1 });
+		const dialog = new DialogOrgan({ sink: () => {}, maxTurns: 1 });
 		const llm = new ScriptedReasoner([step.reply("only one")]);
 		agent.load(dialog).load(llm);
 		agent.validate();
@@ -224,7 +161,7 @@ describe("DialogOrgan — max turns enforcement", () => {
 
 	it("maxTurns: 0 means unlimited", async () => {
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools, maxTurns: 0 });
+		const dialog = new DialogOrgan({ sink: () => {}, maxTurns: 0 });
 		const llm = new ScriptedReasoner([step.reply("a"), step.reply("b"), step.reply("c")]);
 		agent.load(dialog).load(llm);
 		agent.validate();

@@ -38,7 +38,7 @@ describe("SessionSummary (ALE-TSK-276)", () => {
 
 		const store = await SessionStore.create(cwd);
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		const log = new SessionLog(store, "test-model");
 		agent
 			.load(dialog)

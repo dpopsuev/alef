@@ -143,12 +143,7 @@ async function bootFixture(
 
 	const store = await SessionStore.create(cwd);
 
-	const dialog = new DialogOrgan({
-		systemPrompt: "You are a coding agent.",
-		sink: () => {
-			/* swallow output */
-		},
-	});
+	const dialog = new DialogOrgan({ sink: () => {} });
 
 	const scripted = new ScriptedReasoner(Array.isArray(opts.script) ? opts.script : [opts.script]);
 	const fs = createFsOrgan({ cwd });
@@ -390,52 +385,19 @@ describe("Lifecycle — TurnAssembler session resume", () => {
 });
 
 describe("Lifecycle — multi-turn context accumulation", () => {
-	it("DialogOrgan history grows across two turns", async () => {
+	it("session store accumulates motor and sense events across two turns", async () => {
 		const fix = await bootFixture({
 			script: [step.reply("first answer"), step.reply("second answer")],
 		});
 		try {
 			await fix.dialog.send("question one", "human");
-			expect(fix.dialog.messages.length).toBe(2); // user + assistant
-
 			await fix.dialog.send("question two", "human");
-			expect(fix.dialog.messages.length).toBe(4); // + user + assistant
+			const events = await fix.store.events();
+			const dialogEvents = events.filter((e) => e.type === "dialog.message");
+			expect(dialogEvents.length).toBeGreaterThanOrEqual(4);
 		} finally {
 			await fix.unmountAgent();
 		}
-	});
-
-	it("second turn payload includes previous history", async () => {
-		let secondPayloadMessages: unknown[] | undefined;
-
-		const fix = await bootFixture({ script: step.reply("ok") });
-		// Intercept what sense/dialog.message carries on the second turn.
-		(
-			fix.agent as unknown as {
-				nerve: { asNerve(): { sense: { subscribe: (t: string, h: (e: unknown) => void) => void } } };
-			}
-		).nerve?.asNerve?.();
-
-		// Simpler approach: two turns then check history length proves payload chaining.
-		try {
-			const fix2 = await bootFixture({
-				script: [step.reply("one"), step.reply("two")],
-			});
-			try {
-				await fix2.dialog.send("first", "human");
-				await fix2.dialog.send("second", "human");
-				// history = [user, assistant, user, assistant]
-				expect(fix2.dialog.messages[0].content).toBe("first");
-				expect(fix2.dialog.messages[1].content).toBe("one");
-				expect(fix2.dialog.messages[2].content).toBe("second");
-				expect(fix2.dialog.messages[3].content).toBe("two");
-			} finally {
-				await fix2.unmountAgent();
-			}
-		} finally {
-			await fix.unmountAgent();
-		}
-		void secondPayloadMessages;
 	});
 });
 

@@ -112,9 +112,9 @@ export interface HarnessOptions {
 	 */
 	organFactory?: (signal: AbortSignal) => Organ[];
 	/**
-	 * Override the tool list passed to DialogOrgan.
-	 * Default: () => agent.tools (all loaded tools).
-	 * Set to () => toolShell.metaTools when using ToolShell progressive disclosure.
+	 * Override the tool list passed to Cerebrum.
+	 * Default: () => agent.tools. Pass via organFactory to Cerebrum.getTools instead.
+	 * @deprecated Pass getTools directly in the organFactory Cerebrum options.
 	 */
 	getTools?: () => readonly { name: string; description: string; inputSchema: unknown }[];
 	/**
@@ -218,13 +218,7 @@ export class EvalHarness {
 		const evaluator = new EvaluatorOrgan({ loopThreshold: opts.loopThreshold });
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({
-			sink: () => {},
-			getTools: opts.getTools
-				? (opts.getTools as () => import("@dpopsuev/alef-spine").ToolDefinition[])
-				: () => agent.tools,
-			systemPrompt: opts.systemPrompt,
-		});
+		const dialog = new DialogOrgan({ sink: () => {} });
 
 		agent
 			.load(dialog)

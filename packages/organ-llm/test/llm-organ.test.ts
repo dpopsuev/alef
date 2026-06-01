@@ -26,7 +26,7 @@ function makeModel() {
 function makeHarness() {
 	const recorder = new BusEventRecorder();
 	const agent = new Agent();
-	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+	const dialog = new DialogOrgan({ sink: () => {} });
 	agent.load(dialog).load(new Cerebrum({ model: makeModel() }));
 	agent.observe(recorder);
 	return { agent, dialog, recorder, dispose: () => agent.dispose() };
@@ -50,7 +50,7 @@ describe("Reasoner — application-level retry", () => {
 
 	function makeRetryHarness(faux: ReturnType<typeof registerFauxProvider>, maxRetries: number) {
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent
 			.load(dialog)
 			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", maxRetries, maxRetryDelayMs: 0 }));
@@ -213,7 +213,7 @@ function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onRespon
 	};
 
 	const agent = new Agent();
-	const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+	const dialog = new DialogOrgan({ sink: () => {} });
 	agent.load(dialog).load(
 		new Cerebrum({
 			model: faux.getModel(),
@@ -280,7 +280,7 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 		const chunks: string[] = [];
 
 		const agent2 = new Agent();
-		const dialog2 = new DialogOrgan({ sink: () => {}, getTools: () => agent2.tools });
+		const dialog2 = new DialogOrgan({ sink: () => {} });
 		agent2
 			.load(dialog2)
 			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", onResponseChunk: (c) => chunks.push(c) }));
@@ -340,7 +340,7 @@ describe("ALE-BUG-8: partial conversationHistory published on error/abort", () =
 		// Minimal harness: dialog + llm only (no fs/shell organs).
 		// The tool call won't resolve but we still publish error on timeout/error.
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", maxRetries: 0 }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
@@ -367,7 +367,7 @@ describe("ALE-BUG-8: partial conversationHistory published on error/abort", () =
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: "all good" })])]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
@@ -400,7 +400,7 @@ describe("Reasoner — motor/llm.phase seam", () => {
 		faux.setResponses([fauxAssistantMessage("hello")]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
@@ -418,7 +418,7 @@ describe("Reasoner — motor/llm.phase seam", () => {
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: "done" })])]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 50 }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
@@ -438,7 +438,7 @@ describe("Reasoner — motor/llm.phase seam", () => {
 		faux.setResponses([fauxAssistantMessage("ok")]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 
 		// Phase organ: records received messages, then passes them through unchanged.
 		let phaseReceivedMessages: unknown[] = [];
@@ -485,7 +485,7 @@ describe("Reasoner — motor/llm.phase seam", () => {
 		faux.setResponses([fauxAssistantMessage("ok")]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 50 }));
 		disposes.push(() => agent.dispose());
 
@@ -539,7 +539,7 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent
 			.load(dialog)
 			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }))
@@ -564,7 +564,7 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent
 			.load(dialog)
 			.load(
@@ -600,7 +600,7 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent
 			.load(dialog)
 			.load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }))
@@ -625,7 +625,7 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 		faux.setResponses([fauxAssistantMessage("hello")]);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
@@ -694,7 +694,7 @@ describe("Reasoner — configurable triggerEvent", () => {
 		const recorder = new BusEventRecorder();
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key" }));
 		agent.observe(recorder);
 		disposes.push(() => agent.dispose());
@@ -743,7 +743,7 @@ describe("Cerebrum — trackConcurrentOps", () => {
 		};
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {}, getTools: () => agent.tools });
+		const dialog = new DialogOrgan({ sink: () => {} });
 		// Cerebrum loaded BEFORE concurrentOrgan so wildcard subscription is active.
 		agent
 			.load(dialog)

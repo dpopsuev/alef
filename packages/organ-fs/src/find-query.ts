@@ -242,6 +242,9 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 				}
 				args.push("--", effectivePattern, searchPath);
 
+				if (process.env.ALEF_DEBUG === "1") {
+					process.stderr.write(`[fs.find] ${fdPath} ${args.join(" ")}\n`);
+				}
 				const child = spawn(fdPath, args, { stdio: ["ignore", "pipe", "pipe"] });
 				if (!child.stdout) {
 					settle(() => reject(new Error("Failed to read fd stdout")));
@@ -257,7 +260,13 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 					}
 				};
 
+				const fdStart = Date.now();
 				const fdKillTimer = setTimeout(() => {
+					if (process.env.ALEF_DEBUG === "1") {
+						process.stderr.write(
+							`[fs.find] kill timer fired after ${Date.now() - fdStart}ms — pattern="${effectivePattern}" path="${searchPath}"\n`,
+						);
+					}
 					stopChild?.();
 					settle(() =>
 						reject(

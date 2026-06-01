@@ -49,6 +49,17 @@ export interface LlmTopologyOptions {
 	phaseTimeoutMs?: number;
 	triggerEvent?: string;
 	replyEvent?: string;
+	/**
+	 * Live tool list getter. Takes precedence over payload.tools from the trigger event.
+	 * Allows DialogOrgan to shed getTools — callers pass it directly to Cerebrum instead.
+	 */
+	getTools?: () => readonly ToolDefinition[];
+	/**
+	 * System prompt injected as the first message when prepareStep is absent.
+	 * In production prepareStep owns system prompt injection; this covers
+	 * InProcessStrategy and eval harnesses that run without prepareStep.
+	 */
+	systemPrompt?: string;
 }
 
 /** Full options — intersection of all three groups. All existing callers still compile. */
@@ -126,7 +137,11 @@ async function runLLMLoop(
 	// Motor event types use dots (fs.read, shell.exec) - sanitize for the API
 	// and keep a reverse map to recover the Motor event type from the LLM's response.
 	const motorNameByLlmName = new Map<string, string>();
-	const tools: Tool[] = (payload.tools ?? []).map((t) => {
+	const toolDefs =
+		options.getTools?.() ??
+		(payload.tools as readonly { name: string; description: string; inputSchema: z.ZodTypeAny }[] | undefined) ??
+		[];
+	const tools: Tool[] = toolDefs.map((t) => {
 		const llmName = t.name.replace(/\./g, "_");
 		motorNameByLlmName.set(llmName, t.name);
 		return { name: llmName, description: t.description, parameters: toolInputToJsonSchema(t.inputSchema) };
@@ -234,6 +249,7 @@ async function runLLMLoop(
 				timeoutMs,
 				maxRetries,
 				maxRetryDelayMs,
+				...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
 				...((options.getThinking?.() ?? options.thinking)
 					? { reasoning: options.getThinking?.() ?? options.thinking }
 					: {}),

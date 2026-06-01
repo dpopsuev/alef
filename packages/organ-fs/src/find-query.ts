@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
+import { debugLog } from "@dpopsuev/alef-spine";
 import type { ToolResultCache, ToolResultCacheHit } from "./cache.js";
 import { type BaseToolDetails, type ToolQueryResponse, toPosixPath, withCacheHit } from "./file-query-base.js";
 import { resolveToCwd } from "./path-utils.js";
@@ -242,9 +243,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 				}
 				args.push("--", effectivePattern, searchPath);
 
-				if (process.env.ALEF_DEBUG === "1") {
-					process.stderr.write(`[fs.find] ${fdPath} ${args.join(" ")}\n`);
-				}
+				debugLog("fs:find:spawn", { cmd: fdPath, args, pattern: effectivePattern, searchPath });
 				const child = spawn(fdPath, args, { stdio: ["ignore", "pipe", "pipe"] });
 				if (!child.stdout) {
 					settle(() => reject(new Error("Failed to read fd stdout")));
@@ -262,11 +261,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 
 				const fdStart = Date.now();
 				const fdKillTimer = setTimeout(() => {
-					if (process.env.ALEF_DEBUG === "1") {
-						process.stderr.write(
-							`[fs.find] kill timer fired after ${Date.now() - fdStart}ms — pattern="${effectivePattern}" path="${searchPath}"\n`,
-						);
-					}
+					debugLog("fs:find:timeout", { elapsedMs: Date.now() - fdStart, pattern: effectivePattern, searchPath });
 					stopChild?.();
 					settle(() =>
 						reject(
@@ -296,6 +291,12 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 				});
 
 				child.on("close", (code) => {
+					debugLog("fs:find:close", {
+						elapsedMs: Date.now() - fdStart,
+						code,
+						lines: lines.length,
+						pattern: effectivePattern,
+					});
 					cleanup();
 					if (signal?.aborted) {
 						settle(() => reject(new Error("Operation aborted")));

@@ -49,6 +49,9 @@
 			"@dpopsuev/alef-organ-orchestration": [
 				"../organ-orchestration/src/index.ts"
 			],
+			"@dpopsuev/alef-organ-delegate": [
+				"../organ-delegate/src/index.ts"
+			],
 			"@dpopsuev/alef-organ-eval": [
 				"../organ-eval/src/index.ts"
 			],

@@ -61,10 +61,17 @@ function createfsOrgan(nerve: InProcessNerve) {
 // ---------------------------------------------------------------------------
 
 describe("FsCorpusOrgan", () => {
-	it("has name=fs and 5 tools", () => {
+	it("has name=fs and 6 tools", () => {
 		const organ = createFsOrgan({ cwd: testDir });
 		expect(organ.name).toBe("fs");
-		expect(organ.tools.map((t) => t.name)).toEqual(["fs.read", "fs.grep", "fs.find", "fs.write", "fs.edit"]);
+		expect(organ.tools.map((t) => t.name)).toEqual([
+			"fs.read",
+			"fs.grep",
+			"fs.find",
+			"fs.write",
+			"fs.edit",
+			"fs.patch",
+		]);
 	});
 
 	it("unmount unsubscribes all motor handlers", () => {

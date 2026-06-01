@@ -98,24 +98,91 @@ function isRetryableError(msg: string | undefined): boolean {
 	return false;
 }
 
-/**
- * Normalise an incoming message to a valid Message.
- *
- * Handles two common mismatches between DialogOrgan's ConversationMessage
- * and the alef-ai Message type:
- *   1. Missing timestamp — injected so the LLM context assembler has ordering.
- *   2. assistant.content as plain string — Anthropic requires a content-block
- *      array; we promote "text" → [{type:"text", text}].
- */
 function normalizeMessage(m: unknown): Message {
 	const raw = m as Record<string, unknown>;
-	// Inject timestamp if absent.
 	const withTs: Record<string, unknown> = typeof raw.timestamp === "number" ? raw : { ...raw, timestamp: Date.now() };
-	// Promote plain-string assistant content to block array.
 	if (withTs.role === "assistant" && typeof withTs.content === "string") {
 		return { ...withTs, content: [{ type: "text", text: withTs.content }] } as unknown as Message;
 	}
 	return withTs as unknown as Message;
+}
+
+// ---------------------------------------------------------------------------
+// Extracted helpers — each owned one concern previously inlined in runLLMLoop
+// ---------------------------------------------------------------------------
+
+type ToolDef = { name: string; description: string; inputSchema: z.ZodTypeAny };
+
+/**
+ * Build the API-ready Tool array and populate the motor↔LLM name map.
+ * Motor event types use dots; Anthropic names must be ^[a-zA-Z0-9_-]{1,128}$.
+ * Used both at turn setup and when the phase pipeline injects new schemas.
+ */
+function buildTools(defs: readonly ToolDef[], nameMap: Map<string, string>): Tool[] {
+	return defs.map((t) => {
+		const llmName = t.name.replace(/\./g, "_");
+		nameMap.set(llmName, t.name);
+		return { name: llmName, description: t.description, parameters: toolInputToJsonSchema(t.inputSchema) };
+	});
+}
+
+interface TurnSetup {
+	messages: Message[];
+	tools: Tool[];
+	nameMap: Map<string, string>;
+}
+
+/** Parse the trigger payload, resolve tools, apply prepareStep. */
+async function prepareTurn(
+	payload: { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string },
+	options: Pick<CerebrumOptions, "getTools" | "prepareStep">,
+): Promise<TurnSetup> {
+	const rawMessages =
+		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
+	const nameMap = new Map<string, string>();
+	const toolDefs = options.getTools?.() ?? payload.tools ?? [];
+	const tools = buildTools(toolDefs as ToolDef[], nameMap);
+	const rawMsgs = (rawMessages as Message[]).map(normalizeMessage);
+	const messages = options.prepareStep ? await options.prepareStep(rawMsgs) : rawMsgs;
+	return { messages, tools, nameMap };
+}
+
+/**
+ * Reshape the accumulated message array for the conversationHistory field.
+ * Strips system messages and normalises toolResult entries for downstream
+ * consumers that read the history from the motor/dialog.message payload.
+ */
+function serializeConversationHistory(messages: Message[]): unknown[] {
+	return messages
+		.filter((m) => (m as { role?: string }).role !== "system")
+		.map((m): unknown => {
+			const msg = m as { role: string; content: unknown; toolCallId?: string; toolName?: string; isError?: boolean };
+			if (msg.role === "toolResult") {
+				return {
+					role: "toolResult",
+					toolCallId: msg.toolCallId,
+					toolName: msg.toolName,
+					content: msg.content,
+					isError: msg.isError,
+				};
+			}
+			return { role: msg.role, content: msg.content };
+		});
+}
+
+/** True when the provider error message indicates a transient condition worth retrying. */
+function shouldRetry(msg: AssistantMessage, retryCount: number, maxRetries: number): boolean {
+	return (
+		msg.stopReason === "error" &&
+		typeof msg.errorMessage === "string" &&
+		isRetryableError(msg.errorMessage) &&
+		retryCount < maxRetries
+	);
+}
+
+/** Exponential backoff capped at maxDelayMs. */
+function retryDelayMs(attempt: number, maxDelayMs: number): number {
+	return Math.min(1_000 * 2 ** (attempt - 1), maxDelayMs);
 }
 
 async function runLLMLoop(
@@ -123,57 +190,23 @@ async function runLLMLoop(
 	options: CerebrumOptions,
 	onCheckpoint?: (messages: Message[], correlationId: string) => void,
 ): Promise<void> {
-	const payload = ctx.payload as {
-		messages?: readonly unknown[];
-		tools?: readonly { name: string; description: string; inputSchema: z.ZodTypeAny }[];
-		text?: string;
-		sender?: string;
-	};
-
-	const rawMessages =
-		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
-
-	// Anthropic tool names must match ^[a-zA-Z0-9_-]{1,128}$.
-	// Motor event types use dots (fs.read, shell.exec) - sanitize for the API
-	// and keep a reverse map to recover the Motor event type from the LLM's response.
-	const motorNameByLlmName = new Map<string, string>();
-	const toolDefs =
-		options.getTools?.() ??
-		(payload.tools as readonly { name: string; description: string; inputSchema: z.ZodTypeAny }[] | undefined) ??
-		[];
-	const tools: Tool[] = toolDefs.map((t) => {
-		const llmName = t.name.replace(/\./g, "_");
-		motorNameByLlmName.set(llmName, t.name);
-		return { name: llmName, description: t.description, parameters: toolInputToJsonSchema(t.inputSchema) };
-	});
-	const toMotorName = (llmName: string): string => motorNameByLlmName.get(llmName) ?? llmName;
-
-	const rawMsgs: Message[] = (rawMessages as Message[]).map((m) => normalizeMessage(m));
-
-	const messages: Message[] = options.prepareStep ? await options.prepareStep(rawMsgs) : rawMsgs;
+	const payload = ctx.payload as { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string };
+	const { messages, tools, nameMap } = await prepareTurn(payload, options);
+	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
 	const { correlationId, motor, sense } = ctx;
 	const timeoutMs = options.timeoutMs ?? 60_000;
 	const maxRetries = options.maxRetries ?? 4;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
 
-	// Application-level transient error patterns - returned as clean stopReason:"error"
-	// messages by the provider (not HTTP errors). The SDK retries HTTP failures;
-	// we retry these at the LLM loop level.
-
 	let appRetryCount = 0;
 	let turn = 0;
 
 	while (true) {
 		turn++;
-		// Resolve current model at the start of each iteration so :model switches
-		// take effect on the next send without restarting the agent (ALE-TSK-371).
 		const model = options.getModel?.() ?? options.model;
 
-		// motor/llm.phase seam: zero-or-one organ may intercept each iteration.
-		// When phaseTimeoutMs is 0 (default), the seam is disabled — zero overhead.
 		if (options.phaseTimeoutMs) {
-			// Subscribe before publishing — event delivery may be synchronous.
 			const phaseT0 = Date.now();
 			debugLog("llm:phase:enter", { turn });
 			const phasePromise = waitForPhaseResult(sense, correlationId, options.phaseTimeoutMs);
@@ -194,40 +227,24 @@ async function runLLMLoop(
 					});
 					break;
 				}
-				if (phase.messages && phase.messages.length > 0) {
-					messages.splice(0, messages.length, ...phase.messages);
-				}
+				if (phase.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
 				if (phase.tools && phase.tools.length > 0) {
-					const newTools: Tool[] = phase.tools.map((t) => {
-						const llmName = t.name.replace(/\./g, "_");
-						motorNameByLlmName.set(llmName, t.name);
-						return {
-							name: llmName,
-							description: t.description,
-							parameters: toolInputToJsonSchema(t.inputSchema),
-						};
-					});
-					tools.splice(0, tools.length, ...newTools);
+					tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
 				}
 			}
 		}
 
+		const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
 		const span = tracer.startSpan(`chat ${model.id}`, {
 			kind: SpanKind.CLIENT,
 			attributes: {
 				"gen_ai.operation.name": "chat",
 				"gen_ai.request.model": model.id,
 				"gen_ai.system": model.provider,
+				"alef.schema_token_estimate": schemaTokenEstimate,
+				"alef.turn_number": turn,
 			},
 		});
-
-		// Estimate tokens consumed by tool schemas on this call (chars / 4).
-		// Recorded as a span attribute so EvalHarness can compute schemaFraction.
-		const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
-		span.setAttribute("alef.schema_token_estimate", schemaTokenEstimate);
-		span.setAttribute("alef.turn_number", turn);
-
-		// Orange: log API call entry so hangs are diagnosable without adding debug prints.
 		span.addEvent("llm.call", {
 			"alef.message_count": messages.length,
 			"alef.message_roles": messages.map((m) => (m as { role?: string }).role ?? "?").join(","),
@@ -262,21 +279,16 @@ async function runLLMLoop(
 
 		try {
 			for await (const evt of stream) {
-				if (evt.type === "text_delta") {
-					options.onResponseChunk?.(evt.delta);
-				} else if (evt.type === "thinking_delta") {
-					options.onThinkingChunk?.(evt.delta);
-				} else if (evt.type === "toolcall_end") {
+				if (evt.type === "text_delta") options.onResponseChunk?.(evt.delta);
+				else if (evt.type === "thinking_delta") options.onThinkingChunk?.(evt.delta);
+				else if (evt.type === "toolcall_end")
 					pendingCalls.push({
 						name: evt.toolCall.name,
 						args: evt.toolCall.arguments as Record<string, unknown>,
 						id: evt.toolCall.id,
 					});
-				} else if (evt.type === "done") {
-					finalMessage = evt.message;
-				} else if (evt.type === "error") {
-					finalMessage = evt.error;
-				}
+				else if (evt.type === "done") finalMessage = evt.message;
+				else if (evt.type === "error") finalMessage = evt.error;
 			}
 			debugLog("llm:http:done", {
 				turn,
@@ -293,11 +305,9 @@ async function runLLMLoop(
 					"alef.estimated_cost_usd": u.cost.total,
 				});
 			}
-			// ALE-BUG-39: stamp retry count on successful completion too (zero when no retries).
 			if (appRetryCount > 0) span.setAttribute("alef.retry_count", appRetryCount);
 			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (err) {
-			// ALE-BUG-40: distinguish abort (timeout/signal) from model error.
 			const isAbort =
 				err instanceof Error &&
 				(err.name === "AbortError" || err.message.includes("aborted") || err.message.includes("AbortError"));
@@ -310,7 +320,6 @@ async function runLLMLoop(
 			});
 			if (appRetryCount > 0) span.setAttribute("alef.retry_count", appRetryCount);
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
-			span.end();
 			throw err;
 		} finally {
 			span.end();
@@ -318,24 +327,15 @@ async function runLLMLoop(
 
 		if (!finalMessage) break;
 
-		// Application-level retry: pop error message and retry with backoff.
-		if (
-			finalMessage.stopReason === "error" &&
-			typeof finalMessage.errorMessage === "string" &&
-			isRetryableError(finalMessage.errorMessage) &&
-			appRetryCount < maxRetries
-		) {
+		if (shouldRetry(finalMessage, appRetryCount, maxRetries)) {
 			appRetryCount++;
-			options.onRetry?.(appRetryCount, finalMessage.errorMessage);
-			// ALE-BUG-39: record retry in span so post-mortem can distinguish throttle from slow model.
-			span.addEvent("llm.retry", { attempt: appRetryCount, reason: finalMessage.errorMessage });
+			options.onRetry?.(appRetryCount, finalMessage.errorMessage ?? "");
 			debugLog("llm:retry", {
 				turn,
 				attempt: appRetryCount,
 				reason: finalMessage.errorMessage?.slice(0, 80) ?? "unknown",
 			});
-			const delayMs = Math.min(1_000 * 2 ** (appRetryCount - 1), maxRetryDelayMs);
-			await new Promise<void>((res) => setTimeout(res, delayMs));
+			await new Promise<void>((res) => setTimeout(res, retryDelayMs(appRetryCount, maxRetryDelayMs)));
 			pendingCalls.length = 0;
 			continue;
 		}
@@ -346,8 +346,6 @@ async function runLLMLoop(
 		const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
 		const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
 
-		// motor/llm.result: fire-and-forget post-LLM hook. Organs can observe every
-		// LLM decision (response text + tool call list) before execution begins.
 		motor.publish({
 			type: "llm.result",
 			payload: {
@@ -365,58 +363,29 @@ async function runLLMLoop(
 				totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
 			};
 			options.onTurnComplete?.(turn, usage);
-			if (toolCalls.length === 0) {
-				options.onTokenUsage?.(usage);
-			}
+			if (toolCalls.length === 0) options.onTokenUsage?.(usage);
 		}
 
 		if (toolCalls.length === 0) {
 			const replyBodyFromTool = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
 			const text = replyBodyFromTool ?? extractText(finalMessage);
-			// When the reply body arrived inside a dialog_message tool call, the content was NOT
-			// streamed as text_delta events - onResponseChunk was never called for it. Forward
-			// it now so the TUI renders the full reply, not just the pre-tool intro text.
-			if (replyBodyFromTool) {
-				options.onResponseChunk?.(replyBodyFromTool);
-			}
-			const isConversation = replyType === DIALOG_MESSAGE;
+			if (replyBodyFromTool) options.onResponseChunk?.(replyBodyFromTool);
 			if (text) {
-				// conversationHistory only makes sense for conversation-driven agents.
-				const conversationHistory = isConversation
-					? messages
-							.filter((m) => (m as { role?: string }).role !== "system")
-							.map((m): unknown => {
-								const msg = m as {
-									role: string;
-									content: unknown;
-									toolCallId?: string;
-									toolName?: string;
-									isError?: boolean;
-								};
-								if (msg.role === "toolResult") {
-									return {
-										role: "toolResult",
-										toolCallId: msg.toolCallId,
-										toolName: msg.toolName,
-										content: msg.content,
-										isError: msg.isError,
-									};
-								}
-								return { role: msg.role, content: msg.content };
-							})
-					: undefined;
+				const conversationHistory =
+					replyType === DIALOG_MESSAGE ? serializeConversationHistory(messages) : undefined;
 				motor.publish({
 					type: replyType,
 					payload: { text, ...(conversationHistory ? { conversationHistory } : {}), usage: finalMessage.usage },
 					correlationId,
 				});
 			} else {
-				const fallback =
-					finalMessage.errorMessage ||
-					(finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
 				motor.publish({
 					type: replyType,
-					payload: { text: fallback },
+					payload: {
+						text:
+							finalMessage.errorMessage ||
+							(finalMessage.stopReason === "error" ? "An error occurred." : "(no response)"),
+					},
 					correlationId,
 				});
 			}
@@ -428,11 +397,7 @@ async function runLLMLoop(
 				const motorType = toMotorName(tc.name);
 				const startedAt = Date.now();
 				options.onToolStart?.({ callId: tc.id, name: motorType, args: tc.args });
-				motor.publish({
-					type: motorType,
-					payload: { ...tc.args, toolCallId: tc.id },
-					correlationId,
-				});
+				motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 				return waitForToolResult(sense, motorType, tc.id, correlationId).then((r) => {
 					const displayBlock = extractDisplay(r.payload);
 					const result = payloadToText(r.payload, r.isError, r.errorMessage);
@@ -462,8 +427,6 @@ async function runLLMLoop(
 			});
 		}
 
-		// Checkpoint: save the accumulated message array after every completed
-		// tool round so the caller can publish it on abort/error (ALE-BUG-8).
 		onCheckpoint?.(messages.slice(), ctx.correlationId);
 	}
 }

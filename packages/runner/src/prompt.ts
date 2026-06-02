@@ -108,6 +108,25 @@ export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	return directives;
 }
 
+/**
+ * Returns a prepareStep function suitable for passing to Cerebrum.
+ *
+ * On each call it rebuilds the system prompt from the live Directives
+ * instance (picking up any enable/disable/register changes made since
+ * the last turn) and prepends it as the first message, replacing any
+ * existing system message in the incoming list.
+ */
+export function buildPrepareStep(
+	directives: Directives,
+	budgetChars: number,
+): (messages: { role: string; content: unknown }[]) => Promise<{ role: string; content: unknown }[]> {
+	return (messages) => {
+		const systemContent = directives.build(budgetChars);
+		const withoutSystem = messages.filter((m) => m.role !== "system");
+		return Promise.resolve([{ role: "system", content: systemContent }, ...withoutSystem]);
+	};
+}
+
 // ---------------------------------------------------------------------------
 // Workspace + organ loading — replaces DirectiveContextAssembler.
 // ---------------------------------------------------------------------------

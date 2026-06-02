@@ -34,7 +34,7 @@ import { createLogger, createLoggerForTui } from "./logger.js";
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { createMemoryOrgan } from "./organ-memory.js";
 import { setupOTel } from "./otel.js";
-import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
+import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import { runAgent } from "./run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
 import { SessionGuard } from "./session-guard.js";
@@ -166,14 +166,9 @@ const thinkingState = {
 	level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
 };
 
-const prepareStep = (messages: Message[]) => {
-	const freshPrompt = directives.build(directivesBudgetChars);
-	type Msg = { role: string; content: string };
-	return Promise.resolve([
-		{ role: "system", content: freshPrompt } as unknown as Message,
-		...((messages as Msg[]).filter((m) => m.role !== "system") as unknown as Message[]),
-	]);
-};
+const prepareStep = buildPrepareStep(directives, directivesBudgetChars) as unknown as (
+	messages: Message[],
+) => Promise<Message[]>;
 const onCheckpoint = buildCheckpointCallback(() => session);
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.

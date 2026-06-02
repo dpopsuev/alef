@@ -30,6 +30,8 @@ import { passthroughSchema } from "./buses.js";
 // McpOrgan
 // ---------------------------------------------------------------------------
 
+type ExecuteFn = (args: unknown, opts: unknown) => Promise<unknown>;
+
 class McpOrganImpl implements Organ {
 	readonly name: string;
 	readonly description: string;
@@ -39,15 +41,15 @@ class McpOrganImpl implements Organ {
 	readonly directives?: readonly string[];
 
 	private readonly client: MCPClient;
-	/** Map from sanitized LLM tool name → original MCP tool name */
-	private readonly nameMap: Map<string, string>;
+	/** Map from motor tool name → cached execute function */
+	private readonly execMap: Map<string, ExecuteFn>;
 
-	constructor(name: string, tools: ToolDefinition[], client: MCPClient, nameMap: Map<string, string>) {
+	constructor(name: string, tools: ToolDefinition[], client: MCPClient, execMap: Map<string, ExecuteFn>) {
 		this.name = name;
 		this.description = `MCP organ wrapping the '${name}' server (${tools.length} tools).`;
 		this.tools = tools;
 		this.client = client;
-		this.nameMap = nameMap;
+		this.execMap = execMap;
 		this.subscriptions = {
 			motor: tools.map((t) => t.name),
 			sense: [],
@@ -59,21 +61,14 @@ class McpOrganImpl implements Organ {
 
 		for (const tool of this.tools) {
 			const toolName = tool.name; // e.g. "github.create_issue"
-			const mcpName = this.nameMap.get(toolName) ?? toolName; // original MCP name
+			const execFn = this.execMap.get(toolName);
 
 			const off = nerve.motor.subscribe(toolName, async (event) => {
 				const { toolCallId: rawToolCallId, ...args } = event.payload;
 				const toolCallId = typeof rawToolCallId === "string" ? rawToolCallId : undefined;
 				try {
-					const aiTools = await this.client.tools();
-					const aiTool = aiTools[mcpName];
-
-					if (!aiTool) {
-						throw new Error(`McpOrgan: tool '${mcpName}' not found on MCP server`);
-					}
-					const execFn = (aiTool as unknown as { execute?: (a: unknown, o: unknown) => Promise<unknown> }).execute;
 					if (!execFn) {
-						throw new Error(`McpOrgan: tool '${mcpName}' has no execute function`);
+						throw new Error(`McpOrgan: no execute function for tool '${toolName}'`);
 					}
 					const result: unknown = await execFn(args, { messages: [], toolCallId: String(toolCallId ?? "") });
 
@@ -115,11 +110,9 @@ class McpOrganImpl implements Organ {
 // McpOrgan factory
 // ---------------------------------------------------------------------------
 
-/** Prefix dots in MCP tool names with the organ name for Motor event routing. */
+/** Prefix the organ name onto an MCP tool name for Motor event routing. */
 function organToolName(organName: string, mcpName: string): string {
-	// MCP tool names like "create_issue" → "github.create_issue"
-	// Already namespaced like "filesystem.read_file" → keep as-is but replace _ with .
-	return `${organName}.${mcpName.replace(/_/g, "_")}`;
+	return `${organName}.${mcpName}`;
 }
 
 /** @internal Exported for testing only. Use McpOrgan.stdio/http in production. */
@@ -129,13 +122,14 @@ export async function createMcpOrganFromClient(client: MCPClient, name: string):
 	const toolNames = Object.keys(aiTools);
 
 	const tools: ToolDefinition[] = [];
-	// Map from organ-namespaced name → original MCP name
-	const nameMap = new Map<string, string>();
+	// Cache execute functions at construction time — avoids re-calling client.tools() per invocation.
+	const execMap = new Map<string, ExecuteFn>();
 
 	for (const mcpName of toolNames) {
 		const tool = aiTools[mcpName];
 		const motorName = organToolName(name, mcpName);
-		nameMap.set(motorName, mcpName);
+		const execFn = (tool as unknown as { execute?: ExecuteFn }).execute;
+		if (execFn) execMap.set(motorName, execFn);
 
 		tools.push({
 			name: motorName,
@@ -148,7 +142,7 @@ export async function createMcpOrganFromClient(client: MCPClient, name: string):
 		});
 	}
 
-	return new McpOrganImpl(name, tools, client, nameMap);
+	return new McpOrganImpl(name, tools, client, execMap);
 }
 
 export const McpOrgan = {

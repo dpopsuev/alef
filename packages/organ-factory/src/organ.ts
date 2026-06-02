@@ -35,7 +35,19 @@ const BLUEPRINT_TOOL = {
 	}),
 };
 
-const BUILT_IN_ORGANS = new Set(["fs", "shell", "web", "nodesh", "lector", "todos", "skills", "eval"]);
+const BUILT_IN_ORGANS = new Set([
+	"fs",
+	"shell",
+	"web",
+	"nodesh",
+	"lector",
+	"todos",
+	"skills",
+	"eval",
+	"orchestration",
+	"delegate",
+	"factory",
+]);
 
 function buildBlueprint(name: string, description: string, organs: string[], model?: string): Record<string, unknown> {
 	const organEntries = organs.map((organ) => {

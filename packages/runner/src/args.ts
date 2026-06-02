@@ -112,6 +112,10 @@ export interface Args {
 	pmOrganList: boolean;
 	/** alef organ new <name> — scaffold a publishable organ package */
 	pmOrganNew: string | undefined;
+	/** alef export [path] — write alef-organs.lock to the project */
+	pmExport: string | true | undefined;
+	/** alef import [path] — restore organs from alef-organs.lock */
+	pmImport: string | true | undefined;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5@20250929";
@@ -188,6 +192,8 @@ export function parseArgs(argv: string[]): Args {
 		pmSbom: false,
 		pmOrganList: false,
 		pmOrganNew: undefined,
+		pmExport: undefined,
+		pmImport: undefined,
 	};
 
 	let i = 0;
@@ -370,6 +376,28 @@ export function parseArgs(argv: string[]): Args {
 			} else {
 				console.error(`Unknown organ subcommand: ${sub ?? "(none)"}. Available: list, new`);
 				process.exit(1);
+			}
+			i++;
+			continue;
+		}
+		if (arg === "export") {
+			const next = argv[i + 1];
+			if (next && !next.startsWith("-")) {
+				args.pmExport = next;
+				i++;
+			} else {
+				args.pmExport = true;
+			}
+			i++;
+			continue;
+		}
+		if (arg === "import") {
+			const next = argv[i + 1];
+			if (next && !next.startsWith("-")) {
+				args.pmImport = next;
+				i++;
+			} else {
+				args.pmImport = true;
 			}
 			i++;
 			continue;

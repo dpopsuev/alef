@@ -82,7 +82,7 @@ export class RouterOrgan implements Organ {
 		onMessage?: (text: string) => void;
 		triggerEvent: string;
 	};
-	private _ready: Promise<void> = Promise.resolve();
+	private _readyPromise: Promise<void> | null = null;
 
 	constructor(options: RouterOptions = {}) {
 		this.options = {
@@ -114,7 +114,8 @@ export class RouterOrgan implements Organ {
 	 * Await this in tests before making requests.
 	 */
 	ready(): Promise<void> {
-		return this._ready;
+		if (!this._readyPromise) return Promise.reject(new Error("RouterOrgan not mounted"));
+		return this._readyPromise;
 	}
 
 	/**
@@ -129,6 +130,7 @@ export class RouterOrgan implements Organ {
 	}
 
 	mount(nerve: Nerve): () => void {
+		if (this.server) throw new Error("RouterOrgan already mounted");
 		// Subscribe wildcards — forward every bus event to SSE clients.
 		const off1 = nerve.motor.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
@@ -154,7 +156,7 @@ export class RouterOrgan implements Organ {
 
 		// Start the HTTP server. _ready resolves once the port is bound.
 		this.server = createServer((req, res) => this.handle(req, res, nerve));
-		this._ready = new Promise<void>((resolve, reject) => {
+		this._readyPromise = new Promise<void>((resolve, reject) => {
 			this.server?.once("listening", resolve);
 			this.server?.once("error", reject);
 		});
@@ -166,6 +168,7 @@ export class RouterOrgan implements Organ {
 			this.sse.closeAll();
 			this.server?.close();
 			this.server = null;
+			this._readyPromise = null;
 		};
 	}
 

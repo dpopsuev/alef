@@ -1,5 +1,6 @@
 import {
 	type Binding,
+	debugLog,
 	InProcessNerve,
 	type MotorEvent,
 	type Nerve,
@@ -255,11 +256,19 @@ export class Agent {
 
 	bind(binding: Binding): this {
 		this._bindings.set(binding.id, binding);
+		debugLog("agent:bind", {
+			id: binding.id,
+			event: binding.event,
+			mode: binding.mode,
+			stages: binding.chain.length,
+		});
 		return this;
 	}
 
 	unbind(id: string): boolean {
-		return this._bindings.delete(id);
+		const removed = this._bindings.delete(id);
+		if (removed) debugLog("agent:unbind", { id });
+		return removed;
 	}
 
 	get bindings(): ReadonlyMap<string, Binding> {

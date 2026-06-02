@@ -1,5 +1,6 @@
 import type { BaseOrganOptions } from "@dpopsuev/alef-spine";
 import {
+	debugLog,
 	defineOrgan,
 	newCorrelationId,
 	tool,
@@ -85,6 +86,10 @@ export function createContractTool<T extends z.ZodTypeAny>(
 		"contract",
 		{
 			"motor/contract.submit": typedAction(SUBMIT_TOOL, async (ctx) => {
+				debugLog("contract:submit", {
+					correlationId: (ctx as unknown as { correlationId: string }).correlationId,
+					hasValidator: !!contract.validator,
+				});
 				const schemaResult = contract.schema.safeParse(ctx.payload.data);
 				if (!schemaResult.success) {
 					const errors = schemaResult.error.issues
@@ -118,6 +123,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 						if (e.payload.id !== id) return;
 						clearTimeout(timer);
 						off();
+						debugLog("contract:result", { id, approved: e.payload.approved });
 						if (e.payload.approved) {
 							onSubmit(validated);
 							resolve({ success: true, message: "Contract fulfilled." });
@@ -126,6 +132,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 						}
 					});
 
+					debugLog("contract:validate", { id, kind: contract.validator, targetOrgan: contract.validator });
 					motor.publish({
 						type: VALIDATE_REQUEST,
 						payload: { id, output: validated, kind: contract.validator, context: contract.intent },

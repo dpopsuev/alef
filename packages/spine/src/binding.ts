@@ -1,5 +1,6 @@
 import type { Nerve, SenseEvent } from "./buses.js";
 import { newCorrelationId } from "./buses.js";
+import { debugLog } from "./debug.js";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "./evaluation.js";
 
 export type BindingMode = "ordered" | "parallel-all" | "parallel-first";
@@ -68,13 +69,16 @@ async function executeOrdered(
 ): Promise<ChainResult> {
 	let current = input;
 
-	for (const stage of chain) {
+	for (let i = 0; i < chain.length; i++) {
+		const stage = chain[i];
 		if (stage.filter && !stage.filter(current.output as Record<string, unknown>)) {
 			continue;
 		}
 
 		const stageId = newCorrelationId();
 		const timeoutMs = stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS;
+
+		debugLog("binding:stage:start", { stageIdx: i, organ: stage.organ, stageId });
 
 		const resultPromise = waitForValidateResult(nerve.sense, stageId, timeoutMs);
 
@@ -91,6 +95,13 @@ async function executeOrdered(
 		});
 
 		const result = await resultPromise;
+
+		debugLog("binding:stage:result", {
+			stageIdx: i,
+			organ: stage.organ,
+			approved: result.approved,
+			reviewer: result.reviewer,
+		});
 
 		if (!result.approved) return result;
 
@@ -165,6 +176,12 @@ export function executeBindingChain(
 	nerve: Nerve,
 	sourceCorrelationId: string,
 ): Promise<ChainResult> {
+	debugLog("binding:chain:start", {
+		id: binding.id,
+		event: binding.event,
+		mode: binding.mode,
+		stages: binding.chain.length,
+	});
 	switch (binding.mode) {
 		case "ordered":
 			return executeOrdered(binding.chain, input, nerve, sourceCorrelationId);

@@ -1,56 +1,77 @@
-/**
- * MemoryOrgan — stage 2 of the llm.phase ordered-pipeline.
- *
- * Stage 1 (ToolShell) injects progressive tool catalog.
- * Stage 2 (this organ) owns context assembly: five-level memory pyramid
- * (Now → Latest → Recent[N] → Session → ROM).
- *
- * Phase 1 skeleton: participates in the pipeline with an empty response.
- * No messages field → mergePhaseResults keeps ToolShell's messages unchanged.
- * prepareStep continues to own context assembly in this phase.
- *
- * Phase 2 (ALE-SPC-55 full): reads SessionStore directly, applies scoring,
- * detects 55% fill, triggers background compaction, replaces prepareStep
- * context assembly via Strangler Fig.
- *
- * Ref: ALE-SPC-55, ALE-TSK-457
- */
-
 import type { BaseOrganOptions } from "@dpopsuev/alef-spine";
 import { defineOrgan } from "@dpopsuev/alef-spine";
 import type { SessionStore } from "./session-store.js";
+import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
 export interface MemoryOrganOptions extends BaseOrganOptions {
-	/**
-	 * Fraction of model context window that triggers background compaction.
-	 * Default: 0.55 — leaves headroom for the compaction LLM call itself.
-	 */
 	compactionThreshold?: number;
-	/**
-	 * Number of most-recent turns held unconditionally (the Latest level).
-	 * Default: 4 — matches recentGuarantee in ContextWindowPolicy.
-	 */
 	recentGuarantee?: number;
-	/**
-	 * Session store reference. Required for Phase 2 context assembly.
-	 * When absent the organ participates as a no-op pipeline stage.
-	 */
 	sessionStore?: () => SessionStore | undefined;
+	contextWindow?: number;
 }
 
+type RawMsg = { role: string; content: unknown };
+
 export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
-	const _compactionThreshold = opts.compactionThreshold ?? 0.55;
-	const _recentGuarantee = opts.recentGuarantee ?? 4;
+	const recentGuarantee = opts.recentGuarantee ?? 4;
+	const contextWindow = opts.contextWindow ?? 128_000;
 
 	return defineOrgan(
 		"memory",
 		{
 			"motor/llm.phase": {
-				handle: (_ctx: unknown) => {
-					// Phase 1: no-op — publish empty phase result so ToolShell's
-					// messages survive mergePhaseResults unmodified.
-					// Phase 2: read from sessionStore, assemble pyramid, return messages.
-					return Promise.resolve({});
+				handle: async (ctx: unknown) => {
+					const payload = (ctx as { payload: Record<string, unknown> }).payload;
+					const msgs = payload.messages as RawMsg[] | undefined;
+					if (!msgs?.length) return {};
+
+					const session = opts.sessionStore?.();
+					if (!session) return {};
+
+					const systemMsg = msgs.find((m) => m.role === "system");
+					const currentUserMsg = msgs.at(-1);
+					if (!currentUserMsg) return {};
+
+					const [turns, hitCounts] = await Promise.all([session.turns(), session.hitCounts()]);
+					if (turns.length === 0) return {};
+
+					const query = typeof currentUserMsg.content === "string" ? currentUserMsg.content : "";
+					const selected = assembleTurns(turns, {
+						query,
+						contextWindow,
+						hitCounts,
+						policy: { recentGuarantee },
+					});
+					if (selected.length === 0) return {};
+
+					const budgetTotal = Math.floor(contextWindow * 0.7);
+					const budgetUsed = selected.reduce((n, t) => n + t.tokenCost, 0);
+					void session.append({
+						bus: "internal",
+						type: "window.assembled",
+						correlationId: `wa-${Date.now()}`,
+						payload: {
+							includedTurnIds: selected.map((t) => t.id),
+							queryTokens: query
+								.toLowerCase()
+								.split(/\W+/)
+								.filter((t) => t.length > 2),
+							budgetUsed,
+							budgetTotal,
+						},
+						timestamp: Date.now(),
+					});
+
+					const projected = turnsToMessages(selected);
+					if (projected.length === 0) return {};
+
+					const assembled: RawMsg[] = [
+						...(systemMsg ? [systemMsg] : []),
+						...(projected as unknown as RawMsg[]),
+						currentUserMsg,
+					];
+
+					return { messages: assembled };
 				},
 			},
 		},

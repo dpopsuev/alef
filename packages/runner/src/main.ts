@@ -401,17 +401,13 @@ let currentSession: typeof session | undefined = session;
 export function setCurrentSession(s: typeof session): void {
 	currentSession = s;
 }
-const contextAssembler = AgentKernel.buildContextAssembler(() => currentSession, model.contextWindow);
-
-// prepareStep: (1) run context scoring, (2) inject fresh system prompt from scroll.
-const prepareStep = async (messages: Message[]) => {
-	const scored = await contextAssembler(messages);
+const prepareStep = (messages: Message[]) => {
 	const freshPrompt = currentScroll.build(scrollBudgetChars);
 	type Msg = { role: string; content: string };
-	return [
+	return Promise.resolve([
 		{ role: "system", content: freshPrompt } as unknown as Message,
-		...((scored as Msg[]).filter((m) => m.role !== "system") as unknown as Message[]),
-	];
+		...((messages as Msg[]).filter((m) => m.role !== "system") as unknown as Message[]),
+	]);
 };
 const onCheckpoint = AgentKernel.buildCheckpointCallback(() => currentSession);
 
@@ -505,9 +501,10 @@ for (const organ of corpusOrgans) {
 }
 agent.load(toolShell);
 
-// MemoryOrgan — stage 2 of the llm.phase pipeline (ALE-SPC-55 Phase 1 skeleton).
-// Phase 1: no-op participant — preserves ToolShell messages, holds the slot.
-const memoryOrgan = createMemoryOrgan({ sessionStore: () => session });
+const memoryOrgan = createMemoryOrgan({
+	sessionStore: () => currentSession,
+	contextWindow: model.contextWindow,
+});
 agent.load(memoryOrgan);
 
 // ── Delegation profiles ───────────────────────────────────────────────────

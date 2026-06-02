@@ -24,7 +24,6 @@ import type { Message } from "@dpopsuev/alef-organ-llm";
 import type { Organ, SessionStore } from "@dpopsuev/alef-spine";
 import { SessionLog } from "./event-log-organ.js";
 import { LoopGuard } from "./loop-detector.js";
-import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
 
 export type CheckpointCallback = (messages: Message[], correlationId: string) => void;
 
@@ -94,12 +93,6 @@ export interface AgentKernelResult {
  *   agent.validate();
  */
 export const AgentKernel = {
-	/**
-	 * Build the onCheckpoint callback to pass to Cerebrum.
-	 * Writes a durable internal/llm.checkpoint record to the session after each
-	 * tool round so turnsToMessages can recover context on abort (ALE-TSK-368).
-	 * Returns undefined when session is absent — Cerebrum skips the callback.
-	 */
 	buildCheckpointCallback(getSession: (() => SessionStore | undefined) | undefined): CheckpointCallback | undefined {
 		if (!getSession) return undefined;
 		return (messages: Message[], correlationId: string) => {
@@ -112,51 +105,6 @@ export const AgentKernel = {
 				payload: { conversationHistory: messages as unknown as Record<string, unknown>[] },
 				timestamp: Date.now(),
 			});
-		};
-	},
-
-	buildContextAssembler(
-		getSession: (() => SessionStore | undefined) | undefined,
-		contextWindow: number,
-	): (messages: Message[]) => Promise<Message[]> {
-		if (!getSession) return (msgs) => Promise.resolve(msgs);
-		return async (messages: Message[]): Promise<Message[]> => {
-			const session = getSession();
-			if (!session) return messages;
-			const turns = await session.turns();
-			const hitCounts = await session.hitCounts();
-			const lastMsg = messages.at(-1);
-			const query =
-				lastMsg && typeof (lastMsg as { content?: unknown }).content === "string"
-					? (lastMsg as { content: string }).content
-					: "";
-			const selected = assembleTurns(turns, { query, contextWindow, hitCounts });
-
-			const budgetTotal = Math.floor(contextWindow * 0.7);
-			const budgetUsed = selected.reduce((n, t) => n + t.tokenCost, 0);
-			void session.append({
-				bus: "internal",
-				type: "window.assembled",
-				correlationId: `wa-${Date.now()}`,
-				payload: {
-					includedTurnIds: selected.map((t) => t.id),
-					queryTokens: query
-						.toLowerCase()
-						.split(/\W+/)
-						.filter((t) => t.length > 2),
-					budgetUsed,
-					budgetTotal,
-				},
-				timestamp: Date.now(),
-			});
-
-			const projected = turnsToMessages(selected);
-			if (projected.length === 0) return messages;
-			const currentMsg = messages.at(-1);
-			if (currentMsg && (currentMsg as { role?: string }).role === "user") {
-				return [...projected, currentMsg] as Message[];
-			}
-			return projected;
 		};
 	},
 

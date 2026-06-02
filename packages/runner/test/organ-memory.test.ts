@@ -46,6 +46,109 @@ function firePhase(nerve: InProcessNerve, messages: unknown[]): Promise<Record<s
 // Tests
 // ---------------------------------------------------------------------------
 
+describe("MemoryOrgan — Phase 2 context assembly", () => {
+	const disposes: Array<() => void> = [];
+	afterEach(() => {
+		for (const d of disposes.splice(0)) d();
+	});
+
+	it("returns messages when session has turns with history", async () => {
+		const turn = {
+			id: "t1",
+			turnIndex: 0,
+			tokenCost: 10,
+			typeWeight: 0.8,
+			events: [
+				{
+					bus: "motor",
+					type: "dialog.message",
+					correlationId: "t1",
+					payload: {
+						text: "hello",
+						conversationHistory: [
+							{ role: "user", content: "hello" },
+							{ role: "assistant", content: "hi there" },
+						],
+					},
+					timestamp: 1,
+				},
+			],
+		};
+		const session = {
+			turns: async () => [turn],
+			hitCounts: async () => new Map<string, number>(),
+			append: async () => {},
+		};
+		const organ = createMemoryOrgan({
+			sessionStore: () => session as never,
+			contextWindow: 200_000,
+		});
+		const { nerve, unmount } = mountOrgan(organ);
+		disposes.push(unmount);
+
+		const msgs = [
+			{ role: "system", content: "system prompt" },
+			{ role: "user", content: "new question" },
+		];
+		const payload = await firePhase(nerve, msgs);
+		expect(payload).not.toBeNull();
+		expect(payload).toHaveProperty("messages");
+		const assembled = payload!.messages as Array<{ role: string; content: unknown }>;
+		expect(assembled.at(0)?.role).toBe("system");
+		expect(assembled.at(-1)).toMatchObject({ role: "user", content: "new question" });
+	});
+
+	it("returns empty result when session has no turns", async () => {
+		const session = {
+			turns: async () => [],
+			hitCounts: async () => new Map<string, number>(),
+			append: async () => {},
+		};
+		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow: 200_000 });
+		const { nerve, unmount } = mountOrgan(organ);
+		disposes.push(unmount);
+
+		const payload = await firePhase(nerve, [{ role: "user", content: "hi" }]);
+		expect(payload).not.toHaveProperty("messages");
+	});
+
+	it("writes window.assembled to session after assembly", async () => {
+		const appended: unknown[] = [];
+		const turn = {
+			id: "t1",
+			turnIndex: 0,
+			tokenCost: 10,
+			typeWeight: 0.8,
+			events: [
+				{
+					bus: "motor",
+					type: "dialog.message",
+					correlationId: "t1",
+					payload: { text: "hello", conversationHistory: [{ role: "user", content: "hello" }] },
+					timestamp: 1,
+				},
+			],
+		};
+		const session = {
+			turns: async () => [turn],
+			hitCounts: async () => new Map<string, number>(),
+			append: async (r: unknown) => {
+				appended.push(r);
+			},
+		};
+		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow: 200_000 });
+		const { nerve, unmount } = mountOrgan(organ);
+		disposes.push(unmount);
+
+		await firePhase(nerve, [{ role: "user", content: "hello" }]);
+		await new Promise((r) => setTimeout(r, 20));
+
+		const record = appended.find((r) => (r as { type: string }).type === "window.assembled");
+		expect(record).toBeDefined();
+		expect((record as { payload: { includedTurnIds: string[] } }).payload.includedTurnIds).toContain("t1");
+	});
+});
+
 describe("MemoryOrgan — Phase 1 skeleton", () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {

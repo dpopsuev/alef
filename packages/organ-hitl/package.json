@@ -1,0 +1,26 @@
+{
+  "name": "@dpopsuev/alef-organ-hitl",
+  "version": "0.0.1",
+  "description": "HitlOrgan — Human-in-the-Loop evaluator organ. Subscribes to validate.required, asks a human, publishes validate.result.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.build.json",
+    "test": "vitest --run",
+    "clean": "shx rm -rf dist"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-spine": "^0.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "shx": "^0.4.0",
+    "vitest": "^4.1.6"
+  }
+}

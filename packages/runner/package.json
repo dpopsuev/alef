@@ -15,6 +15,7 @@
     "@dpopsuev/alef-ai": "^0.0.1",
     "@dpopsuev/alef-corpus": "^0.0.1",
     "@dpopsuev/alef-organ-dialog": "^0.0.1",
+    "@dpopsuev/alef-organ-hitl": "^0.0.1",
     "@dpopsuev/alef-organ-workflow": "^0.0.1",
     "@dpopsuev/alef-organ-fs": "^0.0.1",
     "@dpopsuev/alef-organ-alef": "^0.0.1",

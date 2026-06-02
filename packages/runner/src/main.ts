@@ -25,7 +25,13 @@ import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import type { Message, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
-import { Cerebrum, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
+import {
+	Cerebrum,
+	createLlmPipeline,
+	type TokenUsage,
+	type ToolCallEnd,
+	type ToolCallStart,
+} from "@dpopsuev/alef-organ-llm";
 import { createNodeshOrgan } from "@dpopsuev/alef-organ-nodesh";
 import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
@@ -506,6 +512,7 @@ const memoryOrgan = createMemoryOrgan({
 	contextWindow: model.contextWindow,
 });
 agent.load(memoryOrgan);
+agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
 
 // ── Delegation profiles ───────────────────────────────────────────────────
 // Build InProcessStrategy profiles and wire organ-delegate.

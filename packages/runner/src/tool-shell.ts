@@ -19,7 +19,8 @@
  * Measurement: 69.9% of input tokens were schema overhead before this (2026-05-28).
  */
 
-import type { CorpusHandlerCtx, Nerve, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { PhaseStageHandler } from "@dpopsuev/alef-organ-llm";
+import type { Nerve, ToolDefinition } from "@dpopsuev/alef-spine";
 import { defineOrgan, toolInputToJsonSchema, typedAction } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
@@ -200,26 +201,6 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 			"motor/tools.describe": typedAction(DESCRIBE_TOOL, (ctx) =>
 				Promise.resolve({ results: handleDescribe(ctx.payload.names) }),
 			),
-
-			// llm.phase — context lifecycle intercept.
-			// Activated only when phaseTimeoutMs > 0 in Cerebrum options.
-			"motor/llm.phase": {
-				handle: (ctx: CorpusHandlerCtx) => {
-					const payload = ctx.payload as { messages: RawMsg[]; turn: number };
-					let msgs = [...payload.messages];
-
-					if (payload.turn === 1 && !state.catalogInjected) {
-						msgs = injectCatalog(msgs);
-						state.catalogInjected = true;
-					} else if (state.catalogInjected && payload.turn > evictAfterTurn) {
-						msgs = evictCatalog(msgs);
-					}
-
-					// Return updated tool list so organ-llm uses promoted schemas on this
-					// turn without waiting for the next dialog.send() to refresh getTools().
-					return Promise.resolve({ messages: msgs, tools: getPromotedTools() } as Record<string, unknown>);
-				},
-			},
 		},
 		{
 			description: "Progressive tool discovery — inject catalog once, evict after N turns, describe on demand.",
@@ -294,6 +275,12 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 				msgs = evictCatalog(msgs);
 			}
 			return msgs;
+		},
+		phaseStage(): PhaseStageHandler {
+			return ({ messages, turn }) => {
+				const msgs = this.applyPhase(messages as unknown as RawMsg[], turn) as unknown as typeof messages;
+				return Promise.resolve({ messages: msgs, tools: getPromotedTools() });
+			};
 		},
 	};
 }

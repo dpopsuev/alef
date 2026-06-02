@@ -117,12 +117,10 @@ function organToolName(organName: string, mcpName: string): string {
 
 /** @internal Exported for testing only. Use McpOrgan.stdio/http in production. */
 export async function createMcpOrganFromClient(client: MCPClient, name: string): Promise<Organ> {
-	// Discover tools via schema discovery (automatic mode).
 	const aiTools = await client.tools();
 	const toolNames = Object.keys(aiTools);
 
 	const tools: ToolDefinition[] = [];
-	// Cache execute functions at construction time — avoids re-calling client.tools() per invocation.
 	const execMap = new Map<string, ExecuteFn>();
 
 	for (const mcpName of toolNames) {

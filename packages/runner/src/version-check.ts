@@ -1,13 +1,3 @@
-/**
- * Version check — compares the running version against the latest GitHub Release.
- *
- * Fires async on TUI start; never blocks startup. Respects:
- *   ALEF_SKIP_UPDATE_CHECK=1  — disable entirely
- *   ALEF_OFFLINE=1            — disable network calls
- *
- * Prior art: pi-mono checkForNewPiVersion() in interactive-mode.ts.
- */
-
 const REPO = "dpopsuev/alef";
 const API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const CHECK_TIMEOUT_MS = 5_000;
@@ -43,10 +33,6 @@ async function fetchLatestVersion(): Promise<string | null> {
 	}
 }
 
-/**
- * Check for a newer release and return a notice string if one exists.
- * Returns null when up-to-date, update checks are disabled, or the network call fails.
- */
 export async function checkForUpdate(): Promise<string | null> {
 	if (process.env.ALEF_SKIP_UPDATE_CHECK === "1") return null;
 	if (process.env.ALEF_OFFLINE === "1") return null;

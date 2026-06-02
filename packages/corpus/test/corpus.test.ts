@@ -112,6 +112,28 @@ describe("Agent — load()", () => {
 		expect(() => agent.load(makeNoopOrgan())).toThrow("disposed");
 	});
 
+	it("load() leaves agent uncorrupted when mount() throws", () => {
+		const agent = makeAgent();
+		const goodOrgan = makeNamedOrgan("good");
+		agent.load(goodOrgan);
+
+		const badOrgan: Organ = {
+			name: "bad",
+			tools: [],
+			subscriptions: { motor: [] as const, sense: [] as const },
+			mount: () => {
+				throw new Error("mount failed");
+			},
+		};
+		expect(() => agent.load(badOrgan)).toThrow("mount failed");
+
+		// Agent must not contain the failed organ — unload should not affect goodOrgan.
+		expect(agent.tools.map((t) => t.name)).not.toContain("bad");
+		// Subsequent unload of the good organ must not corrupt (would call wrong unmount if index is off).
+		agent.unload("good");
+		expect(agent.tools).toHaveLength(0);
+	});
+
 	it("calls organ.mount() exactly once per load()", () => {
 		const agent = makeAgent();
 		let mountCalls = 0;

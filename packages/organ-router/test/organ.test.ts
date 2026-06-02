@@ -7,23 +7,23 @@
  */
 
 import http from "node:http";
+import { NerveFixture } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { InProcessNerve } from "../../spine/src/buses.js";
 import { createRouterOrgan } from "../src/organ.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Mount a RouterOrgan on a fresh nerve. Returns { organ, nerve, unmount, baseUrl }. */
+/** Mount a RouterOrgan on a fresh NerveFixture. Returns { organ, fixture, unmount, baseUrl }. */
 async function setup(overrides: { port?: number; host?: string } = {}) {
 	const organ = createRouterOrgan({ port: 0, host: "127.0.0.1", ...overrides });
-	const nerve = new InProcessNerve();
-	const unmount = organ.mount(nerve.asNerve());
+	const fixture = new NerveFixture();
+	const unmount = fixture.mount(organ);
 	await organ.ready();
 	const addr = organ.address()!;
 	const baseUrl = `http://${addr.host}:${addr.port}`;
-	return { organ, nerve, unmount, baseUrl, addr };
+	return { organ, fixture, nerve: fixture.nerve, unmount, baseUrl, addr };
 }
 
 /** GET a URL and return { status, body }. */
@@ -393,14 +393,16 @@ describe("RouterOrgan — allowedEvents filter", () => {
 
 	it("passes events matching an exact allowed type", async () => {
 		const organ = createRouterOrgan({ port: 0, allowedEvents: ["dialog.message"] });
-		const nerve = new InProcessNerve();
-		const unmount = organ.mount(nerve.asNerve());
+		const fixture = new NerveFixture();
+		const unmount = fixture.mount(organ);
 		await organ.ready();
 		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "dialog.message", payload: { text: "hi" }, correlationId: "c-1" });
+			fixture.nerve
+				.asNerve()
+				.motor.publish({ type: "dialog.message", payload: { text: "hi" }, correlationId: "c-1" });
 			const events = await eventsPromise;
 			expect((events[0] as Record<string, unknown>).type).toBe("dialog.message");
 		} finally {
@@ -410,8 +412,8 @@ describe("RouterOrgan — allowedEvents filter", () => {
 
 	it("drops events not in the allowedEvents list", async () => {
 		const organ = createRouterOrgan({ port: 0, allowedEvents: ["dialog.message"] });
-		const nerve = new InProcessNerve();
-		const unmount = organ.mount(nerve.asNerve());
+		const fixture = new NerveFixture();
+		const unmount = fixture.mount(organ);
 		await organ.ready();
 		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
 		try {
@@ -434,8 +436,8 @@ describe("RouterOrgan — allowedEvents filter", () => {
 			});
 			await new Promise((r) => setTimeout(r, 30));
 			// Publish a blocked event then an allowed event.
-			nerve.asNerve().motor.publish({ type: "loop.detected", payload: {}, correlationId: "c-2" });
-			nerve.asNerve().motor.publish({ type: "dialog.message", payload: {}, correlationId: "c-3" });
+			fixture.nerve.asNerve().motor.publish({ type: "loop.detected", payload: {}, correlationId: "c-2" });
+			fixture.nerve.asNerve().motor.publish({ type: "dialog.message", payload: {}, correlationId: "c-3" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("loop.detected");
@@ -447,15 +449,15 @@ describe("RouterOrgan — allowedEvents filter", () => {
 
 	it("passes events matching a wildcard pattern (fs.*)", async () => {
 		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"] });
-		const nerve = new InProcessNerve();
-		const unmount = organ.mount(nerve.asNerve());
+		const fixture = new NerveFixture();
+		const unmount = fixture.mount(organ);
 		await organ.ready();
 		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 2);
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-1" });
-			nerve.asNerve().motor.publish({ type: "fs.write", payload: {}, correlationId: "c-2" });
+			fixture.nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-1" });
+			fixture.nerve.asNerve().motor.publish({ type: "fs.write", payload: {}, correlationId: "c-2" });
 			const events = await eventsPromise;
 			const types = events.map((e) => (e as Record<string, unknown>).type);
 			expect(types).toContain("fs.read");
@@ -467,8 +469,8 @@ describe("RouterOrgan — allowedEvents filter", () => {
 
 	it("drops events not matching wildcard (shell.exec blocked by fs.*)", async () => {
 		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"] });
-		const nerve = new InProcessNerve();
-		const unmount = organ.mount(nerve.asNerve());
+		const fixture = new NerveFixture();
+		const unmount = fixture.mount(organ);
 		await organ.ready();
 		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
 		try {
@@ -490,8 +492,8 @@ describe("RouterOrgan — allowedEvents filter", () => {
 					.on("error", reject);
 			});
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "shell.exec", payload: {}, correlationId: "c-1" });
-			nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-2" });
+			fixture.nerve.asNerve().motor.publish({ type: "shell.exec", payload: {}, correlationId: "c-1" });
+			fixture.nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-2" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("shell.exec");

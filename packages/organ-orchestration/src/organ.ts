@@ -101,6 +101,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 	const cwd = opts.cwd ?? process.cwd();
 	const readinessTimeoutMs = opts.readinessTimeoutMs ?? 30_000;
 	const children = new Map<string, ChildEntry>();
+	let childSeq = 0;
 
 	// -------------------------------------------------------------------------
 	// ask
@@ -223,7 +224,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			throw err;
 		}
 
-		const name = `child-${child.pid ?? Math.random().toString(36).slice(2)}`;
+		const name = `child-${++childSeq}`;
 		const entry: ChildEntry = {
 			name,
 			endpoint: ready.endpoint,

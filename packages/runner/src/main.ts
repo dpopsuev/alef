@@ -171,6 +171,30 @@ if (
 	process.exit(0);
 }
 
+if (args.pmSelfUpdate) {
+	const { execSync } = await import("node:child_process");
+	const npmCmd = process.env.npm_execpath ? `${process.execPath} "${process.env.npm_execpath}"` : "npm";
+	console.log("Upgrading alef to the latest version...");
+	try {
+		execSync(`${npmCmd} install -g alef-runner@latest`, { stdio: "inherit" });
+	} catch {
+		console.error("npm install -g alef-runner@latest failed.");
+		process.exit(1);
+	}
+	let globalBin: string;
+	try {
+		globalBin = `${execSync("npm prefix -g", { encoding: "utf-8" }).trim()}/bin/alef`;
+	} catch {
+		globalBin = "";
+	}
+	if (globalBin) {
+		console.log(`Upgrade complete. New binary: ${globalBin}`);
+	} else {
+		console.log("Upgrade complete. Restart alef to use the new version.");
+	}
+	process.exit(0);
+}
+
 // Handle debug subcommands before any session/agent setup.
 if (args.debugSubcmd) {
 	switch (args.debugSubcmd) {

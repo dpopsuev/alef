@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { Directives } from "../src/directives.js";
 import {
 	appendEnvironment,
 	BLOCK_FORMAT,
+	BLOCK_IDENTITY,
+	buildPrepareStep,
 	buildSystemPrompt,
 	createDefaultDirectives,
 	registerOrgans,
@@ -123,6 +126,110 @@ describe("BLOCK_GUIDELINES — investigation rules", () => {
 	it("built prompt contains anti-hallucination rule", () => {
 		const prompt = buildSystemPrompt({ tools: [] });
 		expect(prompt).toContain("Read files before describing them");
+	});
+});
+
+describe("buildPrepareStep — directives reach the LLM context", () => {
+	it("system message content equals directives.build()", async () => {
+		const d = new Directives();
+		d.register({ id: "rule", priority: 0, content: "No emojis ever.", enabled: true });
+		const prepareStep = buildPrepareStep(d, 100_000);
+		const messages = await prepareStep([{ role: "user", content: "Hello" }]);
+		expect(messages[0].role).toBe("system");
+		expect(messages[0].content).toBe(d.build(100_000));
+	});
+
+	it("system message contains registered directive text", async () => {
+		const d = new Directives();
+		d.register({ id: "identity", priority: 0, content: BLOCK_IDENTITY(), enabled: true });
+		const prepareStep = buildPrepareStep(d, 100_000);
+		const messages = await prepareStep([{ role: "user", content: "Hi" }]);
+		expect(String(messages[0].content)).toContain("You are Alef");
+	});
+
+	it("strips existing system messages from the input", async () => {
+		const d = new Directives();
+		d.register({ id: "x", priority: 0, content: "Fresh prompt", enabled: true });
+		const prepareStep = buildPrepareStep(d, 100_000);
+		const messages = await prepareStep([
+			{ role: "system", content: "Stale system message" },
+			{ role: "user", content: "Question" },
+		]);
+		expect(messages).toHaveLength(2);
+		expect(String(messages[0].content)).toBe("Fresh prompt");
+		expect(messages[1].role).toBe("user");
+	});
+
+	it("system message is always first regardless of input order", async () => {
+		const d = new Directives();
+		d.register({ id: "x", priority: 0, content: "System", enabled: true });
+		const prepareStep = buildPrepareStep(d, 100_000);
+		const messages = await prepareStep([
+			{ role: "user", content: "A" },
+			{ role: "assistant", content: "B" },
+		]);
+		expect(messages[0].role).toBe("system");
+	});
+
+	it("reflects live directive changes — rebuild on each call", async () => {
+		const d = new Directives();
+		d.register({ id: "x", priority: 0, content: "Version 1", enabled: true });
+		const prepareStep = buildPrepareStep(d, 100_000);
+
+		const first = await prepareStep([{ role: "user", content: "?" }]);
+		expect(String(first[0].content)).toContain("Version 1");
+
+		d.replace("x", "Version 2");
+		const second = await prepareStep([{ role: "user", content: "?" }]);
+		expect(String(second[0].content)).toContain("Version 2");
+	});
+
+	it("defaultDirectives includes BLOCK_FORMAT rules in the system message", async () => {
+		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
+		const prepareStep = buildPrepareStep(d, 100_000);
+		const messages = await prepareStep([{ role: "user", content: "Hello" }]);
+		const systemContent = String(messages[0].content);
+		expect(systemContent).toContain("No emojis");
+		expect(systemContent).toContain("No filler");
+		expect(systemContent).toContain("No preamble");
+	});
+
+	it("organ directive registered via registerOrgans reaches the system message", async () => {
+		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
+		const organ = {
+			name: "custom",
+			tools: [],
+			subscriptions: { motor: [], sense: [] },
+			directives: ["CUSTOM_DIRECTIVE_SENTINEL"],
+			mount: () => () => {},
+		};
+		registerOrgans(d, [organ]);
+		const prepareStep = buildPrepareStep(d, 100_000);
+		const messages = await prepareStep([{ role: "user", content: "Hi" }]);
+		expect(String(messages[0].content)).toContain("CUSTOM_DIRECTIVE_SENTINEL");
+	});
+
+	it("disabled directive does not reach the system message", async () => {
+		const d = new Directives();
+		d.register({ id: "hidden", priority: 0, content: "SECRET_RULE", enabled: false });
+		d.register({ id: "visible", priority: 1, content: "PUBLIC_RULE", enabled: true });
+		const prepareStep = buildPrepareStep(d, 100_000);
+		const messages = await prepareStep([{ role: "user", content: "?" }]);
+		const systemContent = String(messages[0].content);
+		expect(systemContent).toContain("PUBLIC_RULE");
+		expect(systemContent).not.toContain("SECRET_RULE");
+	});
+
+	it("budget trims lower-priority directives from the system message", async () => {
+		const d = new Directives();
+		d.register({ id: "keep", priority: 0, content: "KEEP_THIS", enabled: true });
+		d.register({ id: "drop", priority: 100, content: "DROP_THIS_LONG_CONTENT_THAT_EXCEEDS_BUDGET", enabled: true });
+		const budget = "KEEP_THIS".length + 5;
+		const prepareStep = buildPrepareStep(d, budget);
+		const messages = await prepareStep([{ role: "user", content: "?" }]);
+		const systemContent = String(messages[0].content);
+		expect(systemContent).toContain("KEEP_THIS");
+		expect(systemContent).not.toContain("DROP_THIS");
 	});
 });
 

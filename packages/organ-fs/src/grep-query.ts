@@ -3,7 +3,7 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import type { ToolResultCache, ToolResultCacheHit } from "./cache.js";
-import { type BaseToolDetails, type ToolQueryResponse, withCacheHit } from "./file-query-base.js";
+import { type BaseToolDetails, storeAndResolve, type ToolQueryResponse, withCacheHit } from "./file-query-base.js";
 import { resolveToCwd } from "./path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, GREP_MAX_LINE_LENGTH, truncateHead, truncateLine } from "./truncate.js";
 
@@ -134,11 +134,10 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 		filesWithMatches,
 		countOnly,
 	} = input;
+
+	signal?.throwIfAborted();
+
 	return new Promise((resolve, reject) => {
-		if (signal?.aborted) {
-			reject(new Error("Operation aborted"));
-			return;
-		}
 		let settled = false;
 		const settle = (fn: () => void) => {
 			if (!settled) {
@@ -146,6 +145,7 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 				fn();
 			}
 		};
+		signal?.addEventListener("abort", () => settle(() => reject(new Error("Operation aborted"))), { once: true });
 
 		void (async () => {
 			try {
@@ -181,19 +181,8 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 							countOnly,
 						})
 					: undefined;
-				const resolveWithOptionalCache = (response: GrepToolResponse): void => {
-					if (cache && cacheKey) {
-						const storable = structuredClone(response);
-						if (storable.details?.cache) {
-							delete storable.details.cache;
-							if (Object.keys(storable.details).length === 0) {
-								storable.details = undefined;
-							}
-						}
-						cache.set(cacheKey, storable);
-					}
-					settle(() => resolve(response));
-				};
+				const resolveWithOptionalCache = (response: GrepToolResponse): void =>
+					storeAndResolve(response, cache, cacheKey, (r) => settle(() => resolve(r)));
 				if (cache && cacheKey) {
 					const cachedResponse = withGrepCacheHit(cache.get(cacheKey));
 					if (cachedResponse) {

@@ -4,7 +4,13 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { debugLog } from "@dpopsuev/alef-spine";
 import type { ToolResultCache, ToolResultCacheHit } from "./cache.js";
-import { type BaseToolDetails, type ToolQueryResponse, toPosixPath, withCacheHit } from "./file-query-base.js";
+import {
+	type BaseToolDetails,
+	storeAndResolve,
+	type ToolQueryResponse,
+	toPosixPath,
+	withCacheHit,
+} from "./file-query-base.js";
 import { resolveToCwd } from "./path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, truncateHead } from "./truncate.js";
 
@@ -82,12 +88,9 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 	const signal = options.signal;
 	const resolveFdPath = options.resolveFdPath ?? (() => "fd");
 	const { pattern, path: searchDir, limit, type: entryType, extension, depth, hidden } = input;
-	return new Promise((resolve, reject) => {
-		if (signal?.aborted) {
-			reject(new Error("Operation aborted"));
-			return;
-		}
+	signal?.throwIfAborted();
 
+	return new Promise((resolve, reject) => {
 		let settled = false;
 		let stopChild: (() => void) | undefined;
 		const settle = (fn: () => void) => {
@@ -122,19 +125,8 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 						})
 					: undefined;
 
-				const resolveWithOptionalCache = (response: FindToolResponse): void => {
-					if (cache && cacheKey) {
-						const storable = structuredClone(response);
-						if (storable.details?.cache) {
-							delete storable.details.cache;
-							if (Object.keys(storable.details).length === 0) {
-								storable.details = undefined;
-							}
-						}
-						cache.set(cacheKey, storable);
-					}
-					settle(() => resolve(response));
-				};
+				const resolveWithOptionalCache = (response: FindToolResponse): void =>
+					storeAndResolve(response, cache, cacheKey, (r) => settle(() => resolve(r)));
 
 				if (cache && cacheKey) {
 					const cachedResponse = withFindCacheHit(cache.get(cacheKey));

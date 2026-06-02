@@ -9,6 +9,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 		private readonly organs: Organ[],
 		private readonly model: Model<Api>,
 		private readonly systemPrompt?: string,
+		private readonly onResponseChunk?: (chunk: string) => void,
 	) {}
 
 	async send(text: string, _sender?: string, timeoutMs = 60_000): Promise<string> {
@@ -26,6 +27,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 			timeoutMs,
 			getTools: () => agent.tools,
 			systemPrompt: this.systemPrompt,
+			onResponseChunk: this.onResponseChunk,
 		});
 
 		for (const organ of this.organs) agent.load(organ);

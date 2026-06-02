@@ -18,51 +18,32 @@
  * (fs, shell, web, enclosure, …) are variable.
  */
 
-import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
-import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
-import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
-import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import type { Message, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
-import {
-	Cerebrum,
-	createLlmPipeline,
-	type TokenUsage,
-	type ToolCallEnd,
-	type ToolCallStart,
-} from "@dpopsuev/alef-organ-llm";
-import { createNodeshOrgan } from "@dpopsuev/alef-organ-nodesh";
-import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
-import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
-import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-import { createWebOrgan } from "@dpopsuev/alef-organ-web";
-import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
+import { createLlmPipeline } from "@dpopsuev/alef-organ-llm";
 import { buildAgent, buildCheckpointCallback } from "./agent-kernel.js";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
-import { resolveApiKey } from "./auth.js";
+import { buildDelegation } from "./build-delegation.js";
+import { buildLlmOrgan, type ToolSlot } from "./build-llm-organ.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
 import type { DirectiveScroll } from "./directive-scroll.js";
-import { runInteractive } from "./interactive.js";
+import { loadCorpus } from "./load-corpus.js";
+import { loadSession } from "./load-session.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
-import { DEFAULT_COMPILED_DEFINITION, loadUserOrgansConfig, materializeBlueprint } from "./materializer.js";
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { createMemoryOrgan } from "./organ-memory.js";
-import { setupOTel, shutdownOTel } from "./otel.js";
-import { runPrintMode } from "./print-mode.js";
+import { setupOTel } from "./otel.js";
 import { createDefaultScroll, loadWorkspace, registerOrgans } from "./prompt.js";
-import { runPmCommand } from "./run-pm-command.js";
+import { runAgent } from "./run-agent.js";
+import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
 import { SessionGuard } from "./session-guard.js";
-import { pickSession } from "./session-picker.js";
-import { SessionStore } from "./session-store.js";
+import { setupSupervisorIpc } from "./setup-supervisor-ipc.js";
 import { makeSink } from "./sink.js";
-import { InProcessStrategy } from "./strategies/in-process.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
 import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
-import { runTuiMode } from "./tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -75,30 +56,7 @@ setupOTel();
 const args = parseArgs(process.argv.slice(2));
 
 await runPmCommand(args);
-
-if (args.pmSelfUpdate) {
-	const { execSync } = await import("node:child_process");
-	const npmCmd = process.env.npm_execpath ? `${process.execPath} "${process.env.npm_execpath}"` : "npm";
-	console.log("Upgrading alef to the latest version...");
-	try {
-		execSync(`${npmCmd} install -g alef-runner@latest`, { stdio: "inherit" });
-	} catch {
-		console.error("npm install -g alef-runner@latest failed.");
-		process.exit(1);
-	}
-	let globalBin: string;
-	try {
-		globalBin = `${execSync("npm prefix -g", { encoding: "utf-8" }).trim()}/bin/alef`;
-	} catch {
-		globalBin = "";
-	}
-	if (globalBin) {
-		console.log(`Upgrade complete. New binary: ${globalBin}`);
-	} else {
-		console.log("Upgrade complete. Restart alef to use the new version.");
-	}
-	process.exit(0);
-}
+await handleSelfUpdate(args);
 
 // Handle debug subcommands before any session/agent setup.
 if (args.debugSubcmd) {
@@ -135,105 +93,20 @@ if (!hasCredentials()) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-if (args.listSessions) {
-	const sessions = await SessionStore.list(args.cwd);
-	if (sessions.length === 0) {
-		console.log("No sessions for", args.cwd);
-	} else {
-		for (const s of sessions) {
-			console.log(`${s.id}  ${s.mtime.toISOString().replace("T", " ").slice(0, 16)}  ${s.path}`);
-		}
-	}
-	process.exit(0);
-}
-
-let session: SessionStore;
-
-if (args.resume) {
-	const resumeId = args.resume === "last" ? undefined : args.resume;
-	const store = resumeId ? await SessionStore.resume(args.cwd, resumeId) : await SessionStore.resumeLatest(args.cwd);
-	if (!store) {
-		console.error("No session to resume. Start a new session first.");
-		process.exit(1);
-	}
-	session = store;
-	const turnCount = (await session.turns()).length;
-	console.error(`[session] Resumed ${session.id} (${turnCount} turns)`);
-} else {
-	// In TUI mode with no explicit --resume, offer a session picker when sessions exist.
-	const existingSessions = willUseTui ? await SessionStore.list(args.cwd) : [];
-	const pickedId = existingSessions.length > 0 ? await pickSession(existingSessions) : undefined;
-	if (pickedId) {
-		session = await SessionStore.resume(args.cwd, pickedId);
-		const turnCount = (await session.turns()).length;
-		console.error(`[session] Resumed ${session.id} (${turnCount} turns)`);
-	} else {
-		session = await SessionStore.create(args.cwd);
-		console.error(`[session] ${session.id}`);
-	}
-}
+const session = await loadSession(args, willUseTui);
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-const blueprintPath = args.blueprint ?? findAgentDefinitionPath(args.cwd);
-
-let corpusOrgans = [];
-let blueprintModelId: string | undefined;
-let blueprintSurfaces: AgentDefinitionSurfaceInput[] = [];
-let blueprintUpgradePolicy: "rebuild_only" | "packages" | "self" = "rebuild_only";
-
-if (blueprintPath) {
-	let definition = loadAgentDefinition(blueprintPath);
-
-	// Profile overlay: load agent.<profile>.yaml from the same directory and
-	// deep-merge it over the base definition (overlay wins on conflicts).
-	if (args.profile) {
-		const { dirname: pathDirname, join: pathJoin } = await import("node:path");
-		const { existsSync: fsExistsSync } = await import("node:fs");
-		const baseDir = definition.baseDir ?? pathDirname(blueprintPath);
-		const overlayPath = pathJoin(baseDir, `agent.${args.profile}.yaml`);
-		if (fsExistsSync(overlayPath)) {
-			const overlay = loadAgentDefinition(overlayPath);
-			definition = mergeAgentDefinitions(definition, overlay);
-		} else {
-			console.error(`[alef] Profile overlay not found: ${overlayPath} (continuing without it)`);
-		}
-	}
-
-	const materialized = await materializeBlueprint(definition, {
-		cwd: args.cwd,
-		loggerFor: (name) => log.child({ organ: name }),
-		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
-	});
-	corpusOrgans = materialized.organs;
-	blueprintModelId = materialized.modelId;
-	blueprintSurfaces = definition.surfaces;
-	blueprintUpgradePolicy = definition.supervisor?.upgradePolicy ?? "rebuild_only";
-} else {
-	// No --blueprint: check ~/.config/alef/organs.yaml (user tier), then fall
-	// back to DEFAULT_COMPILED_DEFINITION (fs, shell, nodesh, web).
-	const userOrgans = loadUserOrgansConfig();
-	const definition = userOrgans ? { ...DEFAULT_COMPILED_DEFINITION, organs: userOrgans } : DEFAULT_COMPILED_DEFINITION;
-	if (userOrgans) log.info({ count: userOrgans.length }, "loaded user organs config");
-	const defaultMaterialized = await materializeBlueprint(definition, {
-		cwd: args.cwd,
-		loggerFor: (name) => log.child({ organ: name }),
-		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
-	});
-	corpusOrgans = defaultMaterialized.organs;
-}
+const { corpusOrgans, blueprintModelId, blueprintSurfaces, blueprintUpgradePolicy, blueprintPath } = await loadCorpus(
+	args,
+	cfg,
+	log,
+);
 
 const resolvedModelId = args.modelId ?? blueprintModelId ?? cfg.model;
-// Mutable ref — :model colon command updates this so the next send uses the new model.
 let currentModel = resolvedModelId ? buildModel(resolvedModelId) : (autoDetectModel() ?? buildModel(DEFAULT_MODEL));
-const model = currentModel; // alias for backward-compat with code below that uses `model`
-export function setCurrentModel(m: typeof currentModel): void {
-	currentModel = m;
-}
-export function getCurrentModel(): typeof currentModel {
-	return currentModel;
-}
+const model = currentModel;
 const resolvedModelDisplay =
 	model.name !== model.id ? `${model.provider}/${model.id} (${model.name})` : `${model.provider}/${model.id}`;
 
@@ -255,10 +128,7 @@ currentScrollInstance.register({
 	tags: ["organ", "dynamic"],
 });
 
-export let currentScroll: DirectiveScroll = currentScrollInstance;
-export function setCurrentScroll(s: DirectiveScroll): void {
-	currentScroll = s;
-}
+const currentScroll: DirectiveScroll = currentScrollInstance;
 
 function getDirectiveAdapter() {
 	return {
@@ -293,19 +163,12 @@ function getDirectiveAdapter() {
 
 const scrollBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
 
-// Default to "medium" when the model supports reasoning and no explicit level is set.
-// Default to "medium" when the model supports reasoning and no explicit level is set.
 // "medium" = adaptive: model decides when to think, skips for simple queries.
-// model.reasoning comes from models.generated.ts — the authoritative source.
-// Wrapped in an object so the closure mutation in setThinking is visible to biome.
+// Wrapped in an object so closure mutation in setThinking is visible to biome.
 const thinkingState = {
 	level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
 };
 
-let currentSession: typeof session | undefined = session;
-export function setCurrentSession(s: typeof session): void {
-	currentSession = s;
-}
 const prepareStep = (messages: Message[]) => {
 	const freshPrompt = currentScroll.build(scrollBudgetChars);
 	type Msg = { role: string; content: string };
@@ -314,7 +177,7 @@ const prepareStep = (messages: Message[]) => {
 		...((messages as Msg[]).filter((m) => m.role !== "system") as unknown as Message[]),
 	]);
 };
-const onCheckpoint = buildCheckpointCallback(() => currentSession);
+const onCheckpoint = buildCheckpointCallback(() => session);
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
 // Reasoner tracks cross-turn in-flight ops and injects pending-operations
@@ -322,61 +185,30 @@ const onCheckpoint = buildCheckpointCallback(() => currentSession);
 // AbortController for mid-turn cancellation (Ctrl+C while LLM is streaming).
 // tui-mode.ts replaces this per-turn via setLLMAbortController.
 let currentLLMController: AbortController | undefined;
-export function setLLMAbortController(ctrl: AbortController | undefined): void {
+function setLLMAbortController(ctrl: AbortController | undefined): void {
 	currentLLMController = ctrl;
 }
 
-// Mutable callback holder — runTuiMode fills .onToolStart/.onToolEnd
-// synchronously during setup, before the first user message arrives.
-const toolSlot = {
-	onToolStart: undefined as ((event: ToolCallStart) => void) | undefined,
-	onToolEnd: undefined as ((event: ToolCallEnd) => void) | undefined,
-	onTokenUsage: undefined as ((usage: TokenUsage) => void) | undefined,
-	receiveTextChunk: undefined as ((chunk: string) => void) | undefined,
-	receiveThinkingChunk: undefined as ((chunk: string) => void) | undefined,
+const toolSlot: ToolSlot = {
+	onToolStart: undefined,
+	onToolEnd: undefined,
+	onTokenUsage: undefined,
+	receiveTextChunk: undefined,
+	receiveThinkingChunk: undefined,
 };
 
-type SerializedStep =
-	| string
-	| { kind: "reply"; text: string }
-	| { kind: "toolCall"; call: { name: string; args: Record<string, unknown> }; reply: string }
-	| { kind: "toolCalls"; calls: Array<{ name: string; args: Record<string, unknown> }>; reply: string };
-
-function deserializeStep(s: SerializedStep): ReturnType<typeof step.reply> {
-	if (typeof s === "string") return step.reply(s);
-	if (s.kind === "reply") return step.reply(s.text);
-	if (s.kind === "toolCall") return step.toolCall(s.call.name, s.call.args, s.reply);
-	if (s.kind === "toolCalls") return step.toolCalls(s.calls, s.reply);
-	return step.reply(String(s));
-}
-
-const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
-const llmOrgan = scriptedRepliesEnv
-	? new ScriptedReasoner((JSON.parse(scriptedRepliesEnv) as SerializedStep[]).map(deserializeStep), {
-			onToolStart: (e) => toolSlot.onToolStart?.(e),
-			onToolEnd: (e) => toolSlot.onToolEnd?.(e),
-			onResponseChunk: (chunk) => toolSlot.receiveTextChunk?.(chunk),
-		})
-	: new Cerebrum({
-			model,
-			getModel: () => currentModel,
-			getApiKey: () => resolveApiKey(currentModel.provider),
-			getThinking: () => thinkingState.level,
-			maxRetries: cfg.llm?.maxRetries,
-			maxRetryDelayMs: cfg.llm?.maxRetryDelayMs,
-			timeoutMs: cfg.llm?.timeoutMs,
-			prepareStep,
-			onCheckpoint,
-			trackConcurrentOps: args.serve !== undefined,
-			getSignal: () => currentLLMController?.signal,
-			phaseTimeoutMs: 100,
-			getTools: () => toolShell.currentMetaTools(),
-			onToolStart: (event) => toolSlot.onToolStart?.(event),
-			onToolEnd: (event) => toolSlot.onToolEnd?.(event),
-			onTokenUsage: (usage) => toolSlot.onTokenUsage?.(usage),
-			onResponseChunk: (chunk) => toolSlot.receiveTextChunk?.(chunk),
-			onThinkingChunk: (chunk) => toolSlot.receiveThinkingChunk?.(chunk),
-		});
+const llmOrgan = buildLlmOrgan({
+	model,
+	cfg,
+	args,
+	toolSlot,
+	thinkingState,
+	prepareStep,
+	onCheckpoint,
+	getModel: () => currentModel,
+	getSignal: () => currentLLMController?.signal,
+	getTools: () => toolShell.currentMetaTools(),
+});
 
 // ToolShell — progressive disclosure, now always active (ALE-TSK-362 promoted).
 // All corpus organs must be in corpusOrgans before this so the snapshot is complete.
@@ -407,60 +239,14 @@ for (const organ of corpusOrgans) {
 agent.load(toolShell);
 
 const memoryOrgan = createMemoryOrgan({
-	sessionStore: () => currentSession,
+	sessionStore: () => session,
 	contextWindow: model.contextWindow,
 });
 agent.load(memoryOrgan);
 agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
 registerOrgans(currentScrollInstance, [toolShell, memoryOrgan]);
 
-// ── Delegation profiles ───────────────────────────────────────────────────
-// Build InProcessStrategy profiles and wire organ-delegate.
-// organ-delegate holds a mutable strategy registry; orchestration.spawn
-// registers RemoteProcessStrategy instances via onChildReady.
-const delegateOrgan = createDelegateOrgan({
-	strategies: {
-		explore: new InProcessStrategy(
-			[createFsOrgan({ cwd: args.cwd }), createWebOrgan()],
-			currentModel,
-			"You are a read-only exploration agent. Read files, search code, fetch URLs. Never write or execute.",
-		),
-		general: new InProcessStrategy(
-			[
-				createFsOrgan({ cwd: args.cwd }),
-				createShellOrgan({ cwd: args.cwd }),
-				createWebOrgan(),
-				createNodeshOrgan({ cwd: args.cwd }),
-			],
-			currentModel,
-		),
-	},
-	cwd: args.cwd,
-});
-
-// Wire orchestration.spawn to register child strategies in organ-delegate.
-const orchestrationOrgan = createOrchestrationOrgan({
-	cwd: args.cwd,
-	onChildReady: (name, strategy) => delegateOrgan.registerStrategy(name, strategy),
-});
-
-agent.load(delegateOrgan);
-agent.load(orchestrationOrgan);
-agent.load(createFactoryOrgan({ cwd: args.cwd }));
-
-if (args.serve !== undefined) {
-	const sseSurface = blueprintSurfaces.filter((s) => s.type === "sse");
-	const allowedEvents = sseSurface.flatMap((s) => s.events ?? []);
-	const router = createRouterOrgan({
-		port: args.serve,
-		allowedEvents,
-		onMessage: (text) => dialog.receive(text, "user"),
-	});
-	agent.load(router);
-	await router.ready();
-	const addr = router.address() ?? { host: "127.0.0.1", port: 0 };
-	console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
-}
+await buildDelegation(args, currentModel, agent, dialog, blueprintSurfaces);
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -497,121 +283,39 @@ loadTheme(
 	terminalPalette,
 );
 
-if (process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function") {
-	process.on("message", (msg: unknown) => {
-		const m = msg as { type?: string; envelope?: { updateId?: string } };
-		if (m.type === "handoff_prepare" && m.envelope?.updateId) {
-			// Acknowledge the handoff so the supervisor can finalize and promote.
-			process.send?.({ type: "handoff_ack", updateId: m.envelope.updateId });
-		}
-	});
+setupSupervisorIpc(blueprintUpgradePolicy);
 
-	// Blueprint supervisor policy — upgradePolicy from the blueprint controls
-	// which IPC scope is sent when the agent requests a rebuild.
-	// rebuild_only → scope 'rebuild'  (build + eval gate, no dep update)
-	// packages     → scope 'packages' (npm update + rebuild)
-	// self         → scope 'self'     (full stack: verify-and-reexec supervisor)
-	const ipcScope =
-		blueprintUpgradePolicy === "self" ? "self" : blueprintUpgradePolicy === "packages" ? "packages" : "rebuild";
-	console.error(`[alef] supervisor upgrade policy: ${blueprintUpgradePolicy} (scope=${ipcScope})`);
-
-	// Expose globally so organs/tools can trigger a supervisor-managed upgrade.
-	(globalThis as Record<string, unknown>).alefRequestRebuild = () => {
-		if (ipcScope === "rebuild") {
-			process.send?.({ type: "rebuild" });
-		} else {
-			process.send?.({ type: "update", scope: ipcScope, updateId: crypto.randomUUID() });
-		}
-	};
-}
-
-// SIGINT: Ctrl+C outside raw TUI mode (e.g. during boot or print mode).
-process.once("SIGINT", () => {
-	process.exit(0);
+await runAgent({
+	agent,
+	dialog,
+	args,
+	resolvedModelDisplay,
+	sessionId: session.id,
+	contextWindow: model.contextWindow,
+	getModel: () => currentModel.id,
+	setModel: (id: string) => {
+		currentModel = buildModel(id);
+		const supportsThinking = currentModel.reasoning && !currentModel.id.includes("haiku");
+		if (!supportsThinking) thinkingState.level = undefined;
+		else if (!thinkingState.level) thinkingState.level = "medium" as ThinkingLevel;
+	},
+	getThinking: () => thinkingState.level ?? "off",
+	setThinking: (level: string) => {
+		thinkingState.level = level === "off" ? undefined : (level as ThinkingLevel);
+	},
+	setLLMAbortController,
+	toolSlot,
+	reloadOrgan: async (_name, path) => {
+		const { loadOrganFromPath } = await import("./materializer.js");
+		const newOrgan = await loadOrganFromPath(path, {
+			cwd: args.cwd,
+			loggerFor: (n) => log.child({ organ: n }),
+		});
+		agent.reload(newOrgan);
+	},
+	getDirectiveAdapter,
+	sessionGuard,
 });
-
-// SIGTERM: finish current turn then exit cleanly.
-// eslint-disable-next-line @typescript-eslint/no-misused-promises -- Node.js process.once does not await the handler
-process.once("SIGTERM", async () => {
-	process.stderr.write("\n[signal] SIGTERM — shutting down cleanly\n");
-	try {
-		agent.dispose();
-		await shutdownOTel();
-	} finally {
-		process.exit(0);
-	}
-});
-
-const useTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
-
-try {
-	if (args.print) {
-		await runPrintMode(args.prompt, dialog, () => agent.dispose());
-	} else if (useTui) {
-		// Suppress stderr during TUI — stderr shares the PTY and corrupts the display.
-		// Node.js deprecation warnings, library noise, etc. are silently dropped.
-		// Callbacks are honoured to satisfy the Node.js stream contract.
-		const originalStderrWrite = process.stderr.write.bind(process.stderr);
-		process.stderr.write = (
-			_chunk: string | Uint8Array,
-			encOrCb?: BufferEncoding | ((err?: Error | null) => void),
-			cb?: (err?: Error | null) => void,
-		): boolean => {
-			const callback = typeof encOrCb === "function" ? encOrCb : cb;
-			callback?.();
-			return true;
-		};
-		try {
-			await runTuiMode(
-				dialog,
-				{
-					cwd: args.cwd,
-					modelId: resolvedModelDisplay,
-					sessionId: session.id,
-					contextWindow: model.contextWindow,
-					getModel: () => currentModel.id,
-					setModel: (id: string) => {
-						currentModel = buildModel(id);
-						const supportsThinking = currentModel.reasoning && !currentModel.id.includes("haiku");
-						if (!supportsThinking) thinkingState.level = undefined;
-						else if (!thinkingState.level) thinkingState.level = "medium" as ThinkingLevel;
-					},
-					getThinking: () => thinkingState.level ?? "off",
-					setThinking: (level: string) => {
-						thinkingState.level = level === "off" ? undefined : (level as ThinkingLevel);
-					},
-				},
-				() => agent.dispose(),
-				setLLMAbortController,
-				toolSlot,
-				async (_name, path) => {
-					const { loadOrganFromPath } = await import("./materializer.js");
-					const newOrgan = await loadOrganFromPath(path, {
-						cwd: args.cwd,
-						loggerFor: (n) => log.child({ organ: n }),
-					});
-					agent.reload(newOrgan);
-				},
-				getDirectiveAdapter,
-				sessionGuard,
-			);
-		} finally {
-			process.stderr.write = originalStderrWrite;
-		}
-	} else if (args.serve !== undefined && !process.stdin.isTTY) {
-		// --serve without a TTY: RouterOrgan is the sole interface.
-		// Block forever — the process stays alive until SIGTERM.
-		await new Promise<void>(() => {});
-	} else {
-		await runInteractive(dialog, { cwd: args.cwd, modelId: resolvedModelDisplay, sessionId: session.id }, () =>
-			agent.dispose(),
-		);
-	}
-} finally {
-	trace("shutdownOTel:start");
-	await Promise.race([shutdownOTel(), new Promise<void>((r) => setTimeout(r, 2000).unref())]);
-	trace("shutdownOTel:done");
-}
 
 trace("process.exit");
 process.exit(0);

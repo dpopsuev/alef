@@ -116,6 +116,8 @@ export interface Args {
 	pmExport: string | true | undefined;
 	/** alef import [path] — restore organs from alef-organs.lock */
 	pmImport: string | true | undefined;
+	/** alef update — self-update the alef binary */
+	pmSelfUpdate: boolean;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5@20250929";
@@ -194,6 +196,7 @@ export function parseArgs(argv: string[]): Args {
 		pmOrganNew: undefined,
 		pmExport: undefined,
 		pmImport: undefined,
+		pmSelfUpdate: false,
 	};
 
 	let i = 0;
@@ -399,6 +402,12 @@ export function parseArgs(argv: string[]): Args {
 			} else {
 				args.pmImport = true;
 			}
+			i++;
+			continue;
+		}
+
+		if (arg === "update") {
+			args.pmSelfUpdate = true;
 			i++;
 			continue;
 		}

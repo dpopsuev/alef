@@ -106,23 +106,62 @@ function getChangelogs() {
 		.filter((path) => existsSync(path));
 }
 
+function getGitLog(pkgDir, prevTag) {
+	try {
+		const range = prevTag ? `${prevTag}..HEAD` : "HEAD";
+		const log = execSync(`git log --oneline ${range} -- ${pkgDir}`, { encoding: "utf-8" }).trim();
+		return log ? log : null;
+	} catch {
+		return null;
+	}
+}
+
+function getPrevTag() {
+	try {
+		return execSync("git describe --tags --abbrev=0", { encoding: "utf-8" }).trim();
+	} catch {
+		return null;
+	}
+}
+
 function updateChangelogsForRelease(version) {
 	const date = new Date().toISOString().split("T")[0];
-	const changelogs = getChangelogs();
-	const heading = `## [${version}] - ${date}\n\n`;
+	const packagesDir = "packages";
+	const allPackages = readdirSync(packagesDir);
+	const prevTag = getPrevTag();
+	const heading = `## [${version}] - ${date}`;
 	const versionHeadingRe = /^## \[\d+\.\d+\.\d+\]/m;
 
-	for (const changelog of changelogs) {
-		const content = readFileSync(changelog, "utf-8");
-		const match = content.match(versionHeadingRe);
-		if (!match || match.index === undefined) {
-			console.log(`  Skipping ${changelog}: no ## [x.y.z] heading found`);
+	for (const pkg of allPackages) {
+		const changelogPath = join(packagesDir, pkg, "CHANGELOG.md");
+		const pkgDir = join(packagesDir, pkg);
+		const gitLog = getGitLog(pkgDir, prevTag);
+
+		if (!existsSync(changelogPath)) {
+			// Create a new CHANGELOG.md for packages that don't have one yet.
+			if (!gitLog) continue;
+			const content = `# Changelog\n\n${heading}\n\n${gitLog.split("\n").map((l) => `- ${l}`).join("\n")}\n`;
+			writeFileSync(changelogPath, content);
+			console.log(`  Created ${changelogPath} with [${version}] - ${date}`);
 			continue;
 		}
 
-		const updated = content.slice(0, match.index) + heading + content.slice(match.index);
-		writeFileSync(changelog, updated);
-		console.log(`  Prepended ${changelog} with [${version}] - ${date}`);
+		const content = readFileSync(changelogPath, "utf-8");
+		const match = content.match(versionHeadingRe);
+		const logSection = gitLog
+			? `\n\n${gitLog.split("\n").map((l) => `- ${l}`).join("\n")}`
+			: "\n\n- No notable changes";
+		const newEntry = `${heading}${logSection}\n\n`;
+
+		if (!match || match.index === undefined) {
+			// File exists but has no version heading — append after the title.
+			const updated = content + (content.endsWith("\n") ? "" : "\n") + newEntry;
+			writeFileSync(changelogPath, updated);
+		} else {
+			const updated = content.slice(0, match.index) + newEntry + content.slice(match.index);
+			writeFileSync(changelogPath, updated);
+		}
+		console.log(`  Updated ${changelogPath} with [${version}] - ${date}`);
 	}
 }
 

@@ -28,14 +28,13 @@ import { buildLlmOrgan, type ToolSlot } from "./build-llm-organ.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
-import type { DirectiveScroll } from "./directive-scroll.js";
 import { loadCorpus } from "./load-corpus.js";
 import { loadSession } from "./load-session.js";
 import { createLogger, createLoggerForTui } from "./logger.js";
 import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
 import { createMemoryOrgan } from "./organ-memory.js";
 import { setupOTel } from "./otel.js";
-import { createDefaultScroll, loadWorkspace, registerOrgans } from "./prompt.js";
+import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import { runAgent } from "./run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
 import { SessionGuard } from "./session-guard.js";
@@ -114,13 +113,13 @@ const resolvedModelDisplay =
 // ---------------------------------------------------------------------------
 
 // Build the live scroll — rebuilt each turn via prepareStep below.
-const currentScrollInstance = createDefaultScroll({
+const directives = createDefaultDirectives({
 	tools: corpusOrgans.flatMap((o) => o.tools),
 	cwd: args.cwd,
 });
-await loadWorkspace(currentScrollInstance, args.cwd);
-registerOrgans(currentScrollInstance, corpusOrgans);
-currentScrollInstance.register({
+await loadWorkspace(directives, args.cwd);
+registerOrgans(directives, corpusOrgans);
+directives.register({
 	id: "tool-shell.boot-catalog",
 	priority: 900,
 	content: buildBootCatalog(corpusOrgans.flatMap((o) => o.tools)),
@@ -128,12 +127,10 @@ currentScrollInstance.register({
 	tags: ["organ", "dynamic"],
 });
 
-const currentScroll: DirectiveScroll = currentScrollInstance;
-
 function getDirectiveAdapter() {
 	return {
 		list: () =>
-			currentScroll.list({ enabled: undefined }).map((b) => ({
+			directives.list({ enabled: undefined }).map((b) => ({
 				id: b.id,
 				priority: b.priority,
 				enabled: b.enabled,
@@ -141,27 +138,27 @@ function getDirectiveAdapter() {
 				contentPreview: (typeof b.content === "function" ? b.content() : b.content).slice(0, 80),
 			})),
 		enable: (id: string) => {
-			currentScroll.enable(id);
+			directives.enable(id);
 		},
 		disable: (id: string) => {
-			currentScroll.disable(id);
+			directives.disable(id);
 		},
 		toggle: (id: string) => {
-			currentScroll.toggle(id);
+			directives.toggle(id);
 		},
 		replace: (id: string, content: string) => {
-			currentScroll.replace(id, content);
+			directives.replace(id, content);
 		},
 		add: (id: string, priority: number, content: string, tags?: string[]) => {
-			currentScroll.register({ id, priority, content, enabled: true, tags });
+			directives.register({ id, priority, content, enabled: true, tags });
 		},
 		remove: (id: string) => {
-			currentScroll.unregister(id);
+			directives.unregister(id);
 		},
 	};
 }
 
-const scrollBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
+const directivesBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
 
 // "medium" = adaptive: model decides when to think, skips for simple queries.
 // Wrapped in an object so closure mutation in setThinking is visible to biome.
@@ -170,7 +167,7 @@ const thinkingState = {
 };
 
 const prepareStep = (messages: Message[]) => {
-	const freshPrompt = currentScroll.build(scrollBudgetChars);
+	const freshPrompt = directives.build(directivesBudgetChars);
 	type Msg = { role: string; content: string };
 	return Promise.resolve([
 		{ role: "system", content: freshPrompt } as unknown as Message,
@@ -244,7 +241,7 @@ const memoryOrgan = createMemoryOrgan({
 });
 agent.load(memoryOrgan);
 agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
-registerOrgans(currentScrollInstance, [toolShell, memoryOrgan]);
+registerOrgans(directives, [toolShell, memoryOrgan]);
 
 await buildDelegation(args, currentModel, agent, dialog, blueprintSurfaces);
 

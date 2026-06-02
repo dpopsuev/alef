@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { DirectiveScroll } from "./directive-scroll.js";
+import { Directives } from "./directives.js";
 
 // ---------------------------------------------------------------------------
 // Block content — each section is a named function returning a string.
@@ -67,7 +67,7 @@ export function buildEnvironmentBlock(cwd: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// DirectiveScroll factory — registers all built-in blocks.
+// Directives factory — registers all built-in blocks.
 // ---------------------------------------------------------------------------
 
 export interface CreateScrollOptions {
@@ -75,11 +75,11 @@ export interface CreateScrollOptions {
 	cwd: string;
 }
 
-export function createDefaultScroll(opts: CreateScrollOptions): DirectiveScroll {
+export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	const { tools, cwd } = opts;
-	const scroll = new DirectiveScroll();
+	const directives = new Directives();
 
-	scroll
+	directives
 		.register({ id: "identity", priority: 0, content: BLOCK_IDENTITY, enabled: true, tags: ["core"] })
 		.register({ id: "format", priority: 100, content: BLOCK_FORMAT, enabled: true, tags: ["core", "style"] })
 		.register({ id: "git", priority: 200, content: BLOCK_GIT, enabled: true, tags: ["core", "safety"] })
@@ -105,14 +105,14 @@ export function createDefaultScroll(opts: CreateScrollOptions): DirectiveScroll 
 			tags: ["core", "ephemeral"],
 		});
 
-	return scroll;
+	return directives;
 }
 
 // ---------------------------------------------------------------------------
 // Workspace + organ loading — replaces DirectiveContextAssembler.
 // ---------------------------------------------------------------------------
 
-export async function loadWorkspace(scroll: DirectiveScroll, cwd: string): Promise<void> {
+export async function loadWorkspace(directives: Directives, cwd: string): Promise<void> {
 	const dir = join(cwd, ".alef", "directives");
 	let entries: string[];
 	try {
@@ -124,7 +124,13 @@ export async function loadWorkspace(scroll: DirectiveScroll, cwd: string): Promi
 		try {
 			const content = (await readFile(join(dir, file), "utf-8")).trim();
 			if (content) {
-				scroll.register({ id: `workspace.${file}`, priority: 500, content, enabled: true, tags: ["workspace"] });
+				directives.register({
+					id: `workspace.${file}`,
+					priority: 500,
+					content,
+					enabled: true,
+					tags: ["workspace"],
+				});
 			}
 		} catch {
 			// skip unreadable files
@@ -132,12 +138,12 @@ export async function loadWorkspace(scroll: DirectiveScroll, cwd: string): Promi
 	}
 }
 
-export function registerOrgans(scroll: DirectiveScroll, organs: readonly Organ[]): void {
+export function registerOrgans(directives: Directives, organs: readonly Organ[]): void {
 	for (const organ of organs) {
 		if (!organ.directives?.length) continue;
 		const header = organ.description ? `### ${organ.name}: ${organ.description}` : `### ${organ.name}`;
 		const body = organ.directives.map((d) => d.trim()).join("\n\n");
-		scroll.register({
+		directives.register({
 			id: `organ.${organ.name}`,
 			priority: 600,
 			content: `${header}\n\n${body}`,
@@ -155,9 +161,9 @@ export interface BuildSystemPromptOptions {
 	tools: readonly ToolDefinition[];
 }
 
-/** @deprecated Use createDefaultScroll() instead. */
+/** @deprecated Use createDefaultDirectives() instead. */
 export function buildSystemPrompt(opts: BuildSystemPromptOptions = { tools: [] }): string {
-	return createDefaultScroll({ tools: opts.tools, cwd: process.cwd() }).build();
+	return createDefaultDirectives({ tools: opts.tools, cwd: process.cwd() }).build();
 }
 
 /** @deprecated Environment is now the 'environment' block at priority 1000. */

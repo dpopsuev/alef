@@ -3,7 +3,7 @@ import {
 	appendEnvironment,
 	BLOCK_FORMAT,
 	buildSystemPrompt,
-	createDefaultScroll,
+	createDefaultDirectives,
 	registerOrgans,
 } from "../src/prompt.js";
 
@@ -48,7 +48,7 @@ describe("buildSystemPrompt", () => {
 
 describe("registerOrgans", () => {
 	it("includes organ directives in the scroll output", () => {
-		const scroll = createDefaultScroll({ tools: FS_TOOLS, cwd: "/test" });
+		const scroll = createDefaultDirectives({ tools: FS_TOOLS, cwd: "/test" });
 		const organ = {
 			name: "fs",
 			tools: FS_TOOLS,
@@ -62,7 +62,7 @@ describe("registerOrgans", () => {
 	});
 
 	it("infrastructure organs passed to registerOrgans have their directives in the prompt", () => {
-		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
+		const scroll = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const infraOrgan = {
 			name: "tools",
 			tools: [] as never[],
@@ -108,7 +108,7 @@ describe("BLOCK_FORMAT — output discipline rules", () => {
 	});
 
 	it("format block appears before guidelines in built prompt", () => {
-		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
+		const scroll = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const prompt = scroll.build();
 		expect(prompt.indexOf("## Format")).toBeLessThan(prompt.indexOf("## Guidelines"));
 	});

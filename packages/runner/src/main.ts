@@ -38,7 +38,7 @@ import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import { createWebOrgan } from "@dpopsuev/alef-organ-web";
 import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
-import { AgentKernel } from "./agent-kernel.js";
+import { buildAgent, buildCheckpointCallback } from "./agent-kernel.js";
 import { DEFAULT_MODEL, parseArgs } from "./args.js";
 import { resolveApiKey } from "./auth.js";
 import { loadConfig } from "./config.js";
@@ -415,7 +415,7 @@ const prepareStep = (messages: Message[]) => {
 		...((messages as Msg[]).filter((m) => m.role !== "system") as unknown as Message[]),
 	]);
 };
-const onCheckpoint = AgentKernel.buildCheckpointCallback(() => currentSession);
+const onCheckpoint = buildCheckpointCallback(() => currentSession);
 
 // In concurrent (HTTP/SSE) mode multiple turns can run simultaneously.
 // Reasoner tracks cross-turn in-flight ops and injects pending-operations
@@ -491,7 +491,7 @@ const dialog = new DialogOrgan({
 });
 const sessionGuard = new SessionGuard(dialog, args.maxTurns);
 
-const { agent } = AgentKernel.create({
+const { agent } = buildAgent({
 	dialog,
 	llm: llmOrgan,
 	session,

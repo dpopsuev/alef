@@ -1,3 +1,4 @@
+export * from "./binding.js";
 export * from "./budget.js";
 export * from "./buses.js";
 export { debugLog } from "./debug.js";

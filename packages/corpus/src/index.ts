@@ -1,4 +1,5 @@
 import {
+	type Binding,
 	InProcessNerve,
 	type MotorEvent,
 	type Nerve,
@@ -12,6 +13,7 @@ import {
 	STANDARD_PORTS,
 	type ToolDefinition,
 	validatePorts,
+	withBindings,
 } from "@dpopsuev/alef-spine";
 import type { ZodTypeAny } from "zod";
 
@@ -108,6 +110,7 @@ export class Agent {
 	get organs(): readonly Organ[] {
 		return this._organs;
 	}
+	private readonly _bindings = new Map<string, Binding>();
 	private disposed = false;
 	/**
 	 * AbortController fired on dispose(). Pass signal to long-running organs
@@ -130,7 +133,9 @@ export class Agent {
 		this._organs.push(organ);
 		let unmount: () => void;
 		try {
-			unmount = organ.mount(withPayloadValidation(this.nerve.asNerve(), organ));
+			const boundNerve =
+				this._bindings.size > 0 ? withBindings(this._bindings, this.nerve.asNerve()) : this.nerve.asNerve();
+			unmount = organ.mount(withPayloadValidation(boundNerve, organ));
 		} catch (err) {
 			this._organs.pop();
 			throw err;
@@ -246,6 +251,19 @@ export class Agent {
 	reload(organ: Organ): this {
 		this.unload(organ.name);
 		return this.load(organ);
+	}
+
+	bind(binding: Binding): this {
+		this._bindings.set(binding.id, binding);
+		return this;
+	}
+
+	unbind(id: string): boolean {
+		return this._bindings.delete(id);
+	}
+
+	get bindings(): ReadonlyMap<string, Binding> {
+		return this._bindings;
 	}
 
 	dispose(): void {

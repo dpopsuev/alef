@@ -219,26 +219,57 @@ async function doRebuild(): Promise<void> {
 // Scoped update — runs before doRebuild() based on upgradePolicy scope
 // ---------------------------------------------------------------------------
 
+let updating = false;
+
 async function doUpdate(scope: string): Promise<void> {
-	const { upgrade, init } = await import("./alef-pm.js");
+	if (updating) {
+		process.stderr.write("[supervisor] update already in progress, ignoring duplicate request\n");
+		return;
+	}
+	updating = true;
 	try {
+		const { upgrade, init } = await import("./alef-pm.js");
 		if (scope === "packages") {
 			process.stderr.write("[supervisor] upgrading organs (scope=packages)\n");
 			init();
 			await upgrade();
 		} else if (scope === "self") {
 			process.stderr.write("[supervisor] self-upgrade (scope=self)\n");
-			// Install the latest alef-runner globally, then re-exec.
-			await exec(`${process.execPath} ${process.env.npm_execpath ?? "npm"} install -g alef-runner@latest`);
-			// Re-exec: replace this process image with the new binary.
-			const { execFileSync } = await import("node:child_process");
-			execFileSync(process.execPath, process.argv.slice(1), { stdio: "inherit" });
-			process.exit(0);
+			// Resolve the global npm prefix to find where the new binary will land.
+			const { execSync, execFileSync } = await import("node:child_process");
+			let globalBin: string;
+			try {
+				globalBin = execSync("npm prefix -g", { encoding: "utf-8" }).trim() + "/bin/alef";
+			} catch {
+				globalBin = "";
+			}
+			// npm_execpath is set by npm when running a lifecycle script; fall back to
+			// the bare 'npm' shell command (not node + npm_execpath) for direct invocations.
+			const npmCmd = process.env.npm_execpath ? `${process.execPath} "${process.env.npm_execpath}"` : "npm";
+			try {
+				await exec(`${npmCmd} install -g alef-runner@latest`);
+			} catch (err) {
+				process.stderr.write(
+					`[supervisor] npm install -g failed — staying on current version: ${err instanceof Error ? err.message : String(err)}\n`,
+				);
+				return;
+			}
+			// Re-exec the newly installed global binary, not the old supervisor script.
+			if (globalBin) {
+				process.stderr.write(`[supervisor] re-exec new binary at ${globalBin}\n`);
+				execFileSync(globalBin, process.argv.slice(2), { stdio: "inherit" });
+				process.exit(0);
+			} else {
+				process.stderr.write("[supervisor] could not resolve global bin path — restart manually\n");
+				return;
+			}
 		}
 	} catch (err) {
 		process.stderr.write(
 			`[supervisor] update (scope=${scope}) failed: ${err instanceof Error ? err.message : String(err)}\n`,
 		);
+	} finally {
+		updating = false;
 	}
 	await doRebuild();
 }

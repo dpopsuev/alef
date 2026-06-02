@@ -21,9 +21,30 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { payloadToText, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 import { DIALOG_MESSAGE } from "@dpopsuev/alef-spine";
+
+export interface ToolCallStart {
+	callId: string;
+	name: string;
+	args: Record<string, unknown>;
+}
+export interface ToolCallEnd {
+	callId: string;
+	elapsedMs: number;
+	ok: boolean;
+	result?: string;
+	display?: string;
+	displayKind?: string;
+}
+
+function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
+	if (isError) return errorMessage ?? JSON.stringify(payload);
+	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;
+	if (typeof llm.content === "string") return llm.content;
+	if (typeof llm.text === "string") return llm.text;
+	return JSON.stringify(llm);
+}
 
 function extractDisplay(payload: Record<string, unknown>): { text: string; mimeType?: string } | undefined {
 	const d = payload._display;

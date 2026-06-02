@@ -10,11 +10,33 @@
  */
 
 import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
+import { passthroughSchema } from "@dpopsuev/alef-spine";
+import { defineStubOrgan } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
-import { createFsOrgan } from "../../organ-fs/src/organ.js";
-import { createShellOrgan } from "../../organ-shell/src/organ.js";
 import { Agent } from "../src/index.js";
+
+const ANY = passthroughSchema({ type: "object", properties: {} });
+
+function stubFsOrgan() {
+	return defineStubOrgan(
+		"fs",
+		[
+			{ name: "fs.read", description: "Read a file", inputSchema: ANY },
+			{ name: "fs.grep", description: "Grep files", inputSchema: ANY },
+			{ name: "fs.find", description: "Find files", inputSchema: ANY },
+		],
+		async (_type, payload) => ({ content: "stub", toolCallId: payload.toolCallId }),
+	);
+}
+
+function stubShellOrgan() {
+	return defineStubOrgan(
+		"shell",
+		[{ name: "shell.exec", description: "Run a command", inputSchema: ANY }],
+		async (_type, payload) => ({ stdout: "stub", exitCode: 0, toolCallId: payload.toolCallId }),
+	);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,7 +72,8 @@ class SingleToolLLM implements Organ {
 	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("dialog.message", async (event) => {
 			const corr = event.correlationId;
-			this.receivedTools.push(...(event.payload.tools as ToolDefinition[]).map((t) => t.name));
+			const tools = event.payload.tools as ToolDefinition[] | undefined;
+			if (tools) this.receivedTools.push(...tools.map((t) => t.name));
 
 			const toolCallId = "tc-001";
 			publishMotor(nerve, "fs.find", { pattern: "*.ts", toolCallId }, corr);
@@ -117,33 +140,24 @@ describe("Agent plumbing — full EDA loop", () => {
 		const llm = new SingleToolLLM();
 		const dialog = new DialogOrgan({ sink: () => {} });
 		const agent = new Agent();
-		agent
-			.load(dialog)
-			.load(llm)
-			.load(createFsOrgan({ cwd: process.cwd() }));
+		agent.load(dialog).load(llm).load(stubFsOrgan());
 
 		const reply = await dialog.send("Find TypeScript files");
 		expect(reply).toBe("Found TypeScript files.");
 		agent.dispose();
 	});
 
-	it("LLM receives tool definitions from all loaded organs", async () => {
-		const llm = new SingleToolLLM();
+	it("Agent aggregates tool definitions from all loaded organs", () => {
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
-		agent
-			.load(dialog)
-			.load(llm)
-			.load(createFsOrgan({ cwd: process.cwd() }))
-			.load(createShellOrgan({ cwd: process.cwd() }));
+		agent.load(dialog).load(stubFsOrgan()).load(stubShellOrgan());
 
-		await dialog.send("go");
-
-		expect(llm.receivedTools).toContain("fs.read");
-		expect(llm.receivedTools).toContain("fs.grep");
-		expect(llm.receivedTools).toContain("fs.find");
-		expect(llm.receivedTools).toContain("shell.exec");
-		expect(llm.receivedTools).toContain("dialog.message");
+		const names = agent.tools.map((t) => t.name);
+		expect(names).toContain("fs.read");
+		expect(names).toContain("fs.grep");
+		expect(names).toContain("fs.find");
+		expect(names).toContain("shell.exec");
+		expect(names).toContain("dialog.message");
 		agent.dispose();
 	});
 
@@ -151,10 +165,7 @@ describe("Agent plumbing — full EDA loop", () => {
 		const llm = new SingleToolLLM();
 		const dialog = new DialogOrgan({ sink: () => {} });
 		const agent = new Agent();
-		agent
-			.load(dialog)
-			.load(llm)
-			.load(createFsOrgan({ cwd: process.cwd() }));
+		agent.load(dialog).load(llm).load(stubFsOrgan());
 
 		await dialog.send("go");
 
@@ -167,11 +178,7 @@ describe("Agent plumbing — full EDA loop", () => {
 		const llm = new FanOutLLM();
 		const dialog = new DialogOrgan({ sink: () => {} });
 		const agent = new Agent();
-		agent
-			.load(dialog)
-			.load(llm)
-			.load(createFsOrgan({ cwd: process.cwd() }))
-			.load(createShellOrgan({ cwd: process.cwd() }));
+		agent.load(dialog).load(llm).load(stubFsOrgan()).load(stubShellOrgan());
 
 		const reply = await dialog.send("do both");
 

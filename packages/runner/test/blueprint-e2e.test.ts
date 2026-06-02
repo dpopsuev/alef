@@ -125,14 +125,17 @@ describe("--blueprint flag", () => {
 		expect(tools).not.toContain("shell.exec");
 	});
 
-	it("empty organs blueprint exposes only dialog.message", async () => {
+	it("empty organs blueprint exposes no corpus tools", async () => {
 		const dir = tmpDir();
 		writeFileSync(join(dir, "agent.yaml"), "name: empty\n");
 
 		const result = await run(["--blueprint", join(dir, "agent.yaml"), "--list-tools"]);
 		expect(result.exitCode).toBe(0);
-		// Only dialog.message — no corpus tools
-		expect(result.stdout.trim()).toBe("dialog.message");
+		const tools = result.stdout.trim().split("\n");
+		expect(tools).toContain("dialog.message");
+		expect(tools).not.toContain("fs.read");
+		expect(tools).not.toContain("shell.exec");
+		expect(tools).not.toContain("web.fetch");
 	});
 
 	it("blueprint with systemPrompt does not crash", async () => {

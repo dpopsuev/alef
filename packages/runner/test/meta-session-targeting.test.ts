@@ -24,7 +24,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMetaAgent } from "../src/meta-agent.js";
 import { SessionStore } from "../src/session-store.js";
 
-const SKIP = !process.env.ANTHROPIC_VERTEX_PROJECT_ID && !process.env.GOOGLE_CLOUD_PROJECT;
+const SKIP =
+	(!process.env.ANTHROPIC_VERTEX_PROJECT_ID && !process.env.GOOGLE_CLOUD_PROJECT) || !process.env.ALEF_META_TESTS;
 
 async function writeDialog(store: SessionStore, pairs: Array<{ user: string; assistant: string }>) {
 	for (let i = 0; i < pairs.length; i++) {

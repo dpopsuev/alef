@@ -566,6 +566,23 @@ if (args.serve !== undefined) {
 // ---------------------------------------------------------------------------
 
 agent.validate();
+
+if (args.listTools) {
+	for (const tool of agent.tools) {
+		console.log(tool.name);
+	}
+	process.exit(0);
+}
+
+if (args.listOrgans) {
+	for (const organ of agent.organs) {
+		const labels = organ.labels?.length ? ` [${organ.labels.join(", ")}]` : "";
+		const desc = organ.description ? ` — ${organ.description}` : "";
+		console.log(`${organ.name}${labels}${desc}`);
+	}
+	process.exit(0);
+}
+
 await agent.ready();
 const opacity = cfg.theme?.background_opacity ?? readAlacrittyOpacity();
 const [isDark, terminalPalette] = await Promise.all([
@@ -624,22 +641,6 @@ process.once("SIGTERM", async () => {
 		process.exit(0);
 	}
 });
-
-if (args.listTools) {
-	for (const tool of agent.tools) {
-		console.log(tool.name);
-	}
-	process.exit(0);
-}
-
-if (args.listOrgans) {
-	for (const organ of agent.organs) {
-		const labels = organ.labels?.length ? ` [${organ.labels.join(", ")}]` : "";
-		const desc = organ.description ? ` — ${organ.description}` : "";
-		console.log(`${organ.name}${labels}${desc}`);
-	}
-	process.exit(0);
-}
 
 const useTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
 

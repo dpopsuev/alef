@@ -89,9 +89,12 @@ function bumpOrSetVersion(target) {
 	}
 
 	console.log(`Setting explicit version (${target})...`);
-	run(
-		`npm version ${target} -ws --no-git-tag-version && node scripts/sync-versions.js && npx shx rm -rf node_modules packages/*/node_modules package-lock.json && npm install`,
-	);
+	// Bump versions and rewrite cross-package refs, then update the lockfile
+	// without wiping node_modules. --package-lock-only regenerates package-lock.json
+	// deterministically from the current dependency graph without floating transitive
+	// deps to their latest — keeps pre-bump and post-bump builds reproducible-equivalent.
+	run(`npm version ${target} -ws --no-git-tag-version && node scripts/sync-versions.js`);
+	run("npm install --package-lock-only");
 	return getVersion();
 }
 

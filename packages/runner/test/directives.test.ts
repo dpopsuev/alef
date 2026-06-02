@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { assembleSystemPrompt, DirectiveContextAssembler } from "../src/directives.js";
-import { createDefaultScroll, registerOrgans } from "../src/prompt.js";
+import { Directives } from "../src/directives.js";
+import { createDefaultDirectives, loadWorkspace, registerOrgans } from "../src/prompt.js";
 import { createToolShellOrgan } from "../src/tool-shell.js";
 
 const tempDirs: string[] = [];
@@ -17,87 +17,109 @@ afterEach(() => {
 	for (const d of tempDirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-const BASE = "You are a coding assistant.";
-
 // ---------------------------------------------------------------------------
-// register + build
+// Directives — register, enable, disable, build
 // ---------------------------------------------------------------------------
 
-describe("DirectiveContextAssembler.register + build", () => {
-	it("returns base prompt when no directives", () => {
-		const asm = new DirectiveContextAssembler(BASE);
-		expect(asm.build()).toBe(BASE);
+describe("Directives.register + build", () => {
+	it("returns empty string when no blocks", () => {
+		const d = new Directives();
+		expect(d.build()).toBe("");
 	});
 
-	it("appends directive content after base", () => {
-		const asm = new DirectiveContextAssembler(BASE);
-		asm.register({ id: "d1", layer: "organ", content: "Always read before editing.", weight: 80 });
-		const out = asm.build();
-		expect(out).toContain(BASE);
-		expect(out).toContain("Always read before editing.");
-		expect(out).toContain("## Project & Organ Directives");
+	it("joins enabled blocks with double newline", () => {
+		const d = new Directives();
+		d.register({ id: "a", priority: 0, content: "Block A", enabled: true });
+		d.register({ id: "b", priority: 1, content: "Block B", enabled: true });
+		expect(d.build()).toBe("Block A\n\nBlock B");
 	});
 
-	it("deduplicates by id", () => {
-		const asm = new DirectiveContextAssembler(BASE);
-		asm.register({ id: "d1", layer: "organ", content: "First", weight: 80 });
-		asm.register({ id: "d1", layer: "organ", content: "Duplicate", weight: 80 });
-		const out = asm.build();
-		expect(out).toContain("First");
-		expect(out).not.toContain("Duplicate");
+	it("omits disabled blocks", () => {
+		const d = new Directives();
+		d.register({ id: "a", priority: 0, content: "Visible", enabled: true });
+		d.register({ id: "b", priority: 1, content: "Hidden", enabled: false });
+		expect(d.build()).toContain("Visible");
+		expect(d.build()).not.toContain("Hidden");
 	});
 
-	it("higher-weight directive appears before lower-weight", () => {
-		const asm = new DirectiveContextAssembler(BASE);
-		asm.register({ id: "low", layer: "organ", content: "Low priority guidance.", weight: 60 });
-		asm.register({ id: "high", layer: "workspace", content: "High priority rule.", weight: 100 });
-		const out = asm.build();
-		expect(out.indexOf("High priority rule.")).toBeLessThan(out.indexOf("Low priority guidance."));
+	it("orders blocks by priority ascending", () => {
+		const d = new Directives();
+		d.register({ id: "hi", priority: 100, content: "Late", enabled: true });
+		d.register({ id: "lo", priority: 0, content: "Early", enabled: true });
+		const out = d.build();
+		expect(out.indexOf("Early")).toBeLessThan(out.indexOf("Late"));
 	});
 
-	it("respects budgetChars — drops lowest-weight directives first", () => {
-		const asm = new DirectiveContextAssembler(BASE);
-		asm.register({ id: "keep", layer: "workspace", content: "Keep this.", weight: 100 });
-		asm.register({
-			id: "drop",
-			layer: "global",
-			content: "Drop this long directive text that fills budget.",
-			weight: 60,
-		});
-		// Budget: just enough for "Keep this." but not both
-		const budget = "Keep this.".length + 10;
-		const out = asm.build(budget);
-		expect(out).toContain("Keep this.");
-		expect(out).not.toContain("Drop this long");
+	it("deduplicates by id — last registration wins", () => {
+		const d = new Directives();
+		d.register({ id: "x", priority: 0, content: "First", enabled: true });
+		d.register({ id: "x", priority: 0, content: "Second", enabled: true });
+		expect(d.build()).toContain("Second");
+		expect(d.build()).not.toContain("First");
+	});
+
+	it("resolves function content at build time", () => {
+		let value = "initial";
+		const d = new Directives();
+		d.register({ id: "dynamic", priority: 0, content: () => value, enabled: true });
+		expect(d.build()).toBe("initial");
+		value = "updated";
+		expect(d.build()).toBe("updated");
+	});
+
+	it("respects budgetChars — drops lower-priority blocks first", () => {
+		const d = new Directives();
+		d.register({ id: "keep", priority: 0, content: "Keep.", enabled: true });
+		d.register({ id: "drop", priority: 100, content: "Drop this long block.", enabled: true });
+		const budget = "Keep.".length + 5;
+		const out = d.build(budget);
+		expect(out).toContain("Keep.");
+		expect(out).not.toContain("Drop");
 	});
 });
 
-// ---------------------------------------------------------------------------
-// registerOrgans
-// ---------------------------------------------------------------------------
-
-describe("DirectiveContextAssembler.registerOrgans", () => {
-	it("collects string directives from organs", () => {
-		const fakeOrgan = {
-			name: "fs",
-			tools: [],
-			subscriptions: { motor: [], sense: [] },
-			directives: ["Always read before editing.", "Use fs.edit not fs.write for changes."],
-			mount: () => () => {},
-		};
-
-		const asm = new DirectiveContextAssembler(BASE);
-		asm.registerOrgans([fakeOrgan]);
-		const out = asm.build();
-		expect(out).toContain("Always read before editing.");
-		expect(out).toContain("Use fs.edit not fs.write");
+describe("Directives.enable / disable / toggle", () => {
+	it("enable makes a disabled block visible", () => {
+		const d = new Directives();
+		d.register({ id: "x", priority: 0, content: "Content", enabled: false });
+		d.enable("x");
+		expect(d.build()).toContain("Content");
 	});
 
-	it("skips organs with no directives", () => {
-		const silent = { name: "shell", tools: [], subscriptions: { motor: [], sense: [] }, mount: () => () => {} };
-		const asm = new DirectiveContextAssembler(BASE);
-		asm.registerOrgans([silent]);
-		expect(asm.build()).toBe(BASE);
+	it("disable hides an enabled block", () => {
+		const d = new Directives();
+		d.register({ id: "x", priority: 0, content: "Content", enabled: true });
+		d.disable("x");
+		expect(d.build()).not.toContain("Content");
+	});
+
+	it("toggle flips enabled state", () => {
+		const d = new Directives();
+		d.register({ id: "x", priority: 0, content: "Content", enabled: true });
+		d.toggle("x");
+		expect(d.build()).not.toContain("Content");
+		d.toggle("x");
+		expect(d.build()).toContain("Content");
+	});
+});
+
+describe("Directives.clone / merge / subset / without", () => {
+	it("clone produces an independent copy", () => {
+		const d = new Directives();
+		d.register({ id: "a", priority: 0, content: "Original", enabled: true });
+		const clone = d.clone();
+		clone.register({ id: "a", priority: 0, content: "Mutated", enabled: true });
+		expect(d.build()).toContain("Original");
+		expect(clone.build()).toContain("Mutated");
+	});
+
+	it("without returns a copy excluding named ids", () => {
+		const d = new Directives();
+		d.register({ id: "keep", priority: 0, content: "Keep", enabled: true });
+		d.register({ id: "drop", priority: 1, content: "Drop", enabled: true });
+		const trimmed = d.without("drop");
+		expect(trimmed.build()).toContain("Keep");
+		expect(trimmed.build()).not.toContain("Drop");
 	});
 });
 
@@ -105,43 +127,15 @@ describe("DirectiveContextAssembler.registerOrgans", () => {
 // loadWorkspace
 // ---------------------------------------------------------------------------
 
-describe("DirectiveContextAssembler.loadWorkspace", () => {
-	it("loads .alef/directives/*.md files", async () => {
+describe("loadWorkspace", () => {
+	it("loads .alef/directives/*.md files into the Directives", async () => {
 		const cwd = tmpCwd();
 		mkdirSync(join(cwd, ".alef", "directives"), { recursive: true });
-		writeFileSync(join(cwd, ".alef", "directives", "coding.md"), "# Rules\nAlways write tests.");
+		writeFileSync(join(cwd, ".alef", "directives", "rules.md"), "Always write tests.");
 
-		const asm = new DirectiveContextAssembler(BASE);
-		await asm.loadWorkspace(cwd);
-		const out = asm.build();
-		expect(out).toContain("Always write tests.");
-	});
-
-	it("workspace directives appear before organ directives", async () => {
-		const cwd = tmpCwd();
-		mkdirSync(join(cwd, ".alef", "directives"), { recursive: true });
-		writeFileSync(join(cwd, ".alef", "directives", "rules.md"), "Workspace rule.");
-
-		const organ = {
-			name: "fs",
-			tools: [],
-			subscriptions: { motor: [], sense: [] },
-			directives: ["Organ guidance."],
-			mount: () => () => {},
-		};
-
-		const asm = new DirectiveContextAssembler(BASE);
-		await asm.loadWorkspace(cwd);
-		asm.registerOrgans([organ]);
-		const out = asm.build();
-		expect(out.indexOf("Workspace rule.")).toBeLessThan(out.indexOf("Organ guidance."));
-	});
-
-	it("silently skips missing .alef/directives directory", async () => {
-		const cwd = tmpCwd();
-		const asm = new DirectiveContextAssembler(BASE);
-		await expect(asm.loadWorkspace(cwd)).resolves.not.toThrow();
-		expect(asm.build()).toBe(BASE);
+		const d = createDefaultDirectives({ tools: [], cwd });
+		await loadWorkspace(d, cwd);
+		expect(d.build()).toContain("Always write tests.");
 	});
 
 	it("only loads .md files, ignores others", async () => {
@@ -150,46 +144,57 @@ describe("DirectiveContextAssembler.loadWorkspace", () => {
 		writeFileSync(join(cwd, ".alef", "directives", "rules.md"), "Valid rule.");
 		writeFileSync(join(cwd, ".alef", "directives", "ignore.txt"), "Not a directive.");
 
-		const asm = new DirectiveContextAssembler(BASE);
-		await asm.loadWorkspace(cwd);
-		const out = asm.build();
-		expect(out).toContain("Valid rule.");
-		expect(out).not.toContain("Not a directive.");
+		const d = createDefaultDirectives({ tools: [], cwd });
+		await loadWorkspace(d, cwd);
+		expect(d.build()).toContain("Valid rule.");
+		expect(d.build()).not.toContain("Not a directive.");
+	});
+
+	it("silently skips missing .alef/directives directory", async () => {
+		const cwd = tmpCwd();
+		const d = createDefaultDirectives({ tools: [], cwd });
+		await expect(loadWorkspace(d, cwd)).resolves.not.toThrow();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// assembleSystemPrompt (backward-compat)
+// registerOrgans
 // ---------------------------------------------------------------------------
 
-describe("registerOrgans — infrastructure organ directives reach the scroll", () => {
-	it("ToolShell directive appears in scroll when registerOrgans includes it", () => {
+describe("registerOrgans", () => {
+	it("ToolShell directive reaches the built prompt", () => {
 		const toolShell = createToolShellOrgan({ tools: [] });
-		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
-		registerOrgans(scroll, [toolShell]);
-		const prompt = scroll.build();
-		expect(prompt).toContain("tools.describe");
+		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
+		registerOrgans(d, [toolShell]);
+		expect(d.build()).toContain("tools.describe");
 	});
 
-	it("ToolShell directive is absent when registerOrgans excludes it — documents the pre-fix gap", () => {
-		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
-		registerOrgans(scroll, []); // corpusOrgans only, toolShell excluded
-		const prompt = scroll.build();
-		expect(prompt).not.toContain("tools.describe");
+	it("ToolShell extended directive is absent when registerOrgans excludes it", () => {
+		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
+		registerOrgans(d, []);
+		// BLOCK_GUIDELINES contains a brief tools.describe mention; ToolShell adds the
+		// full progressive-disclosure directive. Assert the ToolShell-specific phrase.
+		expect(d.build()).not.toContain("Call tools.describe first");
 	});
-});
 
-describe("assembleSystemPrompt (backward-compat)", () => {
-	it("still works for simple cases", () => {
+	it("collects string directives from organs", () => {
 		const organ = {
 			name: "fs",
 			tools: [],
 			subscriptions: { motor: [], sense: [] },
-			directives: ["Read before editing."],
+			directives: ["Always read before editing."],
 			mount: () => () => {},
 		};
-		const out = assembleSystemPrompt(BASE, [organ]);
-		expect(out).toContain(BASE);
-		expect(out).toContain("Read before editing.");
+		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
+		registerOrgans(d, [organ]);
+		expect(d.build()).toContain("Always read before editing.");
+	});
+
+	it("skips organs with no directives", () => {
+		const silent = { name: "shell", tools: [], subscriptions: { motor: [], sense: [] }, mount: () => () => {} };
+		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
+		const before = d.build();
+		registerOrgans(d, [silent]);
+		expect(d.build()).toBe(before);
 	});
 });

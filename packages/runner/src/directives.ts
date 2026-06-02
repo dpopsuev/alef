@@ -1,191 +1,215 @@
-/**
- * DirectiveContextAssembler — weighted, budget-aware system prompt assembly.
- *
- * Two-level ACI (Anthropic Appendix 2):
- *   Level 1: ToolDefinition.description — brief one-liner per tool (in tool list)
- *   Level 2: Organ.directives — full usage guidance in the system prompt
- *
- * Directive layers (priority order, highest weight included first):
- *   workspace  (100) — .alef/directives/*.md — operator rules for this repo
- *   organ       (80) — declared by each organ alongside its tools
- *   global      (60) — hardcoded baseline (ACI coding standards)
- *
- * Budget: estimated chars (* 4 ≈ tokens). When budget is exceeded, lowest-weight
- * directives are dropped. Recent additions (higher weight) always survive.
- *
- * Usage:
- *   const asm = new DirectiveContextAssembler(basePrompt)
- *   await asm.loadWorkspace(cwd)
- *   asm.registerOrgans(agent.organs)
- *   const systemPrompt = asm.build(200_000)
- */
-
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
-import type { Organ } from "@dpopsuev/alef-spine";
-
-// ---------------------------------------------------------------------------
-// Directive type
-// ---------------------------------------------------------------------------
-
 export interface Directive {
-	/** Unique identifier — used for deduplication. */
 	id: string;
-	/** Layer determines default weight and precedence. */
-	layer: "global" | "workspace" | "organ";
-	/** Guidance content — markdown or prose. */
-	content: string;
-	/**
-	 * Priority within the assembled prompt. Higher = included first.
-	 * Default per layer: workspace=100, organ=80, global=60.
-	 */
-	weight: number;
+	priority: number;
+	content: string | (() => string);
+	enabled: boolean;
+	tags?: string[];
+	maxChars?: number;
+	meta?: Record<string, unknown>;
 }
 
-const DEFAULT_WEIGHTS: Record<Directive["layer"], number> = {
-	workspace: 100,
-	organ: 80,
-	global: 60,
+export interface ResolvedDirective extends Omit<Directive, "content"> {
+	content: string;
+}
+
+export interface DirectivesState {
+	blocks: Array<Omit<Directive, "content"> & { content: string }>;
+}
+
+export type DirectiveRenderer = (blocks: ReadonlyArray<ResolvedDirective>) => string;
+export type DirectiveBudgetStrategy = (
+	blocks: ReadonlyArray<ResolvedDirective>,
+	budget: number,
+) => ReadonlyArray<ResolvedDirective>;
+export type DirectiveComparator = (a: Directive, b: Directive) => number;
+
+const defaultRenderer: DirectiveRenderer = (blocks) => blocks.map((b) => b.content).join("\n\n");
+
+const defaultBudgetStrategy: DirectiveBudgetStrategy = (blocks, budget) => {
+	const sorted = [...blocks].sort((a, b) => a.priority - b.priority);
+	const selected: ResolvedDirective[] = [];
+	let used = 0;
+	for (const b of sorted) {
+		const cost = b.content.length;
+		if (used + cost > budget) continue;
+		selected.push(b);
+		used += cost;
+	}
+	return selected;
 };
 
-// ---------------------------------------------------------------------------
-// DirectiveContextAssembler
-// ---------------------------------------------------------------------------
+const defaultComparator: DirectiveComparator = (a, b) => a.priority - b.priority;
 
-/** Max dedup entries in seenIds before evicting the oldest half (ALE-TSK-255). */
-const SEEN_IDS_MAX = 10_000;
+export class Directives {
+	private readonly _blocks = new Map<string, Directive>();
 
-export class DirectiveContextAssembler {
-	private readonly base: string;
-	private readonly directives: Directive[] = [];
-	/** Insertion-ordered Set for O(1) has/add; front = oldest for eviction. */
-	private readonly seenIds = new Set<string>();
+	renderer: DirectiveRenderer = defaultRenderer;
+	budgetStrategy: DirectiveBudgetStrategy = defaultBudgetStrategy;
+	comparator: DirectiveComparator = defaultComparator;
 
-	constructor(basePrompt: string) {
-		this.base = basePrompt;
+	register(block: Directive): this {
+		this._blocks.set(block.id, { ...block });
+		return this;
 	}
 
-	/** Add a single directive. Deduplicates by id. Caps seenIds at SEEN_IDS_MAX. */
-	register(directive: Directive): void {
-		if (this.seenIds.has(directive.id)) return;
-		this.seenIds.add(directive.id);
-		// Evict oldest half when cap is exceeded — prevents unbounded growth.
-		if (this.seenIds.size > SEEN_IDS_MAX) {
-			const evictCount = Math.ceil(SEEN_IDS_MAX / 2);
-			const iter = this.seenIds.keys();
-			for (let i = 0; i < evictCount; i++) {
-				const key = iter.next().value;
-				if (key !== undefined) this.seenIds.delete(key);
+	unregister(id: string): this {
+		this._blocks.delete(id);
+		return this;
+	}
+
+	enable(id: string): this {
+		const b = this._blocks.get(id);
+		if (b) this._blocks.set(id, { ...b, enabled: true });
+		return this;
+	}
+
+	disable(id: string): this {
+		const b = this._blocks.get(id);
+		if (b) this._blocks.set(id, { ...b, enabled: false });
+		return this;
+	}
+
+	toggle(id: string): this {
+		const b = this._blocks.get(id);
+		if (b) this._blocks.set(id, { ...b, enabled: !b.enabled });
+		return this;
+	}
+
+	replace(id: string, content: string | (() => string)): this {
+		const b = this._blocks.get(id);
+		if (b) this._blocks.set(id, { ...b, content });
+		return this;
+	}
+
+	setPriority(id: string, priority: number): this {
+		const b = this._blocks.get(id);
+		if (b) this._blocks.set(id, { ...b, priority });
+		return this;
+	}
+
+	setMeta(id: string, key: string, value: unknown): this {
+		const b = this._blocks.get(id);
+		if (b) this._blocks.set(id, { ...b, meta: { ...b.meta, [key]: value } });
+		return this;
+	}
+
+	tag(id: string, ...tags: string[]): this {
+		const b = this._blocks.get(id);
+		if (b) {
+			const existing = new Set(b.tags ?? []);
+			for (const t of tags) existing.add(t);
+			this._blocks.set(id, { ...b, tags: [...existing] });
+		}
+		return this;
+	}
+
+	untag(id: string, ...tags: string[]): this {
+		const b = this._blocks.get(id);
+		if (b?.tags) {
+			const drop = new Set(tags);
+			this._blocks.set(id, { ...b, tags: b.tags.filter((t) => !drop.has(t)) });
+		}
+		return this;
+	}
+
+	has(id: string): boolean {
+		return this._blocks.has(id);
+	}
+
+	get(id: string): Readonly<Directive> | undefined {
+		return this._blocks.get(id);
+	}
+
+	list(filter?: {
+		enabled?: boolean;
+		tags?: string[];
+		anyTag?: string[];
+		minPriority?: number;
+		maxPriority?: number;
+	}): ReadonlyArray<Directive> {
+		let blocks = [...this._blocks.values()];
+		if (filter) {
+			if (filter.enabled !== undefined) blocks = blocks.filter((b) => b.enabled === filter.enabled);
+			if (filter.tags?.length) {
+				const required = filter.tags;
+				blocks = blocks.filter((b) => required.every((t) => b.tags?.includes(t)));
+			}
+			if (filter.anyTag?.length) {
+				const any = filter.anyTag;
+				blocks = blocks.filter((b) => any.some((t) => b.tags?.includes(t)));
+			}
+			if (filter.minPriority !== undefined) {
+				const min = filter.minPriority;
+				blocks = blocks.filter((b) => b.priority >= min);
+			}
+			if (filter.maxPriority !== undefined) {
+				const max = filter.maxPriority;
+				blocks = blocks.filter((b) => b.priority <= max);
 			}
 		}
-		this.directives.push(directive);
+		return blocks.sort(this.comparator);
 	}
 
-	/**
-	 * Collect directives from all loaded organs.
-	 * Organs declare `directives?: readonly string[]` — each string becomes a
-	 * Directive with layer='organ' and the organ name as id prefix.
-	 */
-	registerOrgans(organs: readonly Organ[]): void {
-		for (const organ of organs) {
-			if (!organ.directives?.length) continue;
-			// Prefix with organ.description as a named header so the LLM can
-			// attribute each guidance block to its organ.
-			const header = organ.description ? `### ${organ.name}: ${organ.description}` : `### ${organ.name}`;
-			const body = organ.directives.map((d) => d.trim()).join("\n\n");
-			this.register({
-				id: `organ.${organ.name}`,
-				layer: "organ",
-				content: `${header}\n\n${body}`,
-				weight: DEFAULT_WEIGHTS.organ,
-			});
-		}
+	clone(): Directives {
+		const d = new Directives();
+		d.renderer = this.renderer;
+		d.budgetStrategy = this.budgetStrategy;
+		d.comparator = this.comparator;
+		for (const b of this._blocks.values()) d._blocks.set(b.id, { ...b });
+		return d;
 	}
 
-	/**
-	 * Load workspace-specific directives from `.alef/directives/*.md`.
-	 * These are operator rules for a specific repo — highest priority.
-	 * Silently skips if the directory does not exist.
-	 */
-	async loadWorkspace(cwd: string): Promise<void> {
-		const dir = join(cwd, ".alef", "directives");
-		let entries: string[];
-		try {
-			entries = await readdir(dir);
-		} catch {
-			return; // Directory doesn't exist — fine
+	merge(other: Directives, strategy: "last-wins" | "keep-existing" = "last-wins"): Directives {
+		const d = this.clone();
+		for (const b of other._blocks.values()) {
+			if (strategy === "keep-existing" && d._blocks.has(b.id)) continue;
+			d._blocks.set(b.id, { ...b });
 		}
-
-		const mdFiles = entries.filter((e) => e.endsWith(".md")).sort();
-		for (const file of mdFiles) {
-			try {
-				const content = (await readFile(join(dir, file), "utf-8")).trim();
-				if (content) {
-					this.register({
-						id: `workspace.${file}`,
-						layer: "workspace",
-						content,
-						weight: DEFAULT_WEIGHTS.workspace,
-					});
-				}
-			} catch {
-				// Skip unreadable files
-			}
-		}
+		return d;
 	}
 
-	/**
-	 * Assemble the system prompt.
-	 * Directives sorted by weight descending — highest priority first.
-	 * When budget is set, lowest-weight directives are dropped to fit.
-	 *
-	 * @param budgetChars  Approximate character budget for directive blocks.
-	 *                     Default: unlimited. 4 chars ≈ 1 token.
-	 */
+	subset(predicate: (block: Directive) => boolean): Directives {
+		const d = new Directives();
+		d.renderer = this.renderer;
+		d.budgetStrategy = this.budgetStrategy;
+		d.comparator = this.comparator;
+		for (const b of this._blocks.values()) {
+			if (predicate(b)) d._blocks.set(b.id, { ...b });
+		}
+		return d;
+	}
+
+	without(...ids: string[]): Directives {
+		const drop = new Set(ids);
+		return this.subset((b) => !drop.has(b.id));
+	}
+
+	resolve(): ReadonlyArray<ResolvedDirective> {
+		return this.list({ enabled: true }).map((b) => ({
+			...b,
+			content: typeof b.content === "function" ? b.content() : b.content,
+		}));
+	}
+
 	build(budgetChars?: number): string {
-		if (this.directives.length === 0) return this.base;
-
-		const sorted = [...this.directives].sort((a, b) => b.weight - a.weight);
-
-		const selected: Directive[] = [];
-		let usedChars = 0;
-
-		for (const d of sorted) {
-			const cost = d.content.length + 4; // +4 for separator
-			if (budgetChars !== undefined && usedChars + cost > budgetChars) continue;
-			selected.push(d);
-			usedChars += cost;
-		}
-
-		if (selected.length === 0) return this.base;
-
-		// Re-sort chronologically: workspace first, then organ, then global.
-		// Within the same layer, higher weight first.
-		const layerOrder: Directive["layer"][] = ["workspace", "organ", "global"];
-		selected.sort((a, b) => {
-			const li = layerOrder.indexOf(a.layer) - layerOrder.indexOf(b.layer);
-			if (li !== 0) return li;
-			return b.weight - a.weight;
-		});
-
-		const body = selected.map((d) => d.content).join("\n\n");
-		// Workspace and organ directives appended after the base prompt.
-		// The base already contains ## Guidelines; keep additional directives
-		// under a separate header so they stand out as project/organ-specific.
-		return `${this.base}\n\n## Project & Organ Directives\n\n${body}`;
+		const resolved = this.resolve();
+		const selected = budgetChars !== undefined ? this.budgetStrategy(resolved, budgetChars) : resolved;
+		const sorted = [...selected].sort(this.comparator);
+		return this.renderer(sorted);
 	}
-}
 
-// ---------------------------------------------------------------------------
-// Backward-compat function (used by tests that import assembleSystemPrompt)
-// ---------------------------------------------------------------------------
+	toJSON(): DirectivesState {
+		return {
+			blocks: [...this._blocks.values()].map((b) => ({
+				...b,
+				content: typeof b.content === "function" ? b.content() : b.content,
+			})),
+		};
+	}
 
-/**
- * Stateless helper for simple cases: base + organ strings, no budget, no workspace.
- * Use DirectiveContextAssembler for the full feature set.
- */
-export function assembleSystemPrompt(base: string, organs: readonly Organ[]): string {
-	const asm = new DirectiveContextAssembler(base);
-	asm.registerOrgans(organs);
-	return asm.build();
+	static fromJSON(state: DirectivesState): Directives {
+		const d = new Directives();
+		for (const b of state.blocks) d._blocks.set(b.id, { ...b });
+		return d;
+	}
 }

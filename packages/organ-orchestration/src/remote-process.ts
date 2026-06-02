@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { ExecutionStrategy } from "@dpopsuev/alef-spine";
 
-function postToChild(endpoint: string, text: string): Promise<void> {
+function postToChild(endpoint: string, text: string, timeoutMs: number): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const body = JSON.stringify({ text });
 		const url = new URL(`${endpoint}/message`);
@@ -18,6 +18,7 @@ function postToChild(endpoint: string, text: string): Promise<void> {
 				res.on("end", resolve);
 			},
 		);
+		req.setTimeout(timeoutMs, () => req.destroy(new Error(`postToChild timed out after ${timeoutMs}ms`)));
 		req.on("error", reject);
 		req.write(body);
 		req.end();
@@ -75,7 +76,7 @@ export class RemoteProcessStrategy implements ExecutionStrategy {
 
 	async send(text: string, _sender?: string, timeoutMs = 60_000): Promise<string> {
 		const replyPromise = collectReply(this.endpoint, timeoutMs);
-		await postToChild(this.endpoint, text);
+		await postToChild(this.endpoint, text, timeoutMs);
 		return (await replyPromise) ?? "";
 	}
 }

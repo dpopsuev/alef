@@ -1,5 +1,5 @@
 import { InProcessNerve } from "@dpopsuev/alef-spine";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createLectorOrgan } from "../src/organ.js";
 import { StubLectorBackend } from "../src/stub-backend.js";
 
@@ -30,10 +30,15 @@ function drive(
 }
 
 describe("LectorOrgan — motor/sense contract", () => {
-	const backend = new StubLectorBackend({ "auth.ts": AUTH_TS });
-	const organ = createLectorOrgan({ cwd: "/workspace", backend });
-	const nerve = new InProcessNerve();
-	organ.mount(nerve.asNerve());
+	let backend: StubLectorBackend;
+	let nerve: InProcessNerve;
+
+	beforeEach(() => {
+		backend = new StubLectorBackend({ "auth.ts": AUTH_TS });
+		const organ = createLectorOrgan({ cwd: "/workspace", backend });
+		nerve = new InProcessNerve();
+		organ.mount(nerve.asNerve());
+	});
 
 	it("lector.read returns content and symbols", async () => {
 		const result = await drive(nerve, "lector.read", { path: "auth.ts" });

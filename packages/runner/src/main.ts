@@ -53,6 +53,7 @@ import { createMemoryOrgan } from "./organ-memory.js";
 import { setupOTel, shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
 import { createDefaultScroll, loadWorkspace, registerOrgans } from "./prompt.js";
+import { runPmCommand } from "./run-pm-command.js";
 import { SessionGuard } from "./session-guard.js";
 import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
@@ -73,109 +74,7 @@ setupOTel();
 
 const args = parseArgs(process.argv.slice(2));
 
-// Handle package manager subcommands before any session/agent setup.
-if (
-	args.pmInstall ||
-	args.pmRemove ||
-	args.pmUpgrade ||
-	args.pmRollback !== undefined ||
-	args.pmHistory ||
-	args.pmAudit ||
-	args.pmGc ||
-	args.pmSearch !== undefined ||
-	args.pmSbom ||
-	args.pmOrganList ||
-	args.pmOrganNew !== undefined ||
-	args.pmExport !== undefined ||
-	args.pmImport !== undefined
-) {
-	const pm = await import("./alef-pm.js");
-	pm.init();
-	if (args.pmInstall) {
-		const [name, version] = args.pmInstall.split("@");
-		const gen = await pm.install(name, version);
-		console.log(`Installed ${args.pmInstall} (generation ${gen})`);
-	} else if (args.pmRemove) {
-		const gen = await pm.remove(args.pmRemove);
-		console.log(`Removed ${args.pmRemove} (generation ${gen})`);
-	} else if (args.pmUpgrade) {
-		const gen = await pm.upgrade();
-		console.log(`Upgraded organs (generation ${gen})`);
-	} else if (args.pmRollback !== undefined) {
-		const entries = pm.history();
-		const target = args.pmRollback === -1 ? (entries[1]?.id ?? 1) : args.pmRollback;
-		await pm.rollback(target);
-		console.log(`Rolled back to generation ${target}`);
-	} else if (args.pmHistory) {
-		const entries = pm.history();
-		if (entries.length === 0) {
-			console.log("No generations recorded.");
-		}
-		for (const e of entries) {
-			const organs =
-				Object.entries(e.organs)
-					.map(([k, v]) => `${k}@${v}`)
-					.join(", ") || "(none)";
-			console.log(`  Gen ${e.id}  ${e.ts.slice(0, 19)}  alef=${e.alef}  organs: ${organs}`);
-		}
-	} else if (args.pmAudit) {
-		await pm.audit();
-	} else if (args.pmGc) {
-		const { removedGenerations, removedStoreEntries } = pm.gc();
-		console.log(`GC: removed ${removedGenerations} generations, ${removedStoreEntries} store entries`);
-	} else if (args.pmSearch !== undefined) {
-		const results = await pm.search(args.pmSearch);
-		if (results.length === 0) {
-			console.log("No organs found.");
-		} else {
-			const nameW = Math.max(4, ...results.map((r) => r.name.length));
-			const verW = Math.max(7, ...results.map((r) => r.version.length));
-			const dlW = 9;
-			console.log(`${"NAME".padEnd(nameW)}  ${"VERSION".padEnd(verW)}  ${"DOWNLOADS".padEnd(dlW)}  DESCRIPTION`);
-			for (const r of results) {
-				const dl = r.downloads.toLocaleString();
-				console.log(`${r.name.padEnd(nameW)}  ${r.version.padEnd(verW)}  ${dl.padEnd(dlW)}  ${r.description}`);
-			}
-		}
-	} else if (args.pmSbom) {
-		const doc = pm.sbom();
-		console.log(JSON.stringify(doc, null, 2));
-	} else if (args.pmOrganList) {
-		const { loadUserOrgansConfig, userOrgansConfigPath } = await import("./materializer.js");
-		const organs = loadUserOrgansConfig();
-		if (!organs || organs.length === 0) {
-			console.log(`No organs registered in ${userOrgansConfigPath()}`);
-		} else {
-			console.log(`Organs registered in ${userOrgansConfigPath()}:`);
-			for (const o of organs) {
-				const detail = o.path ? `  path: ${o.path}` : "";
-				console.log(`  ${o.name}${detail}`);
-			}
-		}
-	} else if (args.pmOrganNew !== undefined) {
-		if (!args.pmOrganNew.trim()) {
-			console.error("Usage: alef organ new <name>");
-			process.exit(1);
-		}
-		const { scaffoldOrgan } = await import("./organ-scaffold.js");
-		const dir = scaffoldOrgan(args.pmOrganNew, args.cwd);
-		console.log(`Scaffolded organ at ${dir}`);
-		console.log(`  cd ${dir}`);
-		console.log(`  npm install`);
-		console.log(`  npm run build`);
-		console.log(`  alef install ./${dir.split("/").pop() ?? ""}`);
-	} else if (args.pmExport !== undefined) {
-		const outputPath = typeof args.pmExport === "string" ? args.pmExport : undefined;
-		const written = pm.exportLockfile(args.cwd, outputPath);
-		console.log(`Exported organ lockfile → ${written}`);
-		console.log("Commit this file alongside your code for reproducible organ installs.");
-	} else if (args.pmImport !== undefined) {
-		const inputPath = typeof args.pmImport === "string" ? args.pmImport : undefined;
-		const gen = await pm.importLockfile(args.cwd, inputPath);
-		console.log(`Restored organs from lockfile (generation ${gen})`);
-	}
-	process.exit(0);
-}
+await runPmCommand(args);
 
 if (args.pmSelfUpdate) {
 	const { execSync } = await import("node:child_process");

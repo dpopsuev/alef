@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	appendEnvironment,
-	BLOCK_TONE,
+	BLOCK_FORMAT,
 	buildSystemPrompt,
 	createDefaultScroll,
 	registerOrgans,
@@ -76,66 +76,53 @@ describe("registerOrgans", () => {
 	});
 });
 
-describe("BLOCK_TONE wiring", () => {
-	it("tone block is registered in the default scroll", () => {
-		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
-		const ids = scroll.list({}).map((b) => b.id);
-		expect(ids).toContain("tone");
+describe("BLOCK_FORMAT — output discipline rules", () => {
+	it("contains no-emoji rule with IMPORTANT marker", () => {
+		const format = BLOCK_FORMAT();
+		expect(format).toContain("No emojis");
+		expect(format).toContain("IMPORTANT");
 	});
 
-	it("tone block appears before format block (priority 50 < 100)", () => {
-		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
-		const prompt = scroll.build();
-		const toneIdx = prompt.indexOf("Tone and output");
-		const formatIdx = prompt.indexOf("## Format");
-		expect(toneIdx).toBeGreaterThanOrEqual(0);
-		expect(formatIdx).toBeGreaterThanOrEqual(0);
-		expect(toneIdx).toBeLessThan(formatIdx);
+	it("contains no-filler rule", () => {
+		const format = BLOCK_FORMAT();
+		expect(format).toContain("No filler");
+		expect(format).toContain("Great!");
 	});
 
-	it("tone block contains no-emoji rule", () => {
-		const tone = BLOCK_TONE();
-		expect(tone).toContain("No emojis");
-		expect(tone).toContain("IMPORTANT");
+	it("contains answer-first rule", () => {
+		const format = BLOCK_FORMAT();
+		expect(format).toContain("Answer the question first");
 	});
 
-	it("tone block contains no-filler rule", () => {
-		const tone = BLOCK_TONE();
-		expect(tone).toContain("No filler");
-		expect(tone).toContain("Great!");
+	it("contains no-preamble rule", () => {
+		const format = BLOCK_FORMAT();
+		expect(format).toContain("No preamble");
 	});
 
-	it("tone block contains no-preamble rule", () => {
-		const tone = BLOCK_TONE();
-		expect(tone).toContain("No preamble");
-	});
-
-	it("tone block contains capability-check rule", () => {
-		const tone = BLOCK_TONE();
-		expect(tone).toContain("tools.describe");
-		expect(tone).toContain("capability");
-	});
-
-	it("tone block contains anti-hallucination rule", () => {
-		const tone = BLOCK_TONE();
-		expect(tone).toContain("No codebase claims without reading");
-	});
-
-	it("built prompt contains all tone rules", () => {
+	it("built prompt contains all output discipline rules", () => {
 		const prompt = buildSystemPrompt({ tools: [] });
 		expect(prompt).toContain("No emojis");
 		expect(prompt).toContain("No filler");
 		expect(prompt).toContain("No preamble");
-		expect(prompt).toContain("tools.describe");
-		expect(prompt).toContain("No codebase claims without reading");
+		expect(prompt).toContain("Answer the question first");
 	});
 
-	it("tone block appears before guidelines (priority 50 < 400)", () => {
+	it("format block appears before guidelines in built prompt", () => {
 		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
 		const prompt = scroll.build();
-		const toneIdx = prompt.indexOf("Tone and output");
-		const guidelinesIdx = prompt.indexOf("## Guidelines");
-		expect(toneIdx).toBeLessThan(guidelinesIdx);
+		expect(prompt.indexOf("## Format")).toBeLessThan(prompt.indexOf("## Guidelines"));
+	});
+});
+
+describe("BLOCK_GUIDELINES — investigation rules", () => {
+	it("built prompt contains capability-check rule", () => {
+		const prompt = buildSystemPrompt({ tools: [] });
+		expect(prompt).toContain("tools.describe");
+	});
+
+	it("built prompt contains anti-hallucination rule", () => {
+		const prompt = buildSystemPrompt({ tools: [] });
+		expect(prompt).toContain("Read files before describing them");
 	});
 });
 

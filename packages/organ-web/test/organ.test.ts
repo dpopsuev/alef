@@ -4,8 +4,8 @@
  * The html-to-text logic is also tested inline with static HTML.
  */
 
-import { describe, expect, it, vi } from "vitest";
-import { InProcessNerve } from "../../spine/src/buses.js";
+import { NerveFixture } from "@dpopsuev/alef-testkit";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWebOrgan } from "../src/organ.js";
 
 describe("WebOrgan — structure", () => {
@@ -33,128 +33,83 @@ describe("WebOrgan — structure", () => {
 	});
 
 	it("mounts and unmounts cleanly", () => {
-		const organ = createWebOrgan();
-		const nerve = new InProcessNerve();
-		const unmount = organ.mount(nerve.asNerve());
-		expect(typeof unmount).toBe("function");
-		unmount();
+		const fixture = new NerveFixture();
+		fixture.mount(createWebOrgan());
+		fixture.dispose();
 	});
 });
 
 describe("WebOrgan — web.fetch validation", () => {
+	let fixture: NerveFixture;
+
+	beforeEach(() => {
+		fixture = new NerveFixture();
+		fixture.mount(createWebOrgan());
+	});
+
+	afterEach(() => fixture.dispose());
+
 	it("rejects non-http URL", async () => {
-		const organ = createWebOrgan();
-		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
-
-		const resultPromise = new Promise<{ isError: boolean; errorMessage?: string }>((resolve) => {
-			nerve.asNerve().sense.subscribe("web.fetch", (e) => {
-				resolve({ isError: e.isError, errorMessage: e.errorMessage });
-			});
-		});
-
-		nerve.asNerve().motor.publish({
-			type: "web.fetch",
-			payload: { url: "ftp://bad-scheme.example.com", toolCallId: "t1" },
-			correlationId: "c1",
-		});
-
-		const result = await resultPromise;
+		const result = await fixture.call("web.fetch", { url: "ftp://bad-scheme.example.com" });
 		expect(result.isError).toBe(true);
 		expect(result.errorMessage).toMatch(/http/i);
 	});
 
 	it("returns isError on network failure", async () => {
-		// Point at a host that won't respond.
-		const organ = createWebOrgan({ defaultTimeoutMs: 500 });
-		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
-
-		const resultPromise = new Promise<{ isError: boolean }>((resolve) => {
-			nerve.asNerve().sense.subscribe("web.fetch", (e) => {
-				resolve({ isError: e.isError });
-			});
-		});
-
-		nerve.asNerve().motor.publish({
-			type: "web.fetch",
-			payload: { url: "http://127.0.0.1:19999", toolCallId: "t2" },
-			correlationId: "c2",
-		});
-
-		const result = await resultPromise;
+		fixture.dispose();
+		fixture = new NerveFixture();
+		fixture.mount(createWebOrgan({ defaultTimeoutMs: 500 }));
+		const result = await fixture.call("web.fetch", { url: "http://127.0.0.1:19999" }, { timeoutMs: 3000 });
 		expect(result.isError).toBe(true);
-	}, 3000);
+	});
 });
 
 describe("WebOrgan — web.search validation", () => {
+	let fixture: NerveFixture;
+
+	beforeEach(() => {
+		fixture = new NerveFixture();
+		fixture.mount(createWebOrgan());
+	});
+
+	afterEach(() => fixture.dispose());
+
 	it("rejects empty query", async () => {
-		const organ = createWebOrgan();
-		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
-
-		const resultPromise = new Promise<{ isError: boolean; errorMessage?: string }>((resolve) => {
-			nerve.asNerve().sense.subscribe("web.search", (e) => {
-				resolve({ isError: e.isError, errorMessage: e.errorMessage });
-			});
-		});
-
-		nerve.asNerve().motor.publish({
-			type: "web.search",
-			payload: { query: "", toolCallId: "s1" },
-			correlationId: "c1",
-		});
-
-		const result = await resultPromise;
+		const result = await fixture.call("web.search", { query: "" });
 		expect(result.isError).toBe(true);
 		expect(result.errorMessage).toMatch(/empty/i);
 	});
 });
 
 describe("WebOrgan — html-to-text (inline)", () => {
+	afterEach(() => vi.unstubAllGlobals());
+
 	it("strips tags and returns readable text", async () => {
-		// Use the organ's handle via a mocked fetch response.
 		const mockHtml = `<html><head><title>Test Page</title></head>
 <body><nav>Menu</nav><h1>Hello World</h1><p>This is a paragraph.</p>
 <script>alert(1)</script><footer>Footer text</footer></body></html>`;
 
-		const mockFetch = vi.fn().mockResolvedValue({
-			status: 200,
-			url: "https://example.com",
-			arrayBuffer: async () => new TextEncoder().encode(mockHtml).buffer,
-		});
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue({
+				status: 200,
+				url: "https://example.com",
+				arrayBuffer: async () => new TextEncoder().encode(mockHtml).buffer,
+			}),
+		);
 
-		vi.stubGlobal("fetch", mockFetch);
+		const fixture = new NerveFixture();
+		fixture.mount(createWebOrgan());
+		const result = await fixture.call("web.fetch", { url: "https://example.com" });
 
-		try {
-			const organ = createWebOrgan();
-			const nerve = new InProcessNerve();
-			organ.mount(nerve.asNerve());
-
-			const resultPromise = new Promise<Record<string, unknown>>((resolve) => {
-				nerve.asNerve().sense.subscribe("web.fetch", (e) => {
-					resolve(e.payload);
-				});
-			});
-
-			nerve.asNerve().motor.publish({
-				type: "web.fetch",
-				payload: { url: "https://example.com", toolCallId: "t3" },
-				correlationId: "c3",
-			});
-
-			const result = await resultPromise;
-			expect(result.title).toBe("Test Page");
-			expect(result.statusCode).toBe(200);
-			expect(result.content).toContain("Hello World");
-			expect(result.content).toContain("This is a paragraph.");
-			// Script and nav/footer content stripped.
-			expect(result.content).not.toContain("alert(1)");
-			expect(result.content).not.toContain("Menu");
-			expect(result.content).not.toContain("Footer text");
-		} finally {
-			vi.unstubAllGlobals();
-		}
+		expect(result.payload.title).toBe("Test Page");
+		expect(result.payload.statusCode).toBe(200);
+		expect(String(result.payload.content)).toContain("Hello World");
+		expect(String(result.payload.content)).toContain("This is a paragraph.");
+		expect(String(result.payload.content)).not.toContain("alert(1)");
+		expect(String(result.payload.content)).not.toContain("Menu");
+		expect(String(result.payload.content)).not.toContain("Footer text");
+		fixture.dispose();
 	});
 
 	it("returns raw html when format=html", async () => {
@@ -168,25 +123,10 @@ describe("WebOrgan — html-to-text (inline)", () => {
 			}),
 		);
 
-		try {
-			const organ = createWebOrgan();
-			const nerve = new InProcessNerve();
-			organ.mount(nerve.asNerve());
-
-			const resultPromise = new Promise<Record<string, unknown>>((resolve) => {
-				nerve.asNerve().sense.subscribe("web.fetch", (e) => resolve(e.payload));
-			});
-
-			nerve.asNerve().motor.publish({
-				type: "web.fetch",
-				payload: { url: "https://example.com", format: "html", toolCallId: "t4" },
-				correlationId: "c4",
-			});
-
-			const result = await resultPromise;
-			expect(result.content).toContain("<p>content</p>");
-		} finally {
-			vi.unstubAllGlobals();
-		}
+		const fixture = new NerveFixture();
+		fixture.mount(createWebOrgan());
+		const result = await fixture.call("web.fetch", { url: "https://example.com", format: "html" });
+		expect(String(result.payload.content)).toContain("<p>content</p>");
+		fixture.dispose();
 	});
 });

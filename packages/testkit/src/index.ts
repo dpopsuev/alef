@@ -14,7 +14,8 @@ export {
 } from "./organ-contract.js";
 export { OrganHarness } from "./organ-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
-export { ScriptedReasoner } from "./scripted-reasoner.js";
+export { ScriptedReasoner, type ToolCallEnd, type ToolCallStart } from "./scripted-reasoner.js";
+export { defineStubOrgan, type StubHandler } from "./stub-organ.js";
 export { DIALOG_MESSAGE_TOOL, TurnDriver } from "./turn-driver.js";
 
 import type { BusObserver } from "@dpopsuev/alef-corpus";

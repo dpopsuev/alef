@@ -835,7 +835,6 @@ export async function runTuiMode(
 	// Written only when ALEF_DEBUG=1 to avoid polluting normal output.
 	if (process.env.ALEF_DEBUG === "1") process.stdout.write("[ALEF_READY]\n");
 
-	// Async version check — never blocks startup, shows a notice if a newer release exists.
 	checkForUpdate()
 		.then((notice) => {
 			if (notice) {
@@ -843,9 +842,7 @@ export async function runTuiMode(
 				tui.requestRender();
 			}
 		})
-		.catch(() => {
-			/* network failures are silent */
-		});
+		.catch(() => {});
 
 	await new Promise<void>((resolve) => {
 		tui.onStop = () => {

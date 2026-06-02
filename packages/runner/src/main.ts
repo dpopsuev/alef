@@ -22,6 +22,7 @@ import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import type { Message, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
 import { Cerebrum, type TokenUsage, type ToolCallEnd, type ToolCallStart } from "@dpopsuev/alef-organ-llm";
@@ -506,6 +507,7 @@ const orchestrationOrgan = createOrchestrationOrgan({
 
 agent.load(delegateOrgan);
 agent.load(orchestrationOrgan);
+agent.load(createFactoryOrgan({ cwd: args.cwd }));
 
 if (args.serve !== undefined) {
 	const sseSurface = blueprintSurfaces.filter((s) => s.type === "sse");

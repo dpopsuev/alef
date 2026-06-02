@@ -137,6 +137,9 @@
 			"@dpopsuev/alef-organ-delegate": [
 				"./packages/organ-delegate/src/index.ts"
 			],
+			"@dpopsuev/alef-organ-factory": [
+				"./packages/organ-factory/src/index.ts"
+			],
 			"@dpopsuev/alef-organ-eval": [
 				"./packages/organ-eval/src/index.ts"
 			],

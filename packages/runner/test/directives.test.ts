@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { assembleSystemPrompt, DirectiveContextAssembler } from "../src/directives.js";
+import { createDefaultScroll, registerOrgans } from "../src/prompt.js";
+import { createToolShellOrgan } from "../src/tool-shell.js";
 
 const tempDirs: string[] = [];
 function tmpCwd(): string {
@@ -159,6 +161,23 @@ describe("DirectiveContextAssembler.loadWorkspace", () => {
 // ---------------------------------------------------------------------------
 // assembleSystemPrompt (backward-compat)
 // ---------------------------------------------------------------------------
+
+describe("registerOrgans — infrastructure organ directives reach the scroll", () => {
+	it("ToolShell directive appears in scroll when registerOrgans includes it", () => {
+		const toolShell = createToolShellOrgan({ tools: [] });
+		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
+		registerOrgans(scroll, [toolShell]);
+		const prompt = scroll.build();
+		expect(prompt).toContain("tools.describe");
+	});
+
+	it("ToolShell directive is absent when registerOrgans excludes it — documents the pre-fix gap", () => {
+		const scroll = createDefaultScroll({ tools: [], cwd: "/test" });
+		registerOrgans(scroll, []); // corpusOrgans only, toolShell excluded
+		const prompt = scroll.build();
+		expect(prompt).not.toContain("tools.describe");
+	});
+});
 
 describe("assembleSystemPrompt (backward-compat)", () => {
 	it("still works for simple cases", () => {

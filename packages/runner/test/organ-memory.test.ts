@@ -91,6 +91,56 @@ describe("MemoryOrgan — Phase 2 context assembly", () => {
 		expect(assembled.at(-1)).toMatchObject({ role: "user", content: "new question" });
 	});
 
+	it("does not append toolResult as currentUserMsg on tool round 2+", async () => {
+		// Reproduces the Vertex 400 "multiple tool_result blocks" regression.
+		// On tool round 2, messages.at(-1) is a toolResult. The llm.checkpoint written
+		// after round 1 already contains that toolResult in conversationHistory.
+		// MemoryOrgan must NOT append it again, or the LLM sees duplicate tool_results.
+		const toolResultMsg = { role: "toolResult", toolCallId: "call-1", content: "file contents" };
+		const conversationHistory = [
+			{ role: "user", content: "read a file" },
+			{ role: "assistant", content: [{ type: "tool_use", id: "call-1", name: "fs.read", input: {} }] },
+			toolResultMsg,
+		];
+		const turnWithCheckpoint = {
+			id: "t1",
+			turnIndex: 0,
+			tokenCost: 50,
+			typeWeight: 0.8,
+			events: [
+				{
+					bus: "internal",
+					type: "llm.checkpoint",
+					correlationId: "t1",
+					payload: { conversationHistory },
+					timestamp: 1,
+				},
+			],
+		};
+		const session = {
+			turns: async () => [turnWithCheckpoint],
+			hitCounts: async () => new Map<string, number>(),
+			append: async () => {},
+		};
+		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow: 200_000 });
+		const stage = organ.phaseStage();
+
+		// Tool round 2: messages ends with the toolResult (same as in checkpoint)
+		const msgs = [
+			{ role: "system", content: "system prompt" },
+			{ role: "user", content: "read a file" },
+			{ role: "assistant", content: [{ type: "tool_use", id: "call-1", name: "fs.read", input: {} }] },
+			toolResultMsg,
+		];
+		const result = await stage({ messages: msgs as never, tools: [], turn: 2 });
+		if (!result.messages) return;
+		const assembled = result.messages as Array<{ role: string; toolCallId?: string }>;
+		const ids = assembled.filter((m) => m.role === "toolResult").map((m) => m.toolCallId);
+		const unique = new Set(ids);
+		// If there are duplicates, the Vertex API will return a 400
+		expect(ids.length).toBe(unique.size);
+	});
+
 	it("returns empty result when session has no turns", async () => {
 		const session = {
 			turns: async () => [],

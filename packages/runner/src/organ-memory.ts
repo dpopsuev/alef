@@ -77,7 +77,7 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 				const assembled: RawMsg[] = [
 					...(systemMsg ? [systemMsg] : []),
 					...(projected as unknown as RawMsg[]),
-					currentUserMsg,
+					...(currentUserMsg.role === "user" ? [currentUserMsg] : []),
 				];
 
 				return { messages: assembled as unknown as typeof messages };

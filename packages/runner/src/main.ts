@@ -513,6 +513,7 @@ const memoryOrgan = createMemoryOrgan({
 });
 agent.load(memoryOrgan);
 agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
+registerOrgans(currentScrollInstance, [toolShell, memoryOrgan]);
 
 // ── Delegation profiles ───────────────────────────────────────────────────
 // Build InProcessStrategy profiles and wire organ-delegate.

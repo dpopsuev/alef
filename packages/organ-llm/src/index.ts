@@ -488,63 +488,100 @@ async function runLLMLoop(
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
 	const replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
 
+	const budgetController = new AbortController();
+	const offBudget = sense.subscribe("budget.cancel", () => {
+		budgetController.abort(new Error("[budget] maxElapsedMs exceeded"));
+	});
+	const userSignal = options.getSignal?.();
+	const effectiveSignal = userSignal
+		? AbortSignal.any([budgetController.signal, userSignal])
+		: budgetController.signal;
+	const effectiveOptions: CerebrumOptions = { ...options, getSignal: () => effectiveSignal };
+
 	let appRetryCount = 0;
 	let turn = 0;
 
-	while (true) {
-		turn++;
-		const model = options.getModel?.() ?? options.model;
+	try {
+		while (true) {
+			turn++;
+			const model = effectiveOptions.getModel?.() ?? effectiveOptions.model;
 
-		if (options.phaseTimeoutMs) {
-			const phase = await runPhase(motor, sense, correlationId, messages, tools, turn, options.phaseTimeoutMs);
-			if (phase?.abort) break;
-			if (phase?.skip) {
-				motor.publish({ type: replyType, payload: { text: phase.reply ?? "(skipped)" }, correlationId });
+			if (effectiveOptions.phaseTimeoutMs) {
+				const phase = await runPhase(
+					motor,
+					sense,
+					correlationId,
+					messages,
+					tools,
+					turn,
+					effectiveOptions.phaseTimeoutMs,
+				);
+				if (phase?.abort) break;
+				if (phase?.skip) {
+					motor.publish({ type: replyType, payload: { text: phase.reply ?? "(skipped)" }, correlationId });
+					break;
+				}
+				if (phase) applyPhaseResult(phase, messages, tools, nameMap);
+			}
+
+			const { finalMessage, pendingCalls } = await callLLM(
+				model,
+				messages,
+				tools,
+				turn,
+				appRetryCount,
+				effectiveOptions,
+			);
+			if (!finalMessage) break;
+
+			if (shouldRetry(finalMessage, appRetryCount, maxRetries)) {
+				appRetryCount++;
+				effectiveOptions.onRetry?.(appRetryCount, finalMessage.errorMessage ?? "");
+				debugLog("llm:retry", {
+					turn,
+					attempt: appRetryCount,
+					reason: finalMessage.errorMessage?.slice(0, 80) ?? "unknown",
+				});
+				await sleep(retryDelayMs(appRetryCount, maxRetryDelayMs));
+				continue;
+			}
+
+			messages.push(finalMessage);
+
+			const { replyCall, toolCalls } = classifyPendingCalls(pendingCalls, toMotorName);
+			const agentIsReplying = toolCalls.length === 0;
+
+			motor.publish({
+				type: "llm.result",
+				payload: {
+					response: { ...finalMessage } satisfies Record<string, unknown>,
+					toolCalls: toolCalls.map((tc) => ({ name: toMotorName(tc.name), args: tc.args, id: tc.id })),
+					turn,
+				},
+				correlationId,
+			});
+
+			reportUsage(finalMessage, turn, agentIsReplying, effectiveOptions);
+
+			if (agentIsReplying) {
+				publishReply(motor, correlationId, replyType, finalMessage, replyCall, messages, effectiveOptions);
 				break;
 			}
-			if (phase) applyPhaseResult(phase, messages, tools, nameMap);
+
+			const results = await dispatchTools(
+				motor,
+				sense,
+				correlationId,
+				toolCalls,
+				toMotorName,
+				timeoutMs,
+				effectiveOptions,
+			);
+			appendToolResults(messages, toolCalls, results, toMotorName);
+			onCheckpoint?.(messages.slice(), ctx.correlationId);
 		}
-
-		const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, options);
-		if (!finalMessage) break;
-
-		if (shouldRetry(finalMessage, appRetryCount, maxRetries)) {
-			appRetryCount++;
-			options.onRetry?.(appRetryCount, finalMessage.errorMessage ?? "");
-			debugLog("llm:retry", {
-				turn,
-				attempt: appRetryCount,
-				reason: finalMessage.errorMessage?.slice(0, 80) ?? "unknown",
-			});
-			await sleep(retryDelayMs(appRetryCount, maxRetryDelayMs));
-			continue;
-		}
-
-		messages.push(finalMessage);
-
-		const { replyCall, toolCalls } = classifyPendingCalls(pendingCalls, toMotorName);
-		const agentIsReplying = toolCalls.length === 0;
-
-		motor.publish({
-			type: "llm.result",
-			payload: {
-				response: { ...finalMessage } satisfies Record<string, unknown>,
-				toolCalls: toolCalls.map((tc) => ({ name: toMotorName(tc.name), args: tc.args, id: tc.id })),
-				turn,
-			},
-			correlationId,
-		});
-
-		reportUsage(finalMessage, turn, agentIsReplying, options);
-
-		if (agentIsReplying) {
-			publishReply(motor, correlationId, replyType, finalMessage, replyCall, messages, options);
-			break;
-		}
-
-		const results = await dispatchTools(motor, sense, correlationId, toolCalls, toMotorName, timeoutMs, options);
-		appendToolResults(messages, toolCalls, results, toMotorName);
-		onCheckpoint?.(messages.slice(), ctx.correlationId);
+	} finally {
+		offBudget();
 	}
 }
 

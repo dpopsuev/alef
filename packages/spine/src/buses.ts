@@ -118,6 +118,8 @@ export interface Organ {
 	readonly name: string;
 	readonly tools: readonly ToolDefinition[];
 	mount(nerve: Nerve): () => void;
+	/** Async resource teardown — called after unmount() on dispose. MCP organs use this to close subprocesses. */
+	close?(): Promise<void>;
 	/**
 	 * Optional: declares which Motor and Sense event types this organ subscribes to.
 	 * Set automatically by defineOrgan from the action map keys.

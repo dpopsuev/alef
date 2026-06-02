@@ -56,6 +56,10 @@ class McpOrganImpl implements Organ {
 		};
 	}
 
+	async close(): Promise<void> {
+		await this.client.close();
+	}
+
 	mount(nerve: Nerve): () => void {
 		const offs: Array<() => void> = [];
 
@@ -98,10 +102,8 @@ class McpOrganImpl implements Organ {
 			offs.push(off);
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-misused-promises -- Organ.mount returns () => void; Promise<void> is structurally compatible and the caller does not await unmount
-		return async () => {
+		return () => {
 			for (const off of offs) off();
-			await this.client.close();
 		};
 	}
 }

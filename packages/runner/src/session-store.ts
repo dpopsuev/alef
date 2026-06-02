@@ -105,15 +105,43 @@ export class SessionStore implements ISessionStore {
 	readonly id: string;
 	readonly path: string;
 
-	// In-memory event cache — written synchronously on every append so that
-	// readers (turns(), hitCounts()) always see the latest records without waiting
-	// for the async JSONL flush. Eliminates the read-before-write race that caused
-	// turnsToMessages to return stale context on mid-generation abort (ALE-BUG-46).
+	// Raw event log — append-only, used by events() and to warm turn index.
 	private readonly _cache: StorageRecord[] = [];
+
+	// Incremental turn index — updated on every append() so turns() and
+	// hitCounts() are O(1) reads rather than full-log scans.
+	private readonly _turnMap: Map<string, Turn> = new Map();
+	private _nextTurnIndex = 0;
+	private readonly _turnContentLengths: Map<string, number> = new Map();
+	private readonly _hitCountsMap: Map<string, number> = new Map();
 
 	private constructor(cwd: string, id: string) {
 		this.id = id;
 		this.path = sessionPath(cwd, id);
+	}
+
+	private _indexRecord(record: StorageRecord): void {
+		if (record.bus === "internal" && record.type === "window.assembled") {
+			const ids = (record.payload as WindowAssembledRecord["payload"]).includedTurnIds ?? [];
+			for (const id of ids) {
+				this._hitCountsMap.set(id, (this._hitCountsMap.get(id) ?? 0) + 1);
+			}
+			return;
+		}
+		if (record.bus !== "motor" && record.bus !== "sense" && record.type !== "llm.checkpoint") return;
+
+		const turnId = record.correlationId;
+		let turn = this._turnMap.get(turnId);
+		if (!turn) {
+			turn = { id: turnId, events: [], turnIndex: this._nextTurnIndex++, tokenCost: 0, typeWeight: 0 };
+			this._turnMap.set(turnId, turn);
+			this._turnContentLengths.set(turnId, 0);
+		}
+		turn.events.push(record);
+		turn.typeWeight = Math.max(turn.typeWeight, eventTypeWeight(record.type));
+		const sum = (this._turnContentLengths.get(turnId) ?? 0) + extractContentLength(record.payload);
+		this._turnContentLengths.set(turnId, sum);
+		turn.tokenCost = Math.ceil(sum / 4);
 	}
 
 	private static async _warmCache(store: SessionStore): Promise<SessionStore> {
@@ -123,7 +151,10 @@ export class SessionStore implements ISessionStore {
 				.split("\n")
 				.filter(Boolean)
 				.map((line) => JSON.parse(line) as StorageRecord);
-			store._cache.push(...records);
+			for (const record of records) {
+				store._cache.push(record);
+				store._indexRecord(record);
+			}
 		} catch {
 			// Empty or missing file — cache stays empty.
 		}
@@ -159,7 +190,8 @@ export class SessionStore implements ISessionStore {
 	}
 
 	async append(record: StorageRecord): Promise<void> {
-		this._cache.push(record); // synchronous — immediately visible to turns()
+		this._cache.push(record);
+		this._indexRecord(record);
 		await appendFile(this.path, `${JSON.stringify(record)}\n`, "utf-8");
 	}
 
@@ -210,54 +242,18 @@ export class SessionStore implements ISessionStore {
 	}
 
 	/**
-	 * Group all bus events (not internal records) into Turn[] by correlationId.
-	 * Ordered by first-event timestamp ascending (chronological).
+	 * Group all bus events into Turn[] by correlationId, ordered chronologically.
+	 * Reads from the incremental index built in append() — O(n_turns) not O(n_events).
 	 */
-	async turns(): Promise<Turn[]> {
-		const records = await this.events();
-		// Include llm.checkpoint internal records so turnsToMessages can find them
-		// alongside the motor/sense events for the same correlationId (ALE-TSK-368).
-		const busRecords = records.filter((r) => r.bus === "motor" || r.bus === "sense" || r.type === "llm.checkpoint");
-
-		const turnMap = new Map<string, StorageRecord[]>();
-		for (const r of busRecords) {
-			let list = turnMap.get(r.correlationId);
-			if (!list) {
-				list = [];
-				turnMap.set(r.correlationId, list);
-			}
-			list.push(r);
-		}
-
-		const turns: Turn[] = [];
-		let index = 0;
-		for (const [id, events] of turnMap) {
-			// Estimate token cost from LLM-relevant content only.
-			// totalTokens from usage is the cumulative context size (all turns + system
-			// prompt + tools), not the per-turn cost — do not use it as usageAnchor.
-			const tokenCost = Math.ceil(events.reduce((n, e) => n + extractContentLength(e.payload), 0) / 4);
-			const typeWeight = Math.max(...events.map((e) => eventTypeWeight(e.type)));
-			turns.push({ id, events, turnIndex: index++, tokenCost, typeWeight });
-		}
-
-		return turns;
+	turns(): Promise<Turn[]> {
+		return Promise.resolve(Array.from(this._turnMap.values()));
 	}
 
 	/**
 	 * Count how many times each turn was included in a past context window.
-	 * Computed by replaying window.assembled records.
-	 * Higher hit count → higher LRU frequency score in TurnAssembler.
+	 * Reads from the incremental index built in append() — O(1).
 	 */
-	async hitCounts(): Promise<Map<string, number>> {
-		const records = await this.events();
-		const counts = new Map<string, number>();
-		for (const r of records) {
-			if (r.bus !== "internal" || r.type !== "window.assembled") continue;
-			const ids = (r.payload as WindowAssembledRecord["payload"]).includedTurnIds ?? [];
-			for (const id of ids) {
-				counts.set(id, (counts.get(id) ?? 0) + 1);
-			}
-		}
-		return counts;
+	hitCounts(): Promise<Map<string, number>> {
+		return Promise.resolve(new Map(this._hitCountsMap));
 	}
 }

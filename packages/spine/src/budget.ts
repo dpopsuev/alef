@@ -23,23 +23,6 @@ export function intersectBudgets(limits: Budget, requests: Budget): Budget {
 export function withLimits(limits: Budget): NerveMiddleware {
 	return (nerve: Nerve): Nerve => {
 		let toolCallCount = 0;
-		let elapsedTimer: ReturnType<typeof setTimeout> | undefined;
-
-		if (limits.maxElapsedMs !== undefined) {
-			elapsedTimer = setTimeout(() => {
-				nerve.sense.publish({
-					type: "budget.cancel",
-					correlationId: "*",
-					payload: { reason: "maxElapsedMs", limitMs: limits.maxElapsedMs },
-					isError: false,
-				});
-			}, limits.maxElapsedMs);
-		}
-
-		const cleanup = () => {
-			if (elapsedTimer !== undefined) clearTimeout(elapsedTimer);
-		};
-
 		return {
 			motor: {
 				subscribe: nerve.motor.subscribe.bind(nerve.motor),
@@ -52,7 +35,6 @@ export function withLimits(limits: Budget): NerveMiddleware {
 							isError: true,
 							errorMessage: `[budget] maxToolCalls (${limits.maxToolCalls}) exceeded`,
 						});
-						cleanup();
 						return;
 					}
 					toolCallCount++;
@@ -62,4 +44,17 @@ export function withLimits(limits: Budget): NerveMiddleware {
 			sense: nerve.sense,
 		};
 	};
+}
+
+export function startElapsedTimer(limits: Budget, nerve: Nerve): (() => void) | undefined {
+	if (limits.maxElapsedMs === undefined) return undefined;
+	const timer = setTimeout(() => {
+		nerve.sense.publish({
+			type: "budget.cancel",
+			correlationId: "*",
+			payload: { reason: "maxElapsedMs", limitMs: limits.maxElapsedMs },
+			isError: false,
+		});
+	}, limits.maxElapsedMs);
+	return () => clearTimeout(timer);
 }

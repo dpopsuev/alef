@@ -28,7 +28,7 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny, z } from "zod";
 import type { Budget } from "./budget.js";
-import { withLimits } from "./budget.js";
+import { startElapsedTimer, withLimits } from "./budget.js";
 import type { MotorEvent, Nerve, NerveMiddleware, Organ, SensePublishInput, ToolDefinition } from "./buses.js";
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
@@ -171,6 +171,16 @@ export interface CerebrumAction {
 export type CorpusActionMap = Record<string, CorpusAction | StreamingCorpusAction>;
 export type CerebrumActionMap = Record<string, CerebrumAction>;
 export type ActionMap = Record<string, CorpusAction | StreamingCorpusAction | CerebrumAction>;
+
+// ---------------------------------------------------------------------------
+// Action key helpers
+// ---------------------------------------------------------------------------
+
+function splitActionKey(key: string): { bus: "motor" | "sense"; eventType: string } | null {
+	if (key.startsWith("motor/")) return { bus: "motor", eventType: key.slice("motor/".length) };
+	if (key.startsWith("sense/")) return { bus: "sense", eventType: key.slice("sense/".length) };
+	return null;
+}
 
 // ---------------------------------------------------------------------------
 // Cache helpers
@@ -468,12 +478,8 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		const allowed = new Set(opts.actions);
 		const filtered: ActionMap = {};
 		for (const [key, action] of Object.entries(actions)) {
-			const eventType = key.startsWith("motor/")
-				? key.slice("motor/".length)
-				: key.startsWith("sense/")
-					? key.slice("sense/".length)
-					: key;
-			if (allowed.has(eventType)) {
+			const parsed = splitActionKey(key);
+			if (parsed && allowed.has(parsed.eventType)) {
 				filtered[key] = action;
 			}
 		}
@@ -485,12 +491,13 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		.map((a) => (a as { tool: ToolDefinition }).tool);
 
 	// Derive subscriptions from action map keys for SeamRegistry detection.
-	const motorSubscriptions = Object.keys(actions)
-		.filter((k) => k.startsWith("motor/"))
-		.map((k) => k.slice("motor/".length));
-	const senseSubscriptions = Object.keys(actions)
-		.filter((k) => k.startsWith("sense/"))
-		.map((k) => k.slice("sense/".length));
+	const motorSubscriptions: string[] = [];
+	const senseSubscriptions: string[] = [];
+	for (const key of Object.keys(actions)) {
+		const parsed = splitActionKey(key);
+		if (parsed?.bus === "motor") motorSubscriptions.push(parsed.eventType);
+		else if (parsed?.bus === "sense") senseSubscriptions.push(parsed.eventType);
+	}
 
 	// Validate context metadata for tool-bearing organs.
 	// Organs with no tools are exempt from the directive requirement.
@@ -540,6 +547,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			let nerve = rawNerve;
 			if (opts.limits) nerve = withLimits(opts.limits)(nerve);
 			for (const mw of opts.middlewares ?? []) nerve = mw(nerve);
+			const stopElapsedTimer = opts.limits ? startElapsedTimer(opts.limits, nerve) : undefined;
 			const cache = new Map<string, Record<string, unknown>>();
 
 			// Auto-build inputSchemas from tool definitions — organs don't need to
@@ -547,9 +555,10 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			// Lex SOLID-O: new organs get validation for free without modifying framework.
 			const autoMotorSchemas: Record<string, ZodTypeAny> = {};
 			for (const [key, action] of Object.entries(actions)) {
-				if (key.startsWith("motor/")) {
+				const parsed = splitActionKey(key);
+				if (parsed?.bus === "motor") {
 					const schema = (action as CorpusAction | StreamingCorpusAction).tool?.inputSchema;
-					if (schema) autoMotorSchemas[key.slice("motor/".length)] = schema;
+					if (schema) autoMotorSchemas[parsed.eventType] = schema;
 				}
 			}
 			const motorInputSchemas: Record<string, ZodTypeAny> = {
@@ -558,8 +567,9 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			};
 
 			const unsubs = Object.entries(actions).map(([prefixedKey, action]) => {
-				if (prefixedKey.startsWith("motor/")) {
-					const eventType = prefixedKey.slice("motor/".length);
+				const parsed = splitActionKey(prefixedKey);
+				if (parsed?.bus === "motor") {
+					const { eventType } = parsed;
 					const corpusAction = action as CorpusAction | StreamingCorpusAction;
 					return nerve.motor.subscribe(
 						eventType,
@@ -567,8 +577,8 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 							void dispatchMotorAction(event, corpusAction, nerve, cache, log, motorInputSchemas[eventType]),
 					);
 				}
-				if (prefixedKey.startsWith("sense/")) {
-					const eventType = prefixedKey.slice("sense/".length);
+				if (parsed?.bus === "sense") {
+					const { eventType } = parsed;
 					const cerebrumAction = action as CerebrumAction;
 					return nerve.sense.subscribe(eventType, (event) => {
 						const ctx: CerebrumHandlerCtx = {
@@ -590,7 +600,6 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 								.handle(ctx)
 								.then(() => span.setStatus({ code: SpanStatusCode.OK }))
 								.catch((e: unknown) => {
-									// Orange: cerebrum action failure
 									log.warn(
 										{ op: eventType, correlationId: event.correlationId, error: String(e) },
 										"cerebrum action failed",
@@ -602,13 +611,13 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 						);
 					});
 				}
-				// Orange: misconfigured key — log and skip
 				log.warn({ key: prefixedKey, organ: name }, "action key missing motor/ or sense/ prefix, skipping");
 				return () => {};
 			});
 
 			return () => {
 				for (const off of unsubs) off();
+				stopElapsedTimer?.();
 				cache.clear();
 				opts.onUnmount?.();
 			};

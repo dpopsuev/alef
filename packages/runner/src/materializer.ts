@@ -34,6 +34,7 @@ const BUILTIN_PACKAGES: Record<string, string> = {
 	lector: "@dpopsuev/alef-organ-lector",
 	orchestration: "@dpopsuev/alef-organ-orchestration",
 	delegate: "@dpopsuev/alef-organ-delegate",
+	factory: "@dpopsuev/alef-organ-factory",
 	eval: "@dpopsuev/alef-organ-eval",
 	todos: "@dpopsuev/alef-organ-todos",
 	skills: "@dpopsuev/alef-organ-skills",

@@ -18,6 +18,23 @@ import type {
 export const AGENT_RESOURCE_API_VERSION = "alef.dpopsuev.io/v1alpha1";
 export const AGENT_RESOURCE_KIND = "AgentRuntime";
 
+/**
+ * Schema migration chain.
+ *
+ * Maps old apiVersion strings to a function that transforms the parsed
+ * envelope to the current schema. Applied in sequence when loading a
+ * blueprint that uses an older apiVersion.
+ *
+ * Add an entry here whenever the schema evolves — never change the
+ * current version check below without adding a migration first.
+ *
+ * Example for a future v1beta1 → v1alpha1 downgrade:
+ *   "alef.dpopsuev.io/v1beta1": (env) => ({ ...env, apiVersion: AGENT_RESOURCE_API_VERSION })
+ */
+const MIGRATION_CHAIN: Record<string, (envelope: Record<string, unknown>) => Record<string, unknown>> = {
+	// No migrations yet. v1alpha1 is the only version that has ever existed.
+};
+
 const AgentModelSchema = Type.Object({
 	provider: Type.String({ minLength: 1 }),
 	id: Type.String({ minLength: 1 }),
@@ -482,16 +499,23 @@ export function parseAgentDefinitionYaml(
 	}
 
 	if (isAgentResourceEnvelope(parsed)) {
-		if (parsed.apiVersion !== AGENT_RESOURCE_API_VERSION) {
-			throw new Error(
-				`Unsupported agent resource apiVersion "${parsed.apiVersion}". Expected "${AGENT_RESOURCE_API_VERSION}".`,
-			);
+		let envelope = parsed as unknown as Record<string, unknown>;
+		if (envelope.apiVersion !== AGENT_RESOURCE_API_VERSION) {
+			const migrate = MIGRATION_CHAIN[envelope.apiVersion as string];
+			if (!migrate) {
+				throw new Error(
+					`Unsupported agent resource apiVersion "${envelope.apiVersion}". ` +
+						`Expected "${AGENT_RESOURCE_API_VERSION}" or a migratable version.`,
+				);
+			}
+			envelope = migrate(envelope);
 		}
-		if (parsed.kind !== AGENT_RESOURCE_KIND) {
-			throw new Error(`Unsupported agent resource kind "${parsed.kind}". Expected "${AGENT_RESOURCE_KIND}".`);
+		const current = envelope as typeof parsed;
+		if (current.kind !== AGENT_RESOURCE_KIND) {
+			throw new Error(`Unsupported agent resource kind "${current.kind}". Expected "${AGENT_RESOURCE_KIND}".`);
 		}
-		const resourceMetadata = normalizeResourceMetadata(parsed.metadata);
-		const spec: Record<string, unknown> = { ...parsed.spec };
+		const resourceMetadata = normalizeResourceMetadata(current.metadata);
+		const spec: Record<string, unknown> = { ...current.spec };
 		if (typeof spec.name !== "string" || spec.name.trim().length === 0) {
 			if (resourceMetadata.name) {
 				spec.name = resourceMetadata.name;
@@ -503,8 +527,8 @@ export function parseAgentDefinitionYaml(
 		return compileAgentDefinition(spec as unknown as AgentDefinitionInput, {
 			sourcePath: options.sourcePath,
 			resource: {
-				apiVersion: parsed.apiVersion,
-				kind: parsed.kind,
+				apiVersion: current.apiVersion,
+				kind: current.kind,
 				metadata: resourceMetadata,
 			},
 		});

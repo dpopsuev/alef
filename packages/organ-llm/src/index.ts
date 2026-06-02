@@ -910,3 +910,72 @@ export type {
 } from "@dpopsuev/alef-ai";
 export { findEnvKeys, getEnvApiKey, getModels, getProviders } from "@dpopsuev/alef-ai";
 export type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
+
+// ---------------------------------------------------------------------------
+// Ordered-pipeline — Chain of Responsibility for llm.phase
+// ---------------------------------------------------------------------------
+
+export interface PhaseStageInput {
+	messages: Message[];
+	tools: ToolDefinition[];
+	turn: number;
+}
+
+export interface PhaseStageOutput {
+	messages?: Message[];
+	tools?: ToolDefinition[];
+	skip?: boolean;
+	reply?: string;
+	abort?: boolean;
+}
+
+export type PhaseStageHandler = (input: PhaseStageInput) => Promise<PhaseStageOutput>;
+
+export function createLlmPipeline(stages: PhaseStageHandler[]): Organ {
+	return {
+		name: "llm.pipeline",
+		tools: [],
+		subscriptions: { motor: ["llm.phase"], sense: [] },
+		description: "Ordered llm.phase pipeline — runs PhaseStageHandlers serially, piping messages between stages.",
+		mount(nerve: Nerve): () => void {
+			return nerve.motor.subscribe("llm.phase", (event) => {
+				void (async () => {
+					const payload = event.payload as { messages: Message[]; tools?: ToolDefinition[]; turn: number };
+					let messages: Message[] = payload.messages;
+					let tools: ToolDefinition[] = payload.tools ?? [];
+
+					for (const stage of stages) {
+						const out = await stage({ messages, tools, turn: payload.turn });
+						if (out.abort) {
+							nerve.sense.publish({
+								type: "llm.phase",
+								correlationId: event.correlationId,
+								payload: { abort: true },
+								isError: false,
+							});
+							return;
+						}
+						if (out.messages) messages = out.messages;
+						if (out.tools) tools = out.tools;
+						if (out.skip) {
+							nerve.sense.publish({
+								type: "llm.phase",
+								correlationId: event.correlationId,
+								payload: { skip: true, reply: out.reply ?? "", messages, tools },
+								isError: false,
+							});
+							return;
+						}
+					}
+
+					nerve.sense.publish({
+						type: "llm.phase",
+						correlationId: event.correlationId,
+						payload: { messages, tools },
+						isError: false,
+					});
+				})();
+			});
+		},
+	};
+}

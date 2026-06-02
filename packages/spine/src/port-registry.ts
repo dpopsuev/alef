@@ -66,6 +66,11 @@ export const STANDARD_PORTS: PortDefinition[] = [
 		cardinality: "ordered-pipeline",
 	},
 	{
+		name: "contract_validation",
+		eventPattern: "motor/validate.required",
+		cardinality: "zero-or-many",
+	},
+	{
 		name: "filesystem",
 		eventPattern: "motor/fs.",
 		cardinality: "zero-or-one",

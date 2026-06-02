@@ -1,5 +1,12 @@
 import type { BaseOrganOptions } from "@dpopsuev/alef-spine";
-import { defineOrgan, tool, typedAction } from "@dpopsuev/alef-spine";
+import {
+	defineOrgan,
+	newCorrelationId,
+	tool,
+	typedAction,
+	VALIDATE_REQUEST,
+	VALIDATE_RESULT,
+} from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import type { Contract } from "./contract.js";
 import type { StationDef, WorkflowDef } from "./schema.js";
@@ -62,6 +69,8 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 	);
 }
 
+const AUTO_APPROVE_MS = 5_000;
+
 export function createContractTool<T extends z.ZodTypeAny>(
 	contract: Contract<T>,
 	onSubmit: (data: z.infer<T>) => void,
@@ -76,15 +85,53 @@ export function createContractTool<T extends z.ZodTypeAny>(
 		"contract",
 		{
 			"motor/contract.submit": typedAction(SUBMIT_TOOL, async (ctx) => {
-				const result = contract.schema.safeParse(ctx.payload.data);
-				if (result.success) {
-					onSubmit(result.data);
+				const schemaResult = contract.schema.safeParse(ctx.payload.data);
+				if (!schemaResult.success) {
+					const errors = schemaResult.error.issues
+						.map((i: z.ZodIssue) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+						.join("; ");
+					return { success: false, errors };
+				}
+
+				const validated = schemaResult.data;
+
+				if (!contract.validator) {
+					onSubmit(validated);
 					return { success: true, message: "Contract fulfilled." };
 				}
-				const errors = result.error.issues
-					.map((i: z.ZodIssue) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-					.join("; ");
-				return { success: false, errors };
+
+				const id = newCorrelationId();
+				const { motor, sense } = ctx as unknown as {
+					motor: { publish: (e: unknown) => void };
+					sense: { subscribe: (type: string, h: (e: unknown) => void) => () => void };
+				};
+
+				return new Promise<Record<string, unknown>>((resolve) => {
+					const timer = setTimeout(() => {
+						off();
+						onSubmit(validated);
+						resolve({ success: true, message: "Contract fulfilled (auto-approved — no evaluator responded)." });
+					}, AUTO_APPROVE_MS);
+
+					const off = sense.subscribe(VALIDATE_RESULT, (event: unknown) => {
+						const e = event as { payload: { id: string; approved: boolean; feedback?: string } };
+						if (e.payload.id !== id) return;
+						clearTimeout(timer);
+						off();
+						if (e.payload.approved) {
+							onSubmit(validated);
+							resolve({ success: true, message: "Contract fulfilled." });
+						} else {
+							resolve({ success: false, errors: e.payload.feedback ?? "Rejected by evaluator." });
+						}
+					});
+
+					motor.publish({
+						type: VALIDATE_REQUEST,
+						payload: { id, output: validated, kind: contract.validator, context: contract.intent },
+						correlationId: (ctx as unknown as { correlationId: string }).correlationId,
+					});
+				});
 			}),
 		},
 		{

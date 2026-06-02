@@ -5,6 +5,7 @@ export const StationDefSchema = z.object({
 	contract: z.enum(["intent", "goal", "implement"]).describe("Preset contract name"),
 	blueprint: z.string().optional().describe("Agent blueprint name from manifest"),
 	timeoutMs: z.number().optional(),
+	validator: z.enum(["human", "agent", "machine"]).optional().describe("Who evaluates the contract output"),
 });
 
 export const EdgeDefSchema = z.object({

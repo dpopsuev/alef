@@ -730,7 +730,6 @@ export function createCerebrum(options: CerebrumOptions): Organ {
 						},
 						correlationId: ctx.correlationId,
 					});
-					throw err; // re-throw so OTel span is marked as error
 				}
 			},
 		},

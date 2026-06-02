@@ -126,8 +126,15 @@ export class Agent {
 	 */
 	load(organ: Organ): this {
 		if (this.disposed) throw new Error("Agent is disposed - cannot load organs.");
+		// Push to _organs tentatively; roll back if mount() throws so indices stay aligned.
 		this._organs.push(organ);
-		const unmount = organ.mount(withPayloadValidation(this.nerve.asNerve(), organ));
+		let unmount: () => void;
+		try {
+			unmount = organ.mount(withPayloadValidation(this.nerve.asNerve(), organ));
+		} catch (err) {
+			this._organs.pop();
+			throw err;
+		}
 		this.unmounts.push(unmount);
 		this._tools.push(...organ.tools);
 		return this;

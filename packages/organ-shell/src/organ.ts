@@ -32,6 +32,22 @@ const SHELL_EXEC_TOOL = {
 };
 
 // ---------------------------------------------------------------------------
+// Typed error
+// ---------------------------------------------------------------------------
+
+export class ShellTimeoutError extends Error {
+	readonly timedOut = true;
+	readonly exitCode: number;
+	readonly output: string;
+	constructor(timeoutMs: number, exitCode: number, output: string) {
+		super(`shell.exec timed out after ${timeoutMs}ms`);
+		this.name = "ShellTimeoutError";
+		this.exitCode = exitCode;
+		this.output = output;
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
 
@@ -63,6 +79,37 @@ export interface ShellOrganOptions {
 }
 
 // ---------------------------------------------------------------------------
+// Async push queue — converts Node.js event callbacks into an async iterable.
+// ---------------------------------------------------------------------------
+
+async function* pushQueue<T>(register: (push: (item: T) => void, done: () => void) => void): AsyncIterable<T> {
+	const queue: T[] = [];
+	let notify: (() => void) | null = null;
+	let finished = false;
+
+	register(
+		(item) => {
+			queue.push(item);
+			notify?.();
+		},
+		() => {
+			finished = true;
+			notify?.();
+		},
+	);
+
+	while (!finished || queue.length > 0) {
+		if (queue.length === 0) {
+			await new Promise<void>((r) => {
+				notify = r;
+			});
+			notify = null;
+		}
+		while (queue.length > 0) yield queue.shift() as T;
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Streaming handler
 // ---------------------------------------------------------------------------
 
@@ -85,70 +132,56 @@ async function* streamExec(
 		env: { ...getShellEnv({ binDir: opts.binDir }), COLUMNS: "220", LINES: "50" },
 	});
 
-	let timer: ReturnType<typeof setTimeout> | undefined;
+	let timedOut = false;
+	let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
+	let sigkillTimer2: ReturnType<typeof setTimeout> | undefined;
+
 	if (timeoutMs !== undefined) {
-		timer = setTimeout(() => {
+		sigkillTimer = setTimeout(() => {
+			timedOut = true;
 			child.kill("SIGTERM");
+			sigkillTimer2 = setTimeout(() => child.kill("SIGKILL"), 5000);
 		}, timeoutMs);
 	}
 
 	try {
-		// Yield stdout/stderr chunks as they arrive
 		const chunks: Buffer[] = [];
 		let exitCode = 0;
 
-		yield* (async function* () {
-			const dataQueue: Buffer[] = [];
-			let resolve: (() => void) | null = null;
-			let done = false;
-
-			const push = (buf: Buffer) => {
-				dataQueue.push(buf);
-				resolve?.();
-			};
-
+		for await (const buf of pushQueue<Buffer>((push, done) => {
 			child.stdout?.on("data", push);
 			child.stderr?.on("data", push);
-
 			child.on("close", (code) => {
 				exitCode = code ?? 0;
-				done = true;
-				resolve?.();
+				done();
 			});
+		})) {
+			chunks.push(buf);
+			yield { chunk: buf.toString("utf-8") };
+		}
 
-			while (!done || dataQueue.length > 0) {
-				if (dataQueue.length === 0) {
-					await new Promise<void>((r) => {
-						resolve = r;
-					});
-					resolve = null;
-				}
-				while (dataQueue.length > 0) {
-					const buf = dataQueue.shift() as Buffer;
-					chunks.push(buf);
-					yield { chunk: buf.toString("utf-8") };
-				}
-			}
-
-			const raw = Buffer.concat(chunks).toString("utf-8");
-			const tr = truncateTail(raw, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-			if (exitCode !== 0) {
-				throw Object.assign(new Error(`exit code ${exitCode}`), { exitCode, output: tr.content });
-			}
-			const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
-			yield withDisplay(
-				{
-					output: tr.content,
-					exitCode,
-					truncated: tr.truncated,
-					totalLines: tr.totalLines,
-					totalBytes: tr.totalBytes,
-				},
-				{ text: `\`\`\`\n${tr.content}${truncNote}\n\`\`\``, mimeType: "text/markdown" },
-			);
-		})();
+		const raw = Buffer.concat(chunks).toString("utf-8");
+		const tr = truncateTail(raw, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
+		if (timedOut) {
+			throw new ShellTimeoutError(timeoutMs as number, exitCode, tr.content);
+		}
+		if (exitCode !== 0) {
+			throw Object.assign(new Error(`exit code ${exitCode}`), { exitCode, output: tr.content });
+		}
+		const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
+		yield withDisplay(
+			{
+				output: tr.content,
+				exitCode,
+				truncated: tr.truncated,
+				totalLines: tr.totalLines,
+				totalBytes: tr.totalBytes,
+			},
+			{ text: `\`\`\`\n${tr.content}${truncNote}\n\`\`\``, mimeType: "text/markdown" },
+		);
 	} finally {
-		if (timer) clearTimeout(timer);
+		if (sigkillTimer) clearTimeout(sigkillTimer);
+		if (sigkillTimer2) clearTimeout(sigkillTimer2);
 	}
 }
 

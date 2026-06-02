@@ -228,7 +228,9 @@ export class Agent {
 	unload(name: string): boolean {
 		const idx = this._organs.findIndex((o) => o.name === name);
 		if (idx === -1) return false;
+		const organ = this._organs[idx];
 		this.unmounts[idx]?.();
+		void organ?.close?.();
 		this._organs.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
 		// Recompute tools from remaining organs.
@@ -249,8 +251,10 @@ export class Agent {
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;
-		this.controller.abort(); // cancel in-flight LLM HTTP requests
+		this.controller.abort();
 		for (const unmount of this.unmounts) unmount();
+		const closePromises = this._organs.map((o) => o.close?.()).filter((p): p is Promise<void> => p !== undefined);
+		void Promise.all(closePromises);
 		this.unmounts.length = 0;
 	}
 }

@@ -259,18 +259,18 @@ export class ModalInputHandler {
 			return { consume: true };
 		}
 
+		// ':' — enters command line from any outer mode (Insert or Normal).
+		if (this.kb.matches(data, "app.mode.command")) {
+			this.enterCmdMode();
+			return { consume: true };
+		}
+
 		if (this.outerMode === "insert") {
 			return undefined; // passthrough — editor owns Insert-mode keys
 		}
 
 		// ── NORMAL MODE ────────────────────────────────────────────────────────
 		this.clearHint();
-
-		// ':' — enter command line (Neovim: nv_colon → command_line_enter).
-		if (this.kb.matches(data, "app.mode.command")) {
-			this.enterCmdMode();
-			return { consume: true };
-		}
 
 		// ── Double-press chord: d<motion> ────────────────────────────────────
 		if (this.pendingD) {

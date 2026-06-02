@@ -24,12 +24,15 @@ export function withLimits(limits: Budget): NerveMiddleware {
 	return (nerve: Nerve): Nerve => {
 		let toolCallCount = 0;
 		let elapsedTimer: ReturnType<typeof setTimeout> | undefined;
-		let abortController: AbortController | undefined;
 
 		if (limits.maxElapsedMs !== undefined) {
-			abortController = new AbortController();
 			elapsedTimer = setTimeout(() => {
-				abortController?.abort(new Error(`[budget] maxElapsedMs (${limits.maxElapsedMs}ms) exceeded`));
+				nerve.sense.publish({
+					type: "budget.cancel",
+					correlationId: "*",
+					payload: { reason: "maxElapsedMs", limitMs: limits.maxElapsedMs },
+					isError: false,
+				});
 			}, limits.maxElapsedMs);
 		}
 

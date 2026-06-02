@@ -79,7 +79,9 @@ if (
 	args.pmSearch !== undefined ||
 	args.pmSbom ||
 	args.pmOrganList ||
-	args.pmOrganNew !== undefined
+	args.pmOrganNew !== undefined ||
+	args.pmExport !== undefined ||
+	args.pmImport !== undefined
 ) {
 	const pm = await import("./alef-pm.js");
 	pm.init();
@@ -156,6 +158,15 @@ if (
 		console.log(`  npm install`);
 		console.log(`  npm run build`);
 		console.log(`  alef install ./${dir.split("/").pop() ?? ""}`);
+	} else if (args.pmExport !== undefined) {
+		const outputPath = typeof args.pmExport === "string" ? args.pmExport : undefined;
+		const written = pm.exportLockfile(args.cwd, outputPath);
+		console.log(`Exported organ lockfile → ${written}`);
+		console.log("Commit this file alongside your code for reproducible organ installs.");
+	} else if (args.pmImport !== undefined) {
+		const inputPath = typeof args.pmImport === "string" ? args.pmImport : undefined;
+		const gen = await pm.importLockfile(args.cwd, inputPath);
+		console.log(`Restored organs from lockfile (generation ${gen})`);
 	}
 	process.exit(0);
 }

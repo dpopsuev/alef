@@ -388,3 +388,71 @@ export function resolveOrganPath(name: string): string | undefined {
 	}
 	return undefined;
 }
+
+// ---------------------------------------------------------------------------
+// Project-level lockfile — commit organ versions alongside code (like Cargo.lock)
+// ---------------------------------------------------------------------------
+
+export interface ProjectLockfile {
+	/** Alef version that wrote this lockfile. */
+	alef: string;
+	/** ISO timestamp of the export. */
+	exportedAt: string;
+	/** Generation ID at time of export. */
+	generationId: number;
+	/** Organ name → exact resolved version. */
+	organs: Record<string, string>;
+}
+
+const PROJECT_LOCKFILE_NAME = "alef-organs.lock";
+
+/**
+ * Export the current organ generation as a project-level lockfile.
+ * Write it to `outputPath` (default: `<cwd>/alef-organs.lock`) so it
+ * can be committed to the project repository alongside the code.
+ */
+export function exportLockfile(cwd = process.cwd(), outputPath?: string): string {
+	const genId = currentGenId();
+	const lockContent = existsSync(LOCK_FILE) ? readFileSync(LOCK_FILE, "utf-8") : "{}";
+	const organs = parseLockOrgans(lockContent);
+
+	const lockfile: ProjectLockfile = {
+		alef: process.env.npm_package_version ?? "unknown",
+		exportedAt: new Date().toISOString(),
+		generationId: genId,
+		organs,
+	};
+
+	const target = outputPath ?? join(cwd, PROJECT_LOCKFILE_NAME);
+	writeFileSync(target, `${JSON.stringify(lockfile, null, 2)}\n`, "utf-8");
+	return target;
+}
+
+/**
+ * Import a project-level lockfile and restore the exact organ versions.
+ * Reads `<cwd>/alef-organs.lock` (or `inputPath`), installs pinned versions,
+ * and snapshots the result as a new generation.
+ */
+export async function importLockfile(cwd = process.cwd(), inputPath?: string): Promise<number> {
+	const source = inputPath ?? join(cwd, PROJECT_LOCKFILE_NAME);
+	if (!existsSync(source)) {
+		throw new Error(`alef-organs.lock not found at ${source}. Run 'alef pm export' first.`);
+	}
+
+	const lockfile = JSON.parse(readFileSync(source, "utf-8")) as ProjectLockfile;
+	if (!lockfile.organs || typeof lockfile.organs !== "object") {
+		throw new Error(`Invalid alef-organs.lock: missing organs field.`);
+	}
+
+	init();
+
+	const pinned = Object.entries(lockfile.organs)
+		.map(([name, version]) => `${name}@${version}`)
+		.join(" ");
+
+	if (pinned.length > 0) {
+		await runNpm("install", "--save-exact", ...pinned.split(" "));
+	}
+
+	return snapshotGeneration();
+}

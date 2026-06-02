@@ -21,21 +21,22 @@ describe("buildSystemPrompt", () => {
 		expect(prompt).toContain("(no tools loaded)");
 	});
 
-	it("includes fs-conditional guidance when fs tools present", () => {
+	it("includes universal guidelines, not organ-specific guidance", () => {
 		const prompt = buildSystemPrompt({ tools: FS_TOOLS });
-		expect(prompt).toContain("read a file before editing");
+		expect(prompt).toContain("Guidelines");
+		expect(prompt).not.toContain("read a file before editing");
 	});
 
-	it("includes shell guidance when shell tool present", () => {
+	it("does not embed shell-specific guidance — that lives in organ directives", () => {
 		const prompt = buildSystemPrompt({ tools: SHELL_TOOLS });
-		expect(prompt).toContain("shell.exec");
-		expect(prompt).toContain("compilation");
+		expect(prompt).not.toContain("compilation");
 	});
 
-	it("does NOT include date or cwd — those are appended separately", () => {
+	it("includes date and cwd via the environment block", () => {
 		const prompt = buildSystemPrompt({ tools: [] });
-		expect(prompt).not.toMatch(/\d{4}-\d{2}-\d{2}/); // no date
-		expect(prompt).not.toContain("Working directory");
+		const today = new Date().toISOString().split("T")[0];
+		expect(prompt).toContain(today);
+		expect(prompt).toContain("Directory:");
 	});
 });
 

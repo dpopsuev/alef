@@ -14,7 +14,7 @@ const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));
 const TSCONFIG = fileURLToPath(new URL("../../../tsconfig.json", import.meta.url));
 
-const SKIP_LLM = !hasCredentials();
+const SKIP_LLM = !hasCredentials() || !process.env.ALEF_E2E_TESTS;
 
 interface RunResult {
 	stdout: string;

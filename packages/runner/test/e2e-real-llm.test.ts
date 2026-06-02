@@ -84,7 +84,9 @@ function withDebugDump(): void {
 // Gate
 // ---------------------------------------------------------------------------
 
-const HAVE_LLM = Boolean(process.env.ANTHROPIC_API_KEY) || Boolean(process.env.ANTHROPIC_VERTEX_PROJECT_ID);
+const HAVE_LLM =
+	(Boolean(process.env.ANTHROPIC_API_KEY) || Boolean(process.env.ANTHROPIC_VERTEX_PROJECT_ID)) &&
+	Boolean(process.env.ALEF_E2E_TESTS);
 
 // Model selection: ALEF_EVAL_MODEL → ALEF_MODEL → runner's own DEFAULT_MODEL.
 // Set via env var; the runner resolves its default in args.ts.

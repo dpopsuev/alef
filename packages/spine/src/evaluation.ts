@@ -6,6 +6,7 @@ export interface ValidateRequest {
 	output: unknown;
 	kind?: string;
 	context?: string;
+	targetOrgan?: string;
 }
 
 export interface ValidateResult {

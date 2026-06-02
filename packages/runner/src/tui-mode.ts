@@ -31,6 +31,7 @@ import { DynamicText } from "./tui/dynamic-text.js";
 import { StreamingZone } from "./tui/streaming-zone.js";
 import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent } from "./tui/tool-view.js";
 import { Typewriter } from "./tui/typewriter.js";
+import { checkForUpdate } from "./version-check.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
 // Re-export primitives still used by tests and tui-commands.test.ts
@@ -833,6 +834,18 @@ export async function runTuiMode(
 	// Signal for smoke tests: TUI is fully initialised and accepting input.
 	// Written only when ALEF_DEBUG=1 to avoid polluting normal output.
 	if (process.env.ALEF_DEBUG === "1") process.stdout.write("[ALEF_READY]\n");
+
+	// Async version check — never blocks startup, shows a notice if a newer release exists.
+	checkForUpdate()
+		.then((notice) => {
+			if (notice) {
+				writer.addNotice(notice);
+				tui.requestRender();
+			}
+		})
+		.catch(() => {
+			/* network failures are silent */
+		});
 
 	await new Promise<void>((resolve) => {
 		tui.onStop = () => {

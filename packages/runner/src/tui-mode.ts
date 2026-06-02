@@ -323,22 +323,22 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 				return true;
 			}
 			ctx.writer.addUserMessage(`[meta] ${prompt}`);
+			ctx.writer.addNotice("[meta] \u2508");
 			ctx.tui.requestRender();
 			import("./meta-agent.js")
 				.then(async (m) => {
-					const chunks: string[] = [];
+					let accumulated = "";
 					const reply = await m.runMetaAgent(
 						prompt,
 						ctx.opts?.getModel?.(),
 						(chunk) => {
-							chunks.push(chunk);
-							ctx.writer.addNotice(`[meta] ${chunks.join("")}`);
+							accumulated += chunk;
+							ctx.writer.addNotice(`[meta] ${accumulated}`);
 							ctx.tui.requestRender();
 						},
 						ctx.getDirective,
 					);
-					// Final settled reply (in case streaming wasn't available)
-					if (chunks.length === 0 && reply) {
+					if (!accumulated && reply) {
 						ctx.writer.addNotice(`[meta] ${reply}`);
 						ctx.tui.requestRender();
 					}

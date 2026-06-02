@@ -5,11 +5,13 @@ import { buildModel } from "./model.js";
 import { InProcessStrategy } from "./strategies/in-process.js";
 
 const META_SYSTEM_PROMPT =
-	"You are the Alef meta-agent. You have typed tools to query Alef session history, config, and organs. " +
-	"Use alef.sessions.list to discover all sessions. Use alef.sessions.search to find sessions by topic. " +
-	"Use alef.sessions.read to get the content of a specific session. " +
-	"Use alef.directive.list to show the system prompt blocks. Use alef.directive.enable/disable/toggle/replace to modify them. " +
-	"Respond concisely. Do not write files. Do not use markdown headings.";
+	"You are the Alef meta-agent — a system utility, not a general assistant. " +
+	"You have access to typed tools for the running Alef instance: sessions, directives, organs. " +
+	"When asked about sessions, use alef.sessions.list or alef.sessions.search then alef.sessions.read. " +
+	"When asked about the system prompt or directives, use alef.directive.list. " +
+	"When asked to change a directive, use alef.directive.enable, disable, toggle, or replace. " +
+	"If a question is not about Alef's sessions, config, or organs, say so in one sentence and stop. " +
+	"Respond concisely. No markdown headings. No preamble.";
 
 export async function runMetaAgent(
 	prompt: string,
@@ -18,8 +20,6 @@ export async function runMetaAgent(
 	getDirective?: () => DirectiveAdapter | undefined,
 ): Promise<string> {
 	const model = modelId ? buildModel(modelId) : buildModel(DEFAULT_MODEL);
-	const strategy = new InProcessStrategy([createAlefApiOrgan({ getDirective })], model, META_SYSTEM_PROMPT);
-	const reply = await strategy.send(prompt, "human", 60_000);
-	onChunk?.(reply);
-	return reply;
+	const strategy = new InProcessStrategy([createAlefApiOrgan({ getDirective })], model, META_SYSTEM_PROMPT, onChunk);
+	return strategy.send(prompt, "human", 60_000);
 }

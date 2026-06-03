@@ -234,6 +234,9 @@ export class Directives {
 	}
 }
 
+/** Wrap content in an XML tag: `<name>\ncontent\n</name>` */
+export const tag = (name: string, content: string): string => `<${name}>\n${content}\n</${name}>`;
+
 /**
  * XML renderer — wraps each directive block in a tag named by its id.
  *
@@ -242,5 +245,4 @@ export class Directives {
  * Claude parses XML-tagged sections unambiguously regardless of block length.
  * Use this as the default renderer in createDefaultDirectives.
  */
-export const xmlRenderer: DirectiveRenderer = (blocks) =>
-	blocks.map((b) => `<${b.id}>\n${b.content}\n</${b.id}>`).join("\n\n");
+export const xmlRenderer: DirectiveRenderer = (blocks) => blocks.map((b) => tag(b.id, b.content)).join("\n\n");

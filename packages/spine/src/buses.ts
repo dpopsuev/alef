@@ -198,6 +198,28 @@ export interface Organ {
 // ---------------------------------------------------------------------------
 
 /**
+ * Reasoner — kernel-level interface for the agent's reasoning component.
+ *
+ * A Reasoner is NOT an Organ in the microkernel sense: it provides no tools,
+ * does not respond to tool-call commands, and is not called by the LLM.
+ * It is the component that CALLS organs and drives the agent loop.
+ *
+ * Distinguishing properties:
+ *   - tools is always empty (Reasoner never appears in the tool catalog)
+ *   - triggerEvent is the sense event that starts a turn (configurable — any sense event)
+ *   - replyEvent is the motor event published when the turn completes
+ *
+ * Multiple implementations are possible: Cerebrum (real LLM), ScriptedReasoner
+ * (deterministic test double), or future alternatives. The triggerEvent parameter
+ * enables ambient agents driven by any sense event, not just dialog.message.
+ */
+export interface Reasoner extends Organ {
+	readonly tools: readonly [];
+	readonly triggerEvent: string;
+	readonly replyEvent: string;
+}
+
+/**
  * Returns true when an organ contributes nothing to the system:
  * zero tools, zero motor subscriptions, zero sense subscriptions.
  * Use in ablation studies to assert a component was effectively removed.

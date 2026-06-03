@@ -1,5 +1,3 @@
-import type { Agent } from "@dpopsuev/alef-corpus";
-
 import type { Args } from "./args.js";
 import type { ToolSlot } from "./build-llm-organ.js";
 import { trace } from "./debug-trace.js";
@@ -11,7 +9,6 @@ import type { Session } from "./session.js";
 import { runTuiMode } from "./tui-mode.js";
 
 export interface RunAgentOptions {
-	agent: Agent;
 	args: Args;
 	resolvedModelDisplay: string;
 	sessionId: string;
@@ -29,7 +26,7 @@ export interface RunAgentOptions {
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<void> {
-	const { agent, args } = opts;
+	const { args } = opts;
 
 	process.once("SIGINT", () => {
 		process.exit(0);
@@ -39,7 +36,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 	process.once("SIGTERM", async () => {
 		process.stderr.write("\n[signal] SIGTERM — shutting down cleanly\n");
 		try {
-			agent.dispose();
+			opts.session.dispose();
 			await shutdownOTel();
 		} finally {
 			process.exit(0);

@@ -24,6 +24,8 @@ import {
 	type KnownProvider,
 	type Model,
 } from "@dpopsuev/alef-organ-llm";
+import type { Args } from "./args.js";
+import type { AlefConfig } from "./config.js";
 import { getConfig } from "./config.js";
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_HOST ?? "http://localhost:11434/v1";
@@ -201,6 +203,30 @@ export function hasCredentials(): boolean {
 /**
  * Return a human-readable summary of detected credentials for the warning message.
  */
+/**
+ * Resolve the startup model and emit credential warnings.
+ * Absorbs hasCredentials + detectedProviders + autoDetectModel so main.ts
+ * imports one symbol for everything related to "which model are we using".
+ */
+export function resolveStartupModel(
+	args: Pick<Args, "modelId" | "debug">,
+	blueprintModelId: string | undefined,
+	cfg: AlefConfig,
+): Model<Api> {
+	if (!hasCredentials()) {
+		console.warn(
+			"Warning: no LLM credentials detected.\n" +
+				"Set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY).\n",
+		);
+	} else if (args.debug) {
+		process.stderr.write(`[alef] detected providers: ${detectedProviders().join(", ")}\n`);
+	}
+	const resolvedId = args.modelId ?? blueprintModelId ?? cfg.model;
+	return resolvedId ? buildModel(resolvedId) : (autoDetectModel() ?? buildModel(DEFAULT_MODEL_FALLBACK));
+}
+
+const DEFAULT_MODEL_FALLBACK = "claude-sonnet-4-5@20250929";
+
 export function detectedProviders(): string[] {
 	const found: string[] = [];
 	if (process.env.OLLAMA_HOST) found.push("ollama");

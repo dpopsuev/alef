@@ -16,8 +16,20 @@
 
 import type { Logger } from "pino";
 import pino from "pino";
+import { debugLogPath } from "./debug-trace.js";
 
 export type { Logger };
+
+/**
+ * Create the runner logger for the current invocation mode.
+ * Chooses between stderr (non-TUI) and file (TUI) transports internally.
+ */
+export function createRunnerLogger(willUseTui: boolean, debug: boolean): Logger {
+	const level = debug ? "debug" : undefined;
+	return willUseTui && (debug || process.env.ALEF_LOG_LEVEL === "debug")
+		? createLoggerForTui(debugLogPath(), level)
+		: createLogger(level);
+}
 
 export function createLogger(level?: string): Logger {
 	return pino({

@@ -40,29 +40,12 @@ const WHICHKEY_TIMEOUT_MS = Number(process.env.ALEF_WHICHKEY_TIMEOUT_MS ?? 600);
 const WHICHKEY_HINT =
 	"h/j/k/l move  w/b word  i/a insert  dd/dw delete  u/ctrl+r undo/redo  yy/p yank/paste  : command";
 
-/** Colon command registry — shown in tab completion and :help. */
-export const COLON_COMMANDS: Record<string, string> = {
-	":q": "Quit",
-	":quit": "Quit",
-	":exit": "Quit",
-	":new": "Clear conversation",
-	":clear": "Clear conversation",
-	":session": "Show session ID",
-	":login": "Save API key — :login <provider> <key>",
-	":logout": "Remove stored API key — :logout <provider>",
-	":help": "Show help",
-	":h": "Show help",
-	":reload": "Hot-reload an organ — :reload <name>",
-	":install": "Install an organ — :install <organ>[@version]",
-	":upgrade": "Upgrade installed organs",
-	":rollback": "Roll back to previous organ generation — :rollback [N]",
-	":model": "Change model — :model <id>",
-	":theme": "Change theme — :theme <name>  (terminal | terminal-light | akko | mono | matrix)",
-	":meta": "Ask the Alef meta-agent — :meta <prompt>  (e.g. :meta list my sessions)",
-	":directive": "Manage system prompt blocks — :directive list | enable <id> | disable <id> | toggle <id>",
-};
+import { registry } from "./commands/index.js";
 
-const allCommandNames = Object.keys(COLON_COMMANDS).sort();
+const allCommandNames = registry
+	.list()
+	.map((c) => `:${c.name}`)
+	.sort();
 
 export class ModalInputHandler {
 	private outerMode: ModalMode = "insert";

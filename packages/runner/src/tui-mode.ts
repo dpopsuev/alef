@@ -16,16 +16,16 @@ import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-orga
 import { getProviders } from "@dpopsuev/alef-organ-llm";
 import { Container, matchesKey, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
+import { registry } from "./commands/index.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
-import { COLON_COMMANDS, ModalInputHandler } from "./modal-input.js";
-import { buildModel } from "./model.js";
+import { ModalInputHandler } from "./modal-input.js";
 import type { SessionGuard } from "./session-guard.js";
 import { renderSplash } from "./splash.js";
-import { boldColor, color, getTheme, glyph, setThemeByName, type ThemeTokens } from "./theme.js";
+import { boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { ChatWriter } from "./tui/chat-writer.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 import { StreamingZone } from "./tui/streaming-zone.js";
@@ -70,8 +70,12 @@ export interface TuiHandlerContext {
 	abortCurrentTurn: (() => void) | undefined;
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
 	setLLMController(ctrl: AbortController | undefined): void;
-	/** Hot-reload a named organ by path (ALE-TSK-348). Undefined when not supported. */
+	/** Hot-reload a named organ by path. Undefined when not supported. */
 	reloadOrgan?: (name: string, path: string) => Promise<void>;
+	/** Mount a new organ from a TypeScript file path. Undefined when not supported. */
+	loadOrgan?: (path: string) => Promise<void>;
+	/** Unmount a loaded organ by name. Returns false if no organ with that name. */
+	unloadOrgan?: (name: string) => boolean;
 	/** Returns the active prompt scroll adapter, or undefined when unavailable. */
 	getDirective?: () => DirectiveAdapter | undefined;
 }
@@ -118,8 +122,9 @@ function helpText(): string {
 	const slashLines = Object.entries(COMMANDS)
 		.map(([cmd, desc]) => `  ${cmd.padEnd(12)} ${desc}`)
 		.join("\n");
-	const colonLines = Object.entries(COLON_COMMANDS)
-		.map(([cmd, desc]) => `  ${cmd.padEnd(12)} ${desc}`)
+	const colonLines = registry
+		.list()
+		.map((c) => `  :${c.name.padEnd(11)} ${c.description}`)
 		.join("\n");
 	return `Normal-mode commands (press ':' then type):\n${colonLines}\n\nInsert-mode slash aliases:\n${slashLines}`;
 }
@@ -185,283 +190,15 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 
 export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolean {
 	const parts = text.trim().split(/\s+/);
-	const cmd = (parts[0] ?? "").toLowerCase();
-	switch (cmd) {
-		case ":q":
-		case ":quit":
-		case ":exit":
-			ctx.dispose();
-			ctx.tui.stop();
-			return true;
-		case ":new":
-		case ":clear":
-			ctx.writer.clearAll();
-			ctx.writer.addNotice("(conversation cleared)");
-			ctx.tui.requestRender(true);
-			return true;
-		case ":session":
-			ctx.writer.addNotice(`session: ${ctx.sessionId}`);
-			ctx.tui.requestRender();
-			return true;
-		case ":login": {
-			const provider = parts[1];
-			const key = parts.slice(2).join(" ").trim();
-			if (!provider || !key) {
-				const known = getProviders().slice(0, 8).join(", ");
-				ctx.writer.addNotice(`Usage: :login <provider> <api-key>\nKnown providers: ${known}`);
-			} else {
-				setStoredApiKey(provider, key);
-				ctx.writer.addNotice(`Saved API key for ${provider}. Takes effect on the next message.`);
-			}
-			ctx.tui.requestRender();
-			return true;
-		}
-		case ":logout": {
-			const provider = parts[1];
-			if (!provider) {
-				ctx.writer.addNotice("Usage: :logout <provider>");
-			} else if (!getStoredApiKey(provider)) {
-				ctx.writer.addNotice(`No stored key for ${provider}.`);
-			} else {
-				removeStoredApiKey(provider);
-				ctx.writer.addNotice(`Removed stored key for ${provider}.`);
-			}
-			ctx.tui.requestRender();
-			return true;
-		}
-		case ":help":
-		case ":h":
-			ctx.writer.addNotice(helpText());
-			ctx.tui.requestRender();
-			return true;
-		case ":reload": {
-			const organName = parts[1];
-			const organPath = parts[2];
-			if (!organName || !organPath) {
-				ctx.writer.addNotice("Usage: :reload <name> <path>");
-				ctx.tui.requestRender();
-				return true;
-			}
-			if (!ctx.reloadOrgan) {
-				ctx.writer.addNotice(":reload not available in this session.");
-				ctx.tui.requestRender();
-				return true;
-			}
-			ctx.writer.addNotice(`Reloading ${organName}…`);
-			ctx.tui.requestRender();
-			ctx.reloadOrgan(organName, organPath)
-				.then(() => {
-					ctx.writer.addNotice(`Reloaded ${organName}.`);
-					ctx.tui.requestRender();
-				})
-				.catch((e: unknown) => {
-					ctx.writer.addNotice(`Reload failed: ${e instanceof Error ? e.message : String(e)}`);
-					ctx.tui.requestRender();
-				});
-			return true;
-		}
-		case ":install": {
-			const spec = parts[1];
-			if (!spec) {
-				ctx.writer.addNotice("Usage: :install <organ>[@version]");
-				ctx.tui.requestRender();
-				return true;
-			}
-			ctx.writer.addNotice(`Installing ${spec}…`);
-			ctx.tui.requestRender();
-			import("./alef-pm.js")
-				.then(async (pm) => {
-					pm.init();
-					const [name, version] = spec.split("@");
-					const gen = await pm.install(name, version);
-					ctx.writer.addNotice(`Installed ${spec} (generation ${gen})`);
-					ctx.tui.requestRender();
-				})
-				.catch((e: unknown) => {
-					ctx.writer.addNotice(`Install failed: ${e instanceof Error ? e.message : String(e)}`);
-					ctx.tui.requestRender();
-				});
-			return true;
-		}
-		case ":upgrade": {
-			ctx.writer.addNotice("Upgrading organs…");
-			ctx.tui.requestRender();
-			import("./alef-pm.js")
-				.then(async (pm) => {
-					pm.init();
-					const gen = await pm.upgrade();
-					ctx.writer.addNotice(`Organs upgraded (generation ${gen})`);
-					ctx.tui.requestRender();
-				})
-				.catch((e: unknown) => {
-					ctx.writer.addNotice(`Upgrade failed: ${e instanceof Error ? e.message : String(e)}`);
-					ctx.tui.requestRender();
-				});
-			return true;
-		}
-		case ":rollback": {
-			import("./alef-pm.js")
-				.then(async (pm) => {
-					pm.init();
-					const entries = pm.history();
-					const n = parts[1] ? parseInt(parts[1], 10) : (entries[1]?.id ?? 1);
-					await pm.rollback(n);
-					ctx.writer.addNotice(`Rolled back to generation ${n}. Restart Alef to load the restored organs.`);
-					ctx.tui.requestRender();
-				})
-				.catch((e: unknown) => {
-					ctx.writer.addNotice(`Rollback failed: ${e instanceof Error ? e.message : String(e)}`);
-					ctx.tui.requestRender();
-				});
-			return true;
-		}
-		case ":meta": {
-			const prompt = parts.slice(1).join(" ").trim();
-			if (!prompt) {
-				ctx.writer.addNotice("Usage: :meta <free text prompt>\nExample: :meta list my sessions from last week");
-				ctx.tui.requestRender();
-				return true;
-			}
-			ctx.writer.addUserMessage(`[meta] ${prompt}`);
-			ctx.writer.addNotice("[meta] \u2508");
-			ctx.tui.requestRender();
-			import("./meta-agent.js")
-				.then(async (m) => {
-					let accumulated = "";
-					const reply = await m.runMetaAgent(
-						prompt,
-						ctx.opts?.getModel?.(),
-						(chunk) => {
-							accumulated += chunk;
-							ctx.writer.addNotice(`[meta] ${accumulated}`);
-							ctx.tui.requestRender();
-						},
-						ctx.getDirective,
-					);
-					if (!accumulated && reply) {
-						ctx.writer.addNotice(`[meta] ${reply}`);
-						ctx.tui.requestRender();
-					}
-				})
-				.catch((e: unknown) => {
-					ctx.writer.addNotice(`[meta] error: ${e instanceof Error ? e.message : String(e)}`);
-					ctx.tui.requestRender();
-				});
-			return true;
-		}
-		case ":directive": {
-			const scroll = ctx.getDirective?.();
-			if (!scroll) {
-				ctx.writer.addNotice(":directive not available in this session.");
-				ctx.tui.requestRender();
-				return true;
-			}
-			const sub = (parts[1] ?? "").toLowerCase();
-			const id = parts[2];
-			switch (sub) {
-				case "list":
-				case "": {
-					const blocks = scroll.list();
-					const lines = blocks.map(
-						(b) =>
-							`  [${b.priority}] ${b.enabled ? "●" : "○"} ${b.id}${b.tags?.length ? ` (${b.tags.join(", ")})` : ""}`,
-					);
-					ctx.writer.addNotice(`Prompt scroll blocks:\n${lines.join("\n")}`);
-					break;
-				}
-				case "enable":
-					if (!id) {
-						ctx.writer.addNotice("Usage: :directive enable <id>");
-						break;
-					}
-					scroll.enable(id);
-					ctx.writer.addNotice(`● Block '${id}' enabled. Takes effect next turn.`);
-					break;
-				case "disable":
-					if (!id) {
-						ctx.writer.addNotice("Usage: :directive disable <id>");
-						break;
-					}
-					scroll.disable(id);
-					ctx.writer.addNotice(`○ Block '${id}' disabled. Takes effect next turn.`);
-					break;
-				case "toggle":
-					if (!id) {
-						ctx.writer.addNotice("Usage: :directive toggle <id>");
-						break;
-					}
-					scroll.toggle(id);
-					ctx.writer.addNotice(`Toggled block '${id}'. Takes effect next turn.`);
-					break;
-				case "reset":
-					ctx.writer.addNotice("Use :meta 'reset the prompt scroll to defaults' to restore all blocks.");
-					break;
-				default:
-					ctx.writer.addNotice("Usage: :directive list | enable <id> | disable <id> | toggle <id>");
-			}
-			ctx.tui.requestRender();
-			return true;
-		}
-		case ":theme": {
-			const themes = ["terminal", "terminal-light", "akko", "mono", "matrix"];
-			const name = parts[1]?.toLowerCase();
-			if (!name) {
-				ctx.writer.addNotice(`Available themes: ${themes.join("  ")}\nUsage: :theme <name>`);
-				ctx.tui.requestRender();
-				return true;
-			}
-			if (!themes.includes(name)) {
-				ctx.writer.addNotice(`Unknown theme '${name}'. Available: ${themes.join(", ")}`);
-				ctx.tui.requestRender();
-				return true;
-			}
-			setThemeByName(name);
-			ctx.writer.addNotice(`Theme set to '${name}'.`);
-			ctx.tui.requestRender(true);
-			return true;
-		}
-		case ":model": {
-			const newId = parts[1];
-			if (!newId) {
-				const current = ctx.opts?.getModel?.() ?? "unknown";
-				ctx.writer.addNotice(`Current model: ${current}\nUsage: :model <id>  (e.g. :model claude-sonnet-4-6)`);
-				ctx.tui.requestRender();
-				return true;
-			}
-			try {
-				const built = buildModel(newId);
-				ctx.opts?.setModel?.(newId);
-				ctx.writer.addNotice(`Model switched to ${built.id}. Takes effect on the next message.`);
-			} catch (e) {
-				ctx.writer.addNotice(`Unknown model: ${newId}. ${e instanceof Error ? e.message : ""}`);
-			}
-			ctx.tui.requestRender();
-			return true;
-		}
-		case ":think": {
-			const VALID_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
-			const level = parts[1];
-			if (!level) {
-				const current = ctx.opts?.getThinking?.() ?? "off";
-				ctx.writer.addNotice(`Thinking: ${current}\nUsage: :think <level>  (${VALID_LEVELS.join(" | ")})`);
-				ctx.tui.requestRender();
-				return true;
-			}
-			if (!VALID_LEVELS.includes(level as (typeof VALID_LEVELS)[number])) {
-				ctx.writer.addNotice(`Unknown thinking level: ${level}. Valid: ${VALID_LEVELS.join(" | ")}`);
-				ctx.tui.requestRender();
-				return true;
-			}
-			ctx.opts?.setThinking?.(level);
-			ctx.writer.addNotice(`Thinking set to "${level}". Takes effect on the next message.`);
-			ctx.tui.requestRender();
-			return true;
-		}
-		default:
-			ctx.writer.addNotice(`Unknown command: ${cmd}. Type :help for list or :h for help.`);
-			ctx.tui.requestRender();
-			return false;
+	const name = (parts[0] ?? "").replace(/^:/, "").toLowerCase();
+	const cmd = registry.find(name);
+	if (!cmd) {
+		ctx.writer.addNotice(`Unknown command: :. Type :help for list.`);
+		ctx.tui.requestRender();
+		return false;
 	}
+	void cmd.run(ctx, parts.slice(1));
+	return true;
 }
 
 // ---------------------------------------------------------------------------

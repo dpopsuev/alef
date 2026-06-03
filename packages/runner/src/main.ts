@@ -11,7 +11,7 @@
  *     --model or ALEF_MODEL overrides it.
  *
  *   Default mode (no --blueprint):
- *     Hardcoded organ set: FsOrgan + ShellOrgan. Same as before TSK-107.
+ *     Hardcoded organ set: FsOrgan + ShellOrgan.
  *
  * In both modes DialogOrgan and Reasoner are always mounted — they are the
  * fixed application core (reasoning + conversation). Only the corpus adapters
@@ -203,7 +203,7 @@ const llmOrgan = buildLlmOrgan({
 	getTools: () => toolShell.currentMetaTools(),
 });
 
-// ToolShell — progressive disclosure, now always active (ALE-TSK-362 promoted).
+// ToolShell — progressive disclosure, now always active.
 // All corpus organs must be in corpusOrgans before this so the snapshot is complete.
 const toolShell = createToolShellOrgan({
 	tools: corpusOrgans.flatMap((o) => o.tools),
@@ -238,45 +238,6 @@ const memoryOrgan = createMemoryOrgan({
 agent.load(memoryOrgan);
 agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
 registerOrgans(directives, [toolShell, memoryOrgan]);
-
-await buildDelegation(args, currentModel, agent, dialog, blueprintSurfaces);
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
-agent.validate();
-
-if (args.listTools) {
-	for (const tool of agent.tools) {
-		console.log(tool.name);
-	}
-	process.exit(0);
-}
-
-if (args.listOrgans) {
-	for (const organ of agent.organs) {
-		const labels = organ.labels?.length ? ` [${organ.labels.join(", ")}]` : "";
-		const desc = organ.description ? ` — ${organ.description}` : "";
-		console.log(`${organ.name}${labels}${desc}`);
-	}
-	process.exit(0);
-}
-
-await agent.ready();
-const opacity = cfg.theme?.background_opacity ?? readAlacrittyOpacity();
-const [isDark, terminalPalette] = await Promise.all([
-	detectDark(opacity),
-	queryPalette(Array.from({ length: 10 }, (_, i) => i + 5)), // slots 5-14
-]);
-loadTheme(
-	blueprintPath ? new URL("..", `file://${blueprintPath}`).pathname : undefined,
-	cfg.theme?.name,
-	cfg.theme?.colors,
-	isDark,
-	terminalPalette,
-);
-
-setupSupervisorIpc(blueprintUpgradePolicy);
 
 // ---------------------------------------------------------------------------
 // LocalSession — Strategy implementation for an in-process agent.
@@ -334,6 +295,7 @@ const localSession: Session = {
 	},
 	dispose: () => agent.dispose(),
 	send: (text, timeoutMs) => (sessionGuard ?? dialog).send(text, "human", timeoutMs),
+	receive: (text) => dialog.receive(text, "user"),
 	getDirective: getDirectiveAdapter,
 	subscribe: (observer) => {
 		_sessionObservers.add(observer);
@@ -343,9 +305,47 @@ const localSession: Session = {
 	},
 };
 
+await buildDelegation(args, currentModel, agent, localSession, blueprintSurfaces);
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+
+agent.validate();
+
+if (args.listTools) {
+	for (const tool of agent.tools) {
+		console.log(tool.name);
+	}
+	process.exit(0);
+}
+
+if (args.listOrgans) {
+	for (const organ of agent.organs) {
+		const labels = organ.labels?.length ? ` [${organ.labels.join(", ")}]` : "";
+		const desc = organ.description ? ` — ${organ.description}` : "";
+		console.log(`${organ.name}${labels}${desc}`);
+	}
+	process.exit(0);
+}
+
+await agent.ready();
+const opacity = cfg.theme?.background_opacity ?? readAlacrittyOpacity();
+const [isDark, terminalPalette] = await Promise.all([
+	detectDark(opacity),
+	queryPalette(Array.from({ length: 10 }, (_, i) => i + 5)), // slots 5-14
+]);
+loadTheme(
+	blueprintPath ? new URL("..", `file://${blueprintPath}`).pathname : undefined,
+	cfg.theme?.name,
+	cfg.theme?.colors,
+	isDark,
+	terminalPalette,
+);
+
+setupSupervisorIpc(blueprintUpgradePolicy);
+
 await runAgent({
 	agent,
-	dialog,
 	args,
 	resolvedModelDisplay,
 	sessionId: session.id,

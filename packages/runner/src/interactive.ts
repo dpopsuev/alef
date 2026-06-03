@@ -4,11 +4,11 @@
  * The caller owns agent lifecycle. This function only drives the dialog loop.
  *
  * Type /exit or press Ctrl+D to quit.
- * Conversation history accumulates across turns (DialogOrgan.history).
+ * Conversation history accumulates across turns.
  */
 
-import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { formatError } from "./errors.js";
+import type { Session } from "./session.js";
 import { readStdinLines } from "./stdin.js";
 
 const EXIT_COMMAND = "/exit";
@@ -17,21 +17,14 @@ export interface InteractiveOptions {
 	cwd: string;
 	modelId: string;
 	sessionId: string;
-	/** Model context window size in tokens. Used to warn when context fills. */
 	contextWindow?: number;
-	/** Live model getter/setter — enables :model switching without restart. */
 	getModel?: () => string;
 	setModel?: (id: string) => void;
-	/** Live thinking level getter/setter — enables :think toggling without restart. */
 	getThinking?: () => string;
 	setThinking?: (level: string) => void;
 }
 
-export async function runInteractive(
-	dialog: DialogOrgan,
-	opts: InteractiveOptions,
-	dispose: () => void,
-): Promise<void> {
+export async function runInteractive(session: Session, opts: InteractiveOptions): Promise<void> {
 	if (process.stdin.isTTY) {
 		console.log(`Alef agent ready. Working directory: ${opts.cwd}`);
 		console.log(`Model: ${opts.modelId}`);
@@ -40,21 +33,17 @@ export async function runInteractive(
 
 	try {
 		for await (const line of readStdinLines()) {
-			if (line === EXIT_COMMAND) {
-				break;
-			}
-
+			if (line === EXIT_COMMAND) break;
 			try {
-				await dialog.send(line, "human", 120_000);
+				await session.send?.(line, 120_000);
 			} catch (e) {
 				console.error(formatError(e));
 			}
-
 			if (process.stdin.isTTY) {
-				console.log(); // blank line between turns for readability
+				console.log();
 			}
 		}
 	} finally {
-		dispose();
+		session.dispose();
 	}
 }

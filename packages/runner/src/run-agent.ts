@@ -7,6 +7,7 @@ import { trace } from "./debug-trace.js";
 import { runInteractive } from "./interactive.js";
 import { shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
+import type { Session } from "./session.js";
 import type { SessionGuard } from "./session-guard.js";
 import { runTuiMode } from "./tui-mode.js";
 
@@ -26,6 +27,7 @@ export interface RunAgentOptions {
 	reloadOrgan: (name: string, path: string) => Promise<void>;
 	getDirectiveAdapter: () => DirectiveAdapter | undefined;
 	sessionGuard: SessionGuard;
+	session: Session;
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<void> {
@@ -63,25 +65,16 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 				return true;
 			};
 			try {
-				await runTuiMode(
-					dialog,
-					{
-						cwd: args.cwd,
-						modelId: opts.resolvedModelDisplay,
-						sessionId: opts.sessionId,
-						contextWindow: opts.contextWindow,
-						getModel: opts.getModel,
-						setModel: opts.setModel,
-						getThinking: opts.getThinking,
-						setThinking: opts.setThinking,
-					},
-					() => agent.dispose(),
-					opts.setLLMAbortController,
-					opts.toolSlot,
-					opts.reloadOrgan,
-					opts.getDirectiveAdapter,
-					opts.sessionGuard,
-				);
+				await runTuiMode(opts.session, {
+					cwd: args.cwd,
+					modelId: opts.resolvedModelDisplay,
+					sessionId: opts.sessionId,
+					contextWindow: opts.contextWindow,
+					getModel: opts.getModel,
+					setModel: opts.setModel,
+					getThinking: opts.getThinking,
+					setThinking: opts.setThinking,
+				});
 			} finally {
 				process.stderr.write = originalStderrWrite;
 			}

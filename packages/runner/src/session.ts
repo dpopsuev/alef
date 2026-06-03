@@ -62,6 +62,7 @@ export interface Session {
 	// Organ management — optional; absent when the session does not support it
 	loadOrgan?(path: string): Promise<void>;
 	unloadOrgan?(name: string): boolean;
+	reloadOrgan?(name: string, path: string): Promise<void>;
 
 	// Lifecycle
 	dispose(): void;

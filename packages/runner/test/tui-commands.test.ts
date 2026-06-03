@@ -10,11 +10,11 @@
  *   handleSlashCommand — /exit, /new, /resume, /help, unknown
  */
 
-import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { Container } from "@dpopsuev/alef-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
+import type { Session } from "../src/session.js";
 import { getTheme } from "../src/theme.js";
 import { ChatWriter } from "../src/tui/chat-writer.js";
 import { ToolCallRow } from "../src/tui/tool-view.js";
@@ -40,6 +40,25 @@ function makeTui() {
 	};
 }
 
+function makeSession(overrides: Partial<Session> = {}): Session {
+	return {
+		state: { id: "test-1234", modelId: "test-model", contextWindow: 128_000 },
+		getModel: vi.fn(() => "test-model"),
+		setModel: vi.fn(),
+		getThinking: vi.fn(() => "off"),
+		setThinking: vi.fn(),
+		setTurnController: vi.fn(),
+		dispose: vi.fn(),
+		subscribe: vi.fn(() => () => {}),
+		send: vi.fn(),
+		loadOrgan: vi.fn(),
+		unloadOrgan: vi.fn(() => true),
+		reloadOrgan: vi.fn(),
+		getDirective: vi.fn(),
+		...overrides,
+	};
+}
+
 function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext {
 	const t = getTheme();
 	const chat = new Container();
@@ -47,12 +66,9 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 		t,
 		writer: new ChatWriter(chat, t),
 		tui: makeTui(),
-		dialog: {} as DialogOrgan,
-		dispose: vi.fn(),
-		sessionId: "test-1234",
+		session: makeSession(),
 		abortCurrentTurn: undefined,
 		setAbortCurrentTurn: vi.fn(),
-		setLLMController: vi.fn(),
 		...overrides,
 	};
 }
@@ -72,7 +88,7 @@ describe("handleCtrlC — idle (no turn running)", () => {
 	it("calls dispose() and tui.stop()", () => {
 		const ctx = makeCtx();
 		handleCtrlC(ctx);
-		expect(ctx.dispose).toHaveBeenCalledOnce();
+		expect(ctx.session.dispose).toHaveBeenCalledOnce();
 		expect(ctx.tui.stop).toHaveBeenCalledOnce();
 	});
 
@@ -95,7 +111,7 @@ describe("handleCtrlC — mid-turn (agent is running)", () => {
 	it("does NOT call dispose or tui.stop — only cancels the turn", () => {
 		const ctx = makeCtx({ abortCurrentTurn: vi.fn() });
 		handleCtrlC(ctx);
-		expect(ctx.dispose).not.toHaveBeenCalled();
+		expect(ctx.session.dispose).not.toHaveBeenCalled();
 		expect(ctx.tui.stop).not.toHaveBeenCalled();
 	});
 
@@ -120,7 +136,7 @@ describe("handleSlashCommand /exit", () => {
 	it("calls dispose() and tui.stop()", () => {
 		const ctx = makeCtx();
 		handleSlashCommand("/exit", ctx);
-		expect(ctx.dispose).toHaveBeenCalledOnce();
+		expect(ctx.session.dispose).toHaveBeenCalledOnce();
 		expect(ctx.tui.stop).toHaveBeenCalledOnce();
 	});
 
@@ -175,7 +191,9 @@ describe("handleSlashCommand /new", () => {
 
 describe("handleSlashCommand /resume", () => {
 	it("appends the session ID to chat", () => {
-		const ctx = makeCtx({ sessionId: "abc-999" });
+		const ctx = makeCtx({
+			session: makeSession({ state: { id: "abc-999", modelId: "test-model", contextWindow: 128_000 } }),
+		});
 		handleSlashCommand("/resume", ctx);
 		expect(chatText(ctx)).toContain("abc-999");
 	});
@@ -224,7 +242,7 @@ describe("handleSlashCommand — unknown command", () => {
 	it("does not call dispose or tui.stop", () => {
 		const ctx = makeCtx();
 		handleSlashCommand("/frobnitz", ctx);
-		expect(ctx.dispose).not.toHaveBeenCalled();
+		expect(ctx.session.dispose).not.toHaveBeenCalled();
 		expect(ctx.tui.stop).not.toHaveBeenCalled();
 	});
 });
@@ -397,7 +415,7 @@ describe("handleColonCommand :reload — no reloadOrgan callback", () => {
 	});
 
 	it("shows 'not available' when reloadOrgan is not provided", () => {
-		const ctx = makeCtx();
+		const ctx = makeCtx({ session: makeSession({ reloadOrgan: undefined }) });
 		handleColonCommand(":reload my-organ /path/to/organ.ts", ctx);
 		expect(chatText(ctx)).toContain("not available");
 	});
@@ -414,7 +432,7 @@ describe("handleColonCommand :reload — with reloadOrgan callback", () => {
 		const reloadOrgan = vi.fn(async (name: string, path: string) => {
 			called = [name, path];
 		});
-		const ctx = makeCtx({ reloadOrgan });
+		const ctx = makeCtx({ session: makeSession({ reloadOrgan }) });
 		handleColonCommand(":reload my-organ /organs/my-organ.ts", ctx);
 		expect(chatText(ctx)).toContain("Reloading my-organ");
 		await vi.waitFor(() => expect(called).toEqual(["my-organ", "/organs/my-organ.ts"]));
@@ -422,7 +440,7 @@ describe("handleColonCommand :reload — with reloadOrgan callback", () => {
 
 	it("shows 'Reloaded' notice after successful reload", async () => {
 		const reloadOrgan = vi.fn(async () => {});
-		const ctx = makeCtx({ reloadOrgan });
+		const ctx = makeCtx({ session: makeSession({ reloadOrgan }) });
 		handleColonCommand(":reload my-organ /organs/my-organ.ts", ctx);
 		await vi.waitFor(() => expect(chatText(ctx)).toContain("Reloaded my-organ."));
 	});
@@ -431,14 +449,14 @@ describe("handleColonCommand :reload — with reloadOrgan callback", () => {
 		const reloadOrgan = vi.fn(async () => {
 			throw new Error("jiti: module not found");
 		});
-		const ctx = makeCtx({ reloadOrgan });
+		const ctx = makeCtx({ session: makeSession({ reloadOrgan }) });
 		handleColonCommand(":reload bad-organ /organs/bad.ts", ctx);
 		await vi.waitFor(() => expect(chatText(ctx)).toContain("jiti: module not found"));
 	});
 
 	it("requests render after success and after failure", async () => {
 		const reloadOrgan = vi.fn(async () => {});
-		const ctx = makeCtx({ reloadOrgan });
+		const ctx = makeCtx({ session: makeSession({ reloadOrgan }) });
 		handleColonCommand(":reload my-organ /path.ts", ctx);
 		// First render: 'Reloading...' notice
 		expect(ctx.tui.requestRender).toHaveBeenCalled();

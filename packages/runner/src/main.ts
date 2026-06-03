@@ -37,6 +37,7 @@ import { setupOTel } from "./otel.js";
 import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import { runAgent } from "./run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
+import type { AgentEvent, Session } from "./session.js";
 import { SessionGuard } from "./session-guard.js";
 import { setupSupervisorIpc } from "./setup-supervisor-ipc.js";
 import { makeSink } from "./sink.js";
@@ -277,6 +278,71 @@ loadTheme(
 
 setupSupervisorIpc(blueprintUpgradePolicy);
 
+// ---------------------------------------------------------------------------
+// LocalSession — Strategy implementation for an in-process agent.
+// Owned by main.ts; threaded into runAgent so the TUI never touches
+// DialogOrgan, SessionGuard, ToolSlot, or AbortController directly.
+// ---------------------------------------------------------------------------
+
+const _sessionObservers = new Set<(event: AgentEvent) => void>();
+const _dispatch = (event: AgentEvent): void => {
+	for (const observer of _sessionObservers) observer(event);
+};
+
+toolSlot.onToolStart = (e) => _dispatch({ type: "tool-start", callId: e.callId, name: e.name, args: e.args });
+toolSlot.onToolEnd = (e) =>
+	_dispatch({
+		type: "tool-end",
+		callId: e.callId,
+		elapsedMs: e.elapsedMs,
+		ok: e.ok,
+		display: e.display,
+		displayKind: e.displayKind,
+	});
+toolSlot.onTokenUsage = (u) => _dispatch({ type: "token-usage", usage: u });
+toolSlot.receiveTextChunk = (chunk) => _dispatch({ type: "chunk", text: chunk });
+toolSlot.receiveThinkingChunk = (chunk) => _dispatch({ type: "thinking", text: chunk });
+
+const localOrganLoader = async (path: string) => {
+	const { loadOrganFromPath } = await import("./materializer.js");
+	return loadOrganFromPath(path, { cwd: args.cwd, loggerFor: (n) => log.child({ organ: n }) });
+};
+
+const localSession: Session = {
+	state: { id: session.id, modelId: model.id, contextWindow: model.contextWindow },
+	getModel: () => currentModel.id,
+	setModel: (id) => {
+		currentModel = buildModel(id);
+		const supportsThinking = currentModel.reasoning && !currentModel.id.includes("haiku");
+		if (!supportsThinking) thinkingState.level = undefined;
+		else if (!thinkingState.level) thinkingState.level = "medium" as ThinkingLevel;
+	},
+	getThinking: () => thinkingState.level ?? "off",
+	setThinking: (level) => {
+		thinkingState.level = level === "off" ? undefined : (level as ThinkingLevel);
+	},
+	setTurnController: (ctrl) => {
+		currentLLMController = ctrl;
+	},
+	loadOrgan: async (path) => {
+		agent.load(await localOrganLoader(path));
+	},
+	unloadOrgan: (name) => agent.unload(name),
+	reloadOrgan: async (name, path) => {
+		const organ = await localOrganLoader(path);
+		agent.reload({ ...organ, name });
+	},
+	dispose: () => agent.dispose(),
+	send: (text, timeoutMs) => (sessionGuard ?? dialog).send(text, "human", timeoutMs),
+	getDirective: getDirectiveAdapter,
+	subscribe: (observer) => {
+		_sessionObservers.add(observer);
+		return () => {
+			_sessionObservers.delete(observer);
+		};
+	},
+};
+
 await runAgent({
 	agent,
 	dialog,
@@ -307,6 +373,7 @@ await runAgent({
 	},
 	getDirectiveAdapter,
 	sessionGuard,
+	session: localSession,
 });
 
 trace("process.exit");

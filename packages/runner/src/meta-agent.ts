@@ -1,7 +1,7 @@
-import type { DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
-import { createAlefApiOrgan } from "@dpopsuev/alef-organ-alef";
+import { createAlefApiOrgan, type DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
 import { DEFAULT_MODEL } from "./args.js";
 import { buildModel } from "./model.js";
+import type { DirectiveView } from "./session.js";
 import { InProcessStrategy } from "./strategies/in-process.js";
 
 const META_SYSTEM_PROMPT =
@@ -18,9 +18,16 @@ export async function runMetaAgent(
 	prompt: string,
 	modelId?: string,
 	onChunk?: (chunk: string) => void,
-	getDirective?: () => DirectiveAdapter | undefined,
+	getDirective?: () => DirectiveView | undefined,
 ): Promise<string> {
 	const model = modelId ? buildModel(modelId) : buildModel(DEFAULT_MODEL);
-	const strategy = new InProcessStrategy([createAlefApiOrgan({ getDirective })], model, META_SYSTEM_PROMPT, onChunk);
+	// DirectiveView is structurally a subset of DirectiveAdapter; the runtime object
+	// from getDirectiveAdapter() satisfies the full interface.
+	const strategy = new InProcessStrategy(
+		[createAlefApiOrgan({ getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined })],
+		model,
+		META_SYSTEM_PROMPT,
+		onChunk,
+	);
 	return strategy.send(prompt, "human", 60_000);
 }

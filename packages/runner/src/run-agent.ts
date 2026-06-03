@@ -1,5 +1,5 @@
 import type { Agent } from "@dpopsuev/alef-corpus";
-import type { DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
+
 import type { Args } from "./args.js";
 import type { ToolSlot } from "./build-llm-organ.js";
 import { trace } from "./debug-trace.js";
@@ -7,7 +7,7 @@ import { runInteractive } from "./interactive.js";
 import { shutdownOTel } from "./otel.js";
 import { runPrintMode } from "./print-mode.js";
 import type { Session } from "./session.js";
-import type { SessionGuard } from "./session-guard.js";
+
 import { runTuiMode } from "./tui-mode.js";
 
 export interface RunAgentOptions {
@@ -23,8 +23,8 @@ export interface RunAgentOptions {
 	setLLMAbortController: (ctrl: AbortController | undefined) => void;
 	toolSlot: ToolSlot;
 	reloadOrgan: (name: string, path: string) => Promise<void>;
-	getDirectiveAdapter: () => DirectiveAdapter | undefined;
-	sessionGuard: SessionGuard;
+	getDirectiveAdapter: () => unknown;
+
 	session: Session;
 }
 

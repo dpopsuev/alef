@@ -38,7 +38,7 @@ import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgan
 import { runAgent } from "./run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
 import type { AgentEvent, Session } from "./session.js";
-import { SessionGuard } from "./session-guard.js";
+
 import { setupSupervisorIpc } from "./setup-supervisor-ipc.js";
 import { makeSink } from "./sink.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
@@ -213,7 +213,7 @@ const toolShell = createToolShellOrgan({
 const dialog = new DialogOrgan({
 	sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
 });
-const sessionGuard = new SessionGuard(dialog, args.maxTurns);
+let _turnCount = 0;
 
 const { agent } = buildAgent({
 	dialog,
@@ -260,7 +260,8 @@ toolSlot.onToolEnd = (e) =>
 		display: e.display,
 		displayKind: e.displayKind,
 	});
-toolSlot.onTokenUsage = (u) => _dispatch({ type: "token-usage", usage: u });
+toolSlot.onTokenUsage = (u) =>
+	_dispatch({ type: "token-usage", usage: { input: u.input, output: u.output, totalTokens: u.totalTokens } });
 toolSlot.receiveTextChunk = (chunk) => _dispatch({ type: "chunk", text: chunk });
 toolSlot.receiveThinkingChunk = (chunk) => _dispatch({ type: "thinking", text: chunk });
 
@@ -294,7 +295,13 @@ const localSession: Session = {
 		agent.reload({ ...organ, name });
 	},
 	dispose: () => agent.dispose(),
-	send: (text, timeoutMs) => (sessionGuard ?? dialog).send(text, "human", timeoutMs),
+	send: (text, timeoutMs) => {
+		if (args.maxTurns > 0 && _turnCount >= args.maxTurns) {
+			return Promise.reject(new Error(`Max turns reached (${args.maxTurns}). Start a new session to continue.`));
+		}
+		_turnCount++;
+		return dialog.send(text, "human", timeoutMs);
+	},
 	receive: (text) => dialog.receive(text, "user"),
 	getDirective: getDirectiveAdapter,
 	subscribe: (observer) => {
@@ -372,7 +379,6 @@ await runAgent({
 		agent.reload(newOrgan);
 	},
 	getDirectiveAdapter,
-	sessionGuard,
 	session: localSession,
 });
 

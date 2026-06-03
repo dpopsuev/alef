@@ -1,0 +1,297 @@
+/**
+ * LocalSession — in-process Session strategy.
+ *
+ * Static create() owns the 22 agent construction steps that were previously
+ * in main.ts. One exported symbol, rich internals — Ousterhout depth principle.
+ *
+ * Mutable fields (_currentModel, _thinkingState, _llmController) use the _
+ * prefix to signal internal use. They are shared by all closures that the LLM,
+ * TUI, and command handlers need to mutate at runtime.
+ */
+
+import { Agent } from "@dpopsuev/alef-corpus";
+import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
+import { createLlmPipeline } from "@dpopsuev/alef-organ-llm";
+import type { Logger } from "pino";
+import { buildAgent, buildCheckpointCallback } from "./agent-kernel.js";
+import type { Args } from "./args.js";
+import { buildDelegation } from "./build-delegation.js";
+import { buildLlmOrgan, type ToolSlot } from "./build-llm-organ.js";
+import type { AlefConfig } from "./config.js";
+import type { Directives } from "./directives.js";
+import type { CorpusResult } from "./load-corpus.js";
+import { buildModel } from "./model.js";
+import { createMemoryOrgan } from "./organ-memory.js";
+import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
+import type { AgentEvent, DirectiveView, Session, SessionState } from "./session.js";
+import type { SessionStore } from "./session-store.js";
+import { makeSink } from "./sink.js";
+import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
+
+export class LocalSession implements Session {
+	readonly state: SessionState;
+
+	// Mutable runtime state — shared across all closures. _ prefix = internal.
+	_currentModel: Model<Api>;
+	_thinkingState: { level: ThinkingLevel | undefined };
+	_llmController: AbortController | undefined;
+	private _turnCount = 0;
+	private readonly _observers = new Set<(event: AgentEvent) => void>();
+
+	// Wired at end of create() once agent.ready() resolves
+	private _agent: Agent = new Agent();
+	private _directives: Directives | undefined;
+	private readonly _dialog: DialogOrgan;
+	private readonly _args: Args;
+	private readonly _log: Logger;
+
+	private constructor(
+		state: SessionState,
+		model: Model<Api>,
+		thinkingState: { level: ThinkingLevel | undefined },
+		dialog: DialogOrgan,
+		args: Args,
+		log: Logger,
+	) {
+		this.state = state;
+		this._currentModel = model;
+		this._thinkingState = thinkingState;
+		this._dialog = dialog;
+		this._args = args;
+		this._log = log;
+	}
+
+	// ---------------------------------------------------------------------------
+	// Factory
+	// ---------------------------------------------------------------------------
+
+	static async create(
+		args: Args,
+		cfg: AlefConfig,
+		log: Logger,
+		store: SessionStore,
+		corpus: CorpusResult,
+		model: Model<Api>,
+		trace: (event: string, extra?: Record<string, unknown>) => void,
+	): Promise<{ session: LocalSession; resolvedModelDisplay: string }> {
+		const { corpusOrgans, blueprintSurfaces } = corpus;
+
+		const directives = createDefaultDirectives({ tools: corpusOrgans.flatMap((o) => o.tools), cwd: args.cwd });
+		await loadWorkspace(directives, args.cwd);
+		registerOrgans(directives, corpusOrgans);
+		directives.register({
+			id: "tool-shell.boot-catalog",
+			priority: 900,
+			content: buildBootCatalog(corpusOrgans.flatMap((o) => o.tools)),
+			enabled: true,
+			tags: ["organ", "dynamic"],
+		});
+
+		const directivesBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
+		const thinkingState = {
+			level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as
+				| ThinkingLevel
+				| undefined,
+		};
+
+		// Phase-1: empty toolSlot shell — handler fields patched below after
+		// the observer set exists. llmOrgan captures the object reference.
+		const toolSlot: ToolSlot = {
+			onToolStart: undefined,
+			onToolEnd: undefined,
+			onTokenUsage: undefined,
+			receiveTextChunk: undefined,
+			receiveThinkingChunk: undefined,
+		};
+
+		const dialog = new DialogOrgan({
+			sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
+		});
+
+		// Create instance early so closures can capture its mutable fields
+		const inst = new LocalSession(
+			{ id: store.id, modelId: model.id, contextWindow: model.contextWindow },
+			model,
+			thinkingState,
+			dialog,
+			args,
+			log,
+		);
+
+		const prepareStep = buildPrepareStep(directives, directivesBudgetChars) as unknown as (
+			messages: Message[],
+		) => Promise<Message[]>;
+		const onCheckpoint = buildCheckpointCallback(() => store);
+
+		// toolShell is referenced lazily by llmOrgan.getTools — safe because
+		// getTools() is only invoked during LLM turns, after agent.ready().
+		// eslint-disable-next-line prefer-const
+		let toolShell!: ReturnType<typeof createToolShellOrgan>;
+
+		const llmOrgan = buildLlmOrgan({
+			model,
+			cfg,
+			args,
+			toolSlot,
+			thinkingState,
+			prepareStep,
+			onCheckpoint,
+			getModel: () => inst._currentModel,
+			getSignal: () => inst._llmController?.signal,
+			getTools: () => toolShell.currentMetaTools(),
+		});
+
+		toolShell = createToolShellOrgan({
+			tools: corpusOrgans.flatMap((o) => o.tools),
+			organDirectives: buildOrganDirectives(corpusOrgans),
+		});
+
+		const { agent } = buildAgent({
+			dialog,
+			llm: llmOrgan,
+			session: store,
+			modelId: model.id,
+			onLoop: (_type, reason) => {
+				trace("loop:detected", { reason });
+				inst._llmController?.abort(new Error(`[loop-detector] ${reason}`));
+			},
+		});
+
+		for (const organ of corpusOrgans) agent.load(organ);
+		agent.load(toolShell);
+
+		const memoryOrgan = createMemoryOrgan({ sessionStore: () => store, contextWindow: model.contextWindow });
+		agent.load(memoryOrgan);
+		agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
+		registerOrgans(directives, [toolShell, memoryOrgan]);
+
+		// Phase-2: patch toolSlot dispatchers now that observer set exists
+		const dispatch = (event: AgentEvent): void => {
+			for (const obs of inst._observers) obs(event);
+		};
+		toolSlot.onToolStart = (e) => dispatch({ type: "tool-start", callId: e.callId, name: e.name, args: e.args });
+		toolSlot.onToolEnd = (e) =>
+			dispatch({
+				type: "tool-end",
+				callId: e.callId,
+				elapsedMs: e.elapsedMs,
+				ok: e.ok,
+				display: e.display,
+				displayKind: e.displayKind,
+			});
+		toolSlot.onTokenUsage = (u) =>
+			dispatch({ type: "token-usage", usage: { input: u.input, output: u.output, totalTokens: u.totalTokens } });
+		toolSlot.receiveTextChunk = (chunk) => dispatch({ type: "chunk", text: chunk });
+		toolSlot.receiveThinkingChunk = (chunk) => dispatch({ type: "thinking", text: chunk });
+
+		await buildDelegation(args, inst._currentModel, agent, inst, blueprintSurfaces);
+
+		agent.validate();
+		await agent.ready();
+
+		inst._agent = agent;
+		inst._directives = directives;
+
+		const resolvedModelDisplay =
+			model.name !== model.id ? `${model.provider}/${model.id} (${model.name})` : `${model.provider}/${model.id}`;
+
+		return { session: inst, resolvedModelDisplay };
+	}
+
+	// ---------------------------------------------------------------------------
+	// Session interface
+	// ---------------------------------------------------------------------------
+
+	getModel(): string {
+		return this._currentModel.id;
+	}
+
+	setModel(id: string): void {
+		this._currentModel = buildModel(id);
+		const supportsThinking = this._currentModel.reasoning && !this._currentModel.id.includes("haiku");
+		if (!supportsThinking) this._thinkingState.level = undefined;
+		else if (!this._thinkingState.level) this._thinkingState.level = "medium" as ThinkingLevel;
+	}
+
+	getThinking(): string {
+		return this._thinkingState.level ?? "off";
+	}
+
+	setThinking(level: string): void {
+		this._thinkingState.level = level === "off" ? undefined : (level as ThinkingLevel);
+	}
+
+	setTurnController(ctrl: AbortController | undefined): void {
+		this._llmController = ctrl;
+	}
+
+	async loadOrgan(path: string): Promise<void> {
+		const { loadOrganFromPath } = await import("./materializer.js");
+		const organ = await loadOrganFromPath(path, {
+			cwd: this._args.cwd,
+			loggerFor: (n) => this._log.child({ organ: n }),
+		});
+		this._agent.load(organ);
+	}
+
+	unloadOrgan(name: string): boolean {
+		return this._agent.unload(name);
+	}
+
+	async reloadOrgan(name: string, path: string): Promise<void> {
+		const { loadOrganFromPath } = await import("./materializer.js");
+		const organ = await loadOrganFromPath(path, {
+			cwd: this._args.cwd,
+			loggerFor: (n) => this._log.child({ organ: n }),
+		});
+		this._agent.reload({ ...organ, name });
+	}
+
+	dispose(): void {
+		this._agent.dispose();
+	}
+
+	send(text: string, timeoutMs?: number): Promise<string> {
+		if (this._args.maxTurns > 0 && this._turnCount >= this._args.maxTurns) {
+			return Promise.reject(
+				new Error(`Max turns reached (${this._args.maxTurns}). Start a new session to continue.`),
+			);
+		}
+		this._turnCount++;
+		return this._dialog.send(text, "human", timeoutMs);
+	}
+
+	receive(text: string): void {
+		this._dialog.receive(text, "user");
+	}
+
+	getDirective(): DirectiveView | undefined {
+		const d = this._directives;
+		if (!d) return undefined;
+		return {
+			list: () =>
+				d
+					.list({ enabled: undefined })
+					.map((b) => ({ id: b.id, priority: b.priority, enabled: b.enabled, tags: b.tags })),
+			enable: (id) => d.enable(id),
+			disable: (id) => d.disable(id),
+			toggle: (id) => d.toggle(id),
+		};
+	}
+
+	subscribe(observer: (event: AgentEvent) => void): () => void {
+		this._observers.add(observer);
+		return () => {
+			this._observers.delete(observer);
+		};
+	}
+
+	// Diagnostic pass-throughs for --list-tools / --list-organs in main.ts
+	get tools() {
+		return this._agent.tools;
+	}
+	get organs() {
+		return this._agent.organs;
+	}
+}

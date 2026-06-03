@@ -10,12 +10,9 @@
  */
 
 import { appendFileSync } from "node:fs";
-import type { DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
-import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { getProviders } from "@dpopsuev/alef-organ-llm";
 import { Container, matchesKey, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
-import type { ToolSlot } from "./build-llm-organ.js";
 import { registry } from "./commands/index.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
@@ -23,7 +20,7 @@ import { formatError } from "./errors.js";
 import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
-import type { SessionGuard } from "./session-guard.js";
+import type { Session } from "./session.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
 import { ChatWriter } from "./tui/chat-writer.js";
@@ -64,20 +61,9 @@ export interface TuiHandlerContext {
 		addChild(c: unknown): void;
 		requestRender(force?: boolean): void;
 	};
-	dialog: DialogOrgan;
-	dispose(): void;
-	sessionId: string;
+	session: Session;
 	abortCurrentTurn: (() => void) | undefined;
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
-	setLLMController(ctrl: AbortController | undefined): void;
-	/** Hot-reload a named organ by path. Undefined when not supported. */
-	reloadOrgan?: (name: string, path: string) => Promise<void>;
-	/** Mount a new organ from a TypeScript file path. Undefined when not supported. */
-	loadOrgan?: (path: string) => Promise<void>;
-	/** Unmount a loaded organ by name. Returns false if no organ with that name. */
-	unloadOrgan?: (name: string) => boolean;
-	/** Returns the active prompt scroll adapter, or undefined when unavailable. */
-	getDirective?: () => DirectiveAdapter | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,12 +75,12 @@ export function handleCtrlC(ctx: TuiHandlerContext): void {
 		trace("ctrl+c:mid-turn");
 		ctx.abortCurrentTurn();
 		ctx.setAbortCurrentTurn(undefined);
-		ctx.setLLMController(undefined);
+		ctx.session.setTurnController(undefined);
 		ctx.writer.addNotice("(interrupted)");
 		ctx.tui.requestRender(true);
 	} else {
 		trace("ctrl+c:idle:dispose");
-		ctx.dispose();
+		ctx.session.dispose();
 		trace("ctrl+c:idle:tui.stop");
 		ctx.tui.stop();
 		trace("ctrl+c:idle:done");
@@ -133,7 +119,7 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 	const cmd = text.split(" ")[0].toLowerCase();
 	switch (cmd) {
 		case "/exit":
-			ctx.dispose();
+			ctx.session.dispose();
 			ctx.tui.stop();
 			return true;
 		case "/new":
@@ -142,7 +128,7 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			ctx.tui.requestRender(true);
 			return true;
 		case "/resume":
-			ctx.writer.addNotice(`session: ${ctx.sessionId}`);
+			ctx.writer.addNotice(`session: ${ctx.session.state.id}`);
 			ctx.tui.requestRender();
 			return true;
 		case "/login": {
@@ -205,18 +191,7 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 // runTuiMode — turn orchestration
 // ---------------------------------------------------------------------------
 
-export async function runTuiMode(
-	dialog: DialogOrgan,
-	opts: InteractiveOptions,
-	dispose: () => void,
-	setLLMAbortController: (ctrl: AbortController | undefined) => void = () => {},
-	toolSlot?: ToolSlot,
-	reloadOrgan?: (name: string, path: string) => Promise<void>,
-	getDirective?: () => DirectiveAdapter | undefined,
-	guard?: SessionGuard,
-	_loadOrgan?: (path: string) => Promise<void>,
-	_unloadOrgan?: (name: string) => boolean,
-): Promise<void> {
+export async function runTuiMode(session: Session, opts: InteractiveOptions): Promise<void> {
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
 	const t = getTheme();
@@ -298,84 +273,85 @@ export async function runTuiMode(
 		}
 	};
 
-	if (toolSlot) {
-		toolSlot.onToolStart = ({ callId, name, args }) => {
-			consoleZone.pulse();
-			showFooter();
-			replyTW.flush();
-			thinkingTW.flush();
-			streamingZone.reset(); // close @alef block so post-tool text opens a new one
-			const keyArg = keyArgFromPayload(args);
-			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
-			if (activeCalls.size === 0) batchStartedAt = Date.now();
-			activeCalls.set(callId, { name, keyArg });
-			consoleZone.showInFlightCall(callId, name, keyArg);
-			tui.requestRender();
-		};
-
-		toolSlot.onToolEnd = ({ callId, elapsedMs, ok, result, display, displayKind }) => {
-			const entry = activeCalls.get(callId);
-			if (entry) {
-				trace("tool:end", {
-					callId: callId.slice(0, 8),
-					name: entry.name,
-					elapsedMs,
-					ok,
-					remainingActive: activeCalls.size - 1,
-				});
-				consoleZone.removeInFlightCall(callId);
-				activeCalls.delete(callId);
-				const snippet = display ?? result;
-				writer.addCompletedToolBlock(
-					entry.name,
-					entry.keyArg,
-					elapsedMs,
-					ok,
-					snippet?.trim() ? makeToolOutputComponent(snippet, displayKind, t) : null,
-				);
-				if (activeCalls.size === 0 && batchStartedAt > 0) {
-					writer.addBatchTiming(Date.now() - batchStartedAt);
-					batchStartedAt = 0;
-				}
+	session.subscribe((event) => {
+		switch (event.type) {
+			case "tool-start": {
+				const { callId, name, args } = event;
+				consoleZone.pulse();
+				showFooter();
+				replyTW.flush();
+				thinkingTW.flush();
+				streamingZone.reset();
+				const keyArg = keyArgFromPayload(args);
+				trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
+				if (activeCalls.size === 0) batchStartedAt = Date.now();
+				activeCalls.set(callId, { name, keyArg });
+				consoleZone.showInFlightCall(callId, name, keyArg);
 				tui.requestRender();
+				break;
 			}
-		};
-
-		toolSlot.onTokenUsage = ({ input, output, totalTokens }) => {
-			sessionTokens.total += input + output;
-			if (pendingTokenFooter) {
-				pendingTokenFooter.setText(formatTokenUsage(input, output, t, Date.now() - turnStartedAt));
-				pendingTokenFooter = null;
-				tui.requestRender();
-			}
-			// Warn when context window is filling. The turn assembler drops old turns
-			// but its char/4 estimates can be optimistic; actual LLM input is the ground truth.
-			const cw = opts.contextWindow;
-			if (cw && totalTokens > 0) {
-				const fill = totalTokens / cw;
-				if (fill > 0.9) {
-					writer.addNotice(
-						`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${cw.toLocaleString()} tokens) — start a new session soon`,
+			case "tool-end": {
+				const { callId, elapsedMs, ok, display, displayKind } = event;
+				const entry = activeCalls.get(callId);
+				if (entry) {
+					trace("tool:end", {
+						callId: callId.slice(0, 8),
+						name: entry.name,
+						elapsedMs,
+						ok,
+						remainingActive: activeCalls.size - 1,
+					});
+					consoleZone.removeInFlightCall(callId);
+					activeCalls.delete(callId);
+					writer.addCompletedToolBlock(
+						entry.name,
+						entry.keyArg,
+						elapsedMs,
+						ok,
+						display?.trim() ? makeToolOutputComponent(display, displayKind, t) : null,
 					);
-					tui.requestRender();
-				} else if (fill > 0.75) {
-					writer.addNotice(`context ${Math.round(fill * 100)}% full`);
+					if (activeCalls.size === 0 && batchStartedAt > 0) {
+						writer.addBatchTiming(Date.now() - batchStartedAt);
+						batchStartedAt = 0;
+					}
 					tui.requestRender();
 				}
+				break;
 			}
-		};
-
-		toolSlot.receiveTextChunk = (chunk) => {
-			consoleZone.pulse();
-			showFooter();
-			replyTW.receive(chunk);
-		};
-
-		toolSlot.receiveThinkingChunk = (chunk) => {
-			consoleZone.pulse();
-			thinkingTW.receive(chunk);
-		};
-	}
+			case "token-usage": {
+				const { input, output, totalTokens } = event.usage;
+				sessionTokens.total += input + output;
+				if (pendingTokenFooter) {
+					pendingTokenFooter.setText(formatTokenUsage(input, output, t, Date.now() - turnStartedAt));
+					pendingTokenFooter = null;
+					tui.requestRender();
+				}
+				const cw = session.state.contextWindow;
+				if (cw && totalTokens > 0) {
+					const fill = totalTokens / cw;
+					if (fill > 0.9) {
+						writer.addNotice(
+							`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${cw.toLocaleString()} tokens) — start a new session soon`,
+						);
+						tui.requestRender();
+					} else if (fill > 0.75) {
+						writer.addNotice(`context ${Math.round(fill * 100)}% full`);
+						tui.requestRender();
+					}
+				}
+				break;
+			}
+			case "chunk":
+				consoleZone.pulse();
+				showFooter();
+				replyTW.receive(event.text);
+				break;
+			case "thinking":
+				consoleZone.pulse();
+				thinkingTW.receive(event.text);
+				break;
+		}
+	});
 
 	// ── Input handling ────────────────────────────────────────────────────
 	let abortCurrentTurn: (() => void) | undefined;
@@ -384,19 +360,12 @@ export async function runTuiMode(
 		t,
 		writer,
 		tui,
-		dialog,
-		dispose,
 		opts,
-		sessionId: opts.sessionId,
+		session,
 		abortCurrentTurn,
 		setAbortCurrentTurn: (fn) => {
 			abortCurrentTurn = fn;
 		},
-		setLLMController: (ctrl) => {
-			setLLMAbortController(ctrl);
-		},
-		reloadOrgan,
-		getDirective,
 	});
 
 	// Ctrl+R: open inline history picker. Populated after each submit.
@@ -492,14 +461,14 @@ export async function runTuiMode(
 
 		let aborted = false;
 		const controller = new AbortController();
-		setLLMAbortController(controller);
+		session.setTurnController(controller);
 		abortCurrentTurn = () => {
 			aborted = true;
 			controller.abort();
 		};
 
 		try {
-			await (guard ?? dialog).send(text, "human", 300_000);
+			if (session.send) await session.send(text, 300_000);
 			if (!aborted) {
 				replyTW.flush();
 				thinkingTW.flush();
@@ -525,7 +494,7 @@ export async function runTuiMode(
 			tui.requestRender();
 		} finally {
 			abortCurrentTurn = undefined;
-			setLLMAbortController(undefined);
+			session.setTurnController(undefined);
 			if (consoleZone.isThinking) consoleZone.stopThinking();
 		}
 	};

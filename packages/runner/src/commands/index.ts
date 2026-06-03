@@ -32,7 +32,7 @@ const exit = {
 	name: "q",
 	description: "Quit",
 	run(ctx: TuiHandlerContext) {
-		ctx.dispose();
+		ctx.session.dispose();
 		ctx.tui.stop();
 	},
 };
@@ -51,7 +51,7 @@ const session = {
 	name: "session",
 	description: "Show session ID",
 	run(ctx: TuiHandlerContext) {
-		ctx.writer.addNotice(`session: ${ctx.sessionId}`);
+		ctx.writer.addNotice(`session: ${ctx.session.state.id}`);
 		ctx.tui.requestRender();
 	},
 };
@@ -110,7 +110,7 @@ const reload = {
 			ctx.tui.requestRender();
 			return;
 		}
-		if (!ctx.reloadOrgan) {
+		if (!ctx.session.reloadOrgan) {
 			ctx.writer.addNotice(":reload not available in this session.");
 			ctx.tui.requestRender();
 			return;
@@ -118,7 +118,7 @@ const reload = {
 		ctx.writer.addNotice(`Reloading ${name}…`);
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			await ctx.reloadOrgan?.(name, path);
+			await ctx.session.reloadOrgan?.(name, path);
 			ctx.writer.addNotice(`Reloaded ${name}.`);
 			ctx.tui.requestRender();
 		});
@@ -135,7 +135,7 @@ const load = {
 			ctx.tui.requestRender();
 			return;
 		}
-		if (!ctx.loadOrgan) {
+		if (!ctx.session.loadOrgan) {
 			ctx.writer.addNotice(":load not available in this session.");
 			ctx.tui.requestRender();
 			return;
@@ -143,7 +143,7 @@ const load = {
 		ctx.writer.addNotice(`Loading ${path}…`);
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			await ctx.loadOrgan?.(path);
+			await ctx.session.loadOrgan?.(path);
 			ctx.writer.addNotice(`Loaded ${path}.`);
 			ctx.tui.requestRender();
 		});
@@ -160,12 +160,12 @@ const unload = {
 			ctx.tui.requestRender();
 			return;
 		}
-		if (!ctx.unloadOrgan) {
+		if (!ctx.session.unloadOrgan) {
 			ctx.writer.addNotice(":unload not available in this session.");
 			ctx.tui.requestRender();
 			return;
 		}
-		const removed = ctx.unloadOrgan(name);
+		const removed = ctx.session.unloadOrgan?.(name);
 		ctx.writer.addNotice(removed ? `Unloaded ${name}.` : `No organ named '${name}'.`);
 		ctx.tui.requestRender();
 	},
@@ -244,13 +244,13 @@ const meta = {
 			let accumulated = "";
 			const reply = await m.runMetaAgent(
 				prompt,
-				ctx.opts?.getModel?.(),
+				ctx.session.getModel(),
 				(chunk) => {
 					accumulated += chunk;
 					ctx.writer.addNotice(`[meta] ${accumulated}`);
 					ctx.tui.requestRender();
 				},
-				ctx.getDirective,
+				ctx.session.getDirective,
 			);
 			if (!accumulated && reply) {
 				ctx.writer.addNotice(`[meta] ${reply}`);
@@ -264,7 +264,7 @@ const directive = {
 	name: "directive",
 	description: "Manage system prompt blocks — :directive list | enable | disable | toggle <id>",
 	run(ctx: TuiHandlerContext, args: string[]) {
-		const scroll = ctx.getDirective?.();
+		const scroll = ctx.session.getDirective?.();
 		if (!scroll) {
 			ctx.writer.addNotice(":directive not available in this session.");
 			ctx.tui.requestRender();
@@ -340,14 +340,14 @@ const model = {
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const [newId] = args;
 		if (!newId) {
-			const current = ctx.opts?.getModel?.() ?? "unknown";
+			const current = ctx.session.getModel() ?? "unknown";
 			ctx.writer.addNotice(`Current model: ${current}\nUsage: :model <id>  (e.g. :model claude-sonnet-4-6)`);
 			ctx.tui.requestRender();
 			return;
 		}
 		try {
 			const built = buildModel(newId);
-			ctx.opts?.setModel?.(newId);
+			ctx.session.setModel(newId);
 			ctx.writer.addNotice(`Model switched to ${built.id}. Takes effect on the next message.`);
 		} catch (e) {
 			ctx.writer.addNotice(`Unknown model: ${newId}. ${e instanceof Error ? e.message : ""}`);
@@ -363,7 +363,7 @@ const think = {
 		const LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 		const [level] = args;
 		if (!level) {
-			const current = ctx.opts?.getThinking?.() ?? "off";
+			const current = ctx.session.getThinking() ?? "off";
 			ctx.writer.addNotice(`Thinking: ${current}\nUsage: :think <level>  (${LEVELS.join(" | ")})`);
 			ctx.tui.requestRender();
 			return;
@@ -373,7 +373,7 @@ const think = {
 			ctx.tui.requestRender();
 			return;
 		}
-		ctx.opts?.setThinking?.(level);
+		ctx.session.setThinking(level);
 		ctx.writer.addNotice(`Thinking set to "${level}". Takes effect on the next message.`);
 		ctx.tui.requestRender();
 	},

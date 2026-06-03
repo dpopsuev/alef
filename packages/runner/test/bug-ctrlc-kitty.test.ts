@@ -8,9 +8,9 @@
  * These tests FAIL before the fix and PASS after.
  */
 
-import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { describe, expect, it, vi } from "vitest";
+import type { Session } from "../src/session.js";
 import { getTheme } from "../src/theme.js";
 import { ChatWriter } from "../src/tui/chat-writer.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
@@ -24,18 +24,29 @@ function makeTui() {
 	return { stop: vi.fn(), removeChild: vi.fn(), addChild: vi.fn(), requestRender: vi.fn() };
 }
 
+function makeSession(overrides: Partial<Session> = {}): Session {
+	return {
+		state: { id: "test", modelId: "test-model", contextWindow: 128_000 },
+		getModel: vi.fn(() => "test-model"),
+		setModel: vi.fn(),
+		getThinking: vi.fn(() => "off"),
+		setThinking: vi.fn(),
+		setTurnController: vi.fn(),
+		dispose: vi.fn(),
+		subscribe: vi.fn(() => () => {}),
+		...overrides,
+	};
+}
+
 function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext {
 	const t = getTheme();
 	return {
 		t,
 		writer: new ChatWriter(new Container(), t),
 		tui: makeTui(),
-		dialog: {} as DialogOrgan,
-		dispose: vi.fn(),
-		sessionId: "test",
+		session: makeSession(),
 		abortCurrentTurn: undefined,
 		setAbortCurrentTurn: vi.fn(),
-		setLLMController: vi.fn(),
 		...overrides,
 	};
 }
@@ -76,7 +87,7 @@ describe("onRawInput routing — must use matchesKey not === comparison", () => 
 		if (matchesKey("\x1b[99;5u", "ctrl+c")) {
 			handleCtrlC(ctx);
 		}
-		expect(ctx.dispose).toHaveBeenCalledOnce();
+		expect(ctx.session.dispose).toHaveBeenCalledOnce();
 		expect(ctx.tui.stop).toHaveBeenCalledOnce();
 	});
 
@@ -85,7 +96,7 @@ describe("onRawInput routing — must use matchesKey not === comparison", () => 
 		if (matchesKey("\x03", "ctrl+c")) {
 			handleCtrlC(ctx);
 		}
-		expect(ctx.dispose).toHaveBeenCalledOnce();
+		expect(ctx.session.dispose).toHaveBeenCalledOnce();
 		expect(ctx.tui.stop).toHaveBeenCalledOnce();
 	});
 });

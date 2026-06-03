@@ -280,12 +280,17 @@ describe("tools.describe — full schema on demand", () => {
 		expect((results as Array<{ guidance: string }>)[0].guidance).toBe("");
 	});
 
-	it("handles empty names array", async () => {
+	it("empty names returns full catalog (all tool names + descriptions, no schemas)", async () => {
 		const h = make();
 		h.publish("tools.describe", { names: [] });
 		await new Promise((r) => setTimeout(r, 100));
 		const { results } = h.senseResult("tools.describe");
-		expect(results).toHaveLength(0);
+		const names = (results as { name: string }[]).map((r) => r.name).sort();
+		expect(names.length).toBeGreaterThan(0);
+		expect(names).toContain("fs.read");
+		// Catalog entries have no schema (empty object).
+		const schemas = (results as { schema: Record<string, unknown> }[]).map((r) => r.schema);
+		expect(schemas.every((s) => Object.keys(s).length === 0)).toBe(true);
 	});
 });
 

@@ -31,9 +31,9 @@ import { z } from "zod";
 const DESCRIBE_TOOL = {
 	name: "tools.describe",
 	description:
-		"Get the full schema and usage guidance for one or more tools by name. Call this before using any tool to get its exact parameter names and types.",
+		'Get the full schema and usage guidance for one or more tools by name. Pass an empty array to list all available tools. Pass specific names to get full schemas, e.g. tools.describe(["fs.read", "shell.exec"]).',
 	inputSchema: z.object({
-		names: z.array(z.string()).describe('Tool names to describe, e.g. ["fs.read", "shell.exec"]'),
+		names: z.array(z.string()).describe("Tool names to get full schemas for. Pass [] to list all available tools."),
 	}),
 } satisfies ToolDefinition;
 
@@ -112,6 +112,14 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		schema: Record<string, unknown>;
 		guidance: string;
 	}> {
+		// Empty names → return catalog: all tool names + descriptions, no schemas.
+		// Lets the agent discover what is available without needing to guess names first.
+		if (names.length === 0) {
+			return [...tools]
+				.sort((a, b) => a.name.localeCompare(b.name))
+				.map((t) => ({ name: t.name, description: t.description, schema: {}, guidance: "" }));
+		}
+
 		const results = [];
 		for (const name of names) {
 			const t = byName.get(name);
@@ -205,7 +213,7 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		{
 			description: "Progressive tool discovery — inject catalog once, evict after N turns, describe on demand.",
 			directives: [
-				'The tool catalog is provided at the start of this conversation. Identify the tool you need, then call tools.describe(["tool-name"]) to get its full schema and call it.',
+				'The tool catalog is provided at the start of this conversation. To get the full schema for a tool, call tools.describe(["tool-name"]). To rediscover all available tools at any time, call tools.describe([]) — it returns the complete catalog. Never guess tool names or parameter shapes.',
 			],
 		},
 	);

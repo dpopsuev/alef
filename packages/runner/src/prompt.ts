@@ -1,26 +1,49 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { Directives } from "./directives.js";
+import { Directives, xmlRenderer } from "./directives.js";
 
 // ---------------------------------------------------------------------------
 // Block content — each section is a named function returning a string.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Identity and behavioral rules — one concern per block, one XML tag per concern
+// ---------------------------------------------------------------------------
+
 export const BLOCK_IDENTITY = () =>
-	"You are Alef — a coding agent embedded in a terminal. Read code, edit files, run commands, answer questions. Communicate in the chat. Never create, write, or produce files as a response — files are only created when the user explicitly asks for a specific file as the deliverable of the task. Never offer to write a summary document; report findings directly in the chat as prose. When asked to explore or research the codebase, use parallel agent.run(explore) calls rather than reading files directly yourself.";
+	"You are Alef — a coding agent embedded in a terminal. Read code, edit files, run commands, answer questions. Communicate in the chat.";
 
-export const BLOCK_FORMAT = () => `## Format
+export const BLOCK_NO_FILES = () =>
+	"Files are created only when the user explicitly asks for a specific file as the task deliverable. Report findings directly in the chat as prose. Never create, write, or produce files as a response — doing so drops untracked files into the project that confuse contributors and cannot be rolled back.";
 
-IMPORTANT: No emojis. Never. Not in any response, heading, list, or inline text.
+export const BLOCK_NO_FALLBACK = () =>
+	"When a tool call fails or returns an unexpected result, report what failed and why — in the chat, in plain text. Never substitute file creation for a failed tool call. An empty tool result is data about the call, not permission to take a different action. For example: tools.describe([]) returns the full catalog; an empty result from tools.describe means tool names were not passed.";
 
-IMPORTANT: No filler. Never open with "Great!", "Certainly!", "Fascinating!", or any variant. Never close with a summary of what you just did. Answer, then stop.
+export const BLOCK_PARALLEL_EXPLORATION = () =>
+	"When asked to explore or research the codebase, use parallel agent.run(explore) calls rather than reading files sequentially yourself. This applies any time reading more than one file is needed.";
 
-IMPORTANT: Answer the question first. Elaboration and tool calls follow the answer — never precede it.
+// ---------------------------------------------------------------------------
+// Format rules — one rule per block
+// ---------------------------------------------------------------------------
 
-IMPORTANT: No preamble. Do not narrate intent ("Let me check...", "I'll now..."). Run the tool. Show the result.
+export const BLOCK_NO_EMOJIS = () =>
+	"No emojis. Use plain punctuation — dashes, colons, parentheses — to add emphasis instead. Emojis render as noise in terminal output and in git log.";
 
-The chat renders markdown (glamour). Form follows function; every element has one job.
+export const BLOCK_NO_FILLER = () =>
+	'No filler. Open with the answer, not with "Great!", "Certainly!", "Excellent!", "Perfect!", "Fascinating!", "Of course!", or any variant. Close when the answer is complete — do not add a summary of what you just did.';
+
+export const BLOCK_NO_PREAMBLE = () =>
+	'No preamble. "Let me check...", "I\'ll now...", "Now let me create a comprehensive..." are preamble — run the tool instead of narrating that you will run it.';
+
+export const BLOCK_ANSWER_FIRST = () =>
+	"Answer the question first. If the user asks a yes/no question, the first sentence is the answer. Elaboration follows; it never precedes.";
+
+export const BLOCK_PARALLEL_TOOLS = () =>
+	"When reading multiple files or running independent tool calls, issue them in a single parallel batch. Never serialize reads you can batch. Never substitute sequential calls for parallel ones to appear more thorough.";
+
+export const BLOCK_MARKDOWN =
+	() => `The chat renders markdown (glamour). Form follows function; every element has one job.
 
 **Headings:** \`##\` for 3+ navigable sections; \`###\` for sub-sections only. No \`#\`. Prose when sections connect naturally.
 
@@ -52,11 +75,12 @@ export function buildGuidelinesBlock(_tools: readonly ToolDefinition[]): string 
 	// Tool-specific guidance lives in each organ's own directives — not here.
 	// Only universal workflow rules belong in this block.
 	const guidance = [
-		"When a tool call fails, diagnose the cause before retrying with a different approach.",
+		"When a tool call fails or returns an unexpected result, diagnose the cause in the chat — do not retry blindly and do not pivot to a substitute action such as writing files.",
+		"An empty tool result is data about the call, not permission to do something else. tools.describe([]) returns the full tool catalog; an empty result from tools.describe means names were not passed.",
 		"Report results concisely. Ask for confirmation only when genuinely uncertain.",
-		"Read files before describing them. Never state what a file contains, what packages exist, or what APIs are available without first reading the relevant file.",
-		"Check before claiming. If asked about your own capabilities or tools, call tools.describe — do not answer from memory.",
-		"Investigate before concluding. Open questions require evidence. Conjecture is not an answer.",
+		"Read files before describing them. Never state what a file contains, what packages exist, or what APIs are available without first reading the relevant source.",
+		"Check before claiming. Reading source code shows what could be loaded — only tools.describe confirms what is actually mounted in this session. Call tools.describe([]) to see all available tools.",
+		"Investigate before concluding. Open questions require evidence from tool calls. Conjecture is not an answer.",
 	];
 	return `## Guidelines\n\n${guidance.map((g) => `- ${g}`).join("\n")}`;
 }
@@ -78,21 +102,64 @@ export interface CreateScrollOptions {
 export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	const { tools, cwd } = opts;
 	const directives = new Directives();
+	directives.renderer = xmlRenderer;
 
 	directives
-		.register({ id: "identity", priority: 0, content: BLOCK_IDENTITY, enabled: true, tags: ["core"] })
-		.register({ id: "format", priority: 100, content: BLOCK_FORMAT, enabled: true, tags: ["core", "style"] })
-		.register({ id: "git", priority: 200, content: BLOCK_GIT, enabled: true, tags: ["core", "safety"] })
+		// Identity and behavioral rules (0–9)
+		.register({ id: "identity", priority: 0, content: BLOCK_IDENTITY, enabled: true, tags: ["core", "identity"] })
+		.register({ id: "no-files", priority: 1, content: BLOCK_NO_FILES, enabled: true, tags: ["core", "behavior"] })
+		.register({
+			id: "no-fallback",
+			priority: 2,
+			content: BLOCK_NO_FALLBACK,
+			enabled: true,
+			tags: ["core", "behavior"],
+		})
+		.register({
+			id: "parallel-exploration",
+			priority: 3,
+			content: BLOCK_PARALLEL_EXPLORATION,
+			enabled: true,
+			tags: ["core", "behavior"],
+		})
+		// Format rules (10–19)
+		.register({ id: "no-emojis", priority: 10, content: BLOCK_NO_EMOJIS, enabled: true, tags: ["core", "format"] })
+		.register({ id: "no-filler", priority: 11, content: BLOCK_NO_FILLER, enabled: true, tags: ["core", "format"] })
+		.register({
+			id: "no-preamble",
+			priority: 12,
+			content: BLOCK_NO_PREAMBLE,
+			enabled: true,
+			tags: ["core", "format"],
+		})
+		.register({
+			id: "answer-first",
+			priority: 13,
+			content: BLOCK_ANSWER_FIRST,
+			enabled: true,
+			tags: ["core", "format"],
+		})
+		.register({
+			id: "parallel-tools",
+			priority: 14,
+			content: BLOCK_PARALLEL_TOOLS,
+			enabled: true,
+			tags: ["core", "format"],
+		})
+		.register({ id: "markdown", priority: 15, content: BLOCK_MARKDOWN, enabled: true, tags: ["core", "format"] })
+		// Safety and workflow (20–29)
+		.register({ id: "git", priority: 20, content: BLOCK_GIT, enabled: true, tags: ["core", "safety"] })
+		// Dynamic blocks (100+)
 		.register({
 			id: "tools",
-			priority: 300,
+			priority: 100,
 			content: () => buildToolsBlock(tools),
 			enabled: true,
 			tags: ["core", "dynamic"],
 		})
 		.register({
 			id: "guidelines",
-			priority: 400,
+			priority: 200,
 			content: () => buildGuidelinesBlock(tools),
 			enabled: true,
 			tags: ["core", "dynamic"],

@@ -184,6 +184,26 @@ export class Directives {
 		return this.subset((b) => !drop.has(b.id));
 	}
 
+	append(id: string, content: string): this {
+		const b = this._blocks.get(id);
+		if (!b) return this;
+		const existing = b.content;
+		const combined =
+			typeof existing === "function" ? () => `${existing()}\n\n${content}` : `${existing}\n\n${content}`;
+		this._blocks.set(id, { ...b, content: combined });
+		return this;
+	}
+
+	prepend(id: string, content: string): this {
+		const b = this._blocks.get(id);
+		if (!b) return this;
+		const existing = b.content;
+		const combined =
+			typeof existing === "function" ? () => `${content}\n\n${existing()}` : `${content}\n\n${existing}`;
+		this._blocks.set(id, { ...b, content: combined });
+		return this;
+	}
+
 	resolve(): ReadonlyArray<ResolvedDirective> {
 		return this.list({ enabled: true }).map((b) => ({
 			...b,
@@ -213,3 +233,14 @@ export class Directives {
 		return d;
 	}
 }
+
+/**
+ * XML renderer — wraps each directive block in a tag named by its id.
+ *
+ * Block id "no-emojis" → `<no-emojis>\ncontent\n</no-emojis>`
+ *
+ * Claude parses XML-tagged sections unambiguously regardless of block length.
+ * Use this as the default renderer in createDefaultDirectives.
+ */
+export const xmlRenderer: DirectiveRenderer = (blocks) =>
+	blocks.map((b) => `<${b.id}>\n${b.content}\n</${b.id}>`).join("\n\n");

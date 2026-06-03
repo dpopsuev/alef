@@ -1,23 +1,5 @@
 #!/usr/bin/env tsx
 
-/**
- * Alef agent runner — composition root and entry point.
- *
- * Two wiring modes:
- *
- *   Blueprint mode (--blueprint agent.yaml):
- *     Reads a CompiledAgentDefinition from YAML. The materializer instantiates
- *     organs declared in the blueprint. Model is taken from the blueprint unless
- *     --model or ALEF_MODEL overrides it.
- *
- *   Default mode (no --blueprint):
- *     Hardcoded organ set: FsOrgan + ShellOrgan.
- *
- * In both modes DialogOrgan and Reasoner are always mounted — they are the
- * fixed application core (reasoning + conversation). Only the corpus adapters
- * (fs, shell, web, enclosure, …) are variable.
- */
-
 import { parseArgs } from "./args.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
@@ -34,9 +16,6 @@ import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
 import { setupSupervisorIpc } from "./setup-supervisor-ipc.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 // OTel must be registered before any tracer is acquired.
 process.title = "alef";
@@ -67,13 +46,7 @@ const log = createRunnerLogger(willUseTui, args.debug);
 const trace = setupTrace(args.debug);
 trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui });
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
 const session = await loadSession(args, willUseTui);
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 const corpus = await loadCorpus(args, cfg, log);
 const { blueprintUpgradePolicy, blueprintPath } = corpus;

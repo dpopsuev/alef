@@ -1,21 +1,3 @@
-/**
- * Session — the Strategy interface between the TUI and a running agent.
- *
- * Two concrete strategies:
- *   LocalSession  — agent runs in the same process as the TUI
- *   RemoteSession — agent runs as a daemon; TUI connects via RouterOrgan SSE
- *
- * The TUI is ignorant of which strategy it holds. Strategy selection happens
- * at construction time (main.ts) or at :session attach (CommandRegistry).
- *
- * AgentEvent is the typed output channel. All agent → TUI communication
- * flows through subscribe(observer). This replaces the five scattered
- * toolSlot callbacks (onToolStart, onToolEnd, onTokenUsage,
- * receiveTextChunk, receiveThinkingChunk).
- *
- * Related: strangler fig, daemon + registry.
- */
-
 // ---------------------------------------------------------------------------
 // AgentEvent — typed output from the agent to any observer.
 // Types are owned here; they are structurally identical to organ-llm types
@@ -80,33 +62,24 @@ export interface SessionState {
 export interface Session {
 	readonly state: SessionState;
 
-	// Model and thinking configuration
 	getModel(): string;
 	setModel(id: string): void;
 	getThinking(): string;
 	setThinking(level: string): void;
 
-	// Turn control — TUI injects an AbortController to cancel the live turn
 	setTurnController(ctrl: AbortController | undefined): void;
 
-	// Organ management — optional; absent when the session does not support it
 	loadOrgan?(path: string): Promise<void>;
 	unloadOrgan?(name: string): boolean;
 	reloadOrgan?(name: string, path: string): Promise<void>;
 
-	// Lifecycle
 	dispose(): void;
 
-	// Conversation — optional based on mode
-	/** Await a full reply. Absent in observer and replay modes. */
 	send?(text: string, timeoutMs?: number): Promise<string>;
-	/** Fire-and-forget inbound message. Used by SSE serve mode (router organ). */
 	receive?(text: string): void;
 
-	// Session-level access to the directive system
 	getDirective?(): DirectiveView | undefined;
 
-	// Observer registration — returns the unsubscribe function (= detach)
 	subscribe(observer: (event: AgentEvent) => void): () => void;
 }
 

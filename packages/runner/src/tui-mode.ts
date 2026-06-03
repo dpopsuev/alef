@@ -12,10 +12,10 @@
 import { appendFileSync } from "node:fs";
 import type { DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
 import { getProviders } from "@dpopsuev/alef-organ-llm";
 import { Container, matchesKey, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
+import type { ToolSlot } from "./build-llm-organ.js";
 import { registry } from "./commands/index.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
@@ -202,18 +202,6 @@ export function handleColonCommand(text: string, ctx: TuiHandlerContext): boolea
 }
 
 // ---------------------------------------------------------------------------
-// Tool slot interface
-// ---------------------------------------------------------------------------
-
-export interface TuiToolSlot {
-	onToolStart: ((event: ToolCallStart) => void) | undefined;
-	onToolEnd: ((event: ToolCallEnd) => void) | undefined;
-	onTokenUsage: ((usage: TokenUsage) => void) | undefined;
-	receiveTextChunk: ((chunk: string) => void) | undefined;
-	receiveThinkingChunk: ((chunk: string) => void) | undefined;
-}
-
-// ---------------------------------------------------------------------------
 // runTuiMode — turn orchestration
 // ---------------------------------------------------------------------------
 
@@ -222,7 +210,7 @@ export async function runTuiMode(
 	opts: InteractiveOptions,
 	dispose: () => void,
 	setLLMAbortController: (ctrl: AbortController | undefined) => void = () => {},
-	toolSlot?: TuiToolSlot,
+	toolSlot?: ToolSlot,
 	reloadOrgan?: (name: string, path: string) => Promise<void>,
 	getDirective?: () => DirectiveAdapter | undefined,
 	guard?: SessionGuard,

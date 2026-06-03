@@ -226,6 +226,8 @@ export async function runTuiMode(
 	reloadOrgan?: (name: string, path: string) => Promise<void>,
 	getDirective?: () => DirectiveAdapter | undefined,
 	guard?: SessionGuard,
+	_loadOrgan?: (path: string) => Promise<void>,
+	_unloadOrgan?: (name: string) => boolean,
 ): Promise<void> {
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);

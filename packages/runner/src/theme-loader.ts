@@ -23,10 +23,6 @@ function hexToken(hex: string): ColorToken {
 	return { truecolor: hex };
 }
 
-/**
- * Load theme from ~/.config/alef/theme.yaml or the blueprint's agent.yaml.
- * Merges color overrides on top of the named built-in.
- */
 export function loadTheme(
 	blueprintDir?: string,
 	cfgThemeName?: string,
@@ -52,8 +48,6 @@ export function loadTheme(
 	const defaultTheme = isDark ? "terminal" : "terminal-light";
 	const baseName = manifest?.theme ?? cfgThemeName ?? defaultTheme;
 
-	// When using the terminal theme, replace the static defaults with a live
-	// theme built from the actual terminal palette colors (OSC 4 query).
 	if ((baseName === "terminal" || baseName === "terminal-light") && Object.keys(terminalPalette).length > 0) {
 		setTheme(buildTerminalTheme(terminalPalette));
 	} else {

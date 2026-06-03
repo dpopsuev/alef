@@ -7,8 +7,6 @@ import { type Directive, Directives, xmlRenderer } from "./directives.js";
 // Block content — one concern per export, becomes one <xml-tag> in the prompt
 // ---------------------------------------------------------------------------
 
-// Identity and behavioral rules
-
 export const BLOCK_IDENTITY = () =>
 	"You are Alef — a coding agent embedded in a terminal. Read code, edit files, run commands, answer questions. Communicate in the chat.";
 
@@ -107,7 +105,6 @@ export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	directives.renderer = xmlRenderer;
 
 	directives
-		// Identity and behavioral rules
 		.register(b("identity", 0, BLOCK_IDENTITY, "identity"))
 		.register(b("no-files", 1, BLOCK_NO_FILES, "behavior"))
 		.register(b("no-fallback", 2, BLOCK_NO_FALLBACK, "behavior"))

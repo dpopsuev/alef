@@ -37,19 +37,13 @@ export function trace(event: string, extra?: Record<string, unknown>): void {
 	const line = `${JSON.stringify({ t: new Date().toISOString(), event, ...extra })}\n`;
 	try {
 		appendFileSync(LOG_PATH, line, "utf-8");
-	} catch {
-		// If the log itself fails, don't crash the process.
-	}
+	} catch {}
 }
 
 export function debugLogPath(): string {
 	return LOG_PATH;
 }
 
-/**
- * Initialize the debug trace and return the trace function.
- * Absorbs initDebugTrace + debugLogPath so main.ts imports one symbol.
- */
 export function setupTrace(debug: boolean): typeof trace {
 	initDebugTrace(debug);
 	if (debug) process.stderr.write(`[alef] debug log: ${LOG_PATH}\n`);

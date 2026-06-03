@@ -1,14 +1,3 @@
-/**
- * LocalSession — in-process Session strategy.
- *
- * Static create() owns the 22 agent construction steps that were previously
- * in main.ts. One exported symbol, rich internals — Ousterhout depth principle.
- *
- * Mutable fields (_currentModel, _thinkingState, _llmController) use the _
- * prefix to signal internal use. They are shared by all closures that the LLM,
- * TUI, and command handlers need to mutate at runtime.
- */
-
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
@@ -32,14 +21,12 @@ import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "./
 export class LocalSession implements Session {
 	readonly state: SessionState;
 
-	// Mutable runtime state — shared across all closures. _ prefix = internal.
 	_currentModel: Model<Api>;
 	_thinkingState: { level: ThinkingLevel | undefined };
 	_llmController: AbortController | undefined;
 	private _turnCount = 0;
 	private readonly _observers = new Set<(event: AgentEvent) => void>();
 
-	// Wired at end of create() once agent.ready() resolves
 	private _agent: Agent = new Agent();
 	private _directives: Directives | undefined;
 	private readonly _dialog: DialogOrgan;
@@ -61,10 +48,6 @@ export class LocalSession implements Session {
 		this._args = args;
 		this._log = log;
 	}
-
-	// ---------------------------------------------------------------------------
-	// Factory
-	// ---------------------------------------------------------------------------
 
 	static async create(
 		args: Args,
@@ -109,7 +92,6 @@ export class LocalSession implements Session {
 			sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
 		});
 
-		// Create instance early so closures can capture its mutable fields
 		const inst = new LocalSession(
 			{ id: store.id, modelId: model.id, contextWindow: model.contextWindow },
 			model,
@@ -166,7 +148,6 @@ export class LocalSession implements Session {
 		agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
 		registerOrgans(directives, [toolShell, memoryOrgan]);
 
-		// Phase-2: patch toolSlot dispatchers now that observer set exists
 		const dispatch = (event: AgentEvent): void => {
 			for (const obs of inst._observers) obs(event);
 		};
@@ -198,10 +179,6 @@ export class LocalSession implements Session {
 
 		return { session: inst, resolvedModelDisplay };
 	}
-
-	// ---------------------------------------------------------------------------
-	// Session interface
-	// ---------------------------------------------------------------------------
 
 	getModel(): string {
 		return this._currentModel.id;
@@ -287,7 +264,6 @@ export class LocalSession implements Session {
 		};
 	}
 
-	// Diagnostic pass-throughs for --list-tools / --list-organs in main.ts
 	get tools() {
 		return this._agent.tools;
 	}

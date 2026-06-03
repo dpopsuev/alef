@@ -45,3 +45,13 @@ export function trace(event: string, extra?: Record<string, unknown>): void {
 export function debugLogPath(): string {
 	return LOG_PATH;
 }
+
+/**
+ * Initialize the debug trace and return the trace function.
+ * Absorbs initDebugTrace + debugLogPath so main.ts imports one symbol.
+ */
+export function setupTrace(debug: boolean): typeof trace {
+	initDebugTrace(debug);
+	if (debug) process.stderr.write(`[alef] debug log: ${LOG_PATH}\n`);
+	return trace;
+}

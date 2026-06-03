@@ -22,16 +22,16 @@ import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Message, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
 import { createLlmPipeline } from "@dpopsuev/alef-organ-llm";
 import { buildAgent, buildCheckpointCallback } from "./agent-kernel.js";
-import { DEFAULT_MODEL, parseArgs } from "./args.js";
+import { parseArgs } from "./args.js";
 import { buildDelegation } from "./build-delegation.js";
 import { buildLlmOrgan, type ToolSlot } from "./build-llm-organ.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
-import { debugLogPath, initDebugTrace, trace } from "./debug-trace.js";
+import { setupTrace } from "./debug-trace.js";
 import { loadCorpus } from "./load-corpus.js";
 import { loadSession } from "./load-session.js";
-import { createLogger, createLoggerForTui } from "./logger.js";
-import { autoDetectModel, buildModel, detectedProviders, hasCredentials } from "./model.js";
+import { createRunnerLogger } from "./logger.js";
+import { buildModel, resolveStartupModel } from "./model.js";
 import { createMemoryOrgan } from "./organ-memory.js";
 import { setupOTel } from "./otel.js";
 import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
@@ -73,22 +73,9 @@ if (args.debugSubcmd) {
 }
 
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
-const log =
-	willUseTui && (args.debug || process.env.ALEF_LOG_LEVEL === "debug")
-		? createLoggerForTui(debugLogPath(), args.debug ? "debug" : undefined)
-		: createLogger(args.debug ? "debug" : undefined);
-initDebugTrace(args.debug);
-if (args.debug) process.stderr.write(`[alef] debug log: ${debugLogPath()}\n`);
+const log = createRunnerLogger(willUseTui, args.debug);
+const trace = setupTrace(args.debug);
 trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui });
-
-if (!hasCredentials()) {
-	console.warn(
-		"Warning: no LLM credentials detected.\n" +
-			"Set an API key env var (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY).\n",
-	);
-} else if (args.debug) {
-	process.stderr.write(`[alef] detected providers: ${detectedProviders().join(", ")}\n`);
-}
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -104,8 +91,7 @@ const { corpusOrgans, blueprintModelId, blueprintSurfaces, blueprintUpgradePolic
 	log,
 );
 
-const resolvedModelId = args.modelId ?? blueprintModelId ?? cfg.model;
-let currentModel = resolvedModelId ? buildModel(resolvedModelId) : (autoDetectModel() ?? buildModel(DEFAULT_MODEL));
+let currentModel = resolveStartupModel(args, blueprintModelId, cfg);
 const model = currentModel;
 const resolvedModelDisplay =
 	model.name !== model.id ? `${model.provider}/${model.id} (${model.name})` : `${model.provider}/${model.id}`;

@@ -8,17 +8,20 @@ export interface ToolCallEnd {
 	callId: string;
 	elapsedMs: number;
 	ok: boolean;
-	/** Raw text encoded for LLM context (payloadToText output). Used as TUI fallback. */
 	result?: string;
-	/** Human-readable display text from the organ's _display block. Shown in TUI instead of result. */
 	display?: string;
-	/** MIME type of display, e.g. "text/x-diff". Tells the TUI how to render display. */
 	displayKind?: string;
 }
 
 export interface TokenUsage {
 	input: number;
 	output: number;
-	/** Cumulative tokens in the context window for this LLM call (input + cached). */
 	totalTokens: number;
 }
+
+export type CerebrumEvent =
+	| ({ type: "tool-start" } & ToolCallStart)
+	| ({ type: "tool-end" } & ToolCallEnd)
+	| { type: "token-usage"; usage: TokenUsage }
+	| { type: "chunk"; text: string }
+	| { type: "thinking"; text: string };

@@ -97,35 +97,3 @@ export function canManageOrgans(session: Session): session is Session & {
 } {
 	return typeof session.loadOrgan === "function" && typeof session.unloadOrgan === "function";
 }
-
-// ---------------------------------------------------------------------------
-// makeToolSlotFromSession — bridge from Session.subscribe to Cerebrum callbacks.
-// Translates organ-llm callback shapes to AgentEvent without importing organ types.
-// ---------------------------------------------------------------------------
-
-export function makeToolSlotFromSession(session: Session): {
-	onToolStart: ((e: ToolStarted) => void) | undefined;
-	onToolEnd: ((e: ToolEnded) => void) | undefined;
-	onTokenUsage: ((u: TokensConsumed) => void) | undefined;
-	receiveTextChunk: ((chunk: string) => void) | undefined;
-	receiveThinkingChunk: ((chunk: string) => void) | undefined;
-} {
-	let dispatch: ((event: AgentEvent) => void) | undefined;
-	session.subscribe((event) => dispatch?.(event));
-
-	return {
-		onToolStart: (e) => dispatch?.({ type: "tool-start", callId: e.callId, name: e.name, args: e.args }),
-		onToolEnd: (e) =>
-			dispatch?.({
-				type: "tool-end",
-				callId: e.callId,
-				elapsedMs: e.elapsedMs,
-				ok: e.ok,
-				display: e.display,
-				displayKind: e.displayKind,
-			}),
-		onTokenUsage: (u) => dispatch?.({ type: "token-usage", usage: u }),
-		receiveTextChunk: (chunk) => dispatch?.({ type: "chunk", text: chunk }),
-		receiveThinkingChunk: (chunk) => dispatch?.({ type: "thinking", text: chunk }),
-	};
-}

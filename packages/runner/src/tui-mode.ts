@@ -10,7 +10,7 @@
  */
 
 import { appendFileSync } from "node:fs";
-import { getProviders } from "@dpopsuev/alef-organ-llm";
+import { getProviders } from "@dpopsuev/alef-ai";
 import { Container, matchesKey, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
 import { registry } from "./commands/index.js";

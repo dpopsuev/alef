@@ -1,5 +1,4 @@
 import { Agent } from "@dpopsuev/alef-corpus";
-import { DialogOrgan, type MessageSink } from "@dpopsuev/alef-organ-dialog";
 import type { Message } from "@dpopsuev/alef-organ-llm";
 import type { Organ, SessionStore } from "@dpopsuev/alef-spine";
 import { SessionLog } from "./event-log-organ.js";
@@ -9,10 +8,8 @@ export type CheckpointCallback = (messages: Message[], correlationId: string) =>
 
 export interface AgentKernelOptions {
 	llm: Organ;
-	dialog?: DialogOrgan;
+	dialog?: Organ;
 	trigger?: Organ;
-	/** @deprecated Pass dialog instead. */
-	sink?: MessageSink;
 	session?: SessionStore;
 	modelId?: string;
 	loopThreshold?: number;
@@ -21,7 +18,7 @@ export interface AgentKernelOptions {
 
 export interface AgentKernelResult {
 	agent: Agent;
-	dialog: DialogOrgan | undefined;
+	dialog: Organ | undefined;
 }
 
 export function buildCheckpointCallback(
@@ -43,17 +40,10 @@ export function buildCheckpointCallback(
 
 export function buildAgent(opts: AgentKernelOptions): AgentKernelResult {
 	const agent = new Agent();
-	let dialog: DialogOrgan | undefined;
+	const dialog = opts.dialog ?? opts.trigger;
 
-	if (opts.dialog) {
-		dialog = opts.dialog;
-		agent.load(dialog).load(opts.llm);
-	} else if (opts.trigger) {
-		agent.load(opts.trigger).load(opts.llm);
-	} else {
-		dialog = new DialogOrgan({ sink: opts.sink ?? (() => {}) });
-		agent.load(dialog).load(opts.llm);
-	}
+	if (dialog) agent.load(dialog);
+	agent.load(opts.llm);
 
 	agent.load(
 		new LoopGuard({

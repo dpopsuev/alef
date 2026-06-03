@@ -16,13 +16,31 @@
  * Related: strangler fig, daemon + registry.
  */
 
-import type { DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
-import type { TokenUsage, ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
-import type { SessionGuard } from "./session-guard.js";
+// ---------------------------------------------------------------------------
+// AgentEvent — typed output from the agent to any observer.
+// Types are owned here; they are structurally identical to organ-llm types
+// but session.ts must not depend on organ packages.
+// ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// AgentEvent — typed output from the agent to any observer
-// ---------------------------------------------------------------------------
+export interface ToolStarted {
+	callId: string;
+	name: string;
+	args: Record<string, unknown>;
+}
+
+export interface ToolEnded {
+	callId: string;
+	elapsedMs: number;
+	ok: boolean;
+	display?: string;
+	displayKind?: string;
+}
+
+export interface TokensConsumed {
+	input: number;
+	output: number;
+	totalTokens: number;
+}
 
 export type AgentEvent =
 	| { type: "chunk"; text: string }
@@ -31,7 +49,19 @@ export type AgentEvent =
 	| { type: "tool-end"; callId: string; elapsedMs: number; ok: boolean; display?: string; displayKind?: string }
 	| { type: "turn-complete"; reply: string }
 	| { type: "turn-error"; message: string }
-	| { type: "token-usage"; usage: TokenUsage };
+	| { type: "token-usage"; usage: TokensConsumed };
+
+// ---------------------------------------------------------------------------
+// DirectiveView — the minimal surface Session exposes from the directive system.
+// Callers never see DirectiveAdapter from organ-alef.
+// ---------------------------------------------------------------------------
+
+export interface DirectiveView {
+	list(): ReadonlyArray<{ id: string; priority: number; enabled: boolean; tags?: string[] }>;
+	enable(id: string): void;
+	disable(id: string): void;
+	toggle(id: string): void;
+}
 
 // ---------------------------------------------------------------------------
 // SessionState — stable identity, serialisable, survives attach/detach
@@ -73,9 +103,8 @@ export interface Session {
 	/** Fire-and-forget inbound message. Used by SSE serve mode (router organ). */
 	receive?(text: string): void;
 
-	// Session-level policy
-	guard?: SessionGuard;
-	getDirective?(): DirectiveAdapter | undefined;
+	// Session-level access to the directive system
+	getDirective?(): DirectiveView | undefined;
 
 	// Observer registration — returns the unsubscribe function (= detach)
 	subscribe(observer: (event: AgentEvent) => void): () => void;
@@ -97,17 +126,14 @@ export function canManageOrgans(session: Session): session is Session & {
 }
 
 // ---------------------------------------------------------------------------
-// ToolSlot ← bridge between AgentEvent and the existing Cerebrum callbacks
-//
-// During the strangler fig this lets main.ts wire the existing
-// toolSlot struct from a Session.subscribe observer without touching Cerebrum.
-// Deleted once TuiToolSlot and ToolSlot are unified in step 2.
+// makeToolSlotFromSession — bridge from Session.subscribe to Cerebrum callbacks.
+// Translates organ-llm callback shapes to AgentEvent without importing organ types.
 // ---------------------------------------------------------------------------
 
 export function makeToolSlotFromSession(session: Session): {
-	onToolStart: ((e: ToolCallStart) => void) | undefined;
-	onToolEnd: ((e: ToolCallEnd) => void) | undefined;
-	onTokenUsage: ((u: TokenUsage) => void) | undefined;
+	onToolStart: ((e: ToolStarted) => void) | undefined;
+	onToolEnd: ((e: ToolEnded) => void) | undefined;
+	onTokenUsage: ((u: TokensConsumed) => void) | undefined;
 	receiveTextChunk: ((chunk: string) => void) | undefined;
 	receiveThinkingChunk: ((chunk: string) => void) | undefined;
 } {

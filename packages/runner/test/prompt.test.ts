@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { Directives } from "../src/directives.js";
 import {
 	appendEnvironment,
-	BLOCK_FORMAT,
+	BLOCK_ANSWER_FIRST,
 	BLOCK_IDENTITY,
+	BLOCK_NO_EMOJIS,
+	BLOCK_NO_FILLER,
+	BLOCK_NO_PREAMBLE,
 	buildPrepareStep,
 	buildSystemPrompt,
 	createDefaultDirectives,
@@ -79,30 +82,25 @@ describe("registerOrgans", () => {
 	});
 });
 
-describe("BLOCK_FORMAT — output discipline rules", () => {
-	it("contains no-emoji rule with IMPORTANT marker", () => {
-		const format = BLOCK_FORMAT();
-		expect(format).toContain("No emojis");
-		expect(format).toContain("IMPORTANT");
+describe("atomic format blocks — each rule is its own tagged block", () => {
+	it("no-emojis block contains the rule text", () => {
+		expect(BLOCK_NO_EMOJIS()).toContain("No emojis");
 	});
 
-	it("contains no-filler rule", () => {
-		const format = BLOCK_FORMAT();
-		expect(format).toContain("No filler");
-		expect(format).toContain("Great!");
+	it("no-filler block contains the blocked phrases", () => {
+		expect(BLOCK_NO_FILLER()).toContain("No filler");
+		expect(BLOCK_NO_FILLER()).toContain("Great!");
 	});
 
-	it("contains answer-first rule", () => {
-		const format = BLOCK_FORMAT();
-		expect(format).toContain("Answer the question first");
+	it("no-preamble block names the pattern", () => {
+		expect(BLOCK_NO_PREAMBLE()).toContain("No preamble");
 	});
 
-	it("contains no-preamble rule", () => {
-		const format = BLOCK_FORMAT();
-		expect(format).toContain("No preamble");
+	it("answer-first block states the rule", () => {
+		expect(BLOCK_ANSWER_FIRST()).toContain("Answer the question first");
 	});
 
-	it("built prompt contains all output discipline rules", () => {
+	it("built prompt contains all format rules", () => {
 		const prompt = buildSystemPrompt({ tools: [] });
 		expect(prompt).toContain("No emojis");
 		expect(prompt).toContain("No filler");
@@ -110,10 +108,18 @@ describe("BLOCK_FORMAT — output discipline rules", () => {
 		expect(prompt).toContain("Answer the question first");
 	});
 
-	it("format block appears before guidelines in built prompt", () => {
+	it("format blocks are wrapped in XML tags in the built prompt", () => {
+		const prompt = buildSystemPrompt({ tools: [] });
+		expect(prompt).toContain("<no-emojis>");
+		expect(prompt).toContain("<no-filler>");
+		expect(prompt).toContain("<no-preamble>");
+		expect(prompt).toContain("<answer-first>");
+	});
+
+	it("format rules appear before guidelines in built prompt", () => {
 		const scroll = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const prompt = scroll.build();
-		expect(prompt.indexOf("## Format")).toBeLessThan(prompt.indexOf("## Guidelines"));
+		expect(prompt.indexOf("<no-emojis>")).toBeLessThan(prompt.indexOf("<guidelines>"));
 	});
 });
 

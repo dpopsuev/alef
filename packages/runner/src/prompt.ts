@@ -1,15 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { Directives, xmlRenderer } from "./directives.js";
+import { type Directive, Directives, xmlRenderer } from "./directives.js";
 
 // ---------------------------------------------------------------------------
-// Block content — each section is a named function returning a string.
+// Block content — one concern per export, becomes one <xml-tag> in the prompt
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Identity and behavioral rules — one concern per block, one XML tag per concern
-// ---------------------------------------------------------------------------
+// Identity and behavioral rules
 
 export const BLOCK_IDENTITY = () =>
 	"You are Alef — a coding agent embedded in a terminal. Read code, edit files, run commands, answer questions. Communicate in the chat.";
@@ -68,21 +66,20 @@ export function buildToolsBlock(tools: readonly ToolDefinition[]): string {
 		const desc = t.description ? ` — ${t.description.split(".")[0]}` : "";
 		return `- ${t.name}${desc}`;
 	});
-	return `## Tools\n\n${lines.length > 0 ? lines.join("\n") : "(no tools loaded)"}`;
+	return lines.length > 0 ? lines.join("\n") : "(no tools loaded)";
 }
 
 export function buildGuidelinesBlock(_tools: readonly ToolDefinition[]): string {
-	// Tool-specific guidance lives in each organ's own directives — not here.
-	// Only universal workflow rules belong in this block.
-	const guidance = [
+	return [
 		"When a tool call fails or returns an unexpected result, diagnose the cause in the chat — do not retry blindly and do not pivot to a substitute action such as writing files.",
 		"An empty tool result is data about the call, not permission to do something else. tools.describe([]) returns the full tool catalog; an empty result from tools.describe means names were not passed.",
 		"Report results concisely. Ask for confirmation only when genuinely uncertain.",
 		"Read files before describing them. Never state what a file contains, what packages exist, or what APIs are available without first reading the relevant source.",
 		"Check before claiming. Reading source code shows what could be loaded — only tools.describe confirms what is actually mounted in this session. Call tools.describe([]) to see all available tools.",
 		"Investigate before concluding. Open questions require evidence from tool calls. Conjecture is not an answer.",
-	];
-	return `## Guidelines\n\n${guidance.map((g) => `- ${g}`).join("\n")}`;
+	]
+		.map((g) => `- ${g}`)
+		.join("\n");
 }
 
 export function buildEnvironmentBlock(cwd: string): string {
@@ -91,12 +88,17 @@ export function buildEnvironmentBlock(cwd: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Directives factory — registers all built-in blocks.
+// Directives factory
 // ---------------------------------------------------------------------------
 
 export interface CreateScrollOptions {
 	tools: readonly ToolDefinition[];
 	cwd: string;
+}
+
+/** Shorthand: create an enabled core directive block. */
+function b(id: string, priority: number, content: Directive["content"], ...tags: string[]): Directive {
+	return { id, priority, content, enabled: true, tags: ["core", ...tags] };
 }
 
 export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
@@ -105,72 +107,24 @@ export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	directives.renderer = xmlRenderer;
 
 	directives
-		// Identity and behavioral rules (0–9)
-		.register({ id: "identity", priority: 0, content: BLOCK_IDENTITY, enabled: true, tags: ["core", "identity"] })
-		.register({ id: "no-files", priority: 1, content: BLOCK_NO_FILES, enabled: true, tags: ["core", "behavior"] })
-		.register({
-			id: "no-fallback",
-			priority: 2,
-			content: BLOCK_NO_FALLBACK,
-			enabled: true,
-			tags: ["core", "behavior"],
-		})
-		.register({
-			id: "parallel-exploration",
-			priority: 3,
-			content: BLOCK_PARALLEL_EXPLORATION,
-			enabled: true,
-			tags: ["core", "behavior"],
-		})
-		// Format rules (10–19)
-		.register({ id: "no-emojis", priority: 10, content: BLOCK_NO_EMOJIS, enabled: true, tags: ["core", "format"] })
-		.register({ id: "no-filler", priority: 11, content: BLOCK_NO_FILLER, enabled: true, tags: ["core", "format"] })
-		.register({
-			id: "no-preamble",
-			priority: 12,
-			content: BLOCK_NO_PREAMBLE,
-			enabled: true,
-			tags: ["core", "format"],
-		})
-		.register({
-			id: "answer-first",
-			priority: 13,
-			content: BLOCK_ANSWER_FIRST,
-			enabled: true,
-			tags: ["core", "format"],
-		})
-		.register({
-			id: "parallel-tools",
-			priority: 14,
-			content: BLOCK_PARALLEL_TOOLS,
-			enabled: true,
-			tags: ["core", "format"],
-		})
-		.register({ id: "markdown", priority: 15, content: BLOCK_MARKDOWN, enabled: true, tags: ["core", "format"] })
-		// Safety and workflow (20–29)
-		.register({ id: "git", priority: 20, content: BLOCK_GIT, enabled: true, tags: ["core", "safety"] })
-		// Dynamic blocks (100+)
-		.register({
-			id: "tools",
-			priority: 100,
-			content: () => buildToolsBlock(tools),
-			enabled: true,
-			tags: ["core", "dynamic"],
-		})
-		.register({
-			id: "guidelines",
-			priority: 200,
-			content: () => buildGuidelinesBlock(tools),
-			enabled: true,
-			tags: ["core", "dynamic"],
-		})
-		.register({
-			id: "environment",
-			priority: 1000,
-			content: () => buildEnvironmentBlock(cwd),
-			enabled: true,
-			tags: ["core", "ephemeral"],
-		});
+		// Identity and behavioral rules
+		.register(b("identity", 0, BLOCK_IDENTITY, "identity"))
+		.register(b("no-files", 1, BLOCK_NO_FILES, "behavior"))
+		.register(b("no-fallback", 2, BLOCK_NO_FALLBACK, "behavior"))
+		.register(b("parallel-exploration", 3, BLOCK_PARALLEL_EXPLORATION, "behavior"))
+		// Format rules
+		.register(b("no-emojis", 10, BLOCK_NO_EMOJIS, "format"))
+		.register(b("no-filler", 11, BLOCK_NO_FILLER, "format"))
+		.register(b("no-preamble", 12, BLOCK_NO_PREAMBLE, "format"))
+		.register(b("answer-first", 13, BLOCK_ANSWER_FIRST, "format"))
+		.register(b("parallel-tools", 14, BLOCK_PARALLEL_TOOLS, "format"))
+		.register(b("markdown", 15, BLOCK_MARKDOWN, "format"))
+		// Safety
+		.register(b("git", 20, BLOCK_GIT, "safety"))
+		// Dynamic — rebuilt each turn
+		.register(b("tools", 100, () => buildToolsBlock(tools), "dynamic"))
+		.register(b("guidelines", 200, () => buildGuidelinesBlock(tools), "dynamic"))
+		.register(b("environment", 1000, () => buildEnvironmentBlock(cwd), "ephemeral"));
 
 	return directives;
 }

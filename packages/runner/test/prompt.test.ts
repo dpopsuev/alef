@@ -35,7 +35,7 @@ describe("buildSystemPrompt", () => {
 
 	it("includes universal guidelines, not organ-specific guidance", () => {
 		const prompt = buildSystemPrompt({ tools: FS_TOOLS });
-		expect(prompt).toContain("Guidelines");
+		expect(prompt).toContain("<guidelines>");
 		expect(prompt).not.toContain("read a file before editing");
 	});
 

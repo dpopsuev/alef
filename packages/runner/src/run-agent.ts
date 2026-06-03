@@ -1,5 +1,4 @@
 import type { Args } from "./args.js";
-import type { ToolSlot } from "./build-llm-organ.js";
 import { trace } from "./debug-trace.js";
 import { runInteractive } from "./interactive.js";
 import { shutdownOTel } from "./otel.js";
@@ -18,7 +17,6 @@ export interface RunAgentOptions {
 	getThinking: () => string;
 	setThinking: (level: string) => void;
 	setLLMAbortController: (ctrl: AbortController | undefined) => void;
-	toolSlot: ToolSlot;
 	reloadOrgan: (name: string, path: string) => Promise<void>;
 	getDirectiveAdapter: () => unknown;
 

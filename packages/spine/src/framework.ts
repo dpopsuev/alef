@@ -29,7 +29,9 @@ import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny, z } from "zod";
 import type { Budget } from "./budget.js";
 import { startElapsedTimer, withLimits } from "./budget.js";
-import type { MotorEvent, Nerve, NerveMiddleware, Organ, SensePublishInput, ToolDefinition } from "./buses.js";
+import type { MotorEvent, Nerve, NerveMiddleware, Organ, ToolDefinition } from "./buses.js";
+import { invalidateByPrefix, makeCacheKey } from "./organ-cache.js";
+import { buildErrSense, buildSense, extractToolCallId } from "./sense-builders.js";
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
 
@@ -182,72 +184,7 @@ function splitActionKey(key: string): { bus: "motor" | "sense"; eventType: strin
 	return null;
 }
 
-// ---------------------------------------------------------------------------
-// Cache helpers
-// ---------------------------------------------------------------------------
-
-function stableHash(payload: Record<string, unknown>): string {
-	// Exclude toolCallId — it's per-call metadata, not part of the cache key.
-	const keys = Object.keys(payload)
-		.filter((k) => k !== "toolCallId")
-		.sort();
-	const sorted: Record<string, unknown> = {};
-	for (const k of keys) sorted[k] = payload[k];
-	return JSON.stringify(sorted);
-}
-
-function makeCacheKey(eventType: string, payload: Record<string, unknown>): string {
-	return `${eventType}:${stableHash(payload)}`;
-}
-
-function invalidateByPrefix(cache: Map<string, Record<string, unknown>>, types: string[]): string[] {
-	const invalidated: string[] = [];
-	for (const type of types) {
-		const prefix = `${type}:`;
-		for (const key of [...cache.keys()]) {
-			if (key.startsWith(prefix)) {
-				cache.delete(key);
-				invalidated.push(key);
-			}
-		}
-	}
-	return invalidated;
-}
-
-// ---------------------------------------------------------------------------
-// Sense builders (shared by framework and organs that need manual Sense)
-// ---------------------------------------------------------------------------
-
-export function extractToolCallId(payload: Record<string, unknown>): string | undefined {
-	return typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
-}
-
-export function buildSense(
-	motor: MotorEvent,
-	payload: Record<string, unknown>,
-	isError = false,
-	errorMessage?: string,
-): SensePublishInput {
-	const toolCallId = extractToolCallId(motor.payload);
-	return {
-		type: motor.type,
-		correlationId: motor.correlationId,
-		payload: toolCallId ? { ...payload, toolCallId } : payload,
-		isError,
-		errorMessage,
-	};
-}
-
-export function buildErrSense(motor: MotorEvent, message: string): SensePublishInput {
-	const toolCallId = extractToolCallId(motor.payload);
-	return {
-		type: motor.type,
-		correlationId: motor.correlationId,
-		payload: toolCallId ? { toolCallId } : {},
-		isError: true,
-		errorMessage: message,
-	};
-}
+export { buildErrSense, buildSense, extractToolCallId } from "./sense-builders.js";
 
 // ---------------------------------------------------------------------------
 // Action dispatch

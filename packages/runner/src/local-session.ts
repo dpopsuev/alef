@@ -6,7 +6,7 @@ import type { Logger } from "pino";
 import { buildAgent, buildCheckpointCallback } from "./agent-kernel.js";
 import type { Args } from "./args.js";
 import { buildDelegation } from "./build-delegation.js";
-import { buildLlmOrgan, type ToolSlot } from "./build-llm-organ.js";
+import { buildLlmOrgan } from "./build-llm-organ.js";
 import type { AlefConfig } from "./config.js";
 import type { Directives } from "./directives.js";
 import type { CorpusResult } from "./load-corpus.js";
@@ -78,16 +78,6 @@ export class LocalSession implements Session {
 				| undefined,
 		};
 
-		// Phase-1: empty toolSlot shell — handler fields patched below after
-		// the observer set exists. llmOrgan captures the object reference.
-		const toolSlot: ToolSlot = {
-			onToolStart: undefined,
-			onToolEnd: undefined,
-			onTokenUsage: undefined,
-			receiveTextChunk: undefined,
-			receiveThinkingChunk: undefined,
-		};
-
 		const dialog = new DialogOrgan({
 			sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
 		});
@@ -111,11 +101,15 @@ export class LocalSession implements Session {
 		// eslint-disable-next-line prefer-const
 		let toolShell!: ReturnType<typeof createToolShellOrgan>;
 
+		const dispatch = (event: AgentEvent): void => {
+			for (const obs of inst._observers) obs(event);
+		};
+
 		const llmOrgan = buildLlmOrgan({
 			model,
 			cfg,
 			args,
-			toolSlot,
+			onEvent: dispatch,
 			thinkingState,
 			prepareStep,
 			onCheckpoint,
@@ -147,24 +141,6 @@ export class LocalSession implements Session {
 		agent.load(memoryOrgan);
 		agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
 		registerOrgans(directives, [toolShell, memoryOrgan]);
-
-		const dispatch = (event: AgentEvent): void => {
-			for (const obs of inst._observers) obs(event);
-		};
-		toolSlot.onToolStart = (e) => dispatch({ type: "tool-start", callId: e.callId, name: e.name, args: e.args });
-		toolSlot.onToolEnd = (e) =>
-			dispatch({
-				type: "tool-end",
-				callId: e.callId,
-				elapsedMs: e.elapsedMs,
-				ok: e.ok,
-				display: e.display,
-				displayKind: e.displayKind,
-			});
-		toolSlot.onTokenUsage = (u) =>
-			dispatch({ type: "token-usage", usage: { input: u.input, output: u.output, totalTokens: u.totalTokens } });
-		toolSlot.receiveTextChunk = (chunk) => dispatch({ type: "chunk", text: chunk });
-		toolSlot.receiveThinkingChunk = (chunk) => dispatch({ type: "thinking", text: chunk });
 
 		await buildDelegation(args, inst._currentModel, agent, inst, blueprintSurfaces);
 

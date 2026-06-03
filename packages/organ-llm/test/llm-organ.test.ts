@@ -209,7 +209,7 @@ describe("payloadToText", () => {
 });
 
 // ---------------------------------------------------------------------------
-// onResponseChunk forwarding when reply arrives via dialog_message tool args
+// chunk event forwarding when reply arrives via dialog_message tool args
 // ---------------------------------------------------------------------------
 
 describe("onResponseChunk forwarding when reply is in dialog_message tool args", () => {
@@ -218,19 +218,20 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 		for (const d of disposes.splice(0)) d();
 	});
 
-	function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onResponseChunk?: (chunk: string) => void) {
+	function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onChunk?: (chunk: string) => void) {
 		const chunks: string[] = [];
-		const capture = (c: string): void => {
-			chunks.push(c);
-			onResponseChunk?.(c);
-		};
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
 			new Cerebrum({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				onResponseChunk: capture,
+				onEvent: (e) => {
+					if (e.type === "chunk") {
+						chunks.push(e.text);
+						onChunk?.(e.text);
+					}
+				},
 				getTools: () => [DIALOG_MESSAGE_TOOL],
 			}),
 		);
@@ -275,10 +276,10 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 });
 
 // ---------------------------------------------------------------------------
-// ALE-BUG-8: partial conversationHistory on error/abort
+// partial conversationHistory on error/abort
 // ---------------------------------------------------------------------------
 
-describe("ALE-BUG-8: partial conversationHistory published on error/abort", () => {
+describe("partial conversationHistory published on error/abort", () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -664,7 +665,7 @@ describe("Cerebrum — trackConcurrentOps", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Schema validation hang regression (ALE-BUG-50)
+// Schema validation hang regression
 // ---------------------------------------------------------------------------
 
 import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";

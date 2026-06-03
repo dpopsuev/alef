@@ -105,13 +105,6 @@ await runAgent({
 	getThinking: () => localSession.getThinking(),
 	setThinking: (level) => localSession.setThinking(level),
 	setLLMAbortController: (ctrl) => localSession.setTurnController(ctrl),
-	toolSlot: {
-		onToolStart: undefined,
-		onToolEnd: undefined,
-		onTokenUsage: undefined,
-		receiveTextChunk: undefined,
-		receiveThinkingChunk: undefined,
-	},
 	reloadOrgan: async (name, path) => localSession.reloadOrgan?.(name, path),
 	getDirectiveAdapter: () => localSession.getDirective?.(),
 	session: localSession,

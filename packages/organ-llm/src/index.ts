@@ -1,19 +1,14 @@
-import {
-	type Api,
-	type AssistantMessage,
-	type Message,
-	type Model,
-	streamSimple,
-	type ThinkingLevel,
-	type Tool,
-} from "@dpopsuev/alef-ai";
+import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 import { DIALOG_MESSAGE, debugLog, defineOrgan, extractToolCallId, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
-import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { z } from "zod";
-import type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
+import { normalizeMessage, retryDelayMs, shouldRetry, sleep } from "./retry.js";
+import { callLLM, type ToolCall } from "./stream-turn.js";
+import { dispatchTools, payloadToText } from "./tool-dispatch.js";
 
-const tracer = trace.getTracer("alef.organ-llm");
+export { payloadToText } from "./tool-dispatch.js";
+
+import type { CerebrumEvent, TokenUsage } from "./tool-events.js";
 
 /** Core execution options — model identity, auth, retry, timeout. */
 export interface LlmCallOptions {
@@ -28,14 +23,11 @@ export interface LlmCallOptions {
 	getSignal?: () => AbortSignal | undefined;
 }
 
-/** Observability hooks — fired during the turn loop. Callers use only what they need. */
+export type { CerebrumEvent } from "./tool-events.js";
+
 export interface LlmObservabilityOptions {
-	onToolStart?: (event: ToolCallStart) => void;
-	onToolEnd?: (event: ToolCallEnd) => void;
-	onTokenUsage?: (usage: TokenUsage) => void;
+	onEvent?: (event: CerebrumEvent) => void;
 	onTurnComplete?: (turn: number, usage: TokenUsage) => void;
-	onResponseChunk?: (chunk: string) => void;
-	onThinkingChunk?: (chunk: string) => void;
 	onCheckpoint?: (messages: Message[], correlationId: string) => void;
 }
 
@@ -68,44 +60,6 @@ export type CerebrumOptions = LlmCallOptions & LlmObservabilityOptions & LlmTopo
 // ---------------------------------------------------------------------------
 // Core loop - pure function, receives ctx from framework
 // ---------------------------------------------------------------------------
-
-/**
- * Classify provider errors as retryable from the serialized error message.
- *
- * This is a compensating control for the loss of type information when
- * providers serialize errors to strings. Each case is documented to its source.
- *
- * TODO(alef-ai): add retryable?: boolean to the error stream event so
- * providers classify at the source with typed information, eliminating this.
- */
-function isRetryableError(msg: string | undefined): boolean {
-	if (!msg) return false;
-	// Anthropic SDK APIConnectionTimeoutError.message = "Request timed out."
-	// Also matches: "Connect Timeout Error", "Operation timed out"
-	if (/timed[\s_]?out/i.test(msg)) return true;
-	// Anthropic API 529: anthropic overloaded
-	if (msg.includes("overloaded_error")) return true;
-	// Network layer drops: "Network connection lost." (Anthropic)
-	if (/network[\s_]connection[\s_]lost/i.test(msg)) return true;
-	// TCP connect failure: "ConnectTimeoutError", "connection error"
-	if (/connection[\s_]?(?:timed[\s_]?out|error)/i.test(msg)) return true;
-	// HTTP 503
-	if (/service[\s_]unavailable/i.test(msg)) return true;
-	// HTTP 500
-	if (/internal[\s_]server[\s_]error/i.test(msg)) return true;
-	// HTTP 429 / Vertex RESOURCE_EXHAUSTED — rate limit, retry with backoff
-	if (/429|rate[\s_]limit|too[\s_]many[\s_]requests|resource[\s_]exhausted|quota[\s_]exceeded/i.test(msg)) return true;
-	return false;
-}
-
-function normalizeMessage(m: unknown): Message {
-	const raw = m as Record<string, unknown>;
-	const withTs: Record<string, unknown> = typeof raw.timestamp === "number" ? raw : { ...raw, timestamp: Date.now() };
-	if (withTs.role === "assistant" && typeof withTs.content === "string") {
-		return { ...withTs, content: [{ type: "text", text: withTs.content }] } as unknown as Message;
-	}
-	return withTs as unknown as Message;
-}
 
 // ---------------------------------------------------------------------------
 // Extracted helpers — each owned one concern previously inlined in runLLMLoop
@@ -170,23 +124,6 @@ function serializeConversationHistory(messages: Message[]): unknown[] {
 		});
 }
 
-/** True when the provider error message indicates a transient condition worth retrying. */
-function shouldRetry(msg: AssistantMessage, retryCount: number, maxRetries: number): boolean {
-	return (
-		msg.stopReason === "error" &&
-		typeof msg.errorMessage === "string" &&
-		isRetryableError(msg.errorMessage) &&
-		retryCount < maxRetries
-	);
-}
-
-/** Exponential backoff capped at maxDelayMs. */
-function retryDelayMs(attempt: number, maxDelayMs: number): number {
-	return Math.min(1_000 * 2 ** (attempt - 1), maxDelayMs);
-}
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
 type MotorBus = CerebrumHandlerCtx["motor"];
 type SenseBus = CerebrumHandlerCtx["sense"];
 
@@ -218,12 +155,11 @@ function classifyPendingCalls(
 	return { replyCall, toolCalls };
 }
 
-/** Fire token usage callbacks. Only fires onTokenUsage when the agent replied (no tool round follows). */
 function reportUsage(
 	finalMessage: AssistantMessage,
 	turn: number,
 	agentIsReplying: boolean,
-	options: Pick<CerebrumOptions, "onTurnComplete" | "onTokenUsage">,
+	options: Pick<CerebrumOptions, "onTurnComplete" | "onEvent">,
 ): void {
 	if (!finalMessage.usage) return;
 	const usage: TokenUsage = {
@@ -232,7 +168,7 @@ function reportUsage(
 		totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
 	};
 	options.onTurnComplete?.(turn, usage);
-	if (agentIsReplying) options.onTokenUsage?.(usage);
+	if (agentIsReplying) options.onEvent?.({ type: "token-usage", usage });
 }
 
 /** Append one tool result per tool call to the accumulated message history. */
@@ -254,133 +190,10 @@ function appendToolResults(
 	}
 }
 
-interface LLMCallResult {
-	finalMessage: AssistantMessage | undefined;
-	pendingCalls: ToolCall[];
-}
-
-/**
- * Make one HTTP call to the LLM, consume the stream, return the result.
- * Owns the OTel span so timing is captured even when the caller retries.
- */
-async function callLLM(
-	model: Model<Api>,
-	messages: Message[],
-	tools: Tool[],
-	turn: number,
-	retryCount: number,
-	options: CerebrumOptions,
-): Promise<LLMCallResult> {
-	const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
-
-	const span = tracer.startSpan(`chat ${model.id}`, {
-		kind: SpanKind.CLIENT,
-		attributes: {
-			"gen_ai.operation.name": "chat",
-			"gen_ai.request.model": model.id,
-			"gen_ai.system": model.provider,
-			"alef.schema_token_estimate": schemaTokenEstimate,
-			"alef.turn_number": turn,
-		},
-	});
-	span.addEvent("llm.call", {
-		"alef.message_count": messages.length,
-		"alef.message_roles": messages.map((m) => (m as { role?: string }).role ?? "?").join(","),
-		"alef.tool_count": tools.length,
-	});
-	debugLog("llm:http:start", { turn, messages: messages.length, tools: tools.length, schemaEst: schemaTokenEstimate });
-
-	const timeoutMs = options.timeoutMs ?? 60_000;
-	const maxRetries = options.maxRetries ?? 4;
-	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
-	const thinking = options.getThinking?.() ?? options.thinking;
-
-	const stream = streamSimple(
-		model,
-		{ messages, tools },
-		{
-			apiKey: options.getApiKey?.() ?? options.apiKey,
-			timeoutMs,
-			maxRetries,
-			maxRetryDelayMs,
-			...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
-			...(thinking ? { reasoning: thinking } : {}),
-			...(options.getSignal ? { signal: options.getSignal() } : {}),
-		},
-	);
-
-	let finalMessage: AssistantMessage | undefined;
-	const pendingCalls: ToolCall[] = [];
-	const httpStart = Date.now();
-
-	try {
-		for await (const event of stream) {
-			switch (event.type) {
-				case "text_delta":
-					options.onResponseChunk?.(event.delta);
-					break;
-				case "thinking_delta":
-					options.onThinkingChunk?.(event.delta);
-					break;
-				case "toolcall_end":
-					pendingCalls.push({
-						name: event.toolCall.name,
-						args: event.toolCall.arguments as Record<string, unknown>,
-						id: event.toolCall.id,
-					});
-					break;
-				case "done":
-					finalMessage = event.message;
-					break;
-				case "error":
-					finalMessage = event.error;
-					break;
-			}
-		}
-
-		debugLog("llm:http:done", {
-			turn,
-			elapsedMs: Date.now() - httpStart,
-			stopReason: finalMessage?.stopReason ?? "none",
-		});
-
-		if (finalMessage?.usage) {
-			const usage = finalMessage.usage;
-			span.setAttributes({
-				"gen_ai.usage.input_tokens": usage.input,
-				"gen_ai.usage.output_tokens": usage.output,
-				"gen_ai.usage.total_tokens": usage.totalTokens,
-				"gen_ai.usage.cache_read_tokens": usage.cacheRead,
-				"alef.estimated_cost_usd": usage.cost.total,
-			});
-		}
-		if (retryCount > 0) span.setAttribute("alef.retry_count", retryCount);
-		span.setStatus({ code: SpanStatusCode.OK });
-	} catch (err) {
-		const isAbort =
-			err instanceof Error &&
-			(err.name === "AbortError" || err.message.includes("aborted") || err.message.includes("AbortError"));
-		if (isAbort) span.setAttribute("alef.aborted", true);
-		debugLog("llm:http:error", {
-			turn,
-			elapsedMs: Date.now() - httpStart,
-			abort: isAbort,
-			err: String(err).slice(0, 120),
-		});
-		if (retryCount > 0) span.setAttribute("alef.retry_count", retryCount);
-		span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
-		throw err;
-	} finally {
-		span.end();
-	}
-
-	return { finalMessage, pendingCalls };
-}
-
 /**
  * Publish the final text reply on the motor bus.
  * When the LLM used the dialog_message tool to reply, the text lives in the
- * tool args — not in text_delta events. Forward it to onResponseChunk so the
+ * tool args — not in text_delta events. Forward it as a chunk event.
  * TUI renders it, then publish on the reply channel.
  */
 function publishReply(
@@ -390,13 +203,13 @@ function publishReply(
 	finalMessage: AssistantMessage,
 	replyCall: ToolCall | undefined,
 	messages: Message[],
-	options: Pick<LlmObservabilityOptions, "onResponseChunk">,
+	options: Pick<LlmObservabilityOptions, "onEvent">,
 ): void {
 	const replyFromToolArgs = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
 	const text = replyFromToolArgs ?? extractText(finalMessage);
 
 	if (replyFromToolArgs) {
-		options.onResponseChunk?.(replyFromToolArgs);
+		options.onEvent?.({ type: "chunk", text: replyFromToolArgs });
 	}
 
 	if (text) {
@@ -434,43 +247,6 @@ async function runPhase(
 	const phase = await phasePromise;
 	debugLog("llm:phase:exit", { turn, elapsedMs: Date.now() - t0, modified: !!phase });
 	return phase;
-}
-
-type ToolCall = { name: string; args: Record<string, unknown>; id: string };
-
-/**
- * Dispatch a batch of tool calls in parallel and collect their sense results.
- * Each call: motor.publish → waitForToolResult (with timeout) → onToolEnd hook.
- */
-async function dispatchTools(
-	motor: MotorBus,
-	sense: SenseBus,
-	correlationId: string,
-	toolCalls: ToolCall[],
-	toMotorName: (llmName: string) => string,
-	timeoutMs: number,
-	options: Pick<CerebrumOptions, "onToolStart" | "onToolEnd">,
-): Promise<SenseEvent[]> {
-	return Promise.all(
-		toolCalls.map((tc) => {
-			const motorType = toMotorName(tc.name);
-			const startedAt = Date.now();
-			options.onToolStart?.({ callId: tc.id, name: motorType, args: tc.args });
-			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
-			return waitForToolResult(sense, motorType, tc.id, correlationId, timeoutMs).then((r) => {
-				const displayBlock = extractDisplay(r.payload);
-				options.onToolEnd?.({
-					callId: tc.id,
-					elapsedMs: Date.now() - startedAt,
-					ok: !r.isError,
-					result: payloadToText(r.payload, r.isError, r.errorMessage),
-					display: displayBlock?.text,
-					displayKind: displayBlock?.mimeType,
-				});
-				return r;
-			});
-		}),
-	);
 }
 
 async function runLLMLoop(
@@ -675,62 +451,6 @@ function waitForPhaseResult(
 	});
 }
 
-/**
- * Wait for sense/<toolName> matching the given toolCallId and correlationId.
- * Rejects after timeoutMs — the only structural protection against a hung organ
- * (ALE-BUG-50). Without a timeout here the outer dialog.send deadline is the
- * only escape, which is 300 s in TUI mode.
- */
-function waitForToolResult(
-	sense: CerebrumHandlerCtx["sense"],
-	toolName: string,
-	toolCallId: string,
-	correlationId: string,
-	timeoutMs: number,
-): Promise<SenseEvent> {
-	const subscribedAt = Date.now();
-	debugLog("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => {
-			off();
-			debugLog("llm:tool:timeout", { name: toolName, elapsedMs: Date.now() - subscribedAt });
-			reject(new Error(`Tool timed out after ${timeoutMs}ms: ${toolName}`));
-		}, timeoutMs);
-		const off = sense.subscribe(toolName, (event) => {
-			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
-				if (event.payload.isFinal === false) return;
-				clearTimeout(timer);
-				off();
-				debugLog("llm:tool:resolved", {
-					name: toolName,
-					elapsedMs: Date.now() - subscribedAt,
-					isError: event.isError,
-				});
-				resolve(event);
-			}
-		});
-	});
-}
-
-/** Extract the human-readable display text and kind from a sense payload's _display block, if present. */
-function extractDisplay(payload: Record<string, unknown>): { text: string; mimeType?: string } | undefined {
-	const d = payload._display;
-	if (d !== null && typeof d === "object" && typeof (d as Record<string, unknown>).text === "string") {
-		const block = d as { text: string; mimeType?: string };
-		return { text: block.text, mimeType: block.mimeType };
-	}
-	return undefined;
-}
-
-export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
-	if (isError) return errorMessage ?? JSON.stringify(payload);
-	// Strip the human-facing display block - it must not reach the LLM context.
-	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;
-	if (typeof llm.content === "string") return llm.content;
-	if (typeof llm.text === "string") return llm.text;
-	return JSON.stringify(llm);
-}
-
 function extractText(message: AssistantMessage): string {
 	return message.content
 		.filter((c): c is { type: "text"; text: string } => c.type === "text")
@@ -750,7 +470,7 @@ export function createCerebrum(options: CerebrumOptions): Organ {
 		[`sense/${trigger}`]: {
 			handle: async (ctx: CerebrumHandlerCtx) => {
 				// Holds the last tool-round snapshot so partial history can be
-				// published on abort/error, preventing conversation amnesia (ALE-BUG-8).
+				// published on abort/error, preventing conversation amnesia.
 				let partialHistory: Message[] | undefined;
 				try {
 					await runLLMLoop(ctx, options, (snapshot, correlationId) => {

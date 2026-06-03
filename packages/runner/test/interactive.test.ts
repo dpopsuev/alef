@@ -1,39 +1,43 @@
 import { describe, expect, it, vi } from "vitest";
 import { runInteractive } from "../src/interactive.js";
+import type { Session } from "../src/session.js";
 import { readStdinLines } from "../src/stdin.js";
 
-// Stub readStdinLines so we can control what lines the interactive loop receives
-// without touching process.stdin.
 vi.mock("../src/stdin.js", () => ({
 	readStdinLines: vi.fn(),
 }));
 
 const mockedReadStdinLines = vi.mocked(readStdinLines);
 
-function makeDialog(reply = "mock reply") {
+function makeSession(reply = "mock reply"): Session {
 	return {
+		state: { id: "test", modelId: "test-model", contextWindow: 128_000 },
+		getModel: vi.fn(() => "test-model"),
+		setModel: vi.fn(),
+		getThinking: vi.fn(() => "off"),
+		setThinking: vi.fn(),
+		setTurnController: vi.fn(),
+		dispose: vi.fn(),
 		send: vi.fn().mockResolvedValue(reply),
+		subscribe: vi.fn(() => () => {}),
 	};
 }
 
 const OPTS = { cwd: "/tmp", modelId: "claude-haiku-4-5", sessionId: "test-session" };
 
 describe("runInteractive", () => {
-	it("sends each line to dialog.send", async () => {
+	it("sends each line via session.send", async () => {
 		mockedReadStdinLines.mockReturnValue(
 			(async function* () {
 				yield "line one";
 				yield "line two";
 			})(),
 		);
-		const dialog = makeDialog();
-		const dispose = vi.fn();
-
-		await runInteractive(dialog as never, OPTS, dispose);
-
-		expect(dialog.send).toHaveBeenCalledTimes(2);
-		expect(dialog.send).toHaveBeenNthCalledWith(1, "line one", "human", 120_000);
-		expect(dialog.send).toHaveBeenNthCalledWith(2, "line two", "human", 120_000);
+		const session = makeSession();
+		await runInteractive(session, OPTS);
+		expect(session.send).toHaveBeenCalledTimes(2);
+		expect(session.send).toHaveBeenNthCalledWith(1, "line one", 120_000);
+		expect(session.send).toHaveBeenNthCalledWith(2, "line two", 120_000);
 	});
 
 	it("stops on /exit command without sending it", async () => {
@@ -44,26 +48,20 @@ describe("runInteractive", () => {
 				yield "this should not be sent";
 			})(),
 		);
-		const dialog = makeDialog();
-		const dispose = vi.fn();
-
-		await runInteractive(dialog as never, OPTS, dispose);
-
-		expect(dialog.send).toHaveBeenCalledOnce();
-		expect(dialog.send).toHaveBeenCalledWith("hello", "human", 120_000);
+		const session = makeSession();
+		await runInteractive(session, OPTS);
+		expect(session.send).toHaveBeenCalledOnce();
 	});
 
-	it("calls dispose after the loop ends normally", async () => {
+	it("calls session.dispose after the loop ends normally", async () => {
 		mockedReadStdinLines.mockReturnValue(
 			(async function* () {
 				yield "one message";
 			})(),
 		);
-		const dispose = vi.fn();
-
-		await runInteractive(makeDialog() as never, OPTS, dispose);
-
-		expect(dispose).toHaveBeenCalledOnce();
+		const session = makeSession();
+		await runInteractive(session, OPTS);
+		expect(session.dispose).toHaveBeenCalledOnce();
 	});
 
 	it("continues loop on error and disposes cleanly", async () => {
@@ -74,29 +72,22 @@ describe("runInteractive", () => {
 			})(),
 		);
 		let callCount = 0;
-		const dialog = {
-			send: vi.fn().mockImplementation(async () => {
-				callCount++;
-				if (callCount === 1) throw new Error("LLM unavailable");
-				return "ok";
-			}),
-		};
-		const dispose = vi.fn();
-
-		await runInteractive(dialog as never, OPTS, dispose); // does NOT throw
-
-		expect(dialog.send).toHaveBeenCalledTimes(2); // both turns attempted
-		expect(dispose).toHaveBeenCalledOnce();
+		const session = makeSession();
+		(session.send as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+			callCount++;
+			if (callCount === 1) throw new Error("LLM unavailable");
+			return "ok";
+		});
+		await runInteractive(session, OPTS);
+		expect(session.send).toHaveBeenCalledTimes(2);
+		expect(session.dispose).toHaveBeenCalledOnce();
 	});
 
 	it("handles empty input (no lines) without sending anything", async () => {
 		mockedReadStdinLines.mockReturnValue((async function* () {})());
-		const dialog = makeDialog();
-		const dispose = vi.fn();
-
-		await runInteractive(dialog as never, OPTS, dispose);
-
-		expect(dialog.send).not.toHaveBeenCalled();
-		expect(dispose).toHaveBeenCalledOnce();
+		const session = makeSession();
+		await runInteractive(session, OPTS);
+		expect(session.send).not.toHaveBeenCalled();
+		expect(session.dispose).toHaveBeenCalledOnce();
 	});
 });

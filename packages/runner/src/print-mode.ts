@@ -8,19 +8,18 @@
  *   echo "Fix the bug in src/math.ts" | alef
  */
 
-import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { formatError } from "./errors.js";
+import type { Session } from "./session.js";
 
-const SEND_TIMEOUT_MS = 120_000; // 2 min — Vertex latency can exceed 30s
+const SEND_TIMEOUT_MS = 120_000;
 
-export async function runPrintMode(prompt: string, dialog: DialogOrgan, dispose: () => void): Promise<void> {
+export async function runPrintMode(prompt: string, session: Session): Promise<void> {
 	try {
-		// sink in main.ts handles output — await here ensures completion before dispose.
-		await dialog.send(prompt, "human", SEND_TIMEOUT_MS);
+		await session.send?.(prompt, SEND_TIMEOUT_MS);
 	} catch (e) {
 		console.error(formatError(e));
 		process.exitCode = 1;
 	} finally {
-		dispose();
+		session.dispose();
 	}
 }

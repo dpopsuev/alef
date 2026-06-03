@@ -13,7 +13,7 @@
  * toolSlot callbacks (onToolStart, onToolEnd, onTokenUsage,
  * receiveTextChunk, receiveThinkingChunk).
  *
- * Related: ALE-TSK-537 (strangler fig), ALE-TSK-538 (daemon + registry).
+ * Related: strangler fig, daemon + registry.
  */
 
 import type { DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
@@ -67,8 +67,11 @@ export interface Session {
 	// Lifecycle
 	dispose(): void;
 
-	// Conversation — optional; absent in observer / replay mode
+	// Conversation — optional based on mode
+	/** Await a full reply. Absent in observer and replay modes. */
 	send?(text: string, timeoutMs?: number): Promise<string>;
+	/** Fire-and-forget inbound message. Used by SSE serve mode (router organ). */
+	receive?(text: string): void;
 
 	// Session-level policy
 	guard?: SessionGuard;
@@ -96,7 +99,7 @@ export function canManageOrgans(session: Session): session is Session & {
 // ---------------------------------------------------------------------------
 // ToolSlot ← bridge between AgentEvent and the existing Cerebrum callbacks
 //
-// During the strangler fig (ALE-TSK-537) this lets main.ts wire the existing
+// During the strangler fig this lets main.ts wire the existing
 // toolSlot struct from a Session.subscribe observer without touching Cerebrum.
 // Deleted once TuiToolSlot and ToolSlot are unified in step 2.
 // ---------------------------------------------------------------------------

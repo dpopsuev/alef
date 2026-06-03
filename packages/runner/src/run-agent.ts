@@ -1,6 +1,5 @@
 import type { Agent } from "@dpopsuev/alef-corpus";
 import type { DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
-import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Args } from "./args.js";
 import type { ToolSlot } from "./build-llm-organ.js";
 import { trace } from "./debug-trace.js";
@@ -13,7 +12,6 @@ import { runTuiMode } from "./tui-mode.js";
 
 export interface RunAgentOptions {
 	agent: Agent;
-	dialog: DialogOrgan;
 	args: Args;
 	resolvedModelDisplay: string;
 	sessionId: string;
@@ -31,7 +29,7 @@ export interface RunAgentOptions {
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<void> {
-	const { agent, dialog, args } = opts;
+	const { agent, args } = opts;
 
 	process.once("SIGINT", () => {
 		process.exit(0);
@@ -52,7 +50,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 
 	try {
 		if (args.print) {
-			await runPrintMode(args.prompt, dialog, () => agent.dispose());
+			await runPrintMode(args.prompt, opts.session);
 		} else if (useTui) {
 			const originalStderrWrite = process.stderr.write.bind(process.stderr);
 			process.stderr.write = (
@@ -81,11 +79,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 		} else if (args.serve !== undefined && !process.stdin.isTTY) {
 			await new Promise<void>(() => {});
 		} else {
-			await runInteractive(
-				dialog,
-				{ cwd: args.cwd, modelId: opts.resolvedModelDisplay, sessionId: opts.sessionId },
-				() => agent.dispose(),
-			);
+			await runInteractive(opts.session, {
+				cwd: args.cwd,
+				modelId: opts.resolvedModelDisplay,
+				sessionId: opts.sessionId,
+			});
 		}
 	} finally {
 		trace("shutdownOTel:start");

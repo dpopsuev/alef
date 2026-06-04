@@ -26,6 +26,7 @@
 
 import { type ChildProcess, exec as execCb, type Serializable, spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { promisify } from "node:util";
 
 const exec = promisify(execCb);
@@ -83,7 +84,10 @@ function spawnGreen(sessionId?: string): ChildProcess {
 		readyPromise = Promise.resolve();
 	}
 
-	const child = spawn(process.execPath, [GREEN_SCRIPT], {
+	// Use tsx when spawning a TypeScript green script so source runs without a build step.
+	const isTsScript = GREEN_SCRIPT.endsWith(".ts") || GREEN_SCRIPT.endsWith(".tsx");
+	const spawnArgs = isTsScript ? [join(process.cwd(), "node_modules/.bin/tsx"), GREEN_SCRIPT] : [GREEN_SCRIPT];
+	const child = spawn(process.execPath, spawnArgs, {
 		env,
 		stdio: ["inherit", "pipe", "pipe", "ipc"],
 	});

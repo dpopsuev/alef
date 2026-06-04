@@ -1,5 +1,8 @@
 #!/usr/bin/env tsx
 
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { parseArgs } from "./args.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
@@ -12,8 +15,9 @@ import { resolveStartupModel } from "./model.js";
 import { setupOTel } from "./otel.js";
 import { runAgent } from "./run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
-
 import { setupSupervisorIpc } from "./setup-supervisor-ipc.js";
+import type { DaemonEntry } from "./strategies/remote-session.js";
+import { RemoteSession } from "./strategies/remote-session.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
 
@@ -38,6 +42,41 @@ if (args.debugSubcmd) {
 			console.error("Available: session");
 			process.exit(1);
 	}
+	process.exit(0);
+}
+
+// --attach: connect to a running daemon and run TUI against it.
+if (args.attach !== undefined) {
+	const daemonPath = join(homedir(), ".alef", "daemon.json");
+	let entry: DaemonEntry;
+	try {
+		entry = JSON.parse(readFileSync(daemonPath, "utf-8")) as DaemonEntry;
+	} catch {
+		console.error("No running daemon found. Start one with: alef --daemon");
+		process.exit(1);
+	}
+	const remoteSession = new RemoteSession(entry);
+	loadTheme(
+		undefined,
+		cfg.theme?.name,
+		cfg.theme?.colors,
+		await detectDark(cfg.theme?.background_opacity ?? readAlacrittyOpacity()),
+		[],
+	);
+	await runAgent({
+		args: { ...args, noTui: false },
+		resolvedModelDisplay: `remote:${entry.port}`,
+		sessionId: entry.sessionId,
+		contextWindow: remoteSession.state.contextWindow,
+		getModel: () => remoteSession.getModel(),
+		setModel: (id) => remoteSession.setModel(id),
+		getThinking: () => remoteSession.getThinking(),
+		setThinking: (level) => remoteSession.setThinking(level),
+		setLLMAbortController: (ctrl) => remoteSession.setTurnController(ctrl),
+		reloadOrgan: async (_name: string, _path: string) => {},
+		getDirectiveAdapter: () => undefined,
+		session: remoteSession,
+	});
 	process.exit(0);
 }
 

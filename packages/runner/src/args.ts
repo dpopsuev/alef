@@ -77,6 +77,17 @@ export interface Args {
 	 */
 	serve: number | undefined;
 	/**
+	 * Daemon mode: start headlessly on a random port, write ~/.alef/daemon.json,
+	 * and keep running until killed. Implies --serve 0 --no-tui.
+	 */
+	daemon: boolean;
+	/**
+	 * Attach mode: connect to a running daemon via its SSE surface and run the
+	 * TUI against the remote session. Value is the cwd of the daemon to attach
+	 * to, or 'last' for the most recently started daemon.
+	 */
+	attach: string | undefined;
+	/**
 	 * Blueprint profile name. When set, loads agent.<profile>.yaml alongside
 	 * the base agent.yaml and deep-merges it (overlay wins on conflicts).
 	 * Example: --profile dev loads agent.dev.yaml from the same directory.
@@ -181,6 +192,8 @@ export function parseArgs(argv: string[]): Args {
 		yolo: false,
 
 		serve: undefined,
+		daemon: false,
+		attach: undefined,
 		profile: undefined,
 		debug: false,
 		pmInstall: undefined,
@@ -292,6 +305,19 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--yolo") {
 			args.yolo = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--daemon") {
+			args.daemon = true;
+			args.noTui = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--attach") {
+			args.attach = argv[++i] ?? "last";
 			i++;
 			continue;
 		}

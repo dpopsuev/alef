@@ -122,6 +122,15 @@ export class RouterOrgan implements Organ {
 	 * Resolved address after ready(). Returns null before mount or after unmount.
 	 * Use port=0 in tests to get an OS-assigned port.
 	 */
+	/**
+	 * Forward an AgentEvent to all connected SSE clients.
+	 * Framed as { kind: "agent", event } so clients can distinguish from bus events.
+	 * Typed as Record<string,unknown> to avoid importing @dpopsuev/alef-session here.
+	 */
+	notifyAgent(event: Record<string, unknown>): void {
+		this.sse.broadcastRaw("agent", { kind: "agent", event });
+	}
+
 	address(): RouterAddress | null {
 		if (!this.server) return null;
 		const addr = this.server.address();

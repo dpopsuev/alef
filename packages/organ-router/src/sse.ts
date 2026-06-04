@@ -43,15 +43,19 @@ export class SseManager {
 
 	/** Broadcast a bus event to all connected clients. */
 	broadcast(event: BusEvent): void {
-		if (this.clients.size === 0) return;
-
 		const eventName = `${event.bus}/${event.type}`;
-		const data = JSON.stringify(event);
-		const frame = `event: ${eventName}\ndata: ${data}\n\n`;
+		this.broadcastFrame(eventName, JSON.stringify(event));
+	}
 
+	/** Broadcast an arbitrary JSON payload under a custom event name. */
+	broadcastRaw(eventName: string, payload: Record<string, unknown>): void {
+		this.broadcastFrame(eventName, JSON.stringify(payload));
+	}
+
+	private broadcastFrame(eventName: string, data: string): void {
+		if (this.clients.size === 0) return;
+		const frame = `event: ${eventName}\ndata: ${data}\n\n`;
 		for (const client of this.clients) {
-			// Ignore write errors — client may have disconnected between the
-			// size check and the write. The 'close' handler will clean up.
 			client.write(frame, (err) => {
 				if (err) this.clients.delete(client);
 			});

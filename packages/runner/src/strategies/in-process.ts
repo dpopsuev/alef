@@ -27,6 +27,9 @@ export class InProcessStrategy implements ExecutionStrategy {
 			timeoutMs,
 			getTools: () => agent.tools,
 			systemPrompt: this.systemPrompt,
+			// Track concurrent in-flight tool calls so the inner agent's LLM is
+			// aware of what is running if it makes parallel tool calls.
+			trackConcurrentOps: true,
 			onEvent: this.onChunk
 				? (e) => {
 						if (e.type === "chunk" && this.onChunk) this.onChunk(e.text);

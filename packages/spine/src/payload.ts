@@ -21,6 +21,26 @@
  */
 export const DIALOG_MESSAGE = "dialog.message" as const;
 
+/**
+ * Canonical payload field names used to extract a human-readable label for
+ * a tool call in TUI pills and in the concurrent-ops system prompt injection.
+ *
+ * Defined once here so pickKeyArg (organ-llm) and keyArgFromPayload (tui)
+ * stay in sync automatically. Add new fields when new organs are introduced.
+ */
+export const KEY_ARG_FIELDS = [
+	"command",
+	"path",
+	"url",
+	"pattern",
+	"glob",
+	"symbol",
+	"query",
+	"text",
+	"code",
+	"instruction",
+] as const;
+
 // ---------------------------------------------------------------------------
 // Dual-channel tool output
 // ---------------------------------------------------------------------------

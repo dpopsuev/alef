@@ -29,6 +29,7 @@ export type AgentEvent =
 	| { type: "thinking"; text: string }
 	| { type: "tool-start"; callId: string; name: string; args: Record<string, unknown> }
 	| { type: "tool-end"; callId: string; elapsedMs: number; ok: boolean; display?: string; displayKind?: string }
+	| { type: "tool-chunk"; callId: string; text: string }
 	| { type: "turn-complete"; reply: string }
 	| { type: "turn-error"; message: string }
 	| { type: "token-usage"; usage: TokensConsumed };

@@ -22,6 +22,7 @@ export interface TokenUsage {
 export type CerebrumEvent =
 	| ({ type: "tool-start" } & ToolCallStart)
 	| ({ type: "tool-end" } & ToolCallEnd)
+	| { type: "tool-chunk"; callId: string; text: string }
 	| { type: "token-usage"; usage: TokenUsage }
 	| { type: "chunk"; text: string }
 	| { type: "thinking"; text: string };

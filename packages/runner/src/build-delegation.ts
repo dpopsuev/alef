@@ -1,8 +1,8 @@
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
+import type { Api, Model } from "@dpopsuev/alef-ai";
 import type { Agent } from "@dpopsuev/alef-corpus";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
-import type { Api, Model } from "@dpopsuev/alef-organ-llm";
 import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import type { Args } from "./args.js";

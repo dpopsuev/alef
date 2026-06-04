@@ -5,22 +5,21 @@
  * Writes each event as a StorageRecord to the session file (fire-and-forget).
  *
  * This is the missing link between the EDA bus and the persistent event log.
- * Once wired, the TurnAssembler (ALE-TSK-179) can read the full event history
+ * Once wired, the TurnAssembler can read the full event history
  * and build accurate context windows without relying on DialogOrgan.history[].
  *
  * Not a CorpusOrgan — no tools, no subscriptions via defineOrgan.
  * Implements Organ directly (same as EvaluatorOrgan).
  *
- * Ref: ALE-SPC-15, ALE-TSK-178
  */
 
 import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
-import { type BusKind, hashRecord, type SessionStore } from "@dpopsuev/alef-spine";
 import { trace } from "./debug-trace.js";
 import { redactPayload } from "./redact.js";
+import { type BusKind, hashRecord, type SessionStore } from "./session-store.js";
 
 export interface SessionSummary {
 	id: string;

@@ -12,7 +12,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import type { StorageRecord } from "@dpopsuev/alef-spine";
+import type { StorageRecord } from "./session-store.js";
 import { SessionStore } from "./session-store.js";
 
 export async function runDebugSession(args: string[], cwd: string): Promise<void> {

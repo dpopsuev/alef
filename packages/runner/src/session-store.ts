@@ -8,7 +8,7 @@
  * Each line is a JSON-serialised StorageRecord — a raw Motor or Sense event,
  * or a special window.assembled record written by TurnAssembler.
  *
- * Schema (per ALE-SPC-15):
+ * Schema:
  *   { bus: 'motor'|'sense'|'internal', type, correlationId, payload, timestamp }
  *
  * Projections are NEVER stored — they are computed from the log on read:
@@ -23,19 +23,61 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type {
-	BusKind,
-	SessionStore as ISessionStore,
-	StorageRecord,
-	Turn,
-	WindowAssembledRecord,
-} from "@dpopsuev/alef-spine";
-
-// Re-export the types so existing internal imports within runner still work.
-export type { BusKind, StorageRecord, Turn, WindowAssembledRecord };
-export { hashRecord } from "@dpopsuev/alef-spine";
 
 // ---------------------------------------------------------------------------
+// Storage record types — moved from @dpopsuev/alef-spine (CRP: only runner uses these)
+// ---------------------------------------------------------------------------
+
+export type BusKind = "motor" | "sense" | "internal";
+
+export interface StorageRecord {
+	bus: BusKind;
+	type: string;
+	correlationId: string;
+	payload: Record<string, unknown>;
+	timestamp: number;
+	elapsed?: number;
+	hash?: string;
+}
+
+export function hashRecord(record: Omit<StorageRecord, "hash">): string {
+	const stable = JSON.stringify({
+		bus: record.bus,
+		type: record.type,
+		correlationId: record.correlationId,
+		payload: record.payload,
+		timestamp: record.timestamp,
+	});
+	return createHash("sha256").update(stable, "utf-8").digest("hex");
+}
+
+export interface WindowAssembledRecord extends StorageRecord {
+	bus: Extract<BusKind, "internal">;
+	type: "window.assembled";
+	payload: {
+		includedTurnIds: string[];
+		queryTokens: string[];
+		budgetUsed: number;
+		budgetTotal: number;
+	};
+}
+
+export interface Turn {
+	id: string;
+	events: StorageRecord[];
+	turnIndex: number;
+	tokenCost: number;
+	typeWeight: number;
+}
+
+export interface ISessionStore {
+	readonly id: string;
+	readonly path: string;
+	append(record: StorageRecord): Promise<void>;
+	turns(): Promise<Turn[]>;
+	hitCounts(): Promise<Map<string, number>>;
+}
+
 // ---------------------------------------------------------------------------
 
 export const EVENT_TYPE_WEIGHTS: Record<string, number> = {
@@ -101,7 +143,7 @@ async function ensureDir(cwd: string): Promise<void> {
 	await mkdir(sessionDir(cwd), { recursive: true });
 }
 
-export class SessionStore implements ISessionStore {
+export class SessionStore {
 	readonly id: string;
 	readonly path: string;
 

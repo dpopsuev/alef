@@ -15,9 +15,6 @@
  *   const hidden = getBoolean(ctx.payload, "hidden") ?? false;
  */
 
-/** Canonical event type for the user↔agent conversation channel. */
-export const DIALOG_MESSAGE = "dialog.message" as const;
-
 /**
  * Canonical payload field names used to extract a human-readable label for
  * a tool call in TUI pills and in the concurrent-ops system prompt injection.

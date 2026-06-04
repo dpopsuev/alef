@@ -1,6 +1,9 @@
 import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
-import { DIALOG_MESSAGE, debugLog, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
+import { debugLog, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
+
+const DIALOG_MESSAGE = "dialog.message" as const;
+
 import type { z } from "zod";
 import { normalizeMessage, retryDelayMs, shouldRetry, sleep } from "./retry.js";
 import { callLLM, type ToolCall } from "./stream-turn.js";

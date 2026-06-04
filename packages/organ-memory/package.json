@@ -1,0 +1,43 @@
+{
+  "name": "@dpopsuev/alef-organ-memory",
+  "version": "0.0.1",
+  "description": "Memory organ: context window assembly and session-aware prompt injection",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "tsgo -p tsconfig.build.json",
+    "dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+    "test": "vitest --run",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-organ-llm": "^0.0.1",
+    "@dpopsuev/alef-session": "^0.0.1",
+    "@dpopsuev/alef-spine": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "shx": "^0.4.0",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.6"
+  },
+  "author": "Mario Zechner",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dpopsuev/alef.git",
+    "directory": "packages/organ-memory"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -23,6 +23,8 @@
     "jiti": "^2.7.0",
     "@dpopsuev/alef-organ-lector": "^0.0.1",
     "@dpopsuev/alef-organ-llm": "^0.0.1",
+    "@dpopsuev/alef-session": "^0.0.1",
+    "@dpopsuev/alef-organ-memory": "^0.0.1",
     "@dpopsuev/alef-organ-prompt": "^0.0.1",
     "@dpopsuev/alef-organ-delegate": "^0.0.1",
     "@dpopsuev/alef-organ-factory": "^0.0.1",

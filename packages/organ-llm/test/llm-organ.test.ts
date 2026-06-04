@@ -761,3 +761,64 @@ describe("prepareStep system prompt delivery to provider", () => {
 		expect(systemInMessages).toBe(false);
 	}, 5_000);
 });
+
+// ---------------------------------------------------------------------------
+// ALE-TSK-564: tool:end fires on timeout (regression for ALE-BUG-64)
+// ---------------------------------------------------------------------------
+
+describe("dispatchTools — tool:end fires on every exit path", () => {
+	it("emits tool-end(ok:false) when tool times out — never leaves pill hanging", async () => {
+		// Given: a faux LLM that calls a tool that will never respond
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage([fauxToolCall("hung_tool", { command: "wait" })])]);
+
+		const capturedEvents: Array<{ type: string; ok?: boolean; result?: string }> = [];
+
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+
+		// A stub organ that subscribes to motor/hung_tool but never publishes a sense reply
+		const { z } = await import("zod");
+		const hungOrgan = defineOrgan(
+			"hung",
+			{
+				"motor/hung_tool": {
+					tool: { name: "hung_tool", description: "Never responds.", inputSchema: z.object({}) },
+					handle: (): Promise<Record<string, unknown>> => new Promise(() => {}),
+				},
+			},
+			{
+				description: "Stub that hangs forever for timeout regression testing.",
+				directives: ["Use hung_tool when instructed to test timeout behaviour."],
+			},
+		);
+
+		f.mount(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				timeoutMs: 200, // short timeout for test speed
+				getTools: () => [DIALOG_MESSAGE_TOOL, ...hungOrgan.tools],
+				onEvent: (e) =>
+					capturedEvents.push({
+						type: e.type,
+						ok: "ok" in e ? e.ok : undefined,
+						result: "result" in e ? e.result : undefined,
+					}),
+			}),
+		);
+		f.mount(hungOrgan);
+
+		// When: the turn runs and the tool times out
+		await driver.send("call hung_tool", "human", 2_000);
+		f.dispose();
+
+		// Then: exactly one tool-start and one tool-end with ok:false
+		const starts = capturedEvents.filter((e) => e.type === "tool-start");
+		const ends = capturedEvents.filter((e) => e.type === "tool-end");
+		expect(starts).toHaveLength(1);
+		expect(ends).toHaveLength(1);
+		expect(ends[0]?.ok).toBe(false);
+		expect(ends[0]?.result).toMatch(/timed out/i);
+	}, 4_000);
+});

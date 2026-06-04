@@ -21,4 +21,5 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ALEF_SUPERVISOR_GREEN_SCRIPT="${SCRIPT_DIR}/packages/runner/src/main.ts" \
 ALEF_SUPERVISOR_BUILD_COMMAND="npm --prefix ${SCRIPT_DIR} run check" \
+ALEF_SUPERVISOR_TSX_BIN="${SCRIPT_DIR}/node_modules/.bin/tsx" \
 exec npx --prefix "${SCRIPT_DIR}" tsx "${SCRIPT_DIR}/packages/runner/src/supervisor.ts" "$@"

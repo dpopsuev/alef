@@ -4,6 +4,7 @@ import type { Nerve, Organ } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 import { DIALOG_MESSAGE_TOOL, NerveFixture, organComplianceSuite, TurnDriver } from "../../testkit/src/index.js";
 import { Cerebrum, createLlmPipeline } from "../src/index.js";
+import { waitForToolResult } from "../src/tool-dispatch.js";
 
 // organ-llm/createLlmPipeline is the mountable organ — no tools, pure pipeline observer.
 // Cerebrum is a Reasoner (no tools), not a tool-bearing organ.
@@ -899,4 +900,88 @@ describe("typedStreamAction — tool-chunk relay to onEvent", () => {
 		expect(toolEndIdx, "tool-end must fire").toBeGreaterThanOrEqual(0);
 		expect(firstChunkIdx, "tool-chunk must precede tool-end").toBeLessThan(toolEndIdx);
 	}, 6_000);
+});
+
+// ---------------------------------------------------------------------------
+// tool-stall CerebrumEvent — the TUI pill "⏳ no output for Ns" display
+// ---------------------------------------------------------------------------
+
+describe("waitForToolResult — stall watchdog", () => {
+	it("fires onStall after stallIntervalMs with no chunks, before timeout", async () => {
+		// Given: a sense bus where the tool never responds (simulating a hung subagent)
+		const f = new NerveFixture();
+		const correlationId = "corr-stall-test";
+		const toolCallId = "tc-stall-1";
+
+		const stallEvents: Array<{ elapsedMs: number; lastChunkMs: number }> = [];
+
+		// When: waitForToolResult with a 200ms stall interval and 600ms timeout
+		const resultPromise = waitForToolResult(
+			f.nerve.asNerve().sense,
+			"stall.test",
+			toolCallId,
+			correlationId,
+			600, // outer timeout
+			undefined, // no onChunk
+			(info) => stallEvents.push(info), // onStall
+			200, // stallIntervalMs — 200ms for test speed (default is 5s)
+		);
+
+		// The promise will reject at 600ms (timeout)
+		await expect(resultPromise).rejects.toThrow(/timed out/i);
+		f.dispose();
+
+		// onStall must have fired at least once before the timeout
+		expect(stallEvents.length, "stall watchdog must fire at least once before timeout").toBeGreaterThan(0);
+
+		// Each stall event must report meaningful elapsed time and lastChunkMs
+		for (const event of stallEvents) {
+			expect(event.elapsedMs, "elapsedMs must be positive").toBeGreaterThan(0);
+			expect(event.lastChunkMs, "lastChunkMs must be >= stall interval").toBeGreaterThanOrEqual(200);
+		}
+	}, 3_000);
+
+	it("stall resets when a chunk arrives — onStall does not fire after chunk", async () => {
+		// Given: a sense bus that sends one isFinal:false chunk then goes silent
+		const f = new NerveFixture();
+		const correlationId = "corr-stall-reset";
+		const toolCallId = "tc-stall-2";
+
+		const stallEvents: Array<{ elapsedMs: number; lastChunkMs: number }> = [];
+		const chunks: string[] = [];
+
+		const resultPromise = waitForToolResult(
+			f.nerve.asNerve().sense,
+			"stall.reset",
+			toolCallId,
+			correlationId,
+			600,
+			(text) => chunks.push(text),
+			(info) => stallEvents.push(info),
+			200,
+		);
+
+		// Emit one chunk at 50ms — resets the stall clock
+		setTimeout(() => {
+			f.nerve.asNerve().sense.publish({
+				type: "stall.reset",
+				correlationId,
+				payload: { toolCallId, isFinal: false, text: "working..." },
+				isError: false,
+			});
+		}, 50);
+
+		await expect(resultPromise).rejects.toThrow(/timed out/i);
+		f.dispose();
+
+		// The chunk arrived at 50ms; stall can only fire at 250ms (50 + 200 interval)
+		// but lastChunkAt was reset to 50ms, so no stall fires until 250ms of silence
+		expect(chunks, "chunk must have been received").toContain("working...");
+
+		// Stall events that fired must show lastChunkMs starting from after the chunk
+		for (const event of stallEvents) {
+			// Each stall event's lastChunkMs measures time since the chunk reset
+			expect(event.lastChunkMs, "lastChunkMs must reflect chunk reset").toBeGreaterThanOrEqual(150);
+		}
+	}, 3_000);
 });

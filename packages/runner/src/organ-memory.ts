@@ -2,7 +2,7 @@ import type { PhaseStageHandler } from "@dpopsuev/alef-organ-llm";
 import type { BaseOrganOptions } from "@dpopsuev/alef-spine";
 import { defineOrgan } from "@dpopsuev/alef-spine";
 import type { SessionStore } from "./session-store.js";
-import { assembleTurns, turnsToMessages } from "./turn-assembler.js";
+import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "./turn-assembler.js";
 
 export interface MemoryOrganOptions extends BaseOrganOptions {
 	compactionThreshold?: number;
@@ -54,7 +54,8 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 				if (selected.length === 0) return {};
 
 				const budgetTotal = Math.floor(contextWindow * 0.7);
-				const budgetUsed = selected.reduce((n, t) => n + t.tokenCost, 0);
+				const maxSingleTurnCost = Math.floor(budgetTotal * DEFAULT_CONTEXT_WINDOW_POLICY.maxSingleTurnFraction);
+				const budgetUsed = selected.reduce((n, t) => n + Math.min(t.tokenCost, maxSingleTurnCost), 0);
 				void session.append({
 					bus: "internal",
 					type: "window.assembled",

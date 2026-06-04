@@ -174,4 +174,55 @@ describe("MemoryOrgan — Phase 2 context assembly", () => {
 		expect(record).toBeDefined();
 		expect((record as { payload: { includedTurnIds: string[] } }).payload.includedTurnIds).toContain("t1");
 	});
+
+	it("budgetUsed in window.assembled never exceeds budgetTotal", async () => {
+		// Regression: organ-memory.ts used raw tokenCost sum instead of the capped
+		// cost that assembleTurns uses for selection. A single large-file-read turn
+		// can have tokenCost=600_000 while the budget is 98_000; the uncapped sum
+		// made budgetUsed report as 430% of budget even though selection was correct.
+		const appended: unknown[] = [];
+		const contextWindow = 140_000;
+
+		// Simulate the "explore codebase" session: one turn with a massive raw tokenCost
+		const heavyTurn = {
+			id: "explore",
+			turnIndex: 0,
+			tokenCost: 600_000, // raw payload bytes from 12 file reads
+			typeWeight: 0.8,
+			events: [
+				{
+					bus: "motor",
+					type: "dialog.message",
+					correlationId: "explore",
+					payload: { text: "ok", conversationHistory: [{ role: "user", content: "explore" }] },
+					timestamp: 1,
+				},
+			],
+		};
+		const session = {
+			turns: async () => [heavyTurn],
+			hitCounts: async () => new Map<string, number>(),
+			append: async (r: unknown) => {
+				appended.push(r);
+			},
+		};
+		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow });
+		const stage = organ.phaseStage();
+
+		await stage({ messages: [{ role: "user", content: "what did you find" }] as never, tools: [], turn: 1 });
+		await new Promise((r) => setTimeout(r, 20));
+
+		const record = appended.find((r) => (r as { type: string }).type === "window.assembled") as
+			| {
+					payload: { budgetUsed: number; budgetTotal: number };
+			  }
+			| undefined;
+		expect(record).toBeDefined();
+
+		const { budgetUsed, budgetTotal } = record!.payload;
+		// The invariant: reported budget used must not exceed the budget ceiling.
+		// If this fails, window.assembled is lying — selection respected the budget
+		// but the reported number did not (raw sum vs. capped sum).
+		expect(budgetUsed).toBeLessThanOrEqual(budgetTotal);
+	});
 });

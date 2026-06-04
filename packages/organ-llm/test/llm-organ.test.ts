@@ -822,3 +822,77 @@ describe("dispatchTools — tool:end fires on every exit path", () => {
 		expect(ends[0]?.result).toMatch(/timed out/i);
 	}, 4_000);
 });
+
+// ---------------------------------------------------------------------------
+// ALE-TSK-561 / ALE-BUG-60: tool-chunk CerebrumEvents relay isFinal:false
+// ---------------------------------------------------------------------------
+
+describe("typedStreamAction — tool-chunk relay to onEvent", () => {
+	it("emits tool-chunk for each isFinal:false sense event before tool-end", async () => {
+		// Given: a faux LLM that calls a streaming organ, then replies
+		const faux = registerFauxProvider();
+		faux.setResponses([
+			fauxAssistantMessage([fauxToolCall("streamer_run", { command: "go" })]),
+			fauxAssistantMessage("streaming complete"),
+		]);
+
+		const { z } = await import("zod");
+		const { typedStreamAction } = await import("@dpopsuev/alef-spine");
+
+		// A streaming organ that yields three intermediate chunks then a final result
+		const streamingOrgan = defineOrgan(
+			"streamer",
+			{
+				"motor/streamer.run": typedStreamAction(
+					{
+						name: "streamer.run",
+						description: "Streaming test organ that yields chunks.",
+						inputSchema: z.object({ command: z.string() }),
+					},
+					async function* () {
+						yield { text: "step 1" };
+						yield { text: "step 2" };
+						yield { text: "step 3", result: "done" };
+					},
+				),
+			},
+			{
+				description: "Streaming test organ for chunk relay regression.",
+				directives: ["Use streamer.run to test streaming chunk relay behaviour."],
+			},
+		);
+
+		const capturedChunks: string[] = [];
+		const eventOrder: string[] = [];
+
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+
+		f.mount(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				getTools: () => [DIALOG_MESSAGE_TOOL, ...streamingOrgan.tools],
+				onEvent: (e) => {
+					eventOrder.push(e.type);
+					if (e.type === "tool-chunk") capturedChunks.push(e.text);
+				},
+			}),
+		);
+		f.mount(streamingOrgan);
+
+		await driver.send("go", "human", 5_000);
+		f.dispose();
+
+		// All intermediate chunk texts must have been relayed as tool-chunk events
+		expect(capturedChunks, "chunk 1 must reach onEvent as tool-chunk").toContain("step 1");
+		expect(capturedChunks, "chunk 2 must reach onEvent as tool-chunk").toContain("step 2");
+
+		// tool-chunk events must precede tool-end
+		const firstChunkIdx = eventOrder.indexOf("tool-chunk");
+		const toolEndIdx = eventOrder.indexOf("tool-end");
+		expect(firstChunkIdx, "tool-chunk must fire before tool-end").toBeGreaterThanOrEqual(0);
+		expect(toolEndIdx, "tool-end must fire").toBeGreaterThanOrEqual(0);
+		expect(firstChunkIdx, "tool-chunk must precede tool-end").toBeLessThan(toolEndIdx);
+	}, 6_000);
+});

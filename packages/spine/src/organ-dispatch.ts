@@ -60,6 +60,7 @@ export async function dispatchMotorAction(
 		correlationId: motor.correlationId,
 		toolCallId: extractToolCallId(motor.payload),
 		payload,
+		log,
 	};
 
 	if (isStreaming(action)) {

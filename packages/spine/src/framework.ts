@@ -54,7 +54,9 @@ export { typedAction, typedStreamAction } from "./organ-types.js";
 
 const noopLogger: OrganLogger = {
 	debug: () => {},
+	info: () => {},
 	warn: () => {},
+	error: () => {},
 };
 
 export { buildErrSense, buildSense, extractToolCallId } from "./sense-builders.js";

@@ -4,7 +4,9 @@ import type { Nerve, NerveMiddleware, ToolDefinition } from "./buses.js";
 
 export interface OrganLogger {
 	debug(obj: Record<string, unknown>, msg: string): void;
+	info(obj: Record<string, unknown>, msg: string): void;
 	warn(obj: Record<string, unknown>, msg: string): void;
+	error(obj: Record<string, unknown>, msg: string): void;
 }
 
 export interface CorpusHandlerCtx<TPayload = Record<string, unknown>> {

@@ -1,7 +1,7 @@
 import { initSpineLogger } from "@dpopsuev/alef-spine";
 import type { Logger } from "pino";
 import pino from "pino";
-import { debugLogPath } from "./debug-trace.js";
+import { debugLogPath, initTraceLogger } from "./debug-trace.js";
 
 export type { Logger };
 
@@ -23,8 +23,9 @@ export function createRunnerLogger(willUseTui: boolean, debug: boolean): Logger 
 			? createLoggerForTui(debugLogPath(), level)
 			: createLogger(level);
 
-	// Route all debugLog() calls in spine and organ packages through this pino instance.
+	// Route debugLog() and trace() through pino — single unified sink.
 	initSpineLogger(logger.child({ component: "spine" }));
+	initTraceLogger(logger.child({ component: "trace" }));
 
 	return logger;
 }
@@ -49,7 +50,8 @@ export function createLoggerForTui(logPath: string, level?: string): Logger {
 		level: level ?? process.env.ALEF_LOG_LEVEL ?? "warn",
 		transport: {
 			target: "pino/file",
-			options: { destination: logPath, append: true },
+			// Rotate at 10 MB to prevent unbounded growth across long sessions.
+			options: { destination: logPath, append: true, size: "10m" },
 		},
 		base: { pid: process.pid },
 		timestamp: pino.stdTimeFunctions.isoTime,

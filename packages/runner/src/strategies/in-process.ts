@@ -46,7 +46,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 		try {
 			await dialog.send(text, "human", timeoutMs);
 		} catch (error) {
-			debugLog("in-process:error", { error: String(error) });
+			debugLog("in-process:error", { err: error instanceof Error ? error : new Error(String(error)) });
 			throw error;
 		} finally {
 			agent.dispose();

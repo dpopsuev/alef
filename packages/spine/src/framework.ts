@@ -57,6 +57,7 @@ const noopLogger: OrganLogger = {
 	info: () => {},
 	warn: () => {},
 	error: () => {},
+	child: () => noopLogger,
 };
 
 export { buildErrSense, buildSense, extractToolCallId } from "./sense-builders.js";

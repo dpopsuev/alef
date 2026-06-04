@@ -21,7 +21,7 @@
 
 import type { PhaseStageHandler } from "@dpopsuev/alef-organ-llm";
 import type { Nerve, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineOrgan, toolInputToJsonSchema, typedAction } from "@dpopsuev/alef-spine";
+import { debugLog, defineOrgan, toolInputToJsonSchema, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -123,7 +123,10 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		const results = [];
 		for (const name of names) {
 			const t = byName.get(name);
-			if (!t) continue;
+			if (!t) {
+				debugLog("tools:describe:miss", { name, available: [...byName.keys()] });
+				continue;
+			}
 			state.toolsDescribed.add(name);
 			// Family promotion: unlock all tools sharing the same namespace prefix.
 			// "fs.read" → prefix "fs" → promotes fs.edit, fs.write, fs.grep, fs.find.
@@ -206,9 +209,14 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	const organ = defineOrgan(
 		"tools",
 		{
-			"motor/tools.describe": typedAction(DESCRIBE_TOOL, (ctx) =>
-				Promise.resolve({ results: handleDescribe(ctx.payload.names) }),
-			),
+			"motor/tools.describe": typedAction(DESCRIBE_TOOL, (ctx) => {
+				const results = handleDescribe(ctx.payload.names);
+				const displayText =
+					ctx.payload.names.length === 0
+						? `Available tools: ${results.map((t) => t.name).join(", ")}`
+						: results.map((t) => `${t.name}: ${t.description}`).join("\n");
+				return Promise.resolve(withDisplay({ results }, { text: displayText, mimeType: "text/plain" }));
+			}),
 		},
 		{
 			description: "Progressive tool discovery — inject catalog once, evict after N turns, describe on demand.",

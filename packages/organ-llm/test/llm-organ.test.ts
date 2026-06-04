@@ -1,3 +1,4 @@
+import type { Context, FauxResponseFactory } from "@dpopsuev/alef-ai";
 import { fauxAssistantMessage, fauxText, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
@@ -710,4 +711,53 @@ describe("turn loop — schema validation failure", () => {
 		expect(reply).toBe("I see the validation failed");
 		f.dispose();
 	}, 6_000);
+});
+
+// ---------------------------------------------------------------------------
+// prepareStep system prompt delivery
+// ---------------------------------------------------------------------------
+
+describe("prepareStep system prompt delivery to provider", () => {
+	it("system message injected by prepareStep reaches the provider as systemPrompt", async () => {
+		// Given: a faux provider that captures the Context it receives
+		const faux = registerFauxProvider();
+		let capturedContext: Context | undefined;
+		const captureFactory: FauxResponseFactory = (ctx) => {
+			capturedContext = ctx;
+			return fauxAssistantMessage("ok");
+		};
+		faux.setResponses([captureFactory]);
+
+		// When: Cerebrum runs with a prepareStep that injects a system message
+		const systemText = "You are Alef. No emojis.";
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		f.mount(
+			new Cerebrum({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				getTools: () => [DIALOG_MESSAGE_TOOL],
+				prepareStep: async (messages) => {
+					const withoutSystem = messages.filter((m) => (m as { role?: string }).role !== "system");
+					return [
+						{
+							role: "system",
+							content: systemText,
+							timestamp: Date.now(),
+						} as unknown as import("@dpopsuev/alef-ai").Message,
+						...withoutSystem,
+					];
+				},
+			}),
+		);
+
+		await driver.send("hello", "human", 3_000);
+		f.dispose();
+
+		// Then: the provider must receive systemPrompt — not a role:"system" message buried in the array
+		expect(capturedContext?.systemPrompt).toBe(systemText);
+		// And: no system message should appear in the messages array sent to the provider
+		const systemInMessages = capturedContext?.messages.some((m) => (m as { role?: string }).role === "system");
+		expect(systemInMessages).toBe(false);
+	}, 5_000);
 });

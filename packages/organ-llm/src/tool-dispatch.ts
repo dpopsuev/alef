@@ -115,8 +115,16 @@ export async function dispatchTools(
 			// If the tool call payload declares its own timeoutMs (e.g. agent.run), the
 			// outer wait uses that value + 10s headroom so the inner tool can self-terminate
 			// before the parent fires its own timeout.
+			// When no explicit timeoutMs is passed, default to 100s for subagent tools —
+			// organ-delegate defaults to 90s internally, so the outer must exceed that.
 			const innerTimeoutMs = typeof tc.args.timeoutMs === "number" ? tc.args.timeoutMs : undefined;
-			const outerWaitMs = innerTimeoutMs !== undefined ? innerTimeoutMs + 10_000 : timeoutMs;
+			const isSubagentTool = motorType === "agent.run" || motorType === "orchestration.ask";
+			const outerWaitMs =
+				innerTimeoutMs !== undefined
+					? innerTimeoutMs + 10_000
+					: isSubagentTool
+						? Math.max(timeoutMs, 100_000)
+						: timeoutMs;
 			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			const { onEvent } = options;
 			const onChunk = onEvent ? (text: string) => onEvent({ type: "tool-chunk", callId: tc.id, text }) : undefined;

@@ -64,6 +64,9 @@
 			"@dpopsuev/alef-organ-llm": [
 				"../organ-llm/src/index.ts"
 			],
+			"@dpopsuev/alef-organ-prompt": [
+				"../organ-prompt/src/index.ts"
+			],
 			"@dpopsuev/alef-testkit": [
 				"../testkit/src/index.ts"
 			],

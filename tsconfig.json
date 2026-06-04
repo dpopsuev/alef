@@ -115,6 +115,12 @@
 			"@dpopsuev/alef-organ-llm/*": [
 				"./packages/organ-llm/src/*.ts"
 			],
+			"@dpopsuev/alef-organ-prompt": [
+				"./packages/organ-prompt/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-prompt/*": [
+				"./packages/organ-prompt/src/*.ts"
+			],
 			"@dpopsuev/alef-organ-monolog": [
 				"./packages/organ-monolog/src/index.ts"
 			],

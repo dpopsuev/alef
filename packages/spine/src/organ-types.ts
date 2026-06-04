@@ -1,5 +1,6 @@
 import type { ZodTypeAny, z } from "zod";
-import type { Nerve, ToolDefinition } from "./buses.js";
+import type { Budget } from "./budget.js";
+import type { Nerve, NerveMiddleware, ToolDefinition } from "./buses.js";
 
 export interface OrganLogger {
 	debug(obj: Record<string, unknown>, msg: string): void;
@@ -61,3 +62,22 @@ export interface CerebrumAction {
 export type CorpusActionMap = Record<string, CorpusAction | StreamingCorpusAction>;
 export type CerebrumActionMap = Record<string, CerebrumAction>;
 export type ActionMap = Record<string, CorpusAction | StreamingCorpusAction | CerebrumAction>;
+
+export interface OrganOptions {
+	logger?: OrganLogger;
+	actions?: readonly string[];
+	directives?: readonly string[];
+	description?: string;
+	labels?: readonly string[];
+	publishSchemas?: {
+		motor?: Record<string, ZodTypeAny>;
+		sense?: Record<string, ZodTypeAny>;
+	};
+	inputSchemas?: {
+		motor?: Record<string, ZodTypeAny>;
+	};
+	ready?: () => Promise<void>;
+	onUnmount?: () => void;
+	limits?: Budget;
+	middlewares?: NerveMiddleware[];
+}

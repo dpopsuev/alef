@@ -25,18 +25,16 @@
  *   Yellow: log.debug on cache hits, successful dispatches
  */
 
-import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny } from "zod";
-import type { Budget } from "./budget.js";
 import { startElapsedTimer, withLimits } from "./budget.js";
-import type { Nerve, NerveMiddleware, Organ, ToolDefinition } from "./buses.js";
-import { dispatchMotorAction } from "./organ-dispatch.js";
+import type { Nerve, Organ, ToolDefinition } from "./buses.js";
+import { dispatchMotorAction, dispatchSenseAction } from "./organ-dispatch.js";
 import type {
 	ActionMap,
 	CerebrumAction,
-	CerebrumHandlerCtx,
 	CorpusAction,
 	OrganLogger,
+	OrganOptions,
 	StreamingCorpusAction,
 } from "./organ-types.js";
 
@@ -49,11 +47,10 @@ export type {
 	CorpusActionMap,
 	CorpusHandlerCtx,
 	OrganLogger,
+	OrganOptions,
 	StreamingCorpusAction,
 } from "./organ-types.js";
 export { typedAction, typedStreamAction } from "./organ-types.js";
-
-const tracer = trace.getTracer("alef.spine", "0.0.1");
 
 const noopLogger: OrganLogger = {
 	debug: () => {},
@@ -71,64 +68,6 @@ function splitActionKey(key: string): { bus: "motor" | "sense"; eventType: strin
 // ---------------------------------------------------------------------------
 // defineOrgan — the primary factory
 // ---------------------------------------------------------------------------
-
-export interface OrganOptions {
-	/** Pino-compatible logger. Default: no-op. */
-	logger?: OrganLogger;
-	/**
-	 * Allowlist of unprefixed event types to mount (e.g. ['fs.read', 'fs.grep']).
-	 * Actions not in the list are never constructed, never mounted on the bus,
-	 * and never appear in organ.tools — principle of least privilege.
-	 * Default: undefined (all actions mounted).
-	 *
-	 * Use this to implement blueprint action ablation: only mount what the
-	 * blueprint declares, so the agent cannot call tools it was not given.
-	 */
-	actions?: readonly string[];
-	/**
-	 * ACI directives injected into the system prompt by DirectiveContextAssembler.
-	 * Each string is a guidance block (prose or markdown) telling the LLM when,
-	 * how, and when NOT to use this organ's tools.
-	 */
-	directives?: readonly string[];
-	/** Short human-readable description shown in --list-organs and diagnostics. */
-	description?: string;
-	/** Freeform labels for categorisation and discovery (e.g. ['filesystem', 'readonly']). */
-	labels?: readonly string[];
-	/** Zod payload schemas validated at publish time in non-production environments. */
-	publishSchemas?: {
-		motor?: Record<string, ZodTypeAny>;
-		sense?: Record<string, ZodTypeAny>;
-	};
-	/**
-	 * Zod schemas for incoming motor event payloads, validated before dispatch.
-	 * Complement to publishSchemas: catches malformed tool calls from the LLM
-	 * before they reach the handler. A failure publishes an error sense response.
-	 * Active only when ALEF_VALIDATE_PAYLOADS=1 or NODE_ENV=test.
-	 */
-	inputSchemas?: {
-		motor?: Record<string, ZodTypeAny>;
-	};
-	/** Async initialization called by Agent.ready() before the first event is routed. */
-	ready?: () => Promise<void>;
-	/**
-	 * Called when the organ is unmounted (agent.dispose or hot-reload).
-	 * Use for cleanup that the organ's action handlers cannot do themselves:
-	 * cache clearing, LSP shutdown, child process termination.
-	 * Eliminates the need to monkey-patch the returned Organ object.
-	 */
-	onUnmount?: () => void;
-	/**
-	 * Hard resource limits enforced by middleware before the organ handles any event.
-	 * The LLM never sees these — they are enforced transparently.
-	 */
-	limits?: Budget;
-	/**
-	 * Composable nerve middleware applied to the organ's nerve during mount().
-	 * Applied after limits, in array order (first = outermost wrapper).
-	 */
-	middlewares?: NerveMiddleware[];
-}
 
 /**
  * defineOrgan — create an Organ from an action map where keys carry the bus prefix.
@@ -258,36 +197,9 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 				if (parsed?.bus === "sense") {
 					const { eventType } = parsed;
 					const cerebrumAction = action as CerebrumAction;
-					return nerve.sense.subscribe(eventType, (event) => {
-						const ctx: CerebrumHandlerCtx = {
-							correlationId: event.correlationId,
-							payload: event.payload,
-							motor: nerve.motor,
-							sense: nerve.sense,
-						};
-						// CONSUMER span wraps the cerebrum handler.
-						const span = tracer.startSpan(`alef.sense/${eventType}`, {
-							kind: SpanKind.CONSUMER,
-							attributes: {
-								"alef.event.type": eventType,
-								"alef.correlation.id": event.correlationId,
-							},
-						});
-						void context.with(trace.setSpan(context.active(), span), () =>
-							cerebrumAction
-								.handle(ctx)
-								.then(() => span.setStatus({ code: SpanStatusCode.OK }))
-								.catch((e: unknown) => {
-									log.warn(
-										{ op: eventType, correlationId: event.correlationId, error: String(e) },
-										"cerebrum action failed",
-									);
-									span.recordException(e instanceof Error ? e : new Error(String(e)));
-									span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-								})
-								.finally(() => span.end()),
-						);
-					});
+					return nerve.sense.subscribe(eventType, (event) =>
+						dispatchSenseAction(eventType, event, nerve, cerebrumAction, log),
+					);
 				}
 				log.warn({ key: prefixedKey, organ: name }, "action key missing motor/ or sense/ prefix, skipping");
 				return () => {};

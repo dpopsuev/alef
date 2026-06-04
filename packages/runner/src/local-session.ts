@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
@@ -63,6 +66,26 @@ export class LocalSession implements Session {
 		const directives = createDefaultDirectives({ tools: corpusOrgans.flatMap((o) => o.tools), cwd: args.cwd });
 		await loadWorkspace(directives, args.cwd);
 		registerOrgans(directives, corpusOrgans);
+
+		// In debug mode, inject the debug-alef skill so Alef can diagnose itself.
+		// The skill teaches Alef how to read ~/.alef/debug.log, interpret pino JSON,
+		// trace tool calls by correlationId, and locate relevant source files.
+		if (args.debug) {
+			const skillPath = join(homedir(), ".config/opencode/skills/debug-alef/SKILL.md");
+			try {
+				const skillContent = readFileSync(skillPath, "utf-8");
+				directives.register({
+					id: "debug-alef-skill",
+					priority: 800,
+					content: () => skillContent,
+					enabled: true,
+					tags: ["debug"],
+				});
+			} catch {
+				// Skill file absent — skip silently.
+			}
+		}
+
 		// Boot catalog registered after buildDelegation (below) so agent.run is included.
 
 		const directivesBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);

@@ -63,13 +63,7 @@ export class LocalSession implements Session {
 		const directives = createDefaultDirectives({ tools: corpusOrgans.flatMap((o) => o.tools), cwd: args.cwd });
 		await loadWorkspace(directives, args.cwd);
 		registerOrgans(directives, corpusOrgans);
-		directives.register({
-			id: "tool-shell.boot-catalog",
-			priority: 900,
-			content: buildBootCatalog(corpusOrgans.flatMap((o) => o.tools)),
-			enabled: true,
-			tags: ["organ", "dynamic"],
-		});
+		// Boot catalog registered after buildDelegation (below) so agent.run is included.
 
 		const directivesBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
 		const thinkingState = {
@@ -143,6 +137,16 @@ export class LocalSession implements Session {
 		registerOrgans(directives, [toolShell, memoryOrgan]);
 
 		await buildDelegation(args, inst._currentModel, agent, inst, blueprintSurfaces);
+
+		// Register after buildDelegation so agent.run (organ-delegate) is in agent.tools.
+		// Content is lazy so it re-reads the live tool list on every LLM turn.
+		directives.register({
+			id: "tool-shell.boot-catalog",
+			priority: 900,
+			content: () => buildBootCatalog(agent.tools),
+			enabled: true,
+			tags: ["organ", "dynamic"],
+		});
 
 		agent.validate();
 		await agent.ready();

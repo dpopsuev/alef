@@ -115,6 +115,18 @@
 			"@dpopsuev/alef-organ-llm/*": [
 				"./packages/organ-llm/src/*.ts"
 			],
+			"@dpopsuev/alef-session": [
+				"./packages/session/src/index.ts"
+			],
+			"@dpopsuev/alef-session/*": [
+				"./packages/session/src/*.ts"
+			],
+			"@dpopsuev/alef-organ-memory": [
+				"./packages/organ-memory/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-memory/*": [
+				"./packages/organ-memory/src/*.ts"
+			],
 			"@dpopsuev/alef-organ-prompt": [
 				"./packages/organ-prompt/src/index.ts"
 			],

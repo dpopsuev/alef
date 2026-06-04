@@ -17,6 +17,7 @@ import {
 	assertMultiTurnHistory,
 	assertOrganSelection,
 	assertSseFilter,
+	assertSubagentWorkflow,
 	assertToolSequence,
 	assertWebFetch,
 	type ToolRecord,
@@ -206,5 +207,35 @@ describe("verifier: assertWebFetch", () => {
 
 	it("accepts 404 status pattern", () => {
 		expect(() => assertWebFetch("I received a 404 Not Found response.", /404/)).not.toThrow();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// E2E-subagent: outer agent delegates via agent.run
+// ---------------------------------------------------------------------------
+
+describe("verifier: assertSubagentWorkflow", () => {
+	it("accepts agent.run in motor events and secret in reply", () => {
+		const records = [
+			rec("dialog.message", "sense"),
+			rec("agent.run"),
+			rec("agent.run", "sense"),
+			rec("dialog.message"),
+		];
+		expect(() => assertSubagentWorkflow(records, "The secret is XYZ-789", "XYZ-789")).not.toThrow();
+	});
+
+	it("rejects when agent.run is absent from motor events", () => {
+		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("dialog.message")];
+		expect(() => assertSubagentWorkflow(records, "The secret is XYZ-789", "XYZ-789")).toThrow(/agent\.run/);
+	});
+
+	it("rejects when reply does not contain the secret", () => {
+		const records = [rec("agent.run"), rec("agent.run", "sense"), rec("dialog.message")];
+		expect(() => assertSubagentWorkflow(records, "I delegated the task.", "XYZ-789")).toThrow(/secret/);
+	});
+
+	it("rejects when motor events are empty", () => {
+		expect(() => assertSubagentWorkflow([], "XYZ-789", "XYZ-789")).toThrow(/agent\.run/);
 	});
 });

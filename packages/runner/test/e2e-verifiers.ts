@@ -166,3 +166,32 @@ export function assertWebFetch(reply: string, expectedPattern: RegExp): void {
 		);
 	}
 }
+
+// ---------------------------------------------------------------------------
+// E2E-subagent: outer agent delegates via agent.run, inner agent reads file
+// ---------------------------------------------------------------------------
+
+/**
+ * Assert that the outer agent delegated to a subagent (agent.run in motor events)
+ * and the final reply contains the secret retrieved by the inner agent.
+ *
+ * The inner agent's fs.read calls are in-process and do not appear in the outer
+ * JSONL session store — only agent.run on the outer motor bus is observable.
+ * The presence of the secret in the reply is the end-to-end proof that the full
+ * delegation chain worked: outer LLM → agent.run → inner LLM → fs.read → reply.
+ */
+export function assertSubagentWorkflow(records: ToolRecord[], replyText: string, secret: string): void {
+	const motorTypes = records.filter((r) => r.bus === "motor").map((r) => r.type);
+	if (!motorTypes.includes("agent.run")) {
+		throw new Error(
+			`verifier: expected agent.run in motor events — outer LLM did not delegate. ` +
+				`Motor stream: [${motorTypes.join(", ") || "(empty)"}]`,
+		);
+	}
+	if (!replyText.includes(secret)) {
+		throw new Error(
+			`verifier: reply does not contain secret '${secret}' — inner agent did not retrieve it. ` +
+				`Reply: ${replyText.slice(0, 200)}`,
+		);
+	}
+}

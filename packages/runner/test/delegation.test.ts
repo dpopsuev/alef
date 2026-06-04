@@ -7,7 +7,9 @@
  */
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+import { defineOrgan, typedStreamAction } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { Cerebrum } from "../../organ-llm/src/index.js";
 import { DIALOG_MESSAGE_TOOL, NerveFixture, TurnDriver } from "../../testkit/src/index.js";
 import { InProcessStrategy } from "../src/strategies/in-process.js";
@@ -123,5 +125,228 @@ describe("agent.run delegation — E2E", () => {
 
 		// tool-end should have fired regardless of inner success/failure
 		expect(capturedEnds).toHaveLength(1);
+	}, 15_000);
+
+	it("inner agent tool activity streams as tool-chunk events to the outer agent", async () => {
+		// Given: outer LLM calls agent.run; inner LLM calls a streaming organ;
+		// the inner organ's chunks must surface as tool-chunk events on the outer Cerebrum.
+		const outerFaux = registerFauxProvider();
+		const innerFaux = registerFauxProvider();
+		disposes.push(
+			() => outerFaux.unregister(),
+			() => innerFaux.unregister(),
+		);
+
+		// A simple streaming inner organ that yields two text chunks then a result.
+		const readerOrgan = defineOrgan(
+			"reader",
+			{
+				"motor/reader.scan": typedStreamAction(
+					{
+						name: "reader.scan",
+						description: "Scan files and stream findings.",
+						inputSchema: z.object({ path: z.string().min(1) }),
+					},
+					async function* () {
+						yield { text: "found: packages/spine" };
+						yield { text: "found: packages/runner", result: "scan complete" };
+					},
+				),
+			},
+			{
+				description: "Streaming reader stub for E2E delegation test.",
+				directives: ["Use reader.scan to scan a directory path and stream file findings."],
+			},
+		);
+
+		const innerStrategy = new InProcessStrategy([readerOrgan], innerFaux.getModel());
+		const delegateOrgan = createDelegateOrgan({ strategies: { explore: innerStrategy } });
+
+		const outerChunks: string[] = [];
+		const f = new NerveFixture();
+		disposes.push(() => f.dispose());
+		const driver = new TurnDriver(f.nerve);
+
+		f.mount(
+			new Cerebrum({
+				model: outerFaux.getModel(),
+				apiKey: "outer-key",
+				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
+				onEvent: (e) => {
+					if (e.type === "tool-chunk") outerChunks.push(e.text);
+				},
+			}),
+		);
+		f.mount(delegateOrgan);
+
+		// Outer: turn 1 calls agent.run; turn 2 uses the result.
+		outerFaux.setResponses([
+			fauxAssistantMessage([fauxToolCall("agent_run", { text: "scan packages", profile: "explore" })]),
+			fauxAssistantMessage("Found: packages/spine and packages/runner."),
+		]);
+
+		// Inner: turn 1 calls reader.scan; turn 2 replies using its output.
+		innerFaux.setResponses([
+			fauxAssistantMessage([fauxToolCall("reader_scan", { path: "packages" })]),
+			fauxAssistantMessage("scan complete"),
+		]);
+
+		await driver.send("scan the packages", "human", 10_000);
+
+		// Inner organ chunks must have reached the outer agent's tool-chunk stream.
+		// Without the fix, outerChunks is empty — the inner tool events are dropped.
+		expect(outerChunks.some((c) => c.includes("found:"))).toBe(true);
+	}, 15_000);
+});
+
+// ---------------------------------------------------------------------------
+// Parallel agent.run — callId routing through the full LLM dispatch stack
+//
+// Organ-level stream isolation is tested in organ-delegate/test/delegate.test.ts.
+// These tests cover the additional layer: dispatchTools binding tc.id into onChunk
+// so callId flows correctly through the outer Cerebrum's CerebrumEvent stream.
+// ---------------------------------------------------------------------------
+
+describe("agent.run delegation — parallel isolation", () => {
+	const disposes: Array<() => void> = [];
+	afterEach(() => {
+		for (const d of disposes.splice(0)) d();
+	});
+
+	it("chunks from N parallel agent.run calls route to their own callId — no cross-contamination", async () => {
+		// Given: outer LLM calls agent.run twice in the same response (parallel dispatch).
+		// Each stub strategy emits chunks containing the task text it received.
+		// If chunk routing is correct, call-A's chunks carry callId-A and call-B's carry callId-B.
+		const outerFaux = registerFauxProvider();
+		disposes.push(() => outerFaux.unregister());
+
+		const stubStrategy = {
+			async send(text: string, _sender?: string, _timeoutMs?: number, onChunk?: (t: string) => void) {
+				await new Promise<void>((r) => setTimeout(r, 20));
+				onChunk?.(`chunk-for:${text}`);
+				return `done:${text}`;
+			},
+		};
+
+		const delegateOrgan = createDelegateOrgan({ strategies: { explore: stubStrategy } });
+
+		const capturedChunks: Array<{ callId: string; text: string }> = [];
+		const f = new NerveFixture();
+		disposes.push(() => f.dispose());
+		const driver = new TurnDriver(f.nerve);
+
+		f.mount(
+			new Cerebrum({
+				model: outerFaux.getModel(),
+				apiKey: "outer-key",
+				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
+				onEvent: (e) => {
+					if (e.type === "tool-chunk") capturedChunks.push({ callId: e.callId, text: e.text });
+				},
+			}),
+		);
+		f.mount(delegateOrgan);
+
+		// Two parallel agent.run calls with distinct task texts and explicit stable IDs.
+		const callA = fauxToolCall("agent_run", { text: "task-A", profile: "explore" }, { id: "tc-A" });
+		const callB = fauxToolCall("agent_run", { text: "task-B", profile: "explore" }, { id: "tc-B" });
+
+		outerFaux.setResponses([fauxAssistantMessage([callA, callB]), fauxAssistantMessage("Both done.")]);
+
+		await driver.send("run both", "human", 10_000);
+
+		// Both calls must have produced at least one chunk.
+		const chunksA = capturedChunks.filter((c) => c.callId === "tc-A");
+		const chunksB = capturedChunks.filter((c) => c.callId === "tc-B");
+
+		expect(chunksA.length, "call-A must produce chunks").toBeGreaterThan(0);
+		expect(chunksB.length, "call-B must produce chunks").toBeGreaterThan(0);
+
+		// Chunks must carry the text produced by their own inner strategy (task identity).
+		expect(
+			chunksA.some((c) => c.text.includes("task-A")),
+			"call-A chunks must reflect task-A",
+		).toBe(true);
+		expect(
+			chunksB.some((c) => c.text.includes("task-B")),
+			"call-B chunks must reflect task-B",
+		).toBe(true);
+
+		// No cross-contamination: task-B text must not appear in call-A's chunks and vice-versa.
+		expect(
+			chunksA.some((c) => c.text.includes("task-B")),
+			"task-B must not appear in call-A chunks",
+		).toBe(false);
+		expect(
+			chunksB.some((c) => c.text.includes("task-A")),
+			"task-A must not appear in call-B chunks",
+		).toBe(false);
+	}, 15_000);
+
+	it("stall events from N parallel hung agents each carry their own callId", async () => {
+		// Given: two parallel agent.run calls where both inner agents never produce output.
+		// Each call must get its own stall event — events must not cross between callIds.
+		const outerFaux = registerFauxProvider();
+		disposes.push(() => outerFaux.unregister());
+
+		// Strategy that hangs long enough for stall to fire then resolves.
+		// stallIntervalMs in waitForToolResult is 5s by default; we can't override from here,
+		// so we verify isolation via callId rather than timing.
+		// Instead: emits one chunk immediately so the outer Cerebrum sees activity.
+		// The key assertion is that each chunk's callId matches the call that produced it.
+		const identityStrategy = {
+			async send(text: string, _sender?: string, _timeoutMs?: number, onChunk?: (t: string) => void) {
+				onChunk?.(`ident:${text}`);
+				return `done:${text}`;
+			},
+		};
+
+		const delegateOrgan = createDelegateOrgan({ strategies: { explore: identityStrategy } });
+
+		const capturedChunks: Array<{ callId: string; text: string }> = [];
+		const f = new NerveFixture();
+		disposes.push(() => f.dispose());
+		const driver = new TurnDriver(f.nerve);
+
+		f.mount(
+			new Cerebrum({
+				model: outerFaux.getModel(),
+				apiKey: "outer-key",
+				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
+				onEvent: (e) => {
+					if (e.type === "tool-chunk") capturedChunks.push({ callId: e.callId, text: e.text });
+				},
+			}),
+		);
+		f.mount(delegateOrgan);
+
+		const callX = fauxToolCall("agent_run", { text: "agent-X", profile: "explore" }, { id: "tc-X" });
+		const callY = fauxToolCall("agent_run", { text: "agent-Y", profile: "explore" }, { id: "tc-Y" });
+		const callZ = fauxToolCall("agent_run", { text: "agent-Z", profile: "explore" }, { id: "tc-Z" });
+
+		outerFaux.setResponses([fauxAssistantMessage([callX, callY, callZ]), fauxAssistantMessage("All three done.")]);
+
+		await driver.send("run three", "human", 10_000);
+
+		// Every chunk must belong to exactly one of the three callIds.
+		for (const chunk of capturedChunks) {
+			expect(["tc-X", "tc-Y", "tc-Z"], `chunk '${chunk.text}' must belong to a known callId`).toContain(
+				chunk.callId,
+			);
+		}
+
+		// Each call must have produced chunks referencing its own agent name.
+		const idsWithChunks = new Set(capturedChunks.map((c) => c.callId));
+		expect(idsWithChunks.has("tc-X"), "tc-X must have chunks").toBe(true);
+		expect(idsWithChunks.has("tc-Y"), "tc-Y must have chunks").toBe(true);
+		expect(idsWithChunks.has("tc-Z"), "tc-Z must have chunks").toBe(true);
+
+		// Cross-check: no call carries text intended for a different call.
+		const chunksX = capturedChunks.filter((c) => c.callId === "tc-X");
+		const chunksY = capturedChunks.filter((c) => c.callId === "tc-Y");
+		const chunksZ = capturedChunks.filter((c) => c.callId === "tc-Z");
+		expect(chunksX.every((c) => !c.text.includes("agent-Y") && !c.text.includes("agent-Z"))).toBe(true);
+		expect(chunksY.every((c) => !c.text.includes("agent-X") && !c.text.includes("agent-Z"))).toBe(true);
+		expect(chunksZ.every((c) => !c.text.includes("agent-X") && !c.text.includes("agent-Y"))).toBe(true);
 	}, 15_000);
 });

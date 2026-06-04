@@ -3,6 +3,7 @@ import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
 import type { ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
+import { debugLog } from "@dpopsuev/alef-spine";
 
 export class InProcessStrategy implements ExecutionStrategy {
 	constructor(
@@ -32,6 +33,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 			onEvent: chunkHandler
 				? (e) => {
 						if (e.type === "chunk") chunkHandler(e.text);
+						else if (e.type === "tool-chunk") chunkHandler(e.text);
 					}
 				: undefined,
 		});
@@ -39,9 +41,17 @@ export class InProcessStrategy implements ExecutionStrategy {
 		for (const organ of this.organs) agent.load(organ);
 		agent.load(dialog).load(llm);
 
+		debugLog("in-process:start", { organs: this.organs.map((o) => o.name), timeoutMs });
 		await agent.ready();
-		await dialog.send(text, "human", timeoutMs);
-		agent.dispose();
+		try {
+			await dialog.send(text, "human", timeoutMs);
+		} catch (error) {
+			debugLog("in-process:error", { error: String(error) });
+			throw error;
+		} finally {
+			agent.dispose();
+		}
+		debugLog("in-process:done", { replyLength: reply.length });
 		return reply;
 	}
 }

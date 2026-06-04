@@ -393,6 +393,41 @@ describe("Runner — IPC supervisor handoff", () => {
 // binary with the runner.
 // ---------------------------------------------------------------------------
 
+describe("Supervisor — TypeScript green script", () => {
+	it("spawns a .ts GREEN_SCRIPT directly via tsx without a wrapper", async () => {
+		// Verifies the spawnGreen() tsx-detection fix: when GREEN_SCRIPT ends in .ts,
+		// the supervisor prepends the tsx binary so TypeScript source runs directly.
+		const cwd = makeTmp();
+
+		const supervisor = spawn(process.execPath, [TSX, SUPERVISOR], {
+			cwd,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: {
+				...process.env,
+				// Point GREEN_SCRIPT at the real runner main.ts — no .mjs wrapper needed.
+				ALEF_SUPERVISOR_GREEN_SCRIPT: RUNNER_MAIN,
+				ALEF_SUPERVISOR_BUILD_COMMAND: `${process.execPath} -e "process.exit(0)"`,
+				ALEF_SUPERVISOR_SKIP_HEALTH: "1",
+				ALEF_SUPERVISOR_AUTO_REBUILD_ON_START: "0",
+				ALEF_SUPERVISOR_TSX_BIN: TSX,
+				// Pass --serve 0 --no-tui to the green so it binds HTTP instead of TUI.
+				ALEF_SUPERVISOR_GREEN_ARGS: JSON.stringify(["--serve", "0", "--no-tui"]),
+				ALEF_SCRIPTED_REPLIES: JSON.stringify(["ts-green-ok"]),
+				TSX_TSCONFIG_PATH: TSCONFIG,
+			},
+		});
+
+		try {
+			const output = await waitForOutput(supervisor, /router listening on/, 30_000);
+			const baseUrl = parseRouterAddress(output);
+			const health = (await getJson(`${baseUrl}/health`)) as { ok: boolean };
+			expect(health.ok).toBe(true);
+		} finally {
+			supervisor.kill("SIGTERM");
+		}
+	}, 45_000);
+});
+
 describe("Supervisor — runner as green", () => {
 	it("supervisor spawns runner green, runner serves HTTP, eval gate promotes", async () => {
 		const cwd = makeTmp();

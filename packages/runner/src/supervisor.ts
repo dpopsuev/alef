@@ -25,8 +25,8 @@
  */
 
 import { type ChildProcess, exec as execCb, type Serializable, spawn } from "node:child_process";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 const exec = promisify(execCb);
@@ -36,6 +36,11 @@ const BUILD_COMMAND = process.env.ALEF_SUPERVISOR_BUILD_COMMAND ?? "";
 const HANDOFF_PATH = process.env.ALEF_SUPERVISOR_HANDOFF_PATH ?? "";
 const SKIP_HEALTH = process.env.ALEF_SUPERVISOR_SKIP_HEALTH === "1";
 const TEST_EVAL_RESULT = process.env.ALEF_SUPERVISOR_TEST_EVAL_RESULT ?? "";
+// Additional args passed to the green process. Defaults to supervisor's own argv
+// so `./alef-dev.sh --debug` forwards --debug to the runner green automatically.
+const GREEN_ARGS: string[] = process.env.ALEF_SUPERVISOR_GREEN_ARGS
+	? (JSON.parse(process.env.ALEF_SUPERVISOR_GREEN_ARGS) as string[])
+	: process.argv.slice(2);
 
 if (!GREEN_SCRIPT) {
 	process.stderr.write("[supervisor] ALEF_SUPERVISOR_GREEN_SCRIPT is required\n");
@@ -55,6 +60,23 @@ let readyResolve: (() => void) | undefined;
 /** Rejects readyPromise when the new green exits before becoming ready. */
 let readyReject: ((err: Error) => void) | undefined;
 let readyPromise: Promise<void> = Promise.resolve();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Walk up from scriptPath to find the nearest node_modules/.bin/tsx binary. */
+function findTsxBin(scriptPath: string): string {
+	let dir = dirname(scriptPath);
+	while (true) {
+		const candidate = join(dir, "node_modules/.bin/tsx");
+		if (existsSync(candidate)) return candidate;
+		const parent = dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	return "tsx"; // fallback: rely on PATH
+}
 
 // ---------------------------------------------------------------------------
 // Green lifecycle
@@ -85,9 +107,13 @@ function spawnGreen(sessionId?: string): ChildProcess {
 	}
 
 	// Use tsx when spawning a TypeScript green script so source runs without a build step.
+	// Walk up from the green script to find the nearest node_modules/.bin/tsx.
+	// ALEF_SUPERVISOR_TSX_BIN overrides the resolved path (useful in tests).
 	const isTsScript = GREEN_SCRIPT.endsWith(".ts") || GREEN_SCRIPT.endsWith(".tsx");
-	const spawnArgs = isTsScript ? [join(process.cwd(), "node_modules/.bin/tsx"), GREEN_SCRIPT] : [GREEN_SCRIPT];
-	const child = spawn(process.execPath, spawnArgs, {
+	const spawnArgs = isTsScript
+		? [process.env.ALEF_SUPERVISOR_TSX_BIN ?? findTsxBin(GREEN_SCRIPT), GREEN_SCRIPT]
+		: [GREEN_SCRIPT];
+	const child = spawn(process.execPath, [...spawnArgs, ...GREEN_ARGS], {
 		env,
 		stdio: ["inherit", "pipe", "pipe", "ipc"],
 	});

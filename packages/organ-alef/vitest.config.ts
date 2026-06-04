@@ -8,6 +8,9 @@ export default defineConfig({
 		alias: [
 			{ find: /^@dpopsuev\/alef-spine$/, replacement: r("../spine/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-testkit$/, replacement: r("../testkit/src/index.ts") },
+			{ find: /^@dpopsuev\/alef-corpus$/, replacement: r("../corpus/src/index.ts") },
+			{ find: /^@dpopsuev\/alef-organ-dialog$/, replacement: r("../organ-dialog/src/index.ts") },
+			{ find: /^@dpopsuev\/alef-organ-llm$/, replacement: r("../organ-llm/src/index.ts") },
 		],
 	},
 	test: {

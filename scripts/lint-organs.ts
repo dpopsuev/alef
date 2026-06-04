@@ -3,14 +3,19 @@
  *
  * Checks all packages/organ-* source files and reports:
  *
- *   [STREAM]  typedAction handler that awaits a long-running operation
- *             (network, subprocess, delegation) — should use typedStreamAction
- *   [SCHEMA]  z.string() required field without .min(1) — accepts empty string
- *   [NOTEST]  organ package with no test directory or test files
- *   [IMPORT]  organ importing from another organ or runner — dep direction violation
+ *   [STREAM]      typedAction handler that awaits a long-running operation
+ *                 (network, subprocess, delegation) — should use typedStreamAction
+ *   [SCHEMA]      z.string() required field without .min(1) — accepts empty string
+ *   [NOTEST]      organ package with no test directory or test files
+ *   [NOCOMPLIANCE] organ has tests but none call organComplianceSuite — hard gate
+ *   [IMPORT]      organ importing from another organ or runner — dep direction violation
  *
  * Usage:  npx tsx scripts/lint-organs.ts
  *         npx tsx scripts/lint-organs.ts --fail   (exit 1 on any violation)
+ *
+ * [NOCOMPLIANCE] is the hard gate: every organ with test files must call
+ * organComplianceSuite(). This enforces schema rejection, structural checks,
+ * and (optionally) streaming contracts for every organ automatically.
  */
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
@@ -140,6 +145,17 @@ function checkTestCoverage(pkgDir: string, pkgName: string): void {
 	if (testFiles.length === 0) {
 		report(testDir, 1, "NOTEST",
 			`${pkgName}/test/ exists but contains no .test.ts files`);
+		return;
+	}
+
+	// Hard gate: every organ with test files must call organComplianceSuite.
+	// This ensures schema rejection, structural checks, and streaming contracts
+	// are enforced automatically for every organ in CI.
+	const hasCompliance = testFiles.some((f) => readFile(f).includes("organComplianceSuite"));
+	if (!hasCompliance) {
+		report(testFiles[0]!, 1, "NOCOMPLIANCE",
+			`${pkgName} has tests but no organComplianceSuite() call — ` +
+			`add: organComplianceSuite(() => createXxxOrgan(...)) to any test file`);
 	}
 }
 

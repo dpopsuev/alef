@@ -20,8 +20,8 @@
  */
 
 import type { PhaseStageHandler } from "@dpopsuev/alef-organ-llm";
-import type { Nerve, ToolDefinition } from "@dpopsuev/alef-spine";
-import { debugLog, defineOrgan, toolInputToJsonSchema, typedAction, withDisplay } from "@dpopsuev/alef-spine";
+import type { Nerve, OrganLogger, ToolDefinition } from "@dpopsuev/alef-spine";
+import { defineOrgan, toolInputToJsonSchema, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -106,7 +106,10 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	// ---------------------------------------------------------------------------
 	// Describe — full schema + guidance
 	// ---------------------------------------------------------------------------
-	function handleDescribe(names: string[]): Array<{
+	function handleDescribe(
+		names: string[],
+		log: OrganLogger,
+	): Array<{
 		name: string;
 		description: string;
 		schema: Record<string, unknown>;
@@ -124,7 +127,7 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		for (const name of names) {
 			const t = byName.get(name);
 			if (!t) {
-				debugLog("tools:describe:miss", { name, available: [...byName.keys()] });
+				log.warn({ name, available: [...byName.keys()] }, "tools:describe:miss");
 				continue;
 			}
 			state.toolsDescribed.add(name);
@@ -210,7 +213,7 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		"tools",
 		{
 			"motor/tools.describe": typedAction(DESCRIBE_TOOL, (ctx) => {
-				const results = handleDescribe(ctx.payload.names);
+				const results = handleDescribe(ctx.payload.names, ctx.log);
 				const displayText =
 					ctx.payload.names.length === 0
 						? `Available tools: ${results.map((t) => t.name).join(", ")}`

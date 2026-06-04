@@ -77,6 +77,7 @@ export async function buildDelegation(
 
 		if (args.daemon) {
 			// Forward every AgentEvent to SSE clients so RemoteSession can drive a TUI.
+			// Subscription lifetime matches the daemon process — no explicit cleanup needed.
 			session.subscribe((event: AgentEvent) => {
 				router.notifyAgent(event as unknown as Record<string, unknown>);
 			});

@@ -20,9 +20,11 @@ export interface DaemonEntry {
 export class RemoteSession implements Session {
 	readonly state: SessionState;
 
-	private readonly baseUrl: string;
+	private readonly port: number;
 	private readonly observers = new Set<(event: AgentEvent) => void>();
 	private sseReq: http.ClientRequest | null = null;
+	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	private disposed = false;
 
 	constructor(entry: DaemonEntry) {
 		this.state = {
@@ -30,13 +32,22 @@ export class RemoteSession implements Session {
 			modelId: "remote",
 			contextWindow: 200_000,
 		};
-		this.baseUrl = `http://127.0.0.1:${entry.port}`;
+		this.port = entry.port;
 		this.connectSse();
 	}
 
+	private scheduleReconnect(): void {
+		if (this.disposed) return;
+		this.reconnectTimer = setTimeout(() => {
+			this.reconnectTimer = null;
+			this.connectSse();
+		}, 1_000);
+	}
+
 	private connectSse(): void {
+		if (this.disposed) return;
 		let buf = "";
-		this.sseReq = http.get(`${this.baseUrl}/events`, (res) => {
+		this.sseReq = http.get(`http://127.0.0.1:${this.port}/events`, (res) => {
 			res.on("data", (chunk: Buffer) => {
 				buf += chunk.toString();
 				const frames = buf.split("\n\n");
@@ -57,17 +68,10 @@ export class RemoteSession implements Session {
 					}
 				}
 			});
-			res.on("error", () => {
-				// connection lost — reconnect after a short delay
-				setTimeout(() => this.connectSse(), 1_000);
-			});
-			res.on("close", () => {
-				setTimeout(() => this.connectSse(), 1_000);
-			});
+			res.on("error", () => this.scheduleReconnect());
+			res.on("close", () => this.scheduleReconnect());
 		});
-		this.sseReq.on("error", () => {
-			setTimeout(() => this.connectSse(), 1_000);
-		});
+		this.sseReq.on("error", () => this.scheduleReconnect());
 	}
 
 	subscribe(observer: (event: AgentEvent) => void): () => void {
@@ -80,7 +84,7 @@ export class RemoteSession implements Session {
 		const req = http.request(
 			{
 				hostname: "127.0.0.1",
-				port: new URL(this.baseUrl).port,
+				port: this.port,
 				path: "/message",
 				method: "POST",
 				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
@@ -104,8 +108,13 @@ export class RemoteSession implements Session {
 	setTurnController(_ctrl: AbortController | undefined): void {}
 
 	dispose(): void {
-		this.observers.clear();
+		this.disposed = true;
+		if (this.reconnectTimer !== null) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = null;
+		}
 		this.sseReq?.destroy();
 		this.sseReq = null;
+		this.observers.clear();
 	}
 }

@@ -915,7 +915,7 @@ export class Editor implements Component, Focusable {
 	private expandPasteMarkers(text: string): string {
 		let result = text;
 		for (const [pasteId, pasteContent] of this.pastes) {
-			const markerRegex = new RegExp(`\\[paste #${pasteId}( (\\+\\d+ lines|\\d+ chars))?\\]`, "g");
+			const markerRegex = new RegExp(String.raw`\[paste #${pasteId}( (\+\d+ lines|\d+ chars))?\]`, "g");
 			result = result.replace(markerRegex, () => pasteContent);
 		}
 		return result;

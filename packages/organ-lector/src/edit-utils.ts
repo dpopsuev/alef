@@ -11,5 +11,5 @@ export function applyTextEdit(content: string, oldText: string, newText: string,
 }
 
 export function buildDeclRe(symbol: string): RegExp {
-	return new RegExp(`\\b(?:function|class|interface|type|const|let|var)\\s+${escapeRegex(symbol)}\\b`);
+	return new RegExp(String.raw`\b(?:function|class|interface|type|const|let|var)\s+${escapeRegex(symbol)}\b`);
 }

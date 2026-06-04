@@ -13,6 +13,7 @@
 		"dev:tsc": "concurrently --names \"ai,web-ui\" --prefix-colors \"cyan,green\" \"cd packages/ai && npm run dev:tsc\" \"cd packages/web-ui && npm run dev:tsc\"",
 		"check": "biome check --write --error-on-warnings . && tsgo --noEmit && npm run check:lint && npm run check:browser-smoke && cd packages/web-ui && npm run check",
 		"check:browser-smoke": "node scripts/check-browser-smoke.mjs",
+		"check:organs": "npx tsx scripts/lint-organs.ts --fail",
 		"profile:tui": "node scripts/profile-coding-agent-node.mjs --mode tui",
 		"profile:rpc": "node scripts/profile-coding-agent-node.mjs --mode rpc",
 		"test": "npm run test --workspaces --if-present",

@@ -60,7 +60,7 @@ function makeTmp(): string {
 
 function bootAlef(
 	cwd: string,
-	replies: string[],
+	replies: (string | object)[],
 	extraArgs: string[] = [],
 ): Promise<{ proc: ChildProcess; baseUrl: string }> {
 	return new Promise((resolve, reject) => {
@@ -178,6 +178,41 @@ function collectReply(baseUrl: string, expected: string, timeoutMs = 15_000): Pr
 	});
 }
 
+/**
+ * Collect all SSE events until a dialog.message reply matching `expected` arrives.
+ * Resolves with the full event list so callers can inspect intermediate events.
+ */
+function collectEventsUntilReply(baseUrl: string, expected: string, timeoutMs = 15_000): Promise<unknown[]> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(`Timed out waiting for reply: "${expected}"`)), timeoutMs);
+		const events: unknown[] = [];
+		let buf = "";
+		http
+			.get(`${baseUrl}/events`, (res) => {
+				res.on("data", (chunk: Buffer) => {
+					buf += chunk.toString();
+					const frames = buf.split("\n\n");
+					buf = frames.pop() ?? "";
+					for (const frame of frames) {
+						const line = frame.split("\n").find((l) => l.startsWith("data: "));
+						if (!line) continue;
+						try {
+							const ev = JSON.parse(line.slice(6));
+							events.push(ev);
+							const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
+							if (e.bus === "motor" && e.type === "dialog.message" && e.payload?.text === expected) {
+								clearTimeout(timer);
+								res.destroy();
+								resolve(events);
+							}
+						} catch {}
+					}
+				});
+			})
+			.on("error", reject);
+	});
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -216,6 +251,35 @@ describe("alef binary smoke tests (no real LLM)", () => {
 		await postJson(`${baseUrl}/message`, { text: "turn 2" });
 		await second;
 	}, 45_000);
+
+	it("agent.run is present in the tool catalog — organ-delegate is mounted on boot", async () => {
+		// Script the LLM to call tools.describe([]) — returns all tool names in its sense payload.
+		// If organ-delegate is not mounted, agent.run is absent from the catalog.
+		// No real LLM needed; no inner-agent network call.
+		const cwd = makeTmp();
+		const replies = [
+			{ kind: "toolCall", call: { name: "tools.describe", args: { names: [] } }, reply: "catalog-ok" },
+		];
+		const { baseUrl } = await bootAlef(cwd, replies);
+		await new Promise((r) => setTimeout(r, 100));
+
+		const eventsPromise = collectEventsUntilReply(baseUrl, "catalog-ok");
+		await postJson(`${baseUrl}/message`, { text: "list tools" });
+		const events = await eventsPromise;
+
+		// Find the sense/tools.describe event carrying the catalog payload.
+		const catalogEvent = events.find((ev) => {
+			const e = ev as { bus?: string; type?: string };
+			return e.bus === "sense" && e.type === "tools.describe";
+		}) as { payload?: { result?: Array<{ name: string }> } } | undefined;
+
+		expect(catalogEvent, "sense/tools.describe must appear in SSE").toBeDefined();
+		const results = ((catalogEvent?.payload as Record<string, unknown>)?.results ?? []) as Array<{ name: string }>;
+		const toolNames = results.map((t) => t.name);
+		expect(toolNames, "agent.run must be in the tool catalog — organ-delegate must be mounted").toContain(
+			"agent.run",
+		);
+	}, 30_000);
 
 	it("--print mode exits cleanly with scripted reply on stdout", async () => {
 		const cwd = makeTmp();

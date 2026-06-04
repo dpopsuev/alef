@@ -112,11 +112,6 @@ export class LocalSession implements Session {
 			getTools: () => toolShell.currentMetaTools(),
 		});
 
-		toolShell = createToolShellOrgan({
-			tools: corpusOrgans.flatMap((o) => o.tools),
-			organDirectives: buildOrganDirectives(corpusOrgans),
-		});
-
 		const { agent } = buildAgent({
 			dialog,
 			llm: llmOrgan,
@@ -129,14 +124,22 @@ export class LocalSession implements Session {
 		});
 
 		for (const organ of corpusOrgans) agent.load(organ);
-		agent.load(toolShell);
 
 		const memoryOrgan = createMemoryOrgan({ sessionStore: () => store, contextWindow: model.contextWindow });
 		agent.load(memoryOrgan);
+
+		// buildDelegation first: organ-delegate (agent.run) must be in agent.tools
+		// before toolShell is constructed so tools.describe([]) returns the full catalog.
+		await buildDelegation(args, inst._currentModel, agent, inst, blueprintSurfaces);
+
+		// toolShell built after buildDelegation so its byName snapshot includes agent.run.
+		toolShell = createToolShellOrgan({
+			tools: agent.tools,
+			organDirectives: buildOrganDirectives(agent.organs),
+		});
+		agent.load(toolShell);
 		agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
 		registerOrgans(directives, [toolShell, memoryOrgan]);
-
-		await buildDelegation(args, inst._currentModel, agent, inst, blueprintSurfaces);
 
 		// Register after buildDelegation so agent.run (organ-delegate) is in agent.tools.
 		// Content is lazy so it re-reads the live tool list on every LLM turn.

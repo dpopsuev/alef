@@ -1,5 +1,5 @@
 import type { BaseOrganOptions, ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedStreamAction, withDisplay } from "@dpopsuev/alef-spine";
+import { debugLog, defineOrgan, typedStreamAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 export interface DelegateOrganOptions extends BaseOrganOptions {
@@ -89,6 +89,8 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 				const t0 = Date.now();
 				const queue = new AsyncQueue();
 
+				debugLog("delegate:strategy:start", { profile, timeoutMs });
+
 				// Send the task; chunks flow via onChunk into the queue.
 				const replyPromise = strategy
 					.send(text, "human", timeoutMs, (chunk) => {
@@ -103,6 +105,7 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 
 				const reply = await replyPromise;
 				const elapsed = Date.now() - t0;
+				debugLog("delegate:strategy:done", { profile, elapsedMs: elapsed, ok: Boolean(reply) });
 				yield withDisplay(
 					{ reply, profile, elapsedMs: elapsed },
 					{ text: reply || "(no reply)", mimeType: "text/plain" },

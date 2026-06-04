@@ -5,8 +5,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import type { StorageRecord } from "@dpopsuev/alef-spine";
 import { Input, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
+import type { StorageRecord } from "./session-store.js";
 import { bold, color, getTheme } from "./theme.js";
 
 async function readSessionName(jsonlPath: string): Promise<string | undefined> {
@@ -107,7 +107,7 @@ export async function pickSession(
 				searchInput.handleInput(data);
 				list.setFilter(searchInput.getValue());
 			}
-			tui.requestRender(); // ALE-BUG-47 fix — repaint after every keystroke
+			tui.requestRender(); // repaint after every keystroke
 			return true;
 		};
 

@@ -1,4 +1,5 @@
-import type { Api, CerebrumEvent, Message, Model, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
+import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
+import type { CerebrumEvent } from "@dpopsuev/alef-organ-llm";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
 import type { ToolDefinition } from "@dpopsuev/alef-spine";
 import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";

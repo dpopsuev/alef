@@ -1,6 +1,6 @@
+import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-organ-llm";
 import { createLlmPipeline } from "@dpopsuev/alef-organ-llm";
 import type { Directives } from "@dpopsuev/alef-organ-prompt";
 import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgans } from "@dpopsuev/alef-organ-prompt";

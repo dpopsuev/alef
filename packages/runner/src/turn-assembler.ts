@@ -1,5 +1,5 @@
-import type { AssistantMessage, Message, UserMessage } from "@dpopsuev/alef-organ-llm";
-import type { Turn } from "@dpopsuev/alef-spine";
+import type { AssistantMessage, Message, UserMessage } from "@dpopsuev/alef-ai";
+import type { Turn } from "./session-store.js";
 
 export interface ContextWindowPolicy {
 	/**
@@ -156,7 +156,7 @@ export type ConversationMessage = Pick<UserMessage | AssistantMessage, "role" | 
  *    have motor/sense tool-call pairs but no dialog.message (the agent was
  *    interrupted mid-generation after all tool calls completed). Their work
  *    is injected as a synthetic user context message so the next LLM call
- *    is not amnesiac about what was done. ALE-BUG-46.
+ *    is not amnesiac about what was done.
  *
  * 3. Text-only fallback — when no primary checkpoint exists, reconstruct
  *    plain-text turns from dialog.message events (ScriptedReasoner path or

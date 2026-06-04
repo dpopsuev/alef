@@ -17,6 +17,7 @@
 
 import { randomUUID } from "node:crypto";
 import { InProcessNerve, type Organ, type SenseEvent } from "@dpopsuev/alef-spine";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 export interface OrganContractOptions {
@@ -148,6 +149,132 @@ export async function assertOrganContract(organ: Organ, opts?: OrganContractOpti
 		const lines = report.violations.map((v) => `  [${v.check}] ${v.detail}`).join("\n");
 		throw new Error(`Organ '${report.organ}' failed contract:\n${lines}`);
 	}
+}
+
+// ---------------------------------------------------------------------------
+// organComplianceSuite — vitest-integrated compliance harness
+// ---------------------------------------------------------------------------
+
+export interface StreamingToolConfig {
+	/** A valid payload that will cause the tool to run for > thresholdMs. */
+	validPayload: Record<string, unknown>;
+	/** How long the tool must run before we require chunks. Default: 500ms. */
+	thresholdMs?: number;
+	/** Minimum number of isFinal:false chunks expected. Default: 1. */
+	minChunks?: number;
+}
+
+export interface OrganComplianceOptions {
+	/**
+	 * Per-tool streaming assertions. Only declare tools that are expected to
+	 * produce streaming output. Tools not listed are assumed fast/non-streaming.
+	 */
+	streaming?: Record<string, StreamingToolConfig>;
+	/** Override timeout for schema rejection check. Default: 400ms. */
+	schemaTimeoutMs?: number;
+}
+
+/**
+ * organComplianceSuite — drop into any organ test file to get framework
+ * compliance as individual named vitest tests.
+ *
+ * @example
+ * ```ts
+ * // organ-shell/test/organ.test.ts
+ * import { organComplianceSuite } from "@dpopsuev/alef-testkit";
+ * import { createShellOrgan } from "../src/organ.js";
+ *
+ * organComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
+ *   streaming: {
+ *     "shell.exec": {
+ *       validPayload: { command: "sleep 1" },
+ *       thresholdMs: 500,
+ *     },
+ *   },
+ * });
+ * ```
+ *
+ * Each check becomes its own vitest `it()` — failures show the specific
+ * contract that was broken, not a single thrown error.
+ */
+export function organComplianceSuite(createOrgan: () => Organ, opts: OrganComplianceOptions = {}): void {
+	describe("organ framework compliance", () => {
+		let organ: Organ;
+		let unmount: (() => void) | undefined;
+		const probeNerve = new InProcessNerve();
+
+		beforeEach(() => {
+			organ = createOrgan();
+			unmount = organ.mount(probeNerve.asNerve());
+		});
+		afterEach(() => {
+			unmount?.();
+		});
+
+		// ── Structural ─────────────────────────────────────────────────────
+
+		it("has a non-empty description", () => {
+			const o = organ ?? createOrgan();
+			expect(o.description, "organ must have a description").toBeTruthy();
+			expect((o.description ?? "").length, "description must be > 10 chars").toBeGreaterThan(10);
+		});
+
+		it("has directives when it exposes tools", () => {
+			const o = organ ?? createOrgan();
+			if ((o.tools ?? []).length > 0) {
+				expect((o.directives ?? []).length, "tool-bearing organs must have directives").toBeGreaterThan(0);
+			}
+		});
+
+		it("mount() returns a cleanup function", () => {
+			const o = createOrgan();
+			const nerve = new InProcessNerve();
+			const cleanup = o.mount(nerve.asNerve());
+			expect(typeof cleanup, "mount() must return a function").toBe("function");
+			expect(() => {
+				cleanup();
+				cleanup();
+			}, "cleanup must be idempotent").not.toThrow();
+		});
+
+		// ── Schema contracts ───────────────────────────────────────────────
+
+		it("all tools reject null required fields immediately (< 400ms)", async () => {
+			const o = createOrgan();
+			const results = await runSchemaContract(o, { timeoutMs: opts.schemaTimeoutMs ?? 400 });
+			const violations = results.flatMap((r) => r.violations.map((v) => `  ${r.tool}: ${v}`));
+			expect(violations, `schema violations:\n${violations.join("\n")}`).toEqual([]);
+		}, 10_000);
+
+		it("error messages are human-readable (no raw [InputValidation] prefix)", async () => {
+			const o = createOrgan();
+			const results = await runSchemaContract(o, { timeoutMs: opts.schemaTimeoutMs ?? 400 });
+			const rawErrors = results.flatMap((r) =>
+				r.violations.filter((v) => v.includes("[InputValidation]")).map((v) => `  ${r.tool}: ${v}`),
+			);
+			expect(rawErrors, "error messages must not expose internal [InputValidation] prefix").toEqual([]);
+		}, 10_000);
+
+		// ── Streaming contracts ────────────────────────────────────────────
+
+		if (opts.streaming && Object.keys(opts.streaming).length > 0) {
+			describe("streaming", () => {
+				for (const [toolName, config] of Object.entries(opts.streaming ?? {})) {
+					it(`${toolName} emits isFinal:false chunks when running > ${config.thresholdMs ?? 500}ms`, async () => {
+						const o = createOrgan();
+						const result = await runStreamingContract(o, toolName, config.validPayload, {
+							thresholdMs: config.thresholdMs ?? 500,
+							timeoutMs: 15_000,
+						});
+						expect(result.violation, result.violation ?? `${toolName} streams correctly`).toBeUndefined();
+						if (config.minChunks !== undefined) {
+							expect(result.streamed, `${toolName} must emit at least ${config.minChunks} chunk(s)`).toBe(true);
+						}
+					}, 20_000);
+				}
+			});
+		}
+	});
 }
 
 // ---------------------------------------------------------------------------

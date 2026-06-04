@@ -1,6 +1,17 @@
-import { NerveFixture } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createShellOrgan } from "../src/organ.js";
+
+// Framework compliance — schema rejection, structural checks, streaming contract.
+// Any regression in the organ's contract will surface here as a named test failure.
+organComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
+	streaming: {
+		"shell.exec": {
+			validPayload: { command: "printf 'a%.0s' {1..200}" }, // fast output burst
+			thresholdMs: 50,
+		},
+	},
+});
 
 function fixture(opts: { commandPrefix?: string } = {}) {
 	const f = new NerveFixture();

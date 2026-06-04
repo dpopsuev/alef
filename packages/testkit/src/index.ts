@@ -7,13 +7,16 @@ export { type BlueprintFromFileOptions, BlueprintHarness, type BlueprintHarnessO
 export { NerveFixture } from "./nerve-fixture.js";
 export {
 	assertOrganContract,
+	type OrganComplianceOptions,
 	type OrganContractOptions,
 	type OrganContractReport,
 	type OrganContractViolation,
+	organComplianceSuite,
 	runOrganContract,
 	runSchemaContract,
 	runStreamingContract,
 	type SchemaContractResult,
+	type StreamingToolConfig,
 } from "./organ-contract.js";
 export { OrganHarness } from "./organ-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";

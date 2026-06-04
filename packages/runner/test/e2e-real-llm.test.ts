@@ -31,6 +31,7 @@ import {
 	assertMultiTurnHistory,
 	assertOrganSelection,
 	assertSseFilter,
+	assertSubagentWorkflow,
 	assertToolSequence,
 } from "./e2e-verifiers.js";
 
@@ -424,6 +425,58 @@ describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)"
 		expect(secondReply).toBeDefined();
 
 		assertMultiTurnHistory(firstReply!.payload.text, secondReply!.payload.text, code);
+	}, 180_000);
+});
+
+// ---------------------------------------------------------------------------
+// E2E-subagent: outer LLM delegates to a subagent via agent.run
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!HAVE_LLM)("E2E-subagent: outer LLM delegates via agent.run (real LLM)", () => {
+	it("outer agent calls agent.run(explore), inner agent reads file, secret reaches reply", async () => {
+		withDebugDump();
+		const cwd = makeTmp();
+
+		// Unguessable content — the reply can only be correct if the inner agent actually read the file.
+		const secret = randomUUID();
+		writeFileSync(join(cwd, "secret.txt"), `The secret code is: ${secret}\n`, "utf-8");
+
+		const { baseUrl } = await bootRunner(cwd);
+		await new Promise((r) => setTimeout(r, 300));
+
+		const sse = openSse(baseUrl);
+		await new Promise((r) => setTimeout(r, 100));
+
+		await postJson(`${baseUrl}/message`, {
+			text:
+				`There is a file called secret.txt in the current directory. ` +
+				`You MUST use the agent.run tool with profile 'explore' to delegate reading this file to a subagent. ` +
+				`Do not read the file directly yourself. ` +
+				`Have the subagent read secret.txt and report the secret code back to you, then tell me the secret code.`,
+		});
+
+		await waitFor(
+			sse.events,
+			(evs) =>
+				evs.some((ev) => {
+					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
+					return e.bus === "motor" && e.type === "dialog.message" && Boolean(e.payload?.text);
+				}),
+			120_000,
+		);
+
+		sse.stop();
+
+		const replyEvent = sse.events.find((ev) => {
+			const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
+			return e.bus === "motor" && e.type === "dialog.message" && Boolean(e.payload?.text);
+		}) as { payload: { text: string } } | undefined;
+		expect(replyEvent).toBeDefined();
+
+		await new Promise((r) => setTimeout(r, 300));
+		const records = readJSONL(cwd);
+
+		assertSubagentWorkflow(records, replyEvent!.payload.text, secret);
 	}, 180_000);
 });
 

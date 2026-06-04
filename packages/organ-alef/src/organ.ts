@@ -11,7 +11,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ActionMap } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 export interface DirectiveAdapter {
@@ -382,6 +382,35 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 				async () => ({ history: await pmHistory() }),
 				{ shouldCache: () => true },
 			),
+			"motor/alef.rebuild": typedAction(
+				{
+					name: "alef.rebuild",
+					description:
+						"Trigger a blue-green rebuild: runs npm run check, spawns a new green with the same session, " +
+						"and promotes it if healthy. Only available when running under the supervisor (alef-dev.sh). " +
+						"Use after editing source files to apply the fix without losing session context.",
+					inputSchema: z.object({}),
+				},
+				async (ctx) => {
+					const trigger = (globalThis as Record<string, unknown>).alefRequestRebuild;
+					if (typeof trigger !== "function") {
+						ctx.log.warn({}, "alef.rebuild called but supervisor is not running");
+						return withDisplay(
+							{ ok: false, reason: "supervisor not running — start with alef-dev.sh" },
+							{ text: "rebuild: supervisor not running — start with alef-dev.sh", mimeType: "text/plain" },
+						);
+					}
+					trigger();
+					ctx.log.info({}, "alef.rebuild: rebuild requested");
+					return withDisplay(
+						{ ok: true, reason: "rebuild requested — new green will take over when healthy" },
+						{
+							text: "rebuild: triggered — new green spawning, session will continue on promotion",
+							mimeType: "text/plain",
+						},
+					);
+				},
+			),
 		},
 
 		{
@@ -393,6 +422,7 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					"Use alef.config.get, alef.organs.list, alef.pm.history for system information. " +
 					"Use alef.directive.list to show the active prompt blocks. Use alef.directive.enable/disable/toggle to change which blocks are active. " +
 					"Use alef.directive.replace to change block content. Use alef.directive.add to inject a new block. " +
+					"Use alef.rebuild to apply source edits via a zero-downtime blue-green swap (requires alef-dev.sh). " +
 					"Respond concisely with the most relevant data. Do not write files.",
 			],
 			labels: ["alef-api", "meta", "sessions", "scroll"],

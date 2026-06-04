@@ -11,6 +11,8 @@ export interface CorpusHandlerCtx<TPayload = Record<string, unknown>> {
 	readonly correlationId: string;
 	readonly toolCallId: string | undefined;
 	readonly payload: TPayload;
+	/** Child logger pre-stamped with organ and tool name. Use for warn/debug from handler code. */
+	readonly log: OrganLogger;
 }
 
 export interface CorpusAction {

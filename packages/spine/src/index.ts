@@ -1,7 +1,7 @@
 export * from "./binding.js";
 export * from "./budget.js";
 export * from "./buses.js";
-export { debugLog } from "./debug.js";
+export { debugLog, initSpineLogger } from "./debug.js";
 export * from "./execution.js";
 export * from "./framework.js";
 export * from "./mcp-organ.js";

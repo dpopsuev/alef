@@ -1,6 +1,7 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny } from "zod";
 import type { MotorEvent, Nerve, SenseEvent } from "./buses.js";
+import { debugLog } from "./debug.js";
 import { invalidateByPrefix, makeCacheKey } from "./organ-cache.js";
 import type {
 	CerebrumAction,
@@ -36,8 +37,21 @@ export async function dispatchMotorAction(
 	if (schema) {
 		const result = schema.safeParse(motor.payload);
 		if (!result.success) {
-			const msg = result.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
-			nerve.sense.publish(buildErrSense(motor, `[InputValidation] motor/${motor.type}: ${msg}`));
+			const issues = result.error.issues;
+			const firstField = String(issues[0]?.path[0] ?? "(root)");
+			const humanMsg = issues.map((i) => `'${i.path.join(".") || "(root)"}' ${i.message.toLowerCase()}`).join("; ");
+			const errorMsg = `${motor.type}: argument validation failed — ${humanMsg}. Retry with corrected arguments.`;
+			debugLog("tool:schema-rejected", {
+				name: motor.type,
+				field: firstField,
+				issues: issues.map((i) => ({ path: i.path, message: i.message })),
+			});
+			const errSense = buildErrSense(motor, errorMsg);
+			// Attach structured validation info so dispatchTools can emit tool-validation-error
+			nerve.sense.publish({
+				...errSense,
+				payload: { ...errSense.payload, _validationError: { field: firstField, message: humanMsg } },
+			});
 			return;
 		}
 		payload = result.data as Record<string, unknown>;

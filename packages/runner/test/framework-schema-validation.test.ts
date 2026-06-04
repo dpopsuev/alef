@@ -52,7 +52,12 @@ describe("defineOrgan — schema validation contract", () => {
 
 		// Must be an error sense
 		expect(result.isError, "schema rejection must set isError").toBe(true);
-		expect(result.errorMessage, "error message must mention InputValidation").toMatch(/InputValidation/i);
+		expect(result.errorMessage, "error message must be human-readable retry hint").toMatch(
+			/retry with corrected arguments/i,
+		);
+		expect(result.errorMessage, "error message must NOT use raw [InputValidation] prefix").not.toMatch(
+			/\[InputValidation\]/i,
+		);
 
 		// handle() must never be called on invalid payload
 		expect(handleCalled, "handle() must not be called when schema rejects").toBe(false);

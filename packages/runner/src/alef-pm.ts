@@ -277,7 +277,7 @@ export function gc(keep = 10): { removedGenerations: number; removedStoreEntries
 }
 
 // ---------------------------------------------------------------------------
-// Discovery (ALE-TSK-346)
+// Discovery
 // ---------------------------------------------------------------------------
 
 export interface SearchResult {
@@ -314,7 +314,7 @@ export async function search(query: string): Promise<SearchResult[]> {
 }
 
 // ---------------------------------------------------------------------------
-// SBOM (ALE-TSK-347)
+// SBOM
 // ---------------------------------------------------------------------------
 
 export interface SbomComponent {

@@ -1,5 +1,5 @@
 /**
- * Lector v2 E2E gate (TSK-67).
+ * Lector v2 E2E gate.
  *
  * Proves the 2-call workflow:
  *   1. lector.read(path) → file content + symbol map

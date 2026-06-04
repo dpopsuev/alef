@@ -21,7 +21,7 @@ const MESSAGE_TOOL: ToolDefinition = {
 	name: DIALOG_MESSAGE,
 	description: "Send a message. Use this to reply to the user or to another agent.",
 	inputSchema: z.object({
-		text: z.string().describe("The message text."),
+		text: z.string().min(1).describe("The message text."),
 	}),
 };
 
@@ -39,8 +39,8 @@ export class DialogOrgan implements Organ {
 	readonly publishSchemas = {
 		sense: {
 			"dialog.message": z.object({
-				text: z.string(),
-				sender: z.string(),
+				text: z.string().min(1),
+				sender: z.string().min(1),
 			}),
 		},
 	} as const;

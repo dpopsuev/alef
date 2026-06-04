@@ -10,7 +10,6 @@
  * foldContracts(map) namespaces contracts for multi-organ evals.
  *
  * Mirrors Tako calibrate.CalibrationContract + ExtractFields + FoldContracts.
- * Ref: ALE-TSK-327
  */
 
 // ---------------------------------------------------------------------------

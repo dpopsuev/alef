@@ -1,7 +1,7 @@
 import type { Api, Model, SimpleStreamOptions, StreamOptions } from "../types.js";
 
 // Thinking budget functions live in utils/thinking-budget.ts — re-exported here
-// so existing imports of "./simple-options.js" continue to work (ALE-TSK-367).
+// so existing imports of "./simple-options.js" continue to work.
 export { adjustMaxTokensForThinking, clampReasoning } from "../utils/thinking-budget.js";
 
 export function buildBaseOptions(model: Model<Api>, options?: SimpleStreamOptions, apiKey?: string): StreamOptions {

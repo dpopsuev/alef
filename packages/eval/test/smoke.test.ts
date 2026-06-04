@@ -1,5 +1,5 @@
 /**
- * TSK-119 — Smoke test.
+ * Smoke test.
  *
  * Proves the harness boots, runs a scenario with a scripted LLM (no real API),
  * collects metrics, and disposes cleanly.

@@ -14,8 +14,6 @@
  *
  * Fixture tests run without LLM in CI.
  * Real-LLM runs require ANTHROPIC_API_KEY.
- *
- * Ref: ALE-TSK-161
  */
 
 import { terminalScript } from "../checkers/terminal.js";

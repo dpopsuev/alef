@@ -11,7 +11,6 @@
  * Mediator connectivity emits a warning not an error (degraded not broken).
  *
  * Mirrors Tako calibrate.Preflight.
- * Ref: ALE-TSK-322
  */
 
 import { InProcessNerve, type Organ } from "@dpopsuev/alef-spine";

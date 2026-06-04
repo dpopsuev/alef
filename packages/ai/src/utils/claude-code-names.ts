@@ -9,7 +9,7 @@
  * Source for canonical names: https://cchistory.mariozechner.at/data/prompts-2.1.11.md
  * To update:                  https://github.com/badlogic/cchistory
  *
- * Extracted from anthropic.ts (ALE-TSK-368 / ALE-SPC-47).
+ * Extracted from anthropic.ts.
  */
 
 import type { Tool } from "../types.js";

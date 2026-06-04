@@ -450,7 +450,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			let client: Anthropic;
 			let isOAuth: boolean;
 			// isVertex: driven by options.isVertex set by the anthropic-vertex strategy.
-			// Env-var detection has moved to that strategy's match() predicate (ALE-SPC-47).
+			// Env-var detection has moved to that strategy's match() predicate.
 			const isVertex = options?.isVertex ?? false;
 
 			if (options?.client) {

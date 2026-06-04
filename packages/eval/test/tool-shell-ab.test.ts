@@ -1,5 +1,5 @@
 /**
- * ToolShell A/B evaluation — ALE-TSK-360.
+ * ToolShell A/B evaluation.
  *
  * Runs the same eval scenarios twice:
  *   A (baseline): standard organ wiring, all schemas upfront

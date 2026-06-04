@@ -1,7 +1,7 @@
 /**
- * ToolShellOrgan — progressive disclosure for organ tool schemas (ALE-SPC-42/46).
+ * ToolShellOrgan — progressive disclosure for organ tool schemas.
  *
- * Three-tier context lifecycle (ALE-SPC-46):
+ * Three-tier context lifecycle:
  *
  *   Turn 1 (boot):    Inject compact catalog as synthetic message via llm.phase.
  *                     LLM knows all tools; calls tools.describe for schemas.
@@ -258,7 +258,7 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		 */
 		metaTools: [...strippedTools, DESCRIBE_TOOL] as ToolDefinition[],
 		/**
-		 * Dynamic tool list for getTools callbacks (ALE-TSK-362).
+		 * Dynamic tool list for getTools callbacks.
 		 *
 		 * Family promotion: once any tool in a namespace is described or called,
 		 * all tools sharing that prefix get full schemas in the next turn.

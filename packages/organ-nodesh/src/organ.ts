@@ -216,8 +216,8 @@ export function createNodeshOrgan(options: NodeshOrganOptions): Organ {
 				sense: {
 					"nodesh.eval": z.object({
 						result: z.unknown(),
-						stdout: z.string(),
-						type: z.string(),
+						stdout: z.string().min(1),
+						type: z.string().min(1),
 					}),
 				},
 			},

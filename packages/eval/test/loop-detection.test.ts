@@ -1,5 +1,5 @@
 /**
- * TSK-120 — Loop detection.
+ * Loop detection.
  *
  * A LoopingLLMOrgan calls the same Motor event type repeatedly.
  * EvaluatorOrgan must detect the loop and set loopDetected=true.

@@ -453,7 +453,7 @@ function createClient(
 	}
 
 	// GitHub Copilot dynamic headers are injected by the github-copilot-openai-completions
-	// strategy before this function is called (via options.headers). See ALE-TSK-365.
+	// strategy before this function is called (via options.headers).
 	const headers = { ...model.headers };
 
 	if (sessionId && compat.sendSessionAffinityHeaders) {

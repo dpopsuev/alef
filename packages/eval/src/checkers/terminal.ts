@@ -11,8 +11,6 @@
  *
  * The test script runs in the workspace directory with bash.
  * All tools installed in the environment (openssl, python3, jq, etc.) are available.
- *
- * Ref: ALE-TSK-161
  */
 
 import { spawn } from "node:child_process";

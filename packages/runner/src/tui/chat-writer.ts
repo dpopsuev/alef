@@ -4,8 +4,6 @@
  * Replaces the pattern of passing `chat: Container` around and calling free
  * functions on it. tui-mode.ts holds one ChatWriter and never calls addChild()
  * on the chat Container directly.
- *
- * ALE-TSK-240
  */
 
 import type { Component, Container, Text } from "@dpopsuev/alef-tui";

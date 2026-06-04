@@ -38,7 +38,7 @@ const FS_READ_TOOL = {
 	description:
 		"Read raw text from any file. Returns up to 2000 lines or 50KB; use offset/limit to paginate. For code files where you need symbol awareness, prefer lector.read.",
 	inputSchema: z.object({
-		path: z.string().describe("Path to the file (relative or absolute)"),
+		path: z.string().min(1).describe("Path to the file (relative or absolute)"),
 		offset: z.number().optional().describe("Line number to start reading from (1-indexed)"),
 		limit: z.number().optional().describe("Maximum number of lines to read"),
 	}),
@@ -49,7 +49,7 @@ const FS_GREP_TOOL = {
 	description:
 		"Search file contents by regex or literal pattern using ripgrep. Returns matching lines with file paths and line numbers. To find callers of a specific symbol, use lector.callers instead.",
 	inputSchema: z.object({
-		pattern: z.string().describe("Search pattern (regex or literal string)"),
+		pattern: z.string().min(1).describe("Search pattern (regex or literal string)"),
 		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
 		glob: z.string().optional().describe("Filter files by glob pattern, e.g. '*.ts'"),
 		ignoreCase: z.boolean().optional().describe("Case-insensitive search (default: false)"),
@@ -67,7 +67,7 @@ const FS_FIND_TOOL = {
 	description:
 		"Find files by glob pattern. Use depth=1 to list a directory's immediate children (equivalent to ls). Returns file paths.",
 	inputSchema: z.object({
-		pattern: z.string().describe("Glob pattern, e.g. '*.ts'. Use '*' to list all."),
+		pattern: z.string().min(1).describe("Glob pattern, e.g. '*.ts'. Use '*' to list all."),
 		path: z.string().optional().describe("Directory to search (default: cwd)"),
 		limit: z.coerce.number().optional().describe(`Max results (default: ${DEFAULT_FIND_LIMIT})`),
 		type: z.enum(["file", "directory", "symlink"]).optional().describe("Filter by entry type"),
@@ -84,7 +84,7 @@ const FS_PATCH_TOOL = {
 		"Validation runs before any file is touched — if any operation fails, nothing is modified. " +
 		"Format: *** Begin Patch / *** Add File: path / *** Update File: path / *** Delete File: path / *** Move File: src -> dst / *** End Patch",
 	inputSchema: z.object({
-		patch: z.string().describe("Patch block starting with '*** Begin Patch' and ending with '*** End Patch'"),
+		patch: z.string().min(1).describe("Patch block starting with '*** Begin Patch' and ending with '*** End Patch'"),
 	}),
 };
 
@@ -93,14 +93,14 @@ const FS_WRITE_TOOL = {
 	description:
 		"Write full content to a file, creating or overwriting it. For targeted in-place replacements, use fs.edit instead.",
 	inputSchema: z.object({
-		path: z.string().describe("Path to the file (relative or absolute)"),
-		content: z.string().describe("Content to write"),
+		path: z.string().min(1).describe("Path to the file (relative or absolute)"),
+		content: z.string().min(1).describe("Content to write"),
 	}),
 };
 
 const EditEntrySchema = z.object({
-	oldText: z.string().describe("Exact text to find (must be unique in the file)"),
-	newText: z.string().describe("Replacement text"),
+	oldText: z.string().min(1).describe("Exact text to find (must be unique in the file)"),
+	newText: z.string().min(1).describe("Replacement text"),
 });
 
 // Accept edits as a JSON array OR as a JSON-encoded string (LLMs sometimes
@@ -126,13 +126,13 @@ const FS_EDIT_TOOL = {
 		"For symbol-level replacement by function/class name, use lector.edit instead.",
 	inputSchema: z.union([
 		z.object({
-			path: z.string().describe("Path to the file (relative or absolute)"),
+			path: z.string().min(1).describe("Path to the file (relative or absolute)"),
 			edits: editsField,
 		}),
 		z.object({
-			path: z.string().describe("Path to the file (relative or absolute)"),
-			oldText: z.string().describe("Exact text to find (must be unique in the file)"),
-			newText: z.string().describe("Replacement text"),
+			path: z.string().min(1).describe("Path to the file (relative or absolute)"),
+			oldText: z.string().min(1).describe("Exact text to find (must be unique in the file)"),
+			newText: z.string().min(1).describe("Replacement text"),
 		}),
 	]),
 };
@@ -198,7 +198,7 @@ export interface FsOrganOptions {
 
 /** Exported for testing. Tracks per-path last-read timestamps to enforce read-before-edit. */
 export class FileTracker {
-	/** Maximum number of paths retained. Oldest entries evicted when exceeded (ALE-BUG-17). */
+	/** Maximum number of paths retained. Oldest entries evicted when exceeded. */
 	static readonly MAX_SIZE = 1_000;
 
 	private readonly reads = new Map<string, number>(); // absolutePath → Date.now()
@@ -630,12 +630,12 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 			publishSchemas: {
 				sense: {
 					"fs.read": z.object({
-						content: z.string(),
+						content: z.string().min(1),
 						truncated: z.boolean(),
 						totalLines: z.number(),
 					}),
-					"fs.write": z.object({ path: z.string(), bytes: z.number() }),
-					"fs.edit": z.object({ path: z.string(), applied: z.boolean() }),
+					"fs.write": z.object({ path: z.string().min(1), bytes: z.number() }),
+					"fs.edit": z.object({ path: z.string().min(1), applied: z.boolean() }),
 				},
 			},
 		},

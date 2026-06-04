@@ -14,6 +14,6 @@
  */
 
 export interface ExecutionStrategy {
-	send(text: string, sender?: string, timeoutMs?: number): Promise<string>;
+	send(text: string, sender?: string, timeoutMs?: number, onChunk?: (chunk: string) => void): Promise<string>;
 	dispose?(): void;
 }

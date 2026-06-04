@@ -5,7 +5,6 @@
  * The organ is loaded by the in-process meta-agent only — it is never
  * part of the main agent's organ set.
  *
- * ALE-TSK-385 / ALE-SPC-50 phase 2.
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
@@ -243,7 +242,7 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					{
 						name: "alef.directive.enable",
 						description: "Enable a system prompt block.",
-						inputSchema: z.object({ id: z.string() }),
+						inputSchema: z.object({ id: z.string().min(1) }),
 					},
 					async (ctx) => {
 						g()?.enable(ctx.payload.id);
@@ -254,7 +253,7 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					{
 						name: "alef.directive.disable",
 						description: "Disable a system prompt block.",
-						inputSchema: z.object({ id: z.string() }),
+						inputSchema: z.object({ id: z.string().min(1) }),
 					},
 					async (ctx) => {
 						g()?.disable(ctx.payload.id);
@@ -265,7 +264,7 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					{
 						name: "alef.directive.toggle",
 						description: "Toggle a system prompt block on or off.",
-						inputSchema: z.object({ id: z.string() }),
+						inputSchema: z.object({ id: z.string().min(1) }),
 					},
 					async (ctx) => {
 						g()?.toggle(ctx.payload.id);
@@ -276,7 +275,7 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					{
 						name: "alef.directive.replace",
 						description: "Replace the content of a system prompt block.",
-						inputSchema: z.object({ id: z.string(), content: z.string() }),
+						inputSchema: z.object({ id: z.string().min(1), content: z.string().min(1) }),
 					},
 					async (ctx) => {
 						g()?.replace(ctx.payload.id, ctx.payload.content);
@@ -288,9 +287,9 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 						name: "alef.directive.add",
 						description: "Add a new block to the system prompt.",
 						inputSchema: z.object({
-							id: z.string(),
+							id: z.string().min(1),
 							priority: z.number(),
-							content: z.string(),
+							content: z.string().min(1),
 							tags: z.array(z.string()).optional(),
 						}),
 					},
@@ -303,7 +302,7 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					{
 						name: "alef.directive.remove",
 						description: "Remove a block from the prompt scroll.",
-						inputSchema: z.object({ id: z.string() }),
+						inputSchema: z.object({ id: z.string().min(1) }),
 					},
 					async (ctx) => {
 						g()?.remove(ctx.payload.id);
@@ -330,7 +329,7 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 				{
 					name: "alef.sessions.search",
 					description: "Search sessions by keyword across name, first message, and conversation content.",
-					inputSchema: z.object({ query: z.string().describe("Keyword or phrase to search for") }),
+					inputSchema: z.object({ query: z.string().min(1).describe("Keyword or phrase to search for") }),
 				},
 				async (ctx) => ({ results: await searchSessions(ctx.payload.query) }),
 			),
@@ -339,8 +338,8 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					name: "alef.sessions.rename",
 					description: "Give a session a human-readable name so it can be found later.",
 					inputSchema: z.object({
-						id: z.string().describe("8-char session ID"),
-						name: z.string().describe("Concise descriptive name, e.g. 'ToolShell eval and amnesia fix'"),
+						id: z.string().min(1).describe("8-char session ID"),
+						name: z.string().min(1).describe("Concise descriptive name, e.g. 'ToolShell eval and amnesia fix'"),
 					}),
 				},
 				async (ctx) => renameSession(ctx.payload.id, ctx.payload.name),
@@ -350,7 +349,7 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					name: "alef.sessions.read",
 					description: "Read the first N turns of a session by ID.",
 					inputSchema: z.object({
-						id: z.string().describe("8-char session ID"),
+						id: z.string().min(1).describe("8-char session ID"),
 						maxTurns: z.number().optional().default(10).describe("Max turns to return (default 10)"),
 					}),
 				},

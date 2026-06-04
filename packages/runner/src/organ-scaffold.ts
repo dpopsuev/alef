@@ -7,8 +7,6 @@
  *     package.json       ← name: alef-organ-<name>, keywords: [alef-organ]
  *     tsconfig.json
  *     README.md
- *
- * ALE-TSK-345
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";

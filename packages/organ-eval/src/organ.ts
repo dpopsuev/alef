@@ -29,14 +29,14 @@ export interface EvalOrganOptions extends BaseOrganOptions {
 
 const PromptSchema = z.object({
 	role: z.enum(["user", "system"]),
-	text: z.string(),
+	text: z.string().min(1),
 });
 
 const ValidatorSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("contains"), value: z.string() }),
-	z.object({ type: z.literal("not_contains"), value: z.string() }),
-	z.object({ type: z.literal("tool_called"), value: z.string() }),
-	z.object({ type: z.literal("exit_code"), value: z.string() }),
+	z.object({ type: z.literal("contains"), value: z.string().min(1) }),
+	z.object({ type: z.literal("not_contains"), value: z.string().min(1) }),
+	z.object({ type: z.literal("tool_called"), value: z.string().min(1) }),
+	z.object({ type: z.literal("exit_code"), value: z.string().min(1) }),
 ]);
 
 const EVAL_TOOL = {
@@ -47,7 +47,7 @@ const EVAL_TOOL = {
 		"Phase 2: LLM-as-judge scores the transcript against a rubric (0-100). " +
 		"Returns EvalResult { passed, score, failures, reasoning, transcript }.",
 	inputSchema: z.object({
-		endpoint: z.string().describe("Child Alef HTTP endpoint from orchestration.spawn"),
+		endpoint: z.string().min(1).describe("Child Alef HTTP endpoint from orchestration.spawn"),
 		prompts: z.array(PromptSchema).min(1).describe("Messages to send in sequence"),
 		validators: z.array(ValidatorSchema).optional().describe("Structural checks applied before LLM judge"),
 		judgeRubric: z

@@ -34,7 +34,7 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 		"workflow.run",
 		"Execute a named station in the workflow pipeline and return the fulfilled artifact.",
 		z.object({
-			station: z.string().describe("Station name from the workflow definition"),
+			station: z.string().min(1).describe("Station name from the workflow definition"),
 			artifact: z.unknown().optional().describe("Input artifact from a previous station"),
 		}),
 	);
@@ -79,7 +79,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 	const SUBMIT_TOOL = tool(
 		"contract.submit",
 		`Submit completed work for validation. ${contract.intent}`,
-		z.object({ data: z.record(z.string(), z.unknown()) }),
+		z.object({ data: z.record(z.string().min(1), z.unknown()) }),
 	);
 
 	return defineOrgan(
@@ -158,7 +158,7 @@ export function createQuestionTool(
 	const QUESTION_TOOL = tool(
 		"question.ask",
 		"Ask the user a clarifying question and receive their answer before proceeding.",
-		z.object({ question: z.string() }),
+		z.object({ question: z.string().min(1) }),
 	);
 
 	return defineOrgan(

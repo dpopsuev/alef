@@ -1,6 +1,8 @@
-import { NerveFixture } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createNodeshOrgan } from "../src/organ.js";
+
+organComplianceSuite(() => createNodeshOrgan({ cwd: "/tmp" }));
 
 function fixture(opts: { prelude?: string; defaultTimeoutSeconds?: number } = {}) {
 	const f = new NerveFixture();

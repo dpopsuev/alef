@@ -98,7 +98,7 @@ const WEB_FETCH_TOOL = {
 		"Content is stripped of scripts and navigation elements. " +
 		"Set format='html' to get raw HTML when you need structure.",
 	inputSchema: z.object({
-		url: z.string().describe("The URL to fetch. Must start with http:// or https://."),
+		url: z.string().min(1).describe("The URL to fetch. Must start with http:// or https://."),
 		format: z
 			.enum(["text", "html"])
 			.optional()
@@ -115,7 +115,7 @@ const WEB_SEARCH_TOOL = {
 		"Automatically tries Brave Search, Tavily, Exa, or falls back to DuckDuckGo. " +
 		"Returns a list of results that you can then fetch with web.fetch.",
 	inputSchema: z.object({
-		query: z.string().describe("The search query. Natural language questions work well."),
+		query: z.string().min(1).describe("The search query. Natural language questions work well."),
 		numResults: z.number().optional().describe("Maximum number of results to return. Default: 10."),
 		engine: z
 			.enum(["brave", "tavily", "exa", "ddg"])

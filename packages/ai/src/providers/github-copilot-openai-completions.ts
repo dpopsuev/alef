@@ -9,7 +9,7 @@
  * to streamOpenAICompletions. This removes the hasCopilotVisionInput +
  * buildCopilotDynamicHeaders import from openai-completions.ts.
  *
- * ALE-SPC-47 / ALE-TSK-365 — Strangler Fig extraction from openai-completions.ts.
+ * Strangler Fig extraction from openai-completions.ts.
  */
 
 import type { Api, AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";

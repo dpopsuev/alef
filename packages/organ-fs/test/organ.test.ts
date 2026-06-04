@@ -1,9 +1,11 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NerveFixture } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../src/organ.js";
+
+organComplianceSuite(() => createFsOrgan({ cwd: "/tmp" }));
 
 let testDir: string;
 

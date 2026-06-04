@@ -12,7 +12,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 		private readonly onChunk?: (chunk: string) => void,
 	) {}
 
-	async send(text: string, _sender?: string, timeoutMs = 60_000): Promise<string> {
+	async send(text: string, _sender?: string, timeoutMs = 60_000, onChunk?: (chunk: string) => void): Promise<string> {
 		const agent = new Agent();
 		let reply = "";
 
@@ -22,17 +22,16 @@ export class InProcessStrategy implements ExecutionStrategy {
 			},
 		});
 
+		const chunkHandler = onChunk ?? this.onChunk;
 		const llm = new Cerebrum({
 			model: this.model,
 			timeoutMs,
 			getTools: () => agent.tools,
 			systemPrompt: this.systemPrompt,
-			// Track concurrent in-flight tool calls so the inner agent's LLM is
-			// aware of what is running if it makes parallel tool calls.
 			trackConcurrentOps: true,
-			onEvent: this.onChunk
+			onEvent: chunkHandler
 				? (e) => {
-						if (e.type === "chunk" && this.onChunk) this.onChunk(e.text);
+						if (e.type === "chunk") chunkHandler(e.text);
 					}
 				: undefined,
 		});

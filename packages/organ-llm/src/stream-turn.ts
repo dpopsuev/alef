@@ -44,6 +44,16 @@ export async function callLLM(
 	retryCount: number,
 	options: StreamTurnOptions,
 ): Promise<LLMCallResult> {
+	// Extract system message injected by prepareStep (role:"system") and forward
+	// it as context.systemPrompt — providers only read systemPrompt, not role:"system"
+	// messages in the array, so the directives would be silently dropped otherwise.
+	const systemMsg = messages.find((m) => (m as { role?: string }).role === "system");
+	const apiMessages = systemMsg ? messages.filter((m) => (m as { role?: string }).role !== "system") : messages;
+	const systemPrompt =
+		typeof (systemMsg as { content?: unknown } | undefined)?.content === "string"
+			? (systemMsg as { content: string }).content
+			: options.systemPrompt;
+
 	const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);
 
 	const span = tracer.startSpan(`chat ${model.id}`, {
@@ -57,11 +67,16 @@ export async function callLLM(
 		},
 	});
 	span.addEvent("llm.call", {
-		"alef.message_count": messages.length,
-		"alef.message_roles": messages.map((m) => (m as { role?: string }).role ?? "?").join(","),
+		"alef.message_count": apiMessages.length,
+		"alef.message_roles": apiMessages.map((m) => (m as { role?: string }).role ?? "?").join(","),
 		"alef.tool_count": tools.length,
 	});
-	debugLog("llm:http:start", { turn, messages: messages.length, tools: tools.length, schemaEst: schemaTokenEstimate });
+	debugLog("llm:http:start", {
+		turn,
+		messages: apiMessages.length,
+		tools: tools.length,
+		schemaEst: schemaTokenEstimate,
+	});
 
 	const timeoutMs = options.timeoutMs ?? 60_000;
 	const maxRetries = options.maxRetries ?? 4;
@@ -70,13 +85,12 @@ export async function callLLM(
 
 	const stream = streamSimple(
 		model,
-		{ messages, tools },
+		{ messages: apiMessages, tools, ...(systemPrompt ? { systemPrompt } : {}) },
 		{
 			apiKey: options.getApiKey?.() ?? options.apiKey,
 			timeoutMs,
 			maxRetries,
 			maxRetryDelayMs,
-			...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
 			...(thinking ? { reasoning: thinking } : {}),
 			...(options.getSignal ? { signal: options.getSignal() } : {}),
 		},

@@ -65,17 +65,45 @@ function report(file: string, line: number, rule: string, message: string): void
 }
 
 // ---------------------------------------------------------------------------
-// Long-running operation patterns that suggest typedStreamAction
+// Long-running operation detectors that suggest typedStreamAction
 // ---------------------------------------------------------------------------
 
-const LONG_RUNNING_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
-	{ pattern: /\bfetch\s*\(/,                          label: "fetch() — network request" },
-	{ pattern: /\bspawn\s*\(/,                          label: "spawn() — subprocess" },
-	{ pattern: /child_process/,                         label: "child_process — subprocess" },
-	{ pattern: /\bexecSync\s*\(|\bexec\s*\(/,          label: "exec() — subprocess" },
-	{ pattern: /strategy\.send\s*\(/,                   label: "strategy.send() — delegation" },
-	{ pattern: /\.send\s*\(\s*text/,                    label: ".send(text) — likely delegation" },
-	{ pattern: /\baxios\b|\bgot\b|\bnode-fetch\b/,     label: "HTTP client — network request" },
+// Each detector is a plain predicate — readable, no escape-character hell.
+// String.includes() for literals; new RegExp(String.raw`...`) only where
+// word boundaries genuinely need regex.
+type Detector = { test: (code: string) => boolean; label: string };
+
+const LONG_RUNNING_DETECTORS: Detector[] = [
+	{
+		test:  (code) => code.includes("fetch("),
+		label: "fetch() — network request",
+	},
+	{
+		// spawn( not preceded by a dot — rules out method.spawn(), ".spawn"
+		test:  (code) => new RegExp(String.raw`(?<![.])\bspawn\(`).test(code),
+		label: "spawn() — subprocess",
+	},
+	{
+		// Actual import/require of child_process — not a comment or string mention
+		test:  (code) =>
+			code.includes(`"child_process"`) ||
+			code.includes(`'child_process'`) ||
+			code.includes('"node:child_process"') ||
+			code.includes("'node:child_process'"),
+		label: "child_process import — subprocess",
+	},
+	{
+		test:  (code) => code.includes("execSync(") || code.includes("exec("),
+		label: "exec() — subprocess",
+	},
+	{
+		test:  (code) => code.includes("strategy.send("),
+		label: "strategy.send() — delegation",
+	},
+	{
+		test:  (code) => code.includes("axios") || code.includes("node-fetch"),
+		label: "HTTP client library — network request",
+	},
 ];
 
 // ---------------------------------------------------------------------------
@@ -85,21 +113,23 @@ const LONG_RUNNING_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
 function checkStreamingGap(file: string, content: string): void {
 	const lines = content.split("\n");
 
-	// Find each typedAction call
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
 		if (!line.includes("typedAction(")) continue;
 		if (line.includes("typedStreamAction(")) continue;
 
-		// Collect the handler body: scan forward for the closing of the handler fn
-		// Simple heuristic: look at the next 30 lines for long-running patterns
-		const window = lines.slice(i, Math.min(i + 30, lines.length)).join("\n");
+		// 30-line forward window, comments stripped to avoid false positives
+		// (e.g. "child_process is blocked" in a JSDoc block).
+		const windowLines = lines.slice(i, Math.min(i + 30, lines.length));
+		const codeWindow = windowLines
+			.filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+			.join("\n");
 
-		for (const { pattern, label } of LONG_RUNNING_PATTERNS) {
-			if (pattern.test(window)) {
+		for (const { test, label } of LONG_RUNNING_DETECTORS) {
+			if (test(codeWindow)) {
 				report(file, i + 1, "STREAM",
 					`typedAction handler contains '${label}' — consider typedStreamAction for live progress`);
-				break; // one violation per typedAction
+				break;
 			}
 		}
 	}

@@ -32,6 +32,7 @@ export function waitForToolResult(
 	timeoutMs: number,
 	onChunk?: (text: string) => void,
 	onStall?: (info: { elapsedMs: number; lastChunkMs: number }) => void,
+	stallIntervalMs = STALL_INTERVAL_MS,
 ): Promise<SenseEvent> {
 	const subscribedAt = Date.now();
 	let lastChunkAt = subscribedAt; // updated on each chunk, read by stall watchdog
@@ -42,11 +43,11 @@ export function waitForToolResult(
 			? setInterval(() => {
 					const now = Date.now();
 					const lastChunkMs = now - lastChunkAt;
-					if (lastChunkMs >= STALL_INTERVAL_MS) {
+					if (lastChunkMs >= stallIntervalMs) {
 						debugLog("tool:stall", { name: toolName, elapsedMs: now - subscribedAt, lastChunkMs });
 						onStall({ elapsedMs: now - subscribedAt, lastChunkMs });
 					}
-				}, STALL_INTERVAL_MS)
+				}, stallIntervalMs)
 			: undefined;
 
 		const done = (): void => {

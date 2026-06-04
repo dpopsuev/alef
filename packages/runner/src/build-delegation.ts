@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import type { Api, Model } from "@dpopsuev/alef-ai";
 import type { Agent } from "@dpopsuev/alef-corpus";
@@ -7,7 +10,7 @@ import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import type { Args } from "./args.js";
 import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "./materializer.js";
-import type { Session } from "./session.js";
+import type { AgentEvent, Session } from "./session.js";
 import { InProcessStrategy } from "./strategies/in-process.js";
 
 const EXPLORE_ORGANS = [
@@ -57,11 +60,13 @@ export async function buildDelegation(
 	agent.load(orchestrationOrgan);
 	agent.load(createFactoryOrgan({ cwd: args.cwd }));
 
-	if (args.serve !== undefined) {
+	const servePort = args.daemon ? 0 : args.serve;
+
+	if (servePort !== undefined) {
 		const sseSurface = blueprintSurfaces.filter((surface) => surface.type === "sse");
 		const allowedEvents = sseSurface.flatMap((surface) => surface.events ?? []);
 		const router = createRouterOrgan({
-			port: args.serve,
+			port: servePort,
 			allowedEvents,
 			onMessage: (text) => session.receive?.(text),
 		});
@@ -69,5 +74,26 @@ export async function buildDelegation(
 		await router.ready();
 		const addr = router.address() ?? { host: "127.0.0.1", port: 0 };
 		console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
+
+		if (args.daemon) {
+			// Forward every AgentEvent to SSE clients so RemoteSession can drive a TUI.
+			session.subscribe((event: AgentEvent) => {
+				router.notifyAgent(event as unknown as Record<string, unknown>);
+			});
+
+			// Write daemon registry entry.
+			const daemonDir = join(homedir(), ".alef");
+			mkdirSync(daemonDir, { recursive: true });
+			writeFileSync(
+				join(daemonDir, "daemon.json"),
+				JSON.stringify({
+					port: addr.port,
+					pid: process.pid,
+					sessionId: session.state.id,
+					cwd: args.cwd,
+					startedAt: Date.now(),
+				}),
+			);
+		}
 	}
 }

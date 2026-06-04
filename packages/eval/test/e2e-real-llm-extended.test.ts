@@ -1,8 +1,8 @@
 /**
  * Extended real-LLM E2E tests — in-process.
  *
- * ALE-TSK-186 — Lector 2-call workflow: lector.read then lector.edit by symbol
- * ALE-TSK-188 — WebOrgan real network fetch
+ * Lector 2-call workflow: lector.read then lector.edit by symbol
+ * WebOrgan real network fetch
  *
  * Gate: ANTHROPIC_API_KEY or ANTHROPIC_VERTEX_PROJECT_ID must be set.
  * Model: claude-haiku-4-5 by default (cheap + fast).
@@ -105,7 +105,7 @@ function makeAgent(organs: Parameters<Agent["load"]>[0][]): { agent: Agent; dial
 }
 
 // ---------------------------------------------------------------------------
-// TSK-186: Lector 2-call workflow with real LLM
+// Lector 2-call workflow with real LLM
 // ---------------------------------------------------------------------------
 
 describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
@@ -182,7 +182,7 @@ describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// TSK-188: WebOrgan real network fetch with real LLM
+// WebOrgan real network fetch with real LLM
 // ---------------------------------------------------------------------------
 
 describe.skipIf(!HAVE_NETWORK)("E2E-188: WebOrgan real network fetch (real LLM)", () => {

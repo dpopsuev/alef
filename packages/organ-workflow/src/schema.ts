@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const StationDefSchema = z.object({
-	name: z.string(),
+	name: z.string().min(1),
 	contract: z.enum(["intent", "goal", "implement"]).describe("Preset contract name"),
 	blueprint: z.string().optional().describe("Agent blueprint name from manifest"),
 	timeoutMs: z.number().optional(),
@@ -9,16 +9,16 @@ export const StationDefSchema = z.object({
 });
 
 export const EdgeDefSchema = z.object({
-	from: z.string(),
-	to: z.string(),
+	from: z.string().min(1),
+	to: z.string().min(1),
 	when: z.string().optional().describe("JSONPath-style condition on the artifact, e.g. 'status == \"approved\"'"),
 });
 
 export const WorkflowDefSchema = z.object({
-	name: z.string(),
+	name: z.string().min(1),
 	version: z.string().optional(),
-	start: z.string(),
-	done: z.string(),
+	start: z.string().min(1),
+	done: z.string().min(1),
 	stations: z.array(StationDefSchema).min(1),
 	edges: z.array(EdgeDefSchema),
 });

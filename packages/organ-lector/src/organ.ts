@@ -30,7 +30,7 @@ const READ_TOOL = {
 		"Read a code file with its symbol map (functions, classes, types). Use symbol= to zoom into one declaration. " +
 		"Always returns all declared symbols. For non-code files, use fs.read instead.",
 	inputSchema: z.object({
-		path: z.string().describe("File path (relative or absolute)"),
+		path: z.string().min(1).describe("File path (relative or absolute)"),
 		symbol: z.string().optional().describe("Name of a symbol to zoom into (returns just that block)"),
 		maxLines: z.number().optional().describe("Max lines to return (default: 2000 full, 300 symbol)"),
 		offset: z.number().optional().describe("Start line for full-file reads (1-indexed)"),
@@ -42,8 +42,8 @@ const WRITE_TOOL = {
 	description:
 		"Write full content to a code file, creating parent directories if needed. For targeted symbol-level edits, use lector.edit instead.",
 	inputSchema: z.object({
-		path: z.string().describe("File path (relative or absolute)"),
-		content: z.string().describe("Content to write"),
+		path: z.string().min(1).describe("File path (relative or absolute)"),
+		content: z.string().min(1).describe("Content to write"),
 	}),
 };
 
@@ -53,12 +53,12 @@ const EDIT_TOOL = {
 		"Edit a code file by exact text or by symbol name (replaces the full function/class span). " +
 		"Requires lector.read first. More precise than fs.edit for code symbols.",
 	inputSchema: z.object({
-		path: z.string().describe("File path (relative or absolute)"),
+		path: z.string().min(1).describe("File path (relative or absolute)"),
 		edits: z
 			.array(
 				z.object({
 					oldText: z.string().optional().describe("Exact text to replace (must be unique in file)"),
-					newText: z.string().describe("Replacement text"),
+					newText: z.string().min(1).describe("Replacement text"),
 					symbol: z
 						.string()
 						.optional()
@@ -78,7 +78,7 @@ const SEARCH_TOOL = {
 		"Search file contents by pattern using ripgrep. Returns matching lines with file path and line number. " +
 		"To find all callers of a specific symbol by name, use lector.callers instead.",
 	inputSchema: z.object({
-		pattern: z.string().describe("Search pattern (regex or literal)"),
+		pattern: z.string().min(1).describe("Search pattern (regex or literal)"),
 		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
 		caseInsensitive: z.boolean().optional().describe("Case-insensitive search (default: false)"),
 		maxResults: z.number().optional().describe("Max matches to return (default: 200)"),
@@ -90,7 +90,7 @@ const FIND_TOOL = {
 	name: "lector.find",
 	description: "Find files by glob pattern. Use depth=1 to list immediate children of a directory.",
 	inputSchema: z.object({
-		glob: z.string().describe("Glob pattern, e.g. '*.ts' or '*.test.ts'"),
+		glob: z.string().min(1).describe("Glob pattern, e.g. '*.ts' or '*.test.ts'"),
 		path: z.string().optional().describe("Root directory to search (default: cwd)"),
 		maxResults: z.number().optional().describe("Max results (default: 500)"),
 		depth: z.number().optional().describe("Max directory depth (depth=1 = immediate children)"),
@@ -104,7 +104,7 @@ const CALLERS_TOOL = {
 		"Find every call site referencing a named symbol (function, class, variable). " +
 		"Returns file, line, and surrounding context. Use before refactoring to understand blast radius.",
 	inputSchema: z.object({
-		symbol: z.string().describe("Symbol name to search for"),
+		symbol: z.string().min(1).describe("Symbol name to search for"),
 		path: z.string().optional().describe("Restrict search to this path (default: entire workspace)"),
 		maxResults: z.number().optional().describe("Max results (default: 100)"),
 	}),

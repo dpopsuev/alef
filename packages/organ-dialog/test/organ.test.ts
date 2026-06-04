@@ -1,6 +1,9 @@
 import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { describe, expect, it, vi } from "vitest";
 import { DIALOG_MESSAGE, DialogOrgan } from "../src/organ.js";
+
+organComplianceSuite(() => new DialogOrgan({ sink: () => {} }));
 
 function makeNerve() {
 	const nerve = new InProcessNerve();

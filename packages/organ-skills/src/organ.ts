@@ -37,7 +37,7 @@ const INVOKE_TOOL = {
 		"Use this when the user explicitly asks for a skill, or when a skill name in the index " +
 		"is clearly relevant to the current task.",
 	inputSchema: z.object({
-		name: z.string().describe("Skill name as shown in skills.list"),
+		name: z.string().min(1).describe("Skill name as shown in skills.list"),
 	}),
 };
 

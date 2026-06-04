@@ -10,7 +10,6 @@
  *   pairwise   \u2014 two organs composed, outer ports stubbed  (future)
  *   integrated \u2014 full blueprint, no stubs (existing EvalHarness)
  *
- * Ref: ALE-TSK-326
  */
 
 import { randomUUID } from "node:crypto";

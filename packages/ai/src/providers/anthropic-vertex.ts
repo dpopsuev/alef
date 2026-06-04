@@ -8,7 +8,7 @@
  * Delegates to streamAnthropic with options.isVertex = true, which triggers the
  * AnthropicVertex SDK path inside anthropic.ts without env-var detection there.
  *
- * ALE-SPC-47 / ALE-TSK-364 — Strangler Fig extraction from anthropic.ts.
+ * Strangler Fig extraction from anthropic.ts.
  */
 
 import type { Api, AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";

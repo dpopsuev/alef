@@ -1,7 +1,10 @@
 import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createLectorOrgan } from "../src/organ.js";
 import { StubLectorBackend } from "../src/stub-backend.js";
+
+organComplianceSuite(() => createLectorOrgan({ cwd: process.cwd() }));
 
 const AUTH_TS = `export function login(user: string): boolean {
   return user.length > 0;

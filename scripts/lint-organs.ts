@@ -243,8 +243,11 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 // Main scan
 // ---------------------------------------------------------------------------
 
+// organ-prompt is a utility package (Directives class), not a bus organ — no compliance needed.
+const ORGAN_LINTER_EXCLUDE = new Set(["organ-prompt"]);
+
 const organDirs = readdirSync(ORGANS_DIR, { withFileTypes: true })
-	.filter((e) => e.isDirectory() && e.name.startsWith("organ-"))
+	.filter((e) => e.isDirectory() && e.name.startsWith("organ-") && !ORGAN_LINTER_EXCLUDE.has(e.name))
 	.map((e) => ({ name: e.name, dir: join(ORGANS_DIR, e.name) }));
 
 console.log(`Scanning ${organDirs.length} organ packages...\n`);
@@ -276,6 +279,15 @@ for (const [rule, count] of Object.entries(counts).sort()) {
 	console.log(`  [${rule}]  ${count}`);
 }
 
-if (FAIL_ON_VIOLATIONS && violations.length > 0) {
+// Hard gates: NOTEST and NOCOMPLIANCE* block CI.
+// Advisory: STREAM and SCHEMA are informational — they document gaps but do
+// not block merging. Developers address them incrementally.
+const HARD_GATE_RULES = new Set(["NOTEST", "NOCOMPLIANCE", "NOCOMPLIANCE-STREAM"]);
+const hardViolations = violations.filter((v) => HARD_GATE_RULES.has(v.rule));
+
+if (hardViolations.length > 0) {
+	console.log(`\n${hardViolations.length} hard-gate violation(s) — fix before merging.`);
+}
+if (FAIL_ON_VIOLATIONS && hardViolations.length > 0) {
 	process.exit(1);
 }

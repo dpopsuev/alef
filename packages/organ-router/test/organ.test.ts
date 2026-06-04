@@ -7,9 +7,11 @@
  */
 
 import http from "node:http";
-import { NerveFixture } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createRouterOrgan } from "../src/organ.js";
+
+organComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1" }));
 
 // ---------------------------------------------------------------------------
 // Helpers

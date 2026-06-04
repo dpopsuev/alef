@@ -33,42 +33,42 @@ const CREATE_TOOL = {
 	name: "enclosure.create",
 	description:
 		"Create an isolated copy-on-write workspace (Space). Returns a spaceId. Reads come from the real workspace; writes land in the overlay. Use the returned workDir as the working directory for subsequent operations.",
-	inputSchema: z.object({ workspace: z.string().describe("Absolute path to the real workspace directory.") }),
+	inputSchema: z.object({ workspace: z.string().min(1).describe("Absolute path to the real workspace directory.") }),
 };
 const DIFF_TOOL = {
 	name: "enclosure.diff",
 	description: "List files changed in the overlay since the space was created or last reset.",
-	inputSchema: z.object({ spaceId: z.string() }),
+	inputSchema: z.object({ spaceId: z.string().min(1) }),
 };
 const COMMIT_TOOL = {
 	name: "enclosure.commit",
 	description: "Promote overlay changes to the real workspace. If paths is omitted, all changes are promoted.",
 	inputSchema: z.object({
-		spaceId: z.string(),
+		spaceId: z.string().min(1),
 		paths: z.array(z.string()).optional().describe("Specific paths to commit. Omit to commit all."),
 	}),
 };
 const RESET_TOOL = {
 	name: "enclosure.reset",
 	description: "Discard all overlay changes. The real workspace is untouched.",
-	inputSchema: z.object({ spaceId: z.string() }),
+	inputSchema: z.object({ spaceId: z.string().min(1) }),
 };
 const SNAPSHOT_TOOL = {
 	name: "enclosure.snapshot",
 	description: "Save the current overlay state as a named snapshot for later restore.",
-	inputSchema: z.object({ spaceId: z.string(), name: z.string().describe("Snapshot name.") }),
+	inputSchema: z.object({ spaceId: z.string().min(1), name: z.string().min(1).describe("Snapshot name.") }),
 };
 const RESTORE_TOOL = {
 	name: "enclosure.restore",
 	description: "Restore a named snapshot, discarding current overlay changes.",
-	inputSchema: z.object({ spaceId: z.string(), name: z.string() }),
+	inputSchema: z.object({ spaceId: z.string().min(1), name: z.string().min(1) }),
 };
 const EXEC_TOOL = {
 	name: "enclosure.exec",
 	description:
 		"Run a command inside the space's workDir. Optionally confine the process in Linux namespaces (user+mount+pid+net) with cgroup resource limits.",
 	inputSchema: z.object({
-		spaceId: z.string(),
+		spaceId: z.string().min(1),
 		command: z.array(z.string()).describe("Command and arguments."),
 		confine: z.boolean().optional().describe("Run inside Linux namespaces (default: false)."),
 		timeoutMs: z.number().optional().describe("Timeout in milliseconds."),
@@ -79,7 +79,7 @@ const EXEC_TOOL = {
 const DESTROY_TOOL = {
 	name: "enclosure.destroy",
 	description: "Tear down the space and remove all overlay directories. Commits nothing.",
-	inputSchema: z.object({ spaceId: z.string() }),
+	inputSchema: z.object({ spaceId: z.string().min(1) }),
 };
 
 // ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 	);
 
 	// Return a wrapper that adds space cleanup on unmount.
-	// Uses a new object rather than mutating base.mount (TSK-153).
+	// Uses a new object rather than mutating base.mount.
 	const organ: Organ = {
 		name: base.name,
 		tools: base.tools,

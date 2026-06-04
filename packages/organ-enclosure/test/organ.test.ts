@@ -1,7 +1,9 @@
-import { NerveFixture } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createEnclosureOrgan } from "../src/organ.js";
 import { StubSpace } from "../src/space.js";
+
+organComplianceSuite(() => createEnclosureOrgan({ stub: true }));
 
 function fixture() {
 	const f = new NerveFixture();

@@ -2,8 +2,12 @@ import type { Context, FauxResponseFactory } from "@dpopsuev/alef-ai";
 import { fauxAssistantMessage, fauxText, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import type { Nerve, Organ } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
-import { DIALOG_MESSAGE_TOOL, NerveFixture, TurnDriver } from "../../testkit/src/index.js";
-import { Cerebrum } from "../src/index.js";
+import { DIALOG_MESSAGE_TOOL, NerveFixture, organComplianceSuite, TurnDriver } from "../../testkit/src/index.js";
+import { Cerebrum, createLlmPipeline } from "../src/index.js";
+
+// organ-llm/createLlmPipeline is the mountable organ — no tools, pure pipeline observer.
+// Cerebrum is a Reasoner (no tools), not a tool-bearing organ.
+organComplianceSuite(() => createLlmPipeline([]));
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
 

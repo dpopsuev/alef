@@ -1,5 +1,5 @@
 import type { BaseOrganOptions, ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedStreamAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 export interface DelegateOrganOptions extends BaseOrganOptions {
@@ -15,7 +15,7 @@ const AGENT_RUN_TOOL = {
 		"Use a child name from orchestration.spawn for process-isolated delegation. " +
 		"Defaults to 'explore' when profile is omitted.",
 	inputSchema: z.object({
-		text: z.string().describe("The task or question for the subagent"),
+		text: z.string().min(1).describe("The task or question for the subagent"),
 		profile: z
 			.string()
 			.optional()
@@ -33,30 +33,82 @@ export interface DelegateOrgan extends Organ {
 	registerStrategy(name: string, strategy: ExecutionStrategy): void;
 }
 
+/**
+ * AsyncQueue bridges a callback-based async source (InProcessStrategy.onChunk)
+ * to an AsyncIterable so typedStreamAction can yield chunks as they arrive.
+ */
+class AsyncQueue {
+	private readonly queue: string[] = [];
+	private resolve: (() => void) | undefined;
+	private done = false;
+
+	push(text: string): void {
+		this.queue.push(text);
+		this.resolve?.();
+		this.resolve = undefined;
+	}
+
+	finish(): void {
+		this.done = true;
+		this.resolve?.();
+		this.resolve = undefined;
+	}
+
+	async *iter(): AsyncIterable<string> {
+		while (true) {
+			while (this.queue.length > 0) {
+				const item = this.queue.shift();
+				if (item !== undefined) yield item;
+			}
+			if (this.done) return;
+			await new Promise<void>((r) => {
+				this.resolve = r;
+			});
+		}
+	}
+}
+
 export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies));
 
-	async function handleRun(ctx: {
-		payload: { text: string; profile?: string; timeoutMs?: number };
-	}): Promise<Record<string, unknown>> {
-		const { text, profile = "explore", timeoutMs = 90_000 } = ctx.payload;
-		const strategy = strategies.get(profile);
-		if (!strategy) {
-			const available = [...strategies.keys()].join(", ");
-			throw new Error(`agent.run: unknown profile '${profile}'. Available: ${available}`);
-		}
-		const t0 = Date.now();
-		const reply = await strategy.send(text, "human", timeoutMs);
-		const elapsed = Date.now() - t0;
-		return withDisplay(
-			{ reply, profile, elapsedMs: elapsed },
-			{ text: reply || "(no reply)", mimeType: "text/plain" },
-		);
-	}
-
 	const organ = defineOrgan(
 		"delegate",
-		{ "motor/agent.run": typedAction(AGENT_RUN_TOOL, handleRun) },
+		{
+			"motor/agent.run": typedStreamAction(AGENT_RUN_TOOL, async function* (ctx) {
+				const { text, profile = "explore", timeoutMs = 90_000 } = ctx.payload;
+				const strategy = strategies.get(profile);
+				if (!strategy) {
+					const available = [...strategies.keys()].join(", ");
+					yield withDisplay(
+						{ error: `unknown profile '${profile}'`, available },
+						{ text: `agent.run: unknown profile '${profile}'. Available: ${available}`, mimeType: "text/plain" },
+					);
+					return;
+				}
+
+				const t0 = Date.now();
+				const queue = new AsyncQueue();
+
+				// Send the task; chunks flow via onChunk into the queue.
+				const replyPromise = strategy
+					.send(text, "human", timeoutMs, (chunk) => {
+						queue.push(chunk);
+					})
+					.finally(() => queue.finish());
+
+				// Yield each chunk as it arrives so the TUI pill shows live progress.
+				for await (const chunkText of queue.iter()) {
+					yield { text: chunkText };
+				}
+
+				const reply = await replyPromise;
+				const elapsed = Date.now() - t0;
+				yield withDisplay(
+					{ reply, profile, elapsedMs: elapsed },
+					{ text: reply || "(no reply)", mimeType: "text/plain" },
+				);
+			}),
+		},
 		{
 			logger: opts.logger,
 			description: "Profile-based agent delegation: agent.run routes to in-process or remote strategies.",
@@ -75,7 +127,7 @@ When to use which profile:
   - Making edits, running commands, writing files: general
   - True isolation, different blueprint, organ dev loop: orchestration.spawn + agent.run(<name>)
 
-agent.run is blocking — it waits for the subagent's reply before returning.
+agent.run streams its output — each text chunk from the inner agent appears in the TUI pill.
 Multiple parallel agent.run(explore) calls are safe and fast.
 
 **Critical:** When asked to explore or research the codebase, use parallel agent.run(explore) calls.

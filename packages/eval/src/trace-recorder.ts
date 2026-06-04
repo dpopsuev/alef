@@ -15,7 +15,6 @@
  *
  * Mirrors Tako engine/trace.TraceRecorder + observe.Summarize
  * + testkit/assertions.AssertPath.
- * Ref: ALE-TSK-330, ALE-TSK-331
  */
 
 import { createWriteStream, type WriteStream } from "node:fs";
@@ -237,7 +236,7 @@ export function summarizeTrace(events: TraceEvent[]): TraceSummary {
 }
 
 // ---------------------------------------------------------------------------
-// AssertPath \u2014 ALE-TSK-331
+// AssertPath
 // ---------------------------------------------------------------------------
 
 /**

@@ -8,6 +8,7 @@ export default defineConfig({
 		alias: [
 			{ find: /^@dpopsuev\/alef-spine$/, replacement: resolve("../spine/src/index.ts") },
 			{ find: /^@dpopsuev\/alef-ai$/, replacement: resolve("../ai/src/index.ts") },
+			{ find: /^@dpopsuev\/alef-testkit$/, replacement: resolve("../testkit/src/index.ts") },
 		],
 	},
 	test: {

@@ -192,7 +192,7 @@ export function createConcurrentCerebrum(options: CerebrumOptions): Organ {
 				toolCount: z.number().int().nonnegative(),
 			}),
 			"llm.result": z.object({
-				response: z.record(z.string(), z.unknown()),
+				response: z.record(z.string().min(1), z.unknown()),
 				toolCalls: z.array(z.object({ name: z.string(), args: z.record(z.string(), z.unknown()), id: z.string() })),
 				turn: z.number().int().positive(),
 			}),

@@ -2,7 +2,7 @@
  * Thinking budget arithmetic — shared by providers that support token-based
  * extended thinking (Anthropic, Amazon Bedrock).
  *
- * Extracted from simple-options.ts (ALE-TSK-367 / ALE-SPC-47).
+ * Extracted from simple-options.ts.
  */
 
 import type { ThinkingBudgets, ThinkingLevel } from "../types.js";

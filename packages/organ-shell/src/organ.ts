@@ -26,7 +26,7 @@ const SHELL_EXEC_TOOL = {
 	description:
 		"Execute a shell command and stream its output. Returns full stdout+stderr and exit code. Do not use to read files — use fs.read or lector.read instead.",
 	inputSchema: z.object({
-		command: z.string().describe("Shell command to execute"),
+		command: z.string().min(1).describe("Shell command to execute"),
 		timeout: z.number().optional().describe("Timeout in seconds (optional)"),
 	}),
 };
@@ -206,9 +206,9 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 					// Streaming: discriminate on isFinal — intermediate events carry chunk,
 					// final event carries output + exitCode.
 					"shell.exec": z.discriminatedUnion("isFinal", [
-						z.object({ chunk: z.string(), isFinal: z.literal(false) }),
+						z.object({ chunk: z.string().min(1), isFinal: z.literal(false) }),
 						z.object({
-							output: z.string(),
+							output: z.string().min(1),
 							exitCode: z.number(),
 							isFinal: z.literal(true),
 							truncated: z.boolean().optional(),

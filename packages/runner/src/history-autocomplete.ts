@@ -1,6 +1,6 @@
 /**
  * AutocompleteProvider that surfaces conversation history as ghost-text
- * suggestions (TSK-212).
+ * suggestions.
  *
  * When the user starts typing, getSuggestions() returns history entries
  * that start with the current line. The best match (most recent first) is

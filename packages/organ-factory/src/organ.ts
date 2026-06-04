@@ -19,9 +19,9 @@ const BLUEPRINT_TOOL = {
 			.string()
 			.regex(/^[a-z][a-z0-9-]*$/, "kebab-case, e.g. lector-agent")
 			.describe("Agent name, kebab-case"),
-		description: z.string().describe("One sentence: what this agent does"),
+		description: z.string().min(1).describe("One sentence: what this agent does"),
 		organs: z
-			.array(z.string())
+			.array(z.string().min(1))
 			.min(1)
 			.describe(
 				"Organ list. Built-in names: fs, shell, web, nodesh, lector, todos. " +

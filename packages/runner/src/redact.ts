@@ -17,7 +17,6 @@
  *   ALEF_AUDIT_SENSITIVE_KEYS=comma,separated,keys   (appends to defaults)
  *   ALEF_AUDIT_REDACT_DISABLED=1                      (disable redaction)
  *
- * Ref: ALE-TSK-137
  */
 
 export const REDACTED = "[REDACTED]";

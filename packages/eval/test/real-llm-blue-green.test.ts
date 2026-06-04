@@ -1,5 +1,5 @@
 /**
- * ALE-TSK-351 — Real-LLM blue-green survival test.
+ * Real-LLM blue-green survival test.
  *
  * Scenario:
  *   1. Real LLM agent makes a minor code change (addTypeExport eval).

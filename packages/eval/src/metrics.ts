@@ -61,11 +61,11 @@ export interface TurnRecord {
 	elapsedMs: number;
 	/** Estimated tokens consumed by tool schema definitions on this call (chars/4). */
 	schemaTokensEstimate: number;
-	/** Number of application-level retries on this turn (0 = no retries). ALE-BUG-39. */
+	/** Number of application-level retries on this turn (0 = no retries). */
 	retries: number;
-	/** Retry reasons (e.g. 'resource_exhausted', 'overloaded_error'). ALE-BUG-39. */
+	/** Retry reasons (e.g. 'resource_exhausted', 'overloaded_error'). */
 	retryReasons: string[];
-	/** True if the LLM call was aborted (scenario timeout or AbortSignal). ALE-BUG-40. */
+	/** True if the LLM call was aborted (scenario timeout or AbortSignal). */
 	aborted: boolean;
 	/** Organ-llm turn number within the LLM loop (1-based). */
 	llmTurn: number;
@@ -174,16 +174,16 @@ export interface RunMetrics {
 	/**
 	 * Average fraction of input tokens attributable to tool schema definitions.
 	 * 0–1. NaN when no turns have tokensIn > 0.
-	 * Decision gate for ALE-TSK-335 (ToolShell): build if > 0.25.
+	 * Decision gate for ToolShell: build if > 0.25.
 	 */
 	avgSchemaFraction: number;
 	/**
-	 * Wall-clock time for each ctx.send() call in ms. ALE-BUG-38 / ALE-BUG-41.
+	 * Wall-clock time for each ctx.send() call in ms.
 	 * One entry per prompt. Partial when scenario times out mid-send.
 	 * Trailing entry marked with * in formatReport when scenario timed out.
 	 */
 	sendTimingsMs: number[];
-	/** True when the scenario was killed by the timeout ceiling. ALE-BUG-38. */
+	/** True when the scenario was killed by the timeout ceiling. */
 	timedOut: boolean;
 	/**
 	 * Real-time bus event capture: every Motor and Sense event observed during the run,

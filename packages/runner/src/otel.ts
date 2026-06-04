@@ -7,7 +7,7 @@
  *   - Total input/output tokens
  *   - Estimated cost (USD)
  *
- * For durable span export, wire a file exporter here (ALE-TSK-137).
+ * For durable span export, wire a file exporter here.
  */
 
 import { InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";

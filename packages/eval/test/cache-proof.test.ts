@@ -1,5 +1,5 @@
 /**
- * TSK-118 — CacheProof.
+ * CacheProof.
  *
  * A ScriptedLLMOrgan reads the same file twice in one turn.
  * The second read must be served from cache (alef.cache.hit=true on span).

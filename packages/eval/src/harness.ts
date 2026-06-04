@@ -159,7 +159,7 @@ export class EvalHarness {
 						const raw = event.attributes.result;
 						if (typeof raw === "string") result = raw;
 					}
-					// ALE-BUG-39: collect retry reasons from llm.retry span events.
+					// collect retry reasons from llm.retry span events.
 					if (event.name === "llm.retry" && event.attributes) {
 						const reason = event.attributes.reason;
 						if (typeof reason === "string") retryReasons.push(reason);
@@ -308,7 +308,7 @@ export class EvalHarness {
 		const timeoutPromise = new Promise<never>((_, reject) =>
 			setTimeout(() => {
 				timedOut = true;
-				// Record partial timing for the in-flight send (ALE-BUG-38 / ALE-BUG-41).
+				// Record partial timing for the in-flight send.
 				if (sendStart > 0) sendTimingsMs.push(Date.now() - sendStart);
 				reject(new Error(`scenario timeout after ${scenarioTimeoutMs}ms`));
 			}, scenarioTimeoutMs),

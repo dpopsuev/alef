@@ -19,33 +19,33 @@ export function defineContract<T extends z.ZodTypeAny>(
 // ---------------------------------------------------------------------------
 
 const MetadataSchema = z.object({
-	title: z.string().describe("Short title for this planning session"),
-	request: z.string().describe("The original user request, restated verbatim"),
+	title: z.string().min(1).describe("Short title for this planning session"),
+	request: z.string().min(1).describe("The original user request, restated verbatim"),
 });
 
 const IntentSchema = z.object({
-	intent: z.string().describe("What needs to be done, stated unambiguously"),
-	scope: z.string().describe("What is included in this work"),
+	intent: z.string().min(1).describe("What needs to be done, stated unambiguously"),
+	scope: z.string().min(1).describe("What is included in this work"),
 	constraints: z.array(z.string()).describe("Known constraints or requirements"),
 });
 
 const GoalSchema = z.object({
-	goal: z.string().describe("A single concrete, measurable goal"),
+	goal: z.string().min(1).describe("A single concrete, measurable goal"),
 	successCriteria: z.array(z.string()).min(1).describe("How to verify the goal is achieved"),
 	outOfScope: z.array(z.string()).describe("What is explicitly excluded"),
 });
 
 const ImplementSchema = z.object({
 	steps: z
-		.array(z.object({ action: z.string(), rationale: z.string() }))
+		.array(z.object({ action: z.string().min(1), rationale: z.string().min(1) }))
 		.min(1)
 		.describe("Ordered implementation steps"),
 	risks: z.array(z.string()).describe("Known risks or unknowns"),
-	firstAction: z.string().describe("The single next action to take right now"),
+	firstAction: z.string().min(1).describe("The single next action to take right now"),
 });
 
 const ExitSchema = z.object({
-	summary: z.string().describe("One-paragraph summary of the complete plan"),
+	summary: z.string().min(1).describe("One-paragraph summary of the complete plan"),
 	confidence: z.enum(["low", "medium", "high"]).describe("Agent's confidence in the plan given available information"),
 });
 

@@ -4,7 +4,6 @@
  * Fixture tests: checker self-validation on oracle solutions. No LLM, always CI.
  * Real-LLM tests: skipped without ANTHROPIC_API_KEY.
  *
- * Ref: ALE-TSK-161
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

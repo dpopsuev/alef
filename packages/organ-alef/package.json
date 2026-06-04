@@ -1,23 +1,30 @@
 {
-	"name": "@dpopsuev/alef-organ-alef",
-	"version": "0.0.1",
-	"description": "Alef API organ — typed tools for querying sessions, config, organs, and PM history",
-	"type": "module",
-	"main": "./src/index.ts",
-	"exports": { ".": { "default": "./src/index.ts" } },
-	"scripts": {
-		"test": "vitest --run",
-		"clean": "shx rm -rf dist"
-	},
-	"dependencies": {
-		"@dpopsuev/alef-spine": "^0.0.1",
-		"zod": "^4.4.3"
-	},
-	"devDependencies": {
-		"@types/node": "^24.3.0",
-		"shx": "^0.4.0",
-		"vitest": "^4.1.6"
-	},
-	"engines": { "node": ">=20.0.0" },
-	"license": "MIT"
+  "name": "@dpopsuev/alef-organ-alef",
+  "version": "0.0.1",
+  "description": "Alef API organ \u2014 typed tools for querying sessions, config, organs, and PM history",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest --run",
+    "clean": "shx rm -rf dist"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-spine": "^0.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@dpopsuev/alef-testkit": "^0.0.1",
+    "@types/node": "^24.3.0",
+    "shx": "^0.4.0",
+    "vitest": "^4.1.6"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT"
 }

@@ -6,7 +6,8 @@
 			"@dpopsuev/alef-spine": ["../spine/src/index.ts"],
 			"@dpopsuev/alef-spine/*": ["../spine/src/*.ts"],
 			"@dpopsuev/alef-organ-llm": ["../organ-llm/src/index.ts"],
-			"@dpopsuev/alef-session": ["../session/src/index.ts"]
+			"@dpopsuev/alef-session": ["../session/src/index.ts"],
+			"@dpopsuev/alef-testkit": ["../testkit/src/index.ts"]
 		}
 	},
 	"include": ["src/**/*.ts", "test/**/*.ts"]

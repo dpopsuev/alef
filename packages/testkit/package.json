@@ -1,62 +1,62 @@
 {
-	"name": "@dpopsuev/alef-testkit",
-	"version": "0.0.1",
-	"description": "Test doubles and bus event recorders for the Alef nerve/organ system",
-	"type": "module",
-	"main": "./dist/index.js",
-	"types": "./dist/index.d.ts",
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
-		},
-		"./bdd": {
-			"types": "./dist/bdd.d.ts",
-			"import": "./dist/bdd.js"
-		}
-	},
-	"files": [
-		"dist",
-		"README.md"
-	],
-	"scripts": {
-		"clean": "shx rm -rf dist",
-		"build": "tsgo -p tsconfig.build.json",
-		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
-		"test": "vitest --run",
-		"prepublishOnly": "npm run clean && npm run build"
-	},
-	"keywords": [
-		"agent",
-		"testkit",
-		"mock",
-		"nerve",
-		"eda"
-	],
-	"author": "Daniel Popsuevich",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/dpopsuev/alef.git",
-		"directory": "packages/testkit"
-	},
-	"engines": {
-		"node": ">=20.0.0"
-	},
-	"dependencies": {
-		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
-		"@dpopsuev/alef-corpus": "^0.0.1",
-		"@dpopsuev/alef-organ-dialog": "^0.0.1",
-		"@dpopsuev/alef-organ-fs": "^0.0.1",
-		"@dpopsuev/alef-organ-shell": "^0.0.1",
-		"@dpopsuev/alef-organ-llm": "^0.0.1",
-		"@dpopsuev/alef-spine": "^0.0.1"
-	},
-	"devDependencies": {
-		"@amiceli/vitest-cucumber": "^6.5.0",
-		"@types/node": "^24.3.0",
-		"shx": "^0.4.0",
-		"typescript": "^5.9.2",
-		"vitest": "^4.1.6"
-	}
+  "name": "@dpopsuev/alef-testkit",
+  "version": "0.0.1",
+  "description": "Test doubles and bus event recorders for the Alef nerve/organ system",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./bdd": {
+      "types": "./dist/bdd.d.ts",
+      "import": "./dist/bdd.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "tsgo -p tsconfig.build.json",
+    "dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+    "test": "vitest --run",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "agent",
+    "testkit",
+    "mock",
+    "nerve",
+    "eda"
+  ],
+  "author": "Daniel Popsuevich",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dpopsuev/alef.git",
+    "directory": "packages/testkit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-agent-blueprint": "^0.0.1",
+    "@dpopsuev/alef-corpus": "^0.0.1",
+    "@dpopsuev/alef-organ-dialog": "^0.0.1",
+    "@dpopsuev/alef-organ-fs": "^0.0.1",
+    "@dpopsuev/alef-organ-shell": "^0.0.1",
+    "@dpopsuev/alef-organ-llm": "^0.0.1",
+    "@dpopsuev/alef-spine": "^0.0.1"
+  },
+  "devDependencies": {
+    "@amiceli/vitest-cucumber": "^6.5.0",
+    "@types/node": "^24.3.0",
+    "shx": "^0.4.0",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.6"
+  }
 }

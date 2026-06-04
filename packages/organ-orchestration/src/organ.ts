@@ -114,8 +114,8 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			"Blocks until the child responds or timeoutMs elapses. " +
 			"Use after orchestration.spawn to delegate a task and get the result.",
 		inputSchema: z.object({
-			name: z.string().describe("Child name from orchestration.spawn"),
-			prompt: z.string().describe("Message to send to the child agent"),
+			name: z.string().min(1).describe("Child name from orchestration.spawn"),
+			prompt: z.string().min(1).describe("Message to send to the child agent"),
 			timeoutMs: z.number().optional().describe("Max wait in ms (default: 60_000)"),
 		}),
 	};
@@ -153,7 +153,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 				.optional()
 				.describe("Path to an agent.yaml blueprint. Mutually exclusive with organs[]."),
 			organs: z
-				.array(z.string())
+				.array(z.string().min(1))
 				.optional()
 				.describe("Paths to .ts organ files. Orchestration organ writes a temp agent.yaml."),
 			cwd: z.string().optional().describe("Working directory for the child. Defaults to parent cwd."),
@@ -256,7 +256,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		name: "orchestration.kill",
 		description: "Stop a named child Alef process (SIGTERM, then SIGKILL after 3s).",
 		inputSchema: z.object({
-			name: z.string().describe("Child name from supervisor.spawn"),
+			name: z.string().min(1).describe("Child name from supervisor.spawn"),
 		}),
 	};
 
@@ -319,7 +319,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		name: "orchestration.status",
 		description: "Health-check a named child Alef process.",
 		inputSchema: z.object({
-			name: z.string().describe("Child name from orchestration.spawn"),
+			name: z.string().min(1).describe("Child name from orchestration.spawn"),
 		}),
 	};
 
@@ -349,7 +349,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			"Only fires when running under supervisor.ts (ALEF_SUPERVISOR=1). " +
 			"Returns { promoted: true } when the IPC rebuild was sent, { promoted: false } otherwise.",
 		inputSchema: z.object({
-			organPath: z.string().describe("Absolute path to the .ts organ file to add to production."),
+			organPath: z.string().min(1).describe("Absolute path to the .ts organ file to add to production."),
 			blueprintPath: z
 				.string()
 				.optional()

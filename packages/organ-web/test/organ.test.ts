@@ -4,9 +4,11 @@
  * The html-to-text logic is also tested inline with static HTML.
  */
 
-import { NerveFixture } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWebOrgan } from "../src/organ.js";
+
+organComplianceSuite(() => createWebOrgan());
 
 describe("WebOrgan — structure", () => {
 	it("has name 'web'", () => {

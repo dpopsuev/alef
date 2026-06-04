@@ -1,6 +1,6 @@
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { DIALOG_MESSAGE, defineOrgan, extractToolCallId } from "@dpopsuev/alef-spine";
+import { DIALOG_MESSAGE, defineOrgan, extractToolCallId, KEY_ARG_FIELDS, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 import type { CerebrumEvent, TokenUsage } from "./tool-events.js";
 import { runLLMLoop } from "./turn-loop.js";
@@ -77,10 +77,13 @@ export function createCerebrum(options: CerebrumOptions): Organ {
 					const text = `LLM error: ${String(err)}`;
 					ctx.motor.publish({
 						type: reply,
-						payload: {
-							text,
-							...(isConversation && partialHistory ? { conversationHistory: partialHistory } : {}),
-						},
+						payload: withDisplay(
+							{
+								text,
+								...(isConversation && partialHistory ? { conversationHistory: partialHistory } : {}),
+							},
+							{ text: `\u26a0 ${text}`, mimeType: "text/plain" },
+						),
 						correlationId: ctx.correlationId,
 					});
 				}
@@ -108,7 +111,7 @@ function inflightKey(type: string, correlationId: string, toolCallId: string | u
 }
 
 function pickKeyArg(payload: Record<string, unknown>): string {
-	for (const k of ["command", "path", "url", "pattern", "glob", "symbol", "query"]) {
+	for (const k of KEY_ARG_FIELDS) {
 		const v = payload[k];
 		if (typeof v === "string" && v.length > 0) return v.slice(0, 80);
 	}

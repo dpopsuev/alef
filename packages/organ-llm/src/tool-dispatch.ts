@@ -28,6 +28,7 @@ export function waitForToolResult(
 	toolCallId: string,
 	correlationId: string,
 	timeoutMs: number,
+	onChunk?: (text: string) => void,
 ): Promise<SenseEvent> {
 	const subscribedAt = Date.now();
 	debugLog("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
@@ -39,7 +40,22 @@ export function waitForToolResult(
 		}, timeoutMs);
 		const off = sense.subscribe(toolName, (event) => {
 			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
-				if (event.payload.isFinal === false) return;
+				if (event.payload.isFinal === false) {
+					// Relay intermediate streaming chunks to the TUI so long-running
+					// tools (shell.exec, agent.run) show live progress in the pill.
+					if (onChunk) {
+						const text =
+							typeof event.payload.text === "string"
+								? event.payload.text
+								: typeof event.payload.output === "string"
+									? event.payload.output
+									: typeof event.payload.content === "string"
+										? event.payload.content
+										: undefined;
+						if (text) onChunk(text);
+					}
+					return;
+				}
 				clearTimeout(timer);
 				off();
 				debugLog("llm:tool:resolved", {
@@ -73,20 +89,54 @@ export async function dispatchTools(
 			const motorType = toMotorName(tc.name);
 			const startedAt = Date.now();
 			options.onEvent?.({ type: "tool-start", callId: tc.id, name: motorType, args: tc.args });
+			// If the tool call payload declares its own timeoutMs (e.g. agent.run), the
+			// outer wait uses that value + 10s headroom so the inner tool can self-terminate
+			// before the parent fires its own timeout.
+			const innerTimeoutMs = typeof tc.args.timeoutMs === "number" ? tc.args.timeoutMs : undefined;
+			const outerWaitMs = innerTimeoutMs !== undefined ? innerTimeoutMs + 10_000 : timeoutMs;
 			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
-			return waitForToolResult(sense, motorType, tc.id, correlationId, timeoutMs).then((r) => {
-				const displayBlock = extractDisplay(r.payload);
-				options.onEvent?.({
-					type: "tool-end",
-					callId: tc.id,
-					elapsedMs: Date.now() - startedAt,
-					ok: !r.isError,
-					result: payloadToText(r.payload, r.isError, r.errorMessage),
-					display: displayBlock?.text,
-					displayKind: displayBlock?.mimeType,
+			const { onEvent } = options;
+			const onChunk = onEvent ? (text: string) => onEvent({ type: "tool-chunk", callId: tc.id, text }) : undefined;
+			return waitForToolResult(sense, motorType, tc.id, correlationId, outerWaitMs, onChunk)
+				.then((r) => {
+					const displayBlock = extractDisplay(r.payload);
+					options.onEvent?.({
+						type: "tool-end",
+						callId: tc.id,
+						elapsedMs: Date.now() - startedAt,
+						ok: !r.isError,
+						result: payloadToText(r.payload, r.isError, r.errorMessage),
+						display: displayBlock?.text,
+						displayKind: displayBlock?.mimeType,
+					});
+					return r;
+				})
+				.catch((err: unknown) => {
+					// Timeout or other error: emit tool-end so the TUI clears the pill,
+					// then return a synthetic error SenseEvent so appendToolResults can
+					// add a toolResult to the LLM context (instead of letting the rejection
+					// propagate and kill the entire turn).
+					const elapsedMs = Date.now() - startedAt;
+					const errorMessage = err instanceof Error ? err.message : String(err);
+					options.onEvent?.({
+						type: "tool-end",
+						callId: tc.id,
+						elapsedMs,
+						ok: false,
+						result: errorMessage,
+						display: `\u26a0 ${errorMessage}`,
+						displayKind: "text/plain",
+					});
+					return {
+						type: motorType,
+						correlationId,
+						payload: { toolCallId: tc.id },
+						isError: true,
+						errorMessage,
+						timestamp: Date.now(),
+						elapsed: elapsedMs,
+					} as SenseEvent;
 				});
-				return r;
-			});
 		}),
 	);
 }

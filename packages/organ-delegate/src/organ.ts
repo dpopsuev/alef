@@ -20,7 +20,12 @@ const AGENT_RUN_TOOL = {
 			.string()
 			.optional()
 			.describe("Strategy profile: 'explore', 'general', or a child name from orchestration.spawn"),
-		timeoutMs: z.number().optional().describe("Max wait in ms (default: 60_000)"),
+		timeoutMs: z
+			.number()
+			.optional()
+			.describe(
+				"Max wait in ms for the subagent reply (default: 90_000). The parent tool wait is this value + 10s headroom.",
+			),
 	}),
 };
 
@@ -34,7 +39,7 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 	async function handleRun(ctx: {
 		payload: { text: string; profile?: string; timeoutMs?: number };
 	}): Promise<Record<string, unknown>> {
-		const { text, profile = "explore", timeoutMs = 60_000 } = ctx.payload;
+		const { text, profile = "explore", timeoutMs = 90_000 } = ctx.payload;
 		const strategy = strategies.get(profile);
 		if (!strategy) {
 			const available = [...strategies.keys()].join(", ");

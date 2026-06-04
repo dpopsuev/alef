@@ -290,6 +290,14 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 				tui.requestRender();
 				break;
 			}
+			case "tool-chunk": {
+				// Streaming progress from a long-running tool (shell.exec, agent.run).
+				// Update the in-flight pill's live text so the user sees activity.
+				consoleZone.pulse();
+				consoleZone.updateInFlightCallChunk(event.callId, event.text);
+				tui.requestRender();
+				break;
+			}
 			case "tool-end": {
 				const { callId, elapsedMs, ok, display, displayKind } = event;
 				const entry = activeCalls.get(callId);

@@ -1,3 +1,4 @@
+import { KEY_ARG_FIELDS } from "@dpopsuev/alef-spine";
 import { type Component, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
 import { fmtMs, sanitizeForDisplay } from "./ansi-utils.js";
@@ -70,7 +71,7 @@ export function renderToolLine(name: string, keyArg: string, elapsedMs: number, 
 }
 
 export function keyArgFromPayload(args: Record<string, unknown>): string {
-	for (const key of ["command", "path", "url", "pattern", "glob", "symbol", "query"]) {
+	for (const key of KEY_ARG_FIELDS) {
 		const v = args[key];
 		if (typeof v === "string" && v.length > 0) return v.slice(0, 60);
 	}

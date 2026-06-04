@@ -9,7 +9,7 @@ class ArcEditorWrapper implements Component {
 
 	render(width: number): string[] {
 		// Render the inner editor 1 column narrower so prepending the leading
-		// space doesn't push content lines past the terminal width (ALE-BUG-44).
+		// space doesn't push content lines past the terminal width.
 		const lines = this.inner.render(Math.max(1, width - 1));
 		if (lines.length < 2) return lines;
 		const fill = Math.max(0, width - 2);
@@ -84,7 +84,7 @@ export class ConsoleZone {
 	private pendingFooterActive = false;
 
 	private readonly inFlightQueue = new Container();
-	private readonly inFlightCalls = new Map<string, { dt: DynamicText; startedAt: number }>();
+	private readonly inFlightCalls = new Map<string, { dt: DynamicText; startedAt: number; lastChunk: string }>();
 	private hintBar!: Text;
 
 	constructor(tui: TUI, t: ThemeTokens, _modelId: string) {
@@ -176,10 +176,28 @@ export class ConsoleZone {
 	showInFlightCall(callId: string, name: string, keyArg: string): void {
 		const startedAt = Date.now();
 		const t = this.t;
-		const dt = new DynamicText((_w) => toolActiveLine(name, keyArg, t, Date.now() - startedAt));
-		this.inFlightCalls.set(callId, { dt, startedAt });
+		const entry = { dt: null as unknown as DynamicText, startedAt, lastChunk: "" };
+		const dt = new DynamicText((_w) => {
+			const label = entry.lastChunk ? `${keyArg ? keyArg + " " : ""}${entry.lastChunk.slice(-60)}` : keyArg;
+			return toolActiveLine(name, label, t, Date.now() - startedAt);
+		});
+		entry.dt = dt;
+		this.inFlightCalls.set(callId, entry);
 		this.inFlightQueue.addChild(dt);
 		this.tui.requestRender();
+	}
+
+	updateInFlightCallChunk(callId: string, text: string): void {
+		const entry = this.inFlightCalls.get(callId);
+		if (entry) {
+			// Keep only the last non-empty line for the pill subtitle.
+			const lastLine =
+				text
+					.split("\n")
+					.filter((l) => l.trim())
+					.at(-1) ?? text;
+			entry.lastChunk = lastLine.slice(0, 80);
+		}
 	}
 
 	removeInFlightCall(callId: string): void {

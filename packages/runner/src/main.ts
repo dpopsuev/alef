@@ -47,6 +47,7 @@ if (args.debugSubcmd) {
 
 // --attach: connect to a running daemon and run TUI against it.
 if (args.attach !== undefined) {
+	setupTrace(args.debug);
 	const daemonPath = join(homedir(), ".alef", "daemon.json");
 	let entry: DaemonEntry;
 	try {

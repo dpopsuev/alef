@@ -1,7 +1,7 @@
 import type { Nerve, SenseEvent } from "./buses.js";
 import { newCorrelationId } from "./buses.js";
 import { debugLog } from "./debug.js";
-import { VALIDATE_REQUEST, VALIDATE_RESULT } from "./evaluation.js";
+import { VALIDATE_REQUEST, VALIDATE_RESULT } from "./protocols.js";
 
 export type BindingMode = "ordered" | "parallel-all" | "parallel-first";
 

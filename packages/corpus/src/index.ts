@@ -6,17 +6,19 @@ import {
 	type Nerve,
 	type NerveEvent,
 	type Organ,
-	type OrganPortInfo,
-	type PortDefinition,
-	PortValidationError,
 	type SenseEvent,
 	type SensePublishInput,
-	STANDARD_PORTS,
 	type ToolDefinition,
-	validatePorts,
 	withBindings,
 } from "@dpopsuev/alef-spine";
 import type { ZodTypeAny } from "zod";
+import {
+	type OrganPortInfo,
+	type PortDefinition,
+	PortValidationError,
+	STANDARD_PORTS,
+	validatePorts,
+} from "./port-registry.js";
 
 // ---------------------------------------------------------------------------
 // Payload validation — enforces organ-to-organ bus contracts in non-production.

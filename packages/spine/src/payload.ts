@@ -15,10 +15,7 @@
  *   const hidden = getBoolean(ctx.payload, "hidden") ?? false;
  */
 
-/**
- * Canonical event type names shared across organs.
- * Defined once here — all packages import from spine rather than redeclaring.
- */
+/** Canonical event type for the user↔agent conversation channel. */
 export const DIALOG_MESSAGE = "dialog.message" as const;
 
 /**

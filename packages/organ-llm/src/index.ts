@@ -1,6 +1,9 @@
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { DIALOG_MESSAGE, defineOrgan, extractToolCallId, KEY_ARG_FIELDS, withDisplay } from "@dpopsuev/alef-spine";
+import { defineOrgan, extractToolCallId, KEY_ARG_FIELDS, withDisplay } from "@dpopsuev/alef-spine";
+
+const DIALOG_MESSAGE = "dialog.message" as const;
+
 import { z } from "zod";
 import type { CerebrumEvent, TokenUsage } from "./tool-events.js";
 import { runLLMLoop } from "./turn-loop.js";

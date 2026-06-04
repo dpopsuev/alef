@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { BusObserver } from "@dpopsuev/alef-corpus";
-import { DIALOG_MESSAGE, type InProcessNerve, type ToolDefinition } from "@dpopsuev/alef-spine";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
+import type { InProcessNerve, ToolDefinition } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 /**

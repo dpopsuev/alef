@@ -1,4 +1,4 @@
-import { KEY_ARG_FIELDS } from "@dpopsuev/alef-spine";
+import { KEY_ARG_FIELDS } from "@dpopsuev/alef-organ-llm";
 import { type Component, Markdown, Text } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme.js";
 import { fmtMs, sanitizeForDisplay } from "./ansi-utils.js";

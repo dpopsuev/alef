@@ -1,6 +1,25 @@
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineOrgan, extractToolCallId, KEY_ARG_FIELDS, withDisplay } from "@dpopsuev/alef-spine";
+import { defineOrgan, extractToolCallId, withDisplay } from "@dpopsuev/alef-spine";
+
+/**
+ * Payload field names used to extract a human-readable key argument from a
+ * tool call — shown in TUI pills and in the concurrent-ops context block.
+ * Lives here (not in spine) because it is a presentation hint, not a bus primitive.
+ * runner/src/tui imports this; organs themselves never reference it.
+ */
+export const KEY_ARG_FIELDS = [
+	"command",
+	"path",
+	"url",
+	"pattern",
+	"glob",
+	"symbol",
+	"query",
+	"text",
+	"code",
+	"instruction",
+] as const;
 
 const DIALOG_MESSAGE = "dialog.message" as const;
 

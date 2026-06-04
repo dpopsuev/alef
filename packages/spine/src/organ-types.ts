@@ -7,6 +7,8 @@ export interface OrganLogger {
 	info(obj: Record<string, unknown>, msg: string): void;
 	warn(obj: Record<string, unknown>, msg: string): void;
 	error(obj: Record<string, unknown>, msg: string): void;
+	/** Create a child logger with additional bound fields. */
+	child(bindings: Record<string, unknown>): OrganLogger;
 }
 
 export interface CorpusHandlerCtx<TPayload = Record<string, unknown>> {

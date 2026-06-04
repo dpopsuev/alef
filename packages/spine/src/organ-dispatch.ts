@@ -56,11 +56,12 @@ export async function dispatchMotorAction(
 		}
 		payload = result.data as Record<string, unknown>;
 	}
+	const toolCallId = extractToolCallId(motor.payload);
 	const ctx: CorpusHandlerCtx = {
 		correlationId: motor.correlationId,
-		toolCallId: extractToolCallId(motor.payload),
+		toolCallId,
 		payload,
-		log,
+		log: log.child({ correlationId: motor.correlationId, ...(toolCallId ? { toolCallId } : {}) }),
 	};
 
 	if (isStreaming(action)) {
@@ -86,7 +87,10 @@ export async function dispatchMotorAction(
 			}
 			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (e) {
-			log.warn({ op: motor.type, correlationId: motor.correlationId, error: String(e) }, "stream action failed");
+			log.warn(
+				{ op: motor.type, correlationId: motor.correlationId, err: e instanceof Error ? e : new Error(String(e)) },
+				"stream action failed",
+			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
 			nerve.sense.publish(buildErrSense(motor, e instanceof Error ? e.message : String(e)));
@@ -140,7 +144,10 @@ export async function dispatchMotorAction(
 			nerve.sense.publish(buildSense(motor, result));
 			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (e) {
-			log.warn({ op: motor.type, correlationId: motor.correlationId, error: String(e) }, "corpus action failed");
+			log.warn(
+				{ op: motor.type, correlationId: motor.correlationId, err: e instanceof Error ? e : new Error(String(e)) },
+				"corpus action failed",
+			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
 			nerve.sense.publish(buildErrSense(motor, e instanceof Error ? e.message : String(e)));
@@ -172,7 +179,14 @@ export function dispatchSenseAction(
 			.handle(ctx)
 			.then(() => span.setStatus({ code: SpanStatusCode.OK }))
 			.catch((e: unknown) => {
-				log.warn({ op: eventType, correlationId: event.correlationId, error: String(e) }, "cerebrum action failed");
+				log.warn(
+					{
+						op: eventType,
+						correlationId: event.correlationId,
+						err: e instanceof Error ? e : new Error(String(e)),
+					},
+					"cerebrum action failed",
+				);
 				span.recordException(e instanceof Error ? e : new Error(String(e)));
 				span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
 			})

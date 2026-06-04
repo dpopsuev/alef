@@ -7,7 +7,8 @@
  *                 (network, subprocess, delegation) — should use typedStreamAction
  *   [SCHEMA]      z.string() required field without .min(1) — accepts empty string
  *   [NOTEST]      organ package with no test directory or test files
- *   [NOCOMPLIANCE] organ has tests but none call organComplianceSuite — hard gate
+ *   [NOCOMPLIANCE]        organ has tests but none call organComplianceSuite — hard gate
+ *   [NOCOMPLIANCE-STREAM] streaming tool (typedStreamAction) not in organComplianceSuite opts
  *   [IMPORT]      organ importing from another organ or runner — dep direction violation
  *
  * Usage:  npx tsx scripts/lint-organs.ts
@@ -160,6 +161,52 @@ function checkTestCoverage(pkgDir: string, pkgName: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Check 3b: [NOCOMPLIANCE-STREAM] streaming tool not covered in compliance opts
+// ---------------------------------------------------------------------------
+
+function checkStreamingCompliance(pkgDir: string, pkgName: string): void {
+	const testDir = join(pkgDir, "test");
+	if (!existsSync(testDir)) return;
+	const testFiles = findFiles(testDir, ".test.ts");
+	const srcFiles = findFiles(join(pkgDir, "src"), ".ts");
+
+	// Only check if organComplianceSuite is called
+	const hasCompliance = testFiles.some((f) => readFile(f).includes("organComplianceSuite"));
+	if (!hasCompliance) return;
+
+	// Find streaming tool names from src: look for typedStreamAction calls
+	// and extract the tool name from the same statement (heuristic: name: "x.y")
+	const streamingToolNames: string[] = [];
+	for (const srcFile of srcFiles) {
+		const content = readFile(srcFile);
+		const lines = content.split("\n");
+		for (let i = 0; i < lines.length; i++) {
+			if (!lines[i].includes("typedStreamAction(")) continue;
+			// Search for name: "x.y" in a 5-line window before the call
+			const window = lines.slice(Math.max(0, i - 5), i + 2).join("\n");
+			const match = window.match(/name:\s*["']([\w.]+)["']/);
+			if (match) streamingToolNames.push(match[1]);
+		}
+	}
+
+	if (streamingToolNames.length === 0) return;
+
+	// Check each streaming tool appears in the organComplianceSuite streaming config
+	for (const testFile of testFiles) {
+		const content = readFile(testFile);
+		if (!content.includes("organComplianceSuite")) continue;
+		for (const toolName of streamingToolNames) {
+			if (!content.includes(`"${toolName}"`) && !content.includes(`'${toolName}'`)) {
+				report(testFile, 1, "NOCOMPLIANCE-STREAM",
+					`${pkgName}: streaming tool '${toolName}' (typedStreamAction) is not declared ` +
+					`in organComplianceSuite opts.streaming — ` +
+					`add: streaming: { "${toolName}": { validPayload: { /* valid args */ } } }`);
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Check 4: organ importing from another organ or runner (dep direction)
 // ---------------------------------------------------------------------------
 
@@ -213,6 +260,7 @@ for (const { name, dir } of organDirs) {
 	}
 
 	checkTestCoverage(dir, name);
+	checkStreamingCompliance(dir, name);
 }
 
 // ---------------------------------------------------------------------------

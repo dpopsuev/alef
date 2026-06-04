@@ -237,6 +237,34 @@ function checkStreamingCompliance(pkgDir: string, pkgName: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Check 3c: [NODISPLAY] typedAction handler without dual-channel display block
+// ---------------------------------------------------------------------------
+
+function checkDisplayChannel(file: string, content: string): void {
+	const lines = content.split("\n");
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (!line.includes("typedAction(")) continue;
+		if (line.includes("typedStreamAction(")) continue;
+
+		// 40-line forward window for the handler body, comments stripped
+		const windowLines = lines.slice(i, Math.min(i + 40, lines.length));
+		const codeWindow = windowLines
+			.filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+			.join("\n");
+
+		// Handler must return something (has a return or Promise.resolve) but no display wrapper
+		const hasReturn = codeWindow.includes("return ") || codeWindow.includes("Promise.resolve(");
+		const hasDisplay = codeWindow.includes("withDisplay(") || codeWindow.includes("withTruncatedDisplay(");
+
+		if (hasReturn && !hasDisplay) {
+			report(file, i + 1, "NODISPLAY",
+				`typedAction handler returns without withDisplay() — TUI pill will be empty; wrap the return value with withDisplay()`);
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Check 4: organ importing from another organ or runner (dep direction)
 // ---------------------------------------------------------------------------
 
@@ -260,11 +288,16 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 			}
 		}
 
-		// Check imports from runner
-		const runnerMatch = line.match(/from\s+["']@dpopsuev\/alef-runner["']/);
-		if (runnerMatch) {
+				// Check imports from runner — package name or relative path
+		const runnerPkgMatch = line.match(/from\s+["']@dpopsuev\/alef-runner["']/);
+		if (runnerPkgMatch) {
 			report(file, i + 1, "IMPORT",
 				`${pkgName} imports from alef-runner — organs must not depend on the composition root`);
+		}
+		const runnerRelMatch = line.match(/from\s+["']([^"']*\/runner\/[^"']*)["']/);
+		if (runnerRelMatch) {
+			report(file, i + 1, "IMPORT",
+				`${pkgName} imports via relative path into runner (${runnerRelMatch[1]}) — organs must not depend on the composition root`);
 		}
 	}
 }
@@ -284,11 +317,18 @@ console.log(`Scanning ${organDirs.length} organ packages...\n`);
 
 for (const { name, dir } of organDirs) {
 	const srcFiles = findFiles(join(dir, "src"), ".ts");
+	const testFiles = findFiles(join(dir, "test"), ".ts");
 
 	for (const file of srcFiles) {
 		const content = readFile(file);
 		checkStreamingGap(file, content);
 		checkSchemaStringMin(file, content);
+		checkDisplayChannel(file, content);
+		checkImportDirection(file, content, name);
+	}
+
+	for (const file of testFiles) {
+		const content = readFile(file);
 		checkImportDirection(file, content, name);
 	}
 
@@ -309,10 +349,10 @@ for (const [rule, count] of Object.entries(counts).sort()) {
 	console.log(`  [${rule}]  ${count}`);
 }
 
-// Hard gates: NOTEST and NOCOMPLIANCE* block CI.
+// Hard gates: NOTEST, NOCOMPLIANCE*, and IMPORT block CI.
 // Advisory: STREAM and SCHEMA are informational — they document gaps but do
 // not block merging. Developers address them incrementally.
-const HARD_GATE_RULES = new Set(["NOTEST", "NOCOMPLIANCE", "NOCOMPLIANCE-STREAM"]);
+const HARD_GATE_RULES = new Set(["NOTEST", "NOCOMPLIANCE", "NOCOMPLIANCE-STREAM", "IMPORT"]);
 const hardViolations = violations.filter((v) => HARD_GATE_RULES.has(v.rule));
 
 if (hardViolations.length > 0) {

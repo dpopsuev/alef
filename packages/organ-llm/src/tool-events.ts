@@ -23,6 +23,8 @@ export type CerebrumEvent =
 	| ({ type: "tool-start" } & ToolCallStart)
 	| ({ type: "tool-end" } & ToolCallEnd)
 	| { type: "tool-chunk"; callId: string; text: string }
+	| { type: "tool-validation-error"; callId: string; field: string; message: string }
+	| { type: "tool-stall"; callId: string; name: string; elapsedMs: number; lastChunkMs: number }
 	| { type: "token-usage"; usage: TokenUsage }
 	| { type: "chunk"; text: string }
 	| { type: "thinking"; text: string };

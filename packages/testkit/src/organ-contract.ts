@@ -179,6 +179,140 @@ function probeMotor(
 	});
 }
 
+// ---------------------------------------------------------------------------
+// runSchemaContract — schema rejection contract
+// ---------------------------------------------------------------------------
+
+export interface SchemaContractResult {
+	tool: string;
+	violations: string[];
+}
+
+/**
+ * Verify that when a required field is set to null, the organ:
+ *   1. Publishes an error sense within 200ms (not a 60s timeout)
+ *   2. Does not call handle() on rejection
+ *   3. Error message is human-readable (no raw zod '[InputValidation]' prefix)
+ */
+export async function runSchemaContract(
+	organ: Organ,
+	opts: { timeoutMs?: number } = {},
+): Promise<SchemaContractResult[]> {
+	const results: SchemaContractResult[] = [];
+	const timeoutMs = opts.timeoutMs ?? 300;
+
+	for (const tool of organ.tools) {
+		const violations: string[] = [];
+		const shape = (tool.inputSchema as z.ZodObject<z.ZodRawShape>)?.shape;
+		if (!shape) continue;
+
+		// Find the first required string field to invalidate
+		const requiredStringField = Object.entries(shape).find(
+			([, f]) => f instanceof z.ZodString && !(f instanceof z.ZodOptional),
+		)?.[0];
+		if (!requiredStringField) continue;
+
+		const nerve = new InProcessNerve();
+		const unmount = organ.mount(nerve.asNerve());
+		const correlationId = randomUUID();
+		const motorType = tool.name.replace(/\./g, "_");
+
+		const resultPromise = new Promise<SenseEvent | null>((resolve) => {
+			const timer = setTimeout(() => resolve(null), timeoutMs);
+			nerve.asNerve().sense.subscribe(motorType, (e) => {
+				if (e.correlationId === correlationId) {
+					clearTimeout(timer);
+					resolve(e);
+				}
+			});
+		});
+
+		const start = Date.now();
+		nerve.publishMotor({
+			type: motorType,
+			correlationId,
+			payload: { [requiredStringField]: null, toolCallId: randomUUID() },
+		});
+
+		const result = await resultPromise;
+		const elapsed = Date.now() - start;
+
+		if (result === null) {
+			violations.push(`No error sense within ${timeoutMs}ms for null '${requiredStringField}' — likely timed out`);
+		} else {
+			if (!result.isError)
+				violations.push(`isError should be true when schema rejects null '${requiredStringField}'`);
+			if (result.errorMessage?.includes("[InputValidation]"))
+				violations.push(`Error message contains raw '[InputValidation]' prefix — should be human-readable`);
+			if (elapsed > 200) violations.push(`Schema rejection took ${elapsed}ms — should be immediate (<200ms)`);
+		}
+
+		unmount();
+		results.push({ tool: tool.name, violations });
+	}
+
+	return results;
+}
+
+// ---------------------------------------------------------------------------
+// runStreamingContract — streaming progress contract
+// ---------------------------------------------------------------------------
+
+/**
+ * Verify that for a long-running tool (duration > thresholdMs), the organ
+ * emits at least one isFinal:false sense event — so the TUI can show progress.
+ *
+ * This contract catches organs that should use typedStreamAction but use
+ * typedAction instead (like organ-delegate.agent.run, organ-enclosure.exec).
+ */
+export async function runStreamingContract(
+	organ: Organ,
+	toolName: string,
+	validPayload: Record<string, unknown>,
+	opts: { thresholdMs?: number; timeoutMs?: number } = {},
+): Promise<{ streamed: boolean; durationMs: number; violation?: string }> {
+	const thresholdMs = opts.thresholdMs ?? 1_000;
+	const timeoutMs = opts.timeoutMs ?? 10_000;
+
+	const nerve = new InProcessNerve();
+	const unmount = organ.mount(nerve.asNerve());
+	const correlationId = randomUUID();
+	const motorType = toolName.replace(/\./g, "_");
+
+	let chunkCount = 0;
+	const start = Date.now();
+
+	const finalPromise = new Promise<{ durationMs: number }>((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(`Tool timed out after ${timeoutMs}ms`)), timeoutMs);
+		nerve.asNerve().sense.subscribe(motorType, (e) => {
+			if (e.correlationId !== correlationId) return;
+			if (e.payload.isFinal === false) {
+				chunkCount++;
+				return;
+			}
+			clearTimeout(timer);
+			resolve({ durationMs: Date.now() - start });
+		});
+	});
+
+	nerve.publishMotor({
+		type: motorType,
+		correlationId,
+		payload: { ...validPayload, toolCallId: randomUUID() },
+	});
+
+	const { durationMs } = await finalPromise;
+	unmount();
+
+	const streamed = chunkCount > 0;
+	const violation =
+		durationMs > thresholdMs && !streamed
+			? `Tool ran for ${durationMs}ms but emitted zero isFinal:false chunks — use typedStreamAction for long-running tools`
+			: undefined;
+
+	return { streamed, durationMs, violation };
+}
+
 /** Build a minimal payload that satisfies a Zod schema (all fields empty/zero). */
 function buildMinimalPayload(schema: z.ZodTypeAny): Record<string, unknown> {
 	try {

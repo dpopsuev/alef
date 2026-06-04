@@ -290,6 +290,25 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 				tui.requestRender();
 				break;
 			}
+			case "tool-validation-error": {
+				// Schema rejected the LLM's tool arguments — surface inline so the LLM sees
+				// a clear retry hint rather than a raw zod error in the toolResult text.
+				consoleZone.pulse();
+				consoleZone.updateInFlightCallChunk(event.callId, `\u26a0 invalid arg '${event.field}': ${event.message}`);
+				tui.requestRender();
+				break;
+			}
+			case "tool-stall": {
+				// Tool has been running without emitting any chunks for STALL_INTERVAL_MS.
+				// Makes silent long-running tools visible instead of just showing a counter.
+				consoleZone.pulse();
+				consoleZone.updateInFlightCallChunk(
+					event.callId,
+					`\u23f3 no output for ${Math.round(event.lastChunkMs / 1_000)}s`,
+				);
+				tui.requestRender();
+				break;
+			}
 			case "tool-chunk": {
 				// Streaming progress from a long-running tool (shell.exec, agent.run).
 				// Update the in-flight pill's live text so the user sees activity.

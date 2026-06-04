@@ -11,6 +11,9 @@ export {
 	type OrganContractReport,
 	type OrganContractViolation,
 	runOrganContract,
+	runSchemaContract,
+	runStreamingContract,
+	type SchemaContractResult,
 } from "./organ-contract.js";
 export { OrganHarness } from "./organ-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";

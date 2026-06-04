@@ -22,6 +22,8 @@ function extractDisplay(payload: Record<string, unknown>): { text: string; mimeT
 
 type SenseBus = { subscribe: (type: string, handler: (event: SenseEvent) => void) => () => void };
 
+const STALL_INTERVAL_MS = 5_000;
+
 export function waitForToolResult(
 	sense: SenseBus,
 	toolName: string,
@@ -29,11 +31,30 @@ export function waitForToolResult(
 	correlationId: string,
 	timeoutMs: number,
 	onChunk?: (text: string) => void,
+	onStall?: (info: { elapsedMs: number; lastChunkMs: number }) => void,
 ): Promise<SenseEvent> {
 	const subscribedAt = Date.now();
+	let lastChunkAt = subscribedAt; // updated on each chunk, read by stall watchdog
 	debugLog("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
 	return new Promise((resolve, reject) => {
+		// Watchdog: fires every STALL_INTERVAL_MS when no chunk has arrived.
+		const stallTimer = onStall
+			? setInterval(() => {
+					const now = Date.now();
+					const lastChunkMs = now - lastChunkAt;
+					if (lastChunkMs >= STALL_INTERVAL_MS) {
+						debugLog("tool:stall", { name: toolName, elapsedMs: now - subscribedAt, lastChunkMs });
+						onStall({ elapsedMs: now - subscribedAt, lastChunkMs });
+					}
+				}, STALL_INTERVAL_MS)
+			: undefined;
+
+		const done = (): void => {
+			if (stallTimer !== undefined) clearInterval(stallTimer);
+		};
+
 		const timer = setTimeout(() => {
+			done();
 			off();
 			debugLog("llm:tool:timeout", { name: toolName, elapsedMs: Date.now() - subscribedAt });
 			reject(new Error(`Tool timed out after ${timeoutMs}ms: ${toolName}`));
@@ -43,6 +64,7 @@ export function waitForToolResult(
 				if (event.payload.isFinal === false) {
 					// Relay intermediate streaming chunks to the TUI so long-running
 					// tools (shell.exec, agent.run) show live progress in the pill.
+					lastChunkAt = Date.now(); // reset stall watchdog
 					if (onChunk) {
 						const text =
 							typeof event.payload.text === "string"
@@ -57,6 +79,7 @@ export function waitForToolResult(
 					return;
 				}
 				clearTimeout(timer);
+				done();
 				off();
 				debugLog("llm:tool:resolved", {
 					name: toolName,
@@ -97,8 +120,22 @@ export async function dispatchTools(
 			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			const { onEvent } = options;
 			const onChunk = onEvent ? (text: string) => onEvent({ type: "tool-chunk", callId: tc.id, text }) : undefined;
-			return waitForToolResult(sense, motorType, tc.id, correlationId, outerWaitMs, onChunk)
+			const onStall = onEvent
+				? (info: { elapsedMs: number; lastChunkMs: number }) =>
+						onEvent({ type: "tool-stall", callId: tc.id, name: motorType, ...info })
+				: undefined;
+			return waitForToolResult(sense, motorType, tc.id, correlationId, outerWaitMs, onChunk, onStall)
 				.then((r) => {
+					// Structured validation error embedded by dispatchMotorAction
+					const validationErr = r.payload._validationError as { field: string; message: string } | undefined;
+					if (validationErr) {
+						options.onEvent?.({
+							type: "tool-validation-error",
+							callId: tc.id,
+							field: validationErr.field,
+							message: validationErr.message,
+						});
+					}
 					const displayBlock = extractDisplay(r.payload);
 					options.onEvent?.({
 						type: "tool-end",

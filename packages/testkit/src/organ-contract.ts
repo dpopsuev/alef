@@ -166,8 +166,14 @@ export interface StreamingToolConfig {
 
 export interface OrganComplianceOptions {
 	/**
-	 * Per-tool streaming assertions. Only declare tools that are expected to
-	 * produce streaming output. Tools not listed are assumed fast/non-streaming.
+	 * Per-tool streaming config — required for every tool whose ToolDefinition
+	 * has streaming:true (set automatically by typedStreamAction).
+	 *
+	 * organComplianceSuite discovers streaming tools from organ.tools at
+	 * describe() time and throws an error at test collection phase if any
+	 * streaming tool is missing from this map.
+	 *
+	 * Non-streaming tools must not be listed here.
 	 */
 	streaming?: Record<string, StreamingToolConfig>;
 	/** Override timeout for schema rejection check. Default: 400ms. */
@@ -198,6 +204,26 @@ export interface OrganComplianceOptions {
  * contract that was broken, not a single thrown error.
  */
 export function organComplianceSuite(createOrgan: () => Organ, opts: OrganComplianceOptions = {}): void {
+	// Discover streaming tools once at describe() time — before any test runs.
+	// This lets us generate it() blocks per tool AND enforce that every
+	// streaming tool has a validPayload in opts.streaming.
+	const discoveryOrgan = createOrgan();
+	const streamingTools = (discoveryOrgan.tools ?? []).filter((t) => t.streaming === true);
+	const streamingConfig = opts.streaming ?? {};
+
+	// Enforce at collection time: every streaming tool needs a validPayload.
+	// Throwing here (not inside it()) surfaces the error during test discovery,
+	// not as a test failure — the developer sees it immediately on first run.
+	for (const tool of streamingTools) {
+		if (!streamingConfig[tool.name]) {
+			throw new Error(
+				`organComplianceSuite: '${tool.name}' is declared as a streaming tool ` +
+					`(typedStreamAction) but has no entry in opts.streaming.\n` +
+					`Add: streaming: { "${tool.name}": { validPayload: { /* valid args */ } } }`,
+			);
+		}
+	}
+
 	describe("organ framework compliance", () => {
 		let organ: Organ;
 		let unmount: (() => void) | undefined;
@@ -255,20 +281,21 @@ export function organComplianceSuite(createOrgan: () => Organ, opts: OrganCompli
 			expect(rawErrors, "error messages must not expose internal [InputValidation] prefix").toEqual([]);
 		}, 10_000);
 
-		// ── Streaming contracts ────────────────────────────────────────────
+		// ── Streaming contracts (auto-discovered from tool.streaming === true) ─
 
-		if (opts.streaming && Object.keys(opts.streaming).length > 0) {
+		if (streamingTools.length > 0) {
 			describe("streaming", () => {
-				for (const [toolName, config] of Object.entries(opts.streaming ?? {})) {
-					it(`${toolName} emits isFinal:false chunks when running > ${config.thresholdMs ?? 500}ms`, async () => {
+				for (const tool of streamingTools) {
+					const config = streamingConfig[tool.name] ?? { validPayload: {} };
+					it(`${tool.name} emits isFinal:false chunks (streaming tool via typedStreamAction)`, async () => {
 						const o = createOrgan();
-						const result = await runStreamingContract(o, toolName, config.validPayload, {
+						const result = await runStreamingContract(o, tool.name, config.validPayload, {
 							thresholdMs: config.thresholdMs ?? 500,
 							timeoutMs: 15_000,
 						});
-						expect(result.violation, result.violation ?? `${toolName} streams correctly`).toBeUndefined();
+						expect(result.violation, result.violation ?? `${tool.name} streams correctly`).toBeUndefined();
 						if (config.minChunks !== undefined) {
-							expect(result.streamed, `${toolName} must emit at least ${config.minChunks} chunk(s)`).toBe(true);
+							expect(result.streamed, `${tool.name} must emit at least ${config.minChunks} chunk(s)`).toBe(true);
 						}
 					}, 20_000);
 				}

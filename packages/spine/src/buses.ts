@@ -28,6 +28,13 @@ export interface ToolDefinition {
 	 * Cerebrum converts to JSON Schema via z.toJSONSchema() before the provider.
 	 */
 	readonly inputSchema: ZodTypeAny;
+	/**
+	 * Set to true by typedStreamAction. Signals that this tool produces
+	 * isFinal:false sense events during execution (streaming output).
+	 * organComplianceSuite uses this to auto-discover streaming tools and
+	 * require a validPayload in opts.streaming for each.
+	 */
+	readonly streaming?: true;
 }
 
 /**

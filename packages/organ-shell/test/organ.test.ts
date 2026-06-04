@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import { createShellOrgan } from "../src/organ.js";
 
 // Framework compliance — schema rejection, structural checks, streaming contract.
-// Any regression in the organ's contract will surface here as a named test failure.
+// shell.exec uses typedStreamAction → auto-discovered as a streaming tool.
+// validPayload must be provided for each streaming tool.
 organComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
 	streaming: {
 		"shell.exec": {
-			validPayload: { command: "printf 'a%.0s' {1..200}" }, // fast output burst
+			validPayload: { command: "printf 'a%.0s' {1..200}" },
 			thresholdMs: 50,
 		},
 	},

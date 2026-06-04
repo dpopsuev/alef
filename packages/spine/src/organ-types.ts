@@ -40,7 +40,8 @@ export function typedStreamAction<TSchema extends ZodTypeAny>(
 	tool: ToolDefinition & { readonly inputSchema: TSchema },
 	stream: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
 ): StreamingCorpusAction {
-	return { tool, stream: stream as StreamingCorpusAction["stream"] };
+	// Mark the tool as streaming so organComplianceSuite can auto-discover it.
+	return { tool: { ...tool, streaming: true }, stream: stream as StreamingCorpusAction["stream"] };
 }
 
 export interface StreamingCorpusAction {

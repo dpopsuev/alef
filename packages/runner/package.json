@@ -13,7 +13,7 @@
   "dependencies": {
     "@dpopsuev/alef-agent-blueprint": "^0.0.1",
     "@dpopsuev/alef-ai": "^0.0.1",
-    "@dpopsuev/alef-corpus": "^0.0.1",
+    "@dpopsuev/alef-runtime": "^0.0.1",
     "@dpopsuev/alef-organ-dialog": "^0.0.1",
     "@dpopsuev/alef-organ-hitl": "^0.0.1",
     "@dpopsuev/alef-organ-workflow": "^0.0.1",

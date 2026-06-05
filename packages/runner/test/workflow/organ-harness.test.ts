@@ -10,10 +10,10 @@
  */
 
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
-import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
 import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-organ-workflow";
+import { Agent } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";
 import { ImplStationRunner } from "../../src/workflow/station-strategy.js";
 

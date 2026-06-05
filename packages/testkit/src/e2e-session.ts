@@ -19,11 +19,11 @@
  */
 
 import { getEnvApiKey, getModel } from "@dpopsuev/alef-ai";
-import { Agent } from "@dpopsuev/alef-corpus";
 import type { Organ } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { CerebrumEvent } from "@dpopsuev/alef-organ-llm";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
+import { Agent } from "@dpopsuev/alef-runtime";
 
 /** True when at least one real LLM provider is configured via env vars. */
 export const HAVE_REAL_LLM =

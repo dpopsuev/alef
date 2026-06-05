@@ -43,11 +43,11 @@
 			"@dpopsuev/alef-kernel/*": [
 				"./packages/kernel/src/*.ts"
 			],
-			"@dpopsuev/alef-corpus": [
-				"./packages/corpus/src/index.ts"
+			"@dpopsuev/alef-runtime": [
+				"./packages/runtime/src/index.ts"
 			],
-			"@dpopsuev/alef-corpus/*": [
-				"./packages/corpus/src/*.ts"
+			"@dpopsuev/alef-runtime/*": [
+				"./packages/runtime/src/*.ts"
 			],
 			"@dpopsuev/alef-testkit": [
 				"./packages/testkit/src/index.ts"

@@ -10,7 +10,7 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
-import { Agent } from "@dpopsuev/alef-corpus";
+import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { Cerebrum } from "../../organ-llm/src/index.js";

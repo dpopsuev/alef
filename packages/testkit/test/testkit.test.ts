@@ -1,4 +1,4 @@
-import { Agent } from "@dpopsuev/alef-corpus";
+import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { BusEventRecorder, MockReasoner } from "../src/index.js";

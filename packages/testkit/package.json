@@ -15,6 +15,16 @@
       "source": "./src/bdd.ts",
       "types": "./dist/bdd.d.ts",
       "import": "./dist/bdd.js"
+    },
+    "./organ": {
+      "source": "./src/organ.ts",
+      "types": "./dist/organ.d.ts",
+      "import": "./dist/organ.js"
+    },
+    "./vitest-config": {
+      "source": "./src/vitest-config.ts",
+      "types": "./dist/vitest-config.d.ts",
+      "import": "./dist/vitest-config.js"
     }
   },
   "files": [
@@ -50,10 +60,9 @@
     "@dpopsuev/alef-ai": "^0.0.1",
     "@dpopsuev/alef-corpus": "^0.0.1",
     "@dpopsuev/alef-organ-dialog": "^0.0.1",
-    "@dpopsuev/alef-organ-fs": "^0.0.1",
-    "@dpopsuev/alef-organ-shell": "^0.0.1",
     "@dpopsuev/alef-organ-llm": "^0.0.1",
-    "@dpopsuev/alef-spine": "^0.0.1"
+    "@dpopsuev/alef-spine": "^0.0.1",
+    "vite-tsconfig-paths": "*"
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.5.0",

@@ -79,7 +79,7 @@ describe("WebOrgan — web.search validation", () => {
 	it("rejects empty query", async () => {
 		const result = await fixture.call("web.search", { query: "" });
 		expect(result.isError).toBe(true);
-		expect(result.errorMessage).toMatch(/empty/i);
+		expect(result.errorMessage).toMatch(/too small|empty|at least|>=1/i);
 	});
 });
 

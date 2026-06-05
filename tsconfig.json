@@ -223,6 +223,24 @@
 			],
 			"@dpopsuev/alef-organ-nodesh/*": [
 				"./packages/organ-nodesh/src/*.ts"
+			],
+			"@dpopsuev/alef-organ-alef": [
+				"./packages/organ-alef/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-alef/*": [
+				"./packages/organ-alef/src/*.ts"
+			],
+			"@dpopsuev/alef-organ-hitl": [
+				"./packages/organ-hitl/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-hitl/*": [
+				"./packages/organ-hitl/src/*.ts"
+			],
+			"@dpopsuev/alef-organ-workflow": [
+				"./packages/organ-workflow/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-workflow/*": [
+				"./packages/organ-workflow/src/*.ts"
 			]
 		}
 	},

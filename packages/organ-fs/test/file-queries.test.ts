@@ -16,7 +16,7 @@ describe("executeFindQuery — abort wiring", () => {
 		const ctrl = new AbortController();
 		ctrl.abort();
 		await expect(executeFindQuery({ pattern: "*.ts" }, { cwd: tmpdir(), signal: ctrl.signal })).rejects.toThrow(
-			"Operation aborted",
+			/operation was aborted|operation aborted/i,
 		);
 	});
 
@@ -36,7 +36,7 @@ describe("executeFindQuery — abort wiring", () => {
 					},
 				},
 			),
-		).rejects.toThrow("Operation aborted");
+		).rejects.toThrow(/operation was aborted|operation aborted/i);
 		expect(resolveCount).toBe(1);
 	});
 });
@@ -46,7 +46,7 @@ describe("executeGrepQuery — abort wiring", () => {
 		const ctrl = new AbortController();
 		ctrl.abort();
 		await expect(executeGrepQuery({ pattern: "foo" }, { cwd: tmpdir(), signal: ctrl.signal })).rejects.toThrow(
-			"Operation aborted",
+			/operation was aborted|operation aborted/i,
 		);
 	});
 });

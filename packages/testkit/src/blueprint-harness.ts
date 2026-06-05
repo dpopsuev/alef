@@ -23,9 +23,14 @@
  * Ref: ALE-SPC-17
  */
 
+import { loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { Agent, type BusObserver } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ } from "@dpopsuev/alef-spine";
+// TODO(ALE-TSK-585): materializeBlueprint should not be imported from runner via relative path.
+// It belongs in @dpopsuev/alef-agent-blueprint or a shared corpus utility.
+// Tracked: this import violates the organ isolation rule (testkit → runner cross-package dep).
+import { materializeBlueprint } from "../../runner/src/materializer.js";
 import { BusEventRecorder } from "./index.js";
 import type { ScriptStep } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";
@@ -82,9 +87,6 @@ export class BlueprintHarness implements ExecutionStrategy {
 	 * ScriptedReasoner. Real corpus organs execute (FsOrgan, ShellOrgan, etc.).
 	 */
 	static async fromBlueprint(blueprintPath: string, opts: BlueprintFromFileOptions): Promise<BlueprintHarness> {
-		const { loadAgentDefinition } = await import("@dpopsuev/alef-agent-blueprint");
-		const { materializeBlueprint } = await import("../../runner/src/materializer.js");
-
 		const definition = loadAgentDefinition(blueprintPath);
 		const materialized = await materializeBlueprint(definition, { cwd: opts.cwd });
 

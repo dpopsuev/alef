@@ -305,6 +305,49 @@ function readJSONL(cwd: string): StorageRecord[] {
 }
 
 // ---------------------------------------------------------------------------
+// Canary — simplest possible real-LLM health check.
+//
+// Sends "Hello" through the full stack (runner boot → HTTP → real LLM → SSE).
+// A non-empty reply proves the entire pipeline is functional.
+// This test would have caught the silent-error regression immediately.
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!HAVE_LLM)("Canary: full-stack real-LLM health check", () => {
+	it("agent replies to 'Hello' with a non-empty response", async () => {
+		withDebugDump();
+		const cwd = makeTmp();
+
+		const { baseUrl } = await bootRunner(cwd);
+		await new Promise((r) => setTimeout(r, 300));
+
+		const sse = openSse(baseUrl);
+		await new Promise((r) => setTimeout(r, 100));
+
+		await postJson(`${baseUrl}/message`, { text: "Hello" });
+
+		await waitFor(
+			sse.events,
+			(evs) =>
+				evs.some((ev) => {
+					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
+					return e.bus === "motor" && e.type === "dialog.message" && Boolean(e.payload?.text?.trim());
+				}),
+			60_000,
+		);
+
+		sse.stop();
+
+		const reply = sse.events.find((ev) => {
+			const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
+			return e.bus === "motor" && e.type === "dialog.message";
+		}) as { payload: { text: string } } | undefined;
+
+		expect(reply).toBeDefined();
+		expect(reply!.payload.text.trim().length).toBeGreaterThan(0);
+	}, 90_000);
+});
+
+// ---------------------------------------------------------------------------
 // TSK-184: POST /message → SSE → JSONL with real LLM
 // ---------------------------------------------------------------------------
 

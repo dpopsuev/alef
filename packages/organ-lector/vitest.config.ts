@@ -1,16 +1,4 @@
-import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { defineProject, mergeConfig } from "vitest/config";
+import sharedConfig from "../../vitest.shared.js";
 
-const resolve = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
-
-export default defineConfig({
-	resolve: {
-		alias: [
-			{ find: /^@dpopsuev\/alef-spine$/, replacement: resolve("../spine/src/index.ts") },
-			{ find: /^@dpopsuev\/alef-testkit$/, replacement: resolve("../testkit/src/index.ts") },
-		],
-	},
-	test: {
-		include: ["test/**/*.test.ts"],
-	},
-});
+export default mergeConfig(sharedConfig, defineProject({ test: { name: "organ-lector" } }));

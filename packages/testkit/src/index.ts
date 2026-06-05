@@ -4,6 +4,13 @@
 
 export { BlueprintGauntlet, type GauntletOptions, type GauntletSendOptions } from "./blueprint-gauntlet.js";
 export { type BlueprintFromFileOptions, BlueprintHarness, type BlueprintHarnessOptions } from "./blueprint-harness.js";
+export {
+	createE2eSession,
+	type E2eResult,
+	type E2eSession,
+	type E2eSessionOptions,
+	HAVE_REAL_LLM,
+} from "./e2e-session.js";
 export { NerveFixture } from "./nerve-fixture.js";
 export {
 	assertOrganContract,

@@ -15,13 +15,12 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createLectorOrgan } from "@dpopsuev/alef-organ-lector";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
 import { createWebOrgan } from "@dpopsuev/alef-organ-web";
+import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ToolRecord } from "../../runner/test/e2e-verifiers.js";
 import {

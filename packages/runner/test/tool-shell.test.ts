@@ -11,8 +11,8 @@
  *   buildOrganDirectives — index from organ list
  */
 
-import { Agent } from "@dpopsuev/alef-corpus";
 import type { ToolDefinition } from "@dpopsuev/alef-kernel";
+import { Agent } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";

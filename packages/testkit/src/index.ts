@@ -31,8 +31,8 @@ export { ScriptedReasoner, type ToolCallEnd, type ToolCallStart } from "./script
 export { defineStubOrgan, type StubHandler } from "./stub-organ.js";
 export { DIALOG_MESSAGE_TOOL, TurnDriver } from "./turn-driver.js";
 
-import type { BusObserver } from "@dpopsuev/alef-corpus";
 import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { BusObserver } from "@dpopsuev/alef-runtime";
 
 // ---------------------------------------------------------------------------
 // MockReasoner

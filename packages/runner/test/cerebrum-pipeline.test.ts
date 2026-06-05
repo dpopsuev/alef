@@ -12,9 +12,9 @@
  */
 
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
-import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Cerebrum, createLlmPipeline } from "@dpopsuev/alef-organ-llm";
+import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { Directives } from "../src/directives.js";
 import { buildPrepareStep, createDefaultDirectives } from "../src/prompt.js";

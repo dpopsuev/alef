@@ -58,7 +58,7 @@
   "dependencies": {
     "@dpopsuev/alef-agent-blueprint": "^0.0.1",
     "@dpopsuev/alef-ai": "^0.0.1",
-    "@dpopsuev/alef-corpus": "^0.0.1",
+    "@dpopsuev/alef-runtime": "^0.0.1",
     "@dpopsuev/alef-organ-dialog": "^0.0.1",
     "@dpopsuev/alef-organ-llm": "^0.0.1",
     "@dpopsuev/alef-kernel": "^0.0.1",

@@ -18,10 +18,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Agent } from "@dpopsuev/alef-corpus";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
-import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import type { ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { defaultEvalOrgans } from "./default-organs.js";
 import { EvaluatorOrgan } from "./evaluator-organ.js";
 import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
 import { deriveturns } from "./metrics.js";
@@ -76,7 +75,15 @@ export type ScenarioFn = (ctx: ScenarioContext) => Promise<void>;
 export interface HarnessOptions {
 	/** Scenario identifier — appears in RunMetrics and the report. */
 	scenario: string;
-	/** Extra organs to load beyond dialog, fs, shell. */
+	/**
+	 * Factory for the base organ set loaded into every run.
+	 * Default: fs + shell at the workspace cwd (see defaultEvalOrgans).
+	 * Pass a custom factory to add, replace, or suppress the defaults:
+	 *   baseOrgansFactory: (cwd) => [...defaultEvalOrgans(cwd), myOrgan]
+	 *   baseOrgansFactory: () => []   // no base organs
+	 */
+	baseOrgansFactory?: (workspace: string) => Organ[];
+	/** Extra organs to load beyond the base set. */
 	extraOrgans?: Organ[];
 	/** System prompt for the agent. */
 	systemPrompt?: string;
@@ -220,11 +227,11 @@ export class EvalHarness {
 		const agent = new Agent();
 		const dialog = new DialogOrgan({ sink: () => {} });
 
-		agent
-			.load(dialog)
-			.load(createFsOrgan({ cwd: workspace }))
-			.load(createShellOrgan({ cwd: workspace }))
-			.load(evaluator);
+		const baseOrgans = (opts.baseOrgansFactory ?? defaultEvalOrgans)(workspace);
+
+		agent.load(dialog);
+		for (const organ of baseOrgans) agent.load(organ);
+		agent.load(evaluator);
 
 		for (const organ of opts.extraOrgans ?? []) {
 			agent.load(organ);

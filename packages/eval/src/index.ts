@@ -12,6 +12,7 @@ export { all, any, fileContains, fileExists, lintPasses, llmJudge, replyContains
 export { compileCheck } from "./checkers/compile.js";
 export { terminalScript, terminalScriptFile } from "./checkers/terminal.js";
 export { testCheck } from "./checkers/test.js";
+export { defaultEvalOrgans } from "./default-organs.js";
 export type {
 	Checker,
 	CheckerContext,

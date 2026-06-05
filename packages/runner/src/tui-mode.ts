@@ -290,6 +290,14 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 				tui.requestRender();
 				break;
 			}
+			case "turn-error": {
+				// Non-retryable LLM error (e.g. invalid request rejected by the API).
+				// Show a notice so the user sees something rather than silence.
+				consoleZone.pulse();
+				writer.addNotice(`LLM error: ${event.message}`);
+				tui.requestRender();
+				break;
+			}
 			case "tool-validation-error": {
 				// Schema rejected the LLM's tool arguments — surface inline so the LLM sees
 				// a clear retry hint rather than a raw zod error in the toolResult text.

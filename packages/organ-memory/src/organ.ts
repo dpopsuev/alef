@@ -75,10 +75,19 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 				const projected = turnsToMessages(selected);
 				if (projected.length === 0) return {};
 
+				// Guard: if turnsToMessages already ends with the current user message
+				// (because the in-flight turn was recorded in the session store before
+				// the phase pipeline runs), do not append it again — consecutive
+				// same-role messages are rejected by the API.
+				const projectedMsgs = projected as unknown as RawMsg[];
+				const projectedLast = projectedMsgs.at(-1);
+				const alreadyAppended =
+					projectedLast?.role === currentUserMsg.role && projectedLast?.content === currentUserMsg.content;
+
 				const assembled: RawMsg[] = [
 					...(systemMsg ? [systemMsg] : []),
-					...(projected as unknown as RawMsg[]),
-					...(currentUserMsg.role === "user" ? [currentUserMsg] : []),
+					...projectedMsgs,
+					...(!alreadyAppended && currentUserMsg.role === "user" ? [currentUserMsg] : []),
 				];
 
 				return { messages: assembled as unknown as typeof messages };

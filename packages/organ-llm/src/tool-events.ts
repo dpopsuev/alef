@@ -27,4 +27,5 @@ export type CerebrumEvent =
 	| { type: "tool-stall"; callId: string; name: string; elapsedMs: number; lastChunkMs: number }
 	| { type: "token-usage"; usage: TokenUsage }
 	| { type: "chunk"; text: string }
-	| { type: "thinking"; text: string };
+	| { type: "thinking"; text: string }
+	| { type: "turn-error"; message: string };

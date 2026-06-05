@@ -1,4 +1,4 @@
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createEnclosureOrgan } from "../src/organ.js";
 import { StubSpace } from "../src/space.js";

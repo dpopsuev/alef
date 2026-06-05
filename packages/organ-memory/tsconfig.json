@@ -7,7 +7,8 @@
 			"@dpopsuev/alef-kernel/*": ["../kernel/src/*.ts"],
 			"@dpopsuev/alef-organ-llm": ["../organ-llm/src/index.ts"],
 			"@dpopsuev/alef-session": ["../session/src/index.ts"],
-			"@dpopsuev/alef-testkit": ["../testkit/src/index.ts"]
+			"@dpopsuev/alef-testkit": ["../testkit/src/index.ts"],
+			"@dpopsuev/alef-testkit/*": ["../testkit/src/*.ts"]
 		}
 	},
 	"include": ["src/**/*.ts", "test/**/*.ts"]

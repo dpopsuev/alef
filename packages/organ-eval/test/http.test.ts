@@ -3,7 +3,7 @@
  * Spins up a real HTTP server on a random port — no mocks.
  */
 import http from "node:http";
-import { organComplianceSuite } from "@dpopsuev/alef-testkit";
+import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { collectEvents, postMessage } from "../src/http.js";
 import { createEvalOrgan } from "../src/organ.js";

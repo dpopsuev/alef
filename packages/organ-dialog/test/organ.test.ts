@@ -1,5 +1,5 @@
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
-import { organComplianceSuite } from "@dpopsuev/alef-testkit";
+import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it, vi } from "vitest";
 import { DIALOG_MESSAGE, DialogOrgan } from "../src/organ.js";
 

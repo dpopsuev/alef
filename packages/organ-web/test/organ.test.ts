@@ -4,7 +4,7 @@
  * The html-to-text logic is also tested inline with static HTML.
  */
 
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWebOrgan } from "../src/organ.js";
 

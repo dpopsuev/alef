@@ -7,6 +7,7 @@ import {
 	typedAction,
 	VALIDATE_REQUEST,
 	VALIDATE_RESULT,
+	withDisplay,
 } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { Contract } from "./contract.js";
@@ -49,11 +50,17 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 				const stationDef = opts.def.stations.find((s) => s.name === stationName);
 				if (!stationDef) {
 					const names = opts.def.stations.map((s) => s.name).join(", ");
-					return { error: `Station '${stationName}' not found. Available: ${names}` };
+					return withDisplay(
+						{ error: `Station '${stationName}' not found. Available: ${names}` },
+						{ text: `Station '${stationName}' not found`, mimeType: "text/plain" },
+					);
 				}
 
 				const result = await opts.runner.run(stationDef, artifact);
-				return { status: result.status, output: result.output, questions: result.questions };
+				return withDisplay(
+					{ status: result.status, output: result.output, questions: result.questions },
+					{ text: `Station '${stationName}': ${result.status}`, mimeType: "text/plain" },
+				);
 			}),
 		},
 		{
@@ -95,14 +102,20 @@ export function createContractTool<T extends z.ZodTypeAny>(
 					const errors = schemaResult.error.issues
 						.map((i: z.ZodIssue) => `${i.path.join(".") || "(root)"}: ${i.message}`)
 						.join("; ");
-					return { success: false, errors };
+					return withDisplay(
+						{ success: false, errors },
+						{ text: `Contract rejected: ${errors}`, mimeType: "text/plain" },
+					);
 				}
 
 				const validated = schemaResult.data;
 
 				if (!contract.validator) {
 					onSubmit(validated);
-					return { success: true, message: "Contract fulfilled." };
+					return withDisplay(
+						{ success: true, message: "Contract fulfilled." },
+						{ text: "Contract fulfilled", mimeType: "text/plain" },
+					);
 				}
 
 				const id = newCorrelationId();
@@ -115,7 +128,12 @@ export function createContractTool<T extends z.ZodTypeAny>(
 					const timer = setTimeout(() => {
 						off();
 						onSubmit(validated);
-						resolve({ success: true, message: "Contract fulfilled (auto-approved — no evaluator responded)." });
+						resolve(
+							withDisplay(
+								{ success: true, message: "Contract fulfilled (auto-approved — no evaluator responded)." },
+								{ text: "Contract auto-approved (no evaluator responded)", mimeType: "text/plain" },
+							),
+						);
 					}, AUTO_APPROVE_MS);
 
 					const off = sense.subscribe(VALIDATE_RESULT, (event: unknown) => {
@@ -126,9 +144,22 @@ export function createContractTool<T extends z.ZodTypeAny>(
 						debugLog("contract:result", { id, approved: e.payload.approved });
 						if (e.payload.approved) {
 							onSubmit(validated);
-							resolve({ success: true, message: "Contract fulfilled." });
+							resolve(
+								withDisplay(
+									{ success: true, message: "Contract fulfilled." },
+									{ text: "Contract fulfilled", mimeType: "text/plain" },
+								),
+							);
 						} else {
-							resolve({ success: false, errors: e.payload.feedback ?? "Rejected by evaluator." });
+							resolve(
+								withDisplay(
+									{ success: false, errors: e.payload.feedback ?? "Rejected by evaluator." },
+									{
+										text: `Contract rejected: ${e.payload.feedback ?? "Rejected by evaluator."}`,
+										mimeType: "text/plain",
+									},
+								),
+							);
 						}
 					});
 
@@ -165,9 +196,10 @@ export function createQuestionTool(
 		"question",
 		{
 			"motor/question.ask": typedAction(QUESTION_TOOL, async (ctx) => {
-				const answer = await onQuestion(ctx.payload.question as string);
-				log.push({ question: ctx.payload.question as string, answer });
-				return { answer };
+				const question = ctx.payload.question as string;
+				const answer = await onQuestion(question);
+				log.push({ question, answer });
+				return withDisplay({ answer }, { text: `Q: ${question}\nA: ${answer}`, mimeType: "text/plain" });
 			}),
 		},
 		{

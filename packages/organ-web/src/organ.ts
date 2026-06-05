@@ -157,21 +157,13 @@ async function handleFetch(url: string, format: "text" | "html", timeoutMs: numb
 	if (format === "html") {
 		const htmlTitle = extractTitle(rawText);
 		const tr = truncateHead(rawText, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-		const label = htmlTitle ? `**${htmlTitle}** — ${response.url}` : response.url;
-		return withDisplay(
-			{ content: tr.content, title: htmlTitle, url: response.url, statusCode, truncated: tr.truncated },
-			{ text: label, mimeType: "text/markdown" },
-		);
+		return { content: tr.content, title: htmlTitle, url: response.url, statusCode, truncated: tr.truncated };
 	}
 
 	const stripped = stripNonContent(rawText);
 	const title = extractTitle(rawText);
 	const tr = truncateHead(htmlToText(stripped), { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-	const label = title ? `**${title}** — ${response.url}` : response.url;
-	return withDisplay(
-		{ content: tr.content, title, url: response.url, statusCode, truncated: tr.truncated },
-		{ text: label, mimeType: "text/markdown" },
-	);
+	return { content: tr.content, title, url: response.url, statusCode, truncated: tr.truncated };
 }
 
 async function handleSearch(query: string, numResults: number, engine?: string): Promise<Record<string, unknown>> {
@@ -182,14 +174,11 @@ async function handleSearch(query: string, numResults: number, engine?: string):
 	const searchEngine = engine ? resolveSearchEngine(engine) : defaultSearchEngine();
 	const results = await searchEngine.search({ query, numResults });
 
-	return withDisplay(
-		{
-			query,
-			results,
-			hint: results.length > 0 ? "Use web.fetch(url=...) to read the full content of any result." : undefined,
-		},
-		{ text: `Web search: **${query}** (${results.length} results)`, mimeType: "text/markdown" },
-	);
+	return {
+		query,
+		results,
+		hint: results.length > 0 ? "Use web.fetch(url=...) to read the full content of any result." : undefined,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -225,11 +214,20 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 		{
 			"motor/web.fetch": typedAction(WEB_FETCH_TOOL, async (ctx) => {
 				const { url, format, timeoutMs } = ctx.payload;
-				return handleFetch(url, format ?? "text", timeoutMs ?? defaultTimeout);
+				const result = await handleFetch(url, format ?? "text", timeoutMs ?? defaultTimeout);
+				const title = result.title as string | undefined;
+				const finalUrl = result.url as string;
+				const label = title ? `**${title}** — ${finalUrl}` : finalUrl;
+				return withDisplay(result, { text: label, mimeType: "text/markdown" });
 			}),
 			"motor/web.search": typedAction(WEB_SEARCH_TOOL, async (ctx) => {
 				const { query, numResults, engine } = ctx.payload;
-				return handleSearch(query, numResults ?? 10, engine);
+				const result = await handleSearch(query, numResults ?? 10, engine);
+				const results = result.results as unknown[];
+				return withDisplay(result, {
+					text: `Web search: **${query}** (${results.length} results)`,
+					mimeType: "text/markdown",
+				});
 			}),
 		},
 		{

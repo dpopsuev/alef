@@ -300,19 +300,13 @@ async function handleRead(
 	// Record that this file was read — enables read-before-edit enforcement.
 	tracker.record(absolutePath);
 
-	const truncNote = truncated.truncated
-		? ` (truncated to ${truncated.outputLines ?? "?"} / ${truncated.totalLines} lines)`
-		: ` (${truncated.totalLines} lines)`;
-	return withDisplay(
-		{
-			content: truncated.content,
-			truncated: truncated.truncated,
-			truncatedBy: truncated.truncatedBy,
-			totalLines: truncated.totalLines,
-			outputLines: truncated.outputLines,
-		},
-		{ text: `Read **${filePath}**${truncNote}`, mimeType: "text/plain" },
-	);
+	return {
+		content: truncated.content,
+		truncated: truncated.truncated,
+		truncatedBy: truncated.truncatedBy,
+		totalLines: truncated.totalLines,
+		outputLines: truncated.outputLines,
+	};
 }
 
 async function handleWrite(
@@ -326,10 +320,7 @@ async function handleWrite(
 	await atomicWrite(absolutePath, content);
 	await runFormatter(opts.cwd, absolutePath);
 	const bytes = Buffer.byteLength(content, "utf-8");
-	return withDisplay(
-		{ path: filePath, bytes },
-		{ text: `Wrote **${filePath}** (${bytes} bytes)`, mimeType: "text/plain" },
-	);
+	return { path: filePath, bytes };
 }
 
 /**
@@ -493,7 +484,7 @@ async function handleEdit(
 	tracker.record(absolutePath);
 	const editCount = editList.length;
 	const diff = generateEditDiff(original, updated, filePath);
-	return withDisplay({ path: filePath, applied: true, editCount }, { text: diff, mimeType: "text/x-diff" });
+	return { path: filePath, applied: true, editCount, diff };
 }
 
 async function handleGrep(
@@ -527,8 +518,7 @@ async function handleGrep(
 		countOnly: countOnly ?? false,
 	};
 	const response = await executeGrepQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "grep") });
-	const displayText = extractContentText(response) ?? JSON.stringify(response);
-	return withDisplay(response as unknown as Record<string, unknown>, { text: displayText, mimeType: "text/plain" });
+	return response as unknown as Record<string, unknown>;
 }
 
 async function handleFind(
@@ -556,8 +546,7 @@ async function handleFind(
 		hidden,
 	};
 	const response = await executeFindQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "find") });
-	const displayText = extractContentText(response) ?? JSON.stringify(response);
-	return withDisplay(response as unknown as Record<string, unknown>, { text: displayText, mimeType: "text/plain" });
+	return response as unknown as Record<string, unknown>;
 }
 
 async function handlePatch(
@@ -596,16 +585,45 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 	return defineOrgan(
 		"fs",
 		{
-			"motor/fs.read": typedAction(FS_READ_TOOL, (ctx) => handleRead(ctx, options, tracker), {
-				shouldCache: () => true,
+			"motor/fs.read": typedAction(
+				FS_READ_TOOL,
+				async (ctx) => {
+					const result = await handleRead(ctx, options, tracker);
+					const truncated = result.truncated as boolean;
+					const outputLines = result.outputLines as number | undefined;
+					const totalLines = result.totalLines as number;
+					const truncNote = truncated
+						? ` (truncated to ${outputLines ?? "?"} / ${totalLines} lines)`
+						: ` (${totalLines} lines)`;
+					return withDisplay(result, { text: `Read **${ctx.payload.path}**${truncNote}`, mimeType: "text/plain" });
+				},
+				{ shouldCache: () => true },
+			),
+			"motor/fs.grep": typedAction(
+				FS_GREP_TOOL,
+				async (ctx) => {
+					const result = await handleGrep(ctx, options);
+					const displayText = extractContentText(result) ?? JSON.stringify(result);
+					return withDisplay(result, { text: displayText, mimeType: "text/plain" });
+				},
+				{ shouldCache: () => true },
+			),
+			"motor/fs.find": typedAction(FS_FIND_TOOL, async (ctx) => {
+				const result = await handleFind(ctx, options);
+				const displayText = extractContentText(result) ?? JSON.stringify(result);
+				return withDisplay(result, { text: displayText, mimeType: "text/plain" });
 			}),
-			"motor/fs.grep": typedAction(FS_GREP_TOOL, (ctx) => handleGrep(ctx, options), { shouldCache: () => true }),
-			"motor/fs.find": typedAction(FS_FIND_TOOL, (ctx) => handleFind(ctx, options)),
 			"motor/fs.write": typedAction(
 				FS_WRITE_TOOL,
 				async (ctx) => {
 					const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
-					return withQueue(absolutePath, () => handleWrite(ctx, options));
+					const raw = await withQueue(absolutePath, () => handleWrite(ctx, options));
+					const filePath = raw.path as string;
+					const bytes = raw.bytes as number;
+					return withDisplay(
+						{ path: filePath, bytes },
+						{ text: `Wrote **${filePath}** (${bytes} bytes)`, mimeType: "text/plain" },
+					);
 				},
 				{ invalidates: () => WRITE_INVALIDATES },
 			),
@@ -613,7 +631,11 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 				FS_EDIT_TOOL,
 				async (ctx) => {
 					const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
-					return withQueue(absolutePath, () => handleEdit(ctx, options, tracker));
+					const result = await withQueue(absolutePath, () => handleEdit(ctx, options, tracker));
+					return withDisplay(
+						{ path: result.path, applied: result.applied, editCount: result.editCount },
+						{ text: result.diff as string, mimeType: "text/x-diff" },
+					);
 				},
 				{ invalidates: () => WRITE_INVALIDATES },
 			),

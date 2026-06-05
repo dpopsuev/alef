@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../src/organ.js";
 

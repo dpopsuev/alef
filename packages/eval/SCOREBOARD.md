@@ -6,6 +6,7 @@ Auto-generated from `benchmark.jsonl`. Do not edit manually — re-runs update t
 
 | Date | Commit | Model | Pass | Score | OAE |
 |---|---|---|---|---|---|
+| 2026-06-05 | `94a7c23d` | claude-sonnet-4-5@20250929 | **0/12** (0%) | 0% | 0.0% |
 | 2026-05-29 | `b4e6805f` | claude-sonnet-4-5 | **10/12** (83%) | 92% | 2.4% |
 | 2026-05-28 | `8542ba42` | claude-sonnet-4-5 | **10/12** (83%) | 92% | 2.4% |
 
@@ -13,34 +14,34 @@ Auto-generated from `benchmark.jsonl`. Do not edit manually — re-runs update t
 
 | Evaluation | Status | Score | Trend | Notes |
 |---|---|---|---|---|
-| PlanRefactoring | ✓ | 100% | → |  |
-| AuditModule | ✓ | 100% | → |  |
-| BlastRadius | ✓ | 100% | → |  |
-| ContextWarming | ✓ | 100% | → |  |
-| CreateHTTPServer | ✓ | 100% | → |  |
-| AddTypeExport | ✓ | 100% | → |  |
-| FixFailingTest | ✓ | 100% | → |  |
-| RefactorAsync | ✓ | 100% | → |  |
-| WriteMiddleware | ✓ | 50% | → |  |
-| ProposeFirst | ✗ | 100% | → |  |
-| MemoRecall | ✗ | 100% | → |  |
-| ApproveProposal | ✓ | 50% | → |  |
+| PlanRefactoring | ✗ | 0% | ↓ regressed | Expected tool 'fs.read' to be called, but only these were used: [] |
+| AuditModule | ✗ | 0% | ↓ regressed | Expected tool 'fs.read' to be called, but only these were used: [] |
+| BlastRadius | ✗ | 0% | ↓ regressed | Expected tool 'fs.read' to be called, but only these were used: [] |
+| ContextWarming | ✗ | 0% | ↓ regressed | Expected tool 'fs.read' to be called, but only these were used: [] |
+| CreateHTTPServer | ✗ | 0% | ↓ regressed | Expected tool 'fs.write' to be called, but only these were used: [] |
+| AddTypeExport | ✗ | 0% | ↓ regressed | Expected tool 'fs.read' to be called, but only these were used: [] |
+| FixFailingTest | ✗ | 0% | ↓ regressed | Expected tool 'fs.read' to be called, but only these were used: [] |
+| RefactorAsync | ✗ | 0% | ↓ regressed | Expected tool 'fs.read' to be called, but only these were used: [] |
+| WriteMiddleware | ✗ | 0% | ↓ regressed | Expected tool 'fs.read' to be called, but only these were used: [] |
+| ProposeFirst | ✗ | 0% | ↓ | Expected tool 'fs.read' to be called, but only these were used: [] |
+| MemoRecall | ✗ | 0% | ↓ | Expected tool 'fs.read' to be called, but only these were used: [] |
+| ApproveProposal | ✗ | 0% | ↓ regressed | File not found: src/truncate.ts |
 
 ## Aggregate Stats (all runs)
 
 | Evaluation | Runs | Pass Rate | Best Score | Latest |
 |---|---|---|---|---|
-| PlanRefactoring | 2 | 100% | 100% | 100% |
-| AuditModule | 2 | 100% | 100% | 100% |
-| BlastRadius | 2 | 100% | 100% | 100% |
-| ContextWarming | 2 | 100% | 100% | 100% |
-| CreateHTTPServer | 2 | 100% | 100% | 100% |
-| AddTypeExport | 2 | 100% | 100% | 100% |
-| FixFailingTest | 2 | 100% | 100% | 100% |
-| RefactorAsync | 2 | 100% | 100% | 100% |
-| WriteMiddleware | 2 | 100% | 50% | 50% |
-| ProposeFirst | 2 | 0% | 100% | 100% |
-| MemoRecall | 2 | 0% | 100% | 100% |
-| ApproveProposal | 2 | 100% | 50% | 50% |
+| PlanRefactoring | 3 | 67% | 100% | 0% |
+| AuditModule | 3 | 67% | 100% | 0% |
+| BlastRadius | 3 | 67% | 100% | 0% |
+| ContextWarming | 3 | 67% | 100% | 0% |
+| CreateHTTPServer | 3 | 67% | 100% | 0% |
+| AddTypeExport | 3 | 67% | 100% | 0% |
+| FixFailingTest | 3 | 67% | 100% | 0% |
+| RefactorAsync | 3 | 67% | 100% | 0% |
+| WriteMiddleware | 3 | 67% | 50% | 0% |
+| ProposeFirst | 3 | 0% | 100% | 0% |
+| MemoRecall | 3 | 0% | 100% | 0% |
+| ApproveProposal | 3 | 67% | 50% | 0% |
 
-_Last updated: 2026-05-29 20:27:08 UTC_
+_Last updated: 2026-06-05 10:57:10 UTC_

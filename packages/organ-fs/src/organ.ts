@@ -10,8 +10,8 @@
 import type { Stats } from "node:fs";
 import { readFile as fsReadFile, mkdir } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
-import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { diffLines } from "diff";
 import { z } from "zod";
 import {

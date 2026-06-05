@@ -16,7 +16,7 @@
 import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { trace } from "./debug-trace.js";
 import { redactPayload } from "./redact.js";
 import { type BusKind, hashRecord, type SessionStore } from "./session-store.js";

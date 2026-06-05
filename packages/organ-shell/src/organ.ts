@@ -5,7 +5,7 @@
  *              final event carries exitCode + isFinal: true.
  */
 import { spawn } from "node:child_process";
-import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -13,7 +13,7 @@ import {
 	truncateTail,
 	typedStreamAction,
 	withDisplay,
-} from "@dpopsuev/alef-spine";
+} from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { getShellConfig, getShellEnv } from "./shell.js";
 

@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import type { Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { stringify as toYaml } from "yaml";
 import { z } from "zod";
 

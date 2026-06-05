@@ -24,7 +24,7 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@dpopsuev/alef-spine": "^0.0.1",
+    "@dpopsuev/alef-kernel": "^0.0.1",
     "typescript-language-server": "^5.2.0",
     "zod": "^4.4.3"
   },

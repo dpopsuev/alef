@@ -3,8 +3,8 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"paths": {
-			"@dpopsuev/alef-spine": ["../spine/src/index.ts"],
-			"@dpopsuev/alef-spine/*": ["../spine/src/*.ts"],
+			"@dpopsuev/alef-kernel": ["../kernel/src/index.ts"],
+			"@dpopsuev/alef-kernel/*": ["../kernel/src/*.ts"],
 			"@dpopsuev/alef-ai": ["../ai/src/index.ts"],
 			"@dpopsuev/alef-ai/*": ["../ai/src/*"]
 		}

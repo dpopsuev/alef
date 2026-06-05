@@ -6,7 +6,7 @@
  * Each test gets a fresh container. Ryuk cleans up on process exit.
  */
 
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { DockerSpace } from "../src/docker-space.js";
 import { createEnclosureOrgan } from "../src/organ.js";

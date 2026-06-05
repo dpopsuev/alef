@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Organ, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { type Directive, Directives, xmlRenderer } from "./directives.js";
 
 export const BLOCK_IDENTITY = () =>

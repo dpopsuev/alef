@@ -10,7 +10,7 @@ import {
 	type SensePublishInput,
 	type ToolDefinition,
 	withBindings,
-} from "@dpopsuev/alef-spine";
+} from "@dpopsuev/alef-kernel";
 import type { ZodTypeAny } from "zod";
 import {
 	type OrganPortInfo,

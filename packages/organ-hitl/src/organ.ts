@@ -5,7 +5,7 @@ import {
 	VALIDATE_REQUEST,
 	VALIDATE_RESULT,
 	type ValidateRequest,
-} from "@dpopsuev/alef-spine";
+} from "@dpopsuev/alef-kernel";
 
 export interface HitlEvaluateInput {
 	output: unknown;

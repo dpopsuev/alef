@@ -22,8 +22,8 @@
 			"@dpopsuev/alef-corpus": [
 				"../corpus/src/index.ts"
 			],
-			"@dpopsuev/alef-spine": [
-				"../spine/src/index.ts"
+			"@dpopsuev/alef-kernel": [
+				"../kernel/src/index.ts"
 			],
 			"@dpopsuev/alef-organ-dialog": [
 				"../organ-dialog/src/index.ts"

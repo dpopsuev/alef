@@ -25,8 +25,8 @@
 
 import { loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { Agent, type BusObserver } from "@dpopsuev/alef-corpus";
+import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ } from "@dpopsuev/alef-spine";
 // TODO(ALE-TSK-585): materializeBlueprint should not be imported from runner via relative path.
 // It belongs in @dpopsuev/alef-agent-blueprint or a shared corpus utility.
 // Tracked: this import violates the organ isolation rule (testkit → runner cross-package dep).

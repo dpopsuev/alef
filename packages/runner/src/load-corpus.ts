@@ -1,6 +1,6 @@
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { findAgentDefinitionPath, loadAgentDefinition, mergeAgentDefinitions } from "@dpopsuev/alef-agent-blueprint";
-import type { Organ } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-kernel";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 import type { AlefConfig } from "./config.js";

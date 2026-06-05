@@ -5,8 +5,8 @@
 
 import { randomUUID } from "node:crypto";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
+import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
-import { InProcessNerve } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 
 const unmounts: Array<() => void> = [];

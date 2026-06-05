@@ -10,8 +10,8 @@
  *   skills.invoke  — load a user-invocable skill's full instructions into context
  */
 
-import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, getString } from "@dpopsuev/alef-spine";
+import type { CorpusHandlerCtx, Organ, OrganLogger } from "@dpopsuev/alef-kernel";
+import { defineOrgan, getString } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { discoverSkills, skillsToXml } from "./discovery.js";
 import type { Skill } from "./types.js";

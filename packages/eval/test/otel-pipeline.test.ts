@@ -9,7 +9,7 @@
  * Uses a QuiescentLLMOrgan (no real API) so this runs in CI.
  */
 
-import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { EvalHarness } from "../src/harness.js";
 

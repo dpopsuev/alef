@@ -15,7 +15,7 @@ export { BlockCache, type CacheEntry } from "./block-cache.js";
 export { LocalLectorBackend, type LocalLectorBackendOptions } from "./local-backend.js";
 export { createLectorOrgan, type LectorOrganOptions } from "./organ.js";
 
-import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
 import { createLectorOrgan } from "./organ.js";
 export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: OrganLogger }): Organ {
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `lector.${a}`));

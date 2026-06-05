@@ -1,4 +1,4 @@
-import type { ExecutionStrategy } from "@dpopsuev/alef-spine";
+import type { ExecutionStrategy } from "@dpopsuev/alef-kernel";
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createDelegateOrgan } from "../src/organ.js";

@@ -19,9 +19,9 @@
  * Measurement: 69.9% of input tokens were schema overhead before this (2026-05-28).
  */
 
+import type { Nerve, OrganLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { defineOrgan, toolInputToJsonSchema, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import type { PhaseStageHandler } from "@dpopsuev/alef-organ-llm";
-import type { Nerve, OrganLogger, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineOrgan, toolInputToJsonSchema, typedAction, withDisplay } from "@dpopsuev/alef-spine";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------

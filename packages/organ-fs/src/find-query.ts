@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { debugLog } from "@dpopsuev/alef-spine";
+import { debugLog } from "@dpopsuev/alef-kernel";
 import type { ToolResultCache, ToolResultCacheHit } from "./cache.js";
 import {
 	type BaseToolDetails,

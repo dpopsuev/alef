@@ -41,8 +41,8 @@ const BUILTIN_PACKAGES: Record<string, string> = {
 	web: "@dpopsuev/alef-organ-web",
 };
 
-import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-spine";
-import { extractToolCallId } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-kernel";
+import { extractToolCallId } from "@dpopsuev/alef-kernel";
 import { createJiti } from "jiti";
 
 /** Common options passed to every organ factory. */

@@ -5,7 +5,7 @@
  * collects metrics, and disposes cleanly.
  */
 
-import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { EvalHarness, formatReport } from "../src/harness.js";
 

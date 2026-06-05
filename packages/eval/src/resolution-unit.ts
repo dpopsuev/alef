@@ -13,7 +13,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { gimpedOrgan, InProcessNerve, isGimped, type Organ, type SenseEvent } from "@dpopsuev/alef-spine";
+import { gimpedOrgan, InProcessNerve, isGimped, type Organ, type SenseEvent } from "@dpopsuev/alef-kernel";
 
 // ---------------------------------------------------------------------------
 // PortStub \u2014 canned Motor payload for one tool

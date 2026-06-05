@@ -7,7 +7,7 @@
  * null/undefined at runtime and callers time out instead of seeing an error.
  */
 
-import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { NerveFixture } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";

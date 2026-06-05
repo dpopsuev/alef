@@ -7,7 +7,7 @@ import {
 	type ThinkingLevel,
 	type Tool,
 } from "@dpopsuev/alef-ai";
-import { debugLog } from "@dpopsuev/alef-spine";
+import { debugLog } from "@dpopsuev/alef-kernel";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("alef.organ-llm");

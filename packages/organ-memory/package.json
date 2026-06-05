@@ -23,7 +23,7 @@
   "dependencies": {
     "@dpopsuev/alef-organ-llm": "^0.0.1",
     "@dpopsuev/alef-session": "^0.0.1",
-    "@dpopsuev/alef-spine": "^0.0.1"
+    "@dpopsuev/alef-kernel": "^0.0.1"
   },
   "devDependencies": {
     "@dpopsuev/alef-testkit": "^0.0.1",

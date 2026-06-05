@@ -12,7 +12,7 @@
  */
 
 // Inline re-exports from index to avoid circular dependency
-// BusEventRecorder and MockReasoner only import from @dpopsuev/alef-spine and @dpopsuev/alef-corpus
+// BusEventRecorder and MockReasoner only import from @dpopsuev/alef-kernel and @dpopsuev/alef-corpus
 export { BusEventRecorder, MockReasoner } from "./index.js";
 export { NerveFixture } from "./nerve-fixture.js";
 export {

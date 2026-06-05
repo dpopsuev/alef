@@ -1,4 +1,4 @@
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 import { createMemoryOrgan } from "../src/organ-memory.js";
 

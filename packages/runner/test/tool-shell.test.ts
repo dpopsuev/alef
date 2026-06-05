@@ -12,7 +12,7 @@
  */
 
 import { Agent } from "@dpopsuev/alef-corpus";
-import type { ToolDefinition } from "@dpopsuev/alef-spine";
+import type { ToolDefinition } from "@dpopsuev/alef-kernel";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";

@@ -1,8 +1,8 @@
+import type { BaseOrganOptions } from "@dpopsuev/alef-kernel";
+import { defineOrgan } from "@dpopsuev/alef-kernel";
 import type { PhaseStageHandler } from "@dpopsuev/alef-organ-llm";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "@dpopsuev/alef-session";
-import type { BaseOrganOptions } from "@dpopsuev/alef-spine";
-import { defineOrgan } from "@dpopsuev/alef-spine";
 
 export interface MemoryOrganOptions extends BaseOrganOptions {
 	compactionThreshold?: number;

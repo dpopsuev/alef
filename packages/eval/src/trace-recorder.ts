@@ -20,7 +20,7 @@
 import { createWriteStream, type WriteStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { BusObserver } from "@dpopsuev/alef-corpus";
-import type { NerveEvent } from "@dpopsuev/alef-spine";
+import type { NerveEvent } from "@dpopsuev/alef-kernel";
 
 // ---------------------------------------------------------------------------
 // TraceEvent \u2014 one JSONL line

@@ -37,11 +37,11 @@
 			"@dpopsuev/alef-agent-runtime/*": [
 				"./packages/runtime/src/*.ts"
 			],
-			"@dpopsuev/alef-spine": [
-				"./packages/spine/src/index.ts"
+			"@dpopsuev/alef-kernel": [
+				"./packages/kernel/src/index.ts"
 			],
-			"@dpopsuev/alef-spine/*": [
-				"./packages/spine/src/*.ts"
+			"@dpopsuev/alef-kernel/*": [
+				"./packages/kernel/src/*.ts"
 			],
 			"@dpopsuev/alef-corpus": [
 				"./packages/corpus/src/index.ts"

@@ -6,7 +6,7 @@
  * Proves: OTel spans carry cache attributes, OAE metric is non-zero.
  */
 
-import type { Nerve, Organ, SenseEvent } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ, SenseEvent } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { EvalHarness } from "../src/harness.js";
 

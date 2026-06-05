@@ -6,8 +6,8 @@
  *   → outer Cerebrum turn 2 receives toolResult → final dialog.message
  */
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
+import { defineOrgan, typedStreamAction } from "@dpopsuev/alef-kernel";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
-import { defineOrgan, typedStreamAction } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { Cerebrum } from "../../organ-llm/src/index.js";

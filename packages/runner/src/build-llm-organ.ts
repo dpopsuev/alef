@@ -1,7 +1,7 @@
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
+import type { ToolDefinition } from "@dpopsuev/alef-kernel";
 import type { CerebrumEvent } from "@dpopsuev/alef-organ-llm";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
-import type { ToolDefinition } from "@dpopsuev/alef-spine";
 import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
 import type { Args } from "./args.js";
 import { resolveApiKey } from "./auth.js";

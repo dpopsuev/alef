@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Organ, SenseEvent } from "@dpopsuev/alef-spine";
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import type { Organ, SenseEvent } from "@dpopsuev/alef-kernel";
+import { InProcessNerve } from "@dpopsuev/alef-kernel";
 
 const DEFAULT_TIMEOUT_MS = 2_000;
 

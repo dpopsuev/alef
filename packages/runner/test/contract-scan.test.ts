@@ -5,10 +5,10 @@
  */
 
 import { registerFauxProvider } from "@dpopsuev/alef-ai";
+import type { Organ } from "@dpopsuev/alef-kernel";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-import type { Organ } from "@dpopsuev/alef-spine";
 import { runSchemaContract, runStreamingContract } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { InProcessStrategy } from "../src/strategies/in-process.js";

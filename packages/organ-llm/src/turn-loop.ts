@@ -347,6 +347,14 @@ export async function runLLMLoop(
 				continue;
 			}
 
+			// Non-retryable LLM error — emit turn-error event and log at warn so
+			// it's visible in production without --debug.
+			if (finalMessage.stopReason === "error") {
+				const errorMsg = finalMessage.errorMessage ?? "LLM returned an error response";
+				effectiveOptions.onEvent?.({ type: "turn-error", message: errorMsg });
+				debugLog("llm:turn:error", { turn, errorMessage: errorMsg });
+			}
+
 			messages.push(finalMessage);
 
 			const { replyCall, toolCalls } = classifyPendingCalls(pendingCalls, toMotorName);

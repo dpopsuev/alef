@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { stringify as toYaml } from "yaml";
 import { z } from "zod";
 
@@ -97,12 +97,15 @@ export function createFactoryOrgan(options: FactoryOrganOptions = {}): Organ {
 				const blueprint = buildBlueprint(name, description, organs, model);
 				writeFileSync(targetPath, toYaml(blueprint), "utf-8");
 
-				return {
-					path: targetPath,
-					name,
-					organs,
-					next: `orchestration.spawn({ blueprintPath: "${targetPath}" })`,
-				};
+				return withDisplay(
+					{
+						path: targetPath,
+						name,
+						organs,
+						next: `orchestration.spawn({ blueprintPath: "${targetPath}" })`,
+					},
+					{ text: `Blueprint written: ${targetPath}`, mimeType: "text/plain" },
+				);
 			}),
 		},
 		{

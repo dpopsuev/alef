@@ -16,9 +16,15 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { InProcessNerve, type Organ, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { InProcessNerve, type Organ, type OrganLogger, type SenseEvent } from "@dpopsuev/alef-kernel";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
+
+export interface CapturedLog {
+	level: "debug" | "info" | "warn" | "error";
+	obj: Record<string, unknown>;
+	msg: string;
+}
 
 export interface OrganContractOptions {
 	/** Timeout per Motor→Sense probe in ms. Default: 2000. */
@@ -152,6 +158,30 @@ export async function assertOrganContract(organ: Organ, opts?: OrganContractOpti
 }
 
 // ---------------------------------------------------------------------------
+// makeSpyLogger — captures log calls for compliance assertions
+// ---------------------------------------------------------------------------
+
+function makeSpyLogger(bindings: Record<string, unknown>, sink: CapturedLog[]): OrganLogger {
+	return {
+		debug(obj, msg) {
+			sink.push({ level: "debug", obj: { ...bindings, ...obj }, msg });
+		},
+		info(obj, msg) {
+			sink.push({ level: "info", obj: { ...bindings, ...obj }, msg });
+		},
+		warn(obj, msg) {
+			sink.push({ level: "warn", obj: { ...bindings, ...obj }, msg });
+		},
+		error(obj, msg) {
+			sink.push({ level: "error", obj: { ...bindings, ...obj }, msg });
+		},
+		child(childBindings) {
+			return makeSpyLogger({ ...bindings, ...childBindings }, sink);
+		},
+	};
+}
+
+// ---------------------------------------------------------------------------
 // organComplianceSuite — vitest-integrated compliance harness
 // ---------------------------------------------------------------------------
 
@@ -178,6 +208,11 @@ export interface OrganComplianceOptions {
 	streaming?: Record<string, StreamingToolConfig>;
 	/** Override timeout for schema rejection check. Default: 400ms. */
 	schemaTimeoutMs?: number;
+	/**
+	 * Assert on log calls emitted by the organ under test.
+	 * Called after each probe with all log entries captured by the spy logger.
+	 */
+	logAssertions?: (logs: CapturedLog[]) => void;
 }
 
 /**
@@ -203,7 +238,10 @@ export interface OrganComplianceOptions {
  * Each check becomes its own vitest `it()` — failures show the specific
  * contract that was broken, not a single thrown error.
  */
-export function organComplianceSuite(createOrgan: () => Organ, opts: OrganComplianceOptions = {}): void {
+export function organComplianceSuite(
+	createOrgan: (logger?: OrganLogger) => Organ,
+	opts: OrganComplianceOptions = {},
+): void {
 	// Discover streaming tools once at describe() time — before any test runs.
 	// This lets us generate it() blocks per tool AND enforce that every
 	// streaming tool has a validPayload in opts.streaming.
@@ -228,13 +266,16 @@ export function organComplianceSuite(createOrgan: () => Organ, opts: OrganCompli
 		let organ: Organ;
 		let unmount: (() => void) | undefined;
 		const probeNerve = new InProcessNerve();
+		let capturedLogs: CapturedLog[] = [];
 
 		beforeEach(() => {
-			organ = createOrgan();
+			capturedLogs = [];
+			organ = createOrgan(makeSpyLogger({}, capturedLogs));
 			unmount = organ.mount(probeNerve.asNerve());
 		});
 		afterEach(() => {
 			unmount?.();
+			opts.logAssertions?.(capturedLogs);
 		});
 
 		// ── Structural ─────────────────────────────────────────────────────

@@ -236,7 +236,13 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 							"List all system prompt blocks with id, priority, enabled state, tags, and content preview.",
 						inputSchema: z.object({}),
 					},
-					async () => ({ blocks: g()?.list() ?? [] }),
+					async () => {
+						const blocks = g()?.list() ?? [];
+						return withDisplay(
+							{ blocks },
+							{ text: `${blocks.length} directive block(s)`, mimeType: "text/plain" },
+						);
+					},
 				),
 				"motor/alef.directive.enable": typedAction(
 					{
@@ -246,7 +252,10 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					},
 					async (ctx) => {
 						g()?.enable(ctx.payload.id);
-						return { ok: true };
+						return withDisplay(
+							{ ok: true },
+							{ text: `Enabled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+						);
 					},
 				),
 				"motor/alef.directive.disable": typedAction(
@@ -257,7 +266,10 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					},
 					async (ctx) => {
 						g()?.disable(ctx.payload.id);
-						return { ok: true };
+						return withDisplay(
+							{ ok: true },
+							{ text: `Disabled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+						);
 					},
 				),
 				"motor/alef.directive.toggle": typedAction(
@@ -268,7 +280,10 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					},
 					async (ctx) => {
 						g()?.toggle(ctx.payload.id);
-						return { ok: true };
+						return withDisplay(
+							{ ok: true },
+							{ text: `Toggled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+						);
 					},
 				),
 				"motor/alef.directive.replace": typedAction(
@@ -279,7 +294,10 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					},
 					async (ctx) => {
 						g()?.replace(ctx.payload.id, ctx.payload.content);
-						return { ok: true };
+						return withDisplay(
+							{ ok: true },
+							{ text: `Replaced directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+						);
 					},
 				),
 				"motor/alef.directive.add": typedAction(
@@ -295,7 +313,13 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					},
 					async (ctx) => {
 						g()?.add(ctx.payload.id, ctx.payload.priority, ctx.payload.content, ctx.payload.tags);
-						return { ok: true };
+						return withDisplay(
+							{ ok: true },
+							{
+								text: `Added directive: ${ctx.payload.id} (priority ${ctx.payload.priority})`,
+								mimeType: "text/plain",
+							},
+						);
 					},
 				),
 				"motor/alef.directive.remove": typedAction(
@@ -306,7 +330,10 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					},
 					async (ctx) => {
 						g()?.remove(ctx.payload.id);
-						return { ok: true };
+						return withDisplay(
+							{ ok: true },
+							{ text: `Removed directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+						);
 					},
 				),
 			}
@@ -322,7 +349,10 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					description: "List all Alef sessions across all working directories, newest first.",
 					inputSchema: z.object({}),
 				},
-				async () => ({ sessions: await listAllSessions() }),
+				async () => {
+					const sessions = await listAllSessions();
+					return withDisplay({ sessions }, { text: `${sessions.length} session(s)`, mimeType: "text/plain" });
+				},
 				{ shouldCache: () => false },
 			),
 			"motor/alef.sessions.search": typedAction(
@@ -331,7 +361,13 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					description: "Search sessions by keyword across name, first message, and conversation content.",
 					inputSchema: z.object({ query: z.string().min(1).describe("Keyword or phrase to search for") }),
 				},
-				async (ctx) => ({ results: await searchSessions(ctx.payload.query) }),
+				async (ctx) => {
+					const results = await searchSessions(ctx.payload.query);
+					return withDisplay(
+						{ results },
+						{ text: `${results.length} session(s) matching "${ctx.payload.query}"`, mimeType: "text/plain" },
+					);
+				},
 			),
 			"motor/alef.sessions.rename": typedAction(
 				{
@@ -342,7 +378,15 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 						name: z.string().min(1).describe("Concise descriptive name, e.g. 'ToolShell eval and amnesia fix'"),
 					}),
 				},
-				async (ctx) => renameSession(ctx.payload.id, ctx.payload.name),
+				async (ctx) => {
+					const result = await renameSession(ctx.payload.id, ctx.payload.name);
+					return withDisplay(result, {
+						text: result.ok
+							? `Renamed session ${ctx.payload.id} to "${ctx.payload.name}"`
+							: `Rename failed: ${result.error}`,
+						mimeType: "text/plain",
+					});
+				},
 			),
 			"motor/alef.sessions.read": typedAction(
 				{
@@ -353,7 +397,13 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 						maxTurns: z.number().optional().default(10).describe("Max turns to return (default 10)"),
 					}),
 				},
-				async (ctx) => ({ turns: await readSessionTurns(ctx.payload.id, ctx.payload.maxTurns) }),
+				async (ctx) => {
+					const turns = await readSessionTurns(ctx.payload.id, ctx.payload.maxTurns);
+					return withDisplay(
+						{ turns },
+						{ text: `${turns.length} turn(s) from session ${ctx.payload.id}`, mimeType: "text/plain" },
+					);
+				},
 			),
 			"motor/alef.config.get": typedAction(
 				{
@@ -361,7 +411,10 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					description: "Get the current Alef config from ~/.config/alef/config.yaml.",
 					inputSchema: z.object({}),
 				},
-				async () => ({ config: await getConfig() }),
+				async () => {
+					const config = await getConfig();
+					return withDisplay({ config }, { text: "Alef config loaded", mimeType: "text/plain" });
+				},
 				{ shouldCache: () => true },
 			),
 			"motor/alef.organs.list": typedAction(
@@ -370,7 +423,10 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					description: "List user-installed organs from ~/.config/alef/organs.yaml.",
 					inputSchema: z.object({}),
 				},
-				async () => ({ organs: await listOrgans() }),
+				async () => {
+					const organs = await listOrgans();
+					return withDisplay({ organs }, { text: "organs.yaml loaded", mimeType: "text/plain" });
+				},
 				{ shouldCache: () => true },
 			),
 			"motor/alef.pm.history": typedAction(
@@ -379,7 +435,13 @@ export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
 					description: "List organ package manager generation history.",
 					inputSchema: z.object({}),
 				},
-				async () => ({ history: await pmHistory() }),
+				async () => {
+					const history = await pmHistory();
+					return withDisplay(
+						{ history },
+						{ text: `${history.length} generation(s) in PM history`, mimeType: "text/plain" },
+					);
+				},
 				{ shouldCache: () => true },
 			),
 			"motor/alef.rebuild": typedAction(

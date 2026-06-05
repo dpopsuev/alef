@@ -1,5 +1,5 @@
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
-import { organComplianceSuite } from "@dpopsuev/alef-testkit";
+import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createLectorOrgan } from "../src/organ.js";
 import { StubLectorBackend } from "../src/stub-backend.js";

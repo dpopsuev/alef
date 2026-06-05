@@ -7,7 +7,7 @@
  */
 
 import http from "node:http";
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit";
+import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createRouterOrgan } from "../src/organ.js";
 

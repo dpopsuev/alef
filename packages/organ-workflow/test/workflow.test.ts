@@ -1,4 +1,4 @@
-import { organComplianceSuite } from "@dpopsuev/alef-testkit";
+import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { createWorkflowOrgan } from "../src/organ.js";
 import type { WorkflowDef } from "../src/schema.js";
 

@@ -230,6 +230,21 @@ export class Agent {
 	}
 
 	/**
+	 * Mount the reasoning organ (Cerebrum or ScriptedReasoner) after all
+	 * corpus organs are loaded. This guarantees the reasoner's getTools()
+	 * callback sees the full tool catalog — the implicit ordering requirement
+	 * that previously had to be managed by callers is now enforced here.
+	 *
+	 * Typically called after validate() and ready():
+	 *   agent.validate();
+	 *   await agent.ready();
+	 *   agent.setReasoner(new Cerebrum({ getTools: () => agent.tools, ... }));
+	 */
+	setReasoner(organ: Organ): this {
+		return this.load(organ);
+	}
+
+	/**
 	 * Unload an organ by name — unmounts it and removes it from the agent.
 	 * Safe to call while the agent is running. Returns true if found.
 	 */

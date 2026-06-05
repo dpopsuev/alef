@@ -20,7 +20,7 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@dpopsuev/alef-spine": "^0.0.1"
+    "@dpopsuev/alef-kernel": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

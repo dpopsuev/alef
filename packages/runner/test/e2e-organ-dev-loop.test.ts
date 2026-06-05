@@ -20,10 +20,10 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { SenseEvent } from "@dpopsuev/alef-kernel";
+import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { createEvalOrgan } from "@dpopsuev/alef-organ-eval";
 import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
-import type { SenseEvent } from "@dpopsuev/alef-spine";
-import { InProcessNerve } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 
 const tempDirs: string[] = [];
@@ -74,7 +74,7 @@ describe("ALE-TSK-340: organ-dev-loop via supervisor + eval organs", () => {
 		writeFileSync(
 			organPath,
 			`
-import { defineOrgan } from "@dpopsuev/alef-spine";
+import { defineOrgan } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export function createOrgan() {

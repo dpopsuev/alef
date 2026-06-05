@@ -1,5 +1,5 @@
 import http from "node:http";
-import type { ExecutionStrategy } from "@dpopsuev/alef-spine";
+import type { ExecutionStrategy } from "@dpopsuev/alef-kernel";
 
 function postToChild(endpoint: string, text: string, timeoutMs: number): Promise<void> {
 	return new Promise((resolve, reject) => {

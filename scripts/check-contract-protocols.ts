@@ -1,11 +1,11 @@
-import { EventInputValidationError, MemLog } from "../packages/spine/src/event-log.js";
+import { EventInputValidationError, MemLog } from "../packages/kernel/src/event-log.js";
 import {
 	PROTOCOL_EVENT_KINDS,
 	PROTOCOL_KERNEL_V1,
 	validateProtocolEnvelopeReport,
 	validateProtocolEvent,
-} from "../packages/spine/src/protocol.js";
-import { RuntimeDomainEventSpine } from "../packages/spine/src/spine.js";
+} from "../packages/kernel/src/protocol.js";
+import { RuntimeDomainEventSpine } from "../packages/kernel/src/spine.js";
 
 function assert(condition: unknown, message: string): asserts condition {
 	if (!condition) {

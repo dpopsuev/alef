@@ -109,7 +109,7 @@ describe("loadOrganFromPath", () => {
 		writeFileSync(
 			organFile,
 			`
-import type { Organ } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-kernel";
 export function createOrgan(_opts: unknown): Organ {
 	return {
 		name: "my-organ",

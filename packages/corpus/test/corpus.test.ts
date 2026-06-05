@@ -1,4 +1,4 @@
-import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";

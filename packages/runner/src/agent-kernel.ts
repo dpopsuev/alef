@@ -1,6 +1,6 @@
 import type { Message } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
-import type { Organ } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-kernel";
 import { SessionLog } from "./event-log-organ.js";
 import { LoopGuard } from "./loop-detector.js";
 import type { SessionStore } from "./session-store.js";

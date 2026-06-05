@@ -1,6 +1,6 @@
 import type { Context, FauxResponseFactory } from "@dpopsuev/alef-ai";
 import { fauxAssistantMessage, fauxText, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
-import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 import { DIALOG_MESSAGE_TOOL, NerveFixture, organComplianceSuite, TurnDriver } from "../../testkit/src/index.js";
 import { Cerebrum, createLlmPipeline } from "../src/index.js";
@@ -674,7 +674,7 @@ describe("Cerebrum — trackConcurrentOps", () => {
 // Schema validation hang regression
 // ---------------------------------------------------------------------------
 
-import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 describe("turn loop — schema validation failure", () => {
@@ -842,7 +842,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", () => {
 		]);
 
 		const { z } = await import("zod");
-		const { typedStreamAction } = await import("@dpopsuev/alef-spine");
+		const { typedStreamAction } = await import("@dpopsuev/alef-kernel");
 
 		// A streaming organ that yields three intermediate chunks then a final result
 		const streamingOrgan = defineOrgan(

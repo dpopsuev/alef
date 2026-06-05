@@ -9,8 +9,8 @@
  *   - Quiescence: loop terminates when LLM produces zero tool calls
  */
 
-import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
-import { passthroughSchema } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { passthroughSchema } from "@dpopsuev/alef-kernel";
 import { defineStubOrgan } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";

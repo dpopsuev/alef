@@ -9,7 +9,7 @@
  * runner entry point to unify all debug output under the pino pipeline.
  *
  * Usage:
- *   import { debugLog } from "@dpopsuev/alef-spine";
+ *   import { debugLog } from "@dpopsuev/alef-kernel";
  *   debugLog("llm:http:start", { turn, messages: n, tools: n });
  */
 

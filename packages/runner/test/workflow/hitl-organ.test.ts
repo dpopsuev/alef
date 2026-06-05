@@ -9,8 +9,8 @@
  *   - works end-to-end with a Binding chain
  */
 
+import { InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
 import { createHitlOrgan } from "@dpopsuev/alef-organ-hitl";
-import { InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeNerve() {

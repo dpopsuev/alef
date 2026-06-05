@@ -7,7 +7,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";

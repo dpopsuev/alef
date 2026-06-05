@@ -1,5 +1,5 @@
-import type { BaseOrganOptions, ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedStreamAction, withDisplay } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions, ExecutionStrategy, Organ } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedStreamAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export interface DelegateOrganOptions extends BaseOrganOptions {

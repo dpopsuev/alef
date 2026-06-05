@@ -1,4 +1,4 @@
-import { buildSense, type MotorEvent, type Nerve, type Organ, type ToolDefinition } from "@dpopsuev/alef-spine";
+import { buildSense, type MotorEvent, type Nerve, type Organ, type ToolDefinition } from "@dpopsuev/alef-kernel";
 
 export type StubHandler = (type: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
 

@@ -11,8 +11,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "@dpopsuev/alef-spine";
-import { extractToolCallId } from "@dpopsuev/alef-spine";
+import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { extractToolCallId } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export const DIALOG_MESSAGE = "dialog.message" as const;

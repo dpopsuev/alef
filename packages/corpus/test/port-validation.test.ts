@@ -2,7 +2,7 @@
  * Agent.validate() — seam cardinality enforcement.
  */
 
-import type { Nerve, Organ } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/index.js";

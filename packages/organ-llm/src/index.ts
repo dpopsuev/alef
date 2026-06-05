@@ -1,6 +1,6 @@
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
-import type { CerebrumHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-spine";
-import { defineOrgan, extractToolCallId, withDisplay } from "@dpopsuev/alef-spine";
+import type { CerebrumHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { defineOrgan, extractToolCallId, withDisplay } from "@dpopsuev/alef-kernel";
 
 /**
  * Payload field names used to extract a human-readable key argument from a

@@ -54,7 +54,7 @@
 				}
 			},
 			"includes": [
-				"packages/spine/src/**/*.ts",
+				"packages/kernel/src/**/*.ts",
 				"packages/corpus/src/**/*.ts",
 				"packages/organ-*/src/**/*.ts",
 				"packages/runner/src/**/*.ts",

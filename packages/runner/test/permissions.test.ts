@@ -2,13 +2,13 @@
  * Unit tests for wrapWithPermissions (ALE-TSK-251).
  */
 
-import type { Organ } from "@dpopsuev/alef-spine";
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-kernel";
+import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { parseArgs } from "../src/args.js";
 import { wrapWithPermissions } from "../src/materializer.js";
 
-declare module "@dpopsuev/alef-spine" {
+declare module "@dpopsuev/alef-kernel" {
 	interface MotorEventRegistry {
 		"fs.read": { path: string; toolCallId: string };
 		"fs.write": { path: string; content: string; toolCallId: string };
@@ -52,7 +52,7 @@ function makePassthroughOrgan(name: string): Organ {
 }
 
 function waitSense(nerve: InProcessNerve, type: string, correlationId: string) {
-	return new Promise<import("@dpopsuev/alef-spine").SenseEvent>((resolve) => {
+	return new Promise<import("@dpopsuev/alef-kernel").SenseEvent>((resolve) => {
 		const off = nerve.asNerve().sense.subscribe(type, (e) => {
 			if (e.correlationId === correlationId) {
 				off();

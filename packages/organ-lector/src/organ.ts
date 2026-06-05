@@ -14,8 +14,8 @@
  *   lector.write, lector.edit — invalidates: [path] (evicts read + callers cache)
  */
 
-import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { LectorBackend } from "./backend.js";
 import { LocalLectorBackend } from "./local-backend.js";

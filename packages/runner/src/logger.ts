@@ -1,4 +1,4 @@
-import { initSpineLogger } from "@dpopsuev/alef-spine";
+import { initSpineLogger } from "@dpopsuev/alef-kernel";
 import type { Logger } from "pino";
 import pino from "pino";
 import { debugLogPath, initTraceLogger } from "./debug-trace.js";

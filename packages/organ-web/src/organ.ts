@@ -18,7 +18,7 @@
  * Ref: TSK-181
  */
 
-import type { Organ } from "@dpopsuev/alef-spine";
+import type { Organ } from "@dpopsuev/alef-kernel";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -26,7 +26,7 @@ import {
 	truncateHead,
 	typedAction,
 	withDisplay,
-} from "@dpopsuev/alef-spine";
+} from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { defaultSearchEngine, resolveSearchEngine } from "./search-engines.js";
 

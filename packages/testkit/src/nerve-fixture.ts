@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { InProcessNerve, type Organ, type SenseEvent } from "@dpopsuev/alef-spine";
+import { InProcessNerve, type Organ, type SenseEvent } from "@dpopsuev/alef-kernel";
 import { BusEventRecorder } from "./index.js";
 
 /**

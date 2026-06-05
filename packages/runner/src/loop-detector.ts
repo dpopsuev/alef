@@ -22,8 +22,8 @@
  * termination — typically by aborting the current turn's AbortController.
  */
 
-import type { Nerve, Organ, SenseEvent } from "@dpopsuev/alef-spine";
-import { extractToolCallId } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ, SenseEvent } from "@dpopsuev/alef-kernel";
+import { extractToolCallId } from "@dpopsuev/alef-kernel";
 
 export interface LoopGuardOptions {
 	/**

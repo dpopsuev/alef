@@ -1,6 +1,6 @@
-import type { ToolDefinition } from "@dpopsuev/alef-spine";
+import type { ToolDefinition } from "@dpopsuev/alef-kernel";
 
-declare module "@dpopsuev/alef-spine" {
+declare module "@dpopsuev/alef-kernel" {
 	interface MotorEventRegistry {
 		/** DialogOrgan delivers a user message to the agent. */
 		"text.input": { text: string; tools: ToolDefinition[] };

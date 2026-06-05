@@ -10,8 +10,8 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ActionMap } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
+import type { ActionMap } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export interface DirectiveAdapter {

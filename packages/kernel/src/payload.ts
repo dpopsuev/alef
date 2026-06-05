@@ -9,7 +9,7 @@
  *   typeof ctx.payload.path === "string" ? ctx.payload.path : ""
  *
  * Usage:
- *   import { getString, getNumber, getBoolean } from "@dpopsuev/alef-spine";
+ *   import { getString, getNumber, getBoolean } from "@dpopsuev/alef-kernel";
  *   const path = getString(ctx.payload, "path") ?? "";
  *   const limit = getNumber(ctx.payload, "limit");
  *   const hidden = getBoolean(ctx.payload, "hidden") ?? false;

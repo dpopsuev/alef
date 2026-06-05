@@ -5,7 +5,7 @@
  * Layer 2: scoreSpans() pure scoring function.
  */
 
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { EvaluatorOrgan } from "../src/evaluator-organ.js";
 import type { SpanRecord } from "../src/metrics.js";

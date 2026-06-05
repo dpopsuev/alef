@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { MemLog } from "../packages/spine/src/event-log.js";
-import { validateProtocolEvent } from "../packages/spine/src/protocol.js";
-import { RuntimeDomainEventSpine } from "../packages/spine/src/spine.js";
+import { MemLog } from "../packages/kernel/src/event-log.js";
+import { validateProtocolEvent } from "../packages/kernel/src/protocol.js";
+import { RuntimeDomainEventSpine } from "../packages/kernel/src/spine.js";
 
 type MatrixRowName = "unit" | "integration" | "contract" | "e2e" | "concurrency" | "security" | "robustness";
 type RogybStage = "red" | "orange" | "green" | "yellow" | "blue";

@@ -201,7 +201,7 @@ describe("async MCP execute error handling — regression ALE-BUG-20", () => {
 		organ.mount(n);
 
 		// Collect sense events published on the "net.slow_fail" channel.
-		const senseEvents: import("@dpopsuev/alef-spine").SenseEvent[] = [];
+		const senseEvents: import("@dpopsuev/alef-kernel").SenseEvent[] = [];
 		n.sense.subscribe("net.slow_fail", (e) => {
 			senseEvents.push(e);
 		});
@@ -234,7 +234,7 @@ describe("async MCP execute error handling — regression ALE-BUG-20", () => {
 		const n = nerve.asNerve();
 		organ.mount(n);
 
-		const senseEvents: import("@dpopsuev/alef-spine").SenseEvent[] = [];
+		const senseEvents: import("@dpopsuev/alef-kernel").SenseEvent[] = [];
 		n.sense.subscribe("net.sync_fail", (e) => {
 			senseEvents.push(e);
 		});

@@ -1,6 +1,6 @@
 import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-ai";
-import type { CerebrumHandlerCtx, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
-import { debugLog, toolInputToJsonSchema } from "@dpopsuev/alef-spine";
+import type { CerebrumHandlerCtx, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { debugLog, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
 
 const DIALOG_MESSAGE = "dialog.message" as const;
 

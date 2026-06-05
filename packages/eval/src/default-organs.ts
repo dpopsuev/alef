@@ -8,9 +8,9 @@
  *   baseOrgansFactory: () => []
  */
 
+import type { Organ } from "@dpopsuev/alef-kernel";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-import type { Organ } from "@dpopsuev/alef-spine";
 
 export function defaultEvalOrgans(workspace: string): Organ[] {
 	return [createFsOrgan({ cwd: workspace }), createShellOrgan({ cwd: workspace })];

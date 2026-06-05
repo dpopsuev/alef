@@ -1,4 +1,4 @@
-import { InProcessNerve } from "@dpopsuev/alef-spine";
+import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { describe, expect, it, vi } from "vitest";
 import { LoopGuard } from "../src/loop-detector.js";
 

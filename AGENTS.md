@@ -46,7 +46,7 @@ Legitimate: external constraints, non-obvious regex, OS/API quirks that would su
 
 ## Organ Framework
 
-Organs live in `packages/organ-*`. Each organ depends only on `@dpopsuev/alef-spine` and `zod`.
+Organs live in `packages/organ-*`. Each organ depends only on `@dpopsuev/alef-kernel` and `zod`.
 
 Key spine exports:
 - `defineOrgan(name, actionMap, opts)` — create an organ

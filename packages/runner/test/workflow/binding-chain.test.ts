@@ -8,8 +8,8 @@
  *   - parallel-all mode: both must approve
  */
 
-import type { Binding } from "@dpopsuev/alef-spine";
-import { executeBindingChain, InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-spine";
+import type { Binding } from "@dpopsuev/alef-kernel";
+import { executeBindingChain, InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeNerve() {

@@ -33,7 +33,7 @@ export { type FsCacheScope, FsRuntime, type FsRuntimeOptions } from "./fs-runtim
 // Receives { cwd, actions?, logger? } from the blueprint; ignores unknown fields.
 export { createFsOrgan, type FsOrganOptions } from "./organ.js";
 
-import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
 import { createFsOrgan } from "./organ.js";
 /** Standard materializer entry point. Maps short names ("read") to full event types ("fs.read"). */
 export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: OrganLogger }): Organ {

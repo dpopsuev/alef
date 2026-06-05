@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { InProcessNerve, type Organ, type SenseEvent } from "@dpopsuev/alef-spine";
+import { InProcessNerve, type Organ, type SenseEvent } from "@dpopsuev/alef-kernel";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -309,7 +309,7 @@ export function organComplianceSuite(createOrgan: () => Organ, opts: OrganCompli
 // ---------------------------------------------------------------------------
 
 function probeMotor(
-	nerve: import("@dpopsuev/alef-spine").Nerve,
+	nerve: import("@dpopsuev/alef-kernel").Nerve,
 	toolName: string,
 	payload: Record<string, unknown>,
 	timeoutMs: number,

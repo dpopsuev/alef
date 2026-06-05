@@ -12,8 +12,8 @@
  * In-memory per organ instance (one process = one session). No persistence.
  */
 
-import type { Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
+import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { TodoItem, TodoStatus } from "./types.js";
 

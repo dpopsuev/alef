@@ -1,5 +1,6 @@
 import type { Api, Model } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
+import type { Organ } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
 import {
@@ -13,7 +14,6 @@ import {
 	type StationResult,
 	type StationRunner,
 } from "@dpopsuev/alef-organ-workflow";
-import type { Organ } from "@dpopsuev/alef-spine";
 import type { z } from "zod";
 
 const PRESET_CONTRACTS: Record<string, Contract<z.ZodTypeAny>> = {

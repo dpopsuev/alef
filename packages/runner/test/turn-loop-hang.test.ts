@@ -5,9 +5,9 @@
 
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
+import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
-import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 

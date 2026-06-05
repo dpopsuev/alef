@@ -1,5 +1,5 @@
-import type { SenseEvent } from "@dpopsuev/alef-spine";
-import { debugLog } from "@dpopsuev/alef-spine";
+import type { SenseEvent } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel";
 import type { ToolCall } from "./stream-turn.js";
 import type { CerebrumEvent } from "./tool-events.js";
 

@@ -21,8 +21,8 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Agent } from "@dpopsuev/alef-corpus";
+import { type ExecutionStrategy, gimpedOrgan, type Organ } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { type ExecutionStrategy, gimpedOrgan, type Organ } from "@dpopsuev/alef-spine";
 import { BusEventRecorder, ScriptedReasoner, type ScriptStep, step } from "./index.js";
 
 export interface GauntletOptions {

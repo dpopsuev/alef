@@ -25,7 +25,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
-// Storage record types — moved from @dpopsuev/alef-spine (CRP: only runner uses these)
+// Storage record types — moved from @dpopsuev/alef-kernel (CRP: only runner uses these)
 // ---------------------------------------------------------------------------
 
 export type BusKind = "motor" | "sense" | "internal";

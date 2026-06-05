@@ -1,9 +1,9 @@
 import type { Api, Model } from "@dpopsuev/alef-ai";
 import { Agent } from "@dpopsuev/alef-corpus";
+import type { ExecutionStrategy, Organ } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Cerebrum } from "@dpopsuev/alef-organ-llm";
-import type { ExecutionStrategy, Organ } from "@dpopsuev/alef-spine";
-import { debugLog } from "@dpopsuev/alef-spine";
 
 export class InProcessStrategy implements ExecutionStrategy {
 	constructor(

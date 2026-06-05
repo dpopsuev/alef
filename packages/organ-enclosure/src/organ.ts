@@ -16,8 +16,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Nerve, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction } from "@dpopsuev/alef-spine";
+import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { DockerSpaceOptions } from "./docker-space.js";
 import { DockerSpace } from "./docker-space.js";

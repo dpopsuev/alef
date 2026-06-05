@@ -15,8 +15,8 @@
  * parses a 0-100 score and reasoning string.
  */
 
-import type { BaseOrganOptions, CorpusHandlerCtx, Organ } from "@dpopsuev/alef-spine";
-import { defineOrgan, getNumber, getString } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions, CorpusHandlerCtx, Organ } from "@dpopsuev/alef-kernel";
+import { defineOrgan, getNumber, getString } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
 import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";

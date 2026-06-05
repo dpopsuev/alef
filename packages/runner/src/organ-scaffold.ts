@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 function writeOrganSource(name: string): string {
-	return `import { defineOrgan } from "@dpopsuev/alef-spine";
+	return `import { defineOrgan } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 const HELLO_TOOL = {
@@ -62,7 +62,7 @@ function writePackageJson(name: string, version: string): string {
 				check: "tsc --noEmit",
 			},
 			peerDependencies: {
-				"@dpopsuev/alef-spine": "*",
+				"@dpopsuev/alef-kernel": "*",
 				zod: "^3.0.0",
 			},
 			devDependencies: {

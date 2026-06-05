@@ -21,8 +21,8 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
-import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-spine";
 
 export interface ToolCallStart {
 	callId: string;

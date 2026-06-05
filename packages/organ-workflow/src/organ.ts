@@ -1,4 +1,4 @@
-import type { BaseOrganOptions } from "@dpopsuev/alef-spine";
+import type { BaseOrganOptions } from "@dpopsuev/alef-kernel";
 import {
 	debugLog,
 	defineOrgan,
@@ -7,7 +7,7 @@ import {
 	typedAction,
 	VALIDATE_REQUEST,
 	VALIDATE_RESULT,
-} from "@dpopsuev/alef-spine";
+} from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { Contract } from "./contract.js";
 import type { StationDef, WorkflowDef } from "./schema.js";

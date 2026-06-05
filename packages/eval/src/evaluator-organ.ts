@@ -10,7 +10,7 @@
  * Does NOT publish events — read-only observer.
  */
 
-import type { Nerve, NerveEvent, Organ } from "@dpopsuev/alef-spine";
+import type { Nerve, NerveEvent, Organ } from "@dpopsuev/alef-kernel";
 
 export interface EvaluatorOrganOptions {
 	/**

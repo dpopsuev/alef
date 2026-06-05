@@ -19,8 +19,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
-import type { ExecutionStrategy, Organ, OrganLogger } from "@dpopsuev/alef-spine";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-spine";
+import type { ExecutionStrategy, Organ, OrganLogger } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
 import { RemoteProcessStrategy } from "./remote-process.js";
@@ -193,7 +193,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 
 		// NODE_PATH lets jiti resolve @dpopsuev/* packages from organ files at any
 		// location outside the monorepo tree. Without this, organs written to the
-		// user's project workspace can't import @dpopsuev/alef-spine — child exits 1.
+		// user's project workspace can't import @dpopsuev/alef-kernel — child exits 1.
 		const alefNodeModules = new URL("../../../node_modules", import.meta.url).pathname;
 		const nodePath = [alefNodeModules, process.env.NODE_PATH].filter(Boolean).join(delimiter);
 		const env: NodeJS.ProcessEnv = {

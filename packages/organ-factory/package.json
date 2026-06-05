@@ -4,7 +4,10 @@
   "description": "Agent factory organ \u2014 write and register agent blueprints",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "source": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
   },
   "scripts": {
     "check": "tsc --noEmit"

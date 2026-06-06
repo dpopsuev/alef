@@ -1,8 +1,8 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { KeybindingsManager, TUI_KEYBINDINGS } from "../src/keybindings.js";
 
-describe("KeybindingsManager", () => {
+describe("KeybindingsManager", { tags: ["unit"] }, () => {
 	it("does not evict selector confirm when input submit is rebound", () => {
 		const keybindings = new KeybindingsManager(TUI_KEYBINDINGS, {
 			"tui.input.submit": ["enter", "ctrl+enter"],

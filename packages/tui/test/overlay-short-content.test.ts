@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { type Component, TUI } from "../src/tui.js";
 import { VirtualTerminal } from "./virtual-terminal.js";
 
@@ -18,7 +18,7 @@ class SimpleOverlay implements Component {
 	invalidate() {}
 }
 
-describe("TUI overlay with short content", () => {
+describe("TUI overlay with short content", { tags: ["unit"] }, () => {
 	it("should render overlay when content is shorter than terminal height", async () => {
 		// Terminal has 24 rows, but content only has 3 lines
 		const terminal = new VirtualTerminal(80, 24);

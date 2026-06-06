@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { getCellDimensions, resetCapabilitiesCache, setCellDimensions } from "../src/terminal-image.js";
 import { type Component, TUI } from "../src/tui.js";
 import { VirtualTerminal } from "./virtual-terminal.js";
@@ -41,7 +41,7 @@ function withImageTerminal<T>(fn: () => T): T {
 	}
 }
 
-describe("TUI cell size responses", () => {
+describe("TUI cell size responses", { tags: ["unit"] }, () => {
 	it("forwards bare escape even when a cell size query was sent at startup", () => {
 		withImageTerminal(() => {
 			const terminal = new VirtualTerminal(80, 24);

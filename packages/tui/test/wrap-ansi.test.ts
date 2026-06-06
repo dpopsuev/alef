@@ -1,8 +1,8 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { visibleWidth, wrapTextWithAnsi } from "../src/utils.js";
 
-describe("wrapTextWithAnsi", () => {
+describe("wrapTextWithAnsi", { tags: ["unit"] }, () => {
 	describe("underline styling", () => {
 		it("should not apply underline style before the styled text", () => {
 			const underlineOn = "\x1b[4m";
@@ -151,7 +151,7 @@ describe("wrapTextWithAnsi", () => {
 	});
 });
 
-describe("wrapTextWithAnsi with OSC 8 hyperlinks", () => {
+describe("wrapTextWithAnsi with OSC 8 hyperlinks", { tags: ["unit"] }, () => {
 	it("re-emits OSC 8 open at the start of continuation lines", () => {
 		// A hyperlink whose text is long enough to wrap
 		const url = "https://example.com";

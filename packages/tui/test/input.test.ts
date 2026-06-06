@@ -1,9 +1,9 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { Input } from "../src/components/input.js";
 import { visibleWidth } from "../src/utils.js";
 
-describe("Input component", () => {
+describe("Input component", { tags: ["unit"] }, () => {
 	it("submits value including backslash on Enter", () => {
 		const input = new Input();
 		let submitted: string | undefined;

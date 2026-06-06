@@ -54,6 +54,8 @@ export interface ToolShellOptions {
 	 * Default: 3. Set to Infinity to disable eviction.
 	 */
 	evictAfterTurn?: number;
+	/** Logger for warn/debug output. Defaults to no-op. */
+	logger?: OrganLogger;
 }
 
 // Marker string embedded in the catalog message so eviction can find it.
@@ -64,7 +66,7 @@ const CATALOG_MARKER = "\x00TOOL-CATALOG-v1\x00";
 // ---------------------------------------------------------------------------
 
 export function createToolShellOrgan(opts: ToolShellOptions) {
-	const { tools, organDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3 } = opts;
+	const { tools, organDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
 
 	const byName = new Map<string, ToolDefinition>();
 	for (const t of tools) byName.set(t.name, t);
@@ -226,6 +228,7 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 			directives: [
 				'The tool catalog is provided at the start of this conversation. To get the full schema for a tool, call tools.describe(["tool-name"]). To rediscover all available tools at any time, call tools.describe([]) — it returns the complete catalog. Never guess tool names or parameter shapes.',
 			],
+			logger,
 		},
 	);
 

@@ -3,7 +3,7 @@
  */
 
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import {
 	decodeKittyPrintable,
 	decodePrintableKey,
@@ -38,7 +38,7 @@ function withEnvVars(vars: Record<string, string | undefined>, fn: () => void): 
 	run(0);
 }
 
-describe("matchesKey", () => {
+describe("matchesKey", { tags: ["unit"] }, () => {
 	describe("Kitty protocol with alternate keys (non-Latin layouts)", () => {
 		// Kitty protocol flag 4 (Report alternate keys) sends:
 		// CSI codepoint:shifted:base ; modifier:event u
@@ -493,7 +493,7 @@ describe("matchesKey", () => {
 	});
 });
 
-describe("decodeKittyPrintable", () => {
+describe("decodeKittyPrintable", { tags: ["unit"] }, () => {
 	it("should decode Kitty keypad functional keys to printable characters", () => {
 		assert.strictEqual(decodeKittyPrintable("\x1b[57399u"), "0");
 		assert.strictEqual(decodeKittyPrintable("\x1b[57400u"), "1");
@@ -508,7 +508,7 @@ describe("decodeKittyPrintable", () => {
 	});
 });
 
-describe("decodePrintableKey", () => {
+describe("decodePrintableKey", { tags: ["unit"] }, () => {
 	it("should decode printable xterm modifyOtherKeys sequences", () => {
 		assert.strictEqual(decodePrintableKey("\x1b[27;2;69~"), "E");
 		assert.strictEqual(decodePrintableKey("\x1b[27;2;196~"), "Ä");
@@ -518,7 +518,7 @@ describe("decodePrintableKey", () => {
 	});
 });
 
-describe("parseKey", () => {
+describe("parseKey", { tags: ["unit"] }, () => {
 	describe("Kitty protocol with alternate keys", () => {
 		it("should return Latin key name when base layout key is present", () => {
 			setKittyProtocolActive(true);

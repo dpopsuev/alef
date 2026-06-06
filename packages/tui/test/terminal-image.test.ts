@@ -3,7 +3,7 @@
  */
 
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { Image } from "../src/components/image.js";
 import {
 	deleteAllKittyImages,
@@ -50,7 +50,7 @@ function withEnv(overrides: Record<string, string | undefined>, fn: () => void):
 	}
 }
 
-describe("isImageLine", () => {
+describe("isImageLine", { tags: ["unit"] }, () => {
 	describe("iTerm2 image protocol", () => {
 		it("should detect iTerm2 image escape sequence at start of line", () => {
 			// iTerm2 image escape sequence: ESC ]1337;File=...
@@ -196,7 +196,7 @@ describe("isImageLine", () => {
 	});
 });
 
-describe("detectCapabilities", () => {
+describe("detectCapabilities", { tags: ["unit"] }, () => {
 	it("defaults to hyperlinks: false for unknown terminals", () => {
 		withEnv({}, () => {
 			const caps = detectCapabilities();
@@ -273,7 +273,7 @@ describe("detectCapabilities", () => {
 	});
 });
 
-describe("Kitty image cursor movement", () => {
+describe("Kitty image cursor movement", { tags: ["unit"] }, () => {
 	it("can request no terminal-side cursor movement", () => {
 		const sequence = encodeKitty("AAAA", { columns: 2, rows: 2, moveCursor: false });
 		assert.ok(sequence.startsWith("\x1b_Ga=T,f=100,q=2,C=1,c=2,r=2;"));
@@ -338,7 +338,7 @@ describe("Kitty image cursor movement", () => {
 	});
 });
 
-describe("hyperlink", () => {
+describe("hyperlink", { tags: ["unit"] }, () => {
 	it("wraps text in OSC 8 open and close sequences", () => {
 		const result = hyperlink("click me", "https://example.com");
 		assert.strictEqual(result, "\x1b]8;;https://example.com\x1b\\click me\x1b]8;;\x1b\\");

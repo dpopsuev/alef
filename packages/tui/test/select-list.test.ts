@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { SelectList } from "../src/components/select-list.js";
 import { visibleWidth } from "../src/utils.js";
 
@@ -17,7 +17,7 @@ const visibleIndexOf = (line: string, text: string): number => {
 	return visibleWidth(line.slice(0, index));
 };
 
-describe("SelectList", () => {
+describe("SelectList", { tags: ["unit"] }, () => {
 	it("normalizes multiline descriptions to single line", () => {
 		const items = [
 			{

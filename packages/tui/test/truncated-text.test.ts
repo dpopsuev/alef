@@ -1,13 +1,13 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
 import { Chalk } from "chalk";
+import { describe, it } from "vitest";
 import { TruncatedText } from "../src/components/truncated-text.js";
 import { visibleWidth } from "../src/utils.js";
 
 // Force full color in CI so ANSI assertions are deterministic
 const chalk = new Chalk({ level: 3 });
 
-describe("TruncatedText component", () => {
+describe("TruncatedText component", { tags: ["unit"] }, () => {
 	it("pads output lines to exactly match width", () => {
 		const text = new TruncatedText("Hello world", 1, 0);
 		const lines = text.render(50);

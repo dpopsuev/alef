@@ -1,6 +1,6 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
 import { stripVTControlCharacters } from "node:util";
+import { describe, it } from "vitest";
 import { type AutocompleteProvider, CombinedAutocompleteProvider } from "../src/autocomplete.js";
 import { Editor, wordWrapLine } from "../src/components/editor.js";
 import { TUI } from "../src/tui.js";
@@ -38,7 +38,7 @@ async function flushAutocomplete(): Promise<void> {
 	await new Promise((resolve) => setImmediate(resolve));
 }
 
-describe("Editor component", () => {
+describe("Editor component", { tags: ["unit"] }, () => {
 	describe("Prompt history navigation", () => {
 		it("does nothing on Up arrow when history is empty", () => {
 			const editor = new Editor(createTestTUI(), defaultEditorTheme);

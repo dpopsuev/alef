@@ -1,6 +1,6 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
 import type { Terminal as XtermTerminalType } from "@xterm/headless";
+import { describe, it } from "vitest";
 import { deleteKittyImage, encodeKitty } from "../src/terminal-image.js";
 import { type Component, TUI } from "../src/tui.js";
 import { VirtualTerminal } from "./virtual-terminal.js";
@@ -64,7 +64,7 @@ function getCellItalic(terminal: VirtualTerminal, row: number, col: number): num
 	return cell.isItalic();
 }
 
-describe("TUI Kitty image cleanup", () => {
+describe("TUI Kitty image cleanup", { tags: ["unit"] }, () => {
 	it("deletes changed image ids before drawing moved placements", async () => {
 		const terminal = new LoggingVirtualTerminal(40, 10);
 		const tui = new TUI(terminal);
@@ -145,7 +145,7 @@ describe("TUI Kitty image cleanup", () => {
 	});
 });
 
-describe("TUI resize handling", () => {
+describe("TUI resize handling", { tags: ["unit"] }, () => {
 	it("triggers full re-render when terminal height changes", async () => {
 		await withEnv({ TERMUX_VERSION: undefined }, async () => {
 			const terminal = new VirtualTerminal(40, 10);
@@ -225,7 +225,7 @@ describe("TUI resize handling", () => {
 	});
 });
 
-describe("TUI content shrinkage", () => {
+describe("TUI content shrinkage", { tags: ["unit"] }, () => {
 	it("clears empty rows when content shrinks significantly", async () => {
 		const terminal = new VirtualTerminal(40, 10);
 		const tui = new TUI(terminal);
@@ -306,7 +306,7 @@ describe("TUI content shrinkage", () => {
 	});
 });
 
-describe("TUI differential rendering", () => {
+describe("TUI differential rendering", { tags: ["unit"] }, () => {
 	it("tracks cursor correctly when content shrinks with unchanged remaining lines", async () => {
 		const terminal = new VirtualTerminal(40, 10);
 		const tui = new TUI(terminal);

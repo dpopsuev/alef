@@ -1,6 +1,6 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
 import type { Terminal as XtermTerminalType } from "@xterm/headless";
+import { describe, it } from "vitest";
 import { type Component, TUI } from "../src/tui.js";
 import { VirtualTerminal } from "./virtual-terminal.js";
 
@@ -40,7 +40,7 @@ async function renderAndFlush(tui: TUI, terminal: VirtualTerminal): Promise<void
 	await terminal.waitForRender();
 }
 
-describe("TUI overlay compositing", () => {
+describe("TUI overlay compositing", { tags: ["unit"] }, () => {
 	it("should not leak styles when a trailing reset sits beyond the last visible column (no overlay)", async () => {
 		const width = 20;
 		const baseLine = `\x1b[3m${"X".repeat(width)}\x1b[23m`;

@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import type { Component, Focusable } from "../src/tui.js";
 import { TUI } from "../src/tui.js";
 import { VirtualTerminal } from "./virtual-terminal.js";
@@ -44,7 +44,7 @@ async function renderAndFlush(tui: TUI, terminal: VirtualTerminal): Promise<void
 	await terminal.waitForRender();
 }
 
-describe("TUI overlay non-capturing", () => {
+describe("TUI overlay non-capturing", { tags: ["unit"] }, () => {
 	describe("focus management", () => {
 		it("non-capturing overlay preserves focus on creation", async () => {
 			const terminal = new VirtualTerminal(80, 24);

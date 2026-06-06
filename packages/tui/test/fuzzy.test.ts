@@ -1,8 +1,8 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { fuzzyFilter, fuzzyMatch } from "../src/fuzzy.js";
 
-describe("fuzzyMatch", () => {
+describe("fuzzyMatch", { tags: ["unit"] }, () => {
 	it("empty query matches everything with score 0", () => {
 		const result = fuzzyMatch("", "anything");
 		assert.strictEqual(result.matches, true);
@@ -60,7 +60,7 @@ describe("fuzzyMatch", () => {
 	});
 });
 
-describe("fuzzyFilter", () => {
+describe("fuzzyFilter", { tags: ["unit"] }, () => {
 	it("empty query returns all items unchanged", () => {
 		const items = ["apple", "banana", "cherry"];
 		const result = fuzzyFilter(items, "", (x: string) => x);

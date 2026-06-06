@@ -1,8 +1,8 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { normalizeTerminalOutput, truncateToWidth, visibleWidth } from "../src/utils.js";
 
-describe("truncateToWidth", () => {
+describe("truncateToWidth", { tags: ["unit"] }, () => {
 	it("keeps output within width for very large unicode input", () => {
 		const text = "🙂界".repeat(100_000);
 		const truncated = truncateToWidth(text, 40, "…");
@@ -55,7 +55,7 @@ describe("truncateToWidth", () => {
 	});
 });
 
-describe("visibleWidth", () => {
+describe("visibleWidth", { tags: ["unit"] }, () => {
 	it("counts tabs inline and skips ANSI inline", () => {
 		assert.strictEqual(visibleWidth("\t\x1b[31m界\x1b[0m"), 5);
 	});

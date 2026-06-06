@@ -13,9 +13,9 @@
  */
 
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 
-describe("Bug regression: isImageLine() crash with image escape sequences", () => {
+describe("Bug regression: isImageLine() crash with image escape sequences", { tags: ["unit"] }, () => {
 	describe("Bug scenario: Terminal without image support", () => {
 		it("old implementation would return false, causing crash", () => {
 			/**

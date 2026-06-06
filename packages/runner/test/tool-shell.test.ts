@@ -11,7 +11,7 @@
  *   buildOrganDirectives — index from organ list
  */
 
-import type { ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { OrganLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
@@ -400,6 +400,58 @@ describe("buildBootCatalog", { tags: ["unit"] }, () => {
 	});
 });
 
+// ---------------------------------------------------------------------------
+// ALE-TSK-595: tools:describe:miss warn log
+// ---------------------------------------------------------------------------
+
+describe("tools.describe — miss warn log", { tags: ["unit"] }, () => {
+	it("emits tools:describe:miss warn log with name when tool is not in catalog", async () => {
+		type CapturedLog = { level: string; obj: Record<string, unknown>; msg: string };
+		const capturedLogs: CapturedLog[] = [];
+
+		const spyLogger: OrganLogger = {
+			debug(obj, msg) {
+				capturedLogs.push({ level: "debug", obj: obj as Record<string, unknown>, msg: msg ?? "" });
+			},
+			info(obj, msg) {
+				capturedLogs.push({ level: "info", obj: obj as Record<string, unknown>, msg: msg ?? "" });
+			},
+			warn(obj, msg) {
+				capturedLogs.push({ level: "warn", obj: obj as Record<string, unknown>, msg: msg ?? "" });
+			},
+			error(obj, msg) {
+				capturedLogs.push({ level: "error", obj: obj as Record<string, unknown>, msg: msg ?? "" });
+			},
+			child(bindings) {
+				return {
+					...spyLogger,
+					warn(obj, msg) {
+						capturedLogs.push({
+							level: "warn",
+							obj: { ...bindings, ...(obj as Record<string, unknown>) },
+							msg: msg ?? "",
+						});
+					},
+				} as OrganLogger;
+			},
+		};
+
+		const shell = createToolShellOrgan({ tools: [FS_READ], logger: spyLogger });
+		const h = makeHarness(shell);
+		harnesses.push(h);
+
+		h.publish("tools.describe", { names: ["agent.run"] });
+		await new Promise((r) => setTimeout(r, 100));
+
+		const { results } = h.senseResult("tools.describe");
+		expect((results as unknown[]).length).toBe(0);
+
+		const missLog = capturedLogs.find((l) => l.level === "warn" && l.msg === "tools:describe:miss");
+		expect(missLog, "tools:describe:miss warn log must be emitted").toBeDefined();
+		expect((missLog?.obj as { name?: string }).name).toBe("agent.run");
+	});
+});
+
 describe("buildOrganDirectives", { tags: ["unit"] }, () => {
 	it("maps each tool in an organ to that organ's directives", () => {
 		const organs = [
@@ -428,5 +480,48 @@ describe("buildOrganDirectives", { tags: ["unit"] }, () => {
 		];
 		const map = buildOrganDirectives(organs);
 		expect(map.get("fs.read")).toEqual(["Second directive."]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// ALE-TSK-597 — agent.run in tools.describe catalog (no full server boot)
+// ---------------------------------------------------------------------------
+
+describe("tools.describe catalog includes agent.run when included in tools list", { tags: ["integration"] }, () => {
+	const AGENT_RUN: ToolDefinition = {
+		name: "agent.run",
+		description: "Delegate a task to an in-process subagent and return its reply.",
+		inputSchema: z.object({ text: z.string(), profile: z.string().optional() }),
+	};
+
+	it("tools.describe({ names: [] }) payload.results contains agent.run", async () => {
+		const tools = [...ALL_TOOLS, AGENT_RUN];
+		const h = makeHarness(createToolShellOrgan({ tools }));
+		harnesses.push(h);
+
+		h.publish("tools.describe", { names: [] });
+		await new Promise((r) => setTimeout(r, 100));
+
+		const { results } = h.senseResult("tools.describe");
+		const names = (results as Array<{ name: string }>).map((r) => r.name);
+		expect(names).toContain("agent.run");
+	});
+
+	it("agent.run is in agent.tools after organ load via shell.search", () => {
+		const tools = [...ALL_TOOLS, AGENT_RUN];
+		const shell = createToolShellOrgan({ tools });
+		const agent = new Agent();
+		agent.load(shell);
+		harnesses.push({
+			agent,
+			recorder: new BusEventRecorder(),
+			publish: () => {},
+			senseResult: () => ({ results: [] }),
+			dispose: () => agent.dispose(),
+		});
+
+		const catalogNames = shell.search("").map((r) => r.name);
+		expect(catalogNames).toContain("agent.run");
+		expect(agent.tools.map((t) => t.name)).toContain("tools.describe");
 	});
 });

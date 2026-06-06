@@ -1,8 +1,8 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { visibleWidth, wrapTextWithAnsi } from "../src/utils.js";
 
-describe("regional indicator width regression", () => {
+describe("regional indicator width regression", { tags: ["unit"] }, () => {
 	it("treats partial flag grapheme as full-width to avoid streaming render drift", () => {
 		// Repro context:
 		// During streaming, "🇨🇳" often appears as an intermediate "🇨" first.

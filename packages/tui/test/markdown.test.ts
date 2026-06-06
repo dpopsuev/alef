@@ -1,7 +1,7 @@
 import assert from "node:assert";
-import { afterEach, describe, it } from "node:test";
 import type { Terminal as XtermTerminalType } from "@xterm/headless";
 import { Chalk } from "chalk";
+import { afterEach, describe, it } from "vitest";
 import { Markdown } from "../src/components/markdown.js";
 import { resetCapabilitiesCache, setCapabilities } from "../src/terminal-image.js";
 import { type Component, TUI } from "../src/tui.js";
@@ -35,7 +35,7 @@ function stripAnsi(line: string): string {
 	return line.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
-describe("Markdown component", () => {
+describe("Markdown component", { tags: ["unit"] }, () => {
 	describe("Lists", () => {
 		it("should render simple nested list", () => {
 			const markdown = new Markdown(

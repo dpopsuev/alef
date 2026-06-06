@@ -1,8 +1,8 @@
 import assert from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { ProcessTerminal } from "../src/terminal.js";
 
-describe("ProcessTerminal dimensions", () => {
+describe("ProcessTerminal dimensions", { tags: ["unit"] }, () => {
 	it("falls back to COLUMNS and LINES before default dimensions", () => {
 		const previousColumnsDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "columns");
 		const previousRowsDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "rows");

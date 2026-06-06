@@ -68,7 +68,7 @@ function findUnclosedQuoteStart(text: string): number | null {
 }
 
 function isTokenStart(text: string, index: number): boolean {
-	return index === 0 || PATH_DELIMITERS.has(text[index - 1] ?? "");
+	return index === 0 || PATH_DELIMITERS.has(text[index - 1] ?? "") || text[index - 1] === "@";
 }
 
 function extractQuotedPrefix(text: string): string | null {
@@ -84,11 +84,17 @@ function extractQuotedPrefix(text: string): string | null {
 	return text.slice(quoteStart);
 }
 
-function parsePathPrefix(prefix: string): { rawPrefix: string; isQuotedPrefix: boolean } {
-	if (prefix.startsWith('"')) {
-		return { rawPrefix: prefix.slice(1), isQuotedPrefix: true };
+function parsePathPrefix(prefix: string): { rawPrefix: string; isQuotedPrefix: boolean; isAtPrefix: boolean } {
+	if (prefix.startsWith('@"')) {
+		return { rawPrefix: prefix.slice(2), isQuotedPrefix: true, isAtPrefix: true };
 	}
-	return { rawPrefix: prefix, isQuotedPrefix: false };
+	if (prefix.startsWith('"')) {
+		return { rawPrefix: prefix.slice(1), isQuotedPrefix: true, isAtPrefix: false };
+	}
+	if (prefix.startsWith("@")) {
+		return { rawPrefix: prefix.slice(1), isQuotedPrefix: false, isAtPrefix: true };
+	}
+	return { rawPrefix: prefix, isQuotedPrefix: false, isAtPrefix: false };
 }
 
 function buildCompletionValue(path: string, options: { isQuotedPrefix: boolean }): string {
@@ -326,9 +332,10 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			return null;
 		}
 
-		const { rawPrefix, isQuotedPrefix } = parsePathPrefix(pathMatch);
+		const { rawPrefix, isQuotedPrefix, isAtPrefix } = parsePathPrefix(pathMatch);
+		// Use fd for @ triggers (even empty query) so .git is excluded via fd's default behaviour.
 		const suggestions =
-			!options.force && this.fdPath && rawPrefix.length > 0
+			!options.force && this.fdPath && (rawPrefix.length > 0 || isAtPrefix)
 				? await this.getFuzzyFileSuggestions(rawPrefix, {
 						isQuotedPrefix,
 						signal: options.signal,
@@ -339,8 +346,11 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		}
 		if (suggestions.length === 0) return null;
 
+		// Prepend the @ trigger back to suggestion values so the user sees "@README.md"
+		const items = isAtPrefix ? suggestions.map((s) => ({ ...s, value: `@${s.value}` })) : suggestions;
+
 		return {
-			items: suggestions,
+			items,
 			prefix: pathMatch,
 		};
 	}
@@ -355,7 +365,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		const currentLine = lines[cursorLine] || "";
 		const beforePrefix = currentLine.slice(0, cursorCol - prefix.length);
 		const afterCursor = currentLine.slice(cursorCol);
-		const isQuotedPrefix = prefix.startsWith('"');
+		const isQuotedPrefix = prefix.startsWith('"') || prefix.startsWith('@"');
 		const hasLeadingQuoteAfterCursor = afterCursor.startsWith('"');
 		const hasTrailingQuoteInItem = item.value.endsWith('"');
 		const adjustedAfterCursor =
@@ -394,8 +404,11 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			};
 		}
 
-		// For file paths, complete the path
-		const newLine = beforePrefix + item.value + adjustedAfterCursor;
+		// For file paths, complete the path. @ file mentions get a trailing space
+		// after the closing quote so the cursor is ready for the next word.
+		const isAtMention = prefix.startsWith("@");
+		const trailingSpace = isAtMention && !item.label.endsWith("/") && item.value.endsWith('"') ? " " : "";
+		const newLine = beforePrefix + item.value + trailingSpace + adjustedAfterCursor;
 		const newLines = [...lines];
 		newLines[cursorLine] = newLine;
 
@@ -412,6 +425,13 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 
 	// Extract a path-like prefix from the text before cursor
 	private extractPathPrefix(text: string, forceExtract: boolean = false): string | null {
+		// Handle @"quoted path" pattern — the @ is the file-mention trigger, the " starts a
+		// quoted path with spaces. Return the full @"..." token so the @ is preserved.
+		const atQuoteMatch = text.match(/(?:^|(?<=\s))(@"[^"]*)/);
+		if (atQuoteMatch) {
+			return atQuoteMatch[1];
+		}
+
 		const quotedPrefix = extractQuotedPrefix(text);
 		if (quotedPrefix) {
 			return quotedPrefix;
@@ -426,8 +446,13 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		}
 
 		// For natural triggers, return if it looks like a path, ends with /, starts with ~/, .
-		// Only return empty string if the text looks like it's starting a path context
-		if (pathPrefix.includes("/") || pathPrefix.startsWith(".") || pathPrefix.startsWith("~/")) {
+		// Also return for the @ file-mention trigger.
+		if (
+			pathPrefix.includes("/") ||
+			pathPrefix.startsWith(".") ||
+			pathPrefix.startsWith("~/") ||
+			pathPrefix.startsWith("@")
+		) {
 			return pathPrefix;
 		}
 
@@ -496,6 +521,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			let searchDir: string;
 			let searchPrefix: string;
 			const { rawPrefix, isQuotedPrefix } = parsePathPrefix(prefix);
+			// isAtPrefix is handled by the caller (getSuggestions prepends @ to values)
 			let expandedPrefix = rawPrefix;
 
 			// Handle home directory expansion

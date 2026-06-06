@@ -2232,13 +2232,13 @@ describe("Editor component", { tags: ["unit"] }, () => {
 				getSuggestions: async (lines, _cursorLine, cursorCol) => {
 					const text = lines[0] || "";
 					const prefix = text.slice(0, cursorCol);
-					// Only return slash command suggestions when line starts with /
-					if (prefix.startsWith("/")) {
+					// Only return slash command suggestions when line starts with :
+					if (prefix.startsWith(":")) {
 						const commands = [
-							{ value: "/model", label: "model", description: "Change model" },
-							{ value: "/help", label: "help", description: "Show help" },
+							{ value: ":model", label: "model", description: "Change model" },
+							{ value: ":help", label: "help", description: "Show help" },
 						];
-						const query = prefix.slice(1); // Remove leading /
+						const query = prefix.slice(1); // Remove leading :
 						const filtered = commands.filter((c) => c.value.startsWith(query));
 						if (filtered.length > 0) {
 							return { items: filtered, prefix };
@@ -2251,13 +2251,13 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			editor.setAutocompleteProvider(mockProvider);
 
-			// Type "/" - should show slash command suggestions
-			editor.handleInput("/");
+			// Type ":" - should show slash command suggestions
+			editor.handleInput(":");
 			await flushAutocomplete();
-			assert.strictEqual(editor.getText(), "/");
+			assert.strictEqual(editor.getText(), ":");
 			assert.strictEqual(editor.isShowingAutocomplete(), true);
 
-			// Backspace to delete "/" - should hide autocomplete completely
+			// Backspace to delete ":" - should hide autocomplete completely
 			editor.handleInput("\x7f"); // Backspace
 			await flushAutocomplete();
 			assert.strictEqual(editor.getText(), "");
@@ -2273,8 +2273,8 @@ describe("Editor component", { tags: ["unit"] }, () => {
 					const text = lines[0] || "";
 					const beforeCursor = text.slice(0, cursorCol);
 
-					// Check if we're in argument completion context: "/argtest <prefix>"
-					const argtestMatch = beforeCursor.match(/^\/argtest\s+(\S+)$/);
+					// Check if we're in argument completion context: ":argtest <prefix>"
+					const argtestMatch = beforeCursor.match(/^:argtest\s+(\S+)$/);
 					if (argtestMatch) {
 						const argumentText = argtestMatch[1]!;
 						const allArguments = [
@@ -2295,8 +2295,8 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			editor.setAutocompleteProvider(mockProvider);
 
-			// Type "/argtest two"
-			editor.handleInput("/");
+			// Type ":argtest two"
+			editor.handleInput(":");
 			editor.handleInput("a");
 			editor.handleInput("r");
 			editor.handleInput("g");
@@ -2309,7 +2309,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("w");
 			editor.handleInput("o");
 
-			assert.strictEqual(editor.getText(), "/argtest two");
+			assert.strictEqual(editor.getText(), ":argtest two");
 			await flushAutocomplete();
 			assert.strictEqual(editor.isShowingAutocomplete(), true);
 
@@ -2317,7 +2317,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\r");
 
 			// The exact typed value "two" should be retained
-			assert.strictEqual(editor.getText(), "/argtest two");
+			assert.strictEqual(editor.getText(), ":argtest two");
 		});
 
 		it("selects first prefix match on Enter when typed arg is not exact match", async () => {
@@ -2330,7 +2330,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 					const beforeCursor = text.slice(0, cursorCol);
 
 					// Check if we're in argument completion context
-					const argtestMatch = beforeCursor.match(/^\/argtest\s+(\S+)$/);
+					const argtestMatch = beforeCursor.match(/^:argtest\s+(\S+)$/);
 					if (argtestMatch) {
 						const argumentText = argtestMatch[1]!;
 						const allArguments = [
@@ -2351,8 +2351,8 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			editor.setAutocompleteProvider(mockProvider);
 
-			// Type "/argtest t" - filtered to [two, three, twelve], prefix "t" matches "two" first
-			editor.handleInput("/");
+			// Type ":argtest t" - filtered to [two, three, twelve], prefix "t" matches "two" first
+			editor.handleInput(":");
 			editor.handleInput("a");
 			editor.handleInput("r");
 			editor.handleInput("g");
@@ -2368,7 +2368,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			// Press Enter - "t" prefix matches "two" (first in list), so "two" is applied
 			editor.handleInput("\r");
-			assert.strictEqual(editor.getText(), "/argtest two");
+			assert.strictEqual(editor.getText(), ":argtest two");
 		});
 
 		it("highlights unique prefix match as user types (before full exact match)", async () => {
@@ -2380,7 +2380,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 					const text = lines[0] || "";
 					const beforeCursor = text.slice(0, cursorCol);
 
-					const argtestMatch = beforeCursor.match(/^\/argtest\s+(\S+)$/);
+					const argtestMatch = beforeCursor.match(/^:argtest\s+(\S+)$/);
 					if (argtestMatch) {
 						const argumentText = argtestMatch[1]!;
 						// Return all items - provider does not filter
@@ -2398,8 +2398,8 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			editor.setAutocompleteProvider(mockProvider);
 
-			// Type "/argtest tw" - "tw" is a prefix of only "two"
-			editor.handleInput("/");
+			// Type ":argtest tw" - "tw" is a prefix of only "two"
+			editor.handleInput(":");
 			editor.handleInput("a");
 			editor.handleInput("r");
 			editor.handleInput("g");
@@ -2411,13 +2411,13 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("t");
 			editor.handleInput("w");
 
-			assert.strictEqual(editor.getText(), "/argtest tw");
+			assert.strictEqual(editor.getText(), ":argtest tw");
 			await flushAutocomplete();
 			assert.strictEqual(editor.isShowingAutocomplete(), true);
 
 			// Press Enter - "tw" uniquely matches "two", so "two" should be applied
 			editor.handleInput("\r");
-			assert.strictEqual(editor.getText(), "/argtest two");
+			assert.strictEqual(editor.getText(), ":argtest two");
 		});
 
 		it("selects first prefix match when multiple items match", async () => {
@@ -2429,7 +2429,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 					const text = lines[0] || "";
 					const beforeCursor = text.slice(0, cursorCol);
 
-					const argtestMatch = beforeCursor.match(/^\/argtest\s+(\S+)$/);
+					const argtestMatch = beforeCursor.match(/^:argtest\s+(\S+)$/);
 					if (argtestMatch) {
 						const argumentText = argtestMatch[1]!;
 						const allArguments = [
@@ -2446,8 +2446,8 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			editor.setAutocompleteProvider(mockProvider);
 
-			// Type "/argtest t" - "t" is a prefix of both "two" and "three"
-			editor.handleInput("/");
+			// Type ":argtest t" - "t" is a prefix of both "two" and "three"
+			editor.handleInput(":");
 			editor.handleInput("a");
 			editor.handleInput("r");
 			editor.handleInput("g");
@@ -2463,7 +2463,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			// Press Enter - "t" matches "two" first, so "two" is selected
 			editor.handleInput("\r");
-			assert.strictEqual(editor.getText(), "/argtest two");
+			assert.strictEqual(editor.getText(), ":argtest two");
 		});
 
 		it("works for built-in-style command argument completion path (model-like)", async () => {
@@ -2475,9 +2475,9 @@ describe("Editor component", { tags: ["unit"] }, () => {
 					const text = lines[0] || "";
 					const beforeCursor = text.slice(0, cursorCol);
 
-					// Check if we're in /model argument completion context
+					// Check if we're in :model argument completion context
 					// Use [^ ]+ to match any non-space characters (including hyphens)
-					const modelMatch = beforeCursor.match(/^\/model\s+(\S+)$/);
+					const modelMatch = beforeCursor.match(/^:model\s+(\S+)$/);
 					if (modelMatch) {
 						const modelText = modelMatch[1]!;
 						const allModels = [
@@ -2498,8 +2498,8 @@ describe("Editor component", { tags: ["unit"] }, () => {
 
 			editor.setAutocompleteProvider(mockProvider);
 
-			// Type "/model gpt-4o-mini" - exact match for second item in list
-			editor.handleInput("/");
+			// Type ":model gpt-4o-mini" - exact match for second item in list
+			editor.handleInput(":");
 			editor.handleInput("m");
 			editor.handleInput("o");
 			editor.handleInput("d");
@@ -2518,7 +2518,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("n");
 			editor.handleInput("i");
 
-			assert.strictEqual(editor.getText(), "/model gpt-4o-mini");
+			assert.strictEqual(editor.getText(), ":model gpt-4o-mini");
 			await flushAutocomplete();
 			assert.strictEqual(editor.isShowingAutocomplete(), true);
 
@@ -2526,7 +2526,7 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			editor.handleInput("\r");
 
 			// The exact typed value should be retained
-			assert.strictEqual(editor.getText(), "/model gpt-4o-mini");
+			assert.strictEqual(editor.getText(), ":model gpt-4o-mini");
 		});
 
 		it("awaits async slash command argument completions", async () => {
@@ -2543,14 +2543,14 @@ describe("Editor component", { tags: ["unit"] }, () => {
 				process.cwd(),
 			);
 			editor.setAutocompleteProvider(provider);
-			editor.setText("/load-skills ");
+			editor.setText(":load-skills ");
 
 			editor.handleInput("s");
 			await flushAutocomplete();
 			assert.strictEqual(editor.isShowingAutocomplete(), true);
 
 			editor.handleInput("\t");
-			assert.strictEqual(editor.getText(), "/load-skills skill-a");
+			assert.strictEqual(editor.getText(), ":load-skills skill-a");
 			assert.strictEqual(editor.isShowingAutocomplete(), false);
 		});
 
@@ -2569,12 +2569,12 @@ describe("Editor component", { tags: ["unit"] }, () => {
 				process.cwd(),
 			);
 			editor.setAutocompleteProvider(provider);
-			editor.setText("/load-skills ");
+			editor.setText(":load-skills ");
 
 			editor.handleInput("s");
 			await flushAutocomplete();
 			assert.strictEqual(editor.isShowingAutocomplete(), false);
-			assert.strictEqual(editor.getText(), "/load-skills s");
+			assert.strictEqual(editor.getText(), ":load-skills s");
 		});
 
 		it("does not show argument completions when command has no argument completer", async () => {
@@ -2592,14 +2592,14 @@ describe("Editor component", { tags: ["unit"] }, () => {
 			);
 			editor.setAutocompleteProvider(provider);
 
-			editor.handleInput("/");
+			editor.handleInput(":");
 			editor.handleInput("h");
 			editor.handleInput("e");
 			await flushAutocomplete();
 			assert.strictEqual(editor.isShowingAutocomplete(), true);
 
 			editor.handleInput("\t");
-			assert.strictEqual(editor.getText(), "/help ");
+			assert.strictEqual(editor.getText(), ":help ");
 			assert.strictEqual(editor.isShowingAutocomplete(), false);
 		});
 	});

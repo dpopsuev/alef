@@ -23,7 +23,7 @@ function getUrl(input: unknown): string {
 	throw new Error(`Unsupported fetch input: ${String(input)}`);
 }
 
-describe("GitHub Copilot OAuth device flow", () => {
+describe("GitHub Copilot OAuth device flow", { tags: ["unit"] }, () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 		vi.useRealTimers();

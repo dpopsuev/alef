@@ -70,7 +70,7 @@ function makeAgent(): Agent {
 // load()
 // ---------------------------------------------------------------------------
 
-describe("Agent — load()", () => {
+describe("Agent — load()", { tags: ["unit"] }, () => {
 	it("accepts an Organ and returns this for chaining", () => {
 		const agent = makeAgent();
 		expect(agent.load(makeNoopOrgan())).toBe(agent);
@@ -154,7 +154,7 @@ describe("Agent — load()", () => {
 // prompt()
 // ---------------------------------------------------------------------------
 
-describe("Agent — dialog.send()", () => {
+describe("Agent — dialog.send()", { tags: ["unit"] }, () => {
 	it("resolves with reply text from an echo organ", async () => {
 		const agent = makeAgent();
 		const dialog = new DialogOrgan({ sink: () => {} });
@@ -191,7 +191,7 @@ describe("Agent — dialog.send()", () => {
 // dispose()
 // ---------------------------------------------------------------------------
 
-describe("Agent — dispose()", () => {
+describe("Agent — dispose()", { tags: ["unit"] }, () => {
 	it("calls organ unmount on dispose", () => {
 		const agent = makeAgent();
 		let unmounted = false;
@@ -221,7 +221,7 @@ describe("Agent — dispose()", () => {
 // Payload validation tests
 // ---------------------------------------------------------------------------
 
-describe("Agent payload validation", () => {
+describe("Agent payload validation", { tags: ["unit"] }, () => {
 	it("passes when motor publish matches declared schema", async () => {
 		const agent = new Agent();
 		const organ: Organ = {
@@ -333,7 +333,7 @@ describe("Agent payload validation", () => {
 // unload() + reload()
 // ---------------------------------------------------------------------------
 
-describe("Agent — unload()", () => {
+describe("Agent — unload()", { tags: ["unit"] }, () => {
 	it("returns false when organ name not found", () => {
 		const agent = makeAgent();
 		expect(agent.unload("nonexistent")).toBe(false);
@@ -383,7 +383,7 @@ describe("Agent — unload()", () => {
 	});
 });
 
-describe("Agent — reload()", () => {
+describe("Agent — reload()", { tags: ["unit"] }, () => {
 	it("replaces an existing organ with a new instance", () => {
 		const agent = makeAgent();
 		let v1Unmounted = false;

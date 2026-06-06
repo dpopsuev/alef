@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildModel, hasCredentials } from "../src/model.js";
 
-describe("buildModel", () => {
+describe("buildModel", { tags: ["unit"] }, () => {
 	it("returns a Model with the given id", () => {
 		const model = buildModel("claude-haiku-4-5");
 		expect(model.id).toBe("claude-haiku-4-5");
@@ -31,7 +31,7 @@ describe("buildModel", () => {
 	});
 });
 
-describe("hasCredentials", () => {
+describe("hasCredentials", { tags: ["unit"] }, () => {
 	let savedApiKey: string | undefined;
 	let savedVertexProject: string | undefined;
 	let savedRegion: string | undefined;

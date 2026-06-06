@@ -31,7 +31,7 @@ const SKIP = !(await dockerAvailable());
 // DockerSpace unit tests (require Docker)
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP)("DockerSpace — container lifecycle", () => {
+describe.skipIf(SKIP)("DockerSpace — container lifecycle", { tags: ["unit"] }, () => {
 	it("creates a container and execs a command", async () => {
 		const space = await DockerSpace.create({ image: "alpine:latest" });
 		try {
@@ -85,7 +85,7 @@ describe.skipIf(SKIP)("DockerSpace — container lifecycle", () => {
 // EnclosureOrgan with backend='docker'
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP)("EnclosureOrgan — docker backend", () => {
+describe.skipIf(SKIP)("EnclosureOrgan — docker backend", { tags: ["unit"] }, () => {
 	it("creates a space and execs a command via organ events", async () => {
 		const { mkdtemp } = await import("node:fs/promises");
 		const { tmpdir } = await import("node:os");
@@ -145,7 +145,7 @@ describe.skipIf(SKIP)("EnclosureOrgan — docker backend", () => {
 // Backend selection — no Docker required (uses stub)
 // ---------------------------------------------------------------------------
 
-describe("EnclosureOrgan — backend selection", () => {
+describe("EnclosureOrgan — backend selection", { tags: ["unit"] }, () => {
 	it("backend='stub' uses StubSpace (no Docker)", () => {
 		const organ = createEnclosureOrgan({ backend: "stub" });
 		expect(organ.name).toBe("enclosure");

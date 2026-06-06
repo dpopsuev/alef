@@ -63,7 +63,7 @@ function runProbe(action: string): ProbeResult {
 	return JSON.parse(lastLine) as ProbeResult;
 }
 
-describe("lazy provider module loading", () => {
+describe("lazy provider module loading", { tags: ["unit"] }, () => {
 	it("does not load provider SDKs when importing the root barrel", () => {
 		const result = runProbe("");
 		expect(result.loadedSpecifiers).toEqual([]);

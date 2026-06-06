@@ -6,7 +6,7 @@ function visibleWidth(s: string): number {
 	return s.replace(/\x1b\[[0-9;]*m/g, "").length;
 }
 
-describe("pill delimiter alignment", () => {
+describe("pill delimiter alignment", { tags: ["unit"] }, () => {
 	for (const width of [20, 40, 80, 120, 160]) {
 		it(`header and footer are same width at ${width} columns`, () => {
 			const header = pillHeaderStr("@you", width);

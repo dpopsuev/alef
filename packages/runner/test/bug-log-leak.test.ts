@@ -15,7 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLogger } from "../src/logger.js";
 
-describe("logger: TUI mode must not write to stderr", () => {
+describe("logger: TUI mode must not write to stderr", { tags: ["unit"] }, () => {
 	let stderrWrites: string[] = [];
 	let spy: ReturnType<typeof vi.spyOn>;
 
@@ -47,7 +47,7 @@ describe("logger: TUI mode must not write to stderr", () => {
 	});
 });
 
-describe("createLoggerForTui: debug output goes to file not stderr", () => {
+describe("createLoggerForTui: debug output goes to file not stderr", { tags: ["unit"] }, () => {
 	it("createLoggerForTui is exported from logger.ts", async () => {
 		const loggerModule = await import("../src/logger.js");
 		expect(typeof (loggerModule as Record<string, unknown>).createLoggerForTui).toBe("function");

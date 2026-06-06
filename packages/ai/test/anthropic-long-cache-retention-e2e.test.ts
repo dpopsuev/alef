@@ -108,7 +108,7 @@ async function expectLongCacheRetentionAccepted(
 	expect(response.stopReason, response.errorMessage).not.toBe("error");
 }
 
-describe("Anthropic Messages long cache retention E2E", () => {
+describe("Anthropic Messages long cache retention E2E", { tags: ["real-llm"] }, () => {
 	it("covers every generated anthropic-messages model", () => {
 		const expectedModels = getProviders().flatMap((provider) =>
 			getAnthropicMessagesModels(provider).map((model) => `${provider}/${model.id}`),

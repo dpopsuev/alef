@@ -42,7 +42,7 @@ const IMPLEMENT_OUTPUT = {
 	firstAction: "Add CSS variable for dark mode colours",
 };
 
-describe("Intent → Goal → Implement pipeline", () => {
+describe("Intent → Goal → Implement pipeline", { tags: ["unit"] }, () => {
 	it("fulfills all three contracts via scripted tool calls", async () => {
 		const faux = registerFauxProvider();
 

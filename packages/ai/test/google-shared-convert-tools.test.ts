@@ -10,7 +10,7 @@ function makeTool(parameters: Record<string, unknown>): Tool {
 	};
 }
 
-describe("google-shared convertTools", () => {
+describe("google-shared convertTools", { tags: ["unit"] }, () => {
 	it("strips JSON Schema meta keys from parameters when useParameters=true", () => {
 		const tools = [
 			makeTool({

@@ -217,7 +217,7 @@ function collectEventsUntilReply(baseUrl: string, expected: string, timeoutMs = 
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("alef binary smoke tests (no real LLM)", () => {
+describe("alef binary smoke tests (no real LLM)", { tags: ["integration"] }, () => {
 	it("boots and responds to GET /health", async () => {
 		const cwd = makeTmp();
 		const { baseUrl } = await bootAlef(cwd, ["ping"]);

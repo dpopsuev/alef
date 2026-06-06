@@ -38,7 +38,7 @@ function makeSenseEvent(type: "test.result" | "test.observation" = "test.result"
 // Nerve — sense.subscribe, motor.subscribe, motor.publish, sense.publish
 // ---------------------------------------------------------------------------
 
-describe("Nerve — sense.subscribe", () => {
+describe("Nerve — sense.subscribe", { tags: ["unit"] }, () => {
 	it("delivers sense event to subscriber", () => {
 		const nerve = new InProcessNerve();
 		const cerebrum = nerve.asNerve();
@@ -76,7 +76,7 @@ describe("Nerve — sense.subscribe", () => {
 	});
 });
 
-describe("Nerve — motor.publish", () => {
+describe("Nerve — motor.publish", { tags: ["unit"] }, () => {
 	it("delivers motor event to subscriber", () => {
 		const nerve = new InProcessNerve();
 		const cerebrum = nerve.asNerve();
@@ -95,7 +95,7 @@ describe("Nerve — motor.publish", () => {
 
 // ---------------------------------------------------------------------------
 
-describe("Nerve — motor.subscribe", () => {
+describe("Nerve — motor.subscribe", { tags: ["unit"] }, () => {
 	it("delivers motor event to subscriber", () => {
 		const nerve = new InProcessNerve();
 		const corpus = nerve.asNerve();
@@ -121,7 +121,7 @@ describe("Nerve — motor.subscribe", () => {
 	});
 });
 
-describe("Nerve — sense.publish", () => {
+describe("Nerve — sense.publish", { tags: ["unit"] }, () => {
 	it("delivers sense event to subscriber", () => {
 		const nerve = new InProcessNerve();
 		const corpus = nerve.asNerve();
@@ -139,7 +139,7 @@ describe("Nerve — sense.publish", () => {
 // Agent root methods
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — corpus root methods", () => {
+describe("InProcessNerve — corpus root methods", { tags: ["unit"] }, () => {
 	it("publishMotor reaches CorpusNerve subscriber", () => {
 		const nerve = new InProcessNerve();
 		const received: NerveEvent[] = [];
@@ -191,7 +191,7 @@ describe("InProcessNerve — corpus root methods", () => {
 // Wildcard subscriptions (for BusEventRecorder)
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — wildcard subscriptions", () => {
+describe("InProcessNerve — wildcard subscriptions", { tags: ["unit"] }, () => {
 	it("onAnyMotor receives all motor events", () => {
 		const nerve = new InProcessNerve();
 		const received: NerveEvent[] = [];
@@ -219,7 +219,7 @@ describe("InProcessNerve — wildcard subscriptions", () => {
 // listenerCount
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — listenerCount", () => {
+describe("InProcessNerve — listenerCount", { tags: ["unit"] }, () => {
 	it("returns 0 for unregistered type", () => {
 		const nerve = new InProcessNerve();
 		expect(nerve.listenerCount("motor", "test.command")).toBe(0);
@@ -241,7 +241,7 @@ describe("InProcessNerve — listenerCount", () => {
 // ALE-BUG-15 — InProcessBus.firstSeen LRU cap
 // ---------------------------------------------------------------------------
 
-describe("InProcessBus.firstSeen LRU cap (ALE-BUG-15)", () => {
+describe("InProcessBus.firstSeen LRU cap (ALE-BUG-15)", { tags: ["unit"] }, () => {
 	it("firstSeen size stays bounded after many unique correlationIds", () => {
 		const nerve = new InProcessNerve();
 		const n = nerve.asNerve();

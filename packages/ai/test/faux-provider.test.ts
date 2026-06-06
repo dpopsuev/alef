@@ -27,7 +27,7 @@ afterEach(() => {
 	}
 });
 
-describe("faux provider", () => {
+describe("faux provider", { tags: ["unit"] }, () => {
 	it("registers a custom provider and estimates usage", async () => {
 		const registration = registerFauxProvider();
 		registrations.push(registration);

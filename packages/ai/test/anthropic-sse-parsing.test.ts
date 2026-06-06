@@ -78,7 +78,7 @@ function createFakeAnthropicClient(response: Response): Anthropic {
 	} as unknown as Anthropic;
 }
 
-describe("Anthropic raw SSE parsing", () => {
+describe("Anthropic raw SSE parsing", { tags: ["unit"] }, () => {
 	it("repairs malformed SSE JSON and malformed streamed tool JSON", async () => {
 		const model = getModel("anthropic", "claude-haiku-4-5");
 		const context: Context = {

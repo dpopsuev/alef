@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isThinkingPart, retainThoughtSignature } from "../src/providers/google-shared.js";
 
-describe("Google thinking detection (thoughtSignature)", () => {
+describe("Google thinking detection (thoughtSignature)", { tags: ["unit"] }, () => {
 	it("treats part.thought === true as thinking", () => {
 		expect(isThinkingPart({ thought: true, thoughtSignature: undefined })).toBe(true);
 		expect(isThinkingPart({ thought: true, thoughtSignature: "opaque-signature" })).toBe(true);

@@ -28,7 +28,7 @@ function makeDefinition(organs: { name: string; actions?: string[] }[]) {
 	});
 }
 
-describe("materializeBlueprint", () => {
+describe("materializeBlueprint", { tags: ["unit"] }, () => {
 	it("returns empty organ list when no organs declared", async () => {
 		const def = compileAgentDefinition({ name: "empty" });
 		const result = await materializeBlueprint(def, { cwd: CWD });
@@ -102,7 +102,7 @@ describe("materializeBlueprint", () => {
 	});
 });
 
-describe("loadOrganFromPath", () => {
+describe("loadOrganFromPath", { tags: ["unit"] }, () => {
 	it("loads a TypeScript organ file and calls createOrgan()", async () => {
 		const dir = makeTmp();
 		const organFile = join(dir, "my-organ.ts");
@@ -133,7 +133,7 @@ export function createOrgan(_opts: unknown): Organ {
 	});
 });
 
-describe("loadUserOrgansConfig", () => {
+describe("loadUserOrgansConfig", { tags: ["unit"] }, () => {
 	it("returns null when organs.yaml does not exist", () => {
 		const dir = makeTmp();
 		process.env.ALEF_PM_ROOT = dir;

@@ -34,7 +34,7 @@ organComplianceSuite(() => createDelegateOrgan({ strategies: { explore: slowStra
 // toolCallId/correlationId routing — testable without Cerebrum.
 // ---------------------------------------------------------------------------
 
-describe("agent.run — parallel stream isolation", () => {
+describe("agent.run — parallel stream isolation", { tags: ["unit"] }, () => {
 	it("two concurrent calls emit chunks only to their own sense correlation", async () => {
 		// Given: a strategy that encodes the task text in every chunk it emits.
 		const strategy: ExecutionStrategy = {

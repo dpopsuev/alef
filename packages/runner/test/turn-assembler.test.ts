@@ -38,7 +38,7 @@ const LARGE_CONTEXT = 200_000;
 // recentGuarantee
 // ---------------------------------------------------------------------------
 
-describe("assembleTurns — recentGuarantee", () => {
+describe("assembleTurns — recentGuarantee", { tags: ["unit"] }, () => {
 	it("always includes the last N turns regardless of score", () => {
 		const turns = Array.from({ length: 20 }, (_, i) => makeTurn(`c-${i}`, i));
 		const result = assembleTurns(turns, { query: "unrelated", contextWindow: LARGE_CONTEXT });
@@ -62,7 +62,7 @@ describe("assembleTurns — recentGuarantee", () => {
 // Budget enforcement
 // ---------------------------------------------------------------------------
 
-describe("assembleTurns — budget", () => {
+describe("assembleTurns — budget", { tags: ["unit"] }, () => {
 	it("never exceeds historyBudget in total token cost", () => {
 		const turns = Array.from({ length: 30 }, (_, i) => makeTurn(`c-${i}`, i, { tokenCost: 500 }));
 		const contextWindow = 10_000;
@@ -95,7 +95,7 @@ describe("assembleTurns — budget", () => {
 // Chronological sort
 // ---------------------------------------------------------------------------
 
-describe("assembleTurns — ordering", () => {
+describe("assembleTurns — ordering", { tags: ["unit"] }, () => {
 	it("returns turns sorted by turnIndex ascending (chronological for LLM)", () => {
 		const turns = Array.from({ length: 10 }, (_, i) => makeTurn(`c-${i}`, i));
 		const result = assembleTurns(turns, { query: "anything", contextWindow: LARGE_CONTEXT });
@@ -110,7 +110,7 @@ describe("assembleTurns — ordering", () => {
 // typeWeight scoring
 // ---------------------------------------------------------------------------
 
-describe("assembleTurns — typeWeight", () => {
+describe("assembleTurns — typeWeight", { tags: ["unit"] }, () => {
 	it("write-type turn scores higher than grep-only turn", () => {
 		// Create exactly recentGuarantee+1 turns so we have one candidate to score
 		const writeTurn = makeTurn("write", 0, { typeWeight: 2.0, tokenCost: 200 });
@@ -143,7 +143,7 @@ describe("assembleTurns — typeWeight", () => {
 // LRU hit counts
 // ---------------------------------------------------------------------------
 
-describe("assembleTurns — LRU hit counts", () => {
+describe("assembleTurns — LRU hit counts", { tags: ["unit"] }, () => {
 	it("turn with higher hit count scores better", () => {
 		const hotTurn = makeTurn("hot", 0, { tokenCost: 100 });
 		const coldTurn = makeTurn("cold", 1, { tokenCost: 100 });
@@ -175,7 +175,7 @@ describe("assembleTurns — LRU hit counts", () => {
 // Term overlap
 // ---------------------------------------------------------------------------
 
-describe("assembleTurns — term overlap", () => {
+describe("assembleTurns — term overlap", { tags: ["unit"] }, () => {
 	it("turn whose payload contains query keywords scores higher", () => {
 		const relevantTurn = makeTurn("relevant", 0, {
 			tokenCost: 100,
@@ -206,7 +206,7 @@ describe("assembleTurns — term overlap", () => {
 // Empty / edge cases
 // ---------------------------------------------------------------------------
 
-describe("assembleTurns — edge cases", () => {
+describe("assembleTurns — edge cases", { tags: ["unit"] }, () => {
 	it("returns empty array for empty turns", () => {
 		expect(assembleTurns([], { query: "test", contextWindow: LARGE_CONTEXT })).toHaveLength(0);
 	});
@@ -262,7 +262,7 @@ function makeDialogTurn(
 	};
 }
 
-describe("turnsToMessages — conversationHistory primary path", () => {
+describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"] }, () => {
 	it("returns conversationHistory from the most recent motor/dialog.message", () => {
 		const history = [
 			{ role: "user", content: "Read the file" },
@@ -354,7 +354,7 @@ function makeAbortedTurn(
 	return { id, turnIndex: index, tokenCost: 200, typeWeight: 2.0, events };
 }
 
-describe("turnsToMessages — aborted turn, ALE-BUG-46", () => {
+describe("turnsToMessages — aborted turn, ALE-BUG-46", { tags: ["unit"] }, () => {
 	it("non-empty result when turn has completed tool calls but no dialog.message", () => {
 		// Mirrors the 2026-05-31 session: 7 fs.write calls completed, then abort.
 		const turn = makeAbortedTurn("abort-1", 0, [

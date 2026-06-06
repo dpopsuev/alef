@@ -54,7 +54,7 @@ vi.mock("openai", () => {
 	return { default: FakeOpenAI };
 });
 
-describe("openai-completions empty tools handling", () => {
+describe("openai-completions empty tools handling", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		mockState.lastParams = undefined;
 		mockState.lastClientOptions = undefined;

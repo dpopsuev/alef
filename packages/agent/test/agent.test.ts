@@ -47,7 +47,7 @@ function createDeferred(): {
 	return { promise, resolve };
 }
 
-describe("Agent", () => {
+describe("Agent", { tags: ["unit"] }, () => {
 	it("should create an agent instance with default state", () => {
 		const agent = new Agent();
 

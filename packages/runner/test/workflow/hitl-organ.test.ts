@@ -18,7 +18,7 @@ function makeNerve() {
 	return { nerve, n: nerve.asNerve() };
 }
 
-describe("HitlOrgan", () => {
+describe("HitlOrgan", { tags: ["unit"] }, () => {
 	const unmounts: Array<() => void> = [];
 	afterEach(() => {
 		for (const u of unmounts.splice(0)) u();

@@ -176,7 +176,7 @@ async function multiTurnConversation(model: Model<string>) {
 	expect(getTextContent(lastMessage).toLowerCase()).toContain("alice");
 }
 
-describe("Agent integration with faux provider", () => {
+describe("Agent integration with faux provider", { tags: ["unit"] }, () => {
 	it("handles a basic text prompt", async () => {
 		const faux = createFauxRegistration();
 		faux.setResponses([fauxAssistantMessage("4")]);
@@ -257,7 +257,7 @@ describe("Agent integration with faux provider", () => {
 	});
 });
 
-describe("Agent.continue() with faux provider", () => {
+describe("Agent.continue() with faux provider", { tags: ["unit"] }, () => {
 	describe("validation", () => {
 		it("throws when no messages in context", async () => {
 			const faux = createFauxRegistration();

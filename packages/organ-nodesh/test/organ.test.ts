@@ -10,7 +10,7 @@ function fixture(opts: { prelude?: string; defaultTimeoutSeconds?: number } = {}
 	return f;
 }
 
-describe("NodeshOrgan — organ metadata", () => {
+describe("NodeshOrgan — organ metadata", { tags: ["compliance"] }, () => {
 	it("has name=nodesh and 1 tool", () => {
 		const organ = createNodeshOrgan({ cwd: process.cwd() });
 		expect(organ.name).toBe("nodesh");
@@ -28,7 +28,7 @@ describe("NodeshOrgan — organ metadata", () => {
 	});
 });
 
-describe("NodeshOrgan — expression evaluation", () => {
+describe("NodeshOrgan — expression evaluation", { tags: ["compliance"] }, () => {
 	it("evaluates a simple arithmetic expression", async () => {
 		const f = fixture();
 		const result = await f.call("nodesh.eval", { code: "1 + 2 + 3" });
@@ -73,7 +73,7 @@ describe("NodeshOrgan — expression evaluation", () => {
 	});
 });
 
-describe("NodeshOrgan — prelude", () => {
+describe("NodeshOrgan — prelude", { tags: ["compliance"] }, () => {
 	it("prelude bindings are available in eval", async () => {
 		const f = fixture({ prelude: "const GREETING = 'hello from prelude';" });
 		const result = await f.call("nodesh.eval", { code: "GREETING" });
@@ -82,7 +82,7 @@ describe("NodeshOrgan — prelude", () => {
 	});
 });
 
-describe("NodeshOrgan — security", () => {
+describe("NodeshOrgan — security", { tags: ["compliance"] }, () => {
 	it("blocks require of child_process", async () => {
 		const f = fixture();
 		const result = await f.call("nodesh.eval", { code: "require('child_process')" });
@@ -115,7 +115,7 @@ describe("NodeshOrgan — security", () => {
 	}, 5_000);
 });
 
-describe("NodeshOrgan — error handling", () => {
+describe("NodeshOrgan — error handling", { tags: ["compliance"] }, () => {
 	it("publishes error sense on syntax error", async () => {
 		const f = fixture();
 		const result = await f.call("nodesh.eval", { code: "{{{{ invalid syntax" });

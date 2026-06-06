@@ -7,7 +7,7 @@ async function suggest(p: HistoryAutocompleteProvider, text: string) {
 	return p.getSuggestions([text], 0, text.length, { signal: SIGNAL });
 }
 
-describe("HistoryAutocompleteProvider", () => {
+describe("HistoryAutocompleteProvider", { tags: ["unit"] }, () => {
 	it("returns null when history is empty", async () => {
 		const p = new HistoryAutocompleteProvider();
 		expect(await suggest(p, "read")).toBeNull();

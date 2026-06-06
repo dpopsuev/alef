@@ -170,7 +170,7 @@ function collectSseUntilDialogMessage(baseUrl: string, timeoutMs: number): Promi
 // Tests
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAS_KEY)("Real-LLM — full stack integration", () => {
+describe.skipIf(!HAS_KEY)("Real-LLM — full stack integration", { tags: ["real-llm"] }, () => {
 	it("agent replies non-empty to 'Who are you?' (motor/dialog.message asserted via SSE)", async () => {
 		const cwd = makeTmp();
 

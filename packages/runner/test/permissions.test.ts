@@ -62,7 +62,7 @@ function waitSense(nerve: InProcessNerve, type: string, correlationId: string) {
 	});
 }
 
-describe("wrapWithPermissions", () => {
+describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 	it("['*'] bypasses gate — all tools pass through", async () => {
 		const nerve = new InProcessNerve();
 		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), ["*"]);

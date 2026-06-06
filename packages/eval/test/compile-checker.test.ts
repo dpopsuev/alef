@@ -19,7 +19,7 @@ afterEach(() => {
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe("compileCheck checker", () => {
+describe("compileCheck checker", { tags: ["unit"] }, () => {
 	it("passes on valid TypeScript", async () => {
 		const ws = tmp();
 		writeFileSync(join(ws, "index.ts"), "export const x: number = 42;\n");

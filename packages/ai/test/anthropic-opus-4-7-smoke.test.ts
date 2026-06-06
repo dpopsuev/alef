@@ -22,7 +22,7 @@ function makeContext(): Context {
 	};
 }
 
-describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic Opus 4.7 smoke", () => {
+describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic Opus 4.7 smoke", { tags: ["real-llm"] }, () => {
 	it("streams Claude Opus 4.7 with reasoning enabled", { retry: 2, timeout: 30000 }, async () => {
 		const model = getModel("anthropic", "claude-opus-4-7");
 		let capturedPayload: AnthropicThinkingPayload | undefined;

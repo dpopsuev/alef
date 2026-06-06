@@ -93,7 +93,7 @@ function logResult(result: OverflowResult) {
 // Expected pattern: "prompt is too long: X tokens > Y maximum"
 // =============================================================================
 
-describe("Context overflow error handling", () => {
+describe("Context overflow error handling", { tags: ["unit"] }, () => {
 	describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic (API Key)", () => {
 		it("claude-haiku-4-5 - should detect overflow via isContextOverflow", async () => {
 			const model = getModel("anthropic", "claude-haiku-4-5");

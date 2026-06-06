@@ -61,7 +61,7 @@ function run(args: string[], cwd?: string): Promise<RunResult> {
 // Default tool set (no blueprint)
 // ---------------------------------------------------------------------------
 
-describe("default tool set (no blueprint)", () => {
+describe("default tool set (no blueprint)", { tags: ["e2e"] }, () => {
 	it("--list-tools includes all six default EDA tools", async () => {
 		const result = await run(["--list-tools"]);
 		expect(result.exitCode).toBe(0);
@@ -79,7 +79,7 @@ describe("default tool set (no blueprint)", () => {
 // Blueprint flag — valid blueprints
 // ---------------------------------------------------------------------------
 
-describe("--blueprint flag", () => {
+describe("--blueprint flag", { tags: ["e2e"] }, () => {
 	it("full fs + shell blueprint exposes all tools", async () => {
 		const dir = tmpDir();
 		writeFileSync(join(dir, "agent.yaml"), ["name: full", "organs:", "  - name: fs", "  - name: shell"].join("\n"));
@@ -154,7 +154,7 @@ describe("--blueprint flag", () => {
 // Auto-discovery
 // ---------------------------------------------------------------------------
 
-describe("auto-discovery", () => {
+describe("auto-discovery", { tags: ["e2e"] }, () => {
 	it("auto-discovers agent.yaml in --cwd directory", async () => {
 		const dir = tmpDir();
 		writeFileSync(
@@ -217,7 +217,7 @@ describe("auto-discovery", () => {
 // Model override
 // ---------------------------------------------------------------------------
 
-describe("model resolution", () => {
+describe("model resolution", { tags: ["e2e"] }, () => {
 	it("--model CLI flag wins over blueprint model field", async () => {
 		const dir = tmpDir();
 		writeFileSync(join(dir, "agent.yaml"), ["name: m", "model: anthropic/claude-haiku-4-5"].join("\n"));
@@ -239,7 +239,7 @@ describe("model resolution", () => {
 // Error cases
 // ---------------------------------------------------------------------------
 
-describe("error handling", () => {
+describe("error handling", { tags: ["e2e"] }, () => {
 	it("exits 1 when --blueprint file does not exist", async () => {
 		const result = await run(["--blueprint", "/nonexistent/path/agent.yaml", "--list-tools"]);
 		expect(result.exitCode).toBe(1);

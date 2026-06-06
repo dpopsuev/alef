@@ -58,7 +58,7 @@ vi.mock("openai", () => {
 	return { default: FakeOpenAI };
 });
 
-describe("openrouter images", () => {
+describe("openrouter images", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		mockState.lastParams = undefined;
 		mockState.lastRequestOptions = undefined;

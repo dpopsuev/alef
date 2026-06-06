@@ -20,7 +20,7 @@ class MockSearchEngine implements ISearchEngine {
 	}
 }
 
-describe("FallbackSearchEngine", () => {
+describe("FallbackSearchEngine", { tags: ["unit"] }, () => {
 	it("returns results from first engine", async () => {
 		const engine1 = new MockSearchEngine([
 			{ url: "https://example.com/1", title: "Result 1", snippet: "First result" },
@@ -109,7 +109,7 @@ describe("FallbackSearchEngine", () => {
 	});
 });
 
-describe("Search engine registry", () => {
+describe("Search engine registry", { tags: ["unit"] }, () => {
 	it("registers and resolves custom engine", () => {
 		const mockResults = [{ url: "https://example.com", title: "Test", snippet: "Test result" }];
 		registerSearchEngine("test-engine", () => new MockSearchEngine(mockResults));

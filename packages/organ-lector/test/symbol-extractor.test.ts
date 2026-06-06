@@ -42,7 +42,7 @@ function internalHelper(): void {}
 class InternalClass {}
 `.trim();
 
-describe("extractSymbols", () => {
+describe("extractSymbols", { tags: ["unit"] }, () => {
 	it("extracts exported functions", () => {
 		const symbols = extractSymbols(TS_SOURCE);
 		const names = symbols.map((s) => s.name);
@@ -119,7 +119,7 @@ describe("extractSymbols", () => {
 	});
 });
 
-describe("extractBlock", () => {
+describe("extractBlock", { tags: ["unit"] }, () => {
 	const content = `export function foo(): void {\n  console.log("foo");\n}\n\nexport function bar(): void {\n  console.log("bar");\n}\n`;
 
 	it("returns the block content for a known symbol", () => {

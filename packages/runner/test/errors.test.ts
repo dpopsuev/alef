@@ -4,7 +4,7 @@ import { formatError } from "../src/errors.js";
 // formatError returns the human-readable message only.
 // Call sites are responsible for adding any [error] prefix — see tui-mode.ts.
 
-describe("formatError", () => {
+describe("formatError", { tags: ["unit"] }, () => {
 	it("formats timeout errors", () => {
 		const msg = formatError(new Error("DialogOrgan.send timed out after 120000ms"));
 		expect(msg).toContain("timed out");

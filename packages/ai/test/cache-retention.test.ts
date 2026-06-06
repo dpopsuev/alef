@@ -23,7 +23,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		messages: [{ role: "user", content: "Hello", timestamp: Date.now() }],
 	};
 
-	describe("Anthropic Provider", () => {
+	describe("Anthropic Provider", { tags: ["real-llm"] }, () => {
 		it.skipIf(!process.env.ANTHROPIC_API_KEY)(
 			"should use default cache TTL (no ttl field) when ALEF_CACHE_RETENTION is not set",
 			async () => {
@@ -222,7 +222,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 	});
 
-	describe("OpenAI Responses Provider", () => {
+	describe("OpenAI Responses Provider", { tags: ["real-llm"] }, () => {
 		it.skipIf(!process.env.OPENAI_API_KEY)(
 			"should not set prompt_cache_retention when ALEF_CACHE_RETENTION is not set",
 			async () => {
@@ -389,7 +389,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 	});
 
-	describe("OpenAI Completions Provider", () => {
+	describe("OpenAI Completions Provider", { tags: ["unit"] }, () => {
 		function createCompletionsModel(compat?: Model<"openai-completions">["compat"]): Model<"openai-completions"> {
 			return {
 				id: "test-model",

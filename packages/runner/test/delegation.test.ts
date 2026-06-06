@@ -14,7 +14,7 @@ import { Cerebrum } from "../../organ-llm/src/index.js";
 import { DIALOG_MESSAGE_TOOL, NerveFixture, TurnDriver } from "../../testkit/src/index.js";
 import { InProcessStrategy } from "../src/strategies/in-process.js";
 
-describe("agent.run delegation — E2E", () => {
+describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -207,7 +207,7 @@ describe("agent.run delegation — E2E", () => {
 // so callId flows correctly through the outer Cerebrum's CerebrumEvent stream.
 // ---------------------------------------------------------------------------
 
-describe("agent.run delegation — parallel isolation", () => {
+describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();

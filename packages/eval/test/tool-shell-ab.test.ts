@@ -121,7 +121,7 @@ function totalTokens(results: ArmResult[]): number {
 let baselineResults: ArmResult[] = [];
 let toolShellResults: ArmResult[] = [];
 
-describe.skipIf(SKIP_REAL_LLM)("ToolShell A/B evaluation (ALE-TSK-360)", () => {
+describe.skipIf(SKIP_REAL_LLM)("ToolShell A/B evaluation (ALE-TSK-360)", { tags: ["real-llm"] }, () => {
 	beforeAll(async () => {
 		console.log(`\nA/B eval: model=${getEvalModel().id}  scenarios=${AB_EVALS.length}`);
 		[baselineResults, toolShellResults] = await Promise.all([

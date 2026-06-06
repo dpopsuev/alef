@@ -51,7 +51,7 @@ async function captureOpenAIResponseHeaders(
 	return captured;
 }
 
-describe("openai-responses provider defaults", () => {
+describe("openai-responses provider defaults", { tags: ["unit"] }, () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});

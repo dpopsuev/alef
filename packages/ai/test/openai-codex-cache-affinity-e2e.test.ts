@@ -6,7 +6,7 @@ import { resolveApiKey } from "./oauth.js";
 
 const codexToken = await resolveApiKey("openai-codex");
 
-describe("openai-codex cache affinity e2e", () => {
+describe("openai-codex cache affinity e2e", { tags: ["real-llm"] }, () => {
 	it.skipIf(!codexToken)("handles SSE requests with aligned cache-affinity identifiers", async () => {
 		const model = getModel("openai-codex", "gpt-5.3-codex");
 		const sessionId = "0195d6e4-4cf9-7f44-a2d8-f8f7f49ee9d3";

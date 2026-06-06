@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SENSITIVE_KEYS, REDACTED, redactPayload } from "../src/redact.js";
 
-describe("redactPayload — sensitive key detection", () => {
+describe("redactPayload — sensitive key detection", { tags: ["unit"] }, () => {
 	it("redacts exact sensitive key names", () => {
 		const result = redactPayload({ password: "s3cr3t", username: "alice" });
 		expect((result as Record<string, unknown>).password).toBe(REDACTED);
@@ -66,7 +66,7 @@ describe("redactPayload — sensitive key detection", () => {
 	});
 });
 
-describe("hashRecord", () => {
+describe("hashRecord", { tags: ["unit"] }, () => {
 	it("produces a 64-char hex string", async () => {
 		const { hashRecord } = await import("../src/session-store.js");
 		const hash = hashRecord({
@@ -118,7 +118,7 @@ describe("hashRecord", () => {
 	});
 });
 
-describe("SessionLog integration — redact + hash", () => {
+describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 	it("appended record has hash and redacted payload", async () => {
 		const { mkdtempSync, rmSync } = await import("node:fs");
 		const { join } = await import("node:path");

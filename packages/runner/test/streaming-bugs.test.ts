@@ -15,7 +15,7 @@ import { pillHeaderStr } from "../src/tui-mode.js";
 // 1. Pressure-sensitive spinner
 // ---------------------------------------------------------------------------
 
-describe("EventPressure gauge", () => {
+describe("EventPressure gauge", { tags: ["unit"] }, () => {
 	beforeEach(() => vi.useFakeTimers());
 	afterEach(() => vi.useRealTimers());
 
@@ -54,7 +54,7 @@ describe("EventPressure gauge", () => {
 	});
 });
 
-describe("Pressure → spinner interval mapping", () => {
+describe("Pressure → spinner interval mapping", { tags: ["unit"] }, () => {
 	it("idle pressure gives slow interval (80ms)", () => {
 		expect(pressureToInterval(0)).toBe(80);
 	});
@@ -74,7 +74,7 @@ describe("Pressure → spinner interval mapping", () => {
 	});
 });
 
-describe("Time-based hue animation", () => {
+describe("Time-based hue animation", { tags: ["unit"] }, () => {
 	it("hue is 0 at time 0 with no pressure", () => {
 		expect(timeBasedHue(0, 0)).toBeCloseTo(0);
 	});
@@ -108,7 +108,7 @@ describe("Time-based hue animation", () => {
 	});
 });
 
-describe("Spinner reads from EventPressure (integration)", () => {
+describe("Spinner reads from EventPressure (integration)", { tags: ["unit"] }, () => {
 	it("spinner interval at zero pressure is the slow default", () => {
 		const p = new EventPressure();
 		expect(pressureToInterval(p.level())).toBe(80);
@@ -125,7 +125,7 @@ describe("Spinner reads from EventPressure (integration)", () => {
 // Pill alignment regression guard
 // ---------------------------------------------------------------------------
 
-describe("Pill alignment (regression)", () => {
+describe("Pill alignment (regression)", { tags: ["unit"] }, () => {
 	it("@alef header matches footer width at 80 columns", () => {
 		const header = pillHeaderStr("@alef", 80);
 		const footer = `╰${"─".repeat(78)}╯`;

@@ -23,7 +23,7 @@ afterEach(() => {
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe("FsOrgan contracts", () => {
+describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
 	it("fs.read → { content: string, truncated: boolean, totalLines: number }", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "hello.ts"), "export const x = 1;\nexport const y = 2;\n");
@@ -118,7 +118,7 @@ describe("FsOrgan contracts", () => {
 	});
 });
 
-describe("ShellOrgan contracts", () => {
+describe("ShellOrgan contracts", { tags: ["compliance"] }, () => {
 	it("shell.exec (success) → final event has output, exitCode 0, isFinal: true", async () => {
 		const cwd = tmpDir();
 		const f = new NerveFixture();
@@ -156,7 +156,7 @@ describe("ShellOrgan contracts", () => {
 	});
 });
 
-describe("SenseEvent base shape", () => {
+describe("SenseEvent base shape", { tags: ["compliance"] }, () => {
 	it("every Sense event has type, correlationId, timestamp, isError", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "x.ts"), "const x = 1;");

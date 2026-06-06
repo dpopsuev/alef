@@ -328,7 +328,7 @@ async function generateContext(
 	};
 }
 
-describe.skipIf(!hasAnyApiKey())("Cross-Provider Handoff", () => {
+describe.skipIf(!hasAnyApiKey())("Cross-Provider Handoff", { tags: ["real-llm"] }, () => {
 	let contexts: Record<string, CachedContext>;
 	let availablePairs: ProviderModelPair[];
 

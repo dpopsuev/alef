@@ -68,7 +68,7 @@ async function handleImageInput<TApi extends string>(model: ImagesModel<TApi>, o
 	expect(response.output.some((item) => item.type === "image")).toBe(true);
 }
 
-describe("Images E2E Tests", () => {
+describe("Images E2E Tests", { tags: ["real-llm"] }, () => {
 	describe.skipIf(!process.env.OPENROUTER_API_KEY)(
 		"OpenRouter Images Provider (google/gemini-2.5-flash-image)",
 		() => {

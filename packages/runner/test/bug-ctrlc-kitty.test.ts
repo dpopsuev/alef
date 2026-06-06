@@ -56,7 +56,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 // This verifies the fix works — the corrected onRawInput must use matchesKey.
 // ---------------------------------------------------------------------------
 
-describe("Ctrl+C sequence detection", () => {
+describe("Ctrl+C sequence detection", { tags: ["unit"] }, () => {
 	it("matchesKey('ctrl+c') matches raw \\x03 (legacy terminal)", () => {
 		expect(matchesKey("\x03", "ctrl+c")).toBe(true);
 	});
@@ -79,7 +79,7 @@ describe("Ctrl+C sequence detection", () => {
 // Bug 1b: handleCtrlC must be called regardless of which Ctrl+C sequence arrives
 // ---------------------------------------------------------------------------
 
-describe("onRawInput routing — must use matchesKey not === comparison", () => {
+describe("onRawInput routing — must use matchesKey not === comparison", { tags: ["unit"] }, () => {
 	it("handleCtrlC exits when called with kitty Ctrl+C in idle state", () => {
 		const ctx = makeCtx();
 		// Simulate: onRawInput receives Kitty Ctrl+C and routes to handleCtrlC

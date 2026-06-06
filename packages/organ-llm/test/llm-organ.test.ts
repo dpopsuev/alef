@@ -56,7 +56,7 @@ function make(fauxProvider: ReturnType<typeof registerFauxProvider>) {
 // Application-level retry
 // ---------------------------------------------------------------------------
 
-describe("Reasoner — application-level retry", () => {
+describe("Reasoner — application-level retry", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -144,7 +144,7 @@ describe("Reasoner — application-level retry", () => {
 // Real API (skipped without ANTHROPIC_API_KEY)
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP)("Reasoner — real API", () => {
+describe.skipIf(SKIP)("Reasoner — real API", { tags: ["unit"] }, () => {
 	it("resolves driver.send() with a non-empty reply", async () => {
 		const faux = registerFauxProvider();
 		const { driver } = make(faux);
@@ -189,7 +189,7 @@ describe.skipIf(SKIP)("Reasoner — real API", () => {
 
 import { payloadToText } from "../src/index.js";
 
-describe("payloadToText", () => {
+describe("payloadToText", { tags: ["unit"] }, () => {
 	it("returns errorMessage when isError is true", () => {
 		expect(payloadToText({}, true, "organ failure")).toBe("organ failure");
 	});
@@ -218,7 +218,7 @@ describe("payloadToText", () => {
 // chunk event forwarding when reply arrives via dialog_message tool args
 // ---------------------------------------------------------------------------
 
-describe("onResponseChunk forwarding when reply is in dialog_message tool args", () => {
+describe("onResponseChunk forwarding when reply is in dialog_message tool args", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -285,7 +285,7 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 // partial conversationHistory on error/abort
 // ---------------------------------------------------------------------------
 
-describe("partial conversationHistory published on error/abort", () => {
+describe("partial conversationHistory published on error/abort", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -334,7 +334,7 @@ describe("partial conversationHistory published on error/abort", () => {
 // motor/llm.phase seam
 // ---------------------------------------------------------------------------
 
-describe("Reasoner — motor/llm.phase seam", () => {
+describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -440,7 +440,7 @@ describe("Reasoner — motor/llm.phase seam", () => {
 // motor/llm.phase: skip, abort, llm.result
 // ---------------------------------------------------------------------------
 
-describe("Reasoner — phase skip, abort, and llm.result", () => {
+describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -567,7 +567,7 @@ describe("Reasoner — phase skip, abort, and llm.result", () => {
 // Configurable triggerEvent
 // ---------------------------------------------------------------------------
 
-describe("Reasoner — configurable triggerEvent", () => {
+describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -620,7 +620,7 @@ describe("Reasoner — configurable triggerEvent", () => {
 // trackConcurrentOps
 // ---------------------------------------------------------------------------
 
-describe("Cerebrum — trackConcurrentOps", () => {
+describe("Cerebrum — trackConcurrentOps", { tags: ["unit"] }, () => {
 	it("declares wildcard motor+sense subscriptions when trackConcurrentOps=true", () => {
 		const cerebrum = new Cerebrum({ model: makeModel(), trackConcurrentOps: true });
 		expect(cerebrum.subscriptions.motor).toContain("*");
@@ -677,7 +677,7 @@ describe("Cerebrum — trackConcurrentOps", () => {
 import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
-describe("turn loop — schema validation failure", () => {
+describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 	it("turn completes when LLM sends wrong type for a schema field", async () => {
 		const faux = registerFauxProvider();
 		const f = new NerveFixture();
@@ -722,7 +722,7 @@ describe("turn loop — schema validation failure", () => {
 // prepareStep system prompt delivery
 // ---------------------------------------------------------------------------
 
-describe("prepareStep system prompt delivery to provider", () => {
+describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, () => {
 	it("system message injected by prepareStep reaches the provider as systemPrompt", async () => {
 		// Given: a faux provider that captures the Context it receives
 		const faux = registerFauxProvider();
@@ -771,7 +771,7 @@ describe("prepareStep system prompt delivery to provider", () => {
 // ALE-TSK-564: tool:end fires on timeout (regression for ALE-BUG-64)
 // ---------------------------------------------------------------------------
 
-describe("dispatchTools — tool:end fires on every exit path", () => {
+describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"] }, () => {
 	it("emits tool-end(ok:false) when tool times out — never leaves pill hanging", async () => {
 		// Given: a faux LLM that calls a tool that will never respond
 		const faux = registerFauxProvider();
@@ -832,7 +832,7 @@ describe("dispatchTools — tool:end fires on every exit path", () => {
 // ALE-TSK-561 / ALE-BUG-60: tool-chunk CerebrumEvents relay isFinal:false
 // ---------------------------------------------------------------------------
 
-describe("typedStreamAction — tool-chunk relay to onEvent", () => {
+describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }, () => {
 	it("emits tool-chunk for each isFinal:false sense event before tool-end", async () => {
 		// Given: a faux LLM that calls a streaming organ, then replies
 		const faux = registerFauxProvider();
@@ -906,7 +906,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", () => {
 // tool-stall CerebrumEvent — the TUI pill "⏳ no output for Ns" display
 // ---------------------------------------------------------------------------
 
-describe("waitForToolResult — stall watchdog", () => {
+describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 	it("fires onStall after stallIntervalMs with no chunks, before timeout", async () => {
 		// Given: a sense bus where the tool never responds (simulating a hung subagent)
 		const f = new NerveFixture();

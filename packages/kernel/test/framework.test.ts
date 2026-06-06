@@ -26,7 +26,7 @@ function publishMotor(nerve: InProcessNerve, type: string, payload: Record<strin
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan (motor/ prefix)", () => {
+describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 	it("sets name", () => {
 		const organ = defineOrgan("test", {});
 		expect(organ.name).toBe("test");
@@ -185,7 +185,7 @@ describe("defineOrgan (motor/ prefix)", () => {
 // defineCerebrumOrgan
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan (sense/ prefix)", () => {
+describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 	it("sets name and tools=[]", () => {
 		const organ = defineOrgan("test", {});
 		expect(organ.name).toBe("test");
@@ -274,7 +274,7 @@ describe("defineOrgan (sense/ prefix)", () => {
 // defineOrgan — prefix dispatch + cache
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan — motor/ prefix", () => {
+describe("defineOrgan — motor/ prefix", { tags: ["unit"] }, () => {
 	it("subscribes Motor bus for motor/ keys", () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", { "motor/test.cmd": { handle: async () => ({}) } }).mount(n);
@@ -282,7 +282,7 @@ describe("defineOrgan — motor/ prefix", () => {
 	});
 });
 
-describe("defineOrgan — sense/ prefix", () => {
+describe("defineOrgan — sense/ prefix", { tags: ["unit"] }, () => {
 	it("subscribes Sense bus for sense/ keys", () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", { "sense/test.evt": { handle: async () => {} } }).mount(n);
@@ -290,7 +290,7 @@ describe("defineOrgan — sense/ prefix", () => {
 	});
 });
 
-describe("defineOrgan — mixed organ", () => {
+describe("defineOrgan — mixed organ", { tags: ["unit"] }, () => {
 	it("can subscribe both Motor and Sense in one organ", () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("bridge", {
@@ -302,7 +302,7 @@ describe("defineOrgan — mixed organ", () => {
 	});
 });
 
-describe("defineOrgan — wildcard motor/*", () => {
+describe("defineOrgan — wildcard motor/*", { tags: ["unit"] }, () => {
 	it("subscribes all Motor events", async () => {
 		const { nerve, n } = makeNerve();
 		const seen: string[] = [];
@@ -324,7 +324,7 @@ describe("defineOrgan — wildcard motor/*", () => {
 	});
 });
 
-describe("defineOrgan — cache", () => {
+describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 	it("caches result on second call (same payload)", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
@@ -463,7 +463,7 @@ describe("defineOrgan — cache", () => {
 // inputSchemas validation
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan — inputSchemas validation", () => {
+describe("defineOrgan — inputSchemas validation", { tags: ["unit"] }, () => {
 	it("rejects malformed motor payload with error sense in test env", async () => {
 		const { z } = await import("zod");
 		const nerve = new InProcessNerve();
@@ -518,7 +518,7 @@ describe("defineOrgan — inputSchemas validation", () => {
 // ready() hook
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan — ready() hook", () => {
+describe("defineOrgan — ready() hook", { tags: ["unit"] }, () => {
 	it("ready() is exposed on the organ and awaitable", async () => {
 		let initialized = false;
 		const organ = defineOrgan(
@@ -545,7 +545,7 @@ describe("defineOrgan — ready() hook", () => {
 // ALE-SPC-34 — context metadata enforcement
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan — context metadata enforcement", () => {
+describe("defineOrgan — context metadata enforcement", { tags: ["unit"] }, () => {
 	const minTool = {
 		"motor/my.tool": {
 			tool: { name: "my.tool", description: "Does something.", inputSchema: z.object({}) },

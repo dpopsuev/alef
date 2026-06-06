@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatPromptTemplateInvocation } from "../../src/harness/prompt-templates.js";
 import { formatSkillInvocation } from "../../src/harness/skills.js";
 
-describe("resource formatting helpers", () => {
+describe("resource formatting helpers", { tags: ["unit"] }, () => {
 	it("formats skill invocations with additional instructions", () => {
 		const skill = {
 			name: "inspect",

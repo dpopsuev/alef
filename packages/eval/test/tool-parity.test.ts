@@ -42,7 +42,7 @@ const EXTRA_OPTS = {
 // fs.read — pi-mono: file_read
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("fs.read (pi-mono: file_read)", () => {
+describe.skipIf(SKIP_REAL_LLM)("fs.read (pi-mono: file_read)", { tags: ["real-llm"] }, () => {
 	it("reads a file and reports its content", async () => {
 		const metrics = await harness.run(
 			async (ctx) => {
@@ -63,7 +63,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.read (pi-mono: file_read)", () => {
 // fs.write — pi-mono: file_write
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("fs.write (pi-mono: file_write)", () => {
+describe.skipIf(SKIP_REAL_LLM)("fs.write (pi-mono: file_write)", { tags: ["real-llm"] }, () => {
 	it("creates a new file with specified content", async () => {
 		const metrics = await harness.run(
 			async (ctx) => {
@@ -87,7 +87,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.write (pi-mono: file_write)", () => {
 // fs.edit — pi-mono: file_edit
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("fs.edit (pi-mono: file_edit)", () => {
+describe.skipIf(SKIP_REAL_LLM)("fs.edit (pi-mono: file_edit)", { tags: ["real-llm"] }, () => {
 	it("edits an existing file with a targeted change", async () => {
 		const metrics = await harness.run(
 			async (ctx) => {
@@ -123,7 +123,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.edit (pi-mono: file_edit)", () => {
 // fs.grep — pi-mono: file_grep
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("fs.grep (pi-mono: file_grep)", () => {
+describe.skipIf(SKIP_REAL_LLM)("fs.grep (pi-mono: file_grep)", { tags: ["real-llm"] }, () => {
 	it("searches for a pattern across files and reports matches", async () => {
 		const metrics = await harness.run(
 			async (ctx) => {
@@ -150,7 +150,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.grep (pi-mono: file_grep)", () => {
 // fs.find — pi-mono: file_grep (find variant) / file_find
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("fs.find (pi-mono: file_find)", () => {
+describe.skipIf(SKIP_REAL_LLM)("fs.find (pi-mono: file_find)", { tags: ["real-llm"] }, () => {
 	it("finds files matching a glob pattern", async () => {
 		const metrics = await harness.run(
 			async (ctx) => {
@@ -176,7 +176,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.find (pi-mono: file_find)", () => {
 // shell.exec — pi-mono: file_bash
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("shell.exec (pi-mono: file_bash)", () => {
+describe.skipIf(SKIP_REAL_LLM)("shell.exec (pi-mono: file_bash)", { tags: ["real-llm"] }, () => {
 	it("runs a shell command and reports its output", async () => {
 		const metrics = await harness.run(
 			async (ctx) => {
@@ -199,7 +199,7 @@ describe.skipIf(SKIP_REAL_LLM)("shell.exec (pi-mono: file_bash)", () => {
 // Negative: read-only constraint — fs.write must NOT be called when ablated
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("ablation enforcement — read-only tool set", () => {
+describe.skipIf(SKIP_REAL_LLM)("ablation enforcement — read-only tool set", { tags: ["real-llm"] }, () => {
 	it("read-only FsOrgan prevents fs.write from appearing in spans", async () => {
 		const { createFsOrgan } = await import("@dpopsuev/alef-organ-fs");
 		const readOnlyFs = createFsOrgan({

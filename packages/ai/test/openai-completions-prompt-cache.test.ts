@@ -62,7 +62,7 @@ vi.mock("openai", () => {
 	return { default: FakeOpenAI };
 });
 
-describe("openai-completions prompt caching", () => {
+describe("openai-completions prompt caching", { tags: ["unit"] }, () => {
 	const originalEnv = process.env.ALEF_CACHE_RETENTION;
 
 	beforeEach(() => {

@@ -8,7 +8,7 @@ function mountOrgan(organ: ReturnType<typeof createMemoryOrgan>) {
 	return { nerve, unmount };
 }
 
-describe("MemoryOrgan — organ contract", () => {
+describe("MemoryOrgan — organ contract", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
@@ -48,7 +48,7 @@ describe("MemoryOrgan — organ contract", () => {
 	});
 });
 
-describe("MemoryOrgan — Phase 2 context assembly", () => {
+describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 	function makeTurn(id: string, history: unknown[]) {
 		return {
 			id,

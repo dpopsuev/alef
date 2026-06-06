@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 const cwd = tmpdir();
 
-describe("sequential prompts", () => {
+describe("sequential prompts", { tags: ["integration"] }, () => {
 	it("each of 5 prompts receives its own reply in order", async () => {
 		const h = BlueprintHarness.create({
 			cwd,
@@ -36,7 +36,7 @@ describe("sequential prompts", () => {
 	});
 });
 
-describe("concurrent prompt handling", () => {
+describe("concurrent prompt handling", { tags: ["integration"] }, () => {
 	it("two rapid sends both eventually settle", async () => {
 		const h = BlueprintHarness.create({
 			cwd,

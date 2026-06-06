@@ -63,7 +63,7 @@ vi.mock("openai", () => {
 	return { default: FakeOpenAI };
 });
 
-describe("openai-completions tool_choice", () => {
+describe("openai-completions tool_choice", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		mockState.lastParams = undefined;
 		mockState.chunks = undefined;

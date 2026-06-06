@@ -4,7 +4,7 @@ import { JsonlSessionRepo } from "../../src/harness/session/repo/jsonl.js";
 import { InMemorySessionRepo } from "../../src/harness/session/repo/memory.js";
 import { createAssistantMessage, createTempDir, createUserMessage } from "./session-test-utils.js";
 
-describe("InMemorySessionRepo", () => {
+describe("InMemorySessionRepo", { tags: ["unit"] }, () => {
 	it("opens, deletes, and forks by metadata", async () => {
 		const repo = new InMemorySessionRepo();
 		const session = await repo.create({ id: "session-1" });
@@ -23,7 +23,7 @@ describe("InMemorySessionRepo", () => {
 	});
 });
 
-describe("JsonlSessionRepo", () => {
+describe("JsonlSessionRepo", { tags: ["unit"] }, () => {
 	it("stores sessions below encoded cwd directories and lists by cwd", async () => {
 		const root = createTempDir();
 		const cwd = "/tmp/my-project";

@@ -9,7 +9,7 @@ import {
 } from "../../src/harness/prompt-templates.js";
 import { createTempDir } from "./session-test-utils.js";
 
-describe("loadPromptTemplates", () => {
+describe("loadPromptTemplates", { tags: ["unit"] }, () => {
 	it("loads markdown templates non-recursively from one or more dirs", async () => {
 		const root = createTempDir();
 		const env = new NodeExecutionEnv({ cwd: root });
@@ -80,7 +80,7 @@ describe("loadPromptTemplates", () => {
 	});
 });
 
-describe("formatPromptTemplateInvocation", () => {
+describe("formatPromptTemplateInvocation", { tags: ["unit"] }, () => {
 	it("substitutes command arguments", () => {
 		const content = "$1 $" + "{@:2} $ARGUMENTS";
 		expect(formatPromptTemplateInvocation({ name: "one", content }, ["hello world", "test"])).toBe(

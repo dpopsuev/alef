@@ -26,7 +26,7 @@ const organs: Array<{ name: string; organ: Organ }> = [
 	{ name: "organ-delegate", organ: delegateOrgan },
 ];
 
-describe("schema contract scan", () => {
+describe("schema contract scan", { tags: ["unit"] }, () => {
 	for (const { name, organ } of organs) {
 		it(`${name} — all tools reject null required fields immediately`, async () => {
 			const results = await runSchemaContract(organ, { timeoutMs: 400 });
@@ -42,7 +42,7 @@ describe("schema contract scan", () => {
 	}
 });
 
-describe("streaming contract scan", () => {
+describe("streaming contract scan", { tags: ["unit"] }, () => {
 	it("organ-shell/shell.exec — streaming organ emits chunks", async () => {
 		const organ = createShellOrgan({ cwd: CWD });
 		const result = await runStreamingContract(organ, "shell.exec", { command: "echo hello" }, { thresholdMs: 50 });

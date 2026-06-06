@@ -5,7 +5,7 @@ import { NodeExecutionEnv } from "../../src/harness/execution-env.js";
 import { loadSkills, loadSourcedSkills } from "../../src/harness/skills.js";
 import { createTempDir } from "./session-test-utils.js";
 
-describe("loadSkills", () => {
+describe("loadSkills", { tags: ["unit"] }, () => {
 	it("loads SKILL.md files through the execution environment", async () => {
 		const root = createTempDir();
 		const env = new NodeExecutionEnv({ cwd: root });

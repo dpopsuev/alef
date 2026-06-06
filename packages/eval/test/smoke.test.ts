@@ -33,7 +33,7 @@ class QuiescentLLMOrgan implements Organ {
 
 // ---------------------------------------------------------------------------
 
-describe("EvalHarness — smoke (TSK-119)", () => {
+describe("EvalHarness — smoke (TSK-119)", { tags: ["integration"] }, () => {
 	it("harness boots, runs scenario, and returns passing metrics", async () => {
 		const harness = new EvalHarness();
 

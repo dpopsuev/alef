@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { sanitizeForDisplay, stripAnsi } from "../src/tui/ansi-utils.js";
 import { INDENT, SPACING } from "../src/tui/layout-constants.js";
 
-describe("Layout Constants", () => {
+describe("Layout Constants", { tags: ["unit"] }, () => {
 	it("defines block indent", () => {
 		expect(INDENT.BLOCK).toBe(2);
 	});
@@ -24,7 +24,7 @@ describe("Layout Constants", () => {
 	});
 });
 
-describe("ANSI Utilities", () => {
+describe("ANSI Utilities", { tags: ["unit"] }, () => {
 	it("strips ANSI color codes", () => {
 		const input = "\x1b[1mBold\x1b[0m text";
 		expect(stripAnsi(input)).toBe("Bold text");

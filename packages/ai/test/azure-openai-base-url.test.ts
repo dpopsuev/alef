@@ -82,7 +82,7 @@ async function captureClientBaseUrl(baseUrl: string): Promise<string> {
 	return azureMock.constructorCalls[0].baseURL;
 }
 
-describe("azure-openai-responses base URL normalization", () => {
+describe("azure-openai-responses base URL normalization", { tags: ["unit"] }, () => {
 	it("normalizes Cognitive Services root endpoints to /openai/v1", async () => {
 		const baseURL = await captureClientBaseUrl("https://marc-quicktests-resource.cognitiveservices.azure.com");
 		expect(baseURL).toBe("https://marc-quicktests-resource.cognitiveservices.azure.com/openai/v1");

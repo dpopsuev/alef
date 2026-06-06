@@ -12,7 +12,7 @@ afterEach(() => {
 	}
 });
 
-describe("Fireworks models", () => {
+describe("Fireworks models", { tags: ["unit"] }, () => {
 	it("registers the default Kimi K2.6 model via Anthropic-compatible Messages API", () => {
 		const model = getModel("fireworks", "accounts/fireworks/models/kimi-k2p6");
 

@@ -18,7 +18,7 @@ function makeSend(maxTurns: number) {
 	};
 }
 
-describe("turn limit enforcement (inlined from SessionGuard)", () => {
+describe("turn limit enforcement (inlined from SessionGuard)", { tags: ["unit"] }, () => {
 	it("allows sends up to maxTurns", async () => {
 		const send = makeSend(2);
 		await expect(send("one")).resolves.toContain("one");

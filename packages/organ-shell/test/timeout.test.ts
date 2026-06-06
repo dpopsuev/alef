@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SHELL_TIMEOUT_S, MAX_SHELL_TIMEOUT_S } from "../src/organ.js";
 
-describe("shell timeout constants", () => {
+describe("shell timeout constants", { tags: ["unit"] }, () => {
 	it("default timeout is 120s", () => {
 		expect(DEFAULT_SHELL_TIMEOUT_S).toBe(120);
 	});
@@ -11,7 +11,7 @@ describe("shell timeout constants", () => {
 	});
 });
 
-describe("shell timeout clamping (via organ motor event)", () => {
+describe("shell timeout clamping (via organ motor event)", { tags: ["unit"] }, () => {
 	it("exports are correct types", () => {
 		expect(typeof DEFAULT_SHELL_TIMEOUT_S).toBe("number");
 		expect(typeof MAX_SHELL_TIMEOUT_S).toBe("number");

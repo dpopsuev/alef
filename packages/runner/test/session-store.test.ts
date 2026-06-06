@@ -23,7 +23,7 @@ function senseRecord(type: string, correlationId: string, payload: Record<string
 	return { bus: "sense", type, correlationId, payload, timestamp: Date.now() };
 }
 
-describe("SessionStore.create", () => {
+describe("SessionStore.create", { tags: ["unit"] }, () => {
 	it("creates a new session with a short ID", async () => {
 		const store = await SessionStore.create(tmpCwd());
 		expect(store.id).toMatch(/^[0-9a-f]{8}$/);
@@ -35,7 +35,7 @@ describe("SessionStore.create", () => {
 	});
 });
 
-describe("SessionStore.append + events", () => {
+describe("SessionStore.append + events", { tags: ["unit"] }, () => {
 	it("round-trips StorageRecords", async () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
@@ -59,7 +59,7 @@ describe("SessionStore.append + events", () => {
 	});
 });
 
-describe("SessionStore.turns()", () => {
+describe("SessionStore.turns()", { tags: ["unit"] }, () => {
 	it("groups events by correlationId", async () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
@@ -114,7 +114,7 @@ describe("SessionStore.turns()", () => {
 	});
 });
 
-describe("SessionStore.hitCounts()", () => {
+describe("SessionStore.hitCounts()", { tags: ["unit"] }, () => {
 	it("returns zero counts when no window.assembled records", async () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
@@ -148,13 +148,13 @@ describe("SessionStore.hitCounts()", () => {
 	});
 });
 
-describe("SessionStore.resume", () => {
+describe("SessionStore.resume", { tags: ["unit"] }, () => {
 	it("throws for unknown session ID", async () => {
 		await expect(SessionStore.resume(tmpCwd(), "deadbeef")).rejects.toThrow(/not found/);
 	});
 });
 
-describe("SessionStore.resumeLatest", () => {
+describe("SessionStore.resumeLatest", { tags: ["unit"] }, () => {
 	it("returns null when no sessions exist", async () => {
 		expect(await SessionStore.resumeLatest(tmpCwd())).toBeNull();
 	});
@@ -168,7 +168,7 @@ describe("SessionStore.resumeLatest", () => {
 	});
 });
 
-describe("SessionStore.list", () => {
+describe("SessionStore.list", { tags: ["unit"] }, () => {
 	it("returns empty list when no sessions", async () => {
 		expect(await SessionStore.list(tmpCwd())).toHaveLength(0);
 	});
@@ -181,7 +181,7 @@ describe("SessionStore.list", () => {
 	});
 });
 
-describe("SessionStore.turns() — token cost estimation", () => {
+describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, () => {
 	it("uses _display.text length for cost when available (clean content estimate)", async () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
@@ -266,7 +266,7 @@ describe("SessionStore.turns() — token cost estimation", () => {
 // ALE-TSK-368 — in-memory cache + checkpoint race fix
 // ---------------------------------------------------------------------------
 
-describe("SessionStore in-memory cache — ALE-TSK-368", () => {
+describe("SessionStore in-memory cache — ALE-TSK-368", { tags: ["unit"] }, () => {
 	it("events() reflects append() synchronously without waiting for file flush", async () => {
 		const store = await SessionStore.create(tmpCwd());
 		const record = motorRecord("fs.write", "c-1", { path: "CODEBASE.md" });
@@ -345,7 +345,7 @@ describe("SessionStore in-memory cache — ALE-TSK-368", () => {
 	});
 });
 
-describe("SessionStore.name() + setName() — ALE-TSK-387", () => {
+describe("SessionStore.name() + setName() — ALE-TSK-387", { tags: ["unit"] }, () => {
 	it("name() returns undefined for a new session", async () => {
 		const store = await SessionStore.create(tmpCwd());
 		expect(store.name()).toBeUndefined();

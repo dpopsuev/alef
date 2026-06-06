@@ -56,7 +56,7 @@ function run(args: string[], stdinInput?: string): Promise<RunResult> {
 // Deterministic — no LLM required
 // ---------------------------------------------------------------------------
 
-describe("runner E2E — deterministic", () => {
+describe("runner E2E — deterministic", { tags: ["e2e"] }, () => {
 	it("--help prints usage and exits 0", async () => {
 		const result = await run(["--help"]);
 		expect(result.exitCode).toBe(0);
@@ -100,7 +100,7 @@ describe("runner E2E — deterministic", () => {
 // Real-LLM — skipped without credentials
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_LLM)("runner E2E — real LLM", () => {
+describe.skipIf(SKIP_LLM)("runner E2E — real LLM", { tags: ["e2e"] }, () => {
 	it("print mode: sends prompt, prints reply, exits 0", async () => {
 		const result = await run(["-p", "Respond with exactly the word ALIVE and nothing else."]);
 		expect(result.exitCode).toBe(0);

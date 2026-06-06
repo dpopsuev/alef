@@ -91,7 +91,7 @@ function run(args: string[], opts: { stdinInput?: string; env?: Record<string, s
 // auth.ts — credential storage
 // ---------------------------------------------------------------------------
 
-describe("auth.ts — credential storage", () => {
+describe("auth.ts — credential storage", { tags: ["unit"] }, () => {
 	let authDir: string;
 	let originalAuthPath: string | undefined;
 
@@ -169,7 +169,7 @@ describe("auth.ts — credential storage", () => {
 // model.ts — multi-provider resolution
 // ---------------------------------------------------------------------------
 
-describe("model.ts — model resolution", () => {
+describe("model.ts — model resolution", { tags: ["unit"] }, () => {
 	it("buildModel('anthropic/claude-sonnet-4-5') resolves from registry", () => {
 		const m = buildModel("anthropic/claude-sonnet-4-5");
 		expect(m.provider).toBe("anthropic");
@@ -212,7 +212,7 @@ describe("model.ts — model resolution", () => {
 // config.ts — new fields
 // ---------------------------------------------------------------------------
 
-describe("config.ts — schema validation", () => {
+describe("config.ts — schema validation", { tags: ["unit"] }, () => {
 	it("parses thinking field", () => {
 		const schema = z.object({ thinking: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).optional() });
 		const result = schema.safeParse({ thinking: "medium" });
@@ -249,7 +249,7 @@ describe("config.ts — schema validation", () => {
 // Blueprint → organ composition → real tool execution
 // ---------------------------------------------------------------------------
 
-describe("blueprint composition — fs organ", () => {
+describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 	it("fs.read executes via blueprint, session JSONL written", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), "export function login(): boolean { return true; }");
@@ -345,7 +345,7 @@ describe("blueprint composition — fs organ", () => {
 	});
 });
 
-describe("blueprint composition — shell organ", () => {
+describe("blueprint composition — shell organ", { tags: ["unit"] }, () => {
 	it("shell.exec executes via blueprint", async () => {
 		const cwd = tmpDir();
 		const blueprintPath = join(cwd, "agent.yaml");
@@ -368,7 +368,7 @@ describe("blueprint composition — shell organ", () => {
 // Session JSONL — persistence and TurnAssembler
 // ---------------------------------------------------------------------------
 
-describe("SessionStore + TurnAssembler", () => {
+describe("SessionStore + TurnAssembler", { tags: ["unit"] }, () => {
 	it("TurnAssembler reconstructs turns from JSONL", async () => {
 		const cwd = tmpDir();
 		const store = await SessionStore.create(cwd);
@@ -429,7 +429,7 @@ describe("SessionStore + TurnAssembler", () => {
 // Subprocess — CLI entry point
 // ---------------------------------------------------------------------------
 
-describe("CLI subprocess — deterministic", () => {
+describe("CLI subprocess — deterministic", { tags: ["unit"] }, () => {
 	it("--help exits 0 and prints usage", async () => {
 		const { exitCode, stdout } = await run(["--help"]);
 		expect(exitCode).toBe(0);

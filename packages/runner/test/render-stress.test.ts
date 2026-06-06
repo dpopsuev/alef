@@ -59,7 +59,7 @@ function _visibleLines(terminal: VirtualTerminal): string[] {
 // Scenario A — requestRender() coalescing
 // ---------------------------------------------------------------------------
 
-describe("Scenario A — requestRender() coalescing", () => {
+describe("Scenario A — requestRender() coalescing", { tags: ["unit"] }, () => {
 	it("1000 rapid requestRender() calls produce ≤ 3 actual renders", async () => {
 		const { tui, chat } = makeEnv();
 		const renders = collectRenders(tui);
@@ -103,7 +103,7 @@ describe("Scenario A — requestRender() coalescing", () => {
 // Scenario B — typewriter streaming (fake timers)
 // ---------------------------------------------------------------------------
 
-describe("Scenario B — typewriter streaming at full speed", () => {
+describe("Scenario B — typewriter streaming at full speed", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 	});
@@ -142,7 +142,7 @@ describe("Scenario B — typewriter streaming at full speed", () => {
 // Scenario C — fullRender when content overflows viewport
 // ---------------------------------------------------------------------------
 
-describe("Scenario C — fullRender path under viewport overflow", () => {
+describe("Scenario C — fullRender path under viewport overflow", { tags: ["unit"] }, () => {
 	it("DynamicText above the viewport: T-3 skips fullRender, uses 'scrollback' tag + no clear", async () => {
 		// Viewport: 5 rows.
 		// Add DynamicText FIRST (index 0), then 8 static lines.
@@ -209,7 +209,7 @@ describe("Scenario C — fullRender path under viewport overflow", () => {
 // Scenario E — line diff timing benchmark
 // ---------------------------------------------------------------------------
 
-describe("Scenario E — line diff benchmark", () => {
+describe("Scenario E — line diff benchmark", { tags: ["unit"] }, () => {
 	const sizes = [100, 500, 1000, 5000];
 
 	for (const n of sizes) {

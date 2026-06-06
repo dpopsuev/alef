@@ -53,7 +53,7 @@ function openRouterAuto(): Model<"openai-completions"> {
 	};
 }
 
-describe("openai-completions responseModel", () => {
+describe("openai-completions responseModel", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		mockState.chunks = [];
 	});

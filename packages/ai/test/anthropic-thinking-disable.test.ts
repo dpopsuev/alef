@@ -103,7 +103,7 @@ async function runWithoutReasoning(model: Model<"anthropic-messages">): Promise<
 	};
 }
 
-describe("Anthropic thinking disable payload", () => {
+describe("Anthropic thinking disable payload", { tags: ["unit"] }, () => {
 	it("sends thinking.type=disabled for budget-based reasoning models when thinking is off", async () => {
 		const payload = await capturePayload(getModel("anthropic", "claude-sonnet-4-5"));
 
@@ -140,7 +140,7 @@ describe("Anthropic thinking disable payload", () => {
 	});
 });
 
-describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic thinking disable E2E", () => {
+describe.skipIf(!process.env.ANTHROPIC_API_KEY)("Anthropic thinking disable E2E", { tags: ["real-llm"] }, () => {
 	it("disables thinking for Claude reasoning models", { retry: 2, timeout: 30000 }, async () => {
 		const result = await runWithoutReasoning(getModel("anthropic", "claude-sonnet-4-5"));
 

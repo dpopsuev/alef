@@ -30,7 +30,7 @@ afterEach(() => {
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe.skipIf(SKIP)("LspClient — integration (real typescript-language-server)", () => {
+describe.skipIf(SKIP)("LspClient — integration (real typescript-language-server)", { tags: ["unit"] }, () => {
 	it("starts and initializes without error", async () => {
 		const cwd = tmpDir();
 		writeFileSync(
@@ -101,7 +101,7 @@ export function handleLogin(u: string) {
 	}, 15_000);
 });
 
-describe("LspClient — unit tests (no server required)", () => {
+describe("LspClient — unit tests (no server required)", { tags: ["unit"] }, () => {
 	it("start() throws when binary is missing", async () => {
 		const { LspClient: LC } = await import("../src/lsp-client.js");
 		// Patch the bin path temporarily — we test the error path

@@ -6,7 +6,7 @@ import { InMemorySessionStorage } from "../../src/harness/session/storage/memory
 import type { MessageEntry, SessionMetadata } from "../../src/harness/types.js";
 import { createAssistantMessage, createTempDir, createUserMessage } from "./session-test-utils.js";
 
-describe("InMemorySessionStorage", () => {
+describe("InMemorySessionStorage", { tags: ["unit"] }, () => {
 	it("returns configured session metadata", async () => {
 		const metadata: SessionMetadata = { id: "session-1", createdAt: "2026-01-01T00:00:00.000Z" };
 		const storage = new InMemorySessionStorage({ metadata });
@@ -99,7 +99,7 @@ describe("InMemorySessionStorage", () => {
 	});
 });
 
-describe("JsonlSessionStorage", () => {
+describe("JsonlSessionStorage", { tags: ["unit"] }, () => {
 	it("throws for missing files when opening", async () => {
 		const dir = createTempDir();
 		const filePath = join(dir, "session.jsonl");

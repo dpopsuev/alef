@@ -51,7 +51,7 @@ const IMPLEMENT_OUTPUT = {
 	firstAction: "Add CSS variables",
 };
 
-describe("workflow organ harness — outer LLM calls workflow.run", () => {
+describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["unit"] }, () => {
 	it("outer LLM calls all three stations via workflow.run tool", async () => {
 		const faux = registerFauxProvider();
 

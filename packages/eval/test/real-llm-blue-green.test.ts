@@ -82,7 +82,7 @@ function waitForOutput(proc: ChildProcess, pattern: RegExp, timeoutMs: number): 
 // Test
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("Real-LLM blue-green survival", () => {
+describe.skipIf(SKIP_REAL_LLM)("Real-LLM blue-green survival", { tags: ["real-llm"] }, () => {
 	it("file written by LLM survives supervisor blue-green swap", async () => {
 		// ── Step 1: real LLM makes a minor code change ────────────────────────
 		// EvaluationRunner deletes the workspace after the checker runs.

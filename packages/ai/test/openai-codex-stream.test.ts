@@ -81,7 +81,7 @@ function buildSSEPayload({
 	return `${events.join("\n\n")}\n\n`;
 }
 
-describe("openai-codex streaming", () => {
+describe("openai-codex streaming", { tags: ["unit"] }, () => {
 	it("streams SSE responses into AssistantMessageEventStream", async () => {
 		const tempDir = mkdtempSync(join(tmpdir(), "pi-codex-stream-"));
 		process.env.ALEF_CODING_AGENT_DIR = tempDir;

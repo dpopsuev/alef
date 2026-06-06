@@ -120,7 +120,7 @@ async function assertSecondToolCallWithInterleavedThinking<TApi extends Api>(
 
 const hasAnthropicCredentials = !!getEnvApiKey("anthropic");
 
-describe.skipIf(!hasBedrockCredentials())("Amazon Bedrock interleaved thinking", () => {
+describe.skipIf(!hasBedrockCredentials())("Amazon Bedrock interleaved thinking", { tags: ["real-llm"] }, () => {
 	it("should do interleaved thinking on Claude Opus 4.5", { retry: 3 }, async () => {
 		const llm = getModel("amazon-bedrock", "global.anthropic.claude-opus-4-5-20251101-v1:0");
 		await assertSecondToolCallWithInterleavedThinking(llm, "high");
@@ -132,7 +132,7 @@ describe.skipIf(!hasBedrockCredentials())("Amazon Bedrock interleaved thinking",
 	});
 });
 
-describe.skipIf(!hasAnthropicCredentials)("Anthropic interleaved thinking", () => {
+describe.skipIf(!hasAnthropicCredentials)("Anthropic interleaved thinking", { tags: ["real-llm"] }, () => {
 	it("should do interleaved thinking on Claude Opus 4.5", { retry: 3 }, async () => {
 		const llm = getModel("anthropic", "claude-opus-4-5");
 		await assertSecondToolCallWithInterleavedThinking(llm, "high");

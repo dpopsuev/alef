@@ -35,7 +35,7 @@ function rec(type: string, bus: "motor" | "sense" | "internal" = "motor", hash =
 // E2E-184: file read workflow
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertFileReadWorkflow", () => {
+describe("verifier: assertFileReadWorkflow", { tags: ["integration"] }, () => {
 	it("accepts fs.read + reply containing secret", () => {
 		const records = [rec("dialog.message", "sense"), rec("fs.read"), rec("fs.read", "sense"), rec("dialog.message")];
 		expect(() => assertFileReadWorkflow(records, "The secret is XYZ-123", "XYZ-123")).not.toThrow();
@@ -57,7 +57,7 @@ describe("verifier: assertFileReadWorkflow", () => {
 	});
 });
 
-describe("verifier: assertHashesPresent", () => {
+describe("verifier: assertHashesPresent", { tags: ["integration"] }, () => {
 	it("accepts records all with hashes", () => {
 		const records = [rec("fs.read"), rec("dialog.message", "motor", "b".repeat(64))];
 		expect(() => assertHashesPresent(records)).not.toThrow();
@@ -78,7 +78,7 @@ describe("verifier: assertHashesPresent", () => {
 // E2E-185: blueprint organ selection
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertOrganSelection", () => {
+describe("verifier: assertOrganSelection", { tags: ["integration"] }, () => {
 	it("accepts fs.read with no lector/shell events", () => {
 		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("dialog.message")];
 		expect(() => assertOrganSelection(records, ["fs.read"], ["lector.", "shell."])).not.toThrow();
@@ -104,7 +104,7 @@ describe("verifier: assertOrganSelection", () => {
 // E2E-187: SSE surface filter
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertSseFilter", () => {
+describe("verifier: assertSseFilter", { tags: ["integration"] }, () => {
 	it("accepts dialog.message on SSE, fs.read absent from SSE but in JSONL", () => {
 		const sseTypes = ["dialog.message"];
 		const jsonlTypes = new Set(["fs.read", "dialog.message"]);
@@ -134,7 +134,7 @@ describe("verifier: assertSseFilter", () => {
 // E2E-186: tool sequence
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertToolSequence", () => {
+describe("verifier: assertToolSequence", { tags: ["integration"] }, () => {
 	it("accepts lector.read before lector.edit", () => {
 		const records = [
 			rec("dialog.message", "sense"),
@@ -172,7 +172,7 @@ describe("verifier: assertToolSequence", () => {
 // E2E-189: multi-turn history
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertMultiTurnHistory", () => {
+describe("verifier: assertMultiTurnHistory", { tags: ["integration"] }, () => {
 	it("accepts when both turns contain the secret", () => {
 		expect(() =>
 			assertMultiTurnHistory("The token is ABC-123", "You told me ABC-123 earlier.", "ABC-123"),
@@ -196,7 +196,7 @@ describe("verifier: assertMultiTurnHistory", () => {
 // E2E-188: web fetch
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertWebFetch", () => {
+describe("verifier: assertWebFetch", { tags: ["integration"] }, () => {
 	it("accepts reply matching expected pattern", () => {
 		expect(() => assertWebFetch("The page title is Example Domain.", /example\s*domain/i)).not.toThrow();
 	});
@@ -214,7 +214,7 @@ describe("verifier: assertWebFetch", () => {
 // E2E-subagent: outer agent delegates via agent.run
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertSubagentWorkflow", () => {
+describe("verifier: assertSubagentWorkflow", { tags: ["integration"] }, () => {
 	it("accepts agent.run in motor events and secret in reply", () => {
 		const records = [
 			rec("dialog.message", "sense"),

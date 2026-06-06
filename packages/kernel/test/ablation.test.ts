@@ -30,7 +30,7 @@ function makeFsOrgan(actions?: readonly string[]) {
 	);
 }
 
-describe("organ ablation — no filter (default)", () => {
+describe("organ ablation — no filter (default)", { tags: ["unit"] }, () => {
 	it("mounts all actions when no allowlist is specified", () => {
 		const nerve = new InProcessNerve();
 		const organ = makeFsOrgan();
@@ -47,7 +47,7 @@ describe("organ ablation — no filter (default)", () => {
 	});
 });
 
-describe("organ ablation — read-only allowlist", () => {
+describe("organ ablation — read-only allowlist", { tags: ["unit"] }, () => {
 	it("mounts only allowed actions on the bus", () => {
 		const nerve = new InProcessNerve();
 		const organ = makeFsOrgan(["fs.read"]);
@@ -102,7 +102,7 @@ describe("organ ablation — read-only allowlist", () => {
 	});
 });
 
-describe("organ ablation — subscriptions reflect allowlist", () => {
+describe("organ ablation — subscriptions reflect allowlist", { tags: ["unit"] }, () => {
 	it("subscriptions only contains allowed motor events", () => {
 		const organ = makeFsOrgan(["fs.read", "fs.grep"]);
 		expect(organ.subscriptions.motor).toEqual(["fs.read"]);

@@ -86,7 +86,7 @@ function make(opts: Parameters<typeof createToolShellOrgan>[0] = { tools: ALL_TO
 // createToolShellOrgan — shape
 // ---------------------------------------------------------------------------
 
-describe("createToolShellOrgan — metaTools", () => {
+describe("createToolShellOrgan — metaTools", { tags: ["unit"] }, () => {
 	it("exposes stripped domain tools + tools.describe", () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
 		// N domain tools (stripped) + 1 tools.describe = N+1
@@ -114,7 +114,7 @@ describe("createToolShellOrgan — metaTools", () => {
 // currentMetaTools — schema promotion (ALE-TSK-362)
 // ---------------------------------------------------------------------------
 
-describe("currentMetaTools — schema promotion", () => {
+describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	it("initially identical shape to metaTools (all stripped)", () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
 		const current = shell.currentMetaTools();
@@ -214,7 +214,7 @@ describe("currentMetaTools — schema promotion", () => {
 // internal search (not exposed as motor handler)
 // ---------------------------------------------------------------------------
 
-describe("ToolShellOrgan.search — internal keyword matching", () => {
+describe("ToolShellOrgan.search — internal keyword matching", { tags: ["unit"] }, () => {
 	it("returns tools matching a single keyword", () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
 		const results = shell.search("file");
@@ -249,7 +249,7 @@ describe("ToolShellOrgan.search — internal keyword matching", () => {
 // tools.describe
 // ---------------------------------------------------------------------------
 
-describe("tools.describe — full schema on demand", () => {
+describe("tools.describe — full schema on demand", { tags: ["unit"] }, () => {
 	it("returns schema and guidance for a known tool", async () => {
 		const directives = new Map([["fs.read", ["Always use offset/limit for large files."]]]);
 		const h = make({ tools: ALL_TOOLS, organDirectives: directives });
@@ -306,7 +306,7 @@ describe("tools.describe — full schema on demand", () => {
 // Context lifecycle — catalog inject / evict
 // ---------------------------------------------------------------------------
 
-describe("ToolShellOrgan lifecycle — catalog injection and eviction", () => {
+describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: ["unit"] }, () => {
 	const MARKER = "\x00TOOL-CATALOG-v1\x00";
 
 	function msgs(n: number): Array<Record<string, unknown>> {
@@ -365,7 +365,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", () => {
 	});
 });
 
-describe("buildBootCatalog", () => {
+describe("buildBootCatalog", { tags: ["unit"] }, () => {
 	it("includes all tool names", () => {
 		const catalog = buildBootCatalog(ALL_TOOLS);
 		for (const t of ALL_TOOLS) {
@@ -400,7 +400,7 @@ describe("buildBootCatalog", () => {
 	});
 });
 
-describe("buildOrganDirectives", () => {
+describe("buildOrganDirectives", { tags: ["unit"] }, () => {
 	it("maps each tool in an organ to that organ's directives", () => {
 		const organs = [
 			{ tools: [FS_READ, FS_GREP], directives: ["Use offset/limit for large files."] },

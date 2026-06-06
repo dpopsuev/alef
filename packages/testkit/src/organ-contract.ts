@@ -213,6 +213,11 @@ export interface OrganComplianceOptions {
 	 * Called after each probe with all log entries captured by the spy logger.
 	 */
 	logAssertions?: (logs: CapturedLog[]) => void;
+	/**
+	 * Vitest tags applied to the generated compliance describe block.
+	 * Default: ["compliance"]. Override to add extra tags.
+	 */
+	tags?: string[];
 }
 
 /**
@@ -262,7 +267,7 @@ export function organComplianceSuite(
 		}
 	}
 
-	describe("organ framework compliance", () => {
+	describe("organ framework compliance", { tags: (opts.tags ?? ["compliance"]) as string[] as never }, () => {
 		let organ: Organ;
 		let unmount: (() => void) | undefined;
 		const probeNerve = new InProcessNerve();

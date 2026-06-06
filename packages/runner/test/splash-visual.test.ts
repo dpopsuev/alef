@@ -32,7 +32,7 @@ function section(label: string): void {
 	process.stdout.write(`\n${chalk.bold(`── ${label} ${"─".repeat(40 - label.length)}`)}\n\n`);
 }
 
-describe("splash render — visual block elements", () => {
+describe("splash render — visual block elements", { tags: ["unit"] }, () => {
 	it("renders Latin letters at 64pt", async () => {
 		section("Latin 64pt — block elements");
 		for (const ch of ["A", "B", "C", "H", "O", "8"]) {

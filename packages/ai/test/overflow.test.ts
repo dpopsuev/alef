@@ -29,7 +29,7 @@ function createErrorMessage(errorMessage: string): AssistantMessage {
 	};
 }
 
-describe("isContextOverflow", () => {
+describe("isContextOverflow", { tags: ["unit"] }, () => {
 	it("detects explicit Ollama prompt-too-long errors", () => {
 		const message = createErrorMessage("400 `prompt too long; exceeded max context length by 100918 tokens`");
 		expect(isContextOverflow(message, 32768)).toBe(true);

@@ -57,7 +57,7 @@ function readGen(id: number) {
 // init
 // ---------------------------------------------------------------------------
 
-describe("init", () => {
+describe("init", { tags: ["unit"] }, () => {
 	it("creates directories and package.json", async () => {
 		const { init } = await load();
 		init();
@@ -78,7 +78,7 @@ describe("init", () => {
 // ESM closures prevent spying on runNpm internally; assert output state instead.
 // ---------------------------------------------------------------------------
 
-describe("install", () => {
+describe("install", { tags: ["unit"] }, () => {
 	it("writes generation 1 after organ install", async () => {
 		const { init, install } = await load();
 		init();
@@ -100,7 +100,7 @@ describe("install", () => {
 	});
 });
 
-describe("upgrade", () => {
+describe("upgrade", { tags: ["unit"] }, () => {
 	it("writes next generation after upgrade", async () => {
 		const { init, upgrade } = await load();
 		init();
@@ -110,7 +110,7 @@ describe("upgrade", () => {
 	});
 });
 
-describe("remove", () => {
+describe("remove", { tags: ["unit"] }, () => {
 	it("writes next generation after remove", async () => {
 		const { init, upgrade, remove } = await load();
 		init();
@@ -122,7 +122,7 @@ describe("remove", () => {
 	});
 });
 
-describe("rollback", () => {
+describe("rollback", { tags: ["unit"] }, () => {
 	it("restores lockfile from generation N and updates current", async () => {
 		const { init, upgrade, rollback } = await load();
 		init();
@@ -144,7 +144,7 @@ describe("rollback", () => {
 // Generation mechanics — no npm needed
 // ---------------------------------------------------------------------------
 
-describe("generation lifecycle", () => {
+describe("generation lifecycle", { tags: ["unit"] }, () => {
 	it("increments id on each operation", async () => {
 		const { init, upgrade } = await load();
 		init();
@@ -174,7 +174,7 @@ describe("generation lifecycle", () => {
 // History
 // ---------------------------------------------------------------------------
 
-describe("history", () => {
+describe("history", { tags: ["unit"] }, () => {
 	it("returns empty when no generations", async () => {
 		const { init, history } = await load();
 		init();
@@ -198,7 +198,7 @@ describe("history", () => {
 // GC
 // ---------------------------------------------------------------------------
 
-describe("gc", () => {
+describe("gc", { tags: ["unit"] }, () => {
 	it("removes generations beyond keep limit", async () => {
 		const { init, upgrade, gc, history } = await load();
 		init();
@@ -227,7 +227,7 @@ describe("gc", () => {
 // Robustness
 // ---------------------------------------------------------------------------
 
-describe("robustness", () => {
+describe("robustness", { tags: ["unit"] }, () => {
 	it("corrupted `current` falls back to 0 — next gen is 1", async () => {
 		const { init, upgrade } = await load();
 		init();
@@ -247,7 +247,7 @@ describe("robustness", () => {
 // Local store
 // ---------------------------------------------------------------------------
 
-describe("local-store", () => {
+describe("local-store", { tags: ["unit"] }, () => {
 	it("snapshots and restores by hash", async () => {
 		const { init, snapshotLocalOrgan, restoreLocalOrgan } = await load();
 		init();
@@ -279,7 +279,7 @@ describe("local-store", () => {
 // resolveOrganPath
 // ---------------------------------------------------------------------------
 
-describe("resolveOrganPath", () => {
+describe("resolveOrganPath", { tags: ["unit"] }, () => {
 	it("returns undefined when not installed", async () => {
 		const { init, resolveOrganPath } = await load();
 		init();

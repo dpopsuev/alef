@@ -12,7 +12,7 @@ import { NerveFixture } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-describe("defineOrgan — schema validation contract", () => {
+describe("defineOrgan — schema validation contract", { tags: ["unit"] }, () => {
 	it("fires error sense immediately when motor payload fails inputSchema", async () => {
 		let handleCalled = false;
 

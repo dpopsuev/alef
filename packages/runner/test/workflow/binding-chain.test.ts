@@ -35,7 +35,7 @@ function stubEvaluator(
 	});
 }
 
-describe("Binding chain — ordered", () => {
+describe("Binding chain — ordered", { tags: ["unit"] }, () => {
 	const disposables: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposables.splice(0)) d();
@@ -120,7 +120,7 @@ describe("Binding chain — ordered", () => {
 	}, 10_000);
 });
 
-describe("Binding chain — parallel-all", () => {
+describe("Binding chain — parallel-all", { tags: ["unit"] }, () => {
 	const disposables: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposables.splice(0)) d();

@@ -6,7 +6,7 @@ import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createLectorOrgan } from "../src/index.js";
 
-describe.skipIf(!HAVE_REAL_LLM)("organ-lector — real LLM E2E", () => {
+describe.skipIf(!HAVE_REAL_LLM)("organ-lector — real LLM E2E", { tags: ["real-llm"] }, () => {
 	let tempDir: string;
 	let filePath: string;
 	const uuid = randomUUID().replace(/-/g, "");

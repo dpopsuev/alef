@@ -97,7 +97,7 @@ interface ChatCompletionsRequestBody {
 	stream_options?: { include_usage?: boolean };
 }
 
-describe("openai-completions thinking-as-text replay", () => {
+describe("openai-completions thinking-as-text replay", { tags: ["unit"] }, () => {
 	afterEach(() => {
 		delete process.env.OPENAI_API_KEY;
 	});

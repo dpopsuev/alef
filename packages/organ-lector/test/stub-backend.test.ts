@@ -19,7 +19,7 @@ export async function callApi() {
 }
 `;
 
-describe("StubLectorBackend — read", () => {
+describe("StubLectorBackend — read", { tags: ["unit"] }, () => {
 	it("reads injected file", async () => {
 		const b = new StubLectorBackend({ "auth.ts": AUTH_TS });
 		const result = await b.read("auth.ts");
@@ -69,7 +69,7 @@ describe("StubLectorBackend — read", () => {
 	});
 });
 
-describe("StubLectorBackend — write / edit", () => {
+describe("StubLectorBackend — write / edit", { tags: ["unit"] }, () => {
 	it("write creates a new file", async () => {
 		const b = new StubLectorBackend();
 		await b.write("new.ts", "export const x = 1;");
@@ -109,7 +109,7 @@ describe("StubLectorBackend — write / edit", () => {
 	});
 });
 
-describe("StubLectorBackend — search", () => {
+describe("StubLectorBackend — search", { tags: ["unit"] }, () => {
 	it("finds pattern across files", async () => {
 		const b = new StubLectorBackend({ "auth.ts": AUTH_TS, "api.ts": API_TS });
 		const matches = await b.search("login");
@@ -136,7 +136,7 @@ describe("StubLectorBackend — search", () => {
 	});
 });
 
-describe("StubLectorBackend — find", () => {
+describe("StubLectorBackend — find", { tags: ["unit"] }, () => {
 	it("finds files by extension glob", async () => {
 		const b = new StubLectorBackend({ "a.ts": "", "b.ts": "", "c.js": "" });
 		const paths = await b.find("*.ts");
@@ -153,7 +153,7 @@ describe("StubLectorBackend — find", () => {
 	});
 });
 
-describe("StubLectorBackend — callers", () => {
+describe("StubLectorBackend — callers", { tags: ["unit"] }, () => {
 	it("returns call sites, excluding declarations", async () => {
 		const b = new StubLectorBackend({ "auth.ts": AUTH_TS, "api.ts": API_TS });
 		const callers = await b.callers("login");

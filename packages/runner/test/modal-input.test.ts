@@ -37,7 +37,7 @@ function makeHandler() {
 // Mode transitions
 // ---------------------------------------------------------------------------
 
-describe("ModalInputHandler — mode transitions", () => {
+describe("ModalInputHandler — mode transitions", { tags: ["unit"] }, () => {
 	it("starts in insert mode", () => {
 		const { h } = makeHandler();
 		expect(h.getMode()).toBe("insert");
@@ -108,7 +108,7 @@ describe("ModalInputHandler — mode transitions", () => {
 // Insert mode passthrough
 // ---------------------------------------------------------------------------
 
-describe("ModalInputHandler — insert mode passthrough", () => {
+describe("ModalInputHandler — insert mode passthrough", { tags: ["unit"] }, () => {
 	it("regular characters pass through unconsumed in insert mode", () => {
 		const { h } = makeHandler();
 		expect(h.handle("a")).toBeUndefined();
@@ -128,7 +128,7 @@ describe("ModalInputHandler — insert mode passthrough", () => {
 // Normal mode — motion commands
 // ---------------------------------------------------------------------------
 
-describe("ModalInputHandler — normal mode motion", () => {
+describe("ModalInputHandler — normal mode motion", { tags: ["unit"] }, () => {
 	it("h sends left arrow", () => {
 		const { h, editor } = makeHandler();
 		h.handle("\x1b");
@@ -201,7 +201,7 @@ describe("ModalInputHandler — normal mode motion", () => {
 // Normal mode — editing commands
 // ---------------------------------------------------------------------------
 
-describe("ModalInputHandler — normal mode editing", () => {
+describe("ModalInputHandler — normal mode editing", { tags: ["unit"] }, () => {
 	it("x deletes char forward (ctrl+d)", () => {
 		const { h, editor } = makeHandler();
 		h.handle("\x1b");
@@ -259,7 +259,7 @@ describe("ModalInputHandler — normal mode editing", () => {
 // ALE-TSK-213: which-key hint
 // ---------------------------------------------------------------------------
 
-describe("ALE-TSK-213: which-key hint overlay", () => {
+describe("ALE-TSK-213: which-key hint overlay", { tags: ["unit"] }, () => {
 	it("armHint fires onHint after timeout in normal mode", async () => {
 		const hints: string[] = [];
 		const { h } = (() => {

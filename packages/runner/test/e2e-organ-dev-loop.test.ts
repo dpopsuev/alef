@@ -63,7 +63,7 @@ function motorCall(
 	});
 }
 
-describe("ALE-TSK-340: organ-dev-loop via supervisor + eval organs", () => {
+describe("ALE-TSK-340: organ-dev-loop via supervisor + eval organs", { tags: ["e2e"] }, () => {
 	it("spawn child via supervisor.spawn, eval via eval.run, assert passes", async () => {
 		const organDir = makeTmp();
 		const cwd = organDir;

@@ -84,7 +84,7 @@ function chatText(ctx: TuiHandlerContext): string {
 // handleCtrlC
 // ---------------------------------------------------------------------------
 
-describe("handleCtrlC — idle (no turn running)", () => {
+describe("handleCtrlC — idle (no turn running)", { tags: ["unit"] }, () => {
 	it("calls dispose() and tui.stop()", () => {
 		const ctx = makeCtx();
 		handleCtrlC(ctx);
@@ -99,7 +99,7 @@ describe("handleCtrlC — idle (no turn running)", () => {
 	});
 });
 
-describe("handleCtrlC — mid-turn (agent is running)", () => {
+describe("handleCtrlC — mid-turn (agent is running)", { tags: ["unit"] }, () => {
 	it("calls abortCurrentTurn and clears it via setAbortCurrentTurn", () => {
 		const abort = vi.fn();
 		const ctx = makeCtx({ abortCurrentTurn: abort });
@@ -132,7 +132,7 @@ describe("handleCtrlC — mid-turn (agent is running)", () => {
 // handleSlashCommand — /exit
 // ---------------------------------------------------------------------------
 
-describe("handleSlashCommand /exit", () => {
+describe("handleSlashCommand /exit", { tags: ["unit"] }, () => {
 	it("calls dispose() and tui.stop()", () => {
 		const ctx = makeCtx();
 		handleSlashCommand("/exit", ctx);
@@ -155,7 +155,7 @@ describe("handleSlashCommand /exit", () => {
 // handleSlashCommand — /new
 // ---------------------------------------------------------------------------
 
-describe("handleSlashCommand /new", () => {
+describe("handleSlashCommand /new", { tags: ["unit"] }, () => {
 	it("clears pre-existing children and replaces with notice pill", () => {
 		const ctx = makeCtx();
 		// Add some children to chat first.
@@ -189,7 +189,7 @@ describe("handleSlashCommand /new", () => {
 // handleSlashCommand — /resume
 // ---------------------------------------------------------------------------
 
-describe("handleSlashCommand /resume", () => {
+describe("handleSlashCommand /resume", { tags: ["unit"] }, () => {
 	it("appends the session ID to chat", () => {
 		const ctx = makeCtx({
 			session: makeSession({ state: { id: "abc-999", modelId: "test-model", contextWindow: 128_000 } }),
@@ -207,7 +207,7 @@ describe("handleSlashCommand /resume", () => {
 // handleSlashCommand — /help
 // ---------------------------------------------------------------------------
 
-describe("handleSlashCommand /help", () => {
+describe("handleSlashCommand /help", { tags: ["unit"] }, () => {
 	it("appends help text listing all commands", () => {
 		const ctx = makeCtx();
 		handleSlashCommand("/help", ctx);
@@ -227,7 +227,7 @@ describe("handleSlashCommand /help", () => {
 // handleSlashCommand — unknown command
 // ---------------------------------------------------------------------------
 
-describe("handleSlashCommand — unknown command", () => {
+describe("handleSlashCommand — unknown command", { tags: ["unit"] }, () => {
 	it("appends an 'Unknown command' notice", () => {
 		const ctx = makeCtx();
 		handleSlashCommand("/frobnitz", ctx);
@@ -251,7 +251,7 @@ describe("handleSlashCommand — unknown command", () => {
 // truncateToolOutput
 // ---------------------------------------------------------------------------
 
-describe("truncateToolOutput", () => {
+describe("truncateToolOutput", { tags: ["unit"] }, () => {
 	it("passes short text unchanged", () => {
 		const text = "line one\nline two";
 		expect(truncateToolOutput(text)).toBe(text);
@@ -282,7 +282,7 @@ describe("truncateToolOutput", () => {
 // handleSlashCommand /login and /logout
 // ---------------------------------------------------------------------------
 
-describe("handleSlashCommand /login", () => {
+describe("handleSlashCommand /login", { tags: ["unit"] }, () => {
 	const TEST_PROVIDER = `test-provider-${Date.now()}`;
 
 	afterEach(() => {
@@ -314,7 +314,7 @@ describe("handleSlashCommand /login", () => {
 	});
 });
 
-describe("handleSlashCommand /logout", () => {
+describe("handleSlashCommand /logout", { tags: ["unit"] }, () => {
 	const TEST_PROVIDER = `test-logout-provider-${Date.now()}`;
 
 	afterEach(() => {
@@ -346,7 +346,7 @@ describe("handleSlashCommand /logout", () => {
 // ALE-BUG-16 — activeCalls drained on turn abort
 // ---------------------------------------------------------------------------
 
-describe("activeCalls drained on turn abort (ALE-BUG-16)", () => {
+describe("activeCalls drained on turn abort (ALE-BUG-16)", { tags: ["unit"] }, () => {
 	it("abort path marks in-flight calls as failed and clears the map", () => {
 		const t = getTheme();
 		const activeCalls = new Map<string, ToolCallRow>();
@@ -383,7 +383,7 @@ describe("activeCalls drained on turn abort (ALE-BUG-16)", () => {
 // Header border width regression
 // ---------------------------------------------------------------------------
 
-describe("renderHeaderTopBorder — visible width equals terminal width", () => {
+describe("renderHeaderTopBorder — visible width equals terminal width", { tags: ["unit"] }, () => {
 	const label = "* ALEF  -  3a80e561";
 
 	for (const width of [40, 80, 120, 200]) {
@@ -407,7 +407,7 @@ describe("renderHeaderTopBorder — visible width equals terminal width", () => 
 // handleColonCommand :reload
 // ---------------------------------------------------------------------------
 
-describe("handleColonCommand :reload — no reloadOrgan callback", () => {
+describe("handleColonCommand :reload — no reloadOrgan callback", { tags: ["unit"] }, () => {
 	it("shows usage when name or path missing", () => {
 		const ctx = makeCtx();
 		handleColonCommand(":reload", ctx);
@@ -426,7 +426,7 @@ describe("handleColonCommand :reload — no reloadOrgan callback", () => {
 	});
 });
 
-describe("handleColonCommand :reload — with reloadOrgan callback", () => {
+describe("handleColonCommand :reload — with reloadOrgan callback", { tags: ["unit"] }, () => {
 	it("calls reloadOrgan with name and path, shows 'Reloading' notice", async () => {
 		let called: [string, string] | undefined;
 		const reloadOrgan = vi.fn(async (name: string, path: string) => {
@@ -477,7 +477,7 @@ import type { Component, TUI as TUIClass } from "@dpopsuev/alef-tui";
 // Since ArcEditorWrapper is not exported, we test it through ConsoleZone.mount().
 import { ConsoleZone } from "../src/console-zone.js";
 
-describe("ArcEditorWrapper — rendered lines must not exceed terminal width", () => {
+describe("ArcEditorWrapper — rendered lines must not exceed terminal width", { tags: ["unit"] }, () => {
 	for (const width of [40, 80, 120, 179, 180, 200]) {
 		it(`all lines fit within ${width} columns`, () => {
 			const children: Component[] = [];

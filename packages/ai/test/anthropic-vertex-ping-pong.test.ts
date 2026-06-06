@@ -29,7 +29,7 @@ function resolveAnthropicVertexPingPongConfig(): { projectId: string; region: st
 
 const vertexPingPongConfig = resolveAnthropicVertexPingPongConfig();
 
-describe.skipIf(!vertexPingPongConfig)("Anthropic Vertex SDK ping pong", () => {
+describe.skipIf(!vertexPingPongConfig)("Anthropic Vertex SDK ping pong", { tags: ["real-llm"] }, () => {
 	it("replies pong to a constrained ping prompt", { retry: 2, timeout: 60_000 }, async () => {
 		const cfg = vertexPingPongConfig!;
 		const client = new AnthropicVertex({

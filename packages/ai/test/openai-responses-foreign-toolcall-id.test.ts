@@ -16,7 +16,7 @@ const usage: Usage = {
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
 
-describe("OpenAI Responses foreign tool call ID normalization", () => {
+describe("OpenAI Responses foreign tool call ID normalization", { tags: ["unit"] }, () => {
 	it("hashes foreign Copilot tool item IDs into a bounded Codex-safe fc_<hash> shape", () => {
 		const model = getModel("openai-codex", "gpt-5.3-codex");
 		const assistant: AssistantMessage = {

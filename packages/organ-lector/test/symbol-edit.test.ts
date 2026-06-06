@@ -23,7 +23,7 @@ export function subtract(a: number, b: number): number {
 // StubLectorBackend — symbol edit
 // ---------------------------------------------------------------------------
 
-describe("StubLectorBackend — symbol edit", () => {
+describe("StubLectorBackend — symbol edit", { tags: ["unit"] }, () => {
 	it("replaces a named symbol's span", async () => {
 		const b = new StubLectorBackend({ "math.ts": SRC });
 		await b.edit("math.ts", [
@@ -74,7 +74,7 @@ afterEach(() => {
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe("LocalLectorBackend — symbol edit with Optimistic Lock", () => {
+describe("LocalLectorBackend — symbol edit with Optimistic Lock", { tags: ["unit"] }, () => {
 	it("replaces symbol span after a lector.read populates the cache", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "math.ts"), SRC, "utf-8");

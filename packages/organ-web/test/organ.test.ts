@@ -10,7 +10,7 @@ import { createWebOrgan } from "../src/organ.js";
 
 organComplianceSuite(() => createWebOrgan());
 
-describe("WebOrgan — structure", () => {
+describe("WebOrgan — structure", { tags: ["compliance"] }, () => {
 	it("has name 'web'", () => {
 		const organ = createWebOrgan();
 		expect(organ.name).toBe("web");
@@ -41,7 +41,7 @@ describe("WebOrgan — structure", () => {
 	});
 });
 
-describe("WebOrgan — web.fetch validation", () => {
+describe("WebOrgan — web.fetch validation", { tags: ["compliance"] }, () => {
 	let fixture: NerveFixture;
 
 	beforeEach(() => {
@@ -66,7 +66,7 @@ describe("WebOrgan — web.fetch validation", () => {
 	});
 });
 
-describe("WebOrgan — web.search validation", () => {
+describe("WebOrgan — web.search validation", { tags: ["compliance"] }, () => {
 	let fixture: NerveFixture;
 
 	beforeEach(() => {
@@ -83,7 +83,7 @@ describe("WebOrgan — web.search validation", () => {
 	});
 });
 
-describe("WebOrgan — html-to-text (inline)", () => {
+describe("WebOrgan — html-to-text (inline)", { tags: ["compliance"] }, () => {
 	afterEach(() => vi.unstubAllGlobals());
 
 	it("strips tags and returns readable text", async () => {

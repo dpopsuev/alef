@@ -16,7 +16,7 @@ afterEach(() => {
 	delete process.env.TERM;
 });
 
-describe("colorDepth", () => {
+describe("colorDepth", { tags: ["unit"] }, () => {
 	it("returns truecolor when COLORTERM=truecolor", () => {
 		process.env.COLORTERM = "truecolor";
 		expect(colorDepth()).toBe("truecolor");
@@ -37,7 +37,7 @@ describe("colorDepth", () => {
 	});
 });
 
-describe("color()", () => {
+describe("color()", { tags: ["unit"] }, () => {
 	it("wraps text with truecolor escape in truecolor mode", () => {
 		process.env.COLORTERM = "truecolor";
 		const token = { truecolor: "#c55778" };
@@ -75,7 +75,7 @@ describe("color()", () => {
 	});
 });
 
-describe("bold / dim", () => {
+describe("bold / dim", { tags: ["unit"] }, () => {
 	it("bold wraps with bold escape", () => {
 		// chalk strips escapes in non-TTY environments; assert structural wrapping
 		// by checking the output either contains the escape OR equals the input
@@ -90,7 +90,7 @@ describe("bold / dim", () => {
 	});
 });
 
-describe("built-in themes", () => {
+describe("built-in themes", { tags: ["unit"] }, () => {
 	it("terminal, akko, mono, matrix are registered", () => {
 		expect(Object.keys(BUILT_IN_THEMES)).toEqual(expect.arrayContaining(["terminal", "akko", "mono", "matrix"]));
 	});
@@ -127,7 +127,7 @@ describe("built-in themes", () => {
 	});
 });
 
-describe("setThemeByName", () => {
+describe("setThemeByName", { tags: ["unit"] }, () => {
 	it("switches to mono", () => {
 		setThemeByName("mono");
 		expect(getTheme()).toBe(BUILT_IN_THEMES.mono);
@@ -142,14 +142,14 @@ describe("setThemeByName", () => {
 	});
 });
 
-describe("akko palette", () => {
+describe("akko palette", { tags: ["unit"] }, () => {
 	it("has truecolor values", () => {
 		expect(BUILT_IN_THEMES.akko.accentFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
 		expect(BUILT_IN_THEMES.akko.warnFg.truecolor).toMatch(/^#[0-9a-f]{6}$/i);
 	});
 });
 
-describe("spinnerFrames — locale-aware", () => {
+describe("spinnerFrames — locale-aware", { tags: ["unit"] }, () => {
 	it("returns the requested count of frames", () => {
 		const frames = spinnerFrames(8);
 		expect(frames).toHaveLength(8);
@@ -202,7 +202,7 @@ describe("spinnerFrames — locale-aware", () => {
 
 import { boldColor } from "../src/theme.js";
 
-describe("boldColor() — raw ANSI, fg-only reset (ALE-BUG-19)", () => {
+describe("boldColor() — raw ANSI, fg-only reset (ALE-BUG-19)", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		process.env.COLORTERM = "truecolor";
 	});

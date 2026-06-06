@@ -51,7 +51,7 @@ function make(canned?: string): Harness {
 // The proof
 // ---------------------------------------------------------------------------
 
-describe("Walking Skeleton", () => {
+describe("Walking Skeleton", { tags: ["integration"] }, () => {
 	it("dialog.send() resolves with MockReasoner canned text", async () => {
 		const { agent: _corpus, dialog } = make("pong");
 		expect(await dialog.send("ping")).toBe("pong");

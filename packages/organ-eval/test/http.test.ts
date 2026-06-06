@@ -35,7 +35,7 @@ afterEach(() => {
 	server.close();
 });
 
-describe("postMessage", () => {
+describe("postMessage", { tags: ["compliance"] }, () => {
 	it("POSTs JSON to /message and resolves on 200", async () => {
 		const received: string[] = [];
 		server.removeAllListeners("request");
@@ -63,7 +63,7 @@ describe("postMessage", () => {
 	});
 });
 
-describe("collectEvents", () => {
+describe("collectEvents", { tags: ["compliance"] }, () => {
 	it("collects SSE events until isDone returns true", async () => {
 		server.removeAllListeners("request");
 		server.on("request", (_req, res) => {

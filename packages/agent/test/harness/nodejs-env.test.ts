@@ -15,7 +15,7 @@ afterEach(async () => {
 	}
 });
 
-describe("NodeExecutionEnv", () => {
+describe("NodeExecutionEnv", { tags: ["unit"] }, () => {
 	it("reads, writes, lists, and removes files and directories", async () => {
 		const root = createTempDir();
 		const env = new NodeExecutionEnv({ cwd: root });

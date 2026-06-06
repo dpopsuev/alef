@@ -16,7 +16,7 @@ function makeSession(reply = "mock reply"): Session {
 	};
 }
 
-describe("runPrintMode", () => {
+describe("runPrintMode", { tags: ["unit"] }, () => {
 	it("calls session.send with the prompt", async () => {
 		const session = makeSession();
 		await runPrintMode("hello", session);

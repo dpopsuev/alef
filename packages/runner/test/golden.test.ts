@@ -22,7 +22,7 @@ const BOLD = "\x1b[1m";
 const DIM = "\x1b[2m";
 const RESET = "\x1b[0m";
 
-describe("Pill delimiters", () => {
+describe("Pill delimiters", { tags: ["unit"] }, () => {
 	for (const width of [40, 80, 120]) {
 		it(`header and footer are same visible width at ${width} columns`, () => {
 			const header = pillHeaderStr("@you", width);
@@ -33,7 +33,7 @@ describe("Pill delimiters", () => {
 	}
 });
 
-describe("Tool lines", () => {
+describe("Tool lines", { tags: ["unit"] }, () => {
 	it("active tool line", () => {
 		g("tool_active", renderToolLine("fs.read", "README.md", 0, true, getTheme()));
 	});
@@ -51,7 +51,7 @@ describe("Tool lines", () => {
 	});
 });
 
-describe("ANSI stripping", () => {
+describe("ANSI stripping", { tags: ["unit"] }, () => {
 	it("strips color codes", () => {
 		const stripped = stripANSI(`${BOLD}${MAG}hello${RESET} world`);
 		g("ansi_stripped", stripped);
@@ -62,7 +62,7 @@ describe("ANSI stripping", () => {
 	});
 });
 
-describe("Block element glyph rendering", () => {
+describe("Block element glyph rendering", { tags: ["unit"] }, () => {
 	it("renders letter A at 64pt", async () => {
 		const pixels = await rasterise("A", LATIN_FONT, 64);
 		if (!pixels) throw new Error("rasterise returned null for A");
@@ -91,7 +91,7 @@ describe("Block element glyph rendering", () => {
 // ---------------------------------------------------------------------------
 // Golden path helper self-tests
 // ---------------------------------------------------------------------------
-describe("Golden infrastructure", () => {
+describe("Golden infrastructure", { tags: ["unit"] }, () => {
 	it("goldenPath derives from test name", () => {
 		const path = goldenPath("my_test_name", "/some/dir");
 		if (!path.endsWith("testdata/my_test_name.golden")) {

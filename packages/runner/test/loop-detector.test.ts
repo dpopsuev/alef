@@ -26,7 +26,7 @@ function motorOnly(nerve: InProcessNerve, type: string, args: Record<string, unk
 	nerve.asNerve().motor.publish({ type, payload: { toolCallId: `t-${Math.random()}`, ...args }, correlationId: corr });
 }
 
-describe("LoopGuard", () => {
+describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("exposes organ interface", () => {
 		const organ = new LoopGuard();
 		expect(organ.name).toBe("loop-detector");
@@ -171,7 +171,7 @@ describe("LoopGuard", () => {
 // hashResult — Anthropic array-format content (ALE-BUG fix)
 // ---------------------------------------------------------------------------
 
-describe("hashResult — Anthropic array-format content", () => {
+describe("hashResult — Anthropic array-format content", { tags: ["unit"] }, () => {
 	it("detects loop when content is Anthropic-format array", () => {
 		const loops: string[] = [];
 		const nerve = new InProcessNerve();

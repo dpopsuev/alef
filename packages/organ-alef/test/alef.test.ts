@@ -8,7 +8,7 @@ organComplianceSuite(() => createAlefApiOrgan());
 // alef.rebuild — blue-green trigger
 // ---------------------------------------------------------------------------
 
-describe("alef.rebuild", () => {
+describe("alef.rebuild", { tags: ["unit"] }, () => {
 	const f = new NerveFixture();
 	afterEach(() => f.dispose());
 

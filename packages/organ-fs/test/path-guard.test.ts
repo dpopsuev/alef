@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertWithinRoot, guardedResolve } from "../src/path-guard.js";
 
-describe("assertWithinRoot", () => {
+describe("assertWithinRoot", { tags: ["unit"] }, () => {
 	it("allows paths within root", () => {
 		expect(() => assertWithinRoot("/workspace/src/foo.ts", "/workspace")).not.toThrow();
 	});
@@ -24,7 +24,7 @@ describe("assertWithinRoot", () => {
 	});
 });
 
-describe("guardedResolve", () => {
+describe("guardedResolve", { tags: ["unit"] }, () => {
 	it("resolves relative path within root", () => {
 		const abs = guardedResolve("src/foo.ts", { root: "/workspace" });
 		expect(abs).toBe("/workspace/src/foo.ts");

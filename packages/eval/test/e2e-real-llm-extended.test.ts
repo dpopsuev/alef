@@ -107,7 +107,7 @@ function makeAgent(organs: Parameters<Agent["load"]>[0][]): { agent: Agent; dial
 // Lector 2-call workflow with real LLM
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
+describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", { tags: ["real-llm"] }, () => {
 	it("agent uses lector.read then lector.edit — no fs.read", async () => {
 		const cwd = makeTmp();
 
@@ -184,7 +184,7 @@ describe.skipIf(!HAVE_LLM)("E2E-186: Lector 2-call workflow (real LLM)", () => {
 // WebOrgan real network fetch with real LLM
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAVE_NETWORK)("E2E-188: WebOrgan real network fetch (real LLM)", () => {
+describe.skipIf(!HAVE_NETWORK)("E2E-188: WebOrgan real network fetch (real LLM)", { tags: ["real-llm"] }, () => {
 	it("agent fetches example.com and extracts the title", async () => {
 		const { dialog } = makeAgent([createWebOrgan()]);
 		const reply = await dialog.send("Fetch https://example.com and tell me the page title.", "user", 60_000);
@@ -206,7 +206,7 @@ describe.skipIf(!HAVE_NETWORK)("E2E-188: WebOrgan real network fetch (real LLM)"
 // Multi-turn: conversationHistory round-trip
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAVE_LLM)("E2E-189: Multi-turn conversationHistory (real LLM)", () => {
+describe.skipIf(!HAVE_LLM)("E2E-189: Multi-turn conversationHistory (real LLM)", { tags: ["real-llm"] }, () => {
 	it("turn 2 can reference tool result from turn 1", async () => {
 		const cwd = makeTmp();
 		const secret = randomUUID().slice(0, 8).toUpperCase();

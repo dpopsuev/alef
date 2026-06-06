@@ -47,7 +47,7 @@ vi.mock("@anthropic-ai/sdk", () => {
 	return { default: FakeAnthropic };
 });
 
-describe("Copilot Claude via Anthropic Messages", () => {
+describe("Copilot Claude via Anthropic Messages", { tags: ["unit"] }, () => {
 	const context: Context = {
 		systemPrompt: "You are a helpful assistant.",
 		messages: [{ role: "user", content: "Hello", timestamp: Date.now() }],

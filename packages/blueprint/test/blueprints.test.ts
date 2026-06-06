@@ -40,7 +40,7 @@ afterEach(() => {
 // compileAgentDefinition
 // ---------------------------------------------------------------------------
 
-describe("compileAgentDefinition", () => {
+describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 	it("compiles a minimal definition", () => {
 		const def = compileAgentDefinition({ name: "minimal" });
 		expect(def.name).toBe("minimal");
@@ -198,7 +198,7 @@ describe("compileAgentDefinition", () => {
 // parseAgentDefinitionYaml
 // ---------------------------------------------------------------------------
 
-describe("parseAgentDefinitionYaml", () => {
+describe("parseAgentDefinitionYaml", { tags: ["unit"] }, () => {
 	it("parses bare YAML object", () => {
 		const def = parseAgentDefinitionYaml("name: bare\n");
 		expect(def.name).toBe("bare");
@@ -287,7 +287,7 @@ organs:
 // loadAgentDefinition
 // ---------------------------------------------------------------------------
 
-describe("loadAgentDefinition", () => {
+describe("loadAgentDefinition", { tags: ["unit"] }, () => {
 	it("loads a YAML file from disk", () => {
 		const dir = tmpDir();
 		const path = join(dir, "agent.yaml");
@@ -317,7 +317,7 @@ describe("loadAgentDefinition", () => {
 // findAgentDefinitionPath
 // ---------------------------------------------------------------------------
 
-describe("findAgentDefinitionPath", () => {
+describe("findAgentDefinitionPath", { tags: ["unit"] }, () => {
 	it("finds agent.yaml in cwd", () => {
 		const dir = tmpDir();
 		writeFileSync(join(dir, "agent.yaml"), "name: found\n");
@@ -354,7 +354,7 @@ describe("findAgentDefinitionPath", () => {
 // resolveAgentChildDefinition
 // ---------------------------------------------------------------------------
 
-describe("resolveAgentChildDefinition", () => {
+describe("resolveAgentChildDefinition", { tags: ["unit"] }, () => {
 	it("resolves by name from parent's children array", () => {
 		const dir = tmpDir();
 		const childPath = join(dir, "child.yaml");
@@ -396,7 +396,7 @@ describe("resolveAgentChildDefinition", () => {
 // Shipped bootstrap blueprints
 // ---------------------------------------------------------------------------
 
-describe("shipped bootstrap blueprints", () => {
+describe("shipped bootstrap blueprints", { tags: ["unit"] }, () => {
 	const BLUEPRINT_DIR = new URL("../examples/bootstrap", import.meta.url).pathname;
 
 	it("loads gensec.yaml", () => {
@@ -426,7 +426,7 @@ describe("shipped bootstrap blueprints", () => {
 	});
 });
 
-describe("surfaces", () => {
+describe("surfaces", { tags: ["unit"] }, () => {
 	it("parses surfaces from YAML", () => {
 		const def = parseAgentDefinitionYaml(`
 name: test-agent
@@ -447,7 +447,7 @@ surfaces:
 	});
 });
 
-describe("mergeAgentDefinitions", () => {
+describe("mergeAgentDefinitions", { tags: ["unit"] }, () => {
 	it("overlay surfaces replace base surfaces when non-empty", () => {
 		const base = parseAgentDefinitionYaml(`
 name: base

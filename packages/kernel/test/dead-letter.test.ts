@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SenseEvent } from "../src/buses.js";
 import { InProcessNerve, newCorrelationId } from "../src/buses.js";
 
-describe("dead letter detection", () => {
+describe("dead letter detection", { tags: ["unit"] }, () => {
 	it("publishes error sense when no specific handler is registered", async () => {
 		const nerve = new InProcessNerve();
 		const received: SenseEvent[] = [];

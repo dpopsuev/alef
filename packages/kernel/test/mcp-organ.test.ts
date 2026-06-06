@@ -44,7 +44,7 @@ function mockClient(toolDefs: FakeToolMap) {
 // Tool discovery
 // ---------------------------------------------------------------------------
 
-describe("McpOrgan — tool discovery", () => {
+describe("McpOrgan — tool discovery", { tags: ["unit"] }, () => {
 	it("exposes discovered MCP tools as organ.tools[]", async () => {
 		const client = mockClient({
 			list_files: { description: "List files", execute: async () => [] },
@@ -93,7 +93,7 @@ describe("McpOrgan — tool discovery", () => {
 // Motor → MCP → Sense routing
 // ---------------------------------------------------------------------------
 
-describe("McpOrgan — Motor/Sense routing", () => {
+describe("McpOrgan — Motor/Sense routing", { tags: ["unit"] }, () => {
 	it("Motor event routes to MCP execute and publishes Sense result", async () => {
 		const execute = vi.fn().mockResolvedValue({ files: ["a.ts", "b.ts"] });
 		const client = mockClient({
@@ -151,7 +151,7 @@ describe("McpOrgan — Motor/Sense routing", () => {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-describe("McpOrgan — lifecycle", () => {
+describe("McpOrgan — lifecycle", { tags: ["unit"] }, () => {
 	it("unmount closes the MCP client", async () => {
 		const client = mockClient({
 			noop: { description: "No-op", execute: async () => null },
@@ -170,7 +170,7 @@ describe("McpOrgan — lifecycle", () => {
 // Static factories (smoke test — no real subprocess/network)
 // ---------------------------------------------------------------------------
 
-describe("McpOrgan — static factories", () => {
+describe("McpOrgan — static factories", { tags: ["unit"] }, () => {
 	it("exposes McpOrgan.stdio and McpOrgan.http", () => {
 		expect(typeof McpOrgan.stdio).toBe("function");
 		expect(typeof McpOrgan.http).toBe("function");
@@ -181,7 +181,7 @@ describe("McpOrgan — static factories", () => {
 // ALE-BUG-20 — async MCP execute error handling (regression)
 // ---------------------------------------------------------------------------
 
-describe("async MCP execute error handling — regression ALE-BUG-20", () => {
+describe("async MCP execute error handling — regression ALE-BUG-20", { tags: ["unit"] }, () => {
 	it("publishes isError sense event when execute rejects after an async step", async () => {
 		// Simulate a tool whose execute does real async work then throws.
 		const client = mockClient({

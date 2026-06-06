@@ -15,7 +15,7 @@ afterEach(() => {
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe("EvalBaseline", () => {
+describe("EvalBaseline", { tags: ["unit"] }, () => {
 	it("starts empty", () => {
 		expect(EvalBaseline.empty().size).toBe(0);
 	});

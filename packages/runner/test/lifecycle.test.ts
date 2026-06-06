@@ -175,7 +175,7 @@ async function bootFixture(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Lifecycle — boot and serve", () => {
+describe("Lifecycle — boot and serve", { tags: ["integration"] }, () => {
 	it("GET /health returns ok:true after boot", async () => {
 		const fix = await bootFixture();
 		try {
@@ -202,7 +202,7 @@ describe("Lifecycle — boot and serve", () => {
 	});
 });
 
-describe("Lifecycle — POST /message → SSE stream", () => {
+describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }, () => {
 	it("POST /message → agent reply arrives on SSE as motor/dialog.message", async () => {
 		// bootFixture uses dialog.send directly (no HTTP /message wiring in-process).
 		// This test verifies that the agent's scripted reply is broadcast over SSE.
@@ -286,7 +286,7 @@ describe("Lifecycle — POST /message → SSE stream", () => {
 	});
 });
 
-describe("Lifecycle — JSONL persistence (SessionLog)", () => {
+describe("Lifecycle — JSONL persistence (SessionLog)", { tags: ["integration"] }, () => {
 	it("motor and sense events are written to JSONL after a turn", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
@@ -335,7 +335,7 @@ describe("Lifecycle — JSONL persistence (SessionLog)", () => {
 	});
 });
 
-describe("Lifecycle — TurnAssembler session resume", () => {
+describe("Lifecycle — TurnAssembler session resume", { tags: ["integration"] }, () => {
 	it("assembleTurns reconstructs a turn from JSONL after an agent turn", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "I read it."),
@@ -384,7 +384,7 @@ describe("Lifecycle — TurnAssembler session resume", () => {
 	});
 });
 
-describe("Lifecycle — multi-turn context accumulation", () => {
+describe("Lifecycle — multi-turn context accumulation", { tags: ["integration"] }, () => {
 	it("session store accumulates motor and sense events across two turns", async () => {
 		const fix = await bootFixture({
 			script: [step.reply("first answer"), step.reply("second answer")],
@@ -401,7 +401,7 @@ describe("Lifecycle — multi-turn context accumulation", () => {
 	});
 });
 
-describe("Lifecycle — SSE event filter (allowedEvents)", () => {
+describe("Lifecycle — SSE event filter (allowedEvents)", { tags: ["integration"] }, () => {
 	it("internal events blocked when not in allowedEvents", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
@@ -478,7 +478,7 @@ describe("Lifecycle — SSE event filter (allowedEvents)", () => {
 	});
 });
 
-describe("Lifecycle — audit log integrity", () => {
+describe("Lifecycle — audit log integrity", { tags: ["integration"] }, () => {
 	it("every StorageRecord has a SHA-256 hash", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),

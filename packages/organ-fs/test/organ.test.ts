@@ -24,7 +24,7 @@ function fixture() {
 	return f;
 }
 
-describe("FsCorpusOrgan", () => {
+describe("FsCorpusOrgan", { tags: ["compliance"] }, () => {
 	it("has name=fs and 6 tools", () => {
 		const organ = createFsOrgan({ cwd: testDir });
 		expect(organ.name).toBe("fs");
@@ -198,7 +198,7 @@ describe("FsCorpusOrgan", () => {
 	});
 });
 
-describe("write serialization — file mutation queue", () => {
+describe("write serialization — file mutation queue", { tags: ["compliance"] }, () => {
 	it("serializes concurrent fs.write calls on the same path", async () => {
 		const f = new NerveFixture();
 		f.mount(createFsOrgan({ cwd: testDir }));
@@ -288,7 +288,7 @@ describe("write serialization — file mutation queue", () => {
 	});
 });
 
-describe("fs.find — path-based glob patterns", () => {
+describe("fs.find — path-based glob patterns", { tags: ["compliance"] }, () => {
 	it("pattern containing / uses --full-path and matches nested files", async () => {
 		const f = new NerveFixture();
 		await mkdir(join(testDir, "src", "auth"), { recursive: true });
@@ -318,7 +318,7 @@ describe("fs.find — path-based glob patterns", () => {
 	});
 });
 
-describe("fs.find — nested gitignore rules", () => {
+describe("fs.find — nested gitignore rules", { tags: ["compliance"] }, () => {
 	it("gitignore in one sibling does not suppress files in another sibling", async () => {
 		const f = new NerveFixture();
 		await mkdir(join(testDir, "sibling-a"), { recursive: true });
@@ -336,7 +336,7 @@ describe("fs.find — nested gitignore rules", () => {
 	});
 });
 
-describe("fs.edit — multi-edit", () => {
+describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 	it("applies multiple disjoint edits atomically", async () => {
 		const f = new NerveFixture();
 		await writeFile(join(testDir, "multi.ts"), "AAA BBB CCC");
@@ -396,7 +396,7 @@ describe("fs.edit — multi-edit", () => {
 	});
 });
 
-describe("fs.read — binary/image detection", () => {
+describe("fs.read — binary/image detection", { tags: ["compliance"] }, () => {
 	it("rejects a PNG file by magic bytes, not extension", async () => {
 		const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 		await writeFile(join(testDir, "image.notapng"), pngMagic);
@@ -429,7 +429,7 @@ describe("fs.read — binary/image detection", () => {
 
 import { FileTracker } from "../src/organ.js";
 
-describe("FileTracker.reads capped to prevent memory leak", () => {
+describe("FileTracker.reads capped to prevent memory leak", { tags: ["compliance"] }, () => {
 	it("size stays bounded after recording more paths than the cap", () => {
 		const tracker = new FileTracker();
 		for (let i = 0; i < 1200; i++) tracker.record(`/project/src/module${i}.ts`);

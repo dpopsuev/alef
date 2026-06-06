@@ -117,7 +117,7 @@ function runInPty(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("TUI process-exit smoke (node-pty)", () => {
+describe("TUI process-exit smoke (node-pty)", { tags: ["integration"] }, () => {
 	it("/exit terminates the process with exit code 0", async () => {
 		const cwd = makeTmp();
 		const result = await runInPty(cwd, ["scripted reply"], async (write, waitFor) => {

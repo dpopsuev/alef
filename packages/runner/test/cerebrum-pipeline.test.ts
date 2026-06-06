@@ -58,7 +58,7 @@ afterEach(() => {
 // prepareStep → LLM context
 // ---------------------------------------------------------------------------
 
-describe("prepareStep → LLM context", () => {
+describe("prepareStep → LLM context", { tags: ["unit"] }, () => {
 	it("system message from directives is in ctx.messages at callLLM time", async () => {
 		const directives = new Directives();
 		directives.register({ id: "sentinel", priority: 0, content: "SENTINEL_DIRECTIVE_XYZ", enabled: true });
@@ -168,7 +168,7 @@ describe("prepareStep → LLM context", () => {
 // motor/llm.phase pipeline
 // ---------------------------------------------------------------------------
 
-describe("motor/llm.phase pipeline", () => {
+describe("motor/llm.phase pipeline", { tags: ["unit"] }, () => {
 	it("motor/llm.phase fires and its messages include the system message", async () => {
 		const directives = new Directives();
 		directives.register({ id: "d", priority: 0, content: "PHASE_SENTINEL", enabled: true });
@@ -233,7 +233,7 @@ describe("motor/llm.phase pipeline", () => {
 // Retry on transient error
 // ---------------------------------------------------------------------------
 
-describe("retry on transient error", () => {
+describe("retry on transient error", { tags: ["unit"] }, () => {
 	it("retries a rate-limit error and returns the second response", async () => {
 		const { faux, agent, dialog } = makeAgent({ maxRetries: 2 });
 		faux.setResponses([
@@ -274,7 +274,7 @@ describe("retry on transient error", () => {
 // budget.cancel abort
 // ---------------------------------------------------------------------------
 
-describe("budget.cancel", () => {
+describe("budget.cancel", { tags: ["unit"] }, () => {
 	it("budget.cancel aborts the current turn before the LLM responds", async () => {
 		const factory: FauxResponseFactory = (_ctx, opts) =>
 			new Promise<ReturnType<typeof fauxAssistantMessage>>((resolve) => {

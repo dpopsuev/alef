@@ -46,7 +46,7 @@ function makeAssistantMessage(content: AssistantMessage["content"]): AssistantMe
 	};
 }
 
-describe("OpenAI to Anthropic session migration for Copilot Claude", () => {
+describe("OpenAI to Anthropic session migration for Copilot Claude", { tags: ["unit"] }, () => {
 	it("converts thinking blocks to plain text when source model differs", () => {
 		const model = makeCopilotClaudeModel();
 		const messages: Message[] = [

@@ -56,7 +56,7 @@ class ScriptedReadTwiceLLM implements Organ {
 
 // ---------------------------------------------------------------------------
 
-describe("EvalHarness — CacheProof (TSK-118)", () => {
+describe("EvalHarness — CacheProof (TSK-118)", { tags: ["integration"] }, () => {
 	it("second fs.read of same file is served from cache (alef.cache.hit=true)", async () => {
 		const harness = new EvalHarness();
 

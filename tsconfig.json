@@ -247,7 +247,8 @@
 	"include": [
 		"packages/*/src/**/*",
 		"packages/*/test/**/*",
-		"packages/coding-agent/examples/**/*"
+		"packages/coding-agent/examples/**/*",
+		"vitest.shims.ts"
 	],
 	"exclude": [
 		"packages/web-ui/**/*",

@@ -30,7 +30,7 @@ function make(canned?: string) {
 // MockReasoner
 // ---------------------------------------------------------------------------
 
-describe("MockReasoner", () => {
+describe("MockReasoner", { tags: ["unit"] }, () => {
 	it("dialog.send() resolves with canned text", async () => {
 		const { agent: _corpus, dialog } = make("hello from mock");
 		const reply = await dialog.send("hi");
@@ -55,7 +55,7 @@ describe("MockReasoner", () => {
 // BusEventRecorder
 // ---------------------------------------------------------------------------
 
-describe("BusEventRecorder", () => {
+describe("BusEventRecorder", { tags: ["unit"] }, () => {
 	it("records Motor/dialog.message", async () => {
 		const { agent: _corpus, dialog, recorder } = make();
 		await dialog.send("ping");
@@ -110,7 +110,7 @@ describe("BusEventRecorder", () => {
 // Full round-trip
 // ---------------------------------------------------------------------------
 
-describe("Harness round-trip", () => {
+describe("Harness round-trip", { tags: ["unit"] }, () => {
 	it("resolves with canned text", async () => {
 		const { agent: _corpus, dialog } = make("pong");
 		expect(await dialog.send("ping")).toBe("pong");

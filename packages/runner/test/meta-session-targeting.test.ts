@@ -53,7 +53,7 @@ async function writeDialog(store: SessionStore, pairs: Array<{ user: string; ass
 	}
 }
 
-describe.skipIf(SKIP)("Meta-agent session targeting — honey-pot A/B/C (ALE-TSK-390)", () => {
+describe.skipIf(SKIP)("Meta-agent session targeting — honey-pot A/B/C (ALE-TSK-390)", { tags: ["real-llm"] }, () => {
 	let cwd: string;
 	let sessionA: SessionStore;
 	let sessionB: SessionStore;

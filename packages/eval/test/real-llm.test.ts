@@ -190,7 +190,7 @@ afterAll(async () => {
 // Single concurrent test — all evals in one pool
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("Real-LLM suite", () => {
+describe.skipIf(SKIP_REAL_LLM)("Real-LLM suite", { tags: ["real-llm"] }, () => {
 	it(`runs all ${ALL_EVALS.length} evaluations concurrently`, async () => {
 		const concurrency = Number(process.env.ALEF_EVAL_CONCURRENCY) || 3;
 		allResults = await runPool(ALL_EVALS, concurrency);

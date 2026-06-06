@@ -16,6 +16,7 @@ const testTool: Tool<typeof testToolSchema> = {
 
 describe.skipIf(!process.env.OPENAI_API_KEY || !process.env.ANTHROPIC_API_KEY)(
 	"OpenAI Responses reasoning replay e2e",
+	{ tags: ["real-llm"] },
 	() => {
 		it("skips reasoning-only history after an aborted turn", { retry: 2 }, async () => {
 			const model = getModel("openai", "gpt-5-mini");

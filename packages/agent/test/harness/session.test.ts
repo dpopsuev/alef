@@ -12,7 +12,7 @@ async function runSessionSuite(
 	createStorage: () => SessionStorage | Promise<SessionStorage>,
 	inspect?: () => void,
 ) {
-	describe(name, () => {
+	describe(name, { tags: ["unit"] }, () => {
 		it("appends messages and builds context in order", async () => {
 			const session = new Session(await createStorage());
 			await session.appendMessage(createUserMessage("one"));

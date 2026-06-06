@@ -10,7 +10,7 @@ function makeNerve() {
 	return { nerve, n: nerve.asNerve(), corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
 }
 
-describe("DialogOrgan", () => {
+describe("DialogOrgan", { tags: ["compliance"] }, () => {
 	it("has kind=corpus, name=dialog, tool=dialog.message", () => {
 		const organ = new DialogOrgan();
 		expect(organ.name).toBe("dialog");
@@ -111,7 +111,7 @@ describe("DialogOrgan", () => {
 	});
 });
 
-describe("DialogOrgan — receive() payload shape", () => {
+describe("DialogOrgan — receive() payload shape", { tags: ["compliance"] }, () => {
 	it("publishes { text, sender } only — no messages array", () => {
 		const { n } = makeNerve();
 		const organ = new DialogOrgan({ sink: () => {} });

@@ -23,7 +23,7 @@ import { SKIP_REAL_LLM } from "../src/model.js";
 // Fixture tests — checker self-validation, no LLM
 // ---------------------------------------------------------------------------
 
-describe("TerminalBench — fixture tests (no LLM)", () => {
+describe("TerminalBench — fixture tests (no LLM)", { tags: ["benchmark"] }, () => {
 	it("helloWorld checker passes on oracle", async () => {
 		await expect(EvaluationRunner.fixtureCheck(helloWorld)).resolves.not.toThrow();
 	});
@@ -59,7 +59,7 @@ describe("TerminalBench — fixture tests (no LLM)", () => {
 // TerminalReferee unit tests
 // ---------------------------------------------------------------------------
 
-describe("terminalScript checker", () => {
+describe("terminalScript checker", { tags: ["benchmark"] }, () => {
 	it("passes when bash script exits 0", async () => {
 		const { terminalScript } = await import("../src/checkers/terminal.js");
 		const { mkdtempSync, rmSync } = await import("node:fs");
@@ -116,7 +116,7 @@ describe("terminalScript checker", () => {
 // Real-LLM tests — skip without credentials
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP_REAL_LLM)("TerminalBench — real LLM", () => {
+describe.skipIf(SKIP_REAL_LLM)("TerminalBench — real LLM", { tags: ["benchmark"] }, () => {
 	let harness: EvalHarness;
 	const results: Array<{ id: string; score: number; passed: boolean }> = [];
 

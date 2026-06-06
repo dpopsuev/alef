@@ -45,7 +45,7 @@ async function capturePayload(
 	return capturedPayload;
 }
 
-describe("Bedrock thinking payload", () => {
+describe("Bedrock thinking payload", { tags: ["unit"] }, () => {
 	it("uses adaptive thinking for Claude Opus 4.7 when reasoning is enabled", async () => {
 		const baseModel = getModel("amazon-bedrock", "global.anthropic.claude-opus-4-6-v1");
 		const model: Model<"bedrock-converse-stream"> = {
@@ -106,7 +106,7 @@ describe("Bedrock thinking payload", () => {
 	});
 });
 
-describe("Application inference profile support", () => {
+describe("Application inference profile support", { tags: ["unit"] }, () => {
 	it("uses adaptive thinking when model.name contains the model name but ARN does not", async () => {
 		const baseModel = getModel("amazon-bedrock", "global.anthropic.claude-opus-4-6-v1");
 		const model: Model<"bedrock-converse-stream"> = {

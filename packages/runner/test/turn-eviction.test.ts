@@ -88,7 +88,7 @@ function senseDialogRecord(correlationId: string, text: string): StorageRecord {
 // Test
 // ---------------------------------------------------------------------------
 
-describe("assembleTurns — eviction proof", () => {
+describe("assembleTurns — eviction proof", { tags: ["unit"] }, () => {
 	it("evicts old irrelevant turns when session exceeds budget", async () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);

@@ -25,7 +25,7 @@ function makeSession(reply = "mock reply"): Session {
 
 const OPTS = { cwd: "/tmp", modelId: "claude-haiku-4-5", sessionId: "test-session" };
 
-describe("runInteractive", () => {
+describe("runInteractive", { tags: ["unit"] }, () => {
 	it("sends each line via session.send", async () => {
 		mockedReadStdinLines.mockReturnValue(
 			(async function* () {

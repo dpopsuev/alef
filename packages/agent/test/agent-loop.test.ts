@@ -80,7 +80,7 @@ function identityConverter(messages: AgentMessage[]): Message[] {
 	return messages.filter((m) => m.role === "user" || m.role === "assistant" || m.role === "toolResult") as Message[];
 }
 
-describe("agentLoop with AgentMessage", () => {
+describe("agentLoop with AgentMessage", { tags: ["unit"] }, () => {
 	it("should emit events with AgentMessage types", async () => {
 		const context: AgentContext = {
 			systemPrompt: "You are helpful.",
@@ -1157,7 +1157,7 @@ describe("agentLoop with AgentMessage", () => {
 	});
 });
 
-describe("agentLoopContinue with AgentMessage", () => {
+describe("agentLoopContinue with AgentMessage", { tags: ["unit"] }, () => {
 	it("should throw when context has no messages", () => {
 		const context: AgentContext = {
 			systemPrompt: "You are helpful.",

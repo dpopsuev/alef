@@ -283,7 +283,7 @@ async function testUnpairedHighSurrogate<TApi extends Api>(llm: Model<TApi>, opt
 	expect(response.content.length).toBeGreaterThan(0);
 }
 
-describe("AI Providers Unicode Surrogate Pair Tests", () => {
+describe("AI Providers Unicode Surrogate Pair Tests", { tags: ["unit"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider Unicode Handling", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

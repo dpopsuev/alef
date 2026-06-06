@@ -19,7 +19,7 @@ afterEach(() => {
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe("testCheck checker", () => {
+describe("testCheck checker", { tags: ["unit"] }, () => {
 	it("passes when all tests pass", async () => {
 		const ws = tmp();
 		writeFileSync(join(ws, "sum.ts"), "export function sum(a: number, b: number): number { return a + b; }\n");

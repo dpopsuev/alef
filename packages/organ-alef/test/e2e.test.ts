@@ -2,7 +2,7 @@ import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createAlefApiOrgan } from "../src/organ.js";
 
-describe.skipIf(!HAVE_REAL_LLM)("organ-alef — real LLM E2E", () => {
+describe.skipIf(!HAVE_REAL_LLM)("organ-alef — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM fetches running Alef config using alef.config.get", async () => {
 		const session = createE2eSession([createAlefApiOrgan()]);
 		const { reply, events } = await session.send(

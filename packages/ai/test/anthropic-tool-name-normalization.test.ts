@@ -23,7 +23,7 @@ const oauthToken = await resolveApiKey("anthropic");
  * - Inbound: "Glob" -> ??? (no tool named "glob" in context.tools, only "find")
  * - Result: tool call has name "Glob" but no tool exists with that name
  */
-describe.skipIf(!oauthToken)("Anthropic OAuth tool name normalization", () => {
+describe.skipIf(!oauthToken)("Anthropic OAuth tool name normalization", { tags: ["real-llm"] }, () => {
 	const model = getModel("anthropic", "claude-sonnet-4-6");
 
 	it("should normalize user-defined tool matching CC name (todowrite -> TodoWrite -> todowrite)", async () => {

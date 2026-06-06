@@ -9,7 +9,7 @@ function makeZone(hideThinking = false) {
 	return { chat, zone };
 }
 
-describe("StreamingZone", () => {
+describe("StreamingZone", { tags: ["unit"] }, () => {
 	it("receiveText creates a markdown node", () => {
 		const { zone } = makeZone();
 		zone.receiveText("hello");
@@ -61,7 +61,7 @@ describe("StreamingZone", () => {
 	});
 });
 
-describe("thinking label", () => {
+describe("thinking label", { tags: ["unit"] }, () => {
 	it("stampThinkingLabel is safe when no thinking occurred", () => {
 		const { zone } = makeZone();
 		expect(() => zone.stampThinkingLabel()).not.toThrow();
@@ -77,7 +77,7 @@ describe("thinking label", () => {
 
 import { formatTokenUsage } from "../src/tui/tool-view.js";
 
-describe("formatTokenUsage", () => {
+describe("formatTokenUsage", { tags: ["unit"] }, () => {
 	const t = getTheme();
 
 	it("omits timing when turnMs not provided", () => {

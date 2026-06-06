@@ -12,7 +12,7 @@ afterEach(() => {
 	}
 });
 
-describe("Together models", () => {
+describe("Together models", { tags: ["unit"] }, () => {
 	it("registers the default Kimi K2.6 model via OpenAI-compatible Chat Completions API", () => {
 		const model = getModel("together", "moonshotai/Kimi-K2.6");
 

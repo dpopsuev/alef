@@ -34,7 +34,7 @@ function makePendingFooterRenderer() {
 	};
 }
 
-describe("ConsoleZone — pending footer lifecycle", () => {
+describe("ConsoleZone — pending footer lifecycle", { tags: ["unit"] }, () => {
 	it("renders footer when shown, empty when hidden", () => {
 		const footer = makePendingFooterRenderer();
 

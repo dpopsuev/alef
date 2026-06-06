@@ -11,7 +11,7 @@ import { executeFindQuery, executeGrepQuery } from "../src/file-queries.js";
 // preserve: pre-abort check, settler cleanup, abort listener registration.
 // ---------------------------------------------------------------------------
 
-describe("executeFindQuery — abort wiring", () => {
+describe("executeFindQuery — abort wiring", { tags: ["unit"] }, () => {
 	it("rejects immediately when signal is pre-aborted", async () => {
 		const ctrl = new AbortController();
 		ctrl.abort();
@@ -41,7 +41,7 @@ describe("executeFindQuery — abort wiring", () => {
 	});
 });
 
-describe("executeGrepQuery — abort wiring", () => {
+describe("executeGrepQuery — abort wiring", { tags: ["unit"] }, () => {
 	it("rejects immediately when signal is pre-aborted", async () => {
 		const ctrl = new AbortController();
 		ctrl.abort();
@@ -57,7 +57,7 @@ describe("executeGrepQuery — abort wiring", () => {
 // of the cached result, causing a silent cache miss.
 // ---------------------------------------------------------------------------
 
-describe("executeFindQuery — cache hit", () => {
+describe("executeFindQuery — cache hit", { tags: ["unit"] }, () => {
 	it("serves result from cache on second call with same input", async () => {
 		const cache = new InMemoryToolResultCache({ ttlMs: 60_000 });
 		let callCount = 0;
@@ -103,7 +103,7 @@ describe("executeFindQuery — cache hit", () => {
 // subprocessTimeoutMs is set to 300ms so the test completes in ~300ms.
 // ---------------------------------------------------------------------------
 
-describe("executeFindQuery — subprocess hang (ALE-BUG fd-hang)", () => {
+describe("executeFindQuery — subprocess hang (ALE-BUG fd-hang)", { tags: ["unit"] }, () => {
 	it("rejects when the fd subprocess never exits", async () => {
 		// A script that sleeps forever — simulates fd scanning a massive tree.
 		const fakeScript = join(tmpdir(), `fake-fd-hang-${Date.now()}.sh`);

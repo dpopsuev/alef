@@ -12,7 +12,7 @@ function makeChat() {
 	return new Container();
 }
 
-describe("appendUserMsg", () => {
+describe("appendUserMsg", { tags: ["unit"] }, () => {
 	it("adds children to the chat container", () => {
 		const chat = makeChat();
 		appendUserMsg(chat, "hello world", getTheme());
@@ -26,7 +26,7 @@ describe("appendUserMsg", () => {
 	});
 });
 
-describe("appendNotice", () => {
+describe("appendNotice", { tags: ["unit"] }, () => {
 	it("adds children to the chat container", () => {
 		const chat = makeChat();
 		appendNotice(chat, "(interrupted)", getTheme());
@@ -35,7 +35,7 @@ describe("appendNotice", () => {
 	});
 });
 
-describe("AgentBlock", () => {
+describe("AgentBlock", { tags: ["unit"] }, () => {
 	it("start() is idempotent — calling twice adds header only once", () => {
 		const chat = makeChat();
 		const block = new AgentBlock(chat, getTheme());
@@ -114,7 +114,7 @@ describe("AgentBlock", () => {
 // "Rendered line N exceeds terminal width" crash in TUI.doRender.
 // ---------------------------------------------------------------------------
 
-describe("appendCompletedToolBlock — pill header width", () => {
+describe("appendCompletedToolBlock — pill header width", { tags: ["unit"] }, () => {
 	const t = getTheme();
 
 	function renderHeader(width: number, name: string, keyArg: string, elapsedMs: number): string {

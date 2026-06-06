@@ -13,7 +13,7 @@ import {
 	truncateToolOutput,
 } from "../src/tui/tool-view.js";
 
-describe("keyArgFromPayload", () => {
+describe("keyArgFromPayload", { tags: ["unit"] }, () => {
 	it("extracts path", () => expect(keyArgFromPayload({ path: "src/foo.ts" })).toBe("src/foo.ts"));
 	it("extracts command", () => expect(keyArgFromPayload({ command: "ls -la" })).toBe("ls -la"));
 	it("truncates to 60 chars", () => {
@@ -23,7 +23,7 @@ describe("keyArgFromPayload", () => {
 	it("returns empty string when no known key", () => expect(keyArgFromPayload({ foo: "bar" })).toBe(""));
 });
 
-describe("truncateToolOutput", () => {
+describe("truncateToolOutput", { tags: ["unit"] }, () => {
 	it("passes through short text unchanged", () => {
 		expect(truncateToolOutput("hello")).toBe("hello");
 	});
@@ -43,7 +43,7 @@ describe("truncateToolOutput", () => {
 	});
 });
 
-describe("renderToolLine", () => {
+describe("renderToolLine", { tags: ["unit"] }, () => {
 	it("contains tool name", () => {
 		const line = stripVTControlCharacters(renderToolLine("fs.read", "foo.ts", 42, true, getTheme()));
 		expect(line).toContain("fs.read");
@@ -57,7 +57,7 @@ describe("renderToolLine", () => {
 	});
 });
 
-describe("renderDiffDisplay", () => {
+describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 	it("header line is bold", () => {
 		const diff = "edit src/foo.ts\n+1 new\n-1 old";
 		const out = renderDiffDisplay(diff, getTheme());
@@ -75,7 +75,7 @@ describe("renderDiffDisplay", () => {
 	});
 });
 
-describe("formatTokenUsage", () => {
+describe("formatTokenUsage", { tags: ["unit"] }, () => {
 	it("formats small numbers", () => {
 		const s = stripVTControlCharacters(formatTokenUsage(7, 100, getTheme()));
 		expect(s).toContain("7");

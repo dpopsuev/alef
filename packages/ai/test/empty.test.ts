@@ -144,7 +144,7 @@ async function testEmptyAssistantMessage<TApi extends Api>(llm: Model<TApi>, opt
 	}
 }
 
-describe("AI Providers Empty Message Tests", () => {
+describe("AI Providers Empty Message Tests", { tags: ["unit"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider Empty Messages", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

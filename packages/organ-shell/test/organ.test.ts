@@ -20,7 +20,7 @@ function fixture(opts: { commandPrefix?: string } = {}) {
 	return f;
 }
 
-describe("ShellCorpusOrgan", () => {
+describe("ShellCorpusOrgan", { tags: ["compliance"] }, () => {
 	it("has name=shell and 1 tool", () => {
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		expect(organ.name).toBe("shell");
@@ -70,7 +70,7 @@ describe("ShellCorpusOrgan", () => {
 	});
 });
 
-describe("ShellCorpusOrgan — COLUMNS injection", () => {
+describe("ShellCorpusOrgan — COLUMNS injection", { tags: ["compliance"] }, () => {
 	it("COLUMNS is set to 220 in spawned command environment", async () => {
 		const f = fixture();
 		const result = await f.callStreaming("shell.exec", { command: "echo COLS=$COLUMNS" });

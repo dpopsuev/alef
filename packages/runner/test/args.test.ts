@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseArgs } from "../src/args.js";
 
-describe("parseArgs", () => {
+describe("parseArgs", { tags: ["unit"] }, () => {
 	it("defaults to interactive mode with process.cwd()", () => {
 		const args = parseArgs([]);
 		expect(args.print).toBe(false);
@@ -61,7 +61,7 @@ describe("parseArgs", () => {
 	});
 });
 
-describe("parseArgs — blueprint", () => {
+describe("parseArgs — blueprint", { tags: ["unit"] }, () => {
 	it("--blueprint sets blueprint path", () => {
 		const args = parseArgs(["--blueprint", "agent.yaml"]);
 		expect(args.blueprint).toBe("agent.yaml");

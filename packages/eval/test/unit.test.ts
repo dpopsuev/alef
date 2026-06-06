@@ -42,7 +42,7 @@ function span(name: string, attrs: Record<string, unknown> = {}): SpanRecord {
 // Layer 1: EvaluatorOrgan
 // ---------------------------------------------------------------------------
 
-describe("EvaluatorOrgan — event counting", () => {
+describe("EvaluatorOrgan — event counting", { tags: ["unit"] }, () => {
 	it("counts motor events", () => {
 		const n = makeNerve();
 		const organ = new EvaluatorOrgan();
@@ -87,7 +87,7 @@ describe("EvaluatorOrgan — event counting", () => {
 	});
 });
 
-describe("EvaluatorOrgan — loop detection", () => {
+describe("EvaluatorOrgan — loop detection", { tags: ["unit"] }, () => {
 	it("detects loop when same event type exceeds threshold on same correlationId", () => {
 		const n = makeNerve();
 		const loopCalls: string[] = [];
@@ -150,7 +150,7 @@ describe("EvaluatorOrgan — loop detection", () => {
 // Layer 2: scoreSpans()
 // ---------------------------------------------------------------------------
 
-describe("scoreSpans — ReadOnly rules", () => {
+describe("scoreSpans — ReadOnly rules", { tags: ["unit"] }, () => {
 	it("awards points for fs.read spans", () => {
 		const spans = [span("alef.motor/fs.read"), span("alef.motor/fs.read")];
 		expect(scoreSpans(spans, READ_ONLY_RULES)).toBe(20); // 2 × 10
@@ -182,7 +182,7 @@ describe("scoreSpans — ReadOnly rules", () => {
 	});
 });
 
-describe("scoreSpans — Write rules", () => {
+describe("scoreSpans — Write rules", { tags: ["unit"] }, () => {
 	it("rewards fs.write spans", () => {
 		expect(scoreSpans([span("alef.motor/fs.write")], WRITE_RULES)).toBe(15);
 	});
@@ -196,7 +196,7 @@ describe("scoreSpans — Write rules", () => {
 // schemaTokensEstimate flows through deriveturns
 // ---------------------------------------------------------------------------
 
-describe("deriveturns — schemaTokensEstimate", () => {
+describe("deriveturns — schemaTokensEstimate", { tags: ["unit"] }, () => {
 	function chatSpan(attrs: Record<string, unknown> = {}): SpanRecord {
 		return span("chat claude-3-5-haiku", {
 			"gen_ai.request.model": "claude-3-5-haiku",
@@ -232,7 +232,7 @@ describe("deriveturns — schemaTokensEstimate", () => {
 	});
 });
 
-describe("scoreSpans — attribute filter", () => {
+describe("scoreSpans — attribute filter", { tags: ["unit"] }, () => {
 	it("only scores spans matching attribute filter", () => {
 		const rules = [{ match: "alef.motor/fs.read", points: 5, attribute: { key: "alef.cache.hit", value: true } }];
 		const spans = [

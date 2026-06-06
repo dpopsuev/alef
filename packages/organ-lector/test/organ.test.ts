@@ -32,7 +32,7 @@ function drive(
 	});
 }
 
-describe("LectorOrgan — motor/sense contract", () => {
+describe("LectorOrgan — motor/sense contract", { tags: ["compliance"] }, () => {
 	let backend: StubLectorBackend;
 	let nerve: InProcessNerve;
 
@@ -118,7 +118,7 @@ describe("LectorOrgan — motor/sense contract", () => {
 	});
 });
 
-describe("LectorOrgan — tool definitions", () => {
+describe("LectorOrgan — tool definitions", { tags: ["compliance"] }, () => {
 	it("exposes six tools by default", () => {
 		const organ = createLectorOrgan({ cwd: "/workspace", backend: new StubLectorBackend() });
 		const names = organ.tools.map((t) => t.name);

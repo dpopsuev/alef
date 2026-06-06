@@ -37,7 +37,7 @@ afterEach(() => {
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe("Lector v2 E2E gate — 2-call workflow", () => {
+describe("Lector v2 E2E gate — 2-call workflow", { tags: ["integration"] }, () => {
 	it("call 1: lector.read returns content + symbol map", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), AUTH_TS);

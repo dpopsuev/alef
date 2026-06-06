@@ -89,7 +89,7 @@ async function captureClientConfig(model: Model<"bedrock-converse-stream">): Pro
 	return bedrockMock.constructorCalls[0];
 }
 
-describe("bedrock endpoint resolution", () => {
+describe("bedrock endpoint resolution", { tags: ["unit"] }, () => {
 	it("assigns eu-central-1 runtime URLs to built-in EU inference profiles", () => {
 		const model = getModel("amazon-bedrock", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0");
 

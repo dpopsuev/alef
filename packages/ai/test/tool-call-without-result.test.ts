@@ -91,7 +91,7 @@ async function testToolCallWithoutResult<TApi extends Api>(model: Model<TApi>, o
 	expect(["stop", "toolUse"]).toContain(secondResponse.stopReason);
 }
 
-describe("Tool Call Without Result Tests", () => {
+describe("Tool Call Without Result Tests", { tags: ["unit"] }, () => {
 	// =========================================================================
 	// API Key-based providers
 	// =========================================================================

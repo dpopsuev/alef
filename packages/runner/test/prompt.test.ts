@@ -20,7 +20,7 @@ const FS_TOOLS = [
 ];
 const SHELL_TOOLS = [{ name: "shell.exec", description: "Run a shell command.", inputSchema: {} as never }];
 
-describe("buildSystemPrompt", () => {
+describe("buildSystemPrompt", { tags: ["unit"] }, () => {
 	it("includes active tool names in the tool list", () => {
 		const prompt = buildSystemPrompt({ tools: [...FS_TOOLS, ...SHELL_TOOLS] });
 		expect(prompt).toContain("fs.read");
@@ -52,7 +52,7 @@ describe("buildSystemPrompt", () => {
 	});
 });
 
-describe("registerOrgans", () => {
+describe("registerOrgans", { tags: ["unit"] }, () => {
 	it("includes organ directives in the scroll output", () => {
 		const scroll = createDefaultDirectives({ tools: FS_TOOLS, cwd: "/test" });
 		const organ = {
@@ -82,7 +82,7 @@ describe("registerOrgans", () => {
 	});
 });
 
-describe("atomic format blocks — each rule is its own tagged block", () => {
+describe("atomic format blocks — each rule is its own tagged block", { tags: ["unit"] }, () => {
 	it("no-emojis block contains the rule text", () => {
 		expect(BLOCK_NO_EMOJIS()).toContain("No emojis");
 	});
@@ -123,7 +123,7 @@ describe("atomic format blocks — each rule is its own tagged block", () => {
 	});
 });
 
-describe("BLOCK_GUIDELINES — investigation rules", () => {
+describe("BLOCK_GUIDELINES — investigation rules", { tags: ["unit"] }, () => {
 	it("built prompt contains capability-check rule", () => {
 		const prompt = buildSystemPrompt({ tools: [] });
 		expect(prompt).toContain("tools.describe");
@@ -135,7 +135,7 @@ describe("BLOCK_GUIDELINES — investigation rules", () => {
 	});
 });
 
-describe("buildPrepareStep — directives reach the LLM context", () => {
+describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit"] }, () => {
 	it("system message content equals directives.build()", async () => {
 		const d = new Directives();
 		d.register({ id: "rule", priority: 0, content: "No emojis ever.", enabled: true });
@@ -239,7 +239,7 @@ describe("buildPrepareStep — directives reach the LLM context", () => {
 	});
 });
 
-describe("appendEnvironment", () => {
+describe("appendEnvironment", { tags: ["unit"] }, () => {
 	it("appends date and cwd last", () => {
 		const base = "base prompt";
 		const result = appendEnvironment(base, "/my/project");

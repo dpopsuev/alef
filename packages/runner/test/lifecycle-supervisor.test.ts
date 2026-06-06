@@ -195,7 +195,7 @@ function collectSse(
 // ScriptedReasoner when this env var is set.
 // ---------------------------------------------------------------------------
 
-describe("Runner — ALEF_SCRIPTED_REPLIES", () => {
+describe("Runner — ALEF_SCRIPTED_REPLIES", { tags: ["integration"] }, () => {
 	it("boots without API key and serves GET /health when ALEF_SCRIPTED_REPLIES is set", async () => {
 		const cwd = makeTmp();
 		writeFileSync(join(cwd, "README.md"), "# test\n", "utf-8");
@@ -271,7 +271,7 @@ describe("Runner — ALEF_SCRIPTED_REPLIES", () => {
 // sends handoff_ack.
 // ---------------------------------------------------------------------------
 
-describe("Runner — IPC supervisor handoff", () => {
+describe("Runner — IPC supervisor handoff", { tags: ["integration"] }, () => {
 	// ALE-BUG-35: spurious message before handoff_prepare must not confuse the runner.
 	it("ignores unknown IPC messages and still acks the correct handoff_prepare", async () => {
 		const cwd = makeTmp();
@@ -393,7 +393,7 @@ describe("Runner — IPC supervisor handoff", () => {
 // binary with the runner.
 // ---------------------------------------------------------------------------
 
-describe("Supervisor — TypeScript green script", () => {
+describe("Supervisor — TypeScript green script", { tags: ["integration"] }, () => {
 	it("spawns a .ts GREEN_SCRIPT directly via tsx without a wrapper", async () => {
 		// Verifies the spawnGreen() tsx-detection fix: when GREEN_SCRIPT ends in .ts,
 		// the supervisor prepends the tsx binary so TypeScript source runs directly.
@@ -428,7 +428,7 @@ describe("Supervisor — TypeScript green script", () => {
 	}, 45_000);
 });
 
-describe("Supervisor — runner as green", () => {
+describe("Supervisor — runner as green", { tags: ["integration"] }, () => {
 	it("supervisor spawns runner green, runner serves HTTP, eval gate promotes", async () => {
 		const cwd = makeTmp();
 		const handoffPath = join(cwd, "handoff.json");
@@ -734,7 +734,7 @@ ${extra}
 	);
 }
 
-describe("Supervisor — unhappy paths", () => {
+describe("Supervisor — unhappy paths", { tags: ["integration"] }, () => {
 	// ALE-BUG-34: build command fails — old green must stay live, no promotion.
 	it("build failure: old green keeps serving, Promoted staging slot absent", async () => {
 		const cwd = makeTmp();

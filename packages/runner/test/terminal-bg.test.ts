@@ -5,7 +5,7 @@ afterEach(() => {
 	delete process.env.COLORFGBG;
 });
 
-describe("parseOSC11Response", () => {
+describe("parseOSC11Response", { tags: ["unit"] }, () => {
 	it("parses 16-bit rgb response", () => {
 		const result = parseOSC11Response("\x1b]11;rgb:2525/2525/2525\x07");
 		expect(result).not.toBeNull();
@@ -31,7 +31,7 @@ describe("parseOSC11Response", () => {
 	});
 });
 
-describe("relativeLuminance", () => {
+describe("relativeLuminance", { tags: ["unit"] }, () => {
 	it("black has luminance 0", () => {
 		expect(relativeLuminance({ r: 0, g: 0, b: 0 })).toBe(0);
 	});
@@ -51,7 +51,7 @@ describe("relativeLuminance", () => {
 	});
 });
 
-describe("detectDarkSync", () => {
+describe("detectDarkSync", { tags: ["unit"] }, () => {
 	it("returns true for opacity < 0.8 (high transparency)", () => {
 		expect(detectDarkSync(0.5)).toBe(true);
 		expect(detectDarkSync(0.79)).toBe(true);
@@ -84,7 +84,7 @@ describe("detectDarkSync", () => {
 
 import { buildTerminalTheme } from "../src/theme.js";
 
-describe("buildTerminalTheme", () => {
+describe("buildTerminalTheme", { tags: ["unit"] }, () => {
 	it("populates truecolor from palette when slot is present", () => {
 		const palette = { 13: "#e890a8", 14: "#9eb8ca" };
 		const theme = buildTerminalTheme(palette);

@@ -11,7 +11,7 @@ function fixture() {
 	return f;
 }
 
-describe("EnclosureOrgan", () => {
+describe("EnclosureOrgan", { tags: ["compliance"] }, () => {
 	it("has name=enclosure and 8 tools", () => {
 		const organ = createEnclosureOrgan({ stub: true });
 		expect(organ.name).toBe("enclosure");

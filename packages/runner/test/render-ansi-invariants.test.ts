@@ -44,7 +44,7 @@ async function settle(ms = 30): Promise<void> {
 // DEC 2026 — synchronized output bracketing
 // ---------------------------------------------------------------------------
 
-describe("DEC 2026 — every render frame is sync-bracketed", () => {
+describe("DEC 2026 — every render frame is sync-bracketed", { tags: ["unit"] }, () => {
 	it("initial fullRender is wrapped in \\x1b[?2026h...\\x1b[?2026l", async () => {
 		const { terminal, tui, chat } = makeEnv();
 		chat.addChild(new Text("hello", 0, 0));
@@ -84,7 +84,7 @@ describe("DEC 2026 — every render frame is sync-bracketed", () => {
 // RC-1 — cursor hide/show around cursor-up movement
 // ---------------------------------------------------------------------------
 
-describe("RC-1 — cursor hidden before cursor-up movement (T-1, currently RED)", () => {
+describe("RC-1 — cursor hidden before cursor-up movement (T-1, currently RED)", { tags: ["unit"] }, () => {
 	it("differential render: \\x1b[?25l precedes first \\x1b[nA in frame", async () => {
 		const { terminal, tui, chat } = makeEnv(80, 10);
 
@@ -115,7 +115,7 @@ describe("RC-1 — cursor hidden before cursor-up movement (T-1, currently RED)"
 // RC-2 — no clear screen in differential or ConsoleZone renders
 // ---------------------------------------------------------------------------
 
-describe("RC-2 — no \\x1b[2J in differential renders", () => {
+describe("RC-2 — no \\x1b[2J in differential renders", { tags: ["unit"] }, () => {
 	it("content change within viewport does not emit clear screen", async () => {
 		const { terminal, tui, chat } = makeEnv(80, 24);
 
@@ -191,7 +191,7 @@ describe("RC-2 — no \\x1b[2J in differential renders", () => {
 // RC-8 — single write() syscall per render frame
 // ---------------------------------------------------------------------------
 
-describe("RC-8 — one write() call per render frame", () => {
+describe("RC-8 — one write() call per render frame", { tags: ["unit"] }, () => {
 	it("fullRender produces exactly 1 write() call", async () => {
 		const { terminal, tui, chat } = makeEnv();
 		chat.addChild(new Text("hello", 0, 0));

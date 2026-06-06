@@ -31,7 +31,7 @@ const FS_SEAM: PortDefinition = {
 // validatePorts — exactly-one
 // ---------------------------------------------------------------------------
 
-describe("validatePorts — exactly-one", () => {
+describe("validatePorts — exactly-one", { tags: ["unit"] }, () => {
 	it("passes when exactly one organ covers the seam", () => {
 		const organs = [organ("llm", [], ["dialog.message"])];
 		const result = validatePorts(organs, [PRIMARY_SEAM]);
@@ -63,7 +63,7 @@ describe("validatePorts — exactly-one", () => {
 // validatePorts — zero-or-one
 // ---------------------------------------------------------------------------
 
-describe("validatePorts — zero-or-one", () => {
+describe("validatePorts — zero-or-one", { tags: ["unit"] }, () => {
 	it("passes when zero organs cover a zero-or-one seam", () => {
 		const result = validatePorts([], [FS_SEAM]);
 		expect(result.valid).toBe(true);
@@ -89,7 +89,7 @@ describe("validatePorts — zero-or-one", () => {
 // Seam pattern matching
 // ---------------------------------------------------------------------------
 
-describe("seam pattern matching", () => {
+describe("seam pattern matching", { tags: ["unit"] }, () => {
 	it("matches exact sense event type", () => {
 		const organs = [organ("llm", [], ["dialog.message"])];
 		const result = validatePorts(organs, [PRIMARY_SEAM]);
@@ -119,7 +119,7 @@ describe("seam pattern matching", () => {
 // Standard seams — integration
 // ---------------------------------------------------------------------------
 
-describe("STANDARD_PORTS — full agent stack", () => {
+describe("STANDARD_PORTS — full agent stack", { tags: ["unit"] }, () => {
 	it("valid: Reasoner on sense + FsOrgan on motor/fs.*", () => {
 		const organs = [
 			organ("llm", [], ["dialog.message"]),
@@ -152,7 +152,7 @@ describe("STANDARD_PORTS — full agent stack", () => {
 // PortValidationError
 // ---------------------------------------------------------------------------
 
-describe("PortValidationError", () => {
+describe("PortValidationError", { tags: ["unit"] }, () => {
 	it("is an Error with a descriptive message", () => {
 		const organs: OrganPortInfo[] = [];
 		const result = validatePorts(organs, [PRIMARY_SEAM]);

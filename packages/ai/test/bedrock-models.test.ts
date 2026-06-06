@@ -22,7 +22,7 @@ import { complete } from "../src/stream.js";
 import type { Context } from "../src/types.js";
 import { hasBedrockCredentials } from "./bedrock-utils.js";
 
-describe("Amazon Bedrock Models", () => {
+describe("Amazon Bedrock Models", { tags: ["unit"] }, () => {
 	const models = getModels("amazon-bedrock");
 
 	it("should get all available Bedrock models", () => {

@@ -38,7 +38,7 @@ function makeFsOrgan(): Organ {
 
 // ---------------------------------------------------------------------------
 
-describe("Agent.validate()", () => {
+describe("Agent.validate()", { tags: ["unit"] }, () => {
 	it("passes with a standard agent stack (LLM + FS)", () => {
 		const agent = new Agent().load(makeReasoner()).load(makeFsOrgan());
 		expect(() => agent.validate()).not.toThrow();

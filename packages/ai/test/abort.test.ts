@@ -98,7 +98,7 @@ async function testAbortThenNewMessage<TApi extends Api>(llm: Model<TApi>, optio
 	expect(followUp.content.length).toBeGreaterThan(0);
 }
 
-describe("AI Providers Abort Tests", () => {
+describe("AI Providers Abort Tests", { tags: ["real-llm"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider Abort", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

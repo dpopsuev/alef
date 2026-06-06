@@ -135,7 +135,7 @@ class QuiescentLLM implements Organ {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Agent plumbing — full EDA loop", () => {
+describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 	it("single tool call round-trip resolves dialog.send()", async () => {
 		const llm = new SingleToolLLM();
 		const dialog = new DialogOrgan({ sink: () => {} });

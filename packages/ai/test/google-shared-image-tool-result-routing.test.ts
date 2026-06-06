@@ -75,7 +75,7 @@ function makeContext(model: { api: string; provider: string; id: string }): Cont
 	};
 }
 
-describe("google-shared image tool result routing", () => {
+describe("google-shared image tool result routing", { tags: ["unit"] }, () => {
 	it("keeps separate synthetic image turn for Gemini 2.x Google API models", () => {
 		const model = makeModel("google-generative-ai", "google", "gemini-2.5-flash");
 		const contents = convertMessages(model, makeContext(model));

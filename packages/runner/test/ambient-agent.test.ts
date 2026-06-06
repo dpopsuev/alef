@@ -14,7 +14,7 @@ afterEach(() => {
 	for (const u of unmounts.splice(0)) u();
 });
 
-describe("ambient agent", () => {
+describe("ambient agent", { tags: ["unit"] }, () => {
 	it("sense/file.changed triggers a turn; motor/file.action carries the reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("run linter")]);

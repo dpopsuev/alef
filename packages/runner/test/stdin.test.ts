@@ -24,7 +24,7 @@ async function collect(readable: Readable): Promise<string[]> {
 	return results;
 }
 
-describe("readStdinLines", () => {
+describe("readStdinLines", { tags: ["unit"] }, () => {
 	it("yields each non-empty line", async () => {
 		const lines = await collect(makeReadable(["hello", "world"]));
 		expect(lines).toEqual(["hello", "world"]);

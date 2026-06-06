@@ -121,7 +121,7 @@ function collectSseEvents(url: string, count: number, timeoutMs = 3000): Promise
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("RouterOrgan — lifecycle", () => {
+describe("RouterOrgan — lifecycle", { tags: ["compliance"] }, () => {
 	it("address() returns null before mount", async () => {
 		const organ = createRouterOrgan();
 		expect(organ.address()).toBeNull();
@@ -147,7 +147,7 @@ describe("RouterOrgan — lifecycle", () => {
 	});
 });
 
-describe("RouterOrgan — GET /health", () => {
+describe("RouterOrgan — GET /health", { tags: ["compliance"] }, () => {
 	it("returns 200 { ok: true, clients: 0 }", async () => {
 		const { unmount, baseUrl } = await setup();
 		try {
@@ -162,7 +162,7 @@ describe("RouterOrgan — GET /health", () => {
 	});
 });
 
-describe("RouterOrgan — GET /events (SSE)", () => {
+describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 	it("responds with text/event-stream headers", async () => {
 		const { unmount, baseUrl } = await setup();
 		try {
@@ -292,7 +292,7 @@ describe("RouterOrgan — GET /events (SSE)", () => {
 	});
 });
 
-describe("RouterOrgan — POST /message", () => {
+describe("RouterOrgan — POST /message", { tags: ["compliance"] }, () => {
 	it("returns 202 with correlationId", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
@@ -367,7 +367,7 @@ describe("RouterOrgan — POST /message", () => {
 	});
 });
 
-describe("RouterOrgan — unknown routes", () => {
+describe("RouterOrgan — unknown routes", { tags: ["compliance"] }, () => {
 	it("returns 404 for unknown GET", async () => {
 		const { unmount, baseUrl } = await setup();
 		try {
@@ -379,7 +379,7 @@ describe("RouterOrgan — unknown routes", () => {
 	});
 });
 
-describe("RouterOrgan — allowedEvents filter", () => {
+describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () => {
 	it("broadcasts all events when allowedEvents is empty (default)", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {

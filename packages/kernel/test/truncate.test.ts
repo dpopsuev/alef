@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, truncateLine, truncateTail } from "../src/truncate.js";
 
-describe("truncateHead", () => {
+describe("truncateHead", { tags: ["unit"] }, () => {
 	it("returns content unchanged when within limits", () => {
 		const r = truncateHead("hello\nworld");
 		expect(r.truncated).toBe(false);
@@ -40,7 +40,7 @@ describe("truncateHead", () => {
 	});
 });
 
-describe("truncateTail", () => {
+describe("truncateTail", { tags: ["unit"] }, () => {
 	it("returns content unchanged when within limits", () => {
 		const r = truncateTail("hello\nworld");
 		expect(r.truncated).toBe(false);
@@ -72,7 +72,7 @@ describe("truncateTail", () => {
 	});
 });
 
-describe("truncateLine", () => {
+describe("truncateLine", { tags: ["unit"] }, () => {
 	it("passes short lines through", () => {
 		const r = truncateLine("hello");
 		expect(r.text).toBe("hello");
@@ -86,7 +86,7 @@ describe("truncateLine", () => {
 	});
 });
 
-describe("defaults", () => {
+describe("defaults", { tags: ["unit"] }, () => {
 	it("DEFAULT_MAX_LINES is 2000", () => expect(DEFAULT_MAX_LINES).toBe(2000));
 	it("DEFAULT_MAX_BYTES is 50KB", () => expect(DEFAULT_MAX_BYTES).toBe(50 * 1024));
 });

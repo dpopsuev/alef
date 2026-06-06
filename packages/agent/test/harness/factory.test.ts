@@ -4,7 +4,7 @@ import { NodeExecutionEnv } from "../../src/harness/execution-env.js";
 import { createAgentHarness, createSession } from "../../src/harness/factory.js";
 import { InMemorySessionStorage } from "../../src/harness/session/storage/memory.js";
 
-describe("harness factories", () => {
+describe("harness factories", { tags: ["unit"] }, () => {
 	it("creates sessions from storage", async () => {
 		const storage = new InMemorySessionStorage({
 			metadata: { id: "session-1", createdAt: "2026-01-01T00:00:00.000Z" },

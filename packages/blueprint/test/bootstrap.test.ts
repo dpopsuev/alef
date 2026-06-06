@@ -23,7 +23,7 @@ afterEach(() => {
 	}
 });
 
-describe("ensureBootstrapBlueprints", () => {
+describe("ensureBootstrapBlueprints", { tags: ["unit"] }, () => {
 	it("creates target directories and copies all three blueprints", () => {
 		const agentDir = tmpDir();
 		ensureBootstrapBlueprints(agentDir);

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { EvaluationRunner } from "../src/evaluation-runner.js";
 import * as write from "../src/evaluations/write.js";
 
-describe("Fixture tests — checker self-validation (no LLM)", () => {
+describe("Fixture tests — checker self-validation (no LLM)", { tags: ["unit"] }, () => {
 	// Write evaluations with fixtures
 	it("CreateHTTPServer checker passes on known-good implementation", async () => {
 		await expect(EvaluationRunner.fixtureCheck(write.createHTTPServer)).resolves.not.toThrow();
@@ -28,7 +28,7 @@ describe("Fixture tests — checker self-validation (no LLM)", () => {
 	});
 });
 
-describe("Checker unit tests", () => {
+describe("Checker unit tests", { tags: ["unit"] }, () => {
 	it("fileContains returns score=0 for missing file", async () => {
 		const { fileContains } = await import("../src/checker.js");
 		const ref = fileContains("nonexistent.ts", "anything");

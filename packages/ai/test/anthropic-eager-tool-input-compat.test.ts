@@ -98,7 +98,7 @@ function getFirstTool(body: Record<string, unknown>): Record<string, unknown> {
 	return tools[0] as Record<string, unknown>;
 }
 
-describe("Anthropic eager tool input streaming compatibility", () => {
+describe("Anthropic eager tool input streaming compatibility", { tags: ["unit"] }, () => {
 	it("sends per-tool eager_input_streaming by default", async () => {
 		const request = await captureAnthropicRequest(undefined, createContext());
 

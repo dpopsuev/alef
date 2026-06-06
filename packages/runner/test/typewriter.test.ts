@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Typewriter } from "../src/tui/typewriter.js";
 
-describe("Typewriter middleware", () => {
+describe("Typewriter middleware", { tags: ["unit"] }, () => {
 	beforeEach(() => vi.useFakeTimers());
 	afterEach(() => vi.useRealTimers());
 

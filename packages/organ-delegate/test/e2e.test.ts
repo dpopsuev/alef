@@ -4,7 +4,7 @@ import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { createDelegateOrgan } from "../src/organ.js";
 
-describe.skipIf(!HAVE_REAL_LLM)("organ-delegate — real LLM E2E", () => {
+describe.skipIf(!HAVE_REAL_LLM)("organ-delegate — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM delegates a task via agent.run and uses the subagent reply", async () => {
 		const token = randomUUID().slice(0, 8).toUpperCase();
 

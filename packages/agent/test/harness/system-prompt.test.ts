@@ -23,7 +23,7 @@ const disabledSkill = {
 	disableModelInvocation: true,
 };
 
-describe("formatSkillsForSystemPrompt", () => {
+describe("formatSkillsForSystemPrompt", { tags: ["unit"] }, () => {
 	it("formats visible skills in order and skips model-disabled skills", () => {
 		expect(formatSkillsForSystemPrompt([visibleSkill, disabledSkill, secondSkill])).toBe(
 			`The following skills provide specialized instructions for specific tasks.

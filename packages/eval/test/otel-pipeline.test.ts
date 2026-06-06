@@ -44,7 +44,7 @@ class FileReaderLLMOrgan implements Organ {
 	}
 }
 
-describe("OTel pipeline — span collection", () => {
+describe("OTel pipeline — span collection", { tags: ["integration"] }, () => {
 	it("harness collects spans when a corpus organ handles a Motor event", async () => {
 		const harness = new EvalHarness();
 		const metrics = await harness.run(

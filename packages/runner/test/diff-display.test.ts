@@ -15,7 +15,7 @@ import { renderDiffDisplay, truncateToolOutput } from "../src/tui-mode.js";
 // 1. renderDiffDisplay output format
 // ---------------------------------------------------------------------------
 
-describe("renderDiffDisplay", () => {
+describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 	const DIFF = [
 		"edit packages/runner/test/smoke-tui.test.ts",
 		"",
@@ -87,7 +87,7 @@ describe("renderDiffDisplay", () => {
 // 2. Routing: text/x-diff goes to renderDiffDisplay, not truncateToolOutput
 // ---------------------------------------------------------------------------
 
-describe("diff display routing (displayKind = text/x-diff)", () => {
+describe("diff display routing (displayKind = text/x-diff)", { tags: ["unit"] }, () => {
 	it("truncateToolOutput does NOT color + and - lines", () => {
 		const diff = "-old line\n+new line\n context";
 		const out = truncateToolOutput(diff);
@@ -110,7 +110,7 @@ describe("diff display routing (displayKind = text/x-diff)", () => {
 //    contract here to pin the format without importing the organ directly.
 // ---------------------------------------------------------------------------
 
-describe("generateEditDiff output format contract", () => {
+describe("generateEditDiff output format contract", { tags: ["unit"] }, () => {
 	/**
 	 * Minimal inline version that mirrors the real generateEditDiff shape.
 	 * Tests the CONTRACT of the output format, not the implementation.
@@ -170,7 +170,7 @@ describe("generateEditDiff output format contract", () => {
 
 import { Markdown } from "@dpopsuev/alef-tui";
 
-describe("tool output Markdown rendering (text/plain display)", () => {
+describe("tool output Markdown rendering (text/plain display)", { tags: ["unit"] }, () => {
 	const PLAIN_MD_THEME = {
 		heading: (s: string) => `\x1b[1m${s}\x1b[0m`,
 		link: (s: string) => s,

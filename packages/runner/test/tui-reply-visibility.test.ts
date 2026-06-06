@@ -33,7 +33,7 @@ async function settle(): Promise<void> {
 	await new Promise<void>((r) => setTimeout(r, 30));
 }
 
-describe("reply reaches screen via StreamingZone", () => {
+describe("reply reaches screen via StreamingZone", { tags: ["unit"] }, () => {
 	let env: ReturnType<typeof makeEnv>;
 
 	beforeEach(() => {
@@ -105,7 +105,7 @@ describe("reply reaches screen via StreamingZone", () => {
 	});
 });
 
-describe("toolSlot.receiveTextChunk wiring", () => {
+describe("toolSlot.receiveTextChunk wiring", { tags: ["unit"] }, () => {
 	let env: ReturnType<typeof makeEnv>;
 
 	beforeEach(() => {
@@ -153,7 +153,7 @@ describe("toolSlot.receiveTextChunk wiring", () => {
 	});
 });
 
-describe("ALE-BUG-7: empty segment pruned on seal", () => {
+describe("ALE-BUG-7: empty segment pruned on seal", { tags: ["unit"] }, () => {
 	let env: ReturnType<typeof makeEnv>;
 
 	beforeEach(() => {

@@ -312,7 +312,7 @@ function readJSONL(cwd: string): StorageRecord[] {
 // This test would have caught the silent-error regression immediately.
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAVE_LLM)("Canary: full-stack real-LLM health check", () => {
+describe.skipIf(!HAVE_LLM)("Canary: full-stack real-LLM health check", { tags: ["canary"] }, () => {
 	it("agent replies to 'Hello' with a non-empty response", async () => {
 		withDebugDump();
 		const cwd = makeTmp();
@@ -351,7 +351,7 @@ describe.skipIf(!HAVE_LLM)("Canary: full-stack real-LLM health check", () => {
 // TSK-184: POST /message → SSE → JSONL with real LLM
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)", () => {
+describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)", { tags: ["real-llm"] }, () => {
 	it("agent reads a file and reply appears on SSE", async () => {
 		withDebugDump();
 		const cwd = makeTmp();
@@ -475,7 +475,7 @@ describe.skipIf(!HAVE_LLM)("E2E-184: POST /message → SSE → JSONL (real LLM)"
 // E2E-subagent: outer LLM delegates to a subagent via agent.run
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAVE_LLM)("E2E-subagent: outer LLM delegates via agent.run (real LLM)", () => {
+describe.skipIf(!HAVE_LLM)("E2E-subagent: outer LLM delegates via agent.run (real LLM)", { tags: ["real-llm"] }, () => {
 	it("outer agent calls agent.run(explore), inner agent reads file, secret reaches reply", async () => {
 		withDebugDump();
 		const cwd = makeTmp();
@@ -527,7 +527,7 @@ describe.skipIf(!HAVE_LLM)("E2E-subagent: outer LLM delegates via agent.run (rea
 // TSK-185: Blueprint organ selection — real LLM only calls permitted tools
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAVE_LLM)("E2E-185: Blueprint organ selection (real LLM)", () => {
+describe.skipIf(!HAVE_LLM)("E2E-185: Blueprint organ selection (real LLM)", { tags: ["real-llm"] }, () => {
 	it("agent with fs-only blueprint reads file and makes no lector/shell calls", async () => {
 		withDebugDump();
 		const cwd = makeTmp();
@@ -576,7 +576,7 @@ describe.skipIf(!HAVE_LLM)("E2E-185: Blueprint organ selection (real LLM)", () =
 // TSK-187: RouterOrgan SSE filter with real LLM
 // ---------------------------------------------------------------------------
 
-describe.skipIf(!HAVE_LLM)("E2E-187: RouterOrgan SSE filter (real LLM)", () => {
+describe.skipIf(!HAVE_LLM)("E2E-187: RouterOrgan SSE filter (real LLM)", { tags: ["real-llm"] }, () => {
 	it("filtered surface blocks fs.read events but passes dialog.message", async () => {
 		withDebugDump();
 		const cwd = makeTmp();

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { refreshOpenAICodexToken } from "../src/utils/oauth/openai-codex.js";
 
-describe("OpenAI Codex OAuth", () => {
+describe("OpenAI Codex OAuth", { tags: ["unit"] }, () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();

@@ -25,7 +25,7 @@ function makeAgent(opts: { timeoutMs?: number } = {}) {
 	return { faux, agent, dialog, timeoutMs: opts.timeoutMs ?? 3_000 };
 }
 
-describe("turn loop — slow organ", () => {
+describe("turn loop — slow organ", { tags: ["unit"] }, () => {
 	it("dialog.send resolves when the tool completes before the deadline", async () => {
 		const { faux, agent, dialog, timeoutMs } = makeAgent({ timeoutMs: 5_000 });
 
@@ -53,7 +53,7 @@ describe("turn loop — slow organ", () => {
 	}, 8_000);
 });
 
-describe("turn loop — hanging organ", () => {
+describe("turn loop — hanging organ", { tags: ["unit"] }, () => {
 	it("dialog.send rejects at its timeout when the tool never publishes a sense event", async () => {
 		const { faux, agent, dialog } = makeAgent();
 		const SEND_TIMEOUT_MS = 1_500;
@@ -86,7 +86,7 @@ describe("turn loop — hanging organ", () => {
 	}, 6_000);
 });
 
-describe("turn loop — error organ", () => {
+describe("turn loop — error organ", { tags: ["unit"] }, () => {
 	it("dialog.send resolves when the organ throws and the LLM handles the error", async () => {
 		const { faux, agent, dialog, timeoutMs } = makeAgent({ timeoutMs: 5_000 });
 
@@ -116,7 +116,7 @@ describe("turn loop — error organ", () => {
 	}, 8_000);
 });
 
-describe("turn loop — schema validation failure", () => {
+describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 	it("turn completes when LLM sends wrong type for a schema field", async () => {
 		const { faux, agent, dialog, timeoutMs } = makeAgent({ timeoutMs: 3_000 });
 

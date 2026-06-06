@@ -20,7 +20,7 @@ const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 // ALE-BUG-42 — state indicators must be circles (●)
 // ---------------------------------------------------------------------------
 
-describe("toolActiveLine — ALE-BUG-42 in-flight circle", () => {
+describe("toolActiveLine — ALE-BUG-42 in-flight circle", { tags: ["unit"] }, () => {
 	const t = getTheme();
 
 	it("uses ● (solid circle) for the in-flight indicator", () => {
@@ -44,7 +44,7 @@ describe("toolActiveLine — ALE-BUG-42 in-flight circle", () => {
 	});
 });
 
-describe("renderToolLine — ALE-BUG-42 completed circles", () => {
+describe("renderToolLine — ALE-BUG-42 completed circles", { tags: ["unit"] }, () => {
 	const t = getTheme();
 
 	it("uses ● for the done (ok=true) indicator", () => {
@@ -64,7 +64,7 @@ describe("renderToolLine — ALE-BUG-42 completed circles", () => {
 // ALE-BUG-45 — shell.exec must show the command while in-flight
 // ---------------------------------------------------------------------------
 
-describe("keyArgFromPayload — ALE-BUG-45 shell.exec command display", () => {
+describe("keyArgFromPayload — ALE-BUG-45 shell.exec command display", { tags: ["unit"] }, () => {
 	it("returns the command string for shell.exec args", () => {
 		const result = keyArgFromPayload({ command: "npm run check", timeout: 30 });
 		expect(result).toBe("npm run check");
@@ -92,7 +92,7 @@ describe("keyArgFromPayload — ALE-BUG-45 shell.exec command display", () => {
 //  We verify the status format string here via a pure helper test.)
 // ---------------------------------------------------------------------------
 
-describe("fmtMs — sub-second individual tool timers", () => {
+describe("fmtMs — sub-second individual tool timers", { tags: ["unit"] }, () => {
 	it("shows ms for sub-1000ms (existing behaviour, must not regress)", () => {
 		expect(fmtMs(300)).toBe("300ms");
 		expect(fmtMs(999)).toBe("999ms");
@@ -114,7 +114,7 @@ describe("fmtMs — sub-second individual tool timers", () => {
 // The total-time format in startThinking() is tested separately:
 // expected format: (elapsedMs / 1000).toFixed(1) + "s"
 // e.g. 143200ms → "143.2s"
-describe("status timer format — ALE-BUG-43 sub-second total", () => {
+describe("status timer format — ALE-BUG-43 sub-second total", { tags: ["unit"] }, () => {
 	it("(elapsedMs/1000).toFixed(1) gives sub-second resolution", () => {
 		// These pass trivially — they verify the math formula used in console-zone.ts
 		expect(`${(143200 / 1000).toFixed(1)}s`).toBe("143.2s");

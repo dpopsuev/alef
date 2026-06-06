@@ -32,7 +32,7 @@ function createToolCallWithPlainSchema(
 	return { tool, toolCall };
 }
 
-describe("validateToolArguments", () => {
+describe("validateToolArguments", { tags: ["unit"] }, () => {
 	it("still validates when Function constructor is unavailable", () => {
 		const originalFunction = globalThis.Function;
 		const tool: Tool = {

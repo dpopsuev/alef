@@ -28,7 +28,7 @@ function makeTmp(): string {
 	return d;
 }
 
-describe("SessionSummary (ALE-TSK-276)", () => {
+describe("SessionSummary (ALE-TSK-276)", { tags: ["unit"] }, () => {
 	it("writes per-session and last-session summary on agent dispose", async () => {
 		const cwd = makeTmp();
 		await mkdir(cwd, { recursive: true });

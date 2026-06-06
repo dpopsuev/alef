@@ -44,7 +44,7 @@ class LoopingLLMOrgan implements Organ {
 
 // ---------------------------------------------------------------------------
 
-describe("EvalHarness — loop detection (TSK-120)", () => {
+describe("EvalHarness — loop detection (TSK-120)", { tags: ["integration"] }, () => {
 	it("detects loop when same Motor event type exceeds threshold", async () => {
 		const harness = new EvalHarness();
 

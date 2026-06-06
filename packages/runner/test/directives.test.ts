@@ -21,7 +21,7 @@ afterEach(() => {
 // Directives — register, enable, disable, build
 // ---------------------------------------------------------------------------
 
-describe("Directives.register + build", () => {
+describe("Directives.register + build", { tags: ["unit"] }, () => {
 	it("returns empty string when no blocks", () => {
 		const d = new Directives();
 		expect(d.build()).toBe("");
@@ -78,7 +78,7 @@ describe("Directives.register + build", () => {
 	});
 });
 
-describe("Directives.enable / disable / toggle", () => {
+describe("Directives.enable / disable / toggle", { tags: ["unit"] }, () => {
 	it("enable makes a disabled block visible", () => {
 		const d = new Directives();
 		d.register({ id: "x", priority: 0, content: "Content", enabled: false });
@@ -103,7 +103,7 @@ describe("Directives.enable / disable / toggle", () => {
 	});
 });
 
-describe("Directives.clone / merge / subset / without", () => {
+describe("Directives.clone / merge / subset / without", { tags: ["unit"] }, () => {
 	it("clone produces an independent copy", () => {
 		const d = new Directives();
 		d.register({ id: "a", priority: 0, content: "Original", enabled: true });
@@ -127,7 +127,7 @@ describe("Directives.clone / merge / subset / without", () => {
 // loadWorkspace
 // ---------------------------------------------------------------------------
 
-describe("loadWorkspace", () => {
+describe("loadWorkspace", { tags: ["unit"] }, () => {
 	it("loads .alef/directives/*.md files into the Directives", async () => {
 		const cwd = tmpCwd();
 		mkdirSync(join(cwd, ".alef", "directives"), { recursive: true });
@@ -161,7 +161,7 @@ describe("loadWorkspace", () => {
 // registerOrgans
 // ---------------------------------------------------------------------------
 
-describe("registerOrgans", () => {
+describe("registerOrgans", { tags: ["unit"] }, () => {
 	it("ToolShell directive reaches the built prompt", () => {
 		const toolShell = createToolShellOrgan({ tools: [] });
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });

@@ -9,7 +9,7 @@ function senseEvent(type: string, text?: string): TranscriptEvent {
 	return { bus: "sense", type, text };
 }
 
-describe("runValidators", () => {
+describe("runValidators", { tags: ["unit"] }, () => {
 	it("returns empty array when no validators", () => {
 		expect(runValidators([motorEvent("dialog.message", "hello")], [])).toEqual([]);
 	});

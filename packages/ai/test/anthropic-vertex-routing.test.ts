@@ -85,7 +85,7 @@ function createContext(): Context {
 	};
 }
 
-describe("Anthropic Vertex routing", () => {
+describe("Anthropic Vertex routing", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		mockState.anthropicConstructorCalls.length = 0;
 		mockState.vertexConstructorCalls.length = 0;

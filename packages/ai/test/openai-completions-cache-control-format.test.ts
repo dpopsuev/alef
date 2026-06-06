@@ -121,7 +121,7 @@ function expectAnthropicCacheMarkers(params: CapturedParams): void {
 	expect((lastMessage.content as TextPart[])[0]?.cache_control).toEqual({ type: "ephemeral" });
 }
 
-describe("openai-completions cacheControlFormat", () => {
+describe("openai-completions cacheControlFormat", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		mockState.lastParams = undefined;
 	});

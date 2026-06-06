@@ -42,7 +42,7 @@ async function capturePayload(
 	return capturedPayload;
 }
 
-describe("Mistral reasoning mode selection", () => {
+describe("Mistral reasoning mode selection", { tags: ["unit"] }, () => {
 	it("uses reasoning_effort for Mistral Small 4", async () => {
 		const payload = await capturePayload(getModel("mistral", "mistral-small-2603"), { reasoning: "medium" });
 

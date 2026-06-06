@@ -61,7 +61,7 @@ function makeContext(model: { api: string; provider: string; id: string }, thoug
 	};
 }
 
-describe("google-shared convertMessages — Gemini 3 unsigned tool calls", () => {
+describe("google-shared convertMessages — Gemini 3 unsigned tool calls", { tags: ["unit"] }, () => {
 	it("does not add skip_thought_signature_validator for unsigned Google Gen AI tool calls", () => {
 		const model = makeGemini3Model("google-generative-ai", "google");
 		const contents = convertMessages(model, makeContext({ ...model, id: "other-model" }));

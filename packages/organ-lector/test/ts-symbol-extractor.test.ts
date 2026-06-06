@@ -50,7 +50,7 @@ class InternalClass {
 }
 `.trim();
 
-describe("extractSymbolsTs — declarations", () => {
+describe("extractSymbolsTs — declarations", { tags: ["unit"] }, () => {
 	it("extracts exported async function", () => {
 		const symbols = extractSymbolsTs(FULL_SOURCE, "auth.ts");
 		const fn = symbols.find((s) => s.name === "fetchUser");
@@ -102,7 +102,7 @@ describe("extractSymbolsTs — declarations", () => {
 	});
 });
 
-describe("extractSymbolsTs — line numbers", () => {
+describe("extractSymbolsTs — line numbers", { tags: ["unit"] }, () => {
 	it("assigns startLine > 0", () => {
 		const symbols = extractSymbolsTs(FULL_SOURCE, "auth.ts");
 		for (const s of symbols) {
@@ -130,7 +130,7 @@ describe("extractSymbolsTs — line numbers", () => {
 	});
 });
 
-describe("extractSymbolsTs — generics and complex types", () => {
+describe("extractSymbolsTs — generics and complex types", { tags: ["unit"] }, () => {
 	it("handles generic function", () => {
 		const src = "export function identity<T>(x: T): T { return x; }";
 		const symbols = extractSymbolsTs(src, "id.ts");
@@ -162,7 +162,7 @@ describe("extractSymbolsTs — generics and complex types", () => {
 	});
 });
 
-describe("isTsFile", () => {
+describe("isTsFile", { tags: ["unit"] }, () => {
 	it.each([
 		[".ts", true],
 		[".tsx", true],

@@ -45,7 +45,7 @@ afterEach(() => {
 // ScriptedReasoner — simple reply
 // ---------------------------------------------------------------------------
 
-describe("BlueprintHarness — simple reply (no tools)", () => {
+describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () => {
 	it("send() returns scripted reply text", async () => {
 		const cwd = tmpDir();
 		const h = track(
@@ -93,7 +93,7 @@ describe("BlueprintHarness — simple reply (no tools)", () => {
 // ScriptedReasoner — tool calls with real organ execution
 // ---------------------------------------------------------------------------
 
-describe("BlueprintHarness — tool calls (real organ handlers)", () => {
+describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit"] }, () => {
 	it("executes fs.read and collects result before replying", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), "export function login(): boolean { return true; }");
@@ -173,7 +173,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", () => {
 // Blueprint file loading
 // ---------------------------------------------------------------------------
 
-describe("BlueprintHarness.fromBlueprint()", () => {
+describe("BlueprintHarness.fromBlueprint()", { tags: ["unit"] }, () => {
 	it("loads a minimal blueprint and runs scripted agent loop", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), "export function login(): boolean { return true; }");
@@ -223,7 +223,7 @@ describe("BlueprintHarness.fromBlueprint()", () => {
 // Event observation
 // ---------------------------------------------------------------------------
 
-describe("BlueprintHarness — event observation", () => {
+describe("BlueprintHarness — event observation", { tags: ["unit"] }, () => {
 	it("motorEvents cleared between send() calls", async () => {
 		const cwd = tmpDir();
 		const h = track(

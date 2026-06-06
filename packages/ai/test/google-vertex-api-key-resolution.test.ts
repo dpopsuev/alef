@@ -69,7 +69,7 @@ afterEach(() => {
 	}
 });
 
-describe("google-vertex api key resolution", () => {
+describe("google-vertex api key resolution", { tags: ["unit"] }, () => {
 	it("falls back to ADC when options.apiKey is a placeholder marker", async () => {
 		const stream = streamGoogleVertex(model, context, {
 			apiKey: "<authenticated>",

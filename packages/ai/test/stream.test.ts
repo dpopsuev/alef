@@ -347,7 +347,7 @@ async function multiTurn<TApi extends Api>(model: Model<TApi>, options?: StreamO
 	expect(allTextContent.includes("887")).toBe(true);
 }
 
-describe("Generate E2E Tests", () => {
+describe("Generate E2E Tests", { tags: ["real-llm"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Gemini Provider (gemini-2.5-flash)", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

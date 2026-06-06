@@ -19,7 +19,7 @@ const EXA_KEY = process.env.EXA_API_KEY;
 const hasAnyKey = BRAVE_KEY || TAVILY_KEY || EXA_KEY;
 const _skipMessage = "No search API keys set. Set BRAVE_SEARCH_API_KEY, TAVILY_API_KEY, or EXA_API_KEY to enable.";
 
-describe.skipIf(!BRAVE_KEY)("BraveSearchEngine integration", () => {
+describe.skipIf(!BRAVE_KEY)("BraveSearchEngine integration", { tags: ["integration"] }, () => {
 	it("returns results for a simple query", async () => {
 		const engine = new BraveSearchEngine(BRAVE_KEY!);
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
@@ -32,7 +32,7 @@ describe.skipIf(!BRAVE_KEY)("BraveSearchEngine integration", () => {
 	}, 30_000);
 });
 
-describe.skipIf(!TAVILY_KEY)("TavilySearchEngine integration", () => {
+describe.skipIf(!TAVILY_KEY)("TavilySearchEngine integration", { tags: ["integration"] }, () => {
 	it("returns results for a simple query", async () => {
 		const engine = new TavilySearchEngine(TAVILY_KEY!);
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
@@ -45,7 +45,7 @@ describe.skipIf(!TAVILY_KEY)("TavilySearchEngine integration", () => {
 	}, 30_000);
 });
 
-describe.skipIf(!EXA_KEY)("ExaSearchEngine integration", () => {
+describe.skipIf(!EXA_KEY)("ExaSearchEngine integration", { tags: ["integration"] }, () => {
 	it("returns results for a simple query", async () => {
 		const engine = new ExaSearchEngine(EXA_KEY!);
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
@@ -58,7 +58,7 @@ describe.skipIf(!EXA_KEY)("ExaSearchEngine integration", () => {
 	}, 30_000);
 });
 
-describe("DdgSearchEngine integration (free, always enabled)", () => {
+describe("DdgSearchEngine integration (free, always enabled)", { tags: ["integration"] }, () => {
 	it("returns results for a simple query", async () => {
 		const engine = new DdgSearchEngine();
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
@@ -75,7 +75,7 @@ describe("DdgSearchEngine integration (free, always enabled)", () => {
 	}, 30_000);
 });
 
-describe.skipIf(!hasAnyKey)("defaultSearchEngine fallback", () => {
+describe.skipIf(!hasAnyKey)("defaultSearchEngine fallback", { tags: ["integration"] }, () => {
 	it("returns results using fallback chain", async () => {
 		const engine = defaultSearchEngine();
 		const results = await engine.search({ query: "TypeScript programming language", numResults: 5 });
@@ -88,7 +88,7 @@ describe.skipIf(!hasAnyKey)("defaultSearchEngine fallback", () => {
 	}, 30_000);
 });
 
-describe("defaultSearchEngine fallback (no keys, DDG only)", () => {
+describe("defaultSearchEngine fallback (no keys, DDG only)", { tags: ["integration"] }, () => {
 	it("falls back to DDG when no API keys are set", async () => {
 		// Temporarily clear env vars.
 		const originalBrave = process.env.BRAVE_SEARCH_API_KEY;

@@ -23,14 +23,11 @@
  * Ref: ALE-SPC-17
  */
 
+import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ, SendRequest } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Agent, type BusObserver } from "@dpopsuev/alef-runtime";
-// TODO(ALE-TSK-585): materializeBlueprint should not be imported from runner via relative path.
-// It belongs in @dpopsuev/alef-agent-blueprint or a shared corpus utility.
-// Tracked: this import violates the organ isolation rule (testkit → runner cross-package dep).
-import { materializeBlueprint } from "../../runner/src/materializer.js";
 import { BusEventRecorder } from "./index.js";
 import type { ScriptStep } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";
@@ -50,9 +47,20 @@ export interface BlueprintHarnessOptions {
 	timeoutMs?: number;
 }
 
+export type MaterializeFn = (
+	definition: CompiledAgentDefinition,
+	opts: { cwd: string },
+) => Promise<{ organs: Organ[] }>;
+
 export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
 	/** Extra organs to load beyond what the blueprint declares. */
 	extraOrgans?: Organ[];
+	/**
+	 * Blueprint materializer — converts a CompiledAgentDefinition into Organ instances.
+	 * Pass materializeBlueprint from @dpopsuev/alef-runner or alef-coding-agent.
+	 * Decouples testkit from the runner package.
+	 */
+	materialize: MaterializeFn;
 }
 
 export class BlueprintHarness implements ExecutionStrategy {
@@ -88,7 +96,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 	 */
 	static async fromBlueprint(blueprintPath: string, opts: BlueprintFromFileOptions): Promise<BlueprintHarness> {
 		const definition = loadAgentDefinition(blueprintPath);
-		const materialized = await materializeBlueprint(definition, { cwd: opts.cwd });
+		const materialized = await opts.materialize(definition, { cwd: opts.cwd });
 
 		const corpusOrgans = [...materialized.organs, ...(opts.extraOrgans ?? [])];
 		return BlueprintHarness.create({ ...opts, organs: corpusOrgans });

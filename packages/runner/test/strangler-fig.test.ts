@@ -26,6 +26,7 @@ import { z } from "zod";
 import { BlueprintHarness } from "../../testkit/src/blueprint-harness.js";
 import { step } from "../../testkit/src/script.js";
 import { authFilePath, getStoredApiKey, removeStoredApiKey, resolveApiKey, setStoredApiKey } from "../src/auth.js";
+import { materializeBlueprint } from "../src/materializer.js";
 import { autoDetectModel, buildModel } from "../src/model.js";
 import { SessionStore } from "../src/session-store.js";
 import { assembleTurns } from "../src/turn-assembler.js";
@@ -262,6 +263,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
+				materialize: materializeBlueprint,
 				cwd,
 				script: [step.toolCall("fs.read", { path: "auth.ts" }, "Read the file.")],
 			}),
@@ -287,6 +289,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
+				materialize: materializeBlueprint,
 				cwd,
 				script: [step.toolCall("fs.grep", { pattern: "handleRequest" }, "Found the function.")],
 			}),
@@ -307,6 +310,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
+				materialize: materializeBlueprint,
 				cwd,
 				script: [step.reply("I can only read files.")],
 			}),
@@ -327,6 +331,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
+				materialize: materializeBlueprint,
 				cwd,
 				script: [
 					step.toolCall("fs.read", { path: "a.ts" }, "Read a."),
@@ -353,6 +358,7 @@ describe("blueprint composition — shell organ", { tags: ["unit"] }, () => {
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
+				materialize: materializeBlueprint,
 				cwd,
 				script: [step.toolCall("shell.exec", { command: "echo hello" }, "Command done.")],
 			}),

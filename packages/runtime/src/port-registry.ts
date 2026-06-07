@@ -92,8 +92,13 @@ export const STANDARD_PORTS: PortDefinition[] = [
 	},
 	{
 		name: "context_observer",
-		eventPattern: "sense/*",
+		eventPattern: "sense/dialog.",
 		cardinality: "zero-or-one",
+	},
+	{
+		name: "lifecycle_observer",
+		eventPattern: "sense/organ.",
+		cardinality: "zero-or-many",
 	},
 ];
 

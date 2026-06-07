@@ -15,6 +15,7 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
 	const controller = new AbortController();
+	// lint-ignore: RAWTIMER HTTP fetch abort deadline
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
 	try {
 		return await fetch(url, { ...init, signal: controller.signal });

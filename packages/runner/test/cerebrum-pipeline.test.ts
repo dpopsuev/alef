@@ -13,7 +13,7 @@
 
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { Cerebrum, createLlmPipeline } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop, createLlmPipeline } from "@dpopsuev/alef-organ-llm";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { Directives } from "../src/directives.js";
@@ -36,7 +36,7 @@ function makeAgent(
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const prepareStep = opts.prepareStep ? (buildPrepareStep(opts.prepareStep, 100_000) as any) : undefined;
 
-	const llm = new Cerebrum({
+	const llm = createAgentLoop({
 		model: faux.getModel(),
 		apiKey: "faux",
 		prepareStep,

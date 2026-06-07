@@ -50,7 +50,7 @@ describe("EvalHarness — loop detection (TSK-120)", { tags: ["integration"] }, 
 
 		const metrics = await harness.run(
 			async (ctx) => {
-				await ctx.send("start");
+				await ctx.send({ text: "start" });
 			},
 			{
 				scenario: "loop-detection",
@@ -71,7 +71,7 @@ describe("EvalHarness — loop detection (TSK-120)", { tags: ["integration"] }, 
 
 		const metrics = await harness.run(
 			async (ctx) => {
-				await ctx.send("start");
+				await ctx.send({ text: "start" });
 			},
 			{
 				scenario: "no-loop",

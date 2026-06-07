@@ -1,22 +1,12 @@
 import type { MotorEvent, MotorPublishInput, Nerve, NerveEvent, SenseHandler, SensePublishInput } from "./buses.js";
 import { extractToolCallId } from "./sense-builders.js";
+import { Watchdog } from "./watchdog.js";
 
-/** Max correlationId entries retained in firstSeen before LRU eviction (ALE-BUG-15). */
 const FIRST_SEEN_MAX = 500;
 
 class InProcessBus {
 	private readonly handlers = new Map<string, Set<(event: NerveEvent) => void | Promise<void>>>();
-	/**
-	 * Tracks the first-seen timestamp per correlationId to compute elapsed time.
-	 * Insertion-ordered Map — oldest entry is first(). Capped at FIRST_SEEN_MAX
-	 * to prevent unbounded growth in long-running sessions (ALE-BUG-15).
-	 */
 	readonly firstSeen = new Map<string, number>();
-	/**
-	 * Called when a motor event has no specific subscribers.
-	 * Set by InProcessNerve to publish an error sense response.
-	 * Wildcard subscribers (SessionLog, EvaluatorOrgan) do not count.
-	 */
 	deadLetterSink?: (event: NerveEvent) => void;
 
 	evictCorrelation(correlationId: string): void {
@@ -62,11 +52,19 @@ class InProcessBus {
 	}
 }
 
+export interface WatchdogOptions {
+	stallMs: number;
+	onStall: () => void;
+}
+
 export class InProcessNerve {
 	private readonly _sense = new InProcessBus();
 	private readonly _motor = new InProcessBus();
+	private readonly _watchdog: Watchdog | null;
 
-	constructor() {
+	constructor(watchdog?: WatchdogOptions) {
+		this._watchdog = watchdog ? new Watchdog(watchdog.stallMs, watchdog.onStall) : null;
+		this._watchdog?.start();
 		this._motor.deadLetterSink = (event) => {
 			const payload = (event as MotorEvent).payload;
 			const toolCallId = payload ? extractToolCallId(payload) : undefined;
@@ -80,6 +78,14 @@ export class InProcessNerve {
 		};
 	}
 
+	pulse(): void {
+		this._watchdog?.reset();
+	}
+
+	dispose(): void {
+		this._watchdog?.stop();
+	}
+
 	asNerve(): Nerve {
 		return {
 			motor: {
@@ -88,13 +94,13 @@ export class InProcessNerve {
 			},
 			sense: {
 				subscribe: (type, h) => this._sense.on(type, h as (e: NerveEvent) => void | Promise<void>),
-				// Evict the correlationId from motor's firstSeen on sense publish:
-				// the sense response marks the correlation as complete (ALE-BUG-15).
+				// Sense publish evicts from motor's firstSeen — sense response ends the correlation.
 				publish: (e) => {
 					this._motor.evictCorrelation(e.correlationId);
 					this._sense.emit(e);
 				},
 			},
+			pulse: () => this.pulse(),
 		};
 	}
 

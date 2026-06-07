@@ -14,21 +14,50 @@
  * (ALEF_SUPERVISOR=1), triggering the blue-green IPC loop.
  */
 
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
 import type { ExecutionStrategy, Organ, OrganLogger } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, Watchdog, withDisplay } from "@dpopsuev/alef-kernel";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
 import { RemoteProcessStrategy } from "./remote-process.js";
 import type { ChildEntry } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// Options
-// ---------------------------------------------------------------------------
+function detectBwrap(): string | null {
+	try {
+		const path = execSync("which bwrap", { stdio: ["ignore", "pipe", "ignore"] })
+			.toString()
+			.trim();
+		return path || null;
+	} catch {
+		return null;
+	}
+}
+
+const BWRAP_PATH = detectBwrap();
+
+function wrapWithBwrap(cmd: string[]): [string, string[]] {
+	if (!BWRAP_PATH) throw new Error("sandbox: true requires bwrap (bubblewrap) — not found on PATH");
+	const bwrapArgs = [
+		"--ro-bind",
+		"/",
+		"/",
+		"--dev",
+		"/dev",
+		"--proc",
+		"/proc",
+		"--tmpfs",
+		"/tmp",
+		"--unshare-net",
+		"--die-with-parent",
+		"--",
+		...cmd,
+	];
+	return [BWRAP_PATH, bwrapArgs];
+}
 
 export interface OrchestrationOrganOptions {
 	/** Working directory for child Alef processes. Defaults to process.cwd(). */
@@ -44,10 +73,6 @@ export interface OrchestrationOrganOptions {
 	onChildReady?: (name: string, strategy: ExecutionStrategy) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const RUNNER_MAIN = new URL("../../runner/src/main.ts", import.meta.url).pathname;
 const TSX_BIN = new URL("../../../node_modules/.bin/tsx", import.meta.url).pathname;
 
@@ -62,6 +87,8 @@ function waitForReady(
 	return new Promise((resolveP, rejectP) => {
 		let endpoint = "";
 		let sessionId: string | undefined;
+		const stderrLines: string[] = [];
+		// lint-ignore: RAWTIMER child readiness one-shot deadline
 		const timer = setTimeout(() => rejectP(new Error("Child readiness timeout")), timeoutMs);
 
 		const scan = (chunk: Buffer | string) => {
@@ -73,16 +100,23 @@ function waitForReady(
 				endpoint = routerMatch[1];
 				clearTimeout(timer);
 				child.stdout?.off("data", scan);
-				child.stderr?.off("data", scan);
+				child.stderr?.off("data", scanStderr);
 				resolveP({ endpoint, sessionId });
 			}
 		};
 
+		const scanStderr = (chunk: Buffer | string) => {
+			const text = typeof chunk === "string" ? chunk : chunk.toString();
+			stderrLines.push(text);
+			scan(chunk);
+		};
+
 		child.stdout?.on("data", scan);
-		child.stderr?.on("data", scan);
+		child.stderr?.on("data", scanStderr);
 		child.once("exit", (code) => {
 			clearTimeout(timer);
-			rejectP(new Error(`Child exited (${code}) before ready`));
+			const detail = stderrLines.length > 0 ? `\n${stderrLines.join("").trim()}` : "";
+			rejectP(new Error(`Child exited (${code}) before ready${detail}`));
 		});
 	});
 }
@@ -93,53 +127,86 @@ function healthCheck(endpoint: string): Promise<boolean> {
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
-
 export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): Organ {
 	const cwd = opts.cwd ?? process.cwd();
 	const readinessTimeoutMs = opts.readinessTimeoutMs ?? 30_000;
 	const children = new Map<string, ChildEntry>();
 	let childSeq = 0;
-
-	// -------------------------------------------------------------------------
-	// ask
-	// -------------------------------------------------------------------------
+	let mountedNerve: import("@dpopsuev/alef-kernel").Nerve | null = null;
 
 	const ASK_TOOL = {
 		name: "orchestration.ask",
 		description:
 			"Send a prompt to a running child Alef and return its reply. " +
-			"Blocks until the child responds or timeoutMs elapses. " +
+			"Blocks until the child replies or goes silent. " +
 			"Use after orchestration.spawn to delegate a task and get the result.",
 		inputSchema: z.object({
 			name: z.string().min(1).describe("Child name from orchestration.spawn"),
 			prompt: z.string().min(1).describe("Message to send to the child agent"),
-			timeoutMs: z.number().optional().describe("Max wait in ms (default: 60_000)"),
+			stallMs: z
+				.number()
+				.optional()
+				.describe(
+					"Inactivity threshold in ms — resets on each SSE event (default: 60_000). Child doing long work never times out as long as it emits events.",
+				),
+			maxMs: z
+				.number()
+				.optional()
+				.describe("Hard wall-clock limit in ms regardless of activity (default: 600_000)."),
 		}),
 	};
 
 	async function handleAsk(ctx: {
-		payload: { name: string; prompt: string; timeoutMs?: number };
+		payload: { name: string; prompt: string; stallMs?: number; maxMs?: number };
 	}): Promise<Record<string, unknown>> {
-		const { name: childName, prompt, timeoutMs = 60_000 } = ctx.payload;
+		const { name: childName, prompt, stallMs = 60_000, maxMs = 600_000 } = ctx.payload;
 		const entry = children.get(childName);
 		if (!entry) throw new Error(`orchestration.ask: no child named '${childName}'`);
-		const strategy = new RemoteProcessStrategy(entry.endpoint);
-		const reply = await strategy.send(prompt, "human", timeoutMs);
-		if (!reply) {
-			return withDisplay(
-				{ name: childName, reply: null, timedOut: true },
-				{ text: `**${childName}** did not reply within ${timeoutMs}ms`, mimeType: "text/markdown" },
-			);
-		}
-		return withDisplay({ name: childName, reply }, { text: reply, mimeType: "text/plain" });
-	}
 
-	// -------------------------------------------------------------------------
-	// spawn
-	// -------------------------------------------------------------------------
+		let rejectStall: ((e: Error) => void) | undefined;
+		const stallPromise = new Promise<never>((_, reject) => {
+			rejectStall = reject;
+		});
+		const watchdog = new Watchdog(stallMs, () => {
+			entry.process.kill("SIGTERM");
+			children.delete(childName);
+			mountedNerve?.sense.publish({
+				type: "child.reaped",
+				correlationId: "system",
+				isError: false,
+				payload: { name: childName, reason: "stall" },
+			});
+			rejectStall?.(new Error(`orchestration.ask: child '${childName}' stalled — no SSE events for ${stallMs}ms`));
+		});
+		watchdog.start();
+
+		// lint-ignore: RAWTIMER hard wall-clock cap beyond the stall watchdog
+		const hardTimer = setTimeout(() => {
+			watchdog.stop();
+			rejectStall?.(new Error(`orchestration.ask: child '${childName}' exceeded maxMs (${maxMs}ms)`));
+		}, maxMs);
+
+		const strategy = new RemoteProcessStrategy(entry.endpoint, () => watchdog.reset());
+		try {
+			const reply = await Promise.race([
+				strategy.send({ text: prompt, sender: "human", timeoutMs: maxMs }),
+				stallPromise,
+			]);
+			watchdog.stop();
+			clearTimeout(hardTimer);
+			if (!reply) {
+				return withDisplay(
+					{ name: childName, reply: null, timedOut: true },
+					{ text: `**${childName}** did not reply`, mimeType: "text/markdown" },
+				);
+			}
+			return withDisplay({ name: childName, reply }, { text: reply, mimeType: "text/plain" });
+		} catch (err) {
+			watchdog.stop();
+			clearTimeout(hardTimer);
+			throw err;
+		}
+	}
 
 	const SPAWN_TOOL = {
 		name: "orchestration.spawn",
@@ -158,21 +225,28 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 				.describe("Paths to .ts organ files. Orchestration organ writes a temp agent.yaml."),
 			cwd: z.string().optional().describe("Working directory for the child. Defaults to parent cwd."),
 			sessionId: z.string().optional().describe("Resume a previous session by ID."),
+			sandbox: z
+				.boolean()
+				.optional()
+				.describe(
+					"Wrap child in bubblewrap (bwrap) for filesystem and network namespace isolation. " +
+						"Requires bwrap on PATH. Use for externally-sourced or untrusted organs.",
+				),
 		}),
 	};
 
 	async function handleSpawn(ctx: {
-		payload: { blueprintPath?: string; organs?: string[]; cwd?: string; sessionId?: string };
+		payload: { blueprintPath?: string; organs?: string[]; cwd?: string; sessionId?: string; sandbox?: boolean };
 	}): Promise<Record<string, unknown>> {
 		const childCwd = ctx.payload.cwd ?? cwd;
 		const blueprintPathRaw = ctx.payload.blueprintPath;
 		const resumeSession = ctx.payload.sessionId;
+		const sandbox = ctx.payload.sandbox ?? false;
 		const organPaths: string[] = ctx.payload.organs ?? [];
 
 		let blueprintPath = blueprintPathRaw ? resolvePath(blueprintPathRaw, childCwd) : undefined;
 		let tmpDir: string | undefined;
 
-		// Write a temp blueprint if inline organ paths were given.
 		if (organPaths.length > 0 && !blueprintPath) {
 			tmpDir = mkdtempSync(join(tmpdir(), "alef-sup-"));
 			blueprintPath = join(tmpDir, "agent.yaml");
@@ -191,9 +265,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		if (blueprintPath) args.push("--blueprint", blueprintPath);
 		if (resumeSession) args.push("--resume", resumeSession);
 
-		// NODE_PATH lets jiti resolve @dpopsuev/* packages from organ files at any
-		// location outside the monorepo tree. Without this, organs written to the
-		// user's project workspace can't import @dpopsuev/alef-kernel — child exits 1.
+		// Organs outside the monorepo tree can't resolve @dpopsuev/* without this.
 		const alefNodeModules = new URL("../../../node_modules", import.meta.url).pathname;
 		const nodePath = [alefNodeModules, process.env.NODE_PATH].filter(Boolean).join(delimiter);
 		const env: NodeJS.ProcessEnv = {
@@ -209,7 +281,9 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 					}),
 		};
 
-		const child = spawn(process.execPath, args, {
+		const [spawnCmd, spawnArgs] = sandbox ? wrapWithBwrap([process.execPath, ...args]) : [process.execPath, args];
+
+		const child = spawn(spawnCmd, spawnArgs, {
 			cwd: childCwd,
 			env,
 			stdio: ["ignore", "pipe", "pipe", "ipc"],
@@ -234,12 +308,19 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			startedAt: Date.now(),
 		};
 		children.set(name, entry);
-		opts.onChildReady?.(name, new RemoteProcessStrategy(ready.endpoint));
 
-		// Cleanup tmpDir when child exits.
-		child.once("exit", () => {
+		const strategy = new RemoteProcessStrategy(ready.endpoint, () => mountedNerve?.pulse());
+		opts.onChildReady?.(name, strategy);
+
+		child.once("exit", (code) => {
 			children.delete(name);
 			if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+			mountedNerve?.sense.publish({
+				type: "child.reaped",
+				correlationId: "system",
+				isError: false,
+				payload: { name, reason: "exited", exitCode: code ?? undefined },
+			});
 		});
 
 		return withDisplay(
@@ -247,10 +328,6 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			{ text: `Spawned **${name}** (pid ${entry.pid}) at ${ready.endpoint}`, mimeType: "text/markdown" },
 		);
 	}
-
-	// -------------------------------------------------------------------------
-	// kill
-	// -------------------------------------------------------------------------
 
 	const KILL_TOOL = {
 		name: "orchestration.kill",
@@ -267,6 +344,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 
 		entry.process.kill("SIGTERM");
 		await new Promise<void>((res) => {
+			// lint-ignore: RAWTIMER SIGKILL escalation after SIGTERM grace period
 			const t = setTimeout(() => {
 				entry.process.kill("SIGKILL");
 				res();
@@ -282,10 +360,6 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			{ text: `Stopped **${childName}**`, mimeType: "text/markdown" },
 		);
 	}
-
-	// -------------------------------------------------------------------------
-	// list
-	// -------------------------------------------------------------------------
 
 	const LIST_TOOL = {
 		name: "orchestration.list",
@@ -311,10 +385,6 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		return withDisplay({ children: items }, { text: summary, mimeType: "text/markdown" });
 	}
 
-	// -------------------------------------------------------------------------
-	// status
-	// -------------------------------------------------------------------------
-
 	const STATUS_TOOL = {
 		name: "orchestration.status",
 		description: "Health-check a named child Alef process.",
@@ -337,10 +407,6 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			},
 		);
 	}
-
-	// -------------------------------------------------------------------------
-	// promote
-	// -------------------------------------------------------------------------
 
 	const PROMOTE_TOOL = {
 		name: "orchestration.promote",
@@ -397,10 +463,6 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		};
 	}
 
-	// -------------------------------------------------------------------------
-	// Organ definition
-	// -------------------------------------------------------------------------
-
 	return defineOrgan(
 		"orchestration",
 		{
@@ -413,6 +475,12 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		},
 		{
 			logger: opts.logger,
+			onMount: (nerve) => {
+				mountedNerve = nerve;
+			},
+			onUnmount: () => {
+				mountedNerve = null;
+			},
 			description: "Child-Alef lifecycle management and task delegation: spawn, ask, kill, list, status, promote.",
 			labels: ["orchestration", "spawn", "blue-green", "lifecycle"],
 			directives: [

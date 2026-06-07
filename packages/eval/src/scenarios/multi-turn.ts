@@ -13,10 +13,11 @@ import type { ScenarioContext } from "../harness.js";
  */
 export async function proposeFirst(ctx: ScenarioContext): Promise<void> {
 	// Turn 1: agent proposes
-	const proposal = await ctx.send(
-		"I want a utility function that deep-clones a plain JS object. " +
+	const proposal = await ctx.send({
+		text:
+			"I want a utility function that deep-clones a plain JS object. " +
 			"Before writing any code, briefly describe your implementation approach in 2-3 sentences.",
-	);
+	});
 
 	const lower = proposal.toLowerCase();
 	const isProposal =
@@ -31,7 +32,7 @@ export async function proposeFirst(ctx: ScenarioContext): Promise<void> {
 	}
 
 	// Turn 2: approve and implement
-	await ctx.send("Good. Now implement it in src/clone.ts. Export the function as 'deepClone'.");
+	await ctx.send({ text: "Good. Now implement it in src/clone.ts. Export the function as 'deepClone'." });
 
 	const content = await ctx.readFile("src/clone.ts");
 	if (!content.includes("deepClone")) {
@@ -49,16 +50,18 @@ export async function memoRecall(ctx: ScenarioContext): Promise<void> {
 	const MAGIC = "PORT_8421";
 
 	// Turn 1: plant the value
-	const ack = await ctx.send(
-		`Remember this for later: the server should listen on port 8421. The configuration key is ${MAGIC}.`,
-	);
+	const ack = await ctx.send({
+		text: `Remember this for later: the server should listen on port 8421. The configuration key is ${MAGIC}.`,
+	});
 	// Agent should acknowledge
 	if (!ack || ack.trim().length < 5) {
 		throw new Error("Agent did not acknowledge the information");
 	}
 
 	// Turn 2: ask agent to use the value
-	await ctx.send("Now create src/config.ts. Export a const DEFAULT_PORT with the port number I mentioned earlier.");
+	await ctx.send({
+		text: "Now create src/config.ts. Export a const DEFAULT_PORT with the port number I mentioned earlier.",
+	});
 
 	const content = await ctx.readFile("src/config.ts");
 	if (!content.includes("8421")) {
@@ -77,11 +80,12 @@ export async function memoRecall(ctx: ScenarioContext): Promise<void> {
  */
 export async function approveProposal(ctx: ScenarioContext): Promise<void> {
 	// Turn 1: give a vague request that needs a decision
-	const turn1 = await ctx.send(
-		"Create a sorting utility in src/sort.ts. " +
+	const turn1 = await ctx.send({
+		text:
+			"Create a sorting utility in src/sort.ts. " +
 			"I'm not sure if I want ascending or descending order as the default. " +
 			"What would you recommend and why? Don't write any code yet.",
-	);
+	});
 
 	// Agent should respond with a recommendation
 	const lower = turn1.toLowerCase();
@@ -97,11 +101,12 @@ export async function approveProposal(ctx: ScenarioContext): Promise<void> {
 	}
 
 	// Turn 2: accept and provide direction
-	await ctx.send(
-		"Good point. Go with ascending as default. Implement sortArray in src/sort.ts. " +
+	await ctx.send({
+		text:
+			"Good point. Go with ascending as default. Implement sortArray in src/sort.ts. " +
 			"It should accept an array of numbers and an optional 'direction' param ('asc' | 'desc'). " +
 			"Export sortArray.",
-	);
+	});
 
 	const content = await ctx.readFile("src/sort.ts");
 	if (!content.includes("sortArray")) {

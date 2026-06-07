@@ -54,7 +54,7 @@ export interface OrganFactoryOptions {
 
 /** Expected shape of an organ module — must export createOrgan. */
 interface OrganModule {
-	createOrgan: (opts: OrganFactoryOptions) => Organ;
+	createOrgan: (opts: OrganFactoryOptions) => Organ | Promise<Organ>;
 }
 
 export interface MaterializerOptions {
@@ -257,7 +257,7 @@ export async function loadOrganFromPath(
 		throw new Error(`Organ at '${path}' does not export createOrgan(opts).`);
 	}
 	const typed = mod as unknown as OrganModule;
-	return typed.createOrgan({ cwd: opts.cwd, logger: opts.loggerFor?.(path) });
+	return await typed.createOrgan({ cwd: opts.cwd, logger: opts.loggerFor?.(path) });
 }
 
 export async function materializeBlueprint(
@@ -274,7 +274,7 @@ export async function materializeBlueprint(
 		const label = organDef.path ? organDef.path : (BUILTIN_PACKAGES[organDef.name] ?? organDef.name);
 		try {
 			const mod = await loadOrganModule(organDef);
-			const organ = mod.createOrgan({
+			const organ = await mod.createOrgan({
 				cwd: opts.cwd,
 				actions: organDef.actions.length > 0 ? organDef.actions : undefined,
 				logger: opts.loggerFor?.(organDef.name),

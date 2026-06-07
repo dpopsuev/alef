@@ -125,6 +125,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 				};
 
 				return new Promise<Record<string, unknown>>((resolve) => {
+					// lint-ignore: RAWTIMER HITL auto-submit deadline
 					const timer = setTimeout(() => {
 						off();
 						onSubmit(validated);

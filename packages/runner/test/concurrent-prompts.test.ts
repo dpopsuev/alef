@@ -27,7 +27,7 @@ describe("sequential prompts", { tags: ["integration"] }, () => {
 		const topics = ["cats", "dogs", "weather", "code", "history"];
 		const replies = [];
 		for (const topic of topics) {
-			replies.push(await h.send(`Tell me about ${topic}`));
+			replies.push(await h.send({ text: `Tell me about ${topic}` }));
 		}
 
 		for (let i = 0; i < topics.length; i++) {
@@ -43,8 +43,8 @@ describe("concurrent prompt handling", { tags: ["integration"] }, () => {
 			script: [step.reply("First"), step.reply("Second")],
 		});
 
-		const p1 = h.send("First prompt");
-		const p2 = h.send("Second prompt");
+		const p1 = h.send({ text: "First prompt" });
+		const p2 = h.send({ text: "Second prompt" });
 
 		const results = await Promise.allSettled([p1, p2]);
 		const fulfilled = results.filter((r) => r.status === "fulfilled");

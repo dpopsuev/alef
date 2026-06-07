@@ -28,4 +28,5 @@ export type CerebrumEvent =
 	| { type: "token-usage"; usage: TokenUsage }
 	| { type: "chunk"; text: string }
 	| { type: "thinking"; text: string }
-	| { type: "turn-error"; message: string };
+	| { type: "turn-error"; message: string }
+	| { type: "message-queued"; queueLength: number };

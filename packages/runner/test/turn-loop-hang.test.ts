@@ -6,7 +6,7 @@
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { Cerebrum } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -20,7 +20,9 @@ function makeAgent(opts: { timeoutMs?: number } = {}) {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {} });
-	agent.load(dialog).load(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
+	agent
+		.load(dialog)
+		.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
 	disposes.push(() => agent.dispose());
 	return { faux, agent, dialog, timeoutMs: opts.timeoutMs ?? 3_000 };
 }

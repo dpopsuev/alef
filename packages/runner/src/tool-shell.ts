@@ -24,10 +24,6 @@ import { defineOrgan, toolInputToJsonSchema, typedAction, withDisplay } from "@d
 import type { PhaseStageHandler } from "@dpopsuev/alef-organ-llm";
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Meta-tool (only tools.describe is exposed to the LLM)
-// ---------------------------------------------------------------------------
-
 const DESCRIBE_TOOL = {
 	name: "tools.describe",
 	description:
@@ -37,13 +33,14 @@ const DESCRIBE_TOOL = {
 	}),
 } satisfies ToolDefinition;
 
-// ---------------------------------------------------------------------------
-// ToolShellOptions
-// ---------------------------------------------------------------------------
-
 export interface ToolShellOptions {
 	/** All domain tools available to the agent, captured at construction time. */
 	tools: readonly ToolDefinition[];
+	/**
+	 * Live tool list getter. When provided, takes precedence over tools for all
+	 * catalog operations so newly plugged organs appear without rebuilding the shell.
+	 */
+	getTools?: () => readonly ToolDefinition[];
 	/**
 	 * Organ guidance blocks indexed by tool name.
 	 * Populated from organ.directives — travel with schemas instead of system prompt.
@@ -58,73 +55,123 @@ export interface ToolShellOptions {
 	logger?: OrganLogger;
 }
 
-// Marker string embedded in the catalog message so eviction can find it.
 const CATALOG_MARKER = "\x00TOOL-CATALOG-v1\x00";
 
-// ---------------------------------------------------------------------------
-// createToolShellOrgan
-// ---------------------------------------------------------------------------
+type RawMsg = Record<string, unknown>;
+
+function getByNameMap(tools: readonly ToolDefinition[]): Map<string, ToolDefinition> {
+	const map = new Map<string, ToolDefinition>();
+	for (const t of tools) map.set(t.name, t);
+	return map;
+}
+
+function getStripped(tools: readonly ToolDefinition[]): ToolDefinition[] {
+	return tools.map((t) => ({ name: t.name, description: t.description, inputSchema: z.object({}).passthrough() }));
+}
+
+function searchTools(tools: readonly ToolDefinition[], query: string): Array<{ name: string; description: string }> {
+	const words = query
+		.toLowerCase()
+		.split(/\s+/)
+		.filter((w) => w.length > 1);
+	if (words.length === 0) {
+		return [...tools]
+			.sort((a, b) => a.name.localeCompare(b.name))
+			.slice(0, 20)
+			.map((t) => ({ name: t.name, description: t.description }));
+	}
+	return tools
+		.map((t) => ({
+			tool: t,
+			score: words.filter((w) => `${t.name} ${t.description}`.toLowerCase().includes(w)).length,
+		}))
+		.filter((s) => s.score > 0)
+		.sort((a, b) => b.score - a.score)
+		.slice(0, 10)
+		.map((s) => ({ name: s.tool.name, description: s.tool.description }));
+}
+
+function buildCatalogContent(tools: readonly ToolDefinition[]): RawMsg {
+	const lines = [...tools]
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((t) => `- **${t.name}** — ${t.description}`);
+	const content = [
+		CATALOG_MARKER,
+		"**Available Tools** (complete list — do not call tools.search):",
+		'Call `tools.describe(["tool-name"])` to get the full schema before using any tool.',
+		"",
+		...lines,
+	].join("\n");
+	return { role: "user", content } as unknown as RawMsg;
+}
+
+function buildEvictionContent(described: Set<string>, tools: readonly ToolDefinition[]): RawMsg {
+	const used = [...described].sort().join(", ") || "none";
+	const remaining = tools
+		.filter((t) => !described.has(t.name))
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((t) => t.name)
+		.join(", ");
+	return {
+		role: "user",
+		content: `[Tool catalog compacted. Described so far: ${used}. Still available: ${remaining || "none"}. Call tools.describe([name]) to get any tool's schema.]`,
+	} as unknown as RawMsg;
+}
+
+function injectCatalogMsg(messages: RawMsg[], tools: readonly ToolDefinition[]): RawMsg[] {
+	return [buildCatalogContent(tools), ...messages];
+}
+
+function evictCatalogMsg(messages: RawMsg[], described: Set<string>, tools: readonly ToolDefinition[]): RawMsg[] {
+	const eviction = buildEvictionContent(described, tools);
+	return messages.map((m) =>
+		typeof m.content === "string" && (m.content as string).startsWith(CATALOG_MARKER) ? eviction : m,
+	);
+}
+
+function namespaceOf(name: string): string {
+	return name.includes(".") ? name.slice(0, name.indexOf(".")) : name;
+}
+
+interface PromotionTracker {
+	promote(name: string): void;
+	isPromoted(name: string): boolean;
+	described: Set<string>;
+}
+
+function createPromotionTracker(): PromotionTracker {
+	const promotedPrefixes = new Set<string>();
+	const described = new Set<string>();
+	return {
+		promote(name: string) {
+			promotedPrefixes.add(namespaceOf(name));
+		},
+		isPromoted(name: string) {
+			return promotedPrefixes.has(namespaceOf(name));
+		},
+		described,
+	};
+}
 
 export function createToolShellOrgan(opts: ToolShellOptions) {
-	const { tools, organDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
+	const { organDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
 
-	const byName = new Map<string, ToolDefinition>();
-	for (const t of tools) byName.set(t.name, t);
+	const resolveTools = opts.getTools ?? (() => opts.tools);
 
-	// Mutable lifecycle state — one instance per organ, scoped to this closure.
-	const state = {
-		catalogInjected: false,
-		toolsDescribed: new Set<string>(),
-		/** Namespace prefixes (text before first '.') whose full schemas are promoted. */
-		promotedPrefixes: new Set<string>(),
-	};
+	let catalogInjected = false; // lint-ignore: RAWTIMER not a timer — mutable lifecycle flag
+	const tracker = createPromotionTracker();
 
-	// ---------------------------------------------------------------------------
-	// Internal search (not exposed to LLM — discovery is via boot catalog)
-	// ---------------------------------------------------------------------------
-	function handleSearch(query: string): Array<{ name: string; description: string }> {
-		const words = query
-			.toLowerCase()
-			.split(/\s+/)
-			.filter((w) => w.length > 1);
-		if (words.length === 0) {
-			return [...tools]
-				.sort((a, b) => a.name.localeCompare(b.name))
-				.slice(0, 20)
-				.map((t) => ({ name: t.name, description: t.description }));
-		}
-		const scored = tools.map((t) => {
-			const haystack = `${t.name} ${t.description}`.toLowerCase();
-			const score = words.filter((w) => haystack.includes(w)).length;
-			return { tool: t, score };
-		});
-		return scored
-			.filter((s) => s.score > 0)
-			.sort((a, b) => b.score - a.score)
-			.slice(0, 10)
-			.map((s) => ({ name: s.tool.name, description: s.tool.description }));
-	}
-
-	// ---------------------------------------------------------------------------
-	// Describe — full schema + guidance
-	// ---------------------------------------------------------------------------
 	function handleDescribe(
 		names: string[],
 		log: OrganLogger,
-	): Array<{
-		name: string;
-		description: string;
-		schema: Record<string, unknown>;
-		guidance: string;
-	}> {
-		// Empty names → return catalog: all tool names + descriptions, no schemas.
-		// Lets the agent discover what is available without needing to guess names first.
+	): Array<{ name: string; description: string; schema: Record<string, unknown>; guidance: string }> {
+		const tools = resolveTools();
+		const byName = getByNameMap(tools);
 		if (names.length === 0) {
 			return [...tools]
 				.sort((a, b) => a.name.localeCompare(b.name))
 				.map((t) => ({ name: t.name, description: t.description, schema: {}, guidance: "" }));
 		}
-
 		const results = [];
 		for (const name of names) {
 			const t = byName.get(name);
@@ -132,80 +179,26 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 				log.warn({ name, available: [...byName.keys()] }, "tools:describe:miss");
 				continue;
 			}
-			state.toolsDescribed.add(name);
-			// Family promotion: unlock all tools sharing the same namespace prefix.
-			// "fs.read" → prefix "fs" → promotes fs.edit, fs.write, fs.grep, fs.find.
-			// Eliminates the second describe round-trip for sequential read→edit tasks.
-			const prefix = name.includes(".") ? name.slice(0, name.indexOf(".")) : name;
-			state.promotedPrefixes.add(prefix);
-			const dirs: readonly string[] = organDirectives.get(name) ?? [];
-			const guidance = dirs.join("\n\n");
-			const raw: unknown = toolInputToJsonSchema(t.inputSchema);
-			const schema = raw as Record<string, unknown>;
-			results.push({ name: t.name, description: t.description, schema, guidance });
+			tracker.described.add(name);
+			// Promote the whole namespace so the LLM avoids a second describe round-trip.
+			tracker.promote(name);
+			results.push({
+				name: t.name,
+				description: t.description,
+				schema: toolInputToJsonSchema(t.inputSchema) as Record<string, unknown>,
+				guidance: (organDirectives.get(name) ?? []).join("\n\n"),
+			});
 		}
 		return results;
 	}
 
-	// ---------------------------------------------------------------------------
-	// Promoted tool list — shared by llm.phase handler and currentMetaTools()
-	// ---------------------------------------------------------------------------
 	function getPromotedTools(): ToolDefinition[] {
-		const promoted: ToolDefinition[] = tools.map((t) => {
-			const prefix = t.name.includes(".") ? t.name.slice(0, t.name.indexOf(".")) : t.name;
-			return state.promotedPrefixes.has(prefix) ? t : (strippedTools.find((s) => s.name === t.name) ?? t);
-		});
+		const tools = resolveTools();
+		const stripped = getStripped(tools);
+		const promoted = tools.map((t) =>
+			tracker.isPromoted(t.name) ? t : (stripped.find((s) => s.name === t.name) ?? t),
+		);
 		return [...promoted, DESCRIBE_TOOL];
-	}
-
-	// ---------------------------------------------------------------------------
-	// Catalog message builders
-	// ---------------------------------------------------------------------------
-	function buildCatalogMessage(): { role: string; content: string } {
-		const lines = [...tools]
-			.sort((a, b) => a.name.localeCompare(b.name))
-			.map((t) => `- **${t.name}** — ${t.description}`);
-		const content = [
-			CATALOG_MARKER,
-			"**Available Tools** (complete list — do not call tools.search):",
-			'Call `tools.describe(["tool-name"])` to get the full schema before using any tool.',
-			"",
-			...lines,
-		].join("\n");
-		return { role: "user", content };
-	}
-
-	function buildEvictionMessage(): { role: string; content: string } {
-		const used = [...state.toolsDescribed].sort().join(", ") || "none";
-		const remaining = tools
-			.filter((t) => !state.toolsDescribed.has(t.name))
-			.sort((a, b) => a.name.localeCompare(b.name))
-			.map((t) => t.name)
-			.join(", ");
-		return {
-			role: "user",
-			content: `[Tool catalog compacted. Described so far: ${used}. Still available: ${remaining || "none"}. Call tools.describe([name]) to get any tool's schema.]`,
-		};
-	}
-
-	// ---------------------------------------------------------------------------
-	// Message array transformers (pure — no mutation of original)
-	// ---------------------------------------------------------------------------
-	type RawMsg = Record<string, unknown>;
-
-	function injectCatalog(messages: RawMsg[]): RawMsg[] {
-		return [buildCatalogMessage() as unknown as RawMsg, ...messages];
-	}
-
-	function evictCatalog(messages: RawMsg[]): RawMsg[] {
-		const eviction = buildEvictionMessage() as unknown as RawMsg;
-		return messages.map((m) => {
-			const content = m.content;
-			if (typeof content === "string" && content.startsWith(CATALOG_MARKER)) {
-				return eviction;
-			}
-			return m;
-		});
 	}
 
 	// ---------------------------------------------------------------------------
@@ -232,18 +225,6 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		},
 	);
 
-	// Stripped domain tools: name + description only, no parameter schemas.
-	// The LLM can call any tool but must first call tools.describe to learn
-	// the parameters. This is the Speakeasy progressive disclosure pattern.
-	const strippedTools: ToolDefinition[] = [...tools].map((t) => ({
-		name: t.name,
-		description: t.description,
-		inputSchema: z.object({}).passthrough(),
-	}));
-
-	// ---------------------------------------------------------------------------
-	// Mount override — adds Sense wildcard for auto-promotion
-	// ---------------------------------------------------------------------------
 	function mountWithPromotion(nerve: Nerve): () => void {
 		const unmount = organ.mount(nerve);
 		// Auto-promote families when domain tools return Sense results.
@@ -251,9 +232,8 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		// directly — so the next turn's currentMetaTools() returns full schemas
 		// for all sibling tools without a second describe round-trip.
 		const offSense = nerve.sense.subscribe("*", (event) => {
-			if (byName.has(event.type)) {
-				const prefix = event.type.includes(".") ? event.type.slice(0, event.type.indexOf(".")) : event.type;
-				state.promotedPrefixes.add(prefix);
+			if (getByNameMap(resolveTools()).has(event.type)) {
+				tracker.promote(event.type);
 			}
 		});
 		return () => {
@@ -270,7 +250,9 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		 * Use currentMetaTools() in getTools callbacks instead — it promotes
 		 * described tools to full schemas so the LLM avoids repeat describe calls.
 		 */
-		metaTools: [...strippedTools, DESCRIBE_TOOL] as ToolDefinition[],
+		get metaTools(): ToolDefinition[] {
+			return [...getStripped(resolveTools()), DESCRIBE_TOOL];
+		},
 		/**
 		 * Dynamic tool list for getTools callbacks.
 		 *
@@ -283,18 +265,18 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		 */
 		currentMetaTools: getPromotedTools,
 		/** Internal keyword search — not exposed to LLM. */
-		search: handleSearch,
+		search: (query: string) => searchTools(resolveTools(), query),
 		/**
 		 * Apply the catalog lifecycle transformation to a messages array.
 		 * Exposed for unit testing without needing a motor/sense round-trip.
 		 */
 		applyPhase(messages: RawMsg[], turn: number): RawMsg[] {
 			let msgs = [...messages];
-			if (turn === 1 && !state.catalogInjected) {
-				msgs = injectCatalog(msgs);
-				state.catalogInjected = true;
-			} else if (state.catalogInjected && turn > evictAfterTurn) {
-				msgs = evictCatalog(msgs);
+			if (turn === 1 && !catalogInjected) {
+				msgs = injectCatalogMsg(msgs, resolveTools());
+				catalogInjected = true;
+			} else if (catalogInjected && turn > evictAfterTurn) {
+				msgs = evictCatalogMsg(msgs, tracker.described, resolveTools());
 			}
 			return msgs;
 		},
@@ -306,10 +288,6 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		},
 	};
 }
-
-// ---------------------------------------------------------------------------
-// buildBootCatalog — for system prompt fallback (no llm.phase)
-// ---------------------------------------------------------------------------
 
 /**
  * Compact tool catalog string for system prompt injection.
@@ -329,10 +307,6 @@ export function buildBootCatalog(tools: readonly ToolDefinition[]): string {
 		...lines,
 	].join("\n");
 }
-
-// ---------------------------------------------------------------------------
-// buildOrganDirectives
-// ---------------------------------------------------------------------------
 
 export function buildOrganDirectives(
 	organs: readonly { tools: readonly ToolDefinition[]; directives?: readonly string[] }[],

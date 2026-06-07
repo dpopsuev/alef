@@ -20,7 +20,7 @@
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type ExecutionStrategy, gimpedOrgan, type Organ } from "@dpopsuev/alef-kernel";
+import { type ExecutionStrategy, gimpedOrgan, type Organ, type SendRequest } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder, ScriptedReasoner, type ScriptStep, step } from "./index.js";
@@ -106,7 +106,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	// ---------------------------------------------------------------------------
 
 	/** Send a message to the agent and await the reply. */
-	async send(text: string): Promise<string> {
+	async send({ text }: SendRequest): Promise<string> {
 		return new Promise<string>((resolve, reject) => {
 			const timer = setTimeout(
 				() => reject(new Error(`BlueprintGauntlet.send() timed out after ${this.timeoutMs}ms`)),

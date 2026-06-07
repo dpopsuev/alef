@@ -2,11 +2,13 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
+import { createAlefApiOrgan } from "@dpopsuev/alef-organ-alef";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createLlmPipeline } from "@dpopsuev/alef-organ-llm";
 import type { Directives } from "@dpopsuev/alef-organ-prompt";
 import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgans } from "@dpopsuev/alef-organ-prompt";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { createSkillsOrgan } from "@dpopsuev/alef-organ-skills";
+import type { Agent } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import { buildAgent, buildCheckpointCallback } from "./agent-kernel.js";
 import type { Args } from "./args.js";
@@ -14,12 +16,24 @@ import { buildDelegation } from "./build-delegation.js";
 import { buildLlmOrgan } from "./build-llm-organ.js";
 import type { AlefConfig } from "./config.js";
 import type { CorpusResult } from "./load-corpus.js";
+import { loadOrganFromPath } from "./materializer.js";
 import { buildModel } from "./model.js";
 import { createMemoryOrgan } from "./organ-memory.js";
 import type { AgentEvent, DirectiveView, Session, SessionState } from "./session.js";
 import type { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
+
+interface SessionComponents {
+	state: SessionState;
+	model: Model<Api>;
+	thinkingState: { level: ThinkingLevel | undefined };
+	dialog: DialogOrgan;
+	agent: Agent;
+	directives: Directives;
+	args: Args;
+	log: Logger;
+}
 
 export class LocalSession implements Session {
 	readonly state: SessionState;
@@ -30,24 +44,19 @@ export class LocalSession implements Session {
 	private _turnCount = 0;
 	private readonly _observers = new Set<(event: AgentEvent) => void>();
 
-	private _agent: Agent = new Agent();
-	private _directives: Directives | undefined;
+	private readonly _agent: Agent;
+	private readonly _directives: Directives;
 	private readonly _dialog: DialogOrgan;
 	private readonly _args: Args;
 	private readonly _log: Logger;
 
-	private constructor(
-		state: SessionState,
-		model: Model<Api>,
-		thinkingState: { level: ThinkingLevel | undefined },
-		dialog: DialogOrgan,
-		args: Args,
-		log: Logger,
-	) {
+	private constructor({ state, model, thinkingState, dialog, agent, directives, args, log }: SessionComponents) {
 		this.state = state;
 		this._currentModel = model;
 		this._thinkingState = thinkingState;
 		this._dialog = dialog;
+		this._agent = agent;
+		this._directives = directives;
 		this._args = args;
 		this._log = log;
 	}
@@ -67,9 +76,6 @@ export class LocalSession implements Session {
 		await loadWorkspace(directives, args.cwd);
 		registerOrgans(directives, corpusOrgans);
 
-		// In debug mode, inject the debug-alef skill so Alef can diagnose itself.
-		// The skill teaches Alef how to read ~/.alef/debug.log, interpret pino JSON,
-		// trace tool calls by correlationId, and locate relevant source files.
 		if (args.debug) {
 			const skillPath = join(homedir(), ".config/opencode/skills/debug-alef/SKILL.md");
 			try {
@@ -86,8 +92,6 @@ export class LocalSession implements Session {
 			}
 		}
 
-		// Boot catalog registered after buildDelegation (below) so agent.run is included.
-
 		const directivesBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
 		const thinkingState = {
 			level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as
@@ -99,27 +103,23 @@ export class LocalSession implements Session {
 			sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
 		});
 
-		const inst = new LocalSession(
-			{ id: store.id, modelId: model.id, contextWindow: model.contextWindow },
-			model,
-			thinkingState,
-			dialog,
-			args,
-			log,
-		);
+		const sessionState: SessionState = { id: store.id, modelId: model.id, contextWindow: model.contextWindow };
 
 		const prepareStep = buildPrepareStep(directives, directivesBudgetChars) as unknown as (
 			messages: Message[],
 		) => Promise<Message[]>;
 		const onCheckpoint = buildCheckpointCallback(() => store);
 
-		// toolShell is referenced lazily by llmOrgan.getTools — safe because
-		// getTools() is only invoked during LLM turns, after agent.ready().
 		// eslint-disable-next-line prefer-const
 		let toolShell!: ReturnType<typeof createToolShellOrgan>;
 
+		// Shared mutable state owned by LocalSession — must be accessible before inst is constructed.
+		const observers = new Set<(event: AgentEvent) => void>();
+		let llmController: AbortController | undefined;
+		const currentModel = model;
+
 		const dispatch = (event: AgentEvent): void => {
-			for (const obs of inst._observers) obs(event);
+			for (const obs of observers) obs(event);
 		};
 
 		const llmOrgan = buildLlmOrgan({
@@ -130,8 +130,8 @@ export class LocalSession implements Session {
 			thinkingState,
 			prepareStep,
 			onCheckpoint,
-			getModel: () => inst._currentModel,
-			getSignal: () => inst._llmController?.signal,
+			getModel: () => currentModel,
+			getSignal: () => llmController?.signal,
 			getTools: () => toolShell.currentMetaTools(),
 		});
 
@@ -142,30 +142,63 @@ export class LocalSession implements Session {
 			modelId: model.id,
 			onLoop: (_type, reason) => {
 				trace("loop:detected", { reason });
-				inst._llmController?.abort(new Error(`[loop-detector] ${reason}`));
+				llmController?.abort(new Error(`[loop-detector] ${reason}`));
 			},
 		});
 
 		for (const organ of corpusOrgans) agent.load(organ);
 
+		if (!agent.organs.some((o) => o.name === "skills")) {
+			agent.load(createSkillsOrgan({ cwd: args.cwd }));
+		}
+
 		const memoryOrgan = createMemoryOrgan({ sessionStore: () => store, contextWindow: model.contextWindow });
 		agent.load(memoryOrgan);
 
-		// buildDelegation first: organ-delegate (agent.run) must be in agent.tools
-		// before toolShell is constructed so tools.describe([]) returns the full catalog.
-		await buildDelegation(args, inst._currentModel, agent, inst, blueprintSurfaces);
+		const sessionAdapter: Session = {
+			state: sessionState,
+			getModel: () => model.id,
+			setModel: () => {},
+			getThinking: () => "",
+			setThinking: () => {},
+			setTurnController: (c: AbortController | undefined) => {
+				llmController = c;
+			},
+			dispose: () => {},
+			receive: (text: string) => dialog.receive(text, "user"),
+			subscribe: (obs: (event: AgentEvent) => void) => {
+				observers.add(obs);
+				return () => observers.delete(obs);
+			},
+		};
+		await buildDelegation(args, currentModel, agent, sessionAdapter, blueprintSurfaces, prepareStep);
 
-		// toolShell built after buildDelegation so its byName snapshot includes agent.run.
 		toolShell = createToolShellOrgan({
 			tools: agent.tools,
+			getTools: () => agent.tools,
 			organDirectives: buildOrganDirectives(agent.organs),
 		});
 		agent.load(toolShell);
 		agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
 		registerOrgans(directives, [toolShell, memoryOrgan]);
 
-		// Register after buildDelegation so agent.run (organ-delegate) is in agent.tools.
-		// Content is lazy so it re-reads the live tool list on every LLM turn.
+		const alefOrgan = createAlefApiOrgan({
+			agent: {
+				load: (o) => agent.load(o),
+				unload: (n) => agent.unload(n),
+				get organs() {
+					return agent.organs;
+				},
+			},
+			loadOrgan: (path, cwd) => loadOrganFromPath(path, { cwd }),
+			cwd: args.cwd,
+			onRebuildRequest: () => {
+				const trigger = (globalThis as Record<string, unknown>).alefRequestRebuild;
+				if (typeof trigger === "function") trigger();
+			},
+		});
+		agent.load(alefOrgan);
+
 		directives.register({
 			id: "tool-shell.boot-catalog",
 			priority: 900,
@@ -177,8 +210,18 @@ export class LocalSession implements Session {
 		agent.validate();
 		await agent.ready();
 
-		inst._agent = agent;
-		inst._directives = directives;
+		const inst = new LocalSession({
+			state: sessionState,
+			model,
+			thinkingState,
+			dialog,
+			agent,
+			directives,
+			args,
+			log,
+		});
+		for (const obs of observers) inst.subscribe(obs);
+		if (llmController) inst.setTurnController(llmController);
 
 		const resolvedModelDisplay =
 			model.name !== model.id ? `${model.provider}/${model.id} (${model.name})` : `${model.provider}/${model.id}`;

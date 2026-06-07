@@ -18,7 +18,7 @@ import { join } from "node:path";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createLectorOrgan } from "@dpopsuev/alef-organ-lector";
-import { Cerebrum } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createWebOrgan } from "@dpopsuev/alef-organ-web";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
@@ -92,7 +92,7 @@ function makeAgent(organs: Parameters<Agent["load"]>[0][]): { agent: Agent; dial
 		agent.load(organ);
 	}
 	agent.load(
-		new Cerebrum({
+		createAgentLoop({
 			model: getEvalModel(),
 			getTools: () => agent.tools,
 			systemPrompt:

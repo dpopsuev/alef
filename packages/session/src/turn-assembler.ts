@@ -1,4 +1,4 @@
-import type { AssistantMessage, Message, UserMessage } from "@dpopsuev/alef-ai";
+import type { Message } from "@dpopsuev/alef-ai";
 import type { Turn } from "./session-store.js";
 
 export interface ContextWindowPolicy {
@@ -136,12 +136,6 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 
 	return included.sort((a, b) => a.turnIndex - b.turnIndex);
 }
-
-/**
- * @deprecated Use Message from @dpopsuev/alef-ai directly.
- * Kept as an alias for callsites that have not been updated yet.
- */
-export type ConversationMessage = Pick<UserMessage | AssistantMessage, "role" | "content">;
 
 /**
  * Project selected turns into a Message array for the Reasoner.

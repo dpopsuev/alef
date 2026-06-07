@@ -1,7 +1,7 @@
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
-import type { ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 import type { CerebrumEvent } from "@dpopsuev/alef-organ-llm";
-import { Cerebrum } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { ScriptedReasoner, step } from "@dpopsuev/alef-testkit";
 import type { Args } from "./args.js";
 import { resolveApiKey } from "./auth.js";
@@ -34,7 +34,7 @@ export interface LlmOrganOptions {
 	getTools: () => ToolDefinition[];
 }
 
-export function buildLlmOrgan(opts: LlmOrganOptions): Cerebrum | ScriptedReasoner {
+export function buildLlmOrgan(opts: LlmOrganOptions): Organ | ScriptedReasoner {
 	const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 
 	if (scriptedRepliesEnv) {
@@ -53,7 +53,7 @@ export function buildLlmOrgan(opts: LlmOrganOptions): Cerebrum | ScriptedReasone
 		});
 	}
 
-	return new Cerebrum({
+	return createAgentLoop({
 		model: opts.model,
 		getModel: opts.getModel,
 		getApiKey: () => resolveApiKey(opts.getModel().provider),

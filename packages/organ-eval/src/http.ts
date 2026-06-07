@@ -41,9 +41,10 @@ export function collectEvents(
 	return new Promise((resolve, reject) => {
 		const events: TranscriptEvent[] = [];
 		let buf = "";
+		// lint-ignore: RAWTIMER SSE collection wall-clock deadline
 		const timer = setTimeout(() => {
 			req.destroy();
-			resolve(events); // partial results — caller decides if it's enough
+			resolve(events);
 		}, timeoutMs);
 
 		const url = new URL(`${endpoint}/events`);

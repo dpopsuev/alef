@@ -11,7 +11,7 @@ import type {
 	OrganLogger,
 	StreamingCorpusAction,
 } from "./organ-types.js";
-import { buildErrSense, buildSense, extractToolCallId } from "./sense-builders.js";
+import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
 
@@ -19,87 +19,90 @@ function isStreaming(action: CorpusAction | StreamingCorpusAction): action is St
 	return "stream" in action;
 }
 
-export async function dispatchMotorAction(
+function validateMotorPayload(
 	motor: MotorEvent,
-	action: CorpusAction | StreamingCorpusAction,
+	schema: ZodTypeAny | undefined,
 	nerve: Nerve,
-	cache: Map<string, Record<string, unknown>>,
-	log: OrganLogger,
-	schema?: ZodTypeAny,
-): Promise<void> {
-	// Yield before any sense.publish so waitForToolResult always subscribes first.
-	// Without this, the validation-error path publishes synchronously inside motor.publish,
-	// before organ-llm calls waitForToolResult — the sense event is lost and the turn hangs.
-	// ALE-BUG-50 manifestation: race between dispatchMotorAction and waitForToolResult.
-	await Promise.resolve();
-
-	let payload: Record<string, unknown> = motor.payload;
-	if (schema) {
-		const result = schema.safeParse(motor.payload);
-		if (!result.success) {
-			const issues = result.error.issues;
-			const firstField = String(issues[0]?.path[0] ?? "(root)");
-			const humanMsg = issues.map((i) => `'${i.path.join(".") || "(root)"}' ${i.message.toLowerCase()}`).join("; ");
-			const errorMsg = `${motor.type}: argument validation failed — ${humanMsg}. Retry with corrected arguments.`;
-			debugLog("tool:schema-rejected", {
-				name: motor.type,
-				field: firstField,
-				issues: issues.map((i) => ({ path: i.path, message: i.message })),
-			});
-			const errSense = buildErrSense(motor, errorMsg);
-			// Attach structured validation info so dispatchTools can emit tool-validation-error
-			nerve.sense.publish({
-				...errSense,
-				payload: { ...errSense.payload, _validationError: { field: firstField, message: humanMsg } },
-			});
-			return;
-		}
-		payload = result.data as Record<string, unknown>;
+): Record<string, unknown> | null {
+	if (!schema) return motor.payload;
+	const result = schema.safeParse(motor.payload);
+	if (!result.success) {
+		const issues = result.error.issues;
+		const firstField = String(issues[0]?.path[0] ?? "(root)");
+		const humanMsg = issues.map((i) => `'${i.path.join(".") || "(root)"}' ${i.message.toLowerCase()}`).join("; ");
+		debugLog("tool:schema-rejected", {
+			name: motor.type,
+			field: firstField,
+			issues: issues.map((i) => ({ path: i.path, message: i.message })),
+		});
+		const errSense = buildErrSense(
+			motor,
+			`${motor.type}: argument validation failed — ${humanMsg}. Retry with corrected arguments.`,
+		);
+		nerve.sense.publish({
+			...errSense,
+			payload: { ...errSense.payload, _validationError: { field: firstField, message: humanMsg } },
+		});
+		return null;
 	}
+	return result.data as Record<string, unknown>;
+}
+
+function buildHandlerCtx(motor: MotorEvent, payload: Record<string, unknown>, log: OrganLogger): CorpusHandlerCtx {
 	const toolCallId = extractToolCallId(motor.payload);
-	const ctx: CorpusHandlerCtx = {
+	return {
 		correlationId: motor.correlationId,
 		toolCallId,
 		payload,
 		log: log.child({ correlationId: motor.correlationId, ...(toolCallId ? { toolCallId } : {}) }),
 	};
+}
 
-	if (isStreaming(action)) {
-		const span = tracer.startSpan(`alef.motor/${motor.type}`, {
-			kind: SpanKind.CONSUMER,
-			attributes: {
-				"alef.event.type": motor.type,
-				"alef.correlation.id": motor.correlationId,
-				"alef.tool.call.id": ctx.toolCallId ?? "",
-				"alef.stream": true,
-			},
-		});
-		try {
-			let last: Record<string, unknown> | undefined;
-			for await (const chunk of action.stream(ctx)) {
-				if (last !== undefined) nerve.sense.publish(buildSense(motor, { ...last, isFinal: false }));
-				last = chunk;
-			}
-			if (last !== undefined) {
-				nerve.sense.publish(buildSense(motor, { ...last, isFinal: true }));
-			} else {
-				nerve.sense.publish(buildSense(motor, { isFinal: true }));
-			}
-			span.setStatus({ code: SpanStatusCode.OK });
-		} catch (e) {
-			log.warn(
-				{ op: motor.type, correlationId: motor.correlationId, err: e instanceof Error ? e : new Error(String(e)) },
-				"stream action failed",
-			);
-			span.recordException(e instanceof Error ? e : new Error(String(e)));
-			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-			nerve.sense.publish(buildErrSense(motor, e instanceof Error ? e.message : String(e)));
-		} finally {
-			span.end();
+async function dispatchStreamingAction(
+	motor: MotorEvent,
+	action: StreamingCorpusAction,
+	nerve: Nerve,
+	ctx: CorpusHandlerCtx,
+	log: OrganLogger,
+): Promise<void> {
+	const span = tracer.startSpan(`alef.motor/${motor.type}`, {
+		kind: SpanKind.CONSUMER,
+		attributes: {
+			"alef.event.type": motor.type,
+			"alef.correlation.id": motor.correlationId,
+			"alef.tool.call.id": ctx.toolCallId ?? "",
+			"alef.stream": true,
+		},
+	});
+	try {
+		let last: Record<string, unknown> | undefined;
+		for await (const chunk of action.stream(ctx)) {
+			if (last !== undefined) nerve.sense.publish(buildSense(motor, { ...last, isFinal: false }));
+			last = chunk;
 		}
-		return;
+		nerve.sense.publish(buildSense(motor, last !== undefined ? { ...last, isFinal: true } : { isFinal: true }));
+		span.setStatus({ code: SpanStatusCode.OK });
+	} catch (e) {
+		log.warn(
+			{ op: motor.type, correlationId: motor.correlationId, err: e instanceof Error ? e : new Error(String(e)) },
+			"stream action failed",
+		);
+		span.recordException(e instanceof Error ? e : new Error(String(e)));
+		span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+		nerve.sense.publish(buildErrSense(motor, toErrorMessage(e)));
+	} finally {
+		span.end();
 	}
+}
 
+async function dispatchNonStreamingAction(
+	motor: MotorEvent,
+	action: CorpusAction,
+	nerve: Nerve,
+	cache: Map<string, Record<string, unknown>>,
+	ctx: CorpusHandlerCtx,
+	log: OrganLogger,
+): Promise<void> {
 	const span = tracer.startSpan(`alef.motor/${motor.type}`, {
 		kind: SpanKind.CONSUMER,
 		attributes: {
@@ -108,7 +111,6 @@ export async function dispatchMotorAction(
 			"alef.tool.call.id": ctx.toolCallId ?? "",
 		},
 	});
-
 	await context.with(trace.setSpan(context.active(), span), async () => {
 		const cacheKey = makeCacheKey(motor.type, motor.payload);
 		const cached = cache.get(cacheKey);
@@ -120,27 +122,21 @@ export async function dispatchMotorAction(
 			span.end();
 			return;
 		}
-
 		span.setAttribute("alef.cache.hit", false);
-
 		try {
 			const result = await action.handle(ctx);
-
 			if (action.invalidates) {
-				const types = action.invalidates(ctx);
-				const purged = invalidateByPrefix(cache, types);
+				const purged = invalidateByPrefix(cache, action.invalidates(ctx));
 				if (purged.length > 0) {
 					span.setAttribute("alef.cache.invalidated", purged.join(","));
 					log.debug({ op: motor.type, correlationId: motor.correlationId, purged }, "cache invalidated");
 				}
 			}
-
 			if (action.shouldCache?.(ctx, result)) {
 				cache.set(cacheKey, result);
 				span.setAttribute("alef.cache.stored", true);
 				log.debug({ op: motor.type, correlationId: motor.correlationId, cacheKey }, "result cached");
 			}
-
 			nerve.sense.publish(buildSense(motor, result));
 			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (e) {
@@ -150,11 +146,31 @@ export async function dispatchMotorAction(
 			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-			nerve.sense.publish(buildErrSense(motor, e instanceof Error ? e.message : String(e)));
+			nerve.sense.publish(buildErrSense(motor, toErrorMessage(e)));
 		} finally {
 			span.end();
 		}
 	});
+}
+
+export async function dispatchMotorAction(
+	motor: MotorEvent,
+	action: CorpusAction | StreamingCorpusAction,
+	nerve: Nerve,
+	cache: Map<string, Record<string, unknown>>,
+	log: OrganLogger,
+	schema?: ZodTypeAny,
+): Promise<void> {
+	nerve.pulse();
+	// Yield so waitForToolResult subscribes before the synchronous validation-error path publishes.
+	await Promise.resolve();
+	const payload = validateMotorPayload(motor, schema, nerve);
+	if (payload === null) return;
+	const ctx = buildHandlerCtx(motor, payload, log);
+	if (isStreaming(action)) {
+		return dispatchStreamingAction(motor, action, nerve, ctx, log);
+	}
+	return dispatchNonStreamingAction(motor, action, nerve, cache, ctx, log);
 }
 
 export function dispatchSenseAction(
@@ -164,6 +180,7 @@ export function dispatchSenseAction(
 	cerebrumAction: CerebrumAction,
 	log: OrganLogger,
 ): void {
+	nerve.pulse();
 	const ctx: CerebrumHandlerCtx = {
 		correlationId: event.correlationId,
 		payload: event.payload,

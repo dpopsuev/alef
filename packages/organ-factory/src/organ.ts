@@ -6,10 +6,6 @@ import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { stringify as toYaml } from "yaml";
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Tool
-// ---------------------------------------------------------------------------
-
 const BLUEPRINT_TOOL = {
 	name: "factory.blueprint",
 	description:
@@ -68,17 +64,83 @@ function buildBlueprint(name: string, description: string, organs: string[], mod
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Options
-// ---------------------------------------------------------------------------
+const FIELD_TYPES = ["string", "number", "boolean"] as const;
+type FieldType = (typeof FIELD_TYPES)[number];
+
+const ORGAN_TOOL = {
+	name: "factory.organ",
+	description:
+		"Write a valid TypeScript organ scaffold to ~/.alef/prototypes/<name>.ts. " +
+		"Returns the absolute path — pass it directly to prototype.plug({ path }) to load it.",
+	inputSchema: z.object({
+		name: z
+			.string()
+			.regex(/^[a-z][a-z0-9-]*$/, "kebab-case, e.g. weather-client")
+			.describe("Organ name, kebab-case. Used as the filename and defineOrgan namespace."),
+		toolName: z
+			.string()
+			.regex(/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/, "namespace.action, e.g. weather.get")
+			.describe("Full tool name: namespace.action. The namespace is derived from the text before the first dot."),
+		description: z.string().min(1).describe("One sentence: what this tool does."),
+		inputFields: z
+			.record(z.string().min(1), z.enum(FIELD_TYPES))
+			.optional()
+			.describe(
+				'Map of input field names to types. e.g. { "city": "string", "units": "string" }. ' +
+					'Defaults to { input: "string" } if omitted.',
+			),
+	}),
+};
+
+function buildOrganScaffold(
+	_name: string,
+	toolName: string,
+	description: string,
+	inputFields: Record<string, FieldType>,
+): string {
+	const namespace = toolName.includes(".") ? toolName.slice(0, toolName.indexOf(".")) : toolName;
+	const fieldLines = Object.entries(inputFields)
+		.map(([key, type]) => `\t\t\t${key}: z.${type}().describe(""),`)
+		.join("\n");
+	const fieldNames = Object.keys(inputFields).join(", ");
+	const descLower = description.endsWith(".") ? description.slice(0, -1).toLowerCase() : description.toLowerCase();
+
+	return [
+		`import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";`,
+		`import { z } from "zod";`,
+		``,
+		`export function createOrgan() {`,
+		`\tconst TOOL = {`,
+		`\t\tname: "${toolName}",`,
+		`\t\tdescription: "${description}",`,
+		`\t\tinputSchema: z.object({`,
+		fieldLines,
+		`\t\t}),`,
+		`\t};`,
+		``,
+		`\treturn defineOrgan("${namespace}", {`,
+		`\t\t"motor/${toolName}": typedAction(TOOL, async (ctx) => {`,
+		`\t\t\tconst { ${fieldNames} } = ctx.payload;`,
+		`\t\t\t// TODO: implement`,
+		`\t\t\treturn withDisplay(`,
+		`\t\t\t\t{ ${fieldNames} },`,
+		`\t\t\t\t{ text: \`${toolName}: not yet implemented\`, mimeType: "text/plain" },`,
+		`\t\t\t);`,
+		`\t\t}),`,
+		`\t}, {`,
+		`\t\tdescription: "${description}",`,
+		`\t\tdirectives: ["Use ${toolName} to ${descLower}."],`,
+		`\t});`,
+		`}`,
+		``,
+	].join("\n");
+}
+
+const PROTOTYPES_DIR = join(homedir(), ".alef", "prototypes");
 
 export interface FactoryOrganOptions {
 	cwd?: string;
 }
-
-// ---------------------------------------------------------------------------
-// Organ
-// ---------------------------------------------------------------------------
 
 export function createFactoryOrgan(options: FactoryOrganOptions = {}): Organ {
 	const cwd = options.cwd ?? process.cwd();
@@ -86,6 +148,25 @@ export function createFactoryOrgan(options: FactoryOrganOptions = {}): Organ {
 	return defineOrgan(
 		"factory",
 		{
+			"motor/factory.organ": typedAction(ORGAN_TOOL, async (ctx) => {
+				const { name, toolName, description, inputFields } = ctx.payload;
+				const fields: Record<string, FieldType> = (inputFields as Record<string, FieldType>) ?? { input: "string" };
+
+				mkdirSync(PROTOTYPES_DIR, { recursive: true });
+				const targetPath = join(PROTOTYPES_DIR, `${name}.ts`);
+				const scaffold = buildOrganScaffold(name, toolName, description, fields);
+				writeFileSync(targetPath, scaffold, "utf-8");
+
+				return withDisplay(
+					{
+						path: targetPath,
+						name,
+						toolName,
+						next: `prototype.plug({ path: "${targetPath}" })`,
+					},
+					{ text: `Organ scaffold written: ${targetPath}`, mimeType: "text/plain" },
+				);
+			}),
 			"motor/factory.blueprint": typedAction(BLUEPRINT_TOOL, async (ctx) => {
 				const { name, description, organs, model, outputPath } = ctx.payload;
 
@@ -109,9 +190,19 @@ export function createFactoryOrgan(options: FactoryOrganOptions = {}): Organ {
 			}),
 		},
 		{
-			description: "Agent factory: write agent blueprints and register them for spawning.",
+			description: "Agent factory: scaffold new organs and write agent blueprints.",
 			directives: [
-				`**factory.blueprint — create a new agent**
+				`**factory.organ — scaffold a new organ**
+
+Write a valid TypeScript organ to ~/.alef/prototypes/<name>.ts, then load it:
+
+  factory.organ({ name, toolName, description, inputFields? })
+  → { path, next: "prototype.plug({ path })" }
+
+inputFields is a map of field name to type: { "city": "string", "units": "string" }.
+Defaults to { input: "string" } if omitted. Edit the file after loading to add logic.
+
+**factory.blueprint — create a new agent**
 
 Write a blueprint YAML and get back a path. Then spawn it:
 

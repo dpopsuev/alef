@@ -58,6 +58,7 @@ function run(cmd: string[], cwd: string): Promise<void> {
 			return;
 		}
 		const child = spawn(bin, args, { cwd, stdio: "ignore" });
+		// lint-ignore: RAWTIMER formatter subprocess hard deadline
 		const timer = setTimeout(() => {
 			child.kill();
 			resolve();

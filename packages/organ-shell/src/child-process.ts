@@ -70,6 +70,7 @@ export function waitForChildProcess(child: ChildProcess): Promise<number | null>
 			exitCode = code;
 			maybeFinalizeAfterExit();
 			if (!settled) {
+				// lint-ignore: RAWTIMER post-exit stdio drain grace period
 				postExitTimer = setTimeout(() => finalize(code), EXIT_STDIO_GRACE_MS);
 			}
 		};

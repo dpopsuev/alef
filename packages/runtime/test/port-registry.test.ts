@@ -163,4 +163,41 @@ describe("PortValidationError", { tags: ["unit"] }, () => {
 		expect(err.message).toMatch(/seam validation failed/i);
 		expect(err.message).toMatch(/reasoning/);
 	});
+
+	// ---------------------------------------------------------------------------
+	// context_observer seam pattern "sense/*" matches ANY sense subscription via
+	// the eventSuffix === "*" branch in organCoversPort. Skills subscribes to
+	// sense/organ.loaded and sense/organ.unloaded (lifecycle events). Both llm
+	// and skills match sense/*, triggering a zero-or-one violation even though
+	// they handle completely different events with no conflict.
+	//
+	// Fix: narrow context_observer to "sense/dialog." and add a lifecycle seam
+	// "sense/organ." with zero-or-many cardinality.
+	// ---------------------------------------------------------------------------
+
+	describe("STANDARD_PORTS — context_observer false-positive with lifecycle organs", { tags: ["unit"] }, () => {
+		it("llm + skills organs subscribing to different sense events must not trigger context_observer warning", () => {
+			const llmOrgan = organ("llm", [], ["dialog.message"]);
+			const skillsOrgan = organ("skills", [], ["organ.loaded", "organ.unloaded"]);
+
+			const result = validatePorts([llmOrgan, skillsOrgan], STANDARD_PORTS);
+
+			const contextViolation = result.violations.find(
+				(v) => v.seam.name === "context_observer" && v.organNames.includes("skills"),
+			);
+			expect(
+				contextViolation,
+				"skills subscribing to lifecycle sense events must not trigger context_observer cardinality warning — they are not reasoning organs",
+			).toBeUndefined();
+		});
+
+		it("context_observer seam must match the reasoning trigger specifically, not all sense subscriptions", () => {
+			const contextSeam = STANDARD_PORTS.find((s) => s.name === "context_observer");
+			expect(contextSeam, "context_observer seam must exist").toBeDefined();
+			expect(
+				contextSeam?.eventPattern,
+				"context_observer must not use 'sense/*' wildcard — it incorrectly matches lifecycle organs",
+			).not.toBe("sense/*");
+		});
+	});
 });

@@ -14,7 +14,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../../organ-fs/src/organ.js";
-import { Cerebrum } from "../../organ-llm/src/index.js";
+import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { createShellOrgan } from "../../organ-shell/src/organ.js";
 import { buildOrganDirectives, createToolShellOrgan } from "../../runner/src/tool-shell.js";
 import type { Evaluation } from "../src/evaluation.js";
@@ -66,7 +66,7 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 			// organFactory adds only the LLM (and ToolShellOrgan when active).
 			// phaseTimeoutMs=100 activates llm.phase for catalog lifecycle injection.
 			organFactory: (signal) => {
-				const llm = new Cerebrum({
+				const llm = createAgentLoop({
 					model: getEvalModel(),
 					getSignal: () => signal,
 					...(toolShell ? { phaseTimeoutMs: 100 } : {}),

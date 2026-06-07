@@ -1,5 +1,5 @@
 import http from "node:http";
-import type { ExecutionStrategy } from "@dpopsuev/alef-kernel";
+import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel";
 
 function postToChild(endpoint: string, text: string, timeoutMs: number): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -18,6 +18,7 @@ function postToChild(endpoint: string, text: string, timeoutMs: number): Promise
 				res.on("end", resolve);
 			},
 		);
+		// lint-ignore: RAWTIMER HTTP request deadline
 		req.setTimeout(timeoutMs, () => req.destroy(new Error(`postToChild timed out after ${timeoutMs}ms`)));
 		req.on("error", reject);
 		req.write(body);
@@ -25,16 +26,18 @@ function postToChild(endpoint: string, text: string, timeoutMs: number): Promise
 	});
 }
 
-function collectReply(endpoint: string, timeoutMs: number): Promise<string | undefined> {
+function collectReply(endpoint: string, timeoutMs: number, onActivity?: () => void): Promise<string | undefined> {
 	return new Promise((resolve, reject) => {
 		let buf = "";
 		const url = new URL(`${endpoint}/events`);
+		// lint-ignore: RAWTIMER SSE reply wall-clock deadline; stall detection via onActivity callback
 		const timer = setTimeout(() => {
 			req.destroy();
 			resolve(undefined);
 		}, timeoutMs);
 		const req = http.get({ hostname: url.hostname, port: Number(url.port), path: url.pathname }, (res) => {
 			res.on("data", (chunk: Buffer) => {
+				onActivity?.();
 				buf += chunk.toString();
 				const frames = buf.split("\n\n");
 				buf = frames.pop() ?? "";
@@ -72,10 +75,13 @@ function collectReply(endpoint: string, timeoutMs: number): Promise<string | und
 }
 
 export class RemoteProcessStrategy implements ExecutionStrategy {
-	constructor(private readonly endpoint: string) {}
+	constructor(
+		private readonly endpoint: string,
+		private readonly onActivity?: () => void,
+	) {}
 
-	async send(text: string, _sender?: string, timeoutMs = 60_000): Promise<string> {
-		const replyPromise = collectReply(this.endpoint, timeoutMs);
+	async send({ text, timeoutMs = 60_000 }: SendRequest): Promise<string> {
+		const replyPromise = collectReply(this.endpoint, timeoutMs, this.onActivity);
 		await postToChild(this.endpoint, text, timeoutMs);
 		return (await replyPromise) ?? "";
 	}

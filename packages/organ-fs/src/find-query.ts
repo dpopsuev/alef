@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog, Watchdog } from "@dpopsuev/alef-kernel";
 import type { ToolResultCache, ToolResultCacheHit } from "./cache.js";
 import {
 	type BaseToolDetails,
@@ -252,7 +252,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 				};
 
 				const fdStart = Date.now();
-				const fdKillTimer = setTimeout(() => {
+				const fdWatchdog = new Watchdog(FD_SUBPROCESS_TIMEOUT_MS, () => {
 					debugLog("fs:find:timeout", { elapsedMs: Date.now() - fdStart, pattern: effectivePattern, searchPath });
 					stopChild?.();
 					settle(() =>
@@ -262,11 +262,12 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 							),
 						),
 					);
-				}, FD_SUBPROCESS_TIMEOUT_MS);
+				});
+				fdWatchdog.start();
 
 				const cleanup = () => {
 					rl.close();
-					clearTimeout(fdKillTimer);
+					fdWatchdog.stop();
 				};
 
 				child.stderr?.on("data", (chunk: Buffer | string) => {
@@ -274,6 +275,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 				});
 
 				rl.on("line", (line) => {
+					fdWatchdog.reset();
 					lines.push(line);
 				});
 

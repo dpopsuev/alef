@@ -22,7 +22,7 @@ import { getEnvApiKey, getModel } from "@dpopsuev/alef-ai";
 import type { Organ } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { CerebrumEvent } from "@dpopsuev/alef-organ-llm";
-import { Cerebrum } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { Agent } from "@dpopsuev/alef-runtime";
 
 /** True when at least one real LLM provider is configured via env vars. */
@@ -71,7 +71,7 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 			if (t) reply = t;
 		},
 	});
-	const llm = new Cerebrum({
+	const llm = createAgentLoop({
 		model,
 		getApiKey: () => apiKey,
 		getTools: () => agent.tools,

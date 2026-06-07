@@ -1,8 +1,19 @@
-import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
-import { Agent } from "../src/index.js";
+import { Agent, type BusObserver } from "../src/index.js";
+
+class BusEventRecorder implements BusObserver {
+	readonly motor: NerveEvent[] = [];
+	readonly sense: NerveEvent[] = [];
+	onMotorEvent(e: NerveEvent): void {
+		this.motor.push(e);
+	}
+	onSenseEvent(e: NerveEvent): void {
+		this.sense.push(e);
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Minimal stub organs for unit testing Agent in isolation.
@@ -239,8 +250,10 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 		expect(() => agent.load(organ)).not.toThrow();
 	});
 
-	it("throws when motor publish violates declared schema", () => {
+	it("motor publish schema violation routes to sense error, does not throw", () => {
 		const agent = new Agent();
+		const recorder = new BusEventRecorder();
+		agent.observe(recorder);
 		const organ: Organ = {
 			name: "bad-organ",
 			tools: [],
@@ -249,15 +262,21 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 				motor: { "strict.event": z.object({ required: z.string() }) },
 			},
 			mount(nerve) {
-				// Missing the required field.
 				nerve.motor.publish({ type: "strict.event", payload: { wrong: true }, correlationId: "c1" });
 				return () => {};
 			},
 		};
-		expect(() => agent.load(organ)).toThrow(/PayloadValidation.*bad-organ.*strict\.event.*required/);
+		expect(() => agent.load(organ)).not.toThrow();
+		const errEvent = recorder.sense.find(
+			(e: NerveEvent) => e.type === "strict.event" && (e as { isError?: boolean }).isError,
+		);
+		expect(errEvent, "validation failure must emit a sense error event").toBeDefined();
+		expect((errEvent as { errorMessage?: string }).errorMessage).toMatch(
+			/PayloadValidation.*bad-organ.*strict\.event.*required/,
+		);
 	});
 
-	it("throws when sense publish violates declared schema", () => {
+	it("sense publish schema violation is dropped and does not throw", () => {
 		const agent = new Agent();
 		const organ: Organ = {
 			name: "bad-sense-organ",
@@ -267,18 +286,16 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 				sense: { "sense.event": z.object({ value: z.number() }) },
 			},
 			mount(nerve) {
-				// Wrong type — string instead of number.
 				nerve.sense.publish({
 					type: "sense.event",
 					payload: { value: "not-a-number" },
 					correlationId: "c1",
-
 					isError: false,
 				});
 				return () => {};
 			},
 		};
-		expect(() => agent.load(organ)).toThrow(/PayloadValidation.*bad-sense-organ.*sense\.event.*value/);
+		expect(() => agent.load(organ)).not.toThrow();
 	});
 
 	it("skips validation for event types with no registered schema", () => {
@@ -303,8 +320,10 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 		expect(() => agent.load(organ)).not.toThrow();
 	});
 
-	it("error message includes organ name, event type, and field path", () => {
+	it("sense error message includes organ name, event type, and field path", () => {
 		const agent = new Agent();
+		const recorder = new BusEventRecorder();
+		agent.observe(recorder);
 		const organ: Organ = {
 			name: "named-organ",
 			tools: [],
@@ -317,15 +336,12 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 				return () => {};
 			},
 		};
-		let error: Error | undefined;
-		try {
-			agent.load(organ);
-		} catch (e) {
-			error = e as Error;
-		}
-		expect(error?.message).toContain("named-organ");
-		expect(error?.message).toContain("motor/typed.event");
-		expect(error?.message).toContain("score");
+		expect(() => agent.load(organ)).not.toThrow();
+		const errEvent = recorder.sense.find((e: NerveEvent) => e.type === "typed.event");
+		const msg = (errEvent as { errorMessage?: string })?.errorMessage ?? "";
+		expect(msg).toContain("named-organ");
+		expect(msg).toContain("motor/typed.event");
+		expect(msg).toContain("score");
 	});
 });
 

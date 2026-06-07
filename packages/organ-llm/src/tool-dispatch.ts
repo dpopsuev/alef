@@ -1,5 +1,6 @@
-import type { SenseEvent } from "@dpopsuev/alef-kernel";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import type { SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { debugLog, Watchdog } from "@dpopsuev/alef-kernel";
+
 import type { ToolCall } from "./stream-turn.js";
 import type { CerebrumEvent } from "./tool-events.js";
 
@@ -24,36 +25,80 @@ type SenseBus = { subscribe: (type: string, handler: (event: SenseEvent) => void
 
 const STALL_INTERVAL_MS = 5_000;
 
-export function waitForToolResult(
-	sense: SenseBus,
-	toolName: string,
-	toolCallId: string,
+function toOuterTimeoutMs(args: Record<string, unknown>, defaultMs: number, toolDef?: ToolDefinition): number {
+	const parsed = toolDef?.inputSchema.safeParse(args);
+	const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
+	const inner = typeof data.timeoutMs === "number" ? data.timeoutMs : undefined;
+	return inner !== undefined ? inner + 10_000 : defaultMs;
+}
+
+function extractValidationError(payload: Record<string, unknown>): { field: string; message: string } | undefined {
+	const v = payload._validationError;
+	if (v && typeof v === "object" && "field" in v) return v as { field: string; message: string };
+	return undefined;
+}
+
+function buildErrorSenseEvent(
+	motorType: string,
 	correlationId: string,
-	timeoutMs: number,
-	onChunk?: (text: string) => void,
-	onStall?: (info: { elapsedMs: number; lastChunkMs: number }) => void,
-	stallIntervalMs = STALL_INTERVAL_MS,
-): Promise<SenseEvent> {
+	callId: string,
+	err: unknown,
+	elapsedMs: number,
+): SenseEvent {
+	const errorMessage = err instanceof Error ? err.message : String(err);
+	return {
+		type: motorType,
+		correlationId,
+		payload: { toolCallId: callId },
+		isError: true,
+		errorMessage,
+		timestamp: Date.now(),
+		elapsed: elapsedMs,
+	} as SenseEvent;
+}
+
+export interface ToolResultSubscription {
+	sense: SenseBus;
+	toolName: string;
+	toolCallId: string;
+	correlationId: string;
+	timeoutMs: number;
+	onChunk?: (text: string) => void;
+	onStall?: (info: { elapsedMs: number; lastChunkMs: number }) => void;
+	stallIntervalMs?: number;
+}
+
+export function waitForToolResult(sub: ToolResultSubscription): Promise<SenseEvent> {
+	const {
+		sense,
+		toolName,
+		toolCallId,
+		correlationId,
+		timeoutMs,
+		onChunk,
+		onStall,
+		stallIntervalMs: stallMs = STALL_INTERVAL_MS,
+	} = sub;
 	const subscribedAt = Date.now();
-	let lastChunkAt = subscribedAt; // updated on each chunk, read by stall watchdog
 	debugLog("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
 	return new Promise((resolve, reject) => {
-		// Watchdog: fires every STALL_INTERVAL_MS when no chunk has arrived.
-		const stallTimer = onStall
-			? setInterval(() => {
-					const now = Date.now();
-					const lastChunkMs = now - lastChunkAt;
-					if (lastChunkMs >= stallIntervalMs) {
-						debugLog("tool:stall", { name: toolName, elapsedMs: now - subscribedAt, lastChunkMs });
-						onStall({ elapsedMs: now - subscribedAt, lastChunkMs });
-					}
-				}, stallIntervalMs)
-			: undefined;
+		const watchdog = onStall
+			? new Watchdog(stallMs, () => {
+					debugLog("tool:stall", {
+						name: toolName,
+						elapsedMs: Date.now() - subscribedAt,
+						lastChunkMs: stallMs,
+					});
+					onStall({ elapsedMs: Date.now() - subscribedAt, lastChunkMs: stallMs });
+				})
+			: null;
+		watchdog?.start();
 
 		const done = (): void => {
-			if (stallTimer !== undefined) clearInterval(stallTimer);
+			watchdog?.stop();
 		};
 
+		// lint-ignore: RAWTIMER hard tool-call deadline; stall detection uses Watchdog above
 		const timer = setTimeout(() => {
 			done();
 			off();
@@ -63,9 +108,7 @@ export function waitForToolResult(
 		const off = sense.subscribe(toolName, (event) => {
 			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
 				if (event.payload.isFinal === false) {
-					// Relay intermediate streaming chunks to the TUI so long-running
-					// tools (shell.exec, agent.run) show live progress in the pill.
-					lastChunkAt = Date.now(); // reset stall watchdog
+					watchdog?.reset();
 					if (onChunk) {
 						const text =
 							typeof event.payload.text === "string"
@@ -97,6 +140,7 @@ type MotorBus = { publish: (event: { type: string; payload: Record<string, unkno
 
 interface DispatchToolsOptions {
 	onEvent?: (event: CerebrumEvent) => void;
+	toolDefs?: ReadonlyMap<string, ToolDefinition>;
 }
 
 export async function dispatchTools(
@@ -113,19 +157,7 @@ export async function dispatchTools(
 			const motorType = toMotorName(tc.name);
 			const startedAt = Date.now();
 			options.onEvent?.({ type: "tool-start", callId: tc.id, name: motorType, args: tc.args });
-			// If the tool call payload declares its own timeoutMs (e.g. agent.run), the
-			// outer wait uses that value + 10s headroom so the inner tool can self-terminate
-			// before the parent fires its own timeout.
-			// When no explicit timeoutMs is passed, default to 100s for subagent tools —
-			// organ-delegate defaults to 90s internally, so the outer must exceed that.
-			const innerTimeoutMs = typeof tc.args.timeoutMs === "number" ? tc.args.timeoutMs : undefined;
-			const isSubagentTool = motorType === "agent.run" || motorType === "orchestration.ask";
-			const outerWaitMs =
-				innerTimeoutMs !== undefined
-					? innerTimeoutMs + 10_000
-					: isSubagentTool
-						? Math.max(timeoutMs, 100_000)
-						: timeoutMs;
+			const outerWaitMs = toOuterTimeoutMs(tc.args, timeoutMs, options.toolDefs?.get(motorType));
 			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			const { onEvent } = options;
 			const onChunk = onEvent ? (text: string) => onEvent({ type: "tool-chunk", callId: tc.id, text }) : undefined;
@@ -133,17 +165,19 @@ export async function dispatchTools(
 				? (info: { elapsedMs: number; lastChunkMs: number }) =>
 						onEvent({ type: "tool-stall", callId: tc.id, name: motorType, ...info })
 				: undefined;
-			return waitForToolResult(sense, motorType, tc.id, correlationId, outerWaitMs, onChunk, onStall)
+			return waitForToolResult({
+				sense,
+				toolName: motorType,
+				toolCallId: tc.id,
+				correlationId,
+				timeoutMs: outerWaitMs,
+				onChunk,
+				onStall,
+			})
 				.then((r) => {
-					// Structured validation error embedded by dispatchMotorAction
-					const validationErr = r.payload._validationError as { field: string; message: string } | undefined;
+					const validationErr = extractValidationError(r.payload);
 					if (validationErr) {
-						options.onEvent?.({
-							type: "tool-validation-error",
-							callId: tc.id,
-							field: validationErr.field,
-							message: validationErr.message,
-						});
+						options.onEvent?.({ type: "tool-validation-error", callId: tc.id, ...validationErr });
 					}
 					const displayBlock = extractDisplay(r.payload);
 					options.onEvent?.({
@@ -158,10 +192,6 @@ export async function dispatchTools(
 					return r;
 				})
 				.catch((err: unknown) => {
-					// Timeout or other error: emit tool-end so the TUI clears the pill,
-					// then return a synthetic error SenseEvent so appendToolResults can
-					// add a toolResult to the LLM context (instead of letting the rejection
-					// propagate and kill the entire turn).
 					const elapsedMs = Date.now() - startedAt;
 					const errorMessage = err instanceof Error ? err.message : String(err);
 					options.onEvent?.({
@@ -173,15 +203,7 @@ export async function dispatchTools(
 						display: `\u26a0 ${errorMessage}`,
 						displayKind: "text/plain",
 					});
-					return {
-						type: motorType,
-						correlationId,
-						payload: { toolCallId: tc.id },
-						isError: true,
-						errorMessage,
-						timestamp: Date.now(),
-						elapsed: elapsedMs,
-					} as SenseEvent;
+					return buildErrorSenseEvent(motorType, correlationId, tc.id, err, elapsedMs);
 				});
 		}),
 	);

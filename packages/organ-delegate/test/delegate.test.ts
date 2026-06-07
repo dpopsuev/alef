@@ -7,7 +7,7 @@ import { createDelegateOrgan } from "../src/organ.js";
 // Calls onChunk so the AsyncQueue relays isFinal:false sense events,
 // satisfying the streaming contract without importing runner internals.
 const slowStrategy: ExecutionStrategy = {
-	async send(_text, _sender, _timeoutMs, onChunk) {
+	async send({ onChunk }) {
 		await new Promise((r) => setTimeout(r, 80));
 		onChunk?.("packages: ");
 		await new Promise((r) => setTimeout(r, 40));
@@ -38,7 +38,7 @@ describe("agent.run — parallel stream isolation", { tags: ["unit"] }, () => {
 	it("two concurrent calls emit chunks only to their own sense correlation", async () => {
 		// Given: a strategy that encodes the task text in every chunk it emits.
 		const strategy: ExecutionStrategy = {
-			async send(text, _sender, _timeoutMs, onChunk) {
+			async send({ text, onChunk }) {
 				onChunk?.(`chunk-for:${text}`);
 				return `done:${text}`;
 			},
@@ -107,7 +107,7 @@ describe("agent.run — parallel stream isolation", { tags: ["unit"] }, () => {
 
 	it("three concurrent calls all complete with no cross-contamination", async () => {
 		const strategy: ExecutionStrategy = {
-			async send(text, _sender, _timeoutMs, onChunk) {
+			async send({ text, onChunk }) {
 				onChunk?.(`ident:${text}`);
 				return `done:${text}`;
 			},
@@ -169,4 +169,29 @@ describe("agent.run — parallel stream isolation", { tags: ["unit"] }, () => {
 			}
 		}
 	}, 5_000);
+
+	// ---------------------------------------------------------------------------
+	// Regression — directive must contain the call signature so the
+	// LLM can call agent.run correctly without first calling tools.describe.
+	// Root cause: directive described profiles but never showed the required
+	// 'text' field, causing the LLM to guess args and omit it.
+	// ---------------------------------------------------------------------------
+
+	describe("agent.run directive — schema discoverability", { tags: ["unit"] }, () => {
+		it("directive explicitly names the text parameter so the LLM does not need to call tools.describe first", () => {
+			const organ = createDelegateOrgan({ strategies: { explore: slowStrategy } });
+			const directive = organ.directives?.join("\n") ?? "";
+			expect(
+				directive,
+				"directive must show the text parameter so the LLM can call agent.run correctly without tools.describe",
+			).toMatch(/text.*:/i);
+		});
+
+		it("tool description names the required text parameter", () => {
+			const organ = createDelegateOrgan({ strategies: { explore: slowStrategy } });
+			const tool = organ.tools.find((t) => t.name === "agent.run");
+			expect(tool, "agent.run tool must exist").toBeDefined();
+			expect(tool?.description, "agent.run description must mention the text parameter").toMatch(/text/i);
+		});
+	});
 });

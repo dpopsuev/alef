@@ -39,7 +39,7 @@ describe("EvalHarness — smoke (TSK-119)", { tags: ["integration"] }, () => {
 
 		const metrics = await harness.run(
 			async (ctx) => {
-				const reply = await ctx.send("hello");
+				const reply = await ctx.send({ text: "hello" });
 				if (reply !== "smoke ok") throw new Error(`unexpected reply: ${reply}`);
 			},
 			{

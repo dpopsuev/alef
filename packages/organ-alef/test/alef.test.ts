@@ -4,16 +4,11 @@ import { createAlefApiOrgan } from "../src/organ.js";
 
 organComplianceSuite(() => createAlefApiOrgan());
 
-// ---------------------------------------------------------------------------
-// alef.rebuild — blue-green trigger
-// ---------------------------------------------------------------------------
-
 describe("alef.rebuild", { tags: ["unit"] }, () => {
 	const f = new NerveFixture();
 	afterEach(() => f.dispose());
 
-	it("returns ok:false when supervisor is not running (alefRequestRebuild absent)", async () => {
-		delete (globalThis as Record<string, unknown>).alefRequestRebuild;
+	it("returns ok:false when onRebuildRequest is not provided", async () => {
 		f.mount(createAlefApiOrgan());
 
 		const result = await f.call("alef.rebuild", {});
@@ -22,18 +17,19 @@ describe("alef.rebuild", { tags: ["unit"] }, () => {
 		expect((result.payload as { reason?: string }).reason).toMatch(/supervisor not running/);
 	});
 
-	it("returns ok:true and calls alefRequestRebuild when supervisor is running", async () => {
+	it("returns ok:true and calls onRebuildRequest when provided", async () => {
 		let called = false;
-		(globalThis as Record<string, unknown>).alefRequestRebuild = () => {
-			called = true;
-		};
-		f.mount(createAlefApiOrgan());
+		f.mount(
+			createAlefApiOrgan({
+				onRebuildRequest: () => {
+					called = true;
+				},
+			}),
+		);
 
 		const result = await f.call("alef.rebuild", {});
 		expect(result.isError).toBe(false);
 		expect((result.payload as { ok?: boolean }).ok).toBe(true);
 		expect(called).toBe(true);
-
-		delete (globalThis as Record<string, unknown>).alefRequestRebuild;
 	});
 });

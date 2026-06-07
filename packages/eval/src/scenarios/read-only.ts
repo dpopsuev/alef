@@ -75,10 +75,11 @@ export class Calculator {
  */
 export async function planRefactoring(ctx: ScenarioContext): Promise<void> {
 	await ctx.writeFile("src/server.ts", HTTP_SERVER_SEED);
-	const reply = await ctx.send(
-		"Read src/server.ts and give me a concise refactoring plan to improve it. " +
+	const reply = await ctx.send({
+		text:
+			"Read src/server.ts and give me a concise refactoring plan to improve it. " +
 			"List the top 3 concrete improvements.",
-	);
+	});
 	if (!reply || reply.trim().length < 50) {
 		throw new Error(`Reply too short (${reply.length} chars) — agent may not have read the file`);
 	}
@@ -103,10 +104,11 @@ export async function planRefactoring(ctx: ScenarioContext): Promise<void> {
  */
 export async function auditModule(ctx: ScenarioContext): Promise<void> {
 	await ctx.writeFile("src/math.ts", DEAD_CODE_SEED);
-	const reply = await ctx.send(
-		"Read src/math.ts and identify any dead code, unused functions, or unreachable code. " +
+	const reply = await ctx.send({
+		text:
+			"Read src/math.ts and identify any dead code, unused functions, or unreachable code. " +
 			"Be specific about what is dead and why.",
-	);
+	});
 	const lower = reply.toLowerCase();
 	const identifiesDead =
 		lower.includes("dead") ||
@@ -137,10 +139,11 @@ export function compute(a: number, b: number) {
 `.trim(),
 	);
 
-	const reply = await ctx.send(
-		"Read src/math.ts and src/app.ts. If I change the signature of the 'add' function in math.ts, " +
+	const reply = await ctx.send({
+		text:
+			"Read src/math.ts and src/app.ts. If I change the signature of the 'add' function in math.ts, " +
 			"what would break? List all affected locations.",
-	);
+	});
 	const lower = reply.toLowerCase();
 	const mentionsImpact =
 		lower.includes("app") ||
@@ -190,10 +193,11 @@ export function authMiddleware(session: Session | null): boolean {
 `.trim(),
 	);
 
-	const reply = await ctx.send(
-		"Read all TypeScript files in src/ and tell me: " +
+	const reply = await ctx.send({
+		text:
+			"Read all TypeScript files in src/ and tell me: " +
 			"what type does authMiddleware receive, and where is that type defined?",
-	);
+	});
 	const lower = reply.toLowerCase();
 	const correct =
 		(lower.includes("session") && lower.includes("types")) ||

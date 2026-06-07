@@ -10,7 +10,7 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-delegate — real LLM E2E", { tags: ["rea
 
 		let delegatedText = "";
 		const stubStrategy: ExecutionStrategy = {
-			async send(text, _sender, _timeoutMs, onChunk) {
+			async send({ text, onChunk }) {
 				delegatedText = text;
 				onChunk?.(`The token is ${token}`);
 				return `The token is ${token}`;

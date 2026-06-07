@@ -42,6 +42,7 @@ export function withLimits(limits: Budget): NerveMiddleware {
 				},
 			},
 			sense: nerve.sense,
+			pulse: () => nerve.pulse(),
 		};
 	};
 }

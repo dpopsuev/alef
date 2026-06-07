@@ -185,6 +185,18 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 		return { book: bookName, pageCount: book.pages.length, instructions };
 	}
 
+	const agentRunContribution: import("@dpopsuev/alef-kernel").AgentRunContribution = {
+		extend(args, context) {
+			const playbook = typeof args.playbook === "string" ? args.playbook : undefined;
+			if (!playbook) return;
+			const book = library.get(playbook);
+			if (!book) return;
+			context.prependInstructions(
+				book.pages.map((p: SkillPage) => `## ${p.name}\n\n${p.instructions}`).join("\n\n---\n\n"),
+			);
+		},
+	};
+
 	return defineOrgan(
 		"skills",
 		{
@@ -214,6 +226,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 		{
 			logger: opts.logger,
 			directives: [buildDirective()],
+			contributions: { "agent.run": agentRunContribution },
 			description: `Skill Library: filesystem skills discovered at boot, organ books registered dynamically via organ.loaded events.`,
 			labels: ["skills", "library", "context", "instructions"],
 		},

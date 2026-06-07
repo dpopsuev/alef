@@ -8,7 +8,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { createRef, type Ref, ref } from "lit/directives/ref.js";
 import { X } from "lucide";
 import { type Static, Type } from "typebox";
-import type { ArtifactMessage } from "../../components/Messages.js";
+import type { ArtifactMessage } from "../../artifact-types.js";
 import { ArtifactsRuntimeProvider } from "../../components/sandbox/ArtifactsRuntimeProvider.js";
 import { AttachmentsRuntimeProvider } from "../../components/sandbox/AttachmentsRuntimeProvider.js";
 import type { SandboxRuntimeProvider } from "../../components/sandbox/SandboxRuntimeProvider.js";

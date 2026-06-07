@@ -20,6 +20,33 @@ export interface SkillBook {
 	readonly pages: readonly SkillPage[];
 }
 
+export interface AgentRunContext {
+	prependInstructions(text: string): void;
+	addOrgans(organs: Organ[]): void;
+}
+
+export interface AgentRunContribution {
+	extend(args: Record<string, unknown>, context: AgentRunContext): Promise<void> | void;
+}
+
+export function createCompositeAgentRunContribution(): AgentRunContribution & {
+	add(contribution: AgentRunContribution): void;
+} {
+	const children: AgentRunContribution[] = [];
+	return {
+		add(contribution) {
+			children.push(contribution);
+		},
+		async extend(args, context) {
+			for (const child of children) await child.extend(args, context);
+		},
+	};
+}
+
+export interface OrganContributions {
+	readonly "agent.run"?: AgentRunContribution;
+}
+
 export interface ToolDefinition {
 	readonly name: string;
 	readonly description: string;
@@ -144,6 +171,11 @@ export interface Organ {
 	 * Aggregated by buildOrganSkills() and registered in SkillsOrgan at boot.
 	 */
 	readonly skills?: readonly SkillBook[];
+	/**
+	 * Cross-organ contributions collected by aggregator organs via sense/organ.loaded.
+	 * Each key is a well-known contribution type enforced by the kernel.
+	 */
+	readonly contributions?: OrganContributions;
 	/**
 	 * Short human-readable description of what this organ does.
 	 * Shown in --list-organs and blueprint validation output.

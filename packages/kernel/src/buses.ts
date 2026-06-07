@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type ZodTypeAny, z } from "zod";
+import { type ZodRawShape, type ZodTypeAny, z } from "zod";
 
 export interface NerveEvent {
 	readonly type: string;
@@ -26,12 +26,15 @@ export interface AgentRunContext {
 }
 
 export interface AgentRunContribution {
+	/** Additional Zod fields merged into the agent.run inputSchema when this contribution is active. */
+	schema?: ZodRawShape;
 	extend(args: Record<string, unknown>, context: AgentRunContext): Promise<void> | void;
 }
 
 export function createCompositeAgentRunContribution(): AgentRunContribution & {
 	add(organName: string, contribution: AgentRunContribution): void;
 	remove(organName: string): void;
+	mergedSchema(): ZodRawShape;
 } {
 	const children = new Map<string, AgentRunContribution>();
 	return {
@@ -40,6 +43,11 @@ export function createCompositeAgentRunContribution(): AgentRunContribution & {
 		},
 		remove(organName) {
 			children.delete(organName);
+		},
+		mergedSchema() {
+			const merged: ZodRawShape = {};
+			for (const child of children.values()) Object.assign(merged, child.schema ?? {});
+			return merged;
 		},
 		async extend(args, context) {
 			for (const child of children.values()) await child.extend(args, context);

@@ -186,6 +186,12 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 	}
 
 	const agentRunContribution: import("@dpopsuev/alef-kernel").AgentRunContribution = {
+		schema: {
+			playbook: z
+				.string()
+				.optional()
+				.describe("Named skill library playbook to load as the subagent's system prompt base."),
+		},
 		extend(args, context) {
 			const playbook = typeof args.playbook === "string" ? args.playbook : undefined;
 			if (!playbook) return;

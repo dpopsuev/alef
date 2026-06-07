@@ -65,6 +65,10 @@ const AGENT_RUN_TOOL = {
 				"Wall-clock limit in ms for the entire subagent conversation (default: 600_000 = 10 min). " +
 					"The LLM HTTP call timeout is fixed at 60s and is independent of this value.",
 			),
+		playbook: z
+			.string()
+			.optional()
+			.describe("Named skill library playbook to load as the subagent's system prompt base."),
 	}),
 };
 

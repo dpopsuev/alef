@@ -1,4 +1,4 @@
-import type { TuiHandlerContext } from "../tui-mode.js";
+import type { TuiHandlerContext } from "./types.js";
 
 export interface Command {
 	/** Name as typed by the user, without the invoker prefix (e.g. "reload", not ":reload"). */

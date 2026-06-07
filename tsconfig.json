@@ -189,13 +189,13 @@
 				"./packages/ui-domain/src/*.ts"
 			],
 			"@dpopsuev/alef-coding-agent": [
-				"./packages/coding-agent/src/index.ts"
+				"./packages/alef-coding-agent/src/index.ts"
 			],
 			"@dpopsuev/alef-coding-agent/hooks": [
-				"./packages/coding-agent/src/core/hooks/index.ts"
+				"./packages/alef-coding-agent/src/index.ts"
 			],
 			"@dpopsuev/alef-coding-agent/*": [
-				"./packages/coding-agent/src/*"
+				"./packages/alef-coding-agent/src/*"
 			],
 			"typebox": [
 				"./node_modules/typebox"

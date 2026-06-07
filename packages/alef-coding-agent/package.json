@@ -1,0 +1,34 @@
+{
+	"name": "@dpopsuev/alef-coding-agent",
+	"version": "0.0.1",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./testkit": "./src/testkit.ts"
+	},
+	"dependencies": {
+		"@dpopsuev/alef-ai": "*",
+		"@dpopsuev/alef-agent-blueprint": "*",
+		"@dpopsuev/alef-kernel": "*",
+		"@dpopsuev/alef-organ-alef": "*",
+		"@dpopsuev/alef-organ-delegate": "*",
+		"@dpopsuev/alef-organ-dialog": "*",
+		"@dpopsuev/alef-organ-factory": "*",
+		"@dpopsuev/alef-organ-fs": "*",
+		"@dpopsuev/alef-organ-llm": "*",
+		"@dpopsuev/alef-organ-memory": "*",
+		"@dpopsuev/alef-organ-nodesh": "*",
+		"@dpopsuev/alef-organ-orchestration": "*",
+		"@dpopsuev/alef-organ-prompt": "*",
+		"@dpopsuev/alef-organ-shell": "*",
+		"@dpopsuev/alef-organ-skills": "*",
+		"@dpopsuev/alef-organ-web": "*",
+		"@dpopsuev/alef-runner": "*",
+		"@dpopsuev/alef-runtime": "*",
+		"@dpopsuev/alef-session": "*"
+	},
+	"devDependencies": {
+		"@dpopsuev/alef-testkit": "*",
+		"vitest": "*"
+	}
+}

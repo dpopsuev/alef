@@ -10,8 +10,8 @@ import { getProviders } from "@dpopsuev/alef-ai";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { buildModel } from "../model.js";
 import { setThemeByName } from "../theme.js";
-import type { TuiHandlerContext } from "../tui-mode.js";
 import { CommandRegistry } from "./registry.js";
+import type { TuiHandlerContext } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Helper — fire-and-forget async with notice on error

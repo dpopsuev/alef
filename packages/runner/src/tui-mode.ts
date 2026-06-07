@@ -14,6 +14,7 @@ import { getProviders } from "@dpopsuev/alef-ai";
 import { Container, matchesKey, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
 import { registry } from "./commands/index.js";
+import type { TuiHandlerContext } from "./commands/types.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
@@ -22,7 +23,7 @@ import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import type { Session } from "./session.js";
 import { renderSplash } from "./splash.js";
-import { boldColor, color, getTheme, glyph, type ThemeTokens } from "./theme.js";
+import { boldColor, color, getTheme, glyph } from "./theme.js";
 import { ChatWriter } from "./tui/chat-writer.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 import { StreamingZone } from "./tui/streaming-zone.js";
@@ -51,20 +52,7 @@ const ANSI_RESET = "\x1b[0m";
 // TuiHandlerContext — passed to command handlers
 // ---------------------------------------------------------------------------
 
-export interface TuiHandlerContext {
-	t: ThemeTokens;
-	writer: ChatWriter;
-	opts?: InteractiveOptions;
-	tui: {
-		stop(): void;
-		removeChild(c: unknown): void;
-		addChild(c: unknown): void;
-		requestRender(force?: boolean): void;
-	};
-	session: Session;
-	abortCurrentTurn: (() => void) | undefined;
-	setAbortCurrentTurn(fn: (() => void) | undefined): void;
-}
+export type { TuiHandlerContext } from "./commands/types.js";
 
 // ---------------------------------------------------------------------------
 // Ctrl+C handler

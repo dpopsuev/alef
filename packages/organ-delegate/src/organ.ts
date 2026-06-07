@@ -116,8 +116,15 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 		{
 			"sense/organ.loaded": {
 				handle: async (ctx: { payload: Record<string, unknown> }) => {
+					const name = ctx.payload.name as string;
 					const contribution = (ctx.payload.contributions as OrganContributions | undefined)?.["agent.run"];
-					if (contribution) composite.add(contribution);
+					if (contribution) composite.add(name, contribution);
+					return {};
+				},
+			},
+			"sense/organ.unloaded": {
+				handle: async (ctx: { payload: Record<string, unknown> }) => {
+					composite.remove(ctx.payload.name as string);
 					return {};
 				},
 			},

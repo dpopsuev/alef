@@ -30,15 +30,19 @@ export interface AgentRunContribution {
 }
 
 export function createCompositeAgentRunContribution(): AgentRunContribution & {
-	add(contribution: AgentRunContribution): void;
+	add(organName: string, contribution: AgentRunContribution): void;
+	remove(organName: string): void;
 } {
-	const children: AgentRunContribution[] = [];
+	const children = new Map<string, AgentRunContribution>();
 	return {
-		add(contribution) {
-			children.push(contribution);
+		add(organName, contribution) {
+			children.set(organName, contribution);
+		},
+		remove(organName) {
+			children.delete(organName);
 		},
 		async extend(args, context) {
-			for (const child of children) await child.extend(args, context);
+			for (const child of children.values()) await child.extend(args, context);
 		},
 	};
 }

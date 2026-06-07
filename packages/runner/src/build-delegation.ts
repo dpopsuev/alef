@@ -4,53 +4,15 @@ import { join } from "node:path";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import type { Api, Message, Model } from "@dpopsuev/alef-ai";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
-import { Agent } from "@dpopsuev/alef-runtime";
+import type { Agent } from "@dpopsuev/alef-runtime";
 import type { Args } from "./args.js";
 import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "./materializer.js";
 import type { AgentEvent, Session } from "./session.js";
-import { InProcessStrategy, type SubagentFactory } from "./strategies/in-process.js";
-
-function createSubagentFactory(model: Model<Api>): SubagentFactory {
-	return ({ organs, onChunk, systemPrompt }) => {
-		const agent = new Agent();
-		let reply = "";
-		const dialog = new DialogOrgan({
-			sink: (t) => {
-				if (t) reply = t;
-			},
-		});
-		const llm = createAgentLoop({
-			model,
-			timeoutMs: 60_000,
-			getTools: () => agent.tools,
-			systemPrompt,
-			trackConcurrentOps: true,
-			onEvent: onChunk
-				? (e) => {
-						if (e.type === "chunk") onChunk(e.text);
-						else if (e.type === "tool-chunk") onChunk(e.text);
-					}
-				: undefined,
-		});
-		for (const organ of organs) agent.load(organ);
-		agent.load(dialog).load(llm);
-		return {
-			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
-				await agent.ready();
-				await dialog.send(text, sender, timeoutMs);
-				return reply;
-			},
-			dispose() {
-				agent.dispose();
-			},
-		};
-	};
-}
+import { InProcessStrategy } from "./strategies/in-process.js";
+import { buildSubagentFactory } from "./subagent-factory.js";
 
 const EXPLORE_ORGANS = [
 	{ name: "fs", actions: [] as string[], toolNames: [] as string[] },
@@ -83,7 +45,7 @@ export async function buildDelegation(
 		materializeBlueprint(DEFAULT_COMPILED_DEFINITION, materialiOpts),
 	]);
 
-	const factory = createSubagentFactory(model);
+	const factory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 
 	const delegateOrgan = createDelegateOrgan({
 		strategies: {

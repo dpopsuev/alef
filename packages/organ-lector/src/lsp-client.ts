@@ -134,6 +134,7 @@ export class LspClient {
 	private _request(method: string, params: unknown, timeoutMs = 10_000): Promise<unknown> {
 		const id = this.nextId++;
 		return new Promise((resolve, reject) => {
+			// lint-ignore: RAWTIMER LSP protocol request deadline
 			const timer = setTimeout(() => {
 				this.pending.delete(id);
 				reject(new Error(`LSP timeout: ${method}`));
@@ -174,7 +175,7 @@ export class LspClient {
 		this._send("textDocument/didOpen", {
 			textDocument: { uri, languageId, version: 1, text: content },
 		});
-		// Give the server a moment to index.
+		// lint-ignore: RAWTIMER deliberate indexing delay, not a deadline
 		await new Promise((r) => setTimeout(r, 200));
 	}
 

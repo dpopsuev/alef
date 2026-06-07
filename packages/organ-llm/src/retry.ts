@@ -32,6 +32,7 @@ export function retryDelayMs(attempt: number, maxDelayMs: number): number {
 	return Math.min(1_000 * 2 ** (attempt - 1), maxDelayMs);
 }
 
+// lint-ignore: RAWTIMER retry backoff sleep, not a deadline or stall detector
 export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function normalizeMessage(m: unknown): Message {

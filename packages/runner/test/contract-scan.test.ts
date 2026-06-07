@@ -4,6 +4,7 @@
  * Run manually: npx vitest run test/contract-scan.test.ts
  */
 
+import type { Api, Model } from "@dpopsuev/alef-ai";
 import { registerFauxProvider } from "@dpopsuev/alef-ai";
 import type { Organ } from "@dpopsuev/alef-kernel";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
@@ -11,13 +12,22 @@ import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import { runSchemaContract, runStreamingContract } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { InProcessStrategy } from "../src/strategies/in-process.js";
+import { InProcessStrategy, type SubagentFactory } from "../src/strategies/in-process.js";
 
 const CWD = "/tmp";
 
+function stubFactory(_model: Model<Api>): SubagentFactory {
+	return () => ({
+		async send(): Promise<string> {
+			return "stub";
+		},
+		dispose() {},
+	});
+}
+
 const faux = registerFauxProvider();
 const delegateOrgan = createDelegateOrgan({
-	strategies: { explore: new InProcessStrategy([], faux.getModel()) },
+	strategies: { explore: new InProcessStrategy([], stubFactory(faux.getModel())) },
 });
 
 const organs: Array<{ name: string; organ: Organ }> = [

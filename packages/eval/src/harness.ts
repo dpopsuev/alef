@@ -63,7 +63,7 @@ export interface ScenarioContext extends ExecutionStrategy {
 	/** Absolute path to the temp workspace directory. */
 	workspace: string;
 	/** Send a message to the agent and await the reply. */
-	send(text: string, sender?: string, timeoutMs?: number): Promise<string>;
+	send(req: import("@dpopsuev/alef-kernel").SendRequest): Promise<string>;
 	/** Write a file into the workspace before or during the run. */
 	writeFile(relativePath: string, content: string): Promise<void>;
 	/** Read a file from the workspace. */
@@ -324,7 +324,7 @@ export class EvalHarness {
 		try {
 			const ctx: ScenarioContext = {
 				workspace,
-				send: async (text) => {
+				send: async ({ text }) => {
 					sendStart = Date.now();
 					const reply = await dialog.send(text, "human", scenarioTimeoutMs);
 					sendTimingsMs.push(Date.now() - sendStart);

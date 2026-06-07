@@ -47,7 +47,7 @@ describe.skipIf(SKIP_REAL_LLM)("fs.read (pi-mono: file_read)", { tags: ["real-ll
 		const metrics = await harness.run(
 			async (ctx) => {
 				await ctx.writeFile("src/config.ts", `export const PORT = 3000;\nexport const HOST = "localhost";\n`);
-				const reply = await ctx.send("Read src/config.ts and tell me the exact value of PORT and HOST.");
+				const reply = await ctx.send({ text: "Read src/config.ts and tell me the exact value of PORT and HOST." });
 				if (!reply.includes("3000")) throw new Error("PORT value not in reply");
 				if (!reply.toLowerCase().includes("localhost")) throw new Error("HOST value not in reply");
 			},
@@ -67,10 +67,11 @@ describe.skipIf(SKIP_REAL_LLM)("fs.write (pi-mono: file_write)", { tags: ["real-
 	it("creates a new file with specified content", async () => {
 		const metrics = await harness.run(
 			async (ctx) => {
-				await ctx.send(
-					"Create a file src/hello.ts with a single exported function " +
+				await ctx.send({
+					text:
+						"Create a file src/hello.ts with a single exported function " +
 						"'greet(name: string): string' that returns the greeting string 'Hello, name'.",
-				);
+				});
 				const content = await ctx.readFile("src/hello.ts");
 				if (!content.includes("greet")) throw new Error("greet function not found");
 				if (!content.includes("Hello")) throw new Error("Hello string not found");
@@ -95,10 +96,11 @@ describe.skipIf(SKIP_REAL_LLM)("fs.edit (pi-mono: file_edit)", { tags: ["real-ll
 					"src/utils.ts",
 					`export function add(a: number, b: number): number {\n  return a + b;\n}\n`,
 				);
-				await ctx.send(
-					"Edit src/utils.ts: add a second exported function `multiply(a: number, b: number): number` that returns a * b. " +
+				await ctx.send({
+					text:
+						"Edit src/utils.ts: add a second exported function `multiply(a: number, b: number): number` that returns a * b. " +
 						"Do not rewrite the file — make a targeted edit.",
-				);
+				});
 				const content = await ctx.readFile("src/utils.ts");
 				if (!content.includes("multiply")) throw new Error("multiply function not found");
 				if (!content.includes("add")) throw new Error("add function was removed");
@@ -131,9 +133,9 @@ describe.skipIf(SKIP_REAL_LLM)("fs.grep (pi-mono: file_grep)", { tags: ["real-ll
 				await ctx.writeFile("src/api.ts", `import { login } from "./auth";\nlogin("admin");\n`);
 				await ctx.writeFile("src/test.ts", `// login is called in api.ts\n`);
 
-				const reply = await ctx.send(
-					"Search the workspace for all usages of the string 'login'. " + "Report which files contain it.",
-				);
+				const reply = await ctx.send({
+					text: "Search the workspace for all usages of the string 'login'. " + "Report which files contain it.",
+				});
 				if (!reply.toLowerCase().includes("auth") && !reply.toLowerCase().includes("api")) {
 					throw new Error("Expected reply to mention auth.ts or api.ts");
 				}
@@ -159,7 +161,9 @@ describe.skipIf(SKIP_REAL_LLM)("fs.find (pi-mono: file_find)", { tags: ["real-ll
 				await ctx.writeFile("README.md", "# README\n");
 				await ctx.writeFile("package.json", '{"name":"test"}\n');
 
-				const reply = await ctx.send("Find all TypeScript files (*.ts) in the workspace. List their paths.");
+				const reply = await ctx.send({
+					text: "Find all TypeScript files (*.ts) in the workspace. List their paths.",
+				});
 				if (!reply.includes("index.ts") && !reply.includes(".ts")) {
 					throw new Error("Expected TypeScript file paths in reply");
 				}
@@ -181,7 +185,9 @@ describe.skipIf(SKIP_REAL_LLM)("shell.exec (pi-mono: file_bash)", { tags: ["real
 		const metrics = await harness.run(
 			async (ctx) => {
 				await ctx.writeFile("package.json", JSON.stringify({ name: "parity-test", version: "1.0.0" }));
-				const reply = await ctx.send("Run `node --version` in the shell and tell me the Node.js version number.");
+				const reply = await ctx.send({
+					text: "Run `node --version` in the shell and tell me the Node.js version number.",
+				});
 				// Node version starts with 'v' followed by a number
 				if (!/v\d+/.test(reply)) {
 					throw new Error(`Expected Node version in reply, got: ${reply.slice(0, 100)}`);
@@ -211,7 +217,7 @@ describe.skipIf(SKIP_REAL_LLM)("ablation enforcement — read-only tool set", { 
 			async (ctx) => {
 				await ctx.writeFile("src/data.ts", "export const x = 42;\n");
 				// Ask for a write — should be refused or not attempted
-				await ctx.send("Read src/data.ts and tell me what value x has. Do not write any files.");
+				await ctx.send({ text: "Read src/data.ts and tell me what value x has. Do not write any files." });
 			},
 			{
 				scenario: "ablation-no-write",

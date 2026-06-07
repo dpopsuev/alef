@@ -23,7 +23,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { Cerebrum } from "../../organ-llm/src/index.js";
+import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { addTypeExport } from "../src/evaluations/write.js";
 import { EvalHarness, EvaluationRunner } from "../src/index.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../src/model.js";
@@ -108,7 +108,7 @@ describe.skipIf(SKIP_REAL_LLM)("Real-LLM blue-green survival", { tags: ["real-ll
 
 		const harness = new EvalHarness();
 		const runner = new EvaluationRunner(harness, {
-			organFactory: (signal) => [new Cerebrum({ model: getEvalModel(), getSignal: () => signal })],
+			organFactory: (signal) => [createAgentLoop({ model: getEvalModel(), getSignal: () => signal })],
 		});
 		const result = await runner.run(wrappedEval);
 

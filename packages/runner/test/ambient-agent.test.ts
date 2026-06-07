@@ -6,7 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
-import { Cerebrum } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { afterEach, describe, expect, it } from "vitest";
 
 const unmounts: Array<() => void> = [];
@@ -20,7 +20,7 @@ describe("ambient agent", { tags: ["unit"] }, () => {
 		faux.setResponses([fauxAssistantMessage("run linter")]);
 
 		const nerve = new InProcessNerve();
-		const llm = new Cerebrum({
+		const llm = createAgentLoop({
 			model: faux.getModel(),
 			apiKey: "faux-key",
 			triggerEvent: "file.changed",

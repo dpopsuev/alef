@@ -7,7 +7,7 @@
  * Outbound: Motor/"dialog.message"       → configurable sink (stdout by default)
  *
  * Context assembly (messages, tools, system prompt) is the responsibility of
- * prepareStep (production) or CerebrumOptions.getTools/systemPrompt (subagents).
+ * prepareStep (production) or AgentLoopOptions.getTools/systemPrompt (subagents).
  */
 
 import { randomUUID } from "node:crypto";
@@ -98,6 +98,7 @@ export class DialogOrgan implements Organ {
 		if (!this.nerve) return Promise.reject(new Error("DialogOrgan: not mounted"));
 		const correlationId = randomUUID();
 		return new Promise<string>((resolve, reject) => {
+			// lint-ignore: RAWTIMER conversation wall-clock deadline, not a stall detector
 			const timer = setTimeout(() => {
 				this.pending.delete(correlationId);
 				reject(new Error(`DialogOrgan.send timed out after ${timeoutMs}ms`));

@@ -12,7 +12,7 @@
  */
 
 import { resolve } from "node:path";
-import { Cerebrum } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../src/evaluation.js";
 import * as multiTurnEvals from "../src/evaluations/multi-turn.js";
@@ -105,7 +105,7 @@ async function runPool(evals: Evaluation[], maxConcurrency: number): Promise<Eva
 		const harness = new EvalHarness();
 		const runner = new EvaluationRunner(harness, {
 			organFactory: (signal) => [
-				new Cerebrum({
+				createAgentLoop({
 					model: getEvalModel(),
 					getSignal: () => signal,
 					onRetry: (attempt, reason) => scheduler.onRetry(attempt, reason),

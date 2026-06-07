@@ -211,5 +211,6 @@ export function withBindings(bindings: Map<string, Binding>, baseNerve: Nerve): 
 			},
 		},
 		sense: baseNerve.sense,
+		pulse: () => baseNerve.pulse(),
 	};
 }

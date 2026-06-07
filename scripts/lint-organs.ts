@@ -265,7 +265,25 @@ function checkDisplayChannel(file: string, content: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Check 4: organ importing from another organ or runner (dep direction)
+// Check 4: [RAWTIMER] raw setTimeout/setInterval in organ src
+// ---------------------------------------------------------------------------
+
+function checkRawTimer(file: string, content: string): void {
+	if (file.endsWith("watchdog.ts")) return;
+	const lines = content.split("\n");
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (!line.includes("setTimeout(") && !line.includes("setInterval(")) continue;
+		const suppress = lines[i - 1]?.includes("lint-ignore: RAWTIMER") || line.includes("lint-ignore: RAWTIMER");
+		if (suppress) continue;
+		const call = line.includes("setInterval(") ? "setInterval" : "setTimeout";
+		report(file, i + 1, "RAWTIMER",
+			`raw ${call}() — use Watchdog from @dpopsuev/alef-kernel; suppress with // lint-ignore: RAWTIMER <reason>`);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Check 5: organ importing from another organ or runner (dep direction)
 // ---------------------------------------------------------------------------
 
 function checkImportDirection(file: string, content: string, pkgName: string): void {
@@ -325,6 +343,7 @@ for (const { name, dir } of organDirs) {
 		checkSchemaStringMin(file, content);
 		checkDisplayChannel(file, content);
 		checkImportDirection(file, content, name);
+		checkRawTimer(file, content);
 	}
 
 	for (const file of testFiles) {
@@ -352,7 +371,7 @@ for (const [rule, count] of Object.entries(counts).sort()) {
 // Hard gates: NOTEST, NOCOMPLIANCE*, and IMPORT block CI.
 // Advisory: STREAM and SCHEMA are informational — they document gaps but do
 // not block merging. Developers address them incrementally.
-const HARD_GATE_RULES = new Set(["NOTEST", "NOCOMPLIANCE", "NOCOMPLIANCE-STREAM", "IMPORT"]);
+const HARD_GATE_RULES = new Set(["NOTEST", "NOCOMPLIANCE", "NOCOMPLIANCE-STREAM", "IMPORT", "RAWTIMER"]);
 const hardViolations = violations.filter((v) => HARD_GATE_RULES.has(v.rule));
 
 if (hardViolations.length > 0) {

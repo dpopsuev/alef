@@ -24,7 +24,7 @@
  */
 
 import { loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
-import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ } from "@dpopsuev/alef-kernel";
+import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ, SendRequest } from "@dpopsuev/alef-kernel";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Agent, type BusObserver } from "@dpopsuev/alef-runtime";
 // TODO(ALE-TSK-585): materializeBlueprint should not be imported from runner via relative path.
@@ -125,7 +125,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 	// -------------------------------------------------------------------------
 
 	/** Send a message to the agent and return its reply (conversation agents). */
-	async send(text: string): Promise<string> {
+	async send({ text }: SendRequest): Promise<string> {
 		this.recorder.clear();
 		const reply = await this.dialog.send(text, "human", this.timeoutMs);
 		this._lastReply = reply;

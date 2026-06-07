@@ -137,9 +137,11 @@ async function* streamExec(
 	let sigkillTimer2: ReturnType<typeof setTimeout> | undefined;
 
 	if (timeoutMs !== undefined) {
+		// lint-ignore: RAWTIMER two-stage SIGTERM→SIGKILL escalation, not a stall detector
 		sigkillTimer = setTimeout(() => {
 			timedOut = true;
 			child.kill("SIGTERM");
+			// lint-ignore: RAWTIMER SIGKILL escalation 5s after SIGTERM
 			sigkillTimer2 = setTimeout(() => child.kill("SIGKILL"), 5000);
 		}, timeoutMs);
 	}

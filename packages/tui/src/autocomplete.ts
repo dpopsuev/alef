@@ -68,13 +68,18 @@ function findUnclosedQuoteStart(text: string): number | null {
 }
 
 function isTokenStart(text: string, index: number): boolean {
-	return index === 0 || PATH_DELIMITERS.has(text[index - 1] ?? "") || text[index - 1] === "@";
+	return index === 0 || PATH_DELIMITERS.has(text[index - 1] ?? "");
 }
 
 function extractQuotedPrefix(text: string): string | null {
 	const quoteStart = findUnclosedQuoteStart(text);
 	if (quoteStart === null) {
 		return null;
+	}
+
+	// Include the preceding "/" if it is the file-mention trigger (e.g. `/"my folder/`).
+	if (quoteStart > 0 && text[quoteStart - 1] === "/" && isTokenStart(text, quoteStart - 1)) {
+		return text.slice(quoteStart - 1);
 	}
 
 	if (!isTokenStart(text, quoteStart)) {
@@ -84,17 +89,37 @@ function extractQuotedPrefix(text: string): string | null {
 	return text.slice(quoteStart);
 }
 
-function parsePathPrefix(prefix: string): { rawPrefix: string; isQuotedPrefix: boolean; isAtPrefix: boolean } {
-	if (prefix.startsWith('@"')) {
-		return { rawPrefix: prefix.slice(2), isQuotedPrefix: true, isAtPrefix: true };
+/**
+ * Parses the autocomplete prefix into its constituent parts and provides
+ * a wrap() helper that re-applies the trigger and quoting to a bare path.
+ *
+ * Handles four cases:
+ *   /\"quoted path\"  → trigger="/", rawQuery="quoted path", isQuoted=true
+ *   \"quoted path\"   → trigger=null, rawQuery="quoted path", isQuoted=true
+ *   /path             → trigger="/", rawQuery="path",         isQuoted=false
+ *   path              → trigger=null, rawQuery="path",        isQuoted=false
+ *
+ * Adding a new trigger (e.g. "@" for agent mentions) is one extra branch here.
+ */
+interface FileMentionPrefix {
+	trigger: string | null;
+	rawQuery: string;
+	isQuoted: boolean;
+	wrap(value: string): string;
+}
+
+function parsePathPrefix(prefix: string): FileMentionPrefix {
+	// wrap() only prepends the trigger character; quoting is already applied by buildCompletionValue.
+	if (prefix.startsWith('/"')) {
+		return { trigger: "/", rawQuery: prefix.slice(2), isQuoted: true, wrap: (v) => `/${v}` };
 	}
 	if (prefix.startsWith('"')) {
-		return { rawPrefix: prefix.slice(1), isQuotedPrefix: true, isAtPrefix: false };
+		return { trigger: null, rawQuery: prefix.slice(1), isQuoted: true, wrap: (v) => v };
 	}
-	if (prefix.startsWith("@")) {
-		return { rawPrefix: prefix.slice(1), isQuotedPrefix: false, isAtPrefix: true };
+	if (prefix.startsWith("/")) {
+		return { trigger: "/", rawQuery: prefix.slice(1), isQuoted: false, wrap: (v) => `/${v}` };
 	}
-	return { rawPrefix: prefix, isQuotedPrefix: false, isAtPrefix: false };
+	return { trigger: null, rawQuery: prefix, isQuoted: false, wrap: (v) => v };
 }
 
 function buildCompletionValue(path: string, options: { isQuotedPrefix: boolean }): string {
@@ -215,8 +240,6 @@ export interface SlashCommand {
 	name: string;
 	description?: string;
 	argumentHint?: string;
-	// Function to get argument completions for this command
-	// Returns null if no argument completion is available
 	getArgumentCompletions?(argumentPrefix: string): Awaitable<AutocompleteItem[] | null>;
 }
 
@@ -226,8 +249,6 @@ export interface AutocompleteSuggestions {
 }
 
 export interface AutocompleteProvider {
-	// Get autocomplete suggestions for current text/cursor position
-	// Returns null if no suggestions available
 	getSuggestions(
 		lines: string[],
 		cursorLine: number,
@@ -235,8 +256,6 @@ export interface AutocompleteProvider {
 		options: { signal: AbortSignal; force?: boolean },
 	): Promise<AutocompleteSuggestions | null>;
 
-	// Apply the selected item
-	// Returns the new text and cursor position
 	applyCompletion(
 		lines: string[],
 		cursorLine: number,
@@ -249,11 +268,9 @@ export interface AutocompleteProvider {
 		cursorCol: number;
 	};
 
-	// Check if file completion should trigger for explicit Tab completion
 	shouldTriggerFileCompletion?(lines: string[], cursorLine: number, cursorCol: number): boolean;
 }
 
-// Combined provider that handles both operator commands and file paths
 export class CombinedAutocompleteProvider implements AutocompleteProvider {
 	private commands: (SlashCommand | AutocompleteItem)[];
 	private basePath: string;
@@ -332,12 +349,12 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			return null;
 		}
 
-		const { rawPrefix, isQuotedPrefix, isAtPrefix } = parsePathPrefix(pathMatch);
-		// Use fd for @ triggers (even empty query) so .git is excluded via fd's default behaviour.
+		const mention = parsePathPrefix(pathMatch);
+		// Use fd even for empty trigger query so .git is excluded via fd's default behaviour.
 		const suggestions =
-			!options.force && this.fdPath && (rawPrefix.length > 0 || isAtPrefix)
-				? await this.getFuzzyFileSuggestions(rawPrefix, {
-						isQuotedPrefix,
+			!options.force && this.fdPath && (mention.rawQuery.length > 0 || mention.trigger !== null)
+				? await this.getFuzzyFileSuggestions(mention.rawQuery, {
+						isQuotedPrefix: mention.isQuoted,
 						signal: options.signal,
 					})
 				: this.getFileSuggestions(pathMatch);
@@ -346,8 +363,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		}
 		if (suggestions.length === 0) return null;
 
-		// Prepend the @ trigger back to suggestion values so the user sees "@README.md"
-		const items = isAtPrefix ? suggestions.map((s) => ({ ...s, value: `@${s.value}` })) : suggestions;
+		const items = suggestions.map((s) => ({ ...s, value: mention.wrap(s.value) }));
 
 		return {
 			items,
@@ -365,7 +381,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		const currentLine = lines[cursorLine] || "";
 		const beforePrefix = currentLine.slice(0, cursorCol - prefix.length);
 		const afterCursor = currentLine.slice(cursorCol);
-		const isQuotedPrefix = prefix.startsWith('"') || prefix.startsWith('@"');
+		const isQuotedPrefix = prefix.startsWith('"') || prefix.startsWith('/"');
 		const hasLeadingQuoteAfterCursor = afterCursor.startsWith('"');
 		const hasTrailingQuoteInItem = item.value.endsWith('"');
 		const adjustedAfterCursor =
@@ -373,7 +389,6 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 
 		const isOperatorCommand = prefix.startsWith(":") && beforePrefix.trim() === "";
 		if (isOperatorCommand) {
-			// This is a command name completion
 			const newLine = `${beforePrefix}:${item.value} ${adjustedAfterCursor}`;
 			const newLines = [...lines];
 			newLines[cursorLine] = newLine;
@@ -385,10 +400,8 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			};
 		}
 
-		// Check if we're in an operator command context (beforePrefix contains ":command ")
 		const textBeforeCursor = currentLine.slice(0, cursorCol);
 		if (textBeforeCursor.trimStart().startsWith(":") && textBeforeCursor.includes(" ")) {
-			// This is likely a command argument completion
 			const newLine = beforePrefix + item.value + adjustedAfterCursor;
 			const newLines = [...lines];
 			newLines[cursorLine] = newLine;
@@ -404,11 +417,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			};
 		}
 
-		// For file paths, complete the path. @ file mentions get a trailing space
-		// after the closing quote so the cursor is ready for the next word.
-		const isAtMention = prefix.startsWith("@");
-		const trailingSpace = isAtMention && !item.label.endsWith("/") && item.value.endsWith('"') ? " " : "";
-		const newLine = beforePrefix + item.value + trailingSpace + adjustedAfterCursor;
+		const newLine = beforePrefix + item.value + adjustedAfterCursor;
 		const newLines = [...lines];
 		newLines[cursorLine] = newLine;
 
@@ -423,15 +432,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		};
 	}
 
-	// Extract a path-like prefix from the text before cursor
 	private extractPathPrefix(text: string, forceExtract: boolean = false): string | null {
-		// Handle @"quoted path" pattern — the @ is the file-mention trigger, the " starts a
-		// quoted path with spaces. Return the full @"..." token so the @ is preserved.
-		const atQuoteMatch = text.match(/(?:^|(?<=\s))(@"[^"]*)/);
-		if (atQuoteMatch) {
-			return atQuoteMatch[1];
-		}
-
 		const quotedPrefix = extractQuotedPrefix(text);
 		if (quotedPrefix) {
 			return quotedPrefix;
@@ -445,14 +446,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			return pathPrefix;
 		}
 
-		// For natural triggers, return if it looks like a path, ends with /, starts with ~/, .
-		// Also return for the @ file-mention trigger.
-		if (
-			pathPrefix.includes("/") ||
-			pathPrefix.startsWith(".") ||
-			pathPrefix.startsWith("~/") ||
-			pathPrefix.startsWith("@")
-		) {
+		if (pathPrefix.includes("/") || pathPrefix.startsWith(".") || pathPrefix.startsWith("~/")) {
 			return pathPrefix;
 		}
 
@@ -520,8 +514,7 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		try {
 			let searchDir: string;
 			let searchPrefix: string;
-			const { rawPrefix, isQuotedPrefix } = parsePathPrefix(prefix);
-			// isAtPrefix is handled by the caller (getSuggestions prepends @ to values)
+			const { rawQuery: rawPrefix, isQuoted: isQuotedPrefix } = parsePathPrefix(prefix);
 			let expandedPrefix = rawPrefix;
 
 			// Handle home directory expansion
@@ -573,7 +566,6 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 					continue;
 				}
 
-				// Check if entry is a directory (or a symlink pointing to a directory)
 				let isDirectory = entry.isDirectory();
 				if (!isDirectory && entry.isSymbolicLink()) {
 					try {
@@ -722,7 +714,6 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 		}
 	}
 
-	// Check if we should trigger file completion (called on Tab key)
 	shouldTriggerFileCompletion(lines: string[], cursorLine: number, cursorCol: number): boolean {
 		const currentLine = lines[cursorLine] || "";
 		const textBeforeCursor = currentLine.slice(0, cursorCol);

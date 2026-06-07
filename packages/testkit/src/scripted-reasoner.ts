@@ -64,13 +64,13 @@ export interface ScriptedReasonerOptions {
 	triggerEvent?: string;
 	/** Motor event type published as the reply. Default: same as triggerEvent. */
 	replyEvent?: string;
-	/** Called before each tool call motor.publish — mirrors CerebrumOptions.onToolStart. */
+	/** Called before each tool call motor.publish — mirrors AgentLoopOptions.onToolStart. */
 	onToolStart?: (event: ToolCallStart) => void;
-	/** Called after each tool sense result — mirrors CerebrumOptions.onToolEnd. */
+	/** Called after each tool sense result — mirrors AgentLoopOptions.onToolEnd. */
 	onToolEnd?: (event: ToolCallEnd) => void;
 	/**
 	 * Called with the reply text before publishing dialog.message.
-	 * Mirrors CerebrumOptions.onResponseChunk — delivers text to TUI without
+	 * Mirrors AgentLoopOptions.onResponseChunk — delivers text to TUI without
 	 * the ScriptedReasoner needing to know about the sink.
 	 */
 	onResponseChunk?: (chunk: string) => void;

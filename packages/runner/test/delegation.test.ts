@@ -5,14 +5,55 @@
  *   → inner Cerebrum (faux inner LLM) → sense/agent.run with reply text
  *   → outer Cerebrum turn 2 receives toolResult → final dialog.message
  */
+import type { Api, Model } from "@dpopsuev/alef-ai";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
+
 import { defineOrgan, typedStreamAction } from "@dpopsuev/alef-kernel";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { Cerebrum } from "../../organ-llm/src/index.js";
+import { createAgentLoop } from "../../organ-llm/src/index.js";
+import { Agent } from "../../runtime/src/index.js";
 import { DIALOG_MESSAGE_TOOL, NerveFixture, TurnDriver } from "../../testkit/src/index.js";
-import { InProcessStrategy } from "../src/strategies/in-process.js";
+import { InProcessStrategy, type SubagentFactory } from "../src/strategies/in-process.js";
+
+function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): SubagentFactory {
+	return ({ organs, onChunk, systemPrompt: callSystemPrompt }) => {
+		const agent = new Agent();
+		let reply = "";
+		const dialog = new DialogOrgan({
+			sink: (t) => {
+				if (t) reply = t;
+			},
+		});
+		const mergedPrompt = [baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
+		const llm = createAgentLoop({
+			model,
+			apiKey: "test-key",
+			getTools: () => agent.tools,
+			systemPrompt: mergedPrompt,
+			onEvent: onChunk
+				? (e) => {
+						if (e.type === "chunk" || e.type === "tool-chunk")
+							onChunk(e.type === "chunk" ? e.text : (e as { text: string }).text);
+					}
+				: undefined,
+		});
+		for (const organ of organs) agent.load(organ);
+		agent.load(dialog).load(llm);
+		return {
+			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
+				await agent.ready();
+				await dialog.send(text, sender, timeoutMs);
+				return reply;
+			},
+			dispose() {
+				agent.dispose();
+			},
+		};
+	};
+}
 
 describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 	const disposes: Array<() => void> = [];
@@ -32,7 +73,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const capturedEvents: string[] = [];
 
 		// Inner strategy: InProcessStrategy with inner faux LLM
-		const innerStrategy = new InProcessStrategy([], innerFaux.getModel());
+		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
 
 		// Organ-delegate with the inner strategy registered as 'explore'
 		const delegateOrgan = createDelegateOrgan({ strategies: { explore: innerStrategy } });
@@ -43,7 +84,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const driver = new TurnDriver(f.nerve);
 
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
 				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
@@ -91,7 +132,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// Inner LLM never responds — causes InProcessStrategy to time out
 		// (no response set on innerFaux, so it returns an error)
 
-		const innerStrategy = new InProcessStrategy([], innerFaux.getModel());
+		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
 		const delegateOrgan = createDelegateOrgan({ strategies: { explore: innerStrategy } });
 
 		const capturedEnds: Array<{ ok: boolean }> = [];
@@ -100,7 +141,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const driver = new TurnDriver(f.nerve);
 
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
 				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
@@ -159,7 +200,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 			},
 		);
 
-		const innerStrategy = new InProcessStrategy([readerOrgan], innerFaux.getModel());
+		const innerStrategy = new InProcessStrategy([readerOrgan], makeTestFactory(innerFaux.getModel()));
 		const delegateOrgan = createDelegateOrgan({ strategies: { explore: innerStrategy } });
 
 		const outerChunks: string[] = [];
@@ -168,7 +209,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const driver = new TurnDriver(f.nerve);
 
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
 				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
@@ -221,7 +262,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		disposes.push(() => outerFaux.unregister());
 
 		const stubStrategy = {
-			async send(text: string, _sender?: string, _timeoutMs?: number, onChunk?: (t: string) => void) {
+			async send({ text, onChunk }: import("@dpopsuev/alef-kernel").SendRequest) {
 				await new Promise<void>((r) => setTimeout(r, 20));
 				onChunk?.(`chunk-for:${text}`);
 				return `done:${text}`;
@@ -236,7 +277,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		const driver = new TurnDriver(f.nerve);
 
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
 				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
@@ -295,7 +336,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		// Instead: emits one chunk immediately so the outer Cerebrum sees activity.
 		// The key assertion is that each chunk's callId matches the call that produced it.
 		const identityStrategy = {
-			async send(text: string, _sender?: string, _timeoutMs?: number, onChunk?: (t: string) => void) {
+			async send({ text, onChunk }: import("@dpopsuev/alef-kernel").SendRequest) {
 				onChunk?.(`ident:${text}`);
 				return `done:${text}`;
 			},
@@ -309,7 +350,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		const driver = new TurnDriver(f.nerve);
 
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
 				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],

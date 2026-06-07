@@ -298,6 +298,15 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 				tui.requestRender();
 				break;
 			}
+			case "message-queued": {
+				writer.addNotice(
+					event.queueLength === 1
+						? "message queued — agent will receive it after the current turn"
+						: `${event.queueLength} messages queued`,
+				);
+				tui.requestRender();
+				break;
+			}
 			case "tool-validation-error": {
 				// Schema rejected the LLM's tool arguments — surface inline so the LLM sees
 				// a clear retry hint rather than a raw zod error in the toolResult text.

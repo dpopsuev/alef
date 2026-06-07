@@ -70,10 +70,13 @@ export type CorpusActionMap = Record<string, CorpusAction | StreamingCorpusActio
 export type CerebrumActionMap = Record<string, CerebrumAction>;
 export type ActionMap = Record<string, CorpusAction | StreamingCorpusAction | CerebrumAction>;
 
+import type { SkillBook } from "./buses.js";
+
 export interface OrganOptions {
 	logger?: OrganLogger;
 	actions?: readonly string[];
 	directives?: readonly string[];
+	skills?: readonly SkillBook[];
 	description?: string;
 	labels?: readonly string[];
 	publishSchemas?: {
@@ -84,6 +87,7 @@ export interface OrganOptions {
 		motor?: Record<string, ZodTypeAny>;
 	};
 	ready?: () => Promise<void>;
+	onMount?: (nerve: Nerve) => void;
 	onUnmount?: () => void;
 	limits?: Budget;
 	middlewares?: NerveMiddleware[];

@@ -178,7 +178,7 @@ export class ConsoleZone {
 		const t = this.t;
 		const entry = { dt: null as unknown as DynamicText, startedAt, lastChunk: "" };
 		const dt = new DynamicText((_w) => {
-			const label = entry.lastChunk ? `${keyArg ? keyArg + " " : ""}${entry.lastChunk.slice(-60)}` : keyArg;
+			const label = entry.lastChunk ? `${keyArg ? `${keyArg} ` : ""}${entry.lastChunk.slice(-60)}` : keyArg;
 			return toolActiveLine(name, label, t, Date.now() - startedAt);
 		});
 		entry.dt = dt;

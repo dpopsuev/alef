@@ -60,6 +60,16 @@ export function directive(...lines: string[]): string[] {
 	return lines;
 }
 
+export function cachePolicy(
+	action: CorpusAction,
+	policy: {
+		shouldCache?: (ctx: CorpusHandlerCtx, result: Record<string, unknown>) => boolean;
+		invalidates?: (ctx: CorpusHandlerCtx) => string[];
+	},
+): CorpusAction {
+	return { ...action, ...policy };
+}
+
 export function withTruncatedDisplay(
 	data: Record<string, unknown>,
 	content: string,

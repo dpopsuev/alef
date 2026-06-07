@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
 	type Binding,
 	debugLog,
@@ -20,13 +21,6 @@ import {
 	validatePorts,
 } from "./port-registry.js";
 
-// ---------------------------------------------------------------------------
-// Payload validation — enforces organ-to-organ bus contracts in non-production.
-// Active when ALEF_VALIDATE_PAYLOADS=1 or NODE_ENV=test.
-// Throws immediately at publish time: organ name + event type + Zod error.
-// Zero runtime overhead in production.
-// ---------------------------------------------------------------------------
-
 const VALIDATE_PAYLOADS = process.env.ALEF_VALIDATE_PAYLOADS === "1" || process.env.NODE_ENV === "test";
 
 /**
@@ -41,61 +35,61 @@ function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
 		busLabel: "motor" | "sense",
 		schemas: Readonly<Record<string, ZodTypeAny>> | undefined,
 		event: NerveEvent,
-	) => {
+	): string | null => {
 		const schema = schemas?.[event.type];
-		if (!schema) return;
+		if (!schema) return null;
 		const result = schema.safeParse((event as { payload?: unknown }).payload);
 		if (!result.success) {
-			throw new Error(
-				`[PayloadValidation] ${organ.name} → ${busLabel}/${event.type}: ${result.error.issues
-					.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-					.join("; ")}`,
-			);
+			return `[PayloadValidation] ${organ.name} → ${busLabel}/${event.type}: ${result.error.issues
+				.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+				.join("; ")}`;
 		}
+		return null;
 	};
 
 	return {
 		motor: {
 			subscribe: nerve.motor.subscribe.bind(nerve.motor),
 			publish: (event: MotorEvent) => {
-				validate("motor", motorSchemas, event);
+				const err = validate("motor", motorSchemas, event);
+				if (err) {
+					// Publish validation failure as a sense error so the caller sees a tool result.
+					const payload = event.payload as { toolCallId?: string };
+					nerve.sense.publish({
+						type: event.type,
+						correlationId: event.correlationId,
+						isError: true,
+						errorMessage: err,
+						payload: payload.toolCallId ? { toolCallId: payload.toolCallId } : {},
+					});
+					return;
+				}
 				nerve.motor.publish(event);
 			},
 		},
 		sense: {
 			subscribe: nerve.sense.subscribe.bind(nerve.sense),
 			publish: (event: SenseEvent) => {
-				// Error Sense events carry { toolCallId } not the success payload shape.
-				// Validating them against the success schema always fails — skip.
-				if (!event.isError) validate("sense", senseSchemas, event);
+				// Error events carry { toolCallId } only — validating against the success schema always fails.
+				if (!event.isError) {
+					const err = validate("sense", senseSchemas, event);
+					if (err) {
+						// Log and drop — sense publish failures are non-fatal.
+						console.warn(err);
+						return;
+					}
+				}
 				nerve.sense.publish(event);
 			},
 		},
+		pulse: () => nerve.pulse(),
 	};
 }
-
-// Corpus event type constants
-
-// ---------------------------------------------------------------------------
-// BusObserver - full read access to the Nerve for observability tools.
-// Used by BusEventRecorder in testkit. Not an organ - not routed.
-// ---------------------------------------------------------------------------
 
 export interface BusObserver {
 	onMotorEvent(event: NerveEvent): void;
 	onSenseEvent(event: NerveEvent): void;
 }
-
-// ---------------------------------------------------------------------------
-// Corpus - the composition root and external boundary of the agent.
-//
-// Responsibilities:
-//  - Creates the Spine (InProcessNerve) and owns it exclusively.
-//  - Loads organs: mounts them onto the correct Nerve view based on kind.
-//  - Collects ToolDefinition from all loaded organs.
-//  - observe(): attaches a BusObserver (e.g. BusEventRecorder in tests).
-//  - dispose(): tears down all subscriptions cleanly.
-// ---------------------------------------------------------------------------
 
 /** Reserved for future Agent configuration. */
 
@@ -105,7 +99,12 @@ export class Agent {
 	/** Tool definitions collected from all loaded organs. */
 	private readonly _tools: ToolDefinition[] = [];
 	get tools(): ReadonlyArray<ToolDefinition> {
-		return this._tools;
+		const seen = new Set<string>();
+		return this._tools.filter((t) => {
+			if (seen.has(t.name)) return false;
+			seen.add(t.name);
+			return true;
+		});
 	}
 	/** Organs stored for lazy port detection in validate(). */
 	private readonly _organs: Organ[] = [];
@@ -145,6 +144,17 @@ export class Agent {
 		}
 		this.unmounts.push(unmount);
 		this._tools.push(...organ.tools);
+		// Announce all previously loaded organs to the new organ (catch-up),
+		// then announce the new organ to everyone. Handlers must be idempotent.
+		const sysId = randomUUID();
+		for (const loaded of this._organs) {
+			this.nerve.publishSense({
+				type: "organ.loaded",
+				correlationId: sysId,
+				isError: false,
+				payload: { name: loaded.name, tools: loaded.tools.map((t) => t.name), skills: loaded.skills ?? [] },
+			});
+		}
 		return this;
 	}
 
@@ -256,9 +266,14 @@ export class Agent {
 		void organ?.close?.();
 		this._organs.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
-		// Recompute tools from remaining organs.
 		this._tools.length = 0;
 		for (const organ of this._organs) this._tools.push(...organ.tools);
+		this.nerve.publishSense({
+			type: "organ.unloaded",
+			correlationId: randomUUID(),
+			isError: false,
+			payload: { name },
+		});
 		return true;
 	}
 

@@ -1,8 +1,53 @@
+import type { Api, Model } from "@dpopsuev/alef-ai";
 import { createAlefApiOrgan, type DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
+import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { Agent } from "@dpopsuev/alef-runtime";
 import { DEFAULT_MODEL } from "./args.js";
 import { buildModel } from "./model.js";
 import type { DirectiveView } from "./session.js";
-import { InProcessStrategy } from "./strategies/in-process.js";
+import { InProcessStrategy, type SubagentFactory } from "./strategies/in-process.js";
+
+function makeMetaFactory(
+	model: Model<Api>,
+	baseSystemPrompt: string,
+	baseOnChunk?: (chunk: string) => void,
+): SubagentFactory {
+	return ({ organs, onChunk, systemPrompt: callSystemPrompt }) => {
+		const agent = new Agent();
+		let reply = "";
+		const dialog = new DialogOrgan({
+			sink: (t) => {
+				if (t) reply = t;
+			},
+		});
+		const mergedPrompt = [baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || baseSystemPrompt;
+		const chunkHandler = onChunk ?? baseOnChunk;
+		const llm = createAgentLoop({
+			model,
+			timeoutMs: 60_000,
+			getTools: () => agent.tools,
+			systemPrompt: mergedPrompt,
+			onEvent: chunkHandler
+				? (e) => {
+						if (e.type === "chunk") chunkHandler(e.text);
+					}
+				: undefined,
+		});
+		for (const organ of organs) agent.load(organ);
+		agent.load(dialog).load(llm);
+		return {
+			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
+				await agent.ready();
+				await dialog.send(text, sender, timeoutMs);
+				return reply;
+			},
+			dispose() {
+				agent.dispose();
+			},
+		};
+	};
+}
 
 const META_SYSTEM_PROMPT =
 	"You are the :meta command inside Alef, a coding agent. " +
@@ -23,11 +68,9 @@ export async function runMetaAgent(
 	const model = modelId ? buildModel(modelId) : buildModel(DEFAULT_MODEL);
 	// DirectiveView is structurally a subset of DirectiveAdapter; the runtime object
 	// from getDirectiveAdapter() satisfies the full interface.
-	const strategy = new InProcessStrategy(
-		[createAlefApiOrgan({ getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined })],
-		model,
-		META_SYSTEM_PROMPT,
-		onChunk,
-	);
-	return strategy.send(prompt, "human", 60_000);
+	const organs = [
+		createAlefApiOrgan({ getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined }),
+	];
+	const strategy = new InProcessStrategy(organs, makeMetaFactory(model, META_SYSTEM_PROMPT, onChunk));
+	return strategy.send({ text: prompt, sender: "human", timeoutMs: 60_000 });
 }

@@ -41,6 +41,7 @@ async function executeWithDetachedMode(
 		let timedOut = false;
 		let timeoutHandle: NodeJS.Timeout | undefined;
 		if (context.timeout !== undefined && context.timeout > 0) {
+			// lint-ignore: RAWTIMER hard total-execution deadline, not a stall detector
 			timeoutHandle = setTimeout(() => {
 				timedOut = true;
 				if (child.pid) {

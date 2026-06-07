@@ -54,7 +54,7 @@ describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () 
 				script: [step.reply("hello from script")],
 			}),
 		);
-		const reply = await h.send("anything");
+		const reply = await h.send({ text: "anything" });
 		expect(reply).toBe("hello from script");
 	});
 
@@ -63,7 +63,7 @@ describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () 
 		const h = track(
 			BlueprintHarness.create({ cwd, script: [step.reply("The Login function validates passwords.")] }),
 		);
-		await h.send("what does login do?");
+		await h.send({ text: "what does login do?" });
 		h.assertReply("login");
 		h.assertReply("VALIDATES"); // case-insensitive
 	});
@@ -76,15 +76,15 @@ describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () 
 				script: [step.reply("first"), step.reply("second")],
 			}),
 		);
-		expect(await h.send("turn 1")).toBe("first");
-		expect(await h.send("turn 2")).toBe("second");
+		expect(await h.send({ text: "turn 1" })).toBe("first");
+		expect(await h.send({ text: "turn 2" })).toBe("second");
 	});
 
 	it("script exhausted: returns sentinel text without throwing", async () => {
 		const cwd = tmpDir();
 		const h = track(BlueprintHarness.create({ cwd, script: [step.reply("only one")] }));
-		await h.send("turn 1");
-		const reply = await h.send("turn 2"); // script exhausted
+		await h.send({ text: "turn 1" });
+		const reply = await h.send({ text: "turn 2" }); // script exhausted
 		expect(reply).toContain("script exhausted");
 	});
 });
@@ -106,7 +106,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit
 			}),
 		);
 
-		const reply = await h.send("read auth.ts");
+		const reply = await h.send({ text: "read auth.ts" });
 		expect(reply).toBe("I read the file.");
 		h.assertToolCalled("fs.read");
 	});
@@ -123,7 +123,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit
 			}),
 		);
 
-		await h.send("read config");
+		await h.send({ text: "read config" });
 		h.assertToolCalledWith("fs.read", { path: "config.ts" });
 	});
 
@@ -135,7 +135,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit
 				script: [step.reply("just a reply, no tools")],
 			}),
 		);
-		await h.send("hi");
+		await h.send({ text: "hi" });
 		h.assertNotToolCalled("fs.write");
 		h.assertNotToolCalled("shell.exec");
 	});
@@ -161,7 +161,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit
 			}),
 		);
 
-		const reply = await h.send("read a and b");
+		const reply = await h.send({ text: "read a and b" });
 		expect(reply).toBe("Read both files.");
 
 		const fsReadCalls = h.motorEvents.filter((e) => e.type === "fs.read");
@@ -190,7 +190,7 @@ describe("BlueprintHarness.fromBlueprint()", { tags: ["unit"] }, () => {
 		});
 		harnesses.push(h);
 
-		const reply = await h.send("read auth.ts");
+		const reply = await h.send({ text: "read auth.ts" });
 		expect(reply).toBe("File read successfully.");
 		h.assertToolCalled("fs.read");
 		h.assertNotToolCalled("fs.write"); // read-only blueprint
@@ -214,7 +214,7 @@ describe("BlueprintHarness.fromBlueprint()", { tags: ["unit"] }, () => {
 		expect(h.scriptedLlm).toBeDefined();
 
 		// Verify via send + assertion
-		await h.send("can you write?");
+		await h.send({ text: "can you write?" });
 		h.assertNotToolCalled("fs.write");
 	});
 });
@@ -233,10 +233,10 @@ describe("BlueprintHarness — event observation", { tags: ["unit"] }, () => {
 			}),
 		);
 
-		await h.send("turn 1");
+		await h.send({ text: "turn 1" });
 		const firstMotorCount = h.motorEvents.length;
 
-		await h.send("turn 2");
+		await h.send({ text: "turn 2" });
 		// motorEvents is cleared at each send() — so count resets
 		expect(h.motorEvents.length).toBeLessThanOrEqual(firstMotorCount + 2);
 	});

@@ -134,6 +134,7 @@ async function handleFetch(url: string, format: "text" | "html", timeoutMs: numb
 	}
 
 	const controller = new AbortController();
+	// lint-ignore: RAWTIMER HTTP fetch abort deadline
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
 
 	let response: Response;

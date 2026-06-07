@@ -11,7 +11,7 @@
 
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { Cerebrum } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-organ-workflow";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";
@@ -91,7 +91,7 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 				if (t) outerReply = t;
 			},
 		});
-		const llm = new Cerebrum({
+		const llm = createAgentLoop({
 			model: faux.getModel(),
 			getTools: () => agent.tools,
 		});
@@ -122,7 +122,7 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 				if (t) outerReply = t;
 			},
 		});
-		const llm = new Cerebrum({ model: faux.getModel(), getTools: () => agent.tools });
+		const llm = createAgentLoop({ model: faux.getModel(), getTools: () => agent.tools });
 
 		agent.load(dialog).load(llm).load(workflowOrgan);
 		await agent.ready();

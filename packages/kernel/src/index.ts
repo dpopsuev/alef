@@ -9,3 +9,4 @@ export * from "./organ-sdk.js";
 export * from "./payload.js";
 export * from "./protocols.js";
 export * from "./truncate.js";
+export * from "./watchdog.js";

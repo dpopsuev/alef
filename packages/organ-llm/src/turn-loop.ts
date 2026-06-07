@@ -1,17 +1,15 @@
 import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { debugLog, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
-
-const DIALOG_MESSAGE = "dialog.message" as const;
-
 import type { z } from "zod";
+import { DIALOG_MESSAGE } from "./constants.js";
 import { normalizeMessage, retryDelayMs, shouldRetry, sleep } from "./retry.js";
 import { callLLM, type ToolCall } from "./stream-turn.js";
 import { dispatchTools, payloadToText } from "./tool-dispatch.js";
 import type { CerebrumEvent, TokenUsage } from "./tool-events.js";
 
 // ---------------------------------------------------------------------------
-// Options — structural subset of CerebrumOptions, avoids circular import
+// Options — structural subset of AgentLoopOptions, avoids circular import
 // ---------------------------------------------------------------------------
 
 export interface TurnLoopOptions {
@@ -34,6 +32,8 @@ export interface TurnLoopOptions {
 	systemPrompt?: string;
 	apiKey?: string;
 	getApiKey?: () => string | undefined;
+	/** Drain buffered steering messages — injected as user turns between tool batches. */
+	getSteeringMessages?: () => Message[];
 }
 
 // ---------------------------------------------------------------------------
@@ -99,13 +99,13 @@ function waitForPhaseResult(
 			resolve(mergePhaseResults(collected));
 		};
 
-		const deadlineTimer = setTimeout(finish, timeoutMs);
+		const deadlineTimer = setTimeout(finish, timeoutMs); // lint-ignore: RAWTIMER LLM phase pipeline deadline
 
 		const off = sense.subscribe("llm.phase", (event) => {
 			if (event.correlationId !== correlationId) return;
 			collected.push(parsePhaseResult(event.payload));
 			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
-			quiescenceTimer = setTimeout(finish, PHASE_PIPELINE_QUIESCENCE_MS);
+			quiescenceTimer = setTimeout(finish, PHASE_PIPELINE_QUIESCENCE_MS); // lint-ignore: RAWTIMER quiescence window
 		});
 	});
 }
@@ -116,12 +116,17 @@ function waitForPhaseResult(
 
 type ToolDef = { name: string; description: string; inputSchema: z.ZodTypeAny };
 
-function buildTools(defs: readonly ToolDef[], nameMap: Map<string, string>): Tool[] {
-	return defs.map((t) => {
+export function buildTools(defs: readonly ToolDef[], nameMap: Map<string, string>): Tool[] {
+	const seen = new Set<string>();
+	const tools: Tool[] = [];
+	for (const t of defs) {
 		const llmName = t.name.replace(/\./g, "_");
+		if (seen.has(llmName)) continue;
+		seen.add(llmName);
 		nameMap.set(llmName, t.name);
-		return { name: llmName, description: t.description, parameters: toolInputToJsonSchema(t.inputSchema) };
-	});
+		tools.push({ name: llmName, description: t.description, parameters: toolInputToJsonSchema(t.inputSchema) });
+	}
+	return tools;
 }
 
 interface TurnSetup {
@@ -377,17 +382,16 @@ export async function runLLMLoop(
 				break;
 			}
 
-			const results = await dispatchTools(
-				motor,
-				sense,
-				correlationId,
-				toolCalls,
-				toMotorName,
-				timeoutMs,
-				effectiveOptions,
-			);
+			const toolDefsMap = new Map((effectiveOptions.getTools?.() ?? []).map((t) => [t.name, t]));
+			const results = await dispatchTools(motor, sense, correlationId, toolCalls, toMotorName, timeoutMs, {
+				...effectiveOptions,
+				toolDefs: toolDefsMap,
+			});
 			appendToolResults(messages, toolCalls, results, toMotorName);
 			onCheckpoint?.(messages.slice(), ctx.correlationId);
+
+			const steering = options.getSteeringMessages?.() ?? [];
+			for (const msg of steering) messages.push(msg);
 		}
 	} finally {
 		offBudget();

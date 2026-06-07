@@ -34,7 +34,8 @@ export type AgentEvent =
 	| { type: "tool-stall"; callId: string; name: string; elapsedMs: number; lastChunkMs: number }
 	| { type: "turn-complete"; reply: string }
 	| { type: "turn-error"; message: string }
-	| { type: "token-usage"; usage: TokensConsumed };
+	| { type: "token-usage"; usage: TokensConsumed }
+	| { type: "message-queued"; queueLength: number };
 
 // ---------------------------------------------------------------------------
 // DirectiveView — the minimal surface Session exposes from the directive system.

@@ -21,9 +21,8 @@ export const KEY_ARG_FIELDS = [
 	"instruction",
 ] as const;
 
-const DIALOG_MESSAGE = "dialog.message" as const;
-
 import { z } from "zod";
+import { DIALOG_MESSAGE } from "./constants.js";
 import type { CerebrumEvent, TokenUsage } from "./tool-events.js";
 import { runLLMLoop } from "./turn-loop.js";
 
@@ -74,27 +73,45 @@ export interface LlmTopologyOptions {
 }
 
 /** Full options — intersection of all three groups. All existing callers still compile. */
-export type CerebrumOptions = LlmCallOptions & LlmObservabilityOptions & LlmTopologyOptions;
+export type AgentLoopOptions = LlmCallOptions & LlmObservabilityOptions & LlmTopologyOptions;
 
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createCerebrum(options: CerebrumOptions): Organ {
+export function createAgentLoopCore(options: AgentLoopOptions): Organ {
 	const trigger = options.triggerEvent ?? DIALOG_MESSAGE;
 	const reply = options.replyEvent ?? trigger;
 	const isConversation = reply === DIALOG_MESSAGE;
+
+	let turnActive = false;
+	const steeringBuffer: Message[] = [];
+
 	return defineOrgan("llm", {
 		[`sense/${trigger}`]: {
 			handle: async (ctx: CerebrumHandlerCtx) => {
-				// Holds the last tool-round snapshot so partial history can be
-				// published on abort/error, preventing conversation amnesia.
+				if (turnActive) {
+					const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
+					if (text) {
+						steeringBuffer.push({ role: "user", content: text, timestamp: Date.now() });
+						options.onEvent?.({ type: "message-queued", queueLength: steeringBuffer.length });
+					}
+					return;
+				}
+				turnActive = true;
 				let partialHistory: Message[] | undefined;
 				try {
-					await runLLMLoop(ctx, options, (snapshot, correlationId) => {
-						partialHistory = snapshot;
-						options.onCheckpoint?.(snapshot, correlationId);
-					});
+					await runLLMLoop(
+						ctx,
+						{
+							...options,
+							getSteeringMessages: () => steeringBuffer.splice(0),
+						},
+						(snapshot, correlationId) => {
+							partialHistory = snapshot;
+							options.onCheckpoint?.(snapshot, correlationId);
+						},
+					);
 				} catch (err) {
 					const text = `LLM error: ${String(err)}`;
 					ctx.motor.publish({
@@ -108,6 +125,8 @@ export function createCerebrum(options: CerebrumOptions): Organ {
 						),
 						correlationId: ctx.correlationId,
 					});
+				} finally {
+					turnActive = false;
 				}
 			},
 		},
@@ -143,9 +162,9 @@ function pickKeyArg(payload: Record<string, unknown>): string {
 /**
  * Create a full Cerebrum organ with optional concurrent-ops inflight tracking.
  * This is the canonical factory. The Cerebrum class below is a thin adapter
- * kept for backward compatibility with `new Cerebrum(opts)` call sites.
+ * createAgentLoop is the canonical factory.
  */
-export function createConcurrentCerebrum(options: CerebrumOptions): Organ {
+export function createAgentLoop(options: AgentLoopOptions): Organ {
 	const replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
 	const inflight = new Map<string, InflightEntry>();
 
@@ -167,7 +186,7 @@ export function createConcurrentCerebrum(options: CerebrumOptions): Organ {
 		return [{ role: "system", content: block.trimStart() } as unknown as T, ...messages];
 	}
 
-	const wrappedOptions: CerebrumOptions = options.trackConcurrentOps
+	const wrappedOptions: AgentLoopOptions = options.trackConcurrentOps
 		? {
 				...options,
 				prepareStep: async (msgs: Message[]) => {
@@ -177,7 +196,7 @@ export function createConcurrentCerebrum(options: CerebrumOptions): Organ {
 			}
 		: options;
 
-	const innerOrgan = createCerebrum(wrappedOptions);
+	const innerOrgan = createAgentLoopCore(wrappedOptions);
 
 	const publishSchemas = {
 		motor: {
@@ -242,37 +261,6 @@ export function createConcurrentCerebrum(options: CerebrumOptions): Organ {
 			};
 		},
 	};
-}
-
-/** Backward-compatible adapter. Prefer createConcurrentCerebrum for new code. */
-export class Cerebrum implements Organ {
-	private readonly _impl: Organ;
-
-	constructor(options: CerebrumOptions) {
-		this._impl = createConcurrentCerebrum(options);
-	}
-
-	get name() {
-		return this._impl.name;
-	}
-	get description() {
-		return this._impl.description;
-	}
-	get labels() {
-		return this._impl.labels;
-	}
-	get tools() {
-		return this._impl.tools;
-	}
-	get publishSchemas() {
-		return this._impl.publishSchemas;
-	}
-	get subscriptions() {
-		return this._impl.subscriptions;
-	}
-	mount(nerve: Nerve) {
-		return this._impl.mount(nerve);
-	}
 }
 
 export type { ToolDefinition };

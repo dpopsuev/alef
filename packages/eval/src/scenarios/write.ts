@@ -16,13 +16,14 @@ import type { ScenarioContext } from "../harness.js";
  * Pass: file exists + contains required content.
  */
 export async function createHTTPServer(ctx: ScenarioContext): Promise<void> {
-	await ctx.send(
-		"Create a file src/server.ts with a Node.js HTTP server that:\n" +
+	await ctx.send({
+		text:
+			"Create a file src/server.ts with a Node.js HTTP server that:\n" +
 			"1. Has a GET /health endpoint returning { status: 'ok' }\n" +
 			"2. Has a POST /echo endpoint that echoes the request body\n" +
 			"3. Exports a createServer(port: number) function\n" +
 			"Use only the built-in node:http module. No frameworks.",
-	);
+	});
 
 	const content = await ctx.readFile("src/server.ts");
 	if (!content.includes("createServer")) throw new Error("createServer function not found");
@@ -44,10 +45,11 @@ interface Session { userId: string; token: string; expiresAt: number; }
 `.trim(),
 	);
 
-	await ctx.send(
-		"Read src/types.ts. The Session interface is defined but not exported. " +
+	await ctx.send({
+		text:
+			"Read src/types.ts. The Session interface is defined but not exported. " +
 			"Fix it so Session is exported. Only change that file.",
-	);
+	});
 
 	const content = await ctx.readFile("src/types.ts");
 	if (!content.includes("export interface Session") && !content.includes("export type Session")) {
@@ -85,10 +87,11 @@ describe("add", () => {
 `.trim(),
 	);
 
-	await ctx.send(
-		"Read src/math.ts and src/math.test.ts. The test is failing. " +
+	await ctx.send({
+		text:
+			"Read src/math.ts and src/math.test.ts. The test is failing. " +
 			"Find the bug in the implementation and fix it. Only edit src/math.ts.",
-	);
+	});
 
 	const content = await ctx.readFile("src/math.ts");
 	if (!content.includes("a + b")) {
@@ -115,11 +118,12 @@ export function readConfig(path: string, callback: (err: Error | null, data: str
 `.trim(),
 	);
 
-	await ctx.send(
-		"Read src/config.ts and refactor readConfig to use async/await instead of callbacks. " +
+	await ctx.send({
+		text:
+			"Read src/config.ts and refactor readConfig to use async/await instead of callbacks. " +
 			"The refactored function should return Promise<string>. " +
 			"Update the file in place.",
-	);
+	});
 
 	const content = await ctx.readFile("src/config.ts");
 	if (!content.includes("async")) throw new Error("Refactored function is not async");
@@ -128,7 +132,6 @@ export function readConfig(path: string, callback: (err: Error | null, data: str
 		throw new Error("Refactored function does not return Promise<string>");
 	}
 	if (content.includes("callback")) {
-		// Callback arg in signature is gone — some implementations may reference it in comments
 		const withoutComments = content.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
 		if (withoutComments.includes("callback")) {
 			throw new Error("Refactored function still uses callbacks in implementation");
@@ -157,11 +160,12 @@ export function compose(...middleware: Middleware[]): Handler {
 `.trim(),
 	);
 
-	await ctx.send(
-		"Read src/app.ts. Create a new file src/logging-middleware.ts that exports a " +
+	await ctx.send({
+		text:
+			"Read src/app.ts. Create a new file src/logging-middleware.ts that exports a " +
 			"'loggingMiddleware' function compatible with the Middleware type in src/app.ts. " +
 			"It should log 'method url' to console before calling next().",
-	);
+	});
 
 	const content = await readFile(join(ctx.workspace, "src/logging-middleware.ts"), "utf-8");
 	if (!content.includes("loggingMiddleware")) throw new Error("loggingMiddleware not found");

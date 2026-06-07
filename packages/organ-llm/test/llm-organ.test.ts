@@ -3,8 +3,9 @@ import { fauxAssistantMessage, fauxText, fauxToolCall, registerFauxProvider } fr
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 import { DIALOG_MESSAGE_TOOL, NerveFixture, organComplianceSuite, TurnDriver } from "../../testkit/src/index.js";
-import { Cerebrum, createLlmPipeline } from "../src/index.js";
+import { createAgentLoop, createLlmPipeline } from "../src/index.js";
 import { waitForToolResult } from "../src/tool-dispatch.js";
+import { buildTools } from "../src/turn-loop.js";
 
 // organ-llm/createLlmPipeline is the mountable organ — no tools, pure pipeline observer.
 // Cerebrum is a Reasoner (no tools), not a tool-bearing organ.
@@ -31,7 +32,7 @@ function makeModel() {
  * Standard test harness: bare nerve, TurnDriver, Cerebrum, optional BusEventRecorder.
  * Replaces the Agent + DialogOrgan + Cerebrum construction that appeared in every test.
  */
-function makeHarness(cerebrum: Cerebrum) {
+function makeHarness(cerebrum: Organ) {
 	const f = new NerveFixture();
 	const driver = new TurnDriver(f.nerve);
 	const recorder = f.observe();
@@ -46,7 +47,7 @@ afterEach(() => {
 
 function make(fauxProvider: ReturnType<typeof registerFauxProvider>) {
 	const h = makeHarness(
-		new Cerebrum({ model: fauxProvider.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }),
+		createAgentLoop({ model: fauxProvider.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }),
 	);
 	harnesses.push(h);
 	return h;
@@ -66,7 +67,7 @@ describe("Reasoner — application-level retry", { tags: ["unit"] }, () => {
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				maxRetries,
@@ -229,7 +230,7 @@ describe("onResponseChunk forwarding when reply is in dialog_message tool args",
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				onEvent: (e) => {
@@ -298,7 +299,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				maxRetries: 0,
@@ -318,7 +319,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
-		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
@@ -346,7 +347,7 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
-		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
@@ -360,7 +361,7 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				phaseTimeoutMs: 50,
@@ -407,7 +408,7 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 			},
 		};
 
-		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
 		f.mount(phaseOrgan);
 		disposes.push(() => f.dispose());
 
@@ -422,7 +423,7 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				phaseTimeoutMs: 50,
@@ -480,7 +481,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
-		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
 		f.mount(
 			makePhaseOrgan((_payload, reply) => {
 				reply({ skip: true, reply: "phase shortcut" });
@@ -498,7 +499,12 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		const f = new NerveFixture();
 		const recorder = f.observe();
 		f.mount(
-			new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500, replyEvent: "sensor.reply" }),
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				phaseTimeoutMs: 500,
+				replyEvent: "sensor.reply",
+			}),
 		);
 		f.mount(
 			makePhaseOrgan((_payload, reply) => {
@@ -528,7 +534,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
-		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
 		f.mount(
 			makePhaseOrgan((_payload, reply) => {
 				reply({ abort: true });
@@ -547,7 +553,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
-		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
@@ -579,7 +585,7 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 		const f = new NerveFixture();
 		const recorder = f.observe();
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				triggerEvent: "git.push",
@@ -608,7 +614,7 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
-		f.mount(new Cerebrum({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
 		disposes.push(() => f.dispose());
 
 		const reply = await driver.send("hi", "user", 5_000);
@@ -622,13 +628,13 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 
 describe("Cerebrum — trackConcurrentOps", { tags: ["unit"] }, () => {
 	it("declares wildcard motor+sense subscriptions when trackConcurrentOps=true", () => {
-		const cerebrum = new Cerebrum({ model: makeModel(), trackConcurrentOps: true });
+		const cerebrum = createAgentLoop({ model: makeModel(), trackConcurrentOps: true });
 		expect(cerebrum.subscriptions.motor).toContain("*");
 		expect(cerebrum.subscriptions.sense).toContain("*");
 	});
 
 	it("does not declare wildcard subscriptions when trackConcurrentOps=false", () => {
-		const cerebrum = new Cerebrum({ model: makeModel() });
+		const cerebrum = createAgentLoop({ model: makeModel() });
 		expect(cerebrum.subscriptions.motor).not.toContain("*");
 		expect(cerebrum.subscriptions.sense).not.toContain("*");
 	});
@@ -654,7 +660,7 @@ describe("Cerebrum — trackConcurrentOps", { tags: ["unit"] }, () => {
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				trackConcurrentOps: true,
@@ -699,7 +705,7 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 		);
 
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				getTools: () => [DIALOG_MESSAGE_TOOL, ...strictOrgan.tools],
@@ -738,7 +744,7 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				getTools: () => [DIALOG_MESSAGE_TOOL],
@@ -799,7 +805,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 		);
 
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				timeoutMs: 200, // short timeout for test speed
@@ -874,7 +880,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const driver = new TurnDriver(f.nerve);
 
 		f.mount(
-			new Cerebrum({
+			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				getTools: () => [DIALOG_MESSAGE_TOOL, ...streamingOrgan.tools],
@@ -916,16 +922,15 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 		const stallEvents: Array<{ elapsedMs: number; lastChunkMs: number }> = [];
 
 		// When: waitForToolResult with a 200ms stall interval and 600ms timeout
-		const resultPromise = waitForToolResult(
-			f.nerve.asNerve().sense,
-			"stall.test",
+		const resultPromise = waitForToolResult({
+			sense: f.nerve.asNerve().sense,
+			toolName: "stall.test",
 			toolCallId,
 			correlationId,
-			600, // outer timeout
-			undefined, // no onChunk
-			(info) => stallEvents.push(info), // onStall
-			200, // stallIntervalMs — 200ms for test speed (default is 5s)
-		);
+			timeoutMs: 600,
+			onStall: (info) => stallEvents.push(info),
+			stallIntervalMs: 200,
+		});
 
 		// The promise will reject at 600ms (timeout)
 		await expect(resultPromise).rejects.toThrow(/timed out/i);
@@ -950,16 +955,16 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 		const stallEvents: Array<{ elapsedMs: number; lastChunkMs: number }> = [];
 		const chunks: string[] = [];
 
-		const resultPromise = waitForToolResult(
-			f.nerve.asNerve().sense,
-			"stall.reset",
+		const resultPromise = waitForToolResult({
+			sense: f.nerve.asNerve().sense,
+			toolName: "stall.reset",
 			toolCallId,
 			correlationId,
-			600,
-			(text) => chunks.push(text),
-			(info) => stallEvents.push(info),
-			200,
-		);
+			timeoutMs: 600,
+			onChunk: (text) => chunks.push(text),
+			onStall: (info) => stallEvents.push(info),
+			stallIntervalMs: 200,
+		});
 
 		// Emit one chunk at 50ms — resets the stall clock
 		setTimeout(() => {
@@ -984,4 +989,69 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 			expect(event.lastChunkMs, "lastChunkMs must reflect chunk reset").toBeGreaterThanOrEqual(150);
 		}
 	}, 3_000);
+});
+
+// ---------------------------------------------------------------------------
+// buildTools — normalization collision
+//
+// The LLM API requires tool names to be unique. buildTools normalizes "." → "_",
+// so "foo.bar" and "foo_bar" both become "foo_bar". The API then rejects the
+// request with "Tool names must be unique."
+// ---------------------------------------------------------------------------
+
+describe("buildTools — normalization collision", { tags: ["unit"] }, () => {
+	it("two names that normalize identically must not produce duplicate llmName values", () => {
+		const nameMap = new Map<string, string>();
+		const defs = [
+			{ name: "foo.bar", description: "original", inputSchema: z.object({}) },
+			{
+				name: "foo_bar",
+				description: "collision — normalizes to the same llmName as foo.bar",
+				inputSchema: z.object({}),
+			},
+		];
+		// "foo.bar" → "foo_bar" and "foo_bar" → "foo_bar": identical after normalization.
+		// buildTools currently maps both without deduplication, producing a duplicate.
+		const tools = buildTools(defs, nameMap);
+		const names = tools.map((t) => t.name);
+		expect(
+			new Set(names).size,
+			`colliding normalized names must not appear twice in tool list; got: ${names.join(", ")}`,
+		).toBe(names.length);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Ambient steering — mid-turn message buffering
+// ---------------------------------------------------------------------------
+
+describe("Cerebrum — ambient steering", { tags: ["unit"] }, () => {
+	it("second dialog.message while turn is active does not start a concurrent turn", async () => {
+		const faux = registerFauxProvider();
+		const f = new NerveFixture();
+		const driver = new TurnDriver(f.nerve);
+		harnesses.push({ f });
+
+		const _motorReplies: string[] = [];
+		faux.setResponses([fauxAssistantMessage("reply one"), fauxAssistantMessage("reply two")]);
+
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		const recorder = f.observe();
+
+		// Fire first turn then immediately fire a second sense event.
+		const firstReply = driver.send("message one");
+		// Second message fires while first turn handler is scheduled but not yet complete.
+		driver.receive("message two");
+
+		await firstReply;
+		// Wait a tick to let any concurrent second turn settle.
+		await new Promise((r) => setTimeout(r, 50));
+
+		const motorDialogEvents = recorder.motor.filter((e) => e.type === "dialog.message");
+		// Only one motor reply must have been published — the second sense event was buffered, not run.
+		expect(
+			motorDialogEvents.length,
+			"second dialog.message while turn active must not produce a second immediate reply",
+		).toBe(1);
+	}, 5_000);
 });

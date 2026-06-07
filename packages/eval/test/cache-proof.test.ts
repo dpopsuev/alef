@@ -63,7 +63,7 @@ describe("EvalHarness — CacheProof (TSK-118)", { tags: ["integration"] }, () =
 		const metrics = await harness.run(
 			async (ctx) => {
 				await ctx.writeFile("target.txt", "hello cache");
-				const reply = await ctx.send("read it twice");
+				const reply = await ctx.send({ text: "read it twice" });
 				if (reply !== "read twice") throw new Error(`unexpected reply: ${reply}`);
 			},
 			{

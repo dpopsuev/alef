@@ -267,7 +267,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 			}),
 		);
 
-		const reply = await h.send("read auth.ts");
+		const reply = await h.send({ text: "read auth.ts" });
 		expect(reply).toBe("Read the file.");
 		h.assertToolCalled("fs.read");
 		h.assertToolCalledWith("fs.read", { path: "auth.ts" });
@@ -292,7 +292,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 			}),
 		);
 
-		await h.send("find handleRequest");
+		await h.send({ text: "find handleRequest" });
 		h.assertToolCalled("fs.grep");
 		h.assertToolCalledWith("fs.grep", { pattern: "handleRequest" });
 	});
@@ -312,7 +312,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 			}),
 		);
 
-		await h.send("anything");
+		await h.send({ text: "anything" });
 		// fs.write must not be a registered tool — agent cannot call it
 		h.assertNotToolCalled("fs.write");
 	});
@@ -335,11 +335,11 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 			}),
 		);
 
-		const r1 = await h.send("read a.ts");
+		const r1 = await h.send({ text: "read a.ts" });
 		expect(r1).toBe("Read a.");
 		h.assertToolCalledWith("fs.read", { path: "a.ts" });
 
-		const r2 = await h.send("read b.ts");
+		const r2 = await h.send({ text: "read b.ts" });
 		expect(r2).toBe("Read b.");
 		h.assertToolCalledWith("fs.read", { path: "b.ts" });
 	});
@@ -358,7 +358,7 @@ describe("blueprint composition — shell organ", { tags: ["unit"] }, () => {
 			}),
 		);
 
-		await h.send("run echo");
+		await h.send({ text: "run echo" });
 		h.assertToolCalled("shell.exec");
 		h.assertToolCalledWith("shell.exec", { command: "echo hello" });
 	});

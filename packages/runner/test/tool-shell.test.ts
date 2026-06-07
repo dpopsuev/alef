@@ -11,7 +11,7 @@
  *   buildOrganDirectives — index from organ list
  */
 
-import type { OrganLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Organ, OrganLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
@@ -486,6 +486,44 @@ describe("buildOrganDirectives", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 // ALE-TSK-597 — agent.run in tools.describe catalog (no full server boot)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// agent.tools — uniqueness invariant
+//
+// agent._tools is a plain push-append array. If two organs expose a tool with
+// the same name, both entries land in agent.tools, which is passed verbatim to
+// buildTools → LLM API. The API rejects with "Tool names must be unique."
+// ---------------------------------------------------------------------------
+
+describe("agent.tools — uniqueness invariant", { tags: ["integration"] }, () => {
+	function stubOrgan(name: string, tools: ToolDefinition[]): Organ {
+		return {
+			name,
+			tools,
+			subscriptions: { motor: [], sense: [] },
+			mount() {
+				return () => {};
+			},
+		};
+	}
+
+	it("loading two organs that share a tool name must not produce duplicate agent.tools entries", () => {
+		// Both organs declare fs.read — the second load appends a duplicate to agent._tools.
+		const organA = stubOrgan("organ-a", [FS_READ]);
+		const organB = stubOrgan("organ-b", [makeTool("fs.read", "A second organ that also exposes fs.read")]);
+
+		const agent = new Agent();
+		agent.load(organA);
+		agent.load(organB);
+
+		const names = agent.tools.map((t) => t.name);
+		expect(new Set(names).size, `agent.tools must have no duplicate names; got: ${names.join(", ")}`).toBe(
+			names.length,
+		);
+
+		agent.dispose();
+	});
+});
 
 describe("tools.describe catalog includes agent.run when included in tools list", { tags: ["integration"] }, () => {
 	const AGENT_RUN: ToolDefinition = {

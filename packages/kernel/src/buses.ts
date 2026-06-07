@@ -1,39 +1,29 @@
 import { randomUUID } from "node:crypto";
 import { type ZodTypeAny, z } from "zod";
 
-// ---------------------------------------------------------------------------
-// NerveEvent — base shape every bus event must extend.
-// ---------------------------------------------------------------------------
-
 export interface NerveEvent {
 	readonly type: string;
 	readonly correlationId: string;
-	/** Epoch ms — set by the bus at emit time. Organs do not set this. */
 	readonly timestamp: number;
-	/** Ms since the first event with this correlationId was seen. Set by the bus. */
 	readonly elapsed: number;
 }
 
-// ---------------------------------------------------------------------------
-// ToolDefinition — what an organ exposes to the LLM as a callable tool.
-// The tool name IS the Motor event type the organ subscribes to.
-// ---------------------------------------------------------------------------
+export interface SkillPage {
+	readonly name: string;
+	readonly description: string;
+	readonly instructions: string;
+}
+
+export interface SkillBook {
+	readonly name: string;
+	readonly description: string;
+	readonly pages: readonly SkillPage[];
+}
 
 export interface ToolDefinition {
 	readonly name: string;
 	readonly description: string;
-	/**
-	 * Input schema for this tool. Must be a Zod schema — enforced by the
-	 * framework. Use z.object({}) for tools that take no arguments.
-	 * Cerebrum converts to JSON Schema via z.toJSONSchema() before the provider.
-	 */
 	readonly inputSchema: ZodTypeAny;
-	/**
-	 * Set to true by typedStreamAction. Signals that this tool produces
-	 * isFinal:false sense events during execution (streaming output).
-	 * organComplianceSuite uses this to auto-discover streaming tools and
-	 * require a validPayload in opts.streaming for each.
-	 */
 	readonly streaming?: true;
 }
 
@@ -44,18 +34,16 @@ export interface ToolDefinition {
  *
  * toolInputToJsonSchema() detects this wrapper and returns the raw schema directly.
  */
+const passthroughRawMap = new WeakMap<ZodTypeAny, Record<string, unknown>>();
+
 export function passthroughSchema(raw: Record<string, unknown>): ZodTypeAny {
 	const schema = z.unknown();
-	(schema as unknown as { _passthroughRaw: Record<string, unknown> })._passthroughRaw = raw;
+	passthroughRawMap.set(schema, raw);
 	return schema;
 }
 
-/**
- * Convert a ToolDefinition's inputSchema to a plain JSON Schema object.
- */
 export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknown> {
-	// Passthrough schemas (e.g. from McpOrgan) carry raw JSON Schema directly.
-	const raw = (schema as unknown as { _passthroughRaw?: Record<string, unknown> })._passthroughRaw;
+	const raw = passthroughRawMap.get(schema);
 	if (raw !== undefined) return raw;
 
 	const js = z.toJSONSchema(schema) as Record<string, unknown>;
@@ -111,6 +99,8 @@ export interface Nerve {
 		subscribe(type: string, handler: SenseHandler): () => void;
 		publish(event: SensePublishInput): void;
 	};
+	/** Reset the nerve-level liveness watchdog. Called automatically by organ-dispatch on every event. */
+	pulse(): void;
 }
 
 /** A function that wraps a Nerve to intercept motor/sense events. Composable middleware. */
@@ -149,6 +139,11 @@ export interface Organ {
 	 * Each string is a freeform instruction block (markdown or prose).
 	 */
 	readonly directives?: readonly string[];
+	/**
+	 * Skill books this organ contributes to the Skill Library.
+	 * Aggregated by buildOrganSkills() and registered in SkillsOrgan at boot.
+	 */
+	readonly skills?: readonly SkillBook[];
 	/**
 	 * Short human-readable description of what this organ does.
 	 * Shown in --list-organs and blueprint validation output.

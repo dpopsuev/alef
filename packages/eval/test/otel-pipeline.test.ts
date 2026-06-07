@@ -50,7 +50,7 @@ describe("OTel pipeline — span collection", { tags: ["integration"] }, () => {
 		const metrics = await harness.run(
 			async (ctx) => {
 				await ctx.writeFile("test.txt", "hello");
-				await ctx.send("read it");
+				await ctx.send({ text: "read it" });
 			},
 			{ scenario: "otel-smoke", extraOrgans: [new FileReaderLLMOrgan()] },
 		);
@@ -63,7 +63,7 @@ describe("OTel pipeline — span collection", { tags: ["integration"] }, () => {
 		const metrics = await harness.run(
 			async (ctx) => {
 				await ctx.writeFile("test.txt", "hello");
-				await ctx.send("read it");
+				await ctx.send({ text: "read it" });
 			},
 			{ scenario: "otel-attrs", extraOrgans: [new FileReaderLLMOrgan()] },
 		);
@@ -76,7 +76,7 @@ describe("OTel pipeline — span collection", { tags: ["integration"] }, () => {
 		const metrics = await harness.run(
 			async (ctx) => {
 				await ctx.writeFile("test.txt", "hello");
-				await ctx.send("read it");
+				await ctx.send({ text: "read it" });
 			},
 			{ scenario: "otel-cache-attr", extraOrgans: [new FileReaderLLMOrgan()] },
 		);

@@ -269,7 +269,7 @@ async function doUpdate(scope: string): Promise<void> {
 			const { execSync, execFileSync } = await import("node:child_process");
 			let globalBin: string;
 			try {
-				globalBin = execSync("npm prefix -g", { encoding: "utf-8" }).trim() + "/bin/alef";
+				globalBin = `${execSync("npm prefix -g", { encoding: "utf-8" }).trim()}/bin/alef`;
 			} catch {
 				globalBin = "";
 			}

@@ -114,7 +114,7 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 		});
 	});
 
-	describe("fd @ file suggestions", { skip: !isFdInstalled }, () => {
+	describe("fd / file suggestions", { skip: !isFdInstalled }, () => {
 		let rootDir = "";
 		let baseDir = "";
 		let outsideDir = "";
@@ -140,11 +140,11 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@";
+			const line = "/";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value).sort();
-			assert.deepStrictEqual(values, ["@README.md", "@src/"].sort());
+			assert.deepStrictEqual(values, ["/README.md", "/src/"].sort());
 		});
 
 		test("matches file with extension in query", async () => {
@@ -155,11 +155,11 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@file.txt";
+			const line = "/file.txt";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value);
-			assert.ok(values?.includes("@file.txt"));
+			assert.ok(values?.includes("/file.txt"));
 		});
 
 		test("filters are case insensitive", async () => {
@@ -171,11 +171,11 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@re";
+			const line = "/re";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value).sort();
-			assert.deepStrictEqual(values, ["@README.md"]);
+			assert.deepStrictEqual(values, ["/README.md"]);
 		});
 
 		test("ranks directories before files", async () => {
@@ -187,12 +187,12 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@src";
+			const line = "/src";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const firstValue = result?.items[0]?.value;
-			const hasSrcFile = result?.items?.some((item) => item.value === "@src.txt");
-			assert.strictEqual(firstValue, "@src/");
+			const hasSrcFile = result?.items?.some((item) => item.value === "/src.txt");
+			assert.strictEqual(firstValue, "/src/");
 			assert.ok(hasSrcFile);
 		});
 
@@ -204,11 +204,11 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@index";
+			const line = "/index";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value);
-			assert.ok(values?.includes("@src/index.ts"));
+			assert.ok(values?.includes("/src/index.ts"));
 		});
 
 		test("matches deeply nested paths", async () => {
@@ -220,12 +220,12 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@tui/src/auto";
+			const line = "/tui/src/auto";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value);
-			assert.ok(values?.includes("@packages/tui/src/autocomplete.ts"));
-			assert.ok(!values?.includes("@packages/ai/src/autocomplete.ts"));
+			assert.ok(values?.includes("/packages/tui/src/autocomplete.ts"));
+			assert.ok(!values?.includes("/packages/ai/src/autocomplete.ts"));
 		});
 
 		test("matches directory in middle of path with --full-path", async () => {
@@ -237,12 +237,12 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@components/";
+			const line = "/components/";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value);
-			assert.ok(values?.includes("@src/components/Button.tsx"));
-			assert.ok(!values?.includes("@src/utils/helpers.ts"));
+			assert.ok(values?.includes("/src/components/Button.tsx"));
+			assert.ok(!values?.includes("/src/utils/helpers.ts"));
 		});
 
 		test("scopes fuzzy search to relative directories and searches recursively", async () => {
@@ -255,13 +255,13 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@../outside/a";
+			const line = "/../outside/a";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value);
-			assert.ok(values?.includes("@../outside/nested/alpha.ts"));
-			assert.ok(values?.includes("@../outside/nested/deeper/also-alpha.ts"));
-			assert.ok(!values?.includes("@../outside/nested/deeper/zzz.ts"));
+			assert.ok(values?.includes("/../outside/nested/alpha.ts"));
+			assert.ok(values?.includes("/../outside/nested/deeper/also-alpha.ts"));
+			assert.ok(!values?.includes("/../outside/nested/deeper/zzz.ts"));
 		});
 
 		test("quotes paths with spaces for @ suggestions", async () => {
@@ -273,11 +273,11 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@my";
+			const line = "/my";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value);
-			assert.ok(values?.includes('@"my folder/"'));
+			assert.ok(values?.includes('/"my folder/"'));
 		});
 
 		test("includes hidden paths but excludes .git", async () => {
@@ -291,13 +291,13 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@";
+			const line = "/";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value) ?? [];
-			assert.ok(values.includes("@.alef/"));
-			assert.ok(values.includes("@.github/"));
-			assert.ok(!values.some((value) => value === "@.git" || value.startsWith("@.git/")));
+			assert.ok(values.includes("/.alef/"));
+			assert.ok(values.includes("/.github/"));
+			assert.ok(!values.some((value) => value === "/.git" || value.startsWith("/.git/")));
 		});
 
 		test("follows symlinked directories for fuzzy @ search", async () => {
@@ -314,12 +314,12 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			symlinkSync("../outside", join(baseDir, "symlinked_dir"));
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@some";
+			const line = "/some";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value) ?? [];
-			assert.ok(values.includes("@dir/some_file.txt"));
-			assert.ok(values.includes("@symlinked_dir/some_file.txt"));
+			assert.ok(values.includes("/dir/some_file.txt"));
+			assert.ok(values.includes("/symlinked_dir/some_file.txt"));
 		});
 
 		test("returns symlinked directories when matching their name", async () => {
@@ -331,11 +331,11 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			symlinkSync("../outside", join(baseDir, "symlinked_dir"));
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@symlinked";
+			const line = "/symlinked";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value) ?? [];
-			assert.ok(values.includes("@symlinked_dir/"));
+			assert.ok(values.includes("/symlinked_dir/"));
 		});
 
 		test("returns symlinked files without requiring type l", async () => {
@@ -348,11 +348,11 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			symlinkSync("original.txt", linkPath);
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = "@link";
+			const line = "/link";
 			const result = await getSuggestions(provider, [line], 0, line.length);
 
 			const values = result?.items.map((item) => item.value) ?? [];
-			assert.ok(values.includes("@link.txt"));
+			assert.ok(values.includes("/link.txt"));
 		});
 
 		test("returns the same @ suggestions when the cwd path contains the query", async () => {
@@ -371,7 +371,7 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			setupFolder(normalBaseDir, structure);
 			setupFolder(queryInPathBaseDir, structure);
 
-			const query = "@plan";
+			const query = "/plan";
 			const normalProvider = new CombinedAutocompleteProvider([], normalBaseDir, requireFdPath());
 			const queryInPathProvider = new CombinedAutocompleteProvider([], queryInPathBaseDir, requireFdPath());
 
@@ -397,13 +397,13 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = '@"my folder/"';
+			const line = '/"my folder/"';
 			const result = await getSuggestions(provider, [line], 0, line.length - 1);
 
 			assert.notEqual(result, null, "Should return suggestions for quoted folder path");
 			const values = result?.items.map((item) => item.value);
-			assert.ok(values?.includes('@"my folder/test.txt"'));
-			assert.ok(values?.includes('@"my folder/other.txt"'));
+			assert.ok(values?.includes('/"my folder/test.txt"'));
+			assert.ok(values?.includes('/"my folder/other.txt"'));
 		});
 
 		test("applies quoted @ completion without duplicating closing quote", async () => {
@@ -414,16 +414,16 @@ describe("CombinedAutocompleteProvider", { tags: ["unit"] }, () => {
 			});
 
 			const provider = new CombinedAutocompleteProvider([], baseDir, requireFdPath());
-			const line = '@"my folder/te"';
+			const line = '/"my folder/te"';
 			const cursorCol = line.length - 1;
 			const result = await getSuggestions(provider, [line], 0, cursorCol);
 
 			assert.notEqual(result, null, "Should return suggestions for quoted @ path");
-			const item = result?.items.find((entry) => entry.value === '@"my folder/test.txt"');
+			const item = result?.items.find((entry) => entry.value === '/"my folder/test.txt"');
 			assert.ok(item, "Should find test.txt suggestion");
 
 			const applied = provider.applyCompletion([line], 0, cursorCol, item!, result!.prefix);
-			assert.strictEqual(applied.lines[0], '@"my folder/test.txt" ');
+			assert.strictEqual(applied.lines[0], '/"my folder/test.txt"');
 		});
 	});
 

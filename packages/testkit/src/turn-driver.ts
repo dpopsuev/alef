@@ -25,7 +25,7 @@ export const DIALOG_MESSAGE_TOOL: ToolDefinition = {
  * Usage:
  *   const nerve = new InProcessNerve();
  *   const driver = new TurnDriver(nerve);
- *   const unmount = new Cerebrum({ ..., getTools: () => [DIALOG_MESSAGE_TOOL] }).mount(nerve.asNerve());
+ *   const unmount = createAgentLoop({ ..., getTools: () => [DIALOG_MESSAGE_TOOL] }).mount(nerve.asNerve());
  *   const reply = await driver.send("hello");
  *   unmount();
  */

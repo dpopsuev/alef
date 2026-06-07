@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../../organ-fs/src/index.js";
+import { materializeBlueprint } from "../../runner/src/materializer.js";
 import { BlueprintHarness } from "../src/blueprint-harness.js";
 import { step } from "../src/script.js";
 
@@ -186,6 +187,7 @@ describe("BlueprintHarness.fromBlueprint()", { tags: ["unit"] }, () => {
 
 		const h = await BlueprintHarness.fromBlueprint(blueprintPath, {
 			cwd,
+			materialize: materializeBlueprint,
 			script: [step.toolCall("fs.read", { path: "auth.ts" }, "File read successfully.")],
 		});
 		harnesses.push(h);
@@ -206,6 +208,7 @@ describe("BlueprintHarness.fromBlueprint()", { tags: ["unit"] }, () => {
 
 		const h = await BlueprintHarness.fromBlueprint(blueprintPath, {
 			cwd,
+			materialize: materializeBlueprint,
 			script: [step.reply("I can only read.")],
 		});
 		harnesses.push(h);

@@ -32,6 +32,7 @@ export interface LlmOrganOptions {
 	getModel: () => Model<Api>;
 	getSignal: () => AbortSignal | undefined;
 	getTools: () => ToolDefinition[];
+	getFullTools: () => readonly ToolDefinition[];
 }
 
 export function buildLlmOrgan(opts: LlmOrganOptions): Organ | ScriptedReasoner {
@@ -67,6 +68,7 @@ export function buildLlmOrgan(opts: LlmOrganOptions): Organ | ScriptedReasoner {
 		getSignal: opts.getSignal,
 		phaseTimeoutMs: 100,
 		getTools: opts.getTools,
+		getFullTools: opts.getFullTools,
 		onEvent: opts.onEvent,
 	});
 }

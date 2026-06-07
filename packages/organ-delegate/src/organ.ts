@@ -1,5 +1,16 @@
-import type { BaseOrganOptions, ExecutionStrategy, Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedStreamAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type {
+	AgentRunContext,
+	BaseOrganOptions,
+	ExecutionStrategy,
+	Organ,
+	OrganContributions,
+} from "@dpopsuev/alef-kernel";
+import {
+	createCompositeAgentRunContribution,
+	defineOrgan,
+	typedStreamAction,
+	withDisplay,
+} from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export interface AdHocSessionOptions {
@@ -94,10 +105,18 @@ class AsyncQueue {
 
 export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies));
+	const composite = createCompositeAgentRunContribution();
 
 	const organ = defineOrgan(
 		"delegate",
 		{
+			"sense/organ.loaded": {
+				handle: async (ctx: { payload: Record<string, unknown> }) => {
+					const contribution = (ctx.payload.contributions as OrganContributions | undefined)?.["agent.run"];
+					if (contribution) composite.add(contribution);
+					return {};
+				},
+			},
 			"motor/agent.run": typedStreamAction(AGENT_RUN_TOOL, async function* (ctx) {
 				const { text, profile = "explore", timeoutMs = 600_000 } = ctx.payload;
 				const instructions = typeof ctx.payload.instructions === "string" ? ctx.payload.instructions : undefined;
@@ -113,15 +132,25 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 					const parentDirectives =
 						inheritDirectives && opts.getParentDirectives ? await opts.getParentDirectives() : "";
 
-					const systemPrompt = [parentDirectives, instructions].filter(Boolean).join("\n\n") || undefined;
+					const instructionParts = [parentDirectives, instructions].filter(Boolean);
+					const extraOrgans: Organ[] = [];
 
-					let resolvedOrgans: readonly Organ[];
+					const context: AgentRunContext = {
+						prependInstructions: (text) => instructionParts.unshift(text),
+						addOrgans: (organs) => extraOrgans.push(...organs),
+					};
+					await composite.extend(ctx.payload as Record<string, unknown>, context);
+
+					const systemPrompt = instructionParts.join("\n\n") || undefined;
+
+					let resolvedOrgans: Organ[];
 					if (organNames && opts.materializeOrgans) {
 						resolvedOrgans = await opts.materializeOrgans(organNames);
 					} else {
 						const strategy = strategies.get(profile);
 						resolvedOrgans = (strategy as unknown as { organs?: Organ[] }).organs ?? [];
 					}
+					resolvedOrgans = [...resolvedOrgans, ...extraOrgans];
 
 					const session = opts.createAdHocSession({
 						organs: resolvedOrgans,

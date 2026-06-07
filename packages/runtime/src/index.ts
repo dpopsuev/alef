@@ -152,7 +152,12 @@ export class Agent {
 				type: "organ.loaded",
 				correlationId: sysId,
 				isError: false,
-				payload: { name: loaded.name, tools: loaded.tools.map((t) => t.name), skills: loaded.skills ?? [] },
+				payload: {
+					name: loaded.name,
+					tools: loaded.tools.map((t) => t.name),
+					skills: loaded.skills ?? [],
+					contributions: loaded.contributions,
+				},
 			});
 		}
 		return this;

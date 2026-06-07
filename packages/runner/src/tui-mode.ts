@@ -17,7 +17,7 @@ import { registry } from "./commands/index.js";
 import type { TuiHandlerContext } from "./commands/types.js";
 import { ConsoleZone } from "./console-zone.js";
 import { trace } from "./debug-trace.js";
-import { formatError } from "./errors.js";
+
 import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
@@ -27,12 +27,13 @@ import { boldColor, color, getTheme, glyph } from "./theme.js";
 import { ChatWriter } from "./tui/chat-writer.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 import { StreamingZone } from "./tui/streaming-zone.js";
-import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent } from "./tui/tool-view.js";
+
 import { Typewriter } from "./tui/typewriter.js";
+import { handleAgentEvent, handleTurnError } from "./tui-reducer.js";
+import { initialTuiState, type TuiUi } from "./tui-state.js";
 import { checkForUpdate } from "./version-check.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
-// Re-export primitives still used by tests and tui-commands.test.ts
 export { pillFooterStr, pillHeaderStr } from "./tui/pill.js";
 export { renderDiffDisplay, renderToolLine, truncateToolOutput } from "./tui/tool-view.js";
 
@@ -247,156 +248,25 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 		() => tui.requestRender(),
 	);
 
-	// ── Tool call tracking ────────────────────────────────────────────────
-	const activeCalls = new Map<string, { name: string; keyArg: string }>();
-	let batchStartedAt = 0;
-	let turnStartedAt = 0;
-	let pendingTokenFooter: { setText(s: string): void } | null = null;
-
-	let pendingFooterShown = false;
-	const showFooter = (): void => {
-		if (!pendingFooterShown) {
-			consoleZone.showPendingFooter(t.agentFg);
-			pendingFooterShown = true;
-		}
-	};
+	// ── Agent event dispatch ──────────────────────────────────────────────
+	let tuiState = initialTuiState();
+	const tuiUi: TuiUi = { writer, streamingZone, replyTW, thinkingTW, consoleZone, tui, t, session };
 
 	session.subscribe((event) => {
-		switch (event.type) {
-			case "tool-start": {
-				const { callId, name, args } = event;
-				consoleZone.pulse();
-				showFooter();
-				replyTW.flush();
-				thinkingTW.flush();
-				streamingZone.reset();
-				const keyArg = keyArgFromPayload(args);
-				trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: activeCalls.size + 1 });
-				if (activeCalls.size === 0) batchStartedAt = Date.now();
-				activeCalls.set(callId, { name, keyArg });
-				consoleZone.showInFlightCall(callId, name, keyArg);
-				tui.requestRender();
-				break;
-			}
-			case "turn-error": {
-				// Non-retryable LLM error (e.g. invalid request rejected by the API).
-				// Show a notice so the user sees something rather than silence.
-				consoleZone.pulse();
-				writer.addNotice(`LLM error: ${event.message}`);
-				tui.requestRender();
-				break;
-			}
-			case "message-queued": {
-				writer.addNotice(
-					event.queueLength === 1
-						? "message queued — agent will receive it after the current turn"
-						: `${event.queueLength} messages queued`,
-				);
-				tui.requestRender();
-				break;
-			}
-			case "tool-validation-error": {
-				// Schema rejected the LLM's tool arguments — surface inline so the LLM sees
-				// a clear retry hint rather than a raw zod error in the toolResult text.
-				consoleZone.pulse();
-				consoleZone.updateInFlightCallChunk(event.callId, `\u26a0 invalid arg '${event.field}': ${event.message}`);
-				tui.requestRender();
-				break;
-			}
-			case "tool-stall": {
-				// Tool has been running without emitting any chunks for STALL_INTERVAL_MS.
-				// Makes silent long-running tools visible instead of just showing a counter.
-				consoleZone.pulse();
-				consoleZone.updateInFlightCallChunk(
-					event.callId,
-					`\u23f3 no output for ${Math.round(event.lastChunkMs / 1_000)}s`,
-				);
-				tui.requestRender();
-				break;
-			}
-			case "tool-chunk": {
-				// Streaming progress from a long-running tool (shell.exec, agent.run).
-				// Update the in-flight pill's live text so the user sees activity.
-				consoleZone.pulse();
-				consoleZone.updateInFlightCallChunk(event.callId, event.text);
-				tui.requestRender();
-				break;
-			}
-			case "tool-end": {
-				const { callId, elapsedMs, ok, display, displayKind } = event;
-				const entry = activeCalls.get(callId);
-				if (entry) {
-					trace("tool:end", {
-						callId: callId.slice(0, 8),
-						name: entry.name,
-						elapsedMs,
-						ok,
-						remainingActive: activeCalls.size - 1,
-					});
-					consoleZone.removeInFlightCall(callId);
-					activeCalls.delete(callId);
-					writer.addCompletedToolBlock(
-						entry.name,
-						entry.keyArg,
-						elapsedMs,
-						ok,
-						display?.trim() ? makeToolOutputComponent(display, displayKind, t) : null,
-					);
-					if (activeCalls.size === 0 && batchStartedAt > 0) {
-						writer.addBatchTiming(Date.now() - batchStartedAt);
-						batchStartedAt = 0;
-					}
-					tui.requestRender();
-				}
-				break;
-			}
-			case "token-usage": {
-				const { input, output, totalTokens } = event.usage;
-				sessionTokens.total += input + output;
-				if (pendingTokenFooter) {
-					pendingTokenFooter.setText(formatTokenUsage(input, output, t, Date.now() - turnStartedAt));
-					pendingTokenFooter = null;
-					tui.requestRender();
-				}
-				const cw = session.state.contextWindow;
-				if (cw && totalTokens > 0) {
-					const fill = totalTokens / cw;
-					if (fill > 0.9) {
-						writer.addNotice(
-							`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${cw.toLocaleString()} tokens) — start a new session soon`,
-						);
-						tui.requestRender();
-					} else if (fill > 0.75) {
-						writer.addNotice(`context ${Math.round(fill * 100)}% full`);
-						tui.requestRender();
-					}
-				}
-				break;
-			}
-			case "chunk":
-				consoleZone.pulse();
-				showFooter();
-				replyTW.receive(event.text);
-				break;
-			case "thinking":
-				consoleZone.pulse();
-				thinkingTW.receive(event.text);
-				break;
-		}
+		tuiState = handleAgentEvent(tuiState, event, tuiUi);
+		tui.requestRender();
 	});
 
 	// ── Input handling ────────────────────────────────────────────────────
-	let abortCurrentTurn: (() => void) | undefined;
-
 	const ctx = (): TuiHandlerContext => ({
 		t,
 		writer,
 		tui,
 		opts,
 		session,
-		abortCurrentTurn,
+		abortCurrentTurn: tuiState.abortCurrentTurn,
 		setAbortCurrentTurn: (fn) => {
-			abortCurrentTurn = fn;
+			tuiState = { ...tuiState, abortCurrentTurn: fn };
 		},
 	});
 
@@ -478,25 +348,27 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 			return;
 		}
 		editor.addToHistory(text);
-		if (abortCurrentTurn) {
-			abortCurrentTurn();
-			abortCurrentTurn = undefined;
+		if (tuiState.abortCurrentTurn) {
+			tuiState.abortCurrentTurn();
+			tuiState = { ...tuiState, abortCurrentTurn: undefined };
 		}
 		editor.setText("");
 		historyProvider.addEntry(text);
-		pendingFooterShown = false;
-		consoleZone.hidePendingFooter(); // guard: clear any leftover footer from prior turn
+		tuiState = { ...tuiState, pendingFooterShown: false, turnStartedAt: Date.now() };
+		consoleZone.hidePendingFooter();
 		writer.addUserMessage(text);
-		turnStartedAt = Date.now();
 		consoleZone.startThinking();
 		tui.requestRender();
 
 		let aborted = false;
 		const controller = new AbortController();
 		session.setTurnController(controller);
-		abortCurrentTurn = () => {
-			aborted = true;
-			controller.abort();
+		tuiState = {
+			...tuiState,
+			abortCurrentTurn: () => {
+				aborted = true;
+				controller.abort();
+			},
 		};
 
 		try {
@@ -507,25 +379,14 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 				streamingZone.reset();
 				consoleZone.stopThinking();
 				consoleZone.hidePendingFooter();
-				pendingFooterShown = false;
-				pendingTokenFooter = writer.addTokenFooter();
+				tuiState = { ...tuiState, pendingFooterShown: false, pendingTokenFooter: writer.addTokenFooter() };
 				tui.requestRender(true);
 			}
 		} catch (e) {
-			consoleZone.stopThinking();
-			consoleZone.hidePendingFooter();
-			replyTW.reset();
-			thinkingTW.reset();
-			streamingZone.clear();
-			for (const [callId, entry] of activeCalls) {
-				consoleZone.removeInFlightCall(callId);
-				writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null);
-			}
-			activeCalls.clear();
-			if (!aborted) writer.addNotice(`[error] ${formatError(e)}`);
+			tuiState = handleTurnError(tuiState, e, aborted, tuiUi);
 			tui.requestRender();
 		} finally {
-			abortCurrentTurn = undefined;
+			tuiState = { ...tuiState, abortCurrentTurn: undefined };
 			session.setTurnController(undefined);
 			if (consoleZone.isThinking) consoleZone.stopThinking();
 		}

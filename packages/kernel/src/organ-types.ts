@@ -76,7 +76,7 @@ export interface OrganOptions {
 	logger?: OrganLogger;
 	actions?: readonly string[];
 	directives?: readonly string[];
-	skills?: readonly SkillBook[];
+	skills?: readonly SkillBook[]; // shorthand: folded into contributions["skills"] by defineOrgan
 	contributions?: OrganContributions;
 	description?: string;
 	labels?: readonly string[];

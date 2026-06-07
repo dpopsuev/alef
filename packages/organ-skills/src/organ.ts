@@ -18,7 +18,14 @@
  *   skills.open    — load all pages from a book into context at once
  */
 
-import type { CorpusHandlerCtx, Organ, OrganLogger, SkillBook, SkillPage } from "@dpopsuev/alef-kernel";
+import type {
+	CorpusHandlerCtx,
+	Organ,
+	OrganContributions,
+	OrganLogger,
+	SkillBook,
+	SkillPage,
+} from "@dpopsuev/alef-kernel";
 import { defineOrgan, getString } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { discoverSkills, skillsToXml } from "./discovery.js";
@@ -184,8 +191,8 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 			"sense/organ.loaded": {
 				handle: (ctx: CorpusHandlerCtx) => {
 					const name = getString(ctx.payload, "name") ?? "";
-					const bookData = (ctx.payload.skills ?? []) as SkillBook[];
-					if (bookData.length > 0) mergeBooks(name, bookData);
+					const books = (ctx.payload.contributions as OrganContributions | undefined)?.skills ?? [];
+					if (books.length > 0) mergeBooks(name, books);
 					return Promise.resolve({});
 				},
 			},

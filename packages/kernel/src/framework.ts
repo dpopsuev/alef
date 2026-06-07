@@ -144,8 +144,10 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			sense: senseSubscriptions,
 		},
 		directives: opts.directives,
-		skills: opts.skills,
-		contributions: opts.contributions,
+		contributions: {
+			...opts.contributions,
+			...(opts.skills?.length ? { skills: opts.skills } : {}),
+		},
 		description: opts.description,
 		labels: opts.labels,
 		publishSchemas: opts.publishSchemas,

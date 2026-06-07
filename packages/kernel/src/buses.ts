@@ -45,6 +45,7 @@ export function createCompositeAgentRunContribution(): AgentRunContribution & {
 
 export interface OrganContributions {
 	readonly "agent.run"?: AgentRunContribution;
+	readonly skills?: readonly SkillBook[];
 }
 
 export interface ToolDefinition {
@@ -166,11 +167,6 @@ export interface Organ {
 	 * Each string is a freeform instruction block (markdown or prose).
 	 */
 	readonly directives?: readonly string[];
-	/**
-	 * Skill books this organ contributes to the Skill Library.
-	 * Aggregated by buildOrganSkills() and registered in SkillsOrgan at boot.
-	 */
-	readonly skills?: readonly SkillBook[];
 	/**
 	 * Cross-organ contributions collected by aggregator organs via sense/organ.loaded.
 	 * Each key is a well-known contribution type enforced by the kernel.

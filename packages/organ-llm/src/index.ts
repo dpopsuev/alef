@@ -1,6 +1,12 @@
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
-import type { CerebrumHandlerCtx, Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { CerebrumHandlerCtx, Nerve, Organ, OrganContributions, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, extractToolCallId, withDisplay } from "@dpopsuev/alef-kernel";
+
+declare module "@dpopsuev/alef-kernel" {
+	interface OrganContributions {
+		"llm.phase"?: PhaseStageHandler;
+	}
+}
 
 /**
  * Payload field names used to extract a human-readable key argument from a
@@ -286,14 +292,22 @@ export interface PhaseStageOutput {
 
 export type PhaseStageHandler = (input: PhaseStageInput) => Promise<PhaseStageOutput>;
 
-export function createLlmPipeline(stages: PhaseStageHandler[]): Organ {
+export function createLlmPipeline(): Organ {
+	const stages: PhaseStageHandler[] = [];
+
 	return {
 		name: "llm.pipeline",
 		tools: [],
-		subscriptions: { motor: ["llm.phase"], sense: [] },
-		description: "Ordered llm.phase pipeline — runs PhaseStageHandlers serially, piping messages between stages.",
+		subscriptions: { motor: ["llm.phase"], sense: ["organ.loaded"] },
+		description:
+			"Ordered llm.phase pipeline — self-assembles PhaseStageHandler contributions from sense/organ.loaded.",
 		mount(nerve: Nerve): () => void {
-			return nerve.motor.subscribe("llm.phase", (event) => {
+			const unsubLoaded = nerve.sense.subscribe("organ.loaded", (event) => {
+				const contribution = (event.payload.contributions as OrganContributions | undefined)?.["llm.phase"];
+				if (contribution) stages.push(contribution);
+			});
+
+			const unsubPhase = nerve.motor.subscribe("llm.phase", (event) => {
 				void (async () => {
 					const payload = event.payload as { messages: Message[]; tools?: ToolDefinition[]; turn: number };
 					let messages: Message[] = payload.messages;
@@ -331,6 +345,11 @@ export function createLlmPipeline(stages: PhaseStageHandler[]): Organ {
 					});
 				})();
 			});
+
+			return () => {
+				unsubLoaded();
+				unsubPhase();
+			};
 		},
 	};
 }

@@ -9,7 +9,7 @@ import { buildTools } from "../src/turn-loop.js";
 
 // organ-llm/createLlmPipeline is the mountable organ — no tools, pure pipeline observer.
 // Cerebrum is a Reasoner (no tools), not a tool-bearing organ.
-organComplianceSuite(() => createLlmPipeline([]));
+organComplianceSuite(() => createLlmPipeline());
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
 

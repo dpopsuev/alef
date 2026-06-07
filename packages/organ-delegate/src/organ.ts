@@ -4,6 +4,7 @@ import type {
 	ExecutionStrategy,
 	Organ,
 	OrganContributions,
+	ToolDefinition,
 } from "@dpopsuev/alef-kernel";
 import {
 	createCompositeAgentRunContribution,
@@ -31,46 +32,41 @@ export interface DelegateOrganOptions extends BaseOrganOptions {
 	materializeOrgans?: (names: string[]) => Promise<Organ[]>;
 }
 
-const AGENT_RUN_TOOL = {
-	name: "agent.run",
-	description:
-		"Delegate a task to an in-process subagent. Required: text (the task). Optional: profile ('explore'|'general'). " +
-		"explore: read-only (files, grep, web), safe to run in parallel. " +
-		"general: full tool access. " +
-		"Defaults to 'explore' when profile is omitted.",
-	inputSchema: z.object({
-		text: z.string().min(1).describe("The task or question for the subagent"),
-		profile: z
-			.enum(["explore", "general"])
-			.optional()
-			.describe("Strategy profile: 'explore', 'general', or a child name from orchestration.spawn"),
-		instructions: z
-			.string()
-			.optional()
-			.describe("Additional system prompt for the subagent. Appended after the profile's base instructions."),
-		inheritDirectives: z
-			.boolean()
-			.optional()
-			.describe("Forward the parent agent's current directives as the subagent's system prompt base."),
-		organs: z
-			.array(z.string().min(1))
-			.optional()
-			.describe(
-				"Override organ set: built-in names (fs, shell, web, nodesh, lector). Uses profile organs when omitted.",
-			),
-		timeoutMs: z
-			.number()
-			.default(600_000)
-			.describe(
-				"Wall-clock limit in ms for the entire subagent conversation (default: 600_000 = 10 min). " +
-					"The LLM HTTP call timeout is fixed at 60s and is independent of this value.",
-			),
-		playbook: z
-			.string()
-			.optional()
-			.describe("Named skill library playbook to load as the subagent's system prompt base."),
-	}),
-};
+const AGENT_RUN_NAME = "agent.run";
+const AGENT_RUN_DESCRIPTION =
+	"Delegate a task to an in-process subagent. Required: text (the task). Optional: profile ('explore'|'general'). " +
+	"explore: read-only (files, grep, web), safe to run in parallel. " +
+	"general: full tool access. " +
+	"Defaults to 'explore' when profile is omitted.";
+
+const AGENT_RUN_BASE_SCHEMA = {
+	text: z.string().min(1).describe("The task or question for the subagent"),
+	profile: z
+		.enum(["explore", "general"])
+		.optional()
+		.describe("Strategy profile: 'explore', 'general', or a child name from orchestration.spawn"),
+	instructions: z
+		.string()
+		.optional()
+		.describe("Additional system prompt for the subagent. Appended after the profile's base instructions."),
+	inheritDirectives: z
+		.boolean()
+		.optional()
+		.describe("Forward the parent agent's current directives as the subagent's system prompt base."),
+	organs: z
+		.array(z.string().min(1))
+		.optional()
+		.describe(
+			"Override organ set: built-in names (fs, shell, web, nodesh, lector). Uses profile organs when omitted.",
+		),
+	timeoutMs: z
+		.number()
+		.default(600_000)
+		.describe(
+			"Wall-clock limit in ms for the entire subagent conversation (default: 600_000 = 10 min). " +
+				"The LLM HTTP call timeout is fixed at 60s and is independent of this value.",
+		),
+} as const;
 
 export interface DelegateOrgan extends Organ {
 	registerStrategy(name: string, strategy: ExecutionStrategy): void;
@@ -111,6 +107,14 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies));
 	const composite = createCompositeAgentRunContribution();
 
+	function buildTool(): ToolDefinition {
+		return {
+			name: AGENT_RUN_NAME,
+			description: AGENT_RUN_DESCRIPTION,
+			inputSchema: z.object({ ...AGENT_RUN_BASE_SCHEMA, ...composite.mergedSchema() }),
+		};
+	}
+
 	const organ = defineOrgan(
 		"delegate",
 		{
@@ -128,11 +132,14 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 					return {};
 				},
 			},
-			"motor/agent.run": typedStreamAction(AGENT_RUN_TOOL, async function* (ctx) {
-				const { text, profile = "explore", timeoutMs = 600_000 } = ctx.payload;
-				const instructions = typeof ctx.payload.instructions === "string" ? ctx.payload.instructions : undefined;
-				const inheritDirectives = ctx.payload.inheritDirectives === true;
-				const organNames = Array.isArray(ctx.payload.organs) ? (ctx.payload.organs as string[]) : undefined;
+			"motor/agent.run": typedStreamAction(buildTool(), async function* (ctx) {
+				const payload = ctx.payload as Record<string, unknown>;
+				const text = payload.text as string;
+				const profile = (payload.profile as string | undefined) ?? "explore";
+				const timeoutMs = (payload.timeoutMs as number | undefined) ?? 600_000;
+				const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
+				const inheritDirectives = payload.inheritDirectives === true;
+				const organNames = Array.isArray(payload.organs) ? (payload.organs as string[]) : undefined;
 
 				const needsAdHoc = instructions !== undefined || inheritDirectives || organNames !== undefined;
 
@@ -150,7 +157,7 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 						prependInstructions: (text) => instructionParts.unshift(text),
 						addOrgans: (organs) => extraOrgans.push(...organs),
 					};
-					await composite.extend(ctx.payload as Record<string, unknown>, context);
+					await composite.extend(payload, context);
 
 					const systemPrompt = instructionParts.join("\n\n") || undefined;
 
@@ -256,6 +263,14 @@ Do not read files sequentially yourself — delegate to subagents instead.`,
 	organ.registerStrategy = (name: string, strategy: ExecutionStrategy): void => {
 		strategies.set(name, strategy);
 	};
+
+	Object.defineProperty(organ, "tools", {
+		get(): readonly ToolDefinition[] {
+			return [buildTool()];
+		},
+		enumerable: true,
+		configurable: true,
+	});
 
 	return organ;
 }

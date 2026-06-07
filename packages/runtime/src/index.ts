@@ -96,15 +96,15 @@ export interface BusObserver {
 export class Agent {
 	private readonly nerve = new InProcessNerve();
 	private readonly unmounts: Array<() => void> = [];
-	/** Tool definitions collected from all loaded organs. */
-	private readonly _tools: ToolDefinition[] = [];
 	get tools(): ReadonlyArray<ToolDefinition> {
 		const seen = new Set<string>();
-		return this._tools.filter((t) => {
-			if (seen.has(t.name)) return false;
-			seen.add(t.name);
-			return true;
-		});
+		return this._organs
+			.flatMap((o) => o.tools)
+			.filter((t) => {
+				if (seen.has(t.name)) return false;
+				seen.add(t.name);
+				return true;
+			});
 	}
 	/** Organs stored for lazy port detection in validate(). */
 	private readonly _organs: Organ[] = [];
@@ -143,7 +143,6 @@ export class Agent {
 			throw err;
 		}
 		this.unmounts.push(unmount);
-		this._tools.push(...organ.tools);
 		// Announce all previously loaded organs to the new organ (catch-up),
 		// then announce the new organ to everyone. Handlers must be idempotent.
 		const sysId = randomUUID();
@@ -270,8 +269,7 @@ export class Agent {
 		void organ?.close?.();
 		this._organs.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
-		this._tools.length = 0;
-		for (const organ of this._organs) this._tools.push(...organ.tools);
+
 		this.nerve.publishSense({
 			type: "organ.unloaded",
 			correlationId: randomUUID(),

@@ -1,8 +1,8 @@
 import { streamSimple, type ToolResultMessage, type Usage } from "@dpopsuev/alef-ai";
 import { html, LitElement } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
-import { ModelSelector } from "../dialogs/ModelSelector.js";
 import type { MessageEditor } from "./MessageEditor.js";
+import { ModelSelector } from "./ModelSelector.js";
 import "./MessageEditor.js";
 import "./MessageList.js";
 import "./Messages.js"; // Import for side effects to register the custom elements

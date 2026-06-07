@@ -6,77 +6,122 @@
 - No emojis in commits, issues, PR comments, or code
 - No fluff or cheerful filler text
 - Technical prose only, be kind but direct
+- Answer the question first before making edits or running implementation commands
 
-## Code Quality
+## Tools
 
-- Read files in full before making wide-ranging changes or when investigating something. Do not rely on search snippets for broad changes.
-- No `any` types unless absolutely necessary
-- Check node_modules for external API type definitions instead of guessing
-- **NEVER use inline imports** — no `await import("./foo.js")`, no `import("pkg").Type` in type positions. Always use standard top-level imports.
-- NEVER remove or downgrade code to fix type errors; upgrade the dependency instead
-- Always ask before removing functionality that appears intentional
-- Do not preserve backward compatibility unless explicitly asked
+Use MCP servers when they are available and relevant. Do not fall back to Bash, file reads, or direct API calls when an MCP tool covers the same operation. Before reading a file manually, check if an MCP tool can fetch it. Before writing a markdown file to disk, check if the artifact belongs in Scribe.
 
-## Comments
+## Prior Art & Existing Config
 
-Zero by default. One line only when the WHY is non-obvious to a reader who knows the codebase. Never explain what the code does. Delete:
+Before changing any config or theme: grep for what already exists. Never introduce a new dependency (true color, a new crate, a new env var) without first checking whether it is already present and working. If the existing code works, the fix is the smallest possible delta to the existing code — not a replacement.
 
-- What-comments (`// Resolve agent definition` above `resolveInstanceConfig(...)`)
-- Decision lore (`// Using X because Y was slower`)
-- Alternative comparisons (`// Unlike foo(), this doesn't...`)
-- Version tags (`// Added in v0.2`)
-- Future-state markers (`// Replace once X ships`)
+## Discussion vs Implementation
 
-Legitimate: external constraints, non-obvious regex, OS/API quirks that would surprise an expert.
+When asked to discuss, discuss only. No code, no file changes, no artifact creation unless explicitly requested. "Let's think about X" means think, not build.
+
+## Quality Gate
+
+After every substantive code change, in order: build → lint → test. Never declare done without passing all three. Fix failures before moving on.
+
+Run `npm run check` after every logical group of changes — not only before git commit. The pre-commit hook is the last gate, not the primary feedback loop.
+
+LSP inline diagnostics (from Edit/Write tools) show type errors for the edited file only. They miss biome warnings, eslint semantic rules, and cross-file issues. `npm run check` catches all of them.
 
 ## Commands
 
-- After code changes: `npm run check` — get full output, fix all errors and warnings before committing
-- `npm run check` does not run tests
+```bash
+npm run check          # biome + tsgo + eslint + organ lint + unit tests + browser smoke
+npm run check:test     # unit tests across all packages in parallel (~52s)
+```
+
+- `npm run check` does not run integration or real-LLM tests
 - NEVER run: `npm run dev`, `npm run build`, `npm test`
-- Run specific tests from the package root: `npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
+- Run specific tests from the package root (not from monorepo root):
+  `cd packages/<name> && npx vitest run test/specific.test.ts`
+- Monorepo root vitest cannot resolve path aliases — always run per-package
 - If you create or modify a test file, run it and iterate until it passes
 
 ## Commits
 
-- One semantic change per commit
-- `type(scope): summary` — lowercase, no period, 72 chars max
-- Types: `feat` `fix` `refactor` `test` `docs` `chore` `ci` `perf`
-- Include `closes ALE-TSK-NNN` when a commit resolves a Scribe task
+`<type>: <what changed>` — lowercase, no period, 72 chars max.
+Types: `feat` `fix` `refactor` `test` `docs` `chore` `ci`
+
+Never:
+- Bullet lists of changed files
+- Tracker IDs (Jira, Scribe, RP) in the subject line
+- Mix unrelated changes in one commit
+
+## Comments
+
+Zero by default. One line only when the WHY is non-obvious to a reader who knows the codebase.
+
+Never:
+- Explain what the code does — the code says what; the comment says why
+- Reference ticket, bug, or spec IDs — git blame carries that context
+- Write block comments restating the function signature or parameter names
+- Narrate the implementation step by step
+
+Legitimate: external constraints, non-obvious regex, OS/API quirks that would surprise an expert.
 
 ## Organ Framework
 
 Organs live in `packages/organ-*`. Each organ depends only on `@dpopsuev/alef-kernel` and `zod`.
 
-Key spine exports:
-- `defineOrgan(name, actionMap, opts)` — create an organ
-- `typedAction(tool, handler)` / `typedStreamAction(tool, handler)` — typed handlers
-- `tool(name, description, schema)` — OrganTool with `.action()` / `.stream()`; motor key is `motor/${name}`
-- `BaseOrganOptions` / `TimeoutOrganOptions` / `spreadOrganOptions(opts)`
-- `withTruncatedDisplay(data, content, opts?)` — truncate + `_display` block in one call
-- `directive(...lines)` — sugar for `string[]` directives array
+### Authoring an organ
 
-Action map keys carry the bus prefix: `"motor/fs.read"` subscribes Motor, `"sense/dialog.message"` subscribes Sense.
+```ts
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { z } from "zod";
 
-The `llm.phase` seam has `ordered-pipeline` cardinality — multiple organs may subscribe. Responses are collected within a 30ms quiescence window and merged field-by-field.
+export function createXOrgan(opts: XOrganOptions) {
+  return defineOrgan("x", {
+    "motor/x.do": typedAction(TOOL, async (ctx) => {
+      return withDisplay({ result }, { text: "...", mimeType: "text/plain" });
+    }),
+  }, {
+    description: "One sentence.",
+    directives: ["Guidance for the LLM."],
+    contributions: {
+      "llm.phase": phaseHandler,   // optional: participate in pre-LLM pipeline
+      "agent.run": agentRunHandler, // optional: extend agent.run behaviour
+      "skills": [skillBook],        // optional: contribute skill books
+    },
+  });
+}
+```
 
-## Memory / Context Scoring
+Action map key prefix determines bus direction: `"motor/x.do"` subscribes Motor, `"sense/organ.loaded"` subscribes Sense.
 
-Weights in `ContextWindowPolicy` (`packages/runner/src/turn-assembler.ts`):
-- `queryMatchWeight` — term overlap between turn content and current query (default 0.40)
-- `accessFrequencyWeight` — assembly hit count normalised to [0,1] (default 0.30)
-- `sessionRecencyWeight` — ordinal turn index (not wall-clock) (default 0.30)
+### Cross-organ integration (contributions map)
 
-Unseen turns score `hitCount=1` (neutral), not 0 — cold-start fairness.
+Organs declare capabilities via `contributions` in `defineOrgan` opts. Aggregator organs collect them from `sense/organ.loaded`. No optional callbacks, no manual wiring.
+
+Current contribution slots:
+- `"agent.run"?: AgentRunContribution` — extend `agent.run({ text, playbook? })` with schema fields and behaviour
+- `"llm.phase"?: PhaseStageHandler` — participate in the pre-LLM pipeline (tools + messages transform)
+- `"skills"?: SkillBook[]` — contribute playbooks to the Skills Organ library
+
+Adding a new slot: add the type to `OrganContributions` in `kernel/src/buses.ts`, implement a composite aggregator organ, wire via `sense/organ.loaded`.
+
+### Lint rules (enforced by `npm run check:organs`)
+
+- `[RAWTIMER]` — raw `setTimeout`/`setInterval` in organ `src/` is a hard gate. Suppress with `// lint-ignore: RAWTIMER <reason>` when it is a real deadline, not a stall detector.
+- Organs with tools must declare `description` and non-empty `directives`.
+- Organs cannot import from `packages/runner` or `packages/testkit` — kernel + zod only.
 
 ## Architecture
 
-Roadmap: `ALE-DOC-2` in Scribe. Current phase: Phase 1 (Memory Foundation).
+Production agent: `packages/alef-coding-agent` — the full coding agent stack as a publishable module.
+- `createCodingAgent(config)` — boots ToolShell + LlmPipeline + DelegateOrgan + MemoryOrgan
+- `CODING_AGENT_BLUEPRINT` — canonical organ set (fs, shell, nodesh, lector, web, delegate, orchestration, factory, skills)
+- `/testkit` subpath — `materializeDefaultOrgans(cwd)` for eval tests
 
-Active specs:
-- `ALE-SPC-55` — Memory Pyramid (five-level context model)
-- `ALE-SPC-57` — TUI render caching
-- `ALE-SPC-54` — Organ SDK (migration of 12 organs pending)
+Microkernel: `packages/kernel` — buses, organ framework, binding chain, contributions. No organ names, no application concerns.
+
+Bus protocol constants (e.g. `VALIDATE_REQUEST`, `DIALOG_MESSAGE`) belong in `kernel/src/protocols.ts` only when they define a cross-organ handshake. Organ-specific event names stay in the organ that owns them.
+
+The `session` package must not reference organ-specific event names (Feature Envy). Turn boundaries are detected structurally.
 
 ## **CRITICAL** Git Rules
 
@@ -88,3 +133,36 @@ Active specs:
 Forbidden: `git reset --hard` · `git checkout .` · `git clean -fd` · `git stash` · `git commit --no-verify`
 
 Rebase conflicts: resolve only in files you modified. Abort and ask if the conflict is in a file you did not touch. Never force push.
+
+## Naming
+
+Full names over abbreviations. The reader's time is worth more than the writer's keystrokes.
+
+- Channel ends: `event_sender` / `chunk_receiver` — not `event_tx` / `chunk_rx`
+- Task handles: name what the task does — `chunk_forwarder`, not `fwd`
+- Local variables: `event` not `ev`, `config` not `cfg`, `message` not `msg`
+- Wrap raw channels behind intent-named structs
+
+Established domain abbreviations are canonical, not shortcuts — keep: `llm`, `lsp`, `tui`, `mcp`, `http`, `id`, `ui`
+
+## KISS
+
+1. **No speculative abstraction** — no interface with one implementation, no type parameter used once
+2. **No feature creep** — implement only what the task describes
+3. **No unnecessary layers** — call the thing directly; add a layer only with a proven need
+4. **No library addiction** — stdlib first; import only when stdlib is insufficient
+5. **No comment bloat** — zero comments by default; one line only when the WHY is non-obvious
+6. **No error theater** — validate only at system boundaries; trust internal code
+7. **No backward compatibility theater** — delete unused code; git has history
+
+## Output
+
+- Names over IDs: "DPLL pin-reset collapse (OCPBUGS-85091)" not "OCPBUGS-85091"
+- Every external reference gets its full URL
+- When wrong: correct and move on. No apologies.
+
+## Language and Toolchain
+
+TypeScript + Node.js + Vitest. Never introduce Python or Bash scripts where TypeScript tests exist. Match the existing stack.
+
+Before designing, search for prior art. Name the pattern before writing code.

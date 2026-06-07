@@ -70,6 +70,8 @@ export interface LlmTopologyOptions {
 	 * Allows DialogOrgan to shed getTools — callers pass it directly to Cerebrum instead.
 	 */
 	getTools?: () => readonly ToolDefinition[];
+	/** Full tool schemas — used for timeout derivation when getTools returns stripped schemas. */
+	getFullTools?: () => readonly ToolDefinition[];
 	/**
 	 * System prompt injected as the first message when prepareStep is absent.
 	 * In production prepareStep owns system prompt injection; this covers

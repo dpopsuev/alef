@@ -133,6 +133,7 @@ export class LocalSession implements Session {
 			getModel: () => currentModel,
 			getSignal: () => llmController?.signal,
 			getTools: () => toolShell.currentMetaTools(),
+			getFullTools: () => agent.tools,
 		});
 
 		const { agent } = buildAgent({

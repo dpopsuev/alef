@@ -29,6 +29,7 @@ export interface TurnLoopOptions {
 	triggerEvent?: string;
 	replyEvent?: string;
 	getTools?: () => readonly ToolDefinition[];
+	getFullTools?: () => readonly ToolDefinition[];
 	systemPrompt?: string;
 	apiKey?: string;
 	getApiKey?: () => string | undefined;
@@ -383,9 +384,13 @@ export async function runLLMLoop(
 			}
 
 			const toolDefsMap = new Map((effectiveOptions.getTools?.() ?? []).map((t) => [t.name, t]));
+			const fullToolDefsMap = effectiveOptions.getFullTools
+				? new Map(effectiveOptions.getFullTools().map((t) => [t.name, t]))
+				: undefined;
 			const results = await dispatchTools(motor, sense, correlationId, toolCalls, toMotorName, timeoutMs, {
 				...effectiveOptions,
 				toolDefs: toolDefsMap,
+				fullToolDefs: fullToolDefsMap,
 			});
 			appendToolResults(messages, toolCalls, results, toMotorName);
 			onCheckpoint?.(messages.slice(), ctx.correlationId);

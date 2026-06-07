@@ -1,0 +1,11 @@
+{
+	"knownFailing": [
+		"agent",
+		"ai",
+		"blueprint",
+		"kernel",
+		"organ-enclosure",
+		"runner",
+		"runtime"
+	]
+}

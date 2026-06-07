@@ -141,6 +141,7 @@ type MotorBus = { publish: (event: { type: string; payload: Record<string, unkno
 interface DispatchToolsOptions {
 	onEvent?: (event: CerebrumEvent) => void;
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
+	fullToolDefs?: ReadonlyMap<string, ToolDefinition>;
 }
 
 export async function dispatchTools(
@@ -157,7 +158,11 @@ export async function dispatchTools(
 			const motorType = toMotorName(tc.name);
 			const startedAt = Date.now();
 			options.onEvent?.({ type: "tool-start", callId: tc.id, name: motorType, args: tc.args });
-			const outerWaitMs = toOuterTimeoutMs(tc.args, timeoutMs, options.toolDefs?.get(motorType));
+			const outerWaitMs = toOuterTimeoutMs(
+				tc.args,
+				timeoutMs,
+				options.fullToolDefs?.get(motorType) ?? options.toolDefs?.get(motorType),
+			);
 			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			const { onEvent } = options;
 			const onChunk = onEvent ? (text: string) => onEvent({ type: "tool-chunk", callId: tc.id, text }) : undefined;

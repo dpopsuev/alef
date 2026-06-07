@@ -218,7 +218,8 @@ describe("motor/llm.phase pipeline", { tags: ["unit"] }, () => {
 			faux.unregister();
 		});
 
-		agent.load(createLlmPipeline([toolShell.phaseStage()]));
+		agent.load(toolShell);
+		agent.load(createLlmPipeline());
 
 		await agent.ready();
 		await dialog.send("hello", "human", SEND_TIMEOUT);

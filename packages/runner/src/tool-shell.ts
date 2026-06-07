@@ -242,7 +242,7 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		};
 	}
 
-	return {
+	const shell = {
 		...organ,
 		mount: mountWithPromotion,
 		/**
@@ -282,11 +282,15 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		},
 		phaseStage(): PhaseStageHandler {
 			return ({ messages, turn }) => {
-				const msgs = this.applyPhase(messages as unknown as RawMsg[], turn) as unknown as typeof messages;
+				const msgs = shell.applyPhase(messages as unknown as RawMsg[], turn) as unknown as typeof messages;
 				return Promise.resolve({ messages: msgs, tools: getPromotedTools() });
 			};
 		},
 	};
+
+	shell.contributions = { "llm.phase": shell.phaseStage() };
+
+	return shell;
 }
 
 /**

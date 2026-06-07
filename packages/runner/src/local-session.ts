@@ -179,7 +179,7 @@ export class LocalSession implements Session {
 			organDirectives: buildOrganDirectives(agent.organs),
 		});
 		agent.load(toolShell);
-		agent.load(createLlmPipeline([toolShell.phaseStage(), memoryOrgan.phaseStage()]));
+		agent.load(createLlmPipeline());
 		registerOrgans(directives, [toolShell, memoryOrgan]);
 
 		const alefOrgan = createAlefApiOrgan({

@@ -12,8 +12,10 @@
  */
 
 import { resolve } from "node:path";
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop, createLlmPipeline } from "@dpopsuev/alef-organ-llm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { materializeDefaultOrgans } from "../../alef-coding-agent/src/testkit.js";
+import { createToolShellOrgan } from "../../runner/src/tool-shell.js";
 import type { Evaluation } from "../src/evaluation.js";
 import * as multiTurnEvals from "../src/evaluations/multi-turn.js";
 import * as readOnlyEvals from "../src/evaluations/read-only.js";
@@ -104,13 +106,23 @@ async function runPool(evals: Evaluation[], maxConcurrency: number): Promise<Eva
 	async function runOne(item: { eval: Evaluation; index: number }): Promise<void> {
 		const harness = new EvalHarness();
 		const runner = new EvaluationRunner(harness, {
-			organFactory: (signal) => [
-				createAgentLoop({
+			asyncOrganFactory: async (workspace, signal) => {
+				const domainOrgans = await materializeDefaultOrgans(workspace);
+				const pipeline = createLlmPipeline();
+				const toolShell = createToolShellOrgan({
+					tools: domainOrgans.flatMap((o) => o.tools),
+					getTools: () => domainOrgans.flatMap((o) => o.tools),
+				});
+				const llm = createAgentLoop({
 					model: getEvalModel(),
 					getSignal: () => signal,
+					getTools: () => toolShell.currentMetaTools(),
+					schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
 					onRetry: (attempt, reason) => scheduler.onRetry(attempt, reason),
-				}),
-			],
+					phaseTimeoutMs: 100,
+				});
+				return [...domainOrgans, toolShell, pipeline, llm];
+			},
 			maxErrorRate: 0.5,
 		});
 		results[item.index] = await runner.run(item.eval);

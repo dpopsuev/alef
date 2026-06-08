@@ -30,7 +30,7 @@ import { StreamingZone } from "./tui/streaming-zone.js";
 
 import { Typewriter } from "./tui/typewriter.js";
 import { handleAgentEvent, handleTurnError } from "./tui-reducer.js";
-import { initialTuiState, type TuiUi } from "./tui-state.js";
+import { initialTuiState, syncOverlays, type TuiUi } from "./tui-state.js";
 import { checkForUpdate } from "./version-check.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
@@ -253,7 +253,9 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 	const tuiUi: TuiUi = { writer, streamingZone, replyTW, thinkingTW, consoleZone, tui, t, session };
 
 	session.subscribe((event) => {
+		const prev = tuiState;
 		tuiState = handleAgentEvent(tuiState, event, tuiUi);
+		syncOverlays(tui, prev.overlays, tuiState.overlays);
 		tui.requestRender();
 	});
 
@@ -270,9 +272,14 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 		},
 	});
 
-	// Ctrl+R: open inline history picker. Populated after each submit.
-	let historyPickerActive = false;
-	let historyPickerList: SelectList | null = null;
+	const HISTORY_PICKER_ID = "history-picker";
+
+	const closeHistoryPicker = (): void => {
+		const prev = tuiState;
+		tuiState = { ...tuiState, overlays: tuiState.overlays.filter((o) => o.id !== HISTORY_PICKER_ID) };
+		syncOverlays(tui, prev.overlays, tuiState.overlays);
+		tui.requestRender();
+	};
 
 	const openHistoryPicker = (): boolean => {
 		const entries = historyProvider.getEntries();
@@ -289,22 +296,20 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 			noMatch: (s: string) => color(s, t.dimFg),
 		};
 		const list = new SelectList(items, 6, pickTheme);
-		historyPickerList = list;
-		historyPickerActive = true;
 		list.onSelect = (item: SelectItem) => {
 			editor.setText(item.value);
-			tui.removeChild(list);
-			historyPickerActive = false;
-			historyPickerList = null;
-			tui.requestRender();
+			closeHistoryPicker();
 		};
-		list.onCancel = () => {
-			tui.removeChild(list);
-			historyPickerActive = false;
-			historyPickerList = null;
-			tui.requestRender();
+		list.onCancel = () => closeHistoryPicker();
+		const prev = tuiState;
+		tuiState = {
+			...tuiState,
+			overlays: [
+				...tuiState.overlays,
+				{ id: HISTORY_PICKER_ID, component: list, handleInput: (d) => list.handleInput(d) },
+			],
 		};
-		tui.addChild(list);
+		syncOverlays(tui, prev.overlays, tuiState.overlays);
 		tui.requestRender();
 		return true;
 	};
@@ -312,15 +317,17 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 	tui.onRawInput = (data) => {
 		// Ctrl+R — history picker (Insert and Normal mode)
 		if (data === "\x12") {
-			if (historyPickerActive && historyPickerList) {
-				historyPickerList.handleInput("\x1b"); // close on second Ctrl+R
+			const picker = tuiState.overlays.find((o) => o.id === HISTORY_PICKER_ID);
+			if (picker) {
+				picker.handleInput?.("\x1b"); // close on second Ctrl+R
 			} else {
 				openHistoryPicker();
 			}
 			return true;
 		}
-		if (historyPickerActive && historyPickerList) {
-			historyPickerList.handleInput(data);
+		const activeOverlay = tuiState.overlays.find((o) => o.handleInput);
+		if (activeOverlay?.handleInput) {
+			activeOverlay.handleInput(data);
 			tui.requestRender();
 			return true;
 		}

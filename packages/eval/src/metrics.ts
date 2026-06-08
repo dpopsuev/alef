@@ -5,6 +5,8 @@
  * + direct Bus event capture via agent.observe().
  */
 
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
+
 /**
  * One Motor or Sense event captured in real-time from the bus.
  * Complements OTel spans: spans only cover completed calls; BusEvents include
@@ -94,7 +96,7 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 
 		// Exclude internal seam events from tool path tracking.
 		// llm.phase is ToolShellOrgan's context lifecycle interceptor, not an LLM tool call.
-		const INTERNAL_EVENTS = new Set(["dialog.message", "llm.phase"]);
+		const INTERNAL_EVENTS = new Set([DIALOG_MESSAGE, "llm.phase"]);
 		const toolNames = toolSpans
 			.map((ts) => ts.name.replace("alef.motor/", ""))
 			.filter((n) => !INTERNAL_EVENTS.has(n));

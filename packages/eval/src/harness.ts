@@ -17,7 +17,7 @@ import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExecutionStrategy, Organ } from "@dpopsuev/alef-kernel";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { DIALOG_MESSAGE, DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { defaultEvalOrgans } from "./default-organs.js";
@@ -248,7 +248,7 @@ export class EvalHarness {
 		// Motor start times keyed by correlationId for round-trip elapsed computation.
 		const motorTimes = new Map<string, number>();
 		// Events whose payloads are too large to capture verbatim.
-		const SKIP_BUS_EVENTS = new Set(["dialog.message", "llm.phase"]);
+		const SKIP_BUS_EVENTS = new Set([DIALOG_MESSAGE, "llm.phase"]);
 
 		const transcriptObserver = agent.observe({
 			onMotorEvent(event) {
@@ -257,7 +257,7 @@ export class EvalHarness {
 					correlationId?: string;
 					payload?: Record<string, unknown>;
 				};
-				if (p.type === "dialog.message" && Array.isArray(p.payload?.conversationHistory)) {
+				if (p.type === DIALOG_MESSAGE && Array.isArray(p.payload?.conversationHistory)) {
 					transcript = p.payload.conversationHistory as Array<Record<string, unknown>>;
 				}
 				if (!SKIP_BUS_EVENTS.has(p.type ?? "")) {

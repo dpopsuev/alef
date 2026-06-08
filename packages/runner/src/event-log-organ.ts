@@ -17,6 +17,7 @@ import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { trace } from "./debug-trace.js";
 import { redactPayload } from "./redact.js";
 import { type BusKind, hashRecord, type SessionStore } from "./session-store.js";
@@ -57,7 +58,7 @@ export class SessionLog implements Organ {
 		const toolCounts = new Map<string, number>();
 
 		const offAgg1 = nerve.motor.subscribe("*", (event) => {
-			if (event.type === "dialog.message") {
+			if (event.type === DIALOG_MESSAGE) {
 				turns++;
 				const u = (event.payload as { usage?: { input?: number; output?: number } }).usage;
 				if (u) {

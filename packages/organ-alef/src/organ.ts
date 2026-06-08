@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import type { ActionMap, Organ, SkillBook, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, passthroughSchema, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { scanSessionFiles } from "@dpopsuev/alef-session";
 import { z } from "zod";
 
@@ -72,7 +73,7 @@ async function parseSession(
 				if (r.bus === "internal" && r.type === "session.name" && typeof r.payload?.name === "string") {
 					name = r.payload.name;
 				}
-				if (r.bus === "sense" && r.type === "dialog.message") {
+				if (r.bus === "sense" && r.type === DIALOG_MESSAGE) {
 					const text = (r.payload?.text ?? "").replace(/\n/g, " ");
 					if (!firstMessage) firstMessage = text.slice(0, 80);
 					if (contentParts.length < 20) contentParts.push(text.slice(0, 200));
@@ -106,7 +107,7 @@ async function readSessionTurns(id: string, maxTurns = 10): Promise<{ turn: stri
 		for (const line of raw.split("\n").filter(Boolean)) {
 			try {
 				const r = JSON.parse(line) as { type?: string; payload?: { text?: string } };
-				if (r.type === "dialog.message") {
+				if (r.type === DIALOG_MESSAGE) {
 					const text = r.payload?.text ?? "";
 					if (text) turns.push({ turn: text.slice(0, 200), type: "message" });
 					if (turns.length >= maxTurns) break;

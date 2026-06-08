@@ -1,8 +1,8 @@
 import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-ai";
 import type { CerebrumHandlerCtx, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { debugLog, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import type { z } from "zod";
-import { DIALOG_MESSAGE } from "./constants.js";
 import { normalizeMessage, retryDelayMs, shouldRetry, sleep } from "./retry.js";
 import { callLLM, type ToolCall } from "./stream-turn.js";
 import { dispatchTools, payloadToText } from "./tool-dispatch.js";
@@ -179,9 +179,13 @@ interface PendingCallClassification {
 	toolCalls: ToolCall[];
 }
 
-function classifyPendingCalls(pendingCalls: ToolCall[], toMotorName: (n: string) => string): PendingCallClassification {
-	const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === DIALOG_MESSAGE);
-	const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== DIALOG_MESSAGE);
+function classifyPendingCalls(
+	pendingCalls: ToolCall[],
+	toMotorName: (n: string) => string,
+	replyType: string,
+): PendingCallClassification {
+	const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === replyType);
+	const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== replyType);
 	return { replyCall, toolCalls };
 }
 
@@ -363,7 +367,7 @@ export async function runLLMLoop(
 
 			messages.push(finalMessage);
 
-			const { replyCall, toolCalls } = classifyPendingCalls(pendingCalls, toMotorName);
+			const { replyCall, toolCalls } = classifyPendingCalls(pendingCalls, toMotorName, replyType);
 			const agentIsReplying = toolCalls.length === 0;
 
 			motor.publish({

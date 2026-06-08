@@ -27,8 +27,8 @@ export const KEY_ARG_FIELDS = [
 	"instruction",
 ] as const;
 
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { z } from "zod";
-import { DIALOG_MESSAGE } from "./constants.js";
 import type { CerebrumEvent, TokenUsage } from "./tool-events.js";
 import { runLLMLoop } from "./turn-loop.js";
 

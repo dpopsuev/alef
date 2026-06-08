@@ -1,33 +1,41 @@
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";
-import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent } from "./tui/tool-view.js";
-import type { OverlayDescriptor, TuiState, TuiUi } from "./tui-state.js";
+import { formatTokenUsage, keyArgFromPayload } from "./tui/tool-view.js";
+import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./tui-state.js";
 
 // ---------------------------------------------------------------------------
 // TuiInputEvent — typed events from the Input layer (keyboard, editor, modal)
+// Convention: AgentEvent types use hyphens (tool-start), TuiInputEvent uses
+// dots (turn.start). Both inhabit TuiEvent but are visually distinct.
 // ---------------------------------------------------------------------------
 
 export type TuiInputEvent =
 	| { type: "overlay.show"; descriptor: OverlayDescriptor }
 	| { type: "overlay.hide"; id: string }
 	| { type: "turn.start"; timestamp: number }
-	| { type: "turn.complete"; tokenFooter: { setText(s: string): void } }
+	| { type: "turn.complete"; tokenFooter: TokenFooterHandle }
 	| { type: "turn.abort" }
 	| { type: "turn.error"; error: unknown; aborted: boolean }
 	| { type: "abort.set"; fn: () => void }
-	| { type: "abort.clear" };
+	| { type: "abort.clear" }
+	| { type: "thinking.toggle" };
 
 export type TuiEvent = AgentEvent | TuiInputEvent;
 
 // ---------------------------------------------------------------------------
-// Input event reducer
+// Unified reducer — one switch handles all TuiEvent variants.
+// Adding a new AgentEvent: add a case here and in session.ts.
+// Adding a new TuiInputEvent: add a variant to TuiInputEvent above and a case here.
+// The exhaustive default: never guard catches missing cases at compile time.
 // ---------------------------------------------------------------------------
 
-function handleInputEvent(state: TuiState, event: TuiInputEvent, ui: TuiUi): TuiState {
-	const { writer, consoleZone, replyTW, thinkingTW, streamingZone } = ui;
+export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiState {
+	const { writer, streamingZone, replyTW, thinkingTW, consoleZone, t, session } = ui;
 
 	switch (event.type) {
+		// ── Input events ────────────────────────────────────────────────────
+
 		case "overlay.show":
 			return { ...state, overlays: [...state.overlays, event.descriptor] };
 
@@ -58,13 +66,13 @@ function handleInputEvent(state: TuiState, event: TuiInputEvent, ui: TuiUi): Tui
 			streamingZone.clear();
 			for (const [callId, entry] of state.activeCalls) {
 				consoleZone.removeInFlightCall(callId);
-				writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null);
+				writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null, null);
 			}
 			if (!event.aborted) writer.addNotice(`[error] ${formatError(event.error)}`);
 			return {
 				...state,
 				activeCalls: new Map(),
-				batchStartedAt: 0,
+				batchStartedAt: null,
 				pendingFooterShown: false,
 				abortCurrentTurn: undefined,
 			};
@@ -75,35 +83,16 @@ function handleInputEvent(state: TuiState, event: TuiInputEvent, ui: TuiUi): Tui
 
 		case "abort.clear":
 			return { ...state, abortCurrentTurn: undefined };
-	}
-}
 
-// ---------------------------------------------------------------------------
-// Unified reducer — handles both AgentEvent and TuiInputEvent
-// ---------------------------------------------------------------------------
+		case "thinking.toggle": {
+			const next = !streamingZone.hideThinking;
+			streamingZone.setHideThinking(next);
+			writer.addNotice(next ? "Thinking: hidden" : "Thinking: visible");
+			return state;
+		}
 
-export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiState {
-	if (isTuiInputEvent(event)) return handleInputEvent(state, event, ui);
-	return handleAgentEvent(state, event as AgentEvent, ui);
-}
+		// ── Agent events ────────────────────────────────────────────────────
 
-function isTuiInputEvent(event: TuiEvent): event is TuiInputEvent {
-	return (
-		event.type === "overlay.show" ||
-		event.type === "overlay.hide" ||
-		event.type === "turn.start" ||
-		event.type === "turn.complete" ||
-		event.type === "turn.abort" ||
-		event.type === "turn.error" ||
-		event.type === "abort.set" ||
-		event.type === "abort.clear"
-	);
-}
-
-export function handleAgentEvent(state: TuiState, event: AgentEvent, ui: TuiUi): TuiState {
-	const { writer, streamingZone, replyTW, thinkingTW, consoleZone, t, session } = ui;
-
-	switch (event.type) {
 		case "tool-start": {
 			const { callId, name, args } = event;
 			const keyArg = keyArgFromPayload(args);
@@ -113,13 +102,14 @@ export function handleAgentEvent(state: TuiState, event: AgentEvent, ui: TuiUi):
 			thinkingTW.flush();
 			streamingZone.reset();
 			consoleZone.showInFlightCall(callId, name, keyArg);
+			if (!state.pendingFooterShown) consoleZone.showPendingFooter(t.agentFg);
 			const activeCalls = new Map(state.activeCalls);
 			activeCalls.set(callId, { name, keyArg });
 			return {
 				...state,
 				activeCalls,
-				batchStartedAt: state.activeCalls.size === 0 ? Date.now() : state.batchStartedAt,
-				pendingFooterShown: showFooterIfNeeded(state, consoleZone, t),
+				batchStartedAt: state.batchStartedAt ?? Date.now(),
+				pendingFooterShown: true,
 			};
 		}
 
@@ -140,16 +130,17 @@ export function handleAgentEvent(state: TuiState, event: AgentEvent, ui: TuiUi):
 				entry.keyArg,
 				elapsedMs,
 				ok,
-				display?.trim() ? makeToolOutputComponent(display, displayKind, t) : null,
+				display?.trim() ? display : null,
+				display?.trim() ? (displayKind ?? null) : null,
 			);
 			const activeCalls = new Map(state.activeCalls);
 			activeCalls.delete(callId);
-			const batchDone = activeCalls.size === 0 && state.batchStartedAt > 0;
-			if (batchDone) writer.addBatchTiming(Date.now() - state.batchStartedAt);
+			const batchDone = activeCalls.size === 0 && state.batchStartedAt !== null;
+			if (batchDone) writer.addBatchTiming(Date.now() - (state.batchStartedAt ?? 0));
 			return {
 				...state,
 				activeCalls,
-				batchStartedAt: batchDone ? 0 : state.batchStartedAt,
+				batchStartedAt: batchDone ? null : state.batchStartedAt,
 			};
 		}
 
@@ -176,9 +167,11 @@ export function handleAgentEvent(state: TuiState, event: AgentEvent, ui: TuiUi):
 		case "chunk":
 			consoleZone.pulse();
 			replyTW.receive(event.text);
-			return showFooterIfNeeded(state, consoleZone, t) === state.pendingFooterShown
-				? state
-				: { ...state, pendingFooterShown: true };
+			if (!state.pendingFooterShown) {
+				consoleZone.showPendingFooter(t.agentFg);
+				return { ...state, pendingFooterShown: true };
+			}
+			return state;
 
 		case "thinking":
 			consoleZone.pulse();
@@ -221,25 +214,7 @@ export function handleAgentEvent(state: TuiState, event: AgentEvent, ui: TuiUi):
 	}
 }
 
-function showFooterIfNeeded(state: TuiState, consoleZone: TuiUi["consoleZone"], t: TuiUi["t"]): boolean {
-	if (!state.pendingFooterShown) {
-		consoleZone.showPendingFooter(t.agentFg);
-		return true;
-	}
-	return true;
-}
-
-export function handleTurnError(state: TuiState, error: unknown, aborted: boolean, ui: TuiUi): TuiState {
-	const { writer, consoleZone, replyTW, thinkingTW, streamingZone } = ui;
-	consoleZone.stopThinking();
-	consoleZone.hidePendingFooter();
-	replyTW.reset();
-	thinkingTW.reset();
-	streamingZone.clear();
-	for (const [callId, entry] of state.activeCalls) {
-		consoleZone.removeInFlightCall(callId);
-		writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null);
-	}
-	if (!aborted) writer.addNotice(`[error] ${formatError(error)}`);
-	return { ...state, activeCalls: new Map(), batchStartedAt: 0, pendingFooterShown: false };
+// Keep handleAgentEvent exported for tests that test agent events directly.
+export function handleAgentEvent(state: TuiState, event: AgentEvent, ui: TuiUi): TuiState {
+	return tuiReducer(state, event, ui);
 }

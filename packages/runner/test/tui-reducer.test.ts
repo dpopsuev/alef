@@ -3,7 +3,7 @@
  * Verifies all TuiState transitions by replaying AgentEvent sequences.
  */
 import { describe, expect, it, vi } from "vitest";
-import { handleAgentEvent, handleTurnError, tuiReducer } from "../src/tui-reducer.js";
+import { handleAgentEvent, tuiReducer } from "../src/tui-reducer.js";
 import { initialTuiState, type TuiUi } from "../src/tui-state.js";
 
 function makeMockUi(): TuiUi {
@@ -15,7 +15,7 @@ function makeMockUi(): TuiUi {
 			addTokenFooter: vi.fn(() => ({ setText: vi.fn() })),
 			addUserMessage: vi.fn(),
 		},
-		streamingZone: { reset: vi.fn(), clear: vi.fn() },
+		streamingZone: { reset: vi.fn(), clear: vi.fn(), hideThinking: false, setHideThinking: vi.fn() },
 		replyTW: { receive: vi.fn(), flush: vi.fn(), reset: vi.fn() },
 		thinkingTW: { receive: vi.fn(), flush: vi.fn(), reset: vi.fn() },
 		consoleZone: {
@@ -84,8 +84,8 @@ describe("tuiReducer — tool-start / tool-end", { tags: ["unit"] }, () => {
 		);
 
 		expect(state.activeCalls.size).toBe(0);
-		expect(state.batchStartedAt).toBe(0);
-		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith("fs.read", expect.anything(), 100, true, null);
+		expect(state.batchStartedAt).toBeNull();
+		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith("fs.read", expect.anything(), 100, true, null, null);
 		expect(ui.writer.addBatchTiming).toHaveBeenCalled();
 	});
 
@@ -137,7 +137,7 @@ describe("tuiReducer — tool-start / tool-end", { tags: ["unit"] }, () => {
 			ui,
 		);
 		expect(state.activeCalls.size).toBe(0);
-		expect(state.batchStartedAt).toBe(0);
+		expect(state.batchStartedAt).toBeNull();
 	});
 });
 
@@ -194,17 +194,21 @@ describe("tuiReducer — handleTurnError", { tags: ["unit"] }, () => {
 			ui,
 		);
 
-		state = handleTurnError(state, new Error("network timeout"), false, ui);
+		state = tuiReducer(state, { type: "turn.error", error: new Error("network timeout"), aborted: false }, ui);
 
 		expect(state.activeCalls.size).toBe(0);
-		expect(state.batchStartedAt).toBe(0);
+		expect(state.batchStartedAt).toBeNull();
 		expect(state.pendingFooterShown).toBe(false);
 		expect(ui.writer.addNotice).toHaveBeenCalledWith(expect.stringContaining("network timeout"));
 	});
 
 	it("suppresses error message when aborted", () => {
 		const ui = makeMockUi();
-		const state = handleTurnError(initialTuiState(), new Error("aborted"), true, ui);
+		const state = tuiReducer(
+			initialTuiState(),
+			{ type: "turn.error", error: new Error("aborted"), aborted: true },
+			ui,
+		);
 		expect(state.activeCalls.size).toBe(0);
 		expect(ui.writer.addNotice).not.toHaveBeenCalled();
 	});

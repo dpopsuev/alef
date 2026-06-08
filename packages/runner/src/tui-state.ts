@@ -13,13 +13,18 @@ export interface OverlayDescriptor {
 	handleInput?(data: string): void;
 }
 
+export interface TokenFooterHandle {
+	setText(text: string): void;
+}
+
 export interface TuiState {
 	activeCalls: Map<string, ActiveCall>;
-	batchStartedAt: number;
+	/** null means no tool batch is in progress. */
+	batchStartedAt: number | null;
 	turnStartedAt: number;
 	pendingFooterShown: boolean;
 	sessionTokensTotal: number;
-	pendingTokenFooter: { setText(s: string): void } | null;
+	pendingTokenFooter: TokenFooterHandle | null;
 	abortCurrentTurn: (() => void) | undefined;
 	overlays: readonly OverlayDescriptor[];
 }
@@ -27,7 +32,7 @@ export interface TuiState {
 export function initialTuiState(): TuiState {
 	return {
 		activeCalls: new Map(),
-		batchStartedAt: 0,
+		batchStartedAt: null,
 		turnStartedAt: 0,
 		pendingFooterShown: false,
 		sessionTokensTotal: 0,
@@ -50,16 +55,25 @@ export function syncOverlays(
 
 // Structural interfaces — allow unit tests to inject mocks without concrete classes.
 export interface TuiWriter {
-	addCompletedToolBlock(name: string, keyArg: string, elapsedMs: number, ok: boolean, output: unknown): void;
+	addCompletedToolBlock(
+		name: string,
+		keyArg: string,
+		elapsedMs: number,
+		ok: boolean,
+		display: string | null,
+		displayKind: string | null,
+	): void;
 	addBatchTiming(elapsedMs: number): void;
 	addNotice(text: string): void;
-	addTokenFooter(): { setText(s: string): void };
+	addTokenFooter(): TokenFooterHandle;
 	addUserMessage(text: string): void;
 }
 
 export interface TuiStreamingZone {
 	reset(): void;
 	clear(): void;
+	hideThinking: boolean;
+	setHideThinking(hide: boolean): void;
 }
 
 export interface TuiTypewriter {

@@ -150,6 +150,19 @@ export class LocalSession implements Session {
 			},
 		});
 
+		// Wire validation binding before loading corpus organs so workflow/hitl
+		// organs receive a nerve that intercepts validate.required events.
+		const hasWorkflow = corpusOrgans.some((o) => o.name === "workflow");
+		const hasHitl = corpusOrgans.some((o) => o.name === "hitl");
+		if (hasWorkflow && hasHitl) {
+			agent.bind({
+				id: "workflow.validation",
+				event: "validate.required",
+				chain: [{ organ: "hitl", timeout: 120_000 }],
+				mode: "ordered",
+			});
+		}
+
 		for (const organ of corpusOrgans) agent.load(organ);
 
 		if (!agent.organs.some((o) => o.name === "skills")) {

@@ -230,6 +230,9 @@
 			"@dpopsuev/alef-organ-alef/*": [
 				"./packages/organ-alef/src/*.ts"
 			],
+			"@dpopsuev/alef-organ-security-policy": [
+				"./packages/organ-security-policy/src/index.ts"
+			],
 			"@dpopsuev/alef-organ-hitl": [
 				"./packages/organ-hitl/src/index.ts"
 			],

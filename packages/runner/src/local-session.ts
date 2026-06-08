@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
-import type { Nerve } from "@dpopsuev/alef-kernel";
 import { createAlefApiOrgan } from "@dpopsuev/alef-organ-alef";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createLlmPipeline } from "@dpopsuev/alef-organ-llm";
@@ -20,7 +19,6 @@ import type { CorpusResult } from "./load-corpus.js";
 import { loadOrganFromPath } from "./materializer.js";
 import { buildModel } from "./model.js";
 import { createMemoryOrgan } from "./organ-memory.js";
-import { withSenseBusRedaction } from "./redact.js";
 import type { AgentEvent, DirectiveView, Session, SessionState } from "./session.js";
 import type { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
@@ -127,7 +125,7 @@ export class LocalSession implements Session {
 		// eslint-disable-next-line prefer-const
 		let pipeline!: ReturnType<typeof createLlmPipeline>;
 
-		const rawLlmOrgan = buildLlmOrgan({
+		const llmOrgan = buildLlmOrgan({
 			model,
 			cfg,
 			args,
@@ -141,14 +139,6 @@ export class LocalSession implements Session {
 			schemaResolver: (name) => pipeline?.getSchemaResolver()?.(name),
 		});
 
-		// Wrap the LLM organ's mount to apply sense bus redaction.
-		// SenseEvent payloads are stripped of credential patterns before
-		// reaching the LLM's message history — structural Swiss Cheese plate 1.
-		const llmOrgan = {
-			...rawLlmOrgan,
-			mount: (nerve: Nerve) => rawLlmOrgan.mount(withSenseBusRedaction(nerve)),
-		};
-
 		const { agent } = buildAgent({
 			dialog,
 			llm: llmOrgan,
@@ -159,19 +149,6 @@ export class LocalSession implements Session {
 				llmController?.abort(new Error(`[loop-detector] ${reason}`));
 			},
 		});
-
-		// Wire validation binding before loading corpus organs so workflow/hitl
-		// organs receive a nerve that intercepts validate.required events.
-		const hasWorkflow = corpusOrgans.some((o) => o.name === "workflow");
-		const hasHitl = corpusOrgans.some((o) => o.name === "hitl");
-		if (hasWorkflow && hasHitl) {
-			agent.bind({
-				id: "workflow.validation",
-				event: "validate.required",
-				chain: [{ organ: "hitl", timeout: 120_000 }],
-				mode: "ordered",
-			});
-		}
 
 		for (const organ of corpusOrgans) agent.load(organ);
 

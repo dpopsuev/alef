@@ -29,7 +29,8 @@ export interface TurnLoopOptions {
 	triggerEvent?: string;
 	replyEvent?: string;
 	getTools?: () => readonly ToolDefinition[];
-	getFullTools?: () => readonly ToolDefinition[];
+	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
+	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 	systemPrompt?: string;
 	apiKey?: string;
 	getApiKey?: () => string | undefined;
@@ -387,14 +388,10 @@ export async function runLLMLoop(
 				break;
 			}
 
-			const toolDefsMap = new Map((effectiveOptions.getTools?.() ?? []).map((t) => [t.name, t]));
-			const fullToolDefsMap = effectiveOptions.getFullTools
-				? new Map(effectiveOptions.getFullTools().map((t) => [t.name, t]))
-				: undefined;
+			const toolDefsMap = new Map((effectiveOptions.getTools?.() ?? []).map((t: ToolDefinition) => [t.name, t]));
 			const results = await dispatchTools(motor, sense, correlationId, toolCalls, toMotorName, timeoutMs, {
 				...effectiveOptions,
 				toolDefs: toolDefsMap,
-				fullToolDefs: fullToolDefsMap,
 			});
 			appendToolResults(messages, toolCalls, results, toMotorName);
 			onCheckpoint?.(messages.slice(), ctx.correlationId);

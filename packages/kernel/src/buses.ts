@@ -58,6 +58,8 @@ export function createCompositeAgentRunContribution(): AgentRunContribution & {
 export interface OrganContributions {
 	readonly "agent.run"?: AgentRunContribution;
 	readonly skills?: readonly SkillBook[];
+	/** Provides full tool schemas for timeout calculation — populated by ToolShell. */
+	readonly "schema-resolver"?: (toolName: string) => ToolDefinition | undefined;
 }
 
 export interface ToolDefinition {

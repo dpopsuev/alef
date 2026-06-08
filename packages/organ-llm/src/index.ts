@@ -70,8 +70,8 @@ export interface LlmTopologyOptions {
 	 * Allows DialogOrgan to shed getTools — callers pass it directly to Cerebrum instead.
 	 */
 	getTools?: () => readonly ToolDefinition[];
-	/** Full tool schemas — used for timeout derivation when getTools returns stripped schemas. */
-	getFullTools?: () => readonly ToolDefinition[];
+	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
+	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 	/**
 	 * System prompt injected as the first message when prepareStep is absent.
 	 * In production prepareStep owns system prompt injection; this covers
@@ -294,19 +294,34 @@ export interface PhaseStageOutput {
 
 export type PhaseStageHandler = (input: PhaseStageInput) => Promise<PhaseStageOutput>;
 
-export function createLlmPipeline(): Organ {
+export function createLlmPipeline(): Organ & {
+	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
+} {
 	const stages: PhaseStageHandler[] = [];
+	const schemaResolvers = new Map<string, (toolName: string) => ToolDefinition | undefined>();
 
 	return {
 		name: "llm.pipeline",
 		tools: [],
 		subscriptions: { motor: ["llm.phase"], sense: ["organ.loaded"] },
 		description:
-			"Ordered llm.phase pipeline — self-assembles PhaseStageHandler contributions from sense/organ.loaded.",
+			"Ordered llm.phase pipeline — self-assembles PhaseStageHandler and schema-resolver contributions from sense/organ.loaded.",
+		getSchemaResolver() {
+			if (schemaResolvers.size === 0) return undefined;
+			return (toolName: string) => {
+				for (const resolver of schemaResolvers.values()) {
+					const def = resolver(toolName);
+					if (def) return def;
+				}
+				return undefined;
+			};
+		},
 		mount(nerve: Nerve): () => void {
 			const unsubLoaded = nerve.sense.subscribe("organ.loaded", (event) => {
-				const contribution = (event.payload.contributions as OrganContributions | undefined)?.["llm.phase"];
-				if (contribution) stages.push(contribution);
+				const contributions = event.payload.contributions as OrganContributions | undefined;
+				const name = event.payload.name as string;
+				if (contributions?.["llm.phase"]) stages.push(contributions["llm.phase"]);
+				if (contributions?.["schema-resolver"]) schemaResolvers.set(name, contributions["schema-resolver"]);
 			});
 
 			const unsubPhase = nerve.motor.subscribe("llm.phase", (event) => {

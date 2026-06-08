@@ -288,7 +288,14 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 		},
 	};
 
-	shell.contributions = { "llm.phase": shell.phaseStage() };
+	shell.contributions = {
+		"llm.phase": shell.phaseStage(),
+		"schema-resolver": (name: string) => {
+			// Always re-read from live resolveTools() so newly loaded organs are visible
+			const tools = resolveTools();
+			return tools.find((t) => t.name === name);
+		},
+	};
 
 	return shell;
 }

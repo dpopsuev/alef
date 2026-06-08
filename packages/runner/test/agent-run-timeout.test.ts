@@ -80,7 +80,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			// Stripped schemas — this is what ToolShell serves for unpromoted tools
 			getTools: () => toolShell.currentMetaTools(),
 			// Full schemas — used by toOuterTimeoutMs to read the 600s default
-			getFullTools: () => agent.tools,
+			schemaResolver: (name) => agent.tools.find((t) => t.name === name),
 		});
 
 		agent.load(dialog).load(outerLlm);

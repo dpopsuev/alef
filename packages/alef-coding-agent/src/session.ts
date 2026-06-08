@@ -79,7 +79,7 @@ export async function createCodingAgent(config: CodingAgentConfig): Promise<Codi
 		getModel: () => model,
 		getSignal: () => llmController?.signal,
 		getTools: () => toolShell.currentMetaTools(),
-		getFullTools: () => agent.tools,
+		schemaResolver: (name) => agent.tools.find((t) => t.name === name),
 	});
 
 	const { agent } = buildAgent({ dialog, llm: llmOrgan });

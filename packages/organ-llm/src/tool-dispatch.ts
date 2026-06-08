@@ -141,7 +141,7 @@ type MotorBus = { publish: (event: { type: string; payload: Record<string, unkno
 interface DispatchToolsOptions {
 	onEvent?: (event: CerebrumEvent) => void;
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
-	fullToolDefs?: ReadonlyMap<string, ToolDefinition>;
+	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 }
 
 export async function dispatchTools(
@@ -161,7 +161,7 @@ export async function dispatchTools(
 			const outerWaitMs = toOuterTimeoutMs(
 				tc.args,
 				timeoutMs,
-				options.fullToolDefs?.get(motorType) ?? options.toolDefs?.get(motorType),
+				options.schemaResolver?.(motorType) ?? options.toolDefs?.get(motorType),
 			);
 			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			const { onEvent } = options;

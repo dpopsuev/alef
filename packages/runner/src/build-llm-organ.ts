@@ -18,7 +18,7 @@ export interface LlmOrganOptions {
 	getModel: () => Model<Api>;
 	getSignal: () => AbortSignal | undefined;
 	getTools: () => ToolDefinition[];
-	getFullTools: () => readonly ToolDefinition[];
+	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 }
 
 export function buildLlmOrgan(opts: LlmOrganOptions): Organ {
@@ -44,7 +44,7 @@ export function buildLlmOrgan(opts: LlmOrganOptions): Organ {
 		getSignal: opts.getSignal,
 		phaseTimeoutMs: 100,
 		getTools: opts.getTools,
-		getFullTools: opts.getFullTools,
+		schemaResolver: opts.schemaResolver,
 		onEvent: opts.onEvent,
 	});
 }

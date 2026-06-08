@@ -119,6 +119,12 @@ export interface HarnessOptions {
 	 */
 	organFactory?: (signal: AbortSignal) => Organ[];
 	/**
+	 * Async version of organFactory — receives the workspace path so organs
+	 * can be materialised from the blueprint relative to the run workspace.
+	 * Awaited inside run() before loading organs. Takes precedence over organFactory.
+	 */
+	asyncOrganFactory?: (workspace: string, signal: AbortSignal) => Promise<Organ[]>;
+	/**
 	 * Override the tool list passed to Cerebrum.
 	 * Default: () => agent.tools. Pass via organFactory to Cerebrum.getTools instead.
 	 * @deprecated Pass getTools directly in the organFactory Cerebrum options.
@@ -236,7 +242,10 @@ export class EvalHarness {
 		for (const organ of opts.extraOrgans ?? []) {
 			agent.load(organ);
 		}
-		for (const organ of opts.organFactory?.(agent.signal) ?? []) {
+		const asyncOrgans = opts.asyncOrganFactory
+			? await opts.asyncOrganFactory(workspace, agent.signal)
+			: (opts.organFactory?.(agent.signal) ?? []);
+		for (const organ of asyncOrgans) {
 			agent.load(organ);
 		}
 

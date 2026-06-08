@@ -1,10 +1,16 @@
-import type { TUI } from "@dpopsuev/alef-tui";
+import type { Component, TUI } from "@dpopsuev/alef-tui";
 import type { Session } from "./session.js";
 import type { ColorToken, ThemeTokens } from "./theme.js";
 
 export interface ActiveCall {
 	name: string;
 	keyArg: string;
+}
+
+export interface OverlayDescriptor {
+	id: string;
+	component: Component;
+	handleInput?(data: string): void;
 }
 
 export interface TuiState {
@@ -15,6 +21,7 @@ export interface TuiState {
 	sessionTokensTotal: number;
 	pendingTokenFooter: { setText(s: string): void } | null;
 	abortCurrentTurn: (() => void) | undefined;
+	overlays: readonly OverlayDescriptor[];
 }
 
 export function initialTuiState(): TuiState {
@@ -26,7 +33,19 @@ export function initialTuiState(): TuiState {
 		sessionTokensTotal: 0,
 		pendingTokenFooter: null,
 		abortCurrentTurn: undefined,
+		overlays: [],
 	};
+}
+
+export function syncOverlays(
+	tui: Pick<TUI, "addChild" | "removeChild">,
+	prev: readonly OverlayDescriptor[],
+	next: readonly OverlayDescriptor[],
+): void {
+	const prevIds = new Set(prev.map((o) => o.id));
+	const nextIds = new Set(next.map((o) => o.id));
+	for (const o of prev) if (!nextIds.has(o.id)) tui.removeChild(o.component);
+	for (const o of next) if (!prevIds.has(o.id)) tui.addChild(o.component);
 }
 
 // Structural interfaces — allow unit tests to inject mocks without concrete classes.

@@ -26,6 +26,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { SseManager } from "./sse.js";
 
 export interface RouterOptions {
@@ -90,7 +91,7 @@ export class RouterOrgan implements Organ {
 			host: options.host ?? "127.0.0.1",
 			allowedEvents: options.allowedEvents ?? [],
 			onMessage: options.onMessage,
-			triggerEvent: options.triggerEvent ?? "dialog.message",
+			triggerEvent: options.triggerEvent ?? DIALOG_MESSAGE,
 		};
 	}
 

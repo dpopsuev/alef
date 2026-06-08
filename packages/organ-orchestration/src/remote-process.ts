@@ -1,5 +1,6 @@
 import http from "node:http";
 import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 
 function postToChild(endpoint: string, text: string, timeoutMs: number): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -46,7 +47,7 @@ function collectReply(endpoint: string, timeoutMs: number, onActivity?: () => vo
 					if (!line) continue;
 					try {
 						const ev = JSON.parse(line.slice(6)) as { bus?: string; type?: string; payload?: { text?: string } };
-						if (ev.bus === "motor" && ev.type === "dialog.message" && typeof ev.payload?.text === "string") {
+						if (ev.bus === "motor" && ev.type === DIALOG_MESSAGE && typeof ev.payload?.text === "string") {
 							clearTimeout(timer);
 							res.destroy();
 							resolve(ev.payload.text);

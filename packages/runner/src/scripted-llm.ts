@@ -9,6 +9,7 @@
  */
 
 import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import type { CerebrumEvent } from "@dpopsuev/alef-organ-llm";
 
 type SerializedStep =
@@ -30,7 +31,7 @@ export interface ScriptedLlmOptions {
 export class ScriptedLlmOrgan implements Organ {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as readonly string[] };
+	readonly subscriptions = { motor: [] as const, sense: [DIALOG_MESSAGE] as readonly string[] };
 
 	private readonly steps: SerializedStep[];
 	private readonly opts: ScriptedLlmOptions;
@@ -42,12 +43,12 @@ export class ScriptedLlmOrgan implements Organ {
 	}
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", (event) => {
+		return nerve.sense.subscribe(DIALOG_MESSAGE, (event) => {
 			const step = this.steps[this.index++];
 			const text = step !== undefined ? toReplyText(step) : "(scripted-llm: script exhausted)";
 			this.opts.onEvent?.({ type: "chunk", text });
 			nerve.motor.publish({
-				type: "dialog.message",
+				type: DIALOG_MESSAGE,
 				payload: { text },
 				correlationId: event.correlationId,
 			});

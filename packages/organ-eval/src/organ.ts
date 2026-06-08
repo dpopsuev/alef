@@ -17,6 +17,7 @@
 
 import type { BaseOrganOptions, CorpusHandlerCtx, Organ } from "@dpopsuev/alef-kernel";
 import { defineOrgan, getNumber, getString } from "@dpopsuev/alef-kernel";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
 import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";
@@ -128,7 +129,7 @@ export function createEvalOrgan(opts: EvalOrganOptions = {}): Organ {
 			// Start SSE collection before posting (avoids race).
 			const ssePromise = collectEvents(
 				endpoint,
-				(events) => events.some((e) => e.bus === "motor" && e.type === "dialog.message"),
+				(events) => events.some((e) => e.bus === "motor" && e.type === DIALOG_MESSAGE),
 				timeoutMs,
 			);
 

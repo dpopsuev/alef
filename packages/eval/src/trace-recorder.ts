@@ -20,6 +20,7 @@
 import { createWriteStream, type WriteStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { NerveEvent } from "@dpopsuev/alef-kernel";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import type { BusObserver } from "@dpopsuev/alef-runtime";
 
 // ---------------------------------------------------------------------------
@@ -67,7 +68,7 @@ export class TraceRecorder implements BusObserver {
 		const p = event as unknown as { type?: string; correlationId?: string; payload?: Record<string, unknown> };
 		const type = p.type ?? "unknown";
 		// Skip internal dialog events \u2014 not tool calls
-		if (type === "dialog.message") return;
+		if (type === DIALOG_MESSAGE) return;
 		this.motorTimes.set(p.correlationId ?? "", Date.now());
 		this.write({
 			ts: new Date().toISOString(),
@@ -87,7 +88,7 @@ export class TraceRecorder implements BusObserver {
 			payload?: Record<string, unknown>;
 		};
 		const type = p.type ?? "unknown";
-		if (type === "dialog.message") return;
+		if (type === DIALOG_MESSAGE) return;
 
 		const startMs = this.motorTimes.get(p.correlationId ?? "");
 		const elapsedMs = startMs !== undefined ? Date.now() - startMs : undefined;

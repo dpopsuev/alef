@@ -5,6 +5,7 @@
  */
 
 import { readFile } from "node:fs/promises";
+import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { Input, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import type { StorageRecord } from "./session-store.js";
 import { bold, color, getTheme } from "./theme.js";
@@ -36,7 +37,7 @@ async function readFirstUserMessage(jsonlPath: string): Promise<string> {
 		for (const line of raw.split("\n")) {
 			if (!line.trim()) continue;
 			const record = JSON.parse(line) as StorageRecord;
-			if (record.bus === "sense" && record.type === "dialog.message") {
+			if (record.bus === "sense" && record.type === DIALOG_MESSAGE) {
 				const text = typeof record.payload.text === "string" ? record.payload.text : "";
 				if (text) return text.slice(0, 60).replace(/\n/g, " ");
 			}

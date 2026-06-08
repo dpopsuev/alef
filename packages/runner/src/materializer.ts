@@ -154,6 +154,35 @@ export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
 	hooks: { extensions: [] },
 };
 
+/** The canonical alef-coding-agent organ set — matches blueprint.yaml in packages/alef-coding-agent. */
+export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {
+	name: "alef-coding-agent",
+	organs: [
+		{ name: "fs", actions: [], toolNames: [] },
+		{ name: "shell", actions: [], toolNames: [] },
+		{ name: "nodesh", actions: [], toolNames: [] },
+		{ name: "lector", actions: [], toolNames: [] },
+		{ name: "web", actions: [], toolNames: [] },
+		{ name: "delegate", actions: [], toolNames: [] },
+		{ name: "orchestration", actions: [], toolNames: [] },
+		{ name: "factory", actions: [], toolNames: [] },
+		{ name: "skills", actions: [], toolNames: [] },
+	],
+	model: undefined,
+	children: [],
+	surfaces: [],
+	capabilities: { tools: [], orchestration: true },
+	memory: { session: "memory", working: {} },
+	policies: { appendSystemPrompt: [] },
+	hooks: { extensions: [] },
+};
+
+/** Materialize the default coding agent organ set for use in eval and test harnesses. */
+export async function materializeDefaultOrgans(cwd: string) {
+	const { organs } = await materializeBlueprint(CODING_AGENT_BLUEPRINT, { cwd });
+	return organs;
+}
+
 /** Path to the user organs config file. Read at call time so ALEF_PM_ROOT overrides work in tests. */
 export function userOrgansConfigPath(): string {
 	const root = process.env.ALEF_PM_ROOT ?? join(homedir(), ".config", "alef");

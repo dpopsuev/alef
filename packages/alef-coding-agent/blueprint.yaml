@@ -1,0 +1,32 @@
+name: alef-coding-agent
+version: 1.0.0
+description: >
+  The default Alef coding agent blueprint.
+  This manifest is the SBOM — the organ list is the canonical record
+  of what ships. No code. Assembly is the runner's concern.
+
+organs:
+  - name: fs
+    package: "@dpopsuev/alef-organ-fs"
+  - name: shell
+    package: "@dpopsuev/alef-organ-shell"
+  - name: nodesh
+    package: "@dpopsuev/alef-organ-nodesh"
+  - name: lector
+    package: "@dpopsuev/alef-organ-lector"
+  - name: web
+    package: "@dpopsuev/alef-organ-web"
+  - name: delegate
+    package: "@dpopsuev/alef-organ-delegate"
+  - name: orchestration
+    package: "@dpopsuev/alef-organ-orchestration"
+  - name: factory
+    package: "@dpopsuev/alef-organ-factory"
+  - name: skills
+    package: "@dpopsuev/alef-organ-skills"
+
+capabilities:
+  orchestration: true
+
+memory:
+  session: memory

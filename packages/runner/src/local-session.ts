@@ -122,6 +122,9 @@ export class LocalSession implements Session {
 			for (const obs of observers) obs(event);
 		};
 
+		// eslint-disable-next-line prefer-const
+		let pipeline!: ReturnType<typeof createLlmPipeline>;
+
 		const llmOrgan = buildLlmOrgan({
 			model,
 			cfg,
@@ -133,7 +136,7 @@ export class LocalSession implements Session {
 			getModel: () => currentModel,
 			getSignal: () => llmController?.signal,
 			getTools: () => toolShell.currentMetaTools(),
-			getFullTools: () => agent.tools,
+			schemaResolver: (name) => pipeline?.getSchemaResolver()?.(name),
 		});
 
 		const { agent } = buildAgent({
@@ -180,7 +183,8 @@ export class LocalSession implements Session {
 			organDirectives: buildOrganDirectives(agent.organs),
 		});
 		agent.load(toolShell);
-		agent.load(createLlmPipeline());
+		pipeline = createLlmPipeline();
+		agent.load(pipeline);
 		registerOrgans(directives, [toolShell, memoryOrgan]);
 
 		const alefOrgan = createAlefApiOrgan({

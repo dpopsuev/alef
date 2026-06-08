@@ -1,34 +1,20 @@
 {
 	"name": "@dpopsuev/alef-coding-agent",
-	"version": "0.0.1",
+	"version": "1.0.0",
+	"description": "The default Alef coding agent blueprint. This package IS the SBOM — dependencies are the organ manifest.",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts",
-		"./testkit": "./src/testkit.ts"
+		"./blueprint": "./blueprint.yaml"
 	},
 	"dependencies": {
-		"@dpopsuev/alef-ai": "*",
-		"@dpopsuev/alef-agent-blueprint": "*",
-		"@dpopsuev/alef-kernel": "*",
-		"@dpopsuev/alef-organ-alef": "*",
-		"@dpopsuev/alef-organ-delegate": "*",
-		"@dpopsuev/alef-organ-dialog": "*",
-		"@dpopsuev/alef-organ-factory": "*",
-		"@dpopsuev/alef-organ-fs": "*",
-		"@dpopsuev/alef-organ-llm": "*",
-		"@dpopsuev/alef-organ-memory": "*",
-		"@dpopsuev/alef-organ-nodesh": "*",
-		"@dpopsuev/alef-organ-orchestration": "*",
-		"@dpopsuev/alef-organ-prompt": "*",
-		"@dpopsuev/alef-organ-shell": "*",
-		"@dpopsuev/alef-organ-skills": "*",
-		"@dpopsuev/alef-organ-web": "*",
-		"@dpopsuev/alef-runner": "*",
-		"@dpopsuev/alef-runtime": "*",
-		"@dpopsuev/alef-session": "*"
-	},
-	"devDependencies": {
-		"@dpopsuev/alef-testkit": "*",
-		"vitest": "*"
+		"@dpopsuev/alef-organ-delegate": "^0.0.1",
+		"@dpopsuev/alef-organ-factory": "^0.0.1",
+		"@dpopsuev/alef-organ-fs": "^0.0.1",
+		"@dpopsuev/alef-organ-lector": "^0.0.1",
+		"@dpopsuev/alef-organ-nodesh": "^0.0.1",
+		"@dpopsuev/alef-organ-orchestration": "^0.0.1",
+		"@dpopsuev/alef-organ-shell": "^0.0.1",
+		"@dpopsuev/alef-organ-skills": "^0.0.1",
+		"@dpopsuev/alef-organ-web": "^0.0.1"
 	}
 }

@@ -14,7 +14,7 @@
 import { resolve } from "node:path";
 import { createAgentLoop, createLlmPipeline } from "@dpopsuev/alef-organ-llm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { materializeDefaultOrgans } from "../../alef-coding-agent/src/testkit.js";
+import { materializeDefaultOrgans } from "../../runner/src/materializer.js";
 import { createToolShellOrgan } from "../../runner/src/tool-shell.js";
 import type { Evaluation } from "../src/evaluation.js";
 import * as multiTurnEvals from "../src/evaluations/multi-turn.js";

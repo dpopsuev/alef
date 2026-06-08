@@ -79,6 +79,24 @@ export class RemoteSession implements Session {
 		return () => this.observers.delete(observer);
 	}
 
+	send(text: string, timeoutMs = 300_000): Promise<string> {
+		this.receive(text);
+		// Wait for token-usage event (turn completion signal) or timeout.
+		return new Promise<string>((resolve) => {
+			const timer = setTimeout(() => {
+				unsubscribe();
+				resolve("");
+			}, timeoutMs);
+			const unsubscribe = this.subscribe((event) => {
+				if (event.type === "token-usage") {
+					clearTimeout(timer);
+					unsubscribe();
+					resolve("");
+				}
+			});
+		});
+	}
+
 	receive(text: string): void {
 		const body = JSON.stringify({ text });
 		const req = http.request(

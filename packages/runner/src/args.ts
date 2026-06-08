@@ -312,6 +312,7 @@ export function parseArgs(argv: string[]): Args {
 		if (arg === "--daemon") {
 			args.daemon = true;
 			args.noTui = true;
+			args.serve = 0; // daemon implies --serve 0 (random port)
 			i++;
 			continue;
 		}

@@ -3,9 +3,8 @@
  * Verifies all TuiState transitions by replaying AgentEvent sequences.
  */
 import { describe, expect, it, vi } from "vitest";
-import { handleAgentEvent, handleTurnError } from "../src/tui-reducer.js";
-import type { TuiUi } from "../src/tui-state.js";
-import { initialTuiState } from "../src/tui-state.js";
+import { handleAgentEvent, handleTurnError, tuiReducer } from "../src/tui-reducer.js";
+import { initialTuiState, type TuiUi } from "../src/tui-state.js";
 
 function makeMockUi(): TuiUi {
 	return {
@@ -26,6 +25,7 @@ function makeMockUi(): TuiUi {
 			showInFlightCall: vi.fn(),
 			removeInFlightCall: vi.fn(),
 			updateInFlightCallChunk: vi.fn(),
+			startThinking: vi.fn(),
 			stopThinking: vi.fn(),
 			isThinking: false,
 		},
@@ -207,6 +207,70 @@ describe("tuiReducer — handleTurnError", { tags: ["unit"] }, () => {
 		const state = handleTurnError(initialTuiState(), new Error("aborted"), true, ui);
 		expect(state.activeCalls.size).toBe(0);
 		expect(ui.writer.addNotice).not.toHaveBeenCalled();
+	});
+});
+
+describe("tuiReducer — TuiInputEvent", { tags: ["unit"] }, () => {
+	it("overlay.show adds descriptor to overlays", () => {
+		const ui = makeMockUi();
+		const desc = { id: "picker", component: {} as unknown as import("@dpopsuev/alef-tui").Component };
+
+		const state = tuiReducer(initialTuiState(), { type: "overlay.show", descriptor: desc }, ui);
+		expect(state.overlays).toHaveLength(1);
+		expect(state.overlays[0]?.id).toBe("picker");
+	});
+
+	it("overlay.hide removes descriptor by id", () => {
+		const ui = makeMockUi();
+		const desc = { id: "picker", component: {} as unknown as import("@dpopsuev/alef-tui").Component };
+
+		let state = tuiReducer(initialTuiState(), { type: "overlay.show", descriptor: desc }, ui);
+		state = tuiReducer(state, { type: "overlay.hide", id: "picker" }, ui);
+		expect(state.overlays).toHaveLength(0);
+	});
+
+	it("turn.start resets pendingFooterShown and records timestamp", () => {
+		const ui = makeMockUi();
+
+		const ts = Date.now();
+		const state = tuiReducer(
+			{ ...initialTuiState(), pendingFooterShown: true },
+			{ type: "turn.start", timestamp: ts },
+			ui,
+		);
+		expect(state.pendingFooterShown).toBe(false);
+		expect(state.turnStartedAt).toBe(ts);
+		expect(ui.consoleZone.startThinking).toHaveBeenCalled();
+	});
+
+	it("abort.set stores fn, abort.clear removes it", () => {
+		const ui = makeMockUi();
+
+		const fn = vi.fn();
+		let state = tuiReducer(initialTuiState(), { type: "abort.set", fn }, ui);
+		expect(state.abortCurrentTurn).toBe(fn);
+		state = tuiReducer(state, { type: "abort.clear" }, ui);
+		expect(state.abortCurrentTurn).toBeUndefined();
+	});
+
+	it("turn.error clears active calls and abortCurrentTurn", async () => {
+		const ui = makeMockUi();
+
+		let state = handleAgentEvent(
+			initialTuiState(),
+			{
+				type: "tool-start",
+				callId: "c1",
+				name: "shell.exec",
+				args: {},
+				ok: true,
+			} as Parameters<typeof handleAgentEvent>[1],
+			ui,
+		);
+		state = tuiReducer(state, { type: "turn.error", error: new Error("fail"), aborted: false }, ui);
+		expect(state.activeCalls.size).toBe(0);
+		expect(state.abortCurrentTurn).toBeUndefined();
+		expect(ui.writer.addNotice).toHaveBeenCalledWith(expect.stringContaining("fail"));
 	});
 });
 

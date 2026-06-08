@@ -75,6 +75,7 @@ export interface TuiConsoleZone {
 	showInFlightCall(callId: string, name: string, keyArg: string): void;
 	removeInFlightCall(callId: string): void;
 	updateInFlightCallChunk(callId: string, text: string): void;
+	startThinking(): void;
 	stopThinking(): void;
 	readonly isThinking: boolean;
 }

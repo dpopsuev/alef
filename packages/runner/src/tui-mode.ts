@@ -9,7 +9,7 @@
  *   ConsoleZone status · hint · editor (always visible)
  */
 
-import { appendFileSync } from "node:fs";
+import { createWriteStream } from "node:fs";
 import { getProviders } from "@dpopsuev/alef-ai";
 import { Container, matchesKey, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
@@ -29,7 +29,7 @@ import { DynamicText } from "./tui/dynamic-text.js";
 import { StreamingZone } from "./tui/streaming-zone.js";
 
 import { Typewriter } from "./tui/typewriter.js";
-import { handleAgentEvent, handleTurnError } from "./tui-reducer.js";
+import { type TuiEvent, tuiReducer } from "./tui-reducer.js";
 import { initialTuiState, syncOverlays, type TuiUi } from "./tui-state.js";
 import { checkForUpdate } from "./version-check.js";
 
@@ -186,17 +186,12 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 	const t = getTheme();
 
 	// TUI frame capture — written when ALEF_DEBUG=1 for offline hang diagnosis.
-	// Read last frame: alef debug frame  (or: cat /tmp/alef-frames.jsonl | tail -1)
-	const frameFile = "/tmp/alef-frames.jsonl";
+	// Read last frame: cat /tmp/alef-frames.jsonl | tail -1
 	if (process.env.ALEF_DEBUG === "1") {
+		const frameStream = createWriteStream("/tmp/alef-frames.jsonl", { flags: "a" });
 		tui.onRender = (frame: string, width: number, _height: number) => {
-			try {
-				const meta = tui.renderMeta;
-				const record = JSON.stringify({ frame, width, ...meta });
-				appendFileSync(frameFile, `${record}\n`, "utf-8");
-			} catch {
-				// Never crash the TUI over debug I/O.
-			}
+			const meta = tui.renderMeta;
+			frameStream.write(`${JSON.stringify({ frame, width, ...meta })}\n`);
 		};
 	}
 
@@ -248,16 +243,18 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 		() => tui.requestRender(),
 	);
 
-	// ── Agent event dispatch ──────────────────────────────────────────────
+	// ── Single dispatch gate — the only path for all state transitions ────
 	let tuiState = initialTuiState();
 	const tuiUi: TuiUi = { writer, streamingZone, replyTW, thinkingTW, consoleZone, tui, t, session };
 
-	session.subscribe((event) => {
+	const dispatch = (event: TuiEvent): void => {
 		const prev = tuiState;
-		tuiState = handleAgentEvent(tuiState, event, tuiUi);
+		tuiState = tuiReducer(tuiState, event, tuiUi);
 		syncOverlays(tui, prev.overlays, tuiState.overlays);
 		tui.requestRender();
-	});
+	};
+
+	session.subscribe((event) => dispatch(event));
 
 	// ── Input handling ────────────────────────────────────────────────────
 	const ctx = (): TuiHandlerContext => ({
@@ -267,19 +264,12 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 		opts,
 		session,
 		abortCurrentTurn: tuiState.abortCurrentTurn,
-		setAbortCurrentTurn: (fn) => {
-			tuiState = { ...tuiState, abortCurrentTurn: fn };
-		},
+		setAbortCurrentTurn: (fn) => (fn ? dispatch({ type: "abort.set", fn }) : dispatch({ type: "abort.clear" })),
 	});
 
 	const HISTORY_PICKER_ID = "history-picker";
 
-	const closeHistoryPicker = (): void => {
-		const prev = tuiState;
-		tuiState = { ...tuiState, overlays: tuiState.overlays.filter((o) => o.id !== HISTORY_PICKER_ID) };
-		syncOverlays(tui, prev.overlays, tuiState.overlays);
-		tui.requestRender();
-	};
+	const closeHistoryPicker = (): void => dispatch({ type: "overlay.hide", id: HISTORY_PICKER_ID });
 
 	const openHistoryPicker = (): boolean => {
 		const entries = historyProvider.getEntries();
@@ -301,16 +291,10 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 			closeHistoryPicker();
 		};
 		list.onCancel = () => closeHistoryPicker();
-		const prev = tuiState;
-		tuiState = {
-			...tuiState,
-			overlays: [
-				...tuiState.overlays,
-				{ id: HISTORY_PICKER_ID, component: list, handleInput: (d) => list.handleInput(d) },
-			],
-		};
-		syncOverlays(tui, prev.overlays, tuiState.overlays);
-		tui.requestRender();
+		dispatch({
+			type: "overlay.show",
+			descriptor: { id: HISTORY_PICKER_ID, component: list, handleInput: (d) => list.handleInput(d) },
+		});
 		return true;
 	};
 
@@ -355,45 +339,30 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 			return;
 		}
 		editor.addToHistory(text);
-		if (tuiState.abortCurrentTurn) {
-			tuiState.abortCurrentTurn();
-			tuiState = { ...tuiState, abortCurrentTurn: undefined };
-		}
+		if (tuiState.abortCurrentTurn) tuiState.abortCurrentTurn();
 		editor.setText("");
 		historyProvider.addEntry(text);
-		tuiState = { ...tuiState, pendingFooterShown: false, turnStartedAt: Date.now() };
-		consoleZone.hidePendingFooter();
 		writer.addUserMessage(text);
-		consoleZone.startThinking();
-		tui.requestRender();
+		dispatch({ type: "turn.start", timestamp: Date.now() });
 
 		let aborted = false;
 		const controller = new AbortController();
 		session.setTurnController(controller);
-		tuiState = {
-			...tuiState,
-			abortCurrentTurn: () => {
+		dispatch({
+			type: "abort.set",
+			fn: () => {
 				aborted = true;
 				controller.abort();
 			},
-		};
+		});
 
 		try {
 			if (session.send) await session.send(text, 300_000);
-			if (!aborted) {
-				replyTW.flush();
-				thinkingTW.flush();
-				streamingZone.reset();
-				consoleZone.stopThinking();
-				consoleZone.hidePendingFooter();
-				tuiState = { ...tuiState, pendingFooterShown: false, pendingTokenFooter: writer.addTokenFooter() };
-				tui.requestRender(true);
-			}
+			if (!aborted) dispatch({ type: "turn.complete", tokenFooter: writer.addTokenFooter() });
 		} catch (e) {
-			tuiState = handleTurnError(tuiState, e, aborted, tuiUi);
-			tui.requestRender();
+			dispatch({ type: "turn.error", error: e, aborted });
 		} finally {
-			tuiState = { ...tuiState, abortCurrentTurn: undefined };
+			dispatch({ type: "abort.clear" });
 			session.setTurnController(undefined);
 			if (consoleZone.isThinking) consoleZone.stopThinking();
 		}

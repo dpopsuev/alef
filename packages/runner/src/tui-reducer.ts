@@ -2,7 +2,103 @@ import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";
 import { formatTokenUsage, keyArgFromPayload, makeToolOutputComponent } from "./tui/tool-view.js";
-import type { TuiState, TuiUi } from "./tui-state.js";
+import type { OverlayDescriptor, TuiState, TuiUi } from "./tui-state.js";
+
+// ---------------------------------------------------------------------------
+// TuiInputEvent — typed events from the Input layer (keyboard, editor, modal)
+// ---------------------------------------------------------------------------
+
+export type TuiInputEvent =
+	| { type: "overlay.show"; descriptor: OverlayDescriptor }
+	| { type: "overlay.hide"; id: string }
+	| { type: "turn.start"; timestamp: number }
+	| { type: "turn.complete"; tokenFooter: { setText(s: string): void } }
+	| { type: "turn.abort" }
+	| { type: "turn.error"; error: unknown; aborted: boolean }
+	| { type: "abort.set"; fn: () => void }
+	| { type: "abort.clear" };
+
+export type TuiEvent = AgentEvent | TuiInputEvent;
+
+// ---------------------------------------------------------------------------
+// Input event reducer
+// ---------------------------------------------------------------------------
+
+function handleInputEvent(state: TuiState, event: TuiInputEvent, ui: TuiUi): TuiState {
+	const { writer, consoleZone, replyTW, thinkingTW, streamingZone } = ui;
+
+	switch (event.type) {
+		case "overlay.show":
+			return { ...state, overlays: [...state.overlays, event.descriptor] };
+
+		case "overlay.hide":
+			return { ...state, overlays: state.overlays.filter((o) => o.id !== event.id) };
+
+		case "turn.start":
+			consoleZone.hidePendingFooter();
+			consoleZone.startThinking();
+			return { ...state, pendingFooterShown: false, turnStartedAt: event.timestamp };
+
+		case "turn.complete":
+			replyTW.flush();
+			thinkingTW.flush();
+			streamingZone.reset();
+			consoleZone.stopThinking();
+			consoleZone.hidePendingFooter();
+			return { ...state, pendingFooterShown: false, pendingTokenFooter: event.tokenFooter };
+
+		case "turn.abort":
+			return { ...state, abortCurrentTurn: undefined };
+
+		case "turn.error": {
+			consoleZone.stopThinking();
+			consoleZone.hidePendingFooter();
+			replyTW.reset();
+			thinkingTW.reset();
+			streamingZone.clear();
+			for (const [callId, entry] of state.activeCalls) {
+				consoleZone.removeInFlightCall(callId);
+				writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null);
+			}
+			if (!event.aborted) writer.addNotice(`[error] ${formatError(event.error)}`);
+			return {
+				...state,
+				activeCalls: new Map(),
+				batchStartedAt: 0,
+				pendingFooterShown: false,
+				abortCurrentTurn: undefined,
+			};
+		}
+
+		case "abort.set":
+			return { ...state, abortCurrentTurn: event.fn };
+
+		case "abort.clear":
+			return { ...state, abortCurrentTurn: undefined };
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unified reducer — handles both AgentEvent and TuiInputEvent
+// ---------------------------------------------------------------------------
+
+export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiState {
+	if (isTuiInputEvent(event)) return handleInputEvent(state, event, ui);
+	return handleAgentEvent(state, event as AgentEvent, ui);
+}
+
+function isTuiInputEvent(event: TuiEvent): event is TuiInputEvent {
+	return (
+		event.type === "overlay.show" ||
+		event.type === "overlay.hide" ||
+		event.type === "turn.start" ||
+		event.type === "turn.complete" ||
+		event.type === "turn.abort" ||
+		event.type === "turn.error" ||
+		event.type === "abort.set" ||
+		event.type === "abort.clear"
+	);
+}
 
 export function handleAgentEvent(state: TuiState, event: AgentEvent, ui: TuiUi): TuiState {
 	const { writer, streamingZone, replyTW, thinkingTW, consoleZone, t, session } = ui;

@@ -15,6 +15,7 @@ import {
 	appendTokenFooter,
 	appendUserMsg,
 } from "./chat-view.js";
+import { makeToolOutputComponent } from "./tool-view.js";
 
 export class ChatWriter {
 	private readonly chat: Container;
@@ -38,9 +39,13 @@ export class ChatWriter {
 		keyArg: string,
 		elapsedMs: number,
 		ok: boolean,
-		outputComponent: Component | null,
+		display: string | null,
+		displayKind: string | null,
 	): void {
-		appendCompletedToolBlock(this.chat, name, keyArg, elapsedMs, ok, outputComponent, this.t);
+		const output: Component | null = display
+			? makeToolOutputComponent(display, displayKind ?? undefined, this.t)
+			: null;
+		appendCompletedToolBlock(this.chat, name, keyArg, elapsedMs, ok, output, this.t);
 	}
 
 	addBatchTiming(ms: number): void {

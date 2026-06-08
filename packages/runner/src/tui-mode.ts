@@ -321,10 +321,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 			return true;
 		}
 		if (matchesKey(data, "ctrl+t")) {
-			const next = !streamingZone.hideThinking;
-			streamingZone.setHideThinking(next);
-			writer.addNotice(next ? "Thinking: hidden" : "Thinking: visible");
-			tui.requestRender();
+			dispatch({ type: "thinking.toggle" });
 			return true;
 		}
 		return false;

@@ -1,11 +1,11 @@
 /**
- * Ambient agent — Cerebrum driven by a non-dialog sense event.
- * No DialogOrgan, no dialog.message, no human input.
+ * Ambient agent — organ-llm driven by a non-dialog sense event.
+ * No DialogOrgan, no llm.response, no human input.
  */
 
 import { randomUUID } from "node:crypto";
-import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
+import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -23,8 +23,6 @@ describe("ambient agent", { tags: ["unit"] }, () => {
 		const llm = createAgentLoop({
 			model: faux.getModel(),
 			apiKey: "faux-key",
-			triggerEvent: "file.changed",
-			replyEvent: "file.action",
 		});
 		unmounts.push(llm.mount(nerve.asNerve()));
 

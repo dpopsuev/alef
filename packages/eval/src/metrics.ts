@@ -5,8 +5,6 @@
  * + direct Bus event capture via agent.observe().
  */
 
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
-
 /**
  * One Motor or Sense event captured in real-time from the bus.
  * Complements OTel spans: spans only cover completed calls; BusEvents include
@@ -38,7 +36,7 @@ export interface SpanRecord {
 /**
  * Structured record for a single LLM call within a run.
  * Populated from OTel spans emitted by organ-llm.
- * Mirrors Tako cerebrum.TurnRecord.
+ * Mirrors Tako TurnRecord.
  */
 export interface TurnRecord {
 	/** 1-based turn index within the run. */
@@ -96,7 +94,7 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 
 		// Exclude internal seam events from tool path tracking.
 		// llm.phase is ToolShellOrgan's context lifecycle interceptor, not an LLM tool call.
-		const INTERNAL_EVENTS = new Set([DIALOG_MESSAGE, "llm.phase"]);
+		const INTERNAL_EVENTS = new Set(["llm.response", "llm.phase"]);
 		const toolNames = toolSpans
 			.map((ts) => ts.name.replace("alef.motor/", ""))
 			.filter((n) => !INTERNAL_EVENTS.has(n));
@@ -139,13 +137,13 @@ export interface RunMetrics {
 	/**
 	 * Per-LLM-call structured records.
 	 * Populated automatically by EvalHarness from OTel spans.
-	 * Mirrors Tako cerebrum.TurnRecord.
+	 * Mirrors Tako TurnRecord.
 	 */
 	turns: TurnRecord[];
 	/**
 	 * Full conversation transcript: the complete messages array at end of the eval run.
 	 * Each entry is { role, content, toolCallId?, toolName?, isError? }.
-	 * Populated from the conversationHistory field on the last Motor dialog.message event.
+	 * Populated from the conversationHistory field on the last Motor llm.response event.
 	 *
 	 * Anthropic: "A transcript is the complete record of a trial, including outputs,
 	 * tool calls, reasoning, and intermediate results."
@@ -190,7 +188,7 @@ export interface RunMetrics {
 	/**
 	 * Real-time bus event capture: every Motor and Sense event observed during the run,
 	 * in chronological order, with truncated payloads. Populated by harness.ts via
-	 * agent.observe(). Skips dialog.message (large) and llm.phase (internal).
+	 * agent.observe(). Skips llm.response (large) and llm.phase (internal).
 	 *
 	 * Unlike OTel spans, this includes in-flight Motor events that never received a
 	 * Sense response — exactly what's needed to diagnose timeout scenarios.

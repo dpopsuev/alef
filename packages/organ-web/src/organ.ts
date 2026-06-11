@@ -213,23 +213,25 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 	return defineOrgan(
 		"web",
 		{
-			"motor/web.fetch": typedAction(WEB_FETCH_TOOL, async (ctx) => {
-				const { url, format, timeoutMs } = ctx.payload;
-				const result = await handleFetch(url, format ?? "text", timeoutMs ?? defaultTimeout);
-				const title = result.title as string | undefined;
-				const finalUrl = result.url as string;
-				const label = title ? `**${title}** — ${finalUrl}` : finalUrl;
-				return withDisplay(result, { text: label, mimeType: "text/markdown" });
-			}),
-			"motor/web.search": typedAction(WEB_SEARCH_TOOL, async (ctx) => {
-				const { query, numResults, engine } = ctx.payload;
-				const result = await handleSearch(query, numResults ?? 10, engine);
-				const results = result.results as unknown[];
-				return withDisplay(result, {
-					text: `Web search: **${query}** (${results.length} results)`,
-					mimeType: "text/markdown",
-				});
-			}),
+			motor: {
+				"web.fetch": typedAction(WEB_FETCH_TOOL, async (ctx) => {
+					const { url, format, timeoutMs } = ctx.payload;
+					const result = await handleFetch(url, format ?? "text", timeoutMs ?? defaultTimeout);
+					const title = result.title as string | undefined;
+					const finalUrl = result.url as string;
+					const label = title ? `**${title}** — ${finalUrl}` : finalUrl;
+					return withDisplay(result, { text: label, mimeType: "text/markdown" });
+				}),
+				"web.search": typedAction(WEB_SEARCH_TOOL, async (ctx) => {
+					const { query, numResults, engine } = ctx.payload;
+					const result = await handleSearch(query, numResults ?? 10, engine);
+					const results = result.results as unknown[];
+					return withDisplay(result, {
+						text: `Web search: **${query}** (${results.length} results)`,
+						mimeType: "text/markdown",
+					});
+				}),
+			},
 		},
 		{
 			directives: WEB_DIRECTIVES,

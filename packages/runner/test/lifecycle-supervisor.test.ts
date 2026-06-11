@@ -246,7 +246,7 @@ describe("Runner — ALEF_SCRIPTED_REPLIES", { tags: ["integration"] }, () => {
 				baseUrl,
 				(ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "dialog.message" && e.payload?.text === "I am the agent.";
+					return e.bus === "motor" && e.type === "llm.response" && e.payload?.text === "I am the agent.";
 				},
 				1,
 				10_000,
@@ -546,7 +546,7 @@ process.on("SIGTERM", () => proc.kill("SIGTERM"));
 				baseUrl,
 				(ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "dialog.message" && e.payload?.text === "I see your message.";
+					return e.bus === "motor" && e.type === "llm.response" && e.payload?.text === "I see your message.";
 				},
 				1,
 				15_000,
@@ -619,7 +619,7 @@ proc.stderr.on("data", (chunk) => {
 				if (!line) continue;
 				try {
 					const ev = JSON.parse(line.slice(6));
-					if (ev.bus === "motor" && ev.type === "dialog.message") {
+					if (ev.bus === "motor" && ev.type === "llm.response") {
 						res.destroy();
 						// Agent replied — request rebuild via supervisor IPC.
 						if (typeof process.send === "function") {
@@ -660,7 +660,7 @@ proc.stderr.on("data", (chunk) => {
 				baseUrl1,
 				(ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "dialog.message" && e.payload?.text === "turn 1 reply";
+					return e.bus === "motor" && e.type === "llm.response" && e.payload?.text === "turn 1 reply";
 				},
 				1,
 				15_000,
@@ -680,7 +680,7 @@ proc.stderr.on("data", (chunk) => {
 				baseUrl2,
 				(ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "dialog.message";
+					return e.bus === "motor" && e.type === "llm.response";
 				},
 				1,
 				15_000,

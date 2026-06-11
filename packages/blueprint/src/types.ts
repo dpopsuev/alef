@@ -1,13 +1,20 @@
-import type {
-	AgentActionMetadata,
-	AgentCapabilityAvailability,
-	AgentCapabilityDefinition,
-	AgentCapabilityKind,
-	ThinkingLevel,
-	ToolExecutionMode,
-} from "@dpopsuev/alef-agent-core";
-
-export type { AgentActionMetadata, AgentCapabilityAvailability, AgentCapabilityDefinition, AgentCapabilityKind };
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ToolExecutionMode = "sequential" | "parallel";
+export type AgentCapabilityKind = "tool" | "memory" | "session" | "model" | "supervisor";
+export type AgentCapabilityAvailability = "root" | "child" | "shared";
+export interface AgentActionMetadata {
+	kind: AgentCapabilityKind;
+	capability?: string;
+	availability?: AgentCapabilityAvailability;
+	description?: string;
+}
+export interface AgentCapabilityDefinition {
+	name: string;
+	kind: AgentCapabilityKind;
+	description?: string;
+	availability?: AgentCapabilityAvailability;
+	actions: any[];
+}
 
 export type AgentRole = "root" | "child";
 

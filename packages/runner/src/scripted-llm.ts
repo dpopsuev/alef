@@ -9,8 +9,8 @@
  */
 
 import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
-import type { CerebrumEvent } from "@dpopsuev/alef-organ-llm";
+
+import type { LlmEvent } from "@dpopsuev/alef-organ-llm";
 
 type SerializedStep =
 	| string
@@ -25,13 +25,13 @@ function toReplyText(step: SerializedStep): string {
 }
 
 export interface ScriptedLlmOptions {
-	onEvent?: (event: CerebrumEvent) => void;
+	onEvent?: (event: LlmEvent) => void;
 }
 
 export class ScriptedLlmOrgan implements Organ {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
-	readonly subscriptions = { motor: [] as const, sense: [DIALOG_MESSAGE] as readonly string[] };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as readonly string[] };
 
 	private readonly steps: SerializedStep[];
 	private readonly opts: ScriptedLlmOptions;
@@ -43,12 +43,12 @@ export class ScriptedLlmOrgan implements Organ {
 	}
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe(DIALOG_MESSAGE, (event) => {
+		return nerve.sense.subscribe("llm.input", (event) => {
 			const step = this.steps[this.index++];
 			const text = step !== undefined ? toReplyText(step) : "(scripted-llm: script exhausted)";
 			this.opts.onEvent?.({ type: "chunk", text });
 			nerve.motor.publish({
-				type: DIALOG_MESSAGE,
+				type: "llm.response",
 				payload: { text },
 				correlationId: event.correlationId,
 			});

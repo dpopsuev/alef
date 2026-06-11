@@ -6,6 +6,9 @@
 	"exports": {
 		"./blueprint": "./blueprint.yaml"
 	},
+	"scripts": {
+		"test": "vitest --run"
+	},
 	"dependencies": {
 		"@dpopsuev/alef-organ-delegate": "^0.0.1",
 		"@dpopsuev/alef-organ-factory": "^0.0.1",
@@ -16,5 +19,12 @@
 		"@dpopsuev/alef-organ-shell": "^0.0.1",
 		"@dpopsuev/alef-organ-skills": "^0.0.1",
 		"@dpopsuev/alef-organ-web": "^0.0.1"
+	},
+	"devDependencies": {
+		"@dpopsuev/alef-eval": "^0.0.1",
+		"@dpopsuev/alef-organ-llm": "^0.0.1",
+		"@dpopsuev/alef-runner": "^0.0.1",
+		"@types/node": "^24.3.0",
+		"vitest": "^4.1.6"
 	}
 }

@@ -141,102 +141,104 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 	const base = defineOrgan(
 		"lector",
 		{
-			"motor/lector.read": typedAction(
-				READ_TOOL,
-				async (ctx) => {
-					const { path, symbol, maxLines, offset } = ctx.payload;
-					if (!path) throw new Error("lector.read: path is required");
-					const r = await backend.read(path, { symbol, maxLines, offset });
-					const readLabel = symbol ? `Read **${symbol}** in ${path}` : `Read **${path}**`;
-					return withDisplay(r as unknown as Record<string, unknown>, {
-						text: readLabel,
-						mimeType: "text/markdown",
-					});
-				},
-				{ shouldCache: (_ctx, result) => result !== undefined },
-			),
-
-			"motor/lector.write": typedAction(
-				WRITE_TOOL,
-				async (ctx) => {
-					const { path, content } = ctx.payload;
-					if (!path) throw new Error("lector.write: path is required");
-					await backend.write(path, content);
-					return withDisplay(
-						{ path, written: content.length },
-						{ text: `Wrote **${path}** (${content.length} bytes)`, mimeType: "text/markdown" },
-					);
-				},
-				{ invalidates: (ctx) => [ctx.payload.path] },
-			),
-
-			"motor/lector.edit": typedAction(
-				EDIT_TOOL,
-				async (ctx) => {
-					const { path, edits } = ctx.payload;
-					if (!path) throw new Error("lector.edit: path is required");
-					await backend.edit(path, edits);
-					return withDisplay(
-						{ path, edits: edits.length },
-						{
-							text: `Edited **${path}** (${edits.length} edit${edits.length === 1 ? "" : "s"})`,
+			motor: {
+				"lector.read": typedAction(
+					READ_TOOL,
+					async (ctx) => {
+						const { path, symbol, maxLines, offset } = ctx.payload;
+						if (!path) throw new Error("lector.read: path is required");
+						const r = await backend.read(path, { symbol, maxLines, offset });
+						const readLabel = symbol ? `Read **${symbol}** in ${path}` : `Read **${path}**`;
+						return withDisplay(r as unknown as Record<string, unknown>, {
+							text: readLabel,
 							mimeType: "text/markdown",
-						},
-					);
-				},
-				{ invalidates: (ctx) => [ctx.payload.path] },
-			),
+						});
+					},
+					{ shouldCache: (_ctx, result) => result !== undefined },
+				),
 
-			"motor/lector.search": typedAction(
-				SEARCH_TOOL,
-				async (ctx) => {
-					const { pattern, path, caseInsensitive, maxResults, extension } = ctx.payload;
-					if (!pattern) throw new Error("lector.search: pattern is required");
-					const matches = await backend.search(pattern, { path, caseInsensitive, maxResults, extension });
-					return withDisplay(
-						{ matches, count: matches.length },
-						{
-							text: `Found ${matches.length} match${matches.length === 1 ? "" : "es"} for \`${pattern}\``,
-							mimeType: "text/markdown",
-						},
-					);
-				},
-				{ shouldCache: (_ctx, result) => result !== undefined },
-			),
+				"lector.write": typedAction(
+					WRITE_TOOL,
+					async (ctx) => {
+						const { path, content } = ctx.payload;
+						if (!path) throw new Error("lector.write: path is required");
+						await backend.write(path, content);
+						return withDisplay(
+							{ path, written: content.length },
+							{ text: `Wrote **${path}** (${content.length} bytes)`, mimeType: "text/markdown" },
+						);
+					},
+					{ invalidates: (ctx) => [ctx.payload.path] },
+				),
 
-			"motor/lector.find": typedAction(
-				FIND_TOOL,
-				async (ctx) => {
-					const { glob, path, maxResults, depth, hidden } = ctx.payload;
-					if (!glob) throw new Error("lector.find: glob is required");
-					const paths = await backend.find(glob, { path, maxResults, depth, hidden });
-					return withDisplay(
-						{ paths, count: paths.length },
-						{
-							text: `Found ${paths.length} file${paths.length === 1 ? "" : "s"} matching \`${glob}\``,
-							mimeType: "text/markdown",
-						},
-					);
-				},
-				{ shouldCache: (_ctx, result) => result !== undefined },
-			),
+				"lector.edit": typedAction(
+					EDIT_TOOL,
+					async (ctx) => {
+						const { path, edits } = ctx.payload;
+						if (!path) throw new Error("lector.edit: path is required");
+						await backend.edit(path, edits);
+						return withDisplay(
+							{ path, edits: edits.length },
+							{
+								text: `Edited **${path}** (${edits.length} edit${edits.length === 1 ? "" : "s"})`,
+								mimeType: "text/markdown",
+							},
+						);
+					},
+					{ invalidates: (ctx) => [ctx.payload.path] },
+				),
 
-			"motor/lector.callers": typedAction(
-				CALLERS_TOOL,
-				async (ctx) => {
-					const { symbol, path, maxResults } = ctx.payload;
-					if (!symbol) throw new Error("lector.callers: symbol is required");
-					const callers = await backend.callers(symbol, { path, maxResults });
-					return withDisplay(
-						{ callers, count: callers.length },
-						{
-							text: `Found ${callers.length} caller${callers.length === 1 ? "" : "s"} of \`${symbol}\``,
-							mimeType: "text/markdown",
-						},
-					);
-				},
-				{ shouldCache: (_ctx, result) => result !== undefined },
-			),
+				"lector.search": typedAction(
+					SEARCH_TOOL,
+					async (ctx) => {
+						const { pattern, path, caseInsensitive, maxResults, extension } = ctx.payload;
+						if (!pattern) throw new Error("lector.search: pattern is required");
+						const matches = await backend.search(pattern, { path, caseInsensitive, maxResults, extension });
+						return withDisplay(
+							{ matches, count: matches.length },
+							{
+								text: `Found ${matches.length} match${matches.length === 1 ? "" : "es"} for \`${pattern}\``,
+								mimeType: "text/markdown",
+							},
+						);
+					},
+					{ shouldCache: (_ctx, result) => result !== undefined },
+				),
+
+				"lector.find": typedAction(
+					FIND_TOOL,
+					async (ctx) => {
+						const { glob, path, maxResults, depth, hidden } = ctx.payload;
+						if (!glob) throw new Error("lector.find: glob is required");
+						const paths = await backend.find(glob, { path, maxResults, depth, hidden });
+						return withDisplay(
+							{ paths, count: paths.length },
+							{
+								text: `Found ${paths.length} file${paths.length === 1 ? "" : "s"} matching \`${glob}\``,
+								mimeType: "text/markdown",
+							},
+						);
+					},
+					{ shouldCache: (_ctx, result) => result !== undefined },
+				),
+
+				"lector.callers": typedAction(
+					CALLERS_TOOL,
+					async (ctx) => {
+						const { symbol, path, maxResults } = ctx.payload;
+						if (!symbol) throw new Error("lector.callers: symbol is required");
+						const callers = await backend.callers(symbol, { path, maxResults });
+						return withDisplay(
+							{ callers, count: callers.length },
+							{
+								text: `Found ${callers.length} caller${callers.length === 1 ? "" : "s"} of \`${symbol}\``,
+								mimeType: "text/markdown",
+							},
+						);
+					},
+					{ shouldCache: (_ctx, result) => result !== undefined },
+				),
+			},
 		},
 		{
 			actions: opts.actions,

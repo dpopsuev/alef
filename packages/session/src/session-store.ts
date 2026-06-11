@@ -90,7 +90,7 @@ export const EVENT_TYPE_WEIGHTS: Record<string, number> = {
 	"lector.read": 1.0,
 	"fs.read": 1.0,
 	"web.fetch": 0.9,
-	"dialog.message": 0.8,
+	"llm.response": 0.8,
 	"fs.grep": 0.6,
 	"fs.find": 0.6,
 	"lector.search": 0.6,

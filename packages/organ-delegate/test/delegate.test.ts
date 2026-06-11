@@ -31,7 +31,7 @@ organComplianceSuite(() => createDelegateOrgan({ strategies: { explore: slowStra
 // Two concurrent motor/agent.run publishes must produce fully isolated sense
 // streams: chunks emitted by strategy A must not appear in correlation B and
 // vice-versa. This is a property of organ-delegate's AsyncQueue and the spine
-// toolCallId/correlationId routing — testable without Cerebrum.
+// toolCallId/correlationId routing — testable without organ-llm.
 // ---------------------------------------------------------------------------
 
 describe("agent.run — parallel stream isolation", { tags: ["unit"] }, () => {

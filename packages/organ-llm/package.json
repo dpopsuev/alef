@@ -46,7 +46,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@dpopsuev/alef-ai": "^0.0.1",
+    "@dpopsuev/alef-llm": "^0.0.1",
     "@dpopsuev/alef-kernel": "^0.0.1",
     "@dpopsuev/alef-organ-dialog": "^0.0.1",
     "@opentelemetry/api": "^1.9.1"

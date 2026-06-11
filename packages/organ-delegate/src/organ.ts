@@ -23,7 +23,7 @@ export interface AdHocSessionOptions {
 export type DelegateProfile = "explore" | "general";
 
 export interface DelegateOrganOptions extends BaseOrganOptions {
-	strategies: Record<string, ExecutionStrategy>;
+	strategies?: Record<string, ExecutionStrategy>;
 	createAdHocSession?: (opts: AdHocSessionOptions) => {
 		send(text: string, sender: string, timeoutMs: number): Promise<string>; // internal ad-hoc session, not ExecutionStrategy
 		dispose(): void;
@@ -104,7 +104,7 @@ class AsyncQueue {
 }
 
 export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
-	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies));
+	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
 	const composite = createCompositeAgentRunContribution();
 
 	function buildTool(): ToolDefinition {
@@ -118,69 +118,110 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 	const organ = defineOrgan(
 		"delegate",
 		{
-			"sense/organ.loaded": {
-				handle: async (ctx: { payload: Record<string, unknown> }) => {
-					const name = ctx.payload.name as string;
-					const contribution = (ctx.payload.contributions as OrganContributions | undefined)?.["agent.run"];
-					if (contribution) composite.add(name, contribution);
-					return {};
+			sense: {
+				"organ.loaded": {
+					handle: async (ctx: { payload: Record<string, unknown> }) => {
+						const name = ctx.payload.name as string;
+						const contribution = (ctx.payload.contributions as OrganContributions | undefined)?.["agent.run"];
+						if (contribution) composite.add(name, contribution);
+					},
+				},
+				"organ.unloaded": {
+					handle: async (ctx: { payload: Record<string, unknown> }) => {
+						composite.remove(ctx.payload.name as string);
+					},
 				},
 			},
-			"sense/organ.unloaded": {
-				handle: async (ctx: { payload: Record<string, unknown> }) => {
-					composite.remove(ctx.payload.name as string);
-					return {};
-				},
-			},
-			"motor/agent.run": typedStreamAction(buildTool(), async function* (ctx) {
-				const payload = ctx.payload as Record<string, unknown>;
-				const text = payload.text as string;
-				const profile = (payload.profile as string | undefined) ?? "explore";
-				const timeoutMs = (payload.timeoutMs as number | undefined) ?? 600_000;
-				const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
-				const inheritDirectives = payload.inheritDirectives === true;
-				const organNames = Array.isArray(payload.organs) ? (payload.organs as string[]) : undefined;
+			motor: {
+				"agent.run": typedStreamAction(buildTool(), async function* (ctx) {
+					const payload = ctx.payload as Record<string, unknown>;
+					const text = payload.text as string;
+					const profile = (payload.profile as string | undefined) ?? "explore";
+					const timeoutMs = (payload.timeoutMs as number | undefined) ?? 600_000;
+					const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
+					const inheritDirectives = payload.inheritDirectives === true;
+					const organNames = Array.isArray(payload.organs) ? (payload.organs as string[]) : undefined;
 
-				const needsAdHoc = instructions !== undefined || inheritDirectives || organNames !== undefined;
+					const needsAdHoc = instructions !== undefined || inheritDirectives || organNames !== undefined;
 
-				if (needsAdHoc && opts.createAdHocSession) {
-					const queue = new AsyncQueue();
-					const t0 = Date.now();
+					if (needsAdHoc && opts.createAdHocSession) {
+						const queue = new AsyncQueue();
+						const t0 = Date.now();
 
-					const parentDirectives =
-						inheritDirectives && opts.getParentDirectives ? await opts.getParentDirectives() : "";
+						const parentDirectives =
+							inheritDirectives && opts.getParentDirectives ? await opts.getParentDirectives() : "";
 
-					const instructionParts = [parentDirectives, instructions].filter(Boolean);
-					const extraOrgans: Organ[] = [];
+						const instructionParts = [parentDirectives, instructions].filter(Boolean);
+						const extraOrgans: Organ[] = [];
 
-					const context: AgentRunContext = {
-						prependInstructions: (text) => instructionParts.unshift(text),
-						addOrgans: (organs) => extraOrgans.push(...organs),
-					};
-					await composite.extend(payload, context);
+						const context: AgentRunContext = {
+							prependInstructions: (text) => instructionParts.unshift(text),
+							addOrgans: (organs) => extraOrgans.push(...organs),
+						};
+						await composite.extend(payload, context);
 
-					const systemPrompt = instructionParts.join("\n\n") || undefined;
+						const systemPrompt = instructionParts.join("\n\n") || undefined;
 
-					let resolvedOrgans: Organ[];
-					if (organNames && opts.materializeOrgans) {
-						resolvedOrgans = await opts.materializeOrgans(organNames);
-					} else {
-						const strategy = strategies.get(profile);
-						resolvedOrgans = (strategy as unknown as { organs?: Organ[] }).organs ?? [];
+						let resolvedOrgans: Organ[];
+						if (organNames && opts.materializeOrgans) {
+							resolvedOrgans = await opts.materializeOrgans(organNames);
+						} else {
+							const strategy = strategies.get(profile);
+							resolvedOrgans = (strategy as unknown as { organs?: Organ[] }).organs ?? [];
+						}
+						resolvedOrgans = [...resolvedOrgans, ...extraOrgans];
+
+						const session = opts.createAdHocSession({
+							organs: resolvedOrgans,
+							onChunk: (c) => queue.push(c),
+							systemPrompt,
+						});
+						const replyPromise = session.send(text, "human", timeoutMs).finally(() => {
+							queue.finish();
+							session.dispose();
+						});
+
+						for await (const chunkText of queue.iter()) yield { text: chunkText };
+						const reply = await replyPromise;
+						const elapsed = Date.now() - t0;
+						ctx.log.debug({ profile, elapsedMs: elapsed, ok: Boolean(reply) }, "delegate:strategy:done");
+						yield withDisplay(
+							{ reply, profile, elapsedMs: elapsed },
+							{ text: reply || "(no reply)", mimeType: "text/plain" },
+						);
+						return;
 					}
-					resolvedOrgans = [...resolvedOrgans, ...extraOrgans];
 
-					const session = opts.createAdHocSession({
-						organs: resolvedOrgans,
-						onChunk: (c) => queue.push(c),
-						systemPrompt,
-					});
-					const replyPromise = session.send(text, "human", timeoutMs).finally(() => {
-						queue.finish();
-						session.dispose();
-					});
+					const strategy = strategies.get(profile);
+					if (!strategy) {
+						const available = [...strategies.keys()].join(", ");
+						yield withDisplay(
+							{ error: `unknown profile '${profile}'`, available },
+							{
+								text: `agent.run: unknown profile '${profile}'. Available: ${available}`,
+								mimeType: "text/plain",
+							},
+						);
+						return;
+					}
+
+					const t0 = Date.now();
+					const queue = new AsyncQueue();
+					ctx.log.debug({ profile, timeoutMs }, "delegate:strategy:start");
+
+					const replyPromise = strategy
+						.send({
+							text,
+							sender: "human",
+							timeoutMs,
+							onChunk: (chunk: string) => {
+								queue.push(chunk);
+							},
+						})
+						.finally(() => queue.finish());
 
 					for await (const chunkText of queue.iter()) yield { text: chunkText };
+
 					const reply = await replyPromise;
 					const elapsed = Date.now() - t0;
 					ctx.log.debug({ profile, elapsedMs: elapsed, ok: Boolean(reply) }, "delegate:strategy:done");
@@ -188,44 +229,8 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 						{ reply, profile, elapsedMs: elapsed },
 						{ text: reply || "(no reply)", mimeType: "text/plain" },
 					);
-					return;
-				}
-
-				const strategy = strategies.get(profile);
-				if (!strategy) {
-					const available = [...strategies.keys()].join(", ");
-					yield withDisplay(
-						{ error: `unknown profile '${profile}'`, available },
-						{ text: `agent.run: unknown profile '${profile}'. Available: ${available}`, mimeType: "text/plain" },
-					);
-					return;
-				}
-
-				const t0 = Date.now();
-				const queue = new AsyncQueue();
-				ctx.log.debug({ profile, timeoutMs }, "delegate:strategy:start");
-
-				const replyPromise = strategy
-					.send({
-						text,
-						sender: "human",
-						timeoutMs,
-						onChunk: (chunk: string) => {
-							queue.push(chunk);
-						},
-					})
-					.finally(() => queue.finish());
-
-				for await (const chunkText of queue.iter()) yield { text: chunkText };
-
-				const reply = await replyPromise;
-				const elapsed = Date.now() - t0;
-				ctx.log.debug({ profile, elapsedMs: elapsed, ok: Boolean(reply) }, "delegate:strategy:done");
-				yield withDisplay(
-					{ reply, profile, elapsedMs: elapsed },
-					{ text: reply || "(no reply)", mimeType: "text/plain" },
-				);
-			}),
+				}),
+			},
 		},
 		{
 			logger: opts.logger,

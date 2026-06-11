@@ -1,9 +1,8 @@
 {
 	"knownFailing": [
-		"agent",
-		"ai",
 		"blueprint",
 		"kernel",
+		"llm",
 		"organ-enclosure",
 		"runner",
 		"runtime"

@@ -3,11 +3,11 @@
  *
  * Replaces Reasoner in tests. No real API call. Reads from a ScriptStep queue.
  *
- * On each sense/dialog.message:
+ * On each sense/llm.response:
  *   1. Pops next ScriptStep from the queue
  *   2. Executes tool calls via the real Motor bus (real organ handlers fire)
  *   3. Waits for Sense results (actual file content, shell output, etc.)
- *   4. Publishes motor/dialog.message { text: step.reply }
+ *   4. Publishes motor/llm.response { text: step.reply }
  *
  * This means:
  *   - FsOrgan, ShellOrgan, LectorOrgan handlers execute for real
@@ -22,7 +22,6 @@
 
 import { randomUUID } from "node:crypto";
 import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 
 export interface ToolCallStart {
 	callId: string;
@@ -59,7 +58,7 @@ import type { ScriptStep } from "./script.js";
 export interface ScriptedReasonerOptions {
 	/**
 	 * Sense event type that triggers a reasoning step.
-	 * Default: 'dialog.message'. Set to any event for autonomous agents.
+	 * Default: 'llm.response'. Set to any event for autonomous agents.
 	 */
 	triggerEvent?: string;
 	/** Motor event type published as the reply. Default: same as triggerEvent. */
@@ -69,7 +68,7 @@ export interface ScriptedReasonerOptions {
 	/** Called after each tool sense result — mirrors AgentLoopOptions.onToolEnd. */
 	onToolEnd?: (event: ToolCallEnd) => void;
 	/**
-	 * Called with the reply text before publishing dialog.message.
+	 * Called with the reply text before publishing llm.response.
 	 * Mirrors AgentLoopOptions.onResponseChunk — delivers text to TUI without
 	 * the ScriptedReasoner needing to know about the sink.
 	 */
@@ -95,8 +94,8 @@ export class ScriptedReasoner implements Organ {
 
 	constructor(script: ScriptStep[] | ScriptStep, opts: ScriptedReasonerOptions = {}) {
 		this.queue = Array.isArray(script) ? script : [script];
-		this.triggerEvent = opts.triggerEvent ?? DIALOG_MESSAGE;
-		this.replyEvent = opts.replyEvent ?? this.triggerEvent;
+		this.triggerEvent = opts.triggerEvent ?? "llm.input";
+		this.replyEvent = opts.replyEvent ?? "llm.response";
 		this.opts = opts;
 	}
 
@@ -146,7 +145,7 @@ export class ScriptedReasoner implements Organ {
 			const calls = step.kind === "toolCall" ? [step.call] : step.calls;
 			const replyText = step.reply;
 
-			// Execute tool calls in parallel — same semantics as Cerebrum.
+			// Execute tool calls in parallel — same semantics as organ-llm.
 			await Promise.all(
 				calls.map(async (call) => {
 					const toolCallId = randomUUID();
@@ -169,7 +168,7 @@ export class ScriptedReasoner implements Organ {
 				}),
 			);
 
-			// Deliver reply text via onResponseChunk before publishing dialog.message.
+			// Deliver reply text via onResponseChunk before publishing llm.response.
 			if (replyText) this.opts.onResponseChunk?.(replyText);
 			nerve.motor.publish({
 				type: this.replyEvent,

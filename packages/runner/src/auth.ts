@@ -6,7 +6,7 @@
  *
  * Key resolution order for a provider:
  *   1. Stored key in auth.json
- *   2. Environment variable (via getEnvApiKey from @dpopsuev/alef-ai)
+ *   2. Environment variable (via getEnvApiKey from @dpopsuev/alef-llm)
  *
  * No file locking — the runner is a single process.
  * No OAuth — that comes later.
@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { getEnvApiKey } from "@dpopsuev/alef-ai";
+import { getEnvApiKey } from "@dpopsuev/alef-llm";
 
 type StoredApiKeyCredential = { type: "api_key"; key: string };
 type StoredCredential = StoredApiKeyCredential;

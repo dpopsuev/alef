@@ -9,7 +9,8 @@
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai";
+import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
+
 import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { DialogOrgan } from "../../organ-dialog/src/organ.js";
@@ -28,7 +29,7 @@ function makeTmp(): string {
 	return d;
 }
 
-describe("SessionSummary (ALE-TSK-276)", { tags: ["unit"] }, () => {
+describe("SessionSummary", { tags: ["unit"] }, () => {
 	it("writes per-session and last-session summary on agent dispose", async () => {
 		const cwd = makeTmp();
 		await mkdir(cwd, { recursive: true });

@@ -1,5 +1,5 @@
 /**
- * EnclosureOrgan — CorpusOrgan wrapping Space lifecycle as Motor/Sense events.
+ * EnclosureOrgan — organ wrapping Space lifecycle as Motor/Sense events.
  *
  * The organ holds a session-scoped Map<spaceId, Space>.
  * The LLM creates a space, gets an ID, operates on it by ID.
@@ -111,63 +111,68 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 	const base = defineOrgan(
 		"enclosure",
 		{
-			"motor/enclosure.create": typedAction(CREATE_TOOL, async (ctx) => {
-				const { spaceId, workDir } = await handleCreate(ctx, spaces, options);
-				return withDisplay(
-					{ spaceId, workDir },
-					{ text: `Created enclosure ${spaceId} at ${workDir}`, mimeType: "text/plain" },
-				);
-			}),
-			"motor/enclosure.diff": typedAction(DIFF_TOOL, async (ctx) => {
-				const result = await handleDiff(ctx, spaces);
-				const changes = result.changes as string[];
-				return withDisplay(
-					{ changes },
-					{ text: `${changes.length} change(s) in enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
-				);
-			}),
-			"motor/enclosure.commit": typedAction(COMMIT_TOOL, async (ctx) => {
-				const { committed } = await handleCommit(ctx, spaces);
-				return withDisplay(
-					{ committed },
-					{ text: `Committed ${committed} path(s) for enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
-				);
-			}),
-			"motor/enclosure.reset": typedAction(RESET_TOOL, async (ctx) => {
-				await handleReset(ctx, spaces);
-				return withDisplay(
-					{ ok: true },
-					{ text: `Reset enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
-				);
-			}),
-			"motor/enclosure.snapshot": typedAction(SNAPSHOT_TOOL, async (ctx) => {
-				const { name } = await handleSnapshot(ctx, spaces);
-				return withDisplay(
-					{ ok: true, name },
-					{ text: `Snapshot "${name}" saved for enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
-				);
-			}),
-			"motor/enclosure.restore": typedAction(RESTORE_TOOL, async (ctx) => {
-				const { name } = await handleRestore(ctx, spaces);
-				return withDisplay(
-					{ ok: true, name },
-					{ text: `Restored snapshot "${name}" for enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
-				);
-			}),
-			"motor/enclosure.exec": typedAction(EXEC_TOOL, async (ctx) => {
-				const { exitCode, output } = await handleExec(ctx, spaces);
-				return withDisplay(
-					{ exitCode, output },
-					{ text: `exec exit ${exitCode}: ${ctx.payload.command.join(" ")}`, mimeType: "text/plain" },
-				);
-			}),
-			"motor/enclosure.destroy": typedAction(DESTROY_TOOL, async (ctx) => {
-				await handleDestroy(ctx, spaces);
-				return withDisplay(
-					{ ok: true },
-					{ text: `Destroyed enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
-				);
-			}),
+			motor: {
+				"enclosure.create": typedAction(CREATE_TOOL, async (ctx) => {
+					const { spaceId, workDir } = await handleCreate(ctx, spaces, options);
+					return withDisplay(
+						{ spaceId, workDir },
+						{ text: `Created enclosure ${spaceId} at ${workDir}`, mimeType: "text/plain" },
+					);
+				}),
+				"enclosure.diff": typedAction(DIFF_TOOL, async (ctx) => {
+					const result = await handleDiff(ctx, spaces);
+					const changes = result.changes as string[];
+					return withDisplay(
+						{ changes },
+						{ text: `${changes.length} change(s) in enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
+					);
+				}),
+				"enclosure.commit": typedAction(COMMIT_TOOL, async (ctx) => {
+					const { committed } = await handleCommit(ctx, spaces);
+					return withDisplay(
+						{ committed },
+						{
+							text: `Committed ${committed} path(s) for enclosure ${ctx.payload.spaceId}`,
+							mimeType: "text/plain",
+						},
+					);
+				}),
+				"enclosure.reset": typedAction(RESET_TOOL, async (ctx) => {
+					await handleReset(ctx, spaces);
+					return withDisplay(
+						{ ok: true },
+						{ text: `Reset enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
+					);
+				}),
+				"enclosure.snapshot": typedAction(SNAPSHOT_TOOL, async (ctx) => {
+					const { name } = await handleSnapshot(ctx, spaces);
+					return withDisplay(
+						{ ok: true, name },
+						{ text: `Snapshot "${name}" saved for enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
+					);
+				}),
+				"enclosure.restore": typedAction(RESTORE_TOOL, async (ctx) => {
+					const { name } = await handleRestore(ctx, spaces);
+					return withDisplay(
+						{ ok: true, name },
+						{ text: `Restored snapshot "${name}" for enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
+					);
+				}),
+				"enclosure.exec": typedAction(EXEC_TOOL, async (ctx) => {
+					const { exitCode, output } = await handleExec(ctx, spaces);
+					return withDisplay(
+						{ exitCode, output },
+						{ text: `exec exit ${exitCode}: ${ctx.payload.command.join(" ")}`, mimeType: "text/plain" },
+					);
+				}),
+				"enclosure.destroy": typedAction(DESTROY_TOOL, async (ctx) => {
+					await handleDestroy(ctx, spaces);
+					return withDisplay(
+						{ ok: true },
+						{ text: `Destroyed enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
+					);
+				}),
+			},
 		},
 		{
 			description: "Isolated workspace overlay: create, exec, diff, commit, snapshot, restore, destroy.",

@@ -1,14 +1,15 @@
-import type { Context, FauxResponseFactory } from "@dpopsuev/alef-ai";
-import { fauxAssistantMessage, fauxText, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import type { Context, FauxResponseFactory } from "@dpopsuev/alef-llm";
+import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
+
 import { afterEach, describe, expect, it } from "vitest";
-import { DIALOG_MESSAGE_TOOL, NerveFixture, organComplianceSuite, TurnDriver } from "../../testkit/src/index.js";
+import { NerveFixture, organComplianceSuite, TurnDriver } from "../../testkit/src/index.js";
 import { createAgentLoop, createLlmPipeline } from "../src/index.js";
 import { waitForToolResult } from "../src/tool-dispatch.js";
 import { buildTools } from "../src/turn-loop.js";
 
 // organ-llm/createLlmPipeline is the mountable organ — no tools, pure pipeline observer.
-// Cerebrum is a Reasoner (no tools), not a tool-bearing organ.
+// organ-llm is a reasoner (no tools), not a tool-bearing organ.
 organComplianceSuite(() => createLlmPipeline());
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
@@ -29,14 +30,14 @@ function makeModel() {
 }
 
 /**
- * Standard test harness: bare nerve, TurnDriver, Cerebrum, optional BusEventRecorder.
- * Replaces the Agent + DialogOrgan + Cerebrum construction that appeared in every test.
+ * Standard test harness: bare nerve, TurnDriver, LLM organ, optional BusEventRecorder.
+ * Replaces the Agent + DialogOrgan + organ-llm construction that appeared in every test.
  */
-function makeHarness(cerebrum: Organ) {
+function makeHarness(llm: Organ) {
 	const f = new NerveFixture();
 	const driver = new TurnDriver(f.nerve);
 	const recorder = f.observe();
-	f.mount(cerebrum);
+	f.mount(llm);
 	return { f, driver, recorder };
 }
 
@@ -47,7 +48,10 @@ afterEach(() => {
 
 function make(fauxProvider: ReturnType<typeof registerFauxProvider>) {
 	const h = makeHarness(
-		createAgentLoop({ model: fauxProvider.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }),
+		createAgentLoop({
+			model: fauxProvider.getModel(),
+			apiKey: "faux-key",
+		}),
 	);
 	harnesses.push(h);
 	return h;
@@ -72,7 +76,6 @@ describe("Reasoner — application-level retry", { tags: ["unit"] }, () => {
 				apiKey: "faux-key",
 				maxRetries,
 				maxRetryDelayMs: 0,
-				getTools: () => [DIALOG_MESSAGE_TOOL],
 			}),
 		);
 		disposes.push(() => f.dispose());
@@ -158,15 +161,15 @@ describe.skipIf(SKIP)("Reasoner — real API", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		const { driver, recorder } = make(faux);
 		await driver.send("Say hi in one word.");
-		recorder.assertMotorEmitted("dialog.message");
-		recorder.assertSenseEmitted("dialog.message");
+		recorder.assertMotorEmitted("llm.response");
+		recorder.assertSenseEmitted("llm.input");
 	}, 30_000);
 
-	it("dialog.message payload contains the reply text", async () => {
+	it("llm.response payload contains the reply text", async () => {
 		const faux = registerFauxProvider();
 		const { driver, recorder } = make(faux);
 		await driver.send("What is 2+2? Reply with just the number.");
-		const msg = recorder.assertMotorEmitted("dialog.message");
+		const msg = recorder.assertMotorEmitted("llm.response");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(typeof payload.text).toBe("string");
 		expect(payload.text.length).toBeGreaterThan(0);
@@ -176,9 +179,9 @@ describe.skipIf(SKIP)("Reasoner — real API", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		const { driver, recorder } = make(faux);
 		await driver.send("Say yes.");
-		const input = recorder.assertMotorEmitted("dialog.message");
-		const prompt = recorder.assertSenseEmitted("dialog.message");
-		const msg = recorder.assertMotorEmitted("dialog.message");
+		const input = recorder.assertMotorEmitted("llm.response");
+		const prompt = recorder.assertSenseEmitted("llm.input");
+		const msg = recorder.assertMotorEmitted("llm.response");
 		expect(prompt.correlationId).toBe(input.correlationId);
 		expect(msg.correlationId).toBe(input.correlationId);
 	}, 30_000);
@@ -216,73 +219,6 @@ describe("payloadToText", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// chunk event forwarding when reply arrives via dialog_message tool args
-// ---------------------------------------------------------------------------
-
-describe("onResponseChunk forwarding when reply is in dialog_message tool args", { tags: ["unit"] }, () => {
-	const disposes: Array<() => void> = [];
-	afterEach(() => {
-		for (const d of disposes.splice(0)) d();
-	});
-
-	function makeFauxHarness(faux: ReturnType<typeof registerFauxProvider>, onChunk?: (chunk: string) => void) {
-		const chunks: string[] = [];
-		const f = new NerveFixture();
-		const driver = new TurnDriver(f.nerve);
-		f.mount(
-			createAgentLoop({
-				model: faux.getModel(),
-				apiKey: "faux-key",
-				onEvent: (e) => {
-					if (e.type === "chunk") {
-						chunks.push(e.text);
-						onChunk?.(e.text);
-					}
-				},
-				getTools: () => [DIALOG_MESSAGE_TOOL],
-			}),
-		);
-		disposes.push(() => f.dispose());
-		return { driver, chunks, recorder: f.observe() };
-	}
-
-	it("onResponseChunk receives reply text from dialog_message tool call args", async () => {
-		const faux = registerFauxProvider();
-		const replyBody = "Here is the complete bug report: 1. Off-by-one in evaluations/write.ts";
-		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: replyBody })])]);
-		const { driver, chunks } = makeFauxHarness(faux);
-		await driver.send("find bugs", "user", 5_000);
-		expect(chunks.join("")).toContain(replyBody);
-	});
-
-	it("onResponseChunk receives both intro text_delta AND dialog_message args.text", async () => {
-		const faux = registerFauxProvider();
-		const introText = "Let me summarize the findings:";
-		const replyBody = "## Bug Report\n\n1. Race condition in organ-fs\n2. Off-by-one in write.ts";
-		faux.setResponses([
-			fauxAssistantMessage([fauxText(introText), fauxToolCall("dialog_message", { text: replyBody })]),
-		]);
-		const { driver, chunks } = makeFauxHarness(faux);
-		await driver.send("look for bugs", "user", 5_000);
-		const combined = chunks.join("");
-		expect(combined).toContain(introText);
-		expect(combined).toContain(replyBody);
-	});
-
-	it("total onResponseChunk chars equals dialog.message payload text", async () => {
-		const faux = registerFauxProvider();
-		const replyBody = "Complete analysis:\n\n- Bug A\n- Bug B\n- Bug C";
-		faux.setResponses([
-			fauxAssistantMessage([fauxText("Analyzing now..."), fauxToolCall("dialog_message", { text: replyBody })]),
-		]);
-		const { driver, chunks, recorder } = makeFauxHarness(faux);
-		await driver.send("find bugs", "user", 5_000);
-		const motionEvent = recorder.assertMotorEmitted("dialog.message") as unknown as { payload: { text: string } };
-		expect(chunks.join("")).toContain(motionEvent.payload.text);
-	});
-});
-
-// ---------------------------------------------------------------------------
 // partial conversationHistory on error/abort
 // ---------------------------------------------------------------------------
 
@@ -292,7 +228,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 		for (const d of disposes.splice(0)) d();
 	});
 
-	it("after error with maxRetries=0, motor/dialog.message carries text reply", async () => {
+	it("after error with maxRetries=0, motor/llm.response carries text reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" })]);
 		const f = new NerveFixture();
@@ -303,27 +239,31 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				maxRetries: 0,
-				getTools: () => [DIALOG_MESSAGE_TOOL],
 			}),
 		);
 		disposes.push(() => f.dispose());
 
 		await driver.send("do something", "user", 5_000);
-		const event = recorder.assertMotorEmitted("dialog.message") as unknown as { payload: { text: string } };
+		const event = recorder.assertMotorEmitted("llm.response") as unknown as { payload: { text: string } };
 		expect(typeof event.payload.text).toBe("string");
 	});
 
-	it("successful turn publishes conversationHistory in dialog.message", async () => {
+	it("successful turn publishes conversationHistory in llm.response", async () => {
 		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: "all good" })])]);
+		faux.setResponses([fauxAssistantMessage("all good")]);
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
-		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
-		const event = recorder.assertMotorEmitted("dialog.message") as unknown as {
+		const event = recorder.assertMotorEmitted("llm.response") as unknown as {
 			payload: { conversationHistory?: unknown[] };
 		};
 		expect(Array.isArray(event.payload.conversationHistory)).toBe(true);
@@ -347,7 +287,12 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
-		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
@@ -356,7 +301,7 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 
 	it("publishes motor/llm.phase before each LLM call when phaseTimeoutMs > 0", async () => {
 		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage([fauxToolCall("dialog_message", { text: "done" })])]);
+		faux.setResponses([fauxAssistantMessage("done")]);
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
@@ -365,7 +310,6 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				phaseTimeoutMs: 50,
-				getTools: () => [DIALOG_MESSAGE_TOOL],
 			}),
 		);
 		disposes.push(() => f.dispose());
@@ -408,13 +352,19 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 			},
 		};
 
-		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				phaseTimeoutMs: 500,
+			}),
+		);
 		f.mount(phaseOrgan);
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
 		expect(phaseReceivedMessages.length).toBeGreaterThan(0);
-		recorder.assertMotorEmitted("dialog.message");
+		recorder.assertMotorEmitted("llm.response");
 	});
 
 	it("proceeds with original messages when phase organ times out", async () => {
@@ -427,7 +377,6 @@ describe("Reasoner — motor/llm.phase seam", { tags: ["unit"] }, () => {
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				phaseTimeoutMs: 50,
-				getTools: () => [DIALOG_MESSAGE_TOOL],
 			}),
 		);
 		disposes.push(() => f.dispose());
@@ -481,7 +430,13 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
-		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				phaseTimeoutMs: 500,
+			}),
+		);
 		f.mount(
 			makePhaseOrgan((_payload, reply) => {
 				reply({ skip: true, reply: "phase shortcut" });
@@ -493,7 +448,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		expect(result).toBe("phase shortcut");
 	});
 
-	it("skip: phase.skip publishes on replyEvent, not hardcoded dialog.message", async () => {
+	it("skip: phase.skip publishes motor/llm.response with the skip reply text", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new NerveFixture();
@@ -503,7 +458,6 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				phaseTimeoutMs: 500,
-				replyEvent: "sensor.reply",
 			}),
 		);
 		f.mount(
@@ -514,27 +468,31 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		disposes.push(() => f.dispose());
 
 		f.nerve.asNerve().sense.publish({
-			type: "dialog.message",
+			type: "llm.input",
 			correlationId: "test-corr",
 			payload: { text: "trigger", sender: "system" },
 			isError: false,
 		});
 		await new Promise<void>((r) => setTimeout(r, 1_000));
 
-		const sensorReplies = recorder.motor.filter((e) => e.type === "sensor.reply");
-		const dialogReplies = recorder.motor.filter((e) => e.type === "dialog.message");
-		expect(sensorReplies).toHaveLength(1);
-		expect((sensorReplies[0] as unknown as { payload: { text: string } }).payload.text).toBe("ambient shortcut");
-		expect(dialogReplies).toHaveLength(0);
+		const replies = recorder.motor.filter((e) => e.type === "llm.response");
+		expect(replies).toHaveLength(1);
+		expect((replies[0] as unknown as { payload: { text: string } }).payload.text).toBe("ambient shortcut");
 	}, 5_000);
 
-	it("abort: phase organ exits loop without publishing dialog.message", async () => {
+	it("abort: phase organ exits loop without publishing llm.response", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
-		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", phaseTimeoutMs: 500 }));
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+				phaseTimeoutMs: 500,
+			}),
+		);
 		f.mount(
 			makePhaseOrgan((_payload, reply) => {
 				reply({ abort: true });
@@ -543,7 +501,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		disposes.push(() => f.dispose());
 
 		const result = await driver.send("hi", "user", 2_000).catch(() => "timeout");
-		expect(recorder.motor.filter((e) => e.type === "dialog.message")).toHaveLength(0);
+		expect(recorder.motor.filter((e) => e.type === "llm.response")).toHaveLength(0);
 		expect(result).toBeDefined();
 	});
 
@@ -553,7 +511,12 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
-		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
@@ -579,34 +542,19 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 		for (const d of disposes.splice(0)) d();
 	});
 
-	it("fires on custom triggerEvent instead of dialog.message", async () => {
+	it("fires on sense/llm.input and replies on motor/llm.response", async () => {
 		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("acted on git event")]);
+		faux.setResponses([fauxAssistantMessage("hello from llm")]);
 		const f = new NerveFixture();
 		const recorder = f.observe();
-		f.mount(
-			createAgentLoop({
-				model: faux.getModel(),
-				apiKey: "faux-key",
-				triggerEvent: "git.push",
-				replyEvent: "git.review",
-			}),
-		);
+		const driver = new TurnDriver(f.nerve);
+		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" }));
 		disposes.push(() => f.dispose());
 
-		const replyP = new Promise<void>((resolve) => {
-			f.nerve.asNerve().motor.subscribe("git.review", () => resolve());
-		});
-		f.nerve.asNerve().sense.publish({
-			type: "git.push",
-			payload: { pr: 42, diff: "some changes" },
-			correlationId: "git-turn-1",
-			isError: false,
-		});
-		await replyP;
-
-		expect(recorder.motor.find((e) => e.type === "git.review")).toBeDefined();
-		expect(recorder.motor.find((e) => e.type === "dialog.message")).toBeUndefined();
+		const reply = await driver.send("hi", "user", 5_000);
+		expect(reply).toBe("hello from llm");
+		expect(recorder.motor.find((e) => e.type === "llm.response")).toBeDefined();
+		expect(recorder.sense.find((e) => e.type === "llm.input")).toBeDefined();
 	});
 
 	it("conversation trigger still works with defaults", async () => {
@@ -614,7 +562,12 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
-		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
 		disposes.push(() => f.dispose());
 
 		const reply = await driver.send("hi", "user", 5_000);
@@ -626,17 +579,17 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 // trackConcurrentOps
 // ---------------------------------------------------------------------------
 
-describe("Cerebrum — trackConcurrentOps", { tags: ["unit"] }, () => {
+describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
 	it("declares wildcard motor+sense subscriptions when trackConcurrentOps=true", () => {
-		const cerebrum = createAgentLoop({ model: makeModel(), trackConcurrentOps: true });
-		expect(cerebrum.subscriptions.motor).toContain("*");
-		expect(cerebrum.subscriptions.sense).toContain("*");
+		const llm = createAgentLoop({ model: makeModel(), trackConcurrentOps: true });
+		expect(llm.subscriptions.motor).toContain("*");
+		expect(llm.subscriptions.sense).toContain("*");
 	});
 
 	it("does not declare wildcard subscriptions when trackConcurrentOps=false", () => {
-		const cerebrum = createAgentLoop({ model: makeModel() });
-		expect(cerebrum.subscriptions.motor).not.toContain("*");
-		expect(cerebrum.subscriptions.sense).not.toContain("*");
+		const llm = createAgentLoop({ model: makeModel() });
+		expect(llm.subscriptions.motor).not.toContain("*");
+		expect(llm.subscriptions.sense).not.toContain("*");
 	});
 
 	it("injects Pending operations into prepareStep output when inflight ops exist", async () => {
@@ -664,8 +617,6 @@ describe("Cerebrum — trackConcurrentOps", { tags: ["unit"] }, () => {
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				trackConcurrentOps: true,
-				getTools: () => [DIALOG_MESSAGE_TOOL],
-				onCheckpoint: (_msgs) => {},
 			}),
 		);
 		f.mount(concurrentOrgan);
@@ -687,19 +638,20 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 	it("turn completes when LLM sends wrong type for a schema field", async () => {
 		const faux = registerFauxProvider();
 		const f = new NerveFixture();
-		const driver = new TurnDriver(f.nerve);
 
 		const strictOrgan = defineOrgan(
 			"strict",
 			{
-				"motor/strict.op": typedAction(
-					{
-						name: "strict.op",
-						description: "Op requiring a numeric count.",
-						inputSchema: z.object({ count: z.number() }),
-					},
-					async () => ({ result: "ok" }),
-				),
+				motor: {
+					"strict.op": typedAction(
+						{
+							name: "strict.op",
+							description: "Op requiring a numeric count.",
+							inputSchema: z.object({ count: z.number() }),
+						},
+						async () => ({ result: "ok" }),
+					),
+				},
 			},
 			{ description: "Strict schema organ.", directives: ["Use strict.op when asked."] },
 		);
@@ -708,10 +660,11 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				getTools: () => [DIALOG_MESSAGE_TOOL, ...strictOrgan.tools],
 			}),
 		);
 		f.mount(strictOrgan);
+
+		const driver = new TurnDriver(f.nerve, undefined, undefined, strictOrgan.tools);
 
 		faux.setResponses([
 			fauxAssistantMessage([fauxToolCall("strict_op", { count: "3" })]),
@@ -739,7 +692,7 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 		};
 		faux.setResponses([captureFactory]);
 
-		// When: Cerebrum runs with a prepareStep that injects a system message
+		// When: organ-llm runs with a prepareStep that injects a system message
 		const systemText = "You are Alef. No emojis.";
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
@@ -747,7 +700,6 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				getTools: () => [DIALOG_MESSAGE_TOOL],
 				prepareStep: async (messages) => {
 					const withoutSystem = messages.filter((m) => (m as { role?: string }).role !== "system");
 					return [
@@ -755,7 +707,7 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 							role: "system",
 							content: systemText,
 							timestamp: Date.now(),
-						} as unknown as import("@dpopsuev/alef-ai").Message,
+						} as unknown as import("@dpopsuev/alef-llm").Message,
 						...withoutSystem,
 					];
 				},
@@ -793,9 +745,15 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 		const hungOrgan = defineOrgan(
 			"hung",
 			{
-				"motor/hung_tool": {
-					tool: { name: "hung_tool", description: "Never responds.", inputSchema: z.object({}) },
-					handle: (): Promise<Record<string, unknown>> => new Promise(() => {}),
+				motor: {
+					hung_tool: {
+						tool: { name: "hung_tool", description: "Never responds.", inputSchema: z.object({}) },
+						handle: (): AsyncIterable<Record<string, unknown>> =>
+							(async function* () {
+								await new Promise(() => {});
+								yield {};
+							})(),
+					},
 				},
 			},
 			{
@@ -809,7 +767,6 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				timeoutMs: 200, // short timeout for test speed
-				getTools: () => [DIALOG_MESSAGE_TOOL, ...hungOrgan.tools],
 				onEvent: (e) =>
 					capturedEvents.push({
 						type: e.type,
@@ -835,7 +792,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 });
 
 // ---------------------------------------------------------------------------
-// ALE-TSK-561 / ALE-BUG-60: tool-chunk CerebrumEvents relay isFinal:false
+// ALE-TSK-561 / ALE-BUG-60: tool-chunk LlmEvents relay isFinal:false
 // ---------------------------------------------------------------------------
 
 describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }, () => {
@@ -854,18 +811,20 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const streamingOrgan = defineOrgan(
 			"streamer",
 			{
-				"motor/streamer.run": typedStreamAction(
-					{
-						name: "streamer.run",
-						description: "Streaming test organ that yields chunks.",
-						inputSchema: z.object({ command: z.string() }),
-					},
-					async function* () {
-						yield { text: "step 1" };
-						yield { text: "step 2" };
-						yield { text: "step 3", result: "done" };
-					},
-				),
+				motor: {
+					"streamer.run": typedStreamAction(
+						{
+							name: "streamer.run",
+							description: "Streaming test organ that yields chunks.",
+							inputSchema: z.object({ command: z.string() }),
+						},
+						async function* () {
+							yield { text: "step 1" };
+							yield { text: "step 2" };
+							yield { text: "step 3", result: "done" };
+						},
+					),
+				},
 			},
 			{
 				description: "Streaming test organ for chunk relay regression.",
@@ -877,13 +836,12 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const eventOrder: string[] = [];
 
 		const f = new NerveFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.nerve, undefined, undefined, streamingOrgan.tools);
 
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				getTools: () => [DIALOG_MESSAGE_TOOL, ...streamingOrgan.tools],
 				onEvent: (e) => {
 					eventOrder.push(e.type);
 					if (e.type === "tool-chunk") capturedChunks.push(e.text);
@@ -909,7 +867,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 });
 
 // ---------------------------------------------------------------------------
-// tool-stall CerebrumEvent — the TUI pill "⏳ no output for Ns" display
+// tool-stall LlmEvent — the TUI pill "⏳ no output for Ns" display
 // ---------------------------------------------------------------------------
 
 describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
@@ -1025,8 +983,8 @@ describe("buildTools — normalization collision", { tags: ["unit"] }, () => {
 // Ambient steering — mid-turn message buffering
 // ---------------------------------------------------------------------------
 
-describe("Cerebrum — ambient steering", { tags: ["unit"] }, () => {
-	it("second dialog.message while turn is active does not start a concurrent turn", async () => {
+describe("organ-llm — ambient steering", { tags: ["unit"] }, () => {
+	it("second llm.input while turn is active does not start a concurrent turn", async () => {
 		const faux = registerFauxProvider();
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
@@ -1035,7 +993,12 @@ describe("Cerebrum — ambient steering", { tags: ["unit"] }, () => {
 		const _motorReplies: string[] = [];
 		faux.setResponses([fauxAssistantMessage("reply one"), fauxAssistantMessage("reply two")]);
 
-		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => [DIALOG_MESSAGE_TOOL] }));
+		f.mount(
+			createAgentLoop({
+				model: faux.getModel(),
+				apiKey: "faux-key",
+			}),
+		);
 		const recorder = f.observe();
 
 		// Fire first turn then immediately fire a second sense event.
@@ -1047,11 +1010,11 @@ describe("Cerebrum — ambient steering", { tags: ["unit"] }, () => {
 		// Wait a tick to let any concurrent second turn settle.
 		await new Promise((r) => setTimeout(r, 50));
 
-		const motorDialogEvents = recorder.motor.filter((e) => e.type === "dialog.message");
+		const motorDialogEvents = recorder.motor.filter((e) => e.type === "llm.response");
 		// Only one motor reply must have been published — the second sense event was buffered, not run.
 		expect(
 			motorDialogEvents.length,
-			"second dialog.message while turn active must not produce a second immediate reply",
+			"second llm.input while turn active must not produce a second immediate reply",
 		).toBe(1);
 	}, 5_000);
 });

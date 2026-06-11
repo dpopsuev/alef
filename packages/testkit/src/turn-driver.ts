@@ -1,40 +1,34 @@
 import { randomUUID } from "node:crypto";
 import type { InProcessNerve, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import type { BusObserver } from "@dpopsuev/alef-runtime";
-import { z } from "zod";
 
 /**
- * The tool definition Cerebrum needs in its getTools() so the LLM name
- * "dialog_message" maps back to the motor event "dialog.message".
- * Pass this in the getTools array when constructing Cerebrum in tests
- * that use TurnDriver instead of DialogOrgan.
- */
-export const DIALOG_MESSAGE_TOOL: ToolDefinition = {
-	name: DIALOG_MESSAGE,
-	description: "Send a message.",
-	inputSchema: z.object({ text: z.string() }),
-};
-
-/**
- * TurnDriver — sense/dialog.message → motor/dialog.message request-reply.
+ * TurnDriver — sense/llm.input → motor/llm.response request-reply.
  *
- * Test double for DialogOrgan. Drives a Cerebrum organ on a bare nerve
+ * Test double for DialogOrgan. Drives an organ-llm organ on a bare nerve
  * without pulling in organ-dialog. Keeps organ-llm tests dependency-free.
+ *
+ * Tools are included in the trigger event payload so organ-llm can build its
+ * name map without needing a getTools() callback.
  *
  * Usage:
  *   const nerve = new InProcessNerve();
  *   const driver = new TurnDriver(nerve);
- *   const unmount = createAgentLoop({ ..., getTools: () => [DIALOG_MESSAGE_TOOL] }).mount(nerve.asNerve());
+ *   const unmount = createAgentLoop({ ... }).mount(nerve.asNerve());
  *   const reply = await driver.send("hello");
  *   unmount();
  */
 export class TurnDriver {
+	private readonly tools: readonly ToolDefinition[];
+
 	constructor(
 		private readonly nerve: InProcessNerve,
-		private readonly triggerEvent = DIALOG_MESSAGE,
-		private readonly replyEvent = DIALOG_MESSAGE,
-	) {}
+		private readonly triggerEvent = "llm.input",
+		private readonly replyEvent = "llm.response",
+		tools?: readonly ToolDefinition[],
+	) {
+		this.tools = tools ?? [];
+	}
 
 	send(text: string, sender = "human", timeoutMs = 5_000): Promise<string> {
 		const correlationId = randomUUID();
@@ -52,7 +46,7 @@ export class TurnDriver {
 			this.nerve.asNerve().sense.publish({
 				type: this.triggerEvent,
 				correlationId,
-				payload: { text, sender },
+				payload: { text, sender, tools: this.tools },
 				isError: false,
 			});
 		});
@@ -63,7 +57,7 @@ export class TurnDriver {
 		this.nerve.asNerve().sense.publish({
 			type: this.triggerEvent,
 			correlationId,
-			payload: { text, sender },
+			payload: { text, sender, tools: this.tools },
 			isError: false,
 		});
 		return correlationId;

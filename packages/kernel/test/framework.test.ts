@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { SenseEvent } from "../src/buses.js";
 import { InProcessNerve } from "../src/buses.js";
-import type { CerebrumHandlerCtx, CorpusHandlerCtx } from "../src/framework.js";
+import type { MotorHandlerCtx, SenseHandlerCtx } from "../src/framework.js";
 import { defineOrgan } from "../src/framework.js";
 
 function makeNerve() {
@@ -36,14 +36,24 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 		const organ = defineOrgan(
 			"test",
 			{
-				"motor/test.a": {
-					tool: { name: "test.a", description: "A", inputSchema: z.object({}) },
-					handle: async () => ({}),
-				},
-				"motor/test.b": { handle: async () => ({}) },
-				"motor/test.c": {
-					tool: { name: "test.c", description: "C", inputSchema: z.object({}) },
-					handle: async () => ({}),
+				motor: {
+					"test.a": {
+						tool: { name: "test.a", description: "A", inputSchema: z.object({}) },
+						async *handle() {
+							yield {};
+						},
+					},
+					"test.b": {
+						async *handle() {
+							yield {};
+						},
+					},
+					"test.c": {
+						tool: { name: "test.c", description: "C", inputSchema: z.object({}) },
+						async *handle() {
+							yield {};
+						},
+					},
 				},
 			},
 			{
@@ -57,8 +67,18 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 	it("mount subscribes to Motor events", () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", {
-			"motor/test.x": { handle: async () => ({}) },
-			"motor/test.y": { handle: async () => ({}) },
+			motor: {
+				"test.x": {
+					async *handle() {
+						yield {};
+					},
+				},
+				"test.y": {
+					async *handle() {
+						yield {};
+					},
+				},
+			},
 		}).mount(n);
 		expect(nerve.listenerCount("motor", "test.x")).toBe(1);
 		expect(nerve.listenerCount("motor", "test.y")).toBe(1);
@@ -67,8 +87,18 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 	it("unmount cleans up all subscriptions", () => {
 		const { nerve, n } = makeNerve();
 		const unmount = defineOrgan("test", {
-			"motor/test.x": { handle: async () => ({}) },
-			"motor/test.y": { handle: async () => ({}) },
+			motor: {
+				"test.x": {
+					async *handle() {
+						yield {};
+					},
+				},
+				"test.y": {
+					async *handle() {
+						yield {};
+					},
+				},
+			},
 		}).mount(n);
 		unmount();
 		expect(nerve.listenerCount("motor", "test.x")).toBe(0);
@@ -78,7 +108,13 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 	it("handle success publishes Sense with result payload", async () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", {
-			"motor/test.echo": { handle: async (ctx: CorpusHandlerCtx) => ({ echoed: ctx.payload.value }) },
+			motor: {
+				"test.echo": {
+					async *handle(ctx: MotorHandlerCtx) {
+						yield { echoed: ctx.payload.value };
+					},
+				},
+			},
 		}).mount(n);
 
 		const p = waitSense(nerve, "test.echo");
@@ -93,9 +129,11 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 	it("handle throw publishes Sense with isError=true", async () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", {
-			"motor/test.fail": {
-				handle: async () => {
-					throw new Error("boom");
+			motor: {
+				"test.fail": {
+					async *handle() {
+						yield (await Promise.reject(new Error("boom"))) as Record<string, unknown>;
+					},
 				},
 			},
 		}).mount(n);
@@ -111,7 +149,13 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 	it("toolCallId from Motor payload is mirrored to Sense payload", async () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", {
-			"motor/test.tool": { handle: async () => ({ ok: true }) },
+			motor: {
+				"test.tool": {
+					async *handle() {
+						yield { ok: true };
+					},
+				},
+			},
 		}).mount(n);
 
 		const p = waitSense(nerve, "test.tool");
@@ -129,9 +173,11 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 	it("toolCallId mirrored even on error", async () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", {
-			"motor/test.fail": {
-				handle: async () => {
-					throw new Error("bad");
+			motor: {
+				"test.fail": {
+					async *handle() {
+						yield (await Promise.reject(new Error("bad"))) as Record<string, unknown>;
+					},
 				},
 			},
 		}).mount(n);
@@ -151,11 +197,13 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 	it("streaming action emits N partial Sense events then one final", async () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", {
-			"motor/test.stream": {
-				stream: async function* () {
-					yield { chunk: "a" };
-					yield { chunk: "b" };
-					yield { chunk: "c" };
+			motor: {
+				"test.stream": {
+					async *handle() {
+						yield { chunk: "a" };
+						yield { chunk: "b" };
+						yield { chunk: "c" };
+					},
 				},
 			},
 		}).mount(n);
@@ -182,7 +230,7 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// defineCerebrumOrgan
+// defineOrgan with sense handler
 // ---------------------------------------------------------------------------
 
 describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
@@ -195,7 +243,7 @@ describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 	it("mount subscribes to Sense events", () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("test", {
-			"sense/sense.a": { handle: async () => {} },
+			sense: { "sense.a": { handle: async () => {} } },
 		}).mount(n);
 		expect(nerve.listenerCount("sense", "sense.a")).toBe(1);
 	});
@@ -203,7 +251,7 @@ describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 	it("unmount cleans up", () => {
 		const { nerve, n } = makeNerve();
 		const unmount = defineOrgan("test", {
-			"sense/sense.a": { handle: async () => {} },
+			sense: { "sense.a": { handle: async () => {} } },
 		}).mount(n);
 		unmount();
 		expect(nerve.listenerCount("sense", "sense.a")).toBe(0);
@@ -214,9 +262,11 @@ describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 		let capturedCtx: { correlationId: string; payload: Record<string, unknown> } | null = null;
 
 		defineOrgan("test", {
-			"sense/test.input": {
-				handle: async (ctx: CerebrumHandlerCtx) => {
-					capturedCtx = { correlationId: ctx.correlationId, payload: ctx.payload };
+			sense: {
+				"test.input": {
+					handle: async (ctx: SenseHandlerCtx) => {
+						capturedCtx = { correlationId: ctx.correlationId, payload: ctx.payload };
+					},
 				},
 			},
 		}).mount(n);
@@ -241,18 +291,20 @@ describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 		nerve.onAnyMotor((e) => motorEvents.push(e.type));
 
 		defineOrgan("test", {
-			"sense/test.trigger": {
-				handle: async (ctx: CerebrumHandlerCtx) => {
-					ctx.motor.publish({
-						type: "tool.a",
-						payload: {},
-						correlationId: ctx.correlationId,
-					});
-					ctx.motor.publish({
-						type: "tool.b",
-						payload: {},
-						correlationId: ctx.correlationId,
-					});
+			sense: {
+				"test.trigger": {
+					handle: async (ctx: SenseHandlerCtx) => {
+						ctx.motor.publish({
+							type: "tool.a",
+							payload: {},
+							correlationId: ctx.correlationId,
+						});
+						ctx.motor.publish({
+							type: "tool.b",
+							payload: {},
+							correlationId: ctx.correlationId,
+						});
+					},
 				},
 			},
 		}).mount(n);
@@ -277,7 +329,15 @@ describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 describe("defineOrgan — motor/ prefix", { tags: ["unit"] }, () => {
 	it("subscribes Motor bus for motor/ keys", () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", { "motor/test.cmd": { handle: async () => ({}) } }).mount(n);
+		defineOrgan("test", {
+			motor: {
+				"test.cmd": {
+					async *handle() {
+						yield {};
+					},
+				},
+			},
+		}).mount(n);
 		expect(nerve.listenerCount("motor", "test.cmd")).toBe(1);
 	});
 });
@@ -285,7 +345,7 @@ describe("defineOrgan — motor/ prefix", { tags: ["unit"] }, () => {
 describe("defineOrgan — sense/ prefix", { tags: ["unit"] }, () => {
 	it("subscribes Sense bus for sense/ keys", () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", { "sense/test.evt": { handle: async () => {} } }).mount(n);
+		defineOrgan("test", { sense: { "test.evt": { handle: async () => {} } } }).mount(n);
 		expect(nerve.listenerCount("sense", "test.evt")).toBe(1);
 	});
 });
@@ -294,8 +354,14 @@ describe("defineOrgan — mixed organ", { tags: ["unit"] }, () => {
 	it("can subscribe both Motor and Sense in one organ", () => {
 		const { nerve, n } = makeNerve();
 		defineOrgan("bridge", {
-			"motor/bridge.cmd": { handle: async () => ({}) },
-			"sense/bridge.evt": { handle: async () => {} },
+			motor: {
+				"bridge.cmd": {
+					async *handle() {
+						yield {};
+					},
+				},
+			},
+			sense: { "bridge.evt": { handle: async () => {} } },
 		}).mount(n);
 		expect(nerve.listenerCount("motor", "bridge.cmd")).toBe(1);
 		expect(nerve.listenerCount("sense", "bridge.evt")).toBe(1);
@@ -307,10 +373,12 @@ describe("defineOrgan — wildcard motor/*", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 		const seen: string[] = [];
 		defineOrgan("observer", {
-			"motor/*": {
-				handle: async (ctx: CorpusHandlerCtx) => {
-					seen.push(ctx.payload.op as string);
-					return {};
+			motor: {
+				"*": {
+					async *handle(ctx: MotorHandlerCtx) {
+						seen.push(ctx.payload.op as string);
+						yield {};
+					},
 				},
 			},
 		}).mount(n);
@@ -329,12 +397,14 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
 		defineOrgan("test", {
-			"motor/test.read": {
-				handle: async () => {
-					callCount++;
-					return { data: "result" };
+			motor: {
+				"test.read": {
+					async *handle() {
+						callCount++;
+						yield { data: "result" };
+					},
+					shouldCache: () => true,
 				},
-				shouldCache: () => true,
 			},
 		}).mount(n);
 
@@ -353,12 +423,14 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
 		defineOrgan("test", {
-			"motor/test.read": {
-				handle: async (ctx: CorpusHandlerCtx) => {
-					callCount++;
-					return { path: ctx.payload.path };
+			motor: {
+				"test.read": {
+					async *handle(ctx: MotorHandlerCtx) {
+						callCount++;
+						yield { path: ctx.payload.path };
+					},
+					shouldCache: () => true,
 				},
-				shouldCache: () => true,
 			},
 		}).mount(n);
 
@@ -374,16 +446,20 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 		let readCount = 0;
 		defineOrgan("test", {
-			"motor/test.read": {
-				handle: async () => {
-					readCount++;
-					return { data: "v1" };
+			motor: {
+				"test.read": {
+					async *handle() {
+						readCount++;
+						yield { data: "v1" };
+					},
+					shouldCache: () => true,
 				},
-				shouldCache: () => true,
-			},
-			"motor/test.write": {
-				handle: async () => ({}),
-				invalidates: () => ["test.read"],
+				"test.write": {
+					async *handle() {
+						yield {};
+					},
+					invalidates: () => ["test.read"],
+				},
 			},
 		}).mount(n);
 
@@ -406,10 +482,12 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
 		defineOrgan("test", {
-			"motor/test.stream": {
-				stream: async function* () {
-					callCount++;
-					yield { chunk: "x" };
+			motor: {
+				"test.stream": {
+					async *handle() {
+						callCount++;
+						yield { chunk: "x" };
+					},
 				},
 			},
 		}).mount(n);
@@ -436,12 +514,14 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
 		const organ = defineOrgan("test", {
-			"motor/test.read": {
-				handle: async () => {
-					callCount++;
-					return {};
+			motor: {
+				"test.read": {
+					async *handle() {
+						callCount++;
+						yield {};
+					},
+					shouldCache: () => true,
 				},
-				shouldCache: () => true,
 			},
 		});
 		const unmount = organ.mount(n);
@@ -473,7 +553,13 @@ describe("defineOrgan — inputSchemas validation", { tags: ["unit"] }, () => {
 		const organ = defineOrgan(
 			"typed",
 			{
-				"motor/typed.op": { handle: async (ctx: CorpusHandlerCtx) => ({ ok: true, input: ctx.payload.value }) },
+				motor: {
+					"typed.op": {
+						async *handle(ctx: MotorHandlerCtx) {
+							yield { ok: true, input: ctx.payload.value };
+						},
+					},
+				},
 			},
 			{
 				inputSchemas: { motor: { "typed.op": z.object({ value: z.string() }) } },
@@ -498,7 +584,13 @@ describe("defineOrgan — inputSchemas validation", { tags: ["unit"] }, () => {
 		const organ = defineOrgan(
 			"valid-organ",
 			{
-				"motor/valid.op": { handle: async () => ({ result: "ok" }) },
+				motor: {
+					"valid.op": {
+						async *handle() {
+							yield { result: "ok" };
+						},
+					},
+				},
 			},
 			{
 				inputSchemas: { motor: { "valid.op": z.object({ value: z.string() }) } },
@@ -547,9 +639,13 @@ describe("defineOrgan — ready() hook", { tags: ["unit"] }, () => {
 
 describe("defineOrgan — context metadata enforcement", { tags: ["unit"] }, () => {
 	const minTool = {
-		"motor/my.tool": {
-			tool: { name: "my.tool", description: "Does something.", inputSchema: z.object({}) },
-			handle: async () => ({ result: "ok" }),
+		motor: {
+			"my.tool": {
+				tool: { name: "my.tool", description: "Does something.", inputSchema: z.object({}) },
+				async *handle() {
+					yield { result: "ok" };
+				},
+			},
 		},
 	};
 

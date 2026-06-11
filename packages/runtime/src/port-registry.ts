@@ -31,7 +31,7 @@ export interface PortDefinition {
 	name: string;
 	/**
 	 * Event pattern this seam covers.
-	 * Matches action map keys: "motor/dialog.message", "sense/dialog.message".
+	 * Matches action map keys: "motor/llm.response", "sense/llm.response".
 	 * Use "*" suffix for wildcard: "motor/*" matches any motor action.
 	 */
 	eventPattern: string;

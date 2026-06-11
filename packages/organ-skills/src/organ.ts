@@ -19,14 +19,14 @@
  */
 
 import type {
-	CorpusHandlerCtx,
+	MotorHandlerCtx,
 	Organ,
 	OrganContributions,
 	OrganLogger,
 	SkillBook,
 	SkillPage,
 } from "@dpopsuev/alef-kernel";
-import { defineOrgan, getString } from "@dpopsuev/alef-kernel";
+import { defineOrgan, getString, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { discoverSkills, skillsToXml } from "./discovery.js";
 import type { Skill } from "./types.js";
@@ -140,7 +140,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 		};
 	}
 
-	function handleInvoke(ctx: CorpusHandlerCtx): Record<string, unknown> {
+	function handleInvoke(ctx: MotorHandlerCtx): Record<string, unknown> {
 		const bookName = getString(ctx.payload, "book");
 		const pageName = getString(ctx.payload, "page");
 		const skillName = getString(ctx.payload, "name");
@@ -174,7 +174,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 		throw new Error("skills.invoke: pass name (filesystem skill) or book + page (library)");
 	}
 
-	function handleOpen(ctx: CorpusHandlerCtx): Record<string, unknown> {
+	function handleOpen(ctx: MotorHandlerCtx): Record<string, unknown> {
 		const bookName = getString(ctx.payload, "book") ?? "";
 		const book = library.get(bookName);
 		if (!book)
@@ -206,28 +206,27 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 	return defineOrgan(
 		"skills",
 		{
-			"sense/organ.loaded": {
-				handle: (ctx: CorpusHandlerCtx) => {
-					const name = getString(ctx.payload, "name") ?? "";
-					const books = (ctx.payload.contributions as OrganContributions | undefined)?.skills ?? [];
-					if (books.length > 0) mergeBooks(name, books);
-					return Promise.resolve({});
+			sense: {
+				"organ.loaded": {
+					handle: async (ctx) => {
+						const name = getString(ctx.payload, "name") ?? "";
+						const books = (ctx.payload.contributions as OrganContributions | undefined)?.skills ?? [];
+						if (books.length > 0) mergeBooks(name, books);
+					},
+				},
+				"organ.unloaded": {
+					handle: async (ctx) => {
+						const name = getString(ctx.payload, "name") ?? "";
+						removeOrgan(name);
+					},
 				},
 			},
-			"sense/organ.unloaded": {
-				handle: (ctx: CorpusHandlerCtx) => {
-					const name = getString(ctx.payload, "name") ?? "";
-					removeOrgan(name);
-					return Promise.resolve({});
-				},
+			motor: {
+				"skills.books": typedAction(BOOKS_TOOL, async () => handleBooks()),
+				"skills.list": typedAction(LIST_TOOL, async () => handleList()),
+				"skills.invoke": typedAction(INVOKE_TOOL, async (ctx) => handleInvoke(ctx as unknown as MotorHandlerCtx)),
+				"skills.open": typedAction(OPEN_TOOL, async (ctx) => handleOpen(ctx as unknown as MotorHandlerCtx)),
 			},
-			"motor/skills.books": { tool: BOOKS_TOOL, handle: (_ctx: CorpusHandlerCtx) => Promise.resolve(handleBooks()) },
-			"motor/skills.list": { tool: LIST_TOOL, handle: (_ctx: CorpusHandlerCtx) => Promise.resolve(handleList()) },
-			"motor/skills.invoke": {
-				tool: INVOKE_TOOL,
-				handle: (ctx: CorpusHandlerCtx) => Promise.resolve(handleInvoke(ctx)),
-			},
-			"motor/skills.open": { tool: OPEN_TOOL, handle: (ctx: CorpusHandlerCtx) => Promise.resolve(handleOpen(ctx)) },
 		},
 		{
 			logger: opts.logger,

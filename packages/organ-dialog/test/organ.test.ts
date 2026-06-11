@@ -1,40 +1,39 @@
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it, vi } from "vitest";
-import { DIALOG_MESSAGE, DialogOrgan } from "../src/organ.js";
+import { DialogOrgan } from "../src/organ.js";
 
 organComplianceSuite(() => new DialogOrgan({ sink: () => {} }));
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, n: nerve.asNerve(), corpus: nerve.asNerve(), cerebrum: nerve.asNerve() };
+	return { nerve, n: nerve.asNerve(), organNerve: nerve.asNerve(), reasoner: nerve.asNerve() };
 }
 
 describe("DialogOrgan", { tags: ["compliance"] }, () => {
-	it("has kind=corpus, name=dialog, tool=dialog.message", () => {
+	it("has name=dialog, no tools", () => {
 		const organ = new DialogOrgan();
 		expect(organ.name).toBe("dialog");
-		expect(organ.tools).toHaveLength(1);
-		expect(organ.tools[0].name).toBe(DIALOG_MESSAGE);
+		expect(organ.tools).toHaveLength(0);
 	});
 
 	it("unmount clears the nerve ref", () => {
-		const { nerve, corpus } = makeNerve();
+		const { nerve, organNerve } = makeNerve();
 		const organ = new DialogOrgan();
-		const unmount = organ.mount(corpus);
-		expect(nerve.listenerCount("motor", DIALOG_MESSAGE)).toBe(1);
+		const unmount = organ.mount(organNerve);
+		expect(nerve.listenerCount("motor", "llm.response")).toBe(1);
 		unmount();
-		expect(nerve.listenerCount("motor", DIALOG_MESSAGE)).toBe(0);
+		expect(nerve.listenerCount("motor", "llm.response")).toBe(0);
 		expect(() => organ.receive("hi")).toThrow("not mounted");
 	});
 
-	it('receive() publishes Sense/"dialog.message" with text and sender', () => {
-		const { corpus, cerebrum } = makeNerve();
+	it('receive() publishes Sense/"llm.input" with text and sender', () => {
+		const { organNerve, reasoner } = makeNerve();
 		const organ = new DialogOrgan();
-		organ.mount(corpus);
+		organ.mount(organNerve);
 
 		const received: unknown[] = [];
-		cerebrum.sense.subscribe(DIALOG_MESSAGE, (e) => {
+		reasoner.sense.subscribe("llm.input", (e) => {
 			received.push(e);
 		});
 
@@ -47,12 +46,12 @@ describe("DialogOrgan", { tags: ["compliance"] }, () => {
 	});
 
 	it("receive() defaults sender to 'human'", () => {
-		const { corpus, cerebrum } = makeNerve();
+		const { organNerve, reasoner } = makeNerve();
 		const organ = new DialogOrgan();
-		organ.mount(corpus);
+		organ.mount(organNerve);
 
 		const received: unknown[] = [];
-		cerebrum.sense.subscribe(DIALOG_MESSAGE, (e) => {
+		reasoner.sense.subscribe("llm.input", (e) => {
 			received.push(e);
 		});
 		organ.receive("test");
@@ -62,12 +61,12 @@ describe("DialogOrgan", { tags: ["compliance"] }, () => {
 	});
 
 	it("receive() accepts any sender — human, agent, system", () => {
-		const { corpus, cerebrum } = makeNerve();
+		const { organNerve, reasoner } = makeNerve();
 		const organ = new DialogOrgan();
-		organ.mount(corpus);
+		organ.mount(organNerve);
 
 		const senders: string[] = [];
-		cerebrum.sense.subscribe(DIALOG_MESSAGE, (e) => {
+		reasoner.sense.subscribe("llm.input", (e) => {
 			senders.push((e.payload as { sender: string }).sender);
 		});
 
@@ -78,14 +77,14 @@ describe("DialogOrgan", { tags: ["compliance"] }, () => {
 		expect(senders).toEqual(["human", "agent:planner", "system"]);
 	});
 
-	it('Motor/"dialog.message" from LLM routes to sink', () => {
+	it('Motor/"llm.response" from LLM routes to sink', () => {
 		const sink = vi.fn();
-		const { corpus, cerebrum } = makeNerve();
+		const { organNerve, reasoner } = makeNerve();
 		const organ = new DialogOrgan({ sink });
-		organ.mount(corpus);
+		organ.mount(organNerve);
 
-		cerebrum.motor.publish({
-			type: DIALOG_MESSAGE,
+		reasoner.motor.publish({
+			type: "llm.response",
 			payload: { text: "done", sender: "agent" },
 			correlationId: "c1",
 		});
@@ -94,12 +93,12 @@ describe("DialogOrgan", { tags: ["compliance"] }, () => {
 	});
 
 	it("sender() returns correlationId for correlation", () => {
-		const { corpus, cerebrum } = makeNerve();
+		const { organNerve, reasoner } = makeNerve();
 		const organ = new DialogOrgan();
-		organ.mount(corpus);
+		organ.mount(organNerve);
 
 		const ids: string[] = [];
-		cerebrum.sense.subscribe(DIALOG_MESSAGE, (e) => {
+		reasoner.sense.subscribe("llm.input", (e) => {
 			ids.push(e.correlationId);
 		});
 
@@ -118,7 +117,7 @@ describe("DialogOrgan — receive() payload shape", { tags: ["compliance"] }, ()
 		organ.mount(n);
 
 		const captured: unknown[] = [];
-		n.sense.subscribe(DIALOG_MESSAGE, (e) => {
+		n.sense.subscribe("llm.input", (e) => {
 			captured.push(e.payload);
 		});
 

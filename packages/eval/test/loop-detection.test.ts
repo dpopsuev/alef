@@ -16,12 +16,12 @@ import { EvalHarness } from "../src/harness.js";
 class LoopingLLMOrgan implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
 
 	constructor(private readonly loopCount: number) {}
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", async (event) => {
+		return nerve.sense.subscribe("llm.input", async (event) => {
 			// Call fs.read loopCount times — triggers loop detector.
 			for (let i = 0; i < this.loopCount; i++) {
 				nerve.motor.publish({
@@ -34,7 +34,7 @@ class LoopingLLMOrgan implements Organ {
 			}
 			// Then send a reply so dialog.send() resolves.
 			nerve.motor.publish({
-				type: "dialog.message",
+				type: "llm.response",
 				payload: { text: "done looping" },
 				correlationId: event.correlationId,
 			});
@@ -44,7 +44,7 @@ class LoopingLLMOrgan implements Organ {
 
 // ---------------------------------------------------------------------------
 
-describe("EvalHarness — loop detection (TSK-120)", { tags: ["integration"] }, () => {
+describe("EvalHarness — loop detection", { tags: ["integration"] }, () => {
 	it("detects loop when same Motor event type exceeds threshold", async () => {
 		const harness = new EvalHarness();
 

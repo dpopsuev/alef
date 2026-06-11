@@ -1,10 +1,10 @@
-import type { AgentTool } from "@dpopsuev/alef-agent-core";
-import type { ToolResultMessage } from "@dpopsuev/alef-ai";
+import type { ToolResultMessage } from "@dpopsuev/alef-llm";
 import { i18n } from "@mariozechner/mini-lit";
 import { html } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";
 import { Code } from "lucide";
 import { type Static, Type } from "typebox";
+import type { AgentTool } from "../agent-types.js";
 import { type SandboxFile, SandboxIframe, type SandboxResult } from "../components/SandboxedIframe.js";
 import type { SandboxRuntimeProvider } from "../components/sandbox/SandboxRuntimeProvider.js";
 import { JAVASCRIPT_REPL_TOOL_DESCRIPTION } from "../prompts/prompts.js";

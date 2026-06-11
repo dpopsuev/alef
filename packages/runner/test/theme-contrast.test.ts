@@ -80,7 +80,7 @@ for (const [themeName, theme] of Object.entries(BUILT_IN_THEMES)) {
 	);
 	if (!hasTruecolor) continue;
 
-	describe(`Theme: ${themeName}`, () => {
+	describe(`Theme: ${themeName}`, { tags: ["unit"] }, () => {
 		for (const [fgKey, bgKey, label] of BODY_PAIRS) {
 			const fg = hexOf(theme[fgKey] as { truecolor?: string });
 			const bg = hexOf(theme[bgKey] as { truecolor?: string });

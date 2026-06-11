@@ -5,8 +5,8 @@
 		"paths": {
 			"@dpopsuev/alef-kernel": ["../kernel/src/index.ts"],
 			"@dpopsuev/alef-kernel/*": ["../kernel/src/*.ts"],
-			"@dpopsuev/alef-ai": ["../ai/src/index.ts"],
-			"@dpopsuev/alef-ai/*": ["../ai/src/*"]
+			"@dpopsuev/alef-llm": ["../ai/src/index.ts"],
+			"@dpopsuev/alef-llm/*": ["../ai/src/*"]
 		}
 	},
 	"include": ["src/**/*.ts", "test/**/*.ts"]

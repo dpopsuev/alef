@@ -2,7 +2,7 @@
  * createE2eSession — lightweight real-LLM harness for organ E2E tests.
  *
  * Each organ owns its own E2E test. This helper removes the boilerplate of
- * wiring a real Cerebrum + DialogOrgan + Agent so tests can focus on the
+ * wiring a real organ-llm + DialogOrgan + Agent so tests can focus on the
  * forcing-function assertion: "LLM used the tool and got the right answer."
  *
  * Usage:
@@ -18,10 +18,10 @@
  *   });
  */
 
-import { getEnvApiKey, getModel } from "@dpopsuev/alef-ai";
 import type { Organ } from "@dpopsuev/alef-kernel";
+import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import type { CerebrumEvent } from "@dpopsuev/alef-organ-llm";
+import type { LlmEvent } from "@dpopsuev/alef-organ-llm";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { Agent } from "@dpopsuev/alef-runtime";
 
@@ -33,7 +33,7 @@ export const HAVE_REAL_LLM =
 
 export interface E2eResult {
 	reply: string;
-	events: CerebrumEvent[];
+	events: LlmEvent[];
 }
 
 export interface E2eSession {
@@ -64,7 +64,7 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 
 	const agent = new Agent();
 	let reply = "";
-	const events: CerebrumEvent[] = [];
+	const events: LlmEvent[] = [];
 
 	const dialog = new DialogOrgan({
 		sink: (t) => {
@@ -74,7 +74,6 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 	const llm = createAgentLoop({
 		model,
 		getApiKey: () => apiKey,
-		getTools: () => agent.tools,
 		timeoutMs,
 		onEvent: (e) => events.push(e),
 	});

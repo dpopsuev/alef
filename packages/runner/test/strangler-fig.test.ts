@@ -411,7 +411,7 @@ describe("SessionStore + TurnAssembler", { tags: ["unit"] }, () => {
 		for (let i = 0; i < 3; i++) {
 			await store.append({
 				bus: "motor",
-				type: "dialog.message",
+				type: "llm.response",
 				correlationId: `corr-${i}`,
 				payload: { text: `message ${i}` },
 				timestamp: Date.now() + i * 100,

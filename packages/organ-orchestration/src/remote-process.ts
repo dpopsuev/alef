@@ -1,6 +1,5 @@
 import http from "node:http";
 import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 
 function postToChild(endpoint: string, text: string, timeoutMs: number): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -27,7 +26,12 @@ function postToChild(endpoint: string, text: string, timeoutMs: number): Promise
 	});
 }
 
-function collectReply(endpoint: string, timeoutMs: number, onActivity?: () => void): Promise<string | undefined> {
+function collectReply(
+	endpoint: string,
+	timeoutMs: number,
+	replyEvent: string,
+	onActivity?: () => void,
+): Promise<string | undefined> {
 	return new Promise((resolve, reject) => {
 		let buf = "";
 		const url = new URL(`${endpoint}/events`);
@@ -47,7 +51,7 @@ function collectReply(endpoint: string, timeoutMs: number, onActivity?: () => vo
 					if (!line) continue;
 					try {
 						const ev = JSON.parse(line.slice(6)) as { bus?: string; type?: string; payload?: { text?: string } };
-						if (ev.bus === "motor" && ev.type === DIALOG_MESSAGE && typeof ev.payload?.text === "string") {
+						if (ev.bus === "motor" && ev.type === replyEvent && typeof ev.payload?.text === "string") {
 							clearTimeout(timer);
 							res.destroy();
 							resolve(ev.payload.text);
@@ -78,11 +82,12 @@ function collectReply(endpoint: string, timeoutMs: number, onActivity?: () => vo
 export class RemoteProcessStrategy implements ExecutionStrategy {
 	constructor(
 		private readonly endpoint: string,
+		private readonly replyEvent: string,
 		private readonly onActivity?: () => void,
 	) {}
 
 	async send({ text, timeoutMs = 60_000 }: SendRequest): Promise<string> {
-		const replyPromise = collectReply(this.endpoint, timeoutMs, this.onActivity);
+		const replyPromise = collectReply(this.endpoint, timeoutMs, this.replyEvent, this.onActivity);
 		await postToChild(this.endpoint, text, timeoutMs);
 		return (await replyPromise) ?? "";
 	}

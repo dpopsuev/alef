@@ -58,7 +58,7 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 			events: [
 				{
 					bus: "motor",
-					type: "dialog.message",
+					type: "llm.response",
 					correlationId: id,
 					payload: { text: "hello", conversationHistory: history },
 					timestamp: 1,
@@ -192,7 +192,7 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 			events: [
 				{
 					bus: "motor",
-					type: "dialog.message",
+					type: "llm.response",
 					correlationId: "explore",
 					payload: { text: "ok", conversationHistory: [{ role: "user", content: "explore" }] },
 					timestamp: 1,

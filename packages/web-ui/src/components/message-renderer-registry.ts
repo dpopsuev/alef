@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@dpopsuev/alef-agent-core";
 import type { TemplateResult } from "lit";
+import type { AgentMessage } from "../agent-types.js";
 
 // Extract role type from AppMessage union
 export type MessageRole = AgentMessage["role"];

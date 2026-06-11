@@ -11,52 +11,52 @@ function senseEvent(type: string, text?: string): TranscriptEvent {
 
 describe("runValidators", { tags: ["unit"] }, () => {
 	it("returns empty array when no validators", () => {
-		expect(runValidators([motorEvent("dialog.message", "hello")], [])).toEqual([]);
+		expect(runValidators([motorEvent("llm.response", "hello")], [])).toEqual([]);
 	});
 
 	it("contains: passes when text present", () => {
-		const t = [motorEvent("dialog.message", "the answer is 42")];
+		const t = [motorEvent("llm.response", "the answer is 42")];
 		expect(runValidators(t, [{ type: "contains", value: "answer" }])).toEqual([]);
 	});
 
 	it("contains: fails when text absent", () => {
-		const t = [motorEvent("dialog.message", "nothing here")];
+		const t = [motorEvent("llm.response", "nothing here")];
 		const f = runValidators(t, [{ type: "contains", value: "answer" }]);
 		expect(f).toHaveLength(1);
 		expect(f[0]).toMatch(/contain.*answer/);
 	});
 
 	it("not_contains: passes when text absent", () => {
-		const t = [motorEvent("dialog.message", "safe response")];
+		const t = [motorEvent("llm.response", "safe response")];
 		expect(runValidators(t, [{ type: "not_contains", value: "error" }])).toEqual([]);
 	});
 
 	it("not_contains: fails when text present", () => {
-		const t = [motorEvent("dialog.message", "an error occurred")];
+		const t = [motorEvent("llm.response", "an error occurred")];
 		const f = runValidators(t, [{ type: "not_contains", value: "error" }]);
 		expect(f).toHaveLength(1);
 	});
 
 	it("tool_called: passes when tool appears in motor bus", () => {
-		const t = [motorEvent("fs.read"), motorEvent("dialog.message", "done")];
+		const t = [motorEvent("fs.read"), motorEvent("llm.response", "done")];
 		expect(runValidators(t, [{ type: "tool_called", value: "fs.read" }])).toEqual([]);
 	});
 
 	it("tool_called: fails when tool not in transcript", () => {
-		const t = [motorEvent("dialog.message", "done")];
+		const t = [motorEvent("llm.response", "done")];
 		const f = runValidators(t, [{ type: "tool_called", value: "fs.read" }]);
 		expect(f).toHaveLength(1);
 		expect(f[0]).toMatch(/fs\.read/);
 	});
 
 	it("tool_called: ignores sense bus events for same type", () => {
-		const t = [senseEvent("fs.read", '{"content":"data"}'), motorEvent("dialog.message", "ok")];
+		const t = [senseEvent("fs.read", '{"content":"data"}'), motorEvent("llm.response", "ok")];
 		const f = runValidators(t, [{ type: "tool_called", value: "fs.read" }]);
 		expect(f).toHaveLength(1); // sense doesn't count — must be motor
 	});
 
 	it("multiple validators: all failures collected", () => {
-		const t = [motorEvent("dialog.message", "hello")];
+		const t = [motorEvent("llm.response", "hello")];
 		const f = runValidators(t, [
 			{ type: "contains", value: "MISSING" },
 			{ type: "tool_called", value: "shell.exec" },
@@ -65,7 +65,7 @@ describe("runValidators", { tags: ["unit"] }, () => {
 	});
 
 	it("multiple validators: one fail one pass", () => {
-		const t = [motorEvent("dialog.message", "hello world"), motorEvent("shell.exec")];
+		const t = [motorEvent("llm.response", "hello world"), motorEvent("shell.exec")];
 		const f = runValidators(t, [
 			{ type: "contains", value: "hello" }, // passes
 			{ type: "tool_called", value: "shell.exec" }, // passes
@@ -80,7 +80,7 @@ describe("runValidators", { tags: ["unit"] }, () => {
 	});
 
 	it("exit_code: fails when exit code absent", () => {
-		const t = [motorEvent("dialog.message", "done")];
+		const t = [motorEvent("llm.response", "done")];
 		const f = runValidators(t, [{ type: "exit_code", value: "0" }]);
 		expect(f).toHaveLength(1);
 	});

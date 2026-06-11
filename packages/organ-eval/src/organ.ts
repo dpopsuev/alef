@@ -15,9 +15,8 @@
  * parses a 0-100 score and reasoning string.
  */
 
-import type { BaseOrganOptions, CorpusHandlerCtx, Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, getNumber, getString } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
+import type { BaseOrganOptions, MotorHandlerCtx, Organ } from "@dpopsuev/alef-kernel";
+import { defineOrgan, getNumber, getString, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
 import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";
@@ -26,6 +25,8 @@ import { runValidators } from "./validators.js";
 export interface EvalOrganOptions extends BaseOrganOptions {
 	/** Model to use for LLM-as-judge. Defaults to ALEF_MODEL or autoDetect. */
 	judgeModel?: string;
+	/** Event type for the agent reply. Provided by assembly. */
+	replyEvent: string;
 }
 
 const PromptSchema = z.object({
@@ -64,7 +65,7 @@ async function runLLMJudge(
 	transcript: TranscriptEvent[],
 	rubric: string,
 ): Promise<{ score: number; reasoning: string }> {
-	const { streamSimple } = await import("@dpopsuev/alef-ai");
+	const { streamSimple } = await import("@dpopsuev/alef-llm");
 	const { autoDetectModel } = await import("../../runner/src/model.js").catch(() => ({
 		autoDetectModel: () => undefined,
 	}));
@@ -105,8 +106,8 @@ async function runLLMJudge(
 	};
 }
 
-export function createEvalOrgan(opts: EvalOrganOptions = {}): Organ {
-	async function handleEval(ctx: CorpusHandlerCtx): Promise<Record<string, unknown>> {
+export function createEvalOrgan(opts: EvalOrganOptions): Organ {
+	async function handleEval(ctx: MotorHandlerCtx): Promise<Record<string, unknown>> {
 		const endpoint = getString(ctx.payload, "endpoint") ?? "";
 		if (!endpoint) throw new Error("eval.run: endpoint is required");
 
@@ -129,7 +130,7 @@ export function createEvalOrgan(opts: EvalOrganOptions = {}): Organ {
 			// Start SSE collection before posting (avoids race).
 			const ssePromise = collectEvents(
 				endpoint,
-				(events) => events.some((e) => e.bus === "motor" && e.type === DIALOG_MESSAGE),
+				(events) => events.some((e) => e.bus === "motor" && e.type === opts.replyEvent),
 				timeoutMs,
 			);
 
@@ -163,7 +164,7 @@ export function createEvalOrgan(opts: EvalOrganOptions = {}): Organ {
 	return defineOrgan(
 		"eval",
 		{
-			"motor/eval.run": { tool: EVAL_TOOL, handle: handleEval },
+			motor: { "eval.run": typedAction(EVAL_TOOL, handleEval) },
 		},
 		{
 			logger: opts.logger,

@@ -14,7 +14,6 @@ import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import type { ActionMap, Organ, SkillBook, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, passthroughSchema, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { scanSessionFiles } from "@dpopsuev/alef-session";
 import { z } from "zod";
 
@@ -44,6 +43,8 @@ export interface AlefApiOrganOptions {
 	cwd?: string;
 	/** Called when alef.rebuild is triggered. Injected by local-session via supervisor. */
 	onRebuildRequest?: () => void;
+	/** Event type for dialog messages in session JSONL logs. Provided by assembly. */
+	dialogEventType: string;
 }
 
 const CONFIG_ROOT = join(homedir(), ".config", "alef");
@@ -60,6 +61,7 @@ interface SessionEntry {
 
 async function parseSession(
 	path: string,
+	dialogEventType: string,
 ): Promise<{ name: string | undefined; firstMessage: string; contentFingerprint: string; eventCount: number }> {
 	try {
 		const raw = await readFile(path, "utf-8");
@@ -73,7 +75,7 @@ async function parseSession(
 				if (r.bus === "internal" && r.type === "session.name" && typeof r.payload?.name === "string") {
 					name = r.payload.name;
 				}
-				if (r.bus === "sense" && r.type === DIALOG_MESSAGE) {
+				if (r.bus === "sense" && r.type === dialogEventType) {
 					const text = (r.payload?.text ?? "").replace(/\n/g, " ");
 					if (!firstMessage) firstMessage = text.slice(0, 80);
 					if (contentParts.length < 20) contentParts.push(text.slice(0, 200));
@@ -88,17 +90,21 @@ async function parseSession(
 	}
 }
 
-async function listAllSessions(): Promise<SessionEntry[]> {
+async function listAllSessions(dialogEventType: string): Promise<SessionEntry[]> {
 	const results: SessionEntry[] = [];
 	await scanSessionFiles(async (id, path, cwdHash) => {
 		const s = await stat(path);
-		const parsed = await parseSession(path);
+		const parsed = await parseSession(path, dialogEventType);
 		results.push({ id, cwdHash, mtime: s.mtime.toISOString(), ...parsed });
 	});
 	return results.sort((a, b) => b.mtime.localeCompare(a.mtime));
 }
 
-async function readSessionTurns(id: string, maxTurns = 10): Promise<{ turn: string; type: string }[]> {
+async function readSessionTurns(
+	id: string,
+	dialogEventType: string,
+	maxTurns = 10,
+): Promise<{ turn: string; type: string }[]> {
 	let found: { turn: string; type: string }[] = [];
 	await scanSessionFiles(async (sessionId, path) => {
 		if (sessionId !== id || found.length > 0) return;
@@ -107,7 +113,7 @@ async function readSessionTurns(id: string, maxTurns = 10): Promise<{ turn: stri
 		for (const line of raw.split("\n").filter(Boolean)) {
 			try {
 				const r = JSON.parse(line) as { type?: string; payload?: { text?: string } };
-				if (r.type === DIALOG_MESSAGE) {
+				if (r.type === dialogEventType) {
 					const text = r.payload?.text ?? "";
 					if (text) turns.push({ turn: text.slice(0, 200), type: "message" });
 					if (turns.length >= maxTurns) break;
@@ -141,8 +147,9 @@ async function renameSession(id: string, name: string): Promise<{ ok: boolean; e
 
 async function searchSessions(
 	query: string,
+	dialogEventType: string,
 ): Promise<Array<{ id: string; mtime: string; name: string | undefined; snippet: string }>> {
-	const all = await listAllSessions();
+	const all = await listAllSessions(dialogEventType);
 	const lower = query.toLowerCase();
 	return all
 		.filter((s) => {
@@ -316,14 +323,16 @@ export function createOrgan() {
   };
 
   return defineOrgan("namespace", {
-    "motor/namespace.action": typedAction(TOOL, async (ctx) => {
-      const { param } = ctx.payload;
-      // implementation
-      return withDisplay(
-        { result: param },
-        { text: \`Done: \${param}\`, mimeType: "text/plain" },
-      );
-    }),
+    motor: {
+      "namespace.action": typedAction(TOOL, async (ctx) => {
+        const { param } = ctx.payload;
+        // implementation
+        return withDisplay(
+          { result: param },
+          { text: \`Done: \${param}\`, mimeType: "text/plain" },
+        );
+      }),
+    },
   }, {
     description: "One sentence describing the organ.",
     directives: ["Guidance for the LLM on when and how to use this organ."],
@@ -333,7 +342,7 @@ export function createOrgan() {
 
 Rules:
 - Import only from @dpopsuev/alef-kernel and zod.
-- The motor key must be "motor/<name>.<action>".
+- The motor key must be "<name>.<action>" under the motor: { } block.
 - Always return withDisplay(...) from handlers.
 - Export only createOrgan — no default export.`,
 		},
@@ -364,334 +373,358 @@ function buildPrototypeTools(
 	cwd: string,
 ): ActionMap {
 	return {
-		"motor/prototype.plug": typedAction(
-			{
-				name: "prototype.plug",
-				description:
-					"Load a TypeScript organ into the running agent. " +
-					"Pass path to an existing .ts file, or code to write one to ~/.alef/prototypes/ first. " +
-					"The organ's tools become available immediately.",
-				inputSchema: z
-					.object({
-						path: z
-							.string()
-							.optional()
-							.describe("Absolute or cwd-relative path to a .ts file exporting createOrgan()"),
-						code: z
-							.string()
-							.optional()
-							.describe("TypeScript organ source. Written to ~/.alef/prototypes/<name>.ts."),
-						name: z
-							.string()
-							.optional()
-							.describe("File name (without .ts) when using code. Defaults to 'prototype'."),
-					})
-					.refine((d) => d.path ?? d.code, "Provide either path or code")
-					.and(
-						z.object({
-							thread: z
-								.boolean()
+		motor: {
+			"prototype.plug": typedAction(
+				{
+					name: "prototype.plug",
+					description:
+						"Load a TypeScript organ into the running agent. " +
+						"Pass path to an existing .ts file, or code to write one to ~/.alef/prototypes/ first. " +
+						"The organ's tools become available immediately.",
+					inputSchema: z
+						.object({
+							path: z
+								.string()
 								.optional()
-								.describe(
-									"Run the organ in a worker_threads.Worker for crash isolation. " +
-										"The organ cannot call process.exit() on the main thread and can be terminate()d safely.",
-								),
-						}),
-					),
-			},
-			async (ctx) => {
-				let organPath: string;
-				if (ctx.payload.code) {
-					await mkdir(PROTOTYPES_DIR, { recursive: true });
-					const filename = `${ctx.payload.name ?? "prototype"}.ts`;
-					organPath = join(PROTOTYPES_DIR, filename);
-					await writeFile(organPath, ctx.payload.code, "utf-8");
-				} else {
-					organPath = resolve(cwd, ctx.payload.path as string);
-				}
-				const useThread = (ctx.payload as { thread?: boolean }).thread ?? false;
-				const organ = useThread ? await loadOrganInWorker(organPath, cwd) : await loadOrgan(organPath, cwd);
-				agent.load(organ);
-				const toolNames = organ.tools.map((t) => t.name);
-				return withDisplay(
-					{ name: organ.name, tools: toolNames, path: organPath },
-					{
-						text: `Plugged organ '${organ.name}' — tools: ${toolNames.join(", ") || "(none)"}`,
-						mimeType: "text/plain",
-					},
-				);
-			},
-		),
-		"motor/prototype.unplug": typedAction(
-			{
-				name: "prototype.unplug",
-				description: "Unload a prototype organ from the running agent by name.",
-				inputSchema: z.object({
-					name: z.string().min(1).describe("Organ name as returned by prototype.list"),
-				}),
-			},
-			async (ctx) => {
-				const removed = agent.unload(ctx.payload.name);
-				return withDisplay(
-					{ unloaded: removed, name: ctx.payload.name },
-					{
-						text: removed ? `Unplugged '${ctx.payload.name}'` : `Organ '${ctx.payload.name}' not found`,
-						mimeType: "text/plain",
-					},
-				);
-			},
-		),
-		"motor/prototype.list": typedAction(
-			{
-				name: "prototype.list",
-				description: "List all organs currently loaded in the running agent.",
-				inputSchema: z.object({}),
-			},
-			() => {
-				const organs = agent.organs.map((o) => ({ name: o.name, tools: o.tools.map((t) => t.name) }));
-				return Promise.resolve(
-					withDisplay({ organs }, { text: `${organs.length} organ(s) loaded`, mimeType: "text/plain" }),
-				);
-			},
-		),
+								.describe("Absolute or cwd-relative path to a .ts file exporting createOrgan()"),
+							code: z
+								.string()
+								.optional()
+								.describe("TypeScript organ source. Written to ~/.alef/prototypes/<name>.ts."),
+							name: z
+								.string()
+								.optional()
+								.describe("File name (without .ts) when using code. Defaults to 'prototype'."),
+						})
+						.refine((d) => d.path ?? d.code, "Provide either path or code")
+						.and(
+							z.object({
+								thread: z
+									.boolean()
+									.optional()
+									.describe(
+										"Run the organ in a worker_threads.Worker for crash isolation. " +
+											"The organ cannot call process.exit() on the main thread and can be terminate()d safely.",
+									),
+							}),
+						),
+				},
+				async (ctx) => {
+					let organPath: string;
+					if (ctx.payload.code) {
+						await mkdir(PROTOTYPES_DIR, { recursive: true });
+						const filename = `${ctx.payload.name ?? "prototype"}.ts`;
+						organPath = join(PROTOTYPES_DIR, filename);
+						await writeFile(organPath, ctx.payload.code, "utf-8");
+					} else {
+						organPath = resolve(cwd, ctx.payload.path as string);
+					}
+					const useThread = (ctx.payload as { thread?: boolean }).thread ?? false;
+					const organ = useThread ? await loadOrganInWorker(organPath, cwd) : await loadOrgan(organPath, cwd);
+					agent.load(organ);
+					const toolNames = organ.tools.map((t) => t.name);
+					return withDisplay(
+						{ name: organ.name, tools: toolNames, path: organPath },
+						{
+							text: `Plugged organ '${organ.name}' — tools: ${toolNames.join(", ") || "(none)"}`,
+							mimeType: "text/plain",
+						},
+					);
+				},
+			),
+			"prototype.unplug": typedAction(
+				{
+					name: "prototype.unplug",
+					description: "Unload a prototype organ from the running agent by name.",
+					inputSchema: z.object({
+						name: z.string().min(1).describe("Organ name as returned by prototype.list"),
+					}),
+				},
+				async (ctx) => {
+					const removed = agent.unload(ctx.payload.name);
+					return withDisplay(
+						{ unloaded: removed, name: ctx.payload.name },
+						{
+							text: removed ? `Unplugged '${ctx.payload.name}'` : `Organ '${ctx.payload.name}' not found`,
+							mimeType: "text/plain",
+						},
+					);
+				},
+			),
+			"prototype.list": typedAction(
+				{
+					name: "prototype.list",
+					description: "List all organs currently loaded in the running agent.",
+					inputSchema: z.object({}),
+				},
+				() => {
+					const organs = agent.organs.map((o) => ({ name: o.name, tools: o.tools.map((t) => t.name) }));
+					return Promise.resolve(
+						withDisplay({ organs }, { text: `${organs.length} organ(s) loaded`, mimeType: "text/plain" }),
+					);
+				},
+			),
+		},
 	};
 }
 
 function buildDirectiveTools(g: NonNullable<AlefApiOrganOptions["getDirective"]>): ActionMap {
 	return {
-		"motor/alef.directive.list": typedAction(
-			{
-				name: "alef.directive.list",
-				description: "List all system prompt blocks with id, priority, enabled state, tags, and content preview.",
-				inputSchema: z.object({}),
-			},
-			async () => {
-				const blocks = g()?.list() ?? [];
-				return withDisplay({ blocks }, { text: `${blocks.length} directive block(s)`, mimeType: "text/plain" });
-			},
-		),
-		"motor/alef.directive.enable": typedAction(
-			{
-				name: "alef.directive.enable",
-				description: "Enable a system prompt block.",
-				inputSchema: z.object({ id: z.string().min(1) }),
-			},
-			async (ctx) => {
-				g()?.enable(ctx.payload.id);
-				return withDisplay({ ok: true }, { text: `Enabled directive: ${ctx.payload.id}`, mimeType: "text/plain" });
-			},
-		),
-		"motor/alef.directive.disable": typedAction(
-			{
-				name: "alef.directive.disable",
-				description: "Disable a system prompt block.",
-				inputSchema: z.object({ id: z.string().min(1) }),
-			},
-			async (ctx) => {
-				g()?.disable(ctx.payload.id);
-				return withDisplay({ ok: true }, { text: `Disabled directive: ${ctx.payload.id}`, mimeType: "text/plain" });
-			},
-		),
-		"motor/alef.directive.toggle": typedAction(
-			{
-				name: "alef.directive.toggle",
-				description: "Toggle a system prompt block on or off.",
-				inputSchema: z.object({ id: z.string().min(1) }),
-			},
-			async (ctx) => {
-				g()?.toggle(ctx.payload.id);
-				return withDisplay({ ok: true }, { text: `Toggled directive: ${ctx.payload.id}`, mimeType: "text/plain" });
-			},
-		),
-		"motor/alef.directive.replace": typedAction(
-			{
-				name: "alef.directive.replace",
-				description: "Replace the content of a system prompt block.",
-				inputSchema: z.object({ id: z.string().min(1), content: z.string().min(1) }),
-			},
-			async (ctx) => {
-				g()?.replace(ctx.payload.id, ctx.payload.content);
-				return withDisplay({ ok: true }, { text: `Replaced directive: ${ctx.payload.id}`, mimeType: "text/plain" });
-			},
-		),
-		"motor/alef.directive.add": typedAction(
-			{
-				name: "alef.directive.add",
-				description: "Add a new block to the system prompt.",
-				inputSchema: z.object({
-					id: z.string().min(1),
-					priority: z.number(),
-					content: z.string().min(1),
-					tags: z.array(z.string()).optional(),
-				}),
-			},
-			async (ctx) => {
-				g()?.add(ctx.payload.id, ctx.payload.priority, ctx.payload.content, ctx.payload.tags);
-				return withDisplay(
-					{ ok: true },
-					{
-						text: `Added directive: ${ctx.payload.id} (priority ${ctx.payload.priority})`,
-						mimeType: "text/plain",
-					},
-				);
-			},
-		),
-		"motor/alef.directive.remove": typedAction(
-			{
-				name: "alef.directive.remove",
-				description: "Remove a block from the prompt scroll.",
-				inputSchema: z.object({ id: z.string().min(1) }),
-			},
-			async (ctx) => {
-				g()?.remove(ctx.payload.id);
-				return withDisplay({ ok: true }, { text: `Removed directive: ${ctx.payload.id}`, mimeType: "text/plain" });
-			},
-		),
+		motor: {
+			"alef.directive.list": typedAction(
+				{
+					name: "alef.directive.list",
+					description:
+						"List all system prompt blocks with id, priority, enabled state, tags, and content preview.",
+					inputSchema: z.object({}),
+				},
+				async () => {
+					const blocks = g()?.list() ?? [];
+					return withDisplay({ blocks }, { text: `${blocks.length} directive block(s)`, mimeType: "text/plain" });
+				},
+			),
+			"alef.directive.enable": typedAction(
+				{
+					name: "alef.directive.enable",
+					description: "Enable a system prompt block.",
+					inputSchema: z.object({ id: z.string().min(1) }),
+				},
+				async (ctx) => {
+					g()?.enable(ctx.payload.id);
+					return withDisplay(
+						{ ok: true },
+						{ text: `Enabled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+					);
+				},
+			),
+			"alef.directive.disable": typedAction(
+				{
+					name: "alef.directive.disable",
+					description: "Disable a system prompt block.",
+					inputSchema: z.object({ id: z.string().min(1) }),
+				},
+				async (ctx) => {
+					g()?.disable(ctx.payload.id);
+					return withDisplay(
+						{ ok: true },
+						{ text: `Disabled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+					);
+				},
+			),
+			"alef.directive.toggle": typedAction(
+				{
+					name: "alef.directive.toggle",
+					description: "Toggle a system prompt block on or off.",
+					inputSchema: z.object({ id: z.string().min(1) }),
+				},
+				async (ctx) => {
+					g()?.toggle(ctx.payload.id);
+					return withDisplay(
+						{ ok: true },
+						{ text: `Toggled directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+					);
+				},
+			),
+			"alef.directive.replace": typedAction(
+				{
+					name: "alef.directive.replace",
+					description: "Replace the content of a system prompt block.",
+					inputSchema: z.object({ id: z.string().min(1), content: z.string().min(1) }),
+				},
+				async (ctx) => {
+					g()?.replace(ctx.payload.id, ctx.payload.content);
+					return withDisplay(
+						{ ok: true },
+						{ text: `Replaced directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+					);
+				},
+			),
+			"alef.directive.add": typedAction(
+				{
+					name: "alef.directive.add",
+					description: "Add a new block to the system prompt.",
+					inputSchema: z.object({
+						id: z.string().min(1),
+						priority: z.number(),
+						content: z.string().min(1),
+						tags: z.array(z.string()).optional(),
+					}),
+				},
+				async (ctx) => {
+					g()?.add(ctx.payload.id, ctx.payload.priority, ctx.payload.content, ctx.payload.tags);
+					return withDisplay(
+						{ ok: true },
+						{
+							text: `Added directive: ${ctx.payload.id} (priority ${ctx.payload.priority})`,
+							mimeType: "text/plain",
+						},
+					);
+				},
+			),
+			"alef.directive.remove": typedAction(
+				{
+					name: "alef.directive.remove",
+					description: "Remove a block from the prompt scroll.",
+					inputSchema: z.object({ id: z.string().min(1) }),
+				},
+				async (ctx) => {
+					g()?.remove(ctx.payload.id);
+					return withDisplay(
+						{ ok: true },
+						{ text: `Removed directive: ${ctx.payload.id}`, mimeType: "text/plain" },
+					);
+				},
+			),
+		},
 	};
 }
 
 function buildSessionTools(opts: AlefApiOrganOptions): ActionMap {
 	return {
-		"motor/alef.sessions.list": typedAction(
-			{
-				name: "alef.sessions.list",
-				description: "List all Alef sessions across all working directories, newest first.",
-				inputSchema: z.object({}),
-			},
-			async () => {
-				const sessions = await listAllSessions();
-				return withDisplay({ sessions }, { text: `${sessions.length} session(s)`, mimeType: "text/plain" });
-			},
-			{ shouldCache: () => false },
-		),
-		"motor/alef.sessions.search": typedAction(
-			{
-				name: "alef.sessions.search",
-				description: "Search sessions by keyword across name, first message, and conversation content.",
-				inputSchema: z.object({ query: z.string().min(1).describe("Keyword or phrase to search for") }),
-			},
-			async (ctx) => {
-				const results = await searchSessions(ctx.payload.query);
-				return withDisplay(
-					{ results },
-					{ text: `${results.length} session(s) matching "${ctx.payload.query}"`, mimeType: "text/plain" },
-				);
-			},
-		),
-		"motor/alef.sessions.rename": typedAction(
-			{
-				name: "alef.sessions.rename",
-				description: "Give a session a human-readable name so it can be found later.",
-				inputSchema: z.object({
-					id: z.string().min(1).describe("8-char session ID"),
-					name: z.string().min(1).describe("Concise descriptive name, e.g. 'ToolShell eval and amnesia fix'"),
-				}),
-			},
-			async (ctx) => {
-				const result = await renameSession(ctx.payload.id, ctx.payload.name);
-				return withDisplay(result, {
-					text: result.ok
-						? `Renamed session ${ctx.payload.id} to "${ctx.payload.name}"`
-						: `Rename failed: ${result.error}`,
-					mimeType: "text/plain",
-				});
-			},
-		),
-		"motor/alef.sessions.read": typedAction(
-			{
-				name: "alef.sessions.read",
-				description: "Read the first N turns of a session by ID.",
-				inputSchema: z.object({
-					id: z.string().min(1).describe("8-char session ID"),
-					maxTurns: z.number().optional().default(10).describe("Max turns to return (default 10)"),
-				}),
-			},
-			async (ctx) => {
-				const turns = await readSessionTurns(ctx.payload.id, ctx.payload.maxTurns);
-				return withDisplay(
-					{ turns },
-					{ text: `${turns.length} turn(s) from session ${ctx.payload.id}`, mimeType: "text/plain" },
-				);
-			},
-		),
-		"motor/alef.config.get": typedAction(
-			{
-				name: "alef.config.get",
-				description: "Get the current Alef config from ~/.config/alef/config.yaml.",
-				inputSchema: z.object({}),
-			},
-			async () => {
-				const config = await getConfig();
-				return withDisplay({ config }, { text: "Alef config loaded", mimeType: "text/plain" });
-			},
-			{ shouldCache: () => true },
-		),
-		"motor/alef.organs.list": typedAction(
-			{
-				name: "alef.organs.list",
-				description: "List user-installed organs from ~/.config/alef/organs.yaml.",
-				inputSchema: z.object({}),
-			},
-			async () => {
-				const organs = await listOrgans();
-				return withDisplay({ organs }, { text: "organs.yaml loaded", mimeType: "text/plain" });
-			},
-			{ shouldCache: () => true },
-		),
-		"motor/alef.pm.history": typedAction(
-			{
-				name: "alef.pm.history",
-				description: "List organ package manager generation history.",
-				inputSchema: z.object({}),
-			},
-			async () => {
-				const history = await pmHistory();
-				return withDisplay(
-					{ history },
-					{ text: `${history.length} generation(s) in PM history`, mimeType: "text/plain" },
-				);
-			},
-			{ shouldCache: () => true },
-		),
-		"motor/alef.rebuild": typedAction(
-			{
-				name: "alef.rebuild",
-				description:
-					"Trigger a blue-green rebuild: runs npm run check, spawns a new green with the same session, " +
-					"and promotes it if healthy. Only available when running under the supervisor (alef-dev.sh). " +
-					"Use after editing source files to apply the fix without losing session context.",
-				inputSchema: z.object({}),
-			},
-			async (ctx) => {
-				if (typeof opts.onRebuildRequest !== "function") {
-					ctx.log.warn({}, "alef.rebuild called but supervisor is not running");
+		motor: {
+			"alef.sessions.list": typedAction(
+				{
+					name: "alef.sessions.list",
+					description: "List all Alef sessions across all working directories, newest first.",
+					inputSchema: z.object({}),
+				},
+				async () => {
+					const sessions = await listAllSessions(opts.dialogEventType);
+					return withDisplay({ sessions }, { text: `${sessions.length} session(s)`, mimeType: "text/plain" });
+				},
+				{ shouldCache: () => false },
+			),
+			"alef.sessions.search": typedAction(
+				{
+					name: "alef.sessions.search",
+					description: "Search sessions by keyword across name, first message, and conversation content.",
+					inputSchema: z.object({ query: z.string().min(1).describe("Keyword or phrase to search for") }),
+				},
+				async (ctx) => {
+					const results = await searchSessions(ctx.payload.query, opts.dialogEventType);
 					return withDisplay(
-						{ ok: false, reason: "supervisor not running — start with alef-dev.sh" },
-						{ text: "rebuild: supervisor not running — start with alef-dev.sh", mimeType: "text/plain" },
+						{ results },
+						{ text: `${results.length} session(s) matching "${ctx.payload.query}"`, mimeType: "text/plain" },
 					);
-				}
-				opts.onRebuildRequest();
-				ctx.log.info({}, "alef.rebuild: rebuild requested");
-				return withDisplay(
-					{ ok: true, reason: "rebuild requested — new green will take over when healthy" },
-					{
-						text: "rebuild: triggered — new green spawning, session will continue on promotion",
+				},
+			),
+			"alef.sessions.rename": typedAction(
+				{
+					name: "alef.sessions.rename",
+					description: "Give a session a human-readable name so it can be found later.",
+					inputSchema: z.object({
+						id: z.string().min(1).describe("8-char session ID"),
+						name: z.string().min(1).describe("Concise descriptive name, e.g. 'ToolShell eval and amnesia fix'"),
+					}),
+				},
+				async (ctx) => {
+					const result = await renameSession(ctx.payload.id, ctx.payload.name);
+					return withDisplay(result, {
+						text: result.ok
+							? `Renamed session ${ctx.payload.id} to "${ctx.payload.name}"`
+							: `Rename failed: ${result.error}`,
 						mimeType: "text/plain",
-					},
-				);
-			},
-		),
+					});
+				},
+			),
+			"alef.sessions.read": typedAction(
+				{
+					name: "alef.sessions.read",
+					description: "Read the first N turns of a session by ID.",
+					inputSchema: z.object({
+						id: z.string().min(1).describe("8-char session ID"),
+						maxTurns: z.number().optional().default(10).describe("Max turns to return (default 10)"),
+					}),
+				},
+				async (ctx) => {
+					const turns = await readSessionTurns(ctx.payload.id, opts.dialogEventType, ctx.payload.maxTurns);
+					return withDisplay(
+						{ turns },
+						{ text: `${turns.length} turn(s) from session ${ctx.payload.id}`, mimeType: "text/plain" },
+					);
+				},
+			),
+			"alef.config.get": typedAction(
+				{
+					name: "alef.config.get",
+					description: "Get the current Alef config from ~/.config/alef/config.yaml.",
+					inputSchema: z.object({}),
+				},
+				async () => {
+					const config = await getConfig();
+					return withDisplay({ config }, { text: "Alef config loaded", mimeType: "text/plain" });
+				},
+				{ shouldCache: () => true },
+			),
+			"alef.organs.list": typedAction(
+				{
+					name: "alef.organs.list",
+					description: "List user-installed organs from ~/.config/alef/organs.yaml.",
+					inputSchema: z.object({}),
+				},
+				async () => {
+					const organs = await listOrgans();
+					return withDisplay({ organs }, { text: "organs.yaml loaded", mimeType: "text/plain" });
+				},
+				{ shouldCache: () => true },
+			),
+			"alef.pm.history": typedAction(
+				{
+					name: "alef.pm.history",
+					description: "List organ package manager generation history.",
+					inputSchema: z.object({}),
+				},
+				async () => {
+					const history = await pmHistory();
+					return withDisplay(
+						{ history },
+						{ text: `${history.length} generation(s) in PM history`, mimeType: "text/plain" },
+					);
+				},
+				{ shouldCache: () => true },
+			),
+			"alef.rebuild": typedAction(
+				{
+					name: "alef.rebuild",
+					description:
+						"Trigger a blue-green rebuild: runs npm run check, spawns a new green with the same session, " +
+						"and promotes it if healthy. Only available when running under the supervisor (alef-dev.sh). " +
+						"Use after editing source files to apply the fix without losing session context.",
+					inputSchema: z.object({}),
+				},
+				async (ctx) => {
+					if (typeof opts.onRebuildRequest !== "function") {
+						ctx.log.warn({}, "alef.rebuild called but supervisor is not running");
+						return withDisplay(
+							{ ok: false, reason: "supervisor not running — start with alef-dev.sh" },
+							{ text: "rebuild: supervisor not running — start with alef-dev.sh", mimeType: "text/plain" },
+						);
+					}
+					opts.onRebuildRequest();
+					ctx.log.info({}, "alef.rebuild: rebuild requested");
+					return withDisplay(
+						{ ok: true, reason: "rebuild requested — new green will take over when healthy" },
+						{
+							text: "rebuild: triggered — new green spawning, session will continue on promotion",
+							mimeType: "text/plain",
+						},
+					);
+				},
+			),
+		},
 	};
 }
 
-export function createAlefApiOrgan(opts: AlefApiOrganOptions = {}) {
+export function createAlefApiOrgan(opts: AlefApiOrganOptions) {
 	const { agent, loadOrgan, cwd = process.cwd(), getDirective } = opts;
 	return defineOrgan(
 		"alef",
 		{
-			...(getDirective ? buildDirectiveTools(getDirective) : {}),
-			...(agent && loadOrgan ? buildPrototypeTools(agent, loadOrgan, cwd) : {}),
-			...buildSessionTools(opts),
+			motor: {
+				...(getDirective ? buildDirectiveTools(getDirective).motor : {}),
+				...(agent && loadOrgan ? buildPrototypeTools(agent, loadOrgan, cwd).motor : {}),
+				...buildSessionTools(opts).motor,
+			},
 		},
 		{
 			description:

@@ -28,7 +28,7 @@ if (!port) throw new Error("prototype-worker must run inside a worker_threads.Wo
 
 // Motor handlers registered by the organ during mount.
 const motorHandlers = new Map<string, Set<MotorHandler>>();
-// Sense handlers (rarely used by corpus organs, but bridge it anyway).
+// Sense handlers (rarely used by organs, but bridge it anyway).
 const senseHandlers = new Map<string, Set<SenseHandler>>();
 
 const bridgeNerve: Nerve = {

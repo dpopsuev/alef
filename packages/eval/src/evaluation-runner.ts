@@ -17,9 +17,9 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import type { CheckerResult, Evaluation } from "./evaluation.js";
-import { assertToolNotUsed, assertToolUsed, type EvalHarness } from "./harness.js";
-import type { HarnessOptions, RunMetrics } from "./index.js";
+import type { CheckerResult, Evaluation, ToolCall } from "./evaluation.js";
+import { assertToolNotUsed, type EvalHarness } from "./harness.js";
+import type { HarnessOptions, RunMetrics, SpanRecord } from "./index.js";
 
 export interface EvaluationResult extends CheckerResult {
 	/** Full run metrics from the EvalHarness. */
@@ -59,6 +59,44 @@ export interface EvaluationRunnerOptions {
 	maxErrorRate?: number;
 }
 
+function matchValue(actual: string, expected: string | RegExp): boolean {
+	return expected instanceof RegExp ? expected.test(actual) : actual.includes(expected);
+}
+
+function matchesToolCall(span: SpanRecord, expectation: ToolCall): boolean {
+	const toolName = String(span.attributes["alef.event.type"] ?? "");
+	const tools = Array.isArray(expectation.tool) ? expectation.tool : [expectation.tool];
+	if (!tools.some((t) => toolName === t)) return false;
+
+	if (expectation.target) {
+		const args = span.args ?? {};
+		for (const [key, pattern] of Object.entries(expectation.target)) {
+			if (pattern === undefined) continue;
+			const value = String(args[key] ?? "");
+			if (!matchValue(value, pattern)) return false;
+		}
+	}
+
+	if (expectation.produces !== undefined) {
+		const result = span.result ?? "";
+		if (!matchValue(result, expectation.produces)) return false;
+	}
+
+	return true;
+}
+
+function describeExpectation(exp: ToolCall, prefix: string): string {
+	const tools = Array.isArray(exp.tool) ? exp.tool.join("|") : exp.tool;
+	const target = exp.target
+		? ` on ${Object.entries(exp.target)
+				.filter(([, v]) => v !== undefined)
+				.map(([k, v]) => `${k}=${v instanceof RegExp ? v.source : v}`)
+				.join(", ")}`
+		: "";
+	const produces = exp.produces ? ` → ${exp.produces instanceof RegExp ? exp.produces.source : exp.produces}` : "";
+	return `${prefix} ${tools}${target}${produces}`.trim();
+}
+
 export class EvaluationRunner {
 	private readonly harness: EvalHarness;
 	private readonly harnessOptions: Partial<HarnessOptions>;
@@ -85,7 +123,7 @@ export class EvaluationRunner {
 
 				const prompts = Array.isArray(evaluation.prompt) ? evaluation.prompt : [evaluation.prompt];
 				for (const p of prompts) {
-					lastReply = await ctx.send(p);
+					lastReply = await ctx.send({ text: p });
 				}
 			},
 			{
@@ -100,15 +138,26 @@ export class EvaluationRunner {
 		const workspace = metrics.workspace ?? "";
 
 		try {
-			// MustUse / MustNotUse checks.
 			const mustUseErrors: string[] = [];
-			for (const tool of evaluation.mustUse ?? []) {
-				try {
-					assertToolUsed(metrics, tool);
-				} catch (e) {
-					mustUseErrors.push(e instanceof Error ? e.message : String(e));
+
+			// expects — ALL must be satisfied (AND semantics).
+			for (const expectation of evaluation.expects ?? []) {
+				const satisfied = metrics.spans.some((s) => matchesToolCall(s, expectation));
+				if (!satisfied) mustUseErrors.push(describeExpectation(expectation, "Expected"));
+			}
+
+			// expectsAny — AT LEAST ONE must be satisfied (OR semantics).
+			if ((evaluation.expectsAny ?? []).length > 0) {
+				const anySatisfied = (evaluation.expectsAny ?? []).some((exp) =>
+					metrics.spans.some((s) => matchesToolCall(s, exp)),
+				);
+				if (!anySatisfied) {
+					const desc = (evaluation.expectsAny ?? []).map((e) => describeExpectation(e, "")).join(" OR ");
+					mustUseErrors.push(`Expected at least one: ${desc}`);
 				}
 			}
+
+			// mustNotUse — none of these may appear in spans.
 			for (const tool of evaluation.mustNotUse ?? []) {
 				try {
 					assertToolNotUsed(metrics, tool);

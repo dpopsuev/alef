@@ -1,4 +1,4 @@
-import { getProviders } from "@dpopsuev/alef-ai";
+import { getProviders } from "@dpopsuev/alef-llm";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "./auth.js";
 import { registry } from "./commands/index.js";
 import type { TuiHandlerContext } from "./commands/types.js";

@@ -4,24 +4,16 @@
  * Five tasks selected from the TerminalBench corpus style:
  *   - Verifiable on any Linux host (bash, python3 available)
  *   - No GPU, no compilation, no multi-machine setup
- *   - ReadOnly: file read + analysis
- *   - ReadWrite: write scripts + system tools
  *
- * Each evaluation maps to the TerminalBench format:
- *   instruction.md → Evaluation.prompt
- *   tests/test.sh  → terminalScript(...)
- *   oracle         → Evaluation.fixture
- *
- * Fixture tests run without LLM in CI.
- * Real-LLM runs require ANTHROPIC_API_KEY.
+ * expects: specifies which files the agent must interact with (call + target).
+ * checker: terminalScript verifies the output is functionally correct.
  */
 
 import { terminalScript } from "../checkers/terminal.js";
 import type { Evaluation } from "../evaluation.js";
 
-// ---------------------------------------------------------------------------
-// L1 / ReadOnly — file operations + text processing
-// ---------------------------------------------------------------------------
+const READ_TOOLS = ["fs.read", "lector.read"] as const;
+const WRITE_TOOLS = ["fs.write", "fs.edit", "lector.write", "lector.edit"] as const;
 
 export const helloWorld: Evaluation = {
 	id: "tb-hello-world",
@@ -30,7 +22,7 @@ export const helloWorld: Evaluation = {
 	prompt:
 		"Create a file called `hello.py` in the current directory. " +
 		"It should print exactly `Hello, World!` (with exclamation mark) when run with `python3 hello.py`.",
-	mustUse: ["fs.write"],
+	expects: [{ tool: WRITE_TOOLS, target: { path: "hello.py" } }],
 	checker: terminalScript("python3 hello.py | grep -qF 'Hello, World!'"),
 	fixture: {
 		files: { "hello.py": "print('Hello, World!')\n" },
@@ -46,7 +38,10 @@ export const wordFrequency: Evaluation = {
 		"Read `input.txt`. Count the frequency of each word. " +
 		"Write the results to `word_count.txt` in the format `word: count`, " +
 		"one entry per line, sorted alphabetically by word.",
-	mustUse: ["fs.read"],
+	expects: [
+		{ tool: READ_TOOLS, target: { path: "input.txt" } },
+		{ tool: WRITE_TOOLS, target: { path: "word_count.txt" } },
+	],
 	checker: terminalScript(`
 grep -q "apple: 3" word_count.txt
 grep -q "banana: 2" word_count.txt
@@ -57,10 +52,6 @@ grep -q "cherry: 3" word_count.txt
 	},
 };
 
-// ---------------------------------------------------------------------------
-// L2 / ReadWrite — scripting + system tools
-// ---------------------------------------------------------------------------
-
 export const lineCounter: Evaluation = {
 	id: "tb-line-counter",
 	toolLevel: "ReadWrite",
@@ -70,7 +61,7 @@ export const lineCounter: Evaluation = {
 		"Write a bash script `count_lines.sh` that takes a filename as its first argument " +
 		"and prints the number of lines in that file. " +
 		"Running `bash count_lines.sh data.txt` must print `5`.",
-	mustUse: ["fs.write"],
+	expects: [{ tool: WRITE_TOOLS, target: { path: "count_lines.sh" } }],
 	checker: terminalScript(`
 result=$(bash count_lines.sh data.txt)
 [ "$result" = "5" ]
@@ -91,7 +82,7 @@ export const jsonConfig: Evaluation = {
 		"Create a valid JSON file called `config.json` with these exact fields: " +
 		'`host` (string, value "localhost"), `port` (number, value 8080), ' +
 		'`debug` (boolean, value false), `tags` (array containing at least "api" and "v1").',
-	mustUse: ["fs.write"],
+	expects: [{ tool: WRITE_TOOLS, target: { path: "config.json" } }],
 	checker: terminalScript(`
 python3 -c "
 import json, sys
@@ -117,7 +108,10 @@ export const csvSummary: Evaluation = {
 		"Read `scores.csv`. Write a Python script `analyze.py` that prints: " +
 		"1. `Average: X.XX` (the average score, 2 decimal places). " +
 		"2. `Top scorer: NAME` (the person with the highest score).",
-	mustUse: ["fs.read"],
+	expects: [
+		{ tool: READ_TOOLS, target: { path: "scores.csv" } },
+		{ tool: WRITE_TOOLS, target: { path: "analyze.py" } },
+	],
 	checker: terminalScript(`
 output=$(python3 analyze.py)
 echo "$output" | grep -q "Average: 87.60"

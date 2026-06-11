@@ -1,5 +1,5 @@
 /**
- * ShellOrgan — shell execution CorpusOrgan.
+ * ShellOrgan — shell execution organ.
  *
  * shell.exec — streaming: yields chunks as they arrive via spawn(),
  *              final event carries exitCode + isFinal: true.
@@ -195,7 +195,7 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 	return defineOrgan(
 		"shell",
 		{
-			"motor/shell.exec": typedStreamAction(SHELL_EXEC_TOOL, (ctx) => streamExec(ctx, options)),
+			motor: { "shell.exec": typedStreamAction(SHELL_EXEC_TOOL, (ctx) => streamExec(ctx, options)) },
 		},
 		{
 			actions: options.actions,

@@ -153,7 +153,7 @@ describe("toolSlot.receiveTextChunk wiring", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("ALE-BUG-7: empty segment pruned on seal", { tags: ["unit"] }, () => {
+describe("empty segment pruned on seal", { tags: ["unit"] }, () => {
 	let env: ReturnType<typeof makeEnv>;
 
 	beforeEach(() => {

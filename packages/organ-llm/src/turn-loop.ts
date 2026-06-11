@@ -1,12 +1,11 @@
-import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-ai";
-import type { CerebrumHandlerCtx, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { SenseEvent, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { debugLog, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
+import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-llm";
 import type { z } from "zod";
 import { normalizeMessage, retryDelayMs, shouldRetry, sleep } from "./retry.js";
 import { callLLM, type ToolCall } from "./stream-turn.js";
 import { dispatchTools, payloadToText } from "./tool-dispatch.js";
-import type { CerebrumEvent, TokenUsage } from "./tool-events.js";
+import type { LlmEvent, TokenUsage } from "./tool-events.js";
 
 // ---------------------------------------------------------------------------
 // Options — structural subset of AgentLoopOptions, avoids circular import
@@ -20,15 +19,13 @@ export interface TurnLoopOptions {
 	maxRetryDelayMs?: number;
 	onRetry?: (attempt: number, reason: string) => void;
 	getSignal?: () => AbortSignal | undefined;
-	onEvent?: (event: CerebrumEvent) => void;
+	onEvent?: (event: LlmEvent) => void;
 	onTurnComplete?: (turn: number, usage: TokenUsage) => void;
 	thinking?: ThinkingLevel;
 	getThinking?: () => ThinkingLevel | undefined;
 	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
 	phaseTimeoutMs?: number;
-	triggerEvent?: string;
-	replyEvent?: string;
-	getTools?: () => readonly ToolDefinition[];
+
 	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 	systemPrompt?: string;
@@ -82,8 +79,8 @@ function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
 	};
 }
 
-type SenseBus = CerebrumHandlerCtx["sense"];
-type MotorBus = CerebrumHandlerCtx["motor"];
+type SenseBus = SenseHandlerCtx["sense"];
+type MotorBus = SenseHandlerCtx["motor"];
 
 function waitForPhaseResult(
 	sense: SenseBus,
@@ -139,13 +136,13 @@ interface TurnSetup {
 
 async function prepareTurn(
 	payload: { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string },
-	options: Pick<TurnLoopOptions, "getTools" | "prepareStep">,
+	options: Pick<TurnLoopOptions, "prepareStep">,
 ): Promise<TurnSetup> {
 	const rawMessages =
 		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
 	const nameMap = new Map<string, string>();
-	const toolDefs = options.getTools?.() ?? payload.tools ?? [];
-	const tools = buildTools(toolDefs as ToolDef[], nameMap);
+	const toolDefs = (payload.tools as readonly ToolDef[] | undefined) ?? [];
+	const tools = buildTools(toolDefs, nameMap);
 	const rawMsgs = (rawMessages as Message[]).map(normalizeMessage);
 	const messages = options.prepareStep ? await options.prepareStep(rawMsgs) : rawMsgs;
 	return { messages, tools, nameMap };
@@ -173,21 +170,6 @@ function applyPhaseResult(phase: PhaseResult, messages: Message[], tools: Tool[]
 	if (phase.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
 	if (phase.tools && phase.tools.length > 0)
 		tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
-}
-
-interface PendingCallClassification {
-	replyCall: ToolCall | undefined;
-	toolCalls: ToolCall[];
-}
-
-function classifyPendingCalls(
-	pendingCalls: ToolCall[],
-	toMotorName: (n: string) => string,
-	replyType: string,
-): PendingCallClassification {
-	const replyCall = pendingCalls.find((tc) => toMotorName(tc.name) === replyType);
-	const toolCalls = pendingCalls.filter((tc) => toMotorName(tc.name) !== replyType);
-	return { replyCall, toolCalls };
 }
 
 function reportUsage(
@@ -231,31 +213,25 @@ function extractText(message: AssistantMessage): string {
 		.join("");
 }
 
+const LLM_RESPONSE = "llm.response";
+
 function publishReply(
 	motor: MotorBus,
 	correlationId: string,
-	replyType: string,
 	finalMessage: AssistantMessage,
-	replyCall: ToolCall | undefined,
 	messages: Message[],
-	options: Pick<TurnLoopOptions, "onEvent">,
 ): void {
-	const replyFromToolArgs = typeof replyCall?.args.text === "string" ? replyCall.args.text : undefined;
-	const text = replyFromToolArgs ?? extractText(finalMessage);
-
-	if (replyFromToolArgs) options.onEvent?.({ type: "chunk", text: replyFromToolArgs });
-
+	const text = extractText(finalMessage);
 	if (text) {
-		const conversationHistory = replyType === DIALOG_MESSAGE ? serializeConversationHistory(messages) : undefined;
 		motor.publish({
-			type: replyType,
-			payload: { text, ...(conversationHistory ? { conversationHistory } : {}), usage: finalMessage.usage },
+			type: LLM_RESPONSE,
+			payload: { text, conversationHistory: serializeConversationHistory(messages), usage: finalMessage.usage },
 			correlationId,
 		});
 	} else {
 		const fallback =
 			finalMessage.errorMessage || (finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
-		motor.publish({ type: replyType, payload: { text: fallback }, correlationId });
+		motor.publish({ type: LLM_RESPONSE, payload: { text: fallback }, correlationId });
 	}
 }
 
@@ -285,11 +261,7 @@ async function runPhase(
 // Main export
 // ---------------------------------------------------------------------------
 
-export async function runLLMLoop(
-	ctx: CerebrumHandlerCtx,
-	options: TurnLoopOptions,
-	onCheckpoint?: (messages: Message[], correlationId: string) => void,
-): Promise<void> {
+export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions): Promise<void> {
 	const payload = ctx.payload as { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string };
 	const { messages, tools, nameMap } = await prepareTurn(payload, options);
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
@@ -298,8 +270,6 @@ export async function runLLMLoop(
 	const timeoutMs = options.timeoutMs ?? 60_000;
 	const maxRetries = options.maxRetries ?? 4;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
-	const replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
-
 	const budgetController = new AbortController();
 	const offBudget = sense.subscribe("budget.cancel", () => {
 		budgetController.abort(new Error("[budget] maxElapsedMs exceeded"));
@@ -330,7 +300,7 @@ export async function runLLMLoop(
 				);
 				if (phase?.abort) break;
 				if (phase?.skip) {
-					motor.publish({ type: replyType, payload: { text: phase.reply ?? "(skipped)" }, correlationId });
+					motor.publish({ type: LLM_RESPONSE, payload: { text: phase.reply ?? "(skipped)" }, correlationId });
 					break;
 				}
 				if (phase) applyPhaseResult(phase, messages, tools, nameMap);
@@ -368,7 +338,7 @@ export async function runLLMLoop(
 
 			messages.push(finalMessage);
 
-			const { replyCall, toolCalls } = classifyPendingCalls(pendingCalls, toMotorName, replyType);
+			const toolCalls = pendingCalls;
 			const agentIsReplying = toolCalls.length === 0;
 
 			motor.publish({
@@ -384,17 +354,21 @@ export async function runLLMLoop(
 			reportUsage(finalMessage, turn, agentIsReplying, effectiveOptions);
 
 			if (agentIsReplying) {
-				publishReply(motor, correlationId, replyType, finalMessage, replyCall, messages, effectiveOptions);
+				publishReply(motor, correlationId, finalMessage, messages);
 				break;
 			}
 
-			const toolDefsMap = new Map((effectiveOptions.getTools?.() ?? []).map((t: ToolDefinition) => [t.name, t]));
+			const toolDefsMap = new Map<string, ToolDefinition>();
 			const results = await dispatchTools(motor, sense, correlationId, toolCalls, toMotorName, timeoutMs, {
 				...effectiveOptions,
 				toolDefs: toolDefsMap,
 			});
 			appendToolResults(messages, toolCalls, results, toMotorName);
-			onCheckpoint?.(messages.slice(), ctx.correlationId);
+			motor.publish({
+				type: "llm.checkpoint",
+				payload: { conversationHistory: messages.slice() as unknown as Record<string, unknown>[] },
+				correlationId: ctx.correlationId,
+			});
 
 			const steering = options.getSteeringMessages?.() ?? [];
 			for (const msg of steering) messages.push(msg);

@@ -19,7 +19,7 @@ export interface TokenUsage {
 	totalTokens: number;
 }
 
-export type CerebrumEvent =
+export type LlmEvent =
 	| ({ type: "tool-start" } & ToolCallStart)
 	| ({ type: "tool-end" } & ToolCallEnd)
 	| { type: "tool-chunk"; callId: string; text: string }

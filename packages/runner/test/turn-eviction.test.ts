@@ -33,7 +33,7 @@ import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY } from "../src/turn-assemb
 const CONTEXT_WINDOW = 4_000;
 const HISTORY_BUDGET = Math.floor(CONTEXT_WINDOW * DEFAULT_CONTEXT_WINDOW_POLICY.historyFraction);
 // 400 tokens per turn: text content of 1600 chars / 4 = 400 tokens.
-// extractContentLength uses the 'text' field of dialog.message payloads.
+// extractContentLength uses the 'text' field of llm.response payloads.
 const COST_PER_TURN = 400;
 const CHARS_PER_TURN = COST_PER_TURN * 4; // 1600 chars of text content
 const RECENT_GUARANTEE = 4;
@@ -55,13 +55,13 @@ function tmpCwd(): string {
 }
 
 /**
- * Motor dialog.message with text content sized to produce a predictable tokenCost.
+ * Motor llm.response with text content sized to produce a predictable tokenCost.
  * extractContentLength picks the 'text' field → text.length / 4 = tokenCost.
  */
 function motorDialogRecord(correlationId: string, text: string): StorageRecord {
 	return {
 		bus: "motor",
-		type: "dialog.message",
+		type: "llm.response",
 		correlationId,
 		payload: {
 			text,
@@ -77,7 +77,7 @@ function motorDialogRecord(correlationId: string, text: string): StorageRecord {
 function senseDialogRecord(correlationId: string, text: string): StorageRecord {
 	return {
 		bus: "sense",
-		type: "dialog.message",
+		type: "llm.response",
 		correlationId,
 		payload: { text },
 		timestamp: Date.now(),

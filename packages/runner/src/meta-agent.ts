@@ -1,5 +1,6 @@
-import type { Api, Model } from "@dpopsuev/alef-ai";
+import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAlefApiOrgan, type DirectiveAdapter } from "@dpopsuev/alef-organ-alef";
+
 import { DEFAULT_MODEL } from "./args.js";
 import { buildModel } from "./model.js";
 import type { DirectiveView } from "./session.js";
@@ -26,7 +27,10 @@ export async function runMetaAgent(
 	// DirectiveView is structurally a subset of DirectiveAdapter; the runtime object
 	// from getDirectiveAdapter() satisfies the full interface.
 	const organs = [
-		createAlefApiOrgan({ getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined }),
+		createAlefApiOrgan({
+			dialogEventType: "llm.input",
+			getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined,
+		}),
 	];
 	const factory = buildSubagentFactory({ model: model as Model<Api>, baseSystemPrompt: META_SYSTEM_PROMPT });
 	const strategy = new InProcessStrategy(organs, (sessionOpts) =>

@@ -9,7 +9,7 @@
  * This proves the organ bus layer works end-to-end, not just runPipeline directly.
  */
 
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
+import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-organ-workflow";
@@ -93,7 +93,6 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 		});
 		const llm = createAgentLoop({
 			model: faux.getModel(),
-			getTools: () => agent.tools,
 		});
 
 		agent.load(dialog).load(llm).load(workflowOrgan);
@@ -122,7 +121,9 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 				if (t) outerReply = t;
 			},
 		});
-		const llm = createAgentLoop({ model: faux.getModel(), getTools: () => agent.tools });
+		const llm = createAgentLoop({
+			model: faux.getModel(),
+		});
 
 		agent.load(dialog).load(llm).load(workflowOrgan);
 		await agent.ready();

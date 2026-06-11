@@ -259,7 +259,7 @@ describe("ModalInputHandler — normal mode editing", { tags: ["unit"] }, () => 
 // ALE-TSK-213: which-key hint
 // ---------------------------------------------------------------------------
 
-describe("ALE-TSK-213: which-key hint overlay", { tags: ["unit"] }, () => {
+describe("which-key hint overlay", { tags: ["unit"] }, () => {
 	it("armHint fires onHint after timeout in normal mode", async () => {
 		const hints: string[] = [];
 		const { h } = (() => {

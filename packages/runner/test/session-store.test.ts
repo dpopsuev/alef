@@ -51,11 +51,11 @@ describe("SessionStore.append + events", { tags: ["unit"] }, () => {
 	it("persists across store re-opens", async () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
-		await store.append(motorRecord("dialog.message", "c-1"));
+		await store.append(motorRecord("llm.response", "c-1"));
 
 		const resumed = await SessionStore.resume(cwd, store.id);
 		const events = await resumed.events();
-		expect(events[0].type).toBe("dialog.message");
+		expect(events[0].type).toBe("llm.response");
 	});
 });
 
@@ -78,8 +78,8 @@ describe("SessionStore.turns()", { tags: ["unit"] }, () => {
 	it("assigns ascending turnIndex", async () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
-		await store.append(motorRecord("dialog.message", "c-1"));
-		await store.append(motorRecord("dialog.message", "c-2"));
+		await store.append(motorRecord("llm.response", "c-1"));
+		await store.append(motorRecord("llm.response", "c-2"));
 
 		const turns = await store.turns();
 		expect(turns[0].turnIndex).toBe(0);
@@ -90,7 +90,7 @@ describe("SessionStore.turns()", { tags: ["unit"] }, () => {
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
 		await store.append(motorRecord("fs.write", "c-1")); // weight 2.0
-		await store.append(motorRecord("dialog.message", "c-1")); // weight 0.8
+		await store.append(motorRecord("llm.response", "c-1")); // weight 0.8
 
 		const [turn] = await store.turns();
 		expect(turn.typeWeight).toBe(2.0); // max
@@ -207,10 +207,10 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 
 		const realUsage = { input: 1800, output: 420, cacheRead: 0, cacheWrite: 0, totalTokens: 2220 };
 
-		await store.append(senseRecord("dialog.message", "c-1", { text: "hi" }));
+		await store.append(senseRecord("llm.response", "c-1", { text: "hi" }));
 		await store.append({
 			bus: "motor",
-			type: "dialog.message",
+			type: "llm.response",
 			correlationId: "c-1",
 			payload: { text: "hello", conversationHistory: [{ role: "user", content: "hi" }], usage: realUsage },
 			timestamp: Date.now(),
@@ -228,10 +228,10 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
 
-		await store.append(senseRecord("dialog.message", "c-1", { text: "hi" }));
+		await store.append(senseRecord("llm.response", "c-1", { text: "hi" }));
 		await store.append({
 			bus: "motor",
-			type: "dialog.message",
+			type: "llm.response",
 			correlationId: "c-1",
 			payload: { text: "hello" }, // no usage field
 			timestamp: Date.now(),
@@ -248,10 +248,10 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 		const cwd = tmpCwd();
 		const store = await SessionStore.create(cwd);
 
-		await store.append(senseRecord("dialog.message", "c-1", { text: "hi" }));
+		await store.append(senseRecord("llm.response", "c-1", { text: "hi" }));
 		await store.append({
 			bus: "motor",
-			type: "dialog.message",
+			type: "llm.response",
 			correlationId: "c-1",
 			payload: { text: "hello", usage: { totalTokens: 0 } },
 			timestamp: Date.now(),
@@ -266,7 +266,7 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 // ALE-TSK-368 — in-memory cache + checkpoint race fix
 // ---------------------------------------------------------------------------
 
-describe("SessionStore in-memory cache — ALE-TSK-368", { tags: ["unit"] }, () => {
+describe("SessionStore — in-memory cache", { tags: ["unit"] }, () => {
 	it("events() reflects append() synchronously without waiting for file flush", async () => {
 		const store = await SessionStore.create(tmpCwd());
 		const record = motorRecord("fs.write", "c-1", { path: "CODEBASE.md" });
@@ -345,7 +345,7 @@ describe("SessionStore in-memory cache — ALE-TSK-368", { tags: ["unit"] }, () 
 	});
 });
 
-describe("SessionStore.name() + setName() — ALE-TSK-387", { tags: ["unit"] }, () => {
+describe("SessionStore.name() + setName()", { tags: ["unit"] }, () => {
 	it("name() returns undefined for a new session", async () => {
 		const store = await SessionStore.create(tmpCwd());
 		expect(store.name()).toBeUndefined();

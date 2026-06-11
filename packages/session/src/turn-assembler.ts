@@ -1,4 +1,4 @@
-import type { Message } from "@dpopsuev/alef-ai";
+import type { Message } from "@dpopsuev/alef-llm";
 import type { Turn } from "./session-store.js";
 
 export interface ContextWindowPolicy {
@@ -142,18 +142,18 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
  *
  * Three paths, tried in order:
  *
- * 1. Primary — most recent motor/dialog.message with conversationHistory.
+ * 1. Primary — most recent motor/llm.response with conversationHistory.
  *    Published by the Reasoner at the end of each completed turn; contains
  *    the full tool_use / tool_result block sequence.
  *
  * 2. Aborted-turn supplement — any turns after the primary checkpoint that
- *    have motor/sense tool-call pairs but no dialog.message (the agent was
+ *    have motor/sense tool-call pairs but no llm.response (the agent was
  *    interrupted mid-generation after all tool calls completed). Their work
  *    is injected as a synthetic user context message so the next LLM call
  *    is not amnesiac about what was done.
  *
  * 3. Text-only fallback — when no primary checkpoint exists, reconstruct
- *    plain-text turns from dialog.message events (ScriptedReasoner path or
+ *    plain-text turns from llm.response events (ScriptedReasoner path or
  *    first turn before any checkpoint has been written).
  */
 export function turnsToMessages(turns: Turn[]): Message[] {
@@ -164,7 +164,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	outer: for (let i = turns.length - 1; i >= 0; i--) {
 		for (let j = turns[i].events.length - 1; j >= 0; j--) {
 			const e = turns[i].events[j];
-			const isDialogMessage = e.bus === "motor" && e.type === "dialog.message";
+			const isDialogMessage = e.bus === "motor" && e.type === "llm.response";
 			const isCheckpoint = e.type === "llm.checkpoint"; // internal bus, written by onCheckpoint
 			if (!isDialogMessage && !isCheckpoint) continue;
 			const hist = e.payload.conversationHistory;
@@ -180,7 +180,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	const abortedMessages: Message[] = [];
 	for (let i = abortedFrom; i < turns.length; i++) {
 		const turn = turns[i];
-		if (turn.events.some((e) => e.type === "dialog.message")) continue;
+		if (turn.events.some((e) => e.type === "llm.response")) continue;
 		const motorTools = turn.events.filter((e) => e.bus === "motor");
 		if (motorTools.length === 0) continue;
 		const lines = motorTools.map((e) => {
@@ -204,7 +204,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	const messages: Message[] = [];
 	for (const turn of turns) {
 		for (const event of turn.events) {
-			if (event.type !== "dialog.message") continue;
+			if (event.type !== "llm.response") continue;
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			if (!text) continue;
 			if (event.bus === "sense") {

@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-runtime",
   "version": "0.0.1",
-  "description": "Corpus \u2014 Pub-Sub entity seam, external boundary for the agent nerve system",
+  "description": "Agent runtime — organ loader, nerve, and pub-sub bus",
   "type": "module",
    "main": "./src/index.ts",
    "types": "./dist/index.d.ts",
@@ -30,7 +30,6 @@
   },
   "keywords": [
     "agent",
-    "corpus",
     "nerve",
     "pubsub",
     "eda"

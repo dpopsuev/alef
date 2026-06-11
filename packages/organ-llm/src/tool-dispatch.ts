@@ -2,7 +2,7 @@ import type { SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { debugLog, Watchdog } from "@dpopsuev/alef-kernel";
 
 import type { ToolCall } from "./stream-turn.js";
-import type { CerebrumEvent } from "./tool-events.js";
+import type { LlmEvent } from "./tool-events.js";
 
 export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
 	if (isError) return errorMessage ?? JSON.stringify(payload);
@@ -139,7 +139,7 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<SenseEve
 type MotorBus = { publish: (event: { type: string; payload: Record<string, unknown>; correlationId: string }) => void };
 
 interface DispatchToolsOptions {
-	onEvent?: (event: CerebrumEvent) => void;
+	onEvent?: (event: LlmEvent) => void;
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 }

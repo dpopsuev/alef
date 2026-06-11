@@ -65,12 +65,12 @@ function publishMotor(nerve: Nerve, type: string, payload: Record<string, unknow
 class SingleToolLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
 	readonly receivedTools: string[] = [];
 	readonly receivedResults: unknown[] = [];
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", async (event) => {
+		return nerve.sense.subscribe("llm.input", async (event) => {
 			const corr = event.correlationId;
 			const tools = event.payload.tools as ToolDefinition[] | undefined;
 			if (tools) this.receivedTools.push(...tools.map((t) => t.name));
@@ -80,7 +80,7 @@ class SingleToolLLM implements Organ {
 			const result = await waitSense(nerve, "fs.find", toolCallId, corr);
 			this.receivedResults.push(result.payload);
 
-			publishMotor(nerve, "dialog.message", { text: "Found TypeScript files." }, corr);
+			publishMotor(nerve, "llm.response", { text: "Found TypeScript files." }, corr);
 		});
 	}
 }
@@ -89,11 +89,11 @@ class SingleToolLLM implements Organ {
 class FanOutLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
 	readonly completionOrder: string[] = [];
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", async (event) => {
+		return nerve.sense.subscribe("llm.input", async (event) => {
 			const corr = event.correlationId;
 
 			publishMotor(nerve, "fs.find", { pattern: "*.ts", toolCallId: "tc-find" }, corr);
@@ -113,7 +113,7 @@ class FanOutLLM implements Organ {
 			void findResult;
 			void shellResult;
 
-			publishMotor(nerve, "dialog.message", { text: "Both done." }, corr);
+			publishMotor(nerve, "llm.response", { text: "Both done." }, corr);
 		});
 	}
 }
@@ -122,11 +122,11 @@ class FanOutLLM implements Organ {
 class QuiescentLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", (event) => {
-			publishMotor(nerve, "dialog.message", { text: "No tools needed." }, event.correlationId);
+		return nerve.sense.subscribe("llm.input", (event) => {
+			publishMotor(nerve, "llm.response", { text: "No tools needed." }, event.correlationId);
 		});
 	}
 }
@@ -157,7 +157,7 @@ describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 		expect(names).toContain("fs.grep");
 		expect(names).toContain("fs.find");
 		expect(names).toContain("shell.exec");
-		expect(names).toContain("dialog.message");
+		expect(names).not.toContain("dialog.message");
 		agent.dispose();
 	});
 

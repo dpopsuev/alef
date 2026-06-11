@@ -2,7 +2,7 @@
  * ToolShellOrgan unit tests — no PTY, no LLM, no filesystem.
  *
  * Pattern: Agent + BusEventRecorder. Publish motor events, assert sense results.
- * Mirrors corpus/test/walking-skeleton.test.ts.
+ * Mirrors runtime/test/walking-skeleton.test.ts.
  *
  * Covers:
  *   createToolShellOrgan — construction, metaTools shape

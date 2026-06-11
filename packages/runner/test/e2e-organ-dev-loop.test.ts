@@ -13,7 +13,7 @@
  *   4. Assert EvalResult.passed
  *   5. Publish motor/orchestration.kill to clean up
  *
- * No real LLM — ALEF_SCRIPTED_REPLIES drives the child's dialog.message.
+ * No real LLM — ALEF_SCRIPTED_REPLIES drives the child's llm.response.
  */
 
 import { randomUUID } from "node:crypto";
@@ -22,6 +22,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { SenseEvent } from "@dpopsuev/alef-kernel";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
+
 import { createEvalOrgan } from "@dpopsuev/alef-organ-eval";
 import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { afterEach, describe, expect, it } from "vitest";
@@ -63,7 +64,7 @@ function motorCall(
 	});
 }
 
-describe("ALE-TSK-340: organ-dev-loop via supervisor + eval organs", { tags: ["e2e"] }, () => {
+describe("organ dev loop via supervisor", { tags: ["e2e"] }, () => {
 	it("spawn child via supervisor.spawn, eval via eval.run, assert passes", async () => {
 		const organDir = makeTmp();
 		const cwd = organDir;
@@ -108,8 +109,8 @@ export function createOrgan() {
 
 		// ── Step 2: mount organs on a shared nerve ────────────────────────
 		const nerve = new InProcessNerve();
-		const orchestrationOrgan = createOrchestrationOrgan({ cwd });
-		const evalOrgan = createEvalOrgan({});
+		const orchestrationOrgan = createOrchestrationOrgan({ cwd, replyEvent: "llm.response" });
+		const evalOrgan = createEvalOrgan({ replyEvent: "llm.response" });
 		unmounts.push(orchestrationOrgan.mount(nerve.asNerve()));
 		unmounts.push(evalOrgan.mount(nerve.asNerve()));
 
@@ -131,7 +132,7 @@ export function createOrgan() {
 
 		// ── Step 4: eval.run — drive child, validate response ────────────
 		// ALEF_SCRIPTED_REPLIES is set on the child process via the supervisor.
-		// The scripted reply simulates the child's dialog.message response.
+		// The scripted reply simulates the child's llm.response response.
 		// The eval validates structurally: reply must contain "Echo organ".
 		const evalResult = await motorCall(
 			nerve,

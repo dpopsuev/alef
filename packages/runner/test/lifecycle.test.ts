@@ -147,7 +147,7 @@ async function bootFixture(
 
 	const scripted = new ScriptedReasoner(Array.isArray(opts.script) ? opts.script : [opts.script]);
 	const fs = createFsOrgan({ cwd });
-	const router = createRouterOrgan({ port: 0, allowedEvents: opts.allowedEvents });
+	const router = createRouterOrgan({ port: 0, allowedEvents: opts.allowedEvents, triggerEvent: "llm.input" });
 	const eventLog = new SessionLog(store);
 
 	const agent = new Agent();
@@ -203,7 +203,7 @@ describe("Lifecycle — boot and serve", { tags: ["integration"] }, () => {
 });
 
 describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }, () => {
-	it("POST /message → agent reply arrives on SSE as motor/dialog.message", async () => {
+	it("POST /message → agent reply arrives on SSE as motor/llm.response", async () => {
 		// bootFixture uses dialog.send directly (no HTTP /message wiring in-process).
 		// This test verifies that the agent's scripted reply is broadcast over SSE.
 		const fix = await bootFixture({ script: step.reply("I am ready.") });
@@ -212,7 +212,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 				fix.baseUrl,
 				(ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "dialog.message" && e.payload?.text === "I am ready.";
+					return e.bus === "motor" && e.type === "llm.response" && e.payload?.text === "I am ready.";
 				},
 				1,
 			);
@@ -224,7 +224,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 			expect(events).toHaveLength(1);
 			const ev = events[0] as { bus: string; type: string; payload: Record<string, unknown> };
 			expect(ev.bus).toBe("motor");
-			expect(ev.type).toBe("dialog.message");
+			expect(ev.type).toBe("llm.response");
 			expect(ev.payload.text).toBe("I am ready.");
 		} finally {
 			await fix.unmountAgent();
@@ -262,7 +262,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 		}
 	});
 
-	it("scripted reply appears on SSE as motor/dialog.message from agent", async () => {
+	it("scripted reply appears on SSE as motor/llm.response from agent", async () => {
 		const fix = await bootFixture({ script: step.reply("task complete") });
 		try {
 			// Collect agent reply on SSE (role=assistant marker in reply payload).
@@ -270,7 +270,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 				fix.baseUrl,
 				(ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "dialog.message" && e.payload?.text === "task complete";
+					return e.bus === "motor" && e.type === "llm.response" && e.payload?.text === "task complete";
 				},
 				1,
 			);
@@ -325,10 +325,10 @@ describe("Lifecycle — JSONL persistence (SessionLog)", { tags: ["integration"]
 			const types = records.map((r) => `${r.bus}/${r.type}`);
 
 			// Motor: user message, tool call request, agent reply
-			expect(types).toContain("sense/dialog.message"); // user input on sense bus
+			expect(types).toContain("sense/llm.response"); // user input on sense bus
 			expect(types).toContain("motor/fs.read"); // tool call request
 			expect(types).toContain("sense/fs.read"); // tool result
-			expect(types).toContain("motor/dialog.message"); // agent reply
+			expect(types).toContain("motor/llm.response"); // agent reply
 		} finally {
 			await fix.unmountAgent();
 		}
@@ -355,7 +355,7 @@ describe("Lifecycle — TurnAssembler session resume", { tags: ["integration"] }
 
 			// At least one assembled turn has events.
 			const hasFsRead = assembled.some((t) =>
-				t.events.some((e) => e.type === "fs.read" || e.type === "dialog.message"),
+				t.events.some((e) => e.type === "fs.read" || e.type === "llm.response"),
 			);
 			expect(hasFsRead).toBe(true);
 		} finally {
@@ -393,7 +393,7 @@ describe("Lifecycle — multi-turn context accumulation", { tags: ["integration"
 			await fix.dialog.send("question one", "human");
 			await fix.dialog.send("question two", "human");
 			const events = await fix.store.events();
-			const dialogEvents = events.filter((e) => e.type === "dialog.message");
+			const dialogEvents = events.filter((e) => e.type === "llm.response");
 			expect(dialogEvents.length).toBeGreaterThanOrEqual(4);
 		} finally {
 			await fix.unmountAgent();
@@ -405,7 +405,7 @@ describe("Lifecycle — SSE event filter (allowedEvents)", { tags: ["integration
 	it("internal events blocked when not in allowedEvents", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
-			allowedEvents: ["dialog.message"], // only dialog events pass
+			allowedEvents: ["llm.response"], // only dialog events pass
 		});
 		try {
 			const frames: string[] = [];
@@ -434,8 +434,8 @@ describe("Lifecycle — SSE event filter (allowedEvents)", { tags: ["integration
 			const raw = frames.join("");
 			// fs.read events must be blocked by the filter.
 			expect(raw).not.toContain('"type":"fs.read"');
-			// dialog.message events must pass through.
-			expect(raw).toContain('"type":"dialog.message"');
+			// llm.response events must pass through.
+			expect(raw).toContain('"type":"llm.response"');
 		} finally {
 			await fix.unmountAgent();
 		}

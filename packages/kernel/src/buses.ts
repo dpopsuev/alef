@@ -98,8 +98,8 @@ export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknow
 // Bus events — domain-agnostic. Spine knows nothing about payload schemas.
 // Routing is by type string. Each organ package defines its own payloads.
 //
-//   MotorEvent: commands flowing OUT from cerebrum to corpus organs.
-//   SenseEvent: observations flowing IN from corpus organs to cerebrum.
+//   MotorEvent: commands flowing OUT from the LLM organ to organs.
+//   SenseEvent: observations flowing IN from organs to the LLM organ.
 //   SignalEvent: audit events on both seams.
 // ---------------------------------------------------------------------------
 
@@ -209,8 +209,8 @@ export interface Organ {
 	 *
 	 * @example
 	 * publishSchemas: {
-	 *   motor: { "dialog.message": z.object({ text: z.string() }) },
-	 *   sense: { "fs.read":        z.object({ content: z.string(), truncated: z.boolean() }) },
+	 *   motor: { "llm.response": z.object({ text: z.string() }) },
+	 *   sense: { "fs.read":      z.object({ content: z.string(), truncated: z.boolean() }) },
 	 * }
 	 */
 	readonly publishSchemas?: {
@@ -252,9 +252,9 @@ export interface Organ {
  *   - triggerEvent is the sense event that starts a turn (configurable — any sense event)
  *   - replyEvent is the motor event published when the turn completes
  *
- * Multiple implementations are possible: Cerebrum (real LLM), ScriptedReasoner
+ * Multiple implementations are possible: organ-llm (real LLM), ScriptedReasoner
  * (deterministic test double), or future alternatives. The triggerEvent parameter
- * enables ambient agents driven by any sense event, not just dialog.message.
+ * enables ambient agents driven by any sense event, not just llm.input.
  */
 export interface Reasoner extends Organ {
 	readonly tools: readonly [];

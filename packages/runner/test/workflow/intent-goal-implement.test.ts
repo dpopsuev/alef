@@ -1,4 +1,4 @@
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
+import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import type { WorkflowDef } from "@dpopsuev/alef-organ-workflow";
 
 import { describe, expect, it } from "vitest";

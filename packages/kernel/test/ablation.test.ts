@@ -18,9 +18,26 @@ function makeFsOrgan(actions?: readonly string[]) {
 	return defineOrgan(
 		"fs",
 		{
-			"motor/fs.read": { tool: READ_TOOL, handle: async () => ({ content: "ok" }) },
-			"motor/fs.write": { tool: WRITE_TOOL, handle: async () => ({ path: "ok" }) },
-			"motor/fs.edit": { tool: EDIT_TOOL, handle: async () => ({ path: "ok" }) },
+			motor: {
+				"fs.read": {
+					tool: READ_TOOL,
+					async *handle() {
+						yield { content: "ok" };
+					},
+				},
+				"fs.write": {
+					tool: WRITE_TOOL,
+					async *handle() {
+						yield { path: "ok" };
+					},
+				},
+				"fs.edit": {
+					tool: EDIT_TOOL,
+					async *handle() {
+						yield { path: "ok" };
+					},
+				},
+			},
 		},
 		{
 			actions,

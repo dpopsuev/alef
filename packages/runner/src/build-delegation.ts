@@ -2,8 +2,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
-import type { Api, Message, Model } from "@dpopsuev/alef-ai";
+import type { Api, Message, Model } from "@dpopsuev/alef-llm";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
 import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
@@ -77,6 +78,7 @@ export async function buildDelegation(
 
 	const orchestrationOrgan = createOrchestrationOrgan({
 		cwd: args.cwd,
+		replyEvent: "llm.response",
 		onChildReady: (name, strategy) => delegateOrgan.registerStrategy(name, strategy),
 	});
 
@@ -92,6 +94,7 @@ export async function buildDelegation(
 		const router = createRouterOrgan({
 			port: servePort,
 			allowedEvents,
+			triggerEvent: "llm.input",
 			onMessage: (text) => session.receive?.(text),
 		});
 		agent.load(router);

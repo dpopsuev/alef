@@ -18,10 +18,10 @@ class ScriptedReadTwiceLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly reads: Array<{ cacheHit: boolean }> = [];
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", async (event) => {
+		return nerve.sense.subscribe("llm.input", async (event) => {
 			const corr = event.correlationId;
 
 			// Helper: publish Motor/fs.read and await Sense/fs.read.
@@ -46,7 +46,7 @@ class ScriptedReadTwiceLLM implements Organ {
 			await readFile("target.txt", "tc-2");
 
 			nerve.motor.publish({
-				type: "dialog.message",
+				type: "llm.response",
 				payload: { text: "read twice" },
 				correlationId: corr,
 			});
@@ -56,7 +56,7 @@ class ScriptedReadTwiceLLM implements Organ {
 
 // ---------------------------------------------------------------------------
 
-describe("EvalHarness — CacheProof (TSK-118)", { tags: ["integration"] }, () => {
+describe("EvalHarness — file read cache hit", { tags: ["integration"] }, () => {
 	it("second fs.read of same file is served from cache (alef.cache.hit=true)", async () => {
 		const harness = new EvalHarness();
 

@@ -2,26 +2,18 @@ import type { ZodTypeAny } from "zod";
 import { startElapsedTimer, withLimits } from "./budget.js";
 import type { Nerve, Organ, ToolDefinition } from "./buses.js";
 import { dispatchMotorAction, dispatchSenseAction } from "./organ-dispatch.js";
-import type {
-	ActionMap,
-	CerebrumAction,
-	CorpusAction,
-	OrganLogger,
-	OrganOptions,
-	StreamingCorpusAction,
-} from "./organ-types.js";
+import type { ActionMap, MotorActionMap, OrganLogger, OrganOptions, SenseActionMap } from "./organ-types.js";
 
 export type {
 	ActionMap,
-	CerebrumAction,
-	CerebrumActionMap,
-	CerebrumHandlerCtx,
-	CorpusAction,
-	CorpusActionMap,
-	CorpusHandlerCtx,
+	MotorAction,
+	MotorActionMap,
+	MotorHandlerCtx,
 	OrganLogger,
 	OrganOptions,
-	StreamingCorpusAction,
+	SenseAction,
+	SenseActionMap,
+	SenseHandlerCtx,
 } from "./organ-types.js";
 export { typedAction, typedStreamAction } from "./organ-types.js";
 
@@ -35,24 +27,22 @@ const noopLogger: OrganLogger = {
 
 export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
 
-const BUS_PREFIXES = {
-	motor: "motor/",
-	sense: "sense/",
-} as const;
-
-function splitActionKey(key: string): { bus: "motor" | "sense"; eventType: string } | null {
-	for (const [bus, prefix] of Object.entries(BUS_PREFIXES) as Array<["motor" | "sense", string]>) {
-		if (key.startsWith(prefix)) return { bus, eventType: key.slice(prefix.length) };
-	}
-	return null;
-}
-
 function filterActions(actions: ActionMap, allowlist: readonly string[]): ActionMap {
 	const allowed = new Set(allowlist);
 	const filtered: ActionMap = {};
-	for (const [key, action] of Object.entries(actions)) {
-		const parsed = splitActionKey(key);
-		if (parsed && allowed.has(parsed.eventType)) filtered[key] = action;
+	if (actions.motor) {
+		const motor: MotorActionMap = {};
+		for (const [k, v] of Object.entries(actions.motor)) {
+			if (allowed.has(k)) motor[k] = v;
+		}
+		if (Object.keys(motor).length) filtered.motor = motor;
+	}
+	if (actions.sense) {
+		const sense: SenseActionMap = {};
+		for (const [k, v] of Object.entries(actions.sense)) {
+			if (allowed.has(k)) sense[k] = v;
+		}
+		if (Object.keys(sense).length) filtered.sense = sense;
 	}
 	return filtered;
 }
@@ -62,50 +52,24 @@ function extractToolsAndSubscriptions(actions: ActionMap): {
 	motor: string[];
 	sense: string[];
 } {
-	const tools: ToolDefinition[] = Object.values(actions)
-		.filter((a) => "tool" in a && a.tool !== undefined)
-		.map((a) => (a as { tool: ToolDefinition }).tool);
-	const subs: Record<string, string[]> = { motor: [], sense: [] };
-	for (const key of Object.keys(actions)) {
-		const parsed = splitActionKey(key);
-		if (parsed) subs[parsed.bus]?.push(parsed.eventType);
-	}
-	return { tools, motor: subs.motor, sense: subs.sense };
+	const tools: ToolDefinition[] = Object.values(actions.motor ?? {})
+		.filter((a) => a.tool !== undefined)
+		.map((a) => a.tool as ToolDefinition);
+	return {
+		tools,
+		motor: Object.keys(actions.motor ?? {}),
+		sense: Object.keys(actions.sense ?? {}),
+	};
 }
 
 function buildMotorSchemas(actions: ActionMap, overrides?: Record<string, ZodTypeAny>): Record<string, ZodTypeAny> {
 	const auto: Record<string, ZodTypeAny> = {};
-	for (const [key, action] of Object.entries(actions)) {
-		const parsed = splitActionKey(key);
-		if (parsed?.bus === "motor") {
-			const schema = (action as CorpusAction | StreamingCorpusAction).tool?.inputSchema;
-			if (schema) auto[parsed.eventType] = schema;
-		}
+	for (const [eventType, action] of Object.entries(actions.motor ?? {})) {
+		const schema = action.tool?.inputSchema;
+		if (schema) auto[eventType] = schema;
 	}
 	return { ...auto, ...overrides };
 }
-
-type BusDispatcher = (
-	eventType: string,
-	action: ActionMap[string],
-	nerve: Nerve,
-	cache: Map<string, Record<string, unknown>>,
-	log: OrganLogger,
-	schema: ZodTypeAny | undefined,
-) => () => void;
-
-const busDispatchers: Record<string, BusDispatcher> = {
-	motor: (eventType, action, nerve, cache, log, schema) =>
-		nerve.motor.subscribe(
-			eventType,
-			(event) =>
-				void dispatchMotorAction(event, action as CorpusAction | StreamingCorpusAction, nerve, cache, log, schema),
-		),
-	sense: (eventType, action, nerve, _cache, log) =>
-		nerve.sense.subscribe(eventType, (event) =>
-			dispatchSenseAction(eventType, event, nerve, action as CerebrumAction, log),
-		),
-};
 
 function validateOrganMetadata(name: string, tools: ToolDefinition[], opts: OrganOptions): void {
 	if (tools.length === 0) return;
@@ -162,19 +126,22 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			const cache = new Map<string, Record<string, unknown>>();
 			const motorInputSchemas = buildMotorSchemas(actions, opts.inputSchemas?.motor);
 
-			const unsubs = Object.entries(actions).map(([prefixedKey, action]) => {
-				const parsed = splitActionKey(prefixedKey);
-				if (!parsed) {
-					log.warn({ key: prefixedKey, organ: name }, "action key missing bus prefix, skipping");
-					return () => {};
-				}
-				const dispatcher = busDispatchers[parsed.bus];
-				if (!dispatcher) {
-					log.warn({ key: prefixedKey, bus: parsed.bus, organ: name }, "no dispatcher for bus, skipping");
-					return () => {};
-				}
-				return dispatcher(parsed.eventType, action, nerve, cache, log, motorInputSchemas[parsed.eventType]);
-			});
+			const unsubs: Array<() => void> = [];
+
+			for (const [eventType, action] of Object.entries(actions.motor ?? {})) {
+				unsubs.push(
+					nerve.motor.subscribe(
+						eventType,
+						(event) => void dispatchMotorAction(event, action, nerve, cache, log, motorInputSchemas[eventType]),
+					),
+				);
+			}
+
+			for (const [eventType, action] of Object.entries(actions.sense ?? {})) {
+				unsubs.push(
+					nerve.sense.subscribe(eventType, (event) => dispatchSenseAction(eventType, event, nerve, action, log)),
+				);
+			}
 
 			return () => {
 				for (const off of unsubs) off();

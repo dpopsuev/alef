@@ -16,7 +16,7 @@
     "clean": "shx rm -rf dist"
   },
   "dependencies": {
-    "@dpopsuev/alef-ai": "^0.0.1",
+    "@dpopsuev/alef-llm": "^0.0.1",
     "@dpopsuev/alef-kernel": "^0.0.1",
     "@dpopsuev/alef-organ-dialog": "^0.0.1",
     "zod": "^4.4.3"

@@ -35,31 +35,31 @@ function rec(type: string, bus: "motor" | "sense" | "internal" = "motor", hash =
 // E2E-184: file read workflow
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertFileReadWorkflow", { tags: ["integration"] }, () => {
+describe("verifier: assertFileReadWorkflow", { tags: ["unit"] }, () => {
 	it("accepts fs.read + reply containing secret", () => {
-		const records = [rec("dialog.message", "sense"), rec("fs.read"), rec("fs.read", "sense"), rec("dialog.message")];
+		const records = [rec("llm.response", "sense"), rec("fs.read"), rec("fs.read", "sense"), rec("llm.response")];
 		expect(() => assertFileReadWorkflow(records, "The secret is XYZ-123", "XYZ-123")).not.toThrow();
 	});
 
 	it("accepts lector.read as alternative to fs.read", () => {
-		const records = [rec("lector.read"), rec("lector.read", "sense"), rec("dialog.message")];
+		const records = [rec("lector.read"), rec("lector.read", "sense"), rec("llm.response")];
 		expect(() => assertFileReadWorkflow(records, "token=ABC", "ABC")).not.toThrow();
 	});
 
 	it("rejects when no file read event present", () => {
-		const records = [rec("dialog.message", "sense"), rec("dialog.message")];
+		const records = [rec("llm.response", "sense"), rec("llm.response")];
 		expect(() => assertFileReadWorkflow(records, "The secret is XYZ", "XYZ")).toThrow(/fs\.read or lector\.read/);
 	});
 
 	it("rejects when reply does not contain the secret", () => {
-		const records = [rec("fs.read"), rec("dialog.message")];
+		const records = [rec("fs.read"), rec("llm.response")];
 		expect(() => assertFileReadWorkflow(records, "I found something interesting", "XYZ-123")).toThrow(/secret/);
 	});
 });
 
-describe("verifier: assertHashesPresent", { tags: ["integration"] }, () => {
+describe("verifier: assertHashesPresent", { tags: ["unit"] }, () => {
 	it("accepts records all with hashes", () => {
-		const records = [rec("fs.read"), rec("dialog.message", "motor", "b".repeat(64))];
+		const records = [rec("fs.read"), rec("llm.response", "motor", "b".repeat(64))];
 		expect(() => assertHashesPresent(records)).not.toThrow();
 	});
 
@@ -78,24 +78,24 @@ describe("verifier: assertHashesPresent", { tags: ["integration"] }, () => {
 // E2E-185: blueprint organ selection
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertOrganSelection", { tags: ["integration"] }, () => {
+describe("verifier: assertOrganSelection", { tags: ["unit"] }, () => {
 	it("accepts fs.read with no lector/shell events", () => {
-		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("dialog.message")];
+		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("llm.response")];
 		expect(() => assertOrganSelection(records, ["fs.read"], ["lector.", "shell."])).not.toThrow();
 	});
 
 	it("rejects when required type is absent", () => {
-		const records = [rec("dialog.message")];
+		const records = [rec("llm.response")];
 		expect(() => assertOrganSelection(records, ["fs.read"], [])).toThrow(/fs\.read/);
 	});
 
 	it("rejects when lector.* appears", () => {
-		const records = [rec("fs.read"), rec("lector.read"), rec("dialog.message")];
+		const records = [rec("fs.read"), rec("lector.read"), rec("llm.response")];
 		expect(() => assertOrganSelection(records, ["fs.read"], ["lector.", "shell."])).toThrow(/lector/);
 	});
 
 	it("rejects when shell.* appears", () => {
-		const records = [rec("fs.read"), rec("shell.exec"), rec("dialog.message")];
+		const records = [rec("fs.read"), rec("shell.exec"), rec("llm.response")];
 		expect(() => assertOrganSelection(records, ["fs.read"], ["lector.", "shell."])).toThrow(/shell/);
 	});
 });
@@ -104,29 +104,29 @@ describe("verifier: assertOrganSelection", { tags: ["integration"] }, () => {
 // E2E-187: SSE surface filter
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertSseFilter", { tags: ["integration"] }, () => {
-	it("accepts dialog.message on SSE, fs.read absent from SSE but in JSONL", () => {
-		const sseTypes = ["dialog.message"];
-		const jsonlTypes = new Set(["fs.read", "dialog.message"]);
-		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["dialog.message"], ["fs.read"])).not.toThrow();
+describe("verifier: assertSseFilter", { tags: ["unit"] }, () => {
+	it("accepts llm.response on SSE, fs.read absent from SSE but in JSONL", () => {
+		const sseTypes = ["llm.response"];
+		const jsonlTypes = new Set(["fs.read", "llm.response"]);
+		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["llm.response"], ["fs.read"])).not.toThrow();
 	});
 
 	it("rejects when required SSE event is absent", () => {
 		const sseTypes: string[] = [];
 		const jsonlTypes = new Set(["fs.read"]);
-		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["dialog.message"], ["fs.read"])).toThrow(/dialog\.message/);
+		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["llm.response"], ["fs.read"])).toThrow(/dialog\.message/);
 	});
 
 	it("rejects when blocked event leaks onto SSE", () => {
-		const sseTypes = ["dialog.message", "fs.read"];
-		const jsonlTypes = new Set(["fs.read", "dialog.message"]);
-		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["dialog.message"], ["fs.read"])).toThrow(/fs\.read.*SSE/);
+		const sseTypes = ["llm.response", "fs.read"];
+		const jsonlTypes = new Set(["fs.read", "llm.response"]);
+		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["llm.response"], ["fs.read"])).toThrow(/fs\.read.*SSE/);
 	});
 
 	it("rejects when blocked event absent from JSONL — no proof tool was called", () => {
-		const sseTypes = ["dialog.message"];
-		const jsonlTypes = new Set(["dialog.message"]);
-		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["dialog.message"], ["fs.read"])).toThrow(/JSONL/);
+		const sseTypes = ["llm.response"];
+		const jsonlTypes = new Set(["llm.response"]);
+		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["llm.response"], ["fs.read"])).toThrow(/JSONL/);
 	});
 });
 
@@ -134,15 +134,15 @@ describe("verifier: assertSseFilter", { tags: ["integration"] }, () => {
 // E2E-186: tool sequence
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertToolSequence", { tags: ["integration"] }, () => {
+describe("verifier: assertToolSequence", { tags: ["unit"] }, () => {
 	it("accepts lector.read before lector.edit", () => {
 		const records = [
-			rec("dialog.message", "sense"),
+			rec("llm.response", "sense"),
 			rec("lector.read"),
 			rec("lector.read", "sense"),
 			rec("lector.edit"),
 			rec("lector.edit", "sense"),
-			rec("dialog.message"),
+			rec("llm.response"),
 		];
 		expect(() => assertToolSequence(records, ["lector.read", "lector.edit"])).not.toThrow();
 	});
@@ -158,12 +158,12 @@ describe("verifier: assertToolSequence", { tags: ["integration"] }, () => {
 	});
 
 	it("rejects when required tool absent entirely", () => {
-		const records = [rec("lector.edit"), rec("dialog.message")];
+		const records = [rec("lector.edit"), rec("llm.response")];
 		expect(() => assertToolSequence(records, ["lector.read", "lector.edit"])).toThrow();
 	});
 
 	it("accepts single-element sequence", () => {
-		const records = [rec("fs.read"), rec("dialog.message")];
+		const records = [rec("fs.read"), rec("llm.response")];
 		expect(() => assertToolSequence(records, ["fs.read"])).not.toThrow();
 	});
 });
@@ -172,7 +172,7 @@ describe("verifier: assertToolSequence", { tags: ["integration"] }, () => {
 // E2E-189: multi-turn history
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertMultiTurnHistory", { tags: ["integration"] }, () => {
+describe("verifier: assertMultiTurnHistory", { tags: ["unit"] }, () => {
 	it("accepts when both turns contain the secret", () => {
 		expect(() =>
 			assertMultiTurnHistory("The token is ABC-123", "You told me ABC-123 earlier.", "ABC-123"),
@@ -196,7 +196,7 @@ describe("verifier: assertMultiTurnHistory", { tags: ["integration"] }, () => {
 // E2E-188: web fetch
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertWebFetch", { tags: ["integration"] }, () => {
+describe("verifier: assertWebFetch", { tags: ["unit"] }, () => {
 	it("accepts reply matching expected pattern", () => {
 		expect(() => assertWebFetch("The page title is Example Domain.", /example\s*domain/i)).not.toThrow();
 	});
@@ -214,24 +214,19 @@ describe("verifier: assertWebFetch", { tags: ["integration"] }, () => {
 // E2E-subagent: outer agent delegates via agent.run
 // ---------------------------------------------------------------------------
 
-describe("verifier: assertSubagentWorkflow", { tags: ["integration"] }, () => {
+describe("verifier: assertSubagentWorkflow", { tags: ["unit"] }, () => {
 	it("accepts agent.run in motor events and secret in reply", () => {
-		const records = [
-			rec("dialog.message", "sense"),
-			rec("agent.run"),
-			rec("agent.run", "sense"),
-			rec("dialog.message"),
-		];
+		const records = [rec("llm.response", "sense"), rec("agent.run"), rec("agent.run", "sense"), rec("llm.response")];
 		expect(() => assertSubagentWorkflow(records, "The secret is XYZ-789", "XYZ-789")).not.toThrow();
 	});
 
 	it("rejects when agent.run is absent from motor events", () => {
-		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("dialog.message")];
+		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("llm.response")];
 		expect(() => assertSubagentWorkflow(records, "The secret is XYZ-789", "XYZ-789")).toThrow(/agent\.run/);
 	});
 
 	it("rejects when reply does not contain the secret", () => {
-		const records = [rec("agent.run"), rec("agent.run", "sense"), rec("dialog.message")];
+		const records = [rec("agent.run"), rec("agent.run", "sense"), rec("llm.response")];
 		expect(() => assertSubagentWorkflow(records, "I delegated the task.", "XYZ-789")).toThrow(/secret/);
 	});
 

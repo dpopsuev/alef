@@ -3,8 +3,8 @@
  * BlueprintHarness uses ScriptedReasoner and bypasses waitForToolResult; these don't.
  */
 
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
+import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { Agent } from "@dpopsuev/alef-runtime";
@@ -20,9 +20,12 @@ function makeAgent(opts: { timeoutMs?: number } = {}) {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {} });
-	agent
-		.load(dialog)
-		.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key", getTools: () => agent.tools }));
+	agent.load(dialog).load(
+		createAgentLoop({
+			model: faux.getModel(),
+			apiKey: "faux-key",
+		}),
+	);
 	disposes.push(() => agent.dispose());
 	return { faux, agent, dialog, timeoutMs: opts.timeoutMs ?? 3_000 };
 }
@@ -34,13 +37,15 @@ describe("turn loop — slow organ", { tags: ["unit"] }, () => {
 		const slowOrgan = defineOrgan(
 			"slow",
 			{
-				"motor/slow.op": typedAction(
-					{ name: "slow.op", description: "A slow op", inputSchema: z.object({}) },
-					async () => {
-						await new Promise<void>((r) => setTimeout(r, 500));
-						return { result: "slow-done" };
-					},
-				),
+				motor: {
+					"slow.op": typedAction(
+						{ name: "slow.op", description: "A slow op", inputSchema: z.object({}) },
+						async () => {
+							await new Promise<void>((r) => setTimeout(r, 500));
+							return { result: "slow-done" };
+						},
+					),
+				},
 			},
 			{ description: "Slow organ for testing.", directives: ["Use slow.op when asked."] },
 		);
@@ -63,13 +68,15 @@ describe("turn loop — hanging organ", { tags: ["unit"] }, () => {
 		const hangOrgan = defineOrgan(
 			"hang",
 			{
-				"motor/hang.op": typedAction(
-					{ name: "hang.op", description: "A hanging op", inputSchema: z.object({}) },
-					async () => {
-						await new Promise<Record<string, unknown>>(() => {});
-						return {};
-					},
-				),
+				motor: {
+					"hang.op": typedAction(
+						{ name: "hang.op", description: "A hanging op", inputSchema: z.object({}) },
+						async () => {
+							await new Promise<Record<string, unknown>>(() => {});
+							return {};
+						},
+					),
+				},
 			},
 			{ description: "Hanging organ for testing.", directives: ["Use hang.op when asked."] },
 		);
@@ -95,12 +102,14 @@ describe("turn loop — error organ", { tags: ["unit"] }, () => {
 		const errorOrgan = defineOrgan(
 			"err",
 			{
-				"motor/err.op": typedAction(
-					{ name: "err.op", description: "An op that fails", inputSchema: z.object({}) },
-					async () => {
-						throw new Error("organ exploded");
-					},
-				),
+				motor: {
+					"err.op": typedAction(
+						{ name: "err.op", description: "An op that fails", inputSchema: z.object({}) },
+						async () => {
+							throw new Error("organ exploded");
+						},
+					),
+				},
 			},
 			{ description: "Error organ for testing.", directives: ["Use err.op when asked."] },
 		);
@@ -125,14 +134,16 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 		const strictOrgan = defineOrgan(
 			"strict",
 			{
-				"motor/strict.op": typedAction(
-					{
-						name: "strict.op",
-						description: "Op requiring a numeric count.",
-						inputSchema: z.object({ count: z.number() }),
-					},
-					async () => ({ result: "ok" }),
-				),
+				motor: {
+					"strict.op": typedAction(
+						{
+							name: "strict.op",
+							description: "Op requiring a numeric count.",
+							inputSchema: z.object({ count: z.number() }),
+						},
+						async () => ({ result: "ok" }),
+					),
+				},
 			},
 			{ description: "Strict schema organ.", directives: ["Use strict.op when asked."] },
 		);

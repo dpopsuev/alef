@@ -32,20 +32,20 @@ function make(canned?: string) {
 
 describe("MockReasoner", { tags: ["unit"] }, () => {
 	it("dialog.send() resolves with canned text", async () => {
-		const { agent: _corpus, dialog } = make("hello from mock");
+		const { agent: _agent, dialog } = make("hello from mock");
 		const reply = await dialog.send("hi");
 		expect(reply).toBe("hello from mock");
 	});
 
 	it("canned text is configurable", async () => {
-		const { agent: _corpus, dialog } = make("custom reply");
+		const { agent: _agent, dialog } = make("custom reply");
 		expect(await dialog.send("anything")).toBe("custom reply");
 	});
 
-	it("emits Motor/dialog.message with canned text", async () => {
-		const { agent: _corpus, dialog, recorder } = make("response text");
+	it("emits Motor/llm.response with canned text", async () => {
+		const { agent: _agent, dialog, recorder } = make("response text");
 		await dialog.send("hi");
-		const msg = recorder.assertMotorEmitted("dialog.message");
+		const msg = recorder.assertMotorEmitted("llm.response");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(payload.text).toBe("response text");
 	});
@@ -56,42 +56,42 @@ describe("MockReasoner", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("BusEventRecorder", { tags: ["unit"] }, () => {
-	it("records Motor/dialog.message", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
+	it("records Motor/llm.response", async () => {
+		const { agent: _agent, dialog, recorder } = make();
 		await dialog.send("ping");
-		recorder.assertMotorEmitted("dialog.message");
+		recorder.assertMotorEmitted("llm.response");
 	});
 
-	it("records Sense/dialog.message", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
+	it("records Sense/llm.input", async () => {
+		const { agent: _agent, dialog, recorder } = make();
 		await dialog.send("ping");
-		recorder.assertSenseEmitted("dialog.message");
+		recorder.assertSenseEmitted("llm.input");
 	});
 
-	it("records Motor/dialog.message", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
+	it("records Motor/llm.response", async () => {
+		const { agent: _agent, dialog, recorder } = make();
 		await dialog.send("ping");
-		recorder.assertMotorEmitted("dialog.message");
+		recorder.assertMotorEmitted("llm.response");
 	});
 
-	it("records Sense/dialog.message", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
+	it("records Sense/llm.input", async () => {
+		const { agent: _agent, dialog, recorder } = make();
 		await dialog.send("ping");
-		recorder.assertSenseEmitted("dialog.message");
+		recorder.assertSenseEmitted("llm.input");
 	});
 
 	it("assertSenseEmitted throws with helpful message when missing", () => {
 		const recorder = new BusEventRecorder();
-		expect(() => recorder.assertSenseEmitted("dialog.message")).toThrow("Expected Sense/dialog.message");
+		expect(() => recorder.assertSenseEmitted("llm.input")).toThrow("Expected Sense/llm.input");
 	});
 
 	it("assertMotorEmitted throws with helpful message when missing", () => {
 		const recorder = new BusEventRecorder();
-		expect(() => recorder.assertMotorEmitted("dialog.message")).toThrow("Expected Motor/dialog.message");
+		expect(() => recorder.assertMotorEmitted("llm.response")).toThrow("Expected Motor/llm.response");
 	});
 
 	it("clear() resets all recorded events", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
+		const { agent: _agent, dialog, recorder } = make();
 		await dialog.send("first");
 		recorder.clear();
 		expect(recorder.sense).toHaveLength(0);
@@ -99,9 +99,9 @@ describe("BusEventRecorder", { tags: ["unit"] }, () => {
 	});
 
 	it("assertCorrelationPaired passes when both buses carry the id", async () => {
-		const { agent: _corpus, dialog, recorder } = make();
+		const { agent: _agent, dialog, recorder } = make();
 		await dialog.send("ping");
-		const msg = recorder.assertMotorEmitted("dialog.message");
+		const msg = recorder.assertMotorEmitted("llm.response");
 		expect(() => recorder.assertCorrelationPaired(msg.correlationId)).not.toThrow();
 	});
 });
@@ -112,20 +112,20 @@ describe("BusEventRecorder", { tags: ["unit"] }, () => {
 
 describe("Harness round-trip", { tags: ["unit"] }, () => {
 	it("resolves with canned text", async () => {
-		const { agent: _corpus, dialog } = make("pong");
+		const { agent: _agent, dialog } = make("pong");
 		expect(await dialog.send("ping")).toBe("pong");
 	});
 
-	it("full event sequence: dialog.message → dialog.message → dialog.message → dialog.message", async () => {
-		const { agent: _corpus, dialog, recorder } = make("done");
+	it("full event sequence: llm.input → llm.response → llm.input → llm.response", async () => {
+		const { agent: _agent, dialog, recorder } = make("done");
 		await dialog.send("start");
 
 		const motorTypes = recorder.motor.map((e) => e.type);
 		const senseTypes = recorder.sense.map((e) => e.type);
 
-		expect(motorTypes).toContain("dialog.message");
-		expect(senseTypes).toContain("dialog.message");
-		expect(motorTypes).toContain("dialog.message");
-		expect(senseTypes).toContain("dialog.message");
+		expect(motorTypes).toContain("llm.response");
+		expect(senseTypes).toContain("llm.input");
+		expect(motorTypes).toContain("llm.response");
+		expect(senseTypes).toContain("llm.input");
 	});
 });

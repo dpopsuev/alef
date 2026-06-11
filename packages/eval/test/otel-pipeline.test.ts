@@ -16,9 +16,9 @@ import { EvalHarness } from "../src/harness.js";
 class FileReaderLLMOrgan implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", async (event) => {
+		return nerve.sense.subscribe("llm.input", async (event) => {
 			const corr = event.correlationId;
 			// Trigger one fs.read then reply.
 			const done = new Promise<void>((resolve) => {
@@ -36,7 +36,7 @@ class FileReaderLLMOrgan implements Organ {
 			});
 			await done;
 			nerve.motor.publish({
-				type: "dialog.message",
+				type: "llm.response",
 				payload: { text: "read done" },
 				correlationId: corr,
 			});
@@ -45,7 +45,7 @@ class FileReaderLLMOrgan implements Organ {
 }
 
 describe("OTel pipeline — span collection", { tags: ["integration"] }, () => {
-	it("harness collects spans when a corpus organ handles a Motor event", async () => {
+	it("harness collects spans when an organ handles a motor event", async () => {
 		const harness = new EvalHarness();
 		const metrics = await harness.run(
 			async (ctx) => {

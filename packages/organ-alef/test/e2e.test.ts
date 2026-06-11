@@ -10,7 +10,9 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-alef — real LLM E2E", { tags: ["real-ll
 		);
 
 		expect(reply.length).toBeGreaterThan(0);
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("alef.config"))).toBe(true);
+		expect(
+			events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("alef.config")),
+		).toBe(true);
 
 		session.dispose();
 	}, 60_000);

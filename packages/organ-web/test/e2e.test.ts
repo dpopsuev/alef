@@ -10,7 +10,9 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-web — real LLM E2E", { tags: ["real-llm
 		);
 		// example.com page title is "Example Domain"
 		expect(reply.toLowerCase()).toMatch(/example\s*domain|example\.com/i);
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("web"))).toBe(true);
+		expect(events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("web"))).toBe(
+			true,
+		);
 		session.dispose();
 	}, 60_000);
 });

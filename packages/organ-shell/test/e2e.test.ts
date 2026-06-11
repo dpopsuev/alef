@@ -13,7 +13,9 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-shell — real LLM E2E", { tags: ["real-l
 		);
 
 		expect(reply).toContain(uuid);
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("shell"))).toBe(true);
+		expect(events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("shell"))).toBe(
+			true,
+		);
 
 		session.dispose();
 	}, 60_000);

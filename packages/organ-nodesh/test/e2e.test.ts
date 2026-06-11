@@ -10,7 +10,9 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-nodesh — real LLM E2E", { tags: ["real-
 		);
 
 		expect(reply).toContain("1024");
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("nodesh"))).toBe(true);
+		expect(events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("nodesh"))).toBe(
+			true,
+		);
 
 		session.dispose();
 	}, 60_000);

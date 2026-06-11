@@ -28,7 +28,7 @@ export const KEY_ARG_FIELDS = [
 ] as const;
 
 import { z } from "zod";
-import type { LlmEvent, TokenUsage } from "./tool-events.js";
+
 import { runLLMLoop } from "./turn-loop.js";
 
 export { payloadToText } from "./tool-dispatch.js";
@@ -46,19 +46,13 @@ export interface LlmCallOptions {
 	getSignal?: () => AbortSignal | undefined;
 }
 
-export type { LlmEvent } from "./tool-events.js";
-
-export interface LlmObservabilityOptions {
-	onEvent?: (event: LlmEvent) => void;
-	onTurnComplete?: (turn: number, usage: TokenUsage) => void;
-}
+export interface LlmObservabilityOptions {}
 
 /** Topology and capability options — routing, pipeline, concurrency, context prep. */
 export interface LlmTopologyOptions {
 	thinking?: ThinkingLevel;
 	/** Live getter — overrides `thinking` when provided. Enables :think runtime switching. */
 	getThinking?: () => ThinkingLevel | undefined;
-	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
 	trackConcurrentOps?: boolean;
 	phaseTimeoutMs?: number;
 
@@ -83,7 +77,6 @@ const LLM_INPUT = "llm.input";
 
 export function createAgentLoopCore(options: AgentLoopOptions): Organ {
 	let turnActive = false;
-	const steeringBuffer: Message[] = [];
 
 	return defineOrgan("llm", {
 		sense: {
@@ -92,22 +85,22 @@ export function createAgentLoopCore(options: AgentLoopOptions): Organ {
 					if (turnActive) {
 						const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
 						if (text) {
-							steeringBuffer.push({ role: "user", content: text, timestamp: Date.now() });
-							options.onEvent?.({ type: "message-queued", queueLength: steeringBuffer.length });
+							ctx.motor.publish({
+								type: "llm.message-queued",
+								payload: { text },
+								correlationId: ctx.correlationId,
+							});
 						}
 						return;
 					}
 					turnActive = true;
-					let partialHistory: Message[] | undefined;
+					let partialHistory: unknown[] | undefined;
 					const offCheckpoint = ctx.motor.subscribe("llm.checkpoint", (event) => {
-						const history = (event.payload as { conversationHistory?: Message[] }).conversationHistory;
+						const history = (event.payload as { conversationHistory?: unknown[] }).conversationHistory;
 						if (history) partialHistory = history;
 					});
 					try {
-						await runLLMLoop(ctx, {
-							...options,
-							getSteeringMessages: () => steeringBuffer.splice(0),
-						});
+						await runLLMLoop(ctx, options);
 					} catch (err) {
 						const text = `LLM error: ${String(err)}`;
 						ctx.motor.publish({
@@ -165,7 +158,7 @@ export function createAgentLoop(options: AgentLoopOptions): Organ {
 	const replyType = "llm.response";
 	const inflight = new Map<string, InflightEntry>();
 
-	function applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {
+	function _applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {
 		if (inflight.size === 0) return messages;
 		const now = Date.now();
 		const lines = [...inflight.values()].map((e) => {
@@ -183,15 +176,7 @@ export function createAgentLoop(options: AgentLoopOptions): Organ {
 		return [{ role: "system", content: block.trimStart() } as unknown as T, ...messages];
 	}
 
-	const wrappedOptions: AgentLoopOptions = options.trackConcurrentOps
-		? {
-				...options,
-				prepareStep: async (msgs: Message[]) => {
-					const afterUser = options.prepareStep ? await options.prepareStep(msgs) : msgs;
-					return applyInflightContext(afterUser as { role: string; content: string }[]) as Message[];
-				},
-			}
-		: options;
+	const wrappedOptions: AgentLoopOptions = options;
 
 	const innerOrgan = createAgentLoopCore(wrappedOptions);
 

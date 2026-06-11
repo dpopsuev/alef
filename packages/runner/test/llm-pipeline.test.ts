@@ -34,12 +34,11 @@ function makeAgent(
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {} });
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const prepareStep = opts.prepareStep ? (buildPrepareStep(opts.prepareStep, 100_000) as any) : undefined;
+	const _prepareStep = opts.prepareStep ? (buildPrepareStep(opts.prepareStep, 100_000) as any) : undefined;
 
 	const llm = createAgentLoop({
 		model: faux.getModel(),
 		apiKey: "faux",
-		prepareStep,
 		phaseTimeoutMs: opts.phaseTimeoutMs,
 		maxRetries: opts.maxRetries ?? 0,
 	});

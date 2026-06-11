@@ -25,8 +25,12 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-lector — real LLM E2E", { tags: ["real-
 			`Read the file target.ts using lector.read, then use lector.edit to change the function to return "REPLACED" instead of the current UUID string. You MUST call lector.read first, then lector.edit.`,
 		);
 		const content = readFileSync(filePath, "utf-8");
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("lector.read"))).toBe(true);
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("lector.edit"))).toBe(true);
+		expect(
+			events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("lector.read")),
+		).toBe(true);
+		expect(
+			events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("lector.edit")),
+		).toBe(true);
 		expect(content).toContain("REPLACED");
 		expect(content).not.toContain(uuid);
 		session.dispose();

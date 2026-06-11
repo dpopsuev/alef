@@ -25,7 +25,9 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-delegate — real LLM E2E", { tags: ["rea
 		);
 
 		expect(reply).toContain(token);
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("agent"))).toBe(true);
+		expect(events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("agent"))).toBe(
+			true,
+		);
 
 		void delegatedText;
 		session.dispose();

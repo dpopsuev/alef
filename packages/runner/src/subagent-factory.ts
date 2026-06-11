@@ -27,15 +27,20 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			timeoutMs: 60_000,
 			systemPrompt,
 			trackConcurrentOps: opts.trackConcurrentOps,
-			onEvent: chunkHandler
-				? (event) => {
-						if (event.type === "chunk") chunkHandler(event.text);
-						else if (opts.forwardToolChunks && event.type === "tool-chunk") chunkHandler(event.text);
-					}
-				: undefined,
 		});
 		for (const organ of organs) agent.load(organ);
 		agent.load(dialog).load(llm);
+		if (chunkHandler) {
+			agent.observe({
+				onMotorEvent(event) {
+					const payload = (event as { payload?: Record<string, unknown> }).payload ?? {};
+					if (event.type === "llm.chunk") chunkHandler(String(payload.text ?? ""));
+					else if (opts.forwardToolChunks && event.type === "llm.tool-chunk")
+						chunkHandler(String(payload.text ?? ""));
+				},
+				onSenseEvent() {},
+			});
+		}
 		return {
 			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
 				await agent.ready();

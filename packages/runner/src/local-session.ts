@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { MotorEvent } from "@dpopsuev/alef-kernel";
 import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createAlefApiOrgan } from "@dpopsuev/alef-organ-alef";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
@@ -16,11 +17,62 @@ import type { LoadResult } from "./load-organs.js";
 import { loadOrganFromPath } from "./materializer.js";
 import { createMemoryOrgan } from "./organ-memory.js";
 import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
-import type { AgentEvent, Session, SessionState } from "./session.js";
+import type { AgentEvent, Session, SessionState, TokensConsumed } from "./session.js";
 import { SessionHandle } from "./session-handle.js";
 import type { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
+
+function llmMotorToAgentEvent(event: MotorEvent): AgentEvent | null {
+	const p = event.payload;
+	switch (event.type) {
+		case "llm.chunk":
+			return { type: "chunk", text: String(p.text ?? "") };
+		case "llm.thinking":
+			return { type: "thinking", text: String(p.text ?? "") };
+		case "llm.tool-start":
+			return {
+				type: "tool-start",
+				callId: String(p.callId),
+				name: String(p.name),
+				args: (p.args ?? {}) as Record<string, unknown>,
+			};
+		case "llm.tool-end":
+			return {
+				type: "tool-end",
+				callId: String(p.callId),
+				elapsedMs: Number(p.elapsedMs),
+				ok: Boolean(p.ok),
+				display: p.display as string | undefined,
+				displayKind: p.displayKind as string | undefined,
+			};
+		case "llm.tool-chunk":
+			return { type: "tool-chunk", callId: String(p.callId), text: String(p.text ?? "") };
+		case "llm.tool-stall":
+			return {
+				type: "tool-stall",
+				callId: String(p.callId),
+				name: String(p.name),
+				elapsedMs: Number(p.elapsedMs),
+				lastChunkMs: Number(p.lastChunkMs),
+			};
+		case "llm.tool-validation-error":
+			return {
+				type: "tool-validation-error",
+				callId: String(p.callId),
+				field: String(p.field),
+				message: String(p.message),
+			};
+		case "llm.token-usage":
+			return { type: "token-usage", usage: p.usage as TokensConsumed };
+		case "llm.turn-error":
+			return { type: "turn-error", message: String(p.message) };
+		case "llm.message-queued":
+			return { type: "message-queued", queueLength: Number(p.queueLength ?? 0) };
+		default:
+			return null;
+	}
+}
 
 export async function createLocalSession(
 	args: Args,
@@ -71,10 +123,6 @@ export async function createLocalSession(
 	let llmController: AbortController | undefined;
 	const currentModel = model;
 
-	const dispatch = (event: AgentEvent): void => {
-		for (const obs of observers) obs(event);
-	};
-
 	// eslint-disable-next-line prefer-const
 	let pipeline!: ReturnType<typeof createLlmPipeline>;
 
@@ -82,9 +130,7 @@ export async function createLocalSession(
 		model,
 		cfg,
 		args,
-		onEvent: dispatch,
 		thinkingState,
-		prepareStep,
 		getModel: () => currentModel,
 		getSignal: () => llmController?.signal,
 		schemaResolver: (name) => pipeline?.getSchemaResolver()?.(name),
@@ -155,6 +201,15 @@ export async function createLocalSession(
 		},
 	});
 	agent.load(alefOrgan);
+
+	agent.observe({
+		onMotorEvent(event) {
+			if (!event.type.startsWith("llm.")) return;
+			const agentEvent = llmMotorToAgentEvent(event as MotorEvent);
+			if (agentEvent) for (const obs of observers) obs(agentEvent);
+		},
+		onSenseEvent() {},
+	});
 
 	directives.register({
 		id: "tool-shell.boot-catalog",

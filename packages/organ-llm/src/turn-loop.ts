@@ -5,7 +5,7 @@ import type { z } from "zod";
 import { normalizeMessage, retryDelayMs, shouldRetry, sleep } from "./retry.js";
 import { callLLM, type ToolCall } from "./stream-turn.js";
 import { dispatchTools, payloadToText } from "./tool-dispatch.js";
-import type { LlmEvent, TokenUsage } from "./tool-events.js";
+import type { TokenUsage } from "./tool-events.js";
 
 // ---------------------------------------------------------------------------
 // Options — structural subset of AgentLoopOptions, avoids circular import
@@ -19,11 +19,8 @@ export interface TurnLoopOptions {
 	maxRetryDelayMs?: number;
 	onRetry?: (attempt: number, reason: string) => void;
 	getSignal?: () => AbortSignal | undefined;
-	onEvent?: (event: LlmEvent) => void;
-	onTurnComplete?: (turn: number, usage: TokenUsage) => void;
 	thinking?: ThinkingLevel;
 	getThinking?: () => ThinkingLevel | undefined;
-	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
 	phaseTimeoutMs?: number;
 
 	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
@@ -31,8 +28,6 @@ export interface TurnLoopOptions {
 	systemPrompt?: string;
 	apiKey?: string;
 	getApiKey?: () => string | undefined;
-	/** Drain buffered steering messages — injected as user turns between tool batches. */
-	getSteeringMessages?: () => Message[];
 }
 
 // ---------------------------------------------------------------------------
@@ -134,17 +129,13 @@ interface TurnSetup {
 	nameMap: Map<string, string>;
 }
 
-async function prepareTurn(
-	payload: { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string },
-	options: Pick<TurnLoopOptions, "prepareStep">,
-): Promise<TurnSetup> {
+function prepareTurn(payload: { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string }): TurnSetup {
 	const rawMessages =
 		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
 	const nameMap = new Map<string, string>();
 	const toolDefs = (payload.tools as readonly ToolDef[] | undefined) ?? [];
 	const tools = buildTools(toolDefs, nameMap);
-	const rawMsgs = (rawMessages as Message[]).map(normalizeMessage);
-	const messages = options.prepareStep ? await options.prepareStep(rawMsgs) : rawMsgs;
+	const messages = (rawMessages as Message[]).map(normalizeMessage);
 	return { messages, tools, nameMap };
 }
 
@@ -172,20 +163,13 @@ function applyPhaseResult(phase: PhaseResult, messages: Message[], tools: Tool[]
 		tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
 }
 
-function reportUsage(
-	finalMessage: AssistantMessage,
-	turn: number,
-	agentIsReplying: boolean,
-	options: Pick<TurnLoopOptions, "onTurnComplete" | "onEvent">,
-): void {
-	if (!finalMessage.usage) return;
-	const usage: TokenUsage = {
+function reportUsage(finalMessage: AssistantMessage): TokenUsage | undefined {
+	if (!finalMessage.usage) return undefined;
+	return {
 		input: finalMessage.usage.input,
 		output: finalMessage.usage.output,
 		totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
 	};
-	options.onTurnComplete?.(turn, usage);
-	if (agentIsReplying) options.onEvent?.({ type: "token-usage", usage });
 }
 
 function appendToolResults(
@@ -263,7 +247,7 @@ async function runPhase(
 
 export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions): Promise<void> {
 	const payload = ctx.payload as { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string };
-	const { messages, tools, nameMap } = await prepareTurn(payload, options);
+	const { messages, tools, nameMap } = prepareTurn(payload);
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
 	const { correlationId, motor, sense } = ctx;
@@ -306,14 +290,11 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 				if (phase) applyPhaseResult(phase, messages, tools, nameMap);
 			}
 
-			const { finalMessage, pendingCalls } = await callLLM(
-				model,
-				messages,
-				tools,
-				turn,
-				appRetryCount,
-				effectiveOptions,
-			);
+			const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, {
+				...effectiveOptions,
+				motor,
+				correlationId,
+			});
 			if (!finalMessage) break;
 
 			if (shouldRetry(finalMessage, appRetryCount, maxRetries)) {
@@ -332,7 +313,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 			// it's visible in production without --debug.
 			if (finalMessage.stopReason === "error") {
 				const errorMsg = finalMessage.errorMessage ?? "LLM returned an error response";
-				effectiveOptions.onEvent?.({ type: "turn-error", message: errorMsg });
+				motor.publish({ type: "llm.turn-error", payload: { message: errorMsg }, correlationId });
 				debugLog("llm:turn:error", { turn, errorMessage: errorMsg });
 			}
 
@@ -351,7 +332,10 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 				correlationId,
 			});
 
-			reportUsage(finalMessage, turn, agentIsReplying, effectiveOptions);
+			const usage = reportUsage(finalMessage);
+			if (usage && agentIsReplying) {
+				motor.publish({ type: "llm.token-usage", payload: { usage }, correlationId });
+			}
 
 			if (agentIsReplying) {
 				publishReply(motor, correlationId, finalMessage, messages);
@@ -369,9 +353,6 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 				payload: { conversationHistory: messages.slice() as unknown as Record<string, unknown>[] },
 				correlationId: ctx.correlationId,
 			});
-
-			const steering = options.getSteeringMessages?.() ?? [];
-			for (const msg of steering) messages.push(msg);
 		}
 	} finally {
 		offBudget();

@@ -40,8 +40,10 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-llm — real LLM E2E", { tags: ["real-llm
 		const { reply, events } = await session.send("Call token.get and tell me the exact token value.");
 
 		expect(reply).toContain(token);
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("token"))).toBe(true);
-		expect(events.some((e) => e.type === "tool-end" && e.ok)).toBe(true);
+		expect(events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("token"))).toBe(
+			true,
+		);
+		expect(events.some((e) => e.type === "llm.tool-end" && Boolean(e.payload.ok))).toBe(true);
 		session.dispose();
 	}, 60_000);
 });

@@ -1,3 +1,4 @@
+import type { Nerve } from "@dpopsuev/alef-kernel";
 import { debugLog } from "@dpopsuev/alef-kernel";
 import {
 	type Api,
@@ -28,7 +29,8 @@ export interface StreamTurnOptions {
 	getApiKey?: () => string | undefined;
 	systemPrompt?: string;
 	getSignal?: () => AbortSignal | undefined;
-	onEvent?: (event: { type: "chunk" | "thinking"; text: string }) => void;
+	motor: Nerve["motor"];
+	correlationId: string;
 }
 
 export interface LLMCallResult {
@@ -104,10 +106,18 @@ export async function callLLM(
 		for await (const event of stream) {
 			switch (event.type) {
 				case "text_delta":
-					options.onEvent?.({ type: "chunk", text: event.delta });
+					options.motor.publish({
+						type: "llm.chunk",
+						payload: { text: event.delta },
+						correlationId: options.correlationId,
+					});
 					break;
 				case "thinking_delta":
-					options.onEvent?.({ type: "thinking", text: event.delta });
+					options.motor.publish({
+						type: "llm.thinking",
+						payload: { text: event.delta },
+						correlationId: options.correlationId,
+					});
 					break;
 				case "toolcall_end":
 					pendingCalls.push({

@@ -6,7 +6,7 @@
  *   → outer organ-llm turn 2 receives toolResult → final llm.response
  */
 
-import { defineOrgan, typedStreamAction } from "@dpopsuev/alef-kernel";
+import { defineOrgan, type MotorEvent, typedStreamAction } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
@@ -32,15 +32,18 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 			model,
 			apiKey: "test-key",
 			systemPrompt: mergedPrompt,
-			onEvent: onChunk
-				? (e) => {
-						if (e.type === "chunk" || e.type === "tool-chunk")
-							onChunk(e.type === "chunk" ? e.text : (e as { text: string }).text);
-					}
-				: undefined,
 		});
 		for (const organ of organs) agent.load(organ);
 		agent.load(dialog).load(llm);
+		if (onChunk) {
+			agent.observe({
+				onMotorEvent(event) {
+					const p = (event as MotorEvent).payload;
+					if (event.type === "llm.chunk" || event.type === "llm.tool-chunk") onChunk(String(p.text ?? ""));
+				},
+				onSenseEvent() {},
+			});
+		}
 		return {
 			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
 				await agent.ready();
@@ -82,11 +85,16 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve);
 
+		f.nerve.asNerve().motor.subscribe("llm.tool-start", () => {
+			capturedEvents.push("tool-start");
+		});
+		f.nerve.asNerve().motor.subscribe("llm.tool-end", () => {
+			capturedEvents.push("tool-end");
+		});
 		f.mount(
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				onEvent: (e) => capturedEvents.push(e.type),
 			}),
 		);
 		f.mount(delegateOrgan);
@@ -138,13 +146,13 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve);
 
+		f.nerve.asNerve().motor.subscribe("llm.tool-end", (event) => {
+			capturedEnds.push({ ok: Boolean(event.payload.ok) });
+		});
 		f.mount(
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				onEvent: (e) => {
-					if (e.type === "tool-end") capturedEnds.push({ ok: e.ok });
-				},
 			}),
 		);
 		f.mount(delegateOrgan);
@@ -207,13 +215,13 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve);
 
+		f.nerve.asNerve().motor.subscribe("llm.tool-chunk", (event) => {
+			outerChunks.push(String(event.payload.text ?? ""));
+		});
 		f.mount(
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				onEvent: (e) => {
-					if (e.type === "tool-chunk") outerChunks.push(e.text);
-				},
 			}),
 		);
 		f.mount(delegateOrgan);
@@ -274,13 +282,13 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve);
 
+		f.nerve.asNerve().motor.subscribe("llm.tool-chunk", (event) => {
+			capturedChunks.push({ callId: String(event.payload.callId ?? ""), text: String(event.payload.text ?? "") });
+		});
 		f.mount(
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				onEvent: (e) => {
-					if (e.type === "tool-chunk") capturedChunks.push({ callId: e.callId, text: e.text });
-				},
 			}),
 		);
 		f.mount(delegateOrgan);
@@ -346,13 +354,13 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve);
 
+		f.nerve.asNerve().motor.subscribe("llm.tool-chunk", (event) => {
+			capturedChunks.push({ callId: String(event.payload.callId ?? ""), text: String(event.payload.text ?? "") });
+		});
 		f.mount(
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				onEvent: (e) => {
-					if (e.type === "tool-chunk") capturedChunks.push({ callId: e.callId, text: e.text });
-				},
 			}),
 		);
 		f.mount(delegateOrgan);

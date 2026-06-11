@@ -2,7 +2,6 @@ import type { SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { debugLog, Watchdog } from "@dpopsuev/alef-kernel";
 
 import type { ToolCall } from "./stream-turn.js";
-import type { LlmEvent } from "./tool-events.js";
 
 export function payloadToText(payload: Record<string, unknown>, isError: boolean, errorMessage?: string): string {
 	if (isError) return errorMessage ?? JSON.stringify(payload);
@@ -139,7 +138,6 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<SenseEve
 type MotorBus = { publish: (event: { type: string; payload: Record<string, unknown>; correlationId: string }) => void };
 
 interface DispatchToolsOptions {
-	onEvent?: (event: LlmEvent) => void;
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 }
@@ -157,19 +155,25 @@ export async function dispatchTools(
 		toolCalls.map((tc) => {
 			const motorType = toMotorName(tc.name);
 			const startedAt = Date.now();
-			options.onEvent?.({ type: "tool-start", callId: tc.id, name: motorType, args: tc.args });
+			motor.publish({
+				type: "llm.tool-start",
+				payload: { callId: tc.id, name: motorType, args: tc.args },
+				correlationId,
+			});
 			const outerWaitMs = toOuterTimeoutMs(
 				tc.args,
 				timeoutMs,
 				options.schemaResolver?.(motorType) ?? options.toolDefs?.get(motorType),
 			);
 			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
-			const { onEvent } = options;
-			const onChunk = onEvent ? (text: string) => onEvent({ type: "tool-chunk", callId: tc.id, text }) : undefined;
-			const onStall = onEvent
-				? (info: { elapsedMs: number; lastChunkMs: number }) =>
-						onEvent({ type: "tool-stall", callId: tc.id, name: motorType, ...info })
-				: undefined;
+			const onChunk = (text: string) =>
+				motor.publish({ type: "llm.tool-chunk", payload: { callId: tc.id, text }, correlationId });
+			const onStall = (info: { elapsedMs: number; lastChunkMs: number }) =>
+				motor.publish({
+					type: "llm.tool-stall",
+					payload: { callId: tc.id, name: motorType, ...info },
+					correlationId,
+				});
 			return waitForToolResult({
 				sense,
 				toolName: motorType,
@@ -182,31 +186,41 @@ export async function dispatchTools(
 				.then((r) => {
 					const validationErr = extractValidationError(r.payload);
 					if (validationErr) {
-						options.onEvent?.({ type: "tool-validation-error", callId: tc.id, ...validationErr });
+						motor.publish({
+							type: "llm.tool-validation-error",
+							payload: { callId: tc.id, ...validationErr },
+							correlationId,
+						});
 					}
 					const displayBlock = extractDisplay(r.payload);
-					options.onEvent?.({
-						type: "tool-end",
-						callId: tc.id,
-						elapsedMs: Date.now() - startedAt,
-						ok: !r.isError,
-						result: payloadToText(r.payload, r.isError, r.errorMessage),
-						display: displayBlock?.text,
-						displayKind: displayBlock?.mimeType,
+					motor.publish({
+						type: "llm.tool-end",
+						payload: {
+							callId: tc.id,
+							elapsedMs: Date.now() - startedAt,
+							ok: !r.isError,
+							result: payloadToText(r.payload, r.isError, r.errorMessage),
+							display: displayBlock?.text,
+							displayKind: displayBlock?.mimeType,
+						},
+						correlationId,
 					});
 					return r;
 				})
 				.catch((err: unknown) => {
 					const elapsedMs = Date.now() - startedAt;
 					const errorMessage = err instanceof Error ? err.message : String(err);
-					options.onEvent?.({
-						type: "tool-end",
-						callId: tc.id,
-						elapsedMs,
-						ok: false,
-						result: errorMessage,
-						display: `\u26a0 ${errorMessage}`,
-						displayKind: "text/plain",
+					motor.publish({
+						type: "llm.tool-end",
+						payload: {
+							callId: tc.id,
+							elapsedMs,
+							ok: false,
+							result: errorMessage,
+							display: `\u26a0 ${errorMessage}`,
+							displayKind: "text/plain",
+						},
+						correlationId,
 					});
 					return buildErrorSenseEvent(motorType, correlationId, tc.id, err, elapsedMs);
 				});

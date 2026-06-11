@@ -27,7 +27,9 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-fs — real LLM E2E", { tags: ["real-llm"
 		);
 
 		expect(reply).toContain(secretUuid);
-		expect(events.some((e) => e.type === "tool-start" && e.name.includes("fs.read"))).toBe(true);
+		expect(events.some((e) => e.type === "llm.tool-start" && String(e.payload.name ?? "").includes("fs.read"))).toBe(
+			true,
+		);
 
 		session.dispose();
 	}, 60_000);

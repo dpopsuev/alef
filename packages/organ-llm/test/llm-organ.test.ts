@@ -700,17 +700,7 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				prepareStep: async (messages) => {
-					const withoutSystem = messages.filter((m) => (m as { role?: string }).role !== "system");
-					return [
-						{
-							role: "system",
-							content: systemText,
-							timestamp: Date.now(),
-						} as unknown as import("@dpopsuev/alef-llm").Message,
-						...withoutSystem,
-					];
-				},
+				systemPrompt: systemText,
 			}),
 		);
 
@@ -762,17 +752,21 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 			},
 		);
 
+		f.nerve.asNerve().motor.subscribe("llm.tool-start", () => {
+			capturedEvents.push({ type: "tool-start" });
+		});
+		f.nerve.asNerve().motor.subscribe("llm.tool-end", (event) => {
+			capturedEvents.push({
+				type: "tool-end",
+				ok: Boolean(event.payload.ok),
+				result: event.payload.result as string | undefined,
+			});
+		});
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
 				timeoutMs: 200, // short timeout for test speed
-				onEvent: (e) =>
-					capturedEvents.push({
-						type: e.type,
-						ok: "ok" in e ? e.ok : undefined,
-						result: "result" in e ? e.result : undefined,
-					}),
 			}),
 		);
 		f.mount(hungOrgan);
@@ -838,14 +832,17 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve, undefined, undefined, streamingOrgan.tools);
 
+		f.nerve.asNerve().motor.subscribe("llm.tool-chunk", (event) => {
+			eventOrder.push("tool-chunk");
+			capturedChunks.push(String(event.payload.text ?? ""));
+		});
+		f.nerve.asNerve().motor.subscribe("llm.tool-end", () => {
+			eventOrder.push("tool-end");
+		});
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
 				apiKey: "faux-key",
-				onEvent: (e) => {
-					eventOrder.push(e.type);
-					if (e.type === "tool-chunk") capturedChunks.push(e.text);
-				},
 			}),
 		);
 		f.mount(streamingOrgan);

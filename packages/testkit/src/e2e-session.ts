@@ -18,10 +18,9 @@
  *   });
  */
 
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { MotorEvent, Organ } from "@dpopsuev/alef-kernel";
 import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import type { LlmEvent } from "@dpopsuev/alef-organ-llm";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { Agent } from "@dpopsuev/alef-runtime";
 
@@ -33,7 +32,7 @@ export const HAVE_REAL_LLM =
 
 export interface E2eResult {
 	reply: string;
-	events: LlmEvent[];
+	events: MotorEvent[];
 }
 
 export interface E2eSession {
@@ -64,7 +63,7 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 
 	const agent = new Agent();
 	let reply = "";
-	const events: LlmEvent[] = [];
+	const events: MotorEvent[] = [];
 
 	const dialog = new DialogOrgan({
 		sink: (t) => {
@@ -75,11 +74,16 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 		model,
 		getApiKey: () => apiKey,
 		timeoutMs,
-		onEvent: (e) => events.push(e),
 	});
 
 	for (const organ of organs) agent.load(organ);
 	agent.load(dialog).load(llm);
+	agent.observe({
+		onMotorEvent(event) {
+			if (event.type.startsWith("llm.")) events.push(event as MotorEvent);
+		},
+		onSenseEvent() {},
+	});
 
 	return {
 		async send(text: string): Promise<E2eResult> {

@@ -4,7 +4,7 @@
  * Exposes three endpoints:
  *
  *   GET  /events   → text/event-stream — streams every Motor and Sense event
- *   POST /message  → { "text": "..." } → publishes motor/dialog.message
+ *   POST /message  → { "text": "..." } → publishes motor/triggerEvent
  *   GET  /health   → { "ok": true, "clients": N }
  *
  * Usage:
@@ -26,7 +26,6 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { SseManager } from "./sse.js";
 
 export interface RouterOptions {
@@ -55,9 +54,8 @@ export interface RouterOptions {
 	onMessage?: (text: string) => void;
 	/**
 	 * Motor event type published when onMessage is absent.
-	 * Default: 'dialog.message' for backward compatibility.
 	 */
-	triggerEvent?: string;
+	triggerEvent: string;
 }
 
 /** Resolved bind address returned by createRouterOrgan().address(). */
@@ -85,13 +83,13 @@ export class RouterOrgan implements Organ {
 	};
 	private _readyPromise: Promise<void> | null = null;
 
-	constructor(options: RouterOptions = {}) {
+	constructor(options: RouterOptions) {
 		this.options = {
 			port: options.port ?? 3000,
 			host: options.host ?? "127.0.0.1",
 			allowedEvents: options.allowedEvents ?? [],
 			onMessage: options.onMessage,
-			triggerEvent: options.triggerEvent ?? DIALOG_MESSAGE,
+			triggerEvent: options.triggerEvent,
 		};
 	}
 
@@ -268,6 +266,6 @@ export class RouterOrgan implements Organ {
 }
 
 /** Factory — preferred entry point. */
-export function createRouterOrgan(options?: RouterOptions): RouterOrgan {
+export function createRouterOrgan(options: RouterOptions): RouterOrgan {
 	return new RouterOrgan(options);
 }

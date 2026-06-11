@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SenseEvent } from "../src/buses.js";
 import { InProcessNerve } from "../src/buses.js";
-import type { CorpusHandlerCtx } from "../src/framework.js";
+import type { MotorHandlerCtx } from "../src/framework.js";
 import { defineOrgan } from "../src/framework.js";
 
 function makeNerve() {
@@ -28,8 +28,12 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 
 		defineOrgan("echo", {
-			"motor/echo.ping": {
-				handle: async (ctx: CorpusHandlerCtx) => ({ echoed: ctx.payload.index }),
+			motor: {
+				"echo.ping": {
+					async *handle(ctx: MotorHandlerCtx) {
+						yield { echoed: ctx.payload.index };
+					},
+				},
 			},
 		}).mount(n);
 
@@ -56,8 +60,12 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 
 		defineOrgan("identity", {
-			"motor/identity.reflect": {
-				handle: async (ctx: CorpusHandlerCtx) => ({ value: ctx.payload.value }),
+			motor: {
+				"identity.reflect": {
+					async *handle(ctx: MotorHandlerCtx) {
+						yield { value: ctx.payload.value };
+					},
+				},
 			},
 		}).mount(n);
 
@@ -92,10 +100,12 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 
 		defineOrgan("fragile", {
-			"motor/fragile.op": {
-				handle: async (ctx: CorpusHandlerCtx) => {
-					if (ctx.payload.fail) throw new Error("intentional failure");
-					return { ok: true };
+			motor: {
+				"fragile.op": {
+					async *handle(ctx: MotorHandlerCtx) {
+						if (ctx.payload.fail) throw new Error("intentional failure");
+						yield { ok: true };
+					},
 				},
 			},
 		}).mount(n);

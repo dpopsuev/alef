@@ -7,9 +7,9 @@ import { parseArgs } from "./args.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { setupTrace } from "./debug-trace.js";
-import { loadCorpus } from "./load-corpus.js";
+import { loadOrgans } from "./load-organs.js";
 import { loadSession } from "./load-session.js";
-import { LocalSession } from "./local-session.js";
+import { createLocalSession } from "./local-session.js";
 import { createRunnerLogger } from "./logger.js";
 import { resolveStartupModel } from "./model.js";
 import { setupOTel } from "./otel.js";
@@ -88,16 +88,16 @@ trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args
 
 const session = await loadSession(args, willUseTui);
 
-const corpus = await loadCorpus(args, cfg, log);
-const { blueprintUpgradePolicy, blueprintPath } = corpus;
+const loaded = await loadOrgans(args, cfg, log);
+const { blueprintUpgradePolicy, blueprintPath } = loaded;
 
-const { session: localSession, resolvedModelDisplay } = await LocalSession.create(
+const { session: localSession, resolvedModelDisplay } = await createLocalSession(
 	args,
 	cfg,
 	log,
 	session,
-	corpus,
-	resolveStartupModel(args, corpus.blueprintModelId, cfg),
+	loaded,
+	resolveStartupModel(args, loaded.blueprintModelId, cfg),
 	trace,
 );
 

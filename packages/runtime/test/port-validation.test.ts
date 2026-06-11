@@ -11,13 +11,13 @@ import { Agent } from "../src/index.js";
 // Stub organs
 // ---------------------------------------------------------------------------
 
-/** Subscribes sense/dialog.message — satisfies primary_cognition seam. */
+/** Subscribes sense/llm.input — satisfies primary_cognition seam. */
 function makeReasoner(name = "llm"): Organ {
 	return {
 		name,
 		tools: [],
-		subscriptions: { motor: [] as const, sense: ["dialog.message"] as const },
-		mount: (nerve: Nerve) => nerve.sense.subscribe("dialog.message", () => {}),
+		subscriptions: { motor: [] as const, sense: ["llm.input"] as const },
+		mount: (nerve: Nerve) => nerve.sense.subscribe("llm.input", () => {}),
 	};
 }
 
@@ -53,7 +53,7 @@ describe("Agent.validate()", { tags: ["unit"] }, () => {
 
 	it("does not throw when no reasoning organ is loaded — autonomous agents are valid", () => {
 		// The 'reasoning' seam was removed from STANDARD_PORTS.
-		// An agent with only corpus organs is valid — it waits for external trigger events.
+		// An agent with only organs is valid — it waits for external trigger events.
 		const agent = new Agent().load(makeFsOrgan());
 		expect(() => agent.validate()).not.toThrow();
 		agent.dispose();

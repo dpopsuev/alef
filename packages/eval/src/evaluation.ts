@@ -47,6 +47,35 @@ export type Template = "ReadOnly" | "Write" | "MultiTurn";
  */
 export type EvalKind = "capability" | "regression";
 
+/**
+ * A single expected tool interaction.
+ *
+ * Call  — which tool was invoked (OR semantics across the array).
+ * Target — what the tool was called on (matched against the tool's input args).
+ * Result — what the tool must have produced (matched against the tool's output).
+ *
+ * All non-undefined fields must match for the expectation to be satisfied.
+ */
+export interface ToolCall {
+	/** Acceptable tool name(s) — any one satisfies the call dimension. */
+	tool: string | readonly string[];
+	/** Fields that must appear in the tool's input payload. */
+	target?: {
+		/** File path the tool operated on (substring or regex). */
+		path?: string | RegExp;
+		/** Search pattern used (substring or regex). */
+		pattern?: string | RegExp;
+		/** Symbol name targeted (substring or regex). */
+		symbol?: string | RegExp;
+		/** URL fetched (substring or regex). */
+		url?: string | RegExp;
+		/** Arbitrary payload field — key/value or regex. */
+		[key: string]: string | RegExp | undefined;
+	};
+	/** What the tool's output must contain (substring or regex). */
+	produces?: string | RegExp;
+}
+
 export interface Evaluation {
 	/** Unique identifier — used in metrics and test names. */
 	readonly id: string;
@@ -66,8 +95,18 @@ export interface Evaluation {
 	readonly prompt: string | readonly string[];
 	/** Files to write into the workspace before running. */
 	readonly seed?: readonly WorkspaceFile[];
-	/** Motor event types that MUST appear in OTel spans. MustUse fail → score=0. */
-	readonly mustUse?: readonly string[];
+	/**
+	 * ALL of these tool interactions must have occurred (AND semantics).
+	 * Each entry matches call + target + result dimensions against OTel spans.
+	 * Failure → score=0.
+	 */
+	readonly expects?: readonly ToolCall[];
+	/**
+	 * AT LEAST ONE of these tool interactions must have occurred (OR semantics).
+	 * Useful when the agent may satisfy a requirement with any of several tools.
+	 * Failure → score=0.
+	 */
+	readonly expectsAny?: readonly ToolCall[];
 	/** Motor event types that MUST NOT appear in OTel spans. */
 	readonly mustNotUse?: readonly string[];
 	/** Deterministic post-run verifier. */

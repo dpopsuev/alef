@@ -1,29 +1,17 @@
 /**
- * DialogOrgan — message boundary CorpusOrgan.
+ * DialogOrgan — message boundary organ.
  *
- * Owns the seam between the external world and the agent's reasoning bus.
- *
- * Inbound:  organ.receive(text, sender?) → Sense/"dialog.message" { text, sender }
- * Outbound: Motor/"dialog.message"       → configurable sink (stdout by default)
- *
- * Context assembly (messages, tools, system prompt) is the responsibility of
- * prepareStep (production) or AgentLoopOptions.getTools/systemPrompt (subagents).
+ * Inbound:  organ.receive(text, sender?) → Sense/"llm.input"  { text, sender }
+ * Outbound: Motor/"llm.response"        → configurable sink (stdout by default)
  */
 
 import { randomUUID } from "node:crypto";
-import type { MotorEvent, Nerve, Organ, SensePublishInput, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { MotorEvent, Nerve, Organ, SensePublishInput } from "@dpopsuev/alef-kernel";
 import { extractToolCallId } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
-export const DIALOG_MESSAGE = "dialog.message" as const;
-
-const MESSAGE_TOOL: ToolDefinition = {
-	name: DIALOG_MESSAGE,
-	description: "Send a message. Use this to reply to the user or to another agent.",
-	inputSchema: z.object({
-		text: z.string().min(1).describe("The message text."),
-	}),
-};
+const LLM_INPUT = "llm.input" as const;
+const LLM_RESPONSE = "llm.response" as const;
 
 export type MessageSink = (text: string, sender: string) => void;
 
@@ -33,18 +21,18 @@ export interface DialogOrganOptions {
 
 export class DialogOrgan implements Organ {
 	readonly name = "dialog";
-	readonly description = "Conversation boundary: routes user messages to the LLM, delivers replies.";
+	readonly description = "Conversation boundary: routes user messages to organ-llm, delivers replies.";
 	readonly labels = ["conversation", "messaging"] as const;
-	readonly tools: readonly ToolDefinition[] = [MESSAGE_TOOL];
+	readonly tools = [] as const;
 	readonly publishSchemas = {
 		sense: {
-			"dialog.message": z.object({
+			[LLM_INPUT]: z.object({
 				text: z.string().min(1),
 				sender: z.string().min(1),
 			}),
 		},
 	} as const;
-	readonly subscriptions = { motor: ["dialog.message"] as const, sense: [] as const };
+	readonly subscriptions = { motor: [LLM_RESPONSE] as const, sense: [] as const };
 
 	private readonly sink: MessageSink;
 	private nerve: Nerve | null = null;
@@ -60,7 +48,7 @@ export class DialogOrgan implements Organ {
 	mount(nerve: Nerve): () => void {
 		this.nerve = nerve;
 
-		const off = nerve.motor.subscribe(DIALOG_MESSAGE, (event) => {
+		const off = nerve.motor.subscribe(LLM_RESPONSE, (event) => {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
 			this.sink(text, sender);
@@ -87,7 +75,7 @@ export class DialogOrgan implements Organ {
 	receive(text: string, sender = "human", correlationId = randomUUID()): void {
 		if (!this.nerve) throw new Error("DialogOrgan: not mounted");
 		this.nerve.sense.publish({
-			type: DIALOG_MESSAGE,
+			type: LLM_INPUT,
 			payload: { text, sender },
 			correlationId,
 			isError: false,

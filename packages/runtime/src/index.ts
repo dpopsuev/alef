@@ -116,7 +116,7 @@ export class Agent {
 	private disposed = false;
 	/**
 	 * AbortController fired on dispose(). Pass signal to long-running organs
-	 * (e.g. Cerebrum) so in-flight HTTP requests are cancelled when the agent
+	 * (e.g. organ-llm) so in-flight HTTP requests are cancelled when the agent
 	 * shuts down. Prevents runLLMLoop from continuing after dispose.
 	 */
 	private readonly controller = new AbortController();
@@ -243,15 +243,15 @@ export class Agent {
 	}
 
 	/**
-	 * Mount the reasoning organ (Cerebrum or ScriptedReasoner) after all
-	 * corpus organs are loaded. This guarantees the reasoner's getTools()
+	 * Mount the reasoning organ (organ-llm or ScriptedReasoner) after all
+	 * organs are loaded. This guarantees the reasoner's getTools()
 	 * callback sees the full tool catalog — the implicit ordering requirement
 	 * that previously had to be managed by callers is now enforced here.
 	 *
 	 * Typically called after validate() and ready():
 	 *   agent.validate();
 	 *   await agent.ready();
-	 *   agent.setReasoner(new Cerebrum({ getTools: () => agent.tools, ... }));
+	 *   agent.setReasoner(createAgentLoop({ getTools: () => agent.tools, ... }));
 	 */
 	setReasoner(organ: Organ): this {
 		return this.load(organ);

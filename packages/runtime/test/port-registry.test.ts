@@ -17,7 +17,7 @@ function organ(name: string, motor: string[] = [], sense: string[] = []): OrganP
 
 const PRIMARY_SEAM: PortDefinition = {
 	name: "reasoning",
-	eventPattern: "sense/dialog.message",
+	eventPattern: "sense/llm.input",
 	cardinality: "exactly-one",
 };
 
@@ -33,7 +33,7 @@ const FS_SEAM: PortDefinition = {
 
 describe("validatePorts — exactly-one", { tags: ["unit"] }, () => {
 	it("passes when exactly one organ covers the seam", () => {
-		const organs = [organ("llm", [], ["dialog.message"])];
+		const organs = [organ("llm", [], ["llm.input"])];
 		const result = validatePorts(organs, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(true);
 		expect(result.violations).toHaveLength(0);
@@ -50,7 +50,7 @@ describe("validatePorts — exactly-one", { tags: ["unit"] }, () => {
 	});
 
 	it("errors when two organs cover an exactly-one seam", () => {
-		const organs = [organ("llm", [], ["dialog.message"]), organ("planner", [], ["dialog.message"])];
+		const organs = [organ("llm", [], ["llm.input"]), organ("planner", [], ["llm.input"])];
 		const result = validatePorts(organs, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(false);
 		expect(result.violations[0].organCount).toBe(2);
@@ -91,7 +91,7 @@ describe("validatePorts — zero-or-one", { tags: ["unit"] }, () => {
 
 describe("seam pattern matching", { tags: ["unit"] }, () => {
 	it("matches exact sense event type", () => {
-		const organs = [organ("llm", [], ["dialog.message"])];
+		const organs = [organ("llm", [], ["llm.input"])];
 		const result = validatePorts(organs, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(true);
 	});
@@ -122,7 +122,7 @@ describe("seam pattern matching", { tags: ["unit"] }, () => {
 describe("STANDARD_PORTS — full agent stack", { tags: ["unit"] }, () => {
 	it("valid: Reasoner on sense + FsOrgan on motor/fs.*", () => {
 		const organs = [
-			organ("llm", [], ["dialog.message"]),
+			organ("llm", [], ["llm.input"]),
 			organ("fs", ["fs.read", "fs.grep", "fs.find", "fs.write", "fs.edit"]),
 			organ("shell", ["shell.exec"]),
 		];
@@ -142,7 +142,7 @@ describe("STANDARD_PORTS — full agent stack", { tags: ["unit"] }, () => {
 	it("valid: two organs handling the same sense event — no race constraint on triggers", () => {
 		// Without the 'reasoning' exactly-one constraint, multiple trigger organs are allowed.
 		// The agent author is responsible for ensuring only one fires per event.
-		const organs = [organ("llm", [], ["dialog.message"]), organ("mock-llm", [], ["dialog.message"])];
+		const organs = [organ("llm", [], ["llm.input"]), organ("mock-llm", [], ["llm.input"])];
 		const result = validatePorts(organs, STANDARD_PORTS);
 		expect(result.valid).toBe(true);
 	});
@@ -177,7 +177,7 @@ describe("PortValidationError", { tags: ["unit"] }, () => {
 
 	describe("STANDARD_PORTS — context_observer false-positive with lifecycle organs", { tags: ["unit"] }, () => {
 		it("llm + skills organs subscribing to different sense events must not trigger context_observer warning", () => {
-			const llmOrgan = organ("llm", [], ["dialog.message"]);
+			const llmOrgan = organ("llm", [], ["llm.input"]);
 			const skillsOrgan = organ("skills", [], ["organ.loaded", "organ.unloaded"]);
 
 			const result = validatePorts([llmOrgan, skillsOrgan], STANDARD_PORTS);

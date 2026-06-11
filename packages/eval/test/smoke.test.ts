@@ -16,14 +16,14 @@ import { EvalHarness, formatReport } from "../src/harness.js";
 class QuiescentLLMOrgan implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
 
 	constructor(private readonly reply: string = "smoke ok") {}
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", (event) => {
+		return nerve.sense.subscribe("llm.input", (event) => {
 			nerve.motor.publish({
-				type: "dialog.message",
+				type: "llm.response",
 				payload: { text: this.reply },
 				correlationId: event.correlationId,
 			});
@@ -33,7 +33,7 @@ class QuiescentLLMOrgan implements Organ {
 
 // ---------------------------------------------------------------------------
 
-describe("EvalHarness — smoke (TSK-119)", { tags: ["integration"] }, () => {
+describe("EvalHarness — smoke", { tags: ["integration"] }, () => {
 	it("harness boots, runs scenario, and returns passing metrics", async () => {
 		const harness = new EvalHarness();
 

@@ -4,9 +4,9 @@
  * Run manually: npx vitest run test/contract-scan.test.ts
  */
 
-import type { Api, Model } from "@dpopsuev/alef-ai";
-import { registerFauxProvider } from "@dpopsuev/alef-ai";
 import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Api, Model } from "@dpopsuev/alef-llm";
+import { registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";

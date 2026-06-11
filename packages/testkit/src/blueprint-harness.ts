@@ -37,7 +37,7 @@ import { ScriptedReasoner } from "./scripted-reasoner.js";
 // ---------------------------------------------------------------------------
 
 export interface BlueprintHarnessOptions {
-	/** Working directory for corpus organs. Required. */
+	/** Working directory for organs. Required. */
 	cwd: string;
 	/** Script steps for ScriptedReasoner. */
 	script: ScriptStep[];
@@ -92,14 +92,14 @@ export class BlueprintHarness implements ExecutionStrategy {
 
 	/**
 	 * Load a blueprint from a YAML file, instantiate its organs, inject
-	 * ScriptedReasoner. Real corpus organs execute (FsOrgan, ShellOrgan, etc.).
+	 * ScriptedReasoner. Real organs execute (FsOrgan, ShellOrgan, etc.).
 	 */
 	static async fromBlueprint(blueprintPath: string, opts: BlueprintFromFileOptions): Promise<BlueprintHarness> {
 		const definition = loadAgentDefinition(blueprintPath);
 		const materialized = await opts.materialize(definition, { cwd: opts.cwd });
 
-		const corpusOrgans = [...materialized.organs, ...(opts.extraOrgans ?? [])];
-		return BlueprintHarness.create({ ...opts, organs: corpusOrgans });
+		const organs = [...materialized.organs, ...(opts.extraOrgans ?? [])];
+		return BlueprintHarness.create({ ...opts, organs: organs });
 	}
 
 	// -------------------------------------------------------------------------

@@ -12,7 +12,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
+
 import type { StorageRecord } from "./session-store.js";
 import { SessionStore } from "./session-store.js";
 
@@ -77,7 +77,7 @@ async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
 	for (const r of records) {
 		const key = r.correlationId;
 		if (r.bus === "motor") {
-			if (r.type === DIALOG_MESSAGE) {
+			if (r.type === "llm.response") {
 				turns++;
 				continue;
 			}
@@ -85,7 +85,7 @@ async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
 			(motorByCorr.get(key) as StorageRecord[]).push(r);
 		} else if (r.bus === "sense") {
 			if ((r.payload as { isError?: boolean }).isError) errors++;
-			if (r.type === DIALOG_MESSAGE) continue;
+			if (r.type === "llm.input") continue;
 			if (!senseByCorr.has(key)) senseByCorr.set(key, []);
 			(senseByCorr.get(key) as StorageRecord[]).push(r);
 		}

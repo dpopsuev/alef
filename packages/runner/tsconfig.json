@@ -10,13 +10,10 @@
 			"@dpopsuev/alef-agent-blueprint/*": [
 				"../blueprint/src/*.ts"
 			],
-			"@dpopsuev/alef-agent-core": [
-				"../agent/src/index.ts"
-			],
-			"@dpopsuev/alef-ai": [
+			"@dpopsuev/alef-llm": [
 				"../ai/src/index.ts"
 			],
-			"@dpopsuev/alef-ai/*": [
+			"@dpopsuev/alef-llm/*": [
 				"../ai/src/*"
 			],
 			"@dpopsuev/alef-runtime": [
@@ -63,9 +60,6 @@
 			],
 			"@dpopsuev/alef-organ-llm": [
 				"../organ-llm/src/index.ts"
-			],
-			"@dpopsuev/alef-organ-prompt": [
-				"../organ-prompt/src/index.ts"
 			],
 			"@dpopsuev/alef-session": [
 				"../session/src/index.ts"

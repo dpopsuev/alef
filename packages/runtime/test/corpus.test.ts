@@ -47,16 +47,16 @@ function makeToolOrgan(toolNames: string[]): Organ {
 	};
 }
 
-/** Echo organ: subscribes Sense/"dialog.message", publishes Motor/"dialog.message". */
+/** Echo organ: subscribes Sense/"llm.input", publishes Motor/"llm.response". */
 function makeEchoOrgan(): Organ {
 	return {
 		name: "echo",
 		tools: [],
 		subscriptions: { motor: [] as const, sense: [] as const },
 		mount: (nerve: Nerve) => {
-			return nerve.sense.subscribe("dialog.message", (event) => {
+			return nerve.sense.subscribe("llm.input", (event) => {
 				nerve.motor.publish({
-					type: "dialog.message",
+					type: "llm.response",
 					payload: { text: `echo: ${event.payload.text}` },
 					correlationId: event.correlationId,
 				});
@@ -98,10 +98,10 @@ describe("Agent — load()", { tags: ["unit"] }, () => {
 			tools: [],
 			subscriptions: { motor: [] as const, sense: [] as const },
 			mount: (nerve: Nerve) => {
-				return nerve.sense.subscribe("dialog.message", (e) => {
+				return nerve.sense.subscribe("llm.input", (e) => {
 					capturedTools = (e.payload.tools as { name: string }[]) ?? [];
 					nerve.motor.publish({
-						type: "dialog.message",
+						type: "llm.response",
 						payload: { text: "ok" },
 						correlationId: e.correlationId,
 					});

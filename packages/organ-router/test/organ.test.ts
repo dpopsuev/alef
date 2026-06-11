@@ -7,11 +7,12 @@
  */
 
 import http from "node:http";
+
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createRouterOrgan } from "../src/organ.js";
 
-organComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1" }));
+organComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input" }));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -19,7 +20,7 @@ organComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1" }));
 
 /** Mount a RouterOrgan on a fresh NerveFixture. Returns { organ, fixture, unmount, baseUrl }. */
 async function setup(overrides: { port?: number; host?: string } = {}) {
-	const organ = createRouterOrgan({ port: 0, host: "127.0.0.1", ...overrides });
+	const organ = createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input", ...overrides });
 	const fixture = new NerveFixture();
 	const unmount = fixture.mount(organ);
 	await organ.ready();
@@ -123,7 +124,7 @@ function collectSseEvents(url: string, count: number, timeoutMs = 3000): Promise
 
 describe("RouterOrgan — lifecycle", { tags: ["compliance"] }, () => {
 	it("address() returns null before mount", async () => {
-		const organ = createRouterOrgan();
+		const organ = createRouterOrgan({ triggerEvent: "llm.input" });
 		expect(organ.address()).toBeNull();
 	});
 
@@ -141,7 +142,7 @@ describe("RouterOrgan — lifecycle", { tags: ["compliance"] }, () => {
 	});
 
 	it("subscriptions covers motor/* and sense/*", async () => {
-		const organ = createRouterOrgan();
+		const organ = createRouterOrgan({ triggerEvent: "llm.input" });
 		expect(organ.subscriptions.motor).toContain("*");
 		expect(organ.subscriptions.sense).toContain("*");
 	});
@@ -298,7 +299,7 @@ describe("RouterOrgan — POST /message", { tags: ["compliance"] }, () => {
 		try {
 			// Listen for the dialog.message motor event.
 			const received: unknown[] = [];
-			nerve.asNerve().motor.subscribe("dialog.message", (e) => {
+			nerve.asNerve().motor.subscribe("llm.response", (e) => {
 				received.push(e);
 			});
 
@@ -316,13 +317,13 @@ describe("RouterOrgan — POST /message", { tags: ["compliance"] }, () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
 			const publishedPromise = new Promise<unknown>((resolve) => {
-				nerve.asNerve().motor.subscribe("dialog.message", (e) => resolve(e));
+				nerve.asNerve().motor.subscribe("llm.response", (e) => resolve(e));
 			});
 
 			await post(`${baseUrl}/message`, { text: "do something" });
 
 			const event = (await publishedPromise) as Record<string, unknown>;
-			expect(event.type).toBe("dialog.message");
+			expect(event.type).toBe("llm.response");
 			const payload = event.payload as Record<string, unknown>;
 			expect(payload.role).toBe("user");
 			expect(payload.text).toBe("do something");
@@ -394,7 +395,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 	});
 
 	it("passes events matching an exact allowed type", async () => {
-		const organ = createRouterOrgan({ port: 0, allowedEvents: ["dialog.message"] });
+		const organ = createRouterOrgan({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
 		const fixture = new NerveFixture();
 		const unmount = fixture.mount(organ);
 		await organ.ready();
@@ -402,18 +403,16 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
-			fixture.nerve
-				.asNerve()
-				.motor.publish({ type: "dialog.message", payload: { text: "hi" }, correlationId: "c-1" });
+			fixture.nerve.asNerve().motor.publish({ type: "llm.response", payload: { text: "hi" }, correlationId: "c-1" });
 			const events = await eventsPromise;
-			expect((events[0] as Record<string, unknown>).type).toBe("dialog.message");
+			expect((events[0] as Record<string, unknown>).type).toBe("llm.response");
 		} finally {
 			unmount();
 		}
 	});
 
 	it("drops events not in the allowedEvents list", async () => {
-		const organ = createRouterOrgan({ port: 0, allowedEvents: ["dialog.message"] });
+		const organ = createRouterOrgan({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
 		const fixture = new NerveFixture();
 		const unmount = fixture.mount(organ);
 		await organ.ready();
@@ -439,18 +438,18 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 			await new Promise((r) => setTimeout(r, 30));
 			// Publish a blocked event then an allowed event.
 			fixture.nerve.asNerve().motor.publish({ type: "loop.detected", payload: {}, correlationId: "c-2" });
-			fixture.nerve.asNerve().motor.publish({ type: "dialog.message", payload: {}, correlationId: "c-3" });
+			fixture.nerve.asNerve().motor.publish({ type: "llm.response", payload: {}, correlationId: "c-3" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("loop.detected");
-			expect(full).toContain("dialog.message");
+			expect(full).toContain("llm.response");
 		} finally {
 			unmount();
 		}
 	});
 
 	it("passes events matching a wildcard pattern (fs.*)", async () => {
-		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"] });
+		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
 		const fixture = new NerveFixture();
 		const unmount = fixture.mount(organ);
 		await organ.ready();
@@ -470,7 +469,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 	});
 
 	it("drops events not matching wildcard (shell.exec blocked by fs.*)", async () => {
-		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"] });
+		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
 		const fixture = new NerveFixture();
 		const unmount = fixture.mount(organ);
 		await organ.ready();

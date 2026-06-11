@@ -8,7 +8,7 @@
  * Once wired, the TurnAssembler can read the full event history
  * and build accurate context windows without relying on DialogOrgan.history[].
  *
- * Not a CorpusOrgan — no tools, no subscriptions via defineOrgan.
+ * Not a organ — no tools, no subscriptions via defineOrgan.
  * Implements Organ directly (same as EvaluatorOrgan).
  *
  */
@@ -17,7 +17,7 @@ import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
+
 import { trace } from "./debug-trace.js";
 import { redactPayload } from "./redact.js";
 import { type BusKind, hashRecord, type SessionStore } from "./session-store.js";
@@ -58,7 +58,7 @@ export class SessionLog implements Organ {
 		const toolCounts = new Map<string, number>();
 
 		const offAgg1 = nerve.motor.subscribe("*", (event) => {
-			if (event.type === DIALOG_MESSAGE) {
+			if (event.type === "llm.response") {
 				turns++;
 				const u = (event.payload as { usage?: { input?: number; output?: number } }).usage;
 				if (u) {

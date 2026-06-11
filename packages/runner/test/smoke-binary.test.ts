@@ -165,7 +165,7 @@ function collectReply(baseUrl: string, expected: string, timeoutMs = 15_000): Pr
 								type?: string;
 								payload?: { text?: string };
 							};
-							if (ev.bus === "motor" && ev.type === "dialog.message" && ev.payload?.text === expected) {
+							if (ev.bus === "motor" && ev.type === "llm.response" && ev.payload?.text === expected) {
 								clearTimeout(timer);
 								res.destroy();
 								resolve();
@@ -179,7 +179,7 @@ function collectReply(baseUrl: string, expected: string, timeoutMs = 15_000): Pr
 }
 
 /**
- * Collect all SSE events until a dialog.message reply matching `expected` arrives.
+ * Collect all SSE events until a llm.response reply matching `expected` arrives.
  * Resolves with the full event list so callers can inspect intermediate events.
  */
 function collectEventsUntilReply(baseUrl: string, expected: string, timeoutMs = 15_000): Promise<unknown[]> {
@@ -200,7 +200,7 @@ function collectEventsUntilReply(baseUrl: string, expected: string, timeoutMs = 
 							const ev = JSON.parse(line.slice(6));
 							events.push(ev);
 							const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-							if (e.bus === "motor" && e.type === "dialog.message" && e.payload?.text === expected) {
+							if (e.bus === "motor" && e.type === "llm.response" && e.payload?.text === expected) {
 								clearTimeout(timer);
 								res.destroy();
 								resolve(events);

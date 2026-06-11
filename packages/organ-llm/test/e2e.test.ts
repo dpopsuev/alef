@@ -1,5 +1,5 @@
 /**
- * organ-llm real-LLM E2E — proves the Cerebrum turn loop.
+ * organ-llm real-LLM E2E — proves the LLM turn loop.
  *
  * Uses a stub tool that returns a fixed unguessable token so the test
  * verifies tool dispatch, result injection into context, and LLM reply —
@@ -12,21 +12,23 @@ import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-describe.skipIf(!HAVE_REAL_LLM)("organ-llm — real LLM E2E (Cerebrum turn loop)", { tags: ["real-llm"] }, () => {
-	it("Cerebrum dispatches a tool call and uses the result in its reply", async () => {
+describe.skipIf(!HAVE_REAL_LLM)("organ-llm — real LLM E2E", { tags: ["real-llm"] }, () => {
+	it("LLM organ dispatches a tool call and uses the result in its reply", async () => {
 		const token = randomUUID();
 
 		const tokenOrgan = defineOrgan(
 			"token",
 			{
-				"motor/token.get": typedAction(
-					{
-						name: "token.get",
-						description: "Returns the secret token. Call this tool to retrieve it.",
-						inputSchema: z.object({}),
-					},
-					async () => withDisplay({ token }, { text: token, mimeType: "text/plain" }),
-				),
+				motor: {
+					"token.get": typedAction(
+						{
+							name: "token.get",
+							description: "Returns the secret token. Call this tool to retrieve it.",
+							inputSchema: z.object({}),
+						},
+						async () => withDisplay({ token }, { text: token, mimeType: "text/plain" }),
+					),
+				},
 			},
 			{
 				description: "Provides a secret token via token.get.",

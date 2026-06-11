@@ -1,5 +1,4 @@
 export {
-	DIALOG_MESSAGE,
 	DialogOrgan,
 	type DialogOrganOptions,
 	type MessageSink,

@@ -1,11 +1,17 @@
 /**
  * ReadOnly evaluations — ToolLevel: ReadOnly
  * Agent reads code and produces analysis.
- * mustNotUse: fs.write, fs.edit — no mutations.
+ *
+ * expects: the agent must have read specific files (any read tool satisfies this).
+ * mustNotUse: no mutations allowed.
+ * checker: validates the specific answer — proves the file was actually read.
  */
 
 import { replyContains } from "../checker.js";
 import type { Evaluation } from "../evaluation.js";
+
+const READ_TOOLS = ["fs.read", "lector.read"] as const;
+const WRITE_TOOLS = ["fs.write", "fs.edit", "lector.write", "lector.edit"] as const;
 
 const HTTP_SERVER = `
 import http from "node:http";
@@ -76,10 +82,8 @@ export const planRefactoring: Evaluation = {
 	prompt:
 		"Read src/server.ts. Identify 2-3 concrete refactoring opportunities. " +
 		"For each: state what to change and why. Be specific about line numbers and function names.",
-	mustUse: ["fs.read"],
-	mustNotUse: ["fs.write", "fs.edit"],
-	// Checker requires generic refactoring terms, not the specific function name.
-	// The LLM may describe createServer as 'the server function' or 'the handler'.
+	expects: [{ tool: READ_TOOLS, target: { path: "src/server.ts" } }],
+	mustNotUse: [...WRITE_TOOLS],
 	checker: replyContains("refactor", "extract"),
 };
 
@@ -91,8 +95,8 @@ export const auditModule: Evaluation = {
 	prompt:
 		"Read src/utils.ts. Identify any dead code — functions defined but never called " +
 		"within this file. List the function names.",
-	mustUse: ["fs.read"],
-	mustNotUse: ["fs.write", "fs.edit"],
+	expects: [{ tool: READ_TOOLS, target: { path: "src/utils.ts" } }],
+	mustNotUse: [...WRITE_TOOLS],
 	checker: replyContains("_internalHelper"),
 };
 
@@ -111,8 +115,11 @@ export const blastRadius: Evaluation = {
 	prompt:
 		"Read src/auth.ts and src/api.ts. If I rename 'login' to 'authenticate' in auth.ts, " +
 		"which files and lines would need to change?",
-	mustUse: ["fs.read"],
-	mustNotUse: ["fs.write", "fs.edit"],
+	expects: [
+		{ tool: READ_TOOLS, target: { path: "src/auth.ts" } },
+		{ tool: READ_TOOLS, target: { path: "src/api.ts" } },
+	],
+	mustNotUse: [...WRITE_TOOLS],
 	checker: replyContains("api.ts"),
 };
 
@@ -131,7 +138,10 @@ export const contextWarming: Evaluation = {
 	prompt:
 		"Read src/types.ts and src/order.ts. What does totalItems() return for an order " +
 		"with two items of quantity 3 and 5?",
-	mustUse: ["fs.read"],
-	mustNotUse: ["fs.write", "fs.edit"],
+	expects: [
+		{ tool: READ_TOOLS, target: { path: "src/types.ts" } },
+		{ tool: READ_TOOLS, target: { path: "src/order.ts" } },
+	],
+	mustNotUse: [...WRITE_TOOLS],
 	checker: replyContains("8"),
 };

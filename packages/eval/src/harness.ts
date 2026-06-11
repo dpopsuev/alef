@@ -17,7 +17,7 @@ import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExecutionStrategy, Organ } from "@dpopsuev/alef-kernel";
-import { DIALOG_MESSAGE, DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { defaultEvalOrgans } from "./default-organs.js";
@@ -110,12 +110,12 @@ export interface HarnessOptions {
 	keepWorkspace?: boolean;
 	/**
 	 * Factory for abort-aware extra organs. Called inside run() with the Agent's
-	 * AbortSignal so organs (e.g. Cerebrum) can cancel in-flight HTTP requests
+	 * AbortSignal so organs (e.g. organ-llm) can cancel in-flight HTTP requests
 	 * when the agent disposes. Prefer this over extraOrgans when the organ
 	 * needs an AbortSignal.
 	 *
 	 * @example
-	 * organFactory: (signal) => [new Cerebrum({ model, getSignal: () => signal })]
+	 * organFactory: (signal) => [createAgentLoop({ model, getSignal: () => signal })]
 	 */
 	organFactory?: (signal: AbortSignal) => Organ[];
 	/**
@@ -125,9 +125,9 @@ export interface HarnessOptions {
 	 */
 	asyncOrganFactory?: (workspace: string, signal: AbortSignal) => Promise<Organ[]>;
 	/**
-	 * Override the tool list passed to Cerebrum.
-	 * Default: () => agent.tools. Pass via organFactory to Cerebrum.getTools instead.
-	 * @deprecated Pass getTools directly in the organFactory Cerebrum options.
+	 * Override the tool list passed to organ-llm.
+	 * Default: () => agent.tools. Pass via organFactory to organ-llm getTools instead.
+	 * @deprecated Pass getTools directly in the organFactory organ-llm options.
 	 */
 	getTools?: () => readonly { name: string; description: string; inputSchema: unknown }[];
 	/**
@@ -257,7 +257,7 @@ export class EvalHarness {
 		// Motor start times keyed by correlationId for round-trip elapsed computation.
 		const motorTimes = new Map<string, number>();
 		// Events whose payloads are too large to capture verbatim.
-		const SKIP_BUS_EVENTS = new Set([DIALOG_MESSAGE, "llm.phase"]);
+		const SKIP_BUS_EVENTS = new Set(["llm.response", "llm.phase"]);
 
 		const transcriptObserver = agent.observe({
 			onMotorEvent(event) {
@@ -266,7 +266,7 @@ export class EvalHarness {
 					correlationId?: string;
 					payload?: Record<string, unknown>;
 				};
-				if (p.type === DIALOG_MESSAGE && Array.isArray(p.payload?.conversationHistory)) {
+				if (p.type === "llm.response" && Array.isArray(p.payload?.conversationHistory)) {
 					transcript = p.payload.conversationHistory as Array<Record<string, unknown>>;
 				}
 				if (!SKIP_BUS_EVENTS.has(p.type ?? "")) {

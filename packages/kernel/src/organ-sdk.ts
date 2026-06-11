@@ -1,6 +1,6 @@
 import type { ZodTypeAny, z } from "zod";
 import type { ToolDefinition } from "./buses.js";
-import type { CorpusAction, CorpusHandlerCtx, OrganLogger, OrganOptions, StreamingCorpusAction } from "./framework.js";
+import type { MotorAction, MotorHandlerCtx, OrganLogger, OrganOptions } from "./framework.js";
 import { typedAction, typedStreamAction } from "./framework.js";
 import { type SenseDisplayBlock, withDisplay } from "./payload.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
@@ -32,11 +32,11 @@ export function spreadOrganOptions<T extends BaseOrganOptions>(opts: T): Pick<Or
 export interface OrganTool<TSchema extends ZodTypeAny> extends ToolDefinition {
 	readonly inputSchema: TSchema;
 	action(
-		handle: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
-	): Record<string, CorpusAction>;
+		handle: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
+	): Record<string, MotorAction>;
 	stream(
-		generate: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
-	): Record<string, StreamingCorpusAction>;
+		generate: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
+	): Record<string, MotorAction>;
 }
 
 export function tool<TSchema extends ZodTypeAny>(
@@ -61,12 +61,12 @@ export function directive(...lines: string[]): string[] {
 }
 
 export function cachePolicy(
-	action: CorpusAction,
+	action: MotorAction,
 	policy: {
-		shouldCache?: (ctx: CorpusHandlerCtx, result: Record<string, unknown>) => boolean;
-		invalidates?: (ctx: CorpusHandlerCtx) => string[];
+		shouldCache?: (ctx: MotorHandlerCtx, result: Record<string, unknown>) => boolean;
+		invalidates?: (ctx: MotorHandlerCtx) => string[];
 	},
-): CorpusAction {
+): MotorAction {
 	return { ...action, ...policy };
 }
 

@@ -193,7 +193,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 
 	/** Assert no tools were called (reply-only turn). */
 	assertNoToolsCalled(): void {
-		const toolEvents = this.recorder.motor.filter((e) => e.type !== "dialog.message");
+		const toolEvents = this.recorder.motor.filter((e) => e.type !== "llm.response");
 		if (toolEvents.length > 0) {
 			const names = [...new Set(toolEvents.map((e) => e.type))].join(", ");
 			throw new Error(`Expected no tool calls, but got: [${names}]`);

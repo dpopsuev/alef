@@ -202,7 +202,7 @@ describe("spinnerFrames — locale-aware", { tags: ["unit"] }, () => {
 
 import { boldColor } from "../src/theme.js";
 
-describe("boldColor() — raw ANSI, fg-only reset (ALE-BUG-19)", { tags: ["unit"] }, () => {
+describe("boldColor() — raw ANSI, fg-only reset", { tags: ["unit"] }, () => {
 	beforeEach(() => {
 		process.env.COLORTERM = "truecolor";
 	});

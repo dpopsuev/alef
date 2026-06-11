@@ -19,17 +19,19 @@ describe("defineOrgan — schema validation contract", { tags: ["unit"] }, () =>
 		const organ = defineOrgan(
 			"schema-test",
 			{
-				"motor/schema.op": typedAction(
-					{
-						name: "schema.op",
-						description: "Op requiring a non-null text field.",
-						inputSchema: z.object({ text: z.string() }),
-					},
-					async () => {
-						handleCalled = true;
-						return { ok: true };
-					},
-				),
+				motor: {
+					"schema.op": typedAction(
+						{
+							name: "schema.op",
+							description: "Op requiring a non-null text field.",
+							inputSchema: z.object({ text: z.string() }),
+						},
+						async () => {
+							handleCalled = true;
+							return { ok: true };
+						},
+					),
+				},
 			},
 			{
 				description: "Schema validation test organ.",
@@ -71,17 +73,19 @@ describe("defineOrgan — schema validation contract", { tags: ["unit"] }, () =>
 		const organ = defineOrgan(
 			"schema-test-ok",
 			{
-				"motor/schema.ok": typedAction(
-					{
-						name: "schema.ok",
-						description: "Op requiring a text field.",
-						inputSchema: z.object({ text: z.string() }),
-					},
-					async (ctx) => {
-						handleCalled = true;
-						return { echo: ctx.payload.text };
-					},
-				),
+				motor: {
+					"schema.ok": typedAction(
+						{
+							name: "schema.ok",
+							description: "Op requiring a text field.",
+							inputSchema: z.object({ text: z.string() }),
+						},
+						async (ctx) => {
+							handleCalled = true;
+							return { echo: ctx.payload.text };
+						},
+					),
+				},
 			},
 			{
 				description: "Schema validation happy-path organ.",

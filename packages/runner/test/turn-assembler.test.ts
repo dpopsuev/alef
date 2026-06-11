@@ -23,7 +23,7 @@ function makeTurn(
 		events: [
 			{
 				bus: "motor",
-				type: "dialog.message",
+				type: "llm.response",
 				correlationId: id,
 				payload: { text: opts.payload ?? "" },
 				timestamp: Date.now(),
@@ -254,7 +254,7 @@ function makeDialogTurn(
 		typeWeight: 0.8,
 		events: events.map((e) => ({
 			bus: e.bus,
-			type: "dialog.message",
+			type: "llm.response",
 			correlationId: id,
 			payload: e.payload,
 			timestamp: Date.now(),
@@ -263,7 +263,7 @@ function makeDialogTurn(
 }
 
 describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"] }, () => {
-	it("returns conversationHistory from the most recent motor/dialog.message", () => {
+	it("returns conversationHistory from the most recent motor/llm.response", () => {
 		const history = [
 			{ role: "user", content: "Read the file" },
 			{ role: "assistant", content: [{ type: "toolCall", id: "t1" }] },
@@ -315,7 +315,7 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 		expect(result[1]).toMatchObject({ role: "user", content: "[assistant] hi" });
 	});
 
-	it("reconstructs context from tool-call events when no dialog.message exists (aborted turn)", () => {
+	it("reconstructs context from tool-call events when no llm.response exists (aborted turn)", () => {
 		const turn: Turn = {
 			id: "c-0",
 			turnIndex: 0,
@@ -330,10 +330,10 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 });
 
 // ---------------------------------------------------------------------------
-// Abort-before-dialog.message — the dementia regression (ALE-BUG-46)
+// Abort-before-llm.response — the dementia regression (ALE-BUG-46)
 //
 // When the user interrupts after tool calls complete but before the Reasoner
-// publishes motor/dialog.message, the turn has completed tool events in the
+// publishes motor/llm.response, the turn has completed tool events in the
 // JSONL but no conversationHistory checkpoint. turnsToMessages currently
 // returns [] for such turns, causing the next LLM call to have no memory of
 // the tool work done (verified in debug trace 2026-05-31 session 0ccbc171).
@@ -350,12 +350,12 @@ function makeAbortedTurn(
 		{ bus: "motor" as const, type, correlationId: id, payload: motorPayload, timestamp: Date.now() },
 		{ bus: "sense" as const, type, correlationId: id, payload: sensePayload, timestamp: Date.now() },
 	]);
-	// No motor/dialog.message — simulates abort before Reasoner published the checkpoint.
+	// No motor/llm.response — simulates abort before Reasoner published the checkpoint.
 	return { id, turnIndex: index, tokenCost: 200, typeWeight: 2.0, events };
 }
 
-describe("turnsToMessages — aborted turn, ALE-BUG-46", { tags: ["unit"] }, () => {
-	it("non-empty result when turn has completed tool calls but no dialog.message", () => {
+describe("turnsToMessages — aborted turn", { tags: ["unit"] }, () => {
+	it("non-empty result when turn has completed tool calls but no llm.response", () => {
 		// Mirrors the 2026-05-31 session: 7 fs.write calls completed, then abort.
 		const turn = makeAbortedTurn("abort-1", 0, [
 			{
@@ -369,7 +369,7 @@ describe("turnsToMessages — aborted turn, ALE-BUG-46", { tags: ["unit"] }, () 
 				sensePayload: { applied: true, toolCallId: "tc2" },
 			},
 		]);
-		// FAIL currently: turnsToMessages returns [] — no dialog.message found.
+		// FAIL currently: turnsToMessages returns [] — no llm.response found.
 		// PASS after fix: returns at least the tool work as context.
 		const result = turnsToMessages([turn]);
 		expect(result.length).toBeGreaterThan(0);
@@ -404,7 +404,7 @@ describe("turnsToMessages — aborted turn, ALE-BUG-46", { tags: ["unit"] }, () 
 				},
 			},
 		]);
-		// Then an aborted turn with file writes but no dialog.message.
+		// Then an aborted turn with file writes but no llm.response.
 		const abortedTurn = makeAbortedTurn("abort-3", 1, [
 			{
 				type: "fs.write",
@@ -436,7 +436,7 @@ defineFeature("prepareStep context-window selection", (f) => {
 		let currentMsg: Msg;
 		let result: Msg[];
 
-		s.Given("a motor/dialog.message event in JSONL carries conversationHistory with tool blocks", () => {
+		s.Given("a motor/llm.response event in JSONL carries conversationHistory with tool blocks", () => {
 			conversationHistory = [
 				{ role: "user", content: "Read the file" },
 				{ role: "assistant", content: [{ type: "toolCall", id: "t1", toolName: "fs.read" }] },
@@ -470,7 +470,7 @@ defineFeature("prepareStep context-window selection", (f) => {
 		let currentMsg: Msg;
 		let result: Msg[];
 
-		s.Given("motor/dialog.message events in JSONL have no conversationHistory field", () => {
+		s.Given("motor/llm.response events in JSONL have no conversationHistory field", () => {
 			projected = [
 				{ role: "user", content: "turn 1 text" },
 				{ role: "assistant", content: "turn 1 reply" },

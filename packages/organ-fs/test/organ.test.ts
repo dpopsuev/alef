@@ -24,7 +24,7 @@ function fixture() {
 	return f;
 }
 
-describe("FsCorpusOrgan", { tags: ["compliance"] }, () => {
+describe("Fsorgan", { tags: ["compliance"] }, () => {
 	it("has name=fs and 6 tools", () => {
 		const organ = createFsOrgan({ cwd: testDir });
 		expect(organ.name).toBe("fs");

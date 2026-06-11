@@ -1,4 +1,4 @@
-import type { Api, Model } from "@dpopsuev/alef-ai";
+import type { Api, Model } from "@dpopsuev/alef-llm";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { Agent } from "@dpopsuev/alef-runtime";
@@ -25,7 +25,6 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		const llm = createAgentLoop({
 			model: opts.model,
 			timeoutMs: 60_000,
-			getTools: () => agent.tools,
 			systemPrompt,
 			trackConcurrentOps: opts.trackConcurrentOps,
 			onEvent: chunkHandler

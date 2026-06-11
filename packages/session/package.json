@@ -21,7 +21,7 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@dpopsuev/alef-ai": "^0.0.1",
+    "@dpopsuev/alef-llm": "^0.0.1",
     "@dpopsuev/alef-kernel": "^0.0.1"
   },
   "devDependencies": {

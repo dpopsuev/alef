@@ -10,7 +10,7 @@
  * Fix: pass getFullTools (full schemas) to the LLM organ so toOuterTimeoutMs
  * can read the schema default even when the ToolShell has stripped the schema.
  */
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
+import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { afterEach, describe, expect, it } from "vitest";
@@ -65,9 +65,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		agent.load(delegateOrgan);
 
 		// ToolShell: currentMetaTools() strips agent.run schema → z.object({})
-		// eslint-disable-next-line prefer-const
-		let toolShell!: ReturnType<typeof createToolShellOrgan>;
-		toolShell = createToolShellOrgan({
+		const toolShell = createToolShellOrgan({
 			tools: agent.tools,
 			getTools: () => agent.tools,
 		});
@@ -77,8 +75,6 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		const outerLlm = createAgentLoop({
 			model: outerFaux.getModel(),
 			timeoutMs: HTTP_TIMEOUT_MS,
-			// Stripped schemas — this is what ToolShell serves for unpromoted tools
-			getTools: () => toolShell.currentMetaTools(),
 			// Full schemas — used by toOuterTimeoutMs to read the 600s default
 			schemaResolver: (name) => agent.tools.find((t) => t.name === name),
 		});
@@ -127,9 +123,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 
 		agent.load(delegateOrgan);
 
-		// eslint-disable-next-line prefer-const
-		let toolShell!: ReturnType<typeof createToolShellOrgan>;
-		toolShell = createToolShellOrgan({
+		const toolShell = createToolShellOrgan({
 			tools: agent.tools,
 			getTools: () => agent.tools,
 		});
@@ -139,7 +133,6 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		const outerLlm = createAgentLoop({
 			model: outerFaux.getModel(),
 			timeoutMs: HTTP_TIMEOUT_MS,
-			getTools: () => toolShell.currentMetaTools(),
 			// getFullTools intentionally absent — bug path
 		});
 

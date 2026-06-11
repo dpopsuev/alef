@@ -1,7 +1,7 @@
-import type { AgentMessage, AgentTool } from "@dpopsuev/alef-agent-core";
-import type { ToolResultMessage } from "@dpopsuev/alef-ai";
+import type { ToolResultMessage } from "@dpopsuev/alef-llm";
 import { html, LitElement } from "lit";
 import { property, state } from "lit/decorators.js";
+import type { AgentMessage, AgentTool } from "../agent-types.js";
 
 export class StreamingMessageContainer extends LitElement {
 	@property({ type: Array }) tools: AgentTool[] = [];

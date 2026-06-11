@@ -71,6 +71,8 @@ export interface OrchestrationOrganOptions {
 	 * the child as a named delegation target.
 	 */
 	onChildReady?: (name: string, strategy: ExecutionStrategy) => void;
+	/** Event type to wait for as the child's reply. Provided by assembly. */
+	replyEvent: string;
 }
 
 const RUNNER_MAIN = new URL("../../runner/src/main.ts", import.meta.url).pathname;
@@ -127,7 +129,7 @@ function healthCheck(endpoint: string): Promise<boolean> {
 	});
 }
 
-export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): Organ {
+export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ {
 	const cwd = opts.cwd ?? process.cwd();
 	const readinessTimeoutMs = opts.readinessTimeoutMs ?? 30_000;
 	const children = new Map<string, ChildEntry>();
@@ -186,7 +188,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 			rejectStall?.(new Error(`orchestration.ask: child '${childName}' exceeded maxMs (${maxMs}ms)`));
 		}, maxMs);
 
-		const strategy = new RemoteProcessStrategy(entry.endpoint, () => watchdog.reset());
+		const strategy = new RemoteProcessStrategy(entry.endpoint, opts.replyEvent, () => watchdog.reset());
 		try {
 			const reply = await Promise.race([
 				strategy.send({ text: prompt, sender: "human", timeoutMs: maxMs }),
@@ -309,7 +311,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 		};
 		children.set(name, entry);
 
-		const strategy = new RemoteProcessStrategy(ready.endpoint, () => mountedNerve?.pulse());
+		const strategy = new RemoteProcessStrategy(ready.endpoint, opts.replyEvent, () => mountedNerve?.pulse());
 		opts.onChildReady?.(name, strategy);
 
 		child.once("exit", (code) => {
@@ -466,12 +468,14 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions = {}): 
 	return defineOrgan(
 		"orchestration",
 		{
-			"motor/orchestration.spawn": typedAction(SPAWN_TOOL, handleSpawn),
-			"motor/orchestration.ask": typedAction(ASK_TOOL, handleAsk),
-			"motor/orchestration.kill": typedAction(KILL_TOOL, handleKill),
-			"motor/orchestration.list": { tool: LIST_TOOL, handle: handleList },
-			"motor/orchestration.status": typedAction(STATUS_TOOL, handleStatus),
-			"motor/orchestration.promote": typedAction(PROMOTE_TOOL, async (ctx) => handlePromote(ctx)),
+			motor: {
+				"orchestration.spawn": typedAction(SPAWN_TOOL, handleSpawn),
+				"orchestration.ask": typedAction(ASK_TOOL, handleAsk),
+				"orchestration.kill": typedAction(KILL_TOOL, handleKill),
+				"orchestration.list": typedAction(LIST_TOOL, handleList),
+				"orchestration.status": typedAction(STATUS_TOOL, handleStatus),
+				"orchestration.promote": typedAction(PROMOTE_TOOL, async (ctx) => handlePromote(ctx)),
+			},
 		},
 		{
 			logger: opts.logger,

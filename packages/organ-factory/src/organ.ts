@@ -119,14 +119,16 @@ function buildOrganScaffold(
 		`\t};`,
 		``,
 		`\treturn defineOrgan("${namespace}", {`,
-		`\t\t"motor/${toolName}": typedAction(TOOL, async (ctx) => {`,
-		`\t\t\tconst { ${fieldNames} } = ctx.payload;`,
-		`\t\t\t// TODO: implement`,
-		`\t\t\treturn withDisplay(`,
-		`\t\t\t\t{ ${fieldNames} },`,
-		`\t\t\t\t{ text: \`${toolName}: not yet implemented\`, mimeType: "text/plain" },`,
-		`\t\t\t);`,
-		`\t\t}),`,
+		`\t\tmotor: {`,
+		`\t\t\t"${toolName}": typedAction(TOOL, async (ctx) => {`,
+		`\t\t\t\tconst { ${fieldNames} } = ctx.payload;`,
+		`\t\t\t\t// TODO: implement`,
+		`\t\t\t\treturn withDisplay(`,
+		`\t\t\t\t\t{ ${fieldNames} },`,
+		`\t\t\t\t\t{ text: \`${toolName}: not yet implemented\`, mimeType: "text/plain" },`,
+		`\t\t\t\t);`,
+		`\t\t\t}),`,
+		`\t\t},`,
 		`\t}, {`,
 		`\t\tdescription: "${description}",`,
 		`\t\tdirectives: ["Use ${toolName} to ${descLower}."],`,
@@ -148,46 +150,50 @@ export function createFactoryOrgan(options: FactoryOrganOptions = {}): Organ {
 	return defineOrgan(
 		"factory",
 		{
-			"motor/factory.organ": typedAction(ORGAN_TOOL, async (ctx) => {
-				const { name, toolName, description, inputFields } = ctx.payload;
-				const fields: Record<string, FieldType> = (inputFields as Record<string, FieldType>) ?? { input: "string" };
+			motor: {
+				"factory.organ": typedAction(ORGAN_TOOL, async (ctx) => {
+					const { name, toolName, description, inputFields } = ctx.payload;
+					const fields: Record<string, FieldType> = (inputFields as Record<string, FieldType>) ?? {
+						input: "string",
+					};
 
-				mkdirSync(PROTOTYPES_DIR, { recursive: true });
-				const targetPath = join(PROTOTYPES_DIR, `${name}.ts`);
-				const scaffold = buildOrganScaffold(name, toolName, description, fields);
-				writeFileSync(targetPath, scaffold, "utf-8");
+					mkdirSync(PROTOTYPES_DIR, { recursive: true });
+					const targetPath = join(PROTOTYPES_DIR, `${name}.ts`);
+					const scaffold = buildOrganScaffold(name, toolName, description, fields);
+					writeFileSync(targetPath, scaffold, "utf-8");
 
-				return withDisplay(
-					{
-						path: targetPath,
-						name,
-						toolName,
-						next: `prototype.plug({ path: "${targetPath}" })`,
-					},
-					{ text: `Organ scaffold written: ${targetPath}`, mimeType: "text/plain" },
-				);
-			}),
-			"motor/factory.blueprint": typedAction(BLUEPRINT_TOOL, async (ctx) => {
-				const { name, description, organs, model, outputPath } = ctx.payload;
+					return withDisplay(
+						{
+							path: targetPath,
+							name,
+							toolName,
+							next: `prototype.plug({ path: "${targetPath}" })`,
+						},
+						{ text: `Organ scaffold written: ${targetPath}`, mimeType: "text/plain" },
+					);
+				}),
+				"factory.blueprint": typedAction(BLUEPRINT_TOOL, async (ctx) => {
+					const { name, description, organs, model, outputPath } = ctx.payload;
 
-				const defaultDir = join(homedir(), ".config", "alef", "agents");
-				const targetPath = outputPath ? resolve(cwd, outputPath) : join(defaultDir, `${name}.yaml`);
+					const defaultDir = join(homedir(), ".config", "alef", "agents");
+					const targetPath = outputPath ? resolve(cwd, outputPath) : join(defaultDir, `${name}.yaml`);
 
-				mkdirSync(dirname(targetPath), { recursive: true });
+					mkdirSync(dirname(targetPath), { recursive: true });
 
-				const blueprint = buildBlueprint(name, description, organs, model);
-				writeFileSync(targetPath, toYaml(blueprint), "utf-8");
+					const blueprint = buildBlueprint(name, description, organs, model);
+					writeFileSync(targetPath, toYaml(blueprint), "utf-8");
 
-				return withDisplay(
-					{
-						path: targetPath,
-						name,
-						organs,
-						next: `orchestration.spawn({ blueprintPath: "${targetPath}" })`,
-					},
-					{ text: `Blueprint written: ${targetPath}`, mimeType: "text/plain" },
-				);
-			}),
+					return withDisplay(
+						{
+							path: targetPath,
+							name,
+							organs,
+							next: `orchestration.spawn({ blueprintPath: "${targetPath}" })`,
+						},
+						{ text: `Blueprint written: ${targetPath}`, mimeType: "text/plain" },
+					);
+				}),
+			},
 		},
 		{
 			description: "Agent factory: scaffold new organs and write agent blueprints.",

@@ -2,20 +2,20 @@
  * ALE-TSK-565: E2E delegation test
  *
  * Exercises: motor/agent.run → organ-delegate → InProcessStrategy
- *   → inner Cerebrum (faux inner LLM) → sense/agent.run with reply text
- *   → outer Cerebrum turn 2 receives toolResult → final dialog.message
+ *   → inner organ-llm (faux inner LLM) → sense/agent.run with reply text
+ *   → outer organ-llm turn 2 receives toolResult → final llm.response
  */
-import type { Api, Model } from "@dpopsuev/alef-ai";
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai";
 
 import { defineOrgan, typedStreamAction } from "@dpopsuev/alef-kernel";
+import type { Api, Model } from "@dpopsuev/alef-llm";
+import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { Agent } from "../../runtime/src/index.js";
-import { DIALOG_MESSAGE_TOOL, NerveFixture, TurnDriver } from "../../testkit/src/index.js";
+import { NerveFixture, TurnDriver } from "../../testkit/src/index.js";
 import { InProcessStrategy, type SubagentFactory } from "../src/strategies/in-process.js";
 
 function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): SubagentFactory {
@@ -31,7 +31,6 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 		const llm = createAgentLoop({
 			model,
 			apiKey: "test-key",
-			getTools: () => agent.tools,
 			systemPrompt: mergedPrompt,
 			onEvent: onChunk
 				? (e) => {
@@ -78,7 +77,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// Organ-delegate with the inner strategy registered as 'explore'
 		const delegateOrgan = createDelegateOrgan({ strategies: { explore: innerStrategy } });
 
-		// Outer NerveFixture: outer Cerebrum + delegate organ
+		// Outer NerveFixture: outer organ-llm + delegate organ
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve);
@@ -87,7 +86,6 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
 				onEvent: (e) => capturedEvents.push(e.type),
 			}),
 		);
@@ -144,7 +142,6 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
 				onEvent: (e) => {
 					if (e.type === "tool-end") capturedEnds.push({ ok: e.ok });
 				},
@@ -170,7 +167,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 
 	it("inner agent tool activity streams as tool-chunk events to the outer agent", async () => {
 		// Given: outer LLM calls agent.run; inner LLM calls a streaming organ;
-		// the inner organ's chunks must surface as tool-chunk events on the outer Cerebrum.
+		// the inner organ's chunks must surface as tool-chunk events on the outer organ-llm.
 		const outerFaux = registerFauxProvider();
 		const innerFaux = registerFauxProvider();
 		disposes.push(
@@ -182,17 +179,19 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const readerOrgan = defineOrgan(
 			"reader",
 			{
-				"motor/reader.scan": typedStreamAction(
-					{
-						name: "reader.scan",
-						description: "Scan files and stream findings.",
-						inputSchema: z.object({ path: z.string().min(1) }),
-					},
-					async function* () {
-						yield { text: "found: packages/spine" };
-						yield { text: "found: packages/runner", result: "scan complete" };
-					},
-				),
+				motor: {
+					"reader.scan": typedStreamAction(
+						{
+							name: "reader.scan",
+							description: "Scan files and stream findings.",
+							inputSchema: z.object({ path: z.string().min(1) }),
+						},
+						async function* () {
+							yield { text: "found: packages/spine" };
+							yield { text: "found: packages/runner", result: "scan complete" };
+						},
+					),
+				},
 			},
 			{
 				description: "Streaming reader stub for E2E delegation test.",
@@ -212,7 +211,6 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
 				onEvent: (e) => {
 					if (e.type === "tool-chunk") outerChunks.push(e.text);
 				},
@@ -245,7 +243,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 //
 // Organ-level stream isolation is tested in organ-delegate/test/delegate.test.ts.
 // These tests cover the additional layer: dispatchTools binding tc.id into onChunk
-// so callId flows correctly through the outer Cerebrum's CerebrumEvent stream.
+// so callId flows correctly through the outer organ-llm's LlmEvent stream.
 // ---------------------------------------------------------------------------
 
 describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () => {
@@ -280,7 +278,6 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
 				onEvent: (e) => {
 					if (e.type === "tool-chunk") capturedChunks.push({ callId: e.callId, text: e.text });
 				},
@@ -333,7 +330,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		// Strategy that hangs long enough for stall to fire then resolves.
 		// stallIntervalMs in waitForToolResult is 5s by default; we can't override from here,
 		// so we verify isolation via callId rather than timing.
-		// Instead: emits one chunk immediately so the outer Cerebrum sees activity.
+		// Instead: emits one chunk immediately so the outer organ-llm sees activity.
 		// The key assertion is that each chunk's callId matches the call that produced it.
 		const identityStrategy = {
 			async send({ text, onChunk }: import("@dpopsuev/alef-kernel").SendRequest) {
@@ -353,7 +350,6 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 			createAgentLoop({
 				model: outerFaux.getModel(),
 				apiKey: "outer-key",
-				getTools: () => [DIALOG_MESSAGE_TOOL, ...delegateOrgan.tools],
 				onEvent: (e) => {
 					if (e.type === "tool-chunk") capturedChunks.push({ callId: e.callId, text: e.text });
 				},

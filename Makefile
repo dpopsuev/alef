@@ -85,3 +85,11 @@ verify: ## Strong local gate: npm ci + build + check (single recipe; safe with m
 	$(NPM) ci
 	$(NPM) run build
 	$(NPM) run check
+
+.PHONY: test-canary
+test-canary: ## Canary: boot runner + send Hello, assert non-empty reply (requires API key)
+	cd packages/alef-coding-agent && ALEF_E2E_TESTS=1 npx vitest run --reporter=verbose --tags-filter=canary
+
+.PHONY: test-real-llm
+test-real-llm: ## Full real-LLM eval suite in alef-coding-agent (requires API key)
+	cd packages/alef-coding-agent && npx vitest run --reporter=verbose --tags-filter=real-llm

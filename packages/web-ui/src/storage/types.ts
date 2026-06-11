@@ -1,5 +1,5 @@
-import type { AgentMessage, ThinkingLevel } from "@dpopsuev/alef-agent-core";
-import type { Model } from "@dpopsuev/alef-ai";
+import type { Model } from "@dpopsuev/alef-llm";
+import type { AgentMessage, ThinkingLevel } from "../agent-types.js";
 
 /**
  * Transaction interface for atomic operations across stores.

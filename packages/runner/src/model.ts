@@ -6,7 +6,7 @@ import {
 	getProviders,
 	type KnownProvider,
 	type Model,
-} from "@dpopsuev/alef-ai";
+} from "@dpopsuev/alef-llm";
 import type { Args } from "./args.js";
 import type { AlefConfig } from "./config.js";
 import { getConfig } from "./config.js";

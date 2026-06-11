@@ -1,13 +1,18 @@
 /**
  * Write evaluations — ToolLevel: ReadWrite
- * Agent reads then writes. Checker checks the resulting files.
- * mustUse: fs.read (read before edit), fs.write or fs.edit.
+ * Agent reads then writes. Checker verifies the resulting files.
+ *
+ * expects: agent must have read the seed file AND written the output file.
+ * checker: verifies the produced file is correct — proves the write happened.
  */
 
 import { all, fileContains, fileExists } from "../checker.js";
 import { compileCheck } from "../checkers/compile.js";
 import { testCheck } from "../checkers/test.js";
 import type { Evaluation } from "../evaluation.js";
+
+const READ_TOOLS = ["fs.read", "lector.read"] as const;
+const WRITE_TOOLS = ["fs.write", "fs.edit", "lector.write", "lector.edit"] as const;
 
 const TYPES_SEED = `
 export interface User { id: string; name: string; }
@@ -62,7 +67,7 @@ export const createHTTPServer: Evaluation = {
 		"1. GET /health → { status: 'ok' } with 200\n" +
 		"2. POST /echo → echoes the request body with 200\n" +
 		"3. Exports createServer(port: number)",
-	mustUse: ["fs.write"],
+	expects: [{ tool: WRITE_TOOLS, target: { path: "src/server.ts" } }],
 	checker: all(fileContains("src/server.ts", "createServer", "/health", "/echo"), compileCheck()),
 	fixture: {
 		files: {
@@ -80,7 +85,10 @@ export const addTypeExport: Evaluation = {
 	prompt:
 		"Read src/types.ts. The Session interface is defined but not exported. " +
 		"Fix it so Session is exported. Only change that file.",
-	mustUse: ["fs.read"],
+	expects: [
+		{ tool: READ_TOOLS, target: { path: "src/types.ts" } },
+		{ tool: WRITE_TOOLS, target: { path: "src/types.ts" } },
+	],
 	checker: all(fileContains("src/types.ts", "export interface Session", "export"), compileCheck()),
 	fixture: {
 		files: {
@@ -101,7 +109,10 @@ export const fixFailingTest: Evaluation = {
 	prompt:
 		"Read src/sum.ts and src/sum.test.ts. The test fails. Find the bug in sum.ts and fix it. " +
 		"Do not modify the test file.",
-	mustUse: ["fs.read"],
+	expects: [
+		{ tool: READ_TOOLS, target: { path: "src/sum.ts" } },
+		{ tool: WRITE_TOOLS, target: { path: "src/sum.ts" } },
+	],
 	checker: all(fileContains("src/sum.ts", "< numbers.length"), compileCheck(), testCheck()),
 	fixture: {
 		files: {
@@ -122,7 +133,10 @@ export const refactorAsync: Evaluation = {
 		"Read src/fetch.ts. Refactor fetchData to use async/await instead of callbacks. " +
 		"Use the await keyword explicitly inside the function body. " +
 		"Keep the same behaviour — reject on invalid URLs, resolve with data string on valid ones.",
-	mustUse: ["fs.read"],
+	expects: [
+		{ tool: READ_TOOLS, target: { path: "src/fetch.ts" } },
+		{ tool: WRITE_TOOLS, target: { path: "src/fetch.ts" } },
+	],
 	checker: all(fileContains("src/fetch.ts", "async", "await")),
 	fixture: {
 		files: {
@@ -141,7 +155,10 @@ export const writeMiddleware: Evaluation = {
 		"Read src/middleware-spec.ts for the requirements. " +
 		"Create src/logging-middleware.ts that exports a default Express-compatible " +
 		"middleware function matching the spec.",
-	mustUse: ["fs.read"],
+	expects: [
+		{ tool: READ_TOOLS, target: { path: "src/middleware-spec.ts" } },
+		{ tool: WRITE_TOOLS, target: { path: "src/logging-middleware.ts" } },
+	],
 	checker: all(
 		fileExists("src/logging-middleware.ts"),
 		fileContains("src/logging-middleware.ts", "next", "req", "res"),

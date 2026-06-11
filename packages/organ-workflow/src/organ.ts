@@ -43,25 +43,27 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 	return defineOrgan(
 		"workflow",
 		{
-			"motor/workflow.run": typedAction(WORKFLOW_RUN_TOOL, async (ctx) => {
-				const stationName = ctx.payload.station as string;
-				const artifact = ctx.payload.artifact;
+			motor: {
+				"workflow.run": typedAction(WORKFLOW_RUN_TOOL, async (ctx) => {
+					const stationName = ctx.payload.station as string;
+					const artifact = ctx.payload.artifact;
 
-				const stationDef = opts.def.stations.find((s) => s.name === stationName);
-				if (!stationDef) {
-					const names = opts.def.stations.map((s) => s.name).join(", ");
+					const stationDef = opts.def.stations.find((s) => s.name === stationName);
+					if (!stationDef) {
+						const names = opts.def.stations.map((s) => s.name).join(", ");
+						return withDisplay(
+							{ error: `Station '${stationName}' not found. Available: ${names}` },
+							{ text: `Station '${stationName}' not found`, mimeType: "text/plain" },
+						);
+					}
+
+					const result = await opts.runner.run(stationDef, artifact);
 					return withDisplay(
-						{ error: `Station '${stationName}' not found. Available: ${names}` },
-						{ text: `Station '${stationName}' not found`, mimeType: "text/plain" },
+						{ status: result.status, output: result.output, questions: result.questions },
+						{ text: `Station '${stationName}': ${result.status}`, mimeType: "text/plain" },
 					);
-				}
-
-				const result = await opts.runner.run(stationDef, artifact);
-				return withDisplay(
-					{ status: result.status, output: result.output, questions: result.questions },
-					{ text: `Station '${stationName}': ${result.status}`, mimeType: "text/plain" },
-				);
-			}),
+				}),
+			},
 		},
 		{
 			description: `Workflow organ: ${opts.def.name} (${opts.def.stations.map((s) => s.name).join(" → ")})`,
@@ -92,86 +94,88 @@ export function createContractTool<T extends z.ZodTypeAny>(
 	return defineOrgan(
 		"contract",
 		{
-			"motor/contract.submit": typedAction(SUBMIT_TOOL, async (ctx) => {
-				debugLog("contract:submit", {
-					correlationId: (ctx as unknown as { correlationId: string }).correlationId,
-					hasValidator: !!contract.validator,
-				});
-				const schemaResult = contract.schema.safeParse(ctx.payload.data);
-				if (!schemaResult.success) {
-					const errors = schemaResult.error.issues
-						.map((i: z.ZodIssue) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-						.join("; ");
-					return withDisplay(
-						{ success: false, errors },
-						{ text: `Contract rejected: ${errors}`, mimeType: "text/plain" },
-					);
-				}
-
-				const validated = schemaResult.data;
-
-				if (!contract.validator) {
-					onSubmit(validated);
-					return withDisplay(
-						{ success: true, message: "Contract fulfilled." },
-						{ text: "Contract fulfilled", mimeType: "text/plain" },
-					);
-				}
-
-				const id = newCorrelationId();
-				const { motor, sense } = ctx as unknown as {
-					motor: { publish: (e: unknown) => void };
-					sense: { subscribe: (type: string, h: (e: unknown) => void) => () => void };
-				};
-
-				return new Promise<Record<string, unknown>>((resolve) => {
-					// lint-ignore: RAWTIMER HITL auto-submit deadline
-					const timer = setTimeout(() => {
-						off();
-						onSubmit(validated);
-						resolve(
-							withDisplay(
-								{ success: true, message: "Contract fulfilled (auto-approved — no evaluator responded)." },
-								{ text: "Contract auto-approved (no evaluator responded)", mimeType: "text/plain" },
-							),
+			motor: {
+				"contract.submit": typedAction(SUBMIT_TOOL, async (ctx) => {
+					debugLog("contract:submit", {
+						correlationId: (ctx as unknown as { correlationId: string }).correlationId,
+						hasValidator: !!contract.validator,
+					});
+					const schemaResult = contract.schema.safeParse(ctx.payload.data);
+					if (!schemaResult.success) {
+						const errors = schemaResult.error.issues
+							.map((i: z.ZodIssue) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+							.join("; ");
+						return withDisplay(
+							{ success: false, errors },
+							{ text: `Contract rejected: ${errors}`, mimeType: "text/plain" },
 						);
-					}, AUTO_APPROVE_MS);
+					}
 
-					const off = sense.subscribe(VALIDATE_RESULT, (event: unknown) => {
-						const e = event as { payload: { id: string; approved: boolean; feedback?: string } };
-						if (e.payload.id !== id) return;
-						clearTimeout(timer);
-						off();
-						debugLog("contract:result", { id, approved: e.payload.approved });
-						if (e.payload.approved) {
+					const validated = schemaResult.data;
+
+					if (!contract.validator) {
+						onSubmit(validated);
+						return withDisplay(
+							{ success: true, message: "Contract fulfilled." },
+							{ text: "Contract fulfilled", mimeType: "text/plain" },
+						);
+					}
+
+					const id = newCorrelationId();
+					const { motor, sense } = ctx as unknown as {
+						motor: { publish: (e: unknown) => void };
+						sense: { subscribe: (type: string, h: (e: unknown) => void) => () => void };
+					};
+
+					return new Promise<Record<string, unknown>>((resolve) => {
+						// lint-ignore: RAWTIMER HITL auto-submit deadline
+						const timer = setTimeout(() => {
+							off();
 							onSubmit(validated);
 							resolve(
 								withDisplay(
-									{ success: true, message: "Contract fulfilled." },
-									{ text: "Contract fulfilled", mimeType: "text/plain" },
+									{ success: true, message: "Contract fulfilled (auto-approved — no evaluator responded)." },
+									{ text: "Contract auto-approved (no evaluator responded)", mimeType: "text/plain" },
 								),
 							);
-						} else {
-							resolve(
-								withDisplay(
-									{ success: false, errors: e.payload.feedback ?? "Rejected by evaluator." },
-									{
-										text: `Contract rejected: ${e.payload.feedback ?? "Rejected by evaluator."}`,
-										mimeType: "text/plain",
-									},
-								),
-							);
-						}
-					});
+						}, AUTO_APPROVE_MS);
 
-					debugLog("contract:validate", { id, kind: contract.validator, targetOrgan: contract.validator });
-					motor.publish({
-						type: VALIDATE_REQUEST,
-						payload: { id, output: validated, kind: contract.validator, context: contract.intent },
-						correlationId: (ctx as unknown as { correlationId: string }).correlationId,
+						const off = sense.subscribe(VALIDATE_RESULT, (event: unknown) => {
+							const e = event as { payload: { id: string; approved: boolean; feedback?: string } };
+							if (e.payload.id !== id) return;
+							clearTimeout(timer);
+							off();
+							debugLog("contract:result", { id, approved: e.payload.approved });
+							if (e.payload.approved) {
+								onSubmit(validated);
+								resolve(
+									withDisplay(
+										{ success: true, message: "Contract fulfilled." },
+										{ text: "Contract fulfilled", mimeType: "text/plain" },
+									),
+								);
+							} else {
+								resolve(
+									withDisplay(
+										{ success: false, errors: e.payload.feedback ?? "Rejected by evaluator." },
+										{
+											text: `Contract rejected: ${e.payload.feedback ?? "Rejected by evaluator."}`,
+											mimeType: "text/plain",
+										},
+									),
+								);
+							}
+						});
+
+						debugLog("contract:validate", { id, kind: contract.validator, targetOrgan: contract.validator });
+						motor.publish({
+							type: VALIDATE_REQUEST,
+							payload: { id, output: validated, kind: contract.validator, context: contract.intent },
+							correlationId: (ctx as unknown as { correlationId: string }).correlationId,
+						});
 					});
-				});
-			}),
+				}),
+			},
 		},
 		{
 			description: "Contract submission gate — validates agent output against the station exit schema.",
@@ -196,12 +200,14 @@ export function createQuestionTool(
 	return defineOrgan(
 		"question",
 		{
-			"motor/question.ask": typedAction(QUESTION_TOOL, async (ctx) => {
-				const question = ctx.payload.question as string;
-				const answer = await onQuestion(question);
-				log.push({ question, answer });
-				return withDisplay({ answer }, { text: `Q: ${question}\nA: ${answer}`, mimeType: "text/plain" });
-			}),
+			motor: {
+				"question.ask": typedAction(QUESTION_TOOL, async (ctx) => {
+					const question = ctx.payload.question as string;
+					const answer = await onQuestion(question);
+					log.push({ question, answer });
+					return withDisplay({ answer }, { text: `Q: ${question}\nA: ${answer}`, mimeType: "text/plain" });
+				}),
+			},
 		},
 		{
 			description: "User clarification gate — pauses the agent to ask the user a question.",

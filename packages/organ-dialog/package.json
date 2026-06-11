@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-organ-dialog",
   "version": "0.0.1",
-  "description": "Corpus-facing dialog organ adapter",
+  "description": "Dialog organ — message boundary between user and agent bus",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -31,8 +31,7 @@
     "agent",
     "organ",
     "dialog",
-    "discourse",
-    "corpus"
+    "discourse"
   ],
   "author": "Mario Zechner",
   "license": "MIT",

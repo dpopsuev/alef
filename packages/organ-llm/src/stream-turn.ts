@@ -1,3 +1,4 @@
+import { debugLog } from "@dpopsuev/alef-kernel";
 import {
 	type Api,
 	type AssistantMessage,
@@ -6,8 +7,7 @@ import {
 	streamSimple,
 	type ThinkingLevel,
 	type Tool,
-} from "@dpopsuev/alef-ai";
-import { debugLog } from "@dpopsuev/alef-kernel";
+} from "@dpopsuev/alef-llm";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("alef.organ-llm");

@@ -11,7 +11,7 @@ export interface OrganLogger {
 	child(bindings: Record<string, unknown>): OrganLogger;
 }
 
-export interface CorpusHandlerCtx<TPayload = Record<string, unknown>> {
+export interface MotorHandlerCtx<TPayload = Record<string, unknown>> {
 	readonly correlationId: string;
 	readonly toolCallId: string | undefined;
 	readonly payload: TPayload;
@@ -19,56 +19,58 @@ export interface CorpusHandlerCtx<TPayload = Record<string, unknown>> {
 	readonly log: OrganLogger;
 }
 
-export interface CorpusAction {
+export interface MotorAction {
 	readonly tool?: ToolDefinition;
-	handle(ctx: CorpusHandlerCtx): Promise<Record<string, unknown>>;
-	shouldCache?(ctx: CorpusHandlerCtx, result: Record<string, unknown>): boolean;
-	invalidates?(ctx: CorpusHandlerCtx): string[];
+	handle(ctx: MotorHandlerCtx): AsyncIterable<Record<string, unknown>>;
+	shouldCache?(ctx: MotorHandlerCtx, result: Record<string, unknown>): boolean;
+	invalidates?(ctx: MotorHandlerCtx): string[];
 }
 
 export function typedAction<TSchema extends ZodTypeAny>(
 	tool: ToolDefinition & { readonly inputSchema: TSchema },
-	handle: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
+	handle: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
 	opts?: {
-		shouldCache?: (ctx: CorpusHandlerCtx<z.infer<TSchema>>, result: Record<string, unknown>) => boolean;
-		invalidates?: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => string[];
+		shouldCache?: (ctx: MotorHandlerCtx<z.infer<TSchema>>, result: Record<string, unknown>) => boolean;
+		invalidates?: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => string[];
 	},
-): CorpusAction {
+): MotorAction {
 	return {
 		tool,
-		handle: handle as CorpusAction["handle"],
-		...(opts?.shouldCache && { shouldCache: opts.shouldCache as CorpusAction["shouldCache"] }),
-		...(opts?.invalidates && { invalidates: opts.invalidates as CorpusAction["invalidates"] }),
+		async *handle(ctx) {
+			yield await (handle as (ctx: MotorHandlerCtx) => Promise<Record<string, unknown>>)(ctx);
+		},
+		...(opts?.shouldCache && { shouldCache: opts.shouldCache as MotorAction["shouldCache"] }),
+		...(opts?.invalidates && { invalidates: opts.invalidates as MotorAction["invalidates"] }),
 	};
 }
 
 export function typedStreamAction<TSchema extends ZodTypeAny>(
 	tool: ToolDefinition & { readonly inputSchema: TSchema },
-	stream: (ctx: CorpusHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
-): StreamingCorpusAction {
-	// Mark the tool as streaming so organComplianceSuite can auto-discover it.
-	return { tool: { ...tool, streaming: true }, stream: stream as StreamingCorpusAction["stream"] };
+	stream: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
+): MotorAction {
+	return {
+		tool: { ...tool, streaming: true },
+		handle: stream as MotorAction["handle"],
+	};
 }
 
-export interface StreamingCorpusAction {
-	readonly tool?: ToolDefinition;
-	stream(ctx: CorpusHandlerCtx): AsyncIterable<Record<string, unknown>>;
-}
-
-export interface CerebrumHandlerCtx {
+export interface SenseHandlerCtx {
 	readonly correlationId: string;
 	readonly payload: Record<string, unknown>;
 	readonly motor: Nerve["motor"];
 	readonly sense: Nerve["sense"];
 }
 
-export interface CerebrumAction {
-	handle(ctx: CerebrumHandlerCtx): Promise<void>;
+export interface SenseAction {
+	handle(ctx: SenseHandlerCtx): Promise<void>;
 }
 
-export type CorpusActionMap = Record<string, CorpusAction | StreamingCorpusAction>;
-export type CerebrumActionMap = Record<string, CerebrumAction>;
-export type ActionMap = Record<string, CorpusAction | StreamingCorpusAction | CerebrumAction>;
+export type MotorActionMap = Record<string, MotorAction>;
+export type SenseActionMap = Record<string, SenseAction>;
+export interface ActionMap {
+	motor?: MotorActionMap;
+	sense?: SenseActionMap;
+}
 
 import type { OrganContributions, SkillBook } from "./buses.js";
 

@@ -6,18 +6,18 @@
 			"*": [
 				"./*"
 			],
-			"@dpopsuev/alef-ai": [
-				"./packages/ai/src/index.ts"
+			"@dpopsuev/alef-llm": [
+				"./packages/llm/src/index.ts"
 			],
-			"@dpopsuev/alef-ai/oauth": [
-				"./packages/ai/src/oauth.ts"
+			"@dpopsuev/alef-llm/oauth": [
+				"./packages/llm/src/oauth.ts"
 			],
-			"@dpopsuev/alef-ai/*": [
-				"./packages/ai/src/*.ts",
-				"./packages/ai/src/providers/*.ts"
+			"@dpopsuev/alef-llm/*": [
+				"./packages/llm/src/*.ts",
+				"./packages/llm/src/providers/*.ts"
 			],
-			"@dpopsuev/alef-ai/dist/*": [
-				"./packages/ai/src/*"
+			"@dpopsuev/alef-llm/dist/*": [
+				"./packages/llm/src/*"
 			],
 			"@dpopsuev/alef-agent-core": [
 				"./packages/agent/src/index.ts"
@@ -127,12 +127,7 @@
 			"@dpopsuev/alef-organ-memory/*": [
 				"./packages/organ-memory/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-prompt": [
-				"./packages/organ-prompt/src/index.ts"
-			],
-			"@dpopsuev/alef-organ-prompt/*": [
-				"./packages/organ-prompt/src/*.ts"
-			],
+
 			"@dpopsuev/alef-organ-monolog": [
 				"./packages/organ-monolog/src/index.ts"
 			],

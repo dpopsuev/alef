@@ -1,6 +1,6 @@
-import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-ai";
-import type { CerebrumHandlerCtx, Nerve, Organ, OrganContributions, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Nerve, Organ, OrganContributions, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, extractToolCallId, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 
 declare module "@dpopsuev/alef-kernel" {
 	interface OrganContributions {
@@ -27,9 +27,8 @@ export const KEY_ARG_FIELDS = [
 	"instruction",
 ] as const;
 
-import { DIALOG_MESSAGE } from "@dpopsuev/alef-organ-dialog";
 import { z } from "zod";
-import type { CerebrumEvent, TokenUsage } from "./tool-events.js";
+import type { LlmEvent, TokenUsage } from "./tool-events.js";
 import { runLLMLoop } from "./turn-loop.js";
 
 export { payloadToText } from "./tool-dispatch.js";
@@ -47,12 +46,11 @@ export interface LlmCallOptions {
 	getSignal?: () => AbortSignal | undefined;
 }
 
-export type { CerebrumEvent } from "./tool-events.js";
+export type { LlmEvent } from "./tool-events.js";
 
 export interface LlmObservabilityOptions {
-	onEvent?: (event: CerebrumEvent) => void;
+	onEvent?: (event: LlmEvent) => void;
 	onTurnComplete?: (turn: number, usage: TokenUsage) => void;
-	onCheckpoint?: (messages: Message[], correlationId: string) => void;
 }
 
 /** Topology and capability options — routing, pipeline, concurrency, context prep. */
@@ -63,13 +61,7 @@ export interface LlmTopologyOptions {
 	prepareStep?: (messages: Message[]) => Message[] | Promise<Message[]>;
 	trackConcurrentOps?: boolean;
 	phaseTimeoutMs?: number;
-	triggerEvent?: string;
-	replyEvent?: string;
-	/**
-	 * Live tool list getter. Takes precedence over payload.tools from the trigger event.
-	 * Allows DialogOrgan to shed getTools — callers pass it directly to Cerebrum instead.
-	 */
-	getTools?: () => readonly ToolDefinition[];
+
 	/** Full-schema resolver for timeout calculation. Provided by ToolShell via contributions["schema-resolver"]. */
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 	/**
@@ -87,55 +79,53 @@ export type AgentLoopOptions = LlmCallOptions & LlmObservabilityOptions & LlmTop
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createAgentLoopCore(options: AgentLoopOptions): Organ {
-	const trigger = options.triggerEvent ?? DIALOG_MESSAGE;
-	const reply = options.replyEvent ?? trigger;
-	const isConversation = reply === DIALOG_MESSAGE;
+const LLM_INPUT = "llm.input";
 
+export function createAgentLoopCore(options: AgentLoopOptions): Organ {
 	let turnActive = false;
 	const steeringBuffer: Message[] = [];
 
 	return defineOrgan("llm", {
-		[`sense/${trigger}`]: {
-			handle: async (ctx: CerebrumHandlerCtx) => {
-				if (turnActive) {
-					const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
-					if (text) {
-						steeringBuffer.push({ role: "user", content: text, timestamp: Date.now() });
-						options.onEvent?.({ type: "message-queued", queueLength: steeringBuffer.length });
+		sense: {
+			[LLM_INPUT]: {
+				handle: async (ctx: SenseHandlerCtx) => {
+					if (turnActive) {
+						const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
+						if (text) {
+							steeringBuffer.push({ role: "user", content: text, timestamp: Date.now() });
+							options.onEvent?.({ type: "message-queued", queueLength: steeringBuffer.length });
+						}
+						return;
 					}
-					return;
-				}
-				turnActive = true;
-				let partialHistory: Message[] | undefined;
-				try {
-					await runLLMLoop(
-						ctx,
-						{
+					turnActive = true;
+					let partialHistory: Message[] | undefined;
+					const offCheckpoint = ctx.motor.subscribe("llm.checkpoint", (event) => {
+						const history = (event.payload as { conversationHistory?: Message[] }).conversationHistory;
+						if (history) partialHistory = history;
+					});
+					try {
+						await runLLMLoop(ctx, {
 							...options,
 							getSteeringMessages: () => steeringBuffer.splice(0),
-						},
-						(snapshot, correlationId) => {
-							partialHistory = snapshot;
-							options.onCheckpoint?.(snapshot, correlationId);
-						},
-					);
-				} catch (err) {
-					const text = `LLM error: ${String(err)}`;
-					ctx.motor.publish({
-						type: reply,
-						payload: withDisplay(
-							{
-								text,
-								...(isConversation && partialHistory ? { conversationHistory: partialHistory } : {}),
-							},
-							{ text: `\u26a0 ${text}`, mimeType: "text/plain" },
-						),
-						correlationId: ctx.correlationId,
-					});
-				} finally {
-					turnActive = false;
-				}
+						});
+					} catch (err) {
+						const text = `LLM error: ${String(err)}`;
+						ctx.motor.publish({
+							type: "llm.response",
+							payload: withDisplay(
+								{
+									text,
+									...(partialHistory ? { conversationHistory: partialHistory } : {}),
+								},
+								{ text: `\u26a0 ${text}`, mimeType: "text/plain" },
+							),
+							correlationId: ctx.correlationId,
+						});
+					} finally {
+						offCheckpoint();
+						turnActive = false;
+					}
+				},
 			},
 		},
 	});
@@ -168,12 +158,11 @@ function pickKeyArg(payload: Record<string, unknown>): string {
 }
 
 /**
- * Create a full Cerebrum organ with optional concurrent-ops inflight tracking.
- * This is the canonical factory. The Cerebrum class below is a thin adapter
+ * Create a full LLM organ with optional concurrent-ops inflight tracking.
  * createAgentLoop is the canonical factory.
  */
 export function createAgentLoop(options: AgentLoopOptions): Organ {
-	const replyType = options.replyEvent ?? options.triggerEvent ?? DIALOG_MESSAGE;
+	const replyType = "llm.response";
 	const inflight = new Map<string, InflightEntry>();
 
 	function applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {

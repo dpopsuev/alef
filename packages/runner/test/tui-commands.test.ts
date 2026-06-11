@@ -346,7 +346,7 @@ describe("handleSlashCommand /logout", { tags: ["unit"] }, () => {
 // ALE-BUG-16 — activeCalls drained on turn abort
 // ---------------------------------------------------------------------------
 
-describe("activeCalls drained on turn abort (ALE-BUG-16)", { tags: ["unit"] }, () => {
+describe("activeCalls drained on turn abort", { tags: ["unit"] }, () => {
 	it("abort path marks in-flight calls as failed and clears the map", () => {
 		const t = getTheme();
 		const activeCalls = new Map<string, ToolCallRow>();

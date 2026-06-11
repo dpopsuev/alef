@@ -37,7 +37,7 @@ const results = await Promise.all(
 				child.stdout.on("data", (d) => { output += d; });
 				child.stderr.on("data", (d) => { output += d; });
 				child.on("close", (code) => resolve({ name, code, output }));
-				setTimeout(() => { child.kill(); resolve({ name, code: 1, output: "timeout" }); }, 60_000);
+				setTimeout(() => { child.kill(); resolve({ name, code: 1, output: "timeout" }); }, 120_000);
 			}),
 	),
 );

@@ -83,7 +83,7 @@ export function createTodosOrgan(opts: TodosOrganOptions = {}): Organ {
 	return defineOrgan(
 		"todos",
 		{
-			"motor/todos.update": typedAction(TODOS_TOOL, async (ctx) => handleUpdate(ctx)),
+			motor: { "todos.update": typedAction(TODOS_TOOL, async (ctx) => handleUpdate(ctx)) },
 		},
 		{
 			logger: opts.logger,

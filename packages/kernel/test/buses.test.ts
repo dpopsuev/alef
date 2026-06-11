@@ -41,9 +41,9 @@ function makeSenseEvent(type: "test.result" | "test.observation" = "test.result"
 describe("Nerve — sense.subscribe", { tags: ["unit"] }, () => {
 	it("delivers sense event to subscriber", () => {
 		const nerve = new InProcessNerve();
-		const cerebrum = nerve.asNerve();
+		const reasoner = nerve.asNerve();
 		const received: NerveEvent[] = [];
-		cerebrum.sense.subscribe("test.result", (e) => void received.push(e));
+		reasoner.sense.subscribe("test.result", (e) => void received.push(e));
 
 		nerve.asNerve().sense.publish(makeSenseEvent("test.result"));
 
@@ -53,9 +53,9 @@ describe("Nerve — sense.subscribe", { tags: ["unit"] }, () => {
 
 	it("unsubscribes cleanly", () => {
 		const nerve = new InProcessNerve();
-		const cerebrum = nerve.asNerve();
+		const reasoner = nerve.asNerve();
 		const received: NerveEvent[] = [];
-		const off = cerebrum.sense.subscribe("test.result", (e) => void received.push(e));
+		const off = reasoner.sense.subscribe("test.result", (e) => void received.push(e));
 
 		nerve.asNerve().sense.publish(makeSenseEvent("test.result"));
 		off();
@@ -66,9 +66,9 @@ describe("Nerve — sense.subscribe", { tags: ["unit"] }, () => {
 
 	it("does not receive wrong event type", () => {
 		const nerve = new InProcessNerve();
-		const cerebrum = nerve.asNerve();
+		const reasoner = nerve.asNerve();
 		const received: NerveEvent[] = [];
-		cerebrum.sense.subscribe("test.result", (e) => void received.push(e));
+		reasoner.sense.subscribe("test.result", (e) => void received.push(e));
 
 		nerve.asNerve().sense.publish(makeSenseEvent("test.observation"));
 
@@ -79,12 +79,12 @@ describe("Nerve — sense.subscribe", { tags: ["unit"] }, () => {
 describe("Nerve — motor.publish", { tags: ["unit"] }, () => {
 	it("delivers motor event to subscriber", () => {
 		const nerve = new InProcessNerve();
-		const cerebrum = nerve.asNerve();
-		const corpus = nerve.asNerve();
+		const reasoner = nerve.asNerve();
+		const organ = nerve.asNerve();
 		const received: NerveEvent[] = [];
-		corpus.motor.subscribe("test.command", (e) => void received.push(e));
+		organ.motor.subscribe("test.command", (e) => void received.push(e));
 
-		cerebrum.motor.publish(makeMotorEvent("test.command"));
+		reasoner.motor.publish(makeMotorEvent("test.command"));
 
 		expect(received).toHaveLength(1);
 		expect(received[0]).toMatchObject({ type: "test.command" });
@@ -98,9 +98,9 @@ describe("Nerve — motor.publish", { tags: ["unit"] }, () => {
 describe("Nerve — motor.subscribe", { tags: ["unit"] }, () => {
 	it("delivers motor event to subscriber", () => {
 		const nerve = new InProcessNerve();
-		const corpus = nerve.asNerve();
+		const organ = nerve.asNerve();
 		const received: NerveEvent[] = [];
-		corpus.motor.subscribe("test.command", (e) => void received.push(e));
+		organ.motor.subscribe("test.command", (e) => void received.push(e));
 
 		nerve.publishMotor(makeMotorEvent("test.command"));
 
@@ -109,9 +109,9 @@ describe("Nerve — motor.subscribe", { tags: ["unit"] }, () => {
 
 	it("unsubscribes cleanly", () => {
 		const nerve = new InProcessNerve();
-		const corpus = nerve.asNerve();
+		const organ = nerve.asNerve();
 		const received: NerveEvent[] = [];
-		const off = corpus.motor.subscribe("test.command", (e) => void received.push(e));
+		const off = organ.motor.subscribe("test.command", (e) => void received.push(e));
 
 		nerve.publishMotor(makeMotorEvent("test.command"));
 		off();
@@ -124,12 +124,12 @@ describe("Nerve — motor.subscribe", { tags: ["unit"] }, () => {
 describe("Nerve — sense.publish", { tags: ["unit"] }, () => {
 	it("delivers sense event to subscriber", () => {
 		const nerve = new InProcessNerve();
-		const corpus = nerve.asNerve();
-		const cerebrum = nerve.asNerve();
+		const organ = nerve.asNerve();
+		const reasoner = nerve.asNerve();
 		const received: NerveEvent[] = [];
-		cerebrum.sense.subscribe("test.result", (e) => void received.push(e));
+		reasoner.sense.subscribe("test.result", (e) => void received.push(e));
 
-		corpus.sense.publish(makeSenseEvent("test.result"));
+		organ.sense.publish(makeSenseEvent("test.result"));
 
 		expect(received).toHaveLength(1);
 	});
@@ -139,8 +139,8 @@ describe("Nerve — sense.publish", { tags: ["unit"] }, () => {
 // Agent root methods
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — corpus root methods", { tags: ["unit"] }, () => {
-	it("publishMotor reaches CorpusNerve subscriber", () => {
+describe("InProcessNerve — bus root methods", { tags: ["unit"] }, () => {
+	it("publishMotor reaches MotorNerve subscriber", () => {
 		const nerve = new InProcessNerve();
 		const received: NerveEvent[] = [];
 		nerve.asNerve().motor.subscribe("test.command", (e) => void received.push(e));
@@ -150,7 +150,7 @@ describe("InProcessNerve — corpus root methods", { tags: ["unit"] }, () => {
 		expect(received).toHaveLength(1);
 	});
 
-	it("subscribeSense receives from CorpusNerve publish", () => {
+	it("subscribeSense receives from MotorNerve publish", () => {
 		const nerve = new InProcessNerve();
 		const received: NerveEvent[] = [];
 		nerve.subscribeSense("test.result", (e) => void received.push(e));

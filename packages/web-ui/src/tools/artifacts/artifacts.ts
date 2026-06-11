@@ -1,13 +1,13 @@
 import { icon } from "@mariozechner/mini-lit";
 import "@mariozechner/mini-lit/dist/MarkdownBlock.js";
-import type { Agent, AgentMessage, AgentTool } from "@dpopsuev/alef-agent-core";
-import { StringEnum, type ToolCall } from "@dpopsuev/alef-ai";
+import { StringEnum, type ToolCall } from "@dpopsuev/alef-llm";
 import { Button } from "@mariozechner/mini-lit/dist/Button.js";
 import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { createRef, type Ref, ref } from "lit/directives/ref.js";
 import { X } from "lucide";
 import { type Static, Type } from "typebox";
+import type { Agent, AgentMessage, AgentTool } from "../../agent-types.js";
 import type { ArtifactMessage } from "../../artifact-types.js";
 import { ArtifactsRuntimeProvider } from "../../components/sandbox/ArtifactsRuntimeProvider.js";
 import { AttachmentsRuntimeProvider } from "../../components/sandbox/AttachmentsRuntimeProvider.js";

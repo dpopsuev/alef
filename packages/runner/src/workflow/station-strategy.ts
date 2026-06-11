@@ -1,5 +1,5 @@
-import type { Api, Model } from "@dpopsuev/alef-ai";
 import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Api, Model } from "@dpopsuev/alef-llm";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import {
@@ -72,7 +72,6 @@ export class ImplStationRunner implements StationRunner {
 		const llm = createAgentLoop({
 			model: this.model,
 			systemPrompt: buildStationPrompt(station, contract),
-			getTools: () => agent.tools,
 		});
 
 		agent.load(dialog).load(llm).load(contractOrgan).load(questionOrgan);

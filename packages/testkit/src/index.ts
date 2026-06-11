@@ -29,7 +29,7 @@ export { OrganHarness } from "./organ-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
 export { ScriptedReasoner, type ToolCallEnd, type ToolCallStart } from "./scripted-reasoner.js";
 export { defineStubOrgan, type StubHandler } from "./stub-organ.js";
-export { DIALOG_MESSAGE_TOOL, TurnDriver } from "./turn-driver.js";
+export { TurnDriver } from "./turn-driver.js";
 
 import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 import type { BusObserver } from "@dpopsuev/alef-runtime";
@@ -37,21 +37,21 @@ import type { BusObserver } from "@dpopsuev/alef-runtime";
 // ---------------------------------------------------------------------------
 // MockReasoner
 //
-// CerebrumOrgan: subscribes Sense/"dialog.message", publishes Motor/"dialog.message".
+// organ-llm: subscribes Sense/"llm.input", publishes Motor/"llm.response".
 // Canned response — no real LLM call.
 // ---------------------------------------------------------------------------
 
 export class MockReasoner implements Organ {
 	readonly name = "mock-llm";
 	readonly tools: readonly ToolDefinition[] = [];
-	readonly subscriptions = { motor: [] as const, sense: ["dialog.message"] as const };
+	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
 
 	constructor(private readonly cannedText: string = "mock response") {}
 
 	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("dialog.message", (event) => {
+		return nerve.sense.subscribe("llm.input", (event) => {
 			nerve.motor.publish({
-				type: "dialog.message" as const,
+				type: "llm.response" as const,
 				payload: { text: this.cannedText },
 				correlationId: event.correlationId,
 			});
@@ -62,7 +62,7 @@ export class MockReasoner implements Organ {
 // ---------------------------------------------------------------------------
 // BusEventRecorder
 //
-// Attaches to a Corpus via agent.observe(recorder).
+// Attaches to the agent via agent.observe(recorder).
 // Records all events on all 3 buses for assertion in tests.
 // ---------------------------------------------------------------------------
 

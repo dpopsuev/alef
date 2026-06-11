@@ -1,6 +1,6 @@
 # @dpopsuev/alef-web-ui
 
-Reusable web UI components for building AI chat interfaces powered by [@dpopsuev/alef-ai](../ai) and [@dpopsuev/alef-agent-core](../agent).
+Reusable web UI components for building AI chat interfaces powered by [@dpopsuev/alef-ai](../ai).
 
 Built with [mini-lit](https://github.com/badlogic/mini-lit) web components and Tailwind CSS v4.
 
@@ -21,7 +21,7 @@ Part of **[Alef Agent](https://github.com/dpopsuev/alef)**, a **fork** of **[Pi]
 ## Installation
 
 ```bash
-npm install @dpopsuev/alef-web-ui @dpopsuev/alef-agent-core @dpopsuev/alef-ai
+npm install @dpopsuev/alef-web-ui @dpopsuev/alef-ai
 ```
 
 ## Quick Start
@@ -29,7 +29,7 @@ npm install @dpopsuev/alef-web-ui @dpopsuev/alef-agent-core @dpopsuev/alef-ai
 See the [example](./example) directory for a complete working application.
 
 ```typescript
-import { Agent } from '@dpopsuev/alef-agent-core';
+import type { Agent } from '@dpopsuev/alef-web-ui';
 import { getModel } from '@dpopsuev/alef-ai';
 import {
   ChatPanel,
@@ -170,10 +170,10 @@ Properties:
 - `enableThinkingSelector`: Show thinking level selector (default: true)
 - `showThemeToggle`: Show theme toggle (default: false)
 
-### Agent (from pi-agent-core)
+### Agent interface
 
 ```typescript
-import { Agent } from '@dpopsuev/alef-agent-core';
+import type { Agent } from '@dpopsuev/alef-web-ui';
 
 const agent = new Agent({
   initialState: {
@@ -263,7 +263,7 @@ interface SystemNotification {
   timestamp: string;
 }
 
-declare module '@dpopsuev/alef-agent-core' {
+declare module '@dpopsuev/alef-web-ui/src/agent-types.js' {
   interface CustomAgentMessages {
     'system-notification': SystemNotification;
   }

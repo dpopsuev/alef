@@ -207,14 +207,16 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	const organ = defineOrgan(
 		"tools",
 		{
-			"motor/tools.describe": typedAction(DESCRIBE_TOOL, (ctx) => {
-				const results = handleDescribe(ctx.payload.names, ctx.log);
-				const displayText =
-					ctx.payload.names.length === 0
-						? `Available tools: ${results.map((t) => t.name).join(", ")}`
-						: results.map((t) => `${t.name}: ${t.description}`).join("\n");
-				return Promise.resolve(withDisplay({ results }, { text: displayText, mimeType: "text/plain" }));
-			}),
+			motor: {
+				"tools.describe": typedAction(DESCRIBE_TOOL, (ctx) => {
+					const results = handleDescribe(ctx.payload.names, ctx.log);
+					const displayText =
+						ctx.payload.names.length === 0
+							? `Available tools: ${results.map((t) => t.name).join(", ")}`
+							: results.map((t) => `${t.name}: ${t.description}`).join("\n");
+					return Promise.resolve(withDisplay({ results }, { text: displayText, mimeType: "text/plain" }));
+				}),
+			},
 		},
 		{
 			description: "Progressive tool discovery — inject catalog once, evict after N turns, describe on demand.",

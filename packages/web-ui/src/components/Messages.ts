@@ -5,7 +5,7 @@ import type {
 	ToolCall,
 	ToolResultMessage as ToolResultMessageType,
 	UserMessage as UserMessageType,
-} from "@dpopsuev/alef-ai";
+} from "@dpopsuev/alef-llm";
 import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { renderTool } from "../tools/index.js";
@@ -13,7 +13,7 @@ import type { Attachment } from "../utils/attachment-utils.js";
 import { formatUsage } from "../utils/format.js";
 import { i18n } from "../utils/i18n.js";
 import "./ThinkingBlock.js";
-import type { AgentTool } from "@dpopsuev/alef-agent-core";
+import type { AgentTool } from "../agent-types.js";
 
 export type UserMessageWithAttachments = {
 	role: "user-with-attachments";
@@ -25,7 +25,7 @@ export type UserMessageWithAttachments = {
 import type { ArtifactMessage } from "../artifact-types.js";
 export type { ArtifactMessage };
 
-declare module "@dpopsuev/alef-agent-core" {
+declare module "../agent-types.js" {
 	interface CustomAgentMessages {
 		"user-with-attachments": UserMessageWithAttachments;
 		artifact: ArtifactMessage;
@@ -289,8 +289,8 @@ export class AbortedMessage extends LitElement {
 // Default Message Transformer
 // ============================================================================
 
-import type { AgentMessage } from "@dpopsuev/alef-agent-core";
-import type { Message } from "@dpopsuev/alef-ai";
+import type { Message } from "@dpopsuev/alef-llm";
+import type { AgentMessage } from "../agent-types.js";
 
 /**
  * Convert attachments to content blocks for LLM.

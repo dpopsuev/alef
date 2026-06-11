@@ -1,5 +1,5 @@
 /**
- * NodeshOrgan — JavaScript REPL CorpusOrgan.
+ * NodeshOrgan — JavaScript REPL organ.
  *
  * nodesh.eval — evaluates a JS expression or statement block in a fresh
  * vm.createContext seeded from the configured prelude. Returns structured
@@ -204,7 +204,7 @@ export function createNodeshOrgan(options: NodeshOrganOptions): Organ {
 	return defineOrgan(
 		"nodesh",
 		{
-			"motor/nodesh.eval": typedAction(NODESH_EVAL_TOOL, (ctx) => handleEval(ctx, options)),
+			motor: { "nodesh.eval": typedAction(NODESH_EVAL_TOOL, (ctx) => handleEval(ctx, options)) },
 		},
 		{
 			actions: options.actions,

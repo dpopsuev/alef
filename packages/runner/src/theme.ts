@@ -1,31 +1,11 @@
 // Pure ANSI primitives are defined in ansi.ts and re-exported here for
-// backward-compat. theme.ts owns the theme singleton and ThemeTokens.
+// backward-compat. theme.ts owns the theme singleton; types live in theme-types.ts.
 
-export type { ColorDepth, ColorToken } from "./tui/ansi.js";
+export type { ColorDepth, ColorToken, ThemeTokens } from "./theme-types.js";
 export { bg, bold, color, colorDepth, dim, fgCode, glyph, italic, nerdFontsAvailable } from "./tui/ansi.js";
 
-// FG_RESET kept internal — consumers should use color() instead.
-import { type ColorToken, colorDepth, FG_RESET, fgCode } from "./tui/ansi.js";
-
-export interface ThemeTokens {
-	userFg: ColorToken;
-	/** Background color for the user message block (Pi pattern: Box with bgFn). */
-	userBg: ColorToken;
-	/** Background for agent reply blocks. Empty token = no background (transparent). */
-	agentBg: ColorToken;
-	agentFg: ColorToken;
-	toolNameFg: ColorToken;
-	toolArgFg: ColorToken;
-	toolOkFg: ColorToken;
-	toolErrFg: ColorToken;
-	accentFg: ColorToken;
-	dimFg: ColorToken;
-	okFg: ColorToken;
-	warnFg: ColorToken;
-	errFg: ColorToken;
-	timeFg: ColorToken;
-	modelFg: ColorToken;
-}
+import type { ColorToken, ThemeTokens } from "./theme-types.js";
+import { colorDepth, FG_RESET, fgCode } from "./tui/ansi.js";
 
 import chalk from "chalk";
 import { hexToRgb } from "./tui/ansi.js";

@@ -64,6 +64,7 @@
 		"get-east-asian-width": "^1.4.0"
 	},
 	"overrides": {
+		"@dpopsuev/web-spider": "file:../web-spider/packages/web-spider",
 		"rimraf": "6.1.2",
 		"gaxios": {
 			"rimraf": "6.1.2"

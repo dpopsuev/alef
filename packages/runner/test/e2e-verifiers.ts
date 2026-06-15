@@ -16,7 +16,7 @@
 
 export interface ToolRecord {
 	type: string;
-	bus: "motor" | "sense" | "internal";
+	bus: "motor" | "sense" | "signal" | "internal";
 	hash?: string;
 }
 

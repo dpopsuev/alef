@@ -13,7 +13,8 @@
 
 import { resolve } from "node:path";
 
-import { createAgentLoop, createLlmPipeline } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../eval/src/evaluation.js";
 import * as multiTurnEvals from "../../eval/src/evaluations/multi-turn.js";
@@ -23,8 +24,7 @@ import type { EvaluationResult } from "../../eval/src/index.js";
 import { EvalHarness, EvaluationRunner } from "../../eval/src/index.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../eval/src/model.js";
 import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from "../../eval/src/scoreboard.js";
-import { materializeDefaultOrgans } from "../../runner/src/materializer.js";
-import { createToolShellOrgan } from "../../runner/src/tool-shell.js";
+import { createCodingAgentStack } from "../src/index.js";
 
 const BENCHMARK_PATH = resolve(__dirname, "../../eval/benchmark.jsonl");
 const SCOREBOARD_PATH = resolve(__dirname, "../../eval/SCOREBOARD.md");
@@ -106,22 +106,25 @@ async function runPool(evals: Evaluation[], maxConcurrency: number): Promise<Eva
 
 	async function runOne(item: { eval: Evaluation; index: number }): Promise<void> {
 		const harness = new EvalHarness();
+		const model = getEvalModel();
 		const runner = new EvaluationRunner(harness, {
 			asyncOrganFactory: async (workspace, signal) => {
-				const domainOrgans = await materializeDefaultOrgans(workspace);
-				const pipeline = createLlmPipeline();
-				const toolShell = createToolShellOrgan({
-					tools: domainOrgans.flatMap((o) => o.tools),
-					getTools: () => domainOrgans.flatMap((o) => o.tools),
+				const sessionStore = new InMemorySessionStore();
+				const stack = await createCodingAgentStack({
+					cwd: workspace,
+					model,
+					getSignal: () => signal,
+					onRetry: (attempt, reason) => scheduler.onRetry(attempt, reason),
+					sessionStore,
 				});
 				const llm = createAgentLoop({
-					model: getEvalModel(),
+					model,
 					getSignal: () => signal,
-					schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
+					schemaResolver: (name) => stack.pipeline.getSchemaResolver()?.(name),
 					onRetry: (attempt, reason) => scheduler.onRetry(attempt, reason),
 					phaseTimeoutMs: 100,
 				});
-				return [...domainOrgans, toolShell, pipeline, llm];
+				return [...stack.organs, llm];
 			},
 			maxErrorRate: 0.5,
 		});

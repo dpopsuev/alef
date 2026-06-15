@@ -12,9 +12,9 @@ import type {
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import type { BedrockOptions } from "./amazon-bedrock.js";
 import type { AnthropicOptions } from "./anthropic.js";
-import { matchesAnthropicVertex } from "./anthropic-vertex.js";
+import { matchesAnthropicVertex } from "./anthropic-vertex-match.js";
 import type { AzureOpenAIResponsesOptions } from "./azure-openai-responses.js";
-import { matchesGitHubCopilot } from "./github-copilot-openai-completions.js";
+import { matchesGitHubCopilot } from "./github-copilot-match.js";
 import type { GoogleOptions } from "./google.js";
 import type { GoogleVertexOptions } from "./google-vertex.js";
 import type { MistralOptions } from "./mistral.js";

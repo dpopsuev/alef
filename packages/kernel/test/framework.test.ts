@@ -572,7 +572,7 @@ describe("defineOrgan — inputSchemas validation", { tags: ["unit"] }, () => {
 
 		expect(received.length).toBeGreaterThan(0);
 		expect(received[0].isError).toBe(true);
-		expect(received[0].errorMessage).toMatch(/InputValidation/);
+		expect(received[0].errorMessage).toMatch(/argument validation failed/);
 	});
 
 	it("passes valid payload through to handler", async () => {
@@ -657,24 +657,6 @@ describe("defineOrgan — context metadata enforcement", { tags: ["unit"] }, () 
 
 	it("throws when tool-bearing organ has no directives", () => {
 		expect(() => defineOrgan("bad", minTool, { description: "Does something." })).toThrow(/directives/);
-	});
-
-	it("throws when a directive block is shorter than 20 chars", () => {
-		expect(() =>
-			defineOrgan("bad", minTool, {
-				description: "Does something.",
-				directives: ["Too short."],
-			}),
-		).toThrow(/shorter than 20/);
-	});
-
-	it("throws when total directive chars exceed 2000", () => {
-		expect(() =>
-			defineOrgan("bad", minTool, {
-				description: "Does something.",
-				directives: ["x".repeat(2001)],
-			}),
-		).toThrow(/max 2000/);
 	});
 
 	it("accepts a valid tool-bearing organ with description and directives", () => {

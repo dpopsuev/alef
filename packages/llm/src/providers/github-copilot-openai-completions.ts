@@ -12,14 +12,12 @@
  * Strangler Fig extraction from openai-completions.ts.
  */
 
-import type { Api, AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";
+import type { AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";
 import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copilot-headers.js";
 import type { OpenAICompletionsOptions } from "./openai-completions.js";
 import { streamOpenAICompletions, streamSimpleOpenAICompletions } from "./openai-completions.js";
 
-export function matchesGitHubCopilot(model: Model<Api>): boolean {
-	return model.provider === "github-copilot";
-}
+export { matchesGitHubCopilot } from "./github-copilot-match.js";
 
 export const streamGitHubCopilotCompletions = (
 	model: Model<"openai-completions">,

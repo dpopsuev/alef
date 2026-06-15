@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import type { Nerve, Organ, PortDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { DockerSpaceOptions } from "./docker-space.js";
@@ -186,9 +186,17 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 	// Uses a new object rather than mutating base.mount.
 	const organ: Organ = {
 		name: base.name,
+		description: base.description,
 		tools: base.tools,
 		subscriptions: base.subscriptions,
 		directives: base.directives,
+		contributions: {
+			port: {
+				name: "enclosure",
+				eventPattern: "motor/enclosure.",
+				cardinality: "zero-or-one",
+			} satisfies PortDefinition,
+		},
 		mount(nerve: Nerve): () => void {
 			const unmount = base.mount(nerve);
 			return () => {

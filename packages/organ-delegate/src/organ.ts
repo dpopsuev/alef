@@ -13,6 +13,7 @@ import {
 	withDisplay,
 } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
+import { strategyRegistry } from "./strategy-registry.js";
 
 export interface AdHocSessionOptions {
 	organs: readonly Organ[];
@@ -20,7 +21,8 @@ export interface AdHocSessionOptions {
 	systemPrompt?: string;
 }
 
-export type DelegateProfile = "explore" | "general";
+/** @deprecated profile is now an open string — any name registered in strategyRegistry is valid. */
+export type DelegateProfile = string;
 
 export interface DelegateOrganOptions extends BaseOrganOptions {
 	strategies?: Record<string, ExecutionStrategy>;
@@ -42,9 +44,14 @@ const AGENT_RUN_DESCRIPTION =
 const AGENT_RUN_BASE_SCHEMA = {
 	text: z.string().min(1).describe("The task or question for the subagent"),
 	profile: z
-		.enum(["explore", "general"])
+		.string()
+		.min(1)
 		.optional()
-		.describe("Strategy profile: 'explore', 'general', or a child name from orchestration.spawn"),
+		.describe(
+			"Strategy profile name. Built-ins: 'explore' (read-only, safe to parallelize), 'general' (full tool access). " +
+				"Custom profiles can be registered via strategyRegistry.register(). " +
+				"Defaults to 'explore' when omitted.",
+		),
 	instructions: z
 		.string()
 		.optional()
@@ -105,6 +112,10 @@ class AsyncQueue {
 
 export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
+	// Captured at mount time — used to publish agent.run.inner signals.
+	let publishInnerSignal: ((type: string, payload: Record<string, unknown>, correlationId: string) => void) | null =
+		null;
+
 	const composite = createCompositeAgentRunContribution();
 
 	function buildTool(): ToolDefinition {
@@ -166,7 +177,7 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 						if (organNames && opts.materializeOrgans) {
 							resolvedOrgans = await opts.materializeOrgans(organNames);
 						} else {
-							const strategy = strategies.get(profile);
+							const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
 							resolvedOrgans = (strategy as unknown as { organs?: Organ[] }).organs ?? [];
 						}
 						resolvedOrgans = [...resolvedOrgans, ...extraOrgans];
@@ -192,13 +203,13 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 						return;
 					}
 
-					const strategy = strategies.get(profile);
+					const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
 					if (!strategy) {
-						const available = [...strategies.keys()].join(", ");
+						const available = [...new Set([...strategies.keys(), ...strategyRegistry.list()])].join(", ");
 						yield withDisplay(
 							{ error: `unknown profile '${profile}'`, available },
 							{
-								text: `agent.run: unknown profile '${profile}'. Available: ${available}`,
+								text: `agent.run: unknown profile '${profile}'. Available: ${available || "(none registered)"}`,
 								mimeType: "text/plain",
 							},
 						);
@@ -217,6 +228,14 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 							onChunk: (chunk: string) => {
 								queue.push(chunk);
 							},
+							onInnerEvent: publishInnerSignal
+								? (_callId, innerType, innerPayload) =>
+										publishInnerSignal?.(
+											innerType,
+											{ ...innerPayload, callId: ctx.toolCallId ?? ctx.correlationId },
+											ctx.correlationId,
+										)
+								: undefined,
 						})
 						.finally(() => queue.finish());
 
@@ -267,6 +286,20 @@ Do not read files sequentially yourself — delegate to subagents instead.`,
 
 	organ.registerStrategy = (name: string, strategy: ExecutionStrategy): void => {
 		strategies.set(name, strategy);
+	};
+
+	// Wrap mount to capture the outer nerve's signal bus.
+	const originalMount = organ.mount.bind(organ);
+	organ.mount = (nerve) => {
+		publishInnerSignal = (innerType, payload, correlationId) => {
+			const { callId, ...innerPayload } = payload as { callId?: string } & Record<string, unknown>;
+			nerve.signal.publish({
+				type: "agent.run.inner",
+				payload: { callId: callId ?? correlationId, innerType, innerPayload },
+				correlationId,
+			});
+		};
+		return originalMount(nerve);
 	};
 
 	Object.defineProperty(organ, "tools", {

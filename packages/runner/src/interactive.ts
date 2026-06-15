@@ -13,6 +13,8 @@ import { readStdinLines } from "./stdin.js";
 
 const EXIT_COMMAND = "/exit";
 
+import type { ActorRouteTable } from "./identity/routes.js";
+
 export interface InteractiveOptions {
 	cwd: string;
 	modelId: string;
@@ -22,6 +24,12 @@ export interface InteractiveOptions {
 	setModel?: (id: string) => void;
 	getThinking?: () => string;
 	setThinking?: (level: string) => void;
+	/** Human's @ address for pill label. Default: "@you". */
+	humanAddress?: string;
+	/** Agent's @ address for pill label and @-routing. Default: "@alef". */
+	agentAddress?: string;
+	/** Route table for @-mention routing. */
+	actorRoutes?: ActorRouteTable;
 }
 
 export async function runInteractive(session: Session, opts: InteractiveOptions): Promise<void> {

@@ -14,9 +14,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../../organ-fs/src/index.js";
-import { materializeBlueprint } from "../../runner/src/materializer.js";
 import { BlueprintHarness } from "../src/blueprint-harness.js";
 import { step } from "../src/script.js";
 

@@ -1,3 +1,6 @@
+export type { SubagentFactory, SubagentFactoryOptions } from "./in-process.js";
+export { InProcessStrategy } from "./in-process.js";
+
 import { randomUUID } from "node:crypto";
 import {
 	type Binding,
@@ -9,17 +12,12 @@ import {
 	type Organ,
 	type SenseEvent,
 	type SensePublishInput,
+	type SignalPublishInput,
 	type ToolDefinition,
 	withBindings,
 } from "@dpopsuev/alef-kernel";
 import type { ZodTypeAny } from "zod";
-import {
-	type OrganPortInfo,
-	type PortDefinition,
-	PortValidationError,
-	STANDARD_PORTS,
-	validatePorts,
-} from "./port-registry.js";
+import { type OrganPortInfo, PortValidationError, validatePorts } from "./port-registry.js";
 
 const VALIDATE_PAYLOADS = process.env.ALEF_VALIDATE_PAYLOADS === "1" || process.env.NODE_ENV === "test";
 
@@ -82,6 +80,7 @@ function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
 				nerve.sense.publish(event);
 			},
 		},
+		signal: nerve.signal,
 		pulse: () => nerve.pulse(),
 	};
 }
@@ -89,6 +88,7 @@ function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
 export interface BusObserver {
 	onMotorEvent(event: NerveEvent): void;
 	onSenseEvent(event: NerveEvent): void;
+	onSignalEvent?(event: NerveEvent): void;
 }
 
 /** Reserved for future Agent configuration. */
@@ -164,21 +164,23 @@ export class Agent {
 	/**
 	 * Validate port cardinality. Call before the first dialog.send().
 	 *
-	 * Reads organ.subscriptions directly — no probe mount, no state corruption.
-	 * The Organ interface requires subscriptions, so TypeScript enforces declaration.
-	 * mount() is always called exactly once (in load()).
+	 * Collects PortDefinition contributions from all loaded organs and validates
+	 * cardinality constraints. Organs self-declare which seam they own via
+	 * contributions["port"] — no static registry required.
 	 *
 	 * Throws PortValidationError on errors (missing/duplicate exactly-one ports).
 	 * Logs warnings for zero-or-one violations.
 	 */
-	validate(seams: PortDefinition[] = STANDARD_PORTS): this {
+	validate(): this {
 		const infos: OrganPortInfo[] = this._organs.map((organ) => ({
 			name: organ.name,
 			motorSubscriptions: [...organ.subscriptions.motor],
 			senseSubscriptions: [...organ.subscriptions.sense],
 		}));
 
-		const result = validatePorts(infos, seams);
+		const ports = this._organs.flatMap((organ) => (organ.contributions?.port ? [organ.contributions.port] : []));
+
+		const result = validatePorts(infos, ports);
 		for (const w of result.violations.filter((v) => v.severity === "warning")) {
 			console.warn(`[PortRegistry] ${w.message}`);
 		}
@@ -195,6 +197,11 @@ export class Agent {
 	 */
 	publishSense(event: SensePublishInput): void {
 		this.nerve.publishSense(event);
+	}
+
+	/** Broadcast a signal event to all observers. Used exclusively by the Reasoner (organ-llm). */
+	publishSignal(event: SignalPublishInput): void {
+		this.nerve.publishSignal(event);
 	}
 
 	/**
@@ -216,6 +223,9 @@ export class Agent {
 			}),
 			this.nerve.onAnySense((e) => {
 				observer.onSenseEvent(e);
+			}),
+			this.nerve.onAnySignal((e) => {
+				observer.onSignalEvent?.(e);
 			}),
 		];
 		const off = () => {

@@ -59,6 +59,7 @@ export interface SenseHandlerCtx {
 	readonly payload: Record<string, unknown>;
 	readonly motor: Nerve["motor"];
 	readonly sense: Nerve["sense"];
+	readonly signal: Nerve["signal"];
 }
 
 export interface SenseAction {

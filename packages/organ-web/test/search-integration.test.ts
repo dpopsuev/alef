@@ -3,14 +3,14 @@
  * Skipped unless at least one search API key is set.
  */
 
-import { describe, expect, it } from "vitest";
 import {
 	BraveSearchEngine,
 	DdgSearchEngine,
 	defaultSearchEngine,
 	ExaSearchEngine,
 	TavilySearchEngine,
-} from "../src/search-engines.js";
+} from "@dpopsuev/web-spider";
+import { describe, expect, it } from "vitest";
 
 const BRAVE_KEY = process.env.BRAVE_SEARCH_API_KEY;
 const TAVILY_KEY = process.env.TAVILY_API_KEY;

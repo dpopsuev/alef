@@ -11,7 +11,7 @@
  * Strangler Fig extraction from anthropic.ts.
  */
 
-import type { Api, AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";
+import type { AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";
 import type { AnthropicOptions } from "./anthropic.js";
 import { streamAnthropic, streamSimpleAnthropic } from "./anthropic.js";
 
@@ -20,24 +20,7 @@ import { streamAnthropic, streamSimpleAnthropic } from "./anthropic.js";
 // this to decide whether Vertex is available.
 // ---------------------------------------------------------------------------
 
-function hasVertexConfig(): boolean {
-	if (typeof process === "undefined") return false;
-	const projectId =
-		process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ||
-		process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
-		process.env.GCLOUD_PROJECT?.trim();
-	const region = process.env.CLOUD_ML_REGION?.trim() || process.env.GOOGLE_CLOUD_LOCATION?.trim();
-	return Boolean(projectId && region);
-}
-
-/**
- * match() predicate for the Vertex strategy.
- * Registered alongside the direct Anthropic strategy; this one takes precedence
- * when Vertex credentials are present. Both share api="anthropic-messages".
- */
-export function matchesAnthropicVertex(model: Model<Api>): boolean {
-	return model.provider === "anthropic" && hasVertexConfig();
-}
+export { matchesAnthropicVertex } from "./anthropic-vertex-match.js";
 
 // ---------------------------------------------------------------------------
 // Streaming — signal the Vertex path via options.isVertex and delegate.

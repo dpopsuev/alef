@@ -1,12 +1,14 @@
+import type { ISessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Container, Text } from "@dpopsuev/alef-tui";
 import { ConsoleZone } from "./console-zone.js";
-import { HistoryAutocompleteProvider } from "./history-autocomplete.js";
+import { AtAddressProvider, HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, glyph, type ThemeTokens } from "./theme.js";
 import { ChatWriter } from "./tui/chat-writer.js";
 import { DynamicText } from "./tui/dynamic-text.js";
+import { prependSessionHistory } from "./tui/session-history.js";
 import { StreamingZone } from "./tui/streaming-zone.js";
 import { Typewriter } from "./tui/typewriter.js";
 
@@ -24,6 +26,7 @@ export async function buildLayout(
 	t: ThemeTokens,
 	opts: InteractiveOptions,
 	getTokensTotal: () => number,
+	store?: ISessionStore,
 ): Promise<TuiLayout> {
 	const sessionShort = opts.sessionId.slice(0, 8);
 	const modelShort = opts.modelId.split("/").pop()?.split(" ")[0] ?? opts.modelId;
@@ -59,10 +62,39 @@ export async function buildLayout(
 	const { editor } = consoleZone;
 
 	const historyProvider = new HistoryAutocompleteProvider();
-	if (editor.setAutocompleteProvider) editor.setAutocompleteProvider(historyProvider);
+	if (editor.setAutocompleteProvider) {
+		if (opts.actorRoutes) {
+			// Two providers: @-address takes priority when line starts with @, else history
+			const atProvider = new AtAddressProvider(opts.actorRoutes);
+			editor.setAutocompleteProvider({
+				getSuggestions: (lines, cursorLine, cursorCol, options) => {
+					const prefix = (lines[cursorLine] ?? "").slice(0, cursorCol);
+					if (prefix.startsWith("@")) return atProvider.getSuggestions(lines, cursorLine, cursorCol, options);
+					return historyProvider.getSuggestions(lines, cursorLine, cursorCol, options);
+				},
+				applyCompletion: (lines, cursorLine, cursorCol, item, pfx) => {
+					if (item.description === "actor")
+						return atProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
+					return historyProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
+				},
+			});
+		} else {
+			editor.setAutocompleteProvider(historyProvider);
+		}
+	}
 
-	const writer = new ChatWriter(chat, t);
-	const streamingZone = new StreamingZone(chat, () => tui.requestRender(), t);
+	const humanLabel = opts.humanAddress ?? "@you";
+	const agentLabel = opts.agentAddress ?? "@alef";
+	const writer = new ChatWriter(chat, t, { humanLabel, agentLabel });
+
+	// Eager-load prior session turns (non-blocking — fire-and-forget with render).
+	if (store) {
+		prependSessionHistory(store, writer, { maxTurns: 5 })
+			.then(() => tui.requestRender())
+			.catch(() => {});
+	}
+
+	const streamingZone = new StreamingZone(chat, () => tui.requestRender(), t, true, agentLabel);
 	const replyTW = new Typewriter(
 		(delta) => streamingZone.receiveText(delta),
 		() => tui.requestRender(),

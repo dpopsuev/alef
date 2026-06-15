@@ -8,6 +8,7 @@
  * use ScriptedReasoner from @dpopsuev/alef-testkit directly in unit tests.
  */
 
+import { randomUUID } from "node:crypto";
 import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 
 type SerializedStep =
@@ -38,14 +39,39 @@ export class ScriptedLlmOrgan implements Organ {
 
 	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("llm.input", (event) => {
-			const step = this.steps[this.index++];
-			const text = step !== undefined ? toReplyText(step) : "(scripted-llm: script exhausted)";
-			nerve.motor.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
-			nerve.motor.publish({
-				type: "llm.response",
-				payload: { text },
-				correlationId: event.correlationId,
-			});
+			void (async () => {
+				const step = this.steps[this.index++];
+				if (step !== undefined && typeof step === "object" && step.kind === "toolCall") {
+					const toolCallId = randomUUID();
+					const dotName = step.call.name; // e.g. "tools.describe"
+					nerve.motor.publish({
+						type: "llm.tool-start",
+						payload: { callId: toolCallId, name: dotName, args: step.call.args },
+						correlationId: event.correlationId,
+					});
+					await new Promise<void>((resolve) => {
+						const off = nerve.sense.subscribe(dotName, (e) => {
+							if (e.correlationId === event.correlationId) {
+								off();
+								resolve();
+							}
+						});
+						nerve.motor.publish({
+							type: dotName,
+							payload: { ...step.call.args, toolCallId },
+							correlationId: event.correlationId,
+						});
+					});
+					nerve.motor.publish({
+						type: "llm.tool-end",
+						payload: { callId: toolCallId, name: step.call.name, ok: true },
+						correlationId: event.correlationId,
+					});
+				}
+				const text = step !== undefined ? toReplyText(step) : "(scripted-llm: script exhausted)";
+				nerve.motor.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
+				nerve.motor.publish({ type: "llm.response", payload: { text }, correlationId: event.correlationId });
+			})();
 		});
 	}
 }

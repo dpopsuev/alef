@@ -143,6 +143,8 @@ export interface CheckerContext {
 	spans: import("./metrics.js").SpanRecord[];
 	/** Agent's last reply text (if available). */
 	lastReply?: string;
+	/** Baseline git SHA before the agent's work (set by PhaseEvaluationRunner when seedGitRepo: true). */
+	seedSha?: string;
 }
 
 export interface Checker {
@@ -156,4 +158,106 @@ export interface Checker {
 export interface FixtureSet {
 	/** Files to write for the fixture test (relative path → content). */
 	files: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
+// PhaseEvaluation — multi-phase evaluation with retry and weighted scoring
+// ---------------------------------------------------------------------------
+
+export interface Phase {
+	/** Human-readable name — appears in PhaseResult and corrective prompts. */
+	readonly name: string;
+	/** Prompt injected at the start of this phase. */
+	readonly prompt: string;
+	/** Checker run after the agent replies. */
+	readonly checker: Checker;
+	/**
+	 * Weight of this phase in the total score (all weights should sum to 1.0).
+	 * Default: 1 / number of phases.
+	 */
+	readonly weight?: number;
+	/** Maximum number of retry attempts after the first try. Default: 2 (3 total). */
+	readonly maxRetries?: number;
+	/**
+	 * Score multiplier per retry: finalScore = rawScore × decayFactor^(attempts-1).
+	 * Default: 0.8 (20% penalty per retry).
+	 */
+	readonly decayFactor?: number;
+	/**
+	 * Prefix prepended to the checker violations list in corrective prompts.
+	 * Gives domain context beyond the raw violation strings.
+	 */
+	readonly retryPrompt?: string;
+	/**
+	 * What happens when maxRetries is exhausted and score is still below threshold.
+	 *   "stop"     — abort the evaluation; remaining phases are skipped.
+	 *   "continue" — record the low score and move to the next phase.
+	 */
+	readonly onExhausted: "stop" | "continue";
+	/** Score below which the checker result is treated as a failure. Default: 1.0. */
+	readonly passThreshold?: number;
+}
+
+export interface PhaseResult {
+	readonly name: string;
+	readonly weight: number;
+	/** Number of attempts (1 = first try, 2 = one retry, …). */
+	readonly attempts: number;
+	/** Checker score on the final attempt, before decay is applied. */
+	readonly rawScore: number;
+	/** rawScore × decayFactor^(attempts-1). */
+	readonly finalScore: number;
+	/** finalScore × weight. */
+	readonly weightedScore: number;
+	/** Checker violations from the final attempt. */
+	readonly violations: string[];
+	/** True if this phase was never executed (prior phase used onExhausted:"stop"). */
+	readonly skipped: boolean;
+}
+
+export interface PhaseEvaluationResult {
+	readonly id: string;
+	readonly phases: PhaseResult[];
+	/** Σ(weightedScore) across non-skipped phases. */
+	readonly totalScore: number;
+	/** true if totalScore >= passThreshold. */
+	readonly passed: boolean;
+	/** Workspace path if keepWorkspace was set. */
+	readonly workspace?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Two-score architecture: Deterministic (Score 1) + Stochastic (Score 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * EvalReport — the top-level result combining both scores.
+ *
+ * Score 1 (deterministic): phase results from PhaseEvaluationRunner.
+ *   Static: commit quality, compile, lint, comment policy.
+ *   Dynamic: tests pass, coverage, property invariants, mutation detection.
+ *
+ * Score 2 (stochastic): LLM judge panel results from JudgePanelRunner.
+ *   Advisory until calibrated. Does not affect passed gate.
+ *
+ * Passed = Score 1 >= threshold. Score 2 is always reported alongside.
+ */
+export interface EvalReport {
+	/** Score 1: deterministic phase results. */
+	readonly phase: PhaseEvaluationResult;
+	/** Score 2: stochastic LLM judge panel. Undefined when judges were not run. */
+	readonly judgePanel?: import("./judge-panel-runner.js").JudgePanelResult;
+}
+
+export interface PhaseEvaluation {
+	readonly id: string;
+	readonly toolLevel: ToolLevel;
+	readonly phases: readonly Phase[];
+	/** Files to seed before phase 1. */
+	readonly seed?: readonly WorkspaceFile[];
+	/** If true, run git init + write AGENTS.md as initial commit before phases. */
+	readonly seedGitRepo?: boolean;
+	/** Total score threshold for pass. Default: 0.70. */
+	readonly passThreshold?: number;
+	readonly scenarioTimeoutMs?: number;
 }

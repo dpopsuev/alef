@@ -2,7 +2,8 @@ import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny } from "zod";
 import type { MotorEvent, Nerve, SenseEvent } from "./buses.js";
 import { debugLog } from "./debug.js";
-import { invalidateByPrefix, makeCacheKey } from "./organ-cache.js";
+import type { CacheStrategy } from "./organ-cache.js";
+import { makeCacheKey } from "./organ-cache.js";
 import type { MotorAction, MotorHandlerCtx, OrganLogger, SenseAction, SenseHandlerCtx } from "./organ-types.js";
 import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
 
@@ -51,7 +52,7 @@ export async function dispatchMotorAction(
 	motor: MotorEvent,
 	action: MotorAction,
 	nerve: Nerve,
-	cache: Map<string, Record<string, unknown>>,
+	cache: CacheStrategy,
 	log: OrganLogger,
 	schema?: ZodTypeAny,
 ): Promise<void> {
@@ -81,6 +82,7 @@ export async function dispatchMotorAction(
 
 		const cacheKey = makeCacheKey(motor.type, motor.payload);
 		const cached = cache.get(cacheKey);
+
 		if (cached !== undefined) {
 			span.setAttribute("alef.cache.hit", true);
 			log.debug({ op: motor.type, correlationId: motor.correlationId, cacheKey }, "cache hit");
@@ -101,7 +103,7 @@ export async function dispatchMotorAction(
 			const result = last ?? {};
 
 			if (action.invalidates) {
-				const purged = invalidateByPrefix(cache, action.invalidates(ctx));
+				const purged = cache.invalidate(action.invalidates(ctx));
 				if (purged.length > 0) {
 					span.setAttribute("alef.cache.invalidated", purged.join(","));
 					log.debug({ op: motor.type, correlationId: motor.correlationId, purged }, "cache invalidated");
@@ -150,6 +152,7 @@ export function dispatchSenseAction(
 		payload: event.payload,
 		motor: nerve.motor,
 		sense: nerve.sense,
+		signal: nerve.signal,
 	};
 	const span = tracer.startSpan(`alef.sense/${eventType}`, {
 		kind: SpanKind.CONSUMER,

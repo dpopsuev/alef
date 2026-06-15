@@ -4,7 +4,7 @@ import { createAlefApiOrgan, type DirectiveAdapter } from "@dpopsuev/alef-organ-
 import { DEFAULT_MODEL } from "./args.js";
 import { buildModel } from "./model.js";
 import type { DirectiveView } from "./session.js";
-import { InProcessStrategy } from "./strategies/in-process.js";
+import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { buildSubagentFactory } from "./subagent-factory.js";
 
 const META_SYSTEM_PROMPT =

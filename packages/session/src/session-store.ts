@@ -28,7 +28,14 @@ import { join } from "node:path";
 // Storage record types — moved from @dpopsuev/alef-kernel (CRP: only runner uses these)
 // ---------------------------------------------------------------------------
 
-export type BusKind = "motor" | "sense" | "internal";
+export type BusKind = "motor" | "sense" | "signal" | "internal";
+
+/** Actor identity stamped on each StorageRecord by SessionLog. */
+export interface StorageActor {
+	/** "@crimson" or "@dpopsuev" — the @ address of who produced this event. */
+	address: string;
+	type: "human" | "agent";
+}
 
 export interface StorageRecord {
 	bus: BusKind;
@@ -38,6 +45,10 @@ export interface StorageRecord {
 	timestamp: number;
 	elapsed?: number;
 	hash?: string;
+	/** The conversation ID (SessionStore.id) — the Topic this event belongs to. */
+	sessionId?: string;
+	/** Who produced this event. */
+	actor?: StorageActor;
 }
 
 export function hashRecord(record: Omit<StorageRecord, "hash">): string {
@@ -76,6 +87,12 @@ export interface ISessionStore {
 	append(record: StorageRecord): Promise<void>;
 	turns(): Promise<Turn[]>;
 	hitCounts(): Promise<Map<string, number>>;
+	/**
+	 * Return all motor and sense events whose type starts with `<organName>.`.
+	 * E.g. organHistory("fs") returns fs.read, fs.write, fs.grep events.
+	 * Ordered chronologically.
+	 */
+	organHistory(organName: string): Promise<StorageRecord[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -297,5 +314,16 @@ export class SessionStore {
 	 */
 	hitCounts(): Promise<Map<string, number>> {
 		return Promise.resolve(new Map(this._hitCountsMap));
+	}
+
+	/**
+	 * Return all motor and sense events whose type starts with `<organName>.`.
+	 * O(n_events) scan — intended for diagnostics and MemoryOrgan context injection.
+	 */
+	organHistory(organName: string): Promise<StorageRecord[]> {
+		const prefix = `${organName}.`;
+		return Promise.resolve(
+			this._cache.filter((r) => (r.bus === "motor" || r.bus === "sense") && r.type.startsWith(prefix)),
+		);
 	}
 }

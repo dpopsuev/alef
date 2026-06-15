@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@dpopsuev/alef-kernel": "^0.0.1",
-    "@dpopsuev/alef-organ-dialog": "^0.0.1",
     "yaml": "^2.8.0",
     "zod": "^4.4.3"
   },

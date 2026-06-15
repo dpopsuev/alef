@@ -171,6 +171,11 @@ export class Container implements Component {
 		this.children.push(component);
 	}
 
+	insertAt(index: number, component: Component): void {
+		const i = Math.max(0, Math.min(index, this.children.length));
+		this.children.splice(i, 0, component);
+	}
+
 	removeChild(component: Component): void {
 		const index = this.children.indexOf(component);
 		if (index !== -1) {

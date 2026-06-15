@@ -1,5 +1,5 @@
 import { type Component, type Container, Markdown, Text } from "@dpopsuev/alef-tui";
-import type { ThemeTokens } from "../theme.js";
+import type { ThemeTokens } from "../theme-types.js";
 import { fmtMs } from "./ansi-utils.js";
 import { AgentBlock } from "./chat-view.js";
 import { makeMarkdownTheme, makeThinkingMarkdownTheme } from "./markdown-themes.js";
@@ -26,9 +26,10 @@ export class StreamingZone {
 		private readonly requestRender: () => void,
 		private readonly t: ThemeTokens,
 		hideThinking = true,
+		agentLabel?: string,
 	) {
 		this._hideThinking = hideThinking;
-		this.block = new AgentBlock(chat, t);
+		this.block = new AgentBlock(chat, t, agentLabel);
 	}
 
 	get hideThinking(): boolean {

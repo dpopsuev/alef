@@ -1,6 +1,8 @@
 import { createWriteStream } from "node:fs";
+import type { ISessionStore } from "@dpopsuev/alef-session";
 import { matchesKey, ProcessTerminal, type SelectItem, SelectList, TUI } from "@dpopsuev/alef-tui";
 import { trace } from "./debug-trace.js";
+import { parseAtAddress } from "./identity/routes.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import type { Session } from "./session.js";
@@ -21,7 +23,7 @@ const ANSI_BOLD = "\x1b[1m";
 const ANSI_RESET = "\x1b[0m";
 const HISTORY_PICKER_ID = "history-picker";
 
-export async function runTuiMode(session: Session, opts: InteractiveOptions): Promise<void> {
+export async function runTuiMode(session: Session, opts: InteractiveOptions, store?: ISessionStore): Promise<void> {
 	const terminal = new ProcessTerminal();
 	const tui = new TUI(terminal);
 	const t = getTheme();
@@ -34,7 +36,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 	}
 
 	let tuiState = initialTuiState();
-	const layout = await buildLayout(tui, t, opts, () => tuiState.sessionTokensTotal);
+	const layout = await buildLayout(tui, t, opts, () => tuiState.sessionTokensTotal, store);
 	const { writer, streamingZone, replyTW, thinkingTW, consoleZone, historyProvider } = layout;
 	const { editor } = consoleZone;
 
@@ -109,6 +111,8 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 		return false;
 	};
 
+	const actorRoutes = opts.actorRoutes;
+
 	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	editor.onSubmit = async (rawText: string) => {
 		const text = rawText.trim();
@@ -117,6 +121,54 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions): Pr
 			handleSlashCommand(text, ctx());
 			return;
 		}
+
+		// @-routing: "@crimson do something" → route "do something" to @crimson
+		if (text.startsWith("@") && actorRoutes) {
+			const parsed = parseAtAddress(text);
+			if (parsed) {
+				const route = actorRoutes.resolve(parsed.address);
+				if (actorRoutes.isHumanAddress(parsed.address)) {
+					writer.addNotice("You can't message yourself.");
+					return;
+				}
+				if (!route) {
+					const known = actorRoutes
+						.addresses()
+						.map((a) => `@${a}`)
+						.join(", ");
+					writer.addNotice(`Unknown actor: @${parsed.address}. Known: ${known || "(none)"}`);
+					return;
+				}
+				editor.addToHistory(text);
+				if (tuiState.abortCurrentTurn) tuiState.abortCurrentTurn();
+				editor.setText("");
+				historyProvider.addEntry(text);
+				writer.addUserMessage(text);
+				dispatch({ type: "turn.start", timestamp: Date.now() });
+				let aborted = false;
+				const controller = new AbortController();
+				session.setTurnController(controller);
+				dispatch({
+					type: "abort.set",
+					fn: () => {
+						aborted = true;
+						controller.abort();
+					},
+				});
+				try {
+					await route(parsed.message, 300_000);
+					if (!aborted) dispatch({ type: "turn.complete", tokenFooter: writer.addTokenFooter() });
+				} catch (e) {
+					dispatch({ type: "turn.error", error: e, aborted });
+				} finally {
+					dispatch({ type: "abort.clear" });
+					session.setTurnController(undefined);
+					if (consoleZone.isThinking) consoleZone.stopThinking();
+				}
+				return;
+			}
+		}
+
 		editor.addToHistory(text);
 		if (tuiState.abortCurrentTurn) tuiState.abortCurrentTurn();
 		editor.setText("");

@@ -159,9 +159,9 @@ describe("McpOrgan — lifecycle", { tags: ["unit"] }, () => {
 
 		const organ = await createMcpOrganFromClient(client as never, "test");
 		const nerve = new InProcessNerve();
-		const unmount = organ.mount(nerve.asNerve());
+		organ.mount(nerve.asNerve());
 
-		await unmount();
+		await organ.close?.();
 		expect(client.close).toHaveBeenCalledOnce();
 	});
 });

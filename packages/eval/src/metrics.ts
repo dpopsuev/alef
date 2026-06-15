@@ -11,14 +11,14 @@
  * the in-flight motor event that precedes a timeout.
  */
 export interface BusEvent {
-	bus: "motor" | "sense";
+	bus: "motor" | "sense" | "signal";
 	event: string;
 	correlationId: string;
 	/** Key payload fields, truncated. Full fidelity for args; first 300 chars for results. */
 	payload?: Record<string, unknown>;
 	isError?: boolean;
 	errorMessage?: string;
-	/** Round-trip ms from paired Motor to this Sense event. Undefined on Motor events. */
+	/** Round-trip ms from paired Motor to this Sense event. Undefined on Motor/Signal events. */
 	elapsedMs?: number;
 }
 
@@ -93,8 +93,8 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 		}
 
 		// Exclude internal seam events from tool path tracking.
-		// llm.phase is ToolShellOrgan's context lifecycle interceptor, not an LLM tool call.
-		const INTERNAL_EVENTS = new Set(["llm.response", "llm.phase"]);
+		// context.assemble is ToolShellOrgan's context lifecycle interceptor, not an LLM tool call.
+		const INTERNAL_EVENTS = new Set(["llm.response", "context.assemble"]);
 		const toolNames = toolSpans
 			.map((ts) => ts.name.replace("alef.motor/", ""))
 			.filter((n) => !INTERNAL_EVENTS.has(n));
@@ -188,7 +188,7 @@ export interface RunMetrics {
 	/**
 	 * Real-time bus event capture: every Motor and Sense event observed during the run,
 	 * in chronological order, with truncated payloads. Populated by harness.ts via
-	 * agent.observe(). Skips llm.response (large) and llm.phase (internal).
+	 * agent.observe(). Skips llm.response (large) and context.assemble (internal).
 	 *
 	 * Unlike OTel spans, this includes in-flight Motor events that never received a
 	 * Sense response — exactly what's needed to diagnose timeout scenarios.

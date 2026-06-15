@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { MotorEvent, Nerve, Organ, SensePublishInput } from "@dpopsuev/alef-kernel";
+import type { MotorEvent, Nerve, Organ, PortDefinition, SensePublishInput } from "@dpopsuev/alef-kernel";
 import { extractToolCallId } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
@@ -33,6 +33,13 @@ export class DialogOrgan implements Organ {
 		},
 	} as const;
 	readonly subscriptions = { motor: [LLM_RESPONSE] as const, sense: [] as const };
+	readonly contributions = {
+		port: {
+			name: "context_observer",
+			eventPattern: "sense/dialog.",
+			cardinality: "zero-or-one",
+		} satisfies PortDefinition,
+	};
 
 	private readonly sink: MessageSink;
 	private nerve: Nerve | null = null;

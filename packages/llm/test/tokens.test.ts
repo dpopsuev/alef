@@ -84,7 +84,7 @@ async function testTokensOnAbort<TApi extends Api>(llm: Model<TApi>, options: St
 	}
 }
 
-describe("Token Statistics on Abort", { tags: ["unit"] }, () => {
+describe("Token Statistics on Abort", { tags: ["integration"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

@@ -1,13 +1,12 @@
-import type { BaseOrganOptions } from "@dpopsuev/alef-kernel";
+import type { BaseOrganOptions, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
 import { defineOrgan } from "@dpopsuev/alef-kernel";
-import type { PhaseStageHandler } from "@dpopsuev/alef-organ-llm";
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { ISessionStore } from "@dpopsuev/alef-session";
 import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "@dpopsuev/alef-session";
 
 export interface MemoryOrganOptions extends BaseOrganOptions {
 	compactionThreshold?: number;
 	recentGuarantee?: number;
-	sessionStore?: () => SessionStore | undefined;
+	sessionStore?: () => ISessionStore | undefined;
 	contextWindow?: number;
 }
 
@@ -27,7 +26,7 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 		},
 	);
 
-	function phaseStageHandler(): PhaseStageHandler {
+	function phaseStageHandler(): ContextAssemblyHandler {
 		return async ({ messages, turn: _turn }) => {
 			const msgs = messages as unknown as RawMsg[];
 			if (!msgs.length) return {};
@@ -96,8 +95,8 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 
 	return {
 		...organBase,
-		contributions: { "llm.phase": handler },
-		phaseStage(): PhaseStageHandler {
+		contributions: { "context.assemble": handler },
+		phaseStage(): ContextAssemblyHandler {
 			return handler;
 		},
 	};

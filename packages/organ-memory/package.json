@@ -21,7 +21,6 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@dpopsuev/alef-organ-llm": "^0.0.1",
     "@dpopsuev/alef-session": "^0.0.1",
     "@dpopsuev/alef-kernel": "^0.0.1"
   },

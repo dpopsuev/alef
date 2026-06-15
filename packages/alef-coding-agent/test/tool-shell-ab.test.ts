@@ -19,10 +19,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../eval/src/evaluation.js";
 import { EvaluationRunner } from "../../eval/src/evaluation-runner.js";
 import { addTypeExport, createHTTPServer } from "../../eval/src/evaluations/write.js";
-import { EvalHarness, formatReport } from "../../eval/src/harness.js";
+import { EvalHarness } from "../../eval/src/harness.js";
 import type { RunMetrics } from "../../eval/src/metrics.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../eval/src/model.js";
-import { buildOrganDirectives, createToolShellOrgan } from "../../runner/src/tool-shell.js";
+import { formatReport } from "../../eval/src/report.js";
+import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
 
 // ---------------------------------------------------------------------------
 // Scenarios — subset fast enough for A/B (< 3 min each arm)
@@ -64,7 +65,7 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 		const runner = new EvaluationRunner(harness, {
 			// Domain organs (fs, shell) are loaded by the harness with the correct workspace cwd.
 			// organFactory adds only the LLM (and ToolShellOrgan when active).
-			// phaseTimeoutMs=100 activates llm.phase for catalog lifecycle injection.
+			// phaseTimeoutMs=100 activates context.assemble for catalog lifecycle injection.
 			organFactory: (signal) => {
 				const llm = createAgentLoop({
 					model: getEvalModel(),

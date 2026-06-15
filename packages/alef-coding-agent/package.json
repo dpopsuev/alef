@@ -10,20 +10,25 @@
 		"test": "vitest --run"
 	},
 	"dependencies": {
+		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
+		"@dpopsuev/alef-kernel": "^0.0.1",
 		"@dpopsuev/alef-organ-delegate": "^0.0.1",
 		"@dpopsuev/alef-organ-factory": "^0.0.1",
 		"@dpopsuev/alef-organ-fs": "^0.0.1",
 		"@dpopsuev/alef-organ-lector": "^0.0.1",
+		"@dpopsuev/alef-organ-memory": "^0.0.1",
 		"@dpopsuev/alef-organ-nodesh": "^0.0.1",
 		"@dpopsuev/alef-organ-orchestration": "^0.0.1",
 		"@dpopsuev/alef-organ-shell": "^0.0.1",
 		"@dpopsuev/alef-organ-skills": "^0.0.1",
-		"@dpopsuev/alef-organ-web": "^0.0.1"
+		"@dpopsuev/alef-organ-toolshell": "^0.0.1",
+		"@dpopsuev/alef-organ-web": "^0.0.1",
+		"@dpopsuev/alef-runtime": "^0.0.1"
 	},
 	"devDependencies": {
 		"@dpopsuev/alef-eval": "^0.0.1",
 		"@dpopsuev/alef-organ-llm": "^0.0.1",
-		"@dpopsuev/alef-runner": "^0.0.1",
+		"@dpopsuev/alef-testkit": "^0.0.1",
 		"@types/node": "^24.3.0",
 		"vitest": "^4.1.6"
 	}

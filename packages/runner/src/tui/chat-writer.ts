@@ -6,9 +6,11 @@
  * on the chat Container directly.
  */
 
-import type { Component, Container, Text } from "@dpopsuev/alef-tui";
-import type { ThemeTokens } from "../theme.js";
+import type { Component, Container } from "@dpopsuev/alef-tui";
+import { Text as TuiText } from "@dpopsuev/alef-tui";
+import type { ThemeTokens } from "../theme-types.js";
 import {
+	AgentBlock,
 	appendBatchTiming,
 	appendCompletedToolBlock,
 	appendNotice,
@@ -17,17 +19,34 @@ import {
 } from "./chat-view.js";
 import { makeToolOutputComponent } from "./tool-view.js";
 
+export interface ChatWriterLabels {
+	humanLabel?: string;
+	agentLabel?: string;
+}
+
 export class ChatWriter {
 	private readonly chat: Container;
 	private readonly t: ThemeTokens;
+	readonly humanLabel: string;
+	readonly agentLabel: string;
 
-	constructor(chat: Container, t: ThemeTokens) {
+	constructor(chat: Container, t: ThemeTokens, labels: ChatWriterLabels = {}) {
 		this.chat = chat;
 		this.t = t;
+		this.humanLabel = labels.humanLabel ?? "@you";
+		this.agentLabel = labels.agentLabel ?? "@alef";
 	}
 
 	addUserMessage(text: string): void {
-		appendUserMsg(this.chat, text, this.t);
+		appendUserMsg(this.chat, text, this.t, this.humanLabel);
+	}
+
+	/** Append a completed agent reply as a closed pill — used for session history display. */
+	addAgentReply(text: string): void {
+		const block = new AgentBlock(this.chat, this.t);
+		block.start();
+		block.addContent(new TuiText(text, 0, 0));
+		block.end();
 	}
 
 	addNotice(text: string): void {
@@ -53,7 +72,7 @@ export class ChatWriter {
 	}
 
 	/** Append a mutable token-usage footer. Returns a handle to update the text later. */
-	addTokenFooter(): Text {
+	addTokenFooter(): TuiText {
 		return appendTokenFooter(this.chat);
 	}
 

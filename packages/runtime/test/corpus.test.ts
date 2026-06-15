@@ -87,34 +87,15 @@ describe("Agent — load()", { tags: ["unit"] }, () => {
 		expect(agent.load(makeNoopOrgan())).toBe(agent);
 	});
 
-	it("collects tool definitions from loaded organs", async () => {
+	it("collects tool definitions from loaded organs", () => {
 		const agent = makeAgent();
 		agent.load(makeToolOrgan(["file_read", "file_grep"]));
 		agent.load(makeToolOrgan(["bash"]));
 
-		let capturedTools: readonly { name: string }[] = [];
-		agent.load({
-			name: "tool-spy",
-			tools: [],
-			subscriptions: { motor: [] as const, sense: [] as const },
-			mount: (nerve: Nerve) => {
-				return nerve.sense.subscribe("llm.input", (e) => {
-					capturedTools = (e.payload.tools as { name: string }[]) ?? [];
-					nerve.motor.publish({
-						type: "llm.response",
-						payload: { text: "ok" },
-						correlationId: e.correlationId,
-					});
-				});
-			},
-		});
-
-		const dialog2 = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog2);
-		await dialog2.send("hi");
-		expect(capturedTools.map((t) => t.name)).toContain("file_read");
-		expect(capturedTools.map((t) => t.name)).toContain("file_grep");
-		expect(capturedTools.map((t) => t.name)).toContain("bash");
+		const toolNames = agent.tools.map((t) => t.name);
+		expect(toolNames).toContain("file_read");
+		expect(toolNames).toContain("file_grep");
+		expect(toolNames).toContain("bash");
 	});
 
 	it("throws if agent is disposed", () => {

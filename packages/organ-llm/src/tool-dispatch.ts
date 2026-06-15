@@ -8,6 +8,7 @@ export function payloadToText(payload: Record<string, unknown>, isError: boolean
 	const { _display: _d, toolCallId: _id, isFinal: _f, ...llm } = payload;
 	if (typeof llm.content === "string") return llm.content;
 	if (typeof llm.text === "string") return llm.text;
+	if (typeof llm.markdown === "string") return llm.markdown;
 	return JSON.stringify(llm);
 }
 
@@ -136,6 +137,9 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<SenseEve
 }
 
 type MotorBus = { publish: (event: { type: string; payload: Record<string, unknown>; correlationId: string }) => void };
+type SignalBus = {
+	publish: (event: { type: string; payload: Record<string, unknown>; correlationId: string }) => void;
+};
 
 interface DispatchToolsOptions {
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
@@ -144,6 +148,7 @@ interface DispatchToolsOptions {
 
 export async function dispatchTools(
 	motor: MotorBus,
+	signal: SignalBus,
 	sense: SenseBus,
 	correlationId: string,
 	toolCalls: ToolCall[],
@@ -155,7 +160,7 @@ export async function dispatchTools(
 		toolCalls.map((tc) => {
 			const motorType = toMotorName(tc.name);
 			const startedAt = Date.now();
-			motor.publish({
+			signal.publish({
 				type: "llm.tool-start",
 				payload: { callId: tc.id, name: motorType, args: tc.args },
 				correlationId,
@@ -167,9 +172,9 @@ export async function dispatchTools(
 			);
 			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			const onChunk = (text: string) =>
-				motor.publish({ type: "llm.tool-chunk", payload: { callId: tc.id, text }, correlationId });
+				signal.publish({ type: "llm.tool-chunk", payload: { callId: tc.id, text }, correlationId });
 			const onStall = (info: { elapsedMs: number; lastChunkMs: number }) =>
-				motor.publish({
+				signal.publish({
 					type: "llm.tool-stall",
 					payload: { callId: tc.id, name: motorType, ...info },
 					correlationId,
@@ -186,14 +191,14 @@ export async function dispatchTools(
 				.then((r) => {
 					const validationErr = extractValidationError(r.payload);
 					if (validationErr) {
-						motor.publish({
+						signal.publish({
 							type: "llm.tool-validation-error",
 							payload: { callId: tc.id, ...validationErr },
 							correlationId,
 						});
 					}
 					const displayBlock = extractDisplay(r.payload);
-					motor.publish({
+					signal.publish({
 						type: "llm.tool-end",
 						payload: {
 							callId: tc.id,
@@ -210,7 +215,7 @@ export async function dispatchTools(
 				.catch((err: unknown) => {
 					const elapsedMs = Date.now() - startedAt;
 					const errorMessage = err instanceof Error ? err.message : String(err);
-					motor.publish({
+					signal.publish({
 						type: "llm.tool-end",
 						payload: {
 							callId: tc.id,

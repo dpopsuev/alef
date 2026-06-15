@@ -10,7 +10,7 @@
  */
 
 import { InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
-import { createHitlOrgan } from "@dpopsuev/alef-organ-hitl";
+import { createHitlOrgan } from "@dpopsuev/alef-organ-workflow";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeNerve() {
@@ -93,7 +93,7 @@ describe("HitlOrgan", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 		let received: unknown;
 		const hitl = createHitlOrgan({
-			onEvaluate: async (input: import("@dpopsuev/alef-organ-hitl").HitlEvaluateInput) => {
+			onEvaluate: async (input: import("@dpopsuev/alef-organ-workflow").HitlEvaluateInput) => {
 				received = input;
 				return { approved: true };
 			},

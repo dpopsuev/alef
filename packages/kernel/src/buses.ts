@@ -55,11 +55,102 @@ export function createCompositeAgentRunContribution(): AgentRunContribution & {
 	};
 }
 
+/** Input to a context.assemble pipeline stage — messages are opaque to the kernel. */
+export interface ContextAssemblyInput {
+	readonly messages: readonly unknown[];
+	readonly tools: readonly ToolDefinition[];
+	readonly turn: number;
+}
+
+/** Output from a context.assemble contributor. Omitted fields are unchanged. */
+export interface ContextAssemblyOutput {
+	messages?: readonly unknown[];
+	tools?: readonly ToolDefinition[];
+	skip?: boolean;
+	reply?: string;
+	abort?: boolean;
+}
+
+/** A single stage in the context.assemble pipeline. */
+export type ContextAssemblyHandler = (input: ContextAssemblyInput) => Promise<ContextAssemblyOutput>;
+
+export type PortCardinality = "exactly-one" | "zero-or-one" | "zero-or-many" | "ordered-pipeline";
+
+export interface PortDefinition {
+	readonly name: string;
+	readonly eventPattern: string;
+	readonly cardinality: PortCardinality;
+}
+
+/**
+ * Abstract theme for organ TUI renderers.
+ *
+ * Uses semantic colour names so organs are decoupled from ANSI/terminal specifics.
+ * The runner provides a concrete implementation; a web renderer could provide CSS classes.
+ * Defined in kernel so organ packages can reference it without importing alef-tui.
+ */
+export interface OrganTheme {
+	/** Apply a semantic foreground colour to text. */
+	fg(color: "accent" | "success" | "error" | "warning" | "muted" | "dim", text: string): string;
+	/** Apply bold styling. */
+	bold(text: string): string;
+	/** Apply dim styling. */
+	dim(text: string): string;
+}
+
+/**
+ * TUI contribution — organ-owned renderer for its tool calls and results.
+ *
+ * The TUI aggregator calls these when displaying tool events. Returning null
+ * falls back to the default generic pill renderer.
+ *
+ * Components are imported from @dpopsuev/alef-tui. Using `unknown` here avoids
+ * a kernel → alef-tui dependency; callers cast to Component at use-site.
+ */
+export interface TuiContribution {
+	/** Render the in-progress tool call header (while waiting for result). */
+	renderCall?(toolName: string, args: Record<string, unknown>, theme: OrganTheme): unknown;
+	/** Render the completed tool result. */
+	renderResult?(
+		toolName: string,
+		result: Record<string, unknown>,
+		opts: { expanded: boolean; isError: boolean },
+		theme: OrganTheme,
+	): unknown;
+	/**
+	 * Render a nonCapturing overlay shown while the organ is active.
+	 * Called once after organ mount; returned component is shown/hidden
+	 * by the TUI aggregator as the organ runs.
+	 */
+	renderOverlay?(): unknown;
+}
+
+/**
+ * History contribution — declares which tools this organ owns for per-organ history indexing.
+ */
+export interface HistoryContribution {
+	/** Tool names whose motor events should be indexed in this organ's history. */
+	readonly ownedTools: readonly string[];
+	/**
+	 * Extract the fields worth storing from a motor event payload.
+	 * Return null to skip this event.
+	 */
+	extractEntry(motorPayload: Record<string, unknown>): Record<string, unknown> | null;
+}
+
 export interface OrganContributions {
 	readonly "agent.run"?: AgentRunContribution;
 	readonly skills?: readonly SkillBook[];
+	/** Contributes a stage to the context.assemble pipeline, run before each LLM call. */
+	readonly "context.assemble"?: ContextAssemblyHandler;
 	/** Provides full tool schemas for timeout calculation — populated by ToolShell. */
 	readonly "schema-resolver"?: (toolName: string) => ToolDefinition | undefined;
+	/** Declares the seam this organ owns, validated at boot by the runtime. */
+	readonly port?: PortDefinition;
+	/** Organ-owned TUI renderers for tool calls and results. */
+	readonly tui?: TuiContribution;
+	/** Declares which tools this organ owns for per-organ history indexing. */
+	readonly history?: HistoryContribution;
 }
 
 export interface ToolDefinition {
@@ -98,9 +189,11 @@ export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknow
 // Bus events — domain-agnostic. Spine knows nothing about payload schemas.
 // Routing is by type string. Each organ package defines its own payloads.
 //
-//   MotorEvent: commands flowing OUT from the LLM organ to organs.
-//   SenseEvent: observations flowing IN from organs to the LLM organ.
-//   SignalEvent: audit events on both seams.
+//   MotorEvent: commands flowing OUT from the Reasoner to organs (efferent).
+//   SenseEvent: observations flowing IN from organs to the Reasoner (afferent).
+//   SignalEvent: Reasoner internal telemetry broadcast to observers (cortical).
+//               Never dispatched to organ handlers. Consumed by TUI, session-log,
+//               router — NOT by EvaluatorOrgan or LoopGuard.
 // ---------------------------------------------------------------------------
 
 export interface MotorEvent extends NerveEvent {
@@ -115,15 +208,37 @@ export interface SenseEvent extends NerveEvent {
 	readonly errorMessage?: string;
 }
 
+/**
+ * SignalEvent — Reasoner telemetry broadcast to observers.
+ *
+ * Published by organ-llm for streaming chunks, tool lifecycle notifications,
+ * token usage, and other internal state that observers (TUI, session-log,
+ * router) need to render but that is NOT a command to an organ.
+ *
+ * Examples: llm.chunk, llm.thinking, llm.tool-start, llm.tool-end,
+ *           llm.token-usage, llm.turn-error, llm.result, llm.checkpoint,
+ *           llm.message-queued.
+ *
+ * Never goes through dispatchMotorAction. No organ subscribes to it.
+ * EvaluatorOrgan and LoopGuard subscribe to motor only — they never see signals.
+ */
+export interface SignalEvent extends NerveEvent {
+	readonly type: string;
+	readonly payload: Record<string, unknown>;
+}
+
 // ---------------------------------------------------------------------------
-// Nerve — unified bidirectional view of both buses.
+// Nerve — unified view of all three buses.
 //
 // Every organ receives a Nerve. Direction is declared via the action-map key
 // prefix in defineOrgan: "motor/" subscribes Motor, "sense/" subscribes Sense.
+// The signal bus has no action-map prefix — only the Reasoner publishes to it
+// and only observers (wildcard "*") subscribe to it.
 // ---------------------------------------------------------------------------
 
 export type MotorHandler = (event: MotorEvent) => void | Promise<void>;
 export type SenseHandler = (event: SenseEvent) => void | Promise<void>;
+export type SignalHandler = (event: SignalEvent) => void | Promise<void>;
 
 /**
  * What organs pass to publish. The bus stamps timestamp and elapsed — organs
@@ -131,6 +246,7 @@ export type SenseHandler = (event: SenseEvent) => void | Promise<void>;
  */
 export type MotorPublishInput = Omit<MotorEvent, "timestamp" | "elapsed">;
 export type SensePublishInput = Omit<SenseEvent, "timestamp" | "elapsed">;
+export type SignalPublishInput = Omit<SignalEvent, "timestamp" | "elapsed">;
 
 export interface Nerve {
 	readonly motor: {
@@ -140,6 +256,11 @@ export interface Nerve {
 	readonly sense: {
 		subscribe(type: string, handler: SenseHandler): () => void;
 		publish(event: SensePublishInput): void;
+	};
+	/** Signal bus — Reasoner telemetry only. Organs must not publish here. */
+	readonly signal: {
+		subscribe(type: string, handler: SignalHandler): () => void;
+		publish(event: SignalPublishInput): void;
 	};
 	/** Reset the nerve-level liveness watchdog. Called automatically by organ-dispatch on every event. */
 	pulse(): void;

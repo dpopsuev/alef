@@ -4,7 +4,7 @@ import type { Organ } from "@dpopsuev/alef-kernel";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 import type { AlefConfig } from "./config.js";
-import { DEFAULT_COMPILED_DEFINITION, loadUserOrgansConfig, materializeBlueprint } from "./materializer.js";
+import { DEFAULT_COMPILED_DEFINITION, loadUserOrgansConfig, materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 
 export interface LoadResult {
 	organs: Organ[];

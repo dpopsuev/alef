@@ -10,11 +10,13 @@
  * Fix: pass getFullTools (full schemas) to the LLM organ so toOuterTimeoutMs
  * can read the schema default even when the ToolShell has stripped the schema.
  */
+
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { afterEach, describe, expect, it } from "vitest";
-import { createAgentLoop, createLlmPipeline } from "../../organ-llm/src/index.js";
+import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { Agent } from "../../runtime/src/index.js";
 import { InProcessStrategy } from "../src/strategies/in-process.js";
 import { buildSubagentFactory } from "../src/subagent-factory.js";
@@ -70,7 +72,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			getTools: () => agent.tools,
 		});
 		agent.load(toolShell);
-		agent.load(createLlmPipeline());
+		agent.load(createContextAssemblyPipeline());
 
 		const outerLlm = createAgentLoop({
 			model: outerFaux.getModel(),
@@ -128,7 +130,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			getTools: () => agent.tools,
 		});
 		agent.load(toolShell);
-		agent.load(createLlmPipeline());
+		agent.load(createContextAssemblyPipeline());
 
 		const outerLlm = createAgentLoop({
 			model: outerFaux.getModel(),

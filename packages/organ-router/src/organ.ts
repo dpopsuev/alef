@@ -72,6 +72,7 @@ export class RouterOrgan implements Organ {
 	readonly subscriptions = {
 		motor: ["*"] as const,
 		sense: ["*"] as const,
+		signal: ["*"] as const,
 	};
 
 	private server: Server | null = null;
@@ -162,6 +163,17 @@ export class RouterOrgan implements Organ {
 			});
 		});
 
+		const off3 = nerve.signal.subscribe("*", (event) => {
+			if (!this.isAllowed(event.type)) return;
+			this.sse.broadcast({
+				bus: "signal",
+				type: event.type,
+				correlationId: event.correlationId,
+				payload: (event as { payload?: Record<string, unknown> }).payload ?? {},
+				timestamp: event.timestamp,
+			});
+		});
+
 		// Start the HTTP server. _ready resolves once the port is bound.
 		this.server = createServer((req, res) => this.handle(req, res, nerve));
 		this._readyPromise = new Promise<void>((resolve, reject) => {
@@ -173,6 +185,7 @@ export class RouterOrgan implements Organ {
 		return () => {
 			off1();
 			off2();
+			off3();
 			this.sse.closeAll();
 			this.server?.close();
 			this.server = null;

@@ -28,6 +28,8 @@ export interface TurnLoopOptions {
 	systemPrompt?: string;
 	apiKey?: string;
 	getApiKey?: () => string | undefined;
+	/** Called immediately before the final motor/llm.response is published — used to clear turn state. */
+	onBeforeReply?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,7 +97,7 @@ function waitForPhaseResult(
 
 		const deadlineTimer = setTimeout(finish, timeoutMs); // lint-ignore: RAWTIMER LLM phase pipeline deadline
 
-		const off = sense.subscribe("llm.phase", (event) => {
+		const off = sense.subscribe("context.assemble", (event) => {
 			if (event.correlationId !== correlationId) return;
 			collected.push(parsePhaseResult(event.payload));
 			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
@@ -232,7 +234,7 @@ async function runPhase(
 	debugLog("llm:phase:enter", { turn });
 	const phasePromise = waitForPhaseResult(sense, correlationId, phaseTimeoutMs);
 	motor.publish({
-		type: "llm.phase",
+		type: "context.assemble",
 		payload: { messages: messages as unknown[], turn, toolCount: tools.length },
 		correlationId,
 	});
@@ -250,7 +252,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 	const { messages, tools, nameMap } = prepareTurn(payload);
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
-	const { correlationId, motor, sense } = ctx;
+	const { correlationId, motor, sense, signal } = ctx;
 	const timeoutMs = options.timeoutMs ?? 60_000;
 	const maxRetries = options.maxRetries ?? 4;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
@@ -293,6 +295,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 			const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, {
 				...effectiveOptions,
 				motor,
+				signal,
 				correlationId,
 			});
 			if (!finalMessage) break;
@@ -309,11 +312,10 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 				continue;
 			}
 
-			// Non-retryable LLM error — emit turn-error event and log at warn so
-			// it's visible in production without --debug.
+			// Non-retryable LLM error — emit turn-error event to signal (telemetry, not a command).
 			if (finalMessage.stopReason === "error") {
 				const errorMsg = finalMessage.errorMessage ?? "LLM returned an error response";
-				motor.publish({ type: "llm.turn-error", payload: { message: errorMsg }, correlationId });
+				signal.publish({ type: "llm.turn-error", payload: { message: errorMsg }, correlationId });
 				debugLog("llm:turn:error", { turn, errorMessage: errorMsg });
 			}
 
@@ -322,7 +324,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 			const toolCalls = pendingCalls;
 			const agentIsReplying = toolCalls.length === 0;
 
-			motor.publish({
+			signal.publish({
 				type: "llm.result",
 				payload: {
 					response: { ...finalMessage } satisfies Record<string, unknown>,
@@ -334,21 +336,22 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 
 			const usage = reportUsage(finalMessage);
 			if (usage && agentIsReplying) {
-				motor.publish({ type: "llm.token-usage", payload: { usage }, correlationId });
+				signal.publish({ type: "llm.token-usage", payload: { usage }, correlationId });
 			}
 
 			if (agentIsReplying) {
+				options.onBeforeReply?.();
 				publishReply(motor, correlationId, finalMessage, messages);
 				break;
 			}
 
 			const toolDefsMap = new Map<string, ToolDefinition>();
-			const results = await dispatchTools(motor, sense, correlationId, toolCalls, toMotorName, timeoutMs, {
+			const results = await dispatchTools(motor, signal, sense, correlationId, toolCalls, toMotorName, timeoutMs, {
 				...effectiveOptions,
 				toolDefs: toolDefsMap,
 			});
 			appendToolResults(messages, toolCalls, results, toMotorName);
-			motor.publish({
+			signal.publish({
 				type: "llm.checkpoint",
 				payload: { conversationHistory: messages.slice() as unknown as Record<string, unknown>[] },
 				correlationId: ctx.correlationId,

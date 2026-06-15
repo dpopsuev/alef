@@ -19,8 +19,9 @@ import { join } from "node:path";
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 
 import { trace } from "./debug-trace.js";
+import type { ActorIdentity } from "./identity/actor.js";
 import { redactPayload } from "./redact.js";
-import { type BusKind, hashRecord, type SessionStore } from "./session-store.js";
+import { type BusKind, hashRecord, type SessionStore, type StorageActor } from "./session-store.js";
 
 export interface SessionSummary {
 	id: string;
@@ -39,14 +40,17 @@ export class SessionLog implements Organ {
 	readonly subscriptions = {
 		motor: ["*"] as const,
 		sense: ["*"] as const,
+		signal: ["*"] as const,
 	};
 
 	private readonly store: SessionStore;
 	private readonly model: string;
+	private readonly agentActor: StorageActor | undefined;
 
-	constructor(store: SessionStore, model = "unknown") {
+	constructor(store: SessionStore, model = "unknown", agentIdentity?: ActorIdentity) {
 		this.store = store;
 		this.model = model;
+		this.agentActor = agentIdentity ? { address: agentIdentity.address, type: agentIdentity.type } : undefined;
 	}
 
 	mount(nerve: Nerve): () => void {
@@ -65,13 +69,16 @@ export class SessionLog implements Organ {
 					inputTokens += u.input ?? 0;
 					outputTokens += u.output ?? 0;
 				}
-			} else if (!event.type.startsWith("llm.")) {
+			} else {
 				toolCounts.set(event.type, (toolCounts.get(event.type) ?? 0) + 1);
 			}
 		});
 		const offAgg2 = nerve.sense.subscribe("*", (event) => {
 			if (event.isError) errors++;
 		});
+
+		const sessionId = this.store.id;
+		const agentActor = this.agentActor;
 
 		const off1 = nerve.motor.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
@@ -82,6 +89,8 @@ export class SessionLog implements Organ {
 				payload,
 				timestamp: event.timestamp,
 				elapsed: event.elapsed,
+				sessionId,
+				actor: agentActor,
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
@@ -90,6 +99,11 @@ export class SessionLog implements Organ {
 
 		const off2 = nerve.sense.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
+			// llm.input is the human's message — stamp as human actor when sender indicates so
+			const isHumanInput = event.type === "llm.input" && (payload.sender === "human" || payload.sender === "user");
+			const actor: StorageActor | undefined = isHumanInput
+				? { address: `@${(payload.sender as string) ?? "human"}`, type: "human" }
+				: agentActor;
 			const base = {
 				bus: "sense" as BusKind,
 				type: event.type,
@@ -97,10 +111,32 @@ export class SessionLog implements Organ {
 				payload,
 				timestamp: event.timestamp,
 				elapsed: event.elapsed,
+				sessionId,
+				actor,
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
 				.catch((e: unknown) => trace("event-log:sense-append-failed", { error: String(e) }));
+		});
+
+		const off3 = nerve.signal.subscribe("*", (event) => {
+			const payload = redactPayload((event as { payload?: Record<string, unknown> }).payload ?? {}) as Record<
+				string,
+				unknown
+			>;
+			const base = {
+				bus: "signal" as BusKind,
+				type: event.type,
+				correlationId: event.correlationId,
+				payload,
+				timestamp: event.timestamp,
+				elapsed: event.elapsed,
+				sessionId,
+				actor: agentActor,
+			};
+			this.store
+				.append({ ...base, hash: hashRecord(base) })
+				.catch((e: unknown) => trace("event-log:signal-append-failed", { error: String(e) }));
 		});
 
 		return () => {
@@ -108,6 +144,7 @@ export class SessionLog implements Organ {
 			offAgg2();
 			off1();
 			off2();
+			off3();
 			void this._writeSummary({
 				id: this.store.id,
 				model: this.model,

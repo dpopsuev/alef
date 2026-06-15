@@ -23,7 +23,7 @@ This repository contains the Alef CLI app, runtime, blueprint, and supporting pa
 
 **Alef Agent** is a **fork** of **[Pi](https://github.com/earendil-works/pi-mono)** (the upstream Pi coding agent / terminal harness). Pi was created by **[Mario Zechner](https://mariozechner.at)** ([@badlogic](https://github.com/badlogic)). The upstream open-source tree is **[earendil-works/pi-mono](https://github.com/earendil-works/pi-mono)**.
 
-This fork keeps Mario’s design and implementation as its foundation; it adds Alef branding (`@dpopsuev/alef-*` packages, `alef` CLI, `pkg.alef` extensions) and fork-owned defaults (optional version checks and install pings only when you set `ALEF_LATEST_VERSION_URL` / `ALEF_REPORT_INSTALL_URL`). Use the upstream repository for the original project line; use **[dpopsuev/alef](https://github.com/dpopsuev/alef)** for Alef packaging and fork-specific issues.
+This fork keeps Mario's design and implementation as its foundation; it adds Alef branding (`@dpopsuev/alef-*` packages, `alef` CLI, `pkg.alef` extensions) and fork-owned defaults (optional version checks and install pings only when you set `ALEF_LATEST_VERSION_URL` / `ALEF_REPORT_INSTALL_URL`). Use the upstream repository for the original project line; use **[dpopsuev/alef](https://github.com/dpopsuev/alef)** for Alef packaging and fork-specific issues.
 
 ## Share your OSS coding agent sessions
 
@@ -59,6 +59,42 @@ For Slack/chat automation and workflows see [earendil-works/pi-chat](https://git
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for governance (BDFL; read/fork only for outsiders) and [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agents).
 
+## XDG Directory Structure
+
+Alef follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html):
+
+```
+$XDG_CONFIG_HOME/alef/          # User configuration (~/.config/alef)
+  ├── theme.yaml                # Custom TUI theme
+  ├── config.yaml               # User preferences
+  └── skills/                   # User skill library
+      └── debug-alef/SKILL.md   # Debug diagnostics skill
+
+$XDG_DATA_HOME/alef/            # User data (~/.local/share/alef)
+  ├── sessions/<cwd-hash>/      # Session JSONL logs
+  └── prototypes/               # User-written organ prototypes
+
+$XDG_STATE_HOME/alef/           # Logs & state (~/.local/state/alef)
+  ├── debug.log                 # Pino debug trace (rotates at 10MB)
+  ├── daemon.json               # Daemon registry
+  └── last-session.json         # Most recent session metadata
+
+$XDG_CACHE_HOME/alef/           # Cache (~/.cache/alef)
+  ├── lsp/                      # TypeScript LSP cache
+  └── embeddings/               # Vector embedding cache
+
+<cwd>/.alef/                    # Project-local configuration
+  ├── directives/               # Project-specific system prompts
+  └── skills/                   # Project-specific skills
+```
+
+### Setup XDG Directories
+
+```bash
+make xdg-setup    # Create all XDG directories and migrate legacy ~/.alef
+make xdg-info     # Show current XDG paths and status
+```
+
 ## Development
 
 ```bash
@@ -66,11 +102,42 @@ npm install          # Install all dependencies
 npm run build        # Build all packages
 npm run check        # Lint, format, and type check
 ./test.sh            # Run tests (skips LLM-dependent tests without API keys)
-./alef-test.sh        # Run alef from sources
+./alef-test.sh       # Run alef from sources
 ```
 
 > **Note:** `npm run check` requires `npm run build` to be run first. The web-ui package uses `tsc` which needs compiled `.d.ts` files from dependencies.
 
+## Debug Mode
+
+Run Alef with comprehensive debugging:
+
+```bash
+make debug           # Run with debug logging, auto-load debug-alef skill
+make debug-watch     # Watch debug.log in real-time (requires jq)
+make debug-errors    # Show only errors from debug.log
+make debug-tools     # Show tool execution timing
+make debug-clean     # Clear debug.log and session files
+```
+
+Debug logs are written to `$XDG_STATE_HOME/alef/debug.log` (typically `~/.local/state/alef/debug.log`).
+
+Watch logs live:
+```bash
+tail -f ~/.local/state/alef/debug.log | jq .
+```
+
 ## License
 
 MIT
+
+### Timeout Configuration
+
+Alef's default LLM timeout is **90 seconds** (increased from 60s to accommodate Claude Sonnet 4-5 thinking mode). Override per session:
+
+```bash
+# Increase timeout to 3 minutes for complex analysis
+ALEF_LLM_TIMEOUT_MS=180000 alef
+
+# Debug mode uses 2 minutes by default
+make debug
+```

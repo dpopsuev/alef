@@ -81,7 +81,10 @@ export async function callLLM(
 		schemaEst: schemaTokenEstimate,
 	});
 
-	const timeoutMs = options.timeoutMs ?? 60_000;
+	// Allow runtime configuration via environment variable
+	// Default increased from 60s to 90s to accommodate Claude Sonnet 4-5 thinking mode
+	const defaultTimeoutMs = Number(process.env.ALEF_LLM_TIMEOUT_MS) || 90_000;
+	const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
 	const maxRetries = options.maxRetries ?? 4;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
 	const thinking = options.getThinking?.() ?? options.thinking;

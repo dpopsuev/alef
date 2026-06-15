@@ -17,7 +17,7 @@ import type { Agent } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 import type { Directives } from "./directives.js";
-import { loadOrganFromPath } from "./materializer.js";
+import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import { buildModel } from "./model.js";
 import type { AgentEvent, DirectiveView, Session, SessionState } from "./session.js";
 
@@ -30,6 +30,8 @@ export interface SessionHandleComponents {
 	directives: Directives;
 	args: Args;
 	log: Logger;
+	/** Shared observer set — the same instance used by createLocalSession's agent.observe. */
+	observers: Set<(event: AgentEvent) => void>;
 }
 
 export class SessionHandle implements Session {
@@ -39,7 +41,7 @@ export class SessionHandle implements Session {
 	_thinkingState: { level: ThinkingLevel | undefined };
 	_llmController: AbortController | undefined;
 	private _turnCount = 0;
-	private readonly _observers = new Set<(event: AgentEvent) => void>();
+	private readonly _observers: Set<(event: AgentEvent) => void>;
 
 	private readonly _agent: Agent;
 	private readonly _directives: Directives;
@@ -47,7 +49,17 @@ export class SessionHandle implements Session {
 	private readonly _args: Args;
 	private readonly _log: Logger;
 
-	constructor({ state, model, thinkingState, dialog, agent, directives, args, log }: SessionHandleComponents) {
+	constructor({
+		state,
+		model,
+		thinkingState,
+		dialog,
+		agent,
+		directives,
+		args,
+		log,
+		observers,
+	}: SessionHandleComponents) {
 		this.state = state;
 		this._currentModel = model;
 		this._thinkingState = thinkingState;
@@ -56,6 +68,7 @@ export class SessionHandle implements Session {
 		this._directives = directives;
 		this._args = args;
 		this._log = log;
+		this._observers = observers;
 	}
 
 	getModel(): string {

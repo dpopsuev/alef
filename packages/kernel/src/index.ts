@@ -1,10 +1,12 @@
 export * from "./binding.js";
 export * from "./budget.js";
 export * from "./buses.js";
+export { createContextAssemblyPipeline } from "./context-assembly-pipeline.js";
 export { debugLog, initSpineLogger } from "./debug.js";
 export * from "./execution.js";
 export * from "./framework.js";
 export * from "./mcp-organ.js";
+export { type CacheStrategy, createMapCache, makeCacheKey } from "./organ-cache.js";
 export * from "./organ-sdk.js";
 export * from "./payload.js";
 export * from "./protocols.js";

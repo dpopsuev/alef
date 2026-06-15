@@ -3,9 +3,9 @@
  * Uses mock engines to validate fallback behavior and registry.
  */
 
+import type { ISearchEngine, SearchQuery, WebSearchResult } from "@dpopsuev/web-spider";
+import { FallbackSearchEngine, registerSearchEngine, resolveSearchEngine } from "@dpopsuev/web-spider";
 import { describe, expect, it } from "vitest";
-import { FallbackSearchEngine, registerSearchEngine, resolveSearchEngine } from "../src/search-engines.js";
-import type { ISearchEngine, SearchQuery, WebSearchResult } from "../src/search-ports.js";
 
 /** Mock search engine that returns fixed results. */
 class MockSearchEngine implements ISearchEngine {

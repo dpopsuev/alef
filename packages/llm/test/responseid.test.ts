@@ -23,7 +23,7 @@ async function expectResponseId<TApi extends Api>(model: Model<TApi>, options: S
 	expect(typeof response.responseId).toBe("string");
 }
 
-describe("responseId E2E Tests", { tags: ["unit"] }, () => {
+describe("responseId E2E Tests", { tags: ["integration"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

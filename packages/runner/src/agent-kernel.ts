@@ -1,6 +1,7 @@
 import type { Organ } from "@dpopsuev/alef-kernel";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { SessionLog } from "./event-log-organ.js";
+import type { ActorIdentity } from "./identity/actor.js";
 import { LoopGuard } from "./loop-detector.js";
 import type { SessionStore } from "./session-store.js";
 
@@ -12,6 +13,8 @@ export interface AgentKernelOptions {
 	modelId?: string;
 	loopThreshold?: number;
 	onLoop?: (eventType: string, reason: string) => void;
+	/** Agent's visual identity — stamped on every StorageRecord by SessionLog. */
+	agentIdentity?: ActorIdentity;
 }
 
 export interface AgentKernelResult {
@@ -34,7 +37,7 @@ export function buildAgent(opts: AgentKernelOptions): AgentKernelResult {
 	);
 
 	if (opts.session) {
-		agent.load(new SessionLog(opts.session, opts.modelId));
+		agent.load(new SessionLog(opts.session, opts.modelId, opts.agentIdentity));
 	}
 
 	return { agent, dialog };

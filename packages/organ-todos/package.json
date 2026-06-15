@@ -1,7 +1,8 @@
 {
   "name": "@dpopsuev/alef-organ-todos",
   "version": "0.0.1",
-  "description": "Todos organ \u2014 structured task list for multi-step agent work",
+  "description": "DEPRECATED \u2014 Todos organ \u2014 structured task list for multi-step agent work",
+  "deprecated": "Removed from BUILTIN_PACKAGES. Not adopted in any blueprint.",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {

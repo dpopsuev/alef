@@ -52,7 +52,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(def.children).toHaveLength(0);
 	});
 
-	it("compiles fs organ with default actions", () => {
+	it("compiles fs organ — name and empty actions when none specified", () => {
 		const def = compileAgentDefinition({
 			name: "fs-agent",
 			organs: [{ name: "fs" }],
@@ -60,43 +60,39 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(def.organs).toHaveLength(1);
 		const fs = def.organs[0];
 		expect(fs.name).toBe("fs");
-		expect(fs.actions).toContain("read");
-		expect(fs.actions).toContain("write");
-		expect(fs.actions).toContain("edit");
-		expect(fs.toolNames).toContain("file_read");
-		expect(fs.toolNames).toContain("file_write");
-		expect(fs.toolNames).toContain("file_edit");
+		// Blueprint is purely structural — no static organ catalog.
+		// Actions default to [] when not specified; toolNames is always [].
+		expect(fs.actions).toEqual([]);
+		expect(fs.toolNames).toEqual([]);
 	});
 
-	it("compiles fs organ with action allowlist", () => {
+	it("compiles fs organ with action allowlist — actions pass through verbatim", () => {
 		const def = compileAgentDefinition({
 			name: "read-only",
 			organs: [{ name: "fs", actions: ["read", "grep"] }],
 		});
 		const fs = def.organs[0];
 		expect(fs.actions).toEqual(["read", "grep"]);
-		expect(fs.toolNames).toContain("file_read");
-		expect(fs.toolNames).toContain("file_grep");
-		expect(fs.toolNames).not.toContain("file_write");
-		expect(fs.toolNames).not.toContain("file_edit");
+		// toolNames is always [] — resolved at mount time, not compile time.
+		expect(fs.toolNames).toEqual([]);
 	});
 
-	it("compiles shell organ", () => {
+	it("compiles shell organ — name passes through", () => {
 		const def = compileAgentDefinition({
 			name: "shell-agent",
 			organs: [{ name: "shell" }],
 		});
 		expect(def.organs[0].name).toBe("shell");
-		expect(def.organs[0].toolNames).toContain("file_bash");
+		expect(def.organs[0].toolNames).toEqual([]);
 	});
 
-	it("compiles fs + shell and aggregates toolNames in capabilities", () => {
+	it("compiles fs + shell — capabilities.tools is empty without explicit declaration", () => {
 		const def = compileAgentDefinition({
 			name: "full",
 			organs: [{ name: "fs" }, { name: "shell" }],
 		});
-		expect(def.capabilities.tools).toContain("file_read");
-		expect(def.capabilities.tools).toContain("file_bash");
+		// Blueprint does not know tool names — organs self-describe at mount time.
+		expect(def.capabilities.tools).toEqual([]);
 	});
 
 	it("rejects duplicate organs", () => {
@@ -108,13 +104,13 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		).toThrow(/duplicate organ.*fs/i);
 	});
 
-	it("rejects unsupported organ name", () => {
-		expect(() =>
-			compileAgentDefinition({
-				name: "bad",
-				organs: [{ name: "weather" }],
-			}),
-		).toThrow();
+	it("accepts any organ name — validation is the materializer's concern", () => {
+		// Blueprint is purely structural; it passes organ names through verbatim.
+		const def = compileAgentDefinition({
+			name: "custom",
+			organs: [{ name: "weather" }],
+		});
+		expect(def.organs[0].name).toBe("weather");
 	});
 
 	it("rejects orchestration organ without capabilities.orchestration", () => {
@@ -135,13 +131,13 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		).toThrow(/capabilities\.orchestration.*requires an orchestration organ/i);
 	});
 
-	it("rejects organ with zero selected actions", () => {
-		expect(() =>
-			compileAgentDefinition({
-				name: "no-actions",
-				organs: [{ name: "fs", actions: [] }],
-			}),
-		).toThrow();
+	it("accepts organ with empty actions array", () => {
+		// Blueprint no longer rejects empty action lists — structural only.
+		const def = compileAgentDefinition({
+			name: "no-actions",
+			organs: [{ name: "fs", actions: [] }],
+		});
+		expect(def.organs[0].actions).toEqual([]);
 	});
 
 	it("normalises model string 'provider/model-id'", () => {
@@ -272,14 +268,16 @@ spec:
 		expect(() => parseAgentDefinitionYaml("- item1\n- item2\n")).toThrow();
 	});
 
-	it("throws on invalid organ action", () => {
+	it("passes unknown action names through without validation", () => {
+		// Blueprint is structural — action validation is the materializer's concern.
 		const yaml = `
-name: bad
+name: passthrough
 organs:
   - name: fs
     actions: [nonexistent_action]
 `.trim();
-		expect(() => parseAgentDefinitionYaml(yaml)).toThrow(/unsupported action/i);
+		const def = parseAgentDefinitionYaml(yaml);
+		expect(def.organs[0].actions).toEqual(["nonexistent_action"]);
 	});
 });
 
@@ -417,7 +415,8 @@ describe("shipped bootstrap blueprints", { tags: ["unit"] }, () => {
 		expect(def.name).toBe("primordial");
 		const fs = def.organs.find((o) => o.name === "fs");
 		expect(fs).toBeDefined();
-		expect(fs?.cache?.enabled).toBe(true);
+		// cache is an input field; CompiledAgentOrganDefinition does not carry it.
+		expect(fs?.name).toBe("fs");
 	});
 
 	it("gensec declares children pointing to 2sec", () => {

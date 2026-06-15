@@ -1,12 +1,6 @@
-import type { Nerve, Organ, OrganContributions, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Nerve, Organ, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, extractToolCallId, withDisplay } from "@dpopsuev/alef-kernel";
-import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
-
-declare module "@dpopsuev/alef-kernel" {
-	interface OrganContributions {
-		"llm.phase"?: PhaseStageHandler;
-	}
-}
+import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 
 /**
  * Payload field names used to extract a human-readable key argument from a
@@ -85,7 +79,7 @@ export function createAgentLoopCore(options: AgentLoopOptions): Organ {
 					if (turnActive) {
 						const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
 						if (text) {
-							ctx.motor.publish({
+							ctx.signal.publish({
 								type: "llm.message-queued",
 								payload: { text },
 								correlationId: ctx.correlationId,
@@ -100,8 +94,14 @@ export function createAgentLoopCore(options: AgentLoopOptions): Organ {
 						if (history) partialHistory = history;
 					});
 					try {
-						await runLLMLoop(ctx, options);
+						await runLLMLoop(ctx, {
+							...options,
+							onBeforeReply: () => {
+								turnActive = false;
+							},
+						});
 					} catch (err) {
+						turnActive = false;
 						const text = `LLM error: ${String(err)}`;
 						ctx.motor.publish({
 							type: "llm.response",
@@ -135,7 +135,7 @@ interface InflightEntry {
 // Event types excluded from in-flight concurrent-turn tracking.
 // The reply event signals turn completion, not an in-flight op.
 function makeInflightExcluded(replyType: string): Set<string> {
-	return new Set([replyType, "llm.phase", "llm.result"]);
+	return new Set([replyType, "context.assemble", "llm.result"]);
 }
 
 function inflightKey(type: string, correlationId: string, toolCallId: string | undefined): string {
@@ -187,15 +187,10 @@ export function createAgentLoop(options: AgentLoopOptions): Organ {
 				conversationHistory: z.array(z.unknown()).optional(),
 				usage: z.object({ totalTokens: z.number() }).passthrough().optional(),
 			}),
-			"llm.phase": z.object({
+			"context.assemble": z.object({
 				messages: z.array(z.unknown()),
 				turn: z.number().int().positive(),
 				toolCount: z.number().int().nonnegative(),
-			}),
-			"llm.result": z.object({
-				response: z.record(z.string().min(1), z.unknown()),
-				toolCalls: z.array(z.object({ name: z.string(), args: z.record(z.string(), z.unknown()), id: z.string() })),
-				turn: z.number().int().positive(),
 			}),
 		},
 	};
@@ -215,6 +210,9 @@ export function createAgentLoop(options: AgentLoopOptions): Organ {
 		tools: [],
 		publishSchemas,
 		subscriptions,
+		contributions: {
+			port: { name: "reasoning", eventPattern: "sense/llm.input", cardinality: "exactly-one" },
+		},
 		mount(nerve: Nerve): () => void {
 			const offOrgan = innerOrgan.mount(nerve);
 			if (!options.trackConcurrentOps) return offOrgan;
@@ -247,100 +245,3 @@ export function createAgentLoop(options: AgentLoopOptions): Organ {
 
 export type { ToolDefinition };
 export type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";
-
-// ---------------------------------------------------------------------------
-// Ordered-pipeline — Chain of Responsibility for llm.phase
-// ---------------------------------------------------------------------------
-
-export interface PhaseStageInput {
-	messages: Message[];
-	tools: ToolDefinition[];
-	turn: number;
-}
-
-export interface PhaseStageOutput {
-	messages?: Message[];
-	tools?: ToolDefinition[];
-	skip?: boolean;
-	reply?: string;
-	abort?: boolean;
-}
-
-export type PhaseStageHandler = (input: PhaseStageInput) => Promise<PhaseStageOutput>;
-
-export function createLlmPipeline(): Organ & {
-	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
-} {
-	const stages: PhaseStageHandler[] = [];
-	const schemaResolvers = new Map<string, (toolName: string) => ToolDefinition | undefined>();
-
-	return {
-		name: "llm.pipeline",
-		tools: [],
-		subscriptions: { motor: ["llm.phase"], sense: ["organ.loaded"] },
-		description:
-			"Ordered llm.phase pipeline — self-assembles PhaseStageHandler and schema-resolver contributions from sense/organ.loaded.",
-		getSchemaResolver() {
-			if (schemaResolvers.size === 0) return undefined;
-			return (toolName: string) => {
-				for (const resolver of schemaResolvers.values()) {
-					const def = resolver(toolName);
-					if (def) return def;
-				}
-				return undefined;
-			};
-		},
-		mount(nerve: Nerve): () => void {
-			const unsubLoaded = nerve.sense.subscribe("organ.loaded", (event) => {
-				const contributions = event.payload.contributions as OrganContributions | undefined;
-				const name = event.payload.name as string;
-				if (contributions?.["llm.phase"]) stages.push(contributions["llm.phase"]);
-				if (contributions?.["schema-resolver"]) schemaResolvers.set(name, contributions["schema-resolver"]);
-			});
-
-			const unsubPhase = nerve.motor.subscribe("llm.phase", (event) => {
-				void (async () => {
-					const payload = event.payload as { messages: Message[]; tools?: ToolDefinition[]; turn: number };
-					let messages: Message[] = payload.messages;
-					let tools: ToolDefinition[] = payload.tools ?? [];
-
-					for (const stage of stages) {
-						const out = await stage({ messages, tools, turn: payload.turn });
-						if (out.abort) {
-							nerve.sense.publish({
-								type: "llm.phase",
-								correlationId: event.correlationId,
-								payload: { abort: true },
-								isError: false,
-							});
-							return;
-						}
-						if (out.messages) messages = out.messages;
-						if (out.tools) tools = out.tools;
-						if (out.skip) {
-							nerve.sense.publish({
-								type: "llm.phase",
-								correlationId: event.correlationId,
-								payload: { skip: true, reply: out.reply ?? "", messages, tools },
-								isError: false,
-							});
-							return;
-						}
-					}
-
-					nerve.sense.publish({
-						type: "llm.phase",
-						correlationId: event.correlationId,
-						payload: { messages, tools },
-						isError: false,
-					});
-				})();
-			});
-
-			return () => {
-				unsubLoaded();
-				unsubPhase();
-			};
-		},
-	};
-}

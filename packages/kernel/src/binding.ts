@@ -33,6 +33,28 @@ interface ChainResult {
 
 const DEFAULT_STAGE_TIMEOUT_MS = 30_000;
 
+function publishValidateRequest(
+	nerve: Nerve,
+	stage: BindingStage,
+	input: ChainInput,
+	sourceCorrelationId: string,
+): { stageId: string; result: Promise<ChainResult> } {
+	const stageId = newCorrelationId();
+	const result = waitForValidateResult(nerve.sense, stageId, stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS);
+	nerve.motor.publish({
+		type: VALIDATE_REQUEST,
+		correlationId: sourceCorrelationId,
+		payload: {
+			id: stageId,
+			output: input.output,
+			kind: input.kind,
+			context: input.context,
+			targetOrgan: stage.organ,
+		},
+	});
+	return { stageId, result };
+}
+
 function waitForValidateResult(sense: Nerve["sense"], id: string, timeoutMs: number): Promise<ChainResult> {
 	return new Promise((resolve) => {
 		const timer = setTimeout(() => {
@@ -75,24 +97,8 @@ async function executeOrdered(
 			continue;
 		}
 
-		const stageId = newCorrelationId();
-		const timeoutMs = stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS;
-
+		const { stageId, result: resultPromise } = publishValidateRequest(nerve, stage, current, sourceCorrelationId);
 		debugLog("binding:stage:start", { stageIdx: i, organ: stage.organ, stageId });
-
-		const resultPromise = waitForValidateResult(nerve.sense, stageId, timeoutMs);
-
-		nerve.motor.publish({
-			type: VALIDATE_REQUEST,
-			correlationId: sourceCorrelationId,
-			payload: {
-				id: stageId,
-				output: current.output,
-				kind: current.kind,
-				context: current.context,
-				targetOrgan: stage.organ,
-			},
-		});
 
 		const result = await resultPromise;
 
@@ -122,22 +128,7 @@ async function executeParallelAll(
 ): Promise<ChainResult> {
 	const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
 	const results = await Promise.all(
-		stages.map(async (stage) => {
-			const stageId = newCorrelationId();
-			const resultPromise = waitForValidateResult(nerve.sense, stageId, stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS);
-			nerve.motor.publish({
-				type: VALIDATE_REQUEST,
-				correlationId: sourceCorrelationId,
-				payload: {
-					id: stageId,
-					output: input.output,
-					kind: input.kind,
-					context: input.context,
-					targetOrgan: stage.organ,
-				},
-			});
-			return resultPromise;
-		}),
+		stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result),
 	);
 	const rejected = results.find((r) => !r.approved);
 	return rejected ?? { approved: true, reviewer: "parallel-all-complete" };
@@ -150,24 +141,7 @@ async function executeParallelFirst(
 	sourceCorrelationId: string,
 ): Promise<ChainResult> {
 	const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
-	return Promise.race(
-		stages.map(async (stage) => {
-			const stageId = newCorrelationId();
-			const resultPromise = waitForValidateResult(nerve.sense, stageId, stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS);
-			nerve.motor.publish({
-				type: VALIDATE_REQUEST,
-				correlationId: sourceCorrelationId,
-				payload: {
-					id: stageId,
-					output: input.output,
-					kind: input.kind,
-					context: input.context,
-					targetOrgan: stage.organ,
-				},
-			});
-			return resultPromise;
-		}),
-	);
+	return Promise.race(stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result));
 }
 
 export function executeBindingChain(
@@ -211,6 +185,7 @@ export function withBindings(bindings: Map<string, Binding>, baseNerve: Nerve): 
 			},
 		},
 		sense: baseNerve.sense,
+		signal: baseNerve.signal,
 		pulse: () => baseNerve.pulse(),
 	};
 }

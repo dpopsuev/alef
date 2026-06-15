@@ -200,10 +200,10 @@
 				"./packages/web-ui/src/*"
 			],
 			"@dpopsuev/web-spider": [
-				"../pi-mono/packages/web-spider/dist/index.d.ts"
+				"../Workspace/web-spider/packages/web-spider/dist/index.d.ts"
 			],
 			"@dpopsuev/web-spider/*": [
-				"../pi-mono/packages/web-spider/dist/*"
+				"../Workspace/web-spider/packages/web-spider/dist/*"
 			],
 			"@dpopsuev/alef-organ-nodesh": [
 				"./packages/organ-nodesh/src/index.ts"
@@ -231,6 +231,15 @@
 			],
 			"@dpopsuev/alef-organ-workflow/*": [
 				"./packages/organ-workflow/src/*.ts"
+			],
+			"@dpopsuev/alef-organ-toolshell": [
+				"./packages/organ-toolshell/src/index.ts"
+			],
+			"@dpopsuev/alef-organ-toolshell/*": [
+				"./packages/organ-toolshell/src/*.ts"
+			],
+			"@dpopsuev/alef-coding-agent": [
+				"./packages/alef-coding-agent/src/index.ts"
 			]
 		}
 	},

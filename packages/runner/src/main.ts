@@ -1,5 +1,7 @@
 #!/usr/bin/env tsx
 
+import "@dpopsuev/alef-coding-agent";
+
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -91,7 +93,13 @@ const session = await loadSession(args, willUseTui);
 const loaded = await loadOrgans(args, cfg, log);
 const { blueprintUpgradePolicy, blueprintPath } = loaded;
 
-const { session: localSession, resolvedModelDisplay } = await createLocalSession(
+const {
+	session: localSession,
+	resolvedModelDisplay,
+	humanAddress,
+	agentAddress,
+	actorRoutes,
+} = await createLocalSession(
 	args,
 	cfg,
 	log,
@@ -148,6 +156,10 @@ await runAgent({
 	reloadOrgan: async (name, path) => localSession.reloadOrgan?.(name, path),
 	getDirectiveAdapter: () => localSession.getDirective?.(),
 	session: localSession,
+	store: session,
+	humanAddress,
+	agentAddress,
+	actorRoutes,
 });
 
 trace("process.exit");

@@ -1,6 +1,7 @@
 import type { ZodTypeAny } from "zod";
 import { startElapsedTimer, withLimits } from "./budget.js";
 import type { Nerve, Organ, ToolDefinition } from "./buses.js";
+import { createMapCache } from "./organ-cache.js";
 import { dispatchMotorAction, dispatchSenseAction } from "./organ-dispatch.js";
 import type { ActionMap, MotorActionMap, OrganLogger, OrganOptions, SenseActionMap } from "./organ-types.js";
 
@@ -81,15 +82,6 @@ function validateOrganMetadata(name: string, tools: ToolDefinition[], opts: Orga
 		throw new Error(
 			`[defineOrgan] '${name}' exposes ${tools.length} tool(s) but has no directives. Add directives: ["Guidance block telling the LLM how and when to use these tools."]`,
 		);
-	if (opts.directives.some((d) => d.trim().length < 20))
-		throw new Error(
-			`[defineOrgan] '${name}' has directive block(s) shorter than 20 chars. Each block must be meaningful guidance, not a placeholder.`,
-		);
-	const totalChars = opts.directives.reduce((n, d) => n + d.length, 0);
-	if (totalChars > 2000)
-		throw new Error(
-			`[defineOrgan] '${name}' directives total ${totalChars} chars (max 2000). Keep guidance concise — the system prompt budget is shared across all organs.`,
-		);
 }
 
 export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions = {}): Organ {
@@ -123,7 +115,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			for (const mw of opts.middlewares ?? []) nerve = mw(nerve);
 			opts.onMount?.(nerve);
 			const stopElapsedTimer = opts.limits ? startElapsedTimer(opts.limits, nerve) : undefined;
-			const cache = new Map<string, Record<string, unknown>>();
+			const cache = createMapCache();
 			const motorInputSchemas = buildMotorSchemas(actions, opts.inputSchemas?.motor);
 
 			const unsubs: Array<() => void> = [];

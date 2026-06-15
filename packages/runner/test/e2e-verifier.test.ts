@@ -114,7 +114,7 @@ describe("verifier: assertSseFilter", { tags: ["unit"] }, () => {
 	it("rejects when required SSE event is absent", () => {
 		const sseTypes: string[] = [];
 		const jsonlTypes = new Set(["fs.read"]);
-		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["llm.response"], ["fs.read"])).toThrow(/dialog\.message/);
+		expect(() => assertSseFilter(sseTypes, jsonlTypes, ["llm.response"], ["fs.read"])).toThrow(/llm\.response/);
 	});
 
 	it("rejects when blocked event leaks onto SSE", () => {

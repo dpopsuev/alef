@@ -1,89 +1,63 @@
 /**
- * WebOrgan — fetch web pages, search the web, and convert content to plain text.
+ * WebOrgan — fetch web pages, search the web, and convert content to clean Markdown.
  *
  * Tools:
  *   web.fetch(url, { format?, timeoutMs? })
- *     Fetches a URL and returns the content as plain text (default) or raw HTML.
- *     Strips scripts, styles, and navigation elements before returning.
- *     Returns { content, title, url, statusCode, truncated }.
+ *     Fetches a URL via web-spider (Readability + Turndown).
+ *     Returns structured output based on format:
+ *       "markdown" (default) — clean article Markdown + metadata
+ *       "lean"               — heading outline + body links, no body text
+ *       "html"               — raw HTML (for sites that need structure)
+ *     Returns { content, title, url, wordCount? }.
  *
- *   web.search(query, { numResults?, engine? })
- *     Searches the web and returns ranked results with URLs, titles, and snippets.
- *     Uses Brave/Tavily/Exa (if API keys are set) or falls back to DuckDuckGo.
+ *   web.search(query, { numResults?, engine?, timeRange?, topic? })
+ *     Searches via Brave/Tavily/Exa/DDG fallback chain.
  *     Returns { results: [{ url, title, snippet, publishedAt? }] }.
  *
- * No external dependencies — uses Node.js built-in fetch (available since Node 18).
- * HTML-to-text conversion is handled inline: strips tags, collapses whitespace.
- *
- * Ref: TSK-181
+ * Powered by @dpopsuev/web-spider — Readability + Turndown + structured output.
  */
 
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Organ, PortDefinition } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, withLlmContent } from "@dpopsuev/alef-kernel";
 import {
-	DEFAULT_MAX_BYTES,
-	DEFAULT_MAX_LINES,
-	defineOrgan,
-	truncateHead,
-	typedAction,
-	withDisplay,
-} from "@dpopsuev/alef-kernel";
+	BraveSearchEngine,
+	DdgSearchEngine,
+	ExaSearchEngine,
+	FallbackSearchEngine,
+	type ISearchEngine,
+	SpiderCache,
+	type SpideredPage,
+	type SpiderOptions,
+	spider,
+	TavilySearchEngine,
+} from "@dpopsuev/web-spider";
 import { z } from "zod";
-import { defaultSearchEngine, resolveSearchEngine } from "./search-engines.js";
 
 // ---------------------------------------------------------------------------
-// Constants
+// Format helpers — maps SpideredPage to LLM-appropriate shapes
+// (same pattern as web-spider's pi-extension format.ts)
 // ---------------------------------------------------------------------------
 
-const DEFAULT_TIMEOUT_MS = 15_000;
-
-// ---------------------------------------------------------------------------
-// HTML → text conversion (inline, no deps)
-// ---------------------------------------------------------------------------
-
-/** Strip tags that contain non-content (scripts, styles, nav, etc.). */
-function stripNonContent(html: string): string {
-	return html
-		.replace(/<script[\s\S]*?<\/script>/gi, " ")
-		.replace(/<style[\s\S]*?<\/style>/gi, " ")
-		.replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-		.replace(/<nav[\s\S]*?<\/nav>/gi, " ")
-		.replace(/<footer[\s\S]*?<\/footer>/gi, " ")
-		.replace(/<header[\s\S]*?<\/header>/gi, " ")
-		.replace(/<aside[\s\S]*?<\/aside>/gi, " ");
+function omitEmpty(obj: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(
+		Object.entries(obj).filter(([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)),
+	);
 }
 
-/** Extract the <title> tag content. */
-function extractTitle(html: string): string {
-	const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-	return m ? m[1].replace(/\s+/g, " ").trim() : "";
-}
-
-/** Convert HTML to readable plain text. */
-function htmlToText(html: string): string {
-	// Block elements that should become newlines.
-	let text = html
-		.replace(/<\/?(p|div|section|article|h[1-6]|li|dt|dd|blockquote|pre|br)[^>]*>/gi, "\n")
-		.replace(/<\/?(tr|thead|tbody|tfoot)[^>]*>/gi, "\n")
-		.replace(/<td[^>]*>/gi, "\t")
-		.replace(/<[^>]+>/g, "") // strip remaining tags
-		.replace(/&amp;/g, "&")
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.replace(/&nbsp;/g, " ")
-		.replace(/&#\d+;/g, " ")
-		.replace(/&[a-z]+;/gi, " ");
-
-	// Collapse runs of blank lines to at most two.
-	text = text.replace(/\n{3,}/g, "\n\n");
-	// Collapse spaces within lines.
-	text = text
-		.split("\n")
-		.map((l) => l.replace(/[ \t]+/g, " ").trim())
-		.join("\n");
-
-	return text.trim();
+function _leanOutput(page: SpideredPage): Record<string, unknown> {
+	return omitEmpty({
+		url: page.url,
+		title: page.title,
+		description: page.description,
+		author: page.author,
+		publishedAt: page.publishedAt,
+		wordCount: page.wordCount,
+		headings: page.headings.map((h: { level: number; text: string }) => `${"#".repeat(h.level)} ${h.text}`),
+		bodyLinks: page.links
+			.filter((l: { rel: string }) => l.rel === "body")
+			.map((l: { href: string; text: string }) => ({ href: l.href, text: l.text })),
+		jsRendered: page.jsRendered || undefined,
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -93,17 +67,25 @@ function htmlToText(html: string): string {
 const WEB_FETCH_TOOL = {
 	name: "web.fetch",
 	description:
-		"Fetch a web page and return its content as plain text. " +
-		"Use this to read documentation, articles, GitHub READMEs, or any public URL. " +
-		"Content is stripped of scripts and navigation elements. " +
-		"Set format='html' to get raw HTML when you need structure.",
+		"Fetch a web page and return its content. " +
+		"Uses Readability for article extraction and Turndown for Markdown conversion. " +
+		"Default format 'markdown' returns clean article text; 'lean' returns outline only; 'html' returns raw HTML.",
 	inputSchema: z.object({
 		url: z.string().min(1).describe("The URL to fetch. Must start with http:// or https://."),
 		format: z
-			.enum(["text", "html"])
+			.enum(["markdown", "lean", "html"])
 			.optional()
-			.describe("Output format. 'text' (default) strips HTML tags. 'html' returns raw HTML."),
-		timeoutMs: z.number().optional().describe("Request timeout in milliseconds. Default: 15000."),
+			.describe(
+				"Output format. " +
+					"'markdown' (default) — clean article Markdown, best for reading content. " +
+					"'lean' — heading outline + body links only, best for triage before reading. " +
+					"'html' — raw HTML, for pages that require structure.",
+			),
+		timeoutMs: z.number().optional().describe("Request timeout in milliseconds. Default: 30000."),
+		tokenBudget: z
+			.number()
+			.optional()
+			.describe("Approximate token limit for the returned content (1 token ≈ 4 chars). Default: unlimited."),
 	}),
 };
 
@@ -111,7 +93,6 @@ const WEB_SEARCH_TOOL = {
 	name: "web.search",
 	description:
 		"Search the web and return ranked results with URLs, titles, and snippets. " +
-		"Use this when you don't know the exact URL or need to find current information. " +
 		"Automatically tries Brave Search, Tavily, Exa, or falls back to DuckDuckGo. " +
 		"Returns a list of results that you can then fetch with web.fetch.",
 	inputSchema: z.object({
@@ -121,73 +102,29 @@ const WEB_SEARCH_TOOL = {
 			.enum(["brave", "tavily", "exa", "ddg"])
 			.optional()
 			.describe("Specific search engine to use. Omit to use auto-fallback (Brave → Tavily → Exa → DDG)."),
+		timeRange: z
+			.enum(["day", "week", "month", "year"])
+			.optional()
+			.describe(
+				"Restrict results to content published within this window. " +
+					"Use 'month' when asked for recent or latest news. Supported by Tavily and Brave.",
+			),
+		topic: z
+			.enum(["news", "general"])
+			.optional()
+			.describe(
+				"Search topic mode. 'news' prioritises freshly indexed news articles. " +
+					"Use with timeRange:'month' when asked for recent developments.",
+			),
 	}),
 };
-
-// ---------------------------------------------------------------------------
-// Handlers
-// ---------------------------------------------------------------------------
-
-async function handleFetch(url: string, format: "text" | "html", timeoutMs: number): Promise<Record<string, unknown>> {
-	if (!url.startsWith("http://") && !url.startsWith("https://")) {
-		throw new Error(`web.fetch: url must start with http:// or https://, got: ${url}`);
-	}
-
-	const controller = new AbortController();
-	// lint-ignore: RAWTIMER HTTP fetch abort deadline
-	const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-	let response: Response;
-	try {
-		response = await fetch(url, {
-			signal: controller.signal,
-			headers: {
-				"User-Agent": "Alef/1.0 (agent; +https://github.com/dpopsuev/alef)",
-				Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
-			},
-			redirect: "follow",
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-
-	const statusCode = response.status;
-	const rawBytes = await response.arrayBuffer();
-	const rawText = new TextDecoder("utf-8", { fatal: false }).decode(rawBytes);
-
-	if (format === "html") {
-		const htmlTitle = extractTitle(rawText);
-		const tr = truncateHead(rawText, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-		return { content: tr.content, title: htmlTitle, url: response.url, statusCode, truncated: tr.truncated };
-	}
-
-	const stripped = stripNonContent(rawText);
-	const title = extractTitle(rawText);
-	const tr = truncateHead(htmlToText(stripped), { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-	return { content: tr.content, title, url: response.url, statusCode, truncated: tr.truncated };
-}
-
-async function handleSearch(query: string, numResults: number, engine?: string): Promise<Record<string, unknown>> {
-	if (!query.trim()) {
-		throw new Error("web.search: query cannot be empty");
-	}
-
-	const searchEngine = engine ? resolveSearchEngine(engine) : defaultSearchEngine();
-	const results = await searchEngine.search({ query, numResults });
-
-	return {
-		query,
-		results,
-		hint: results.length > 0 ? "Use web.fetch(url=...) to read the full content of any result." : undefined,
-	};
-}
 
 // ---------------------------------------------------------------------------
 // Organ factory
 // ---------------------------------------------------------------------------
 
 export interface WebOrganOptions {
-	/** Default request timeout in milliseconds. Default: 15000. */
+	/** Default request timeout in milliseconds. Default: 30000. */
 	defaultTimeoutMs?: number;
 }
 
@@ -195,41 +132,167 @@ const WEB_DIRECTIVES = [
 	`**web.fetch tool guidance**
 - Use web.fetch to read documentation, API references, GitHub READMEs, changelogs, and articles.
 - Always prefer fs.read or lector.read for local files. web.fetch is for public URLs only.
-- Content is returned as plain text by default. Use format='html' only when you need page structure.
-- Respect robots.txt and rate limits. Do not fetch the same URL repeatedly in a loop.
+- Default format 'markdown' returns clean article text — use this for reading content.
+- Use format='lean' to skim a page before deciding whether to read it — much cheaper.
+- Use format='html' only when you need raw page structure.
 - If a URL requires authentication or returns 4xx/5xx, report the statusCode and stop.
 
 **web.search tool guidance**
 - Use web.search when you don't know the exact URL or need to find current information.
-- Pass natural language queries: "latest TypeScript features" or "Martin Fowler dependency injection".
+- Pass natural language queries: "latest TypeScript features" or "ona background agents".
 - Never guess or hallucinate URLs. Search first, then fetch the result URLs.
 - The tool automatically tries Brave → Tavily → Exa → DuckDuckGo based on available API keys.
-- Results include url, title, snippet, and sometimes publishedAt. Use web.fetch to read full content.`,
+- Results include url, title, snippet, and sometimes publishedAt. Use web.fetch to read full content.
+- When asked for recent or latest news: pass timeRange:'month' and topic:'news'.
+- If a named company or startup search returns no results: try web.fetch('https://{company-name}.com') directly.`,
 ];
 
 export function createWebOrgan(options: WebOrganOptions = {}): Organ {
-	const defaultTimeout = options.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS;
+	const defaultTimeoutMs = options.defaultTimeoutMs ?? 30_000;
+
+	// Session-scoped LRU cache — pages fetched during this session are reused.
+	const cache = new SpiderCache({ maxSize: 50, ttlMs: 30 * 60 * 1000 });
+
+	// Build the search engine fallback chain from available API keys.
+	function buildSearchEngine(engineName?: string): ISearchEngine {
+		if (engineName) {
+			const key: Record<string, string | undefined> = {
+				brave: process.env.BRAVE_SEARCH_API_KEY,
+				tavily: process.env.TAVILY_API_KEY,
+				exa: process.env.EXA_API_KEY,
+			};
+			switch (engineName) {
+				case "brave":
+					return new BraveSearchEngine(key.brave ?? "");
+				case "tavily":
+					return new TavilySearchEngine(key.tavily ?? "");
+				case "exa":
+					return new ExaSearchEngine(key.exa ?? "");
+				case "ddg":
+					return new DdgSearchEngine();
+				default:
+					return new DdgSearchEngine();
+			}
+		}
+		const engines: ISearchEngine[] = [];
+		if (process.env.BRAVE_SEARCH_API_KEY) engines.push(new BraveSearchEngine(process.env.BRAVE_SEARCH_API_KEY));
+		if (process.env.TAVILY_API_KEY) engines.push(new TavilySearchEngine(process.env.TAVILY_API_KEY));
+		if (process.env.EXA_API_KEY) engines.push(new ExaSearchEngine(process.env.EXA_API_KEY));
+		engines.push(new DdgSearchEngine());
+		return new FallbackSearchEngine(engines);
+	}
 
 	return defineOrgan(
 		"web",
 		{
 			motor: {
 				"web.fetch": typedAction(WEB_FETCH_TOOL, async (ctx) => {
-					const { url, format, timeoutMs } = ctx.payload;
-					const result = await handleFetch(url, format ?? "text", timeoutMs ?? defaultTimeout);
-					const title = result.title as string | undefined;
-					const finalUrl = result.url as string;
-					const label = title ? `**${title}** — ${finalUrl}` : finalUrl;
-					return withDisplay(result, { text: label, mimeType: "text/markdown" });
-				}),
-				"web.search": typedAction(WEB_SEARCH_TOOL, async (ctx) => {
-					const { query, numResults, engine } = ctx.payload;
-					const result = await handleSearch(query, numResults ?? 10, engine);
-					const results = result.results as unknown[];
-					return withDisplay(result, {
-						text: `Web search: **${query}** (${results.length} results)`,
+					const { url, format = "markdown", timeoutMs, tokenBudget } = ctx.payload;
+
+					// Raw HTML path — bypass Readability.
+					if (format === "html") {
+						if (!url.startsWith("http://") && !url.startsWith("https://")) {
+							throw new Error(`web.fetch: url must start with http:// or https://, got: ${url}`);
+						}
+						const controller = new AbortController();
+						// lint-ignore: RAWTIMER HTTP fetch abort deadline
+						const timer = setTimeout(() => controller.abort(), timeoutMs ?? defaultTimeoutMs);
+						let response: Response;
+						try {
+							response = await fetch(url, {
+								signal: controller.signal,
+								headers: { "User-Agent": "Alef/1.0 (agent)", Accept: "text/html" },
+								redirect: "follow",
+							});
+						} finally {
+							clearTimeout(timer);
+						}
+						const rawText = await response.text();
+						const title =
+							/<title[^>]*>([\s\S]*?)<\/title>/i.exec(rawText)?.[1]?.replace(/\s+/g, " ").trim() ?? "";
+						return withLlmContent(
+							rawText,
+							{ title, url: response.url, statusCode: response.status },
+							{
+								text: title ? `**${title}** — ${response.url}` : response.url,
+								mimeType: "text/plain",
+							},
+						);
+					}
+
+					// Readability + Turndown path via web-spider.
+					const spiderOpts: SpiderOptions = {
+						timeoutMs: timeoutMs ?? defaultTimeoutMs,
+						...(tokenBudget !== undefined ? { tokenBudget } : {}),
+					};
+
+					// Check in-session cache first.
+					const cacheKey = url;
+					const cached = cache.get(cacheKey);
+					let page: SpideredPage;
+					if (cached) {
+						page = cached;
+					} else {
+						if (format === "lean") {
+							const lean = await spider(url, {
+								...(spiderOpts as Parameters<typeof spider>[1]),
+								view: "lean" as const,
+							});
+							// toLean() returns LeanPage — convert to SpideredPage shape for unified handling.
+							return withLlmContent(
+								JSON.stringify(
+									omitEmpty({
+										url: lean.url,
+										title: lean.title,
+										description: lean.description,
+										wordCount: lean.wordCount,
+										headings: lean.headings,
+										bodyLinks: lean.links,
+										jsRendered: lean.jsRendered,
+									}),
+								),
+								{ url: lean.url },
+								{
+									text: `Lean: **${lean.title || lean.url}** — ${lean.wordCount} words`,
+									mimeType: "text/plain",
+								},
+							);
+						}
+						page = await spider(url, spiderOpts as Parameters<typeof spider>[1]);
+						cache.set(cacheKey, page);
+					}
+
+					const metadata = omitEmpty({
+						url: page.url,
+						title: page.title,
+						author: page.author,
+						publishedAt: page.publishedAt,
+						wordCount: page.wordCount,
+					});
+
+					const label = page.title ? `**${page.title}** — ${page.url}` : page.url;
+
+					return withLlmContent(page.markdown, metadata, {
+						text: label,
 						mimeType: "text/markdown",
 					});
+				}),
+
+				"web.search": typedAction(WEB_SEARCH_TOOL, async (ctx) => {
+					const { query, numResults, engine, timeRange, topic } = ctx.payload;
+					if (!query.trim()) throw new Error("web.search: query cannot be empty");
+
+					const searchEngine = buildSearchEngine(engine);
+					const results = await searchEngine.search({ query, numResults: numResults ?? 10, timeRange, topic });
+
+					return withLlmContent(
+						JSON.stringify({ query, results }),
+						{},
+						{
+							text: `Web search: **${query}** (${results.length} results)`,
+							mimeType: "text/plain",
+						},
+					);
 				}),
 			},
 		},
@@ -237,6 +300,17 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 			directives: WEB_DIRECTIVES,
 			description: "Fetch and read public web pages, search the web for information.",
 			labels: ["web", "fetch", "search", "http", "read"],
+			contributions: {
+				port: { name: "web", eventPattern: "motor/web.", cardinality: "zero-or-one" } satisfies PortDefinition,
+				history: {
+					ownedTools: ["web.fetch", "web.search"],
+					extractEntry: (payload) => {
+						const url = typeof payload.url === "string" ? payload.url : undefined;
+						const query = typeof payload.query === "string" ? payload.query : undefined;
+						return url ? { url } : query ? { query } : null;
+					},
+				},
+			},
 		},
 	);
 }

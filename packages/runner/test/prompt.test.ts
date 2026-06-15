@@ -73,7 +73,7 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 			name: "tools",
 			tools: [] as never[],
 			directives: ['Call tools.describe(["tool-name"]) before using any tool.'],
-			subscriptions: { motor: ["llm.phase"], sense: [] as string[] },
+			subscriptions: { motor: ["context.assemble"], sense: [] as string[] },
 			mount: () => () => {},
 		};
 		registerOrgans(scroll, [infraOrgan]);

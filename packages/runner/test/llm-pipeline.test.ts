@@ -2,8 +2,8 @@
  * LLM pipeline integration tests.
  *
  * Exercises the parts ScriptedReasoner cannot reach:
- *   - prepareStep called by real organ-llm; output visible in the LLM context
- *   - motor/llm.phase pipeline (ToolShell progressive disclosure)
+ *   - systemPrompt visible in the LLM context
+ *   - motor/context.assemble pipeline (ToolShell progressive disclosure)
  *   - Retry on transient error
  *   - budget.cancel abort
  *
@@ -11,13 +11,12 @@
  * All tests run in-process; no subprocesses, no real LLM.
  */
 
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { createAgentLoop, createLlmPipeline } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
-import { Directives } from "../src/directives.js";
-import { buildPrepareStep, createDefaultDirectives } from "../src/prompt.js";
 import { createToolShellOrgan } from "../src/tool-shell.js";
 
 // ---------------------------------------------------------------------------
@@ -27,23 +26,21 @@ import { createToolShellOrgan } from "../src/tool-shell.js";
 const SEND_TIMEOUT = 5_000;
 
 /** Minimal agent: organ-llm with faux LLM + DialogOrgan. */
-function makeAgent(
-	opts: { prepareStep?: Parameters<typeof buildPrepareStep>[0]; phaseTimeoutMs?: number; maxRetries?: number } = {},
-) {
+function makeAgent(opts: { systemPrompt?: string; phaseTimeoutMs?: number; maxRetries?: number } = {}) {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
 	const dialog = new DialogOrgan({ sink: () => {} });
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const _prepareStep = opts.prepareStep ? (buildPrepareStep(opts.prepareStep, 100_000) as any) : undefined;
 
 	const llm = createAgentLoop({
 		model: faux.getModel(),
 		apiKey: "faux",
+		systemPrompt: opts.systemPrompt,
 		phaseTimeoutMs: opts.phaseTimeoutMs,
 		maxRetries: opts.maxRetries ?? 0,
 	});
 
 	agent.load(dialog).load(llm);
+	if (opts.phaseTimeoutMs) agent.load(createContextAssemblyPipeline());
 	return { faux, agent, dialog };
 }
 
@@ -56,19 +53,15 @@ afterEach(() => {
 // prepareStep → LLM context
 // ---------------------------------------------------------------------------
 
-describe("prepareStep → LLM context", { tags: ["unit"] }, () => {
-	it("system message from directives is in ctx.messages at callLLM time", async () => {
-		const directives = new Directives();
-		directives.register({ id: "sentinel", priority: 0, content: "SENTINEL_DIRECTIVE_XYZ", enabled: true });
-
+describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
+	it("system prompt is in ctx.systemPrompt at callLLM time", async () => {
 		let capturedSystem: string | undefined;
 		const factory: FauxResponseFactory = (ctx) => {
-			const sys = ctx.messages.find((m) => (m as { role: string }).role === "system");
-			capturedSystem = sys ? String((sys as { content: unknown }).content) : undefined;
+			capturedSystem = ctx.systemPrompt;
 			return fauxAssistantMessage("ok");
 		};
 
-		const { faux, agent, dialog } = makeAgent({ prepareStep: directives });
+		const { faux, agent, dialog } = makeAgent({ systemPrompt: "SENTINEL_DIRECTIVE_XYZ" });
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -81,18 +74,14 @@ describe("prepareStep → LLM context", { tags: ["unit"] }, () => {
 		expect(capturedSystem).toContain("SENTINEL_DIRECTIVE_XYZ");
 	});
 
-	it("live directive change is reflected on the next turn without restart", async () => {
-		const directives = new Directives();
-		directives.register({ id: "d", priority: 0, content: "VERSION_ONE", enabled: true });
-
+	it("system prompt is consistent across turns", async () => {
 		const captured: string[] = [];
 		const factory: FauxResponseFactory = (ctx) => {
-			const sys = ctx.messages.find((m) => (m as { role: string }).role === "system");
-			captured.push(String((sys as { content: unknown })?.content ?? ""));
+			captured.push(ctx.systemPrompt ?? "");
 			return fauxAssistantMessage("ok");
 		};
 
-		const { faux, agent, dialog } = makeAgent({ prepareStep: directives });
+		const { faux, agent, dialog } = makeAgent({ systemPrompt: "STABLE_PROMPT" });
 		faux.setResponses([factory, factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -101,27 +90,20 @@ describe("prepareStep → LLM context", { tags: ["unit"] }, () => {
 
 		await agent.ready();
 		await dialog.send("turn 1", "human", SEND_TIMEOUT);
-
-		directives.replace("d", "VERSION_TWO");
 		await dialog.send("turn 2", "human", SEND_TIMEOUT);
 
-		expect(captured[0]).toContain("VERSION_ONE");
-		expect(captured[1]).toContain("VERSION_TWO");
+		expect(captured[0]).toContain("STABLE_PROMPT");
+		expect(captured[1]).toContain("STABLE_PROMPT");
 	});
 
-	it("disabled directive does not appear in the LLM context", async () => {
-		const directives = new Directives();
-		directives.register({ id: "visible", priority: 0, content: "VISIBLE_RULE", enabled: true });
-		directives.register({ id: "hidden", priority: 1, content: "HIDDEN_RULE", enabled: false });
-
+	it("system prompt content appears; absent content is not present", async () => {
 		let capturedSystem: string | undefined;
 		const factory: FauxResponseFactory = (ctx) => {
-			const sys = ctx.messages.find((m) => (m as { role: string }).role === "system");
-			capturedSystem = String((sys as { content: unknown })?.content ?? "");
+			capturedSystem = ctx.systemPrompt;
 			return fauxAssistantMessage("ok");
 		};
 
-		const { faux, agent, dialog } = makeAgent({ prepareStep: directives });
+		const { faux, agent, dialog } = makeAgent({ systemPrompt: "VISIBLE_RULE" });
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -135,17 +117,14 @@ describe("prepareStep → LLM context", { tags: ["unit"] }, () => {
 		expect(capturedSystem).not.toContain("HIDDEN_RULE");
 	});
 
-	it("default directives include format rules in the LLM context", async () => {
-		const directives = createDefaultDirectives({ tools: [], cwd: "/test" });
-
+	it("no system prompt → ctx.systemPrompt is undefined", async () => {
 		let capturedSystem: string | undefined;
 		const factory: FauxResponseFactory = (ctx) => {
-			const sys = ctx.messages.find((m) => (m as { role: string }).role === "system");
-			capturedSystem = String((sys as { content: unknown })?.content ?? "");
+			capturedSystem = ctx.systemPrompt;
 			return fauxAssistantMessage("ok");
 		};
 
-		const { faux, agent, dialog } = makeAgent({ prepareStep: directives });
+		const { faux, agent, dialog } = makeAgent();
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -155,34 +134,25 @@ describe("prepareStep → LLM context", { tags: ["unit"] }, () => {
 		await agent.ready();
 		await dialog.send("hello", "human", SEND_TIMEOUT);
 
-		expect(capturedSystem).toContain("No emojis");
-		expect(capturedSystem).toContain("No filler");
-		expect(capturedSystem).toContain("No preamble");
-		expect(capturedSystem).toContain("You are Alef");
+		expect(capturedSystem).toBeUndefined();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// motor/llm.phase pipeline
+// motor/context.assemble pipeline
 // ---------------------------------------------------------------------------
 
-describe("motor/llm.phase pipeline", { tags: ["unit"] }, () => {
-	it("motor/llm.phase fires and its messages include the system message", async () => {
-		const directives = new Directives();
-		directives.register({ id: "d", priority: 0, content: "PHASE_SENTINEL", enabled: true });
-
+describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
+	it("motor/context.assemble fires and its messages include the user message", async () => {
 		let phaseMessages: unknown[] | undefined;
-		const { faux, agent, dialog } = makeAgent({
-			prepareStep: directives,
-			phaseTimeoutMs: 100,
-		});
+		const { faux, agent, dialog } = makeAgent({ phaseTimeoutMs: 100 });
 		faux.setResponses([fauxAssistantMessage("done")]);
 		disposes.push(() => {
 			agent.dispose();
 			faux.unregister();
 		});
 
-		agent.subscribeMotor("llm.phase", (event) => {
+		agent.subscribeMotor("context.assemble", (event) => {
 			phaseMessages = event.payload.messages as unknown[];
 		});
 
@@ -190,14 +160,11 @@ describe("motor/llm.phase pipeline", { tags: ["unit"] }, () => {
 		await dialog.send("hello", "human", SEND_TIMEOUT);
 
 		expect(phaseMessages).toBeDefined();
-		const sys = (phaseMessages ?? []).find((m) => (m as { role: string }).role === "system");
-		expect(String((sys as { content: unknown })?.content)).toContain("PHASE_SENTINEL");
+		const user = (phaseMessages ?? []).find((m) => (m as { role: string }).role === "user");
+		expect(user).toBeDefined();
 	});
 
 	it("ToolShell phaseStage adds tools.describe to ctx.tools on turn 1", async () => {
-		const directives = new Directives();
-		directives.register({ id: "d", priority: 0, content: "rules", enabled: true });
-
 		const toolShell = createToolShellOrgan({ tools: [] });
 
 		let capturedTools: unknown[] | undefined;
@@ -206,10 +173,7 @@ describe("motor/llm.phase pipeline", { tags: ["unit"] }, () => {
 			return fauxAssistantMessage("done");
 		};
 
-		const { faux, agent, dialog } = makeAgent({
-			prepareStep: directives,
-			phaseTimeoutMs: 100,
-		});
+		const { faux, agent, dialog } = makeAgent({ phaseTimeoutMs: 100 });
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -217,7 +181,7 @@ describe("motor/llm.phase pipeline", { tags: ["unit"] }, () => {
 		});
 
 		agent.load(toolShell);
-		agent.load(createLlmPipeline());
+		agent.load(createContextAssemblyPipeline());
 
 		await agent.ready();
 		await dialog.send("hello", "human", SEND_TIMEOUT);

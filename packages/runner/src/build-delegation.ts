@@ -4,16 +4,61 @@ import { join } from "node:path";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import type { Api, Message, Model } from "@dpopsuev/alef-llm";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
-
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
 import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import type { Agent } from "@dpopsuev/alef-runtime";
 import type { Args } from "./args.js";
-import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "./materializer.js";
+import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 import type { AgentEvent, Session } from "./session.js";
-import { InProcessStrategy } from "./strategies/in-process.js";
+import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { buildSubagentFactory } from "./subagent-factory.js";
+
+/**
+ * Wire the HTTP surface (RouterOrgan + daemon registry) onto an already-loaded agent.
+ * The delegation organs (delegate, orchestration, factory) must already be in the agent
+ * via the blueprint stack — this function only handles --serve and --daemon concerns.
+ */
+export async function setupHttpSurface(
+	args: Args,
+	agent: Agent,
+	session: Session,
+	blueprintSurfaces: AgentDefinitionSurfaceInput[],
+): Promise<void> {
+	const servePort = args.daemon ? 0 : args.serve;
+	if (servePort === undefined) return;
+
+	const sseSurface = blueprintSurfaces.filter((surface) => surface.type === "sse");
+	const allowedEvents = sseSurface.flatMap((surface) => surface.events ?? []);
+	const router = createRouterOrgan({
+		port: servePort,
+		allowedEvents,
+		triggerEvent: "llm.input",
+		onMessage: (text) => session.receive?.(text),
+	});
+	agent.load(router);
+	await router.ready();
+	const addr = router.address() ?? { host: "127.0.0.1", port: 0 };
+	console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
+
+	if (args.daemon) {
+		session.subscribe((event: AgentEvent) => {
+			router.notifyAgent(event as unknown as Record<string, unknown>);
+		});
+		const daemonDir = join(homedir(), ".alef");
+		mkdirSync(daemonDir, { recursive: true });
+		writeFileSync(
+			join(daemonDir, "daemon.json"),
+			JSON.stringify({
+				port: addr.port,
+				pid: process.pid,
+				sessionId: session.state.id,
+				cwd: args.cwd,
+				startedAt: Date.now(),
+			}),
+		);
+	}
+}
 
 const EXPLORE_ORGANS = [
 	{ name: "fs", actions: [] as string[], toolNames: [] as string[] },

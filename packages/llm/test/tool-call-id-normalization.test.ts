@@ -240,7 +240,7 @@ describe("Tool Call ID Normalization - Prefilled Context", { tags: ["unit"] }, (
 	it.skipIf(!openrouterKey)(
 		"openrouter should handle prefilled context with long pipe-separated IDs",
 		async () => {
-			const model = getModel("openrouter", "openai/gpt-5.2-codex");
+			const model = getModel("openrouter", "openai/gpt-4o-mini");
 			const messages = buildPrefilledMessages();
 
 			const response = await completeSimple(

@@ -90,6 +90,7 @@ export class NerveFixture {
 		const recorder = new BusEventRecorder();
 		this.nerve.onAnyMotor((event) => recorder.onMotorEvent(event));
 		this.nerve.onAnySense((event) => recorder.onSenseEvent(event));
+		this.nerve.onAnySignal((event) => recorder.onSignalEvent?.(event));
 		return recorder;
 	}
 

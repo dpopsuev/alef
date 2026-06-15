@@ -46,6 +46,30 @@ export function withDisplay(payload: Record<string, unknown>, display: SenseDisp
 	return { ...payload, _display: display };
 }
 
+/**
+ * Build a dual-channel sense result where the LLM receives a clean string and
+ * the TUI receives a formatted pill.
+ *
+ * The primary content is always placed in the `content` field — the name that
+ * `payloadToText` checks first. Any extra metadata is merged at the top level.
+ * The `content` key in `metadata` is silently overwritten to prevent shadowing.
+ *
+ * Use this instead of constructing `{ content, ...meta, _display }` by hand:
+ * the explicit helper makes the convention visible and prevents the common
+ * mistake of naming the field `markdown`, `text`, or `body`, which would cause
+ * `payloadToText` to silently fall through to `JSON.stringify`.
+ *
+ * @example
+ * return withLlmContent(page.markdown, { url, title, wordCount }, { text: `**${title}**`, mimeType: "text/markdown" });
+ */
+export function withLlmContent(
+	content: string,
+	metadata: Record<string, unknown>,
+	display: SenseDisplayBlock,
+): Record<string, unknown> {
+	return { ...metadata, content, _display: display };
+}
+
 export function getString(payload: Record<string, unknown>, key: string): string | undefined {
 	const v = payload[key];
 	return typeof v === "string" ? v : undefined;

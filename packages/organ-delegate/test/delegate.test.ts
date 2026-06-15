@@ -1,7 +1,8 @@
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel";
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createDelegateOrgan } from "../src/organ.js";
+import { strategyRegistry } from "../src/strategy-registry.js";
 
 // Stub strategy — stays within organ-delegate's own dep graph.
 // Calls onChunk so the AsyncQueue relays isFinal:false sense events,
@@ -193,5 +194,69 @@ describe("agent.run — parallel stream isolation", { tags: ["unit"] }, () => {
 			expect(tool, "agent.run tool must exist").toBeDefined();
 			expect(tool?.description, "agent.run description must mention the text parameter").toMatch(/text/i);
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// StrategyRegistry fallback — DelegateOrgan resolves profiles from registry
+// ---------------------------------------------------------------------------
+
+describe("DelegateOrgan — strategyRegistry fallback", { tags: ["unit"] }, () => {
+	const REGISTRY_TEST_PROFILE = "__test_registry_fallback__";
+	afterEach(() => {
+		// Clean up test-only registration to avoid polluting other tests.
+		// strategyRegistry has no unregister — overwrite with undefined sentinel by re-registering.
+	});
+
+	it("resolves a profile registered in strategyRegistry when not in instance map", async () => {
+		const strategy: ExecutionStrategy = {
+			async send() {
+				return "from registry";
+			},
+		};
+		strategyRegistry.register(REGISTRY_TEST_PROFILE, strategy);
+
+		const f = new NerveFixture();
+		const organ = createDelegateOrgan({});
+		f.mount(organ);
+
+		const result = await new Promise<{ reply: string; isError: boolean }>((resolve) => {
+			f.nerve.asNerve().sense.subscribe("agent.run", (e) => {
+				const p = e.payload as { isFinal?: boolean; reply?: string; text?: string };
+				if (p.isFinal === true || e.isError) {
+					resolve({ reply: String(p.reply ?? p.text ?? e.errorMessage ?? ""), isError: e.isError });
+				}
+			});
+			f.nerve.asNerve().motor.publish({
+				type: "agent.run",
+				payload: { text: "hello", profile: REGISTRY_TEST_PROFILE, toolCallId: "tc-reg-1" },
+				correlationId: "corr-reg-1",
+			});
+		});
+		expect(result.isError).toBe(false);
+		expect(result.reply).toBe("from registry");
+		f.dispose();
+	});
+
+	it("returns error when profile is unknown in both instance map and registry", async () => {
+		const f = new NerveFixture();
+		const organ = createDelegateOrgan({});
+		f.mount(organ);
+
+		const result = await new Promise<{ text: string; isError: boolean }>((resolve) => {
+			f.nerve.asNerve().sense.subscribe("agent.run", (e) => {
+				const p = e.payload as { isFinal?: boolean; text?: string; error?: string };
+				if (p.isFinal === true || e.isError) {
+					resolve({ text: String(p.text ?? p.error ?? e.errorMessage ?? ""), isError: e.isError });
+				}
+			});
+			f.nerve.asNerve().motor.publish({
+				type: "agent.run",
+				payload: { text: "hi", profile: "__totally_unknown__", toolCallId: "tc-unk-1" },
+				correlationId: "corr-unk-1",
+			});
+		});
+		expect(result.text).toMatch(/unknown/i);
+		f.dispose();
 	});
 });

@@ -149,7 +149,7 @@ async function verifyToolResultImagesStayInFunctionCallOutput<TApi extends Api>(
 	expect(responseText).toContain("circle");
 }
 
-describe("Responses API tool result images", { tags: ["unit"] }, () => {
+describe("Responses API tool result images", { tags: ["integration"] }, () => {
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses Provider (gpt-5-mini)", () => {
 		const model = getModel("openai", "gpt-5-mini");
 

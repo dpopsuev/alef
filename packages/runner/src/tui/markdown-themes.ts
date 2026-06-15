@@ -7,7 +7,7 @@
 
 import type { MarkdownTheme } from "@dpopsuev/alef-tui";
 import chalk from "chalk";
-import type { ThemeTokens } from "../theme.js";
+import type { ThemeTokens } from "../theme-types.js";
 import { bold, color, italic } from "./theme.js";
 
 /** Raw ANSI — never chalk, so these work regardless of chalk's TTY detection. */

@@ -72,6 +72,12 @@
 			],
 			"@dpopsuev/alef-testkit/*": [
 				"../testkit/src/*.ts"
+			],
+			"@dpopsuev/alef-organ-toolshell": [
+				"../organ-toolshell/src/index.ts"
+			],
+			"@dpopsuev/alef-coding-agent": [
+				"../alef-coding-agent/src/index.ts"
 			]
 		}
 	},

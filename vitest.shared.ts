@@ -26,6 +26,7 @@
  *   vitest --tags-filter="canary"             # just the health-check canary
  */
 
+import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -43,8 +44,21 @@ export const TAGS = {
 
 export type AlefTestTag = (typeof TAGS)[keyof typeof TAGS];
 
+// vitest.shared.ts lives at the monorepo root — import.meta.dirname IS the root
+const MONOREPO_ROOT = import.meta.dirname;
+
 export default defineConfig({
-	plugins: [tsconfigPaths({ root: "../../" })],
+	plugins: [tsconfigPaths({ root: MONOREPO_ROOT })],
+	resolve: {
+		// vite-tsconfig-paths applies to files within the vite project root
+		// (the package directory). For cross-package imports in transitive deps
+		// (e.g. organ-llm importing @dpopsuev/alef-llm), tsconfig paths are NOT
+		// applied, causing module duplication that breaks shared singletons.
+		// resolve.alias applies globally and fixes this.
+		alias: {
+			"@dpopsuev/alef-llm": resolve(MONOREPO_ROOT, "packages/llm/src/index.ts"),
+		},
+	},
 	test: {
 		include: DEFAULT_INCLUDE,
 		// Tag definitions — options here apply to every test carrying that tag.

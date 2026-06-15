@@ -11,6 +11,7 @@ export {
 	type E2eSessionOptions,
 	HAVE_REAL_LLM,
 } from "./e2e-session.js";
+export { InMemorySessionStore } from "./in-memory-session-store.js";
 export { NerveFixture } from "./nerve-fixture.js";
 export {
 	assertOrganContract,
@@ -69,6 +70,7 @@ export class MockReasoner implements Organ {
 export class BusEventRecorder implements BusObserver {
 	private readonly _motor: NerveEvent[] = [];
 	private readonly _sense: NerveEvent[] = [];
+	private readonly _signal: NerveEvent[] = [];
 
 	onMotorEvent(event: NerveEvent): void {
 		this._motor.push(event);
@@ -76,12 +78,18 @@ export class BusEventRecorder implements BusObserver {
 	onSenseEvent(event: NerveEvent): void {
 		this._sense.push(event);
 	}
+	onSignalEvent(event: NerveEvent): void {
+		this._signal.push(event);
+	}
 
 	get motor(): readonly NerveEvent[] {
 		return this._motor;
 	}
 	get sense(): readonly NerveEvent[] {
 		return this._sense;
+	}
+	get signal(): readonly NerveEvent[] {
+		return this._signal;
 	}
 
 	assertSenseEmitted(type: string): NerveEvent {

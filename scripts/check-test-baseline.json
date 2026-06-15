@@ -1,10 +1,5 @@
 {
 	"knownFailing": [
-		"blueprint",
-		"kernel",
-		"llm",
-		"organ-enclosure",
-		"runner",
-		"runtime"
+		"runner"
 	]
 }

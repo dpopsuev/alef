@@ -1,6 +1,6 @@
 import { KEY_ARG_FIELDS } from "@dpopsuev/alef-organ-llm";
 import { type Component, Markdown, Text } from "@dpopsuev/alef-tui";
-import type { ThemeTokens } from "../theme.js";
+import type { ThemeTokens } from "../theme-types.js";
 import { fmtMs, sanitizeForDisplay } from "./ansi-utils.js";
 import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";

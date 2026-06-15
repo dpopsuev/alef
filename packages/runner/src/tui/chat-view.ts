@@ -1,13 +1,10 @@
 import { Box, type Component, type Container, Spacer, Text } from "@dpopsuev/alef-tui";
-import type { ColorToken, ThemeTokens } from "../theme.js";
+import type { ColorToken, ThemeTokens } from "../theme-types.js";
 import { fmtMs, stripAnsi } from "./ansi-utils.js";
 import { DynamicText } from "./dynamic-text.js";
 import { INDENT, SPACING } from "./layout-constants.js";
 import { pillFooterStr, pillHeaderStr } from "./pill.js";
 import { color, glyph } from "./theme.js";
-
-const YOU_LABEL = process.env.ALEF_YOU_LABEL ?? "@you";
-const AGENT_LABEL = process.env.ALEF_AGENT_LABEL ?? "@alef";
 
 function makePillHeader(label: string, fg: ColorToken): DynamicText {
 	return new DynamicText((w) => color(pillHeaderStr(label, w), fg));
@@ -17,9 +14,14 @@ function makePillFooter(fg: ColorToken): DynamicText {
 	return new DynamicText((w) => color(pillFooterStr(w), fg));
 }
 
-export function appendUserMsg(chat: Container, text: string, t: ThemeTokens): void {
+export function appendUserMsg(
+	chat: Container,
+	text: string,
+	t: ThemeTokens,
+	label = process.env.ALEF_YOU_LABEL ?? "@you",
+): void {
 	chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
-	chat.addChild(makePillHeader(YOU_LABEL, t.userFg));
+	chat.addChild(makePillHeader(label, t.userFg));
 	const box = new Box(INDENT.BLOCK, 0);
 	box.addChild(new Text(color(text, t.userFg), 0, 0));
 	chat.addChild(box);
@@ -99,6 +101,7 @@ export class AgentBlock {
 	constructor(
 		private readonly chat: Container,
 		private readonly t: ThemeTokens,
+		private readonly label = process.env.ALEF_AGENT_LABEL ?? "@alef",
 	) {}
 
 	start(): void {
@@ -106,7 +109,7 @@ export class AgentBlock {
 		this.open = true;
 		const { agentFg } = this.t;
 		this.chat.addChild(new Spacer(SPACING.BETWEEN_BLOCKS));
-		this.chat.addChild(makePillHeader(AGENT_LABEL, agentFg));
+		this.chat.addChild(makePillHeader(this.label, agentFg));
 		this.contentBox = new Box(INDENT.BLOCK, 0);
 		this.chat.addChild(this.contentBox);
 	}

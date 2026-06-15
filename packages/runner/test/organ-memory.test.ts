@@ -20,9 +20,9 @@ describe("MemoryOrgan — organ contract", { tags: ["unit"] }, () => {
 		expect(organ.tools).toHaveLength(0);
 	});
 
-	it("does not subscribe to motor/llm.phase — pipeline coordinator owns that", () => {
+	it("does not subscribe to motor/context.assemble — pipeline coordinator owns that", () => {
 		const organ = createMemoryOrgan();
-		expect(organ.subscriptions.motor).not.toContain("llm.phase");
+		expect(organ.subscriptions.motor).not.toContain("context.assemble");
 	});
 
 	it("exposes phaseStage() returning a function", () => {

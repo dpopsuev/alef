@@ -65,6 +65,12 @@ const bridgeNerve: Nerve = {
 			port.postMessage({ dir: "sense", event });
 		},
 	},
+	signal: {
+		subscribe(_type, _handler) {
+			return () => {};
+		},
+		publish(_event) {},
+	},
 };
 
 // Dispatch incoming motor events to registered handlers.

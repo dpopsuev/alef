@@ -325,7 +325,7 @@ describe("Lifecycle — JSONL persistence (SessionLog)", { tags: ["integration"]
 			const types = records.map((r) => `${r.bus}/${r.type}`);
 
 			// Motor: user message, tool call request, agent reply
-			expect(types).toContain("sense/llm.response"); // user input on sense bus
+			expect(types).toContain("sense/llm.input"); // user input on sense bus
 			expect(types).toContain("motor/fs.read"); // tool call request
 			expect(types).toContain("sense/fs.read"); // tool result
 			expect(types).toContain("motor/llm.response"); // agent reply
@@ -394,7 +394,7 @@ describe("Lifecycle — multi-turn context accumulation", { tags: ["integration"
 			await fix.dialog.send("question two", "human");
 			const events = await fix.store.events();
 			const dialogEvents = events.filter((e) => e.type === "llm.response");
-			expect(dialogEvents.length).toBeGreaterThanOrEqual(4);
+			expect(dialogEvents.length).toBeGreaterThanOrEqual(2);
 		} finally {
 			await fix.unmountAgent();
 		}

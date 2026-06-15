@@ -111,12 +111,15 @@ export class LoopGuard implements Organ {
 		};
 
 		// Motor subscriber: buffer call metadata, apply total-count safety net.
+		// Only count events that carry a toolCallId — those are real tool dispatches.
+		// Infrastructure motor events (llm.response, context.assemble) are skipped.
 		const offMotor = nerve.motor.subscribe("*", (event) => {
 			const corr = event.correlationId ?? "none";
 			resetIfNewTurn(corr);
 
 			const type = event.type;
 			const toolCallId = extractToolCallId(event.payload);
+			if (!toolCallId) return;
 
 			// Safety net: total calls per tool regardless of interaction.
 			const prevTotal = totalCounts.get(type) ?? 0;
@@ -132,13 +135,11 @@ export class LoopGuard implements Organ {
 			}
 
 			// Buffer this call so the sense subscriber can complete the hash.
-			if (toolCallId) {
-				pending.set(toolCallId, {
-					type,
-					argsHash: hashArgs(event.payload),
-					correlationId: corr,
-				});
-			}
+			pending.set(toolCallId, {
+				type,
+				argsHash: hashArgs(event.payload),
+				correlationId: corr,
+			});
 		});
 
 		// Sense subscriber: complete the interaction hash with the result.

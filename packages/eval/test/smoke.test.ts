@@ -7,7 +7,8 @@
 
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
-import { EvalHarness, formatReport } from "../src/harness.js";
+import { EvalHarness } from "../src/harness.js";
+import { formatReport } from "../src/report.js";
 
 // ---------------------------------------------------------------------------
 // QuiescentLLMOrgan — canned reply, no tool calls. No API key needed.

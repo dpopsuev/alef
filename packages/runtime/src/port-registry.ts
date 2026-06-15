@@ -18,25 +18,9 @@
  * routing organs to seams based on their declared action map key prefixes.
  */
 
-/**
- * "ordered-pipeline" — multiple organs may subscribe; they receive the event in
- * registration order and the caller collects all their responses, merging them
- * field-by-field. Used for llm.phase where ToolShell (schema injection) and
- * MemoryOrgan (context enrichment) both run each turn.
- */
-export type PortCardinality = "exactly-one" | "zero-or-one" | "zero-or-many" | "ordered-pipeline";
+import type { PortCardinality, PortDefinition } from "@dpopsuev/alef-kernel";
 
-export interface PortDefinition {
-	/** Human-readable name. */
-	name: string;
-	/**
-	 * Event pattern this seam covers.
-	 * Matches action map keys: "motor/llm.response", "sense/llm.response".
-	 * Use "*" suffix for wildcard: "motor/*" matches any motor action.
-	 */
-	eventPattern: string;
-	cardinality: PortCardinality;
-}
+export type { PortCardinality, PortDefinition };
 
 export interface PortViolation {
 	seam: PortDefinition;
@@ -53,55 +37,6 @@ export interface PortValidationResult {
 
 // ---------------------------------------------------------------------------
 // Built-in seam definitions
-// ---------------------------------------------------------------------------
-
-/**
- * The canonical seam registry for the standard Alef agent.
- * Override or extend for custom agent topologies.
- */
-export const STANDARD_PORTS: PortDefinition[] = [
-	{
-		name: "llm_execution",
-		eventPattern: "motor/llm.phase",
-		cardinality: "ordered-pipeline",
-	},
-	{
-		name: "contract_validation",
-		eventPattern: "motor/validate.required",
-		cardinality: "zero-or-many",
-	},
-	{
-		name: "filesystem",
-		eventPattern: "motor/fs.",
-		cardinality: "zero-or-one",
-	},
-	{
-		name: "shell",
-		eventPattern: "motor/shell.",
-		cardinality: "zero-or-one",
-	},
-	{
-		name: "web",
-		eventPattern: "motor/web.",
-		cardinality: "zero-or-one",
-	},
-	{
-		name: "enclosure",
-		eventPattern: "motor/enclosure.",
-		cardinality: "zero-or-one",
-	},
-	{
-		name: "context_observer",
-		eventPattern: "sense/dialog.",
-		cardinality: "zero-or-one",
-	},
-	{
-		name: "lifecycle_observer",
-		eventPattern: "sense/organ.",
-		cardinality: "zero-or-many",
-	},
-];
-
 // ---------------------------------------------------------------------------
 // Organ seam membership detection
 // ---------------------------------------------------------------------------
@@ -154,7 +89,7 @@ function organCoversPort(info: OrganPortInfo, seam: PortDefinition): boolean {
 // Validation
 // ---------------------------------------------------------------------------
 
-export function validatePorts(organs: OrganPortInfo[], seams: PortDefinition[] = STANDARD_PORTS): PortValidationResult {
+export function validatePorts(organs: OrganPortInfo[], seams: PortDefinition[]): PortValidationResult {
 	const violations: PortViolation[] = [];
 
 	for (const seam of seams) {

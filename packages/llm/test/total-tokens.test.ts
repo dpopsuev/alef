@@ -98,7 +98,7 @@ function assertTotalTokensEqualsComponents(usage: Usage) {
 	expect(usage.totalTokens).toBe(computed);
 }
 
-describe("totalTokens field", { tags: ["unit"] }, () => {
+describe("totalTokens field", { tags: ["integration"] }, () => {
 	// =========================================================================
 	// Anthropic
 	// =========================================================================

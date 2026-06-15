@@ -1,4 +1,12 @@
-import type { MotorEvent, MotorPublishInput, Nerve, NerveEvent, SenseHandler, SensePublishInput } from "./buses.js";
+import type {
+	MotorEvent,
+	MotorPublishInput,
+	Nerve,
+	NerveEvent,
+	SenseHandler,
+	SensePublishInput,
+	SignalPublishInput,
+} from "./buses.js";
 import { extractToolCallId } from "./sense-builders.js";
 import { Watchdog } from "./watchdog.js";
 
@@ -60,6 +68,8 @@ export interface WatchdogOptions {
 export class InProcessNerve {
 	private readonly _sense = new InProcessBus();
 	private readonly _motor = new InProcessBus();
+	/** Signal bus — Reasoner telemetry only. No dead-letter sink; signals have no organ handlers. */
+	private readonly _signal = new InProcessBus();
 	private readonly _watchdog: Watchdog | null;
 
 	constructor(watchdog?: WatchdogOptions) {
@@ -76,6 +86,7 @@ export class InProcessNerve {
 				errorMessage: `no organ handles motor/${event.type}`,
 			} as unknown as Omit<NerveEvent, "timestamp" | "elapsed">);
 		};
+		// Signal bus has no dead-letter sink — signals are fire-and-forget to observers.
 	}
 
 	pulse(): void {
@@ -100,6 +111,10 @@ export class InProcessNerve {
 					this._sense.emit(e);
 				},
 			},
+			signal: {
+				subscribe: (type, h) => this._signal.on(type, h as (e: NerveEvent) => void | Promise<void>),
+				publish: (e) => this._signal.emit(e),
+			},
 			pulse: () => this.pulse(),
 		};
 	}
@@ -117,6 +132,10 @@ export class InProcessNerve {
 		this._sense.emit(event);
 	}
 
+	publishSignal(event: SignalPublishInput): void {
+		this._signal.emit(event);
+	}
+
 	onAnyMotor(handler: (event: NerveEvent) => void): () => void {
 		return this._motor.on("*", handler);
 	}
@@ -125,7 +144,13 @@ export class InProcessNerve {
 		return this._sense.on("*", handler);
 	}
 
-	listenerCount(bus: "sense" | "motor", type: string): number {
-		return bus === "sense" ? this._sense.listenerCount(type) : this._motor.listenerCount(type);
+	onAnySignal(handler: (event: NerveEvent) => void): () => void {
+		return this._signal.on("*", handler);
+	}
+
+	listenerCount(bus: "sense" | "motor" | "signal", type: string): number {
+		if (bus === "sense") return this._sense.listenerCount(type);
+		if (bus === "signal") return this._signal.listenerCount(type);
+		return this._motor.listenerCount(type);
 	}
 }

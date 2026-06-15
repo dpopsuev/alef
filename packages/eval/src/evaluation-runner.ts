@@ -18,7 +18,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { CheckerResult, Evaluation, ToolCall } from "./evaluation.js";
-import { assertToolNotUsed, type EvalHarness } from "./harness.js";
+import type { EvalHarness } from "./harness.js";
 import type { HarnessOptions, RunMetrics, SpanRecord } from "./index.js";
 
 export interface EvaluationResult extends CheckerResult {
@@ -111,45 +111,53 @@ export class EvaluationRunner {
 	}
 
 	async run(evaluation: Evaluation): Promise<EvaluationResult> {
-		let lastReply = "";
+		const start = Date.now();
+		const handle = await this.harness.boot({
+			scenario: evaluation.id,
+			...this.harnessOptions,
+			keepWorkspace: true,
+			...(evaluation.scenarioTimeoutMs !== undefined && { scenarioTimeoutMs: evaluation.scenarioTimeoutMs }),
+		});
 
-		// keepWorkspace: checker must read files after agent completes — workspace
-		// must outlive EvalHarness.run(). EvaluationRunner owns cleanup.
-		const metrics = await this.harness.run(
-			async (ctx) => {
-				for (const file of evaluation.seed ?? []) {
-					await ctx.writeFile(file.path, file.content);
-				}
-
-				const prompts = Array.isArray(evaluation.prompt) ? evaluation.prompt : [evaluation.prompt];
-				for (const p of prompts) {
-					lastReply = await ctx.send({ text: p });
-				}
-			},
-			{
-				scenario: evaluation.id,
-				...this.harnessOptions,
-				keepWorkspace: true,
-				// Evaluation-level timeout overrides harness default.
-				...(evaluation.scenarioTimeoutMs !== undefined && { scenarioTimeoutMs: evaluation.scenarioTimeoutMs }),
-			},
+		const scenarioTimeoutMs = evaluation.scenarioTimeoutMs ?? this.harnessOptions.scenarioTimeoutMs ?? 180_000;
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(() => {
+				handle._setError(`scenario timeout after ${scenarioTimeoutMs}ms`, true);
+				reject(new Error(`scenario timeout after ${scenarioTimeoutMs}ms`));
+			}, scenarioTimeoutMs),
 		);
 
-		const workspace = metrics.workspace ?? "";
+		let passed = false;
+		try {
+			await Promise.race([
+				(async () => {
+					for (const file of evaluation.seed ?? []) await handle.writeFile(file.path, file.content);
+					const prompts = Array.isArray(evaluation.prompt) ? evaluation.prompt : [evaluation.prompt];
+					for (const p of prompts) await handle.send(p);
+				})(),
+				timeoutPromise,
+			]);
+			passed = true;
+		} catch (e) {
+			handle._setError(e instanceof Error ? e.message : String(e));
+		}
+
+		// Checker runs before dispose so workspace files are still present.
+		const workspace = handle.path;
+		const spans = handle.spans();
+		const lastReply = handle.lastReply;
 
 		try {
 			const mustUseErrors: string[] = [];
 
-			// expects — ALL must be satisfied (AND semantics).
 			for (const expectation of evaluation.expects ?? []) {
-				const satisfied = metrics.spans.some((s) => matchesToolCall(s, expectation));
-				if (!satisfied) mustUseErrors.push(describeExpectation(expectation, "Expected"));
+				if (!spans.some((s) => matchesToolCall(s, expectation)))
+					mustUseErrors.push(describeExpectation(expectation, "Expected"));
 			}
 
-			// expectsAny — AT LEAST ONE must be satisfied (OR semantics).
 			if ((evaluation.expectsAny ?? []).length > 0) {
 				const anySatisfied = (evaluation.expectsAny ?? []).some((exp) =>
-					metrics.spans.some((s) => matchesToolCall(s, exp)),
+					spans.some((s) => matchesToolCall(s, exp)),
 				);
 				if (!anySatisfied) {
 					const desc = (evaluation.expectsAny ?? []).map((e) => describeExpectation(e, "")).join(" OR ");
@@ -157,35 +165,29 @@ export class EvaluationRunner {
 				}
 			}
 
-			// mustNotUse — none of these may appear in spans.
 			for (const tool of evaluation.mustNotUse ?? []) {
-				try {
-					assertToolNotUsed(metrics, tool);
-				} catch (e) {
-					mustUseErrors.push(e instanceof Error ? e.message : String(e));
-				}
+				const spanName = `alef.motor/${tool}`;
+				if (spans.some((s) => s.name === spanName))
+					mustUseErrors.push(`Expected tool '${tool}' NOT to be called, but it was.`);
 			}
 
-			// Run checker — workspace still alive here.
-			const checkerResult = await evaluation.checker.check({
-				workspace,
-				spans: metrics.spans,
-				lastReply,
-			});
-
+			const checkerResult = await evaluation.checker.check({ workspace, spans, lastReply });
 			const score = mustUseErrors.length > 0 ? 0 : checkerResult.score;
 			const errors = [...mustUseErrors, ...checkerResult.errors];
 
+			const metrics = await handle.dispose(passed);
 			return {
 				pass: errors.length === 0 && metrics.passed,
 				score,
 				errors,
-				metrics,
+				metrics: { ...metrics, scenario: evaluation.id, durationMs: Date.now() - start },
 				mustUseErrors,
 			};
+		} catch (e) {
+			await handle.dispose(false);
+			throw e;
 		} finally {
-			// EvaluationRunner owns cleanup when keepWorkspace was set.
-			if (workspace) await rm(workspace, { recursive: true, force: true });
+			await rm(workspace, { recursive: true, force: true }).catch(() => {});
 		}
 	}
 

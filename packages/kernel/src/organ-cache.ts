@@ -1,5 +1,11 @@
-export function stableHash(payload: Record<string, unknown>): string {
-	// Exclude toolCallId — it's per-call metadata, not part of the cache key.
+export interface CacheStrategy {
+	get(key: string): Record<string, unknown> | undefined;
+	set(key: string, value: Record<string, unknown>): void;
+	invalidate(prefixes: string[]): string[];
+	clear(): void;
+}
+
+function stableHash(payload: Record<string, unknown>): string {
 	const keys = Object.keys(payload)
 		.filter((k) => k !== "toolCallId")
 		.sort();
@@ -12,16 +18,24 @@ export function makeCacheKey(eventType: string, payload: Record<string, unknown>
 	return `${eventType}:${stableHash(payload)}`;
 }
 
-export function invalidateByPrefix(cache: Map<string, Record<string, unknown>>, types: string[]): string[] {
-	const invalidated: string[] = [];
-	for (const type of types) {
-		const prefix = `${type}:`;
-		for (const key of [...cache.keys()]) {
-			if (key.startsWith(prefix)) {
-				cache.delete(key);
-				invalidated.push(key);
+export function createMapCache(): CacheStrategy {
+	const store = new Map<string, Record<string, unknown>>();
+	return {
+		get: (key) => store.get(key),
+		set: (key, value) => store.set(key, value),
+		invalidate(prefixes) {
+			const invalidated: string[] = [];
+			for (const type of prefixes) {
+				const prefix = `${type}:`;
+				for (const key of [...store.keys()]) {
+					if (key.startsWith(prefix)) {
+						store.delete(key);
+						invalidated.push(key);
+					}
+				}
 			}
-		}
-	}
-	return invalidated;
+			return invalidated;
+		},
+		clear: () => store.clear(),
+	};
 }

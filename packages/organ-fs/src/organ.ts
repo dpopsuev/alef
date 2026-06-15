@@ -10,7 +10,7 @@
 import type { Stats } from "node:fs";
 import { readFile as fsReadFile, mkdir } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
-import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
+import type { Organ, OrganLogger, PortDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { diffLines } from "diff";
 import { z } from "zod";
@@ -654,6 +654,13 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 			logger: options.logger,
 			description: "Read, write, edit, search, and find files within the workspace.",
 			labels: ["filesystem", "read", "write", "search"],
+			contributions: {
+				port: {
+					name: "filesystem",
+					eventPattern: "motor/fs.",
+					cardinality: "zero-or-one",
+				} satisfies PortDefinition,
+			},
 			publishSchemas: {
 				sense: {
 					"fs.read": z.object({

@@ -5,7 +5,7 @@
  *              final event carries exitCode + isFinal: true.
  */
 import { spawn } from "node:child_process";
-import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
+import type { Organ, OrganLogger, PortDefinition } from "@dpopsuev/alef-kernel";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -203,6 +203,9 @@ export function createShellOrgan(options: ShellOrganOptions): Organ {
 			logger: options.logger,
 			description: "Execute shell commands in the workspace.",
 			labels: ["shell", "exec", "process"],
+			contributions: {
+				port: { name: "shell", eventPattern: "motor/shell.", cardinality: "zero-or-one" } satisfies PortDefinition,
+			},
 			publishSchemas: {
 				sense: {
 					// Streaming: discriminate on isFinal — intermediate events carry chunk,

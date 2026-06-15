@@ -25,6 +25,10 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
+    "@dpopsuev/alef-kernel": "^0.0.1",
+    "@dpopsuev/alef-llm": "^0.0.1",
+    "@dpopsuev/alef-session": "^0.0.1",
+    "jiti": "^2.7.0",
     "typebox": "^1.1.24",
     "yaml": "^2.8.2"
   },

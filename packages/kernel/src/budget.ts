@@ -1,22 +1,16 @@
 import type { Nerve, NerveMiddleware } from "./buses.js";
 
 export interface Budget {
-	maxTokens?: number;
-	maxTurns?: number;
 	maxToolCalls?: number;
 	maxElapsedMs?: number;
-	maxConcurrency?: number;
 }
 
 export function intersectBudgets(limits: Budget, requests: Budget): Budget {
 	const min = (a?: number, b?: number): number | undefined =>
 		a === undefined ? b : b === undefined ? a : Math.min(a, b);
 	return {
-		maxTokens: min(limits.maxTokens, requests.maxTokens),
-		maxTurns: min(limits.maxTurns, requests.maxTurns),
 		maxToolCalls: min(limits.maxToolCalls, requests.maxToolCalls),
 		maxElapsedMs: min(limits.maxElapsedMs, requests.maxElapsedMs),
-		maxConcurrency: min(limits.maxConcurrency, requests.maxConcurrency),
 	};
 }
 
@@ -42,6 +36,7 @@ export function withLimits(limits: Budget): NerveMiddleware {
 				},
 			},
 			sense: nerve.sense,
+			signal: nerve.signal,
 			pulse: () => nerve.pulse(),
 		};
 	};

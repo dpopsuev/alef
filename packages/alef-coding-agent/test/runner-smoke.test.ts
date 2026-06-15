@@ -1,41 +1,33 @@
 /**
- * Real-LLM integration test — "Who am I?"
+ * Real-LLM integration smoke tests.
  *
- * Boots the runner against a real provider (skipped when no API key is set),
- * sends a prompt via POST /message, collects the motor/llm.response event
- * from the SSE stream, and asserts the reply is non-empty.
+ * Three tiers:
+ *   Tier 1 (identity)    — agent replies non-empty. Weak; proves boot + API path.
+ *   Tier 2 (unforgeable) — agent reads a UUID from a file it cannot know without
+ *                          calling fs.read. Reply must contain the UUID.
+ *   Tier 3 (multi-turn)  — turn 1 reads a file; turn 2 asks a follow-up question
+ *                          that is only answerable from turn 1's tool result.
  *
- * This exercises the FULL stack:
- *   User message → organ-dialog → organ-llm → provider API → text chunks
- *   → llm.response published → SSE event emitted → collectSse resolves
+ * All tests boot the runner as a real subprocess via HTTP/SSE — the same surface
+ * used by web clients and daemon mode.
  *
- * Guards:
- *   - ANTHROPIC_API_KEY (or any auto-detected provider key) must be set
- *   - Runner boots with --no-tui --serve 0 (no terminal needed)
- *   - Timeout: 60s (real LLM may be slow)
- *
- * Run manually:
- *   cd packages/runner
- *   ANTHROPIC_API_KEY=sk-ant-... npx tsx ../../node_modules/vitest/dist/cli.js \
- *     --run test/real-llm.test.ts
+ * Guard: any LLM credentials (API key or Vertex config) must be present.
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { hasCredentials } from "../../runner/src/model.js";
 
 // ---------------------------------------------------------------------------
 // Guard — skip when no provider credentials are available
 // ---------------------------------------------------------------------------
 
-const HAS_KEY =
-	!!process.env.ANTHROPIC_API_KEY ||
-	!!process.env.OPENAI_API_KEY ||
-	!!process.env.GEMINI_API_KEY ||
-	!!process.env.OPENROUTER_API_KEY;
+const HAS_KEY = hasCredentials();
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -234,4 +226,92 @@ describe.skipIf(!HAS_KEY)("Real-LLM — full stack integration", { tags: ["real-
 			proc.kill("SIGTERM");
 		}
 	}, 65_000);
+});
+
+// ---------------------------------------------------------------------------
+// Tier 2 — Unforgeable file-read test
+//
+// Writes a UUID the agent cannot know without calling fs.read. The reply MUST
+// contain the exact UUID — pure guessing has probability ~10^-37.
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!HAS_KEY)("Unforgeable — agent must use fs.read to answer", { tags: ["real-llm"] }, () => {
+	it("reads secret.txt and returns the UUID verbatim", async () => {
+		const cwd = makeTmp();
+		const secret = randomUUID();
+		writeFileSync(join(cwd, "secret.txt"), `SECRET=${secret}\n`, "utf-8");
+
+		const proc = spawn(process.execPath, [TSX, RUNNER_MAIN, "--serve", "0", "--no-tui"], {
+			cwd,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: { ...process.env, TSX_TSCONFIG_PATH: TSCONFIG },
+		});
+
+		try {
+			const output = await waitForOutput(proc, /router listening on/, 20_000);
+			const baseUrl = parseRouterAddress(output);
+
+			const replyPromise = collectSseUntilDialogMessage(baseUrl, 55_000);
+			await new Promise((r) => setTimeout(r, 50));
+			await postJson(`${baseUrl}/message`, {
+				text: "Read the file secret.txt and tell me the value of SECRET. Output only the value, nothing else.",
+			});
+
+			const reply = await replyPromise;
+
+			// The UUID must appear literally — the agent had to read the file.
+			expect(reply).toContain(secret);
+		} finally {
+			proc.kill("SIGTERM");
+		}
+	}, 90_000);
+});
+
+// ---------------------------------------------------------------------------
+// Tier 3 — Multi-turn context carry
+//
+// Turn 1: agent reads a file containing a code word.
+// Turn 2: asks what the code word was — answerable only from turn 1's memory.
+// Verifies that session history is maintained across turns.
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!HAS_KEY)("Multi-turn — context carries across turns", { tags: ["real-llm"] }, () => {
+	it("turn 2 recalls content read in turn 1 without re-reading the file", async () => {
+		const cwd = makeTmp();
+		const codeWord = `ALEF-${randomUUID().slice(0, 8).toUpperCase()}`;
+		writeFileSync(join(cwd, "code.txt"), `CODE=${codeWord}\n`, "utf-8");
+
+		const proc = spawn(process.execPath, [TSX, RUNNER_MAIN, "--serve", "0", "--no-tui"], {
+			cwd,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: { ...process.env, TSX_TSCONFIG_PATH: TSCONFIG },
+		});
+
+		try {
+			const output = await waitForOutput(proc, /router listening on/, 20_000);
+			const baseUrl = parseRouterAddress(output);
+
+			// Turn 1 — read the file.
+			const reply1Promise = collectSseUntilDialogMessage(baseUrl, 55_000);
+			await new Promise((r) => setTimeout(r, 50));
+			await postJson(`${baseUrl}/message`, {
+				text: "Read code.txt and remember the value of CODE.",
+			});
+			const reply1 = await reply1Promise;
+			expect(reply1).toContain(codeWord);
+
+			// Turn 2 — ask without mentioning the file.
+			const reply2Promise = collectSseUntilDialogMessage(baseUrl, 55_000);
+			await new Promise((r) => setTimeout(r, 100));
+			await postJson(`${baseUrl}/message`, {
+				text: "What was the CODE value? Output only the value.",
+			});
+			const reply2 = await reply2Promise;
+
+			// The agent must recall from turn 1 — code word appears in turn 2 reply.
+			expect(reply2).toContain(codeWord);
+		} finally {
+			proc.kill("SIGTERM");
+		}
+	}, 120_000);
 });

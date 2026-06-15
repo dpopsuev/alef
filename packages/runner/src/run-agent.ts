@@ -1,11 +1,10 @@
+import type { ISessionStore } from "@dpopsuev/alef-session";
 import type { Args } from "./args.js";
 import { trace } from "./debug-trace.js";
-import { runInteractive } from "./interactive.js";
+import type { ActorRouteTable } from "./identity/routes.js";
 import { shutdownOTel } from "./otel.js";
-import { runPrintMode } from "./print-mode.js";
 import type { Session } from "./session.js";
-
-import { runTuiMode } from "./tui-mode.js";
+import { selectViewMode } from "./view-mode.js";
 
 export interface RunAgentOptions {
 	args: Args;
@@ -21,6 +20,14 @@ export interface RunAgentOptions {
 	getDirectiveAdapter: () => unknown;
 
 	session: Session;
+	/** Session store — passed to TuiViewMode for eager history load on resume. */
+	store?: ISessionStore;
+	/** Human's @ address (e.g. "@dpopsuev"). Passed to TUI for pill label. */
+	humanAddress?: string;
+	/** Agent's @ address (e.g. "@crimson"). Passed to TUI for pill label. */
+	agentAddress?: string;
+	/** Route table for @-mention routing in TUI. */
+	actorRoutes?: ActorRouteTable;
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<void> {
@@ -41,46 +48,53 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 		}
 	});
 
-	const useTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
+	const interactiveOpts = {
+		cwd: args.cwd,
+		modelId: opts.resolvedModelDisplay,
+		sessionId: opts.sessionId,
+		contextWindow: opts.contextWindow,
+		getModel: opts.getModel,
+		setModel: opts.setModel,
+		getThinking: opts.getThinking,
+		setThinking: opts.setThinking,
+		humanAddress: opts.humanAddress ?? "@you",
+		agentAddress: opts.agentAddress ?? "@alef",
+		actorRoutes: opts.actorRoutes,
+	};
+
+	// Daemon/serve with no TTY — keep the process alive but let the router handle I/O.
+	if (args.serve !== undefined && !process.stdin.isTTY && !args.print) {
+		try {
+			await new Promise<void>(() => {});
+		} finally {
+			trace("shutdownOTel:start");
+			await Promise.race([shutdownOTel(), new Promise<void>((resolve) => setTimeout(resolve, 2000).unref())]);
+			trace("shutdownOTel:done");
+		}
+		return;
+	}
+
+	const viewer = selectViewMode(args, interactiveOpts, opts.store);
+
+	// TUI suppresses stderr to avoid corrupting the terminal layout.
+	const isTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
+	const originalStderrWrite = isTui ? process.stderr.write.bind(process.stderr) : null;
+	if (isTui) {
+		process.stderr.write = (
+			_chunk: string | Uint8Array,
+			encOrCb?: BufferEncoding | ((err?: Error | null) => void),
+			cb?: (err?: Error | null) => void,
+		): boolean => {
+			const callback = typeof encOrCb === "function" ? encOrCb : cb;
+			callback?.();
+			return true;
+		};
+	}
 
 	try {
-		if (args.print) {
-			await runPrintMode(args.prompt, opts.session);
-		} else if (useTui) {
-			const originalStderrWrite = process.stderr.write.bind(process.stderr);
-			process.stderr.write = (
-				_chunk: string | Uint8Array,
-				encOrCb?: BufferEncoding | ((err?: Error | null) => void),
-				cb?: (err?: Error | null) => void,
-			): boolean => {
-				const callback = typeof encOrCb === "function" ? encOrCb : cb;
-				callback?.();
-				return true;
-			};
-			try {
-				await runTuiMode(opts.session, {
-					cwd: args.cwd,
-					modelId: opts.resolvedModelDisplay,
-					sessionId: opts.sessionId,
-					contextWindow: opts.contextWindow,
-					getModel: opts.getModel,
-					setModel: opts.setModel,
-					getThinking: opts.getThinking,
-					setThinking: opts.setThinking,
-				});
-			} finally {
-				process.stderr.write = originalStderrWrite;
-			}
-		} else if (args.serve !== undefined && !process.stdin.isTTY) {
-			await new Promise<void>(() => {});
-		} else {
-			await runInteractive(opts.session, {
-				cwd: args.cwd,
-				modelId: opts.resolvedModelDisplay,
-				sessionId: opts.sessionId,
-			});
-		}
+		await viewer.run(opts.session);
 	} finally {
+		if (originalStderrWrite) process.stderr.write = originalStderrWrite;
 		trace("shutdownOTel:start");
 		await Promise.race([shutdownOTel(), new Promise<void>((resolve) => setTimeout(resolve, 2000).unref())]);
 		trace("shutdownOTel:done");

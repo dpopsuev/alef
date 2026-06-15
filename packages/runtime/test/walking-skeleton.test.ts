@@ -57,14 +57,13 @@ describe("Walking Skeleton", { tags: ["integration"] }, () => {
 		expect(await dialog.send("ping")).toBe("pong");
 	});
 
-	it("Sense/llm.input (input) carries prompt text and loaded tools", async () => {
+	it("Sense/llm.input carries prompt text", async () => {
 		const { agent: _agent, dialog, recorder } = make();
 		await dialog.send("hello world");
 
 		const msg = recorder.assertSenseEmitted("llm.input");
-		const payload = (msg as unknown as { payload: { text: string; tools: unknown[] } }).payload;
+		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(payload.text).toBe("hello world");
-		expect(Array.isArray(payload.tools)).toBe(true);
 	});
 
 	it("Sense/llm.input carries user message content", async () => {

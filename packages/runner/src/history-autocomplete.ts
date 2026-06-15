@@ -10,6 +10,7 @@
  */
 
 import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } from "@dpopsuev/alef-tui";
+import type { ActorRouteTable } from "./identity/routes.js";
 
 export class HistoryAutocompleteProvider implements AutocompleteProvider {
 	/**
@@ -71,5 +72,53 @@ export class HistoryAutocompleteProvider implements AutocompleteProvider {
 			cursorLine,
 			cursorCol: item.value.length,
 		};
+	}
+}
+
+/**
+ * AutocompleteProvider for @ actor addresses.
+ *
+ * Activated when the current line starts with "@".
+ * Suggests known actor addresses from the ActorRouteTable.
+ * Inserted value includes trailing space so the user types the message immediately.
+ */
+export class AtAddressProvider implements AutocompleteProvider {
+	constructor(private readonly routes: ActorRouteTable) {}
+
+	getSuggestions(
+		lines: string[],
+		cursorLine: number,
+		cursorCol: number,
+		_options: { signal: AbortSignal; force?: boolean },
+	): Promise<AutocompleteSuggestions | null> {
+		const currentLine = lines[cursorLine] ?? "";
+		const prefix = currentLine.slice(0, cursorCol);
+
+		if (!prefix.startsWith("@")) return Promise.resolve(null);
+		if (lines.length > 1) return Promise.resolve(null);
+
+		const after = prefix.slice(1);
+		const matches = this.routes
+			.addresses()
+			.filter((addr) => addr.startsWith(after))
+			.map((addr) => ({
+				label: `@${addr}`,
+				value: `@${addr} `,
+				description: "actor",
+			}));
+
+		return Promise.resolve(matches.length > 0 ? { items: matches, prefix } : null);
+	}
+
+	applyCompletion(
+		lines: string[],
+		cursorLine: number,
+		_cursorCol: number,
+		item: AutocompleteItem,
+		_prefix: string,
+	): { lines: string[]; cursorLine: number; cursorCol: number } {
+		const newLines = [...lines];
+		newLines[cursorLine] = item.value;
+		return { lines: newLines, cursorLine, cursorCol: item.value.length };
 	}
 }

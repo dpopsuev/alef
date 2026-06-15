@@ -6,11 +6,11 @@
  *   → outer organ-llm turn 2 receives toolResult → final llm.response
  */
 
-import { defineOrgan, type MotorEvent, typedStreamAction } from "@dpopsuev/alef-kernel";
+import { randomUUID } from "node:crypto";
+import { defineOrgan, type SensePublishInput, typedStreamAction } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createAgentLoop } from "../../organ-llm/src/index.js";
@@ -21,12 +21,6 @@ import { InProcessStrategy, type SubagentFactory } from "../src/strategies/in-pr
 function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): SubagentFactory {
 	return ({ organs, onChunk, systemPrompt: callSystemPrompt }) => {
 		const agent = new Agent();
-		let reply = "";
-		const dialog = new DialogOrgan({
-			sink: (t) => {
-				if (t) reply = t;
-			},
-		});
 		const mergedPrompt = [baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
 		const llm = createAgentLoop({
 			model,
@@ -34,21 +28,39 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 			systemPrompt: mergedPrompt,
 		});
 		for (const organ of organs) agent.load(organ);
-		agent.load(dialog).load(llm);
+		agent.load(llm);
 		if (onChunk) {
 			agent.observe({
-				onMotorEvent(event) {
-					const p = (event as MotorEvent).payload;
+				onMotorEvent() {},
+				onSenseEvent() {},
+				onSignalEvent(event) {
+					const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 					if (event.type === "llm.chunk" || event.type === "llm.tool-chunk") onChunk(String(p.text ?? ""));
 				},
-				onSenseEvent() {},
 			});
 		}
 		return {
 			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
 				await agent.ready();
-				await dialog.send(text, sender, timeoutMs);
-				return reply;
+				const correlationId = randomUUID();
+				return new Promise<string>((resolve, reject) => {
+					const timer = setTimeout(() => {
+						off();
+						reject(new Error(`inner agent timed out after ${timeoutMs}ms`));
+					}, timeoutMs);
+					const off = agent.subscribeMotor("llm.response", (event) => {
+						if (event.correlationId !== correlationId) return;
+						clearTimeout(timer);
+						off();
+						resolve(typeof event.payload.text === "string" ? event.payload.text : "");
+					});
+					agent.publishSense({
+						type: "llm.input",
+						correlationId,
+						payload: { text, sender, tools: agent.tools },
+						isError: false,
+					} as SensePublishInput);
+				});
 			},
 			dispose() {
 				agent.dispose();
@@ -83,12 +95,12 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// Outer NerveFixture: outer organ-llm + delegate organ
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
 
-		f.nerve.asNerve().motor.subscribe("llm.tool-start", () => {
+		f.nerve.asNerve().signal.subscribe("llm.tool-start", () => {
 			capturedEvents.push("tool-start");
 		});
-		f.nerve.asNerve().motor.subscribe("llm.tool-end", () => {
+		f.nerve.asNerve().signal.subscribe("llm.tool-end", () => {
 			capturedEvents.push("tool-end");
 		});
 		f.mount(
@@ -144,9 +156,9 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const capturedEnds: Array<{ ok: boolean }> = [];
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
 
-		f.nerve.asNerve().motor.subscribe("llm.tool-end", (event) => {
+		f.nerve.asNerve().signal.subscribe("llm.tool-end", (event) => {
 			capturedEnds.push({ ok: Boolean(event.payload.ok) });
 		});
 		f.mount(
@@ -213,9 +225,9 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const outerChunks: string[] = [];
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
 
-		f.nerve.asNerve().motor.subscribe("llm.tool-chunk", (event) => {
+		f.nerve.asNerve().signal.subscribe("llm.tool-chunk", (event) => {
 			outerChunks.push(String(event.payload.text ?? ""));
 		});
 		f.mount(
@@ -280,9 +292,9 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
 
-		f.nerve.asNerve().motor.subscribe("llm.tool-chunk", (event) => {
+		f.nerve.asNerve().signal.subscribe("llm.tool-chunk", (event) => {
 			capturedChunks.push({ callId: String(event.payload.callId ?? ""), text: String(event.payload.text ?? "") });
 		});
 		f.mount(
@@ -352,9 +364,9 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
 
-		f.nerve.asNerve().motor.subscribe("llm.tool-chunk", (event) => {
+		f.nerve.asNerve().signal.subscribe("llm.tool-chunk", (event) => {
 			capturedChunks.push({ callId: String(event.payload.callId ?? ""), text: String(event.payload.text ?? "") });
 		});
 		f.mount(

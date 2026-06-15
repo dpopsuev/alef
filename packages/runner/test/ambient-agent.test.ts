@@ -1,6 +1,6 @@
 /**
- * Ambient agent — organ-llm driven by a non-dialog sense event.
- * No DialogOrgan, no llm.response, no human input.
+ * Ambient agent — organ-llm driven by a programmatic sense event.
+ * No DialogOrgan, no human input — the trigger is published directly.
  */
 
 import { randomUUID } from "node:crypto";
@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe("ambient agent", { tags: ["unit"] }, () => {
-	it("sense/file.changed triggers a turn; motor/file.action carries the reply", async () => {
+	it("sense/llm.input triggers a turn without DialogOrgan; motor/llm.response carries the reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("run linter")]);
 
@@ -25,15 +25,16 @@ describe("ambient agent", { tags: ["unit"] }, () => {
 			apiKey: "faux-key",
 		});
 		unmounts.push(llm.mount(nerve.asNerve()));
+		unmounts.push(() => faux.unregister());
 
 		const received: string[] = [];
-		nerve.asNerve().motor.subscribe("file.action", (event) => {
+		nerve.asNerve().motor.subscribe("llm.response", (event) => {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			if (text) received.push(text);
 		});
 
 		nerve.asNerve().sense.publish({
-			type: "file.changed",
+			type: "llm.input",
 			correlationId: randomUUID(),
 			payload: { text: "src/auth.ts changed" },
 			isError: false,

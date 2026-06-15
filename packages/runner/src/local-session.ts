@@ -1,30 +1,32 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { MotorEvent } from "@dpopsuev/alef-kernel";
-import type { Api, Message, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
+import type { NerveEvent } from "@dpopsuev/alef-kernel";
+import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createAlefApiOrgan } from "@dpopsuev/alef-organ-alef";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { createLlmPipeline } from "@dpopsuev/alef-organ-llm";
-import { createSkillsOrgan } from "@dpopsuev/alef-organ-skills";
 import type { Logger } from "pino";
 import { buildAgent } from "./agent-kernel.js";
 import type { Args } from "./args.js";
-import { buildDelegation } from "./build-delegation.js";
+import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
+import { setupHttpSurface } from "./build-delegation.js";
 import { buildLlmOrgan } from "./build-llm-organ.js";
+import { buildSubagentFactory } from "./subagent-factory.js";
 import type { AlefConfig } from "./config.js";
+import { resolveAgentActor, resolveHumanActor } from "./identity/actor.js";
+import { ActorRouteTable } from "./identity/routes.js";
 import type { LoadResult } from "./load-organs.js";
-import { loadOrganFromPath } from "./materializer.js";
-import { createMemoryOrgan } from "./organ-memory.js";
-import { buildPrepareStep, createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
+import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
+import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import type { AgentEvent, Session, SessionState, TokensConsumed } from "./session.js";
 import { SessionHandle } from "./session-handle.js";
 import type { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
-import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "./tool-shell.js";
+import { getTheme, setTheme } from "./theme.js";
+import { buildBootCatalog } from "@dpopsuev/alef-organ-toolshell";
 
-function llmMotorToAgentEvent(event: MotorEvent): AgentEvent | null {
-	const p = event.payload;
+function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
+	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 	switch (event.type) {
 		case "llm.chunk":
 			return { type: "chunk", text: String(p.text ?? "") };
@@ -82,7 +84,13 @@ export async function createLocalSession(
 	loaded: LoadResult,
 	model: Model<Api>,
 	trace: (event: string, extra?: Record<string, unknown>) => void,
-): Promise<{ session: SessionHandle; resolvedModelDisplay: string }> {
+): Promise<{
+	session: SessionHandle;
+	resolvedModelDisplay: string;
+	humanAddress: string;
+	agentAddress: string;
+	actorRoutes: ActorRouteTable;
+}> {
 	const { organs, blueprintSurfaces } = loaded;
 
 	const directives = createDefaultDirectives({ tools: organs.flatMap((o) => o.tools), cwd: args.cwd });
@@ -116,15 +124,35 @@ export async function createLocalSession(
 
 	const sessionState: SessionState = { id: store.id, modelId: model.id, contextWindow: model.contextWindow };
 
-	const prepareStep = buildPrepareStep(directives, directivesBudgetChars) as unknown as (
-		messages: Message[],
-	) => Promise<Message[]>;
+	// Resolve actor identities and inject agent color into theme.
+	const humanActor = resolveHumanActor();
+	const boardId = store.id.slice(0, 12); // approximate board from session prefix
+	const agentActor = resolveAgentActor(store.id, boardId);
+	setTheme({ ...getTheme(), agentFg: agentActor.token });
+
+	// Build the route table — the TUI uses this for @ routing.
+	const actorRoutes = new ActorRouteTable();
+	actorRoutes.setHumanAddress(humanActor.color);
+
+	void directivesBudgetChars;
 	const observers = new Set<(event: AgentEvent) => void>();
 	let llmController: AbortController | undefined;
 	const currentModel = model;
 
-	// eslint-disable-next-line prefer-const
-	let pipeline!: ReturnType<typeof createLlmPipeline>;
+	const stackFactory = blueprintRegistry.resolve();
+	if (!stackFactory)
+		throw new Error("No blueprint registered. Import the coding agent before calling createLocalSession.");
+
+	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
+	const stack = await stackFactory({
+		cwd: args.cwd,
+		model,
+		getSignal: () => llmController?.signal,
+		sessionStore: store,
+		domainOrgans: organs,
+		subagentFactory,
+	});
+	const { pipeline } = stack;
 
 	const llmOrgan = buildLlmOrgan({
 		model,
@@ -133,7 +161,7 @@ export async function createLocalSession(
 		thinkingState,
 		getModel: () => currentModel,
 		getSignal: () => llmController?.signal,
-		schemaResolver: (name) => pipeline?.getSchemaResolver()?.(name),
+		schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
 	});
 
 	const { agent } = buildAgent({
@@ -141,20 +169,19 @@ export async function createLocalSession(
 		llm: llmOrgan,
 		session: store,
 		modelId: model.id,
+		agentIdentity: agentActor,
 		onLoop: (_type, reason) => {
 			trace("loop:detected", { reason });
 			llmController?.abort(new Error(`[loop-detector] ${reason}`));
 		},
 	});
 
-	for (const organ of organs) agent.load(organ);
+	// Register the main agent route — @agentcolor sends to dialog.send()
+	actorRoutes.register(agentActor.color, async (message, timeout) => {
+		await dialog.send(message, "human", timeout);
+	});
 
-	if (!agent.organs.some((o) => o.name === "skills")) {
-		agent.load(createSkillsOrgan({ cwd: args.cwd }));
-	}
-
-	const memoryOrgan = createMemoryOrgan({ sessionStore: () => store, contextWindow: model.contextWindow });
-	agent.load(memoryOrgan);
+	for (const organ of stack.organs) agent.load(organ);
 
 	const sessionAdapter: Session = {
 		state: sessionState,
@@ -172,17 +199,7 @@ export async function createLocalSession(
 			return () => observers.delete(obs);
 		},
 	};
-	await buildDelegation(args, currentModel, agent, sessionAdapter, blueprintSurfaces, prepareStep);
-
-	const toolShell = createToolShellOrgan({
-		tools: agent.tools,
-		getTools: () => agent.tools,
-		organDirectives: buildOrganDirectives(agent.organs),
-	});
-	agent.load(toolShell);
-	pipeline = createLlmPipeline();
-	agent.load(pipeline);
-	registerOrgans(directives, [toolShell, memoryOrgan]);
+	await setupHttpSurface(args, agent, sessionAdapter, blueprintSurfaces);
 
 	const alefOrgan = createAlefApiOrgan({
 		agent: {
@@ -204,11 +221,17 @@ export async function createLocalSession(
 
 	agent.observe({
 		onMotorEvent(event) {
-			if (!event.type.startsWith("llm.")) return;
-			const agentEvent = llmMotorToAgentEvent(event as MotorEvent);
-			if (agentEvent) for (const obs of observers) obs(agentEvent);
+			if (event.type === "llm.response") {
+				const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
+				const text = typeof p.text === "string" ? p.text : "";
+				for (const obs of observers) obs({ type: "turn-complete", reply: text });
+			}
 		},
 		onSenseEvent() {},
+		onSignalEvent(event) {
+			const agentEvent = signalToAgentEvent(event);
+			if (agentEvent) for (const obs of observers) obs(agentEvent);
+		},
 	});
 
 	directives.register({
@@ -231,12 +254,18 @@ export async function createLocalSession(
 		directives,
 		args,
 		log,
+		observers,
 	});
-	for (const obs of observers) handle.subscribe(obs);
 	if (llmController) handle.setTurnController(llmController);
 
 	const resolvedModelDisplay =
 		model.name !== model.id ? `${model.provider}/${model.id} (${model.name})` : `${model.provider}/${model.id}`;
 
-	return { session: handle, resolvedModelDisplay };
+	return {
+		session: handle,
+		resolvedModelDisplay,
+		humanAddress: humanActor.address, // "@dpopsuev"
+		agentAddress: agentActor.address, // "@crimson"
+		actorRoutes,
+	};
 }

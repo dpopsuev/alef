@@ -9,6 +9,13 @@ export {
 	type IntentOutput,
 } from "./contract.js";
 export {
+	createHitlOrgan,
+	type HitlEvaluateInput,
+	type HitlEvaluateResult,
+	type HitlOrganOptions,
+	type OnEvaluate,
+} from "./hitl.js";
+export {
 	createContractTool,
 	createQuestionTool,
 	createWorkflowOrgan,

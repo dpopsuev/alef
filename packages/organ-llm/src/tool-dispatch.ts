@@ -80,6 +80,7 @@ export interface ToolResultSubscription {
 	toolCallId: string;
 	correlationId: string;
 	timeoutMs: number;
+	signal?: AbortSignal;
 	onChunk?: (text: string) => void;
 	onStall?: (info: { elapsedMs: number; lastChunkMs: number }) => void;
 	stallIntervalMs?: number;
@@ -92,6 +93,7 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<SenseEve
 		toolCallId,
 		correlationId,
 		timeoutMs,
+		signal,
 		onChunk,
 		onStall,
 		stallIntervalMs: stallMs = STALL_INTERVAL_MS,
@@ -122,6 +124,22 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<SenseEve
 			debugLog("llm:tool:timeout", { name: toolName, elapsedMs: Date.now() - subscribedAt });
 			reject(new Error(`Tool timed out after ${timeoutMs}ms: ${toolName}`));
 		}, timeoutMs);
+
+		if (signal) {
+			const onAbort = () => {
+				clearTimeout(timer);
+				done();
+				off();
+				debugLog("llm:tool:aborted", { name: toolName, elapsedMs: Date.now() - subscribedAt });
+				reject(new Error(`Tool aborted: ${toolName}`));
+			};
+			if (signal.aborted) {
+				onAbort();
+				return;
+			}
+			signal.addEventListener("abort", onAbort, { once: true });
+		}
+
 		const off = sense.subscribe(toolName, (event) => {
 			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
 				if (event.payload.isFinal === false) {
@@ -159,6 +177,7 @@ type SignalBus = {
 };
 
 interface DispatchToolsOptions {
+	signal?: AbortSignal;
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
 }
@@ -203,6 +222,7 @@ export async function dispatchTools(
 				toolCallId: tc.id,
 				correlationId,
 				timeoutMs: outerWaitMs,
+				signal: options.signal,
 				onChunk,
 				onStall,
 			})

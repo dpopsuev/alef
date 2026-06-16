@@ -381,14 +381,25 @@ const CORE_ORGANS = new Set([
 	"security-policy",
 ]);
 
-const FORBIDDEN_CODE_PATTERNS = [
-	/process\.exit/,
-	/child_process/,
-	/require\s*\(/,
-	/eval\s*\(/,
-	/Function\s*\(/,
-	/import\s*\(\s*['"`](?!@dpopsuev\/alef)/,
+const FORBIDDEN_CODE_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string }> = [
+	{ pattern: /process\.exit/, reason: "process.exit would terminate the host agent" },
+	{ pattern: /child_process/, reason: "child_process bypasses organ isolation" },
+	{ pattern: /require\s*\(/, reason: "require() is forbidden in ESM — use import" },
+	{ pattern: /eval\s*\(/, reason: "eval() executes arbitrary code outside organ scope" },
+	{ pattern: /Function\s*\(/, reason: "Function constructor executes arbitrary code" },
+	{
+		pattern: /import\s*\(\s*['"`](?!@dpopsuev\/alef)/,
+		reason: "dynamic imports outside @dpopsuev/alef bypass dependency control",
+	},
 ];
+
+function validateOrganCode(code: string): string | null {
+	for (const { pattern, reason } of FORBIDDEN_CODE_PATTERNS) {
+		if (pattern.test(code)) return reason;
+	}
+	if (!code.includes("defineOrgan")) return "organ code must use defineOrgan() from @dpopsuev/alef-kernel";
+	return null;
+}
 
 function buildPrototypeTools(
 	agent: AgentPrototypeAdapter,
@@ -436,24 +447,11 @@ function buildPrototypeTools(
 					let organPath: string;
 					if (ctx.payload.code) {
 						const code = ctx.payload.code;
-						for (const pattern of FORBIDDEN_CODE_PATTERNS) {
-							if (pattern.test(code)) {
-								return withDisplay(
-									{ error: "forbidden pattern", pattern: pattern.source },
-									{
-										text: `Rejected: organ code contains forbidden pattern '${pattern.source}'`,
-										mimeType: "text/plain",
-									},
-								);
-							}
-						}
-						if (!code.includes("defineOrgan")) {
+						const rejection = validateOrganCode(code);
+						if (rejection) {
 							return withDisplay(
-								{ error: "missing defineOrgan" },
-								{
-									text: "Rejected: organ code must use defineOrgan() from @dpopsuev/alef-kernel",
-									mimeType: "text/plain",
-								},
+								{ error: "validation failed", reason: rejection },
+								{ text: `Rejected: ${rejection}`, mimeType: "text/plain" },
 							);
 						}
 						await mkdir(PROTOTYPES_DIR, { recursive: true });

@@ -82,9 +82,7 @@ export async function callLLM(
 	});
 
 	const thinking = options.getThinking?.() ?? options.thinking;
-	// Thinking mode needs a longer timeout: the API processes silently for 30-90+s
-	// before sending response headers. The SDK default is 600s; 300s is a safe middle ground.
-	const defaultTimeoutMs = Number(process.env.ALEF_LLM_TIMEOUT_MS) || 90_000;
+	const defaultTimeoutMs = Number(process.env.ALEF_LLM_TIMEOUT_MS) || 300_000;
 	const thinkingTimeoutMs = Number(process.env.ALEF_LLM_THINKING_TIMEOUT_MS) || 300_000;
 	const timeoutMs = options.timeoutMs ?? (thinking ? thinkingTimeoutMs : defaultTimeoutMs);
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;

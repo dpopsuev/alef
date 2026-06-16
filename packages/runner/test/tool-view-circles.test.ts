@@ -106,8 +106,8 @@ describe("fmtMs — sub-second individual tool timers", { tags: ["unit"] }, () =
 		expect(fmtMs(1500)).toBe("1.5s");
 	});
 
-	it("shows 97.0s for 97000ms", () => {
-		expect(fmtMs(97000)).toBe("97.0s");
+	it("shows 1m 37s for 97000ms", () => {
+		expect(fmtMs(97000)).toBe("1m 37s");
 	});
 });
 

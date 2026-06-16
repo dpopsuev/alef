@@ -8,10 +8,10 @@
  *
  * Flow:
  * 1. Write a simple echo organ to disk (simulates nodesh.eval output)
- * 2. Publish motor/orchestration.spawn → Sense returns { endpoint, name }
+ * 2. Publish motor/agent.spawn → Sense returns { endpoint, name }
  * 3. Publish motor/eval.run with endpoint → Sense returns EvalResult
  * 4. Assert EvalResult.passed
- * 5. Publish motor/orchestration.kill to clean up
+ * 5. Publish motor/agent.kill to clean up
  *
  * No real LLM — ALEF_SCRIPTED_REPLIES drives the child's llm.response.
  */
@@ -113,10 +113,10 @@ export function createOrgan() {
 		unmounts.push(orchestrationOrgan.mount(nerve.asNerve()));
 		unmounts.push(evalOrgan.mount(nerve.asNerve()));
 
-		// ── Step 3: orchestration.spawn — start child Alef with echo organ ──
+		// ── Step 3: agent.spawn — start child Alef with echo organ ──
 		const spawnResult = await motorCall(
 			nerve,
-			"orchestration.spawn",
+			"agent.spawn",
 			{
 				organs: [organPath],
 				cwd,
@@ -155,8 +155,8 @@ export function createOrgan() {
 		// Restore env before cleanup
 		delete process.env.ALEF_SCRIPTED_REPLIES;
 
-		// ── Step 5: clean up via orchestration.kill ─────────────────────────
-		await motorCall(nerve, "orchestration.kill", { name }, 5_000).catch(() => {
+		// ── Step 5: clean up via agent.kill ─────────────────────────
+		await motorCall(nerve, "agent.kill", { name }, 5_000).catch(() => {
 			/* ignore kill errors */
 		});
 

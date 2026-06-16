@@ -156,10 +156,12 @@ export const McpOrgan = {
 	 * const gh = await McpOrgan.stdio('npx', ['-y', '@modelcontextprotocol/server-github'])
 	 * agent.load(gh)
 	 */
-	async stdio(command: string, args: string[], name?: string): Promise<Organ> {
+	async stdio(command: string, args: string[], name?: string, env?: Record<string, string>): Promise<Organ> {
 		const organName = name ?? args.at(-1)?.split("/").at(-1)?.replace(/^@/, "") ?? "mcp";
+		const transportOpts: { command: string; args: string[]; env?: Record<string, string> } = { command, args };
+		if (env) transportOpts.env = { ...process.env, ...env } as Record<string, string>;
 		const client = await createMCPClient({
-			transport: new StdioClientTransport({ command, args }),
+			transport: new StdioClientTransport(transportOpts),
 		});
 		return createMcpOrganFromClient(client, organName);
 	},

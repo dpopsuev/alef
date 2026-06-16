@@ -68,6 +68,16 @@ Legitimate: external constraints, non-obvious regex, OS/API quirks that would su
 
 Organs live in `packages/organ-*`. Each organ depends only on `@dpopsuev/alef-kernel` and `zod`.
 
+### Creating a new organ
+
+Use the scaffold command — it generates all required files:
+```bash
+make organ NAME=weather          # creates packages/organ-weather/ with 5 files
+npm install                       # register workspace package
+```
+
+Organ names resolve by convention: `"weather"` in a blueprint resolves to `@dpopsuev/alef-organ-weather`. No registry entry needed.
+
 ### Before writing organ code
 
 1. Read `packages/kernel/src/framework.ts` — the `defineOrgan()` contract and `ActionMap` type
@@ -76,6 +86,8 @@ Organs live in `packages/organ-*`. Each organ depends only on `@dpopsuev/alef-ke
 4. Run `organComplianceSuite()` from `@dpopsuev/alef-testkit/organ` on the result
 
 Never write organ code from memory or training data. The API shape must come from reading the source. Organs that don't use `defineOrgan()` cannot mount on the nerve and will fail silently.
+
+Use `explainOrgan(organ)` from `@dpopsuev/alef-kernel` to inspect any organ's tools, contributions, and directives.
 
 ### Authoring an organ
 
@@ -121,12 +133,15 @@ Adding a new slot: add the type to `OrganContributions` in `kernel/src/buses.ts`
 
 ## Architecture
 
-Production agent: `packages/alef-coding-agent` — the full coding agent stack as a publishable module.
-- `createCodingAgent(config)` — boots ToolShell + LlmPipeline + DelegateOrgan + MemoryOrgan
+Production agent: `packages/alef-coding-agent` — the full coding agent stack.
 - `CODING_AGENT_BLUEPRINT` — canonical organ set (fs, shell, nodesh, lector, web, agent, factory, skills)
-- `/testkit` subpath — `materializeDefaultOrgans(cwd)` for eval tests
+- organ-agent — unified delegation + child lifecycle (agent.run, agent.spawn, agent.ask, agent.race, agent.converse, agent.kill)
 
 Microkernel: `packages/kernel` — buses, organ framework, binding chain, contributions. No organ names, no application concerns.
+
+Runtime: `packages/runtime` — Agent class, InProcessStrategy, RemoteStrategy (HTTP/SSE with stall watchdog + AbortSignal).
+
+Security: OCAP via `writableRoots` (injected by materializer from config.security.writable_roots). No `allowAbsolutePaths`.
 
 Bus protocol constants (e.g. `VALIDATE_REQUEST`, `DIALOG_MESSAGE`) belong in `kernel/src/protocols.ts` only when they define a cross-organ handshake. Organ-specific event names stay in the organ that owns them.
 

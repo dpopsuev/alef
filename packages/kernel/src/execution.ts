@@ -1,3 +1,5 @@
+export const DEFAULT_CONVERSATION_TIMEOUT_MS = 600_000;
+
 export interface SendRequest {
 	text: string;
 	sender?: string;

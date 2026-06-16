@@ -39,6 +39,15 @@ import { strategyRegistry } from "./strategy-registry.js";
 
 export type { ChildEntry };
 
+const DEFAULT_READINESS_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_DEPTH = 3;
+const DEFAULT_STALL_MS = 120_000;
+const DEFAULT_ASK_STALL_MS = 60_000;
+const DEFAULT_ASK_MAX_MS = 600_000;
+const DEFAULT_RUN_MAX_MS = 3_600_000;
+const SIGKILL_GRACE_MS = 3_000;
+const MIN_REMAINING_MS = 10_000;
+
 const WRITE_PATTERN =
 	/\b(write|create|edit|modify|delete|remove|install|run|execute|build|deploy|fix|refactor|update|change|add|implement|spawn|generate)\b/i;
 
@@ -124,9 +133,9 @@ export function createAgentOrgan(
 ): Organ & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
 	const cwd = opts.cwd ?? process.cwd();
 	const replyEvent = opts.replyEvent ?? "llm.response";
-	const readinessTimeoutMs = opts.readinessTimeoutMs ?? 30_000;
+	const readinessTimeoutMs = opts.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS;
 	const currentDepth = Number(process.env.ALEF_AGENT_DEPTH) || 0;
-	const maxDepth = opts.maxDepth ?? 3;
+	const maxDepth = opts.maxDepth ?? DEFAULT_MAX_DEPTH;
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
 	const children = new Map<string, ChildEntry>();
 	let childSeq = 0;
@@ -154,7 +163,7 @@ export function createAgentOrgan(
 		isolate: z.boolean().optional().describe("true = spawn a process-isolated child for this task (ephemeral)."),
 		stallMs: z
 			.number()
-			.default(120_000)
+			.default(DEFAULT_STALL_MS)
 			.describe(
 				"Idle timeout in ms — abort if no activity for this long (default: 120_000 = 2 min). Activity = any chunk, tool call, or event from the subagent.",
 			),
@@ -330,7 +339,7 @@ export function createAgentOrgan(
 		toolCallId?: string;
 		correlationId: string;
 	}): Promise<Record<string, unknown>> {
-		const { name: childName, prompt, stallMs = 60_000, maxMs = 600_000 } = ctx.payload;
+		const { name: childName, prompt, stallMs = DEFAULT_ASK_STALL_MS, maxMs = DEFAULT_ASK_MAX_MS } = ctx.payload;
 		const parentCallId = ctx.toolCallId ?? ctx.correlationId;
 		const entry = children.get(childName);
 		if (!entry) throw new Error(`agent.ask: no child named '${childName}'`);
@@ -395,7 +404,7 @@ export function createAgentOrgan(
 		toolCallId?: string;
 		correlationId: string;
 	}): Promise<Record<string, unknown>> {
-		const { tasks, stallMs = 60_000, maxMs = 600_000 } = ctx.payload;
+		const { tasks, stallMs = DEFAULT_ASK_STALL_MS, maxMs = DEFAULT_ASK_MAX_MS } = ctx.payload;
 		const parentCallId = ctx.toolCallId ?? ctx.correlationId;
 		const results = await Promise.allSettled(
 			tasks.map(async ({ name: childName, prompt }) => {
@@ -461,7 +470,7 @@ export function createAgentOrgan(
 		toolCallId?: string;
 		correlationId: string;
 	}): Promise<Record<string, unknown>> {
-		const { name: childName, prompts, stallMs = 60_000, maxMs = 600_000 } = ctx.payload;
+		const { name: childName, prompts, stallMs = DEFAULT_ASK_STALL_MS, maxMs = DEFAULT_ASK_MAX_MS } = ctx.payload;
 		const parentCallId = ctx.toolCallId ?? ctx.correlationId;
 		const entry = children.get(childName);
 		if (!entry) throw new Error(`agent.converse: no child named '${childName}'`);
@@ -477,7 +486,7 @@ export function createAgentOrgan(
 
 			transcript.push({ role: "parent", text: prompt });
 
-			const remainingMs = Math.max(10_000, maxMs - (Date.now() - conversationStart));
+			const remainingMs = Math.max(MIN_REMAINING_MS, maxMs - (Date.now() - conversationStart));
 			const strategy = new RemoteStrategy({
 				endpoint: entry.endpoint,
 				replyEvent,
@@ -532,7 +541,7 @@ export function createAgentOrgan(
 			const t = setTimeout(() => {
 				entry.process.kill("SIGKILL");
 				res();
-			}, 3_000);
+			}, SIGKILL_GRACE_MS);
 			entry.process.once("exit", () => {
 				clearTimeout(t);
 				res();
@@ -653,7 +662,7 @@ export function createAgentOrgan(
 					const payload = ctx.payload as Record<string, unknown>;
 					const text = payload.text as string;
 					const isolate = payload.isolate === true;
-					const maxMs = (payload.maxMs as number | undefined) ?? 3_600_000;
+					const maxMs = (payload.maxMs as number | undefined) ?? DEFAULT_RUN_MAX_MS;
 					const timeoutMs = maxMs;
 
 					if (isolate) {

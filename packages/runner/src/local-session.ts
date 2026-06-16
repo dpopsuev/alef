@@ -143,7 +143,9 @@ export async function createLocalSession(
 		}
 	}
 
-	const directivesBudgetChars = Math.floor(model.contextWindow * 0.1 * 4);
+	const CONTEXT_FRACTION = 0.1;
+	const CHARS_PER_TOKEN = 4;
+	const directivesBudgetChars = Math.floor(model.contextWindow * CONTEXT_FRACTION * CHARS_PER_TOKEN);
 	const thinkingState = {
 		level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
 	};

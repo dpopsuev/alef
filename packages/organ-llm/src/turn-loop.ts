@@ -7,6 +7,10 @@ import { callLLM, type ToolCall } from "./stream-turn.js";
 import { dispatchTools, payloadToText } from "./tool-dispatch.js";
 import type { TokenUsage } from "./tool-events.js";
 
+const DEFAULT_TOOL_TIMEOUT_MS = 120_000;
+const DEFAULT_MAX_RETRIES = 4;
+const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
+
 // ---------------------------------------------------------------------------
 // Options — structural subset of AgentLoopOptions, avoids circular import
 // ---------------------------------------------------------------------------
@@ -253,10 +257,10 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
 	const { correlationId, motor, sense, signal } = ctx;
-	const defaultTimeoutMs = Number(process.env.ALEF_LLM_TIMEOUT_MS) || 120_000;
+	const defaultTimeoutMs = Number(process.env.ALEF_LLM_TIMEOUT_MS) || DEFAULT_TOOL_TIMEOUT_MS;
 	const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
-	const maxRetries = options.maxRetries ?? 4;
-	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;
+	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
+	const maxRetryDelayMs = options.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS;
 	const budgetController = new AbortController();
 	const offBudget = sense.subscribe("budget.cancel", () => {
 		budgetController.abort(new Error("[budget] maxElapsedMs exceeded"));

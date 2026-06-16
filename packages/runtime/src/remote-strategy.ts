@@ -1,6 +1,10 @@
 import http from "node:http";
-import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel";
-import { Watchdog } from "@dpopsuev/alef-kernel";
+import {
+	DEFAULT_CONVERSATION_TIMEOUT_MS,
+	type ExecutionStrategy,
+	type SendRequest,
+	Watchdog,
+} from "@dpopsuev/alef-kernel";
 
 function postMessage(endpoint: string, text: string, timeoutMs: number): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -108,7 +112,13 @@ export class RemoteStrategy implements ExecutionStrategy {
 		this.onStall = opts.onStall;
 	}
 
-	async send({ text, timeoutMs = 600_000, signal, onChunk, onInnerEvent }: SendRequest): Promise<string> {
+	async send({
+		text,
+		timeoutMs = DEFAULT_CONVERSATION_TIMEOUT_MS,
+		signal,
+		onChunk,
+		onInnerEvent,
+	}: SendRequest): Promise<string> {
 		if (signal?.aborted) throw new Error("Aborted before send");
 
 		let watchdog: Watchdog | undefined;

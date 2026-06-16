@@ -1,6 +1,12 @@
 import type { SubagentFactory, SubagentFactoryOptions } from "@dpopsuev/alef-agent-blueprint";
-import type { ExecutionStrategy, Organ, SendRequest } from "@dpopsuev/alef-kernel";
-import { debugLog, Watchdog } from "@dpopsuev/alef-kernel";
+import {
+	DEFAULT_CONVERSATION_TIMEOUT_MS,
+	debugLog,
+	type ExecutionStrategy,
+	type Organ,
+	type SendRequest,
+	Watchdog,
+} from "@dpopsuev/alef-kernel";
 
 export type { SubagentFactory, SubagentFactoryOptions };
 
@@ -14,7 +20,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 
 	async send({
 		text,
-		timeoutMs: conversationTimeoutMs = 600_000,
+		timeoutMs: conversationTimeoutMs = DEFAULT_CONVERSATION_TIMEOUT_MS,
 		signal,
 		onChunk,
 		onInnerEvent,

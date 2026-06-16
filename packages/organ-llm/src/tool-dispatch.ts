@@ -24,8 +24,8 @@ function extractDisplay(payload: Record<string, unknown>): { text: string; mimeT
 type SenseBus = { subscribe: (type: string, handler: (event: SenseEvent) => void) => () => void };
 
 const STALL_INTERVAL_MS = 5_000;
-
 const LONG_RUNNING_TIMEOUT_MS = 3_600_000;
+const TIMEOUT_BUFFER_MS = 10_000;
 
 function toOuterTimeoutMs(args: Record<string, unknown>, defaultMs: number, toolDef?: ToolDefinition): number {
 	if (toolDef?.longRunning) {
@@ -33,13 +33,13 @@ function toOuterTimeoutMs(args: Record<string, unknown>, defaultMs: number, tool
 		const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
 		const explicit =
 			typeof data.maxMs === "number" ? data.maxMs : typeof data.timeoutMs === "number" ? data.timeoutMs : undefined;
-		return (explicit ?? LONG_RUNNING_TIMEOUT_MS) + 10_000;
+		return (explicit ?? LONG_RUNNING_TIMEOUT_MS) + TIMEOUT_BUFFER_MS;
 	}
 	const parsed = toolDef?.inputSchema.safeParse(args);
 	const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
 	const inner =
 		typeof data.timeoutMs === "number" ? data.timeoutMs : typeof data.maxMs === "number" ? data.maxMs : undefined;
-	return inner !== undefined ? inner + 10_000 : defaultMs;
+	return inner !== undefined ? inner + TIMEOUT_BUFFER_MS : defaultMs;
 }
 
 function extractValidationError(payload: Record<string, unknown>): { field: string; message: string } | undefined {

@@ -13,7 +13,7 @@ import type { Args } from "./args.js";
 import { setupHttpSurface } from "./build-delegation.js";
 import { buildLlmOrgan } from "./build-llm-organ.js";
 import type { AlefConfig } from "./config.js";
-import { resolveAgentActor, resolveHumanActor } from "./identity/actor.js";
+import { configureSessionActors } from "./identity/actor.js";
 import { ActorRouteTable } from "./identity/routes.js";
 import type { LoadResult } from "./load-organs.js";
 import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
@@ -156,11 +156,9 @@ export async function createLocalSession(
 
 	const sessionState: SessionState = { id: store.id, modelId: model.id, contextWindow: model.contextWindow };
 
-	// Resolve actor identities and inject agent color into theme.
-	const humanActor = resolveHumanActor();
-	const boardId = store.id.slice(0, 12); // approximate board from session prefix
-	const agentActor = resolveAgentActor(store.id, boardId);
-	setTheme({ ...getTheme(), userFg: humanActor.token, agentFg: agentActor.token });
+	const boardId = store.id.slice(0, 12);
+	const { humanActor, agentActor, theme } = configureSessionActors(store.id, boardId);
+	setTheme({ ...getTheme(), ...theme });
 
 	// Build the route table — the TUI uses this for @ routing.
 	const actorRoutes = new ActorRouteTable();

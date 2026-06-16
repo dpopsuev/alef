@@ -7,7 +7,7 @@ import { callLLM, type ToolCall } from "./stream-turn.js";
 import { dispatchTools, payloadToText } from "./tool-dispatch.js";
 import type { TokenUsage } from "./tool-events.js";
 
-const DEFAULT_TOOL_TIMEOUT_MS = 120_000;
+const DEFAULT_TOOL_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_RETRIES = 4;
 const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
 
@@ -40,44 +40,69 @@ export interface TurnLoopOptions {
 // Phase pipeline
 // ---------------------------------------------------------------------------
 
-export interface PhaseResult {
-	messages?: Message[];
-	tools?: ToolDefinition[];
-	skip?: boolean;
-	reply?: string;
-	abort?: boolean;
-}
+export type PhaseResult =
+	| { kind: "continue"; messages?: Message[]; tools?: ToolDefinition[] }
+	| { kind: "skip"; reply: string }
+	| { kind: "abort" };
 
 const PHASE_PIPELINE_QUIESCENCE_MS = 30;
 
 function parsePhaseResult(payload: Record<string, unknown>): PhaseResult {
-	const p = payload as PhaseResult;
+	const p = payload as {
+		abort?: boolean;
+		skip?: boolean;
+		reply?: string;
+		messages?: Message[];
+		tools?: ToolDefinition[];
+	};
+
+	if (p.abort) {
+		return { kind: "abort" };
+	}
+	if (p.skip) {
+		return { kind: "skip", reply: p.reply ?? "(skipped)" };
+	}
 	return {
+		kind: "continue",
 		messages: Array.isArray(p.messages) ? p.messages : undefined,
 		tools: Array.isArray(p.tools) ? p.tools : undefined,
-		skip: p.skip,
-		reply: p.reply,
-		abort: p.abort,
 	};
-}
-
-function lastDefined<T>(stages: PhaseResult[], pick: (s: PhaseResult) => T | undefined): T | undefined {
-	for (let i = stages.length - 1; i >= 0; i--) {
-		const v = pick(stages[i] as PhaseResult);
-		if (v !== undefined) return v;
-	}
-	return undefined;
 }
 
 function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
 	if (stages.length === 0) return undefined;
-	return {
-		messages: lastDefined(stages, (s) => s.messages),
-		tools: lastDefined(stages, (s) => s.tools),
-		skip: stages.some((s) => s.skip),
-		reply: lastDefined(stages, (s) => s.reply),
-		abort: stages.some((s) => s.abort),
-	};
+
+	// Prioritize abort > skip > continue
+	for (const stage of stages) {
+		if (stage.kind === "abort") {
+			return { kind: "abort" };
+		}
+	}
+
+	for (let i = stages.length - 1; i >= 0; i--) {
+		const stage = stages[i];
+		if (stage.kind === "skip") {
+			return { kind: "skip", reply: stage.reply };
+		}
+	}
+
+	// Merge all continue results
+	let messages: Message[] | undefined;
+	let tools: ToolDefinition[] | undefined;
+
+	for (let i = stages.length - 1; i >= 0; i--) {
+		const stage = stages[i];
+		if (stage.kind === "continue") {
+			if (messages === undefined && stage.messages !== undefined) {
+				messages = stage.messages;
+			}
+			if (tools === undefined && stage.tools !== undefined) {
+				tools = stage.tools;
+			}
+		}
+	}
+
+	return { kind: "continue", messages, tools };
 }
 
 type SenseBus = SenseHandlerCtx["sense"];
@@ -164,9 +189,11 @@ function serializeConversationHistory(messages: Message[]): unknown[] {
 }
 
 function applyPhaseResult(phase: PhaseResult, messages: Message[], tools: Tool[], nameMap: Map<string, string>): void {
-	if (phase.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
-	if (phase.tools && phase.tools.length > 0)
-		tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
+	if (phase.kind === "continue") {
+		if (phase.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
+		if (phase.tools && phase.tools.length > 0)
+			tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
+	}
 }
 
 function reportUsage(finalMessage: AssistantMessage): TokenUsage | undefined {
@@ -289,9 +316,9 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 					turn,
 					effectiveOptions.phaseTimeoutMs,
 				);
-				if (phase?.abort) break;
-				if (phase?.skip) {
-					motor.publish({ type: LLM_RESPONSE, payload: { text: phase.reply ?? "(skipped)" }, correlationId });
+				if (phase?.kind === "abort") break;
+				if (phase?.kind === "skip") {
+					motor.publish({ type: LLM_RESPONSE, payload: { text: phase.reply }, correlationId });
 					break;
 				}
 				if (phase) applyPhaseResult(phase, messages, tools, nameMap);

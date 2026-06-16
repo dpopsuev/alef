@@ -11,6 +11,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionStore } from "../src/session-store.js";
 
@@ -84,7 +85,6 @@ describe("SessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 	});
 
 	it("ISessionStore interface includes organHistory", async () => {
-		const { InMemorySessionStore } = await import("@dpopsuev/alef-testkit");
 		const memStore = new InMemorySessionStore();
 		await memStore.append({
 			bus: "motor",

@@ -26,10 +26,17 @@ type SenseBus = { subscribe: (type: string, handler: (event: SenseEvent) => void
 const STALL_INTERVAL_MS = 5_000;
 const LONG_RUNNING_TIMEOUT_MS = 3_600_000;
 const TIMEOUT_BUFFER_MS = 10_000;
+const LONG_RUNNING_PREFIXES = ["agent.", "orchestration."];
 
-function toOuterTimeoutMs(args: Record<string, unknown>, defaultMs: number, toolDef?: ToolDefinition): number {
-	if (toolDef?.longRunning) {
-		const parsed = toolDef.inputSchema.safeParse(args);
+function toOuterTimeoutMs(
+	toolName: string,
+	args: Record<string, unknown>,
+	defaultMs: number,
+	toolDef?: ToolDefinition,
+): number {
+	const longRunning = toolDef?.longRunning || LONG_RUNNING_PREFIXES.some((p) => toolName.startsWith(p));
+	if (longRunning) {
+		const parsed = toolDef?.inputSchema.safeParse(args);
 		const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
 		const explicit =
 			typeof data.maxMs === "number" ? data.maxMs : typeof data.timeoutMs === "number" ? data.timeoutMs : undefined;
@@ -176,6 +183,7 @@ export async function dispatchTools(
 				correlationId,
 			});
 			const outerWaitMs = toOuterTimeoutMs(
+				motorType,
 				tc.args,
 				timeoutMs,
 				options.schemaResolver?.(motorType) ?? options.toolDefs?.get(motorType),

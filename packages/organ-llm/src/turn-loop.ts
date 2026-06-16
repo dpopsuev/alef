@@ -1,11 +1,13 @@
-import type { SenseEvent, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { debugLog, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
-import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-llm";
-import type { z } from "zod";
-import { normalizeMessage, retryDelayMs, shouldRetry, sleep } from "./retry.js";
-import { callLLM, type ToolCall } from "./stream-turn.js";
-import { dispatchTools, payloadToText } from "./tool-dispatch.js";
-import type { TokenUsage } from "./tool-events.js";
+import type { SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel";
+import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
+import { buildTools, prepareTurn } from "./handlers/message-handler.js";
+import { applyPhaseResult, runPhase } from "./handlers/phase-handler.js";
+import { publishReply, reportUsage } from "./handlers/response-handler.js";
+import { appendToolResults } from "./handlers/tool-result-handler.js";
+import { retryDelayMs, shouldRetry, sleep } from "./retry.js";
+import { callLLM } from "./stream-turn.js";
+import { dispatchTools } from "./tool-dispatch.js";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_RETRIES = 2;
@@ -37,249 +39,15 @@ export interface TurnLoopOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Phase pipeline
-// ---------------------------------------------------------------------------
-
-export type PhaseResult =
-	| { kind: "continue"; messages?: Message[]; tools?: ToolDefinition[] }
-	| { kind: "skip"; reply: string }
-	| { kind: "abort" };
-
-const PHASE_PIPELINE_QUIESCENCE_MS = 30;
-
-function parsePhaseResult(payload: Record<string, unknown>): PhaseResult {
-	const p = payload as {
-		abort?: boolean;
-		skip?: boolean;
-		reply?: string;
-		messages?: Message[];
-		tools?: ToolDefinition[];
-	};
-
-	if (p.abort) {
-		return { kind: "abort" };
-	}
-	if (p.skip) {
-		return { kind: "skip", reply: p.reply ?? "(skipped)" };
-	}
-	return {
-		kind: "continue",
-		messages: Array.isArray(p.messages) ? p.messages : undefined,
-		tools: Array.isArray(p.tools) ? p.tools : undefined,
-	};
-}
-
-function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
-	if (stages.length === 0) return undefined;
-
-	// Prioritize abort > skip > continue
-	for (const stage of stages) {
-		if (stage.kind === "abort") {
-			return { kind: "abort" };
-		}
-	}
-
-	for (let i = stages.length - 1; i >= 0; i--) {
-		const stage = stages[i];
-		if (stage.kind === "skip") {
-			return { kind: "skip", reply: stage.reply };
-		}
-	}
-
-	// Merge all continue results
-	let messages: Message[] | undefined;
-	let tools: ToolDefinition[] | undefined;
-
-	for (let i = stages.length - 1; i >= 0; i--) {
-		const stage = stages[i];
-		if (stage.kind === "continue") {
-			if (messages === undefined && stage.messages !== undefined) {
-				messages = stage.messages;
-			}
-			if (tools === undefined && stage.tools !== undefined) {
-				tools = stage.tools;
-			}
-		}
-	}
-
-	return { kind: "continue", messages, tools };
-}
-
-type SenseBus = SenseHandlerCtx["sense"];
-type MotorBus = SenseHandlerCtx["motor"];
-
-function waitForPhaseResult(
-	sense: SenseBus,
-	correlationId: string,
-	timeoutMs: number,
-): Promise<PhaseResult | undefined> {
-	return new Promise((resolve) => {
-		const collected: PhaseResult[] = [];
-		let quiescenceTimer: ReturnType<typeof setTimeout> | undefined;
-
-		const finish = () => {
-			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
-			clearTimeout(deadlineTimer);
-			off();
-			resolve(mergePhaseResults(collected));
-		};
-
-		const deadlineTimer = setTimeout(finish, timeoutMs); // lint-ignore: RAWTIMER LLM phase pipeline deadline
-
-		const off = sense.subscribe("context.assemble", (event) => {
-			if (event.correlationId !== correlationId) return;
-			collected.push(parsePhaseResult(event.payload));
-			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
-			quiescenceTimer = setTimeout(finish, PHASE_PIPELINE_QUIESCENCE_MS); // lint-ignore: RAWTIMER quiescence window
-		});
-	});
-}
-
-// ---------------------------------------------------------------------------
-// Turn-loop helpers
-// ---------------------------------------------------------------------------
-
-type ToolDef = { name: string; description: string; inputSchema: z.ZodTypeAny };
-
-export function buildTools(defs: readonly ToolDef[], nameMap: Map<string, string>): Tool[] {
-	const seen = new Set<string>();
-	const tools: Tool[] = [];
-	for (const t of defs) {
-		const llmName = t.name.replace(/\./g, "_");
-		if (seen.has(llmName)) continue;
-		seen.add(llmName);
-		nameMap.set(llmName, t.name);
-		tools.push({ name: llmName, description: t.description, parameters: toolInputToJsonSchema(t.inputSchema) });
-	}
-	return tools;
-}
-
-interface TurnSetup {
-	messages: Message[];
-	tools: Tool[];
-	nameMap: Map<string, string>;
-}
-
-function prepareTurn(payload: { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string }): TurnSetup {
-	const rawMessages =
-		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
-	const nameMap = new Map<string, string>();
-	const toolDefs = (payload.tools as readonly ToolDef[] | undefined) ?? [];
-	const tools = buildTools(toolDefs, nameMap);
-	const messages = (rawMessages as Message[]).map(normalizeMessage);
-	return { messages, tools, nameMap };
-}
-
-function serializeConversationHistory(messages: Message[]): unknown[] {
-	return messages
-		.filter((m) => (m as { role?: string }).role !== "system")
-		.map((m): unknown => {
-			const msg = m as { role: string; content: unknown; toolCallId?: string; toolName?: string; isError?: boolean };
-			if (msg.role === "toolResult") {
-				return {
-					role: "toolResult",
-					toolCallId: msg.toolCallId,
-					toolName: msg.toolName,
-					content: msg.content,
-					isError: msg.isError,
-				};
-			}
-			return { role: msg.role, content: msg.content };
-		});
-}
-
-function applyPhaseResult(phase: PhaseResult, messages: Message[], tools: Tool[], nameMap: Map<string, string>): void {
-	if (phase.kind === "continue") {
-		if (phase.messages && phase.messages.length > 0) messages.splice(0, messages.length, ...phase.messages);
-		if (phase.tools && phase.tools.length > 0)
-			tools.splice(0, tools.length, ...buildTools(phase.tools as ToolDef[], nameMap));
-	}
-}
-
-function reportUsage(finalMessage: AssistantMessage): TokenUsage | undefined {
-	if (!finalMessage.usage) return undefined;
-	return {
-		input: finalMessage.usage.input,
-		output: finalMessage.usage.output,
-		totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
-	};
-}
-
-function appendToolResults(
-	messages: Message[],
-	toolCalls: ToolCall[],
-	results: SenseEvent[],
-	toMotorName: (n: string) => string,
-): void {
-	for (const [toolCall, result] of toolCalls.map((tc, i) => [tc, results[i]] as const)) {
-		messages.push({
-			role: "toolResult",
-			toolCallId: toolCall.id,
-			toolName: toMotorName(toolCall.name),
-			content: [{ type: "text", text: payloadToText(result.payload, result.isError, result.errorMessage) }],
-			isError: result.isError,
-			timestamp: Date.now(),
-		});
-	}
-}
-
-function extractText(message: AssistantMessage): string {
-	return message.content
-		.filter((c): c is { type: "text"; text: string } => c.type === "text")
-		.map((c) => c.text)
-		.join("");
-}
-
-const LLM_RESPONSE = "llm.response";
-
-function publishReply(
-	motor: MotorBus,
-	correlationId: string,
-	finalMessage: AssistantMessage,
-	messages: Message[],
-): void {
-	const text = extractText(finalMessage);
-	if (text) {
-		motor.publish({
-			type: LLM_RESPONSE,
-			payload: { text, conversationHistory: serializeConversationHistory(messages), usage: finalMessage.usage },
-			correlationId,
-		});
-	} else {
-		const fallback =
-			finalMessage.errorMessage || (finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
-		motor.publish({ type: LLM_RESPONSE, payload: { text: fallback }, correlationId });
-	}
-}
-
-async function runPhase(
-	motor: MotorBus,
-	sense: SenseBus,
-	correlationId: string,
-	messages: Message[],
-	tools: Tool[],
-	turn: number,
-	phaseTimeoutMs: number,
-): Promise<PhaseResult | undefined> {
-	const t0 = Date.now();
-	debugLog("llm:phase:enter", { turn });
-	const phasePromise = waitForPhaseResult(sense, correlationId, phaseTimeoutMs);
-	motor.publish({
-		type: "context.assemble",
-		payload: { messages: messages as unknown[], turn, toolCount: tools.length },
-		correlationId,
-	});
-	const phase = await phasePromise;
-	debugLog("llm:phase:exit", { turn, elapsedMs: Date.now() - t0, modified: !!phase });
-	return phase;
-}
-
-// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
 export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions): Promise<void> {
-	const payload = ctx.payload as { messages?: readonly unknown[]; tools?: readonly ToolDef[]; text?: string };
+	const payload = ctx.payload as {
+		messages?: readonly unknown[];
+		tools?: readonly { name: string; description: string; inputSchema: unknown }[];
+		text?: string;
+	};
 	const { messages, tools, nameMap } = prepareTurn(payload);
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
@@ -318,10 +86,10 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 				);
 				if (phase?.kind === "abort") break;
 				if (phase?.kind === "skip") {
-					motor.publish({ type: LLM_RESPONSE, payload: { text: phase.reply }, correlationId });
+					motor.publish({ type: "llm.response", payload: { text: phase.reply }, correlationId });
 					break;
 				}
-				if (phase) applyPhaseResult(phase, messages, tools, nameMap);
+				if (phase) applyPhaseResult(phase, messages, tools, nameMap, buildTools);
 			}
 
 			const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, {
@@ -394,3 +162,6 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 		offBudget();
 	}
 }
+
+// Re-export for backward compatibility
+export { buildTools } from "./handlers/message-handler.js";

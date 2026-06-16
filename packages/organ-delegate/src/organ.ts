@@ -21,6 +21,34 @@ export interface AdHocSessionOptions {
 	systemPrompt?: string;
 }
 
+const WRITE_PATTERN =
+	/\b(write|create|edit|modify|delete|remove|install|run|execute|build|deploy|fix|refactor|update|change|add|implement|spawn|generate)\b/i;
+
+function extractKeywords(text: string): Set<string> {
+	return new Set(
+		text
+			.toLowerCase()
+			.replace(/[^a-z0-9\s]/g, " ")
+			.split(/\s+/)
+			.filter((w) => w.length > 3),
+	);
+}
+
+function checkRelevance(prompt: string, reply: string): { relevant: boolean; overlap: number } {
+	if (!reply || reply.length < 20) return { relevant: false, overlap: 0 };
+	const promptWords = extractKeywords(prompt);
+	const replyWords = extractKeywords(reply.slice(0, 2000));
+	if (promptWords.size === 0) return { relevant: true, overlap: 1 };
+	let hits = 0;
+	for (const w of promptWords) if (replyWords.has(w)) hits++;
+	const overlap = hits / promptWords.size;
+	return { relevant: overlap > 0.1, overlap };
+}
+
+function needsWriteAccess(text: string): boolean {
+	return WRITE_PATTERN.test(text);
+}
+
 /** @deprecated profile is now an open string — any name registered in strategyRegistry is valid. */
 export type DelegateProfile = string;
 
@@ -147,7 +175,8 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 				"agent.run": typedStreamAction(buildTool(), async function* (ctx) {
 					const payload = ctx.payload as Record<string, unknown>;
 					const text = payload.text as string;
-					const profile = (payload.profile as string | undefined) ?? "explore";
+					const explicitProfile = payload.profile as string | undefined;
+					const profile = explicitProfile ?? (needsWriteAccess(text) ? "general" : "explore");
 					const timeoutMs = (payload.timeoutMs as number | undefined) ?? 600_000;
 					const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
 					const inheritDirectives = payload.inheritDirectives === true;
@@ -195,9 +224,19 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 						for await (const chunkText of queue.iter()) yield { text: chunkText };
 						const reply = await replyPromise;
 						const elapsed = Date.now() - t0;
-						ctx.log.debug({ profile, elapsedMs: elapsed, ok: Boolean(reply) }, "delegate:strategy:done");
+						const relevance = checkRelevance(text, reply);
+						ctx.log.debug(
+							{ profile, elapsedMs: elapsed, ok: Boolean(reply), relevance: relevance.overlap },
+							"delegate:strategy:done",
+						);
+						if (!relevance.relevant) {
+							ctx.log.warn(
+								{ profile, overlap: relevance.overlap, promptLen: text.length, replyLen: reply.length },
+								"delegate:low-relevance",
+							);
+						}
 						yield withDisplay(
-							{ reply, profile, elapsedMs: elapsed },
+							{ reply, profile, elapsedMs: elapsed, relevance: relevance.overlap },
 							{ text: reply || "(no reply)", mimeType: "text/plain" },
 						);
 						return;
@@ -243,9 +282,19 @@ export function createDelegateOrgan(opts: DelegateOrganOptions): DelegateOrgan {
 
 					const reply = await replyPromise;
 					const elapsed = Date.now() - t0;
-					ctx.log.debug({ profile, elapsedMs: elapsed, ok: Boolean(reply) }, "delegate:strategy:done");
+					const relevance = checkRelevance(text, reply);
+					ctx.log.debug(
+						{ profile, elapsedMs: elapsed, ok: Boolean(reply), relevance: relevance.overlap },
+						"delegate:strategy:done",
+					);
+					if (!relevance.relevant) {
+						ctx.log.warn(
+							{ profile, overlap: relevance.overlap, promptLen: text.length, replyLen: reply.length },
+							"delegate:low-relevance",
+						);
+					}
 					yield withDisplay(
-						{ reply, profile, elapsedMs: elapsed },
+						{ reply, profile, elapsedMs: elapsed, relevance: relevance.overlap },
 						{ text: reply || "(no reply)", mimeType: "text/plain" },
 					);
 				}),

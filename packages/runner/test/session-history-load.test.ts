@@ -15,7 +15,7 @@ import { Container } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionStore } from "../src/session-store.js";
 import { getTheme } from "../src/theme.js";
-import { ChatWriter } from "../src/tui/chat-writer.js";
+import { ChatLog } from "../src/tui/chat-log.js";
 import { prependSessionHistory } from "../src/tui/session-history.js";
 
 describe("prependSessionHistory — eager load prior turns into chat", { tags: ["unit"] }, () => {
@@ -60,7 +60,7 @@ describe("prependSessionHistory — eager load prior turns into chat", { tags: [
 		await appendTurn("turn 2 question", "turn 2 answer");
 
 		const chat = new Container();
-		const writer = new ChatWriter(chat, getTheme());
+		const writer = new ChatLog(chat, getTheme());
 
 		await prependSessionHistory(store, writer, { maxTurns: 5 });
 
@@ -70,7 +70,7 @@ describe("prependSessionHistory — eager load prior turns into chat", { tags: [
 
 	it("prepends nothing when store has no prior turns", async () => {
 		const chat = new Container();
-		const writer = new ChatWriter(chat, getTheme());
+		const writer = new ChatLog(chat, getTheme());
 
 		await prependSessionHistory(store, writer, { maxTurns: 5 });
 
@@ -84,11 +84,11 @@ describe("prependSessionHistory — eager load prior turns into chat", { tags: [
 		}
 
 		const chatAll = new Container();
-		const writerAll = new ChatWriter(chatAll, getTheme());
+		const writerAll = new ChatLog(chatAll, getTheme());
 		await prependSessionHistory(store, writerAll, { maxTurns: 7 });
 
 		const chatFew = new Container();
-		const writerFew = new ChatWriter(chatFew, getTheme());
+		const writerFew = new ChatLog(chatFew, getTheme());
 		await prependSessionHistory(store, writerFew, { maxTurns: 3 });
 
 		// More turns = more components

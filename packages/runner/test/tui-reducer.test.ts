@@ -15,10 +15,10 @@ function makeMockUi(): TuiUi {
 			addTokenFooter: vi.fn(() => ({ setText: vi.fn() })),
 			addUserMessage: vi.fn(),
 		},
-		streamingZone: { reset: vi.fn(), clear: vi.fn(), hideThinking: false, setHideThinking: vi.fn() },
+		replyBlock: { reset: vi.fn(), clear: vi.fn(), hideThinking: false, setHideThinking: vi.fn() },
 		replyTW: { receive: vi.fn(), flush: vi.fn(), reset: vi.fn() },
 		thinkingTW: { receive: vi.fn(), flush: vi.fn(), reset: vi.fn() },
-		consoleZone: {
+		promptConsole: {
 			pulse: vi.fn(),
 			showPendingFooter: vi.fn() as (fg: unknown) => void,
 			hidePendingFooter: vi.fn(),
@@ -28,9 +28,14 @@ function makeMockUi(): TuiUi {
 			startThinking: vi.fn(),
 			stopThinking: vi.fn(),
 			isThinking: false,
+			setFocusedCall: vi.fn(),
+			setChunkText: vi.fn(),
+			setCallIdentity: vi.fn(),
+			addChildCall: vi.fn(),
+			removeChildCall: vi.fn(),
 		},
 		tui: { requestRender: vi.fn() } as unknown as TuiUi["tui"],
-		t: { agentFg: "#fff", dimFg: "#888", accentFg: "#00f" } as unknown as TuiUi["t"],
+		t: { agentFg: "#fff", mutedFg: "#888", accentFg: "#00f" } as unknown as TuiUi["t"],
 		session: { state: { contextWindow: 100_000 } } as unknown as TuiUi["session"],
 	};
 }
@@ -139,6 +144,79 @@ describe("tuiReducer — tool-start / tool-end", { tags: ["unit"] }, () => {
 		expect(state.activeCalls.size).toBe(0);
 		expect(state.batchStartedAt).toBeNull();
 	});
+
+	it("suppresses display output while other tools are still active", () => {
+		const ui = makeMockUi();
+		let state = initialTuiState();
+		state = handleAgentEvent(
+			state,
+			{ type: "tool-start", callId: "c1", name: "agent.run", args: {} } as Parameters<typeof handleAgentEvent>[1],
+			ui,
+		);
+		state = handleAgentEvent(
+			state,
+			{ type: "tool-start", callId: "c2", name: "agent.run", args: {} } as Parameters<typeof handleAgentEvent>[1],
+			ui,
+		);
+
+		state = handleAgentEvent(
+			state,
+			{
+				type: "tool-end",
+				callId: "c1",
+				elapsedMs: 50,
+				ok: true,
+				display: "Full subagent response text here",
+				displayKind: "text/plain",
+			} as Parameters<typeof handleAgentEvent>[1],
+			ui,
+		);
+		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith("agent.run", "", 50, true, null, null);
+	});
+
+	it("shows display output for last tool in batch", () => {
+		const ui = makeMockUi();
+		let state = initialTuiState();
+		state = handleAgentEvent(
+			state,
+			{ type: "tool-start", callId: "c1", name: "agent.run", args: {} } as Parameters<typeof handleAgentEvent>[1],
+			ui,
+		);
+		state = handleAgentEvent(
+			state,
+			{ type: "tool-start", callId: "c2", name: "agent.run", args: {} } as Parameters<typeof handleAgentEvent>[1],
+			ui,
+		);
+		state = handleAgentEvent(
+			state,
+			{ type: "tool-end", callId: "c1", elapsedMs: 50, ok: true, display: "", displayKind: undefined } as Parameters<
+				typeof handleAgentEvent
+			>[1],
+			ui,
+		);
+		(ui.writer.addCompletedToolBlock as ReturnType<typeof vi.fn>).mockClear();
+
+		state = handleAgentEvent(
+			state,
+			{
+				type: "tool-end",
+				callId: "c2",
+				elapsedMs: 80,
+				ok: true,
+				display: "Last tool output should show",
+				displayKind: "text/plain",
+			} as Parameters<typeof handleAgentEvent>[1],
+			ui,
+		);
+		expect(ui.writer.addCompletedToolBlock).toHaveBeenCalledWith(
+			"agent.run",
+			"",
+			80,
+			true,
+			"Last tool output should show",
+			"text/plain",
+		);
+	});
 });
 
 describe("tuiReducer — token-usage", { tags: ["unit"] }, () => {
@@ -244,7 +322,7 @@ describe("tuiReducer — TuiInputEvent", { tags: ["unit"] }, () => {
 		);
 		expect(state.pendingFooterShown).toBe(false);
 		expect(state.turnStartedAt).toBe(ts);
-		expect(ui.consoleZone.startThinking).toHaveBeenCalled();
+		expect(ui.promptConsole.startThinking).toHaveBeenCalled();
 	});
 
 	it("abort.set stores fn, abort.clear removes it", () => {

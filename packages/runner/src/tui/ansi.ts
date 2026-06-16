@@ -24,7 +24,7 @@ export function colorDepth(): ColorDepth {
 	return "16";
 }
 
-/** Resets foreground only — preserves background set by outer Box/bgFn. */
+/** Resets foreground only — preserves background set by outer Pad/bgFn. */
 export const FG_RESET = "\x1b[39m";
 
 export function hexToRgb(hex: string): [number, number, number] {

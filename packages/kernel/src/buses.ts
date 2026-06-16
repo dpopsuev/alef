@@ -158,6 +158,8 @@ export interface ToolDefinition {
 	readonly description: string;
 	readonly inputSchema: ZodTypeAny;
 	readonly streaming?: true;
+	/** Tool manages its own activity/stall detection. waitForToolResult uses a large timeout instead of the LLM default. */
+	readonly longRunning?: true;
 }
 
 /**

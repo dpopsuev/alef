@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import type { Nerve, Organ, ToolDefinition, ValidateRequest } from "@dpopsuev/alef-kernel";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
 
@@ -24,12 +25,18 @@ const DENY_ENV_PATTERNS: readonly RegExp[] = [
 ];
 
 /** Tool name prefixes that carry path-based payloads to check. */
-const PATH_TOOL_PREFIXES = ["fs.", "shell."];
+const PATH_TOOL_PREFIXES = ["fs.", "shell.", "lector."];
 
 export interface SecurityPolicyOrganOptions {
 	name?: string;
 	extraDenyPaths?: RegExp[];
 	extraDenyEnv?: RegExp[];
+	/**
+	 * OCAP grant — directories that are allowed.
+	 * Undefined = unrestricted (no path scope enforcement).
+	 * Populated = enforce that paths fall within these roots.
+	 */
+	writableRoots?: readonly string[];
 }
 
 function isDeniedPath(path: string, extras: RegExp[]): boolean {
@@ -40,23 +47,40 @@ function isDeniedEnvPattern(text: string, extras: RegExp[]): boolean {
 	return [...DENY_ENV_PATTERNS, ...extras].some((r) => r.test(text));
 }
 
-function checkPayload(payload: Record<string, unknown>, extras: SecurityPolicyOrganOptions): string | null {
+function isWithinRoots(absPath: string, roots: readonly string[]): boolean {
+	const norm = resolve(absPath);
+	return roots.some((root) => {
+		const normRoot = resolve(root);
+		return norm === normRoot || norm.startsWith(`${normRoot}/`);
+	});
+}
+
+function checkPayload(payload: Record<string, unknown>, opts: SecurityPolicyOrganOptions): string | null {
 	const path = typeof payload.path === "string" ? payload.path : undefined;
 	const command = typeof payload.command === "string" ? payload.command : undefined;
 	const glob = typeof payload.glob === "string" ? payload.glob : undefined;
 
-	if (path && isDeniedPath(path, extras.extraDenyPaths ?? [])) {
+	if (path && isDeniedPath(path, opts.extraDenyPaths ?? [])) {
 		return `Credential path denied: ${path}`;
 	}
-	if (glob && isDeniedPath(glob, extras.extraDenyPaths ?? [])) {
+	if (glob && isDeniedPath(glob, opts.extraDenyPaths ?? [])) {
 		return `Credential path denied: ${glob}`;
 	}
+
+	// OCAP scope enforcement: if writableRoots is set, check path is within them.
+	if (path && opts.writableRoots) {
+		const abs = resolve(path);
+		if (!isWithinRoots(abs, opts.writableRoots)) {
+			return `Path '${path}' is outside the allowed roots`;
+		}
+	}
+
 	if (command) {
 		const lc = command.toLowerCase();
-		if (isDeniedPath(lc, extras.extraDenyPaths ?? [])) {
+		if (isDeniedPath(lc, opts.extraDenyPaths ?? [])) {
 			return `Command targets credential path`;
 		}
-		if (isDeniedEnvPattern(lc, extras.extraDenyEnv ?? [])) {
+		if (isDeniedEnvPattern(lc, opts.extraDenyEnv ?? [])) {
 			return `Command accesses credential environment variable`;
 		}
 	}
@@ -69,7 +93,7 @@ export function createSecurityPolicyOrgan(opts: SecurityPolicyOrganOptions = {})
 	return {
 		name: organName,
 		tools: [] as readonly ToolDefinition[],
-		description: "Policy Enforcement Point — rejects tool calls targeting credential paths.",
+		description: "Policy Enforcement Point — rejects tool calls targeting credential paths and enforces OCAP scope.",
 		directives: [
 			"Credential paths and environment variables are protected by security policy and cannot be accessed.",
 		],
@@ -81,7 +105,6 @@ export function createSecurityPolicyOrgan(opts: SecurityPolicyOrganOptions = {})
 			return nerve.motor.subscribe(VALIDATE_REQUEST, (event) => {
 				const req = event.payload as unknown as ValidateRequest;
 
-				// Only intercept tool calls for path-based organs
 				const targetOrgan = req.targetOrgan ?? "";
 				const isPathOrgan = PATH_TOOL_PREFIXES.some((p) => targetOrgan.startsWith(p));
 				if (!isPathOrgan) return;

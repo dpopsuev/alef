@@ -20,6 +20,11 @@ export default tseslint.config(
 			},
 		},
 		rules: {
+			// ── Void suppression ban ─────────────────────────────────────────────
+			// Forbid `void expr` used to silence unused-variable warnings.
+			// `void promise` for fire-and-forget is allowed as a statement.
+			"no-void": ["error", { allowAsStatement: true }],
+
 			// ── Rules we explicitly want ─────────────────────────────────────────
 			// Catches accessing Record<string, unknown> fields without narrowing.
 			"@typescript-eslint/no-unsafe-member-access": "error",

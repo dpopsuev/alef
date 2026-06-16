@@ -2,6 +2,8 @@ export interface SendRequest {
 	text: string;
 	sender?: string;
 	timeoutMs?: number;
+	/** Caller-owned signal. When aborted, the strategy cancels in-flight work and rejects. */
+	signal?: AbortSignal;
 	onChunk?: (chunk: string) => void;
 	/**
 	 * Called for each motor or signal event emitted by the inner agent.

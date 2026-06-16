@@ -1,26 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { assertWithinRoot, guardedResolve } from "../src/path-guard.js";
+import { assertWithinRoots, guardedResolve } from "../src/path-guard.js";
 
-describe("assertWithinRoot", { tags: ["unit"] }, () => {
-	it("allows paths within root", () => {
-		expect(() => assertWithinRoot("/workspace/src/foo.ts", "/workspace")).not.toThrow();
+describe("assertWithinRoots", { tags: ["unit"] }, () => {
+	it("allows paths within a single root", () => {
+		expect(() => assertWithinRoots("/workspace/src/foo.ts", ["/workspace"])).not.toThrow();
 	});
 
 	it("allows root itself", () => {
-		expect(() => assertWithinRoot("/workspace", "/workspace")).not.toThrow();
+		expect(() => assertWithinRoots("/workspace", ["/workspace"])).not.toThrow();
 	});
 
-	it("rejects paths outside root", () => {
-		expect(() => assertWithinRoot("/etc/passwd", "/workspace")).toThrow(/outside the workspace root/);
+	it("rejects paths outside all roots", () => {
+		expect(() => assertWithinRoots("/etc/passwd", ["/workspace"])).toThrow(/outside the allowed roots/);
 	});
 
 	it("rejects traversal via ..", () => {
-		// Node's resolve normalises these before comparison
-		expect(() => assertWithinRoot("/workspace/../etc/passwd", "/workspace")).toThrow();
+		expect(() => assertWithinRoots("/workspace/../etc/passwd", ["/workspace"])).toThrow();
 	});
 
 	it("rejects sibling directories", () => {
-		expect(() => assertWithinRoot("/workspace2/file.ts", "/workspace")).toThrow();
+		expect(() => assertWithinRoots("/workspace2/file.ts", ["/workspace"])).toThrow();
+	});
+
+	it("allows paths within any of multiple roots", () => {
+		expect(() => assertWithinRoots("/tmp/work/out.txt", ["/workspace", "/tmp"])).not.toThrow();
+		expect(() => assertWithinRoots("/workspace/src/foo.ts", ["/workspace", "/tmp"])).not.toThrow();
+	});
+
+	it("rejects paths outside all multiple roots", () => {
+		expect(() => assertWithinRoots("/etc/passwd", ["/workspace", "/tmp"])).toThrow();
 	});
 });
 
@@ -35,12 +43,17 @@ describe("guardedResolve", { tags: ["unit"] }, () => {
 		expect(abs).toBe("/workspace/src/foo.ts");
 	});
 
-	it("rejects absolute path outside root by default", () => {
-		expect(() => guardedResolve("/etc/passwd", { root: "/workspace" })).toThrow(/outside the workspace root/);
+	it("rejects absolute path outside root when no writableRoots", () => {
+		expect(() => guardedResolve("/etc/passwd", { root: "/workspace" })).toThrow(/outside the allowed roots/);
 	});
 
-	it("allows absolute path outside root when allowAbsolutePaths=true", () => {
-		expect(() => guardedResolve("/etc/passwd", { root: "/workspace", allowAbsolutePaths: true })).not.toThrow();
+	it("allows path in writableRoots even if outside root", () => {
+		const abs = guardedResolve("/tmp/alef/output.txt", { root: "/workspace", writableRoots: ["/workspace", "/tmp"] });
+		expect(abs).toBe("/tmp/alef/output.txt");
+	});
+
+	it("defaults to [root] when writableRoots is omitted", () => {
+		expect(() => guardedResolve("/tmp/file.txt", { root: "/workspace" })).toThrow();
 	});
 
 	it("rejects traversal via ../", () => {

@@ -34,6 +34,7 @@ const EMPTY_LOADED = {
 	blueprintSurfaces: [],
 	blueprintUpgradePolicy: "rebuild_only" as const,
 	blueprintPath: undefined,
+	writableRoots: undefined,
 };
 
 describe("createLocalSession — session.subscribe delivers AgentEvents to callers", { tags: ["unit"] }, () => {

@@ -238,10 +238,10 @@ describe("InProcessNerve — listenerCount", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// ALE-BUG-15 — InProcessBus.firstSeen LRU cap
+// InProcessBus.firstSeen LRU cap
 // ---------------------------------------------------------------------------
 
-describe("InProcessBus.firstSeen LRU cap (ALE-BUG-15)", { tags: ["unit"] }, () => {
+describe("InProcessBus.firstSeen LRU cap", { tags: ["unit"] }, () => {
 	it("firstSeen size stays bounded after many unique correlationIds", () => {
 		const nerve = new InProcessNerve();
 		const n = nerve.asNerve();

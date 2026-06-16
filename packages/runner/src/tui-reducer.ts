@@ -19,7 +19,11 @@ export type TuiInputEvent =
 	| { type: "turn.error"; error: unknown; aborted: boolean }
 	| { type: "abort.set"; fn: () => void }
 	| { type: "abort.clear" }
-	| { type: "thinking.toggle" };
+	| { type: "thinking.toggle" }
+	| { type: "inspector.cycle" }
+	| { type: "inspector.close" }
+	| { type: "inspector.scroll"; direction: -1 | 1 }
+	| { type: "inspector.cancel" };
 
 export type TuiEvent = AgentEvent | TuiInputEvent;
 
@@ -30,8 +34,17 @@ export type TuiEvent = AgentEvent | TuiInputEvent;
 // The exhaustive default: never guard catches missing cases at compile time.
 // ---------------------------------------------------------------------------
 
+const INSPECTOR_LINES = 12;
+
+function renderChunkWindow(chunks: string[], scrollOffset: number): string {
+	const all = chunks.join("").split("\n");
+	const end = Math.max(0, all.length - scrollOffset);
+	const start = Math.max(0, end - INSPECTOR_LINES);
+	return all.slice(start, end).join("\n");
+}
+
 export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiState {
-	const { writer, streamingZone, replyTW, thinkingTW, consoleZone, t, session } = ui;
+	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, t, session } = ui;
 
 	switch (event.type) {
 		// ── Input events ────────────────────────────────────────────────────
@@ -43,29 +56,29 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			return { ...state, overlays: state.overlays.filter((o) => o.id !== event.id) };
 
 		case "turn.start":
-			consoleZone.hidePendingFooter();
-			consoleZone.startThinking();
+			promptConsole.hidePendingFooter();
+			promptConsole.startThinking();
 			return { ...state, pendingFooterShown: false, turnStartedAt: event.timestamp };
 
 		case "turn.complete":
 			replyTW.flush();
 			thinkingTW.flush();
-			streamingZone.reset();
-			consoleZone.stopThinking();
-			consoleZone.hidePendingFooter();
+			replyBlock.reset();
+			promptConsole.stopThinking();
+			promptConsole.hidePendingFooter();
 			return { ...state, pendingFooterShown: false, pendingTokenFooter: event.tokenFooter };
 
 		case "turn.abort":
 			return { ...state, abortCurrentTurn: undefined };
 
 		case "turn.error": {
-			consoleZone.stopThinking();
-			consoleZone.hidePendingFooter();
+			promptConsole.stopThinking();
+			promptConsole.hidePendingFooter();
 			replyTW.reset();
 			thinkingTW.reset();
-			streamingZone.clear();
+			replyBlock.clear();
 			for (const [callId, entry] of state.activeCalls) {
-				consoleZone.removeInFlightCall(callId);
+				promptConsole.removeInFlightCall(callId);
 				writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null, null);
 			}
 			if (!event.aborted) writer.addNotice(`[error] ${formatError(event.error)}`);
@@ -85,10 +98,46 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			return { ...state, abortCurrentTurn: undefined };
 
 		case "thinking.toggle": {
-			const next = !streamingZone.hideThinking;
-			streamingZone.setHideThinking(next);
+			const next = !replyBlock.hideThinking;
+			replyBlock.setHideThinking(next);
 			writer.addNotice(next ? "Thinking: hidden" : "Thinking: visible");
 			return state;
+		}
+
+		case "inspector.cycle": {
+			if (state.activeCalls.size === 0) return state;
+			const ids = [...state.activeCalls.keys()];
+			const idx = state.focusedCallId ? ids.indexOf(state.focusedCallId) : -1;
+			const nextId = ids[(idx + 1) % ids.length];
+			promptConsole.setFocusedCall(nextId);
+			const chunks = state.callChunks.get(nextId) ?? [];
+			const tail = renderChunkWindow(chunks, state.inspectorScrollOffset);
+			promptConsole.setChunkText(tail);
+			return { ...state, focusedCallId: nextId };
+		}
+
+		case "inspector.close": {
+			promptConsole.setFocusedCall(null);
+			promptConsole.setChunkText("");
+			return { ...state, focusedCallId: null, inspectorScrollOffset: 0 };
+		}
+
+		case "inspector.cancel": {
+			if (!state.focusedCallId) return state;
+			const entry = state.activeCalls.get(state.focusedCallId);
+			if (!entry) return state;
+			session.cancelToolCall?.(state.focusedCallId, entry.name);
+			return state;
+		}
+
+		case "inspector.scroll": {
+			if (!state.focusedCallId) return state;
+			const chunks = state.callChunks.get(state.focusedCallId) ?? [];
+			const totalLines = chunks.join("").split("\n").length;
+			const maxScroll = Math.max(0, totalLines - INSPECTOR_LINES);
+			const next = Math.max(0, Math.min(maxScroll, state.inspectorScrollOffset + event.direction * 3));
+			promptConsole.setChunkText(renderChunkWindow(chunks, next));
+			return { ...state, inspectorScrollOffset: next };
 		}
 
 		// ── Agent events ────────────────────────────────────────────────────
@@ -97,14 +146,14 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			const { callId, name, args } = event;
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: state.activeCalls.size + 1 });
-			consoleZone.pulse();
+			promptConsole.pulse();
 			replyTW.flush();
 			thinkingTW.flush();
-			streamingZone.reset();
-			consoleZone.showInFlightCall(callId, name, keyArg);
-			if (!state.pendingFooterShown) consoleZone.showPendingFooter(t.agentFg);
+			replyBlock.reset();
+			promptConsole.showInFlightCall(callId, name, keyArg);
+			if (!state.pendingFooterShown) promptConsole.showPendingFooter(t.agentFg);
 			const activeCalls = new Map(state.activeCalls);
-			activeCalls.set(callId, { name, keyArg });
+			activeCalls.set(callId, { name, keyArg, children: new Map(), depth: 0 });
 			return {
 				...state,
 				activeCalls,
@@ -124,24 +173,71 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 				ok,
 				remainingActive: state.activeCalls.size - 1,
 			});
-			consoleZone.removeInFlightCall(callId);
+			promptConsole.removeInFlightCall(callId);
+			const remainingAfter = state.activeCalls.size - 1;
+			const showOutput = remainingAfter === 0;
 			writer.addCompletedToolBlock(
 				entry.name,
 				entry.keyArg,
 				elapsedMs,
 				ok,
-				display?.trim() ? display : null,
-				display?.trim() ? (displayKind ?? null) : null,
+				showOutput && display?.trim() ? display : null,
+				showOutput && display?.trim() ? (displayKind ?? null) : null,
 			);
 			const activeCalls = new Map(state.activeCalls);
 			activeCalls.delete(callId);
+			const callChunks = new Map(state.callChunks);
+			callChunks.delete(callId);
 			const batchDone = activeCalls.size === 0 && state.batchStartedAt !== null;
 			if (batchDone) writer.addBatchTiming(Date.now() - (state.batchStartedAt ?? 0));
+			const focusLost = state.focusedCallId === callId;
+			const nextFocus = focusLost
+				? activeCalls.size > 0
+					? activeCalls.keys().next().value
+					: null
+				: state.focusedCallId;
+			if (focusLost) {
+				if (nextFocus && callChunks.has(nextFocus)) {
+					promptConsole.setChunkText(renderChunkWindow(callChunks.get(nextFocus) ?? [], 0));
+				} else {
+					promptConsole.setChunkText("");
+				}
+				promptConsole.setFocusedCall(nextFocus ?? null);
+			}
+			if (batchDone) {
+				promptConsole.setFocusedCall(null);
+				promptConsole.setChunkText("");
+			}
 			return {
 				...state,
 				activeCalls,
+				callChunks,
 				batchStartedAt: batchDone ? null : state.batchStartedAt,
+				focusedCallId: batchDone ? null : (nextFocus ?? null),
 			};
+		}
+
+		case "inner-tool-start": {
+			const parent = state.activeCalls.get(event.parentCallId);
+			if (!parent) return state;
+			const childKeyArg = keyArgFromPayload(event.args);
+			parent.children.set(event.callId, {
+				name: event.name,
+				keyArg: childKeyArg,
+				parentCallId: event.parentCallId,
+				children: new Map(),
+				depth: parent.depth + 1,
+			});
+			promptConsole.addChildCall(event.parentCallId, event.callId, event.name, childKeyArg, parent.depth + 1);
+			return state;
+		}
+
+		case "inner-tool-end": {
+			const parent = state.activeCalls.get(event.parentCallId);
+			if (!parent) return state;
+			parent.children.delete(event.callId);
+			promptConsole.removeChildCall(event.parentCallId, event.callId);
+			return state;
 		}
 
 		case "token-usage": {
@@ -165,39 +261,53 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 		}
 
 		case "chunk":
-			consoleZone.pulse();
+			promptConsole.pulse();
 			replyTW.receive(event.text);
 			if (!state.pendingFooterShown) {
-				consoleZone.showPendingFooter(t.agentFg);
+				promptConsole.showPendingFooter(t.agentFg);
 				return { ...state, pendingFooterShown: true };
 			}
 			return state;
 
 		case "thinking":
-			consoleZone.pulse();
+			promptConsole.pulse();
 			thinkingTW.receive(event.text);
 			return state;
 
-		case "tool-chunk":
-			consoleZone.pulse();
-			consoleZone.updateInFlightCallChunk(event.callId, event.text);
+		case "subagent-identity": {
+			promptConsole.setCallIdentity(event.callId, event.color, event.address);
 			return state;
+		}
+
+		case "tool-chunk": {
+			promptConsole.pulse();
+			promptConsole.updateInFlightCallChunk(event.callId, event.text);
+			const chunks = state.callChunks.get(event.callId) ?? [];
+			chunks.push(event.text);
+			const callChunks = new Map(state.callChunks);
+			callChunks.set(event.callId, chunks);
+			if (state.focusedCallId === event.callId) {
+				const tail = renderChunkWindow(chunks, state.inspectorScrollOffset);
+				promptConsole.setChunkText(tail);
+			}
+			return { ...state, callChunks };
+		}
 
 		case "tool-stall":
-			consoleZone.pulse();
-			consoleZone.updateInFlightCallChunk(
+			promptConsole.pulse();
+			promptConsole.updateInFlightCallChunk(
 				event.callId,
 				`\u23f3 no output for ${Math.round(event.lastChunkMs / 1_000)}s`,
 			);
 			return state;
 
 		case "tool-validation-error":
-			consoleZone.pulse();
-			consoleZone.updateInFlightCallChunk(event.callId, `\u26a0 invalid arg '${event.field}': ${event.message}`);
+			promptConsole.pulse();
+			promptConsole.updateInFlightCallChunk(event.callId, `\u26a0 invalid arg '${event.field}': ${event.message}`);
 			return state;
 
 		case "turn-error":
-			consoleZone.pulse();
+			promptConsole.pulse();
 			writer.addNotice(`LLM error: ${event.message}`);
 			return state;
 

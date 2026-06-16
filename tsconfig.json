@@ -141,14 +141,8 @@
 				"./packages/organ-ai/src/*.ts",
 				"./packages/organ-ai/src/completer/*.ts"
 			],
-			"@dpopsuev/alef-organ-orchestration": [
-				"./packages/organ-orchestration/src/index.ts"
-			],
-			"@dpopsuev/alef-organ-orchestration/*": [
-				"./packages/organ-orchestration/src/*.ts"
-			],
-			"@dpopsuev/alef-organ-delegate": [
-				"./packages/organ-delegate/src/index.ts"
+			"@dpopsuev/alef-organ-agent": [
+				"./packages/organ-agent/src/index.ts"
 			],
 			"@dpopsuev/alef-organ-factory": [
 				"./packages/organ-factory/src/index.ts"

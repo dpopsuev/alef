@@ -10,7 +10,7 @@
  */
 
 import type { ISessionStore } from "@dpopsuev/alef-session";
-import type { ChatWriter } from "./chat-writer.js";
+import type { ChatLog } from "./chat-log.js";
 
 export interface SessionHistoryOptions {
 	/** Maximum number of prior turns to load eagerly. Default: 5. */
@@ -70,7 +70,7 @@ async function readRecentTurns(store: ISessionStore, maxTurns: number): Promise<
  */
 export async function prependSessionHistory(
 	store: ISessionStore,
-	writer: ChatWriter,
+	writer: ChatLog,
 	opts: SessionHistoryOptions = {},
 ): Promise<void> {
 	const maxTurns = opts.maxTurns ?? 5;

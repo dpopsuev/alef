@@ -7,12 +7,12 @@
 import type { Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import { runSchemaContract, runStreamingContract } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { InProcessStrategy, type SubagentFactory } from "../src/strategies/in-process.js";
 
 const CWD = "/tmp";
 
@@ -26,14 +26,14 @@ function stubFactory(_model: Model<Api>): SubagentFactory {
 }
 
 const faux = registerFauxProvider();
-const delegateOrgan = createDelegateOrgan({
+const delegateOrgan = createAgentOrgan({
 	strategies: { explore: new InProcessStrategy([], stubFactory(faux.getModel())) },
 });
 
 const organs: Array<{ name: string; organ: Organ }> = [
 	{ name: "organ-fs", organ: createFsOrgan({ cwd: CWD }) },
 	{ name: "organ-shell", organ: createShellOrgan({ cwd: CWD }) },
-	{ name: "organ-delegate", organ: delegateOrgan },
+	{ name: "organ-agent", organ: delegateOrgan },
 ];
 
 describe("schema contract scan", { tags: ["unit"] }, () => {
@@ -63,8 +63,8 @@ describe("streaming contract scan", { tags: ["unit"] }, () => {
 		expect(result.violation, "shell.exec must emit chunks (it uses typedStreamAction)").toBeUndefined();
 	}, 10_000);
 
-	it("organ-delegate/agent.run — KNOWN GAP: typedAction blocks, never emits chunks", async () => {
-		// This test documents the known streaming gap in organ-delegate.
+	it("organ-agent/agent.run — KNOWN GAP: typedAction blocks, never emits chunks", async () => {
+		// This test documents the known streaming gap in organ-agent.
 		// agent.run uses typedAction (one blocking result), not typedStreamAction.
 		// Even if the inner agent takes 10s, no isFinal:false chunks reach the parent.
 		// Fix: convert handleRun to typedStreamAction with AsyncQueue bridge.

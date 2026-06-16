@@ -3,14 +3,14 @@ import type { ThemeTokens } from "../theme-types.js";
 import { fmtMs } from "./ansi-utils.js";
 import { AgentBlock } from "./chat-view.js";
 import { makeMarkdownTheme, makeThinkingMarkdownTheme } from "./markdown-themes.js";
-import { color, dim } from "./theme.js";
+import { color } from "./theme.js";
 
 /**
  * One streaming component per assistant turn.
- * Delegates pill header/footer to AgentBlock for visual consistency with user messages.
+ * Delegates label rendering to AgentBlock for visual consistency with user messages.
  * Opened on first chunk, closed in reset(), left in chat as history.
  */
-export class StreamingZone {
+export class ReplyBlock {
 	private readonly block: AgentBlock;
 
 	markdownNode: Markdown | null = null;
@@ -66,7 +66,7 @@ export class StreamingZone {
 		if (!this.block.isOpen) this.block.start();
 		if (!this.thinkNode) {
 			this.thinkStartedAt = Date.now();
-			this.thinkHeader = new Text(color(dim("┊ thinking"), this.t.dimFg), 0, 0);
+			this.thinkHeader = new Text(color("┊ thinking", this.t.secondaryFg), 0, 0);
 			this.block.addContent(this.thinkHeader);
 			this.thinkNode = new Markdown("", 0, 0, makeThinkingMarkdownTheme(this.t));
 			if (!this._hideThinking) this.block.addContent(this.thinkNode);
@@ -80,7 +80,7 @@ export class StreamingZone {
 		if (this.thinkHeader && this.thinkStartedAt > 0) {
 			const ms = Date.now() - this.thinkStartedAt;
 			const elapsed = fmtMs(ms);
-			this.thinkHeader.setText(color(dim(`┈ thought for ${elapsed}`), this.t.dimFg));
+			this.thinkHeader.setText(color(`┈ thought for ${elapsed}`, this.t.secondaryFg));
 			this.thinkStartedAt = 0;
 		}
 	}

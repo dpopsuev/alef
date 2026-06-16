@@ -1,22 +1,22 @@
 /**
- * ALE-TSK-565: E2E delegation test
+ * E2E delegation test
  *
  * Exercises: motor/agent.run → organ-delegate → InProcessStrategy
- *   → inner organ-llm (faux inner LLM) → sense/agent.run with reply text
- *   → outer organ-llm turn 2 receives toolResult → final llm.response
+ * → inner organ-llm (faux inner LLM) → sense/agent.run with reply text
+ * → outer organ-llm turn 2 receives toolResult → final llm.response
  */
 
 import { randomUUID } from "node:crypto";
 import { defineOrgan, type SensePublishInput, typedStreamAction } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
+import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { Agent } from "../../runtime/src/index.js";
 import { NerveFixture, TurnDriver } from "../../testkit/src/index.js";
-import { InProcessStrategy, type SubagentFactory } from "../src/strategies/in-process.js";
 
 function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): SubagentFactory {
 	return ({ organs, onChunk, systemPrompt: callSystemPrompt }) => {
@@ -90,7 +90,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
 
 		// Organ-delegate with the inner strategy registered as 'explore'
-		const delegateOrgan = createDelegateOrgan({ strategies: { explore: innerStrategy } });
+		const delegateOrgan = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
 		// Outer NerveFixture: outer organ-llm + delegate organ
 		const f = new NerveFixture();
@@ -112,7 +112,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		f.mount(delegateOrgan);
 
 		// Outer LLM: turn 1 → call agent.run
-		//            turn 2 → reply with the inner result as context
+		// turn 2 → reply with the inner result as context
 		outerFaux.setResponses([
 			fauxAssistantMessage([fauxToolCall("agent_run", { text: "list the packages", profile: "explore" })]),
 			fauxAssistantMessage("The packages are: spine, corpus, runner."),
@@ -151,7 +151,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// (no response set on innerFaux, so it returns an error)
 
 		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
-		const delegateOrgan = createDelegateOrgan({ strategies: { explore: innerStrategy } });
+		const delegateOrgan = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
 		const capturedEnds: Array<{ ok: boolean }> = [];
 		const f = new NerveFixture();
@@ -220,7 +220,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		);
 
 		const innerStrategy = new InProcessStrategy([readerOrgan], makeTestFactory(innerFaux.getModel()));
-		const delegateOrgan = createDelegateOrgan({ strategies: { explore: innerStrategy } });
+		const delegateOrgan = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
 		const outerChunks: string[] = [];
 		const f = new NerveFixture();
@@ -287,7 +287,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 			},
 		};
 
-		const delegateOrgan = createDelegateOrgan({ strategies: { explore: stubStrategy } });
+		const delegateOrgan = createAgentOrgan({ strategies: { explore: stubStrategy } });
 
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new NerveFixture();
@@ -359,7 +359,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 			},
 		};
 
-		const delegateOrgan = createDelegateOrgan({ strategies: { explore: identityStrategy } });
+		const delegateOrgan = createAgentOrgan({ strategies: { explore: identityStrategy } });
 
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new NerveFixture();

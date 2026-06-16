@@ -23,8 +23,10 @@ import { RemoteSession } from "./strategies/remote-session.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { loadTheme } from "./theme-loader.js";
 
-// OTel must be registered before any tracer is acquired.
+import { ensureDirectories } from "./xdg-paths.js";
+
 process.title = "alef";
+ensureDirectories();
 const cfg = loadConfig();
 setupOTel();
 
@@ -86,9 +88,8 @@ if (args.attach !== undefined) {
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
 const log = createRunnerLogger(willUseTui, args.debug);
 const trace = setupTrace(args.debug);
-trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui });
-
 const session = await loadSession(args, willUseTui);
+trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
 
 const loaded = await loadOrgans(args, cfg, log);
 const { blueprintUpgradePolicy, blueprintPath } = loaded;

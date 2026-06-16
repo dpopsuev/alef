@@ -4,20 +4,19 @@
  * Wraps an MCP server (stdio or HTTP) via @ai-sdk/mcp createMCPClient.
  * Discovers tools via mcpClient.tools() (schema discovery mode — automatic).
  * Maps each discovered tool to:
- *   - A ToolDefinition in organ.tools[] (for DialogOrgan to include in LLM payloads)
- *   - A Motor subscription that forwards calls to the MCP server
- *   - A Sense publication of MCP tool results
+ * - A ToolDefinition in organ.tools[] (for DialogOrgan to include in LLM payloads)
+ * - A Motor subscription that forwards calls to the MCP server
+ * - A Sense publication of MCP tool results
  *
  * Lifecycle:
- *   McpOrgan.stdio(cmd, args) — creates Organ from local MCP stdio server
- *   McpOrgan.http(url)        — creates Organ from remote MCP HTTP server
- *   unmount()                 — closes mcpClient (stops subprocess for stdio)
+ * McpOrgan.stdio(cmd, args) — creates Organ from local MCP stdio server
+ * McpOrgan.http(url) — creates Organ from remote MCP HTTP server
+ * unmount() — closes mcpClient (stops subprocess for stdio)
  *
  * Consumer DX:
- *   const gh = await McpOrgan.stdio('npx', ['-y', '@modelcontextprotocol/server-github'])
- *   agent.load(gh)  // GitHub tools now available as motor events
+ * const gh = await McpOrgan.stdio('npx', ['-y', '@modelcontextprotocol/server-github'])
+ * agent.load(gh) // GitHub tools now available as motor events
  *
- * Ref: ALE-SPC-16, ALE-TSK-176
  */
 
 import type { MCPClient } from "@ai-sdk/mcp";
@@ -149,13 +148,13 @@ export const McpOrgan = {
 	/**
 	 * Create an Organ from a local MCP stdio server.
 	 *
-	 * @param command  Executable to spawn (e.g. 'npx', 'node')
-	 * @param args     Arguments (e.g. ['-y', '@modelcontextprotocol/server-github'])
-	 * @param name     Organ name. Defaults to the last arg segment.
+	 * @param command Executable to spawn (e.g. 'npx', 'node')
+	 * @param args Arguments (e.g. ['-y', '@modelcontextprotocol/server-github'])
+	 * @param name Organ name. Defaults to the last arg segment.
 	 *
 	 * @example
-	 *   const gh = await McpOrgan.stdio('npx', ['-y', '@modelcontextprotocol/server-github'])
-	 *   agent.load(gh)
+	 * const gh = await McpOrgan.stdio('npx', ['-y', '@modelcontextprotocol/server-github'])
+	 * agent.load(gh)
 	 */
 	async stdio(command: string, args: string[], name?: string): Promise<Organ> {
 		const organName = name ?? args.at(-1)?.split("/").at(-1)?.replace(/^@/, "") ?? "mcp";
@@ -168,12 +167,12 @@ export const McpOrgan = {
 	/**
 	 * Create an Organ from a remote MCP HTTP server.
 	 *
-	 * @param url   HTTP/HTTPS URL of the MCP server endpoint
-	 * @param name  Organ name. Defaults to the URL hostname.
+	 * @param url HTTP/HTTPS URL of the MCP server endpoint
+	 * @param name Organ name. Defaults to the URL hostname.
 	 *
 	 * @example
-	 *   const pg = await McpOrgan.http('https://my-pg-server.example.com/mcp')
-	 *   agent.load(pg)
+	 * const pg = await McpOrgan.http('https://my-pg-server.example.com/mcp')
+	 * agent.load(pg)
 	 */
 	async http(url: string, name?: string): Promise<Organ> {
 		const organName = name ?? new URL(url).hostname;

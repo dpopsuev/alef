@@ -26,7 +26,7 @@ import { runFormatter } from "./formatter.js";
 import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
 import { atomicWrite } from "./fs-utils.js";
 import { applyOps, parsePatch, validateOps } from "./patch.js";
-import { assertWithinRoot } from "./path-guard.js";
+import { assertWithinRoots } from "./path-guard.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
 
 // ---------------------------------------------------------------------------
@@ -176,10 +176,11 @@ export interface FsOrganOptions {
 	/** Allowlist of fs action names to mount (e.g. ['fs.read', 'fs.grep']). Default: all. */
 	actions?: readonly string[];
 	/**
-	 * Allow paths outside cwd (e.g. absolute paths anywhere on disk).
-	 * Default: false — all paths must resolve within cwd.
+	 * Directories the organ is allowed to access (OCAP grant).
+	 * Injected by the materializer from config.security.writable_roots.
+	 * Undefined = unrestricted (no guard). Empty or populated = enforce.
 	 */
-	allowAbsolutePaths?: boolean;
+	writableRoots?: readonly string[];
 	/** Pino-compatible logger. Passed to defineOrgan for Orange/Yellow ROGYB output. */
 	logger?: OrganLogger;
 }
@@ -241,11 +242,9 @@ function getCache(runtime: FsRuntime | undefined, scope: FsCacheScope) {
 	return runtime?.getCache(scope);
 }
 
-function resolveFilePath(cwd: string, filePath: string, allowAbsolute = false): string {
+function resolveFilePath(cwd: string, filePath: string, writableRoots?: readonly string[]): string {
 	const abs = nodeResolve(cwd, filePath);
-	if (!allowAbsolute) {
-		assertWithinRoot(abs, cwd);
-	}
+	assertWithinRoots(abs, writableRoots ?? [cwd]);
 	return abs;
 }
 
@@ -276,7 +275,7 @@ async function handleRead(
 	const { path: filePath, offset, limit } = ctx.payload;
 	if (!filePath) throw new Error("fs.read: path is required");
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots);
 
 	// Read as buffer first to detect binary/image files by magic bytes.
 	const rawBuf = await fsReadFile(absolutePath);
@@ -315,7 +314,7 @@ async function handleWrite(
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, content } = ctx.payload;
 	if (!filePath) throw new Error("fs.write: path is required");
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots);
 	await mkdir(dirname(absolutePath), { recursive: true });
 	await atomicWrite(absolutePath, content);
 	await runFormatter(opts.cwd, absolutePath);
@@ -407,7 +406,7 @@ async function handleEdit(
 		editList = [{ oldText, newText }];
 	}
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.allowAbsolutePaths);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots);
 
 	// Existence check first — ENOENT surfaces before the tracker guard.
 	let fileStat: Stats;
@@ -557,7 +556,7 @@ async function handlePatch(
 	const ops = parsePatch(patch);
 	if (ops.length === 0) throw new Error("fs.patch: no operations found in patch block");
 
-	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, opts.allowAbsolutePaths);
+	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, opts.writableRoots);
 	const errors = await validateOps(ops, resolveAbs);
 	if (errors.length > 0) throw new Error(`fs.patch: validation failed:\n${errors.map((e) => `  ${e}`).join("\n")}`);
 
@@ -684,5 +683,5 @@ const FS_DIRECTIVES = [
 - Use fs.grep to search file contents across the workspace before assuming something doesn't exist.
 - Use fs.find to discover file paths when you don't know the exact name.
 - Use fs.patch when a refactor touches multiple files — one call, all-or-nothing validation before any file is written.
-- All paths must be within the working directory. Absolute paths outside the workspace are rejected.`,
+- All paths must be within the allowed roots configured by the security profile. Paths outside are rejected.`,
 ];

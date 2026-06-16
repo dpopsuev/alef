@@ -4,20 +4,19 @@
  * Replaces Reasoner in tests. No real API call. Reads from a ScriptStep queue.
  *
  * On each sense/llm.response:
- *   1. Pops next ScriptStep from the queue
- *   2. Executes tool calls via the real Motor bus (real organ handlers fire)
- *   3. Waits for Sense results (actual file content, shell output, etc.)
- *   4. Publishes motor/llm.response { text: step.reply }
+ * 1. Pops next ScriptStep from the queue
+ * 2. Executes tool calls via the real Motor bus (real organ handlers fire)
+ * 3. Waits for Sense results (actual file content, shell output, etc.)
+ * 4. Publishes motor/llm.response { text: step.reply }
  *
  * This means:
- *   - FsOrgan, ShellOrgan, LectorOrgan handlers execute for real
- *   - Tool results are real (file content, shell exit codes, etc.)
- *   - Only the LLM's decision (which tools to call + final text) is scripted
- *   - Tests are deterministic, no API key needed, but organ behaviour is real
+ * - FsOrgan, ShellOrgan, LectorOrgan handlers execute for real
+ * - Tool results are real (file content, shell exit codes, etc.)
+ * - Only the LLM's decision (which tools to call + final text) is scripted
+ * - Tests are deterministic, no API key needed, but organ behaviour is real
  *
  * Extends (replaces) MockReasoner which only supports a single canned reply.
  *
- * Ref: ALE-SPC-17
  */
 
 import { randomUUID } from "node:crypto";

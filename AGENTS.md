@@ -68,6 +68,15 @@ Legitimate: external constraints, non-obvious regex, OS/API quirks that would su
 
 Organs live in `packages/organ-*`. Each organ depends only on `@dpopsuev/alef-kernel` and `zod`.
 
+### Before writing organ code
+
+1. Read `packages/kernel/src/framework.ts` — the `defineOrgan()` contract and `ActionMap` type
+2. Read `packages/kernel/src/buses.ts` — `OrganContributions`, `ToolDefinition`, `ContextAssemblyHandler`
+3. Read an existing organ as reference (e.g. `packages/organ-fs/src/organ.ts`)
+4. Run `organComplianceSuite()` from `@dpopsuev/alef-testkit/organ` on the result
+
+Never write organ code from memory or training data. The API shape must come from reading the source. Organs that don't use `defineOrgan()` cannot mount on the nerve and will fail silently.
+
 ### Authoring an organ
 
 ```ts
@@ -114,7 +123,7 @@ Adding a new slot: add the type to `OrganContributions` in `kernel/src/buses.ts`
 
 Production agent: `packages/alef-coding-agent` — the full coding agent stack as a publishable module.
 - `createCodingAgent(config)` — boots ToolShell + LlmPipeline + DelegateOrgan + MemoryOrgan
-- `CODING_AGENT_BLUEPRINT` — canonical organ set (fs, shell, nodesh, lector, web, delegate, orchestration, factory, skills)
+- `CODING_AGENT_BLUEPRINT` — canonical organ set (fs, shell, nodesh, lector, web, agent, factory, skills)
 - `/testkit` subpath — `materializeDefaultOrgans(cwd)` for eval tests
 
 Microkernel: `packages/kernel` — buses, organ framework, binding chain, contributions. No organ names, no application concerns.
@@ -125,6 +134,7 @@ The `session` package must not reference organ-specific event names (Feature Env
 
 ## **CRITICAL** Git Rules
 
+- **Commit early and often.** Each logical change gets its own commit immediately after tests pass. Never accumulate more than one concern in the working tree.
 - **ONLY commit files YOU changed in THIS session**
 - NEVER use `git add -A` or `git add .`
 - ALWAYS use `git add <specific-file-paths>`

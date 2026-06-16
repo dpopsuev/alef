@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
 import { rasterise, rasterToBlocks } from "../src/splash-render.js";
 import { getTheme } from "../src/theme.js";
-import { pillFooterStr, pillHeaderStr, renderToolLine } from "../src/tui-mode.js";
+import { renderToolLine } from "../src/tui-mode.js";
 import { goldenPath, requireGolden, stripANSI } from "./golden.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -21,17 +21,6 @@ const MAG = "\x1b[35m";
 const BOLD = "\x1b[1m";
 const DIM = "\x1b[2m";
 const RESET = "\x1b[0m";
-
-describe("Pill delimiters", { tags: ["unit"] }, () => {
-	for (const width of [40, 80, 120]) {
-		it(`header and footer are same visible width at ${width} columns`, () => {
-			const header = pillHeaderStr("@you", width);
-			const footer = pillFooterStr(width);
-			g(`pill_header_${width}`, header);
-			g(`pill_footer_${width}`, footer);
-		});
-	}
-});
 
 describe("Tool lines", { tags: ["unit"] }, () => {
 	it("active tool line", () => {

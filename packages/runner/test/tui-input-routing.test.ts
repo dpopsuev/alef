@@ -12,7 +12,7 @@ import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "../src/session.js";
 import { getTheme } from "../src/theme.js";
-import { ChatWriter } from "../src/tui/chat-writer.js";
+import { ChatLog } from "../src/tui/chat-log.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
 import { handleCtrlC } from "../src/tui-mode.js";
 
@@ -42,7 +42,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 	const t = getTheme();
 	return {
 		t,
-		writer: new ChatWriter(new Container(), t),
+		writer: new ChatLog(new Container(), t),
 		tui: makeTui(),
 		session: makeSession(),
 		abortCurrentTurn: undefined,

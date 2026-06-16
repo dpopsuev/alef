@@ -1,5 +1,5 @@
 /**
- * ALE-TSK-340 — Agentic organ dev loop: uses organ-orchestration + organ-eval AS organs.
+ * Agentic organ dev loop: uses organ-orchestration + organ-eval AS organs.
  *
  * Replaces the previous test that manually reimplemented collectEvents,
  * postMessage, and runValidators by calling organ-eval internals directly.
@@ -7,11 +7,11 @@
  * validating that the composition works end-to-end.
  *
  * Flow:
- *   1. Write a simple echo organ to disk (simulates nodesh.eval output)
- *   2. Publish motor/orchestration.spawn → Sense returns { endpoint, name }
- *   3. Publish motor/eval.run with endpoint → Sense returns EvalResult
- *   4. Assert EvalResult.passed
- *   5. Publish motor/orchestration.kill to clean up
+ * 1. Write a simple echo organ to disk (simulates nodesh.eval output)
+ * 2. Publish motor/orchestration.spawn → Sense returns { endpoint, name }
+ * 3. Publish motor/eval.run with endpoint → Sense returns EvalResult
+ * 4. Assert EvalResult.passed
+ * 5. Publish motor/orchestration.kill to clean up
  *
  * No real LLM — ALEF_SCRIPTED_REPLIES drives the child's llm.response.
  */
@@ -22,9 +22,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { SenseEvent } from "@dpopsuev/alef-kernel";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
-
+import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
 import { createEvalOrgan } from "@dpopsuev/alef-organ-eval";
-import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { afterEach, describe, expect, it } from "vitest";
 
 const tempDirs: string[] = [];
@@ -37,7 +36,7 @@ afterEach(() => {
 
 function makeTmp(): string {
 	// Now safe to use OS tmpdir — supervisor.spawn sets NODE_PATH so jiti
-	// resolves @dpopsuev/* packages regardless of organ file location (ALE-BUG-31).
+	// resolves @dpopsuev/* packages regardless of organ file location.
 	const d = mkdtempSync(join(tmpdir(), "alef-organ-loop-"));
 	tempDirs.push(d);
 	return d;
@@ -79,19 +78,19 @@ import { defineOrgan } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export function createOrgan() {
-  return defineOrgan("echo", {
-    "motor/echo.ping": {
-      tool: {
-        name: "echo.ping",
-        description: "Echo a message back as pong. Use to verify the organ is running.",
-        inputSchema: z.object({ message: z.string() }),
-      },
-      handle: async (ctx) => ({ reply: \`pong:\${ctx.payload.message}\` }),
-    },
-  }, {
-    description: "Simple echo organ for integration testing — replies pong to any message.",
-    directives: ["Use echo.ping to verify the child agent is alive and processing requests correctly."],
-  });
+ return defineOrgan("echo", {
+ "motor/echo.ping": {
+ tool: {
+ name: "echo.ping",
+ description: "Echo a message back as pong. Use to verify the organ is running.",
+ inputSchema: z.object({ message: z.string() }),
+ },
+ handle: async (ctx) => ({ reply: \`pong:\${ctx.payload.message}\` }),
+ },
+ }, {
+ description: "Simple echo organ for integration testing — replies pong to any message.",
+ directives: ["Use echo.ping to verify the child agent is alive and processing requests correctly."],
+ });
 }
 			`.trim(),
 			"utf-8",
@@ -109,7 +108,7 @@ export function createOrgan() {
 
 		// ── Step 2: mount organs on a shared nerve ────────────────────────
 		const nerve = new InProcessNerve();
-		const orchestrationOrgan = createOrchestrationOrgan({ cwd, replyEvent: "llm.response" });
+		const orchestrationOrgan = createAgentOrgan({ cwd, replyEvent: "llm.response" });
 		const evalOrgan = createEvalOrgan({ replyEvent: "llm.response" });
 		unmounts.push(orchestrationOrgan.mount(nerve.asNerve()));
 		unmounts.push(evalOrgan.mount(nerve.asNerve()));

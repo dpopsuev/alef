@@ -35,7 +35,10 @@ export type AgentEvent =
 	| { type: "turn-complete"; reply: string }
 	| { type: "turn-error"; message: string }
 	| { type: "token-usage"; usage: TokensConsumed }
-	| { type: "message-queued"; queueLength: number };
+	| { type: "message-queued"; queueLength: number }
+	| { type: "subagent-identity"; callId: string; color: string; address: string }
+	| { type: "inner-tool-start"; parentCallId: string; callId: string; name: string; args: Record<string, unknown> }
+	| { type: "inner-tool-end"; parentCallId: string; callId: string };
 
 // ---------------------------------------------------------------------------
 // DirectiveView — the minimal surface Session exposes from the directive system.
@@ -85,6 +88,8 @@ export interface Session {
 	getDirective?(): DirectiveView | undefined;
 
 	subscribe(observer: (event: AgentEvent) => void): () => void;
+
+	cancelToolCall?(callId: string, toolName: string): void;
 }
 
 // ---------------------------------------------------------------------------

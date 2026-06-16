@@ -6,15 +6,14 @@
  * scripted LLM. Stories are independent and self-contained.
  *
  * Mirrors Tako testkit/acceptance/SDLCGauntlet pattern:
- *   - NewGauntlet(t) creates a fully wired test environment
- *   - Run() / Resume() walk the agent turn loop
- *   - assertToolCalled() / assertToolCalledWith() verify organ behavior
- *   - withStubOrgan() replaces a real organ with a stub for isolation
+ * - NewGauntlet(t) creates a fully wired test environment
+ * - Run() / Resume() walk the agent turn loop
+ * - assertToolCalled() / assertToolCalledWith() verify organ behavior
+ * - withStubOrgan() replaces a real organ with a stub for isolation
  *
- * Gate/approval workflows are stubbed for now \u2014 the organ-orchestration integration
- * will wire real approval gates when ALE-SPC-35 (ContextOrgan) is complete.
+ * Gate/approval workflows are stubbed for now \u2014 the organ-agent integration
+ * will wire real approval gates when (ContextOrgan) is complete.
  *
- * Ref: ALE-TSK-328
  */
 
 import { mkdir, rm } from "node:fs/promises";
@@ -46,10 +45,10 @@ export interface GauntletSendOptions {
  *
  * @example
  * const g = await BlueprintGauntlet.create({
- *   organs: [createFsOrgan({ cwd: workspace })],
- *   script: [
- *     step.text("Here is the file."),
- *   ],
+ * organs: [createFsOrgan({ cwd: workspace })],
+ * script: [
+ * step.text("Here is the file."),
+ * ],
  * });
  * const reply = await g.send("Read README.md");
  * g.assertToolCalled("fs.read");
@@ -138,7 +137,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	 * const opts = { organs: [fsOrgan, shellOrgan], script: [...] };
 	 * const full = await BlueprintGauntlet.create(opts);
 	 * const baseline = await BlueprintGauntlet.create(
-	 *   BlueprintGauntlet.withGimpedOrgan(opts, "fs")
+	 * BlueprintGauntlet.withGimpedOrgan(opts, "fs")
 	 * );
 	 * // Compare full vs baseline to measure fsOrgan's contribution.
 	 */
@@ -182,11 +181,9 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 			return Object.entries(expectedPayload).every(([k, v]) => JSON.stringify(p[k]) === JSON.stringify(v));
 		});
 		if (!matched) {
-			const payloads = calls
-				.map((e) => JSON.stringify((e as unknown as { payload?: unknown }).payload))
-				.join("\n  ");
+			const payloads = calls.map((e) => JSON.stringify((e as unknown as { payload?: unknown }).payload)).join("\n ");
 			throw new Error(
-				`Tool "${toolName}" was called but not with expected payload ${JSON.stringify(expectedPayload)}.\n  Actual payloads:\n  ${payloads}`,
+				`Tool "${toolName}" was called but not with expected payload ${JSON.stringify(expectedPayload)}.\n Actual payloads:\n ${payloads}`,
 			);
 		}
 	}

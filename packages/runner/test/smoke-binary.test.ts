@@ -252,9 +252,9 @@ describe("alef binary smoke tests (no real LLM)", { tags: ["integration"] }, () 
 		await second;
 	}, 45_000);
 
-	it("agent.run is present in the tool catalog — organ-delegate is mounted on boot", async () => {
+	it("agent.run is present in the tool catalog — organ-agent is mounted on boot", async () => {
 		// Script the LLM to call tools.describe([]) — returns all tool names in its sense payload.
-		// If organ-delegate is not mounted, agent.run is absent from the catalog.
+		// If organ-agent is not mounted, agent.run is absent from the catalog.
 		// No real LLM needed; no inner-agent network call.
 		const cwd = makeTmp();
 		const replies = [
@@ -276,9 +276,7 @@ describe("alef binary smoke tests (no real LLM)", { tags: ["integration"] }, () 
 		expect(catalogEvent, "sense/tools.describe must appear in SSE").toBeDefined();
 		const results = ((catalogEvent?.payload as Record<string, unknown>)?.results ?? []) as Array<{ name: string }>;
 		const toolNames = results.map((t) => t.name);
-		expect(toolNames, "agent.run must be in the tool catalog — organ-delegate must be mounted").toContain(
-			"agent.run",
-		);
+		expect(toolNames, "agent.run must be in the tool catalog — organ-agent must be mounted").toContain("agent.run");
 	}, 30_000);
 
 	it("--print mode exits cleanly with scripted reply on stdout", async () => {

@@ -5,7 +5,10 @@ import type { ISessionStore } from "@dpopsuev/alef-session";
 export interface SubagentFactoryOptions {
 	organs: readonly Organ[];
 	onChunk?: (chunk: string) => void;
+	onInnerEvent?: (callId: string, type: string, payload: Record<string, unknown>) => void;
 	systemPrompt?: string;
+	/** Soft token budget. When exceeded, a "wrap up" message is injected instead of hard-aborting. */
+	tokenBudget?: number;
 }
 
 export type SubagentSession = {
@@ -33,6 +36,11 @@ export interface BlueprintStackOptions {
 	 * the runner owns Agent assembly and identity management.
 	 */
 	subagentFactory?: SubagentFactory;
+	/**
+	 * OCAP grant — directories organs are allowed to access.
+	 * Undefined = unrestricted. Propagated to orchestration organ for child processes.
+	 */
+	writableRoots?: readonly string[];
 }
 
 export interface BlueprintStack {

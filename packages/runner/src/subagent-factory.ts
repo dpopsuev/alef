@@ -22,23 +22,27 @@ export interface SubagentSessionOptions {
 }
 
 export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFactory {
-	return ({ organs, onChunk, systemPrompt: callSystemPrompt }) => {
+	return (callOpts) => {
+		const { organs, onChunk, onInnerEvent, systemPrompt: callSystemPrompt } = callOpts;
 		// Assign a deterministic color for this subagent instance.
 		const subId = `${opts.parentSessionId ?? "sub"}_${Math.random().toString(36).slice(2, 10)}`;
 		const subActor = resolveSubagentActor(opts.parentSessionId ?? "sub", subId, opts.boardId ?? "");
 
 		const agent = new Agent();
 		let reply = "";
+		let totalInputTokens = 0;
+		let totalOutputTokens = 0;
 		const dialog = new DialogOrgan({
 			sink: (text) => {
 				if (text) reply = text;
 			},
 		});
-		const systemPrompt = [opts.baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
+		const dateContext = `Date: ${new Date().toISOString().split("T")[0]}`;
+		const systemPrompt =
+			[dateContext, opts.baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
 		const chunkHandler = onChunk;
 		const llm = createAgentLoop({
 			model: opts.model,
-			timeoutMs: 60_000,
 			systemPrompt,
 			trackConcurrentOps: opts.trackConcurrentOps,
 			phaseTimeoutMs: 100,
@@ -53,18 +57,40 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		agent.load(toolShell);
 		agent.load(pipeline);
 		agent.load(dialog).load(llm);
-		if (chunkHandler) {
-			agent.observe({
-				onMotorEvent() {},
-				onSenseEvent() {},
-				onSignalEvent(event) {
-					const payload = (event as { payload?: Record<string, unknown> }).payload ?? {};
+		// Emit identity immediately so the parent can display @colorName.
+		onInnerEvent?.(subId, "agent.identity", { color: subActor.color, address: subActor.address });
+
+		const tokenBudget = callOpts.tokenBudget;
+		let budgetExceeded = false;
+
+		agent.observe({
+			onMotorEvent() {},
+			onSenseEvent() {},
+			onSignalEvent(event) {
+				const payload = (event as { payload?: Record<string, unknown> }).payload ?? {};
+				if (event.type === "llm.token-usage") {
+					const usage = payload.usage as { input?: number; output?: number } | undefined;
+					if (usage) {
+						totalInputTokens += usage.input ?? 0;
+						totalOutputTokens += usage.output ?? 0;
+					}
+					if (tokenBudget && !budgetExceeded && totalInputTokens + totalOutputTokens >= tokenBudget) {
+						budgetExceeded = true;
+						dialog.receive(
+							"[system] Token budget reached. Wrap up now — summarize your findings and return your final answer. Do not start new tool calls.",
+							"system",
+						);
+					}
+				}
+				if (chunkHandler) {
 					if (event.type === "llm.chunk") chunkHandler(String(payload.text ?? ""));
 					else if (opts.forwardToolChunks && event.type === "llm.tool-chunk")
 						chunkHandler(String(payload.text ?? ""));
-				},
-			});
-		}
+				}
+				onInnerEvent?.(subId, event.type, payload);
+			},
+		});
+
 		// Register subagent address so the TUI can route @color messages to it.
 		opts.actorRoutes?.register(subActor.color, async (message, timeout) => {
 			await agent.ready();
@@ -76,6 +102,12 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 				await agent.ready();
 				await dialog.send(text, sender, timeoutMs);
 				return reply;
+			},
+			get identity() {
+				return { color: subActor.color, address: subActor.address };
+			},
+			get tokenUsage() {
+				return { input: totalInputTokens, output: totalOutputTokens };
 			},
 			dispose() {
 				opts.actorRoutes?.unregister(subActor.color);

@@ -93,7 +93,7 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 	} else if (args.pmSbom) {
 		console.log(JSON.stringify(pm.sbom(), null, 2));
 	} else if (args.pmOrganList) {
-		const { loadUserOrgansConfig, userOrgansConfigPath } = await import("./materializer.js");
+		const { loadUserOrgansConfig, userOrgansConfigPath } = await import("@dpopsuev/alef-agent-blueprint");
 		const organs = loadUserOrgansConfig();
 		if (!organs || organs.length === 0) {
 			console.log(`No organs registered in ${userOrgansConfigPath()}`);

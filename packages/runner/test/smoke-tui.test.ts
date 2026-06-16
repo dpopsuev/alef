@@ -159,7 +159,7 @@ describe("TUI process-exit smoke (node-pty)", { tags: ["integration"] }, () => {
 		expect(result.exitCode).toBe(0);
 	}, 30_000);
 
-	// ALE-TSK-350: ScriptedReasoner now fires onToolStart/onToolEnd/onResponseChunk.
+	// ScriptedReasoner now fires onToolStart/onToolEnd/onResponseChunk.
 	// Tool pill block renders AND reply text appears via onResponseChunk (not sink).
 	it("tool-call step: tool block and reply text appear, TUI does not hang", async () => {
 		const cwd = makeTmp();

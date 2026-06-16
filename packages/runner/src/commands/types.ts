@@ -1,11 +1,11 @@
 import type { InteractiveOptions } from "../interactive.js";
 import type { Session } from "../session.js";
 import type { ThemeTokens } from "../theme.js";
-import type { ChatWriter } from "../tui/chat-writer.js";
+import type { ChatLog } from "../tui/chat-log.js";
 
 export interface TuiHandlerContext {
 	t: ThemeTokens;
-	writer: ChatWriter;
+	writer: ChatLog;
 	opts?: InteractiveOptions;
 	tui: {
 		stop(): void;

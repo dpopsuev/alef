@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
 import { afterEach, describe, expect, it } from "vitest";
 import { Directives } from "../src/directives.js";
 import { createDefaultDirectives, loadWorkspace, registerOrgans } from "../src/prompt.js";
-import { createToolShellOrgan } from "../src/tool-shell.js";
 
 const tempDirs: string[] = [];
 function tmpCwd(): string {

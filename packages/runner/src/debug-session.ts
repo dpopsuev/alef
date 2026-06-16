@@ -109,11 +109,11 @@ async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
 			if (matched) {
 				paired++;
 				const elapsedMs = matched.timestamp - m.timestamp;
-				console.log(`  ✓ ${short}  ${m.type}  ${elapsedMs}ms`);
+				console.log(`  ok ${short}  ${m.type}  ${elapsedMs}ms`);
 			} else {
 				orphaned++;
 				issues.push(`orphaned motor/${m.type} (corr=${short}) — no sense response`);
-				console.log(`  ✗ ${short}  ${m.type}  NO SENSE RESPONSE`);
+				console.log(`  -- ${short}  ${m.type}  NO SENSE RESPONSE`);
 			}
 		}
 	}

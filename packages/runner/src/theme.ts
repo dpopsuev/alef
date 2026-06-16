@@ -4,11 +4,9 @@
 export type { ColorDepth, ColorToken, ThemeTokens } from "./theme-types.js";
 export { bg, bold, color, colorDepth, dim, fgCode, glyph, italic, nerdFontsAvailable } from "./tui/ansi.js";
 
-import type { ColorToken, ThemeTokens } from "./theme-types.js";
-import { colorDepth, FG_RESET, fgCode } from "./tui/ansi.js";
-
 import chalk from "chalk";
-import { hexToRgb } from "./tui/ansi.js";
+import type { ColorToken, ThemeTokens } from "./theme-types.js";
+import { colorDepth, FG_RESET, fgCode, hexToRgb } from "./tui/ansi.js";
 
 /**
  * Return a chalk instance pre-configured for a theme token's color.
@@ -47,17 +45,13 @@ const TERMINAL: ThemeTokens = {
 	userBg: { ansi16: 45 }, // magenta bg — 16-color only (dark terminals)
 	agentBg: { ansi16: 40 }, // dark green bg — visible but subtle on dark terminals
 	agentFg: { ansi16: 96 }, // bright cyan
-	toolNameFg: { ansi16: 34 }, // blue
-	toolArgFg: { ansi16: 90 },
-	toolOkFg: { ansi16: 32 }, // green
-	toolErrFg: { ansi16: 31 }, // red
+	primaryFg: { ansi16: 34 },
+	secondaryFg: { ansi16: 36 },
+	mutedFg: { ansi16: 90 },
 	accentFg: { ansi16: 95 }, // bright magenta
-	dimFg: { ansi16: 90 },
 	okFg: { ansi16: 32 }, // green
 	warnFg: { ansi16: 33 }, // yellow
 	errFg: { ansi16: 31 }, // red
-	timeFg: { ansi16: 90 },
-	modelFg: { ansi16: 37 },
 };
 
 const AKKO: ThemeTokens = {
@@ -65,17 +59,13 @@ const AKKO: ThemeTokens = {
 	userBg: { truecolor: "#2a1a22", ansi256: 52, ansi16: 45 }, // very dark rose
 	agentBg: { truecolor: "#0e1a22", ansi256: 17, ansi16: 40 }, // very dark blue-gray
 	agentFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 },
-	toolNameFg: { truecolor: "#6d9aba", ansi256: 67, ansi16: 34 },
-	toolArgFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
-	toolOkFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 },
-	toolErrFg: { truecolor: "#f04060", ansi256: 204, ansi16: 91 }, // brightened: #c22848 was 3.1:1 on agentBg (need 4.5:1)
+	primaryFg: { ansi16: 34 },
+	secondaryFg: { ansi16: 90 },
+	mutedFg: { ansi16: 90 },
 	accentFg: { truecolor: "#c55778", ansi256: 168, ansi16: 35 },
-	dimFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
 	okFg: { truecolor: "#50a06c", ansi256: 71, ansi16: 32 },
 	warnFg: { truecolor: "#d09e48", ansi256: 178, ansi16: 33 },
-	errFg: { truecolor: "#c22848", ansi256: 161, ansi16: 31 },
-	timeFg: { truecolor: "#8e6878", ansi256: 95, ansi16: 90 },
-	modelFg: { truecolor: "#9eb8ca", ansi256: 110, ansi16: 36 },
+	errFg: { truecolor: "#f04060", ansi256: 204, ansi16: 91 },
 };
 
 const MONO: ThemeTokens = {
@@ -83,17 +73,13 @@ const MONO: ThemeTokens = {
 	userBg: { truecolor: "#1a1a1a", ansi256: 235, ansi16: 40 }, // near-black
 	agentBg: { truecolor: "#111111", ansi256: 233, ansi16: 40 }, // slightly lighter near-black
 	agentFg: { truecolor: "#cccccc", ansi256: 7, ansi16: 37 },
-	toolNameFg: { truecolor: "#aaaaaa", ansi256: 7, ansi16: 37 },
-	toolArgFg: { truecolor: "#777777", ansi256: 8, ansi16: 90 },
-	toolOkFg: { truecolor: "#cccccc", ansi256: 7, ansi16: 37 },
-	toolErrFg: { truecolor: "#ffffff", ansi256: 15, ansi16: 97 },
+	primaryFg: { ansi16: 34 },
+	secondaryFg: { ansi16: 90 },
+	mutedFg: { ansi16: 90 },
 	accentFg: { truecolor: "#ffffff", ansi256: 15, ansi16: 97 },
-	dimFg: { truecolor: "#555555", ansi256: 8, ansi16: 90 },
 	okFg: { truecolor: "#cccccc", ansi256: 7, ansi16: 37 },
 	warnFg: { truecolor: "#aaaaaa", ansi256: 7, ansi16: 37 },
 	errFg: { truecolor: "#ffffff", ansi256: 15, ansi16: 97 },
-	timeFg: { truecolor: "#555555", ansi256: 8, ansi16: 90 },
-	modelFg: { truecolor: "#aaaaaa", ansi256: 7, ansi16: 37 },
 };
 
 const MATRIX: ThemeTokens = {
@@ -101,17 +87,13 @@ const MATRIX: ThemeTokens = {
 	userBg: { truecolor: "#001a00", ansi256: 22, ansi16: 42 }, // very dark green
 	agentBg: { truecolor: "#001400", ansi256: 22, ansi16: 42 }, // slightly different green-black
 	agentFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
-	toolNameFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
-	toolArgFg: { truecolor: "#006614", ansi256: 22, ansi16: 32 },
-	toolOkFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
-	toolErrFg: { truecolor: "#ff0000", ansi256: 196, ansi16: 91 },
+	primaryFg: { ansi16: 34 },
+	secondaryFg: { ansi16: 90 },
+	mutedFg: { ansi16: 90 },
 	accentFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
-	dimFg: { truecolor: "#1a5c1a", ansi256: 22, ansi16: 32 }, // brightened: #003b00 was 1.48:1 on agentBg (need 1.5:1)
 	okFg: { truecolor: "#00ff41", ansi256: 46, ansi16: 92 },
 	warnFg: { truecolor: "#ffff00", ansi256: 226, ansi16: 93 },
 	errFg: { truecolor: "#ff0000", ansi256: 196, ansi16: 91 },
-	timeFg: { truecolor: "#006614", ansi256: 22, ansi16: 32 },
-	modelFg: { truecolor: "#00bb2d", ansi256: 34, ansi16: 32 },
 };
 
 /** Terminal theme variant for light backgrounds — same 16-color palette but a
@@ -202,12 +184,12 @@ export function spinnerFrames(count = 12): string[] {
  *    5 dark magenta   → userBg  (as fg code; bg() applies the +10 offset)
  *   14 bright cyan    → agentFg
  *    6 dark cyan      → agentBg
- *   12 bright blue    → toolNameFg
- *    8 bright black   → dimFg / toolArgFg / timeFg
- *   10 bright green   → toolOkFg / okFg
- *    9 bright red     → toolErrFg / errFg
+ *   12 bright blue    → primaryFg
+ *    8 bright black   → mutedFg / secondaryFg
+ *   10 bright green   → okFg
+ *    9 bright red     → errFg
  *   11 bright yellow  → warnFg
- *    7 light gray     → modelFg
+ *    7 light gray     → mutedFg
  *
  * When a slot's truecolor is known, it is stored alongside the ansi16 fallback
  * so fgCode() / bg() can use it on truecolor-capable terminals.
@@ -228,17 +210,13 @@ export function buildTerminalTheme(palette: Record<number, string>): ThemeTokens
 		userBg: bgTok(5, 45), // dark magenta bg
 		agentBg: bgTok(6, 40), // dark cyan bg
 		agentFg: tok(14, 96), // bright cyan
-		toolNameFg: tok(12, 34), // bright blue (ansi16=34 = dark blue; some terms map bright blue)
-		toolArgFg: tok(8, 90), // bright black
-		toolOkFg: tok(10, 32), // bright green
-		toolErrFg: tok(9, 31), // bright red
+		primaryFg: { ansi16: 34 },
+		secondaryFg: { ansi16: 90 },
+		mutedFg: { ansi16: 90 },
 		accentFg: tok(13, 95), // same as userFg
-		dimFg: tok(8, 90), // bright black
 		okFg: tok(10, 32), // bright green
 		warnFg: tok(11, 33), // bright yellow
 		errFg: tok(9, 31), // bright red
-		timeFg: tok(8, 90), // bright black
-		modelFg: tok(7, 37), // light gray
 	};
 }
 

@@ -1,5 +1,5 @@
 /**
- * Eviction proof test — ALE-TSK-237.
+ * Eviction proof test.
  *
  * Proves that when a session exceeds the context budget, assembleTurns()
  * correctly evicts old irrelevant turns while preserving recent turns and
@@ -8,15 +8,15 @@
  * No real LLM. All turns are synthetic JSONL records appended directly.
  *
  * Budget math (controlled):
- *   contextWindow      = 4 000 tokens
- *   historyBudget      = 4 000 × 0.70 = 2 800 tokens
- *   maxSingleTurnCost  = 2 800 × 0.25 =   700 tokens
- *   recentGuarantee    = 4 (overridden from default 8)
- *   each turn cost     = 400 tokens (via usage.totalTokens anchor)
+ * contextWindow = 4 000 tokens
+ * historyBudget = 4 000 × 0.70 = 2 800 tokens
+ * maxSingleTurnCost = 2 800 × 0.25 = 700 tokens
+ * recentGuarantee = 4 (overridden from default 8)
+ * each turn cost = 400 tokens (via usage.totalTokens anchor)
  *
- *   recent 4 × 400 = 1 600 → remaining = 2 800 − 1 600 = 1 200
- *   candidates: 1 relevant + 9 irrelevant = 10 turns × 400
- *   budget fits: ⌊1 200 / 400⌋ = 3 candidates → 7 evicted
+ * recent 4 × 400 = 1 600 → remaining = 2 800 − 1 600 = 1 200
+ * candidates: 1 relevant + 9 irrelevant = 10 turns × 400
+ * budget fits: ⌊1 200 / 400⌋ = 3 candidates → 7 evicted
  */
 
 import { mkdtempSync, rmSync } from "node:fs";

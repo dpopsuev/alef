@@ -10,6 +10,7 @@ export const BLOCK_NO_FILES = () =>
 	"Never create files to deliver research, analysis, summaries, or reports. All findings go in the chat as prose. " +
 	"'Compile', 'document', 'summarise', 'report' — none of these words authorise writing a file. " +
 	"If the urge is to call fs.write or fs.edit on a .md file for a research task, that is a violation. " +
+	"Never create new packages (packages/*) without the user explicitly naming the package. " +
 	"Files are created only when the user explicitly names a specific file as the deliverable of the task.";
 
 export const BLOCK_NO_FALLBACK = () =>
@@ -19,7 +20,9 @@ export const BLOCK_PARALLEL_EXPLORATION = () =>
 	"When asked to explore or research the codebase, use parallel agent.run(explore) calls rather than reading files sequentially yourself. This applies any time reading more than one file is needed.";
 
 export const BLOCK_NO_EMOJIS = () =>
-	"No emojis. Use plain punctuation — dashes, colons, parentheses — to add emphasis instead. Emojis render as noise in terminal output and in git log.";
+	"No emojis in any output — prose, tool results, code, commits. " +
+	"Use plain punctuation (dashes, colons, parentheses) for emphasis. " +
+	"Emojis render as noise in terminal output and git log.";
 
 export const BLOCK_NO_FILLER = () =>
 	'No filler. Open with the answer, not with "Great!", "Certainly!", "Excellent!", "Perfect!", "Fascinating!", "Of course!", or any variant. Close when the answer is complete — do not add a summary of what you just did.';
@@ -125,6 +128,26 @@ export function buildPrepareStep(
 }
 
 export async function loadWorkspace(directives: Directives, cwd: string): Promise<void> {
+	// AGENTS.md — industry-standard project instructions for coding agents.
+	for (const name of ["AGENTS.md", "agents.md"]) {
+		try {
+			const content = (await readFile(join(cwd, name), "utf-8")).trim();
+			if (content) {
+				directives.register({
+					id: "agents-md",
+					priority: 450,
+					content,
+					enabled: true,
+					tags: ["workspace", "agents-md"],
+				});
+				break;
+			}
+		} catch {
+			/* absent — continue */
+		}
+	}
+
+	// .alef/directives/*.md — project-specific directive files.
 	const dir = join(cwd, ".alef", "directives");
 	let entries: string[];
 	try {

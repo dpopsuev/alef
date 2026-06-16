@@ -206,18 +206,20 @@ curl -N http://127.0.0.1:$(jq .port ~/.alef/daemon.json)/events
 
 | Concern | File |
 |---|---|
-| `debugLog()` + `initSpineLogger()` | `packages/spine/src/debug.ts` |
+| `debugLog()` + `initSpineLogger()` | `packages/kernel/src/debug.ts` |
 | `trace()` + `initTraceLogger()` | `packages/runner/src/debug-trace.ts` |
 | Logger creation + bridge wiring | `packages/runner/src/logger.ts` |
-| `ctx.log` stamping | `packages/spine/src/organ-dispatch.ts:59-64` |
-| `OrganLogger` interface | `packages/spine/src/organ-types.ts` |
+| `ctx.log` stamping | `packages/kernel/src/organ-dispatch.ts` |
+| `OrganLogger` interface | `packages/kernel/src/organ-types.ts` |
 | organ-llm events | `packages/organ-llm/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
-| delegation events | `packages/organ-delegate/src/organ.ts`, `packages/runner/src/strategies/in-process.ts` |
-| `tools:describe:miss` | `packages/runner/src/tool-shell.ts` |
+| delegation events | `packages/organ-delegate/src/organ.ts`, `packages/runtime/src/in-process.ts` |
+| `tools:describe:miss` | `packages/organ-toolshell/src/organ.ts` |
 | fd subprocess + kill timer | `packages/organ-fs/src/find-query.ts` |
 | Session JSONL format | `packages/runner/src/session-store.ts` |
 | Daemon registry + SSE forwarding | `packages/runner/src/build-delegation.ts` |
 | RemoteSession SSE parser | `packages/runner/src/strategies/remote-session.ts` |
+| Materializer + blueprint registry | `packages/blueprint/src/materializer.ts`, `packages/blueprint/src/registry.ts` |
+| Subagent factory | `packages/runner/src/subagent-factory.ts` |
 
 ## Quick reference
 

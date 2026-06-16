@@ -1,13 +1,13 @@
 /**
- * WCAG contrast audit for all built-in themes — ALE-TSK-289.
+ * WCAG contrast audit for all built-in themes.
  *
  * Computes relative luminance contrast ratio for every fg/bg pair that appears
  * together in the TUI. Only checks truecolor hex values (the most accurate
  * signal). ANSI-16 pairs are not checked — no reliable hex mapping.
  *
  * Thresholds (WCAG AA):
- *   Body text (toolName, reply, user message): >= 4.5:1
- *   Decorative / secondary (dim, time, arg):   >= 1.5:1  (pragmatic floor)
+ * Body text (toolName, reply, user message): >= 4.5:1
+ * Decorative / secondary (dim, time, arg): >= 1.5:1 (pragmatic floor)
  *
  * A failure here means text may be invisible or unreadable on that theme.
  */
@@ -54,15 +54,15 @@ type TokenKey = keyof ThemeTokens;
 const BODY_PAIRS: Array<[TokenKey, TokenKey, string]> = [
 	["userFg", "userBg", "user message text"],
 	["agentFg", "agentBg", "agent reply text"],
-	["toolNameFg", "agentBg", "tool name on agent bg"],
-	["toolOkFg", "agentBg", "tool ok glyph on agent bg"],
-	["toolErrFg", "agentBg", "tool error glyph on agent bg"],
+	["primaryFg", "agentBg", "primary on agent bg"],
+	["okFg", "agentBg", "ok glyph on agent bg"],
+	["errFg", "agentBg", "error glyph on agent bg"],
 ];
 
 const SECONDARY_PAIRS: Array<[TokenKey, TokenKey, string]> = [
-	["toolArgFg", "agentBg", "tool arg on agent bg"],
-	["timeFg", "agentBg", "elapsed time on agent bg"],
-	["dimFg", "agentBg", "dim text on agent bg"],
+	["secondaryFg", "agentBg", "secondary on agent bg"],
+	["mutedFg", "agentBg", "muted on agent bg"],
+	["mutedFg", "agentBg", "muted text on agent bg"],
 ];
 
 const BODY_MIN = 4.5;

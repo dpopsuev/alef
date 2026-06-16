@@ -3,14 +3,14 @@
  *
  * Exposes three endpoints:
  *
- *   GET  /events   → text/event-stream — streams every Motor and Sense event
- *   POST /message  → { "text": "..." } → publishes motor/triggerEvent
- *   GET  /health   → { "ok": true, "clients": N }
+ * GET /events → text/event-stream — streams every Motor and Sense event
+ * POST /message → { "text": "..." } → publishes motor/triggerEvent
+ * GET /health → { "ok": true, "clients": N }
  *
  * Usage:
  *
- *   const router = createRouterOrgan({ port: 3000 });
- *   agent.mount(router);
+ * const router = createRouterOrgan({ port: 3000 });
+ * agent.mount(router);
  *
  * The organ subscribes motor/* and sense/* wildcards. Every event that crosses
  * the nerve is forwarded to all connected SSE clients. External processes can
@@ -19,7 +19,6 @@
  * CORS headers are set on all responses to allow web UIs served from a
  * different origin to connect directly.
  *
- * Ref: ALE-TSK-110
  */
 
 import { randomUUID } from "node:crypto";
@@ -46,7 +45,7 @@ export interface RouterOptions {
 	/**
 	 * Called when POST /message is received with a validated text payload.
 	 * Use this to route user messages through the DialogOrgan:
-	 *   onMessage: (text) => dialog.receive(text, 'user')
+	 * onMessage: (text) => dialog.receive(text, 'user')
 	 *
 	 * When not provided, the router publishes on motor/triggerEvent directly
 	 * (ambient agents can set triggerEvent to their own event type).

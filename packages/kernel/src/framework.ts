@@ -122,10 +122,9 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 
 			for (const [eventType, action] of Object.entries(actions.motor ?? {})) {
 				unsubs.push(
-					nerve.motor.subscribe(
-						eventType,
-						(event) => void dispatchMotorAction(event, action, nerve, cache, log, motorInputSchemas[eventType]),
-					),
+					nerve.motor.subscribe(eventType, (event) => {
+						void dispatchMotorAction(event, action, nerve, cache, log, motorInputSchemas[eventType]);
+					}),
 				);
 			}
 

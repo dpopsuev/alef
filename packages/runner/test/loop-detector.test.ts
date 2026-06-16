@@ -168,7 +168,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// hashResult — Anthropic array-format content (ALE-BUG fix)
+// hashResult — Anthropic array-format content
 // ---------------------------------------------------------------------------
 
 describe("hashResult — Anthropic array-format content", { tags: ["unit"] }, () => {

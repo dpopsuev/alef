@@ -1,8 +1,8 @@
 /**
- * ChatWriter — single write path for all content appended to the chat Container.
+ * ChatLog — single write path for all content appended to the chat Container.
  *
  * Replaces the pattern of passing `chat: Container` around and calling free
- * functions on it. tui-mode.ts holds one ChatWriter and never calls addChild()
+ * functions on it. tui-mode.ts holds one ChatLog and never calls addChild()
  * on the chat Container directly.
  */
 
@@ -19,18 +19,18 @@ import {
 } from "./chat-view.js";
 import { makeToolOutputComponent } from "./tool-view.js";
 
-export interface ChatWriterLabels {
+export interface ChatLogLabels {
 	humanLabel?: string;
 	agentLabel?: string;
 }
 
-export class ChatWriter {
+export class ChatLog {
 	private readonly chat: Container;
 	private readonly t: ThemeTokens;
 	readonly humanLabel: string;
 	readonly agentLabel: string;
 
-	constructor(chat: Container, t: ThemeTokens, labels: ChatWriterLabels = {}) {
+	constructor(chat: Container, t: ThemeTokens, labels: ChatLogLabels = {}) {
 		this.chat = chat;
 		this.t = t;
 		this.humanLabel = labels.humanLabel ?? "@you";

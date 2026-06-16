@@ -1,10 +1,10 @@
 /**
- * Deterministic tests for diff rendering (ALE-BUG-7 / pi-style diff display).
+ * Deterministic tests for diff rendering ( / pi-style diff display).
  *
  * Covers three layers:
- *   1. generateEditDiff (organ-fs) – produces the correct text/x-diff string
- *   2. renderDiffDisplay (tui-mode) – produces correct ANSI-colored output
- *   3. ToolCallEnd wiring – displayKind=text/x-diff routes to renderDiffDisplay
+ * 1. generateEditDiff (organ-fs) – produces the correct text/x-diff string
+ * 2. renderDiffDisplay (tui-mode) – produces correct ANSI-colored output
+ * 3. ToolCallEnd wiring – displayKind=text/x-diff routes to renderDiffDisplay
  */
 import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vitest";
@@ -19,13 +19,13 @@ describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 	const DIFF = [
 		"edit packages/runner/test/smoke-tui.test.ts",
 		"",
-		"    ...",
-		" 92          clearTimeout(timer);",
-		" 93          resolve({ exitCode, output: out });",
-		"-96       const waitFor = (pattern: RegExp, ms = 10_000): Promise<void> =>",
-		"+96       const waitFor = (pattern: RegExp, ms = 15_000): Promise<void> =>",
-		" 97          new Promise((res, rej) => {",
-		"    ...",
+		" ...",
+		" 92 clearTimeout(timer);",
+		" 93 resolve({ exitCode, output: out });",
+		"-96 const waitFor = (pattern: RegExp, ms = 10_000): Promise<void> =>",
+		"+96 const waitFor = (pattern: RegExp, ms = 15_000): Promise<void> =>",
+		" 97 new Promise((res, rej) => {",
+		" ...",
 	].join("\n");
 
 	it("header line (index 0) is bold", () => {
@@ -106,8 +106,8 @@ describe("diff display routing (displayKind = text/x-diff)", { tags: ["unit"] },
 
 // ---------------------------------------------------------------------------
 // 3. generateEditDiff format contract (inline re-implementation to test shape)
-//    Real implementation lives in organ-fs/src/organ.ts; we test its output
-//    contract here to pin the format without importing the organ directly.
+// Real implementation lives in organ-fs/src/organ.ts; we test its output
+// contract here to pin the format without importing the organ directly.
 // ---------------------------------------------------------------------------
 
 describe("generateEditDiff output format contract", { tags: ["unit"] }, () => {

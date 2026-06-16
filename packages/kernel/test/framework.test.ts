@@ -634,7 +634,7 @@ describe("defineOrgan — ready() hook", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// ALE-SPC-34 — context metadata enforcement
+// context metadata enforcement
 // ---------------------------------------------------------------------------
 
 describe("defineOrgan — context metadata enforcement", { tags: ["unit"] }, () => {

@@ -67,15 +67,17 @@ const DEFAULT_MAX_RESULTS_CALLERS = 100;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function resolvePath(cwd: string, p: string, allowAbsolute = false): string {
+function isWithin(normAbs: string, normRoot: string): boolean {
+	return normAbs === normRoot || normAbs.startsWith(`${normRoot}/`);
+}
+
+function resolvePath(cwd: string, p: string, writableRoots?: readonly string[]): string {
 	const abs = resolve(cwd, p);
-	if (!allowAbsolute) {
-		const normRoot = resolve(cwd);
-		if (abs !== normRoot && !abs.startsWith(`${normRoot}/`)) {
-			throw new Error(
-				`Path '${p}' resolves outside workspace root '${normRoot}'. ` +
-					"Use allowAbsolutePaths option to override.",
-			);
+	if (writableRoots) {
+		const allowed = writableRoots.some((root) => isWithin(resolve(abs), resolve(root)));
+		if (!allowed) {
+			const rootList = writableRoots.map((r) => `'${resolve(r)}'`).join(", ");
+			throw new Error(`Path '${p}' resolves outside the allowed roots [${rootList}].`);
 		}
 	}
 	return abs;
@@ -106,10 +108,10 @@ export interface LocalLectorBackendOptions {
 	/** Workspace root. All relative paths resolve against this. */
 	cwd: string;
 	/**
-	 * Allow paths outside cwd. Default: false.
-	 * Set true only for system-level agents that explicitly need cross-workspace access.
+	 * Directories the organ is allowed to access (OCAP grant).
+	 * Undefined = unrestricted (no guard). Populated = enforce.
 	 */
-	allowAbsolutePaths?: boolean;
+	writableRoots?: readonly string[];
 }
 
 /**
@@ -161,7 +163,7 @@ function applySymbolEdit(
 export class LocalLectorBackend implements LectorBackend {
 	private readonly cwd: string;
 	private readonly cache: BlockCache;
-	private readonly allowAbsolutePaths: boolean;
+	private readonly writableRoots: readonly string[] | undefined;
 	/** LSP client — lazy-started on first callers() call for a TS file. */
 	private lsp: LspClient | null = null;
 	private lspStarting: Promise<LspClient> | null = null;
@@ -171,7 +173,7 @@ export class LocalLectorBackend implements LectorBackend {
 	constructor(opts: LocalLectorBackendOptions) {
 		this.cwd = opts.cwd;
 		this.cache = new BlockCache();
-		this.allowAbsolutePaths = opts.allowAbsolutePaths ?? false;
+		this.writableRoots = opts.writableRoots;
 	}
 
 	/** Expose cache for organ unmount cleanup. */
@@ -223,7 +225,7 @@ export class LocalLectorBackend implements LectorBackend {
 	// -------------------------------------------------------------------------
 
 	async read(path: string, opts: ReadOptions = {}): Promise<ReadResult> {
-		const abs = resolvePath(this.cwd, path, this.allowAbsolutePaths);
+		const abs = resolvePath(this.cwd, path, this.writableRoots);
 
 		// Serve from block cache if available.
 		let cached = this.cache.get(abs);
@@ -287,7 +289,7 @@ export class LocalLectorBackend implements LectorBackend {
 	// -------------------------------------------------------------------------
 
 	async write(path: string, content: string): Promise<void> {
-		const abs = resolvePath(this.cwd, path, this.allowAbsolutePaths);
+		const abs = resolvePath(this.cwd, path, this.writableRoots);
 		// Invalidate BEFORE writing — coherence guarantee.
 		this.cache.invalidate(abs);
 		await mkdir(dirname(abs), { recursive: true });
@@ -299,7 +301,7 @@ export class LocalLectorBackend implements LectorBackend {
 	// -------------------------------------------------------------------------
 
 	async edit(path: string, edits: EditSpec[]): Promise<void> {
-		const abs = resolvePath(this.cwd, path, this.allowAbsolutePaths);
+		const abs = resolvePath(this.cwd, path, this.writableRoots);
 
 		// Snapshot the cached symbol map BEFORE invalidation (Optimistic Lock).
 		// Symbol-span edits verify the span against this snapshot.
@@ -328,7 +330,7 @@ export class LocalLectorBackend implements LectorBackend {
 	// -------------------------------------------------------------------------
 
 	async search(pattern: string, opts: SearchOptions = {}): Promise<SearchMatch[]> {
-		const searchRoot = opts.path ? resolvePath(this.cwd, opts.path, this.allowAbsolutePaths) : this.cwd;
+		const searchRoot = opts.path ? resolvePath(this.cwd, opts.path, this.writableRoots) : this.cwd;
 		const maxResults = opts.maxResults ?? DEFAULT_MAX_RESULTS_SEARCH;
 
 		const args = ["-rn", "--color=never"];
@@ -382,7 +384,7 @@ export class LocalLectorBackend implements LectorBackend {
 	// -------------------------------------------------------------------------
 
 	async find(glob: string, opts: FindOptions = {}): Promise<string[]> {
-		const searchRoot = opts.path ? resolvePath(this.cwd, opts.path, this.allowAbsolutePaths) : this.cwd;
+		const searchRoot = opts.path ? resolvePath(this.cwd, opts.path, this.writableRoots) : this.cwd;
 		const maxResults = opts.maxResults ?? DEFAULT_MAX_RESULTS_FIND;
 		const maxDepth = opts.depth ?? Number.POSITIVE_INFINITY;
 		const includeHidden = opts.hidden ?? false;
@@ -478,7 +480,7 @@ export class LocalLectorBackend implements LectorBackend {
 	];
 
 	private async _callersViaLsp(symbol: string, filePath: string, maxResults: number): Promise<CallSite[]> {
-		const abs = resolvePath(this.cwd, filePath, this.allowAbsolutePaths);
+		const abs = resolvePath(this.cwd, filePath, this.writableRoots);
 		const { readFile: rf } = await import("node:fs/promises");
 		const content = await rf(abs, "utf-8");
 		const fileUrl = pathToFileURL(abs).href;

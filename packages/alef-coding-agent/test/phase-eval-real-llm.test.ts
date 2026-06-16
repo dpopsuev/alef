@@ -13,15 +13,15 @@
  * Reports per-phase scores regardless of overall pass/fail.
  */
 
+import { materializeDefaultOrgans } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
 import { describe, expect, it } from "vitest";
 import { fixBugWithCleanCommit } from "../../eval/src/evaluations/git-workflow.js";
 import { EvalHarness } from "../../eval/src/harness.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../eval/src/model.js";
 import { formatPhaseReport, PhaseEvaluationRunner } from "../../eval/src/phase-runner.js";
-import { materializeDefaultOrgans } from "@dpopsuev/alef-agent-blueprint";
-import { createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
 
 describe.skipIf(SKIP_REAL_LLM)("PhaseEvaluation real-LLM — fix bug with clean commit", { tags: ["real-llm"] }, () => {
 	it("fixBugWithCleanCommit scores >= 0.70 across five phases", async () => {

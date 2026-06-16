@@ -7,6 +7,7 @@ export * from "./execution.js";
 export * from "./framework.js";
 export * from "./mcp-organ.js";
 export { type CacheStrategy, createMapCache, makeCacheKey } from "./organ-cache.js";
+export { explainOrgan } from "./organ-explain.js";
 export * from "./organ-sdk.js";
 export * from "./payload.js";
 export * from "./protocols.js";

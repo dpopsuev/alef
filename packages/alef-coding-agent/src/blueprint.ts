@@ -103,9 +103,7 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 
 	const factoryOrgan = createFactoryOrgan({ cwd });
 
-	const filteredDomain = domainOrgans.filter(
-		(o) => !["agent", "delegate", "orchestration", "factory", "skills"].includes(o.name),
-	);
+	const filteredDomain = domainOrgans.filter((o) => !["agent", "factory", "skills"].includes(o.name));
 	const allOrgans = [
 		...filteredDomain,
 		memoryOrgan,

@@ -144,6 +144,20 @@ export class Agent {
 			throw err;
 		}
 		this.unmounts.push(unmount);
+
+		// Load-time validation — surface common mistakes early.
+		if (organ.tools.length > 0 && (!organ.description || organ.description.trim().length === 0)) {
+			console.warn(`[Agent.load] '${organ.name}' exposes ${organ.tools.length} tool(s) but has no description.`);
+		}
+		const existingToolNames = new Set(this._organs.slice(0, -1).flatMap((o) => o.tools.map((t) => t.name)));
+		for (const tool of organ.tools) {
+			if (existingToolNames.has(tool.name)) {
+				console.warn(
+					`[Agent.load] duplicate tool '${tool.name}' — '${organ.name}' shadows a previously loaded organ.`,
+				);
+			}
+		}
+
 		// Announce all previously loaded organs to the new organ (catch-up),
 		// then announce the new organ to everyone. Handlers must be idempotent.
 		const sysId = randomUUID();

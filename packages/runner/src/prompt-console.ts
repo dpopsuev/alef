@@ -188,16 +188,19 @@ export class PromptConsole {
 		this.tui.requestRender();
 	}
 
+	private readonly chunkAccumulators = new Map<string, string>();
+
 	updateInFlightCallChunk(callId: string, text: string): void {
 		const entry = this.inFlightCalls.get(callId);
 		if (entry) {
-			// Keep only the last non-empty line for the pill subtitle.
+			const accumulated = (this.chunkAccumulators.get(callId) ?? "") + text;
+			this.chunkAccumulators.set(callId, accumulated.slice(-500));
 			const lastLine =
-				text
+				accumulated
 					.split("\n")
 					.filter((l) => l.trim())
-					.at(-1) ?? text;
-			entry.lastChunk = lastLine.slice(0, 80);
+					.at(-1) ?? "";
+			entry.lastChunk = lastLine.slice(-120);
 		}
 	}
 
@@ -206,6 +209,7 @@ export class PromptConsole {
 		if (entry) {
 			this.inFlightQueue.removeChild(entry.dt);
 			this.inFlightCalls.delete(callId);
+			this.chunkAccumulators.delete(callId);
 			this.tui.requestRender();
 		}
 	}

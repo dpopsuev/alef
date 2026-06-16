@@ -1,0 +1,261 @@
+import { defineOrgan, McpOrgan, type Organ, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { z } from "zod";
+
+export interface McpRegistryOrganOptions {
+	cwd: string;
+}
+
+// Registry API types
+interface RegistryServer {
+	server: {
+		name: string;
+		description: string;
+		version: string;
+		repository?: {
+			url: string;
+			source: string;
+		};
+		packages?: Array<{
+			registryType: string;
+			identifier: string;
+			version: string;
+			transport: {
+				type: string;
+				url?: string;
+			};
+			runtimeHint?: string;
+		}>;
+	};
+	_meta?: {
+		"io.modelcontextprotocol.registry/official"?: {
+			status: string;
+			publishedAt: string;
+			updatedAt: string;
+			isLatest: boolean;
+		};
+	};
+}
+
+interface RegistryResponse {
+	servers: RegistryServer[];
+	metadata?: {
+		count?: number;
+		nextCursor?: string;
+	};
+}
+
+const SEARCH_TOOL = {
+	name: "mcp.search",
+	description:
+		"Search the MCP Registry (registry.modelcontextprotocol.io) for available MCP servers. " +
+		"Returns server metadata including name, description, installation instructions, and transport details.",
+	inputSchema: z.object({
+		query: z.string().min(1).describe("Search query to find MCP servers (e.g. 'filesystem', 'github', 'sql')"),
+		limit: z.number().optional().describe("Maximum number of results to return (default: 10)"),
+	}),
+};
+
+const INSTALL_TOOL = {
+	name: "mcp.install",
+	description:
+		"Install and load an MCP server from npm or other package registry. " +
+		"Requires the server name from mcp.search results. Supports stdio transport for local MCP servers.",
+	inputSchema: z.object({
+		serverName: z.string().min(1).describe("Full server name from registry (e.g. 'io.github.owner/repo')"),
+		transport: z.enum(["stdio", "http"]).describe("Transport type (stdio for npx/local, http for remote)"),
+		config: z
+			.object({
+				command: z.string().optional().describe("Command to run (default: 'npx' for npm packages)"),
+				args: z.array(z.string()).optional().describe("Arguments to pass to the command"),
+				url: z.string().optional().describe("URL for http transport"),
+			})
+			.optional()
+			.describe("Configuration for the MCP server"),
+	}),
+};
+
+const LIST_TOOL = {
+	name: "mcp.list",
+	description: "List all currently loaded MCP organs and their tools.",
+	inputSchema: z.object({}),
+};
+
+export function createMcpRegistryOrgan(_opts: McpRegistryOrganOptions) {
+	// Store loaded MCP organs
+	const loadedOrgans = new Map<string, Organ>();
+
+	return defineOrgan(
+		"mcp-registry",
+		{
+			motor: {
+				"mcp.search": typedAction(SEARCH_TOOL, async (ctx) => {
+					const { query, limit = 10 } = ctx.payload;
+
+					try {
+						const url = `https://registry.modelcontextprotocol.io/v0/servers?search=${encodeURIComponent(query)}&limit=${limit}`;
+						const response = await fetch(url);
+
+						if (!response.ok) {
+							throw new Error(`Registry API error: ${response.status} ${response.statusText}`);
+						}
+
+						const data = (await response.json()) as RegistryResponse;
+						const servers = data.servers || [];
+
+						// Format results for display
+						const results = servers.map((s) => ({
+							name: s.server.name,
+							description: s.server.description,
+							version: s.server.version,
+							repository: s.server.repository?.url,
+							packages: s.server.packages?.map((p) => ({
+								type: p.registryType,
+								identifier: p.identifier,
+								transport: p.transport.type,
+								runtimeHint: p.runtimeHint,
+							})),
+							status: s._meta?.["io.modelcontextprotocol.registry/official"]?.status,
+						}));
+
+						const displayText = results
+							.map(
+								(r, i) =>
+									`${i + 1}. **${r.name}** (${r.version})\n` +
+									`   ${r.description}\n` +
+									`   Repository: ${r.repository || "N/A"}\n` +
+									`   Status: ${r.status || "unknown"}`,
+							)
+							.join("\n\n");
+
+						return withDisplay(
+							{
+								query,
+								count: results.length,
+								servers: results,
+							},
+							{
+								text: `Found ${results.length} MCP server(s) matching "${query}":\n\n${displayText}`,
+								mimeType: "text/markdown",
+							},
+						);
+					} catch (error) {
+						const errMsg = error instanceof Error ? error.message : String(error);
+						return withDisplay(
+							{ error: errMsg, query },
+							{ text: `Error searching MCP registry: ${errMsg}`, mimeType: "text/plain" },
+						);
+					}
+				}),
+
+				"mcp.install": typedAction(INSTALL_TOOL, async (ctx) => {
+					const { serverName, transport, config = {} } = ctx.payload;
+
+					try {
+						// Check if already loaded
+						if (loadedOrgans.has(serverName)) {
+							return withDisplay(
+								{ serverName, alreadyLoaded: true },
+								{
+									text: `MCP server "${serverName}" is already loaded`,
+									mimeType: "text/plain",
+								},
+							);
+						}
+
+						let organ: Organ;
+
+						if (transport === "stdio") {
+							// Default to npx for npm packages
+							const command = config.command || "npx";
+							const args = config.args || ["-y", serverName];
+
+							organ = await McpOrgan.stdio(command, args, serverName);
+						} else if (transport === "http") {
+							if (!config.url) {
+								throw new Error("config.url is required for http transport");
+							}
+							organ = await McpOrgan.http(config.url, serverName);
+						} else {
+							throw new Error(`Unsupported transport: ${transport}`);
+						}
+
+						// Store the loaded organ
+						loadedOrgans.set(serverName, organ);
+
+						const toolCount = organ.tools?.length || 0;
+						const toolNames = organ.tools?.map((t) => t.name).join(", ") || "none";
+
+						return withDisplay(
+							{
+								serverName,
+								transport,
+								toolCount,
+								tools: organ.tools?.map((t) => ({ name: t.name, description: t.description })),
+							},
+							{
+								text:
+									`Successfully loaded MCP server "${serverName}"\n` +
+									`Transport: ${transport}\n` +
+									`Tools (${toolCount}): ${toolNames}`,
+								mimeType: "text/plain",
+							},
+						);
+					} catch (error) {
+						const errMsg = error instanceof Error ? error.message : String(error);
+						return withDisplay(
+							{ error: errMsg, serverName },
+							{
+								text: `Error installing MCP server "${serverName}": ${errMsg}`,
+								mimeType: "text/plain",
+							},
+						);
+					}
+				}),
+
+				"mcp.list": typedAction(LIST_TOOL, async () => {
+					const organs = Array.from(loadedOrgans.entries()).map(([name, organ]) => ({
+						name,
+						toolCount: organ.tools?.length || 0,
+						tools: organ.tools?.map((t) => ({ name: t.name, description: t.description })),
+					}));
+
+					const displayText =
+						organs.length === 0
+							? "No MCP servers currently loaded."
+							: organs
+									.map(
+										(o) =>
+											`**${o.name}** (${o.toolCount} tools)\n` +
+											o.tools?.map((t) => `  - ${t.name}: ${t.description}`).join("\n"),
+									)
+									.join("\n\n");
+
+					return withDisplay(
+						{
+							count: organs.length,
+							organs,
+						},
+						{
+							text: `Loaded MCP Servers (${organs.length}):\n\n${displayText}`,
+							mimeType: "text/markdown",
+						},
+					);
+				}),
+			},
+		},
+		{
+			description:
+				"MCP Registry discovery organ — search, install, and manage Model Context Protocol servers from the official registry.",
+			directives: [
+				"Use mcp.search to discover MCP servers by keyword (e.g. 'filesystem', 'github', 'database'). " +
+					"Results include server metadata, installation instructions, and available transports.",
+				"Use mcp.install to load an MCP server and make its tools available. " +
+					"Requires serverName from search results. Stdio transport uses npx by default.",
+				"Use mcp.list to see all currently loaded MCP servers and their tools.",
+				"MCP servers extend the agent's capabilities with external tools. " +
+					"Search before installing to verify the server exists and supports your use case.",
+			],
+			labels: ["mcp-registry", "discovery", "tooling"],
+		},
+	);
+}

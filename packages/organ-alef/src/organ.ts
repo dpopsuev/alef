@@ -367,6 +367,29 @@ Maximum 5 iterations before stopping and reporting what is not working.`,
 	],
 };
 
+const CORE_ORGANS = new Set([
+	"fs",
+	"shell",
+	"nodesh",
+	"lector",
+	"web",
+	"agent",
+	"alef",
+	"dialog",
+	"toolshell",
+	"context.assembly.pipeline",
+	"security-policy",
+]);
+
+const FORBIDDEN_CODE_PATTERNS = [
+	/process\.exit/,
+	/child_process/,
+	/require\s*\(/,
+	/eval\s*\(/,
+	/Function\s*\(/,
+	/import\s*\(\s*['"`](?!@dpopsuev\/alef)/,
+];
+
 function buildPrototypeTools(
 	agent: AgentPrototypeAdapter,
 	loadOrgan: NonNullable<AlefApiOrganOptions["loadOrgan"]>,
@@ -412,10 +435,31 @@ function buildPrototypeTools(
 				async (ctx) => {
 					let organPath: string;
 					if (ctx.payload.code) {
+						const code = ctx.payload.code;
+						for (const pattern of FORBIDDEN_CODE_PATTERNS) {
+							if (pattern.test(code)) {
+								return withDisplay(
+									{ error: "forbidden pattern", pattern: pattern.source },
+									{
+										text: `Rejected: organ code contains forbidden pattern '${pattern.source}'`,
+										mimeType: "text/plain",
+									},
+								);
+							}
+						}
+						if (!code.includes("defineOrgan")) {
+							return withDisplay(
+								{ error: "missing defineOrgan" },
+								{
+									text: "Rejected: organ code must use defineOrgan() from @dpopsuev/alef-kernel",
+									mimeType: "text/plain",
+								},
+							);
+						}
 						await mkdir(PROTOTYPES_DIR, { recursive: true });
 						const filename = `${ctx.payload.name ?? "prototype"}.ts`;
 						organPath = join(PROTOTYPES_DIR, filename);
-						await writeFile(organPath, ctx.payload.code, "utf-8");
+						await writeFile(organPath, code, "utf-8");
 					} else {
 						organPath = resolve(cwd, ctx.payload.path as string);
 					}
@@ -441,11 +485,21 @@ function buildPrototypeTools(
 					}),
 				},
 				async (ctx) => {
-					const removed = agent.unload(ctx.payload.name);
+					const { name } = ctx.payload;
+					if (CORE_ORGANS.has(name)) {
+						return withDisplay(
+							{ unloaded: false, name, reason: "core organ" },
+							{
+								text: `Cannot unplug '${name}' — core organ required for agent operation`,
+								mimeType: "text/plain",
+							},
+						);
+					}
+					const removed = agent.unload(name);
 					return withDisplay(
-						{ unloaded: removed, name: ctx.payload.name },
+						{ unloaded: removed, name },
 						{
-							text: removed ? `Unplugged '${ctx.payload.name}'` : `Organ '${ctx.payload.name}' not found`,
+							text: removed ? `Unplugged '${name}'` : `Organ '${name}' not found`,
 							mimeType: "text/plain",
 						},
 					);

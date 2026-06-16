@@ -93,7 +93,7 @@ export async function callLLM(
 		{
 			apiKey: options.getApiKey?.() ?? options.apiKey,
 			timeoutMs,
-			maxRetries: 0,
+			maxRetries: 2,
 			maxRetryDelayMs,
 			...(thinking ? { reasoning: thinking } : {}),
 			...(options.getSignal ? { signal: options.getSignal() } : {}),

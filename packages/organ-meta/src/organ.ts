@@ -1,5 +1,5 @@
 /**
- * AlefApiOrgan — typed tools for querying the running Alef instance.
+ * MetaOrgan — typed tools for querying the running Alef instance.
  *
  * Replaces the nodesh prelude used in :meta phase 1.
  * The organ is loaded by the in-process meta-agent only — it is never
@@ -33,7 +33,7 @@ export interface AgentPrototypeAdapter {
 	readonly organs: readonly Organ[];
 }
 
-export interface AlefApiOrganOptions {
+export interface MetaOrganOptions {
 	getDirective?: () => DirectiveAdapter | undefined;
 	/** Agent adapter for prototype.plug/unplug/list. Omit to disable prototype tools. */
 	agent?: AgentPrototypeAdapter;
@@ -403,7 +403,7 @@ function validateOrganCode(code: string): string | null {
 
 function buildPrototypeTools(
 	agent: AgentPrototypeAdapter,
-	loadOrgan: NonNullable<AlefApiOrganOptions["loadOrgan"]>,
+	loadOrgan: NonNullable<MetaOrganOptions["loadOrgan"]>,
 	cwd: string,
 ): ActionMap {
 	return {
@@ -520,7 +520,7 @@ function buildPrototypeTools(
 	};
 }
 
-function buildDirectiveTools(g: NonNullable<AlefApiOrganOptions["getDirective"]>): ActionMap {
+function buildDirectiveTools(g: NonNullable<MetaOrganOptions["getDirective"]>): ActionMap {
 	return {
 		motor: {
 			"alef.directive.list": typedAction(
@@ -631,7 +631,7 @@ function buildDirectiveTools(g: NonNullable<AlefApiOrganOptions["getDirective"]>
 	};
 }
 
-function buildSessionTools(opts: AlefApiOrganOptions): ActionMap {
+function buildSessionTools(opts: MetaOrganOptions): ActionMap {
 	return {
 		motor: {
 			"alef.sessions.list": typedAction(
@@ -767,7 +767,7 @@ function buildSessionTools(opts: AlefApiOrganOptions): ActionMap {
 	};
 }
 
-export function createAlefApiOrgan(opts: AlefApiOrganOptions) {
+export function createMetaOrgan(opts: MetaOrganOptions) {
 	const { agent, loadOrgan, cwd = process.cwd(), getDirective } = opts;
 	return defineOrgan(
 		"alef",

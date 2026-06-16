@@ -1,15 +1,15 @@
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, describe, expect, it } from "vitest";
-import { createAlefApiOrgan } from "../src/organ.js";
+import { createMetaOrgan } from "../src/organ.js";
 
-organComplianceSuite(() => createAlefApiOrgan({ dialogEventType: "llm.input" }));
+organComplianceSuite(() => createMetaOrgan({ dialogEventType: "llm.input" }));
 
 describe("alef.rebuild", { tags: ["unit"] }, () => {
 	const f = new NerveFixture();
 	afterEach(() => f.dispose());
 
 	it("returns ok:false when onRebuildRequest is not provided", async () => {
-		f.mount(createAlefApiOrgan({ dialogEventType: "llm.input" }));
+		f.mount(createMetaOrgan({ dialogEventType: "llm.input" }));
 
 		const result = await f.call("alef.rebuild", {});
 		expect(result.isError).toBe(false);
@@ -20,7 +20,7 @@ describe("alef.rebuild", { tags: ["unit"] }, () => {
 	it("returns ok:true and calls onRebuildRequest when provided", async () => {
 		let called = false;
 		f.mount(
-			createAlefApiOrgan({
+			createMetaOrgan({
 				dialogEventType: "llm.input",
 				onRebuildRequest: () => {
 					called = true;

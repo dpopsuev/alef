@@ -208,15 +208,18 @@ export async function dispatchTools(
 						});
 					}
 					const displayBlock = extractDisplay(r.payload);
+					const resultText = payloadToText(r.payload, r.isError, r.errorMessage);
+					const estimatedTokens = Math.ceil(resultText.length / 4);
 					signal.publish({
 						type: "llm.tool-end",
 						payload: {
 							callId: tc.id,
 							elapsedMs: Date.now() - startedAt,
 							ok: !r.isError,
-							result: payloadToText(r.payload, r.isError, r.errorMessage),
+							result: resultText,
 							display: displayBlock?.text,
 							displayKind: displayBlock?.mimeType,
+							estimatedTokens,
 						},
 						correlationId,
 					});

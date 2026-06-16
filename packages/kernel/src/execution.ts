@@ -1,9 +1,12 @@
 export const DEFAULT_CONVERSATION_TIMEOUT_MS = 600_000;
+export const DEFAULT_STALL_TIMEOUT_MS = 120_000;
 
 export interface SendRequest {
 	text: string;
 	sender?: string;
 	timeoutMs?: number;
+	/** Idle timeout in ms. Strategy aborts if no activity (chunks, events) for this long. */
+	stallMs?: number;
 	/** Caller-owned signal. When aborted, the strategy cancels in-flight work and rejects. */
 	signal?: AbortSignal;
 	onChunk?: (chunk: string) => void;

@@ -1,6 +1,7 @@
 import type { SubagentFactory, SubagentFactoryOptions } from "@dpopsuev/alef-agent-blueprint";
 import {
 	DEFAULT_CONVERSATION_TIMEOUT_MS,
+	DEFAULT_STALL_TIMEOUT_MS,
 	debugLog,
 	type ExecutionStrategy,
 	type Organ,
@@ -21,14 +22,15 @@ export class InProcessStrategy implements ExecutionStrategy {
 	async send({
 		text,
 		timeoutMs: conversationTimeoutMs = DEFAULT_CONVERSATION_TIMEOUT_MS,
+		stallMs = DEFAULT_STALL_TIMEOUT_MS,
 		signal,
 		onChunk,
 		onInnerEvent,
 	}: SendRequest): Promise<string> {
 		if (signal?.aborted) throw new Error("Aborted before send");
 
-		const watchdog = new Watchdog(conversationTimeoutMs, () => {
-			debugLog("in-process:stall", { stallMs: conversationTimeoutMs });
+		const watchdog = new Watchdog(stallMs, () => {
+			debugLog("in-process:stall", { stallMs });
 			session.dispose();
 		});
 
@@ -53,7 +55,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 			onInnerEvent: wrappedInnerEvent,
 			systemPrompt: this.baseSystemPrompt,
 		});
-		debugLog("in-process:start", { organs: this.organs.map((o) => o.name), conversationTimeoutMs });
+		debugLog("in-process:start", { organs: this.organs.map((o) => o.name), conversationTimeoutMs, stallMs });
 
 		const onAbort = () => {
 			watchdog.stop();

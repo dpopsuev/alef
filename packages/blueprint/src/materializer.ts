@@ -169,6 +169,7 @@ export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {
 		{ name: "lector", actions: [], toolNames: [] },
 		{ name: "web", actions: [], toolNames: [] },
 		{ name: "agent", actions: [], toolNames: [] },
+		{ name: "cache", actions: [], toolNames: [] },
 		{ name: "factory", actions: [], toolNames: [] },
 		{ name: "skills", actions: [], toolNames: [] },
 	],

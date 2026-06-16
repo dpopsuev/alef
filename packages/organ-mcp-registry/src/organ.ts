@@ -3,6 +3,10 @@ import { z } from "zod";
 
 export interface McpRegistryOrganOptions {
 	cwd: string;
+	agent?: {
+		load(organ: Organ): void;
+		unload(name: string): boolean;
+	};
 }
 
 // Registry API types
@@ -80,8 +84,7 @@ const LIST_TOOL = {
 	inputSchema: z.object({}),
 };
 
-export function createMcpRegistryOrgan(_opts: McpRegistryOrganOptions) {
-	// Store loaded MCP organs
+export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
 	const loadedOrgans = new Map<string, Organ>();
 
 	return defineOrgan(
@@ -179,8 +182,10 @@ export function createMcpRegistryOrgan(_opts: McpRegistryOrganOptions) {
 							throw new Error(`Unsupported transport: ${transport}`);
 						}
 
-						// Store the loaded organ
 						loadedOrgans.set(serverName, organ);
+						if (opts.agent) {
+							opts.agent.load(organ);
+						}
 
 						const toolCount = organ.tools?.length || 0;
 						const toolNames = organ.tools?.map((t) => t.name).join(", ") || "none";

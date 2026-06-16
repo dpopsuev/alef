@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@dpopsuev/alef-kernel": "^0.0.1",
-    "@dpopsuev/web-spider": "^0.10.4",
+    "@dpopsuev/web-spider": "^0.10.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

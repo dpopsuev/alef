@@ -1,1 +1,2 @@
-export { createScribeOrgan, createScribeOrgan as createOrgan, type ScribeOrganOptions } from "./organ.js";
+export type { ScribeOrganOptions } from "./organ.js";
+export { createScribeOrgan, createScribeOrgan as createOrgan } from "./organ.js";

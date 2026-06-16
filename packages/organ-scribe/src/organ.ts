@@ -1,41 +1,28 @@
-import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
-import { z } from "zod";
+import { mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import type { ContextAssemblyHandler, Nerve, Organ } from "@dpopsuev/alef-kernel";
+import { debugLog, McpOrgan } from "@dpopsuev/alef-kernel";
 
 export interface ScribeOrganOptions {
-	cwd: string;
-	goalId?: string;
+	/** Path to the scribe binary. Defaults to ~/Workspace/scribe/bin/scribe */
+	binary?: string;
+	/** Path to the SQLite database. Defaults to $XDG_DATA_HOME/alef/scribe.db */
+	dbPath?: string;
 }
 
-const CLAIM_TOOL = {
-	name: "scribe.claim",
-	description:
-		"Claim the next unblocked task from the active Scribe goal. " +
-		"Returns the task ID, title, and goal so the agent knows what to work on next.",
-	inputSchema: z.object({
-		goalId: z.string().min(1).describe("Scribe goal ID to query for unblocked tasks"),
-	}),
-};
+const DEFAULT_BINARY = join(homedir(), "Workspace/scribe/bin/scribe");
+const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
+const DEFAULT_DB_PATH = join(XDG_DATA_HOME, "alef", "scribe.db");
 
-const COMPLETE_TOOL = {
-	name: "scribe.complete",
-	description: "Mark a Scribe task as completed after finishing the work.",
-	inputSchema: z.object({
-		taskId: z.string().min(1).describe("Scribe task ID to mark as completed"),
-		summary: z.string().optional().describe("Brief summary of what was done"),
-	}),
-};
+export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
+	const binary = opts.binary ?? DEFAULT_BINARY;
+	const dbPath = opts.dbPath ?? DEFAULT_DB_PATH;
 
-const CONTEXT_TOOL = {
-	name: "scribe.context",
-	description: "Show the current active task and goal from Scribe.",
-	inputSchema: z.object({}),
-};
-
-export function createScribeOrgan(opts: ScribeOrganOptions) {
-	let activeGoalId = opts.goalId ?? "";
-	let activeTaskId = "";
-	let activeTaskTitle = "";
+	let inner: Organ | null = null;
+	let innerCleanup: (() => void) | null = null;
+	const activeTaskId = "";
+	const activeTaskTitle = "";
 
 	const contextStage: ContextAssemblyHandler = async (input) => {
 		if (!activeTaskId || !activeTaskTitle) return {};
@@ -50,77 +37,73 @@ export function createScribeOrgan(opts: ScribeOrganOptions) {
 		return { messages };
 	};
 
-	return defineOrgan(
-		"scribe",
-		{
-			motor: {
-				"scribe.claim": typedAction(CLAIM_TOOL, async (ctx) => {
-					activeGoalId = ctx.payload.goalId;
-					return withDisplay(
-						{
-							goalId: activeGoalId,
-							instruction:
-								"Use mcp__scribe__artifact with action=query, id=<goalId>, sort=topo, unblocked=true to get the next task. " +
-								"Then call scribe.context to set the active task.",
-						},
-						{
-							text: `Query Scribe for unblocked tasks under goal ${activeGoalId} using the Scribe MCP tool.`,
-							mimeType: "text/plain",
-						},
-					);
-				}),
-
-				"scribe.complete": typedAction(COMPLETE_TOOL, async (ctx) => {
-					const { taskId, summary } = ctx.payload;
-					const completed = activeTaskId === taskId;
-					if (completed) {
-						activeTaskId = "";
-						activeTaskTitle = "";
-					}
-					return withDisplay(
-						{
-							taskId,
-							summary: summary ?? "",
-							cleared: completed,
-							instruction:
-								"Use mcp__scribe__artifact with action=set, id=<taskId>, field=status, value=work.complete to mark it done in Scribe.",
-						},
-						{
-							text: completed
-								? `Task ${taskId} completed${summary ? `: ${summary}` : ""}. Active task cleared.`
-								: `Task ${taskId} marked for completion.`,
-							mimeType: "text/plain",
-						},
-					);
-				}),
-
-				"scribe.context": typedAction(CONTEXT_TOOL, async () => {
-					return withDisplay(
-						{
-							goalId: activeGoalId || null,
-							taskId: activeTaskId || null,
-							taskTitle: activeTaskTitle || null,
-						},
-						{
-							text: activeTaskId
-								? `Active: ${activeTaskTitle} (${activeTaskId}) under goal ${activeGoalId}`
-								: "No active task. Use scribe.claim to get the next unblocked task.",
-							mimeType: "text/plain",
-						},
-					);
-				}),
-			},
+	const organ: Organ = {
+		name: "scribe",
+		description:
+			"Scribe work graph — spawns a dedicated Scribe instance for artifact tracking, task dispatch, and knowledge management.",
+		labels: ["scribe", "blackboard", "planning"] as const,
+		tools: [],
+		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
+		directives: [
+			"Scribe tools are available under the scribe.* prefix. Use scribe.artifact to create, query, and manage work artifacts. Use scribe.graph for dependency trees and briefings.",
+		],
+		contributions: {
+			"context.assemble": contextStage,
 		},
-		{
-			description: "Scribe blackboard — task dispatch and context injection from the Scribe work graph.",
-			directives: [
-				"Use scribe.claim to get the next unblocked task from a Scribe goal. " +
-					"Use scribe.complete when done. The active task is injected into your context automatically.",
-			],
-			labels: ["scribe", "blackboard", "planning"],
-			contributions: {
-				"context.assemble": contextStage,
-			},
+
+		mount(nerve: Nerve): () => void {
+			mkdirSync(join(dbPath, ".."), { recursive: true });
+
+			debugLog("scribe:boot", { binary, dbPath });
+			const bootPromise = McpOrgan.stdio(binary, ["serve", "--db", dbPath], "scribe")
+				.then((mcpOrgan) => {
+					inner = mcpOrgan;
+
+					(organ as { tools: readonly unknown[] }).tools = mcpOrgan.tools;
+					(organ as { subscriptions: { motor: readonly string[] } }).subscriptions = {
+						...organ.subscriptions,
+						motor: mcpOrgan.tools.map((t) => t.name),
+					};
+
+					innerCleanup = mcpOrgan.mount(nerve);
+
+					nerve.sense.publish({
+						type: "organ.loaded",
+						correlationId: "scribe-boot",
+						payload: {
+							name: "scribe",
+							tools: mcpOrgan.tools.map((t) => ({ name: t.name, description: t.description })),
+							contributions: { "context.assemble": contextStage },
+						},
+						isError: false,
+					});
+
+					debugLog("scribe:ready", { tools: mcpOrgan.tools.length });
+				})
+				.catch((err: unknown) => {
+					debugLog("scribe:boot:error", { error: String(err) });
+					nerve.signal.publish({
+						type: "organ.error",
+						correlationId: "scribe-boot",
+						payload: {
+							organ: "scribe",
+							message: `Failed to start Scribe: ${err instanceof Error ? err.message : String(err)}`,
+						},
+					});
+				});
+
+			void bootPromise;
+
+			return () => {
+				innerCleanup?.();
+				if (inner && "close" in inner && typeof inner.close === "function") {
+					(inner.close as () => Promise<void>)().catch(() => {});
+				}
+				inner = null;
+				innerCleanup = null;
+			};
 		},
-	);
+	};
+
+	return organ;
 }

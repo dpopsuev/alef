@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
-import type { NerveEvent } from "@dpopsuev/alef-kernel";
+import type { NerveEvent, Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
-import { createAlefApiOrgan } from "@dpopsuev/alef-organ-alef";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { createMetaOrgan } from "@dpopsuev/alef-organ-meta";
 import { buildBootCatalog } from "@dpopsuev/alef-organ-toolshell";
 import type { Logger } from "pino";
 import { buildAgent } from "./agent-kernel.js";
@@ -245,15 +245,15 @@ export async function createLocalSession(
 	};
 	await setupHttpSurface(args, agent, sessionAdapter, blueprintSurfaces);
 
-	const alefOrgan = createAlefApiOrgan({
+	const alefOrgan = createMetaOrgan({
 		agent: {
-			load: (o) => agent.load(o),
-			unload: (n) => agent.unload(n),
+			load: (o: Organ) => agent.load(o),
+			unload: (n: string) => agent.unload(n),
 			get organs() {
 				return agent.organs;
 			},
 		},
-		loadOrgan: (path, cwd) => loadOrganFromPath(path, { cwd }),
+		loadOrgan: (path: string, cwd: string) => loadOrganFromPath(path, { cwd }),
 		cwd: args.cwd,
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {
@@ -261,7 +261,7 @@ export async function createLocalSession(
 			if (typeof trigger === "function") trigger();
 		},
 	});
-	agent.load(alefOrgan);
+	agent.load(alefOrgan as Organ);
 
 	agent.observe({
 		onMotorEvent(event) {

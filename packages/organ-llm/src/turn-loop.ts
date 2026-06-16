@@ -380,6 +380,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 			const toolDefsMap = new Map<string, ToolDefinition>();
 			const results = await dispatchTools(motor, signal, sense, correlationId, toolCalls, toMotorName, timeoutMs, {
 				...effectiveOptions,
+				signal: effectiveSignal,
 				toolDefs: toolDefsMap,
 			});
 			appendToolResults(messages, toolCalls, results, toMotorName);

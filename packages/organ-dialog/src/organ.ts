@@ -1,10 +1,3 @@
-/**
- * DialogOrgan — message boundary organ.
- *
- * Inbound:  organ.receive(text, sender?) → Sense/"llm.input"  { text, sender }
- * Outbound: Motor/"llm.response"        → configurable sink (stdout by default)
- */
-
 import { randomUUID } from "node:crypto";
 import type { MotorEvent, Nerve, Organ, PortDefinition, SensePublishInput } from "@dpopsuev/alef-kernel";
 import { extractToolCallId } from "@dpopsuev/alef-kernel";
@@ -18,6 +11,12 @@ export type MessageSink = (text: string, sender: string) => void;
 export interface DialogOrganOptions {
 	sink?: MessageSink;
 }
+
+type PendingRequest = {
+	resolve: (text: string) => void;
+	reject: (e: Error) => void;
+	timer: ReturnType<typeof setTimeout>;
+};
 
 export class DialogOrgan implements Organ {
 	readonly name = "dialog";
@@ -43,10 +42,7 @@ export class DialogOrgan implements Organ {
 
 	private readonly sink: MessageSink;
 	private nerve: Nerve | null = null;
-	private readonly pending = new Map<
-		string,
-		{ resolve: (text: string) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
-	>();
+	private readonly pending = new Map<string, PendingRequest>();
 
 	constructor(options: DialogOrganOptions = {}) {
 		this.sink = options.sink ?? ((text) => process.stdout.write(`agent: ${text}\n`));
@@ -54,28 +50,11 @@ export class DialogOrgan implements Organ {
 
 	mount(nerve: Nerve): () => void {
 		this.nerve = nerve;
-
-		const off = nerve.motor.subscribe(LLM_RESPONSE, (event) => {
-			const text = typeof event.payload.text === "string" ? event.payload.text : "";
-			const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
-			this.sink(text, sender);
-
-			const pending = this.pending.get(event.correlationId);
-			if (pending) {
-				clearTimeout(pending.timer);
-				this.pending.delete(event.correlationId);
-				pending.resolve(text);
-			}
-		});
-
+		const off = nerve.motor.subscribe(LLM_RESPONSE, (event) => this.handleResponse(event));
 		return () => {
 			off();
 			this.nerve = null;
-			for (const [, p] of this.pending) {
-				clearTimeout(p.timer);
-				p.reject(new Error("DialogOrgan: unmounted"));
-			}
-			this.pending.clear();
+			this.rejectAllPending(new Error("DialogOrgan: unmounted"));
 		};
 	}
 
@@ -93,11 +72,7 @@ export class DialogOrgan implements Organ {
 		if (!this.nerve) return Promise.reject(new Error("DialogOrgan: not mounted"));
 		const correlationId = randomUUID();
 		return new Promise<string>((resolve, reject) => {
-			// lint-ignore: RAWTIMER conversation wall-clock deadline, not a stall detector
-			const timer = setTimeout(() => {
-				this.pending.delete(correlationId);
-				reject(new Error(`DialogOrgan.send timed out after ${timeoutMs}ms`));
-			}, timeoutMs);
+			const timer = this.createTimeout(correlationId, timeoutMs, reject);
 			this.pending.set(correlationId, { resolve, reject, timer });
 			this.receive(text, sender, correlationId);
 		});
@@ -111,6 +86,39 @@ export class DialogOrgan implements Organ {
 				return correlationId;
 			},
 		};
+	}
+
+	private handleResponse(event: MotorEvent): void {
+		const text = typeof event.payload.text === "string" ? event.payload.text : "";
+		const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
+		this.sink(text, sender);
+
+		const pending = this.pending.get(event.correlationId);
+		if (pending) {
+			clearTimeout(pending.timer);
+			this.pending.delete(event.correlationId);
+			pending.resolve(text);
+		}
+	}
+
+	private createTimeout(
+		correlationId: string,
+		timeoutMs: number,
+		reject: (e: Error) => void,
+	): ReturnType<typeof setTimeout> {
+		// lint-ignore: RAWTIMER dialog send deadline — fires once when the agent does not reply within the caller's budget
+		return setTimeout(() => {
+			this.pending.delete(correlationId);
+			reject(new Error(`DialogOrgan.send timed out after ${timeoutMs}ms`));
+		}, timeoutMs);
+	}
+
+	private rejectAllPending(error: Error): void {
+		for (const [, p] of this.pending) {
+			clearTimeout(p.timer);
+			p.reject(error);
+		}
+		this.pending.clear();
 	}
 }
 

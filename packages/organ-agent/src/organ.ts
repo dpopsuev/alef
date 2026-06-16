@@ -35,18 +35,29 @@ import { RemoteStrategy } from "@dpopsuev/alef-runtime";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
 import { type ChildEntry, healthCheck, resolvePath, spawnChild } from "./child-process.js";
+import {
+	DEFAULT_ASK_MAX_MS,
+	DEFAULT_ASK_STALL_MS,
+	DEFAULT_MAX_DEPTH,
+	DEFAULT_READINESS_TIMEOUT_MS,
+	DEFAULT_RUN_MAX_MS,
+	DEFAULT_STALL_MS,
+	MIN_REMAINING_MS,
+	SIGKILL_GRACE_MS,
+} from "./constants.js";
 import { strategyRegistry } from "./strategy-registry.js";
+import {
+	ASK_TOOL,
+	CONVERSE_TOOL,
+	KILL_TOOL,
+	LIST_TOOL,
+	PROMOTE_TOOL,
+	RACE_TOOL,
+	SPAWN_TOOL,
+	STATUS_TOOL,
+} from "./tool-schemas.js";
 
 export type { ChildEntry };
-
-const DEFAULT_READINESS_TIMEOUT_MS = 30_000;
-const DEFAULT_MAX_DEPTH = 3;
-const DEFAULT_STALL_MS = 120_000;
-const DEFAULT_ASK_STALL_MS = 60_000;
-const DEFAULT_ASK_MAX_MS = 600_000;
-const DEFAULT_RUN_MAX_MS = 3_600_000;
-const SIGKILL_GRACE_MS = 3_000;
-const MIN_REMAINING_MS = 10_000;
 
 const WRITE_PATTERN =
 	/\b(write|create|edit|modify|delete|remove|install|run|execute|build|deploy|fix|refactor|update|change|add|implement|spawn|generate)\b/i;
@@ -223,40 +234,6 @@ export function createAgentOrgan(
 
 	// ── agent.spawn — start a persistent child ─────────────────────────
 
-	const SPAWN_TOOL = {
-		name: "agent.spawn",
-		description: "Start a persistent child Alef process. Returns { name, endpoint, sessionId, pid }.",
-		inputSchema: z.object({
-			blueprintPath: z.string().optional().describe("Path to agent.yaml blueprint."),
-			organs: z
-				.preprocess(
-					(v) => {
-						if (typeof v === "string") {
-							try {
-								return JSON.parse(v) as unknown;
-							} catch {
-								return [v];
-							}
-						}
-						return v;
-					},
-					z.array(z.string().min(1)),
-				)
-				.optional()
-				.describe("Paths to .ts organ files."),
-			cwd: z.string().optional().describe("Working directory for the child."),
-			sessionId: z.string().optional().describe("Resume a previous session by ID."),
-			sandbox: z.boolean().optional().describe("Wrap in bubblewrap for isolation."),
-			maxDepth: z
-				.number()
-				.int()
-				.min(0)
-				.optional()
-				.describe("Max nesting depth for this child's own subagents. Default: parent depth - 1."),
-		}),
-		longRunning: true as const,
-	};
-
 	async function handleSpawn(ctx: {
 		payload: {
 			blueprintPath?: string;
@@ -322,18 +299,6 @@ export function createAgentOrgan(
 
 	// ── agent.ask — send prompt to running child ───────────────────────
 
-	const ASK_TOOL = {
-		name: "agent.ask",
-		description: "Send a prompt to a running child and return its reply.",
-		inputSchema: z.object({
-			name: z.string().min(1).describe("Child name from agent.spawn"),
-			prompt: z.string().min(1).describe("Message to send"),
-			stallMs: z.number().optional().describe("Inactivity threshold in ms (default: 60_000)."),
-			maxMs: z.number().optional().describe("Hard wall-clock limit in ms (default: 600_000)."),
-		}),
-		longRunning: true as const,
-	};
-
 	async function handleAsk(ctx: {
 		payload: { name: string; prompt: string; stallMs?: number; maxMs?: number };
 		toolCallId?: string;
@@ -380,25 +345,6 @@ export function createAgentOrgan(
 
 	// ── agent.race — parallel ask to multiple children ──────────────────
 
-	const RACE_TOOL = {
-		name: "agent.race",
-		description: "Send prompts to multiple children in parallel, return all results.",
-		inputSchema: z.object({
-			tasks: z
-				.array(
-					z.object({
-						name: z.string().min(1).describe("Child name"),
-						prompt: z.string().min(1).describe("Message to send"),
-					}),
-				)
-				.min(1)
-				.describe("List of {name, prompt} pairs."),
-			stallMs: z.number().optional().describe("Per-child inactivity threshold (default: 60_000)."),
-			maxMs: z.number().optional().describe("Hard wall-clock limit (default: 600_000)."),
-		}),
-		longRunning: true as const,
-	};
-
 	async function handleRace(ctx: {
 		payload: { tasks: Array<{ name: string; prompt: string }>; stallMs?: number; maxMs?: number };
 		toolCallId?: string;
@@ -444,26 +390,6 @@ export function createAgentOrgan(
 	}
 
 	// ── agent.converse — multi-turn hub & spoke ───────────────────────
-
-	const CONVERSE_TOOL = {
-		name: "agent.converse",
-		description:
-			"Multi-turn conversation with a running child. Send prompts, receive replies, and decide whether to follow up or accept. " +
-			"Returns the full conversation transcript. Use this when a single ask is insufficient and you need to iterate.",
-		inputSchema: z.object({
-			name: z.string().min(1).describe("Child name from agent.spawn"),
-			prompts: z
-				.array(z.string().min(1))
-				.min(1)
-				.describe(
-					"Ordered list of prompts. The first is sent immediately. " +
-						"Subsequent prompts are sent only after the child replies to the previous one.",
-				),
-			stallMs: z.number().optional().describe("Inactivity threshold per turn (default: 60_000)."),
-			maxMs: z.number().optional().describe("Hard wall-clock limit for entire conversation (default: 600_000)."),
-		}),
-		longRunning: true as const,
-	};
 
 	async function handleConverse(ctx: {
 		payload: { name: string; prompts: string[]; stallMs?: number; maxMs?: number };
@@ -525,12 +451,6 @@ export function createAgentOrgan(
 
 	// ── agent.kill — stop a child ──────────────────────────────────────
 
-	const KILL_TOOL = {
-		name: "agent.kill",
-		description: "Stop a named child process (SIGTERM, then SIGKILL after 3s).",
-		inputSchema: z.object({ name: z.string().min(1).describe("Child name from agent.spawn") }),
-	};
-
 	async function handleKill(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
 		const { name: childName } = ctx.payload;
 		const entry = children.get(childName);
@@ -557,12 +477,6 @@ export function createAgentOrgan(
 
 	// ── agent.list / agent.status ──────────────────────────────────────
 
-	const LIST_TOOL = {
-		name: "agent.list",
-		description: "List all running child processes.",
-		inputSchema: z.object({}),
-	};
-
 	async function handleList(): Promise<Record<string, unknown>> {
 		const items = await Promise.all(
 			[...children.values()].map(async (e) => ({
@@ -581,12 +495,6 @@ export function createAgentOrgan(
 		return withDisplay({ children: items }, { text: summary, mimeType: "text/markdown" });
 	}
 
-	const STATUS_TOOL = {
-		name: "agent.status",
-		description: "Health-check a named child process.",
-		inputSchema: z.object({ name: z.string().min(1).describe("Child name") }),
-	};
-
 	async function handleStatus(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
 		const { name: childName } = ctx.payload;
 		const entry = children.get(childName);
@@ -603,15 +511,6 @@ export function createAgentOrgan(
 	}
 
 	// ── agent.promote — blue-green swap ────────────────────────────────
-
-	const PROMOTE_TOOL = {
-		name: "agent.promote",
-		description: "Add organ to production blueprint and trigger blue-green swap via supervisor IPC.",
-		inputSchema: z.object({
-			organPath: z.string().min(1).describe("Absolute path to .ts organ file."),
-			blueprintPath: z.string().optional().describe("Production blueprint path."),
-		}),
-	};
 
 	function handlePromote(ctx: { payload: { organPath: string; blueprintPath?: string } }): Record<string, unknown> {
 		const organPath = resolvePath(ctx.payload.organPath, cwd);

@@ -57,3 +57,22 @@ export function resolveAgentActor(sessionId: string, _boardId: string): ActorIde
 export function resolveSubagentActor(parentSessionId: string, toolCallId: string, boardId: string): ActorIdentity {
 	return resolveAgentActor(`${parentSessionId}_${toolCallId}`, boardId);
 }
+
+/**
+ * Configure session actors and theme in one call.
+ * Resolves human and agent identities, creates a theme with their colors.
+ * Returns all three for use in session setup.
+ */
+export function configureSessionActors(
+	sessionId: string,
+	boardId: string,
+): {
+	humanActor: ActorIdentity;
+	agentActor: ActorIdentity;
+	theme: { userFg: ColorToken; agentFg: ColorToken };
+} {
+	const humanActor = resolveHumanActor();
+	const agentActor = resolveAgentActor(sessionId, boardId);
+	const theme = { userFg: humanActor.token, agentFg: agentActor.token };
+	return { humanActor, agentActor, theme };
+}

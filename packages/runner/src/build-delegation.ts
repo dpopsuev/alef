@@ -13,15 +13,13 @@ import type { Args } from "./args.js";
 import type { AgentEvent, Session } from "./session.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
 
-export async function setupHttpSurface(
+async function createRouter(
+	servePort: number,
+	blueprintSurfaces: AgentDefinitionSurfaceInput[],
+	session: Session,
 	args: Args,
 	agent: Agent,
-	session: Session,
-	blueprintSurfaces: AgentDefinitionSurfaceInput[],
 ): Promise<void> {
-	const servePort = args.daemon ? 0 : args.serve;
-	if (servePort === undefined) return;
-
 	const sseSurface = blueprintSurfaces.filter((surface) => surface.type === "sse");
 	const allowedEvents = sseSurface.flatMap((surface) => surface.events ?? []);
 	const router = createRouterOrgan({
@@ -52,6 +50,18 @@ export async function setupHttpSurface(
 			}),
 		);
 	}
+}
+
+export async function setupHttpSurface(
+	args: Args,
+	agent: Agent,
+	session: Session,
+	blueprintSurfaces: AgentDefinitionSurfaceInput[],
+): Promise<void> {
+	const servePort = args.daemon ? 0 : args.serve;
+	if (servePort === undefined) return;
+
+	await createRouter(servePort, blueprintSurfaces, session, args, agent);
 }
 
 const EXPLORE_ORGANS = [
@@ -122,35 +132,6 @@ export async function buildDelegation(
 	const servePort = args.daemon ? 0 : args.serve;
 
 	if (servePort !== undefined) {
-		const sseSurface = blueprintSurfaces.filter((surface) => surface.type === "sse");
-		const allowedEvents = sseSurface.flatMap((surface) => surface.events ?? []);
-		const router = createRouterOrgan({
-			port: servePort,
-			allowedEvents,
-			triggerEvent: "llm.input",
-			onMessage: (text) => session.receive?.(text),
-		});
-		agent.load(router);
-		await router.ready();
-		const addr = router.address() ?? { host: "127.0.0.1", port: 0 };
-		console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
-
-		if (args.daemon) {
-			session.subscribe((event: AgentEvent) => {
-				router.notifyAgent(event as unknown as Record<string, unknown>);
-			});
-			const daemonDir = join(homedir(), ".alef");
-			mkdirSync(daemonDir, { recursive: true });
-			writeFileSync(
-				join(daemonDir, "daemon.json"),
-				JSON.stringify({
-					port: addr.port,
-					pid: process.pid,
-					sessionId: session.state.id,
-					cwd: args.cwd,
-					startedAt: Date.now(),
-				}),
-			);
-		}
+		await createRouter(servePort, blueprintSurfaces, session, args, agent);
 	}
 }

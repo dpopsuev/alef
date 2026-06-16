@@ -1,5 +1,5 @@
 /**
- * ANSI byte-stream invariant tests — ALE-SPC-32
+ * ANSI byte-stream invariant tests
  *
  * These tests inspect the raw ANSI bytes emitted to the terminal's write()
  * method, not the rendered output. VirtualTerminal hides mid-frame artifacts;
@@ -112,7 +112,7 @@ describe.todo("RC-1 — cursor hidden before cursor-up movement (T-1 not yet imp
 });
 
 // ---------------------------------------------------------------------------
-// RC-2 — no clear screen in differential or ConsoleZone renders
+// RC-2 — no clear screen in differential or PromptConsole renders
 // ---------------------------------------------------------------------------
 
 describe("RC-2 — no \\x1b[2J in differential renders", { tags: ["unit"] }, () => {
@@ -135,7 +135,7 @@ describe("RC-2 — no \\x1b[2J in differential renders", { tags: ["unit"] }, () 
 		tui.stop();
 	});
 
-	it("ConsoleZone-style DynamicText (always in viewport) never emits clear screen", async () => {
+	it("PromptConsole-style DynamicText (always in viewport) never emits clear screen", async () => {
 		// Content fills 8 lines, viewport is 10. DynamicText at bottom — always in viewport.
 		const { terminal, tui, chat } = makeEnv(40, 10);
 

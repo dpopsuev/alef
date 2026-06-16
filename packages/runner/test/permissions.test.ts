@@ -1,12 +1,12 @@
 /**
- * Unit tests for wrapWithPermissions (ALE-TSK-251).
+ * Unit tests for wrapWithPermissions.
  */
 
+import { wrapWithPermissions } from "@dpopsuev/alef-agent-blueprint";
 import type { Organ } from "@dpopsuev/alef-kernel";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { parseArgs } from "../src/args.js";
-import { wrapWithPermissions } from "../src/materializer.js";
 
 declare module "@dpopsuev/alef-kernel" {
 	interface MotorEventRegistry {

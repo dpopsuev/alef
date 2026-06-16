@@ -5,6 +5,9 @@ import type { ColorToken, ThemeTokens } from "./theme.js";
 export interface ActiveCall {
 	name: string;
 	keyArg: string;
+	parentCallId?: string;
+	children: Map<string, ActiveCall>;
+	depth: number;
 }
 
 export interface OverlayDescriptor {
@@ -27,6 +30,12 @@ export interface TuiState {
 	pendingTokenFooter: TokenFooterHandle | null;
 	abortCurrentTurn: (() => void) | undefined;
 	overlays: readonly OverlayDescriptor[];
+	/** Per-call streaming chunks for the subagent inspector. */
+	callChunks: Map<string, string[]>;
+	/** Currently focused call in the inspector (null = no focus). */
+	focusedCallId: string | null;
+	/** Scroll offset for the inspector chunk detail (lines from end). */
+	inspectorScrollOffset: number;
 }
 
 export function initialTuiState(): TuiState {
@@ -39,6 +48,9 @@ export function initialTuiState(): TuiState {
 		pendingTokenFooter: null,
 		abortCurrentTurn: undefined,
 		overlays: [],
+		callChunks: new Map(),
+		focusedCallId: null,
+		inspectorScrollOffset: 0,
 	};
 }
 
@@ -69,7 +81,7 @@ export interface TuiWriter {
 	addUserMessage(text: string): void;
 }
 
-export interface TuiStreamingZone {
+export interface TuiReplyBlock {
 	reset(): void;
 	clear(): void;
 	hideThinking: boolean;
@@ -82,7 +94,7 @@ export interface TuiTypewriter {
 	reset(): void;
 }
 
-export interface TuiConsoleZone {
+export interface TuiPromptConsole {
 	pulse(): void;
 	showPendingFooter(fg: ColorToken): void;
 	hidePendingFooter(): void;
@@ -92,15 +104,20 @@ export interface TuiConsoleZone {
 	startThinking(): void;
 	stopThinking(): void;
 	readonly isThinking: boolean;
+	setFocusedCall(callId: string | null): void;
+	setChunkText(text: string): void;
+	setCallIdentity(callId: string, colorName: string, address: string): void;
+	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void;
+	removeChildCall(parentCallId: string, callId: string): void;
 }
 
 export interface TuiUi {
 	writer: TuiWriter;
-	streamingZone: TuiStreamingZone;
+	replyBlock: TuiReplyBlock;
 	replyTW: TuiTypewriter;
 	thinkingTW: TuiTypewriter;
-	consoleZone: TuiConsoleZone;
+	promptConsole: TuiPromptConsole;
 	tui: Pick<TUI, "requestRender">;
 	t: ThemeTokens;
-	session: Pick<Session, "state">;
+	session: Pick<Session, "state" | "cancelToolCall">;
 }

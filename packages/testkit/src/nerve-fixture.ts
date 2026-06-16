@@ -8,13 +8,13 @@ import { BusEventRecorder } from "./index.js";
  * Replaces the makeNerve / publishMotor / waitForSense triad that every
  * organ test package copies independently. Provides:
  *
- *   fixture.mount(organ)                         mount + track for cleanup
- *   fixture.call(type, payload)                  motor publish → await sense
- *   fixture.callStreaming(type, payload)          await isFinal sense
- *   fixture.observe()                             attach BusEventRecorder
- *   fixture.dispose()                             unmount all mounted organs
+ * fixture.mount(organ) mount + track for cleanup
+ * fixture.call(type, payload) motor publish → await sense
+ * fixture.callStreaming(type, payload) await isFinal sense
+ * fixture.observe() attach BusEventRecorder
+ * fixture.dispose() unmount all mounted organs
  *
- * call() subscribes before publishing — no race condition (ALE-BUG-50).
+ * call() subscribes before publishing — no race condition.
  */
 export class NerveFixture {
 	readonly nerve = new InProcessNerve();

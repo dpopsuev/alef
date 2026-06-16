@@ -5,22 +5,21 @@
  * provides send() + assertion API. No real LLM call. No API key needed.
  *
  * Two factory methods:
- *   BlueprintHarness.fromBlueprint(path, opts) — loads agent.yaml
- *   BlueprintHarness.create(opts)              — inline organ list
+ * BlueprintHarness.fromBlueprint(path, opts) — loads agent.yaml
+ * BlueprintHarness.create(opts) — inline organ list
  *
  * Example:
- *   const h = await BlueprintHarness.fromBlueprint("agent.yaml", {
- *     cwd: workspace,
- *     script: [
- *       step.toolCall("fs.read", { path: "src/auth.ts" }, "Found the bug."),
- *     ],
- *   });
- *   const reply = await h.send("What does login() do?");
- *   h.assertToolCalled("fs.read");
- *   h.assertToolCalledWith("fs.read", { path: "src/auth.ts" });
- *   h.dispose();
+ * const h = await BlueprintHarness.fromBlueprint("agent.yaml", {
+ * cwd: workspace,
+ * script: [
+ * step.toolCall("fs.read", { path: "src/auth.ts" }, "Found the bug."),
+ * ],
+ * });
+ * const reply = await h.send("What does login() do?");
+ * h.assertToolCalled("fs.read");
+ * h.assertToolCalledWith("fs.read", { path: "src/auth.ts" });
+ * h.dispose();
  *
- * Ref: ALE-SPC-17
  */
 
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";

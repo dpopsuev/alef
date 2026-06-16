@@ -2,7 +2,7 @@
  * McpOrgan tests — mock MCP client, no real subprocess or network.
  *
  * Tests: tool discovery, tool naming, Motor routing, Sense publishing,
- *        error handling, unmount closes client.
+ * error handling, unmount closes client.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -178,10 +178,10 @@ describe("McpOrgan — static factories", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// ALE-BUG-20 — async MCP execute error handling (regression)
+// async MCP execute error handling (regression)
 // ---------------------------------------------------------------------------
 
-describe("async MCP execute error handling — regression ALE-BUG-20", { tags: ["unit"] }, () => {
+describe("async MCP execute error handling — regression ", { tags: ["unit"] }, () => {
 	it("publishes isError sense event when execute rejects after an async step", async () => {
 		// Simulate a tool whose execute does real async work then throws.
 		const client = mockClient({

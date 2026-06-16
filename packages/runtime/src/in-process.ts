@@ -1,6 +1,6 @@
 import type { SubagentFactory, SubagentFactoryOptions } from "@dpopsuev/alef-agent-blueprint";
 import type { ExecutionStrategy, Organ, SendRequest } from "@dpopsuev/alef-kernel";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog, Watchdog } from "@dpopsuev/alef-kernel";
 
 export type { SubagentFactory, SubagentFactoryOptions };
 
@@ -12,21 +12,62 @@ export class InProcessStrategy implements ExecutionStrategy {
 		private readonly onChunk?: (chunk: string) => void,
 	) {}
 
-	async send({ text, timeoutMs: conversationTimeoutMs = 600_000, onChunk }: SendRequest): Promise<string> {
+	async send({
+		text,
+		timeoutMs: conversationTimeoutMs = 600_000,
+		signal,
+		onChunk,
+		onInnerEvent,
+	}: SendRequest): Promise<string> {
+		if (signal?.aborted) throw new Error("Aborted before send");
+
+		const watchdog = new Watchdog(conversationTimeoutMs, () => {
+			debugLog("in-process:stall", { stallMs: conversationTimeoutMs });
+			session.dispose();
+		});
+
+		const wrappedChunk =
+			(onChunk ?? this.onChunk)
+				? (chunk: string) => {
+						watchdog.reset();
+						(onChunk ?? this.onChunk)?.(chunk);
+					}
+				: undefined;
+
+		const wrappedInnerEvent = onInnerEvent
+			? (callId: string, innerType: string, innerPayload: Record<string, unknown>) => {
+					watchdog.reset();
+					onInnerEvent(callId, innerType, innerPayload);
+				}
+			: undefined;
+
 		const session = this.createSession({
 			organs: this.organs,
-			onChunk: onChunk ?? this.onChunk,
+			onChunk: wrappedChunk,
+			onInnerEvent: wrappedInnerEvent,
 			systemPrompt: this.baseSystemPrompt,
 		});
 		debugLog("in-process:start", { organs: this.organs.map((o) => o.name), conversationTimeoutMs });
+
+		const onAbort = () => {
+			watchdog.stop();
+			session.dispose();
+		};
+		signal?.addEventListener("abort", onAbort, { once: true });
+
+		watchdog.start();
+
 		try {
 			const reply = await session.send(text, "human", conversationTimeoutMs);
 			debugLog("in-process:done", { replyLength: reply.length });
 			return reply;
 		} catch (error) {
+			if (signal?.aborted) throw new Error("Aborted");
 			debugLog("in-process:error", { err: error instanceof Error ? error : new Error(String(error)) });
 			throw error;
 		} finally {
+			watchdog.stop();
+			signal?.removeEventListener("abort", onAbort);
 			session.dispose();
 		}
 	}

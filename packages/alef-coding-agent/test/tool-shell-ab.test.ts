@@ -15,6 +15,7 @@
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../eval/src/evaluation.js";
 import { EvaluationRunner } from "../../eval/src/evaluation-runner.js";
@@ -23,7 +24,6 @@ import { EvalHarness } from "../../eval/src/harness.js";
 import type { RunMetrics } from "../../eval/src/metrics.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../eval/src/model.js";
 import { formatReport } from "../../eval/src/report.js";
-import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
 
 // ---------------------------------------------------------------------------
 // Scenarios — subset fast enough for A/B (< 3 min each arm)

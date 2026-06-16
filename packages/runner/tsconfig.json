@@ -43,14 +43,11 @@
 			"@dpopsuev/alef-organ-nodesh": [
 				"../organ-nodesh/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-orchestration": [
-				"../organ-orchestration/src/index.ts"
+			"@dpopsuev/alef-organ-agent": [
+				"../organ-agent/src/index.ts"
 			],
 			"@dpopsuev/alef-organ-web": [
 				"../organ-web/src/index.ts"
-			],
-			"@dpopsuev/alef-organ-delegate": [
-				"../organ-delegate/src/index.ts"
 			],
 			"@dpopsuev/alef-organ-eval": [
 				"../organ-eval/src/index.ts"

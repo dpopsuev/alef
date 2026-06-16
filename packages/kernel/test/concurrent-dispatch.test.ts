@@ -20,7 +20,7 @@ function waitSense(nerve: InProcessNerve, type: string, correlationId: string): 
 }
 
 // ---------------------------------------------------------------------------
-// ALE-TSK-599 — concurrent organ dispatch
+// concurrent organ dispatch
 // ---------------------------------------------------------------------------
 
 describe("concurrent organ dispatch", { tags: ["unit"] }, () => {

@@ -1,23 +1,23 @@
 import type { ISessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Container, Text } from "@dpopsuev/alef-tui";
-import { ConsoleZone } from "./console-zone.js";
 import { AtAddressProvider, HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
+import { PromptConsole } from "./prompt-console.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, glyph, type ThemeTokens } from "./theme.js";
-import { ChatWriter } from "./tui/chat-writer.js";
+import { ChatLog } from "./tui/chat-log.js";
 import { DynamicText } from "./tui/dynamic-text.js";
+import { ReplyBlock } from "./tui/reply-block.js";
 import { prependSessionHistory } from "./tui/session-history.js";
-import { StreamingZone } from "./tui/streaming-zone.js";
 import { Typewriter } from "./tui/typewriter.js";
 
 export interface TuiLayout {
-	writer: ChatWriter;
-	streamingZone: StreamingZone;
+	writer: ChatLog;
+	replyBlock: ReplyBlock;
 	replyTW: Typewriter;
 	thinkingTW: Typewriter;
-	consoleZone: ConsoleZone;
+	promptConsole: PromptConsole;
 	historyProvider: HistoryAutocompleteProvider;
 }
 
@@ -44,22 +44,16 @@ export async function buildLayout(
 		return `${base}  ${glyph("sep")}  ${fmt} tok`;
 	};
 
-	tui.addChild(
-		new DynamicText((w) => {
-			const inner = `─ ${headerLabel()} `;
-			return boldColor(`╭${inner}${"─".repeat(Math.max(0, w - inner.length - 2))}╮`, t.accentFg);
-		}),
-	);
+	tui.addChild(new DynamicText(() => boldColor(headerLabel(), t.accentFg)));
 	const splash = await renderSplash();
 	if (splash) tui.addChild(new Text(splash, 2, 0));
-	tui.addChild(new DynamicText((w) => boldColor(`╰${"─".repeat(Math.max(0, w - 2))}╯`, t.accentFg)));
 
 	const chat = new Container();
 	tui.addChild(chat);
 
-	const consoleZone = new ConsoleZone(tui, t, opts.modelId);
-	consoleZone.mount();
-	const { editor } = consoleZone;
+	const promptConsole = new PromptConsole(tui, t, opts.modelId);
+	promptConsole.mount();
+	const { editor } = promptConsole;
 
 	const historyProvider = new HistoryAutocompleteProvider();
 	if (editor.setAutocompleteProvider) {
@@ -85,7 +79,7 @@ export async function buildLayout(
 
 	const humanLabel = opts.humanAddress ?? "@you";
 	const agentLabel = opts.agentAddress ?? "@alef";
-	const writer = new ChatWriter(chat, t, { humanLabel, agentLabel });
+	const writer = new ChatLog(chat, t, { humanLabel, agentLabel });
 
 	// Eager-load prior session turns (non-blocking — fire-and-forget with render).
 	if (store) {
@@ -94,15 +88,15 @@ export async function buildLayout(
 			.catch(() => {});
 	}
 
-	const streamingZone = new StreamingZone(chat, () => tui.requestRender(), t, true, agentLabel);
+	const replyBlock = new ReplyBlock(chat, () => tui.requestRender(), t, true, agentLabel);
 	const replyTW = new Typewriter(
-		(delta) => streamingZone.receiveText(delta),
+		(delta) => replyBlock.receiveText(delta),
 		() => tui.requestRender(),
 	);
 	const thinkingTW = new Typewriter(
-		(delta) => streamingZone.receiveThinking(delta),
+		(delta) => replyBlock.receiveThinking(delta),
 		() => tui.requestRender(),
 	);
 
-	return { writer, streamingZone, replyTW, thinkingTW, consoleZone, historyProvider };
+	return { writer, replyBlock, replyTW, thinkingTW, promptConsole, historyProvider };
 }

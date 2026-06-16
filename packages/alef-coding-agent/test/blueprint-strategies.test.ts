@@ -12,16 +12,24 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerFauxProvider } from "@dpopsuev/alef-llm";
+import { strategyRegistry } from "@dpopsuev/alef-organ-agent";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { strategyRegistry } from "../../organ-delegate/src/strategy-registry.js";
 import { createCodingAgentStack } from "../src/blueprint.js";
+
+function stubFactory() {
+	return () => ({
+		async send() {
+			return "stub";
+		},
+		dispose() {},
+	});
+}
 
 let cwd: string;
 beforeAll(async () => {
 	cwd = mkdtempSync(join(tmpdir(), "alef-blueprint-test-"));
 	const faux = registerFauxProvider();
-	// createCodingAgentStack triggers strategyRegistry.register("explore"/"general")
-	await createCodingAgentStack({ cwd, model: faux.getModel() });
+	await createCodingAgentStack({ cwd, model: faux.getModel(), subagentFactory: stubFactory() });
 });
 afterAll(() => {
 	rmSync(cwd, { recursive: true, force: true });

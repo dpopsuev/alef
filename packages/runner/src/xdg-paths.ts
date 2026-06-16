@@ -32,6 +32,7 @@
  *     └── skills/                   → Project-specific skills
  */
 
+import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -111,14 +112,18 @@ export function getProjectAlefDir(cwd: string): string {
 }
 
 /**
- * Migration helper: returns true if legacy ~/.alef exists and XDG paths don't.
- * Callers should prompt for migration or auto-migrate.
+ * Ensure all XDG directories exist. Called once at process startup.
+ * Idempotent — mkdir -p is a no-op for existing directories.
  */
-export function shouldMigrateLegacy(): boolean {
-	try {
-		const { existsSync } = require("node:fs");
-		return existsSync(LEGACY_ALEF_DIR) && !existsSync(ALEF_STATE_DIR);
-	} catch {
-		return false;
+export function ensureDirectories(): void {
+	for (const dir of [
+		join(ALEF_CONFIG_DIR, "skills"),
+		join(ALEF_DATA_DIR, "sessions"),
+		join(ALEF_DATA_DIR, "prototypes"),
+		ALEF_STATE_DIR,
+		LSP_CACHE_DIR,
+		EMBEDDINGS_CACHE_DIR,
+	]) {
+		mkdirSync(dir, { recursive: true });
 	}
 }

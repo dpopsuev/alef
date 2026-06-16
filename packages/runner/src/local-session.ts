@@ -1,29 +1,28 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { NerveEvent } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createAlefApiOrgan } from "@dpopsuev/alef-organ-alef";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { buildBootCatalog } from "@dpopsuev/alef-organ-toolshell";
 import type { Logger } from "pino";
 import { buildAgent } from "./agent-kernel.js";
 import type { Args } from "./args.js";
-import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
 import { setupHttpSurface } from "./build-delegation.js";
 import { buildLlmOrgan } from "./build-llm-organ.js";
-import { buildSubagentFactory } from "./subagent-factory.js";
 import type { AlefConfig } from "./config.js";
 import { resolveAgentActor, resolveHumanActor } from "./identity/actor.js";
 import { ActorRouteTable } from "./identity/routes.js";
 import type { LoadResult } from "./load-organs.js";
-import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import type { AgentEvent, Session, SessionState, TokensConsumed } from "./session.js";
 import { SessionHandle } from "./session-handle.js";
 import type { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
+import { buildSubagentFactory } from "./subagent-factory.js";
 import { getTheme, setTheme } from "./theme.js";
-import { buildBootCatalog } from "@dpopsuev/alef-organ-toolshell";
 
 function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
@@ -69,6 +68,37 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 			return { type: "token-usage", usage: p.usage as TokensConsumed };
 		case "llm.turn-error":
 			return { type: "turn-error", message: String(p.message) };
+		case "agent.run.inner": {
+			const inner = p as { callId?: string; innerType?: string; innerPayload?: Record<string, unknown> };
+			if (!inner.innerType || !inner.callId) return null;
+			if (inner.innerType === "agent.identity" && inner.innerPayload) {
+				return {
+					type: "subagent-identity",
+					callId: String(inner.callId),
+					color: String(inner.innerPayload.color ?? ""),
+					address: String(inner.innerPayload.address ?? ""),
+				};
+			}
+			if (inner.innerType === "llm.tool-start" && inner.innerPayload) {
+				const ip = inner.innerPayload;
+				return {
+					type: "inner-tool-start",
+					parentCallId: String(inner.callId),
+					callId: String(ip.callId ?? ""),
+					name: String(ip.name ?? ""),
+					args: (ip.args ?? {}) as Record<string, unknown>,
+				};
+			}
+			if (inner.innerType === "llm.tool-end" && inner.innerPayload) {
+				const ip = inner.innerPayload;
+				return {
+					type: "inner-tool-end",
+					parentCallId: String(inner.callId),
+					callId: String(ip.callId ?? ""),
+				};
+			}
+			return null;
+		}
 		case "llm.message-queued":
 			return { type: "message-queued", queueLength: Number(p.queueLength ?? 0) };
 		default:
@@ -128,13 +158,12 @@ export async function createLocalSession(
 	const humanActor = resolveHumanActor();
 	const boardId = store.id.slice(0, 12); // approximate board from session prefix
 	const agentActor = resolveAgentActor(store.id, boardId);
-	setTheme({ ...getTheme(), agentFg: agentActor.token });
+	setTheme({ ...getTheme(), userFg: humanActor.token, agentFg: agentActor.token });
 
 	// Build the route table — the TUI uses this for @ routing.
 	const actorRoutes = new ActorRouteTable();
 	actorRoutes.setHumanAddress(humanActor.color);
 
-	void directivesBudgetChars;
 	const observers = new Set<(event: AgentEvent) => void>();
 	let llmController: AbortController | undefined;
 	const currentModel = model;
@@ -151,8 +180,20 @@ export async function createLocalSession(
 		sessionStore: store,
 		domainOrgans: organs,
 		subagentFactory,
+		writableRoots: loaded.writableRoots,
 	});
 	const { pipeline } = stack;
+
+	const systemPrompt = directives.build(directivesBudgetChars);
+	const enabledBlocks = directives.list({ enabled: true });
+	log.info(
+		{
+			blocks: enabledBlocks.length,
+			chars: systemPrompt.length,
+			tags: [...new Set(enabledBlocks.flatMap((b) => b.tags ?? []))],
+		},
+		"directives:built",
+	);
 
 	const llmOrgan = buildLlmOrgan({
 		model,
@@ -162,6 +203,7 @@ export async function createLocalSession(
 		getModel: () => currentModel,
 		getSignal: () => llmController?.signal,
 		schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
+		systemPrompt,
 	});
 
 	const { agent } = buildAgent({

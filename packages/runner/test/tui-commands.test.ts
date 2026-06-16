@@ -2,12 +2,12 @@
  * TUI command handler unit tests — no PTY, no real terminal, no process spawning.
  *
  * Pattern mirrors pi-mono's interactive-mode-*.test.ts:
- *   Call the exported handler functions with a fake context object.
- *   Assert on what the handlers called on the collaborators.
+ * Call the exported handler functions with a fake context object.
+ * Assert on what the handlers called on the collaborators.
  *
  * Covers:
- *   handleCtrlC  — idle (quit) and mid-turn (cancel) paths
- *   handleSlashCommand — /exit, /new, /resume, /help, unknown
+ * handleCtrlC — idle (quit) and mid-turn (cancel) paths
+ * handleSlashCommand — /exit, /new, /resume, /help, unknown
  */
 
 import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-organ-llm";
@@ -16,16 +16,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import type { Session } from "../src/session.js";
 import { getTheme } from "../src/theme.js";
-import { ChatWriter } from "../src/tui/chat-writer.js";
+import { ChatLog } from "../src/tui/chat-log.js";
 import { ToolCallRow } from "../src/tui/tool-view.js";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
-import {
-	handleColonCommand,
-	handleCtrlC,
-	handleSlashCommand,
-	renderHeaderTopBorder,
-	truncateToolOutput,
-} from "../src/tui-mode.js";
+import { handleColonCommand, handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Fake context factory
@@ -64,7 +58,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 	const chat = new Container();
 	return {
 		t,
-		writer: new ChatWriter(chat, t),
+		writer: new ChatLog(chat, t),
 		tui: makeTui(),
 		session: makeSession(),
 		abortCurrentTurn: undefined,
@@ -163,9 +157,9 @@ describe("handleSlashCommand /new", { tags: ["unit"] }, () => {
 		ctx.writer.container.addChild(new Container());
 		expect(ctx.writer.container.children).toHaveLength(2);
 		handleSlashCommand("/new", ctx);
-		// Pre-existing children cleared; only the notice pill remains.
-		// appendNotice adds: Spacer + DynText(header) + Text(body) + DynText(footer) = 4
-		expect(ctx.writer.container.children.length).toBe(4);
+		// Pre-existing children cleared; only the notice remains.
+		// appendNotice adds: Spacer + Text(body) = 2
+		expect(ctx.writer.container.children.length).toBe(2);
 	});
 
 	it("appends '(conversation cleared)' notice", () => {
@@ -343,7 +337,7 @@ describe("handleSlashCommand /logout", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// ALE-BUG-16 — activeCalls drained on turn abort
+// activeCalls drained on turn abort
 // ---------------------------------------------------------------------------
 
 describe("activeCalls drained on turn abort", { tags: ["unit"] }, () => {
@@ -380,29 +374,6 @@ describe("activeCalls drained on turn abort", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// Header border width regression
-// ---------------------------------------------------------------------------
-
-describe("renderHeaderTopBorder — visible width equals terminal width", { tags: ["unit"] }, () => {
-	const label = "* ALEF  -  3a80e561";
-
-	for (const width of [40, 80, 120, 200]) {
-		it(`fills exactly ${width} columns`, () => {
-			const rendered = renderHeaderTopBorder(label, width);
-			// Strip any ANSI escapes before measuring (function returns plain text).
-			const visible = rendered.replace(/\x1b\[[0-9;]*m/g, "");
-			expect(visible.length).toBe(width);
-		});
-	}
-
-	it("clamps to zero filler at minimum width without throwing", () => {
-		const rendered = renderHeaderTopBorder(label, 0);
-		const visible = rendered.replace(/\x1b\[[0-9;]*m/g, "");
-		// ╭ + inner + ╮  with zero filler — length is inner.length + 2, not 0
-		expect(visible.length).toBeGreaterThan(0);
-	});
-});
-
 // ---------------------------------------------------------------------------
 // handleColonCommand :reload
 // ---------------------------------------------------------------------------
@@ -465,7 +436,7 @@ describe("handleColonCommand :reload — with reloadOrgan callback", { tags: ["u
 });
 
 // ---------------------------------------------------------------------------
-// ArcEditorWrapper — content lines must never exceed terminal width (ALE-BUG-44 regression)
+// EditorWrapper — content lines must never exceed terminal width ( regression)
 //
 // RED: written before the fix. The bug: render(width) then prepend a space
 // → width+1 chars → TUI crash "Rendered line exceeds terminal width".
@@ -473,11 +444,11 @@ describe("handleColonCommand :reload — with reloadOrgan callback", { tags: ["u
 
 import type { Component, TUI as TUIClass } from "@dpopsuev/alef-tui";
 
-// Reach into console-zone via its Component array after mount() to test ArcEditorWrapper.
-// Since ArcEditorWrapper is not exported, we test it through ConsoleZone.mount().
-import { ConsoleZone } from "../src/console-zone.js";
+// Reach into prompt-console via its Component array after mount() to test EditorWrapper.
+// Since EditorWrapper is not exported, we test it through PromptConsole.mount().
+import { PromptConsole } from "../src/prompt-console.js";
 
-describe("ArcEditorWrapper — rendered lines must not exceed terminal width", { tags: ["unit"] }, () => {
+describe("EditorWrapper — rendered lines must not exceed terminal width", { tags: ["unit"] }, () => {
 	for (const width of [40, 80, 120, 179, 180, 200]) {
 		it(`all lines fit within ${width} columns`, () => {
 			const children: Component[] = [];
@@ -493,13 +464,13 @@ describe("ArcEditorWrapper — rendered lines must not exceed terminal width", {
 			} as unknown as TUIClass;
 
 			const t = getTheme();
-			const zone = new ConsoleZone(fakeTui, t, "test-model");
+			const zone = new PromptConsole(fakeTui, t, "test-model");
 			zone.mount();
 
-			// ConsoleZone.mount() adds: pendingFooter, inFlightQueue, statusText,
-			// ArcEditorWrapper, hintBar — ArcEditorWrapper is at index 3.
+			// PromptConsole.mount() adds: pendingFooter, inFlightQueue, statusText,
+			// EditorWrapper, hintBar — EditorWrapper is at index 3.
 			const arcWrapper = children[3];
-			if (!arcWrapper) throw new Error("ArcEditorWrapper not found at index 3");
+			if (!arcWrapper) throw new Error("EditorWrapper not found at index 3");
 
 			const rendered = arcWrapper.render(width);
 			for (const line of rendered) {

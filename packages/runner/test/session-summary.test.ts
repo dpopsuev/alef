@@ -1,9 +1,9 @@
 /**
- * SessionSummary — written at agent exit (ALE-TSK-276 / Djinn pattern).
+ * SessionSummary — written at agent exit ( / Djinn pattern).
  *
  * Verifies that two files are written when the agent disposes:
- *   <session-dir>/<id>.summary.json   — per-session archive
- *   ~/.alef/last-session.json         — always overwritten
+ * <session-dir>/<id>.summary.json — per-session archive
+ * ~/.alef/last-session.json — always overwritten
  */
 
 import { mkdir, readFile, rm } from "node:fs/promises";

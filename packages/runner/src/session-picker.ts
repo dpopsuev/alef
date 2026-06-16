@@ -72,16 +72,16 @@ export async function pickSession(
 	const listTheme = {
 		selectedPrefix: (s: string) => color(s, t.accentFg),
 		selectedText: (s: string) => bold(s),
-		description: (s: string) => color(s, t.dimFg),
-		scrollInfo: (s: string) => color(s, t.dimFg),
-		noMatch: (s: string) => color(s, t.dimFg),
+		description: (s: string) => color(s, t.mutedFg),
+		scrollInfo: (s: string) => color(s, t.mutedFg),
+		noMatch: (s: string) => color(s, t.mutedFg),
 	};
 
 	return new Promise<string | undefined>((resolve) => {
 		const terminal = new ProcessTerminal();
 		const tui = new TUI(terminal);
 
-		tui.addChild(new Text(color("  Sessions — type to filter  ↑↓ navigate  Enter select  Esc new", t.dimFg), 0, 0));
+		tui.addChild(new Text(color("  Sessions — type to filter  ↑↓ navigate  Enter select  Esc new", t.mutedFg), 0, 0));
 		tui.addChild(new Text("", 0, 0));
 
 		const searchInput = new Input();

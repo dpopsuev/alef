@@ -120,8 +120,8 @@ export interface LectorOrganOptions extends BaseOrganOptions {
 	 * Required when using the default LocalLectorBackend.
 	 */
 	cwd: string;
-	/** Allow paths outside cwd. Default: false. */
-	allowAbsolutePaths?: boolean;
+	/** OCAP grant — directories accessible. Undefined = unrestricted. */
+	writableRoots?: readonly string[];
 	/**
 	 * Override the backend (e.g. StubLectorBackend for tests,
 	 * DockerLectorBackend for EnclosureOrgan integration).
@@ -135,7 +135,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 		opts.backend ??
 		new LocalLectorBackend({
 			cwd: opts.cwd,
-			allowAbsolutePaths: opts.allowAbsolutePaths,
+			writableRoots: opts.writableRoots,
 		});
 
 	const base = defineOrgan(

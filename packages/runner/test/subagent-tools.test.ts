@@ -11,9 +11,9 @@
 import type { Context } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createOrgan } from "@dpopsuev/alef-organ-fs";
+import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildSubagentFactory } from "../src/subagent-factory.js";
-import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 
 describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];

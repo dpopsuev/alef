@@ -9,7 +9,7 @@
  *        ↓  (ticked at ~60fps, adaptive chars-per-frame)
  *   downstream(delta)           ← smoothed delta chunks
  *        ↓
- *   streamingZone.receiveText(delta)
+ *   replyBlock.receiveText(delta)
  *
  * The Typewriter is stateless with respect to display: it only manages
  * the reveal schedule. The downstream consumer owns the rendered text.

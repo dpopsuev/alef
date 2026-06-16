@@ -1,5 +1,5 @@
 /**
- * Neovim-style modal input handler for the ConsoleZone editor.
+ * Neovim-style modal input handler for the PromptConsole editor.
  *
  * Modes (Djinn shell/modes.go pattern — Mode interface, dispatch table, no switch chains):
  *   INSERT  (default): all input passes through to the editor unchanged.

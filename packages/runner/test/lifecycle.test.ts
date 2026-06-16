@@ -3,19 +3,18 @@
  *
  * Exercises the complete organ stack end-to-end without a real LLM or API key:
  *
- *   Boot  → POST /message via RouterOrgan HTTP
- *         → ScriptedReasoner calls real fs.read tool
- *         → SSE stream delivers motor + sense events
- *         → SessionLog writes StorageRecord to JSONL
- *         → TurnAssembler reconstructs turn from JSONL
- *         → Multi-turn: DialogOrgan accumulates history
- *         → SSE filter: allowedEvents blocks internal events
- *         → Session resume: reload JSONL, history intact
+ * Boot → POST /message via RouterOrgan HTTP
+ * → ScriptedReasoner calls real fs.read tool
+ * → SSE stream delivers motor + sense events
+ * → SessionLog writes StorageRecord to JSONL
+ * → TurnAssembler reconstructs turn from JSONL
+ * → Multi-turn: DialogOrgan accumulates history
+ * → SSE filter: allowedEvents blocks internal events
+ * → Session resume: reload JSONL, history intact
  *
  * No real LLM. No API key. All organ handlers execute for real.
  * RouterOrgan binds on port 0 (OS-assigned). Cleanup via tmpdir per test.
  *
- * Ref: ALE-TSK-182
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";

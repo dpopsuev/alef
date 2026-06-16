@@ -25,10 +25,20 @@ type SenseBus = { subscribe: (type: string, handler: (event: SenseEvent) => void
 
 const STALL_INTERVAL_MS = 5_000;
 
+const LONG_RUNNING_TIMEOUT_MS = 3_600_000;
+
 function toOuterTimeoutMs(args: Record<string, unknown>, defaultMs: number, toolDef?: ToolDefinition): number {
+	if (toolDef?.longRunning) {
+		const parsed = toolDef.inputSchema.safeParse(args);
+		const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
+		const explicit =
+			typeof data.maxMs === "number" ? data.maxMs : typeof data.timeoutMs === "number" ? data.timeoutMs : undefined;
+		return (explicit ?? LONG_RUNNING_TIMEOUT_MS) + 10_000;
+	}
 	const parsed = toolDef?.inputSchema.safeParse(args);
 	const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
-	const inner = typeof data.timeoutMs === "number" ? data.timeoutMs : undefined;
+	const inner =
+		typeof data.timeoutMs === "number" ? data.timeoutMs : typeof data.maxMs === "number" ? data.maxMs : undefined;
 	return inner !== undefined ? inner + 10_000 : defaultMs;
 }
 

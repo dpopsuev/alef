@@ -6,7 +6,7 @@ import { parseAtAddress } from "./identity/routes.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { ModalInputHandler } from "./modal-input.js";
 import type { Session } from "./session.js";
-import { boldColor, color, getTheme } from "./theme.js";
+import { bold, boldColor, color, getTheme } from "./theme.js";
 import { handleColonCommand, handleCtrlC, handleSlashCommand } from "./tui-commands.js";
 import { buildLayout } from "./tui-layout.js";
 import { type TuiEvent, tuiReducer } from "./tui-reducer.js";
@@ -14,13 +14,10 @@ import { initialTuiState, syncOverlays, type TuiUi } from "./tui-state.js";
 import { checkForUpdate } from "./version-check.js";
 
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
-export { pillFooterStr, pillHeaderStr } from "./tui/pill.js";
 export { renderDiffDisplay, renderToolLine, truncateToolOutput } from "./tui/tool-view.js";
 export type { TuiHandlerContext } from "./tui-commands.js";
 export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./tui-commands.js";
 
-const ANSI_BOLD = "\x1b[1m";
-const ANSI_RESET = "\x1b[0m";
 const HISTORY_PICKER_ID = "history-picker";
 
 export async function runTuiMode(session: Session, opts: InteractiveOptions, store?: ISessionStore): Promise<void> {
@@ -37,10 +34,10 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 
 	let tuiState = initialTuiState();
 	const layout = await buildLayout(tui, t, opts, () => tuiState.sessionTokensTotal, store);
-	const { writer, streamingZone, replyTW, thinkingTW, consoleZone, historyProvider } = layout;
-	const { editor } = consoleZone;
+	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, historyProvider } = layout;
+	const { editor } = promptConsole;
 
-	const tuiUi: TuiUi = { writer, streamingZone, replyTW, thinkingTW, consoleZone, tui, t, session };
+	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
 	const dispatch = (event: TuiEvent): void => {
 		const prev = tuiState;
 		tuiState = tuiReducer(tuiState, event, tuiUi);
@@ -68,9 +65,9 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 		const pickTheme = {
 			selectedPrefix: (s: string) => color(s, t.accentFg),
 			selectedText: (s: string) => boldColor(s, t.accentFg),
-			description: (s: string) => color(s, t.dimFg),
-			scrollInfo: (s: string) => color(s, t.dimFg),
-			noMatch: (s: string) => color(s, t.dimFg),
+			description: (s: string) => color(s, t.mutedFg),
+			scrollInfo: (s: string) => color(s, t.mutedFg),
+			noMatch: (s: string) => color(s, t.mutedFg),
 		};
 		const items: SelectItem[] = entries.map((e) => ({ value: e, label: e.length > 60 ? `${e.slice(0, 60)}…` : e }));
 		const list = new SelectList(items, 6, pickTheme);
@@ -107,6 +104,28 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 		if (matchesKey(data, "ctrl+t")) {
 			dispatch({ type: "thinking.toggle" });
 			return true;
+		}
+		if (matchesKey(data, "tab") && tuiState.activeCalls.size > 0) {
+			dispatch({ type: "inspector.cycle" });
+			return true;
+		}
+		if (matchesKey(data, "escape") && tuiState.focusedCallId) {
+			dispatch({ type: "inspector.close" });
+			return true;
+		}
+		if (tuiState.focusedCallId) {
+			if (matchesKey(data, "ctrl+x")) {
+				dispatch({ type: "inspector.cancel" });
+				return true;
+			}
+			if (matchesKey(data, "k") || matchesKey(data, "up")) {
+				dispatch({ type: "inspector.scroll", direction: 1 });
+				return true;
+			}
+			if (matchesKey(data, "j") || matchesKey(data, "down")) {
+				dispatch({ type: "inspector.scroll", direction: -1 });
+				return true;
+			}
 		}
 		return false;
 	};
@@ -163,7 +182,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 				} finally {
 					dispatch({ type: "abort.clear" });
 					session.setTurnController(undefined);
-					if (consoleZone.isThinking) consoleZone.stopThinking();
+					if (promptConsole.isThinking) promptConsole.stopThinking();
 				}
 				return;
 			}
@@ -193,7 +212,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 		} finally {
 			dispatch({ type: "abort.clear" });
 			session.setTurnController(undefined);
-			if (consoleZone.isThinking) consoleZone.stopThinking();
+			if (promptConsole.isThinking) promptConsole.stopThinking();
 		}
 	};
 
@@ -201,13 +220,13 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 		new ModalInputHandler(
 			editor,
 			(mode) => {
-				if (!consoleZone.isThinking)
-					consoleZone.setStatus(mode === "normal" ? color(`${ANSI_BOLD}NORMAL${ANSI_RESET}`, t.dimFg) : "");
+				if (!promptConsole.isThinking)
+					promptConsole.setStatus(mode === "normal" ? color(bold("NORMAL"), t.mutedFg) : "");
 				tui.requestRender();
 			},
 			(hint) => {
-				if (!consoleZone.isThinking)
-					consoleZone.setStatus(hint ? color(hint, t.dimFg) : color(`${ANSI_BOLD}NORMAL${ANSI_RESET}`, t.dimFg));
+				if (!promptConsole.isThinking)
+					promptConsole.setStatus(hint ? color(hint, t.mutedFg) : color(bold("NORMAL"), t.mutedFg));
 				tui.requestRender();
 			},
 			(colonCmd) => {
@@ -236,6 +255,6 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 			resolve();
 		};
 	});
-	if (consoleZone.isThinking) consoleZone.stopThinking();
+	if (promptConsole.isThinking) promptConsole.stopThinking();
 	trace("tui:stopped");
 }

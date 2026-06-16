@@ -18,11 +18,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { createJiti } from "jiti";
 import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-kernel";
 import { extractToolCallId } from "@dpopsuev/alef-kernel";
-import type { CompiledAgentDefinition } from "./types.js";
+import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
+import type { CompiledAgentDefinition } from "./types.js";
 
 /**
  * Short alias → npm package for organs shipped with Alef.
@@ -35,8 +35,9 @@ const BUILTIN_PACKAGES: Record<string, string> = {
 	shell: "@dpopsuev/alef-organ-shell",
 	nodesh: "@dpopsuev/alef-organ-nodesh",
 	lector: "@dpopsuev/alef-organ-lector",
-	orchestration: "@dpopsuev/alef-organ-orchestration",
-	delegate: "@dpopsuev/alef-organ-delegate",
+	agent: "@dpopsuev/alef-organ-agent",
+	orchestration: "@dpopsuev/alef-organ-agent",
+	delegate: "@dpopsuev/alef-organ-agent",
 	factory: "@dpopsuev/alef-organ-factory",
 	eval: "@dpopsuev/alef-organ-eval",
 	skills: "@dpopsuev/alef-organ-skills",
@@ -48,6 +49,12 @@ export interface OrganFactoryOptions {
 	cwd: string;
 	actions?: string[];
 	logger?: OrganLogger;
+	/**
+	 * OCAP grant — directories the organ is allowed to access.
+	 * Undefined = unrestricted (no path guard). Populated = enforce guard.
+	 * Resolved from config.security.writable_roots by the materializer.
+	 */
+	writableRoots?: readonly string[];
 }
 
 /** Expected shape of an organ module — must export createOrgan. */
@@ -70,6 +77,12 @@ export interface MaterializerOptions {
 	 * Injected by the runner to decouple alef-pm from the materializer.
 	 */
 	resolveExternalPath?: (name: string) => string | undefined;
+	/**
+	 * OCAP grant — directories organs are allowed to access.
+	 * Undefined = unrestricted. Populated = enforce path guard.
+	 * Source: config.yaml security.writable_roots (after placeholder resolution).
+	 */
+	writableRoots?: readonly string[];
 }
 
 export interface MaterializerResult {
@@ -262,7 +275,7 @@ async function loadOrganModule(
  */
 export async function loadOrganFromPath(
 	path: string,
-	opts: Pick<MaterializerOptions, "cwd" | "loggerFor">,
+	opts: Pick<MaterializerOptions, "cwd" | "loggerFor" | "writableRoots">,
 ): Promise<Organ> {
 	const jitiMod = await getJiti().import(path);
 	const mod = jitiMod as Record<string, unknown>;
@@ -270,7 +283,7 @@ export async function loadOrganFromPath(
 		throw new Error(`Organ at '${path}' does not export createOrgan(opts).`);
 	}
 	const typed = mod as unknown as OrganModule;
-	return await typed.createOrgan({ cwd: opts.cwd, logger: opts.loggerFor?.(path) });
+	return await typed.createOrgan({ cwd: opts.cwd, logger: opts.loggerFor?.(path), writableRoots: opts.writableRoots });
 }
 
 export async function materializeBlueprint(
@@ -289,6 +302,7 @@ export async function materializeBlueprint(
 				cwd: opts.cwd,
 				actions: organDef.actions.length > 0 ? organDef.actions : undefined,
 				logger: opts.loggerFor?.(organDef.name),
+				writableRoots: opts.writableRoots,
 			});
 			const gated =
 				opts.allowedTools && opts.allowedTools.length > 0 ? wrapWithPermissions(organ, opts.allowedTools) : organ;

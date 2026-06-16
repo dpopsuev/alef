@@ -4,15 +4,14 @@
  * Any organ implementation calls runOrganContract(organ) in a test to prove
  * it satisfies the Nerve contract. Six checks:
  *
- *   1. mount() returns a cleanup function
- *   2. cleanup is idempotent (callable twice without throwing)
- *   3. organ.tools is a defined array
- *   4. organ.subscriptions.motor lists every 'motor/' key the organ handles
- *   5. for each tool: valid Motor event → Sense event within timeout
- *   6. for each tool: invalid payload → isError:true Sense event
+ * 1. mount() returns a cleanup function
+ * 2. cleanup is idempotent (callable twice without throwing)
+ * 3. organ.tools is a defined array
+ * 4. organ.subscriptions.motor lists every 'motor/' key the organ handles
+ * 5. for each tool: valid Motor event → Sense event within timeout
+ * 6. for each tool: invalid payload → isError:true Sense event
  *
  * Mirrors Tako testkit/contracts/RunWalkerContract.
- * Ref: ALE-TSK-323
  */
 
 import { randomUUID } from "node:crypto";
@@ -146,13 +145,13 @@ export async function runOrganContract(organ: Organ, opts: OrganContractOptions 
  *
  * @example
  * test("fs organ satisfies contract", async () => {
- *   await assertOrganContract(createFsOrgan({ cwd: "/tmp" }));
+ * await assertOrganContract(createFsOrgan({ cwd: "/tmp" }));
  * });
  */
 export async function assertOrganContract(organ: Organ, opts?: OrganContractOptions): Promise<void> {
 	const report = await runOrganContract(organ, opts);
 	if (!report.ok) {
-		const lines = report.violations.map((v) => `  [${v.check}] ${v.detail}`).join("\n");
+		const lines = report.violations.map((v) => ` [${v.check}] ${v.detail}`).join("\n");
 		throw new Error(`Organ '${report.organ}' failed contract:\n${lines}`);
 	}
 }
@@ -231,12 +230,12 @@ export interface OrganComplianceOptions {
  * import { createShellOrgan } from "../src/organ.js";
  *
  * organComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
- *   streaming: {
- *     "shell.exec": {
- *       validPayload: { command: "sleep 1" },
- *       thresholdMs: 500,
- *     },
- *   },
+ * streaming: {
+ * "shell.exec": {
+ * validPayload: { command: "sleep 1" },
+ * thresholdMs: 500,
+ * },
+ * },
  * });
  * ```
  *
@@ -314,7 +313,7 @@ export function organComplianceSuite(
 		it("all tools reject null required fields immediately (< 400ms)", async () => {
 			const o = createOrgan();
 			const results = await runSchemaContract(o, { timeoutMs: opts.schemaTimeoutMs ?? 400 });
-			const violations = results.flatMap((r) => r.violations.map((v) => `  ${r.tool}: ${v}`));
+			const violations = results.flatMap((r) => r.violations.map((v) => ` ${r.tool}: ${v}`));
 			expect(violations, `schema violations:\n${violations.join("\n")}`).toEqual([]);
 		}, 10_000);
 
@@ -322,7 +321,7 @@ export function organComplianceSuite(
 			const o = createOrgan();
 			const results = await runSchemaContract(o, { timeoutMs: opts.schemaTimeoutMs ?? 400 });
 			const rawErrors = results.flatMap((r) =>
-				r.violations.filter((v) => v.includes("[InputValidation]")).map((v) => `  ${r.tool}: ${v}`),
+				r.violations.filter((v) => v.includes("[InputValidation]")).map((v) => ` ${r.tool}: ${v}`),
 			);
 			expect(rawErrors, "error messages must not expose internal [InputValidation] prefix").toEqual([]);
 		}, 10_000);
@@ -390,9 +389,9 @@ export interface SchemaContractResult {
 
 /**
  * Verify that when a required field is set to null, the organ:
- *   1. Publishes an error sense within 200ms (not a 60s timeout)
- *   2. Does not call handle() on rejection
- *   3. Error message is human-readable (no raw zod '[InputValidation]' prefix)
+ * 1. Publishes an error sense within 200ms (not a 60s timeout)
+ * 2. Does not call handle() on rejection
+ * 3. Error message is human-readable (no raw zod '[InputValidation]' prefix)
  */
 export async function runSchemaContract(
 	organ: Organ,
@@ -463,7 +462,7 @@ export async function runSchemaContract(
  * emits at least one isFinal:false sense event — so the TUI can show progress.
  *
  * This contract catches organs that should use typedStreamAction but use
- * typedAction instead (like organ-delegate.agent.run, organ-enclosure.exec).
+ * typedAction instead (like organ-agent.agent.run, organ-enclosure.exec).
  */
 export async function runStreamingContract(
 	organ: Organ,

@@ -1,20 +1,20 @@
 /**
  * E2E real-LLM tests for the runner HTTP surface.
  *
- * ALE-TSK-184 — POST /message → SSE reply with real LLM
- * ALE-TSK-185 — Blueprint organ selection verified with real LLM
- * ALE-TSK-187 — RouterOrgan SSE filter with real LLM
+ * POST /message → SSE reply with real LLM
+ * Blueprint organ selection verified with real LLM
+ * RouterOrgan SSE filter with real LLM
  *
  * Gate: ANTHROPIC_API_KEY or ANTHROPIC_VERTEX_PROJECT_ID must be set.
  * Default model: claude-haiku-4-5 (cheapest, fast enough).
  * Override: ALEF_E2E_MODEL=claude-sonnet-4-5
  *
  * Design principles:
- *   - One SSE connection per test (no racing collectors).
- *   - Unguessable file content forces actual tool use — a model can't
- *     answer correctly without reading the file.
- *   - JSONL records are the ground truth for tool usage; SSE is the
- *     surface under test.
+ * - One SSE connection per test (no racing collectors).
+ * - Unguessable file content forces actual tool use — a model can't
+ * answer correctly without reading the file.
+ * - JSONL records are the ground truth for tool usage; SSE is the
+ * surface under test.
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -57,24 +57,24 @@ function withDebugDump(): void {
 	onTestFailed(() => {
 		process.stderr.write("\n");
 		process.stderr.write("╔══ E2E FAILURE DUMP ═══════════════════════════════════╗\n");
-		process.stderr.write(`║  model: ${E2E_MODEL}\n`);
+		process.stderr.write(`║ model: ${E2E_MODEL}\n`);
 		process.stderr.write("╠══ Runner output ════════════════════════════════════════╣\n");
 		for (const line of debug.runnerOutput.split("\n")) {
-			if (line.trim()) process.stderr.write(`  ${line}\n`);
+			if (line.trim()) process.stderr.write(` ${line}\n`);
 		}
 		process.stderr.write("╠══ Posted messages ══════════════════════════════════════╣\n");
 		for (const m of debug.postedMessages) {
-			process.stderr.write(`  POST /message: ${m}\n`);
+			process.stderr.write(` POST /message: ${m}\n`);
 		}
 		process.stderr.write("╠══ SSE events (all) ═════════════════════════════════════╣\n");
 		if (debug.sseEvents.length === 0) {
-			process.stderr.write("  (none)\n");
+			process.stderr.write(" (none)\n");
 		} else {
 			for (const ev of debug.sseEvents) {
 				const e = ev as { bus?: string; type?: string; payload?: unknown; timestamp?: number };
 				const ts = e.timestamp ? new Date(e.timestamp).toISOString().slice(11, 23) : "?";
 				const payload = JSON.stringify(e.payload).slice(0, 120);
-				process.stderr.write(`  [${ts}] ${e.bus}/${e.type}  ${payload}\n`);
+				process.stderr.write(` [${ts}] ${e.bus}/${e.type} ${payload}\n`);
 			}
 		}
 		process.stderr.write("╚═════════════════════════════════════════════════════════╝\n");
@@ -542,7 +542,7 @@ describe.skipIf(!HAVE_LLM)(
 			const secret = randomUUID();
 			writeFileSync(join(cwd, "data.txt"), `value=${secret}\n`, "utf-8");
 
-			writeFileSync(join(cwd, "agent.yaml"), ["name: fs-only-agent", "organs:", "  - name: fs"].join("\n"), "utf-8");
+			writeFileSync(join(cwd, "agent.yaml"), ["name: fs-only-agent", "organs:", " - name: fs"].join("\n"), "utf-8");
 
 			const { baseUrl } = await bootRunner(cwd, ["--blueprint", join(cwd, "agent.yaml")]);
 			await new Promise((r) => setTimeout(r, 300));
@@ -600,11 +600,11 @@ describe.skipIf(!HAVE_LLM)(
 				[
 					"name: filtered-agent",
 					"organs:",
-					"  - name: fs",
+					" - name: fs",
 					"surfaces:",
-					"  - type: sse",
-					"    events:",
-					"      - llm.response",
+					" - type: sse",
+					" events:",
+					" - llm.response",
 				].join("\n"),
 				"utf-8",
 			);

@@ -103,7 +103,7 @@ describe("executeFindQuery — cache hit", { tags: ["unit"] }, () => {
 // subprocessTimeoutMs is set to 300ms so the test completes in ~300ms.
 // ---------------------------------------------------------------------------
 
-describe("executeFindQuery — subprocess hang (ALE-BUG fd-hang)", { tags: ["unit"] }, () => {
+describe("executeFindQuery — subprocess hang", { tags: ["unit"] }, () => {
 	it("rejects when the fd subprocess never exits", async () => {
 		// A script that sleeps forever — simulates fd scanning a massive tree.
 		const fakeScript = join(tmpdir(), `fake-fd-hang-${Date.now()}.sh`);

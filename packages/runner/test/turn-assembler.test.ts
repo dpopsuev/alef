@@ -330,7 +330,7 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 });
 
 // ---------------------------------------------------------------------------
-// Abort-before-llm.response — the dementia regression (ALE-BUG-46)
+// Abort-before-llm.response — the dementia regression
 //
 // When the user interrupts after tool calls complete but before the Reasoner
 // publishes motor/llm.response, the turn has completed tool events in the

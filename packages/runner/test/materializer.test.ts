@@ -1,9 +1,13 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compileAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
+import {
+	compileAgentDefinition,
+	loadOrganFromPath,
+	loadUserOrgansConfig,
+	materializeBlueprint,
+} from "@dpopsuev/alef-agent-blueprint";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadOrganFromPath, loadUserOrgansConfig, materializeBlueprint } from "../src/materializer.js";
 
 const CWD = "/tmp/test-workspace";
 

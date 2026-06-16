@@ -4,6 +4,8 @@
  * Tools:
  *   orchestration.spawn   — start a child Alef, return endpoint + sessionId
  *   orchestration.ask     — delegate a prompt to a child and return its reply (EIP Request-Reply)
+ *   orchestration.race    — delegate prompts to multiple children in parallel, return all results
+ *   orchestration.run     — ephemeral one-shot: spawn, ask, kill in one call
  *   orchestration.kill    — stop a named child
  *   orchestration.list    — enumerate running children
  *   orchestration.status  — health-check a named child
@@ -19,11 +21,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
-import type { ExecutionStrategy, Organ, OrganLogger } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, Watchdog, withDisplay } from "@dpopsuev/alef-kernel";
+import type { ExecutionStrategy, Nerve, Organ, OrganLogger } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { RemoteStrategy } from "@dpopsuev/alef-runtime";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
-import { RemoteProcessStrategy } from "./remote-process.js";
 import type { ChildEntry } from "./types.js";
 
 function detectBwrap(): string | null {
@@ -66,13 +68,18 @@ export interface OrchestrationOrganOptions {
 	readinessTimeoutMs?: number;
 	logger?: OrganLogger;
 	/**
-	 * Called after a child spawns successfully with a RemoteProcessStrategy
+	 * Called after a child spawns successfully with a RemoteStrategy
 	 * bound to that child's endpoint. organ-delegate uses this to register
 	 * the child as a named delegation target.
 	 */
 	onChildReady?: (name: string, strategy: ExecutionStrategy) => void;
 	/** Event type to wait for as the child's reply. Provided by assembly. */
 	replyEvent: string;
+	/**
+	 * OCAP grant — writable roots from the parent's security config.
+	 * Propagated to child processes via ALEF_WRITABLE_ROOTS env var.
+	 */
+	writableRoots?: readonly string[];
 }
 
 const RUNNER_MAIN = new URL("../../runner/src/main.ts", import.meta.url).pathname;
@@ -134,7 +141,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 	const readinessTimeoutMs = opts.readinessTimeoutMs ?? 30_000;
 	const children = new Map<string, ChildEntry>();
 	let childSeq = 0;
-	let mountedNerve: import("@dpopsuev/alef-kernel").Nerve | null = null;
+	let mountedNerve: Nerve | null = null;
 
 	const ASK_TOOL = {
 		name: "orchestration.ask",
@@ -165,49 +172,29 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 		const entry = children.get(childName);
 		if (!entry) throw new Error(`orchestration.ask: no child named '${childName}'`);
 
-		let rejectStall: ((e: Error) => void) | undefined;
-		const stallPromise = new Promise<never>((_, reject) => {
-			rejectStall = reject;
+		const strategy = new RemoteStrategy({
+			endpoint: entry.endpoint,
+			replyEvent: opts.replyEvent,
+			stallMs,
+			onStall: () => {
+				entry.process.kill("SIGTERM");
+				children.delete(childName);
+				mountedNerve?.sense.publish({
+					type: "child.reaped",
+					correlationId: "system",
+					isError: false,
+					payload: { name: childName, reason: "stall" },
+				});
+			},
 		});
-		const watchdog = new Watchdog(stallMs, () => {
-			entry.process.kill("SIGTERM");
-			children.delete(childName);
-			mountedNerve?.sense.publish({
-				type: "child.reaped",
-				correlationId: "system",
-				isError: false,
-				payload: { name: childName, reason: "stall" },
-			});
-			rejectStall?.(new Error(`orchestration.ask: child '${childName}' stalled — no SSE events for ${stallMs}ms`));
-		});
-		watchdog.start();
-
-		// lint-ignore: RAWTIMER hard wall-clock cap beyond the stall watchdog
-		const hardTimer = setTimeout(() => {
-			watchdog.stop();
-			rejectStall?.(new Error(`orchestration.ask: child '${childName}' exceeded maxMs (${maxMs}ms)`));
-		}, maxMs);
-
-		const strategy = new RemoteProcessStrategy(entry.endpoint, opts.replyEvent, () => watchdog.reset());
-		try {
-			const reply = await Promise.race([
-				strategy.send({ text: prompt, sender: "human", timeoutMs: maxMs }),
-				stallPromise,
-			]);
-			watchdog.stop();
-			clearTimeout(hardTimer);
-			if (!reply) {
-				return withDisplay(
-					{ name: childName, reply: null, timedOut: true },
-					{ text: `**${childName}** did not reply`, mimeType: "text/markdown" },
-				);
-			}
-			return withDisplay({ name: childName, reply }, { text: reply, mimeType: "text/plain" });
-		} catch (err) {
-			watchdog.stop();
-			clearTimeout(hardTimer);
-			throw err;
+		const reply = await strategy.send({ text: prompt, sender: "human", timeoutMs: maxMs });
+		if (!reply) {
+			return withDisplay(
+				{ name: childName, reply: null, timedOut: true },
+				{ text: `**${childName}** did not reply`, mimeType: "text/markdown" },
+			);
 		}
+		return withDisplay({ name: childName, reply }, { text: reply, mimeType: "text/plain" });
 	}
 
 	const SPAWN_TOOL = {
@@ -222,7 +209,19 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 				.optional()
 				.describe("Path to an agent.yaml blueprint. Mutually exclusive with organs[]."),
 			organs: z
-				.array(z.string().min(1))
+				.preprocess(
+					(v) => {
+						if (typeof v === "string") {
+							try {
+								return JSON.parse(v) as unknown;
+							} catch {
+								return [v];
+							}
+						}
+						return v;
+					},
+					z.array(z.string().min(1)),
+				)
 				.optional()
 				.describe("Paths to .ts organ files. Orchestration organ writes a temp agent.yaml."),
 			cwd: z.string().optional().describe("Working directory for the child. Defaults to parent cwd."),
@@ -274,6 +273,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 			...process.env,
 			ALEF_SUPERVISOR: "1",
 			NODE_PATH: nodePath,
+			...(opts.writableRoots ? { ALEF_WRITABLE_ROOTS: JSON.stringify(opts.writableRoots) } : {}),
 			// TSX needs this to resolve path aliases when running the child via tsx.
 			// If already in the environment (e.g. monorepo dev), preserve it.
 			...(process.env.TSX_TSCONFIG_PATH
@@ -311,7 +311,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 		};
 		children.set(name, entry);
 
-		const strategy = new RemoteProcessStrategy(ready.endpoint, opts.replyEvent, () => mountedNerve?.pulse());
+		const strategy = new RemoteStrategy({ endpoint: ready.endpoint, replyEvent: opts.replyEvent });
 		opts.onChildReady?.(name, strategy);
 
 		child.once("exit", (code) => {
@@ -383,7 +383,7 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 		const summary =
 			items.length === 0
 				? "No running children."
-				: items.map((c) => `- **${c.name}** pid=${c.pid} ${c.alive ? "✅" : "❌"} ${c.endpoint}`).join("\n");
+				: items.map((c) => `- **${c.name}** pid=${c.pid} ${c.alive ? "alive" : "dead"} ${c.endpoint}`).join("\n");
 		return withDisplay({ children: items }, { text: summary, mimeType: "text/markdown" });
 	}
 
@@ -404,10 +404,128 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 		return withDisplay(
 			{ name: childName, alive, endpoint: entry.endpoint, sessionId: entry.sessionId ?? null, uptimeMs },
 			{
-				text: `**${childName}** ${alive ? "✅ alive" : "❌ dead"} — uptime ${Math.round(uptimeMs / 1000)}s`,
+				text: `**${childName}** ${alive ? "alive" : "dead"} — uptime ${Math.round(uptimeMs / 1000)}s`,
 				mimeType: "text/markdown",
 			},
 		);
+	}
+
+	const RACE_TOOL = {
+		name: "orchestration.race",
+		description:
+			"Send prompts to multiple children in parallel. Returns when all complete or the hard timeout fires. " +
+			"Use this instead of sequential orchestration.ask calls when you need concurrent delegation.",
+		inputSchema: z.object({
+			tasks: z
+				.array(
+					z.object({
+						name: z.string().min(1).describe("Child name from orchestration.spawn"),
+						prompt: z.string().min(1).describe("Message to send to this child"),
+					}),
+				)
+				.min(1)
+				.describe("List of {name, prompt} pairs to race."),
+			stallMs: z.number().optional().describe("Per-child inactivity threshold in ms (default: 60_000)."),
+			maxMs: z.number().optional().describe("Hard wall-clock limit for all tasks in ms (default: 600_000)."),
+		}),
+	};
+
+	async function handleRace(ctx: {
+		payload: { tasks: Array<{ name: string; prompt: string }>; stallMs?: number; maxMs?: number };
+	}): Promise<Record<string, unknown>> {
+		const { tasks, stallMs = 60_000, maxMs = 600_000 } = ctx.payload;
+
+		const results = await Promise.allSettled(
+			tasks.map(async ({ name: childName, prompt }) => {
+				const entry = children.get(childName);
+				if (!entry) return { name: childName, reply: null, error: `no child named '${childName}'` };
+
+				const strategy = new RemoteStrategy({ endpoint: entry.endpoint, replyEvent: opts.replyEvent, stallMs });
+				try {
+					const reply = await strategy.send({ text: prompt, sender: "human", timeoutMs: maxMs });
+					return { name: childName, reply: reply || null, error: null };
+				} catch (err) {
+					return { name: childName, reply: null, error: String(err) };
+				}
+			}),
+		);
+
+		const resolved = results.map((r, i) => {
+			if (r.status === "fulfilled") return r.value;
+			return { name: tasks[i]?.name ?? "unknown", reply: null, error: String(r.reason) };
+		});
+
+		const succeeded = resolved.filter((r) => r.reply !== null);
+		const summary = resolved
+			.map(
+				(r) =>
+					`- **${r.name}**: ${r.reply ? `replied (${String(r.reply).length} chars)` : (r.error ?? "no reply")}`,
+			)
+			.join("\n");
+
+		return withDisplay(
+			{ results: resolved, succeeded: succeeded.length, total: tasks.length },
+			{ text: summary, mimeType: "text/markdown" },
+		);
+	}
+
+	const RUN_TOOL = {
+		name: "orchestration.run",
+		description:
+			"Ephemeral one-shot: spawn a child, send one prompt, return the reply, kill the child. " +
+			"Use this instead of spawn+ask+kill when you need process isolation for a single task.",
+		inputSchema: z.object({
+			prompt: z.string().min(1).describe("Task prompt for the child agent"),
+			blueprintPath: z.string().optional().describe("Path to an agent.yaml blueprint."),
+			organs: z
+				.preprocess(
+					(v) => {
+						if (typeof v === "string") {
+							try {
+								return JSON.parse(v) as unknown;
+							} catch {
+								return [v];
+							}
+						}
+						return v;
+					},
+					z.array(z.string().min(1)),
+				)
+				.optional()
+				.describe("Paths to .ts organ files."),
+			cwd: z.string().optional().describe("Working directory for the child. Defaults to parent cwd."),
+			stallMs: z.number().optional().describe("Inactivity threshold in ms (default: 60_000)."),
+			maxMs: z.number().optional().describe("Hard wall-clock limit in ms (default: 600_000)."),
+		}),
+	};
+
+	async function handleRun(ctx: {
+		payload: {
+			prompt: string;
+			blueprintPath?: string;
+			organs?: string[];
+			cwd?: string;
+			stallMs?: number;
+			maxMs?: number;
+		};
+	}): Promise<Record<string, unknown>> {
+		const { prompt, stallMs = 60_000, maxMs = 600_000 } = ctx.payload;
+
+		const spawnResult = (await handleSpawn({
+			payload: {
+				blueprintPath: ctx.payload.blueprintPath,
+				organs: ctx.payload.organs,
+				cwd: ctx.payload.cwd,
+			},
+		})) as { name: string };
+		const childName = spawnResult.name;
+
+		try {
+			const askResult = await handleAsk({ payload: { name: childName, prompt, stallMs, maxMs } });
+			return askResult;
+		} finally {
+			await handleKill({ payload: { name: childName } });
+		}
 	}
 
 	const PROMOTE_TOOL = {
@@ -471,10 +589,12 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 			motor: {
 				"orchestration.spawn": typedAction(SPAWN_TOOL, handleSpawn),
 				"orchestration.ask": typedAction(ASK_TOOL, handleAsk),
+				"orchestration.race": typedAction(RACE_TOOL, handleRace),
+				"orchestration.run": typedAction(RUN_TOOL, handleRun),
 				"orchestration.kill": typedAction(KILL_TOOL, handleKill),
 				"orchestration.list": typedAction(LIST_TOOL, handleList),
 				"orchestration.status": typedAction(STATUS_TOOL, handleStatus),
-				"orchestration.promote": typedAction(PROMOTE_TOOL, async (ctx) => handlePromote(ctx)),
+				"orchestration.promote": typedAction(PROMOTE_TOOL, async (ctx) => Promise.resolve(handlePromote(ctx))),
 			},
 		},
 		{
@@ -485,7 +605,8 @@ export function createOrchestrationOrgan(opts: OrchestrationOrganOptions): Organ
 			onUnmount: () => {
 				mountedNerve = null;
 			},
-			description: "Child-Alef lifecycle management and task delegation: spawn, ask, kill, list, status, promote.",
+			description:
+				"Child-Alef lifecycle management and task delegation: spawn, ask, race, run, kill, list, status, promote.",
 			labels: ["orchestration", "spawn", "blue-green", "lifecycle"],
 			directives: [
 				`**orchestration organ — process isolation and organ development loop**
@@ -496,8 +617,13 @@ For fast in-process delegation use agent.run instead (available when organ-deleg
 
 When to use orchestration:
 - True process isolation (different blueprint, sandboxed environment)
-- The organ development loop (write → stage → eval → promote)
+- The organ development loop (write -> stage -> eval -> promote)
 - Long-running background agents that outlive a single turn
+- Concurrent task delegation via orchestration.race
+
+orchestration.ask vs orchestration.race:
+- orchestration.ask: one child, blocks until reply. Use for sequential delegation.
+- orchestration.race: multiple children in parallel, returns all results. Use when delegating the same or different tasks to several children concurrently.
 
 Organ development loop:
 1. Write a new organ to disk as a .ts file using nodesh.eval (export createOrgan(opts))

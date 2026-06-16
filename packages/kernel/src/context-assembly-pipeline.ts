@@ -11,13 +11,13 @@ import type {
 export function createContextAssemblyPipeline(): Organ & {
 	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
 } {
-	const stages: ContextAssemblyHandler[] = [];
+	const stages = new Map<string, ContextAssemblyHandler>();
 	const schemaResolvers = new Map<string, (toolName: string) => ToolDefinition | undefined>();
 
 	return {
 		name: "context.assembly.pipeline",
 		tools: [],
-		subscriptions: { motor: ["context.assemble"], sense: ["organ.loaded"] },
+		subscriptions: { motor: ["context.assemble"], sense: ["organ.loaded", "organ.unloaded"] },
 		description:
 			"Ordered context.assemble pipeline — collects ContextAssemblyHandler and schema-resolver contributions from sense/organ.loaded.",
 		contributions: {
@@ -37,8 +37,14 @@ export function createContextAssemblyPipeline(): Organ & {
 			const unsubLoaded = nerve.sense.subscribe("organ.loaded", (event: SenseEvent) => {
 				const contributions = event.payload.contributions as OrganContributions | undefined;
 				const name = event.payload.name as string;
-				if (contributions?.["context.assemble"]) stages.push(contributions["context.assemble"]);
+				if (contributions?.["context.assemble"]) stages.set(name, contributions["context.assemble"]);
 				if (contributions?.["schema-resolver"]) schemaResolvers.set(name, contributions["schema-resolver"]);
+			});
+
+			const unsubUnloaded = nerve.sense.subscribe("organ.unloaded", (event: SenseEvent) => {
+				const name = event.payload.name as string;
+				stages.delete(name);
+				schemaResolvers.delete(name);
 			});
 
 			const unsubAssemble = nerve.motor.subscribe("context.assemble", (event: MotorEvent) => {
@@ -51,7 +57,7 @@ export function createContextAssemblyPipeline(): Organ & {
 					let messages: readonly unknown[] = payload.messages;
 					let tools: ToolDefinition[] = payload.tools ?? [];
 
-					for (const stage of stages) {
+					for (const stage of stages.values()) {
 						const out = await stage({ messages, tools, turn: payload.turn });
 						if (out.abort) {
 							nerve.sense.publish({
@@ -86,6 +92,7 @@ export function createContextAssemblyPipeline(): Organ & {
 
 			return () => {
 				unsubLoaded();
+				unsubUnloaded();
 				unsubAssemble();
 			};
 		},

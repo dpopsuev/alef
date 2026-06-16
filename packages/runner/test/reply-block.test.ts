@@ -1,15 +1,15 @@
 import { Container } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../src/theme.js";
-import { StreamingZone } from "../src/tui/streaming-zone.js";
+import { ReplyBlock } from "../src/tui/reply-block.js";
 
 function makeZone(hideThinking = false) {
 	const chat = new Container();
-	const zone = new StreamingZone(chat, () => {}, getTheme(), hideThinking);
+	const zone = new ReplyBlock(chat, () => {}, getTheme(), hideThinking);
 	return { chat, zone };
 }
 
-describe("StreamingZone", { tags: ["unit"] }, () => {
+describe("ReplyBlock", { tags: ["unit"] }, () => {
 	it("receiveText creates a markdown node", () => {
 		const { zone } = makeZone();
 		zone.receiveText("hello");

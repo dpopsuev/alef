@@ -3,7 +3,7 @@ import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal.js";
 import { getTheme } from "../src/theme.js";
-import { StreamingZone } from "../src/tui/streaming-zone.js";
+import { ReplyBlock } from "../src/tui/reply-block.js";
 
 const COLS = 120;
 const ROWS = 40;
@@ -33,7 +33,7 @@ async function settle(): Promise<void> {
 	await new Promise<void>((r) => setTimeout(r, 30));
 }
 
-describe("reply reaches screen via StreamingZone", { tags: ["unit"] }, () => {
+describe("reply reaches screen via ReplyBlock", { tags: ["unit"] }, () => {
 	let env: ReturnType<typeof makeEnv>;
 
 	beforeEach(() => {
@@ -48,7 +48,7 @@ describe("reply reaches screen via StreamingZone", { tags: ["unit"] }, () => {
 
 	it("reply text appears after tool calls then seal", async () => {
 		const { terminal, tui, chat } = env;
-		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
+		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 
 		zone.reset();
 		zone.reset();
@@ -65,7 +65,7 @@ describe("reply reaches screen via StreamingZone", { tags: ["unit"] }, () => {
 
 	it("large reply end is visible in scroll buffer after many tool lines", async () => {
 		const { terminal, tui, chat } = env;
-		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
+		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 
 		for (let i = 0; i < 10; i++) {
 			zone.reset();
@@ -85,7 +85,7 @@ describe("reply reaches screen via StreamingZone", { tags: ["unit"] }, () => {
 
 	it("each chunk reaches the markdown node immediately", () => {
 		const { tui, chat } = env;
-		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
+		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 
 		zone.receiveText("Hello world");
 
@@ -94,7 +94,7 @@ describe("reply reaches screen via StreamingZone", { tags: ["unit"] }, () => {
 
 	it("requestRender(true) after seal writes content to screen", async () => {
 		const { terminal, tui, chat } = env;
-		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
+		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 
 		zone.receiveText("The quick brown fox");
 		zone.reset();
@@ -120,7 +120,7 @@ describe("toolSlot.receiveTextChunk wiring", { tags: ["unit"] }, () => {
 
 	it("receiveTextChunk puts reply in scroll buffer", async () => {
 		const { terminal, tui, chat } = env;
-		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
+		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 
 		const reply = "Alef is an EDA-based coding agent.";
 		for (const ch of reply) zone.receiveText(ch);
@@ -138,7 +138,7 @@ describe("toolSlot.receiveTextChunk wiring", { tags: ["unit"] }, () => {
 
 		slot.fn?.("SHOULD_NOT_APPEAR");
 
-		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
+		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 		slot.fn = (chunk) => zone.receiveText(chunk);
 
 		for (const ch of "EDA organ-based agent reply.") slot.fn(ch);
@@ -168,7 +168,7 @@ describe("empty segment pruned on seal", { tags: ["unit"] }, () => {
 
 	it("seal with no text removes the segment from chat", async () => {
 		const { tui, chat } = env;
-		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
+		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 		const childsBefore = chat.children.length;
 
 		zone.reset();
@@ -181,7 +181,7 @@ describe("empty segment pruned on seal", { tags: ["unit"] }, () => {
 
 	it("reply is visible when seal happens before stopThinking", async () => {
 		const { terminal, tui, chat } = env;
-		const zone = new StreamingZone(chat, () => tui.requestRender(), getTheme());
+		const zone = new ReplyBlock(chat, () => tui.requestRender(), getTheme());
 
 		zone.receiveText("The full reply text.");
 		zone.reset();

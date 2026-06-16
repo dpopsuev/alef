@@ -1,5 +1,5 @@
 /**
- * Regression test for ALE-BUG-68:
+ * Regression test for :
  * agent.run outer timeout must use the tool's schema default (600s),
  * not the LLM HTTP call timeout (60s).
  *
@@ -13,14 +13,14 @@
 
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
 import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
+import { createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
+import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { Agent } from "../../runtime/src/index.js";
-import { InProcessStrategy } from "../src/strategies/in-process.js";
 import { buildSubagentFactory } from "../src/subagent-factory.js";
-import { createToolShellOrgan } from "../src/tool-shell.js";
 
 const HTTP_TIMEOUT_MS = 200;
 const INNER_DELAY_MS = 500;
@@ -37,7 +37,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 
 		// Inner factory: responds after INNER_DELAY_MS
 		// Without fix: outer timeout = HTTP_TIMEOUT_MS (200ms) < INNER_DELAY_MS (500ms) → timeout
-		// With fix:    outer timeout = schema default (600_000ms) >> INNER_DELAY_MS → success
+		// With fix: outer timeout = schema default (600_000ms) >> INNER_DELAY_MS → success
 		const innerFactory = buildSubagentFactory({ model: innerFaux.getModel() });
 		innerFaux.setResponses([
 			async () => {
@@ -57,7 +57,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			},
 		});
 
-		const delegateOrgan = createDelegateOrgan({
+		const delegateOrgan = createAgentOrgan({
 			strategies: {
 				explore: new InProcessStrategy([], innerFactory),
 			},
@@ -118,7 +118,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			},
 		});
 
-		const delegateOrgan = createDelegateOrgan({
+		const delegateOrgan = createAgentOrgan({
 			strategies: { explore: new InProcessStrategy([], innerFactory) },
 			createAdHocSession: innerFactory,
 		});

@@ -300,7 +300,7 @@ describe("Tool Call Without Result Tests", { tags: ["integration"] }, () => {
 			"gpt-4o - should filter out tool calls without corresponding tool results",
 			{ retry: 3, timeout: 30000 },
 			async () => {
-				const model = getModel("github-copilot", "gpt-4o");
+				const model = getModel("github-copilot", "gpt-5-mini");
 				await testToolCallWithoutResult(model, { apiKey: githubCopilotToken });
 			},
 		);

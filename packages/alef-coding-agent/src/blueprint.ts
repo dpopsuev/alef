@@ -1,5 +1,3 @@
-import type { Organ } from "@dpopsuev/alef-kernel";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import {
 	type BlueprintStack,
 	type BlueprintStackOptions,
@@ -7,13 +5,14 @@ import {
 	materializeBlueprint,
 	materializeDefaultOrgans,
 } from "@dpopsuev/alef-agent-blueprint";
-import { InProcessStrategy } from "@dpopsuev/alef-runtime";
-import { createDelegateOrgan, strategyRegistry } from "@dpopsuev/alef-organ-delegate";
+import type { Organ } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
+import { createAgentOrgan, strategyRegistry } from "@dpopsuev/alef-organ-agent";
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
 import { createMemoryOrgan } from "@dpopsuev/alef-organ-memory";
-import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createSkillsOrgan } from "@dpopsuev/alef-organ-skills";
 import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
+import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
@@ -33,13 +32,6 @@ Rules — follow these exactly:
 - Read files before describing them. Never claim what a file contains without reading it.
 - If the caller asks you to read multiple files in parallel, do so — do not serialize reads you can batch.`;
 
-/**
- * System prompt for the general subagent strategy.
- *
- * Inherits the parent's full directives when called with inheritDirectives:true.
- * This base prompt explains Alef tool dispatch so the inner LLM doesn't fall
- * back to XML tool-call syntax from training data.
- */
 const GENERAL_SYSTEM_PROMPT = `You are a general-purpose Alef subagent with full tool access.
 
 Tool dispatch rules — follow these exactly:
@@ -83,20 +75,19 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 
 	const skillsOrgan = createSkillsOrgan({ cwd });
 
-	// Register built-in strategies in the module-level registry.
-	// DelegateOrgan falls back to strategyRegistry when a profile is not in its instance map.
-	// Registration is idempotent — re-registering with a new stack (new cwd, model) updates the reference.
 	const exploreStrategy = new InProcessStrategy(exploreOrgans, factory, EXPLORE_SYSTEM_PROMPT);
 	const generalStrategy = new InProcessStrategy(generalOrgans, factory, GENERAL_SYSTEM_PROMPT);
 	strategyRegistry.register("explore", exploreStrategy);
 	strategyRegistry.register("general", generalStrategy);
 
-	const delegateOrgan = createDelegateOrgan({
+	const agentOrgan = createAgentOrgan({
+		cwd,
 		strategies: {
 			explore: exploreStrategy,
 			general: generalStrategy,
 		},
-		cwd,
+		replyEvent: "llm.response",
+		writableRoots: opts.writableRoots,
 		materializeOrgans: async (names) => {
 			const { organs } = await materializeBlueprint(
 				{
@@ -110,24 +101,16 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		createAdHocSession: factory,
 	});
 
-	const orchestrationOrgan = createOrchestrationOrgan({
-		cwd,
-		replyEvent: "llm.response",
-		onChildReady: (name, strategy) => delegateOrgan.registerStrategy(name, strategy),
-	});
-
 	const factoryOrgan = createFactoryOrgan({ cwd });
 
-	// ToolShell must see all organs' tools — including agent.run from delegateOrgan.
 	const filteredDomain = domainOrgans.filter(
-		(o) => !["delegate", "orchestration", "factory", "skills"].includes(o.name),
+		(o) => !["agent", "delegate", "orchestration", "factory", "skills"].includes(o.name),
 	);
 	const allOrgans = [
 		...filteredDomain,
 		memoryOrgan,
 		skillsOrgan,
-		delegateOrgan as unknown as Organ,
-		orchestrationOrgan as unknown as Organ,
+		agentOrgan as unknown as Organ,
 		factoryOrgan as unknown as Organ,
 	];
 	const toolShell = createToolShellOrgan({

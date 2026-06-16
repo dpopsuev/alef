@@ -6,9 +6,8 @@ import { trace } from "./debug-trace.js";
 
 export type { TuiHandlerContext } from "./commands/types.js";
 
-export function renderHeaderTopBorder(label: string, width: number): string {
-	const inner = `─ ${label} `;
-	return `╭${inner}${"─".repeat(Math.max(0, width - inner.length - 2))}╮`;
+export function renderHeaderTopBorder(label: string, _width: number): string {
+	return label;
 }
 
 export function handleCtrlC(ctx: TuiHandlerContext): void {

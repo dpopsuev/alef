@@ -16,6 +16,8 @@ export interface LlmOrganOptions {
 	getModel: () => Model<Api>;
 	getSignal: () => AbortSignal | undefined;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
+	/** System prompt (directives) injected into every LLM call. */
+	systemPrompt?: string;
 }
 
 export function buildLlmOrgan(opts: LlmOrganOptions): Organ {
@@ -30,6 +32,7 @@ export function buildLlmOrgan(opts: LlmOrganOptions): Organ {
 		getModel: opts.getModel,
 		getApiKey: () => resolveApiKey(opts.getModel().provider),
 		getThinking: () => opts.thinkingState.level,
+		systemPrompt: opts.systemPrompt,
 		maxRetries: opts.cfg.llm?.maxRetries,
 		maxRetryDelayMs: opts.cfg.llm?.maxRetryDelayMs,
 		timeoutMs: opts.cfg.llm?.timeoutMs,

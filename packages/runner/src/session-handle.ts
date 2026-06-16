@@ -11,13 +11,13 @@
  * Created by the assembly factory (local-session.ts) after all organs are loaded.
  */
 
+import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import type { Agent } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 import type { Directives } from "./directives.js";
-import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import { buildModel } from "./model.js";
 import type { AgentEvent, DirectiveView, Session, SessionState } from "./session.js";
 
@@ -130,6 +130,16 @@ export class SessionHandle implements Session {
 
 	receive(text: string): void {
 		this._dialog.receive(text, "user");
+	}
+
+	cancelToolCall(callId: string, toolName: string): void {
+		this._agent.publishSense({
+			type: toolName,
+			correlationId: "*",
+			payload: { toolCallId: callId, isFinal: true },
+			isError: true,
+			errorMessage: "Cancelled by user",
+		});
 	}
 
 	getDirective(): DirectiveView | undefined {

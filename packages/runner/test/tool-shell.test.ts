@@ -5,18 +5,18 @@
  * Mirrors runtime/test/walking-skeleton.test.ts.
  *
  * Covers:
- *   createToolShellOrgan — construction, metaTools shape
- *   tools.search         — keyword match, empty query, result shape
- *   tools.describe       — full schema + guidance, unknown names silently omitted
- *   buildOrganDirectives — index from organ list
+ * createToolShellOrgan — construction, metaTools shape
+ * tools.search — keyword match, empty query, result shape
+ * tools.describe — full schema + guidance, unknown names silently omitted
+ * buildOrganDirectives — index from organ list
  */
 
 import type { Organ, OrganLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "../src/tool-shell.js";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -111,7 +111,7 @@ describe("createToolShellOrgan — metaTools", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// currentMetaTools — schema promotion (ALE-TSK-362)
+// currentMetaTools — schema promotion
 // ---------------------------------------------------------------------------
 
 describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
@@ -401,7 +401,7 @@ describe("buildBootCatalog", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// ALE-TSK-595: tools:describe:miss warn log
+// tools:describe:miss warn log
 // ---------------------------------------------------------------------------
 
 describe("tools.describe — miss warn log", { tags: ["unit"] }, () => {
@@ -484,7 +484,7 @@ describe("buildOrganDirectives", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// ALE-TSK-597 — agent.run in tools.describe catalog (no full server boot)
+// agent.run in tools.describe catalog (no full server boot)
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------

@@ -1,14 +1,14 @@
 /**
- * Honey-pot A/B/C eval — ALE-TSK-390 / ALE-SPC-51.
+ * Honey-pot A/B/C eval.
  *
  * RED: written before the alef.sessions.search content-scan fix.
  * The test WILL FAIL until alef.sessions.search searches turn content,
- * not just firstMessage. That fix is ALE-TSK-391.
+ * not just firstMessage. That fix is
  *
  * Three sessions:
- *   A (current)  — TUI spinner animation topic
- *   B (target)   — Session picker arrow key bug (notifySelectionChange)
- *   C (honey-pot) — ArcEditorWrapper width crash (session picker surface vocabulary)
+ * A (current) — TUI spinner animation topic
+ * B (target) — Session picker arrow key bug (notifySelectionChange)
+ * C (honey-pot) — EditorWrapper width crash (session picker surface vocabulary)
  *
  * The honey-pot C shares "session picker" and "TUI fix" vocabulary with B.
  * A firstMessage-only search returns both B and C. The agent must read
@@ -96,12 +96,12 @@ describe.skipIf(SKIP)(
 				{
 					user: "The session picker crashed with 'Rendered line 11 exceeds terminal width (180 > 179)'.",
 					assistant:
-						"The crash is in ArcEditorWrapper.render(). We prepend a space to content lines for alignment, but render the inner editor at full width. The line becomes width+1 chars. Fix: call this.inner.render(Math.max(1, width - 1)) instead of width.",
+						"The crash is in EditorWrapper.render(). We prepend a space to content lines for alignment, but render the inner editor at full width. The line becomes width+1 chars. Fix: call this.inner.render(Math.max(1, width - 1)) instead of width.",
 				},
 				{
 					user: "Which file?",
 					assistant:
-						"packages/runner/src/console-zone.ts, the ArcEditorWrapper class. The render() method at line 10.",
+						"packages/runner/src/prompt-console.ts, the EditorWrapper class. The render() method at line 10.",
 				},
 			]);
 		});
@@ -110,7 +110,7 @@ describe.skipIf(SKIP)(
 			rmSync(cwd, { recursive: true, force: true });
 		});
 
-		it("targets session B (notifySelectionChange) not C (ArcEditorWrapper) when asked about arrow key repaint", async () => {
+		it("targets session B (notifySelectionChange) not C (EditorWrapper) when asked about arrow key repaint", async () => {
 			// Override SESSION_ROOT in organ-alef to use our temp cwd.
 			// The organ reads from homedir() by default; we need to redirect it.
 			// For this test we call runMetaAgent with a prompt and check if it mentions B's ID.

@@ -6,7 +6,7 @@ export class DynamicText implements Component {
 		this.fn = fn;
 	}
 	render(width: number): string[] {
-		return [this.fn(width)];
+		return this.fn(width).split("\n");
 	}
 	invalidate(): void {}
 }

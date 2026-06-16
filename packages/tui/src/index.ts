@@ -8,8 +8,6 @@ export {
 	CombinedAutocompleteProvider,
 	type SlashCommand,
 } from "./autocomplete.js";
-// Components
-export { Box } from "./components/box.js";
 export { CancellableLoader } from "./components/cancellable-loader.js";
 export { Editor, type EditorOptions, type EditorTheme } from "./components/editor.js";
 export { GrowSpacer } from "./components/grow-spacer.js";
@@ -17,6 +15,8 @@ export { Image, type ImageOptions, type ImageTheme } from "./components/image.js
 export { Input } from "./components/input.js";
 export { Loader, type LoaderIndicatorOptions } from "./components/loader.js";
 export { type DefaultTextStyle, Markdown, type MarkdownTheme } from "./components/markdown.js";
+// Components
+export { Pad } from "./components/pad.js";
 export {
 	type SelectItem,
 	SelectList,
@@ -96,7 +96,6 @@ export {
 	Container,
 	CURSOR_MARKER,
 	type Focusable,
-	type ITUIHandle,
 	isFocusable,
 	type OverlayAnchor,
 	type OverlayHandle,
@@ -105,6 +104,7 @@ export {
 	type RenderMeta,
 	type SizeValue,
 	TUI,
+	type TuiHandle,
 } from "./tui.js";
 // Utilities
 export { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "./utils.js";

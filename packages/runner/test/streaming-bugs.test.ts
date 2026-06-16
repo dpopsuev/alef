@@ -9,7 +9,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventPressure, pressureToInterval, timeBasedHue } from "../src/event-pressure.js";
-import { pillHeaderStr } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // 1. Pressure-sensitive spinner
@@ -123,12 +122,3 @@ describe("Spinner reads from EventPressure (integration)", { tags: ["unit"] }, (
 
 // ---------------------------------------------------------------------------
 // Pill alignment regression guard
-// ---------------------------------------------------------------------------
-
-describe("Pill alignment (regression)", { tags: ["unit"] }, () => {
-	it("@alef header matches footer width at 80 columns", () => {
-		const header = pillHeaderStr("@alef", 80);
-		const footer = `╰${"─".repeat(78)}╯`;
-		expect(header.length).toBe(footer.length);
-	});
-});

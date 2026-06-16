@@ -724,7 +724,7 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 });
 
 // ---------------------------------------------------------------------------
-// ALE-TSK-564: tool:end fires on timeout (regression for ALE-BUG-64)
+// tool:end fires on timeout (regression)
 // ---------------------------------------------------------------------------
 
 describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"] }, () => {
@@ -794,7 +794,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 });
 
 // ---------------------------------------------------------------------------
-// ALE-TSK-561 / ALE-BUG-60: tool-chunk LlmEvents relay isFinal:false
+// / tool-chunk LlmEvents relay isFinal:false
 // ---------------------------------------------------------------------------
 
 describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }, () => {

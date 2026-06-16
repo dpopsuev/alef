@@ -128,7 +128,7 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 		it.skipIf(!githubCopilotToken)(
 			"gpt-4o - should detect overflow via isContextOverflow",
 			async () => {
-				const model = getModel("github-copilot", "gpt-4o");
+				const model = getModel("github-copilot", "gpt-5-mini");
 				const result = await testContextOverflow(model, githubCopilotToken!);
 				logResult(result);
 
@@ -175,7 +175,7 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 
 	describe.skipIf(!process.env.OPENAI_API_KEY)("OpenAI Responses", () => {
 		it("gpt-4o - should detect overflow via isContextOverflow", async () => {
-			const model = getModel("openai", "gpt-4o");
+			const model = getModel("openai", "gpt-5-mini");
 			const result = await testContextOverflow(model, process.env.OPENAI_API_KEY!);
 			logResult(result);
 
@@ -298,7 +298,7 @@ describe("Context overflow error handling", { tags: ["integration"] }, () => {
 
 	describe.skipIf(!process.env.CEREBRAS_API_KEY)("Cerebras", () => {
 		it("qwen-3-235b - should detect overflow via isContextOverflow", async () => {
-			const model = getModel("cerebras", "qwen-3-235b-a22b-instruct-2507");
+			const model = getModel("cerebras", "gpt-oss-120b");
 			const result = await testContextOverflow(model, process.env.CEREBRAS_API_KEY!);
 			logResult(result);
 

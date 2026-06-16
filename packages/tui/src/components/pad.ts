@@ -9,9 +9,9 @@ type RenderCache = {
 };
 
 /**
- * Box component - a container that applies padding and background to all children
+ * Pad component - a container that applies padding and background to all children
  */
-export class Box implements Component {
+export class Pad implements Component {
 	children: Component[] = [];
 	private paddingX: number;
 	private paddingY: number;

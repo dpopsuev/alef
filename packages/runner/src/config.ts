@@ -59,6 +59,25 @@ const ConfigSchema = z.object({
 		})
 		.optional(),
 
+	/**
+	 * Filesystem security — OCAP grants injected into organs via DI.
+	 *
+	 * writable_roots: directories organs are allowed to read/write.
+	 *   Supports "${cwd}" (resolved at boot) and "${tmpdir}" (os.tmpdir()).
+	 *   Default (omitted): unrestricted — organs can access any path.
+	 *   Empty []: cwd only (most restrictive).
+	 *
+	 * Examples:
+	 *   security: { writable_roots: ["${cwd}", "${tmpdir}"] }  # workspace + tmp
+	 *   security: { writable_roots: ["${cwd}"] }               # workspace only
+	 *   # omit security section entirely for unrestricted (pi-mono style)
+	 */
+	security: z
+		.object({
+			writable_roots: z.array(z.string()).optional(),
+		})
+		.optional(),
+
 	/** Skills organ configuration. */
 	skills: z
 		.object({

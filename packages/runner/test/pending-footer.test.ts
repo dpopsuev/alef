@@ -9,9 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 import { color, getTheme } from "../src/theme.js";
-import { pillFooterStr } from "../src/tui/pill.js";
 
-// Simulate what ConsoleZone.pendingFooter renders based on active state.
+// Simulate what PromptConsole.pendingFooter renders based on active state.
 function makePendingFooterRenderer() {
 	let active = false;
 	let fg = getTheme().accentFg;
@@ -26,7 +25,7 @@ function makePendingFooterRenderer() {
 		},
 		render(width: number): string {
 			if (!active) return "";
-			return color(pillFooterStr(width), fg);
+			return color("─".repeat(Math.max(0, width)), fg);
 		},
 		get isActive() {
 			return active;
@@ -34,15 +33,14 @@ function makePendingFooterRenderer() {
 	};
 }
 
-describe("ConsoleZone — pending footer lifecycle", { tags: ["unit"] }, () => {
+describe("PromptConsole — pending footer lifecycle", { tags: ["unit"] }, () => {
 	it("renders footer when shown, empty when hidden", () => {
 		const footer = makePendingFooterRenderer();
 
 		expect(footer.render(40)).toBe("");
 
 		footer.show();
-		expect(footer.render(40)).toContain("╰");
-		expect(footer.render(40)).toContain("╯");
+		expect(footer.render(40)).toContain("─");
 
 		footer.hide();
 		expect(footer.render(40)).toBe("");
@@ -62,7 +60,7 @@ describe("ConsoleZone — pending footer lifecycle", { tags: ["unit"] }, () => {
 		footer.show();
 		expect(footer.isActive).toBe(true);
 		// render returns one string (not doubled)
-		expect(footer.render(40).split("╰").length - 1).toBe(1);
+		expect(footer.render(40)).toContain("─");
 	});
 
 	it("must be hidden after turn success — regression for duplicate-footer bug", () => {

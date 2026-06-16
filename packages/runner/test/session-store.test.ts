@@ -263,7 +263,7 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 });
 
 // ---------------------------------------------------------------------------
-// ALE-TSK-368 — in-memory cache + checkpoint race fix
+// in-memory cache + checkpoint race fix
 // ---------------------------------------------------------------------------
 
 describe("SessionStore — in-memory cache", { tags: ["unit"] }, () => {

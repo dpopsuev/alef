@@ -107,17 +107,17 @@ describe("built-in themes", { tags: ["unit"] }, () => {
 		const required: Array<keyof typeof BUILT_IN_THEMES.akko> = [
 			"userFg",
 			"agentFg",
-			"toolNameFg",
-			"toolArgFg",
-			"toolOkFg",
-			"toolErrFg",
+			"primaryFg",
+			"secondaryFg",
+			"okFg",
+			"errFg",
 			"accentFg",
-			"dimFg",
+			"mutedFg",
 			"okFg",
 			"warnFg",
 			"errFg",
-			"timeFg",
-			"modelFg",
+			"mutedFg",
+			"mutedFg",
 		];
 		for (const [name, theme] of Object.entries(BUILT_IN_THEMES)) {
 			for (const key of required) {
@@ -197,7 +197,7 @@ describe("spinnerFrames — locale-aware", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// ALE-BUG-19 — boldColor() raw ANSI, fg-only reset (regression)
+// boldColor() raw ANSI, fg-only reset (regression)
 // ---------------------------------------------------------------------------
 
 import { boldColor } from "../src/theme.js";

@@ -256,7 +256,7 @@ describe("ModalInputHandler — normal mode editing", { tags: ["unit"] }, () => 
 });
 
 // ---------------------------------------------------------------------------
-// ALE-TSK-213: which-key hint
+// which-key hint
 // ---------------------------------------------------------------------------
 
 describe("which-key hint overlay", { tags: ["unit"] }, () => {

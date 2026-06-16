@@ -3,16 +3,15 @@
  *
  * These tests verify the runner's ability to operate under the supervisor:
  *
- *   1. Boot without a real LLM via ALEF_SCRIPTED_REPLIES env var
- *   2. Handle IPC handoff_prepare from the supervisor
- *   3. SSE stream survives a supervisor blue-green cycle
- *   4. Session handoff: new runner green resumes previous session
+ * 1. Boot without a real LLM via ALEF_SCRIPTED_REPLIES env var
+ * 2. Handle IPC handoff_prepare from the supervisor
+ * 3. SSE stream survives a supervisor blue-green cycle
+ * 4. Session handoff: new runner green resumes previous session
  *
  * Currently failing (red) because:
- *   - Runner has no ALEF_SCRIPTED_REPLIES support (exits with "no model" error)
- *   - Runner has no process.on("message") IPC handler for supervisor messages
+ * - Runner has no ALEF_SCRIPTED_REPLIES support (exits with "no model" error)
+ * - Runner has no process.on("message") IPC handler for supervisor messages
  *
- * Ref: ALE-TSK-182 (remaining checklist items)
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -30,7 +29,7 @@ const ROOT = resolve(__dirname, "../../..");
 const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
 const RUNNER_MAIN = resolve(__dirname, "../src/main.ts");
 // Supervisor binary removed with coding-agent. Tests below that use SUPERVISOR
-// are skipped until an organ-native supervisor is implemented (ALE-GOL-11).
+// are skipped until an organ-native supervisor is implemented.
 const SUPERVISOR = resolve(__dirname, "../src/supervisor.ts");
 const TSCONFIG = resolve(ROOT, "tsconfig.json");
 
@@ -272,7 +271,7 @@ describe("Runner — ALEF_SCRIPTED_REPLIES", { tags: ["integration"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("Runner — IPC supervisor handoff", { tags: ["integration"] }, () => {
-	// ALE-BUG-35: spurious message before handoff_prepare must not confuse the runner.
+	// spurious message before handoff_prepare must not confuse the runner.
 	it("ignores unknown IPC messages and still acks the correct handoff_prepare", async () => {
 		const cwd = makeTmp();
 		const proc = spawn(process.execPath, [TSX, RUNNER_MAIN, "--serve", "0", "--no-tui"], {
@@ -385,9 +384,9 @@ describe("Runner — IPC supervisor handoff", { tags: ["integration"] }, () => {
 // Test 3: Supervisor blue-green with runner as green
 //
 // RED because: depends on Tests 1 + 2 above. The runner must:
-//   - Boot without API key (ALEF_SCRIPTED_REPLIES)
-//   - Handle IPC handoff (respond to handoff_prepare)
-//   - Serve RouterOrgan HTTP (already works)
+// - Boot without API key (ALEF_SCRIPTED_REPLIES)
+// - Handle IPC handoff (respond to handoff_prepare)
+// - Serve RouterOrgan HTTP (already works)
 //
 // The supervisor uses ALEF_SUPERVISOR_GREEN_SCRIPT to override the green
 // binary with the runner.
@@ -696,7 +695,7 @@ proc.stderr.on("data", (chunk) => {
 });
 
 // ---------------------------------------------------------------------------
-// Supervisor — unhappy paths (ALE-BUG-32, 33, 34)
+// Supervisor — unhappy paths ( 33, 34)
 // ---------------------------------------------------------------------------
 
 /** Self-triggering green: boots runner, sends { type:"rebuild" } once router is ready. */
@@ -709,9 +708,9 @@ const tsx = ${JSON.stringify(TSX)};
 const main = ${JSON.stringify(RUNNER_MAIN)};
 const tsconfig = ${JSON.stringify(TSCONFIG)};
 const proc = spawn(process.execPath, [tsx, main, "--serve", "0", "--no-tui"], {
-  cwd: process.cwd(),
-  stdio: ["inherit", "pipe", "pipe", "ipc"],
-  env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
+ cwd: process.cwd(),
+ stdio: ["inherit", "pipe", "pipe", "ipc"],
+ env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
 });
 proc.stdout.pipe(process.stdout);
 proc.stderr.pipe(process.stderr);
@@ -722,11 +721,11 @@ process.on("SIGTERM", () => proc.kill("SIGTERM"));
 let triggered = false;
 let buf = "";
 proc.stderr.on("data", (chunk) => {
-  buf += chunk.toString();
-  if (!triggered && buf.includes("router listening on")) {
-    triggered = true;
-    if (typeof process.send === "function") process.send({ type: "rebuild" });
-  }
+ buf += chunk.toString();
+ if (!triggered && buf.includes("router listening on")) {
+ triggered = true;
+ if (typeof process.send === "function") process.send({ type: "rebuild" });
+ }
 });
 ${extra}
 `,
@@ -735,7 +734,7 @@ ${extra}
 }
 
 describe("Supervisor — unhappy paths", { tags: ["integration"] }, () => {
-	// ALE-BUG-34: build command fails — old green must stay live, no promotion.
+	// build command fails — old green must stay live, no promotion.
 	it("build failure: old green keeps serving, Promoted staging slot absent", async () => {
 		const cwd = makeTmp();
 		const greenScript = join(cwd, "green.mjs");
@@ -781,7 +780,7 @@ describe("Supervisor — unhappy paths", { tags: ["integration"] }, () => {
 		}
 	}, 55_000);
 
-	// ALE-BUG-33: new green crashes during boot — supervisor rolls back to old green.
+	// new green crashes during boot — supervisor rolls back to old green.
 	it("new green crash: supervisor rolls back, old green keeps serving", async () => {
 		const cwd = makeTmp();
 		const counterFile = join(cwd, "count");
@@ -802,9 +801,9 @@ const count = existsSync(counterFile) ? parseInt(readFileSync(counterFile, "utf8
 writeFileSync(counterFile, String(count + 1));
 if (count > 0) { process.exit(1); }
 const proc = spawn(process.execPath, [tsx, main, "--serve", "0", "--no-tui"], {
-  cwd: process.cwd(),
-  stdio: ["inherit", "pipe", "pipe", "ipc"],
-  env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
+ cwd: process.cwd(),
+ stdio: ["inherit", "pipe", "pipe", "ipc"],
+ env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
 });
 proc.stdout.pipe(process.stdout);
 proc.stderr.pipe(process.stderr);
@@ -814,11 +813,11 @@ proc.on("exit", (code) => process.exit(code ?? 0));
 process.on("SIGTERM", () => proc.kill("SIGTERM"));
 let triggered = false, buf = "";
 proc.stderr.on("data", (chunk) => {
-  buf += chunk.toString();
-  if (!triggered && buf.includes("router listening on")) {
-    triggered = true;
-    if (typeof process.send === "function") process.send({ type: "rebuild" });
-  }
+ buf += chunk.toString();
+ if (!triggered && buf.includes("router listening on")) {
+ triggered = true;
+ if (typeof process.send === "function") process.send({ type: "rebuild" });
+ }
 });
 `,
 			"utf-8",
@@ -864,7 +863,7 @@ proc.stderr.on("data", (chunk) => {
 		}
 	}, 55_000);
 
-	// ALE-BUG-32: old green ignores handoff_prepare — supervisor must promote anyway after 5s.
+	// old green ignores handoff_prepare — supervisor must promote anyway after 5s.
 	it("handoff timeout: supervisor promotes after 5s even without ack", async () => {
 		const cwd = makeTmp();
 		const counterFile = join(cwd, "count");
@@ -885,30 +884,30 @@ const count = existsSync(counterFile) ? parseInt(readFileSync(counterFile, "utf8
 writeFileSync(counterFile, String(count + 1));
 const isOldGreen = count === 0;
 const proc = spawn(process.execPath, [tsx, main, "--serve", "0", "--no-tui"], {
-  cwd: process.cwd(),
-  stdio: ["inherit", "pipe", "pipe", "ipc"],
-  env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
+ cwd: process.cwd(),
+ stdio: ["inherit", "pipe", "pipe", "ipc"],
+ env: { ...process.env, ALEF_SCRIPTED_REPLIES: JSON.stringify(["ok"]), TSX_TSCONFIG_PATH: tsconfig, ALEF_SUPERVISOR: "1" },
 });
 proc.stdout.pipe(process.stdout);
 proc.stderr.pipe(process.stderr);
 process.on("message", (msg) => {
-  // Old green drops handoff_prepare instead of forwarding it.
-  const m = msg;
-  if (isOldGreen && m && m.type === "handoff_prepare") return;
-  if (proc.connected) proc.send(msg);
+ // Old green drops handoff_prepare instead of forwarding it.
+ const m = msg;
+ if (isOldGreen && m && m.type === "handoff_prepare") return;
+ if (proc.connected) proc.send(msg);
 });
 proc.on("message", (msg) => { if (process.connected) process.send(msg); });
 proc.on("exit", (code) => process.exit(code ?? 0));
 process.on("SIGTERM", () => proc.kill("SIGTERM"));
 if (isOldGreen) {
-  let triggered = false, buf = "";
-  proc.stderr.on("data", (chunk) => {
-    buf += chunk.toString();
-    if (!triggered && buf.includes("router listening on")) {
-      triggered = true;
-      if (typeof process.send === "function") process.send({ type: "rebuild" });
-    }
-  });
+ let triggered = false, buf = "";
+ proc.stderr.on("data", (chunk) => {
+ buf += chunk.toString();
+ if (!triggered && buf.includes("router listening on")) {
+ triggered = true;
+ if (typeof process.send === "function") process.send({ type: "rebuild" });
+ }
+ });
 }
 `,
 			"utf-8",
@@ -936,7 +935,7 @@ if (isOldGreen) {
 		}
 	}, 70_000);
 
-	// ALE-TSK-358: scope:packages triggers alef-pm upgrade without crashing supervisor.
+	// scope:packages triggers alef-pm upgrade without crashing supervisor.
 	it("scope:packages update — supervisor calls alef-pm.upgrade() and rebuilds", async () => {
 		const cwd = makeTmp();
 		const greenScript = join(cwd, "green.mjs");
@@ -948,11 +947,11 @@ if (isOldGreen) {
 let pkgTriggered = false;
 let pkgBuf = "";
 proc.stderr.on("data", (chunk) => {
-  pkgBuf += chunk.toString();
-  if (!pkgTriggered && pkgBuf.includes("router listening on")) {
-    pkgTriggered = true;
-    if (typeof process.send === "function") process.send({ type: "update", scope: "packages" });
-  }
+ pkgBuf += chunk.toString();
+ if (!pkgTriggered && pkgBuf.includes("router listening on")) {
+ pkgTriggered = true;
+ if (typeof process.send === "function") process.send({ type: "update", scope: "packages" });
+ }
 });
 `,
 		);

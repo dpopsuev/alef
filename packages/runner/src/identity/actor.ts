@@ -27,11 +27,13 @@ function stableColorIndex(seed: string): number {
  */
 export function resolveHumanActor(): ActorIdentity {
 	const username = userInfo().username;
+	const idx = stableColorIndex(`human:${username}`);
+	const paletteColor = ALL_COLORS[idx];
 	return {
 		type: "human",
 		color: username,
 		address: `@${username}`,
-		token: { ansi16: 37 }, // neutral gray — human has no palette color
+		token: hexToColorToken(paletteColor.hex),
 	};
 }
 

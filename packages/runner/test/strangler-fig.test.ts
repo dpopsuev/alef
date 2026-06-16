@@ -4,16 +4,15 @@
  * Proves that the runner (packages/runner) is a correct replacement for
  * the organ-based runner as the alef entry point. Tests the full chain:
  *
- *   auth.ts        — credential storage and resolution
- *   model.ts       — multi-provider detection and registry lookup
- *   config.ts      — new fields (thinking, llm.*)
- *   materializer   — blueprint YAML → organ instances
- *   BlueprintHarness — blueprint + real organ execution + session JSONL
- *   subprocess     — spawn main.ts, verify CLI output
+ * auth.ts — credential storage and resolution
+ * model.ts — multi-provider detection and registry lookup
+ * config.ts — new fields (thinking, llm.*)
+ * materializer — blueprint YAML → organ instances
+ * BlueprintHarness — blueprint + real organ execution + session JSONL
+ * subprocess — spawn main.ts, verify CLI output
  *
  * No real LLM. No API key. Deterministic.
  *
- * Ref: ALE-TSK-225
  */
 
 import { spawn } from "node:child_process";
@@ -21,12 +20,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { BlueprintHarness } from "../../testkit/src/blueprint-harness.js";
 import { step } from "../../testkit/src/script.js";
 import { authFilePath, getStoredApiKey, removeStoredApiKey, resolveApiKey, setStoredApiKey } from "../src/auth.js";
-import { materializeBlueprint } from "../src/materializer.js";
 import { autoDetectModel, buildModel } from "../src/model.js";
 import { SessionStore } from "../src/session-store.js";
 import { assembleTurns } from "../src/turn-assembler.js";
@@ -258,7 +257,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 		const blueprintPath = join(cwd, "agent.yaml");
 		writeFileSync(
 			blueprintPath,
-			["name: test-agent", "organs:", "  - name: fs", "    actions: [read, grep, find]"].join("\n"),
+			["name: test-agent", "organs:", " - name: fs", " actions: [read, grep, find]"].join("\n"),
 		);
 
 		const h = track(
@@ -282,10 +281,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 		writeFileSync(join(cwd, "app.ts"), "export function handleRequest() { return true; }");
 
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(
-			blueprintPath,
-			["name: grep-agent", "organs:", "  - name: fs", "    actions: [read, grep]"].join("\n"),
-		);
+		writeFileSync(blueprintPath, ["name: grep-agent", "organs:", " - name: fs", " actions: [read, grep]"].join("\n"));
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
@@ -303,10 +299,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 	it("action ablation: read-only blueprint cannot call fs.write", async () => {
 		const cwd = tmpDir();
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(
-			blueprintPath,
-			["name: readonly-agent", "organs:", "  - name: fs", "    actions: [read]"].join("\n"),
-		);
+		writeFileSync(blueprintPath, ["name: readonly-agent", "organs:", " - name: fs", " actions: [read]"].join("\n"));
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
@@ -327,7 +320,7 @@ describe("blueprint composition — fs organ", { tags: ["unit"] }, () => {
 		writeFileSync(join(cwd, "b.ts"), "const b = 2;");
 
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(blueprintPath, ["name: multi-agent", "organs:", "  - name: fs"].join("\n"));
+		writeFileSync(blueprintPath, ["name: multi-agent", "organs:", " - name: fs"].join("\n"));
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
@@ -354,7 +347,7 @@ describe("blueprint composition — shell organ", { tags: ["unit"] }, () => {
 	it("shell.exec executes via blueprint", async () => {
 		const cwd = tmpDir();
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(blueprintPath, ["name: shell-agent", "organs:", "  - name: shell"].join("\n"));
+		writeFileSync(blueprintPath, ["name: shell-agent", "organs:", " - name: shell"].join("\n"));
 
 		const h = track(
 			await BlueprintHarness.fromBlueprint(blueprintPath, {
@@ -463,7 +456,7 @@ describe("CLI subprocess — deterministic", { tags: ["unit"] }, () => {
 	it("--blueprint with read-only organ ablation lists only read tools", async () => {
 		const cwd = tmpDir();
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(blueprintPath, ["name: ro-agent", "organs:", "  - name: fs", "    actions: [read]"].join("\n"));
+		writeFileSync(blueprintPath, ["name: ro-agent", "organs:", " - name: fs", " actions: [read]"].join("\n"));
 
 		const { stdout, exitCode } = await run(["--list-tools", "--blueprint", blueprintPath, "--cwd", cwd]);
 		expect(exitCode).toBe(0);
@@ -487,7 +480,7 @@ describe("CLI subprocess — deterministic", { tags: ["unit"] }, () => {
 		writeFileSync(join(cwd, "hello.ts"), "export const greeting = 'hi';");
 
 		const blueprintPath = join(cwd, "agent.yaml");
-		writeFileSync(blueprintPath, ["name: print-agent", "organs:", "  - name: fs", "    actions: [read]"].join("\n"));
+		writeFileSync(blueprintPath, ["name: print-agent", "organs:", " - name: fs", " actions: [read]"].join("\n"));
 
 		const { stdout, exitCode } = await run(["--print", "read hello.ts", "--blueprint", blueprintPath, "--cwd", cwd], {
 			env: { ALEF_SCRIPTED_REPLIES: JSON.stringify(["blueprint reply ok"]) },

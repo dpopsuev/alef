@@ -2,23 +2,17 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
+import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 import type { Api, Message, Model } from "@dpopsuev/alef-llm";
-import { createDelegateOrgan } from "@dpopsuev/alef-organ-delegate";
+import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
-import { createOrchestrationOrgan } from "@dpopsuev/alef-organ-orchestration";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
 import type { Agent } from "@dpopsuev/alef-runtime";
-import type { Args } from "./args.js";
-import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
-import type { AgentEvent, Session } from "./session.js";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
+import type { Args } from "./args.js";
+import type { AgentEvent, Session } from "./session.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
 
-/**
- * Wire the HTTP surface (RouterOrgan + daemon registry) onto an already-loaded agent.
- * The delegation organs (delegate, orchestration, factory) must already be in the agent
- * via the blueprint stack — this function only handles --serve and --daemon concerns.
- */
 export async function setupHttpSurface(
 	args: Args,
 	agent: Agent,
@@ -93,12 +87,13 @@ export async function buildDelegation(
 
 	const factory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 
-	const delegateOrgan = createDelegateOrgan({
+	const agentOrgan = createAgentOrgan({
+		cwd: args.cwd,
 		strategies: {
 			explore: new InProcessStrategy(exploreOrgans, factory, EXPLORE_SYSTEM_PROMPT),
 			general: new InProcessStrategy(generalOrgans, factory),
 		},
-		cwd: args.cwd,
+		replyEvent: "llm.response",
 		getParentDirectives: prepareStep
 			? async () => {
 					const msgs = await prepareStep([]);
@@ -121,14 +116,7 @@ export async function buildDelegation(
 		createAdHocSession: factory,
 	});
 
-	const orchestrationOrgan = createOrchestrationOrgan({
-		cwd: args.cwd,
-		replyEvent: "llm.response",
-		onChildReady: (name, strategy) => delegateOrgan.registerStrategy(name, strategy),
-	});
-
-	agent.load(delegateOrgan);
-	agent.load(orchestrationOrgan);
+	agent.load(agentOrgan);
 	agent.load(createFactoryOrgan({ cwd: args.cwd }));
 
 	const servePort = args.daemon ? 0 : args.serve;
@@ -148,13 +136,9 @@ export async function buildDelegation(
 		console.error(`[alef] router listening on http://${addr.host}:${addr.port}`);
 
 		if (args.daemon) {
-			// Forward every AgentEvent to SSE clients so RemoteSession can drive a TUI.
-			// Subscription lifetime matches the daemon process — no explicit cleanup needed.
 			session.subscribe((event: AgentEvent) => {
 				router.notifyAgent(event as unknown as Record<string, unknown>);
 			});
-
-			// Write daemon registry entry.
 			const daemonDir = join(homedir(), ".alef");
 			mkdirSync(daemonDir, { recursive: true });
 			writeFileSync(

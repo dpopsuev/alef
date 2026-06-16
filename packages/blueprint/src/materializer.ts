@@ -6,7 +6,7 @@
  *
  * Resolution order per organ entry:
  *   path  → jiti.import(resolvedPath)       — TypeScript file, no build step
- *   name  → import(BUILTIN_PACKAGES[name])  — built-in alias
+ *   name  → import(@dpopsuev/alef-organ-{name})  — convention-based
  *   name  → import(name)                    — treated as npm package specifier
  *
  * Factory convention:
@@ -31,9 +31,12 @@ import type { CompiledAgentDefinition } from "./types.js";
  * Add a new organ here only; blueprint needs no change.
  */
 /**
- * Resolve a short organ name to an npm package specifier.
+ * Resolve a short organ name to a package specifier.
  * Convention: "fs" → "@dpopsuev/alef-organ-fs".
- * Falls back to treating the name as a raw npm package specifier.
+ *
+ * In the monorepo, packages resolve via Node's workspace symlinks.
+ * Published packages resolve from node_modules via npm.
+ * Both use the same naming convention — no registry needed.
  */
 function resolveOrganPackage(name: string): string {
 	return `@dpopsuev/alef-organ-${name}`;
@@ -250,25 +253,17 @@ async function loadOrganModule(
 		}
 		return mod as unknown as OrganModule;
 	}
-	const conventionPkg = resolveOrganPackage(organDef.name);
-	const candidates = organDef.name.includes("/") ? [organDef.name] : [conventionPkg, organDef.name];
-	for (const pkg of candidates) {
-		try {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-			const rawMod = await import(pkg);
-			const mod = rawMod as unknown as Record<string, unknown>;
-			if (typeof mod.createOrgan !== "function") {
-				throw new Error(
-					`Organ package '${pkg}' does not export createOrgan(opts). ` +
-						`Add \`export { createYourOrgan as createOrgan } from "./organ.js"\` to its index.`,
-				);
-			}
-			return mod as unknown as OrganModule;
-		} catch (err) {
-			if (pkg === candidates[candidates.length - 1]) throw err;
-		}
+	const pkg = resolveOrganPackage(organDef.name);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	const rawMod = await import(pkg);
+	const mod = rawMod as unknown as Record<string, unknown>;
+	if (typeof mod.createOrgan !== "function") {
+		throw new Error(
+			`Organ package '${pkg}' does not export createOrgan(opts). ` +
+				`Add \`export { createYourOrgan as createOrgan } from "./organ.js"\` to its index.`,
+		);
 	}
-	throw new Error(`Could not resolve organ '${organDef.name}'`);
+	return mod as unknown as OrganModule;
 }
 
 /**
@@ -297,7 +292,7 @@ export async function materializeBlueprint(
 	for (const organDef of definition.organs) {
 		if (["ai", "discourse", "symbols"].includes(organDef.name)) continue;
 
-		const label = organDef.path ? organDef.path : (BUILTIN_PACKAGES[organDef.name] ?? organDef.name);
+		const label = organDef.path ? organDef.path : resolveOrganPackage(organDef.name);
 		try {
 			const mod = await loadOrganModule(organDef, opts.resolveExternalPath);
 			const organ = await mod.createOrgan({

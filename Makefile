@@ -76,6 +76,10 @@ alef: ## Run Alef from source (./alef-test.sh)
 debug: ## Run Alef in debug mode
 	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 ./alef-test.sh
 
+.PHONY: organ
+organ: ## Create a new organ scaffold: make organ NAME=weather
+	@npx tsx scripts/create-organ.ts $(NAME)
+
 # ---------------------------------------------------------------------------
 # Original targets (preserved)
 # ---------------------------------------------------------------------------

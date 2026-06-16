@@ -1,5 +1,5 @@
 /**
- * Agentic organ dev loop: uses organ-orchestration + organ-eval AS organs.
+ * Agentic organ dev loop: uses organ-agent + organ-eval AS organs.
  *
  * Replaces the previous test that manually reimplemented collectEvents,
  * postMessage, and runValidators by calling organ-eval internals directly.
@@ -100,7 +100,7 @@ export function createOrgan() {
 		const SCRIPTED_REPLY = "Echo organ loaded and responding.";
 		process.env.ALEF_SCRIPTED_REPLIES = JSON.stringify([SCRIPTED_REPLY]);
 		// Also set NODE_PATH directly in the test process env so the orchestration organ
-		// inherits it — belt-and-suspenders with the fix in organ-orchestration.
+		// inherits it — belt-and-suspenders with the fix in organ-agent.
 		const alefNodeModules = join(resolve(__dirname, "../../.."), "node_modules");
 		if (!process.env.NODE_PATH?.includes(alefNodeModules)) {
 			process.env.NODE_PATH = [alefNodeModules, process.env.NODE_PATH].filter(Boolean).join(":");

@@ -30,19 +30,14 @@ import type { CompiledAgentDefinition } from "./types.js";
  * composition root that knows what it ships. Blueprint has zero organ knowledge.
  * Add a new organ here only; blueprint needs no change.
  */
-const BUILTIN_PACKAGES: Record<string, string> = {
-	fs: "@dpopsuev/alef-organ-fs",
-	shell: "@dpopsuev/alef-organ-shell",
-	nodesh: "@dpopsuev/alef-organ-nodesh",
-	lector: "@dpopsuev/alef-organ-lector",
-	agent: "@dpopsuev/alef-organ-agent",
-	orchestration: "@dpopsuev/alef-organ-agent",
-	delegate: "@dpopsuev/alef-organ-agent",
-	factory: "@dpopsuev/alef-organ-factory",
-	eval: "@dpopsuev/alef-organ-eval",
-	skills: "@dpopsuev/alef-organ-skills",
-	web: "@dpopsuev/alef-organ-web",
-};
+/**
+ * Resolve a short organ name to an npm package specifier.
+ * Convention: "fs" → "@dpopsuev/alef-organ-fs".
+ * Falls back to treating the name as a raw npm package specifier.
+ */
+function resolveOrganPackage(name: string): string {
+	return `@dpopsuev/alef-organ-${name}`;
+}
 
 /** Common options passed to every organ factory. */
 export interface OrganFactoryOptions {
@@ -170,8 +165,7 @@ export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {
 		{ name: "nodesh", actions: [], toolNames: [] },
 		{ name: "lector", actions: [], toolNames: [] },
 		{ name: "web", actions: [], toolNames: [] },
-		{ name: "delegate", actions: [], toolNames: [] },
-		{ name: "orchestration", actions: [], toolNames: [] },
+		{ name: "agent", actions: [], toolNames: [] },
 		{ name: "factory", actions: [], toolNames: [] },
 		{ name: "skills", actions: [], toolNames: [] },
 	],
@@ -256,17 +250,25 @@ async function loadOrganModule(
 		}
 		return mod as unknown as OrganModule;
 	}
-	const pkg = BUILTIN_PACKAGES[organDef.name] ?? organDef.name;
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-	const rawMod = await import(pkg);
-	const mod = rawMod as unknown as Record<string, unknown>;
-	if (typeof mod.createOrgan !== "function") {
-		throw new Error(
-			`Organ package '${pkg}' does not export createOrgan(opts). ` +
-				`Add \`export { createYourOrgan as createOrgan } from "./organ.js"\` to its index.`,
-		);
+	const conventionPkg = resolveOrganPackage(organDef.name);
+	const candidates = organDef.name.includes("/") ? [organDef.name] : [conventionPkg, organDef.name];
+	for (const pkg of candidates) {
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+			const rawMod = await import(pkg);
+			const mod = rawMod as unknown as Record<string, unknown>;
+			if (typeof mod.createOrgan !== "function") {
+				throw new Error(
+					`Organ package '${pkg}' does not export createOrgan(opts). ` +
+						`Add \`export { createYourOrgan as createOrgan } from "./organ.js"\` to its index.`,
+				);
+			}
+			return mod as unknown as OrganModule;
+		} catch (err) {
+			if (pkg === candidates[candidates.length - 1]) throw err;
+		}
 	}
-	return mod as unknown as OrganModule;
+	throw new Error(`Could not resolve organ '${organDef.name}'`);
 }
 
 /**

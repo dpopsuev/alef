@@ -1,7 +1,7 @@
 /**
  * E2E delegation test
  *
- * Exercises: motor/agent.run → organ-delegate → InProcessStrategy
+ * Exercises: motor/agent.run → organ-agent → InProcessStrategy
  * → inner organ-llm (faux inner LLM) → sense/agent.run with reply text
  * → outer organ-llm turn 2 receives toolResult → final llm.response
  */
@@ -261,7 +261,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 // ---------------------------------------------------------------------------
 // Parallel agent.run — callId routing through the full LLM dispatch stack
 //
-// Organ-level stream isolation is tested in organ-delegate/test/delegate.test.ts.
+// Organ-level stream isolation is tested in organ-agent/test/delegate.test.ts.
 // These tests cover the additional layer: dispatchTools binding tc.id into onChunk
 // so callId flows correctly through the outer organ-llm's LlmEvent stream.
 // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import { dispatchTools, payloadToText } from "./tool-dispatch.js";
 import type { TokenUsage } from "./tool-events.js";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 300_000;
-const DEFAULT_MAX_RETRIES = 4;
+const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
 
 // ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ import { EventPressure, pressureToInterval } from "./event-pressure.js";
 import { hexToColorToken, lookupColor } from "./identity/palette.js";
 import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, type ColorToken, color, glyph, type ThemeTokens } from "./theme.js";
+import { fmtMs } from "./tui/ansi-utils.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 import { accentColorize, spinnerFrame } from "./tui/spinner.js";
 import { toolActiveLine } from "./tui/tool-view.js";
@@ -121,13 +122,13 @@ export class PromptConsole {
 		const tick = (): void => {
 			this.frameIdx = (this.frameIdx + 1) % this.frames.length;
 			const elapsedMs = Date.now() - this.thinkingStart;
-			const elapsedS = (elapsedMs / 1000).toFixed(1);
+			const elapsedS = fmtMs(elapsedMs);
 			const frame = this.frames[this.frameIdx] ?? glyph("state:active");
 			const level = this.pressure.level();
 			// Hue cycles through the full 360° spectrum over time;
 			// pressure multiplies the rotation rate so busy turns spin faster.
 			const colorize = accentColorize(this.t.accentFg, elapsedMs);
-			this.statusText.setText(`  ${colorize(frame)} ${colorize(`${elapsedS}s`)}`);
+			this.statusText.setText(`  ${colorize(frame)} ${colorize(elapsedS)}`);
 			this.tui.requestRender();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
 		};

@@ -30,9 +30,14 @@ export function hasAnsi(text: string): boolean {
 	return ANSI_SGR_PATTERN.test(text);
 }
 
-/** Format a millisecond duration as a compact string: `1.2s` or `450ms`. */
+/** Format a millisecond duration as a compact human-readable string. */
 export function fmtMs(ms: number): string {
-	return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+	if (ms < 1000) return `${ms}ms`;
+	const s = ms / 1000;
+	if (s < 60) return `${s.toFixed(1)}s`;
+	const m = Math.floor(s / 60);
+	const remainS = Math.round(s % 60);
+	return remainS > 0 ? `${m}m ${remainS}s` : `${m}m`;
 }
 
 /**

@@ -18,8 +18,7 @@ export function appendUserMsg(
 }
 
 export function appendBatchTiming(chat: Container, ms: number, t: ThemeTokens): void {
-	const s = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
-	chat.addChild(new Text(color(`  ${glyph("state:batch")} · ${s}`, t.mutedFg), 0, 0));
+	chat.addChild(new Text(color(`  ${glyph("state:batch")} · ${fmtMs(ms)}`, t.mutedFg), 0, 0));
 }
 
 export function appendTokenFooter(chat: Container): Text {

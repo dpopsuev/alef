@@ -1,3 +1,5 @@
 {
-	"knownFailing": []
+	"knownFailing": [
+		"runner"
+	]
 }

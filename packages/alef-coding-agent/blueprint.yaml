@@ -16,10 +16,8 @@ organs:
     package: "@dpopsuev/alef-organ-lector"
   - name: web
     package: "@dpopsuev/alef-organ-web"
-  - name: delegate
-    package: "@dpopsuev/alef-organ-delegate"
-  - name: orchestration
-    package: "@dpopsuev/alef-organ-orchestration"
+  - name: agent
+    package: "@dpopsuev/alef-organ-agent"
   - name: factory
     package: "@dpopsuev/alef-organ-factory"
   - name: skills

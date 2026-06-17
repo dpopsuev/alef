@@ -5,9 +5,7 @@ import type { ContextAssemblyHandler, Nerve, Organ } from "@dpopsuev/alef-kernel
 import { debugLog, McpOrgan } from "@dpopsuev/alef-kernel";
 
 export interface ScribeOrganOptions {
-	/** Path to the scribe binary. Defaults to ~/Workspace/scribe/bin/scribe */
 	binary?: string;
-	/** Path to the SQLite database. Defaults to $XDG_DATA_HOME/alef/scribe.db */
 	dbPath?: string;
 }
 
@@ -15,24 +13,57 @@ const DEFAULT_BINARY = join(homedir(), "Workspace/scribe/bin/scribe");
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 const DEFAULT_DB_PATH = join(XDG_DATA_HOME, "alef", "scribe.db");
 
+const REFRESH_INTERVAL = 10;
+
 export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const dbPath = opts.dbPath ?? DEFAULT_DB_PATH;
 
 	let inner: Organ | null = null;
 	let innerCleanup: (() => void) | null = null;
-	const activeTaskId = "";
-	const activeTaskTitle = "";
+	let knowledgeSummary = "";
+	let turnsSinceRefresh = 0;
+	let refreshInFlight = false;
+
+	function refreshSummary(nerve: Nerve): void {
+		if (refreshInFlight || !inner) return;
+		refreshInFlight = true;
+
+		const correlationId = `scribe-dashboard-${Date.now()}`;
+		const off = nerve.sense.subscribe("scribe.artifact", (event) => {
+			if (event.correlationId !== correlationId) return;
+			off();
+			refreshInFlight = false;
+
+			const payload = event.payload as { text?: string; result?: unknown };
+			const text = typeof payload.text === "string" ? payload.text : JSON.stringify(payload);
+
+			if (text && !event.isError) {
+				knowledgeSummary = buildContextBlock(text);
+				debugLog("scribe:context:refreshed", { chars: knowledgeSummary.length });
+			}
+		});
+
+		nerve.motor.publish({
+			type: "scribe.artifact",
+			correlationId,
+			payload: { action: "dashboard" },
+		});
+	}
 
 	const contextStage: ContextAssemblyHandler = async (input) => {
-		if (!activeTaskId || !activeTaskTitle) return {};
+		turnsSinceRefresh++;
+		if (!knowledgeSummary || turnsSinceRefresh >= REFRESH_INTERVAL) {
+			turnsSinceRefresh = 0;
+		}
 
-		const contextBlock = `[Active Task] ${activeTaskTitle} (${activeTaskId})`;
+		if (!knowledgeSummary) return {};
+
 		const messages = [...input.messages];
 		const systemIdx = messages.findIndex((m) => (m as { role?: string }).role === "system");
 		if (systemIdx >= 0) {
 			const sys = messages[systemIdx] as { role: string; content: string };
-			messages[systemIdx] = { ...sys, content: `${sys.content}\n\n${contextBlock}` };
+			messages[systemIdx] = { ...sys, content: `${sys.content}\n\n${knowledgeSummary}` };
 		}
 		return { messages };
 	};
@@ -79,6 +110,7 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 					});
 
 					debugLog("scribe:ready", { tools: mcpOrgan.tools.length });
+					refreshSummary(nerve);
 				})
 				.catch((err: unknown) => {
 					debugLog("scribe:boot:error", { error: String(err) });
@@ -106,4 +138,15 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 	};
 
 	return organ;
+}
+
+function buildContextBlock(dashboardText: string): string {
+	return [
+		"[Scribe Knowledge Base]",
+		"Data is stored in Scribe and queryable across sessions.",
+		"Use scribe.artifact(action=query, query=<term>) to search.",
+		'Use scribe.artifact(action=query, labels=["source:locus"]) to filter by source.',
+		"",
+		dashboardText,
+	].join("\n");
 }

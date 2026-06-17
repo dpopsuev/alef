@@ -60,7 +60,7 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 			nerve,
 			"query",
 			{
-				kind: "knowledge.note",
+				kind: "knowledge.journal",
 				sort: "id",
 				limit: 5,
 				format: "summary",
@@ -100,7 +100,7 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
 		directives: [
 			"Scribe tools are available under the scribe.* prefix. Use scribe.artifact to create, query, and manage work artifacts. Use scribe.graph for dependency trees and briefings.",
-			"To remember something across sessions, create a knowledge.note: scribe.artifact(action=create, kind=knowledge.note, title='...', sections=[{name:'content', text:'...'}])",
+			"To remember something across sessions, create a knowledge.journal: scribe.artifact(action=create, kind=knowledge.journal, title='...', sections=[{name:'content', text:'...'}])",
 		],
 		contributions: {
 			"context.assemble": contextStage,
@@ -171,7 +171,7 @@ function buildContextBlock(dashboard: string, notes: string): string {
 		"Data stored in Scribe persists across sessions.",
 		"Use scribe.artifact(action=query, query=<term>) to search.",
 		'Use scribe.artifact(action=query, labels=["source:locus"]) to filter by source.',
-		"To save a learning: scribe.artifact(action=create, kind=knowledge.note, title='...', sections=[{name:'content', text:'...'}])",
+		"To save a learning: scribe.artifact(action=create, kind=knowledge.journal, title='...', sections=[{name:'content', text:'...'}])",
 	];
 	if (dashboard) {
 		parts.push("", "### Data Sources", dashboard);

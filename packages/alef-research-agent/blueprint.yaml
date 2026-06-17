@@ -1,0 +1,29 @@
+name: alef-research-agent
+version: 0.0.1
+description: >
+  Research agent: coding tools + Locus architecture analysis + Scribe knowledge base.
+  Extends the coding agent with a ServiceFleet for cross-tool data persistence.
+
+organs:
+  - name: fs
+    package: "@dpopsuev/alef-organ-fs"
+  - name: shell
+    package: "@dpopsuev/alef-organ-shell"
+  - name: web
+    package: "@dpopsuev/alef-organ-web"
+  - name: lector
+    package: "@dpopsuev/alef-organ-lector"
+  - name: nodesh
+    package: "@dpopsuev/alef-organ-nodesh"
+
+fleet:
+  scribe:
+    binary: ~/Workspace/scribe/bin/scribe
+    args: ["serve", "--db", "$XDG_DATA_HOME/alef/scribe.db"]
+    restart: permanent
+  locus:
+    binary: ~/Workspace/locus/locus
+    args: ["serve", "--workspace", "$CWD"]
+    dependsOn: ["scribe"]
+    ingestURL: scribe
+    restart: permanent

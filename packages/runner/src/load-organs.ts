@@ -53,16 +53,20 @@ export interface LoadResult {
 }
 
 export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Promise<LoadResult> {
-	let blueprintPath = args.blueprint
-		? (resolveBlueprint(args.blueprint, args.cwd) ?? args.blueprint)
-		: findAgentDefinitionPath(args.cwd);
+	let blueprintPath: string | undefined;
 
-	if (!blueprintPath && !args.print && !args.json && process.stdin.isTTY) {
+	if (args.blueprint) {
+		blueprintPath = resolveBlueprint(args.blueprint, args.cwd) ?? args.blueprint;
+	} else if (!args.print && !args.json && process.stdin.isTTY) {
 		const discovered = discoverBlueprints(args.cwd);
 		if (discovered.length > 1) {
 			const chosen = await pickBlueprint(discovered);
 			if (chosen) blueprintPath = chosen.path;
 		}
+	}
+
+	if (!blueprintPath) {
+		blueprintPath = findAgentDefinitionPath(args.cwd);
 	}
 
 	if (blueprintPath) {

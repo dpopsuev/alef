@@ -15,15 +15,3 @@ organs:
     package: "@dpopsuev/alef-organ-lector"
   - name: nodesh
     package: "@dpopsuev/alef-organ-nodesh"
-
-fleet:
-  scribe:
-    binary: ~/Workspace/scribe/bin/scribe
-    args: ["serve", "--db", "$XDG_DATA_HOME/alef/scribe.db"]
-    restart: permanent
-  locus:
-    binary: ~/Workspace/locus/locus
-    args: ["serve", "--workspace", "$CWD"]
-    dependsOn: ["scribe"]
-    ingestURL: scribe
-    restart: permanent

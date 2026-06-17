@@ -109,6 +109,105 @@ describe("compactor behavior", { tags: ["unit"] }, () => {
 		expect(result.messages).toBeUndefined();
 	});
 
+	it("compaction history records entries", async () => {
+		const organ = createCompactorOrgan({
+			cwd: "/tmp",
+			contextWindow: 100,
+			threshold: 0.5,
+			preserveRecentTurns: 2,
+		});
+
+		const handler = organ.contributions?.["context.assemble"];
+		const messages = [
+			makeMessage("system", "System prompt"),
+			makeMessage("user", longText(200)),
+			makeMessage("assistant", longText(200)),
+			makeMessage("user", longText(200)),
+			makeMessage("assistant", longText(200)),
+			makeMessage("user", "recent"),
+			makeMessage("assistant", "recent"),
+		];
+
+		await handler!({ messages, turn: 5, tools: [] });
+		await handler!({ messages, turn: 6, tools: [] });
+
+		const nerve = new (await import("@dpopsuev/alef-kernel")).InProcessNerve();
+		const off = organ.mount(nerve.asNerve());
+
+		const stats = await new Promise<{ payload: Record<string, unknown> }>((resolve) => {
+			const correlationId = "test-history";
+			nerve.asNerve().sense.subscribe("compactor.stats", (event) => {
+				if (event.correlationId === correlationId) resolve(event);
+			});
+			nerve.asNerve().motor.publish({ type: "compactor.stats", correlationId, payload: {} });
+		});
+
+		expect(stats.payload.compactionCount).toBe(2);
+		expect(stats.payload.historyLength).toBe(2);
+		off();
+	});
+
+	it("prior summary injected when below threshold after compaction", async () => {
+		const organ = createCompactorOrgan({
+			cwd: "/tmp",
+			contextWindow: 100,
+			threshold: 0.5,
+			preserveRecentTurns: 2,
+		});
+
+		const handler = organ.contributions?.["context.assemble"];
+
+		const bigMessages = [
+			makeMessage("system", "System"),
+			makeMessage("user", longText(200)),
+			makeMessage("assistant", longText(200)),
+			makeMessage("user", longText(200)),
+			makeMessage("assistant", longText(200)),
+			makeMessage("user", "recent"),
+			makeMessage("assistant", "recent"),
+		];
+		await handler!({ messages: bigMessages, turn: 5, tools: [] });
+
+		const smallMessages = [
+			makeMessage("system", "System"),
+			makeMessage("user", "short question"),
+			makeMessage("assistant", "short answer"),
+		];
+		const result = await handler!({ messages: smallMessages, turn: 6, tools: [] });
+
+		expect(result.messages).toBeDefined();
+		const contents = result.messages!.map((m) => (m as { content: string }).content);
+		const hasSummary = contents.some((c) => typeof c === "string" && c.includes("[Context compacted"));
+		expect(hasSummary).toBe(true);
+	});
+
+	it("custom summarize function replaces default", async () => {
+		const organ = createCompactorOrgan({
+			cwd: "/tmp",
+			contextWindow: 100,
+			threshold: 0.5,
+			preserveRecentTurns: 2,
+			summarize: async () => "[LLM Summary] Goal: test. Progress: done.",
+		});
+
+		const handler = organ.contributions?.["context.assemble"];
+		const messages = [
+			makeMessage("system", "System"),
+			makeMessage("user", longText(200)),
+			makeMessage("assistant", longText(200)),
+			makeMessage("user", longText(200)),
+			makeMessage("assistant", longText(200)),
+			makeMessage("user", "recent"),
+			makeMessage("assistant", "recent"),
+		];
+
+		const result = await handler!({ messages, turn: 5, tools: [] });
+		expect(result.messages).toBeDefined();
+		const contents = result.messages!.map((m) => (m as { content: string }).content);
+		const hasLLM = contents.some((c) => typeof c === "string" && c.includes("[LLM Summary]"));
+		expect(hasLLM).toBe(true);
+	});
+
 	it("compactor.stats reports metrics via motor/sense", async () => {
 		const nerve = new InProcessNerve();
 		const organ = createCompactorOrgan({ cwd: "/tmp", contextWindow: 5000 });

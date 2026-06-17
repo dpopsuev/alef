@@ -1,1 +1,1 @@
-export { createFactoryOrgan, type FactoryOrganOptions } from "./organ.js";
+export { createFactoryOrgan, createFactoryOrgan as createOrgan, type FactoryOrganOptions } from "./organ.js";

@@ -50,6 +50,8 @@ export interface ToolShellOptions {
 	 * Default: 3. Set to Infinity to disable eviction.
 	 */
 	evictAfterTurn?: number;
+	/** Filter which tools appear in the catalog. Unmatched tools are hidden until explicitly described. */
+	toolFilter?: (tool: ToolDefinition) => boolean;
 	/** Logger for warn/debug output. Defaults to no-op. */
 	logger?: OrganLogger;
 }

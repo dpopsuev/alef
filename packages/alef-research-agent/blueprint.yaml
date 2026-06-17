@@ -2,16 +2,28 @@ name: alef-research-agent
 version: 0.0.1
 description: >
   Research agent: coding tools + Locus architecture analysis + Scribe knowledge base.
-  Extends the coding agent with a ServiceFleet for cross-tool data persistence.
+  Same organs as the coding agent, with fleet services added at runtime.
 
 organs:
   - name: fs
     package: "@dpopsuev/alef-organ-fs"
   - name: shell
     package: "@dpopsuev/alef-organ-shell"
-  - name: web
-    package: "@dpopsuev/alef-organ-web"
-  - name: lector
-    package: "@dpopsuev/alef-organ-lector"
   - name: nodesh
     package: "@dpopsuev/alef-organ-nodesh"
+  - name: lector
+    package: "@dpopsuev/alef-organ-lector"
+  - name: web
+    package: "@dpopsuev/alef-organ-web"
+  - name: agent
+    package: "@dpopsuev/alef-organ-agent"
+  - name: factory
+    package: "@dpopsuev/alef-organ-factory"
+  - name: skills
+    package: "@dpopsuev/alef-organ-skills"
+
+capabilities:
+  orchestration: true
+
+memory:
+  session: memory

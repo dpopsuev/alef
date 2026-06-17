@@ -36,11 +36,15 @@ import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.j
 const FS_READ_TOOL = {
 	name: "fs.read",
 	description:
-		"Read raw text from any file. Returns up to 2000 lines or 50KB; use offset/limit to paginate. For code files where you need symbol awareness, prefer lector.read.",
+		"Read raw text from any file. Returns up to 2000 lines or 50KB; use offset/limit to paginate. Use format='hashline' for content-addressed line references (required before fs.hashline-edit).",
 	inputSchema: z.object({
 		path: z.string().min(1).describe("Path to the file (relative or absolute)"),
 		offset: z.number().optional().describe("Line number to start reading from (1-indexed)"),
 		limit: z.number().optional().describe("Maximum number of lines to read"),
+		format: z
+			.enum(["raw", "hashline"])
+			.optional()
+			.describe("Output format: raw (default) or hashline (line numbers + content hashes for editing)"),
 	}),
 };
 
@@ -135,6 +139,19 @@ const FS_EDIT_TOOL = {
 			newText: z.string().min(1).describe("Replacement text"),
 		}),
 	]),
+};
+
+const FS_HASHLINE_EDIT_TOOL = {
+	name: "fs.hashline-edit",
+	description:
+		"Edit a file using content-addressed line references. Requires reading the file first with fs.read(format='hashline'). " +
+		"Operations: SWAP N (replace line), SWAP N.=M (replace range), DEL N, INS.PRE N, INS.POST N. Body lines prefixed with +. " +
+		"Rejects edits if file changed since last read (staleness detection).",
+	inputSchema: z.object({
+		path: z.string().min(1).describe("Path to the file"),
+		fileHash: z.string().optional().describe("File hash from [#HASH] header for staleness detection"),
+		input: z.string().min(1).describe("Hashline edit commands"),
+	}),
 };
 
 // ---------------------------------------------------------------------------
@@ -268,11 +285,11 @@ function detectBinaryMime(buf: Buffer): string | null {
 }
 
 async function handleRead(
-	ctx: { payload: { path: string; offset?: number; limit?: number } },
+	ctx: { payload: { path: string; offset?: number; limit?: number; format?: string } },
 	opts: FsOrganOptions,
 	tracker: FileTracker,
 ): Promise<Record<string, unknown>> {
-	const { path: filePath, offset, limit } = ctx.payload;
+	const { path: filePath, offset, limit, format } = ctx.payload;
 	if (!filePath) throw new Error("fs.read: path is required");
 
 	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots);
@@ -298,6 +315,18 @@ async function handleRead(
 	const truncated = truncateHead(contentToRead, { maxLines: limit ?? DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
 	// Record that this file was read — enables read-before-edit enforcement.
 	tracker.record(absolutePath);
+
+	if (format === "hashline") {
+		const { formatHashline } = await import("./hashline.js");
+		const hashlineContent = formatHashline(truncated.content, offset ?? 1);
+		return {
+			content: hashlineContent,
+			truncated: truncated.truncated,
+			truncatedBy: truncated.truncatedBy,
+			totalLines: truncated.totalLines,
+			outputLines: truncated.outputLines,
+		};
+	}
 
 	return {
 		content: truncated.content,
@@ -639,6 +668,28 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 							{ path: result.path, applied: result.applied, editCount: result.editCount },
 							{ text: result.diff as string, mimeType: "text/x-diff" },
 						);
+					},
+					{ invalidates: () => WRITE_INVALIDATES },
+				),
+				"fs.hashline-edit": typedAction(
+					FS_HASHLINE_EDIT_TOOL,
+					async (ctx) => {
+						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
+						const result = await withQueue(absolutePath, async () => {
+							const { parseHashlineEdits, applyHashlineEdits } = await import("./hashline.js");
+							const content = await fsReadFile(absolutePath, "utf-8");
+							const edits = parseHashlineEdits(ctx.payload.input);
+							if (edits.length === 0) throw new Error("No valid hashline edit commands found in input");
+							const applied = applyHashlineEdits(content as string, edits, ctx.payload.fileHash);
+							if (applied.error) throw new Error(applied.error);
+							await atomicWrite(absolutePath, applied.result);
+							tracker.record(absolutePath);
+							return { path: ctx.payload.path, editCount: edits.length };
+						});
+						return withDisplay(result, {
+							text: `Applied ${result.editCount} hashline edit(s) to ${result.path}`,
+							mimeType: "text/plain",
+						});
 					},
 					{ invalidates: () => WRITE_INVALIDATES },
 				),

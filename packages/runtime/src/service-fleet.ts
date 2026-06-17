@@ -18,11 +18,17 @@ export interface FleetConfig {
 	services: Record<string, ServiceConfig>;
 }
 
+const MAX_RESTARTS = 3;
+const RESTART_WINDOW_MS = 60_000;
+const RESTART_BACKOFF_MS = [1_000, 3_000, 10_000];
+
 interface ManagedService {
 	name: string;
 	config: ServiceConfig;
 	organ: Organ;
 	cleanup: () => void;
+	restartTimestamps: number[];
+	healthTimer?: ReturnType<typeof setInterval>;
 }
 
 export class ServiceFleet {
@@ -30,6 +36,7 @@ export class ServiceFleet {
 	private readonly managed = new Map<string, ManagedService>();
 	private bootOrder: string[] = [];
 	private started = false;
+	private nerve: Nerve | null = null;
 
 	constructor(config: FleetConfig) {
 		this.config = config;
@@ -38,29 +45,14 @@ export class ServiceFleet {
 	async start(nerve: Nerve): Promise<void> {
 		if (this.started) throw new Error("ServiceFleet already started");
 		this.started = true;
+		this.nerve = nerve;
 
 		this.bootOrder = topoSort(this.config.services);
 		debugLog("fleet:start", { order: this.bootOrder });
 
 		for (const name of this.bootOrder) {
 			const cfg = this.config.services[name];
-			const resolvedEnv = this.resolveEnv(name, cfg);
-			const organ = await this.spawnService(name, cfg, resolvedEnv);
-			const cleanup = organ.mount(nerve);
-
-			this.managed.set(name, { name, config: cfg, organ, cleanup });
-
-			nerve.sense.publish({
-				type: "organ.loaded",
-				correlationId: `fleet-${name}`,
-				payload: {
-					name,
-					tools: organ.tools.map((t) => ({ name: t.name, description: t.description })),
-				},
-				isError: false,
-			});
-
-			debugLog("fleet:service:ready", { name, tools: organ.tools.length });
+			await this.bootService(name, cfg, nerve);
 		}
 	}
 
@@ -72,6 +64,7 @@ export class ServiceFleet {
 			const svc = this.managed.get(name);
 			if (!svc) continue;
 
+			if (svc.healthTimer) clearInterval(svc.healthTimer);
 			svc.cleanup();
 			if (svc.organ.close) {
 				await svc.organ.close().catch((err: unknown) => {
@@ -82,6 +75,7 @@ export class ServiceFleet {
 		}
 
 		this.started = false;
+		this.nerve = null;
 	}
 
 	get(name: string): Organ | undefined {
@@ -94,6 +88,90 @@ export class ServiceFleet {
 
 	names(): string[] {
 		return [...this.managed.keys()];
+	}
+
+	private async bootService(name: string, cfg: ServiceConfig, nerve: Nerve): Promise<void> {
+		const resolvedEnv = this.resolveEnv(name, cfg);
+		const organ = await this.spawnService(name, cfg, resolvedEnv);
+		const cleanup = organ.mount(nerve);
+
+		const svc: ManagedService = {
+			name,
+			config: cfg,
+			organ,
+			cleanup,
+			restartTimestamps: [],
+		};
+
+		if (cfg.restart === "permanent") {
+			svc.healthTimer = setInterval(() => {
+				void this.healthCheck(name);
+			}, 30_000);
+		}
+
+		this.managed.set(name, svc);
+
+		nerve.sense.publish({
+			type: "organ.loaded",
+			correlationId: `fleet-${name}`,
+			payload: {
+				name,
+				tools: organ.tools.map((t) => ({ name: t.name, description: t.description })),
+			},
+			isError: false,
+		});
+
+		debugLog("fleet:service:ready", { name, tools: organ.tools.length });
+	}
+
+	private async healthCheck(name: string): Promise<void> {
+		const svc = this.managed.get(name);
+		if (!svc || !this.nerve) return;
+
+		try {
+			const organ = svc.organ as unknown as { client?: { ping?: () => Promise<void> } };
+			if (typeof organ.client?.ping === "function") {
+				await organ.client.ping();
+			}
+		} catch {
+			debugLog("fleet:service:unhealthy", { name });
+			await this.restartService(name);
+		}
+	}
+
+	private async restartService(name: string): Promise<void> {
+		const svc = this.managed.get(name);
+		if (!svc || !this.nerve) return;
+
+		const policy = svc.config.restart ?? "temporary";
+		if (policy === "temporary") return;
+
+		const now = Date.now();
+		const recent = svc.restartTimestamps.filter((t) => now - t < RESTART_WINDOW_MS);
+		if (recent.length >= MAX_RESTARTS) {
+			debugLog("fleet:service:restart:rate-limited", { name, restarts: recent.length });
+			return;
+		}
+
+		svc.restartTimestamps = [...recent, now];
+		const attempt = recent.length;
+		const backoff = RESTART_BACKOFF_MS[Math.min(attempt, RESTART_BACKOFF_MS.length - 1)];
+
+		debugLog("fleet:service:restarting", { name, attempt: attempt + 1, backoffMs: backoff });
+
+		svc.cleanup();
+		if (svc.organ.close) {
+			await svc.organ.close().catch(() => {});
+		}
+
+		await new Promise((r) => setTimeout(r, backoff));
+
+		try {
+			await this.bootService(name, svc.config, this.nerve);
+			debugLog("fleet:service:restarted", { name });
+		} catch (err: unknown) {
+			debugLog("fleet:service:restart:failed", { name, error: String(err) });
+		}
 	}
 
 	private async spawnService(name: string, cfg: ServiceConfig, env?: Record<string, string>): Promise<Organ> {

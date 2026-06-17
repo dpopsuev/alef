@@ -12,6 +12,7 @@ import {
 import type { Organ } from "@dpopsuev/alef-kernel";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
+import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprint-picker.js";
 import type { AlefConfig } from "./config.js";
 
 /**
@@ -52,7 +53,17 @@ export interface LoadResult {
 }
 
 export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Promise<LoadResult> {
-	const blueprintPath = args.blueprint ?? findAgentDefinitionPath(args.cwd);
+	let blueprintPath = args.blueprint
+		? (resolveBlueprint(args.blueprint, args.cwd) ?? args.blueprint)
+		: findAgentDefinitionPath(args.cwd);
+
+	if (!blueprintPath && !args.print && !args.json && process.stdin.isTTY) {
+		const discovered = discoverBlueprints(args.cwd);
+		if (discovered.length > 1) {
+			const chosen = await pickBlueprint(discovered);
+			if (chosen) blueprintPath = chosen.path;
+		}
+	}
 
 	if (blueprintPath) {
 		let definition = loadAgentDefinition(blueprintPath);

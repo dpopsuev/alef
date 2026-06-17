@@ -1,0 +1,1 @@
+No emojis in any output — prose, tool results, code, commits. Use plain punctuation (dashes, colons, parentheses) for emphasis. Emojis render as noise in terminal output and git log.

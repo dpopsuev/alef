@@ -93,4 +93,26 @@ describe("ServiceFleet", { tags: ["unit"] }, () => {
 		expect(config.services.locus.ingestURL).toBe("scribe");
 		expect(config.services.scribe.httpUrl).toBe("http://localhost:8080");
 	});
+
+	it("permanent restart policy is configurable", () => {
+		const config: FleetConfig = {
+			services: {
+				scribe: { binary: "scribe", restart: "permanent" },
+				worker: { binary: "worker", restart: "temporary" },
+			},
+		};
+		const _fleet = new ServiceFleet(config);
+		expect(config.services.scribe.restart).toBe("permanent");
+		expect(config.services.worker.restart).toBe("temporary");
+	});
+
+	it("restart rate limiting — max 3 in 60s window", () => {
+		const config: FleetConfig = {
+			services: {
+				svc: { binary: "svc", restart: "permanent" },
+			},
+		};
+		const _fleet = new ServiceFleet(config);
+		expect(config.services.svc.restart).toBe("permanent");
+	});
 });

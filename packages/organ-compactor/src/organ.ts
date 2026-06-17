@@ -2,11 +2,14 @@ import type { ContextAssemblyHandler, ContextAssemblyOutput } from "@dpopsuev/al
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
+export type SummarizeFn = (messages: readonly unknown[]) => Promise<string> | string;
+
 export interface CompactorOrganOptions {
 	cwd: string;
 	contextWindow?: number;
 	threshold?: number;
 	preserveRecentTurns?: number;
+	summarize?: SummarizeFn;
 }
 
 const CHARS_PER_TOKEN = 4;
@@ -49,9 +52,17 @@ function summarizeMessages(messages: readonly unknown[]): string {
 	return lines.join("\n");
 }
 
+interface CompactionEntry {
+	timestamp: number;
+	messagesCompacted: number;
+	tokensBefore: number;
+	tokensAfter: number;
+	summary: string;
+}
+
 const STATS_TOOL = {
 	name: "compactor.stats",
-	description: "Show context compaction statistics: token estimates, threshold, compaction count.",
+	description: "Show context compaction statistics: token estimates, threshold, compaction count, history.",
 	inputSchema: z.object({}),
 };
 
@@ -64,12 +75,18 @@ export function createCompactorOrgan(opts: CompactorOrganOptions) {
 	let compactionCount = 0;
 	let lastEstimatedTokens = 0;
 	let lastCompactedTokens = 0;
+	const compactionHistory: CompactionEntry[] = [];
+	let lastSummary = "";
+	const summarizeFn: SummarizeFn = opts.summarize ?? summarizeMessages;
 
 	const compactStage: ContextAssemblyHandler = async (input) => {
 		const estimated = estimateTokens(input.messages);
 		lastEstimatedTokens = estimated;
 
 		if (estimated <= tokenLimit) {
+			if (lastSummary) {
+				return injectPriorSummary(input.messages, lastSummary);
+			}
 			return {};
 		}
 
@@ -83,7 +100,7 @@ export function createCompactorOrgan(opts: CompactorOrganOptions) {
 
 		const toCompact = nonSystem.slice(0, -preserveRecent);
 		const toKeep = nonSystem.slice(-preserveRecent);
-		const summary = summarizeMessages(toCompact);
+		const summary = await summarizeFn(toCompact);
 
 		const compactedMessages: unknown[] = [];
 		if (systemMsg) compactedMessages.push(systemMsg);
@@ -92,6 +109,15 @@ export function createCompactorOrgan(opts: CompactorOrganOptions) {
 
 		compactionCount++;
 		lastCompactedTokens = estimateTokens(compactedMessages);
+		lastSummary = summary;
+
+		compactionHistory.push({
+			timestamp: Date.now(),
+			messagesCompacted: toCompact.length,
+			tokensBefore: estimated,
+			tokensAfter: lastCompactedTokens,
+			summary: summary.slice(0, 200),
+		});
 
 		const result: ContextAssemblyOutput = { messages: compactedMessages };
 		return result;
@@ -111,6 +137,8 @@ export function createCompactorOrgan(opts: CompactorOrganOptions) {
 							contextWindow,
 							threshold,
 							preserveRecent,
+							historyLength: compactionHistory.length,
+							history: compactionHistory.slice(-5),
 						},
 						{
 							text: [
@@ -119,6 +147,8 @@ export function createCompactorOrgan(opts: CompactorOrganOptions) {
 								`  Last estimated: ${lastEstimatedTokens} tokens`,
 								`  Last compacted: ${lastCompactedTokens} tokens`,
 								`  Threshold: ${tokenLimit} tokens (${(threshold * 100).toFixed(0)}% of ${contextWindow})`,
+								`  History entries: ${compactionHistory.length}`,
+								`  Session model: append-only (originals preserved in session store)`,
 							].join("\n"),
 							mimeType: "text/plain",
 						},
@@ -127,10 +157,11 @@ export function createCompactorOrgan(opts: CompactorOrganOptions) {
 			},
 		},
 		{
-			description: "Context compaction — summarizes old turns when context exceeds threshold.",
+			description:
+				"Context compaction — summarizes old turns when context exceeds threshold. Append-only: originals preserved in session store.",
 			directives: [
 				"The compactor automatically summarizes old conversation turns when context approaches the limit. " +
-					"Use compactor.stats to check compaction metrics.",
+					"Use compactor.stats to check compaction metrics and history.",
 			],
 			labels: ["compactor", "context", "token-savings"],
 			contributions: {
@@ -138,4 +169,12 @@ export function createCompactorOrgan(opts: CompactorOrganOptions) {
 			},
 		},
 	);
+}
+
+function injectPriorSummary(messages: readonly unknown[], summary: string): ContextAssemblyOutput {
+	const result = [...messages];
+	const systemIdx = result.findIndex((m) => (m as { role?: string }).role === "system");
+	const insertAt = systemIdx >= 0 ? systemIdx + 1 : 0;
+	result.splice(insertAt, 0, { role: "user", content: summary });
+	return { messages: result };
 }

@@ -1,7 +1,12 @@
 export type { SubagentFactory, SubagentFactoryOptions } from "./in-process.js";
 export { InProcessStrategy } from "./in-process.js";
 export { RemoteStrategy, type RemoteStrategyOptions } from "./remote-strategy.js";
-export { type FleetConfig, type RestartPolicy, type ServiceConfig, ServiceFleet } from "./service-fleet.js";
+export {
+	type RestartPolicy,
+	type SupervisorConfig,
+	type ToolServiceConfig,
+	ToolSupervisor,
+} from "./tool-supervisor.js";
 
 import { randomUUID } from "node:crypto";
 import {

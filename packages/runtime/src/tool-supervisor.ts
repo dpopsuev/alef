@@ -3,7 +3,7 @@ import { debugLog, McpOrgan } from "@dpopsuev/alef-kernel";
 
 export type RestartPolicy = "permanent" | "transient" | "temporary";
 
-export interface ServiceConfig {
+export interface ToolServiceConfig {
 	binary: string;
 	args?: string[];
 	env?: Record<string, string>;
@@ -14,8 +14,8 @@ export interface ServiceConfig {
 	ingestURL?: string;
 }
 
-export interface FleetConfig {
-	services: Record<string, ServiceConfig>;
+export interface SupervisorConfig {
+	services: Record<string, ToolServiceConfig>;
 }
 
 const MAX_RESTARTS = 3;
@@ -24,26 +24,26 @@ const RESTART_BACKOFF_MS = [1_000, 3_000, 10_000];
 
 interface ManagedService {
 	name: string;
-	config: ServiceConfig;
+	config: ToolServiceConfig;
 	organ: Organ;
 	cleanup: () => void;
 	restartTimestamps: number[];
 	healthTimer?: ReturnType<typeof setInterval>;
 }
 
-export class ServiceFleet {
-	private readonly config: FleetConfig;
+export class ToolSupervisor {
+	private readonly config: SupervisorConfig;
 	private readonly managed = new Map<string, ManagedService>();
 	private bootOrder: string[] = [];
 	private started = false;
 	private nerve: Nerve | null = null;
 
-	constructor(config: FleetConfig) {
+	constructor(config: SupervisorConfig) {
 		this.config = config;
 	}
 
 	async start(nerve: Nerve): Promise<void> {
-		if (this.started) throw new Error("ServiceFleet already started");
+		if (this.started) throw new Error("ToolSupervisor already started");
 		this.started = true;
 		this.nerve = nerve;
 
@@ -90,7 +90,7 @@ export class ServiceFleet {
 		return [...this.managed.keys()];
 	}
 
-	private async bootService(name: string, cfg: ServiceConfig, nerve: Nerve): Promise<void> {
+	private async bootService(name: string, cfg: ToolServiceConfig, nerve: Nerve): Promise<void> {
 		const resolvedEnv = this.resolveEnv(name, cfg);
 		const organ = await this.spawnService(name, cfg, resolvedEnv);
 		const cleanup = organ.mount(nerve);
@@ -174,7 +174,7 @@ export class ServiceFleet {
 		}
 	}
 
-	private async spawnService(name: string, cfg: ServiceConfig, env?: Record<string, string>): Promise<Organ> {
+	private async spawnService(name: string, cfg: ToolServiceConfig, env?: Record<string, string>): Promise<Organ> {
 		if (cfg.transport === "http" && cfg.httpUrl) {
 			return McpOrgan.http(cfg.httpUrl, name);
 		}
@@ -182,7 +182,7 @@ export class ServiceFleet {
 		return McpOrgan.stdio(cfg.binary, args, name, env);
 	}
 
-	private resolveEnv(name: string, cfg: ServiceConfig): Record<string, string> | undefined {
+	private resolveEnv(name: string, cfg: ToolServiceConfig): Record<string, string> | undefined {
 		if (!cfg.ingestURL) return cfg.env;
 
 		const dep = cfg.ingestURL;
@@ -201,7 +201,7 @@ export class ServiceFleet {
 	}
 }
 
-function topoSort(services: Record<string, ServiceConfig>): string[] {
+function topoSort(services: Record<string, ToolServiceConfig>): string[] {
 	const sorted: string[] = [];
 	const visited = new Set<string>();
 	const visiting = new Set<string>();

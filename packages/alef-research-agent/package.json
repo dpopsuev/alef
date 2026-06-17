@@ -1,0 +1,17 @@
+{
+  "name": "@dpopsuev/alef-research-agent",
+  "version": "0.0.1",
+  "description": "Research agent blueprint: coding agent + Locus + Scribe fleet",
+  "type": "module",
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-coding-agent": "^1.0.0",
+    "@dpopsuev/alef-kernel": "^0.0.1",
+    "@dpopsuev/alef-runtime": "^0.0.1"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.6"
+  }
+}

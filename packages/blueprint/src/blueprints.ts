@@ -437,7 +437,7 @@ export function compileAgentDefinition(
 	const legacyToolNames = normalizeStringArray(input.capabilities?.tools);
 	const toolNames =
 		organs.length > 0 ? [...new Set([...listToolNamesForOrgans(organs), ...legacyToolNames])] : legacyToolNames;
-	const hasOrchestrationOrgan = organs.some((organ) => organ.name === "orchestration");
+	const hasOrchestrationOrgan = organs.some((organ) => organ.name === "orchestration" || organ.name === "agent");
 	if (hasOrchestrationOrgan && input.capabilities?.orchestration !== true) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		throw new Error(

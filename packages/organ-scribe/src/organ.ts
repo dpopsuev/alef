@@ -22,48 +22,71 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 	let inner: Organ | null = null;
 	let innerCleanup: (() => void) | null = null;
 	let knowledgeSummary = "";
+	let recentNotes = "";
 	let turnsSinceRefresh = 0;
 	let refreshInFlight = false;
+
+	function queryScribe(
+		nerve: Nerve,
+		action: string,
+		extra: Record<string, unknown>,
+		callback: (text: string) => void,
+	): void {
+		const correlationId = `scribe-${action}-${Date.now()}`;
+		const off = nerve.sense.subscribe("scribe.artifact", (event) => {
+			if (event.correlationId !== correlationId) return;
+			off();
+			const payload = event.payload as { text?: string };
+			const text = typeof payload.text === "string" ? payload.text : JSON.stringify(payload);
+			if (text && !event.isError) callback(text);
+		});
+		nerve.motor.publish({
+			type: "scribe.artifact",
+			correlationId,
+			payload: { action, ...extra },
+		});
+	}
 
 	function refreshSummary(nerve: Nerve): void {
 		if (refreshInFlight || !inner) return;
 		refreshInFlight = true;
 
-		const correlationId = `scribe-dashboard-${Date.now()}`;
-		const off = nerve.sense.subscribe("scribe.artifact", (event) => {
-			if (event.correlationId !== correlationId) return;
-			off();
-			refreshInFlight = false;
-
-			const payload = event.payload as { text?: string; result?: unknown };
-			const text = typeof payload.text === "string" ? payload.text : JSON.stringify(payload);
-
-			if (text && !event.isError) {
-				knowledgeSummary = buildContextBlock(text);
-				debugLog("scribe:context:refreshed", { chars: knowledgeSummary.length });
-			}
+		queryScribe(nerve, "dashboard", {}, (text) => {
+			knowledgeSummary = text;
+			debugLog("scribe:context:dashboard", { chars: text.length });
 		});
 
-		nerve.motor.publish({
-			type: "scribe.artifact",
-			correlationId,
-			payload: { action: "dashboard" },
-		});
+		queryScribe(
+			nerve,
+			"query",
+			{
+				kind: "knowledge.note",
+				sort: "id",
+				limit: 5,
+				format: "summary",
+			},
+			(text) => {
+				recentNotes = text;
+				refreshInFlight = false;
+				debugLog("scribe:context:notes", { chars: text.length });
+			},
+		);
 	}
 
 	const contextStage: ContextAssemblyHandler = async (input) => {
 		turnsSinceRefresh++;
-		if (!knowledgeSummary || turnsSinceRefresh >= REFRESH_INTERVAL) {
+		if (turnsSinceRefresh >= REFRESH_INTERVAL) {
 			turnsSinceRefresh = 0;
 		}
 
-		if (!knowledgeSummary) return {};
+		const block = buildContextBlock(knowledgeSummary, recentNotes);
+		if (!block) return {};
 
 		const messages = [...input.messages];
 		const systemIdx = messages.findIndex((m) => (m as { role?: string }).role === "system");
 		if (systemIdx >= 0) {
 			const sys = messages[systemIdx] as { role: string; content: string };
-			messages[systemIdx] = { ...sys, content: `${sys.content}\n\n${knowledgeSummary}` };
+			messages[systemIdx] = { ...sys, content: `${sys.content}\n\n${block}` };
 		}
 		return { messages };
 	};
@@ -77,6 +100,7 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
 		directives: [
 			"Scribe tools are available under the scribe.* prefix. Use scribe.artifact to create, query, and manage work artifacts. Use scribe.graph for dependency trees and briefings.",
+			"To remember something across sessions, create a knowledge.note: scribe.artifact(action=create, kind=knowledge.note, title='...', sections=[{name:'content', text:'...'}])",
 		],
 		contributions: {
 			"context.assemble": contextStage,
@@ -140,13 +164,20 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 	return organ;
 }
 
-function buildContextBlock(dashboardText: string): string {
-	return [
+function buildContextBlock(dashboard: string, notes: string): string {
+	if (!dashboard && !notes) return "";
+	const parts = [
 		"[Scribe Knowledge Base]",
-		"Data is stored in Scribe and queryable across sessions.",
+		"Data stored in Scribe persists across sessions.",
 		"Use scribe.artifact(action=query, query=<term>) to search.",
 		'Use scribe.artifact(action=query, labels=["source:locus"]) to filter by source.',
-		"",
-		dashboardText,
-	].join("\n");
+		"To save a learning: scribe.artifact(action=create, kind=knowledge.note, title='...', sections=[{name:'content', text:'...'}])",
+	];
+	if (dashboard) {
+		parts.push("", "### Data Sources", dashboard);
+	}
+	if (notes) {
+		parts.push("", "### Recent Notes (from previous sessions)", notes);
+	}
+	return parts.join("\n");
 }

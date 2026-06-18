@@ -53,7 +53,7 @@ export class ShellTimeoutError extends Error {
 // ---------------------------------------------------------------------------
 
 /** Default timeout when the LLM omits the timeout field. 120 seconds. */
-export const DEFAULT_SHELL_TIMEOUT_S = 120;
+export const DEFAULT_SHELL_TIMEOUT_S = 300;
 /** Hard cap: the LLM cannot request a timeout longer than this. 600 seconds. */
 export const MAX_SHELL_TIMEOUT_S = 600;
 

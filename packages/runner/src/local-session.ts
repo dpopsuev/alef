@@ -101,6 +101,36 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 		}
 		case "llm.message-queued":
 			return { type: "message-queued", queueLength: Number(p.queueLength ?? 0) };
+		case "workflow.step":
+			return {
+				type: "workflow-step",
+				workflowId: String(p.workflowId ?? ""),
+				eventType: String(p.eventType ?? ""),
+				step: String(p.step ?? ""),
+				status: String(p.status ?? ""),
+				score: p.score !== undefined ? Number(p.score) : undefined,
+			};
+		case "workflow.completed":
+			return {
+				type: "workflow-completed",
+				workflowId: String(p.workflowId ?? ""),
+				elapsedMs: Number(p.elapsedMs ?? 0),
+			};
+		case "workflow.error":
+			return {
+				type: "workflow-error",
+				workflowId: String(p.workflowId ?? ""),
+				step: String(p.step ?? ""),
+				error: String(p.error ?? ""),
+			};
+		case "workflow.escalated":
+			return {
+				type: "workflow-escalated",
+				workflowId: String(p.workflowId ?? ""),
+				rule: String(p.rule ?? ""),
+				retries: p.retries !== undefined ? Number(p.retries) : undefined,
+				score: p.score !== undefined ? Number(p.score) : undefined,
+			};
 		default:
 			return null;
 	}

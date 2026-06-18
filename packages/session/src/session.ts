@@ -38,7 +38,11 @@ export type AgentEvent =
 	| { type: "message-queued"; queueLength: number }
 	| { type: "subagent-identity"; callId: string; color: string; address: string }
 	| { type: "inner-tool-start"; parentCallId: string; callId: string; name: string; args: Record<string, unknown> }
-	| { type: "inner-tool-end"; parentCallId: string; callId: string };
+	| { type: "inner-tool-end"; parentCallId: string; callId: string }
+	| { type: "workflow-step"; workflowId: string; eventType: string; step: string; status: string; score?: number }
+	| { type: "workflow-completed"; workflowId: string; elapsedMs: number }
+	| { type: "workflow-error"; workflowId: string; step: string; error: string }
+	| { type: "workflow-escalated"; workflowId: string; rule: string; retries?: number; score?: number };
 
 // ---------------------------------------------------------------------------
 // DirectiveView — the minimal surface Session exposes from the directive system.

@@ -247,6 +247,11 @@ function checkDisplayChannel(file: string, content: string): void {
 		if (!line.includes("typedAction(")) continue;
 		if (line.includes("typedStreamAction(")) continue;
 
+		// Skip when handler is a named function reference — display is inside the function.
+		// Pattern: typedAction(TOOL, handleFoo) where handleFoo is defined elsewhere.
+		const isDelegated = /typedAction\(\s*\w+\s*,\s*\w+\s*[),]/.test(line) && !line.includes("=>");
+		if (isDelegated) continue;
+
 		// 40-line forward window for the handler body, comments stripped
 		const windowLines = lines.slice(i, Math.min(i + 40, lines.length));
 		const codeWindow = windowLines
@@ -255,7 +260,7 @@ function checkDisplayChannel(file: string, content: string): void {
 
 		// Handler must return something (has a return or Promise.resolve) but no display wrapper
 		const hasReturn = codeWindow.includes("return ") || codeWindow.includes("Promise.resolve(");
-		const hasDisplay = codeWindow.includes("withDisplay(") || codeWindow.includes("withTruncatedDisplay(");
+		const hasDisplay = codeWindow.includes("withDisplay(") || codeWindow.includes("withTruncatedDisplay(") || codeWindow.includes("withLlmContent(");
 
 		if (hasReturn && !hasDisplay) {
 			report(file, i + 1, "NODISPLAY",

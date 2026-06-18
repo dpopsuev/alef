@@ -482,7 +482,11 @@ export function createAgentOrgan(
 	async function handleKill(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
 		const { name: childName } = ctx.payload;
 		const entry = children.get(childName);
-		if (!entry) return { stopped: false, reason: `no child named '${childName}'` };
+		if (!entry)
+			return withDisplay(
+				{ stopped: false, reason: `no child named '${childName}'` },
+				{ text: `No child named '${childName}'`, mimeType: "text/plain" },
+			);
 		entry.process.kill("SIGTERM");
 		await new Promise<void>((res) => {
 			// lint-ignore: RAWTIMER SIGKILL escalation
@@ -526,7 +530,11 @@ export function createAgentOrgan(
 	async function handleStatus(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
 		const { name: childName } = ctx.payload;
 		const entry = children.get(childName);
-		if (!entry) return { alive: false, reason: `no child named '${childName}'` };
+		if (!entry)
+			return withDisplay(
+				{ alive: false, reason: `no child named '${childName}'` },
+				{ text: `No child named '${childName}'`, mimeType: "text/plain" },
+			);
 		const alive = await healthCheck(entry.endpoint);
 		const uptimeMs = Date.now() - entry.startedAt;
 		return withDisplay(
@@ -540,7 +548,9 @@ export function createAgentOrgan(
 
 	// ── agent.promote — blue-green swap ────────────────────────────────
 
-	function handlePromote(ctx: { payload: { organPath: string; blueprintPath?: string } }): Record<string, unknown> {
+	async function handlePromote(ctx: {
+		payload: { organPath: string; blueprintPath?: string };
+	}): Promise<Record<string, unknown>> {
 		const organPath = resolvePath(ctx.payload.organPath, cwd);
 		const blueprintPath = ctx.payload.blueprintPath
 			? resolvePath(ctx.payload.blueprintPath, cwd)
@@ -560,9 +570,18 @@ export function createAgentOrgan(
 		const underSupervisor = process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function";
 		if (underSupervisor) {
 			process.send?.({ type: "rebuild" });
-			return { promoted: true, organPath, blueprintPath };
+			return withDisplay(
+				{ promoted: true, organPath, blueprintPath },
+				{ text: `Promoted ${organPath} — supervisor rebuild triggered`, mimeType: "text/plain" },
+			);
 		}
-		return { promoted: false, reason: "not running under supervisor", organPath, blueprintPath };
+		return withDisplay(
+			{ promoted: false, reason: "not running under supervisor", organPath, blueprintPath },
+			{
+				text: `Wrote ${organPath} to blueprint but not under supervisor — restart to apply`,
+				mimeType: "text/plain",
+			},
+		);
 	}
 
 	// ── defineOrgan ────────────────────────────────────────────────────
@@ -849,7 +868,7 @@ export function createAgentOrgan(
 				"agent.kill": typedAction(KILL_TOOL, handleKill),
 				"agent.list": typedAction(LIST_TOOL, handleList),
 				"agent.status": typedAction(STATUS_TOOL, handleStatus),
-				"agent.promote": typedAction(PROMOTE_TOOL, async (ctx) => Promise.resolve(handlePromote(ctx))),
+				"agent.promote": typedAction(PROMOTE_TOOL, handlePromote),
 			},
 		},
 		{

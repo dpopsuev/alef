@@ -234,6 +234,9 @@
 			],
 			"@dpopsuev/alef-coding-agent": [
 				"./packages/alef-coding-agent/src/index.ts"
+			],
+			"@dpopsuev/alef-factory-agent": [
+				"./packages/alef-factory-agent/src/index.ts"
 			]
 		}
 	},

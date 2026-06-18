@@ -32,3 +32,4 @@ export {
 	type WorkflowDef,
 	WorkflowDefSchema,
 } from "./schema.js";
+export { createWireOrgan, type WireOrganOptions } from "./wire.js";

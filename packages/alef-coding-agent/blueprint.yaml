@@ -12,8 +12,6 @@ organs:
     package: "@dpopsuev/alef-organ-shell"
   - name: nodesh
     package: "@dpopsuev/alef-organ-nodesh"
-  - name: lector
-    package: "@dpopsuev/alef-organ-lector"
   - name: web
     package: "@dpopsuev/alef-organ-web"
   - name: agent

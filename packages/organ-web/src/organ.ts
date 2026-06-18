@@ -226,6 +226,18 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 						...(tokenBudget !== undefined ? { tokenBudget } : {}),
 					};
 
+					const fetchUrl = async <T>(fn: () => Promise<T>): Promise<T> => {
+						try {
+							return await fn();
+						} catch (e) {
+							const msg = e instanceof Error ? e.message : String(e);
+							throw new Error(
+								`web.fetch failed for ${url}: ${msg}. ` +
+									"This URL may be unreachable from this environment. Do not retry — use a different approach.",
+							);
+						}
+					};
+
 					// Check in-session cache first.
 					const cacheKey = url;
 					const cached = cache.get(cacheKey);
@@ -234,11 +246,12 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 						page = cached;
 					} else {
 						if (format === "lean") {
-							const lean = await spider(url, {
-								...(spiderOpts as Parameters<typeof spider>[1]),
-								view: "lean" as const,
-							});
-							// toLean() returns LeanPage — convert to SpideredPage shape for unified handling.
+							const lean = await fetchUrl(() =>
+								spider(url, {
+									...(spiderOpts as Parameters<typeof spider>[1]),
+									view: "lean" as const,
+								}),
+							);
 							return withLlmContent(
 								JSON.stringify(
 									omitEmpty({
@@ -258,7 +271,7 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 								},
 							);
 						}
-						page = await spider(url, spiderOpts as Parameters<typeof spider>[1]);
+						page = await fetchUrl(() => spider(url, spiderOpts as Parameters<typeof spider>[1]));
 						cache.set(cacheKey, page);
 					}
 

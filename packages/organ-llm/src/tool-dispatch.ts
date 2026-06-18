@@ -164,6 +164,7 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<SenseEve
 					name: toolName,
 					elapsedMs: Date.now() - subscribedAt,
 					isError: event.isError,
+					...(event.isError && event.errorMessage ? { errorMessage: event.errorMessage } : {}),
 				});
 				resolve(event);
 			}

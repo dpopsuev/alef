@@ -141,19 +141,6 @@ const FS_EDIT_TOOL = {
 	]),
 };
 
-const FS_HASHLINE_EDIT_TOOL = {
-	name: "fs.hashline-edit",
-	description:
-		"Edit a file using content-addressed line references. Requires reading the file first with fs.read(format='hashline'). " +
-		"Operations: SWAP N (replace line), SWAP N.=M (replace range), DEL N, INS.PRE N, INS.POST N. Body lines prefixed with +. " +
-		"Rejects edits if file changed since last read (staleness detection).",
-	inputSchema: z.object({
-		path: z.string().min(1).describe("Path to the file"),
-		fileHash: z.string().optional().describe("File hash from [#HASH] header for staleness detection"),
-		input: z.string().min(1).describe("Hashline edit commands"),
-	}),
-};
-
 // ---------------------------------------------------------------------------
 // Per-path write serialization queue
 //
@@ -668,28 +655,6 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 							{ path: result.path, applied: result.applied, editCount: result.editCount },
 							{ text: result.diff as string, mimeType: "text/x-diff" },
 						);
-					},
-					{ invalidates: () => WRITE_INVALIDATES },
-				),
-				"fs.hashline-edit": typedAction(
-					FS_HASHLINE_EDIT_TOOL,
-					async (ctx) => {
-						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
-						const result = await withQueue(absolutePath, async () => {
-							const { parseHashlineEdits, applyHashlineEdits } = await import("./hashline.js");
-							const content = await fsReadFile(absolutePath, "utf-8");
-							const edits = parseHashlineEdits(ctx.payload.input);
-							if (edits.length === 0) throw new Error("No valid hashline edit commands found in input");
-							const applied = applyHashlineEdits(content as string, edits, ctx.payload.fileHash);
-							if (applied.error) throw new Error(applied.error);
-							await atomicWrite(absolutePath, applied.result);
-							tracker.record(absolutePath);
-							return { path: ctx.payload.path, editCount: edits.length };
-						});
-						return withDisplay(result, {
-							text: `Applied ${result.editCount} hashline edit(s) to ${result.path}`,
-							mimeType: "text/plain",
-						});
 					},
 					{ invalidates: () => WRITE_INVALIDATES },
 				),

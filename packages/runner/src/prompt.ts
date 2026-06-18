@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { type Directive, Directives, xmlRenderer } from "./directives.js";
+import { loadPrompt } from "./prompt-templates.js";
 
 export const BLOCK_IDENTITY = () =>
 	"You are Alef — a coding agent embedded in a terminal. Read code, edit files, run commands, answer questions. Communicate in the chat.";
@@ -102,6 +103,7 @@ export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 		.register(b("no-files", 1, BLOCK_NO_FILES, "behavior"))
 		.register(b("no-fallback", 2, BLOCK_NO_FALLBACK, "behavior"))
 		.register(b("parallel-exploration", 3, BLOCK_PARALLEL_EXPLORATION, "behavior"))
+		.register(b("reconciliation", 5, () => loadPrompt("reconciliation"), "behavior"))
 		.register(b("no-emojis", 10, BLOCK_NO_EMOJIS, "format"))
 		.register(b("no-filler", 11, BLOCK_NO_FILLER, "format"))
 		.register(b("no-preamble", 12, BLOCK_NO_PREAMBLE, "format"))

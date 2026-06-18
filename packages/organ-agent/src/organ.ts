@@ -155,6 +155,19 @@ export function createAgentOrgan(
 	let publishInnerSignal: ((type: string, payload: Record<string, unknown>, correlationId: string) => void) | null =
 		null;
 
+	interface AsyncTask {
+		id: string;
+		profile: string;
+		text: string;
+		status: "running" | "completed" | "failed";
+		reply?: string;
+		error?: string;
+		startedAt: number;
+		completedAt?: number;
+	}
+	const asyncTasks = new Map<string, AsyncTask>();
+	let taskSeq = 0;
+
 	const composite = createCompositeAgentRunContribution();
 
 	// ── agent.run — unified delegation facade ──────────────────────────
@@ -195,6 +208,13 @@ export function createAgentOrgan(
 			.optional()
 			.describe(
 				"Soft token cap. When exceeded, a 'wrap up' message is injected — the agent gets one more turn to finish.",
+			),
+		async: z
+			.boolean()
+			.optional()
+			.describe(
+				"Fire-and-forget: return a taskId immediately without waiting. " +
+					"The subagent runs in the background. Use agent.tasks to check status and retrieve results.",
 			),
 	} as const;
 
@@ -572,6 +592,64 @@ export function createAgentOrgan(
 					const maxMs = (payload.maxMs as number | undefined) ?? DEFAULT_RUN_MAX_MS;
 					const timeoutMs = maxMs;
 
+					if (payload.async === true) {
+						const taskId = `task-${++taskSeq}`;
+						const explicitProfile = payload.profile as string | undefined;
+						const profile = explicitProfile ?? (needsWriteAccess(text) ? "general" : "explore");
+						const task: AsyncTask = { id: taskId, profile, text, status: "running", startedAt: Date.now() };
+						asyncTasks.set(taskId, task);
+
+						const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
+						if (!strategy) {
+							task.status = "failed";
+							task.error = `unknown profile '${profile}'`;
+							yield withDisplay({ taskId, error: task.error }, { text: task.error, mimeType: "text/plain" });
+							return;
+						}
+
+						strategy
+							.send({
+								text,
+								timeoutMs,
+								onChunk: (chunk) => {
+									mountedNerve?.signal.publish({
+										type: "task.progress",
+										payload: { taskId, chunk },
+										correlationId: ctx.correlationId,
+									});
+								},
+							})
+							.then((reply) => {
+								task.status = "completed";
+								task.reply = reply;
+								task.completedAt = Date.now();
+								mountedNerve?.signal.publish({
+									type: "task.completed",
+									payload: { taskId, profile, reply, elapsedMs: Date.now() - task.startedAt },
+									correlationId: ctx.correlationId,
+								});
+							})
+							.catch((err: unknown) => {
+								task.status = "failed";
+								task.error = err instanceof Error ? err.message : String(err);
+								task.completedAt = Date.now();
+								mountedNerve?.signal.publish({
+									type: "task.failed",
+									payload: { taskId, profile, error: task.error, elapsedMs: Date.now() - task.startedAt },
+									correlationId: ctx.correlationId,
+								});
+							});
+
+						yield withDisplay(
+							{ taskId, profile, async: true },
+							{
+								text: `Task ${taskId} started (${profile}). Use agent.tasks to check status.`,
+								mimeType: "text/plain",
+							},
+						);
+						return;
+					}
+
 					if (isolate) {
 						const result = await handleRunIsolated(text, payload, timeoutMs, ctx.correlationId, ctx.toolCallId);
 						yield withDisplay(
@@ -684,6 +762,49 @@ export function createAgentOrgan(
 						{ text: reply || "(no reply)", mimeType: "text/plain" },
 					);
 				}),
+				"agent.tasks": typedAction(
+					{
+						name: "agent.tasks",
+						description:
+							"List async tasks started via agent.run(async=true). Shows status, elapsed time, and results for completed tasks.",
+						inputSchema: z.object({
+							taskId: z.string().optional().describe("Get details for a specific task. Omit to list all."),
+						}),
+					},
+					async (ctx) => {
+						if (ctx.payload.taskId) {
+							const task = asyncTasks.get(ctx.payload.taskId);
+							if (!task)
+								return withDisplay(
+									{ error: "not found" },
+									{ text: `Task ${ctx.payload.taskId} not found`, mimeType: "text/plain" },
+								);
+							const elapsed = (task.completedAt ?? Date.now()) - task.startedAt;
+							return withDisplay(
+								{ ...task, elapsedMs: elapsed },
+								{
+									text: `${task.id} [${task.status}] ${task.profile} — ${task.reply?.slice(0, 200) ?? task.error ?? "running..."}`,
+									mimeType: "text/plain",
+								},
+							);
+						}
+						const tasks = [...asyncTasks.values()].map((t) => ({
+							id: t.id,
+							status: t.status,
+							profile: t.profile,
+							elapsedMs: (t.completedAt ?? Date.now()) - t.startedAt,
+							preview: t.status === "completed" ? t.reply?.slice(0, 100) : (t.error ?? "running..."),
+						}));
+						const lines =
+							tasks.length > 0
+								? tasks.map(
+										(t) =>
+											`${t.id} [${t.status}] ${t.profile} ${(t.elapsedMs / 1000).toFixed(1)}s — ${t.preview}`,
+									)
+								: ["No async tasks"];
+						return withDisplay({ tasks }, { text: lines.join("\n"), mimeType: "text/plain" });
+					},
+				),
 				"agent.models": typedAction(
 					{
 						name: "agent.models",
@@ -762,6 +883,12 @@ agent.run({ text, profile?, model? }) — fast in-process delegation (default).
   isolate: true — ephemeral process isolation (spawn + ask + kill in one call).
 
 agent.models({ provider? }) — list available LLM models for subagent selection.
+agent.tasks({ taskId? }) — query status of async tasks.
+
+Non-blocking delegation:
+  agent.run({ text, async: true }) — fire-and-forget. Returns a taskId immediately.
+  The subagent runs in the background. Use agent.tasks to check status and retrieve results.
+  Signals emitted: task.progress (chunks), task.completed (reply), task.failed (error).
 
 agent.spawn/ask/kill — persistent child process lifecycle.
   spawn starts a full child Alef process (15-30s startup).

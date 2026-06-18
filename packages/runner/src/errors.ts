@@ -20,5 +20,9 @@ export function formatError(e: unknown): string {
 		return "Agent session ended unexpectedly.";
 	}
 
+	if (process.env.ALEF_DEBUG && e instanceof Error && e.stack) {
+		return `${msg}\n${e.stack}`;
+	}
+
 	return msg;
 }

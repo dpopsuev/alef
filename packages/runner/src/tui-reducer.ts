@@ -28,13 +28,17 @@ export type TuiInputEvent =
 export type TuiEvent = AgentEvent | TuiInputEvent;
 
 // ---------------------------------------------------------------------------
-// Unified reducer — one switch handles all TuiEvent variants.
-// Adding a new AgentEvent: add a case here and in session.ts.
-// Adding a new TuiInputEvent: add a variant to TuiInputEvent above and a case here.
-// The exhaustive default: never guard catches missing cases at compile time.
+// Constants
 // ---------------------------------------------------------------------------
 
 const INSPECTOR_LINES = 12;
+const INSPECTOR_SCROLL_STEP = 3;
+const CONTEXT_WARNING_THRESHOLD = 0.75;
+const CONTEXT_CRITICAL_THRESHOLD = 0.9;
+
+// ---------------------------------------------------------------------------
+// Helper functions
+// ---------------------------------------------------------------------------
 
 function renderChunkWindow(chunks: string[], scrollOffset: number): string {
 	const all = chunks.join("").split("\n");
@@ -42,6 +46,125 @@ function renderChunkWindow(chunks: string[], scrollOffset: number): string {
 	const start = Math.max(0, end - INSPECTOR_LINES);
 	return all.slice(start, end).join("\n");
 }
+
+function resetUIComponents(ui: TuiUi): void {
+	ui.replyTW.flush();
+	ui.thinkingTW.flush();
+	ui.replyBlock.reset();
+}
+
+function updateInspectorView(state: TuiState, ui: TuiUi, callId: string | null, scrollOffset: number = 0): void {
+	ui.promptConsole.setFocusedCall(callId);
+	if (callId && state.callChunks.has(callId)) {
+		const chunks = state.callChunks.get(callId) ?? [];
+		const text = renderChunkWindow(chunks, scrollOffset);
+		ui.promptConsole.setChunkText(text);
+	} else {
+		ui.promptConsole.setChunkText("");
+	}
+}
+
+function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool-end" }>, ui: TuiUi): TuiState {
+	const { callId, elapsedMs, ok, display, displayKind } = event;
+	const { writer, promptConsole } = ui;
+
+	const entry = state.activeCalls.get(callId);
+	if (!entry) return state;
+
+	trace("tool:end", {
+		callId: callId.slice(0, 8),
+		name: entry.name,
+		elapsedMs,
+		ok,
+		remainingActive: state.activeCalls.size - 1,
+	});
+
+	promptConsole.removeInFlightCall(callId);
+
+	const remainingAfter = state.activeCalls.size - 1;
+	const showOutput = remainingAfter === 0;
+	writer.addCompletedToolBlock(
+		entry.name,
+		entry.keyArg,
+		elapsedMs,
+		ok,
+		showOutput && display?.trim() ? display : null,
+		showOutput && display?.trim() ? (displayKind ?? null) : null,
+	);
+
+	const activeCalls = new Map(state.activeCalls);
+	activeCalls.delete(callId);
+
+	const callChunks = new Map(state.callChunks);
+	callChunks.delete(callId);
+
+	const batchDone = activeCalls.size === 0 && state.batchStartedAt !== null;
+	if (batchDone) {
+		writer.addBatchTiming(Date.now() - (state.batchStartedAt ?? 0));
+	}
+
+	const focusLost = state.focusedCallId === callId;
+	let nextFocus: string | null;
+	if (focusLost) {
+		if (activeCalls.size > 0) {
+			nextFocus = activeCalls.keys().next().value ?? null;
+		} else {
+			nextFocus = null;
+		}
+	} else {
+		nextFocus = state.focusedCallId;
+	}
+
+	if (focusLost) {
+		updateInspectorView(state, ui, nextFocus, 0);
+	}
+
+	if (batchDone) {
+		updateInspectorView(state, ui, null);
+	}
+
+	return {
+		...state,
+		activeCalls,
+		callChunks,
+		batchStartedAt: batchDone ? null : state.batchStartedAt,
+		focusedCallId: batchDone ? null : (nextFocus ?? null),
+	};
+}
+
+function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: "turn.error" }>, ui: TuiUi): TuiState {
+	const { promptConsole, replyTW, thinkingTW, replyBlock, writer } = ui;
+
+	promptConsole.stopThinking();
+	promptConsole.hidePendingFooter();
+	replyTW.reset();
+	thinkingTW.reset();
+	replyBlock.clear();
+
+	for (const [callId, entry] of state.activeCalls) {
+		promptConsole.removeInFlightCall(callId);
+		writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null, null);
+	}
+
+	if (!event.aborted) {
+		writer.addNotice(`[error] ${formatError(event.error)}`);
+	}
+
+	return {
+		...state,
+		activeCalls: new Map(),
+		batchStartedAt: null,
+		pendingFooterShown: false,
+		abortCurrentTurn: undefined,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Unified reducer — one switch handles all TuiEvent variants.
+// Adding a new AgentEvent: add a case here and in session.ts.
+// Adding a new TuiInputEvent: add a variant to TuiInputEvent above and a case here.
+// The exhaustive default: never guard catches missing cases at compile time.
+// ---------------------------------------------------------------------------
 
 export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiState {
 	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, t, session } = ui;
@@ -61,9 +184,7 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			return { ...state, pendingFooterShown: false, turnStartedAt: event.timestamp };
 
 		case "turn.complete":
-			replyTW.flush();
-			thinkingTW.flush();
-			replyBlock.reset();
+			resetUIComponents(ui);
 			promptConsole.stopThinking();
 			promptConsole.hidePendingFooter();
 			return { ...state, pendingFooterShown: false, pendingTokenFooter: event.tokenFooter };
@@ -71,25 +192,8 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 		case "turn.abort":
 			return { ...state, abortCurrentTurn: undefined };
 
-		case "turn.error": {
-			promptConsole.stopThinking();
-			promptConsole.hidePendingFooter();
-			replyTW.reset();
-			thinkingTW.reset();
-			replyBlock.clear();
-			for (const [callId, entry] of state.activeCalls) {
-				promptConsole.removeInFlightCall(callId);
-				writer.addCompletedToolBlock(entry.name, entry.keyArg, 0, false, null, null);
-			}
-			if (!event.aborted) writer.addNotice(`[error] ${formatError(event.error)}`);
-			return {
-				...state,
-				activeCalls: new Map(),
-				batchStartedAt: null,
-				pendingFooterShown: false,
-				abortCurrentTurn: undefined,
-			};
-		}
+		case "turn.error":
+			return handleTurnError(state, event, ui);
 
 		case "abort.set":
 			return { ...state, abortCurrentTurn: event.fn };
@@ -109,18 +213,13 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			const ids = [...state.activeCalls.keys()];
 			const idx = state.focusedCallId ? ids.indexOf(state.focusedCallId) : -1;
 			const nextId = ids[(idx + 1) % ids.length];
-			promptConsole.setFocusedCall(nextId);
-			const chunks = state.callChunks.get(nextId) ?? [];
-			const tail = renderChunkWindow(chunks, state.inspectorScrollOffset);
-			promptConsole.setChunkText(tail);
+			updateInspectorView(state, ui, nextId, state.inspectorScrollOffset);
 			return { ...state, focusedCallId: nextId };
 		}
 
-		case "inspector.close": {
-			promptConsole.setFocusedCall(null);
-			promptConsole.setChunkText("");
+		case "inspector.close":
+			updateInspectorView(state, ui, null);
 			return { ...state, focusedCallId: null, inspectorScrollOffset: 0 };
-		}
 
 		case "inspector.cancel": {
 			if (!state.focusedCallId) return state;
@@ -135,7 +234,10 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			const chunks = state.callChunks.get(state.focusedCallId) ?? [];
 			const totalLines = chunks.join("").split("\n").length;
 			const maxScroll = Math.max(0, totalLines - INSPECTOR_LINES);
-			const next = Math.max(0, Math.min(maxScroll, state.inspectorScrollOffset + event.direction * 3));
+			const next = Math.max(
+				0,
+				Math.min(maxScroll, state.inspectorScrollOffset + event.direction * INSPECTOR_SCROLL_STEP),
+			);
 			promptConsole.setChunkText(renderChunkWindow(chunks, next));
 			return { ...state, inspectorScrollOffset: next };
 		}
@@ -147,9 +249,7 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			const keyArg = keyArgFromPayload(args);
 			trace("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: state.activeCalls.size + 1 });
 			promptConsole.pulse();
-			replyTW.flush();
-			thinkingTW.flush();
-			replyBlock.reset();
+			resetUIComponents(ui);
 			promptConsole.showInFlightCall(callId, name, keyArg);
 			if (!state.pendingFooterShown) promptConsole.showPendingFooter(t.agentFg);
 			const activeCalls = new Map(state.activeCalls);
@@ -162,60 +262,8 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			};
 		}
 
-		case "tool-end": {
-			const { callId, elapsedMs, ok, display, displayKind } = event;
-			const entry = state.activeCalls.get(callId);
-			if (!entry) return state;
-			trace("tool:end", {
-				callId: callId.slice(0, 8),
-				name: entry.name,
-				elapsedMs,
-				ok,
-				remainingActive: state.activeCalls.size - 1,
-			});
-			promptConsole.removeInFlightCall(callId);
-			const remainingAfter = state.activeCalls.size - 1;
-			const showOutput = remainingAfter === 0;
-			writer.addCompletedToolBlock(
-				entry.name,
-				entry.keyArg,
-				elapsedMs,
-				ok,
-				showOutput && display?.trim() ? display : null,
-				showOutput && display?.trim() ? (displayKind ?? null) : null,
-			);
-			const activeCalls = new Map(state.activeCalls);
-			activeCalls.delete(callId);
-			const callChunks = new Map(state.callChunks);
-			callChunks.delete(callId);
-			const batchDone = activeCalls.size === 0 && state.batchStartedAt !== null;
-			if (batchDone) writer.addBatchTiming(Date.now() - (state.batchStartedAt ?? 0));
-			const focusLost = state.focusedCallId === callId;
-			const nextFocus = focusLost
-				? activeCalls.size > 0
-					? activeCalls.keys().next().value
-					: null
-				: state.focusedCallId;
-			if (focusLost) {
-				if (nextFocus && callChunks.has(nextFocus)) {
-					promptConsole.setChunkText(renderChunkWindow(callChunks.get(nextFocus) ?? [], 0));
-				} else {
-					promptConsole.setChunkText("");
-				}
-				promptConsole.setFocusedCall(nextFocus ?? null);
-			}
-			if (batchDone) {
-				promptConsole.setFocusedCall(null);
-				promptConsole.setChunkText("");
-			}
-			return {
-				...state,
-				activeCalls,
-				callChunks,
-				batchStartedAt: batchDone ? null : state.batchStartedAt,
-				focusedCallId: batchDone ? null : (nextFocus ?? null),
-			};
-		}
+		case "tool-end":
+			return handleToolEnd(state, event, ui);
 
 		case "inner-tool-start": {
 			const parent = state.activeCalls.get(event.parentCallId);
@@ -246,14 +294,14 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			if (state.pendingTokenFooter) {
 				state.pendingTokenFooter.setText(formatTokenUsage(input, output, t, Date.now() - state.turnStartedAt));
 			}
-			const cw = session.state.contextWindow;
-			if (cw && totalTokens > 0) {
-				const fill = totalTokens / cw;
-				if (fill > 0.9) {
+			const contextWindow = session.state.contextWindow;
+			if (contextWindow && totalTokens > 0) {
+				const fill = totalTokens / contextWindow;
+				if (fill > CONTEXT_CRITICAL_THRESHOLD) {
 					writer.addNotice(
-						`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${cw.toLocaleString()} tokens) — start a new session soon`,
+						`⚠ context ${Math.round(fill * 100)}% full (${totalTokens.toLocaleString()} / ${contextWindow.toLocaleString()} tokens) — start a new session soon`,
 					);
-				} else if (fill > 0.75) {
+				} else if (fill > CONTEXT_WARNING_THRESHOLD) {
 					writer.addNotice(`context ${Math.round(fill * 100)}% full`);
 				}
 			}

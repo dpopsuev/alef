@@ -277,7 +277,7 @@ describe("tuiReducer — handleTurnError", { tags: ["unit"] }, () => {
 		expect(state.activeCalls.size).toBe(0);
 		expect(state.batchStartedAt).toBeNull();
 		expect(state.pendingFooterShown).toBe(false);
-		expect(ui.writer.addNotice).toHaveBeenCalledWith(expect.stringContaining("network timeout"));
+		expect(ui.writer.addNotice).toHaveBeenCalledWith(expect.stringContaining("Request timed out"));
 	});
 
 	it("suppresses error message when aborted", () => {

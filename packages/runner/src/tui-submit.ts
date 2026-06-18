@@ -65,7 +65,7 @@ export function createSubmitHandler(config: SubmitConfig) {
 					text,
 					message: parsed.message,
 					executor: async () => {
-						await route(parsed.message, 300_000);
+						await route(parsed.message, 3_600_000);
 					},
 					session,
 					writer,
@@ -86,7 +86,7 @@ export function createSubmitHandler(config: SubmitConfig) {
 			message: text,
 			executor: sendFn
 				? async () => {
-						await sendFn(text, 300_000);
+						await sendFn(text, 3_600_000);
 					}
 				: undefined,
 			session,

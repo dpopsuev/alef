@@ -1,11 +1,16 @@
 import type { MotorEvent, SensePublishInput } from "./buses.js";
+import { getErrorMessage } from "./errors.js";
 
 export function extractToolCallId(payload: Record<string, unknown>): string | undefined {
 	return typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
 }
 
+/**
+ * @deprecated Use getErrorMessage from "./errors.js" instead.
+ * Kept for backward compatibility during migration.
+ */
 export function toErrorMessage(err: unknown): string {
-	return err instanceof Error ? err.message : String(err);
+	return getErrorMessage(err);
 }
 
 export function buildSense(

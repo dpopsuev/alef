@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-kernel";
-import { extractToolCallId } from "@dpopsuev/alef-kernel";
+import { debugLog, extractToolCallId } from "@dpopsuev/alef-kernel";
 import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
 import type { CompiledAgentDefinition } from "./types.js";
@@ -308,7 +308,7 @@ export async function materializeBlueprint(
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes("does not export createOrgan")) {
-				console.warn(`[blueprint] ${msg} Skipping.`);
+				debugLog("blueprint:organ:skip", { organ: label, reason: msg });
 			} else {
 				throw new Error(`[blueprint] Failed to load organ '${label}': ${msg}`);
 			}

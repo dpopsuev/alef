@@ -3,6 +3,7 @@ export * from "./budget.js";
 export * from "./buses.js";
 export { createContextAssemblyPipeline } from "./context-assembly-pipeline.js";
 export { debugLog, initSpineLogger } from "./debug.js";
+export * from "./errors.js";
 export * from "./execution.js";
 export * from "./framework.js";
 export * from "./mcp-organ.js";

@@ -2,27 +2,13 @@
  * Error formatting for the runner — turns raw errors into human-readable messages.
  *
  * Per-turn errors must not crash the session. Print and continue.
+ *
+ * @deprecated Use formatErrorForUser from "@dpopsuev/alef-kernel/errors" instead.
+ * Kept for backward compatibility during migration.
  */
 
+import { formatErrorForUser } from "@dpopsuev/alef-kernel";
+
 export function formatError(e: unknown): string {
-	const msg = e instanceof Error ? e.message : String(e);
-
-	if (msg.includes("timed out")) {
-		return "Request timed out. The model may be slow or unavailable. Try again.";
-	}
-	if (msg.includes("429") || msg.toLowerCase().includes("rate limit")) {
-		return "Rate limited. Wait a moment and try again.";
-	}
-	if (msg.includes("context") && msg.includes("long")) {
-		return "Context too long. Start a new session with a fresh working directory.";
-	}
-	if (msg.includes("unmounted") || msg.includes("disposed")) {
-		return "Agent session ended unexpectedly.";
-	}
-
-	if (process.env.ALEF_DEBUG && e instanceof Error && e.stack) {
-		return `${msg}\n${e.stack}`;
-	}
-
-	return msg;
+	return formatErrorForUser(e);
 }

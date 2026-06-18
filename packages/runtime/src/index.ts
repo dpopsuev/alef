@@ -17,6 +17,7 @@ import {
 	type Nerve,
 	type NerveEvent,
 	type Organ,
+	type OrganLogger,
 	type SenseEvent,
 	type SensePublishInput,
 	type SignalPublishInput,
@@ -80,6 +81,8 @@ function withPayloadValidation(nerve: Nerve, organ: Organ): Nerve {
 					const err = validate("sense", senseSchemas, event);
 					if (err) {
 						// Log and drop — sense publish failures are non-fatal.
+						// Log and drop — sense publish failures are non-fatal.
+						// Note: withPayloadValidation is used with organ's nerve, but has no logger access
 						console.warn(err);
 						return;
 					}
@@ -100,9 +103,19 @@ export interface BusObserver {
 
 /** Reserved for future Agent configuration. */
 
+const noopLogger: OrganLogger = {
+	debug: () => {},
+	info: () => {},
+	warn: () => {},
+	error: () => {},
+	child: () => noopLogger,
+};
+
 export class Agent {
 	private readonly nerve = new InProcessNerve();
 	private readonly unmounts: Array<() => void> = [];
+	private readonly log: OrganLogger;
+
 	get tools(): ReadonlyArray<ToolDefinition> {
 		const seen = new Set<string>();
 		return this._organs
@@ -132,6 +145,10 @@ export class Agent {
 		return this.controller.signal;
 	}
 
+	constructor(options?: { logger?: OrganLogger }) {
+		this.log = options?.logger ?? noopLogger;
+	}
+
 	/**
 	 * Load an organ onto the agent.
 	 * Always calls mount() exactly once - port detection is deferred to validate().
@@ -153,13 +170,17 @@ export class Agent {
 
 		// Load-time validation — surface common mistakes early.
 		if (organ.tools.length > 0 && (!organ.description || organ.description.trim().length === 0)) {
-			console.warn(`[Agent.load] '${organ.name}' exposes ${organ.tools.length} tool(s) but has no description.`);
+			this.log.warn(
+				{ organ: organ.name, toolCount: organ.tools.length },
+				"organ exposes tools but has no description",
+			);
 		}
 		const existingToolNames = new Set(this._organs.slice(0, -1).flatMap((o) => o.tools.map((t) => t.name)));
 		for (const tool of organ.tools) {
 			if (existingToolNames.has(tool.name)) {
-				console.warn(
-					`[Agent.load] duplicate tool '${tool.name}' — '${organ.name}' shadows a previously loaded organ.`,
+				this.log.warn(
+					{ tool: tool.name, organ: organ.name },
+					"duplicate tool name — organ shadows previously loaded organ",
 				);
 			}
 		}
@@ -203,7 +224,7 @@ export class Agent {
 
 		const result = validatePorts(infos, ports);
 		for (const w of result.violations.filter((v) => v.severity === "warning")) {
-			console.warn(`[PortRegistry] ${w.message}`);
+			this.log.warn({ violation: w.message, severity: w.severity }, "port registry validation warning");
 		}
 		if (!result.valid) {
 			throw new PortValidationError(result.violations.filter((v) => v.severity === "error"));

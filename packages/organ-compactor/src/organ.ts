@@ -98,12 +98,20 @@ export function createCompactorOrgan(opts: CompactorOrganOptions) {
 			return {};
 		}
 
-		const toCompact = nonSystem.slice(0, -preserveRecent);
+		const oldMessages = nonSystem.slice(0, -preserveRecent);
 		const toKeep = nonSystem.slice(-preserveRecent);
+
+		const isScratchpad = (m: unknown) => {
+			const content = (m as { content?: string }).content;
+			return typeof content === "string" && content.startsWith("[Scratchpad");
+		};
+		const preserved = oldMessages.filter(isScratchpad);
+		const toCompact = oldMessages.filter((m) => !isScratchpad(m));
 		const summary = await summarizeFn(toCompact);
 
 		const compactedMessages: unknown[] = [];
 		if (systemMsg) compactedMessages.push(systemMsg);
+		compactedMessages.push(...preserved);
 		compactedMessages.push({ role: "user", content: summary });
 		compactedMessages.push(...toKeep);
 

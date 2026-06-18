@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { BaseOrganOptions, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
 import { defineOrgan } from "@dpopsuev/alef-kernel";
 import type { ISessionStore } from "@dpopsuev/alef-session";
@@ -25,6 +27,15 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 			...opts,
 		},
 	);
+
+	function readStateFile(session: ISessionStore): string | null {
+		try {
+			const statePath = join(dirname(session.path), "state.md");
+			return readFileSync(statePath, "utf-8").trim() || null;
+		} catch {
+			return null;
+		}
+	}
 
 	function phaseStageHandler(): ContextAssemblyHandler {
 		return async ({ messages, turn: _turn }) => {
@@ -81,8 +92,14 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 			const alreadyAppended =
 				projectedLast?.role === currentUserMsg.role && projectedLast?.content === currentUserMsg.content;
 
+			const scratchpad = readStateFile(session);
+			const scratchpadMsg: RawMsg[] = scratchpad
+				? [{ role: "user", content: `[Scratchpad — prior state]\n${scratchpad}` }]
+				: [];
+
 			const assembled: RawMsg[] = [
 				...(systemMsg ? [systemMsg] : []),
+				...scratchpadMsg,
 				...projectedMsgs,
 				...(!alreadyAppended && currentUserMsg.role === "user" ? [currentUserMsg] : []),
 			];

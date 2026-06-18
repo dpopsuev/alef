@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SHELL_TIMEOUT_S, MAX_SHELL_TIMEOUT_S } from "../src/organ.js";
 
 describe("shell timeout constants", { tags: ["unit"] }, () => {
-	it("default timeout is 120s", () => {
-		expect(DEFAULT_SHELL_TIMEOUT_S).toBe(120);
+	it("default timeout is 300s", () => {
+		expect(DEFAULT_SHELL_TIMEOUT_S).toBe(300);
 	});
 
 	it("max timeout cap is 600s", () => {

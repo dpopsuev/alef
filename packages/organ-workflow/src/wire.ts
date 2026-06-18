@@ -84,6 +84,16 @@ export function createWireOrgan(opts: WireOrganOptions): Organ {
 					if (rule.who === "validate" && rule.command) {
 						const result = await runShellCommand(rule.command, opts.cwd);
 						recordEvent(state, rule.on, result.ok ? "passed" : "failed", result.output);
+						nerve?.signal.publish({
+							type: "workflow.step",
+							payload: {
+								workflowId: state.id,
+								eventType: rule.on,
+								step: "validate",
+								status: result.ok ? "passed" : "failed",
+							},
+							correlationId: event.correlationId,
+						});
 
 						if (!result.ok && rule.reject) {
 							const count = (state.retryCounters.get(retryKey) ?? 0) + 1;
@@ -127,6 +137,17 @@ export function createWireOrgan(opts: WireOrganOptions): Organ {
 							verdict.score >= threshold ? "passed" : "failed",
 							`score=${verdict.score} threshold=${threshold}`,
 						);
+						nerve?.signal.publish({
+							type: "workflow.step",
+							payload: {
+								workflowId: state.id,
+								eventType: rule.on,
+								step: "judge",
+								status: verdict.score >= threshold ? "passed" : "failed",
+								score: verdict.score,
+							},
+							correlationId: event.correlationId,
+						});
 
 						if (verdict.score < threshold && rule.reject) {
 							const count = (state.retryCounters.get(retryKey) ?? 0) + 1;
@@ -181,6 +202,16 @@ export function createWireOrgan(opts: WireOrganOptions): Organ {
 						const reply = await opts.dispatch(text, rule.who, rule.model);
 						state.retryCounters.delete(retryKey);
 						recordEvent(state, rule.produces, "completed");
+						nerve?.signal.publish({
+							type: "workflow.step",
+							payload: {
+								workflowId: state.id,
+								eventType: rule.produces,
+								step: rule.who,
+								status: "completed",
+							},
+							correlationId: event.correlationId,
+						});
 						nerve?.sense.publish({
 							type: rule.produces,
 							correlationId: event.correlationId,

@@ -20,6 +20,7 @@ import { HeadlessViewMode } from "../src/view-mode.js";
 const EMPTY_LOADED = {
 	organs: [],
 	blueprintModelId: undefined,
+	blueprintName: undefined,
 	blueprintSurfaces: [],
 	blueprintUpgradePolicy: "rebuild_only" as const,
 	blueprintPath: undefined,

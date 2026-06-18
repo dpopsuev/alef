@@ -46,6 +46,7 @@ export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly str
 export interface LoadResult {
 	organs: Organ[];
 	blueprintModelId: string | undefined;
+	blueprintName: string | undefined;
 	blueprintSurfaces: AgentDefinitionSurfaceInput[];
 	blueprintUpgradePolicy: "rebuild_only" | "packages" | "self";
 	blueprintPath: string | undefined;
@@ -54,14 +55,19 @@ export interface LoadResult {
 
 export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Promise<LoadResult> {
 	let blueprintPath: string | undefined;
+	let blueprintName: string | undefined;
 
 	if (args.blueprint) {
 		blueprintPath = resolveBlueprint(args.blueprint, args.cwd) ?? args.blueprint;
+		blueprintName = args.blueprint;
 	} else if (!args.print && !args.json && process.stdin.isTTY) {
 		const discovered = discoverBlueprints(args.cwd);
 		if (discovered.length > 1) {
 			const chosen = await pickBlueprint(discovered);
-			if (chosen) blueprintPath = chosen.path;
+			if (chosen) {
+				blueprintPath = chosen.path;
+				blueprintName = chosen.name;
+			}
 		}
 	}
 
@@ -95,6 +101,7 @@ export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Prom
 		return {
 			organs: materialized.organs,
 			blueprintModelId: materialized.modelId,
+			blueprintName: blueprintName ?? definition.name,
 			blueprintSurfaces: definition.surfaces,
 			blueprintUpgradePolicy: definition.supervisor?.upgradePolicy ?? "rebuild_only",
 			blueprintPath,
@@ -115,6 +122,7 @@ export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Prom
 	return {
 		organs: defaultMaterialized.organs,
 		blueprintModelId: undefined,
+		blueprintName: undefined,
 		blueprintSurfaces: [],
 		blueprintUpgradePolicy: "rebuild_only",
 		blueprintPath: undefined,

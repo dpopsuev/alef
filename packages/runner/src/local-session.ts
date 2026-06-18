@@ -168,9 +168,11 @@ export async function createLocalSession(
 	let llmController: AbortController | undefined;
 	const currentModel = model;
 
-	const stackFactory = blueprintRegistry.resolve();
+	const stackFactory = blueprintRegistry.resolve(loaded.blueprintName);
 	if (!stackFactory)
-		throw new Error("No blueprint registered. Import the coding agent before calling createLocalSession.");
+		throw new Error(
+			`No blueprint registered for '${loaded.blueprintName ?? "(default)"}'. Import the agent package.`,
+		);
 
 	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 	const stack = await stackFactory({

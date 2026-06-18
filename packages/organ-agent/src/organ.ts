@@ -95,6 +95,7 @@ export interface AgentOrganOptions extends BaseOrganOptions {
 		organs: readonly Organ[];
 		onChunk?: (chunk: string) => void;
 		systemPrompt?: string;
+		modelOverride?: string;
 	}) => {
 		send(text: string, sender: string, timeoutMs: number): Promise<string>;
 		dispose(): void;
@@ -165,6 +166,13 @@ export function createAgentOrgan(
 			.min(1)
 			.optional()
 			.describe("Strategy profile: 'explore' (read-only), 'general' (full tools), or a spawned child name."),
+		model: z
+			.string()
+			.optional()
+			.describe(
+				"Model ID for the subagent (e.g. 'claude-haiku-4-5', 'claude-sonnet-4-5'). " +
+					"Omit to inherit the parent's model. Use agent.models to list available models.",
+			),
 		instructions: z.string().optional().describe("Additional system prompt for the subagent."),
 		inheritDirectives: z
 			.boolean()
@@ -608,10 +616,12 @@ export function createAgentOrgan(
 							resolvedOrgans = (strategy as unknown as { organs?: Organ[] }).organs ?? [];
 						}
 						resolvedOrgans = [...resolvedOrgans, ...extraOrgans];
+						const modelOverride = typeof payload.model === "string" ? payload.model : undefined;
 						const session = opts.createAdHocSession({
 							organs: resolvedOrgans,
 							onChunk: (c) => queue.push(c),
 							systemPrompt,
+							modelOverride,
 						});
 						const replyPromise = session.send(text, "human", timeoutMs).finally(() => {
 							queue.finish();
@@ -674,6 +684,43 @@ export function createAgentOrgan(
 						{ text: reply || "(no reply)", mimeType: "text/plain" },
 					);
 				}),
+				"agent.models": typedAction(
+					{
+						name: "agent.models",
+						description:
+							"List available LLM models. Returns model IDs that can be passed to agent.run(model=...) for subagent model selection.",
+						inputSchema: z.object({
+							provider: z
+								.string()
+								.optional()
+								.describe("Filter by provider (e.g. 'anthropic', 'google-vertex'). Omit to list all."),
+						}),
+					},
+					async (ctx) => {
+						try {
+							const { getProviders, getModels } = await import("@dpopsuev/alef-llm");
+							const providers = ctx.payload.provider ? [ctx.payload.provider] : (getProviders() as string[]);
+							const result: Array<{ provider: string; id: string; name: string; contextWindow: number }> = [];
+							for (const p of providers) {
+								for (const m of getModels(p as never)) {
+									result.push({ provider: p, id: m.id, name: m.name, contextWindow: m.contextWindow });
+								}
+							}
+							const lines = result.map(
+								(m) => `${m.provider}/${m.id} (${m.name}, ${m.contextWindow / 1000}k ctx)`,
+							);
+							return withDisplay(
+								{ models: result, count: result.length },
+								{ text: lines.join("\n"), mimeType: "text/plain" },
+							);
+						} catch {
+							return withDisplay(
+								{ models: [], count: 0 },
+								{ text: "Model registry not available", mimeType: "text/plain" },
+							);
+						}
+					},
+				),
 				"agent.spawn": typedAction(SPAWN_TOOL, handleSpawn),
 				"agent.ask": typedAction(ASK_TOOL, handleAsk),
 				"agent.race": typedAction(RACE_TOOL, handleRace),
@@ -707,11 +754,14 @@ export function createAgentOrgan(
 			directives: [
 				`**agent organ — delegation and child process management**
 
-agent.run({ text, profile? }) — fast in-process delegation (default).
+agent.run({ text, profile?, model? }) — fast in-process delegation (default).
   explore: read-only (files, grep, web). Safe to parallelize.
   general: full tools. Use when the task needs writes.
+  model: override the LLM model for this subagent (e.g. 'claude-haiku-4-5' for cheap tasks).
   <child-name>: route to a spawned child process.
   isolate: true — ephemeral process isolation (spawn + ask + kill in one call).
+
+agent.models({ provider? }) — list available LLM models for subagent selection.
 
 agent.spawn/ask/kill — persistent child process lifecycle.
   spawn starts a full child Alef process (15-30s startup).

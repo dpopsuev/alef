@@ -9,6 +9,8 @@ export interface SubagentFactoryOptions {
 	systemPrompt?: string;
 	/** Soft token budget. When exceeded, a "wrap up" message is injected instead of hard-aborting. */
 	tokenBudget?: number;
+	/** Override the model for this subagent (e.g. 'claude-haiku-4-5' for cheap exploration). */
+	modelOverride?: string;
 }
 
 export type SubagentSession = {

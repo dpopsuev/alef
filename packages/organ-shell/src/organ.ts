@@ -75,6 +75,8 @@ export interface ShellOrganOptions {
 	maxTimeoutSeconds?: number;
 	/** Allowlist of shell action names to mount. Default: all. */
 	actions?: readonly string[];
+	/** Regex patterns to block in commands. Matching commands are rejected before execution. */
+	blockedPatterns?: readonly RegExp[];
 	binDir?: string;
 }
 
@@ -119,6 +121,14 @@ async function* streamExec(
 ): AsyncIterable<Record<string, unknown>> {
 	const { command, timeout } = ctx.payload;
 	if (!command) throw new Error("shell.exec: command is required");
+
+	if (opts.blockedPatterns) {
+		for (const pattern of opts.blockedPatterns) {
+			if (pattern.test(command)) {
+				throw new Error(`shell.exec: command blocked — matches '${pattern.source}'.`);
+			}
+		}
+	}
 	const defaultS = opts.defaultTimeoutSeconds ?? DEFAULT_SHELL_TIMEOUT_S;
 	const maxS = opts.maxTimeoutSeconds ?? MAX_SHELL_TIMEOUT_S;
 	const requestedS = timeout ?? defaultS;

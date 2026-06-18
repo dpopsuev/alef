@@ -22,30 +22,19 @@ const EXPLORE_ORGANS = [
 	{ name: "web", actions: [] as string[], toolNames: [] as string[] },
 ];
 
-const EXPLORE_SYSTEM_PROMPT = `You are a read-only exploration agent. Your only job is to read files, search code, and fetch URLs, then report findings concisely.
+const EXPLORE_SYSTEM_PROMPT = `Read-only exploration agent. Read files, search code, fetch URLs, report findings.
+NEVER write files. NEVER modify state. NEVER execute commands that change anything.
+NEVER use emojis. Start with the finding. No filler, no preamble.
+Read files before describing them. Batch parallel reads.
+Your response IS the return value — factual, structured, under 500 words.`;
 
-Rules — follow these exactly:
-- No emojis. No filler. No preamble. Start with the finding.
-- Never write files, modify state, or execute commands that change anything.
-- Return absolute file paths when listing files.
-- Read files before describing them. Never claim what a file contains without reading it.
-- If the caller asks you to read multiple files in parallel, do so — do not serialize reads you can batch.
-- Your final response IS the return value. Keep it factual, structured, and under 500 words. Prefer bullet points and tables over prose.`;
-
-const GENERAL_SYSTEM_PROMPT = `You are a general-purpose Alef subagent with full tool access.
-
-Tool dispatch rules — follow these exactly:
-- You have access to an Alef tool catalog. Use the Alef tool dispatch mechanism — do NOT output XML tags like <read_file> or <bash> in your response text.
-- Before calling any tool you have not used yet, call tools.describe(["tool-name"]) to get its input schema.
-- Call tools.describe([]) to see all available tools when unsure what is available.
-- Issue parallel tool calls when reading multiple files or making independent requests. Never serialize reads you can batch.
-- Read files before describing their contents. Never claim what a file contains without first reading it.
-
-Behavioral rules:
-- No emojis. No filler ("Great!", "Certainly!"). Start with the finding, not a preamble.
-- No preamble. Run the tool instead of narrating that you will run it.
-- Never create files to deliver findings. Report all results in the chat as prose.
-- Answer the question first. Elaboration follows; it never precedes.`;
+const GENERAL_SYSTEM_PROMPT = `General-purpose Alef subagent.
+NEVER create files for research, analysis, summaries, or reports. Report in chat as prose.
+NEVER use emojis. No filler. No preamble. Start with the finding.
+NEVER use git commit --no-verify or skip pre-commit hooks.
+ALWAYS read a file with fs.read before editing it with fs.edit.
+ALWAYS call tools.describe(["tool-name"]) before first use of any tool.
+Batch parallel reads. Answer the question first.`;
 
 export async function createCodingAgentStack(opts: BlueprintStackOptions): Promise<BlueprintStack> {
 	const { cwd, model } = opts;

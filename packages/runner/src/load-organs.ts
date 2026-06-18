@@ -67,6 +67,7 @@ export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Prom
 			if (chosen) {
 				blueprintPath = chosen.path;
 				blueprintName = chosen.name;
+				log.info({ blueprint: chosen.name, path: chosen.path }, "blueprint:selected");
 			}
 		}
 	}

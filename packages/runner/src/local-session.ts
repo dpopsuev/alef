@@ -168,10 +168,12 @@ export async function createLocalSession(
 	let llmController: AbortController | undefined;
 	const currentModel = model;
 
+	const resolvedBlueprintName = loaded.blueprintName ?? "(default)";
 	const stackFactory = blueprintRegistry.resolve(loaded.blueprintName);
+	log.info({ blueprint: resolvedBlueprintName, available: blueprintRegistry.list() }, "blueprint:resolve");
 	if (!stackFactory)
 		throw new Error(
-			`No blueprint registered for '${loaded.blueprintName ?? "(default)"}'. Import the agent package.`,
+			`No blueprint registered for '${resolvedBlueprintName}'. Available: ${blueprintRegistry.list().join(", ")}. Import the agent package.`,
 		);
 
 	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });

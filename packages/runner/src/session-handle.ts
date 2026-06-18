@@ -118,7 +118,7 @@ export class SessionHandle implements Session {
 		this._agent.dispose();
 	}
 
-	send(text: string, timeoutMs?: number): Promise<string> {
+	send = (text: string, timeoutMs?: number): Promise<string> => {
 		if (this._args.maxTurns > 0 && this._turnCount >= this._args.maxTurns) {
 			return Promise.reject(
 				new Error(`Max turns reached (${this._args.maxTurns}). Start a new session to continue.`),
@@ -126,7 +126,7 @@ export class SessionHandle implements Session {
 		}
 		this._turnCount++;
 		return this._dialog.send(text, "human", timeoutMs);
-	}
+	};
 
 	receive(text: string): void {
 		this._dialog.receive(text, "user");

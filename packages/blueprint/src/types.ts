@@ -83,6 +83,8 @@ export interface AgentDefinitionOrganInput {
 	path?: string;
 	/** Action subset to mount. Omit for all defaults. */
 	actions?: string[];
+	/** Shell command patterns to block (regex strings). Passed to organ-shell's blockedPatterns. */
+	blockedPatterns?: string[];
 	cache?: AgentDefinitionOrganCacheInput;
 	runtime?: AgentDefinitionLectorRuntimeInput;
 }
@@ -99,6 +101,8 @@ export interface CompiledAgentOrganDefinition {
 	actions: string[];
 	/** @deprecated EDA organs self-describe. Always empty. */
 	toolNames: string[];
+	/** Shell command patterns to block (string regexes compiled to RegExp by materializer). */
+	blockedPatterns?: string[];
 	cache?: AgentDefinitionOrganCacheConfig;
 	runtime?: AgentDefinitionLectorRuntimeConfig;
 }

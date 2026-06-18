@@ -45,11 +45,11 @@ export function compileAgentOrganDefinitions(
 		}
 
 		return {
-			// name is passed through verbatim. The materializer resolves it.
 			name: input.name ?? "_external",
 			path: resolvedPath,
 			actions: input.actions ?? [],
 			toolNames: [],
+			blockedPatterns: input.blockedPatterns,
 		};
 	});
 }

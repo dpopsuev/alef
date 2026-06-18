@@ -5,6 +5,7 @@
  *              final event carries exitCode + isFinal: true.
  */
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import type { Organ, OrganLogger, PortDefinition } from "@dpopsuev/alef-kernel";
 import {
 	DEFAULT_MAX_BYTES,
@@ -145,15 +146,47 @@ async function* streamExec(
 	let timedOut = false;
 	let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
 	let sigkillTimer2: ReturnType<typeof setTimeout> | undefined;
+	let stallTimer: ReturnType<typeof setInterval> | undefined;
 
 	if (timeoutMs !== undefined) {
-		// lint-ignore: RAWTIMER two-stage SIGTERM→SIGKILL escalation, not a stall detector
+		// lint-ignore: RAWTIMER hard wall-clock cap (safety net)
 		sigkillTimer = setTimeout(() => {
 			timedOut = true;
 			child.kill("SIGTERM");
 			// lint-ignore: RAWTIMER SIGKILL escalation 5s after SIGTERM
 			sigkillTimer2 = setTimeout(() => child.kill("SIGKILL"), 5000);
 		}, timeoutMs);
+	}
+
+	if (child.pid) {
+		let lastCpuTime = -1;
+		let stallCount = 0;
+		const STALL_CHECK_MS = 10_000;
+		const STALL_THRESHOLD = 6;
+		// lint-ignore: RAWTIMER /proc CPU stall detector, not a deadline
+		stallTimer = setInterval(() => {
+			try {
+				const stat = readFileSync(`/proc/${child.pid}/stat`, "utf-8");
+				const fields = stat.split(" ");
+				const utime = Number.parseInt(fields[13], 10) || 0;
+				const stime = Number.parseInt(fields[14], 10) || 0;
+				const cpuTime = utime + stime;
+				if (lastCpuTime >= 0 && cpuTime === lastCpuTime) {
+					stallCount++;
+					if (stallCount >= STALL_THRESHOLD) {
+						timedOut = true;
+						child.kill("SIGTERM");
+						// lint-ignore: RAWTIMER SIGKILL escalation
+						setTimeout(() => child.kill("SIGKILL"), 5000);
+					}
+				} else {
+					stallCount = 0;
+				}
+				lastCpuTime = cpuTime;
+			} catch {
+				// process gone — interval will be cleared in finally
+			}
+		}, STALL_CHECK_MS);
 	}
 
 	try {
@@ -194,6 +227,7 @@ async function* streamExec(
 	} finally {
 		if (sigkillTimer) clearTimeout(sigkillTimer);
 		if (sigkillTimer2) clearTimeout(sigkillTimer2);
+		if (stallTimer) clearInterval(stallTimer);
 	}
 }
 

@@ -303,6 +303,7 @@ export async function materializeBlueprint(
 				actions: organDef.actions.length > 0 ? organDef.actions : undefined,
 				logger: opts.loggerFor?.(organDef.name),
 				writableRoots: opts.writableRoots,
+				blockedPatterns: organDef.blockedPatterns?.map((p) => new RegExp(p)),
 			});
 			const gated =
 				opts.allowedTools && opts.allowedTools.length > 0 ? wrapWithPermissions(organ, opts.allowedTools) : organ;

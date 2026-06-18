@@ -10,6 +10,11 @@ organs:
     package: "@dpopsuev/alef-organ-fs"
   - name: shell
     package: "@dpopsuev/alef-organ-shell"
+    blockedPatterns:
+      - "--no-verify"
+      - "--no-gpg-sign"
+      - "git\\s+reset\\s+--hard"
+      - "rm\\s+-rf\\s+/"
   - name: nodesh
     package: "@dpopsuev/alef-organ-nodesh"
   - name: web

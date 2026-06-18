@@ -734,7 +734,7 @@ function matchesRawBackspace(data: string, expectedModifier: number): boolean {
 }
 
 // =============================================================================
-// Generic Key Matching
+// Generic Key Matching Helpers
 // =============================================================================
 
 /**
@@ -800,6 +800,308 @@ function parseKeyId(
 	};
 }
 
+// =============================================================================
+// Key Matching - Special Keys
+// =============================================================================
+
+function matchesEscapeKey(data: string, modifier: number): boolean {
+	if (modifier !== 0) return false;
+	return (
+		data === "\x1b" ||
+		matchesKittySequence(data, CODEPOINTS.escape, 0) ||
+		matchesModifyOtherKeys(data, CODEPOINTS.escape, 0)
+	);
+}
+
+function matchesSpaceKey(data: string, modifier: number): boolean {
+	if (!_kittyProtocolActive) {
+		if (modifier === MODIFIERS.ctrl && data === "\x00") return true;
+		if (modifier === MODIFIERS.alt && data === "\x1b ") return true;
+	}
+	if (modifier === 0) {
+		return (
+			data === " " ||
+			matchesKittySequence(data, CODEPOINTS.space, 0) ||
+			matchesModifyOtherKeys(data, CODEPOINTS.space, 0)
+		);
+	}
+	return (
+		matchesKittySequence(data, CODEPOINTS.space, modifier) || matchesModifyOtherKeys(data, CODEPOINTS.space, modifier)
+	);
+}
+
+function matchesTabKey(data: string, modifier: number): boolean {
+	if (modifier === MODIFIERS.shift) {
+		return (
+			data === "\x1b[Z" ||
+			matchesKittySequence(data, CODEPOINTS.tab, MODIFIERS.shift) ||
+			matchesModifyOtherKeys(data, CODEPOINTS.tab, MODIFIERS.shift)
+		);
+	}
+	if (modifier === 0) {
+		return data === "\t" || matchesKittySequence(data, CODEPOINTS.tab, 0);
+	}
+	return (
+		matchesKittySequence(data, CODEPOINTS.tab, modifier) || matchesModifyOtherKeys(data, CODEPOINTS.tab, modifier)
+	);
+}
+
+function matchesEnterKey(data: string, modifier: number): boolean {
+	if (modifier === MODIFIERS.shift) {
+		// CSI u sequences (standard Kitty protocol)
+		if (
+			matchesKittySequence(data, CODEPOINTS.enter, MODIFIERS.shift) ||
+			matchesKittySequence(data, CODEPOINTS.kpEnter, MODIFIERS.shift)
+		) {
+			return true;
+		}
+		// xterm modifyOtherKeys format (fallback when Kitty protocol not enabled)
+		if (matchesModifyOtherKeys(data, CODEPOINTS.enter, MODIFIERS.shift)) {
+			return true;
+		}
+		// When Kitty protocol is active, legacy sequences are custom terminal mappings
+		// \x1b\r = Kitty's "map shift+enter send_text all \e\r"
+		// \n = Ghostty's "keybind = shift+enter=text:\n"
+		if (_kittyProtocolActive) {
+			return data === "\x1b\r" || data === "\n";
+		}
+		return false;
+	}
+	if (modifier === MODIFIERS.alt) {
+		// CSI u sequences (standard Kitty protocol)
+		if (
+			matchesKittySequence(data, CODEPOINTS.enter, MODIFIERS.alt) ||
+			matchesKittySequence(data, CODEPOINTS.kpEnter, MODIFIERS.alt)
+		) {
+			return true;
+		}
+		// xterm modifyOtherKeys format (fallback when Kitty protocol not enabled)
+		if (matchesModifyOtherKeys(data, CODEPOINTS.enter, MODIFIERS.alt)) {
+			return true;
+		}
+		// \x1b\r is alt+enter only in legacy mode (no Kitty protocol)
+		// When Kitty protocol is active, alt+enter comes as CSI u sequence
+		if (!_kittyProtocolActive) {
+			return data === "\x1b\r";
+		}
+		return false;
+	}
+	if (modifier === 0) {
+		return (
+			data === "\r" ||
+			(!_kittyProtocolActive && data === "\n") ||
+			data === "\x1bOM" || // SS3 M (numpad enter in some terminals)
+			matchesKittySequence(data, CODEPOINTS.enter, 0) ||
+			matchesKittySequence(data, CODEPOINTS.kpEnter, 0)
+		);
+	}
+	return (
+		matchesKittySequence(data, CODEPOINTS.enter, modifier) ||
+		matchesKittySequence(data, CODEPOINTS.kpEnter, modifier) ||
+		matchesModifyOtherKeys(data, CODEPOINTS.enter, modifier)
+	);
+}
+
+function matchesBackspaceKey(data: string, modifier: number): boolean {
+	if (modifier === MODIFIERS.alt) {
+		if (data === "\x1b\x7f" || data === "\x1b\b") return true;
+		return (
+			matchesKittySequence(data, CODEPOINTS.backspace, MODIFIERS.alt) ||
+			matchesModifyOtherKeys(data, CODEPOINTS.backspace, MODIFIERS.alt)
+		);
+	}
+	if (modifier === MODIFIERS.ctrl) {
+		// Legacy raw 0x08 is ambiguous: it can be Ctrl+Backspace on Windows
+		// Terminal or plain Backspace on other terminals, while also
+		// overlapping with Ctrl+H.
+		if (matchesRawBackspace(data, MODIFIERS.ctrl)) return true;
+		return (
+			matchesKittySequence(data, CODEPOINTS.backspace, MODIFIERS.ctrl) ||
+			matchesModifyOtherKeys(data, CODEPOINTS.backspace, MODIFIERS.ctrl)
+		);
+	}
+	if (modifier === 0) {
+		return (
+			matchesRawBackspace(data, 0) ||
+			matchesKittySequence(data, CODEPOINTS.backspace, 0) ||
+			matchesModifyOtherKeys(data, CODEPOINTS.backspace, 0)
+		);
+	}
+	return (
+		matchesKittySequence(data, CODEPOINTS.backspace, modifier) ||
+		matchesModifyOtherKeys(data, CODEPOINTS.backspace, modifier)
+	);
+}
+
+// =============================================================================
+// Key Matching - Functional Keys (Insert, Delete, Home, End, PageUp/Down)
+// =============================================================================
+
+function matchesFunctionalKey(data: string, modifier: number, keyName: LegacyModifierKey, codepoint: number): boolean {
+	if (modifier === 0) {
+		return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES[keyName]) || matchesKittySequence(data, codepoint, 0);
+	}
+	if (matchesLegacyModifierSequence(data, keyName, modifier)) {
+		return true;
+	}
+	return matchesKittySequence(data, codepoint, modifier);
+}
+
+function matchesClearKey(data: string, modifier: number): boolean {
+	if (modifier === 0) {
+		return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.clear);
+	}
+	return matchesLegacyModifierSequence(data, "clear", modifier);
+}
+
+// =============================================================================
+// Key Matching - Arrow Keys
+// =============================================================================
+
+function matchesArrowKey(
+	data: string,
+	modifier: number,
+	keyName: LegacyModifierKey,
+	codepoint: number,
+	altSequence?: string,
+): boolean {
+	if (modifier === MODIFIERS.alt && altSequence) {
+		return altSequence === data || matchesKittySequence(data, codepoint, MODIFIERS.alt);
+	}
+	if (modifier === 0) {
+		return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES[keyName]) || matchesKittySequence(data, codepoint, 0);
+	}
+	if (matchesLegacyModifierSequence(data, keyName, modifier)) {
+		return true;
+	}
+	return matchesKittySequence(data, codepoint, modifier);
+}
+
+function matchesLeftKey(data: string, modifier: number): boolean {
+	if (modifier === MODIFIERS.alt) {
+		return (
+			data === "\x1b[1;3D" ||
+			(!_kittyProtocolActive && data === "\x1bB") ||
+			data === "\x1bb" ||
+			matchesKittySequence(data, ARROW_CODEPOINTS.left, MODIFIERS.alt)
+		);
+	}
+	if (modifier === MODIFIERS.ctrl) {
+		return (
+			data === "\x1b[1;5D" ||
+			matchesLegacyModifierSequence(data, "left", MODIFIERS.ctrl) ||
+			matchesKittySequence(data, ARROW_CODEPOINTS.left, MODIFIERS.ctrl)
+		);
+	}
+	if (modifier === 0) {
+		return (
+			matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.left) || matchesKittySequence(data, ARROW_CODEPOINTS.left, 0)
+		);
+	}
+	if (matchesLegacyModifierSequence(data, "left", modifier)) {
+		return true;
+	}
+	return matchesKittySequence(data, ARROW_CODEPOINTS.left, modifier);
+}
+
+function matchesRightKey(data: string, modifier: number): boolean {
+	if (modifier === MODIFIERS.alt) {
+		return (
+			data === "\x1b[1;3C" ||
+			(!_kittyProtocolActive && data === "\x1bF") ||
+			data === "\x1bf" ||
+			matchesKittySequence(data, ARROW_CODEPOINTS.right, MODIFIERS.alt)
+		);
+	}
+	if (modifier === MODIFIERS.ctrl) {
+		return (
+			data === "\x1b[1;5C" ||
+			matchesLegacyModifierSequence(data, "right", MODIFIERS.ctrl) ||
+			matchesKittySequence(data, ARROW_CODEPOINTS.right, MODIFIERS.ctrl)
+		);
+	}
+	if (modifier === 0) {
+		return (
+			matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.right) ||
+			matchesKittySequence(data, ARROW_CODEPOINTS.right, 0)
+		);
+	}
+	if (matchesLegacyModifierSequence(data, "right", modifier)) {
+		return true;
+	}
+	return matchesKittySequence(data, ARROW_CODEPOINTS.right, modifier);
+}
+
+// =============================================================================
+// Key Matching - Function Keys (F1-F12)
+// =============================================================================
+
+function matchesFunctionKey(data: string, modifier: number, key: keyof typeof LEGACY_KEY_SEQUENCES): boolean {
+	if (modifier !== 0) return false;
+	return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES[key]);
+}
+
+// =============================================================================
+// Key Matching - Printable Keys (Letters, Digits, Symbols)
+// =============================================================================
+
+function matchesPrintableKey(data: string, key: string, modifier: number): boolean {
+	const codepoint = key.charCodeAt(0);
+	const rawCtrl = rawCtrlChar(key);
+	const isLetter = key >= "a" && key <= "z";
+	const isDigit = isDigitKey(key);
+
+	if (modifier === MODIFIERS.ctrl + MODIFIERS.alt && !_kittyProtocolActive && rawCtrl) {
+		// Legacy: ctrl+alt+key is ESC followed by the control character.
+		// If that legacy form does not match, continue so CSI-u and
+		// modifyOtherKeys sequences from tmux can still be recognized.
+		if (data === `\x1b${rawCtrl}`) return true;
+	}
+
+	if (modifier === MODIFIERS.alt && !_kittyProtocolActive && (isLetter || isDigit)) {
+		// Legacy: alt+letter/digit is ESC followed by the key
+		if (data === `\x1b${key}`) return true;
+	}
+
+	if (modifier === MODIFIERS.ctrl) {
+		// Legacy: ctrl+key sends the control character
+		if (rawCtrl && data === rawCtrl) return true;
+		return (
+			matchesKittySequence(data, codepoint, MODIFIERS.ctrl) ||
+			matchesPrintableModifyOtherKeys(data, codepoint, MODIFIERS.ctrl)
+		);
+	}
+
+	if (modifier === MODIFIERS.shift + MODIFIERS.ctrl) {
+		return (
+			matchesKittySequence(data, codepoint, MODIFIERS.shift + MODIFIERS.ctrl) ||
+			matchesPrintableModifyOtherKeys(data, codepoint, MODIFIERS.shift + MODIFIERS.ctrl)
+		);
+	}
+
+	if (modifier === MODIFIERS.shift) {
+		// Legacy: shift+letter produces uppercase
+		if (isLetter && data === key.toUpperCase()) return true;
+		return (
+			matchesKittySequence(data, codepoint, MODIFIERS.shift) ||
+			matchesPrintableModifyOtherKeys(data, codepoint, MODIFIERS.shift)
+		);
+	}
+
+	if (modifier !== 0) {
+		return (
+			matchesKittySequence(data, codepoint, modifier) || matchesPrintableModifyOtherKeys(data, codepoint, modifier)
+		);
+	}
+
+	// Check both raw char and Kitty sequence (needed for release events)
+	return data === key || matchesKittySequence(data, codepoint, 0);
+}
+
+// =============================================================================
+// Generic Key Matching - Main Entry Point
+// =============================================================================
+
 /**
  * Match input data against a key identifier string.
  *
@@ -828,303 +1130,42 @@ export function matchesKey(data: string, keyId: KeyId): boolean {
 	if (ctrl) modifier |= MODIFIERS.ctrl;
 	if (superModifier) modifier |= MODIFIERS.super;
 
+	// Handle special keys
 	switch (key) {
 		case "escape":
 		case "esc":
-			if (modifier !== 0) return false;
-			return (
-				data === "\x1b" ||
-				matchesKittySequence(data, CODEPOINTS.escape, 0) ||
-				matchesModifyOtherKeys(data, CODEPOINTS.escape, 0)
-			);
-
+			return matchesEscapeKey(data, modifier);
 		case "space":
-			if (!_kittyProtocolActive) {
-				if (modifier === MODIFIERS.ctrl && data === "\x00") {
-					return true;
-				}
-				if (modifier === MODIFIERS.alt && data === "\x1b ") {
-					return true;
-				}
-			}
-			if (modifier === 0) {
-				return (
-					data === " " ||
-					matchesKittySequence(data, CODEPOINTS.space, 0) ||
-					matchesModifyOtherKeys(data, CODEPOINTS.space, 0)
-				);
-			}
-			return (
-				matchesKittySequence(data, CODEPOINTS.space, modifier) ||
-				matchesModifyOtherKeys(data, CODEPOINTS.space, modifier)
-			);
-
+			return matchesSpaceKey(data, modifier);
 		case "tab":
-			if (modifier === MODIFIERS.shift) {
-				return (
-					data === "\x1b[Z" ||
-					matchesKittySequence(data, CODEPOINTS.tab, MODIFIERS.shift) ||
-					matchesModifyOtherKeys(data, CODEPOINTS.tab, MODIFIERS.shift)
-				);
-			}
-			if (modifier === 0) {
-				return data === "\t" || matchesKittySequence(data, CODEPOINTS.tab, 0);
-			}
-			return (
-				matchesKittySequence(data, CODEPOINTS.tab, modifier) ||
-				matchesModifyOtherKeys(data, CODEPOINTS.tab, modifier)
-			);
-
+			return matchesTabKey(data, modifier);
 		case "enter":
 		case "return":
-			if (modifier === MODIFIERS.shift) {
-				// CSI u sequences (standard Kitty protocol)
-				if (
-					matchesKittySequence(data, CODEPOINTS.enter, MODIFIERS.shift) ||
-					matchesKittySequence(data, CODEPOINTS.kpEnter, MODIFIERS.shift)
-				) {
-					return true;
-				}
-				// xterm modifyOtherKeys format (fallback when Kitty protocol not enabled)
-				if (matchesModifyOtherKeys(data, CODEPOINTS.enter, MODIFIERS.shift)) {
-					return true;
-				}
-				// When Kitty protocol is active, legacy sequences are custom terminal mappings
-				// \x1b\r = Kitty's "map shift+enter send_text all \e\r"
-				// \n = Ghostty's "keybind = shift+enter=text:\n"
-				if (_kittyProtocolActive) {
-					return data === "\x1b\r" || data === "\n";
-				}
-				return false;
-			}
-			if (modifier === MODIFIERS.alt) {
-				// CSI u sequences (standard Kitty protocol)
-				if (
-					matchesKittySequence(data, CODEPOINTS.enter, MODIFIERS.alt) ||
-					matchesKittySequence(data, CODEPOINTS.kpEnter, MODIFIERS.alt)
-				) {
-					return true;
-				}
-				// xterm modifyOtherKeys format (fallback when Kitty protocol not enabled)
-				if (matchesModifyOtherKeys(data, CODEPOINTS.enter, MODIFIERS.alt)) {
-					return true;
-				}
-				// \x1b\r is alt+enter only in legacy mode (no Kitty protocol)
-				// When Kitty protocol is active, alt+enter comes as CSI u sequence
-				if (!_kittyProtocolActive) {
-					return data === "\x1b\r";
-				}
-				return false;
-			}
-			if (modifier === 0) {
-				return (
-					data === "\r" ||
-					(!_kittyProtocolActive && data === "\n") ||
-					data === "\x1bOM" || // SS3 M (numpad enter in some terminals)
-					matchesKittySequence(data, CODEPOINTS.enter, 0) ||
-					matchesKittySequence(data, CODEPOINTS.kpEnter, 0)
-				);
-			}
-			return (
-				matchesKittySequence(data, CODEPOINTS.enter, modifier) ||
-				matchesKittySequence(data, CODEPOINTS.kpEnter, modifier) ||
-				matchesModifyOtherKeys(data, CODEPOINTS.enter, modifier)
-			);
-
+			return matchesEnterKey(data, modifier);
 		case "backspace":
-			if (modifier === MODIFIERS.alt) {
-				if (data === "\x1b\x7f" || data === "\x1b\b") {
-					return true;
-				}
-				return (
-					matchesKittySequence(data, CODEPOINTS.backspace, MODIFIERS.alt) ||
-					matchesModifyOtherKeys(data, CODEPOINTS.backspace, MODIFIERS.alt)
-				);
-			}
-			if (modifier === MODIFIERS.ctrl) {
-				// Legacy raw 0x08 is ambiguous: it can be Ctrl+Backspace on Windows
-				// Terminal or plain Backspace on other terminals, while also
-				// overlapping with Ctrl+H.
-				if (matchesRawBackspace(data, MODIFIERS.ctrl)) return true;
-				return (
-					matchesKittySequence(data, CODEPOINTS.backspace, MODIFIERS.ctrl) ||
-					matchesModifyOtherKeys(data, CODEPOINTS.backspace, MODIFIERS.ctrl)
-				);
-			}
-			if (modifier === 0) {
-				return (
-					matchesRawBackspace(data, 0) ||
-					matchesKittySequence(data, CODEPOINTS.backspace, 0) ||
-					matchesModifyOtherKeys(data, CODEPOINTS.backspace, 0)
-				);
-			}
-			return (
-				matchesKittySequence(data, CODEPOINTS.backspace, modifier) ||
-				matchesModifyOtherKeys(data, CODEPOINTS.backspace, modifier)
-			);
-
+			return matchesBackspaceKey(data, modifier);
 		case "insert":
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.insert) ||
-					matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.insert, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "insert", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.insert, modifier);
-
+			return matchesFunctionalKey(data, modifier, "insert", FUNCTIONAL_CODEPOINTS.insert);
 		case "delete":
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.delete) ||
-					matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.delete, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "delete", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.delete, modifier);
-
+			return matchesFunctionalKey(data, modifier, "delete", FUNCTIONAL_CODEPOINTS.delete);
 		case "clear":
-			if (modifier === 0) {
-				return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.clear);
-			}
-			return matchesLegacyModifierSequence(data, "clear", modifier);
-
+			return matchesClearKey(data, modifier);
 		case "home":
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.home) ||
-					matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.home, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "home", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.home, modifier);
-
+			return matchesFunctionalKey(data, modifier, "home", FUNCTIONAL_CODEPOINTS.home);
 		case "end":
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.end) ||
-					matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.end, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "end", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.end, modifier);
-
+			return matchesFunctionalKey(data, modifier, "end", FUNCTIONAL_CODEPOINTS.end);
 		case "pageup":
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.pageUp) ||
-					matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.pageUp, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "pageUp", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.pageUp, modifier);
-
+			return matchesFunctionalKey(data, modifier, "pageUp", FUNCTIONAL_CODEPOINTS.pageUp);
 		case "pagedown":
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.pageDown) ||
-					matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.pageDown, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "pageDown", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, FUNCTIONAL_CODEPOINTS.pageDown, modifier);
-
+			return matchesFunctionalKey(data, modifier, "pageDown", FUNCTIONAL_CODEPOINTS.pageDown);
 		case "up":
-			if (modifier === MODIFIERS.alt) {
-				return data === "\x1bp" || matchesKittySequence(data, ARROW_CODEPOINTS.up, MODIFIERS.alt);
-			}
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.up) ||
-					matchesKittySequence(data, ARROW_CODEPOINTS.up, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "up", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, ARROW_CODEPOINTS.up, modifier);
-
+			return matchesArrowKey(data, modifier, "up", ARROW_CODEPOINTS.up, "\x1bp");
 		case "down":
-			if (modifier === MODIFIERS.alt) {
-				return data === "\x1bn" || matchesKittySequence(data, ARROW_CODEPOINTS.down, MODIFIERS.alt);
-			}
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.down) ||
-					matchesKittySequence(data, ARROW_CODEPOINTS.down, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "down", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, ARROW_CODEPOINTS.down, modifier);
-
+			return matchesArrowKey(data, modifier, "down", ARROW_CODEPOINTS.down, "\x1bn");
 		case "left":
-			if (modifier === MODIFIERS.alt) {
-				return (
-					data === "\x1b[1;3D" ||
-					(!_kittyProtocolActive && data === "\x1bB") ||
-					data === "\x1bb" ||
-					matchesKittySequence(data, ARROW_CODEPOINTS.left, MODIFIERS.alt)
-				);
-			}
-			if (modifier === MODIFIERS.ctrl) {
-				return (
-					data === "\x1b[1;5D" ||
-					matchesLegacyModifierSequence(data, "left", MODIFIERS.ctrl) ||
-					matchesKittySequence(data, ARROW_CODEPOINTS.left, MODIFIERS.ctrl)
-				);
-			}
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.left) ||
-					matchesKittySequence(data, ARROW_CODEPOINTS.left, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "left", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, ARROW_CODEPOINTS.left, modifier);
-
+			return matchesLeftKey(data, modifier);
 		case "right":
-			if (modifier === MODIFIERS.alt) {
-				return (
-					data === "\x1b[1;3C" ||
-					(!_kittyProtocolActive && data === "\x1bF") ||
-					data === "\x1bf" ||
-					matchesKittySequence(data, ARROW_CODEPOINTS.right, MODIFIERS.alt)
-				);
-			}
-			if (modifier === MODIFIERS.ctrl) {
-				return (
-					data === "\x1b[1;5C" ||
-					matchesLegacyModifierSequence(data, "right", MODIFIERS.ctrl) ||
-					matchesKittySequence(data, ARROW_CODEPOINTS.right, MODIFIERS.ctrl)
-				);
-			}
-			if (modifier === 0) {
-				return (
-					matchesLegacySequence(data, LEGACY_KEY_SEQUENCES.right) ||
-					matchesKittySequence(data, ARROW_CODEPOINTS.right, 0)
-				);
-			}
-			if (matchesLegacyModifierSequence(data, "right", modifier)) {
-				return true;
-			}
-			return matchesKittySequence(data, ARROW_CODEPOINTS.right, modifier);
-
+			return matchesRightKey(data, modifier);
 		case "f1":
 		case "f2":
 		case "f3":
@@ -1136,71 +1177,42 @@ export function matchesKey(data: string, keyId: KeyId): boolean {
 		case "f9":
 		case "f10":
 		case "f11":
-		case "f12": {
-			if (modifier !== 0) {
-				return false;
-			}
-			const functionKey = key as keyof typeof LEGACY_KEY_SEQUENCES;
-			return matchesLegacySequence(data, LEGACY_KEY_SEQUENCES[functionKey]);
-		}
+		case "f12":
+			return matchesFunctionKey(data, modifier, key as keyof typeof LEGACY_KEY_SEQUENCES);
 	}
 
 	// Handle single letter/digit keys and symbols
 	if (key.length === 1 && ((key >= "a" && key <= "z") || isDigitKey(key) || SYMBOL_KEYS.has(key))) {
-		const codepoint = key.charCodeAt(0);
-		const rawCtrl = rawCtrlChar(key);
-		const isLetter = key >= "a" && key <= "z";
-		const isDigit = isDigitKey(key);
-
-		if (modifier === MODIFIERS.ctrl + MODIFIERS.alt && !_kittyProtocolActive && rawCtrl) {
-			// Legacy: ctrl+alt+key is ESC followed by the control character.
-			// If that legacy form does not match, continue so CSI-u and
-			// modifyOtherKeys sequences from tmux can still be recognized.
-			if (data === `\x1b${rawCtrl}`) return true;
-		}
-
-		if (modifier === MODIFIERS.alt && !_kittyProtocolActive && (isLetter || isDigit)) {
-			// Legacy: alt+letter/digit is ESC followed by the key
-			if (data === `\x1b${key}`) return true;
-		}
-
-		if (modifier === MODIFIERS.ctrl) {
-			// Legacy: ctrl+key sends the control character
-			if (rawCtrl && data === rawCtrl) return true;
-			return (
-				matchesKittySequence(data, codepoint, MODIFIERS.ctrl) ||
-				matchesPrintableModifyOtherKeys(data, codepoint, MODIFIERS.ctrl)
-			);
-		}
-
-		if (modifier === MODIFIERS.shift + MODIFIERS.ctrl) {
-			return (
-				matchesKittySequence(data, codepoint, MODIFIERS.shift + MODIFIERS.ctrl) ||
-				matchesPrintableModifyOtherKeys(data, codepoint, MODIFIERS.shift + MODIFIERS.ctrl)
-			);
-		}
-
-		if (modifier === MODIFIERS.shift) {
-			// Legacy: shift+letter produces uppercase
-			if (isLetter && data === key.toUpperCase()) return true;
-			return (
-				matchesKittySequence(data, codepoint, MODIFIERS.shift) ||
-				matchesPrintableModifyOtherKeys(data, codepoint, MODIFIERS.shift)
-			);
-		}
-
-		if (modifier !== 0) {
-			return (
-				matchesKittySequence(data, codepoint, modifier) ||
-				matchesPrintableModifyOtherKeys(data, codepoint, modifier)
-			);
-		}
-
-		// Check both raw char and Kitty sequence (needed for release events)
-		return data === key || matchesKittySequence(data, codepoint, 0);
+		return matchesPrintableKey(data, key, modifier);
 	}
 
 	return false;
+}
+
+// =============================================================================
+// Key Formatting - Convert codepoint to key name
+// =============================================================================
+
+function getKeyNameFromCodepoint(codepoint: number): string | undefined {
+	if (codepoint === CODEPOINTS.escape) return "escape";
+	if (codepoint === CODEPOINTS.tab) return "tab";
+	if (codepoint === CODEPOINTS.enter || codepoint === CODEPOINTS.kpEnter) return "enter";
+	if (codepoint === CODEPOINTS.space) return "space";
+	if (codepoint === CODEPOINTS.backspace) return "backspace";
+	if (codepoint === FUNCTIONAL_CODEPOINTS.delete) return "delete";
+	if (codepoint === FUNCTIONAL_CODEPOINTS.insert) return "insert";
+	if (codepoint === FUNCTIONAL_CODEPOINTS.home) return "home";
+	if (codepoint === FUNCTIONAL_CODEPOINTS.end) return "end";
+	if (codepoint === FUNCTIONAL_CODEPOINTS.pageUp) return "pageUp";
+	if (codepoint === FUNCTIONAL_CODEPOINTS.pageDown) return "pageDown";
+	if (codepoint === ARROW_CODEPOINTS.up) return "up";
+	if (codepoint === ARROW_CODEPOINTS.down) return "down";
+	if (codepoint === ARROW_CODEPOINTS.left) return "left";
+	if (codepoint === ARROW_CODEPOINTS.right) return "right";
+	if (codepoint >= 48 && codepoint <= 57) return String.fromCharCode(codepoint); // 0-9
+	if (codepoint >= 97 && codepoint <= 122) return String.fromCharCode(codepoint); // a-z
+	if (SYMBOL_KEYS.has(String.fromCharCode(codepoint))) return String.fromCharCode(codepoint);
+	return undefined;
 }
 
 /**
@@ -1224,26 +1236,7 @@ function formatParsedKey(codepoint: number, modifier: number, baseLayoutKey?: nu
 	const effectiveCodepoint =
 		isLatinLetter || isDigit || isKnownSymbol ? identityCodepoint : (baseLayoutKey ?? identityCodepoint);
 
-	let keyName: string | undefined;
-	if (effectiveCodepoint === CODEPOINTS.escape) keyName = "escape";
-	else if (effectiveCodepoint === CODEPOINTS.tab) keyName = "tab";
-	else if (effectiveCodepoint === CODEPOINTS.enter || effectiveCodepoint === CODEPOINTS.kpEnter) keyName = "enter";
-	else if (effectiveCodepoint === CODEPOINTS.space) keyName = "space";
-	else if (effectiveCodepoint === CODEPOINTS.backspace) keyName = "backspace";
-	else if (effectiveCodepoint === FUNCTIONAL_CODEPOINTS.delete) keyName = "delete";
-	else if (effectiveCodepoint === FUNCTIONAL_CODEPOINTS.insert) keyName = "insert";
-	else if (effectiveCodepoint === FUNCTIONAL_CODEPOINTS.home) keyName = "home";
-	else if (effectiveCodepoint === FUNCTIONAL_CODEPOINTS.end) keyName = "end";
-	else if (effectiveCodepoint === FUNCTIONAL_CODEPOINTS.pageUp) keyName = "pageUp";
-	else if (effectiveCodepoint === FUNCTIONAL_CODEPOINTS.pageDown) keyName = "pageDown";
-	else if (effectiveCodepoint === ARROW_CODEPOINTS.up) keyName = "up";
-	else if (effectiveCodepoint === ARROW_CODEPOINTS.down) keyName = "down";
-	else if (effectiveCodepoint === ARROW_CODEPOINTS.left) keyName = "left";
-	else if (effectiveCodepoint === ARROW_CODEPOINTS.right) keyName = "right";
-	else if (effectiveCodepoint >= 48 && effectiveCodepoint <= 57) keyName = String.fromCharCode(effectiveCodepoint);
-	else if (effectiveCodepoint >= 97 && effectiveCodepoint <= 122) keyName = String.fromCharCode(effectiveCodepoint);
-	else if (SYMBOL_KEYS.has(String.fromCharCode(effectiveCodepoint))) keyName = String.fromCharCode(effectiveCodepoint);
-
+	const keyName = getKeyNameFromCodepoint(effectiveCodepoint);
 	if (!keyName) return undefined;
 	return formatKeyNameWithModifiers(keyName, modifier);
 }

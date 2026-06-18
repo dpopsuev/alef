@@ -231,10 +231,7 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 							return await fn();
 						} catch (e) {
 							const msg = e instanceof Error ? e.message : String(e);
-							throw new Error(
-								`web.fetch failed for ${url}: ${msg}. ` +
-									"This URL may be unreachable from this environment. Do not retry — use a different approach.",
-							);
+							throw new Error(`web.fetch failed for ${url}: ${msg}`);
 						}
 					};
 

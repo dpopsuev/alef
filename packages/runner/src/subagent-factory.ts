@@ -7,6 +7,7 @@ import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ
 import { Agent } from "@dpopsuev/alef-runtime";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
+import { buildModel } from "./model.js";
 
 export interface SubagentSessionOptions {
 	model: Model<Api>;
@@ -23,7 +24,7 @@ export interface SubagentSessionOptions {
 
 export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFactory {
 	return (callOpts) => {
-		const { organs, onChunk, onInnerEvent, systemPrompt: callSystemPrompt } = callOpts;
+		const { organs, onChunk, onInnerEvent, systemPrompt: callSystemPrompt, modelOverride } = callOpts;
 		// Assign a deterministic color for this subagent instance.
 		const subId = `${opts.parentSessionId ?? "sub"}_${Math.random().toString(36).slice(2, 10)}`;
 		const subActor = resolveSubagentActor(opts.parentSessionId ?? "sub", subId, opts.boardId ?? "");
@@ -41,8 +42,9 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		const systemPrompt =
 			[dateContext, opts.baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
 		const chunkHandler = onChunk;
+		const resolvedModel = modelOverride ? buildModel(modelOverride) : opts.model;
 		const llm = createAgentLoop({
-			model: opts.model,
+			model: resolvedModel,
 			systemPrompt,
 			trackConcurrentOps: opts.trackConcurrentOps,
 			phaseTimeoutMs: 100,

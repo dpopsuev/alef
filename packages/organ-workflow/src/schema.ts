@@ -4,6 +4,10 @@ export const StationDefSchema = z.object({
 	name: z.string().min(1),
 	contract: z.enum(["intent", "goal", "implement"]).describe("Preset contract name"),
 	blueprint: z.string().optional().describe("Agent blueprint name from manifest"),
+	model: z
+		.string()
+		.optional()
+		.describe("Model ID for this station (e.g. 'claude-haiku-4-5'). Omit to inherit from parent."),
 	timeoutMs: z.number().optional(),
 	validator: z.enum(["human", "agent", "machine"]).optional().describe("Who evaluates the contract output"),
 });

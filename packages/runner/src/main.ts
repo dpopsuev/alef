@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 
 import "@dpopsuev/alef-coding-agent";
+import "@dpopsuev/alef-factory-agent";
 
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";

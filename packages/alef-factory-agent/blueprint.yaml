@@ -1,10 +1,10 @@
 name: alef-factory-agent
 version: 1.0.0
 description: >
-  Factory architect — Factorio-style production line builder.
+  Factory architect — designs and operates multi-agent production lines.
   Full coding capabilities + workflow orchestration + runtime prototyping.
-  Builds automated pipelines of specialized agents connected by event bus
-  contracts. Sandbox: create organs, blueprints, and workers at runtime.
+  Builds pipelines of specialized agents connected by event bus contracts.
+  Sandbox: create organs, blueprints, and workers at runtime.
 
 organs:
   - name: fs

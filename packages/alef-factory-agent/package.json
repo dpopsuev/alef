@@ -1,0 +1,10 @@
+{
+  "name": "@dpopsuev/alef-factory-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Factory architect agent — builds multi-agent workflows via subscription graphs",
+  "type": "module",
+  "alef": {
+    "blueprint": "blueprint.yaml"
+  }
+}

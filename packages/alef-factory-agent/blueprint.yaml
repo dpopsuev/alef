@@ -1,0 +1,31 @@
+name: alef-factory-agent
+version: 1.0.0
+description: >
+  Factory architect agent — builds and observes multi-agent workflows.
+  Does not code directly. Defines subscription graphs (WHO listens to WHO
+  for WHAT), spawns workers, wires contracts, and monitors progress.
+
+organs:
+  - name: fs
+    package: "@dpopsuev/alef-organ-fs"
+  - name: shell
+    package: "@dpopsuev/alef-organ-shell"
+    blockedPatterns:
+      - "--no-verify"
+      - "--no-gpg-sign"
+      - "git\\s+reset\\s+--hard"
+      - "rm\\s+-rf\\s+/"
+  - name: web
+    package: "@dpopsuev/alef-organ-web"
+  - name: agent
+    package: "@dpopsuev/alef-organ-agent"
+  - name: workflow
+    package: "@dpopsuev/alef-organ-workflow"
+  - name: skills
+    package: "@dpopsuev/alef-organ-skills"
+
+capabilities:
+  orchestration: true
+
+memory:
+  session: memory

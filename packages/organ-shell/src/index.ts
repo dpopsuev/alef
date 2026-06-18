@@ -3,7 +3,12 @@ export { createShellOrgan, type ShellOrganOptions } from "./organ.js";
 
 import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
 import { createShellOrgan } from "./organ.js";
-export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: OrganLogger }): Organ {
+export function createOrgan(opts: {
+	cwd: string;
+	actions?: string[];
+	logger?: OrganLogger;
+	blockedPatterns?: readonly RegExp[];
+}): Organ {
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `shell.${a}`));
 	return createShellOrgan({ ...opts, actions });
 }

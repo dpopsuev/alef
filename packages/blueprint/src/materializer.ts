@@ -53,6 +53,8 @@ export interface OrganFactoryOptions {
 	 * Resolved from config.security.writable_roots by the materializer.
 	 */
 	writableRoots?: readonly string[];
+	/** Shell command patterns to block. Passed through to organ-shell's blockedPatterns. */
+	blockedPatterns?: readonly RegExp[];
 }
 
 /** Expected shape of an organ module — must export createOrgan. */

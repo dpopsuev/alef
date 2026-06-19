@@ -40,7 +40,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 
 	let tuiState = initialTuiState();
 	const layout = await buildLayout(tui, t, opts, () => tuiState.sessionTokensTotal, store);
-	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, historyProvider, channels } = layout;
+	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, historyProvider, forums } = layout;
 	const { editor } = promptConsole;
 
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
@@ -74,7 +74,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 		actorRoutes,
 		session,
 		writer,
-		channels,
+		forums,
 		addToHistory: (text) => editor.addToHistory(text),
 		addHistoryEntry: (text) => historyProvider.addEntry(text),
 		clearEditor: () => editor.setText(""),

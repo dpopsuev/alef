@@ -15,12 +15,12 @@ interface Post {
 	timestamp: number;
 }
 
-function boardDir(sessionDir: string): string {
+function forumDir(sessionDir: string): string {
 	return join(sessionDir, "forum");
 }
 
 function threadPath(sessionDir: string, topic: string, thread: string): string {
-	return join(boardDir(sessionDir), topic, `${thread}.jsonl`);
+	return join(forumDir(sessionDir), topic, `${thread}.jsonl`);
 }
 
 function ensureDir(path: string): void {
@@ -52,19 +52,33 @@ function readThread(sessionDir: string, topic: string, thread: string, since?: n
 }
 
 function listTopics(sessionDir: string): string[] {
-	const dir = boardDir(sessionDir);
+	const dir = forumDir(sessionDir);
 	if (!existsSync(dir)) return [];
 	return readdirSync(dir, { withFileTypes: true })
 		.filter((e) => e.isDirectory())
 		.map((e) => e.name);
 }
 
+interface ThreadInfo {
+	name: string;
+	posts: number;
+	participants: string[];
+	lastActivity: number;
+}
+
 function listThreads(sessionDir: string, topic: string): string[] {
-	const dir = join(boardDir(sessionDir), topic);
+	const dir = join(forumDir(sessionDir), topic);
 	if (!existsSync(dir)) return [];
 	return readdirSync(dir)
 		.filter((f) => f.endsWith(".jsonl"))
 		.map((f) => f.replace(".jsonl", ""));
+}
+
+function threadInfo(sessionDir: string, topic: string, thread: string): ThreadInfo {
+	const posts = readThread(sessionDir, topic, thread);
+	const participants = [...new Set(posts.map((p) => p.author))];
+	const lastActivity = posts.length > 0 ? Math.max(...posts.map((p) => p.timestamp)) : 0;
+	return { name: thread, posts: posts.length, participants, lastActivity };
 }
 
 function readAllNewPosts(sessionDir: string, lastReadTs: number): Array<Post & { topic: string; thread: string }> {
@@ -162,12 +176,15 @@ export function createForumOrgan(opts: ForumOrganOptions): Organ {
 					const { topic } = ctx.payload;
 					if (topic) {
 						const threads = listThreads(sessionDir, topic as string);
+						const infos = threads.map((t) => threadInfo(sessionDir, topic as string, t));
 						return withDisplay(
-							{ topic, threads },
+							{ topic, threads: infos },
 							{
 								text:
-									threads.length > 0
-										? threads.map((t) => `  ${topic}/${t}`).join("\n")
+									infos.length > 0
+										? infos
+												.map((t) => `  ${topic}/${t.name} (${t.posts} posts, ${t.participants.join(", ")})`)
+												.join("\n")
 										: `(no threads in ${topic})`,
 								mimeType: "text/plain",
 							},

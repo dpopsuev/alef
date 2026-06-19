@@ -111,12 +111,21 @@ export function makeToolOutputComponent(
 	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme());
 }
 
-export function formatTokenUsage(input: number, output: number, _t: ThemeTokens, turnMs?: number): string {
-	function compact(n: number): string {
-		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-		if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-		return String(n);
-	}
+export function formatCompact(n: number): string {
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+	return String(n);
+}
+
+export function formatTokenUsage(
+	input: number,
+	output: number,
+	_t: ThemeTokens,
+	turnMs?: number,
+	sessionTotal?: number,
+): string {
 	const timing = turnMs !== undefined ? ` · ${(turnMs / 1000).toFixed(1)}s` : "";
-	return color(`${compact(input)} in · ${compact(output)} out${timing}`, _t.mutedFg);
+	const session =
+		sessionTotal !== undefined && sessionTotal > input + output ? ` · ${formatCompact(sessionTotal)} total` : "";
+	return color(`${formatCompact(input)} in · ${formatCompact(output)} out${timing}${session}`, _t.mutedFg);
 }

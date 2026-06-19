@@ -311,7 +311,9 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			const { input, output, totalTokens } = event.usage;
 			const sessionTokensTotal = state.sessionTokensTotal + input + output;
 			if (state.pendingTokenFooter) {
-				state.pendingTokenFooter.setText(formatTokenUsage(input, output, t, Date.now() - state.turnStartedAt));
+				state.pendingTokenFooter.setText(
+					formatTokenUsage(input, output, t, Date.now() - state.turnStartedAt, sessionTokensTotal),
+				);
 			}
 			const contextWindow = session.state.contextWindow;
 			if (contextWindow && totalTokens > 0) {

@@ -18,7 +18,7 @@ import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 export type { BlueprintStack, BlueprintStackOptions };
 
 const EXPLORE_ORGANS = [
-	{ name: "fs", actions: [] as string[], toolNames: [] as string[] },
+	{ name: "fs", actions: [] as string[], toolNames: ["fs.read", "fs.grep", "fs.find"] },
 	{ name: "web", actions: [] as string[], toolNames: [] as string[] },
 ];
 

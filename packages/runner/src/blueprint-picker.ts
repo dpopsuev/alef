@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
 import { ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
 import { bold, color, getTheme } from "./theme.js";
 
@@ -85,8 +86,17 @@ function readBlueprintMeta(path: string): { name: string; description: string } 
 }
 
 export function resolveBlueprint(nameOrPath: string, cwd: string): string | undefined {
+	// First check if it's a registered blueprint name (e.g., YAML blueprints from ~/.config/alef/agents)
+	const registeredNames = blueprintRegistry.list();
+	if (registeredNames.includes(nameOrPath)) {
+		// Return the name itself - it will be resolved from the registry later
+		return nameOrPath;
+	}
+
+	// Then check if it's an existing file path
 	if (existsSync(nameOrPath)) return resolve(nameOrPath);
 
+	// Finally check discovered blueprints from filesystem
 	const discovered = discoverBlueprints(cwd);
 	const match = discovered.find((bp) => bp.name === nameOrPath);
 	return match?.path;

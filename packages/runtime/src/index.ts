@@ -1,4 +1,4 @@
-export { AgentController, type AgentControllerOptions, type ReplySink } from "./agent-controller.js";
+export { AgentController, type AgentControllerOptions, type ReplySink, type Transcript } from "./agent-controller.js";
 export type { SubagentFactory, SubagentFactoryOptions } from "./in-process.js";
 export { InProcessStrategy } from "./in-process.js";
 export { RemoteStrategy, type RemoteStrategyOptions } from "./remote-strategy.js";

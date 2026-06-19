@@ -15,6 +15,7 @@
 		"@dpopsuev/alef-llm": "^0.0.1",
 		"@dpopsuev/alef-runtime": "^0.0.1",
 		"@dpopsuev/alef-organ-workflow": "^0.0.1",
+		"@dpopsuev/alef-organ-forum": "^0.0.1",
 		"@dpopsuev/alef-organ-fs": "^0.0.1",
 		"@dpopsuev/alef-organ-meta": "^0.0.1",
 		"@dpopsuev/alef-organ-nodesh": "^0.0.1",

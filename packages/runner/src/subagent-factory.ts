@@ -3,7 +3,7 @@ import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController, type Transcript } from "@dpopsuev/alef-runtime";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { buildModel } from "./model.js";
@@ -19,6 +19,8 @@ export interface SubagentSessionOptions {
 	boardId?: string;
 	/** If provided, subagent addresses are registered/unregistered here. */
 	actorRoutes?: ActorRouteTable;
+	/** Forum store for persisting subagent conversations as threads. */
+	transcript?: Transcript;
 }
 
 export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFactory {
@@ -58,6 +60,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			onReply: (text) => {
 				if (text) reply = text;
 			},
+			...(opts.transcript && { transcript: { store: opts.transcript, topic: "subagents", thread: subId } }),
 		});
 		// Emit identity immediately so the parent can display @colorName.
 		onInnerEvent?.(subId, "agent.identity", { color: subActor.color, address: subActor.address });

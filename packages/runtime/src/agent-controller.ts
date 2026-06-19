@@ -4,10 +4,15 @@ import type { Agent } from "./index.js";
 
 export type ReplySink = (text: string, sender: string) => void;
 
+export interface Transcript {
+	append(topic: string, thread: string, author: string, content: unknown): void;
+}
+
 export interface AgentControllerOptions {
 	onReply?: ReplySink;
 	triggerEvent?: string;
 	replyEvent?: string;
+	transcript?: { store: Transcript; topic: string; thread: string };
 }
 
 type PendingRequest = {
@@ -20,6 +25,7 @@ export class AgentController {
 	private readonly agent: Agent;
 	private readonly triggerEvent: string;
 	private readonly onReply: ReplySink;
+	private readonly transcript?: { store: Transcript; topic: string; thread: string };
 	private readonly pending = new Map<string, PendingRequest>();
 	private readonly unsubscribe: () => void;
 	private disposed = false;
@@ -28,6 +34,7 @@ export class AgentController {
 		this.agent = agent;
 		this.triggerEvent = opts?.triggerEvent ?? "llm.input";
 		this.onReply = opts?.onReply ?? (() => {});
+		this.transcript = opts?.transcript;
 		const replyEvent = opts?.replyEvent ?? "llm.response";
 		this.unsubscribe = agent.subscribeMotor(replyEvent, (event) => this.handleReply(event));
 		agent.signal.addEventListener("abort", () => this.dispose(), { once: true });
@@ -49,6 +56,7 @@ export class AgentController {
 
 	receive(text: string, sender = "human", correlationId = randomUUID()): void {
 		if (this.disposed) return;
+		this.transcript?.store.append(this.transcript.topic, this.transcript.thread, sender, text);
 		this.agent.publishSense({
 			type: this.triggerEvent,
 			payload: { text, sender },
@@ -81,6 +89,7 @@ export class AgentController {
 	private handleReply(event: MotorEvent): void {
 		const text = typeof event.payload.text === "string" ? event.payload.text : "";
 		const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
+		if (text) this.transcript?.store.append(this.transcript.topic, this.transcript.thread, sender, text);
 		this.onReply(text, sender);
 
 		const pending = this.pending.get(event.correlationId);

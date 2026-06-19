@@ -59,7 +59,11 @@ export function handleSlashCommand(text: string, ctx: TuiHandlerContext): boolea
 			ctx.tui.requestRender(true);
 			return true;
 		case "/resume":
-			ctx.writer.addNotice(`session: ${ctx.session.state.id}`);
+			ctx.writer.addNotice(
+				`session: ${ctx.session.state.id}\n` +
+					`model: ${ctx.session.state.modelId}\n` +
+					`To resume this session later: alef --resume ${ctx.session.state.id}`,
+			);
 			ctx.tui.requestRender();
 			return true;
 		case "/login": {

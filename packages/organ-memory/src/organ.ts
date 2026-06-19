@@ -1,9 +1,10 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { BaseOrganOptions, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
-import { defineOrgan } from "@dpopsuev/alef-kernel";
+import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import type { ISessionStore } from "@dpopsuev/alef-session";
 import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "@dpopsuev/alef-session";
+import { z } from "zod";
 
 export interface MemoryOrganOptions extends BaseOrganOptions {
 	compactionThreshold?: number;
@@ -18,12 +19,61 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 	const recentGuarantee = opts.recentGuarantee ?? 4;
 	const contextWindow = opts.contextWindow ?? 128_000;
 
+	function scratchpadPath(): string | null {
+		const session = opts.sessionStore?.();
+		if (!session) return null;
+		return join(dirname(session.path), "state.md");
+	}
+
 	const organBase = defineOrgan(
 		"memory",
-		{},
 		{
-			description: "Five-level memory pyramid: Now, Latest, Recent[N], Session, ROM.",
-			directives: [],
+			motor: {
+				"scratchpad.write": typedAction(
+					{
+						name: "scratchpad.write",
+						description:
+							"Write to the session scratchpad (state.md). Persists intent, current state, desired state, and plan across turns.",
+						inputSchema: z.object({
+							content: z.string().min(1).describe("Full scratchpad content (overwrites previous)"),
+						}),
+					},
+					async (ctx) => {
+						const path = scratchpadPath();
+						if (!path)
+							return withDisplay(
+								{ error: "no session" },
+								{ text: "No session store available", mimeType: "text/plain" },
+							);
+						writeFileSync(path, ctx.payload.content, "utf-8");
+						return withDisplay(
+							{ written: true, chars: ctx.payload.content.length },
+							{ text: `Scratchpad updated (${ctx.payload.content.length} chars)`, mimeType: "text/plain" },
+						);
+					},
+				),
+				"scratchpad.read": typedAction(
+					{
+						name: "scratchpad.read",
+						description: "Read the current session scratchpad (state.md).",
+						inputSchema: z.object({}),
+					},
+					async () => {
+						const path = scratchpadPath();
+						if (!path) return withDisplay({ content: "" }, { text: "(no session)", mimeType: "text/plain" });
+						const session = opts.sessionStore?.();
+						const content = session ? (readStateFile(session) ?? "") : "";
+						return withDisplay({ content }, { text: content || "(empty scratchpad)", mimeType: "text/plain" });
+					},
+				),
+			},
+		},
+		{
+			description: "Five-level memory pyramid + scratchpad for reconciliation state.",
+			directives: [
+				"Use scratchpad.write to persist your intent, current state, desired state, and plan.",
+				"The scratchpad is injected into your context automatically on each turn.",
+			],
 			sources: [{ name: "session-store", kind: "file" }],
 			...opts,
 		},

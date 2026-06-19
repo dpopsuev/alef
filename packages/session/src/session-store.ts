@@ -20,7 +20,7 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
-import { appendFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -248,10 +248,25 @@ export class SessionStore {
 		}
 	}
 
+	private _sizeWarned = false;
+
 	async append(record: StorageRecord): Promise<void> {
 		this._cache.push(record);
 		this._indexRecord(record);
-		await appendFile(this.path, `${JSON.stringify(record)}\n`, "utf-8");
+		const line = `${JSON.stringify(record)}\n`;
+		await appendFile(this.path, line, "utf-8");
+
+		if (!this._sizeWarned && this._cache.length % 500 === 0) {
+			try {
+				const s = await stat(this.path);
+				if (s.size > 50 * 1024 * 1024) {
+					this._sizeWarned = true;
+					process.stderr.write(
+						`[session] Warning: session file is ${Math.round(s.size / 1024 / 1024)}MB (${this.path}). Consider starting a new session.\n`,
+					);
+				}
+			} catch {}
+		}
 	}
 
 	events(): Promise<StorageRecord[]> {
@@ -278,6 +293,23 @@ export class SessionStore {
 			payload: { name },
 			timestamp: Date.now(),
 		});
+	}
+
+	static async prune(cwd: string, maxAgeDays = 30, maxCount = 50): Promise<number> {
+		const sessions = await SessionStore.list(cwd);
+		const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+		let removed = 0;
+		for (let i = maxCount; i < sessions.length; i++) {
+			if (sessions[i].mtime.getTime() < cutoff) {
+				try {
+					await unlink(sessions[i].path);
+					const summaryPath = sessions[i].path.replace(".jsonl", ".summary.json");
+					await unlink(summaryPath).catch(() => {});
+					removed++;
+				} catch {}
+			}
+		}
+		return removed;
 	}
 
 	static async list(cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>> {

@@ -3,6 +3,8 @@ import { pickSession } from "./session-picker.js";
 import { SessionStore } from "./session-store.js";
 
 export async function loadSession(args: Args, willUseTui: boolean): Promise<SessionStore> {
+	const pruned = await SessionStore.prune(args.cwd);
+	if (pruned > 0) console.error(`[session] Pruned ${pruned} old session(s)`);
 	if (args.listSessions) {
 		const sessions = await SessionStore.list(args.cwd);
 		if (sessions.length === 0) {

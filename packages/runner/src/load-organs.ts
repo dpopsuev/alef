@@ -79,9 +79,12 @@ export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Prom
 	if (blueprintPath) {
 		const { existsSync } = await import("node:fs");
 
-		// If blueprintPath is not a file, it's a blueprint name - skip file loading
-		// and let it fall through to be resolved from the registry in createLocalSession
 		if (!existsSync(blueprintPath)) {
+			const looksLikePath =
+				blueprintPath.includes("/") || blueprintPath.endsWith(".yaml") || blueprintPath.endsWith(".yml");
+			if (looksLikePath) {
+				throw new Error(`Blueprint file not found: ${blueprintPath}`);
+			}
 			return {
 				organs: [],
 				blueprintModelId: undefined,

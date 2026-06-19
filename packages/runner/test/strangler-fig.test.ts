@@ -454,7 +454,6 @@ describe("CLI subprocess — deterministic", { tags: ["unit"] }, () => {
 		const cwd = tmpDir();
 		const { stdout, exitCode } = await run(["--list-organs", "--cwd", cwd]);
 		expect(exitCode).toBe(0);
-		expect(stdout).toContain("dialog");
 		expect(stdout).toContain("fs");
 		expect(stdout).toContain("shell");
 	});

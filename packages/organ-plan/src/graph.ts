@@ -1,0 +1,330 @@
+import { readFileSync, writeFileSync } from "node:fs";
+
+export type Phase =
+	| "intention"
+	| "inception"
+	| "contraction"
+	| "fixation"
+	| "expansion"
+	| "reduction"
+	| "consolidation"
+	| "implementation"
+	| "assessment"
+	| "refinement"
+	| "introspection"
+	| "closed";
+
+const PHASE_ORDER: Phase[] = [
+	"intention",
+	"inception",
+	"contraction",
+	"fixation",
+	"expansion",
+	"reduction",
+	"consolidation",
+	"implementation",
+	"assessment",
+	"refinement",
+	"introspection",
+	"closed",
+];
+
+const BLOCK_MAP: Record<Phase, string> = {
+	intention: "ideation",
+	inception: "ideation",
+	contraction: "ideation",
+	fixation: "ideation",
+	expansion: "planning",
+	reduction: "planning",
+	consolidation: "planning",
+	implementation: "execution",
+	assessment: "execution",
+	refinement: "execution",
+	introspection: "introspection",
+	closed: "closed",
+};
+
+export interface PlanNode {
+	id: string;
+	parent: string | null;
+	label: string;
+	status: "pending" | "active" | "done" | "pruned" | "deferred";
+	depth: number;
+	result?: string;
+	feedback?: string;
+}
+
+export interface PlanData {
+	id: string;
+	phase: Phase;
+	intention: string;
+	inception: { current: string; desired: string; delta: string } | null;
+	exclusions: string[];
+	endState: string | null;
+	nodes: PlanNode[];
+	checkpoints: Record<string, { status: string; result?: string }>;
+	aar: string | null;
+	createdAt: number;
+	updatedAt: number;
+}
+
+export class PlanGraph {
+	private data: PlanData;
+	private diskPath: string | null;
+	private nodeIndex = new Map<string, PlanNode>();
+	private childIndex = new Map<string, string[]>();
+	private nodeSeq = 0;
+
+	constructor(id: string, intention: string, diskPath: string | null = null) {
+		this.data = {
+			id,
+			phase: "intention",
+			intention,
+			inception: null,
+			exclusions: [],
+			endState: null,
+			nodes: [],
+			checkpoints: {},
+			aar: null,
+			createdAt: Date.now(),
+			updatedAt: Date.now(),
+		};
+		this.diskPath = diskPath;
+		this.flush();
+	}
+
+	static load(diskPath: string): PlanGraph | null {
+		try {
+			const raw = readFileSync(diskPath, "utf-8");
+			const data = JSON.parse(raw) as PlanData;
+			const graph = new PlanGraph(data.id, data.intention, diskPath);
+			graph.data = data;
+			graph.rebuildIndex();
+			return graph;
+		} catch {
+			return null;
+		}
+	}
+
+	private rebuildIndex(): void {
+		this.nodeIndex.clear();
+		this.childIndex.clear();
+		for (const node of this.data.nodes) {
+			this.nodeIndex.set(node.id, node);
+			const parentKey = node.parent ?? "__root__";
+			const children = this.childIndex.get(parentKey) ?? [];
+			children.push(node.id);
+			this.childIndex.set(parentKey, children);
+			const seq = Number.parseInt(node.id.replace("n", ""), 10);
+			if (seq >= this.nodeSeq) this.nodeSeq = seq + 1;
+		}
+	}
+
+	private touch(): void {
+		this.data.updatedAt = Date.now();
+		this.flush();
+	}
+
+	private flush(): void {
+		if (!this.diskPath) return;
+		writeFileSync(this.diskPath, JSON.stringify(this.data, null, 2), "utf-8");
+	}
+
+	get id(): string {
+		return this.data.id;
+	}
+	get phase(): Phase {
+		return this.data.phase;
+	}
+	get block(): string {
+		return BLOCK_MAP[this.data.phase];
+	}
+
+	advanceTo(target: Phase): string | null {
+		const currentIdx = PHASE_ORDER.indexOf(this.data.phase);
+		const targetIdx = PHASE_ORDER.indexOf(target);
+		if (targetIdx < 0) return `unknown phase: ${target}`;
+		if (targetIdx < currentIdx) return `cannot go back from ${this.data.phase} to ${target}`;
+		this.data.phase = target;
+		this.touch();
+		return null;
+	}
+
+	setInception(current: string, desired: string, delta: string): void {
+		this.data.inception = { current, desired, delta };
+		this.advanceTo("inception");
+	}
+
+	addExclusion(item: string): void {
+		this.data.exclusions.push(item);
+		if (this.data.phase === "inception") this.advanceTo("contraction");
+	}
+
+	setEndState(endState: string): void {
+		this.data.endState = endState;
+		this.advanceTo("fixation");
+	}
+
+	addNode(label: string, parent: string | null = null): PlanNode {
+		if (parent && !this.nodeIndex.has(parent)) {
+			throw new Error(`parent node ${parent} not found`);
+		}
+		const id = `n${this.nodeSeq++}`;
+		const depth = parent ? (this.nodeIndex.get(parent)?.depth ?? 0) + 1 : 0;
+		const node: PlanNode = { id, parent, label, status: "pending", depth };
+		this.data.nodes.push(node);
+		this.nodeIndex.set(id, node);
+		const parentKey = parent ?? "__root__";
+		const children = this.childIndex.get(parentKey) ?? [];
+		children.push(id);
+		this.childIndex.set(parentKey, children);
+		if (this.data.phase === "fixation") this.advanceTo("expansion");
+		this.touch();
+		return node;
+	}
+
+	pruneNode(id: string): boolean {
+		const node = this.nodeIndex.get(id);
+		if (!node) return false;
+		node.status = "pruned";
+		if (this.data.phase === "expansion") this.advanceTo("reduction");
+		this.touch();
+		return true;
+	}
+
+	deferNode(id: string): boolean {
+		const node = this.nodeIndex.get(id);
+		if (!node) return false;
+		node.status = "deferred";
+		this.touch();
+		return true;
+	}
+
+	checkpoint(id: string): boolean {
+		const node = this.nodeIndex.get(id);
+		if (!node) return false;
+		node.status = "active";
+		this.data.checkpoints[id] = { status: "active" };
+		if (this.data.phase === "consolidation" || this.data.phase === "reduction") {
+			this.advanceTo("implementation");
+		}
+		this.touch();
+		return true;
+	}
+
+	assess(id: string, result: string): boolean {
+		const node = this.nodeIndex.get(id);
+		if (!node) return false;
+		node.result = result;
+		this.data.checkpoints[id] = { status: "assessed", result };
+		if (this.data.phase === "implementation") this.advanceTo("assessment");
+		this.touch();
+		return true;
+	}
+
+	refine(id: string, feedback: string): boolean {
+		const node = this.nodeIndex.get(id);
+		if (!node) return false;
+		node.feedback = feedback;
+		node.status = "pending";
+		this.data.checkpoints[id] = { status: "refined" };
+		if (this.data.phase === "assessment") this.advanceTo("refinement");
+		this.touch();
+		return true;
+	}
+
+	completeNode(id: string): boolean {
+		const node = this.nodeIndex.get(id);
+		if (!node) return false;
+		node.status = "done";
+		this.data.checkpoints[id] = { status: "done" };
+		this.touch();
+		return true;
+	}
+
+	setAAR(aar: string): void {
+		this.data.aar = aar;
+		this.advanceTo("introspection");
+	}
+
+	close(): void {
+		this.advanceTo("closed");
+	}
+
+	getNode(id: string): PlanNode | undefined {
+		return this.nodeIndex.get(id);
+	}
+
+	children(parentId: string | null): PlanNode[] {
+		const key = parentId ?? "__root__";
+		return (this.childIndex.get(key) ?? []).map((id) => this.nodeIndex.get(id)).filter(Boolean) as PlanNode[];
+	}
+
+	activeNodes(): PlanNode[] {
+		return this.data.nodes.filter((n) => n.status === "pending" || n.status === "active");
+	}
+
+	stats(): { total: number; done: number; pending: number; pruned: number; active: number } {
+		let done = 0,
+			pending = 0,
+			pruned = 0,
+			active = 0;
+		for (const n of this.data.nodes) {
+			if (n.status === "done") done++;
+			else if (n.status === "pruned") pruned++;
+			else if (n.status === "active") active++;
+			else if (n.status === "pending") pending++;
+		}
+		return { total: this.data.nodes.length, done, pending, pruned, active };
+	}
+
+	renderTree(): string {
+		const lines: string[] = [];
+		const renderNode = (node: PlanNode, prefix: string, isLast: boolean): void => {
+			const status =
+				node.status === "done"
+					? "■"
+					: node.status === "active"
+						? "●"
+						: node.status === "pruned"
+							? "×"
+							: node.status === "deferred"
+								? "◇"
+								: "○";
+			const branch = isLast ? "└── " : "├── ";
+			lines.push(`${prefix}${branch}${status} ${node.id}: ${node.label}`);
+			const kids = this.children(node.id);
+			for (let i = 0; i < kids.length; i++) {
+				renderNode(kids[i], `${prefix}${isLast ? "    " : "│   "}`, i === kids.length - 1);
+			}
+		};
+		const roots = this.children(null);
+		for (let i = 0; i < roots.length; i++) {
+			renderNode(roots[i], "", i === roots.length - 1);
+		}
+		return lines.join("\n");
+	}
+
+	renderSummary(): string {
+		const s = this.stats();
+		const parts = [`Plan: ${this.data.id} [${this.data.phase}/${this.block}]`, `Intent: ${this.data.intention}`];
+		if (this.data.inception) {
+			parts.push(`Current: ${this.data.inception.current}`);
+			parts.push(`Desired: ${this.data.inception.desired}`);
+			parts.push(`Delta: ${this.data.inception.delta}`);
+		}
+		if (this.data.exclusions.length > 0) parts.push(`Exclusions: ${this.data.exclusions.join(", ")}`);
+		if (this.data.endState) parts.push(`End state: ${this.data.endState}`);
+		if (s.total > 0) {
+			parts.push(`Nodes: ${s.total} (${s.done} done, ${s.active} active, ${s.pending} pending, ${s.pruned} pruned)`);
+			const tree = this.renderTree();
+			if (tree) parts.push("", tree);
+		}
+		if (this.data.aar) parts.push(`\nAAR: ${this.data.aar}`);
+		return parts.join("\n");
+	}
+
+	toJSON(): PlanData {
+		return structuredClone(this.data);
+	}
+}

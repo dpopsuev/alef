@@ -90,6 +90,19 @@ const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isT
 const log = createRunnerLogger(willUseTui, args.debug);
 const trace = setupTrace(args.debug);
 const session = await loadSession(args, willUseTui);
+
+// Route debug events into the session JSONL — unified transcript.
+const { initSessionSink } = await import("@dpopsuev/alef-kernel");
+initSessionSink((record) => {
+	void session.append({
+		bus: "debug" as "internal",
+		type: String(record.type ?? "debug"),
+		correlationId: "debug",
+		payload: record,
+		timestamp: Date.now(),
+	});
+});
+
 trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
 
 const loaded = await loadOrgans(args, cfg, log);

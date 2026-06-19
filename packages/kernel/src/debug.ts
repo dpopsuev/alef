@@ -24,24 +24,42 @@ interface MinimalLogger {
 	debug(obj: Record<string, unknown>, msg: string): void;
 }
 
+type SessionSink = (record: Record<string, unknown>) => void;
+
 let sharedLogger: MinimalLogger | undefined;
+let sessionSink: SessionSink | undefined;
 
 /** Register a pino logger to receive all debugLog calls. Called once at runner startup. */
 export function initSpineLogger(logger: MinimalLogger): void {
 	sharedLogger = logger;
 }
 
+/** Register a session store sink — debug events will be appended to the session JSONL. */
+export function initSessionSink(sink: SessionSink): void {
+	sessionSink = sink;
+}
+
 export function debugLog(event: string, extra?: Record<string, unknown>): void {
 	if (sharedLogger) {
 		sharedLogger.debug(extra ?? {}, event);
+	}
+	if (sessionSink) {
+		sessionSink({
+			bus: "debug",
+			type: event,
+			timestamp: Date.now(),
+			...(extra ?? {}),
+		});
 		return;
 	}
-	if (process.env.ALEF_DEBUG !== "1") return;
-	const line = `${JSON.stringify({ t: new Date().toISOString(), event, ...extra })}\n`;
-	try {
-		mkdirSync(LOG_DIR, { recursive: true });
-		appendFileSync(LOG_PATH, line, "utf-8");
-	} catch {
-		// never crash if logging fails
+	if (!sharedLogger) {
+		if (process.env.ALEF_DEBUG !== "1") return;
+		const line = `${JSON.stringify({ t: new Date().toISOString(), event, ...extra })}\n`;
+		try {
+			mkdirSync(LOG_DIR, { recursive: true });
+			appendFileSync(LOG_PATH, line, "utf-8");
+		} catch {
+			// never crash if logging fails
+		}
 	}
 }

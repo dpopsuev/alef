@@ -17,6 +17,7 @@ function makeReasoner(name = "llm"): Organ {
 		name,
 		tools: [],
 		subscriptions: { motor: [] as const, sense: ["llm.input"] as const },
+		sources: [],
 		mount: (nerve: Nerve) => nerve.sense.subscribe("llm.input", () => {}),
 	};
 }
@@ -27,6 +28,7 @@ function makeFsOrgan(): Organ {
 		name: "fs",
 		tools: [],
 		subscriptions: { motor: ["fs.read", "fs.write"] as const, sense: [] as const },
+		sources: [],
 		mount: (nerve: Nerve) => {
 			const offs = [nerve.motor.subscribe("fs.read", () => {}), nerve.motor.subscribe("fs.write", () => {})];
 			return () => {

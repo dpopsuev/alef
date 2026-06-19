@@ -60,6 +60,7 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 			tools: FS_TOOLS,
 			directives: ["Always read a file before editing it."],
 			subscriptions: { motor: [] as string[], sense: [] as string[] },
+			sources: [],
 			mount: () => () => {},
 		};
 		registerOrgans(scroll, [organ]);
@@ -74,6 +75,7 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 			tools: [] as never[],
 			directives: ['Call tools.describe(["tool-name"]) before using any tool.'],
 			subscriptions: { motor: ["context.assemble"], sense: [] as string[] },
+			sources: [],
 			mount: () => () => {},
 		};
 		registerOrgans(scroll, [infraOrgan]);
@@ -206,6 +208,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 			name: "custom",
 			tools: [],
 			subscriptions: { motor: [], sense: [] },
+			sources: [],
 			directives: ["CUSTOM_DIRECTIVE_SENTINEL"],
 			mount: () => () => {},
 		};

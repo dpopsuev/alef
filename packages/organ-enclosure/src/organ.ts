@@ -189,6 +189,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 		description: base.description,
 		tools: base.tools,
 		subscriptions: base.subscriptions,
+		sources: base.sources,
 		directives: base.directives,
 		contributions: {
 			port: {

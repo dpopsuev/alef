@@ -112,6 +112,7 @@ export function createResourceMeter(): Organ {
 		{
 			description: "Resource meter — tracks tokens, cost, latency, tool success rates across the session.",
 			directives: ["Use meter.summary to check resource usage, token consumption, and tool performance."],
+			sources: [{ name: "signal-bus", kind: "memory" }],
 			onMount(nerve: Nerve) {
 				startedAt = Date.now();
 				nerve.signal.subscribe("*", (event: SignalEvent) => {

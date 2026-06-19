@@ -37,6 +37,7 @@ export function createHitlOrgan(opts: HitlOrganOptions): Organ {
 			motor: [VALIDATE_REQUEST],
 			sense: [],
 		},
+		sources: [],
 		mount(nerve: Nerve): () => void {
 			return nerve.motor.subscribe(VALIDATE_REQUEST, (event) => {
 				const p = event.payload as unknown as ValidateRequest;

@@ -73,6 +73,7 @@ export class RouterOrgan implements Organ {
 		sense: ["*"] as const,
 		signal: ["*"] as const,
 	};
+	readonly sources = [] as const;
 
 	private server: Server | null = null;
 	private readonly sse = new SseManager();

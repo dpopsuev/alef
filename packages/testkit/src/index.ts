@@ -46,6 +46,7 @@ export class MockReasoner implements Organ {
 	readonly name = "mock-llm";
 	readonly tools: readonly ToolDefinition[] = [];
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly sources = [] as const;
 
 	constructor(private readonly cannedText: string = "mock response") {}
 

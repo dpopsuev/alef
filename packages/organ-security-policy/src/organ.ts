@@ -101,6 +101,7 @@ export function createSecurityPolicyOrgan(opts: SecurityPolicyOrganOptions = {})
 			motor: [VALIDATE_REQUEST],
 			sense: [] as readonly string[],
 		},
+		sources: [],
 		mount(nerve: Nerve): () => void {
 			return nerve.motor.subscribe(VALIDATE_REQUEST, (event) => {
 				const req = event.payload as unknown as ValidateRequest;

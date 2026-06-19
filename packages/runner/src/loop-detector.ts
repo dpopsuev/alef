@@ -75,6 +75,7 @@ export class LoopGuard implements Organ {
 	readonly name = "loop-detector";
 	readonly tools = [];
 	readonly subscriptions = { motor: ["*" as const], sense: [] as const };
+	readonly sources = [] as const;
 
 	private readonly repeatedInteractionThreshold: number;
 	private readonly totalCallThreshold: number;

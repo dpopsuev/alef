@@ -24,12 +24,19 @@ function makeNoopOrgan(): Organ {
 		name: "noop",
 		tools: [],
 		subscriptions: { motor: [] as const, sense: [] as const },
+		sources: [],
 		mount: (_nerve: Nerve) => () => {},
 	};
 }
 
 function makeNamedOrgan(name: string): Organ {
-	return { name, tools: [], subscriptions: { motor: [] as const, sense: [] as const }, mount: () => () => {} };
+	return {
+		name,
+		tools: [],
+		subscriptions: { motor: [] as const, sense: [] as const },
+		sources: [],
+		mount: () => () => {},
+	};
 }
 
 function makeToolOrgan(toolNames: string[]): Organ {
@@ -43,6 +50,7 @@ function makeToolOrgan(toolNames: string[]): Organ {
 			}),
 		),
 		subscriptions: { motor: [] as const, sense: [] as const },
+		sources: [],
 		mount: (_nerve: Nerve) => () => {},
 	};
 }
@@ -53,6 +61,7 @@ function makeEchoOrgan(): Organ {
 		name: "echo",
 		tools: [],
 		subscriptions: { motor: [] as const, sense: [] as const },
+		sources: [],
 		mount: (nerve: Nerve) => {
 			return nerve.sense.subscribe("llm.input", (event) => {
 				nerve.motor.publish({
@@ -113,6 +122,7 @@ describe("Agent — load()", { tags: ["unit"] }, () => {
 			name: "bad",
 			tools: [],
 			subscriptions: { motor: [] as const, sense: [] as const },
+			sources: [],
 			mount: () => {
 				throw new Error("mount failed");
 			},
@@ -133,6 +143,7 @@ describe("Agent — load()", { tags: ["unit"] }, () => {
 			name: "counted",
 			tools: [],
 			subscriptions: { motor: [] as const, sense: [] as const },
+			sources: [],
 			mount: (_n: Nerve) => {
 				mountCalls++;
 				return () => {};
@@ -191,6 +202,7 @@ describe("Agent — dispose()", { tags: ["unit"] }, () => {
 			name: "tracked",
 			tools: [],
 			subscriptions: { motor: [] as const, sense: [] as const },
+			sources: [],
 			mount: (_n: Nerve) => () => {
 				unmounted = true;
 			},
@@ -220,6 +232,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 			name: "v-organ",
 			tools: [],
 			subscriptions: { motor: [], sense: [] },
+			sources: [],
 			publishSchemas: {
 				motor: { "v.event": z.object({ count: z.number() }) },
 			},
@@ -239,6 +252,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 			name: "bad-organ",
 			tools: [],
 			subscriptions: { motor: [], sense: [] },
+			sources: [],
 			publishSchemas: {
 				motor: { "strict.event": z.object({ required: z.string() }) },
 			},
@@ -263,6 +277,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 			name: "bad-sense-organ",
 			tools: [],
 			subscriptions: { motor: [], sense: [] },
+			sources: [],
 			publishSchemas: {
 				sense: { "sense.event": z.object({ value: z.number() }) },
 			},
@@ -285,6 +300,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 			name: "partial-organ",
 			tools: [],
 			subscriptions: { motor: [], sense: [] },
+			sources: [],
 			publishSchemas: {
 				motor: { "only.this": z.object({ x: z.number() }) },
 			},
@@ -309,6 +325,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 			name: "named-organ",
 			tools: [],
 			subscriptions: { motor: [], sense: [] },
+			sources: [],
 			publishSchemas: {
 				motor: { "typed.event": z.object({ score: z.number() }) },
 			},
@@ -352,6 +369,7 @@ describe("Agent — unload()", { tags: ["unit"] }, () => {
 			name: "tracked",
 			tools: [],
 			subscriptions: { motor: [] as const, sense: [] as const },
+			sources: [],
 			mount: (_n: Nerve) => () => {
 				unmounted = true;
 			},
@@ -388,6 +406,7 @@ describe("Agent — reload()", { tags: ["unit"] }, () => {
 			name: "hot-organ",
 			tools: [],
 			subscriptions: { motor: [] as const, sense: [] as const },
+			sources: [],
 			mount: (_n: Nerve) => () => {
 				v1Unmounted = true;
 			},
@@ -398,6 +417,7 @@ describe("Agent — reload()", { tags: ["unit"] }, () => {
 			name: "hot-organ",
 			tools: [],
 			subscriptions: { motor: [] as const, sense: [] as const },
+			sources: [],
 			mount: (_n: Nerve) => {
 				v2Mounted = true;
 				return () => {};
@@ -423,12 +443,14 @@ describe("Agent — reload()", { tags: ["unit"] }, () => {
 			name: "organ",
 			tools: [{ name: "old-tool", description: "", inputSchema: z.object({}) }],
 			subscriptions: { motor: [] as const, sense: [] as const },
+			sources: [],
 			mount: () => () => {},
 		});
 		agent.reload({
 			name: "organ",
 			tools: [{ name: "new-tool", description: "", inputSchema: z.object({}) }],
 			subscriptions: { motor: [] as const, sense: [] as const },
+			sources: [],
 			mount: () => () => {},
 		});
 		expect(agent.tools.some((t) => t.name === "old-tool")).toBe(false);

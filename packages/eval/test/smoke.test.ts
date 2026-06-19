@@ -18,6 +18,7 @@ class QuiescentLLMOrgan implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly sources = [] as const;
 
 	constructor(private readonly reply: string = "smoke ok") {}
 

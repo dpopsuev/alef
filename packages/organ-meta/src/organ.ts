@@ -235,6 +235,7 @@ function loadOrganInWorker(organPath: string, cwd: string): Promise<Organ> {
 				name: string;
 				tools: Array<{ name: string; description: string; jsonSchema: Record<string, unknown> }>;
 				subscriptions: { motor: string[]; sense: string[] };
+				sources: [];
 			}) => {
 				if (msg.type !== "ready") {
 					clearTimeout(timer);
@@ -254,6 +255,7 @@ function loadOrganInWorker(organPath: string, cwd: string): Promise<Organ> {
 					name: msg.name,
 					tools,
 					subscriptions: { motor: msg.subscriptions.motor, sense: msg.subscriptions.sense },
+					sources: [],
 					mount(nerve) {
 						const offs = msg.subscriptions.motor.map((type) =>
 							nerve.motor.subscribe(type, (event) => {

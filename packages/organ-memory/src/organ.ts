@@ -24,6 +24,7 @@ export function createMemoryOrgan(opts: MemoryOrganOptions = {}) {
 		{
 			description: "Five-level memory pyramid: Now, Latest, Recent[N], Session, ROM.",
 			directives: [],
+			sources: [{ name: "session-store", kind: "file" }],
 			...opts,
 		},
 	);

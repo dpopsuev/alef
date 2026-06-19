@@ -90,6 +90,7 @@ export interface OrganOptions {
 	inputSchemas?: {
 		motor?: Record<string, ZodTypeAny>;
 	};
+	sources?: readonly { name: string; kind: "file" | "memory" | "process" }[];
 	ready?: () => Promise<void>;
 	onMount?: (nerve: Nerve) => void;
 	onUnmount?: () => void;

@@ -42,6 +42,9 @@ export class SessionLog implements Organ {
 		sense: ["*"] as const,
 		signal: ["*"] as const,
 	};
+	readonly sources: readonly { readonly name: string; readonly kind: "file" | "memory" | "process" }[] = [
+		{ name: "session-store", kind: "file" },
+	];
 
 	private readonly store: SessionStore;
 	private readonly model: string;

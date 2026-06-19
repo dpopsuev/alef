@@ -206,10 +206,10 @@ describe("handleSlashCommand /help", { tags: ["unit"] }, () => {
 		const ctx = makeCtx();
 		handleSlashCommand("/help", ctx);
 		const text = chatText(ctx);
-		expect(text).toContain("/exit");
-		expect(text).toContain("/new");
-		expect(text).toContain("/resume");
-		expect(text).toContain("/help");
+		expect(text).toContain(":q");
+		expect(text).toContain(":new");
+		expect(text).toContain(":session");
+		expect(text).toContain(":help");
 	});
 
 	it("returns true", () => {

@@ -1,4 +1,5 @@
 import { parseAtAddress } from "./identity/routes.js";
+import { InputPatternRegistry } from "./input-patterns.js";
 import type { InteractiveOptions } from "./interactive.js";
 import type { Session } from "./session.js";
 import type { TuiHandlerContext } from "./tui-commands.js";
@@ -29,55 +30,67 @@ export function createSubmitHandler(config: SubmitConfig) {
 	const { actorRoutes, session, writer, addToHistory, addHistoryEntry, clearEditor, dispatch, ctx, onThinkingStop } =
 		config;
 
+	const inputPatterns = new InputPatternRegistry();
+
+	inputPatterns.register({
+		name: "command",
+		leader: "/",
+		detection: "beginning",
+		description: "Slash commands (aliases to colon commands)",
+		handle: (text) => {
+			handleSlashCommand(text, ctx());
+			return true;
+		},
+	});
+
+	inputPatterns.register({
+		name: "message",
+		leader: "@",
+		detection: "beginning",
+		description: "Route message to a named agent",
+		handle: async (text) => {
+			if (!actorRoutes) return false;
+			const parsed = parseAtAddress(text);
+			if (!parsed) return false;
+
+			if (actorRoutes.isHumanAddress(parsed.address)) {
+				writer.addNotice("You can't message yourself.");
+				return true;
+			}
+
+			const route = actorRoutes.resolve(parsed.address);
+			if (!route) {
+				const known = actorRoutes
+					.addresses()
+					.map((a) => `@${a}`)
+					.join(", ");
+				writer.addNotice(`Unknown actor: @${parsed.address}. Known: ${known || "(none)"}`);
+				return true;
+			}
+
+			await executeMessage({
+				text,
+				message: parsed.message,
+				executor: async () => {
+					await route(parsed.message, 3_600_000);
+				},
+				session,
+				writer,
+				addToHistory,
+				addHistoryEntry,
+				clearEditor,
+				dispatch,
+				onThinkingStop,
+			});
+			return true;
+		},
+	});
+
 	return async (rawText: string): Promise<void> => {
 		const text = rawText.trim();
 		if (!text) return;
 
-		// Handle slash commands
-		if (text.startsWith("/")) {
-			handleSlashCommand(text, ctx());
-			return;
-		}
-
-		// Handle @-routing: "@address do something" → route "do something" to @address
-		if (text.startsWith("@") && actorRoutes) {
-			const parsed = parseAtAddress(text);
-			if (parsed) {
-				const route = actorRoutes.resolve(parsed.address);
-
-				// Validate routing
-				if (actorRoutes.isHumanAddress(parsed.address)) {
-					writer.addNotice("You can't message yourself.");
-					return;
-				}
-
-				if (!route) {
-					const known = actorRoutes
-						.addresses()
-						.map((a) => `@${a}`)
-						.join(", ");
-					writer.addNotice(`Unknown actor: @${parsed.address}. Known: ${known || "(none)"}`);
-					return;
-				}
-
-				// Execute routed message
-				await executeMessage({
-					text,
-					message: parsed.message,
-					executor: async () => {
-						await route(parsed.message, 3_600_000);
-					},
-					session,
-					writer,
-					addToHistory,
-					addHistoryEntry,
-					clearEditor,
-					dispatch,
-					onThinkingStop,
-				});
-				return;
-			}
-		}
+		if (await inputPatterns.dispatch(text)) return;
 
 		// Execute regular message
 		const sendFn = session.send;

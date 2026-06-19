@@ -1,0 +1,12 @@
+{
+  "name": "@dpopsuev/alef-organ-board",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-kernel": "workspace:*"
+  }
+}

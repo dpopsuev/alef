@@ -58,9 +58,6 @@
 			"@dpopsuev/alef-session": [
 				"../session/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-memory": [
-				"../organ-memory/src/index.ts"
-			],
 			"@dpopsuev/alef-testkit": [
 				"../testkit/src/index.ts"
 			],

@@ -304,7 +304,7 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 			// These are application-core concerns misclassified as organs.
 			// They belong in the runtime/kernel layer, not in the organ registry.
 			// Tracked for refactoring — see architecture analysis in memory.
-			const allowed = ["organ-llm", "organ-memory"];
+			const allowed = ["organ-llm"];
 			const importedShort = imported.replace("@dpopsuev/alef-", "");
 			if (!allowed.includes(importedShort) && importedShort !== pkgName) {
 				report(file, i + 1, "IMPORT",

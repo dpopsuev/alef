@@ -10,6 +10,7 @@ import type {
 
 export function createContextAssemblyPipeline(): Organ & {
 	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
+	addStage(name: string, handler: ContextAssemblyHandler): void;
 } {
 	const stages = new Map<string, ContextAssemblyHandler>();
 	const schemaResolvers = new Map<string, (toolName: string) => ToolDefinition | undefined>();
@@ -23,6 +24,9 @@ export function createContextAssemblyPipeline(): Organ & {
 			"Ordered context.assemble pipeline — collects ContextAssemblyHandler and schema-resolver contributions from sense/organ.loaded.",
 		contributions: {
 			port: { name: "context_assembly", eventPattern: "motor/context.assemble", cardinality: "ordered-pipeline" },
+		},
+		addStage(name: string, handler: ContextAssemblyHandler) {
+			stages.set(name, handler);
 		},
 		getSchemaResolver() {
 			if (schemaResolvers.size === 0) return undefined;

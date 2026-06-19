@@ -115,13 +115,6 @@
 			"@dpopsuev/alef-session/*": [
 				"./packages/session/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-memory": [
-				"./packages/organ-memory/src/index.ts"
-			],
-			"@dpopsuev/alef-organ-memory/*": [
-				"./packages/organ-memory/src/*.ts"
-			],
-
 			"@dpopsuev/alef-organ-monolog": [
 				"./packages/organ-monolog/src/index.ts"
 			],

@@ -10,10 +10,10 @@ import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { createAgentOrgan, strategyRegistry } from "@dpopsuev/alef-organ-agent";
 import { createCompactorOrgan } from "@dpopsuev/alef-organ-compactor";
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
-import { createMemoryOrgan } from "@dpopsuev/alef-organ-memory";
 import { createSkillsOrgan } from "@dpopsuev/alef-organ-skills";
 import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
+import { createSessionContextStage } from "@dpopsuev/alef-session";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
@@ -57,10 +57,15 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 	const pipeline = createContextAssemblyPipeline();
 
 	const { sessionStore } = opts;
-	const memoryOrgan = createMemoryOrgan({
-		sessionStore: sessionStore ? () => sessionStore : undefined,
-		contextWindow: model.contextWindow,
-	});
+	if (sessionStore) {
+		pipeline.addStage(
+			"memory",
+			createSessionContextStage({
+				sessionStore: () => sessionStore,
+				contextWindow: model.contextWindow,
+			}),
+		);
+	}
 
 	const skillsOrgan = createSkillsOrgan({ cwd });
 
@@ -96,7 +101,6 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 	const filteredDomain = domainOrgans.filter((o) => !["agent", "factory", "skills", "compactor"].includes(o.name));
 	const allOrgans = [
 		...filteredDomain,
-		memoryOrgan,
 		skillsOrgan,
 		compactorOrgan as unknown as Organ,
 		agentOrgan as unknown as Organ,

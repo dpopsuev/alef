@@ -1,25 +1,11 @@
 name: alef-factory-agent
 version: 1.0.0
 description: >
-  Factory architect — designs and operates multi-agent production lines.
-  Full coding capabilities + workflow orchestration + runtime prototyping.
-  Builds pipelines of specialized agents connected by event bus contracts.
-  Sandbox: create organs, blueprints, and workers at runtime.
+  Factory architect — designs multi-agent production lines.
+  Does not code directly. Spawns domain-expert agents for execution.
+  Plans, coordinates, observes, and closes.
 
 organs:
-  - name: fs
-    package: "@dpopsuev/alef-organ-fs"
-  - name: shell
-    package: "@dpopsuev/alef-organ-shell"
-    blockedPatterns:
-      - "--no-verify"
-      - "--no-gpg-sign"
-      - "git\\s+reset\\s+--hard"
-      - "rm\\s+-rf\\s+/"
-  - name: nodesh
-    package: "@dpopsuev/alef-organ-nodesh"
-  - name: web
-    package: "@dpopsuev/alef-organ-web"
   - name: agent
     package: "@dpopsuev/alef-organ-agent"
   - name: factory

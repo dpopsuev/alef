@@ -131,6 +131,28 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 				retries: p.retries !== undefined ? Number(p.retries) : undefined,
 				score: p.score !== undefined ? Number(p.score) : undefined,
 			};
+		case "task.progress":
+			return {
+				type: "task-progress",
+				taskId: String(p.taskId ?? ""),
+				chunk: String(p.chunk ?? ""),
+			};
+		case "task.completed":
+			return {
+				type: "task-completed",
+				taskId: String(p.taskId ?? ""),
+				profile: String(p.profile ?? ""),
+				reply: String(p.reply ?? ""),
+				elapsedMs: Number(p.elapsedMs ?? 0),
+			};
+		case "task.failed":
+			return {
+				type: "task-failed",
+				taskId: String(p.taskId ?? ""),
+				profile: String(p.profile ?? ""),
+				error: String(p.error ?? ""),
+				elapsedMs: Number(p.elapsedMs ?? 0),
+			};
 		default:
 			return null;
 	}

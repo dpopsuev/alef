@@ -42,7 +42,10 @@ export type AgentEvent =
 	| { type: "workflow-step"; workflowId: string; eventType: string; step: string; status: string; score?: number }
 	| { type: "workflow-completed"; workflowId: string; elapsedMs: number }
 	| { type: "workflow-error"; workflowId: string; step: string; error: string }
-	| { type: "workflow-escalated"; workflowId: string; rule: string; retries?: number; score?: number };
+	| { type: "workflow-escalated"; workflowId: string; rule: string; retries?: number; score?: number }
+	| { type: "task-progress"; taskId: string; chunk: string }
+	| { type: "task-completed"; taskId: string; profile: string; reply: string; elapsedMs: number }
+	| { type: "task-failed"; taskId: string; profile: string; error: string; elapsedMs: number };
 
 // ---------------------------------------------------------------------------
 // DirectiveView — the minimal surface Session exposes from the directive system.

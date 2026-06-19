@@ -16,7 +16,7 @@
 import { materializeDefaultOrgans } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
-import { createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
+import { createToolShellOrgan } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";
 import { fixBugWithCleanCommit } from "../../eval/src/evaluations/git-workflow.js";
 import { EvalHarness } from "../../eval/src/harness.js";

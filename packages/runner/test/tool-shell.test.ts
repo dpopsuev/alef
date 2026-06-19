@@ -12,8 +12,7 @@
  */
 
 import type { Organ, OrganLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";

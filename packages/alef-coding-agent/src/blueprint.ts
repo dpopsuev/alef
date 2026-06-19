@@ -11,8 +11,7 @@ import { createAgentOrgan, strategyRegistry } from "@dpopsuev/alef-organ-agent";
 import { createCompactorOrgan } from "@dpopsuev/alef-organ-compactor";
 import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
 import { createSkillsOrgan } from "@dpopsuev/alef-organ-skills";
-import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
-import { InProcessStrategy } from "@dpopsuev/alef-runtime";
+import { buildOrganDirectives, createToolShellOrgan, InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { createSessionContextStage } from "@dpopsuev/alef-session";
 
 export type { BlueprintStack, BlueprintStackOptions };

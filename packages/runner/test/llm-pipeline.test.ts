@@ -14,8 +14,7 @@
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
-import { createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController, createToolShellOrgan } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------

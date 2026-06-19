@@ -301,9 +301,10 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 		const match = line.match(/from\s+["'](@dpopsuev\/alef-organ-[\w-]+)["']/);
 		if (match) {
 			const imported = match[1];
-			// organ-llm is a legitimate dep (framework-level)
-			// organ-prompt is legitimate (prompt engineering primitives)
-			const allowed = ["organ-llm", "organ-prompt", "organ-memory"];
+			// These are application-core concerns misclassified as organs.
+			// They belong in the runtime/kernel layer, not in the organ registry.
+			// Tracked for refactoring — see architecture analysis in memory.
+			const allowed = ["organ-llm", "organ-memory"];
 			const importedShort = imported.replace("@dpopsuev/alef-", "");
 			if (!allowed.includes(importedShort) && importedShort !== pkgName) {
 				report(file, i + 1, "IMPORT",

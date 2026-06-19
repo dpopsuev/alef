@@ -1,6 +1,7 @@
 import type { ISessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
-import { Container, Text } from "@dpopsuev/alef-tui";
+import { CombinedAutocompleteProvider, Container, type SlashCommand, Text } from "@dpopsuev/alef-tui";
+import { registry } from "./commands/index.js";
 import { AtAddressProvider, HistoryAutocompleteProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { PromptConsole } from "./prompt-console.js";
@@ -55,26 +56,38 @@ export async function buildLayout(
 	promptConsole.mount();
 	const { editor } = promptConsole;
 
+	const commands: SlashCommand[] = registry.list().map((c) => ({
+		name: c.name,
+		description: c.description,
+	}));
+	let fdPath: string | null = null;
+	try {
+		const { execSync } = await import("node:child_process");
+		fdPath = execSync("which fd 2>/dev/null || which fdfind 2>/dev/null", { encoding: "utf-8" }).trim() || null;
+	} catch {
+		fdPath = null;
+	}
+	const combinedProvider = new CombinedAutocompleteProvider(commands, opts.cwd ?? process.cwd(), fdPath);
 	const historyProvider = new HistoryAutocompleteProvider();
+
 	if (editor.setAutocompleteProvider) {
-		if (opts.actorRoutes) {
-			// Two providers: @-address takes priority when line starts with @, else history
-			const atProvider = new AtAddressProvider(opts.actorRoutes);
-			editor.setAutocompleteProvider({
-				getSuggestions: (lines, cursorLine, cursorCol, options) => {
-					const prefix = (lines[cursorLine] ?? "").slice(0, cursorCol);
-					if (prefix.startsWith("@")) return atProvider.getSuggestions(lines, cursorLine, cursorCol, options);
-					return historyProvider.getSuggestions(lines, cursorLine, cursorCol, options);
-				},
-				applyCompletion: (lines, cursorLine, cursorCol, item, pfx) => {
-					if (item.description === "actor")
-						return atProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
-					return historyProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
-				},
-			});
-		} else {
-			editor.setAutocompleteProvider(historyProvider);
-		}
+		const atProvider = opts.actorRoutes ? new AtAddressProvider(opts.actorRoutes) : null;
+		editor.setAutocompleteProvider({
+			getSuggestions: (lines, cursorLine, cursorCol, options) => {
+				const prefix = (lines[cursorLine] ?? "").slice(0, cursorCol);
+				if (prefix.startsWith("@") && atProvider)
+					return atProvider.getSuggestions(lines, cursorLine, cursorCol, options);
+				if (prefix.startsWith(":")) return combinedProvider.getSuggestions(lines, cursorLine, cursorCol, options);
+				return historyProvider.getSuggestions(lines, cursorLine, cursorCol, options);
+			},
+			applyCompletion: (lines, cursorLine, cursorCol, item, pfx) => {
+				if (item.description === "actor" && atProvider)
+					return atProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
+				if (pfx.startsWith(":")) return combinedProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
+				return historyProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
+			},
+			shouldTriggerFileCompletion: combinedProvider.shouldTriggerFileCompletion?.bind(combinedProvider),
+		});
 	}
 
 	const humanLabel = opts.humanAddress ?? "@you";

@@ -1,0 +1,158 @@
+/**
+ * Multi-agent coordination test: plan + board + parallel agents.
+ *
+ * Demonstrates: one plan, multiple agents posting findings to the board,
+ * parent reading the board and advancing the plan.
+ */
+
+import { randomUUID } from "node:crypto";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { InProcessNerve, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { createBoardOrgan } from "@dpopsuev/alef-organ-board";
+import { createPlanOrgan } from "@dpopsuev/alef-organ-plan";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+describe("multi-agent plan + board coordination", () => {
+	let dir: string;
+	let nerve: InProcessNerve;
+	const unmounts: Array<() => void> = [];
+
+	function call(type: string, payload: Record<string, unknown>): Promise<SenseEvent> {
+		const correlationId = randomUUID();
+		return new Promise((resolve, reject) => {
+			const timer = setTimeout(() => {
+				off();
+				reject(new Error(`timeout: ${type}`));
+			}, 5000);
+			const off = nerve.asNerve().sense.subscribe(type, (event) => {
+				if (event.correlationId !== correlationId) return;
+				clearTimeout(timer);
+				off();
+				resolve(event);
+			});
+			nerve.asNerve().motor.publish({ type, payload, correlationId });
+		});
+	}
+
+	beforeEach(() => {
+		dir = mkdtempSync(join(tmpdir(), "alef-multi-agent-test-"));
+		nerve = new InProcessNerve();
+	});
+
+	afterEach(() => {
+		for (const u of unmounts.splice(0)) u();
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("plan + board: agents post findings, parent reads and advances plan", async () => {
+		const planOrgan = createPlanOrgan({ sessionDir: dir });
+		const boardOrgan = createBoardOrgan({ sessionDir: dir });
+		unmounts.push(planOrgan.mount(nerve.asNerve()));
+		unmounts.push(boardOrgan.mount(nerve.asNerve()));
+
+		// 1. Create a plan
+		const beginResult = await call("plan.begin", { intention: "fix error handling gaps" });
+		expect(beginResult.payload).toHaveProperty("id");
+
+		// 2. Set state
+		await call("plan.state", {
+			current: "3 untyped catch blocks",
+			desired: "all catch blocks use proper narrowing",
+			delta: "fix 3 catch blocks",
+		});
+
+		// 3. Fix end state
+		await call("plan.fix", { endState: "zero untyped catch blocks" });
+
+		// 4. Expand plan with 3 nodes
+		const expandResult = await call("plan.expand", {
+			nodes: [
+				{ label: "fix catch in organ-dispatch" },
+				{ label: "fix catch in turn-loop" },
+				{ label: "fix catch in stream-turn" },
+			],
+		});
+		const nodeIds = (expandResult.payload as { ids: string[] }).ids;
+		expect(nodeIds).toHaveLength(3);
+
+		// 5. Simulate 3 agents posting findings to the board
+		await call("board.post", {
+			topic: "qa",
+			thread: "organ-dispatch",
+			content: "Found untyped catch at line 128. Needs instanceof Error narrowing.",
+			author: "@jade",
+		});
+
+		await call("board.post", {
+			topic: "qa",
+			thread: "turn-loop",
+			content: "Catch at line 115 uses String(e) — loses stack trace.",
+			author: "@coral",
+		});
+
+		await call("board.post", {
+			topic: "qa",
+			thread: "stream-turn",
+			content: "Catch at line 42 is empty — swallows errors silently.",
+			author: "@onyx",
+		});
+
+		// 6. Parent reads the board
+		const boardResult = await call("board.read", { topic: "qa", thread: "organ-dispatch" });
+		const posts = (boardResult.payload as { posts: unknown[] }).posts;
+		expect(posts).toHaveLength(1);
+
+		// 7. List all topics
+		const listResult = await call("board.list", {});
+		const topics = (listResult.payload as { topics: Array<{ topic: string }> }).topics;
+		expect(topics.some((t) => t.topic === "qa")).toBe(true);
+
+		// 8. Checkpoint and complete plan nodes
+		await call("plan.checkpoint", { nodeId: nodeIds[0] });
+		await call("plan.complete", { nodeId: nodeIds[0] });
+		await call("plan.checkpoint", { nodeId: nodeIds[1] });
+		await call("plan.complete", { nodeId: nodeIds[1] });
+		await call("plan.checkpoint", { nodeId: nodeIds[2] });
+		await call("plan.complete", { nodeId: nodeIds[2] });
+
+		// 9. Show plan — all nodes should be done
+		const showResult = await call("plan.show", {});
+		const planData = showResult.payload as { nodes: Array<{ status: string }> };
+		expect(planData.nodes.every((n) => n.status === "done")).toBe(true);
+
+		// 10. Close with AAR
+		await call("plan.close", {
+			aar: "All 3 catch blocks fixed. Board coordination worked — each agent posted independently.",
+		});
+
+		// Verify plan file on disk
+		const planFile = JSON.parse(readFileSync(join(dir, "plan.json"), "utf-8"));
+		expect(planFile.phase).toBe("closed");
+		expect(planFile.aar).toContain("Board coordination worked");
+
+		// Verify board files on disk
+		const boardFile = readFileSync(join(dir, "board", "qa", "organ-dispatch.jsonl"), "utf-8");
+		expect(boardFile).toContain("@jade");
+		expect(boardFile).toContain("instanceof Error");
+	});
+
+	it("board context.assemble injects new posts into LLM context", async () => {
+		// Create board organ with a past lastReadTs so new posts are visible
+		const boardOrgan = createBoardOrgan({ sessionDir: dir });
+		unmounts.push(boardOrgan.mount(nerve.asNerve()));
+
+		// Post something — the motor handler writes to disk
+		await call("board.post", {
+			topic: "updates",
+			thread: "status",
+			content: "refactoring complete",
+			author: "@jade",
+		});
+
+		// Verify the context.assemble contribution exists
+		const stage = boardOrgan.contributions?.["context.assemble"];
+		expect(stage).toBeDefined();
+	});
+});

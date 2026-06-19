@@ -77,6 +77,22 @@ export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Prom
 	}
 
 	if (blueprintPath) {
+		const { existsSync } = await import("node:fs");
+
+		// If blueprintPath is not a file, it's a blueprint name - skip file loading
+		// and let it fall through to be resolved from the registry in createLocalSession
+		if (!existsSync(blueprintPath)) {
+			return {
+				organs: [],
+				blueprintModelId: undefined,
+				blueprintName,
+				blueprintSurfaces: [],
+				blueprintUpgradePolicy: "rebuild_only",
+				blueprintPath: undefined,
+				writableRoots: resolveWritableRoots(args.cwd, cfg),
+			};
+		}
+
 		let definition = loadAgentDefinition(blueprintPath);
 
 		if (args.profile) {

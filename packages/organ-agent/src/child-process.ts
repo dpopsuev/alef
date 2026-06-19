@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
+import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
 import { stringify as stringifyYaml } from "yaml";
 
 export interface ChildEntry {
@@ -124,7 +125,16 @@ export async function spawnChild(
 	const childCwd = opts.childCwd ?? opts.cwd;
 	const organPaths = opts.organs ?? [];
 
-	let blueprintPath = opts.blueprintPath ? resolvePath(opts.blueprintPath, childCwd) : undefined;
+	// Check if blueprintPath is a registered blueprint name (e.g., YAML blueprints)
+	// If so, keep it as a name; otherwise resolve it as a file path
+	let blueprintPath: string | undefined;
+	if (opts.blueprintPath) {
+		const registeredNames = blueprintRegistry.list();
+		blueprintPath = registeredNames.includes(opts.blueprintPath)
+			? opts.blueprintPath // Keep as blueprint name
+			: resolvePath(opts.blueprintPath, childCwd); // Resolve as file path
+	}
+
 	let tmpDir: string | undefined;
 
 	if (organPaths.length > 0 && !blueprintPath) {

@@ -10,6 +10,7 @@ import { parseArgs } from "./args.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { setupTrace } from "./debug-trace.js";
+import { initYamlBlueprints } from "./init-yaml-blueprints.js";
 import { loadOrgans } from "./load-organs.js";
 import { loadSession } from "./load-session.js";
 import { createLocalSession } from "./local-session.js";
@@ -30,6 +31,9 @@ process.title = "alef";
 ensureDirectories();
 const cfg = loadConfig();
 setupOTel();
+
+// Auto-register YAML blueprints from config directories
+await initYamlBlueprints();
 
 const args = parseArgs(process.argv.slice(2));
 

@@ -15,6 +15,7 @@
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
 import type {
 	AgentRunContext,
 	BaseOrganOptions,
@@ -552,9 +553,15 @@ export function createAgentOrgan(
 		payload: { organPath: string; blueprintPath?: string };
 	}): Promise<Record<string, unknown>> {
 		const organPath = resolvePath(ctx.payload.organPath, cwd);
-		const blueprintPath = ctx.payload.blueprintPath
-			? resolvePath(ctx.payload.blueprintPath, cwd)
-			: (process.env.ALEF_BLUEPRINT_PATH ?? join(homedir(), ".config", "alef", "agent.yaml"));
+		let blueprintPath: string;
+		if (ctx.payload.blueprintPath) {
+			const registeredNames = blueprintRegistry.list();
+			blueprintPath = registeredNames.includes(ctx.payload.blueprintPath)
+				? ctx.payload.blueprintPath // Keep as blueprint name
+				: resolvePath(ctx.payload.blueprintPath, cwd); // Resolve as file path
+		} else {
+			blueprintPath = process.env.ALEF_BLUEPRINT_PATH ?? join(homedir(), ".config", "alef", "agent.yaml");
+		}
 		let doc: Record<string, unknown> = {};
 		try {
 			doc = parseYaml(readFileSync(blueprintPath, "utf-8")) as Record<string, unknown>;

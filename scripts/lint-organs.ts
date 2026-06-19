@@ -297,16 +297,12 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 		const line = lines[i];
 		if (!line.trim().startsWith("import")) continue;
 
-		// Check imports of other organ-* packages (except spine, ai, session)
+		// Check imports of other organ-* packages — organs should not depend on each other
 		const match = line.match(/from\s+["'](@dpopsuev\/alef-organ-[\w-]+)["']/);
 		if (match) {
 			const imported = match[1];
-			// These are application-core concerns misclassified as organs.
-			// They belong in the runtime/kernel layer, not in the organ registry.
-			// Tracked for refactoring — see architecture analysis in memory.
-			const allowed = ["organ-llm"];
 			const importedShort = imported.replace("@dpopsuev/alef-", "");
-			if (!allowed.includes(importedShort) && importedShort !== pkgName) {
+			if (importedShort !== pkgName) {
 				report(file, i + 1, "IMPORT",
 					`${pkgName} imports from ${imported} — organs should not depend on other organs`);
 			}
@@ -330,8 +326,7 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 // Main scan
 // ---------------------------------------------------------------------------
 
-// organ-prompt is a utility package (Directives class), not a bus organ — no compliance needed.
-const ORGAN_LINTER_EXCLUDE = new Set(["organ-prompt"]);
+const ORGAN_LINTER_EXCLUDE = new Set<string>();
 
 const organDirs = readdirSync(ORGANS_DIR, { withFileTypes: true })
 	.filter((e) => e.isDirectory() && e.name.startsWith("organ-") && !ORGAN_LINTER_EXCLUDE.has(e.name))

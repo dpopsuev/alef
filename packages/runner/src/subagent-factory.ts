@@ -1,7 +1,7 @@
 import type { SubagentFactory } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import {
 	Agent,
 	AgentController,

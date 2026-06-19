@@ -9,7 +9,7 @@
 
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";

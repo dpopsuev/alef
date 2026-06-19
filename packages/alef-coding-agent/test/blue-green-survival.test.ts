@@ -23,7 +23,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { afterEach, describe, expect, it } from "vitest";
 import { addTypeExport } from "../../eval/src/evaluations/write.js";
 import { EvalHarness, EvaluationRunner } from "../../eval/src/index.js";

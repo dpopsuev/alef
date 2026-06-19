@@ -11,10 +11,10 @@ import { defineOrgan, type SensePublishInput, typedStreamAction } from "@dpopsue
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { Agent } from "../../runtime/src/index.js";
 import { NerveFixture, TurnDriver } from "../../testkit/src/index.js";
 

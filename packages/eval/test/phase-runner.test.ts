@@ -6,7 +6,7 @@
  */
 
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Phase, PhaseEvaluation } from "../src/evaluation.js";
 import { EvalHarness } from "../src/harness.js";

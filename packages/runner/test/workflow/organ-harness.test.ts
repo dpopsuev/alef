@@ -10,8 +10,8 @@
  */
 
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-organ-workflow";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";
 import { ImplStationRunner } from "../../src/workflow/station-strategy.js";

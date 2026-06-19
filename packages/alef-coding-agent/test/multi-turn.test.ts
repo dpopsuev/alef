@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EvalHarness } from "../../eval/src/harness.js";

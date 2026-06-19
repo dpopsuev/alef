@@ -20,7 +20,7 @@
 
 import type { Organ, SignalEvent } from "@dpopsuev/alef-kernel";
 import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 
 /** True when at least one real LLM provider is configured via env vars. */

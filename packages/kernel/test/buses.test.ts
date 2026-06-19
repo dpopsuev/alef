@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { InProcessNerve, type NerveEvent, newCorrelationId } from "../src/buses.js";
+import { type NerveEvent, newCorrelationId } from "../src/buses.js";
+import { InProcessNerve } from "../src/in-process-nerve.js";
 
 // ---------------------------------------------------------------------------
 // Register test event schemas via module augmentation.

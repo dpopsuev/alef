@@ -20,7 +20,7 @@ export interface SubmitConfig {
 	dispatch: (event: TuiEvent) => void;
 	ctx: () => TuiHandlerContext;
 	onThinkingStop: () => void;
-	channels?: { switchTo(name: string): unknown; list(): string[]; active: string };
+	forums?: { switchTo(name: string): unknown; list(): string[]; active: string };
 }
 
 /**
@@ -48,22 +48,22 @@ export function createSubmitHandler(config: SubmitConfig) {
 		name: "message",
 		leader: "@",
 		detection: "beginning",
-		description: "Route message or switch channel",
+		description: "Route message or switch forum",
 		handle: async (text) => {
 			const trimmed = text.trim();
 
-			// Bare "@" → list available channels
-			if (trimmed === "@" && config.channels) {
-				const chans = config.channels.list();
-				const active = config.channels?.active;
+			// Bare "@" → list available forums
+			if (trimmed === "@" && config.forums) {
+				const chans = config.forums.list();
+				const active = config.forums?.active;
 				writer.addNotice(`Channels: ${chans.map((c) => `@${c}${c === active ? " (active)" : ""}`).join(", ")}`);
 				return true;
 			}
 
-			// Bare "@name" (no message) → switch channel
+			// Bare "@name" (no message) → switch forum
 			const bareMatch = /^@([\w.]+)$/.exec(trimmed);
-			if (bareMatch && config.channels) {
-				config.channels.switchTo(bareMatch[1]);
+			if (bareMatch && config.forums) {
+				config.forums.switchTo(bareMatch[1]);
 				writer.addNotice(`Switched to @${bareMatch[1]}`);
 				return true;
 			}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { SenseEvent } from "../src/buses.js";
-import { InProcessNerve, newCorrelationId } from "../src/buses.js";
+import { newCorrelationId, type SenseEvent } from "../src/buses.js";
+import { InProcessNerve } from "../src/in-process-nerve.js";
 
 describe("dead letter detection", { tags: ["unit"] }, () => {
 	it("publishes error sense when no specific handler is registered", async () => {

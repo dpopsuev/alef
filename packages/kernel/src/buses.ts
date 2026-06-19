@@ -423,7 +423,7 @@ export function gimpedOrgan(name: string): Organ {
 	};
 }
 
-export { InProcessNerve } from "./in-process-nerve.js";
+// InProcessNerve exported from index.ts — not here, to avoid circular import with in-process-nerve.ts
 
 // ---------------------------------------------------------------------------
 // Helpers

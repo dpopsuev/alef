@@ -7,8 +7,8 @@
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { InProcessNerve } from "../src/buses.js";
 import { defineOrgan } from "../src/framework.js";
+import { InProcessNerve } from "../src/in-process-nerve.js";
 
 const READ_TOOL = { name: "fs.read", description: "Read", inputSchema: z.object({}) };
 const WRITE_TOOL = { name: "fs.write", description: "Write", inputSchema: z.object({}) };

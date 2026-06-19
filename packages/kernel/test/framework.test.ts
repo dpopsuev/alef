@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { SenseEvent } from "../src/buses.js";
-import { InProcessNerve } from "../src/buses.js";
 import type { MotorHandlerCtx, SenseHandlerCtx } from "../src/framework.js";
 import { defineOrgan } from "../src/framework.js";
+import { InProcessNerve } from "../src/in-process-nerve.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();

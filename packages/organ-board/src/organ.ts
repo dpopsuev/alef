@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BaseOrganOptions, ContextAssemblyHandler, Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineOrgan, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export interface BoardOrganOptions extends BaseOrganOptions {
@@ -122,13 +122,7 @@ export function createBoardOrgan(opts: BoardOrganOptions): Organ {
 				`[${p.topic}/${p.thread}] @${p.author}: ${typeof p.content === "string" ? p.content : JSON.stringify(p.content)}`,
 		);
 		const block = `[Board — ${newPosts.length} new post(s)]\n${lines.join("\n")}`;
-
-		const messages = [...input.messages];
-		const systemIdx = messages.findIndex((m) => (m as { role?: string }).role === "system");
-		const insertAt = systemIdx >= 0 ? systemIdx + 1 : 0;
-		messages.splice(insertAt, 0, { role: "user", content: block });
-
-		return { messages };
+		return { messages: injectContextBlock(input.messages, block) };
 	};
 
 	return defineOrgan(

@@ -123,7 +123,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 		const { mkdtempSync, rmSync } = await import("node:fs");
 		const { join } = await import("node:path");
 		const { tmpdir } = await import("node:os");
-		const { InProcessNerve } = await import("../../kernel/src/buses.js");
+		const { InProcessNerve } = await import("../../kernel/src/in-process-nerve.js");
 		const { SessionLog } = await import("../src/event-log-organ.js");
 		const { SessionStore } = await import("../src/session-store.js");
 

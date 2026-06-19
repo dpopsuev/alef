@@ -38,7 +38,7 @@
 		"release:minor": "node scripts/release.mjs minor",
 		"release:major": "node scripts/release.mjs major",
 		"prepare": "husky",
-		"check:lint": "eslint --cache --cache-strategy content packages/kernel/src/ packages/runtime/src/ packages/organ-llm/src/ packages/organ-dialog/src/ packages/organ-fs/src/ packages/organ-shell/src/ packages/organ-web/src/ packages/runner/src/ --max-warnings 50"
+		"check:lint": "eslint --cache --cache-strategy content packages/kernel/src/ packages/runtime/src/ packages/organ-llm/src/ packages/organ-fs/src/ packages/organ-shell/src/ packages/organ-web/src/ packages/runner/src/ --max-warnings 50"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",

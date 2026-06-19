@@ -22,9 +22,6 @@
 			"@dpopsuev/alef-kernel": [
 				"../kernel/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-dialog": [
-				"../organ-dialog/src/index.ts"
-			],
 			"@dpopsuev/alef-organ-router": [
 				"../organ-router/src/index.ts"
 			],

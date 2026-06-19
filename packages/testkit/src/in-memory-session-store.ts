@@ -7,7 +7,7 @@ import { eventTypeWeight, extractContentLength } from "@dpopsuev/alef-session";
  *
  * For use in eval harnesses and tests where memory organ history assembly is
  * needed but disk persistence is not. Replicates the turn-index logic of
- * SessionStore so MemoryOrgan behaves identically to production.
+ * SessionStore so session context stage behaves identically to production.
  */
 export class InMemorySessionStore implements ISessionStore {
 	readonly id: string;

@@ -1,54 +1,13 @@
-import { InProcessNerve } from "@dpopsuev/alef-kernel";
-import { afterEach, describe, expect, it } from "vitest";
-import { createMemoryOrgan } from "../src/organ-memory.js";
+import { describe, expect, it } from "vitest";
+import { createSessionContextStage } from "../src/organ-memory.js";
 
-function mountOrgan(organ: ReturnType<typeof createMemoryOrgan>) {
-	const nerve = new InProcessNerve();
-	const unmount = organ.mount(nerve.asNerve());
-	return { nerve, unmount };
-}
-
-describe("MemoryOrgan — organ contract", { tags: ["unit"] }, () => {
-	const disposes: Array<() => void> = [];
-	afterEach(() => {
-		for (const d of disposes.splice(0)) d();
-	});
-
-	it("has name=memory and no LLM-callable tools", () => {
-		const organ = createMemoryOrgan();
-		expect(organ.name).toBe("memory");
-		expect(organ.tools).toHaveLength(0);
-	});
-
-	it("does not subscribe to motor/context.assemble — pipeline coordinator owns that", () => {
-		const organ = createMemoryOrgan();
-		expect(organ.subscriptions.motor).not.toContain("context.assemble");
-	});
-
-	it("exposes phaseStage() returning a function", () => {
-		const organ = createMemoryOrgan();
-		expect(typeof organ.phaseStage()).toBe("function");
-	});
-
-	it("mount returns a cleanup function and unmount is idempotent", () => {
-		const organ = createMemoryOrgan();
-		const { unmount } = mountOrgan(organ);
-		disposes.push(unmount);
-		expect(() => {
-			unmount();
-			unmount();
-		}).not.toThrow();
-	});
-
-	it("phaseStage returns empty result when sessionStore is absent", async () => {
-		const organ = createMemoryOrgan({ sessionStore: () => undefined });
-		const stage = organ.phaseStage();
+describe("Session context stage", { tags: ["unit"] }, () => {
+	it("returns empty result when sessionStore returns undefined", async () => {
+		const stage = createSessionContextStage({ sessionStore: () => undefined as never });
 		const result = await stage({ messages: [], tools: [], turn: 1 });
 		expect(result).not.toHaveProperty("messages");
 	});
-});
 
-describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 	function makeTurn(id: string, history: unknown[]) {
 		return {
 			id,
@@ -77,8 +36,7 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 			hitCounts: async () => new Map<string, number>(),
 			append: async () => {},
 		};
-		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow: 200_000 });
-		const stage = organ.phaseStage();
+		const stage = createSessionContextStage({ sessionStore: () => session as never, contextWindow: 200_000 });
 
 		const msgs = [
 			{ role: "system", content: "system prompt" },
@@ -92,10 +50,6 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 	});
 
 	it("does not append toolResult as currentUserMsg on tool round 2+", async () => {
-		// Reproduces the Vertex 400 "multiple tool_result blocks" regression.
-		// On tool round 2, messages.at(-1) is a toolResult. The llm.checkpoint written
-		// after round 1 already contains that toolResult in conversationHistory.
-		// MemoryOrgan must NOT append it again, or the LLM sees duplicate tool_results.
 		const toolResultMsg = { role: "toolResult", toolCallId: "call-1", content: "file contents" };
 		const conversationHistory = [
 			{ role: "user", content: "read a file" },
@@ -122,10 +76,8 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 			hitCounts: async () => new Map<string, number>(),
 			append: async () => {},
 		};
-		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow: 200_000 });
-		const stage = organ.phaseStage();
+		const stage = createSessionContextStage({ sessionStore: () => session as never, contextWindow: 200_000 });
 
-		// Tool round 2: messages ends with the toolResult (same as in checkpoint)
 		const msgs = [
 			{ role: "system", content: "system prompt" },
 			{ role: "user", content: "read a file" },
@@ -137,7 +89,6 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 		const assembled = result.messages as Array<{ role: string; toolCallId?: string }>;
 		const ids = assembled.filter((m) => m.role === "toolResult").map((m) => m.toolCallId);
 		const unique = new Set(ids);
-		// If there are duplicates, the Vertex API will return a 400
 		expect(ids.length).toBe(unique.size);
 	});
 
@@ -147,8 +98,7 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 			hitCounts: async () => new Map<string, number>(),
 			append: async () => {},
 		};
-		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow: 200_000 });
-		const stage = organ.phaseStage();
+		const stage = createSessionContextStage({ sessionStore: () => session as never, contextWindow: 200_000 });
 
 		const result = await stage({ messages: [{ role: "user", content: "hi" }] as never, tools: [], turn: 1 });
 		expect(result).not.toHaveProperty("messages");
@@ -164,8 +114,7 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 				appended.push(r);
 			},
 		};
-		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow: 200_000 });
-		const stage = organ.phaseStage();
+		const stage = createSessionContextStage({ sessionStore: () => session as never, contextWindow: 200_000 });
 
 		await stage({ messages: [{ role: "user", content: "hello" }] as never, tools: [], turn: 1 });
 		await new Promise((r) => setTimeout(r, 20));
@@ -176,18 +125,13 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 	});
 
 	it("budgetUsed in window.assembled never exceeds budgetTotal", async () => {
-		// Regression: organ-memory.ts used raw tokenCost sum instead of the capped
-		// cost that assembleTurns uses for selection. A single large-file-read turn
-		// can have tokenCost=600_000 while the budget is 98_000; the uncapped sum
-		// made budgetUsed report as 430% of budget even though selection was correct.
 		const appended: unknown[] = [];
 		const contextWindow = 140_000;
 
-		// Simulate the "explore codebase" session: one turn with a massive raw tokenCost
 		const heavyTurn = {
 			id: "explore",
 			turnIndex: 0,
-			tokenCost: 600_000, // raw payload bytes from 12 file reads
+			tokenCost: 600_000,
 			typeWeight: 0.8,
 			events: [
 				{
@@ -206,23 +150,17 @@ describe("MemoryOrgan — Phase 2 context assembly", { tags: ["unit"] }, () => {
 				appended.push(r);
 			},
 		};
-		const organ = createMemoryOrgan({ sessionStore: () => session as never, contextWindow });
-		const stage = organ.phaseStage();
+		const stage = createSessionContextStage({ sessionStore: () => session as never, contextWindow });
 
 		await stage({ messages: [{ role: "user", content: "what did you find" }] as never, tools: [], turn: 1 });
 		await new Promise((r) => setTimeout(r, 20));
 
 		const record = appended.find((r) => (r as { type: string }).type === "window.assembled") as
-			| {
-					payload: { budgetUsed: number; budgetTotal: number };
-			  }
+			| { payload: { budgetUsed: number; budgetTotal: number } }
 			| undefined;
 		expect(record).toBeDefined();
 
 		const { budgetUsed, budgetTotal } = record!.payload;
-		// The invariant: reported budget used must not exceed the budget ceiling.
-		// If this fails, window.assembled is lying — selection respected the budget
-		// but the reported number did not (raw sum vs. capped sum).
 		expect(budgetUsed).toBeLessThanOrEqual(budgetTotal);
 	});
 });

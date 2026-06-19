@@ -350,7 +350,7 @@ export class SessionStore {
 
 	/**
 	 * Return all motor and sense events whose type starts with `<organName>.`.
-	 * O(n_events) scan — intended for diagnostics and MemoryOrgan context injection.
+	 * O(n_events) scan — intended for diagnostics and session context stage context injection.
 	 */
 	organHistory(organName: string): Promise<StorageRecord[]> {
 		const prefix = `${organName}.`;

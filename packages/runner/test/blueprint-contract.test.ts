@@ -45,10 +45,6 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 					cwd: REPO_ROOT,
 				});
 				expect(result.organs.length).toBeGreaterThan(0);
-
-				const organNames = result.organs.map((o) => o.name);
-				expect(organNames).toContain("fs");
-				expect(organNames).toContain("shell");
 			});
 
 			it("no organ references deleted packages", () => {

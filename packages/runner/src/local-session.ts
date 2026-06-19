@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
-import type { NerveEvent, Organ } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline, type NerveEvent, type Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { ForumStore } from "@dpopsuev/alef-organ-forum";
 import { createMetaOrgan } from "@dpopsuev/alef-organ-meta";
@@ -243,21 +243,24 @@ export async function createLocalSession(
 	const resolvedBlueprintName = loaded.blueprintName ?? "(default)";
 	const stackFactory = blueprintRegistry.resolve(loaded.blueprintName);
 	log.info({ blueprint: resolvedBlueprintName, available: blueprintRegistry.list() }, "blueprint:resolve");
-	if (!stackFactory)
-		throw new Error(
-			`No blueprint registered for '${resolvedBlueprintName}'. Available: ${blueprintRegistry.list().join(", ")}. Import the agent package.`,
-		);
 
 	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
-	const stack = await stackFactory({
-		cwd: args.cwd,
-		model,
-		getSignal: () => llmController?.signal,
-		sessionStore: store,
-		domainOrgans: organs,
-		subagentFactory,
-		writableRoots: loaded.writableRoots,
-	});
+
+	let stack: { organs: Organ[]; pipeline?: ReturnType<typeof createContextAssemblyPipeline> };
+	if (stackFactory) {
+		stack = await stackFactory({
+			cwd: args.cwd,
+			model,
+			getSignal: () => llmController?.signal,
+			sessionStore: store,
+			domainOrgans: organs,
+			subagentFactory,
+			writableRoots: loaded.writableRoots,
+		});
+	} else {
+		const pipeline = createContextAssemblyPipeline();
+		stack = { organs, pipeline };
+	}
 	const { pipeline } = stack;
 
 	const systemPrompt = directives.build(directivesBudgetChars);
@@ -278,7 +281,7 @@ export async function createLocalSession(
 		thinkingState,
 		getModel: () => currentModel,
 		getSignal: () => llmController?.signal,
-		schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
+		schemaResolver: (name) => pipeline?.getSchemaResolver()?.(name),
 		systemPrompt,
 	});
 

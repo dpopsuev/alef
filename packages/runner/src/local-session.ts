@@ -24,6 +24,21 @@ import { makeSink } from "./sink.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
 import { getTheme, setTheme } from "./theme.js";
 
+type SignalMapper = (payload: Record<string, unknown>) => Record<string, unknown> | null;
+const organSignalMaps = new Map<string, SignalMapper>();
+
+function registerOrganSignalMaps(
+	organs: readonly { contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>> } }[],
+): void {
+	for (const organ of organs) {
+		const map = organ.contributions?.["signal.map"];
+		if (!map) continue;
+		for (const [signalType, mapper] of Object.entries(map)) {
+			organSignalMaps.set(signalType, mapper);
+		}
+	}
+}
+
 function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 	switch (event.type) {
@@ -153,8 +168,14 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 				error: String(p.error ?? ""),
 				elapsedMs: Number(p.elapsedMs ?? 0),
 			};
-		default:
+		default: {
+			const mapper = organSignalMaps.get(event.type);
+			if (mapper) {
+				const mapped = mapper(p);
+				return mapped as AgentEvent | null;
+			}
 			return null;
+		}
 	}
 }
 
@@ -174,6 +195,7 @@ export async function createLocalSession(
 	actorRoutes: ActorRouteTable;
 }> {
 	const { organs, blueprintSurfaces } = loaded;
+	registerOrganSignalMaps(organs);
 
 	const directives = createDefaultDirectives({ tools: organs.flatMap((o) => o.tools), cwd: args.cwd });
 	await loadWorkspace(directives, args.cwd);

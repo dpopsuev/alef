@@ -151,6 +151,14 @@ export interface OrganContributions {
 	readonly tui?: TuiContribution;
 	/** Declares which tools this organ owns for per-organ history indexing. */
 	readonly history?: HistoryContribution;
+	/**
+	 * Signal-to-display event mapping. Each key is a signal type (e.g. "workflow.step").
+	 * The function maps the signal payload to a display event object, or null to skip.
+	 * Collected by the runner at mount time — no hardcoded switch needed.
+	 */
+	readonly "signal.map"?: Readonly<
+		Record<string, (payload: Record<string, unknown>) => Record<string, unknown> | null>
+	>;
 }
 
 export interface ToolDefinition {

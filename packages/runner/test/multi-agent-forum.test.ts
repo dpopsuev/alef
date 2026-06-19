@@ -10,7 +10,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { InProcessNerve, type SenseEvent } from "@dpopsuev/alef-kernel";
-import { createBoardOrgan } from "@dpopsuev/alef-organ-board";
+import { createForumOrgan } from "@dpopsuev/alef-organ-forum";
 import { createPlanOrgan } from "@dpopsuev/alef-organ-plan";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -48,7 +48,7 @@ describe("multi-agent plan + board coordination", () => {
 
 	it("plan + board: agents post findings, parent reads and advances plan", async () => {
 		const planOrgan = createPlanOrgan({ sessionDir: dir });
-		const boardOrgan = createBoardOrgan({ sessionDir: dir });
+		const boardOrgan = createForumOrgan({ sessionDir: dir });
 		unmounts.push(planOrgan.mount(nerve.asNerve()));
 		unmounts.push(boardOrgan.mount(nerve.asNerve()));
 
@@ -78,21 +78,21 @@ describe("multi-agent plan + board coordination", () => {
 		expect(nodeIds).toHaveLength(3);
 
 		// 5. Simulate 3 agents posting findings to the board
-		await call("board.post", {
+		await call("forum.post", {
 			topic: "qa",
 			thread: "organ-dispatch",
 			content: "Found untyped catch at line 128. Needs instanceof Error narrowing.",
 			author: "@jade",
 		});
 
-		await call("board.post", {
+		await call("forum.post", {
 			topic: "qa",
 			thread: "turn-loop",
 			content: "Catch at line 115 uses String(e) — loses stack trace.",
 			author: "@coral",
 		});
 
-		await call("board.post", {
+		await call("forum.post", {
 			topic: "qa",
 			thread: "stream-turn",
 			content: "Catch at line 42 is empty — swallows errors silently.",
@@ -100,12 +100,12 @@ describe("multi-agent plan + board coordination", () => {
 		});
 
 		// 6. Parent reads the board
-		const boardResult = await call("board.read", { topic: "qa", thread: "organ-dispatch" });
+		const boardResult = await call("forum.read", { topic: "qa", thread: "organ-dispatch" });
 		const posts = (boardResult.payload as { posts: unknown[] }).posts;
 		expect(posts).toHaveLength(1);
 
 		// 7. List all topics
-		const listResult = await call("board.list", {});
+		const listResult = await call("forum.list", {});
 		const topics = (listResult.payload as { topics: Array<{ topic: string }> }).topics;
 		expect(topics.some((t) => t.topic === "qa")).toBe(true);
 
@@ -124,27 +124,27 @@ describe("multi-agent plan + board coordination", () => {
 
 		// 10. Close with AAR
 		await call("plan.close", {
-			aar: "All 3 catch blocks fixed. Board coordination worked — each agent posted independently.",
+			aar: "All 3 catch blocks fixed. Forum coordination worked — each agent posted independently.",
 		});
 
 		// Verify plan file on disk
 		const planFile = JSON.parse(readFileSync(join(dir, "plan.json"), "utf-8"));
 		expect(planFile.phase).toBe("closed");
-		expect(planFile.aar).toContain("Board coordination worked");
+		expect(planFile.aar).toContain("Forum coordination worked");
 
 		// Verify board files on disk
-		const boardFile = readFileSync(join(dir, "board", "qa", "organ-dispatch.jsonl"), "utf-8");
+		const boardFile = readFileSync(join(dir, "forum", "qa", "organ-dispatch.jsonl"), "utf-8");
 		expect(boardFile).toContain("@jade");
 		expect(boardFile).toContain("instanceof Error");
 	});
 
 	it("board context.assemble injects new posts into LLM context", async () => {
 		// Create board organ with a past lastReadTs so new posts are visible
-		const boardOrgan = createBoardOrgan({ sessionDir: dir });
+		const boardOrgan = createForumOrgan({ sessionDir: dir });
 		unmounts.push(boardOrgan.mount(nerve.asNerve()));
 
 		// Post something — the motor handler writes to disk
-		await call("board.post", {
+		await call("forum.post", {
 			topic: "updates",
 			thread: "status",
 			content: "refactoring complete",

@@ -2,7 +2,7 @@
  * ChannelManager — swappable chat log sources for the TUI.
  *
  * The default channel is the main conversation (human ↔ root agent).
- * Additional channels map to board topics or agent-specific views.
+ * Additional channels map to forum topics or agent-specific views.
  * Switching channels swaps which Container is visible in the TUI tree.
  *
  * Usage:

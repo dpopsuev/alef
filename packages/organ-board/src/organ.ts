@@ -12,7 +12,7 @@ interface Post {
 	key: string;
 	author: string;
 	content: unknown;
-	ts: number;
+	timestamp: number;
 }
 
 function boardDir(sessionDir: string): string {
@@ -42,7 +42,7 @@ function readThread(sessionDir: string, topic: string, thread: string, since?: n
 	for (const line of lines) {
 		try {
 			const post = JSON.parse(line) as Post;
-			if (since && post.ts <= since) continue;
+			if (since && post.timestamp <= since) continue;
 			posts.push(post);
 		} catch {
 			// skip malformed lines
@@ -76,7 +76,7 @@ function readAllNewPosts(sessionDir: string, lastReadTs: number): Array<Post & {
 			}
 		}
 	}
-	return results.sort((a, b) => a.ts - b.ts);
+	return results.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 const BOARD_POST_TOOL = {
@@ -116,7 +116,7 @@ export function createBoardOrgan(opts: BoardOrganOptions): Organ {
 		const newPosts = readAllNewPosts(sessionDir, lastReadTs);
 		if (newPosts.length === 0) return {};
 
-		lastReadTs = Math.max(...newPosts.map((p) => p.ts));
+		lastReadTs = Math.max(...newPosts.map((p) => p.timestamp));
 		const lines = newPosts.map(
 			(p) =>
 				`[${p.topic}/${p.thread}] @${p.author}: ${typeof p.content === "string" ? p.content : JSON.stringify(p.content)}`,
@@ -135,12 +135,12 @@ export function createBoardOrgan(opts: BoardOrganOptions): Organ {
 						key: `${topic}/${thread}`,
 						author: (author as string) ?? "agent",
 						content,
-						ts: Date.now(),
+						timestamp: Date.now(),
 					};
 					appendPost(sessionDir, topic as string, thread as string, post);
 
 					return withDisplay(
-						{ posted: true, topic, thread, ts: post.ts },
+						{ posted: true, topic, thread, timestamp: post.timestamp },
 						{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },
 					);
 				}),
@@ -150,7 +150,7 @@ export function createBoardOrgan(opts: BoardOrganOptions): Organ {
 					const posts = readThread(sessionDir, topic as string, thread as string, since as number | undefined);
 					const lines = posts.map(
 						(p) =>
-							`@${p.author} (${new Date(p.ts).toISOString().slice(11, 19)}): ${typeof p.content === "string" ? p.content : JSON.stringify(p.content)}`,
+							`@${p.author} (${new Date(p.timestamp).toISOString().slice(11, 19)}): ${typeof p.content === "string" ? p.content : JSON.stringify(p.content)}`,
 					);
 					return withDisplay(
 						{ posts, count: posts.length },

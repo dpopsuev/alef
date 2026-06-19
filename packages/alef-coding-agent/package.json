@@ -20,7 +20,6 @@
 		"@dpopsuev/alef-organ-nodesh": "^0.0.1",
 		"@dpopsuev/alef-organ-shell": "^0.0.1",
 		"@dpopsuev/alef-organ-skills": "^0.0.1",
-		"@dpopsuev/alef-organ-toolshell": "^0.0.1",
 		"@dpopsuev/alef-organ-web": "^0.0.1",
 		"@dpopsuev/alef-runtime": "^0.0.1"
 	},

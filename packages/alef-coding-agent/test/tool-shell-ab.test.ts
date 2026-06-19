@@ -15,7 +15,7 @@
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
+import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-runtime";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../eval/src/evaluation.js";
 import { EvaluationRunner } from "../../eval/src/evaluation-runner.js";

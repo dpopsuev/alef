@@ -2,8 +2,13 @@ import type { SubagentFactory } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
-import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
-import { Agent, AgentController, type Transcript } from "@dpopsuev/alef-runtime";
+import {
+	Agent,
+	AgentController,
+	buildOrganDirectives,
+	createToolShellOrgan,
+	type Transcript,
+} from "@dpopsuev/alef-runtime";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { buildModel } from "./model.js";

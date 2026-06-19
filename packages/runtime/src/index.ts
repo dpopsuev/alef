@@ -3,6 +3,12 @@ export type { SubagentFactory, SubagentFactoryOptions } from "./in-process.js";
 export { InProcessStrategy } from "./in-process.js";
 export { RemoteStrategy, type RemoteStrategyOptions } from "./remote-strategy.js";
 export {
+	buildBootCatalog,
+	buildOrganDirectives,
+	createToolShellOrgan,
+	type ToolShellOptions,
+} from "./tool-catalog.js";
+export {
 	type RestartPolicy,
 	type SupervisorConfig,
 	type ToolServiceConfig,

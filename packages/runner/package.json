@@ -37,8 +37,7 @@
 		"strip-ansi": "^7.2.0",
 		"yaml": "^2.8.2",
 		"@dpopsuev/alef-organ-security-policy": "^0.0.1",
-		"@dpopsuev/alef-coding-agent": "^1.0.0",
-		"@dpopsuev/alef-organ-toolshell": "^0.0.1"
+		"@dpopsuev/alef-coding-agent": "^1.0.0"
 	},
 	"devDependencies": {
 		"@types/node": "^24.3.0",

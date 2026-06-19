@@ -7,6 +7,7 @@ import type { InteractiveOptions } from "./interactive.js";
 import { PromptConsole } from "./prompt-console.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, glyph, type ThemeTokens } from "./theme.js";
+import { ChannelManager } from "./tui/channel-manager.js";
 import { ChatLog } from "./tui/chat-log.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 import { ReplyBlock } from "./tui/reply-block.js";
@@ -20,6 +21,7 @@ export interface TuiLayout {
 	thinkingTW: Typewriter;
 	promptConsole: PromptConsole;
 	historyProvider: HistoryAutocompleteProvider;
+	channels: ChannelManager;
 }
 
 export async function buildLayout(
@@ -49,8 +51,11 @@ export async function buildLayout(
 	const splash = await renderSplash();
 	if (splash) tui.addChild(new Text(splash, 2, 0));
 
+	const chatParent = new Container();
+	tui.addChild(chatParent);
 	const chat = new Container();
-	tui.addChild(chat);
+	chatParent.addChild(chat);
+	const channels = new ChannelManager(chatParent, chat);
 
 	const promptConsole = new PromptConsole(tui, t, opts.modelId);
 	promptConsole.mount();
@@ -111,5 +116,5 @@ export async function buildLayout(
 		() => tui.requestRender(),
 	);
 
-	return { writer, replyBlock, replyTW, thinkingTW, promptConsole, historyProvider };
+	return { writer, replyBlock, replyTW, thinkingTW, promptConsole, historyProvider, channels };
 }

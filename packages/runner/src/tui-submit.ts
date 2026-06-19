@@ -20,6 +20,7 @@ export interface SubmitConfig {
 	dispatch: (event: TuiEvent) => void;
 	ctx: () => TuiHandlerContext;
 	onThinkingStop: () => void;
+	channels?: { switchTo(name: string): unknown; list(): string[]; active: string };
 }
 
 /**
@@ -47,8 +48,26 @@ export function createSubmitHandler(config: SubmitConfig) {
 		name: "message",
 		leader: "@",
 		detection: "beginning",
-		description: "Route message to a named agent",
+		description: "Route message or switch channel",
 		handle: async (text) => {
+			const trimmed = text.trim();
+
+			// Bare "@" → list available channels
+			if (trimmed === "@" && config.channels) {
+				const chans = config.channels.list();
+				const active = config.channels?.active;
+				writer.addNotice(`Channels: ${chans.map((c) => `@${c}${c === active ? " (active)" : ""}`).join(", ")}`);
+				return true;
+			}
+
+			// Bare "@name" (no message) → switch channel
+			const bareMatch = /^@([\w.]+)$/.exec(trimmed);
+			if (bareMatch && config.channels) {
+				config.channels.switchTo(bareMatch[1]);
+				writer.addNotice(`Switched to @${bareMatch[1]}`);
+				return true;
+			}
+
 			if (!actorRoutes) return false;
 			const parsed = parseAtAddress(text);
 			if (!parsed) return false;

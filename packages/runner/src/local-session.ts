@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { NerveEvent, Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
+import { ForumStore } from "@dpopsuev/alef-organ-forum";
 import { createMetaOrgan } from "@dpopsuev/alef-organ-meta";
 import { buildBootCatalog } from "@dpopsuev/alef-organ-toolshell";
 import { AgentController } from "@dpopsuev/alef-runtime";
@@ -293,7 +294,11 @@ export async function createLocalSession(
 		},
 	});
 
-	const controller = new AgentController(agent, { onReply: replySink });
+	const sessionForum = new ForumStore(dirname(store.path));
+	const controller = new AgentController(agent, {
+		onReply: replySink,
+		transcript: { store: sessionForum, topic: "sessions", thread: store.id },
+	});
 
 	actorRoutes.register(agentActor.color, async (message, timeout) => {
 		await controller.send(message, "human", timeout);

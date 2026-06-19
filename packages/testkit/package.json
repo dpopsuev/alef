@@ -19,7 +19,7 @@
     "./organ": {
       "source": "./src/organ.ts",
       "types": "./dist/organ.d.ts",
-      "import": "./dist/organ.js"
+      "import": "./src/organ.ts"
     },
     "./vitest-config": {
       "source": "./src/vitest-config.ts",

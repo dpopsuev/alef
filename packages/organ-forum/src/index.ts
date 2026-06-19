@@ -1,4 +1,6 @@
 export { createForumOrgan, type ForumOrganOptions } from "./organ.js";
+export { ForumStore } from "./store.js";
+export type { Post, ThreadInfo, TopicSummary } from "./types.js";
 
 import type { Organ } from "@dpopsuev/alef-kernel";
 import { createForumOrgan } from "./organ.js";

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { InProcessNerve, type Organ, type SenseEvent } from "@dpopsuev/alef-kernel";
-import { BusEventRecorder } from "./index.js";
+import { BusEventRecorder } from "./bus-event-recorder.js";
 
 /**
  * NerveFixture — shared test harness for organ integration tests.

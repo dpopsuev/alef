@@ -1,4 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import type { Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { type Directive, Directives, xmlRenderer } from "./directives.js";
@@ -81,7 +82,17 @@ export function buildGuidelinesBlock(_tools: readonly ToolDefinition[]): string 
 
 export function buildEnvironmentBlock(cwd: string): string {
 	const date = new Date().toISOString().split("T")[0];
-	return `Date: ${date}\nDirectory: ${cwd}`;
+	const pid = process.pid;
+	const user = process.env.USER ?? process.env.USERNAME ?? "unknown";
+	const host = process.env.HOSTNAME ?? hostname();
+	return [
+		`Date: ${date}`,
+		`Directory: ${cwd}`,
+		`PID: ${pid}`,
+		`User: ${user}@${host}`,
+		`Debug log: ~/.alef/debug.log`,
+		`Session store: ~/.alef/sessions/`,
+	].join("\n");
 }
 
 export interface CreateScrollOptions {

@@ -20,8 +20,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ExecutionStrategy, gimpedOrgan, type Organ, type SendRequest } from "@dpopsuev/alef-kernel";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder, ScriptedReasoner, type ScriptStep, step } from "./index.js";
 
 export interface GauntletOptions {
@@ -57,7 +56,7 @@ export interface GauntletSendOptions {
 export class BlueprintGauntlet implements ExecutionStrategy {
 	readonly workspace: string;
 	private readonly agent: Agent;
-	private readonly dialog: DialogOrgan;
+	private readonly controller: AgentController;
 	private readonly recorder: BusEventRecorder;
 	readonly scriptedLlm: ScriptedReasoner;
 	private readonly timeoutMs: number;
@@ -65,14 +64,14 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	private constructor(
 		workspace: string,
 		agent: Agent,
-		dialog: DialogOrgan,
+		controller: AgentController,
 		recorder: BusEventRecorder,
 		scriptedLlm: ScriptedReasoner,
 		timeoutMs: number,
 	) {
 		this.workspace = workspace;
 		this.agent = agent;
-		this.dialog = dialog;
+		this.controller = controller;
 		this.recorder = recorder;
 		this.scriptedLlm = scriptedLlm;
 		this.timeoutMs = timeoutMs;
@@ -88,16 +87,16 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 
 		const script = opts.script ?? [step.reply("Done.")];
 		const scriptedLlm = new ScriptedReasoner(script);
-		const dialog = new DialogOrgan();
 		const recorder = new BusEventRecorder();
 
 		const agent = new Agent();
-		for (const organ of [...opts.organs, dialog, scriptedLlm]) {
+		for (const organ of [...opts.organs, scriptedLlm]) {
 			agent.load(organ);
 		}
 		agent.observe(recorder);
 
-		return new BlueprintGauntlet(workspace, agent, dialog, recorder, scriptedLlm, opts.timeoutMs ?? 30_000);
+		const controller = new AgentController(agent);
+		return new BlueprintGauntlet(workspace, agent, controller, recorder, scriptedLlm, opts.timeoutMs ?? 30_000);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -106,23 +105,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 
 	/** Send a message to the agent and await the reply. */
 	async send({ text }: SendRequest): Promise<string> {
-		return new Promise<string>((resolve, reject) => {
-			const timer = setTimeout(
-				() => reject(new Error(`BlueprintGauntlet.send() timed out after ${this.timeoutMs}ms`)),
-				this.timeoutMs,
-			);
-
-			this.dialog
-				.send(text)
-				.then((reply) => {
-					clearTimeout(timer);
-					resolve(reply);
-				})
-				.catch((err) => {
-					clearTimeout(timer);
-					reject(err);
-				});
-		});
+		return this.controller.send(text, "human", this.timeoutMs);
 	}
 
 	// ---------------------------------------------------------------------------

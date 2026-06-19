@@ -6,7 +6,7 @@ import { formatError } from "../src/errors.js";
 
 describe("formatError", { tags: ["unit"] }, () => {
 	it("formats timeout errors", () => {
-		const msg = formatError(new Error("DialogOrgan.send timed out after 120000ms"));
+		const msg = formatError(new Error("AgentController.send timed out after 120000ms"));
 		expect(msg).toContain("timed out");
 		expect(msg).not.toContain("120000");
 	});

@@ -19,10 +19,9 @@
 
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 
 import type { JudgeReport } from "./judging-organ.js";
 import { createJudgingOrgan } from "./judging-organ.js";
@@ -188,7 +187,6 @@ export class JudgePanelRunner {
 		});
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
 
 		// Read-only fs organ (no write actions).
 		const fsReadOnly = createFsOrgan({
@@ -200,14 +198,14 @@ export class JudgePanelRunner {
 		// Domain-specific organs from the caller's factory.
 		const extraOrgans = await this.opts.agentLoopFactory(workspace, agent.signal, [fsReadOnly, shell, judgingOrgan]);
 
-		agent.load(dialog);
 		for (const organ of extraOrgans) agent.load(organ);
 
+		const controller = new AgentController(agent);
 		await agent.ready();
 
 		try {
 			await Promise.race([
-				dialog.send(judge.prompt, "human", timeoutMs),
+				controller.send(judge.prompt, "human", timeoutMs),
 				new Promise<never>((_, reject) =>
 					setTimeout(() => reject(new Error(`judge ${judge.name} timed out`)), timeoutMs),
 				),

@@ -11,9 +11,9 @@
 
 import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { passthroughSchema } from "@dpopsuev/alef-kernel";
+import { AgentController } from "@dpopsuev/alef-runtime";
 import { defineStubOrgan } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { Agent } from "../src/index.js";
 
 const ANY = passthroughSchema({ type: "object", properties: {} });
@@ -139,21 +139,20 @@ class QuiescentLLM implements Organ {
 // ---------------------------------------------------------------------------
 
 describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
-	it("single tool call round-trip resolves dialog.send()", async () => {
+	it("single tool call round-trip resolves controller.send()", async () => {
 		const llm = new SingleToolLLM();
-		const dialog = new DialogOrgan({ sink: () => {} });
 		const agent = new Agent();
-		agent.load(dialog).load(llm).load(stubFsOrgan());
+		agent.load(llm).load(stubFsOrgan());
+		const controller = new AgentController(agent);
 
-		const reply = await dialog.send("Find TypeScript files");
+		const reply = await controller.send("Find TypeScript files");
 		expect(reply).toBe("Found TypeScript files.");
 		agent.dispose();
 	});
 
 	it("Agent aggregates tool definitions from all loaded organs", () => {
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(stubFsOrgan()).load(stubShellOrgan());
+		agent.load(stubFsOrgan()).load(stubShellOrgan());
 
 		const names = agent.tools.map((t) => t.name);
 		expect(names).toContain("fs.read");
@@ -166,11 +165,11 @@ describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 
 	it("toolCallId is mirrored in Sense result for correlation", async () => {
 		const llm = new SingleToolLLM();
-		const dialog = new DialogOrgan({ sink: () => {} });
 		const agent = new Agent();
-		agent.load(dialog).load(llm).load(stubFsOrgan());
+		agent.load(llm).load(stubFsOrgan());
+		const controller = new AgentController(agent);
 
-		await dialog.send("go");
+		await controller.send("go");
 
 		expect(llm.receivedResults).toHaveLength(1);
 		expect((llm.receivedResults[0] as { toolCallId: string }).toolCallId).toBe("tc-001");
@@ -179,11 +178,11 @@ describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 
 	it("fan-out: both tool calls execute in parallel, both complete before reply", async () => {
 		const llm = new FanOutLLM();
-		const dialog = new DialogOrgan({ sink: () => {} });
 		const agent = new Agent();
-		agent.load(dialog).load(llm).load(stubFsOrgan()).load(stubShellOrgan());
+		agent.load(llm).load(stubFsOrgan()).load(stubShellOrgan());
+		const controller = new AgentController(agent);
 
-		const reply = await dialog.send("do both");
+		const reply = await controller.send("do both");
 
 		expect(reply).toBe("Both done.");
 		expect(llm.completionOrder).toContain("fs.find");
@@ -195,10 +194,10 @@ describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 	it("quiescence: LLM with no tool calls terminates immediately", async () => {
 		const llm = new QuiescentLLM();
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(llm);
+		const controller = new AgentController(agent, { onReply: () => {} });
+		agent.load(llm);
 
-		const reply = await dialog.send("anything");
+		const reply = await controller.send("anything");
 		expect(reply).toBe("No tools needed.");
 		agent.dispose();
 	});

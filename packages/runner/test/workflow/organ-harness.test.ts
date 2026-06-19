@@ -10,10 +10,9 @@
  */
 
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-organ-workflow";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";
 import { ImplStationRunner } from "../../src/workflow/station-strategy.js";
 
@@ -86,8 +85,8 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 
 		let outerReply = "";
 		const agent = new Agent();
-		const dialog = new DialogOrgan({
-			sink: (t) => {
+		const controller = new AgentController(agent, {
+			onReply: (t: string) => {
 				if (t) outerReply = t;
 			},
 		});
@@ -95,9 +94,9 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 			model: faux.getModel(),
 		});
 
-		agent.load(dialog).load(llm).load(workflowOrgan);
+		agent.load(llm).load(workflowOrgan);
 		await agent.ready();
-		await dialog.send("Plan: add dark mode to the settings page", "human", 60_000);
+		await controller.send("Plan: add dark mode to the settings page", "human", 60_000);
 		agent.dispose();
 
 		expect(outerReply).toContain("Planning complete");
@@ -116,8 +115,8 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 
 		let outerReply = "";
 		const agent = new Agent();
-		const dialog = new DialogOrgan({
-			sink: (t) => {
+		const controller = new AgentController(agent, {
+			onReply: (t: string) => {
 				if (t) outerReply = t;
 			},
 		});
@@ -125,9 +124,9 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 			model: faux.getModel(),
 		});
 
-		agent.load(dialog).load(llm).load(workflowOrgan);
+		agent.load(llm).load(workflowOrgan);
 		await agent.ready();
-		await dialog.send("Run a bad station", "human", 30_000);
+		await controller.send("Run a bad station", "human", 30_000);
 		agent.dispose();
 
 		expect(outerReply).toContain("does not exist");

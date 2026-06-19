@@ -13,10 +13,9 @@
 
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
@@ -25,11 +24,10 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const SEND_TIMEOUT = 5_000;
 
-/** Minimal agent: organ-llm with faux LLM + DialogOrgan. */
+/** Minimal agent: organ-llm with faux LLM + AgentController. */
 function makeAgent(opts: { systemPrompt?: string; phaseTimeoutMs?: number; maxRetries?: number } = {}) {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
-	const dialog = new DialogOrgan({ sink: () => {} });
 
 	const llm = createAgentLoop({
 		model: faux.getModel(),
@@ -39,9 +37,10 @@ function makeAgent(opts: { systemPrompt?: string; phaseTimeoutMs?: number; maxRe
 		maxRetries: opts.maxRetries ?? 0,
 	});
 
-	agent.load(dialog).load(llm);
+	agent.load(llm);
 	if (opts.phaseTimeoutMs) agent.load(createContextAssemblyPipeline());
-	return { faux, agent, dialog };
+	const controller = new AgentController(agent);
+	return { faux, agent, controller };
 }
 
 const disposes: Array<() => void> = [];
@@ -61,7 +60,7 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 			return fauxAssistantMessage("ok");
 		};
 
-		const { faux, agent, dialog } = makeAgent({ systemPrompt: "SENTINEL_DIRECTIVE_XYZ" });
+		const { faux, agent, controller } = makeAgent({ systemPrompt: "SENTINEL_DIRECTIVE_XYZ" });
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -69,7 +68,7 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 		});
 
 		await agent.ready();
-		await dialog.send("hello", "human", SEND_TIMEOUT);
+		await controller.send("hello", "human", SEND_TIMEOUT);
 
 		expect(capturedSystem).toContain("SENTINEL_DIRECTIVE_XYZ");
 	});
@@ -81,7 +80,7 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 			return fauxAssistantMessage("ok");
 		};
 
-		const { faux, agent, dialog } = makeAgent({ systemPrompt: "STABLE_PROMPT" });
+		const { faux, agent, controller } = makeAgent({ systemPrompt: "STABLE_PROMPT" });
 		faux.setResponses([factory, factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -89,8 +88,8 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 		});
 
 		await agent.ready();
-		await dialog.send("turn 1", "human", SEND_TIMEOUT);
-		await dialog.send("turn 2", "human", SEND_TIMEOUT);
+		await controller.send("turn 1", "human", SEND_TIMEOUT);
+		await controller.send("turn 2", "human", SEND_TIMEOUT);
 
 		expect(captured[0]).toContain("STABLE_PROMPT");
 		expect(captured[1]).toContain("STABLE_PROMPT");
@@ -103,7 +102,7 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 			return fauxAssistantMessage("ok");
 		};
 
-		const { faux, agent, dialog } = makeAgent({ systemPrompt: "VISIBLE_RULE" });
+		const { faux, agent, controller } = makeAgent({ systemPrompt: "VISIBLE_RULE" });
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -111,7 +110,7 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 		});
 
 		await agent.ready();
-		await dialog.send("hello", "human", SEND_TIMEOUT);
+		await controller.send("hello", "human", SEND_TIMEOUT);
 
 		expect(capturedSystem).toContain("VISIBLE_RULE");
 		expect(capturedSystem).not.toContain("HIDDEN_RULE");
@@ -124,7 +123,7 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 			return fauxAssistantMessage("ok");
 		};
 
-		const { faux, agent, dialog } = makeAgent();
+		const { faux, agent, controller } = makeAgent();
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -132,7 +131,7 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 		});
 
 		await agent.ready();
-		await dialog.send("hello", "human", SEND_TIMEOUT);
+		await controller.send("hello", "human", SEND_TIMEOUT);
 
 		expect(capturedSystem).toBeUndefined();
 	});
@@ -145,7 +144,7 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
 	it("motor/context.assemble fires and its messages include the user message", async () => {
 		let phaseMessages: unknown[] | undefined;
-		const { faux, agent, dialog } = makeAgent({ phaseTimeoutMs: 100 });
+		const { faux, agent, controller } = makeAgent({ phaseTimeoutMs: 100 });
 		faux.setResponses([fauxAssistantMessage("done")]);
 		disposes.push(() => {
 			agent.dispose();
@@ -157,7 +156,7 @@ describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
 		});
 
 		await agent.ready();
-		await dialog.send("hello", "human", SEND_TIMEOUT);
+		await controller.send("hello", "human", SEND_TIMEOUT);
 
 		expect(phaseMessages).toBeDefined();
 		const user = (phaseMessages ?? []).find((m) => (m as { role: string }).role === "user");
@@ -173,7 +172,7 @@ describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
 			return fauxAssistantMessage("done");
 		};
 
-		const { faux, agent, dialog } = makeAgent({ phaseTimeoutMs: 100 });
+		const { faux, agent, controller } = makeAgent({ phaseTimeoutMs: 100 });
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -184,7 +183,7 @@ describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
 		agent.load(createContextAssemblyPipeline());
 
 		await agent.ready();
-		await dialog.send("hello", "human", SEND_TIMEOUT);
+		await controller.send("hello", "human", SEND_TIMEOUT);
 
 		const names = (capturedTools ?? []).map((t) => (t as { name: string }).name);
 		// organ-llm substitutes dots with underscores for the LLM wire format.
@@ -198,7 +197,7 @@ describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
 
 describe("retry on transient error", { tags: ["unit"] }, () => {
 	it("retries a rate-limit error and returns the second response", async () => {
-		const { faux, agent, dialog } = makeAgent({ maxRetries: 2 });
+		const { faux, agent, controller } = makeAgent({ maxRetries: 2 });
 		faux.setResponses([
 			fauxAssistantMessage("", { stopReason: "error", errorMessage: "429 rate_limit exceeded" }),
 			fauxAssistantMessage("success after retry"),
@@ -209,14 +208,14 @@ describe("retry on transient error", { tags: ["unit"] }, () => {
 		});
 
 		await agent.ready();
-		const reply = await dialog.send("hello", "human", SEND_TIMEOUT);
+		const reply = await controller.send("hello", "human", SEND_TIMEOUT);
 
 		expect(reply).toBe("success after retry");
 		expect(faux.state.callCount).toBe(2);
 	});
 
 	it("does not retry a non-transient error", async () => {
-		const { faux, agent, dialog } = makeAgent({ maxRetries: 2 });
+		const { faux, agent, controller } = makeAgent({ maxRetries: 2 });
 		faux.setResponses([
 			fauxAssistantMessage("", { stopReason: "error", errorMessage: "invalid_request: bad input" }),
 			fauxAssistantMessage("should not reach"),
@@ -227,7 +226,7 @@ describe("retry on transient error", { tags: ["unit"] }, () => {
 		});
 
 		await agent.ready();
-		await dialog.send("hello", "human", SEND_TIMEOUT);
+		await controller.send("hello", "human", SEND_TIMEOUT);
 
 		expect(faux.state.callCount).toBe(1);
 	});
@@ -246,7 +245,7 @@ describe("budget.cancel", { tags: ["unit"] }, () => {
 				setTimeout(finish, 3_000);
 			});
 
-		const { faux, agent, dialog } = makeAgent();
+		const { faux, agent, controller } = makeAgent();
 		faux.setResponses([factory]);
 		disposes.push(() => {
 			agent.dispose();
@@ -255,7 +254,7 @@ describe("budget.cancel", { tags: ["unit"] }, () => {
 
 		await agent.ready();
 
-		const sendPromise = dialog.send("hello", "human", SEND_TIMEOUT);
+		const sendPromise = controller.send("hello", "human", SEND_TIMEOUT);
 		await new Promise<void>((r) => setTimeout(r, 50));
 		agent.publishSense({
 			type: "budget.cancel",

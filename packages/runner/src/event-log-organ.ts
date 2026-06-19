@@ -6,7 +6,7 @@
  *
  * This is the missing link between the EDA bus and the persistent event log.
  * Once wired, the TurnAssembler can read the full event history
- * and build accurate context windows without relying on DialogOrgan.history[].
+ * and build accurate context windows without relying on AgentController.history[].
  *
  * Not a organ — no tools, no subscriptions via defineOrgan.
  * Implements Organ directly (same as EvaluatorOrgan).

@@ -1,3 +1,4 @@
+export { AgentController, type AgentControllerOptions, type ReplySink } from "./agent-controller.js";
 export type { SubagentFactory, SubagentFactoryOptions } from "./in-process.js";
 export { InProcessStrategy } from "./in-process.js";
 export { RemoteStrategy, type RemoteStrategyOptions } from "./remote-strategy.js";
@@ -235,7 +236,7 @@ export class Agent {
 	/**
 	 * Inject a sense event directly into the agent's spine.
 	 * Used by autonomous-agent test harnesses to trigger the Reasoner
-	 * without going through DialogOrgan.send().
+	 * without going through AgentController.send().
 	 */
 	publishSense(event: SensePublishInput): void {
 		this.nerve.publishSense(event);

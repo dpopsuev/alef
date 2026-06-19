@@ -31,7 +31,7 @@ function makeModel() {
 
 /**
  * Standard test harness: bare nerve, TurnDriver, LLM organ, optional BusEventRecorder.
- * Replaces the Agent + DialogOrgan + organ-llm construction that appeared in every test.
+ * Replaces the Agent + AgentController + organ-llm construction that appeared in every test.
  */
 function makeHarness(llm: Organ) {
 	const f = new NerveFixture();

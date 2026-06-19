@@ -25,8 +25,7 @@
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ, SendRequest } from "@dpopsuev/alef-kernel";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { Agent, type BusObserver } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController, type BusObserver } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "./index.js";
 import type { ScriptStep } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";
@@ -64,7 +63,7 @@ export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
 
 export class BlueprintHarness implements ExecutionStrategy {
 	private readonly agent: Agent;
-	private readonly dialog: DialogOrgan;
+	private readonly controller: AgentController;
 	private readonly recorder: BusEventRecorder;
 	/** Exposed for advanced test scenarios (e.g. reset between turns). */
 	readonly scriptedLlm: ScriptedReasoner;
@@ -73,13 +72,13 @@ export class BlueprintHarness implements ExecutionStrategy {
 
 	private constructor(
 		agent: Agent,
-		dialog: DialogOrgan,
+		controller: AgentController,
 		recorder: BusEventRecorder,
 		scriptedLlm: ScriptedReasoner,
 		timeoutMs: number,
 	) {
 		this.agent = agent;
-		this.dialog = dialog;
+		this.controller = controller;
 		this.recorder = recorder;
 		this.scriptedLlm = scriptedLlm;
 		this.timeoutMs = timeoutMs;
@@ -114,9 +113,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 		const scriptedLlm = new ScriptedReasoner(opts.script);
 		const agent = new Agent();
 
-		const dialog = new DialogOrgan({ sink: () => {} });
-
-		agent.load(dialog).load(scriptedLlm);
+		agent.load(scriptedLlm);
 		for (const organ of opts.organs ?? []) {
 			agent.load(organ);
 		}
@@ -124,7 +121,8 @@ export class BlueprintHarness implements ExecutionStrategy {
 		agent.observe(recorder as BusObserver);
 		agent.validate();
 
-		return new BlueprintHarness(agent, dialog, recorder, scriptedLlm, opts.timeoutMs ?? 30_000);
+		const controller = new AgentController(agent);
+		return new BlueprintHarness(agent, controller, recorder, scriptedLlm, opts.timeoutMs ?? 30_000);
 	}
 
 	// -------------------------------------------------------------------------
@@ -134,7 +132,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 	/** Send a message to the agent and return its reply (conversation agents). */
 	async send({ text }: SendRequest): Promise<string> {
 		this.recorder.clear();
-		const reply = await this.dialog.send(text, "human", this.timeoutMs);
+		const reply = await this.controller.send(text, "human", this.timeoutMs);
 		this._lastReply = reply;
 		return reply;
 	}

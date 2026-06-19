@@ -6,7 +6,7 @@
  *   2. Drives session.send / session.receive to deliver user input (input side)
  *
  * The Dialog Organ sits between the viewer and the bus — the viewer never
- * touches the bus directly. session.send() → DialogOrgan → sense/llm.input.
+ * touches the bus directly. session.send() → AgentController → sense/llm.input.
  *
  * Implementations:
  *   HeadlessViewMode  — in-process, records events, exposes typed assertions

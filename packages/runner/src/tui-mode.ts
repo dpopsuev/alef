@@ -27,9 +27,14 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	const t = getTheme();
 
 	if (process.env.ALEF_DEBUG === "1") {
-		const frameStream = createWriteStream("/tmp/alef-frames.jsonl", { flags: "a" });
+		const frameStream = createWriteStream("/tmp/alef-frames.jsonl", { flags: "w" });
+		let frameBytes = 0;
+		const MAX_FRAME_BYTES = 50 * 1024 * 1024;
 		tui.onRender = (frame: string, width: number) => {
-			frameStream.write(`${JSON.stringify({ frame, width, ...tui.renderMeta })}\n`);
+			if (frameBytes > MAX_FRAME_BYTES) return;
+			const line = `${JSON.stringify({ frame, width, ...tui.renderMeta })}\n`;
+			frameBytes += line.length;
+			frameStream.write(line);
 		};
 	}
 

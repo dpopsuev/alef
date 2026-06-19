@@ -49,9 +49,13 @@ const clear = {
 
 const session = {
 	name: "session",
-	description: "Show session ID",
+	description: "Show session info + resume command",
 	run(ctx: TuiHandlerContext) {
-		ctx.writer.addNotice(`session: ${ctx.session.state.id}`);
+		ctx.writer.addNotice(
+			`session: ${ctx.session.state.id}\n` +
+				`model: ${ctx.session.state.modelId}\n` +
+				`To resume: alef --resume ${ctx.session.state.id}`,
+		);
 		ctx.tui.requestRender();
 	},
 };

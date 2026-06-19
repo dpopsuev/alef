@@ -1,10 +1,9 @@
 import type { SubagentFactory } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { buildModel } from "./model.js";
@@ -33,11 +32,6 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		let reply = "";
 		let totalInputTokens = 0;
 		let totalOutputTokens = 0;
-		const dialog = new DialogOrgan({
-			sink: (text) => {
-				if (text) reply = text;
-			},
-		});
 		const dateContext = `Date: ${new Date().toISOString().split("T")[0]}`;
 		const systemPrompt =
 			[dateContext, opts.baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
@@ -58,7 +52,13 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		const pipeline = createContextAssemblyPipeline();
 		agent.load(toolShell);
 		agent.load(pipeline);
-		agent.load(dialog).load(llm);
+		agent.load(llm);
+
+		const controller = new AgentController(agent, {
+			onReply: (text) => {
+				if (text) reply = text;
+			},
+		});
 		// Emit identity immediately so the parent can display @colorName.
 		onInnerEvent?.(subId, "agent.identity", { color: subActor.color, address: subActor.address });
 
@@ -78,7 +78,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 					}
 					if (tokenBudget && !budgetExceeded && totalInputTokens + totalOutputTokens >= tokenBudget) {
 						budgetExceeded = true;
-						dialog.receive(
+						controller.receive(
 							"[system] Token budget reached. Wrap up now — summarize your findings and return your final answer. Do not start new tool calls.",
 							"system",
 						);
@@ -96,13 +96,13 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		// Register subagent address so the TUI can route @color messages to it.
 		opts.actorRoutes?.register(subActor.color, async (message, timeout) => {
 			await agent.ready();
-			await dialog.send(message, "human", timeout);
+			await controller.send(message, "human", timeout);
 		});
 
 		return {
 			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
 				await agent.ready();
-				await dialog.send(text, sender, timeoutMs);
+				await controller.send(text, sender, timeoutMs);
 				return reply;
 			},
 			get identity() {

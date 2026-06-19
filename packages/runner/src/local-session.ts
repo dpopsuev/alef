@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { NerveEvent, Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createMetaOrgan } from "@dpopsuev/alef-organ-meta";
 import { buildBootCatalog } from "@dpopsuev/alef-organ-toolshell";
+import { AgentController } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import { buildAgent } from "./agent-kernel.js";
 import type { Args } from "./args.js";
@@ -224,9 +224,7 @@ export async function createLocalSession(
 		level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
 	};
 
-	const dialog = new DialogOrgan({
-		sink: !args.print && !args.json && !args.noTui && process.stdin.isTTY ? () => {} : makeSink(args.json),
-	});
+	const replySink = !args.print && !args.json && !args.noTui && process.stdin.isTTY ? undefined : makeSink(args.json);
 
 	const sessionState: SessionState = { id: store.id, modelId: model.id, contextWindow: model.contextWindow };
 
@@ -284,8 +282,7 @@ export async function createLocalSession(
 		systemPrompt,
 	});
 
-	const { agent } = buildAgent({
-		dialog,
+	const agent = buildAgent({
 		llm: llmOrgan,
 		session: store,
 		modelId: model.id,
@@ -296,9 +293,10 @@ export async function createLocalSession(
 		},
 	});
 
-	// Register the main agent route — @agentcolor sends to dialog.send()
+	const controller = new AgentController(agent, { onReply: replySink });
+
 	actorRoutes.register(agentActor.color, async (message, timeout) => {
-		await dialog.send(message, "human", timeout);
+		await controller.send(message, "human", timeout);
 	});
 
 	for (const organ of stack.organs) agent.load(organ);
@@ -313,7 +311,7 @@ export async function createLocalSession(
 			llmController = c;
 		},
 		dispose: () => {},
-		receive: (text: string) => dialog.receive(text, "user"),
+		receive: (text: string) => controller.receive(text, "user"),
 		subscribe: (obs: (event: AgentEvent) => void) => {
 			observers.add(obs);
 			return () => observers.delete(obs);
@@ -369,7 +367,7 @@ export async function createLocalSession(
 		state: sessionState,
 		model,
 		thinkingState,
-		dialog,
+		controller,
 		agent,
 		directives,
 		args,

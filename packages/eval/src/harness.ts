@@ -20,8 +20,7 @@ import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Organ } from "@dpopsuev/alef-kernel";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { defaultEvalOrgans } from "./default-organs.js";
 import { EvaluatorOrgan } from "./evaluator-organ.js";
@@ -103,7 +102,7 @@ export class AgentHandle {
 	readonly path: string;
 
 	private readonly _agent: Agent;
-	private readonly _dialog: DialogOrgan;
+	private readonly _controller: AgentController;
 	private readonly _evaluator: EvaluatorOrgan;
 	private readonly _rootSpan: ReturnType<typeof tracer.startSpan>;
 	private readonly _rootCtx: ReturnType<typeof trace.setSpan>;
@@ -127,7 +126,7 @@ export class AgentHandle {
 	constructor(params: {
 		path: string;
 		agent: Agent;
-		dialog: DialogOrgan;
+		controller: AgentController;
 		evaluator: EvaluatorOrgan;
 		rootSpan: ReturnType<typeof tracer.startSpan>;
 		rootCtx: ReturnType<typeof trace.setSpan>;
@@ -142,7 +141,7 @@ export class AgentHandle {
 	}) {
 		this.path = params.path;
 		this._agent = params.agent;
-		this._dialog = params.dialog;
+		this._controller = params.controller;
 		this._evaluator = params.evaluator;
 		this._rootSpan = params.rootSpan;
 		this._rootCtx = params.rootCtx;
@@ -167,7 +166,9 @@ export class AgentHandle {
 	/** Send one turn to the agent and await the reply. */
 	async send(text: string): Promise<string> {
 		const sendStart = Date.now();
-		const reply = await context.with(this._rootCtx, () => this._dialog.send(text, "human", this._scenarioTimeoutMs));
+		const reply = await context.with(this._rootCtx, () =>
+			this._controller.send(text, "human", this._scenarioTimeoutMs),
+		);
 		this._sendTimingsMs.push(Date.now() - sendStart);
 		this._lastReply = reply;
 		return reply;
@@ -333,10 +334,8 @@ export class EvalHarness {
 
 		const evaluator = new EvaluatorOrgan({ loopThreshold: opts.loopThreshold });
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
 
 		const baseOrgans = (opts.baseOrgansFactory ?? defaultEvalOrgans)(workspace);
-		agent.load(dialog);
 		for (const organ of baseOrgans) agent.load(organ);
 		agent.load(evaluator);
 		for (const organ of opts.extraOrgans ?? []) agent.load(organ);
@@ -414,10 +413,12 @@ export class EvalHarness {
 			unobserve = agent.observe(busTracer);
 		}
 
+		const controller = new AgentController(agent);
+
 		return new AgentHandle({
 			path: workspace,
 			agent,
-			dialog,
+			controller,
 			evaluator,
 			rootSpan,
 			rootCtx,

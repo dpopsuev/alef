@@ -8,7 +8,7 @@
  * → SSE stream delivers motor + sense events
  * → SessionLog writes StorageRecord to JSONL
  * → TurnAssembler reconstructs turn from JSONL
- * → Multi-turn: DialogOrgan accumulates history
+ * → Multi-turn: AgentController accumulates history
  * → SSE filter: allowedEvents blocks internal events
  * → Session resume: reload JSONL, history intact
  *
@@ -21,10 +21,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
 import { createRouterOrgan } from "@dpopsuev/alef-organ-router";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { ScriptedReasoner, type ScriptStep, step } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { SessionLog } from "../src/event-log-organ.js";
@@ -126,7 +125,7 @@ function collectSse(
 interface Fixture {
 	cwd: string;
 	baseUrl: string;
-	dialog: DialogOrgan;
+	controller: AgentController;
 	store: SessionStore;
 	agent: Agent;
 	unmountAgent: () => Promise<void>;
@@ -142,16 +141,16 @@ async function bootFixture(
 
 	const store = await SessionStore.create(cwd);
 
-	const dialog = new DialogOrgan({ sink: () => {} });
-
 	const scripted = new ScriptedReasoner(Array.isArray(opts.script) ? opts.script : [opts.script]);
 	const fs = createFsOrgan({ cwd });
 	const router = createRouterOrgan({ port: 0, allowedEvents: opts.allowedEvents, triggerEvent: "llm.input" });
 	const eventLog = new SessionLog(store);
 
 	const agent = new Agent();
-	agent.load(dialog).load(scripted).load(fs).load(router).load(eventLog);
+	agent.load(scripted).load(fs).load(router).load(eventLog);
 	agent.validate();
+
+	const controller = new AgentController(agent);
 
 	await router.ready();
 	const addr = router.address()!;
@@ -160,7 +159,7 @@ async function bootFixture(
 	return {
 		cwd,
 		baseUrl,
-		dialog,
+		controller,
 		store,
 		agent,
 		unmountAgent: async () => {
@@ -203,7 +202,7 @@ describe("Lifecycle — boot and serve", { tags: ["integration"] }, () => {
 
 describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }, () => {
 	it("POST /message → agent reply arrives on SSE as motor/llm.response", async () => {
-		// bootFixture uses dialog.send directly (no HTTP /message wiring in-process).
+		// bootFixture uses controller.send directly (no HTTP /message wiring in-process).
 		// This test verifies that the agent's scripted reply is broadcast over SSE.
 		const fix = await bootFixture({ script: step.reply("I am ready.") });
 		try {
@@ -217,7 +216,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 			);
 
 			await new Promise((r) => setTimeout(r, 30));
-			void fix.dialog.send("hello agent", "human");
+			void fix.controller.send("hello agent", "human");
 
 			const events = await ssePromise;
 			expect(events).toHaveLength(1);
@@ -243,7 +242,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 			);
 
 			await new Promise((r) => setTimeout(r, 30));
-			const replyPromise = fix.dialog.send("read the README", "human");
+			const replyPromise = fix.controller.send("read the README", "human");
 
 			const [events, reply] = await Promise.all([ssePromise, replyPromise]);
 
@@ -275,7 +274,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 			);
 
 			await new Promise((r) => setTimeout(r, 30));
-			await fix.dialog.send("do it", "human");
+			await fix.controller.send("do it", "human");
 
 			const events = await ssePromise;
 			expect(events).toHaveLength(1);
@@ -291,7 +290,7 @@ describe("Lifecycle — JSONL persistence (SessionLog)", { tags: ["integration"]
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
 		});
 		try {
-			await fix.dialog.send("read the file", "human");
+			await fix.controller.send("read the file", "human");
 
 			// Give fire-and-forget SessionLog writes time to settle.
 			await new Promise((r) => setTimeout(r, 80));
@@ -317,7 +316,7 @@ describe("Lifecycle — JSONL persistence (SessionLog)", { tags: ["integration"]
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
 		});
 		try {
-			await fix.dialog.send("go", "human");
+			await fix.controller.send("go", "human");
 			await new Promise((r) => setTimeout(r, 80));
 
 			const records = await fix.store.events();
@@ -340,7 +339,7 @@ describe("Lifecycle — TurnAssembler session resume", { tags: ["integration"] }
 			script: step.toolCall("fs.read", { path: "README.md" }, "I read it."),
 		});
 		try {
-			await fix.dialog.send("read the README", "human");
+			await fix.controller.send("read the README", "human");
 			await new Promise((r) => setTimeout(r, 80));
 
 			const turns = await fix.store.turns();
@@ -365,7 +364,7 @@ describe("Lifecycle — TurnAssembler session resume", { tags: ["integration"] }
 	it("session resume: reload store from same cwd, turns intact", async () => {
 		const fix = await bootFixture({ script: step.reply("first reply") });
 		try {
-			await fix.dialog.send("hello", "human");
+			await fix.controller.send("hello", "human");
 			await new Promise((r) => setTimeout(r, 80));
 
 			const sessionId = fix.store.id;
@@ -389,8 +388,8 @@ describe("Lifecycle — multi-turn context accumulation", { tags: ["integration"
 			script: [step.reply("first answer"), step.reply("second answer")],
 		});
 		try {
-			await fix.dialog.send("question one", "human");
-			await fix.dialog.send("question two", "human");
+			await fix.controller.send("question one", "human");
+			await fix.controller.send("question two", "human");
 			const events = await fix.store.events();
 			const dialogEvents = events.filter((e) => e.type === "llm.response");
 			expect(dialogEvents.length).toBeGreaterThanOrEqual(2);
@@ -427,7 +426,7 @@ describe("Lifecycle — SSE event filter (allowedEvents)", { tags: ["integration
 			});
 
 			await new Promise((r) => setTimeout(r, 30));
-			await fix.dialog.send("go", "human");
+			await fix.controller.send("go", "human");
 			await done;
 
 			const raw = frames.join("");
@@ -449,7 +448,7 @@ describe("Lifecycle — SSE event filter (allowedEvents)", { tags: ["integration
 			const ssePromise = collectSse(fix.baseUrl, (ev) => (ev as { type?: string }).type === "fs.read", 1, 5000);
 
 			await new Promise((r) => setTimeout(r, 30));
-			await fix.dialog.send("read", "human");
+			await fix.controller.send("read", "human");
 
 			const events = await ssePromise;
 			expect((events[0] as { type: string }).type).toBe("fs.read");
@@ -467,7 +466,7 @@ describe("Lifecycle — SSE event filter (allowedEvents)", { tags: ["integration
 			const ssePromise = collectSse(fix.baseUrl, (ev) => (ev as { type?: string }).type === "fs.read", 1, 5000);
 
 			await new Promise((r) => setTimeout(r, 30));
-			await fix.dialog.send("read", "human");
+			await fix.controller.send("read", "human");
 
 			const events = await ssePromise;
 			expect(events.length).toBeGreaterThan(0);
@@ -483,7 +482,7 @@ describe("Lifecycle — audit log integrity", { tags: ["integration"] }, () => {
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
 		});
 		try {
-			await fix.dialog.send("go", "human");
+			await fix.controller.send("go", "human");
 			await new Promise((r) => setTimeout(r, 80));
 
 			const records = await fix.store.events();
@@ -504,7 +503,7 @@ describe("Lifecycle — audit log integrity", { tags: ["integration"] }, () => {
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
 		});
 		try {
-			await fix.dialog.send("go", "human");
+			await fix.controller.send("go", "human");
 			await new Promise((r) => setTimeout(r, 80));
 
 			const records = await fix.store.events();

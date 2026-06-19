@@ -4,7 +4,7 @@
  * Wraps an MCP server (stdio or HTTP) via @ai-sdk/mcp createMCPClient.
  * Discovers tools via mcpClient.tools() (schema discovery mode — automatic).
  * Maps each discovered tool to:
- * - A ToolDefinition in organ.tools[] (for DialogOrgan to include in LLM payloads)
+ * - A ToolDefinition in organ.tools[] (for AgentController to include in LLM payloads)
  * - A Motor subscription that forwards calls to the MCP server
  * - A Sense publication of MCP tool results
  *

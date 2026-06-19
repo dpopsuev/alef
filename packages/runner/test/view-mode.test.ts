@@ -9,9 +9,8 @@
 
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { AgentEvent, Session } from "../src/session.js";
@@ -101,15 +100,15 @@ function makeAgentSession(extraOrgans: import("@dpopsuev/alef-kernel").Organ[] =
 	let lastReply = "";
 	const observers = new Set<(event: AgentEvent) => void>();
 
-	const dialog = new DialogOrgan({
-		sink: (text) => {
+	const controller = new AgentController(agent, {
+		onReply: (text: string) => {
 			if (text) lastReply = text;
 		},
 	});
 	const llm = createAgentLoop({ model: faux.getModel(), apiKey: "faux" });
 
 	for (const organ of extraOrgans) agent.load(organ);
-	agent.load(dialog).load(llm);
+	agent.load(llm);
 
 	agent.observe({
 		onMotorEvent(event) {
@@ -138,7 +137,7 @@ function makeAgentSession(extraOrgans: import("@dpopsuev/alef-kernel").Organ[] =
 		dispose: () => agent.dispose(),
 		send: async (text, timeoutMs = 10_000) => {
 			await agent.ready();
-			await dialog.send(text, "human", timeoutMs);
+			await controller.send(text, "human", timeoutMs);
 			return lastReply;
 		},
 		subscribe: (obs) => {

@@ -44,7 +44,7 @@ export interface RouterOptions {
 	allowedEvents?: string[];
 	/**
 	 * Called when POST /message is received with a validated text payload.
-	 * Use this to route user messages through the DialogOrgan:
+	 * Use this to route user messages through the AgentController:
 	 * onMessage: (text) => dialog.receive(text, 'user')
 	 *
 	 * When not provided, the router publishes on motor/triggerEvent directly
@@ -256,7 +256,7 @@ export class RouterOrgan implements Organ {
 			const correlationId = randomUUID();
 
 			if (this.options.onMessage) {
-				// Route through the DialogOrgan so history is tracked and
+				// Route through the AgentController so history is tracked and
 				// the message arrives on the sense bus for Reasoner/ScriptedReasoner.
 				this.options.onMessage(text);
 			} else {

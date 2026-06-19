@@ -13,8 +13,7 @@
 
 import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
-import type { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
-import type { Agent } from "@dpopsuev/alef-runtime";
+import type { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 import type { Directives } from "./directives.js";
@@ -25,7 +24,7 @@ export interface SessionHandleComponents {
 	state: SessionState;
 	model: Model<Api>;
 	thinkingState: { level: ThinkingLevel | undefined };
-	dialog: DialogOrgan;
+	controller: AgentController;
 	agent: Agent;
 	directives: Directives;
 	args: Args;
@@ -45,7 +44,7 @@ export class SessionHandle implements Session {
 
 	private readonly _agent: Agent;
 	private readonly _directives: Directives;
-	private readonly _dialog: DialogOrgan;
+	private readonly _controller: AgentController;
 	private readonly _args: Args;
 	private readonly _log: Logger;
 
@@ -53,7 +52,7 @@ export class SessionHandle implements Session {
 		state,
 		model,
 		thinkingState,
-		dialog,
+		controller,
 		agent,
 		directives,
 		args,
@@ -63,7 +62,7 @@ export class SessionHandle implements Session {
 		this.state = state;
 		this._currentModel = model;
 		this._thinkingState = thinkingState;
-		this._dialog = dialog;
+		this._controller = controller;
 		this._agent = agent;
 		this._directives = directives;
 		this._args = args;
@@ -125,11 +124,11 @@ export class SessionHandle implements Session {
 			);
 		}
 		this._turnCount++;
-		return this._dialog.send(text, "human", timeoutMs);
+		return this._controller.send(text, "human", timeoutMs);
 	};
 
 	receive(text: string): void {
-		this._dialog.receive(text, "user");
+		this._controller.receive(text, "user");
 	}
 
 	cancelToolCall(callId: string, toolName: string): void {

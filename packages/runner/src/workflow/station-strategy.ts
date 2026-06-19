@@ -1,6 +1,5 @@
 import type { Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
 import {
 	type Contract,
@@ -13,7 +12,7 @@ import {
 	type StationResult,
 	type StationRunner,
 } from "@dpopsuev/alef-organ-workflow";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import type { z } from "zod";
 
 const PRESET_CONTRACTS: Record<string, Contract<z.ZodTypeAny>> = {
@@ -68,20 +67,20 @@ export class ImplStationRunner implements StationRunner {
 		const questionOrgan = createQuestionTool(this.onQuestion ?? defaultOnQuestion, questions);
 
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
 		const llm = createAgentLoop({
 			model: this.model,
 			systemPrompt: buildStationPrompt(station, contract),
 		});
 
-		agent.load(dialog).load(llm).load(contractOrgan).load(questionOrgan);
+		agent.load(llm).load(contractOrgan).load(questionOrgan);
 		for (const organ of this.domainOrgans) agent.load(organ);
 
+		const controller = new AgentController(agent);
 		await agent.ready();
 
 		const artifactText = artifact !== undefined ? `\n\nIncoming artifact:\n${JSON.stringify(artifact, null, 2)}` : "";
 
-		await dialog.send(`Begin station "${station.name}".${artifactText}`, "human", station.timeoutMs ?? 180_000);
+		await controller.send(`Begin station "${station.name}".${artifactText}`, "human", station.timeoutMs ?? 180_000);
 
 		agent.dispose();
 

@@ -1,7 +1,7 @@
 import type { Nerve, NerveEvent, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { Agent, type BusObserver } from "../src/index.js";
 
 class BusEventRecorder implements BusObserver {
@@ -157,36 +157,35 @@ describe("Agent — load()", { tags: ["unit"] }, () => {
 // prompt()
 // ---------------------------------------------------------------------------
 
-describe("Agent — dialog.send()", { tags: ["unit"] }, () => {
+describe("Agent — controller.send()", { tags: ["unit"] }, () => {
 	it("resolves with reply text from an echo organ", async () => {
 		const agent = makeAgent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(makeEchoOrgan());
-		const reply = await dialog.send("hello");
+		const controller = new AgentController(agent, { onReply: () => {} });
+		agent.load(makeEchoOrgan());
+		const reply = await controller.send("hello");
 		expect(reply).toBe("echo: hello");
 	});
 
 	it("correlates concurrent prompts independently", async () => {
 		const agent = makeAgent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(makeEchoOrgan());
-		const [a, b, cv] = await Promise.all([dialog.send("one"), dialog.send("two"), dialog.send("three")]);
+		const controller = new AgentController(agent, { onReply: () => {} });
+		agent.load(makeEchoOrgan());
+		const [a, b, cv] = await Promise.all([controller.send("one"), controller.send("two"), controller.send("three")]);
 		expect([a, b, cv].sort()).toEqual(["echo: one", "echo: three", "echo: two"]);
 	});
 
 	it("rejects when no organ replies within timeout", async () => {
 		const agent = makeAgent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog).load(makeNoopOrgan());
-		await expect(dialog.send("ping", "human", 20)).rejects.toThrow("timed out");
+		const controller = new AgentController(agent, { onReply: () => {} });
+		agent.load(makeNoopOrgan());
+		await expect(controller.send("ping", "human", 20)).rejects.toThrow("timed out");
 	});
 
 	it("rejects immediately if dialog is unmounted", async () => {
 		const agent = makeAgent();
-		const dialog = new DialogOrgan({ sink: () => {} });
-		agent.load(dialog);
+		const controller = new AgentController(agent, { onReply: () => {} });
 		agent.dispose();
-		await expect(dialog.send("hi")).rejects.toThrow();
+		await expect(controller.send("hi")).rejects.toThrow();
 	});
 });
 

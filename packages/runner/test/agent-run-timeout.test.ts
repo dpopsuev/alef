@@ -14,9 +14,8 @@
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createToolShellOrgan } from "@dpopsuev/alef-organ-toolshell";
-import { InProcessStrategy } from "@dpopsuev/alef-runtime";
+import { AgentController, InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { Agent } from "../../runtime/src/index.js";
@@ -51,8 +50,8 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		agents.push(agent);
 
 		let reply = "";
-		const dialog = new DialogOrgan({
-			sink: (t) => {
+		const controller = new AgentController(agent, {
+			onReply: (t: string) => {
 				if (t) reply = t;
 			},
 		});
@@ -81,7 +80,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			schemaResolver: (name) => agent.tools.find((t) => t.name === name),
 		});
 
-		agent.load(dialog).load(outerLlm);
+		agent.load(outerLlm);
 
 		// Outer LLM: calls agent.run WITHOUT specifying timeoutMs (exercises the bug path)
 		outerFaux.setResponses([
@@ -90,7 +89,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		]);
 
 		await agent.ready();
-		await dialog.send("run the subagent", "human", 10_000);
+		await controller.send("run the subagent", "human", 10_000);
 
 		// Inner agent completed (500ms), outer timeout was 610_000ms not 200ms
 		expect(reply).toBe("done");
@@ -112,8 +111,8 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		agents.push(agent);
 
 		let reply = "";
-		const dialog = new DialogOrgan({
-			sink: (t) => {
+		const controller = new AgentController(agent, {
+			onReply: (t: string) => {
 				if (t) reply = t;
 			},
 		});
@@ -138,7 +137,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			// getFullTools intentionally absent — bug path
 		});
 
-		agent.load(dialog).load(outerLlm);
+		agent.load(outerLlm);
 
 		outerFaux.setResponses([
 			fauxAssistantMessage([fauxToolCall("agent_run", { text: "do something", profile: "explore" })]),
@@ -146,7 +145,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		]);
 
 		await agent.ready();
-		await dialog.send("run the subagent", "human", 10_000);
+		await controller.send("run the subagent", "human", 10_000);
 
 		// Without getFullTools: outer timeout = HTTP_TIMEOUT_MS (200ms)
 		// Inner takes 500ms → times out → outer LLM gets error result but still replies

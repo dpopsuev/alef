@@ -1,6 +1,6 @@
 /**
  * Ambient agent — organ-llm driven by a programmatic sense event.
- * No DialogOrgan, no human input — the trigger is published directly.
+ * No AgentController, no human input — the trigger is published directly.
  */
 
 import { randomUUID } from "node:crypto";
@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe("ambient agent", { tags: ["unit"] }, () => {
-	it("sense/llm.input triggers a turn without DialogOrgan; motor/llm.response carries the reply", async () => {
+	it("sense/llm.input triggers a turn without AgentController; motor/llm.response carries the reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("run linter")]);
 

@@ -10,10 +10,8 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
-
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
-import { DialogOrgan } from "../../organ-dialog/src/organ.js";
 import { createAgentLoop } from "../../organ-llm/src/index.js";
 import { SessionLog, type SessionSummary } from "../src/event-log-organ.js";
 import { SessionStore } from "../src/session-store.js";
@@ -39,14 +37,11 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 
 		const store = await SessionStore.create(cwd);
 		const agent = new Agent();
-		const dialog = new DialogOrgan({ sink: () => {} });
 		const log = new SessionLog(store, "test-model");
-		agent
-			.load(dialog)
-			.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" }))
-			.load(log);
+		agent.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" })).load(log);
+		const controller = new AgentController(agent);
 
-		await dialog.send("hello", "user", 10_000);
+		await controller.send("hello", "user", 10_000);
 		agent.dispose();
 
 		// Give async writes a tick to settle.

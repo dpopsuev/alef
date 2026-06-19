@@ -5,8 +5,8 @@ import type { BusObserver } from "@dpopsuev/alef-runtime";
 /**
  * TurnDriver — sense/llm.input → motor/llm.response request-reply.
  *
- * Test double for DialogOrgan. Drives an organ-llm organ on a bare nerve
- * without pulling in organ-dialog. Keeps organ-llm tests dependency-free.
+ * Test double for AgentController. Drives an organ-llm organ on a bare nerve
+ * without pulling in agent-controller. Keeps organ-llm tests dependency-free.
  *
  * Tools are included in the trigger event payload so organ-llm can build its
  * name map without needing a getTools() callback.

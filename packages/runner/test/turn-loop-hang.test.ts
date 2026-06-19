@@ -5,9 +5,8 @@
 
 import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -19,20 +18,20 @@ afterEach(() => {
 function makeAgent(opts: { timeoutMs?: number } = {}) {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
-	const dialog = new DialogOrgan({ sink: () => {} });
-	agent.load(dialog).load(
+	agent.load(
 		createAgentLoop({
 			model: faux.getModel(),
 			apiKey: "faux-key",
 		}),
 	);
+	const controller = new AgentController(agent);
 	disposes.push(() => agent.dispose());
-	return { faux, agent, dialog, timeoutMs: opts.timeoutMs ?? 3_000 };
+	return { faux, agent, controller, timeoutMs: opts.timeoutMs ?? 3_000 };
 }
 
 describe("turn loop — slow organ", { tags: ["unit"] }, () => {
-	it("dialog.send resolves when the tool completes before the deadline", async () => {
-		const { faux, agent, dialog, timeoutMs } = makeAgent({ timeoutMs: 5_000 });
+	it("controller.send resolves when the tool completes before the deadline", async () => {
+		const { faux, agent, controller, timeoutMs } = makeAgent({ timeoutMs: 5_000 });
 
 		const slowOrgan = defineOrgan(
 			"slow",
@@ -55,14 +54,14 @@ describe("turn loop — slow organ", { tags: ["unit"] }, () => {
 
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("slow.op", {})]), fauxAssistantMessage("all done")]);
 
-		const reply = await dialog.send("run the slow op", "human", timeoutMs);
+		const reply = await controller.send("run the slow op", "human", timeoutMs);
 		expect(reply).toBe("all done");
 	}, 8_000);
 });
 
 describe("turn loop — hanging organ", { tags: ["unit"] }, () => {
-	it("dialog.send rejects at its timeout when the tool never publishes a sense event", async () => {
-		const { faux, agent, dialog } = makeAgent();
+	it("controller.send rejects at its timeout when the tool never publishes a sense event", async () => {
+		const { faux, agent, controller } = makeAgent();
 		const SEND_TIMEOUT_MS = 1_500;
 
 		const hangOrgan = defineOrgan(
@@ -87,7 +86,7 @@ describe("turn loop — hanging organ", { tags: ["unit"] }, () => {
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("hang.op", {})])]);
 
 		const start = Date.now();
-		await expect(dialog.send("run the hanging op", "human", SEND_TIMEOUT_MS)).rejects.toThrow(/timed out/i);
+		await expect(controller.send("run the hanging op", "human", SEND_TIMEOUT_MS)).rejects.toThrow(/timed out/i);
 
 		const elapsed = Date.now() - start;
 		expect(elapsed).toBeGreaterThan(SEND_TIMEOUT_MS - 200);
@@ -96,8 +95,8 @@ describe("turn loop — hanging organ", { tags: ["unit"] }, () => {
 });
 
 describe("turn loop — error organ", { tags: ["unit"] }, () => {
-	it("dialog.send resolves when the organ throws and the LLM handles the error", async () => {
-		const { faux, agent, dialog, timeoutMs } = makeAgent({ timeoutMs: 5_000 });
+	it("controller.send resolves when the organ throws and the LLM handles the error", async () => {
+		const { faux, agent, controller, timeoutMs } = makeAgent({ timeoutMs: 5_000 });
 
 		const errorOrgan = defineOrgan(
 			"err",
@@ -122,14 +121,14 @@ describe("turn loop — error organ", { tags: ["unit"] }, () => {
 			fauxAssistantMessage("I see the tool failed"),
 		]);
 
-		const reply = await dialog.send("run the failing op", "human", timeoutMs);
+		const reply = await controller.send("run the failing op", "human", timeoutMs);
 		expect(reply).toBe("I see the tool failed");
 	}, 8_000);
 });
 
 describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 	it("turn completes when LLM sends wrong type for a schema field", async () => {
-		const { faux, agent, dialog, timeoutMs } = makeAgent({ timeoutMs: 3_000 });
+		const { faux, agent, controller, timeoutMs } = makeAgent({ timeoutMs: 3_000 });
 
 		const strictOrgan = defineOrgan(
 			"strict",
@@ -156,7 +155,7 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 			fauxAssistantMessage("I see the validation failed"),
 		]);
 
-		const reply = await dialog.send("call strict.op", "human", timeoutMs);
+		const reply = await controller.send("call strict.op", "human", timeoutMs);
 		expect(reply).toBe("I see the validation failed");
 	}, 6_000);
 });

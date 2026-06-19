@@ -2,7 +2,7 @@
  * createE2eSession — lightweight real-LLM harness for organ E2E tests.
  *
  * Each organ owns its own E2E test. This helper removes the boilerplate of
- * wiring a real organ-llm + DialogOrgan + Agent so tests can focus on the
+ * wiring a real organ-llm + AgentController + Agent so tests can focus on the
  * forcing-function assertion: "LLM used the tool and got the right answer."
  *
  * Usage:
@@ -20,9 +20,8 @@
 
 import type { Organ, SignalEvent } from "@dpopsuev/alef-kernel";
 import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
-import { DialogOrgan } from "@dpopsuev/alef-organ-dialog";
 import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
-import { Agent } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 
 /** True when at least one real LLM provider is configured via env vars. */
 export const HAVE_REAL_LLM =
@@ -55,7 +54,6 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 	const modelId = opts.modelId ?? process.env.ALEF_E2E_MODEL ?? "claude-haiku-4-5";
 	const timeoutMs = opts.timeoutMs ?? 60_000;
 
-	// Resolve provider and API key from environment.
 	const provider = process.env.ANTHROPIC_VERTEX_PROJECT_ID ? "anthropic-vertex" : "anthropic";
 	const apiKey = getEnvApiKey(provider) ?? "";
 	const model =
@@ -65,11 +63,6 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 	let reply = "";
 	const events: SignalEvent[] = [];
 
-	const dialog = new DialogOrgan({
-		sink: (t) => {
-			if (t) reply = t;
-		},
-	});
 	const llm = createAgentLoop({
 		model,
 		getApiKey: () => apiKey,
@@ -77,7 +70,7 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 	});
 
 	for (const organ of organs) agent.load(organ);
-	agent.load(dialog).load(llm);
+	agent.load(llm);
 	agent.observe({
 		onMotorEvent() {},
 		onSenseEvent() {},
@@ -86,15 +79,22 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 		},
 	});
 
+	const controller = new AgentController(agent, {
+		onReply: (t) => {
+			if (t) reply = t;
+		},
+	});
+
 	return {
 		async send(text: string): Promise<E2eResult> {
 			reply = "";
 			events.length = 0;
 			await agent.ready();
-			await dialog.send(text, "human", timeoutMs);
+			await controller.send(text, "human", timeoutMs);
 			return { reply, events: [...events] };
 		},
 		dispose() {
+			controller.dispose();
 			agent.dispose();
 		},
 	};

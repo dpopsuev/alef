@@ -2,7 +2,7 @@
  * @dpopsuev/alef-testkit/organ — slim subpath for organ unit tests.
  *
  * Exports only the primitives needed to test a single organ in isolation.
- * Does not pull in organ-dialog, organ-llm, alef-ai, or agent-blueprint.
+ * Does not pull in agent-controller, organ-llm, alef-ai, or agent-blueprint.
  *
  * External organ developers use this subpath:
  *   import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";

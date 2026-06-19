@@ -4,7 +4,7 @@ import type { BaseOrganOptions, ContextAssemblyHandler, Organ } from "@dpopsuev/
 import { defineOrgan, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
-export interface BoardOrganOptions extends BaseOrganOptions {
+export interface ForumOrganOptions extends BaseOrganOptions {
 	sessionDir: string;
 }
 
@@ -16,7 +16,7 @@ interface Post {
 }
 
 function boardDir(sessionDir: string): string {
-	return join(sessionDir, "board");
+	return join(sessionDir, "forum");
 }
 
 function threadPath(sessionDir: string, topic: string, thread: string): string {
@@ -80,8 +80,8 @@ function readAllNewPosts(sessionDir: string, lastReadTs: number): Array<Post & {
 }
 
 const BOARD_POST_TOOL = {
-	name: "board.post",
-	description: "Post a message to a board topic/thread. Append-only — safe for concurrent writers.",
+	name: "forum.post",
+	description: "Post a message to a forum topic/thread. Append-only — safe for concurrent writers.",
 	inputSchema: z.object({
 		topic: z.string().min(1).describe("Topic name (e.g. 'collectors', 'reviews', 'findings')"),
 		thread: z.string().min(1).describe("Thread name within the topic (e.g. 'long-functions', 'nesting')"),
@@ -91,8 +91,8 @@ const BOARD_POST_TOOL = {
 };
 
 const BOARD_READ_TOOL = {
-	name: "board.read",
-	description: "Read posts from a board thread. Returns all posts, or posts since a timestamp.",
+	name: "forum.read",
+	description: "Read posts from a forum thread. Returns all posts, or posts since a timestamp.",
 	inputSchema: z.object({
 		topic: z.string().min(1).describe("Topic name"),
 		thread: z.string().min(1).describe("Thread name"),
@@ -101,14 +101,14 @@ const BOARD_READ_TOOL = {
 };
 
 const BOARD_LIST_TOOL = {
-	name: "board.list",
-	description: "List board topics and threads.",
+	name: "forum.list",
+	description: "List forum topics and threads.",
 	inputSchema: z.object({
 		topic: z.string().optional().describe("List threads in this topic. Omit to list all topics."),
 	}),
 };
 
-export function createBoardOrgan(opts: BoardOrganOptions): Organ {
+export function createForumOrgan(opts: ForumOrganOptions): Organ {
 	const { sessionDir } = opts;
 	let lastReadTs = Date.now();
 
@@ -121,15 +121,15 @@ export function createBoardOrgan(opts: BoardOrganOptions): Organ {
 			(p) =>
 				`[${p.topic}/${p.thread}] @${p.author}: ${typeof p.content === "string" ? p.content : JSON.stringify(p.content)}`,
 		);
-		const block = `[Board — ${newPosts.length} new post(s)]\n${lines.join("\n")}`;
+		const block = `[Forum — ${newPosts.length} new post(s)]\n${lines.join("\n")}`;
 		return { messages: injectContextBlock(input.messages, block) };
 	};
 
 	return defineOrgan(
-		"board",
+		"forum",
 		{
 			motor: {
-				"board.post": typedAction(BOARD_POST_TOOL, async (ctx) => {
+				"forum.post": typedAction(BOARD_POST_TOOL, async (ctx) => {
 					const { topic, thread, content, author } = ctx.payload;
 					const post: Post = {
 						key: `${topic}/${thread}`,
@@ -145,7 +145,7 @@ export function createBoardOrgan(opts: BoardOrganOptions): Organ {
 					);
 				}),
 
-				"board.read": typedAction(BOARD_READ_TOOL, async (ctx) => {
+				"forum.read": typedAction(BOARD_READ_TOOL, async (ctx) => {
 					const { topic, thread, since } = ctx.payload;
 					const posts = readThread(sessionDir, topic as string, thread as string, since as number | undefined);
 					const lines = posts.map(
@@ -158,7 +158,7 @@ export function createBoardOrgan(opts: BoardOrganOptions): Organ {
 					);
 				}),
 
-				"board.list": typedAction(BOARD_LIST_TOOL, async (ctx) => {
+				"forum.list": typedAction(BOARD_LIST_TOOL, async (ctx) => {
 					const { topic } = ctx.payload;
 					if (topic) {
 						const threads = listThreads(sessionDir, topic as string);
@@ -181,19 +181,19 @@ export function createBoardOrgan(opts: BoardOrganOptions): Organ {
 					const lines = result.flatMap((r) => [`${r.topic}/`, ...r.threads.map((t) => `  ${t}`)]);
 					return withDisplay(
 						{ topics: result },
-						{ text: lines.length > 0 ? lines.join("\n") : "(empty board)", mimeType: "text/plain" },
+						{ text: lines.length > 0 ? lines.join("\n") : "(empty forum)", mimeType: "text/plain" },
 					);
 				}),
 			},
 		},
 		{
-			description: "Board — shared message board for multi-agent coordination. Pull-based: agents read when ready.",
+			description: "Forum — shared message forum for multi-agent coordination. Pull-based: agents read when ready.",
 			directives: [
-				"Use board.post to share findings, reviews, and feedback with other agents.",
-				"Use board.read to check what others have posted.",
-				"New board posts appear automatically in your context on each turn.",
+				"Use forum.post to share findings, reviews, and feedback with other agents.",
+				"Use forum.read to check what others have posted.",
+				"New forum posts appear automatically in your context on each turn.",
 			],
-			sources: [{ name: "board-files", kind: "file" }],
+			sources: [{ name: "forum-files", kind: "file" }],
 			contributions: {
 				"context.assemble": contextStage,
 			},

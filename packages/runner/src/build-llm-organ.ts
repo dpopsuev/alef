@@ -1,7 +1,7 @@
 import type { Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import type { Args } from "./args.js";
 import { resolveApiKey } from "./auth.js";
 import type { AlefConfig } from "./config.js";

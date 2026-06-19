@@ -13,7 +13,7 @@
 
 import { resolve } from "node:path";
 
-import { createAgentLoop } from "@dpopsuev/alef-organ-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../eval/src/evaluation.js";

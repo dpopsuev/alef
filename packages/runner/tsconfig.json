@@ -52,8 +52,8 @@
 			"@dpopsuev/alef-organ-shell": [
 				"../organ-shell/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-llm": [
-				"../organ-llm/src/index.ts"
+			"@dpopsuev/alef-reasoner": [
+				"../reasoner/src/index.ts"
 			],
 			"@dpopsuev/alef-session": [
 				"../session/src/index.ts"

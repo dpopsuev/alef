@@ -103,11 +103,11 @@
 			"@dpopsuev/alef-organ-lector/*": [
 				"./packages/organ-lector/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-llm": [
-				"./packages/organ-llm/src/index.ts"
+			"@dpopsuev/alef-reasoner": [
+				"./packages/reasoner/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-llm/*": [
-				"./packages/organ-llm/src/*.ts"
+			"@dpopsuev/alef-reasoner/*": [
+				"./packages/reasoner/src/*.ts"
 			],
 			"@dpopsuev/alef-session": [
 				"./packages/session/src/index.ts"

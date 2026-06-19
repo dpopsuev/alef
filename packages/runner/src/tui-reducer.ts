@@ -83,12 +83,21 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 
 	const remainingAfter = state.activeCalls.size - 1;
 	const showOutput = remainingAfter === 0;
+
+	// Prepend validation errors to display output
+	const validationErrs = state.validationErrors.get(callId) ?? [];
+	let enhancedDisplay = showOutput && display?.trim() ? display : null;
+	if (validationErrs.length > 0 && showOutput) {
+		const errSection = validationErrs.join("\n");
+		enhancedDisplay = enhancedDisplay ? `${errSection}\n\n${enhancedDisplay}` : errSection;
+	}
+
 	writer.addCompletedToolBlock(
 		entry.name,
 		entry.keyArg,
 		elapsedMs,
 		ok,
-		showOutput && display?.trim() ? display : null,
+		enhancedDisplay,
 		showOutput && display?.trim() ? (displayKind ?? null) : null,
 	);
 
@@ -97,6 +106,14 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 
 	const callChunks = new Map(state.callChunks);
 	callChunks.delete(callId);
+
+	// Clean up validation errors for completed call
+	const validationErrors = new Map(state.validationErrors);
+	validationErrors.delete(callId);
+
+	// Clean up exit codes for completed call
+	const exitCodes = new Map(state.exitCodes);
+	exitCodes.delete(callId);
 
 	const batchDone = activeCalls.size === 0 && state.batchStartedAt !== null;
 	if (batchDone) {
@@ -127,6 +144,8 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 		...state,
 		activeCalls,
 		callChunks,
+		validationErrors,
+		exitCodes,
 		batchStartedAt: batchDone ? null : state.batchStartedAt,
 		focusedCallId: batchDone ? null : (nextFocus ?? null),
 	};
@@ -349,10 +368,19 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 			);
 			return state;
 
-		case "tool-validation-error":
+		case "tool-validation-error": {
 			promptConsole.pulse();
-			promptConsole.updateInFlightCallChunk(event.callId, `\u26a0 invalid arg '${event.field}': ${event.message}`);
-			return state;
+			const errorMsg = `\u26a0 invalid arg '${event.field}': ${event.message}`;
+			promptConsole.updateInFlightCallChunk(event.callId, errorMsg);
+
+			// Store validation error to display when tool completes
+			const errors = state.validationErrors.get(event.callId) ?? [];
+			errors.push(errorMsg);
+			const validationErrors = new Map(state.validationErrors);
+			validationErrors.set(event.callId, errors);
+
+			return { ...state, validationErrors };
+		}
 
 		case "turn-error":
 			promptConsole.pulse();

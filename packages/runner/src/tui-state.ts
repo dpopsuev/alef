@@ -36,6 +36,10 @@ export interface TuiState {
 	focusedCallId: string | null;
 	/** Scroll offset for the inspector chunk detail (lines from end). */
 	inspectorScrollOffset: number;
+	/** Validation errors and warnings per tool call (callId → messages). */
+	validationErrors: Map<string, string[]>;
+	/** Exit codes from shell/exec tools (callId → exit code). */
+	exitCodes: Map<string, number>;
 }
 
 export function initialTuiState(): TuiState {
@@ -51,6 +55,8 @@ export function initialTuiState(): TuiState {
 		callChunks: new Map(),
 		focusedCallId: null,
 		inspectorScrollOffset: 0,
+		validationErrors: new Map(),
+		exitCodes: new Map(),
 	};
 }
 

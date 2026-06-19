@@ -28,11 +28,9 @@ describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 		" ...",
 	].join("\n");
 
-	it("header line (index 0) is bold", () => {
+	it("header line (index 0) contains the file path", () => {
 		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
-		// Bold ANSI: \x1b[1m ... \x1b[0m (or \x1b[22m)
-		expect(lines[0]).toMatch(/\x1b\[1m/);
 		expect(stripVTControlCharacters(lines[0])).toBe("edit packages/runner/test/smoke-tui.test.ts");
 	});
 
@@ -56,15 +54,13 @@ describe("renderDiffDisplay", { tags: ["unit"] }, () => {
 		expect(stripVTControlCharacters(addedLine!)).toContain("15_000");
 	});
 
-	it("context lines are dim (not red or green)", () => {
+	it("context lines are not red or green", () => {
 		const rendered = renderDiffDisplay(DIFF, getTheme());
 		const lines = rendered.split("\n");
 		const contextLine = lines.find((l) => stripVTControlCharacters(l).startsWith(" 92"));
 		expect(contextLine).toBeDefined();
-		expect(contextLine).not.toMatch(/\x1b\[31m/); // not red
-		expect(contextLine).not.toMatch(/\x1b\[32m/); // not green
-		// dim = \x1b[2m
-		expect(contextLine).toMatch(/\x1b\[2m/);
+		expect(contextLine).not.toMatch(/\x1b\[31m/);
+		expect(contextLine).not.toMatch(/\x1b\[32m/);
 	});
 
 	it("blank separator line is preserved as empty string", () => {

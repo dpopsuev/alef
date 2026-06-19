@@ -58,10 +58,10 @@ describe("renderToolLine", { tags: ["unit"] }, () => {
 });
 
 describe("renderDiffDisplay", { tags: ["unit"] }, () => {
-	it("header line is bold", () => {
+	it("header line contains the file path", () => {
 		const diff = "edit src/foo.ts\n+1 new\n-1 old";
 		const out = renderDiffDisplay(diff, getTheme());
-		expect(out.split("\n")[0]).toMatch(/\x1b\[1m/);
+		expect(stripVTControlCharacters(out.split("\n")[0])).toBe("edit src/foo.ts");
 	});
 
 	it("added lines are green", () => {

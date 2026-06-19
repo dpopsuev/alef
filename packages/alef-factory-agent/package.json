@@ -4,7 +4,24 @@
   "private": true,
   "description": "Factory architect agent — builds multi-agent workflows via subscription graphs",
   "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
   "alef": {
     "blueprint": "blueprint.yaml"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-agent-blueprint": "^0.0.1",
+    "@dpopsuev/alef-kernel": "^0.0.1",
+    "@dpopsuev/alef-organ-agent": "^0.0.1",
+    "@dpopsuev/alef-organ-compactor": "^0.0.1",
+    "@dpopsuev/alef-organ-skills": "^0.0.1",
+    "@dpopsuev/alef-organ-workflow": "^0.0.1",
+    "@dpopsuev/alef-runtime": "^0.0.1",
+    "@dpopsuev/alef-session": "^0.0.1"
   }
 }

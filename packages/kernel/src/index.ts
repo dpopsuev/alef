@@ -8,6 +8,7 @@ export * from "./errors.js";
 export * from "./execution.js";
 export * from "./framework.js";
 export { InProcessNerve } from "./in-process-nerve.js";
+export { LogField } from "./log-fields.js";
 export * from "./mcp-organ.js";
 export { type CacheStrategy, createMapCache, makeCacheKey } from "./organ-cache.js";
 export { explainOrgan } from "./organ-explain.js";

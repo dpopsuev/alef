@@ -15,9 +15,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// Inline re-exports from index to avoid circular dependency
-// BusEventRecorder and MockReasoner only import from @dpopsuev/alef-kernel and @dpopsuev/alef-runtime
-export { BusEventRecorder, MockReasoner } from "./index.js";
+export { BusEventRecorder } from "./bus-event-recorder.js";
+export { MockReasoner } from "./mock-reasoner.js";
 export { NerveFixture } from "./nerve-fixture.js";
 export {
 	assertOrganContract,

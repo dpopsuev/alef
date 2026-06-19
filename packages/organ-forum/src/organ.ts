@@ -1,99 +1,14 @@
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { BaseOrganOptions, ContextAssemblyHandler, Organ } from "@dpopsuev/alef-kernel";
 import { defineOrgan, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
+import { ForumStore } from "./store.js";
+import type { Post } from "./types.js";
 
 export interface ForumOrganOptions extends BaseOrganOptions {
 	sessionDir: string;
 }
 
-interface Post {
-	key: string;
-	author: string;
-	content: unknown;
-	timestamp: number;
-}
-
-function forumDir(sessionDir: string): string {
-	return join(sessionDir, "forum");
-}
-
-function threadPath(sessionDir: string, topic: string, thread: string): string {
-	return join(forumDir(sessionDir), topic, `${thread}.jsonl`);
-}
-
-function ensureDir(path: string): void {
-	const dir = path.substring(0, path.lastIndexOf("/"));
-	mkdirSync(dir, { recursive: true });
-}
-
-function appendPost(sessionDir: string, topic: string, thread: string, post: Post): void {
-	const path = threadPath(sessionDir, topic, thread);
-	ensureDir(path);
-	appendFileSync(path, `${JSON.stringify(post)}\n`, "utf-8");
-}
-
-function readThread(sessionDir: string, topic: string, thread: string, since?: number): Post[] {
-	const path = threadPath(sessionDir, topic, thread);
-	if (!existsSync(path)) return [];
-	const lines = readFileSync(path, "utf-8").trim().split("\n").filter(Boolean);
-	const posts: Post[] = [];
-	for (const line of lines) {
-		try {
-			const post = JSON.parse(line) as Post;
-			if (since && post.timestamp <= since) continue;
-			posts.push(post);
-		} catch {
-			// skip malformed lines
-		}
-	}
-	return posts;
-}
-
-function listTopics(sessionDir: string): string[] {
-	const dir = forumDir(sessionDir);
-	if (!existsSync(dir)) return [];
-	return readdirSync(dir, { withFileTypes: true })
-		.filter((e) => e.isDirectory())
-		.map((e) => e.name);
-}
-
-interface ThreadInfo {
-	name: string;
-	posts: number;
-	participants: string[];
-	lastActivity: number;
-}
-
-function listThreads(sessionDir: string, topic: string): string[] {
-	const dir = join(forumDir(sessionDir), topic);
-	if (!existsSync(dir)) return [];
-	return readdirSync(dir)
-		.filter((f) => f.endsWith(".jsonl"))
-		.map((f) => f.replace(".jsonl", ""));
-}
-
-function threadInfo(sessionDir: string, topic: string, thread: string): ThreadInfo {
-	const posts = readThread(sessionDir, topic, thread);
-	const participants = [...new Set(posts.map((p) => p.author))];
-	const lastActivity = posts.length > 0 ? Math.max(...posts.map((p) => p.timestamp)) : 0;
-	return { name: thread, posts: posts.length, participants, lastActivity };
-}
-
-function readAllNewPosts(sessionDir: string, lastReadTs: number): Array<Post & { topic: string; thread: string }> {
-	const results: Array<Post & { topic: string; thread: string }> = [];
-	for (const topic of listTopics(sessionDir)) {
-		for (const thread of listThreads(sessionDir, topic)) {
-			for (const post of readThread(sessionDir, topic, thread, lastReadTs)) {
-				results.push({ ...post, topic, thread });
-			}
-		}
-	}
-	return results.sort((a, b) => a.timestamp - b.timestamp);
-}
-
-const BOARD_POST_TOOL = {
+const FORUM_POST = {
 	name: "forum.post",
 	description: "Post a message to a forum topic/thread. Append-only — safe for concurrent writers.",
 	inputSchema: z.object({
@@ -104,7 +19,7 @@ const BOARD_POST_TOOL = {
 	}),
 };
 
-const BOARD_READ_TOOL = {
+const FORUM_READ = {
 	name: "forum.read",
 	description: "Read posts from a forum thread. Returns all posts, or posts since a timestamp.",
 	inputSchema: z.object({
@@ -114,28 +29,34 @@ const BOARD_READ_TOOL = {
 	}),
 };
 
-const BOARD_LIST_TOOL = {
+const FORUM_LIST = {
 	name: "forum.list",
-	description: "List forum topics and threads.",
+	description: "List forum topics and threads with metadata.",
 	inputSchema: z.object({
 		topic: z.string().optional().describe("List threads in this topic. Omit to list all topics."),
 	}),
 };
 
+function formatPost(p: Post): string {
+	const body = typeof p.content === "string" ? p.content : JSON.stringify(p.content);
+	return `@${p.author} (${new Date(p.timestamp).toISOString().slice(11, 19)}): ${body}`;
+}
+
+function formatContextPost(p: Post): string {
+	const body = typeof p.content === "string" ? p.content : JSON.stringify(p.content);
+	return `[${p.topic}/${p.thread}] @${p.author}: ${body}`;
+}
+
 export function createForumOrgan(opts: ForumOrganOptions): Organ {
-	const { sessionDir } = opts;
+	const store = new ForumStore(opts.sessionDir);
 	let lastReadTs = Date.now();
 
 	const contextStage: ContextAssemblyHandler = async (input) => {
-		const newPosts = readAllNewPosts(sessionDir, lastReadTs);
+		const newPosts = store.readNewPosts(lastReadTs);
 		if (newPosts.length === 0) return {};
 
 		lastReadTs = Math.max(...newPosts.map((p) => p.timestamp));
-		const lines = newPosts.map(
-			(p) =>
-				`[${p.topic}/${p.thread}] @${p.author}: ${typeof p.content === "string" ? p.content : JSON.stringify(p.content)}`,
-		);
-		const block = `[Forum — ${newPosts.length} new post(s)]\n${lines.join("\n")}`;
+		const block = `[Forum — ${newPosts.length} new post(s)]\n${newPosts.map(formatContextPost).join("\n")}`;
 		return { messages: injectContextBlock(input.messages, block) };
 	};
 
@@ -143,40 +64,28 @@ export function createForumOrgan(opts: ForumOrganOptions): Organ {
 		"forum",
 		{
 			motor: {
-				"forum.post": typedAction(BOARD_POST_TOOL, async (ctx) => {
+				"forum.post": typedAction(FORUM_POST, async (ctx) => {
 					const { topic, thread, content, author } = ctx.payload;
-					const post: Post = {
-						key: `${topic}/${thread}`,
-						author: (author as string) ?? "agent",
-						content,
-						timestamp: Date.now(),
-					};
-					appendPost(sessionDir, topic as string, thread as string, post);
-
+					const post = store.append(topic, thread, author ?? "agent", content);
 					return withDisplay(
 						{ posted: true, topic, thread, timestamp: post.timestamp },
 						{ text: `Posted to ${topic}/${thread}`, mimeType: "text/plain" },
 					);
 				}),
 
-				"forum.read": typedAction(BOARD_READ_TOOL, async (ctx) => {
+				"forum.read": typedAction(FORUM_READ, async (ctx) => {
 					const { topic, thread, since } = ctx.payload;
-					const posts = readThread(sessionDir, topic as string, thread as string, since as number | undefined);
-					const lines = posts.map(
-						(p) =>
-							`@${p.author} (${new Date(p.timestamp).toISOString().slice(11, 19)}): ${typeof p.content === "string" ? p.content : JSON.stringify(p.content)}`,
-					);
+					const posts = store.readThread(topic, thread, since);
 					return withDisplay(
 						{ posts, count: posts.length },
-						{ text: lines.length > 0 ? lines.join("\n") : "(no posts)", mimeType: "text/plain" },
+						{ text: posts.length > 0 ? posts.map(formatPost).join("\n") : "(no posts)", mimeType: "text/plain" },
 					);
 				}),
 
-				"forum.list": typedAction(BOARD_LIST_TOOL, async (ctx) => {
+				"forum.list": typedAction(FORUM_LIST, async (ctx) => {
 					const { topic } = ctx.payload;
 					if (topic) {
-						const threads = listThreads(sessionDir, topic as string);
-						const infos = threads.map((t) => threadInfo(sessionDir, topic as string, t));
+						const infos = store.listThreads(topic).map((t) => store.threadInfo(topic, t));
 						return withDisplay(
 							{ topic, threads: infos },
 							{
@@ -190,14 +99,10 @@ export function createForumOrgan(opts: ForumOrganOptions): Organ {
 							},
 						);
 					}
-					const topics = listTopics(sessionDir);
-					const result: Array<{ topic: string; threads: string[] }> = topics.map((t) => ({
-						topic: t,
-						threads: listThreads(sessionDir, t),
-					}));
-					const lines = result.flatMap((r) => [`${r.topic}/`, ...r.threads.map((t) => `  ${t}`)]);
+					const summaries = store.topicSummaries();
+					const lines = summaries.flatMap((s) => [`${s.topic}/`, ...s.threads.map((t) => `  ${t}`)]);
 					return withDisplay(
-						{ topics: result },
+						{ topics: summaries },
 						{ text: lines.length > 0 ? lines.join("\n") : "(empty forum)", mimeType: "text/plain" },
 					);
 				}),

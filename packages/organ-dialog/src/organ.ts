@@ -32,6 +32,7 @@ export class DialogOrgan implements Organ {
 		},
 	} as const;
 	readonly subscriptions = { motor: [LLM_RESPONSE] as const, sense: [] as const };
+	readonly sources = [] as const;
 	readonly contributions = {
 		port: {
 			name: "context_observer",

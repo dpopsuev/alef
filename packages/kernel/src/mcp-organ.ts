@@ -37,6 +37,7 @@ class McpOrganImpl implements Organ {
 	readonly labels = ["mcp", "external"] as const;
 	readonly tools: readonly ToolDefinition[];
 	readonly subscriptions: { readonly motor: readonly string[]; readonly sense: readonly string[] };
+	readonly sources: readonly { readonly name: string; readonly kind: "file" | "memory" | "process" }[] = [];
 	readonly directives?: readonly string[];
 
 	private readonly client: MCPClient;

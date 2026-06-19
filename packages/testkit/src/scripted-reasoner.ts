@@ -77,6 +77,7 @@ export interface ScriptedReasonerOptions {
 export class ScriptedReasoner implements Organ {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
+	readonly sources = [] as const;
 
 	private readonly triggerEvent: string;
 	private readonly replyEvent: string;

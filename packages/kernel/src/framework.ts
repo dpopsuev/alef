@@ -99,6 +99,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 			motor: motorSubscriptions,
 			sense: senseSubscriptions,
 		},
+		sources: opts.sources ?? [],
 		directives: opts.directives,
 		contributions: {
 			...opts.contributions,

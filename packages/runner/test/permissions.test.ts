@@ -26,6 +26,7 @@ function makePassthroughOrgan(name: string): Organ {
 		name,
 		tools: [],
 		subscriptions: { motor: ["fs.read" as const, "fs.write" as const], sense: [] },
+		sources: [],
 		mount(nerve) {
 			const off1 = nerve.motor.subscribe("fs.read", (e) => {
 				nerve.sense.publish({

@@ -36,6 +36,7 @@ export function createLocusOrgan(opts: LocusOrganOptions = {}): Organ {
 		labels: ["locus", "architecture", "analysis"] as const,
 		tools: [],
 		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
+		sources: [],
 		directives: [
 			"Locus tools are available under the locus.* prefix. Use locus.codograph to scan repos, locus.analysis for dependency/coupling/impact queries, and locus.render_diagram for Mermaid diagrams.",
 		],

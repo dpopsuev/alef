@@ -182,6 +182,7 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 			name: "fs",
 			tools: [],
 			subscriptions: { motor: [], sense: [] },
+			sources: [],
 			directives: ["Always read before editing."],
 			mount: () => () => {},
 		};
@@ -191,7 +192,13 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 	});
 
 	it("skips organs with no directives", () => {
-		const silent = { name: "shell", tools: [], subscriptions: { motor: [], sense: [] }, mount: () => () => {} };
+		const silent = {
+			name: "shell",
+			tools: [],
+			subscriptions: { motor: [], sense: [] },
+			sources: [],
+			mount: () => () => {},
+		};
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const before = d.build();
 		registerOrgans(d, [silent]);

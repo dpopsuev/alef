@@ -18,6 +18,7 @@ export function createContextAssemblyPipeline(): Organ & {
 		name: "context.assembly.pipeline",
 		tools: [],
 		subscriptions: { motor: ["context.assemble"], sense: ["organ.loaded", "organ.unloaded"] },
+		sources: [],
 		description:
 			"Ordered context.assemble pipeline — collects ContextAssemblyHandler and schema-resolver contributions from sense/organ.loaded.",
 		contributions: {

@@ -299,6 +299,20 @@ export interface Organ {
 		readonly sense: readonly string[];
 	};
 	/**
+	 * Declares external state this organ reads (pull model).
+	 * Required — every organ must declare its pull surface explicitly.
+	 * Empty array = pure push organ (only reacts to bus events).
+	 *
+	 * Kinds:
+	 *   file    — reads from disk (session JSONL, board files, scratchpad)
+	 *   memory  — reads from in-memory state (caches, counters, maps)
+	 *   process — reads from a child process or external service (MCP, HTTP)
+	 */
+	readonly sources: readonly {
+		readonly name: string;
+		readonly kind: "file" | "memory" | "process";
+	}[];
+	/**
 	 * Optional ACI directives — organ-specific guidance injected into the system prompt.
 	 * Assembled by DirectiveContextAssembler and prepended to the base prompt.
 	 * Each string is a freeform instruction block (markdown or prose).
@@ -404,6 +418,7 @@ export function gimpedOrgan(name: string): Organ {
 		name,
 		tools: [],
 		subscriptions: { motor: [], sense: [] },
+		sources: [],
 		mount: () => () => {},
 	};
 }

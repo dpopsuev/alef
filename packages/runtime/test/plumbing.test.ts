@@ -66,6 +66,7 @@ class SingleToolLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly sources = [] as const;
 	readonly receivedTools: string[] = [];
 	readonly receivedResults: unknown[] = [];
 
@@ -90,6 +91,7 @@ class FanOutLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly sources = [] as const;
 	readonly completionOrder: string[] = [];
 
 	mount(nerve: Nerve): () => void {
@@ -123,6 +125,7 @@ class QuiescentLLM implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly sources = [] as const;
 
 	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("llm.input", (event) => {

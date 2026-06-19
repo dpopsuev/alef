@@ -17,6 +17,7 @@ class FileReaderLLMOrgan implements Organ {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly sources = [] as const;
 	mount(nerve: Nerve): () => void {
 		return nerve.sense.subscribe("llm.input", async (event) => {
 			const corr = event.correlationId;

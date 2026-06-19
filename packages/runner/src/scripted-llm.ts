@@ -29,6 +29,7 @@ export class ScriptedLlmOrgan implements Organ {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as readonly string[] };
+	readonly sources = [] as const;
 
 	private readonly steps: SerializedStep[];
 	private index = 0;

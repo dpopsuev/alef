@@ -11,6 +11,7 @@ export function defineStubOrgan(name: string, tools: ToolDefinition[], handler: 
 			motor: tools.map((t) => t.name),
 			sense: [],
 		},
+		sources: [],
 		mount(nerve: Nerve): () => void {
 			const offs = tools.map((t) =>
 				nerve.motor.subscribe(t.name, (event: MotorEvent) => {

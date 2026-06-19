@@ -210,6 +210,7 @@ export function createAgentLoop(options: AgentLoopOptions): Organ {
 		tools: [],
 		publishSchemas,
 		subscriptions,
+		sources: [],
 		contributions: {
 			port: { name: "reasoning", eventPattern: "sense/llm.input", cardinality: "exactly-one" },
 		},

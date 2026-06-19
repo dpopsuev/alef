@@ -98,6 +98,7 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 		labels: ["scribe", "blackboard", "planning"] as const,
 		tools: [],
 		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
+		sources: [{ name: "scribe-db", kind: "process" }] as const,
 		directives: [
 			"Scribe tools are available under the scribe.* prefix. Use scribe.artifact to create, query, and manage work artifacts. Use scribe.graph for dependency trees and briefings.",
 			"To remember something across sessions, create an agent.memory: scribe.artifact(action=create, kind=agent.memory, title='...', sections=[{name:'content', text:'...'}])",

@@ -2,11 +2,12 @@
  * TUI session picker — shown at startup when sessions exist and --resume is not set.
  *
  * Type to fuzzy-filter. ↑↓ navigate. Enter select. Esc start fresh.
+ * Right pane shows tail preview of the selected session's conversation.
  */
 
 import { readFile } from "node:fs/promises";
 
-import { Input, ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
+import { Input, PreviewSelectList, ProcessTerminal, type SelectItem, Text, TUI } from "@dpopsuev/alef-tui";
 import type { StorageRecord } from "./session-store.js";
 import { bold, color, getTheme } from "./theme.js";
 
@@ -19,7 +20,7 @@ async function readSessionName(jsonlPath: string): Promise<string | undefined> {
 			try {
 				const r = JSON.parse(line) as { bus?: string; type?: string; payload?: { name?: string } };
 				if (r.bus === "internal" && r.type === "session.name" && typeof r.payload?.name === "string") {
-					name = r.payload.name; // last one wins
+					name = r.payload.name;
 				}
 			} catch {
 				break;
@@ -43,9 +44,38 @@ async function readFirstUserMessage(jsonlPath: string): Promise<string> {
 			}
 		}
 	} catch {
-		// unreadable — fall through
+		// unreadable
 	}
 	return "";
+}
+
+async function readSessionTail(jsonlPath: string, maxLines: number): Promise<string[]> {
+	try {
+		const raw = await readFile(jsonlPath, "utf-8");
+		const lines = raw.split("\n").filter(Boolean);
+		const tail: string[] = [];
+
+		for (const line of lines.slice(-50)) {
+			try {
+				const r = JSON.parse(line) as StorageRecord;
+				if (r.bus === "sense" && r.type === "llm.input") {
+					const text = typeof r.payload.text === "string" ? r.payload.text : "";
+					if (text) tail.push(`  ▸ ${text.slice(0, 70).replace(/\n/g, " ")}`);
+				} else if (r.bus === "motor" && r.type === "llm.response") {
+					const text = typeof r.payload.text === "string" ? r.payload.text : "";
+					if (text) tail.push(`  ◂ ${text.slice(0, 70).replace(/\n/g, " ")}`);
+				} else if (r.bus === "motor" && !r.type.startsWith("llm.") && !r.type.startsWith("context.")) {
+					tail.push(`  ● ${r.type}`);
+				}
+			} catch {
+				// skip
+			}
+		}
+
+		return tail.slice(-maxLines);
+	} catch {
+		return ["  (unable to read session)"];
+	}
 }
 
 export async function pickSession(
@@ -60,14 +90,20 @@ export async function pickSession(
 		Promise.all(sessions.slice(0, 20).map((s) => readFirstUserMessage(s.path))),
 	]);
 
+	const sessionPaths = new Map<string, string>();
 	const items: SelectItem[] = [
 		{ value: "__new__", label: "New session", description: "Start fresh" },
-		...sessions.slice(0, 20).map((s, i) => ({
-			value: s.id,
-			label: names[i] ?? previews[i] ?? s.id,
-			description: s.mtime.toISOString().replace("T", " ").slice(0, 16),
-		})),
+		...sessions.slice(0, 20).map((s, i) => {
+			sessionPaths.set(s.id, s.path);
+			return {
+				value: s.id,
+				label: names[i] ?? previews[i] ?? s.id,
+				description: s.mtime.toISOString().replace("T", " ").slice(0, 16),
+			};
+		}),
 	];
+
+	const previewCache = new Map<string, string[]>();
 
 	const listTheme = {
 		selectedPrefix: (s: string) => color(s, t.accentFg),
@@ -85,15 +121,34 @@ export async function pickSession(
 		tui.addChild(new Text("", 0, 0));
 
 		const searchInput = new Input();
-		const list = new SelectList(items, 10, listTheme);
 
-		list.onSelect = (item) => {
+		const previewList = new PreviewSelectList({
+			items,
+			maxVisible: 12,
+			theme: listTheme,
+			previewFn: (item) => {
+				if (!item || item.value === "__new__") return ["  Start a new conversation"];
+				const cached = previewCache.get(item.value);
+				if (cached) return cached;
+
+				const path = sessionPaths.get(item.value);
+				if (!path) return ["  (no session data)"];
+
+				void readSessionTail(path, 12).then((lines) => {
+					previewCache.set(item.value, lines);
+					tui.requestRender();
+				});
+				return ["  Loading..."];
+			},
+		});
+
+		previewList.onSelect = (item) => {
 			tui.stop();
 			resolve(item.value === "__new__" ? undefined : item.value);
 		};
 
 		tui.addChild(searchInput);
-		tui.addChild(list);
+		tui.addChild(previewList);
 
 		tui.onRawInput = (data) => {
 			if (data === "\x1b") {
@@ -101,14 +156,13 @@ export async function pickSession(
 				resolve(undefined);
 				return true;
 			}
-			// ↑↓ and Enter route to the list; everything else filters via searchInput.
 			if (data === "\x1b[A" || data === "\x1b[B" || data === "\r" || data === "\n") {
-				list.handleInput(data);
+				previewList.handleInput(data);
 			} else {
 				searchInput.handleInput(data);
-				list.setFilter(searchInput.getValue());
+				previewList.setFilter(searchInput.getValue());
 			}
-			tui.requestRender(); // repaint after every keystroke
+			tui.requestRender();
 			return true;
 		};
 

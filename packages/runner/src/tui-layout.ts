@@ -14,14 +14,22 @@ import { ReplyBlock } from "./tui/reply-block.js";
 import { prependSessionHistory } from "./tui/session-history.js";
 import { Typewriter } from "./tui/typewriter.js";
 
-export interface TuiLayout {
+export interface OutputZone {
 	writer: ChatLog;
 	replyBlock: ReplyBlock;
 	replyTW: Typewriter;
 	thinkingTW: Typewriter;
+	forums: ForumManager;
+}
+
+export interface InputZone {
 	promptConsole: PromptConsole;
 	historyProvider: HistoryAutocompleteProvider;
-	forums: ForumManager;
+}
+
+export interface TuiLayout {
+	output: OutputZone;
+	input: InputZone;
 }
 
 export async function buildLayout(
@@ -116,5 +124,8 @@ export async function buildLayout(
 		() => tui.requestRender(),
 	);
 
-	return { writer, replyBlock, replyTW, thinkingTW, promptConsole, historyProvider, forums };
+	return {
+		output: { writer, replyBlock, replyTW, thinkingTW, forums },
+		input: { promptConsole, historyProvider },
+	};
 }

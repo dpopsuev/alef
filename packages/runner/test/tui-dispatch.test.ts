@@ -12,6 +12,7 @@ function makeMockUi(): TuiUi {
 			addCompletedToolBlock: vi.fn(),
 			addBatchTiming: vi.fn(),
 			addNotice: vi.fn(),
+			addSubagentReply: vi.fn(),
 			addTokenFooter: vi.fn(() => ({ setText: vi.fn() })),
 			addUserMessage: vi.fn(),
 		},

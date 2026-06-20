@@ -7,7 +7,7 @@
  */
 
 import type { Component, Container } from "@dpopsuev/alef-tui";
-import { Text as TuiText } from "@dpopsuev/alef-tui";
+import { Collapsible, Markdown, Pad, Text as TuiText } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme-types.js";
 import {
 	AgentBlock,
@@ -17,6 +17,8 @@ import {
 	appendTokenFooter,
 	appendUserMsg,
 } from "./chat-view.js";
+import { makeMarkdownTheme } from "./markdown-themes.js";
+import { color } from "./theme.js";
 import { makeToolOutputComponent } from "./tool-view.js";
 
 export interface ChatLogLabels {
@@ -65,6 +67,19 @@ export class ChatLog {
 			? makeToolOutputComponent(display, displayKind ?? undefined, this.t)
 			: null;
 		appendCompletedToolBlock(this.chat, name, keyArg, elapsedMs, ok, output, this.t);
+	}
+
+	addSubagentReply(name: string, reply: string): void {
+		const collapsible = new Collapsible({
+			header: `${name} reply`,
+			collapsed: true,
+			headerStyle: (s) => `    ${color(s, this.t.secondaryFg)}`,
+		});
+		const md = new Markdown(reply, 0, 0, makeMarkdownTheme(this.t));
+		const padded = new Pad(6, 0);
+		padded.addChild(md);
+		collapsible.setContent(padded);
+		this.chat.addChild(collapsible);
 	}
 
 	addBatchTiming(ms: number): void {

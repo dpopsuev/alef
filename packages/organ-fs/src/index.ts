@@ -40,7 +40,6 @@ export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: Or
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `fs.${a}`));
 	return createFsOrgan({ ...opts, actions });
 }
-export { assertWithinRoots, guardedResolve, type PathGuardOptions } from "./path-guard.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,

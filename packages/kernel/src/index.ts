@@ -1,3 +1,4 @@
+export * from "./access-policy.js";
 export * from "./binding.js";
 export * from "./budget.js";
 export * from "./buses.js";
@@ -11,6 +12,7 @@ export { InProcessNerve } from "./in-process-nerve.js";
 export { LogField } from "./log-fields.js";
 export * from "./mcp-organ.js";
 export { type CacheStrategy, createMapCache, makeCacheKey } from "./organ-cache.js";
+export { setDispatchPolicy } from "./organ-dispatch.js";
 export { explainOrgan } from "./organ-explain.js";
 export * from "./organ-sdk.js";
 export * from "./payload.js";

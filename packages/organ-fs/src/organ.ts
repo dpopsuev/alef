@@ -26,7 +26,6 @@ import { runFormatter } from "./formatter.js";
 import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
 import { atomicWrite } from "./fs-utils.js";
 import { applyOps, parsePatch, validateOps } from "./patch.js";
-import { assertWithinRoots } from "./path-guard.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
 
 // ---------------------------------------------------------------------------
@@ -184,7 +183,6 @@ export interface FsOrganOptions {
 	 * Injected by the materializer from config.security.writable_roots.
 	 * Undefined = unrestricted (no guard). Empty or populated = enforce.
 	 */
-	writableRoots?: readonly string[];
 	/** Pino-compatible logger. Passed to defineOrgan for Orange/Yellow ROGYB output. */
 	logger?: OrganLogger;
 }
@@ -246,9 +244,8 @@ function getCache(runtime: FsRuntime | undefined, scope: FsCacheScope) {
 	return runtime?.getCache(scope);
 }
 
-function resolveFilePath(cwd: string, filePath: string, writableRoots?: readonly string[]): string {
+function resolveFilePath(cwd: string, filePath: string): string {
 	const abs = nodeResolve(cwd, filePath);
-	if (writableRoots) assertWithinRoots(abs, writableRoots);
 	return abs;
 }
 
@@ -279,7 +276,7 @@ async function handleRead(
 	const { path: filePath, offset, limit, format } = ctx.payload;
 	if (!filePath) throw new Error("fs.read: path is required");
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots);
+	const absolutePath = resolveFilePath(opts.cwd, filePath);
 
 	// Read as buffer first to detect binary/image files by magic bytes.
 	const rawBuf = await fsReadFile(absolutePath);
@@ -330,7 +327,7 @@ async function handleWrite(
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, content } = ctx.payload;
 	if (!filePath) throw new Error("fs.write: path is required");
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots);
+	const absolutePath = resolveFilePath(opts.cwd, filePath);
 	await mkdir(dirname(absolutePath), { recursive: true });
 	await atomicWrite(absolutePath, content);
 	await runFormatter(opts.cwd, absolutePath);
@@ -422,7 +419,7 @@ async function handleEdit(
 		editList = [{ oldText, newText }];
 	}
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots);
+	const absolutePath = resolveFilePath(opts.cwd, filePath);
 
 	// Existence check first — ENOENT surfaces before the tracker guard.
 	let fileStat: Stats;
@@ -572,7 +569,7 @@ async function handlePatch(
 	const ops = parsePatch(patch);
 	if (ops.length === 0) throw new Error("fs.patch: no operations found in patch block");
 
-	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, opts.writableRoots);
+	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p);
 	const errors = await validateOps(ops, resolveAbs);
 	if (errors.length > 0) throw new Error(`fs.patch: validation failed:\n${errors.map((e) => `  ${e}`).join("\n")}`);
 

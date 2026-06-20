@@ -4,15 +4,26 @@ import { registry } from "./commands/index.js";
 import { CommandHintGrid } from "./tui/command-hint-grid.js";
 
 class EditorWrapper implements Component {
+	private statusLabel = "";
+
 	constructor(
 		private readonly inner: Editor,
 		private readonly ruleColor: (s: string) => string,
 	) {}
 
+	setStatusLabel(label: string): void {
+		this.statusLabel = label;
+	}
+
 	render(width: number): string[] {
 		const lines = this.inner.render(width);
 		if (lines.length < 2) return lines;
-		lines[0] = this.ruleColor("─".repeat(width));
+		if (this.statusLabel) {
+			const label = ` ${this.statusLabel} `;
+			lines[0] = this.ruleColor(`─${label}${"─".repeat(Math.max(0, width - label.length - 1))}`);
+		} else {
+			lines[0] = this.ruleColor("─".repeat(width));
+		}
 		return lines;
 	}
 
@@ -34,6 +45,7 @@ export class PromptConsole {
 	readonly editor: Editor;
 
 	private readonly statusText: Text;
+	private editorWrapper!: EditorWrapper;
 	private readonly frames: string[];
 	private frameIdx = 0;
 	private thinkingStart = 0;
@@ -106,7 +118,8 @@ export class PromptConsole {
 		this.tui.addChild(this.chunkDetail);
 		this.tui.addChild(this.inspectorHint);
 		this.tui.addChild(this.statusText);
-		this.tui.addChild(new EditorWrapper(this.editor, (s) => color(s, this.t.mutedFg)));
+		this.editorWrapper = new EditorWrapper(this.editor, (s) => color(s, this.t.mutedFg));
+		this.tui.addChild(this.editorWrapper);
 
 		this.editor.onChange = (text) => {
 			this.updateCommandHints(text);
@@ -170,7 +183,7 @@ export class PromptConsole {
 	}
 
 	setStatus(text: string): void {
-		this.statusText.setText(text);
+		this.editorWrapper.setStatusLabel(text);
 	}
 
 	get isThinking(): boolean {

@@ -180,13 +180,12 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 }
 
 // ---------------------------------------------------------------------------
-// Unified reducer — one switch handles all TuiEvent variants.
-// Adding a new AgentEvent: add a case here and in session.ts.
-// Adding a new TuiInputEvent: add a variant to TuiInputEvent above and a case here.
-// The exhaustive default: never guard catches missing cases at compile time.
+// TUI Dispatcher — routes events to UI components.
+// Organ-contributed signal handlers run first (OCP extension point).
+// Built-in cases handle turn lifecycle, tool display, and inspector chrome.
 // ---------------------------------------------------------------------------
 
-export function tuiReducer(
+export function dispatchTuiEvent(
 	state: TuiState,
 	event: TuiEvent,
 	ui: TuiUi,
@@ -417,9 +416,4 @@ export function tuiReducer(
 		default:
 			return state;
 	}
-}
-
-// Keep handleAgentEvent exported for tests that test agent events directly.
-export function handleAgentEvent(state: TuiState, event: AgentEvent, ui: TuiUi): TuiState {
-	return tuiReducer(state, event, ui);
 }

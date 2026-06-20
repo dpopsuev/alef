@@ -9,10 +9,10 @@ import type { Session } from "./session.js";
 import { bold, boldColor, color, getTheme } from "./theme.js";
 import { handleColonCommand } from "./tui-commands.js";
 import { createContextFactory } from "./tui-context.js";
+import { dispatchTuiEvent, type TuiEvent } from "./tui-dispatch.js";
 import { createHistoryPickerTheme, openHistoryPicker } from "./tui-history.js";
 import { handleRawInput } from "./tui-input.js";
 import { buildLayout } from "./tui-layout.js";
-import { type TuiEvent, tuiReducer } from "./tui-reducer.js";
 import { initialTuiState, syncOverlays, type TuiUi } from "./tui-state.js";
 import { createSubmitHandler } from "./tui-submit.js";
 import { checkForUpdate } from "./version-check.js";
@@ -53,7 +53,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	const signalHandlers = getTuiSignalHandlers();
 	const dispatch = (event: TuiEvent): void => {
 		const prev = tuiState;
-		tuiState = tuiReducer(tuiState, event, tuiUi, signalHandlers);
+		tuiState = dispatchTuiEvent(tuiState, event, tuiUi, signalHandlers);
 		syncOverlays(tui, prev.overlays, tuiState.overlays);
 		tui.requestRender();
 	};

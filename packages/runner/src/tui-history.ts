@@ -1,6 +1,6 @@
 import type { SelectItem, SelectList } from "@dpopsuev/alef-tui";
 import type { boldColor, color, ThemeTokens } from "./theme.js";
-import type { TuiEvent } from "./tui-reducer.js";
+import type { TuiEvent } from "./tui-dispatch.js";
 import type { OverlayDescriptor } from "./tui-state.js";
 
 export const HISTORY_PICKER_ID = "history-picker";

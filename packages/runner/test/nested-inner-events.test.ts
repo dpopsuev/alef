@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { tuiReducer } from "../src/tui-reducer.js";
+import { dispatchTuiEvent } from "../src/tui-dispatch.js";
 import { initialTuiState } from "../src/tui-state.js";
 
 function noopUi() {
@@ -63,7 +63,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 		const ui = noopUi();
 		let state = initialTuiState();
 
-		state = tuiReducer(
+		state = dispatchTuiEvent(
 			state,
 			{
 				type: "tool-start",
@@ -76,7 +76,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 
 		expect(state.activeCalls.has("parent-1")).toBe(true);
 
-		state = tuiReducer(
+		state = dispatchTuiEvent(
 			state,
 			{
 				type: "inner-tool-start",
@@ -99,7 +99,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 		const ui = noopUi();
 		let state = initialTuiState();
 
-		state = tuiReducer(
+		state = dispatchTuiEvent(
 			state,
 			{
 				type: "tool-start",
@@ -110,7 +110,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 			ui,
 		);
 
-		state = tuiReducer(
+		state = dispatchTuiEvent(
 			state,
 			{
 				type: "inner-tool-start",
@@ -122,7 +122,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 			ui,
 		);
 
-		state = tuiReducer(
+		state = dispatchTuiEvent(
 			state,
 			{
 				type: "inner-tool-end",
@@ -141,7 +141,7 @@ describe("nested inner-tool events", { tags: ["unit"] }, () => {
 		const ui = noopUi();
 		let state = initialTuiState();
 
-		state = tuiReducer(
+		state = dispatchTuiEvent(
 			state,
 			{
 				type: "inner-tool-start",

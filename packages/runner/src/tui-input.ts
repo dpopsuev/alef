@@ -2,7 +2,7 @@ import { matchesKey } from "@dpopsuev/alef-tui";
 import { trace } from "./debug-trace.js";
 import type { TuiHandlerContext } from "./tui-commands.js";
 import { handleCtrlC } from "./tui-commands.js";
-import type { TuiEvent } from "./tui-reducer.js";
+import type { TuiEvent } from "./tui-dispatch.js";
 import type { OverlayDescriptor, TuiState } from "./tui-state.js";
 
 /**

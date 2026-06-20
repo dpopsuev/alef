@@ -4,7 +4,7 @@ import type { Session } from "./session.js";
 import type { ThemeTokens } from "./theme.js";
 import type { ChatLog } from "./tui/chat-log.js";
 import type { TuiHandlerContext } from "./tui-commands.js";
-import type { TuiEvent } from "./tui-reducer.js";
+import type { TuiEvent } from "./tui-dispatch.js";
 import type { TuiState } from "./tui-state.js";
 
 /**

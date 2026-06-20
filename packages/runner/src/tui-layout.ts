@@ -18,18 +18,20 @@ import { Typewriter } from "./tui/typewriter.js";
 /**
  * TUI Composition Model:
  *
- *   OUTPUT ZONE
- *     scrollback  — ChatLog: append-only conversation history (static)
- *     live        — ReplyBlock + Typewriters: streaming response, thinking (dynamic)
- *     forums      — ForumManager: discourse channel switching
+ *   OUTPUT
+ *     scrollback      — ChatLog: append-only conversation history (static)
+ *     streaming       — ReplyBlock + Typewriters: live agent response (dynamic)
+ *     spinner/fsm     — Thinking indicator, tool call status (dynamic)
+ *     forums          — ForumManager: discourse channel switching
  *
- *   INPUT ZONE
- *     editor      — PromptConsole: vi-modal text editor
- *     history     — HistoryAutocompleteProvider: input history + autocomplete
- *     (future: InputApplication slot for :command apps)
+ *   INPUT
+ *     upper delimiter — ─────────────────────────── (plain rule)
+ *     input box       — Editor: vi-modal text, multiline, autocomplete
+ *     lower delimiter — ─ NORMAL ─────────────────── (mode label embedded)
+ *     hints/app       — Vim hints, :command grid, or InputApplication
  *
- *   DASHBOARD (in header — future: move to footer)
- *     session ID, model, token count, key hints
+ *   FOOTER
+ *     dashboard       — cwd (branch) │ session │ model │ tokens
  */
 
 export interface OutputZone {

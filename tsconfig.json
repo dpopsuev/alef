@@ -186,11 +186,11 @@
 			"@dpopsuev/alef-organ-nodesh/*": [
 				"./packages/organ-nodesh/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-meta": [
-				"./packages/organ-meta/src/index.ts"
+			"@dpopsuev/alef-meta": [
+				"./packages/meta/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-meta/*": [
-				"./packages/organ-meta/src/*.ts"
+			"@dpopsuev/alef-meta/*": [
+				"./packages/meta/src/*.ts"
 			],
 			"@dpopsuev/alef-organ-security-policy": [
 				"./packages/organ-security-policy/src/index.ts"

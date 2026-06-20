@@ -1,6 +1,6 @@
 import type { Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
-import { createMetaOrgan, type DirectiveAdapter } from "@dpopsuev/alef-organ-meta";
+import { createMetaOrgan, type DirectiveAdapter } from "@dpopsuev/alef-meta";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { DEFAULT_MODEL } from "./args.js";
 import { buildModel } from "./model.js";

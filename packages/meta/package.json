@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-organ-meta",
+  "name": "@dpopsuev/alef-meta",
   "version": "0.0.1",
   "description": "Alef API organ \u2014 typed tools for querying sessions, config, organs, and PM history",
   "type": "module",

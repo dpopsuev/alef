@@ -17,7 +17,7 @@
 		"@dpopsuev/alef-organ-workflow": "^0.0.1",
 		"@dpopsuev/alef-organ-forum": "^0.0.1",
 		"@dpopsuev/alef-organ-fs": "^0.0.1",
-		"@dpopsuev/alef-organ-meta": "^0.0.1",
+		"@dpopsuev/alef-meta": "^0.0.1",
 		"@dpopsuev/alef-organ-nodesh": "^0.0.1",
 		"jiti": "^2.7.0",
 		"@dpopsuev/alef-organ-lector": "^0.0.1",

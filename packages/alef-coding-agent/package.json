@@ -13,7 +13,6 @@
 		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
 		"@dpopsuev/alef-kernel": "^0.0.1",
 		"@dpopsuev/alef-organ-agent": "^0.0.1",
-		"@dpopsuev/alef-organ-compactor": "^0.0.1",
 		"@dpopsuev/alef-organ-factory": "^0.0.1",
 		"@dpopsuev/alef-organ-fs": "^0.0.1",
 		"@dpopsuev/alef-organ-lector": "^0.0.1",

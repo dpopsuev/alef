@@ -19,9 +19,10 @@
  */
 
 import type { Organ, SignalEvent } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController, createToolShellOrgan } from "@dpopsuev/alef-runtime";
 
 /** True when at least one real LLM provider is configured via env vars. */
 export const HAVE_REAL_LLM =
@@ -70,6 +71,13 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 	});
 
 	for (const organ of organs) agent.load(organ);
+	const toolShell = createToolShellOrgan({
+		tools: organs.flatMap((o) => o.tools),
+		getTools: () => agent.tools,
+	});
+	const pipeline = createContextAssemblyPipeline();
+	agent.load(toolShell);
+	agent.load(pipeline);
 	agent.load(llm);
 	agent.observe({
 		onMotorEvent() {},

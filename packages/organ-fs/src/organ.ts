@@ -248,7 +248,7 @@ function getCache(runtime: FsRuntime | undefined, scope: FsCacheScope) {
 
 function resolveFilePath(cwd: string, filePath: string, writableRoots?: readonly string[]): string {
 	const abs = nodeResolve(cwd, filePath);
-	assertWithinRoots(abs, writableRoots ?? [cwd]);
+	if (writableRoots) assertWithinRoots(abs, writableRoots);
 	return abs;
 }
 

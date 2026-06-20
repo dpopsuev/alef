@@ -192,15 +192,6 @@
 			"@dpopsuev/alef-meta/*": [
 				"./packages/meta/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-security-policy": [
-				"./packages/organ-security-policy/src/index.ts"
-			],
-			"@dpopsuev/alef-organ-hitl": [
-				"./packages/organ-hitl/src/index.ts"
-			],
-			"@dpopsuev/alef-organ-hitl/*": [
-				"./packages/organ-hitl/src/*.ts"
-			],
 			"@dpopsuev/alef-organ-workflow": [
 				"./packages/organ-workflow/src/index.ts"
 			],

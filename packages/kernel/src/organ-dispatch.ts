@@ -1,11 +1,25 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny } from "zod";
+import type { AccessPolicy } from "./access-policy.js";
 import type { MotorEvent, Nerve, SenseEvent } from "./buses.js";
 import { debugLog } from "./debug.js";
 import type { CacheStrategy } from "./organ-cache.js";
 import { makeCacheKey } from "./organ-cache.js";
 import type { MotorAction, MotorHandlerCtx, OrganLogger, SenseAction, SenseHandlerCtx } from "./organ-types.js";
 import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
+
+let _dispatchPolicy: AccessPolicy | undefined;
+let _dispatchEscalate:
+	| ((toolName: string, payload: Record<string, unknown>, reason: string) => Promise<boolean>)
+	| undefined;
+
+export function setDispatchPolicy(
+	policy?: AccessPolicy,
+	onEscalate?: (toolName: string, payload: Record<string, unknown>, reason: string) => Promise<boolean>,
+): void {
+	_dispatchPolicy = policy;
+	_dispatchEscalate = onEscalate;
+}
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
 
@@ -61,6 +75,24 @@ export async function dispatchMotorAction(
 	await Promise.resolve();
 	const payload = validateMotorPayload(motor, schema, nerve);
 	if (payload === null) return;
+
+	if (_dispatchPolicy) {
+		const decision = _dispatchPolicy.check(motor.type, payload);
+		if (decision.action === "deny") {
+			nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied by access policy`));
+			return;
+		}
+		if (decision.action === "escalate") {
+			const approved = _dispatchEscalate
+				? await _dispatchEscalate(motor.type, payload, decision.reason ?? "")
+				: false;
+			if (!approved) {
+				nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied (escalation rejected)`));
+				return;
+			}
+		}
+	}
+
 	const ctx = buildHandlerCtx(motor, payload, log);
 
 	const span = tracer.startSpan(`alef.motor/${motor.type}`, {

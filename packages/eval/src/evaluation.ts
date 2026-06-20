@@ -5,7 +5,7 @@
  * EvaluationRunner executes it. Checker checks it deterministically.
  *
  * ToolLevel — which tool surface is available to the agent:
- *   ReadOnly   — fs.read, fs.grep, fs.find, lector.read, lector.search
+ *   ReadOnly   — fs.read, fs.grep, fs.find, code.read, code.search
  *   ReadWrite  — ReadOnly + fs.write, fs.edit, shell.exec
  *
  * Run ReadOnly first: if the agent passes without write tools it didn't cheat.

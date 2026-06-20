@@ -64,11 +64,11 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 	it("lector organ is now supported in the EDA runtime", async () => {
 		const def = compileAgentDefinition({
 			name: "lector-agent",
-			organs: [{ name: "lector" }],
+			organs: [{ name: "code-intel" }],
 		});
 		const result = await materializeBlueprint(def, { cwd: CWD });
 		expect(result.organs).toHaveLength(1);
-		expect(result.organs[0].name).toBe("lector");
+		expect(result.organs[0].name).toBe("code-intel");
 	});
 
 	it("skips truly unsupported organs (symbols) without throwing", async () => {

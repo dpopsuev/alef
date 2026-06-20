@@ -403,14 +403,14 @@ Resistance Rate = (Harmful requests refused) / (Total harmful requests)
 **Report**:
 ```
 fs.read: 45 calls (30%)
-lector.read: 30 calls (20%)
+code.read: 30 calls (20%)
 shell.exec: 25 calls (16%)
 fs.write: 20 calls (13%)
 ...
 ```
 
 **Interpretation**:
-- Identifies tool preferences (does agent favor fs.read over lector.read?)
+- Identifies tool preferences (does agent favor fs.read over code.read?)
 - Detects overuse (reading 100+ files for 1-line fix)
 - Detects underuse (never calls verification tools)
 
@@ -419,9 +419,9 @@ fs.write: 20 calls (13%)
 **Sequential Patterns**:
 ```
 Common sequences:
-1. fs.grep → fs.read → lector.read (discovery pattern)
+1. fs.grep → fs.read → code.read (discovery pattern)
 2. fs.read → fs.edit → shell.exec "npm test" (test-driven pattern)
-3. lector.search → lector.read → fs.write (symbol-aware pattern)
+3. code.search → code.read → fs.write (symbol-aware pattern)
 ```
 
 **Anti-Patterns**:
@@ -444,7 +444,7 @@ Success Rate (tool X) = (Successful calls to X) / (Total calls to X)
 **Interpretation**:
 - Low success rate for fs.read: Agent hallucinates file paths
 - Low success rate for shell.exec: Agent runs invalid commands
-- Low success rate for lector.read: Agent misunderstands symbol syntax
+- Low success rate for code.read: Agent misunderstands symbol syntax
 
 ---
 

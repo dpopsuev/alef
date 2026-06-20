@@ -26,13 +26,13 @@ export interface ToolRecord {
 
 /**
  * Assert that the agent read a file and reported the secret in its reply.
- * Accepts either fs.read or lector.read — both are valid file read strategies.
+ * Accepts either fs.read or code.read — both are valid file read strategies.
  */
 export function assertFileReadWorkflow(records: ToolRecord[], replyText: string, secret: string): void {
 	const types = new Set(records.map((r) => r.type));
-	if (!types.has("fs.read") && !types.has("lector.read")) {
+	if (!types.has("fs.read") && !types.has("code.read")) {
 		throw new Error(
-			`verifier: expected fs.read or lector.read in JSONL, got: ${[...types].filter((t) => !t.includes("dialog")).join(", ") || "(none)"}`,
+			`verifier: expected fs.read or code.read in JSONL, got: ${[...types].filter((t) => !t.includes("dialog")).join(", ") || "(none)"}`,
 		);
 	}
 	if (!replyText.includes(secret)) {
@@ -57,7 +57,7 @@ export function assertHashesPresent(records: ToolRecord[]): void {
 /**
  * Assert that required tool types appear in JSONL and forbidden prefixes do not.
  * required: exact type strings that must be present.
- * forbiddenPrefixes: event type prefixes (e.g. "lector.", "shell.") that must be absent.
+ * forbiddenPrefixes: event type prefixes (e.g. "code.", "shell.") that must be absent.
  */
 export function assertOrganSelection(records: ToolRecord[], required: string[], forbiddenPrefixes: string[]): void {
 	const types = new Set(records.map((r) => r.type));
@@ -114,8 +114,8 @@ export function assertSseFilter(
  * Does not require the sequence to be contiguous — only that each element
  * appears after the previous one.
  *
- * sequence: ["lector.read", "lector.edit"] means lector.read must precede
- * lector.edit somewhere in the motor event stream.
+ * sequence: ["code.read", "code.edit"] means code.read must precede
+ * code.edit somewhere in the motor event stream.
  */
 export function assertToolSequence(records: ToolRecord[], sequence: string[]): void {
 	const motorTypes = records.filter((r) => r.bus === "motor").map((r) => r.type);

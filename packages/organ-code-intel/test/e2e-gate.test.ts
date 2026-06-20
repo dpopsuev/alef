@@ -2,8 +2,8 @@
  * Lector v2 E2E gate.
  *
  * Proves the 2-call workflow:
- *   1. lector.read(path) → file content + symbol map
- *   2. lector.edit(path, [{ symbol, newText }]) → replaces span
+ *   1. code.read(path) → file content + symbol map
+ *   2. code.edit(path, [{ symbol, newText }]) → replaces span
  *
  * No fs.read needed. LectorOrgan provides the full read-then-edit flow.
  * This is the canonical Lector Agent workflow.
@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 describe("Lector v2 E2E gate — 2-call workflow", { tags: ["integration"] }, () => {
-	it("call 1: lector.read returns content + symbol map", async () => {
+	it("call 1: code.read returns content + symbol map", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), AUTH_TS);
 
@@ -56,7 +56,7 @@ describe("Lector v2 E2E gate — 2-call workflow", { tags: ["integration"] }, ()
 		expect(login?.endLine).toBeGreaterThan(1); // multi-line function
 	});
 
-	it("call 2: lector.edit(symbol=) replaces the span without reading oldText", async () => {
+	it("call 2: code.edit(symbol=) replaces the span without reading oldText", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), AUTH_TS);
 
@@ -77,7 +77,7 @@ describe("Lector v2 E2E gate — 2-call workflow", { tags: ["integration"] }, ()
 		expect(updated).not.toContain("password.length >= 8"); // old content gone
 	});
 
-	it("symbol zoom: lector.read(path, { symbol }) returns just the function body", async () => {
+	it("symbol zoom: code.read(path, { symbol }) returns just the function body", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), AUTH_TS);
 

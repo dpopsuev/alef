@@ -492,9 +492,9 @@ surfaces:
 
 	it("overlay organs replace base organs when non-empty", () => {
 		const base = parseAgentDefinitionYaml("name: base\norgans:\n  - name: fs\n  - name: shell\n");
-		const overlay = parseAgentDefinitionYaml("name: base\norgans:\n  - name: lector\n");
+		const overlay = parseAgentDefinitionYaml("name: base\norgans:\n  - name: code-intel\n");
 		const merged = mergeAgentDefinitions(base, overlay);
-		expect(merged.organs.map((o) => o.name)).toEqual(["lector"]);
+		expect(merged.organs.map((o) => o.name)).toEqual(["code-intel"]);
 	});
 
 	it("working memory is deep-merged, overlay wins per key", () => {

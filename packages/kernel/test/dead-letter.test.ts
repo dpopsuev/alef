@@ -50,9 +50,9 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 		const allMotor: unknown[] = [];
 		const deadLetters: SenseEvent[] = [];
 		nerve.onAnyMotor((e) => allMotor.push(e));
-		nerve.subscribeSense("lector.read", (e) => void deadLetters.push(e));
+		nerve.subscribeSense("code.read", (e) => void deadLetters.push(e));
 
-		nerve.publishMotor({ type: "lector.read", payload: {}, correlationId: newCorrelationId() });
+		nerve.publishMotor({ type: "code.read", payload: {}, correlationId: newCorrelationId() });
 		await Promise.resolve();
 
 		expect(allMotor).toHaveLength(1); // wildcard still sees it

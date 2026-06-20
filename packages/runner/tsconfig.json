@@ -28,8 +28,8 @@
 			"@dpopsuev/alef-organ-fs": [
 				"../organ-fs/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-lector": [
-				"../organ-lector/src/index.ts"
+			"@dpopsuev/alef-organ-code-intel": [
+				"../organ-code-intel/src/index.ts"
 			],
 			"@dpopsuev/alef-tui": [
 				"../tui/src/index.ts"

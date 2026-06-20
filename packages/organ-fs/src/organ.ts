@@ -50,7 +50,7 @@ const FS_READ_TOOL = {
 const FS_GREP_TOOL = {
 	name: "fs.grep",
 	description:
-		"Search file contents by regex or literal pattern using ripgrep. Returns matching lines with file paths and line numbers. To find callers of a specific symbol, use lector.callers instead.",
+		"Search file contents by regex or literal pattern using ripgrep. Returns matching lines with file paths and line numbers. To find callers of a specific symbol, use code.callers instead.",
 	inputSchema: z.object({
 		pattern: z.string().min(1).describe("Search pattern (regex or literal string)"),
 		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
@@ -126,7 +126,7 @@ const FS_EDIT_TOOL = {
 	description:
 		"Apply exact-text replacements to a file atomically. Requires reading the file first with fs.read. " +
 		"Each oldText must be unique; overlapping edits are rejected. " +
-		"For symbol-level replacement by function/class name, use lector.edit instead.",
+		"For symbol-level replacement by function/class name, use code.edit instead.",
 	inputSchema: z.union([
 		z.object({
 			path: z.string().min(1).describe("Path to the file (relative or absolute)"),

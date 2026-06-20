@@ -13,7 +13,7 @@
  */
 
 export interface ToolCallSpec {
-	/** EDA Motor event type (e.g. "fs.read", "lector.search"). */
+	/** EDA Motor event type (e.g. "fs.read", "code.search"). */
 	name: string;
 	/** Arguments forwarded to the organ handler. */
 	args: Record<string, unknown>;

@@ -1,17 +1,17 @@
 /**
- * LectorOrgan — EDA adapter for the LectorBackend.
+ * CodeIntelOrgan — EDA adapter for the CodeIntelBackend.
  *
  * Six tools exposed to the LLM:
- *   lector.read    — read file + symbol map; optional symbol block zoom
- *   lector.write   — write file (creates parents)
- *   lector.edit    — targeted edit with unique-match enforcement
- *   lector.search  — grep/ripgrep content search
- *   lector.find    — glob file find
- *   lector.callers — find call sites for a symbol (Phase 1: grep)
+ *   code.read    — read file + symbol map; optional symbol block zoom
+ *   code.write   — write file (creates parents)
+ *   code.edit    — targeted edit with unique-match enforcement
+ *   code.search  — grep/ripgrep content search
+ *   code.find    — glob file find
+ *   code.callers — find call sites for a symbol (Phase 1: grep)
  *
  * Cache wiring:
- *   lector.read, lector.search, lector.find, lector.callers — shouldCache: true
- *   lector.write, lector.edit — invalidates: [path] (evicts read + callers cache)
+ *   code.read, code.search, code.find, code.callers — shouldCache: true
+ *   code.write, code.edit — invalidates: [path] (evicts read + callers cache)
  */
 
 import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-kernel";
@@ -25,7 +25,7 @@ import { LocalLectorBackend } from "./local-backend.js";
 // ---------------------------------------------------------------------------
 
 const READ_TOOL = {
-	name: "lector.read",
+	name: "code.read",
 	description:
 		"Read a code file with its symbol map (functions, classes, types). Use symbol= to zoom into one declaration. " +
 		"Always returns all declared symbols. For non-code files, use fs.read instead.",
@@ -38,9 +38,9 @@ const READ_TOOL = {
 };
 
 const WRITE_TOOL = {
-	name: "lector.write",
+	name: "code.write",
 	description:
-		"Write full content to a code file, creating parent directories if needed. For targeted symbol-level edits, use lector.edit instead.",
+		"Write full content to a code file, creating parent directories if needed. For targeted symbol-level edits, use code.edit instead.",
 	inputSchema: z.object({
 		path: z.string().min(1).describe("File path (relative or absolute)"),
 		content: z.string().min(1).describe("Content to write"),
@@ -48,10 +48,10 @@ const WRITE_TOOL = {
 };
 
 const EDIT_TOOL = {
-	name: "lector.edit",
+	name: "code.edit",
 	description:
 		"Edit a code file by exact text or by symbol name (replaces the full function/class span). " +
-		"Requires lector.read first. More precise than fs.edit for code symbols.",
+		"Requires code.read first. More precise than fs.edit for code symbols.",
 	inputSchema: z.object({
 		path: z.string().min(1).describe("File path (relative or absolute)"),
 		edits: z
@@ -64,7 +64,7 @@ const EDIT_TOOL = {
 						.optional()
 						.describe(
 							"Name of a symbol to replace entirely (function, class, etc.). " +
-								"Replaces the full span. Requires prior lector.read.",
+								"Replaces the full span. Requires prior code.read.",
 						),
 				}),
 			)
@@ -73,10 +73,10 @@ const EDIT_TOOL = {
 };
 
 const SEARCH_TOOL = {
-	name: "lector.search",
+	name: "code.search",
 	description:
 		"Search file contents by pattern using ripgrep. Returns matching lines with file path and line number. " +
-		"To find all callers of a specific symbol by name, use lector.callers instead.",
+		"To find all callers of a specific symbol by name, use code.callers instead.",
 	inputSchema: z.object({
 		pattern: z.string().min(1).describe("Search pattern (regex or literal)"),
 		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
@@ -87,7 +87,7 @@ const SEARCH_TOOL = {
 };
 
 const FIND_TOOL = {
-	name: "lector.find",
+	name: "code.find",
 	description: "Find files by glob pattern. Use depth=1 to list immediate children of a directory.",
 	inputSchema: z.object({
 		glob: z.string().min(1).describe("Glob pattern, e.g. '*.ts' or '*.test.ts'"),
@@ -99,7 +99,7 @@ const FIND_TOOL = {
 };
 
 const CALLERS_TOOL = {
-	name: "lector.callers",
+	name: "code.callers",
 	description:
 		"Find every call site referencing a named symbol (function, class, variable). " +
 		"Returns file, line, and surrounding context. Use before refactoring to understand blast radius.",
@@ -114,7 +114,7 @@ const CALLERS_TOOL = {
 // Organ factory
 // ---------------------------------------------------------------------------
 
-export interface LectorOrganOptions extends BaseOrganOptions {
+export interface CodeIntelOrganOptions extends BaseOrganOptions {
 	/**
 	 * Workspace root. All relative paths resolve against this.
 	 * Required when using the default LocalLectorBackend.
@@ -130,7 +130,7 @@ export interface LectorOrganOptions extends BaseOrganOptions {
 	backend?: LectorBackend;
 }
 
-export function createLectorOrgan(opts: LectorOrganOptions): Organ {
+export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
 	const backend: LectorBackend =
 		opts.backend ??
 		new LocalLectorBackend({
@@ -139,14 +139,14 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 		});
 
 	const base = defineOrgan(
-		"lector",
+		"code-intel",
 		{
 			motor: {
-				"lector.read": typedAction(
+				"code.read": typedAction(
 					READ_TOOL,
 					async (ctx) => {
 						const { path, symbol, maxLines, offset } = ctx.payload;
-						if (!path) throw new Error("lector.read: path is required");
+						if (!path) throw new Error("code.read: path is required");
 						const r = await backend.read(path, { symbol, maxLines, offset });
 						const readLabel = symbol ? `Read **${symbol}** in ${path}` : `Read **${path}**`;
 						return withDisplay(r as unknown as Record<string, unknown>, {
@@ -157,11 +157,11 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 					{ shouldCache: (_ctx, result) => result !== undefined },
 				),
 
-				"lector.write": typedAction(
+				"code.write": typedAction(
 					WRITE_TOOL,
 					async (ctx) => {
 						const { path, content } = ctx.payload;
-						if (!path) throw new Error("lector.write: path is required");
+						if (!path) throw new Error("code.write: path is required");
 						await backend.write(path, content);
 						return withDisplay(
 							{ path, written: content.length },
@@ -171,11 +171,11 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 					{ invalidates: (ctx) => [ctx.payload.path] },
 				),
 
-				"lector.edit": typedAction(
+				"code.edit": typedAction(
 					EDIT_TOOL,
 					async (ctx) => {
 						const { path, edits } = ctx.payload;
-						if (!path) throw new Error("lector.edit: path is required");
+						if (!path) throw new Error("code.edit: path is required");
 						await backend.edit(path, edits);
 						return withDisplay(
 							{ path, edits: edits.length },
@@ -188,11 +188,11 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 					{ invalidates: (ctx) => [ctx.payload.path] },
 				),
 
-				"lector.search": typedAction(
+				"code.search": typedAction(
 					SEARCH_TOOL,
 					async (ctx) => {
 						const { pattern, path, caseInsensitive, maxResults, extension } = ctx.payload;
-						if (!pattern) throw new Error("lector.search: pattern is required");
+						if (!pattern) throw new Error("code.search: pattern is required");
 						const matches = await backend.search(pattern, { path, caseInsensitive, maxResults, extension });
 						return withDisplay(
 							{ matches, count: matches.length },
@@ -205,11 +205,11 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 					{ shouldCache: (_ctx, result) => result !== undefined },
 				),
 
-				"lector.find": typedAction(
+				"code.find": typedAction(
 					FIND_TOOL,
 					async (ctx) => {
 						const { glob, path, maxResults, depth, hidden } = ctx.payload;
-						if (!glob) throw new Error("lector.find: glob is required");
+						if (!glob) throw new Error("code.find: glob is required");
 						const paths = await backend.find(glob, { path, maxResults, depth, hidden });
 						return withDisplay(
 							{ paths, count: paths.length },
@@ -222,11 +222,11 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 					{ shouldCache: (_ctx, result) => result !== undefined },
 				),
 
-				"lector.callers": typedAction(
+				"code.callers": typedAction(
 					CALLERS_TOOL,
 					async (ctx) => {
 						const { symbol, path, maxResults } = ctx.payload;
-						if (!symbol) throw new Error("lector.callers: symbol is required");
+						if (!symbol) throw new Error("code.callers: symbol is required");
 						const callers = await backend.callers(symbol, { path, maxResults });
 						return withDisplay(
 							{ callers, count: callers.length },
@@ -242,7 +242,7 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 		},
 		{
 			actions: opts.actions,
-			directives: LECTOR_DIRECTIVES,
+			directives: CODE_INTEL_DIRECTIVES,
 			description: "Symbol-aware code reading and editing with LSP caller analysis.",
 			labels: ["code", "symbols", "lsp", "read", "edit"],
 			ready: backend instanceof LocalLectorBackend ? () => backend.warmUp() : undefined,
@@ -259,14 +259,14 @@ export function createLectorOrgan(opts: LectorOrganOptions): Organ {
 	return base;
 }
 
-const LECTOR_DIRECTIVES = [
-	`**lector tool guidance**
-- lector.read returns file content AND a symbol map on every call. Use symbol= to zoom into a single function or class without reading the whole file.
-- Always call lector.read before lector.edit. Never edit from memory or inference.
-- lector.edit applies targeted replacements. Each oldText must be unique within the file. Provide enough context to be unambiguous.
-- lector.write overwrites the entire file. Use it only to create new files or completely replace an existing one.
-- lector.search searches file contents across the workspace (regex or literal). Prefer this over reading every file individually.
-- lector.find lists files matching a glob pattern. Use depth=1 to list immediate children of a directory.
-- lector.callers finds all call sites of a named symbol. Use it before refactoring to understand blast radius.
+const CODE_INTEL_DIRECTIVES = [
+	`**code tool guidance**
+- code.read returns file content AND a symbol map on every call. Use symbol= to zoom into a single function or class without reading the whole file.
+- Always call code.read before code.edit. Never edit from memory or inference.
+- code.edit applies targeted replacements. Each oldText must be unique within the file. Provide enough context to be unambiguous.
+- code.write overwrites the entire file. Use it only to create new files or completely replace an existing one.
+- code.search searches file contents across the workspace (regex or literal). Prefer this over reading every file individually.
+- code.find lists files matching a glob pattern. Use depth=1 to list immediate children of a directory.
+- code.callers finds all call sites of a named symbol. Use it before refactoring to understand blast radius.
 - All paths must resolve within the working directory.`,
 ];

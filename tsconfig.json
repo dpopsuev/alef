@@ -97,11 +97,11 @@
 			"@dpopsuev/alef-organ-shell/*": [
 				"./packages/organ-shell/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-lector": [
-				"./packages/organ-lector/src/index.ts"
+			"@dpopsuev/alef-organ-code-intel": [
+				"./packages/organ-code-intel/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-lector/*": [
-				"./packages/organ-lector/src/*.ts"
+			"@dpopsuev/alef-organ-code-intel/*": [
+				"./packages/organ-code-intel/src/*.ts"
 			],
 			"@dpopsuev/alef-reasoner": [
 				"./packages/reasoner/src/index.ts"

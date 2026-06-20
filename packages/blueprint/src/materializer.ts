@@ -168,7 +168,7 @@ export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {
 		{ name: "fs", actions: [], toolNames: [] },
 		{ name: "shell", actions: [], toolNames: [] },
 		{ name: "nodesh", actions: [], toolNames: [] },
-		{ name: "lector", actions: [], toolNames: [] },
+		{ name: "code-intel", actions: [], toolNames: [] },
 		{ name: "web", actions: [], toolNames: [] },
 		{ name: "agent", actions: [], toolNames: [] },
 		{ name: "factory", actions: [], toolNames: [] },

@@ -73,7 +73,7 @@ export interface EditSpec {
 	/**
 	 * Name of a symbol to replace entirely (Optimistic Lock).
 	 * When set, replaces the full span of the named symbol with newText.
-	 * Uses the cached symbol map from the last lector.read — throws if
+	 * Uses the cached symbol map from the last code.read — throws if
 	 * the symbol map is stale (file was modified since last read).
 	 * Mutually exclusive with oldText.
 	 */

@@ -134,7 +134,7 @@ Adding a new slot: add the type to `OrganContributions` in `kernel/src/buses.ts`
 ## Architecture
 
 Production agent: `packages/alef-coding-agent` — the full coding agent stack.
-- `CODING_AGENT_BLUEPRINT` — canonical organ set (fs, shell, nodesh, lector, web, agent, factory, skills)
+- `CODING_AGENT_BLUEPRINT` — canonical organ set (fs, shell, nodesh, code-intel, web, agent, factory, skills)
 - organ-agent — unified delegation + child lifecycle (agent.run, agent.spawn, agent.ask, agent.race, agent.converse, agent.kill)
 
 Microkernel: `packages/kernel` — buses, organ framework, binding chain, contributions. No organ names, no application concerns.

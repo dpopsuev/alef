@@ -57,6 +57,14 @@ export function getTuiSignalHandlers(): ReadonlyMap<string, TuiSignalHandler> {
 	return tuiSignalHandlers;
 }
 
+let _compacted = false;
+export function isCompacted(): boolean {
+	return _compacted;
+}
+export function markCompacted(): void {
+	_compacted = true;
+}
+
 function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 	switch (event.type) {
@@ -220,6 +228,7 @@ export async function createLocalSession(
 	registerOrganSignalMaps(organs);
 	registerTuiSignals(organs);
 	tuiSignalHandlers.set("context.compacted", (payload, ui) => {
+		markCompacted();
 		const before = Number(payload.estimatedBefore ?? 0);
 		const after = Number(payload.estimatedAfter ?? 0);
 		const saved = before - after;

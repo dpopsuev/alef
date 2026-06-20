@@ -3,7 +3,7 @@ import type { ISessionStore } from "@dpopsuev/alef-session";
 import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";
 import { trace } from "./debug-trace.js";
 import type { InteractiveOptions } from "./interactive.js";
-import { getTuiSignalHandlers } from "./local-session.js";
+import { getTuiSignalHandlers, isCompacted } from "./local-session.js";
 import { ModalInputHandler } from "./modal-input.js";
 import type { Session } from "./session.js";
 import { bold, boldColor, color, getTheme } from "./theme.js";
@@ -50,6 +50,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 			contextWindow: session.state.contextWindow,
 			contextUsed: tuiState.sessionTokensTotal,
 			thinkingLevel: session.getThinking(),
+			compacted: isCompacted(),
 		}),
 		store,
 	);

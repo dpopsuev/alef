@@ -200,6 +200,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
 						plan.checkpoint(ctx.payload.nodeId);
 						emitSignal("plan.intent", { text: ctx.payload.nodeId });
+						emitSignal("plan.tree", { tree: plan.renderTree() });
 						return withDisplay(
 							{ nodeId: ctx.payload.nodeId, phase: plan.phase },
 							{ text: `Node ${ctx.payload.nodeId} is now active`, mimeType: "text/plain" },
@@ -260,6 +261,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 						if (!plan)
 							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
 						plan.completeNode(ctx.payload.nodeId);
+						emitSignal("plan.tree", { tree: plan.renderTree() });
 						const s = plan.stats();
 						return withDisplay(
 							{ nodeId: ctx.payload.nodeId, stats: s },
@@ -286,6 +288,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 						plan.setAAR(ctx.payload.aar);
 						plan.close();
 						emitSignal("plan.intent", { text: "" });
+						emitSignal("plan.tree", { tree: "" });
 						const summary = plan.renderSummary();
 						activePlan = null;
 						return withDisplay({ closed: true }, { text: `Plan closed.\n${summary}`, mimeType: "text/plain" });
@@ -329,6 +332,9 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 					signals: {
 						"plan.intent": (payload, ui) => {
 							ui.setIntent(String(payload.text ?? ""));
+						},
+						"plan.tree": (payload, ui) => {
+							ui.setWidgetAbove(String(payload.tree ?? ""));
 						},
 					},
 				},

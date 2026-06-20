@@ -123,6 +123,7 @@ export interface TuiPromptConsole {
 	stopThinking(): void;
 	setIntent(text: string): void;
 	setStatus(text: string): void;
+	setWidgetAbove(text: string): void;
 	readonly isThinking: boolean;
 	readonly widgetSlotAbove: { addChild(c: unknown): void; removeChild(c: unknown): void };
 	readonly widgetSlotBelow: { addChild(c: unknown): void; removeChild(c: unknown): void };

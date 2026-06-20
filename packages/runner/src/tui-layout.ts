@@ -61,20 +61,34 @@ export interface TuiLayout {
 	input: InputZone;
 }
 
+export interface LayoutTokenState {
+	inputTokens: number;
+	outputTokens: number;
+	contextWindow: number;
+	contextUsed: number;
+	thinkingLevel: string;
+}
+
 export async function buildLayout(
 	tui: TUI,
 	t: ThemeTokens,
 	opts: InteractiveOptions,
-	getTokensTotal: () => number,
+	getTokenState: () => LayoutTokenState,
 	store?: ISessionStore,
 ): Promise<TuiLayout> {
 	const dashboard = new DashboardFooter({
 		sessionId: opts.sessionId,
 		modelId: opts.modelId,
 		cwd: opts.cwd ?? process.cwd(),
-		getTokensTotal,
+		getInputTokens: () => getTokenState().inputTokens,
+		getOutputTokens: () => getTokenState().outputTokens,
+		getContextWindow: () => getTokenState().contextWindow,
+		getContextUsed: () => getTokenState().contextUsed,
+		getThinkingLevel: () => getTokenState().thinkingLevel,
 		style: (s) => boldColor(s, t.accentFg),
 		dimStyle: (s) => color(s, t.mutedFg),
+		warnStyle: (s) => color(s, { ansi16: 93 }),
+		errorStyle: (s) => color(s, { ansi16: 91 }),
 	});
 
 	const splash = await renderSplash();

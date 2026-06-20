@@ -40,7 +40,19 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	}
 
 	let tuiState = initialTuiState();
-	const { output, input } = await buildLayout(tui, t, opts, () => tuiState.sessionTokensTotal, store);
+	const { output, input } = await buildLayout(
+		tui,
+		t,
+		opts,
+		() => ({
+			inputTokens: tuiState.sessionInputTokens,
+			outputTokens: tuiState.sessionOutputTokens,
+			contextWindow: session.state.contextWindow,
+			contextUsed: tuiState.sessionTokensTotal,
+			thinkingLevel: session.getThinking(),
+		}),
+		store,
+	);
 	const {
 		scrollback: writer,
 		live: { replyBlock, replyTW, thinkingTW },

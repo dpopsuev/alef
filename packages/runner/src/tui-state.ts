@@ -109,6 +109,7 @@ export interface TuiPromptConsole {
 	updateInFlightCallChunk(callId: string, text: string): void;
 	startThinking(): void;
 	stopThinking(): void;
+	setIntent(text: string): void;
 	readonly isThinking: boolean;
 	setFocusedCall(callId: string | null): void;
 	setChunkText(text: string): void;

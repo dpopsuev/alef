@@ -77,6 +77,7 @@ export class PromptConsole {
 	private focusedId: string | null = null;
 	private hintBar!: Text;
 	private commandGrid!: CommandHintGrid;
+	private intentText = "";
 
 	constructor(tui: TUI, t: ThemeTokens, _modelId: string) {
 		this.tui = tui;
@@ -158,7 +159,8 @@ export class PromptConsole {
 			// Hue cycles through the full 360° spectrum over time;
 			// pressure multiplies the rotation rate so busy turns spin faster.
 			const colorize = accentColorize(this.t.accentFg, elapsedMs);
-			this.statusText.setText(`  ${colorize(frame)} ${colorize(elapsedS)}`);
+			const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
+			this.statusText.setText(`  ${colorize(frame)} ${colorize(elapsedS)}${intent}`);
 			this.tui.requestRender();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
 		};
@@ -172,6 +174,7 @@ export class PromptConsole {
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");
 		this.hintBar.setText("");
+		this.intentText = "";
 	}
 
 	updateCommandHints(editorText: string): void {
@@ -190,6 +193,10 @@ export class PromptConsole {
 
 	setHint(text: string): void {
 		this.hintBar.setText(text);
+	}
+
+	setIntent(text: string): void {
+		this.intentText = text;
 	}
 
 	get isThinking(): boolean {

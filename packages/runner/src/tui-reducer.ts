@@ -13,7 +13,7 @@ import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./tu
 export type TuiInputEvent =
 	| { type: "overlay.show"; descriptor: OverlayDescriptor }
 	| { type: "overlay.hide"; id: string }
-	| { type: "turn.start"; timestamp: number }
+	| { type: "turn.start"; timestamp: number; intent?: string }
 	| { type: "turn.complete"; tokenFooter: TokenFooterHandle }
 	| { type: "turn.abort" }
 	| { type: "turn.error"; error: unknown; aborted: boolean }
@@ -199,6 +199,7 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 
 		case "turn.start":
 			promptConsole.hidePendingFooter();
+			if (event.intent) promptConsole.setIntent(event.intent);
 			promptConsole.startThinking();
 			return { ...state, pendingFooterShown: false, turnStartedAt: event.timestamp };
 

@@ -94,6 +94,7 @@ export interface TuiWriter {
 	): void;
 	addBatchTiming(elapsedMs: number): void;
 	addNotice(text: string): void;
+	addSubagentReply(name: string, reply: string): void;
 	addTokenFooter(): TokenFooterHandle;
 	addUserMessage(text: string): void;
 }

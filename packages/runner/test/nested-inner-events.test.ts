@@ -15,6 +15,7 @@ function noopUi() {
 			addCompletedToolBlock: () => {},
 			addBatchTiming: () => {},
 			addNotice: () => {},
+			addSubagentReply: () => {},
 			addTokenFooter: () => ({ setText: () => {} }),
 			addUserMessage: () => {},
 		},

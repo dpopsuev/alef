@@ -90,6 +90,11 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 		showOutput && display?.trim() ? (displayKind ?? null) : null,
 	);
 
+	const innerReply = state.innerReplies.get(callId);
+	if (innerReply?.trim()) {
+		writer.addSubagentReply(entry.name, innerReply);
+	}
+
 	const activeCalls = new Map(state.activeCalls);
 	activeCalls.delete(callId);
 

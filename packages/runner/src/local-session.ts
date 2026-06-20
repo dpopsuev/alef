@@ -219,6 +219,14 @@ export async function createLocalSession(
 	const { organs, blueprintSurfaces } = loaded;
 	registerOrganSignalMaps(organs);
 	registerTuiSignals(organs);
+	tuiSignalHandlers.set("context.compacted", (payload, ui) => {
+		const before = Number(payload.estimatedBefore ?? 0);
+		const after = Number(payload.estimatedAfter ?? 0);
+		const saved = before - after;
+		ui.setStatus(
+			`compacted ${Number(payload.compactedTurns ?? 0)} turns, recovered ~${Math.round(saved / 1000)}k tokens`,
+		);
+	});
 
 	const directives = createDefaultDirectives({ tools: organs.flatMap((o) => o.tools), cwd: args.cwd });
 	await loadWorkspace(directives, args.cwd);

@@ -2,11 +2,21 @@ import type { ContextAssemblyHandler, ContextAssemblyOutput } from "@dpopsuev/al
 
 export type SummarizeFn = (messages: readonly unknown[]) => Promise<string> | string;
 
+export interface CompactionResult {
+	compactedTurns: number;
+	preservedTurns: number;
+	estimatedBefore: number;
+	estimatedAfter: number;
+}
+
 export interface CompactionStageOptions {
 	contextWindow?: number;
 	threshold?: number;
 	preserveRecentTurns?: number;
 	summarize?: SummarizeFn;
+	onCompact?: (result: CompactionResult) => void;
+	/** Publish a signal event (wired by the agent after mount). */
+	publishSignal?: (type: string, payload: Record<string, unknown>) => void;
 }
 
 const CHARS_PER_TOKEN = 4;
@@ -63,6 +73,8 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 	const preserveRecent = opts.preserveRecentTurns ?? DEFAULT_PRESERVE_RECENT;
 	const tokenLimit = Math.floor(contextWindow * threshold);
 	const summarizeFn: SummarizeFn = opts.summarize ?? defaultSummarize;
+	const onCompact = opts.onCompact;
+	const publishSignal = opts.publishSignal;
 
 	let lastSummary = "";
 
@@ -102,6 +114,15 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 		compactedMessages.push(...toKeep);
 
 		lastSummary = summary;
+
+		const result: CompactionResult = {
+			compactedTurns: toCompact.length,
+			preservedTurns: toKeep.length,
+			estimatedBefore: estimated,
+			estimatedAfter: estimateTokens(compactedMessages),
+		};
+		onCompact?.(result);
+		publishSignal?.("context.compacted", result as unknown as Record<string, unknown>);
 
 		return { messages: compactedMessages };
 	};

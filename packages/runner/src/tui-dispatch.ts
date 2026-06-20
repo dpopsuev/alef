@@ -104,6 +104,10 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 	const exitCodes = new Map(state.exitCodes);
 	exitCodes.delete(callId);
 
+	// Clean up inner replies for completed call
+	const innerReplies = new Map(state.innerReplies);
+	innerReplies.delete(callId);
+
 	const batchDone = activeCalls.size === 0 && state.batchStartedAt !== null;
 	if (batchDone) {
 		writer.addBatchTiming(Date.now() - (state.batchStartedAt ?? 0));
@@ -135,6 +139,7 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 		callChunks,
 		validationErrors,
 		exitCodes,
+		innerReplies,
 		batchStartedAt: batchDone ? null : state.batchStartedAt,
 		focusedCallId: batchDone ? null : (nextFocus ?? null),
 	};
@@ -287,6 +292,13 @@ export function dispatchTuiEvent(
 			parent.children.delete(event.callId);
 			promptConsole.removeChildCall(event.parentCallId, event.callId);
 			return state;
+		}
+
+		case "inner-chunk": {
+			const existing = state.innerReplies.get(event.parentCallId) ?? "";
+			const innerReplies = new Map(state.innerReplies);
+			innerReplies.set(event.parentCallId, existing + event.text);
+			return { ...state, innerReplies };
 		}
 
 		case "token-usage": {

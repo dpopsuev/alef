@@ -138,6 +138,14 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 					callId: String(ip.callId ?? ""),
 				};
 			}
+			if (inner.innerType === "llm.chunk" && inner.innerPayload) {
+				const chunkText = inner.innerPayload.text;
+				return {
+					type: "inner-chunk",
+					parentCallId: String(inner.callId),
+					text: typeof chunkText === "string" ? chunkText : "",
+				};
+			}
 			return null;
 		}
 		case "llm.message-queued":

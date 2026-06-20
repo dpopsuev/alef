@@ -6,7 +6,7 @@
  * Any other invoker (MCP, HTTP) can dispatch through registry.find(name).
  */
 
-import { getProviders } from "@dpopsuev/alef-llm";
+import { getModels, getProviders, type KnownProvider } from "@dpopsuev/alef-llm";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { buildModel } from "../model.js";
 import { setThemeByName } from "../theme.js";
@@ -340,22 +340,30 @@ const theme = {
 
 const model = {
 	name: "model",
-	description: "Switch model — :model <id>",
+	description: "Switch model — :model or :model <id>",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const [newId] = args;
-		if (!newId) {
-			const current = ctx.session.getModel() ?? "unknown";
-			ctx.writer.addNotice(`Current model: ${current}\nUsage: :model <id>  (e.g. :model claude-sonnet-4-6)`);
+		if (newId) {
+			try {
+				const built = buildModel(newId);
+				ctx.session.setModel(newId);
+				ctx.writer.addNotice(`Model switched to ${built.id}. Takes effect on the next message.`);
+			} catch (e) {
+				ctx.writer.addNotice(`Unknown model: ${newId}. ${e instanceof Error ? e.message : ""}`);
+			}
 			ctx.tui.requestRender();
 			return;
 		}
-		try {
-			const built = buildModel(newId);
-			ctx.session.setModel(newId);
-			ctx.writer.addNotice(`Model switched to ${built.id}. Takes effect on the next message.`);
-		} catch (e) {
-			ctx.writer.addNotice(`Unknown model: ${newId}. ${e instanceof Error ? e.message : ""}`);
+		const current = ctx.session.getModel() ?? "";
+		const lines: string[] = [];
+		for (const provider of getProviders()) {
+			for (const m of getModels(provider as KnownProvider)) {
+				const id = `${provider}/${m.id}`;
+				const marker = current.includes(m.id) ? " *" : "";
+				lines.push(`  ${id}${marker}`);
+			}
 		}
+		ctx.writer.addNotice(`Models (* = active):\n${lines.join("\n")}\n\nUsage: :model <provider/id>`);
 		ctx.tui.requestRender();
 	},
 };

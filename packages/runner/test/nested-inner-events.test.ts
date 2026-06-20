@@ -31,6 +31,7 @@ function noopUi() {
 			startThinking: () => {},
 			stopThinking: () => {},
 			setIntent: () => {},
+			setStatus: () => {},
 			isThinking: false,
 			setFocusedCall: () => {},
 			setChunkText: () => {},

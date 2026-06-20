@@ -45,7 +45,8 @@ export type AgentEvent =
 	| { type: "workflow-escalated"; workflowId: string; rule: string; retries?: number; score?: number }
 	| { type: "task-progress"; taskId: string; chunk: string }
 	| { type: "task-completed"; taskId: string; profile: string; reply: string; elapsedMs: number }
-	| { type: "task-failed"; taskId: string; profile: string; error: string; elapsedMs: number };
+	| { type: "task-failed"; taskId: string; profile: string; error: string; elapsedMs: number }
+	| { type: "organ-signal"; signalType: string; payload: Record<string, unknown> };
 
 // ---------------------------------------------------------------------------
 // DirectiveView — the minimal surface Session exposes from the directive system.

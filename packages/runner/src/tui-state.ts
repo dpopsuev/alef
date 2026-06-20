@@ -110,6 +110,7 @@ export interface TuiPromptConsole {
 	startThinking(): void;
 	stopThinking(): void;
 	setIntent(text: string): void;
+	setStatus(text: string): void;
 	readonly isThinking: boolean;
 	setFocusedCall(callId: string | null): void;
 	setChunkText(text: string): void;

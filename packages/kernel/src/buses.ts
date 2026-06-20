@@ -107,6 +107,13 @@ export interface OrganTheme {
  * Components are imported from @dpopsuev/alef-tui. Using `unknown` here avoids
  * a kernel → alef-tui dependency; callers cast to Component at use-site.
  */
+export interface TuiSignalSurface {
+	setIntent(text: string): void;
+	setStatus(text: string): void;
+}
+
+export type TuiSignalHandler = (payload: Record<string, unknown>, ui: TuiSignalSurface) => void;
+
 export interface TuiContribution {
 	/** Render the in-progress tool call header (while waiting for result). */
 	renderCall?(toolName: string, args: Record<string, unknown>, theme: OrganTheme): unknown;
@@ -123,6 +130,12 @@ export interface TuiContribution {
 	 * by the TUI aggregator as the organ runs.
 	 */
 	renderOverlay?(): unknown;
+	/**
+	 * Signal handlers for TUI updates. Keyed by signal type (e.g. "plan.checkpoint").
+	 * The handler receives the signal payload and a minimal TUI surface.
+	 * Collected at mount time — no TUI modification needed per organ.
+	 */
+	signals?: Readonly<Record<string, TuiSignalHandler>>;
 }
 
 /**

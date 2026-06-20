@@ -1,3 +1,4 @@
+import type { TuiSignalHandler } from "@dpopsuev/alef-kernel";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";
@@ -13,7 +14,7 @@ import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./tu
 export type TuiInputEvent =
 	| { type: "overlay.show"; descriptor: OverlayDescriptor }
 	| { type: "overlay.hide"; id: string }
-	| { type: "turn.start"; timestamp: number; intent?: string }
+	| { type: "turn.start"; timestamp: number }
 	| { type: "turn.complete"; tokenFooter: TokenFooterHandle }
 	| { type: "turn.abort" }
 	| { type: "turn.error"; error: unknown; aborted: boolean }
@@ -185,8 +186,24 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 // The exhaustive default: never guard catches missing cases at compile time.
 // ---------------------------------------------------------------------------
 
-export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiState {
+export function tuiReducer(
+	state: TuiState,
+	event: TuiEvent,
+	ui: TuiUi,
+	signalHandlers?: ReadonlyMap<string, TuiSignalHandler>,
+): TuiState {
 	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, t, session } = ui;
+
+	if (event.type === "organ-signal" && signalHandlers) {
+		const handler = signalHandlers.get(event.signalType);
+		if (handler) {
+			handler(event.payload, {
+				setIntent: (text) => promptConsole.setIntent(text),
+				setStatus: (text) => promptConsole.setStatus(text),
+			});
+		}
+		return state;
+	}
 
 	switch (event.type) {
 		// ── Input events ────────────────────────────────────────────────────
@@ -199,7 +216,6 @@ export function tuiReducer(state: TuiState, event: TuiEvent, ui: TuiUi): TuiStat
 
 		case "turn.start":
 			promptConsole.hidePendingFooter();
-			if (event.intent) promptConsole.setIntent(event.intent);
 			promptConsole.startThinking();
 			return { ...state, pendingFooterShown: false, turnStartedAt: event.timestamp };
 

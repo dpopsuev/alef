@@ -156,8 +156,7 @@ async function executeMessage(config: ExecuteMessageConfig): Promise<void> {
 	clearEditor();
 	addHistoryEntry(text);
 	writer.addUserMessage(text);
-	const intent = text.split("\n")[0].trim().slice(0, 80);
-	dispatch({ type: "turn.start", timestamp: Date.now(), intent });
+	dispatch({ type: "turn.start", timestamp: Date.now() });
 
 	let aborted = false;
 	const controller = new AbortController();

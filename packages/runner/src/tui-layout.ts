@@ -3,6 +3,7 @@ import type { TUI } from "@dpopsuev/alef-tui";
 import { CombinedAutocompleteProvider, Container, type SlashCommand, Text } from "@dpopsuev/alef-tui";
 import { registry } from "./commands/index.js";
 import { AtAddressProvider, HistoryAutocompleteProvider } from "./history-autocomplete.js";
+import { InputApplicationRegistry } from "./input-application.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { PromptConsole } from "./prompt-console.js";
 import { renderSplash } from "./splash.js";
@@ -14,17 +15,43 @@ import { ReplyBlock } from "./tui/reply-block.js";
 import { prependSessionHistory } from "./tui/session-history.js";
 import { Typewriter } from "./tui/typewriter.js";
 
+/**
+ * TUI Composition Model:
+ *
+ *   OUTPUT ZONE
+ *     scrollback  — ChatLog: append-only conversation history (static)
+ *     live        — ReplyBlock + Typewriters: streaming response, thinking (dynamic)
+ *     forums      — ForumManager: discourse channel switching
+ *
+ *   INPUT ZONE
+ *     editor      — PromptConsole: vi-modal text editor
+ *     history     — HistoryAutocompleteProvider: input history + autocomplete
+ *     (future: InputApplication slot for :command apps)
+ *
+ *   DASHBOARD (in header — future: move to footer)
+ *     session ID, model, token count, key hints
+ */
+
 export interface OutputZone {
-	writer: ChatLog;
-	replyBlock: ReplyBlock;
-	replyTW: Typewriter;
-	thinkingTW: Typewriter;
+	/** Append-only conversation history (scrollback). */
+	scrollback: ChatLog;
+	/** Live streaming response + thinking indicator (dynamic, commits to scrollback when done). */
+	live: {
+		replyBlock: ReplyBlock;
+		replyTW: Typewriter;
+		thinkingTW: Typewriter;
+	};
+	/** Discourse channel switching. */
 	forums: ForumManager;
 }
 
 export interface InputZone {
+	/** Vi-modal prompt editor. */
 	promptConsole: PromptConsole;
+	/** Input history + autocomplete provider. */
 	historyProvider: HistoryAutocompleteProvider;
+	/** :command → InputApplication registry for mode-switchable apps. */
+	applications: InputApplicationRegistry;
 }
 
 export interface TuiLayout {
@@ -124,8 +151,10 @@ export async function buildLayout(
 		() => tui.requestRender(),
 	);
 
+	const applications = new InputApplicationRegistry();
+
 	return {
-		output: { writer, replyBlock, replyTW, thinkingTW, forums },
-		input: { promptConsole, historyProvider },
+		output: { scrollback: writer, live: { replyBlock, replyTW, thinkingTW }, forums },
+		input: { promptConsole, historyProvider, applications },
 	};
 }

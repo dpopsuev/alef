@@ -40,7 +40,11 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 
 	let tuiState = initialTuiState();
 	const { output, input } = await buildLayout(tui, t, opts, () => tuiState.sessionTokensTotal, store);
-	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
+	const {
+		scrollback: writer,
+		live: { replyBlock, replyTW, thinkingTW },
+		forums,
+	} = output;
 	const { promptConsole, historyProvider } = input;
 	const { editor } = promptConsole;
 

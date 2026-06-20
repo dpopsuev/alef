@@ -10,7 +10,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { InProcessNerve, type SenseEvent } from "@dpopsuev/alef-kernel";
-import { createForumOrgan } from "@dpopsuev/alef-organ-forum";
+import { createDiscourseOrgan } from "@dpopsuev/alef-organ-discourse";
 import { createPlanOrgan } from "@dpopsuev/alef-organ-plan";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -48,7 +48,7 @@ describe("multi-agent plan + board coordination", () => {
 
 	it("plan + board: agents post findings, parent reads and advances plan", async () => {
 		const planOrgan = createPlanOrgan({ sessionDir: dir });
-		const boardOrgan = createForumOrgan({ sessionDir: dir });
+		const boardOrgan = createDiscourseOrgan({ sessionDir: dir });
 		unmounts.push(planOrgan.mount(nerve.asNerve()));
 		unmounts.push(boardOrgan.mount(nerve.asNerve()));
 
@@ -140,7 +140,7 @@ describe("multi-agent plan + board coordination", () => {
 
 	it("board context.assemble injects new posts into LLM context", async () => {
 		// Create board organ with a past lastReadTs so new posts are visible
-		const boardOrgan = createForumOrgan({ sessionDir: dir });
+		const boardOrgan = createDiscourseOrgan({ sessionDir: dir });
 		unmounts.push(boardOrgan.mount(nerve.asNerve()));
 
 		// Post something — the motor handler writes to disk

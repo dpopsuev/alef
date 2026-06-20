@@ -3,21 +3,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createForumOrgan } from "../src/organ.js";
-import { ForumStore } from "../src/store.js";
+import { createDiscourseOrgan } from "../src/organ.js";
+import { DiscourseStore } from "../src/store.js";
 
-organComplianceSuite(() => createForumOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-forum-compliance-")) }));
+organComplianceSuite(() => createDiscourseOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-forum-compliance-")) }));
 
 // ---------------------------------------------------------------------------
-// ForumStore — unit tests (SUT: store, no I/O mocking — store IS I/O)
+// DiscourseStore — unit tests (SUT: store, no I/O mocking — store IS I/O)
 // ---------------------------------------------------------------------------
-describe("ForumStore", () => {
+describe("DiscourseStore", () => {
 	let sessionDir: string;
-	let store: ForumStore;
+	let store: DiscourseStore;
 
 	beforeEach(() => {
 		sessionDir = mkdtempSync(join(tmpdir(), "alef-forum-store-"));
-		store = new ForumStore(sessionDir);
+		store = new DiscourseStore(sessionDir);
 	});
 
 	afterEach(() => {
@@ -60,7 +60,7 @@ describe("ForumStore", () => {
 
 		it("writes JSONL to disk", () => {
 			store.append("t", "th", "a", "msg");
-			const path = join(sessionDir, "forum", "t", "th.jsonl");
+			const path = join(sessionDir, "discourse", "t", "th.jsonl");
 			const raw = readFileSync(path, "utf-8").trim();
 			const parsed = JSON.parse(raw);
 			expect(parsed.author).toBe("a");
@@ -70,7 +70,7 @@ describe("ForumStore", () => {
 
 		it("does not store topic/thread in JSONL (derived from path)", () => {
 			store.append("t", "th", "a", "msg");
-			const path = join(sessionDir, "forum", "t", "th.jsonl");
+			const path = join(sessionDir, "discourse", "t", "th.jsonl");
 			const parsed = JSON.parse(readFileSync(path, "utf-8").trim());
 			expect(parsed).not.toHaveProperty("topic");
 			expect(parsed).not.toHaveProperty("thread");
@@ -193,7 +193,7 @@ describe("ForumStore", () => {
 	describe("malformed data resilience", () => {
 		it("skips malformed JSONL lines", () => {
 			store.append("t", "th", "a", "good");
-			const path = join(sessionDir, "forum", "t", "th.jsonl");
+			const path = join(sessionDir, "discourse", "t", "th.jsonl");
 			const existing = readFileSync(path, "utf-8");
 			writeFileSync(path, `${existing}not-json\n{"broken\n`);
 			const posts = store.readThread("t", "th");
@@ -218,23 +218,23 @@ describe("organ-forum structure", () => {
 	});
 
 	it("creates organ with correct name and tools", () => {
-		const organ = createForumOrgan({ sessionDir });
-		expect(organ.name).toBe("forum");
-		expect(organ.tools.map((t) => t.name)).toEqual(["forum.post", "forum.read", "forum.list"]);
+		const organ = createDiscourseOrgan({ sessionDir });
+		expect(organ.name).toBe("discourse");
+		expect(organ.tools.map((t) => t.name)).toEqual(["discourse.post", "discourse.read", "discourse.list"]);
 	});
 
 	it("declares file sources", () => {
-		const organ = createForumOrgan({ sessionDir });
-		expect(organ.sources).toEqual([{ name: "forum-files", kind: "file" }]);
+		const organ = createDiscourseOrgan({ sessionDir });
+		expect(organ.sources).toEqual([{ name: "discourse-files", kind: "file" }]);
 	});
 
 	it("has context.assemble contribution", () => {
-		const organ = createForumOrgan({ sessionDir });
+		const organ = createDiscourseOrgan({ sessionDir });
 		expect(organ.contributions?.["context.assemble"]).toBeDefined();
 	});
 
 	it("has directives", () => {
-		const organ = createForumOrgan({ sessionDir });
+		const organ = createDiscourseOrgan({ sessionDir });
 		expect(organ.directives).toBeDefined();
 		expect(organ.directives!.length).toBeGreaterThan(0);
 	});

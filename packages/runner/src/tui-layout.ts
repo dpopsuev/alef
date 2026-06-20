@@ -7,9 +7,9 @@ import { InputApplicationRegistry } from "./input-application.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { PromptConsole } from "./prompt-console.js";
 import { renderSplash } from "./splash.js";
-import { boldColor, glyph, type ThemeTokens } from "./theme.js";
+import { boldColor, color, type ThemeTokens } from "./theme.js";
 import { ChatLog } from "./tui/chat-log.js";
-import { DynamicText } from "./tui/dynamic-text.js";
+import { DashboardFooter } from "./tui/dashboard-footer.js";
 import { ForumManager } from "./tui/forum-manager.js";
 import { ReplyBlock } from "./tui/reply-block.js";
 import { prependSessionHistory } from "./tui/session-history.js";
@@ -66,21 +66,14 @@ export async function buildLayout(
 	getTokensTotal: () => number,
 	store?: ISessionStore,
 ): Promise<TuiLayout> {
-	const sessionShort = opts.sessionId.slice(0, 8);
-	const modelShort = opts.modelId.split("/").pop()?.split(" ")[0] ?? opts.modelId;
-
-	const headerLabel = () => {
-		const base = `${glyph("bullet")} ALEF  ${glyph("sep")}  ${sessionShort}  ${glyph("sep")}  ${modelShort}`;
-		const total = getTokensTotal();
-		if (total === 0) return base;
-		const fmt =
-			total >= 1_000_000
-				? `${(total / 1_000_000).toFixed(1)}M`
-				: total >= 1_000
-					? `${Math.round(total / 1_000)}k`
-					: String(total);
-		return `${base}  ${glyph("sep")}  ${fmt} tok`;
-	};
+	const dashboard = new DashboardFooter({
+		sessionId: opts.sessionId,
+		modelId: opts.modelId,
+		cwd: opts.cwd ?? process.cwd(),
+		getTokensTotal,
+		style: (s) => boldColor(s, t.accentFg),
+		dimStyle: (s) => color(s, t.mutedFg),
+	});
 
 	const splash = await renderSplash();
 	if (splash) tui.addChild(new Text(splash, 2, 0));
@@ -95,7 +88,7 @@ export async function buildLayout(
 	promptConsole.mount();
 
 	// Dashboard footer — pinned at the bottom, after the prompt console
-	tui.addChild(new DynamicText(() => boldColor(headerLabel(), t.accentFg)));
+	tui.addChild(dashboard);
 	const { editor } = promptConsole;
 
 	const commands: SlashCommand[] = registry.list().map((c) => ({

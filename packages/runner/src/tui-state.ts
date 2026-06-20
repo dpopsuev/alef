@@ -45,6 +45,8 @@ export interface TuiState {
 	validationErrors: Map<string, string[]>;
 	/** Exit codes from shell/exec tools (callId → exit code). */
 	exitCodes: Map<string, number>;
+	/** Accumulated subagent reply text per parent callId. */
+	innerReplies: Map<string, string>;
 }
 
 export function initialTuiState(): TuiState {
@@ -65,6 +67,7 @@ export function initialTuiState(): TuiState {
 		inspectorScrollOffset: 0,
 		validationErrors: new Map(),
 		exitCodes: new Map(),
+		innerReplies: new Map(),
 	};
 }
 

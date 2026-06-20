@@ -1,15 +1,15 @@
 import type { BaseOrganOptions, ContextAssemblyHandler, Organ } from "@dpopsuev/alef-kernel";
 import { defineOrgan, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
-import { ForumStore } from "./store.js";
+import { DiscourseStore } from "./store.js";
 import type { Post } from "./types.js";
 
-export interface ForumOrganOptions extends BaseOrganOptions {
+export interface DiscourseOrganOptions extends BaseOrganOptions {
 	sessionDir: string;
 }
 
 const FORUM_POST = {
-	name: "forum.post",
+	name: "discourse.post",
 	description: "Post a message to a forum topic/thread. Append-only — safe for concurrent writers.",
 	inputSchema: z.object({
 		topic: z.string().min(1).describe("Topic name (e.g. 'collectors', 'reviews', 'findings')"),
@@ -20,7 +20,7 @@ const FORUM_POST = {
 };
 
 const FORUM_READ = {
-	name: "forum.read",
+	name: "discourse.read",
 	description: "Read posts from a forum thread. Returns all posts, or posts since a timestamp.",
 	inputSchema: z.object({
 		topic: z.string().min(1).describe("Topic name"),
@@ -30,7 +30,7 @@ const FORUM_READ = {
 };
 
 const FORUM_LIST = {
-	name: "forum.list",
+	name: "discourse.list",
 	description: "List forum topics and threads with metadata.",
 	inputSchema: z.object({
 		topic: z.string().optional().describe("List threads in this topic. Omit to list all topics."),
@@ -47,8 +47,8 @@ function formatContextPost(p: Post): string {
 	return `[${p.topic}/${p.thread}] @${p.author}: ${body}`;
 }
 
-export function createForumOrgan(opts: ForumOrganOptions): Organ {
-	const store = new ForumStore(opts.sessionDir);
+export function createDiscourseOrgan(opts: DiscourseOrganOptions): Organ {
+	const store = new DiscourseStore(opts.sessionDir);
 	let lastReadTs = Date.now();
 
 	const contextStage: ContextAssemblyHandler = async (input) => {
@@ -61,10 +61,10 @@ export function createForumOrgan(opts: ForumOrganOptions): Organ {
 	};
 
 	return defineOrgan(
-		"forum",
+		"discourse",
 		{
 			motor: {
-				"forum.post": typedAction(FORUM_POST, async (ctx) => {
+				"discourse.post": typedAction(FORUM_POST, async (ctx) => {
 					const { topic, thread, content, author } = ctx.payload;
 					const post = store.append(topic, thread, author ?? "agent", content);
 					return withDisplay(
@@ -73,7 +73,7 @@ export function createForumOrgan(opts: ForumOrganOptions): Organ {
 					);
 				}),
 
-				"forum.read": typedAction(FORUM_READ, async (ctx) => {
+				"discourse.read": typedAction(FORUM_READ, async (ctx) => {
 					const { topic, thread, since } = ctx.payload;
 					const posts = store.readThread(topic, thread, since);
 					return withDisplay(
@@ -82,7 +82,7 @@ export function createForumOrgan(opts: ForumOrganOptions): Organ {
 					);
 				}),
 
-				"forum.list": typedAction(FORUM_LIST, async (ctx) => {
+				"discourse.list": typedAction(FORUM_LIST, async (ctx) => {
 					const { topic } = ctx.payload;
 					if (topic) {
 						const infos = store.listThreads(topic).map((t) => store.threadInfo(topic, t));
@@ -111,11 +111,11 @@ export function createForumOrgan(opts: ForumOrganOptions): Organ {
 		{
 			description: "Forum — shared message forum for multi-agent coordination. Pull-based: agents read when ready.",
 			directives: [
-				"Use forum.post to share findings, reviews, and feedback with other agents.",
-				"Use forum.read to check what others have posted.",
+				"Use discourse.post to share findings, reviews, and feedback with other agents.",
+				"Use discourse.read to check what others have posted.",
 				"New forum posts appear automatically in your context on each turn.",
 			],
-			sources: [{ name: "forum-files", kind: "file" }],
+			sources: [{ name: "discourse-files", kind: "file" }],
 			contributions: {
 				"context.assemble": contextStage,
 			},

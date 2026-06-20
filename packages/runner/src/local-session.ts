@@ -5,7 +5,7 @@ import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-bluep
 import { createContextAssemblyPipeline, type NerveEvent, type Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaOrgan } from "@dpopsuev/alef-meta";
-import { ForumStore } from "@dpopsuev/alef-organ-forum";
+import { DiscourseStore } from "@dpopsuev/alef-organ-discourse";
 import { AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import { buildAgent } from "./agent-kernel.js";
@@ -296,7 +296,7 @@ export async function createLocalSession(
 		},
 	});
 
-	const sessionForum = new ForumStore(dirname(store.path));
+	const sessionForum = new DiscourseStore(dirname(store.path));
 	const controller = new AgentController(agent, {
 		onReply: replySink,
 		transcript: { store: sessionForum, topic: "sessions", thread: store.id },

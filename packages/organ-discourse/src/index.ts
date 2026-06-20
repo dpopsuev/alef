@@ -1,11 +1,11 @@
-export { createForumOrgan, type ForumOrganOptions } from "./organ.js";
-export { ForumStore } from "./store.js";
+export { createDiscourseOrgan, type DiscourseOrganOptions } from "./organ.js";
+export { DiscourseStore } from "./store.js";
 export type { Post, ThreadInfo, TopicSummary } from "./types.js";
 
 import type { Organ } from "@dpopsuev/alef-kernel";
-import { createForumOrgan } from "./organ.js";
+import { createDiscourseOrgan } from "./organ.js";
 
 export function createOrgan(opts: { cwd: string; sessionDir?: string }): Organ {
 	const sessionDir = opts.sessionDir ?? opts.cwd;
-	return createForumOrgan({ sessionDir });
+	return createDiscourseOrgan({ sessionDir });
 }

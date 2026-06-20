@@ -8,11 +8,11 @@ interface StoredPost {
 	timestamp: number;
 }
 
-export class ForumStore {
+export class DiscourseStore {
 	private readonly root: string;
 
 	constructor(sessionDir: string) {
-		this.root = join(sessionDir, "forum");
+		this.root = join(sessionDir, "discourse");
 	}
 
 	append(topic: string, thread: string, author: string, content: unknown): Post {

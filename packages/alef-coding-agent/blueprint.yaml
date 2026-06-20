@@ -25,8 +25,8 @@ organs:
     package: "@dpopsuev/alef-organ-factory"
   - name: plan
     package: "@dpopsuev/alef-organ-plan"
-  - name: forum
-    package: "@dpopsuev/alef-organ-forum"
+  - name: discourse
+    package: "@dpopsuev/alef-organ-discourse"
   - name: skills
     package: "@dpopsuev/alef-organ-skills"
 

@@ -177,13 +177,25 @@ export async function pickBlueprint(choices: BlueprintChoice[]): Promise<Bluepri
 		const terminal = new ProcessTerminal();
 		const tui = new TUI(terminal);
 
-		tui.addChild(new Text(color("  Blueprint — ↑↓ navigate  Enter select", t.mutedFg), 0, 0));
+		const modeLabel = new Text(
+			color("  NORMAL  j/k navigate  h/l preview  Enter select  Esc default", t.mutedFg),
+			0,
+			0,
+		);
+		tui.addChild(modeLabel);
 		tui.addChild(new Text("", 0, 0));
 
 		const previewList = new PreviewSelectList({
 			items,
 			maxVisible: 10,
 			theme: listTheme,
+			onModeChange: (mode) => {
+				if (mode === "insert") {
+					modeLabel.setText(color("  INSERT  type to filter  Esc → normal", t.accentFg));
+				} else {
+					modeLabel.setText(color("  NORMAL  j/k navigate  h/l preview  Enter select  Esc default", t.mutedFg));
+				}
+			},
 			previewFn: (item) => {
 				if (!item) return [];
 				const cached = previewCache.get(item.value);
@@ -202,14 +214,12 @@ export async function pickBlueprint(choices: BlueprintChoice[]): Promise<Bluepri
 		tui.addChild(previewList);
 
 		tui.onRawInput = (data) => {
-			if (data === "\x1b") {
+			if (data === "\x1b" && previewList.mode === "normal") {
 				tui.stop();
 				res(choices[0]);
 				return true;
 			}
-			if (data === "\x1b[A" || data === "\x1b[B" || data === "\r" || data === "\n") {
-				previewList.handleInput(data);
-			}
+			previewList.handleInput(data);
 			tui.requestRender();
 			return true;
 		};

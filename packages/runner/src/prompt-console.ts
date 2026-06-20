@@ -1,5 +1,7 @@
 import type { Component } from "@dpopsuev/alef-tui";
 import { Container, Editor, type EditorTheme, type SelectListTheme, Text, type TUI } from "@dpopsuev/alef-tui";
+import { registry } from "./commands/index.js";
+import { CommandHintGrid } from "./tui/command-hint-grid.js";
 
 class EditorWrapper implements Component {
 	constructor(
@@ -60,6 +62,7 @@ export class PromptConsole {
 	private readonly inspectorHint: Text;
 	private focusedId: string | null = null;
 	private hintBar!: Text;
+	private commandGrid!: CommandHintGrid;
 
 	constructor(tui: TUI, t: ThemeTokens, _modelId: string) {
 		this.tui = tui;
@@ -104,8 +107,19 @@ export class PromptConsole {
 		this.tui.addChild(this.inspectorHint);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(new EditorWrapper(this.editor, (s) => color(s, this.t.mutedFg)));
-		const hints = [":q", ":new", ":session", ":help"].join(" · ");
-		this.hintBar = new Text(color(hints, this.t.mutedFg), 0, 0);
+
+		this.editor.onChange = (text) => {
+			this.updateCommandHints(text);
+			this.tui.requestRender();
+		};
+
+		this.commandGrid = new CommandHintGrid({
+			commands: registry.list().map((c) => ({ name: c.name, description: c.description })),
+			style: (s) => color(s, this.t.mutedFg),
+		});
+		this.tui.addChild(this.commandGrid);
+
+		this.hintBar = new Text("", 0, 0);
 		this.tui.addChild(this.hintBar);
 	}
 
@@ -134,6 +148,7 @@ export class PromptConsole {
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
 		};
 		this.thinkingTimer = setTimeout(tick, pressureToInterval(0));
+		this.commandGrid.hide();
 		this.hintBar.setText(this.inFlightCalls.size > 0 ? color("Tab to inspect subagents", this.t.mutedFg) : "");
 	}
 
@@ -141,7 +156,17 @@ export class PromptConsole {
 		clearTimeout(this.thinkingTimer);
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");
-		this.hintBar.setText(color([":q", ":new", ":session", ":help"].join(" · "), this.t.mutedFg));
+		this.hintBar.setText("");
+	}
+
+	updateCommandHints(editorText: string): void {
+		if (editorText.startsWith(":")) {
+			const query = editorText.slice(1).trim();
+			this.commandGrid.setFilter(query);
+			this.commandGrid.show();
+		} else {
+			this.commandGrid.hide();
+		}
 	}
 
 	setStatus(text: string): void {

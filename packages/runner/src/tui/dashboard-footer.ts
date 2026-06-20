@@ -11,6 +11,7 @@ export interface DashboardFooterOptions {
 	getContextWindow: () => number;
 	getContextUsed: () => number;
 	getThinkingLevel: () => string;
+	getCompacted: () => boolean;
 	style: (text: string) => string;
 	dimStyle: (text: string) => string;
 	warnStyle: (text: string) => string;
@@ -73,7 +74,8 @@ export class DashboardFooter implements Component {
 		if (contextWindow > 0 && contextUsed > 0) {
 			const fill = contextUsed / contextWindow;
 			const pct = `${Math.round(fill * 100)}%`;
-			const ctxText = `ctx ${pct}`;
+			const autoSuffix = this.opts.getCompacted() ? " (auto)" : "";
+			const ctxText = `ctx ${pct}${autoSuffix}`;
 			if (fill > 0.9) {
 				segments.push(errorStyle(ctxText));
 			} else if (fill > 0.7) {

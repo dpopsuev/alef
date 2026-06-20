@@ -67,6 +67,7 @@ export interface LayoutTokenState {
 	contextWindow: number;
 	contextUsed: number;
 	thinkingLevel: string;
+	compacted: boolean;
 }
 
 export async function buildLayout(
@@ -85,6 +86,7 @@ export async function buildLayout(
 		getContextWindow: () => getTokenState().contextWindow,
 		getContextUsed: () => getTokenState().contextUsed,
 		getThinkingLevel: () => getTokenState().thinkingLevel,
+		getCompacted: () => getTokenState().compacted,
 		style: (s) => boldColor(s, t.accentFg),
 		dimStyle: (s) => color(s, t.mutedFg),
 		warnStyle: (s) => color(s, { ansi16: 93 }),

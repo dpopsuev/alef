@@ -126,7 +126,19 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		},
 	});
 
-	pipeline.addStage("compactor", createCompactionStage({ contextWindow: model.contextWindow }));
+	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;
+	pipeline.addStage(
+		"compactor",
+		createCompactionStage({
+			contextWindow: model.contextWindow,
+			publishSignal: (type, payload) => signalPublish?.(type, payload),
+		}),
+	);
+	const origMount = pipeline.mount.bind(pipeline);
+	(pipeline as { mount: typeof pipeline.mount }).mount = (nerve) => {
+		signalPublish = (type, payload) => nerve.signal.publish({ type, payload, correlationId: "" });
+		return origMount(nerve);
+	};
 
 	const filteredDomain = domainOrgans.filter(
 		(o) => !["agent", "factory", "skills", "compactor", "workflow"].includes(o.name),

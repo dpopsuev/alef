@@ -70,8 +70,8 @@
 			"@dpopsuev/alef-organ-enclosure": [
 				"./packages/organ-enclosure/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-router": [
-				"./packages/organ-router/src/index.ts"
+			"@dpopsuev/alef-gateway": [
+				"./packages/gateway/src/index.ts"
 			],
 			"@dpopsuev/alef-organ-web": [
 				"./packages/organ-web/src/index.ts"

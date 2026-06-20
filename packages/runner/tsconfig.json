@@ -22,8 +22,8 @@
 			"@dpopsuev/alef-kernel": [
 				"../kernel/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-router": [
-				"../organ-router/src/index.ts"
+			"@dpopsuev/alef-gateway": [
+				"../gateway/src/index.ts"
 			],
 			"@dpopsuev/alef-organ-fs": [
 				"../organ-fs/src/index.ts"

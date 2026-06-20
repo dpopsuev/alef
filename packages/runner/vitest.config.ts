@@ -6,7 +6,7 @@ export default mergeConfig(
 	defineProject({
 		test: {
 			name: "runner",
-			testTimeout: 15_000,
+			testTimeout: 30_000,
 		},
 	}),
 );

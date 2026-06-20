@@ -107,6 +107,9 @@ export interface EnclosureOrganOptions {
 export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ {
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
+	let nerve: Nerve | null = null;
+	const emitSignal = (type: string, payload: Record<string, unknown>) =>
+		nerve?.signal.publish({ type, payload, correlationId: "" });
 
 	const base = defineOrgan(
 		"enclosure",
@@ -114,6 +117,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 			motor: {
 				"enclosure.create": typedAction(CREATE_TOOL, async (ctx) => {
 					const { spaceId, workDir } = await handleCreate(ctx, spaces, options);
+					emitSignal("enclosure.status", { text: `space: ${spaceId}`, active: true });
 					return withDisplay(
 						{ spaceId, workDir },
 						{ text: `Created enclosure ${spaceId} at ${workDir}`, mimeType: "text/plain" },
@@ -167,6 +171,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 				}),
 				"enclosure.destroy": typedAction(DESTROY_TOOL, async (ctx) => {
 					await handleDestroy(ctx, spaces);
+					emitSignal("enclosure.status", { text: "", active: false });
 					return withDisplay(
 						{ ok: true },
 						{ text: `Destroyed enclosure ${ctx.payload.spaceId}`, mimeType: "text/plain" },
@@ -175,6 +180,18 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 			},
 		},
 		{
+			onMount: (n: Nerve) => {
+				nerve = n;
+			},
+			contributions: {
+				tui: {
+					signals: {
+						"enclosure.status": (payload, ui) => {
+							ui.setStatus(String(payload.text ?? ""));
+						},
+					},
+				},
+			},
 			description: "Isolated workspace overlay: create, exec, diff, commit, snapshot, restore, destroy.",
 			directives: [
 				"Use enclosure.create to open a workspace, enclosure.exec to run commands inside it, enclosure.diff/commit to manage changes, and enclosure.destroy when done.",

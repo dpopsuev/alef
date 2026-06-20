@@ -895,6 +895,15 @@ export function createAgentOrgan(
 				mountedNerve = null;
 				publishInnerSignal = null;
 			},
+			contributions: {
+				tui: {
+					signals: {
+						"agent.intent": (payload, ui) => {
+							ui.setIntent(String(payload.text ?? ""));
+						},
+					},
+				},
+			},
 			description:
 				"Unified agent delegation and child lifecycle: run, spawn, ask, race, converse, kill, list, status, promote.",
 			labels: ["delegation", "orchestration", "subagent", "lifecycle"],

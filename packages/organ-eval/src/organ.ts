@@ -15,7 +15,7 @@
  * parses a 0-100 score and reasoning string.
  */
 
-import type { BaseOrganOptions, MotorHandlerCtx, Organ } from "@dpopsuev/alef-kernel";
+import type { BaseOrganOptions, MotorHandlerCtx, Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { defineOrgan, getNumber, getString, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
@@ -107,9 +107,14 @@ async function runLLMJudge(
 }
 
 export function createEvalOrgan(opts: EvalOrganOptions): Organ {
+	let nerve: Nerve | null = null;
+	const emitSignal = (type: string, payload: Record<string, unknown>) =>
+		nerve?.signal.publish({ type, payload, correlationId: "" });
+
 	async function handleEval(ctx: MotorHandlerCtx): Promise<Record<string, unknown>> {
 		const endpoint = getString(ctx.payload, "endpoint") ?? "";
 		if (!endpoint) throw new Error("eval.run: endpoint is required");
+		emitSignal("eval.intent", { text: `scoring ${endpoint}` });
 
 		const promptsRaw = ctx.payload.prompts;
 		const prompts: EvalPrompt[] = Array.isArray(promptsRaw) ? (promptsRaw as EvalPrompt[]) : [];
@@ -168,6 +173,18 @@ export function createEvalOrgan(opts: EvalOrganOptions): Organ {
 		},
 		{
 			logger: opts.logger,
+			onMount: (n: Nerve) => {
+				nerve = n;
+			},
+			contributions: {
+				tui: {
+					signals: {
+						"eval.intent": (payload, ui) => {
+							ui.setIntent(String(payload.text ?? ""));
+						},
+					},
+				},
+			},
 			description: "Evaluate a child Alef's responses with structural validators and LLM-as-judge.",
 			labels: ["eval", "judge", "testing"],
 			directives: [

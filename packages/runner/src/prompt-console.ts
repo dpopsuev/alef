@@ -82,6 +82,7 @@ export class PromptConsole {
 	private intentText = "";
 	readonly widgetSlotAbove = new Container();
 	readonly widgetSlotBelow = new Container();
+	private widgetAboveText: Text | null = null;
 
 	constructor(tui: TUI, t: ThemeTokens, _modelId: string) {
 		this.tui = tui;
@@ -203,6 +204,22 @@ export class PromptConsole {
 
 	setIntent(text: string): void {
 		this.intentText = text;
+	}
+
+	setWidgetAbove(text: string): void {
+		if (!text) {
+			if (this.widgetAboveText) {
+				this.widgetSlotAbove.removeChild(this.widgetAboveText);
+				this.widgetAboveText = null;
+			}
+			return;
+		}
+		if (!this.widgetAboveText) {
+			this.widgetAboveText = new Text(color(text, this.t.mutedFg), 0, 0);
+			this.widgetSlotAbove.addChild(this.widgetAboveText);
+		} else {
+			this.widgetAboveText.setText(color(text, this.t.mutedFg));
+		}
 	}
 
 	get isThinking(): boolean {

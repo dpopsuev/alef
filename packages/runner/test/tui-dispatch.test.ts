@@ -31,6 +31,7 @@ function makeMockUi(): TuiUi {
 			setIntent: vi.fn(),
 			setStatus: vi.fn(),
 			isThinking: false,
+			setWidgetAbove: vi.fn(),
 			widgetSlotAbove: { addChild: vi.fn(), removeChild: vi.fn() },
 			widgetSlotBelow: { addChild: vi.fn(), removeChild: vi.fn() },
 			setFocusedCall: vi.fn(),

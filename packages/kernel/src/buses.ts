@@ -110,6 +110,7 @@ export interface OrganTheme {
 export interface TuiSignalSurface {
 	setIntent(text: string): void;
 	setStatus(text: string): void;
+	setWidgetAbove(text: string): void;
 }
 
 export type TuiSignalHandler = (payload: Record<string, unknown>, ui: TuiSignalSurface) => void;

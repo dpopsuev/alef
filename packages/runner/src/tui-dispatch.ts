@@ -197,6 +197,7 @@ export function dispatchTuiEvent(
 			handler(event.payload, {
 				setIntent: (text) => promptConsole.setIntent(text),
 				setStatus: (text) => promptConsole.setStatus(text),
+				setWidgetAbove: (text) => promptConsole.setWidgetAbove(text),
 			});
 		}
 		return state;

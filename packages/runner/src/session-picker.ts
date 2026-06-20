@@ -6,7 +6,7 @@
  * Enter: select session. Esc in normal mode: start fresh.
  */
 
-import { readFile } from "node:fs/promises";
+import { open, readFile, stat } from "node:fs/promises";
 
 import { Input, PreviewSelectList, ProcessTerminal, type SelectItem, Text, TUI } from "@dpopsuev/alef-tui";
 import type { StorageRecord } from "./session-store.js";
@@ -50,13 +50,30 @@ async function readFirstUserMessage(jsonlPath: string): Promise<string> {
 	return "";
 }
 
+const TAIL_BYTES = 32_768;
+
+async function readFileTail(path: string, bytes: number): Promise<string> {
+	const info = await stat(path);
+	if (info.size <= bytes) return readFile(path, "utf-8");
+	const fh = await open(path, "r");
+	try {
+		const buf = Buffer.alloc(bytes);
+		await fh.read(buf, 0, bytes, info.size - bytes);
+		const raw = buf.toString("utf-8");
+		const firstNewline = raw.indexOf("\n");
+		return firstNewline >= 0 ? raw.slice(firstNewline + 1) : raw;
+	} finally {
+		await fh.close();
+	}
+}
+
 async function readSessionTail(jsonlPath: string, maxLines: number): Promise<string[]> {
 	try {
-		const raw = await readFile(jsonlPath, "utf-8");
+		const raw = await readFileTail(jsonlPath, TAIL_BYTES);
 		const lines = raw.split("\n").filter(Boolean);
 		const tail: string[] = [];
 
-		for (const line of lines.slice(-50)) {
+		for (const line of lines) {
 			try {
 				const r = JSON.parse(line) as StorageRecord;
 				if (r.bus === "sense" && r.type === "llm.input") {
@@ -69,7 +86,7 @@ async function readSessionTail(jsonlPath: string, maxLines: number): Promise<str
 					tail.push(`  ● ${r.type}`);
 				}
 			} catch {
-				// skip
+				// skip partial/malformed lines
 			}
 		}
 

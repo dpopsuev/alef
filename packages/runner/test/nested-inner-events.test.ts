@@ -30,6 +30,7 @@ function noopUi() {
 			updateInFlightCallChunk: () => {},
 			startThinking: () => {},
 			stopThinking: () => {},
+			setIntent: () => {},
 			isThinking: false,
 			setFocusedCall: () => {},
 			setChunkText: () => {},

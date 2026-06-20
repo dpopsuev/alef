@@ -27,6 +27,7 @@ function makeMockUi(): TuiUi {
 			updateInFlightCallChunk: vi.fn(),
 			startThinking: vi.fn(),
 			stopThinking: vi.fn(),
+			setIntent: vi.fn(),
 			isThinking: false,
 			setFocusedCall: vi.fn(),
 			setChunkText: vi.fn(),

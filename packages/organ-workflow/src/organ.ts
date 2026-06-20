@@ -1,4 +1,4 @@
-import type { BaseOrganOptions } from "@dpopsuev/alef-kernel";
+import type { BaseOrganOptions, Nerve } from "@dpopsuev/alef-kernel";
 import {
 	debugLog,
 	defineOrgan,
@@ -31,6 +31,10 @@ export interface WorkflowOrganOptions extends BaseOrganOptions {
 }
 
 export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
+	let nerve: Nerve | null = null;
+	const emitSignal = (type: string, payload: Record<string, unknown>) =>
+		nerve?.signal.publish({ type, payload, correlationId: "" });
+
 	const WORKFLOW_RUN_TOOL = tool(
 		"workflow.run",
 		"Execute a named station in the workflow pipeline and return the fulfilled artifact.",
@@ -57,7 +61,9 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 						);
 					}
 
+					emitSignal("workflow.intent", { text: `station: ${stationName}` });
 					const result = await opts.runner.run(stationDef, artifact);
+					emitSignal("workflow.intent", { text: "" });
 					return withDisplay(
 						{ status: result.status, output: result.output, questions: result.questions },
 						{ text: `Station '${stationName}': ${result.status}`, mimeType: "text/plain" },
@@ -67,6 +73,18 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 		},
 		{
 			description: `Workflow organ: ${opts.def.name} (${opts.def.stations.map((s) => s.name).join(" → ")})`,
+			onMount: (n: Nerve) => {
+				nerve = n;
+			},
+			contributions: {
+				tui: {
+					signals: {
+						"workflow.intent": (payload, ui) => {
+							ui.setIntent(String(payload.text ?? ""));
+						},
+					},
+				},
+			},
 			directives: [
 				`You are executing the "${opts.def.name}" workflow.`,
 				`Stations in order: ${opts.def.stations.map((s) => s.name).join(" → ")}.`,

@@ -39,6 +39,24 @@ function registerOrganSignalMaps(
 	}
 }
 
+import type { TuiContribution, TuiSignalHandler } from "@dpopsuev/alef-kernel";
+
+const tuiSignalHandlers = new Map<string, TuiSignalHandler>();
+
+function registerTuiSignals(organs: readonly { contributions?: { tui?: TuiContribution } }[]): void {
+	for (const organ of organs) {
+		const signals = organ.contributions?.tui?.signals;
+		if (!signals) continue;
+		for (const [signalType, handler] of Object.entries(signals)) {
+			tuiSignalHandlers.set(signalType, handler);
+		}
+	}
+}
+
+export function getTuiSignalHandlers(): ReadonlyMap<string, TuiSignalHandler> {
+	return tuiSignalHandlers;
+}
+
 function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 	switch (event.type) {
@@ -172,7 +190,11 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 			const mapper = organSignalMaps.get(event.type);
 			if (mapper) {
 				const mapped = mapper(p);
-				return mapped as AgentEvent | null;
+				if (mapped) return { type: "organ-signal", signalType: event.type, payload: mapped };
+				return null;
+			}
+			if (tuiSignalHandlers.has(event.type)) {
+				return { type: "organ-signal", signalType: event.type, payload: p };
 			}
 			return null;
 		}
@@ -196,6 +218,7 @@ export async function createLocalSession(
 }> {
 	const { organs, blueprintSurfaces } = loaded;
 	registerOrganSignalMaps(organs);
+	registerTuiSignals(organs);
 
 	const directives = createDefaultDirectives({ tools: organs.flatMap((o) => o.tools), cwd: args.cwd });
 	await loadWorkspace(directives, args.cwd);

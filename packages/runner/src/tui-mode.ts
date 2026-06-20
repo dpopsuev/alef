@@ -3,6 +3,7 @@ import type { ISessionStore } from "@dpopsuev/alef-session";
 import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";
 import { trace } from "./debug-trace.js";
 import type { InteractiveOptions } from "./interactive.js";
+import { getTuiSignalHandlers } from "./local-session.js";
 import { ModalInputHandler } from "./modal-input.js";
 import type { Session } from "./session.js";
 import { bold, boldColor, color, getTheme } from "./theme.js";
@@ -49,9 +50,10 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	const { editor } = promptConsole;
 
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
+	const signalHandlers = getTuiSignalHandlers();
 	const dispatch = (event: TuiEvent): void => {
 		const prev = tuiState;
-		tuiState = tuiReducer(tuiState, event, tuiUi);
+		tuiState = tuiReducer(tuiState, event, tuiUi, signalHandlers);
 		syncOverlays(tui, prev.overlays, tuiState.overlays);
 		tui.requestRender();
 	};

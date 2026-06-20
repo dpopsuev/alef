@@ -28,6 +28,7 @@ function makeMockUi(): TuiUi {
 			startThinking: vi.fn(),
 			stopThinking: vi.fn(),
 			setIntent: vi.fn(),
+			setStatus: vi.fn(),
 			isThinking: false,
 			setFocusedCall: vi.fn(),
 			setChunkText: vi.fn(),

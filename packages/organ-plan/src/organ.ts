@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { BaseOrganOptions, ContextAssemblyHandler, Organ } from "@dpopsuev/alef-kernel";
+import type { BaseOrganOptions, ContextAssemblyHandler, Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { defineOrgan, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { PlanGraph } from "./graph.js";
@@ -15,6 +15,11 @@ function planPath(sessionDir: string): string {
 export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 	let activePlan: PlanGraph | null = null;
 	let planSeq = 0;
+	let nerve: Nerve | null = null;
+
+	function emitSignal(type: string, payload: Record<string, unknown>): void {
+		nerve?.signal.publish({ type, payload, correlationId: "" });
+	}
 
 	function ensureDisk(): string {
 		return planPath(opts.sessionDir);
@@ -194,6 +199,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 						if (!plan)
 							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
 						plan.checkpoint(ctx.payload.nodeId);
+						emitSignal("plan.intent", { text: ctx.payload.nodeId });
 						return withDisplay(
 							{ nodeId: ctx.payload.nodeId, phase: plan.phase },
 							{ text: `Node ${ctx.payload.nodeId} is now active`, mimeType: "text/plain" },
@@ -279,6 +285,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
 						plan.setAAR(ctx.payload.aar);
 						plan.close();
+						emitSignal("plan.intent", { text: "" });
 						const summary = plan.renderSummary();
 						activePlan = null;
 						return withDisplay({ closed: true }, { text: `Plan closed.\n${summary}`, mimeType: "text/plain" });
@@ -313,7 +320,19 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 				"The plan is injected into your context automatically. Use plan.show to see the current state.",
 			],
 			sources: [{ name: "plan-file", kind: "file" }],
-			contributions: { "context.assemble": contextStage },
+			onMount: (n: Nerve) => {
+				nerve = n;
+			},
+			contributions: {
+				"context.assemble": contextStage,
+				tui: {
+					signals: {
+						"plan.intent": (payload, ui) => {
+							ui.setIntent(String(payload.text ?? ""));
+						},
+					},
+				},
+			},
 			...opts,
 		},
 	);

@@ -10,14 +10,17 @@ export {
 } from "./autocomplete.js";
 export { type BorderStyle, Box, type BoxOptions } from "./components/box.js";
 export { CancellableLoader } from "./components/cancellable-loader.js";
+export { Dialog, type DialogAction, type DialogOptions, type DialogTheme } from "./components/dialog.js";
 export { Editor, type EditorOptions, type EditorTheme } from "./components/editor.js";
 export { GrowSpacer } from "./components/grow-spacer.js";
 export { Image, type ImageOptions, type ImageTheme } from "./components/image.js";
 export { Input } from "./components/input.js";
 export { Loader, type LoaderIndicatorOptions } from "./components/loader.js";
 export { type DefaultTextStyle, Markdown, type MarkdownTheme } from "./components/markdown.js";
+export { Menu, type MenuItem, type MenuOptions, type MenuTheme } from "./components/menu.js";
 // Components
 export { Pad } from "./components/pad.js";
+export { Picker, type PickerItem, type PickerOptions, type PickerTheme } from "./components/picker.js";
 export { type PickerMode, PreviewSelectList, type PreviewSelectListOptions } from "./components/preview-select-list.js";
 export { ProgressBar, type ProgressBarOptions } from "./components/progress-bar.js";
 export { ScrollView, type ScrollViewOptions } from "./components/scroll-view.js";
@@ -33,6 +36,7 @@ export { Spacer } from "./components/spacer.js";
 export { SplitPane, type SplitPaneOptions } from "./components/split-pane.js";
 export { Table, type TableColumn, type TableOptions } from "./components/table.js";
 export { Text } from "./components/text.js";
+export { Toast, type ToastOptions, type ToastTheme } from "./components/toast.js";
 export { TruncatedText } from "./components/truncated-text.js";
 // Editor component interface (for custom editors)
 export type { EditorComponent } from "./editor-component.js";

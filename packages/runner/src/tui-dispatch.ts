@@ -292,6 +292,8 @@ export function dispatchTuiEvent(
 		case "token-usage": {
 			const { input, output, totalTokens } = event.usage;
 			const sessionTokensTotal = state.sessionTokensTotal + input + output;
+			const sessionInputTokens = state.sessionInputTokens + input;
+			const sessionOutputTokens = state.sessionOutputTokens + output;
 			if (state.pendingTokenFooter) {
 				state.pendingTokenFooter.setText(
 					formatTokenUsage(input, output, t, Date.now() - state.turnStartedAt, sessionTokensTotal),
@@ -308,7 +310,7 @@ export function dispatchTuiEvent(
 					writer.addNotice(`context ${Math.round(fill * 100)}% full`);
 				}
 			}
-			return { ...state, sessionTokensTotal, pendingTokenFooter: null };
+			return { ...state, sessionTokensTotal, sessionInputTokens, sessionOutputTokens, pendingTokenFooter: null };
 		}
 
 		case "chunk":

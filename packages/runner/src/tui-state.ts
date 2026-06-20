@@ -27,6 +27,8 @@ export interface TuiState {
 	turnStartedAt: number;
 	pendingFooterShown: boolean;
 	sessionTokensTotal: number;
+	sessionInputTokens: number;
+	sessionOutputTokens: number;
 	pendingTokenFooter: TokenFooterHandle | null;
 	abortCurrentTurn: (() => void) | undefined;
 	overlays: readonly OverlayDescriptor[];
@@ -49,6 +51,8 @@ export function initialTuiState(): TuiState {
 		turnStartedAt: 0,
 		pendingFooterShown: false,
 		sessionTokensTotal: 0,
+		sessionInputTokens: 0,
+		sessionOutputTokens: 0,
 		pendingTokenFooter: null,
 		abortCurrentTurn: undefined,
 		overlays: [],

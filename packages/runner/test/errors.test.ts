@@ -4,7 +4,7 @@ import { formatError } from "../src/errors.js";
 // formatError returns the human-readable message only.
 // Call sites are responsible for adding any [error] prefix — see tui-mode.ts.
 
-describe("formatError", { tags: ["unit"] }, () => {
+describe("formatError", () => {
 	it("formats timeout errors", () => {
 		const msg = formatError(new Error("AgentController.send timed out after 120000ms"));
 		expect(msg).toContain("timed out");

@@ -550,6 +550,18 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 						output.content.push(block);
 						stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
 					} else if (event.content_block.type === "tool_use") {
+						// Parse input if it's a JSON string (happens when eager streaming is disabled)
+						let parsedInput: Record<string, any>;
+						if (typeof event.content_block.input === "string") {
+							try {
+								parsedInput = JSON.parse(event.content_block.input);
+							} catch {
+								parsedInput = {};
+							}
+						} else {
+							parsedInput = (event.content_block.input as Record<string, any>) ?? {};
+						}
+
 						const block: Block = {
 							type: "toolCall",
 							id: event.content_block.id,
@@ -558,7 +570,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 								: isVertex
 									? unsanitizeToolName(event.content_block.name, context.tools)
 									: event.content_block.name,
-							arguments: (event.content_block.input as Record<string, any>) ?? {},
+							arguments: parsedInput,
 							partialJson: "",
 							index: event.index,
 						};

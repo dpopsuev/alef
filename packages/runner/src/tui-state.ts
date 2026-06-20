@@ -116,6 +116,8 @@ export interface TuiPromptConsole {
 	setIntent(text: string): void;
 	setStatus(text: string): void;
 	readonly isThinking: boolean;
+	readonly widgetSlotAbove: { addChild(c: unknown): void; removeChild(c: unknown): void };
+	readonly widgetSlotBelow: { addChild(c: unknown): void; removeChild(c: unknown): void };
 	setFocusedCall(callId: string | null): void;
 	setChunkText(text: string): void;
 	setCallIdentity(callId: string, colorName: string, address: string): void;

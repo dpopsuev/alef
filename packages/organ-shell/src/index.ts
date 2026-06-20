@@ -1,5 +1,12 @@
 export { shouldUseWindowsShell, waitForChildProcess } from "./child-process.js";
-export { createShellOrgan, guardCommand, type ShellOrganOptions } from "./organ.js";
+export {
+	createShellOrgan,
+	DEFAULT_GUARD_RULES,
+	type GuardResult,
+	type GuardRule,
+	guardCommand,
+	type ShellOrganOptions,
+} from "./organ.js";
 
 import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
 import { createShellOrgan } from "./organ.js";

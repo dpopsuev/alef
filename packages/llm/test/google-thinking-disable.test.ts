@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getModel } from "../src/models.js";
 import { streamSimple } from "../src/stream.js";
 import type { Api, Context, Model, SimpleStreamOptions } from "../src/types.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 
 type SimpleOptionsWithExtras = SimpleStreamOptions & Record<string, unknown>;
 
@@ -121,7 +122,7 @@ describe.skipIf(!process.env.GEMINI_API_KEY)("Google thinking disable E2E", { ta
 	});
 });
 
-describe("Google Vertex thinking disable E2E", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("Google Vertex thinking disable E2E", { tags: ["real-llm"] }, () => {
 	const vertexProject = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
 	const vertexLocation = process.env.GOOGLE_CLOUD_LOCATION;
 	const vertexApiKey = process.env.GOOGLE_CLOUD_API_KEY;

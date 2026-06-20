@@ -4,6 +4,7 @@ import { getEnvApiKey } from "../src/env-api-keys.js";
 import { getModels, getProviders } from "../src/models.js";
 import { complete } from "../src/stream.js";
 import type { Api, KnownProvider, Model, ProviderStreamOptions, Tool } from "../src/types.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";
 
 const githubCopilotToken = await resolveApiKey("github-copilot");
@@ -124,7 +125,7 @@ async function expectToolEnabledRequestAccepted(
 	expect(response.stopReason, response.errorMessage).not.toBe("error");
 }
 
-describe("Anthropic Messages eager tool input streaming E2E", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("Anthropic Messages eager tool input streaming E2E", { tags: ["real-llm"] }, () => {
 	it("covers every generated anthropic-messages model", () => {
 		const expectedModels = getProviders().flatMap((provider) =>
 			getAnthropicMessagesModels(provider).map((model) => `${provider}/${model.id}`),

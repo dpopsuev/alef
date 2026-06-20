@@ -10,6 +10,7 @@ type StreamOptionsWithExtras = StreamOptions & Record<string, unknown>;
 
 import { hasAzureOpenAICredentials, resolveAzureDeploymentName } from "./azure-utils.js";
 import { hasBedrockCredentials } from "./bedrock-utils.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";
 
 // Resolve OAuth tokens at module level (async, runs before tests)
@@ -206,7 +207,7 @@ async function handleToolWithTextAndImageResult<TApi extends Api>(
 	}
 }
 
-describe("Tool Results with Images", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("Tool Results with Images", { tags: ["real-llm"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider (gemini-2.5-flash)", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

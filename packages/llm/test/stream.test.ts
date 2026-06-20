@@ -14,6 +14,7 @@ import { StringEnum } from "../src/utils/typebox-helpers.js";
 import { hasAzureOpenAICredentials, resolveAzureDeploymentName } from "./azure-utils.js";
 import { hasBedrockCredentials } from "./bedrock-utils.js";
 import { hasCloudflareAiGatewayCredentials, hasCloudflareWorkersAICredentials } from "./cloudflare-utils.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -347,7 +348,7 @@ async function multiTurn<TApi extends Api>(model: Model<TApi>, options?: StreamO
 	expect(allTextContent.includes("887")).toBe(true);
 }
 
-describe("Generate E2E Tests", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("Generate E2E Tests", { tags: ["real-llm"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Gemini Provider (gemini-2.5-flash)", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

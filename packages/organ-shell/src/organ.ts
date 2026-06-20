@@ -113,6 +113,56 @@ async function* pushQueue<T>(register: (push: (item: T) => void, done: () => voi
 }
 
 // ---------------------------------------------------------------------------
+// Built-in command guard — structural enforcement of agent safety rules.
+// These checks run before execution. The error messages are deliberately
+// prescriptive: the LLM reads them as tool results and follows the guidance.
+// ---------------------------------------------------------------------------
+
+interface GuardResult {
+	blocked: boolean;
+	reason: string;
+}
+
+const GUARD_RULES: Array<{ test: (cmd: string) => boolean; reason: string }> = [
+	{
+		test: (cmd) => /\bgit\b/.test(cmd) && /--no-verify/.test(cmd),
+		reason:
+			"Blocked: --no-verify is not allowed. Pre-commit hooks are mandatory.\nFix the errors reported by the hook, then commit again without --no-verify.",
+	},
+	{
+		test: (cmd) => /\bgit\s+reset\s+--hard\b/.test(cmd),
+		reason:
+			"Blocked: git reset --hard is destructive. Use git checkout <file> for targeted reverts, or git stash to save work.",
+	},
+	{
+		test: (cmd) => /\bgit\s+push\b/.test(cmd) && /--force\b/.test(cmd) && !/--force-with-lease/.test(cmd),
+		reason: "Blocked: git push --force can destroy remote history. Use --force-with-lease instead.",
+	},
+	{
+		test: (cmd) => /\bgit\s+clean\s+-[a-zA-Z]*f/.test(cmd),
+		reason: "Blocked: git clean -f permanently deletes untracked files. List files with git clean -n first.",
+	},
+	{
+		test: (cmd) =>
+			/\brm\s+-[a-zA-Z]*r[a-zA-Z]*f\b.*(?:\/\s|~|\/home)/.test(cmd) ||
+			/\brm\s+-[a-zA-Z]*f[a-zA-Z]*r\b.*(?:\/\s|~|\/home)/.test(cmd),
+		reason: "Blocked: recursive deletion of home or root directories.",
+	},
+	{
+		test: (cmd) => /cat\s*<<[- ]?['"]?EOF/.test(cmd) && cmd.length > 500,
+		reason:
+			"Blocked: large heredoc output. Communicate findings in the chat as prose, not via shell echo. Return your answer as a tool result text.",
+	},
+];
+
+export function guardCommand(command: string): GuardResult {
+	for (const rule of GUARD_RULES) {
+		if (rule.test(command)) return { blocked: true, reason: rule.reason };
+	}
+	return { blocked: false, reason: "" };
+}
+
+// ---------------------------------------------------------------------------
 // Streaming handler
 // ---------------------------------------------------------------------------
 
@@ -122,6 +172,11 @@ async function* streamExec(
 ): AsyncIterable<Record<string, unknown>> {
 	const { command, timeout } = ctx.payload;
 	if (!command) throw new Error("shell.exec: command is required");
+
+	const guard = guardCommand(command);
+	if (guard.blocked) {
+		throw new Error(guard.reason);
+	}
 
 	if (opts.blockedPatterns) {
 		for (const pattern of opts.blockedPatterns) {

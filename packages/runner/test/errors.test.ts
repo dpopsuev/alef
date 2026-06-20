@@ -17,8 +17,18 @@ describe("formatError", () => {
 	});
 
 	it("formats unknown errors with original message", () => {
+		// Temporarily unset ALEF_DEBUG to test the base behavior
+		// In debug mode, formatErrorForUser appends stack traces
+		const originalDebug = process.env.ALEF_DEBUG;
+		delete process.env.ALEF_DEBUG;
+
 		const msg = formatError(new Error("some unexpected failure"));
 		expect(msg).toBe("some unexpected failure");
+
+		// Restore
+		if (originalDebug !== undefined) {
+			process.env.ALEF_DEBUG = originalDebug;
+		}
 	});
 
 	it("handles non-Error values", () => {
@@ -36,6 +46,23 @@ describe("formatError", () => {
 			"raw string",
 		]) {
 			expect(formatError(e).length).toBeGreaterThan(0);
+		}
+	});
+
+	it("includes stack trace when ALEF_DEBUG=1", () => {
+		const originalDebug = process.env.ALEF_DEBUG;
+		process.env.ALEF_DEBUG = "1";
+
+		const msg = formatError(new Error("debug mode error"));
+		expect(msg).toContain("debug mode error");
+		expect(msg).toContain("Error: debug mode error"); // Stack trace included
+		expect(msg.split("\n").length).toBeGreaterThan(1); // Multi-line
+
+		// Restore
+		if (originalDebug !== undefined) {
+			process.env.ALEF_DEBUG = originalDebug;
+		} else {
+			delete process.env.ALEF_DEBUG;
 		}
 	});
 });

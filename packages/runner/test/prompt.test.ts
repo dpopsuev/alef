@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Directives } from "../src/directives.js";
 import {
 	appendEnvironment,
-	BLOCK_ANSWER_FIRST,
-	BLOCK_IDENTITY,
-	BLOCK_NO_EMOJIS,
-	BLOCK_NO_FILLER,
-	BLOCK_NO_PREAMBLE,
+	BLOCK_CORE,
 	buildPrepareStep,
 	buildSystemPrompt,
 	createDefaultDirectives,
@@ -33,15 +29,9 @@ describe("buildSystemPrompt", { tags: ["unit"] }, () => {
 		expect(prompt).toContain("(no tools loaded)");
 	});
 
-	it("includes universal guidelines, not organ-specific guidance", () => {
+	it("includes guidelines block", () => {
 		const prompt = buildSystemPrompt({ tools: FS_TOOLS });
 		expect(prompt).toContain("<guidelines>");
-		expect(prompt).not.toContain("read a file before editing");
-	});
-
-	it("does not embed shell-specific guidance — that lives in organ directives", () => {
-		const prompt = buildSystemPrompt({ tools: SHELL_TOOLS });
-		expect(prompt).not.toContain("compilation");
 	});
 
 	it("includes date and cwd via the environment block", () => {
@@ -84,49 +74,42 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("atomic format blocks — each rule is its own tagged block", { tags: ["unit"] }, () => {
-	it("no-emojis block contains the rule text", () => {
-		expect(BLOCK_NO_EMOJIS()).toContain("No emojis");
+describe("BLOCK_CORE — consolidated system prompt", { tags: ["unit"] }, () => {
+	it("contains identity", () => {
+		expect(BLOCK_CORE()).toContain("You are Alef");
 	});
 
-	it("no-filler block contains the blocked phrases", () => {
-		expect(BLOCK_NO_FILLER()).toContain("No filler");
-		expect(BLOCK_NO_FILLER()).toContain("Great!");
+	it("contains file creation constraint", () => {
+		expect(BLOCK_CORE()).toContain("not create files");
 	});
 
-	it("no-preamble block names the pattern", () => {
-		expect(BLOCK_NO_PREAMBLE()).toContain("No preamble");
+	it("contains no-emoji rule", () => {
+		expect(BLOCK_CORE()).toContain("No emojis");
 	});
 
-	it("answer-first block states the rule", () => {
-		expect(BLOCK_ANSWER_FIRST()).toContain("Answer the question first");
+	it("contains git safety rules", () => {
+		expect(BLOCK_CORE()).toContain("--no-verify");
+		expect(BLOCK_CORE()).toContain("Pre-commit hooks are mandatory");
 	});
 
-	it("built prompt contains all format rules", () => {
+	it("built prompt contains all core rules in a single block", () => {
 		const prompt = buildSystemPrompt({ tools: [] });
+		expect(prompt).toContain("<core>");
+		expect(prompt).toContain("not create files");
 		expect(prompt).toContain("No emojis");
-		expect(prompt).toContain("No filler");
-		expect(prompt).toContain("No preamble");
+		expect(prompt).toContain("--no-verify");
 		expect(prompt).toContain("Answer the question first");
 	});
 
-	it("format blocks are wrapped in XML tags in the built prompt", () => {
-		const prompt = buildSystemPrompt({ tools: [] });
-		expect(prompt).toContain("<no-emojis>");
-		expect(prompt).toContain("<no-filler>");
-		expect(prompt).toContain("<no-preamble>");
-		expect(prompt).toContain("<answer-first>");
-	});
-
-	it("format rules appear before guidelines in built prompt", () => {
+	it("core block appears before guidelines in built prompt", () => {
 		const scroll = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const prompt = scroll.build();
-		expect(prompt.indexOf("<no-emojis>")).toBeLessThan(prompt.indexOf("<guidelines>"));
+		expect(prompt.indexOf("<core>")).toBeLessThan(prompt.indexOf("<guidelines>"));
 	});
 });
 
 describe("BLOCK_GUIDELINES — investigation rules", { tags: ["unit"] }, () => {
-	it("built prompt contains capability-check rule", () => {
+	it("built prompt contains tool discovery rule", () => {
 		const prompt = buildSystemPrompt({ tools: [] });
 		expect(prompt).toContain("tools.describe");
 	});
@@ -149,7 +132,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 
 	it("system message contains registered directive text", async () => {
 		const d = new Directives();
-		d.register({ id: "identity", priority: 0, content: BLOCK_IDENTITY(), enabled: true });
+		d.register({ id: "core", priority: 0, content: BLOCK_CORE(), enabled: true });
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "Hi" }]);
 		expect(String(messages[0].content)).toContain("You are Alef");
@@ -192,14 +175,14 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		expect(String(second[0].content)).toContain("Version 2");
 	});
 
-	it("defaultDirectives includes BLOCK_FORMAT rules in the system message", async () => {
+	it("defaultDirectives includes core rules in the system message", async () => {
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "Hello" }]);
 		const systemContent = String(messages[0].content);
 		expect(systemContent).toContain("No emojis");
-		expect(systemContent).toContain("No filler");
-		expect(systemContent).toContain("No preamble");
+		expect(systemContent).toContain("not create files");
+		expect(systemContent).toContain("--no-verify");
 	});
 
 	it("organ directive registered via registerOrgans reaches the system message", async () => {

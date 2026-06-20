@@ -1,5 +1,7 @@
 import type { Component } from "@dpopsuev/alef-tui";
 import { Container, Editor, type EditorTheme, type SelectListTheme, Text, type TUI } from "@dpopsuev/alef-tui";
+export type { Component };
+
 import { registry } from "./commands/index.js";
 import { CommandHintGrid } from "./tui/command-hint-grid.js";
 
@@ -78,6 +80,8 @@ export class PromptConsole {
 	private hintBar!: Text;
 	private commandGrid!: CommandHintGrid;
 	private intentText = "";
+	readonly widgetSlotAbove = new Container();
+	readonly widgetSlotBelow = new Container();
 
 	constructor(tui: TUI, t: ThemeTokens, _modelId: string) {
 		this.tui = tui;
@@ -121,6 +125,7 @@ export class PromptConsole {
 		this.tui.addChild(this.chunkDetail);
 		this.tui.addChild(this.inspectorHint);
 		this.tui.addChild(this.statusText);
+		this.tui.addChild(this.widgetSlotAbove);
 		this.editorWrapper = new EditorWrapper(this.editor, (s) => color(s, this.t.mutedFg));
 		this.tui.addChild(this.editorWrapper);
 
@@ -134,6 +139,7 @@ export class PromptConsole {
 			style: (s) => color(s, this.t.mutedFg),
 		});
 		this.tui.addChild(this.commandGrid);
+		this.tui.addChild(this.widgetSlotBelow);
 
 		this.hintBar = new Text("", 0, 0);
 		this.tui.addChild(this.hintBar);

@@ -33,6 +33,8 @@ function noopUi() {
 			setIntent: () => {},
 			setStatus: () => {},
 			isThinking: false,
+			widgetSlotAbove: { addChild: () => {}, removeChild: () => {} },
+			widgetSlotBelow: { addChild: () => {}, removeChild: () => {} },
 			setFocusedCall: () => {},
 			setChunkText: () => {},
 			setCallIdentity: () => {},

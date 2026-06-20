@@ -53,6 +53,7 @@ export class ModalInputHandler {
 	private cmdMode = false;
 	private cmdBuffer = "";
 	private cmdTabIndex = -1; // cycling through completions
+	private savedText = ""; // Editor content before entering command mode
 
 	/** Double-press state for dd (delete line) and yy (yank line). */
 	private pendingD = false;
@@ -123,19 +124,30 @@ export class ModalInputHandler {
 		this.cmdTabIndex = -1;
 		this.pendingD = false;
 		this.clearHint();
-		this.onHint(":");
+
+		// Save current editor content and show command prompt
+		this.savedText = this.editor.getText();
+		this.editor.setText(":");
+		this.onHint("-- COMMAND --");
 	}
 
 	private exitCmdMode(): void {
 		this.cmdMode = false;
 		this.cmdBuffer = "";
 		this.cmdTabIndex = -1;
+
+		// Restore original editor content
+		this.editor.setText(this.savedText);
+		this.savedText = "";
+
 		this.onHint("");
 		this.armHint();
 	}
 
 	private updateCmdPrompt(): void {
-		this.onHint(`:${this.cmdBuffer}`);
+		// Update editor to show command being typed
+		this.editor.setText(`:${this.cmdBuffer}`);
+		this.onHint("-- COMMAND --");
 	}
 
 	private tabComplete(): void {
@@ -153,8 +165,17 @@ export class ModalInputHandler {
 
 	private dispatchColonCommand(): void {
 		const raw = this.cmdBuffer.trim();
+
+		// Restore original text before executing command
+		this.editor.setText(this.savedText);
+		this.savedText = "";
+
 		if (raw) this.onColonCommand(`:${raw}`);
-		this.exitCmdMode();
+		this.cmdMode = false;
+		this.cmdBuffer = "";
+		this.cmdTabIndex = -1;
+		this.onHint("");
+
 		// After executing a command the user typically wants to type — go to Insert.
 		this.setOuterMode("insert");
 	}

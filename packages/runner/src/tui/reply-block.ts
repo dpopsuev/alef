@@ -1,4 +1,4 @@
-import { type Component, type Container, Markdown, Text } from "@dpopsuev/alef-tui";
+import { Collapsible, type Component, type Container, Markdown } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme-types.js";
 import { fmtMs } from "./ansi-utils.js";
 import { AgentBlock } from "./chat-view.js";
@@ -15,7 +15,7 @@ export class ReplyBlock {
 
 	markdownNode: Markdown | null = null;
 	thinkNode: Markdown | null = null;
-	private thinkHeader: Text | null = null;
+	private thinkCollapsible: Collapsible | null = null;
 	private thinkStartedAt = 0;
 	private replyText = "";
 	private thinkText = "";
@@ -39,14 +39,9 @@ export class ReplyBlock {
 	setHideThinking(hide: boolean): void {
 		if (this._hideThinking === hide) return;
 		this._hideThinking = hide;
-		if (this.block.isOpen && this.thinkNode) {
-			if (hide) {
-				this.block.removeContent(this.thinkNode);
-			} else {
-				if (this.markdownNode) this.block.removeContent(this.markdownNode);
-				this.block.addContent(this.thinkNode);
-				if (this.markdownNode) this.block.addContent(this.markdownNode);
-			}
+		if (this.thinkCollapsible) {
+			if (hide) this.thinkCollapsible.collapse();
+			else this.thinkCollapsible.expand();
 		}
 		this.requestRender();
 	}
@@ -66,21 +61,24 @@ export class ReplyBlock {
 		if (!this.block.isOpen) this.block.start();
 		if (!this.thinkNode) {
 			this.thinkStartedAt = Date.now();
-			this.thinkHeader = new Text(color("┊ thinking", this.t.secondaryFg), 0, 0);
-			this.block.addContent(this.thinkHeader);
 			this.thinkNode = new Markdown("", 0, 0, makeThinkingMarkdownTheme(this.t));
-			if (!this._hideThinking) this.block.addContent(this.thinkNode);
+			this.thinkCollapsible = new Collapsible({
+				header: "thinking",
+				collapsed: this._hideThinking,
+				headerStyle: (s) => color(`┊ ${s}`, this.t.secondaryFg),
+			});
+			this.thinkCollapsible.setContent(this.thinkNode);
+			this.block.addContent(this.thinkCollapsible);
 		}
 		this.thinkText += chunk;
 		this.thinkNode.setText(this.thinkText);
-		if (!this._hideThinking) this.requestRender();
+		this.requestRender();
 	}
 
 	stampThinkingLabel(): void {
-		if (this.thinkHeader && this.thinkStartedAt > 0) {
+		if (this.thinkCollapsible && this.thinkStartedAt > 0) {
 			const ms = Date.now() - this.thinkStartedAt;
-			const elapsed = fmtMs(ms);
-			this.thinkHeader.setText(color(`┈ thought for ${elapsed}`, this.t.secondaryFg));
+			this.thinkCollapsible.setHeader(`thought for ${fmtMs(ms)}`);
 			this.thinkStartedAt = 0;
 		}
 	}
@@ -90,7 +88,7 @@ export class ReplyBlock {
 		if (this.block.isOpen) this.block.end();
 		this.markdownNode = null;
 		this.thinkNode = null;
-		this.thinkHeader = null;
+		this.thinkCollapsible = null;
 		this.replyText = "";
 		this.thinkText = "";
 	}
@@ -99,7 +97,7 @@ export class ReplyBlock {
 		if (this.block.isOpen) this.block.end();
 		this.markdownNode = null;
 		this.thinkNode = null;
-		this.thinkHeader = null;
+		this.thinkCollapsible = null;
 		this.thinkStartedAt = 0;
 		this.replyText = "";
 		this.thinkText = "";

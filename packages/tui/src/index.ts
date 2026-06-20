@@ -10,6 +10,7 @@ export {
 } from "./autocomplete.js";
 export { type BorderStyle, Box, type BoxOptions } from "./components/box.js";
 export { CancellableLoader } from "./components/cancellable-loader.js";
+export { Collapsible, type CollapsibleOptions } from "./components/collapsible.js";
 export { Dialog, type DialogAction, type DialogOptions, type DialogTheme } from "./components/dialog.js";
 export { Editor, type EditorOptions, type EditorTheme } from "./components/editor.js";
 export { GrowSpacer } from "./components/grow-spacer.js";

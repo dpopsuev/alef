@@ -2,8 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
-import { PreviewSelectList, ProcessTerminal, type SelectItem, Text, TUI } from "@dpopsuev/alef-tui";
-import { bold, color, getTheme } from "./theme.js";
+import { runPicker } from "./run-picker.js";
 
 export interface BlueprintChoice {
 	name: string;
@@ -151,80 +150,26 @@ export function resolveBlueprint(nameOrPath: string, cwd: string): string | unde
 export async function pickBlueprint(choices: BlueprintChoice[]): Promise<BlueprintChoice | undefined> {
 	if (choices.length <= 1) return choices[0];
 
-	const t = getTheme();
-	const pathMap = new Map<string, string>();
+	const previewCache = new Map<string, string[]>();
 
-	const items: SelectItem[] = choices.map((bp) => {
-		pathMap.set(bp.path, bp.path);
-		return {
+	const result = await runPicker({
+		title: "Blueprint",
+		items: choices.map((bp) => ({
 			value: bp.path,
 			label: bp.name,
 			description: bp.description.slice(0, 60),
-		};
+		})),
+		maxVisible: 10,
+		previewFn: (item) => {
+			if (!item) return [];
+			const cached = previewCache.get(item.value);
+			if (cached) return cached;
+			const preview = readBlueprintPreview(item.value);
+			previewCache.set(item.value, preview);
+			return preview;
+		},
 	});
 
-	const listTheme = {
-		selectedPrefix: (s: string) => color(s, t.accentFg),
-		selectedText: (s: string) => bold(s),
-		description: (s: string) => color(s, t.mutedFg),
-		scrollInfo: (s: string) => color(s, t.mutedFg),
-		noMatch: (s: string) => color(s, t.mutedFg),
-	};
-
-	const previewCache = new Map<string, string[]>();
-
-	return new Promise<BlueprintChoice | undefined>((res) => {
-		const terminal = new ProcessTerminal();
-		const tui = new TUI(terminal);
-
-		const modeLabel = new Text(
-			color("  NORMAL  j/k navigate  h/l preview  Enter select  Esc default", t.mutedFg),
-			0,
-			0,
-		);
-		tui.addChild(modeLabel);
-		tui.addChild(new Text("", 0, 0));
-
-		const previewList = new PreviewSelectList({
-			items,
-			maxVisible: 10,
-			theme: listTheme,
-			onModeChange: (mode) => {
-				if (mode === "insert") {
-					modeLabel.setText(color("  INSERT  type to filter  Esc → normal", t.accentFg));
-				} else {
-					modeLabel.setText(color("  NORMAL  j/k navigate  h/l preview  Enter select  Esc default", t.mutedFg));
-				}
-			},
-			previewFn: (item) => {
-				if (!item) return [];
-				const cached = previewCache.get(item.value);
-				if (cached) return cached;
-				const preview = readBlueprintPreview(item.value);
-				previewCache.set(item.value, preview);
-				return preview;
-			},
-		});
-
-		previewList.onSelect = (item) => {
-			tui.stop();
-			res(choices.find((c) => c.path === item.value));
-		};
-
-		tui.addChild(previewList);
-
-		tui.onRawInput = (data) => {
-			if (data === "\x1b" && previewList.mode === "normal") {
-				tui.stop();
-				res(choices[0]);
-				return true;
-			}
-			previewList.handleInput(data);
-			tui.requestRender();
-			return true;
-		};
-
-		tui.start();
-		tui.requestRender();
-	});
+	if (!result) return choices[0];
+	return choices.find((c) => c.path === result.value);
 }

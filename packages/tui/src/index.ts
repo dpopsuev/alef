@@ -8,6 +8,7 @@ export {
 	CombinedAutocompleteProvider,
 	type SlashCommand,
 } from "./autocomplete.js";
+export { type BorderStyle, Box, type BoxOptions } from "./components/box.js";
 export { CancellableLoader } from "./components/cancellable-loader.js";
 export { Editor, type EditorOptions, type EditorTheme } from "./components/editor.js";
 export { GrowSpacer } from "./components/grow-spacer.js";
@@ -18,6 +19,8 @@ export { type DefaultTextStyle, Markdown, type MarkdownTheme } from "./component
 // Components
 export { Pad } from "./components/pad.js";
 export { type PickerMode, PreviewSelectList, type PreviewSelectListOptions } from "./components/preview-select-list.js";
+export { ProgressBar, type ProgressBarOptions } from "./components/progress-bar.js";
+export { ScrollView, type ScrollViewOptions } from "./components/scroll-view.js";
 export {
 	type SelectItem,
 	SelectList,
@@ -27,6 +30,8 @@ export {
 } from "./components/select-list.js";
 export { type SettingItem, SettingsList, type SettingsListTheme } from "./components/settings-list.js";
 export { Spacer } from "./components/spacer.js";
+export { SplitPane, type SplitPaneOptions } from "./components/split-pane.js";
+export { Table, type TableColumn, type TableOptions } from "./components/table.js";
 export { Text } from "./components/text.js";
 export { TruncatedText } from "./components/truncated-text.js";
 // Editor component interface (for custom editors)
@@ -109,3 +114,4 @@ export {
 } from "./tui.js";
 // Utilities
 export { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "./utils.js";
+export { ViModal, type ViModalOptions, type ViMode } from "./vi-modal.js";

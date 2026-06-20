@@ -1,9 +1,10 @@
 import type { Component } from "../component.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
+import { ViModal, type ViMode } from "../vi-modal.js";
 import type { SelectItem, SelectListLayoutOptions, SelectListTheme } from "./select-list.js";
 import { SelectList } from "./select-list.js";
 
-export type PickerMode = "normal" | "insert";
+export type PickerMode = ViMode;
 
 export interface PreviewSelectListOptions {
 	items: SelectItem[];
@@ -29,15 +30,14 @@ export class PreviewSelectList implements Component {
 	private currentPreview: string[] = [];
 	private previewFocused = false;
 	private previewScrollOffset = 0;
-	private _mode: PickerMode = "normal";
-	private onModeChange?: (mode: PickerMode) => void;
+	private vi: ViModal;
 
 	constructor(opts: PreviewSelectListOptions) {
 		this.list = new SelectList(opts.items, opts.maxVisible, opts.theme, opts.layout);
 		this.previewFn = opts.previewFn;
 		this.listWidthFraction = opts.listWidthFraction ?? 0.4;
 		this.borderChar = opts.borderChar ?? "│";
-		this.onModeChange = opts.onModeChange;
+		this.vi = new ViModal({ onModeChange: opts.onModeChange });
 
 		this.list.onSelectionChange = (item) => {
 			this.currentPreview = this.previewFn(item);
@@ -50,7 +50,7 @@ export class PreviewSelectList implements Component {
 	}
 
 	get mode(): PickerMode {
-		return this._mode;
+		return this.vi.mode;
 	}
 
 	set onSelect(fn: ((item: SelectItem) => void) | undefined) {
@@ -66,22 +66,14 @@ export class PreviewSelectList implements Component {
 	}
 
 	handleInput(data: string): boolean {
-		if (this._mode === "insert") {
-			if (data === "\x1b") {
-				this._mode = "normal";
-				this.previewFocused = false;
-				this.onModeChange?.("normal");
-				return true;
-			}
-			return false;
+		const viResult = this.vi.handleKey(data);
+		if (viResult === "mode-change") {
+			if (this.vi.isNormal()) this.previewFocused = false;
+			return true;
 		}
 
-		// Normal mode
-		if (data === "i" || data === "/") {
-			this._mode = "insert";
-			this.previewFocused = false;
-			this.onModeChange?.("insert");
-			return true;
+		if (this.vi.isInsert()) {
+			return false;
 		}
 
 		if (data === "l") {

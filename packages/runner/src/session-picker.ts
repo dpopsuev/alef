@@ -1,16 +1,13 @@
 /**
  * TUI session picker — vi-modal with preview pane.
- *
- * Normal mode: j/k navigate list, h/l switch to preview, g/G top/bottom
- * Insert mode: i or / to start typing filter, Esc back to normal
- * Enter: select session. Esc in normal mode: start fresh.
+ * Delegates to runPicker() for TUI lifecycle.
  */
 
 import { open, readFile, stat } from "node:fs/promises";
 
-import { Input, PreviewSelectList, ProcessTerminal, type SelectItem, Text, TUI } from "@dpopsuev/alef-tui";
+import type { SelectItem } from "@dpopsuev/alef-tui";
+import { runPicker } from "./run-picker.js";
 import type { StorageRecord } from "./session-store.js";
-import { bold, color, getTheme } from "./theme.js";
 
 async function readSessionName(jsonlPath: string): Promise<string | undefined> {
 	try {
@@ -86,7 +83,7 @@ async function readSessionTail(jsonlPath: string, maxLines: number): Promise<str
 					tail.push(`  ● ${r.type}`);
 				}
 			} catch {
-				// skip partial/malformed lines
+				// skip
 			}
 		}
 
@@ -100,8 +97,6 @@ export async function pickSession(
 	sessions: Array<{ id: string; path: string; mtime: Date }>,
 ): Promise<string | undefined> {
 	if (sessions.length === 0) return undefined;
-
-	const t = getTheme();
 
 	const [names, previews] = await Promise.all([
 		Promise.all(sessions.slice(0, 20).map((s) => readSessionName(s.path))),
@@ -123,82 +118,26 @@ export async function pickSession(
 
 	const previewCache = new Map<string, string[]>();
 
-	const listTheme = {
-		selectedPrefix: (s: string) => color(s, t.accentFg),
-		selectedText: (s: string) => bold(s),
-		description: (s: string) => color(s, t.mutedFg),
-		scrollInfo: (s: string) => color(s, t.mutedFg),
-		noMatch: (s: string) => color(s, t.mutedFg),
-	};
+	const result = await runPicker({
+		title: "Sessions",
+		items,
+		maxVisible: 12,
+		allowFilter: true,
+		previewFn: (item) => {
+			if (!item || item.value === "__new__") return ["  Start a new conversation"];
+			const cached = previewCache.get(item.value);
+			if (cached) return cached;
 
-	return new Promise<string | undefined>((resolve) => {
-		const terminal = new ProcessTerminal();
-		const tui = new TUI(terminal);
+			const path = sessionPaths.get(item.value);
+			if (!path) return ["  (no session data)"];
 
-		const modeLabel = new Text(
-			color("  NORMAL  j/k navigate  h/l preview  i filter  Enter select  Esc new", t.mutedFg),
-			0,
-			0,
-		);
-		tui.addChild(modeLabel);
-		tui.addChild(new Text("", 0, 0));
-
-		const searchInput = new Input();
-
-		const previewList = new PreviewSelectList({
-			items,
-			maxVisible: 12,
-			theme: listTheme,
-			onModeChange: (mode) => {
-				if (mode === "insert") {
-					modeLabel.setText(color("  INSERT  type to filter  Esc → normal", t.accentFg));
-				} else {
-					modeLabel.setText(
-						color("  NORMAL  j/k navigate  h/l preview  i filter  Enter select  Esc new", t.mutedFg),
-					);
-				}
-			},
-			previewFn: (item) => {
-				if (!item || item.value === "__new__") return ["  Start a new conversation"];
-				const cached = previewCache.get(item.value);
-				if (cached) return cached;
-
-				const path = sessionPaths.get(item.value);
-				if (!path) return ["  (no session data)"];
-
-				void readSessionTail(path, 12).then((lines) => {
-					previewCache.set(item.value, lines);
-					tui.requestRender();
-				});
-				return ["  Loading..."];
-			},
-		});
-
-		previewList.onSelect = (item) => {
-			tui.stop();
-			resolve(item.value === "__new__" ? undefined : item.value);
-		};
-
-		tui.addChild(searchInput);
-		tui.addChild(previewList);
-
-		tui.onRawInput = (data) => {
-			if (data === "\x1b" && previewList.mode === "normal") {
-				tui.stop();
-				resolve(undefined);
-				return true;
-			}
-
-			const handled = previewList.handleInput(data);
-			if (!handled && previewList.mode === "insert") {
-				searchInput.handleInput(data);
-				previewList.setFilter(searchInput.getValue());
-			}
-			tui.requestRender();
-			return true;
-		};
-
-		tui.start();
-		tui.requestRender();
+			void readSessionTail(path, 12).then((lines) => {
+				previewCache.set(item.value, lines);
+			});
+			return ["  Loading..."];
+		},
 	});
+
+	if (!result || result.value === "__new__") return undefined;
+	return result.value;
 }

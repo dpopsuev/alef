@@ -8,6 +8,8 @@ export interface ActiveCall {
 	parentCallId?: string;
 	children: Map<string, ActiveCall>;
 	depth: number;
+	/** Markdown component for formatted output streaming (populated on first chunk) */
+	outputMarkdown?: unknown; // Will be Markdown component from TUI
 }
 
 export interface OverlayDescriptor {

@@ -1,8 +1,9 @@
 /**
- * TUI session picker — shown at startup when sessions exist and --resume is not set.
+ * TUI session picker — vi-modal with preview pane.
  *
- * Type to fuzzy-filter. ↑↓ navigate. Enter select. Esc start fresh.
- * Right pane shows tail preview of the selected session's conversation.
+ * Normal mode: j/k navigate list, h/l switch to preview, g/G top/bottom
+ * Insert mode: i or / to start typing filter, Esc back to normal
+ * Enter: select session. Esc in normal mode: start fresh.
  */
 
 import { readFile } from "node:fs/promises";
@@ -117,7 +118,12 @@ export async function pickSession(
 		const terminal = new ProcessTerminal();
 		const tui = new TUI(terminal);
 
-		tui.addChild(new Text(color("  Sessions — type to filter  ↑↓ navigate  Enter select  Esc new", t.mutedFg), 0, 0));
+		const modeLabel = new Text(
+			color("  NORMAL  j/k navigate  h/l preview  i filter  Enter select  Esc new", t.mutedFg),
+			0,
+			0,
+		);
+		tui.addChild(modeLabel);
 		tui.addChild(new Text("", 0, 0));
 
 		const searchInput = new Input();
@@ -126,6 +132,15 @@ export async function pickSession(
 			items,
 			maxVisible: 12,
 			theme: listTheme,
+			onModeChange: (mode) => {
+				if (mode === "insert") {
+					modeLabel.setText(color("  INSERT  type to filter  Esc → normal", t.accentFg));
+				} else {
+					modeLabel.setText(
+						color("  NORMAL  j/k navigate  h/l preview  i filter  Enter select  Esc new", t.mutedFg),
+					);
+				}
+			},
 			previewFn: (item) => {
 				if (!item || item.value === "__new__") return ["  Start a new conversation"];
 				const cached = previewCache.get(item.value);
@@ -151,14 +166,14 @@ export async function pickSession(
 		tui.addChild(previewList);
 
 		tui.onRawInput = (data) => {
-			if (data === "\x1b") {
+			if (data === "\x1b" && previewList.mode === "normal") {
 				tui.stop();
 				resolve(undefined);
 				return true;
 			}
-			if (data === "\x1b[A" || data === "\x1b[B" || data === "\r" || data === "\n") {
-				previewList.handleInput(data);
-			} else {
+
+			const handled = previewList.handleInput(data);
+			if (!handled && previewList.mode === "insert") {
 				searchInput.handleInput(data);
 				previewList.setFilter(searchInput.getValue());
 			}
@@ -167,7 +182,6 @@ export async function pickSession(
 		};
 
 		tui.start();
-		tui.setFocus(searchInput);
 		tui.requestRender();
 	});
 }

@@ -17,7 +17,7 @@ export { Loader, type LoaderIndicatorOptions } from "./components/loader.js";
 export { type DefaultTextStyle, Markdown, type MarkdownTheme } from "./components/markdown.js";
 // Components
 export { Pad } from "./components/pad.js";
-export { PreviewSelectList, type PreviewSelectListOptions } from "./components/preview-select-list.js";
+export { type PickerMode, PreviewSelectList, type PreviewSelectListOptions } from "./components/preview-select-list.js";
 export {
 	type SelectItem,
 	SelectList,

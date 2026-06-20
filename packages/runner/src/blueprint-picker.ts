@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
-import { ProcessTerminal, type SelectItem, SelectList, Text, TUI } from "@dpopsuev/alef-tui";
+import { PreviewSelectList, ProcessTerminal, type SelectItem, Text, TUI } from "@dpopsuev/alef-tui";
 import { bold, color, getTheme } from "./theme.js";
 
 export interface BlueprintChoice {
@@ -85,18 +85,64 @@ function readBlueprintMeta(path: string): { name: string; description: string } 
 	}
 }
 
+function readBlueprintPreview(path: string): string[] {
+	try {
+		const raw = readFileSync(path, "utf-8");
+		const lines: string[] = [];
+
+		const descMatch = raw.match(/^description:\s*>?\s*\n([\s\S]*?)(?=\n\w)/m);
+		if (descMatch) {
+			const desc = descMatch[1]
+				.trim()
+				.split("\n")
+				.map((l) => l.trim())
+				.join(" ");
+			lines.push(`  ${desc}`);
+			lines.push("");
+		}
+
+		const organMatches = [...raw.matchAll(/^\s+-\s+name:\s*(\S+)/gm)];
+		if (organMatches.length > 0) {
+			lines.push("  Organs (SBOM):");
+			for (const m of organMatches) {
+				const organName = m[1];
+				const pkgMatch = raw.match(new RegExp(`name:\\s*${organName}[\\s\\S]*?package:\\s*"?([^"\\n]+)"?`));
+				const pkg = pkgMatch?.[1] ?? `organ-${organName}`;
+				lines.push(`    ${organName.padEnd(14)} ${pkg}`);
+			}
+			lines.push("");
+		}
+
+		const modelMatch = raw.match(/^model:\s*(.+)$/m);
+		if (modelMatch) lines.push(`  Model: ${modelMatch[1].trim()}`);
+
+		const capMatch = raw.match(/orchestration:\s*(true|false)/);
+		if (capMatch) lines.push(`  Orchestration: ${capMatch[1]}`);
+
+		const memMatch = raw.match(/session:\s*(\S+)/);
+		if (memMatch) lines.push(`  Memory: ${memMatch[1]}`);
+
+		const blockedMatches = [...raw.matchAll(/^\s+-\s+"(.+)"/gm)];
+		if (blockedMatches.length > 0) {
+			lines.push("");
+			lines.push("  Blocked patterns:");
+			for (const m of blockedMatches.slice(0, 5)) {
+				lines.push(`    ${m[1]}`);
+			}
+		}
+
+		return lines.length > 0 ? lines : ["  (no details available)"];
+	} catch {
+		return ["  (unable to read blueprint)"];
+	}
+}
+
 export function resolveBlueprint(nameOrPath: string, cwd: string): string | undefined {
-	// First check if it's a registered blueprint name (e.g., YAML blueprints from ~/.config/alef/agents)
 	const registeredNames = blueprintRegistry.list();
 	if (registeredNames.includes(nameOrPath)) {
-		// Return the name itself - it will be resolved from the registry later
 		return nameOrPath;
 	}
-
-	// Then check if it's an existing file path
 	if (existsSync(nameOrPath)) return resolve(nameOrPath);
-
-	// Finally check discovered blueprints from filesystem
 	const discovered = discoverBlueprints(cwd);
 	const match = discovered.find((bp) => bp.name === nameOrPath);
 	return match?.path;
@@ -106,12 +152,16 @@ export async function pickBlueprint(choices: BlueprintChoice[]): Promise<Bluepri
 	if (choices.length <= 1) return choices[0];
 
 	const t = getTheme();
+	const pathMap = new Map<string, string>();
 
-	const items: SelectItem[] = choices.map((bp) => ({
-		value: bp.path,
-		label: bp.name,
-		description: bp.description.slice(0, 60),
-	}));
+	const items: SelectItem[] = choices.map((bp) => {
+		pathMap.set(bp.path, bp.path);
+		return {
+			value: bp.path,
+			label: bp.name,
+			description: bp.description.slice(0, 60),
+		};
+	});
 
 	const listTheme = {
 		selectedPrefix: (s: string) => color(s, t.accentFg),
@@ -121,6 +171,8 @@ export async function pickBlueprint(choices: BlueprintChoice[]): Promise<Bluepri
 		noMatch: (s: string) => color(s, t.mutedFg),
 	};
 
+	const previewCache = new Map<string, string[]>();
+
 	return new Promise<BlueprintChoice | undefined>((res) => {
 		const terminal = new ProcessTerminal();
 		const tui = new TUI(terminal);
@@ -128,13 +180,26 @@ export async function pickBlueprint(choices: BlueprintChoice[]): Promise<Bluepri
 		tui.addChild(new Text(color("  Blueprint — ↑↓ navigate  Enter select", t.mutedFg), 0, 0));
 		tui.addChild(new Text("", 0, 0));
 
-		const list = new SelectList(items, 8, listTheme);
-		list.onSelect = (item) => {
+		const previewList = new PreviewSelectList({
+			items,
+			maxVisible: 10,
+			theme: listTheme,
+			previewFn: (item) => {
+				if (!item) return [];
+				const cached = previewCache.get(item.value);
+				if (cached) return cached;
+				const preview = readBlueprintPreview(item.value);
+				previewCache.set(item.value, preview);
+				return preview;
+			},
+		});
+
+		previewList.onSelect = (item) => {
 			tui.stop();
 			res(choices.find((c) => c.path === item.value));
 		};
 
-		tui.addChild(list);
+		tui.addChild(previewList);
 
 		tui.onRawInput = (data) => {
 			if (data === "\x1b") {
@@ -143,7 +208,7 @@ export async function pickBlueprint(choices: BlueprintChoice[]): Promise<Bluepri
 				return true;
 			}
 			if (data === "\x1b[A" || data === "\x1b[B" || data === "\r" || data === "\n") {
-				list.handleInput(data);
+				previewList.handleInput(data);
 			}
 			tui.requestRender();
 			return true;

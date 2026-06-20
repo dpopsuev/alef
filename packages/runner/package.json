@@ -25,7 +25,7 @@
 		"@dpopsuev/alef-session": "^0.0.1",
 		"@dpopsuev/alef-organ-agent": "^0.0.1",
 		"@dpopsuev/alef-organ-factory": "^0.0.1",
-		"@dpopsuev/alef-organ-router": "^0.0.1",
+		"@dpopsuev/alef-gateway": "^0.0.1",
 		"@dpopsuev/alef-organ-shell": "^0.0.1",
 		"@dpopsuev/alef-organ-web": "^0.0.1",
 		"@dpopsuev/alef-kernel": "^0.0.1",

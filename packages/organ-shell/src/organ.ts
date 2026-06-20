@@ -79,6 +79,8 @@ export interface ShellOrganOptions {
 	/** Regex patterns to block in commands. Matching commands are rejected before execution. */
 	blockedPatterns?: readonly RegExp[];
 	binDir?: string;
+	/** Override built-in guard rules. Pass [] to disable all guards. Default: DEFAULT_GUARD_RULES. */
+	guardRules?: readonly GuardRule[];
 }
 
 // ---------------------------------------------------------------------------
@@ -118,12 +120,17 @@ async function* pushQueue<T>(register: (push: (item: T) => void, done: () => voi
 // prescriptive: the LLM reads them as tool results and follows the guidance.
 // ---------------------------------------------------------------------------
 
-interface GuardResult {
+export interface GuardResult {
 	blocked: boolean;
 	reason: string;
 }
 
-const GUARD_RULES: Array<{ test: (cmd: string) => boolean; reason: string }> = [
+export interface GuardRule {
+	test: (cmd: string) => boolean;
+	reason: string;
+}
+
+export const DEFAULT_GUARD_RULES: readonly GuardRule[] = [
 	{
 		test: (cmd) => /\bgit\b/.test(cmd) && /--no-verify/.test(cmd),
 		reason:
@@ -155,8 +162,8 @@ const GUARD_RULES: Array<{ test: (cmd: string) => boolean; reason: string }> = [
 	},
 ];
 
-export function guardCommand(command: string): GuardResult {
-	for (const rule of GUARD_RULES) {
+export function guardCommand(command: string, rules: readonly GuardRule[] = DEFAULT_GUARD_RULES): GuardResult {
+	for (const rule of rules) {
 		if (rule.test(command)) return { blocked: true, reason: rule.reason };
 	}
 	return { blocked: false, reason: "" };
@@ -173,7 +180,7 @@ async function* streamExec(
 	const { command, timeout } = ctx.payload;
 	if (!command) throw new Error("shell.exec: command is required");
 
-	const guard = guardCommand(command);
+	const guard = guardCommand(command, opts.guardRules ?? DEFAULT_GUARD_RULES);
 	if (guard.blocked) {
 		throw new Error(guard.reason);
 	}

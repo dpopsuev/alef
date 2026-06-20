@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loginAnthropic, refreshAnthropicToken } from "../src/utils/oauth/anthropic.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 
 function jsonResponse(body: unknown, status: number = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -30,7 +31,7 @@ function getJsonBody(init?: RequestInit): Record<string, string> {
 	return JSON.parse(init.body) as Record<string, string>;
 }
 
-describe.sequential("Anthropic OAuth", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("Anthropic OAuth", { tags: ["real-llm"] }, () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});

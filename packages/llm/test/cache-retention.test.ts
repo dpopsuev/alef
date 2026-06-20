@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getModel } from "../src/models.js";
 import { stream } from "../src/stream.js";
 import type { Context, Model } from "../src/types.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 
 describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 	const originalEnv = process.env.ALEF_CACHE_RETENTION;
@@ -23,7 +24,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		messages: [{ role: "user", content: "Hello", timestamp: Date.now() }],
 	};
 
-	describe("Anthropic Provider", { tags: ["real-llm"] }, () => {
+	describe.skipIf(!HAVE_REAL_LLM)("Anthropic Provider", { tags: ["real-llm"] }, () => {
 		it.skipIf(!process.env.ANTHROPIC_API_KEY)(
 			"should use default cache TTL (no ttl field) when ALEF_CACHE_RETENTION is not set",
 			async () => {
@@ -222,7 +223,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 		});
 	});
 
-	describe("OpenAI Responses Provider", { tags: ["real-llm"] }, () => {
+	describe.skipIf(!HAVE_REAL_LLM)("OpenAI Responses Provider", { tags: ["real-llm"] }, () => {
 		it.skipIf(!process.env.OPENAI_API_KEY)(
 			"should not set prompt_cache_retention when ALEF_CACHE_RETENTION is not set",
 			async () => {

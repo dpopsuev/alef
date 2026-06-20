@@ -7,6 +7,7 @@ type StreamOptionsWithExtras = StreamOptions & Record<string, unknown>;
 
 import { hasAzureOpenAICredentials, resolveAzureDeploymentName } from "./azure-utils.js";
 import { hasBedrockCredentials } from "./bedrock-utils.js";
+import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";
 
 // Resolve OAuth tokens at module level (async, runs before tests)
@@ -98,7 +99,7 @@ async function testAbortThenNewMessage<TApi extends Api>(llm: Model<TApi>, optio
 	expect(followUp.content.length).toBeGreaterThan(0);
 }
 
-describe("AI Providers Abort Tests", { tags: ["real-llm"] }, () => {
+describe.skipIf(!HAVE_REAL_LLM)("AI Providers Abort Tests", { tags: ["real-llm"] }, () => {
 	describe.skipIf(!process.env.GEMINI_API_KEY)("Google Provider Abort", () => {
 		const llm = getModel("google", "gemini-2.5-flash");
 

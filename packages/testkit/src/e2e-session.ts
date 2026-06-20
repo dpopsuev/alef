@@ -24,11 +24,8 @@ import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController, createToolShellOrgan } from "@dpopsuev/alef-runtime";
 
-/** True when at least one real LLM provider is configured via env vars. */
-export const HAVE_REAL_LLM =
-	Boolean(process.env.ANTHROPIC_API_KEY) ||
-	Boolean(process.env.ANTHROPIC_VERTEX_PROJECT_ID) ||
-	Boolean(process.env.GOOGLE_CLOUD_PROJECT);
+/** True when the ALEF_TEST_LLM env var is set. Gates all real-LLM tests. */
+export const HAVE_REAL_LLM = process.env.ALEF_TEST_LLM === "1";
 
 export interface E2eResult {
 	reply: string;

@@ -39,8 +39,9 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	}
 
 	let tuiState = initialTuiState();
-	const layout = await buildLayout(tui, t, opts, () => tuiState.sessionTokensTotal, store);
-	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, historyProvider, forums } = layout;
+	const { output, input } = await buildLayout(tui, t, opts, () => tuiState.sessionTokensTotal, store);
+	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
+	const { promptConsole, historyProvider } = input;
 	const { editor } = promptConsole;
 
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };

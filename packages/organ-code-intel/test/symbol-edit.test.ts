@@ -75,7 +75,7 @@ afterEach(() => {
 });
 
 describe("LocalLectorBackend — symbol edit with Optimistic Lock", { tags: ["unit"] }, () => {
-	it("replaces symbol span after a lector.read populates the cache", async () => {
+	it("replaces symbol span after a code.read populates the cache", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "math.ts"), SRC, "utf-8");
 

@@ -117,7 +117,7 @@ export interface LocalLectorBackendOptions {
 /**
  * Symbol-span edit with Optimistic Lock.
  *
- * Uses the cached symbol map (from the last lector.read) to locate the symbol's
+ * Uses the cached symbol map (from the last code.read) to locate the symbol's
  * span. Replaces lines [startLine, endLine] with newBody.
  *
  * Optimistic Lock: verifies the span content hasn't changed since the cache
@@ -132,13 +132,13 @@ function applySymbolEdit(
 	cachedSymbols: SymbolBlock[] | undefined,
 ): string {
 	if (!cachedSymbols || cachedSymbols.length === 0) {
-		throw new Error(`lector.edit: no cached symbol map for '${path}'. Call lector.read first.`);
+		throw new Error(`code.edit: no cached symbol map for '${path}'. Call code.read first.`);
 	}
 
 	const sym = cachedSymbols.find((s) => s.name === symbolName);
 	if (!sym) {
 		throw new Error(
-			`lector.edit: symbol '${symbolName}' not found in cached map for '${path}'.` +
+			`code.edit: symbol '${symbolName}' not found in cached map for '${path}'.` +
 				` Available: ${cachedSymbols.map((s) => s.name).join(", ")}`,
 		);
 	}
@@ -149,7 +149,7 @@ function applySymbolEdit(
 
 	if (startIdx < 0 || endIdx >= lines.length) {
 		throw new Error(
-			`lector.edit: symbol '${symbolName}' span [${sym.startLine}-${sym.endLine}] ` +
+			`code.edit: symbol '${symbolName}' span [${sym.startLine}-${sym.endLine}] ` +
 				`out of bounds for '${path}' (${lines.length} lines). File may have changed — re-read.`,
 		);
 	}
@@ -238,7 +238,7 @@ export class LocalLectorBackend implements LectorBackend {
 			this.cache.set(abs, cached);
 
 			// Racer (Phase 4): pre-warm LSP in the background for TS files.
-			// lector.read() returns compiler API symbols immediately (fast).
+			// code.read() returns compiler API symbols immediately (fast).
 			// LSP indexes asynchronously so callers() gets exact results on
 			// the next call without blocking the current read.
 			if (isTsFile(path)) {
@@ -255,7 +255,7 @@ export class LocalLectorBackend implements LectorBackend {
 		// Symbol-block mode
 		if (opts.symbol) {
 			const block = extractBlock(content, symbols, opts.symbol);
-			if (!block) throw new Error(`lector.read: symbol '${opts.symbol}' not found in ${path}`);
+			if (!block) throw new Error(`code.read: symbol '${opts.symbol}' not found in ${path}`);
 
 			const maxLines = opts.maxLines ?? DEFAULT_MAX_LINES_BLOCK;
 			const blockLines = block.content.split("\n");
@@ -317,7 +317,7 @@ export class LocalLectorBackend implements LectorBackend {
 				// Symbol-span edit — replace the entire named symbol's span.
 				content = applySymbolEdit(content, symbol, newText, path, cachedEntry?.symbols);
 			} else {
-				if (!oldText) throw new Error("lector.edit: provide oldText or symbol");
+				if (!oldText) throw new Error("code.edit: provide oldText or symbol");
 				content = applyTextEdit(content, oldText, newText, path);
 			}
 		}

@@ -286,7 +286,7 @@ This document defines a comprehensive testing roadmap for Alef, identifying whic
    - Cost per task
    - Time per task
    - OAE
-   - Tool use patterns (fs.read vs lector.read, shell.exec frequency)
+   - Tool use patterns (fs.read vs code.read, shell.exec frequency)
 
 ### 4.2 SWE-bench Verified Baseline (Week 3-5)
 
@@ -429,7 +429,7 @@ This document defines a comprehensive testing roadmap for Alef, identifying whic
 
 **Alef Differentiation**:
 - Organ framework (modular, composable tools)
-- File-system aware (lector symbol search, fs.edit diff-based edits)
+- File-system aware (code-intel symbol search, fs.edit diff-based edits)
 - Development-focused (coding, debugging, testing workflows)
 - Lower-level control (shell commands, direct file I/O)
 
@@ -473,7 +473,7 @@ This document defines a comprehensive testing roadmap for Alef, identifying whic
 
 **Alef Differentiation**:
 - Model-agnostic (supports Anthropic, OpenAI, Google)
-- Rich tool library (fs, shell, lector, web, memory, skills)
+- Rich tool library (fs, shell, code-intel, web, memory, skills)
 - Self-hostable (no cloud platform lock-in)
 
 **Comparison Strategy**:
@@ -517,7 +517,7 @@ This document defines a comprehensive testing roadmap for Alef, identifying whic
 **Week 5-6: Tool Refinement**
 - Analyze OTel traces from SWE-bench runs
 - Identify tool use inefficiencies (e.g., does Alef read too many files?)
-- Optimize `organ-fs`, `organ-lector`, `organ-shell`
+- Optimize `organ-fs`, `organ-code-intel`, `organ-shell`
 - Add missing tools (e.g., `git.apply-patch`, `test.run`)
 
 **Week 7-8: Scaffolding Improvements**
@@ -675,7 +675,7 @@ This document defines a comprehensive testing roadmap for Alef, identifying whic
 - Pass@1 by difficulty (easy/medium/hard)
 - Cost distribution (histogram)
 - Time distribution (histogram)
-- Tool use patterns (fs.read vs lector.read frequency)
+- Tool use patterns (fs.read vs code.read frequency)
 
 **TAU-bench**:
 - Pass@1 by domain (airline, retail, banking)

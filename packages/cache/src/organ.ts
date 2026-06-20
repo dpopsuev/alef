@@ -13,7 +13,7 @@ import { z } from "zod";
 export interface CacheOrganOptions {
 	/** TTL in milliseconds (default: 5 minutes) */
 	ttl?: number;
-	/** Tools to cache (default: fs.read, fs.grep, fs.find, lector.read) */
+	/** Tools to cache (default: fs.read, fs.grep, fs.find, code.read) */
 	cachedTools?: readonly string[];
 	/** Tools that invalidate cache when called (default: fs.write, fs.edit, fs.patch) */
 	invalidatingTools?: readonly string[];
@@ -24,7 +24,7 @@ interface CacheEntry {
 	timestamp: number;
 }
 
-const DEFAULT_CACHED_TOOLS = ["motor/fs.read", "motor/fs.grep", "motor/fs.find", "motor/lector.read"];
+const DEFAULT_CACHED_TOOLS = ["motor/fs.read", "motor/fs.grep", "motor/fs.find", "motor/code.read"];
 const DEFAULT_INVALIDATING_TOOLS = ["motor/fs.write", "motor/fs.edit", "motor/fs.patch"];
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -179,7 +179,7 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 			invalidateUnsubs.push(
 				nerve.motor.subscribe(toolType, () => {
 					// Invalidate related cache entries
-					const toInvalidate = ["motor/fs.read", "motor/fs.grep", "motor/fs.find", "motor/lector.read"];
+					const toInvalidate = ["motor/fs.read", "motor/fs.grep", "motor/fs.find", "motor/code.read"];
 					cache.invalidate(toInvalidate);
 				}),
 			);

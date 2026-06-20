@@ -11,8 +11,8 @@ import { compileCheck } from "../checkers/compile.js";
 import { testCheck } from "../checkers/test.js";
 import type { Evaluation } from "../evaluation.js";
 
-const READ_TOOLS = ["fs.read", "lector.read"] as const;
-const WRITE_TOOLS = ["fs.write", "fs.edit", "lector.write", "lector.edit"] as const;
+const READ_TOOLS = ["fs.read", "code.read"] as const;
+const WRITE_TOOLS = ["fs.write", "fs.edit", "code.write", "code.edit"] as const;
 
 const TYPES_SEED = `
 export interface User { id: string; name: string; }

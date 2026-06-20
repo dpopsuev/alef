@@ -373,7 +373,7 @@ const CORE_ORGANS = new Set([
 	"fs",
 	"shell",
 	"nodesh",
-	"lector",
+	"code-intel",
 	"web",
 	"agent",
 	"alef",

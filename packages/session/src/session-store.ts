@@ -100,18 +100,18 @@ export interface ISessionStore {
 export const EVENT_TYPE_WEIGHTS: Record<string, number> = {
 	"fs.write": 2.0,
 	"fs.edit": 2.0,
-	"lector.write": 2.0,
-	"lector.edit": 2.0,
+	"code.write": 2.0,
+	"code.edit": 2.0,
 	"shell.exec": 1.5,
-	"lector.callers": 1.0,
-	"lector.read": 1.0,
+	"code.callers": 1.0,
+	"code.read": 1.0,
 	"fs.read": 1.0,
 	"web.fetch": 0.9,
 	"llm.response": 0.8,
 	"fs.grep": 0.6,
 	"fs.find": 0.6,
-	"lector.search": 0.6,
-	"lector.find": 0.6,
+	"code.search": 0.6,
+	"code.find": 0.6,
 };
 
 export function eventTypeWeight(type: string): number {

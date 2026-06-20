@@ -12,8 +12,8 @@
 import { terminalScript } from "../checkers/terminal.js";
 import type { Evaluation } from "../evaluation.js";
 
-const READ_TOOLS = ["fs.read", "lector.read"] as const;
-const WRITE_TOOLS = ["fs.write", "fs.edit", "lector.write", "lector.edit"] as const;
+const READ_TOOLS = ["fs.read", "code.read"] as const;
+const WRITE_TOOLS = ["fs.write", "fs.edit", "code.write", "code.edit"] as const;
 
 export const helloWorld: Evaluation = {
 	id: "tb-hello-world",

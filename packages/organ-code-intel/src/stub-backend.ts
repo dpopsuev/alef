@@ -46,7 +46,7 @@ export class StubLectorBackend implements LectorBackend {
 
 		if (opts.symbol) {
 			const block = extractBlock(content, symbols, opts.symbol);
-			if (!block) throw new Error(`lector.read: symbol '${opts.symbol}' not found in ${path}`);
+			if (!block) throw new Error(`code.read: symbol '${opts.symbol}' not found in ${path}`);
 			const maxLines = opts.maxLines ?? 300;
 			const blockLines = block.content.split("\n");
 			const truncated = blockLines.length > maxLines;
@@ -77,11 +77,11 @@ export class StubLectorBackend implements LectorBackend {
 			if (symbol) {
 				const symbols = extractSymbols(content);
 				const block = extractBlock(content, symbols, symbol);
-				if (!block) throw new Error(`lector.edit: symbol '${symbol}' not found in ${path}`);
+				if (!block) throw new Error(`code.edit: symbol '${symbol}' not found in ${path}`);
 				const allLines: string[] = content.split("\n");
 				content = [...allLines.slice(0, block.startLine - 1), newText, ...allLines.slice(block.endLine)].join("\n");
 			} else {
-				if (!oldText) throw new Error(`lector.edit: provide oldText or symbol for ${path}`);
+				if (!oldText) throw new Error(`code.edit: provide oldText or symbol for ${path}`);
 				content = applyTextEdit(content, oldText, newText, path);
 			}
 		}

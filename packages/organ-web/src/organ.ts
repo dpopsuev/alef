@@ -131,7 +131,7 @@ export interface WebOrganOptions {
 const WEB_DIRECTIVES = [
 	`**web.fetch tool guidance**
 - Use web.fetch to read documentation, API references, GitHub READMEs, changelogs, and articles.
-- Always prefer fs.read or lector.read for local files. web.fetch is for public URLs only.
+- Always prefer fs.read or code.read for local files. web.fetch is for public URLs only.
 - Default format 'markdown' returns clean article text — use this for reading content.
 - Use format='lean' to skim a page before deciding whether to read it — much cheaper.
 - Use format='html' only when you need raw page structure.

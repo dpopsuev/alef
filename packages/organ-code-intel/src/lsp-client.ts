@@ -1,7 +1,7 @@
 /**
  * LSP stdio JSON-RPC client for typescript-language-server.
  *
- * Implements the minimum LSP surface needed for lector.callers:
+ * Implements the minimum LSP surface needed for code.callers:
  *   initialize → callHierarchy/prepareCallHierarchy → callHierarchy/incomingCalls
  *
  * Protocol:
@@ -76,7 +76,7 @@ export class LspClient {
 		if (!existsSync(LSP_BIN)) {
 			throw new Error(
 				`typescript-language-server not found at ${LSP_BIN}. ` +
-					"Install: npm install typescript-language-server --workspace=@dpopsuev/alef-organ-lector",
+					"Install: npm install typescript-language-server --workspace=@dpopsuev/alef-organ-code-intel",
 			);
 		}
 

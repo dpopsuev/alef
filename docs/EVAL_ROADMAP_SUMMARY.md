@@ -81,7 +81,7 @@ Implement a **tiered evaluation strategy** covering:
 
 **Alef's strengths** (vs competitors):
 - **Organ framework**: Modular, composable tools (vs monolithic scaffolding)
-- **File-system aware**: Symbol-level code navigation (lector), diff-based edits (fs.edit)
+- **File-system aware**: Symbol-level code navigation (code-intel), diff-based edits (fs.edit)
 - **Development-focused**: Coding, debugging, testing workflows (vs general assistance)
 - **Open source**: Inspectable traces, forkable code (vs black box APIs)
 
@@ -107,7 +107,7 @@ Implement a **tiered evaluation strategy** covering:
 
 ### Week 5-6: Tool Refinement
 - Analyze OTel traces from SWE-bench runs
-- Optimize `organ-fs`, `organ-lector`, `organ-shell`
+- Optimize `organ-fs`, `organ-code-intel`, `organ-shell`
 - Add missing tools (e.g., `git.apply-patch`, `test.run`)
 - Reduce operational agent error (OAE) rate
 

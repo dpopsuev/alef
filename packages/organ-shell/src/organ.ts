@@ -25,7 +25,7 @@ import { getShellConfig, getShellEnv } from "./shell.js";
 const SHELL_EXEC_TOOL = {
 	name: "shell.exec",
 	description:
-		"Execute a shell command and stream its output. Returns full stdout+stderr and exit code. Do not use to read files — use fs.read or lector.read instead.",
+		"Execute a shell command and stream its output. Returns full stdout+stderr and exit code. Do not use to read files — use fs.read or code.read instead.",
 	inputSchema: z.object({
 		command: z.string().min(1).describe("Shell command to execute"),
 		timeout: z.number().optional().describe("Timeout in seconds (optional)"),

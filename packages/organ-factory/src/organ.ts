@@ -36,7 +36,7 @@ const BUILT_IN_ORGANS = new Set([
 	"shell",
 	"web",
 	"nodesh",
-	"lector",
+	"code-intel",
 	"todos",
 	"skills",
 	"eval",
@@ -234,7 +234,7 @@ Example — create a focused code reviewer:
   factory.blueprint({
     name: "reviewer",
     description: "Reviews code for style and correctness",
-    organs: ["fs", "lector"],
+    organs: ["fs", "code-intel"],
     model: "claude-haiku-4-5"
   })
   → orchestration.spawn({ blueprintPath: "~/.config/alef/agents/reviewer.yaml" })`,

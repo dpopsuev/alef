@@ -41,14 +41,14 @@ describe("verifier: assertFileReadWorkflow", { tags: ["unit"] }, () => {
 		expect(() => assertFileReadWorkflow(records, "The secret is XYZ-123", "XYZ-123")).not.toThrow();
 	});
 
-	it("accepts lector.read as alternative to fs.read", () => {
-		const records = [rec("lector.read"), rec("lector.read", "sense"), rec("llm.response")];
+	it("accepts code.read as alternative to fs.read", () => {
+		const records = [rec("code.read"), rec("code.read", "sense"), rec("llm.response")];
 		expect(() => assertFileReadWorkflow(records, "token=ABC", "ABC")).not.toThrow();
 	});
 
 	it("rejects when no file read event present", () => {
 		const records = [rec("llm.response", "sense"), rec("llm.response")];
-		expect(() => assertFileReadWorkflow(records, "The secret is XYZ", "XYZ")).toThrow(/fs\.read or lector\.read/);
+		expect(() => assertFileReadWorkflow(records, "The secret is XYZ", "XYZ")).toThrow(/fs\.read or code.read/);
 	});
 
 	it("rejects when reply does not contain the secret", () => {
@@ -79,9 +79,9 @@ describe("verifier: assertHashesPresent", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("verifier: assertOrganSelection", { tags: ["unit"] }, () => {
-	it("accepts fs.read with no lector/shell events", () => {
+	it("accepts fs.read with no code/shell events", () => {
 		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("llm.response")];
-		expect(() => assertOrganSelection(records, ["fs.read"], ["lector.", "shell."])).not.toThrow();
+		expect(() => assertOrganSelection(records, ["fs.read"], ["code.", "shell."])).not.toThrow();
 	});
 
 	it("rejects when required type is absent", () => {
@@ -89,14 +89,14 @@ describe("verifier: assertOrganSelection", { tags: ["unit"] }, () => {
 		expect(() => assertOrganSelection(records, ["fs.read"], [])).toThrow(/fs\.read/);
 	});
 
-	it("rejects when lector.* appears", () => {
-		const records = [rec("fs.read"), rec("lector.read"), rec("llm.response")];
-		expect(() => assertOrganSelection(records, ["fs.read"], ["lector.", "shell."])).toThrow(/lector/);
+	it("rejects when code.* appears", () => {
+		const records = [rec("fs.read"), rec("code.read"), rec("llm.response")];
+		expect(() => assertOrganSelection(records, ["fs.read"], ["code.", "shell."])).toThrow(/code/);
 	});
 
 	it("rejects when shell.* appears", () => {
 		const records = [rec("fs.read"), rec("shell.exec"), rec("llm.response")];
-		expect(() => assertOrganSelection(records, ["fs.read"], ["lector.", "shell."])).toThrow(/shell/);
+		expect(() => assertOrganSelection(records, ["fs.read"], ["code.", "shell."])).toThrow(/shell/);
 	});
 });
 
@@ -135,31 +135,31 @@ describe("verifier: assertSseFilter", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("verifier: assertToolSequence", { tags: ["unit"] }, () => {
-	it("accepts lector.read before lector.edit", () => {
+	it("accepts code.read before code.edit", () => {
 		const records = [
 			rec("llm.response", "sense"),
-			rec("lector.read"),
-			rec("lector.read", "sense"),
-			rec("lector.edit"),
-			rec("lector.edit", "sense"),
+			rec("code.read"),
+			rec("code.read", "sense"),
+			rec("code.edit"),
+			rec("code.edit", "sense"),
 			rec("llm.response"),
 		];
-		expect(() => assertToolSequence(records, ["lector.read", "lector.edit"])).not.toThrow();
+		expect(() => assertToolSequence(records, ["code.read", "code.edit"])).not.toThrow();
 	});
 
 	it("accepts non-contiguous sequence — other tools in between are fine", () => {
-		const records = [rec("lector.read"), rec("fs.grep"), rec("lector.read"), rec("lector.edit")];
-		expect(() => assertToolSequence(records, ["lector.read", "lector.edit"])).not.toThrow();
+		const records = [rec("code.read"), rec("fs.grep"), rec("code.read"), rec("code.edit")];
+		expect(() => assertToolSequence(records, ["code.read", "code.edit"])).not.toThrow();
 	});
 
-	it("rejects when lector.edit precedes lector.read", () => {
-		const records = [rec("lector.edit"), rec("lector.read")];
-		expect(() => assertToolSequence(records, ["lector.read", "lector.edit"])).toThrow(/sequence/);
+	it("rejects when code.edit precedes code.read", () => {
+		const records = [rec("code.edit"), rec("code.read")];
+		expect(() => assertToolSequence(records, ["code.read", "code.edit"])).toThrow(/sequence/);
 	});
 
 	it("rejects when required tool absent entirely", () => {
-		const records = [rec("lector.edit"), rec("llm.response")];
-		expect(() => assertToolSequence(records, ["lector.read", "lector.edit"])).toThrow();
+		const records = [rec("code.edit"), rec("llm.response")];
+		expect(() => assertToolSequence(records, ["code.read", "code.edit"])).toThrow();
 	});
 
 	it("accepts single-element sequence", () => {

@@ -1,7 +1,7 @@
 {
-  "name": "@dpopsuev/alef-organ-lector",
+  "name": "@dpopsuev/alef-organ-code-intel",
   "version": "0.0.1",
-  "description": "Lector organ \u2014 unified fs + symbol intelligence with block caching",
+  "description": "Code Intelligence organ — unified fs + symbol intelligence with block caching",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -31,7 +31,7 @@
   "keywords": [
     "agent",
     "organ",
-    "lector",
+    "code-intel",
     "lsp",
     "tree-sitter",
     "symbols"
@@ -41,7 +41,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dpopsuev/alef.git",
-    "directory": "packages/organ-lector"
+    "directory": "packages/organ-code-intel"
   },
   "engines": {
     "node": ">=20.0.0"

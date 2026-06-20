@@ -31,7 +31,7 @@ export const proposeFirst: Evaluation = {
 			"Describe your approach in 2-3 sentences. Do not write any code yet.",
 		"Good. Now implement the rate limiting you described. Edit src/auth.ts.",
 	],
-	expectsAny: [{ tool: ["fs.read", "lector.read"], target: { path: "src/auth.ts" } }],
+	expectsAny: [{ tool: ["fs.read", "code.read"], target: { path: "src/auth.ts" } }],
 	checker: all(fileContains("src/auth.ts", "rate", "login")),
 	scenarioTimeoutMs: 300_000,
 };
@@ -45,8 +45,8 @@ export const memoRecall: Evaluation = {
 		"Read src/config.ts. What is the type of the maxConnections field?",
 		"Using that information — what TypeScript type would a valid Config object literal be?",
 	],
-	expectsAny: [{ tool: ["fs.read", "lector.read"], target: { path: "src/config.ts" } }],
-	mustNotUse: ["fs.write", "fs.edit", "lector.write", "lector.edit"],
+	expectsAny: [{ tool: ["fs.read", "code.read"], target: { path: "src/config.ts" } }],
+	mustNotUse: ["fs.write", "fs.edit", "code.write", "code.edit"],
 	checker: replyContains("number"),
 	scenarioTimeoutMs: 300_000, // two dialog turns on Vertex needs ~5 min
 };

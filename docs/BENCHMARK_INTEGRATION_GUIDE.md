@@ -100,7 +100,7 @@ export async function runSWEBenchInstance(
   const agent = createCodingAgent({
     cwd: space.workDir(),
     model,
-    organs: ["fs", "shell", "lector", "delegate", "skills"],
+    organs: ["fs", "shell", "code-intel", "delegate", "skills"],
   });
 
   const prompt = formatSWEBenchPrompt(instance);

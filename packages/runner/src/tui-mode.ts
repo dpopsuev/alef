@@ -99,8 +99,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 				tui.requestRender();
 			},
 			(hint) => {
-				if (!promptConsole.isThinking)
-					promptConsole.setStatus(hint ? color(hint, t.mutedFg) : color(bold("NORMAL"), t.mutedFg));
+				if (!promptConsole.isThinking) promptConsole.setHint(hint ? color(hint, t.mutedFg) : "");
 				tui.requestRender();
 			},
 			(colonCmd) => {

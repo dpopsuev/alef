@@ -1,3 +1,4 @@
+export * from "./compaction-stage.js";
 export * from "./context-stage.js";
 export * from "./session.js";
 export * from "./session-scan.js";

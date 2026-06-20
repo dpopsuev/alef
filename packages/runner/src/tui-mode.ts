@@ -109,7 +109,9 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 			editor,
 			(mode) => {
 				if (!promptConsole.isThinking)
-					promptConsole.setStatus(mode === "normal" ? color(bold("NORMAL"), t.mutedFg) : "");
+					promptConsole.setStatus(
+						mode === "normal" ? color(bold("NORMAL"), t.mutedFg) : color(bold("INSERT"), t.accentFg),
+					);
 				tui.requestRender();
 			},
 			(hint) => {

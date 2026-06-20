@@ -4,7 +4,7 @@ import type { InteractiveOptions } from "./interactive.js";
 import type { Session } from "./session.js";
 import type { TuiHandlerContext } from "./tui-commands.js";
 import { handleSlashCommand } from "./tui-commands.js";
-import type { TuiEvent } from "./tui-reducer.js";
+import type { TuiEvent } from "./tui-dispatch.js";
 import type { TokenFooterHandle, TuiWriter } from "./tui-state.js";
 
 /**

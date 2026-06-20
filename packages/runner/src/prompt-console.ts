@@ -4,31 +4,40 @@ import { registry } from "./commands/index.js";
 import { CommandHintGrid } from "./tui/command-hint-grid.js";
 
 class EditorWrapper implements Component {
-	private statusLabel = "";
-
 	constructor(
 		private readonly inner: Editor,
 		private readonly ruleColor: (s: string) => string,
 	) {}
 
-	setStatusLabel(label: string): void {
-		this.statusLabel = label;
-	}
-
 	render(width: number): string[] {
 		const lines = this.inner.render(width);
 		if (lines.length < 2) return lines;
-		if (this.statusLabel) {
-			const label = ` ${this.statusLabel} `;
-			lines[0] = this.ruleColor(`─${label}${"─".repeat(Math.max(0, width - label.length - 1))}`);
-		} else {
-			lines[0] = this.ruleColor("─".repeat(width));
-		}
+		lines[0] = this.ruleColor("─".repeat(width));
 		return lines;
 	}
 
 	invalidate(): void {
 		this.inner.invalidate();
+	}
+}
+
+class ModeDelimiter implements Component {
+	private label = "";
+
+	constructor(private readonly ruleColor: (s: string) => string) {}
+
+	setLabel(label: string): void {
+		this.label = label;
+	}
+
+	invalidate(): void {}
+
+	render(width: number): string[] {
+		if (this.label) {
+			const text = ` ${this.label} `;
+			return [this.ruleColor(`─${text}${"─".repeat(Math.max(0, width - text.length - 1))}`)];
+		}
+		return [this.ruleColor("─".repeat(width))];
 	}
 }
 
@@ -45,7 +54,7 @@ export class PromptConsole {
 	readonly editor: Editor;
 
 	private readonly statusText: Text;
-	private editorWrapper!: EditorWrapper;
+	private modeDelimiter!: ModeDelimiter;
 	private readonly frames: string[];
 	private frameIdx = 0;
 	private thinkingStart = 0;
@@ -118,8 +127,9 @@ export class PromptConsole {
 		this.tui.addChild(this.chunkDetail);
 		this.tui.addChild(this.inspectorHint);
 		this.tui.addChild(this.statusText);
-		this.editorWrapper = new EditorWrapper(this.editor, (s) => color(s, this.t.mutedFg));
-		this.tui.addChild(this.editorWrapper);
+		this.tui.addChild(new EditorWrapper(this.editor, (s) => color(s, this.t.mutedFg)));
+		this.modeDelimiter = new ModeDelimiter((s) => color(s, this.t.mutedFg));
+		this.tui.addChild(this.modeDelimiter);
 
 		this.editor.onChange = (text) => {
 			this.updateCommandHints(text);
@@ -183,7 +193,11 @@ export class PromptConsole {
 	}
 
 	setStatus(text: string): void {
-		this.editorWrapper.setStatusLabel(text);
+		this.modeDelimiter.setLabel(text);
+	}
+
+	setHint(text: string): void {
+		this.hintBar.setText(text);
 	}
 
 	get isThinking(): boolean {

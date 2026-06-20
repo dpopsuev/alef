@@ -82,7 +82,6 @@ export async function buildLayout(
 		return `${base}  ${glyph("sep")}  ${fmt} tok`;
 	};
 
-	tui.addChild(new DynamicText(() => boldColor(headerLabel(), t.accentFg)));
 	const splash = await renderSplash();
 	if (splash) tui.addChild(new Text(splash, 2, 0));
 
@@ -94,6 +93,9 @@ export async function buildLayout(
 
 	const promptConsole = new PromptConsole(tui, t, opts.modelId);
 	promptConsole.mount();
+
+	// Dashboard footer — pinned at the bottom, after the prompt console
+	tui.addChild(new DynamicText(() => boldColor(headerLabel(), t.accentFg)));
 	const { editor } = promptConsole;
 
 	const commands: SlashCommand[] = registry.list().map((c) => ({

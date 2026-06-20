@@ -2,6 +2,14 @@ import type { TuiSignalHandler } from "@dpopsuev/alef-kernel";
 import { trace } from "./debug-trace.js";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";
+import {
+	handleInspectorCancel,
+	handleInspectorClose,
+	handleInspectorCycle,
+	handleInspectorScroll,
+	renderChunkWindow,
+	updateInspectorView,
+} from "./tui/inspector.js";
 import { formatTokenUsage, keyArgFromPayload } from "./tui/tool-view.js";
 import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./tui-state.js";
 
@@ -32,8 +40,6 @@ export type TuiEvent = AgentEvent | TuiInputEvent;
 // Constants
 // ---------------------------------------------------------------------------
 
-const INSPECTOR_LINES = 12;
-const INSPECTOR_SCROLL_STEP = 3;
 const CONTEXT_WARNING_THRESHOLD = 0.75;
 const CONTEXT_CRITICAL_THRESHOLD = 0.9;
 
@@ -41,28 +47,10 @@ const CONTEXT_CRITICAL_THRESHOLD = 0.9;
 // Helper functions
 // ---------------------------------------------------------------------------
 
-function renderChunkWindow(chunks: string[], scrollOffset: number): string {
-	const all = chunks.join("").split("\n");
-	const end = Math.max(0, all.length - scrollOffset);
-	const start = Math.max(0, end - INSPECTOR_LINES);
-	return all.slice(start, end).join("\n");
-}
-
 function resetUIComponents(ui: TuiUi): void {
 	ui.replyTW.flush();
 	ui.thinkingTW.flush();
 	ui.replyBlock.reset();
-}
-
-function updateInspectorView(state: TuiState, ui: TuiUi, callId: string | null, scrollOffset: number = 0): void {
-	ui.promptConsole.setFocusedCall(callId);
-	if (callId && state.callChunks.has(callId)) {
-		const chunks = state.callChunks.get(callId) ?? [];
-		const text = renderChunkWindow(chunks, scrollOffset);
-		ui.promptConsole.setChunkText(text);
-	} else {
-		ui.promptConsole.setChunkText("");
-	}
 }
 
 function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool-end" }>, ui: TuiUi): TuiState {
@@ -243,39 +231,17 @@ export function dispatchTuiEvent(
 			return state;
 		}
 
-		case "inspector.cycle": {
-			if (state.activeCalls.size === 0) return state;
-			const ids = [...state.activeCalls.keys()];
-			const idx = state.focusedCallId ? ids.indexOf(state.focusedCallId) : -1;
-			const nextId = ids[(idx + 1) % ids.length];
-			updateInspectorView(state, ui, nextId, state.inspectorScrollOffset);
-			return { ...state, focusedCallId: nextId };
-		}
+		case "inspector.cycle":
+			return handleInspectorCycle(state, ui);
 
 		case "inspector.close":
-			updateInspectorView(state, ui, null);
-			return { ...state, focusedCallId: null, inspectorScrollOffset: 0 };
+			return handleInspectorClose(state, ui);
 
-		case "inspector.cancel": {
-			if (!state.focusedCallId) return state;
-			const entry = state.activeCalls.get(state.focusedCallId);
-			if (!entry) return state;
-			session.cancelToolCall?.(state.focusedCallId, entry.name);
-			return state;
-		}
+		case "inspector.cancel":
+			return handleInspectorCancel(state, ui);
 
-		case "inspector.scroll": {
-			if (!state.focusedCallId) return state;
-			const chunks = state.callChunks.get(state.focusedCallId) ?? [];
-			const totalLines = chunks.join("").split("\n").length;
-			const maxScroll = Math.max(0, totalLines - INSPECTOR_LINES);
-			const next = Math.max(
-				0,
-				Math.min(maxScroll, state.inspectorScrollOffset + event.direction * INSPECTOR_SCROLL_STEP),
-			);
-			promptConsole.setChunkText(renderChunkWindow(chunks, next));
-			return { ...state, inspectorScrollOffset: next };
-		}
+		case "inspector.scroll":
+			return handleInspectorScroll(state, ui, event.direction);
 
 		// ── Agent events ────────────────────────────────────────────────────
 

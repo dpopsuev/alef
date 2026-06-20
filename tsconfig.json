@@ -140,12 +140,6 @@
 			"@dpopsuev/alef-organ-eval/*": [
 				"./packages/organ-eval/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-todos": [
-				"./packages/organ-todos/src/index.ts"
-			],
-			"@dpopsuev/alef-organ-todos/*": [
-				"./packages/organ-todos/src/*.ts"
-			],
 			"@dpopsuev/alef-organ-skills": [
 				"./packages/organ-skills/src/index.ts"
 			],

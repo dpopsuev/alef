@@ -104,7 +104,8 @@ export class PromptConsole {
 		this.tui.addChild(this.inspectorHint);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(new EditorWrapper(this.editor, (s) => color(s, this.t.mutedFg)));
-		this.hintBar = new Text(color("/exit · /new · /resume · /help", this.t.mutedFg), 0, 0);
+		const hints = [":q", ":new", ":session", ":help"].join(" · ");
+		this.hintBar = new Text(color(hints, this.t.mutedFg), 0, 0);
 		this.tui.addChild(this.hintBar);
 	}
 
@@ -140,7 +141,7 @@ export class PromptConsole {
 		clearTimeout(this.thinkingTimer);
 		this.thinkingTimer = undefined;
 		this.statusText.setText("");
-		this.hintBar.setText(color("/exit · /new · /resume · /help", this.t.mutedFg));
+		this.hintBar.setText(color([":q", ":new", ":session", ":help"].join(" · "), this.t.mutedFg));
 	}
 
 	setStatus(text: string): void {

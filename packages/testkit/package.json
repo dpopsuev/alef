@@ -9,12 +9,12 @@
     ".": {
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./src/index.ts"
     },
     "./bdd": {
       "source": "./src/bdd.ts",
       "types": "./dist/bdd.d.ts",
-      "import": "./dist/bdd.js"
+      "import": "./src/bdd.ts"
     },
     "./organ": {
       "source": "./src/organ.ts",
@@ -24,7 +24,7 @@
     "./vitest-config": {
       "source": "./src/vitest-config.ts",
       "types": "./dist/vitest-config.d.ts",
-      "import": "./dist/vitest-config.js"
+      "import": "./src/vitest-config.ts"
     }
   },
   "files": [

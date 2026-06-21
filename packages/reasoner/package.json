@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-reasoner",
   "version": "0.0.1",
-  "description": "LLMOrgan \u2014 LLM computation organ, tool_choice: any, routes tool calls as Motor events",
+  "description": "LLMOrgan — LLM computation organ, tool_choice: any, routes tool calls as Motor events",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -9,12 +9,13 @@
     ".": {
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
     },
     "./events": {
       "source": "./src/events.ts",
       "types": "./dist/events.d.ts",
-      "import": "./dist/events.js"
+      "import": "./src/events.ts"
     }
   },
   "files": [

@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-organ-web",
   "version": "0.0.1",
-  "description": "Web organ \u2014 fetch pages and search the web. Supports Brave, Tavily, Exa, and DuckDuckGo.",
+  "description": "Web organ — fetch pages and search the web. Supports Brave, Tavily, Exa, and DuckDuckGo.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -9,7 +9,8 @@
     ".": {
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
     }
   },
   "files": [

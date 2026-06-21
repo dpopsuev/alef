@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-organ-nodesh",
   "version": "0.0.1",
-  "description": "JavaScript REPL organ \u2014 structured computation via vm.createContext",
+  "description": "JavaScript REPL organ — structured computation via vm.createContext",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/organ-nodesh/src/index.d.ts",
@@ -9,7 +9,8 @@
     ".": {
       "source": "./src/index.ts",
       "types": "./dist/organ-nodesh/src/index.d.ts",
-      "import": "./dist/organ-nodesh/src/index.js"
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
     }
   },
   "files": [

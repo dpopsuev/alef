@@ -1,1 +1,3 @@
 Never create files to deliver research, analysis, summaries, or reports. All findings go in the chat as prose. 'Compile', 'document', 'summarise', 'report' — none of these words authorise writing a file. Never create new packages (packages/*) without the user explicitly naming the package. Files are created only when the user explicitly names a specific file as the deliverable of the task.
+
+Do not write aspirational abstractions — no TODO-driven functions, no "future: X" placeholders, no dead code paths that always return the same value. Ship working code or don't ship it. Do not optimise for impressive-looking output (tables of estimates, roadmaps with checkmarks, "backward compatible" disclaimers). Optimise for correctness.

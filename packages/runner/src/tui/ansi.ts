@@ -80,15 +80,42 @@ interface GlyphPair {
 }
 
 const GLYPHS: Record<string, GlyphPair> = {
-	"state:done": { nerd: "●", ascii: "●" },
+	"state:done": { nerd: "■", ascii: "■" },
 	"state:active": { nerd: "●", ascii: "●" },
-	"state:error": { nerd: "●", ascii: "●" },
-	"state:pending": { nerd: "○", ascii: "." },
+	"state:error": { nerd: "▲", ascii: "▲" },
+	"state:pending": { nerd: "○", ascii: "○" },
+	"state:pruned": { nerd: "×", ascii: "×" },
+	"state:deferred": { nerd: "◇", ascii: "◇" },
+	"state:current": { nerd: "◄", ascii: "◄" },
 	user: { nerd: "▸", ascii: ">" },
 	bullet: { nerd: "▪", ascii: "*" },
 	sep: { nerd: "─", ascii: "-" },
 	dot: { nerd: "·", ascii: "." },
 };
+
+export type StatusLevel = "done" | "active" | "error" | "pending" | "pruned" | "deferred";
+
+export interface StatusStyle {
+	glyph: string;
+	colorKey: "muted" | "accent" | "error" | "default";
+}
+
+const STATUS_STYLES: Record<StatusLevel, StatusStyle> = {
+	done: { glyph: "state:done", colorKey: "muted" },
+	active: { glyph: "state:active", colorKey: "accent" },
+	error: { glyph: "state:error", colorKey: "error" },
+	pending: { glyph: "state:pending", colorKey: "default" },
+	pruned: { glyph: "state:pruned", colorKey: "muted" },
+	deferred: { glyph: "state:deferred", colorKey: "muted" },
+};
+
+export function statusStyle(status: StatusLevel): StatusStyle {
+	return STATUS_STYLES[status] ?? STATUS_STYLES.pending;
+}
+
+export function statusGlyph(status: StatusLevel): string {
+	return glyph(STATUS_STYLES[status]?.glyph ?? "state:pending");
+}
 
 export function glyph(key: string): string {
 	const pair = GLYPHS[key];

@@ -26,7 +26,7 @@ export function openPicker(
 	opts: PickerOptions,
 ): void {
 	const theme = buildPickerTheme(t);
-	const list = new SelectList(opts.items, opts.maxVisible ?? 10, theme);
+	const list = new SelectList(opts.items, opts.maxVisible ?? 10, theme).enableSearch();
 
 	const close = () => {
 		dispatch({ type: "overlay.hide", id: opts.id });

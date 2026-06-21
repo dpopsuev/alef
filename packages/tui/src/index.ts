@@ -8,17 +8,20 @@ export {
 	CombinedAutocompleteProvider,
 	type SlashCommand,
 } from "./autocomplete.js";
+export { Badge, type BadgeOptions } from "./components/badge.js";
 export { type BorderStyle, Box, type BoxOptions } from "./components/box.js";
 export { CancellableLoader } from "./components/cancellable-loader.js";
 export { Collapsible, type CollapsibleOptions } from "./components/collapsible.js";
 export { Dialog, type DialogAction, type DialogOptions, type DialogTheme } from "./components/dialog.js";
 export { Editor, type EditorOptions, type EditorTheme } from "./components/editor.js";
+export { Envelope, type EnvelopeOptions } from "./components/envelope.js";
 export { GrowSpacer } from "./components/grow-spacer.js";
 export { Image, type ImageOptions, type ImageTheme } from "./components/image.js";
 export { Input } from "./components/input.js";
 export { Loader, type LoaderIndicatorOptions } from "./components/loader.js";
 export { type DefaultTextStyle, Markdown, type MarkdownTheme } from "./components/markdown.js";
 export { Menu, type MenuItem, type MenuOptions, type MenuTheme } from "./components/menu.js";
+export { type NotificationEntry, type NotificationOptions, NotificationQueue } from "./components/notification.js";
 // Components
 export { Pad } from "./components/pad.js";
 export { Picker, type PickerItem, type PickerOptions, type PickerTheme } from "./components/picker.js";
@@ -32,13 +35,17 @@ export {
 	type SelectListTheme,
 	type SelectListTruncatePrimaryContext,
 } from "./components/select-list.js";
+export { SeparatorLine, type SeparatorLineOptions } from "./components/separator-line.js";
 export { type SettingItem, SettingsList, type SettingsListTheme } from "./components/settings-list.js";
 export { Spacer } from "./components/spacer.js";
 export { SplitPane, type SplitPaneOptions } from "./components/split-pane.js";
 export { Table, type TableColumn, type TableOptions } from "./components/table.js";
 export { Text } from "./components/text.js";
 export { Toast, type ToastOptions, type ToastTheme } from "./components/toast.js";
+export { type TreeNode, TreeView, type TreeViewOptions } from "./components/tree-view.js";
 export { TruncatedText } from "./components/truncated-text.js";
+// Design system primitives
+export * from "./design/index.js";
 // Editor component interface (for custom editors)
 export type { EditorComponent } from "./editor-component.js";
 // Fuzzy matching
@@ -70,6 +77,8 @@ export {
 	parseKey,
 	setKittyProtocolActive,
 } from "./keys.js";
+// Layout engine
+export * from "./layout/index.js";
 // Input buffering for batch splitting
 export { StdinBuffer, type StdinBufferEventMap, type StdinBufferOptions } from "./stdin-buffer.js";
 // Terminal interface and implementations

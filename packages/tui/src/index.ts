@@ -54,7 +54,19 @@ export * from "./design/index.js";
 // Editor component interface (for custom editors)
 export type { EditorComponent } from "./editor-component.js";
 // Fuzzy matching
-export { type FuzzyMatch, fuzzyFilter, fuzzyMatch } from "./fuzzy.js";
+export {
+	exactMatch,
+	extendedFilter,
+	type FuzzyMatch,
+	fuzzyFilter,
+	fuzzyMatch,
+	type MatchStrategy,
+	parseSearchTokens,
+	prefixMatch,
+	regexMatch,
+	type SearchToken,
+	suffixMatch,
+} from "./fuzzy.js";
 // Keybindings
 export {
 	APP_KEYBINDINGS,

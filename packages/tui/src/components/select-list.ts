@@ -200,14 +200,12 @@ export class SelectList implements Component {
 	}
 
 	private getPrimaryColumnBounds(): { min: number; max: number } {
-		const rawMin =
-			this.layout.minPrimaryColumnWidth ?? this.layout.maxPrimaryColumnWidth ?? DEFAULT_PRIMARY_COLUMN_WIDTH;
-		const rawMax =
-			this.layout.maxPrimaryColumnWidth ?? this.layout.minPrimaryColumnWidth ?? DEFAULT_PRIMARY_COLUMN_WIDTH;
+		const rawMin = this.layout.minPrimaryColumnWidth ?? DEFAULT_PRIMARY_COLUMN_WIDTH;
+		const rawMax = this.layout.maxPrimaryColumnWidth ?? Infinity;
 
 		return {
 			min: Math.max(1, Math.min(rawMin, rawMax)),
-			max: Math.max(1, Math.max(rawMin, rawMax)),
+			max: rawMax === Infinity ? Infinity : Math.max(1, Math.max(rawMin, rawMax)),
 		};
 	}
 

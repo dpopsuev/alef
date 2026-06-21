@@ -16,7 +16,7 @@ export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 		link: (s) => color(s, t.primaryFg),
 		linkUrl: (s) => color(s, t.mutedFg),
 		code: (s) => color(s, t.accentFg),
-		codeBlock: (s) => s,
+		codeBlock: (s) => dim(s),
 		codeBlockBorder: (s) => color(s, t.mutedFg),
 		quote: (s) => color(s, t.mutedFg),
 		quoteBorder: (s) => color(s, t.mutedFg),
@@ -49,18 +49,18 @@ export function makeThinkingMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	};
 }
 
-export function makeToolOutputMarkdownTheme(): MarkdownTheme {
+export function makeToolOutputMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	return {
 		heading: (s) => bold(s),
-		link: (s) => s,
+		link: (s) => color(s, t.mutedFg),
 		linkUrl: (s) => dim(s),
-		code: (s) => s,
+		code: (s) => color(s, t.secondaryFg),
 		codeBlock: (s) => s,
 		codeBlockBorder: (s) => dim(s),
 		quote: (s) => dim(s),
 		quoteBorder: (s) => dim(s),
 		hr: (s) => dim(s),
-		listBullet: (s) => s,
+		listBullet: (s) => color(s, t.secondaryFg),
 		bold: (s) => bold(s),
 		italic: (s) => italic(s),
 		strikethrough: (s) => s,

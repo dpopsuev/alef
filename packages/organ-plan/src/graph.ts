@@ -465,6 +465,100 @@ export class PlanGraph {
 		return lines.join("\n");
 	}
 
+	private countDescendants(nodeId: string): { total: number; done: number; active: number } {
+		let total = 0;
+		let done = 0;
+		let active = 0;
+		const count = (id: string) => {
+			const kids = this.children(id);
+			for (const k of kids) {
+				total++;
+				if (k.status === "done") done++;
+				if (k.status === "active") active++;
+				count(k.id);
+			}
+		};
+		count(nodeId);
+		return { total, done, active };
+	}
+
+	private ancestorChain(nodeId: string): string[] {
+		const chain: string[] = [];
+		let current = this.nodeIndex.get(nodeId);
+		while (current?.parent) {
+			chain.unshift(current.parent);
+			current = this.nodeIndex.get(current.parent);
+		}
+		return chain;
+	}
+
+	renderFocusedTree(): string {
+		const activeNode = this.data.nodes.find((n) => n.status === "active");
+		if (!activeNode) return this.renderTree();
+
+		const ancestorIds = new Set(this.ancestorChain(activeNode.id));
+		ancestorIds.add(activeNode.id);
+
+		const statusGlyph = (n: PlanNode) =>
+			n.status === "done"
+				? "■"
+				: n.status === "active"
+					? "●"
+					: n.status === "pruned"
+						? "×"
+						: n.status === "deferred"
+							? "◇"
+							: "○";
+
+		const agentSuffix = (n: PlanNode) => (n.delegatedTo ? `  @${n.delegatedTo.agentProfile}` : "");
+
+		const lines: string[] = [];
+
+		const render = (node: PlanNode, prefix: string, isLast: boolean): void => {
+			const branch = isLast ? "└── " : "├── ";
+			const glyph = statusGlyph(node);
+			const kids = this.children(node.id);
+			const onPath = ancestorIds.has(node.id);
+			const isActive = node.id === activeNode.id;
+
+			if (isActive) {
+				const siblings = node.parent ? this.children(node.parent) : this.children(null);
+				const idx = siblings.findIndex((s) => s.id === node.id);
+				if (idx > 0) {
+					const prev = siblings[idx - 1];
+					lines.push(`${prefix}${branch}${statusGlyph(prev)} ${prev.label}${agentSuffix(prev)}`);
+				}
+				lines.push(`${prefix}${branch}${glyph} ${node.label}${agentSuffix(node)}  ◄`);
+				for (const kid of kids) {
+					render(kid, `${prefix}${isLast ? "    " : "│   "}`, kid === kids[kids.length - 1]);
+				}
+				if (idx < siblings.length - 1) {
+					const next = siblings[idx + 1];
+					lines.push(`${prefix}${branch}${statusGlyph(next)} ${next.label}${agentSuffix(next)}`);
+				}
+				return;
+			}
+
+			if (onPath) {
+				lines.push(`${prefix}${branch}${glyph} ${node.label}${agentSuffix(node)}`);
+				for (const kid of kids) {
+					render(kid, `${prefix}${isLast ? "    " : "│   "}`, kid === kids[kids.length - 1]);
+				}
+				return;
+			}
+
+			const desc = this.countDescendants(node.id);
+			const hint = desc.total > 0 ? ` [${desc.done}/${desc.total}]` : "";
+			lines.push(`${prefix}${branch}${glyph} ${node.label}${hint}${agentSuffix(node)}`);
+		};
+
+		const roots = this.children(null);
+		for (let i = 0; i < roots.length; i++) {
+			render(roots[i], "", i === roots.length - 1);
+		}
+		return lines.join("\n");
+	}
+
 	renderSummary(): string {
 		const s = this.stats();
 		const parts = [`Plan: ${this.data.id} [${this.data.phase}/${this.block}]`, `Intent: ${this.data.intention}`];

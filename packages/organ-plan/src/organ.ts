@@ -210,7 +210,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
 						plan.checkpoint(ctx.payload.nodeId);
 						emitSignal("plan.intent", { text: ctx.payload.nodeId });
-						emitSignal("plan.tree", { tree: plan.renderTree() });
+						emitSignal("plan.tree", { tree: plan.renderFocusedTree() });
 						return withDisplay(
 							{ nodeId: ctx.payload.nodeId, phase: plan.phase },
 							{ text: `Node ${ctx.payload.nodeId} is now active`, mimeType: "text/plain" },
@@ -273,7 +273,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 						if (!plan)
 							return withDisplay({ error: "no plan" }, { text: "No active plan.", mimeType: "text/plain" });
 						plan.completeNode(ctx.payload.nodeId);
-						emitSignal("plan.tree", { tree: plan.renderTree() });
+						emitSignal("plan.tree", { tree: plan.renderFocusedTree() });
 						const s = plan.stats();
 						return withDisplay(
 							{ nodeId: ctx.payload.nodeId, stats: s },

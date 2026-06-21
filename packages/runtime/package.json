@@ -3,20 +3,21 @@
   "version": "0.0.1",
   "description": "Agent runtime — organ loader, nerve, and pub-sub bus",
   "type": "module",
-   "main": "./src/index.ts",
-   "types": "./dist/index.d.ts",
-   "exports": {
-     ".": {
-       "source": "./src/index.ts",
-       "types": "./dist/index.d.ts",
-       "import": "./dist/index.js"
-     },
-     "./events": {
-       "source": "./src/events.ts",
-       "types": "./dist/events.d.ts",
-       "import": "./dist/events.js"
-     }
-   },
+  "main": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./events": {
+      "source": "./src/events.ts",
+      "types": "./dist/events.d.ts",
+      "import": "./src/events.ts"
+    }
+  },
   "files": [
     "dist",
     "README.md"

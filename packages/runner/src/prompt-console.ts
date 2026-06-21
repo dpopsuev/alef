@@ -224,7 +224,12 @@ export class PromptConsole {
 		const lines = text.split("\n");
 		const truncated =
 			lines.length > maxLines ? [...lines.slice(0, maxLines), `  … ${lines.length - maxLines} more`] : lines;
-		const display = color(truncated.join("\n"), this.t.mutedFg);
+		const colored = truncated.map((line) => {
+			if (line.includes("●") || line.includes("◄")) return color(line, this.t.accentFg);
+			if (line.includes("■")) return color(line, this.t.mutedFg);
+			return line;
+		});
+		const display = colored.join("\n");
 		if (!this.widgetAboveText) {
 			this.widgetAboveText = new Text(display, 0, 0);
 			this.widgetSlotAbove.addChild(this.widgetAboveText);

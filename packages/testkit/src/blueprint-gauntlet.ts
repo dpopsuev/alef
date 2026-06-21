@@ -21,7 +21,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ExecutionStrategy, gimpedOrgan, type Organ, type SendRequest } from "@dpopsuev/alef-kernel";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
-import { BusEventRecorder, ScriptedReasoner, type ScriptStep, step } from "./index.js";
+import { BusEventRecorder } from "./bus-event-recorder.js";
+import { type ScriptStep, step } from "./script.js";
+import { ScriptedReasoner } from "./scripted-reasoner.js";
 
 export interface GauntletOptions {
 	/** Organs to mount. Required. */

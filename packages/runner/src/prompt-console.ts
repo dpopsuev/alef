@@ -214,11 +214,16 @@ export class PromptConsole {
 			}
 			return;
 		}
+		const maxLines = Math.max(3, Math.floor(this.tui.terminal.rows * 0.2));
+		const lines = text.split("\n");
+		const truncated =
+			lines.length > maxLines ? [...lines.slice(0, maxLines), `  … ${lines.length - maxLines} more`] : lines;
+		const display = color(truncated.join("\n"), this.t.mutedFg);
 		if (!this.widgetAboveText) {
-			this.widgetAboveText = new Text(color(text, this.t.mutedFg), 0, 0);
+			this.widgetAboveText = new Text(display, 0, 0);
 			this.widgetSlotAbove.addChild(this.widgetAboveText);
 		} else {
-			this.widgetAboveText.setText(color(text, this.t.mutedFg));
+			this.widgetAboveText.setText(display);
 		}
 	}
 

@@ -1,15 +1,14 @@
-// Increased from 600s (10min) to match Claude Sonnet 4-5 thinking mode requirements
-// Thinking mode can take 50-60s for complex analysis, previous 60s default was too tight
-export const DEFAULT_CONVERSATION_TIMEOUT_MS = Number(process.env.ALEF_CONVERSATION_TIMEOUT_MS) || 900_000; // 15 minutes
-// Increased stall timeout to accommodate thinking mode periods without chunks
-export const DEFAULT_STALL_TIMEOUT_MS = Number(process.env.ALEF_STALL_TIMEOUT_MS) || 180_000; // 3 minutes
+function envInt(key: string, fallback: number): number {
+	const raw = process.env[key];
+	if (raw === undefined) return fallback;
+	const n = Number(raw);
+	return Number.isFinite(n) ? n : fallback;
+}
 
-/**
- * Default LLM timeout per turn in milliseconds.
- * Can be overridden via ALEF_LLM_TIMEOUT_MS environment variable.
- * Increased from 60s to 120s to accommodate Claude Sonnet 4-5 thinking mode (50-60s).
- */
-export const DEFAULT_LLM_TIMEOUT_MS = Number(process.env.ALEF_LLM_TIMEOUT_MS) || 120_000;
+export const DEFAULT_CONVERSATION_TIMEOUT_MS = envInt("ALEF_CONVERSATION_TIMEOUT_MS", 900_000);
+export const DEFAULT_STALL_TIMEOUT_MS = envInt("ALEF_STALL_TIMEOUT_MS", 180_000);
+export const DEFAULT_LLM_TIMEOUT_MS = envInt("ALEF_LLM_TIMEOUT_MS", 120_000);
+export const DEFAULT_TOOL_TIMEOUT_MS = envInt("ALEF_TOOL_TIMEOUT_MS", 300_000);
 
 export interface SendRequest {
 	text: string;

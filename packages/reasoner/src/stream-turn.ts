@@ -1,5 +1,5 @@
 import type { Nerve } from "@dpopsuev/alef-kernel";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { DEFAULT_LLM_TIMEOUT_MS, debugLog } from "@dpopsuev/alef-kernel";
 import {
 	type Api,
 	type AssistantMessage,
@@ -82,7 +82,7 @@ export async function callLLM(
 	});
 
 	const thinking = options.getThinking?.() ?? options.thinking;
-	const defaultTimeoutMs = Number(process.env.ALEF_LLM_TIMEOUT_MS) || 300_000;
+	const defaultTimeoutMs = DEFAULT_LLM_TIMEOUT_MS;
 	const thinkingTimeoutMs = Number(process.env.ALEF_LLM_THINKING_TIMEOUT_MS) || 300_000;
 	const timeoutMs = options.timeoutMs ?? (thinking ? thinkingTimeoutMs : defaultTimeoutMs);
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? 8_000;

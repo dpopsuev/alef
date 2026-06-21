@@ -1,5 +1,5 @@
 import type { SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { DEFAULT_LLM_TIMEOUT_MS, debugLog } from "@dpopsuev/alef-kernel";
+import { DEFAULT_TOOL_TIMEOUT_MS, debugLog } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { buildTools, prepareTurn } from "./handlers/message-handler.js";
 import { applyPhaseResult, runPhase } from "./handlers/phase-handler.js";
@@ -10,7 +10,6 @@ import { callLLM } from "./stream-turn.js";
 import { dispatchTools } from "./tool-dispatch.js";
 import { createTurnSignals } from "./turn-signals.js";
 
-const _DEFAULT_TOOL_TIMEOUT_MS = DEFAULT_LLM_TIMEOUT_MS || 300_000; // Use kernel default or fallback to 5min
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_MAX_RETRY_DELAY_MS = 8_000;
 
@@ -53,7 +52,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
 	const { correlationId, motor, sense, signal } = ctx;
-	const defaultTimeoutMs = DEFAULT_LLM_TIMEOUT_MS;
+	const defaultTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS;
 	const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
 	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS;

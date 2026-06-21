@@ -3,7 +3,7 @@ import type {
 	MotorEvent,
 	Nerve,
 	Organ,
-	OrganContributions,
+	PipelineContributions,
 	SenseEvent,
 	ToolDefinition,
 } from "./buses.js";
@@ -40,7 +40,7 @@ export function createContextAssemblyPipeline(): Organ & {
 		},
 		mount(nerve: Nerve): () => void {
 			const unsubLoaded = nerve.sense.subscribe("organ.loaded", (event: SenseEvent) => {
-				const contributions = event.payload.contributions as OrganContributions | undefined;
+				const contributions = event.payload.contributions as PipelineContributions | undefined;
 				const name = event.payload.name as string;
 				if (contributions?.["context.assemble"]) stages.set(name, contributions["context.assemble"]);
 				if (contributions?.["schema-resolver"]) schemaResolvers.set(name, contributions["schema-resolver"]);

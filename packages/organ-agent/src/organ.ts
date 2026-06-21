@@ -22,7 +22,7 @@ import type {
 	ExecutionStrategy,
 	Nerve,
 	Organ,
-	OrganContributions,
+	ReasoningContributions,
 	ToolDefinition,
 } from "@dpopsuev/alef-kernel";
 import {
@@ -600,7 +600,7 @@ export function createAgentOrgan(
 				"organ.loaded": {
 					handle: async (ctx: { payload: Record<string, unknown> }): Promise<void> => {
 						const name = ctx.payload.name as string;
-						const contribution = (ctx.payload.contributions as OrganContributions | undefined)?.["agent.run"];
+						const contribution = (ctx.payload.contributions as ReasoningContributions | undefined)?.["agent.run"];
 						if (contribution) composite.add(name, contribution);
 					},
 				},

@@ -209,15 +209,19 @@ export interface PlanScopeContribution {
 	applyChildUpdate(update: PlanUpdateEvent): Promise<void>;
 }
 
-export interface OrganContributions {
+export interface ReasoningContributions {
 	readonly "agent.run"?: AgentRunContribution;
 	readonly skills?: readonly SkillBook[];
+}
+
+export interface PipelineContributions {
 	/** Contributes a stage to the context.assemble pipeline, run before each LLM call. */
 	readonly "context.assemble"?: ContextAssemblyHandler;
 	/** Provides full tool schemas for timeout calculation — populated by ToolShell. */
 	readonly "schema-resolver"?: (toolName: string) => ToolDefinition | undefined;
-	/** Declares the seam this organ owns, validated at boot by the runtime. */
-	readonly port?: PortDefinition;
+}
+
+export interface PresentationContributions {
 	/** Organ-owned TUI renderers for tool calls and results. */
 	readonly tui?: TuiContribution;
 	/** Declares which tools this organ owns for per-organ history indexing. */
@@ -230,9 +234,20 @@ export interface OrganContributions {
 	readonly "signal.map"?: Readonly<
 		Record<string, (payload: Record<string, unknown>) => Record<string, unknown> | null>
 	>;
+}
+
+export interface SeamingContributions {
+	/** Declares the seam this organ owns, validated at boot by the runtime. */
+	readonly port?: PortDefinition;
 	/** Plan scoping for hierarchical multi-agent delegation */
 	readonly "plan.scope"?: PlanScopeContribution;
 }
+
+export interface OrganContributions
+	extends ReasoningContributions,
+		PipelineContributions,
+		PresentationContributions,
+		SeamingContributions {}
 
 export interface ToolDefinition {
 	readonly name: string;

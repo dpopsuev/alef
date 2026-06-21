@@ -8,6 +8,7 @@ import { appendToolResults } from "./handlers/tool-result-handler.js";
 import { retryDelayMs, shouldRetry, sleep } from "./retry.js";
 import { callLLM } from "./stream-turn.js";
 import { dispatchTools } from "./tool-dispatch.js";
+import { createTurnSignals } from "./turn-signals.js";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_RETRIES = 2;
@@ -56,23 +57,12 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 	const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
 	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS;
-	const budgetController = new AbortController();
-	const offBudget = sense.subscribe("budget.cancel", () => {
-		budgetController.abort(new Error("[budget] maxElapsedMs exceeded"));
-	});
-	const offCancel = signal.subscribe("tools.cancel-request", (event) => {
-		const callId = (event as { payload?: { callId?: string } }).payload?.callId;
-		if (callId) callAbortControllers.get(callId)?.abort(new Error(`Cancelled by tools.cancel: ${callId}`));
-	});
-	const userSignal = options.getSignal?.();
-	const effectiveSignal = userSignal
-		? AbortSignal.any([budgetController.signal, userSignal])
-		: budgetController.signal;
+	const turnSignals = createTurnSignals(sense, signal, options.getSignal?.());
+	const { effectiveSignal, callAbortControllers } = turnSignals;
 	const effectiveOptions: TurnLoopOptions = { ...options, getSignal: () => effectiveSignal };
 
 	let appRetryCount = 0;
 	let turn = 0;
-	const callAbortControllers = new Map<string, AbortController>();
 
 	try {
 		while (true) {
@@ -165,8 +155,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 			});
 		}
 	} finally {
-		offBudget();
-		offCancel();
+		turnSignals.dispose();
 	}
 }
 

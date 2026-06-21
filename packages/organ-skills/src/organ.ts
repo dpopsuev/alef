@@ -21,8 +21,8 @@
 import type {
 	MotorHandlerCtx,
 	Organ,
-	OrganContributions,
 	OrganLogger,
+	ReasoningContributions,
 	SkillBook,
 	SkillPage,
 } from "@dpopsuev/alef-kernel";
@@ -210,7 +210,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 				"organ.loaded": {
 					handle: async (ctx) => {
 						const name = getString(ctx.payload, "name") ?? "";
-						const books = (ctx.payload.contributions as OrganContributions | undefined)?.skills ?? [];
+						const books = (ctx.payload.contributions as ReasoningContributions | undefined)?.skills ?? [];
 						if (books.length > 0) mergeBooks(name, books);
 					},
 				},

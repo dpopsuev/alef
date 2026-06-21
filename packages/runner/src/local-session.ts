@@ -349,6 +349,7 @@ export async function createLocalSession(
 	const enabledBlocks = directives.list({ enabled: true });
 	log.info(
 		{
+			ids: enabledBlocks.map((b) => b.id),
 			blocks: enabledBlocks.length,
 			chars: systemPrompt.length,
 			tags: [...new Set(enabledBlocks.flatMap((b) => b.tags ?? []))],

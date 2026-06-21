@@ -152,6 +152,63 @@ export interface HistoryContribution {
 	extractEntry(motorPayload: Record<string, unknown>): Record<string, unknown> | null;
 }
 
+/**
+ * Plan scoping data passed to subagents for hierarchical delegation.
+ * Contains a subgraph view of a parent plan rooted at a specific node.
+ */
+export interface PlanScopeData {
+	/** ID of the parent plan this scope originated from */
+	readonly parentPlanId: string;
+	/** Node ID that serves as the root of this scoped view */
+	readonly rootNodeId: string;
+	/** Serialized subgraph nodes (includes root + all descendants) */
+	readonly nodes: ReadonlyArray<{
+		id: string;
+		parent: string | null;
+		label: string;
+		status: "pending" | "active" | "done" | "pruned" | "deferred";
+		depth: number;
+		result?: string;
+		feedback?: string;
+	}>;
+	/** Original plan metadata for context */
+	readonly intention: string;
+	readonly inception: { current: string; desired: string; delta: string } | null;
+}
+
+/**
+ * Update event from a child scoped plan to its parent.
+ * Published to sense bus when child modifies their scoped plan.
+ */
+export interface PlanUpdateEvent {
+	/** Parent plan ID to update */
+	readonly planId: string;
+	/** Node ID being updated (full path from parent) */
+	readonly nodeId: string;
+	/** Update action: checkpoint, complete, expand, assess, refine */
+	readonly action: "checkpoint" | "complete" | "expand" | "assess" | "refine";
+	/** Additional payload based on action */
+	readonly payload?: Record<string, unknown>;
+}
+
+/**
+ * Plan scoping contribution for hierarchical multi-agent delegation.
+ * Enables parent agents to delegate plan nodes to subagents with scoped plan views.
+ */
+export interface PlanScopeContribution {
+	/**
+	 * Extract a scoped plan view rooted at the given node.
+	 * Returns null if no active plan or node doesn't exist.
+	 */
+	getScopedPlan(nodeId: string): Promise<PlanScopeData | null>;
+
+	/**
+	 * Apply an update from a child scoped plan to the parent plan.
+	 * Called when a subagent modifies their scoped plan.
+	 */
+	applyChildUpdate(update: PlanUpdateEvent): Promise<void>;
+}
+
 export interface OrganContributions {
 	readonly "agent.run"?: AgentRunContribution;
 	readonly skills?: readonly SkillBook[];
@@ -173,6 +230,8 @@ export interface OrganContributions {
 	readonly "signal.map"?: Readonly<
 		Record<string, (payload: Record<string, unknown>) => Record<string, unknown> | null>
 	>;
+	/** Plan scoping for hierarchical multi-agent delegation */
+	readonly "plan.scope"?: PlanScopeContribution;
 }
 
 export interface ToolDefinition {

@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import type { PlanUpdateEvent } from "@dpopsuev/alef-kernel";
 
 export type Phase =
 	| "intention"
@@ -52,6 +53,17 @@ export interface PlanNode {
 	depth: number;
 	result?: string;
 	feedback?: string;
+	/** Delegation tracking - which subagent is working on this node */
+	delegatedTo?: {
+		/** Subagent profile or child name */
+		agentProfile: string;
+		/** When delegation started */
+		delegatedAt: number;
+		/** Correlation ID for tracking */
+		correlationId?: string;
+	};
+	/** If this plan is scoped, the original root node ID in parent plan */
+	scopeRoot?: string;
 }
 
 export interface PlanData {
@@ -66,6 +78,10 @@ export interface PlanData {
 	aar: string | null;
 	createdAt: number;
 	updatedAt: number;
+	/** Parent plan linkage for scoped plans */
+	parentPlanId?: string;
+	/** For scoped plans, which node is the root */
+	rootNodeId?: string;
 }
 
 export class PlanGraph {
@@ -104,6 +120,41 @@ export class PlanGraph {
 		} catch {
 			return null;
 		}
+	}
+
+	/**
+	 * Create a scoped plan view for a subagent.
+	 * The scoped plan starts in 'implementation' phase with the given subgraph.
+	 */
+	static createScoped(
+		parentPlanId: string,
+		rootNodeId: string,
+		nodes: PlanNode[],
+		intention: string,
+		inception: { current: string; desired: string; delta: string } | null,
+		diskPath: string | null = null,
+	): PlanGraph {
+		const scopedId = `${parentPlanId}/scoped-${rootNodeId}`;
+		const plan = new PlanGraph(scopedId, intention, diskPath);
+
+		// Set parent linkage
+		plan.data.parentPlanId = parentPlanId;
+		plan.data.rootNodeId = rootNodeId;
+		plan.data.inception = inception;
+
+		// Keep original node IDs - they're globally unique
+		plan.data.nodes = nodes.map((n) => ({
+			...n,
+			scopeRoot: n.id === rootNodeId ? rootNodeId : undefined,
+		}));
+
+		// Start in implementation phase (scoped plans are work-focused)
+		plan.data.phase = "implementation";
+
+		plan.rebuildIndex();
+		plan.flush();
+
+		return plan;
 	}
 
 	private rebuildIndex(): void {
@@ -249,6 +300,99 @@ export class PlanGraph {
 
 	close(): void {
 		this.advanceTo("closed");
+	}
+
+	/**
+	 * Extract all nodes in the subtree rooted at nodeId.
+	 * Returns nodes in depth-first order: [root, ...descendants].
+	 * Returns empty array if node doesn't exist.
+	 */
+	extractSubgraph(nodeId: string): PlanNode[] {
+		const root = this.nodeIndex.get(nodeId);
+		if (!root) return [];
+
+		const nodes: PlanNode[] = [];
+		const traverse = (id: string) => {
+			const node = this.nodeIndex.get(id);
+			if (!node) return;
+
+			// Clone to avoid mutations
+			nodes.push({ ...node });
+
+			// Traverse children
+			const children = this.childIndex.get(id) ?? [];
+			for (const childId of children) {
+				traverse(childId);
+			}
+		};
+
+		traverse(nodeId);
+		return nodes;
+	}
+
+	/**
+	 * Check if this plan is a scoped child plan.
+	 */
+	isScoped(): boolean {
+		return this.data.parentPlanId !== undefined;
+	}
+
+	/**
+	 * Get the parent plan ID if this is a scoped plan.
+	 */
+	getParentPlanId(): string | null {
+		return this.data.parentPlanId ?? null;
+	}
+
+	/**
+	 * Apply an update from a child scoped plan.
+	 * Updates the corresponding node in this (parent) plan.
+	 */
+	applyChildUpdate(update: PlanUpdateEvent): boolean {
+		const node = this.nodeIndex.get(update.nodeId);
+		if (!node) {
+			return false;
+		}
+
+		switch (update.action) {
+			case "checkpoint":
+				node.status = "active";
+				this.data.checkpoints[update.nodeId] = { status: "active" };
+				break;
+
+			case "complete":
+				node.status = "done";
+				this.data.checkpoints[update.nodeId] = { status: "done" };
+				break;
+
+			case "expand": {
+				// Child added new nodes under their scope
+				const { label, parentId } = update.payload as { label: string; parentId: string };
+				this.addNode(label, parentId);
+				break;
+			}
+
+			case "assess": {
+				const { result } = update.payload as { result: string };
+				node.result = result;
+				this.data.checkpoints[update.nodeId] = { status: "assessed", result };
+				break;
+			}
+
+			case "refine": {
+				const { feedback } = update.payload as { feedback: string };
+				node.feedback = feedback;
+				node.status = "pending";
+				this.data.checkpoints[update.nodeId] = { status: "refined" };
+				break;
+			}
+
+			default:
+				return false;
+		}
+
+		this.touch();
+		return true;
 	}
 
 	getNode(id: string): PlanNode | undefined {

@@ -40,6 +40,8 @@ function getGitBranch(cwd: string): string | undefined {
 	}
 }
 
+export type FooterPanel = DashboardFooter;
+
 export class DashboardFooter implements Component {
 	private opts: DashboardFooterOptions;
 	private branch: string | undefined;

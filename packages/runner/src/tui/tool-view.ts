@@ -108,7 +108,7 @@ export function makeToolOutputComponent(
 	if (displayKind === "text/x-diff") {
 		return new Text(renderDiffDisplay(sanitized, t), INDENT.TOOL_OUTPUT, 0);
 	}
-	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme());
+	return new Markdown(truncateToolOutput(sanitized), INDENT.TOOL_OUTPUT, 0, makeToolOutputMarkdownTheme(t));
 }
 
 export function formatCompact(n: number): string {

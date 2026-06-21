@@ -76,4 +76,83 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		const err = g.advanceTo("intention");
 		expect(err).toContain("cannot go back");
 	});
+
+	it("extractSubgraph returns subtree rooted at node", () => {
+		const g = new PlanGraph("p1", "extract test", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		const root = g.addNode("root");
+		const child1 = g.addNode("child 1", root.id);
+		g.addNode("grandchild", child1.id);
+		g.addNode("child 2", root.id);
+		g.addNode("sibling");
+
+		const subgraph = g.extractSubgraph(root.id);
+		expect(subgraph).toHaveLength(4);
+		expect(subgraph.map((n) => n.label)).toEqual(["root", "child 1", "grandchild", "child 2"]);
+	});
+
+	it("extractSubgraph returns empty for missing node", () => {
+		const g = new PlanGraph("p1", "test", join(dir, "plan.json"));
+		expect(g.extractSubgraph("nonexistent")).toEqual([]);
+	});
+
+	it("createScoped builds a scoped plan from subgraph", () => {
+		const g = new PlanGraph("p1", "parent plan", join(dir, "plan.json"));
+		g.setInception("current", "desired", "delta");
+		g.setEndState("done");
+		const root = g.addNode("delegated task");
+		g.addNode("subtask A", root.id);
+		g.addNode("subtask B", root.id);
+
+		const subgraph = g.extractSubgraph(root.id);
+		const scoped = PlanGraph.createScoped(
+			"p1",
+			root.id,
+			subgraph,
+			"delegated task",
+			{ current: "c", desired: "d", delta: "x" },
+			join(dir, "scoped.json"),
+		);
+
+		expect(scoped.isScoped()).toBe(true);
+		expect(scoped.getParentPlanId()).toBe("p1");
+		expect(scoped.phase).toBe("implementation");
+		expect(scoped.stats().total).toBe(3);
+	});
+
+	it("applyChildUpdate updates node status", () => {
+		const g = new PlanGraph("p1", "parent", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		const n = g.addNode("task");
+
+		expect(g.applyChildUpdate({ planId: "p1", nodeId: n.id, action: "checkpoint" })).toBe(true);
+		expect(g.getNode(n.id)!.status).toBe("active");
+
+		expect(g.applyChildUpdate({ planId: "p1", nodeId: n.id, action: "complete" })).toBe(true);
+		expect(g.getNode(n.id)!.status).toBe("done");
+	});
+
+	it("applyChildUpdate returns false for missing node", () => {
+		const g = new PlanGraph("p1", "parent", join(dir, "plan.json"));
+		expect(g.applyChildUpdate({ planId: "p1", nodeId: "missing", action: "checkpoint" })).toBe(false);
+	});
+
+	it("applyChildUpdate handles expand action", () => {
+		const g = new PlanGraph("p1", "parent", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		const root = g.addNode("root");
+
+		g.applyChildUpdate({
+			planId: "p1",
+			nodeId: root.id,
+			action: "expand",
+			payload: { label: "new child", parentId: root.id },
+		});
+
+		expect(g.children(root.id)).toHaveLength(1);
+		expect(g.children(root.id)[0].label).toBe("new child");
+	});
 });

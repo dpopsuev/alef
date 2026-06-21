@@ -16,16 +16,27 @@ import { openPicker } from "../tui/picker.js";
 import { CommandRegistry } from "./registry.js";
 import type { TuiHandlerContext } from "./types.js";
 
+function isAnthropicViaVertex(): boolean {
+	const projectId =
+		process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ||
+		process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
+		process.env.GCLOUD_PROJECT?.trim();
+	const region = process.env.CLOUD_ML_REGION?.trim() || process.env.GOOGLE_CLOUD_LOCATION?.trim();
+	return Boolean(projectId && region);
+}
+
 function openModelPicker(ctx: TuiHandlerContext): void {
 	const current = ctx.session.getModel() ?? "";
+	const viaVertex = isAnthropicViaVertex();
 	const items: SelectItem[] = [];
 
 	for (const provider of getProviders()) {
 		const pc = getProviderColor(provider);
+		const routeSuffix = provider === "anthropic" && viaVertex ? " (via Vertex)" : "";
 		for (const m of getModels(provider as KnownProvider)) {
 			const id = `${provider}/${m.id}`;
 			const active = current.includes(m.id);
-			const providerLabel = color(provider, pc.token);
+			const providerLabel = color(`${provider}${routeSuffix}`, pc.token);
 			const modelLabel = `${providerLabel}/${m.id}`;
 			items.push({
 				value: id,

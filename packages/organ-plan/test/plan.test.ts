@@ -38,9 +38,9 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		const g = new PlanGraph("p1", "refactor", join(dir, "plan.json"));
 		g.setInception("messy", "clean", "extract helpers");
 		g.setEndState("clean code");
-		const n0 = g.addNode("read code");
-		g.addNode("extract helper A", n0.id);
-		const n2 = g.addNode("extract helper B", n0.id);
+		const n0 = g.addNode("read the source code");
+		g.addNode("extract helper function A", n0.id);
+		const n2 = g.addNode("extract helper function B", n0.id);
 		expect(g.children(n0.id)).toHaveLength(2);
 		g.pruneNode(n2.id);
 		expect(g.stats().pruned).toBe(1);
@@ -50,7 +50,7 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		const path = join(dir, "plan.json");
 		const g = new PlanGraph("p1", "test persist", path);
 		g.setInception("before", "after", "change it");
-		g.addNode("step 1");
+		g.addNode("implement the first step");
 		const loaded = PlanGraph.load(path);
 		expect(loaded).not.toBeNull();
 		expect(loaded!.phase).toBe("expansion");
@@ -61,13 +61,13 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		const g = new PlanGraph("p1", "render test", join(dir, "plan.json"));
 		g.setInception("a", "b", "c");
 		g.setEndState("done");
-		const root = g.addNode("root task");
-		g.addNode("subtask 1", root.id);
-		g.addNode("subtask 2", root.id);
+		const root = g.addNode("complete the root task");
+		g.addNode("finish the first subtask", root.id);
+		g.addNode("finish the second subtask", root.id);
 		const tree = g.renderTree();
-		expect(tree).toContain("root task");
-		expect(tree).toContain("subtask 1");
-		expect(tree).toContain("subtask 2");
+		expect(tree).toContain("complete the root task");
+		expect(tree).toContain("finish the first subtask");
+		expect(tree).toContain("finish the second subtask");
 	});
 
 	it("enforces forward-only phase transitions", () => {
@@ -77,19 +77,57 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		expect(err).toContain("cannot go back");
 	});
 
+	it("generates slugified node IDs from labels", () => {
+		const g = new PlanGraph("p1", "slug test", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		const node = g.addNode("extract authentication middleware logic");
+		expect(node.id).toBe("extract-authentication-middleware-logic");
+	});
+
+	it("disambiguates duplicate slugs with sequence suffix", () => {
+		const g = new PlanGraph("p1", "dup test", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		const a = g.addNode("refactor the auth module");
+		const b = g.addNode("refactor the auth module");
+		expect(a.id).toBe("refactor-the-auth-module");
+		expect(b.id).not.toBe(a.id);
+		expect(b.id).toMatch(/^refactor-the-auth-module-\d+$/);
+	});
+
+	it("rejects labels shorter than 3 words", () => {
+		const g = new PlanGraph("p1", "test", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		expect(() => g.addNode("too short")).toThrow(/too short/);
+	});
+
+	it("rejects labels longer than 8 words", () => {
+		const g = new PlanGraph("p1", "test", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		expect(() => g.addNode("one two three four five six seven eight nine")).toThrow(/too long/);
+	});
+
 	it("extractSubgraph returns subtree rooted at node", () => {
 		const g = new PlanGraph("p1", "extract test", join(dir, "plan.json"));
 		g.setInception("a", "b", "c");
 		g.setEndState("done");
-		const root = g.addNode("root");
-		const child1 = g.addNode("child 1", root.id);
-		g.addNode("grandchild", child1.id);
-		g.addNode("child 2", root.id);
-		g.addNode("sibling");
+		const root = g.addNode("explore the root directory");
+		const child1 = g.addNode("scan the first child", root.id);
+		g.addNode("inspect the nested grandchild", child1.id);
+		g.addNode("scan the second child", root.id);
+		g.addNode("handle the sibling separately");
 
 		const subgraph = g.extractSubgraph(root.id);
 		expect(subgraph).toHaveLength(4);
-		expect(subgraph.map((n) => n.label)).toEqual(["root", "child 1", "grandchild", "child 2"]);
+		expect(subgraph.map((n) => n.label)).toEqual([
+			"explore the root directory",
+			"scan the first child",
+			"inspect the nested grandchild",
+			"scan the second child",
+		]);
 	});
 
 	it("extractSubgraph returns empty for missing node", () => {
@@ -101,16 +139,16 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		const g = new PlanGraph("p1", "parent plan", join(dir, "plan.json"));
 		g.setInception("current", "desired", "delta");
 		g.setEndState("done");
-		const root = g.addNode("delegated task");
-		g.addNode("subtask A", root.id);
-		g.addNode("subtask B", root.id);
+		const root = g.addNode("delegate this entire task");
+		g.addNode("complete subtask part A", root.id);
+		g.addNode("complete subtask part B", root.id);
 
 		const subgraph = g.extractSubgraph(root.id);
 		const scoped = PlanGraph.createScoped(
 			"p1",
 			root.id,
 			subgraph,
-			"delegated task",
+			"delegate this entire task",
 			{ current: "c", desired: "d", delta: "x" },
 			join(dir, "scoped.json"),
 		);
@@ -125,7 +163,7 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		const g = new PlanGraph("p1", "parent", join(dir, "plan.json"));
 		g.setInception("a", "b", "c");
 		g.setEndState("done");
-		const n = g.addNode("task");
+		const n = g.addNode("work on this task");
 
 		expect(g.applyChildUpdate({ planId: "p1", nodeId: n.id, action: "checkpoint" })).toBe(true);
 		expect(g.getNode(n.id)!.status).toBe("active");
@@ -143,16 +181,16 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		const g = new PlanGraph("p1", "parent", join(dir, "plan.json"));
 		g.setInception("a", "b", "c");
 		g.setEndState("done");
-		const root = g.addNode("root");
+		const root = g.addNode("organize the root level");
 
 		g.applyChildUpdate({
 			planId: "p1",
 			nodeId: root.id,
 			action: "expand",
-			payload: { label: "new child", parentId: root.id },
+			payload: { label: "add a new child node", parentId: root.id },
 		});
 
 		expect(g.children(root.id)).toHaveLength(1);
-		expect(g.children(root.id)[0].label).toBe("new child");
+		expect(g.children(root.id)[0].label).toBe("add a new child node");
 	});
 });

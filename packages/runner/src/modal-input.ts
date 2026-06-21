@@ -263,14 +263,14 @@ export class ModalInputHandler {
 			return { consume: true };
 		}
 
-		// ':' — enters command line from any outer mode (Insert or Normal).
+		if (this.outerMode === "insert") {
+			return undefined; // passthrough — editor owns Insert-mode keys
+		}
+
+		// ':' — enters command line from Normal mode only.
 		if (this.kb.matches(data, "app.mode.command")) {
 			this.enterCmdMode();
 			return { consume: true };
-		}
-
-		if (this.outerMode === "insert") {
-			return undefined; // passthrough — editor owns Insert-mode keys
 		}
 
 		// ── NORMAL MODE ────────────────────────────────────────────────────────

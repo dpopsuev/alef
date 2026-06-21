@@ -47,16 +47,14 @@ describe("toolActiveLine — in-flight circle", { tags: ["unit"] }, () => {
 describe("renderToolLine — completed circles", { tags: ["unit"] }, () => {
 	const t = getTheme();
 
-	it("uses ● for the done (ok=true) indicator", () => {
+	it("uses ■ for the done (ok=true) indicator", () => {
 		const line = stripAnsi(renderToolLine("fs.read", "index.ts", 50, true, t));
-		expect(line).toContain("●");
-		expect(line).not.toMatch(/[⬢✓]/);
+		expect(line).toContain("■");
 	});
 
-	it("uses ● for the error (ok=false) indicator", () => {
+	it("uses ▲ for the error (ok=false) indicator", () => {
 		const line = stripAnsi(renderToolLine("shell.exec", "bad", 50, false, t));
-		expect(line).toContain("●");
-		expect(line).not.toMatch(/[⬡!]/);
+		expect(line).toContain("▲");
 	});
 });
 

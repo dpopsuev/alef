@@ -2,7 +2,21 @@
 // backward-compat. theme.ts owns the theme singleton; types live in theme-types.ts.
 
 export type { ColorDepth, ColorToken, ThemeTokens } from "./theme-types.js";
-export { bg, bold, color, colorDepth, dim, fgCode, glyph, italic, nerdFontsAvailable } from "./tui/ansi.js";
+export {
+	bg,
+	bold,
+	color,
+	colorDepth,
+	dim,
+	fgCode,
+	glyph,
+	italic,
+	nerdFontsAvailable,
+	type StatusLevel,
+	type StatusStyle,
+	statusGlyph,
+	statusStyle,
+} from "./tui/ansi.js";
 
 import chalk from "chalk";
 import type { ColorToken, ThemeTokens } from "./theme-types.js";

@@ -45,7 +45,7 @@ class EditorWrapper implements Component {
 import { EventPressure, pressureToInterval } from "./event-pressure.js";
 import { hexToColorToken, lookupColor } from "./identity/palette.js";
 import { buildPool, randomCodePoint } from "./splash.js";
-import { bold, type ColorToken, color, glyph, type ThemeTokens } from "./theme.js";
+import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./theme.js";
 import { fmtMs } from "./tui/ansi-utils.js";
 import { DynamicText } from "./tui/dynamic-text.js";
 import { accentColorize, spinnerFrame } from "./tui/spinner.js";
@@ -224,9 +224,12 @@ export class PromptConsole {
 		const lines = text.split("\n");
 		const truncated =
 			lines.length > maxLines ? [...lines.slice(0, maxLines), `  … ${lines.length - maxLines} more`] : lines;
+		const activeGlyph = statusGlyph("active");
+		const doneGlyph = statusGlyph("done");
+		const currentGlyph = glyph("state:current");
 		const colored = truncated.map((line) => {
-			if (line.includes("●") || line.includes("◄")) return color(line, this.t.accentFg);
-			if (line.includes("■")) return color(line, this.t.mutedFg);
+			if (line.includes(activeGlyph) || line.includes(currentGlyph)) return color(line, this.t.accentFg);
+			if (line.includes(doneGlyph)) return color(line, this.t.mutedFg);
 			return line;
 		});
 		const display = colored.join("\n");

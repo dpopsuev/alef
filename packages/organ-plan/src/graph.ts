@@ -438,19 +438,25 @@ export class PlanGraph {
 		return { total: this.data.nodes.length, done, pending, pruned, active };
 	}
 
+	private static nodeGlyph(status: PlanNode["status"]): string {
+		switch (status) {
+			case "done":
+				return "■";
+			case "active":
+				return "●";
+			case "pruned":
+				return "×";
+			case "deferred":
+				return "◇";
+			default:
+				return "○";
+		}
+	}
+
 	renderTree(): string {
 		const lines: string[] = [];
 		const renderNode = (node: PlanNode, prefix: string, isLast: boolean): void => {
-			const status =
-				node.status === "done"
-					? "■"
-					: node.status === "active"
-						? "●"
-						: node.status === "pruned"
-							? "×"
-							: node.status === "deferred"
-								? "◇"
-								: "○";
+			const status = PlanGraph.nodeGlyph(node.status);
 			const branch = isLast ? "└── " : "├── ";
 			lines.push(`${prefix}${branch}${status} ${node.id}: ${node.label}`);
 			const kids = this.children(node.id);
@@ -499,16 +505,7 @@ export class PlanGraph {
 		const ancestorIds = new Set(this.ancestorChain(activeNode.id));
 		ancestorIds.add(activeNode.id);
 
-		const statusGlyph = (n: PlanNode) =>
-			n.status === "done"
-				? "■"
-				: n.status === "active"
-					? "●"
-					: n.status === "pruned"
-						? "×"
-						: n.status === "deferred"
-							? "◇"
-							: "○";
+		const sg = (n: PlanNode) => PlanGraph.nodeGlyph(n.status);
 
 		const agentSuffix = (n: PlanNode) => (n.delegatedTo ? `  @${n.delegatedTo.agentProfile}` : "");
 
@@ -516,7 +513,7 @@ export class PlanGraph {
 
 		const render = (node: PlanNode, prefix: string, isLast: boolean): void => {
 			const branch = isLast ? "└── " : "├── ";
-			const glyph = statusGlyph(node);
+			const glyph = sg(node);
 			const kids = this.children(node.id);
 			const onPath = ancestorIds.has(node.id);
 			const isActive = node.id === activeNode.id;
@@ -526,7 +523,7 @@ export class PlanGraph {
 				const idx = siblings.findIndex((s) => s.id === node.id);
 				if (idx > 0) {
 					const prev = siblings[idx - 1];
-					lines.push(`${prefix}${branch}${statusGlyph(prev)} ${prev.label}${agentSuffix(prev)}`);
+					lines.push(`${prefix}${branch}${sg(prev)} ${prev.label}${agentSuffix(prev)}`);
 				}
 				lines.push(`${prefix}${branch}${glyph} ${node.label}${agentSuffix(node)}  ◄`);
 				for (const kid of kids) {
@@ -534,7 +531,7 @@ export class PlanGraph {
 				}
 				if (idx < siblings.length - 1) {
 					const next = siblings[idx + 1];
-					lines.push(`${prefix}${branch}${statusGlyph(next)} ${next.label}${agentSuffix(next)}`);
+					lines.push(`${prefix}${branch}${sg(next)} ${next.label}${agentSuffix(next)}`);
 				}
 				return;
 			}

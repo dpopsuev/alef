@@ -216,11 +216,27 @@ export class PlanGraph {
 		this.advanceTo("fixation");
 	}
 
+	private slugify(label: string): string {
+		let slug = label
+			.toLowerCase()
+			.replace(/[^a-z0-9\s-]/g, "")
+			.trim()
+			.replace(/\s+/g, "-")
+			.slice(0, 60);
+		if (this.nodeIndex.has(slug)) {
+			slug = `${slug}-${this.nodeSeq++}`;
+		}
+		return slug;
+	}
+
 	addNode(label: string, parent: string | null = null): PlanNode {
+		const words = label.trim().split(/\s+/);
+		if (words.length < 3) throw new Error(`Node label too short (${words.length} words, min 3): "${label}"`);
+		if (words.length > 8) throw new Error(`Node label too long (${words.length} words, max 8): "${label}"`);
 		if (parent && !this.nodeIndex.has(parent)) {
 			throw new Error(`parent node ${parent} not found`);
 		}
-		const id = `n${this.nodeSeq++}`;
+		const id = this.slugify(label);
 		const depth = parent ? (this.nodeIndex.get(parent)?.depth ?? 0) + 1 : 0;
 		const node: PlanNode = { id, parent, label, status: "pending", depth };
 		this.data.nodes.push(node);

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { BaseOrganOptions, ContextAssemblyHandler, Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { defineOrgan, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
@@ -14,7 +15,7 @@ function planPath(sessionDir: string): string {
 
 export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 	let activePlan: PlanGraph | null = null;
-	let planSeq = 0;
+	const shortId = () => randomUUID().replace(/-/g, "").slice(0, 12);
 	let nerve: Nerve | null = null;
 
 	function emitSignal(type: string, payload: Record<string, unknown>): void {
@@ -49,7 +50,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 						inputSchema: z.object({ intention: z.string().min(1) }),
 					},
 					async (ctx) => {
-						const id = `plan-${++planSeq}`;
+						const id = `plan-${shortId()}`;
 						activePlan = new PlanGraph(id, ctx.payload.intention, ensureDisk());
 						return withDisplay(
 							{ id, phase: "intention" },
@@ -127,8 +128,15 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 							nodes: z
 								.array(
 									z.object({
-										label: z.string().min(1),
-										parent: z.string().optional().describe("Parent node ID (e.g. 'n0'). Omit for root node."),
+										label: z
+											.string()
+											.min(10)
+											.max(60)
+											.describe("Node title: 3-8 words (e.g. 'extract authentication middleware logic')"),
+										parent: z
+											.string()
+											.optional()
+											.describe("Parent node ID (the slugified title). Omit for root."),
 									}),
 								)
 								.min(1),
@@ -192,7 +200,9 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 					{
 						name: "plan.checkpoint",
 						description: "Mark a plan node as in-progress (implementation phase).",
-						inputSchema: z.object({ nodeId: z.string().min(1) }),
+						inputSchema: z.object({
+							nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
+						}),
 					},
 					async (ctx) => {
 						const plan = loadOrCreate();
@@ -213,7 +223,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 						name: "plan.assess",
 						description: "Record the result of implementing a node — compare execution to intent.",
 						inputSchema: z.object({
-							nodeId: z.string().min(1),
+							nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
 							result: z.string().min(1).describe("What was the outcome?"),
 						}),
 					},
@@ -234,7 +244,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 						name: "plan.refine",
 						description: "Send a node back for rework with feedback.",
 						inputSchema: z.object({
-							nodeId: z.string().min(1),
+							nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
 							feedback: z.string().min(1),
 						}),
 					},
@@ -254,7 +264,9 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 					{
 						name: "plan.complete",
 						description: "Mark a node as done.",
-						inputSchema: z.object({ nodeId: z.string().min(1) }),
+						inputSchema: z.object({
+							nodeId: z.string().min(1).describe("Node ID (slugified title, e.g. 'extract-auth-middleware')"),
+						}),
 					},
 					async (ctx) => {
 						const plan = loadOrCreate();

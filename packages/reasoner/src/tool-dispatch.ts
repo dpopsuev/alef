@@ -184,6 +184,27 @@ interface DispatchToolsOptions {
 	callAbortControllers?: Map<string, AbortController>;
 }
 
+/**
+ * Detect independent tool calls that can be executed in parallel.
+ * Current implementation: all tools are independent (no shared state detection yet).
+ * Future: analyze args for file paths, add dependency metadata to ToolDefinition.
+ */
+function detectIndependentTools(toolCalls: ToolCall[]): ToolCall[][] {
+	// For now, treat all tool calls as independent
+	// TODO: Add dependency analysis:
+	// - fs.write + fs.read on same path → sequential
+	// - agent.run calls → independent (separate processes)
+	// - Multiple fs.read → independent
+	if (toolCalls.length <= 1) return [toolCalls];
+
+	// Simple heuristic: if all tools are different types, run in parallel
+	const types = new Set(toolCalls.map((tc) => tc.name.split(".")[0]));
+	if (types.size === toolCalls.length) {
+		return [toolCalls]; // All parallel
+	}
+	return [toolCalls]; // Default to parallel for now
+}
+
 export async function dispatchTools(
 	motor: MotorBus,
 	signal: SignalBus,
@@ -194,7 +215,40 @@ export async function dispatchTools(
 	timeoutMs: number,
 	options: DispatchToolsOptions,
 ): Promise<SenseEvent[]> {
-	return Promise.all(
+	// Detect parallel vs sequential execution opportunities
+	const batches = detectIndependentTools(toolCalls);
+	const allResults: SenseEvent[] = [];
+
+	// For now, execute all in parallel (single batch)
+	// Future: support sequential batches for dependencies
+	for (const batch of batches) {
+		const batchResults = await executeBatch(
+			motor,
+			signal,
+			sense,
+			correlationId,
+			batch,
+			toMotorName,
+			timeoutMs,
+			options,
+		);
+		allResults.push(...batchResults);
+	}
+
+	return allResults;
+}
+
+async function executeBatch(
+	motor: MotorBus,
+	signal: SignalBus,
+	sense: SenseBus,
+	correlationId: string,
+	toolCalls: ToolCall[],
+	toMotorName: (llmName: string) => string,
+	timeoutMs: number,
+	options: DispatchToolsOptions,
+): Promise<SenseEvent[]> {
+	const results = await Promise.all(
 		toolCalls.map((tc) => {
 			const motorType = toMotorName(tc.name);
 			const startedAt = Date.now();
@@ -283,4 +337,15 @@ export async function dispatchTools(
 				});
 		}),
 	);
+
+	// Log parallel execution metrics
+	if (toolCalls.length > 1) {
+		const names = toolCalls.map((tc) => toMotorName(tc.name));
+		debugLog("tool:batch:completed", {
+			count: toolCalls.length,
+			tools: names,
+		});
+	}
+
+	return results;
 }

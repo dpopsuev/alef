@@ -73,8 +73,8 @@ alef: ## Run Alef from source (./alef-test.sh)
 	./alef-test.sh
 
 .PHONY: debug
-debug: ## Run Alef in debug mode
-	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 ./alef-test.sh
+debug: ## Run Alef in debug mode with increased timeouts for thinking mode
+	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 ALEF_LLM_TIMEOUT_MS=120000 ALEF_STALL_TIMEOUT_MS=180000 ./alef-test.sh
 
 .PHONY: organ
 organ: ## Create a new organ scaffold: make organ NAME=weather

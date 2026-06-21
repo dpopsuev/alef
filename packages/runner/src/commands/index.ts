@@ -7,24 +7,13 @@
  */
 
 import { getModels, getProviders, type KnownProvider } from "@dpopsuev/alef-llm";
-import { type SelectItem, SelectList, type SelectListTheme } from "@dpopsuev/alef-tui";
+import type { SelectItem } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { buildModel } from "../model.js";
-import { color, setThemeByName, type ThemeTokens } from "../theme.js";
+import { setThemeByName } from "../theme.js";
+import { openPicker } from "../tui/picker.js";
 import { CommandRegistry } from "./registry.js";
 import type { TuiHandlerContext } from "./types.js";
-
-const MODEL_PICKER_ID = "model-picker";
-
-function buildModelPickerTheme(t: ThemeTokens): SelectListTheme {
-	return {
-		selectedPrefix: (s) => color(s, t.accentFg),
-		selectedText: (s) => color(s, t.accentFg),
-		description: (s) => color(s, t.mutedFg),
-		scrollInfo: (s) => color(s, t.mutedFg),
-		noMatch: (s) => color(s, t.mutedFg),
-	};
-}
 
 function openModelPicker(ctx: TuiHandlerContext): void {
 	const current = ctx.session.getModel() ?? "";
@@ -42,30 +31,19 @@ function openModelPicker(ctx: TuiHandlerContext): void {
 		}
 	}
 
-	const theme = buildModelPickerTheme(ctx.t);
-	const list = new SelectList(items, 10, theme);
-
-	const close = () => ctx.dispatch({ type: "overlay.hide", id: MODEL_PICKER_ID });
-
-	list.onSelect = (item: SelectItem) => {
-		close();
-		try {
-			buildModel(item.value);
-			ctx.session.setModel(item.value);
-			ctx.writer.addNotice(`Model switched to ${item.value}.`);
-		} catch (e) {
-			ctx.writer.addNotice(`Failed: ${e instanceof Error ? e.message : String(e)}`);
-		}
-		ctx.tui.requestRender();
-	};
-	list.onCancel = () => {
-		close();
-		ctx.tui.requestRender();
-	};
-
-	ctx.dispatch({
-		type: "overlay.show",
-		descriptor: { id: MODEL_PICKER_ID, component: list, handleInput: (d) => list.handleInput(d) },
+	openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+		id: "model-picker",
+		items,
+		onSelect: (item) => {
+			try {
+				buildModel(item.value);
+				ctx.session.setModel(item.value);
+				ctx.writer.addNotice(`Model switched to ${item.value}.`);
+			} catch (e) {
+				ctx.writer.addNotice(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+			}
+			ctx.tui.requestRender();
+		},
 	});
 }
 

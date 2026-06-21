@@ -32,6 +32,22 @@ const DESCRIBE_TOOL = {
 	}),
 } satisfies ToolDefinition;
 
+const STATUS_TOOL = {
+	name: "tools.status",
+	description:
+		"List all currently in-flight tool calls with their name, elapsed time, and call ID. Use this to check what is still running during long operations.",
+	inputSchema: z.object({}),
+} satisfies ToolDefinition;
+
+const CANCEL_TOOL = {
+	name: "tools.cancel",
+	description:
+		"Cancel a specific in-flight tool call by its call ID. The call will be aborted and return an error. Get call IDs from tools.status.",
+	inputSchema: z.object({
+		callId: z.string().min(1).describe("The call ID to cancel (from tools.status)"),
+	}),
+} satisfies ToolDefinition;
+
 export interface ToolShellOptions {
 	/** All domain tools available to the agent, captured at construction time. */
 	tools: readonly ToolDefinition[];
@@ -162,6 +178,9 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 	let catalogInjected = false; // lint-ignore: RAWTIMER not a timer — mutable lifecycle flag
 	const tracker = createPromotionTracker();
 
+	const inflightCalls = new Map<string, { name: string; startedAt: number; callId: string }>();
+	let cancelCall: ((callId: string) => void) | null = null;
+
 	function handleDescribe(
 		names: string[],
 		log: OrganLogger,
@@ -216,6 +235,40 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 							: results.map((t) => `${t.name}: ${t.description}`).join("\n");
 					return Promise.resolve(withDisplay({ results }, { text: displayText, mimeType: "text/plain" }));
 				}),
+				"tools.status": typedAction(STATUS_TOOL, () => {
+					const now = Date.now();
+					const calls = [...inflightCalls.values()].map((c) => ({
+						callId: c.callId,
+						name: c.name,
+						elapsedMs: now - c.startedAt,
+					}));
+					const text =
+						calls.length === 0
+							? "No tool calls in flight."
+							: calls
+									.map((c) => `${c.name} (${c.callId.slice(0, 8)}) — ${Math.round(c.elapsedMs / 1000)}s`)
+									.join("\n");
+					return Promise.resolve(withDisplay({ calls }, { text, mimeType: "text/plain" }));
+				}),
+				"tools.cancel": typedAction(CANCEL_TOOL, (ctx) => {
+					const { callId } = ctx.payload;
+					const entry = inflightCalls.get(callId);
+					if (!entry) {
+						return Promise.resolve(
+							withDisplay(
+								{ cancelled: false, error: "not found" },
+								{ text: `No in-flight call with ID ${callId}`, mimeType: "text/plain" },
+							),
+						);
+					}
+					cancelCall?.(callId);
+					return Promise.resolve(
+						withDisplay(
+							{ cancelled: true, name: entry.name },
+							{ text: `Cancelled ${entry.name} (${callId.slice(0, 8)})`, mimeType: "text/plain" },
+						),
+					);
+				}),
 			},
 		},
 		{
@@ -234,9 +287,26 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 				tracker.promote(event.type);
 			}
 		});
+		const offStart = nerve.signal.subscribe("llm.tool-start", (event) => {
+			const p = event.payload as { callId?: string; name?: string };
+			if (p.callId && p.name) {
+				inflightCalls.set(p.callId, { callId: p.callId, name: p.name, startedAt: Date.now() });
+			}
+		});
+		const offEnd = nerve.signal.subscribe("llm.tool-end", (event) => {
+			const p = event.payload as { callId?: string };
+			if (p.callId) inflightCalls.delete(p.callId);
+		});
+		cancelCall = (callId: string) => {
+			nerve.signal.publish({ type: "tools.cancel-request", payload: { callId }, correlationId: "" });
+		};
 		return () => {
 			unmount();
 			offSense();
+			offStart();
+			offEnd();
+			cancelCall = null;
+			inflightCalls.clear();
 		};
 	}
 

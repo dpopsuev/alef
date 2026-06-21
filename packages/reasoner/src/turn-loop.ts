@@ -60,6 +60,10 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 	const offBudget = sense.subscribe("budget.cancel", () => {
 		budgetController.abort(new Error("[budget] maxElapsedMs exceeded"));
 	});
+	const offCancel = signal.subscribe("tools.cancel-request", (event) => {
+		const callId = (event as { payload?: { callId?: string } }).payload?.callId;
+		if (callId) callAbortControllers.get(callId)?.abort(new Error(`Cancelled by tools.cancel: ${callId}`));
+	});
 	const userSignal = options.getSignal?.();
 	const effectiveSignal = userSignal
 		? AbortSignal.any([budgetController.signal, userSignal])
@@ -68,6 +72,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 
 	let appRetryCount = 0;
 	let turn = 0;
+	const callAbortControllers = new Map<string, AbortController>();
 
 	try {
 		while (true) {
@@ -150,6 +155,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 				...effectiveOptions,
 				signal: effectiveSignal,
 				toolDefs: toolDefsMap,
+				callAbortControllers,
 			});
 			appendToolResults(messages, toolCalls, results, toMotorName);
 			signal.publish({
@@ -160,6 +166,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 		}
 	} finally {
 		offBudget();
+		offCancel();
 	}
 }
 

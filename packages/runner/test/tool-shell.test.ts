@@ -97,10 +97,12 @@ describe("createToolShellOrgan — metaTools", { tags: ["unit"] }, () => {
 		expect(fsRead?.description).toBe(FS_READ.description);
 	});
 
-	it("organ.tools (internal) contains only tools.describe handler", () => {
+	it("organ.tools (internal) contains meta-tool handlers", () => {
 		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
-		// organ.tools = tools with motor handlers (only tools.describe has one)
-		expect(shell.tools.map((t) => t.name)).toEqual(["tools.describe"]);
+		const names = shell.tools.map((t) => t.name);
+		expect(names).toContain("tools.describe");
+		expect(names).toContain("tools.status");
+		expect(names).toContain("tools.cancel");
 	});
 
 	it("organ.name is 'tools'", () => {

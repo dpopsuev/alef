@@ -181,6 +181,7 @@ interface DispatchToolsOptions {
 	signal?: AbortSignal;
 	toolDefs?: ReadonlyMap<string, ToolDefinition>;
 	schemaResolver?: (toolName: string) => ToolDefinition | undefined;
+	callAbortControllers?: Map<string, AbortController>;
 }
 
 export async function dispatchTools(
@@ -197,6 +198,13 @@ export async function dispatchTools(
 		toolCalls.map((tc) => {
 			const motorType = toMotorName(tc.name);
 			const startedAt = Date.now();
+			const callController = new AbortController();
+			if (options.signal) {
+				options.signal.addEventListener("abort", () => callController.abort(options.signal?.reason), {
+					once: true,
+				});
+			}
+			options.callAbortControllers?.set(tc.id, callController);
 			signal.publish({
 				type: "llm.tool-start",
 				payload: { callId: tc.id, name: motorType, args: tc.args },
@@ -223,7 +231,7 @@ export async function dispatchTools(
 				toolCallId: tc.id,
 				correlationId,
 				timeoutMs: outerWaitMs,
-				signal: options.signal,
+				signal: callController.signal,
 				onChunk,
 				onStall,
 			})
@@ -252,6 +260,7 @@ export async function dispatchTools(
 						},
 						correlationId,
 					});
+					options.callAbortControllers?.delete(tc.id);
 					return r;
 				})
 				.catch((err: unknown) => {
@@ -269,6 +278,7 @@ export async function dispatchTools(
 						},
 						correlationId,
 					});
+					options.callAbortControllers?.delete(tc.id);
 					return buildErrorSenseEvent(motorType, correlationId, tc.id, err, elapsedMs);
 				});
 		}),

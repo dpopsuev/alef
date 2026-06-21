@@ -13,7 +13,7 @@
  *   client.incomingCalls(uri, symbol)  — returns CallSite[]
  *   client.stop()  — sends shutdown + exit, kills subprocess
  *
- * The client is lazy-started by LocalLectorBackend on the first callers() call
+ * The client is lazy-started by LocalCodeIntelBackend on the first callers() call
  * and kept alive for the session. It is closed on organ unmount.
  */
 
@@ -227,6 +227,102 @@ export class LspClient {
 		}
 
 		return results;
+	}
+
+	/**
+	 * Get diagnostics (compilation errors/warnings) for a file.
+	 */
+	async getDiagnostics(fileUri: string): Promise<
+		Array<{
+			severity: number; // 1=error, 2=warning, 3=info, 4=hint
+			message: string;
+			range: { start: { line: number; character: number }; end: { line: number; character: number } };
+			code?: string | number;
+			source?: string;
+		}>
+	> {
+		if (!this.ready) throw new Error("LspClient: not initialized");
+
+		const result = (await this._request("textDocument/diagnostic", {
+			textDocument: { uri: fileUri },
+		})) as {
+			items?: Array<{
+				severity: number;
+				message: string;
+				range: { start: { line: number; character: number }; end: { line: number; character: number } };
+				code?: string | number;
+				source?: string;
+			}>;
+		} | null;
+
+		return result?.items ?? [];
+	}
+
+	/**
+	 * Get hover information (type info, documentation) at a position.
+	 */
+	async getHover(
+		fileUri: string,
+		line: number,
+		character: number,
+	): Promise<{
+		contents: string;
+		range?: { start: { line: number; character: number }; end: { line: number; character: number } };
+	} | null> {
+		if (!this.ready) throw new Error("LspClient: not initialized");
+
+		const result = (await this._request("textDocument/hover", {
+			textDocument: { uri: fileUri },
+			position: { line, character },
+		})) as {
+			contents: { kind?: string; value: string } | string | Array<{ language?: string; value: string }>;
+			range?: { start: { line: number; character: number }; end: { line: number; character: number } };
+		} | null;
+
+		if (!result) return null;
+
+		// Normalize contents to string
+		let contents: string;
+		if (typeof result.contents === "string") {
+			contents = result.contents;
+		} else if (Array.isArray(result.contents)) {
+			contents = result.contents.map((c) => c.value).join("\n");
+		} else {
+			contents = result.contents.value;
+		}
+
+		return { contents, range: result.range };
+	}
+
+	/**
+	 * Search for symbols across the workspace.
+	 */
+	async workspaceSymbols(query: string): Promise<
+		Array<{
+			name: string;
+			kind: number; // LSP SymbolKind enum
+			location: {
+				uri: string;
+				range: { start: { line: number; character: number }; end: { line: number; character: number } };
+			};
+			containerName?: string;
+		}>
+	> {
+		if (!this.ready) throw new Error("LspClient: not initialized");
+
+		const result = (await this._request("workspace/symbol", {
+			query,
+		})) as Array<{
+			name: string;
+			kind: number;
+			location: {
+				uri: string;
+				range: { start: { line: number; character: number }; end: { line: number; character: number } };
+			};
+			containerName?: string;
+		}> | null;
+
+		return result ?? [];
 	}
 
 	async stop(): Promise<void> {

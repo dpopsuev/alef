@@ -1,5 +1,5 @@
 /**
- * TypeScript compiler API symbol extractor — Lector v2 Phase 1.
+ * TypeScript compiler API symbol extractor — CodeIntel Phase 2.
  *
  * Replaces the regex-based extractor for .ts and .tsx files.
  * Uses ts.createSourceFile() for exact AST-level extraction:

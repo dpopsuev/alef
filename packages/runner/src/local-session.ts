@@ -6,7 +6,7 @@ import { createContextAssemblyPipeline, type NerveEvent, type Organ } from "@dpo
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaOrgan } from "@dpopsuev/alef-meta";
 import { DiscourseStore } from "@dpopsuev/alef-organ-discourse";
-import { AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
+import { type Agent, AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import { buildAgent } from "./agent-kernel.js";
 import type { Args } from "./args.js";
@@ -217,22 +217,11 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 	}
 }
 
-export async function createLocalSession(
-	args: Args,
-	cfg: AlefConfig,
-	log: Logger,
-	store: SessionStore,
-	loaded: LoadResult,
-	model: Model<Api>,
-	trace: (event: string, extra?: Record<string, unknown>) => void,
-): Promise<{
-	session: SessionHandle;
-	resolvedModelDisplay: string;
-	humanAddress: string;
-	agentAddress: string;
-	actorRoutes: ActorRouteTable;
-}> {
-	const { organs, blueprintSurfaces } = loaded;
+function registerContributions(
+	organs: readonly {
+		contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>>; tui?: TuiContribution };
+	}[],
+): void {
 	registerOrganSignalMaps(organs);
 	registerTuiSignals(organs);
 	tuiSignalHandlers.set("context.compacted", (payload, ui) => {
@@ -244,7 +233,9 @@ export async function createLocalSession(
 			`compacted ${Number(payload.compactedTurns ?? 0)} turns, recovered ~${Math.round(saved / 1000)}k tokens`,
 		);
 	});
+}
 
+async function buildDirectiveSet(args: Args, organs: readonly Organ[]) {
 	const directives = createDefaultDirectives({ tools: organs.flatMap((o) => o.tools), cwd: args.cwd });
 	await loadWorkspace(directives, args.cwd);
 	registerOrgans(directives, organs);
@@ -265,24 +256,67 @@ export async function createLocalSession(
 		}
 	}
 
+	return directives;
+}
+
+function buildActorIdentity(store: SessionStore) {
+	const boardId = store.id.slice(0, 12);
+	const { humanActor, agentActor, theme } = configureSessionActors(store.id, boardId);
+	setTheme({ ...getTheme(), ...theme });
+
+	const actorRoutes = new ActorRouteTable();
+	actorRoutes.setHumanAddress(humanActor.color);
+
+	return { humanActor, agentActor, actorRoutes };
+}
+
+function connectObservers(agent: Agent, observers: Set<(event: AgentEvent) => void>): void {
+	agent.observe({
+		onMotorEvent(event) {
+			if (event.type === "llm.response") {
+				const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
+				const text = typeof p.text === "string" ? p.text : "";
+				for (const obs of observers) obs({ type: "turn-complete", reply: text });
+			}
+		},
+		onSenseEvent() {},
+		onSignalEvent(event) {
+			const agentEvent = signalToAgentEvent(event);
+			if (agentEvent) for (const obs of observers) obs(agentEvent);
+		},
+	});
+}
+
+export async function createLocalSession(
+	args: Args,
+	cfg: AlefConfig,
+	log: Logger,
+	store: SessionStore,
+	loaded: LoadResult,
+	model: Model<Api>,
+	trace: (event: string, extra?: Record<string, unknown>) => void,
+): Promise<{
+	session: SessionHandle;
+	resolvedModelDisplay: string;
+	humanAddress: string;
+	agentAddress: string;
+	actorRoutes: ActorRouteTable;
+}> {
+	const { organs, blueprintSurfaces } = loaded;
+	registerContributions(organs);
+
+	const directives = await buildDirectiveSet(args, organs);
+
 	const CONTEXT_FRACTION = 0.1;
 	const CHARS_PER_TOKEN = 4;
 	const directivesBudgetChars = Math.floor(model.contextWindow * CONTEXT_FRACTION * CHARS_PER_TOKEN);
 	const thinkingState = {
 		level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
 	};
-
 	const replySink = !args.print && !args.json && !args.noTui && process.stdin.isTTY ? undefined : makeSink(args.json);
 
 	const sessionState: SessionState = { id: store.id, modelId: model.id, contextWindow: model.contextWindow };
-
-	const boardId = store.id.slice(0, 12);
-	const { humanActor, agentActor, theme } = configureSessionActors(store.id, boardId);
-	setTheme({ ...getTheme(), ...theme });
-
-	// Build the route table — the TUI uses this for @ routing.
-	const actorRoutes = new ActorRouteTable();
-	actorRoutes.setHumanAddress(humanActor.color);
+	const { humanActor, agentActor, actorRoutes } = buildActorIdentity(store);
 
 	const observers = new Set<(event: AgentEvent) => void>();
 	let llmController: AbortController | undefined;
@@ -392,20 +426,7 @@ export async function createLocalSession(
 	});
 	agent.load(alefOrgan as Organ);
 
-	agent.observe({
-		onMotorEvent(event) {
-			if (event.type === "llm.response") {
-				const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
-				const text = typeof p.text === "string" ? p.text : "";
-				for (const obs of observers) obs({ type: "turn-complete", reply: text });
-			}
-		},
-		onSenseEvent() {},
-		onSignalEvent(event) {
-			const agentEvent = signalToAgentEvent(event);
-			if (agentEvent) for (const obs of observers) obs(agentEvent);
-		},
-	});
+	connectObservers(agent, observers);
 
 	directives.register({
 		id: "tool-shell.boot-catalog",
@@ -437,8 +458,8 @@ export async function createLocalSession(
 	return {
 		session: handle,
 		resolvedModelDisplay,
-		humanAddress: humanActor.address, // "@dpopsuev"
-		agentAddress: agentActor.address, // "@crimson"
+		humanAddress: humanActor.address,
+		agentAddress: agentActor.address,
 		actorRoutes,
 	};
 }

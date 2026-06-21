@@ -15,6 +15,11 @@ export { Collapsible, type CollapsibleOptions } from "./components/collapsible.j
 export { Dialog, type DialogAction, type DialogOptions, type DialogTheme } from "./components/dialog.js";
 export { Editor, type EditorOptions, type EditorTheme } from "./components/editor.js";
 export { Envelope, type EnvelopeOptions } from "./components/envelope.js";
+export { FlowEdge, type FlowEdgeOptions } from "./components/flow-edge.js";
+export { FlowJunction, type FlowJunctionOptions } from "./components/flow-junction.js";
+export { type FlowElement, FlowLayout, type FlowLayoutOptions } from "./components/flow-layout.js";
+export { FlowLoop, type FlowLoopOptions } from "./components/flow-loop.js";
+export { FlowNode, type FlowNodeOptions } from "./components/flow-node.js";
 export { GrowSpacer } from "./components/grow-spacer.js";
 export { Image, type ImageOptions, type ImageTheme } from "./components/image.js";
 export { Input } from "./components/input.js";

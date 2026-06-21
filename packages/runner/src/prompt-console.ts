@@ -1,5 +1,13 @@
 import type { Component } from "@dpopsuev/alef-tui";
-import { Container, Editor, type EditorTheme, type SelectListTheme, Text, type TUI } from "@dpopsuev/alef-tui";
+import {
+	Container,
+	Editor,
+	type EditorTheme,
+	type SelectListTheme,
+	Text,
+	type TUI,
+	visibleWidth,
+} from "@dpopsuev/alef-tui";
 export type { Component };
 
 import { registry } from "./commands/index.js";
@@ -8,10 +16,7 @@ import { CommandHintGrid } from "./tui/command-hint-grid.js";
 class EditorWrapper implements Component {
 	private modeLabel = "";
 
-	constructor(
-		private readonly inner: Editor,
-		private readonly ruleColor: (s: string) => string,
-	) {}
+	constructor(private readonly inner: Editor) {}
 
 	setModeLabel(label: string): void {
 		this.modeLabel = label;
@@ -20,13 +25,14 @@ class EditorWrapper implements Component {
 	render(width: number): string[] {
 		const lines = this.inner.render(width);
 		if (lines.length < 2) return lines;
-		lines[0] = this.ruleColor("─".repeat(width));
+		lines[0] = "─".repeat(width);
 		const last = lines.length - 1;
 		if (this.modeLabel) {
 			const text = ` ${this.modeLabel} `;
-			lines[last] = this.ruleColor(`─${text}${"─".repeat(Math.max(0, width - text.length - 1))}`);
+			const textWidth = visibleWidth(text);
+			lines[last] = `─${text}${"─".repeat(Math.max(0, width - textWidth - 1))}`;
 		} else {
-			lines[last] = this.ruleColor("─".repeat(width));
+			lines[last] = "─".repeat(width);
 		}
 		return lines;
 	}
@@ -127,7 +133,7 @@ export class PromptConsole {
 		this.tui.addChild(this.inspectorHint);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(this.widgetSlotAbove);
-		this.editorWrapper = new EditorWrapper(this.editor, (s) => color(s, this.t.mutedFg));
+		this.editorWrapper = new EditorWrapper(this.editor);
 		this.tui.addChild(this.editorWrapper);
 
 		this.editor.onChange = (text) => {

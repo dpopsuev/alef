@@ -177,6 +177,39 @@ describe("PlanGraph", { tags: ["unit"] }, () => {
 		expect(g.applyChildUpdate({ planId: "p1", nodeId: "missing", action: "checkpoint" })).toBe(false);
 	});
 
+	it("renderFocusedTree folds non-active branches with counts", () => {
+		const g = new PlanGraph("p1", "focus test", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		const phase1 = g.addNode("complete the first phase");
+		g.addNode("finish subtask one A", phase1.id);
+		g.addNode("finish subtask one B", phase1.id);
+		const phase2 = g.addNode("complete the second phase");
+		const active = g.addNode("implement the active task", phase2.id);
+		g.addNode("handle the remaining work", phase2.id);
+		g.checkpoint(active.id);
+
+		const tree = g.renderFocusedTree();
+		expect(tree).toContain("[0/2]");
+		expect(tree).toContain("implement the active task");
+		expect(tree).toContain("◄");
+		expect(tree).toContain("handle the remaining work");
+		expect(tree).not.toContain("finish subtask one A");
+	});
+
+	it("renderFocusedTree shows agent names on delegated nodes", () => {
+		const g = new PlanGraph("p1", "agent test", join(dir, "plan.json"));
+		g.setInception("a", "b", "c");
+		g.setEndState("done");
+		const n = g.addNode("task delegated to agent");
+		const node = g.getNode(n.id)!;
+		node.delegatedTo = { agentProfile: "explorer", delegatedAt: Date.now() };
+		g.checkpoint(n.id);
+
+		const tree = g.renderFocusedTree();
+		expect(tree).toContain("@explorer");
+	});
+
 	it("applyChildUpdate handles expand action", () => {
 		const g = new PlanGraph("p1", "parent", join(dir, "plan.json"));
 		g.setInception("a", "b", "c");

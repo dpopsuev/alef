@@ -9,7 +9,9 @@
 import { getModels, getProviders, type KnownProvider } from "@dpopsuev/alef-llm";
 import type { SelectItem } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
+import { getConfig } from "../config.js";
 import { buildModel } from "../model.js";
+import { resolveProfile } from "../model-profiles.js";
 import { getProviderColor } from "../provider-colors.js";
 import { color, setThemeByName } from "../theme.js";
 import { openPicker } from "../tui/picker.js";
@@ -25,26 +27,49 @@ function isAnthropicViaVertex(): boolean {
 	return Boolean(projectId && region);
 }
 
-function openModelPicker(ctx: TuiHandlerContext): void {
-	const current = ctx.session.getModel() ?? "";
+function buildModelItems(): SelectItem[] {
+	const cfg = getConfig();
+	const profile = resolveProfile(cfg);
 	const viaVertex = isAnthropicViaVertex();
 	const items: SelectItem[] = [];
+
+	if (profile) {
+		for (const entry of profile.models) {
+			const pc = getProviderColor(entry.provider);
+			const routeSuffix = entry.provider === "anthropic" && viaVertex ? " (via Vertex)" : "";
+			const id = `${entry.provider}/${entry.model.id}`;
+			const providerLabel = color(`${entry.provider}${routeSuffix}`, pc.token);
+			items.push({
+				value: id,
+				label: `${providerLabel}/${entry.model.id}`,
+				description: entry.model.name !== entry.model.id ? entry.model.name : undefined,
+			});
+		}
+		return items;
+	}
 
 	for (const provider of getProviders()) {
 		const pc = getProviderColor(provider);
 		const routeSuffix = provider === "anthropic" && viaVertex ? " (via Vertex)" : "";
 		for (const m of getModels(provider as KnownProvider)) {
 			const id = `${provider}/${m.id}`;
-			const active = current.includes(m.id);
 			const providerLabel = color(`${provider}${routeSuffix}`, pc.token);
-			const modelLabel = `${providerLabel}/${m.id}`;
 			items.push({
 				value: id,
-				label: active ? `${modelLabel} *` : modelLabel,
+				label: `${providerLabel}/${m.id}`,
 				description: m.name !== m.id ? m.name : undefined,
 			});
 		}
 	}
+	return items;
+}
+
+function openModelPicker(ctx: TuiHandlerContext): void {
+	const current = ctx.session.getModel() ?? "";
+	const items = buildModelItems().map((item) => ({
+		...item,
+		label: current.includes(item.value.split("/").pop() ?? "") ? `${item.label} *` : item.label,
+	}));
 
 	openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
 		id: "model-picker",
@@ -430,6 +455,64 @@ const think = {
 	},
 };
 
+const profile = {
+	name: "profile",
+	description: "Switch model profile — :profile or :profile <name>",
+	run(ctx: TuiHandlerContext, args: string[]) {
+		const cfg = getConfig();
+		const names = cfg.profiles ? Object.keys(cfg.profiles) : [];
+		if (names.length === 0) {
+			ctx.writer.addNotice("No profiles defined in config.yaml.");
+			ctx.tui.requestRender();
+			return;
+		}
+
+		const [name] = args;
+		if (name) {
+			if (!cfg.profiles?.[name]) {
+				ctx.writer.addNotice(`Unknown profile: ${name}. Available: ${names.join(", ")}`);
+				ctx.tui.requestRender();
+				return;
+			}
+			const resolved = resolveProfile({ ...cfg, profile: name });
+			const count = resolved?.models.length ?? 0;
+			const defaultModel = resolved?.defaultModel;
+			if (defaultModel) {
+				try {
+					buildModel(defaultModel);
+					ctx.session.setModel(defaultModel);
+				} catch {
+					// default model not valid — ignore
+				}
+			}
+			ctx.writer.addNotice(
+				`Profile "${name}" active — ${count} models.${defaultModel ? ` Default: ${defaultModel}` : ""}`,
+			);
+			ctx.tui.requestRender();
+			return;
+		}
+
+		const items: SelectItem[] = names.map((n) => {
+			const p = cfg.profiles?.[n];
+			const active = n === cfg.profile;
+			return {
+				value: n,
+				label: active ? `${n} *` : n,
+				description: p ? `${p.providers.join(", ")}${p.default ? ` → ${p.default}` : ""}` : "",
+			};
+		});
+
+		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+			id: "profile-picker",
+			items,
+			maxVisible: 6,
+			onSelect: (item) => {
+				profile.run(ctx, [item.value]);
+			},
+		});
+	},
+};
+
 // ---------------------------------------------------------------------------
 // Registry — single source of truth; tab-completion and help derive from this
 // ---------------------------------------------------------------------------
@@ -451,4 +534,5 @@ export const registry = new CommandRegistry()
 	.register(directive)
 	.register(theme)
 	.register(model)
-	.register(think);
+	.register(think)
+	.register(profile);

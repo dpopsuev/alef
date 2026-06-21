@@ -84,6 +84,30 @@ const ConfigSchema = z.object({
 			paths: z.array(z.string()).optional(),
 		})
 		.optional(),
+
+	/**
+	 * Model scope profiles — pre-configured subsets of allowed models.
+	 *
+	 * Each profile defines provider + model filters. On boot, only matching
+	 * models appear in the :model picker and are usable via the API.
+	 *
+	 * providers: list of provider names (must exist in the model registry)
+	 * models: optional list of model ID patterns (glob or exact match)
+	 * default: model ID to select on boot (must match a profile entry)
+	 */
+	profiles: z
+		.record(
+			z.string(),
+			z.object({
+				providers: z.array(z.string()),
+				models: z.array(z.string()).optional(),
+				default: z.string().optional(),
+			}),
+		)
+		.optional(),
+
+	/** Active profile name — selects which profile to apply on boot. */
+	profile: z.string().optional(),
 });
 
 export type AlefConfig = z.infer<typeof ConfigSchema>;

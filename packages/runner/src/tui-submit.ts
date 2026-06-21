@@ -3,7 +3,7 @@ import { InputPatternRegistry } from "./input-patterns.js";
 import type { InteractiveOptions } from "./interactive.js";
 import type { Session } from "./session.js";
 import type { TuiHandlerContext } from "./tui-commands.js";
-import { handleSlashCommand } from "./tui-commands.js";
+import { handleColonCommand, handleSlashCommand } from "./tui-commands.js";
 import type { TuiEvent } from "./tui-dispatch.js";
 import type { TokenFooterHandle, TuiWriter } from "./tui-state.js";
 
@@ -32,6 +32,17 @@ export function createSubmitHandler(config: SubmitConfig) {
 		config;
 
 	const inputPatterns = new InputPatternRegistry();
+
+	inputPatterns.register({
+		name: "colon-command",
+		leader: ":",
+		detection: "beginning",
+		description: "Colon commands dispatched to command registry",
+		handle: (text) => {
+			handleColonCommand(text, ctx());
+			return true;
+		},
+	});
 
 	inputPatterns.register({
 		name: "command",

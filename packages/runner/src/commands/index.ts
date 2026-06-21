@@ -10,7 +10,8 @@ import { getModels, getProviders, type KnownProvider } from "@dpopsuev/alef-llm"
 import type { SelectItem } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { buildModel } from "../model.js";
-import { setThemeByName } from "../theme.js";
+import { getProviderColor } from "../provider-colors.js";
+import { color, setThemeByName } from "../theme.js";
 import { openPicker } from "../tui/picker.js";
 import { CommandRegistry } from "./registry.js";
 import type { TuiHandlerContext } from "./types.js";
@@ -20,12 +21,15 @@ function openModelPicker(ctx: TuiHandlerContext): void {
 	const items: SelectItem[] = [];
 
 	for (const provider of getProviders()) {
+		const pc = getProviderColor(provider);
 		for (const m of getModels(provider as KnownProvider)) {
 			const id = `${provider}/${m.id}`;
 			const active = current.includes(m.id);
+			const providerLabel = color(provider, pc.token);
+			const modelLabel = `${providerLabel}/${m.id}`;
 			items.push({
 				value: id,
-				label: active ? `${id} *` : id,
+				label: active ? `${modelLabel} *` : modelLabel,
 				description: m.name !== m.id ? m.name : undefined,
 			});
 		}

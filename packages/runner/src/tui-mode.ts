@@ -48,7 +48,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 			inputTokens: tuiState.sessionInputTokens,
 			outputTokens: tuiState.sessionOutputTokens,
 			contextWindow: session.state.contextWindow,
-			contextUsed: tuiState.sessionTokensTotal,
+			contextUsed: tuiState.contextFillTokens,
 			thinkingLevel: session.getThinking(),
 			compacted: isCompacted(),
 		}),

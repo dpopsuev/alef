@@ -16,7 +16,7 @@ Use parallel agent.run(explore) calls for multi-file codebase exploration. Batch
 
 No emojis. No filler openers ("Great!", "Certainly!"). No preamble ("Let me check...") — run the tool instead. Answer the question first; elaboration follows. Be concise.
 
-Stage only changed files with \`git add <path>\`. Pre-commit hooks are mandatory. Never use \`--no-verify\`, \`reset --hard\`, \`checkout .\`, \`clean -f\`, or \`add -A\`. If a hook fails, fix the underlying error.`;
+Stage only changed files with \`git add <path>\`. Pre-commit hooks are mandatory. Never bypass them — \`--no-verify\`, \`HUSKY=0\`, \`--no-gpg-sign\`, and \`git commit -n\` are all forbidden. If a hook fails, fix the underlying error — do not work around it.`;
 
 export function buildToolsBlock(tools: readonly ToolDefinition[]): string {
 	const lines = tools.map((t) => {

@@ -1,20 +1,19 @@
 /**
- * LectorBackend — the transparent substrate behind LectorOrgan.
+ * CodeIntelBackend — LSP-based code intelligence backend.
  *
- * The LLM sees six clean tool names. The backend decides how each is
- * fulfilled: from the BlockCache, from disk, via TreeSitter, or via LSP.
- * The LLM never knows which path fired — result shape is always the same.
+ * Provides TypeScript/JavaScript code intelligence via Language Server Protocol:
+ *   - Workspace symbol search
+ *   - Hover type information
+ *   - Call hierarchy (find callers)
+ *   - Diagnostics (compilation errors)
  *
  * Implementations:
- *   LocalLectorBackend  — fs + regex symbols + ripgrep/grep; default
- *   StubLectorBackend   — in-memory; for tests
- *
- * Phase 1: regex symbol extraction, grep-based callers.
- * Phase 2: TreeSitter grammars, LSP call hierarchy.
+ *   LocalCodeIntelBackend  — LSP client + grep fallback; default
+ *   StubCodeIntelBackend   — no-op stubs for tests
  */
 
 // ---------------------------------------------------------------------------
-// Symbol types
+// Symbol types (used internally by symbol extractors)
 // ---------------------------------------------------------------------------
 
 export type SymbolKind = "function" | "class" | "interface" | "type" | "const" | "variable" | "method" | "property";
@@ -38,23 +37,6 @@ export interface SymbolBlock {
 // Result types
 // ---------------------------------------------------------------------------
 
-export interface ReadResult {
-	path: string;
-	/** File content — full file or just the requested symbol's block. */
-	content: string;
-	/** All symbols extracted from the file, regardless of which block was requested. */
-	symbols: SymbolBlock[];
-	totalLines: number;
-	truncated: boolean;
-}
-
-export interface SearchMatch {
-	path: string;
-	/** 1-indexed line number. */
-	line: number;
-	content: string;
-}
-
 export interface CallSite {
 	path: string;
 	line: number;
@@ -62,60 +44,31 @@ export interface CallSite {
 	context: string;
 }
 
-export interface EditSpec {
-	/**
-	 * Exact text to replace. Must be unique within the file.
-	 * Mutually exclusive with symbol.
-	 */
-	oldText?: string;
-	/** Replacement text. */
-	newText: string;
-	/**
-	 * Name of a symbol to replace entirely (Optimistic Lock).
-	 * When set, replaces the full span of the named symbol with newText.
-	 * Uses the cached symbol map from the last code.read — throws if
-	 * the symbol map is stale (file was modified since last read).
-	 * Mutually exclusive with oldText.
-	 */
-	symbol?: string;
+export interface Diagnostic {
+	severity: number; // 1=error, 2=warning, 3=info, 4=hint
+	message: string;
+	line: number; // 1-indexed
+	character: number; // 0-indexed
+	code?: string | number;
+	source?: string;
+}
+
+export interface HoverInfo {
+	contents: string;
+	range?: { start: { line: number; character: number }; end: { line: number; character: number } };
+}
+
+export interface WorkspaceSymbol {
+	name: string;
+	kind: string; // "function", "class", "interface", etc.
+	path: string;
+	line: number; // 1-indexed
+	containerName?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Backend interface
+// Options types
 // ---------------------------------------------------------------------------
-
-export interface ReadOptions {
-	/**
-	 * When set, return only the content of this named symbol's block.
-	 * All symbols are still returned in the result regardless.
-	 */
-	symbol?: string;
-	/** Max lines to return. Default varies by mode (full=2000, symbol=300). */
-	maxLines?: number;
-	/** Line offset for full-file reads. 1-indexed. */
-	offset?: number;
-}
-
-export interface SearchOptions {
-	/** Restrict search to this subdirectory or file. Default: cwd. */
-	path?: string;
-	caseInsensitive?: boolean;
-	/** Max matches to return. Default: 200. */
-	maxResults?: number;
-	/** Filter files by extension, e.g. "ts" or ".ts". */
-	extension?: string;
-}
-
-export interface FindOptions {
-	/** Root directory to search from. Default: cwd. */
-	path?: string;
-	/** Max results. Default: 500. */
-	maxResults?: number;
-	/** Max depth. Default: unlimited. */
-	depth?: number;
-	/** Include hidden files. Default: false. */
-	hidden?: boolean;
-}
 
 export interface CallersOptions {
 	/** Restrict search to this file or directory. Default: cwd. */
@@ -124,29 +77,32 @@ export interface CallersOptions {
 	maxResults?: number;
 }
 
-export interface LectorBackend {
-	/** Read a file, optionally zooming into a named symbol's block. */
-	read(path: string, opts?: ReadOptions): Promise<ReadResult>;
+// ---------------------------------------------------------------------------
+// Backend interface
+// ---------------------------------------------------------------------------
 
-	/** Write file content, creating parent dirs as needed. */
-	write(path: string, content: string): Promise<void>;
-
-	/**
-	 * Apply targeted edits. Each edit replaces exactly one occurrence of oldText.
-	 * Throws if oldText is not found or is not unique.
-	 */
-	edit(path: string, edits: EditSpec[]): Promise<void>;
-
-	/** Search file contents for a pattern. */
-	search(pattern: string, opts?: SearchOptions): Promise<SearchMatch[]>;
-
-	/** Find files matching a glob pattern. */
-	find(glob: string, opts?: FindOptions): Promise<string[]>;
-
+export interface CodeIntelBackend {
 	/**
 	 * Find call sites that reference the given symbol name.
-	 * Phase 1: grep-based (fast, no LSP required).
-	 * Phase 2: LSP callHierarchy (exact, requires server).
+	 * Uses LSP callHierarchy for TypeScript files, falls back to grep.
 	 */
 	callers(symbol: string, opts?: CallersOptions): Promise<CallSite[]>;
+
+	/**
+	 * Get diagnostics (compilation errors/warnings) for a file.
+	 * Requires LSP support for the language (TypeScript).
+	 */
+	getDiagnostics(path: string): Promise<Diagnostic[]>;
+
+	/**
+	 * Get hover information (type info, documentation) at a position.
+	 * Requires LSP support for the language (TypeScript).
+	 */
+	getHover(path: string, line: number, character: number): Promise<HoverInfo | null>;
+
+	/**
+	 * Search for symbols across the workspace.
+	 * Requires LSP support (TypeScript).
+	 */
+	workspaceSymbols(query: string): Promise<WorkspaceSymbol[]>;
 }

@@ -1,67 +1,23 @@
 /**
- * LocalLectorBackend — the default backend for development and production.
+ * LocalCodeIntelBackend — LSP-based code intelligence for TypeScript/JavaScript.
  *
- * Backends:
- *   read/write/edit  — node:fs/promises
- *   symbols          — regex extractor (Phase 1); TreeSitter (Phase 2)
- *   search           — ripgrep (rg) with grep fallback
- *   find             — fd with node:fs/promises walk fallback
- *   callers          — grep-based (Phase 1); LSP callHierarchy (Phase 2)
+ * Provides:
+ *   callers          — LSP callHierarchy (TS files) + grep fallback
+ *   diagnostics      — LSP textDocument/diagnostic
+ *   hover            — LSP textDocument/hover
+ *   workspaceSymbols — LSP workspace/symbol
  *
- * All reads go through BlockCache first. Writes and edits invalidate before
- * touching disk, so the cache is never stale when the call resolves.
+ * Design: Pure LSP wrapper. No file I/O operations (use fs organ for that).
  */
 
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-import type {
-	CallersOptions,
-	CallSite,
-	EditSpec,
-	FindOptions,
-	LectorBackend,
-	ReadOptions,
-	ReadResult,
-	SearchMatch,
-	SearchOptions,
-	SymbolBlock,
-} from "./backend.js";
-
-interface CallersStrategy {
-	canHandle(opts: CallersOptions): boolean;
-	resolve(backend: LocalLectorBackend, symbol: string, opts: CallersOptions, maxResults: number): Promise<CallSite[]>;
-}
-
-import { BlockCache } from "./block-cache.js";
-import { applyTextEdit, buildDeclRe } from "./edit-utils.js";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import type { CallersOptions, CallSite, CodeIntelBackend } from "./backend.js";
 import { LspClient } from "./lsp-client.js";
-import { extractBlock } from "./symbol-extractor.js";
 import { extractSymbolsFor } from "./symbol-strategies.js";
 import { isTsFile } from "./ts-symbol-extractor.js";
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-async function atomicWrite(dest: string, content: string): Promise<void> {
-	const tmp = `${dest}.tmp.${randomUUID()}`;
-	try {
-		await writeFile(tmp, content, "utf-8");
-		await rename(tmp, dest);
-	} catch (err) {
-		await unlink(tmp).catch(() => {});
-		throw err;
-	}
-}
-
-const DEFAULT_MAX_LINES_FULL = 2000;
-const DEFAULT_MAX_LINES_BLOCK = 300;
-const DEFAULT_MAX_RESULTS_SEARCH = 200;
-const DEFAULT_MAX_RESULTS_FIND = 500;
-const DEFAULT_MAX_RESULTS_CALLERS = 100;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -101,10 +57,10 @@ function spawnCollect(
 }
 
 // ---------------------------------------------------------------------------
-// LocalLectorBackend
+// LocalCodeIntelBackend
 // ---------------------------------------------------------------------------
 
-export interface LocalLectorBackendOptions {
+export interface LocalCodeIntelBackendOptions {
 	/** Workspace root. All relative paths resolve against this. */
 	cwd: string;
 	/**
@@ -114,77 +70,37 @@ export interface LocalLectorBackendOptions {
 	writableRoots?: readonly string[];
 }
 
-/**
- * Symbol-span edit with Optimistic Lock.
- *
- * Uses the cached symbol map (from the last code.read) to locate the symbol's
- * span. Replaces lines [startLine, endLine] with newBody.
- *
- * Optimistic Lock: verifies the span content hasn't changed since the cache
- * was populated. Throws if the symbol is absent from the cache (stale read)
- * so the caller knows to re-read first.
- */
-function applySymbolEdit(
-	content: string,
-	symbolName: string,
-	newBody: string,
-	path: string,
-	cachedSymbols: SymbolBlock[] | undefined,
-): string {
-	if (!cachedSymbols || cachedSymbols.length === 0) {
-		throw new Error(`code.edit: no cached symbol map for '${path}'. Call code.read first.`);
-	}
-
-	const sym = cachedSymbols.find((s) => s.name === symbolName);
-	if (!sym) {
-		throw new Error(
-			`code.edit: symbol '${symbolName}' not found in cached map for '${path}'.` +
-				` Available: ${cachedSymbols.map((s) => s.name).join(", ")}`,
-		);
-	}
-
-	const lines = content.split("\n");
-	const startIdx = sym.startLine - 1; // 0-indexed
-	const endIdx = sym.endLine - 1;
-
-	if (startIdx < 0 || endIdx >= lines.length) {
-		throw new Error(
-			`code.edit: symbol '${symbolName}' span [${sym.startLine}-${sym.endLine}] ` +
-				`out of bounds for '${path}' (${lines.length} lines). File may have changed — re-read.`,
-		);
-	}
-
-	// Replace the span with newBody.
-	const before = lines.slice(0, startIdx);
-	const after = lines.slice(endIdx + 1);
-	return [...before, newBody, ...after].join("\n");
+interface CallersStrategy {
+	canHandle(opts: CallersOptions): boolean;
+	resolve(
+		backend: LocalCodeIntelBackend,
+		symbol: string,
+		opts: CallersOptions,
+		maxResults: number,
+	): Promise<CallSite[]>;
 }
 
-export class LocalLectorBackend implements LectorBackend {
+const DEFAULT_MAX_RESULTS_CALLERS = 100;
+const DEFAULT_MAX_RESULTS_SEARCH = 200;
+
+export class LocalCodeIntelBackend implements CodeIntelBackend {
 	private readonly cwd: string;
-	private readonly cache: BlockCache;
 	private readonly writableRoots: readonly string[] | undefined;
-	/** LSP client — lazy-started on first callers() call for a TS file. */
+	/** LSP client — lazy-started on first LSP operation. */
 	private lsp: LspClient | null = null;
 	private lspStarting: Promise<LspClient> | null = null;
 	/** Permanently broken — spawn or initialize failed; never retry. */
 	private lspBroken = false;
 
-	constructor(opts: LocalLectorBackendOptions) {
+	constructor(opts: LocalCodeIntelBackendOptions) {
 		this.cwd = opts.cwd;
-		this.cache = new BlockCache();
 		this.writableRoots = opts.writableRoots;
-	}
-
-	/** Expose cache for organ unmount cleanup. */
-	get blockCache(): BlockCache {
-		return this.cache;
 	}
 
 	/**
 	 * Pre-warm the LSP client. Called by Organ.ready() before the first event.
 	 * LSP is optional — warm-up failure is silently swallowed so the organ
-	 * still mounts and serves tree-sitter results without LSP callers.
+	 * still mounts and serves grep-based results without LSP.
 	 */
 	async warmUp(): Promise<void> {
 		try {
@@ -221,237 +137,7 @@ export class LocalLectorBackend implements LectorBackend {
 	}
 
 	// -------------------------------------------------------------------------
-	// read
-	// -------------------------------------------------------------------------
-
-	async read(path: string, opts: ReadOptions = {}): Promise<ReadResult> {
-		const abs = resolvePath(this.cwd, path, this.writableRoots);
-
-		// Serve from block cache if available.
-		let cached = this.cache.get(abs);
-		if (!cached) {
-			const content = await readFile(abs, "utf-8");
-			// Use TypeScript compiler API for .ts/.tsx (Phase 2 accuracy).
-			// Fall back to regex extractor for other languages.
-			const symbols = extractSymbolsFor(content, path);
-			cached = { content, symbols, storedAt: process.hrtime.bigint() };
-			this.cache.set(abs, cached);
-
-			// Racer (Phase 4): pre-warm LSP in the background for TS files.
-			// code.read() returns compiler API symbols immediately (fast).
-			// LSP indexes asynchronously so callers() gets exact results on
-			// the next call without blocking the current read.
-			if (isTsFile(path)) {
-				void this.getLsp()
-					.then((lsp) => lsp.openFile(pathToFileURL(abs).href, content))
-					.catch(() => {}); // LSP optional — never block read
-			}
-		}
-
-		const { content, symbols } = cached;
-		const allLines = content.split("\n");
-		const totalLines = allLines.length;
-
-		// Symbol-block mode
-		if (opts.symbol) {
-			const block = extractBlock(content, symbols, opts.symbol);
-			if (!block) throw new Error(`code.read: symbol '${opts.symbol}' not found in ${path}`);
-
-			const maxLines = opts.maxLines ?? DEFAULT_MAX_LINES_BLOCK;
-			const blockLines = block.content.split("\n");
-			const truncated = blockLines.length > maxLines;
-			return {
-				path,
-				content: truncated ? blockLines.slice(0, maxLines).join("\n") : block.content,
-				symbols,
-				totalLines,
-				truncated,
-			};
-		}
-
-		// Full-file mode with optional offset/limit
-		const maxLines = opts.maxLines ?? DEFAULT_MAX_LINES_FULL;
-		const offset = opts.offset != null ? Math.max(0, opts.offset - 1) : 0;
-		const sliced = allLines.slice(offset, offset + maxLines);
-		const truncated = offset + maxLines < totalLines;
-
-		return {
-			path,
-			content: sliced.join("\n"),
-			symbols,
-			totalLines,
-			truncated,
-		};
-	}
-
-	// -------------------------------------------------------------------------
-	// write
-	// -------------------------------------------------------------------------
-
-	async write(path: string, content: string): Promise<void> {
-		const abs = resolvePath(this.cwd, path, this.writableRoots);
-		// Invalidate BEFORE writing — coherence guarantee.
-		this.cache.invalidate(abs);
-		await mkdir(dirname(abs), { recursive: true });
-		await atomicWrite(abs, content);
-	}
-
-	// -------------------------------------------------------------------------
-	// edit
-	// -------------------------------------------------------------------------
-
-	async edit(path: string, edits: EditSpec[]): Promise<void> {
-		const abs = resolvePath(this.cwd, path, this.writableRoots);
-
-		// Snapshot the cached symbol map BEFORE invalidation (Optimistic Lock).
-		// Symbol-span edits verify the span against this snapshot.
-		const cachedEntry = this.cache.get(abs);
-
-		// Invalidate BEFORE reading current content.
-		this.cache.invalidate(abs);
-
-		let content = await readFile(abs, "utf-8");
-
-		for (const { oldText, newText, symbol } of edits) {
-			if (symbol) {
-				// Symbol-span edit — replace the entire named symbol's span.
-				content = applySymbolEdit(content, symbol, newText, path, cachedEntry?.symbols);
-			} else {
-				if (!oldText) throw new Error("code.edit: provide oldText or symbol");
-				content = applyTextEdit(content, oldText, newText, path);
-			}
-		}
-
-		await atomicWrite(abs, content);
-	}
-
-	// -------------------------------------------------------------------------
-	// search
-	// -------------------------------------------------------------------------
-
-	async search(pattern: string, opts: SearchOptions = {}): Promise<SearchMatch[]> {
-		const searchRoot = opts.path ? resolvePath(this.cwd, opts.path, this.writableRoots) : this.cwd;
-		const maxResults = opts.maxResults ?? DEFAULT_MAX_RESULTS_SEARCH;
-
-		const args = ["-rn", "--color=never"];
-		if (opts.caseInsensitive) args.push("-i");
-		if (opts.extension) args.push(`--include=*.${opts.extension.replace(/^\./, "")}`);
-		args.push("--", pattern, searchRoot);
-
-		// Try ripgrep first, fall back to grep.
-		for (const cmd of ["rg", "grep"]) {
-			const isRg = cmd === "rg";
-			const rgArgs = isRg
-				? [
-						"-n",
-						"--color=never",
-						"--no-heading",
-						...(opts.caseInsensitive ? ["-i"] : []),
-						...(opts.extension ? ["-g", `*.${opts.extension.replace(/^\./, "")}`] : []),
-						"--",
-						pattern,
-						searchRoot,
-					]
-				: args;
-
-			try {
-				const { stdout, exitCode } = await spawnCollect(cmd, rgArgs, this.cwd);
-				if (exitCode > 1) continue; // 1 = no matches (ok), >1 = error
-				return this._parseGrepOutput(stdout, maxResults);
-			} catch {}
-		}
-
-		return [];
-	}
-
-	private _parseGrepOutput(stdout: string, maxResults: number): SearchMatch[] {
-		const matches: SearchMatch[] = [];
-		for (const line of stdout.split("\n")) {
-			if (matches.length >= maxResults) break;
-			const m = line.match(/^(.+?):(\d+):(.*)/);
-			if (!m) continue;
-			matches.push({
-				path: relative(this.cwd, m[1]) || m[1],
-				line: Number.parseInt(m[2], 10),
-				content: m[3],
-			});
-		}
-		return matches;
-	}
-
-	// -------------------------------------------------------------------------
-	// find
-	// -------------------------------------------------------------------------
-
-	async find(glob: string, opts: FindOptions = {}): Promise<string[]> {
-		const searchRoot = opts.path ? resolvePath(this.cwd, opts.path, this.writableRoots) : this.cwd;
-		const maxResults = opts.maxResults ?? DEFAULT_MAX_RESULTS_FIND;
-		const maxDepth = opts.depth ?? Number.POSITIVE_INFINITY;
-		const includeHidden = opts.hidden ?? false;
-
-		// Try fd first.
-		try {
-			const fdArgs = ["--type", "f", "--color=never", "--no-ignore-vcs"];
-			if (!includeHidden) fdArgs.push("--no-hidden");
-			if (opts.depth != null) fdArgs.push("--max-depth", String(opts.depth));
-			fdArgs.push(glob, searchRoot);
-
-			const { stdout, exitCode } = await spawnCollect("fd", fdArgs, this.cwd);
-			if (exitCode <= 1) {
-				return stdout
-					.split("\n")
-					.filter(Boolean)
-					.slice(0, maxResults)
-					.map((p) => relative(this.cwd, p) || p);
-			}
-		} catch {
-			/* fall through */
-		}
-
-		// Fallback: recursive node:fs walk with simple glob matching.
-		const results: string[] = [];
-		await this._walk(searchRoot, glob, maxDepth, includeHidden, results, maxResults);
-		return results.map((p) => relative(this.cwd, p) || p);
-	}
-
-	private async _walk(
-		dir: string,
-		glob: string,
-		maxDepth: number,
-		includeHidden: boolean,
-		results: string[],
-		maxResults: number,
-		depth = 0,
-	): Promise<void> {
-		if (depth > maxDepth || results.length >= maxResults) return;
-
-		let entries: string[];
-		try {
-			entries = await readdir(dir);
-		} catch {
-			return;
-		}
-
-		for (const entry of entries) {
-			if (!includeHidden && entry.startsWith(".")) continue;
-			const full = join(dir, entry);
-			let s: Awaited<ReturnType<typeof stat>>;
-			try {
-				s = await stat(full);
-			} catch {
-				continue;
-			}
-
-			if (s.isDirectory()) {
-				await this._walk(full, glob, maxDepth, includeHidden, results, maxResults, depth + 1);
-			} else if (s.isFile() && matchGlob(glob, entry)) {
-				results.push(full);
-			}
-		}
-	}
-
-	// -------------------------------------------------------------------------
-	// callers  (Phase 1: grep-based; Phase 2: LSP callHierarchy for TS files)
+	// callers (LSP callHierarchy for TS files + grep fallback)
 	// -------------------------------------------------------------------------
 
 	async callers(symbol: string, opts: CallersOptions = {}): Promise<CallSite[]> {
@@ -481,11 +167,10 @@ export class LocalLectorBackend implements LectorBackend {
 
 	private async _callersViaLsp(symbol: string, filePath: string, maxResults: number): Promise<CallSite[]> {
 		const abs = resolvePath(this.cwd, filePath, this.writableRoots);
-		const { readFile: rf } = await import("node:fs/promises");
-		const content = await rf(abs, "utf-8");
+		const content = await readFile(abs, "utf-8");
 		const fileUrl = pathToFileURL(abs).href;
 
-		// Find the symbol's position from the cached symbol map (or re-extract).
+		// Find the symbol's position from extracted symbols.
 		const symbols = extractSymbolsFor(content, filePath);
 		const sym = symbols.find((s) => s.name === symbol);
 		if (!sym) throw new Error(`LSP callers: symbol '${symbol}' not found in ${filePath}`);
@@ -498,11 +183,12 @@ export class LocalLectorBackend implements LectorBackend {
 	}
 
 	private async _callersViaGrep(symbol: string, opts: CallersOptions, maxResults: number): Promise<CallSite[]> {
-		const matches = await this.search(symbol, {
+		const matches = await this._grepSearch(symbol, {
 			path: opts.path,
 			maxResults: maxResults * 2,
 		});
-		const DECL_RE = buildDeclRe(symbol);
+		const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const DECL_RE = new RegExp(String.raw`\b(?:function|class|interface|type|const|let|var)\s+${escaped}\b`);
 		const callers: CallSite[] = [];
 		for (const m of matches) {
 			if (callers.length >= maxResults) break;
@@ -511,19 +197,140 @@ export class LocalLectorBackend implements LectorBackend {
 		}
 		return callers;
 	}
-}
 
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
+	// Helper: grep search (used by callers fallback)
+	private async _grepSearch(
+		pattern: string,
+		opts: { path?: string; maxResults?: number },
+	): Promise<Array<{ path: string; line: number; content: string }>> {
+		const searchRoot = opts.path ? resolvePath(this.cwd, opts.path, this.writableRoots) : this.cwd;
+		const maxResults = opts.maxResults ?? DEFAULT_MAX_RESULTS_SEARCH;
 
-/** Minimal glob matching: supports * and ? wildcards. */
-function matchGlob(pattern: string, name: string): boolean {
-	const re = new RegExp(
-		`^${pattern
-			.replace(/[.+^${}()|[\]\\]/g, "\\$&")
-			.replace(/\*/g, ".*")
-			.replace(/\?/g, ".")}$`,
-	);
-	return re.test(name);
+		const args = ["-rn", "--color=never", "--", pattern, searchRoot];
+
+		// Try ripgrep first, fall back to grep.
+		for (const cmd of ["rg", "grep"]) {
+			const isRg = cmd === "rg";
+			const rgArgs = isRg ? ["-n", "--color=never", "--no-heading", "--", pattern, searchRoot] : args;
+
+			try {
+				const { stdout, exitCode } = await spawnCollect(cmd, rgArgs, this.cwd);
+				if (exitCode > 1) continue; // 1 = no matches (ok), >1 = error
+				return this._parseGrepOutput(stdout, maxResults);
+			} catch {
+				// command not found or failed — try next
+			}
+		}
+
+		return [];
+	}
+
+	private _parseGrepOutput(
+		stdout: string,
+		maxResults: number,
+	): Array<{ path: string; line: number; content: string }> {
+		const matches: Array<{ path: string; line: number; content: string }> = [];
+		for (const line of stdout.split("\n")) {
+			if (matches.length >= maxResults) break;
+			const m = line.match(/^(.+?):(\d+):(.*)/);
+			if (!m) continue;
+			matches.push({
+				path: m[1],
+				line: Number.parseInt(m[2], 10),
+				content: m[3],
+			});
+		}
+		return matches;
+	}
+
+	// -------------------------------------------------------------------------
+	// LSP-backed methods (diagnostics, hover, workspace symbols)
+	// -------------------------------------------------------------------------
+
+	async getDiagnostics(path: string): Promise<import("./backend.js").Diagnostic[]> {
+		if (!isTsFile(path)) return [];
+
+		const abs = resolvePath(this.cwd, path, this.writableRoots);
+		const fileUrl = pathToFileURL(abs).href;
+
+		try {
+			const lsp = await this.getLsp();
+			const content = await readFile(abs, "utf-8");
+			await lsp.openFile(fileUrl, content);
+
+			// Wait a bit for diagnostics to be computed
+			// lint-ignore: RAWTIMER deliberate diagnostic computation delay
+			await new Promise((r) => setTimeout(r, 500));
+
+			const diags = await lsp.getDiagnostics(fileUrl);
+
+			return diags.map((d) => ({
+				severity: d.severity,
+				message: d.message,
+				line: d.range.start.line + 1, // Convert to 1-indexed
+				character: d.range.start.character,
+				code: d.code,
+				source: d.source,
+			}));
+		} catch {
+			// LSP unavailable — return empty
+			return [];
+		}
+	}
+
+	async getHover(path: string, line: number, character: number): Promise<import("./backend.js").HoverInfo | null> {
+		if (!isTsFile(path)) return null;
+
+		const abs = resolvePath(this.cwd, path, this.writableRoots);
+		const fileUrl = pathToFileURL(abs).href;
+
+		try {
+			const lsp = await this.getLsp();
+			const content = await readFile(abs, "utf-8");
+			await lsp.openFile(fileUrl, content);
+
+			return await lsp.getHover(fileUrl, line - 1, character); // Convert to 0-indexed
+		} catch {
+			return null;
+		}
+	}
+
+	async workspaceSymbols(query: string): Promise<import("./backend.js").WorkspaceSymbol[]> {
+		try {
+			const lsp = await this.getLsp();
+			const symbols = await lsp.workspaceSymbols(query);
+
+			// Map LSP SymbolKind enum to human-readable strings
+			const kindMap: Record<number, string> = {
+				1: "file",
+				2: "module",
+				3: "namespace",
+				4: "package",
+				5: "class",
+				6: "method",
+				7: "property",
+				8: "field",
+				9: "constructor",
+				10: "enum",
+				11: "interface",
+				12: "function",
+				13: "variable",
+				14: "constant",
+				15: "string",
+				16: "number",
+				17: "boolean",
+				18: "array",
+			};
+
+			return symbols.map((s) => ({
+				name: s.name,
+				kind: kindMap[s.kind] || "unknown",
+				path: s.location.uri.startsWith("file://") ? fileURLToPath(s.location.uri) : s.location.uri,
+				line: s.location.range.start.line + 1, // Convert to 1-indexed
+				containerName: s.containerName,
+			}));
+		} catch {
+			return [];
+		}
+	}
 }

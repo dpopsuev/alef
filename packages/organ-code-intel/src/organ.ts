@@ -1,100 +1,47 @@
 /**
- * CodeIntelOrgan — EDA adapter for the CodeIntelBackend.
+ * CodeIntelOrgan — LSP-based code intelligence for TypeScript/JavaScript.
  *
- * Six tools exposed to the LLM:
- *   code.read    — read file + symbol map; optional symbol block zoom
- *   code.write   — write file (creates parents)
- *   code.edit    — targeted edit with unique-match enforcement
- *   code.search  — grep/ripgrep content search
- *   code.find    — glob file find
- *   code.callers — find call sites for a symbol (Phase 1: grep)
+ * Four LSP-powered tools for code navigation and analysis:
+ *   code.symbols  — workspace-wide symbol search (functions, classes, interfaces, types)
+ *   code.hover    — type information and documentation at a position
+ *   code.callers  — find all call sites of a symbol (LSP + grep fallback)
+ *   code.diagnose — get TypeScript compilation errors for a file
  *
- * Cache wiring:
- *   code.read, code.search, code.find, code.callers — shouldCache: true
- *   code.write, code.edit — invalidates: [path] (evicts read + callers cache)
+ * Design: Pure code intelligence layer. Use fs.* tools for file operations.
+ * This organ focuses solely on LSP capabilities that fs cannot provide.
  */
 
 import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-kernel";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
-import type { LectorBackend } from "./backend.js";
-import { LocalLectorBackend } from "./local-backend.js";
+import type { CodeIntelBackend } from "./backend.js";
+import { LocalCodeIntelBackend } from "./local-backend.js";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
 // ---------------------------------------------------------------------------
 
-const READ_TOOL = {
-	name: "code.read",
+const SYMBOLS_TOOL = {
+	name: "code.symbols",
 	description:
-		"Read a code file with its symbol map (functions, classes, types). Use symbol= to zoom into one declaration. " +
-		"Always returns all declared symbols. For non-code files, use fs.read instead.",
+		"Search for symbols across the entire workspace. Returns functions, classes, interfaces, types, and variables " +
+		"matching the query. Useful for finding definitions without knowing the exact file location. " +
+		"Query supports fuzzy matching.",
+	inputSchema: z.object({
+		query: z.string().min(1).describe("Symbol name or pattern to search for (fuzzy match)"),
+	}),
+};
+
+const HOVER_TOOL = {
+	name: "code.hover",
+	description:
+		"Get type information and documentation for a symbol at a specific position. " +
+		"Returns TypeScript type signature, JSDoc comments, and parameter information. " +
+		"Use this to understand complex types without reading source files.",
 	inputSchema: z.object({
 		path: z.string().min(1).describe("File path (relative or absolute)"),
-		symbol: z.string().optional().describe("Name of a symbol to zoom into (returns just that block)"),
-		maxLines: z.number().optional().describe("Max lines to return (default: 2000 full, 300 symbol)"),
-		offset: z.number().optional().describe("Start line for full-file reads (1-indexed)"),
-	}),
-};
-
-const WRITE_TOOL = {
-	name: "code.write",
-	description:
-		"Write full content to a code file, creating parent directories if needed. For targeted symbol-level edits, use code.edit instead.",
-	inputSchema: z.object({
-		path: z.string().min(1).describe("File path (relative or absolute)"),
-		content: z.string().min(1).describe("Content to write"),
-	}),
-};
-
-const EDIT_TOOL = {
-	name: "code.edit",
-	description:
-		"Edit a code file by exact text or by symbol name (replaces the full function/class span). " +
-		"Requires code.read first. More precise than fs.edit for code symbols.",
-	inputSchema: z.object({
-		path: z.string().min(1).describe("File path (relative or absolute)"),
-		edits: z
-			.array(
-				z.object({
-					oldText: z.string().optional().describe("Exact text to replace (must be unique in file)"),
-					newText: z.string().min(1).describe("Replacement text"),
-					symbol: z
-						.string()
-						.optional()
-						.describe(
-							"Name of a symbol to replace entirely (function, class, etc.). " +
-								"Replaces the full span. Requires prior code.read.",
-						),
-				}),
-			)
-			.describe("Ordered list of replacements (each uses oldText or symbol)"),
-	}),
-};
-
-const SEARCH_TOOL = {
-	name: "code.search",
-	description:
-		"Search file contents by pattern using ripgrep. Returns matching lines with file path and line number. " +
-		"To find all callers of a specific symbol by name, use code.callers instead.",
-	inputSchema: z.object({
-		pattern: z.string().min(1).describe("Search pattern (regex or literal)"),
-		path: z.string().optional().describe("Directory or file to search (default: cwd)"),
-		caseInsensitive: z.boolean().optional().describe("Case-insensitive search (default: false)"),
-		maxResults: z.number().optional().describe("Max matches to return (default: 200)"),
-		extension: z.string().optional().describe("Filter by file extension, e.g. 'ts'"),
-	}),
-};
-
-const FIND_TOOL = {
-	name: "code.find",
-	description: "Find files by glob pattern. Use depth=1 to list immediate children of a directory.",
-	inputSchema: z.object({
-		glob: z.string().min(1).describe("Glob pattern, e.g. '*.ts' or '*.test.ts'"),
-		path: z.string().optional().describe("Root directory to search (default: cwd)"),
-		maxResults: z.number().optional().describe("Max results (default: 500)"),
-		depth: z.number().optional().describe("Max directory depth (depth=1 = immediate children)"),
-		hidden: z.boolean().optional().describe("Include hidden files (default: false)"),
+		line: z.number().min(1).describe("Line number (1-indexed)"),
+		character: z.number().min(0).describe("Character position (0-indexed)"),
 	}),
 };
 
@@ -102,13 +49,44 @@ const CALLERS_TOOL = {
 	name: "code.callers",
 	description:
 		"Find every call site referencing a named symbol (function, class, variable). " +
-		"Returns file, line, and surrounding context. Use before refactoring to understand blast radius.",
+		"Returns file, line, and surrounding context. Use before refactoring to understand blast radius. " +
+		"For TypeScript files, uses LSP for precise results. Falls back to grep for other languages.",
 	inputSchema: z.object({
 		symbol: z.string().min(1).describe("Symbol name to search for"),
 		path: z.string().optional().describe("Restrict search to this path (default: entire workspace)"),
 		maxResults: z.number().optional().describe("Max results (default: 100)"),
 	}),
 };
+
+const DIAGNOSE_TOOL = {
+	name: "code.diagnose",
+	description:
+		"Get TypeScript compilation errors and warnings for a file. " +
+		"Returns diagnostics with severity (error/warning/info), message, line, and character position. " +
+		"Use after editing TypeScript files to verify changes compile correctly.",
+	inputSchema: z.object({
+		path: z.string().min(1).describe("File path (relative or absolute)"),
+	}),
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatDiagnostics(diagnostics: import("./backend.js").Diagnostic[]): string {
+	if (diagnostics.length === 0) return "✓ No errors or warnings";
+
+	const severityLabel = (s: number) => {
+		if (s === 1) return "ERROR";
+		if (s === 2) return "WARN";
+		if (s === 3) return "INFO";
+		return "HINT";
+	};
+
+	const lines = diagnostics.map((d) => `${severityLabel(d.severity)} [${d.line}:${d.character}] ${d.message}`);
+
+	return lines.join("\n");
+}
 
 // ---------------------------------------------------------------------------
 // Organ factory
@@ -117,23 +95,23 @@ const CALLERS_TOOL = {
 export interface CodeIntelOrganOptions extends BaseOrganOptions {
 	/**
 	 * Workspace root. All relative paths resolve against this.
-	 * Required when using the default LocalLectorBackend.
+	 * Required when using the default LocalCodeIntelBackend.
 	 */
 	cwd: string;
 	/** OCAP grant — directories accessible. Undefined = unrestricted. */
 	writableRoots?: readonly string[];
 	/**
-	 * Override the backend (e.g. StubLectorBackend for tests,
-	 * DockerLectorBackend for EnclosureOrgan integration).
-	 * Default: LocalLectorBackend.
+	 * Override the backend (e.g. StubCodeIntelBackend for tests,
+	 * DockerCodeIntelBackend for EnclosureOrgan integration).
+	 * Default: LocalCodeIntelBackend.
 	 */
-	backend?: LectorBackend;
+	backend?: CodeIntelBackend;
 }
 
 export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
-	const backend: LectorBackend =
+	const backend: CodeIntelBackend =
 		opts.backend ??
-		new LocalLectorBackend({
+		new LocalCodeIntelBackend({
 			cwd: opts.cwd,
 			writableRoots: opts.writableRoots,
 		});
@@ -142,62 +120,16 @@ export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
 		"code-intel",
 		{
 			motor: {
-				"code.read": typedAction(
-					READ_TOOL,
+				"code.symbols": typedAction(
+					SYMBOLS_TOOL,
 					async (ctx) => {
-						const { path, symbol, maxLines, offset } = ctx.payload;
-						if (!path) throw new Error("code.read: path is required");
-						const r = await backend.read(path, { symbol, maxLines, offset });
-						const readLabel = symbol ? `Read **${symbol}** in ${path}` : `Read **${path}**`;
-						return withDisplay(r as unknown as Record<string, unknown>, {
-							text: readLabel,
-							mimeType: "text/markdown",
-						});
-					},
-					{ shouldCache: (_ctx, result) => result !== undefined },
-				),
-
-				"code.write": typedAction(
-					WRITE_TOOL,
-					async (ctx) => {
-						const { path, content } = ctx.payload;
-						if (!path) throw new Error("code.write: path is required");
-						await backend.write(path, content);
+						const { query } = ctx.payload;
+						if (!query) throw new Error("code.symbols: query is required");
+						const symbols = await backend.workspaceSymbols(query);
 						return withDisplay(
-							{ path, written: content.length },
-							{ text: `Wrote **${path}** (${content.length} bytes)`, mimeType: "text/markdown" },
-						);
-					},
-					{ invalidates: (ctx) => [ctx.payload.path] },
-				),
-
-				"code.edit": typedAction(
-					EDIT_TOOL,
-					async (ctx) => {
-						const { path, edits } = ctx.payload;
-						if (!path) throw new Error("code.edit: path is required");
-						await backend.edit(path, edits);
-						return withDisplay(
-							{ path, edits: edits.length },
+							{ symbols, count: symbols.length },
 							{
-								text: `Edited **${path}** (${edits.length} edit${edits.length === 1 ? "" : "s"})`,
-								mimeType: "text/markdown",
-							},
-						);
-					},
-					{ invalidates: (ctx) => [ctx.payload.path] },
-				),
-
-				"code.search": typedAction(
-					SEARCH_TOOL,
-					async (ctx) => {
-						const { pattern, path, caseInsensitive, maxResults, extension } = ctx.payload;
-						if (!pattern) throw new Error("code.search: pattern is required");
-						const matches = await backend.search(pattern, { path, caseInsensitive, maxResults, extension });
-						return withDisplay(
-							{ matches, count: matches.length },
-							{
-								text: `Found ${matches.length} match${matches.length === 1 ? "" : "es"} for \`${pattern}\``,
+								text: `Found ${symbols.length} symbol${symbols.length === 1 ? "" : "s"} matching \`${query}\``,
 								mimeType: "text/markdown",
 							},
 						);
@@ -205,18 +137,21 @@ export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
 					{ shouldCache: (_ctx, result) => result !== undefined },
 				),
 
-				"code.find": typedAction(
-					FIND_TOOL,
+				"code.hover": typedAction(
+					HOVER_TOOL,
 					async (ctx) => {
-						const { glob, path, maxResults, depth, hidden } = ctx.payload;
-						if (!glob) throw new Error("code.find: glob is required");
-						const paths = await backend.find(glob, { path, maxResults, depth, hidden });
+						const { path, line, character } = ctx.payload;
+						if (!path) throw new Error("code.hover: path is required");
+						const hover = await backend.getHover(path, line, character);
+						if (!hover) {
+							return withDisplay(
+								{ hover: null },
+								{ text: "No hover information available", mimeType: "text/markdown" },
+							);
+						}
 						return withDisplay(
-							{ paths, count: paths.length },
-							{
-								text: `Found ${paths.length} file${paths.length === 1 ? "" : "s"} matching \`${glob}\``,
-								mimeType: "text/markdown",
-							},
+							{ type: hover.contents, range: hover.range },
+							{ text: `Type info:\n\`\`\`\n${hover.contents}\n\`\`\``, mimeType: "text/markdown" },
 						);
 					},
 					{ shouldCache: (_ctx, result) => result !== undefined },
@@ -238,21 +173,38 @@ export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
 					},
 					{ shouldCache: (_ctx, result) => result !== undefined },
 				),
+
+				"code.diagnose": typedAction(
+					DIAGNOSE_TOOL,
+					async (ctx) => {
+						const { path } = ctx.payload;
+						if (!path) throw new Error("code.diagnose: path is required");
+						const diagnostics = await backend.getDiagnostics(path);
+						const formatted = formatDiagnostics(diagnostics);
+						const summary =
+							diagnostics.length === 0
+								? `✓ **${path}** - no errors or warnings`
+								: `**${path}** - ${diagnostics.length} diagnostic${diagnostics.length === 1 ? "" : "s"}`;
+
+						return withDisplay(
+							{ path, diagnostics, count: diagnostics.length },
+							{
+								text: `${summary}\n\n\`\`\`\n${formatted}\n\`\`\``,
+								mimeType: "text/markdown",
+							},
+						);
+					},
+					{ shouldCache: (_ctx, result) => result !== undefined },
+				),
 			},
 		},
 		{
 			actions: opts.actions,
 			directives: CODE_INTEL_DIRECTIVES,
-			description: "Symbol-aware code reading and editing with LSP caller analysis.",
-			labels: ["code", "symbols", "lsp", "read", "edit"],
-			ready: backend instanceof LocalLectorBackend ? () => backend.warmUp() : undefined,
-			onUnmount:
-				backend instanceof LocalLectorBackend
-					? () => {
-							backend.blockCache.clear();
-							void backend.stopLsp();
-						}
-					: undefined,
+			description: "LSP-based code intelligence: workspace symbols, type info, call hierarchy, diagnostics.",
+			labels: ["code", "lsp", "typescript", "intelligence"],
+			ready: backend instanceof LocalCodeIntelBackend ? () => backend.warmUp() : undefined,
+			onUnmount: backend instanceof LocalCodeIntelBackend ? () => backend.stopLsp() : undefined,
 		},
 	);
 
@@ -260,13 +212,11 @@ export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
 }
 
 const CODE_INTEL_DIRECTIVES = [
-	`**code tool guidance**
-- code.read returns file content AND a symbol map on every call. Use symbol= to zoom into a single function or class without reading the whole file.
-- Always call code.read before code.edit. Never edit from memory or inference.
-- code.edit applies targeted replacements. Each oldText must be unique within the file. Provide enough context to be unambiguous.
-- code.write overwrites the entire file. Use it only to create new files or completely replace an existing one.
-- code.search searches file contents across the workspace (regex or literal). Prefer this over reading every file individually.
-- code.find lists files matching a glob pattern. Use depth=1 to list immediate children of a directory.
-- code.callers finds all call sites of a named symbol. Use it before refactoring to understand blast radius.
-- All paths must resolve within the working directory.`,
+	`**code-intel tool guidance**
+- Use fs.read, fs.write, and fs.edit for all file operations. The code-intel organ provides LSP-based enhancements only.
+- code.symbols searches for functions, classes, interfaces, and types across the entire workspace. Use this to find definitions without knowing the file location.
+- code.hover provides type information and JSDoc documentation at a specific position. Use this to understand complex TypeScript types.
+- code.callers finds all call sites of a named symbol. Use it before refactoring to understand the blast radius of changes.
+- code.diagnose checks for TypeScript compilation errors in a file. Use this after editing TS files to verify they compile correctly.
+- All code-intel tools work best on TypeScript files. Some tools (hover, diagnose) are TypeScript-only.`,
 ];

@@ -54,13 +54,8 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 		}),
 		store,
 	);
-	const {
-		scrollback: writer,
-		live: { replyBlock, replyTW, thinkingTW },
-		forums,
-	} = output;
-	const { promptConsole, historyProvider } = input;
-	const { editor } = promptConsole;
+	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
+	const { promptConsole, historyProvider, editor } = input;
 
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
 	const signalHandlers = getTuiSignalHandlers();

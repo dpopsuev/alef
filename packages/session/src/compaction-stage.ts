@@ -17,10 +17,12 @@ export interface CompactionStageOptions {
 	onCompact?: (result: CompactionResult) => void;
 	/** Publish a signal event (wired by the agent after mount). */
 	publishSignal?: (type: string, payload: Record<string, unknown>) => void;
+	/** Returns the real token count from the last API response. When provided, takes precedence over char estimation. */
+	getLastTokenCount?: () => number;
 }
 
 const CHARS_PER_TOKEN = 4;
-const DEFAULT_THRESHOLD = 0.7;
+const DEFAULT_THRESHOLD = 0.9;
 const DEFAULT_PRESERVE_RECENT = 4;
 
 function estimateTokens(messages: readonly unknown[]): number {
@@ -75,11 +77,12 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 	const summarizeFn: SummarizeFn = opts.summarize ?? defaultSummarize;
 	const onCompact = opts.onCompact;
 	const publishSignal = opts.publishSignal;
+	const getLastTokenCount = opts.getLastTokenCount;
 
 	let lastSummary = "";
 
 	return async (input) => {
-		const estimated = estimateTokens(input.messages);
+		const estimated = getLastTokenCount?.() || estimateTokens(input.messages);
 
 		if (estimated <= tokenLimit) {
 			if (lastSummary) {

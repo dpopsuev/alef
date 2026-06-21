@@ -95,16 +95,22 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 
 	const factoryOrgan = createFactoryOrgan({ cwd });
 	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;
+	let lastTotalTokens = 0;
 	pipeline.addStage(
 		"compactor",
 		createCompactionStage({
 			contextWindow: model.contextWindow,
 			publishSignal: (type, payload) => signalPublish?.(type, payload),
+			getLastTokenCount: () => lastTotalTokens,
 		}),
 	);
 	const origMount = pipeline.mount.bind(pipeline);
 	(pipeline as { mount: typeof pipeline.mount }).mount = (nerve) => {
 		signalPublish = (type, payload) => nerve.signal.publish({ type, payload, correlationId: "" });
+		nerve.signal.subscribe("llm.token-usage", (event) => {
+			const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
+			if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
+		});
 		return origMount(nerve);
 	};
 

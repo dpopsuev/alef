@@ -45,6 +45,8 @@ export class SelectList implements Component {
 	private maxVisible: number = 5;
 	private theme: SelectListTheme;
 	private layout: SelectListLayoutOptions;
+	private searchBuffer = "";
+	private searchable = false;
 
 	public onSelect?: (item: SelectItem) => void;
 	public onCancel?: () => void;
@@ -58,9 +60,14 @@ export class SelectList implements Component {
 		this.layout = layout;
 	}
 
+	enableSearch(): this {
+		this.searchable = true;
+		return this;
+	}
+
 	setFilter(filter: string): void {
 		this.filteredItems = filter
-			? fuzzyFilter(this.items, filter, (item) => `${item.label} ${item.description ?? ""}`)
+			? fuzzyFilter(this.items, filter, (item) => `${item.value} ${item.label} ${item.description ?? ""}`)
 			: this.items;
 		this.selectedIndex = 0;
 	}
@@ -76,9 +83,13 @@ export class SelectList implements Component {
 	render(width: number): string[] {
 		const lines: string[] = [];
 
-		// If no items match filter, show message
+		if (this.searchable) {
+			const prompt = this.searchBuffer ? `> ${this.searchBuffer}` : this.theme.description("> type to filter...");
+			lines.push(prompt);
+		}
+
 		if (this.filteredItems.length === 0) {
-			lines.push(this.theme.noMatch("  No matching commands"));
+			lines.push(this.theme.noMatch("  No matching items"));
 			return lines;
 		}
 
@@ -113,27 +124,29 @@ export class SelectList implements Component {
 
 	handleInput(keyData: string): void {
 		const kb = getKeybindings();
-		// Up arrow - wrap to bottom when at top
 		if (kb.matches(keyData, "tui.select.up")) {
 			this.selectedIndex = this.selectedIndex === 0 ? this.filteredItems.length - 1 : this.selectedIndex - 1;
 			this.notifySelectionChange();
-		}
-		// Down arrow - wrap to top when at bottom
-		else if (kb.matches(keyData, "tui.select.down")) {
+		} else if (kb.matches(keyData, "tui.select.down")) {
 			this.selectedIndex = this.selectedIndex === this.filteredItems.length - 1 ? 0 : this.selectedIndex + 1;
 			this.notifySelectionChange();
-		}
-		// Enter
-		else if (kb.matches(keyData, "tui.select.confirm")) {
+		} else if (kb.matches(keyData, "tui.select.confirm")) {
 			const selectedItem = this.filteredItems[this.selectedIndex];
-			if (selectedItem && this.onSelect) {
-				this.onSelect(selectedItem);
-			}
-		}
-		// Escape or Ctrl+C
-		else if (kb.matches(keyData, "tui.select.cancel")) {
-			if (this.onCancel) {
+			if (selectedItem && this.onSelect) this.onSelect(selectedItem);
+		} else if (kb.matches(keyData, "tui.select.cancel")) {
+			if (this.searchable && this.searchBuffer) {
+				this.searchBuffer = "";
+				this.setFilter("");
+			} else if (this.onCancel) {
 				this.onCancel();
+			}
+		} else if (this.searchable) {
+			if (keyData === "\x7F" || keyData === "\b") {
+				this.searchBuffer = this.searchBuffer.slice(0, -1);
+				this.setFilter(this.searchBuffer);
+			} else if (keyData.length === 1 && keyData >= " ") {
+				this.searchBuffer += keyData;
+				this.setFilter(this.searchBuffer);
 			}
 		}
 	}

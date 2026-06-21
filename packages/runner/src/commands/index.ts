@@ -432,26 +432,39 @@ const model = {
 	},
 };
 
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+
 const think = {
 	name: "think",
-	description: "Set thinking level — :think off | minimal | low | medium | high | xhigh",
+	description: "Set thinking level — :think or :think <level>",
 	run(ctx: TuiHandlerContext, args: string[]) {
-		const LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 		const [level] = args;
-		if (!level) {
-			const current = ctx.session.getThinking() ?? "off";
-			ctx.writer.addNotice(`Thinking: ${current}\nUsage: :think <level>  (${LEVELS.join(" | ")})`);
+		if (level) {
+			if (!THINKING_LEVELS.includes(level as (typeof THINKING_LEVELS)[number])) {
+				ctx.writer.addNotice(`Unknown level: ${level}. Valid: ${THINKING_LEVELS.join(" | ")}`);
+				ctx.tui.requestRender();
+				return;
+			}
+			ctx.session.setThinking(level);
+			ctx.writer.addNotice(`Thinking set to "${level}".`);
 			ctx.tui.requestRender();
 			return;
 		}
-		if (!LEVELS.includes(level as (typeof LEVELS)[number])) {
-			ctx.writer.addNotice(`Unknown level: ${level}. Valid: ${LEVELS.join(" | ")}`);
-			ctx.tui.requestRender();
-			return;
-		}
-		ctx.session.setThinking(level);
-		ctx.writer.addNotice(`Thinking set to "${level}". Takes effect on the next message.`);
-		ctx.tui.requestRender();
+		const current = ctx.session.getThinking() ?? "off";
+		const items: SelectItem[] = THINKING_LEVELS.map((l) => ({
+			value: l,
+			label: l === current ? `${l} *` : l,
+		}));
+		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+			id: "think-picker",
+			items,
+			maxVisible: 6,
+			onSelect: (item) => {
+				ctx.session.setThinking(item.value);
+				ctx.writer.addNotice(`Thinking set to "${item.value}".`);
+				ctx.tui.requestRender();
+			},
+		});
 	},
 };
 

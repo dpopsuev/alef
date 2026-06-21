@@ -26,6 +26,7 @@ export function createContextFactory(
 		tui,
 		opts,
 		session,
+		dispatch,
 		abortCurrentTurn: getState().abortCurrentTurn,
 		setAbortCurrentTurn: (fn: (() => void) | undefined) =>
 			fn ? dispatch({ type: "abort.set", fn }) : dispatch({ type: "abort.clear" }),

@@ -7,11 +7,67 @@
  */
 
 import { getModels, getProviders, type KnownProvider } from "@dpopsuev/alef-llm";
+import { type SelectItem, SelectList, type SelectListTheme } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { buildModel } from "../model.js";
-import { setThemeByName } from "../theme.js";
+import { color, setThemeByName, type ThemeTokens } from "../theme.js";
 import { CommandRegistry } from "./registry.js";
 import type { TuiHandlerContext } from "./types.js";
+
+const MODEL_PICKER_ID = "model-picker";
+
+function buildModelPickerTheme(t: ThemeTokens): SelectListTheme {
+	return {
+		selectedPrefix: (s) => color(s, t.accentFg),
+		selectedText: (s) => color(s, t.accentFg),
+		description: (s) => color(s, t.mutedFg),
+		scrollInfo: (s) => color(s, t.mutedFg),
+		noMatch: (s) => color(s, t.mutedFg),
+	};
+}
+
+function openModelPicker(ctx: TuiHandlerContext): void {
+	const current = ctx.session.getModel() ?? "";
+	const items: SelectItem[] = [];
+
+	for (const provider of getProviders()) {
+		for (const m of getModels(provider as KnownProvider)) {
+			const id = `${provider}/${m.id}`;
+			const active = current.includes(m.id);
+			items.push({
+				value: id,
+				label: active ? `${id} *` : id,
+				description: m.name !== m.id ? m.name : undefined,
+			});
+		}
+	}
+
+	const theme = buildModelPickerTheme(ctx.t);
+	const list = new SelectList(items, 10, theme);
+
+	const close = () => ctx.dispatch({ type: "overlay.hide", id: MODEL_PICKER_ID });
+
+	list.onSelect = (item: SelectItem) => {
+		close();
+		try {
+			buildModel(item.value);
+			ctx.session.setModel(item.value);
+			ctx.writer.addNotice(`Model switched to ${item.value}.`);
+		} catch (e) {
+			ctx.writer.addNotice(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+		ctx.tui.requestRender();
+	};
+	list.onCancel = () => {
+		close();
+		ctx.tui.requestRender();
+	};
+
+	ctx.dispatch({
+		type: "overlay.show",
+		descriptor: { id: MODEL_PICKER_ID, component: list, handleInput: (d) => list.handleInput(d) },
+	});
+}
 
 // ---------------------------------------------------------------------------
 // Helper — fire-and-forget async with notice on error
@@ -345,26 +401,16 @@ const model = {
 		const [newId] = args;
 		if (newId) {
 			try {
-				const built = buildModel(newId);
+				buildModel(newId);
 				ctx.session.setModel(newId);
-				ctx.writer.addNotice(`Model switched to ${built.id}. Takes effect on the next message.`);
+				ctx.writer.addNotice(`Model switched to ${newId}.`);
 			} catch (e) {
 				ctx.writer.addNotice(`Unknown model: ${newId}. ${e instanceof Error ? e.message : ""}`);
 			}
 			ctx.tui.requestRender();
 			return;
 		}
-		const current = ctx.session.getModel() ?? "";
-		const lines: string[] = [];
-		for (const provider of getProviders()) {
-			for (const m of getModels(provider as KnownProvider)) {
-				const id = `${provider}/${m.id}`;
-				const marker = current.includes(m.id) ? " *" : "";
-				lines.push(`  ${id}${marker}`);
-			}
-		}
-		ctx.writer.addNotice(`Models (* = active):\n${lines.join("\n")}\n\nUsage: :model <provider/id>`);
-		ctx.tui.requestRender();
+		openModelPicker(ctx);
 	},
 };
 

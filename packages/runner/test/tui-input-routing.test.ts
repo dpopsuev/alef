@@ -45,6 +45,7 @@ function makeCtx(overrides: Partial<TuiHandlerContext> = {}): TuiHandlerContext 
 		writer: new ChatLog(new Container(), t),
 		tui: makeTui(),
 		session: makeSession(),
+		dispatch: vi.fn(),
 		abortCurrentTurn: undefined,
 		setAbortCurrentTurn: vi.fn(),
 		...overrides,

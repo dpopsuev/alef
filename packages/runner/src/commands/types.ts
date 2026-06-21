@@ -2,6 +2,7 @@ import type { InteractiveOptions } from "../interactive.js";
 import type { Session } from "../session.js";
 import type { ThemeTokens } from "../theme.js";
 import type { ChatLog } from "../tui/chat-log.js";
+import type { TuiEvent } from "../tui-dispatch.js";
 
 export interface TuiHandlerContext {
 	t: ThemeTokens;
@@ -14,6 +15,7 @@ export interface TuiHandlerContext {
 		requestRender(force?: boolean): void;
 	};
 	session: Session;
+	dispatch: (event: TuiEvent) => void;
 	abortCurrentTurn: (() => void) | undefined;
 	setAbortCurrentTurn(fn: (() => void) | undefined): void;
 }

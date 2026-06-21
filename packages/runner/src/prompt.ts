@@ -68,6 +68,8 @@ export function createDefaultDirectives(opts: CreateScrollOptions): Directives {
 	directives
 		.register(b("core", 0, BLOCK_CORE, "identity", "behavior", "format", "safety"))
 		.register(b("reconciliation", 5, () => loadPrompt("reconciliation"), "behavior"))
+		.register(b("no-emojis", 10, () => loadPrompt("no-emojis"), "format"))
+		.register(b("no-files", 15, () => loadPrompt("no-files"), "behavior", "safety"))
 		.register(b("tools", 100, () => buildToolsBlock(tools), "dynamic"))
 		.register(b("guidelines", 200, () => buildGuidelinesBlock(tools), "dynamic"))
 		.register(b("environment", 1000, () => buildEnvironmentBlock(cwd), "ephemeral"));

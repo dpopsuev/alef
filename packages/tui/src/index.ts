@@ -1,5 +1,20 @@
 // Core TUI interfaces and classes
 
+// Theme primitives
+export {
+	bg,
+	bold,
+	type ColorDepth,
+	type ColorToken,
+	color,
+	colorDepth,
+	dim,
+	FG_RESET,
+	fgCode,
+	hexToRgb,
+	italic,
+	nerdFontsAvailable,
+} from "./ansi.js";
 // Autocomplete support
 export {
 	type AutocompleteItem,
@@ -128,6 +143,7 @@ export {
 	setCellDimensions,
 	type TerminalCapabilities,
 } from "./terminal-image.js";
+export type { ThemeTokens } from "./theme-types.js";
 export {
 	type Component,
 	Container,

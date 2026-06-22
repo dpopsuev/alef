@@ -1,9 +1,7 @@
 import type { Organ } from "@dpopsuev/alef-kernel";
-import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createMetaOrgan, type DirectiveAdapter } from "@dpopsuev/alef-meta";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
-import { DEFAULT_MODEL } from "./args.js";
-import { buildModel } from "./model.js";
+import { autoDetectModel, buildModel } from "./model.js";
 import type { DirectiveView } from "./session.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
 
@@ -23,7 +21,8 @@ export async function runMetaAgent(
 	onChunk?: (chunk: string) => void,
 	getDirective?: () => DirectiveView | undefined,
 ): Promise<string> {
-	const model = modelId ? buildModel(modelId) : buildModel(DEFAULT_MODEL);
+	const model = modelId ? buildModel(modelId) : autoDetectModel();
+	if (!model) throw new Error("No model available for :meta — set ALEF_MODEL or configure a provider API key");
 	// DirectiveView is structurally a subset of DirectiveAdapter; the runtime object
 	// from getDirectiveAdapter() satisfies the full interface.
 	const organs: Organ[] = [
@@ -32,7 +31,7 @@ export async function runMetaAgent(
 			getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined,
 		}),
 	];
-	const factory = buildSubagentFactory({ model: model as Model<Api>, baseSystemPrompt: META_SYSTEM_PROMPT });
+	const factory = buildSubagentFactory({ model: model, baseSystemPrompt: META_SYSTEM_PROMPT });
 	const strategy = new InProcessStrategy(organs, (sessionOpts) =>
 		factory({ ...sessionOpts, onChunk: sessionOpts.onChunk ?? onChunk }),
 	);

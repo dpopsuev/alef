@@ -155,7 +155,7 @@ The `session` package must not reference organ-specific event names (Feature Env
 - ALWAYS use `git add <specific-file-paths>`
 - Run `git status` before committing; verify only your files are staged
 
-Forbidden: `git reset --hard` · `git checkout .` · `git clean -fd` · `git stash` · `git commit --no-verify`
+Forbidden: `git reset --hard` · `git checkout .` · `git clean -fd` · `git stash` · `git commit --no-verify` · `git commit -n` · `HUSKY=0`
 
 Rebase conflicts: resolve only in files you modified. Abort and ask if the conflict is in a file you did not touch. Never force push.
 

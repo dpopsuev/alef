@@ -593,6 +593,29 @@ export function resolveAgentChildDefinition(
  * Intended for profile overlays: loadAgentDefinition(base) + loadAgentDefinition(overlay).
  * The overlay file is typically a sparse file with only the fields that differ per profile.
  */
+function mergeOrganLists(
+	base: CompiledAgentDefinition["organs"],
+	overlay: CompiledAgentDefinition["organs"],
+): CompiledAgentDefinition["organs"] {
+	if (overlay.length === 0) return base;
+	const merged = new Map(base.map((o) => [o.name, o]));
+	for (const o of overlay) {
+		const existing = merged.get(o.name);
+		if (existing) {
+			merged.set(o.name, {
+				...existing,
+				...o,
+				actions: o.actions.length > 0 ? o.actions : existing.actions,
+				toolNames: o.toolNames.length > 0 ? o.toolNames : existing.toolNames,
+				blockedPatterns: o.blockedPatterns ?? existing.blockedPatterns,
+			});
+		} else {
+			merged.set(o.name, o);
+		}
+	}
+	return [...merged.values()];
+}
+
 export function mergeAgentDefinitions(
 	base: CompiledAgentDefinition,
 	overlay: CompiledAgentDefinition,
@@ -605,8 +628,9 @@ export function mergeAgentDefinitions(
 		model: overlay.model ?? base.model,
 		systemPrompt: overlay.systemPrompt ?? base.systemPrompt,
 
-		// Arrays: overlay replaces base when non-empty.
-		organs: overlay.organs.length > 0 ? overlay.organs : base.organs,
+		// Organs: merge by name. Overlay organ config wins per-organ field.
+		// Base organs not in overlay are kept. Overlay organs not in base are added.
+		organs: mergeOrganLists(base.organs, overlay.organs),
 		surfaces: overlay.surfaces.length > 0 ? overlay.surfaces : base.surfaces,
 		children: overlay.children.length > 0 ? overlay.children : base.children,
 

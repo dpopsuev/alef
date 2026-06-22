@@ -11,14 +11,12 @@
  *   alef debug session --list       — list sessions for current cwd
  */
 
-import { readFile } from "node:fs/promises";
-
+import { getDatabase, SqliteSessionStore } from "@dpopsuev/alef-storage";
 import type { StorageRecord } from "./session-store.js";
-import { JsonlSessionStore } from "./session-store.js";
 
 export async function runDebugSession(args: string[], cwd: string): Promise<void> {
 	if (args.includes("--list") || args.includes("-l")) {
-		await listSessions(cwd);
+		listSessions(cwd);
 		return;
 	}
 
@@ -26,25 +24,27 @@ export async function runDebugSession(args: string[], cwd: string): Promise<void
 	await inspectSession(cwd, idPrefix);
 }
 
-async function listSessions(cwd: string): Promise<void> {
-	const sessions = await JsonlSessionStore.list(cwd);
+function listSessions(cwd: string): void {
+	const db = getDatabase();
+	const sessions = SqliteSessionStore.list(db, cwd);
 	if (sessions.length === 0) {
 		console.log("No sessions for", cwd);
 		return;
 	}
 	for (const s of sessions) {
-		console.log(`${s.id}  ${s.mtime.toISOString().replace("T", " ").slice(0, 16)}  ${s.path}`);
+		console.log(`${s.id}  ${s.mtime.toISOString().replace("T", " ").slice(0, 16)}`);
 	}
 }
 
 async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
-	const sessions = await JsonlSessionStore.list(cwd);
+	const db = getDatabase();
+	const sessions = SqliteSessionStore.list(db, cwd);
 	if (sessions.length === 0) {
 		console.error("No sessions for", cwd);
 		process.exit(1);
 	}
 
-	let target = sessions[0]; // most recent
+	let target = sessions[0];
 	if (idPrefix) {
 		const found = sessions.find((s) => s.id.startsWith(idPrefix));
 		if (!found) {
@@ -54,18 +54,8 @@ async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
 		target = found;
 	}
 
-	const raw = await readFile(target.path, "utf-8").catch(() => "");
-	const records: StorageRecord[] = raw
-		.split("\n")
-		.filter(Boolean)
-		.map((line) => {
-			try {
-				return JSON.parse(line) as StorageRecord;
-			} catch {
-				return null;
-			}
-		})
-		.filter((r): r is StorageRecord => r !== null);
+	const store = SqliteSessionStore.resume(db, cwd, target.id);
+	const records: StorageRecord[] = await store.events();
 
 	// Group motor events by correlationId — these are tool calls dispatched to organs.
 	// Each motor event with a non-dialog type should get a matching sense response.

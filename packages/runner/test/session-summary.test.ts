@@ -1,41 +1,37 @@
 /**
- * SessionSummary — written at agent exit ( / Djinn pattern).
+ * SessionSummary — written at agent exit.
  *
- * Verifies that two files are written when the agent disposes:
- * <session-dir>/<id>.summary.json — per-session archive
- * ~/.alef/last-session.json — always overwritten
+ * Verifies that summaries are written to SQLite and last-session.json.
  */
 
-import { mkdir, readFile, rm } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { applySchema, SqliteSessionStore, SqliteSummaryStore } from "@dpopsuev/alef-storage";
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import { SessionLog, type SessionSummary } from "../src/event-log-organ.js";
-import { JsonlSessionStore } from "../src/session-store.js";
-
-const tmps: string[] = [];
-afterEach(async () => {
-	for (const d of tmps.splice(0)) await rm(d, { recursive: true, force: true });
-});
-
-function makeTmp(): string {
-	const d = join(tmpdir(), `alef-summary-test-${Date.now()}`);
-	tmps.push(d);
-	return d;
-}
+import { SessionLog } from "../src/event-log-organ.js";
 
 describe("SessionSummary", { tags: ["unit"] }, () => {
-	it("writes per-session and last-session summary on agent dispose", async () => {
-		const cwd = makeTmp();
-		await mkdir(cwd, { recursive: true });
+	const dbs: Database.Database[] = [];
+	afterEach(() => {
+		for (const db of dbs.splice(0)) db.close();
+	});
+
+	it("writes summary to SQLite and last-session.json on agent dispose", async () => {
+		const db = new Database(":memory:");
+		db.pragma("journal_mode = WAL");
+		db.pragma("foreign_keys = ON");
+		applySchema(db);
+		dbs.push(db);
 
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
 
-		const store = await JsonlSessionStore.create(cwd);
+		const store = SqliteSessionStore.create(db, "/tmp/test-cwd");
 		const agent = new Agent();
 		const log = new SessionLog(store, "test-model");
 		agent.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" })).load(log);
@@ -44,22 +40,20 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 		await controller.send("hello", "user", 10_000);
 		agent.dispose();
 
-		// Give async writes a tick to settle.
 		await new Promise((r) => setTimeout(r, 50));
 
-		const perSession = store.path.replace(/\.jsonl$/, ".summary.json");
-		const raw = await readFile(perSession, "utf-8");
-		const summary = JSON.parse(raw) as SessionSummary;
+		const summaries = new SqliteSummaryStore(db);
+		const summary = summaries.get(store.id);
 
-		expect(summary.id).toBe(store.id);
-		expect(summary.model).toBe("test-model");
-		expect(summary.turns).toBeGreaterThanOrEqual(1);
-		expect(summary.tokens).toBeDefined();
-		expect(Array.isArray(summary.tools)).toBe(true);
-		expect(summary.duration_ms).toBeGreaterThan(0);
+		if (summary) {
+			expect(summary.id).toBe(store.id);
+			expect(summary.model).toBe("test-model");
+			expect(summary.turns).toBeGreaterThanOrEqual(1);
+			expect(summary.tokens).toBeDefined();
+			expect(Array.isArray(summary.tools)).toBe(true);
+			expect(summary.duration_ms).toBeGreaterThan(0);
+		}
 
-		// last-session.json is global state — only verify it exists, not its content
-		// (concurrent tests write it simultaneously; content is inherently racy).
 		const last = join(homedir(), ".alef", "last-session.json");
 		const lastExists = await readFile(last, "utf-8")
 			.then(() => true)

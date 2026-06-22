@@ -19,9 +19,10 @@ import { join } from "node:path";
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 
 import { debugLog } from "@dpopsuev/alef-kernel";
+import type { SessionStore } from "@dpopsuev/alef-session";
 import type { ActorIdentity } from "./identity/actor.js";
 import { redactPayload } from "./redact.js";
-import { type BusKind, hashRecord, type JsonlSessionStore, type StorageActor } from "./session-store.js";
+import { type BusKind, hashRecord, type StorageActor } from "./session-store.js";
 
 export interface SessionSummary {
 	id: string;
@@ -46,11 +47,11 @@ export class SessionLog implements Organ {
 		{ name: "session-store", kind: "file" },
 	];
 
-	private readonly store: JsonlSessionStore;
+	private readonly store: SessionStore;
 	private readonly model: string;
 	private readonly agentActor: StorageActor | undefined;
 
-	constructor(store: JsonlSessionStore, model = "unknown", agentIdentity?: ActorIdentity) {
+	constructor(store: SessionStore, model = "unknown", agentIdentity?: ActorIdentity) {
 		this.store = store;
 		this.model = model;
 		this.agentActor = agentIdentity ? { address: agentIdentity.address, type: agentIdentity.type } : undefined;
@@ -164,16 +165,16 @@ export class SessionLog implements Organ {
 	}
 
 	private async _writeSummary(summary: SessionSummary): Promise<void> {
+		try {
+			const { getDatabase, SqliteSummaryStore } = await import("@dpopsuev/alef-storage");
+			new SqliteSummaryStore(getDatabase()).write(summary);
+		} catch (e: unknown) {
+			debugLog("session-summary:sqlite-failed", { error: String(e) });
+		}
 		const json = `${JSON.stringify(summary, null, 2)}\n`;
-		const perSession = this.store.path.replace(/\.jsonl$/, ".summary.json");
 		const last = join(homedir(), ".alef", "last-session.json");
-		await Promise.all([
-			writeFile(perSession, json, "utf-8").catch((e: unknown) =>
-				debugLog("session-summary:write-failed", { path: perSession, error: String(e) }),
-			),
-			writeFile(last, json, "utf-8").catch((e: unknown) =>
-				debugLog("session-summary:write-failed", { path: last, error: String(e) }),
-			),
-		]);
+		await writeFile(last, json, "utf-8").catch((e: unknown) =>
+			debugLog("session-summary:write-failed", { path: last, error: String(e) }),
+		);
 	}
 }

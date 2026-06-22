@@ -13,7 +13,7 @@ import { getConfig } from "../config.js";
 import { buildModel } from "../model.js";
 import { resolveProfile } from "../model-profiles.js";
 import { getProviderColor } from "../provider-colors.js";
-import { color, setThemeByName } from "../theme.js";
+import { color, setThemeByName, statusGlyph } from "../theme.js";
 import { openConfigPicker, openEnumPicker } from "../tui/config-picker.js";
 import { openPicker } from "../tui/picker.js";
 import { CommandRegistry } from "./registry.js";
@@ -387,13 +387,15 @@ const directive = {
 			source: () => scroll.list(),
 			toItem: (b) => ({
 				value: b.id,
-				label: `${b.enabled ? "●" : "○"} ${b.id}`,
+				label: `${b.enabled ? statusGlyph("active") : statusGlyph("pending")} ${b.id}`,
 				description: b.tags?.join(", "),
 			}),
 			onSelect: (b) => {
 				scroll.toggle(b.id);
 				const updated = scroll.list().find((x) => x.id === b.id);
-				ctx.writer.addNotice(`${updated?.enabled ? "●" : "○"} Block '${b.id}' toggled.`);
+				ctx.writer.addNotice(
+					`${updated?.enabled ? statusGlyph("active") : statusGlyph("pending")} Block '${b.id}' toggled.`,
+				);
 				ctx.tui.requestRender();
 			},
 		});
@@ -524,7 +526,7 @@ const profile = {
 			return {
 				value: n,
 				label: active ? `${n} *` : n,
-				description: p ? `${p.providers.join(", ")}${p.default ? ` → ${p.default}` : ""}` : "",
+				description: p ? `${p.providers.join(", ")}${p.default ? ` > ${p.default}` : ""}` : "",
 			};
 		});
 

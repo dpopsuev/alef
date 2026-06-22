@@ -179,7 +179,7 @@ const logout = {
 
 const reload = {
 	name: "reload",
-	description: "Hot-reload an organ — :reload <name> <path>",
+	description: "Hot-reload an adapter — :reload <name> <path>",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const [name, path] = args;
 		if (!name || !path) {
@@ -204,7 +204,7 @@ const reload = {
 
 const load = {
 	name: "load",
-	description: "Mount a new organ from a TypeScript file — :load <path>",
+	description: "Mount a new adapter from a TypeScript file — :load <path>",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const [path] = args;
 		if (!path) {
@@ -229,7 +229,7 @@ const load = {
 
 const unload = {
 	name: "unload",
-	description: "Unmount a loaded organ — :unload or :unload <name>",
+	description: "Unmount a loaded adapter — :unload or :unload <name>",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		if (!ctx.session.unloadOrgan) {
 			ctx.writer.addNotice(":unload not available in this session.");
@@ -239,7 +239,7 @@ const unload = {
 		const [name] = args;
 		if (name) {
 			const removed = ctx.session.unloadOrgan(name);
-			ctx.writer.addNotice(removed ? `Unloaded ${name}.` : `No organ named '${name}'.`);
+			ctx.writer.addNotice(removed ? `Unloaded ${name}.` : `No adapter named '${name}'.`);
 			ctx.tui.requestRender();
 			return;
 		}
@@ -255,7 +255,7 @@ const unload = {
 			toItem: (o) => ({ value: o.name, label: o.name, description: o.description }),
 			onSelect: (o) => {
 				const removed = ctx.session.unloadOrgan?.(o.name);
-				ctx.writer.addNotice(removed ? `Unloaded ${o.name}.` : `No organ named '${o.name}'.`);
+				ctx.writer.addNotice(removed ? `Unloaded ${o.name}.` : `No adapter named '${o.name}'.`);
 				ctx.tui.requestRender();
 			},
 		});
@@ -264,11 +264,11 @@ const unload = {
 
 const install = {
 	name: "install",
-	description: "Install an organ — :install <organ>[@version]",
+	description: "Install an adapter — install <adapter>[@version]",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const [spec] = args;
 		if (!spec) {
-			ctx.writer.addNotice("Usage: :install <organ>[@version]");
+			ctx.writer.addNotice("Usage: install <adapter>[@version]");
 			ctx.tui.requestRender();
 			return;
 		}
@@ -303,7 +303,7 @@ const upgrade = {
 
 const rollback = {
 	name: "rollback",
-	description: "Roll back to a previous organ generation — :rollback [N]",
+	description: "Roll back to a previous adapter generation — :rollback [N]",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		attempt(ctx, async () => {
 			const pm = await import("../alef-pm.js");

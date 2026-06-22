@@ -64,72 +64,72 @@ Never:
 
 Legitimate: external constraints, non-obvious regex, OS/API quirks that would surprise an expert.
 
-## Organ Framework
+## Adapter Framework
 
-Organs live in `packages/organ-*`. Each organ depends only on `@dpopsuev/alef-kernel` and `zod`.
+Adapters live in `packages/adapter-*`. Each adapter depends only on `@dpopsuev/alef-kernel` and `zod`.
 
-### Creating a new organ
+### Creating a new adapter
 
 Use the scaffold command — it generates all required files:
 ```bash
-make organ NAME=weather          # creates packages/organ-weather/ with 5 files
-npm install                       # register workspace package
+npx tsx scripts/create-adapter.ts weather   # creates packages/adapter-weather/ with 5 files
+npm install                                  # register workspace package
 ```
 
-Organ names resolve by convention: `"weather"` in a blueprint resolves to `@dpopsuev/alef-organ-weather`. No registry entry needed.
+Adapter names resolve by convention: `"weather"` in a blueprint resolves to `@dpopsuev/alef-adapter-weather`. No registry entry needed.
 
-### Before writing organ code
+### Before writing adapter code
 
-1. Read `packages/kernel/src/framework.ts` — the `defineOrgan()` contract and `ActionMap` type
-2. Read `packages/kernel/src/buses.ts` — `OrganContributions`, `ToolDefinition`, `ContextAssemblyHandler`
-3. Read an existing organ as reference (e.g. `packages/organ-fs/src/organ.ts`)
+1. Read `packages/kernel/src/framework.ts` — the `defineAdapter()` contract and `ActionMap` type
+2. Read `packages/kernel/src/buses.ts` — `AdapterContributions`, `ToolDefinition`, `ContextAssemblyHandler`
+3. Read an existing adapter as reference (e.g. `packages/adapter-fs/src/organ.ts`)
 4. Run `organComplianceSuite()` from `@dpopsuev/alef-testkit/organ` on the result
 
-Never write organ code from memory or training data. The API shape must come from reading the source. Organs that don't use `defineOrgan()` cannot mount on the nerve and will fail silently.
+Never write adapter code from memory or training data. The API shape must come from reading the source. Adapters that don't use `defineAdapter()` cannot mount on the nerve and will fail silently.
 
-Use `explainOrgan(organ)` from `@dpopsuev/alef-kernel` to inspect any organ's tools, contributions, and directives.
+Use `explainAdapter(adapter)` from `@dpopsuev/alef-kernel` to inspect any adapter's tools, contributions, and directives.
 
-### Authoring an organ
+### Authoring an adapter
 
 ```ts
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
-export function createXOrgan(opts: XOrganOptions) {
-  return defineOrgan("x", {
-    "motor/x.do": typedAction(TOOL, async (ctx) => {
+export function createWeatherAdapter(opts: WeatherAdapterOptions) {
+  return defineAdapter("weather", {
+    "motor/weather.forecast": typedAction(TOOL, async (ctx) => {
       return withDisplay({ result }, { text: "...", mimeType: "text/plain" });
     }),
   }, {
     description: "One sentence.",
     directives: ["Guidance for the LLM."],
     contributions: {
-      "llm.phase": phaseHandler,   // optional: participate in pre-LLM pipeline
-      "agent.run": agentRunHandler, // optional: extend agent.run behaviour
-      "skills": [skillBook],        // optional: contribute skill books
+      "context.assemble": phaseHandler,  // optional: participate in pre-LLM pipeline
+      "agent.run": agentRunHandler,      // optional: extend agent.run behaviour
+      "skills": [skillBook],             // optional: contribute skill books
     },
   });
 }
 ```
 
-Action map key prefix determines bus direction: `"motor/x.do"` subscribes Motor, `"sense/organ.loaded"` subscribes Sense.
+Action map key prefix determines bus direction: `"motor/weather.forecast"` subscribes Motor, `"sense/organ.loaded"` subscribes Sense.
 
-### Cross-organ integration (contributions map)
+### Cross-adapter integration (contributions map)
 
-Organs declare capabilities via `contributions` in `defineOrgan` opts. Aggregator organs collect them from `sense/organ.loaded`. No optional callbacks, no manual wiring.
+Adapters declare capabilities via `contributions` in `defineAdapter` opts. Aggregator adapters collect them from `sense/organ.loaded`. No optional callbacks, no manual wiring.
 
 Current contribution slots:
 - `"agent.run"?: AgentRunContribution` — extend `agent.run({ text, playbook? })` with schema fields and behaviour
-- `"llm.phase"?: PhaseStageHandler` — participate in the pre-LLM pipeline (tools + messages transform)
-- `"skills"?: SkillBook[]` — contribute playbooks to the Skills Organ library
+- `"context.assemble"?: ContextAssemblyHandler` — participate in the pre-LLM pipeline (tools + messages transform)
+- `"skills"?: SkillBook[]` — contribute playbooks to the Skills adapter library
 
-Adding a new slot: add the type to `OrganContributions` in `kernel/src/buses.ts`, implement a composite aggregator organ, wire via `sense/organ.loaded`.
+Adding a new slot: add the type to `AdapterContributions` in `kernel/src/buses.ts`, implement a composite aggregator adapter, wire via `sense/organ.loaded`.
 
 ### Lint rules (enforced by `npm run check:organs`)
 
-- `[RAWTIMER]` — raw `setTimeout`/`setInterval` in organ `src/` is a hard gate. Suppress with `// lint-ignore: RAWTIMER <reason>` when it is a real deadline, not a stall detector.
-- Organs with tools must declare `description` and non-empty `directives`.
-- Organs cannot import from `packages/runner` or `packages/testkit` — kernel + zod only.
+- `[RAWTIMER]` — raw `setTimeout`/`setInterval` in adapter `src/` is a hard gate. Suppress with `// lint-ignore: RAWTIMER <reason>` when it is a real deadline, not a stall detector.
+- Adapters with tools must declare `description` and non-empty `directives`.
+- Adapters cannot import from `packages/runner` or `packages/testkit` — kernel + zod only.
 
 ## Import Boundaries (enforced by `eslint-plugin-boundaries`)
 
@@ -161,18 +161,18 @@ callback injected by `local-session.ts` (root).
 ## Architecture
 
 Production agent: `packages/alef-coding-agent` — the full coding agent stack.
-- `CODING_AGENT_BLUEPRINT` — canonical organ set (fs, shell, nodesh, code-intel, web, agent, factory, skills)
-- organ-agent — unified delegation + child lifecycle (agent.run, agent.spawn, agent.ask, agent.race, agent.converse, agent.kill)
+- `CODING_AGENT_BLUEPRINT` — canonical adapter set (fs, shell, nodesh, code-intel, web, agent, factory, skills)
+- adapter-agent — unified delegation + child lifecycle (agent.run, agent.spawn, agent.ask, agent.race, agent.converse, agent.kill)
 
-Microkernel: `packages/kernel` — buses, organ framework, binding chain, contributions. No organ names, no application concerns.
+Microkernel: `packages/kernel` — buses, adapter framework, binding chain, contributions. No adapter names, no application concerns.
 
 Runtime: `packages/runtime` — Agent class, InProcessStrategy, RemoteStrategy (HTTP/SSE with stall watchdog + AbortSignal).
 
 Security: OCAP via `writableRoots` (injected by materializer from config.security.writable_roots). No `allowAbsolutePaths`.
 
-Bus protocol constants (e.g. `VALIDATE_REQUEST`, `DIALOG_MESSAGE`) belong in `kernel/src/protocols.ts` only when they define a cross-organ handshake. Organ-specific event names stay in the organ that owns them.
+Bus protocol constants (e.g. `VALIDATE_REQUEST`, `DIALOG_MESSAGE`) belong in `kernel/src/protocols.ts` only when they define a cross-adapter handshake. Adapter-specific event names stay in the adapter that owns them.
 
-The `session` package must not reference organ-specific event names (Feature Envy). Turn boundaries are detected structurally.
+The `session` package must not reference adapter-specific event names (Feature Envy). Turn boundaries are detected structurally.
 
 ## **CRITICAL** Git Rules
 

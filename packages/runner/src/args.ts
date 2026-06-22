@@ -274,7 +274,7 @@ export function parseArgs(argv: string[]): Args {
 			continue;
 		}
 
-		if (arg === "--list-organs") {
+		if (arg === "--list-organs" || arg === "--list-adapters") {
 			args.listOrgans = true;
 			i++;
 			continue;

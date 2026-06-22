@@ -116,7 +116,7 @@ organs:
 `;
 }
 
-export function scaffoldOrgan(name: string, cwd: string, version = "0.1.0"): string {
+export function scaffoldAdapter(name: string, cwd: string, version = "0.1.0"): string {
 	const dir = join(cwd, `alef-adapter-${name}`);
 	const srcDir = join(dir, "src");
 

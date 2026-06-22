@@ -12,7 +12,7 @@ import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 
 import { initYamlBlueprints } from "./init-yaml-blueprints.js";
-import { loadOrgans } from "./load-organs.js";
+import { loadAdapters } from "./load-adapters.js";
 import { createLocalSession } from "./local-session.js";
 import { createRunnerLogger } from "./logger.js";
 import { resolveStartupModel } from "./model/index.js";
@@ -135,7 +135,7 @@ import("@dpopsuev/alef-storage")
 	.then(({ setEmbedder, LocalEmbedder }) => setEmbedder(new LocalEmbedder()))
 	.catch(() => {});
 
-const loaded = await loadOrgans(args, cfg, log);
+const loaded = await loadAdapters(args, cfg, log);
 const { blueprintUpgradePolicy, blueprintPath } = loaded;
 
 const {

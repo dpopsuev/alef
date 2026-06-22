@@ -5,9 +5,9 @@ import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import type { Args } from "./args.js";
 import { resolveApiKey } from "./auth.js";
 import type { AlefConfig } from "./config.js";
-import { ScriptedLlmOrgan } from "./scripted-llm.js";
+import { ScriptedLlmAdapter } from "./scripted-llm.js";
 
-export interface LlmOrganOptions {
+export interface LlmAdapterOptions {
 	model: Model<Api>;
 	cfg: AlefConfig;
 	args: Args;
@@ -20,11 +20,11 @@ export interface LlmOrganOptions {
 	systemPrompt?: string;
 }
 
-export function buildLlmOrgan(opts: LlmOrganOptions): Organ {
+export function buildLlmAdapter(opts: LlmAdapterOptions): Organ {
 	const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 
 	if (scriptedRepliesEnv) {
-		return new ScriptedLlmOrgan(JSON.parse(scriptedRepliesEnv) as string[]);
+		return new ScriptedLlmAdapter(JSON.parse(scriptedRepliesEnv) as string[]);
 	}
 
 	return createAgentLoop({

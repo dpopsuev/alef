@@ -133,7 +133,7 @@ export async function loadWorkspace(directives: Directives, cwd: string): Promis
 	}
 }
 
-export function registerOrgans(directives: Directives, organs: readonly Organ[]): void {
+export function registerAdapters(directives: Directives, organs: readonly Organ[]): void {
 	for (const organ of organs) {
 		if (!organ.directives?.length) continue;
 		const header = organ.description ? `### ${organ.name}: ${organ.description}` : `### ${organ.name}`;

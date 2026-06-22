@@ -43,7 +43,7 @@ export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly str
 	return undefined;
 }
 
-export interface LoadResult {
+export interface AdapterLoadResult {
 	organs: Organ[];
 	blueprintModelId: string | undefined;
 	blueprintName: string | undefined;
@@ -53,7 +53,7 @@ export interface LoadResult {
 	writableRoots: readonly string[] | undefined;
 }
 
-export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Promise<LoadResult> {
+export async function loadAdapters(args: Args, cfg: AlefConfig, log: Logger): Promise<AdapterLoadResult> {
 	let blueprintPath: string | undefined;
 	let blueprintName: string | undefined;
 

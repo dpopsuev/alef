@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@dpopsuev/alef-kernel": "^0.0.1",
+    "pty-manager": "^1.11.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -1,12 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
+import { createFactoryOrgan } from "@dpopsuev/alef-adapter-factory";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 import { createRouterOrgan } from "@dpopsuev/alef-gateway";
 import type { Api, Message, Model } from "@dpopsuev/alef-llm";
-import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
-import { createFactoryOrgan } from "@dpopsuev/alef-organ-factory";
 import type { Agent } from "@dpopsuev/alef-runtime";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import type { Args } from "./args.js";
@@ -35,7 +35,7 @@ async function createRouter(
 
 	if (args.daemon) {
 		session.subscribe((event: AgentEvent) => {
-			router.notifyAgent(event as unknown as Record<string, unknown>);
+			router.notifyAgent(event);
 		});
 		const daemonDir = join(homedir(), ".alef");
 		mkdirSync(daemonDir, { recursive: true });

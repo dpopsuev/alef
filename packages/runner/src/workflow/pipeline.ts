@@ -1,4 +1,4 @@
-import type { StationResult, StationRunner, WorkflowDef } from "@dpopsuev/alef-organ-workflow";
+import type { StationResult, StationRunner, WorkflowDef } from "@dpopsuev/alef-adapter-workflow";
 
 export interface PipelineResult {
 	stations: Record<string, StationResult>;
@@ -40,7 +40,8 @@ function evalCondition(when: string, artifact: unknown): boolean {
 	if (typeof artifact !== "object" || artifact === null) return true;
 	const [lhs, op, rhs] = when.split(/\s*(==|!=)\s*/);
 	if (!lhs || !op) return true;
-	const value = String((artifact as Record<string, unknown>)[lhs.trim()] ?? "");
+	const artifactValue = (artifact as Record<string, unknown>)[lhs.trim()];
+	const value = typeof artifactValue === "string" ? artifactValue : "";
 	const expected = rhs?.trim().replace(/^"|"$/g, "") ?? "";
 	return op === "==" ? value === expected : value !== expected;
 }

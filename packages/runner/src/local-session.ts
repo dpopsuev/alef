@@ -10,13 +10,13 @@ import type { Logger } from "pino";
 import { buildAgent } from "./agent-kernel.js";
 import type { Args } from "./args.js";
 import { setupHttpSurface } from "./build-delegation.js";
-import { buildLlmOrgan } from "./build-llm-organ.js";
+import { buildLlmAdapter } from "./build-llm-adapter.js";
 import type { AlefConfig } from "./config.js";
 import { configureSessionActors } from "./identity/actor.js";
 import { ActorRouteTable } from "./identity/routes.js";
-import type { LoadResult } from "./load-organs.js";
+import type { AdapterLoadResult } from "./load-adapters.js";
 import { buildModel } from "./model/index.js";
-import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
+import { createDefaultDirectives, loadWorkspace, registerAdapters } from "./prompt.js";
 import type { AgentEvent, Session, SessionState, TokensConsumed } from "./session.js";
 import { SessionHandle } from "./session-lifecycle/index.js";
 import type { SessionStore } from "./session-store.js";
@@ -238,7 +238,7 @@ function registerContributions(
 async function buildDirectiveSet(args: Args, organs: readonly Organ[]) {
 	const directives = createDefaultDirectives({ tools: organs.flatMap((o) => o.tools), cwd: args.cwd });
 	await loadWorkspace(directives, args.cwd);
-	registerOrgans(directives, organs);
+	registerAdapters(directives, organs);
 
 	if (args.debug) {
 		const skillPath = join(dirname(new URL(import.meta.url).pathname), "skills/debug-alef/SKILL.md");
@@ -292,7 +292,7 @@ export async function createLocalSession(
 	cfg: AlefConfig,
 	log: Logger,
 	store: SessionStore,
-	loaded: LoadResult,
+	loaded: AdapterLoadResult,
 	model: Model<Api>,
 ): Promise<{
 	session: SessionHandle;
@@ -353,7 +353,7 @@ export async function createLocalSession(
 		tags: [...new Set(enabledBlocks.flatMap((b) => b.tags ?? []))],
 	});
 
-	const llmOrgan = buildLlmOrgan({
+	const llmOrgan = buildLlmAdapter({
 		model,
 		cfg,
 		args,

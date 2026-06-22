@@ -108,8 +108,8 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 			console.error("Usage: alef organ new <name>");
 			process.exit(1);
 		}
-		const { scaffoldOrgan } = await import("./organ-scaffold.js");
-		const dir = scaffoldOrgan(args.pmOrganNew, args.cwd);
+		const { scaffoldAdapter } = await import("./adapter-scaffold.js");
+		const dir = scaffoldAdapter(args.pmOrganNew, args.cwd);
 		console.log(`Scaffolded organ at ${dir}`);
 		console.log(`  cd ${dir}\n  npm install\n  npm run build\n  alef install ./${dir.split("/").pop() ?? ""}`);
 	} else if (args.pmExport !== undefined) {

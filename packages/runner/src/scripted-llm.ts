@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve, ToolDefinition } from "@dpopsuev/alef-kernel";
 
 type SerializedStep =
 	| string
@@ -25,7 +25,7 @@ function toReplyText(step: SerializedStep): string {
 
 export interface ScriptedLlmOptions {}
 
-export class ScriptedLlmOrgan implements Organ {
+export class ScriptedLlmAdapter implements Adapter {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as readonly string[] };

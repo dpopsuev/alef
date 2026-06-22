@@ -116,7 +116,7 @@ export function createResourceMeter(): Organ {
 			onMount(nerve: Nerve) {
 				startedAt = Date.now();
 				nerve.signal.subscribe("*", (event: SignalEvent) => {
-					const p = event.payload as Record<string, unknown>;
+					const p = event.payload;
 					if (event.type === "llm.token-usage") {
 						const usage = p.usage as { input?: number; output?: number; cacheRead?: number } | undefined;
 						if (usage) {

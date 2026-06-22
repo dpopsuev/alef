@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { createToolShellOrgan } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { Directives } from "../src/directives.js";
-import { createDefaultDirectives, loadWorkspace, registerOrgans } from "../src/prompt.js";
+import { createDefaultDirectives, loadWorkspace, registerAdapters } from "../src/prompt.js";
 
 const tempDirs: string[] = [];
 function tmpCwd(): string {
@@ -158,20 +158,20 @@ describe("loadWorkspace", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// registerOrgans
+// registerAdapters
 // ---------------------------------------------------------------------------
 
-describe("registerOrgans", { tags: ["unit"] }, () => {
+describe("registerAdapters", { tags: ["unit"] }, () => {
 	it("ToolShell directive reaches the built prompt", () => {
 		const toolShell = createToolShellOrgan({ tools: [] });
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
-		registerOrgans(d, [toolShell]);
+		registerAdapters(d, [toolShell]);
 		expect(d.build()).toContain("tools.describe");
 	});
 
-	it("ToolShell extended directive is absent when registerOrgans excludes it", () => {
+	it("ToolShell extended directive is absent when registerAdapters excludes it", () => {
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
-		registerOrgans(d, []);
+		registerAdapters(d, []);
 		// BLOCK_GUIDELINES contains a brief tools.describe mention; ToolShell adds the
 		// full progressive-disclosure directive. Assert the ToolShell-specific phrase.
 		expect(d.build()).not.toContain("Call tools.describe first");
@@ -187,7 +187,7 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 			mount: () => () => {},
 		};
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
-		registerOrgans(d, [organ]);
+		registerAdapters(d, [organ]);
 		expect(d.build()).toContain("Always read before editing.");
 	});
 
@@ -201,7 +201,7 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 		};
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const before = d.build();
-		registerOrgans(d, [silent]);
+		registerAdapters(d, [silent]);
 		expect(d.build()).toBe(before);
 	});
 });

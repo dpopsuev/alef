@@ -6,7 +6,7 @@ import {
 	buildPrepareStep,
 	buildSystemPrompt,
 	createDefaultDirectives,
-	registerOrgans,
+	registerAdapters,
 } from "../src/prompt.js";
 
 const FS_TOOLS = [
@@ -42,7 +42,7 @@ describe("buildSystemPrompt", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("registerOrgans", { tags: ["unit"] }, () => {
+describe("registerAdapters", { tags: ["unit"] }, () => {
 	it("includes organ directives in the scroll output", () => {
 		const scroll = createDefaultDirectives({ tools: FS_TOOLS, cwd: "/test" });
 		const organ = {
@@ -53,12 +53,12 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 			sources: [],
 			mount: () => () => {},
 		};
-		registerOrgans(scroll, [organ]);
+		registerAdapters(scroll, [organ]);
 		const prompt = scroll.build();
 		expect(prompt).toContain("Always read a file before editing it.");
 	});
 
-	it("infrastructure organs passed to registerOrgans have their directives in the prompt", () => {
+	it("infrastructure organs passed to registerAdapters have their directives in the prompt", () => {
 		const scroll = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const infraOrgan = {
 			name: "tools",
@@ -68,7 +68,7 @@ describe("registerOrgans", { tags: ["unit"] }, () => {
 			sources: [],
 			mount: () => () => {},
 		};
-		registerOrgans(scroll, [infraOrgan]);
+		registerAdapters(scroll, [infraOrgan]);
 		const prompt = scroll.build();
 		expect(prompt).toContain("tools.describe");
 	});
@@ -185,7 +185,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		expect(systemContent).toContain("hooks are mandatory");
 	});
 
-	it("organ directive registered via registerOrgans reaches the system message", async () => {
+	it("organ directive registered via registerAdapters reaches the system message", async () => {
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
 		const organ = {
 			name: "custom",
@@ -195,7 +195,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 			directives: ["CUSTOM_DIRECTIVE_SENTINEL"],
 			mount: () => () => {},
 		};
-		registerOrgans(d, [organ]);
+		registerAdapters(d, [organ]);
 		const prepareStep = buildPrepareStep(d, 100_000);
 		const messages = await prepareStep([{ role: "user", content: "Hi" }]);
 		expect(String(messages[0].content)).toContain("CUSTOM_DIRECTIVE_SENTINEL");

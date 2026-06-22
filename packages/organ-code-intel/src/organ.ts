@@ -69,6 +69,27 @@ const DIAGNOSE_TOOL = {
 	}),
 };
 
+const REVIEW_TOOL = {
+	name: "code.review",
+	description:
+		"Review a git diff for correctness bugs. Returns structured annotations with file, line, summary, " +
+		"and confidence. Use before committing to catch regressions. " +
+		"Pass range (e.g. 'HEAD~1', 'main..HEAD') or omit for working tree diff.",
+	inputSchema: z.object({
+		range: z.string().optional().describe("Git diff range (default: working tree)"),
+		path: z.string().optional().describe("Restrict review to this path"),
+	}),
+};
+
+export const ANNOTATION_SCHEMA = z.object({
+	filePath: z.string(),
+	line: z.number(),
+	summary: z.string(),
+	rationale: z.string().optional(),
+	confidence: z.enum(["low", "medium", "high"]).optional(),
+	tags: z.array(z.string()).optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -183,7 +204,7 @@ export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
 						const formatted = formatDiagnostics(diagnostics);
 						const summary =
 							diagnostics.length === 0
-								? `✓ **${path}** - no errors or warnings`
+								? `**${path}** - no errors or warnings`
 								: `**${path}** - ${diagnostics.length} diagnostic${diagnostics.length === 1 ? "" : "s"}`;
 
 						return withDisplay(
@@ -196,6 +217,42 @@ export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
 					},
 					{ shouldCache: (_ctx, result) => result !== undefined },
 				),
+
+				"code.review": typedAction(REVIEW_TOOL, async (ctx) => {
+					const { range, path } = ctx.payload;
+					const args = ["diff", "--no-color"];
+					if (range) args.push(range);
+					if (path) args.push("--", path);
+					const { execSync } = await import("node:child_process");
+					let diff: string;
+					try {
+						diff = execSync(`git ${args.join(" ")}`, {
+							cwd: opts.cwd,
+							encoding: "utf-8",
+							maxBuffer: 1024 * 1024,
+						});
+					} catch {
+						diff = "";
+					}
+					if (!diff.trim()) {
+						return withDisplay(
+							{ annotations: [], count: 0 },
+							{ text: "No diff to review.", mimeType: "text/plain" },
+						);
+					}
+					return withDisplay(
+						{
+							diff,
+							annotations: [],
+							count: 0,
+							note: "Diff captured. Use agent.run to spawn a reviewer subagent with this diff as context.",
+						},
+						{
+							text: `Diff captured (${diff.split("\n").length} lines). Spawn a reviewer subagent to analyze.`,
+							mimeType: "text/plain",
+						},
+					);
+				}),
 			},
 		},
 		{

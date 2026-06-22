@@ -11,13 +11,13 @@ organComplianceSuite(() =>
 );
 
 describe("CodeIntelOrgan — tool surface", () => {
-	it("exposes four LSP tools by default", () => {
+	it("exposes five tools by default", () => {
 		const organ = createCodeIntelOrgan({
 			cwd: process.cwd(),
 			backend: new StubCodeIntelBackend(),
 		});
 		const names = organ.tools.map((t) => t.name).sort();
-		expect(names).toEqual(["code.callers", "code.diagnose", "code.hover", "code.symbols"]);
+		expect(names).toEqual(["code.callers", "code.diagnose", "code.hover", "code.review", "code.symbols"]);
 	});
 
 	it("ablation: actions allowlist restricts tools", () => {

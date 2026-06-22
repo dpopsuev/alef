@@ -241,7 +241,7 @@ async function buildDirectiveSet(args: Args, organs: readonly Organ[]) {
 	registerOrgans(directives, organs);
 
 	if (args.debug) {
-		const skillPath = join(homedir(), ".config/opencode/skills/debug-alef/SKILL.md");
+		const skillPath = join(homedir(), ".config/alef/skills/debug-alef/SKILL.md");
 		try {
 			const skillContent = readFileSync(skillPath, "utf-8");
 			directives.register({

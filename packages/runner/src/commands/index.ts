@@ -541,6 +541,44 @@ const profile = {
 	},
 };
 
+const skills = {
+	name: "skills",
+	description: "Browse and invoke skills — :skills or :skills <name>",
+	run(ctx: TuiHandlerContext, args: string[]) {
+		const [name] = args;
+		if (name) {
+			ctx.writer.addNotice(`Loading skill '${name}'... Use skills.invoke({ name: "${name}" }) in the chat.`);
+			ctx.tui.requestRender();
+			return;
+		}
+		let discovered: Array<{ name: string; description: string; path: string }> = [];
+		try {
+			const { discoverSkills } = require("../../organ-skills/src/discovery.js") as {
+				discoverSkills: (cwd: string, extra?: string[]) => Array<{ name: string; description: string; path: string }>;
+			};
+			discovered = discoverSkills(ctx.opts?.cwd ?? process.cwd());
+		} catch {
+			ctx.writer.addNotice("Skills discovery not available.");
+			ctx.tui.requestRender();
+			return;
+		}
+		if (discovered.length === 0) {
+			ctx.writer.addNotice("No skills found.");
+			ctx.tui.requestRender();
+			return;
+		}
+		openConfigPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+			id: "skills-picker",
+			source: () => discovered,
+			toItem: (s) => ({ value: s.name, label: s.name, description: s.description }),
+			onSelect: (s) => {
+				ctx.writer.addNotice(`Skill '${s.name}' at ${s.path}\nUse: skills.invoke({ name: "${s.name}" })`);
+				ctx.tui.requestRender();
+			},
+		});
+	},
+};
+
 // ---------------------------------------------------------------------------
 // Registry — single source of truth; tab-completion and help derive from this
 // ---------------------------------------------------------------------------
@@ -563,4 +601,5 @@ export const registry = new CommandRegistry()
 	.register(theme)
 	.register(model)
 	.register(think)
-	.register(profile);
+	.register(profile)
+	.register(skills);

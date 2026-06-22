@@ -1,20 +1,10 @@
 export * from "./access-policy.js";
 export { type CacheStrategy, createMapCache, makeCacheKey } from "./adapter-cache.js";
 export type { DispatchOptions, EscalationHandler } from "./adapter-dispatch.js";
-export { explainOrgan, explainOrgan as explainAdapter } from "./adapter-explain.js";
-export type { BaseOrganOptions as BaseAdapterOptions, OrganTool as AdapterTool } from "./adapter-sdk.js";
+export { explainAdapter, explainOrgan } from "./adapter-explain.js";
 export * from "./adapter-sdk.js";
-export type { OrganLogger as AdapterLogger, OrganOptions as AdapterOptions } from "./adapter-types.js";
 export * from "./binding.js";
 export * from "./budget.js";
-// ── Hexagonal Architecture aliases (organ → adapter) ────────────────────
-// Forward-compatible names. Use Adapter in new code; Organ remains for
-// backward compat during the DDD rename campaign.
-export type {
-	Organ as Adapter,
-	OrganContributions as AdapterContributions,
-	OrganTheme as AdapterTheme,
-} from "./buses.js";
 export * from "./buses.js";
 export { createContextAssemblyPipeline } from "./context-assembly-pipeline.js";
 export { injectContextBlock } from "./context-helpers.js";
@@ -22,7 +12,7 @@ export { debugLog, initSessionSink, initSpineLogger } from "./debug.js";
 export * from "./errors.js";
 export * from "./execution.js";
 export * from "./framework.js";
-export { defineOrgan as defineAdapter } from "./framework.js";
+export { defineAdapter, defineOrgan } from "./framework.js";
 export { InProcessNerve } from "./in-process-nerve.js";
 export { LogField } from "./log-fields.js";
 export * from "./mcp-adapter.js";

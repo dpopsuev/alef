@@ -1,30 +1,30 @@
-import type { Organ } from "./buses.js";
+import type { Adapter } from "./buses.js";
 
-export function explainOrgan(organ: Organ): string {
+export function explainAdapter(adapter: Adapter): string {
 	const lines: string[] = [];
-	lines.push(`${organ.name}${organ.description ? ` — ${organ.description}` : ""}`);
+	lines.push(`${adapter.name}${adapter.description ? ` — ${adapter.description}` : ""}`);
 
-	if (organ.labels?.length) {
-		lines.push(`  labels: ${organ.labels.join(", ")}`);
+	if (adapter.labels?.length) {
+		lines.push(`  labels: ${adapter.labels.join(", ")}`);
 	}
 
-	if (organ.tools.length > 0) {
-		lines.push(`  tools (${organ.tools.length}):`);
-		for (const tool of organ.tools) {
+	if (adapter.tools.length > 0) {
+		lines.push(`  tools (${adapter.tools.length}):`);
+		for (const tool of adapter.tools) {
 			lines.push(
 				`    ${tool.name} — ${tool.description?.split(".")[0] ?? "(no description)"}${tool.longRunning ? " [long-running]" : ""}`,
 			);
 		}
 	}
 
-	const subs = organ.subscriptions;
+	const subs = adapter.subscriptions;
 	if (subs.motor.length > 0 || subs.sense.length > 0) {
 		const motorCount = subs.motor.length;
 		const senseCount = subs.sense.length;
 		lines.push(`  subscriptions: ${motorCount} motor, ${senseCount} sense`);
 	}
 
-	const contributions = organ.contributions;
+	const contributions = adapter.contributions;
 	if (contributions) {
 		const slots: string[] = [];
 		if (contributions.port) slots.push(`port(${contributions.port.name})`);
@@ -37,9 +37,11 @@ export function explainOrgan(organ: Organ): string {
 		if (slots.length > 0) lines.push(`  contributions: ${slots.join(", ")}`);
 	}
 
-	if (organ.directives?.length) {
-		lines.push(`  directives: ${organ.directives.length} block(s), ${organ.directives.join("").length} chars`);
+	if (adapter.directives?.length) {
+		lines.push(`  directives: ${adapter.directives.length} block(s), ${adapter.directives.join("").length} chars`);
 	}
 
 	return lines.join("\n");
 }
+/** @deprecated Use explainAdapter */
+export const explainOrgan = explainAdapter;

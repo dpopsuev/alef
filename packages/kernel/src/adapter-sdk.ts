@@ -1,23 +1,28 @@
 import type { ZodTypeAny, z } from "zod";
 import type { ToolDefinition } from "./buses.js";
-import type { MotorAction, MotorHandlerCtx, OrganLogger, OrganOptions } from "./framework.js";
+import type { AdapterLogger, AdapterOptions, MotorAction, MotorHandlerCtx } from "./framework.js";
 import { typedAction, typedStreamAction } from "./framework.js";
 import { type SenseDisplayBlock, withDisplay } from "./payload.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
 
-export interface BaseOrganOptions {
+export interface BaseAdapterOptions {
 	cwd?: string;
 	actions?: readonly string[];
-	logger?: OrganLogger;
+	logger?: AdapterLogger;
 }
+/** @deprecated Use BaseAdapterOptions */
+export type BaseOrganOptions = BaseAdapterOptions;
 
-export interface TimeoutOrganOptions extends BaseOrganOptions {
+export interface TimeoutAdapterOptions extends BaseAdapterOptions {
 	defaultTimeoutSeconds?: number;
 	maxTimeoutSeconds?: number;
 }
 
+/** @deprecated Use TimeoutAdapterOptions */
+export type TimeoutOrganOptions = TimeoutAdapterOptions;
+
 export function resolveTimeout(
-	opts: Pick<TimeoutOrganOptions, "defaultTimeoutSeconds" | "maxTimeoutSeconds">,
+	opts: Pick<TimeoutAdapterOptions, "defaultTimeoutSeconds" | "maxTimeoutSeconds">,
 	requested: number | undefined,
 	defaults: { default: number; max: number },
 ): number {
@@ -25,11 +30,15 @@ export function resolveTimeout(
 	return Math.min(effective, opts.maxTimeoutSeconds ?? defaults.max) * 1000;
 }
 
-export function spreadOrganOptions<T extends BaseOrganOptions>(opts: T): Pick<OrganOptions, "actions" | "logger"> {
+export function spreadAdapterOptions<T extends BaseAdapterOptions>(
+	opts: T,
+): Pick<AdapterOptions, "actions" | "logger"> {
 	return { actions: opts.actions, logger: opts.logger };
 }
+/** @deprecated Use spreadAdapterOptions */
+export const spreadOrganOptions = spreadAdapterOptions;
 
-export interface OrganTool<TSchema extends ZodTypeAny> extends ToolDefinition {
+export interface AdapterTool<TSchema extends ZodTypeAny> extends ToolDefinition {
 	readonly inputSchema: TSchema;
 	action(
 		handle: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
@@ -38,12 +47,14 @@ export interface OrganTool<TSchema extends ZodTypeAny> extends ToolDefinition {
 		generate: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
 	): Record<string, MotorAction>;
 }
+/** @deprecated Use AdapterTool */
+export type OrganTool<TSchema extends ZodTypeAny> = AdapterTool<TSchema>;
 
 export function tool<TSchema extends ZodTypeAny>(
 	name: string,
 	description: string,
 	schema: TSchema,
-): OrganTool<TSchema> {
+): AdapterTool<TSchema> {
 	const definition: ToolDefinition & { inputSchema: TSchema } = { name, description, inputSchema: schema };
 	return {
 		...definition,

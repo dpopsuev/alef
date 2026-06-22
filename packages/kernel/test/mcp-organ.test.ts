@@ -1,5 +1,5 @@
 /**
- * McpOrgan tests — mock MCP client, no real subprocess or network.
+ * McpAdapter tests — mock MCP client, no real subprocess or network.
  *
  * Tests: tool discovery, tool naming, Motor routing, Sense publishing,
  * error handling, unmount closes client.
@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { InProcessNerve } from "../src/in-process-nerve.js";
-import { createMcpOrganFromClient, McpOrgan } from "../src/mcp-adapter.js";
+import { createMcpAdapterFromClient, McpAdapter } from "../src/mcp-adapter.js";
 
 // ---------------------------------------------------------------------------
 // Mock MCPClient factory
@@ -44,14 +44,14 @@ function mockClient(toolDefs: FakeToolMap) {
 // Tool discovery
 // ---------------------------------------------------------------------------
 
-describe("McpOrgan — tool discovery", { tags: ["unit"] }, () => {
+describe("McpAdapter — tool discovery", { tags: ["unit"] }, () => {
 	it("exposes discovered MCP tools as organ.tools[]", async () => {
 		const client = mockClient({
 			list_files: { description: "List files", execute: async () => [] },
 			read_file: { description: "Read a file", execute: async () => "" },
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "fs");
+		const organ = await createMcpAdapterFromClient(client as never, "fs");
 		expect(organ.tools).toHaveLength(2);
 		const names = organ.tools.map((t) => t.name);
 		expect(names).toContain("fs.list_files");
@@ -63,7 +63,7 @@ describe("McpOrgan — tool discovery", { tags: ["unit"] }, () => {
 			create_issue: { description: "Create a GitHub issue", execute: async () => ({}) },
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "github");
+		const organ = await createMcpAdapterFromClient(client as never, "github");
 		expect(organ.tools[0].name).toBe("github.create_issue");
 	});
 
@@ -72,7 +72,7 @@ describe("McpOrgan — tool discovery", { tags: ["unit"] }, () => {
 			search: { description: "Search the codebase", execute: async () => [] },
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "code");
+		const organ = await createMcpAdapterFromClient(client as never, "code");
 		expect(organ.tools[0].description).toBe("Search the codebase");
 	});
 
@@ -82,7 +82,7 @@ describe("McpOrgan — tool discovery", { tags: ["unit"] }, () => {
 			put: { description: "Put", execute: async () => null },
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "store");
+		const organ = await createMcpAdapterFromClient(client as never, "store");
 		expect(organ.subscriptions.motor).toContain("store.get");
 		expect(organ.subscriptions.motor).toContain("store.put");
 		expect(organ.subscriptions.sense).toHaveLength(0);
@@ -93,14 +93,14 @@ describe("McpOrgan — tool discovery", { tags: ["unit"] }, () => {
 // Motor → MCP → Sense routing
 // ---------------------------------------------------------------------------
 
-describe("McpOrgan — Motor/Sense routing", { tags: ["unit"] }, () => {
+describe("McpAdapter — Motor/Sense routing", { tags: ["unit"] }, () => {
 	it("Motor event routes to MCP execute and publishes Sense result", async () => {
 		const execute = vi.fn().mockResolvedValue({ files: ["a.ts", "b.ts"] });
 		const client = mockClient({
 			list_files: { description: "List files", execute },
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "fs");
+		const organ = await createMcpAdapterFromClient(client as never, "fs");
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -129,7 +129,7 @@ describe("McpOrgan — Motor/Sense routing", { tags: ["unit"] }, () => {
 			},
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "bad");
+		const organ = await createMcpAdapterFromClient(client as never, "bad");
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -151,13 +151,13 @@ describe("McpOrgan — Motor/Sense routing", { tags: ["unit"] }, () => {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-describe("McpOrgan — lifecycle", { tags: ["unit"] }, () => {
+describe("McpAdapter — lifecycle", { tags: ["unit"] }, () => {
 	it("unmount closes the MCP client", async () => {
 		const client = mockClient({
 			noop: { description: "No-op", execute: async () => null },
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "test");
+		const organ = await createMcpAdapterFromClient(client as never, "test");
 		const nerve = new InProcessNerve();
 		organ.mount(nerve.asNerve());
 
@@ -170,10 +170,10 @@ describe("McpOrgan — lifecycle", { tags: ["unit"] }, () => {
 // Static factories (smoke test — no real subprocess/network)
 // ---------------------------------------------------------------------------
 
-describe("McpOrgan — static factories", { tags: ["unit"] }, () => {
-	it("exposes McpOrgan.stdio and McpOrgan.http", () => {
-		expect(typeof McpOrgan.stdio).toBe("function");
-		expect(typeof McpOrgan.http).toBe("function");
+describe("McpAdapter — static factories", { tags: ["unit"] }, () => {
+	it("exposes McpAdapter.stdio and McpAdapter.http", () => {
+		expect(typeof McpAdapter.stdio).toBe("function");
+		expect(typeof McpAdapter.http).toBe("function");
 	});
 });
 
@@ -195,7 +195,7 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 			},
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "net");
+		const organ = await createMcpAdapterFromClient(client as never, "net");
 		const nerve = new InProcessNerve();
 		const n = nerve.asNerve();
 		organ.mount(n);
@@ -229,7 +229,7 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 			},
 		});
 
-		const organ = await createMcpOrganFromClient(client as never, "net");
+		const organ = await createMcpAdapterFromClient(client as never, "net");
 		const nerve = new InProcessNerve();
 		const n = nerve.asNerve();
 		organ.mount(n);

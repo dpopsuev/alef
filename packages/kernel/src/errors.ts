@@ -120,17 +120,18 @@ export class ConfigurationError extends AlefError {
 	}
 }
 
-/** Organ lifecycle errors (mount, unmount, initialization) */
-export class OrganError extends AlefError {
-	readonly organName: string;
+export class AdapterError extends AlefError {
+	readonly adapterName: string;
 	readonly phase: "init" | "mount" | "unmount" | "execute";
 
-	constructor(organName: string, phase: OrganError["phase"], message: string, context: ErrorContext = {}) {
+	constructor(adapterName: string, phase: AdapterError["phase"], message: string, context: ErrorContext = {}) {
 		super(message, context);
-		this.organName = organName;
+		this.adapterName = adapterName;
 		this.phase = phase;
 	}
 }
+/** @deprecated Use AdapterError */
+export const OrganError = AdapterError;
 
 /**
  * Ensure a caught value is an Error instance.

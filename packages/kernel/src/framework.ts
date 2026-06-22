@@ -1,12 +1,14 @@
 import type { ZodTypeAny } from "zod";
 import { createMapCache } from "./adapter-cache.js";
 import { dispatchMotorAction, dispatchSenseAction } from "./adapter-dispatch.js";
-import type { ActionMap, MotorActionMap, OrganLogger, OrganOptions, SenseActionMap } from "./adapter-types.js";
+import type { ActionMap, AdapterLogger, AdapterOptions, MotorActionMap, SenseActionMap } from "./adapter-types.js";
 import { startElapsedTimer, withLimits } from "./budget.js";
-import type { Nerve, Organ, ToolDefinition } from "./buses.js";
+import type { Adapter, Nerve, ToolDefinition } from "./buses.js";
 
 export type {
 	ActionMap,
+	AdapterLogger,
+	AdapterOptions,
 	MotorAction,
 	MotorActionMap,
 	MotorHandlerCtx,
@@ -18,7 +20,7 @@ export type {
 } from "./adapter-types.js";
 export { typedAction, typedStreamAction } from "./adapter-types.js";
 
-const noopLogger: OrganLogger = {
+const noopLogger: AdapterLogger = {
 	debug: () => {},
 	info: () => {},
 	warn: () => {},
@@ -72,7 +74,7 @@ function buildMotorSchemas(actions: ActionMap, overrides?: Record<string, ZodTyp
 	return { ...auto, ...overrides };
 }
 
-function validateOrganMetadata(name: string, tools: ToolDefinition[], opts: OrganOptions): void {
+function validateOrganMetadata(name: string, tools: ToolDefinition[], opts: AdapterOptions): void {
 	if (tools.length === 0) return;
 	if (!opts.description || opts.description.trim().length === 0)
 		throw new Error(
@@ -84,7 +86,7 @@ function validateOrganMetadata(name: string, tools: ToolDefinition[], opts: Orga
 		);
 }
 
-export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions = {}): Organ {
+export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOptions = {}): Adapter {
 	const log = opts.logger ?? noopLogger;
 
 	if (opts.actions !== undefined) actions = filterActions(actions, opts.actions);
@@ -144,5 +146,7 @@ export function defineOrgan(name: string, actions: ActionMap, opts: OrganOptions
 		},
 	};
 }
+/** @deprecated Use defineAdapter */
+export const defineOrgan = defineAdapter;
 
 // ---------------------------------------------------------------------------

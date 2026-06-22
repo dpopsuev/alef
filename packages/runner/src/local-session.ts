@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline, type NerveEvent, type Organ } from "@dpopsuev/alef-kernel";
@@ -241,7 +240,7 @@ async function buildDirectiveSet(args: Args, organs: readonly Organ[]) {
 	registerOrgans(directives, organs);
 
 	if (args.debug) {
-		const skillPath = join(homedir(), ".config/alef/skills/debug-alef/SKILL.md");
+		const skillPath = join(dirname(new URL(import.meta.url).pathname), "skills/debug-alef/SKILL.md");
 		try {
 			const skillContent = readFileSync(skillPath, "utf-8");
 			directives.register({

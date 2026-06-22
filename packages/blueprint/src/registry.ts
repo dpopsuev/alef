@@ -1,9 +1,10 @@
-import type { createContextAssemblyPipeline, Organ } from "@dpopsuev/alef-kernel";
+import type { createContextAssemblyPipeline, Adapter } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import type { SessionStore } from "@dpopsuev/alef-session";
 
 export interface SubagentFactoryOptions {
-	organs: readonly Organ[];
+	/** @deprecated Use adapters */
+	organs: readonly Adapter[];
 	onChunk?: (chunk: string) => void;
 	onInnerEvent?: (callId: string, type: string, payload: Record<string, unknown>) => void;
 	systemPrompt?: string;
@@ -27,11 +28,13 @@ export interface BlueprintStackOptions {
 	onRetry?: (attempt: number, reason: string) => void;
 	sessionStore?: SessionStore;
 	/**
-	 * Pre-materialized domain organs from the user's blueprint (--blueprint flag or organs.yaml).
-	 * When provided, the factory uses these instead of its default organ set.
+	 * Pre-materialized domain adapters from the user's blueprint (--blueprint flag or adapters.yaml).
+	 * When provided, the factory uses these instead of its default adapter set.
 	 * Allows --blueprint to control which tools are exposed.
 	 */
-	domainOrgans?: Organ[];
+	domainAdapters?: Adapter[];
+	/** @deprecated Use domainAdapters */
+	domainOrgans?: Adapter[];
 	/**
 	 * Subagent factory injected by the runner. Creates lightweight inner agents
 	 * for delegation strategies. Blueprint stacks must not construct this themselves —
@@ -39,14 +42,15 @@ export interface BlueprintStackOptions {
 	 */
 	subagentFactory?: SubagentFactory;
 	/**
-	 * OCAP grant — directories organs are allowed to access.
-	 * Undefined = unrestricted. Propagated to orchestration organ for child processes.
+	 * OCAP grant — directories adapters are allowed to access.
+	 * Undefined = unrestricted. Propagated to orchestration adapter for child processes.
 	 */
 	writableRoots?: readonly string[];
 }
 
 export interface BlueprintStack {
-	organs: Organ[];
+	/** @deprecated Use adapters */
+	organs: Adapter[];
 	pipeline: ReturnType<typeof createContextAssemblyPipeline>;
 }
 

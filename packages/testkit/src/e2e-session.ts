@@ -1,14 +1,14 @@
 /**
- * createE2eSession — lightweight real-LLM harness for organ E2E tests.
+ * createE2eSession — lightweight real-LLM harness for adapter E2E tests.
  *
- * Each organ owns its own E2E test. This helper removes the boilerplate of
- * wiring a real organ-llm + AgentController + Agent so tests can focus on the
+ * Each adapter owns its own E2E test. This helper removes the boilerplate of
+ * wiring a real LLM adapter + AgentController + Agent so tests can focus on the
  * forcing-function assertion: "LLM used the tool and got the right answer."
  *
  * Usage:
  *   import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
  *
- *   describe.skipIf(!HAVE_REAL_LLM)("organ-fs real LLM E2E", () => {
+ *   describe.skipIf(!HAVE_REAL_LLM)("adapter-fs real LLM E2E", () => {
  *     it("LLM reads unguessable file", async () => {
  *       const session = createE2eSession([createFsOrgan({ cwd })]);
  *       const { reply, events } = await session.send("Read secret.txt and tell me the UUID");
@@ -18,7 +18,7 @@
  *   });
  */
 
-import type { Organ, SignalEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, SignalEvent } from "@dpopsuev/alef-kernel";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
@@ -45,10 +45,10 @@ export interface E2eSessionOptions {
 }
 
 /**
- * Create a real-LLM session mounting the given organs.
+ * Create a real-LLM session mounting the given adapters.
  * Resolves the model from env vars (Anthropic direct or Vertex).
  */
-export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}): E2eSession {
+export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = {}): E2eSession {
 	const modelId = opts.modelId ?? process.env.ALEF_E2E_MODEL ?? "claude-haiku-4-5";
 	const timeoutMs = opts.timeoutMs ?? 60_000;
 
@@ -67,9 +67,9 @@ export function createE2eSession(organs: Organ[], opts: E2eSessionOptions = {}):
 		timeoutMs,
 	});
 
-	for (const organ of organs) agent.load(organ);
+	for (const adapter of adapters) agent.load(adapter);
 	const toolShell = createToolShellOrgan({
-		tools: organs.flatMap((o) => o.tools),
+		tools: adapters.flatMap((o) => o.tools),
 		getTools: () => agent.tools,
 	});
 	const pipeline = createContextAssemblyPipeline();

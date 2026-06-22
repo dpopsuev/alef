@@ -2,7 +2,7 @@
  * Worker thread bootstrap for prototype.plug({ thread: true }).
  *
  * Loaded by Node.js worker_threads with the same execArgv as the parent
- * (inheriting tsx/esm hooks), so TypeScript organ files load without a build step.
+ * (inheriting tsx/esm hooks), so TypeScript adapter files load without a build step.
  *
  * Protocol:
  *   parent → worker  { dir: 'motor', event: NerveEvent }
@@ -21,14 +21,14 @@ import type {
 } from "@dpopsuev/alef-kernel";
 import { toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
 
-const { organPath, cwd } = workerData as { organPath: string; cwd: string };
+const { organPath: adapterPath, cwd } = workerData as { organPath: string; cwd: string };
 
 const port = parentPort;
 if (!port) throw new Error("prototype-worker must run inside a worker_threads.Worker");
 
-// Motor handlers registered by the organ during mount.
+// Motor handlers registered by the adapter during mount.
 const motorHandlers = new Map<string, Set<MotorHandler>>();
-// Sense handlers (rarely used by organs, but bridge it anyway).
+// Sense handlers (rarely used by adapters, but bridge it anyway).
 const senseHandlers = new Map<string, Set<SenseHandler>>();
 
 const bridgeNerve: Nerve = {
@@ -83,25 +83,25 @@ port.on("message", (msg: { dir: string; event: NerveEvent }) => {
 	if (wildcard) for (const h of wildcard) void h(motorEvent);
 });
 
-// Load the organ and mount it.
-const mod = (await import(organPath)) as Record<string, unknown>;
+// Load the adapter and mount it.
+const mod = (await import(adapterPath)) as Record<string, unknown>;
 const factory = (mod.createAdapter ?? mod.createOrgan) as (opts: { cwd: string }) => unknown | Promise<unknown>;
-const organ = (await factory({ cwd })) as {
+const adapter = (await factory({ cwd })) as {
 	name: string;
 	tools: Array<{ name: string; description: string; inputSchema: import("zod").ZodTypeAny }>;
 	subscriptions: { motor: readonly string[]; sense: readonly string[] };
 	mount(nerve: Nerve): () => void;
 };
 
-organ.mount(bridgeNerve);
+adapter.mount(bridgeNerve);
 
 port.postMessage({
 	type: "ready",
-	name: organ.name,
-	tools: organ.tools.map((t) => ({
+	name: adapter.name,
+	tools: adapter.tools.map((t) => ({
 		name: t.name,
 		description: t.description,
 		jsonSchema: toolInputToJsonSchema(t.inputSchema),
 	})),
-	subscriptions: organ.subscriptions,
+	subscriptions: adapter.subscriptions,
 });

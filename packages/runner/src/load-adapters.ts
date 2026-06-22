@@ -9,7 +9,7 @@ import {
 	materializeBlueprint,
 	mergeAgentDefinitions,
 } from "@dpopsuev/alef-agent-blueprint";
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprint-picker.js";
@@ -44,7 +44,8 @@ export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly str
 }
 
 export interface AdapterLoadResult {
-	organs: Organ[];
+	/** @deprecated Use adapters — kept for backward compatibility */
+	organs: Adapter[];
 	blueprintModelId: string | undefined;
 	blueprintName: string | undefined;
 	blueprintSurfaces: AgentDefinitionSurfaceInput[];
@@ -116,7 +117,7 @@ export async function loadAdapters(args: Args, cfg: AlefConfig, log: Logger): Pr
 
 		const materialized = await materializeBlueprint(definition, {
 			cwd: args.cwd,
-			loggerFor: (name) => log.child({ organ: name }),
+			loggerFor: (name) => log.child({ adapter: name }),
 			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 			writableRoots: resolveWritableRoots(args.cwd, cfg),
 		});
@@ -132,12 +133,14 @@ export async function loadAdapters(args: Args, cfg: AlefConfig, log: Logger): Pr
 		};
 	}
 
-	const userOrgans = loadUserOrgansConfig();
-	const definition = userOrgans ? { ...DEFAULT_COMPILED_DEFINITION, organs: userOrgans } : DEFAULT_COMPILED_DEFINITION;
-	if (userOrgans) log.info({ count: userOrgans.length }, "loaded user organs config");
+	const userAdapters = loadUserOrgansConfig();
+	const definition = userAdapters
+		? { ...DEFAULT_COMPILED_DEFINITION, organs: userAdapters }
+		: DEFAULT_COMPILED_DEFINITION;
+	if (userAdapters) log.info({ count: userAdapters.length }, "loaded user adapters config");
 	const defaultMaterialized = await materializeBlueprint(definition, {
 		cwd: args.cwd,
-		loggerFor: (name) => log.child({ organ: name }),
+		loggerFor: (name) => log.child({ adapter: name }),
 		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 		writableRoots: resolveWritableRoots(args.cwd, cfg),
 	});

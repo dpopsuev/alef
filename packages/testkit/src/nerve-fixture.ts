@@ -1,18 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { InProcessNerve, type Organ, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { InProcessNerve, type Adapter, type SenseEvent } from "@dpopsuev/alef-kernel";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 
 /**
- * NerveFixture — shared test harness for organ integration tests.
+ * NerveFixture — shared test harness for adapter integration tests.
  *
  * Replaces the makeNerve / publishMotor / waitForSense triad that every
- * organ test package copies independently. Provides:
+ * adapter test package copies independently. Provides:
  *
- * fixture.mount(organ) mount + track for cleanup
+ * fixture.mount(adapter) mount + track for cleanup
  * fixture.call(type, payload) motor publish → await sense
  * fixture.callStreaming(type, payload) await isFinal sense
  * fixture.observe() attach BusEventRecorder
- * fixture.dispose() unmount all mounted organs
+ * fixture.dispose() unmount all mounted adapters
  *
  * call() subscribes before publishing — no race condition.
  */
@@ -20,8 +20,8 @@ export class NerveFixture {
 	readonly nerve = new InProcessNerve();
 	private readonly unmounts: Array<() => void> = [];
 
-	mount(organ: Organ): () => void {
-		const unmount = organ.mount(this.nerve.asNerve());
+	mount(adapter: Adapter): () => void {
+		const unmount = adapter.mount(this.nerve.asNerve());
 		this.unmounts.push(unmount);
 		return unmount;
 	}
@@ -57,7 +57,7 @@ export class NerveFixture {
 
 	/**
 	 * Publish motor/<type> and await the final sense event (isFinal:true or isError).
-	 * Use for streaming organs like shell.exec.
+	 * Use for streaming adapters like shell.exec.
 	 */
 	callStreaming(
 		type: string,

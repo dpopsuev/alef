@@ -1,5 +1,5 @@
 /**
- * EvalOrgan — prompt a child Alef and score its responses.
+ * EvalAdapter — prompt a child Alef and score its responses.
  *
  * Tool: eval.run
  *   endpoint    — from supervisor.spawn
@@ -22,7 +22,7 @@ import { collectEvents, postMessage } from "./http.js";
 import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";
 import { runValidators } from "./validators.js";
 
-export interface EvalOrganOptions extends BaseOrganOptions {
+export interface EvalAdapterOptions extends BaseOrganOptions {
 	/** Model to use for LLM-as-judge. Defaults to ALEF_MODEL or autoDetect. */
 	judgeModel?: string;
 	/** Event type for the agent reply. Provided by assembly. */
@@ -106,7 +106,10 @@ async function runLLMJudge(
 	};
 }
 
-export function createEvalOrgan(opts: EvalOrganOptions): Adapter {
+/** @deprecated Use EvalAdapterOptions */
+export type EvalOrganOptions = EvalAdapterOptions;
+
+export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 	let nerve: Nerve | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
 		nerve?.signal.publish({ type, payload, correlationId: "" });
@@ -188,19 +191,22 @@ export function createEvalOrgan(opts: EvalOrganOptions): Adapter {
 			description: "Evaluate a child Alef's responses with structural validators and LLM-as-judge.",
 			labels: ["eval", "judge", "testing"],
 			directives: [
-				`**eval organ — scoring child Alef responses**
-Use eval.run after supervisor.spawn to validate that a new organ behaves correctly.
+				`**eval adapter — scoring child Alef responses**
+Use eval.run after supervisor.spawn to validate that a new adapter behaves correctly.
 
 Prompt design:
-- Write prompts that exercise the organ's intended behaviour directly.
+- Write prompts that exercise the adapter's intended behaviour directly.
 - Include at least one validator per prompt (tool_called, contains, etc.).
 - Use judgeRubric for semantic quality checks (correctness, coherence, safety).
 
 Interpreting EvalResult:
 - passed: true  → proceed to supervisor.promote
-- passed: false → read failures[] and reasoning, rewrite the organ, re-spawn, re-eval
+- passed: false → read failures[] and reasoning, rewrite the adapter, re-spawn, re-eval
 - Never promote if passed is false.`,
 			],
 		},
 	);
 }
+
+/** @deprecated Use createEvalAdapter */
+export const createEvalOrgan = createEvalAdapter;

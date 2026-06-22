@@ -63,9 +63,13 @@ export interface WorkspaceFile {
 export interface HarnessOptions {
 	/** Scenario identifier — appears in RunMetrics and the report. */
 	scenario: string;
-	/** Factory for the base organ set. Default: fs + shell at workspace cwd. */
+	/** Factory for the base adapter set. Default: fs + shell at workspace cwd. */
+	baseAdaptersFactory?: (workspace: string) => Adapter[];
+	/** @deprecated Use baseAdaptersFactory */
 	baseOrgansFactory?: (workspace: string) => Adapter[];
-	/** Extra organs beyond the base set. */
+	/** Extra adapters beyond the base set. */
+	extraAdapters?: Adapter[];
+	/** @deprecated Use extraAdapters */
 	extraOrgans?: Adapter[];
 	/** System prompt for the agent. */
 	systemPrompt?: string;
@@ -86,9 +90,13 @@ export interface HarnessOptions {
 	 * Prefer AgentHandle (boot()) which owns cleanup explicitly.
 	 */
 	keepWorkspace?: boolean;
-	/** Factory for abort-aware organs (preferred over extraOrgans). */
+	/** Factory for abort-aware adapters (preferred over extraAdapters). */
+	adapterFactory?: (signal: AbortSignal) => Adapter[];
+	/** @deprecated Use adapterFactory */
 	organFactory?: (signal: AbortSignal) => Adapter[];
-	/** Async organ factory — receives workspace path and signal. Takes precedence over organFactory. */
+	/** Async adapter factory — receives workspace path and signal. Takes precedence over adapterFactory. */
+	asyncAdapterFactory?: (workspace: string, signal: AbortSignal) => Promise<Adapter[]>;
+	/** @deprecated Use asyncAdapterFactory */
 	asyncOrganFactory?: (workspace: string, signal: AbortSignal) => Promise<Adapter[]>;
 	/** Directory to write a JSONL execution trace file. */
 	traceDir?: string;
@@ -335,15 +343,17 @@ export class EvalHarness {
 		const evaluator = new EvaluatorOrgan({ loopThreshold: opts.loopThreshold });
 		const agent = new Agent();
 
-		const baseOrgans = (opts.baseOrgansFactory ?? defaultEvalOrgans)(workspace);
-		for (const organ of baseOrgans) agent.load(organ);
+		const baseAdapters = (opts.baseAdaptersFactory ?? opts.baseOrgansFactory ?? defaultEvalOrgans)(workspace);
+		for (const adapter of baseAdapters) agent.load(adapter);
 		agent.load(evaluator);
-		for (const organ of opts.extraOrgans ?? []) agent.load(organ);
+		for (const adapter of opts.extraAdapters ?? opts.extraOrgans ?? []) agent.load(adapter);
 
-		const asyncOrgans = opts.asyncOrganFactory
-			? await opts.asyncOrganFactory(workspace, agent.signal)
-			: (opts.organFactory?.(agent.signal) ?? []);
-		for (const organ of asyncOrgans) agent.load(organ);
+		const asyncFactory = opts.asyncAdapterFactory ?? opts.asyncOrganFactory;
+		const syncFactory = opts.adapterFactory ?? opts.organFactory;
+		const asyncAdapters = asyncFactory
+			? await asyncFactory(workspace, agent.signal)
+			: (syncFactory?.(agent.signal) ?? []);
+		for (const adapter of asyncAdapters) agent.load(adapter);
 
 		const transcript: Array<Record<string, unknown>> = [];
 		const busEvents: BusEvent[] = [];

@@ -1,21 +1,23 @@
 export { shouldUseWindowsShell, waitForChildProcess } from "./child-process.js";
 export {
 	createShellOrgan,
+	createShellOrgan as createShellAdapter,
 	DEFAULT_GUARD_RULES,
 	type GuardResult,
 	type GuardRule,
 	guardCommand,
 	type ShellOrganOptions,
+	type ShellOrganOptions as ShellAdapterOptions,
 } from "./organ.js";
 
-import type { Organ, OrganLogger } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel";
 import { createShellOrgan } from "./organ.js";
 export function createOrgan(opts: {
 	cwd: string;
 	actions?: string[];
-	logger?: OrganLogger;
+	logger?: AdapterLogger;
 	blockedPatterns?: readonly RegExp[];
-}): Organ {
+}): Adapter {
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `shell.${a}`));
 	return createShellOrgan({ ...opts, actions });
 }

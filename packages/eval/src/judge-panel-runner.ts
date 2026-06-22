@@ -12,7 +12,7 @@
  * Independence: each judge has a separate agent session, separate conversation
  * history, and separate workspace view. No cross-contamination.
  *
- * The workspace is READ-ONLY for judges. The harness mounts the fs organ
+ * The workspace is READ-ONLY for judges. The harness mounts the fs adapter
  * in read-only mode (no write actions). Judges can run shell commands that
  * read (git log, git diff, tsc --noEmit) but not commands that modify files.
  */
@@ -91,12 +91,12 @@ class AimdScheduler {
 // ---------------------------------------------------------------------------
 
 export interface JudgePanelRunnerOptions {
-	/** Options forwarded to the agent loop factory. Must include asyncOrganFactory. */
+	/** Options forwarded to the agent loop factory. Must include asyncAdapterFactory. */
 	agentLoopFactory: (
 		workspace: string,
 		signal: AbortSignal,
-		extraOrgans: import("@dpopsuev/alef-kernel").Organ[],
-	) => Promise<import("@dpopsuev/alef-kernel").Organ[]>;
+		extraAdapters: import("@dpopsuev/alef-kernel").Adapter[],
+	) => Promise<import("@dpopsuev/alef-kernel").Adapter[]>;
 	/** Turn timeout per judge agent in ms. Default: 120_000. */
 	judgeTimeoutMs?: number;
 	/** Max concurrent judge agents. Default: 3. */
@@ -180,7 +180,7 @@ export class JudgePanelRunner {
 		await writeFile(join(skillDir, "SKILL.md"), judge.skillMd, "utf-8");
 
 		let capturedReport: JudgeReport | undefined;
-		const judgingOrgan = createJudgingOrgan({
+		const judgingAdapter = createJudgingOrgan({
 			onReport: (r) => {
 				capturedReport = r;
 			},
@@ -188,17 +188,21 @@ export class JudgePanelRunner {
 
 		const agent = new Agent();
 
-		// Read-only fs organ (no write actions).
+		// Read-only fs adapter (no write actions).
 		const fsReadOnly = createFsOrgan({
 			cwd: workspace,
 			actions: ["read", "grep", "find"],
 		});
 		const shell = createShellOrgan({ cwd: workspace });
 
-		// Domain-specific organs from the caller's factory.
-		const extraOrgans = await this.opts.agentLoopFactory(workspace, agent.signal, [fsReadOnly, shell, judgingOrgan]);
+		// Domain-specific adapters from the caller's factory.
+		const extraAdapters = await this.opts.agentLoopFactory(workspace, agent.signal, [
+			fsReadOnly,
+			shell,
+			judgingAdapter,
+		]);
 
-		for (const organ of extraOrgans) agent.load(organ);
+		for (const adapter of extraAdapters) agent.load(adapter);
 
 		const controller = new AgentController(agent);
 		await agent.ready();

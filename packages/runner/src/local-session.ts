@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
-import { createContextAssemblyPipeline, debugLog, type NerveEvent, type Organ } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline, debugLog, type NerveEvent, type Adapter } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaOrgan } from "@dpopsuev/alef-meta";
 import { type Agent, AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
@@ -25,16 +25,16 @@ import { buildSubagentFactory } from "./subagent-factory.js";
 import { getTheme, setTheme } from "./theme.js";
 
 type SignalMapper = (payload: Record<string, unknown>) => Record<string, unknown> | null;
-const organSignalMaps = new Map<string, SignalMapper>();
+const adapterSignalMaps = new Map<string, SignalMapper>();
 
-function registerOrganSignalMaps(
-	organs: readonly { contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>> } }[],
+function registerAdapterSignalMaps(
+	adapters: readonly { contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>> } }[],
 ): void {
-	for (const organ of organs) {
-		const map = organ.contributions?.["signal.map"];
+	for (const adapter of adapters) {
+		const map = adapter.contributions?.["signal.map"];
 		if (!map) continue;
 		for (const [signalType, mapper] of Object.entries(map)) {
-			organSignalMaps.set(signalType, mapper);
+			adapterSignalMaps.set(signalType, mapper);
 		}
 	}
 }
@@ -43,9 +43,9 @@ import type { TuiContribution, TuiSignalHandler } from "@dpopsuev/alef-kernel";
 
 const tuiSignalHandlers = new Map<string, TuiSignalHandler>();
 
-function registerTuiSignals(organs: readonly { contributions?: { tui?: TuiContribution } }[]): void {
-	for (const organ of organs) {
-		const signals = organ.contributions?.tui?.signals;
+function registerTuiSignals(adapters: readonly { contributions?: { tui?: TuiContribution } }[]): void {
+	for (const adapter of adapters) {
+		const signals = adapter.contributions?.tui?.signals;
 		if (!signals) continue;
 		for (const [signalType, handler] of Object.entries(signals)) {
 			tuiSignalHandlers.set(signalType, handler);
@@ -203,7 +203,7 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 				elapsedMs: Number(p.elapsedMs ?? 0),
 			};
 		default: {
-			const mapper = organSignalMaps.get(event.type);
+			const mapper = adapterSignalMaps.get(event.type);
 			if (mapper) {
 				const mapped = mapper(p);
 				if (mapped) return { type: "organ-signal", signalType: event.type, payload: mapped };
@@ -218,12 +218,12 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 }
 
 function registerContributions(
-	organs: readonly {
+	adapters: readonly {
 		contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>>; tui?: TuiContribution };
 	}[],
 ): void {
-	registerOrganSignalMaps(organs);
-	registerTuiSignals(organs);
+	registerAdapterSignalMaps(adapters);
+	registerTuiSignals(adapters);
 	tuiSignalHandlers.set("context.compacted", (payload, ui) => {
 		markCompacted();
 		const before = Number(payload.estimatedBefore ?? 0);
@@ -235,10 +235,10 @@ function registerContributions(
 	});
 }
 
-async function buildDirectiveSet(args: Args, organs: readonly Organ[]) {
-	const directives = createDefaultDirectives({ tools: organs.flatMap((o) => o.tools), cwd: args.cwd });
+async function buildDirectiveSet(args: Args, adapters: readonly Adapter[]) {
+	const directives = createDefaultDirectives({ tools: adapters.flatMap((o) => o.tools), cwd: args.cwd });
 	await loadWorkspace(directives, args.cwd);
-	registerAdapters(directives, organs);
+	registerAdapters(directives, adapters);
 
 	if (args.debug) {
 		const skillPath = join(dirname(new URL(import.meta.url).pathname), "skills/debug-alef/SKILL.md");
@@ -301,10 +301,10 @@ export async function createLocalSession(
 	agentAddress: string;
 	actorRoutes: ActorRouteTable;
 }> {
-	const { organs, blueprintSurfaces } = loaded;
-	registerContributions(organs);
+	const { organs: adapters, blueprintSurfaces } = loaded;
+	registerContributions(adapters);
 
-	const directives = await buildDirectiveSet(args, organs);
+	const directives = await buildDirectiveSet(args, adapters);
 
 	const CONTEXT_FRACTION = 0.1;
 	const CHARS_PER_TOKEN = 4;
@@ -327,20 +327,20 @@ export async function createLocalSession(
 
 	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 
-	let stack: { organs: Organ[]; pipeline?: ReturnType<typeof createContextAssemblyPipeline> };
+	let stack: { organs: Adapter[]; pipeline?: ReturnType<typeof createContextAssemblyPipeline> };
 	if (stackFactory) {
 		stack = await stackFactory({
 			cwd: args.cwd,
 			model,
 			getSignal: () => llmController?.signal,
 			sessionStore: store,
-			domainOrgans: organs,
+			domainOrgans: adapters,
 			subagentFactory,
 			writableRoots: loaded.writableRoots,
 		});
 	} else {
 		const pipeline = createContextAssemblyPipeline();
-		stack = { organs, pipeline };
+		stack = { organs: adapters, pipeline };
 	}
 	const { pipeline } = stack;
 
@@ -353,7 +353,7 @@ export async function createLocalSession(
 		tags: [...new Set(enabledBlocks.flatMap((b) => b.tags ?? []))],
 	});
 
-	const llmOrgan = buildLlmAdapter({
+	const llmAdapter = buildLlmAdapter({
 		model,
 		cfg,
 		args,
@@ -369,7 +369,7 @@ export async function createLocalSession(
 	const summaryStore = new SqliteSummaryStore(db);
 
 	const agent = buildAgent({
-		llm: llmOrgan,
+		llm: llmAdapter,
 		session: store,
 		modelId: model.id,
 		agentIdentity: agentActor,
@@ -390,7 +390,7 @@ export async function createLocalSession(
 		await controller.send(message, "human", timeout);
 	});
 
-	for (const organ of stack.organs) agent.load(organ);
+	for (const adapter of stack.organs) agent.load(adapter);
 
 	const sessionAdapter: Session = {
 		state: sessionState,
@@ -410,9 +410,9 @@ export async function createLocalSession(
 	};
 	await setupHttpSurface(args, agent, sessionAdapter, blueprintSurfaces);
 
-	const alefOrgan = createMetaOrgan({
+	const alefAdapter = createMetaOrgan({
 		agent: {
-			load: (o: Organ) => agent.load(o),
+			load: (o: Adapter) => agent.load(o),
 			unload: (n: string) => agent.unload(n),
 			get adapters() {
 				return agent.organs;
@@ -426,7 +426,7 @@ export async function createLocalSession(
 			if (typeof trigger === "function") (trigger as () => void)();
 		},
 	});
-	agent.load(alefOrgan);
+	agent.load(alefAdapter);
 
 	connectObservers(agent, observers);
 
@@ -451,7 +451,7 @@ export async function createLocalSession(
 		priority: 900,
 		content: () => buildBootCatalog(agent.tools),
 		enabled: true,
-		tags: ["organ", "dynamic"],
+		tags: ["adapter", "dynamic"],
 	});
 
 	agent.validate();

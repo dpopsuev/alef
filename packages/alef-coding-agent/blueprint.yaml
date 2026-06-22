@@ -27,6 +27,10 @@ organs:
     package: "@dpopsuev/alef-organ-plan"
   - name: discourse
     package: "@dpopsuev/alef-organ-discourse"
+  - name: code-intel
+    package: "@dpopsuev/alef-organ-code-intel"
+  - name: git
+    package: "@dpopsuev/alef-organ-git"
   - name: skills
     package: "@dpopsuev/alef-organ-skills"
 

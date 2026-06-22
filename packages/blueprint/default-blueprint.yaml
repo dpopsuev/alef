@@ -1,0 +1,16 @@
+name: default
+organs:
+  - name: fs
+  - name: shell
+  - name: nodesh
+  - name: code-intel
+  - name: git
+  - name: web
+  - name: agent
+  - name: skills
+
+capabilities:
+  orchestration: true
+
+memory:
+  session: memory

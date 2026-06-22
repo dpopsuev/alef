@@ -17,11 +17,13 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-kernel";
 import { debugLog, extractToolCallId } from "@dpopsuev/alef-kernel";
 import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
+import { loadAgentDefinition } from "./blueprints.js";
 import type { CompiledAgentDefinition } from "./types.js";
 
 /**
@@ -144,24 +146,9 @@ export function wrapWithPermissions(organ: Organ, allowedTools: string[]): Organ
 	};
 }
 
-export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = {
-	name: "default",
-	organs: [
-		{ name: "fs", actions: [], toolNames: [] },
-		{ name: "shell", actions: [], toolNames: [] },
-		{ name: "nodesh", actions: [], toolNames: [] },
-		{ name: "code-intel", actions: [], toolNames: [] },
-		{ name: "git", actions: [], toolNames: [] },
-		{ name: "web", actions: [], toolNames: [] },
-	],
-	model: undefined,
-	children: [],
-	surfaces: [],
-	capabilities: { tools: [], orchestration: true },
-	memory: { session: "memory", working: {} },
-	policies: { appendSystemPrompt: [] },
-	hooks: { extensions: [] },
-};
+export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = loadAgentDefinition(
+	resolve(dirname(fileURLToPath(import.meta.url)), "../default-blueprint.yaml"),
+);
 
 /** The canonical alef-coding-agent organ set — matches blueprint.yaml in packages/alef-coding-agent. */
 export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {

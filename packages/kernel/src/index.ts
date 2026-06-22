@@ -18,5 +18,6 @@ export { LogField } from "./log-fields.js";
 export * from "./mcp-adapter.js";
 export * from "./payload.js";
 export * from "./protocols.js";
+export * from "./reconciliation.js";
 export * from "./truncate.js";
 export * from "./watchdog.js";

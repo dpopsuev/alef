@@ -41,6 +41,17 @@ const args = parseArgs(process.argv.slice(2));
 await runPmCommand(args);
 await handleSelfUpdate(args);
 
+if (args.migrate) {
+	const { getDatabase, migrateJsonlToSqlite } = await import("@dpopsuev/alef-storage");
+	const db = getDatabase();
+	const result = migrateJsonlToSqlite(db);
+	console.log(
+		`Migrated ${result.sessions} sessions (${result.events} events, ${result.discourse} discourse posts, ${result.auth} auth keys)`,
+	);
+	if (result.skipped > 0) console.log(`Skipped ${result.skipped} (empty or malformed)`);
+	process.exit(0);
+}
+
 // Handle debug subcommands before any session/agent setup.
 if (args.debugSubcmd) {
 	switch (args.debugSubcmd) {

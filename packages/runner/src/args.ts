@@ -134,6 +134,7 @@ export interface Args {
 	showConfig: boolean;
 	listDirectives: boolean;
 	preflight: boolean;
+	migrate: boolean;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5@20250929";
@@ -158,6 +159,7 @@ Options:
   --show-config          Print parsed config.yaml as JSON and exit
   --list-directives      Print enabled system prompt directive blocks and exit
   --preflight            Verify config, model, organs, tools, directives and exit
+  --migrate              Import existing JSONL sessions into SQLite and exit
   -h, --help             Show this help
 
 Package manager:
@@ -224,6 +226,7 @@ export function parseArgs(argv: string[]): Args {
 		showConfig: false,
 		listDirectives: false,
 		preflight: false,
+		migrate: false,
 	};
 
 	let i = 0;
@@ -299,6 +302,12 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--preflight") {
 			args.preflight = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--migrate") {
+			args.migrate = true;
 			i++;
 			continue;
 		}

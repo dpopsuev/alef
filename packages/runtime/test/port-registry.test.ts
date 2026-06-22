@@ -39,7 +39,7 @@ describe("validatePorts — exactly-one", { tags: ["unit"] }, () => {
 		expect(result.valid).toBe(false);
 		expect(result.violations).toHaveLength(1);
 		expect(result.violations[0].severity).toBe("error");
-		expect(result.violations[0].organCount).toBe(0);
+		expect(result.violations[0].adapterCount).toBe(0);
 		expect(result.violations[0].message).toMatch(/requires exactly one organ.*got 0/);
 	});
 
@@ -47,8 +47,8 @@ describe("validatePorts — exactly-one", { tags: ["unit"] }, () => {
 		const organs = [organ("llm", [], ["llm.input"]), organ("planner", [], ["llm.input"])];
 		const result = validatePorts(organs, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(false);
-		expect(result.violations[0].organCount).toBe(2);
-		expect(result.violations[0].organNames).toEqual(["llm", "planner"]);
+		expect(result.violations[0].adapterCount).toBe(2);
+		expect(result.violations[0].adapterNames).toEqual(["llm", "planner"]);
 		expect(result.violations[0].message).toMatch(/got 2/);
 	});
 });
@@ -75,7 +75,7 @@ describe("validatePorts — zero-or-one", { tags: ["unit"] }, () => {
 		const result = validatePorts(organs, [FS_SEAM]);
 		expect(result.valid).toBe(true); // warning, not error
 		expect(result.violations[0].severity).toBe("warning");
-		expect(result.violations[0].organCount).toBe(2);
+		expect(result.violations[0].adapterCount).toBe(2);
 	});
 });
 

@@ -24,8 +24,8 @@ export type { PortCardinality, PortDefinition };
 
 export interface PortViolation {
 	seam: PortDefinition;
-	organCount: number;
-	organNames: string[];
+	adapterCount: number;
+	adapterNames: string[];
 	severity: "error" | "warning";
 	message: string;
 }
@@ -101,16 +101,16 @@ export function validatePorts(organs: OrganPortInfo[], seams: PortDefinition[]):
 			if (count === 0) {
 				violations.push({
 					seam,
-					organCount: 0,
-					organNames: [],
+					adapterCount: 0,
+					adapterNames: [],
 					severity: "error",
 					message: `Seam '${seam.name}' (${seam.eventPattern}) requires exactly one organ but got 0. Load an organ that handles this event.`,
 				});
 			} else if (count > 1) {
 				violations.push({
 					seam,
-					organCount: count,
-					organNames: names,
+					adapterCount: count,
+					adapterNames: names,
 					severity: "error",
 					message: `Seam '${seam.name}' (${seam.eventPattern}) requires exactly one organ but got ${count}: [${names.join(", ")}]. Multiple organs will race.`,
 				});
@@ -120,8 +120,8 @@ export function validatePorts(organs: OrganPortInfo[], seams: PortDefinition[]):
 		if (seam.cardinality === "zero-or-one" && count > 1) {
 			violations.push({
 				seam,
-				organCount: count,
-				organNames: names,
+				adapterCount: count,
+				adapterNames: names,
 				severity: "warning",
 				message: `Seam '${seam.name}' (${seam.eventPattern}) expects at most one organ but got ${count}: [${names.join(", ")}]. Behaviour is undefined.`,
 			});

@@ -3,11 +3,11 @@ import { Agent } from "@dpopsuev/alef-runtime";
 import { SessionLog } from "./event-log-organ.js";
 import type { ActorIdentity } from "./identity/actor.js";
 import { LoopGuard } from "./loop-detector.js";
-import type { JsonlSessionStore } from "./session-store.js";
+import type { SessionStore } from "./session-store.js";
 
 export interface AgentKernelOptions {
 	llm: Organ;
-	session?: JsonlSessionStore;
+	session?: SessionStore;
 	modelId?: string;
 	loopThreshold?: number;
 	onLoop?: (eventType: string, reason: string) => void;

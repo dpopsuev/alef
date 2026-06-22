@@ -4,8 +4,8 @@ import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-bluep
 import { createContextAssemblyPipeline, debugLog, type NerveEvent, type Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaOrgan } from "@dpopsuev/alef-meta";
-import { DiscourseStore } from "@dpopsuev/alef-organ-discourse";
 import { type Agent, AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
+import { SqliteDiscourseStore } from "@dpopsuev/alef-storage";
 import type { Logger } from "pino";
 import { buildAgent } from "./agent-kernel.js";
 import type { Args } from "./args.js";
@@ -18,7 +18,7 @@ import type { LoadResult } from "./load-organs.js";
 import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import type { AgentEvent, Session, SessionState, TokensConsumed } from "./session.js";
 import { SessionHandle } from "./session-handle.js";
-import type { JsonlSessionStore } from "./session-store.js";
+import type { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
 import { getTheme, setTheme } from "./theme.js";
@@ -258,7 +258,7 @@ async function buildDirectiveSet(args: Args, organs: readonly Organ[]) {
 	return directives;
 }
 
-function buildActorIdentity(store: JsonlSessionStore) {
+function buildActorIdentity(store: SessionStore) {
 	const boardId = store.id.slice(0, 12);
 	const { humanActor, agentActor, theme } = configureSessionActors(store.id, boardId);
 	setTheme({ ...getTheme(), ...theme });
@@ -290,7 +290,7 @@ export async function createLocalSession(
 	args: Args,
 	cfg: AlefConfig,
 	log: Logger,
-	store: JsonlSessionStore,
+	store: SessionStore,
 	loaded: LoadResult,
 	model: Model<Api>,
 ): Promise<{
@@ -374,7 +374,8 @@ export async function createLocalSession(
 		},
 	});
 
-	const sessionForum = new DiscourseStore(dirname(store.path));
+	const { getDatabase } = await import("@dpopsuev/alef-storage");
+	const sessionForum = new SqliteDiscourseStore(getDatabase(), store.id);
 	const controller = new AgentController(agent, {
 		onReply: replySink,
 		transcript: { store: sessionForum, topic: "sessions", thread: store.id },

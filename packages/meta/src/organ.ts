@@ -12,8 +12,8 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
-import type { ActionMap, Organ, SkillBook, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { defineOrgan, passthroughSchema, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { ActionMap, Adapter, SkillBook, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { defineAdapter, passthroughSchema, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { scanSessionFiles } from "@dpopsuev/alef-session";
 import { z } from "zod";
 
@@ -28,17 +28,17 @@ export interface DirectiveAdapter {
 }
 
 export interface AgentPrototypeAdapter {
-	load(organ: Organ): void;
+	load(adapter: Adapter): void;
 	unload(name: string): boolean;
-	readonly organs: readonly Organ[];
+	readonly adapters: readonly Adapter[];
 }
 
-export interface MetaOrganOptions {
+export interface MetaAdapterOptions {
 	getDirective?: () => DirectiveAdapter | undefined;
 	/** Agent adapter for prototype.plug/unplug/list. Omit to disable prototype tools. */
 	agent?: AgentPrototypeAdapter;
-	/** Load an organ from a TypeScript file path. Injected by local-session. */
-	loadOrgan?: (path: string, cwd: string) => Promise<Organ>;
+	/** Load an adapter from a TypeScript file path. Injected by local-session. */
+	loadAdapter?: (path: string, cwd: string) => Promise<Adapter>;
 	/** Working directory for relative path resolution in prototype.plug. */
 	cwd?: string;
 	/** Called when alef.rebuild is triggered. Injected by local-session via supervisor. */
@@ -174,7 +174,7 @@ async function getConfig(): Promise<Record<string, unknown>> {
 	}
 }
 
-async function listOrgans(): Promise<string[]> {
+async function listAdapters(): Promise<string[]> {
 	try {
 		const path = join(CONFIG_ROOT, "organs.yaml");
 		const raw = await readFile(path, "utf-8");
@@ -184,7 +184,7 @@ async function listOrgans(): Promise<string[]> {
 	}
 }
 
-async function pmHistory(): Promise<Array<{ id: number; ts: string; organs: Record<string, string> }>> {
+async function pmHistory(): Promise<Array<{ id: number; ts: string; adapters: Record<string, string> }>> {
 	try {
 		const genDir = join(CONFIG_ROOT, "generations");
 		const files = await readdir(genDir);
@@ -194,16 +194,16 @@ async function pmHistory(): Promise<Array<{ id: number; ts: string; organs: Reco
 				.map(async (f) => {
 					const raw = await readFile(join(genDir, f), "utf-8");
 					const gen = JSON.parse(raw) as { id: number; ts: string; lockfileContent: string };
-					const organs: Record<string, string> = {};
+					const adapters: Record<string, string> = {};
 					try {
 						const lock = JSON.parse(gen.lockfileContent) as { packages?: Record<string, { version?: string }> };
 						for (const [k, v] of Object.entries(lock.packages ?? {})) {
-							if (k.startsWith("node_modules/")) organs[k.slice("node_modules/".length)] = v.version ?? "?";
+							if (k.startsWith("node_modules/")) adapters[k.slice("node_modules/".length)] = v.version ?? "?";
 						}
 					} catch {
 						/* no lockfile */
 					}
-					return { id: gen.id, ts: gen.ts, organs };
+					return { id: gen.id, ts: gen.ts, adapters };
 				}),
 		);
 		return entries.sort((a, b) => b.id - a.id);
@@ -215,17 +215,17 @@ async function pmHistory(): Promise<Array<{ id: number; ts: string; organs: Reco
 const PROTOTYPES_DIR = join(homedir(), ".alef", "prototypes");
 const WORKER_BOOTSTRAP = fileURLToPath(new URL("./prototype-worker.ts", import.meta.url));
 
-function loadOrganInWorker(organPath: string, cwd: string): Promise<Organ> {
+function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter> {
 	return new Promise((resolveP, rejectP) => {
 		const worker = new Worker(WORKER_BOOTSTRAP, {
 			execArgv: process.execArgv,
-			workerData: { organPath, cwd },
+			workerData: { organPath: adapterPath, cwd },
 		});
 
 		// lint-ignore: RAWTIMER one-shot readiness deadline for worker bootstrap
 		const timer = setTimeout(() => {
 			void worker.terminate();
-			rejectP(new Error(`Worker organ '${organPath}' did not send ready within 15s`));
+			rejectP(new Error(`Worker adapter '${adapterPath}' did not send ready within 15s`));
 		}, 15_000);
 
 		worker.once(
@@ -251,7 +251,7 @@ function loadOrganInWorker(organPath: string, cwd: string): Promise<Organ> {
 					inputSchema: passthroughSchema(t.jsonSchema),
 				}));
 
-				const proxyOrgan: Organ = {
+				const proxyAdapter: Adapter = {
 					name: msg.name,
 					tools,
 					subscriptions: { motor: msg.subscriptions.motor, sense: msg.subscriptions.sense },
@@ -276,29 +276,29 @@ function loadOrganInWorker(organPath: string, cwd: string): Promise<Organ> {
 					},
 				};
 
-				resolveP(proxyOrgan);
+				resolveP(proxyAdapter);
 			},
 		);
 
 		worker.once("error", (err) => {
 			clearTimeout(timer);
-			rejectP(new Error(`Worker organ error: ${err.message}`));
+			rejectP(new Error(`Worker adapter error: ${err.message}`));
 		});
 		worker.once("exit", (code) => {
 			clearTimeout(timer);
-			if (code !== 0) rejectP(new Error(`Worker organ exited with code ${code}`));
+			if (code !== 0) rejectP(new Error(`Worker adapter exited with code ${code}`));
 		});
 	});
 }
 
 const PROTOTYPING_BOOK: SkillBook = {
 	name: "prototyping",
-	description: "Synthesizing and plugging new organs at runtime when a capability is missing.",
+	description: "Synthesizing and plugging new adapters at runtime when a capability is missing.",
 	pages: [
 		{
 			name: "capability-gap",
-			description: "When to synthesize a new organ instead of improvising.",
-			instructions: `Synthesize a new organ when:
+			description: "When to synthesize a new adapter instead of improvising.",
+			instructions: `Synthesize a new adapter when:
 - You need a capability that none of your current tools provide.
 - You have tried and failed with existing tools (not just anticipated failure).
 - The capability is reusable across multiple steps in the current task.
@@ -308,14 +308,14 @@ Always check tools.describe([]) first — the tool you need may already exist.`,
 		},
 		{
 			name: "scaffold",
-			description: "The canonical organ template. Use this exactly — do not guess the API.",
-			instructions: `Every organ file must follow this exact structure:
+			description: "The canonical adapter template. Use this exactly — do not guess the API.",
+			instructions: `Every adapter file must follow this exact structure:
 
 \`\`\`typescript
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
-export function createOrgan() {
+export function createAdapter() {
   const TOOL = {
     name: "namespace.action",
     description: "One sentence: what this tool does.",
@@ -324,7 +324,7 @@ export function createOrgan() {
     }),
   };
 
-  return defineOrgan("namespace", {
+  return defineAdapter("namespace", {
     motor: {
       "namespace.action": typedAction(TOOL, async (ctx) => {
         const { param } = ctx.payload;
@@ -336,8 +336,8 @@ export function createOrgan() {
       }),
     },
   }, {
-    description: "One sentence describing the organ.",
-    directives: ["Guidance for the LLM on when and how to use this organ."],
+    description: "One sentence describing the adapter.",
+    directives: ["Guidance for the LLM on when and how to use this adapter."],
   });
 }
 \`\`\`
@@ -346,14 +346,14 @@ Rules:
 - Import only from @dpopsuev/alef-kernel and zod.
 - The motor key must be "<name>.<action>" under the motor: { } block.
 - Always return withDisplay(...) from handlers.
-- Export only createOrgan — no default export.`,
+- Export only createAdapter — no default export.`,
 		},
 		{
 			name: "iterate-loop",
 			description: "The write → plug → test → patch cycle for iterating on a prototype.",
-			instructions: `To prototype and iterate on a new organ:
+			instructions: `To prototype and iterate on a new adapter:
 
-1. Call factory.organ to write a validated scaffold to disk.
+1. Call factory.adapter to write a validated scaffold to disk.
 2. Call prototype.plug({ path }) to load it into the running agent.
 3. Call the new tool to verify it works.
 4. If it fails or needs changes:
@@ -361,7 +361,7 @@ Rules:
    b. Call prototype.unplug({ name }) to remove the old instance.
    c. Call prototype.plug({ path }) to reload the updated version.
    d. Repeat from step 3.
-5. When satisfied, the organ is live. It will not persist across restarts
+5. When satisfied, the adapter is live. It will not persist across restarts
    unless added to the blueprint.
 
 Maximum 5 iterations before stopping and reporting what is not working.`,
@@ -369,7 +369,7 @@ Maximum 5 iterations before stopping and reporting what is not working.`,
 	],
 };
 
-const CORE_ORGANS = new Set([
+const CORE_ADAPTERS = new Set([
 	"fs",
 	"shell",
 	"nodesh",
@@ -385,9 +385,9 @@ const CORE_ORGANS = new Set([
 
 const FORBIDDEN_CODE_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string }> = [
 	{ pattern: /process\.exit/, reason: "process.exit would terminate the host agent" },
-	{ pattern: /child_process/, reason: "child_process bypasses organ isolation" },
+	{ pattern: /child_process/, reason: "child_process bypasses adapter isolation" },
 	{ pattern: /require\s*\(/, reason: "require() is forbidden in ESM — use import" },
-	{ pattern: /eval\s*\(/, reason: "eval() executes arbitrary code outside organ scope" },
+	{ pattern: /eval\s*\(/, reason: "eval() executes arbitrary code outside adapter scope" },
 	{ pattern: /Function\s*\(/, reason: "Function constructor executes arbitrary code" },
 	{
 		pattern: /import\s*\(\s*['"`](?!@dpopsuev\/alef)/,
@@ -395,17 +395,17 @@ const FORBIDDEN_CODE_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string }
 	},
 ];
 
-function validateOrganCode(code: string): string | null {
+function validateAdapterCode(code: string): string | null {
 	for (const { pattern, reason } of FORBIDDEN_CODE_PATTERNS) {
 		if (pattern.test(code)) return reason;
 	}
-	if (!code.includes("defineOrgan")) return "organ code must use defineOrgan() from @dpopsuev/alef-kernel";
+	if (!code.includes("defineAdapter")) return "adapter code must use defineAdapter() from @dpopsuev/alef-kernel";
 	return null;
 }
 
 function buildPrototypeTools(
 	agent: AgentPrototypeAdapter,
-	loadOrgan: NonNullable<MetaOrganOptions["loadOrgan"]>,
+	loadAdapter: NonNullable<MetaAdapterOptions["loadAdapter"]>,
 	cwd: string,
 ): ActionMap {
 	return {
@@ -414,19 +414,19 @@ function buildPrototypeTools(
 				{
 					name: "prototype.plug",
 					description:
-						"Load a TypeScript organ into the running agent. " +
+						"Load a TypeScript adapter into the running agent. " +
 						"Pass path to an existing .ts file, or code to write one to ~/.alef/prototypes/ first. " +
-						"The organ's tools become available immediately.",
+						"The adapter's tools become available immediately.",
 					inputSchema: z
 						.object({
 							path: z
 								.string()
 								.optional()
-								.describe("Absolute or cwd-relative path to a .ts file exporting createOrgan()"),
+								.describe("Absolute or cwd-relative path to a .ts file exporting createAdapter()"),
 							code: z
 								.string()
 								.optional()
-								.describe("TypeScript organ source. Written to ~/.alef/prototypes/<name>.ts."),
+								.describe("TypeScript adapter source. Written to ~/.alef/prototypes/<name>.ts."),
 							name: z
 								.string()
 								.optional()
@@ -439,17 +439,17 @@ function buildPrototypeTools(
 									.boolean()
 									.optional()
 									.describe(
-										"Run the organ in a worker_threads.Worker for crash isolation. " +
-											"The organ cannot call process.exit() on the main thread and can be terminate()d safely.",
+										"Run the adapter in a worker_threads.Worker for crash isolation. " +
+											"The adapter cannot call process.exit() on the main thread and can be terminate()d safely.",
 									),
 							}),
 						),
 				},
 				async (ctx) => {
-					let organPath: string;
+					let adapterPath: string;
 					if (ctx.payload.code) {
 						const code = ctx.payload.code;
-						const rejection = validateOrganCode(code);
+						const rejection = validateAdapterCode(code);
 						if (rejection) {
 							return withDisplay(
 								{ error: "validation failed", reason: rejection },
@@ -458,19 +458,21 @@ function buildPrototypeTools(
 						}
 						await mkdir(PROTOTYPES_DIR, { recursive: true });
 						const filename = `${ctx.payload.name ?? "prototype"}.ts`;
-						organPath = join(PROTOTYPES_DIR, filename);
-						await writeFile(organPath, code, "utf-8");
+						adapterPath = join(PROTOTYPES_DIR, filename);
+						await writeFile(adapterPath, code, "utf-8");
 					} else {
-						organPath = resolve(cwd, ctx.payload.path as string);
+						adapterPath = resolve(cwd, ctx.payload.path as string);
 					}
 					const useThread = (ctx.payload as { thread?: boolean }).thread ?? false;
-					const organ = useThread ? await loadOrganInWorker(organPath, cwd) : await loadOrgan(organPath, cwd);
-					agent.load(organ);
-					const toolNames = organ.tools.map((t) => t.name);
+					const adapter = useThread
+						? await loadAdapterInWorker(adapterPath, cwd)
+						: await loadAdapter(adapterPath, cwd);
+					agent.load(adapter);
+					const toolNames = adapter.tools.map((t) => t.name);
 					return withDisplay(
-						{ name: organ.name, tools: toolNames, path: organPath },
+						{ name: adapter.name, tools: toolNames, path: adapterPath },
 						{
-							text: `Plugged organ '${organ.name}' — tools: ${toolNames.join(", ") || "(none)"}`,
+							text: `Plugged adapter '${adapter.name}' — tools: ${toolNames.join(", ") || "(none)"}`,
 							mimeType: "text/plain",
 						},
 					);
@@ -479,18 +481,18 @@ function buildPrototypeTools(
 			"prototype.unplug": typedAction(
 				{
 					name: "prototype.unplug",
-					description: "Unload a prototype organ from the running agent by name.",
+					description: "Unload a prototype adapter from the running agent by name.",
 					inputSchema: z.object({
-						name: z.string().min(1).describe("Organ name as returned by prototype.list"),
+						name: z.string().min(1).describe("Adapter name as returned by prototype.list"),
 					}),
 				},
 				async (ctx) => {
 					const { name } = ctx.payload;
-					if (CORE_ORGANS.has(name)) {
+					if (CORE_ADAPTERS.has(name)) {
 						return withDisplay(
-							{ unloaded: false, name, reason: "core organ" },
+							{ unloaded: false, name, reason: "core adapter" },
 							{
-								text: `Cannot unplug '${name}' — core organ required for agent operation`,
+								text: `Cannot unplug '${name}' — core adapter required for agent operation`,
 								mimeType: "text/plain",
 							},
 						);
@@ -499,7 +501,7 @@ function buildPrototypeTools(
 					return withDisplay(
 						{ unloaded: removed, name },
 						{
-							text: removed ? `Unplugged '${name}'` : `Organ '${name}' not found`,
+							text: removed ? `Unplugged '${name}'` : `Adapter '${name}' not found`,
 							mimeType: "text/plain",
 						},
 					);
@@ -508,13 +510,13 @@ function buildPrototypeTools(
 			"prototype.list": typedAction(
 				{
 					name: "prototype.list",
-					description: "List all organs currently loaded in the running agent.",
+					description: "List all adapters currently loaded in the running agent.",
 					inputSchema: z.object({}),
 				},
 				() => {
-					const organs = agent.organs.map((o) => ({ name: o.name, tools: o.tools.map((t) => t.name) }));
+					const adapters = agent.adapters.map((o) => ({ name: o.name, tools: o.tools.map((t) => t.name) }));
 					return Promise.resolve(
-						withDisplay({ organs }, { text: `${organs.length} organ(s) loaded`, mimeType: "text/plain" }),
+						withDisplay({ adapters }, { text: `${adapters.length} adapter(s) loaded`, mimeType: "text/plain" }),
 					);
 				},
 			),
@@ -522,7 +524,7 @@ function buildPrototypeTools(
 	};
 }
 
-function buildDirectiveTools(g: NonNullable<MetaOrganOptions["getDirective"]>): ActionMap {
+function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>): ActionMap {
 	return {
 		motor: {
 			"alef.directive.list": typedAction(
@@ -633,7 +635,7 @@ function buildDirectiveTools(g: NonNullable<MetaOrganOptions["getDirective"]>): 
 	};
 }
 
-function buildSessionTools(opts: MetaOrganOptions): ActionMap {
+function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
 	return {
 		motor: {
 			"alef.sessions.list": typedAction(
@@ -710,22 +712,22 @@ function buildSessionTools(opts: MetaOrganOptions): ActionMap {
 				},
 				{ shouldCache: () => true },
 			),
-			"alef.organs.list": typedAction(
+			"alef.adapters.list": typedAction(
 				{
-					name: "alef.organs.list",
-					description: "List user-installed organs from ~/.config/alef/organs.yaml.",
+					name: "alef.adapters.list",
+					description: "List user-installed adapters from ~/.config/alef/organs.yaml.",
 					inputSchema: z.object({}),
 				},
 				async () => {
-					const organs = await listOrgans();
-					return withDisplay({ organs }, { text: "organs.yaml loaded", mimeType: "text/plain" });
+					const adapters = await listAdapters();
+					return withDisplay({ adapters }, { text: "organs.yaml loaded", mimeType: "text/plain" });
 				},
 				{ shouldCache: () => true },
 			),
 			"alef.pm.history": typedAction(
 				{
 					name: "alef.pm.history",
-					description: "List organ package manager generation history.",
+					description: "List adapter package manager generation history.",
 					inputSchema: z.object({}),
 				},
 				async () => {
@@ -769,33 +771,39 @@ function buildSessionTools(opts: MetaOrganOptions): ActionMap {
 	};
 }
 
-export function createMetaOrgan(opts: MetaOrganOptions) {
-	const { agent, loadOrgan, cwd = process.cwd(), getDirective } = opts;
-	return defineOrgan(
+export function createMetaAdapter(opts: MetaAdapterOptions) {
+	const { agent, loadAdapter, cwd = process.cwd(), getDirective } = opts;
+	return defineAdapter(
 		"alef",
 		{
 			motor: {
 				...(getDirective ? buildDirectiveTools(getDirective).motor : {}),
-				...(agent && loadOrgan ? buildPrototypeTools(agent, loadOrgan, cwd).motor : {}),
+				...(agent && loadAdapter ? buildPrototypeTools(agent, loadAdapter, cwd).motor : {}),
 				...buildSessionTools(opts).motor,
 			},
 		},
 		{
 			description:
-				"Query Alef sessions, config, organs, package manager history, manage the system prompt, and prototype new organs.",
+				"Query Alef sessions, config, adapters, package manager history, manage the system prompt, and prototype new adapters.",
 			skills: [PROTOTYPING_BOOK],
 			directives: [
 				"Use alef.sessions.list to discover all sessions. Use alef.sessions.search to find sessions by topic — it searches name, first message, and content. " +
 					"Use alef.sessions.read to get the content of a specific session. " +
 					"Use alef.sessions.rename to give a session a memorable name when asked. " +
-					"Use alef.config.get, alef.organs.list, alef.pm.history for system information. " +
+					"Use alef.config.get, alef.adapters.list, alef.pm.history for system information. " +
 					"Use alef.directive.list to show the active prompt blocks. Use alef.directive.enable/disable/toggle to change which blocks are active. " +
 					"Use alef.directive.replace to change block content. Use alef.directive.add to inject a new block. " +
 					"Use alef.rebuild to apply source edits via a zero-downtime blue-green swap (requires alef-dev.sh). " +
-					"Use prototype.plug to load a new organ at runtime (pass path or code). Use prototype.unplug to remove it. Use prototype.list to see what is loaded. " +
+					"Use prototype.plug to load a new adapter at runtime (pass path or code). Use prototype.unplug to remove it. Use prototype.list to see what is loaded. " +
 					"Respond concisely with the most relevant data. Do not write files.",
 			],
 			labels: ["alef-api", "meta", "sessions", "scroll"],
 		},
 	);
 }
+
+/** @deprecated Use MetaAdapterOptions */
+export type MetaOrganOptions = MetaAdapterOptions;
+
+/** @deprecated Use createMetaAdapter */
+export const createMetaOrgan = createMetaAdapter;

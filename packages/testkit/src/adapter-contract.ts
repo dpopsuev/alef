@@ -1,13 +1,13 @@
 /**
- * RunOrganContract — reusable organ compliance suite.
+ * RunAdapterContract — reusable adapter compliance suite.
  *
- * Any organ implementation calls runOrganContract(organ) in a test to prove
+ * Any adapter implementation calls runAdapterContract(adapter) in a test to prove
  * it satisfies the Nerve contract. Six checks:
  *
  * 1. mount() returns a cleanup function
  * 2. cleanup is idempotent (callable twice without throwing)
- * 3. organ.tools is a defined array
- * 4. organ.subscriptions.motor lists every 'motor/' key the organ handles
+ * 3. adapter.tools is a defined array
+ * 4. adapter.subscriptions.motor lists every 'motor/' key the adapter handles
  * 5. for each tool: valid Motor event → Sense event within timeout
  * 6. for each tool: invalid payload → isError:true Sense event
  *
@@ -42,11 +42,19 @@ export interface OrganContractReport {
 	ok: boolean;
 }
 
+// Forward-compatible aliases — prefer these in new code.
+export type AdapterContractOptions = OrganContractOptions;
+export type AdapterContractViolation = OrganContractViolation;
+export type AdapterContractReport = OrganContractReport;
+
 /**
- * Run the organ compliance suite and return a structured report.
+ * Run the adapter compliance suite and return a structured report.
  * Does not throw — callers decide how to handle violations.
  */
-export async function runOrganContract(organ: Adapter, opts: OrganContractOptions = {}): Promise<OrganContractReport> {
+export async function runOrganContract(
+	adapter: Adapter,
+	opts: OrganContractOptions = {},
+): Promise<OrganContractReport> {
 	const timeoutMs = opts.timeoutMs ?? 2000;
 	const passed: string[] = [];
 	const violations: OrganContractViolation[] = [];
@@ -58,7 +66,7 @@ export async function runOrganContract(organ: Adapter, opts: OrganContractOption
 	const nerve = new InProcessNerve();
 	let unmount: (() => void) | unknown;
 	try {
-		unmount = organ.mount(nerve.asNerve());
+		unmount = adapter.mount(nerve.asNerve());
 		if (typeof unmount !== "function") {
 			fail("mount-returns-function", `mount() returned ${typeof unmount}, expected function`);
 		} else {
@@ -66,7 +74,7 @@ export async function runOrganContract(organ: Adapter, opts: OrganContractOption
 		}
 	} catch (e) {
 		fail("mount-returns-function", `mount() threw: ${e}`);
-		return { organ: organ.name, passed, violations, ok: false };
+		return { organ: adapter.name, passed, violations, ok: false };
 	}
 
 	// 2. unmount is idempotent
@@ -81,15 +89,15 @@ export async function runOrganContract(organ: Adapter, opts: OrganContractOption
 	}
 
 	// 3. tools is a defined array
-	if (!Array.isArray(organ.tools)) {
-		fail("tools-defined", `organ.tools is ${typeof organ.tools}, expected array`);
+	if (!Array.isArray(adapter.tools)) {
+		fail("tools-defined", `adapter.tools is ${typeof adapter.tools}, expected array`);
 	} else {
 		ok("tools-defined");
 	}
 
 	// 4. subscriptions.motor matches tool names
-	const toolNames = organ.tools.map((t) => t.name);
-	const motorSubs = organ.subscriptions.motor;
+	const toolNames = adapter.tools.map((t) => t.name);
+	const motorSubs = adapter.subscriptions.motor;
 	const unsubscribed = toolNames.filter((n) => !motorSubs.includes(n));
 	if (unsubscribed.length > 0) {
 		fail("subscriptions-complete", `tools [${unsubscribed.join(", ")}] have no matching motor subscription`);
@@ -98,11 +106,11 @@ export async function runOrganContract(organ: Adapter, opts: OrganContractOption
 	}
 
 	// 5 & 6. probe each tool with valid + invalid Motor events
-	if (organ.tools.length > 0) {
+	if (adapter.tools.length > 0) {
 		const probeNerve = new InProcessNerve();
-		const probeUnmount = organ.mount(probeNerve.asNerve());
+		const probeUnmount = adapter.mount(probeNerve.asNerve());
 
-		for (const tool of organ.tools) {
+		for (const tool of adapter.tools) {
 			// Build a minimal valid payload from the schema
 			const validPayload = buildMinimalPayload(tool.inputSchema);
 			const invalidPayload = { __invalid__: true };
@@ -122,7 +130,7 @@ export async function runOrganContract(organ: Adapter, opts: OrganContractOption
 			} else if (!invalidResult.isError) {
 				fail(
 					`probe-invalid:${tool.name}`,
-					`expected isError:true for invalid payload, got isError:false — organ must reject schema violations`,
+					`expected isError:true for invalid payload, got isError:false — adapter must reject schema violations`,
 				);
 			} else {
 				ok(`probe-invalid:${tool.name}`);
@@ -133,7 +141,7 @@ export async function runOrganContract(organ: Adapter, opts: OrganContractOption
 	}
 
 	return {
-		organ: organ.name,
+		organ: adapter.name,
 		passed,
 		violations,
 		ok: violations.length === 0,
@@ -144,15 +152,15 @@ export async function runOrganContract(organ: Adapter, opts: OrganContractOption
  * assertOrganContract — throws on any violation. Use in vitest tests.
  *
  * @example
- * test("fs organ satisfies contract", async () => {
- * await assertOrganContract(createFsOrgan({ cwd: "/tmp" }));
+ * test("fs adapter satisfies contract", async () => {
+ * await assertOrganContract(createFsAdapter({ cwd: "/tmp" }));
  * });
  */
-export async function assertOrganContract(organ: Adapter, opts?: OrganContractOptions): Promise<void> {
-	const report = await runOrganContract(organ, opts);
+export async function assertOrganContract(adapter: Adapter, opts?: OrganContractOptions): Promise<void> {
+	const report = await runOrganContract(adapter, opts);
 	if (!report.ok) {
 		const lines = report.violations.map((v) => ` [${v.check}] ${v.detail}`).join("\n");
-		throw new Error(`Organ '${report.organ}' failed contract:\n${lines}`);
+		throw new Error(`Adapter '${report.organ}' failed contract:\n${lines}`);
 	}
 }
 
@@ -181,7 +189,7 @@ function makeSpyLogger(bindings: Record<string, unknown>, sink: CapturedLog[]): 
 }
 
 // ---------------------------------------------------------------------------
-// organComplianceSuite — vitest-integrated compliance harness
+// organComplianceSuite — vitest-integrated adapter compliance harness
 // ---------------------------------------------------------------------------
 
 export interface StreamingToolConfig {
@@ -198,7 +206,7 @@ export interface OrganComplianceOptions {
 	 * Per-tool streaming config — required for every tool whose ToolDefinition
 	 * has streaming:true (set automatically by typedStreamAction).
 	 *
-	 * organComplianceSuite discovers streaming tools from organ.tools at
+	 * organComplianceSuite discovers streaming tools from adapter.tools at
 	 * describe() time and throws an error at test collection phase if any
 	 * streaming tool is missing from this map.
 	 *
@@ -208,7 +216,7 @@ export interface OrganComplianceOptions {
 	/** Override timeout for schema rejection check. Default: 400ms. */
 	schemaTimeoutMs?: number;
 	/**
-	 * Assert on log calls emitted by the organ under test.
+	 * Assert on log calls emitted by the adapter under test.
 	 * Called after each probe with all log entries captured by the spy logger.
 	 */
 	logAssertions?: (logs: CapturedLog[]) => void;
@@ -219,17 +227,20 @@ export interface OrganComplianceOptions {
 	tags?: string[];
 }
 
+// Forward-compatible alias — prefer in new code.
+export type AdapterComplianceOptions = OrganComplianceOptions;
+
 /**
- * organComplianceSuite — drop into any organ test file to get framework
+ * organComplianceSuite — drop into any adapter test file to get framework
  * compliance as individual named vitest tests.
  *
  * @example
  * ```ts
- * // organ-shell/test/organ.test.ts
+ * // organ-shell/test/adapter.test.ts
  * import { organComplianceSuite } from "@dpopsuev/alef-testkit";
- * import { createShellOrgan } from "../src/organ.js";
+ * import { createShellAdapter } from "../src/adapter.js";
  *
- * organComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
+ * organComplianceSuite(() => createShellAdapter({ cwd: "/tmp" }), {
  * streaming: {
  * "shell.exec": {
  * validPayload: { command: "sleep 1" },
@@ -249,8 +260,8 @@ export function organComplianceSuite(
 	// Discover streaming tools once at describe() time — before any test runs.
 	// This lets us generate it() blocks per tool AND enforce that every
 	// streaming tool has a validPayload in opts.streaming.
-	const discoveryOrgan = createAdapter();
-	const streamingTools = (discoveryOrgan.tools ?? []).filter((t) => t.streaming === true);
+	const discoveryAdapter = createAdapter();
+	const streamingTools = (discoveryAdapter.tools ?? []).filter((t) => t.streaming === true);
 	const streamingConfig = opts.streaming ?? {};
 
 	// Enforce at collection time: every streaming tool needs a validPayload.
@@ -266,16 +277,16 @@ export function organComplianceSuite(
 		}
 	}
 
-	describe("organ framework compliance", { tags: (opts.tags ?? ["compliance"]) as string[] as never }, () => {
-		let organ: Adapter;
+	describe("adapter framework compliance", { tags: (opts.tags ?? ["compliance"]) as string[] as never }, () => {
+		let adapter: Adapter;
 		let unmount: (() => void) | undefined;
 		const probeNerve = new InProcessNerve();
 		let capturedLogs: CapturedLog[] = [];
 
 		beforeEach(() => {
 			capturedLogs = [];
-			organ = createAdapter(makeSpyLogger({}, capturedLogs));
-			unmount = organ.mount(probeNerve.asNerve());
+			adapter = createAdapter(makeSpyLogger({}, capturedLogs));
+			unmount = adapter.mount(probeNerve.asNerve());
 		});
 		afterEach(() => {
 			unmount?.();
@@ -285,15 +296,15 @@ export function organComplianceSuite(
 		// ── Structural ─────────────────────────────────────────────────────
 
 		it("has a non-empty description", () => {
-			const o = organ ?? createAdapter();
-			expect(o.description, "organ must have a description").toBeTruthy();
+			const o = adapter ?? createAdapter();
+			expect(o.description, "adapter must have a description").toBeTruthy();
 			expect((o.description ?? "").length, "description must be > 10 chars").toBeGreaterThan(10);
 		});
 
 		it("has directives when it exposes tools", () => {
-			const o = organ ?? createAdapter();
+			const o = adapter ?? createAdapter();
 			if ((o.tools ?? []).length > 0) {
-				expect((o.directives ?? []).length, "tool-bearing organs must have directives").toBeGreaterThan(0);
+				expect((o.directives ?? []).length, "tool-bearing adapters must have directives").toBeGreaterThan(0);
 			}
 		});
 
@@ -388,19 +399,19 @@ export interface SchemaContractResult {
 }
 
 /**
- * Verify that when a required field is set to null, the organ:
+ * Verify that when a required field is set to null, the adapter:
  * 1. Publishes an error sense within 200ms (not a 60s timeout)
  * 2. Does not call handle() on rejection
  * 3. Error message is human-readable (no raw zod '[InputValidation]' prefix)
  */
 export async function runSchemaContract(
-	organ: Adapter,
+	adapter: Adapter,
 	opts: { timeoutMs?: number } = {},
 ): Promise<SchemaContractResult[]> {
 	const results: SchemaContractResult[] = [];
 	const timeoutMs = opts.timeoutMs ?? 300;
 
-	for (const tool of organ.tools) {
+	for (const tool of adapter.tools) {
 		const violations: string[] = [];
 		const shape = (tool.inputSchema as z.ZodObject<z.ZodRawShape>)?.shape;
 		if (!shape) continue;
@@ -412,7 +423,7 @@ export async function runSchemaContract(
 		if (!requiredStringField) continue;
 
 		const nerve = new InProcessNerve();
-		const unmount = organ.mount(nerve.asNerve());
+		const unmount = adapter.mount(nerve.asNerve());
 		const correlationId = randomUUID();
 		const motorType = tool.name.replace(/\./g, "_");
 
@@ -458,14 +469,14 @@ export async function runSchemaContract(
 // ---------------------------------------------------------------------------
 
 /**
- * Verify that for a long-running tool (duration > thresholdMs), the organ
+ * Verify that for a long-running tool (duration > thresholdMs), the adapter
  * emits at least one isFinal:false sense event — so the TUI can show progress.
  *
- * This contract catches organs that should use typedStreamAction but use
+ * This contract catches adapters that should use typedStreamAction but use
  * typedAction instead (like organ-agent.agent.run, organ-enclosure.exec).
  */
 export async function runStreamingContract(
-	organ: Adapter,
+	adapter: Adapter,
 	toolName: string,
 	validPayload: Record<string, unknown>,
 	opts: { thresholdMs?: number; timeoutMs?: number } = {},
@@ -474,7 +485,7 @@ export async function runStreamingContract(
 	const timeoutMs = opts.timeoutMs ?? 10_000;
 
 	const nerve = new InProcessNerve();
-	const unmount = organ.mount(nerve.asNerve());
+	const unmount = adapter.mount(nerve.asNerve());
 	const correlationId = randomUUID();
 	const motorType = toolName.replace(/\./g, "_");
 

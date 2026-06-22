@@ -7,12 +7,12 @@
  *
  * Storage:
  *   ~/.config/alef/
- *     package.json          ← organ dependencies
+ *     package.json          ← adapter dependencies
  *     package-lock.json     ← npm-generated, SHA-512 per package
- *     node_modules/         ← npm-managed organ installs
+ *     node_modules/         ← npm-managed adapter installs
  *     generations/N.json    ← immutable snapshots of package-lock.json
  *     current               ← active generation number
- *     local-store/<sha256>/ ← snapshots of file: organs (not on npm)
+ *     local-store/<sha256>/ ← snapshots of file: adapters (not on npm)
  *
  * Rollback primitive: restore lockfile from generation N, then `npm ci`.
  * npm ci installs exactly what the lockfile says, verified by integrity hash,
@@ -115,12 +115,16 @@ function snapshotGeneration(): number {
 	return id;
 }
 
-function parseLockOrgans(lockContent: string): Record<string, string> {
+function parseLockAdapters(lockContent: string): Record<string, string> {
 	try {
 		const lock = JSON.parse(lockContent) as { packages?: Record<string, { version?: string }> };
 		const result: Record<string, string> = {};
 		for (const [k, v] of Object.entries(lock.packages ?? {})) {
-			if (k.startsWith("node_modules/@dpopsuev/") || k.startsWith("node_modules/alef-organ")) {
+			if (
+				k.startsWith("node_modules/@dpopsuev/") ||
+				k.startsWith("node_modules/alef-organ") ||
+				k.startsWith("node_modules/alef-adapter")
+			) {
 				const name = basename(k);
 				result[name] = v.version ?? "unknown";
 			}
@@ -132,11 +136,11 @@ function parseLockOrgans(lockContent: string): Record<string, string> {
 }
 
 // ---------------------------------------------------------------------------
-// Local store (for file: organs)
+// Local store (for file: adapters)
 // ---------------------------------------------------------------------------
 
-/** Snapshot a local file organ. Returns the SHA-256 hash used as the store key. */
-export function snapshotLocalOrgan(filePath: string): string {
+/** Snapshot a local file adapter. Returns the SHA-256 hash used as the store key. */
+export function snapshotLocalAdapter(filePath: string): string {
 	const content = readFileSync(filePath);
 	const hash = createHash("sha256").update(content).digest("hex");
 	const storeDir = join(LOCAL_STORE, hash);
@@ -147,8 +151,8 @@ export function snapshotLocalOrgan(filePath: string): string {
 	return hash;
 }
 
-/** Restore a local organ from the store. Returns the restored file path. */
-export function restoreLocalOrgan(hash: string, fileName: string): string {
+/** Restore a local adapter from the store. Returns the restored file path. */
+export function restoreLocalAdapter(hash: string, fileName: string): string {
 	const stored = join(LOCAL_STORE, hash, fileName);
 	if (!existsSync(stored)) {
 		throw new Error(`local-store: ${hash}/${fileName} not found — was it deleted?`);
@@ -162,6 +166,12 @@ export function restoreLocalOrgan(hash: string, fileName: string): string {
 	return stored;
 }
 
+/** @deprecated Use snapshotLocalAdapter() instead. */
+export const snapshotLocalOrgan = snapshotLocalAdapter;
+
+/** @deprecated Use restoreLocalAdapter() instead. */
+export const restoreLocalOrgan = restoreLocalAdapter;
+
 // ---------------------------------------------------------------------------
 // Core operations
 // ---------------------------------------------------------------------------
@@ -174,26 +184,26 @@ export async function runNpm(...args: string[]): Promise<void> {
 	if (stderr) process.stderr.write(stderr);
 }
 
-/** Install an organ package. */
-export async function install(organ: string, version?: string): Promise<number> {
+/** Install an adapter package. */
+export async function install(adapter: string, version?: string): Promise<number> {
 	init();
-	const spec = version ? `${organ}@${version}` : organ;
+	const spec = version ? `${adapter}@${version}` : adapter;
 	await runNpm("install", spec);
 	return snapshotGeneration();
 }
 
-/** Remove an organ package. */
-export async function remove(organ: string): Promise<number> {
+/** Remove an adapter package. */
+export async function remove(adapter: string): Promise<number> {
 	init();
-	await runNpm("uninstall", organ);
+	await runNpm("uninstall", adapter);
 	return snapshotGeneration();
 }
 
-/** Upgrade all or specific organs. */
-export async function upgrade(organs?: string[]): Promise<number> {
+/** Upgrade all or specific adapters. */
+export async function upgrade(adapters?: string[]): Promise<number> {
 	init();
-	if (organs && organs.length > 0) {
-		await runNpm("update", ...organs);
+	if (adapters && adapters.length > 0) {
+		await runNpm("update", ...adapters);
 	} else {
 		await runNpm("update");
 	}
@@ -214,7 +224,7 @@ export async function rollback(n: number): Promise<void> {
 	process.stderr.write(`[alef-pm] rolled back to generation ${n}\n`);
 }
 
-/** Run npm audit against the managed organ directory. */
+/** Run npm audit against the managed adapter directory. */
 export async function audit(): Promise<void> {
 	init();
 	await runNpm("audit");
@@ -231,7 +241,7 @@ export function history(): HistoryEntry[] {
 				id: gen.id,
 				ts: gen.ts,
 				alef: gen.alef,
-				organs: parseLockOrgans(gen.lockfileContent),
+				organs: parseLockAdapters(gen.lockfileContent),
 			};
 		})
 		.sort((a, b) => b.id - a.id);
@@ -289,11 +299,13 @@ export interface SearchResult {
 }
 
 /**
- * Search npm for packages with the `alef-organ` keyword.
+ * Search npm for packages with the `alef-adapter` (or legacy `alef-organ`) keyword.
  * Optional query further filters by name/description.
  */
 export async function search(query: string): Promise<SearchResult[]> {
-	const terms = query.trim() ? `keywords:alef-organ ${query}` : "keywords:alef-organ";
+	const terms = query.trim()
+		? `keywords:alef-adapter keywords:alef-organ ${query}`
+		: "keywords:alef-adapter keywords:alef-organ";
 	const cmd = `npm search ${terms} --json`;
 	process.stderr.write(`[alef-pm] ${cmd}\n`);
 	const { stdout } = await exec(cmd);
@@ -326,9 +338,9 @@ export interface SbomComponent {
 }
 
 /**
- * Produce an SPDX-2.3 software bill of materials for all installed organs.
- * Built-in organs are identified from the alef monorepo package.json version.
- * Installed organs are read from the PM_ROOT package-lock.json.
+ * Produce an SPDX-2.3 software bill of materials for all installed adapters.
+ * Built-in adapters are identified from the alef monorepo package.json version.
+ * Installed adapters are read from the PM_ROOT package-lock.json.
  */
 export function sbom(): object {
 	const components: SbomComponent[] = [];
@@ -374,10 +386,10 @@ export function sbom(): object {
 }
 
 /**
- * Resolve the node_modules path for a named organ installed via alef-pm.
- * Returns undefined if the organ is not installed in the PM_ROOT.
+ * Resolve the node_modules path for a named adapter installed via alef-pm.
+ * Returns undefined if the adapter is not installed in the PM_ROOT.
  */
-export function resolveOrganPath(name: string): string | undefined {
+export function resolveAdapterPath(name: string): string | undefined {
 	const candidates = [
 		join(PM_ROOT, "node_modules", name, "src", "organ.ts"),
 		join(PM_ROOT, "node_modules", `@dpopsuev`, name, "src", "organ.ts"),
@@ -388,6 +400,9 @@ export function resolveOrganPath(name: string): string | undefined {
 	}
 	return undefined;
 }
+
+/** @deprecated Use resolveAdapterPath() instead. */
+export const resolveOrganPath = resolveAdapterPath;
 
 // ---------------------------------------------------------------------------
 // Project-level lockfile — commit organ versions alongside code (like Cargo.lock)
@@ -400,21 +415,21 @@ export interface ProjectLockfile {
 	exportedAt: string;
 	/** Generation ID at time of export. */
 	generationId: number;
-	/** Organ name → exact resolved version. */
+	/** Adapter name → exact resolved version. */
 	organs: Record<string, string>;
 }
 
 const PROJECT_LOCKFILE_NAME = "alef-organs.lock";
 
 /**
- * Export the current organ generation as a project-level lockfile.
+ * Export the current adapter generation as a project-level lockfile.
  * Write it to `outputPath` (default: `<cwd>/alef-organs.lock`) so it
  * can be committed to the project repository alongside the code.
  */
 export function exportLockfile(cwd = process.cwd(), outputPath?: string): string {
 	const genId = currentGenId();
 	const lockContent = existsSync(LOCK_FILE) ? readFileSync(LOCK_FILE, "utf-8") : "{}";
-	const organs = parseLockOrgans(lockContent);
+	const organs = parseLockAdapters(lockContent);
 
 	const lockfile: ProjectLockfile = {
 		alef: process.env.npm_package_version ?? "unknown",
@@ -429,7 +444,7 @@ export function exportLockfile(cwd = process.cwd(), outputPath?: string): string
 }
 
 /**
- * Import a project-level lockfile and restore the exact organ versions.
+ * Import a project-level lockfile and restore the exact adapter versions.
  * Reads `<cwd>/alef-organs.lock` (or `inputPath`), installs pinned versions,
  * and snapshots the result as a new generation.
  */

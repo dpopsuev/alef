@@ -1,13 +1,13 @@
 /**
- * ResolutionUnit \u2014 evaluate a single organ in isolation.
+ * ResolutionUnit \u2014 evaluate a single adapter in isolation.
  *
  * No LLM. No blueprint. No real dependencies.
  * Motor events are injected from PortStubs (fixture JSON).
  * Sense events are collected and scored against a ScoreCard.
  *
  * Resolution levels (mirrors Tako calibrate.multi_resolution):
- *   unit       \u2014 one organ, all ports stubbed
- *   pairwise   \u2014 two organs composed, outer ports stubbed  (future)
+ *   unit       \u2014 one adapter, all ports stubbed
+ *   pairwise   \u2014 two adapters composed, outer ports stubbed  (future)
  *   integrated \u2014 full blueprint, no stubs (existing EvalHarness)
  *
  */
@@ -21,13 +21,13 @@ import { type Adapter, gimpedAdapter, InProcessNerve, isGimped, type SenseEvent 
 
 /**
  * A PortStub declares a canned Motor payload for a named tool.
- * The organ receives this payload and its Sense response is captured.
+ * The adapter receives this payload and its Sense response is captured.
  *
  * Mirrors Tako calibrate.PortStubs: stubs at port boundaries so a circuit
  * can be measured in isolation without invoking real sub-circuits.
  */
 export interface PortStub {
-	/** Tool name (e.g. "fs.read"). Must match a tool in the organ. */
+	/** Tool name (e.g. "fs.read"). Must match a tool in the adapter. */
 	tool: string;
 	/** Motor payload injected. Should satisfy the tool's inputSchema. */
 	payload: Record<string, unknown>;
@@ -78,8 +78,8 @@ export const defaultUnitScorer: UnitScorer = (sensePayload, _groundTruth, _stub)
 // ---------------------------------------------------------------------------
 
 export interface UnitEvalConfig {
-	/** The organ under test. */
-	organ: Adapter;
+	/** The adapter under test. */
+	adapter: Adapter;
 	/** Canned Motor payloads to inject. */
 	stubs: PortStub[];
 	/** Optional scorer. Default: 1.0 if response received, 0 otherwise. */
@@ -93,9 +93,9 @@ export interface UnitEvalConfig {
 // ---------------------------------------------------------------------------
 
 export interface UnitEvalReport {
-	organ: string;
+	adapter: string;
 	resolution: "unit";
-	/** true if the organ is gimped (no tools, no subscriptions). */
+	/** true if the adapter is gimped (no tools, no subscriptions). */
 	gimped: boolean;
 	cases: UnitCaseResult[];
 	/** Mean score across all cases (0\u20131). */
@@ -113,14 +113,14 @@ export interface UnitEvalReport {
 // ---------------------------------------------------------------------------
 
 /**
- * Run a single organ against a set of PortStubs and return a UnitEvalReport.
+ * Run a single adapter against a set of PortStubs and return a UnitEvalReport.
  *
- * The organ is mounted on a fresh isolated InProcessNerve for each run,
+ * The adapter is mounted on a fresh isolated InProcessNerve for each run,
  * then unmounted. No state leaks between calls.
  *
  * @example
  * const report = await runUnitEval({
- *   organ: createFsOrgan({ cwd: "/tmp/workspace" }),
+ *   adapter: createFsAdapter({ cwd: "/tmp/workspace" }),
  *   stubs: [
  *     { tool: "fs.read", payload: { path: "README.md" }, label: "read readme" },
  *     { tool: "fs.grep", payload: { pattern: "TODO" }, label: "grep todos" },
@@ -136,14 +136,14 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 	const start = Date.now();
 	const timeoutMs = cfg.timeoutMs ?? 5000;
 	const scorer = cfg.scorer ?? defaultUnitScorer;
-	const organ = cfg.organ;
-	const gimped = isGimped(organ);
+	const adapter = cfg.adapter;
+	const gimped = isGimped(adapter);
 
 	const cases: UnitCaseResult[] = [];
 
-	// Mount the organ on a fresh nerve
+	// Mount the adapter on a fresh nerve
 	const nerve = new InProcessNerve();
-	const unmount = organ.mount(nerve.asNerve());
+	const unmount = adapter.mount(nerve.asNerve());
 
 	try {
 		for (const stub of cfg.stubs) {
@@ -186,7 +186,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 	const errorRate = n === 0 ? 0 : cases.filter((c) => c.isError).length / n;
 
 	return {
-		organ: organ.name,
+		adapter: adapter.name,
 		resolution: "unit",
 		gimped,
 		cases,
@@ -198,15 +198,15 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 }
 
 /**
- * Run the same UnitEvalConfig with organ replaced by a gimpedAdapter,
+ * Run the same UnitEvalConfig with adapter replaced by a gimpedAdapter,
  * returning the baseline (ablated) report. Use as denominator in ablation:
  *
- *   const real = await runUnitEval({ organ: myOrgan, stubs });
- *   const base = await runUnitEvalBaseline({ organ: myOrgan, stubs });
+ *   const real = await runUnitEval({ adapter: myAdapter, stubs });
+ *   const base = await runUnitEvalBaseline({ adapter: myAdapter, stubs });
  *   const contribution = real.meanScore - base.meanScore;
  */
 export async function runUnitEvalBaseline(cfg: UnitEvalConfig): Promise<UnitEvalReport> {
-	return runUnitEval({ ...cfg, organ: gimpedAdapter(`${cfg.organ.name}.gimped`) });
+	return runUnitEval({ ...cfg, adapter: gimpedAdapter(`${cfg.adapter.name}.gimped`) });
 }
 
 // ---------------------------------------------------------------------------

@@ -20,8 +20,8 @@ const BLUEPRINT_TOOL = {
 			.array(z.string().min(1))
 			.min(1)
 			.describe(
-				"Organ list. Built-in names: fs, shell, web, nodesh, lector, todos. " +
-					"Custom organs: absolute path or path relative to cwd ending in .ts",
+				"Adapter list. Built-in names: fs, shell, web, nodesh, lector, todos. " +
+					"Custom adapters: absolute path or path relative to cwd ending in .ts",
 			),
 		model: z.string().optional().describe("Model override, e.g. claude-haiku-4-5"),
 		outputPath: z
@@ -46,13 +46,13 @@ const BUILT_IN_ORGANS = new Set([
 ]);
 
 function buildBlueprint(name: string, description: string, organs: string[], model?: string): Record<string, unknown> {
-	const organEntries = organs.map((organ) => {
-		if (BUILT_IN_ORGANS.has(organ)) return { name: organ };
-		return { path: organ };
+	const adapterEntries = organs.map((adapter) => {
+		if (BUILT_IN_ORGANS.has(adapter)) return { name: adapter };
+		return { path: adapter };
 	});
 
 	const spec: Record<string, unknown> = {
-		organs: organEntries,
+		organs: adapterEntries,
 	};
 	if (model) spec.model = model;
 
@@ -67,16 +67,16 @@ function buildBlueprint(name: string, description: string, organs: string[], mod
 const FIELD_TYPES = ["string", "number", "boolean"] as const;
 type FieldType = (typeof FIELD_TYPES)[number];
 
-const ORGAN_TOOL = {
+const ADAPTER_TOOL = {
 	name: "factory.organ",
 	description:
-		"Write a valid TypeScript organ scaffold to ~/.alef/prototypes/<name>.ts. " +
+		"Write a valid TypeScript adapter scaffold to ~/.alef/prototypes/<name>.ts. " +
 		"Returns the absolute path — pass it directly to prototype.plug({ path }) to load it.",
 	inputSchema: z.object({
 		name: z
 			.string()
 			.regex(/^[a-z][a-z0-9-]*$/, "kebab-case, e.g. weather-client")
-			.describe("Organ name, kebab-case. Used as the filename and defineAdapter namespace."),
+			.describe("Adapter name, kebab-case. Used as the filename and defineAdapter namespace."),
 		toolName: z
 			.string()
 			.regex(/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/, "namespace.action, e.g. weather.get")
@@ -92,7 +92,7 @@ const ORGAN_TOOL = {
 	}),
 };
 
-function buildOrganScaffold(
+function buildAdapterScaffold(
 	_name: string,
 	toolName: string,
 	description: string,
@@ -109,7 +109,7 @@ function buildOrganScaffold(
 		`import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";`,
 		`import { z } from "zod";`,
 		``,
-		`export function createOrgan() {`,
+		`export function createAdapter() {`,
 		`\tconst TOOL = {`,
 		`\t\tname: "${toolName}",`,
 		`\t\tdescription: "${description}",`,
@@ -140,18 +140,21 @@ function buildOrganScaffold(
 
 const PROTOTYPES_DIR = join(homedir(), ".alef", "prototypes");
 
-export interface FactoryOrganOptions {
+export interface FactoryAdapterOptions {
 	cwd?: string;
 }
 
-export function createFactoryOrgan(options: FactoryOrganOptions = {}): Adapter {
+/** @deprecated Use FactoryAdapterOptions */
+export type FactoryOrganOptions = FactoryAdapterOptions;
+
+export function createFactoryOrgan(options: FactoryAdapterOptions = {}): Adapter {
 	const cwd = options.cwd ?? process.cwd();
 
 	return defineAdapter(
 		"factory",
 		{
 			motor: {
-				"factory.organ": typedAction(ORGAN_TOOL, async (ctx) => {
+				"factory.organ": typedAction(ADAPTER_TOOL, async (ctx) => {
 					const { name, toolName, description, inputFields } = ctx.payload;
 					const fields: Record<string, FieldType> = (inputFields as Record<string, FieldType>) ?? {
 						input: "string",
@@ -159,7 +162,7 @@ export function createFactoryOrgan(options: FactoryOrganOptions = {}): Adapter {
 
 					mkdirSync(PROTOTYPES_DIR, { recursive: true });
 					const targetPath = join(PROTOTYPES_DIR, `${name}.ts`);
-					const scaffold = buildOrganScaffold(name, toolName, description, fields);
+					const scaffold = buildAdapterScaffold(name, toolName, description, fields);
 					writeFileSync(targetPath, scaffold, "utf-8");
 
 					return withDisplay(
@@ -169,7 +172,7 @@ export function createFactoryOrgan(options: FactoryOrganOptions = {}): Adapter {
 							toolName,
 							next: `prototype.plug({ path: "${targetPath}" })`,
 						},
-						{ text: `Organ scaffold written: ${targetPath}`, mimeType: "text/plain" },
+						{ text: `Adapter scaffold written: ${targetPath}`, mimeType: "text/plain" },
 					);
 				}),
 				"factory.blueprint": typedAction(BLUEPRINT_TOOL, async (ctx) => {
@@ -196,11 +199,11 @@ export function createFactoryOrgan(options: FactoryOrganOptions = {}): Adapter {
 			},
 		},
 		{
-			description: "Agent factory: scaffold new organs and write agent blueprints.",
+			description: "Agent factory: scaffold new adapters and write agent blueprints.",
 			directives: [
-				`**factory.organ — scaffold a new organ**
+				`**factory.organ — scaffold a new adapter**
 
-Write a valid TypeScript organ to ~/.alef/prototypes/<name>.ts, then load it:
+Write a valid TypeScript adapter to ~/.alef/prototypes/<name>.ts, then load it:
 
   factory.organ({ name, toolName, description, inputFields? })
   → { path, next: "prototype.plug({ path })" }
@@ -215,7 +218,7 @@ Write a blueprint YAML and get back a path. Then spawn it:
   factory.blueprint({ name, description, organs[], model? })
   → { path, next: "orchestration.spawn({ blueprintPath: ... })" }
 
-Built-in organs you can include:
+Built-in adapters you can include:
   fs       — file system (read, write, edit, find, grep, patch)
   shell    — run commands (tests, git, build)
   web      — fetch URLs and search the web
@@ -224,8 +227,8 @@ Built-in organs you can include:
   todos    — task list management
   skills   — load skills from the filesystem
 
-Custom organs:
-  Pass an absolute path or a cwd-relative .ts path, e.g. "./organs/reviewer.ts"
+Custom adapters:
+  Pass an absolute path or a cwd-relative .ts path, e.g. "./adapters/reviewer.ts"
 
 Blueprints are saved to ~/.config/alef/agents/<name>.yaml by default.
 Pass outputPath to write elsewhere.

@@ -1,5 +1,5 @@
-import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { debugLog, McpOrgan } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
 
 export type RestartPolicy = "permanent" | "transient" | "temporary";
 
@@ -25,7 +25,7 @@ const RESTART_BACKOFF_MS = [1_000, 3_000, 10_000];
 interface ManagedService {
 	name: string;
 	config: ToolServiceConfig;
-	organ: Organ;
+	adapter: Adapter;
 	cleanup: () => void;
 	restartTimestamps: number[];
 	healthTimer?: ReturnType<typeof setInterval>;
@@ -66,8 +66,8 @@ export class ToolSupervisor {
 
 			if (svc.healthTimer) clearInterval(svc.healthTimer);
 			svc.cleanup();
-			if (svc.organ.close) {
-				await svc.organ.close().catch((err: unknown) => {
+			if (svc.adapter.close) {
+				await svc.adapter.close().catch((err: unknown) => {
 					debugLog("fleet:service:close:error", { name, error: String(err) });
 				});
 			}
@@ -78,12 +78,12 @@ export class ToolSupervisor {
 		this.nerve = null;
 	}
 
-	get(name: string): Organ | undefined {
-		return this.managed.get(name)?.organ;
+	get(name: string): Adapter | undefined {
+		return this.managed.get(name)?.adapter;
 	}
 
 	tools(): readonly ToolDefinition[] {
-		return [...this.managed.values()].flatMap((s) => [...s.organ.tools]);
+		return [...this.managed.values()].flatMap((s) => [...s.adapter.tools]);
 	}
 
 	names(): string[] {
@@ -92,13 +92,13 @@ export class ToolSupervisor {
 
 	private async bootService(name: string, cfg: ToolServiceConfig, nerve: Nerve): Promise<void> {
 		const resolvedEnv = this.resolveEnv(name, cfg);
-		const organ = await this.spawnService(name, cfg, resolvedEnv);
-		const cleanup = organ.mount(nerve);
+		const adapter = await this.spawnService(name, cfg, resolvedEnv);
+		const cleanup = adapter.mount(nerve);
 
 		const svc: ManagedService = {
 			name,
 			config: cfg,
-			organ,
+			adapter,
 			cleanup,
 			restartTimestamps: [],
 		};
@@ -116,12 +116,12 @@ export class ToolSupervisor {
 			correlationId: `fleet-${name}`,
 			payload: {
 				name,
-				tools: organ.tools.map((t) => ({ name: t.name, description: t.description })),
+				tools: adapter.tools.map((t) => ({ name: t.name, description: t.description })),
 			},
 			isError: false,
 		});
 
-		debugLog("fleet:service:ready", { name, tools: organ.tools.length });
+		debugLog("fleet:service:ready", { name, tools: adapter.tools.length });
 	}
 
 	private async healthCheck(name: string): Promise<void> {
@@ -129,9 +129,9 @@ export class ToolSupervisor {
 		if (!svc || !this.nerve) return;
 
 		try {
-			const organ = svc.organ as unknown as { client?: { ping?: () => Promise<void> } };
-			if (typeof organ.client?.ping === "function") {
-				await organ.client.ping();
+			const adapter = svc.adapter as unknown as { client?: { ping?: () => Promise<void> } };
+			if (typeof adapter.client?.ping === "function") {
+				await adapter.client.ping();
 			}
 		} catch {
 			debugLog("fleet:service:unhealthy", { name });
@@ -160,8 +160,8 @@ export class ToolSupervisor {
 		debugLog("fleet:service:restarting", { name, attempt: attempt + 1, backoffMs: backoff });
 
 		svc.cleanup();
-		if (svc.organ.close) {
-			await svc.organ.close().catch(() => {});
+		if (svc.adapter.close) {
+			await svc.adapter.close().catch(() => {});
 		}
 
 		await new Promise((r) => setTimeout(r, backoff));
@@ -174,12 +174,12 @@ export class ToolSupervisor {
 		}
 	}
 
-	private async spawnService(name: string, cfg: ToolServiceConfig, env?: Record<string, string>): Promise<Organ> {
+	private async spawnService(name: string, cfg: ToolServiceConfig, env?: Record<string, string>): Promise<Adapter> {
 		if (cfg.transport === "http" && cfg.httpUrl) {
-			return McpOrgan.http(cfg.httpUrl, name);
+			return McpAdapter.http(cfg.httpUrl, name);
 		}
 		const args = cfg.args ?? ["serve"];
-		return McpOrgan.stdio(cfg.binary, args, name, env);
+		return McpAdapter.stdio(cfg.binary, args, name, env);
 	}
 
 	private resolveEnv(name: string, cfg: ToolServiceConfig): Record<string, string> | undefined {

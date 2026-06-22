@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { join } from "node:path";
-import type { Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { type Directive, Directives, xmlRenderer } from "./directives.js";
 import { loadPrompt } from "./prompt-templates.js";
 
@@ -133,17 +133,17 @@ export async function loadWorkspace(directives: Directives, cwd: string): Promis
 	}
 }
 
-export function registerAdapters(directives: Directives, organs: readonly Organ[]): void {
-	for (const organ of organs) {
-		if (!organ.directives?.length) continue;
-		const header = organ.description ? `### ${organ.name}: ${organ.description}` : `### ${organ.name}`;
-		const body = organ.directives.map((d) => d.trim()).join("\n\n");
+export function registerAdapters(directives: Directives, adapters: readonly Adapter[]): void {
+	for (const adapter of adapters) {
+		if (!adapter.directives?.length) continue;
+		const header = adapter.description ? `### ${adapter.name}: ${adapter.description}` : `### ${adapter.name}`;
+		const body = adapter.directives.map((d) => d.trim()).join("\n\n");
 		directives.register({
-			id: `organ.${organ.name}`,
+			id: `adapter.${adapter.name}`,
 			priority: 600,
 			content: `${header}\n\n${body}`,
 			enabled: true,
-			tags: ["organ"],
+			tags: ["adapter"],
 		});
 	}
 }

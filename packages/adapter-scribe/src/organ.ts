@@ -4,10 +4,13 @@ import { join } from "node:path";
 import type { Adapter, ContextAssemblyHandler, Nerve } from "@dpopsuev/alef-kernel";
 import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
 
-export interface ScribeOrganOptions {
+export interface ScribeAdapterOptions {
 	binary?: string;
 	dbPath?: string;
 }
+
+/** @deprecated Use ScribeAdapterOptions */
+export type ScribeOrganOptions = ScribeAdapterOptions;
 
 const DEFAULT_BINARY = join(homedir(), "Workspace/scribe/bin/scribe");
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
@@ -15,7 +18,7 @@ const DEFAULT_DB_PATH = join(XDG_DATA_HOME, "alef", "scribe.db");
 
 const REFRESH_INTERVAL = 10;
 
-export function createScribeOrgan(opts: ScribeOrganOptions = {}): Adapter {
+export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const dbPath = opts.dbPath ?? DEFAULT_DB_PATH;
 
@@ -91,10 +94,10 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Adapter {
 		return { messages };
 	};
 
-	const organ: Adapter = {
+	const adapter: Adapter = {
 		name: "scribe",
 		description:
-			"Scribe work graph — spawns a dedicated Scribe instance for artifact tracking, task dispatch, and knowledge management.",
+			"Scribe work graph — spawns a dedicated Scribe adapter for artifact tracking, task dispatch, and knowledge management.",
 		labels: ["scribe", "blackboard", "planning"] as const,
 		tools: [],
 		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
@@ -112,29 +115,29 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Adapter {
 
 			debugLog("scribe:boot", { binary, dbPath });
 			const bootPromise = McpAdapter.stdio(binary, ["serve", "--db", dbPath], "scribe")
-				.then((mcpOrgan) => {
-					inner = mcpOrgan;
+				.then((mcpAdapter) => {
+					inner = mcpAdapter;
 
-					(organ as { tools: readonly unknown[] }).tools = mcpOrgan.tools;
-					(organ as { subscriptions: { motor: readonly string[] } }).subscriptions = {
-						...organ.subscriptions,
-						motor: mcpOrgan.tools.map((t) => t.name),
+					(adapter as { tools: readonly unknown[] }).tools = mcpAdapter.tools;
+					(adapter as { subscriptions: { motor: readonly string[] } }).subscriptions = {
+						...adapter.subscriptions,
+						motor: mcpAdapter.tools.map((t) => t.name),
 					};
 
-					innerCleanup = mcpOrgan.mount(nerve);
+					innerCleanup = mcpAdapter.mount(nerve);
 
 					nerve.sense.publish({
 						type: "organ.loaded",
 						correlationId: "scribe-boot",
 						payload: {
 							name: "scribe",
-							tools: mcpOrgan.tools.map((t) => ({ name: t.name, description: t.description })),
+							tools: mcpAdapter.tools.map((t) => ({ name: t.name, description: t.description })),
 							contributions: { "context.assemble": contextStage },
 						},
 						isError: false,
 					});
 
-					debugLog("scribe:ready", { tools: mcpOrgan.tools.length });
+					debugLog("scribe:ready", { tools: mcpAdapter.tools.length });
 					refreshSummary(nerve);
 				})
 				.catch((err: unknown) => {
@@ -162,7 +165,7 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Adapter {
 		},
 	};
 
-	return organ;
+	return adapter;
 }
 
 function buildContextBlock(dashboard: string, notes: string): string {

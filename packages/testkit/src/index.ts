@@ -32,7 +32,7 @@ export {
 export { InMemorySessionStore } from "./in-memory-session-store.js";
 export { MockReasoner } from "./mock-reasoner.js";
 export { NerveFixture } from "./nerve-fixture.js";
-export { OrganHarness } from "./organ-harness.js";
+export { AdapterHarness, OrganHarness } from "./organ-harness.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
 export { ScriptedReasoner, type ToolCallEnd, type ToolCallStart } from "./scripted-reasoner.js";
 export { defineStubAdapter, defineStubAdapter as defineStubOrgan, type StubHandler } from "./stub-adapter.js";

@@ -1,13 +1,16 @@
 import { type Adapter, defineAdapter, McpAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
-export interface McpRegistryOrganOptions {
+export interface McpRegistryAdapterOptions {
 	cwd: string;
 	agent?: {
-		load(organ: Adapter): void;
+		load(adapter: Adapter): void;
 		unload(name: string): boolean;
 	};
 }
+
+/** @deprecated Use McpRegistryAdapterOptions */
+export type McpRegistryOrganOptions = McpRegistryAdapterOptions;
 
 // Registry API types
 interface RegistryServer {
@@ -80,12 +83,12 @@ const INSTALL_TOOL = {
 
 const LIST_TOOL = {
 	name: "mcp.list",
-	description: "List all currently loaded MCP organs and their tools.",
+	description: "List all currently loaded MCP adapters and their tools.",
 	inputSchema: z.object({}),
 };
 
-export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
-	const loadedOrgans = new Map<string, Adapter>();
+export function createMcpRegistryOrgan(opts: McpRegistryAdapterOptions) {
+	const loadedAdapters = new Map<string, Adapter>();
 
 	return defineAdapter(
 		"mcp-registry",
@@ -155,7 +158,7 @@ export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
 
 					try {
 						// Check if already loaded
-						if (loadedOrgans.has(serverName)) {
+						if (loadedAdapters.has(serverName)) {
 							return withDisplay(
 								{ serverName, alreadyLoaded: true },
 								{
@@ -165,37 +168,37 @@ export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
 							);
 						}
 
-						let organ: Adapter;
+						let adapter: Adapter;
 
 						if (transport === "stdio") {
 							// Default to npx for npm packages
 							const command = config.command || "npx";
 							const args = config.args || ["-y", serverName];
 
-							organ = await McpAdapter.stdio(command, args, serverName);
+							adapter = await McpAdapter.stdio(command, args, serverName);
 						} else if (transport === "http") {
 							if (!config.url) {
 								throw new Error("config.url is required for http transport");
 							}
-							organ = await McpAdapter.http(config.url, serverName);
+							adapter = await McpAdapter.http(config.url, serverName);
 						} else {
 							throw new Error(`Unsupported transport: ${transport}`);
 						}
 
-						loadedOrgans.set(serverName, organ);
+						loadedAdapters.set(serverName, adapter);
 						if (opts.agent) {
-							opts.agent.load(organ);
+							opts.agent.load(adapter);
 						}
 
-						const toolCount = organ.tools?.length || 0;
-						const toolNames = organ.tools?.map((t) => t.name).join(", ") || "none";
+						const toolCount = adapter.tools?.length || 0;
+						const toolNames = adapter.tools?.map((t) => t.name).join(", ") || "none";
 
 						return withDisplay(
 							{
 								serverName,
 								transport,
 								toolCount,
-								tools: organ.tools?.map((t) => ({ name: t.name, description: t.description })),
+								tools: adapter.tools?.map((t) => ({ name: t.name, description: t.description })),
 							},
 							{
 								text:
@@ -218,16 +221,16 @@ export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
 				}),
 
 				"mcp.list": typedAction(LIST_TOOL, async () => {
-					const organs = Array.from(loadedOrgans.entries()).map(([name, organ]) => ({
+					const adapters = Array.from(loadedAdapters.entries()).map(([name, adapter]) => ({
 						name,
-						toolCount: organ.tools?.length || 0,
-						tools: organ.tools?.map((t) => ({ name: t.name, description: t.description })),
+						toolCount: adapter.tools?.length || 0,
+						tools: adapter.tools?.map((t) => ({ name: t.name, description: t.description })),
 					}));
 
 					const displayText =
-						organs.length === 0
+						adapters.length === 0
 							? "No MCP servers currently loaded."
-							: organs
+							: adapters
 									.map(
 										(o) =>
 											`**${o.name}** (${o.toolCount} tools)\n` +
@@ -237,11 +240,11 @@ export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
 
 					return withDisplay(
 						{
-							count: organs.length,
-							organs,
+							count: adapters.length,
+							adapters,
 						},
 						{
-							text: `Loaded MCP Servers (${organs.length}):\n\n${displayText}`,
+							text: `Loaded MCP Servers (${adapters.length}):\n\n${displayText}`,
 							mimeType: "text/markdown",
 						},
 					);
@@ -250,7 +253,7 @@ export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
 		},
 		{
 			description:
-				"MCP Registry discovery organ — search, install, and manage Model Context Protocol servers from the official registry.",
+				"MCP Registry discovery adapter — search, install, and manage Model Context Protocol servers from the official registry.",
 			directives: [
 				"Use mcp.search to discover MCP servers by keyword (e.g. 'filesystem', 'github', 'database'). " +
 					"Results include server metadata, installation instructions, and available transports.",

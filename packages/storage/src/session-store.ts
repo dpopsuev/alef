@@ -1,17 +1,6 @@
-import { createHash, randomUUID } from "node:crypto";
-import {
-	eventTypeWeight,
-	extractContentLength,
-	type SessionStore,
-	type StorageRecord,
-	type Turn,
-	type WindowAssembledRecord,
-} from "@dpopsuev/alef-session";
+import { randomUUID } from "node:crypto";
+import { cwdHash, type SessionStore, type StorageRecord, type Turn, TurnIndexer } from "@dpopsuev/alef-session";
 import type Database from "better-sqlite3";
-
-function cwdHash(cwd: string): string {
-	return createHash("sha1").update(cwd).digest("hex").slice(0, 12);
-}
 
 function deriveOrgan(type: string): string | null {
 	const dot = type.indexOf(".");
@@ -25,10 +14,7 @@ export class SqliteSessionStore implements SessionStore {
 	private readonly _db: Database.Database;
 
 	private readonly _cache: StorageRecord[] = [];
-	private readonly _turnMap = new Map<string, Turn>();
-	private _nextTurnIndex = 0;
-	private readonly _turnContentLengths = new Map<string, number>();
-	private readonly _hitCountsMap = new Map<string, number>();
+	private readonly _indexer = new TurnIndexer();
 
 	private readonly _version: string;
 
@@ -47,30 +33,6 @@ export class SqliteSessionStore implements SessionStore {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
 		this._updateSession = db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?");
-	}
-
-	private _indexRecord(record: StorageRecord): void {
-		if (record.bus === "internal" && record.type === "window.assembled") {
-			const ids = (record.payload as WindowAssembledRecord["payload"]).includedTurnIds ?? [];
-			for (const id of ids) {
-				this._hitCountsMap.set(id, (this._hitCountsMap.get(id) ?? 0) + 1);
-			}
-			return;
-		}
-		if (record.bus !== "motor" && record.bus !== "sense" && record.type !== "llm.checkpoint") return;
-
-		const turnId = record.correlationId;
-		let turn = this._turnMap.get(turnId);
-		if (!turn) {
-			turn = { id: turnId, events: [], turnIndex: this._nextTurnIndex++, tokenCost: 0, typeWeight: 0 };
-			this._turnMap.set(turnId, turn);
-			this._turnContentLengths.set(turnId, 0);
-		}
-		turn.events.push(record);
-		turn.typeWeight = Math.max(turn.typeWeight, eventTypeWeight(record.type));
-		const sum = (this._turnContentLengths.get(turnId) ?? 0) + extractContentLength(record.payload);
-		this._turnContentLengths.set(turnId, sum);
-		turn.tokenCost = Math.ceil(sum / 4);
 	}
 
 	private _warmFromDb(): void {
@@ -109,7 +71,7 @@ export class SqliteSessionStore implements SessionStore {
 						: undefined,
 			};
 			this._cache.push(record);
-			this._indexRecord(record);
+			this._indexer.index(record);
 		}
 	}
 
@@ -183,11 +145,11 @@ export class SqliteSessionStore implements SessionStore {
 
 	async append(record: StorageRecord): Promise<void> {
 		this._cache.push(record);
-		this._indexRecord(record);
+		this._indexer.index(record);
 
 		const organ = deriveOrgan(record.type);
-		const turnNumber = this._turnMap.has(record.correlationId)
-			? this._turnMap.get(record.correlationId)!.turnIndex
+		const turnNumber = this._indexer.turnMap.has(record.correlationId)
+			? this._indexer.turnMap.get(record.correlationId)!.turnIndex
 			: null;
 
 		this._insertEvent.run(
@@ -234,11 +196,11 @@ export class SqliteSessionStore implements SessionStore {
 	}
 
 	turns(): Promise<Turn[]> {
-		return Promise.resolve(Array.from(this._turnMap.values()));
+		return Promise.resolve(Array.from(this._indexer.turnMap.values()));
 	}
 
 	hitCounts(): Promise<Map<string, number>> {
-		return Promise.resolve(new Map(this._hitCountsMap));
+		return Promise.resolve(new Map(this._indexer.hitCountsMap));
 	}
 
 	organHistory(organName: string): Promise<StorageRecord[]> {

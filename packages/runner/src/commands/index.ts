@@ -14,6 +14,7 @@ import { buildModel } from "../model.js";
 import { resolveProfile } from "../model-profiles.js";
 import { getProviderColor } from "../provider-colors.js";
 import { color, setThemeByName } from "../theme.js";
+import { openConfigPicker, openEnumPicker } from "../tui/config-picker.js";
 import { openPicker } from "../tui/picker.js";
 import { CommandRegistry } from "./registry.js";
 import type { TuiHandlerContext } from "./types.js";
@@ -250,17 +251,13 @@ const unload = {
 			ctx.tui.requestRender();
 			return;
 		}
-		const items: SelectItem[] = organs.map((o) => ({
-			value: o.name,
-			label: o.name,
-			description: o.description,
-		}));
-		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+		openConfigPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
 			id: "unload-picker",
-			items,
-			onSelect: (item) => {
-				const removed = ctx.session.unloadOrgan?.(item.value);
-				ctx.writer.addNotice(removed ? `Unloaded ${item.value}.` : `No organ named '${item.value}'.`);
+			source: () => [...(ctx.session.organs ?? [])],
+			toItem: (o) => ({ value: o.name, label: o.name, description: o.description }),
+			onSelect: (o) => {
+				const removed = ctx.session.unloadOrgan?.(o.name);
+				ctx.writer.addNotice(removed ? `Unloaded ${o.name}.` : `No organ named '${o.name}'.`);
 				ctx.tui.requestRender();
 			},
 		});
@@ -385,19 +382,18 @@ const directive = {
 			ctx.tui.requestRender();
 			return;
 		}
-		const blocks = scroll.list();
-		const items: SelectItem[] = blocks.map((b) => ({
-			value: b.id,
-			label: `${b.enabled ? "●" : "○"} ${b.id}`,
-			description: b.tags?.join(", "),
-		}));
-		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+		openConfigPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
 			id: "directive-picker",
-			items,
-			onSelect: (item) => {
-				scroll.toggle(item.value);
-				const block = scroll.list().find((b) => b.id === item.value);
-				ctx.writer.addNotice(`${block?.enabled ? "●" : "○"} Block '${item.value}' toggled.`);
+			source: () => scroll.list(),
+			toItem: (b) => ({
+				value: b.id,
+				label: `${b.enabled ? "●" : "○"} ${b.id}`,
+				description: b.tags?.join(", "),
+			}),
+			onSelect: (b) => {
+				scroll.toggle(b.id);
+				const updated = scroll.list().find((x) => x.id === b.id);
+				ctx.writer.addNotice(`${updated?.enabled ? "●" : "○"} Block '${b.id}' toggled.`);
 				ctx.tui.requestRender();
 			},
 		});
@@ -422,14 +418,12 @@ const theme = {
 			ctx.tui.requestRender(true);
 			return;
 		}
-		const items: SelectItem[] = THEMES.map((t) => ({ value: t, label: t }));
-		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+		openEnumPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
 			id: "theme-picker",
-			items,
-			maxVisible: 6,
-			onSelect: (item) => {
-				setThemeByName(item.value);
-				ctx.writer.addNotice(`Theme set to '${item.value}'.`);
+			values: THEMES,
+			onSelect: (value) => {
+				setThemeByName(value);
+				ctx.writer.addNotice(`Theme set to '${value}'.`);
 				ctx.tui.requestRender(true);
 			},
 		});
@@ -474,18 +468,13 @@ const think = {
 			ctx.tui.requestRender();
 			return;
 		}
-		const current = ctx.session.getThinking() ?? "off";
-		const items: SelectItem[] = THINKING_LEVELS.map((l) => ({
-			value: l,
-			label: l === current ? `${l} *` : l,
-		}));
-		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+		openEnumPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
 			id: "think-picker",
-			items,
-			maxVisible: 6,
-			onSelect: (item) => {
-				ctx.session.setThinking(item.value);
-				ctx.writer.addNotice(`Thinking set to "${item.value}".`);
+			values: THINKING_LEVELS,
+			active: ctx.session.getThinking() ?? "off",
+			onSelect: (value) => {
+				ctx.session.setThinking(value);
+				ctx.writer.addNotice(`Thinking set to "${value}".`);
 				ctx.tui.requestRender();
 			},
 		});

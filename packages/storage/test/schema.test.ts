@@ -1,23 +1,25 @@
-import Database from "better-sqlite3";
-import { describe, expect, it } from "vitest";
+import { type Client, createClient } from "@libsql/client";
+import { afterEach, describe, expect, it } from "vitest";
 import { applySchema, CURRENT_SCHEMA_VERSION } from "../src/schema.js";
 
-function memDb(): Database.Database {
-	const db = new Database(":memory:");
-	db.pragma("journal_mode = WAL");
-	db.pragma("foreign_keys = ON");
-	return db;
+async function makeClient(): Promise<Client> {
+	const client = createClient({ url: ":memory:" });
+	return client;
 }
 
 describe("schema", { tags: ["unit"] }, () => {
-	it("creates all tables on fresh database", () => {
-		const db = memDb();
-		applySchema(db);
+	const clients: Client[] = [];
+	afterEach(() => {
+		for (const c of clients.splice(0)) c.close();
+	});
 
-		const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as {
-			name: string;
-		}[];
-		const names = tables.map((t) => t.name);
+	it("creates all tables on fresh database", async () => {
+		const client = await makeClient();
+		clients.push(client);
+		await applySchema(client);
+
+		const result = await client.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+		const names = result.rows.map((r) => String(r.name));
 
 		expect(names).toContain("sessions");
 		expect(names).toContain("events");
@@ -26,34 +28,34 @@ describe("schema", { tags: ["unit"] }, () => {
 		expect(names).toContain("daemon");
 		expect(names).toContain("session_summaries");
 		expect(names).toContain("schema_version");
-		db.close();
 	});
 
-	it("records schema version", () => {
-		const db = memDb();
-		applySchema(db);
+	it("records schema version", async () => {
+		const client = await makeClient();
+		clients.push(client);
+		await applySchema(client);
 
-		const row = db.prepare("SELECT version FROM schema_version").get() as { version: number };
-		expect(row.version).toBe(CURRENT_SCHEMA_VERSION);
-		db.close();
+		const result = await client.execute("SELECT version FROM schema_version");
+		expect(Number(result.rows[0].version)).toBe(CURRENT_SCHEMA_VERSION);
 	});
 
-	it("is idempotent", () => {
-		const db = memDb();
-		applySchema(db);
-		applySchema(db);
+	it("is idempotent", async () => {
+		const client = await makeClient();
+		clients.push(client);
+		await applySchema(client);
+		await applySchema(client);
 
-		const row = db.prepare("SELECT version FROM schema_version").get() as { version: number };
-		expect(row.version).toBe(CURRENT_SCHEMA_VERSION);
-		db.close();
+		const result = await client.execute("SELECT version FROM schema_version");
+		expect(Number(result.rows[0].version)).toBe(CURRENT_SCHEMA_VERSION);
 	});
 
-	it("events table has identity dimension columns", () => {
-		const db = memDb();
-		applySchema(db);
+	it("events table has identity dimension columns", async () => {
+		const client = await makeClient();
+		clients.push(client);
+		await applySchema(client);
 
-		const cols = db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
-		const colNames = cols.map((c) => c.name);
+		const result = await client.execute("PRAGMA table_info(events)");
+		const colNames = result.rows.map((c) => String(c.name));
 
 		expect(colNames).toContain("session_id");
 		expect(colNames).toContain("bus");
@@ -64,28 +66,29 @@ describe("schema", { tags: ["unit"] }, () => {
 		expect(colNames).toContain("organ");
 		expect(colNames).toContain("turn_number");
 		expect(colNames).toContain("version");
-		db.close();
 	});
 
-	it("can insert and query a session + event", () => {
-		const db = memDb();
-		applySchema(db);
+	it("can insert and query a session + event", async () => {
+		const client = await makeClient();
+		clients.push(client);
+		await applySchema(client);
 
-		db.prepare("INSERT INTO sessions (id, cwd_hash, created_at, updated_at) VALUES (?, ?, ?, ?)").run(
-			"abcd1234",
-			"hash123",
-			Date.now(),
-			Date.now(),
-		);
+		await client.execute({
+			sql: "INSERT INTO sessions (id, cwd_hash, created_at, updated_at) VALUES (?, ?, ?, ?)",
+			args: ["abcd1234", "hash123", Date.now(), Date.now()],
+		});
 
-		db.prepare(
-			`INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, organ, turn_number, version)
+		await client.execute({
+			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, organ, turn_number, version)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		).run("abcd1234", "motor", "fs.read", "corr-1", '{"path":"/tmp"}', Date.now(), "fs", 1, "0.0.1");
+			args: ["abcd1234", "motor", "fs.read", "corr-1", '{"path":"/tmp"}', Date.now(), "fs", 1, "0.0.1"],
+		});
 
-		const events = db.prepare("SELECT * FROM events WHERE session_id = ?").all("abcd1234") as { type: string }[];
-		expect(events).toHaveLength(1);
-		expect(events[0].type).toBe("fs.read");
-		db.close();
+		const result = await client.execute({
+			sql: "SELECT * FROM events WHERE session_id = ?",
+			args: ["abcd1234"],
+		});
+		expect(result.rows).toHaveLength(1);
+		expect(String(result.rows[0].type)).toBe("fs.read");
 	});
 });

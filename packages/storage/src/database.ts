@@ -1,34 +1,32 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import Database from "better-sqlite3";
+import { type Client, createClient } from "@libsql/client";
 import { applySchema } from "./schema.js";
 
-let _db: Database.Database | undefined;
+export type { Client };
 
-export function getDatabase(path?: string): Database.Database {
-	if (_db) return _db;
+let _client: Client | undefined;
+
+export async function getDatabase(path?: string): Promise<Client> {
+	if (_client) return _client;
 	const dbPath = path ?? join(homedir(), ".alef", "alef.db");
 	mkdirSync(dirname(dbPath), { recursive: true });
-	_db = new Database(dbPath);
-	_db.pragma("journal_mode = WAL");
-	_db.pragma("synchronous = NORMAL");
-	_db.pragma("foreign_keys = ON");
-	applySchema(_db);
-	return _db;
+	_client = createClient({ url: `file:${dbPath}` });
+	await _client.execute("PRAGMA foreign_keys = ON");
+	await applySchema(_client);
+	return _client;
 }
 
 export function closeDatabase(): void {
-	_db?.close();
-	_db = undefined;
+	_client?.close();
+	_client = undefined;
 }
 
-export function openDatabase(path: string): Database.Database {
+export async function openDatabase(path: string): Promise<Client> {
 	mkdirSync(dirname(path), { recursive: true });
-	const db = new Database(path);
-	db.pragma("journal_mode = WAL");
-	db.pragma("synchronous = NORMAL");
-	db.pragma("foreign_keys = ON");
-	applySchema(db);
-	return db;
+	const client = createClient({ url: `file:${path}` });
+	await client.execute("PRAGMA foreign_keys = ON");
+	await applySchema(client);
+	return client;
 }

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { StorageRecord } from "@dpopsuev/alef-session";
-import type Database from "better-sqlite3";
+import type { Client, InStatement } from "@libsql/client";
 
 export interface MigrationResult {
 	sessions: number;
@@ -17,28 +17,23 @@ function deriveOrgan(type: string): string | null {
 	return dot > 0 ? type.slice(0, dot) : null;
 }
 
-export function needsMigration(db: Database.Database): boolean {
-	const row = db.prepare("SELECT COUNT(*) as cnt FROM sessions").get() as { cnt: number };
-	if (row.cnt > 0) return false;
+export async function needsMigration(client: Client): Promise<boolean> {
+	const result = await client.execute({
+		sql: "SELECT COUNT(*) as cnt FROM sessions",
+		args: [],
+	});
+	const row = result.rows[0];
+	if (Number(row.cnt) > 0) return false;
 
 	const sessionRoot = join(homedir(), ".alef", "sessions");
 	return existsSync(sessionRoot);
 }
 
-export function migrateJsonlToSqlite(db: Database.Database): MigrationResult {
+export async function migrateJsonlToSqlite(client: Client): Promise<MigrationResult> {
 	const sessionRoot = join(homedir(), ".alef", "sessions");
 	const result: MigrationResult = { sessions: 0, events: 0, discourse: 0, auth: 0, skipped: 0 };
 
 	if (!existsSync(sessionRoot)) return result;
-
-	const insertSession = db.prepare(
-		"INSERT OR IGNORE INTO sessions (id, cwd_hash, created_at, updated_at, version) VALUES (?, ?, ?, ?, ?)",
-	);
-	const insertEvent = db.prepare(
-		`INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, elapsed, hash,
-		   actor_address, actor_type, organ, turn_number, version)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-	);
 
 	const cwdHashes = readdirSync(sessionRoot).filter((e) => {
 		try {
@@ -84,40 +79,47 @@ export function migrateJsonlToSqlite(db: Database.Database): MigrationResult {
 			const firstTs = records[0].timestamp ?? Date.now();
 			const lastTs = records[records.length - 1].timestamp ?? Date.now();
 
-			const migrate = db.transaction(() => {
-				insertSession.run(sessionId, hash, firstTs, lastTs, "migrated");
-
+			try {
 				let turnIndex = 0;
 				const turnMap = new Map<string, number>();
+
+				const stmts: InStatement[] = [
+					{
+						sql: "INSERT OR IGNORE INTO sessions (id, cwd_hash, created_at, updated_at, version) VALUES (?, ?, ?, ?, ?)",
+						args: [sessionId, hash, firstTs, lastTs, "migrated"],
+					},
+				];
 
 				for (const r of records) {
 					if ((r.bus === "motor" || r.bus === "sense") && !turnMap.has(r.correlationId)) {
 						turnMap.set(r.correlationId, turnIndex++);
 					}
 
-					insertEvent.run(
-						sessionId,
-						r.bus,
-						r.type,
-						r.correlationId,
-						JSON.stringify(r.payload),
-						r.timestamp,
-						r.elapsed ?? null,
-						r.hash ?? null,
-						r.actor?.address ?? null,
-						r.actor?.type ?? null,
-						deriveOrgan(r.type),
-						turnMap.get(r.correlationId) ?? null,
-						"migrated",
-					);
+					stmts.push({
+						sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, elapsed, hash,
+						   actor_address, actor_type, organ, turn_number, version)
+						 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+						args: [
+							sessionId,
+							r.bus,
+							r.type,
+							r.correlationId,
+							JSON.stringify(r.payload),
+							r.timestamp,
+							r.elapsed ?? null,
+							r.hash ?? null,
+							r.actor?.address ?? null,
+							r.actor?.type ?? null,
+							deriveOrgan(r.type),
+							turnMap.get(r.correlationId) ?? null,
+							"migrated",
+						],
+					});
 					result.events++;
 				}
 
+				await client.batch(stmts, "write");
 				result.sessions++;
-			});
-
-			try {
-				migrate();
 			} catch {
 				result.skipped++;
 			}
@@ -126,41 +128,39 @@ export function migrateJsonlToSqlite(db: Database.Database): MigrationResult {
 			if (existsSync(summaryPath)) {
 				try {
 					const summary = JSON.parse(readFileSync(summaryPath, "utf-8")) as Record<string, unknown>;
-					db.prepare(
-						`INSERT OR IGNORE INTO session_summaries (session_id, model, started_at, duration_ms, turns,
+					await client.execute({
+						sql: `INSERT OR IGNORE INTO session_summaries (session_id, model, started_at, duration_ms, turns,
 						   input_tokens, output_tokens, tools, errors)
 						 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-					).run(
-						sessionId,
-						summary.model ?? "unknown",
-						summary.started_at ?? "",
-						summary.duration_ms ?? 0,
-						summary.turns ?? 0,
-						(summary.tokens as { input?: number })?.input ?? 0,
-						(summary.tokens as { output?: number })?.output ?? 0,
-						JSON.stringify(summary.tools ?? []),
-						summary.errors ?? 0,
-					);
+						args: [
+							sessionId,
+							String(summary.model ?? "unknown"),
+							String(summary.started_at ?? ""),
+							Number(summary.duration_ms ?? 0),
+							Number(summary.turns ?? 0),
+							Number((summary.tokens as { input?: number })?.input ?? 0),
+							Number((summary.tokens as { output?: number })?.output ?? 0),
+							JSON.stringify(summary.tools ?? []),
+							Number(summary.errors ?? 0),
+						],
+					});
 				} catch {}
 			}
 		}
 
 		const discourseDir = join(dir, "discourse");
 		if (existsSync(discourseDir)) {
-			result.discourse += migrateDiscourse(db, discourseDir, hash);
+			result.discourse += await migrateDiscourse(client, discourseDir, hash);
 		}
 	}
 
-	result.auth = migrateAuth(db);
+	result.auth = await migrateAuth(client);
 
 	return result;
 }
 
-function migrateDiscourse(db: Database.Database, discourseRoot: string, sessionContextHash: string): number {
+async function migrateDiscourse(client: Client, discourseRoot: string, sessionContextHash: string): Promise<number> {
 	let count = 0;
-	const insert = db.prepare(
-		"INSERT INTO discourse_posts (session_id, topic, thread, author, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
-	);
 
 	const topics = readdirSync(discourseRoot).filter((e) => {
 		try {
@@ -178,19 +178,26 @@ function migrateDiscourse(db: Database.Database, discourseRoot: string, sessionC
 			const thread = threadFile.replace(".jsonl", "");
 			try {
 				const raw = readFileSync(join(topicDir, threadFile), "utf-8");
+				const stmts: InStatement[] = [];
 				for (const line of raw.split("\n").filter(Boolean)) {
 					try {
 						const post = JSON.parse(line) as { author: string; content: unknown; timestamp: number };
-						insert.run(
-							sessionContextHash,
-							topic,
-							thread,
-							post.author,
-							JSON.stringify(post.content),
-							post.timestamp,
-						);
+						stmts.push({
+							sql: "INSERT INTO discourse_posts (session_id, topic, thread, author, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+							args: [
+								sessionContextHash,
+								topic,
+								thread,
+								post.author,
+								JSON.stringify(post.content),
+								post.timestamp,
+							],
+						});
 						count++;
 					} catch {}
+				}
+				if (stmts.length > 0) {
+					await client.batch(stmts, "write");
 				}
 			} catch {}
 		}
@@ -199,19 +206,25 @@ function migrateDiscourse(db: Database.Database, discourseRoot: string, sessionC
 	return count;
 }
 
-function migrateAuth(db: Database.Database): number {
+async function migrateAuth(client: Client): Promise<number> {
 	const authPath = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "alef", "auth.json");
 	if (!existsSync(authPath)) return 0;
 
 	try {
 		const data = JSON.parse(readFileSync(authPath, "utf-8")) as Record<string, { type: string; key: string }>;
-		const insert = db.prepare("INSERT OR IGNORE INTO auth (provider, type, key) VALUES (?, ?, ?)");
+		const stmts: InStatement[] = [];
 		let count = 0;
 		for (const [provider, cred] of Object.entries(data)) {
 			if (cred.key) {
-				insert.run(provider, cred.type ?? "api_key", cred.key);
+				stmts.push({
+					sql: "INSERT OR IGNORE INTO auth (provider, type, key) VALUES (?, ?, ?)",
+					args: [provider, cred.type ?? "api_key", cred.key],
+				});
 				count++;
 			}
+		}
+		if (stmts.length > 0) {
+			await client.batch(stmts, "write");
 		}
 		return count;
 	} catch {

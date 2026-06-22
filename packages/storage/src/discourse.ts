@@ -1,4 +1,4 @@
-import type Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
 
 export interface Post {
 	readonly topic: string;
@@ -21,97 +21,89 @@ export interface TopicSummary {
 }
 
 export class SqliteDiscourseStore {
-	private readonly db: Database.Database;
+	private readonly client: Client;
 	private readonly sessionId: string;
-	private readonly insertStmt: Database.Statement;
 
-	constructor(db: Database.Database, sessionId: string) {
-		this.db = db;
+	constructor(client: Client, sessionId: string) {
+		this.client = client;
 		this.sessionId = sessionId;
-		this.insertStmt = db.prepare(
-			"INSERT INTO discourse_posts (session_id, topic, thread, author, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
-		);
 	}
 
-	append(topic: string, thread: string, author: string, content: unknown): Post {
+	async append(topic: string, thread: string, author: string, content: unknown): Promise<Post> {
 		const post: Post = { topic, thread, author, content, timestamp: Date.now() };
-		this.insertStmt.run(this.sessionId, topic, thread, author, JSON.stringify(content), post.timestamp);
+		await this.client.execute({
+			sql: "INSERT INTO discourse_posts (session_id, topic, thread, author, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+			args: [this.sessionId, topic, thread, author, JSON.stringify(content), post.timestamp],
+		});
 		return post;
 	}
 
-	readThread(topic: string, thread: string, since?: number): Post[] {
-		const query =
+	async readThread(topic: string, thread: string, since?: number): Promise<Post[]> {
+		const result =
 			since !== undefined
-				? this.db.prepare(
-						"SELECT author, content, timestamp FROM discourse_posts WHERE session_id = ? AND topic = ? AND thread = ? AND timestamp > ? ORDER BY rowid",
-					)
-				: this.db.prepare(
-						"SELECT author, content, timestamp FROM discourse_posts WHERE session_id = ? AND topic = ? AND thread = ? ORDER BY rowid",
-					);
+				? await this.client.execute({
+						sql: "SELECT author, content, timestamp FROM discourse_posts WHERE session_id = ? AND topic = ? AND thread = ? AND timestamp > ? ORDER BY rowid",
+						args: [this.sessionId, topic, thread, since],
+					})
+				: await this.client.execute({
+						sql: "SELECT author, content, timestamp FROM discourse_posts WHERE session_id = ? AND topic = ? AND thread = ? ORDER BY rowid",
+						args: [this.sessionId, topic, thread],
+					});
 
-		const rows = (
-			since !== undefined
-				? query.all(this.sessionId, topic, thread, since)
-				: query.all(this.sessionId, topic, thread)
-		) as Array<{
-			author: string;
-			content: string;
-			timestamp: number;
-		}>;
-
-		return rows.map((r) => ({
+		return result.rows.map((r) => ({
 			topic,
 			thread,
-			author: r.author,
-			content: JSON.parse(r.content) as unknown,
-			timestamp: r.timestamp,
+			author: String(r.author),
+			content: JSON.parse(String(r.content)) as unknown,
+			timestamp: Number(r.timestamp),
 		}));
 	}
 
-	listTopics(): string[] {
-		const rows = this.db
-			.prepare("SELECT DISTINCT topic FROM discourse_posts WHERE session_id = ?")
-			.all(this.sessionId) as Array<{ topic: string }>;
-		return rows.map((r) => r.topic);
+	async listTopics(): Promise<string[]> {
+		const result = await this.client.execute({
+			sql: "SELECT DISTINCT topic FROM discourse_posts WHERE session_id = ?",
+			args: [this.sessionId],
+		});
+		return result.rows.map((r) => String(r.topic));
 	}
 
-	listThreads(topic: string): string[] {
-		const rows = this.db
-			.prepare("SELECT DISTINCT thread FROM discourse_posts WHERE session_id = ? AND topic = ?")
-			.all(this.sessionId, topic) as Array<{ thread: string }>;
-		return rows.map((r) => r.thread);
+	async listThreads(topic: string): Promise<string[]> {
+		const result = await this.client.execute({
+			sql: "SELECT DISTINCT thread FROM discourse_posts WHERE session_id = ? AND topic = ?",
+			args: [this.sessionId, topic],
+		});
+		return result.rows.map((r) => String(r.thread));
 	}
 
-	threadInfo(topic: string, thread: string): ThreadInfo {
-		const posts = this.readThread(topic, thread);
+	async threadInfo(topic: string, thread: string): Promise<ThreadInfo> {
+		const posts = await this.readThread(topic, thread);
 		const participants = [...new Set(posts.map((p) => p.author))];
 		const lastActivity = posts.length > 0 ? Math.max(...posts.map((p) => p.timestamp)) : 0;
 		return { name: thread, posts: posts.length, participants, lastActivity };
 	}
 
-	topicSummaries(): TopicSummary[] {
-		return this.listTopics().map((topic) => ({ topic, threads: this.listThreads(topic) }));
+	async topicSummaries(): Promise<TopicSummary[]> {
+		const topics = await this.listTopics();
+		const summaries: TopicSummary[] = [];
+		for (const topic of topics) {
+			const threads = await this.listThreads(topic);
+			summaries.push({ topic, threads });
+		}
+		return summaries;
 	}
 
-	readNewPosts(since: number): Post[] {
-		const rows = this.db
-			.prepare(
-				"SELECT topic, thread, author, content, timestamp FROM discourse_posts WHERE session_id = ? AND timestamp > ? ORDER BY timestamp",
-			)
-			.all(this.sessionId, since) as Array<{
-			topic: string;
-			thread: string;
-			author: string;
-			content: string;
-			timestamp: number;
-		}>;
+	async readNewPosts(since: number): Promise<Post[]> {
+		const result = await this.client.execute({
+			sql: "SELECT topic, thread, author, content, timestamp FROM discourse_posts WHERE session_id = ? AND timestamp > ? ORDER BY timestamp",
+			args: [this.sessionId, since],
+		});
 
-		return rows.map((r) => ({
-			topic: r.topic,
-			thread: r.thread,
-			author: r.author,
-			content: JSON.parse(r.content) as unknown,
-			timestamp: r.timestamp,
+		return result.rows.map((r) => ({
+			topic: String(r.topic),
+			thread: String(r.thread),
+			author: String(r.author),
+			content: JSON.parse(String(r.content)) as unknown,
+			timestamp: Number(r.timestamp),
 		}));
 	}
 }

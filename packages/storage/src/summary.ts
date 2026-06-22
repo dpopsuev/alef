@@ -1,4 +1,4 @@
-import type Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
 
 export interface SessionSummary {
 	id: string;
@@ -12,16 +12,15 @@ export interface SessionSummary {
 }
 
 export class SqliteSummaryStore {
-	private readonly db: Database.Database;
+	private readonly client: Client;
 
-	constructor(db: Database.Database) {
-		this.db = db;
+	constructor(client: Client) {
+		this.client = client;
 	}
 
-	write(summary: SessionSummary): void {
-		this.db
-			.prepare(
-				`INSERT INTO session_summaries (session_id, model, started_at, duration_ms, turns,
+	async write(summary: SessionSummary): Promise<void> {
+		await this.client.execute({
+			sql: `INSERT INTO session_summaries (session_id, model, started_at, duration_ms, turns,
 				   input_tokens, output_tokens, tools, errors)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 				 ON CONFLICT(session_id) DO UPDATE SET
@@ -29,8 +28,7 @@ export class SqliteSummaryStore {
 				   duration_ms = excluded.duration_ms, turns = excluded.turns,
 				   input_tokens = excluded.input_tokens, output_tokens = excluded.output_tokens,
 				   tools = excluded.tools, errors = excluded.errors`,
-			)
-			.run(
+			args: [
 				summary.id,
 				summary.model,
 				summary.started_at,
@@ -40,33 +38,36 @@ export class SqliteSummaryStore {
 				summary.tokens.output,
 				JSON.stringify(summary.tools),
 				summary.errors,
-			);
+			],
+		});
 	}
 
-	get(sessionId: string): SessionSummary | undefined {
-		const row = this.db.prepare("SELECT * FROM session_summaries WHERE session_id = ?").get(sessionId) as
-			| Record<string, unknown>
-			| undefined;
+	async get(sessionId: string): Promise<SessionSummary | undefined> {
+		const result = await this.client.execute({
+			sql: "SELECT * FROM session_summaries WHERE session_id = ?",
+			args: [sessionId],
+		});
+		const row = result.rows[0];
 		if (!row) return undefined;
 		return {
-			id: row.session_id as string,
-			model: row.model as string,
-			started_at: row.started_at as string,
-			duration_ms: row.duration_ms as number,
-			turns: row.turns as number,
-			tokens: { input: row.input_tokens as number, output: row.output_tokens as number },
-			tools: JSON.parse(row.tools as string) as Array<{ name: string; calls: number }>,
-			errors: row.errors as number,
+			id: String(row.session_id),
+			model: String(row.model),
+			started_at: String(row.started_at),
+			duration_ms: Number(row.duration_ms),
+			turns: Number(row.turns),
+			tokens: { input: Number(row.input_tokens), output: Number(row.output_tokens) },
+			tools: JSON.parse(String(row.tools)) as Array<{ name: string; calls: number }>,
+			errors: Number(row.errors),
 		};
 	}
 
-	latest(): SessionSummary | undefined {
-		const row = this.db
-			.prepare(
-				"SELECT ss.* FROM session_summaries ss JOIN sessions s ON ss.session_id = s.id ORDER BY s.updated_at DESC LIMIT 1",
-			)
-			.get() as Record<string, unknown> | undefined;
+	async latest(): Promise<SessionSummary | undefined> {
+		const result = await this.client.execute({
+			sql: "SELECT ss.* FROM session_summaries ss JOIN sessions s ON ss.session_id = s.id ORDER BY s.updated_at DESC LIMIT 1",
+			args: [],
+		});
+		const row = result.rows[0];
 		if (!row) return undefined;
-		return this.get(row.session_id as string);
+		return this.get(String(row.session_id));
 	}
 }

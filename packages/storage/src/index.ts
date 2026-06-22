@@ -1,6 +1,6 @@
 export { SqliteAuthStore } from "./auth.js";
 export { type DaemonEntry, SqliteDaemonStore } from "./daemon.js";
-export { closeDatabase, getDatabase, openDatabase } from "./database.js";
+export { type Client, closeDatabase, getDatabase, openDatabase } from "./database.js";
 export { SqliteDiscourseStore } from "./discourse.js";
 export { type MigrationResult, migrateJsonlToSqlite, needsMigration } from "./migrate.js";
 export { applySchema, CURRENT_SCHEMA_VERSION } from "./schema.js";

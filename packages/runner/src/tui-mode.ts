@@ -68,7 +68,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 
 	session.subscribe((event) => dispatch(event));
 
-	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch);
+	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store);
 
 	const historyPickerTheme = createHistoryPickerTheme(t, color, boldColor);
 	const historyPickerToggle = (): boolean =>

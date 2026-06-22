@@ -85,13 +85,9 @@ export interface SessionStore {
 	readonly id: string;
 	readonly path: string;
 	append(record: StorageRecord): Promise<void>;
+	events(): Promise<StorageRecord[]>;
 	turns(): Promise<Turn[]>;
 	hitCounts(): Promise<Map<string, number>>;
-	/**
-	 * Return all motor and sense events whose type starts with `<organName>.`.
-	 * E.g. organHistory("fs") returns fs.read, fs.write, fs.grep events.
-	 * Ordered chronologically.
-	 */
 	organHistory(organName: string): Promise<StorageRecord[]>;
 }
 

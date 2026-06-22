@@ -1,3 +1,4 @@
+import type { SessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "./interactive.js";
 import type { Session } from "./session.js";
@@ -7,10 +8,6 @@ import type { TuiHandlerContext } from "./tui-commands.js";
 import type { TuiEvent } from "./tui-dispatch.js";
 import type { TuiState } from "./tui-state.js";
 
-/**
- * Create a TUI handler context factory.
- * Returns a function that creates a fresh context on each call.
- */
 export function createContextFactory(
 	t: ThemeTokens,
 	writer: ChatLog,
@@ -19,6 +16,7 @@ export function createContextFactory(
 	session: Session,
 	getState: () => TuiState,
 	dispatch: (event: TuiEvent) => void,
+	store?: SessionStore,
 ): () => TuiHandlerContext {
 	return () => ({
 		t,
@@ -26,6 +24,7 @@ export function createContextFactory(
 		tui,
 		opts,
 		session,
+		store,
 		dispatch,
 		abortCurrentTurn: getState().abortCurrentTurn,
 		setAbortCurrentTurn: (fn: (() => void) | undefined) =>

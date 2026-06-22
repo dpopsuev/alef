@@ -1,9 +1,9 @@
 import type { ZodTypeAny } from "zod";
+import { createMapCache } from "./adapter-cache.js";
+import { dispatchMotorAction, dispatchSenseAction } from "./adapter-dispatch.js";
+import type { ActionMap, MotorActionMap, OrganLogger, OrganOptions, SenseActionMap } from "./adapter-types.js";
 import { startElapsedTimer, withLimits } from "./budget.js";
 import type { Nerve, Organ, ToolDefinition } from "./buses.js";
-import { createMapCache } from "./organ-cache.js";
-import { dispatchMotorAction, dispatchSenseAction } from "./organ-dispatch.js";
-import type { ActionMap, MotorActionMap, OrganLogger, OrganOptions, SenseActionMap } from "./organ-types.js";
 
 export type {
 	ActionMap,
@@ -15,8 +15,8 @@ export type {
 	SenseAction,
 	SenseActionMap,
 	SenseHandlerCtx,
-} from "./organ-types.js";
-export { typedAction, typedStreamAction } from "./organ-types.js";
+} from "./adapter-types.js";
+export { typedAction, typedStreamAction } from "./adapter-types.js";
 
 const noopLogger: OrganLogger = {
 	debug: () => {},

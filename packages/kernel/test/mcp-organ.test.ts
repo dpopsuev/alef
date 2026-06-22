@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { InProcessNerve } from "../src/in-process-nerve.js";
-import { createMcpOrganFromClient, McpOrgan } from "../src/mcp-organ.js";
+import { createMcpOrganFromClient, McpOrgan } from "../src/mcp-adapter.js";
 
 // ---------------------------------------------------------------------------
 // Mock MCPClient factory

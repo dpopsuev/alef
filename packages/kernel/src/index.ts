@@ -1,4 +1,10 @@
 export * from "./access-policy.js";
+export { type CacheStrategy, createMapCache, makeCacheKey } from "./adapter-cache.js";
+export type { DispatchOptions, EscalationHandler } from "./adapter-dispatch.js";
+export { explainOrgan, explainOrgan as explainAdapter } from "./adapter-explain.js";
+export type { BaseOrganOptions as BaseAdapterOptions, OrganTool as AdapterTool } from "./adapter-sdk.js";
+export * from "./adapter-sdk.js";
+export type { OrganLogger as AdapterLogger, OrganOptions as AdapterOptions } from "./adapter-types.js";
 export * from "./binding.js";
 export * from "./budget.js";
 // ── Hexagonal Architecture aliases (organ → adapter) ────────────────────
@@ -19,13 +25,7 @@ export * from "./framework.js";
 export { defineOrgan as defineAdapter } from "./framework.js";
 export { InProcessNerve } from "./in-process-nerve.js";
 export { LogField } from "./log-fields.js";
-export * from "./mcp-organ.js";
-export { type CacheStrategy, createMapCache, makeCacheKey } from "./organ-cache.js";
-export type { DispatchOptions, EscalationHandler } from "./organ-dispatch.js";
-export { explainOrgan, explainOrgan as explainAdapter } from "./organ-explain.js";
-export type { BaseOrganOptions as BaseAdapterOptions, OrganTool as AdapterTool } from "./organ-sdk.js";
-export * from "./organ-sdk.js";
-export type { OrganLogger as AdapterLogger, OrganOptions as AdapterOptions } from "./organ-types.js";
+export * from "./mcp-adapter.js";
 export * from "./payload.js";
 export * from "./protocols.js";
 export * from "./truncate.js";

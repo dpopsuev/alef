@@ -14,7 +14,7 @@
 		"check": "biome check --write --error-on-warnings . && tsgo --noEmit && npm run check:lint && npm run check:organs && npm run check:test && npm run check:blueprints && npm run check:browser-smoke && cd packages/web-ui && npm run check",
 		"check:blueprints": "node scripts/check-blueprint-resolve.mjs",
 		"check:browser-smoke": "node scripts/check-browser-smoke.mjs",
-		"check:organs": "npx tsx scripts/lint-organs.ts --fail",
+		"check:organs": "npx tsx scripts/lint-adapters.ts --fail",
 		"check:test": "node scripts/check-test.mjs",
 		"profile:tui": "node scripts/profile-coding-agent-node.mjs --mode tui",
 		"profile:rpc": "node scripts/profile-coding-agent-node.mjs --mode rpc",
@@ -38,7 +38,7 @@
 		"release:minor": "node scripts/release.mjs minor",
 		"release:major": "node scripts/release.mjs major",
 		"prepare": "husky",
-		"check:lint": "eslint --cache --cache-strategy content packages/kernel/src/ packages/runtime/src/ packages/reasoner/src/ packages/organ-fs/src/ packages/organ-shell/src/ packages/organ-web/src/ packages/runner/src/ --max-warnings 0"
+		"check:lint": "eslint --cache --cache-strategy content packages/kernel/src/ packages/runtime/src/ packages/reasoner/src/ packages/adapter-fs/src/ packages/adapter-shell/src/ packages/adapter-web/src/ packages/runner/src/ --max-warnings 0"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",

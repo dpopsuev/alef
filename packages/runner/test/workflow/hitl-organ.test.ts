@@ -9,8 +9,8 @@
  *   - works end-to-end with a Binding chain
  */
 
+import { createHitlOrgan } from "@dpopsuev/alef-adapter-workflow";
 import { InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
-import { createHitlOrgan } from "@dpopsuev/alef-organ-workflow";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeNerve() {
@@ -93,7 +93,7 @@ describe("HitlOrgan", { tags: ["unit"] }, () => {
 		const { nerve, n } = makeNerve();
 		let received: unknown;
 		const hitl = createHitlOrgan({
-			onEvaluate: async (input: import("@dpopsuev/alef-organ-workflow").HitlEvaluateInput) => {
+			onEvaluate: async (input: import("@dpopsuev/alef-adapter-workflow").HitlEvaluateInput) => {
 				received = input;
 				return { approved: true };
 			},

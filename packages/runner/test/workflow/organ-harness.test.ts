@@ -9,8 +9,8 @@
  * This proves the organ bus layer works end-to-end, not just runPipeline directly.
  */
 
+import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-adapter-workflow";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-organ-workflow";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";

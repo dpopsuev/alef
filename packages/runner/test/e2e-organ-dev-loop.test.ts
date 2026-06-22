@@ -20,10 +20,10 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
+import { createEvalOrgan } from "@dpopsuev/alef-adapter-eval";
 import type { SenseEvent } from "@dpopsuev/alef-kernel";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
-import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
-import { createEvalOrgan } from "@dpopsuev/alef-organ-eval";
 import { afterEach, describe, expect, it } from "vitest";
 
 const tempDirs: string[] = [];
@@ -37,7 +37,7 @@ afterEach(() => {
 function makeTmp(): string {
 	// Now safe to use OS tmpdir — supervisor.spawn sets NODE_PATH so jiti
 	// resolves @dpopsuev/* packages regardless of organ file location.
-	const d = mkdtempSync(join(tmpdir(), "alef-organ-loop-"));
+	const d = mkdtempSync(join(tmpdir(), "alef-adapter-loop-"));
 	tempDirs.push(d);
 	return d;
 }

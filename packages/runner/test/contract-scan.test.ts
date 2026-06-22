@@ -4,12 +4,12 @@
  * Run manually: npx vitest run test/contract-scan.test.ts
  */
 
+import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
+import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
+import { createShellOrgan } from "@dpopsuev/alef-adapter-shell";
 import type { Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
-import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
-import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import { runSchemaContract, runStreamingContract } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";

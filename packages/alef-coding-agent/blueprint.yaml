@@ -7,9 +7,9 @@ description: >
 
 organs:
   - name: fs
-    package: "@dpopsuev/alef-organ-fs"
+    package: "@dpopsuev/alef-adapter-fs"
   - name: shell
-    package: "@dpopsuev/alef-organ-shell"
+    package: "@dpopsuev/alef-adapter-shell"
     blockedPatterns:
       - "--no-verify"
       - "--no-gpg-sign"
@@ -18,23 +18,23 @@ organs:
       - "HUSKY=0"
       - "rm\\s+-rf\\s+/"
   - name: nodesh
-    package: "@dpopsuev/alef-organ-nodesh"
+    package: "@dpopsuev/alef-adapter-nodesh"
   - name: web
-    package: "@dpopsuev/alef-organ-web"
+    package: "@dpopsuev/alef-adapter-web"
   - name: agent
-    package: "@dpopsuev/alef-organ-agent"
+    package: "@dpopsuev/alef-adapter-agent"
   - name: factory
-    package: "@dpopsuev/alef-organ-factory"
+    package: "@dpopsuev/alef-adapter-factory"
   - name: plan
-    package: "@dpopsuev/alef-organ-plan"
+    package: "@dpopsuev/alef-adapter-plan"
   - name: discourse
-    package: "@dpopsuev/alef-organ-discourse"
+    package: "@dpopsuev/alef-adapter-discourse"
   - name: code-intel
-    package: "@dpopsuev/alef-organ-code-intel"
+    package: "@dpopsuev/alef-adapter-code-intel"
   - name: git
-    package: "@dpopsuev/alef-organ-git"
+    package: "@dpopsuev/alef-adapter-git"
   - name: skills
-    package: "@dpopsuev/alef-organ-skills"
+    package: "@dpopsuev/alef-adapter-skills"
 
 capabilities:
   orchestration: true

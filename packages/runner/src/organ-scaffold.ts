@@ -2,9 +2,9 @@
  * alef organ new <name> — scaffold a publishable organ package.
  *
  * Generates in the current working directory:
- *   alef-organ-<name>/
+ *   alef-adapter-<name>/
  *     src/organ.ts       ← defineOrgan() factory, createOrgan export
- *     package.json       ← name: alef-organ-<name>, keywords: [alef-organ]
+ *     package.json       ← name: alef-adapter-<name>, keywords: [alef-organ]
  *     tsconfig.json
  *     README.md
  */
@@ -50,7 +50,7 @@ export function createOrgan() {
 function writePackageJson(name: string, version: string): string {
 	return JSON.stringify(
 		{
-			name: `alef-organ-${name}`,
+			name: `alef-adapter-${name}`,
 			version,
 			description: `${name} organ for Alef agents`,
 			keywords: ["alef-organ"],
@@ -91,14 +91,14 @@ function writeTsConfig(): string {
 }
 
 function writeReadme(name: string): string {
-	return `# alef-organ-${name}
+	return `# alef-adapter-${name}
 
 An Alef organ package.
 
 ## Install
 
 \`\`\`
-alef install alef-organ-${name}
+alef install alef-adapter-${name}
 \`\`\`
 
 ## Tools
@@ -117,7 +117,7 @@ organs:
 }
 
 export function scaffoldOrgan(name: string, cwd: string, version = "0.1.0"): string {
-	const dir = join(cwd, `alef-organ-${name}`);
+	const dir = join(cwd, `alef-adapter-${name}`);
 	const srcDir = join(dir, "src");
 
 	mkdirSync(srcDir, { recursive: true });

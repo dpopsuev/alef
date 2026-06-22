@@ -12,8 +12,8 @@
  * Skipped when no credentials are detected.
  */
 
-import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
-import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
+import { createShellOrgan } from "@dpopsuev/alef-adapter-shell";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-runtime";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

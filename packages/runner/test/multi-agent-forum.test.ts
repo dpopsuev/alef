@@ -9,9 +9,9 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createDiscourseOrgan } from "@dpopsuev/alef-adapter-discourse";
+import { createPlanOrgan } from "@dpopsuev/alef-adapter-plan";
 import { InProcessNerve, type SenseEvent } from "@dpopsuev/alef-kernel";
-import { createDiscourseOrgan } from "@dpopsuev/alef-organ-discourse";
-import { createPlanOrgan } from "@dpopsuev/alef-organ-plan";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("multi-agent plan + board coordination", () => {

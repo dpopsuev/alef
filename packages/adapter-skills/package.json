@@ -1,0 +1,33 @@
+{
+  "name": "@dpopsuev/alef-adapter-skills",
+  "version": "0.0.1",
+  "description": "Skills organ \u2014 discovers SKILL.md files and injects instructions into the system prompt",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.build.json",
+    "test": "vitest --run",
+    "clean": "shx rm -rf dist"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-kernel": "^0.0.1",
+    "yaml": "^2.8.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@dpopsuev/alef-testkit": "^0.0.1",
+    "@types/node": "^24.3.0",
+    "shx": "^0.4.0",
+    "vitest": "^4.1.6"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT"
+}

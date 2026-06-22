@@ -7,10 +7,10 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
 import { defineOrgan, type SensePublishInput, typedStreamAction } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
-import { createAgentOrgan } from "@dpopsuev/alef-organ-agent";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";

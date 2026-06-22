@@ -7,17 +7,17 @@ description: >
 
 organs:
   - name: agent
-    package: "@dpopsuev/alef-organ-agent"
+    package: "@dpopsuev/alef-adapter-agent"
   - name: factory
-    package: "@dpopsuev/alef-organ-factory"
+    package: "@dpopsuev/alef-adapter-factory"
   - name: discourse
-    package: "@dpopsuev/alef-organ-discourse"
+    package: "@dpopsuev/alef-adapter-discourse"
   - name: plan
-    package: "@dpopsuev/alef-organ-plan"
+    package: "@dpopsuev/alef-adapter-plan"
   - name: workflow
-    package: "@dpopsuev/alef-organ-workflow"
+    package: "@dpopsuev/alef-adapter-workflow"
   - name: skills
-    package: "@dpopsuev/alef-organ-skills"
+    package: "@dpopsuev/alef-adapter-skills"
 
 capabilities:
   orchestration: true

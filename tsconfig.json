@@ -67,17 +67,17 @@
 			"@dpopsuev/alef-runner/*": [
 				"./packages/runner/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-enclosure": [
-				"./packages/organ-enclosure/src/index.ts"
+			"@dpopsuev/alef-adapter-enclosure": [
+				"./packages/adapter-enclosure/src/index.ts"
 			],
 			"@dpopsuev/alef-gateway": [
 				"./packages/gateway/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-web": [
-				"./packages/organ-web/src/index.ts"
+			"@dpopsuev/alef-adapter-web": [
+				"./packages/adapter-web/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-reactor": [
-				"./packages/organ-reactor/src/index.ts"
+			"@dpopsuev/alef-adapter-reactor": [
+				"./packages/adapter-reactor/src/index.ts"
 			],
 			"@dpopsuev/alef-discourse": [
 				"./packages/discourse/src/index.ts"
@@ -85,23 +85,23 @@
 			"@dpopsuev/alef-discourse/*": [
 				"./packages/discourse/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-fs": [
-				"./packages/organ-fs/src/index.ts"
+			"@dpopsuev/alef-adapter-fs": [
+				"./packages/adapter-fs/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-fs/*": [
-				"./packages/organ-fs/src/*.ts"
+			"@dpopsuev/alef-adapter-fs/*": [
+				"./packages/adapter-fs/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-shell": [
-				"./packages/organ-shell/src/index.ts"
+			"@dpopsuev/alef-adapter-shell": [
+				"./packages/adapter-shell/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-shell/*": [
-				"./packages/organ-shell/src/*.ts"
+			"@dpopsuev/alef-adapter-shell/*": [
+				"./packages/adapter-shell/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-code-intel": [
-				"./packages/organ-code-intel/src/index.ts"
+			"@dpopsuev/alef-adapter-code-intel": [
+				"./packages/adapter-code-intel/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-code-intel/*": [
-				"./packages/organ-code-intel/src/*.ts"
+			"@dpopsuev/alef-adapter-code-intel/*": [
+				"./packages/adapter-code-intel/src/*.ts"
 			],
 			"@dpopsuev/alef-reasoner": [
 				"./packages/reasoner/src/index.ts"
@@ -127,42 +127,42 @@
 			"@dpopsuev/alef-runner-tui/*": [
 				"./packages/runner-tui/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-monolog": [
-				"./packages/organ-monolog/src/index.ts"
+			"@dpopsuev/alef-adapter-monolog": [
+				"./packages/adapter-monolog/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-monolog/*": [
-				"./packages/organ-monolog/src/*.ts"
+			"@dpopsuev/alef-adapter-monolog/*": [
+				"./packages/adapter-monolog/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-ai": [
-				"./packages/organ-ai/src/index.ts"
+			"@dpopsuev/alef-adapter-ai": [
+				"./packages/adapter-ai/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-ai/*": [
-				"./packages/organ-ai/src/*.ts",
-				"./packages/organ-ai/src/completer/*.ts"
+			"@dpopsuev/alef-adapter-ai/*": [
+				"./packages/adapter-ai/src/*.ts",
+				"./packages/adapter-ai/src/completer/*.ts"
 			],
-			"@dpopsuev/alef-organ-agent": [
-				"./packages/organ-agent/src/index.ts"
+			"@dpopsuev/alef-adapter-agent": [
+				"./packages/adapter-agent/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-factory": [
-				"./packages/organ-factory/src/index.ts"
+			"@dpopsuev/alef-adapter-factory": [
+				"./packages/adapter-factory/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-eval": [
-				"./packages/organ-eval/src/index.ts"
+			"@dpopsuev/alef-adapter-eval": [
+				"./packages/adapter-eval/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-eval/*": [
-				"./packages/organ-eval/src/*.ts"
+			"@dpopsuev/alef-adapter-eval/*": [
+				"./packages/adapter-eval/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-skills": [
-				"./packages/organ-skills/src/index.ts"
+			"@dpopsuev/alef-adapter-skills": [
+				"./packages/adapter-skills/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-skills/*": [
-				"./packages/organ-skills/src/*.ts"
+			"@dpopsuev/alef-adapter-skills/*": [
+				"./packages/adapter-skills/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-completer": [
-				"./packages/organ-completer/src/index.ts"
+			"@dpopsuev/alef-adapter-completer": [
+				"./packages/adapter-completer/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-completer/*": [
-				"./packages/organ-completer/src/*.ts"
+			"@dpopsuev/alef-adapter-completer/*": [
+				"./packages/adapter-completer/src/*.ts"
 			],
 			"@dpopsuev/alef-ui-domain": [
 				"./packages/ui-domain/src/index.ts"
@@ -192,11 +192,11 @@
 			"@dpopsuev/web-spider/*": [
 				"../Workspace/web-spider/packages/web-spider/dist/*"
 			],
-			"@dpopsuev/alef-organ-nodesh": [
-				"./packages/organ-nodesh/src/index.ts"
+			"@dpopsuev/alef-adapter-nodesh": [
+				"./packages/adapter-nodesh/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-nodesh/*": [
-				"./packages/organ-nodesh/src/*.ts"
+			"@dpopsuev/alef-adapter-nodesh/*": [
+				"./packages/adapter-nodesh/src/*.ts"
 			],
 			"@dpopsuev/alef-meta": [
 				"./packages/meta/src/index.ts"
@@ -204,11 +204,11 @@
 			"@dpopsuev/alef-meta/*": [
 				"./packages/meta/src/*.ts"
 			],
-			"@dpopsuev/alef-organ-workflow": [
-				"./packages/organ-workflow/src/index.ts"
+			"@dpopsuev/alef-adapter-workflow": [
+				"./packages/adapter-workflow/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-workflow/*": [
-				"./packages/organ-workflow/src/*.ts"
+			"@dpopsuev/alef-adapter-workflow/*": [
+				"./packages/adapter-workflow/src/*.ts"
 			],
 			"@dpopsuev/alef-coding-agent": [
 				"./packages/alef-coding-agent/src/index.ts"

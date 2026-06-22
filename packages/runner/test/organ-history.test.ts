@@ -20,7 +20,7 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 	let store: JsonlSessionStore;
 
 	beforeEach(async () => {
-		cwd = mkdtempSync(join(tmpdir(), "alef-organ-history-"));
+		cwd = mkdtempSync(join(tmpdir(), "alef-adapter-history-"));
 		store = await JsonlSessionStore.create(cwd);
 	});
 

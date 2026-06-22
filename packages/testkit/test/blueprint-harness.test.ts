@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFsOrgan } from "../../organ-fs/src/index.js";
+import { createFsOrgan } from "../../adapter-fs/src/index.js";
 import { BlueprintHarness } from "../src/blueprint-harness.js";
 import { step } from "../src/script.js";
 

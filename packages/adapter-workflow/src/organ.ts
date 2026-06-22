@@ -1,7 +1,7 @@
 import type { BaseOrganOptions, Nerve } from "@dpopsuev/alef-kernel";
 import {
 	debugLog,
-	defineOrgan,
+	defineAdapter,
 	newCorrelationId,
 	tool,
 	typedAction,
@@ -44,7 +44,7 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 		}),
 	);
 
-	return defineOrgan(
+	return defineAdapter(
 		"workflow",
 		{
 			motor: {
@@ -109,7 +109,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 		z.object({ data: z.record(z.string().min(1), z.unknown()) }),
 	);
 
-	return defineOrgan(
+	return defineAdapter(
 		"contract",
 		{
 			motor: {
@@ -215,7 +215,7 @@ export function createQuestionTool(
 		z.object({ question: z.string().min(1) }),
 	);
 
-	return defineOrgan(
+	return defineAdapter(
 		"question",
 		{
 			motor: {

@@ -1,8 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
-import { debugLog, McpOrgan } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
+import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
 
 export interface LocusOrganOptions {
 	/** Workspace root(s) to analyze. Defaults to cwd. */
@@ -20,16 +20,16 @@ const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share
 const DEFAULT_CACHE_DIR = join(XDG_DATA_HOME, "alef", "locus", "cache");
 const DEFAULT_HISTORY_DIR = join(XDG_DATA_HOME, "alef", "locus", "history");
 
-export function createLocusOrgan(opts: LocusOrganOptions = {}): Organ {
+export function createLocusOrgan(opts: LocusOrganOptions = {}): Adapter {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const cacheDir = opts.cacheDir ?? DEFAULT_CACHE_DIR;
 	const historyDir = opts.historyDir ?? DEFAULT_HISTORY_DIR;
 	const workspaces = opts.workspaces ?? [];
 
-	let inner: Organ | null = null;
+	let inner: Adapter | null = null;
 	let innerCleanup: (() => void) | null = null;
 
-	const organ: Organ = {
+	const organ: Adapter = {
 		name: "locus",
 		description:
 			"Locus code intelligence — spawns a dedicated Locus instance for architecture analysis, dependency graphs, symbol search, and diagram rendering.",
@@ -51,7 +51,7 @@ export function createLocusOrgan(opts: LocusOrganOptions = {}): Organ {
 			}
 
 			debugLog("locus:boot", { binary, cacheDir, historyDir, workspaces });
-			const bootPromise = McpOrgan.stdio(binary, args, "locus", {
+			const bootPromise = McpAdapter.stdio(binary, args, "locus", {
 				LOCUS_CACHE_DIR: cacheDir,
 				LOCUS_HISTORY_DIR: historyDir,
 			})

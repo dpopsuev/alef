@@ -19,8 +19,8 @@
  */
 
 import vm from "node:vm";
-import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseOrganOptions } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -200,8 +200,8 @@ function safeSerialize(value: unknown): unknown {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createNodeshOrgan(options: NodeshOrganOptions): Organ {
-	return defineOrgan(
+export function createNodeshOrgan(options: NodeshOrganOptions): Adapter {
+	return defineAdapter(
 		"nodesh",
 		{
 			motor: { "nodesh.eval": typedAction(NODESH_EVAL_TOOL, (ctx) => handleEval(ctx, options)) },

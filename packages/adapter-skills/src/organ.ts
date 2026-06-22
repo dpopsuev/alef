@@ -19,14 +19,14 @@
  */
 
 import type {
+	Adapter,
+	AdapterLogger,
 	MotorHandlerCtx,
-	Organ,
-	OrganLogger,
 	ReasoningContributions,
 	SkillBook,
 	SkillPage,
 } from "@dpopsuev/alef-kernel";
-import { defineOrgan, getString, typedAction } from "@dpopsuev/alef-kernel";
+import { defineAdapter, getString, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { discoverSkills, skillsToXml } from "./discovery.js";
 import type { Skill } from "./types.js";
@@ -36,7 +36,7 @@ export interface SkillsOrganOptions {
 	cwd: string;
 	/** Additional filesystem skill directories beyond the standard paths. */
 	skillsPaths?: string[];
-	logger?: OrganLogger;
+	logger?: AdapterLogger;
 }
 
 const BOOKS_TOOL = {
@@ -72,7 +72,7 @@ const OPEN_TOOL = {
 	}),
 };
 
-export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
+export function createSkillsOrgan(opts: SkillsOrganOptions): Adapter {
 	const library = new Map<string, SkillBook>();
 	const organBooks = new Map<string, SkillBook[]>();
 
@@ -203,7 +203,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Organ {
 		},
 	};
 
-	return defineOrgan(
+	return defineAdapter(
 		"skills",
 		{
 			sense: {

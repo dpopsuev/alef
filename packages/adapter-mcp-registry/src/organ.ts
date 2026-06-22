@@ -1,10 +1,10 @@
-import { defineOrgan, McpOrgan, type Organ, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { type Adapter, defineAdapter, McpAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export interface McpRegistryOrganOptions {
 	cwd: string;
 	agent?: {
-		load(organ: Organ): void;
+		load(organ: Adapter): void;
 		unload(name: string): boolean;
 	};
 }
@@ -85,9 +85,9 @@ const LIST_TOOL = {
 };
 
 export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
-	const loadedOrgans = new Map<string, Organ>();
+	const loadedOrgans = new Map<string, Adapter>();
 
-	return defineOrgan(
+	return defineAdapter(
 		"mcp-registry",
 		{
 			motor: {
@@ -165,19 +165,19 @@ export function createMcpRegistryOrgan(opts: McpRegistryOrganOptions) {
 							);
 						}
 
-						let organ: Organ;
+						let organ: Adapter;
 
 						if (transport === "stdio") {
 							// Default to npx for npm packages
 							const command = config.command || "npx";
 							const args = config.args || ["-y", serverName];
 
-							organ = await McpOrgan.stdio(command, args, serverName);
+							organ = await McpAdapter.stdio(command, args, serverName);
 						} else if (transport === "http") {
 							if (!config.url) {
 								throw new Error("config.url is required for http transport");
 							}
-							organ = await McpOrgan.http(config.url, serverName);
+							organ = await McpAdapter.http(config.url, serverName);
 						} else {
 							throw new Error(`Unsupported transport: ${transport}`);
 						}

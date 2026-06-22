@@ -10,8 +10,8 @@
 import type { Stats } from "node:fs";
 import { readFile as fsReadFile, mkdir } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
-import type { Organ, OrganLogger, PortDefinition } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger, PortDefinition } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { diffLines } from "diff";
 import { z } from "zod";
 import {
@@ -191,8 +191,8 @@ export interface FsOrganOptions {
 	 * Injected by the materializer from config.security.writable_roots.
 	 * Undefined = unrestricted (no guard). Empty or populated = enforce.
 	 */
-	/** Pino-compatible logger. Passed to defineOrgan for Orange/Yellow ROGYB output. */
-	logger?: OrganLogger;
+	/** Pino-compatible logger. Passed to defineAdapter for Orange/Yellow ROGYB output. */
+	logger?: AdapterLogger;
 }
 
 // ---------------------------------------------------------------------------
@@ -627,11 +627,11 @@ async function handlePatch(
 /** Cache-invalidation prefix list for all write-path actions. */
 const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 
-export function createFsOrgan(options: FsOrganOptions): Organ {
+export function createFsOrgan(options: FsOrganOptions): Adapter {
 	const withQueue = makeWriteQueue();
 	const tracker = new FileTracker();
 
-	return defineOrgan(
+	return defineAdapter(
 		"fs",
 		{
 			motor: {

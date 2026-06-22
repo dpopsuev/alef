@@ -24,7 +24,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
-import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
 import { SseManager } from "./sse.js";
 
 export interface RouterOptions {
@@ -63,7 +63,7 @@ export interface RouterAddress {
 	port: number;
 }
 
-export class RouterOrgan implements Organ {
+export class RouterOrgan implements Adapter {
 	readonly name = "router";
 	readonly description = "HTTP/SSE bridge: exposes motor/sense events over GET /events and accepts POST /message.";
 	readonly labels = ["http", "sse", "bridge", "observability"] as const;

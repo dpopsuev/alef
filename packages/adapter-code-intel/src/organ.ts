@@ -11,8 +11,8 @@
  * This organ focuses solely on LSP capabilities that fs cannot provide.
  */
 
-import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseOrganOptions } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { CodeIntelBackend } from "./backend.js";
 import { LocalCodeIntelBackend } from "./local-backend.js";
@@ -129,7 +129,7 @@ export interface CodeIntelOrganOptions extends BaseOrganOptions {
 	backend?: CodeIntelBackend;
 }
 
-export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
+export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Adapter {
 	const backend: CodeIntelBackend =
 		opts.backend ??
 		new LocalCodeIntelBackend({
@@ -137,7 +137,7 @@ export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Organ {
 			writableRoots: opts.writableRoots,
 		});
 
-	const base = defineOrgan(
+	const base = defineAdapter(
 		"code-intel",
 		{
 			motor: {

@@ -15,8 +15,8 @@
  * parses a 0-100 score and reasoning string.
  */
 
-import type { BaseOrganOptions, MotorHandlerCtx, Nerve, Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, getNumber, getString, typedAction } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseOrganOptions, MotorHandlerCtx, Nerve } from "@dpopsuev/alef-kernel";
+import { defineAdapter, getNumber, getString, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
 import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";
@@ -106,7 +106,7 @@ async function runLLMJudge(
 	};
 }
 
-export function createEvalOrgan(opts: EvalOrganOptions): Organ {
+export function createEvalOrgan(opts: EvalOrganOptions): Adapter {
 	let nerve: Nerve | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
 		nerve?.signal.publish({ type, payload, correlationId: "" });
@@ -166,7 +166,7 @@ export function createEvalOrgan(opts: EvalOrganOptions): Organ {
 		return { passed: true, score: 100, failures: [], reasoning: "All structural validators passed", transcript };
 	}
 
-	return defineOrgan(
+	return defineAdapter(
 		"eval",
 		{
 			motor: { "eval.run": typedAction(EVAL_TOOL, handleEval) },

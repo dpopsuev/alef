@@ -17,17 +17,17 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
 import type {
+	Adapter,
 	AgentRunContext,
 	BaseOrganOptions,
 	ExecutionStrategy,
 	Nerve,
-	Organ,
 	ReasoningContributions,
 	ToolDefinition,
 } from "@dpopsuev/alef-kernel";
 import {
 	createCompositeAgentRunContribution,
-	defineOrgan,
+	defineAdapter,
 	typedAction,
 	typedStreamAction,
 	withDisplay,
@@ -93,7 +93,7 @@ export interface AgentOrganOptions extends BaseOrganOptions {
 	cwd?: string;
 	strategies?: Record<string, ExecutionStrategy>;
 	createAdHocSession?: (opts: {
-		organs: readonly Organ[];
+		organs: readonly Adapter[];
 		onChunk?: (chunk: string) => void;
 		systemPrompt?: string;
 		modelOverride?: string;
@@ -102,7 +102,7 @@ export interface AgentOrganOptions extends BaseOrganOptions {
 		dispose(): void;
 	};
 	getParentDirectives?: () => Promise<string>;
-	materializeOrgans?: (names: string[]) => Promise<Organ[]>;
+	materializeOrgans?: (names: string[]) => Promise<Adapter[]>;
 	replyEvent?: string;
 	readinessTimeoutMs?: number;
 	writableRoots?: readonly string[];
@@ -143,7 +143,7 @@ class AsyncQueue {
 
 export function createAgentOrgan(
 	opts: AgentOrganOptions,
-): Organ & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
+): Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
 	const cwd = opts.cwd ?? process.cwd();
 	const replyEvent = opts.replyEvent ?? "llm.response";
 	const readinessTimeoutMs = opts.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS;
@@ -591,9 +591,9 @@ export function createAgentOrgan(
 		);
 	}
 
-	// ── defineOrgan ────────────────────────────────────────────────────
+	// ── defineAdapter ────────────────────────────────────────────────────
 
-	const organ = defineOrgan(
+	const organ = defineAdapter(
 		"agent",
 		{
 			sense: {
@@ -705,7 +705,7 @@ export function createAgentOrgan(
 						const parentDirectives =
 							inheritDirectives && opts.getParentDirectives ? await opts.getParentDirectives() : "";
 						const instructionParts = [parentDirectives, instructions].filter(Boolean);
-						const extraOrgans: Organ[] = [];
+						const extraOrgans: Adapter[] = [];
 						const context: AgentRunContext = {
 							prependInstructions: (t) => instructionParts.unshift(t),
 							addAdapters: (o) => extraOrgans.push(...o),
@@ -713,12 +713,12 @@ export function createAgentOrgan(
 						};
 						await composite.extend(payload, context);
 						const systemPrompt = instructionParts.join("\n\n") || undefined;
-						let resolvedOrgans: Organ[];
+						let resolvedOrgans: Adapter[];
 						if (organNames && opts.materializeOrgans) {
 							resolvedOrgans = await opts.materializeOrgans(organNames);
 						} else {
 							const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
-							resolvedOrgans = (strategy as unknown as { organs?: Organ[] }).organs ?? [];
+							resolvedOrgans = (strategy as unknown as { organs?: Adapter[] }).organs ?? [];
 						}
 						resolvedOrgans = [...resolvedOrgans, ...extraOrgans];
 						const modelOverride = typeof payload.model === "string" ? payload.model : undefined;
@@ -945,7 +945,7 @@ When to use what:
 When asked to explore or research the codebase, use parallel agent.run calls.`,
 			],
 		},
-	) as Organ & { registerStrategy(name: string, strategy: ExecutionStrategy): void };
+	) as Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void };
 
 	organ.registerStrategy = (name: string, strategy: ExecutionStrategy): void => {
 		strategies.set(name, strategy);

@@ -1,5 +1,5 @@
-import type { BaseOrganOptions, ContextAssemblyHandler, Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseOrganOptions, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
+import { defineAdapter, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { DiscourseStore } from "./store.js";
 import type { Post } from "./types.js";
@@ -47,7 +47,7 @@ function formatContextPost(p: Post): string {
 	return `[${p.topic}/${p.thread}] @${p.author}: ${body}`;
 }
 
-export function createDiscourseOrgan(opts: DiscourseOrganOptions): Organ {
+export function createDiscourseOrgan(opts: DiscourseOrganOptions): Adapter {
 	const store = new DiscourseStore(opts.sessionDir);
 	let lastReadTs = Date.now();
 
@@ -60,7 +60,7 @@ export function createDiscourseOrgan(opts: DiscourseOrganOptions): Organ {
 		return { messages: injectContextBlock(input.messages, block) };
 	};
 
-	return defineOrgan(
+	return defineAdapter(
 		"discourse",
 		{
 			motor: {

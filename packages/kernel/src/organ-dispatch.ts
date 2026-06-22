@@ -8,17 +8,41 @@ import { makeCacheKey } from "./organ-cache.js";
 import type { MotorAction, MotorHandlerCtx, OrganLogger, SenseAction, SenseHandlerCtx } from "./organ-types.js";
 import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
 
-let _dispatchPolicy: AccessPolicy | undefined;
-let _dispatchEscalate:
-	| ((toolName: string, payload: Record<string, unknown>, reason: string) => Promise<boolean>)
-	| undefined;
+/**
+ * Escalation callback for access policy decisions.
+ * Returns true if the tool call should be allowed, false to deny.
+ */
+export type EscalationHandler = (
+	toolName: string,
+	payload: Record<string, unknown>,
+	reason: string,
+) => Promise<boolean>;
 
-export function setDispatchPolicy(
-	policy?: AccessPolicy,
-	onEscalate?: (toolName: string, payload: Record<string, unknown>, reason: string) => Promise<boolean>,
-): void {
-	_dispatchPolicy = policy;
-	_dispatchEscalate = onEscalate;
+/**
+ * Options for motor action dispatch.
+ */
+export interface DispatchOptions {
+	/**
+	 * Access policy to check before executing the action.
+	 * If undefined, uses global policy (if set) or allows all.
+	 */
+	policy?: AccessPolicy;
+	/**
+	 * Escalation handler called when policy returns 'escalate'.
+	 * If undefined, uses global handler (if set) or denies escalations.
+	 */
+	onEscalate?: EscalationHandler;
+}
+
+let _defaultDispatchOptions: DispatchOptions = {};
+
+/**
+ * Set global default dispatch options.
+ * @deprecated Use DispatchOptions parameter in dispatchMotorAction instead.
+ * This function exists for backward compatibility during migration.
+ */
+export function setDispatchPolicy(policy?: AccessPolicy, onEscalate?: EscalationHandler): void {
+	_defaultDispatchOptions = { policy, onEscalate };
 }
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
@@ -68,7 +92,8 @@ export async function dispatchMotorAction(
 	nerve: Nerve,
 	cache: CacheStrategy,
 	log: OrganLogger,
-	schema?: ZodTypeAny,
+	schema: ZodTypeAny | undefined,
+	options?: DispatchOptions,
 ): Promise<void> {
 	nerve.pulse();
 	// Yield so waitForToolResult subscribes before the synchronous validation-error path publishes.
@@ -76,16 +101,18 @@ export async function dispatchMotorAction(
 	const payload = validateMotorPayload(motor, schema, nerve);
 	if (payload === null) return;
 
-	if (_dispatchPolicy) {
-		const decision = _dispatchPolicy.check(motor.type, payload);
+	// Merge explicit options with defaults (explicit takes precedence)
+	const policy = options?.policy ?? _defaultDispatchOptions.policy;
+	const onEscalate = options?.onEscalate ?? _defaultDispatchOptions.onEscalate;
+
+	if (policy) {
+		const decision = policy.check(motor.type, payload);
 		if (decision.action === "deny") {
 			nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied by access policy`));
 			return;
 		}
 		if (decision.action === "escalate") {
-			const approved = _dispatchEscalate
-				? await _dispatchEscalate(motor.type, payload, decision.reason ?? "")
-				: false;
+			const approved = onEscalate ? await onEscalate(motor.type, payload, decision.reason ?? "") : false;
 			if (!approved) {
 				nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied (escalation rejected)`));
 				return;

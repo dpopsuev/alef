@@ -88,7 +88,7 @@ describe("BLOCK_CORE — consolidated system prompt", { tags: ["unit"] }, () => 
 	});
 
 	it("contains git safety rules", () => {
-		expect(BLOCK_CORE()).toContain("--no-verify");
+		expect(BLOCK_CORE()).toContain("hooks are mandatory");
 		expect(BLOCK_CORE()).toContain("Pre-commit hooks are mandatory");
 	});
 
@@ -97,7 +97,7 @@ describe("BLOCK_CORE — consolidated system prompt", { tags: ["unit"] }, () => 
 		expect(prompt).toContain("<core>");
 		expect(prompt).toContain("not create files");
 		expect(prompt).toContain("No emojis");
-		expect(prompt).toContain("--no-verify");
+		expect(prompt).toContain("hooks are mandatory");
 		expect(prompt).toContain("Answer the question first");
 	});
 
@@ -182,7 +182,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		const systemContent = String(messages[0].content);
 		expect(systemContent).toContain("No emojis");
 		expect(systemContent).toContain("not create files");
-		expect(systemContent).toContain("--no-verify");
+		expect(systemContent).toContain("hooks are mandatory");
 	});
 
 	it("organ directive registered via registerOrgans reaches the system message", async () => {

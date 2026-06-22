@@ -110,7 +110,8 @@ function inferBaseUrl(provider: string): string {
 export function autoDetectModel(): Model<Api> | undefined {
 	// Anthropic-on-Vertex: project + region configured, no API key needed.
 	if (hasAnthropicOnVertex() && !getEnvApiKey("anthropic")) {
-		const defaultId = DEFAULT_MODEL_PER_PROVIDER.anthropic ?? "claude-sonnet-4-5";
+		const defaultId = DEFAULT_MODEL_PER_PROVIDER.anthropic;
+		if (!defaultId) return undefined;
 		return (
 			lookupModel("anthropic", defaultId) ??
 			syntheticModel("anthropic", defaultId, "anthropic-messages", "https://api.anthropic.com")
@@ -167,10 +168,16 @@ export function resolveStartupModel(
 		process.stderr.write(`[alef] detected providers: ${detectedProviders().join(", ")}\n`);
 	}
 	const resolvedId = args.modelId ?? blueprintModelId ?? cfg.model;
-	return resolvedId ? buildModel(resolvedId) : (autoDetectModel() ?? buildModel(DEFAULT_MODEL_FALLBACK));
+	if (resolvedId) return buildModel(resolvedId);
+	const detected = autoDetectModel();
+	if (detected) return detected;
+	console.error(
+		"Error: no model configured.\n" +
+			"Set one of: --model <id>, ALEF_MODEL env var, model: in config.yaml,\n" +
+			"or configure a provider API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.).",
+	);
+	process.exit(1);
 }
-
-const DEFAULT_MODEL_FALLBACK = "claude-sonnet-4-5@20250929";
 
 export function detectedProviders(): string[] {
 	const found: string[] = [];

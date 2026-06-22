@@ -137,15 +137,13 @@ export interface Args {
 	migrate: boolean;
 }
 
-export const DEFAULT_MODEL = "claude-sonnet-4-5@20250929";
-
 const USAGE = `
 Usage: alef [options] [prompt]
 
 Options:
   -p, --print <prompt>   Send one message, print reply, exit
   --cwd <path>           Working directory (default: current directory)
-  --model <id>           Model ID (default: ${DEFAULT_MODEL}, or ALEF_MODEL env var)
+  --model <id>           Model ID (auto-detected from provider, or ALEF_MODEL env var)
   --blueprint <path>     Load agent.yaml blueprint (configures organs and model)
   --list-tools           Print active tool names and exit (for diagnostics)
   --max-turns <n>        Max tool-call turns per run (default: 50, 0=unlimited)

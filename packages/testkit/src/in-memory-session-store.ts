@@ -30,6 +30,10 @@ export class InMemorySessionStore implements SessionStore {
 		return Promise.resolve();
 	}
 
+	events(): Promise<StorageRecord[]> {
+		return Promise.resolve(this._cache.slice());
+	}
+
 	turns(): Promise<Turn[]> {
 		return Promise.resolve([...this._turnMap.values()].sort((a, b) => a.turnIndex - b.turnIndex));
 	}

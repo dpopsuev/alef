@@ -6,7 +6,7 @@
  * Any other invoker (MCP, HTTP) can dispatch through registry.find(name).
  */
 
-import { getModels, getProviders, type KnownProvider } from "@dpopsuev/alef-llm";
+import { getModels, getProviders } from "@dpopsuev/alef-llm";
 import type { SelectItem } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { getConfig } from "../config.js";
@@ -52,7 +52,7 @@ function buildModelItems(): SelectItem[] {
 	for (const provider of getProviders()) {
 		const pc = getProviderColor(provider);
 		const routeSuffix = provider === "anthropic" && viaVertex ? " (via Vertex)" : "";
-		for (const m of getModels(provider as KnownProvider)) {
+		for (const m of getModels(provider)) {
 			const id = `${provider}/${m.id}`;
 			const providerLabel = color(`${provider}${routeSuffix}`, pc.token);
 			items.push({
@@ -544,7 +544,7 @@ const profile = {
 const skills = {
 	name: "skills",
 	description: "Browse and invoke skills — :skills or :skills <name>",
-	run(ctx: TuiHandlerContext, args: string[]) {
+	async run(ctx: TuiHandlerContext, args: string[]) {
 		const [name] = args;
 		if (name) {
 			ctx.writer.addNotice(`Loading skill '${name}'... Use skills.invoke({ name: "${name}" }) in the chat.`);
@@ -553,10 +553,8 @@ const skills = {
 		}
 		let discovered: Array<{ name: string; description: string; path: string }> = [];
 		try {
-			const { discoverSkills } = require("../../organ-skills/src/discovery.js") as {
-				discoverSkills: (cwd: string, extra?: string[]) => Array<{ name: string; description: string; path: string }>;
-			};
-			discovered = discoverSkills(ctx.opts?.cwd ?? process.cwd());
+			const discovery = await import("../../../organ-skills/src/discovery.js");
+			discovered = discovery.discoverSkills(ctx.opts?.cwd ?? process.cwd());
 		} catch {
 			ctx.writer.addNotice("Skills discovery not available.");
 			ctx.tui.requestRender();
@@ -576,6 +574,62 @@ const skills = {
 				ctx.tui.requestRender();
 			},
 		});
+	},
+};
+
+// ---------------------------------------------------------------------------
+// :sticky — attach a timestamped note linked to recent events
+// ---------------------------------------------------------------------------
+
+const sticky = {
+	name: "sticky",
+	description: "Attach a note to the session timeline (linked to recent events)",
+	async run(ctx: TuiHandlerContext, args: string[]) {
+		const text = args.join(" ").trim();
+		if (!text) {
+			ctx.writer.addNotice("Usage: :sticky <note text>");
+			ctx.tui.requestRender();
+			return;
+		}
+		if (!ctx.store) return;
+
+		const allEvents = await ctx.store.events();
+		const nearbyEvents = allEvents
+			.filter((e) => e.bus === "motor" || e.bus === "sense")
+			.slice(-5)
+			.map((e) => ({ type: e.type, correlationId: e.correlationId, timestamp: e.timestamp }));
+
+		await ctx.store.append({
+			bus: "internal",
+			type: "user.sticky",
+			correlationId: "sticky",
+			payload: { text, nearbyEvents },
+			timestamp: Date.now(),
+			actor: { address: ctx.opts?.humanAddress ?? "@you", type: "human" },
+		});
+
+		ctx.writer.addNotice(`\u{1F4CC} ${text}`);
+		ctx.tui.requestRender();
+	},
+};
+
+const stickies = {
+	name: "stickies",
+	description: "List all sticky notes in this session",
+	async run(ctx: TuiHandlerContext) {
+		if (!ctx.store) return;
+		const all = await ctx.store.events();
+		const notes = all.filter((e) => e.type === "user.sticky");
+		if (notes.length === 0) {
+			ctx.writer.addNotice("No sticky notes in this session.");
+		} else {
+			for (const s of notes) {
+				const p = s.payload as { text?: string };
+				const time = new Date(s.timestamp).toLocaleTimeString();
+				ctx.writer.addNotice(`[${time}] ${p.text ?? ""}`);
+			}
+		}
+		ctx.tui.requestRender();
 	},
 };
 
@@ -602,4 +656,6 @@ export const registry = new CommandRegistry()
 	.register(model)
 	.register(think)
 	.register(profile)
-	.register(skills);
+	.register(skills)
+	.register(sticky, "note", "pin")
+	.register(stickies);

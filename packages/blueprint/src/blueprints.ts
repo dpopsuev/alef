@@ -434,6 +434,10 @@ export function compileAgentDefinition(
 
 	const sourcePath = options.sourcePath ? resolve(options.sourcePath) : undefined;
 	const baseDir = sourcePath ? dirname(sourcePath) : undefined;
+	if (input.organs && !input.adapters) {
+		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
+		console.warn(`[blueprint] DEPRECATED: 'organs:' key${location} — use 'adapters:' instead.`);
+	}
 	const organInput = input.adapters ?? input.organs;
 	const organs = compileAgentOrganDefinitions(organInput);
 	const legacyToolNames = normalizeStringArray(input.capabilities?.tools);

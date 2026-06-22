@@ -19,7 +19,7 @@ import { randomUUID } from "node:crypto";
 import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { defaultEvalOrgans } from "./default-organs.js";
@@ -64,9 +64,9 @@ export interface HarnessOptions {
 	/** Scenario identifier — appears in RunMetrics and the report. */
 	scenario: string;
 	/** Factory for the base organ set. Default: fs + shell at workspace cwd. */
-	baseOrgansFactory?: (workspace: string) => Organ[];
+	baseOrgansFactory?: (workspace: string) => Adapter[];
 	/** Extra organs beyond the base set. */
-	extraOrgans?: Organ[];
+	extraOrgans?: Adapter[];
 	/** System prompt for the agent. */
 	systemPrompt?: string;
 	/** Loop detection threshold. Default: 10. */
@@ -87,9 +87,9 @@ export interface HarnessOptions {
 	 */
 	keepWorkspace?: boolean;
 	/** Factory for abort-aware organs (preferred over extraOrgans). */
-	organFactory?: (signal: AbortSignal) => Organ[];
+	organFactory?: (signal: AbortSignal) => Adapter[];
 	/** Async organ factory — receives workspace path and signal. Takes precedence over organFactory. */
-	asyncOrganFactory?: (workspace: string, signal: AbortSignal) => Promise<Organ[]>;
+	asyncOrganFactory?: (workspace: string, signal: AbortSignal) => Promise<Adapter[]>;
 	/** Directory to write a JSONL execution trace file. */
 	traceDir?: string;
 }

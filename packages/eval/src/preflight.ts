@@ -13,12 +13,12 @@
  * Mirrors Tako calibrate.Preflight.
  */
 
-import { InProcessNerve, type Organ } from "@dpopsuev/alef-kernel";
+import { type Adapter, InProcessNerve } from "@dpopsuev/alef-kernel";
 import { runOrganContract } from "@dpopsuev/alef-testkit";
 
 export interface PreflightConfig {
 	/** Organs to validate. At least one required. */
-	organs: Organ[];
+	organs: Adapter[];
 	/** Timeout per Motor→Sense probe in ms. Default: 2000. */
 	probeTimeoutMs?: number;
 }

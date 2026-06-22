@@ -19,7 +19,7 @@
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type ExecutionStrategy, gimpedOrgan, type Organ, type SendRequest } from "@dpopsuev/alef-kernel";
+import { type Adapter, type ExecutionStrategy, gimpedAdapter, type SendRequest } from "@dpopsuev/alef-kernel";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import { type ScriptStep, step } from "./script.js";
@@ -27,7 +27,7 @@ import { ScriptedReasoner } from "./scripted-reasoner.js";
 
 export interface GauntletOptions {
 	/** Organs to mount. Required. */
-	organs: Organ[];
+	organs: Adapter[];
 	/** Script steps for the ScriptedReasoner. */
 	script?: ScriptStep[];
 	/** System prompt for the agent. Default: "You are a helpful assistant." */
@@ -129,7 +129,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	static withGimpedOrgan(opts: GauntletOptions, organName: string): GauntletOptions {
 		return {
 			...opts,
-			organs: opts.organs.map((o) => (o.name === organName ? gimpedOrgan(organName) : o)),
+			organs: opts.organs.map((o) => (o.name === organName ? gimpedAdapter(organName) : o)),
 		};
 	}
 

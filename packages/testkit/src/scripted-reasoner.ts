@@ -20,7 +20,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
 
 export interface ToolCallStart {
 	callId: string;
@@ -74,7 +74,7 @@ export interface ScriptedReasonerOptions {
 	onResponseChunk?: (chunk: string) => void;
 }
 
-export class ScriptedReasoner implements Organ {
+export class ScriptedReasoner implements Adapter {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
 	readonly sources = [] as const;

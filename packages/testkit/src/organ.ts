@@ -11,9 +11,6 @@
  * of whether the organ lives in this monorepo or a separate repository.
  */
 
-export { BusEventRecorder } from "./bus-event-recorder.js";
-export { MockReasoner } from "./mock-reasoner.js";
-export { NerveFixture } from "./nerve-fixture.js";
 export {
 	assertOrganContract,
 	type CapturedLog,
@@ -27,6 +24,9 @@ export {
 	runStreamingContract,
 	type SchemaContractResult,
 	type StreamingToolConfig,
-} from "./organ-contract.js";
+} from "./adapter-contract.js";
+export { BusEventRecorder } from "./bus-event-recorder.js";
+export { MockReasoner } from "./mock-reasoner.js";
+export { NerveFixture } from "./nerve-fixture.js";
 export { OrganHarness } from "./organ-harness.js";
-export { defineStubOrgan, type StubHandler } from "./stub-organ.js";
+export { defineStubAdapter, defineStubAdapter as defineStubOrgan, type StubHandler } from "./stub-adapter.js";

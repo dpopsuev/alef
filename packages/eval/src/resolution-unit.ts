@@ -13,7 +13,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { gimpedOrgan, InProcessNerve, isGimped, type Organ, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { type Adapter, gimpedAdapter, InProcessNerve, isGimped, type SenseEvent } from "@dpopsuev/alef-kernel";
 
 // ---------------------------------------------------------------------------
 // PortStub \u2014 canned Motor payload for one tool
@@ -79,7 +79,7 @@ export const defaultUnitScorer: UnitScorer = (sensePayload, _groundTruth, _stub)
 
 export interface UnitEvalConfig {
 	/** The organ under test. */
-	organ: Organ;
+	organ: Adapter;
 	/** Canned Motor payloads to inject. */
 	stubs: PortStub[];
 	/** Optional scorer. Default: 1.0 if response received, 0 otherwise. */
@@ -198,7 +198,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 }
 
 /**
- * Run the same UnitEvalConfig with organ replaced by a gimpedOrgan,
+ * Run the same UnitEvalConfig with organ replaced by a gimpedAdapter,
  * returning the baseline (ablated) report. Use as denominator in ablation:
  *
  *   const real = await runUnitEval({ organ: myOrgan, stubs });
@@ -206,7 +206,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
  *   const contribution = real.meanScore - base.meanScore;
  */
 export async function runUnitEvalBaseline(cfg: UnitEvalConfig): Promise<UnitEvalReport> {
-	return runUnitEval({ ...cfg, organ: gimpedOrgan(`${cfg.organ.name}.gimped`) });
+	return runUnitEval({ ...cfg, organ: gimpedAdapter(`${cfg.organ.name}.gimped`) });
 }
 
 // ---------------------------------------------------------------------------

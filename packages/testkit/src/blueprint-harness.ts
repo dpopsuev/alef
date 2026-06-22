@@ -24,7 +24,7 @@
 
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
-import type { ExecutionStrategy, MotorEvent, NerveEvent, Organ, SendRequest } from "@dpopsuev/alef-kernel";
+import type { Adapter, ExecutionStrategy, MotorEvent, NerveEvent, SendRequest } from "@dpopsuev/alef-kernel";
 import { Agent, AgentController, type BusObserver } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import type { ScriptStep } from "./script.js";
@@ -48,11 +48,11 @@ export interface BlueprintHarnessOptions {
 export type MaterializeFn = (
 	definition: CompiledAgentDefinition,
 	opts: { cwd: string },
-) => Promise<{ organs: Organ[] }>;
+) => Promise<{ organs: Adapter[] }>;
 
 export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
 	/** Extra organs to load beyond what the blueprint declares. */
-	extraOrgans?: Organ[];
+	extraOrgans?: Adapter[];
 	/**
 	 * Blueprint materializer — converts a CompiledAgentDefinition into Organ instances.
 	 * Pass materializeBlueprint from @dpopsuev/alef-runner or alef-coding-agent.
@@ -108,7 +108,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 	 * Create a harness with an explicit organ list. Useful when testing
 	 * custom organs directly or when no blueprint file is available.
 	 */
-	static create(opts: BlueprintHarnessOptions & { organs?: Organ[] }): BlueprintHarness {
+	static create(opts: BlueprintHarnessOptions & { organs?: Adapter[] }): BlueprintHarness {
 		const recorder = new BusEventRecorder();
 		const scriptedLlm = new ScriptedReasoner(opts.script);
 		const agent = new Agent();

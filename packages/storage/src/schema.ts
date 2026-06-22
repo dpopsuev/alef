@@ -1,7 +1,7 @@
 import type { Client } from "@libsql/client";
 
 export const CURRENT_SCHEMA_VERSION = 2;
-export const EMBEDDING_DIMENSION = 768;
+export const EMBEDDING_DIMENSION = 384;
 
 const DDL_STATEMENTS = [
 	`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)`,

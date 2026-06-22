@@ -1,5 +1,5 @@
+import { debugLog } from "@dpopsuev/alef-kernel";
 import { matchesKey } from "@dpopsuev/alef-tui";
-import { trace } from "./debug-trace.js";
 import type { TuiHandlerContext } from "./tui-commands.js";
 import { handleCtrlC } from "./tui-commands.js";
 import type { TuiEvent } from "./tui-dispatch.js";
@@ -33,7 +33,7 @@ export function handleRawInput(
 
 	// Ctrl+C: Interrupt or quit
 	if (matchesKey(data, "ctrl+c")) {
-		trace("raw:ctrl+c");
+		debugLog("raw:ctrl+c");
 		handleCtrlC(ctx());
 		return true;
 	}

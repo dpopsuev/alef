@@ -10,7 +10,7 @@ import { parseArgs } from "./args.js";
 import { dispatchCliOp } from "./cli-ops.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
-import { setupTrace } from "./debug-trace.js";
+
 import { initYamlBlueprints } from "./init-yaml-blueprints.js";
 import { loadOrgans } from "./load-organs.js";
 import { loadSession } from "./load-session.js";
@@ -57,7 +57,6 @@ if (args.debugSubcmd) {
 
 // --attach: connect to a running daemon and run TUI against it.
 if (args.attach !== undefined) {
-	setupTrace(args.debug);
 	const daemonPath = join(homedir(), ".alef", "daemon.json");
 	let entry: DaemonEntry;
 	try {
@@ -93,22 +92,21 @@ if (args.attach !== undefined) {
 
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
 const log = createRunnerLogger(willUseTui, args.debug);
-const trace = setupTrace(args.debug);
 const session = await loadSession(args, willUseTui);
 
 // Route debug events into the session JSONL — unified transcript.
-const { initSessionSink } = await import("@dpopsuev/alef-kernel");
+const { debugLog, initSessionSink } = await import("@dpopsuev/alef-kernel");
 initSessionSink((record) => {
 	void session.append({
 		bus: "debug" as "internal",
-		type: String(record.type ?? "debug"),
+		type: typeof record.type === "string" ? record.type : "debug",
 		correlationId: "debug",
 		payload: record,
 		timestamp: Date.now(),
 	});
 });
 
-trace("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
+debugLog("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
 
 const loaded = await loadOrgans(args, cfg, log);
 const { blueprintUpgradePolicy, blueprintPath } = loaded;
@@ -119,15 +117,7 @@ const {
 	humanAddress,
 	agentAddress,
 	actorRoutes,
-} = await createLocalSession(
-	args,
-	cfg,
-	log,
-	session,
-	loaded,
-	resolveStartupModel(args, loaded.blueprintModelId, cfg),
-	trace,
-);
+} = await createLocalSession(args, cfg, log, session, loaded, resolveStartupModel(args, loaded.blueprintModelId, cfg));
 
 if (dispatchCliOp(args, localSession)) {
 	// CLI op dispatched — it calls process.exit() internally
@@ -166,5 +156,5 @@ await runAgent({
 	actorRoutes,
 });
 
-trace("process.exit");
+debugLog("process.exit");
 process.exit(0);

@@ -60,7 +60,7 @@ describe("system prompt injection — directives reach the LLM", { tags: ["e2e"]
 		const args = { ...parseArgs([]), cwd, noTui: true };
 		const model = faux.getModel();
 
-		const { session } = await createLocalSession(args, {}, log, store, EMPTY_LOADED, model, () => {});
+		const { session } = await createLocalSession(args, {}, log, store, EMPTY_LOADED, model);
 
 		const viewer = new HeadlessViewMode();
 		const running = viewer.run(session);

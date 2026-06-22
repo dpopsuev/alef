@@ -1,7 +1,7 @@
 import { createWriteStream } from "node:fs";
+import { debugLog } from "@dpopsuev/alef-kernel";
 import type { ISessionStore } from "@dpopsuev/alef-session";
 import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";
-import { trace } from "./debug-trace.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { getTuiSignalHandlers, isCompacted } from "./local-session.js";
 import { ModalInputHandler } from "./modal-input.js";
@@ -123,7 +123,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	tui.start();
 	tui.setFocus(editor);
 	tui.requestRender();
-	trace("tui:start");
+	debugLog("tui:start");
 	if (process.env.ALEF_DEBUG === "1") process.stdout.write("[ALEF_READY]\n");
 	checkForUpdate()
 		.then((n) => {
@@ -136,10 +136,10 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 
 	await new Promise<void>((resolve) => {
 		tui.onStop = () => {
-			trace("tui:stop:resolve");
+			debugLog("tui:stop:resolve");
 			resolve();
 		};
 	});
 	if (promptConsole.isThinking) promptConsole.stopThinking();
-	trace("tui:stopped");
+	debugLog("tui:stopped");
 }

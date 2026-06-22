@@ -11,10 +11,6 @@
  * of whether the organ lives in this monorepo or a separate repository.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-
 export { BusEventRecorder } from "./bus-event-recorder.js";
 export { MockReasoner } from "./mock-reasoner.js";
 export { NerveFixture } from "./nerve-fixture.js";
@@ -34,25 +30,3 @@ export {
 } from "./organ-contract.js";
 export { OrganHarness } from "./organ-harness.js";
 export { defineStubOrgan, type StubHandler } from "./stub-organ.js";
-
-/**
- * Read and parse ~/.alef/debug.log as pino JSON lines.
- * Returns empty array if the file doesn't exist or a line fails to parse.
- * Use in tests that call debugLog to assert log output:
- *   const logs = readDebugLog();
- *   expect(logs.some(l => l.msg === "delegate:strategy:start")).toBe(true);
- */
-export function readDebugLog(): Record<string, unknown>[] {
-	const path = join(homedir(), ".alef", "debug.log");
-	if (!existsSync(path)) return [];
-	return readFileSync(path, "utf-8")
-		.split("\n")
-		.filter(Boolean)
-		.flatMap((line) => {
-			try {
-				return [JSON.parse(line) as Record<string, unknown>];
-			} catch {
-				return [];
-			}
-		});
-}

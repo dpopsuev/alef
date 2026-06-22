@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
-import { createContextAssemblyPipeline, type NerveEvent, type Organ } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline, debugLog, type NerveEvent, type Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaOrgan } from "@dpopsuev/alef-meta";
 import { DiscourseStore } from "@dpopsuev/alef-organ-discourse";
@@ -68,9 +68,9 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 	switch (event.type) {
 		case "llm.chunk":
-			return { type: "chunk", text: String(p.text ?? "") };
+			return { type: "chunk", text: typeof p.text === "string" ? p.text : "" };
 		case "llm.thinking":
-			return { type: "thinking", text: String(p.text ?? "") };
+			return { type: "thinking", text: typeof p.text === "string" ? p.text : "" };
 		case "llm.tool-start":
 			return {
 				type: "tool-start",
@@ -88,7 +88,7 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 				displayKind: p.displayKind as string | undefined,
 			};
 		case "llm.tool-chunk":
-			return { type: "tool-chunk", callId: String(p.callId), text: String(p.text ?? "") };
+			return { type: "tool-chunk", callId: String(p.callId), text: typeof p.text === "string" ? p.text : "" };
 		case "llm.tool-stall":
 			return {
 				type: "tool-stall",
@@ -115,8 +115,8 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 				return {
 					type: "subagent-identity",
 					callId: String(inner.callId),
-					color: String(inner.innerPayload.color ?? ""),
-					address: String(inner.innerPayload.address ?? ""),
+					color: typeof inner.innerPayload.color === "string" ? inner.innerPayload.color : "",
+					address: typeof inner.innerPayload.address === "string" ? inner.innerPayload.address : "",
 				};
 			}
 			if (inner.innerType === "llm.tool-start" && inner.innerPayload) {
@@ -124,8 +124,8 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 				return {
 					type: "inner-tool-start",
 					parentCallId: String(inner.callId),
-					callId: String(ip.callId ?? ""),
-					name: String(ip.name ?? ""),
+					callId: typeof ip.callId === "string" ? ip.callId : "",
+					name: typeof ip.name === "string" ? ip.name : "",
 					args: (ip.args ?? {}) as Record<string, unknown>,
 				};
 			}
@@ -134,7 +134,7 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 				return {
 					type: "inner-tool-end",
 					parentCallId: String(inner.callId),
-					callId: String(ip.callId ?? ""),
+					callId: typeof ip.callId === "string" ? ip.callId : "",
 				};
 			}
 			if (inner.innerType === "llm.chunk" && inner.innerPayload) {
@@ -152,53 +152,53 @@ function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
 		case "workflow.step":
 			return {
 				type: "workflow-step",
-				workflowId: String(p.workflowId ?? ""),
-				eventType: String(p.eventType ?? ""),
-				step: String(p.step ?? ""),
-				status: String(p.status ?? ""),
+				workflowId: typeof p.workflowId === "string" ? p.workflowId : "",
+				eventType: typeof p.eventType === "string" ? p.eventType : "",
+				step: typeof p.step === "string" ? p.step : "",
+				status: typeof p.status === "string" ? p.status : "",
 				score: p.score !== undefined ? Number(p.score) : undefined,
 			};
 		case "workflow.completed":
 			return {
 				type: "workflow-completed",
-				workflowId: String(p.workflowId ?? ""),
+				workflowId: typeof p.workflowId === "string" ? p.workflowId : "",
 				elapsedMs: Number(p.elapsedMs ?? 0),
 			};
 		case "workflow.error":
 			return {
 				type: "workflow-error",
-				workflowId: String(p.workflowId ?? ""),
-				step: String(p.step ?? ""),
-				error: String(p.error ?? ""),
+				workflowId: typeof p.workflowId === "string" ? p.workflowId : "",
+				step: typeof p.step === "string" ? p.step : "",
+				error: typeof p.error === "string" ? p.error : "",
 			};
 		case "workflow.escalated":
 			return {
 				type: "workflow-escalated",
-				workflowId: String(p.workflowId ?? ""),
-				rule: String(p.rule ?? ""),
+				workflowId: typeof p.workflowId === "string" ? p.workflowId : "",
+				rule: typeof p.rule === "string" ? p.rule : "",
 				retries: p.retries !== undefined ? Number(p.retries) : undefined,
 				score: p.score !== undefined ? Number(p.score) : undefined,
 			};
 		case "task.progress":
 			return {
 				type: "task-progress",
-				taskId: String(p.taskId ?? ""),
-				chunk: String(p.chunk ?? ""),
+				taskId: typeof p.taskId === "string" ? p.taskId : "",
+				chunk: typeof p.chunk === "string" ? p.chunk : "",
 			};
 		case "task.completed":
 			return {
 				type: "task-completed",
-				taskId: String(p.taskId ?? ""),
-				profile: String(p.profile ?? ""),
-				reply: String(p.reply ?? ""),
+				taskId: typeof p.taskId === "string" ? p.taskId : "",
+				profile: typeof p.profile === "string" ? p.profile : "",
+				reply: typeof p.reply === "string" ? p.reply : "",
 				elapsedMs: Number(p.elapsedMs ?? 0),
 			};
 		case "task.failed":
 			return {
 				type: "task-failed",
-				taskId: String(p.taskId ?? ""),
-				profile: String(p.profile ?? ""),
-				error: String(p.error ?? ""),
+				taskId: typeof p.taskId === "string" ? p.taskId : "",
+				profile: typeof p.profile === "string" ? p.profile : "",
+				error: typeof p.error === "string" ? p.error : "",
 				elapsedMs: Number(p.elapsedMs ?? 0),
 			};
 		default: {
@@ -293,7 +293,6 @@ export async function createLocalSession(
 	store: SessionStore,
 	loaded: LoadResult,
 	model: Model<Api>,
-	trace: (event: string, extra?: Record<string, unknown>) => void,
 ): Promise<{
 	session: SessionHandle;
 	resolvedModelDisplay: string;
@@ -346,15 +345,12 @@ export async function createLocalSession(
 
 	const systemPrompt = directives.build(directivesBudgetChars);
 	const enabledBlocks = directives.list({ enabled: true });
-	log.info(
-		{
-			ids: enabledBlocks.map((b) => b.id),
-			blocks: enabledBlocks.length,
-			chars: systemPrompt.length,
-			tags: [...new Set(enabledBlocks.flatMap((b) => b.tags ?? []))],
-		},
-		"directives:built",
-	);
+	debugLog("directives:built", {
+		ids: enabledBlocks.map((b) => b.id),
+		blocks: enabledBlocks.length,
+		chars: systemPrompt.length,
+		tags: [...new Set(enabledBlocks.flatMap((b) => b.tags ?? []))],
+	});
 
 	const llmOrgan = buildLlmOrgan({
 		model,
@@ -373,7 +369,7 @@ export async function createLocalSession(
 		modelId: model.id,
 		agentIdentity: agentActor,
 		onLoop: (_type, reason) => {
-			trace("loop:detected", { reason });
+			debugLog("loop:detected", { reason });
 			llmController?.abort(new Error(`[loop-detector] ${reason}`));
 		},
 	});
@@ -421,10 +417,10 @@ export async function createLocalSession(
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {
 			const trigger = (globalThis as Record<string, unknown>).alefRequestRebuild;
-			if (typeof trigger === "function") trigger();
+			if (typeof trigger === "function") (trigger as () => void)();
 		},
 	});
-	agent.load(alefOrgan as Organ);
+	agent.load(alefOrgan);
 
 	connectObservers(agent, observers);
 

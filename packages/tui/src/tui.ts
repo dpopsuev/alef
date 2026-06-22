@@ -3,7 +3,6 @@
  */
 
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { performance } from "node:perf_hooks";
 import { resolveAlefAgentDir } from "./alef-agent-dir.js";
@@ -14,16 +13,15 @@ import { deleteKittyImage, getCapabilities, isImageLine, setCellDimensions } fro
 import { extractSegments, normalizeTerminalOutput, sliceByColumn, sliceWithWidth, visibleWidth } from "./utils.js";
 
 /**
- * Write a timestamped render-debug line to ~/.alef/debug.log.
- * Only active when ALEF_RENDER_DEBUG=1. Uses appendFileSync so it works
- * inside nextTick/doRender without corrupting the TUI display.
+ * Write a timestamped render-debug line to stderr.
+ * Only active when ALEF_RENDER_DEBUG=1. Synchronous to avoid corrupting
+ * the TUI display during nextTick/doRender.
  */
 function renderLog(msg: string): void {
 	if (process.env.ALEF_RENDER_DEBUG !== "1") return;
-	const logPath = path.join(os.homedir(), ".alef", "debug.log");
 	const line = `${new Date().toISOString()} [render] ${msg}\n`;
 	try {
-		fs.appendFileSync(logPath, line);
+		fs.writeFileSync(2, line);
 	} catch {
 		// Never crash the TUI over a log write failure.
 	}
@@ -1034,9 +1032,10 @@ export class TUI extends Container {
 		const debugRedraw = process.env.ALEF_DEBUG_REDRAW === "1";
 		const logRedraw = (reason: string): void => {
 			if (!debugRedraw) return;
-			const logPath = path.join(resolveAlefAgentDir(), "alef-debug.log");
 			const msg = `[${new Date().toISOString()}] fullRender: ${reason} (prev=${this.previousLines.length}, new=${newLines.length}, height=${height})\n`;
-			fs.appendFileSync(logPath, msg);
+			try {
+				fs.writeFileSync(2, msg);
+			} catch {}
 		};
 
 		// First render - just output everything without clearing (assumes clean screen)

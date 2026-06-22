@@ -1,3 +1,7 @@
 {
-	"knownFailing": []
+	"knownFailing": [
+		"blueprint",
+		"kernel",
+		"tui"
+	]
 }

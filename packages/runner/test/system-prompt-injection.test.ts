@@ -14,7 +14,7 @@ import "@dpopsuev/alef-coding-agent";
 
 import { parseArgs } from "../src/args.js";
 import { createLocalSession } from "../src/local-session.js";
-import { SessionStore } from "../src/session-store.js";
+import { JsonlSessionStore } from "../src/session-store.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
 
 const EMPTY_LOADED = {
@@ -44,7 +44,7 @@ describe("system prompt injection — directives reach the LLM", { tags: ["e2e"]
 		faux.setResponses([fauxAssistantMessage("ok")]);
 
 		const cwd = makeTmp();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		const logOutput: string[] = [];
 		const log = pino(
 			{

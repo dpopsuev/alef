@@ -1,6 +1,6 @@
 import type { createContextAssemblyPipeline, Organ } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
-import type { ISessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session";
 
 export interface SubagentFactoryOptions {
 	organs: readonly Organ[];
@@ -25,7 +25,7 @@ export interface BlueprintStackOptions {
 	model: Model<Api>;
 	getSignal?: () => AbortSignal | undefined;
 	onRetry?: (attempt: number, reason: string) => void;
-	sessionStore?: ISessionStore;
+	sessionStore?: SessionStore;
 	/**
 	 * Pre-materialized domain organs from the user's blueprint (--blueprint flag or organs.yaml).
 	 * When provided, the factory uses these instead of its default organ set.

@@ -1,4 +1,4 @@
-import type { ISessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session";
 import { Container, type TUI } from "@dpopsuev/alef-tui";
 import type { ThemeTokens } from "../theme-types.js";
 import { ChatLog, type ChatLogLabels } from "./chat-log.js";
@@ -44,7 +44,7 @@ export class OutputPanel {
 		);
 	}
 
-	loadHistory(store: ISessionStore, tui: TUI): void {
+	loadHistory(store: SessionStore, tui: TUI): void {
 		prependSessionHistory(store, this.writer, { maxTurns: 5 })
 			.then(() => tui.requestRender())
 			.catch(() => {});

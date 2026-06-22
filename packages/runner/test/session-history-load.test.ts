@@ -2,7 +2,7 @@
  * Session history eager load in chat view.
  *
  * Given/When/Then:
- *   Given a SessionStore with prior llm.input + llm.response turns
+ *   Given a JsonlSessionStore with prior llm.input + llm.response turns
  *   When buildLayout is called with that store
  *   Then the chat Container contains user + agent pill components before first send()
  */
@@ -13,18 +13,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Container } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SessionStore } from "../src/session-store.js";
+import { JsonlSessionStore } from "../src/session-store.js";
 import { getTheme } from "../src/theme.js";
 import { ChatLog } from "../src/tui/chat-log.js";
 import { prependSessionHistory } from "../src/tui/session-history.js";
 
 describe("prependSessionHistory — eager load prior turns into chat", { tags: ["unit"] }, () => {
 	let cwd: string;
-	let store: SessionStore;
+	let store: JsonlSessionStore;
 
 	beforeEach(async () => {
 		cwd = mkdtempSync(join(tmpdir(), "alef-hist-load-"));
-		store = await SessionStore.create(cwd);
+		store = await JsonlSessionStore.create(cwd);
 	});
 
 	afterEach(() => {

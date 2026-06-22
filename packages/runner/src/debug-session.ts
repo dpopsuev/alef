@@ -14,7 +14,7 @@
 import { readFile } from "node:fs/promises";
 
 import type { StorageRecord } from "./session-store.js";
-import { SessionStore } from "./session-store.js";
+import { JsonlSessionStore } from "./session-store.js";
 
 export async function runDebugSession(args: string[], cwd: string): Promise<void> {
 	if (args.includes("--list") || args.includes("-l")) {
@@ -27,7 +27,7 @@ export async function runDebugSession(args: string[], cwd: string): Promise<void
 }
 
 async function listSessions(cwd: string): Promise<void> {
-	const sessions = await SessionStore.list(cwd);
+	const sessions = await JsonlSessionStore.list(cwd);
 	if (sessions.length === 0) {
 		console.log("No sessions for", cwd);
 		return;
@@ -38,7 +38,7 @@ async function listSessions(cwd: string): Promise<void> {
 }
 
 async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
-	const sessions = await SessionStore.list(cwd);
+	const sessions = await JsonlSessionStore.list(cwd);
 	if (sessions.length === 0) {
 		console.error("No sessions for", cwd);
 		process.exit(1);

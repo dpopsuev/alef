@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
-import type { ISessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session";
+import type { SessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session";
 import { eventTypeWeight, extractContentLength } from "@dpopsuev/alef-session";
 
 /**
- * InMemorySessionStore — implements ISessionStore without touching the filesystem.
+ * InMemorySessionStore — implements SessionStore without touching the filesystem.
  *
  * For use in eval harnesses and tests where memory organ history assembly is
  * needed but disk persistence is not. Replicates the turn-index logic of
- * SessionStore so session context stage behaves identically to production.
+ * JsonlSessionStore so session context stage behaves identically to production.
  */
-export class InMemorySessionStore implements ISessionStore {
+export class InMemorySessionStore implements SessionStore {
 	readonly id: string;
 	readonly path: string;
 

@@ -23,7 +23,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SessionStore, type StorageRecord } from "../src/session-store.js";
+import { JsonlSessionStore, type StorageRecord } from "../src/session-store.js";
 import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY } from "../src/turn-assembler.js";
 
 // ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ function senseDialogRecord(correlationId: string, text: string): StorageRecord {
 describe("assembleTurns — eviction proof", { tags: ["unit"] }, () => {
 	it("evicts old irrelevant turns when session exceeds budget", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 
 		// Pad text to CHARS_PER_TURN so extractContentLength gives COST_PER_TURN tokens.
 		const padText = (label: string): string => label.padEnd(CHARS_PER_TURN, ".");
@@ -172,7 +172,7 @@ describe("assembleTurns — eviction proof", { tags: ["unit"] }, () => {
 
 	it("preserves all turns when budget is large enough", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 
 		for (let i = 0; i < 5; i++) {
 			const id = `turn-${i}`;

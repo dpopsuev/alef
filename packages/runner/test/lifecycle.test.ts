@@ -27,7 +27,7 @@ import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { ScriptedReasoner, type ScriptStep, step } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { SessionLog } from "../src/event-log-organ.js";
-import { SessionStore } from "../src/session-store.js";
+import { JsonlSessionStore } from "../src/session-store.js";
 import { assembleTurns } from "../src/turn-assembler.js";
 
 // ---------------------------------------------------------------------------
@@ -126,7 +126,7 @@ interface Fixture {
 	cwd: string;
 	baseUrl: string;
 	controller: AgentController;
-	store: SessionStore;
+	store: JsonlSessionStore;
 	agent: Agent;
 	unmountAgent: () => Promise<void>;
 }
@@ -139,7 +139,7 @@ async function bootFixture(
 	// Create a small file for fs.read tests to read.
 	writeFileSync(join(cwd, "README.md"), "# Alef\nA self-improving agent.\n", "utf-8");
 
-	const store = await SessionStore.create(cwd);
+	const store = await JsonlSessionStore.create(cwd);
 
 	const scripted = new ScriptedReasoner(Array.isArray(opts.script) ? opts.script : [opts.script]);
 	const fs = createFsOrgan({ cwd });
@@ -371,7 +371,7 @@ describe("Lifecycle — TurnAssembler session resume", { tags: ["integration"] }
 			const cwd = fix.cwd;
 
 			// Load a fresh store pointing at the same session file.
-			const resumed = await SessionStore.resume(cwd, sessionId);
+			const resumed = await JsonlSessionStore.resume(cwd, sessionId);
 			const turns = await resumed.turns();
 			expect(turns.length).toBeGreaterThan(0);
 		} finally {

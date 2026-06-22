@@ -27,7 +27,7 @@ import { BlueprintHarness } from "../../testkit/src/blueprint-harness.js";
 import { step } from "../../testkit/src/script.js";
 import { authFilePath, getStoredApiKey, removeStoredApiKey, resolveApiKey, setStoredApiKey } from "../src/auth.js";
 import { autoDetectModel, buildModel } from "../src/model.js";
-import { SessionStore } from "../src/session-store.js";
+import { JsonlSessionStore } from "../src/session-store.js";
 import { assembleTurns } from "../src/turn-assembler.js";
 
 const MAIN = fileURLToPath(new URL("../src/main.ts", import.meta.url));
@@ -373,10 +373,10 @@ describe("blueprint composition — shell organ", () => {
 // Session JSONL — persistence and TurnAssembler
 // ---------------------------------------------------------------------------
 
-describe("SessionStore + TurnAssembler", () => {
+describe("JsonlSessionStore + TurnAssembler", () => {
 	it("TurnAssembler reconstructs turns from JSONL", async () => {
 		const cwd = tmpDir();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 
 		// Simulate two motor events on the same correlationId
 		await store.append({
@@ -404,7 +404,7 @@ describe("SessionStore + TurnAssembler", () => {
 
 	it("assembleTurns includes recent turns in context window", async () => {
 		const cwd = tmpDir();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 
 		// Write 3 turns
 		for (let i = 0; i < 3; i++) {

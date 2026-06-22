@@ -14,7 +14,7 @@ import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { SessionLog, type SessionSummary } from "../src/event-log-organ.js";
-import { SessionStore } from "../src/session-store.js";
+import { JsonlSessionStore } from "../src/session-store.js";
 
 const tmps: string[] = [];
 afterEach(async () => {
@@ -35,7 +35,7 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
 
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		const agent = new Agent();
 		const log = new SessionLog(store, "test-model");
 		agent.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" })).load(log);

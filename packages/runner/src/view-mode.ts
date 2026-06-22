@@ -15,7 +15,7 @@
  *   JsonViewMode      — JSONL event stream on stdout
  */
 
-import type { ISessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session";
 import type { Args } from "./args.js";
 import type { InteractiveOptions } from "./interactive.js";
 import type { AgentEvent, Session } from "./session.js";
@@ -119,7 +119,7 @@ export class HeadlessViewMode implements ViewMode {
 export class TuiViewMode implements ViewMode {
 	constructor(
 		private readonly opts: Omit<InteractiveOptions, never>,
-		private readonly store?: ISessionStore,
+		private readonly store?: SessionStore,
 	) {}
 
 	async run(session: Session): Promise<void> {
@@ -158,7 +158,7 @@ export class JsonViewMode implements ViewMode {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function selectViewMode(args: Args, interactiveOpts: InteractiveOptions, store?: ISessionStore): ViewMode {
+export function selectViewMode(args: Args, interactiveOpts: InteractiveOptions, store?: SessionStore): ViewMode {
 	if (args.print) return new PrintViewMode(args.prompt ?? "");
 
 	const useTui = !args.json && !args.noTui && process.stdin.isTTY;

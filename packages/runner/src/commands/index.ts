@@ -340,7 +340,7 @@ const meta = {
 
 const directive = {
 	name: "directive",
-	description: "Manage system prompt blocks — :directive list | enable | disable | toggle <id>",
+	description: "Manage system prompt blocks — :directive or :directive enable|disable|toggle <id>",
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const scroll = ctx.session.getDirective?.();
 		if (!scroll) {
@@ -348,67 +348,73 @@ const directive = {
 			ctx.tui.requestRender();
 			return;
 		}
-		const [sub = "", id] = args;
-		switch (sub.toLowerCase()) {
-			case "list":
-			case "": {
-				const lines = scroll
-					.list()
-					.map(
-						(b) =>
-							`  [${b.priority}] ${b.enabled ? "●" : "○"} ${b.id}${b.tags?.length ? ` (${b.tags.join(", ")})` : ""}`,
-					);
-				ctx.writer.addNotice(`Prompt blocks:\n${lines.join("\n")}`);
-				break;
-			}
-			case "enable":
-				if (!id) {
-					ctx.writer.addNotice("Usage: :directive enable <id>");
-					break;
-				}
-				scroll.enable(id);
-				ctx.writer.addNotice(`● Block '${id}' enabled. Takes effect next turn.`);
-				break;
-			case "disable":
-				if (!id) {
-					ctx.writer.addNotice("Usage: :directive disable <id>");
-					break;
-				}
-				scroll.disable(id);
-				ctx.writer.addNotice(`○ Block '${id}' disabled. Takes effect next turn.`);
-				break;
-			case "toggle":
-				if (!id) {
-					ctx.writer.addNotice("Usage: :directive toggle <id>");
-					break;
-				}
-				scroll.toggle(id);
-				ctx.writer.addNotice(`Toggled block '${id}'. Takes effect next turn.`);
-				break;
-			default:
-				ctx.writer.addNotice("Usage: :directive list | enable <id> | disable <id> | toggle <id>");
+		const [sub, id] = args;
+		if (sub === "enable" && id) {
+			scroll.enable(id);
+			ctx.writer.addNotice(`Block '${id}' enabled.`);
+			ctx.tui.requestRender();
+			return;
 		}
-		ctx.tui.requestRender();
+		if (sub === "disable" && id) {
+			scroll.disable(id);
+			ctx.writer.addNotice(`Block '${id}' disabled.`);
+			ctx.tui.requestRender();
+			return;
+		}
+		if (sub === "toggle" && id) {
+			scroll.toggle(id);
+			ctx.writer.addNotice(`Toggled block '${id}'.`);
+			ctx.tui.requestRender();
+			return;
+		}
+		const blocks = scroll.list();
+		const items: SelectItem[] = blocks.map((b) => ({
+			value: b.id,
+			label: `${b.enabled ? "●" : "○"} ${b.id}`,
+			description: b.tags?.join(", "),
+		}));
+		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+			id: "directive-picker",
+			items,
+			onSelect: (item) => {
+				scroll.toggle(item.value);
+				const block = scroll.list().find((b) => b.id === item.value);
+				ctx.writer.addNotice(`${block?.enabled ? "●" : "○"} Block '${item.value}' toggled.`);
+				ctx.tui.requestRender();
+			},
+		});
 	},
 };
 
+const THEMES = ["terminal", "terminal-light", "akko", "mono", "matrix"] as const;
+
 const theme = {
 	name: "theme",
-	description: "Switch theme — :theme <name>",
+	description: "Switch theme — :theme or :theme <name>",
 	run(ctx: TuiHandlerContext, args: string[]) {
-		const THEMES = ["terminal", "terminal-light", "akko", "mono", "matrix"];
 		const name = args[0]?.toLowerCase();
-		if (!name) {
-			ctx.writer.addNotice(`Available themes: ${THEMES.join("  ")}\nUsage: :theme <name>`);
-		} else if (!THEMES.includes(name)) {
-			ctx.writer.addNotice(`Unknown theme '${name}'. Available: ${THEMES.join(", ")}`);
-		} else {
+		if (name) {
+			if (!THEMES.includes(name as (typeof THEMES)[number])) {
+				ctx.writer.addNotice(`Unknown theme '${name}'. Available: ${THEMES.join(", ")}`);
+				ctx.tui.requestRender();
+				return;
+			}
 			setThemeByName(name);
 			ctx.writer.addNotice(`Theme set to '${name}'.`);
 			ctx.tui.requestRender(true);
 			return;
 		}
-		ctx.tui.requestRender();
+		const items: SelectItem[] = THEMES.map((t) => ({ value: t, label: t }));
+		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+			id: "theme-picker",
+			items,
+			maxVisible: 6,
+			onSelect: (item) => {
+				setThemeByName(item.value);
+				ctx.writer.addNotice(`Theme set to '${item.value}'.`);
+				ctx.tui.requestRender(true);
+			},
+		});
 	},
 };
 

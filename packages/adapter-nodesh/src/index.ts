@@ -5,8 +5,8 @@ export {
 	type NodeshOrganOptions,
 } from "./organ.js";
 
-import type { BaseOrganOptions, Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseOrganOptions } from "@dpopsuev/alef-kernel";
 import { createNodeshOrgan } from "./organ.js";
-export function createOrgan(opts: BaseOrganOptions & { cwd: string }): Organ {
+export function createOrgan(opts: BaseOrganOptions & { cwd: string }): Adapter {
 	return createNodeshOrgan({ cwd: opts.cwd, actions: opts.actions, logger: opts.logger });
 }

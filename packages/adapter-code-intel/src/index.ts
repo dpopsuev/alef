@@ -17,10 +17,10 @@ export { type CodeIntelOrganOptions, createCodeIntelOrgan } from "./organ.js";
 
 export { StubCodeIntelBackend } from "./stub-backend.js";
 
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
 import { createCodeIntelOrgan } from "./organ.js";
 
-export function createOrgan(opts: { cwd: string; actions?: string[] }): Organ {
+export function createOrgan(opts: { cwd: string; actions?: string[] }): Adapter {
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `code.${a}`));
 	return createCodeIntelOrgan({ cwd: opts.cwd, actions });
 }

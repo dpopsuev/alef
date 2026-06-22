@@ -22,7 +22,7 @@
  * termination — typically by aborting the current turn's AbortController.
  */
 
-import type { Nerve, Organ, SenseEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve, SenseEvent } from "@dpopsuev/alef-kernel";
 import { extractToolCallId } from "@dpopsuev/alef-kernel";
 
 export interface LoopGuardOptions {
@@ -71,7 +71,7 @@ function hashResult(payload: Record<string, unknown>): string {
 	return JSON.stringify(rest).slice(0, 512);
 }
 
-export class LoopGuard implements Organ {
+export class LoopGuard implements Adapter {
 	readonly name = "loop-detector";
 	readonly tools = [];
 	readonly subscriptions = { motor: ["*" as const], sense: [] as const };

@@ -1,4 +1,4 @@
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
 import { createMetaOrgan, type DirectiveAdapter } from "@dpopsuev/alef-meta";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { autoDetectModel, buildModel } from "./model/index.js";
@@ -25,7 +25,7 @@ export async function runMetaAgent(
 	if (!model) throw new Error("No model available for :meta — set ALEF_MODEL or configure a provider API key");
 	// DirectiveView is structurally a subset of DirectiveAdapter; the runtime object
 	// from getDirectiveAdapter() satisfies the full interface.
-	const organs: Organ[] = [
+	const organs: Adapter[] = [
 		createMetaOrgan({
 			dialogEventType: "llm.input",
 			getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined,

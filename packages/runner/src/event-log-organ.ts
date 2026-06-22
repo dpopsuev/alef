@@ -9,14 +9,14 @@
  * and build accurate context windows without relying on AgentController.history[].
  *
  * Not a organ — no tools, no subscriptions via defineOrgan.
- * Implements Organ directly (same as EvaluatorOrgan).
+ * Implements Adapter directly (same as EvaluatorOrgan).
  *
  */
 
 import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
 
 import { debugLog } from "@dpopsuev/alef-kernel";
 import type { SessionStore } from "@dpopsuev/alef-session";
@@ -35,7 +35,7 @@ export interface SessionSummary {
 	errors: number;
 }
 
-export class SessionLog implements Organ {
+export class SessionLog implements Adapter {
 	readonly name = "event-log";
 	readonly tools = [] as const;
 	readonly subscriptions = {

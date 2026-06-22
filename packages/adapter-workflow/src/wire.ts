@@ -1,5 +1,5 @@
 import { exec } from "node:child_process";
-import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
@@ -68,7 +68,7 @@ export interface WireOrganOptions {
 	judge?: (prompt: string, model?: string) => Promise<{ score: number; feedback: string }>;
 }
 
-export function createWireOrgan(opts: WireOrganOptions): Organ {
+export function createWireOrgan(opts: WireOrganOptions): Adapter {
 	let nerve: Nerve | null = null;
 
 	function mountWiring(state: WireState, rules: WiringRule[]) {

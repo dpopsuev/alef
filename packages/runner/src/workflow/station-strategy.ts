@@ -9,7 +9,7 @@ import {
 	type StationResult,
 	type StationRunner,
 } from "@dpopsuev/alef-adapter-workflow";
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
@@ -42,7 +42,7 @@ function buildStationPrompt(station: StationDef, contract: Contract<z.ZodTypeAny
 export class ImplStationRunner implements StationRunner {
 	constructor(
 		private readonly model: Model<Api>,
-		private readonly domainOrgans: Organ[] = [],
+		private readonly domainOrgans: Adapter[] = [],
 		private readonly onQuestion?: (q: string) => Promise<string>,
 	) {}
 

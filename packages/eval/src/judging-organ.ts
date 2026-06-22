@@ -7,7 +7,7 @@
  * JudgePanelRunner can read it after the judge's session ends.
  */
 
-import type { Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
@@ -50,14 +50,14 @@ const SUBMIT_TOOL: ToolDefinition = {
 };
 
 // ---------------------------------------------------------------------------
-// Organ
+// Adapter
 // ---------------------------------------------------------------------------
 
 export interface JudgingOrganOptions {
 	onReport(report: JudgeReport): void;
 }
 
-export function createJudgingOrgan(opts: JudgingOrganOptions): Organ {
+export function createJudgingOrgan(opts: JudgingOrganOptions): Adapter {
 	return defineOrgan(
 		"judging",
 		{

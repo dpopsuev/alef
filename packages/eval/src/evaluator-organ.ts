@@ -10,7 +10,7 @@
  * Does NOT publish events — read-only observer.
  */
 
-import type { Nerve, NerveEvent, Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve, NerveEvent } from "@dpopsuev/alef-kernel";
 
 export interface EvaluatorOrganOptions {
 	/**
@@ -29,7 +29,7 @@ export interface EvaluatorOrganState {
 	loopEventType?: string;
 }
 
-export class EvaluatorOrgan implements Organ {
+export class EvaluatorOrgan implements Adapter {
 	readonly name = "evaluator";
 	readonly tools = [] as const;
 	readonly subscriptions = { motor: ["*"] as const, sense: ["*"] as const };

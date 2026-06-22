@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-coding-agent";
 import { createCodingAgentStack } from "@dpopsuev/alef-coding-agent";
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
 import { type SupervisorConfig, ToolSupervisor } from "@dpopsuev/alef-runtime";
 
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
@@ -43,7 +43,7 @@ export async function createResearchAgentStack(
 
 	const supervisor = new ToolSupervisor(supervisorConfig);
 
-	const organs: Organ[] = [...codingStack.organs];
+	const organs: Adapter[] = [...codingStack.organs];
 
 	return {
 		organs,

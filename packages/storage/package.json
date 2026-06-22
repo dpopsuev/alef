@@ -25,10 +25,9 @@
   },
   "dependencies": {
     "@dpopsuev/alef-session": "^0.0.1",
-    "better-sqlite3": "^12.11.1"
+    "@libsql/client": "^0.17.4"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.3.0",
     "shx": "^0.4.0",
     "typescript": "^5.9.2",

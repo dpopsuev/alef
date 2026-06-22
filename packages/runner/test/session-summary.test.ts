@@ -11,28 +11,26 @@ import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { applySchema, SqliteSessionStore, SqliteSummaryStore } from "@dpopsuev/alef-storage";
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { SessionLog } from "../src/event-log-organ.js";
 
 describe("SessionSummary", { tags: ["unit"] }, () => {
-	const dbs: Database.Database[] = [];
+	const clients: Array<{ close(): void }> = [];
 	afterEach(() => {
-		for (const db of dbs.splice(0)) db.close();
+		for (const c of clients.splice(0)) c.close();
 	});
 
 	it("writes summary to SQLite and last-session.json on agent dispose", async () => {
-		const db = new Database(":memory:");
-		db.pragma("journal_mode = WAL");
-		db.pragma("foreign_keys = ON");
-		applySchema(db);
-		dbs.push(db);
+		const client = createClient({ url: ":memory:" });
+		await applySchema(client);
+		clients.push(client);
 
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
 
-		const store = SqliteSessionStore.create(db, "/tmp/test-cwd");
-		const summaries = new SqliteSummaryStore(db);
+		const store = await SqliteSessionStore.create(client, "/tmp/test-cwd");
+		const summaries = new SqliteSummaryStore(client);
 		const agent = new Agent();
 		const log = new SessionLog(store, "test-model", undefined, (s) => summaries.write(s));
 		agent.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" })).load(log);
@@ -43,7 +41,7 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		const summary = summaries.get(store.id);
+		const summary = await summaries.get(store.id);
 
 		if (summary) {
 			expect(summary.id).toBe(store.id);

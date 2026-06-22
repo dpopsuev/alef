@@ -12,7 +12,7 @@ export interface AgentKernelOptions {
 	loopThreshold?: number;
 	onLoop?: (eventType: string, reason: string) => void;
 	agentIdentity?: ActorIdentity;
-	summaryWriter?: (summary: SessionSummary) => void;
+	summaryWriter?: (summary: SessionSummary) => void | Promise<void>;
 }
 
 export function buildAgent(opts: AgentKernelOptions): Agent {

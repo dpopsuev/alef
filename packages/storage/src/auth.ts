@@ -1,35 +1,43 @@
-import type Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
 
 export class SqliteAuthStore {
-	private readonly db: Database.Database;
+	private readonly client: Client;
 
-	constructor(db: Database.Database) {
-		this.db = db;
+	constructor(client: Client) {
+		this.client = client;
 	}
 
-	get(provider: string): string | undefined {
-		const row = this.db.prepare("SELECT key FROM auth WHERE provider = ?").get(provider) as
-			| { key: string }
-			| undefined;
-		return row?.key;
+	async get(provider: string): Promise<string | undefined> {
+		const result = await this.client.execute({
+			sql: "SELECT key FROM auth WHERE provider = ?",
+			args: [provider],
+		});
+		const row = result.rows[0];
+		return row ? String(row.key) : undefined;
 	}
 
-	set(provider: string, key: string): void {
-		this.db
-			.prepare(
-				"INSERT INTO auth (provider, type, key) VALUES (?, 'api_key', ?) ON CONFLICT(provider) DO UPDATE SET key = excluded.key",
-			)
-			.run(provider, key);
+	async set(provider: string, key: string): Promise<void> {
+		await this.client.execute({
+			sql: "INSERT INTO auth (provider, type, key) VALUES (?, 'api_key', ?) ON CONFLICT(provider) DO UPDATE SET key = excluded.key",
+			args: [provider, key],
+		});
 	}
 
-	remove(provider: string): void {
-		this.db.prepare("DELETE FROM auth WHERE provider = ?").run(provider);
+	async remove(provider: string): Promise<void> {
+		await this.client.execute({
+			sql: "DELETE FROM auth WHERE provider = ?",
+			args: [provider],
+		});
 	}
 
-	list(): Array<{ provider: string; type: string }> {
-		return this.db.prepare("SELECT provider, type FROM auth ORDER BY provider").all() as Array<{
-			provider: string;
-			type: string;
-		}>;
+	async list(): Promise<Array<{ provider: string; type: string }>> {
+		const result = await this.client.execute({
+			sql: "SELECT provider, type FROM auth ORDER BY provider",
+			args: [],
+		});
+		return result.rows.map((r) => ({
+			provider: String(r.provider),
+			type: String(r.type),
+		}));
 	}
 }

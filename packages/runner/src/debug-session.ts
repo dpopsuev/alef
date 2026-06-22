@@ -1,9 +1,5 @@
 /**
- * alef debug session — inspect session JSONL for tool-call pairing issues.
- *
- * Mirrors djinn debug session: reads the session event log, groups motor/sense
- * events by correlationId, detects orphaned tool calls (motor with no matching
- * sense response), and reports the session summary.
+ * alef debug session — inspect session events for tool-call pairing issues.
  *
  * Usage:
  *   alef debug session              — inspect most recent session for current cwd
@@ -16,7 +12,7 @@ import type { StorageRecord } from "./session-store.js";
 
 export async function runDebugSession(args: string[], cwd: string): Promise<void> {
 	if (args.includes("--list") || args.includes("-l")) {
-		listSessions(cwd);
+		await listSessions(cwd);
 		return;
 	}
 
@@ -24,9 +20,9 @@ export async function runDebugSession(args: string[], cwd: string): Promise<void
 	await inspectSession(cwd, idPrefix);
 }
 
-function listSessions(cwd: string): void {
-	const db = getDatabase();
-	const sessions = SqliteSessionStore.list(db, cwd);
+async function listSessions(cwd: string): Promise<void> {
+	const db = await getDatabase();
+	const sessions = await SqliteSessionStore.list(db, cwd);
 	if (sessions.length === 0) {
 		console.log("No sessions for", cwd);
 		return;
@@ -37,8 +33,8 @@ function listSessions(cwd: string): void {
 }
 
 async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
-	const db = getDatabase();
-	const sessions = SqliteSessionStore.list(db, cwd);
+	const db = await getDatabase();
+	const sessions = await SqliteSessionStore.list(db, cwd);
 	if (sessions.length === 0) {
 		console.error("No sessions for", cwd);
 		process.exit(1);
@@ -54,11 +50,9 @@ async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
 		target = found;
 	}
 
-	const store = SqliteSessionStore.resume(db, cwd, target.id);
+	const store = await SqliteSessionStore.resume(db, cwd, target.id);
 	const records: StorageRecord[] = await store.events();
 
-	// Group motor events by correlationId — these are tool calls dispatched to organs.
-	// Each motor event with a non-dialog type should get a matching sense response.
 	const motorByCorr = new Map<string, StorageRecord[]>();
 	const senseByCorr = new Map<string, StorageRecord[]>();
 	let turns = 0;
@@ -82,7 +76,6 @@ async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
 	}
 
 	console.log(`Session: ${target.id}`);
-	console.log(`Path:    ${target.path}`);
 	console.log(`Events:  ${records.length}  Turns: ${turns}  Errors: ${errors}`);
 	console.log();
 

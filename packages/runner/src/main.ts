@@ -43,8 +43,8 @@ await handleSelfUpdate(args);
 
 if (args.migrate) {
 	const { getDatabase, migrateJsonlToSqlite } = await import("@dpopsuev/alef-storage");
-	const db = getDatabase();
-	const result = migrateJsonlToSqlite(db);
+	const db = await getDatabase();
+	const result = await migrateJsonlToSqlite(db);
 	console.log(
 		`Migrated ${result.sessions} sessions (${result.events} events, ${result.discourse} discourse posts, ${result.auth} auth keys)`,
 	);

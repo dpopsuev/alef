@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { cwdHash, type SessionStore, type StorageRecord, type Turn, TurnIndexer } from "@dpopsuev/alef-session";
-import type Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
 
 function deriveOrgan(type: string): string | null {
 	const dot = type.indexOf(".");
@@ -11,63 +11,41 @@ export class SqliteSessionStore implements SessionStore {
 	readonly id: string;
 	readonly path: string;
 
-	private readonly _db: Database.Database;
+	private readonly _client: Client;
 
 	private readonly _cache: StorageRecord[] = [];
 	private readonly _indexer = new TurnIndexer();
 
 	private readonly _version: string;
 
-	private readonly _insertEvent: Database.Statement;
-	private readonly _updateSession: Database.Statement;
-
-	private constructor(db: Database.Database, id: string, version?: string) {
-		this._db = db;
+	private constructor(client: Client, id: string, version?: string) {
+		this._client = client;
 		this.id = id;
 		this.path = `sqlite:alef.db#${id}`;
 		this._version = version ?? process.env.npm_package_version ?? "unknown";
-
-		this._insertEvent = db.prepare(`
-			INSERT INTO events (session_id, bus, type, correlation_id, payload,
-				timestamp, elapsed, hash, actor_address, actor_type, organ, turn_number, version)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`);
-		this._updateSession = db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?");
 	}
 
-	private _warmFromDb(): void {
-		const rows = this._db
-			.prepare(
-				`SELECT bus, type, correlation_id, payload, timestamp, elapsed, hash,
-						actor_address, actor_type, session_id
-				 FROM events WHERE session_id = ? ORDER BY rowid`,
-			)
-			.all(this.id) as Array<{
-			bus: string;
-			type: string;
-			correlation_id: string;
-			payload: string;
-			timestamp: number;
-			elapsed: number | null;
-			hash: string | null;
-			actor_address: string | null;
-			actor_type: string | null;
-			session_id: string | null;
-		}>;
+	private async _warmFromDb(): Promise<void> {
+		const result = await this._client.execute({
+			sql: `SELECT bus, type, correlation_id, payload, timestamp, elapsed, hash,
+					actor_address, actor_type, session_id
+			 FROM events WHERE session_id = ? ORDER BY rowid`,
+			args: [this.id],
+		});
 
-		for (const row of rows) {
+		for (const row of result.rows) {
 			const record: StorageRecord = {
-				bus: row.bus as StorageRecord["bus"],
-				type: row.type,
-				correlationId: row.correlation_id,
-				payload: JSON.parse(row.payload) as Record<string, unknown>,
-				timestamp: row.timestamp,
-				elapsed: row.elapsed ?? undefined,
-				hash: row.hash ?? undefined,
-				sessionId: row.session_id ?? undefined,
+				bus: String(row.bus) as StorageRecord["bus"],
+				type: String(row.type),
+				correlationId: String(row.correlation_id),
+				payload: JSON.parse(String(row.payload)) as Record<string, unknown>,
+				timestamp: Number(row.timestamp),
+				elapsed: row.elapsed != null ? Number(row.elapsed) : undefined,
+				hash: row.hash != null ? String(row.hash) : undefined,
+				sessionId: row.session_id != null ? String(row.session_id) : undefined,
 				actor:
-					row.actor_address && row.actor_type
-						? { address: row.actor_address, type: row.actor_type as "human" | "agent" }
+					row.actor_address != null && row.actor_type != null
+						? { address: String(row.actor_address), type: String(row.actor_type) as "human" | "agent" }
 						: undefined,
 			};
 			this._cache.push(record);
@@ -75,68 +53,73 @@ export class SqliteSessionStore implements SessionStore {
 		}
 	}
 
-	static create(db: Database.Database, cwd: string, version?: string): SqliteSessionStore {
+	static async create(client: Client, cwd: string, version?: string): Promise<SqliteSessionStore> {
 		const id = randomUUID().replace(/-/g, "").slice(0, 8);
 		const hash = cwdHash(cwd);
 		const now = Date.now();
-		db.prepare(
-			"INSERT INTO sessions (id, cwd_hash, cwd, created_at, updated_at, version) VALUES (?, ?, ?, ?, ?, ?)",
-		).run(id, hash, cwd, now, now, version ?? process.env.npm_package_version ?? "unknown");
-		return new SqliteSessionStore(db, id, version);
+		await client.execute({
+			sql: "INSERT INTO sessions (id, cwd_hash, cwd, created_at, updated_at, version) VALUES (?, ?, ?, ?, ?, ?)",
+			args: [id, hash, cwd, now, now, version ?? process.env.npm_package_version ?? "unknown"],
+		});
+		return new SqliteSessionStore(client, id, version);
 	}
 
-	static resume(db: Database.Database, cwd: string, id: string, version?: string): SqliteSessionStore {
+	static async resume(client: Client, cwd: string, id: string, version?: string): Promise<SqliteSessionStore> {
 		const hash = cwdHash(cwd);
-		const row = db.prepare("SELECT id FROM sessions WHERE id = ? AND cwd_hash = ?").get(id, hash) as
-			| { id: string }
-			| undefined;
-		if (!row) throw new Error(`Session '${id}' not found for cwd hash ${hash}`);
-		const store = new SqliteSessionStore(db, id, version);
-		store._warmFromDb();
+		const result = await client.execute({
+			sql: "SELECT id FROM sessions WHERE id = ? AND cwd_hash = ?",
+			args: [id, hash],
+		});
+		if (result.rows.length === 0) throw new Error(`Session '${id}' not found for cwd hash ${hash}`);
+		const store = new SqliteSessionStore(client, id, version);
+		await store._warmFromDb();
 		return store;
 	}
 
-	static resumeLatest(db: Database.Database, cwd: string, version?: string): SqliteSessionStore | null {
+	static async resumeLatest(client: Client, cwd: string, version?: string): Promise<SqliteSessionStore | null> {
 		const hash = cwdHash(cwd);
-		const row = db.prepare("SELECT id FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC LIMIT 1").get(hash) as
-			| { id: string }
-			| undefined;
-		if (!row) return null;
-		return SqliteSessionStore.resume(db, cwd, row.id, version);
+		const result = await client.execute({
+			sql: "SELECT id FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC LIMIT 1",
+			args: [hash],
+		});
+		if (result.rows.length === 0) return null;
+		return SqliteSessionStore.resume(client, cwd, String(result.rows[0].id), version);
 	}
 
-	static list(db: Database.Database, cwd: string): Array<{ id: string; path: string; mtime: Date }> {
+	static async list(client: Client, cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>> {
 		const hash = cwdHash(cwd);
-		const rows = db
-			.prepare("SELECT id, updated_at FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC")
-			.all(hash) as Array<{ id: string; updated_at: number }>;
-		return rows.map((r) => ({
-			id: r.id,
-			path: `sqlite:alef.db#${r.id}`,
-			mtime: new Date(r.updated_at),
+		const result = await client.execute({
+			sql: "SELECT id, updated_at FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC",
+			args: [hash],
+		});
+		return result.rows.map((r) => ({
+			id: String(r.id),
+			path: `sqlite:alef.db#${String(r.id)}`,
+			mtime: new Date(Number(r.updated_at)),
 		}));
 	}
 
-	static prune(db: Database.Database, cwd: string, maxAgeDays = 30, maxCount = 50): number {
+	static async prune(client: Client, cwd: string, maxAgeDays = 30, maxCount = 50): Promise<number> {
 		const hash = cwdHash(cwd);
 		const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
-		const rows = db
-			.prepare("SELECT id FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC")
-			.all(hash) as Array<{ id: string }>;
+		const result = await client.execute({
+			sql: "SELECT id, updated_at FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC",
+			args: [hash],
+		});
 
 		let removed = 0;
-		const deleteEvents = db.prepare("DELETE FROM events WHERE session_id = ?");
-		const deleteSummary = db.prepare("DELETE FROM session_summaries WHERE session_id = ?");
-		const deleteSession = db.prepare("DELETE FROM sessions WHERE id = ?");
-
-		for (let i = maxCount; i < rows.length; i++) {
-			const sessionRow = db.prepare("SELECT updated_at FROM sessions WHERE id = ?").get(rows[i].id) as
-				| { updated_at: number }
-				| undefined;
-			if (sessionRow && sessionRow.updated_at < cutoff) {
-				deleteEvents.run(rows[i].id);
-				deleteSummary.run(rows[i].id);
-				deleteSession.run(rows[i].id);
+		for (let i = maxCount; i < result.rows.length; i++) {
+			const updatedAt = Number(result.rows[i].updated_at);
+			if (updatedAt < cutoff) {
+				const sid = String(result.rows[i].id);
+				await client.batch(
+					[
+						{ sql: "DELETE FROM events WHERE session_id = ?", args: [sid] },
+						{ sql: "DELETE FROM session_summaries WHERE session_id = ?", args: [sid] },
+						{ sql: "DELETE FROM sessions WHERE id = ?", args: [sid] },
+					],
+					"write",
+				);
 				removed++;
 			}
 		}
@@ -152,22 +135,30 @@ export class SqliteSessionStore implements SessionStore {
 			? this._indexer.turnMap.get(record.correlationId)!.turnIndex
 			: null;
 
-		this._insertEvent.run(
-			this.id,
-			record.bus,
-			record.type,
-			record.correlationId,
-			JSON.stringify(record.payload),
-			record.timestamp,
-			record.elapsed ?? null,
-			record.hash ?? null,
-			record.actor?.address ?? null,
-			record.actor?.type ?? null,
-			organ,
-			turnNumber,
-			this._version,
-		);
-		this._updateSession.run(Date.now(), this.id);
+		await this._client.execute({
+			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload,
+				timestamp, elapsed, hash, actor_address, actor_type, organ, turn_number, version)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			args: [
+				this.id,
+				record.bus,
+				record.type,
+				record.correlationId,
+				JSON.stringify(record.payload),
+				record.timestamp,
+				record.elapsed ?? null,
+				record.hash ?? null,
+				record.actor?.address ?? null,
+				record.actor?.type ?? null,
+				organ,
+				turnNumber,
+				this._version,
+			],
+		});
+		await this._client.execute({
+			sql: "UPDATE sessions SET updated_at = ? WHERE id = ?",
+			args: [Date.now(), this.id],
+		});
 	}
 
 	events(): Promise<StorageRecord[]> {
@@ -192,7 +183,7 @@ export class SqliteSessionStore implements SessionStore {
 			payload: { name },
 			timestamp: Date.now(),
 		});
-		this._db.prepare("UPDATE sessions SET name = ? WHERE id = ?").run(name, this.id);
+		await this._client.execute({ sql: "UPDATE sessions SET name = ? WHERE id = ?", args: [name, this.id] });
 	}
 
 	turns(): Promise<Turn[]> {

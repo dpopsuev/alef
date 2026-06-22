@@ -365,7 +365,7 @@ export async function createLocalSession(
 	});
 
 	const { getDatabase, SqliteSummaryStore } = await import("@dpopsuev/alef-storage");
-	const db = getDatabase();
+	const db = await getDatabase();
 	const summaryStore = new SqliteSummaryStore(db);
 
 	const agent = buildAgent({

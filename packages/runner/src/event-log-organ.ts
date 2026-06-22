@@ -50,13 +50,13 @@ export class SessionLog implements Organ {
 	private readonly store: SessionStore;
 	private readonly model: string;
 	private readonly agentActor: StorageActor | undefined;
-	private readonly _summaryWriter?: (summary: SessionSummary) => void;
+	private readonly _summaryWriter?: (summary: SessionSummary) => void | Promise<void>;
 
 	constructor(
 		store: SessionStore,
 		model = "unknown",
 		agentIdentity?: ActorIdentity,
-		summaryWriter?: (summary: SessionSummary) => void,
+		summaryWriter?: (summary: SessionSummary) => void | Promise<void>,
 	) {
 		this.store = store;
 		this.model = model;
@@ -174,7 +174,7 @@ export class SessionLog implements Organ {
 	private async _writeSummary(summary: SessionSummary): Promise<void> {
 		if (this._summaryWriter) {
 			try {
-				this._summaryWriter(summary);
+				await this._summaryWriter(summary);
 			} catch (e: unknown) {
 				debugLog("session-summary:sqlite-failed", { error: String(e) });
 			}

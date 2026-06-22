@@ -1,18 +1,17 @@
-import { getDatabase, SqliteSessionStore } from "@dpopsuev/alef-storage";
-import type Database from "better-sqlite3";
+import { type Client, getDatabase, SqliteSessionStore } from "@dpopsuev/alef-storage";
 import type { Args } from "../args.js";
 import { pickSession } from "./picker.js";
 
-export function getDb(): Database.Database {
+export async function getDb(): Promise<Client> {
 	return getDatabase();
 }
 
 export async function loadSession(args: Args, willUseTui: boolean): Promise<SqliteSessionStore> {
-	const db = getDb();
-	const pruned = SqliteSessionStore.prune(db, args.cwd);
+	const db = await getDb();
+	const pruned = await SqliteSessionStore.prune(db, args.cwd);
 	if (pruned > 0) console.error(`[session] Pruned ${pruned} old session(s)`);
 	if (args.listSessions) {
-		const sessions = SqliteSessionStore.list(db, args.cwd);
+		const sessions = await SqliteSessionStore.list(db, args.cwd);
 		if (sessions.length === 0) {
 			console.log("No sessions for", args.cwd);
 		} else {
@@ -26,8 +25,8 @@ export async function loadSession(args: Args, willUseTui: boolean): Promise<Sqli
 	if (args.resume) {
 		const resumeId = args.resume === "last" ? undefined : args.resume;
 		const store = resumeId
-			? SqliteSessionStore.resume(db, args.cwd, resumeId)
-			: SqliteSessionStore.resumeLatest(db, args.cwd);
+			? await SqliteSessionStore.resume(db, args.cwd, resumeId)
+			: await SqliteSessionStore.resumeLatest(db, args.cwd);
 		if (!store) {
 			console.error("No session to resume. Start a new session first.");
 			process.exit(1);
@@ -37,16 +36,16 @@ export async function loadSession(args: Args, willUseTui: boolean): Promise<Sqli
 		return store;
 	}
 
-	const existingSessions = willUseTui ? SqliteSessionStore.list(db, args.cwd) : [];
+	const existingSessions = willUseTui ? await SqliteSessionStore.list(db, args.cwd) : [];
 	const pickedId = existingSessions.length > 0 ? await pickSession(existingSessions) : undefined;
 	if (pickedId) {
-		const store = SqliteSessionStore.resume(db, args.cwd, pickedId);
+		const store = await SqliteSessionStore.resume(db, args.cwd, pickedId);
 		const turnCount = (await store.turns()).length;
 		console.error(`[session] Resumed ${store.id} (${turnCount} turns)`);
 		return store;
 	}
 
-	const store = SqliteSessionStore.create(db, args.cwd);
+	const store = await SqliteSessionStore.create(db, args.cwd);
 	console.error(`[session] ${store.id}`);
 	return store;
 }

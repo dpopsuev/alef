@@ -9,8 +9,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFsOrgan } from "../../organ-fs/src/index.js";
-import { createShellOrgan } from "../../organ-shell/src/index.js";
+import { createFsOrgan } from "../../adapter-fs/src/index.js";
+import { createShellOrgan } from "../../adapter-shell/src/index.js";
 import { NerveFixture } from "../src/index.js";
 
 const dirs: string[] = [];

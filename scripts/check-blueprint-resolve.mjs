@@ -30,8 +30,8 @@ for (const entry of readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
 		const pkg = organ.package ?? organ.name;
 		if (!pkg) continue;
 
-		// Resolve: explicit package name, or convention @dpopsuev/alef-organ-{name}
-		const packageName = pkg.startsWith("@") ? pkg : `@dpopsuev/alef-organ-${pkg}`;
+		// Resolve: explicit package name, or convention @dpopsuev/alef-adapter-{name}
+		const packageName = pkg.startsWith("@") ? pkg : `@dpopsuev/alef-adapter-${pkg}`;
 		const scopeDir = packageName.startsWith("@")
 			? join(NODE_MODULES, packageName.split("/")[0], packageName.split("/")[1])
 			: join(NODE_MODULES, packageName);

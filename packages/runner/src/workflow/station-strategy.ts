@@ -1,5 +1,3 @@
-import type { Organ } from "@dpopsuev/alef-kernel";
-import type { Api, Model } from "@dpopsuev/alef-llm";
 import {
 	type Contract,
 	createContractTool,
@@ -10,7 +8,9 @@ import {
 	type StationDef,
 	type StationResult,
 	type StationRunner,
-} from "@dpopsuev/alef-organ-workflow";
+} from "@dpopsuev/alef-adapter-workflow";
+import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import type { z } from "zod";

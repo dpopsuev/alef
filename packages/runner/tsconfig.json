@@ -25,11 +25,11 @@
 			"@dpopsuev/alef-gateway": [
 				"../gateway/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-fs": [
-				"../organ-fs/src/index.ts"
+			"@dpopsuev/alef-adapter-fs": [
+				"../adapter-fs/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-code-intel": [
-				"../organ-code-intel/src/index.ts"
+			"@dpopsuev/alef-adapter-code-intel": [
+				"../adapter-code-intel/src/index.ts"
 			],
 			"@dpopsuev/alef-tui": [
 				"../tui/src/index.ts"
@@ -37,20 +37,20 @@
 			"@dpopsuev/alef-tui/*": [
 				"../tui/src/*"
 			],
-			"@dpopsuev/alef-organ-nodesh": [
-				"../organ-nodesh/src/index.ts"
+			"@dpopsuev/alef-adapter-nodesh": [
+				"../adapter-nodesh/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-agent": [
-				"../organ-agent/src/index.ts"
+			"@dpopsuev/alef-adapter-agent": [
+				"../adapter-agent/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-web": [
-				"../organ-web/src/index.ts"
+			"@dpopsuev/alef-adapter-web": [
+				"../adapter-web/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-eval": [
-				"../organ-eval/src/index.ts"
+			"@dpopsuev/alef-adapter-eval": [
+				"../adapter-eval/src/index.ts"
 			],
-			"@dpopsuev/alef-organ-shell": [
-				"../organ-shell/src/index.ts"
+			"@dpopsuev/alef-adapter-shell": [
+				"../adapter-shell/src/index.ts"
 			],
 			"@dpopsuev/alef-reasoner": [
 				"../reasoner/src/index.ts"

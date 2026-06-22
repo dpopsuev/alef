@@ -6,7 +6,7 @@
  *
  * Resolution order per organ entry:
  *   path  → jiti.import(resolvedPath)       — TypeScript file, no build step
- *   name  → import(@dpopsuev/alef-organ-{name})  — convention-based
+ *   name  → import(@dpopsuev/alef-adapter-{name})  — convention-based
  *   name  → import(name)                    — treated as npm package specifier
  *
  * Factory convention:
@@ -34,14 +34,14 @@ import type { CompiledAgentDefinition } from "./types.js";
  */
 /**
  * Resolve a short organ name to a package specifier.
- * Convention: "fs" → "@dpopsuev/alef-organ-fs".
+ * Convention: "fs" → "@dpopsuev/alef-adapter-fs".
  *
  * In the monorepo, packages resolve via Node's workspace symlinks.
  * Published packages resolve from node_modules via npm.
  * Both use the same naming convention — no registry needed.
  */
 function resolveOrganPackage(name: string): string {
-	return `@dpopsuev/alef-organ-${name}`;
+	return `@dpopsuev/alef-adapter-${name}`;
 }
 
 /** Common options passed to every organ factory. */

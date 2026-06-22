@@ -22,9 +22,9 @@
   },
   "dependencies": {
     "@dpopsuev/alef-runtime": "^0.0.1",
-    "@dpopsuev/alef-organ-fs": "^0.0.1",
+    "@dpopsuev/alef-adapter-fs": "^0.0.1",
     "@dpopsuev/alef-reasoner": "^0.0.1",
-    "@dpopsuev/alef-organ-shell": "^0.0.1",
+    "@dpopsuev/alef-adapter-shell": "^0.0.1",
     "@dpopsuev/alef-kernel": "^0.0.1",
     "@dpopsuev/alef-testkit": "^0.0.1",
     "@opentelemetry/api": "^1.9.0",

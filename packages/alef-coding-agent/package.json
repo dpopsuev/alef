@@ -12,14 +12,14 @@
 	"dependencies": {
 		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
 		"@dpopsuev/alef-kernel": "^0.0.1",
-		"@dpopsuev/alef-organ-agent": "^0.0.1",
-		"@dpopsuev/alef-organ-factory": "^0.0.1",
-		"@dpopsuev/alef-organ-fs": "^0.0.1",
-		"@dpopsuev/alef-organ-code-intel": "^0.0.1",
-		"@dpopsuev/alef-organ-nodesh": "^0.0.1",
-		"@dpopsuev/alef-organ-shell": "^0.0.1",
-		"@dpopsuev/alef-organ-skills": "^0.0.1",
-		"@dpopsuev/alef-organ-web": "^0.0.1",
+		"@dpopsuev/alef-adapter-agent": "^0.0.1",
+		"@dpopsuev/alef-adapter-factory": "^0.0.1",
+		"@dpopsuev/alef-adapter-fs": "^0.0.1",
+		"@dpopsuev/alef-adapter-code-intel": "^0.0.1",
+		"@dpopsuev/alef-adapter-nodesh": "^0.0.1",
+		"@dpopsuev/alef-adapter-shell": "^0.0.1",
+		"@dpopsuev/alef-adapter-skills": "^0.0.1",
+		"@dpopsuev/alef-adapter-web": "^0.0.1",
 		"@dpopsuev/alef-runtime": "^0.0.1"
 	},
 	"devDependencies": {

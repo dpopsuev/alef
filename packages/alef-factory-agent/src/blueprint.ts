@@ -1,3 +1,6 @@
+import { createAgentOrgan, strategyRegistry } from "@dpopsuev/alef-adapter-agent";
+import { createSkillsOrgan } from "@dpopsuev/alef-adapter-skills";
+import { createWireOrgan } from "@dpopsuev/alef-adapter-workflow";
 import {
 	type BlueprintStack,
 	type BlueprintStackOptions,
@@ -7,9 +10,6 @@ import {
 } from "@dpopsuev/alef-agent-blueprint";
 import type { Organ } from "@dpopsuev/alef-kernel";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
-import { createAgentOrgan, strategyRegistry } from "@dpopsuev/alef-organ-agent";
-import { createSkillsOrgan } from "@dpopsuev/alef-organ-skills";
-import { createWireOrgan } from "@dpopsuev/alef-organ-workflow";
 import { buildOrganDirectives, createToolShellOrgan, InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
 

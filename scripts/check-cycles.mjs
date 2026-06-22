@@ -3,7 +3,7 @@ import { execSync } from "node:child_process";
 
 try {
   const result = execSync(
-    "npx madge --circular --extensions ts --no-spinner packages/kernel/src packages/runtime/src packages/organ-*/src packages/runner/src",
+    "npx madge --circular --extensions ts --no-spinner packages/kernel/src packages/runtime/src packages/adapter-*/src packages/runner/src",
     { encoding: "utf-8", timeout: 30_000 }
   );
   // madge exits 0 when no cycles — shouldn't reach here with cycles

@@ -551,7 +551,7 @@ const skills = {
 		}
 		let discovered: Array<{ name: string; description: string; path: string }> = [];
 		try {
-			const discovery = await import("../../../organ-skills/src/discovery.js");
+			const discovery = await import("../../../adapter-skills/src/discovery.js");
 			discovered = discovery.discoverSkills(ctx.opts?.cwd ?? process.cwd());
 		} catch {
 			ctx.writer.addNotice("Skills discovery not available.");

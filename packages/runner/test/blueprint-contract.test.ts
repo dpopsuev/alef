@@ -50,8 +50,8 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 			it("no organ references deleted packages", () => {
 				const definition = loadAgentDefinition(bp.path);
 				const deletedPackages = [
-					"@dpopsuev/alef-organ-delegate",
-					"@dpopsuev/alef-organ-orchestration",
+					"@dpopsuev/alef-adapter-delegate",
+					"@dpopsuev/alef-adapter-orchestration",
 					"delegate",
 					"orchestration",
 				];

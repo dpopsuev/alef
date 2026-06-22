@@ -19,8 +19,8 @@
 
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createFsOrgan } from "@dpopsuev/alef-organ-fs";
-import { createShellOrgan } from "@dpopsuev/alef-organ-shell";
+import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
+import { createShellOrgan } from "@dpopsuev/alef-adapter-shell";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 
 import type { JudgeReport } from "./judging-organ.js";

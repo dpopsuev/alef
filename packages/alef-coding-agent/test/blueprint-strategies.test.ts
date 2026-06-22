@@ -11,8 +11,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { strategyRegistry } from "@dpopsuev/alef-adapter-agent";
 import { registerFauxProvider } from "@dpopsuev/alef-llm";
-import { strategyRegistry } from "@dpopsuev/alef-organ-agent";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCodingAgentStack } from "../src/blueprint.js";
 

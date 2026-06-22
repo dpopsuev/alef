@@ -133,7 +133,7 @@ export function createOrgan(_opts: unknown): Organ {
 		const dir = makeTmp();
 		const organFile = join(dir, "bad-organ.ts");
 		writeFileSync(organFile, "export const foo = 42;");
-		await expect(loadOrganFromPath(organFile, { cwd: dir })).rejects.toThrow("createOrgan");
+		await expect(loadOrganFromPath(organFile, { cwd: dir })).rejects.toThrow("createAdapter");
 	});
 });
 

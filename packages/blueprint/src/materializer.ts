@@ -1,25 +1,25 @@
 /**
- * Blueprint materializer — loads Organ instances from a CompiledAgentDefinition.
+ * Blueprint materializer — loads Adapter instances from a CompiledAgentDefinition.
  *
- * No per-organ knowledge. No if-chains. No pre-registration.
- * Each organ is loaded dynamically and must export createOrgan(opts).
+ * No per-adapter knowledge. No if-chains. No pre-registration.
+ * Each adapter is loaded dynamically and must export createAdapter(opts).
  *
- * Resolution order per organ entry:
+ * Resolution order per adapter entry:
  *   path  → jiti.import(resolvedPath)       — TypeScript file, no build step
  *   name  → import(@dpopsuev/alef-adapter-{name})  — convention-based
  *   name  → import(name)                    — treated as npm package specifier
  *
  * Factory convention:
- *   Each organ module exports createOrgan(opts: OrganFactoryOptions): Organ.
+ *   Each adapter module exports createAdapter(opts: AdapterFactoryOptions): Adapter.
  *   The materializer calls it with { cwd, actions, logger }. Unknown options
- *   are ignored — each organ's factory handles only what it needs.
+ *   are ignored — each adapter's factory handles only what it needs.
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Nerve, Organ, OrganLogger, SensePublishInput } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger, Nerve, SensePublishInput } from "@dpopsuev/alef-kernel";
 import { debugLog, extractToolCallId } from "@dpopsuev/alef-kernel";
 import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
@@ -27,46 +27,52 @@ import { loadAgentDefinition } from "./blueprints.js";
 import type { CompiledAgentDefinition } from "./types.js";
 
 /**
- * Short alias → npm package for organs shipped with Alef.
+ * Short alias → npm package for adapters shipped with Alef.
  * Lives here — not in blueprint types — because the materializer is the
- * composition root that knows what it ships. Blueprint has zero organ knowledge.
- * Add a new organ here only; blueprint needs no change.
+ * composition root that knows what it ships. Blueprint has zero adapter knowledge.
+ * Add a new adapter here only; blueprint needs no change.
  */
 /**
- * Resolve a short organ name to a package specifier.
+ * Resolve a short adapter name to a package specifier.
  * Convention: "fs" → "@dpopsuev/alef-adapter-fs".
  *
  * In the monorepo, packages resolve via Node's workspace symlinks.
  * Published packages resolve from node_modules via npm.
  * Both use the same naming convention — no registry needed.
  */
-function resolveOrganPackage(name: string): string {
+function resolveAdapterPackage(name: string): string {
 	return `@dpopsuev/alef-adapter-${name}`;
 }
 
-/** Common options passed to every organ factory. */
-export interface OrganFactoryOptions {
+/** Common options passed to every adapter factory. */
+export interface AdapterFactoryOptions {
 	cwd: string;
 	actions?: string[];
-	logger?: OrganLogger;
+	logger?: AdapterLogger;
 	/**
-	 * OCAP grant — directories the organ is allowed to access.
+	 * OCAP grant — directories the adapter is allowed to access.
 	 * Undefined = unrestricted (no path guard). Populated = enforce guard.
 	 * Resolved from config.security.writable_roots by the materializer.
 	 */
 	writableRoots?: readonly string[];
-	/** Shell command patterns to block. Passed through to organ-shell's blockedPatterns. */
+	/** Shell command patterns to block. Passed through to adapter-shell's blockedPatterns. */
 	blockedPatterns?: readonly RegExp[];
 }
 
-/** Expected shape of an organ module — must export createOrgan. */
-interface OrganModule {
-	createOrgan: (opts: OrganFactoryOptions) => Organ | Promise<Organ>;
+/** Expected shape of an adapter module — must export createAdapter. */
+interface AdapterModule {
+	createAdapter: (opts: AdapterFactoryOptions) => Adapter | Promise<Adapter>;
+}
+
+function resolveFactory(mod: Record<string, unknown>): AdapterModule["createAdapter"] | undefined {
+	if (typeof mod.createAdapter === "function") return mod.createAdapter as AdapterModule["createAdapter"];
+	if (typeof mod.createOrgan === "function") return mod.createOrgan as AdapterModule["createAdapter"];
+	return undefined;
 }
 
 export interface MaterializerOptions {
 	cwd: string;
-	loggerFor?: (organName: string) => OrganLogger;
+	loggerFor?: (adapterName: string) => AdapterLogger;
 	/**
 	 * Tool event types the agent is permitted to call.
 	 * "*" = allow all (yolo). Omit = no gate applied.
@@ -74,13 +80,13 @@ export interface MaterializerOptions {
 	 */
 	allowedTools?: string[];
 	/**
-	 * Resolve an external organ path by name (e.g. from alef-pm managed node_modules).
+	 * Resolve an external adapter path by name (e.g. from alef-pm managed node_modules).
 	 * When omitted, only built-in aliases and npm package specifiers are resolved.
 	 * Injected by the runner to decouple alef-pm from the materializer.
 	 */
 	resolveExternalPath?: (name: string) => string | undefined;
 	/**
-	 * OCAP grant — directories organs are allowed to access.
+	 * OCAP grant — directories adapters are allowed to access.
 	 * Undefined = unrestricted. Populated = enforce path guard.
 	 * Source: config.yaml security.writable_roots (after placeholder resolution).
 	 */
@@ -88,7 +94,9 @@ export interface MaterializerOptions {
 }
 
 export interface MaterializerResult {
-	organs: Organ[];
+	adapters: Adapter[];
+	/** @deprecated Use adapters */
+	organs: Adapter[];
 	modelId: string | undefined;
 }
 
@@ -101,7 +109,7 @@ export interface MaterializerResult {
  *
  * Before any motor event reaches the organ's handler, the gate checks the
  * allowlist. If the tool is not permitted it publishes a sense error with the
- * matching toolCallId so waitForToolResult in organ-llm resolves with an error
+ * matching toolCallId so waitForToolResult in reasoner resolves with an error
  * the LLM can read, rather than hanging.
  *
  * allowedTools format:
@@ -109,12 +117,12 @@ export interface MaterializerResult {
  *   "fs.read"   — exact tool event type
  *   (empty/[])  — deny all (not useful in practice)
  */
-export function wrapWithPermissions(organ: Organ, allowedTools: string[]): Organ {
-	if (allowedTools.includes("*")) return organ; // yolo — bypass
+export function wrapWithPermissions(adapter: Adapter, allowedTools: string[]): Adapter {
+	if (allowedTools.includes("*")) return adapter; // yolo — bypass
 	const allowed = new Set(allowedTools);
 
 	return {
-		...organ,
+		...adapter,
 		mount(nerve: Nerve): () => void {
 			const gatedNerve: Nerve = {
 				...nerve,
@@ -141,7 +149,7 @@ export function wrapWithPermissions(organ: Organ, allowedTools: string[]): Organ
 					},
 				},
 			};
-			return organ.mount(gatedNerve);
+			return adapter.mount(gatedNerve);
 		},
 	};
 }
@@ -150,7 +158,7 @@ export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = loadAgentDef
 	resolve(dirname(fileURLToPath(import.meta.url)), "../default-blueprint.yaml"),
 );
 
-/** The canonical alef-coding-agent organ set — matches blueprint.yaml in packages/alef-coding-agent. */
+/** The canonical alef-coding-agent adapter set — matches blueprint.yaml in packages/alef-coding-agent. */
 export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {
 	name: "alef-coding-agent",
 	organs: [
@@ -173,33 +181,33 @@ export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {
 	hooks: { extensions: [] },
 };
 
-/** Materialize the default coding agent organ set for use in eval and test harnesses. */
-export async function materializeDefaultOrgans(cwd: string) {
-	const { organs } = await materializeBlueprint(CODING_AGENT_BLUEPRINT, { cwd });
-	return organs;
+/** Materialize the default coding agent adapter set for use in eval and test harnesses. */
+export async function materializeDefaultAdapters(cwd: string) {
+	const { adapters } = await materializeBlueprint(CODING_AGENT_BLUEPRINT, { cwd });
+	return adapters;
 }
 
-/** Path to the user organs config file. Read at call time so ALEF_PM_ROOT overrides work in tests. */
-export function userOrgansConfigPath(): string {
+/** Path to the user adapters config file. Read at call time so ALEF_PM_ROOT overrides work in tests. */
+export function userAdaptersConfigPath(): string {
 	const root = process.env.ALEF_PM_ROOT ?? join(homedir(), ".config", "alef");
 	return join(root, "organs.yaml");
 }
 
-type OrganEntry = string | { name: string; path?: string; actions?: string[] };
+type AdapterEntry = string | { name: string; path?: string; actions?: string[] };
 
 /**
- * Load user organs config from ~/.config/alef/organs.yaml.
+ * Load user adapters config from ~/.config/alef/organs.yaml.
  * Returns null when the file does not exist (caller falls back to default).
  */
-export function loadUserOrgansConfig(): CompiledAgentDefinition["organs"] | null {
-	const configPath = userOrgansConfigPath();
+export function loadUserAdaptersConfig(): CompiledAgentDefinition["organs"] | null {
+	const configPath = userAdaptersConfigPath();
 	if (!existsSync(configPath)) return null;
 	const text = readFileSync(configPath, "utf-8");
 	const parsed = parseYaml(text) as unknown;
 	if (!parsed || typeof parsed !== "object" || !("organs" in parsed)) return null;
 	const rec = parsed as Record<string, unknown>;
 	if (!Array.isArray(rec.organs)) return null;
-	return (rec.organs as OrganEntry[]).map((entry) => {
+	return (rec.organs as AdapterEntry[]).map((entry) => {
 		if (typeof entry === "string") {
 			return { name: entry, actions: [], toolNames: [] };
 		}
@@ -220,86 +228,95 @@ function getJiti(): ReturnType<typeof createJiti> {
 	return _jiti;
 }
 
-async function loadOrganModule(
-	organDef: CompiledAgentDefinition["organs"][number],
+async function loadAdapterModule(
+	adapterDef: CompiledAgentDefinition["organs"][number],
 	resolveExternalPath?: (name: string) => string | undefined,
-): Promise<OrganModule> {
-	if (organDef.path) {
-		const jitiMod = await getJiti().import(organDef.path);
+): Promise<AdapterModule> {
+	if (adapterDef.path) {
+		const jitiMod = await getJiti().import(adapterDef.path);
 		const mod = jitiMod as Record<string, unknown>;
-		if (typeof mod.createOrgan !== "function") {
+		const factory = resolveFactory(mod);
+		if (!factory) {
 			throw new Error(
-				`Organ at '${organDef.path}' does not export createOrgan(opts). ` +
-					`Export a function named createOrgan that returns an Organ.`,
+				`Adapter at '${adapterDef.path}' does not export createAdapter(opts). ` +
+					`Export a function named createAdapter that returns an Adapter.`,
 			);
 		}
-		return mod as unknown as OrganModule;
+		return { createAdapter: factory };
 	}
 
-	const pmPath = resolveExternalPath?.(organDef.name);
+	const pmPath = resolveExternalPath?.(adapterDef.name);
 	if (pmPath) {
 		const jitiMod = await getJiti().import(pmPath);
 		const mod = jitiMod as Record<string, unknown>;
-		if (typeof mod.createOrgan !== "function") {
-			throw new Error(`Organ at '${pmPath}' (alef-pm managed) does not export createOrgan(opts).`);
+		const factory = resolveFactory(mod);
+		if (!factory) {
+			throw new Error(`Adapter at '${pmPath}' (alef-pm managed) does not export createAdapter(opts).`);
 		}
-		return mod as unknown as OrganModule;
+		return { createAdapter: factory };
 	}
-	const pkg = resolveOrganPackage(organDef.name);
+	const pkg = resolveAdapterPackage(adapterDef.name);
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 	const rawMod = await import(pkg);
 	const mod = rawMod as unknown as Record<string, unknown>;
-	if (typeof mod.createOrgan !== "function") {
+	const factory = resolveFactory(mod);
+	if (!factory) {
 		throw new Error(
-			`Organ package '${pkg}' does not export createOrgan(opts). ` +
-				`Add \`export { createYourOrgan as createOrgan } from "./organ.js"\` to its index.`,
+			`Adapter package '${pkg}' does not export createAdapter(opts). ` +
+				`Add \`export { createYourAdapter as createAdapter } from "./organ.js"\` to its index.`,
 		);
 	}
-	return mod as unknown as OrganModule;
+	return { createAdapter: factory };
 }
 
 /**
  * Load a single organ from an absolute TypeScript file path.
  * Used by hot-reload (:reload) to swap an organ in-place without restart.
  */
-export async function loadOrganFromPath(
+export async function loadAdapterFromPath(
 	path: string,
 	opts: Pick<MaterializerOptions, "cwd" | "loggerFor" | "writableRoots">,
-): Promise<Organ> {
+): Promise<Adapter> {
 	const jitiMod = await getJiti().import(path);
 	const mod = jitiMod as Record<string, unknown>;
-	if (typeof mod.createOrgan !== "function") {
-		throw new Error(`Organ at '${path}' does not export createOrgan(opts).`);
+	const factory = resolveFactory(mod);
+	if (!factory) {
+		throw new Error(`Adapter at '${path}' does not export createAdapter(opts).`);
 	}
-	const typed = mod as unknown as OrganModule;
-	return await typed.createOrgan({ cwd: opts.cwd, logger: opts.loggerFor?.(path), writableRoots: opts.writableRoots });
+	return await factory({
+		cwd: opts.cwd,
+		logger: opts.loggerFor?.(path),
+		writableRoots: opts.writableRoots,
+	});
 }
 
 export async function materializeBlueprint(
 	definition: CompiledAgentDefinition,
 	opts: MaterializerOptions,
 ): Promise<MaterializerResult> {
-	const organs: Organ[] = [];
+	const adapters: Adapter[] = [];
 
-	for (const organDef of definition.organs) {
-		if (["ai", "discourse", "symbols"].includes(organDef.name)) continue;
+	for (const adapterDef of definition.organs) {
+		if (["ai", "discourse", "symbols"].includes(adapterDef.name)) continue;
 
-		const label = organDef.path ? organDef.path : resolveOrganPackage(organDef.name);
+		const label = adapterDef.path ? adapterDef.path : resolveAdapterPackage(adapterDef.name);
 		try {
-			const mod = await loadOrganModule(organDef, opts.resolveExternalPath);
-			const organ = await mod.createOrgan({
+			const mod = await loadAdapterModule(adapterDef, opts.resolveExternalPath);
+			const adapter = await mod.createAdapter({
 				cwd: opts.cwd,
-				actions: organDef.actions.length > 0 ? organDef.actions : undefined,
-				logger: opts.loggerFor?.(organDef.name),
+				actions: adapterDef.actions.length > 0 ? adapterDef.actions : undefined,
+				logger: opts.loggerFor?.(adapterDef.name),
 				writableRoots: opts.writableRoots,
-				blockedPatterns: organDef.blockedPatterns?.map((p) => new RegExp(p)),
+				blockedPatterns: adapterDef.blockedPatterns?.map((p) => new RegExp(p)),
 			});
 			const gated =
-				opts.allowedTools && opts.allowedTools.length > 0 ? wrapWithPermissions(organ, opts.allowedTools) : organ;
-			organs.push(gated);
+				opts.allowedTools && opts.allowedTools.length > 0
+					? wrapWithPermissions(adapter, opts.allowedTools)
+					: adapter;
+			adapters.push(gated);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			if (msg.includes("does not export createOrgan")) {
+			if (msg.includes("does not export createAdapter") || msg.includes("does not export createOrgan")) {
 				debugLog("blueprint:organ:skip", { organ: label, reason: msg });
 			} else {
 				throw new Error(`[blueprint] Failed to load organ '${label}': ${msg}`);
@@ -312,5 +329,5 @@ export async function materializeBlueprint(
 		modelId = `${definition.model.provider}/${definition.model.id}`;
 	}
 
-	return { organs, modelId };
+	return { adapters, organs: adapters, modelId };
 }

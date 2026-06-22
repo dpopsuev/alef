@@ -21,7 +21,7 @@ import http from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { hasCredentials } from "../../runner/src/model.js";
+import { hasCredentials } from "../../runner/src/model/index.js";
 
 // ---------------------------------------------------------------------------
 // Guard — skip when no provider credentials are available

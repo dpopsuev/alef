@@ -17,7 +17,7 @@ import { ActorRouteTable } from "./identity/routes.js";
 import type { LoadResult } from "./load-organs.js";
 import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import type { AgentEvent, Session, SessionState, TokensConsumed } from "./session.js";
-import { SessionHandle } from "./session-handle.js";
+import { SessionHandle } from "./session-lifecycle/index.js";
 import type { SessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { buildSubagentFactory } from "./subagent-factory.js";

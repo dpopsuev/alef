@@ -15,10 +15,10 @@ import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import type { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
-import type { Args } from "./args.js";
-import type { Directives } from "./directives.js";
-import { buildModel } from "./model.js";
-import type { AgentEvent, DirectiveView, Session, SessionState } from "./session.js";
+import type { Args } from "../args.js";
+import type { Directives } from "../directives.js";
+import { buildModel } from "../model/index.js";
+import type { AgentEvent, DirectiveView, Session, SessionState } from "../session.js";
 
 export interface SessionHandleComponents {
 	state: SessionState;
@@ -78,7 +78,7 @@ export class SessionHandle implements Session {
 		this._currentModel = buildModel(id);
 		const supportsThinking = this._currentModel.reasoning && !this._currentModel.id.includes("haiku");
 		if (!supportsThinking) this._thinkingState.level = undefined;
-		else if (!this._thinkingState.level) this._thinkingState.level = "medium" as ThinkingLevel;
+		else if (!this._thinkingState.level) this._thinkingState.level = "medium";
 	}
 
 	getThinking(): string {

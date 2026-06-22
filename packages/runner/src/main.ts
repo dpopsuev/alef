@@ -13,13 +13,13 @@ import { runDebugSession } from "./debug-session.js";
 
 import { initYamlBlueprints } from "./init-yaml-blueprints.js";
 import { loadOrgans } from "./load-organs.js";
-import { loadSession } from "./load-session.js";
 import { createLocalSession } from "./local-session.js";
 import { createRunnerLogger } from "./logger.js";
-import { resolveStartupModel } from "./model.js";
+import { resolveStartupModel } from "./model/index.js";
 import { setupOTel } from "./otel.js";
 import { runAgent } from "./run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
+import { loadSession } from "./session-lifecycle/index.js";
 import { setupSupervisorIpc } from "./setup-supervisor-ipc.js";
 import type { DaemonEntry } from "./strategies/remote-session.js";
 import { RemoteSession } from "./strategies/remote-session.js";

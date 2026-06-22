@@ -7,9 +7,9 @@ import {
 	type KnownProvider,
 	type Model,
 } from "@dpopsuev/alef-llm";
-import type { Args } from "./args.js";
-import type { AlefConfig } from "./config.js";
-import { getConfig } from "./config.js";
+import type { Args } from "../args.js";
+import type { AlefConfig } from "../config.js";
+import { getConfig } from "../config.js";
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_HOST ?? "http://localhost:11434/v1";
 

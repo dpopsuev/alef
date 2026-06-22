@@ -38,4 +38,14 @@ export class InMemorySessionStore implements SessionStore {
 			this._cache.filter((r) => (r.bus === "motor" || r.bus === "sense") && r.type.startsWith(prefix)),
 		);
 	}
+
+	private _name: string | undefined;
+
+	name(): string | undefined {
+		return this._name;
+	}
+
+	async setName(n: string): Promise<void> {
+		this._name = n;
+	}
 }

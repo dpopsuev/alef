@@ -204,10 +204,11 @@ export function loadUserAdaptersConfig(): CompiledAgentDefinition["organs"] | nu
 	if (!existsSync(configPath)) return null;
 	const text = readFileSync(configPath, "utf-8");
 	const parsed = parseYaml(text) as unknown;
-	if (!parsed || typeof parsed !== "object" || !("organs" in parsed)) return null;
+	if (!parsed || typeof parsed !== "object") return null;
 	const rec = parsed as Record<string, unknown>;
-	if (!Array.isArray(rec.organs)) return null;
-	return (rec.organs as AdapterEntry[]).map((entry) => {
+	const entries = rec.adapters ?? rec.organs;
+	if (!Array.isArray(entries)) return null;
+	return (entries as AdapterEntry[]).map((entry) => {
 		if (typeof entry === "string") {
 			return { name: entry, actions: [], toolNames: [] };
 		}

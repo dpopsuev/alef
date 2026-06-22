@@ -104,6 +104,7 @@ const AgentDefinitionSchema = Type.Object({
 	model: Type.Optional(Type.Union([Type.String({ minLength: 1 }), AgentModelSchema])),
 	systemPrompt: Type.Optional(Type.String()),
 	organs: Type.Optional(Type.Array(AgentDefinitionOrganSchema)),
+	adapters: Type.Optional(Type.Array(AgentDefinitionOrganSchema)),
 	surfaces: Type.Optional(
 		Type.Array(
 			Type.Object({
@@ -433,7 +434,8 @@ export function compileAgentDefinition(
 
 	const sourcePath = options.sourcePath ? resolve(options.sourcePath) : undefined;
 	const baseDir = sourcePath ? dirname(sourcePath) : undefined;
-	const organs = compileAgentOrganDefinitions(input.organs);
+	const organInput = input.adapters ?? input.organs;
+	const organs = compileAgentOrganDefinitions(organInput);
 	const legacyToolNames = normalizeStringArray(input.capabilities?.tools);
 	const toolNames =
 		organs.length > 0 ? [...new Set([...listToolNamesForOrgans(organs), ...legacyToolNames])] : legacyToolNames;

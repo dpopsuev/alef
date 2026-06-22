@@ -206,20 +206,18 @@ curl -N http://127.0.0.1:$(jq .port ~/.alef/daemon.json)/events
 
 | Concern | File |
 |---|---|
-| `debugLog()` + `initSpineLogger()` | `packages/kernel/src/debug.ts` |
+| `debugLog()` + `initSpineLogger()` | `packages/spine/src/debug.ts` |
 | `trace()` + `initTraceLogger()` | `packages/runner/src/debug-trace.ts` |
 | Logger creation + bridge wiring | `packages/runner/src/logger.ts` |
-| `ctx.log` stamping | `packages/kernel/src/organ-dispatch.ts` |
-| `OrganLogger` interface | `packages/kernel/src/organ-types.ts` |
+| `ctx.log` stamping | `packages/spine/src/organ-dispatch.ts:59-64` |
+| `OrganLogger` interface | `packages/spine/src/organ-types.ts` |
 | organ-llm events | `packages/organ-llm/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
-| delegation events | `packages/organ-delegate/src/organ.ts`, `packages/runtime/src/in-process.ts` |
-| `tools:describe:miss` | `packages/organ-toolshell/src/organ.ts` |
+| delegation events | `packages/organ-delegate/src/organ.ts`, `packages/runner/src/strategies/in-process.ts` |
+| `tools:describe:miss` | `packages/runner/src/tool-shell.ts` |
 | fd subprocess + kill timer | `packages/organ-fs/src/find-query.ts` |
 | Session JSONL format | `packages/runner/src/session-store.ts` |
 | Daemon registry + SSE forwarding | `packages/runner/src/build-delegation.ts` |
 | RemoteSession SSE parser | `packages/runner/src/strategies/remote-session.ts` |
-| Materializer + blueprint registry | `packages/blueprint/src/materializer.ts`, `packages/blueprint/src/registry.ts` |
-| Subagent factory | `packages/runner/src/subagent-factory.ts` |
 
 ## Quick reference
 
@@ -245,3 +243,92 @@ jq 'select(.msg == "llm:http:done" or .msg == "llm:http:error") | {msg, turn: .t
 # Run headless to capture everything to terminal
 ALEF_LOG_LEVEL=debug alef --no-tui -p "your prompt here" 2>&1 | jq .
 ```
+
+## CLI introspection (no TUI required)
+
+```bash
+# Preflight — verify everything before starting a session
+alef --preflight
+# Output: [ok] config, profile, model, organs, tools, directives
+
+# List available models for active profile
+alef --list-models
+
+# Show parsed config.yaml
+alef --show-config
+
+# List enabled directive blocks with priorities
+alef --list-directives
+# Output: [0] core  [10] no-emojis  [15] no-files  [450] agents-md  etc.
+
+# List loaded tools (existing)
+alef --list-tools
+
+# List loaded organs with labels and descriptions (existing)
+alef --list-organs
+```
+
+## Directive system
+
+Directives are standalone XML blocks injected into the system prompt. Key blocks:
+- `no-emojis` (priority 10) — no emoji in any output
+- `no-files` (priority 15) — no file creation for reports/analysis, no aspirational abstractions
+- `core` (priority 0) — agent identity and safety rules
+- `agents-md` (priority 450) — project-specific rules from AGENTS.md
+
+The boot log now includes directive IDs:
+```bash
+jq 'select(.msg == "directives:built") | .ids' ~/.alef/debug.log
+# ["core", "reconciliation", "no-emojis", "no-files", "tools", "guidelines", "agents-md", "environment"]
+```
+
+If directives aren't working, check:
+1. `alef --list-directives` — are no-emojis and no-files listed?
+2. `jq '.ids' debug.log` — were they loaded at boot?
+3. The ablation test: `ALEF_TEST_LLM=1 npx vitest run packages/runner/test/directive-ablation.test.ts`
+
+## New tools (June 2026)
+
+- `fs.undo` — revert a file to pre-edit content (in-memory snapshot)
+- `code.review` — capture git diff for structured review annotations
+- `git.status` — working tree status
+- `git.pr-create/list/review/merge` — Forgejo forge integration (requires ALEF_FORGE_URL)
+
+## Model profiles
+
+Config at `~/.config/alef/config.yaml`:
+```yaml
+profile: work
+profiles:
+  work:
+    providers: [anthropic, google-vertex]
+    tiers:
+      strong: anthropic/claude-opus-4-8
+      default: anthropic/claude-sonnet-4-5
+      fast: anthropic/claude-haiku-4-5
+```
+
+Check active profile: `alef --show-config | jq .profile`
+Check models: `alef --list-models`
+
+## Background task completion
+
+When `agent.run({ async: true })` completes, the result is injected as a new turn via `controller.receive()`. Check:
+```bash
+jq 'select(.msg == "task.completed" or .msg == "task.failed")' ~/.alef/debug.log
+```
+
+## Timeout constants
+
+```
+DEFAULT_LLM_TIMEOUT_MS    = 120s  (per-turn LLM HTTP call)
+DEFAULT_TOOL_TIMEOUT_MS   = 300s  (tool execution — longer than LLM)
+DEFAULT_CONVERSATION_MS   = 900s  (15 min session)
+DEFAULT_STALL_TIMEOUT_MS  = 180s  (3 min inactivity)
+```
+
+Override via env: `ALEF_LLM_TIMEOUT_MS=60000 alef`
+
+## Footer context %
+
+The dashboard footer shows actual LLM context fill (from `totalTokens` in token-usage events), not cumulative session total. After compaction it drops correctly.

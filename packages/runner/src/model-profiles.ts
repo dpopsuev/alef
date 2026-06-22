@@ -49,3 +49,12 @@ export function resolveProfile(cfg: AlefConfig): ResolvedProfile | null {
 export function getProfileNames(cfg: AlefConfig): string[] {
 	return cfg.profiles ? Object.keys(cfg.profiles) : [];
 }
+
+export type ModelTier = "strong" | "default" | "fast";
+
+export function resolveTier(cfg: AlefConfig, tier: ModelTier): string | undefined {
+	const profileName = cfg.profile;
+	if (!profileName || !cfg.profiles?.[profileName]) return undefined;
+	const profile = cfg.profiles[profileName];
+	return profile.tiers?.[tier] ?? profile.default;
+}

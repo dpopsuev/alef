@@ -102,6 +102,13 @@ const ConfigSchema = z.object({
 				providers: z.array(z.string()),
 				models: z.array(z.string()).optional(),
 				default: z.string().optional(),
+				tiers: z
+					.object({
+						strong: z.string().optional(),
+						default: z.string().optional(),
+						fast: z.string().optional(),
+					})
+					.optional(),
 			}),
 		)
 		.optional(),

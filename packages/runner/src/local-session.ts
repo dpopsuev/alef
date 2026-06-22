@@ -429,6 +429,22 @@ export async function createLocalSession(
 
 	connectObservers(agent, observers);
 
+	agent.observe({
+		onMotorEvent() {},
+		onSenseEvent() {},
+		onSignalEvent(event) {
+			const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
+			const s = (key: string): string => (typeof p[key] === "string" ? p[key] : "");
+			if (event.type === "task.completed") {
+				const label = s("profile") ? `[${s("profile")}] ` : "";
+				controller.receive(`${label}Background task ${s("taskId")} completed:\n${s("reply")}`, "system");
+			}
+			if (event.type === "task.failed") {
+				controller.receive(`Background task ${s("taskId")} failed: ${s("error") || "unknown error"}`, "system");
+			}
+		},
+	});
+
 	directives.register({
 		id: "tool-shell.boot-catalog",
 		priority: 900,

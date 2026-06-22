@@ -16,8 +16,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Nerve, Organ, PortDefinition } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve, PortDefinition } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { DockerSpaceOptions } from "./docker-space.js";
 import { DockerSpace } from "./docker-space.js";
@@ -104,14 +104,14 @@ export interface EnclosureOrganOptions {
 // Organ
 // ---------------------------------------------------------------------------
 
-export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ {
+export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapter {
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
 	let nerve: Nerve | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
 		nerve?.signal.publish({ type, payload, correlationId: "" });
 
-	const base = defineOrgan(
+	const base = defineAdapter(
 		"enclosure",
 		{
 			motor: {
@@ -201,7 +201,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Organ
 
 	// Return a wrapper that adds space cleanup on unmount.
 	// Uses a new object rather than mutating base.mount.
-	const organ: Organ = {
+	const organ: Adapter = {
 		name: base.name,
 		description: base.description,
 		tools: base.tools,

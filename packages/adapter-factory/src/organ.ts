@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import type { Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { stringify as toYaml } from "yaml";
 import { z } from "zod";
 
@@ -76,7 +76,7 @@ const ORGAN_TOOL = {
 		name: z
 			.string()
 			.regex(/^[a-z][a-z0-9-]*$/, "kebab-case, e.g. weather-client")
-			.describe("Organ name, kebab-case. Used as the filename and defineOrgan namespace."),
+			.describe("Organ name, kebab-case. Used as the filename and defineAdapter namespace."),
 		toolName: z
 			.string()
 			.regex(/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/, "namespace.action, e.g. weather.get")
@@ -106,7 +106,7 @@ function buildOrganScaffold(
 	const descLower = description.endsWith(".") ? description.slice(0, -1).toLowerCase() : description.toLowerCase();
 
 	return [
-		`import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";`,
+		`import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";`,
 		`import { z } from "zod";`,
 		``,
 		`export function createOrgan() {`,
@@ -118,7 +118,7 @@ function buildOrganScaffold(
 		`\t\t}),`,
 		`\t};`,
 		``,
-		`\treturn defineOrgan("${namespace}", {`,
+		`\treturn defineAdapter("${namespace}", {`,
 		`\t\tmotor: {`,
 		`\t\t\t"${toolName}": typedAction(TOOL, async (ctx) => {`,
 		`\t\t\t\tconst { ${fieldNames} } = ctx.payload;`,
@@ -144,10 +144,10 @@ export interface FactoryOrganOptions {
 	cwd?: string;
 }
 
-export function createFactoryOrgan(options: FactoryOrganOptions = {}): Organ {
+export function createFactoryOrgan(options: FactoryOrganOptions = {}): Adapter {
 	const cwd = options.cwd ?? process.cwd();
 
-	return defineOrgan(
+	return defineAdapter(
 		"factory",
 		{
 			motor: {

@@ -17,8 +17,8 @@
  * Powered by @dpopsuev/web-spider — Readability + Turndown + structured output.
  */
 
-import type { Organ, PortDefinition } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withLlmContent } from "@dpopsuev/alef-kernel";
+import type { Adapter, PortDefinition } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withLlmContent } from "@dpopsuev/alef-kernel";
 import {
 	BraveSearchEngine,
 	DdgSearchEngine,
@@ -147,7 +147,7 @@ const WEB_DIRECTIVES = [
 - If a named company or startup search returns no results: try web.fetch('https://{company-name}.com') directly.`,
 ];
 
-export function createWebOrgan(options: WebOrganOptions = {}): Organ {
+export function createWebOrgan(options: WebOrganOptions = {}): Adapter {
 	const defaultTimeoutMs = options.defaultTimeoutMs ?? 30_000;
 
 	// Session-scoped LRU cache — pages fetched during this session are reused.
@@ -182,7 +182,7 @@ export function createWebOrgan(options: WebOrganOptions = {}): Organ {
 		return new FallbackSearchEngine(engines);
 	}
 
-	return defineOrgan(
+	return defineAdapter(
 		"web",
 		{
 			motor: {

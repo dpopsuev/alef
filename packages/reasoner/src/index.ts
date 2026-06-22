@@ -1,5 +1,15 @@
 import type { Adapter, Nerve, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { defineOrgan, extractToolCallId, withDisplay } from "@dpopsuev/alef-kernel";
+import {
+	type ActualConditions,
+	computeError,
+	type DesiredStateSpec,
+	type DomainCondition,
+	defineOrgan,
+	detectDrift,
+	type ErrorTensor,
+	extractToolCallId,
+	withDisplay,
+} from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 
 /**
@@ -154,9 +164,32 @@ function pickKeyArg(payload: Record<string, unknown>): string {
  * Create a full LLM organ with optional concurrent-ops inflight tracking.
  * createAgentLoop is the canonical factory.
  */
-export function createAgentLoop(options: AgentLoopOptions): Adapter {
+export interface ReconciliationSurface {
+	getActualConditions(): readonly ActualConditions[];
+	getErrorTensor(): ErrorTensor | null;
+	setDesiredState(dss: DesiredStateSpec): void;
+	recompute(): ErrorTensor | null;
+}
+
+export function createAgentLoop(options: AgentLoopOptions): Adapter & ReconciliationSurface {
 	const replyType = "llm.response";
 	const inflight = new Map<string, InflightEntry>();
+	const adapterConditions = new Map<string, ActualConditions>();
+	let lastErrorTensor: ErrorTensor | null = null;
+	let desiredState: DesiredStateSpec | null = null;
+
+	function collectConditions(adapterId: string, conditions: readonly DomainCondition[]): void {
+		adapterConditions.set(adapterId, {
+			adapterId,
+			conditions,
+			healthy: true,
+			observedAt: Date.now(),
+		});
+	}
+
+	function getActualConditions(): readonly ActualConditions[] {
+		return [...adapterConditions.values()];
+	}
 
 	function _applyInflightContext<T extends { role: string; content: string }>(messages: T[]): T[] {
 		if (inflight.size === 0) return messages;
@@ -207,6 +240,23 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter {
 		name: "llm",
 		description: "LLM reasoning loop: calls the language model, dispatches tool calls, collects replies.",
 		labels: ["llm", "reasoning", "ai"],
+		getActualConditions,
+		getErrorTensor: () => lastErrorTensor,
+		setDesiredState: (dss: DesiredStateSpec) => {
+			desiredState = dss;
+		},
+		recompute: () => {
+			if (!desiredState) return null;
+			const prev = lastErrorTensor;
+			lastErrorTensor = computeError(desiredState, getActualConditions());
+			if (prev && lastErrorTensor) {
+				const drifted = detectDrift(prev, lastErrorTensor);
+				if (drifted.length > 0) {
+					lastErrorTensor = { ...lastErrorTensor, dimensions: [...lastErrorTensor.dimensions] };
+				}
+			}
+			return lastErrorTensor;
+		},
 		tools: [],
 		publishSchemas,
 		subscriptions,
@@ -232,6 +282,10 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter {
 			const offSense = nerve.sense.subscribe("*", (event) => {
 				const toolCallId = extractToolCallId(event.payload);
 				inflight.delete(inflightKey(event.type, event.correlationId, toolCallId));
+				if (event.conditions?.length) {
+					const adapterId = event.type.split(".")[0] ?? event.type;
+					collectConditions(adapterId, event.conditions);
+				}
 			});
 
 			return () => {

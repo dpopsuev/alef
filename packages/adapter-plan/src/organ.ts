@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import type { BaseOrganOptions, ContextAssemblyHandler, Nerve, Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseOrganOptions, ContextAssemblyHandler, Nerve } from "@dpopsuev/alef-kernel";
+import { defineAdapter, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { PlanGraph } from "./graph.js";
 
@@ -13,7 +13,7 @@ function planPath(sessionDir: string): string {
 	return join(sessionDir, "plan.json");
 }
 
-export function createPlanOrgan(opts: PlanOrganOptions): Organ {
+export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
 	let activePlan: PlanGraph | null = null;
 	const shortId = () => randomUUID().replace(/-/g, "").slice(0, 12);
 	let nerve: Nerve | null = null;
@@ -39,7 +39,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Organ {
 		return { messages: injectContextBlock(input.messages, `[Plan — ${plan.phase}]\n${summary}`) };
 	};
 
-	return defineOrgan(
+	return defineAdapter(
 		"plan",
 		{
 			motor: {

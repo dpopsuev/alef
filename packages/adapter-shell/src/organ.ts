@@ -6,11 +6,11 @@
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
-import type { Organ, OrganLogger, PortDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger, PortDefinition } from "@dpopsuev/alef-kernel";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
-	defineOrgan,
+	defineAdapter,
 	truncateTail,
 	typedStreamAction,
 	withDisplay,
@@ -63,7 +63,7 @@ export interface ShellOrganOptions {
 	shellPath?: string;
 	commandPrefix?: string;
 	/** Pino-compatible logger. */
-	logger?: OrganLogger;
+	logger?: AdapterLogger;
 	/**
 	 * Default timeout in seconds when LLM does not specify one.
 	 * Default: 120. Set 0 to disable (not recommended).
@@ -411,13 +411,13 @@ async function* streamExecPty(
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createShellOrgan(options: ShellOrganOptions): Organ {
+export function createShellOrgan(options: ShellOrganOptions): Adapter {
 	const pool = options.usePty ? new PtyPool() : null;
 	const exec = pool
 		? (ctx: { payload: { command: string; timeout?: number } }) => streamExecPty(ctx, options, pool)
 		: (ctx: { payload: { command: string; timeout?: number } }) => streamExec(ctx, options);
 
-	return defineOrgan(
+	return defineAdapter(
 		"shell",
 		{
 			motor: { "shell.exec": typedStreamAction(SHELL_EXEC_TOOL, exec) },

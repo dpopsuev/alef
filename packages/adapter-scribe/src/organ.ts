@@ -1,8 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ContextAssemblyHandler, Nerve, Organ } from "@dpopsuev/alef-kernel";
-import { debugLog, McpOrgan } from "@dpopsuev/alef-kernel";
+import type { Adapter, ContextAssemblyHandler, Nerve } from "@dpopsuev/alef-kernel";
+import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
 
 export interface ScribeOrganOptions {
 	binary?: string;
@@ -15,11 +15,11 @@ const DEFAULT_DB_PATH = join(XDG_DATA_HOME, "alef", "scribe.db");
 
 const REFRESH_INTERVAL = 10;
 
-export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
+export function createScribeOrgan(opts: ScribeOrganOptions = {}): Adapter {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const dbPath = opts.dbPath ?? DEFAULT_DB_PATH;
 
-	let inner: Organ | null = null;
+	let inner: Adapter | null = null;
 	let innerCleanup: (() => void) | null = null;
 	let knowledgeSummary = "";
 	let recentNotes = "";
@@ -91,7 +91,7 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 		return { messages };
 	};
 
-	const organ: Organ = {
+	const organ: Adapter = {
 		name: "scribe",
 		description:
 			"Scribe work graph — spawns a dedicated Scribe instance for artifact tracking, task dispatch, and knowledge management.",
@@ -111,7 +111,7 @@ export function createScribeOrgan(opts: ScribeOrganOptions = {}): Organ {
 			mkdirSync(join(dbPath, ".."), { recursive: true });
 
 			debugLog("scribe:boot", { binary, dbPath });
-			const bootPromise = McpOrgan.stdio(binary, ["serve", "--db", dbPath], "scribe")
+			const bootPromise = McpAdapter.stdio(binary, ["serve", "--db", dbPath], "scribe")
 				.then((mcpOrgan) => {
 					inner = mcpOrgan;
 

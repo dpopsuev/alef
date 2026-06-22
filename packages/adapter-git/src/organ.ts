@@ -1,5 +1,5 @@
-import type { Organ } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 const DEFAULT_FORGE_URL = "http://localhost:3000";
@@ -68,8 +68,8 @@ const PR_MERGE = {
 	}),
 };
 
-export function createGitOrgan(opts: GitOrganOptions): Organ {
-	return defineOrgan(
+export function createGitOrgan(opts: GitOrganOptions): Adapter {
+	return defineAdapter(
 		"git",
 		{
 			motor: {
@@ -131,7 +131,7 @@ export function createGitOrgan(opts: GitOrganOptions): Organ {
 	);
 }
 
-export function createOrgan(opts: { cwd: string; actions?: string[] }): Organ {
+export function createOrgan(opts: { cwd: string; actions?: string[] }): Adapter {
 	return createGitOrgan({
 		cwd: opts.cwd,
 		actions: opts.actions,

@@ -8,7 +8,7 @@ import {
 	materializeBlueprint,
 	materializeDefaultOrgans,
 } from "@dpopsuev/alef-agent-blueprint";
-import type { Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { buildOrganDirectives, createToolShellOrgan, InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
@@ -149,14 +149,14 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 	const filteredDomain = domainOrgans.filter(
 		(o) => !["agent", "factory", "skills", "compactor", "workflow"].includes(o.name),
 	);
-	const allOrgans = [...filteredDomain, skillsOrgan, agentOrgan as unknown as Organ, wireOrgan];
+	const allOrgans = [...filteredDomain, skillsOrgan, agentOrgan as unknown as Adapter, wireOrgan];
 	const toolShell = createToolShellOrgan({
 		tools: allOrgans.flatMap((o) => o.tools),
 		getTools: () => allOrgans.flatMap((o) => o.tools),
 		organDirectives: buildOrganDirectives(allOrgans),
 	});
 
-	const organs: Organ[] = [...allOrgans, toolShell, pipeline as unknown as Organ];
+	const organs: Adapter[] = [...allOrgans, toolShell, pipeline as unknown as Adapter];
 
 	return { organs, pipeline };
 }

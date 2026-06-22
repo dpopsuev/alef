@@ -1,7 +1,7 @@
 import {
+	type Adapter,
 	debugLog,
 	type Nerve,
-	type Organ,
 	VALIDATE_REQUEST,
 	VALIDATE_RESULT,
 	type ValidateRequest,
@@ -25,7 +25,7 @@ export interface HitlOrganOptions {
 	onEvaluate: OnEvaluate;
 }
 
-export function createHitlOrgan(opts: HitlOrganOptions): Organ {
+export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
 	const organName = opts.name ?? "hitl";
 
 	return {

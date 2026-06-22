@@ -1,4 +1,4 @@
-import type { Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
@@ -20,7 +20,7 @@ export interface LlmAdapterOptions {
 	systemPrompt?: string;
 }
 
-export function buildLlmAdapter(opts: LlmAdapterOptions): Organ {
+export function buildLlmAdapter(opts: LlmAdapterOptions): Adapter {
 	const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 
 	if (scriptedRepliesEnv) {

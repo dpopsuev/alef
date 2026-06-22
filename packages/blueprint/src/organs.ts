@@ -27,11 +27,11 @@ export function compileAgentOrganDefinitions(
 	const seen = new Set<string>();
 	return inputs.map((input) => {
 		if (!input.name && !input.path) {
-			throw new Error("Organ entry must specify either 'name' (package or alias) or 'path' (TypeScript file).");
+			throw new Error("Adapter entry must specify either 'name' (package or alias) or 'path' (TypeScript file).");
 		}
 		if (input.name && input.path) {
 			throw new Error(
-				`Organ entry cannot specify both 'name' and 'path'. Got name="${input.name}" path="${input.path}".`,
+				`Adapter entry cannot specify both 'name' and 'path'. Got name="${input.name}" path="${input.path}".`,
 			);
 		}
 

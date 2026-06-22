@@ -1,6 +1,6 @@
-import type { Nerve, Organ, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve, ToolDefinition } from "@dpopsuev/alef-kernel";
 
-export class MockReasoner implements Organ {
+export class MockReasoner implements Adapter {
 	readonly name = "mock-llm";
 	readonly tools: readonly ToolDefinition[] = [];
 	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };

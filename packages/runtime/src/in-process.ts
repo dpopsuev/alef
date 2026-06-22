@@ -1,10 +1,10 @@
 import type { SubagentFactory, SubagentFactoryOptions } from "@dpopsuev/alef-agent-blueprint";
 import {
+	type Adapter,
 	DEFAULT_CONVERSATION_TIMEOUT_MS,
 	DEFAULT_STALL_TIMEOUT_MS,
 	debugLog,
 	type ExecutionStrategy,
-	type Organ,
 	type SendRequest,
 	Watchdog,
 } from "@dpopsuev/alef-kernel";
@@ -13,7 +13,7 @@ export type { SubagentFactory, SubagentFactoryOptions };
 
 export class InProcessStrategy implements ExecutionStrategy {
 	constructor(
-		private readonly organs: Organ[],
+		private readonly organs: Adapter[],
 		private readonly createSession: SubagentFactory,
 		private readonly baseSystemPrompt?: string,
 		private readonly onChunk?: (chunk: string) => void,

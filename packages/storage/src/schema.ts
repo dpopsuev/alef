@@ -1,6 +1,7 @@
 import type { Client } from "@libsql/client";
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
+export const EMBEDDING_DIMENSION = 768;
 
 const DDL_STATEMENTS = [
 	`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)`,
@@ -14,7 +15,7 @@ const DDL_STATEMENTS = [
 		bus TEXT NOT NULL, type TEXT NOT NULL, correlation_id TEXT NOT NULL,
 		payload TEXT NOT NULL, timestamp INTEGER NOT NULL, elapsed INTEGER,
 		hash TEXT, actor_address TEXT, actor_type TEXT, organ TEXT,
-		turn_number INTEGER, version TEXT)`,
+		turn_number INTEGER, version TEXT, embedding F32_BLOB(${EMBEDDING_DIMENSION}))`,
 	`CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_events_correlation ON events(session_id, correlation_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_events_type ON events(session_id, type)`,
@@ -35,23 +36,42 @@ const DDL_STATEMENTS = [
 		session_id TEXT PRIMARY KEY REFERENCES sessions(id), model TEXT NOT NULL,
 		started_at TEXT NOT NULL, duration_ms INTEGER NOT NULL, turns INTEGER NOT NULL,
 		input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, tools TEXT NOT NULL,
-		errors INTEGER NOT NULL)`,
+		errors INTEGER NOT NULL, embedding F32_BLOB(${EMBEDDING_DIMENSION}))`,
 ];
+
+const MIGRATIONS: Record<number, string[]> = {
+	2: [
+		`ALTER TABLE events ADD COLUMN embedding F32_BLOB(${EMBEDDING_DIMENSION})`,
+		`ALTER TABLE session_summaries ADD COLUMN embedding F32_BLOB(${EMBEDDING_DIMENSION})`,
+	],
+};
 
 export async function applySchema(client: Client): Promise<void> {
 	const version = await getSchemaVersion(client);
 	if (version >= CURRENT_SCHEMA_VERSION) return;
 
-	await client.batch(
-		DDL_STATEMENTS.map((sql) => ({ sql, args: [] })),
-		"write",
-	);
-
 	if (version === 0) {
+		await client.batch(
+			DDL_STATEMENTS.map((sql) => ({ sql, args: [] })),
+			"write",
+		);
 		await client.execute({ sql: "INSERT INTO schema_version (version) VALUES (?)", args: [CURRENT_SCHEMA_VERSION] });
-	} else {
-		await client.execute({ sql: "UPDATE schema_version SET version = ?", args: [CURRENT_SCHEMA_VERSION] });
+		return;
 	}
+
+	for (let v = version + 1; v <= CURRENT_SCHEMA_VERSION; v++) {
+		const stmts = MIGRATIONS[v];
+		if (stmts) {
+			for (const sql of stmts) {
+				try {
+					await client.execute(sql);
+				} catch {
+					// Column may already exist from a partial migration
+				}
+			}
+		}
+	}
+	await client.execute({ sql: "UPDATE schema_version SET version = ?", args: [CURRENT_SCHEMA_VERSION] });
 }
 
 async function getSchemaVersion(client: Client): Promise<number> {

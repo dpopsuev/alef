@@ -38,7 +38,7 @@
 		"release:minor": "node scripts/release.mjs minor",
 		"release:major": "node scripts/release.mjs major",
 		"prepare": "husky",
-		"check:lint": "eslint --cache --cache-strategy content packages/kernel/src/ packages/runtime/src/ packages/reasoner/src/ packages/organ-fs/src/ packages/organ-shell/src/ packages/organ-web/src/ packages/runner/src/ --max-warnings 50"
+		"check:lint": "eslint --cache --cache-strategy content packages/kernel/src/ packages/runtime/src/ packages/reasoner/src/ packages/organ-fs/src/ packages/organ-shell/src/ packages/organ-web/src/ packages/runner/src/ --max-warnings 0"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",
@@ -49,6 +49,8 @@
 		"@typescript/native-preview": "7.0.0-dev.20260120.1",
 		"concurrently": "^9.2.1",
 		"eslint": "^10.4.0",
+		"eslint-import-resolver-typescript": "^4.4.5",
+		"eslint-plugin-boundaries": "^6.0.2",
 		"husky": "^9.1.7",
 		"jiti": "^2.7.0",
 		"shx": "^0.4.0",

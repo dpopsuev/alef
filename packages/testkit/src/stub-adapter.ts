@@ -1,8 +1,8 @@
-import { buildSense, type MotorEvent, type Nerve, type Organ, type ToolDefinition } from "@dpopsuev/alef-kernel";
+import { type Adapter, buildSense, type MotorEvent, type Nerve, type ToolDefinition } from "@dpopsuev/alef-kernel";
 
 export type StubHandler = (type: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
 
-export function defineStubOrgan(name: string, tools: ToolDefinition[], handler: StubHandler): Organ {
+export function defineStubAdapter(name: string, tools: ToolDefinition[], handler: StubHandler): Adapter {
 	return {
 		name,
 		tools,

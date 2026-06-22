@@ -15,7 +15,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { InProcessNerve, type Organ, type OrganLogger, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { type Adapter, type AdapterLogger, InProcessNerve, type SenseEvent } from "@dpopsuev/alef-kernel";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -46,7 +46,7 @@ export interface OrganContractReport {
  * Run the organ compliance suite and return a structured report.
  * Does not throw — callers decide how to handle violations.
  */
-export async function runOrganContract(organ: Organ, opts: OrganContractOptions = {}): Promise<OrganContractReport> {
+export async function runOrganContract(organ: Adapter, opts: OrganContractOptions = {}): Promise<OrganContractReport> {
 	const timeoutMs = opts.timeoutMs ?? 2000;
 	const passed: string[] = [];
 	const violations: OrganContractViolation[] = [];
@@ -148,7 +148,7 @@ export async function runOrganContract(organ: Organ, opts: OrganContractOptions 
  * await assertOrganContract(createFsOrgan({ cwd: "/tmp" }));
  * });
  */
-export async function assertOrganContract(organ: Organ, opts?: OrganContractOptions): Promise<void> {
+export async function assertOrganContract(organ: Adapter, opts?: OrganContractOptions): Promise<void> {
 	const report = await runOrganContract(organ, opts);
 	if (!report.ok) {
 		const lines = report.violations.map((v) => ` [${v.check}] ${v.detail}`).join("\n");
@@ -160,7 +160,7 @@ export async function assertOrganContract(organ: Organ, opts?: OrganContractOpti
 // makeSpyLogger — captures log calls for compliance assertions
 // ---------------------------------------------------------------------------
 
-function makeSpyLogger(bindings: Record<string, unknown>, sink: CapturedLog[]): OrganLogger {
+function makeSpyLogger(bindings: Record<string, unknown>, sink: CapturedLog[]): AdapterLogger {
 	return {
 		debug(obj, msg) {
 			sink.push({ level: "debug", obj: { ...bindings, ...obj }, msg });
@@ -243,13 +243,13 @@ export interface OrganComplianceOptions {
  * contract that was broken, not a single thrown error.
  */
 export function organComplianceSuite(
-	createOrgan: (logger?: OrganLogger) => Organ,
+	createAdapter: (logger?: AdapterLogger) => Adapter,
 	opts: OrganComplianceOptions = {},
 ): void {
 	// Discover streaming tools once at describe() time — before any test runs.
 	// This lets us generate it() blocks per tool AND enforce that every
 	// streaming tool has a validPayload in opts.streaming.
-	const discoveryOrgan = createOrgan();
+	const discoveryOrgan = createAdapter();
 	const streamingTools = (discoveryOrgan.tools ?? []).filter((t) => t.streaming === true);
 	const streamingConfig = opts.streaming ?? {};
 
@@ -267,14 +267,14 @@ export function organComplianceSuite(
 	}
 
 	describe("organ framework compliance", { tags: (opts.tags ?? ["compliance"]) as string[] as never }, () => {
-		let organ: Organ;
+		let organ: Adapter;
 		let unmount: (() => void) | undefined;
 		const probeNerve = new InProcessNerve();
 		let capturedLogs: CapturedLog[] = [];
 
 		beforeEach(() => {
 			capturedLogs = [];
-			organ = createOrgan(makeSpyLogger({}, capturedLogs));
+			organ = createAdapter(makeSpyLogger({}, capturedLogs));
 			unmount = organ.mount(probeNerve.asNerve());
 		});
 		afterEach(() => {
@@ -285,20 +285,20 @@ export function organComplianceSuite(
 		// ── Structural ─────────────────────────────────────────────────────
 
 		it("has a non-empty description", () => {
-			const o = organ ?? createOrgan();
+			const o = organ ?? createAdapter();
 			expect(o.description, "organ must have a description").toBeTruthy();
 			expect((o.description ?? "").length, "description must be > 10 chars").toBeGreaterThan(10);
 		});
 
 		it("has directives when it exposes tools", () => {
-			const o = organ ?? createOrgan();
+			const o = organ ?? createAdapter();
 			if ((o.tools ?? []).length > 0) {
 				expect((o.directives ?? []).length, "tool-bearing organs must have directives").toBeGreaterThan(0);
 			}
 		});
 
 		it("mount() returns a cleanup function", () => {
-			const o = createOrgan();
+			const o = createAdapter();
 			const nerve = new InProcessNerve();
 			const cleanup = o.mount(nerve.asNerve());
 			expect(typeof cleanup, "mount() must return a function").toBe("function");
@@ -311,14 +311,14 @@ export function organComplianceSuite(
 		// ── Schema contracts ───────────────────────────────────────────────
 
 		it("all tools reject null required fields immediately (< 400ms)", async () => {
-			const o = createOrgan();
+			const o = createAdapter();
 			const results = await runSchemaContract(o, { timeoutMs: opts.schemaTimeoutMs ?? 400 });
 			const violations = results.flatMap((r) => r.violations.map((v) => ` ${r.tool}: ${v}`));
 			expect(violations, `schema violations:\n${violations.join("\n")}`).toEqual([]);
 		}, 10_000);
 
 		it("error messages are human-readable (no raw [InputValidation] prefix)", async () => {
-			const o = createOrgan();
+			const o = createAdapter();
 			const results = await runSchemaContract(o, { timeoutMs: opts.schemaTimeoutMs ?? 400 });
 			const rawErrors = results.flatMap((r) =>
 				r.violations.filter((v) => v.includes("[InputValidation]")).map((v) => ` ${r.tool}: ${v}`),
@@ -333,7 +333,7 @@ export function organComplianceSuite(
 				for (const tool of streamingTools) {
 					const config = streamingConfig[tool.name] ?? { validPayload: {} };
 					it(`${tool.name} emits isFinal:false chunks (streaming tool via typedStreamAction)`, async () => {
-						const o = createOrgan();
+						const o = createAdapter();
 						const result = await runStreamingContract(o, tool.name, config.validPayload, {
 							thresholdMs: config.thresholdMs ?? 500,
 							timeoutMs: 15_000,
@@ -394,7 +394,7 @@ export interface SchemaContractResult {
  * 3. Error message is human-readable (no raw zod '[InputValidation]' prefix)
  */
 export async function runSchemaContract(
-	organ: Organ,
+	organ: Adapter,
 	opts: { timeoutMs?: number } = {},
 ): Promise<SchemaContractResult[]> {
 	const results: SchemaContractResult[] = [];
@@ -465,7 +465,7 @@ export async function runSchemaContract(
  * typedAction instead (like organ-agent.agent.run, organ-enclosure.exec).
  */
 export async function runStreamingContract(
-	organ: Organ,
+	organ: Adapter,
 	toolName: string,
 	validPayload: Record<string, unknown>,
 	opts: { thresholdMs?: number; timeoutMs?: number } = {},

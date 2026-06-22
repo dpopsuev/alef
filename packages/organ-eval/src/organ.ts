@@ -66,7 +66,7 @@ async function runLLMJudge(
 	rubric: string,
 ): Promise<{ score: number; reasoning: string }> {
 	const { streamSimple } = await import("@dpopsuev/alef-llm");
-	const { autoDetectModel } = await import("../../runner/src/model.js").catch(() => ({
+	const { autoDetectModel } = await import("../../runner/src/model/index.js").catch(() => ({
 		autoDetectModel: () => undefined,
 	}));
 	const model = autoDetectModel?.();

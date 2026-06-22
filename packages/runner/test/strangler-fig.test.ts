@@ -26,7 +26,7 @@ import { z } from "zod";
 import { BlueprintHarness } from "../../testkit/src/blueprint-harness.js";
 import { step } from "../../testkit/src/script.js";
 import { authFilePath, getStoredApiKey, removeStoredApiKey, resolveApiKey, setStoredApiKey } from "../src/auth.js";
-import { autoDetectModel, buildModel } from "../src/model.js";
+import { autoDetectModel, buildModel } from "../src/model/index.js";
 import { JsonlSessionStore } from "../src/session-store.js";
 import { assembleTurns } from "../src/turn-assembler.js";
 

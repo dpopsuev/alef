@@ -1,10 +1,9 @@
-import { getModels, getProviders, type KnownProvider } from "@dpopsuev/alef-llm";
+import { getModels, getProviders } from "@dpopsuev/alef-llm";
 import type { Args } from "./args.js";
 import { getConfig } from "./config.js";
-import { resolveProfile } from "./model-profiles.js";
-import { getProviderColor } from "./provider-colors.js";
+import { resolveProfile } from "./model/index.js";
 import { createDefaultDirectives, loadWorkspace } from "./prompt.js";
-import type { SessionHandle } from "./session-handle.js";
+import type { SessionHandle } from "./session-lifecycle/index.js";
 
 interface CliOp {
 	name: string;
@@ -23,10 +22,12 @@ export function dispatchCliOp(args: Args, session: SessionHandle): boolean {
 		if (op.match(args)) {
 			const result = op.run(args, session);
 			if (result instanceof Promise) {
-				result.then(() => process.exit(0)).catch((e) => {
-					console.error(e instanceof Error ? e.message : String(e));
-					process.exit(1);
-				});
+				result
+					.then(() => process.exit(0))
+					.catch((e: unknown) => {
+						console.error(e instanceof Error ? e.message : String(e));
+						process.exit(1);
+					});
 			} else {
 				process.exit(0);
 			}
@@ -78,7 +79,7 @@ register({
 		}
 
 		for (const provider of getProviders()) {
-			for (const m of getModels(provider as KnownProvider)) {
+			for (const m of getModels(provider)) {
 				const marker = current.includes(m.id) ? " *" : "";
 				console.log(`${provider}/${m.id}${marker}  ${m.name}`);
 			}
@@ -135,7 +136,11 @@ register({
 		const blocks = directives.list({ enabled: true });
 		const hasEmoji = blocks.some((b) => b.id === "no-emojis");
 		const hasFiles = blocks.some((b) => b.id === "no-files");
-		checks.push({ name: "directives", ok: true, detail: `${blocks.length} blocks (no-emojis: ${hasEmoji}, no-files: ${hasFiles})` });
+		checks.push({
+			name: "directives",
+			ok: true,
+			detail: `${blocks.length} blocks (no-emojis: ${hasEmoji}, no-files: ${hasFiles})`,
+		});
 
 		let allOk = true;
 		for (const c of checks) {

@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { hasCredentials } from "../../runner/src/model.js";
+import { hasCredentials } from "../../runner/src/model/index.js";
 
 const MAIN = fileURLToPath(new URL("../../runner/src/main.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AlefConfig } from "../src/config.js";
-import { resolveTier } from "../src/model-profiles.js";
+import { resolveTier } from "../src/model/index.js";
 
 const WORK_CONFIG: AlefConfig = {
 	profile: "work",

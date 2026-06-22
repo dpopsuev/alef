@@ -1,5 +1,5 @@
 import { type Api, getModels, getProviders, type KnownProvider, type Model } from "@dpopsuev/alef-llm";
-import type { AlefConfig } from "./config.js";
+import type { AlefConfig } from "../config.js";
 
 export interface ModelProfile {
 	name: string;

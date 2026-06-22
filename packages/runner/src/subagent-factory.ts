@@ -11,7 +11,7 @@ import {
 } from "@dpopsuev/alef-runtime";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
-import { buildModel } from "./model.js";
+import { buildModel } from "./model/index.js";
 
 export interface SubagentSessionOptions {
 	model: Model<Api>;
@@ -93,9 +93,9 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 					}
 				}
 				if (chunkHandler) {
-					if (event.type === "llm.chunk") chunkHandler(String(payload.text ?? ""));
+					if (event.type === "llm.chunk") chunkHandler(typeof payload.text === "string" ? payload.text : "");
 					else if (opts.forwardToolChunks && event.type === "llm.tool-chunk")
-						chunkHandler(String(payload.text ?? ""));
+						chunkHandler(typeof payload.text === "string" ? payload.text : "");
 				}
 				onInnerEvent?.(subId, event.type, payload);
 			},

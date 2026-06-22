@@ -1,7 +1,7 @@
 import { getDatabase, SqliteSessionStore } from "@dpopsuev/alef-storage";
 import type Database from "better-sqlite3";
-import type { Args } from "./args.js";
-import { pickSession } from "./session-picker.js";
+import type { Args } from "../args.js";
+import { pickSession } from "./picker.js";
 
 export function getDb(): Database.Database {
 	return getDatabase();

@@ -1,6 +1,48 @@
+import boundaries from "eslint-plugin-boundaries";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
+	// ── Runner intra-package import boundaries ──────────────────────────
+	// Enforces a DAG: subdirectories can import root, root can import
+	// subdirectories, but subdirectories cannot import each other
+	// (except where explicitly allowed).
+	{
+		files: ["packages/runner/src/**/*.ts"],
+		plugins: { boundaries },
+		settings: {
+			"import/resolver": {
+				typescript: {
+					project: "packages/runner/tsconfig.build.json",
+				},
+			},
+			"boundaries/elements": [
+				{ type: "model", pattern: ["model"] },
+				{ type: "session-lifecycle", pattern: ["session-lifecycle"] },
+				{ type: "tui", pattern: ["tui"] },
+				{ type: "commands", pattern: ["commands"] },
+				{ type: "identity", pattern: ["identity"] },
+				{ type: "strategies", pattern: ["strategies"] },
+				{ type: "workflow", pattern: ["workflow"] },
+				{ type: "root", pattern: ["src/*"], mode: "file" },
+			],
+		},
+		rules: {
+			"boundaries/dependencies": ["error", {
+				default: "disallow",
+				rules: [
+					{ from: { type: "root" }, allow: [{ to: { type: "root" } }, { to: { type: "model" } }, { to: { type: "session-lifecycle" } }, { to: { type: "tui" } }, { to: { type: "commands" } }, { to: { type: "identity" } }, { to: { type: "strategies" } }, { to: { type: "workflow" } }] },
+					{ from: { type: "model" }, allow: [{ to: { type: "root" } }] },
+					{ from: { type: "session-lifecycle" }, allow: [{ to: { type: "root" } }, { to: { type: "model" } }] },
+					{ from: { type: "tui" }, allow: [{ to: { type: "root" } }, { to: { type: "commands" } }, { to: { type: "identity" } }] },
+					{ from: { type: "commands" }, allow: [{ to: { type: "root" } }, { to: { type: "model" } }, { to: { type: "tui" } }] },
+					{ from: { type: "identity" }, allow: [{ to: { type: "root" } }] },
+					{ from: { type: "strategies" }, allow: [{ to: { type: "root" } }] },
+					{ from: { type: "workflow" }, allow: [{ to: { type: "root" } }] },
+				],
+			}],
+		},
+	},
+
 	// Type-aware rules on production source only.
 	// Tests are excluded — payload access patterns there are intentional fixtures.
 	{

@@ -1,4 +1,4 @@
-import type { ColorToken } from "../tui/ansi.js";
+import type { ColorToken } from "@dpopsuev/alef-tui";
 
 export interface ProviderColor {
 	token: ColorToken;

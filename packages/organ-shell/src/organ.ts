@@ -15,6 +15,7 @@ import {
 	typedStreamAction,
 	withDisplay,
 } from "@dpopsuev/alef-kernel";
+import { PTYManager, ShellAdapter } from "pty-manager";
 import { z } from "zod";
 import { getShellConfig, getShellEnv } from "./shell.js";
 
@@ -81,6 +82,8 @@ export interface ShellOrganOptions {
 	binDir?: string;
 	/** Override built-in guard rules. Pass [] to disable all guards. Default: DEFAULT_GUARD_RULES. */
 	guardRules?: readonly GuardRule[];
+	/** Use persistent PTY sessions instead of one-shot spawn(). cd/env/aliases persist across calls. */
+	usePty?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -294,14 +297,130 @@ async function* streamExec(
 }
 
 // ---------------------------------------------------------------------------
+// PTY pool — persistent terminal sessions keyed by cwd
+// ---------------------------------------------------------------------------
+
+class PtyPool {
+	private readonly manager = new PTYManager();
+	private readonly sessions = new Map<string, string>();
+
+	constructor() {
+		this.manager.registerAdapter(new ShellAdapter());
+	}
+
+	async getOrCreate(cwd: string): Promise<{ id: string; manager: PTYManager }> {
+		const existing = this.sessions.get(cwd);
+		if (existing) return { id: existing, manager: this.manager };
+		const handle = await this.manager.spawn({
+			name: `shell-${cwd}`,
+			type: "shell",
+			workdir: cwd,
+			cols: 220,
+			rows: 50,
+		});
+		this.sessions.set(cwd, handle.id);
+		return { id: handle.id, manager: this.manager };
+	}
+
+	async dispose(): Promise<void> {
+		for (const [, id] of this.sessions) {
+			await this.manager.stop(id);
+		}
+		this.sessions.clear();
+	}
+}
+
+// ---------------------------------------------------------------------------
+// PTY-based streaming handler
+// ---------------------------------------------------------------------------
+
+async function* streamExecPty(
+	ctx: { payload: { command: string; timeout?: number } },
+	opts: ShellOrganOptions,
+	pool: PtyPool,
+): AsyncIterable<Record<string, unknown>> {
+	const { command, timeout } = ctx.payload;
+	if (!command) throw new Error("shell.exec: command is required");
+
+	const guard = guardCommand(command, opts.guardRules ?? DEFAULT_GUARD_RULES);
+	if (guard.blocked) throw new Error(guard.reason);
+
+	if (opts.blockedPatterns) {
+		for (const pattern of opts.blockedPatterns) {
+			if (pattern.test(command)) throw new Error(`shell.exec: command blocked — matches '${pattern.source}'.`);
+		}
+	}
+
+	const defaultS = opts.defaultTimeoutSeconds ?? DEFAULT_SHELL_TIMEOUT_S;
+	const maxS = opts.maxTimeoutSeconds ?? MAX_SHELL_TIMEOUT_S;
+	const requestedS = timeout ?? defaultS;
+	const clampedS = maxS > 0 ? Math.min(requestedS, maxS) : requestedS;
+	const timeoutMs = clampedS > 0 ? clampedS * 1000 : undefined;
+
+	const { id, manager } = await pool.getOrCreate(opts.cwd);
+	const terminal = manager.attachTerminal(id);
+	if (!terminal) throw new Error("shell.exec: failed to attach to PTY session");
+
+	const chunks: string[] = [];
+
+	const readyPromise = new Promise<void>((resolve, reject) => {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		if (timeoutMs) {
+			// lint-ignore: RAWTIMER hard wall-clock cap for PTY command
+			timer = setTimeout(() => {
+				reject(new ShellTimeoutError(timeoutMs, -1, chunks.join("")));
+			}, timeoutMs);
+		}
+
+		manager.once("session_ready", (handle: { id: string }) => {
+			if (handle.id === id) {
+				if (timer) clearTimeout(timer);
+				resolve();
+			}
+		});
+	});
+
+	const offData = terminal.onData((data: string) => {
+		chunks.push(data);
+	});
+
+	manager.send(id, command);
+
+	try {
+		await readyPromise;
+	} finally {
+		offData();
+	}
+
+	const raw = chunks.join("");
+	const tr = truncateTail(raw, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
+	const truncNote = tr.truncated ? ` (truncated to ${tr.totalLines} lines)` : "";
+	yield withDisplay(
+		{
+			output: tr.content,
+			exitCode: 0,
+			truncated: tr.truncated,
+			totalLines: tr.totalLines,
+			totalBytes: tr.totalBytes,
+		},
+		{ text: `\`\`\`\n${tr.content}${truncNote}\n\`\`\``, mimeType: "text/markdown" },
+	);
+}
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
 export function createShellOrgan(options: ShellOrganOptions): Organ {
+	const pool = options.usePty ? new PtyPool() : null;
+	const exec = pool
+		? (ctx: { payload: { command: string; timeout?: number } }) => streamExecPty(ctx, options, pool)
+		: (ctx: { payload: { command: string; timeout?: number } }) => streamExec(ctx, options);
+
 	return defineOrgan(
 		"shell",
 		{
-			motor: { "shell.exec": typedStreamAction(SHELL_EXEC_TOOL, (ctx) => streamExec(ctx, options)) },
+			motor: { "shell.exec": typedStreamAction(SHELL_EXEC_TOOL, exec) },
 		},
 		{
 			actions: options.actions,

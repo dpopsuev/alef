@@ -1,20 +1,9 @@
 /**
- * JsonlSessionStore — append-only JSONL event log.
+ * SessionStore interface and JsonlSessionStore implementation.
  *
- * Storage layout:
- *   ~/.alef/sessions/<cwd-hash>/<session-id>.jsonl
- *   ~/.alef/sessions/<cwd-hash>/latest            — last session ID
- *
- * Each line is a JSON-serialised StorageRecord — a raw Motor or Sense event,
- * or a special window.assembled record written by TurnAssembler.
- *
- * Schema:
- *   { bus: 'motor'|'sense'|'internal', type, correlationId, payload, timestamp }
- *
- * Projections are NEVER stored — they are computed from the log on read:
- *   events()    → all StorageRecords
- *   turns()     → grouped by correlationId into Turn[]
- *   hitCounts() → counts window.assembled inclusions per turnId
+ * SessionStore is the backend-agnostic contract for session persistence.
+ * Implementations: JsonlSessionStore (JSONL files), SqliteSessionStore (SQLite),
+ * InMemorySessionStore (tests).
  *
  * Session IDs: 8-char hex, typeable, unique per user per cwd.
  */
@@ -89,6 +78,8 @@ export interface SessionStore {
 	turns(): Promise<Turn[]>;
 	hitCounts(): Promise<Map<string, number>>;
 	organHistory(organName: string): Promise<StorageRecord[]>;
+	name(): string | undefined;
+	setName(name: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

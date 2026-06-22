@@ -4,7 +4,7 @@ systemPrompt: |
 
   Stay lean, keep one focused execution thread, and avoid delegation unless the
   active blueprint explicitly enables supervisor capability.
-organs:
+adapters:
   - name: fs
     cache:
       enabled: true

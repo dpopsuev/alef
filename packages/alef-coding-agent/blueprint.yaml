@@ -5,7 +5,7 @@ description: >
   This manifest is the SBOM — the organ list is the canonical record
   of what ships. No code. Assembly is the runner's concern.
 
-organs:
+adapters:
   - name: fs
     package: "@dpopsuev/alef-adapter-fs"
   - name: shell

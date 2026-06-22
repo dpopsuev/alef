@@ -1,5 +1,5 @@
 name: default
-organs:
+adapters:
   - name: fs
   - name: shell
   - name: nodesh

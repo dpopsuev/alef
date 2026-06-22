@@ -5,7 +5,7 @@ systemPrompt: |
   Keep operator coordination simple, route work through discourse when possible,
   and delegate narrower synthesis or follow-up work to child agents instead of
   holding every subtask in your own context window.
-organs:
+adapters:
   - name: fs
     actions:
       - read

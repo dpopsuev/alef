@@ -5,7 +5,7 @@ description: >
   Does not code directly. Spawns domain-expert agents for execution.
   Plans, coordinates, observes, and closes.
 
-organs:
+adapters:
   - name: agent
     package: "@dpopsuev/alef-adapter-agent"
   - name: factory

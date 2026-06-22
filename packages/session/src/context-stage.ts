@@ -1,9 +1,9 @@
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
-import type { ISessionStore } from "./session-store.js";
+import type { SessionStore } from "./session-store.js";
 import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "./turn-assembler.js";
 
 export interface SessionContextStageOptions {
-	sessionStore: () => ISessionStore | undefined;
+	sessionStore: () => SessionStore | undefined;
 	contextWindow?: number;
 }
 

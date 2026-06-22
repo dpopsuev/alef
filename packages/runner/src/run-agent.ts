@@ -1,5 +1,5 @@
 import { debugLog } from "@dpopsuev/alef-kernel";
-import type { ISessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session";
 import type { Args } from "./args.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { shutdownOTel } from "./otel.js";
@@ -21,7 +21,7 @@ export interface RunAgentOptions {
 
 	session: Session;
 	/** Session store — passed to TuiViewMode for eager history load on resume. */
-	store?: ISessionStore;
+	store?: SessionStore;
 	/** Human's @ address (e.g. "@dpopsuev"). Passed to TUI for pill label. */
 	humanAddress?: string;
 	/** Agent's @ address (e.g. "@crimson"). Passed to TUI for pill label. */

@@ -13,15 +13,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SessionStore } from "../src/session-store.js";
+import { JsonlSessionStore } from "../src/session-store.js";
 
-describe("SessionStore.organHistory(name)", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 	let cwd: string;
-	let store: SessionStore;
+	let store: JsonlSessionStore;
 
 	beforeEach(async () => {
 		cwd = mkdtempSync(join(tmpdir(), "alef-organ-history-"));
-		store = await SessionStore.create(cwd);
+		store = await JsonlSessionStore.create(cwd);
 	});
 
 	afterEach(() => {
@@ -84,7 +84,7 @@ describe("SessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 		expect(history).toHaveLength(0);
 	});
 
-	it("ISessionStore interface includes organHistory", async () => {
+	it("SessionStore interface includes organHistory", async () => {
 		const memStore = new InMemorySessionStore();
 		await memStore.append({
 			bus: "motor",

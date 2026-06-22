@@ -24,7 +24,7 @@ import "@dpopsuev/alef-coding-agent";
 
 import { parseArgs } from "../src/args.js";
 import { createLocalSession } from "../src/local-session.js";
-import { SessionStore } from "../src/session-store.js";
+import { JsonlSessionStore } from "../src/session-store.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
@@ -55,7 +55,7 @@ describe("createLocalSession — session.subscribe delivers AgentEvents to calle
 		faux.setResponses([fauxAssistantMessage("hello from local session")]);
 
 		const cwd = makeTmp();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		const args = { ...parseArgs([]), cwd, noTui: true };
 		const model = faux.getModel();
 

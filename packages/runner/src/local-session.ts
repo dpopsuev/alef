@@ -18,7 +18,7 @@ import type { LoadResult } from "./load-organs.js";
 import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import type { AgentEvent, Session, SessionState, TokensConsumed } from "./session.js";
 import { SessionHandle } from "./session-handle.js";
-import type { SessionStore } from "./session-store.js";
+import type { JsonlSessionStore } from "./session-store.js";
 import { makeSink } from "./sink.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
 import { getTheme, setTheme } from "./theme.js";
@@ -258,7 +258,7 @@ async function buildDirectiveSet(args: Args, organs: readonly Organ[]) {
 	return directives;
 }
 
-function buildActorIdentity(store: SessionStore) {
+function buildActorIdentity(store: JsonlSessionStore) {
 	const boardId = store.id.slice(0, 12);
 	const { humanActor, agentActor, theme } = configureSessionActors(store.id, boardId);
 	setTheme({ ...getTheme(), ...theme });
@@ -290,7 +290,7 @@ export async function createLocalSession(
 	args: Args,
 	cfg: AlefConfig,
 	log: Logger,
-	store: SessionStore,
+	store: JsonlSessionStore,
 	loaded: LoadResult,
 	model: Model<Api>,
 ): Promise<{

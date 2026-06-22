@@ -1,5 +1,5 @@
 /**
- * SessionStore — append-only JSONL event log.
+ * JsonlSessionStore — append-only JSONL event log.
  *
  * Storage layout:
  *   ~/.alef/sessions/<cwd-hash>/<session-id>.jsonl
@@ -45,7 +45,7 @@ export interface StorageRecord {
 	timestamp: number;
 	elapsed?: number;
 	hash?: string;
-	/** The conversation ID (SessionStore.id) — the Topic this event belongs to. */
+	/** The conversation ID (JsonlSessionStore.id) — the Topic this event belongs to. */
 	sessionId?: string;
 	/** Who produced this event. */
 	actor?: StorageActor;
@@ -81,7 +81,7 @@ export interface Turn {
 	typeWeight: number;
 }
 
-export interface ISessionStore {
+export interface SessionStore {
 	readonly id: string;
 	readonly path: string;
 	append(record: StorageRecord): Promise<void>;
@@ -160,7 +160,7 @@ async function ensureDir(cwd: string): Promise<void> {
 	await mkdir(sessionDir(cwd), { recursive: true });
 }
 
-export class SessionStore {
+export class JsonlSessionStore {
 	readonly id: string;
 	readonly path: string;
 
@@ -203,7 +203,7 @@ export class SessionStore {
 		turn.tokenCost = Math.ceil(sum / 4);
 	}
 
-	private static async _warmCache(store: SessionStore): Promise<SessionStore> {
+	private static async _warmCache(store: JsonlSessionStore): Promise<JsonlSessionStore> {
 		try {
 			const raw = await readFile(store.path, "utf-8");
 			const records = raw
@@ -220,15 +220,15 @@ export class SessionStore {
 		return store;
 	}
 
-	static async create(cwd: string): Promise<SessionStore> {
+	static async create(cwd: string): Promise<JsonlSessionStore> {
 		const id = randomUUID().replace(/-/g, "").slice(0, 8);
 		await ensureDir(cwd);
 		await appendFile(sessionPath(cwd, id), "");
 		await writeFile(latestPath(cwd), id, "utf-8");
-		return new SessionStore(cwd, id); // cache starts empty for a new session
+		return new JsonlSessionStore(cwd, id); // cache starts empty for a new session
 	}
 
-	static async resume(cwd: string, id: string): Promise<SessionStore> {
+	static async resume(cwd: string, id: string): Promise<JsonlSessionStore> {
 		const path = sessionPath(cwd, id);
 		try {
 			await stat(path);
@@ -236,13 +236,13 @@ export class SessionStore {
 			throw new Error(`Session '${id}' not found in ${sessionDir(cwd)}`);
 		}
 		await writeFile(latestPath(cwd), id, "utf-8");
-		return SessionStore._warmCache(new SessionStore(cwd, id));
+		return JsonlSessionStore._warmCache(new JsonlSessionStore(cwd, id));
 	}
 
-	static async resumeLatest(cwd: string): Promise<SessionStore | null> {
+	static async resumeLatest(cwd: string): Promise<JsonlSessionStore | null> {
 		try {
 			const id = (await readFile(latestPath(cwd), "utf-8")).trim();
-			return id ? await SessionStore.resume(cwd, id) : null;
+			return id ? await JsonlSessionStore.resume(cwd, id) : null;
 		} catch {
 			return null;
 		}
@@ -296,7 +296,7 @@ export class SessionStore {
 	}
 
 	static async prune(cwd: string, maxAgeDays = 30, maxCount = 50): Promise<number> {
-		const sessions = await SessionStore.list(cwd);
+		const sessions = await JsonlSessionStore.list(cwd);
 		const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
 		let removed = 0;
 		for (let i = maxCount; i < sessions.length; i++) {
@@ -359,3 +359,6 @@ export class SessionStore {
 		);
 	}
 }
+
+/** @deprecated Use SessionStore (the interface) */
+export type ISessionStore = SessionStore;

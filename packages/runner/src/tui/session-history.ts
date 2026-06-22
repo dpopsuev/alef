@@ -9,7 +9,7 @@
  * enhancement once Container gains scroll-position detection.
  */
 
-import type { ISessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session";
 import type { ChatLog } from "./chat-log.js";
 
 export interface SessionHistoryOptions {
@@ -27,7 +27,7 @@ interface TurnPair {
  * Pairs events by correlationId: user message from sense/llm.input,
  * agent reply from motor/llm.response.
  */
-async function readRecentTurns(store: ISessionStore, maxTurns: number): Promise<TurnPair[]> {
+async function readRecentTurns(store: SessionStore, maxTurns: number): Promise<TurnPair[]> {
 	// Access the session's events via organHistory on "llm" prefix — but llm events
 	// are on sense/motor buses not organ-prefixed. Use turns() instead which groups
 	// by correlationId and includes llm.input + llm.response events.
@@ -69,7 +69,7 @@ async function readRecentTurns(store: ISessionStore, maxTurns: number): Promise<
  * Only writes to the chat Container if there is history to show.
  */
 export async function prependSessionHistory(
-	store: ISessionStore,
+	store: SessionStore,
 	writer: ChatLog,
 	opts: SessionHistoryOptions = {},
 ): Promise<void> {

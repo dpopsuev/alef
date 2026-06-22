@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { SessionStore, type StorageRecord } from "../src/session-store.js";
+import { JsonlSessionStore, type StorageRecord } from "../src/session-store.js";
 
 const tempDirs: string[] = [];
 function tmpCwd(): string {
@@ -23,22 +23,22 @@ function senseRecord(type: string, correlationId: string, payload: Record<string
 	return { bus: "sense", type, correlationId, payload, timestamp: Date.now() };
 }
 
-describe("SessionStore.create", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.create", { tags: ["unit"] }, () => {
 	it("creates a new session with a short ID", async () => {
-		const store = await SessionStore.create(tmpCwd());
+		const store = await JsonlSessionStore.create(tmpCwd());
 		expect(store.id).toMatch(/^[0-9a-f]{8}$/);
 	});
 
 	it("starts with empty events", async () => {
-		const store = await SessionStore.create(tmpCwd());
+		const store = await JsonlSessionStore.create(tmpCwd());
 		expect(await store.events()).toHaveLength(0);
 	});
 });
 
-describe("SessionStore.append + events", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.append + events", { tags: ["unit"] }, () => {
 	it("round-trips StorageRecords", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append(motorRecord("fs.read", "c-1", { path: "src/auth.ts" }));
 		await store.append(senseRecord("fs.read", "c-1", { content: "export function login" }));
 
@@ -50,19 +50,19 @@ describe("SessionStore.append + events", { tags: ["unit"] }, () => {
 
 	it("persists across store re-opens", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append(motorRecord("llm.response", "c-1"));
 
-		const resumed = await SessionStore.resume(cwd, store.id);
+		const resumed = await JsonlSessionStore.resume(cwd, store.id);
 		const events = await resumed.events();
 		expect(events[0].type).toBe("llm.response");
 	});
 });
 
-describe("SessionStore.turns()", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.turns()", { tags: ["unit"] }, () => {
 	it("groups events by correlationId", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append(motorRecord("fs.read", "c-1"));
 		await store.append(senseRecord("fs.read", "c-1"));
 		await store.append(motorRecord("shell.exec", "c-2"));
@@ -77,7 +77,7 @@ describe("SessionStore.turns()", { tags: ["unit"] }, () => {
 
 	it("assigns ascending turnIndex", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append(motorRecord("llm.response", "c-1"));
 		await store.append(motorRecord("llm.response", "c-2"));
 
@@ -88,7 +88,7 @@ describe("SessionStore.turns()", { tags: ["unit"] }, () => {
 
 	it("assigns typeWeight from event types", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append(motorRecord("fs.write", "c-1")); // weight 2.0
 		await store.append(motorRecord("llm.response", "c-1")); // weight 0.8
 
@@ -98,7 +98,7 @@ describe("SessionStore.turns()", { tags: ["unit"] }, () => {
 
 	it("excludes internal records from turns", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append(motorRecord("fs.read", "c-1"));
 		await store.append({
 			bus: "internal",
@@ -114,10 +114,10 @@ describe("SessionStore.turns()", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("SessionStore.hitCounts()", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.hitCounts()", { tags: ["unit"] }, () => {
 	it("returns zero counts when no window.assembled records", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append(motorRecord("fs.read", "c-1"));
 		const counts = await store.hitCounts();
 		expect(counts.size).toBe(0);
@@ -125,7 +125,7 @@ describe("SessionStore.hitCounts()", { tags: ["unit"] }, () => {
 
 	it("counts inclusions from window.assembled records", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append({
 			bus: "internal",
 			type: "window.assembled",
@@ -148,43 +148,43 @@ describe("SessionStore.hitCounts()", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("SessionStore.resume", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.resume", { tags: ["unit"] }, () => {
 	it("throws for unknown session ID", async () => {
-		await expect(SessionStore.resume(tmpCwd(), "deadbeef")).rejects.toThrow(/not found/);
+		await expect(JsonlSessionStore.resume(tmpCwd(), "deadbeef")).rejects.toThrow(/not found/);
 	});
 });
 
-describe("SessionStore.resumeLatest", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.resumeLatest", { tags: ["unit"] }, () => {
 	it("returns null when no sessions exist", async () => {
-		expect(await SessionStore.resumeLatest(tmpCwd())).toBeNull();
+		expect(await JsonlSessionStore.resumeLatest(tmpCwd())).toBeNull();
 	});
 
 	it("returns the most recently created session", async () => {
 		const cwd = tmpCwd();
-		await SessionStore.create(cwd);
-		const s2 = await SessionStore.create(cwd);
-		const latest = await SessionStore.resumeLatest(cwd);
+		await JsonlSessionStore.create(cwd);
+		const s2 = await JsonlSessionStore.create(cwd);
+		const latest = await JsonlSessionStore.resumeLatest(cwd);
 		expect(latest?.id).toBe(s2.id);
 	});
 });
 
-describe("SessionStore.list", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.list", { tags: ["unit"] }, () => {
 	it("returns empty list when no sessions", async () => {
-		expect(await SessionStore.list(tmpCwd())).toHaveLength(0);
+		expect(await JsonlSessionStore.list(tmpCwd())).toHaveLength(0);
 	});
 
 	it("lists all sessions for a cwd", async () => {
 		const cwd = tmpCwd();
-		await SessionStore.create(cwd);
-		await SessionStore.create(cwd);
-		expect(await SessionStore.list(cwd)).toHaveLength(2);
+		await JsonlSessionStore.create(cwd);
+		await JsonlSessionStore.create(cwd);
+		expect(await JsonlSessionStore.list(cwd)).toHaveLength(2);
 	});
 });
 
-describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"] }, () => {
 	it("uses _display.text length for cost when available (clean content estimate)", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 
 		const displayText = "a".repeat(400); // 400 chars → 100 tokens
 		await store.append(
@@ -203,7 +203,7 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 
 	it("does NOT use totalTokens as per-turn cost (totalTokens is cumulative context size, not per-turn)", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 
 		const realUsage = { input: 1800, output: 420, cacheRead: 0, cacheWrite: 0, totalTokens: 2220 };
 
@@ -226,7 +226,7 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 
 	it("falls back to char/4 when no usage is present (ScriptedLLMOrgan / first turn)", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 
 		await store.append(senseRecord("llm.response", "c-1", { text: "hi" }));
 		await store.append({
@@ -246,7 +246,7 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 
 	it("ignores zero totalTokens and falls back to char/4", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 
 		await store.append(senseRecord("llm.response", "c-1", { text: "hi" }));
 		await store.append({
@@ -266,9 +266,9 @@ describe("SessionStore.turns() — token cost estimation", { tags: ["unit"] }, (
 // in-memory cache + checkpoint race fix
 // ---------------------------------------------------------------------------
 
-describe("SessionStore — in-memory cache", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore — in-memory cache", { tags: ["unit"] }, () => {
 	it("events() reflects append() synchronously without waiting for file flush", async () => {
-		const store = await SessionStore.create(tmpCwd());
+		const store = await JsonlSessionStore.create(tmpCwd());
 		const record = motorRecord("fs.write", "c-1", { path: "CODEBASE.md" });
 
 		// Fire-and-forget append — do NOT await.
@@ -281,7 +281,7 @@ describe("SessionStore — in-memory cache", { tags: ["unit"] }, () => {
 	});
 
 	it("llm.checkpoint internal record appears in turn events", async () => {
-		const store = await SessionStore.create(tmpCwd());
+		const store = await JsonlSessionStore.create(tmpCwd());
 		await store.append(motorRecord("fs.write", "c-1", { path: "x.md", toolCallId: "t1" }));
 		await store.append(senseRecord("fs.write", "c-1", { applied: true, toolCallId: "t1" }));
 		// Checkpoint written by onCheckpoint callback after tool round completes.
@@ -307,12 +307,12 @@ describe("SessionStore — in-memory cache", { tags: ["unit"] }, () => {
 
 	it("resume() warms cache from JSONL so events() returns prior records", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.append(motorRecord("fs.read", "c-1"));
 		await store.append(senseRecord("fs.read", "c-1", { content: "hello" }));
 
 		// Simulate restart — resume loads from file.
-		const resumed = await SessionStore.resume(cwd, store.id);
+		const resumed = await JsonlSessionStore.resume(cwd, store.id);
 		const events = await resumed.events();
 		expect(events).toHaveLength(2);
 		expect(events[0].type).toBe("fs.read");
@@ -320,7 +320,7 @@ describe("SessionStore — in-memory cache", { tags: ["unit"] }, () => {
 
 	it("turnsToMessages finds llm.checkpoint conversationHistory from aborted turn", async () => {
 		const { turnsToMessages } = await import("../src/turn-assembler.js");
-		const store = await SessionStore.create(tmpCwd());
+		const store = await JsonlSessionStore.create(tmpCwd());
 
 		await store.append(motorRecord("fs.write", "c-1", { path: "CODEBASE.md" }));
 		await store.append(senseRecord("fs.write", "c-1", { applied: true }));
@@ -345,20 +345,20 @@ describe("SessionStore — in-memory cache", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("SessionStore.name() + setName()", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.name() + setName()", { tags: ["unit"] }, () => {
 	it("name() returns undefined for a new session", async () => {
-		const store = await SessionStore.create(tmpCwd());
+		const store = await JsonlSessionStore.create(tmpCwd());
 		expect(store.name()).toBeUndefined();
 	});
 
 	it("setName() stores the name and name() returns it", async () => {
-		const store = await SessionStore.create(tmpCwd());
+		const store = await JsonlSessionStore.create(tmpCwd());
 		await store.setName("ToolShell promotion + amnesia fix");
 		expect(store.name()).toBe("ToolShell promotion + amnesia fix");
 	});
 
 	it("last setName() wins (WAL)", async () => {
-		const store = await SessionStore.create(tmpCwd());
+		const store = await JsonlSessionStore.create(tmpCwd());
 		await store.setName("first name");
 		await store.setName("second name");
 		expect(store.name()).toBe("second name");
@@ -366,10 +366,10 @@ describe("SessionStore.name() + setName()", { tags: ["unit"] }, () => {
 
 	it("name() reads from _cache without disk I/O after resume", async () => {
 		const cwd = tmpCwd();
-		const store = await SessionStore.create(cwd);
+		const store = await JsonlSessionStore.create(cwd);
 		await store.setName("cached name");
 
-		const resumed = await SessionStore.resume(cwd, store.id);
+		const resumed = await JsonlSessionStore.resume(cwd, store.id);
 		expect(resumed.name()).toBe("cached name");
 	});
 });

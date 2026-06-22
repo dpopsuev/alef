@@ -22,12 +22,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMetaAgent } from "../../runner/src/meta-agent.js";
-import { SessionStore } from "../../runner/src/session-store.js";
+import { JsonlSessionStore } from "../../runner/src/session-store.js";
 
 const SKIP =
 	(!process.env.ANTHROPIC_VERTEX_PROJECT_ID && !process.env.GOOGLE_CLOUD_PROJECT) || !process.env.ALEF_META_TESTS;
 
-async function writeDialog(store: SessionStore, pairs: Array<{ user: string; assistant: string }>) {
+async function writeDialog(store: JsonlSessionStore, pairs: Array<{ user: string; assistant: string }>) {
 	for (let i = 0; i < pairs.length; i++) {
 		const corrId = `turn-${i}`;
 		await store.append({
@@ -58,15 +58,15 @@ describe.skipIf(SKIP)(
 	{ tags: ["real-llm"] },
 	() => {
 		let cwd: string;
-		let sessionA: SessionStore;
-		let sessionB: SessionStore;
-		let sessionC: SessionStore;
+		let sessionA: JsonlSessionStore;
+		let sessionB: JsonlSessionStore;
+		let sessionC: JsonlSessionStore;
 
 		beforeAll(async () => {
 			cwd = mkdtempSync(join(tmpdir(), "alef-honeypot-"));
 
 			// Session A — current session, irrelevant topic
-			sessionA = await SessionStore.create(cwd);
+			sessionA = await JsonlSessionStore.create(cwd);
 			await writeDialog(sessionA, [
 				{
 					user: "How do I make the spinner glyph breathe?",
@@ -76,7 +76,7 @@ describe.skipIf(SKIP)(
 			]);
 
 			// Session B — TARGET: session picker arrow key repaint bug
-			sessionB = await SessionStore.create(cwd);
+			sessionB = await JsonlSessionStore.create(cwd);
 			await writeDialog(sessionB, [
 				{
 					user: "The session picker arrows don't work — pressing up and down has no visible effect.",
@@ -91,7 +91,7 @@ describe.skipIf(SKIP)(
 			]);
 
 			// Session C — HONEY-POT: session picker CRASH (shares "session picker" + "TUI" vocabulary)
-			sessionC = await SessionStore.create(cwd);
+			sessionC = await JsonlSessionStore.create(cwd);
 			await writeDialog(sessionC, [
 				{
 					user: "The session picker crashed with 'Rendered line 11 exceeds terminal width (180 > 179)'.",

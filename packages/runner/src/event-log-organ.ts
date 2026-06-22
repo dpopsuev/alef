@@ -21,7 +21,7 @@ import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 import { debugLog } from "@dpopsuev/alef-kernel";
 import type { ActorIdentity } from "./identity/actor.js";
 import { redactPayload } from "./redact.js";
-import { type BusKind, hashRecord, type SessionStore, type StorageActor } from "./session-store.js";
+import { type BusKind, hashRecord, type JsonlSessionStore, type StorageActor } from "./session-store.js";
 
 export interface SessionSummary {
 	id: string;
@@ -46,11 +46,11 @@ export class SessionLog implements Organ {
 		{ name: "session-store", kind: "file" },
 	];
 
-	private readonly store: SessionStore;
+	private readonly store: JsonlSessionStore;
 	private readonly model: string;
 	private readonly agentActor: StorageActor | undefined;
 
-	constructor(store: SessionStore, model = "unknown", agentIdentity?: ActorIdentity) {
+	constructor(store: JsonlSessionStore, model = "unknown", agentIdentity?: ActorIdentity) {
 		this.store = store;
 		this.model = model;
 		this.agentActor = agentIdentity ? { address: agentIdentity.address, type: agentIdentity.type } : undefined;

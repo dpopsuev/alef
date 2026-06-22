@@ -1,4 +1,4 @@
-import type { ISessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "./interactive.js";
@@ -47,7 +47,7 @@ export async function buildLayout(
 	t: ThemeTokens,
 	opts: InteractiveOptions,
 	getTokenState: () => LayoutTokenState,
-	store?: ISessionStore,
+	store?: SessionStore,
 ): Promise<TuiLayout> {
 	const dashboard = new DashboardFooter({
 		sessionId: opts.sessionId,

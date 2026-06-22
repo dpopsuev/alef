@@ -125,11 +125,11 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 		const { tmpdir } = await import("node:os");
 		const { InProcessNerve } = await import("../../kernel/src/in-process-nerve.js");
 		const { SessionLog } = await import("../src/event-log-organ.js");
-		const { SessionStore } = await import("../src/session-store.js");
+		const { JsonlSessionStore } = await import("../src/session-store.js");
 
 		const cwd = mkdtempSync(join(tmpdir(), "alef-audit-"));
 		try {
-			const store = await SessionStore.create(cwd);
+			const store = await JsonlSessionStore.create(cwd);
 			const organ = new SessionLog(store);
 			const nerve = new InProcessNerve();
 			organ.mount(nerve.asNerve());

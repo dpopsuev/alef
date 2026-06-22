@@ -84,8 +84,9 @@ port.on("message", (msg: { dir: string; event: NerveEvent }) => {
 });
 
 // Load the organ and mount it.
-const mod = (await import(organPath)) as { createOrgan: (opts: { cwd: string }) => unknown | Promise<unknown> };
-const organ = (await mod.createOrgan({ cwd })) as {
+const mod = (await import(organPath)) as Record<string, unknown>;
+const factory = (mod.createAdapter ?? mod.createOrgan) as (opts: { cwd: string }) => unknown | Promise<unknown>;
+const organ = (await factory({ cwd })) as {
 	name: string;
 	tools: Array<{ name: string; description: string; inputSchema: import("zod").ZodTypeAny }>;
 	subscriptions: { motor: readonly string[]; sense: readonly string[] };

@@ -1,4 +1,4 @@
-import type { Nerve, Organ, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Nerve, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { defineOrgan, extractToolCallId, withDisplay } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 
@@ -69,7 +69,7 @@ export type AgentLoopOptions = LlmCallOptions & LlmObservabilityOptions & LlmTop
 
 const LLM_INPUT = "llm.input";
 
-export function createAgentLoopCore(options: AgentLoopOptions): Organ {
+export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 	let turnActive = false;
 
 	return defineOrgan("llm", {
@@ -154,7 +154,7 @@ function pickKeyArg(payload: Record<string, unknown>): string {
  * Create a full LLM organ with optional concurrent-ops inflight tracking.
  * createAgentLoop is the canonical factory.
  */
-export function createAgentLoop(options: AgentLoopOptions): Organ {
+export function createAgentLoop(options: AgentLoopOptions): Adapter {
 	const replyType = "llm.response";
 	const inflight = new Map<string, InflightEntry>();
 

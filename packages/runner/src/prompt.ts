@@ -46,7 +46,6 @@ export function buildEnvironmentBlock(cwd: string): string {
 		`Directory: ${cwd}`,
 		`PID: ${pid}`,
 		`User: ${user}@${host}`,
-		`Debug log: ~/.alef/debug.log`,
 		`Session store: ~/.alef/sessions/`,
 	].join("\n");
 }

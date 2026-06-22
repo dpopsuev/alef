@@ -18,7 +18,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
 
-import { trace } from "./debug-trace.js";
+import { debugLog } from "@dpopsuev/alef-kernel";
 import type { ActorIdentity } from "./identity/actor.js";
 import { redactPayload } from "./redact.js";
 import { type BusKind, hashRecord, type SessionStore, type StorageActor } from "./session-store.js";
@@ -97,7 +97,7 @@ export class SessionLog implements Organ {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => trace("event-log:motor-append-failed", { error: String(e) }));
+				.catch((e: unknown) => debugLog("event-log:motor-append-failed", { error: String(e) }));
 		});
 
 		const off2 = nerve.sense.subscribe("*", (event) => {
@@ -119,7 +119,7 @@ export class SessionLog implements Organ {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => trace("event-log:sense-append-failed", { error: String(e) }));
+				.catch((e: unknown) => debugLog("event-log:sense-append-failed", { error: String(e) }));
 		});
 
 		const off3 = nerve.signal.subscribe("*", (event) => {
@@ -139,7 +139,7 @@ export class SessionLog implements Organ {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => trace("event-log:signal-append-failed", { error: String(e) }));
+				.catch((e: unknown) => debugLog("event-log:signal-append-failed", { error: String(e) }));
 		});
 
 		return () => {
@@ -169,10 +169,10 @@ export class SessionLog implements Organ {
 		const last = join(homedir(), ".alef", "last-session.json");
 		await Promise.all([
 			writeFile(perSession, json, "utf-8").catch((e: unknown) =>
-				trace("session-summary:write-failed", { path: perSession, error: String(e) }),
+				debugLog("session-summary:write-failed", { path: perSession, error: String(e) }),
 			),
 			writeFile(last, json, "utf-8").catch((e: unknown) =>
-				trace("session-summary:write-failed", { path: last, error: String(e) }),
+				debugLog("session-summary:write-failed", { path: last, error: String(e) }),
 			),
 		]);
 	}

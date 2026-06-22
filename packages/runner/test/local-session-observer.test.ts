@@ -59,7 +59,7 @@ describe("createLocalSession — session.subscribe delivers AgentEvents to calle
 		const args = { ...parseArgs([]), cwd, noTui: true };
 		const model = faux.getModel();
 
-		const { session } = await createLocalSession(args, {}, SILENT_LOGGER, store, EMPTY_LOADED, model, () => {});
+		const { session } = await createLocalSession(args, {}, SILENT_LOGGER, store, EMPTY_LOADED, model);
 
 		const viewer = new HeadlessViewMode();
 		const running = viewer.run(session);

@@ -94,9 +94,8 @@ export interface Args {
 	 */
 	profile: string | undefined;
 	/**
-	 * Debug mode: sets log level to debug and writes a trace to ~/.alef/debug.log.
-	 * Lifecycle events (Ctrl+C, tui.stop, shutdownOTel, process.exit) are always
-	 * written to the trace regardless of this flag.
+	 * Debug mode: sets log level to debug and emits verbose lifecycle events
+	 * to the session JSONL (bus: "debug").
 	 */
 	debug: boolean;
 
@@ -154,7 +153,7 @@ Options:
   --list-sessions        Print all sessions for current --cwd and exit
   --no-tui               Use readline mode instead of TUI (also auto-set on non-TTY)
   --json                 Emit structured JSONL events (for TUI consumers)
-  --debug                Debug mode: verbose logs + lifecycle trace to ~/.alef/debug.log
+  --debug                Debug mode: verbose logs in session JSONL (bus: "debug")
   --list-models          Print available models for active profile and exit
   --show-config          Print parsed config.yaml as JSON and exit
   --list-directives      Print enabled system prompt directive blocks and exit

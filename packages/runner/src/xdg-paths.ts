@@ -18,8 +18,7 @@
  *     └── prototypes/               → User-written organ prototypes
  *         └── <name>.ts
  *
- *   $XDG_STATE_HOME/alef/           → Logs, history, runtime state
- *     ├── debug.log                 → Pino debug trace (rotates at 10MB)
+ *   $XDG_STATE_HOME/alef/           → Runtime state
  *     ├── daemon.json               → Daemon registry (port, pid, session)
  *     └── last-session.json         → Most recent session metadata
  *
@@ -87,9 +86,6 @@ export const SESSIONS_DIR = join(ALEF_DATA_DIR, "sessions");
 
 /** Prototypes directory ($XDG_DATA_HOME/alef/prototypes) */
 export const PROTOTYPES_DIR = join(ALEF_DATA_DIR, "prototypes");
-
-/** Debug log file ($XDG_STATE_HOME/alef/debug.log) */
-export const DEBUG_LOG_PATH = join(ALEF_STATE_DIR, "debug.log");
 
 /** Daemon registry ($XDG_STATE_HOME/alef/daemon.json) */
 export const DAEMON_PATH = join(ALEF_STATE_DIR, "daemon.json");

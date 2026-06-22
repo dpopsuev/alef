@@ -1,6 +1,6 @@
+import { debugLog } from "@dpopsuev/alef-kernel";
 import type { ISessionStore } from "@dpopsuev/alef-session";
 import type { Args } from "./args.js";
-import { trace } from "./debug-trace.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { shutdownOTel } from "./otel.js";
 import type { Session } from "./session.js";
@@ -67,9 +67,9 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 		try {
 			await new Promise<void>(() => {});
 		} finally {
-			trace("shutdownOTel:start");
+			debugLog("shutdownOTel:start");
 			await Promise.race([shutdownOTel(), new Promise<void>((resolve) => setTimeout(resolve, 2000).unref())]);
-			trace("shutdownOTel:done");
+			debugLog("shutdownOTel:done");
 		}
 		return;
 	}
@@ -95,8 +95,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 		await viewer.run(opts.session);
 	} finally {
 		if (originalStderrWrite) process.stderr.write = originalStderrWrite;
-		trace("shutdownOTel:start");
+		debugLog("shutdownOTel:start");
 		await Promise.race([shutdownOTel(), new Promise<void>((resolve) => setTimeout(resolve, 2000).unref())]);
-		trace("shutdownOTel:done");
+		debugLog("shutdownOTel:done");
 	}
 }

@@ -83,65 +83,112 @@ function waitForValidateResult(sense: Nerve["sense"], id: string, timeoutMs: num
 	});
 }
 
-async function executeOrdered(
-	chain: BindingStage[],
-	input: ChainInput,
-	nerve: Nerve,
-	sourceCorrelationId: string,
-): Promise<ChainResult> {
-	let current = input;
+/**
+ * Strategy interface for binding chain execution.
+ * Implementations define how stages are executed (ordered, parallel, etc).
+ */
+interface BindingExecutionStrategy {
+	execute(
+		chain: BindingStage[],
+		input: ChainInput,
+		nerve: Nerve,
+		sourceCorrelationId: string,
+	): Promise<ChainResult>;
+}
 
-	for (let i = 0; i < chain.length; i++) {
-		const stage = chain[i];
-		if (stage.filter && !stage.filter(current.output as Record<string, unknown>)) {
-			continue;
+/**
+ * Executes stages sequentially. Stops on first rejection.
+ * Passes feedback from each stage to the next via _feedback field.
+ */
+class OrderedStrategy implements BindingExecutionStrategy {
+	async execute(
+		chain: BindingStage[],
+		input: ChainInput,
+		nerve: Nerve,
+		sourceCorrelationId: string,
+	): Promise<ChainResult> {
+		let current = input;
+
+		for (let i = 0; i < chain.length; i++) {
+			const stage = chain[i];
+			if (stage.filter && !stage.filter(current.output as Record<string, unknown>)) {
+				continue;
+			}
+
+			const { stageId, result: resultPromise } = publishValidateRequest(nerve, stage, current, sourceCorrelationId);
+			debugLog("binding:stage:start", { stageIdx: i, organ: stage.organ, stageId });
+
+			const result = await resultPromise;
+
+			debugLog("binding:stage:result", {
+				stageIdx: i,
+				organ: stage.organ,
+				approved: result.approved,
+				reviewer: result.reviewer,
+			});
+
+			if (!result.approved) return result;
+
+			current = {
+				...current,
+				output: { ...(current.output as Record<string, unknown>), _feedback: result.feedback },
+			};
 		}
 
-		const { stageId, result: resultPromise } = publishValidateRequest(nerve, stage, current, sourceCorrelationId);
-		debugLog("binding:stage:start", { stageIdx: i, organ: stage.organ, stageId });
-
-		const result = await resultPromise;
-
-		debugLog("binding:stage:result", {
-			stageIdx: i,
-			organ: stage.organ,
-			approved: result.approved,
-			reviewer: result.reviewer,
-		});
-
-		if (!result.approved) return result;
-
-		current = {
-			...current,
-			output: { ...(current.output as Record<string, unknown>), _feedback: result.feedback },
-		};
+		return { approved: true, reviewer: "chain-complete" };
 	}
-
-	return { approved: true, reviewer: "chain-complete" };
 }
 
-async function executeParallelAll(
-	chain: BindingStage[],
-	input: ChainInput,
-	nerve: Nerve,
-	sourceCorrelationId: string,
-): Promise<ChainResult> {
-	const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
-	const results = await Promise.all(
-		stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result),
-	);
-	const rejected = results.find((r) => !r.approved);
-	return rejected ?? { approved: true, reviewer: "parallel-all-complete" };
+/**
+ * Executes all stages in parallel. Waits for all. Rejects if any stage rejects.
+ */
+class ParallelAllStrategy implements BindingExecutionStrategy {
+	async execute(
+		chain: BindingStage[],
+		input: ChainInput,
+		nerve: Nerve,
+		sourceCorrelationId: string,
+	): Promise<ChainResult> {
+		const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
+		const results = await Promise.all(
+			stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result),
+		);
+		const rejected = results.find((r) => !r.approved);
+		return rejected ?? { approved: true, reviewer: "parallel-all-complete" };
+	}
 }
 
-async function executeParallelFirst(
-	chain: BindingStage[],
-	input: ChainInput,
-	nerve: Nerve,
-	sourceCorrelationId: string,
-): Promise<ChainResult> {
-	const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
-	return Promise.race(stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result));
+/**
+ * Executes all stages in parallel. Returns the first result (approved or rejected).
+ */
+class ParallelFirstStrategy implements BindingExecutionStrategy {
+	async execute(
+		chain: BindingStage[],
+		input: ChainInput,
+		nerve: Nerve,
+		sourceCorrelationId: string,
+	): Promise<ChainResult> {
+		const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
+		return Promise.race(stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result));
+	}
+}
+
+/**
+ * Registry of binding execution strategies.
+ * Extensible: new modes can be added without modifying executeBindingChain.
+ */
+const strategies: Record<BindingMode, BindingExecutionStrategy> = {
+	ordered: new OrderedStrategy(),
+	"parallel-all": new ParallelAllStrategy(),
+	"parallel-first": new ParallelFirstStrategy(),
+};
+
+/**
+ * Register a custom binding execution strategy.
+ * Allows extension of binding modes without modifying core code.
+ */
+export function registerBindingStrategy(mode: string, strategy: BindingExecutionStrategy): void {
+	(strategies as Record<string, BindingExecutionStrategy>)[mode] = strategy;
 }
 
 export function executeBindingChain(
@@ -156,14 +203,13 @@ export function executeBindingChain(
 		mode: binding.mode,
 		stages: binding.chain.length,
 	});
-	switch (binding.mode) {
-		case "ordered":
-			return executeOrdered(binding.chain, input, nerve, sourceCorrelationId);
-		case "parallel-all":
-			return executeParallelAll(binding.chain, input, nerve, sourceCorrelationId);
-		case "parallel-first":
-			return executeParallelFirst(binding.chain, input, nerve, sourceCorrelationId);
+
+	const strategy = strategies[binding.mode];
+	if (!strategy) {
+		throw new Error(`Unknown binding mode: ${binding.mode}`);
 	}
+
+	return strategy.execute(binding.chain, input, nerve, sourceCorrelationId);
 }
 
 export function withBindings(bindings: Map<string, Binding>, baseNerve: Nerve): Nerve {
@@ -189,3 +235,6 @@ export function withBindings(bindings: Map<string, Binding>, baseNerve: Nerve): 
 		pulse: () => baseNerve.pulse(),
 	};
 }
+
+// Export the interface for external strategy implementations
+export type { BindingExecutionStrategy };

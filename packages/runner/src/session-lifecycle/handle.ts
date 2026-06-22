@@ -1,14 +1,14 @@
 /**
  * SessionHandle — thin runtime state wrapper around an assembled agent.
  *
- * Zero organ imports. Zero assembly code. Owns only:
+ * Zero adapter imports. Zero assembly code. Owns only:
  *   - turn count and max-turns enforcement
  *   - model and thinking state switches
  *   - abort controller reference
  *   - observer fan-out
  *   - send/receive/subscribe/dispose delegation
  *
- * Created by the assembly factory (local-session.ts) after all organs are loaded.
+ * Created by the assembly factory (local-session.ts) after all adapters are loaded.
  */
 
 import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
@@ -95,24 +95,39 @@ export class SessionHandle implements Session {
 		this._llmController = ctrl;
 	}
 
-	async loadOrgan(path: string): Promise<void> {
-		const organ = await loadOrganFromPath(path, {
+	async loadAdapter(path: string): Promise<void> {
+		const adapter = await loadOrganFromPath(path, {
 			cwd: this._args.cwd,
-			loggerFor: (n) => this._log.child({ organ: n }),
+			loggerFor: (n) => this._log.child({ adapter: n }),
 		});
-		this._agent.load(organ);
+		this._agent.load(adapter);
 	}
 
-	unloadOrgan(name: string): boolean {
+	unloadAdapter(name: string): boolean {
 		return this._agent.unload(name);
 	}
 
-	async reloadOrgan(name: string, path: string): Promise<void> {
-		const organ = await loadOrganFromPath(path, {
+	async reloadAdapter(name: string, path: string): Promise<void> {
+		const adapter = await loadOrganFromPath(path, {
 			cwd: this._args.cwd,
-			loggerFor: (n) => this._log.child({ organ: n }),
+			loggerFor: (n) => this._log.child({ adapter: n }),
 		});
-		this._agent.reload({ ...organ, name });
+		this._agent.reload({ ...adapter, name });
+	}
+
+	/** @deprecated Use loadAdapter() instead. */
+	loadOrgan(path: string): Promise<void> {
+		return this.loadAdapter(path);
+	}
+
+	/** @deprecated Use unloadAdapter() instead. */
+	unloadOrgan(name: string): boolean {
+		return this.unloadAdapter(name);
+	}
+
+	/** @deprecated Use reloadAdapter() instead. */
+	reloadOrgan(name: string, path: string): Promise<void> {
+		return this.reloadAdapter(name, path);
 	}
 
 	dispose(): void {

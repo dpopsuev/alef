@@ -5,7 +5,7 @@
  *   alef                        — interactive mode, cwd = process.cwd()
  *   alef -p "prompt"            — print mode: send one message, print reply, exit
  *   alef --print "prompt"       — same
- *   alef --cwd /path/to/repo    — set working directory for fs and shell organs
+ *   alef --cwd /path/to/repo    — set working directory for fs and shell adapters
  *   alef --model claude-sonnet-4-5  — override default model
  *   alef --json                 — emit structured JSONL events instead of plain text
  *   alef --help                 — show usage
@@ -16,7 +16,7 @@ export interface Args {
 	print: boolean;
 	/** The prompt to send in print mode. */
 	prompt: string;
-	/** Working directory for FsOrgan and ShellOrgan. */
+	/** Working directory for FsAdapter and ShellAdapter. */
 	cwd: string;
 	/** Model ID override. Falls back to blueprint model, then ALEF_MODEL env var, then default. */
 	modelId: string | undefined;
@@ -27,8 +27,8 @@ export interface Args {
 	json: boolean;
 	/**
 	 * Path to an agent.yaml blueprint file.
-	 * When provided, organs and model are configured from the blueprint.
-	 * Hardcoded organ defaults (fs + shell) are used otherwise.
+	 * When provided, adapters and model are configured from the blueprint.
+	 * Hardcoded adapter defaults (fs + shell) are used otherwise.
 	 */
 	blueprint: string | undefined;
 	/**
@@ -37,10 +37,10 @@ export interface Args {
 	 */
 	listTools: boolean;
 	/**
-	 * Diagnostic: print one organ per line (name, labels, description) and exit.
-	 * Useful for verifying which organs are loaded and their metadata.
+	 * Diagnostic: print one adapter per line (name, labels, description) and exit.
+	 * Useful for verifying which adapters are loaded and their metadata.
 	 */
-	listOrgans: boolean;
+	listAdapters: boolean;
 	/** Maximum tool-call turns per conversation. 0 = unlimited. Default: 50. */
 	maxTurns: number;
 
@@ -69,7 +69,7 @@ export interface Args {
 	yolo: boolean;
 
 	/**
-	 * HTTP port for the Router organ (HTTP/SSE bridge).
+	 * HTTP port for the Router adapter (HTTP/SSE bridge).
 	 * When set, the router is mounted and the agent accepts requests on this port.
 	 * External processes connect to GET /events for the SSE stream and
 	 * POST /message to send user messages.
@@ -100,11 +100,11 @@ export interface Args {
 	debug: boolean;
 
 	// ── Package manager subcommands ──────────────────────────────────────────
-	/** alef install <organ>[@version] */
+	/** alef install <adapter>[@version] */
 	pmInstall: string | undefined;
-	/** alef remove <organ> */
+	/** alef remove <adapter> */
 	pmRemove: string | undefined;
-	/** alef upgrade [organ...] */
+	/** alef upgrade [adapter...] */
 	pmUpgrade: boolean;
 	/** alef rollback [N] */
 	pmRollback: number | undefined;
@@ -114,17 +114,17 @@ export interface Args {
 	pmAudit: boolean;
 	/** alef gc */
 	pmGc: boolean;
-	/** alef search <query> — discover organs on npm by keyword */
+	/** alef search <query> — discover adapters on npm by keyword */
 	pmSearch: string | undefined;
-	/** alef sbom — SPDX JSON for installed organs */
+	/** alef sbom — SPDX JSON for installed adapters */
 	pmSbom: boolean;
-	/** alef organ list — show installed organs from organs.yaml */
-	pmOrganList: boolean;
-	/** alef organ new <name> — scaffold a publishable organ package */
-	pmOrganNew: string | undefined;
-	/** alef export [path] — write alef-organs.lock to the project */
+	/** alef adapter list — show installed adapters from adapters.yaml */
+	pmAdapterList: boolean;
+	/** alef adapter new <name> — scaffold a publishable adapter package */
+	pmAdapterNew: string | undefined;
+	/** alef export [path] — write alef-adapters.lock to the project */
 	pmExport: string | true | undefined;
-	/** alef import [path] — restore organs from alef-organs.lock */
+	/** alef import [path] — restore adapters from alef-adapters.lock */
 	pmImport: string | true | undefined;
 	/** alef update — self-update the alef binary */
 	pmSelfUpdate: boolean;
@@ -144,7 +144,7 @@ Options:
   -p, --print <prompt>   Send one message, print reply, exit
   --cwd <path>           Working directory (default: current directory)
   --model <id>           Model ID (auto-detected from provider, or ALEF_MODEL env var)
-  --blueprint <path>     Load agent.yaml blueprint (configures organs and model)
+  --blueprint <path>     Load agent.yaml blueprint (configures adapters and model)
   --list-tools           Print active tool names and exit (for diagnostics)
   --max-turns <n>        Max tool-call turns per run (default: 50, 0=unlimited)
   --thinking <level>     Enable extended thinking: minimal|low|medium|high|xhigh
@@ -156,22 +156,22 @@ Options:
   --list-models          Print available models for active profile and exit
   --show-config          Print parsed config.yaml as JSON and exit
   --list-directives      Print enabled system prompt directive blocks and exit
-  --preflight            Verify config, model, organs, tools, directives and exit
+  --preflight            Verify config, model, adapters, tools, directives and exit
   --migrate              Import existing JSONL sessions into SQLite and exit
   -h, --help             Show this help
 
 Package manager:
-  install <organ>[@ver]  Install an organ (e.g. alef install organ-fs@0.1.2)
-  remove  <organ>        Remove an organ
-  upgrade [organ...]     Upgrade all or specific organs
+  install <adapter>[@ver]  Install an adapter (e.g. alef install organ-fs@0.1.2)
+  remove  <adapter>        Remove an adapter
+  upgrade [adapter...]     Upgrade all or specific adapters
   rollback [N]           Roll back to generation N (default: previous)
   history                List generation history
-  audit                  Run npm audit on installed organs
+  audit                  Run npm audit on installed adapters
   gc                     Remove old generations (keeps last 10)
-  search  <query>        Discover organs on npm by keyword
-  sbom                   Print SPDX JSON for all installed organs
-  organ list             Show organs registered in organs.yaml
-  organ new <name>       Scaffold a publishable organ package
+  search  <query>        Discover adapters on npm by keyword
+  sbom                   Print SPDX JSON for all installed adapters
+  adapter list           Show adapters registered in adapters.yaml
+  adapter new <name>     Scaffold a publishable adapter package
 
 Examples:
   alef                                 # interactive mode
@@ -190,7 +190,7 @@ export function parseArgs(argv: string[]): Args {
 		json: false,
 		blueprint: undefined,
 		listTools: false,
-		listOrgans: false,
+		listAdapters: false,
 		maxTurns: 50,
 		debugSubcmd: undefined,
 		debugSubcmdArgs: [],
@@ -214,8 +214,8 @@ export function parseArgs(argv: string[]): Args {
 		pmGc: false,
 		pmSearch: undefined,
 		pmSbom: false,
-		pmOrganList: false,
-		pmOrganNew: undefined,
+		pmAdapterList: false,
+		pmAdapterNew: undefined,
 		pmExport: undefined,
 		pmImport: undefined,
 		pmSelfUpdate: false,
@@ -274,8 +274,8 @@ export function parseArgs(argv: string[]): Args {
 			continue;
 		}
 
-		if (arg === "--list-organs" || arg === "--list-adapters") {
-			args.listOrgans = true;
+		if (arg === "--list-adapters" || arg === "--list-organs") {
+			args.listAdapters = true;
 			i++;
 			continue;
 		}
@@ -441,15 +441,15 @@ export function parseArgs(argv: string[]): Args {
 			i++;
 			continue;
 		}
-		if (arg === "organ") {
+		if (arg === "adapter" || arg === "organ") {
 			const sub = argv[++i];
 			if (sub === "list") {
-				args.pmOrganList = true;
+				args.pmAdapterList = true;
 			} else if (sub === "new") {
-				args.pmOrganNew = argv[++i] ?? "";
+				args.pmAdapterNew = argv[++i] ?? "";
 				i++;
 			} else {
-				console.error(`Unknown organ subcommand: ${sub ?? "(none)"}. Available: list, new`);
+				console.error(`Unknown adapter subcommand: ${sub ?? "(none)"}. Available: list, new`);
 				process.exit(1);
 			}
 			i++;

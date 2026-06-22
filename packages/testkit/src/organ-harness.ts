@@ -1,37 +1,37 @@
 import { randomUUID } from "node:crypto";
-import type { Organ, SenseEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, SenseEvent } from "@dpopsuev/alef-kernel";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
 
 const DEFAULT_TIMEOUT_MS = 2_000;
 
 /**
- * OrganHarness — unit-level Motor→Sense test harness.
+ * AdapterHarness — unit-level Motor→Sense test harness.
  *
- * Mounts a single organ on an isolated InProcessNerve and provides
+ * Mounts a single adapter on an isolated InProcessNerve and provides
  * a send() method that fires a motor event and returns the matching
  * sense event. Fails if no sense event arrives within the timeout.
  *
  * Usage:
- *   const h = new OrganHarness(createFsOrgan({ cwd }));
+ *   const h = new AdapterHarness(createFsAdapter({ cwd }));
  *   await h.ready();
  *   const sense = await h.send("fs.read", { path: "README.md" });
  *   expect(sense.isError).toBe(false);
  *   h.dispose();
  */
-export class OrganHarness {
+export class AdapterHarness {
 	private readonly nerve = new InProcessNerve();
 	private readonly unmount: () => void;
-	private readonly organ: Organ;
+	private readonly adapter: Adapter;
 	private readonly timeoutMs: number;
 
-	constructor(organ: Organ, opts: { timeoutMs?: number } = {}) {
-		this.organ = organ;
+	constructor(adapter: Adapter, opts: { timeoutMs?: number } = {}) {
+		this.adapter = adapter;
 		this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-		this.unmount = organ.mount(this.nerve.asNerve());
+		this.unmount = adapter.mount(this.nerve.asNerve());
 	}
 
 	async ready(): Promise<void> {
-		await this.organ.ready?.();
+		await this.adapter.ready?.();
 	}
 
 	/**
@@ -45,8 +45,8 @@ export class OrganHarness {
 				off();
 				reject(
 					new Error(
-						`OrganHarness: no sense/${type} event within ${this.timeoutMs}ms. ` +
-							`Organ '${this.organ.name}' may be hanging or not handling motor/${type}.`,
+						`AdapterHarness: no sense/${type} event within ${this.timeoutMs}ms. ` +
+							`Adapter '${this.adapter.name}' may be hanging or not handling motor/${type}.`,
 					),
 				);
 			}, this.timeoutMs);
@@ -66,3 +66,6 @@ export class OrganHarness {
 		this.unmount();
 	}
 }
+
+/** @deprecated Use AdapterHarness instead. */
+export const OrganHarness = AdapterHarness;

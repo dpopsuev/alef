@@ -36,8 +36,8 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 		args.pmGc ||
 		args.pmSearch !== undefined ||
 		args.pmSbom ||
-		args.pmOrganList ||
-		args.pmOrganNew !== undefined ||
+		args.pmAdapterList ||
+		args.pmAdapterNew !== undefined ||
 		args.pmExport !== undefined ||
 		args.pmImport !== undefined;
 
@@ -55,7 +55,7 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 		console.log(`Removed ${args.pmRemove} (generation ${gen})`);
 	} else if (args.pmUpgrade) {
 		const gen = await pm.upgrade();
-		console.log(`Upgraded organs (generation ${gen})`);
+		console.log(`Upgraded adapters (generation ${gen})`);
 	} else if (args.pmRollback !== undefined) {
 		const entries = pm.history();
 		const target = args.pmRollback === -1 ? (entries[1]?.id ?? 1) : args.pmRollback;
@@ -65,11 +65,11 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 		const entries = pm.history();
 		if (entries.length === 0) console.log("No generations recorded.");
 		for (const e of entries) {
-			const organs =
+			const adapters =
 				Object.entries(e.organs)
 					.map(([k, v]) => `${k}@${v}`)
 					.join(", ") || "(none)";
-			console.log(`  Gen ${e.id}  ${e.ts.slice(0, 19)}  alef=${e.alef}  organs: ${organs}`);
+			console.log(`  Gen ${e.id}  ${e.ts.slice(0, 19)}  alef=${e.alef}  adapters: ${adapters}`);
 		}
 	} else if (args.pmAudit) {
 		await pm.audit();
@@ -79,7 +79,7 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 	} else if (args.pmSearch !== undefined) {
 		const results = await pm.search(args.pmSearch);
 		if (results.length === 0) {
-			console.log("No organs found.");
+			console.log("No adapters found.");
 		} else {
 			const nameW = Math.max(4, ...results.map((r) => r.name.length));
 			const verW = Math.max(7, ...results.map((r) => r.version.length));
@@ -92,35 +92,35 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 		}
 	} else if (args.pmSbom) {
 		console.log(JSON.stringify(pm.sbom(), null, 2));
-	} else if (args.pmOrganList) {
+	} else if (args.pmAdapterList) {
 		const { loadUserOrgansConfig, userOrgansConfigPath } = await import("@dpopsuev/alef-agent-blueprint");
-		const organs = loadUserOrgansConfig();
-		if (!organs || organs.length === 0) {
-			console.log(`No organs registered in ${userOrgansConfigPath()}`);
+		const adapters = loadUserOrgansConfig();
+		if (!adapters || adapters.length === 0) {
+			console.log(`No adapters registered in ${userOrgansConfigPath()}`);
 		} else {
-			console.log(`Organs registered in ${userOrgansConfigPath()}:`);
-			for (const o of organs) {
-				console.log(`  ${o.name}${o.path ? `  path: ${o.path}` : ""}`);
+			console.log(`Adapters registered in ${userOrgansConfigPath()}:`);
+			for (const a of adapters) {
+				console.log(`  ${a.name}${a.path ? `  path: ${a.path}` : ""}`);
 			}
 		}
-	} else if (args.pmOrganNew !== undefined) {
-		if (!args.pmOrganNew.trim()) {
-			console.error("Usage: alef organ new <name>");
+	} else if (args.pmAdapterNew !== undefined) {
+		if (!args.pmAdapterNew.trim()) {
+			console.error("Usage: alef adapter new <name>");
 			process.exit(1);
 		}
 		const { scaffoldAdapter } = await import("./adapter-scaffold.js");
-		const dir = scaffoldAdapter(args.pmOrganNew, args.cwd);
-		console.log(`Scaffolded organ at ${dir}`);
+		const dir = scaffoldAdapter(args.pmAdapterNew, args.cwd);
+		console.log(`Scaffolded adapter at ${dir}`);
 		console.log(`  cd ${dir}\n  npm install\n  npm run build\n  alef install ./${dir.split("/").pop() ?? ""}`);
 	} else if (args.pmExport !== undefined) {
 		const outputPath = typeof args.pmExport === "string" ? args.pmExport : undefined;
 		const written = pm.exportLockfile(args.cwd, outputPath);
-		console.log(`Exported organ lockfile → ${written}`);
-		console.log("Commit this file alongside your code for reproducible organ installs.");
+		console.log(`Exported adapter lockfile → ${written}`);
+		console.log("Commit this file alongside your code for reproducible adapter installs.");
 	} else if (args.pmImport !== undefined) {
 		const inputPath = typeof args.pmImport === "string" ? args.pmImport : undefined;
 		const gen = await pm.importLockfile(args.cwd, inputPath);
-		console.log(`Restored organs from lockfile (generation ${gen})`);
+		console.log(`Restored adapters from lockfile (generation ${gen})`);
 	}
 
 	process.exit(0);

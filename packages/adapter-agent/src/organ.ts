@@ -89,7 +89,7 @@ function needsWriteAccess(text: string): boolean {
 	return WRITE_PATTERN.test(text);
 }
 
-export interface AgentOrganOptions extends BaseOrganOptions {
+export interface AgentAdapterOptions extends BaseOrganOptions {
 	cwd?: string;
 	strategies?: Record<string, ExecutionStrategy>;
 	createAdHocSession?: (opts: {
@@ -109,6 +109,9 @@ export interface AgentOrganOptions extends BaseOrganOptions {
 	/** Max subagent nesting depth. Default: 3. Set 0 to disable spawning. */
 	maxDepth?: number;
 }
+
+/** @deprecated Use AgentAdapterOptions */
+export type AgentOrganOptions = AgentAdapterOptions;
 
 class AsyncQueue {
 	private readonly queue: string[] = [];
@@ -142,7 +145,7 @@ class AsyncQueue {
 }
 
 export function createAgentOrgan(
-	opts: AgentOrganOptions,
+	opts: AgentAdapterOptions,
 ): Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
 	const cwd = opts.cwd ?? process.cwd();
 	const replyEvent = opts.replyEvent ?? "llm.response";
@@ -593,7 +596,7 @@ export function createAgentOrgan(
 
 	// ── defineAdapter ────────────────────────────────────────────────────
 
-	const organ = defineAdapter(
+	const adapter = defineAdapter(
 		"agent",
 		{
 			sense: {
@@ -909,7 +912,7 @@ export function createAgentOrgan(
 				"Unified agent delegation and child lifecycle: run, spawn, ask, race, converse, kill, list, status, promote.",
 			labels: ["delegation", "orchestration", "subagent", "lifecycle"],
 			directives: [
-				`**agent organ — delegation and child process management**
+				`**agent adapter — delegation and child process management**
 
 agent.run({ text, profile?, model? }) — fast in-process delegation (default).
   explore: read-only (files, grep, web). Safe to parallelize.
@@ -947,11 +950,11 @@ When asked to explore or research the codebase, use parallel agent.run calls.`,
 		},
 	) as Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void };
 
-	organ.registerStrategy = (name: string, strategy: ExecutionStrategy): void => {
+	adapter.registerStrategy = (name: string, strategy: ExecutionStrategy): void => {
 		strategies.set(name, strategy);
 	};
 
-	Object.defineProperty(organ, "tools", {
+	Object.defineProperty(adapter, "tools", {
 		get(): readonly ToolDefinition[] {
 			return [
 				buildRunTool(),
@@ -969,5 +972,5 @@ When asked to explore or research the codebase, use parallel agent.run calls.`,
 		configurable: true,
 	});
 
-	return organ;
+	return adapter;
 }

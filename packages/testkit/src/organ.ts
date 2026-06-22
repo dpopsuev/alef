@@ -28,5 +28,5 @@ export {
 export { BusEventRecorder } from "./bus-event-recorder.js";
 export { MockReasoner } from "./mock-reasoner.js";
 export { NerveFixture } from "./nerve-fixture.js";
-export { OrganHarness } from "./organ-harness.js";
+export { AdapterHarness, OrganHarness } from "./organ-harness.js";
 export { defineStubAdapter, defineStubAdapter as defineStubOrgan, type StubHandler } from "./stub-adapter.js";

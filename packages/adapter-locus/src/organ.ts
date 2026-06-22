@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
 import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
 
-export interface LocusOrganOptions {
+export interface LocusAdapterOptions {
 	/** Workspace root(s) to analyze. Defaults to cwd. */
 	workspaces?: string[];
 	/** Path to the locus binary. Defaults to ~/Workspace/locus/locus */
@@ -15,12 +15,15 @@ export interface LocusOrganOptions {
 	historyDir?: string;
 }
 
+/** @deprecated Use LocusAdapterOptions */
+export type LocusOrganOptions = LocusAdapterOptions;
+
 const DEFAULT_BINARY = join(homedir(), "Workspace/locus/locus");
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 const DEFAULT_CACHE_DIR = join(XDG_DATA_HOME, "alef", "locus", "cache");
 const DEFAULT_HISTORY_DIR = join(XDG_DATA_HOME, "alef", "locus", "history");
 
-export function createLocusOrgan(opts: LocusOrganOptions = {}): Adapter {
+export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const cacheDir = opts.cacheDir ?? DEFAULT_CACHE_DIR;
 	const historyDir = opts.historyDir ?? DEFAULT_HISTORY_DIR;
@@ -29,10 +32,10 @@ export function createLocusOrgan(opts: LocusOrganOptions = {}): Adapter {
 	let inner: Adapter | null = null;
 	let innerCleanup: (() => void) | null = null;
 
-	const organ: Adapter = {
+	const adapter: Adapter = {
 		name: "locus",
 		description:
-			"Locus code intelligence — spawns a dedicated Locus instance for architecture analysis, dependency graphs, symbol search, and diagram rendering.",
+			"Locus code intelligence — spawns a dedicated Locus adapter for architecture analysis, dependency graphs, symbol search, and diagram rendering.",
 		labels: ["locus", "architecture", "analysis"] as const,
 		tools: [],
 		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
@@ -55,28 +58,28 @@ export function createLocusOrgan(opts: LocusOrganOptions = {}): Adapter {
 				LOCUS_CACHE_DIR: cacheDir,
 				LOCUS_HISTORY_DIR: historyDir,
 			})
-				.then((mcpOrgan) => {
-					inner = mcpOrgan;
+				.then((mcpAdapter) => {
+					inner = mcpAdapter;
 
-					(organ as { tools: readonly unknown[] }).tools = mcpOrgan.tools;
-					(organ as { subscriptions: { motor: readonly string[] } }).subscriptions = {
-						...organ.subscriptions,
-						motor: mcpOrgan.tools.map((t) => t.name),
+					(adapter as { tools: readonly unknown[] }).tools = mcpAdapter.tools;
+					(adapter as { subscriptions: { motor: readonly string[] } }).subscriptions = {
+						...adapter.subscriptions,
+						motor: mcpAdapter.tools.map((t) => t.name),
 					};
 
-					innerCleanup = mcpOrgan.mount(nerve);
+					innerCleanup = mcpAdapter.mount(nerve);
 
 					nerve.sense.publish({
 						type: "organ.loaded",
 						correlationId: "locus-boot",
 						payload: {
 							name: "locus",
-							tools: mcpOrgan.tools.map((t) => ({ name: t.name, description: t.description })),
+							tools: mcpAdapter.tools.map((t) => ({ name: t.name, description: t.description })),
 						},
 						isError: false,
 					});
 
-					debugLog("locus:ready", { tools: mcpOrgan.tools.length });
+					debugLog("locus:ready", { tools: mcpAdapter.tools.length });
 				})
 				.catch((err: unknown) => {
 					debugLog("locus:boot:error", { error: String(err) });
@@ -103,5 +106,5 @@ export function createLocusOrgan(opts: LocusOrganOptions = {}): Adapter {
 		},
 	};
 
-	return organ;
+	return adapter;
 }

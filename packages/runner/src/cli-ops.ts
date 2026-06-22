@@ -46,17 +46,17 @@ register({
 });
 
 register({
-	name: "list-organs",
-	match: (args) => args.listOrgans,
+	name: "list-adapters",
+	match: (args) => args.listAdapters,
 	run: (_args, session) => {
-		for (const organ of session.organs) {
+		for (const adapter of session.organs) {
 			const suffix = [
-				organ.labels?.length ? `[${organ.labels.join(", ")}]` : "",
-				organ.description ? `— ${organ.description}` : "",
+				adapter.labels?.length ? `[${adapter.labels.join(", ")}]` : "",
+				adapter.description ? `— ${adapter.description}` : "",
 			]
 				.filter(Boolean)
 				.join(" ");
-			console.log(suffix ? `${organ.name} ${suffix}` : organ.name);
+			console.log(suffix ? `${adapter.name} ${suffix}` : adapter.name);
 		}
 	},
 });

@@ -1,8 +1,13 @@
 import { execSync } from "node:child_process";
-import { CombinedAutocompleteProvider, type Editor, type SlashCommand, type TUI } from "@dpopsuev/alef-tui";
+import {
+	type AutocompleteProvider,
+	CombinedAutocompleteProvider,
+	type Editor,
+	type SlashCommand,
+	type TUI,
+} from "@dpopsuev/alef-tui";
 import { registry } from "../commands/index.js";
-import { AtAddressProvider, HistoryAutocompleteProvider } from "../history-autocomplete.js";
-import type { ActorRouteTable } from "../identity/routes.js";
+import { HistoryAutocompleteProvider } from "../history-autocomplete.js";
 import { InputApplicationRegistry } from "../input-application.js";
 import { PromptConsole } from "../prompt-console.js";
 import type { ThemeTokens } from "../theme-types.js";
@@ -12,7 +17,7 @@ export interface InputPanelOptions {
 	t: ThemeTokens;
 	modelId: string;
 	cwd: string;
-	actorRoutes?: ActorRouteTable;
+	atProvider?: AutocompleteProvider;
 }
 
 export class InputPanel {
@@ -30,10 +35,10 @@ export class InputPanel {
 		this.historyProvider = new HistoryAutocompleteProvider();
 		this.applications = new InputApplicationRegistry();
 
-		this.wireAutocomplete(cwd, opts.actorRoutes);
+		this.wireAutocomplete(cwd, opts.atProvider);
 	}
 
-	private wireAutocomplete(cwd: string, actorRoutes?: ActorRouteTable): void {
+	private wireAutocomplete(cwd: string, atProvider?: AutocompleteProvider): void {
 		const commands: SlashCommand[] = registry.list().map((c) => ({
 			name: c.name,
 			description: c.description,
@@ -50,7 +55,6 @@ export class InputPanel {
 		const { historyProvider } = this;
 
 		if (this.editor.setAutocompleteProvider) {
-			const atProvider = actorRoutes ? new AtAddressProvider(actorRoutes) : null;
 			this.editor.setAutocompleteProvider({
 				getSuggestions: (lines, cursorLine, cursorCol, options) => {
 					const prefix = (lines[cursorLine] ?? "").slice(0, cursorCol);

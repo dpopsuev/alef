@@ -17,7 +17,6 @@ import type { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import type { Args } from "../args.js";
 import type { Directives } from "../directives.js";
-import { buildModel } from "../model/index.js";
 import type { AgentEvent, DirectiveView, Session, SessionState } from "../session.js";
 
 export interface SessionHandleComponents {
@@ -29,8 +28,8 @@ export interface SessionHandleComponents {
 	directives: Directives;
 	args: Args;
 	log: Logger;
-	/** Shared observer set — the same instance used by createLocalSession's agent.observe. */
 	observers: Set<(event: AgentEvent) => void>;
+	modelFactory: (id: string) => Model<Api>;
 }
 
 export class SessionHandle implements Session {
@@ -41,6 +40,7 @@ export class SessionHandle implements Session {
 	_llmController: AbortController | undefined;
 	private _turnCount = 0;
 	private readonly _observers: Set<(event: AgentEvent) => void>;
+	private readonly _modelFactory: (id: string) => Model<Api>;
 
 	private readonly _agent: Agent;
 	private readonly _directives: Directives;
@@ -58,6 +58,7 @@ export class SessionHandle implements Session {
 		args,
 		log,
 		observers,
+		modelFactory,
 	}: SessionHandleComponents) {
 		this.state = state;
 		this._currentModel = model;
@@ -68,6 +69,7 @@ export class SessionHandle implements Session {
 		this._args = args;
 		this._log = log;
 		this._observers = observers;
+		this._modelFactory = modelFactory;
 	}
 
 	getModel(): string {
@@ -75,7 +77,7 @@ export class SessionHandle implements Session {
 	}
 
 	setModel(id: string): void {
-		this._currentModel = buildModel(id);
+		this._currentModel = this._modelFactory(id);
 		const supportsThinking = this._currentModel.reasoning && !this._currentModel.id.includes("haiku");
 		if (!supportsThinking) this._thinkingState.level = undefined;
 		else if (!this._thinkingState.level) this._thinkingState.level = "medium";

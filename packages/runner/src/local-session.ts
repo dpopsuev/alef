@@ -15,6 +15,7 @@ import type { AlefConfig } from "./config.js";
 import { configureSessionActors } from "./identity/actor.js";
 import { ActorRouteTable } from "./identity/routes.js";
 import type { LoadResult } from "./load-organs.js";
+import { buildModel } from "./model/index.js";
 import { createDefaultDirectives, loadWorkspace, registerOrgans } from "./prompt.js";
 import type { AgentEvent, Session, SessionState, TokensConsumed } from "./session.js";
 import { SessionHandle } from "./session-lifecycle/index.js";
@@ -466,6 +467,7 @@ export async function createLocalSession(
 		args,
 		log,
 		observers,
+		modelFactory: buildModel,
 	});
 	if (llmController) handle.setTurnController(llmController);
 

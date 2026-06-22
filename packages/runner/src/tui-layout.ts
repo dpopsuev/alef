@@ -1,6 +1,7 @@
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
+import { AtAddressProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, color, type ThemeTokens } from "./theme.js";
@@ -78,7 +79,7 @@ export async function buildLayout(
 		t,
 		modelId: opts.modelId,
 		cwd: opts.cwd ?? process.cwd(),
-		actorRoutes: opts.actorRoutes,
+		atProvider: opts.actorRoutes ? new AtAddressProvider(opts.actorRoutes) : undefined,
 	});
 
 	tui.addChild(dashboard);

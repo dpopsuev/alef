@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import Database from "better-sqlite3";
+import { migrateJsonlToSqlite, needsMigration } from "./migrate.js";
 import { applySchema } from "./schema.js";
 
 let _db: Database.Database | undefined;
@@ -15,6 +16,16 @@ export function getDatabase(path?: string): Database.Database {
 	_db.pragma("synchronous = NORMAL");
 	_db.pragma("foreign_keys = ON");
 	applySchema(_db);
+
+	if (needsMigration(_db)) {
+		const result = migrateJsonlToSqlite(_db);
+		if (result.sessions > 0) {
+			process.stderr.write(
+				`[storage] Migrated ${result.sessions} sessions (${result.events} events) from JSONL to SQLite\n`,
+			);
+		}
+	}
+
 	return _db;
 }
 

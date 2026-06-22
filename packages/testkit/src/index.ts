@@ -3,6 +3,10 @@
 // and would break production installs that import from this package.
 
 export {
+	type AdapterComplianceOptions,
+	type AdapterContractOptions,
+	type AdapterContractReport,
+	type AdapterContractViolation,
 	assertOrganContract,
 	type OrganComplianceOptions,
 	type OrganContractOptions,

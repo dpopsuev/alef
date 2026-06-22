@@ -414,11 +414,11 @@ export async function createLocalSession(
 		agent: {
 			load: (o: Organ) => agent.load(o),
 			unload: (n: string) => agent.unload(n),
-			get organs() {
+			get adapters() {
 				return agent.organs;
 			},
 		},
-		loadOrgan: (path: string, cwd: string) => loadOrganFromPath(path, { cwd }),
+		loadAdapter: (path: string, cwd: string) => loadOrganFromPath(path, { cwd }),
 		cwd: args.cwd,
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {

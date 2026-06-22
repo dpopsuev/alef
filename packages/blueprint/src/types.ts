@@ -236,6 +236,7 @@ export interface AgentDefinitionInput {
 	model?: string | AgentModelSelector;
 	systemPrompt?: string;
 	organs?: AgentDefinitionOrganInput[];
+	adapters?: AgentDefinitionOrganInput[];
 	/** Event surface declarations — controls what the RouterOrgan broadcasts. */
 	surfaces?: AgentDefinitionSurfaceInput[];
 	capabilities?: {

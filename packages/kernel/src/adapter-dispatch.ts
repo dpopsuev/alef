@@ -1,11 +1,11 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny } from "zod";
 import type { AccessPolicy } from "./access-policy.js";
+import type { CacheStrategy } from "./adapter-cache.js";
+import { makeCacheKey } from "./adapter-cache.js";
+import type { MotorAction, MotorHandlerCtx, OrganLogger, SenseAction, SenseHandlerCtx } from "./adapter-types.js";
 import type { MotorEvent, Nerve, SenseEvent } from "./buses.js";
 import { debugLog } from "./debug.js";
-import type { CacheStrategy } from "./organ-cache.js";
-import { makeCacheKey } from "./organ-cache.js";
-import type { MotorAction, MotorHandlerCtx, OrganLogger, SenseAction, SenseHandlerCtx } from "./organ-types.js";
 import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
 
 /**
@@ -97,7 +97,9 @@ export async function dispatchMotorAction(
 			return;
 		}
 		if (decision.action === "escalate") {
-			const approved = options.onEscalate ? await options.onEscalate(motor.type, payload, decision.reason ?? "") : false;
+			const approved = options.onEscalate
+				? await options.onEscalate(motor.type, payload, decision.reason ?? "")
+				: false;
 			if (!approved) {
 				nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied (escalation rejected)`));
 				return;
@@ -161,7 +163,8 @@ export async function dispatchMotorAction(
 
 			// Record tool output so eval harness can check what the tool produced.
 			try {
-				const { isFinal: _f, _display: _d, toolCallId: _id, ...resultForLog } = result as Record<string, unknown>;
+				const resultObj = result;
+				const { isFinal: _f, _display: _d, toolCallId: _id, ...resultForLog } = resultObj;
 				span.addEvent("tool.result", { result: JSON.stringify(resultForLog) });
 			} catch {
 				/* non-serialisable result — skip */

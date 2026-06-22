@@ -160,7 +160,12 @@ export const McpOrgan = {
 	async stdio(command: string, args: string[], name?: string, env?: Record<string, string>): Promise<Organ> {
 		const organName = name ?? args.at(-1)?.split("/").at(-1)?.replace(/^@/, "") ?? "mcp";
 		const transportOpts: { command: string; args: string[]; env?: Record<string, string> } = { command, args };
-		if (env) transportOpts.env = { ...process.env, ...env } as Record<string, string>;
+		if (env) {
+			const filteredEnv = Object.fromEntries(
+				Object.entries({ ...process.env, ...env }).filter(([_, v]) => v !== undefined),
+			) as Record<string, string>;
+			transportOpts.env = filteredEnv;
+		}
 		const client = await createMCPClient({
 			transport: new StdioClientTransport(transportOpts),
 		});

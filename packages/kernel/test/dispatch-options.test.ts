@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { AccessDecision, AccessPolicy } from "../src/access-policy.js";
+import { createMapCache } from "../src/adapter-cache.js";
+import { dispatchMotorAction } from "../src/adapter-dispatch.js";
 import type { MotorEvent, SenseEvent } from "../src/buses.js";
 import { InProcessNerve } from "../src/in-process-nerve.js";
-import { createMapCache } from "../src/organ-cache.js";
-import { dispatchMotorAction } from "../src/organ-dispatch.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();

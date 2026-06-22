@@ -119,7 +119,8 @@ function buildCatalogContent(tools: readonly ToolDefinition[]): RawMsg {
 		"",
 		...lines,
 	].join("\n");
-	return { role: "user", content } as unknown as RawMsg;
+	const msg: RawMsg = { role: "user", content };
+	return msg;
 }
 
 function buildEvictionContent(described: Set<string>, tools: readonly ToolDefinition[]): RawMsg {
@@ -129,10 +130,11 @@ function buildEvictionContent(described: Set<string>, tools: readonly ToolDefini
 		.sort((a, b) => a.name.localeCompare(b.name))
 		.map((t) => t.name)
 		.join(", ");
-	return {
+	const msg: RawMsg = {
 		role: "user",
 		content: `[Tool catalog compacted. Described so far: ${used}. Still available: ${remaining || "none"}. Call tools.describe([name]) to get any tool's schema.]`,
-	} as unknown as RawMsg;
+	};
+	return msg;
 }
 
 function injectCatalogMsg(messages: RawMsg[], tools: readonly ToolDefinition[]): RawMsg[] {
@@ -141,9 +143,7 @@ function injectCatalogMsg(messages: RawMsg[], tools: readonly ToolDefinition[]):
 
 function evictCatalogMsg(messages: RawMsg[], described: Set<string>, tools: readonly ToolDefinition[]): RawMsg[] {
 	const eviction = buildEvictionContent(described, tools);
-	return messages.map((m) =>
-		typeof m.content === "string" && (m.content as string).startsWith(CATALOG_MARKER) ? eviction : m,
-	);
+	return messages.map((m) => (typeof m.content === "string" && m.content.startsWith(CATALOG_MARKER) ? eviction : m));
 }
 
 function namespaceOf(name: string): string {
@@ -170,7 +170,7 @@ function createPromotionTracker(): PromotionTracker {
 	};
 }
 
-export function createToolShellOrgan(opts: ToolShellOptions) {
+export function createToolShellAdapter(opts: ToolShellOptions) {
 	const { organDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
 
 	const resolveTools = opts.getTools ?? (() => opts.tools);
@@ -204,7 +204,7 @@ export function createToolShellOrgan(opts: ToolShellOptions) {
 			results.push({
 				name: t.name,
 				description: t.description,
-				schema: toolInputToJsonSchema(t.inputSchema) as Record<string, unknown>,
+				schema: toolInputToJsonSchema(t.inputSchema),
 				guidance: (organDirectives.get(name) ?? []).join("\n\n"),
 			});
 		}
@@ -366,15 +366,20 @@ export function buildBootCatalog(tools: readonly ToolDefinition[]): string {
 	].join("\n");
 }
 
-export function buildOrganDirectives(
-	organs: readonly { tools: readonly ToolDefinition[]; directives?: readonly string[] }[],
+export function buildAdapterDirectives(
+	adapters: readonly { tools: readonly ToolDefinition[]; directives?: readonly string[] }[],
 ): ReadonlyMap<string, readonly string[]> {
 	const map = new Map<string, readonly string[]>();
-	for (const organ of organs) {
-		if (!organ.directives?.length) continue;
-		for (const tool of organ.tools) {
-			map.set(tool.name, organ.directives);
+	for (const adapter of adapters) {
+		if (!adapter.directives?.length) continue;
+		for (const tool of adapter.tools) {
+			map.set(tool.name, adapter.directives);
 		}
 	}
 	return map;
 }
+
+/** @deprecated Use createToolShellAdapter */
+export const createToolShellOrgan = createToolShellAdapter;
+/** @deprecated Use buildAdapterDirectives */
+export const buildOrganDirectives = buildAdapterDirectives;

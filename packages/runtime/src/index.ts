@@ -3,8 +3,10 @@ export type { SubagentFactory, SubagentFactoryOptions } from "./in-process.js";
 export { InProcessStrategy } from "./in-process.js";
 export { RemoteStrategy, type RemoteStrategyOptions } from "./remote-strategy.js";
 export {
+	buildAdapterDirectives,
 	buildBootCatalog,
 	buildOrganDirectives,
+	createToolShellAdapter,
 	createToolShellOrgan,
 	type ToolShellOptions,
 } from "./tool-catalog.js";
@@ -133,9 +135,11 @@ export class Agent {
 				return true;
 			});
 	}
-	/** Organs stored for lazy port detection in validate(). */
 	private readonly _organs: Organ[] = [];
-	/** Loaded organs in mount order. Includes metadata (description, labels). */
+	get adapters(): readonly Organ[] {
+		return this._organs;
+	}
+	/** @deprecated Use adapters */
 	get organs(): readonly Organ[] {
 		return this._organs;
 	}

@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "./args.js";
+import { dispatchCliOp } from "./cli-ops.js";
 import { loadConfig } from "./config.js";
 import { runDebugSession } from "./debug-session.js";
 import { setupTrace } from "./debug-trace.js";
@@ -128,24 +129,8 @@ const {
 	trace,
 );
 
-if (args.listTools) {
-	for (const tool of localSession.tools) {
-		console.log(tool.name);
-	}
-	process.exit(0);
-}
-
-if (args.listOrgans) {
-	for (const organ of localSession.organs) {
-		const suffix = [
-			organ.labels?.length ? `[${organ.labels.join(", ")}]` : "",
-			organ.description ? `— ${organ.description}` : "",
-		]
-			.filter(Boolean)
-			.join(" ");
-		console.log(suffix ? `${organ.name} ${suffix}` : organ.name);
-	}
-	process.exit(0);
+if (dispatchCliOp(args, localSession)) {
+	// CLI op dispatched — it calls process.exit() internally
 }
 const opacity = cfg.theme?.background_opacity ?? readAlacrittyOpacity();
 const [isDark, terminalPalette] = await Promise.all([

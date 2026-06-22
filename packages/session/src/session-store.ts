@@ -136,9 +136,7 @@ export function extractContentLength(payload: Record<string, unknown>): number {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-function cwdHash(cwd: string): string {
-	return createHash("sha1").update(cwd).digest("hex").slice(0, 12);
-}
+import { cwdHash, TurnIndexer } from "./turn-indexer.js";
 
 function sessionDir(cwd: string): string {
 	return join(homedir(), ".alef", "sessions", cwdHash(cwd));
@@ -160,43 +158,12 @@ export class JsonlSessionStore {
 	readonly id: string;
 	readonly path: string;
 
-	// Raw event log — append-only, used by events() and to warm turn index.
 	private readonly _cache: StorageRecord[] = [];
-
-	// Incremental turn index — updated on every append() so turns() and
-	// hitCounts() are O(1) reads rather than full-log scans.
-	private readonly _turnMap: Map<string, Turn> = new Map();
-	private _nextTurnIndex = 0;
-	private readonly _turnContentLengths: Map<string, number> = new Map();
-	private readonly _hitCountsMap: Map<string, number> = new Map();
+	private readonly _indexer = new TurnIndexer();
 
 	private constructor(cwd: string, id: string) {
 		this.id = id;
 		this.path = sessionPath(cwd, id);
-	}
-
-	private _indexRecord(record: StorageRecord): void {
-		if (record.bus === "internal" && record.type === "window.assembled") {
-			const ids = (record.payload as WindowAssembledRecord["payload"]).includedTurnIds ?? [];
-			for (const id of ids) {
-				this._hitCountsMap.set(id, (this._hitCountsMap.get(id) ?? 0) + 1);
-			}
-			return;
-		}
-		if (record.bus !== "motor" && record.bus !== "sense" && record.type !== "llm.checkpoint") return;
-
-		const turnId = record.correlationId;
-		let turn = this._turnMap.get(turnId);
-		if (!turn) {
-			turn = { id: turnId, events: [], turnIndex: this._nextTurnIndex++, tokenCost: 0, typeWeight: 0 };
-			this._turnMap.set(turnId, turn);
-			this._turnContentLengths.set(turnId, 0);
-		}
-		turn.events.push(record);
-		turn.typeWeight = Math.max(turn.typeWeight, eventTypeWeight(record.type));
-		const sum = (this._turnContentLengths.get(turnId) ?? 0) + extractContentLength(record.payload);
-		this._turnContentLengths.set(turnId, sum);
-		turn.tokenCost = Math.ceil(sum / 4);
 	}
 
 	private static async _warmCache(store: JsonlSessionStore): Promise<JsonlSessionStore> {
@@ -208,7 +175,7 @@ export class JsonlSessionStore {
 				.map((line) => JSON.parse(line) as StorageRecord);
 			for (const record of records) {
 				store._cache.push(record);
-				store._indexRecord(record);
+				store._indexer.index(record);
 			}
 		} catch {
 			// Empty or missing file — cache stays empty.
@@ -248,7 +215,7 @@ export class JsonlSessionStore {
 
 	async append(record: StorageRecord): Promise<void> {
 		this._cache.push(record);
-		this._indexRecord(record);
+		this._indexer.index(record);
 		const line = `${JSON.stringify(record)}\n`;
 		await appendFile(this.path, line, "utf-8");
 
@@ -333,7 +300,7 @@ export class JsonlSessionStore {
 	 * Reads from the incremental index built in append() — O(n_turns) not O(n_events).
 	 */
 	turns(): Promise<Turn[]> {
-		return Promise.resolve(Array.from(this._turnMap.values()));
+		return Promise.resolve(Array.from(this._indexer.turnMap.values()));
 	}
 
 	/**
@@ -341,7 +308,7 @@ export class JsonlSessionStore {
 	 * Reads from the incremental index built in append() — O(1).
 	 */
 	hitCounts(): Promise<Map<string, number>> {
-		return Promise.resolve(new Map(this._hitCountsMap));
+		return Promise.resolve(new Map(this._indexer.hitCountsMap));
 	}
 
 	/**

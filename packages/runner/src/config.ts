@@ -115,6 +115,15 @@ const ConfigSchema = z.object({
 
 	/** Active profile name — selects which profile to apply on boot. */
 	profile: z.string().optional(),
+
+	storage: z
+		.object({
+			backend: z.enum(["local", "turso"]).optional(),
+			turso_url: z.string().optional(),
+			turso_token: z.string().optional(),
+			sync_interval: z.number().optional(),
+		})
+		.optional(),
 });
 
 export type AlefConfig = z.infer<typeof ConfigSchema>;

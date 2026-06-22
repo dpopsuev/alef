@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { cwdHash, type SessionStore, type StorageRecord, type Turn, TurnIndexer } from "@dpopsuev/alef-session";
 import type { Client } from "@libsql/client";
+import { queueEmbedding } from "./embedder.js";
 
 function deriveOrgan(type: string): string | null {
 	const dot = type.indexOf(".");
@@ -135,7 +136,7 @@ export class SqliteSessionStore implements SessionStore {
 			? this._indexer.turnMap.get(record.correlationId)!.turnIndex
 			: null;
 
-		await this._client.execute({
+		const insertResult = await this._client.execute({
 			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload,
 				timestamp, elapsed, hash, actor_address, actor_type, organ, turn_number, version)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -159,6 +160,8 @@ export class SqliteSessionStore implements SessionStore {
 			sql: "UPDATE sessions SET updated_at = ? WHERE id = ?",
 			args: [Date.now(), this.id],
 		});
+
+		queueEmbedding(this._client, Number(insertResult.lastInsertRowid), record.bus, record.type, record.payload);
 	}
 
 	events(): Promise<StorageRecord[]> {

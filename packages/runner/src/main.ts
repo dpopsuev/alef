@@ -101,6 +101,17 @@ if (args.attach !== undefined) {
 	process.exit(0);
 }
 
+// Configure storage backend from config.yaml (local or Turso cloud).
+if (cfg.storage) {
+	const { configureStorage } = await import("@dpopsuev/alef-storage");
+	configureStorage({
+		backend: cfg.storage.backend,
+		tursoUrl: cfg.storage.turso_url,
+		tursoToken: cfg.storage.turso_token,
+		syncInterval: cfg.storage.sync_interval,
+	});
+}
+
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
 const log = createRunnerLogger(willUseTui, args.debug);
 const session = await loadSession(args, willUseTui);
@@ -118,6 +129,11 @@ initSessionSink((record) => {
 });
 
 debugLog("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
+
+// Initialize local embedding model for vector recall (lazy-loads on first embed).
+import("@dpopsuev/alef-storage")
+	.then(({ setEmbedder, LocalEmbedder }) => setEmbedder(new LocalEmbedder()))
+	.catch(() => {});
 
 const loaded = await loadOrgans(args, cfg, log);
 const { blueprintUpgradePolicy, blueprintPath } = loaded;

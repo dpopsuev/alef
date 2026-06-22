@@ -62,18 +62,19 @@ function scoreTurn(
 	hitCounts: Map<string, number>,
 	maxHitCount: number,
 	policy: ContextWindowPolicy,
+	vectorScores?: Map<string, number>,
 ): number {
 	const overlap = termOverlap(turn, queryTokens);
-	// Treat unseen turns as hitCount=1 (neutral) rather than 0 to avoid
-	// penalising turns that have never been assembled — cold-start fairness.
 	const hitFreq = normalize(hitCounts.get(turn.id) ?? 1, maxHitCount);
 	const recency = turn.turnIndex;
+	const vectorSimilarity = vectorScores?.get(turn.id) ?? 0;
 
 	return (
 		policy.queryMatchWeight * overlap +
 		policy.accessFrequencyWeight * hitFreq +
 		policy.sessionRecencyWeight * recency +
-		turn.typeWeight // additive bonus, not multiplied by weight — breaks the uniform pattern intentionally
+		turn.typeWeight +
+		vectorSimilarity * 0.5
 	);
 }
 
@@ -89,6 +90,7 @@ export interface AssembleOptions {
 	contextWindow: number;
 	policy?: Partial<ContextWindowPolicy>;
 	hitCounts?: Map<string, number>;
+	vectorScores?: Map<string, number>;
 }
 
 export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
@@ -115,11 +117,19 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
 	const maxHitCount = Math.max(1, ...Array.from(hitCounts.values()));
 	const maxTurnIndex = Math.max(1, turns.at(-1)?.turnIndex ?? 1);
 
+	const vectorScores = opts.vectorScores;
 	const scored = candidateTurns.map((turn) => {
-		const rawScore = scoreTurn(turn, queryTokens, hitCounts, maxHitCount, {
-			...policy,
-			sessionRecencyWeight: policy.sessionRecencyWeight * (turn.turnIndex / maxTurnIndex),
-		});
+		const rawScore = scoreTurn(
+			turn,
+			queryTokens,
+			hitCounts,
+			maxHitCount,
+			{
+				...policy,
+				sessionRecencyWeight: policy.sessionRecencyWeight * (turn.turnIndex / maxTurnIndex),
+			},
+			vectorScores,
+		);
 		const cost = Math.min(turn.tokenCost, maxSingleTurnCost);
 		return { turn, score: rawScore, cost, evictionPriority: cost > 0 ? rawScore / cost : 0 };
 	});

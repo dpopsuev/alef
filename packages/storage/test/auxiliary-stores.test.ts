@@ -41,11 +41,13 @@ describe("SqliteDiscourseStore", { tags: ["unit"] }, () => {
 		const discourse = new SqliteDiscourseStore(client, session.id);
 
 		await discourse.append("t", "th", "a", "first");
-		const beforeSecond = Date.now();
 		await discourse.append("t", "th", "b", "second");
 
-		const filtered = await discourse.readThread("t", "th", beforeSecond - 1);
-		expect(filtered).toHaveLength(2);
+		const all = await discourse.readThread("t", "th", 0);
+		expect(all).toHaveLength(2);
+
+		const none = await discourse.readThread("t", "th", Date.now() + 10_000);
+		expect(none).toHaveLength(0);
 	});
 
 	it("lists topics and threads", async () => {

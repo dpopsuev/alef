@@ -34,7 +34,7 @@ systemPrompt: |
     - supervisor.kill() the staging child after evaluation (pass or fail).
     - Read EvalResult.reasoning carefully when an eval fails — it tells you what to fix.
 
-organs:
+adapters:
   - name: fs
   - name: nodesh
   - name: supervisor

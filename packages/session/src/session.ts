@@ -88,6 +88,7 @@ export interface Session {
 	loadOrgan?(path: string): Promise<void>;
 	unloadOrgan?(name: string): boolean;
 	reloadOrgan?(name: string, path: string): Promise<void>;
+	readonly organs?: ReadonlyArray<{ name: string; description?: string }>;
 
 	dispose(): void;
 

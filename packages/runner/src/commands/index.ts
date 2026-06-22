@@ -230,22 +230,40 @@ const load = {
 
 const unload = {
 	name: "unload",
-	description: "Unmount a loaded organ by name — :unload <name>",
+	description: "Unmount a loaded organ — :unload or :unload <name>",
 	run(ctx: TuiHandlerContext, args: string[]) {
-		const [name] = args;
-		if (!name) {
-			ctx.writer.addNotice("Usage: :unload <name>");
-			ctx.tui.requestRender();
-			return;
-		}
 		if (!ctx.session.unloadOrgan) {
 			ctx.writer.addNotice(":unload not available in this session.");
 			ctx.tui.requestRender();
 			return;
 		}
-		const removed = ctx.session.unloadOrgan?.(name);
-		ctx.writer.addNotice(removed ? `Unloaded ${name}.` : `No organ named '${name}'.`);
-		ctx.tui.requestRender();
+		const [name] = args;
+		if (name) {
+			const removed = ctx.session.unloadOrgan(name);
+			ctx.writer.addNotice(removed ? `Unloaded ${name}.` : `No organ named '${name}'.`);
+			ctx.tui.requestRender();
+			return;
+		}
+		const organs = ctx.session.organs ?? [];
+		if (organs.length === 0) {
+			ctx.writer.addNotice("No organs loaded.");
+			ctx.tui.requestRender();
+			return;
+		}
+		const items: SelectItem[] = organs.map((o) => ({
+			value: o.name,
+			label: o.name,
+			description: o.description,
+		}));
+		openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
+			id: "unload-picker",
+			items,
+			onSelect: (item) => {
+				const removed = ctx.session.unloadOrgan?.(item.value);
+				ctx.writer.addNotice(removed ? `Unloaded ${item.value}.` : `No organ named '${item.value}'.`);
+				ctx.tui.requestRender();
+			},
+		});
 	},
 };
 

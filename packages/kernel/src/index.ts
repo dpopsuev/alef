@@ -12,7 +12,7 @@ export { InProcessNerve } from "./in-process-nerve.js";
 export { LogField } from "./log-fields.js";
 export * from "./mcp-organ.js";
 export { type CacheStrategy, createMapCache, makeCacheKey } from "./organ-cache.js";
-export { type DispatchOptions, type EscalationHandler, setDispatchPolicy } from "./organ-dispatch.js";
+export { type DispatchOptions, type EscalationHandler } from "./organ-dispatch.js";
 export { explainOrgan } from "./organ-explain.js";
 export * from "./organ-sdk.js";
 export * from "./payload.js";

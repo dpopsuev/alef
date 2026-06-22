@@ -129,6 +129,12 @@ export interface Args {
 	pmImport: string | true | undefined;
 	/** alef update — self-update the alef binary */
 	pmSelfUpdate: boolean;
+
+	// ── Introspection commands ──────────────────────────────────────────────
+	listModels: boolean;
+	showConfig: boolean;
+	listDirectives: boolean;
+	preflight: boolean;
 }
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5@20250929";
@@ -149,6 +155,10 @@ Options:
   --no-tui               Use readline mode instead of TUI (also auto-set on non-TTY)
   --json                 Emit structured JSONL events (for TUI consumers)
   --debug                Debug mode: verbose logs + lifecycle trace to ~/.alef/debug.log
+  --list-models          Print available models for active profile and exit
+  --show-config          Print parsed config.yaml as JSON and exit
+  --list-directives      Print enabled system prompt directive blocks and exit
+  --preflight            Verify config, model, organs, tools, directives and exit
   -h, --help             Show this help
 
 Package manager:
@@ -210,6 +220,11 @@ export function parseArgs(argv: string[]): Args {
 		pmExport: undefined,
 		pmImport: undefined,
 		pmSelfUpdate: false,
+
+		listModels: false,
+		showConfig: false,
+		listDirectives: false,
+		preflight: false,
 	};
 
 	let i = 0;
@@ -261,6 +276,30 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--list-organs") {
 			args.listOrgans = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--list-models") {
+			args.listModels = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--show-config") {
+			args.showConfig = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--list-directives") {
+			args.listDirectives = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--preflight") {
+			args.preflight = true;
 			i++;
 			continue;
 		}

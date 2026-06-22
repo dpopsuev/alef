@@ -24,25 +24,14 @@ export type EscalationHandler = (
 export interface DispatchOptions {
 	/**
 	 * Access policy to check before executing the action.
-	 * If undefined, uses global policy (if set) or allows all.
+	 * If undefined, all actions are allowed.
 	 */
 	policy?: AccessPolicy;
 	/**
 	 * Escalation handler called when policy returns 'escalate'.
-	 * If undefined, uses global handler (if set) or denies escalations.
+	 * If undefined, escalations are denied.
 	 */
 	onEscalate?: EscalationHandler;
-}
-
-let _defaultDispatchOptions: DispatchOptions = {};
-
-/**
- * Set global default dispatch options.
- * @deprecated Use DispatchOptions parameter in dispatchMotorAction instead.
- * This function exists for backward compatibility during migration.
- */
-export function setDispatchPolicy(policy?: AccessPolicy, onEscalate?: EscalationHandler): void {
-	_defaultDispatchOptions = { policy, onEscalate };
 }
 
 const tracer = trace.getTracer("alef.spine", "0.0.1");
@@ -101,18 +90,14 @@ export async function dispatchMotorAction(
 	const payload = validateMotorPayload(motor, schema, nerve);
 	if (payload === null) return;
 
-	// Merge explicit options with defaults (explicit takes precedence)
-	const policy = options?.policy ?? _defaultDispatchOptions.policy;
-	const onEscalate = options?.onEscalate ?? _defaultDispatchOptions.onEscalate;
-
-	if (policy) {
-		const decision = policy.check(motor.type, payload);
+	if (options?.policy) {
+		const decision = options.policy.check(motor.type, payload);
 		if (decision.action === "deny") {
 			nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied by access policy`));
 			return;
 		}
 		if (decision.action === "escalate") {
-			const approved = onEscalate ? await onEscalate(motor.type, payload, decision.reason ?? "") : false;
+			const approved = options.onEscalate ? await options.onEscalate(motor.type, payload, decision.reason ?? "") : false;
 			if (!approved) {
 				nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied (escalation rejected)`));
 				return;

@@ -4,7 +4,7 @@ import type { AccessDecision, AccessPolicy } from "../src/access-policy.js";
 import type { MotorEvent, SenseEvent } from "../src/buses.js";
 import { InProcessNerve } from "../src/in-process-nerve.js";
 import { createMapCache } from "../src/organ-cache.js";
-import { dispatchMotorAction, setDispatchPolicy } from "../src/organ-dispatch.js";
+import { dispatchMotorAction } from "../src/organ-dispatch.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
@@ -66,52 +66,35 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		expect(sense.errorMessage).toContain("test policy denies all");
 	});
 
-	it("uses global policy as fallback when no options provided", async () => {
+	it("allows no policy to be provided", async () => {
 		const { nerve, n } = makeNerve();
 
-		const denyAllPolicy: AccessPolicy = {
-			check: (): AccessDecision => ({ action: "deny", reason: "global policy denies" }),
-		};
-
-		// Set global policy
-		setDispatchPolicy(denyAllPolicy);
-
 		const action = {
-			tool: { name: "test.global", description: "Test", inputSchema: z.object({}) },
+			tool: { name: "test.nopolicy", description: "Test", inputSchema: z.object({}) },
 			async *handle() {
 				yield { result: "executed" };
 			},
 		};
 
 		const cache = createMapCache();
-		const promise = waitSense(nerve, "test.global");
+		const promise = waitSense(nerve, "test.nopolicy");
 
-		const motor = createMotorEvent("test.global", "corr-2");
+		const motor = createMotorEvent("test.nopolicy", "corr-2");
 
-		// Dispatch without options - should use global
+		// Dispatch without any policy - should allow
 		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined);
 
 		const sense = await promise;
-		expect(sense.isError).toBe(true);
-		expect(sense.errorMessage).toContain("global policy denies");
-
-		// Clean up global state
-		setDispatchPolicy(undefined);
+		expect(sense.isError).toBe(false);
+		expect(sense.payload).toMatchObject({ result: "executed" });
 	});
 
-	it("explicit options override global policy", async () => {
+	it("explicit policy overrides no-policy default", async () => {
 		const { nerve, n } = makeNerve();
 
 		const denyPolicy: AccessPolicy = {
-			check: (): AccessDecision => ({ action: "deny", reason: "global denies" }),
+			check: (): AccessDecision => ({ action: "deny", reason: "explicitly denied" }),
 		};
-
-		const allowPolicy: AccessPolicy = {
-			check: (): AccessDecision => ({ action: "allow" }),
-		};
-
-		// Set global deny policy
-		setDispatchPolicy(denyPolicy);
 
 		const action = {
 			tool: { name: "test.override", description: "Test", inputSchema: z.object({}) },
@@ -125,15 +108,12 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 
 		const motor = createMotorEvent("test.override", "corr-3");
 
-		// Override with allow policy
-		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined, { policy: allowPolicy });
+		// Explicit deny should work
+		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined, { policy: denyPolicy });
 
 		const sense = await promise;
-		expect(sense.isError).toBe(false);
-		expect(sense.payload).toMatchObject({ result: "executed" });
-
-		// Clean up global state
-		setDispatchPolicy(undefined);
+		expect(sense.isError).toBe(true);
+		expect(sense.errorMessage).toContain("explicitly denied");
 	});
 
 	it("handles escalation with injected handler", async () => {

@@ -2,21 +2,22 @@ import type { ZodTypeAny, z } from "zod";
 import type { Budget } from "./budget.js";
 import type { Nerve, NerveMiddleware, ToolDefinition } from "./buses.js";
 
-export interface OrganLogger {
+export interface AdapterLogger {
 	debug(obj: Record<string, unknown>, msg: string): void;
 	info(obj: Record<string, unknown>, msg: string): void;
 	warn(obj: Record<string, unknown>, msg: string): void;
 	error(obj: Record<string, unknown>, msg: string): void;
-	/** Create a child logger with additional bound fields. */
-	child(bindings: Record<string, unknown>): OrganLogger;
+	child(bindings: Record<string, unknown>): AdapterLogger;
 }
+
+/** @deprecated Use AdapterLogger */
+export type OrganLogger = AdapterLogger;
 
 export interface MotorHandlerCtx<TPayload = Record<string, unknown>> {
 	readonly correlationId: string;
 	readonly toolCallId: string | undefined;
 	readonly payload: TPayload;
-	/** Child logger pre-stamped with organ and tool name. Use for warn/debug from handler code. */
-	readonly log: OrganLogger;
+	readonly log: AdapterLogger;
 }
 
 export interface MotorAction {
@@ -73,14 +74,14 @@ export interface ActionMap {
 	sense?: SenseActionMap;
 }
 
-import type { OrganContributions, SkillBook } from "./buses.js";
+import type { AdapterContributions, SkillBook } from "./buses.js";
 
-export interface OrganOptions {
-	logger?: OrganLogger;
+export interface AdapterOptions {
+	logger?: AdapterLogger;
 	actions?: readonly string[];
 	directives?: readonly string[];
-	skills?: readonly SkillBook[]; // shorthand: folded into contributions["skills"] by defineOrgan
-	contributions?: OrganContributions;
+	skills?: readonly SkillBook[];
+	contributions?: AdapterContributions;
 	description?: string;
 	labels?: readonly string[];
 	publishSchemas?: {
@@ -97,3 +98,6 @@ export interface OrganOptions {
 	limits?: Budget;
 	middlewares?: NerveMiddleware[];
 }
+
+/** @deprecated Use AdapterOptions */
+export type OrganOptions = AdapterOptions;

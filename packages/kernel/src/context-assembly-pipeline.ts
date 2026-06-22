@@ -1,14 +1,14 @@
 import type {
+	Adapter,
 	ContextAssemblyHandler,
 	MotorEvent,
 	Nerve,
-	Organ,
 	PipelineContributions,
 	SenseEvent,
 	ToolDefinition,
 } from "./buses.js";
 
-export function createContextAssemblyPipeline(): Organ & {
+export function createContextAssemblyPipeline(): Adapter & {
 	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
 	addStage(name: string, handler: ContextAssemblyHandler): void;
 } {

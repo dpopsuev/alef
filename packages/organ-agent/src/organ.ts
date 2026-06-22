@@ -708,6 +708,7 @@ export function createAgentOrgan(
 						const extraOrgans: Organ[] = [];
 						const context: AgentRunContext = {
 							prependInstructions: (t) => instructionParts.unshift(t),
+							addAdapters: (o) => extraOrgans.push(...o),
 							addOrgans: (o) => extraOrgans.push(...o),
 						};
 						await composite.extend(payload, context);

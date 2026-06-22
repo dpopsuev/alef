@@ -22,7 +22,9 @@ export interface SkillBook {
 
 export interface AgentRunContext {
 	prependInstructions(text: string): void;
-	addOrgans(organs: Organ[]): void;
+	addAdapters(adapters: Adapter[]): void;
+	/** @deprecated Use addAdapters */
+	addOrgans(organs: Adapter[]): void;
 }
 
 export interface AgentRunContribution {
@@ -83,13 +85,13 @@ export interface PortDefinition {
 }
 
 /**
- * Abstract theme for organ TUI renderers.
+ * Abstract theme for adapter TUI renderers.
  *
- * Uses semantic colour names so organs are decoupled from ANSI/terminal specifics.
+ * Uses semantic colour names so adapters are decoupled from ANSI/terminal specifics.
  * The runner provides a concrete implementation; a web renderer could provide CSS classes.
- * Defined in kernel so organ packages can reference it without importing alef-tui.
+ * Defined in kernel so adapter packages can reference it without importing alef-tui.
  */
-export interface OrganTheme {
+export interface AdapterTheme {
 	/** Apply a semantic foreground colour to text. */
 	fg(color: "accent" | "success" | "error" | "warning" | "muted" | "dim", text: string): string;
 	/** Apply bold styling. */
@@ -98,8 +100,11 @@ export interface OrganTheme {
 	dim(text: string): string;
 }
 
+/** @deprecated Use AdapterTheme */
+export type OrganTheme = AdapterTheme;
+
 /**
- * TUI contribution — organ-owned renderer for its tool calls and results.
+ * TUI contribution — adapter-owned renderer for its tool calls and results.
  *
  * The TUI aggregator calls these when displaying tool events. Returning null
  * falls back to the default generic pill renderer.
@@ -117,13 +122,13 @@ export type TuiSignalHandler = (payload: Record<string, unknown>, ui: TuiSignalS
 
 export interface TuiContribution {
 	/** Render the in-progress tool call header (while waiting for result). */
-	renderCall?(toolName: string, args: Record<string, unknown>, theme: OrganTheme): unknown;
+	renderCall?(toolName: string, args: Record<string, unknown>, theme: AdapterTheme): unknown;
 	/** Render the completed tool result. */
 	renderResult?(
 		toolName: string,
 		result: Record<string, unknown>,
 		opts: { expanded: boolean; isError: boolean },
-		theme: OrganTheme,
+		theme: AdapterTheme,
 	): unknown;
 	/**
 	 * Render a nonCapturing overlay shown while the organ is active.
@@ -243,11 +248,14 @@ export interface SeamingContributions {
 	readonly "plan.scope"?: PlanScopeContribution;
 }
 
-export interface OrganContributions
+export interface AdapterContributions
 	extends ReasoningContributions,
 		PipelineContributions,
 		PresentationContributions,
 		SeamingContributions {}
+
+/** @deprecated Use AdapterContributions */
+export type OrganContributions = AdapterContributions;
 
 export interface ToolDefinition {
 	readonly name: string;
@@ -368,148 +376,63 @@ export interface Nerve {
 export type NerveMiddleware = (nerve: Nerve) => Nerve;
 
 // ---------------------------------------------------------------------------
-// Organ — unified interface. mount(nerve: Nerve) handles both bus directions.
+// Adapter — unified interface. mount(nerve: Nerve) handles both bus directions.
 // ---------------------------------------------------------------------------
 
-export interface Organ {
+export interface Adapter {
 	readonly name: string;
 	readonly tools: readonly ToolDefinition[];
 	mount(nerve: Nerve): () => void;
-	/** Async resource teardown — called after unmount() on dispose. MCP organs use this to close subprocesses. */
 	close?(): Promise<void>;
-	/**
-	 * Optional: declares which Motor and Sense event types this organ subscribes to.
-	 * Set automatically by defineOrgan from the action map keys.
-	 * Hand-crafted organs can declare this explicitly for SeamRegistry detection.
-	 * If absent, the Agent probes by calling mount on a throw-away nerve.
-	 */
-	/**
-	 * Declares which Motor and Sense event types this organ subscribes to.
-	 * Required — the framework enforces this at compile time.
-	 * defineOrgan fills it automatically from the action map keys.
-	 * Hand-crafted organs must declare it explicitly.
-	 * Agent.validate() reads this directly — no probe mount, no state corruption.
-	 */
 	readonly subscriptions: {
 		readonly motor: readonly string[];
 		readonly sense: readonly string[];
 	};
-	/**
-	 * Declares external state this organ reads (pull model).
-	 * Required — every organ must declare its pull surface explicitly.
-	 * Empty array = pure push organ (only reacts to bus events).
-	 *
-	 * Kinds:
-	 *   file    — reads from disk (session JSONL, board files, scratchpad)
-	 *   memory  — reads from in-memory state (caches, counters, maps)
-	 *   process — reads from a child process or external service (MCP, HTTP)
-	 */
 	readonly sources: readonly {
 		readonly name: string;
 		readonly kind: "file" | "memory" | "process";
 	}[];
-	/**
-	 * Optional ACI directives — organ-specific guidance injected into the system prompt.
-	 * Assembled by DirectiveContextAssembler and prepended to the base prompt.
-	 * Each string is a freeform instruction block (markdown or prose).
-	 */
 	readonly directives?: readonly string[];
-	/**
-	 * Cross-organ contributions collected by aggregator organs via sense/organ.loaded.
-	 * Each key is a well-known contribution type enforced by the kernel.
-	 */
-	readonly contributions?: OrganContributions;
-	/**
-	 * Short human-readable description of what this organ does.
-	 * Shown in --list-organs and blueprint validation output.
-	 */
+	readonly contributions?: AdapterContributions;
 	readonly description?: string;
-	/**
-	 * Freeform labels for categorisation and discovery.
-	 * Examples: ["filesystem", "readonly"], ["shell", "exec"], ["llm", "reasoning"]
-	 * Used for filtering in --list-organs and future organ registries.
-	 */
 	readonly labels?: readonly string[];
-	/**
-	 * Zod payload schemas for events this organ publishes.
-	 *
-	 * Validated by Agent.load() when ALEF_VALIDATE_PAYLOADS=1 or NODE_ENV=test.
-	 * A failing schema throws immediately at publish time with the organ name,
-	 * event type, and Zod error — not two turns into a real LLM session.
-	 *
-	 * motor: schemas for events published on the motor bus.
-	 * sense: schemas for events published on the sense bus.
-	 *
-	 * @example
-	 * publishSchemas: {
-	 *   motor: { "llm.response": z.object({ text: z.string() }) },
-	 *   sense: { "fs.read":      z.object({ content: z.string(), truncated: z.boolean() }) },
-	 * }
-	 */
 	readonly publishSchemas?: {
 		readonly motor?: Readonly<Record<string, ZodTypeAny>>;
 		readonly sense?: Readonly<Record<string, ZodTypeAny>>;
 	};
-	/** Zod schemas for incoming motor payloads, validated by the framework before dispatch. */
 	readonly inputSchemas?: {
 		readonly motor?: Readonly<Record<string, ZodTypeAny>>;
 	};
-	/**
-	 * Optional async initialization. Agent.ready() awaits all loaded organs that
-	 * declare ready() before routing any events. Use for LSP warm-up, DB connections,
-	 * container starts — anything that must complete before the first event arrives.
-	 */
 	ready?(): Promise<void>;
 }
 
+/** @deprecated Use Adapter */
+export type Organ = Adapter;
+
 // ---------------------------------------------------------------------------
-// GimpedOrgan — explicit ablation primitive.
-//
-// An organ is "gimped" when it has no tools and no subscriptions: it receives
-// nothing, contributes nothing, but the system still runs. Gimped organs are
-// used in ablation studies to measure a real organ's contribution by replacing
-// it with a pass-through and comparing scores.
-//
-// Mirrors Tako reactivity.GimpedNode: no directives → always pass-through.
+// GimpedAdapter — explicit ablation primitive.
 // ---------------------------------------------------------------------------
 
 /**
  * Reasoner — kernel-level interface for the agent's reasoning component.
  *
- * A Reasoner is NOT an Organ in the microkernel sense: it provides no tools,
+ * A Reasoner is NOT an Adapter in the microkernel sense: it provides no tools,
  * does not respond to tool-call commands, and is not called by the LLM.
- * It is the component that CALLS organs and drives the agent loop.
- *
- * Distinguishing properties:
- *   - tools is always empty (Reasoner never appears in the tool catalog)
- *   - triggerEvent is the sense event that starts a turn (configurable — any sense event)
- *   - replyEvent is the motor event published when the turn completes
- *
- * Multiple implementations are possible: organ-llm (real LLM), ScriptedReasoner
- * (deterministic test double), or future alternatives. The triggerEvent parameter
- * enables ambient agents driven by any sense event, not just llm.input.
+ * It is the component that CALLS adapters and drives the agent loop.
  */
-export interface Reasoner extends Organ {
+export interface Reasoner extends Adapter {
 	readonly tools: readonly [];
 	readonly triggerEvent: string;
 	readonly replyEvent: string;
 }
 
-/**
- * Returns true when an organ contributes nothing to the system:
- * zero tools, zero motor subscriptions, zero sense subscriptions.
- * Use in ablation studies to assert a component was effectively removed.
- */
-export function isGimped(organ: Organ): boolean {
-	return organ.tools.length === 0 && organ.subscriptions.motor.length === 0 && organ.subscriptions.sense.length === 0;
+export function isGimped(adapter: Adapter): boolean {
+	return (
+		adapter.tools.length === 0 && adapter.subscriptions.motor.length === 0 && adapter.subscriptions.sense.length === 0
+	);
 }
 
-/**
- * Create an explicit no-op organ for ablation.
- * Mounts cleanly, subscribes to nothing, exposes no tools.
- * Replaces a real organ to establish a baseline (ablated) measurement.
- */
-export function gimpedOrgan(name: string): Organ {
+export function gimpedAdapter(name: string): Adapter {
 	return {
 		name,
 		tools: [],
@@ -518,6 +441,8 @@ export function gimpedOrgan(name: string): Organ {
 		mount: () => () => {},
 	};
 }
+/** @deprecated Use gimpedAdapter */
+export const gimpedOrgan = gimpedAdapter;
 
 // InProcessNerve exported from index.ts — not here, to avoid circular import with in-process-nerve.ts
 

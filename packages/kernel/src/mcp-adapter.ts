@@ -1,37 +1,23 @@
 /**
- * McpOrgan — import any MCP server as an Alef Organ.
+ * McpAdapter — import any MCP server as an Alef Adapter.
  *
  * Wraps an MCP server (stdio or HTTP) via @ai-sdk/mcp createMCPClient.
  * Discovers tools via mcpClient.tools() (schema discovery mode — automatic).
- * Maps each discovered tool to:
- * - A ToolDefinition in organ.tools[] (for AgentController to include in LLM payloads)
- * - A Motor subscription that forwards calls to the MCP server
- * - A Sense publication of MCP tool results
- *
- * Lifecycle:
- * McpOrgan.stdio(cmd, args) — creates Organ from local MCP stdio server
- * McpOrgan.http(url) — creates Organ from remote MCP HTTP server
- * unmount() — closes mcpClient (stops subprocess for stdio)
  *
  * Consumer DX:
- * const gh = await McpOrgan.stdio('npx', ['-y', '@modelcontextprotocol/server-github'])
- * agent.load(gh) // GitHub tools now available as motor events
- *
+ * const gh = await McpAdapter.stdio('npx', ['-y', '@modelcontextprotocol/server-github'])
+ * agent.load(gh)
  */
 
 import type { MCPClient } from "@ai-sdk/mcp";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import type { Nerve, Organ, ToolDefinition } from "./buses.js";
+import type { Adapter, Nerve, ToolDefinition } from "./buses.js";
 import { passthroughSchema } from "./buses.js";
-
-// ---------------------------------------------------------------------------
-// McpOrgan
-// ---------------------------------------------------------------------------
 
 type ExecuteFn = (args: unknown, opts: unknown) => Promise<unknown>;
 
-class McpOrganImpl implements Organ {
+class McpAdapterImpl implements Adapter {
 	readonly name: string;
 	readonly description: string;
 	readonly labels = ["mcp", "external"] as const;
@@ -46,7 +32,7 @@ class McpOrganImpl implements Organ {
 
 	constructor(name: string, tools: ToolDefinition[], client: MCPClient, execMap: Map<string, ExecuteFn>) {
 		this.name = name;
-		this.description = `MCP organ wrapping the '${name}' server (${tools.length} tools).`;
+		this.description = `MCP adapter wrapping the '${name}' server (${tools.length} tools).`;
 		this.tools = tools;
 		this.client = client;
 		this.execMap = execMap;
@@ -72,7 +58,7 @@ class McpOrganImpl implements Organ {
 				const toolCallId = typeof rawToolCallId === "string" ? rawToolCallId : undefined;
 				try {
 					if (!execFn) {
-						throw new Error(`McpOrgan: no execute function for tool '${toolName}'`);
+						throw new Error(`McpAdapter: no execute function for tool '${toolName}'`);
 					}
 					const result: unknown = await execFn(args, { messages: [], toolCallId: String(toolCallId ?? "") });
 
@@ -108,17 +94,12 @@ class McpOrganImpl implements Organ {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// McpOrgan factory
-// ---------------------------------------------------------------------------
-
-/** Prefix the organ name onto an MCP tool name for Motor event routing. */
-function organToolName(organName: string, mcpName: string): string {
-	return `${organName}.${mcpName}`;
+function adapterToolName(adapterName: string, mcpName: string): string {
+	return `${adapterName}.${mcpName}`;
 }
 
-/** @internal Exported for testing only. Use McpOrgan.stdio/http in production. */
-export async function createMcpOrganFromClient(client: MCPClient, name: string): Promise<Organ> {
+/** @internal Exported for testing only. Use McpAdapter.stdio/http in production. */
+export async function createMcpAdapterFromClient(client: MCPClient, name: string): Promise<Adapter> {
 	const aiTools = await client.tools();
 	const toolNames = Object.keys(aiTools);
 
@@ -127,7 +108,7 @@ export async function createMcpOrganFromClient(client: MCPClient, name: string):
 
 	for (const mcpName of toolNames) {
 		const tool = aiTools[mcpName];
-		const motorName = organToolName(name, mcpName);
+		const motorName = adapterToolName(name, mcpName);
 		const execFn = (tool as unknown as { execute?: ExecuteFn }).execute;
 		if (execFn) execMap.set(motorName, execFn);
 
@@ -142,22 +123,13 @@ export async function createMcpOrganFromClient(client: MCPClient, name: string):
 		});
 	}
 
-	return new McpOrganImpl(name, tools, client, execMap);
+	return new McpAdapterImpl(name, tools, client, execMap);
 }
+/** @deprecated Use createMcpAdapterFromClient */
+export const createMcpOrganFromClient = createMcpAdapterFromClient;
 
-export const McpOrgan = {
-	/**
-	 * Create an Organ from a local MCP stdio server.
-	 *
-	 * @param command Executable to spawn (e.g. 'npx', 'node')
-	 * @param args Arguments (e.g. ['-y', '@modelcontextprotocol/server-github'])
-	 * @param name Organ name. Defaults to the last arg segment.
-	 *
-	 * @example
-	 * const gh = await McpOrgan.stdio('npx', ['-y', '@modelcontextprotocol/server-github'])
-	 * agent.load(gh)
-	 */
-	async stdio(command: string, args: string[], name?: string, env?: Record<string, string>): Promise<Organ> {
+export const McpAdapter = {
+	async stdio(command: string, args: string[], name?: string, env?: Record<string, string>): Promise<Adapter> {
 		const organName = name ?? args.at(-1)?.split("/").at(-1)?.replace(/^@/, "") ?? "mcp";
 		const transportOpts: { command: string; args: string[]; env?: Record<string, string> } = { command, args };
 		if (env) {
@@ -169,24 +141,16 @@ export const McpOrgan = {
 		const client = await createMCPClient({
 			transport: new StdioClientTransport(transportOpts),
 		});
-		return createMcpOrganFromClient(client, organName);
+		return createMcpAdapterFromClient(client, organName);
 	},
 
-	/**
-	 * Create an Organ from a remote MCP HTTP server.
-	 *
-	 * @param url HTTP/HTTPS URL of the MCP server endpoint
-	 * @param name Organ name. Defaults to the URL hostname.
-	 *
-	 * @example
-	 * const pg = await McpOrgan.http('https://my-pg-server.example.com/mcp')
-	 * agent.load(pg)
-	 */
-	async http(url: string, name?: string): Promise<Organ> {
+	async http(url: string, name?: string): Promise<Adapter> {
 		const organName = name ?? new URL(url).hostname;
 		const client = await createMCPClient({
 			transport: { type: "http", url },
 		});
-		return createMcpOrganFromClient(client, organName);
+		return createMcpAdapterFromClient(client, organName);
 	},
 };
+/** @deprecated Use McpAdapter */
+export const McpOrgan = McpAdapter;

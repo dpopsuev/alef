@@ -115,6 +115,12 @@
 			"@dpopsuev/alef-session/*": [
 				"./packages/session/src/*.ts"
 			],
+			"@dpopsuev/alef-storage": [
+				"./packages/storage/src/index.ts"
+			],
+			"@dpopsuev/alef-storage/*": [
+				"./packages/storage/src/*.ts"
+			],
 			"@dpopsuev/alef-organ-monolog": [
 				"./packages/organ-monolog/src/index.ts"
 			],

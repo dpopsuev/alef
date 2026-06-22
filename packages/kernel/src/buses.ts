@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type ZodRawShape, type ZodTypeAny, z } from "zod";
+import type { DomainCondition } from "./reconciliation.js";
 
 export interface NerveEvent {
 	readonly type: string;
@@ -34,17 +35,17 @@ export interface AgentRunContribution {
 }
 
 export function createCompositeAgentRunContribution(): AgentRunContribution & {
-	add(organName: string, contribution: AgentRunContribution): void;
-	remove(organName: string): void;
+	add(adapterName: string, contribution: AgentRunContribution): void;
+	remove(adapterName: string): void;
 	mergedSchema(): ZodRawShape;
 } {
 	const children = new Map<string, AgentRunContribution>();
 	return {
-		add(organName, contribution) {
-			children.set(organName, contribution);
+		add(adapterName, contribution) {
+			children.set(adapterName, contribution);
 		},
-		remove(organName) {
-			children.delete(organName);
+		remove(adapterName) {
+			children.delete(adapterName);
 		},
 		mergedSchema() {
 			const merged: ZodRawShape = {};
@@ -312,7 +313,7 @@ export interface SenseEvent extends NerveEvent {
 	readonly payload: Record<string, unknown>;
 	readonly isError: boolean;
 	readonly errorMessage?: string;
-	readonly conditions?: readonly import("./reconciliation.js").DomainCondition[];
+	readonly conditions?: readonly DomainCondition[];
 }
 
 /**

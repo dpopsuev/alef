@@ -32,8 +32,9 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 		faux.setResponses([fauxAssistantMessage("done")]);
 
 		const store = SqliteSessionStore.create(db, "/tmp/test-cwd");
+		const summaries = new SqliteSummaryStore(db);
 		const agent = new Agent();
-		const log = new SessionLog(store, "test-model");
+		const log = new SessionLog(store, "test-model", undefined, (s) => summaries.write(s));
 		agent.load(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" })).load(log);
 		const controller = new AgentController(agent);
 
@@ -42,7 +43,6 @@ describe("SessionSummary", { tags: ["unit"] }, () => {
 
 		await new Promise((r) => setTimeout(r, 50));
 
-		const summaries = new SqliteSummaryStore(db);
 		const summary = summaries.get(store.id);
 
 		if (summary) {

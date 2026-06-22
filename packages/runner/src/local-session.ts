@@ -363,6 +363,10 @@ export async function createLocalSession(
 		systemPrompt,
 	});
 
+	const { getDatabase, SqliteSummaryStore } = await import("@dpopsuev/alef-storage");
+	const db = getDatabase();
+	const summaryStore = new SqliteSummaryStore(db);
+
 	const agent = buildAgent({
 		llm: llmOrgan,
 		session: store,
@@ -372,10 +376,10 @@ export async function createLocalSession(
 			debugLog("loop:detected", { reason });
 			llmController?.abort(new Error(`[loop-detector] ${reason}`));
 		},
+		summaryWriter: (summary) => summaryStore.write(summary),
 	});
 
-	const { getDatabase } = await import("@dpopsuev/alef-storage");
-	const sessionForum = new SqliteDiscourseStore(getDatabase(), store.id);
+	const sessionForum = new SqliteDiscourseStore(db, store.id);
 	const controller = new AgentController(agent, {
 		onReply: replySink,
 		transcript: { store: sessionForum, topic: "sessions", thread: store.id },

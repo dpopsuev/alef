@@ -50,11 +50,18 @@ export class SessionLog implements Organ {
 	private readonly store: SessionStore;
 	private readonly model: string;
 	private readonly agentActor: StorageActor | undefined;
+	private readonly _summaryWriter?: (summary: SessionSummary) => void;
 
-	constructor(store: SessionStore, model = "unknown", agentIdentity?: ActorIdentity) {
+	constructor(
+		store: SessionStore,
+		model = "unknown",
+		agentIdentity?: ActorIdentity,
+		summaryWriter?: (summary: SessionSummary) => void,
+	) {
 		this.store = store;
 		this.model = model;
 		this.agentActor = agentIdentity ? { address: agentIdentity.address, type: agentIdentity.type } : undefined;
+		this._summaryWriter = summaryWriter;
 	}
 
 	mount(nerve: Nerve): () => void {
@@ -165,11 +172,12 @@ export class SessionLog implements Organ {
 	}
 
 	private async _writeSummary(summary: SessionSummary): Promise<void> {
-		try {
-			const { getDatabase, SqliteSummaryStore } = await import("@dpopsuev/alef-storage");
-			new SqliteSummaryStore(getDatabase()).write(summary);
-		} catch (e: unknown) {
-			debugLog("session-summary:sqlite-failed", { error: String(e) });
+		if (this._summaryWriter) {
+			try {
+				this._summaryWriter(summary);
+			} catch (e: unknown) {
+				debugLog("session-summary:sqlite-failed", { error: String(e) });
+			}
 		}
 		const json = `${JSON.stringify(summary, null, 2)}\n`;
 		const last = join(homedir(), ".alef", "last-session.json");

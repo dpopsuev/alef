@@ -140,6 +140,14 @@ const FS_EDIT_TOOL = {
 	]),
 };
 
+const FS_UNDO_TOOL = {
+	name: "fs.undo",
+	description: "Revert a file to its content before the last write/edit in this session.",
+	inputSchema: z.object({
+		path: z.string().min(1).describe("Path to the file to revert"),
+	}),
+};
+
 // ---------------------------------------------------------------------------
 // Per-path write serialization queue
 //
@@ -201,19 +209,33 @@ export interface FsOrganOptions {
 
 /** Exported for testing. Tracks per-path last-read timestamps to enforce read-before-edit. */
 export class FileTracker {
-	/** Maximum number of paths retained. Oldest entries evicted when exceeded. */
 	static readonly MAX_SIZE = 1_000;
 
-	private readonly reads = new Map<string, number>(); // absolutePath → Date.now()
+	private readonly reads = new Map<string, number>();
+	private readonly writes = new Map<string, number>();
+	private readonly snapshots = new Map<string, string>();
 
 	record(absolutePath: string): void {
-		// Delete before re-insert to refresh insertion order (Map is insertion-ordered).
 		this.reads.delete(absolutePath);
 		this.reads.set(absolutePath, Date.now());
-		// Evict oldest entries when cap is exceeded.
 		if (this.reads.size > FileTracker.MAX_SIZE) {
 			const oldest = this.reads.keys().next().value;
 			if (oldest !== undefined) this.reads.delete(oldest);
+		}
+	}
+
+	recordWrite(absolutePath: string, previousContent?: string): void {
+		this.writes.delete(absolutePath);
+		this.writes.set(absolutePath, Date.now());
+		if (previousContent !== undefined && !this.snapshots.has(absolutePath)) {
+			this.snapshots.set(absolutePath, previousContent);
+		}
+		if (this.writes.size > FileTracker.MAX_SIZE) {
+			const oldest = this.writes.keys().next().value;
+			if (oldest !== undefined) {
+				this.writes.delete(oldest);
+				this.snapshots.delete(oldest);
+			}
 		}
 	}
 
@@ -221,7 +243,14 @@ export class FileTracker {
 		return this.reads.get(absolutePath);
 	}
 
-	/** Number of tracked paths (for testing). */
+	modifiedFiles(): string[] {
+		return [...this.writes.keys()];
+	}
+
+	getSnapshot(absolutePath: string): string | undefined {
+		return this.snapshots.get(absolutePath);
+	}
+
 	get size(): number {
 		return this.reads.size;
 	}
@@ -324,12 +353,20 @@ async function handleRead(
 async function handleWrite(
 	ctx: { payload: { path: string; content: string } },
 	opts: FsOrganOptions,
+	tracker: FileTracker,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, content } = ctx.payload;
 	if (!filePath) throw new Error("fs.write: path is required");
 	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	let prev: string | undefined;
+	try {
+		prev = await fsReadFile(absolutePath, "utf-8");
+	} catch {
+		/* new file */
+	}
 	await mkdir(dirname(absolutePath), { recursive: true });
 	await atomicWrite(absolutePath, content);
+	tracker.recordWrite(absolutePath, prev);
 	await runFormatter(opts.cwd, absolutePath);
 	const bytes = Buffer.byteLength(content, "utf-8");
 	return { path: filePath, bytes };
@@ -491,8 +528,8 @@ async function handleEdit(
 	}
 
 	await atomicWrite(absolutePath, updated);
+	tracker.recordWrite(absolutePath, original);
 	await runFormatter(opts.cwd, absolutePath);
-	// Refresh tracker so subsequent edits in the same turn don't fail staleness.
 	tracker.record(absolutePath);
 	const editCount = editList.length;
 	const diff = generateEditDiff(original, updated, filePath);
@@ -633,7 +670,7 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 					FS_WRITE_TOOL,
 					async (ctx) => {
 						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
-						const raw = await withQueue(absolutePath, () => handleWrite(ctx, options));
+						const raw = await withQueue(absolutePath, () => handleWrite(ctx, options, tracker));
 						const filePath = raw.path as string;
 						const bytes = raw.bytes as number;
 						return withDisplay(
@@ -657,6 +694,18 @@ export function createFsOrgan(options: FsOrganOptions): Organ {
 				),
 				"fs.patch": typedAction(FS_PATCH_TOOL, (ctx) => handlePatch(ctx, options), {
 					invalidates: () => WRITE_INVALIDATES,
+				}),
+				"fs.undo": typedAction(FS_UNDO_TOOL, async (ctx) => {
+					const { path: filePath } = ctx.payload;
+					const absolutePath = resolveFilePath(options.cwd, filePath);
+					const snapshot = tracker.getSnapshot(absolutePath);
+					if (snapshot === undefined)
+						throw new Error(`fs.undo: no snapshot for '${filePath}'. File was not modified this session.`);
+					await atomicWrite(absolutePath, snapshot);
+					return withDisplay(
+						{ path: filePath, reverted: true },
+						{ text: `Reverted ${filePath} to pre-edit content.`, mimeType: "text/plain" },
+					);
 				}),
 			},
 		},

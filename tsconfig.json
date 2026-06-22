@@ -121,6 +121,12 @@
 			"@dpopsuev/alef-storage/*": [
 				"./packages/storage/src/*.ts"
 			],
+			"@dpopsuev/alef-runner-tui": [
+				"./packages/runner-tui/src/index.ts"
+			],
+			"@dpopsuev/alef-runner-tui/*": [
+				"./packages/runner-tui/src/*.ts"
+			],
 			"@dpopsuev/alef-organ-monolog": [
 				"./packages/organ-monolog/src/index.ts"
 			],

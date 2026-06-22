@@ -24,6 +24,7 @@
 		"@dpopsuev/alef-reasoner": "^0.0.1",
 		"@dpopsuev/alef-session": "^0.0.1",
 		"@dpopsuev/alef-storage": "^0.0.1",
+		"@dpopsuev/alef-runner-tui": "^0.0.1",
 		"@dpopsuev/alef-organ-agent": "^0.0.1",
 		"@dpopsuev/alef-organ-factory": "^0.0.1",
 		"@dpopsuev/alef-gateway": "^0.0.1",

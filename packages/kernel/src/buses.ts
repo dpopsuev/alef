@@ -312,6 +312,7 @@ export interface SenseEvent extends NerveEvent {
 	readonly payload: Record<string, unknown>;
 	readonly isError: boolean;
 	readonly errorMessage?: string;
+	readonly conditions?: readonly import("./reconciliation.js").DomainCondition[];
 }
 
 /**

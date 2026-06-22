@@ -131,6 +131,33 @@ Adding a new slot: add the type to `OrganContributions` in `kernel/src/buses.ts`
 - Organs with tools must declare `description` and non-empty `directives`.
 - Organs cannot import from `packages/runner` or `packages/testkit` — kernel + zod only.
 
+## Import Boundaries (enforced by `eslint-plugin-boundaries`)
+
+The runner package enforces a DAG on its subdirectories. Subdirectories
+can import from root files, but NOT from each other (except where the
+DAG explicitly allows). This prevents intra-package cycles.
+
+**DAG rules** (defined in `eslint.config.ts`):
+
+```
+root → model, session-lifecycle, tui, commands, identity, strategies, workflow
+model → root
+session-lifecycle → root
+tui → root, commands
+commands → root, model, tui
+identity → root
+strategies → root
+workflow → root
+```
+
+**Violations are lint errors.** If a subdirectory needs something from
+another subdirectory, inject it from root (the composition layer) via
+constructor params or callbacks — never import across subdirectories.
+
+Example: `session-lifecycle/handle.ts` needs model building. Instead of
+importing `../model/index.js`, it receives a `modelFactory: (id) => Model`
+callback injected by `local-session.ts` (root).
+
 ## Architecture
 
 Production agent: `packages/alef-coding-agent` — the full coding agent stack.

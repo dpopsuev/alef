@@ -32,8 +32,8 @@ export default tseslint.config(
 				rules: [
 					{ from: { type: "root" }, allow: [{ to: { type: "root" } }, { to: { type: "model" } }, { to: { type: "session-lifecycle" } }, { to: { type: "tui" } }, { to: { type: "commands" } }, { to: { type: "identity" } }, { to: { type: "strategies" } }, { to: { type: "workflow" } }] },
 					{ from: { type: "model" }, allow: [{ to: { type: "root" } }] },
-					{ from: { type: "session-lifecycle" }, allow: [{ to: { type: "root" } }, { to: { type: "model" } }] },
-					{ from: { type: "tui" }, allow: [{ to: { type: "root" } }, { to: { type: "commands" } }, { to: { type: "identity" } }] },
+					{ from: { type: "session-lifecycle" }, allow: [{ to: { type: "root" } }] },
+					{ from: { type: "tui" }, allow: [{ to: { type: "root" } }, { to: { type: "commands" } }] },
 					{ from: { type: "commands" }, allow: [{ to: { type: "root" } }, { to: { type: "model" } }, { to: { type: "tui" } }] },
 					{ from: { type: "identity" }, allow: [{ to: { type: "root" } }] },
 					{ from: { type: "strategies" }, allow: [{ to: { type: "root" } }] },

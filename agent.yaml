@@ -1,0 +1,12 @@
+name: alef-dev
+description: Alef development — project-specific organ configuration.
+
+organs:
+  - name: shell
+    blockedPatterns:
+      - "--no-verify"
+      - "--no-gpg-sign"
+      - "git\\s+reset\\s+--hard"
+      - "git\\s+commit\\s+-n"
+      - "HUSKY=0"
+      - "rm\\s+-rf\\s+/"

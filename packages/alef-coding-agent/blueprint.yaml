@@ -14,6 +14,8 @@ organs:
       - "--no-verify"
       - "--no-gpg-sign"
       - "git\\s+reset\\s+--hard"
+      - "git\\s+commit\\s+-n"
+      - "HUSKY=0"
       - "rm\\s+-rf\\s+/"
   - name: nodesh
     package: "@dpopsuev/alef-organ-nodesh"

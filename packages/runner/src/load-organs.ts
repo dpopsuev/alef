@@ -72,6 +72,7 @@ export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Prom
 		}
 	}
 
+	const isExplicitBlueprint = !!blueprintPath;
 	if (!blueprintPath) {
 		blueprintPath = findAgentDefinitionPath(args.cwd);
 	}
@@ -96,7 +97,9 @@ export async function loadOrgans(args: Args, cfg: AlefConfig, log: Logger): Prom
 			};
 		}
 
-		let definition = loadAgentDefinition(blueprintPath);
+		let definition = isExplicitBlueprint
+			? loadAgentDefinition(blueprintPath)
+			: mergeAgentDefinitions(DEFAULT_COMPILED_DEFINITION, loadAgentDefinition(blueprintPath));
 
 		if (args.profile) {
 			const { dirname: pathDirname, join: pathJoin } = await import("node:path");

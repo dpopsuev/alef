@@ -89,9 +89,9 @@ export class NerveFixture {
 
 	observe(): BusEventRecorder {
 		const recorder = new BusEventRecorder();
-		this.nerve.onAnyCommand((event) => recorder.onCommand(event));
-		this.nerve.onAnyEvent((event) => recorder.onEvent(event));
-		this.nerve.onAnyNotification((event) => recorder.onNotification?.(event));
+		this.nerve.onAny("command", (event) => recorder.onCommand(event));
+		this.nerve.onAny("event", (event) => recorder.onEvent(event));
+		this.nerve.onAny("notification", (event) => recorder.onNotification?.(event));
 		return recorder;
 	}
 

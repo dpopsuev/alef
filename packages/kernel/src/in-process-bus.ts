@@ -5,11 +5,7 @@ import type {
 	ChannelHandler,
 	ChannelInput,
 	ChannelName,
-	CommandInput,
 	CommandMessage,
-	EventHandler,
-	EventInput,
-	NotificationInput,
 } from "./buses.js";
 import { makeBus } from "./buses.js";
 import { extractToolCallId } from "./sense-builders.js";
@@ -128,29 +124,5 @@ export class InProcessBus {
 			publish: (e) => this._buses.notification.emit(e),
 		};
 		return makeBus(commandChannel, eventChannel, notificationChannel, () => this.pulse());
-	}
-
-	// -- Deprecated channel-specific methods (use parameterized API) ------
-
-	publishCommand(event: CommandInput): void {
-		this.publish("command", event);
-	}
-	subscribeEvent(type: string, handler: EventHandler): () => void {
-		return this.subscribe("event", type, handler);
-	}
-	publishEvent(event: EventInput): void {
-		this.publish("event", event);
-	}
-	publishSignal(event: NotificationInput): void {
-		this.publish("notification", event);
-	}
-	onAnyCommand(handler: (event: BusMessage) => void): () => void {
-		return this.onAny("command", handler);
-	}
-	onAnyEvent(handler: (event: BusMessage) => void): () => void {
-		return this.onAny("event", handler);
-	}
-	onAnyNotification(handler: (event: BusMessage) => void): () => void {
-		return this.onAny("notification", handler);
 	}
 }

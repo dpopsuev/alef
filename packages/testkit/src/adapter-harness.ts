@@ -51,14 +51,14 @@ export class AdapterHarness {
 				);
 			}, this.timeoutMs);
 
-			const off = this.nerve.subscribeEvent(type, (event) => {
+			const off = this.nerve.subscribe("event", type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
 				resolve(event as EventMessage);
 			});
 
-			this.nerve.publishCommand({ type, payload, correlationId });
+			this.nerve.publish("command", { type, payload, correlationId });
 		});
 	}
 

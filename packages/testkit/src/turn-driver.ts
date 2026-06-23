@@ -66,8 +66,8 @@ export class TurnDriver {
 
 	observe(observer: BusObserver): () => void {
 		const offs = [
-			this.nerve.onAnyCommand((event) => observer.onCommand(event)),
-			this.nerve.onAnyEvent((event) => observer.onEvent(event)),
+			this.nerve.onAny("command", (event) => observer.onCommand(event)),
+			this.nerve.onAny("event", (event) => observer.onEvent(event)),
 		];
 		return () => {
 			for (const off of offs) off();

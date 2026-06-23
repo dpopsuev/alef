@@ -109,7 +109,7 @@ describe("Nerve — command.subscribe", { tags: ["unit"] }, () => {
 		const received: BusMessage[] = [];
 		adapter.command.subscribe("test.command", (e) => void received.push(e));
 
-		nerve.publishCommand(makeCommandMessage("test.command"));
+		nerve.publish("command", makeCommandMessage("test.command"));
 
 		expect(received).toHaveLength(1);
 	});
@@ -120,9 +120,9 @@ describe("Nerve — command.subscribe", { tags: ["unit"] }, () => {
 		const received: BusMessage[] = [];
 		const off = adapter.command.subscribe("test.command", (e) => void received.push(e));
 
-		nerve.publishCommand(makeCommandMessage("test.command"));
+		nerve.publish("command", makeCommandMessage("test.command"));
 		off();
-		nerve.publishCommand(makeCommandMessage("test.command"));
+		nerve.publish("command", makeCommandMessage("test.command"));
 
 		expect(received).toHaveLength(1);
 	});
@@ -152,7 +152,7 @@ describe("InProcessBus — bus root methods", { tags: ["unit"] }, () => {
 		const received: BusMessage[] = [];
 		nerve.asBus().command.subscribe("test.command", (e) => void received.push(e));
 
-		nerve.publishCommand(makeCommandMessage("test.command"));
+		nerve.publish("command", makeCommandMessage("test.command"));
 
 		expect(received).toHaveLength(1);
 	});
@@ -160,7 +160,7 @@ describe("InProcessBus — bus root methods", { tags: ["unit"] }, () => {
 	it("subscribeEvent receives from EventBus publish", () => {
 		const nerve = new InProcessBus();
 		const received: BusMessage[] = [];
-		nerve.subscribeEvent("test.result", (e) => void received.push(e));
+		nerve.subscribe("event", "test.result", (e) => void received.push(e));
 
 		nerve.asBus().event.publish(makeEventMessage("test.result"));
 
@@ -180,11 +180,11 @@ describe("InProcessBus — bus root methods", { tags: ["unit"] }, () => {
 				isError: false,
 			});
 		});
-		nerve.subscribeEvent("test.result", (e) => {
+		nerve.subscribe("event", "test.result", (e) => {
 			received = e;
 		});
 
-		nerve.publishCommand({
+		nerve.publish("command", {
 			type: "test.command",
 			payload: { value: "ping" },
 			correlationId: id,
@@ -202,10 +202,10 @@ describe("InProcessBus — wildcard subscriptions", { tags: ["unit"] }, () => {
 	it("onAnyCommand receives all command messages", () => {
 		const nerve = new InProcessBus();
 		const received: BusMessage[] = [];
-		nerve.onAnyCommand((e) => received.push(e));
+		nerve.onAny("command", (e) => received.push(e));
 
-		nerve.publishCommand(makeCommandMessage("test.command"));
-		nerve.publishCommand(makeCommandMessage("test.tool_call"));
+		nerve.publish("command", makeCommandMessage("test.command"));
+		nerve.publish("command", makeCommandMessage("test.tool_call"));
 
 		expect(received).toHaveLength(2);
 	});
@@ -213,7 +213,7 @@ describe("InProcessBus — wildcard subscriptions", { tags: ["unit"] }, () => {
 	it("onAnyEvent receives all event messages", () => {
 		const nerve = new InProcessBus();
 		const received: BusMessage[] = [];
-		nerve.onAnyEvent((e) => received.push(e));
+		nerve.onAny("event", (e) => received.push(e));
 
 		nerve.asBus().event.publish(makeEventMessage("test.result"));
 		nerve.asBus().event.publish(makeEventMessage("test.observation"));

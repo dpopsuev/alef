@@ -86,7 +86,7 @@ describe("adapter ablation — read-only allowlist", { tags: ["unit"] }, () => {
 		adapter.mount(nerve.asBus());
 
 		const received: string[] = [];
-		nerve.onAnyEvent((e) => received.push(e.type));
+		nerve.onAny("event", (e) => received.push(e.type));
 
 		nerve.asBus().command.publish({
 			type: "fs.write",
@@ -106,7 +106,7 @@ describe("adapter ablation — read-only allowlist", { tags: ["unit"] }, () => {
 		adapter.mount(nerve.asBus());
 
 		const events: string[] = [];
-		nerve.onAnyEvent((e) => events.push(e.type));
+		nerve.onAny("event", (e) => events.push(e.type));
 
 		nerve.asBus().command.publish({
 			type: "fs.read",

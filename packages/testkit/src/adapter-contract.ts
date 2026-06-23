@@ -441,7 +441,7 @@ export async function runSchemaContract(
 		});
 
 		const start = Date.now();
-		nerve.publishCommand({
+		nerve.publish("command", {
 			type: commandType,
 			correlationId,
 			payload: { [requiredStringField]: null, toolCallId: randomUUID() },
@@ -508,7 +508,7 @@ export async function runStreamingContract(
 		});
 	});
 
-	nerve.publishCommand({
+	nerve.publish("command", {
 		type: commandType,
 		correlationId,
 		payload: { ...validPayload, toolCallId: randomUUID() },

@@ -143,8 +143,8 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 	const cases: UnitCaseResult[] = [];
 
 	// Mount the adapter on a fresh bus
-	const nerve = new InProcessBus();
-	const unmount = adapter.mount(nerve.asBus());
+	const bus = new InProcessBus();
+	const unmount = adapter.mount(bus.asBus());
 
 	try {
 		for (const stub of cfg.stubs) {
@@ -152,7 +152,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 			const correlationId = randomUUID();
 
 			const sense = await probeMotor(
-				nerve,
+				bus,
 				stub.tool,
 				{ ...stub.payload, toolCallId: correlationId },
 				correlationId,
@@ -215,7 +215,7 @@ export async function runUnitEvalBaseline(cfg: UnitEvalConfig): Promise<UnitEval
 // ---------------------------------------------------------------------------
 
 function probeMotor(
-	nerve: InProcessBus,
+	bus: InProcessBus,
 	toolName: string,
 	payload: Record<string, unknown>,
 	correlationId: string,
@@ -227,7 +227,7 @@ function probeMotor(
 			resolve(null);
 		}, timeoutMs);
 
-		const nerveView = nerve.asBus();
+		const nerveView = bus.asBus();
 		const off = nerveView.event.subscribe(toolName, (event) => {
 			if (event.correlationId === correlationId) {
 				clearTimeout(timer);

@@ -48,14 +48,14 @@ class McpAdapterImpl implements Adapter {
 		await this.client.close();
 	}
 
-	mount(nerve: Bus): () => void {
+	mount(bus: Bus): () => void {
 		const offs: Array<() => void> = [];
 
 		for (const tool of this.tools) {
 			const toolName = tool.name; // e.g. "github.create_issue"
 			const execFn = this.execMap.get(toolName);
 
-			const off = nerve.command.subscribe(toolName, async (event) => {
+			const off = bus.command.subscribe(toolName, async (event) => {
 				const { toolCallId: rawToolCallId, ...args } = event.payload;
 				const toolCallId = typeof rawToolCallId === "string" ? rawToolCallId : undefined;
 				try {
@@ -64,7 +64,7 @@ class McpAdapterImpl implements Adapter {
 					}
 					const result: unknown = await execFn(args, { messages: [], toolCallId: String(toolCallId ?? "") });
 
-					nerve.event.publish({
+					bus.event.publish({
 						type: toolName,
 						payload: {
 							toolCallId,
@@ -77,7 +77,7 @@ class McpAdapterImpl implements Adapter {
 						isError: false,
 					});
 				} catch (err) {
-					nerve.event.publish({
+					bus.event.publish({
 						type: toolName,
 						payload: { toolCallId },
 						correlationId: event.correlationId,

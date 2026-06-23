@@ -12,11 +12,11 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./adapter": { "source": "./src/facade-adapter.ts", "import": "./src/facade-adapter.ts", "default": "./src/facade-adapter.ts" },
-    "./bus": { "source": "./src/facade-bus.ts", "import": "./src/facade-bus.ts", "default": "./src/facade-bus.ts" },
-    "./log": { "source": "./src/facade-log.ts", "import": "./src/facade-log.ts", "default": "./src/facade-log.ts" },
-    "./pipeline": { "source": "./src/facade-pipeline.ts", "import": "./src/facade-pipeline.ts", "default": "./src/facade-pipeline.ts" },
-    "./errors": { "source": "./src/facade-errors.ts", "import": "./src/facade-errors.ts", "default": "./src/facade-errors.ts" },
+    "./adapter": { "source": "./src/adapter.ts", "import": "./src/adapter.ts", "default": "./src/adapter.ts" },
+    "./bus": { "source": "./src/bus.ts", "import": "./src/bus.ts", "default": "./src/bus.ts" },
+    "./log": { "source": "./src/log.ts", "import": "./src/log.ts", "default": "./src/log.ts" },
+    "./pipeline": { "source": "./src/pipeline.ts", "import": "./src/pipeline.ts", "default": "./src/pipeline.ts" },
+    "./errors": { "source": "./src/errors.ts", "import": "./src/errors.ts", "default": "./src/errors.ts" },
     "./execution": { "source": "./src/execution.ts", "import": "./src/execution.ts", "default": "./src/execution.ts" },
     "./reconciliation": { "source": "./src/reconciliation.ts", "import": "./src/reconciliation.ts", "default": "./src/reconciliation.ts" }
   },

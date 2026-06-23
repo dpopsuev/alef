@@ -50,6 +50,7 @@ const MONOREPO_ROOT = import.meta.dirname;
 export default defineConfig({
 	plugins: [tsconfigPaths({ root: MONOREPO_ROOT })],
 	resolve: {
+		conditions: ["source"],
 		// vite-tsconfig-paths applies to files within the vite project root
 		// (the package directory). For cross-package imports in transitive deps
 		// (e.g. organ-llm importing @dpopsuev/alef-llm), tsconfig paths are NOT

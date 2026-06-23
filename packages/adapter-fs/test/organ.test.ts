@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../src/adapter.js";
 
@@ -19,7 +19,7 @@ afterEach(async () => {
 });
 
 function fixture() {
-	const f = new NerveFixture();
+	const f = new BusFixture();
 	f.mount(createFsOrgan({ cwd: testDir }));
 	return f;
 }
@@ -39,7 +39,7 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 	});
 
 	it("unmount unsubscribes all command handlers", () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const organ = createFsOrgan({ cwd: testDir });
 		const unmount = f.mount(organ);
 		expect(f.nerve.listenerCount("command", "fs.read")).toBe(1);
@@ -200,7 +200,7 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 
 describe("write serialization — file mutation queue", { tags: ["compliance"] }, () => {
 	it("serializes concurrent fs.write calls on the same path", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsOrgan({ cwd: testDir }));
 
 		const filePath = "concurrent.txt";
@@ -250,7 +250,7 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 	});
 
 	it("serializes concurrent fs.edit calls on the same path", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsOrgan({ cwd: testDir }));
 
 		const filePath = "edit-concurrent.txt";
@@ -298,7 +298,7 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 
 describe("fs.find — path-based glob patterns", { tags: ["compliance"] }, () => {
 	it("pattern containing / uses --full-path and matches nested files", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		await mkdir(join(testDir, "src", "auth"), { recursive: true });
 		await writeFile(join(testDir, "src", "auth", "login.test.ts"), "");
 		await writeFile(join(testDir, "src", "auth", "logout.ts"), "");
@@ -314,7 +314,7 @@ describe("fs.find — path-based glob patterns", { tags: ["compliance"] }, () =>
 	});
 
 	it("basename-only pattern still matches without --full-path", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		await mkdir(join(testDir, "deep", "nested"), { recursive: true });
 		await writeFile(join(testDir, "deep", "nested", "target.ts"), "");
 		f.mount(createFsOrgan({ cwd: testDir }));
@@ -328,7 +328,7 @@ describe("fs.find — path-based glob patterns", { tags: ["compliance"] }, () =>
 
 describe("fs.find — nested gitignore rules", { tags: ["compliance"] }, () => {
 	it("gitignore in one sibling does not suppress files in another sibling", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		await mkdir(join(testDir, "sibling-a"), { recursive: true });
 		await writeFile(join(testDir, "sibling-a", ".gitignore"), "*.log\n");
 		await writeFile(join(testDir, "sibling-a", "app.ts"), "");
@@ -346,7 +346,7 @@ describe("fs.find — nested gitignore rules", { tags: ["compliance"] }, () => {
 
 describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 	it("applies multiple disjoint edits atomically", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		await writeFile(join(testDir, "multi.ts"), "AAA BBB CCC");
 		f.mount(createFsOrgan({ cwd: testDir }));
 		await f.call("fs.read", { path: "multi.ts" });
@@ -365,7 +365,7 @@ describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 	});
 
 	it("matches edits against original, not incrementally", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		await writeFile(join(testDir, "orig.ts"), "AAA AAA");
 		f.mount(createFsOrgan({ cwd: testDir }));
 		await f.call("fs.read", { path: "orig.ts" });
@@ -376,7 +376,7 @@ describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 	});
 
 	it("rejects overlapping edits", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		await writeFile(join(testDir, "over.ts"), "ABCDEF");
 		f.mount(createFsOrgan({ cwd: testDir }));
 		await f.call("fs.read", { path: "over.ts" });
@@ -394,7 +394,7 @@ describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 	});
 
 	it("reports ENOENT clearly", async () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsOrgan({ cwd: testDir }));
 
 		const result = await f.call("fs.edit", { path: "nonexistent.ts", oldText: "X", newText: "Y" });

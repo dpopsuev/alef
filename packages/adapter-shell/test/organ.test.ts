@@ -1,4 +1,4 @@
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createShellOrgan } from "../src/adapter.js";
 
@@ -15,7 +15,7 @@ organComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
 });
 
 function fixture(opts: { commandPrefix?: string } = {}) {
-	const f = new NerveFixture();
+	const f = new BusFixture();
 	f.mount(createShellOrgan({ cwd: process.cwd(), ...opts }));
 	return f;
 }
@@ -29,7 +29,7 @@ describe("Shellorgan", { tags: ["compliance"] }, () => {
 	});
 
 	it("unmount unsubscribes command handler", () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		const unmount = f.mount(organ);
 		expect(f.nerve.listenerCount("command", "shell.exec")).toBe(1);

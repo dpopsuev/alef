@@ -7,7 +7,7 @@
  * not the exact text transformation (that's web-spider's responsibility).
  */
 
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWebOrgan } from "../src/adapter.js";
 
@@ -38,17 +38,17 @@ describe("WebOrgan — structure", { tags: ["compliance"] }, () => {
 	});
 
 	it("mounts and unmounts cleanly", () => {
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		fixture.mount(createWebOrgan());
 		fixture.dispose();
 	});
 });
 
 describe("WebOrgan — web.fetch validation", { tags: ["compliance"] }, () => {
-	let fixture: NerveFixture;
+	let fixture: BusFixture;
 
 	beforeEach(() => {
-		fixture = new NerveFixture();
+		fixture = new BusFixture();
 		fixture.mount(createWebOrgan());
 	});
 
@@ -62,7 +62,7 @@ describe("WebOrgan — web.fetch validation", { tags: ["compliance"] }, () => {
 
 	it("returns isError on network failure", async () => {
 		fixture.dispose();
-		fixture = new NerveFixture();
+		fixture = new BusFixture();
 		fixture.mount(createWebOrgan({ defaultTimeoutMs: 500 }));
 		const result = await fixture.call("web.fetch", { url: "http://127.0.0.1:19999" }, { timeoutMs: 3000 });
 		expect(result.isError).toBe(true);
@@ -70,10 +70,10 @@ describe("WebOrgan — web.fetch validation", { tags: ["compliance"] }, () => {
 });
 
 describe("WebOrgan — web.search validation", { tags: ["compliance"] }, () => {
-	let fixture: NerveFixture;
+	let fixture: BusFixture;
 
 	beforeEach(() => {
-		fixture = new NerveFixture();
+		fixture = new BusFixture();
 		fixture.mount(createWebOrgan());
 	});
 
@@ -116,7 +116,7 @@ describe("WebOrgan — web.fetch with Readability + Turndown", { tags: ["complia
 			}),
 		);
 
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		fixture.mount(createWebOrgan());
 		const result = await fixture.call("web.fetch", { url: "https://example.com" });
 
@@ -147,7 +147,7 @@ describe("WebOrgan — web.fetch with Readability + Turndown", { tags: ["complia
 			}),
 		);
 
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		fixture.mount(createWebOrgan());
 		const result = await fixture.call("web.fetch", { url: "https://example.com", format: "html" });
 		expect(String(result.payload.content)).toContain("<p>raw content</p>");
@@ -177,7 +177,7 @@ describe("WebOrgan — web.fetch with Readability + Turndown", { tags: ["complia
 			}),
 		);
 
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		fixture.mount(createWebOrgan());
 		const result = await fixture.call("web.fetch", { url: "https://example.com", format: "lean" });
 

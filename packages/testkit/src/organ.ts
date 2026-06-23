@@ -5,7 +5,7 @@
  * Does not pull in agent-controller, adapter-llm, alef-ai, or agent-blueprint.
  *
  * External adapter developers use this subpath:
- *   import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/adapter";
+ *   import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/adapter";
  *
  * Internal adapter developers use the same import — same experience regardless
  * of whether the adapter lives in this monorepo or a separate repository.
@@ -27,6 +27,6 @@ export {
 } from "./adapter-contract.js";
 export { AdapterHarness, OrganHarness } from "./adapter-harness.js";
 export { BusEventRecorder } from "./bus-event-recorder.js";
+export { BusFixture, BusFixture as NerveFixture } from "./bus-fixture.js";
 export { MockReasoner } from "./mock-reasoner.js";
-export { NerveFixture } from "./nerve-fixture.js";
 export { defineStubAdapter, defineStubAdapter as defineStubOrgan, type StubHandler } from "./stub-adapter.js";

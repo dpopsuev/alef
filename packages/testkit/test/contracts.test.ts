@@ -1,7 +1,7 @@
 /**
  * Contract tests — verify Command/Event message payload schemas.
  *
- * Pattern: NerveFixture.call() → assert payload fields.
+ * Pattern: BusFixture.call() → assert payload fields.
  * No real LLM. No API key. Always run in CI.
  */
 
@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFsOrgan as createFsAdapter } from "../../adapter-fs/src/index.js";
 import { createShellAdapter } from "../../adapter-shell/src/index.js";
-import { NerveFixture } from "../src/index.js";
+import { BusFixture } from "../src/index.js";
 
 const dirs: string[] = [];
 function tmpDir(): string {
@@ -27,7 +27,7 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 	it("fs.read → { content: string, truncated: boolean, totalLines: number }", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "hello.ts"), "export const x = 1;\nexport const y = 2;\n");
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.read", { path: "hello.ts" });
@@ -42,7 +42,7 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 	it("fs.read mirrors toolCallId in payload", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "f.ts"), "const a = 1;");
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.read", { path: "f.ts", toolCallId: "tc-test" });
@@ -52,7 +52,7 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 
 	it("fs.write → { path: string, bytes: number }", async () => {
 		const cwd = tmpDir();
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.write", { path: "out.ts", content: "export const z = 3;" });
@@ -66,7 +66,7 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 	it("fs.edit → { path: string, applied: true }", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "edit.ts"), "const a = 1;");
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
 		await f.call("fs.read", { path: "edit.ts" });
@@ -79,7 +79,7 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 
 	it("fs.read on missing file → isError: true, errorMessage: string", async () => {
 		const cwd = tmpDir();
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.read", { path: "nonexistent.ts" });
@@ -92,7 +92,7 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 	it("fs.grep → well-formed Event message", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "a.ts"), "export function login() {}");
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.grep", { pattern: "login" });
@@ -107,7 +107,7 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 	it("fs.edit with non-unique oldText → isError: true", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "dup.ts"), "const x = 1;\nconst x = 1;");
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
 		await f.call("fs.read", { path: "dup.ts" });
@@ -121,7 +121,7 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 describe("ShellAdapter contracts", { tags: ["compliance"] }, () => {
 	it("shell.exec (success) → final event has output, exitCode 0, isFinal: true", async () => {
 		const cwd = tmpDir();
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createShellAdapter({ cwd }));
 
 		const final = await f.callStreaming("shell.exec", { command: "echo hello" }, { timeoutMs: 10_000 });
@@ -135,7 +135,7 @@ describe("ShellAdapter contracts", { tags: ["compliance"] }, () => {
 
 	it("shell.exec (failure) → isError: true", async () => {
 		const cwd = tmpDir();
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createShellAdapter({ cwd }));
 
 		const sense = await f.callStreaming("shell.exec", { command: "exit 1" });
@@ -146,7 +146,7 @@ describe("ShellAdapter contracts", { tags: ["compliance"] }, () => {
 
 	it("shell.exec mirrors toolCallId", async () => {
 		const cwd = tmpDir();
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createShellAdapter({ cwd }));
 
 		const toolCallId = `tc-mirror-${Date.now()}`;
@@ -160,7 +160,7 @@ describe("EventMessage base shape", { tags: ["compliance"] }, () => {
 	it("every Event message has type, correlationId, timestamp, isError", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "x.ts"), "const x = 1;");
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.read", { path: "x.ts" });

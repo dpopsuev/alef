@@ -8,7 +8,7 @@
 
 import http from "node:http";
 
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createRouterOrgan } from "../src/adapter.js";
 
@@ -18,10 +18,10 @@ organComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1", trigg
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Mount a RouterOrgan on a fresh NerveFixture. Returns { adapter, fixture, unmount, baseUrl }. */
+/** Mount a RouterOrgan on a fresh BusFixture. Returns { adapter, fixture, unmount, baseUrl }. */
 async function setup(overrides: { port?: number; host?: string } = {}) {
 	const organ = createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input", ...overrides });
-	const fixture = new NerveFixture();
+	const fixture = new BusFixture();
 	const unmount = fixture.mount(organ);
 	await organ.ready();
 	const addr = organ.address()!;
@@ -396,7 +396,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 
 	it("passes events matching an exact allowed type", async () => {
 		const organ = createRouterOrgan({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		const unmount = fixture.mount(organ);
 		await organ.ready();
 		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
@@ -413,7 +413,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 
 	it("drops events not in the allowedEvents list", async () => {
 		const organ = createRouterOrgan({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		const unmount = fixture.mount(organ);
 		await organ.ready();
 		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
@@ -450,7 +450,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 
 	it("passes events matching a wildcard pattern (fs.*)", async () => {
 		const adapter = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		const unmount = fixture.mount(adapter);
 		await adapter.ready();
 		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
@@ -470,7 +470,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 
 	it("drops events not matching wildcard (shell.exec blocked by fs.*)", async () => {
 		const adapter = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		const unmount = fixture.mount(adapter);
 		await adapter.ready();
 		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;

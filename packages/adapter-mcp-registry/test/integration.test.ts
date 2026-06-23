@@ -1,11 +1,11 @@
-import { NerveFixture } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it, vi } from "vitest";
 import { createMcpRegistryOrgan } from "../src/adapter.js";
 
 describe("MCP Registry Integration", () => {
 	it("should search the MCP registry", async () => {
 		const organ = createMcpRegistryOrgan({ cwd: "/tmp" });
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		fixture.mount(organ);
 
 		try {
@@ -68,7 +68,7 @@ describe("MCP Registry Integration", () => {
 
 	it("should list loaded MCP organs", async () => {
 		const organ = createMcpRegistryOrgan({ cwd: "/tmp" });
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		fixture.mount(organ);
 
 		try {
@@ -87,7 +87,7 @@ describe("MCP Registry Integration", () => {
 
 	it("should handle search errors gracefully", async () => {
 		const organ = createMcpRegistryOrgan({ cwd: "/tmp" });
-		const fixture = new NerveFixture();
+		const fixture = new BusFixture();
 		fixture.mount(organ);
 
 		try {

@@ -1,5 +1,5 @@
 /**
- * ForumManager — swappable chat log sources for the TUI.
+ * AgentForum — swappable chat log sources for the TUI.
  *
  * The default forum is the main conversation (human ↔ root agent).
  * Additional forums map to forum topics or agent-specific views.
@@ -13,7 +13,7 @@
 
 import { Container, Text } from "@dpopsuev/alef-tui";
 
-export class ForumManager {
+export class AgentForum {
 	private readonly forums = new Map<string, Container>();
 	private activeForum = "main";
 	private readonly parent: Container;

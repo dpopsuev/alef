@@ -1,6 +1,6 @@
 import type { Component } from "../component.js";
 import { computeLayout, type LayoutNode } from "./engine.js";
-import { FocusManager } from "./panel.js";
+import { FocusRing } from "./panel.js";
 import { type ViewDefinition, type ViewMode, ViewRouter } from "./view-router.js";
 
 export interface ApplicationOptions {
@@ -10,13 +10,13 @@ export interface ApplicationOptions {
 
 export class Application implements Component {
 	readonly router: ViewRouter;
-	readonly focus: FocusManager;
+	readonly focus: FocusRing;
 	private width = 80;
 	private height = 24;
 
 	constructor(opts: ApplicationOptions) {
 		this.router = new ViewRouter();
-		this.focus = new FocusManager();
+		this.focus = new FocusRing();
 
 		for (const [mode, def] of Object.entries(opts.views)) {
 			this.router.register(mode as ViewMode, def as ViewDefinition);

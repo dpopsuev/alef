@@ -92,7 +92,7 @@ export {
 	type KeybindingDefinitions,
 	type Keybindings,
 	type KeybindingsConfig,
-	KeybindingsManager,
+	KeyMap,
 	setKeybindings,
 	TUI_KEYBINDINGS,
 } from "./keybindings.js";

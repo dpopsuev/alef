@@ -16,7 +16,7 @@ import { OutputPanel } from "./tui/output-panel.js";
  *     scrollback      — ChatLog: append-only conversation history (static)
  *     streaming       — ReplyBlock + Typewriters: live agent response (dynamic)
  *     spinner/fsm     — Thinking indicator, tool call status (dynamic)
- *     forums          — ForumManager: discourse channel switching
+ *     forums          — AgentForum: discourse channel switching
  *
  *   INPUT
  *     upper delimiter — ─────────────────────────── (plain rule)

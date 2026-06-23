@@ -1,10 +1,10 @@
 import assert from "node:assert";
 import { describe, it } from "vitest";
-import { KeybindingsManager, TUI_KEYBINDINGS } from "../src/keybindings.js";
+import { KeyMap, TUI_KEYBINDINGS } from "../src/keybindings.js";
 
-describe("KeybindingsManager", { tags: ["unit"] }, () => {
+describe("KeyMap", { tags: ["unit"] }, () => {
 	it("does not evict selector confirm when input submit is rebound", () => {
-		const keybindings = new KeybindingsManager(TUI_KEYBINDINGS, {
+		const keybindings = new KeyMap(TUI_KEYBINDINGS, {
 			"tui.input.submit": ["enter", "ctrl+enter"],
 		});
 
@@ -13,7 +13,7 @@ describe("KeybindingsManager", { tags: ["unit"] }, () => {
 	});
 
 	it("does not evict cursor bindings when another action reuses the same key", () => {
-		const keybindings = new KeybindingsManager(TUI_KEYBINDINGS, {
+		const keybindings = new KeyMap(TUI_KEYBINDINGS, {
 			"tui.select.up": ["up", "ctrl+p"],
 		});
 
@@ -22,7 +22,7 @@ describe("KeybindingsManager", { tags: ["unit"] }, () => {
 	});
 
 	it("still reports direct user binding conflicts without evicting defaults", () => {
-		const keybindings = new KeybindingsManager(TUI_KEYBINDINGS, {
+		const keybindings = new KeyMap(TUI_KEYBINDINGS, {
 			"tui.input.submit": "ctrl+x",
 			"tui.select.confirm": "ctrl+x",
 		});

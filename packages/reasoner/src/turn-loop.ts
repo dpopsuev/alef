@@ -53,12 +53,12 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
 	const { correlationId, bus } = ctx;
-	const { command: motor, event: sense, notification: signal } = bus;
+	const { command, event, notification: signal } = bus;
 	const defaultTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS;
 	const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
 	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
 	const maxRetryDelayMs = options.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS;
-	const turnSignals = createTurnSignals(sense, signal, options.getSignal?.());
+	const turnSignals = createTurnSignals(event, signal, options.getSignal?.());
 	const { effectiveSignal, callAbortControllers } = turnSignals;
 	const effectiveOptions: TurnLoopOptions = { ...options, getSignal: () => effectiveSignal };
 
@@ -72,8 +72,8 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 
 			if (effectiveOptions.phaseTimeoutMs) {
 				const phase = await runPhase(
-					motor,
-					sense,
+					command,
+					event,
 					correlationId,
 					messages,
 					tools,
@@ -82,7 +82,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 				);
 				if (phase?.kind === "abort") break;
 				if (phase?.kind === "skip") {
-					motor.publish({ type: "llm.response", payload: { text: phase.reply }, correlationId });
+					command.publish({ type: "llm.response", payload: { text: phase.reply }, correlationId });
 					break;
 				}
 				if (phase) applyPhaseResult(phase, messages, tools, nameMap, buildTools);
@@ -90,7 +90,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 
 			const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, {
 				...effectiveOptions,
-				command: motor,
+				command: command,
 				notification: signal,
 				correlationId,
 			});
@@ -137,12 +137,12 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 
 			if (agentIsReplying) {
 				options.onBeforeReply?.();
-				publishReply(motor, correlationId, finalMessage, messages);
+				publishReply(command, correlationId, finalMessage, messages);
 				break;
 			}
 
 			const toolDefsMap = new Map<string, ToolDefinition>();
-			const results = await dispatchTools(motor, signal, sense, correlationId, toolCalls, toMotorName, timeoutMs, {
+			const results = await dispatchTools(command, signal, event, correlationId, toolCalls, toMotorName, timeoutMs, {
 				...effectiveOptions,
 				signal: effectiveSignal,
 				toolDefs: toolDefsMap,

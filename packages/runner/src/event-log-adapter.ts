@@ -105,7 +105,7 @@ export class SessionLog implements Adapter {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => traceEvent("event-log:motor-append-failed", { error: String(e) }));
+				.catch((e: unknown) => traceEvent("event-log:command-append-failed", { error: String(e) }));
 		});
 
 		const off2 = bus.event.subscribe("*", (event) => {

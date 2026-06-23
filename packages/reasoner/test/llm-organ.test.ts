@@ -890,7 +890,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 
 		// When: waitForToolResult with a 200ms stall interval and 600ms timeout
 		const resultPromise = waitForToolResult({
-			sense: f.nerve.asBus().event,
+			event: f.nerve.asBus().event,
 			toolName: "stall.test",
 			toolCallId,
 			correlationId,
@@ -923,7 +923,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 		const chunks: string[] = [];
 
 		const resultPromise = waitForToolResult({
-			sense: f.nerve.asBus().event,
+			event: f.nerve.asBus().event,
 			toolName: "stall.reset",
 			toolCallId,
 			correlationId,

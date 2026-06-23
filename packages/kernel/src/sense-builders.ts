@@ -14,26 +14,26 @@ export function toErrorMessage(err: unknown): string {
 }
 
 export function buildSense(
-	motor: CommandMessage,
+	command: CommandMessage,
 	payload: Record<string, unknown>,
 	isError = false,
 	errorMessage?: string,
 ): EventInput {
-	const toolCallId = extractToolCallId(motor.payload);
+	const toolCallId = extractToolCallId(command.payload);
 	return {
-		type: motor.type,
-		correlationId: motor.correlationId,
+		type: command.type,
+		correlationId: command.correlationId,
 		payload: toolCallId ? { ...payload, toolCallId } : payload,
 		isError,
 		errorMessage,
 	};
 }
 
-export function buildErrSense(motor: CommandMessage, message: string): EventInput {
-	const toolCallId = extractToolCallId(motor.payload);
+export function buildErrSense(command: CommandMessage, message: string): EventInput {
+	const toolCallId = extractToolCallId(command.payload);
 	return {
-		type: motor.type,
-		correlationId: motor.correlationId,
+		type: command.type,
+		correlationId: command.correlationId,
 		payload: toolCallId ? { toolCallId } : {},
 		isError: true,
 		errorMessage: message,

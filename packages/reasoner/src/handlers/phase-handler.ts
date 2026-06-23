@@ -73,7 +73,7 @@ function mergePhaseResults(stages: PhaseResult[]): PhaseResult | undefined {
 }
 
 function waitForPhaseResult(
-	sense: SenseBus,
+	event: SenseBus,
 	correlationId: string,
 	timeoutMs: number,
 ): Promise<PhaseResult | undefined> {
@@ -90,7 +90,7 @@ function waitForPhaseResult(
 
 		const deadlineTimer = setTimeout(finish, timeoutMs); // lint-ignore: RAWTIMER LLM phase pipeline deadline
 
-		const off = sense.subscribe("context.assemble", (event) => {
+		const off = event.subscribe("context.assemble", (event) => {
 			if (event.correlationId !== correlationId) return;
 			collected.push(parsePhaseResult(event.payload));
 			if (quiescenceTimer !== undefined) clearTimeout(quiescenceTimer);
@@ -100,8 +100,8 @@ function waitForPhaseResult(
 }
 
 export async function runPhase(
-	motor: MotorBus,
-	sense: SenseBus,
+	command: MotorBus,
+	event: SenseBus,
 	correlationId: string,
 	messages: Message[],
 	tools: Tool[],
@@ -110,8 +110,8 @@ export async function runPhase(
 ): Promise<PhaseResult | undefined> {
 	const t0 = Date.now();
 	traceEvent("llm:phase:enter", { turn });
-	const phasePromise = waitForPhaseResult(sense, correlationId, phaseTimeoutMs);
-	motor.publish({
+	const phasePromise = waitForPhaseResult(event, correlationId, phaseTimeoutMs);
+	command.publish({
 		type: "context.assemble",
 		payload: { messages: messages as unknown[], turn, toolCount: tools.length },
 		correlationId,

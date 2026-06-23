@@ -24,14 +24,14 @@ export function reportUsage(finalMessage: AssistantMessage): TokenUsage | undefi
 }
 
 export function publishReply(
-	motor: MotorBus,
+	command: MotorBus,
 	correlationId: string,
 	finalMessage: AssistantMessage,
 	messages: Message[],
 ): void {
 	const text = extractText(finalMessage);
 	if (text) {
-		motor.publish({
+		command.publish({
 			type: LLM_RESPONSE,
 			payload: { text, conversationHistory: serializeConversationHistory(messages), usage: finalMessage.usage },
 			correlationId,
@@ -39,6 +39,6 @@ export function publishReply(
 	} else {
 		const fallback =
 			finalMessage.errorMessage || (finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
-		motor.publish({ type: LLM_RESPONSE, payload: { text: fallback }, correlationId });
+		command.publish({ type: LLM_RESPONSE, payload: { text: fallback }, correlationId });
 	}
 }

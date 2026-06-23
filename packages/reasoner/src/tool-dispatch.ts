@@ -76,7 +76,7 @@ function buildErrorSenseEvent(
 }
 
 export interface ToolResultSubscription {
-	sense: EventBus;
+	event: EventBus;
 	toolName: string;
 	toolCallId: string;
 	correlationId: string;
@@ -89,7 +89,7 @@ export interface ToolResultSubscription {
 
 export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMessage> {
 	const {
-		sense,
+		event,
 		toolName,
 		toolCallId,
 		correlationId,
@@ -141,7 +141,7 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMes
 			signal.addEventListener("abort", onAbort, { once: true });
 		}
 
-		const off = sense.subscribe(toolName, (event) => {
+		const off = event.subscribe(toolName, (event) => {
 			if (event.payload.toolCallId === toolCallId && event.correlationId === correlationId) {
 				if (event.payload.isFinal === false) {
 					watchdog?.reset();
@@ -188,9 +188,9 @@ interface DispatchToolsOptions {
 }
 
 export async function dispatchTools(
-	motor: CommandBus,
+	command: CommandBus,
 	signal: NotificationBus,
-	sense: EventBus,
+	event: EventBus,
 	correlationId: string,
 	toolCalls: ToolCall[],
 	toMotorName: (llmName: string) => string,
@@ -219,7 +219,7 @@ export async function dispatchTools(
 				timeoutMs,
 				options.schemaResolver?.(motorType) ?? options.toolDefs?.get(motorType),
 			);
-			motor.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
+			command.publish({ type: motorType, payload: { ...tc.args, toolCallId: tc.id }, correlationId });
 			const onChunk = (text: string) =>
 				signal.publish({ type: "llm.tool-chunk", payload: { callId: tc.id, text }, correlationId });
 			const onStall = (info: { elapsedMs: number; lastChunkMs: number }) =>
@@ -229,7 +229,7 @@ export async function dispatchTools(
 					correlationId,
 				});
 			return waitForToolResult({
-				sense,
+				event,
 				toolName: motorType,
 				toolCallId: tc.id,
 				correlationId,

@@ -209,7 +209,7 @@ describe("Scenario C — fullRender path under viewport overflow", { tags: ["uni
 // Scenario E — line diff timing benchmark
 // ---------------------------------------------------------------------------
 
-describe("Scenario E — line diff benchmark", { tags: ["unit"] }, () => {
+describe("Scenario E — line diff benchmark", { tags: ["benchmark"] }, () => {
 	const sizes = [100, 500, 1000, 5000];
 
 	for (const n of sizes) {

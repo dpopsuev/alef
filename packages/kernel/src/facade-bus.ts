@@ -3,6 +3,8 @@ export type {
 	BusChannel,
 	BusMessage,
 	BusMiddleware,
+	ChannelMap,
+	ChannelName,
 	CommandHandler,
 	CommandInput,
 	CommandMessage,

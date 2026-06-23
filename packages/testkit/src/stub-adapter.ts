@@ -6,17 +6,17 @@ export function defineStubAdapter(name: string, tools: ToolDefinition[], handler
 	return {
 		name,
 		tools,
-		description: `Stub organ: ${name}`,
+		description: `Stub adapter: ${name}`,
 		subscriptions: {
 			motor: tools.map((t) => t.name),
 			sense: [],
 		},
 		sources: [],
-		mount(nerve: Bus): () => void {
+		mount(bus: Bus): () => void {
 			const offs = tools.map((t) =>
-				nerve.command.subscribe(t.name, (event: CommandMessage) => {
+				bus.command.subscribe(t.name, (event: CommandMessage) => {
 					void handler(event.type, event.payload).then((result) => {
-						nerve.event.publish(buildSense(event, result));
+						bus.event.publish(buildSense(event, result));
 					});
 				}),
 			);

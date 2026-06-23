@@ -31,7 +31,7 @@ const BLUEPRINT_TOOL = {
 	}),
 };
 
-const BUILT_IN_ORGANS = new Set([
+const BUILT_IN_ADAPTERS = new Set([
 	"fs",
 	"shell",
 	"web",
@@ -45,9 +45,14 @@ const BUILT_IN_ORGANS = new Set([
 	"factory",
 ]);
 
-function buildBlueprint(name: string, description: string, organs: string[], model?: string): Record<string, unknown> {
-	const adapterEntries = organs.map((adapter) => {
-		if (BUILT_IN_ORGANS.has(adapter)) return { name: adapter };
+function buildBlueprint(
+	name: string,
+	description: string,
+	adapters: string[],
+	model?: string,
+): Record<string, unknown> {
+	const adapterEntries = adapters.map((adapter) => {
+		if (BUILT_IN_ADAPTERS.has(adapter)) return { name: adapter };
 		return { path: adapter };
 	});
 

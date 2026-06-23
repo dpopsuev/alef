@@ -429,13 +429,13 @@ const PROJECT_LOCKFILE_NAME = "alef-organs.lock";
 export function exportLockfile(cwd = process.cwd(), outputPath?: string): string {
 	const genId = currentGenId();
 	const lockContent = existsSync(LOCK_FILE) ? readFileSync(LOCK_FILE, "utf-8") : "{}";
-	const organs = parseLockAdapters(lockContent);
+	const adapters = parseLockAdapters(lockContent);
 
 	const lockfile: ProjectLockfile = {
 		alef: process.env.npm_package_version ?? "unknown",
 		exportedAt: new Date().toISOString(),
 		generationId: genId,
-		organs,
+		organs: adapters,
 	};
 
 	const target = outputPath ?? join(cwd, PROJECT_LOCKFILE_NAME);

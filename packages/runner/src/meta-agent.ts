@@ -25,14 +25,14 @@ export async function runMetaAgent(
 	if (!model) throw new Error("No model available for :meta — set ALEF_MODEL or configure a provider API key");
 	// DirectiveView is structurally a subset of DirectiveAdapter; the runtime object
 	// from getDirectiveAdapter() satisfies the full interface.
-	const organs: Adapter[] = [
+	const adapters: Adapter[] = [
 		createMetaOrgan({
 			dialogEventType: "llm.input",
 			getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined,
 		}),
 	];
 	const factory = buildSubagentFactory({ model: model, baseSystemPrompt: META_SYSTEM_PROMPT });
-	const strategy = new InProcessStrategy(organs, (sessionOpts) =>
+	const strategy = new InProcessStrategy(adapters, (sessionOpts) =>
 		factory({ ...sessionOpts, onChunk: sessionOpts.onChunk ?? onChunk }),
 	);
 	return strategy.send({ text: prompt, sender: "human", timeoutMs: 60_000 });

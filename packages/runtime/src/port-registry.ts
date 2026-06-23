@@ -89,11 +89,11 @@ function organCoversPort(info: OrganPortInfo, seam: PortDefinition): boolean {
 // Validation
 // ---------------------------------------------------------------------------
 
-export function validatePorts(organs: OrganPortInfo[], seams: PortDefinition[]): PortValidationResult {
+export function validatePorts(adapters: OrganPortInfo[], seams: PortDefinition[]): PortValidationResult {
 	const violations: PortViolation[] = [];
 
 	for (const seam of seams) {
-		const covering = organs.filter((o) => organCoversPort(o, seam));
+		const covering = adapters.filter((o) => organCoversPort(o, seam));
 		const count = covering.length;
 		const names = covering.map((o) => o.name);
 

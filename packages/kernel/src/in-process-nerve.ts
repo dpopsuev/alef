@@ -76,7 +76,7 @@ export class InProcessNerve {
 				correlationId: event.correlationId,
 				payload: toolCallId ? { toolCallId } : {},
 				isError: true,
-				errorMessage: `no organ handles motor/${event.type}`,
+				errorMessage: `no adapter handles motor/${event.type}`,
 			} as unknown as Omit<BusMessage, "timestamp" | "elapsed">);
 		};
 		// Signal bus has no dead-letter sink — signals are fire-and-forget to observers.

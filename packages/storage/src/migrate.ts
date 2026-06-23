@@ -12,7 +12,7 @@ export interface MigrationResult {
 	skipped: number;
 }
 
-function deriveOrgan(type: string): string | null {
+function deriveAdapter(type: string): string | null {
 	const dot = type.indexOf(".");
 	return dot > 0 ? type.slice(0, dot) : null;
 }
@@ -110,7 +110,7 @@ export async function migrateJsonlToSqlite(client: Client): Promise<MigrationRes
 							r.hash ?? null,
 							r.actor?.address ?? null,
 							r.actor?.type ?? null,
-							deriveOrgan(r.type),
+							deriveAdapter(r.type),
 							turnMap.get(r.correlationId) ?? null,
 							"migrated",
 						],

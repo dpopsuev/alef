@@ -34,14 +34,14 @@ interface ChainResult {
 const DEFAULT_STAGE_TIMEOUT_MS = 30_000;
 
 function publishValidateRequest(
-	nerve: Bus,
+	bus: Bus,
 	stage: BindingStage,
 	input: ChainInput,
 	sourceCorrelationId: string,
 ): { stageId: string; result: Promise<ChainResult> } {
 	const stageId = newCorrelationId();
-	const result = waitForValidateResult(nerve.sense, stageId, stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS);
-	nerve.command.publish({
+	const result = waitForValidateResult(bus.sense, stageId, stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS);
+	bus.command.publish({
 		type: VALIDATE_REQUEST,
 		correlationId: sourceCorrelationId,
 		payload: {
@@ -88,7 +88,7 @@ function waitForValidateResult(sense: Bus["sense"], id: string, timeoutMs: numbe
  * Implementations define how stages are executed (ordered, parallel, etc).
  */
 interface BindingExecutionStrategy {
-	execute(chain: BindingStage[], input: ChainInput, nerve: Bus, sourceCorrelationId: string): Promise<ChainResult>;
+	execute(chain: BindingStage[], input: ChainInput, bus: Bus, sourceCorrelationId: string): Promise<ChainResult>;
 }
 
 /**
@@ -99,7 +99,7 @@ class OrderedStrategy implements BindingExecutionStrategy {
 	async execute(
 		chain: BindingStage[],
 		input: ChainInput,
-		nerve: Bus,
+		bus: Bus,
 		sourceCorrelationId: string,
 	): Promise<ChainResult> {
 		let current = input;
@@ -110,7 +110,7 @@ class OrderedStrategy implements BindingExecutionStrategy {
 				continue;
 			}
 
-			const { stageId, result: resultPromise } = publishValidateRequest(nerve, stage, current, sourceCorrelationId);
+			const { stageId, result: resultPromise } = publishValidateRequest(bus, stage, current, sourceCorrelationId);
 			debugLog("binding:stage:start", { stageIdx: i, organ: stage.organ, stageId });
 
 			const result = await resultPromise;
@@ -141,12 +141,12 @@ class ParallelAllStrategy implements BindingExecutionStrategy {
 	async execute(
 		chain: BindingStage[],
 		input: ChainInput,
-		nerve: Bus,
+		bus: Bus,
 		sourceCorrelationId: string,
 	): Promise<ChainResult> {
 		const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
 		const results = await Promise.all(
-			stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result),
+			stages.map((stage) => publishValidateRequest(bus, stage, input, sourceCorrelationId).result),
 		);
 		const rejected = results.find((r) => !r.approved);
 		return rejected ?? { approved: true, reviewer: "parallel-all-complete" };
@@ -160,13 +160,11 @@ class ParallelFirstStrategy implements BindingExecutionStrategy {
 	async execute(
 		chain: BindingStage[],
 		input: ChainInput,
-		nerve: Bus,
+		bus: Bus,
 		sourceCorrelationId: string,
 	): Promise<ChainResult> {
 		const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
-		return Promise.race(
-			stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result),
-		);
+		return Promise.race(stages.map((stage) => publishValidateRequest(bus, stage, input, sourceCorrelationId).result));
 	}
 }
 
@@ -191,7 +189,7 @@ export function registerBindingStrategy(mode: string, strategy: BindingExecution
 export function executeBindingChain(
 	binding: Binding,
 	input: ChainInput,
-	nerve: Bus,
+	bus: Bus,
 	sourceCorrelationId: string,
 ): Promise<ChainResult> {
 	debugLog("binding:chain:start", {
@@ -206,17 +204,17 @@ export function executeBindingChain(
 		throw new Error(`Unknown binding mode: ${binding.mode}`);
 	}
 
-	return strategy.execute(binding.chain, input, nerve, sourceCorrelationId);
+	return strategy.execute(binding.chain, input, bus, sourceCorrelationId);
 }
 
-export function withBindings(bindings: Map<string, Binding>, baseNerve: Bus): Bus {
+export function withBindings(bindings: Map<string, Binding>, baseBus: Bus): Bus {
 	return makeBus(
 		{
-			subscribe: baseNerve.command.subscribe.bind(baseNerve.motor),
+			subscribe: baseBus.command.subscribe.bind(baseBus.motor),
 			publish: (event) => {
 				const binding = [...bindings.values()].find((b) => b.event === event.type);
 				if (!binding) {
-					baseNerve.command.publish(event);
+					baseBus.command.publish(event);
 					return;
 				}
 				const payload = event.payload;
@@ -225,12 +223,12 @@ export function withBindings(bindings: Map<string, Binding>, baseNerve: Bus): Bu
 					kind: typeof payload.kind === "string" ? payload.kind : undefined,
 					context: typeof payload.context === "string" ? payload.context : undefined,
 				};
-				void executeBindingChain(binding, input, baseNerve, event.correlationId);
+				void executeBindingChain(binding, input, baseBus, event.correlationId);
 			},
 		},
-		baseNerve.sense,
-		baseNerve.signal,
-		() => baseNerve.pulse(),
+		baseBus.sense,
+		baseBus.signal,
+		() => baseBus.pulse(),
 	);
 }
 

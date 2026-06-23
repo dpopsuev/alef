@@ -31,9 +31,9 @@ export interface WorkflowOrganOptions extends BaseOrganOptions {
 }
 
 export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
-	let nerve: Bus | null = null;
+	let bus: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
-		nerve?.notification.publish({ type, payload, correlationId: "" });
+		bus?.notification.publish({ type, payload, correlationId: "" });
 
 	const WORKFLOW_RUN_TOOL = tool(
 		"workflow.run",
@@ -72,9 +72,9 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 			},
 		},
 		{
-			description: `Workflow organ: ${opts.def.name} (${opts.def.stations.map((s) => s.name).join(" → ")})`,
+			description: `Workflow adapter: ${opts.def.name} (${opts.def.stations.map((s) => s.name).join(" → ")})`,
 			onMount: (n: Bus) => {
-				nerve = n;
+				bus = n;
 			},
 			contributions: {
 				tui: {

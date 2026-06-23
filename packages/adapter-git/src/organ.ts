@@ -122,7 +122,7 @@ export function createGitOrgan(opts: GitOrganOptions): Adapter {
 			description: "Git operations and local Forgejo forge integration.",
 			labels: ["git", "forge", "vcs"],
 			directives: [
-				"**git organ tools**\n" +
+				"**git adapter tools**\n" +
 					"- git.status shows working tree changes.\n" +
 					"- git.pr-create, git.pr-list, git.pr-review, git.pr-merge interact with the local Forgejo forge.\n" +
 					"- Use shell.exec for git commit, push, branch operations.",

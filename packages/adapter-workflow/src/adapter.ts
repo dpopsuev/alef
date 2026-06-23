@@ -78,7 +78,7 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 				bus = b;
 			},
 			contributions: {
-				tui: {
+				ui: {
 					signals: {
 						"workflow.intent": (payload, ui) => {
 							ui.setIntent(String(payload.text ?? ""));

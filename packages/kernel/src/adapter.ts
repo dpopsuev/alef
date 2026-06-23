@@ -45,8 +45,8 @@ export type {
 	SkillBook,
 	SkillPage,
 	ToolDefinition,
-	TuiContribution,
-	TuiSignalHandler,
+	UiContribution,
+	UiSignalHandler,
 } from "./buses.js";
 export {
 	createCompositeAgentRunContribution,

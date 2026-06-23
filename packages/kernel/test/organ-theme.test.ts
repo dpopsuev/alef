@@ -38,14 +38,14 @@ describe("AdapterTheme — abstract semantic colour interface", { tags: ["unit"]
 describe("AdapterContributions — tui and history slots", { tags: ["unit"] }, () => {
 	it("tui contribution compiles with renderCall and renderResult", () => {
 		const contrib: AdapterContributions = {
-			tui: {
+			ui: {
 				renderCall: (_name, _args, _theme) => null,
 				renderResult: (_name, _result, _opts, _theme) => null,
 				renderOverlay: () => null,
 			},
 		};
-		expect(contrib.tui).toBeDefined();
-		expect(contrib.tui?.renderCall?.("fs.read", {}, { fg: (_c, t) => t, bold: (t) => t, dim: (t) => t })).toBeNull();
+		expect(contrib.ui).toBeDefined();
+		expect(contrib.ui?.renderCall?.("fs.read", {}, { fg: (_c, t) => t, bold: (t) => t, dim: (t) => t })).toBeNull();
 	});
 
 	it("history contribution compiles with ownedTools and extractEntry", () => {
@@ -61,7 +61,7 @@ describe("AdapterContributions — tui and history slots", { tags: ["unit"] }, (
 
 	it("both slots are optional — organ without tui/history still compiles", () => {
 		const contrib: AdapterContributions = {};
-		expect(contrib.tui).toBeUndefined();
+		expect(contrib.ui).toBeUndefined();
 		expect(contrib.history).toBeUndefined();
 	});
 });

@@ -4,7 +4,7 @@ import { TuiStateStore } from "@dpopsuev/alef-runner-tui";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "./interactive.js";
-import { getTuiSignalHandlers, isCompacted } from "./local-session.js";
+import { getUiSignalHandlers, isCompacted } from "./local-session.js";
 import { ModalInputHandler } from "./modal-input.js";
 import type { Session } from "./session.js";
 import { bold, boldColor, color, getTheme } from "./theme.js";
@@ -55,7 +55,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	const { promptConsole, historyProvider, editor } = input;
 
 	const tuiUi: TuiUi = { writer, replyBlock, replyTW, thinkingTW, promptConsole, tui, t, session };
-	const signalHandlers = getTuiSignalHandlers();
+	const signalHandlers = getUiSignalHandlers();
 	const dispatch = (event: TuiEvent): void => {
 		const prev = tuiState;
 		tuiState = dispatchTuiEvent(tuiState, event, tuiUi, signalHandlers);

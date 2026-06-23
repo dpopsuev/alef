@@ -32,7 +32,7 @@ export function explainAdapter(adapter: Adapter): string {
 		if (contributions["agent.run"]) slots.push("agent.run");
 		if (contributions["schema-resolver"]) slots.push("schema-resolver");
 		if (contributions.skills) slots.push(`skills(${contributions.skills.length})`);
-		if (contributions.tui) slots.push("tui");
+		if (contributions.ui) slots.push("tui");
 		if (contributions.history) slots.push("history");
 		if (slots.length > 0) lines.push(`  contributions: ${slots.join(", ")}`);
 	}

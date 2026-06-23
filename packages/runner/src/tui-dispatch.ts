@@ -1,4 +1,4 @@
-import type { TuiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
+import type { UiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";
@@ -187,7 +187,7 @@ export function dispatchTuiEvent(
 	state: TuiState,
 	event: TuiEvent,
 	ui: TuiUi,
-	signalHandlers?: ReadonlyMap<string, TuiSignalHandler>,
+	signalHandlers?: ReadonlyMap<string, UiSignalHandler>,
 ): TuiState {
 	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, t, session } = ui;
 

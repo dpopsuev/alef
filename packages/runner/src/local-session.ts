@@ -42,22 +42,22 @@ function registerAdapterSignalMaps(
 	}
 }
 
-import type { TuiContribution, TuiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
+import type { UiContribution, UiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
 
-const tuiSignalHandlers = new Map<string, TuiSignalHandler>();
+const uiSignalHandlers = new Map<string, UiSignalHandler>();
 
-function registerTuiSignals(adapters: readonly { contributions?: { tui?: TuiContribution } }[]): void {
+function registerUiSignals(adapters: readonly { contributions?: { ui?: UiContribution } }[]): void {
 	for (const adapter of adapters) {
-		const signals = adapter.contributions?.tui?.signals;
+		const signals = adapter.contributions?.ui?.signals;
 		if (!signals) continue;
 		for (const [signalType, handler] of Object.entries(signals)) {
-			tuiSignalHandlers.set(signalType, handler);
+			uiSignalHandlers.set(signalType, handler);
 		}
 	}
 }
 
-export function getTuiSignalHandlers(): ReadonlyMap<string, TuiSignalHandler> {
-	return tuiSignalHandlers;
+export function getUiSignalHandlers(): ReadonlyMap<string, UiSignalHandler> {
+	return uiSignalHandlers;
 }
 
 let _compacted = false;
@@ -212,7 +212,7 @@ function signalToAgentEvent(event: BusMessage): AgentEvent | null {
 				if (mapped) return { type: "organ-signal", signalType: event.type, payload: mapped };
 				return null;
 			}
-			if (tuiSignalHandlers.has(event.type)) {
+			if (uiSignalHandlers.has(event.type)) {
 				return { type: "organ-signal", signalType: event.type, payload: p };
 			}
 			return null;
@@ -222,12 +222,12 @@ function signalToAgentEvent(event: BusMessage): AgentEvent | null {
 
 function registerContributions(
 	adapters: readonly {
-		contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>>; tui?: TuiContribution };
+		contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>>; ui?: UiContribution };
 	}[],
 ): void {
 	registerAdapterSignalMaps(adapters);
-	registerTuiSignals(adapters);
-	tuiSignalHandlers.set("context.compacted", (payload, ui) => {
+	registerUiSignals(adapters);
+	uiSignalHandlers.set("context.compacted", (payload, ui) => {
 		markCompacted();
 		const before = Number(payload.estimatedBefore ?? 0);
 		const after = Number(payload.estimatedAfter ?? 0);

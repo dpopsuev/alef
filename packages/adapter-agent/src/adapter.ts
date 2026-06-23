@@ -12,10 +12,6 @@
  *   agent.promote — add adapter to production blueprint, trigger blue-green
  */
 
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
 import type {
 	Adapter,
 	AgentRunContext,
@@ -32,21 +28,24 @@ import {
 } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
-import { RemoteStrategy } from "@dpopsuev/alef-runtime";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
-import { type ChildEntry, healthCheck, resolvePath, spawnChild } from "./child-process.js";
+import { AsyncQueue } from "./async-queue.js";
 import {
-	DEFAULT_ASK_MAX_MS,
-	DEFAULT_ASK_STALL_MS,
-	DEFAULT_MAX_DEPTH,
-	DEFAULT_READINESS_TIMEOUT_MS,
-	DEFAULT_RUN_MAX_MS,
-	DEFAULT_STALL_MS,
-	MIN_REMAINING_MS,
-	SIGKILL_GRACE_MS,
-} from "./constants.js";
+	type ChildLifecycleDeps,
+	handleAsk,
+	handleConverse,
+	handleKill,
+	handleList,
+	handlePromote,
+	handleRace,
+	handleSpawn,
+	handleStatus,
+} from "./child-lifecycle.js";
+import type { ChildEntry } from "./child-process.js";
+import { ChildRegistry } from "./child-registry.js";
+import { DEFAULT_MAX_DEPTH, DEFAULT_READINESS_TIMEOUT_MS, DEFAULT_RUN_MAX_MS, DEFAULT_STALL_MS } from "./constants.js";
 import { strategyRegistry } from "./strategy-registry.js";
+import { checkRelevance, needsWriteAccess } from "./text-analysis.js";
 import {
 	ASK_TOOL,
 	CONVERSE_TOOL,
@@ -59,35 +58,6 @@ import {
 } from "./tool-schemas.js";
 
 export type { ChildEntry };
-
-const WRITE_PATTERN =
-	/\b(write|create|edit|modify|delete|remove|install|run|execute|build|deploy|fix|refactor|update|change|add|implement|spawn|generate)\b/i;
-
-function extractKeywords(text: string): Set<string> {
-	return new Set(
-		text
-			.toLowerCase()
-			.replace(/[^a-z0-9\s]/g, " ")
-			.split(/\s+/)
-			.filter((w) => w.length > 3),
-	);
-}
-
-function checkRelevance(prompt: string, reply: string): { relevant: boolean; overlap: number; shallow: boolean } {
-	if (!reply || reply.length < 20) return { relevant: false, overlap: 0, shallow: true };
-	const promptWords = extractKeywords(prompt);
-	const replyWords = extractKeywords(reply.slice(0, 2000));
-	if (promptWords.size === 0) return { relevant: true, overlap: 1, shallow: false };
-	let hits = 0;
-	for (const w of promptWords) if (replyWords.has(w)) hits++;
-	const overlap = hits / promptWords.size;
-	const shallow = prompt.length > 200 && reply.length < 100;
-	return { relevant: overlap > 0.1, overlap, shallow };
-}
-
-function needsWriteAccess(text: string): boolean {
-	return WRITE_PATTERN.test(text);
-}
 
 export interface AgentAdapterOptions extends BaseAdapterOptions {
 	cwd?: string;
@@ -113,51 +83,34 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 /** @deprecated Use AgentAdapterOptions */
 export type AgentOrganOptions = AgentAdapterOptions;
 
-class AsyncQueue {
-	private readonly queue: string[] = [];
-	private resolve: (() => void) | undefined;
-	private done = false;
-
-	push(text: string): void {
-		this.queue.push(text);
-		this.resolve?.();
-		this.resolve = undefined;
-	}
-
-	finish(): void {
-		this.done = true;
-		this.resolve?.();
-		this.resolve = undefined;
-	}
-
-	async *iter(): AsyncIterable<string> {
-		while (true) {
-			while (this.queue.length > 0) {
-				const item = this.queue.shift();
-				if (item !== undefined) yield item;
-			}
-			if (this.done) return;
-			await new Promise<void>((r) => {
-				this.resolve = r;
-			});
-		}
-	}
-}
-
 export function createAgentOrgan(
 	opts: AgentAdapterOptions,
 ): Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
-	const cwd = opts.cwd ?? process.cwd();
-	const replyEvent = opts.replyEvent ?? "llm.response";
-	const readinessTimeoutMs = opts.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS;
-	const currentDepth = Number(process.env.ALEF_AGENT_DEPTH) || 0;
-	const maxDepth = opts.maxDepth ?? DEFAULT_MAX_DEPTH;
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
-	const children = new Map<string, ChildEntry>();
-	let childSeq = 0;
 	let mountedBus: Bus | null = null;
-	let publishInnerSignal: ((type: string, payload: Record<string, unknown>, correlationId: string) => void) | null =
-		null;
+
+	const registry = new ChildRegistry({
+		onReaped: (name, reason, exitCode) => {
+			strategies.delete(name);
+			mountedBus?.event.publish({
+				type: "child.reaped",
+				correlationId: "system",
+				isError: false,
+				payload: { name, reason, exitCode },
+			});
+		},
+	});
+
+	const deps: ChildLifecycleDeps = {
+		cwd: opts.cwd ?? process.cwd(),
+		replyEvent: opts.replyEvent ?? "llm.response",
+		readinessTimeoutMs: opts.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS,
+		currentDepth: Number(process.env.ALEF_AGENT_DEPTH) || 0,
+		maxDepth: opts.maxDepth ?? DEFAULT_MAX_DEPTH,
+		writableRoots: opts.writableRoots,
+		registry,
+		strategies,
+	};
 
 	interface AsyncTask {
 		id: string;
@@ -234,14 +187,14 @@ export function createAgentOrgan(
 		};
 	}
 
-	async function handleRunIsolated(
+	async function runIsolated(
 		text: string,
 		payload: Record<string, unknown>,
 		timeoutMs: number,
 		correlationId: string,
 		toolCallId?: string,
 	): Promise<{ reply: string; profile: string; elapsed: number; relevance: number }> {
-		const spawnResult = await handleSpawn({
+		const spawnResult = await handleSpawn(deps, {
 			payload: {
 				blueprintPath: payload.blueprintPath as string | undefined,
 				organs: payload.organs as string[] | undefined,
@@ -251,7 +204,7 @@ export function createAgentOrgan(
 		});
 		const childName = (spawnResult as { name: string }).name;
 		try {
-			const askResult = await handleAsk({
+			const askResult = await handleAsk(deps, {
 				payload: { name: childName, prompt: text, maxMs: timeoutMs },
 				correlationId,
 				toolCallId,
@@ -260,338 +213,8 @@ export function createAgentOrgan(
 			const relevance = checkRelevance(text, reply);
 			return { reply, profile: `isolated:${childName}`, elapsed: 0, relevance: relevance.overlap };
 		} finally {
-			await handleKill({ payload: { name: childName } });
+			await handleKill(deps, { payload: { name: childName } });
 		}
-	}
-
-	// ── agent.spawn — start a persistent child ─────────────────────────
-
-	async function handleSpawn(ctx: {
-		payload: {
-			blueprintPath?: string;
-			organs?: string[];
-			cwd?: string;
-			sessionId?: string;
-			sandbox?: boolean;
-			maxDepth?: number;
-		};
-		correlationId?: string;
-	}): Promise<Record<string, unknown>> {
-		if (currentDepth >= maxDepth) {
-			throw new Error(
-				`agent.spawn: depth limit reached (current: ${currentDepth}, max: ${maxDepth}). ` +
-					`Use agent.run for in-process delegation instead.`,
-			);
-		}
-
-		const result = await spawnChild({
-			cwd,
-			blueprintPath: ctx.payload.blueprintPath,
-			organs: ctx.payload.organs,
-			childCwd: ctx.payload.cwd,
-			sessionId: ctx.payload.sessionId,
-			sandbox: ctx.payload.sandbox,
-			readinessTimeoutMs,
-			writableRoots: opts.writableRoots,
-			childDepth: currentDepth + 1,
-		});
-
-		const name = `child-${++childSeq}`;
-		const entry: ChildEntry = {
-			name,
-			endpoint: result.endpoint,
-			sessionId: result.sessionId,
-			pid: result.child.pid ?? 0,
-			process: result.child,
-			startedAt: Date.now(),
-			tmpDir: result.tmpDir,
-		};
-		children.set(name, entry);
-
-		const strategy = new RemoteStrategy({ endpoint: result.endpoint, replyEvent });
-		strategies.set(name, strategy);
-
-		result.child.once("exit", (code) => {
-			children.delete(name);
-			strategies.delete(name);
-			if (result.tmpDir) rmSync(result.tmpDir, { recursive: true, force: true });
-			mountedBus?.event.publish({
-				type: "child.reaped",
-				correlationId: "system",
-				isError: false,
-				payload: { name, reason: "exited", exitCode: code ?? undefined },
-			});
-		});
-
-		return withDisplay(
-			{ name, endpoint: result.endpoint, sessionId: result.sessionId ?? "", pid: entry.pid },
-			{ text: `Spawned **${name}** (pid ${entry.pid}) at ${result.endpoint}`, mimeType: "text/markdown" },
-		);
-	}
-
-	// ── agent.ask — send prompt to running child ───────────────────────
-
-	async function handleAsk(ctx: {
-		payload: { name: string; prompt: string; stallMs?: number; maxMs?: number };
-		toolCallId?: string;
-		correlationId: string;
-	}): Promise<Record<string, unknown>> {
-		const { name: childName, prompt, stallMs = DEFAULT_ASK_STALL_MS, maxMs = DEFAULT_ASK_MAX_MS } = ctx.payload;
-		const parentCallId = ctx.toolCallId ?? ctx.correlationId;
-		const entry = children.get(childName);
-		if (!entry) throw new Error(`agent.ask: no child named '${childName}'`);
-
-		const strategy = new RemoteStrategy({
-			endpoint: entry.endpoint,
-			replyEvent,
-			stallMs,
-			onStall: () => {
-				entry.process.kill("SIGTERM");
-				children.delete(childName);
-				strategies.delete(childName);
-				mountedBus?.event.publish({
-					type: "child.reaped",
-					correlationId: "system",
-					isError: false,
-					payload: { name: childName, reason: "stall" },
-				});
-			},
-		});
-		const reply = await strategy.send({
-			text: prompt,
-			sender: "human",
-			timeoutMs: maxMs,
-			onInnerEvent: publishInnerSignal
-				? (_callId, innerType, innerPayload) =>
-						publishInnerSignal?.(innerType, { ...innerPayload, callId: parentCallId }, ctx.correlationId)
-				: undefined,
-		});
-		if (!reply) {
-			return withDisplay(
-				{ name: childName, reply: null, timedOut: true },
-				{ text: `**${childName}** did not reply`, mimeType: "text/markdown" },
-			);
-		}
-		return withDisplay({ name: childName, reply }, { text: reply, mimeType: "text/plain" });
-	}
-
-	// ── agent.race — parallel ask to multiple children ──────────────────
-
-	async function handleRace(ctx: {
-		payload: { tasks: Array<{ name: string; prompt: string }>; stallMs?: number; maxMs?: number };
-		toolCallId?: string;
-		correlationId: string;
-	}): Promise<Record<string, unknown>> {
-		const { tasks, stallMs = DEFAULT_ASK_STALL_MS, maxMs = DEFAULT_ASK_MAX_MS } = ctx.payload;
-		const parentCallId = ctx.toolCallId ?? ctx.correlationId;
-		const results = await Promise.allSettled(
-			tasks.map(async ({ name: childName, prompt }) => {
-				const entry = children.get(childName);
-				if (!entry) return { name: childName, reply: null, error: `no child named '${childName}'` };
-				const strategy = new RemoteStrategy({ endpoint: entry.endpoint, replyEvent, stallMs });
-				try {
-					const reply = await strategy.send({
-						text: prompt,
-						sender: "human",
-						timeoutMs: maxMs,
-						onInnerEvent: publishInnerSignal
-							? (_callId, innerType, innerPayload) =>
-									publishInnerSignal?.(innerType, { ...innerPayload, callId: parentCallId }, ctx.correlationId)
-							: undefined,
-					});
-					return { name: childName, reply: reply || null, error: null };
-				} catch (err) {
-					return { name: childName, reply: null, error: String(err) };
-				}
-			}),
-		);
-		const resolved = results.map((r, i) => {
-			if (r.status === "fulfilled") return r.value;
-			return { name: tasks[i]?.name ?? "unknown", reply: null, error: String(r.reason) };
-		});
-		const summary = resolved
-			.map(
-				(r) =>
-					`- **${r.name}**: ${r.reply ? `replied (${String(r.reply).length} chars)` : (r.error ?? "no reply")}`,
-			)
-			.join("\n");
-		return withDisplay(
-			{ results: resolved, succeeded: resolved.filter((r) => r.reply !== null).length, total: tasks.length },
-			{ text: summary, mimeType: "text/markdown" },
-		);
-	}
-
-	// ── agent.converse — multi-turn hub & spoke ───────────────────────
-
-	async function handleConverse(ctx: {
-		payload: { name: string; prompts: string[]; stallMs?: number; maxMs?: number };
-		toolCallId?: string;
-		correlationId: string;
-	}): Promise<Record<string, unknown>> {
-		const { name: childName, prompts, stallMs = DEFAULT_ASK_STALL_MS, maxMs = DEFAULT_ASK_MAX_MS } = ctx.payload;
-		const parentCallId = ctx.toolCallId ?? ctx.correlationId;
-		const entry = children.get(childName);
-		if (!entry) throw new Error(`agent.converse: no child named '${childName}'`);
-
-		const transcript: Array<{ role: "parent" | "child"; text: string }> = [];
-		const conversationStart = Date.now();
-
-		for (const prompt of prompts) {
-			if (Date.now() - conversationStart > maxMs) {
-				transcript.push({ role: "parent", text: "[conversation timed out]" });
-				break;
-			}
-
-			transcript.push({ role: "parent", text: prompt });
-
-			const remainingMs = Math.max(MIN_REMAINING_MS, maxMs - (Date.now() - conversationStart));
-			const strategy = new RemoteStrategy({
-				endpoint: entry.endpoint,
-				replyEvent,
-				stallMs,
-				onStall: () => {
-					transcript.push({ role: "child", text: "[stalled — no activity]" });
-				},
-			});
-
-			try {
-				const reply = await strategy.send({
-					text: prompt,
-					sender: "human",
-					timeoutMs: remainingMs,
-					onInnerEvent: publishInnerSignal
-						? (_callId, innerType, innerPayload) =>
-								publishInnerSignal?.(innerType, { ...innerPayload, callId: parentCallId }, ctx.correlationId)
-						: undefined,
-				});
-				transcript.push({ role: "child", text: reply || "(no reply)" });
-			} catch (err) {
-				transcript.push({ role: "child", text: `[error: ${String(err)}]` });
-				break;
-			}
-		}
-
-		const summary = transcript
-			.map((t) => `**${t.role}:** ${t.text.slice(0, 200)}${t.text.length > 200 ? "..." : ""}`)
-			.join("\n\n");
-
-		return withDisplay(
-			{ name: childName, transcript, turns: transcript.length, elapsedMs: Date.now() - conversationStart },
-			{ text: summary, mimeType: "text/markdown" },
-		);
-	}
-
-	// ── agent.kill — stop a child ──────────────────────────────────────
-
-	async function handleKill(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
-		const { name: childName } = ctx.payload;
-		const entry = children.get(childName);
-		if (!entry)
-			return withDisplay(
-				{ stopped: false, reason: `no child named '${childName}'` },
-				{ text: `No child named '${childName}'`, mimeType: "text/plain" },
-			);
-		entry.process.kill("SIGTERM");
-		await new Promise<void>((res) => {
-			// lint-ignore: RAWTIMER SIGKILL escalation
-			const t = setTimeout(() => {
-				entry.process.kill("SIGKILL");
-				res();
-			}, SIGKILL_GRACE_MS);
-			entry.process.once("exit", () => {
-				clearTimeout(t);
-				res();
-			});
-		});
-		children.delete(childName);
-		strategies.delete(childName);
-		return withDisplay(
-			{ stopped: true, name: childName },
-			{ text: `Stopped **${childName}**`, mimeType: "text/markdown" },
-		);
-	}
-
-	// ── agent.list / agent.status ──────────────────────────────────────
-
-	async function handleList(): Promise<Record<string, unknown>> {
-		const items = await Promise.all(
-			[...children.values()].map(async (e) => ({
-				name: e.name,
-				endpoint: e.endpoint,
-				sessionId: e.sessionId ?? null,
-				pid: e.pid,
-				uptimeMs: Date.now() - e.startedAt,
-				alive: await healthCheck(e.endpoint),
-			})),
-		);
-		const summary =
-			items.length === 0
-				? "No running children."
-				: items.map((c) => `- **${c.name}** pid=${c.pid} ${c.alive ? "alive" : "dead"} ${c.endpoint}`).join("\n");
-		return withDisplay({ children: items }, { text: summary, mimeType: "text/markdown" });
-	}
-
-	async function handleStatus(ctx: { payload: { name: string } }): Promise<Record<string, unknown>> {
-		const { name: childName } = ctx.payload;
-		const entry = children.get(childName);
-		if (!entry)
-			return withDisplay(
-				{ alive: false, reason: `no child named '${childName}'` },
-				{ text: `No child named '${childName}'`, mimeType: "text/plain" },
-			);
-		const alive = await healthCheck(entry.endpoint);
-		const uptimeMs = Date.now() - entry.startedAt;
-		return withDisplay(
-			{ name: childName, alive, endpoint: entry.endpoint, sessionId: entry.sessionId ?? null, uptimeMs },
-			{
-				text: `**${childName}** ${alive ? "alive" : "dead"} — uptime ${Math.round(uptimeMs / 1000)}s`,
-				mimeType: "text/markdown",
-			},
-		);
-	}
-
-	// ── agent.promote — blue-green swap ────────────────────────────────
-
-	async function handlePromote(ctx: {
-		payload: { adapterPath: string; blueprintPath?: string };
-	}): Promise<Record<string, unknown>> {
-		const adapterPath = resolvePath(ctx.payload.adapterPath, cwd);
-		let blueprintPath: string;
-		if (ctx.payload.blueprintPath) {
-			const registeredNames = blueprintRegistry.list();
-			blueprintPath = registeredNames.includes(ctx.payload.blueprintPath)
-				? ctx.payload.blueprintPath // Keep as blueprint name
-				: resolvePath(ctx.payload.blueprintPath, cwd); // Resolve as file path
-		} else {
-			blueprintPath = process.env.ALEF_BLUEPRINT_PATH ?? join(homedir(), ".config", "alef", "agent.yaml");
-		}
-		let doc: Record<string, unknown> = {};
-		try {
-			doc = parseYaml(readFileSync(blueprintPath, "utf-8")) as Record<string, unknown>;
-		} catch {
-			/* start fresh */
-		}
-		const spec = (doc.spec ?? {}) as Record<string, unknown>;
-		const organs = Array.isArray(spec.organs) ? [...spec.organs] : [];
-		if (!organs.some((o) => (o as { path?: string }).path === adapterPath)) organs.push({ path: adapterPath });
-		spec.organs = organs;
-		doc.spec = spec;
-		writeFileSync(blueprintPath, stringifyYaml(doc), "utf-8");
-		const underSupervisor = process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function";
-		if (underSupervisor) {
-			process.send?.({ type: "rebuild" });
-			return withDisplay(
-				{ promoted: true, adapterPath, blueprintPath },
-				{ text: `Promoted ${adapterPath} — supervisor rebuild triggered`, mimeType: "text/plain" },
-			);
-		}
-		return withDisplay(
-			{ promoted: false, reason: "not running under supervisor", adapterPath, blueprintPath },
-			{
-				text: `Wrote ${adapterPath} to blueprint but not under supervisor — restart to apply`,
-				mimeType: "text/plain",
-			},
-		);
 	}
 
 	// ── defineAdapter ────────────────────────────────────────────────────
@@ -680,7 +303,7 @@ export function createAgentOrgan(
 					}
 
 					if (isolate) {
-						const result = await handleRunIsolated(text, payload, timeoutMs, ctx.correlationId, ctx.toolCallId);
+						const result = await runIsolated(text, payload, timeoutMs, ctx.correlationId, ctx.toolCallId);
 						yield withDisplay(
 							{
 								reply: result.reply,
@@ -769,9 +392,9 @@ export function createAgentOrgan(
 							sender: "human",
 							timeoutMs,
 							onChunk: (chunk: string) => queue.push(chunk),
-							onInnerEvent: publishInnerSignal
+							onInnerEvent: deps.publishInnerSignal
 								? (_callId, innerType, innerPayload) =>
-										publishInnerSignal?.(
+										deps.publishInnerSignal?.(
 											innerType,
 											{ ...innerPayload, callId: ctx.toolCallId ?? ctx.correlationId },
 											ctx.correlationId,
@@ -871,21 +494,21 @@ export function createAgentOrgan(
 						}
 					},
 				),
-				"agent.spawn": typedAction(SPAWN_TOOL, handleSpawn),
-				"agent.ask": typedAction(ASK_TOOL, handleAsk),
-				"agent.race": typedAction(RACE_TOOL, handleRace),
-				"agent.converse": typedAction(CONVERSE_TOOL, handleConverse),
-				"agent.kill": typedAction(KILL_TOOL, handleKill),
-				"agent.list": typedAction(LIST_TOOL, handleList),
-				"agent.status": typedAction(STATUS_TOOL, handleStatus),
-				"agent.promote": typedAction(PROMOTE_TOOL, handlePromote),
+				"agent.spawn": typedAction(SPAWN_TOOL, (ctx) => handleSpawn(deps, ctx)),
+				"agent.ask": typedAction(ASK_TOOL, (ctx) => handleAsk(deps, ctx)),
+				"agent.race": typedAction(RACE_TOOL, (ctx) => handleRace(deps, ctx)),
+				"agent.converse": typedAction(CONVERSE_TOOL, (ctx) => handleConverse(deps, ctx)),
+				"agent.kill": typedAction(KILL_TOOL, (ctx) => handleKill(deps, ctx)),
+				"agent.list": typedAction(LIST_TOOL, () => handleList(deps)),
+				"agent.status": typedAction(STATUS_TOOL, (ctx) => handleStatus(deps, ctx)),
+				"agent.promote": typedAction(PROMOTE_TOOL, (ctx) => handlePromote(deps, ctx)),
 			},
 		},
 		{
 			logger: opts.logger,
 			onMount: (bus) => {
 				mountedBus = bus;
-				publishInnerSignal = (innerType, payload, correlationId) => {
+				deps.publishInnerSignal = (innerType, payload, correlationId) => {
 					const { callId, ...innerPayload } = payload as { callId?: string } & Record<string, unknown>;
 					bus.notification.publish({
 						type: "agent.run.inner",
@@ -896,7 +519,7 @@ export function createAgentOrgan(
 			},
 			onUnmount: () => {
 				mountedBus = null;
-				publishInnerSignal = null;
+				deps.publishInnerSignal = undefined;
 			},
 			contributions: {
 				tui: {

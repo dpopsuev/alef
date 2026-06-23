@@ -1,5 +1,5 @@
 export {
-	AccessDecision,
+	type AccessDecision,
 	type AccessPolicy,
 	type AccessPolicyRules,
 	ALLOW_ALL,

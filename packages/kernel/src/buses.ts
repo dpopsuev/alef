@@ -330,7 +330,13 @@ export type CommandInput = Omit<CommandMessage, "timestamp" | "elapsed">;
 export type EventInput = Omit<EventMessage, "timestamp" | "elapsed">;
 export type NotificationInput = Omit<NotificationMessage, "timestamp" | "elapsed">;
 
-export type ChannelName = "command" | "event" | "notification";
+export const CHANNEL = {
+	COMMAND: "command",
+	EVENT: "event",
+	NOTIFICATION: "notification",
+} as const;
+
+export type ChannelName = (typeof CHANNEL)[keyof typeof CHANNEL];
 
 export type ChannelMap<T> = { readonly [K in ChannelName]: T };
 

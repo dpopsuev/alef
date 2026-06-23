@@ -1,3 +1,12 @@
+export {
+	AccessDecision,
+	type AccessPolicy,
+	type AccessPolicyRules,
+	ALLOW_ALL,
+	createAccessPolicy,
+} from "./access-policy.js";
+export { type CacheStrategy, createMapCache, makeCacheKey } from "./adapter-cache.js";
+export type { DispatchOptions, EscalationHandler } from "./adapter-dispatch.js";
 export { explainAdapter } from "./adapter-explain.js";
 export {
 	type AdapterTool,
@@ -32,4 +41,23 @@ export type {
 	ToolDefinition,
 } from "./buses.js";
 export { defineAdapter } from "./framework.js";
-export { withDisplay } from "./payload.js";
+export { getBoolean, getNumber, getString, type SenseDisplayBlock, withDisplay, withLlmContent } from "./payload.js";
+export {
+	type Evaluator,
+	VALIDATE_REQUEST,
+	VALIDATE_RESULT,
+	type ValidateRequest,
+	type ValidateResult,
+	type Validator,
+} from "./protocols.js";
+export {
+	DEFAULT_MAX_BYTES,
+	DEFAULT_MAX_LINES,
+	formatSize,
+	GREP_MAX_LINE_LENGTH,
+	type TruncationOptions,
+	type TruncationResult,
+	truncateHead,
+	truncateLine,
+	truncateTail,
+} from "./truncate.js";

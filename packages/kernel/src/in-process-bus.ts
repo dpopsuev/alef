@@ -8,7 +8,7 @@ import type {
 	CommandMessage,
 } from "./buses.js";
 import { makeBus } from "./buses.js";
-import { extractToolCallId } from "./sense-builders.js";
+import { extractToolCallId } from "./event-builders.js";
 import { Watchdog } from "./watchdog.js";
 
 const FIRST_SEEN_MAX = 500;

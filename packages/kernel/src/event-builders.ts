@@ -13,7 +13,7 @@ export function toErrorMessage(err: unknown): string {
 	return getErrorMessage(err);
 }
 
-export function buildSense(
+export function buildEventResult(
 	command: CommandMessage,
 	payload: Record<string, unknown>,
 	isError = false,
@@ -29,7 +29,7 @@ export function buildSense(
 	};
 }
 
-export function buildErrSense(command: CommandMessage, message: string): EventInput {
+export function buildErrorResult(command: CommandMessage, message: string): EventInput {
 	const toolCallId = extractToolCallId(command.payload);
 	return {
 		type: command.type,
@@ -39,3 +39,8 @@ export function buildErrSense(command: CommandMessage, message: string): EventIn
 		errorMessage: message,
 	};
 }
+
+/** @deprecated Use buildEventResult */
+export const buildSense = buildEventResult;
+/** @deprecated Use buildErrorResult */
+export const buildErrSense = buildErrorResult;

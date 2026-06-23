@@ -1,19 +1,19 @@
 /**
- * ScriptedReasoner — deterministic LLM organ for blueprint testing.
+ * ScriptedReasoner — deterministic LLM adapter for blueprint testing.
  *
  * Replaces Reasoner in tests. No real API call. Reads from a ScriptStep queue.
  *
- * On each sense/llm.response:
+ * On each event/llm.response:
  * 1. Pops next ScriptStep from the queue
- * 2. Executes tool calls via the real Motor bus (real organ handlers fire)
- * 3. Waits for Sense results (actual file content, shell output, etc.)
- * 4. Publishes motor/llm.response { text: step.reply }
+ * 2. Executes tool calls via the real Command bus (real adapter handlers fire)
+ * 3. Waits for Event results (actual file content, shell output, etc.)
+ * 4. Publishes command/llm.response { text: step.reply }
  *
  * This means:
- * - FsOrgan, ShellOrgan, LectorOrgan handlers execute for real
+ * - FsAdapter, ShellAdapter, LectorAdapter handlers execute for real
  * - Tool results are real (file content, shell exit codes, etc.)
  * - Only the LLM's decision (which tools to call + final text) is scripted
- * - Tests are deterministic, no API key needed, but organ behaviour is real
+ * - Tests are deterministic, no API key needed, but adapter behaviour is real
  *
  * Extends (replaces) MockReasoner which only supports a single canned reply.
  *
@@ -56,15 +56,15 @@ import type { ScriptStep } from "./script.js";
 
 export interface ScriptedReasonerOptions {
 	/**
-	 * Sense event type that triggers a reasoning step.
+	 * Event type that triggers a reasoning step.
 	 * Default: 'llm.response'. Set to any event for autonomous agents.
 	 */
 	triggerEvent?: string;
-	/** Motor event type published as the reply. Default: same as triggerEvent. */
+	/** Command event type published as the reply. Default: same as triggerEvent. */
 	replyEvent?: string;
-	/** Called before each tool call motor.publish — mirrors AgentLoopOptions.onToolStart. */
+	/** Called before each tool call command.publish — mirrors AgentLoopOptions.onToolStart. */
 	onToolStart?: (event: ToolCallStart) => void;
-	/** Called after each tool sense result — mirrors AgentLoopOptions.onToolEnd. */
+	/** Called after each tool event result — mirrors AgentLoopOptions.onToolEnd. */
 	onToolEnd?: (event: ToolCallEnd) => void;
 	/**
 	 * Called with the reply text before publishing llm.response.
@@ -87,8 +87,8 @@ export class ScriptedReasoner implements Adapter {
 
 	get subscriptions() {
 		return {
-			motor: [] as const,
-			sense: [this.triggerEvent] as readonly string[],
+			command: [] as const,
+			event: [this.triggerEvent] as readonly string[],
 		};
 	}
 
@@ -109,21 +109,21 @@ export class ScriptedReasoner implements Adapter {
 		this.stepIndex = 0;
 	}
 
-	mount(nerve: Bus): () => void {
-		const off = nerve.event.subscribe(this.triggerEvent, (event) => {
-			void this._handle(nerve, event);
+	mount(bus: Bus): () => void {
+		const off = bus.event.subscribe(this.triggerEvent, (event) => {
+			void this._handle(bus, event);
 		});
 		return off;
 	}
 
-	private async _handle(nerve: Bus, event: EventMessage): Promise<void> {
+	private async _handle(bus: Bus, event: EventMessage): Promise<void> {
 		const step = this.queue[this.stepIndex++];
 
 		if (!step) {
 			process.stderr.write(
 				`[ScriptedReasoner] Script exhausted after ${this.stepIndex - 1} steps. Replying with sentinel.\n`,
 			);
-			nerve.command.publish({
+			bus.command.publish({
 				type: this.replyEvent,
 				payload: { text: "(ScriptedReasoner: script exhausted)" },
 				correlationId: event.correlationId,
@@ -134,7 +134,7 @@ export class ScriptedReasoner implements Adapter {
 		try {
 			if (step.kind === "reply") {
 				if (step.text) this.opts.onResponseChunk?.(step.text);
-				nerve.command.publish({
+				bus.command.publish({
 					type: this.replyEvent,
 					payload: { text: step.text },
 					correlationId: event.correlationId,
@@ -145,18 +145,18 @@ export class ScriptedReasoner implements Adapter {
 			const calls = step.kind === "toolCall" ? [step.call] : step.calls;
 			const replyText = step.reply;
 
-			// Execute tool calls in parallel — same semantics as organ-llm.
+			// Execute tool calls in parallel — same semantics as adapter-llm.
 			await Promise.all(
 				calls.map(async (call) => {
 					const toolCallId = randomUUID();
 					const startedAt = Date.now();
 					this.opts.onToolStart?.({ callId: toolCallId, name: call.name, args: call.args });
-					nerve.command.publish({
+					bus.command.publish({
 						type: call.name,
 						payload: { ...call.args, toolCallId },
 						correlationId: event.correlationId,
 					});
-					const result = await waitForSense(nerve, call.name, toolCallId, event.correlationId);
+					const result = await waitForEvent(bus, call.name, toolCallId, event.correlationId);
 					this.opts.onToolEnd?.({
 						callId: toolCallId,
 						elapsedMs: Date.now() - startedAt,
@@ -170,14 +170,14 @@ export class ScriptedReasoner implements Adapter {
 
 			// Deliver reply text via onResponseChunk before publishing llm.response.
 			if (replyText) this.opts.onResponseChunk?.(replyText);
-			nerve.command.publish({
+			bus.command.publish({
 				type: this.replyEvent,
 				payload: { text: replyText },
 				correlationId: event.correlationId,
 			});
 		} catch (err) {
 			// Publish error as dialog reply so dialog.send() resolves rather than hanging.
-			nerve.command.publish({
+			bus.command.publish({
 				type: this.replyEvent,
 				payload: { text: `(ScriptedReasoner error: ${String(err)})` },
 				correlationId: event.correlationId,
@@ -187,11 +187,11 @@ export class ScriptedReasoner implements Adapter {
 }
 
 // ---------------------------------------------------------------------------
-// Utility — await a Sense event matching toolCallId + correlationId
+// Utility — await an Event matching toolCallId + correlationId
 // ---------------------------------------------------------------------------
 
-function waitForSense(
-	nerve: Bus,
+function waitForEvent(
+	bus: Bus,
 	eventType: string,
 	toolCallId: string,
 	correlationId: string,
@@ -200,10 +200,10 @@ function waitForSense(
 	return new Promise((resolve, reject) => {
 		const timer = setTimeout(() => {
 			off();
-			reject(new Error(`ScriptedReasoner: timeout waiting for sense/${eventType} (toolCallId=${toolCallId})`));
+			reject(new Error(`ScriptedReasoner: timeout waiting for event/${eventType} (toolCallId=${toolCallId})`));
 		}, timeoutMs);
 
-		const off = nerve.event.subscribe(eventType, (e: EventMessage) => {
+		const off = bus.event.subscribe(eventType, (e: EventMessage) => {
 			if (e.correlationId === correlationId && (e.payload as { toolCallId?: string }).toolCallId === toolCallId) {
 				clearTimeout(timer);
 				off();

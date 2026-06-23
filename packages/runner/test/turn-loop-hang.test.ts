@@ -1,9 +1,9 @@
 /**
- * Turn loop integration tests — real organs, faux LLM, actual waitForToolResult path.
+ * Turn loop integration tests — real adapters, faux LLM, actual waitForToolResult path.
  * BlueprintHarness uses ScriptedReasoner and bypasses waitForToolResult; these don't.
  */
 
-import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
@@ -29,14 +29,14 @@ function makeAgent(opts: { timeoutMs?: number } = {}) {
 	return { faux, agent, controller, timeoutMs: opts.timeoutMs ?? 3_000 };
 }
 
-describe("turn loop — slow organ", { tags: ["unit"] }, () => {
+describe("turn loop — slow adapter", { tags: ["unit"] }, () => {
 	it("controller.send resolves when the tool completes before the deadline", async () => {
 		const { faux, agent, controller, timeoutMs } = makeAgent({ timeoutMs: 5_000 });
 
-		const slowOrgan = defineOrgan(
+		const slowAdapter = defineAdapter(
 			"slow",
 			{
-				motor: {
+				command: {
 					"slow.op": typedAction(
 						{ name: "slow.op", description: "A slow op", inputSchema: z.object({}) },
 						async () => {
@@ -46,10 +46,10 @@ describe("turn loop — slow organ", { tags: ["unit"] }, () => {
 					),
 				},
 			},
-			{ description: "Slow organ for testing.", directives: ["Use slow.op when asked."] },
+			{ description: "Slow adapter for testing.", directives: ["Use slow.op when asked."] },
 		);
 
-		agent.load(slowOrgan);
+		agent.load(slowAdapter);
 		await agent.ready();
 
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("slow.op", {})]), fauxAssistantMessage("all done")]);
@@ -59,15 +59,15 @@ describe("turn loop — slow organ", { tags: ["unit"] }, () => {
 	}, 8_000);
 });
 
-describe("turn loop — hanging organ", { tags: ["unit"] }, () => {
-	it("controller.send rejects at its timeout when the tool never publishes a sense event", async () => {
+describe("turn loop — hanging adapter", { tags: ["unit"] }, () => {
+	it("controller.send rejects at its timeout when the tool never publishes an event message", async () => {
 		const { faux, agent, controller } = makeAgent();
 		const SEND_TIMEOUT_MS = 1_500;
 
-		const hangOrgan = defineOrgan(
+		const hangAdapter = defineAdapter(
 			"hang",
 			{
-				motor: {
+				command: {
 					"hang.op": typedAction(
 						{ name: "hang.op", description: "A hanging op", inputSchema: z.object({}) },
 						async () => {
@@ -77,10 +77,10 @@ describe("turn loop — hanging organ", { tags: ["unit"] }, () => {
 					),
 				},
 			},
-			{ description: "Hanging organ for testing.", directives: ["Use hang.op when asked."] },
+			{ description: "Hanging adapter for testing.", directives: ["Use hang.op when asked."] },
 		);
 
-		agent.load(hangOrgan);
+		agent.load(hangAdapter);
 		await agent.ready();
 
 		faux.setResponses([fauxAssistantMessage([fauxToolCall("hang.op", {})])]);
@@ -94,26 +94,26 @@ describe("turn loop — hanging organ", { tags: ["unit"] }, () => {
 	}, 6_000);
 });
 
-describe("turn loop — error organ", { tags: ["unit"] }, () => {
-	it("controller.send resolves when the organ throws and the LLM handles the error", async () => {
+describe("turn loop — error adapter", { tags: ["unit"] }, () => {
+	it("controller.send resolves when the adapter throws and the LLM handles the error", async () => {
 		const { faux, agent, controller, timeoutMs } = makeAgent({ timeoutMs: 5_000 });
 
-		const errorOrgan = defineOrgan(
+		const errorAdapter = defineAdapter(
 			"err",
 			{
-				motor: {
+				command: {
 					"err.op": typedAction(
 						{ name: "err.op", description: "An op that fails", inputSchema: z.object({}) },
 						async () => {
-							throw new Error("organ exploded");
+							throw new Error("adapter exploded");
 						},
 					),
 				},
 			},
-			{ description: "Error organ for testing.", directives: ["Use err.op when asked."] },
+			{ description: "Error adapter for testing.", directives: ["Use err.op when asked."] },
 		);
 
-		agent.load(errorOrgan);
+		agent.load(errorAdapter);
 		await agent.ready();
 
 		faux.setResponses([
@@ -130,10 +130,10 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 	it("turn completes when LLM sends wrong type for a schema field", async () => {
 		const { faux, agent, controller, timeoutMs } = makeAgent({ timeoutMs: 3_000 });
 
-		const strictOrgan = defineOrgan(
+		const strictAdapter = defineAdapter(
 			"strict",
 			{
-				motor: {
+				command: {
 					"strict.op": typedAction(
 						{
 							name: "strict.op",
@@ -144,10 +144,10 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 					),
 				},
 			},
-			{ description: "Strict schema organ.", directives: ["Use strict.op when asked."] },
+			{ description: "Strict schema adapter.", directives: ["Use strict.op when asked."] },
 		);
 
-		agent.load(strictOrgan);
+		agent.load(strictAdapter);
 		await agent.ready();
 
 		faux.setResponses([

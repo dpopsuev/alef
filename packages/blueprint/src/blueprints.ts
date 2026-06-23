@@ -449,13 +449,13 @@ export function compileAgentDefinition(
 	if (hasOrchestrationOrgan && input.capabilities?.orchestration !== true) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		throw new Error(
-			`Invalid agent definition${location}: orchestration organ requires capabilities.orchestration: true`,
+			`Invalid agent definition${location}: orchestration adapter requires capabilities.orchestration: true`,
 		);
 	}
 	if (!hasOrchestrationOrgan && input.capabilities?.orchestration === true) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		throw new Error(
-			`Invalid agent definition${location}: capabilities.orchestration: true requires an orchestration organ`,
+			`Invalid agent definition${location}: capabilities.orchestration: true requires an orchestration adapter`,
 		);
 	}
 

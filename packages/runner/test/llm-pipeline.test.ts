@@ -3,7 +3,7 @@
  *
  * Exercises the parts ScriptedReasoner cannot reach:
  *   - systemPrompt visible in the LLM context
- *   - motor/context.assemble pipeline (ToolShell progressive disclosure)
+ *   - command/context.assemble pipeline (ToolShell progressive disclosure)
  *   - Retry on transient error
  *   - budget.cancel abort
  *
@@ -14,7 +14,7 @@
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { Agent, AgentController, createToolShellOrgan } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const SEND_TIMEOUT = 5_000;
 
-/** Minimal agent: organ-llm with faux LLM + AgentController. */
+/** Minimal agent: adapter-llm with faux LLM + AgentController. */
 function makeAgent(opts: { systemPrompt?: string; phaseTimeoutMs?: number; maxRetries?: number } = {}) {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
@@ -137,11 +137,11 @@ describe("systemPrompt → LLM context", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// motor/context.assemble pipeline
+// command/context.assemble pipeline
 // ---------------------------------------------------------------------------
 
-describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
-	it("motor/context.assemble fires and its messages include the user message", async () => {
+describe("command/context.assemble pipeline", { tags: ["unit"] }, () => {
+	it("command/context.assemble fires and its messages include the user message", async () => {
 		let phaseMessages: unknown[] | undefined;
 		const { faux, agent, controller } = makeAgent({ phaseTimeoutMs: 100 });
 		faux.setResponses([fauxAssistantMessage("done")]);
@@ -150,7 +150,7 @@ describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
 			faux.unregister();
 		});
 
-		agent.subscribeMotor("context.assemble", (event) => {
+		agent.subscribeCommand("context.assemble", (event) => {
 			phaseMessages = event.payload.messages as unknown[];
 		});
 
@@ -163,7 +163,7 @@ describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
 	});
 
 	it("ToolShell phaseStage adds tools.describe to ctx.tools on turn 1", async () => {
-		const toolShell = createToolShellOrgan({ tools: [] });
+		const toolShell = createToolShellAdapter({ tools: [] });
 
 		let capturedTools: unknown[] | undefined;
 		const factory: FauxResponseFactory = (ctx) => {
@@ -185,7 +185,7 @@ describe("motor/context.assemble pipeline", { tags: ["unit"] }, () => {
 		await controller.send("hello", "human", SEND_TIMEOUT);
 
 		const names = (capturedTools ?? []).map((t) => (t as { name: string }).name);
-		// organ-llm substitutes dots with underscores for the LLM wire format.
+		// adapter-llm substitutes dots with underscores for the LLM wire format.
 		expect(names.some((n) => n === "tools.describe" || n === "tools_describe")).toBe(true);
 	});
 });
@@ -255,7 +255,7 @@ describe("budget.cancel", { tags: ["unit"] }, () => {
 
 		const sendPromise = controller.send("hello", "human", SEND_TIMEOUT);
 		await new Promise<void>((r) => setTimeout(r, 50));
-		agent.publishSense({
+		agent.publishEvent({
 			type: "budget.cancel",
 			correlationId: "*",
 			payload: { reason: "maxElapsedMs", limitMs: 0 },

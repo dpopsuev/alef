@@ -19,8 +19,8 @@
  * Measurement: 69.9% of input tokens were schema overhead before this (2026-05-28).
  */
 
-import type { ContextAssemblyHandler, Nerve, OrganLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { defineOrgan, toolInputToJsonSchema, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { AdapterLogger, Bus, ContextAssemblyHandler, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { defineAdapter, toolInputToJsonSchema, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 const DESCRIBE_TOOL = {
@@ -60,7 +60,7 @@ export interface ToolShellOptions {
 	 * Organ guidance blocks indexed by tool name.
 	 * Populated from organ.directives — travel with schemas instead of system prompt.
 	 */
-	organDirectives?: ReadonlyMap<string, readonly string[]>;
+	adapterDirectives?: ReadonlyMap<string, readonly string[]>;
 	/**
 	 * Evict the boot catalog from conversation history after this many turns.
 	 * Default: 3. Set to Infinity to disable eviction.
@@ -69,7 +69,7 @@ export interface ToolShellOptions {
 	/** Filter which tools appear in the catalog. Unmatched tools are hidden until explicitly described. */
 	toolFilter?: (tool: ToolDefinition) => boolean;
 	/** Logger for warn/debug output. Defaults to no-op. */
-	logger?: OrganLogger;
+	logger?: AdapterLogger;
 }
 
 const CATALOG_MARKER = "\x00TOOL-CATALOG-v1\x00";
@@ -171,7 +171,7 @@ function createPromotionTracker(): PromotionTracker {
 }
 
 export function createToolShellAdapter(opts: ToolShellOptions) {
-	const { organDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
+	const { adapterDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
 
 	const resolveTools = opts.getTools ?? (() => opts.tools);
 
@@ -183,7 +183,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 
 	function handleDescribe(
 		names: string[],
-		log: OrganLogger,
+		log: AdapterLogger,
 	): Array<{ name: string; description: string; schema: Record<string, unknown>; guidance: string }> {
 		const tools = resolveTools();
 		const byName = getByNameMap(tools);
@@ -205,7 +205,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 				name: t.name,
 				description: t.description,
 				schema: toolInputToJsonSchema(t.inputSchema),
-				guidance: (organDirectives.get(name) ?? []).join("\n\n"),
+				guidance: (adapterDirectives.get(name) ?? []).join("\n\n"),
 			});
 		}
 		return results;
@@ -223,10 +223,10 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	// ---------------------------------------------------------------------------
 	// Organ — motor handlers
 	// ---------------------------------------------------------------------------
-	const organ = defineOrgan(
+	const adapter = defineAdapter(
 		"tools",
 		{
-			motor: {
+			command: {
 				"tools.describe": typedAction(DESCRIBE_TOOL, (ctx) => {
 					const results = handleDescribe(ctx.payload.names, ctx.log);
 					const displayText =
@@ -280,29 +280,29 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 		},
 	);
 
-	function mountWithPromotion(nerve: Nerve): () => void {
-		const unmount = organ.mount(nerve);
-		const offSense = nerve.sense.subscribe("*", (event) => {
+	function mountWithPromotion(bus: Bus): () => void {
+		const unmount = adapter.mount(bus);
+		const offEvent = bus.event.subscribe("*", (event) => {
 			if (getByNameMap(resolveTools()).has(event.type)) {
 				tracker.promote(event.type);
 			}
 		});
-		const offStart = nerve.signal.subscribe("llm.tool-start", (event) => {
+		const offStart = bus.notification.subscribe("llm.tool-start", (event) => {
 			const p = event.payload as { callId?: string; name?: string };
 			if (p.callId && p.name) {
 				inflightCalls.set(p.callId, { callId: p.callId, name: p.name, startedAt: Date.now() });
 			}
 		});
-		const offEnd = nerve.signal.subscribe("llm.tool-end", (event) => {
+		const offEnd = bus.notification.subscribe("llm.tool-end", (event) => {
 			const p = event.payload as { callId?: string };
 			if (p.callId) inflightCalls.delete(p.callId);
 		});
 		cancelCall = (callId: string) => {
-			nerve.signal.publish({ type: "tools.cancel-request", payload: { callId }, correlationId: "" });
+			bus.notification.publish({ type: "tools.cancel-request", payload: { callId }, correlationId: "" });
 		};
 		return () => {
 			unmount();
-			offSense();
+			offEvent();
 			offStart();
 			offEnd();
 			cancelCall = null;
@@ -311,7 +311,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	}
 
 	const shell = {
-		...organ,
+		...adapter,
 		mount: mountWithPromotion,
 		get metaTools(): ToolDefinition[] {
 			return [...getStripped(resolveTools()), DESCRIBE_TOOL];
@@ -378,8 +378,3 @@ export function buildAdapterDirectives(
 	}
 	return map;
 }
-
-/** @deprecated Use createToolShellAdapter */
-export const createToolShellOrgan = createToolShellAdapter;
-/** @deprecated Use buildAdapterDirectives */
-export const buildOrganDirectives = buildAdapterDirectives;

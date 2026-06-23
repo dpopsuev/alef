@@ -39,9 +39,9 @@ export class SessionLog implements Adapter {
 	readonly name = "event-log";
 	readonly tools = [] as const;
 	readonly subscriptions = {
-		motor: ["*"] as const,
-		sense: ["*"] as const,
-		signal: ["*"] as const,
+		command: ["*"] as const,
+		event: ["*"] as const,
+		notification: ["*"] as const,
 	};
 	readonly sources: readonly { readonly name: string; readonly kind: "file" | "memory" | "process" }[] = [
 		{ name: "session-store", kind: "file" },
@@ -64,7 +64,7 @@ export class SessionLog implements Adapter {
 		this._summaryWriter = summaryWriter;
 	}
 
-	mount(nerve: Bus): () => void {
+	mount(bus: Bus): () => void {
 		const startedAt = Date.now();
 		let turns = 0;
 		let inputTokens = 0;
@@ -72,7 +72,7 @@ export class SessionLog implements Adapter {
 		let errors = 0;
 		const toolCounts = new Map<string, number>();
 
-		const offAgg1 = nerve.command.subscribe("*", (event) => {
+		const offAgg1 = bus.command.subscribe("*", (event) => {
 			if (event.type === "llm.response") {
 				turns++;
 				const u = (event.payload as { usage?: { input?: number; output?: number } }).usage;
@@ -84,17 +84,17 @@ export class SessionLog implements Adapter {
 				toolCounts.set(event.type, (toolCounts.get(event.type) ?? 0) + 1);
 			}
 		});
-		const offAgg2 = nerve.event.subscribe("*", (event) => {
+		const offAgg2 = bus.event.subscribe("*", (event) => {
 			if (event.isError) errors++;
 		});
 
 		const sessionId = this.store.id;
 		const agentActor = this.agentActor;
 
-		const off1 = nerve.command.subscribe("*", (event) => {
+		const off1 = bus.command.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			const base = {
-				bus: "motor" as BusKind,
+				bus: "command" as BusKind,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,
@@ -108,7 +108,7 @@ export class SessionLog implements Adapter {
 				.catch((e: unknown) => debugLog("event-log:motor-append-failed", { error: String(e) }));
 		});
 
-		const off2 = nerve.event.subscribe("*", (event) => {
+		const off2 = bus.event.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			// llm.input is the human's message — stamp as human actor when sender indicates so
 			const isHumanInput = event.type === "llm.input" && (payload.sender === "human" || payload.sender === "user");
@@ -116,7 +116,7 @@ export class SessionLog implements Adapter {
 				? { address: `@${(payload.sender as string) ?? "human"}`, type: "human" }
 				: agentActor;
 			const base = {
-				bus: "sense" as BusKind,
+				bus: "event" as BusKind,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,
@@ -130,13 +130,13 @@ export class SessionLog implements Adapter {
 				.catch((e: unknown) => debugLog("event-log:sense-append-failed", { error: String(e) }));
 		});
 
-		const off3 = nerve.notification.subscribe("*", (event) => {
+		const off3 = bus.notification.subscribe("*", (event) => {
 			const payload = redactPayload((event as { payload?: Record<string, unknown> }).payload ?? {}) as Record<
 				string,
 				unknown
 			>;
 			const base = {
-				bus: "signal" as BusKind,
+				bus: "notification" as BusKind,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,

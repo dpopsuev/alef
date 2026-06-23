@@ -18,10 +18,10 @@ export function explainAdapter(adapter: Adapter): string {
 	}
 
 	const subs = adapter.subscriptions;
-	if (subs.motor.length > 0 || subs.sense.length > 0) {
-		const motorCount = subs.motor.length;
-		const senseCount = subs.sense.length;
-		lines.push(`  subscriptions: ${motorCount} motor, ${senseCount} sense`);
+	if (subs.command.length > 0 || subs.event.length > 0) {
+		const commandCount = subs.command.length;
+		const eventCount = subs.event.length;
+		lines.push(`  subscriptions: ${commandCount} command, ${eventCount} event`);
 	}
 
 	const contributions = adapter.contributions;
@@ -43,5 +43,3 @@ export function explainAdapter(adapter: Adapter): string {
 
 	return lines.join("\n");
 }
-/** @deprecated Use explainAdapter */
-export const explainOrgan = explainAdapter;

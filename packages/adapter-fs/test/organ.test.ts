@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createFsOrgan } from "../src/organ.js";
+import { createFsOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createFsOrgan({ cwd: "/tmp" }));
 
@@ -38,19 +38,19 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 		]);
 	});
 
-	it("unmount unsubscribes all motor handlers", () => {
+	it("unmount unsubscribes all command handlers", () => {
 		const f = new NerveFixture();
 		const organ = createFsOrgan({ cwd: testDir });
 		const unmount = f.mount(organ);
-		expect(f.nerve.listenerCount("motor", "fs.read")).toBe(1);
+		expect(f.nerve.listenerCount("command", "fs.read")).toBe(1);
 		unmount();
-		expect(f.nerve.listenerCount("motor", "fs.read")).toBe(0);
-		expect(f.nerve.listenerCount("motor", "fs.grep")).toBe(0);
-		expect(f.nerve.listenerCount("motor", "fs.find")).toBe(0);
+		expect(f.nerve.listenerCount("command", "fs.read")).toBe(0);
+		expect(f.nerve.listenerCount("command", "fs.grep")).toBe(0);
+		expect(f.nerve.listenerCount("command", "fs.find")).toBe(0);
 	});
 
 	describe("fs.read", () => {
-		it("reads a file and publishes Sense/fs.read", async () => {
+		it("reads a file and publishes Event/fs.read", async () => {
 			await writeFile(join(testDir, "hello.txt"), "line1\nline2\nline3\n");
 			const f = fixture();
 			const result = await f.call("fs.read", { path: "hello.txt" });
@@ -79,7 +79,7 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 			f.dispose();
 		});
 
-		it("mirrors correlationId from motor event", async () => {
+		it("mirrors correlationId from command event", async () => {
 			await writeFile(join(testDir, "foo.txt"), "foo");
 			const f = fixture();
 			const correlationId = "my-correlation-id";
@@ -90,7 +90,7 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 	});
 
 	describe("fs.grep", () => {
-		it("finds pattern matches and publishes Sense/fs.grep", async () => {
+		it("finds pattern matches and publishes Event/fs.grep", async () => {
 			await writeFile(join(testDir, "src.ts"), "const foo = 1;\nconst bar = 2;\n");
 			const f = fixture();
 			const result = await f.call("fs.grep", { pattern: "foo" });
@@ -100,7 +100,7 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 	});
 
 	describe("fs.find", () => {
-		it("finds files by pattern and publishes Sense/fs.find", async () => {
+		it("finds files by pattern and publishes Event/fs.find", async () => {
 			await writeFile(join(testDir, "a.ts"), "");
 			await writeFile(join(testDir, "b.ts"), "");
 			await writeFile(join(testDir, "c.txt"), "");
@@ -210,7 +210,7 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 		const order: string[] = [];
 
 		const p1 = new Promise<void>((resolve) => {
-			const unsub = f.nerve.asNerve().sense.subscribe("fs.write", (event) => {
+			const unsub = f.nerve.asBus().event.subscribe("fs.write", (event) => {
 				if ((event.payload as { path?: string }).path === filePath) {
 					order.push("write-1");
 					unsub();
@@ -220,7 +220,7 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 		});
 		const p2 = new Promise<void>((resolve) => {
 			let count = 0;
-			const unsub = f.nerve.asNerve().sense.subscribe("fs.write", () => {
+			const unsub = f.nerve.asBus().event.subscribe("fs.write", () => {
 				count++;
 				if (count === 2) {
 					order.push("write-2");
@@ -230,8 +230,8 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 			});
 		});
 
-		f.nerve.publishMotor({ type: "fs.write", correlationId: "c1", payload: { path: filePath, content: "from-1" } });
-		f.nerve.publishMotor({ type: "fs.write", correlationId: "c2", payload: { path: filePath, content: "from-2" } });
+		f.nerve.publishCommand({ type: "fs.write", correlationId: "c1", payload: { path: filePath, content: "from-1" } });
+		f.nerve.publishCommand({ type: "fs.write", correlationId: "c2", payload: { path: filePath, content: "from-2" } });
 
 		await Promise.all([p1, p2]);
 
@@ -251,17 +251,17 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 		// Read first so FileTracker permits edits. Use raw subscribe before
 		// publish — concurrent serialization tests are sensitive to async ordering.
 		await new Promise<void>((resolve) => {
-			const off = f.nerve.asNerve().sense.subscribe("fs.read", () => {
+			const off = f.nerve.asBus().event.subscribe("fs.read", () => {
 				off();
 				resolve();
 			});
-			f.nerve.publishMotor({ type: "fs.read", correlationId: "r0", payload: { path: filePath } });
+			f.nerve.publishCommand({ type: "fs.read", correlationId: "r0", payload: { path: filePath } });
 		});
 
 		const collect = (n: number) =>
 			new Promise<void>((resolve) => {
 				let count = 0;
-				const unsub = f.nerve.asNerve().sense.subscribe("fs.edit", () => {
+				const unsub = f.nerve.asBus().event.subscribe("fs.edit", () => {
 					count++;
 					if (count === n) {
 						unsub();
@@ -271,12 +271,12 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 			});
 
 		const done = collect(2);
-		f.nerve.publishMotor({
+		f.nerve.publishCommand({
 			type: "fs.edit",
 			correlationId: "e1",
 			payload: { path: filePath, oldText: "AAA", newText: "BBB" },
 		});
-		f.nerve.publishMotor({
+		f.nerve.publishCommand({
 			type: "fs.edit",
 			correlationId: "e2",
 			payload: { path: filePath, oldText: "BBB", newText: "CCC" },
@@ -427,7 +427,7 @@ describe("fs.read — binary/image detection", { tags: ["compliance"] }, () => {
 	});
 });
 
-import { FileTracker } from "../src/organ.js";
+import { FileTracker } from "../src/adapter.js";
 
 describe("FileTracker.reads capped to prevent memory leak", { tags: ["compliance"] }, () => {
 	it("size stays bounded after recording more paths than the cap", () => {

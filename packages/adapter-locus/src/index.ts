@@ -1,2 +1,2 @@
-export type { LocusOrganOptions } from "./organ.js";
-export { createLocusOrgan, createLocusOrgan as createOrgan } from "./organ.js";
+export type { LocusOrganOptions } from "./adapter.js";
+export { createLocusOrgan, createLocusOrgan as createOrgan } from "./adapter.js";

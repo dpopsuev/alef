@@ -2,6 +2,7 @@
  * Code Intelligence Organ — LSP-based TypeScript/JavaScript code intelligence.
  */
 
+export { type CodeIntelOrganOptions, createCodeIntelOrgan } from "./adapter.js";
 export type {
 	CallersOptions,
 	CallSite,
@@ -10,15 +11,12 @@ export type {
 	HoverInfo,
 	WorkspaceSymbol,
 } from "./backend.js";
-
 export { LocalCodeIntelBackend, type LocalCodeIntelBackendOptions } from "./local-backend.js";
-
-export { type CodeIntelOrganOptions, createCodeIntelOrgan } from "./organ.js";
 
 export { StubCodeIntelBackend } from "./stub-backend.js";
 
 import type { Adapter } from "@dpopsuev/alef-kernel";
-import { createCodeIntelOrgan } from "./organ.js";
+import { createCodeIntelOrgan } from "./adapter.js";
 
 export function createOrgan(opts: { cwd: string; actions?: string[] }): Adapter {
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `code.${a}`));

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createToolShellOrgan } from "@dpopsuev/alef-runtime";
+import { createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { Directives } from "../src/directives.js";
 import { createDefaultDirectives, loadWorkspace, registerAdapters } from "../src/prompt.js";
@@ -163,7 +163,7 @@ describe("loadWorkspace", { tags: ["unit"] }, () => {
 
 describe("registerAdapters", { tags: ["unit"] }, () => {
 	it("ToolShell directive reaches the built prompt", () => {
-		const toolShell = createToolShellOrgan({ tools: [] });
+		const toolShell = createToolShellAdapter({ tools: [] });
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
 		registerAdapters(d, [toolShell]);
 		expect(d.build()).toContain("tools.describe");
@@ -177,25 +177,25 @@ describe("registerAdapters", { tags: ["unit"] }, () => {
 		expect(d.build()).not.toContain("Call tools.describe first");
 	});
 
-	it("collects string directives from organs", () => {
-		const organ = {
+	it("collects string directives from adapters", () => {
+		const adapter = {
 			name: "fs",
 			tools: [],
-			subscriptions: { motor: [], sense: [] },
+			subscriptions: { command: [], event: [] },
 			sources: [],
 			directives: ["Always read before editing."],
 			mount: () => () => {},
 		};
 		const d = createDefaultDirectives({ tools: [], cwd: "/test" });
-		registerAdapters(d, [organ]);
+		registerAdapters(d, [adapter]);
 		expect(d.build()).toContain("Always read before editing.");
 	});
 
-	it("skips organs with no directives", () => {
+	it("skips adapters with no directives", () => {
 		const silent = {
 			name: "shell",
 			tools: [],
-			subscriptions: { motor: [], sense: [] },
+			subscriptions: { command: [], event: [] },
 			sources: [],
 			mount: () => () => {},
 		};

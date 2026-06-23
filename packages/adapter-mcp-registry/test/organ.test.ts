@@ -1,4 +1,4 @@
 import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
-import { createMcpRegistryOrgan } from "../src/organ.js";
+import { createMcpRegistryOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createMcpRegistryOrgan({ cwd: "/tmp" }));

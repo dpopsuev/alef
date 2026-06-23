@@ -1,5 +1,5 @@
-import type { Nerve, Organ, SignalEvent } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, NotificationMessage } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 interface ToolStats {
@@ -9,7 +9,7 @@ interface ToolStats {
 	maxMs: number;
 }
 
-export function createResourceMeter(): Organ {
+export function createResourceMeter(): Adapter {
 	const tokens = { input: 0, output: 0, cacheRead: 0 };
 	const cost = 0;
 	let turns = 0;
@@ -72,10 +72,10 @@ export function createResourceMeter(): Organ {
 		};
 	}
 
-	return defineOrgan(
+	return defineAdapter(
 		"meter",
 		{
-			motor: {
+			command: {
 				"meter.summary": typedAction(
 					{
 						name: "meter.summary",
@@ -101,8 +101,8 @@ export function createResourceMeter(): Organ {
 					},
 				),
 			},
-			sense: {
-				"organ.loaded": {
+			event: {
+				"adapter.loaded": {
 					handle() {
 						return Promise.resolve();
 					},
@@ -113,9 +113,9 @@ export function createResourceMeter(): Organ {
 			description: "Resource meter — tracks tokens, cost, latency, tool success rates across the session.",
 			directives: ["Use meter.summary to check resource usage, token consumption, and tool performance."],
 			sources: [{ name: "signal-bus", kind: "memory" }],
-			onMount(nerve: Nerve) {
+			onMount(bus: Bus) {
 				startedAt = Date.now();
-				nerve.signal.subscribe("*", (event: SignalEvent) => {
+				bus.notification.subscribe("*", (event: NotificationMessage) => {
 					const p = event.payload;
 					if (event.type === "llm.token-usage") {
 						const usage = p.usage as { input?: number; output?: number; cacheRead?: number } | undefined;

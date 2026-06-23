@@ -22,7 +22,7 @@ function makeTurn(
 		typeWeight: opts.typeWeight ?? 0.8,
 		events: [
 			{
-				bus: "motor",
+				bus: "command",
 				type: "llm.response",
 				correlationId: id,
 				payload: { text: opts.payload ?? "" },
@@ -245,7 +245,7 @@ describe("assembleTurns — edge cases", { tags: ["unit"] }, () => {
 function makeDialogTurn(
 	id: string,
 	index: number,
-	events: Array<{ bus: "motor" | "sense"; payload: Record<string, unknown> }>,
+	events: Array<{ bus: "command" | "event"; payload: Record<string, unknown> }>,
 ): Turn {
 	return {
 		id,
@@ -263,7 +263,7 @@ function makeDialogTurn(
 }
 
 describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"] }, () => {
-	it("returns conversationHistory from the most recent motor/llm.response", () => {
+	it("returns conversationHistory from the most recent command/llm.response", () => {
 		const history = [
 			{ role: "user", content: "Read the file" },
 			{ role: "assistant", content: [{ type: "toolCall", id: "t1" }] },
@@ -272,8 +272,8 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 		];
 		const turns = [
 			makeDialogTurn("c-0", 0, [
-				{ bus: "sense", payload: { text: "Read the file" } },
-				{ bus: "motor", payload: { text: "The token is ABC", conversationHistory: history } },
+				{ bus: "event", payload: { text: "Read the file" } },
+				{ bus: "command", payload: { text: "The token is ABC", conversationHistory: history } },
 			]),
 		];
 		const result = turnsToMessages(turns);
@@ -292,8 +292,8 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 			{ role: "assistant", content: "reply 2" },
 		];
 		const turns = [
-			makeDialogTurn("c-0", 0, [{ bus: "motor", payload: { text: "reply 1", conversationHistory: history1 } }]),
-			makeDialogTurn("c-1", 1, [{ bus: "motor", payload: { text: "reply 2", conversationHistory: history2 } }]),
+			makeDialogTurn("c-0", 0, [{ bus: "command", payload: { text: "reply 1", conversationHistory: history1 } }]),
+			makeDialogTurn("c-1", 1, [{ bus: "command", payload: { text: "reply 2", conversationHistory: history2 } }]),
 		];
 		const result = turnsToMessages(turns);
 		expect(result).toBe(history2);
@@ -303,8 +303,8 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 	it("falls back to text-only when no conversationHistory present", () => {
 		const turns = [
 			makeDialogTurn("c-0", 0, [
-				{ bus: "sense", payload: { text: "hello" } },
-				{ bus: "motor", payload: { text: "hi" } },
+				{ bus: "event", payload: { text: "hello" } },
+				{ bus: "command", payload: { text: "hi" } },
 			]),
 		];
 		const result = turnsToMessages(turns);
@@ -321,7 +321,7 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 			turnIndex: 0,
 			tokenCost: 10,
 			typeWeight: 1.0,
-			events: [{ bus: "motor", type: "fs.read", correlationId: "c-0", payload: { path: "x.ts" }, timestamp: 0 }],
+			events: [{ bus: "command", type: "fs.read", correlationId: "c-0", payload: { path: "x.ts" }, timestamp: 0 }],
 		};
 		const result = turnsToMessages([turn]);
 		expect(result.length).toBeGreaterThan(0);
@@ -333,7 +333,7 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 // Abort-before-llm.response — the dementia regression
 //
 // When the user interrupts after tool calls complete but before the Reasoner
-// publishes motor/llm.response, the turn has completed tool events in the
+// publishes command/llm.response, the turn has completed tool events in the
 // JSONL but no conversationHistory checkpoint. turnsToMessages currently
 // returns [] for such turns, causing the next LLM call to have no memory of
 // the tool work done (verified in debug trace 2026-05-31 session 0ccbc171).
@@ -344,13 +344,13 @@ describe("turnsToMessages — conversationHistory primary path", { tags: ["unit"
 function makeAbortedTurn(
 	id: string,
 	index: number,
-	toolCalls: Array<{ type: string; motorPayload: Record<string, unknown>; sensePayload: Record<string, unknown> }>,
+	toolCalls: Array<{ type: string; commandPayload: Record<string, unknown>; eventPayload: Record<string, unknown> }>,
 ): Turn {
-	const events = toolCalls.flatMap(({ type, motorPayload, sensePayload }) => [
-		{ bus: "motor" as const, type, correlationId: id, payload: motorPayload, timestamp: Date.now() },
-		{ bus: "sense" as const, type, correlationId: id, payload: sensePayload, timestamp: Date.now() },
+	const events = toolCalls.flatMap(({ type, commandPayload, eventPayload }) => [
+		{ bus: "command" as const, type, correlationId: id, payload: commandPayload, timestamp: Date.now() },
+		{ bus: "event" as const, type, correlationId: id, payload: eventPayload, timestamp: Date.now() },
 	]);
-	// No motor/llm.response — simulates abort before Reasoner published the checkpoint.
+	// No command/llm.response — simulates abort before Reasoner published the checkpoint.
 	return { id, turnIndex: index, tokenCost: 200, typeWeight: 2.0, events };
 }
 
@@ -360,13 +360,13 @@ describe("turnsToMessages — aborted turn", { tags: ["unit"] }, () => {
 		const turn = makeAbortedTurn("abort-1", 0, [
 			{
 				type: "fs.write",
-				motorPayload: { path: "CODEBASE_EXPLORATION.md", content: "# exploration", toolCallId: "tc1" },
-				sensePayload: { applied: true, toolCallId: "tc1" },
+				commandPayload: { path: "CODEBASE_EXPLORATION.md", content: "# exploration", toolCallId: "tc1" },
+				eventPayload: { applied: true, toolCallId: "tc1" },
 			},
 			{
 				type: "fs.write",
-				motorPayload: { path: "ARCHITECTURE_DIAGRAMS.md", content: "# diagrams", toolCallId: "tc2" },
-				sensePayload: { applied: true, toolCallId: "tc2" },
+				commandPayload: { path: "ARCHITECTURE_DIAGRAMS.md", content: "# diagrams", toolCallId: "tc2" },
+				eventPayload: { applied: true, toolCallId: "tc2" },
 			},
 		]);
 		// FAIL currently: turnsToMessages returns [] — no llm.response found.
@@ -379,8 +379,8 @@ describe("turnsToMessages — aborted turn", { tags: ["unit"] }, () => {
 		const turn = makeAbortedTurn("abort-2", 0, [
 			{
 				type: "fs.write",
-				motorPayload: { path: "CODEBASE_EXPLORATION.md", content: "...", toolCallId: "tc1" },
-				sensePayload: { applied: true, toolCallId: "tc1" },
+				commandPayload: { path: "CODEBASE_EXPLORATION.md", content: "...", toolCallId: "tc1" },
+				eventPayload: { applied: true, toolCallId: "tc1" },
 			},
 		]);
 		const result = turnsToMessages([turn]);
@@ -392,9 +392,9 @@ describe("turnsToMessages — aborted turn", { tags: ["unit"] }, () => {
 	it("a completed prior turn + aborted turn both contribute context", () => {
 		// Normal completed turn provides conversationHistory checkpoint.
 		const completedTurn = makeDialogTurn("c-0", 0, [
-			{ bus: "sense", payload: { text: "Explore the codebase" } },
+			{ bus: "event", payload: { text: "Explore the codebase" } },
 			{
-				bus: "motor",
+				bus: "command",
 				payload: {
 					text: "Starting exploration.",
 					conversationHistory: [
@@ -408,8 +408,8 @@ describe("turnsToMessages — aborted turn", { tags: ["unit"] }, () => {
 		const abortedTurn = makeAbortedTurn("abort-3", 1, [
 			{
 				type: "fs.write",
-				motorPayload: { path: "CODEBASE_EXPLORATION.md", content: "...", toolCallId: "tc1" },
-				sensePayload: { applied: true, toolCallId: "tc1" },
+				commandPayload: { path: "CODEBASE_EXPLORATION.md", content: "...", toolCallId: "tc1" },
+				eventPayload: { applied: true, toolCallId: "tc1" },
 			},
 		]);
 		// The aborted turn's tool work must appear alongside the prior history.
@@ -436,7 +436,7 @@ defineFeature("prepareStep context-window selection", (f) => {
 		let currentMsg: Msg;
 		let result: Msg[];
 
-		s.Given("a motor/llm.response event in JSONL carries conversationHistory with tool blocks", () => {
+		s.Given("a command/llm.response event in JSONL carries conversationHistory with tool blocks", () => {
 			conversationHistory = [
 				{ role: "user", content: "Read the file" },
 				{ role: "assistant", content: [{ type: "toolCall", id: "t1", toolName: "fs.read" }] },
@@ -470,7 +470,7 @@ defineFeature("prepareStep context-window selection", (f) => {
 		let currentMsg: Msg;
 		let result: Msg[];
 
-		s.Given("motor/llm.response events in JSONL have no conversationHistory field", () => {
+		s.Given("command/llm.response events in JSONL have no conversationHistory field", () => {
 			projected = [
 				{ role: "user", content: "turn 1 text" },
 				{ role: "assistant", content: "turn 1 reply" },

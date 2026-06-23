@@ -1,4 +1,4 @@
-import type { SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { DEFAULT_TOOL_TIMEOUT_MS, debugLog } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { buildTools, prepareTurn } from "./handlers/message-handler.js";
@@ -42,7 +42,7 @@ export interface TurnLoopOptions {
 // Main export
 // ---------------------------------------------------------------------------
 
-export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions): Promise<void> {
+export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions): Promise<void> {
 	const payload = ctx.payload as {
 		messages?: readonly unknown[];
 		tools?: readonly { name: string; description: string; inputSchema: unknown }[];
@@ -51,7 +51,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 	const { messages, tools, nameMap } = prepareTurn(payload);
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
-	const { correlationId, motor, sense, signal } = ctx;
+	const { correlationId, command: motor, event: sense, notification: signal } = ctx;
 	const defaultTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS;
 	const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
 	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
@@ -88,8 +88,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 
 			const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, {
 				...effectiveOptions,
-				motor,
-				signal,
+				command: motor,
 				notification: signal,
 				correlationId,
 			});

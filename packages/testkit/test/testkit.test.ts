@@ -41,10 +41,10 @@ describe("MockReasoner", { tags: ["unit"] }, () => {
 		expect(await controller.send("anything")).toBe("custom reply");
 	});
 
-	it("emits Motor/llm.response with canned text", async () => {
+	it("emits Command/llm.response with canned text", async () => {
 		const { agent: _agent, controller, recorder } = make("response text");
 		await controller.send("hi");
-		const msg = recorder.assertMotorEmitted("llm.response");
+		const msg = recorder.assertCommandEmitted("llm.response");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(payload.text).toBe("response text");
 	});
@@ -55,52 +55,52 @@ describe("MockReasoner", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("BusEventRecorder", { tags: ["unit"] }, () => {
-	it("records Motor/llm.response", async () => {
+	it("records Command/llm.response", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("ping");
-		recorder.assertMotorEmitted("llm.response");
+		recorder.assertCommandEmitted("llm.response");
 	});
 
-	it("records Sense/llm.input", async () => {
+	it("records Event/llm.input", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("ping");
-		recorder.assertSenseEmitted("llm.input");
+		recorder.assertEventEmitted("llm.input");
 	});
 
-	it("records Motor/llm.response", async () => {
+	it("records Command/llm.response", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("ping");
-		recorder.assertMotorEmitted("llm.response");
+		recorder.assertCommandEmitted("llm.response");
 	});
 
-	it("records Sense/llm.input", async () => {
+	it("records Event/llm.input", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("ping");
-		recorder.assertSenseEmitted("llm.input");
+		recorder.assertEventEmitted("llm.input");
 	});
 
-	it("assertSenseEmitted throws with helpful message when missing", () => {
+	it("assertEventEmitted throws with helpful message when missing", () => {
 		const recorder = new BusEventRecorder();
-		expect(() => recorder.assertSenseEmitted("llm.input")).toThrow("Expected Sense/llm.input");
+		expect(() => recorder.assertEventEmitted("llm.input")).toThrow("Expected Event/llm.input");
 	});
 
-	it("assertMotorEmitted throws with helpful message when missing", () => {
+	it("assertCommandEmitted throws with helpful message when missing", () => {
 		const recorder = new BusEventRecorder();
-		expect(() => recorder.assertMotorEmitted("llm.response")).toThrow("Expected Motor/llm.response");
+		expect(() => recorder.assertCommandEmitted("llm.response")).toThrow("Expected Command/llm.response");
 	});
 
 	it("clear() resets all recorded events", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("first");
 		recorder.clear();
-		expect(recorder.sense).toHaveLength(0);
-		expect(recorder.motor).toHaveLength(0);
+		expect(recorder.event).toHaveLength(0);
+		expect(recorder.command).toHaveLength(0);
 	});
 
 	it("assertCorrelationPaired passes when both buses carry the id", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("ping");
-		const msg = recorder.assertMotorEmitted("llm.response");
+		const msg = recorder.assertCommandEmitted("llm.response");
 		expect(() => recorder.assertCorrelationPaired(msg.correlationId)).not.toThrow();
 	});
 });
@@ -119,8 +119,8 @@ describe("Harness round-trip", { tags: ["unit"] }, () => {
 		const { agent: _agent, controller, recorder } = make("done");
 		await controller.send("start");
 
-		const motorTypes = recorder.motor.map((e) => e.type);
-		const senseTypes = recorder.sense.map((e) => e.type);
+		const motorTypes = recorder.command.map((e) => e.type);
+		const senseTypes = recorder.event.map((e) => e.type);
 
 		expect(motorTypes).toContain("llm.response");
 		expect(senseTypes).toContain("llm.input");

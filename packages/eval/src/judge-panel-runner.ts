@@ -23,8 +23,8 @@ import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
 import { createShellOrgan } from "@dpopsuev/alef-adapter-shell";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 
-import type { JudgeReport } from "./judging-organ.js";
-import { createJudgingOrgan } from "./judging-organ.js";
+import type { JudgeReport } from "./judging-adapter.js";
+import { createJudgingOrgan } from "./judging-adapter.js";
 
 export interface JudgeSpec {
 	name: string;

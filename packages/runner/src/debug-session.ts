@@ -60,14 +60,14 @@ async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
 
 	for (const r of records) {
 		const key = r.correlationId;
-		if (r.bus === "motor") {
+		if (r.bus === "command") {
 			if (r.type === "llm.response") {
 				turns++;
 				continue;
 			}
 			if (!motorByCorr.has(key)) motorByCorr.set(key, []);
 			(motorByCorr.get(key) as StorageRecord[]).push(r);
-		} else if (r.bus === "sense") {
+		} else if (r.bus === "event") {
 			if ((r.payload as { isError?: boolean }).isError) errors++;
 			if (r.type === "llm.input") continue;
 			if (!senseByCorr.has(key)) senseByCorr.set(key, []);

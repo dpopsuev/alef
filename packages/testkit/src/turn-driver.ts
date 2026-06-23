@@ -3,9 +3,9 @@ import type { InProcessNerve, ToolDefinition } from "@dpopsuev/alef-kernel";
 import type { BusObserver } from "@dpopsuev/alef-runtime";
 
 /**
- * TurnDriver — sense/llm.input → motor/llm.response request-reply.
+ * TurnDriver — event/llm.input → command/llm.response request-reply.
  *
- * Test double for AgentController. Drives an organ-llm organ on a bare nerve
+ * Test double for AgentController. Drives an organ-llm adapter on a bare bus
  * without pulling in agent-controller. Keeps organ-llm tests dependency-free.
  *
  * Tools are included in the trigger event payload so organ-llm can build its
@@ -14,7 +14,7 @@ import type { BusObserver } from "@dpopsuev/alef-runtime";
  * Usage:
  *   const nerve = new InProcessNerve();
  *   const driver = new TurnDriver(nerve);
- *   const unmount = createAgentLoop({ ... }).mount(nerve.asNerve());
+ *   const unmount = createAgentLoop({ ... }).mount(nerve.asBus());
  *   const reply = await driver.send("hello");
  *   unmount();
  */
@@ -37,13 +37,13 @@ export class TurnDriver {
 				off();
 				reject(new Error(`TurnDriver.send timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
-			const off = this.nerve.asNerve().command.subscribe(this.replyEvent, (event) => {
+			const off = this.nerve.asBus().command.subscribe(this.replyEvent, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
 				resolve(typeof event.payload.text === "string" ? event.payload.text : "");
 			});
-			this.nerve.asNerve().event.publish({
+			this.nerve.asBus().event.publish({
 				type: this.triggerEvent,
 				correlationId,
 				payload: { text, sender, tools: this.tools },
@@ -54,7 +54,7 @@ export class TurnDriver {
 
 	receive(text: string, sender = "human"): string {
 		const correlationId = randomUUID();
-		this.nerve.asNerve().event.publish({
+		this.nerve.asBus().event.publish({
 			type: this.triggerEvent,
 			correlationId,
 			payload: { text, sender, tools: this.tools },
@@ -65,8 +65,8 @@ export class TurnDriver {
 
 	observe(observer: BusObserver): () => void {
 		const offs = [
-			this.nerve.onAnyMotor((event) => observer.onMotorEvent(event)),
-			this.nerve.onAnySense((event) => observer.onSenseEvent(event)),
+			this.nerve.onAnyCommand((event) => observer.onCommand(event)),
+			this.nerve.onAnyEvent((event) => observer.onEvent(event)),
 		];
 		return () => {
 			for (const off of offs) off();

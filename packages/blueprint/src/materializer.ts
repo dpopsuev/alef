@@ -123,20 +123,20 @@ export function wrapWithPermissions(adapter: Adapter, allowedTools: string[]): A
 
 	return {
 		...adapter,
-		mount(nerve: Bus): () => void {
-			const gatedNerve: Bus = {
-				...nerve,
-				motor: {
-					...nerve.motor,
+		mount(bus: Bus): () => void {
+			const gatedBus: Bus = {
+				...bus,
+				command: {
+					...bus.command,
 					subscribe: (type, handler) => {
-						if (type === "*") return nerve.command.subscribe(type, handler);
-						return nerve.command.subscribe(type, (event) => {
+						if (type === "*") return bus.command.subscribe(type, handler);
+						return bus.command.subscribe(type, (event) => {
 							if (allowed.has(event.type)) {
 								void handler(event);
 								return;
 							}
 							const toolCallId = extractToolCallId(event.payload);
-							nerve.event.publish({
+							bus.event.publish({
 								type: event.type,
 								payload: toolCallId !== undefined ? { toolCallId } : {},
 								isError: true,
@@ -149,7 +149,7 @@ export function wrapWithPermissions(adapter: Adapter, allowedTools: string[]): A
 					},
 				},
 			};
-			return adapter.mount(gatedNerve);
+			return adapter.mount(gatedBus);
 		},
 	};
 }
@@ -264,7 +264,7 @@ async function loadAdapterModule(
 	if (!factory) {
 		throw new Error(
 			`Adapter package '${pkg}' does not export createAdapter(opts). ` +
-				`Add \`export { createYourAdapter as createAdapter } from "./organ.js"\` to its index.`,
+				`Add \`export { createYourAdapter as createAdapter } from "./adapter.js"\` to its index.`,
 		);
 	}
 	return { createAdapter: factory };
@@ -318,9 +318,9 @@ export async function materializeBlueprint(
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes("does not export createAdapter") || msg.includes("does not export createOrgan")) {
-				debugLog("blueprint:organ:skip", { organ: label, reason: msg });
+				debugLog("blueprint:adapter:skip", { adapter: label, reason: msg });
 			} else {
-				throw new Error(`[blueprint] Failed to load organ '${label}': ${msg}`);
+				throw new Error(`[blueprint] Failed to load adapter '${label}': ${msg}`);
 			}
 		}
 	}

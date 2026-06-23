@@ -165,7 +165,7 @@ function collectReply(baseUrl: string, expected: string, timeoutMs = 15_000): Pr
 								type?: string;
 								payload?: { text?: string };
 							};
-							if (ev.bus === "motor" && ev.type === "llm.response" && ev.payload?.text === expected) {
+							if (ev.bus === "command" && ev.type === "llm.response" && ev.payload?.text === expected) {
 								clearTimeout(timer);
 								res.destroy();
 								resolve();
@@ -200,7 +200,7 @@ function collectEventsUntilReply(baseUrl: string, expected: string, timeoutMs = 
 							const ev = JSON.parse(line.slice(6));
 							events.push(ev);
 							const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-							if (e.bus === "motor" && e.type === "llm.response" && e.payload?.text === expected) {
+							if (e.bus === "command" && e.type === "llm.response" && e.payload?.text === expected) {
 								clearTimeout(timer);
 								res.destroy();
 								resolve(events);
@@ -267,13 +267,13 @@ describe("alef binary smoke tests (no real LLM)", { tags: ["integration"] }, () 
 		await postJson(`${baseUrl}/message`, { text: "list tools" });
 		const events = await eventsPromise;
 
-		// Find the sense/tools.describe event carrying the catalog payload.
+		// Find the event/tools.describe event carrying the catalog payload.
 		const catalogEvent = events.find((ev) => {
 			const e = ev as { bus?: string; type?: string };
-			return e.bus === "sense" && e.type === "tools.describe";
+			return e.bus === "event" && e.type === "tools.describe";
 		}) as { payload?: { result?: Array<{ name: string }> } } | undefined;
 
-		expect(catalogEvent, "sense/tools.describe must appear in SSE").toBeDefined();
+		expect(catalogEvent, "event/tools.describe must appear in SSE").toBeDefined();
 		const results = ((catalogEvent?.payload as Record<string, unknown>)?.results ?? []) as Array<{ name: string }>;
 		const toolNames = results.map((t) => t.name);
 		expect(toolNames, "agent.run must be in the tool catalog — organ-agent must be mounted").toContain("agent.run");

@@ -24,8 +24,6 @@ export interface SkillBook {
 export interface AgentRunContext {
 	prependInstructions(text: string): void;
 	addAdapters(adapters: Adapter[]): void;
-	/** @deprecated Use addAdapters */
-	addOrgans(organs: Adapter[]): void;
 }
 
 export interface AgentRunContribution {
@@ -100,9 +98,6 @@ export interface AdapterTheme {
 	/** Apply dim styling. */
 	dim(text: string): string;
 }
-
-/** @deprecated Use AdapterTheme */
-export type OrganTheme = AdapterTheme;
 
 /**
  * TUI contribution — adapter-owned renderer for its tool calls and results.
@@ -255,9 +250,6 @@ export interface AdapterContributions
 		PresentationContributions,
 		SeamingContributions {}
 
-/** @deprecated Use AdapterContributions */
-export type OrganContributions = AdapterContributions;
-
 export interface ToolDefinition {
 	readonly name: string;
 	readonly description: string;
@@ -269,7 +261,7 @@ export interface ToolDefinition {
 
 /**
  * Wrap a raw JSON Schema object as a ZodTypeAny so it satisfies ToolDefinition.inputSchema.
- * Use this in adapters (e.g. McpOrgan) where the schema arrives as JSON Schema at runtime
+ * Use this in adapters (e.g. McpAdapter) where the schema arrives as JSON Schema at runtime
  * and cannot be expressed as a Zod schema at compile time.
  *
  * toolInputToJsonSchema() detects this wrapper and returns the raw schema directly.
@@ -321,21 +313,12 @@ export interface NotificationMessage extends BusMessage {
 	readonly payload: Record<string, unknown>;
 }
 
-/** @deprecated Use BusMessage */
-export type NerveEvent = BusMessage;
-/** @deprecated Use CommandMessage */
-export type MotorEvent = CommandMessage;
-/** @deprecated Use EventMessage */
-export type SenseEvent = EventMessage;
-/** @deprecated Use NotificationMessage */
-export type SignalEvent = NotificationMessage;
-
 // ---------------------------------------------------------------------------
-// Nerve — unified view of all three buses.
+// Bus — unified view of all three channels.
 //
-// Every organ receives a Nerve. Direction is declared via the action-map key
-// prefix in defineOrgan: "motor/" subscribes Motor, "sense/" subscribes Sense.
-// The signal bus has no action-map prefix — only the Reasoner publishes to it
+// Every adapter receives a Bus. Direction is declared via the action-map key
+// prefix in defineAdapter: "command/" subscribes Command, "event/" subscribes Event.
+// The notification channel has no action-map prefix — only the Reasoner publishes to it
 // and only observers (wildcard "*") subscribe to it.
 // ---------------------------------------------------------------------------
 
@@ -356,47 +339,23 @@ export interface Bus {
 	readonly command: BusChannel<CommandHandler, CommandInput>;
 	readonly event: BusChannel<EventHandler, EventInput>;
 	readonly notification: BusChannel<NotificationHandler, NotificationInput>;
-	/** @deprecated Use command */
-	readonly motor: BusChannel<CommandHandler, CommandInput>;
-	/** @deprecated Use event */
-	readonly sense: BusChannel<EventHandler, EventInput>;
-	/** @deprecated Use notification */
-	readonly signal: BusChannel<NotificationHandler, NotificationInput>;
 	pulse(): void;
 }
 
 export type BusMiddleware = (bus: Bus) => Bus;
 
-// ── Backward-compat aliases (Motor/Sense/Signal/Nerve → Command/Event/Notification/Bus) ──
-/** @deprecated Use CommandHandler */
-export type MotorHandler = CommandHandler;
-/** @deprecated Use EventHandler */
-export type SenseHandler = EventHandler;
-/** @deprecated Use NotificationHandler */
-export type SignalHandler = NotificationHandler;
-/** @deprecated Use CommandInput */
-export type MotorPublishInput = CommandInput;
-/** @deprecated Use EventInput */
-export type SensePublishInput = EventInput;
-/** @deprecated Use NotificationInput */
-export type SignalPublishInput = NotificationInput;
-/** @deprecated Use Bus */
-export type Nerve = Bus;
-/** @deprecated Use BusMiddleware */
-export type NerveMiddleware = BusMiddleware;
-
 // ---------------------------------------------------------------------------
-// Adapter — unified interface. mount(nerve: Nerve) handles both bus directions.
+// Adapter — unified interface. mount(bus: Bus) handles both bus directions.
 // ---------------------------------------------------------------------------
 
 export interface Adapter {
 	readonly name: string;
 	readonly tools: readonly ToolDefinition[];
-	mount(nerve: Nerve): () => void;
+	mount(bus: Bus): () => void;
 	close?(): Promise<void>;
 	readonly subscriptions: {
-		readonly motor: readonly string[];
-		readonly sense: readonly string[];
+		readonly command: readonly string[];
+		readonly event: readonly string[];
 	};
 	readonly sources: readonly {
 		readonly name: string;
@@ -407,17 +366,14 @@ export interface Adapter {
 	readonly description?: string;
 	readonly labels?: readonly string[];
 	readonly publishSchemas?: {
-		readonly motor?: Readonly<Record<string, ZodTypeAny>>;
-		readonly sense?: Readonly<Record<string, ZodTypeAny>>;
+		readonly command?: Readonly<Record<string, ZodTypeAny>>;
+		readonly event?: Readonly<Record<string, ZodTypeAny>>;
 	};
 	readonly inputSchemas?: {
-		readonly motor?: Readonly<Record<string, ZodTypeAny>>;
+		readonly command?: Readonly<Record<string, ZodTypeAny>>;
 	};
 	ready?(): Promise<void>;
 }
-
-/** @deprecated Use Adapter */
-export type Organ = Adapter;
 
 // ---------------------------------------------------------------------------
 // GimpedAdapter — explicit ablation primitive.
@@ -438,7 +394,9 @@ export interface Reasoner extends Adapter {
 
 export function isGimped(adapter: Adapter): boolean {
 	return (
-		adapter.tools.length === 0 && adapter.subscriptions.motor.length === 0 && adapter.subscriptions.sense.length === 0
+		adapter.tools.length === 0 &&
+		adapter.subscriptions.command.length === 0 &&
+		adapter.subscriptions.event.length === 0
 	);
 }
 
@@ -446,13 +404,11 @@ export function gimpedAdapter(name: string): Adapter {
 	return {
 		name,
 		tools: [],
-		subscriptions: { motor: [], sense: [] },
+		subscriptions: { command: [], event: [] },
 		sources: [],
 		mount: () => () => {},
 	};
 }
-/** @deprecated Use gimpedAdapter */
-export const gimpedOrgan = gimpedAdapter;
 
 /**
  * Build a Bus from individual channels, populating both canonical (command/event/notification)
@@ -464,7 +420,7 @@ export function makeBus(
 	notification: BusChannel<NotificationHandler, NotificationInput>,
 	pulse: () => void,
 ): Bus {
-	return { command, event, notification, motor: command, sense: event, signal: notification, pulse };
+	return { command, event, notification, pulse };
 }
 
 // InProcessNerve exported from index.ts — not here, to avoid circular import with in-process-nerve.ts

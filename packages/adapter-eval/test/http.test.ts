@@ -5,8 +5,8 @@
 import http from "node:http";
 import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createEvalOrgan } from "../src/adapter.js";
 import { collectEvents, postMessage } from "../src/http.js";
-import { createEvalOrgan } from "../src/organ.js";
 
 organComplianceSuite(() => createEvalOrgan({ cwd: process.cwd(), replyEvent: "llm.response" }));
 
@@ -69,8 +69,8 @@ describe("collectEvents", { tags: ["compliance"] }, () => {
 		server.on("request", (_req, res) => {
 			res.writeHead(200, { "Content-Type": "text/event-stream" });
 			const frames = [
-				{ bus: "motor", type: "llm.response", payload: { text: "hello" } },
-				{ bus: "motor", type: "llm.response", payload: { text: "done" } },
+				{ bus: "command", type: "llm.response", payload: { text: "hello" } },
+				{ bus: "command", type: "llm.response", payload: { text: "done" } },
 			];
 			for (const f of frames) {
 				res.write(`data: ${JSON.stringify(f)}\n\n`);
@@ -80,14 +80,14 @@ describe("collectEvents", { tags: ["compliance"] }, () => {
 
 		const events = await collectEvents(`http://127.0.0.1:${port}`, (evts) => evts.length >= 2, 5_000);
 		expect(events).toHaveLength(2);
-		expect(events[0]).toMatchObject({ bus: "motor", type: "llm.response", text: "hello" });
+		expect(events[0]).toMatchObject({ bus: "command", type: "llm.response", text: "hello" });
 	});
 
 	it("resolves with partial events on timeout", async () => {
 		server.removeAllListeners("request");
 		server.on("request", (_req, res) => {
 			res.writeHead(200, { "Content-Type": "text/event-stream" });
-			res.write(`data: ${JSON.stringify({ bus: "motor", type: "llm.response", payload: { text: "one" } })}\n\n`);
+			res.write(`data: ${JSON.stringify({ bus: "command", type: "llm.response", payload: { text: "one" } })}\n\n`);
 			// sends only 1 event, then stalls
 		});
 
@@ -104,7 +104,7 @@ describe("collectEvents", { tags: ["compliance"] }, () => {
 		server.on("request", (_req, res) => {
 			res.writeHead(200, { "Content-Type": "text/event-stream" });
 			res.write("data: NOTJSON\n\n");
-			res.write(`data: ${JSON.stringify({ bus: "motor", type: "llm.response", payload: { text: "ok" } })}\n\n`);
+			res.write(`data: ${JSON.stringify({ bus: "command", type: "llm.response", payload: { text: "ok" } })}\n\n`);
 			res.end();
 		});
 

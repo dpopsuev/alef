@@ -5,17 +5,17 @@ import { InProcessNerve } from "@dpopsuev/alef-kernel";
 const DEFAULT_TIMEOUT_MS = 2_000;
 
 /**
- * AdapterHarness — unit-level Motor→Sense test harness.
+ * AdapterHarness — unit-level Command→Event test harness.
  *
  * Mounts a single adapter on an isolated InProcessNerve and provides
- * a send() method that fires a motor event and returns the matching
- * sense event. Fails if no sense event arrives within the timeout.
+ * a send() method that fires a command event and returns the matching
+ * event response. Fails if no event response arrives within the timeout.
  *
  * Usage:
  *   const h = new AdapterHarness(createFsAdapter({ cwd }));
  *   await h.ready();
- *   const sense = await h.send("fs.read", { path: "README.md" });
- *   expect(sense.isError).toBe(false);
+ *   const result = await h.send("fs.read", { path: "README.md" });
+ *   expect(result.isError).toBe(false);
  *   h.dispose();
  */
 export class AdapterHarness {
@@ -27,7 +27,7 @@ export class AdapterHarness {
 	constructor(adapter: Adapter, opts: { timeoutMs?: number } = {}) {
 		this.adapter = adapter;
 		this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-		this.unmount = adapter.mount(this.nerve.asNerve());
+		this.unmount = adapter.mount(this.nerve.asBus());
 	}
 
 	async ready(): Promise<void> {
@@ -35,8 +35,8 @@ export class AdapterHarness {
 	}
 
 	/**
-	 * Send a motor event and wait for the matching sense event.
-	 * Rejects with a clear error if no sense event arrives within timeoutMs.
+	 * Send a command event and wait for the matching event response.
+	 * Rejects with a clear error if no event response arrives within timeoutMs.
 	 */
 	send(type: string, payload: Record<string, unknown> = {}): Promise<EventMessage> {
 		const correlationId = randomUUID();
@@ -45,20 +45,20 @@ export class AdapterHarness {
 				off();
 				reject(
 					new Error(
-						`AdapterHarness: no sense/${type} event within ${this.timeoutMs}ms. ` +
-							`Adapter '${this.adapter.name}' may be hanging or not handling motor/${type}.`,
+						`AdapterHarness: no event/${type} response within ${this.timeoutMs}ms. ` +
+							`Adapter '${this.adapter.name}' may be hanging or not handling command/${type}.`,
 					),
 				);
 			}, this.timeoutMs);
 
-			const off = this.nerve.subscribeSense(type, (event) => {
+			const off = this.nerve.subscribeEvent(type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
 				resolve(event as EventMessage);
 			});
 
-			this.nerve.publishMotor({ type, payload, correlationId });
+			this.nerve.publishCommand({ type, payload, correlationId });
 		});
 	}
 

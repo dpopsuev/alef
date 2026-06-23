@@ -64,7 +64,7 @@ export async function setupHttpSurface(
 	await createRouter(servePort, blueprintSurfaces, session, args, agent);
 }
 
-const EXPLORE_ORGANS = [
+const EXPLORE_ADAPTERS = [
 	{ name: "fs", actions: [] as string[], toolNames: ["fs.read", "fs.grep", "fs.find"] },
 	{ name: "web", actions: [] as string[], toolNames: [] as string[] },
 ];
@@ -91,7 +91,7 @@ export async function buildDelegation(
 	const materialiOpts = { cwd: args.cwd };
 
 	const [{ organs: exploreOrgans }, { organs: generalOrgans }] = await Promise.all([
-		materializeBlueprint({ ...DEFAULT_COMPILED_DEFINITION, organs: [...EXPLORE_ORGANS] }, materialiOpts),
+		materializeBlueprint({ ...DEFAULT_COMPILED_DEFINITION, organs: [...EXPLORE_ADAPTERS] }, materialiOpts),
 		materializeBlueprint(DEFAULT_COMPILED_DEFINITION, materialiOpts),
 	]);
 

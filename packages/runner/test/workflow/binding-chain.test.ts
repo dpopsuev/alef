@@ -3,7 +3,7 @@
  *
  * Verifies:
  *   - three-stage ordered chain fires in sequence
- *   - each stage self-selects via targetOrgan
+ *   - each stage self-selects via targetAdapter
  *   - short-circuit: mechanical rejection skips stages 2 and 3
  *   - parallel-all mode: both must approve
  */
@@ -12,24 +12,24 @@ import type { Binding } from "@dpopsuev/alef-kernel";
 import { executeBindingChain, InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 
-function makeNerve() {
-	const nerve = new InProcessNerve();
-	return { nerve, asNerve: () => nerve.asNerve() };
+function makeBus() {
+	const bus = new InProcessNerve();
+	return { bus, asBus: () => bus.asBus() };
 }
 
 function stubEvaluator(
-	nerve: InProcessNerve,
-	organName: string,
+	bus: InProcessNerve,
+	adapterName: string,
 	respond: (id: string) => { approved: boolean; feedback?: string },
 ) {
-	return nerve.asNerve().motor.subscribe(VALIDATE_REQUEST, (event) => {
-		const p = event.payload as { id: string; targetOrgan?: string };
-		if (p.targetOrgan && p.targetOrgan !== organName) return;
+	return bus.asBus().command.subscribe(VALIDATE_REQUEST, (event) => {
+		const p = event.payload as { id: string; targetAdapter?: string };
+		if (p.targetAdapter && p.targetAdapter !== adapterName) return;
 		const { approved, feedback } = respond(p.id);
-		nerve.asNerve().sense.publish({
+		bus.asBus().event.publish({
 			type: VALIDATE_RESULT,
 			correlationId: event.correlationId,
-			payload: { id: p.id, approved, feedback, reviewer: organName },
+			payload: { id: p.id, approved, feedback, reviewer: adapterName },
 			isError: false,
 		});
 	});
@@ -42,23 +42,23 @@ describe("Binding chain — ordered", { tags: ["unit"] }, () => {
 	});
 
 	it("fires three stages in order, all approve", async () => {
-		const { nerve } = makeNerve();
+		const { bus } = makeBus();
 		const fired: string[] = [];
 
 		disposables.push(
-			stubEvaluator(nerve, "mechanical", (_id) => {
+			stubEvaluator(bus, "mechanical", (_id) => {
 				fired.push("mechanical");
 				return { approved: true };
 			}),
 		);
 		disposables.push(
-			stubEvaluator(nerve, "judge", (_id) => {
+			stubEvaluator(bus, "judge", (_id) => {
 				fired.push("judge");
 				return { approved: true };
 			}),
 		);
 		disposables.push(
-			stubEvaluator(nerve, "hitl", (_id) => {
+			stubEvaluator(bus, "hitl", (_id) => {
 				fired.push("hitl");
 				return { approved: true };
 			}),
@@ -68,38 +68,33 @@ describe("Binding chain — ordered", { tags: ["unit"] }, () => {
 			id: "test-chain",
 			event: VALIDATE_REQUEST,
 			mode: "ordered",
-			chain: [{ organ: "mechanical" }, { organ: "judge" }, { organ: "hitl" }],
+			chain: [{ adapter: "mechanical" }, { adapter: "judge" }, { adapter: "hitl" }],
 		};
 
-		const result = await executeBindingChain(
-			binding,
-			{ output: { steps: ["do something"] } },
-			nerve.asNerve(),
-			"corr-1",
-		);
+		const result = await executeBindingChain(binding, { output: { steps: ["do something"] } }, bus.asBus(), "corr-1");
 
 		expect(result.approved).toBe(true);
 		expect(fired).toEqual(["mechanical", "judge", "hitl"]);
 	}, 10_000);
 
 	it("short-circuits: mechanical rejects, stages 2+3 never fire", async () => {
-		const { nerve } = makeNerve();
+		const { bus } = makeBus();
 		const fired: string[] = [];
 
 		disposables.push(
-			stubEvaluator(nerve, "mechanical", () => {
+			stubEvaluator(bus, "mechanical", () => {
 				fired.push("mechanical");
 				return { approved: false, feedback: "too short" };
 			}),
 		);
 		disposables.push(
-			stubEvaluator(nerve, "judge", () => {
+			stubEvaluator(bus, "judge", () => {
 				fired.push("judge");
 				return { approved: true };
 			}),
 		);
 		disposables.push(
-			stubEvaluator(nerve, "hitl", () => {
+			stubEvaluator(bus, "hitl", () => {
 				fired.push("hitl");
 				return { approved: true };
 			}),
@@ -109,10 +104,10 @@ describe("Binding chain — ordered", { tags: ["unit"] }, () => {
 			id: "short-circuit",
 			event: VALIDATE_REQUEST,
 			mode: "ordered",
-			chain: [{ organ: "mechanical" }, { organ: "judge" }, { organ: "hitl" }],
+			chain: [{ adapter: "mechanical" }, { adapter: "judge" }, { adapter: "hitl" }],
 		};
 
-		const result = await executeBindingChain(binding, { output: {} }, nerve.asNerve(), "corr-2");
+		const result = await executeBindingChain(binding, { output: {} }, bus.asBus(), "corr-2");
 
 		expect(result.approved).toBe(false);
 		expect(result.feedback).toBe("too short");
@@ -127,34 +122,34 @@ describe("Binding chain — parallel-all", { tags: ["unit"] }, () => {
 	});
 
 	it("both approve → approved", async () => {
-		const { nerve } = makeNerve();
-		disposables.push(stubEvaluator(nerve, "a", (_id) => ({ approved: true })));
-		disposables.push(stubEvaluator(nerve, "b", (_id) => ({ approved: true })));
+		const { bus } = makeBus();
+		disposables.push(stubEvaluator(bus, "a", (_id) => ({ approved: true })));
+		disposables.push(stubEvaluator(bus, "b", (_id) => ({ approved: true })));
 
 		const binding: Binding = {
 			id: "par-all",
 			event: VALIDATE_REQUEST,
 			mode: "parallel-all",
-			chain: [{ organ: "a" }, { organ: "b" }],
+			chain: [{ adapter: "a" }, { adapter: "b" }],
 		};
 
-		const result = await executeBindingChain(binding, { output: {} }, nerve.asNerve(), "corr-3");
+		const result = await executeBindingChain(binding, { output: {} }, bus.asBus(), "corr-3");
 		expect(result.approved).toBe(true);
 	}, 10_000);
 
 	it("one rejects → rejected", async () => {
-		const { nerve } = makeNerve();
-		disposables.push(stubEvaluator(nerve, "a", (_id) => ({ approved: true })));
-		disposables.push(stubEvaluator(nerve, "b", (_id) => ({ approved: false, feedback: "b rejected" })));
+		const { bus } = makeBus();
+		disposables.push(stubEvaluator(bus, "a", (_id) => ({ approved: true })));
+		disposables.push(stubEvaluator(bus, "b", (_id) => ({ approved: false, feedback: "b rejected" })));
 
 		const binding: Binding = {
 			id: "par-all-reject",
 			event: VALIDATE_REQUEST,
 			mode: "parallel-all",
-			chain: [{ organ: "a" }, { organ: "b" }],
+			chain: [{ adapter: "a" }, { adapter: "b" }],
 		};
 
-		const result = await executeBindingChain(binding, { output: {} }, nerve.asNerve(), "corr-4");
+		const result = await executeBindingChain(binding, { output: {} }, bus.asBus(), "corr-4");
 		expect(result.approved).toBe(false);
 	}, 10_000);
 });

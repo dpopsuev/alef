@@ -16,11 +16,11 @@ afterEach(() => {
 });
 
 function motorRecord(type: string, correlationId: string, payload: Record<string, unknown> = {}): StorageRecord {
-	return { bus: "motor", type, correlationId, payload, timestamp: Date.now() };
+	return { bus: "command", type, correlationId, payload, timestamp: Date.now() };
 }
 
 function senseRecord(type: string, correlationId: string, payload: Record<string, unknown> = {}): StorageRecord {
-	return { bus: "sense", type, correlationId, payload, timestamp: Date.now() };
+	return { bus: "event", type, correlationId, payload, timestamp: Date.now() };
 }
 
 describe("JsonlSessionStore.create", { tags: ["unit"] }, () => {
@@ -44,8 +44,8 @@ describe("JsonlSessionStore.append + events", { tags: ["unit"] }, () => {
 
 		const events = await store.events();
 		expect(events).toHaveLength(2);
-		expect(events[0]).toMatchObject({ bus: "motor", type: "fs.read", correlationId: "c-1" });
-		expect(events[1]).toMatchObject({ bus: "sense", type: "fs.read", correlationId: "c-1" });
+		expect(events[0]).toMatchObject({ bus: "command", type: "fs.read", correlationId: "c-1" });
+		expect(events[1]).toMatchObject({ bus: "event", type: "fs.read", correlationId: "c-1" });
 	});
 
 	it("persists across store re-opens", async () => {
@@ -209,7 +209,7 @@ describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"]
 
 		await store.append(senseRecord("llm.response", "c-1", { text: "hi" }));
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "llm.response",
 			correlationId: "c-1",
 			payload: { text: "hello", conversationHistory: [{ role: "user", content: "hi" }], usage: realUsage },
@@ -230,7 +230,7 @@ describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"]
 
 		await store.append(senseRecord("llm.response", "c-1", { text: "hi" }));
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "llm.response",
 			correlationId: "c-1",
 			payload: { text: "hello" }, // no usage field
@@ -250,7 +250,7 @@ describe("JsonlSessionStore.turns() — token cost estimation", { tags: ["unit"]
 
 		await store.append(senseRecord("llm.response", "c-1", { text: "hi" }));
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "llm.response",
 			correlationId: "c-1",
 			payload: { text: "hello", usage: { totalTokens: 0 } },

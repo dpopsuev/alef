@@ -107,14 +107,14 @@ export interface EnclosureOrganOptions {
 export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapter {
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
-	let nerve: Bus | null = null;
+	let bus: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
-		nerve?.notification.publish({ type, payload, correlationId: "" });
+		bus?.notification.publish({ type, payload, correlationId: "" });
 
 	const base = defineAdapter(
 		"enclosure",
 		{
-			motor: {
+			command: {
 				"enclosure.create": typedAction(CREATE_TOOL, async (ctx) => {
 					const { spaceId, workDir } = await handleCreate(ctx, spaces, options);
 					emitSignal("enclosure.status", { text: `space: ${spaceId}`, active: true });
@@ -180,8 +180,8 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 			},
 		},
 		{
-			onMount: (n: Bus) => {
-				nerve = n;
+			onMount: (b: Bus) => {
+				bus = b;
 			},
 			contributions: {
 				tui: {
@@ -211,12 +211,12 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 		contributions: {
 			port: {
 				name: "enclosure",
-				eventPattern: "motor/enclosure.",
+				eventPattern: "command/enclosure.",
 				cardinality: "zero-or-one",
 			} satisfies PortDefinition,
 		},
-		mount(nerve: Bus): () => void {
-			const unmount = base.mount(nerve);
+		mount(bus: Bus): () => void {
+			const unmount = base.mount(bus);
 			return () => {
 				unmount();
 				for (const space of spaces.values()) void space.destroy();

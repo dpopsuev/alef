@@ -36,7 +36,7 @@ async function readFirstUserMessage(jsonlPath: string): Promise<string> {
 		for (const line of raw.split("\n")) {
 			if (!line.trim()) continue;
 			const record = JSON.parse(line) as StorageRecord;
-			if (record.bus === "sense" && record.type === "llm.input") {
+			if (record.bus === "event" && record.type === "llm.input") {
 				const text = typeof record.payload.text === "string" ? record.payload.text : "";
 				if (text) return text.slice(0, 60).replace(/\n/g, " ");
 			}
@@ -73,13 +73,13 @@ async function readSessionTail(jsonlPath: string, maxLines: number): Promise<str
 		for (const line of lines) {
 			try {
 				const r = JSON.parse(line) as StorageRecord;
-				if (r.bus === "sense" && r.type === "llm.input") {
+				if (r.bus === "event" && r.type === "llm.input") {
 					const text = typeof r.payload.text === "string" ? r.payload.text : "";
 					if (text) tail.push(`  ▸ ${text.slice(0, 70).replace(/\n/g, " ")}`);
-				} else if (r.bus === "motor" && r.type === "llm.response") {
+				} else if (r.bus === "command" && r.type === "llm.response") {
 					const text = typeof r.payload.text === "string" ? r.payload.text : "";
 					if (text) tail.push(`  ◂ ${text.slice(0, 70).replace(/\n/g, " ")}`);
-				} else if (r.bus === "motor" && !r.type.startsWith("llm.") && !r.type.startsWith("context.")) {
+				} else if (r.bus === "command" && !r.type.startsWith("llm.") && !r.type.startsWith("context.")) {
 					tail.push(`  ● ${r.type}`);
 				}
 			} catch {

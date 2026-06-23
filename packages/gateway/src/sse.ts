@@ -15,7 +15,7 @@
 import type { ServerResponse } from "node:http";
 
 export interface BusEvent {
-	bus: "motor" | "sense" | "signal";
+	bus: "command" | "event" | "notification";
 	type: string;
 	correlationId: string;
 	payload: Record<string, unknown>;

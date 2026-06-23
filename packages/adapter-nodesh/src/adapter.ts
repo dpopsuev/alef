@@ -19,7 +19,7 @@
  */
 
 import vm from "node:vm";
-import type { Adapter, BaseOrganOptions } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel";
 import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
@@ -79,7 +79,7 @@ const ALLOWED_BUILTINS = new Set([
 export const DEFAULT_NODESH_TIMEOUT_S = 10;
 export const MAX_NODESH_TIMEOUT_S = 30;
 
-export interface NodeshOrganOptions extends BaseOrganOptions {
+export interface NodeshOrganOptions extends BaseAdapterOptions {
 	cwd: string;
 	/**
 	 * Prelude code evaluated once to seed each fresh context.
@@ -204,7 +204,7 @@ export function createNodeshOrgan(options: NodeshOrganOptions): Adapter {
 	return defineAdapter(
 		"nodesh",
 		{
-			motor: { "nodesh.eval": typedAction(NODESH_EVAL_TOOL, (ctx) => handleEval(ctx, options)) },
+			command: { "nodesh.eval": typedAction(NODESH_EVAL_TOOL, (ctx) => handleEval(ctx, options)) },
 		},
 		{
 			actions: options.actions,
@@ -213,7 +213,7 @@ export function createNodeshOrgan(options: NodeshOrganOptions): Adapter {
 			description: "JavaScript REPL adapter for structured computation and Alef API introspection.",
 			labels: ["nodesh", "javascript", "repl", "computation"],
 			publishSchemas: {
-				sense: {
+				event: {
 					"nodesh.eval": z.object({
 						result: z.unknown(),
 						stdout: z.string().min(1),

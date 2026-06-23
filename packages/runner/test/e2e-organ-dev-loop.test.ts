@@ -1,17 +1,17 @@
 /**
- * Agentic organ dev loop: uses organ-agent + organ-eval AS organs.
+ * Agentic adapter dev loop: uses adapter-agent + adapter-eval AS adapters.
  *
  * Replaces the previous test that manually reimplemented collectEvents,
- * postMessage, and runValidators by calling organ-eval internals directly.
- * Now the organs are mounted on an InProcessNerve and driven via Motor events,
+ * postMessage, and runValidators by calling adapter-eval internals directly.
+ * Now the adapters are mounted on an InProcessBus and driven via Command events,
  * validating that the composition works end-to-end.
  *
  * Flow:
- * 1. Write a simple echo organ to disk (simulates nodesh.eval output)
- * 2. Publish motor/agent.spawn → Sense returns { endpoint, name }
- * 3. Publish motor/eval.run with endpoint → Sense returns EvalResult
+ * 1. Write a simple echo adapter to disk (simulates nodesh.eval output)
+ * 2. Publish command/agent.spawn → Event returns { endpoint, name }
+ * 3. Publish command/eval.run with endpoint → Event returns EvalResult
  * 4. Assert EvalResult.passed
- * 5. Publish motor/agent.kill to clean up
+ * 5. Publish command/agent.kill to clean up
  *
  * No real LLM — ALEF_SCRIPTED_REPLIES drives the child's llm.response.
  */
@@ -22,7 +22,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
 import { createEvalOrgan } from "@dpopsuev/alef-adapter-eval";
-import type { SenseEvent } from "@dpopsuev/alef-kernel";
+import type { EventMessage } from "@dpopsuev/alef-kernel";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -36,59 +36,62 @@ afterEach(() => {
 
 function makeTmp(): string {
 	// Now safe to use OS tmpdir — supervisor.spawn sets NODE_PATH so jiti
-	// resolves @dpopsuev/* packages regardless of organ file location.
+	// resolves @dpopsuev/* packages regardless of adapter file location.
 	const d = mkdtempSync(join(tmpdir(), "alef-adapter-loop-"));
 	tempDirs.push(d);
 	return d;
 }
 
-/** Publish a Motor event and wait for the matching Sense reply. */
-function motorCall(
+/** Publish a Command event and wait for the matching Event reply. */
+function commandCall(
 	nerve: InProcessNerve,
 	toolName: string,
 	payload: Record<string, unknown>,
 	timeoutMs: number,
-): Promise<SenseEvent> {
+): Promise<EventMessage> {
 	return new Promise((resolve, reject) => {
 		const correlationId = randomUUID();
-		const timer = setTimeout(() => reject(new Error(`motor/${toolName} timed out after ${timeoutMs}ms`)), timeoutMs);
-		const off = nerve.asNerve().sense.subscribe(toolName, (event) => {
+		const timer = setTimeout(
+			() => reject(new Error(`command/${toolName} timed out after ${timeoutMs}ms`)),
+			timeoutMs,
+		);
+		const off = nerve.asBus().event.subscribe(toolName, (event) => {
 			if (event.correlationId === correlationId) {
 				clearTimeout(timer);
 				off();
 				resolve(event);
 			}
 		});
-		nerve.asNerve().motor.publish({ type: toolName, correlationId, payload });
+		nerve.asBus().command.publish({ type: toolName, correlationId, payload });
 	});
 }
 
-describe("organ dev loop via supervisor", { tags: ["e2e"] }, () => {
+describe("adapter dev loop via supervisor", { tags: ["e2e"] }, () => {
 	it("spawn child via supervisor.spawn, eval via eval.run, assert passes", async () => {
-		const organDir = makeTmp();
-		const cwd = organDir;
+		const adapterDir = makeTmp();
+		const cwd = adapterDir;
 
-		// ── Step 1: write echo organ to disk ─────────────────────────────
+		// ── Step 1: write echo adapter to disk ────────────────────────────
 		// Simulates what the agent does via nodesh.eval in the real loop.
-		const organPath = join(organDir, "echo-organ.ts");
+		const adapterPath = join(adapterDir, "echo-organ.ts");
 		writeFileSync(
-			organPath,
+			adapterPath,
 			`
-import { defineOrgan } from "@dpopsuev/alef-kernel";
+import { defineAdapter } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 export function createOrgan() {
- return defineOrgan("echo", {
- "motor/echo.ping": {
+ return defineAdapter("echo", {
+ "command/echo.ping": {
  tool: {
  name: "echo.ping",
- description: "Echo a message back as pong. Use to verify the organ is running.",
+ description: "Echo a message back as pong. Use to verify the adapter is running.",
  inputSchema: z.object({ message: z.string() }),
  },
  handle: async (ctx) => ({ reply: \`pong:\${ctx.payload.message}\` }),
  },
  }, {
- description: "Simple echo organ for integration testing — replies pong to any message.",
+ description: "Simple echo adapter for integration testing — replies pong to any message.",
  directives: ["Use echo.ping to verify the child agent is alive and processing requests correctly."],
  });
 }
@@ -97,28 +100,28 @@ export function createOrgan() {
 		);
 
 		// Scripted reply: the child inherits process.env.
-		const SCRIPTED_REPLY = "Echo organ loaded and responding.";
+		const SCRIPTED_REPLY = "Echo adapter loaded and responding.";
 		process.env.ALEF_SCRIPTED_REPLIES = JSON.stringify([SCRIPTED_REPLY]);
-		// Also set NODE_PATH directly in the test process env so the orchestration organ
-		// inherits it — belt-and-suspenders with the fix in organ-agent.
+		// Also set NODE_PATH directly in the test process env so the orchestration adapter
+		// inherits it — belt-and-suspenders with the fix in adapter-agent.
 		const alefNodeModules = join(resolve(__dirname, "../../.."), "node_modules");
 		if (!process.env.NODE_PATH?.includes(alefNodeModules)) {
 			process.env.NODE_PATH = [alefNodeModules, process.env.NODE_PATH].filter(Boolean).join(":");
 		}
 
-		// ── Step 2: mount organs on a shared nerve ────────────────────────
+		// ── Step 2: mount adapters on a shared bus ─────────────────────────
 		const nerve = new InProcessNerve();
-		const orchestrationOrgan = createAgentOrgan({ cwd, replyEvent: "llm.response" });
-		const evalOrgan = createEvalOrgan({ replyEvent: "llm.response" });
-		unmounts.push(orchestrationOrgan.mount(nerve.asNerve()));
-		unmounts.push(evalOrgan.mount(nerve.asNerve()));
+		const orchestrationAdapter = createAgentOrgan({ cwd, replyEvent: "llm.response" });
+		const evalAdapter = createEvalOrgan({ replyEvent: "llm.response" });
+		unmounts.push(orchestrationAdapter.mount(nerve.asBus()));
+		unmounts.push(evalAdapter.mount(nerve.asBus()));
 
-		// ── Step 3: agent.spawn — start child Alef with echo organ ──
-		const spawnResult = await motorCall(
+		// ── Step 3: agent.spawn — start child Alef with echo adapter ─
+		const spawnResult = await commandCall(
 			nerve,
 			"agent.spawn",
 			{
-				organs: [organPath],
+				organs: [adapterPath],
 				cwd,
 			},
 			30_000,
@@ -132,8 +135,8 @@ export function createOrgan() {
 		// ── Step 4: eval.run — drive child, validate response ────────────
 		// ALEF_SCRIPTED_REPLIES is set on the child process via the supervisor.
 		// The scripted reply simulates the child's llm.response response.
-		// The eval validates structurally: reply must contain "Echo organ".
-		const evalResult = await motorCall(
+		// The eval validates structurally: reply must contain "Echo".
+		const evalResult = await commandCall(
 			nerve,
 			"eval.run",
 			{
@@ -156,7 +159,7 @@ export function createOrgan() {
 		delete process.env.ALEF_SCRIPTED_REPLIES;
 
 		// ── Step 5: clean up via agent.kill ─────────────────────────
-		await motorCall(nerve, "agent.kill", { name }, 5_000).catch(() => {
+		await commandCall(nerve, "agent.kill", { name }, 5_000).catch(() => {
 			/* ignore kill errors */
 		});
 

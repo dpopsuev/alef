@@ -61,7 +61,7 @@ export class HttpAgentClient implements Agent {
 		this.eventSource?.close();
 		const source = new EventSource(`${this.baseUrl}/events`);
 
-		source.addEventListener("motor/llm.response", (e: Event) => {
+		source.addEventListener("command/llm.response", (e: Event) => {
 			const raw = JSON.parse((e as MessageEvent).data) as {
 				payload: { text?: string; role?: string };
 			};

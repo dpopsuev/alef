@@ -41,11 +41,11 @@ async function readRecentTurns(store: SessionStore, maxTurns: number): Promise<T
 		let agentText: string | undefined;
 
 		for (const event of turn.events) {
-			if (event.bus === "sense" && event.type === "llm.input") {
+			if (event.bus === "event" && event.type === "llm.input") {
 				const t = (event.payload as { text?: string }).text;
 				if (t) userText = t;
 			}
-			if (event.bus === "motor" && event.type === "llm.response") {
+			if (event.bus === "command" && event.type === "llm.response") {
 				const t = (event.payload as { text?: string }).text;
 				if (t) agentText = t;
 			}

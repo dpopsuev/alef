@@ -15,14 +15,14 @@
  * parses a 0-100 score and reasoning string.
  */
 
-import type { Adapter, BaseOrganOptions, Bus, MotorHandlerCtx } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseAdapterOptions, Bus, CommandHandlerCtx } from "@dpopsuev/alef-kernel";
 import { defineAdapter, getNumber, getString, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
 import type { EvalPrompt, TranscriptEvent, Validator } from "./types.js";
 import { runValidators } from "./validators.js";
 
-export interface EvalAdapterOptions extends BaseOrganOptions {
+export interface EvalAdapterOptions extends BaseAdapterOptions {
 	/** Model to use for LLM-as-judge. Defaults to ALEF_MODEL or autoDetect. */
 	judgeModel?: string;
 	/** Event type for the agent reply. Provided by assembly. */
@@ -110,11 +110,11 @@ async function runLLMJudge(
 export type EvalOrganOptions = EvalAdapterOptions;
 
 export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
-	let nerve: Bus | null = null;
+	let bus: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
-		nerve?.notification.publish({ type, payload, correlationId: "" });
+		bus?.notification.publish({ type, payload, correlationId: "" });
 
-	async function handleEval(ctx: MotorHandlerCtx): Promise<Record<string, unknown>> {
+	async function handleEval(ctx: CommandHandlerCtx): Promise<Record<string, unknown>> {
 		const endpoint = getString(ctx.payload, "endpoint") ?? "";
 		if (!endpoint) throw new Error("eval.run: endpoint is required");
 		emitSignal("eval.intent", { text: `scoring ${endpoint}` });
@@ -138,7 +138,7 @@ export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 			// Start SSE collection before posting (avoids race).
 			const ssePromise = collectEvents(
 				endpoint,
-				(events) => events.some((e) => e.bus === "motor" && e.type === opts.replyEvent),
+				(events) => events.some((e) => e.bus === "command" && e.type === opts.replyEvent),
 				timeoutMs,
 			);
 
@@ -172,12 +172,12 @@ export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 	return defineAdapter(
 		"eval",
 		{
-			motor: { "eval.run": typedAction(EVAL_TOOL, handleEval) },
+			command: { "eval.run": typedAction(EVAL_TOOL, handleEval) },
 		},
 		{
 			logger: opts.logger,
-			onMount: (n: Bus) => {
-				nerve = n;
+			onMount: (b: Bus) => {
+				bus = b;
 			},
 			contributions: {
 				tui: {

@@ -1,42 +1,42 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { SenseEvent } from "../src/buses.js";
-import type { MotorHandlerCtx, SenseHandlerCtx } from "../src/framework.js";
-import { defineOrgan } from "../src/framework.js";
+import type { EventMessage } from "../src/buses.js";
+import type { CommandHandlerCtx, EventHandlerCtx } from "../src/framework.js";
+import { defineAdapter } from "../src/framework.js";
 import { InProcessNerve } from "../src/in-process-nerve.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, n: nerve.asNerve() };
+	return { nerve, n: nerve.asBus() };
 }
 
-function waitSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
+function waitEvent(nerve: InProcessNerve, type: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
-		const off = nerve.asNerve().sense.subscribe(type, (e) => {
+		const off = nerve.asBus().event.subscribe(type, (e) => {
 			off();
 			resolve(e);
 		});
 	});
 }
 
-function publishMotor(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
-	nerve.asNerve().motor.publish({ type, payload, correlationId: "corr-1" });
+function publishCommand(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
+	nerve.asBus().command.publish({ type, payload, correlationId: "corr-1" });
 }
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
+describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 	it("sets name", () => {
-		const organ = defineOrgan("test", {});
-		expect(organ.name).toBe("test");
+		const adapter = defineAdapter("test", {});
+		expect(adapter.name).toBe("test");
 	});
 
 	it("collects tools from actions that declare them", () => {
-		const organ = defineOrgan(
+		const adapter = defineAdapter(
 			"test",
 			{
-				motor: {
+				command: {
 					"test.a": {
 						tool: { name: "test.a", description: "A", inputSchema: z.object({}) },
 						async *handle() {
@@ -57,17 +57,17 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 				},
 			},
 			{
-				description: "Test organ with tools.",
+				description: "Test adapter with tools.",
 				directives: ["Use test.a and test.c for testing. Provide all required parameters."],
 			},
 		);
-		expect(organ.tools.map((t: { name: string }) => t.name)).toEqual(["test.a", "test.c"]);
+		expect(adapter.tools.map((t: { name: string }) => t.name)).toEqual(["test.a", "test.c"]);
 	});
 
-	it("mount subscribes to Motor events", () => {
+	it("mount subscribes to Command messages", () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.x": {
 					async *handle() {
 						yield {};
@@ -80,14 +80,14 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 				},
 			},
 		}).mount(n);
-		expect(nerve.listenerCount("motor", "test.x")).toBe(1);
-		expect(nerve.listenerCount("motor", "test.y")).toBe(1);
+		expect(nerve.listenerCount("command", "test.x")).toBe(1);
+		expect(nerve.listenerCount("command", "test.y")).toBe(1);
 	});
 
 	it("unmount cleans up all subscriptions", () => {
 		const { nerve, n } = makeNerve();
-		const unmount = defineOrgan("test", {
-			motor: {
+		const unmount = defineAdapter("test", {
+			command: {
 				"test.x": {
 					async *handle() {
 						yield {};
@@ -101,24 +101,24 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 		unmount();
-		expect(nerve.listenerCount("motor", "test.x")).toBe(0);
-		expect(nerve.listenerCount("motor", "test.y")).toBe(0);
+		expect(nerve.listenerCount("command", "test.x")).toBe(0);
+		expect(nerve.listenerCount("command", "test.y")).toBe(0);
 	});
 
-	it("handle success publishes Sense with result payload", async () => {
+	it("handle success publishes Event with result payload", async () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.echo": {
-					async *handle(ctx: MotorHandlerCtx) {
+					async *handle(ctx: CommandHandlerCtx) {
 						yield { echoed: ctx.payload.value };
 					},
 				},
 			},
 		}).mount(n);
 
-		const p = waitSense(nerve, "test.echo");
-		publishMotor(nerve, "test.echo", { value: "hello" });
+		const p = waitEvent(nerve, "test.echo");
+		publishCommand(nerve, "test.echo", { value: "hello" });
 		const result = await p;
 
 		expect(result.isError).toBe(false);
@@ -126,10 +126,10 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 		expect(result.correlationId).toBe("corr-1");
 	});
 
-	it("handle throw publishes Sense with isError=true", async () => {
+	it("handle throw publishes Event with isError=true", async () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.fail": {
 					async *handle() {
 						yield (await Promise.reject(new Error("boom"))) as Record<string, unknown>;
@@ -138,18 +138,18 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p = waitSense(nerve, "test.fail");
-		publishMotor(nerve, "test.fail", {});
+		const p = waitEvent(nerve, "test.fail");
+		publishCommand(nerve, "test.fail", {});
 		const result = await p;
 
 		expect(result.isError).toBe(true);
 		expect(result.errorMessage).toBe("boom");
 	});
 
-	it("toolCallId from Motor payload is mirrored to Sense payload", async () => {
+	it("toolCallId from Command payload is mirrored to Event payload", async () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.tool": {
 					async *handle() {
 						yield { ok: true };
@@ -158,8 +158,8 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p = waitSense(nerve, "test.tool");
-		nerve.asNerve().motor.publish({
+		const p = waitEvent(nerve, "test.tool");
+		nerve.asBus().command.publish({
 			type: "test.tool",
 			payload: { toolCallId: "tc-42" },
 			correlationId: "corr-1",
@@ -172,8 +172,8 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 
 	it("toolCallId mirrored even on error", async () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.fail": {
 					async *handle() {
 						yield (await Promise.reject(new Error("bad"))) as Record<string, unknown>;
@@ -182,8 +182,8 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p = waitSense(nerve, "test.fail");
-		nerve.asNerve().motor.publish({
+		const p = waitEvent(nerve, "test.fail");
+		nerve.asBus().command.publish({
 			type: "test.fail",
 			payload: { toolCallId: "tc-err" },
 			correlationId: "corr-1",
@@ -194,10 +194,10 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 		expect(result.payload.toolCallId).toBe("tc-err");
 	});
 
-	it("streaming action emits N partial Sense events then one final", async () => {
+	it("streaming action emits N partial Event messages then one final", async () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.stream": {
 					async *handle() {
 						yield { chunk: "a" };
@@ -208,15 +208,15 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const events: SenseEvent[] = [];
+		const events: EventMessage[] = [];
 		const done = new Promise<void>((resolve) => {
-			nerve.asNerve().sense.subscribe("test.stream", (e) => {
+			nerve.asBus().event.subscribe("test.stream", (e) => {
 				events.push(e);
 				if ((e.payload as { isFinal?: boolean }).isFinal) resolve();
 			});
 		});
 
-		publishMotor(nerve, "test.stream", {});
+		publishCommand(nerve, "test.stream", {});
 		await done;
 
 		expect(events).toHaveLength(3);
@@ -230,48 +230,48 @@ describe("defineOrgan (motor/ prefix)", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// defineOrgan with sense handler
+// defineAdapter with event handler
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
+describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 	it("sets name and tools=[]", () => {
-		const organ = defineOrgan("test", {});
-		expect(organ.name).toBe("test");
-		expect(organ.tools).toHaveLength(0);
+		const adapter = defineAdapter("test", {});
+		expect(adapter.name).toBe("test");
+		expect(adapter.tools).toHaveLength(0);
 	});
 
-	it("mount subscribes to Sense events", () => {
+	it("mount subscribes to Event messages", () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", {
-			sense: { "sense.a": { handle: async () => {} } },
+		defineAdapter("test", {
+			event: { "sense.a": { handle: async () => {} } },
 		}).mount(n);
-		expect(nerve.listenerCount("sense", "sense.a")).toBe(1);
+		expect(nerve.listenerCount("event", "sense.a")).toBe(1);
 	});
 
 	it("unmount cleans up", () => {
 		const { nerve, n } = makeNerve();
-		const unmount = defineOrgan("test", {
-			sense: { "sense.a": { handle: async () => {} } },
+		const unmount = defineAdapter("test", {
+			event: { "sense.a": { handle: async () => {} } },
 		}).mount(n);
 		unmount();
-		expect(nerve.listenerCount("sense", "sense.a")).toBe(0);
+		expect(nerve.listenerCount("event", "sense.a")).toBe(0);
 	});
 
-	it("handle receives correlationId, payload, motor, sense", async () => {
+	it("handle receives correlationId, payload, command, event", async () => {
 		const { nerve, n } = makeNerve();
 		let capturedCtx: { correlationId: string; payload: Record<string, unknown> } | null = null;
 
-		defineOrgan("test", {
-			sense: {
+		defineAdapter("test", {
+			event: {
 				"test.input": {
-					handle: async (ctx: SenseHandlerCtx) => {
+					handle: async (ctx: EventHandlerCtx) => {
 						capturedCtx = { correlationId: ctx.correlationId, payload: ctx.payload };
 					},
 				},
 			},
 		}).mount(n);
 
-		nerve.publishSense({
+		nerve.publishEvent({
 			type: "test.input",
 			payload: { text: "hello", sender: "human" },
 			correlationId: "corr-x",
@@ -285,21 +285,21 @@ describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 		expect(capturedCtx!.payload.text).toBe("hello");
 	});
 
-	it("handler can fan-out Motor events via ctx.motor.publish", async () => {
+	it("handler can fan-out Command messages via ctx.command.publish", async () => {
 		const { nerve, n } = makeNerve();
-		const motorEvents: string[] = [];
-		nerve.onAnyMotor((e) => motorEvents.push(e.type));
+		const commandMessages: string[] = [];
+		nerve.onAnyCommand((e) => commandMessages.push(e.type));
 
-		defineOrgan("test", {
-			sense: {
+		defineAdapter("test", {
+			event: {
 				"test.trigger": {
-					handle: async (ctx: SenseHandlerCtx) => {
-						ctx.motor.publish({
+					handle: async (ctx: EventHandlerCtx) => {
+						ctx.command.publish({
 							type: "tool.a",
 							payload: {},
 							correlationId: ctx.correlationId,
 						});
-						ctx.motor.publish({
+						ctx.command.publish({
 							type: "tool.b",
 							payload: {},
 							correlationId: ctx.correlationId,
@@ -309,7 +309,7 @@ describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		nerve.publishSense({
+		nerve.publishEvent({
 			type: "test.trigger",
 			payload: {},
 			correlationId: "c1",
@@ -317,20 +317,20 @@ describe("defineOrgan (sense/ prefix)", { tags: ["unit"] }, () => {
 		});
 		await new Promise((r) => setTimeout(r, 10));
 
-		expect(motorEvents).toContain("tool.a");
-		expect(motorEvents).toContain("tool.b");
+		expect(commandMessages).toContain("tool.a");
+		expect(commandMessages).toContain("tool.b");
 	});
 });
 
 // ---------------------------------------------------------------------------
-// defineOrgan — prefix dispatch + cache
+// defineAdapter — prefix dispatch + cache
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan — motor/ prefix", { tags: ["unit"] }, () => {
-	it("subscribes Motor bus for motor/ keys", () => {
+describe("defineAdapter — command/ prefix", { tags: ["unit"] }, () => {
+	it("subscribes Command bus for command/ keys", () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.cmd": {
 					async *handle() {
 						yield {};
@@ -338,44 +338,44 @@ describe("defineOrgan — motor/ prefix", { tags: ["unit"] }, () => {
 				},
 			},
 		}).mount(n);
-		expect(nerve.listenerCount("motor", "test.cmd")).toBe(1);
+		expect(nerve.listenerCount("command", "test.cmd")).toBe(1);
 	});
 });
 
-describe("defineOrgan — sense/ prefix", { tags: ["unit"] }, () => {
-	it("subscribes Sense bus for sense/ keys", () => {
+describe("defineAdapter — event/ prefix", { tags: ["unit"] }, () => {
+	it("subscribes Event bus for event/ keys", () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("test", { sense: { "test.evt": { handle: async () => {} } } }).mount(n);
-		expect(nerve.listenerCount("sense", "test.evt")).toBe(1);
+		defineAdapter("test", { event: { "test.evt": { handle: async () => {} } } }).mount(n);
+		expect(nerve.listenerCount("event", "test.evt")).toBe(1);
 	});
 });
 
-describe("defineOrgan — mixed organ", { tags: ["unit"] }, () => {
-	it("can subscribe both Motor and Sense in one organ", () => {
+describe("defineAdapter — mixed adapter", { tags: ["unit"] }, () => {
+	it("can subscribe both Command and Event in one adapter", () => {
 		const { nerve, n } = makeNerve();
-		defineOrgan("bridge", {
-			motor: {
+		defineAdapter("bridge", {
+			command: {
 				"bridge.cmd": {
 					async *handle() {
 						yield {};
 					},
 				},
 			},
-			sense: { "bridge.evt": { handle: async () => {} } },
+			event: { "bridge.evt": { handle: async () => {} } },
 		}).mount(n);
-		expect(nerve.listenerCount("motor", "bridge.cmd")).toBe(1);
-		expect(nerve.listenerCount("sense", "bridge.evt")).toBe(1);
+		expect(nerve.listenerCount("command", "bridge.cmd")).toBe(1);
+		expect(nerve.listenerCount("event", "bridge.evt")).toBe(1);
 	});
 });
 
-describe("defineOrgan — wildcard motor/*", { tags: ["unit"] }, () => {
-	it("subscribes all Motor events", async () => {
+describe("defineAdapter — wildcard command/*", { tags: ["unit"] }, () => {
+	it("subscribes all Command messages", async () => {
 		const { nerve, n } = makeNerve();
 		const seen: string[] = [];
-		defineOrgan("observer", {
-			motor: {
+		defineAdapter("observer", {
+			command: {
 				"*": {
-					async *handle(ctx: MotorHandlerCtx) {
+					async *handle(ctx: CommandHandlerCtx) {
 						seen.push(ctx.payload.op as string);
 						yield {};
 					},
@@ -383,8 +383,8 @@ describe("defineOrgan — wildcard motor/*", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		nerve.asNerve().motor.publish({ type: "fs.read", payload: { op: "read" }, correlationId: "c" });
-		nerve.asNerve().motor.publish({ type: "fs.edit", payload: { op: "edit" }, correlationId: "c" });
+		nerve.asBus().command.publish({ type: "fs.read", payload: { op: "read" }, correlationId: "c" });
+		nerve.asBus().command.publish({ type: "fs.edit", payload: { op: "edit" }, correlationId: "c" });
 		await new Promise((r) => setTimeout(r, 10));
 
 		expect(seen).toContain("read");
@@ -392,12 +392,12 @@ describe("defineOrgan — wildcard motor/*", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("defineOrgan — cache", { tags: ["unit"] }, () => {
+describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 	it("caches result on second call (same payload)", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.read": {
 					async *handle() {
 						callCount++;
@@ -408,12 +408,12 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p1 = waitSense(nerve, "test.read");
-		publishMotor(nerve, "test.read", { path: "/foo" });
+		const p1 = waitEvent(nerve, "test.read");
+		publishCommand(nerve, "test.read", { path: "/foo" });
 		await p1;
 
-		const p2 = waitSense(nerve, "test.read");
-		publishMotor(nerve, "test.read", { path: "/foo" });
+		const p2 = waitEvent(nerve, "test.read");
+		publishCommand(nerve, "test.read", { path: "/foo" });
 		await p2;
 
 		expect(callCount).toBe(1); // second call served from cache
@@ -422,10 +422,10 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 	it("different payloads are cached separately", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.read": {
-					async *handle(ctx: MotorHandlerCtx) {
+					async *handle(ctx: CommandHandlerCtx) {
 						callCount++;
 						yield { path: ctx.payload.path };
 					},
@@ -434,10 +434,10 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		publishMotor(nerve, "test.read", { path: "/foo" });
-		await waitSense(nerve, "test.read");
-		publishMotor(nerve, "test.read", { path: "/bar" });
-		await waitSense(nerve, "test.read");
+		publishCommand(nerve, "test.read", { path: "/foo" });
+		await waitEvent(nerve, "test.read");
+		publishCommand(nerve, "test.read", { path: "/bar" });
+		await waitEvent(nerve, "test.read");
 
 		expect(callCount).toBe(2);
 	});
@@ -445,8 +445,8 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 	it("invalidates cache entries by event-type prefix", async () => {
 		const { nerve, n } = makeNerve();
 		let readCount = 0;
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.read": {
 					async *handle() {
 						readCount++;
@@ -464,25 +464,25 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 		}).mount(n);
 
 		// First read — populates cache.
-		publishMotor(nerve, "test.read", { path: "/foo" });
-		await waitSense(nerve, "test.read");
+		publishCommand(nerve, "test.read", { path: "/foo" });
+		await waitEvent(nerve, "test.read");
 		expect(readCount).toBe(1);
 
 		// Write — invalidates test.read cache.
-		publishMotor(nerve, "test.write", { path: "/foo" });
-		await waitSense(nerve, "test.write");
+		publishCommand(nerve, "test.write", { path: "/foo" });
+		await waitEvent(nerve, "test.write");
 
 		// Second read — cache was purged, handler called again.
-		publishMotor(nerve, "test.read", { path: "/foo" });
-		await waitSense(nerve, "test.read");
+		publishCommand(nerve, "test.read", { path: "/foo" });
+		await waitEvent(nerve, "test.read");
 		expect(readCount).toBe(2);
 	});
 
 	it("streaming action is never cached", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
-		defineOrgan("test", {
-			motor: {
+		defineAdapter("test", {
+			command: {
 				"test.stream": {
 					async *handle() {
 						callCount++;
@@ -494,7 +494,7 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 
 		const waitFinal = () =>
 			new Promise<void>((resolve) => {
-				const off = nerve.asNerve().sense.subscribe("test.stream", (e) => {
+				const off = nerve.asBus().event.subscribe("test.stream", (e) => {
 					if ((e.payload as { isFinal?: boolean }).isFinal) {
 						off();
 						resolve();
@@ -502,9 +502,9 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 				});
 			});
 
-		publishMotor(nerve, "test.stream", { path: "/foo" });
+		publishCommand(nerve, "test.stream", { path: "/foo" });
 		await waitFinal();
-		publishMotor(nerve, "test.stream", { path: "/foo" });
+		publishCommand(nerve, "test.stream", { path: "/foo" });
 		await waitFinal();
 
 		expect(callCount).toBe(2); // streaming: always called
@@ -513,8 +513,8 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 	it("unmount clears the cache", async () => {
 		const { nerve, n } = makeNerve();
 		let callCount = 0;
-		const organ = defineOrgan("test", {
-			motor: {
+		const adapter = defineAdapter("test", {
+			command: {
 				"test.read": {
 					async *handle() {
 						callCount++;
@@ -524,16 +524,16 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 				},
 			},
 		});
-		const unmount = organ.mount(n);
+		const unmount = adapter.mount(n);
 
-		publishMotor(nerve, "test.read", { path: "/foo" });
-		await waitSense(nerve, "test.read");
+		publishCommand(nerve, "test.read", { path: "/foo" });
+		await waitEvent(nerve, "test.read");
 		unmount();
 
 		// Remount — fresh cache.
-		organ.mount(n);
-		publishMotor(nerve, "test.read", { path: "/foo" });
-		await waitSense(nerve, "test.read");
+		adapter.mount(n);
+		publishCommand(nerve, "test.read", { path: "/foo" });
+		await waitEvent(nerve, "test.read");
 
 		expect(callCount).toBe(2);
 	});
@@ -543,31 +543,31 @@ describe("defineOrgan — cache", { tags: ["unit"] }, () => {
 // inputSchemas validation
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan — inputSchemas validation", { tags: ["unit"] }, () => {
-	it("rejects malformed motor payload with error sense in test env", async () => {
+describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => {
+	it("rejects malformed command payload with error event in test env", async () => {
 		const { z } = await import("zod");
 		const nerve = new InProcessNerve();
-		const received: SenseEvent[] = [];
-		nerve.subscribeSense("typed.op", (e) => void received.push(e));
+		const received: EventMessage[] = [];
+		nerve.subscribeEvent("typed.op", (e) => void received.push(e));
 
-		const organ = defineOrgan(
+		const adapter = defineAdapter(
 			"typed",
 			{
-				motor: {
+				command: {
 					"typed.op": {
-						async *handle(ctx: MotorHandlerCtx) {
+						async *handle(ctx: CommandHandlerCtx) {
 							yield { ok: true, input: ctx.payload.value };
 						},
 					},
 				},
 			},
 			{
-				inputSchemas: { motor: { "typed.op": z.object({ value: z.string() }) } },
+				inputSchemas: { command: { "typed.op": z.object({ value: z.string() }) } },
 			},
 		);
-		organ.mount(nerve.asNerve());
+		adapter.mount(nerve.asBus());
 
-		publishMotor(nerve, "typed.op", { value: 42 }); // wrong type
+		publishCommand(nerve, "typed.op", { value: 42 }); // wrong type
 		await new Promise((r) => setTimeout(r, 20));
 
 		expect(received.length).toBeGreaterThan(0);
@@ -578,13 +578,13 @@ describe("defineOrgan — inputSchemas validation", { tags: ["unit"] }, () => {
 	it("passes valid payload through to handler", async () => {
 		const { z } = await import("zod");
 		const nerve = new InProcessNerve();
-		const received: SenseEvent[] = [];
-		nerve.subscribeSense("valid.op", (e) => void received.push(e));
+		const received: EventMessage[] = [];
+		nerve.subscribeEvent("valid.op", (e) => void received.push(e));
 
-		const organ = defineOrgan(
-			"valid-organ",
+		const adapter = defineAdapter(
+			"valid-adapter",
 			{
-				motor: {
+				command: {
 					"valid.op": {
 						async *handle() {
 							yield { result: "ok" };
@@ -593,12 +593,12 @@ describe("defineOrgan — inputSchemas validation", { tags: ["unit"] }, () => {
 				},
 			},
 			{
-				inputSchemas: { motor: { "valid.op": z.object({ value: z.string() }) } },
+				inputSchemas: { command: { "valid.op": z.object({ value: z.string() }) } },
 			},
 		);
-		organ.mount(nerve.asNerve());
+		adapter.mount(nerve.asBus());
 
-		publishMotor(nerve, "valid.op", { value: "hello" });
+		publishCommand(nerve, "valid.op", { value: "hello" });
 		await new Promise((r) => setTimeout(r, 20));
 
 		expect(received.length).toBeGreaterThan(0);
@@ -610,10 +610,10 @@ describe("defineOrgan — inputSchemas validation", { tags: ["unit"] }, () => {
 // ready() hook
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan — ready() hook", { tags: ["unit"] }, () => {
-	it("ready() is exposed on the organ and awaitable", async () => {
+describe("defineAdapter — ready() hook", { tags: ["unit"] }, () => {
+	it("ready() is exposed on the adapter and awaitable", async () => {
 		let initialized = false;
-		const organ = defineOrgan(
+		const adapter = defineAdapter(
 			"async-init",
 			{},
 			{
@@ -622,14 +622,14 @@ describe("defineOrgan — ready() hook", { tags: ["unit"] }, () => {
 				},
 			},
 		);
-		expect(typeof organ.ready).toBe("function");
-		await organ.ready?.();
+		expect(typeof adapter.ready).toBe("function");
+		await adapter.ready?.();
 		expect(initialized).toBe(true);
 	});
 
-	it("organ without ready() has ready undefined", () => {
-		const organ = defineOrgan("no-init", {}, {});
-		expect(organ.ready).toBeUndefined();
+	it("adapter without ready() has ready undefined", () => {
+		const adapter = defineAdapter("no-init", {}, {});
+		expect(adapter.ready).toBeUndefined();
 	});
 });
 
@@ -637,9 +637,9 @@ describe("defineOrgan — ready() hook", { tags: ["unit"] }, () => {
 // context metadata enforcement
 // ---------------------------------------------------------------------------
 
-describe("defineOrgan — context metadata enforcement", { tags: ["unit"] }, () => {
+describe("defineAdapter — context metadata enforcement", { tags: ["unit"] }, () => {
 	const minTool = {
-		motor: {
+		command: {
 			"my.tool": {
 				tool: { name: "my.tool", description: "Does something.", inputSchema: z.object({}) },
 				async *handle() {
@@ -649,26 +649,26 @@ describe("defineOrgan — context metadata enforcement", { tags: ["unit"] }, () 
 		},
 	};
 
-	it("throws when tool-bearing organ has no description", () => {
+	it("throws when tool-bearing adapter has no description", () => {
 		expect(() =>
-			defineOrgan("bad", minTool, { directives: ["Use my.tool to do something meaningful here."] }),
+			defineAdapter("bad", minTool, { directives: ["Use my.tool to do something meaningful here."] }),
 		).toThrow(/description/);
 	});
 
-	it("throws when tool-bearing organ has no directives", () => {
-		expect(() => defineOrgan("bad", minTool, { description: "Does something." })).toThrow(/directives/);
+	it("throws when tool-bearing adapter has no directives", () => {
+		expect(() => defineAdapter("bad", minTool, { description: "Does something." })).toThrow(/directives/);
 	});
 
-	it("accepts a valid tool-bearing organ with description and directives", () => {
+	it("accepts a valid tool-bearing adapter with description and directives", () => {
 		expect(() =>
-			defineOrgan("good", minTool, {
+			defineAdapter("good", minTool, {
 				description: "Does something useful.",
 				directives: ["Use my.tool when you need to do something. Always provide required parameters."],
 			}),
 		).not.toThrow();
 	});
 
-	it("allows organs without tools to omit directives", () => {
-		expect(() => defineOrgan("kernel", {}, { description: "Kernel component with no tools." })).not.toThrow();
+	it("allows adapters without tools to omit directives", () => {
+		expect(() => defineAdapter("kernel", {}, { description: "Kernel component with no tools." })).not.toThrow();
 	});
 });

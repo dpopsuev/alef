@@ -5,8 +5,8 @@ import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import {
 	Agent,
 	AgentController,
-	buildOrganDirectives,
-	createToolShellOrgan,
+	buildAdapterDirectives,
+	createToolShellAdapter,
 	type Transcript,
 } from "@dpopsuev/alef-runtime";
 import { resolveSubagentActor } from "./identity/actor.js";
@@ -51,10 +51,10 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			phaseTimeoutMs: 100,
 		});
 		for (const adapter of organs) agent.load(adapter);
-		const toolShell = createToolShellOrgan({
+		const toolShell = createToolShellAdapter({
 			tools: organs.flatMap((o) => o.tools),
 			getTools: () => agent.tools,
-			organDirectives: buildOrganDirectives([...organs]),
+			adapterDirectives: buildAdapterDirectives([...organs]),
 		});
 		const pipeline = createContextAssemblyPipeline();
 		agent.load(toolShell);
@@ -74,9 +74,9 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		let budgetExceeded = false;
 
 		agent.observe({
-			onMotorEvent() {},
-			onSenseEvent() {},
-			onSignalEvent(event) {
+			onCommand() {},
+			onEvent() {},
+			onNotification(event) {
 				const payload = (event as { payload?: Record<string, unknown> }).payload ?? {};
 				if (event.type === "llm.token-usage") {
 					const usage = payload.usage as { input?: number; output?: number } | undefined;

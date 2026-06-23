@@ -166,7 +166,7 @@ export class EvaluationRunner {
 			}
 
 			for (const tool of evaluation.mustNotUse ?? []) {
-				const spanName = `alef.motor/${tool}`;
+				const spanName = `alef.command/${tool}`;
 				if (spans.some((s) => s.name === spanName))
 					mustUseErrors.push(`Expected tool '${tool}' NOT to be called, but it was.`);
 			}

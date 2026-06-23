@@ -1,6 +1,6 @@
 import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { createMetaOrgan } from "../src/organ.js";
+import { createMetaOrgan } from "../src/adapter.js";
 
 describe.skipIf(!HAVE_REAL_LLM)("organ-alef — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM fetches running Alef config using alef.config.get", async () => {

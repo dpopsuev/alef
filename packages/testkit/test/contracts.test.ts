@@ -1,5 +1,5 @@
 /**
- * Contract tests — verify Motor/Sense event payload schemas.
+ * Contract tests — verify Command/Event message payload schemas.
  *
  * Pattern: NerveFixture.call() → assert payload fields.
  * No real LLM. No API key. Always run in CI.
@@ -9,8 +9,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFsOrgan } from "../../adapter-fs/src/index.js";
-import { createShellOrgan } from "../../adapter-shell/src/index.js";
+import { createFsOrgan as createFsAdapter } from "../../adapter-fs/src/index.js";
+import { createShellAdapter } from "../../adapter-shell/src/index.js";
 import { NerveFixture } from "../src/index.js";
 
 const dirs: string[] = [];
@@ -23,12 +23,12 @@ afterEach(() => {
 	for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
+describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 	it("fs.read → { content: string, truncated: boolean, totalLines: number }", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "hello.ts"), "export const x = 1;\nexport const y = 2;\n");
 		const f = new NerveFixture();
-		f.mount(createFsOrgan({ cwd }));
+		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.read", { path: "hello.ts" });
 		expect(sense.isError).toBe(false);
@@ -43,7 +43,7 @@ describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "f.ts"), "const a = 1;");
 		const f = new NerveFixture();
-		f.mount(createFsOrgan({ cwd }));
+		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.read", { path: "f.ts", toolCallId: "tc-test" });
 		expect(sense.payload.toolCallId).toBeDefined();
@@ -53,7 +53,7 @@ describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
 	it("fs.write → { path: string, bytes: number }", async () => {
 		const cwd = tmpDir();
 		const f = new NerveFixture();
-		f.mount(createFsOrgan({ cwd }));
+		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.write", { path: "out.ts", content: "export const z = 3;" });
 		expect(sense.isError).toBe(false);
@@ -67,7 +67,7 @@ describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "edit.ts"), "const a = 1;");
 		const f = new NerveFixture();
-		f.mount(createFsOrgan({ cwd }));
+		f.mount(createFsAdapter({ cwd }));
 
 		await f.call("fs.read", { path: "edit.ts" });
 		const sense = await f.call("fs.edit", { path: "edit.ts", oldText: "const a = 1;", newText: "const a = 2;" });
@@ -80,7 +80,7 @@ describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
 	it("fs.read on missing file → isError: true, errorMessage: string", async () => {
 		const cwd = tmpDir();
 		const f = new NerveFixture();
-		f.mount(createFsOrgan({ cwd }));
+		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.read", { path: "nonexistent.ts" });
 		expect(sense.isError).toBe(true);
@@ -89,11 +89,11 @@ describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
 		f.dispose();
 	});
 
-	it("fs.grep → well-formed sense event", async () => {
+	it("fs.grep → well-formed Event message", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "a.ts"), "export function login() {}");
 		const f = new NerveFixture();
-		f.mount(createFsOrgan({ cwd }));
+		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.grep", { pattern: "login" });
 		if (sense.isError) {
@@ -108,7 +108,7 @@ describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "dup.ts"), "const x = 1;\nconst x = 1;");
 		const f = new NerveFixture();
-		f.mount(createFsOrgan({ cwd }));
+		f.mount(createFsAdapter({ cwd }));
 
 		await f.call("fs.read", { path: "dup.ts" });
 		const sense = await f.call("fs.edit", { path: "dup.ts", oldText: "const x = 1;", newText: "const x = 2;" });
@@ -118,11 +118,11 @@ describe("FsOrgan contracts", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("ShellOrgan contracts", { tags: ["compliance"] }, () => {
+describe("ShellAdapter contracts", { tags: ["compliance"] }, () => {
 	it("shell.exec (success) → final event has output, exitCode 0, isFinal: true", async () => {
 		const cwd = tmpDir();
 		const f = new NerveFixture();
-		f.mount(createShellOrgan({ cwd }));
+		f.mount(createShellAdapter({ cwd }));
 
 		const final = await f.callStreaming("shell.exec", { command: "echo hello" }, { timeoutMs: 10_000 });
 		expect(final.isError).toBe(false);
@@ -136,7 +136,7 @@ describe("ShellOrgan contracts", { tags: ["compliance"] }, () => {
 	it("shell.exec (failure) → isError: true", async () => {
 		const cwd = tmpDir();
 		const f = new NerveFixture();
-		f.mount(createShellOrgan({ cwd }));
+		f.mount(createShellAdapter({ cwd }));
 
 		const sense = await f.callStreaming("shell.exec", { command: "exit 1" });
 		expect(sense.isError).toBe(true);
@@ -147,7 +147,7 @@ describe("ShellOrgan contracts", { tags: ["compliance"] }, () => {
 	it("shell.exec mirrors toolCallId", async () => {
 		const cwd = tmpDir();
 		const f = new NerveFixture();
-		f.mount(createShellOrgan({ cwd }));
+		f.mount(createShellAdapter({ cwd }));
 
 		const toolCallId = `tc-mirror-${Date.now()}`;
 		const final = await f.callStreaming("shell.exec", { command: "echo hi", toolCallId }, { timeoutMs: 10_000 });
@@ -156,12 +156,12 @@ describe("ShellOrgan contracts", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("SenseEvent base shape", { tags: ["compliance"] }, () => {
-	it("every Sense event has type, correlationId, timestamp, isError", async () => {
+describe("EventMessage base shape", { tags: ["compliance"] }, () => {
+	it("every Event message has type, correlationId, timestamp, isError", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "x.ts"), "const x = 1;");
 		const f = new NerveFixture();
-		f.mount(createFsOrgan({ cwd }));
+		f.mount(createFsAdapter({ cwd }));
 
 		const sense = await f.call("fs.read", { path: "x.ts" });
 		expect(typeof sense.type).toBe("string");

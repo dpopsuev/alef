@@ -1,4 +1,4 @@
-import type { BaseOrganOptions, Bus } from "@dpopsuev/alef-kernel";
+import type { BaseAdapterOptions, Bus } from "@dpopsuev/alef-kernel";
 import {
 	debugLog,
 	defineAdapter,
@@ -25,7 +25,7 @@ export interface StationRunner {
 	run(station: StationDef, artifact: unknown): Promise<StationResult>;
 }
 
-export interface WorkflowOrganOptions extends BaseOrganOptions {
+export interface WorkflowOrganOptions extends BaseAdapterOptions {
 	def: WorkflowDef;
 	runner: StationRunner;
 }
@@ -47,7 +47,7 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 	return defineAdapter(
 		"workflow",
 		{
-			motor: {
+			command: {
 				"workflow.run": typedAction(WORKFLOW_RUN_TOOL, async (ctx) => {
 					const stationName = ctx.payload.station as string;
 					const artifact = ctx.payload.artifact;
@@ -73,8 +73,8 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 		},
 		{
 			description: `Workflow adapter: ${opts.def.name} (${opts.def.stations.map((s) => s.name).join(" → ")})`,
-			onMount: (n: Bus) => {
-				bus = n;
+			onMount: (b: Bus) => {
+				bus = b;
 			},
 			contributions: {
 				tui: {
@@ -112,7 +112,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 	return defineAdapter(
 		"contract",
 		{
-			motor: {
+			command: {
 				"contract.submit": typedAction(SUBMIT_TOOL, async (ctx) => {
 					debugLog("contract:submit", {
 						correlationId: (ctx as unknown as { correlationId: string }).correlationId,
@@ -140,9 +140,9 @@ export function createContractTool<T extends z.ZodTypeAny>(
 					}
 
 					const id = newCorrelationId();
-					const { motor, sense } = ctx as unknown as {
-						motor: { publish: (e: unknown) => void };
-						sense: { subscribe: (type: string, h: (e: unknown) => void) => () => void };
+					const { command, event } = ctx as unknown as {
+						command: { publish: (e: unknown) => void };
+						event: { subscribe: (type: string, h: (e: unknown) => void) => () => void };
 					};
 
 					return new Promise<Record<string, unknown>>((resolve) => {
@@ -158,8 +158,8 @@ export function createContractTool<T extends z.ZodTypeAny>(
 							);
 						}, AUTO_APPROVE_MS);
 
-						const off = sense.subscribe(VALIDATE_RESULT, (event: unknown) => {
-							const e = event as { payload: { id: string; approved: boolean; feedback?: string } };
+						const off = event.subscribe(VALIDATE_RESULT, (evt: unknown) => {
+							const e = evt as { payload: { id: string; approved: boolean; feedback?: string } };
 							if (e.payload.id !== id) return;
 							clearTimeout(timer);
 							off();
@@ -186,7 +186,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 						});
 
 						debugLog("contract:validate", { id, kind: contract.validator, targetOrgan: contract.validator });
-						motor.publish({
+						command.publish({
 							type: VALIDATE_REQUEST,
 							payload: { id, output: validated, kind: contract.validator, context: contract.intent },
 							correlationId: (ctx as unknown as { correlationId: string }).correlationId,
@@ -218,7 +218,7 @@ export function createQuestionTool(
 	return defineAdapter(
 		"question",
 		{
-			motor: {
+			command: {
 				"question.ask": typedAction(QUESTION_TOOL, async (ctx) => {
 					const question = ctx.payload.question as string;
 					const answer = await onQuestion(question);

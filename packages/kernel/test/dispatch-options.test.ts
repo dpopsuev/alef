@@ -2,25 +2,25 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { AccessDecision, AccessPolicy } from "../src/access-policy.js";
 import { createMapCache } from "../src/adapter-cache.js";
-import { dispatchMotorAction } from "../src/adapter-dispatch.js";
-import type { MotorEvent, SenseEvent } from "../src/buses.js";
+import { dispatchCommandAction } from "../src/adapter-dispatch.js";
+import type { CommandMessage, EventMessage } from "../src/buses.js";
 import { InProcessNerve } from "../src/in-process-nerve.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, n: nerve.asNerve() };
+	return { nerve, n: nerve.asBus() };
 }
 
-function waitSense(nerve: InProcessNerve, type: string): Promise<SenseEvent> {
+function waitEvent(nerve: InProcessNerve, type: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
-		const off = nerve.asNerve().sense.subscribe(type, (e) => {
+		const off = nerve.asBus().event.subscribe(type, (e) => {
 			off();
 			resolve(e);
 		});
 	});
 }
 
-function createMotorEvent(type: string, correlationId: string): MotorEvent {
+function createCommandMessage(type: string, correlationId: string): CommandMessage {
 	return {
 		type,
 		payload: {},
@@ -54,16 +54,16 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitSense(nerve, "test.action");
+		const promise = waitEvent(nerve, "test.action");
 
-		const motor = createMotorEvent("test.action", "corr-1");
+		const command = createCommandMessage("test.action", "corr-1");
 
 		// Dispatch with injected policy
-		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined, { policy: denyAllPolicy });
+		await dispatchCommandAction(command, action, n, cache, noopLogger, undefined, { policy: denyAllPolicy });
 
-		const sense = await promise;
-		expect(sense.isError).toBe(true);
-		expect(sense.errorMessage).toContain("test policy denies all");
+		const event = await promise;
+		expect(event.isError).toBe(true);
+		expect(event.errorMessage).toContain("test policy denies all");
 	});
 
 	it("allows no policy to be provided", async () => {
@@ -77,16 +77,16 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitSense(nerve, "test.nopolicy");
+		const promise = waitEvent(nerve, "test.nopolicy");
 
-		const motor = createMotorEvent("test.nopolicy", "corr-2");
+		const command = createCommandMessage("test.nopolicy", "corr-2");
 
 		// Dispatch without any policy - should allow
-		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined);
+		await dispatchCommandAction(command, action, n, cache, noopLogger, undefined);
 
-		const sense = await promise;
-		expect(sense.isError).toBe(false);
-		expect(sense.payload).toMatchObject({ result: "executed" });
+		const event = await promise;
+		expect(event.isError).toBe(false);
+		expect(event.payload).toMatchObject({ result: "executed" });
 	});
 
 	it("explicit policy overrides no-policy default", async () => {
@@ -104,16 +104,16 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitSense(nerve, "test.override");
+		const promise = waitEvent(nerve, "test.override");
 
-		const motor = createMotorEvent("test.override", "corr-3");
+		const command = createCommandMessage("test.override", "corr-3");
 
 		// Explicit deny should work
-		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined, { policy: denyPolicy });
+		await dispatchCommandAction(command, action, n, cache, noopLogger, undefined, { policy: denyPolicy });
 
-		const sense = await promise;
-		expect(sense.isError).toBe(true);
-		expect(sense.errorMessage).toContain("explicitly denied");
+		const event = await promise;
+		expect(event.isError).toBe(true);
+		expect(event.errorMessage).toContain("explicitly denied");
 	});
 
 	it("handles escalation with injected handler", async () => {
@@ -137,19 +137,19 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitSense(nerve, "test.escalate");
+		const promise = waitEvent(nerve, "test.escalate");
 
-		const motor = createMotorEvent("test.escalate", "corr-4");
+		const command = createCommandMessage("test.escalate", "corr-4");
 
-		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined, {
+		await dispatchCommandAction(command, action, n, cache, noopLogger, undefined, {
 			policy: escalatePolicy,
 			onEscalate: approveHandler,
 		});
 
 		expect(escalateCalled).toBe(true);
-		const sense = await promise;
-		expect(sense.isError).toBe(false);
-		expect(sense.payload).toMatchObject({ result: "approved" });
+		const event = await promise;
+		expect(event.isError).toBe(false);
+		expect(event.payload).toMatchObject({ result: "approved" });
 	});
 
 	it("denies escalation when no handler provided", async () => {
@@ -167,15 +167,15 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitSense(nerve, "test.no-handler");
+		const promise = waitEvent(nerve, "test.no-handler");
 
-		const motor = createMotorEvent("test.no-handler", "corr-5");
+		const command = createCommandMessage("test.no-handler", "corr-5");
 
-		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined, { policy: escalatePolicy });
+		await dispatchCommandAction(command, action, n, cache, noopLogger, undefined, { policy: escalatePolicy });
 
-		const sense = await promise;
-		expect(sense.isError).toBe(true);
-		expect(sense.errorMessage).toContain("needs approval");
+		const event = await promise;
+		expect(event.isError).toBe(true);
+		expect(event.errorMessage).toContain("needs approval");
 	});
 
 	it("allows mocking policy in tests without affecting global state", async () => {
@@ -198,14 +198,14 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitSense(nerve, "test.mock");
+		const promise = waitEvent(nerve, "test.mock");
 
-		const motor = createMotorEvent("test.mock", "corr-6");
+		const command = createCommandMessage("test.mock", "corr-6");
 
-		await dispatchMotorAction(motor, action, n, cache, noopLogger, undefined, { policy: mockPolicy });
+		await dispatchCommandAction(command, action, n, cache, noopLogger, undefined, { policy: mockPolicy });
 
-		const sense = await promise;
-		expect(sense.isError).toBe(false);
-		expect(sense.payload).toMatchObject({ result: "mocked" });
+		const event = await promise;
+		expect(event.isError).toBe(false);
+		expect(event.payload).toMatchObject({ result: "mocked" });
 	});
 });

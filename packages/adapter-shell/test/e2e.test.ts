@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { createShellOrgan } from "../src/organ.js";
+import { createShellOrgan } from "../src/adapter.js";
 
 describe.skipIf(!HAVE_REAL_LLM)("organ-shell — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM runs a shell command and reads its output", async () => {

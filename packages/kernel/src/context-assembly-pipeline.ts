@@ -18,12 +18,12 @@ export function createContextAssemblyPipeline(): Adapter & {
 	return {
 		name: "context.assembly.pipeline",
 		tools: [],
-		subscriptions: { motor: ["context.assemble"], sense: ["organ.loaded", "organ.unloaded"] },
+		subscriptions: { command: ["context.assemble"], event: ["adapter.loaded", "adapter.unloaded"] },
 		sources: [],
 		description:
-			"Ordered context.assemble pipeline — collects ContextAssemblyHandler and schema-resolver contributions from sense/organ.loaded.",
+			"Ordered context.assemble pipeline — collects ContextAssemblyHandler and schema-resolver contributions from event/adapter.loaded.",
 		contributions: {
-			port: { name: "context_assembly", eventPattern: "motor/context.assemble", cardinality: "ordered-pipeline" },
+			port: { name: "context_assembly", eventPattern: "command/context.assemble", cardinality: "ordered-pipeline" },
 		},
 		addStage(name: string, handler: ContextAssemblyHandler) {
 			stages.set(name, handler);
@@ -38,21 +38,21 @@ export function createContextAssemblyPipeline(): Adapter & {
 				return undefined;
 			};
 		},
-		mount(nerve: Bus): () => void {
-			const unsubLoaded = nerve.event.subscribe("organ.loaded", (event: EventMessage) => {
+		mount(bus: Bus): () => void {
+			const unsubLoaded = bus.event.subscribe("adapter.loaded", (event: EventMessage) => {
 				const contributions = event.payload.contributions as PipelineContributions | undefined;
 				const name = event.payload.name as string;
 				if (contributions?.["context.assemble"]) stages.set(name, contributions["context.assemble"]);
 				if (contributions?.["schema-resolver"]) schemaResolvers.set(name, contributions["schema-resolver"]);
 			});
 
-			const unsubUnloaded = nerve.event.subscribe("organ.unloaded", (event: EventMessage) => {
+			const unsubUnloaded = bus.event.subscribe("adapter.unloaded", (event: EventMessage) => {
 				const name = event.payload.name as string;
 				stages.delete(name);
 				schemaResolvers.delete(name);
 			});
 
-			const unsubAssemble = nerve.command.subscribe("context.assemble", (event: CommandMessage) => {
+			const unsubAssemble = bus.command.subscribe("context.assemble", (event: CommandMessage) => {
 				void (async () => {
 					const payload = event.payload as {
 						messages: readonly unknown[];
@@ -65,7 +65,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 					for (const stage of stages.values()) {
 						const out = await stage({ messages, tools, turn: payload.turn });
 						if (out.abort) {
-							nerve.event.publish({
+							bus.event.publish({
 								type: "context.assemble",
 								correlationId: event.correlationId,
 								payload: { abort: true },
@@ -76,7 +76,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 						if (out.messages) messages = out.messages;
 						if (out.tools) tools = out.tools as ToolDefinition[];
 						if (out.skip) {
-							nerve.event.publish({
+							bus.event.publish({
 								type: "context.assemble",
 								correlationId: event.correlationId,
 								payload: { skip: true, reply: out.reply ?? "", messages, tools },
@@ -86,7 +86,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 						}
 					}
 
-					nerve.event.publish({
+					bus.event.publish({
 						type: "context.assemble",
 						correlationId: event.correlationId,
 						payload: { messages, tools },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SHELL_TIMEOUT_S, MAX_SHELL_TIMEOUT_S } from "../src/organ.js";
+import { DEFAULT_SHELL_TIMEOUT_S, MAX_SHELL_TIMEOUT_S } from "../src/adapter.js";
 
 describe("shell timeout constants", { tags: ["unit"] }, () => {
 	it("default timeout is 300s", () => {

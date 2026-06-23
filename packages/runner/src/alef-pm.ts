@@ -303,9 +303,7 @@ export interface SearchResult {
  * Optional query further filters by name/description.
  */
 export async function search(query: string): Promise<SearchResult[]> {
-	const terms = query.trim()
-		? `keywords:alef-adapter keywords:alef-organ ${query}`
-		: "keywords:alef-adapter keywords:alef-organ";
+	const terms = query.trim() ? `keywords:alef-adapter ${query}` : "keywords:alef-adapter";
 	const cmd = `npm search ${terms} --json`;
 	process.stderr.write(`[alef-pm] ${cmd}\n`);
 	const { stdout } = await exec(cmd);

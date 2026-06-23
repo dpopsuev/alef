@@ -1,6 +1,6 @@
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createEnclosureOrgan } from "../src/organ.js";
+import { createEnclosureOrgan } from "../src/adapter.js";
 import { StubSpace } from "../src/space.js";
 
 organComplianceSuite(() => createEnclosureOrgan({ stub: true }));
@@ -31,9 +31,9 @@ describe("EnclosureOrgan", { tags: ["compliance"] }, () => {
 	it("unmount cleans up all motor subscriptions", () => {
 		const f = new NerveFixture();
 		const unmount = f.mount(createEnclosureOrgan({ stub: true }));
-		expect(f.nerve.listenerCount("motor", "enclosure.create")).toBe(1);
+		expect(f.nerve.listenerCount("command", "enclosure.create")).toBe(1);
 		unmount();
-		expect(f.nerve.listenerCount("motor", "enclosure.create")).toBe(0);
+		expect(f.nerve.listenerCount("command", "enclosure.create")).toBe(0);
 	});
 
 	describe("create → diff → commit → destroy lifecycle", () => {

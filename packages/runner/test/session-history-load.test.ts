@@ -34,14 +34,14 @@ describe("prependSessionHistory — eager load prior turns into chat", { tags: [
 	async function appendTurn(userText: string, agentText: string): Promise<void> {
 		const corrId = randomUUID();
 		await store.append({
-			bus: "sense",
+			bus: "event",
 			type: "llm.input",
 			correlationId: corrId,
 			payload: { text: userText, sender: "human" },
 			timestamp: Date.now(),
 		});
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "llm.response",
 			correlationId: corrId,
 			payload: {

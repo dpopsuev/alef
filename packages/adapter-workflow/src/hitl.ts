@@ -1,7 +1,7 @@
 import {
 	type Adapter,
+	type Bus,
 	debugLog,
-	type Nerve,
 	VALIDATE_REQUEST,
 	VALIDATE_RESULT,
 	type ValidateRequest,
@@ -34,22 +34,22 @@ export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
 		description: "Human-in-the-Loop evaluator — pauses to ask a human for approval.",
 		directives: ["When a contract requires human review, the human approves or rejects with optional feedback."],
 		subscriptions: {
-			motor: [VALIDATE_REQUEST],
-			sense: [],
+			command: [VALIDATE_REQUEST],
+			event: [],
 		},
 		sources: [],
-		mount(nerve: Nerve): () => void {
-			return nerve.command.subscribe(VALIDATE_REQUEST, (event) => {
+		mount(bus: Bus): () => void {
+			return bus.command.subscribe(VALIDATE_REQUEST, (event) => {
 				const p = event.payload as unknown as ValidateRequest;
 
-				if (p.targetOrgan && p.targetOrgan !== adapterName) return;
-				if (p.kind && p.kind !== "human" && p.targetOrgan !== adapterName) return;
+				if (p.targetAdapter && p.targetAdapter !== adapterName) return;
+				if (p.kind && p.kind !== "human" && p.targetAdapter !== adapterName) return;
 
 				debugLog("hitl:evaluate:start", { id: p.id, context: p.context, kind: p.kind });
 
 				void opts.onEvaluate({ output: p.output, context: p.context, kind: p.kind }).then((result) => {
 					debugLog("hitl:evaluate:result", { id: p.id, approved: result.approved });
-					nerve.event.publish({
+					bus.event.publish({
 						type: VALIDATE_RESULT,
 						correlationId: event.correlationId,
 						payload: {

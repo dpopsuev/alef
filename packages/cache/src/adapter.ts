@@ -1,10 +1,10 @@
 import {
+	type Bus,
 	type BusMiddleware,
 	buildSense,
 	type CacheStrategy,
-	defineOrgan,
+	defineAdapter,
 	makeCacheKey,
-	type Nerve,
 	typedAction,
 	withDisplay,
 } from "@dpopsuev/alef-kernel";
@@ -24,8 +24,8 @@ interface CacheEntry {
 	timestamp: number;
 }
 
-const DEFAULT_CACHED_TOOLS = ["motor/fs.read", "motor/fs.grep", "motor/fs.find", "motor/code.read"];
-const DEFAULT_INVALIDATING_TOOLS = ["motor/fs.write", "motor/fs.edit", "motor/fs.patch"];
+const DEFAULT_CACHED_TOOLS = ["command/fs.read", "command/fs.grep", "command/fs.find", "command/code.read"];
+const DEFAULT_INVALIDATING_TOOLS = ["command/fs.write", "command/fs.edit", "command/fs.patch"];
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 
 function createTtlCache(ttl: number): CacheStrategy & { stats: () => CacheStats } {
@@ -109,20 +109,20 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 	// Track pending cache captures to prevent races
 	const pendingCaptures = new Map<string, () => void>();
 
-	// Middleware that wraps nerve to intercept and cache motor events
-	const cacheMiddleware: BusMiddleware = (nerve: Nerve): Nerve => {
+	// Middleware that wraps bus to intercept and cache motor events
+	const cacheMiddleware: BusMiddleware = (bus: Bus): Bus => {
 		// Subscribe to motor events for cached tools to prevent deadLetterSink
 		const motorUnsubs: Array<() => void> = [];
 		for (const toolType of cachedTools) {
 			motorUnsubs.push(
-				nerve.command.subscribe(toolType, (event) => {
+				bus.command.subscribe(toolType, (event) => {
 					const cacheKey = makeCacheKey(event.type, event.payload);
 					const cached = cache.get(cacheKey);
 
 					if (cached !== undefined) {
 						hits++;
 						// Publish cached result directly to sense bus
-						nerve.event.publish(
+						bus.event.publish(
 							buildSense(
 								{ ...event, timestamp: Date.now(), elapsed: 0 },
 								{ ...cached, _fromCache: true, isFinal: true },
@@ -137,7 +137,7 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 					const correlationId = event.correlationId;
 					let captured = false;
 
-					const senseUnsub = nerve.event.subscribe(event.type, (senseEvent) => {
+					const senseUnsub = bus.event.subscribe(event.type, (senseEvent) => {
 						if (captured || senseEvent.correlationId !== correlationId) return;
 
 						if (!senseEvent.isError) {
@@ -177,19 +177,19 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 		const invalidateUnsubs: Array<() => void> = [];
 		for (const toolType of invalidatingTools) {
 			invalidateUnsubs.push(
-				nerve.command.subscribe(toolType, () => {
+				bus.command.subscribe(toolType, () => {
 					// Invalidate related cache entries
-					const toInvalidate = ["motor/fs.read", "motor/fs.grep", "motor/fs.find", "motor/code.read"];
+					const toInvalidate = ["command/fs.read", "command/fs.grep", "command/fs.find", "command/code.read"];
 					cache.invalidate(toInvalidate);
 				}),
 			);
 		}
 
-		// Return wrapped nerve with cleanup
-		const wrappedNerve = { ...nerve };
+		// Return wrapped bus with cleanup
+		const wrappedNerve = { ...bus };
 
 		// Override pulse to include cleanup of subscriptions
-		const originalPulse = nerve.pulse.bind(nerve);
+		const originalPulse = bus.pulse.bind(bus);
 		wrappedNerve.pulse = () => {
 			originalPulse();
 		};
@@ -205,10 +205,10 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 		return wrappedNerve;
 	};
 
-	return defineOrgan(
+	return defineAdapter(
 		"cache",
 		{
-			motor: {
+			command: {
 				"cache.invalidate": typedAction(INVALIDATE_TOOL, async (ctx) => {
 					const { tools } = ctx.payload;
 
@@ -222,8 +222,8 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 						);
 					}
 
-					// Add motor/ prefix if not present
-					const prefixed = tools.map((t) => (t.startsWith("motor/") ? t : `motor/${t}`));
+					// Add command/ prefix if not present
+					const prefixed = tools.map((t) => (t.startsWith("command/") ? t : `command/${t}`));
 					const invalidated = cache.invalidate(prefixed);
 
 					return withDisplay(
@@ -278,9 +278,9 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 			middlewares: [cacheMiddleware],
 			onUnmount() {
 				// Clean up middleware subscriptions
-				// Note: The middleware cleanup function is attached to the wrapped nerve,
+				// Note: The middleware cleanup function is attached to the wrapped bus,
 				// but we can't easily access it from here. The subscriptions will be
-				// cleaned up when the nerve is disposed.
+				// cleaned up when the bus is disposed.
 			},
 		},
 	);

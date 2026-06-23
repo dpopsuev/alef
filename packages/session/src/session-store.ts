@@ -17,7 +17,7 @@ import { join } from "node:path";
 // Storage record types — moved from @dpopsuev/alef-kernel (CRP: only runner uses these)
 // ---------------------------------------------------------------------------
 
-export type BusKind = "motor" | "sense" | "signal" | "internal";
+export type BusKind = "command" | "event" | "notification" | "internal";
 
 /** Actor identity stamped on each StorageRecord by SessionLog. */
 export interface StorageActor {
@@ -309,7 +309,7 @@ export class JsonlSessionStore {
 	organHistory(organName: string): Promise<StorageRecord[]> {
 		const prefix = `${organName}.`;
 		return Promise.resolve(
-			this._cache.filter((r) => (r.bus === "motor" || r.bus === "sense") && r.type.startsWith(prefix)),
+			this._cache.filter((r) => (r.bus === "command" || r.bus === "event") && r.type.startsWith(prefix)),
 		);
 	}
 }

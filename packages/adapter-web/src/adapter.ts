@@ -185,7 +185,7 @@ export function createWebOrgan(options: WebOrganOptions = {}): Adapter {
 	return defineAdapter(
 		"web",
 		{
-			motor: {
+			command: {
 				"web.fetch": typedAction(WEB_FETCH_TOOL, async (ctx) => {
 					const { url, format = "markdown", timeoutMs, tokenBudget } = ctx.payload;
 
@@ -311,7 +311,7 @@ export function createWebOrgan(options: WebOrganOptions = {}): Adapter {
 			description: "Fetch and read public web pages, search the web for information.",
 			labels: ["web", "fetch", "search", "http", "read"],
 			contributions: {
-				port: { name: "web", eventPattern: "motor/web.", cardinality: "zero-or-one" } satisfies PortDefinition,
+				port: { name: "web", eventPattern: "command/web.", cardinality: "zero-or-one" } satisfies PortDefinition,
 				history: {
 					ownedTools: ["web.fetch", "web.search"],
 					extractEntry: (payload) => {

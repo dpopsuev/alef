@@ -593,7 +593,7 @@ const sticky = {
 
 		const allEvents = await ctx.store.events();
 		const nearbyEvents = allEvents
-			.filter((e) => e.bus === "motor" || e.bus === "sense")
+			.filter((e) => e.bus === "command" || e.bus === "event")
 			.slice(-5)
 			.map((e) => ({ type: e.type, correlationId: e.correlationId, timestamp: e.timestamp }));
 

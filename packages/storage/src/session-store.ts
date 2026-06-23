@@ -200,7 +200,7 @@ export class SqliteSessionStore implements SessionStore {
 	organHistory(adapterName: string): Promise<StorageRecord[]> {
 		const prefix = `${adapterName}.`;
 		return Promise.resolve(
-			this._cache.filter((r) => (r.bus === "motor" || r.bus === "sense") && r.type.startsWith(prefix)),
+			this._cache.filter((r) => (r.bus === "command" || r.bus === "event") && r.type.startsWith(prefix)),
 		);
 	}
 }

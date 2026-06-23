@@ -1,6 +1,6 @@
 import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createCodeIntelOrgan } from "../src/organ.js";
+import { createCodeIntelOrgan } from "../src/adapter.js";
 import { StubCodeIntelBackend } from "../src/stub-backend.js";
 
 organComplianceSuite(() =>

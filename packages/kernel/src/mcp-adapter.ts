@@ -22,7 +22,7 @@ class McpAdapterImpl implements Adapter {
 	readonly description: string;
 	readonly labels = ["mcp", "external"] as const;
 	readonly tools: readonly ToolDefinition[];
-	readonly subscriptions: { readonly motor: readonly string[]; readonly sense: readonly string[] };
+	readonly subscriptions: { readonly command: readonly string[]; readonly event: readonly string[] };
 	readonly sources: readonly { readonly name: string; readonly kind: "file" | "memory" | "process" }[] = [];
 	readonly directives?: readonly string[];
 
@@ -37,8 +37,8 @@ class McpAdapterImpl implements Adapter {
 		this.client = client;
 		this.execMap = execMap;
 		this.subscriptions = {
-			motor: tools.map((t) => t.name),
-			sense: [],
+			command: tools.map((t) => t.name),
+			event: [],
 		};
 	}
 
@@ -125,8 +125,6 @@ export async function createMcpAdapterFromClient(client: MCPClient, name: string
 
 	return new McpAdapterImpl(name, tools, client, execMap);
 }
-/** @deprecated Use createMcpAdapterFromClient */
-export const createMcpOrganFromClient = createMcpAdapterFromClient;
 
 export const McpAdapter = {
 	async stdio(command: string, args: string[], name?: string, env?: Record<string, string>): Promise<Adapter> {
@@ -152,5 +150,3 @@ export const McpAdapter = {
 		return createMcpAdapterFromClient(client, organName);
 	},
 };
-/** @deprecated Use McpAdapter */
-export const McpOrgan = McpAdapter;

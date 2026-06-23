@@ -5,14 +5,14 @@
  * Mirrors runtime/test/walking-skeleton.test.ts.
  *
  * Covers:
- * createToolShellOrgan — construction, metaTools shape
+ * createToolShellAdapter — construction, metaTools shape
  * tools.search — keyword match, empty query, result shape
  * tools.describe — full schema + guidance, unknown names silently omitted
- * buildOrganDirectives — index from organ list
+ * buildAdapterDirectives — index from organ list
  */
 
-import type { Organ, OrganLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { Agent, buildBootCatalog, buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-runtime";
+import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
+import { Agent, buildAdapterDirectives, buildBootCatalog, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -45,7 +45,7 @@ interface Harness {
 	dispose(): void;
 }
 
-function makeHarness(shell: ReturnType<typeof createToolShellOrgan>): Harness {
+function makeHarness(shell: ReturnType<typeof createToolShellAdapter>): Harness {
 	const recorder = new BusEventRecorder();
 	const agent = new Agent();
 	agent.load(shell);
@@ -55,14 +55,14 @@ function makeHarness(shell: ReturnType<typeof createToolShellOrgan>): Harness {
 		agent,
 		recorder,
 		publish(type: string, payload: Record<string, unknown>) {
-			// Use internal nerve via the agent's observe-recorded sense bus.
-			// Publish directly via motor.publish on the agent's spine nerve.
-			(agent as unknown as { nerve: { asNerve(): { motor: { publish(e: unknown): void } } } }).nerve
-				.asNerve()
-				.motor.publish({ type, payload, correlationId: "test" });
+			// Use internal bus via the agent's observe-recorded event bus.
+			// Publish directly via command.publish on the agent's spine bus.
+			(agent as unknown as { bus: { asBus(): { command: { publish(e: unknown): void } } } }).bus
+				.asBus()
+				.command.publish({ type, payload, correlationId: "test" });
 		},
 		senseResult(type: string) {
-			const evt = recorder.assertSenseEmitted(type);
+			const evt = recorder.assertEventEmitted(type);
 			return (evt as unknown as { payload: { results: unknown[] } }).payload;
 		},
 		dispose() {
@@ -75,19 +75,19 @@ const harnesses: Harness[] = [];
 afterEach(() => {
 	for (const h of harnesses.splice(0)) h.dispose();
 });
-function make(opts: Parameters<typeof createToolShellOrgan>[0] = { tools: ALL_TOOLS }): Harness {
-	const h = makeHarness(createToolShellOrgan(opts));
+function make(opts: Parameters<typeof createToolShellAdapter>[0] = { tools: ALL_TOOLS }): Harness {
+	const h = makeHarness(createToolShellAdapter(opts));
 	harnesses.push(h);
 	return h;
 }
 
 // ---------------------------------------------------------------------------
-// createToolShellOrgan — shape
+// createToolShellAdapter — shape
 // ---------------------------------------------------------------------------
 
-describe("createToolShellOrgan — metaTools", { tags: ["unit"] }, () => {
+describe("createToolShellAdapter — metaTools", { tags: ["unit"] }, () => {
 	it("exposes stripped domain tools + tools.describe", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		// N domain tools (stripped) + 1 tools.describe = N+1
 		expect(shell.metaTools).toHaveLength(ALL_TOOLS.length + 1);
 		expect(shell.metaTools.at(-1)?.name).toBe("tools.describe");
@@ -98,7 +98,7 @@ describe("createToolShellOrgan — metaTools", { tags: ["unit"] }, () => {
 	});
 
 	it("organ.tools (internal) contains meta-tool handlers", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const names = shell.tools.map((t) => t.name);
 		expect(names).toContain("tools.describe");
 		expect(names).toContain("tools.status");
@@ -106,7 +106,7 @@ describe("createToolShellOrgan — metaTools", { tags: ["unit"] }, () => {
 	});
 
 	it("organ.name is 'tools'", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		expect(shell.name).toBe("tools");
 	});
 });
@@ -117,7 +117,7 @@ describe("createToolShellOrgan — metaTools", { tags: ["unit"] }, () => {
 
 describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	it("initially identical shape to metaTools (all stripped)", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const current = shell.currentMetaTools();
 		expect(current).toHaveLength(ALL_TOOLS.length + 1);
 		expect(current.at(-1)?.name).toBe("tools.describe");
@@ -127,7 +127,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	});
 
 	it("describing fs.read promotes all fs.* tools (family promotion via describe)", async () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
 
@@ -144,8 +144,8 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 		expect(current.find((t) => t.name === "web.fetch")?.inputSchema).not.toBe(WEB_FETCH.inputSchema);
 	});
 
-	it("sense/fs.read result promotes all fs.* (auto-promotion without describe)", async () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+	it("event/fs.read result promotes all fs.* (auto-promotion without describe)", async () => {
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const recorder = new BusEventRecorder();
 		const agent = new Agent();
 		agent.load(shell);
@@ -159,7 +159,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 		});
 
 		// Publish a Sense event directly simulating fs.read returning a result.
-		agent.publishSense({ type: "fs.read", correlationId: "c1", payload: { content: "hello" }, isError: false });
+		agent.publishEvent({ type: "fs.read", correlationId: "c1", payload: { content: "hello" }, isError: false });
 		await new Promise((r) => setTimeout(r, 20));
 
 		const current = shell.currentMetaTools();
@@ -171,7 +171,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	});
 
 	it("describing shell.exec promotes shell.* but not fs.*", async () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
 
@@ -184,7 +184,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	});
 
 	it("multiple describe calls union their promoted families", async () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
 
@@ -200,7 +200,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	});
 
 	it("always appends tools.describe last", async () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
 		harness.publish("tools.describe", { names: ["fs.read"] });
@@ -217,7 +217,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 
 describe("ToolShellOrgan.search — internal keyword matching", { tags: ["unit"] }, () => {
 	it("returns tools matching a single keyword", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const results = shell.search("file");
 		const names = results.map((r) => r.name);
 		expect(names).toContain("fs.find");
@@ -225,12 +225,12 @@ describe("ToolShellOrgan.search — internal keyword matching", { tags: ["unit"]
 	});
 
 	it("returns all tools on empty query", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		expect(shell.search("").length).toBe(ALL_TOOLS.length);
 	});
 
 	it("returns only name and description, not schema", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		for (const r of shell.search("read") as Array<Record<string, unknown>>) {
 			expect(r).not.toHaveProperty("schema");
 			expect(r).not.toHaveProperty("guidance");
@@ -240,7 +240,7 @@ describe("ToolShellOrgan.search — internal keyword matching", { tags: ["unit"]
 	});
 
 	it("matches on description words too", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const names = shell.search("regex").map((r) => r.name);
 		expect(names).toContain("fs.grep");
 	});
@@ -253,7 +253,7 @@ describe("ToolShellOrgan.search — internal keyword matching", { tags: ["unit"]
 describe("tools.describe — full schema on demand", { tags: ["unit"] }, () => {
 	it("returns schema and guidance for a known tool", async () => {
 		const directives = new Map([["fs.read", ["Always use offset/limit for large files."]]]);
-		const h = make({ tools: ALL_TOOLS, organDirectives: directives });
+		const h = make({ tools: ALL_TOOLS, adapterDirectives: directives });
 		h.publish("tools.describe", { names: ["fs.read"] });
 		await new Promise((r) => setTimeout(r, 100));
 		const { results } = h.senseResult("tools.describe");
@@ -296,7 +296,7 @@ describe("tools.describe — full schema on demand", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildOrganDirectives
+// buildAdapterDirectives
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -315,7 +315,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	}
 
 	it("injects catalog message on turn 1", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const result = shell.applyPhase(msgs(1), 1);
 		expect(result.length).toBe(2);
 		const first = result[0].content as string;
@@ -324,7 +324,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	});
 
 	it("does not inject catalog twice", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
 		const after1 = shell.applyPhase(msgs(1), 1);
 		const after2 = shell.applyPhase(after1, 2);
 		const count = after2.filter(
@@ -334,7 +334,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	});
 
 	it("evicts catalog after evictAfterTurn", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS, evictAfterTurn: 2 });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, evictAfterTurn: 2 });
 		let m = msgs(1);
 		m = shell.applyPhase(m, 1); // inject
 		m = shell.applyPhase(m, 2); // persist
@@ -348,7 +348,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	});
 
 	it("eviction message lists remaining tools", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS, evictAfterTurn: 1 });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, evictAfterTurn: 1 });
 		let m = shell.applyPhase(msgs(1), 1);
 		m = shell.applyPhase(m, 2); // evict
 		const summary = m.find((msg) => typeof msg.content === "string" && (msg.content as string).includes("compacted"));
@@ -356,7 +356,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	});
 
 	it("evictAfterTurn=Infinity disables eviction", () => {
-		const shell = createToolShellOrgan({ tools: ALL_TOOLS, evictAfterTurn: Infinity });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, evictAfterTurn: Infinity });
 		let m = msgs(1);
 		m = shell.applyPhase(m, 1);
 		for (let t = 2; t <= 20; t++) m = shell.applyPhase(m, t);
@@ -410,7 +410,7 @@ describe("tools.describe — miss warn log", { tags: ["unit"] }, () => {
 		type CapturedLog = { level: string; obj: Record<string, unknown>; msg: string };
 		const capturedLogs: CapturedLog[] = [];
 
-		const spyLogger: OrganLogger = {
+		const spyLogger: AdapterLogger = {
 			debug(obj, msg) {
 				capturedLogs.push({ level: "debug", obj: obj as Record<string, unknown>, msg: msg ?? "" });
 			},
@@ -433,11 +433,11 @@ describe("tools.describe — miss warn log", { tags: ["unit"] }, () => {
 							msg: msg ?? "",
 						});
 					},
-				} as OrganLogger;
+				} as AdapterLogger;
 			},
 		};
 
-		const shell = createToolShellOrgan({ tools: [FS_READ], logger: spyLogger });
+		const shell = createToolShellAdapter({ tools: [FS_READ], logger: spyLogger });
 		const h = makeHarness(shell);
 		harnesses.push(h);
 
@@ -453,13 +453,13 @@ describe("tools.describe — miss warn log", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("buildOrganDirectives", { tags: ["unit"] }, () => {
+describe("buildAdapterDirectives", { tags: ["unit"] }, () => {
 	it("maps each tool in an organ to that organ's directives", () => {
 		const organs = [
 			{ tools: [FS_READ, FS_GREP], directives: ["Use offset/limit for large files."] },
 			{ tools: [SHELL_EXEC], directives: ["Avoid long-running commands."] },
 		];
-		const map = buildOrganDirectives(organs);
+		const map = buildAdapterDirectives(organs);
 		expect(map.get("fs.read")).toEqual(["Use offset/limit for large files."]);
 		expect(map.get("fs.grep")).toEqual(["Use offset/limit for large files."]);
 		expect(map.get("shell.exec")).toEqual(["Avoid long-running commands."]);
@@ -470,7 +470,7 @@ describe("buildOrganDirectives", { tags: ["unit"] }, () => {
 			{ tools: [FS_READ], directives: undefined },
 			{ tools: [SHELL_EXEC], directives: [] },
 		];
-		const map = buildOrganDirectives(organs);
+		const map = buildAdapterDirectives(organs);
 		expect(map.size).toBe(0);
 	});
 
@@ -479,7 +479,7 @@ describe("buildOrganDirectives", { tags: ["unit"] }, () => {
 			{ tools: [FS_READ], directives: ["First directive."] },
 			{ tools: [FS_READ], directives: ["Second directive."] },
 		];
-		const map = buildOrganDirectives(organs);
+		const map = buildAdapterDirectives(organs);
 		expect(map.get("fs.read")).toEqual(["Second directive."]);
 	});
 });
@@ -497,11 +497,11 @@ describe("buildOrganDirectives", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("agent.tools — uniqueness invariant", { tags: ["integration"] }, () => {
-	function stubOrgan(name: string, tools: ToolDefinition[]): Organ {
+	function stubOrgan(name: string, tools: ToolDefinition[]): Adapter {
 		return {
 			name,
 			tools,
-			subscriptions: { motor: [], sense: [] },
+			subscriptions: { command: [], event: [] },
 			sources: [],
 			mount() {
 				return () => {};
@@ -536,7 +536,7 @@ describe("tools.describe catalog includes agent.run when included in tools list"
 
 	it("tools.describe({ names: [] }) payload.results contains agent.run", async () => {
 		const tools = [...ALL_TOOLS, AGENT_RUN];
-		const h = makeHarness(createToolShellOrgan({ tools }));
+		const h = makeHarness(createToolShellAdapter({ tools }));
 		harnesses.push(h);
 
 		h.publish("tools.describe", { names: [] });
@@ -549,7 +549,7 @@ describe("tools.describe catalog includes agent.run when included in tools list"
 
 	it("agent.run is in agent.tools after organ load via shell.search", () => {
 		const tools = [...ALL_TOOLS, AGENT_RUN];
-		const shell = createToolShellOrgan({ tools });
+		const shell = createToolShellAdapter({ tools });
 		const agent = new Agent();
 		agent.load(shell);
 		harnesses.push({

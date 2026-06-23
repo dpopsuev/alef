@@ -2,17 +2,17 @@
  * BlueprintGauntlet \u2014 story-based blueprint test harness.
  *
  * A typed harness for structured e2e blueprint testing organized as Stories.
- * Each Story creates a fresh gauntlet with its own TempDir, stub organs, and
+ * Each Story creates a fresh gauntlet with its own TempDir, stub adapters, and
  * scripted LLM. Stories are independent and self-contained.
  *
  * Mirrors Tako testkit/acceptance/SDLCGauntlet pattern:
  * - NewGauntlet(t) creates a fully wired test environment
  * - Run() / Resume() walk the agent turn loop
- * - assertToolCalled() / assertToolCalledWith() verify organ behavior
- * - withStubOrgan() replaces a real organ with a stub for isolation
+ * - assertToolCalled() / assertToolCalledWith() verify adapter behavior
+ * - withStubAdapter() replaces a real adapter with a stub for isolation
  *
- * Gate/approval workflows are stubbed for now \u2014 the organ-agent integration
- * will wire real approval gates when (ContextOrgan) is complete.
+ * Gate/approval workflows are stubbed for now \u2014 the adapter-agent integration
+ * will wire real approval gates when (ContextAdapter) is complete.
  *
  */
 
@@ -26,7 +26,7 @@ import { type ScriptStep, step } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";
 
 export interface GauntletOptions {
-	/** Organs to mount. Required. */
+	/** Adapters to mount. Required. */
 	organs: Adapter[];
 	/** Script steps for the ScriptedReasoner. */
 	script?: ScriptStep[];
@@ -46,7 +46,7 @@ export interface GauntletSendOptions {
  *
  * @example
  * const g = await BlueprintGauntlet.create({
- * organs: [createFsOrgan({ cwd: workspace })],
+ * organs: [createFsAdapter({ cwd: workspace })],
  * script: [
  * step.text("Here is the file."),
  * ],
@@ -111,22 +111,22 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Story isolation \u2014 replace a real organ with a gimped stub
+	// Story isolation \u2014 replace a real adapter with a gimped stub
 	// ---------------------------------------------------------------------------
 
 	/**
-	 * Returns a new GauntletOptions with the named organ replaced by a GimpedOrgan.
+	 * Returns a new GauntletOptions with the named adapter replaced by a GimpedAdapter.
 	 * Use to establish ablation baselines within a story:
 	 *
 	 * @example
-	 * const opts = { organs: [fsOrgan, shellOrgan], script: [...] };
+	 * const opts = { organs: [fsAdapter, shellAdapter], script: [...] };
 	 * const full = await BlueprintGauntlet.create(opts);
 	 * const baseline = await BlueprintGauntlet.create(
-	 * BlueprintGauntlet.withGimpedOrgan(opts, "fs")
+	 * BlueprintGauntlet.withGimpedAdapter(opts, "fs")
 	 * );
-	 * // Compare full vs baseline to measure fsOrgan's contribution.
+	 * // Compare full vs baseline to measure fsAdapter's contribution.
 	 */
-	static withGimpedOrgan(opts: GauntletOptions, adapterName: string): GauntletOptions {
+	static withGimpedAdapter(opts: GauntletOptions, adapterName: string): GauntletOptions {
 		return {
 			...opts,
 			organs: opts.organs.map((o) => (o.name === adapterName ? gimpedAdapter(adapterName) : o)),
@@ -139,17 +139,17 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 
 	/** Assert a tool was called at least once during the run. */
 	assertToolCalled(toolName: string): void {
-		const motorEvents = this.recorder.motor;
+		const motorEvents = this.recorder.command;
 		const found = motorEvents.some((e) => e.type === toolName);
 		if (!found) {
 			const calls = [...new Set(motorEvents.map((e) => e.type))].join(", ") || "none";
-			throw new Error(`Expected tool "${toolName}" to be called.\nMotor events: [${calls}]`);
+			throw new Error(`Expected tool "${toolName}" to be called.\nCommand events: [${calls}]`);
 		}
 	}
 
 	/** Assert a tool was NOT called during the run. */
 	assertToolNotCalled(toolName: string): void {
-		const found = this.recorder.motor.some((e) => e.type === toolName);
+		const found = this.recorder.command.some((e) => e.type === toolName);
 		if (found) {
 			throw new Error(`Expected tool "${toolName}" NOT to be called, but it was.`);
 		}
@@ -157,7 +157,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 
 	/** Assert a tool was called with a specific payload (partial match). */
 	assertToolCalledWith(toolName: string, expectedPayload: Record<string, unknown>): void {
-		const calls = this.recorder.motor.filter((e) => e.type === toolName);
+		const calls = this.recorder.command.filter((e) => e.type === toolName);
 		if (calls.length === 0) {
 			throw new Error(`Expected tool "${toolName}" to be called, but it was not.`);
 		}
@@ -175,26 +175,26 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 
 	/** Assert no tools were called (reply-only turn). */
 	assertNoToolsCalled(): void {
-		const toolEvents = this.recorder.motor.filter((e) => e.type !== "llm.response");
+		const toolEvents = this.recorder.command.filter((e) => e.type !== "llm.response");
 		if (toolEvents.length > 0) {
 			const names = [...new Set(toolEvents.map((e) => e.type))].join(", ");
 			throw new Error(`Expected no tool calls, but got: [${names}]`);
 		}
 	}
 
-	/** Returns all Motor event types observed during the run. */
+	/** Returns all Command event types observed during the run. */
 	get calledTools(): string[] {
-		return [...new Set(this.recorder.motor.map((e) => e.type))];
+		return [...new Set(this.recorder.command.map((e) => e.type))];
 	}
 
-	/** Returns all recorded motor events. */
-	get motorEvents() {
-		return this.recorder.motor;
+	/** Returns all recorded command events. */
+	get commandEvents() {
+		return this.recorder.command;
 	}
 
-	/** Returns all recorded sense events. */
-	get senseEvents() {
-		return this.recorder.sense;
+	/** Returns all recorded event messages. */
+	get eventMessages() {
+		return this.recorder.event;
 	}
 
 	// ---------------------------------------------------------------------------

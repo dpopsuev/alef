@@ -6,7 +6,7 @@ import { VALIDATE_REQUEST, VALIDATE_RESULT } from "./protocols.js";
 export type BindingMode = "ordered" | "parallel-all" | "parallel-first";
 
 export interface BindingStage {
-	organ: string;
+	adapter: string;
 	filter?: (payload: Record<string, unknown>) => boolean;
 	timeout?: number;
 }
@@ -40,7 +40,7 @@ function publishValidateRequest(
 	sourceCorrelationId: string,
 ): { stageId: string; result: Promise<ChainResult> } {
 	const stageId = newCorrelationId();
-	const result = waitForValidateResult(bus.sense, stageId, stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS);
+	const result = waitForValidateResult(bus.event, stageId, stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS);
 	bus.command.publish({
 		type: VALIDATE_REQUEST,
 		correlationId: sourceCorrelationId,
@@ -49,20 +49,20 @@ function publishValidateRequest(
 			output: input.output,
 			kind: input.kind,
 			context: input.context,
-			targetOrgan: stage.organ,
+			targetAdapter: stage.adapter,
 		},
 	});
 	return { stageId, result };
 }
 
-function waitForValidateResult(sense: Bus["sense"], id: string, timeoutMs: number): Promise<ChainResult> {
+function waitForValidateResult(eventChannel: Bus["event"], id: string, timeoutMs: number): Promise<ChainResult> {
 	return new Promise((resolve) => {
 		const timer = setTimeout(() => {
 			off();
 			resolve({ approved: true, reviewer: "timeout-auto-approve" });
 		}, timeoutMs);
 
-		const off = sense.subscribe(VALIDATE_RESULT, (event: EventMessage) => {
+		const off = eventChannel.subscribe(VALIDATE_RESULT, (event: EventMessage) => {
 			const p = event.payload as {
 				id?: string;
 				approved?: boolean;
@@ -111,13 +111,13 @@ class OrderedStrategy implements BindingExecutionStrategy {
 			}
 
 			const { stageId, result: resultPromise } = publishValidateRequest(bus, stage, current, sourceCorrelationId);
-			debugLog("binding:stage:start", { stageIdx: i, organ: stage.organ, stageId });
+			debugLog("binding:stage:start", { stageIdx: i, adapter: stage.adapter, stageId });
 
 			const result = await resultPromise;
 
 			debugLog("binding:stage:result", {
 				stageIdx: i,
-				organ: stage.organ,
+				adapter: stage.adapter,
 				approved: result.approved,
 				reviewer: result.reviewer,
 			});
@@ -210,7 +210,7 @@ export function executeBindingChain(
 export function withBindings(bindings: Map<string, Binding>, baseBus: Bus): Bus {
 	return makeBus(
 		{
-			subscribe: baseBus.command.subscribe.bind(baseBus.motor),
+			subscribe: baseBus.command.subscribe.bind(baseBus.command),
 			publish: (event) => {
 				const binding = [...bindings.values()].find((b) => b.event === event.type);
 				if (!binding) {
@@ -226,8 +226,8 @@ export function withBindings(bindings: Map<string, Binding>, baseBus: Bus): Bus 
 				void executeBindingChain(binding, input, baseBus, event.correlationId);
 			},
 		},
-		baseBus.sense,
-		baseBus.signal,
+		baseBus.event,
+		baseBus.notification,
 		() => baseBus.pulse(),
 	);
 }

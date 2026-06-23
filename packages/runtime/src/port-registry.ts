@@ -12,7 +12,7 @@
  *   "zero-or-many" — no constraint (default pub-sub).
  *
  * Seam detection: an organ covers a seam if any of its action map keys matches
- * the seam's event pattern. Wildcards in action keys (motor/*) cover all motor seams.
+ * the seam's event pattern. Wildcards in action keys (command/*) cover all command seams.
  *
  * EIP: PortRegistry implements the Content-Based Router pattern at boot time —
  * routing organs to seams based on their declared action map key prefixes.
@@ -49,33 +49,33 @@ export interface PortValidationResult {
  * Strategy: mount the organ onto a probe nerve, record which event types it
  * subscribes to on Motor and Sense buses, then unmount.
  */
-export interface OrganPortInfo {
+export interface AdapterPortInfo {
 	name: string;
-	motorSubscriptions: string[]; // event types subscribed on Motor bus
-	senseSubscriptions: string[]; // event types subscribed on Sense bus
+	commandSubscriptions: string[]; // event types subscribed on Motor bus
+	eventSubscriptions: string[]; // event types subscribed on Sense bus
 }
 
 // ---------------------------------------------------------------------------
 // Seam matching
 // ---------------------------------------------------------------------------
 
-function organCoversPort(info: OrganPortInfo, seam: PortDefinition): boolean {
+function organCoversPort(info: AdapterPortInfo, seam: PortDefinition): boolean {
 	const pattern = seam.eventPattern;
 
-	if (pattern.startsWith("motor/")) {
-		const eventSuffix = pattern.slice("motor/".length);
+	if (pattern.startsWith("command/")) {
+		const eventSuffix = pattern.slice("command/".length);
 		// Wildcard subscriptions ("*") are observer patterns — they tap the bus
 		// but do not own any seam. Only specific event type subscriptions cover a seam.
-		return info.motorSubscriptions.some(
+		return info.commandSubscriptions.some(
 			(sub) =>
 				sub !== "*" && // observers never cover specific seams
 				(sub === eventSuffix || (eventSuffix.endsWith(".") && sub.startsWith(eventSuffix)) || eventSuffix === "*"),
 		);
 	}
 
-	if (pattern.startsWith("sense/")) {
-		const eventSuffix = pattern.slice("sense/".length);
-		return info.senseSubscriptions.some(
+	if (pattern.startsWith("event/")) {
+		const eventSuffix = pattern.slice("event/".length);
+		return info.eventSubscriptions.some(
 			(sub) =>
 				sub !== "*" && // observers never cover specific seams
 				(sub === eventSuffix || (eventSuffix.endsWith(".") && sub.startsWith(eventSuffix)) || eventSuffix === "*"),
@@ -89,7 +89,7 @@ function organCoversPort(info: OrganPortInfo, seam: PortDefinition): boolean {
 // Validation
 // ---------------------------------------------------------------------------
 
-export function validatePorts(adapters: OrganPortInfo[], seams: PortDefinition[]): PortValidationResult {
+export function validatePorts(adapters: AdapterPortInfo[], seams: PortDefinition[]): PortValidationResult {
 	const violations: PortViolation[] = [];
 
 	for (const seam of seams) {
@@ -104,7 +104,7 @@ export function validatePorts(adapters: OrganPortInfo[], seams: PortDefinition[]
 					adapterCount: 0,
 					adapterNames: [],
 					severity: "error",
-					message: `Seam '${seam.name}' (${seam.eventPattern}) requires exactly one organ but got 0. Load an organ that handles this event.`,
+					message: `Seam '${seam.name}' (${seam.eventPattern}) requires exactly one adapter but got 0. Load an adapter that handles this event.`,
 				});
 			} else if (count > 1) {
 				violations.push({
@@ -112,7 +112,7 @@ export function validatePorts(adapters: OrganPortInfo[], seams: PortDefinition[]
 					adapterCount: count,
 					adapterNames: names,
 					severity: "error",
-					message: `Seam '${seam.name}' (${seam.eventPattern}) requires exactly one organ but got ${count}: [${names.join(", ")}]. Multiple organs will race.`,
+					message: `Seam '${seam.name}' (${seam.eventPattern}) requires exactly one adapter but got ${count}: [${names.join(", ")}]. Multiple adapters will race.`,
 				});
 			}
 		}
@@ -123,7 +123,7 @@ export function validatePorts(adapters: OrganPortInfo[], seams: PortDefinition[]
 				adapterCount: count,
 				adapterNames: names,
 				severity: "warning",
-				message: `Seam '${seam.name}' (${seam.eventPattern}) expects at most one organ but got ${count}: [${names.join(", ")}]. Behaviour is undefined.`,
+				message: `Seam '${seam.name}' (${seam.eventPattern}) expects at most one adapter but got ${count}: [${names.join(", ")}]. Behaviour is undefined.`,
 			});
 		}
 		// "ordered-pipeline": multiple organs intentional — no violation.

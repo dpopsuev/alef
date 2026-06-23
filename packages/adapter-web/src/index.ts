@@ -5,5 +5,5 @@ export {
 	registerSearchEngine,
 	webSearch,
 } from "@dpopsuev/web-spider";
-export type { WebOrganOptions } from "./organ.js";
-export { createWebOrgan, createWebOrgan as createOrgan } from "./organ.js";
+export type { WebOrganOptions } from "./adapter.js";
+export { createWebOrgan, createWebOrgan as createOrgan } from "./adapter.js";

@@ -31,14 +31,14 @@ async function writeDialog(store: JsonlSessionStore, pairs: Array<{ user: string
 	for (let i = 0; i < pairs.length; i++) {
 		const corrId = `turn-${i}`;
 		await store.append({
-			bus: "sense",
+			bus: "event",
 			type: "llm.response",
 			correlationId: corrId,
 			payload: { text: pairs[i].user },
 			timestamp: Date.now() + i * 100,
 		});
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "llm.response",
 			correlationId: corrId,
 			payload: {

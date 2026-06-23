@@ -16,7 +16,7 @@
 
 export interface ToolRecord {
 	type: string;
-	bus: "motor" | "sense" | "signal" | "internal";
+	bus: "command" | "event" | "notification" | "internal";
 	hash?: string;
 }
 
@@ -118,7 +118,7 @@ export function assertSseFilter(
  * code.edit somewhere in the motor event stream.
  */
 export function assertToolSequence(records: ToolRecord[], sequence: string[]): void {
-	const motorTypes = records.filter((r) => r.bus === "motor").map((r) => r.type);
+	const motorTypes = records.filter((r) => r.bus === "command").map((r) => r.type);
 	let cursor = 0;
 	for (const expected of sequence) {
 		const slice = motorTypes.slice(cursor);
@@ -181,7 +181,7 @@ export function assertWebFetch(reply: string, expectedPattern: RegExp): void {
  * delegation chain worked: outer LLM → agent.run → inner LLM → fs.read → reply.
  */
 export function assertSubagentWorkflow(records: ToolRecord[], replyText: string, secret: string): void {
-	const motorTypes = records.filter((r) => r.bus === "motor").map((r) => r.type);
+	const motorTypes = records.filter((r) => r.bus === "command").map((r) => r.type);
 	if (!motorTypes.includes("agent.run")) {
 		throw new Error(
 			`verifier: expected agent.run in motor events — outer LLM did not delegate. ` +

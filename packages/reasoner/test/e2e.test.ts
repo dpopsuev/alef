@@ -7,7 +7,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -16,10 +16,10 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-llm — real LLM E2E", { tags: ["real-llm
 	it("LLM organ dispatches a tool call and uses the result in its reply", async () => {
 		const token = randomUUID();
 
-		const tokenOrgan = defineOrgan(
+		const tokenOrgan = defineAdapter(
 			"token",
 			{
-				motor: {
+				command: {
 					"token.get": typedAction(
 						{
 							name: "token.get",

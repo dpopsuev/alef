@@ -27,7 +27,11 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function rec(type: string, bus: "motor" | "sense" | "internal" = "motor", hash = "a".repeat(64)): ToolRecord {
+function rec(
+	type: string,
+	bus: "command" | "event" | "notification" | "internal" = "command",
+	hash = "a".repeat(64),
+): ToolRecord {
 	return { type, bus, hash };
 }
 
@@ -37,17 +41,17 @@ function rec(type: string, bus: "motor" | "sense" | "internal" = "motor", hash =
 
 describe("verifier: assertFileReadWorkflow", { tags: ["unit"] }, () => {
 	it("accepts fs.read + reply containing secret", () => {
-		const records = [rec("llm.response", "sense"), rec("fs.read"), rec("fs.read", "sense"), rec("llm.response")];
+		const records = [rec("llm.response", "event"), rec("fs.read"), rec("fs.read", "event"), rec("llm.response")];
 		expect(() => assertFileReadWorkflow(records, "The secret is XYZ-123", "XYZ-123")).not.toThrow();
 	});
 
 	it("accepts code.read as alternative to fs.read", () => {
-		const records = [rec("code.read"), rec("code.read", "sense"), rec("llm.response")];
+		const records = [rec("code.read"), rec("code.read", "event"), rec("llm.response")];
 		expect(() => assertFileReadWorkflow(records, "token=ABC", "ABC")).not.toThrow();
 	});
 
 	it("rejects when no file read event present", () => {
-		const records = [rec("llm.response", "sense"), rec("llm.response")];
+		const records = [rec("llm.response", "event"), rec("llm.response")];
 		expect(() => assertFileReadWorkflow(records, "The secret is XYZ", "XYZ")).toThrow(/fs\.read or code.read/);
 	});
 
@@ -59,7 +63,7 @@ describe("verifier: assertFileReadWorkflow", { tags: ["unit"] }, () => {
 
 describe("verifier: assertHashesPresent", { tags: ["unit"] }, () => {
 	it("accepts records all with hashes", () => {
-		const records = [rec("fs.read"), rec("llm.response", "motor", "b".repeat(64))];
+		const records = [rec("fs.read"), rec("llm.response", "command", "b".repeat(64))];
 		expect(() => assertHashesPresent(records)).not.toThrow();
 	});
 
@@ -69,7 +73,7 @@ describe("verifier: assertHashesPresent", { tags: ["unit"] }, () => {
 	});
 
 	it("rejects non-internal records missing hash", () => {
-		const records = [{ type: "fs.read", bus: "motor" as const }];
+		const records = [{ type: "fs.read", bus: "command" as const }];
 		expect(() => assertHashesPresent(records)).toThrow(/hash/);
 	});
 });
@@ -80,7 +84,7 @@ describe("verifier: assertHashesPresent", { tags: ["unit"] }, () => {
 
 describe("verifier: assertOrganSelection", { tags: ["unit"] }, () => {
 	it("accepts fs.read with no code/shell events", () => {
-		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("llm.response")];
+		const records = [rec("fs.read"), rec("fs.read", "event"), rec("llm.response")];
 		expect(() => assertOrganSelection(records, ["fs.read"], ["code.", "shell."])).not.toThrow();
 	});
 
@@ -137,11 +141,11 @@ describe("verifier: assertSseFilter", { tags: ["unit"] }, () => {
 describe("verifier: assertToolSequence", { tags: ["unit"] }, () => {
 	it("accepts code.read before code.edit", () => {
 		const records = [
-			rec("llm.response", "sense"),
+			rec("llm.response", "event"),
 			rec("code.read"),
-			rec("code.read", "sense"),
+			rec("code.read", "event"),
 			rec("code.edit"),
-			rec("code.edit", "sense"),
+			rec("code.edit", "event"),
 			rec("llm.response"),
 		];
 		expect(() => assertToolSequence(records, ["code.read", "code.edit"])).not.toThrow();
@@ -216,17 +220,17 @@ describe("verifier: assertWebFetch", { tags: ["unit"] }, () => {
 
 describe("verifier: assertSubagentWorkflow", { tags: ["unit"] }, () => {
 	it("accepts agent.run in motor events and secret in reply", () => {
-		const records = [rec("llm.response", "sense"), rec("agent.run"), rec("agent.run", "sense"), rec("llm.response")];
+		const records = [rec("llm.response", "event"), rec("agent.run"), rec("agent.run", "event"), rec("llm.response")];
 		expect(() => assertSubagentWorkflow(records, "The secret is XYZ-789", "XYZ-789")).not.toThrow();
 	});
 
 	it("rejects when agent.run is absent from motor events", () => {
-		const records = [rec("fs.read"), rec("fs.read", "sense"), rec("llm.response")];
+		const records = [rec("fs.read"), rec("fs.read", "event"), rec("llm.response")];
 		expect(() => assertSubagentWorkflow(records, "The secret is XYZ-789", "XYZ-789")).toThrow(/agent\.run/);
 	});
 
 	it("rejects when reply does not contain the secret", () => {
-		const records = [rec("agent.run"), rec("agent.run", "sense"), rec("llm.response")];
+		const records = [rec("agent.run"), rec("agent.run", "event"), rec("llm.response")];
 		expect(() => assertSubagentWorkflow(records, "I delegated the task.", "XYZ-789")).toThrow(/secret/);
 	});
 

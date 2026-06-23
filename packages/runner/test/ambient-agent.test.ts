@@ -1,5 +1,5 @@
 /**
- * Ambient agent — organ-llm driven by a programmatic sense event.
+ * Ambient agent — adapter-llm driven by a programmatic event.
  * No AgentController, no human input — the trigger is published directly.
  */
 
@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe("ambient agent", { tags: ["unit"] }, () => {
-	it("sense/llm.input triggers a turn without AgentController; motor/llm.response carries the reply", async () => {
+	it("event/llm.input triggers a turn without AgentController; command/llm.response carries the reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("run linter")]);
 
@@ -24,16 +24,16 @@ describe("ambient agent", { tags: ["unit"] }, () => {
 			model: faux.getModel(),
 			apiKey: "faux-key",
 		});
-		unmounts.push(llm.mount(nerve.asNerve()));
+		unmounts.push(llm.mount(nerve.asBus()));
 		unmounts.push(() => faux.unregister());
 
 		const received: string[] = [];
-		nerve.asNerve().motor.subscribe("llm.response", (event) => {
+		nerve.asBus().command.subscribe("llm.response", (event) => {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			if (text) received.push(text);
 		});
 
-		nerve.asNerve().sense.publish({
+		nerve.asBus().event.publish({
 			type: "llm.input",
 			correlationId: randomUUID(),
 			payload: { text: "src/auth.ts changed" },

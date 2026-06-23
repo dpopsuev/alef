@@ -1,40 +1,40 @@
 /**
  * Loop detection.
  *
- * A LoopingLLMOrgan calls the same Motor event type repeatedly.
- * EvaluatorOrgan must detect the loop and set loopDetected=true.
+ * A LoopingLLMAdapter calls the same Command event type repeatedly.
+ * EvaluatorAdapter must detect the loop and set loopDetected=true.
  */
 
-import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { EvalHarness } from "../src/harness.js";
 
 // ---------------------------------------------------------------------------
-// LoopingLLMOrgan — calls fs.read N times in a row on the same correlationId.
+// LoopingLLMAdapter — calls fs.read N times in a row on the same correlationId.
 // ---------------------------------------------------------------------------
 
-class LoopingLLMOrgan implements Organ {
+class LoopingLLMAdapter implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
 	readonly sources = [] as const;
 
 	constructor(private readonly loopCount: number) {}
 
-	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("llm.input", async (event) => {
+	mount(bus: Bus): () => void {
+		return bus.event.subscribe("llm.input", async (event) => {
 			// Call fs.read loopCount times — triggers loop detector.
 			for (let i = 0; i < this.loopCount; i++) {
-				nerve.motor.publish({
+				bus.command.publish({
 					type: "fs.read",
 					payload: { path: "nonexistent.txt", toolCallId: `tc-${i}` },
 					correlationId: event.correlationId,
 				});
-				// Small delay so sense events propagate.
+				// Small delay so event messages propagate.
 				await new Promise((r) => setTimeout(r, 2));
 			}
 			// Then send a reply so dialog.send() resolves.
-			nerve.motor.publish({
+			bus.command.publish({
 				type: "llm.response",
 				payload: { text: "done looping" },
 				correlationId: event.correlationId,
@@ -46,7 +46,7 @@ class LoopingLLMOrgan implements Organ {
 // ---------------------------------------------------------------------------
 
 describe("EvalHarness — loop detection", { tags: ["integration"] }, () => {
-	it("detects loop when same Motor event type exceeds threshold", async () => {
+	it("detects loop when same Command event type exceeds threshold", async () => {
 		const harness = new EvalHarness();
 
 		const metrics = await harness.run(
@@ -55,7 +55,7 @@ describe("EvalHarness — loop detection", { tags: ["integration"] }, () => {
 			},
 			{
 				scenario: "loop-detection",
-				extraOrgans: [new LoopingLLMOrgan(15)],
+				extraAdapters: [new LoopingLLMAdapter(15)],
 				loopThreshold: 10,
 			},
 		);
@@ -76,7 +76,7 @@ describe("EvalHarness — loop detection", { tags: ["integration"] }, () => {
 			},
 			{
 				scenario: "no-loop",
-				extraOrgans: [new LoopingLLMOrgan(3)],
+				extraAdapters: [new LoopingLLMAdapter(3)],
 				loopThreshold: 10,
 			},
 		);

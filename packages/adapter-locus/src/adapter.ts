@@ -38,13 +38,13 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 			"Locus code intelligence — spawns a dedicated Locus adapter for architecture analysis, dependency graphs, symbol search, and diagram rendering.",
 		labels: ["locus", "architecture", "analysis"] as const,
 		tools: [],
-		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
+		subscriptions: { command: [] as readonly string[], event: [] as readonly string[] },
 		sources: [],
 		directives: [
 			"Locus tools are available under the locus.* prefix. Use locus.codograph to scan repos, locus.analysis for dependency/coupling/impact queries, and locus.render_diagram for Mermaid diagrams.",
 		],
 
-		mount(nerve: Bus): () => void {
+		mount(bus: Bus): () => void {
 			mkdirSync(cacheDir, { recursive: true });
 			mkdirSync(historyDir, { recursive: true });
 
@@ -62,15 +62,15 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 					inner = mcpAdapter;
 
 					(adapter as { tools: readonly unknown[] }).tools = mcpAdapter.tools;
-					(adapter as { subscriptions: { motor: readonly string[] } }).subscriptions = {
+					(adapter as { subscriptions: { command: readonly string[] } }).subscriptions = {
 						...adapter.subscriptions,
-						motor: mcpAdapter.tools.map((t) => t.name),
+						command: mcpAdapter.tools.map((t) => t.name),
 					};
 
-					innerCleanup = mcpAdapter.mount(nerve);
+					innerCleanup = mcpAdapter.mount(bus);
 
-					nerve.event.publish({
-						type: "organ.loaded",
+					bus.event.publish({
+						type: "adapter.loaded",
 						correlationId: "locus-boot",
 						payload: {
 							name: "locus",
@@ -83,11 +83,11 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 				})
 				.catch((err: unknown) => {
 					debugLog("locus:boot:error", { error: String(err) });
-					nerve.notification.publish({
-						type: "organ.error",
+					bus.notification.publish({
+						type: "adapter.error",
 						correlationId: "locus-boot",
 						payload: {
-							organ: "locus",
+							adapter: "locus",
 							message: `Failed to start Locus: ${err instanceof Error ? err.message : String(err)}`,
 						},
 					});

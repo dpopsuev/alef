@@ -20,7 +20,7 @@ export const SPAWN_TOOL = {
 				z.array(z.string().min(1)),
 			)
 			.optional()
-			.describe("Paths to .ts organ files."),
+			.describe("Paths to .ts adapter files."),
 		cwd: z.string().optional().describe("Working directory for the child."),
 		sessionId: z.string().optional().describe("Resume a previous session by ID."),
 		sandbox: z.boolean().optional().describe("Wrap in bubblewrap for isolation."),
@@ -105,9 +105,9 @@ export const STATUS_TOOL = {
 
 export const PROMOTE_TOOL = {
 	name: "agent.promote",
-	description: "Add organ to production blueprint and trigger blue-green swap via supervisor IPC.",
+	description: "Add adapter to production blueprint and trigger blue-green swap via supervisor IPC.",
 	inputSchema: z.object({
-		organPath: z.string().min(1).describe("Absolute path to .ts organ file."),
+		adapterPath: z.string().min(1).describe("Absolute path to .ts adapter file."),
 		blueprintPath: z.string().optional().describe("Production blueprint path."),
 	}),
 };

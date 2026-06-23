@@ -174,7 +174,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	outer: for (let i = turns.length - 1; i >= 0; i--) {
 		for (let j = turns[i].events.length - 1; j >= 0; j--) {
 			const e = turns[i].events[j];
-			const isDialogMessage = e.bus === "motor" && e.type === "llm.response";
+			const isDialogMessage = e.bus === "command" && e.type === "llm.response";
 			const isCheckpoint = e.type === "llm.checkpoint"; // internal bus, written by onCheckpoint
 			if (!isDialogMessage && !isCheckpoint) continue;
 			const hist = e.payload.conversationHistory;
@@ -191,7 +191,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 	for (let i = abortedFrom; i < turns.length; i++) {
 		const turn = turns[i];
 		if (turn.events.some((e) => e.type === "llm.response")) continue;
-		const motorTools = turn.events.filter((e) => e.bus === "motor");
+		const motorTools = turn.events.filter((e) => e.bus === "command");
 		if (motorTools.length === 0) continue;
 		const lines = motorTools.map((e) => {
 			const { toolCallId: _tc, content: _c, ...args } = e.payload;
@@ -217,9 +217,9 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 			if (event.type !== "llm.response") continue;
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			if (!text) continue;
-			if (event.bus === "sense") {
+			if (event.bus === "event") {
 				messages.push({ role: "user", content: text, timestamp: now });
-			} else if (event.bus === "motor") {
+			} else if (event.bus === "command") {
 				messages.push({ role: "user", content: `[assistant] ${text}`, timestamp: now });
 			}
 		}

@@ -149,7 +149,7 @@ export class SessionHandle implements Session {
 	}
 
 	cancelToolCall(callId: string, toolName: string): void {
-		this._agent.publishSense({
+		this._agent.publishEvent({
 			type: toolName,
 			correlationId: "*",
 			payload: { toolCallId: callId, isFinal: true },

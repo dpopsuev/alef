@@ -12,7 +12,7 @@ async function makeClient(): Promise<Client> {
 
 function motorEvent(type: string, correlationId: string, extra?: Partial<StorageRecord>): StorageRecord {
 	return {
-		bus: "motor",
+		bus: "command",
 		type,
 		correlationId,
 		payload: { text: `payload for ${type}` },
@@ -23,7 +23,7 @@ function motorEvent(type: string, correlationId: string, extra?: Partial<Storage
 
 function senseEvent(type: string, correlationId: string, extra?: Partial<StorageRecord>): StorageRecord {
 	return {
-		bus: "sense",
+		bus: "event",
 		type,
 		correlationId,
 		payload: { content: `result of ${type}` },

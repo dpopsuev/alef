@@ -11,7 +11,7 @@
  * the in-flight motor event that precedes a timeout.
  */
 export interface BusEvent {
-	bus: "motor" | "sense" | "signal";
+	bus: "command" | "event" | "notification";
 	event: string;
 	correlationId: string;
 	/** Key payload fields, truncated. Full fidelity for args; first 300 chars for results. */
@@ -53,7 +53,7 @@ export interface TurnRecord {
 	estimatedCostUsd: number;
 	/** Number of tool calls dispatched from this LLM response. */
 	toolCalls: number;
-	/** Names of tools called in this turn (from alef.motor/* spans after this LLM span). */
+	/** Names of tools called in this turn (from alef.command/* spans after this LLM span). */
 	toolNames: string[];
 	/** Cache hits for tool calls dispatched from this turn. */
 	cacheHits: number;
@@ -89,14 +89,14 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 		const toolSpans: SpanRecord[] = [];
 		for (let j = i + 1; j < spans.length; j++) {
 			if (spans[j].name.startsWith("chat ")) break;
-			if (spans[j].name.startsWith("alef.motor/")) toolSpans.push(spans[j]);
+			if (spans[j].name.startsWith("alef.command/")) toolSpans.push(spans[j]);
 		}
 
 		// Exclude internal seam events from tool path tracking.
 		// context.assemble is ToolShellOrgan's context lifecycle interceptor, not an LLM tool call.
 		const INTERNAL_EVENTS = new Set(["llm.response", "context.assemble"]);
 		const toolNames = toolSpans
-			.map((ts) => ts.name.replace("alef.motor/", ""))
+			.map((ts) => ts.name.replace("alef.command/", ""))
 			.filter((n) => !INTERNAL_EVENTS.has(n));
 
 		const retryReasonsRaw = s.attributes["alef.retry_reasons"];
@@ -155,7 +155,7 @@ export interface RunMetrics {
 	error?: string;
 	/** Total Motor+Sense events observed. */
 	totalEvents: number;
-	/** Total alef.motor/* and alef.sense/* spans. */
+	/** Total alef.command/* and alef.event/* spans. */
 	totalSpans: number;
 	/** Spans where alef.cache.hit=true. */
 	cacheHits: number;
@@ -273,20 +273,20 @@ export function batchCorrelation(field1: string, field2: string, results: Array<
 
 /** Standard ReadOnly scoring rules — agent should read more than it writes. */
 export const READ_ONLY_RULES: ScoringRule[] = [
-	{ match: "alef.motor/fs.read", points: 10 },
-	{ match: "alef.motor/fs.grep", points: 5 },
-	{ match: "alef.motor/fs.find", points: 3 },
-	{ match: "alef.motor/fs.write", points: -15 },
-	{ match: "alef.motor/fs.edit", points: -15 },
-	{ match: "alef.motor/shell.exec", points: -5 },
+	{ match: "alef.command/fs.read", points: 10 },
+	{ match: "alef.command/fs.grep", points: 5 },
+	{ match: "alef.command/fs.find", points: 3 },
+	{ match: "alef.command/fs.write", points: -15 },
+	{ match: "alef.command/fs.edit", points: -15 },
+	{ match: "alef.command/shell.exec", points: -5 },
 ];
 
 /** Standard Write scoring rules — writes are expected and rewarded. */
 export const WRITE_RULES: ScoringRule[] = [
-	{ match: "alef.motor/fs.read", points: 5 },
-	{ match: "alef.motor/fs.grep", points: 3 },
-	{ match: "alef.motor/fs.write", points: 15 },
-	{ match: "alef.motor/fs.edit", points: 10 },
+	{ match: "alef.command/fs.read", points: 5 },
+	{ match: "alef.command/fs.grep", points: 3 },
+	{ match: "alef.command/fs.write", points: 15 },
+	{ match: "alef.command/fs.edit", points: 10 },
 ];
 
 export function scoreSpans(spans: SpanRecord[], rules: ScoringRule[]): number {

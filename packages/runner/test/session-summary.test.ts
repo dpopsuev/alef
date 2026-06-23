@@ -13,7 +13,7 @@ import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { applySchema, SqliteSessionStore, SqliteSummaryStore } from "@dpopsuev/alef-storage";
 import { createClient } from "@libsql/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { SessionLog } from "../src/event-log-organ.js";
+import { SessionLog } from "../src/event-log-adapter.js";
 
 describe("SessionSummary", { tags: ["unit"] }, () => {
 	const clients: Array<{ close(): void }> = [];

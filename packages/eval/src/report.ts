@@ -39,21 +39,23 @@ export function formatReport(metrics: RunMetrics): string {
 	if (!metrics.passed && metrics.busEvents.length > 0) {
 		lines.push("  bus trace:");
 		for (const e of metrics.busEvents) {
-			const arrow = e.bus === "motor" ? "→" : "←";
+			const arrow = e.bus === "command" ? "→" : "←";
 			const elapsed = e.elapsedMs !== undefined ? ` ${e.elapsedMs}ms` : "";
 			const err = e.isError ? ` ERROR: ${e.errorMessage ?? ""}` : "";
 			const payloadStr = e.payload ? ` ${JSON.stringify(e.payload)}` : "";
 			lines.push(`    ${arrow} ${e.bus}/${e.event}${elapsed}${err}${payloadStr}`);
 		}
-		const motorIds = new Set(metrics.busEvents.filter((e) => e.bus === "motor").map((e) => e.correlationId));
-		const senseIds = new Set(metrics.busEvents.filter((e) => e.bus === "sense").map((e) => e.correlationId));
+		const motorIds = new Set(metrics.busEvents.filter((e) => e.bus === "command").map((e) => e.correlationId));
+		const senseIds = new Set(metrics.busEvents.filter((e) => e.bus === "event").map((e) => e.correlationId));
 		const orphaned = [...motorIds].filter((id) => !senseIds.has(id));
 		if (orphaned.length > 0) {
 			const orphanedEvents = metrics.busEvents.filter(
-				(e) => e.bus === "motor" && orphaned.includes(e.correlationId),
+				(e) => e.bus === "command" && orphaned.includes(e.correlationId),
 			);
 			for (const e of orphanedEvents) {
-				lines.push(`    ✗ no sense response for motor/${e.event} (correlationId=${e.correlationId.slice(0, 8)}…)`);
+				lines.push(
+					`    ✗ no event response for command/${e.event} (correlationId=${e.correlationId.slice(0, 8)}…)`,
+				);
 			}
 		}
 	}

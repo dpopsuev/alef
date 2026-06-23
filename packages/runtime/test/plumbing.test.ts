@@ -9,17 +9,17 @@
  *   - Quiescence: loop terminates when LLM produces zero tool calls
  */
 
-import type { Nerve, Organ, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, EventMessage, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { passthroughSchema } from "@dpopsuev/alef-kernel";
 import { AgentController } from "@dpopsuev/alef-runtime";
-import { defineStubOrgan } from "@dpopsuev/alef-testkit";
+import { defineStubAdapter } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/index.js";
 
 const ANY = passthroughSchema({ type: "object", properties: {} });
 
-function stubFsOrgan() {
-	return defineStubOrgan(
+function stubFsAdapter() {
+	return defineStubAdapter(
 		"fs",
 		[
 			{ name: "fs.read", description: "Read a file", inputSchema: ANY },
@@ -30,8 +30,8 @@ function stubFsOrgan() {
 	);
 }
 
-function stubShellOrgan() {
-	return defineStubOrgan(
+function stubShellAdapter() {
+	return defineStubAdapter(
 		"shell",
 		[{ name: "shell.exec", description: "Run a command", inputSchema: ANY }],
 		async (_type, payload) => ({ stdout: "stub", exitCode: 0, toolCallId: payload.toolCallId }),
@@ -42,9 +42,9 @@ function stubShellOrgan() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function waitSense(nerve: Nerve, type: string, toolCallId: string, correlationId: string): Promise<SenseEvent> {
+function waitEvent(bus: Bus, type: string, toolCallId: string, correlationId: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
-		const off = nerve.sense.subscribe(type, (e) => {
+		const off = bus.event.subscribe(type, (e) => {
 			if (e.payload.toolCallId === toolCallId && e.correlationId === correlationId) {
 				off();
 				resolve(e);
@@ -53,8 +53,8 @@ function waitSense(nerve: Nerve, type: string, toolCallId: string, correlationId
 	});
 }
 
-function publishMotor(nerve: Nerve, type: string, payload: Record<string, unknown>, correlationId: string) {
-	nerve.motor.publish({ type, payload, correlationId });
+function publishCommand(bus: Bus, type: string, payload: Record<string, unknown>, correlationId: string) {
+	bus.command.publish({ type, payload, correlationId });
 }
 
 // ---------------------------------------------------------------------------
@@ -62,51 +62,51 @@ function publishMotor(nerve: Nerve, type: string, payload: Record<string, unknow
 // ---------------------------------------------------------------------------
 
 /** Calls fs.find once, then sends text reply. */
-class SingleToolLLM implements Organ {
+class SingleToolLLM implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
 	readonly sources = [] as const;
 	readonly receivedTools: string[] = [];
 	readonly receivedResults: unknown[] = [];
 
-	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("llm.input", async (event) => {
+	mount(bus: Bus): () => void {
+		return bus.event.subscribe("llm.input", async (event) => {
 			const corr = event.correlationId;
 			const tools = event.payload.tools as ToolDefinition[] | undefined;
 			if (tools) this.receivedTools.push(...tools.map((t) => t.name));
 
 			const toolCallId = "tc-001";
-			publishMotor(nerve, "fs.find", { pattern: "*.ts", toolCallId }, corr);
-			const result = await waitSense(nerve, "fs.find", toolCallId, corr);
+			publishCommand(bus, "fs.find", { pattern: "*.ts", toolCallId }, corr);
+			const result = await waitEvent(bus, "fs.find", toolCallId, corr);
 			this.receivedResults.push(result.payload);
 
-			publishMotor(nerve, "llm.response", { text: "Found TypeScript files." }, corr);
+			publishCommand(bus, "llm.response", { text: "Found TypeScript files." }, corr);
 		});
 	}
 }
 
 /** Fan-out: publishes fs.find AND shell.exec simultaneously, collects both before replying. */
-class FanOutLLM implements Organ {
+class FanOutLLM implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
 	readonly sources = [] as const;
 	readonly completionOrder: string[] = [];
 
-	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("llm.input", async (event) => {
+	mount(bus: Bus): () => void {
+		return bus.event.subscribe("llm.input", async (event) => {
 			const corr = event.correlationId;
 
-			publishMotor(nerve, "fs.find", { pattern: "*.ts", toolCallId: "tc-find" }, corr);
-			publishMotor(nerve, "shell.exec", { command: "echo hello", toolCallId: "tc-shell" }, corr);
+			publishCommand(bus, "fs.find", { pattern: "*.ts", toolCallId: "tc-find" }, corr);
+			publishCommand(bus, "shell.exec", { command: "echo hello", toolCallId: "tc-shell" }, corr);
 
 			const [findResult, shellResult] = await Promise.all([
-				waitSense(nerve, "fs.find", "tc-find", corr).then((r) => {
+				waitEvent(bus, "fs.find", "tc-find", corr).then((r) => {
 					this.completionOrder.push("fs.find");
 					return r;
 				}),
-				waitSense(nerve, "shell.exec", "tc-shell", corr).then((r) => {
+				waitEvent(bus, "shell.exec", "tc-shell", corr).then((r) => {
 					this.completionOrder.push("shell.exec");
 					return r;
 				}),
@@ -115,21 +115,21 @@ class FanOutLLM implements Organ {
 			void findResult;
 			void shellResult;
 
-			publishMotor(nerve, "llm.response", { text: "Both done." }, corr);
+			publishCommand(bus, "llm.response", { text: "Both done." }, corr);
 		});
 	}
 }
 
 /** Quiescence: no tool calls — publishes text immediately. */
-class QuiescentLLM implements Organ {
+class QuiescentLLM implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
 	readonly sources = [] as const;
 
-	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("llm.input", (event) => {
-			publishMotor(nerve, "llm.response", { text: "No tools needed." }, event.correlationId);
+	mount(bus: Bus): () => void {
+		return bus.event.subscribe("llm.input", (event) => {
+			publishCommand(bus, "llm.response", { text: "No tools needed." }, event.correlationId);
 		});
 	}
 }
@@ -142,7 +142,7 @@ describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 	it("single tool call round-trip resolves controller.send()", async () => {
 		const llm = new SingleToolLLM();
 		const agent = new Agent();
-		agent.load(llm).load(stubFsOrgan());
+		agent.load(llm).load(stubFsAdapter());
 		const controller = new AgentController(agent);
 
 		const reply = await controller.send("Find TypeScript files");
@@ -150,9 +150,9 @@ describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 		agent.dispose();
 	});
 
-	it("Agent aggregates tool definitions from all loaded organs", () => {
+	it("Agent aggregates tool definitions from all loaded adapters", () => {
 		const agent = new Agent();
-		agent.load(stubFsOrgan()).load(stubShellOrgan());
+		agent.load(stubFsAdapter()).load(stubShellAdapter());
 
 		const names = agent.tools.map((t) => t.name);
 		expect(names).toContain("fs.read");
@@ -163,10 +163,10 @@ describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 		agent.dispose();
 	});
 
-	it("toolCallId is mirrored in Sense result for correlation", async () => {
+	it("toolCallId is mirrored in Event result for correlation", async () => {
 		const llm = new SingleToolLLM();
 		const agent = new Agent();
-		agent.load(llm).load(stubFsOrgan());
+		agent.load(llm).load(stubFsAdapter());
 		const controller = new AgentController(agent);
 
 		await controller.send("go");
@@ -179,7 +179,7 @@ describe("Agent plumbing — full EDA loop", { tags: ["unit"] }, () => {
 	it("fan-out: both tool calls execute in parallel, both complete before reply", async () => {
 		const llm = new FanOutLLM();
 		const agent = new Agent();
-		agent.load(llm).load(stubFsOrgan()).load(stubShellOrgan());
+		agent.load(llm).load(stubFsAdapter()).load(stubShellAdapter());
 		const controller = new AgentController(agent);
 
 		const reply = await controller.send("do both");

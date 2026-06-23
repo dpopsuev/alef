@@ -130,8 +130,6 @@ export class AdapterError extends AlefError {
 		this.phase = phase;
 	}
 }
-/** @deprecated Use AdapterError */
-export const OrganError = AdapterError;
 
 /**
  * Ensure a caught value is an Error instance.

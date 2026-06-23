@@ -109,7 +109,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 	const spaces = new Map<string, Space>();
 	let nerve: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
-		nerve?.signal.publish({ type, payload, correlationId: "" });
+		nerve?.notification.publish({ type, payload, correlationId: "" });
 
 	const base = defineAdapter(
 		"enclosure",

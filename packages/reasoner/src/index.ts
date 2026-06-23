@@ -89,7 +89,7 @@ export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 					if (turnActive) {
 						const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
 						if (text) {
-							ctx.signal.publish({
+							ctx.notification.publish({
 								type: "llm.message-queued",
 								payload: { text },
 								correlationId: ctx.correlationId,
@@ -99,7 +99,7 @@ export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 					}
 					turnActive = true;
 					let partialHistory: unknown[] | undefined;
-					const offCheckpoint = ctx.motor.subscribe("llm.checkpoint", (event) => {
+					const offCheckpoint = ctx.command.subscribe("llm.checkpoint", (event) => {
 						const history = (event.payload as { conversationHistory?: unknown[] }).conversationHistory;
 						if (history) partialHistory = history;
 					});
@@ -113,7 +113,7 @@ export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 					} catch (err) {
 						turnActive = false;
 						const text = `LLM error: ${String(err)}`;
-						ctx.motor.publish({
+						ctx.command.publish({
 							type: "llm.response",
 							payload: withDisplay(
 								{
@@ -269,7 +269,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 			if (!options.trackConcurrentOps) return offOrgan;
 
 			const inflightExcluded = makeInflightExcluded(replyType);
-			const offMotor = nerve.motor.subscribe("*", (event) => {
+			const offMotor = nerve.command.subscribe("*", (event) => {
 				if (inflightExcluded.has(event.type)) return;
 				const toolCallId = extractToolCallId(event.payload);
 				inflight.set(inflightKey(event.type, event.correlationId, toolCallId), {
@@ -279,7 +279,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 					keyArg: pickKeyArg(event.payload),
 				});
 			});
-			const offSense = nerve.sense.subscribe("*", (event) => {
+			const offSense = nerve.event.subscribe("*", (event) => {
 				const toolCallId = extractToolCallId(event.payload);
 				inflight.delete(inflightKey(event.type, event.correlationId, toolCallId));
 				if (event.conditions?.length) {

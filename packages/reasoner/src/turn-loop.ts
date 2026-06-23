@@ -90,6 +90,7 @@ export async function runLLMLoop(ctx: SenseHandlerCtx, options: TurnLoopOptions)
 				...effectiveOptions,
 				motor,
 				signal,
+				notification: signal,
 				correlationId,
 			});
 			if (!finalMessage) break;

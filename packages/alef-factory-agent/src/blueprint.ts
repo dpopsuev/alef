@@ -138,8 +138,8 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 	);
 	const origMount = pipeline.mount.bind(pipeline);
 	(pipeline as { mount: typeof pipeline.mount }).mount = (nerve) => {
-		signalPublish = (type, payload) => nerve.signal.publish({ type, payload, correlationId: "" });
-		nerve.signal.subscribe("llm.token-usage", (event) => {
+		signalPublish = (type, payload) => nerve.notification.publish({ type, payload, correlationId: "" });
+		nerve.notification.subscribe("llm.token-usage", (event) => {
 			const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
 			if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
 		});

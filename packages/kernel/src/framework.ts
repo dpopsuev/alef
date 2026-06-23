@@ -125,7 +125,7 @@ export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOpt
 
 			for (const [eventType, action] of Object.entries(actions.motor ?? {})) {
 				unsubs.push(
-					nerve.motor.subscribe(eventType, (event) => {
+					nerve.command.subscribe(eventType, (event) => {
 						void dispatchMotorAction(event, action, nerve, cache, log, motorInputSchemas[eventType]);
 					}),
 				);
@@ -133,7 +133,7 @@ export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOpt
 
 			for (const [eventType, action] of Object.entries(actions.sense ?? {})) {
 				unsubs.push(
-					nerve.sense.subscribe(eventType, (event) => dispatchSenseAction(eventType, event, nerve, action, log)),
+					nerve.event.subscribe(eventType, (event) => dispatchSenseAction(eventType, event, nerve, action, log)),
 				);
 			}
 

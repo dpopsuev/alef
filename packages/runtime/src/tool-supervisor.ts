@@ -111,7 +111,7 @@ export class ToolSupervisor {
 
 		this.managed.set(name, svc);
 
-		nerve.sense.publish({
+		nerve.event.publish({
 			type: "organ.loaded",
 			correlationId: `fleet-${name}`,
 			payload: {

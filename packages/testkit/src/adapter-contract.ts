@@ -377,7 +377,7 @@ function probeMotor(
 			resolve(null);
 		}, timeoutMs);
 
-		const off = nerve.sense.subscribe(toolName, (event) => {
+		const off = nerve.event.subscribe(toolName, (event) => {
 			if (event.correlationId === correlationId) {
 				clearTimeout(timer);
 				off();
@@ -385,7 +385,7 @@ function probeMotor(
 			}
 		});
 
-		nerve.motor.publish({ type: toolName, correlationId, payload });
+		nerve.command.publish({ type: toolName, correlationId, payload });
 	});
 }
 
@@ -429,7 +429,7 @@ export async function runSchemaContract(
 
 		const resultPromise = new Promise<EventMessage | null>((resolve) => {
 			const timer = setTimeout(() => resolve(null), timeoutMs);
-			nerve.asNerve().sense.subscribe(motorType, (e) => {
+			nerve.asNerve().event.subscribe(motorType, (e) => {
 				if (e.correlationId === correlationId) {
 					clearTimeout(timer);
 					resolve(e);
@@ -494,7 +494,7 @@ export async function runStreamingContract(
 
 	const finalPromise = new Promise<{ durationMs: number }>((resolve, reject) => {
 		const timer = setTimeout(() => reject(new Error(`Tool timed out after ${timeoutMs}ms`)), timeoutMs);
-		nerve.asNerve().sense.subscribe(motorType, (e) => {
+		nerve.asNerve().event.subscribe(motorType, (e) => {
 			if (e.correlationId !== correlationId) return;
 			if (e.payload.isFinal === false) {
 				chunkCount++;

@@ -37,13 +37,13 @@ export class TurnDriver {
 				off();
 				reject(new Error(`TurnDriver.send timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
-			const off = this.nerve.asNerve().motor.subscribe(this.replyEvent, (event) => {
+			const off = this.nerve.asNerve().command.subscribe(this.replyEvent, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
 				resolve(typeof event.payload.text === "string" ? event.payload.text : "");
 			});
-			this.nerve.asNerve().sense.publish({
+			this.nerve.asNerve().event.publish({
 				type: this.triggerEvent,
 				correlationId,
 				payload: { text, sender, tools: this.tools },
@@ -54,7 +54,7 @@ export class TurnDriver {
 
 	receive(text: string, sender = "human"): string {
 		const correlationId = randomUUID();
-		this.nerve.asNerve().sense.publish({
+		this.nerve.asNerve().event.publish({
 			type: this.triggerEvent,
 			correlationId,
 			payload: { text, sender, tools: this.tools },

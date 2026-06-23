@@ -73,7 +73,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 
 	function mountWiring(state: WireState, rules: WiringRule[]) {
 		for (const rule of rules) {
-			const unsub = nerve?.sense.subscribe(rule.on, (event) => {
+			const unsub = nerve?.event.subscribe(rule.on, (event) => {
 				const payload = event.payload as Record<string, unknown>;
 
 				if (rule.when && !evalCondition(rule.when, payload)) return;
@@ -84,7 +84,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 					if (rule.who === "validate" && rule.command) {
 						const result = await runShellCommand(rule.command, opts.cwd);
 						recordEvent(state, rule.on, result.ok ? "passed" : "failed", result.output);
-						nerve?.signal.publish({
+						nerve?.notification.publish({
 							type: "workflow.step",
 							payload: {
 								workflowId: state.id,
@@ -100,14 +100,14 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 							state.retryCounters.set(retryKey, count);
 							if (count > (rule.maxRetries ?? 2)) {
 								recordEvent(state, rule.reject, "escalated", `Max retries (${rule.maxRetries ?? 2}) exceeded`);
-								nerve?.signal.publish({
+								nerve?.notification.publish({
 									type: "workflow.escalated",
 									payload: { workflowId: state.id, rule: retryKey, retries: count },
 									correlationId: event.correlationId,
 								});
 								return;
 							}
-							nerve?.motor.publish({
+							nerve?.command.publish({
 								type: rule.reject,
 								payload: { ...payload, feedback: result.output, attempt: count },
 								correlationId: event.correlationId,
@@ -116,7 +116,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 						}
 						if (result.ok) {
 							state.retryCounters.delete(retryKey);
-							nerve?.sense.publish({
+							nerve?.event.publish({
 								type: rule.produces,
 								correlationId: event.correlationId,
 								payload,
@@ -137,7 +137,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 							verdict.score >= threshold ? "passed" : "failed",
 							`score=${verdict.score} threshold=${threshold}`,
 						);
-						nerve?.signal.publish({
+						nerve?.notification.publish({
 							type: "workflow.step",
 							payload: {
 								workflowId: state.id,
@@ -154,14 +154,14 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 							state.retryCounters.set(retryKey, count);
 							if (count > (rule.maxRetries ?? 2)) {
 								recordEvent(state, rule.reject, "escalated");
-								nerve?.signal.publish({
+								nerve?.notification.publish({
 									type: "workflow.escalated",
 									payload: { workflowId: state.id, rule: retryKey, score: verdict.score },
 									correlationId: event.correlationId,
 								});
 								return;
 							}
-							nerve?.motor.publish({
+							nerve?.command.publish({
 								type: rule.reject,
 								payload: { ...payload, feedback: verdict.feedback, score: verdict.score, attempt: count },
 								correlationId: event.correlationId,
@@ -169,7 +169,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 							return;
 						}
 						state.retryCounters.delete(retryKey);
-						nerve?.sense.publish({
+						nerve?.event.publish({
 							type: rule.produces,
 							correlationId: event.correlationId,
 							payload: { ...payload, score: verdict.score },
@@ -180,7 +180,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 
 					if (rule.who === "gate") {
 						recordEvent(state, rule.on, "routed", `→ ${rule.produces}`);
-						nerve?.sense.publish({
+						nerve?.event.publish({
 							type: rule.produces,
 							correlationId: event.correlationId,
 							payload,
@@ -202,7 +202,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 						const reply = await opts.dispatch(text, rule.who, rule.model);
 						state.retryCounters.delete(retryKey);
 						recordEvent(state, rule.produces, "completed");
-						nerve?.signal.publish({
+						nerve?.notification.publish({
 							type: "workflow.step",
 							payload: {
 								workflowId: state.id,
@@ -212,7 +212,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 							},
 							correlationId: event.correlationId,
 						});
-						nerve?.sense.publish({
+						nerve?.event.publish({
 							type: rule.produces,
 							correlationId: event.correlationId,
 							payload: { result: reply, text: reply },
@@ -221,7 +221,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 					} catch (err) {
 						const msg = err instanceof Error ? err.message : String(err);
 						recordEvent(state, rule.produces, "failed", msg);
-						nerve?.signal.publish({
+						nerve?.notification.publish({
 							type: "workflow.error",
 							payload: { workflowId: state.id, step: rule.who, error: msg },
 							correlationId: event.correlationId,
@@ -262,11 +262,11 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 
 						const doneRule = wiring.find((r) => r.produces === "done");
 						if (doneRule) {
-							const unsub = nerve?.sense.subscribe("done", () => {
+							const unsub = nerve?.event.subscribe("done", () => {
 								state.status = "completed";
 								state.completedAt = Date.now();
 								recordEvent(state, "done", "completed");
-								nerve?.signal.publish({
+								nerve?.notification.publish({
 									type: "workflow.completed",
 									payload: { workflowId: id, elapsedMs: Date.now() - state.startedAt },
 									correlationId: ctx.correlationId,
@@ -277,7 +277,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 
 						mountWiring(state, wiring);
 
-						nerve?.motor.publish({
+						nerve?.command.publish({
 							type: start,
 							payload: { text: input },
 							correlationId: ctx.correlationId,

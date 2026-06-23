@@ -115,14 +115,14 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 		const motorUnsubs: Array<() => void> = [];
 		for (const toolType of cachedTools) {
 			motorUnsubs.push(
-				nerve.motor.subscribe(toolType, (event) => {
+				nerve.command.subscribe(toolType, (event) => {
 					const cacheKey = makeCacheKey(event.type, event.payload);
 					const cached = cache.get(cacheKey);
 
 					if (cached !== undefined) {
 						hits++;
 						// Publish cached result directly to sense bus
-						nerve.sense.publish(
+						nerve.event.publish(
 							buildSense(
 								{ ...event, timestamp: Date.now(), elapsed: 0 },
 								{ ...cached, _fromCache: true, isFinal: true },
@@ -137,7 +137,7 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 					const correlationId = event.correlationId;
 					let captured = false;
 
-					const senseUnsub = nerve.sense.subscribe(event.type, (senseEvent) => {
+					const senseUnsub = nerve.event.subscribe(event.type, (senseEvent) => {
 						if (captured || senseEvent.correlationId !== correlationId) return;
 
 						if (!senseEvent.isError) {
@@ -177,7 +177,7 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 		const invalidateUnsubs: Array<() => void> = [];
 		for (const toolType of invalidatingTools) {
 			invalidateUnsubs.push(
-				nerve.motor.subscribe(toolType, () => {
+				nerve.command.subscribe(toolType, () => {
 					// Invalidate related cache entries
 					const toInvalidate = ["motor/fs.read", "motor/fs.grep", "motor/fs.find", "motor/code.read"];
 					cache.invalidate(toInvalidate);

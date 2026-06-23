@@ -14,9 +14,9 @@ export function defineStubAdapter(name: string, tools: ToolDefinition[], handler
 		sources: [],
 		mount(nerve: Bus): () => void {
 			const offs = tools.map((t) =>
-				nerve.motor.subscribe(t.name, (event: CommandMessage) => {
+				nerve.command.subscribe(t.name, (event: CommandMessage) => {
 					void handler(event.type, event.payload).then((result) => {
-						nerve.sense.publish(buildSense(event, result));
+						nerve.event.publish(buildSense(event, result));
 					});
 				}),
 			);

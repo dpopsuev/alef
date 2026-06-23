@@ -129,14 +129,14 @@ export function wrapWithPermissions(adapter: Adapter, allowedTools: string[]): A
 				motor: {
 					...nerve.motor,
 					subscribe: (type, handler) => {
-						if (type === "*") return nerve.motor.subscribe(type, handler);
-						return nerve.motor.subscribe(type, (event) => {
+						if (type === "*") return nerve.command.subscribe(type, handler);
+						return nerve.command.subscribe(type, (event) => {
 							if (allowed.has(event.type)) {
 								void handler(event);
 								return;
 							}
 							const toolCallId = extractToolCallId(event.payload);
-							nerve.sense.publish({
+							nerve.event.publish({
 								type: event.type,
 								payload: toolCallId !== undefined ? { toolCallId } : {},
 								isError: true,

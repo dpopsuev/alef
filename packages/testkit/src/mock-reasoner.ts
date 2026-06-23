@@ -9,8 +9,8 @@ export class MockReasoner implements Adapter {
 	constructor(private readonly cannedText: string = "mock response") {}
 
 	mount(nerve: Bus): () => void {
-		return nerve.sense.subscribe("llm.input", (event) => {
-			nerve.motor.publish({
+		return nerve.event.subscribe("llm.input", (event) => {
+			nerve.command.publish({
 				type: "llm.response" as const,
 				payload: { text: this.cannedText },
 				correlationId: event.correlationId,

@@ -141,7 +141,7 @@ export class RouterOrgan implements Adapter {
 	mount(nerve: Bus): () => void {
 		if (this.server) throw new Error("RouterOrgan already mounted");
 		// Subscribe wildcards — forward every bus event to SSE clients.
-		const off1 = nerve.motor.subscribe("*", (event) => {
+		const off1 = nerve.command.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
 				bus: "motor",
@@ -152,7 +152,7 @@ export class RouterOrgan implements Adapter {
 			});
 		});
 
-		const off2 = nerve.sense.subscribe("*", (event) => {
+		const off2 = nerve.event.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
 				bus: "sense",
@@ -163,7 +163,7 @@ export class RouterOrgan implements Adapter {
 			});
 		});
 
-		const off3 = nerve.signal.subscribe("*", (event) => {
+		const off3 = nerve.notification.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
 				bus: "signal",
@@ -260,7 +260,7 @@ export class RouterOrgan implements Adapter {
 				// the message arrives on the sense bus for Reasoner/ScriptedReasoner.
 				this.options.onMessage(text);
 			} else {
-				nerve.motor.publish({
+				nerve.command.publish({
 					type: this.options.triggerEvent,
 					payload: { role: "user", text },
 					correlationId,

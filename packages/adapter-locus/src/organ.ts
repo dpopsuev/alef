@@ -69,7 +69,7 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 
 					innerCleanup = mcpAdapter.mount(nerve);
 
-					nerve.sense.publish({
+					nerve.event.publish({
 						type: "organ.loaded",
 						correlationId: "locus-boot",
 						payload: {
@@ -83,7 +83,7 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 				})
 				.catch((err: unknown) => {
 					debugLog("locus:boot:error", { error: String(err) });
-					nerve.signal.publish({
+					nerve.notification.publish({
 						type: "organ.error",
 						correlationId: "locus-boot",
 						payload: {

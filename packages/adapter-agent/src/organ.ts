@@ -315,7 +315,7 @@ export function createAgentOrgan(
 			children.delete(name);
 			strategies.delete(name);
 			if (result.tmpDir) rmSync(result.tmpDir, { recursive: true, force: true });
-			mountedNerve?.sense.publish({
+			mountedNerve?.event.publish({
 				type: "child.reaped",
 				correlationId: "system",
 				isError: false,
@@ -349,7 +349,7 @@ export function createAgentOrgan(
 				entry.process.kill("SIGTERM");
 				children.delete(childName);
 				strategies.delete(childName);
-				mountedNerve?.sense.publish({
+				mountedNerve?.event.publish({
 					type: "child.reaped",
 					correlationId: "system",
 					isError: false,
@@ -641,7 +641,7 @@ export function createAgentOrgan(
 								text,
 								timeoutMs,
 								onChunk: (chunk) => {
-									mountedNerve?.signal.publish({
+									mountedNerve?.notification.publish({
 										type: "task.progress",
 										payload: { taskId, chunk },
 										correlationId: ctx.correlationId,
@@ -652,7 +652,7 @@ export function createAgentOrgan(
 								task.status = "completed";
 								task.reply = reply;
 								task.completedAt = Date.now();
-								mountedNerve?.signal.publish({
+								mountedNerve?.notification.publish({
 									type: "task.completed",
 									payload: { taskId, profile, reply, elapsedMs: Date.now() - task.startedAt },
 									correlationId: ctx.correlationId,
@@ -662,7 +662,7 @@ export function createAgentOrgan(
 								task.status = "failed";
 								task.error = err instanceof Error ? err.message : String(err);
 								task.completedAt = Date.now();
-								mountedNerve?.signal.publish({
+								mountedNerve?.notification.publish({
 									type: "task.failed",
 									payload: { taskId, profile, error: task.error, elapsedMs: Date.now() - task.startedAt },
 									correlationId: ctx.correlationId,
@@ -888,7 +888,7 @@ export function createAgentOrgan(
 				mountedNerve = nerve;
 				publishInnerSignal = (innerType, payload, correlationId) => {
 					const { callId, ...innerPayload } = payload as { callId?: string } & Record<string, unknown>;
-					nerve.signal.publish({
+					nerve.notification.publish({
 						type: "agent.run.inner",
 						payload: { callId: callId ?? correlationId, innerType, innerPayload },
 						correlationId,

@@ -265,7 +265,7 @@ describe("InProcessNerve.firstSeen LRU cap", { tags: ["unit"] }, () => {
 
 		// Access internals via reflection.
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const commandBus = (nerve as any)._motor as { firstSeen: Map<string, number> };
+		const commandBus = (nerve as any)._buses.command as { firstSeen: Map<string, number> };
 
 		expect(commandBus.firstSeen.size).toBeLessThanOrEqual(500);
 	});
@@ -286,7 +286,7 @@ describe("InProcessNerve.firstSeen LRU cap", { tags: ["unit"] }, () => {
 		await new Promise((r) => setTimeout(r, 10));
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const commandBus = (nerve as any)._motor as { firstSeen: Map<string, number> };
+		const commandBus = (nerve as any)._buses.command as { firstSeen: Map<string, number> };
 		expect(commandBus.firstSeen.has(correlationId)).toBe(false);
 	});
 });

@@ -1,5 +1,5 @@
 import { type Api, getModels, getProviders, type KnownProvider, type Model } from "@dpopsuev/alef-llm";
-import type { AlefConfig } from "../config.js";
+import type { ModelConfig } from "./resolve.js";
 
 export interface ModelProfile {
 	name: string;
@@ -24,14 +24,14 @@ function matchesPattern(id: string, patterns: string[]): boolean {
 	});
 }
 
-export function resolveProfile(cfg: AlefConfig): ResolvedProfile | null {
+export function resolveProfile(cfg: ModelConfig): ResolvedProfile | null {
 	const profileName = cfg.profile;
 	if (!profileName || !cfg.profiles?.[profileName]) return null;
 
 	const profile = cfg.profiles[profileName];
 	const models: ResolvedProfile["models"] = [];
 
-	for (const provider of profile.providers) {
+	for (const provider of profile.providers ?? []) {
 		if (!getProviders().includes(provider as KnownProvider)) continue;
 		for (const m of getModels(provider as KnownProvider)) {
 			if (profile.models && !matchesPattern(m.id, profile.models)) continue;
@@ -46,13 +46,13 @@ export function resolveProfile(cfg: AlefConfig): ResolvedProfile | null {
 	};
 }
 
-export function getProfileNames(cfg: AlefConfig): string[] {
+export function getProfileNames(cfg: ModelConfig): string[] {
 	return cfg.profiles ? Object.keys(cfg.profiles) : [];
 }
 
 export type ModelTier = "strong" | "default" | "fast";
 
-export function resolveTier(cfg: AlefConfig, tier: ModelTier): string | undefined {
+export function resolveTier(cfg: ModelConfig, tier: ModelTier): string | undefined {
 	const profileName = cfg.profile;
 	if (!profileName || !cfg.profiles?.[profileName]) return undefined;
 	const profile = cfg.profiles[profileName];

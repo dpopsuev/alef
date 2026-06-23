@@ -1,13 +1,11 @@
 import {
-	type Bus,
-	type BusMiddleware,
-	buildSense,
 	type CacheStrategy,
 	defineAdapter,
 	makeCacheKey,
 	typedAction,
 	withDisplay,
-} from "@dpopsuev/alef-kernel";
+} from "@dpopsuev/alef-kernel/adapter";
+import { type Bus, type BusMiddleware, buildSense } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 
 export interface CacheOrganOptions {

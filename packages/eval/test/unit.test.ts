@@ -5,7 +5,7 @@
  * Layer 2: scoreSpans() pure scoring function.
  */
 
-import { InProcessBus } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
 import { EvaluatorAdapter } from "../src/evaluator-adapter.js";
 import type { SpanRecord } from "../src/metrics.js";

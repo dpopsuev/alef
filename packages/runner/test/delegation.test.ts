@@ -8,7 +8,8 @@
 
 import { randomUUID } from "node:crypto";
 import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
-import { defineAdapter, type EventInput, typedStreamAction } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedStreamAction } from "@dpopsuev/alef-kernel/adapter";
+import type { EventInput } from "@dpopsuev/alef-kernel/bus";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";

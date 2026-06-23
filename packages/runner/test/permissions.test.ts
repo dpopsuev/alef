@@ -3,8 +3,8 @@
  */
 
 import { wrapWithPermissions } from "@dpopsuev/alef-agent-blueprint";
-import type { Adapter } from "@dpopsuev/alef-kernel";
-import { InProcessBus } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
 import { parseArgs } from "../src/args.js";
 

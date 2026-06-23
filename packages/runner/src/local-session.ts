@@ -42,7 +42,7 @@ function registerAdapterSignalMaps(
 	}
 }
 
-import type { TuiContribution, TuiSignalHandler } from "@dpopsuev/alef-kernel";
+import type { TuiContribution, TuiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
 
 const tuiSignalHandlers = new Map<string, TuiSignalHandler>();
 

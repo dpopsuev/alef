@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDiscourseOrgan } from "@dpopsuev/alef-adapter-discourse";
 import { createPlanOrgan } from "@dpopsuev/alef-adapter-plan";
-import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel";
+import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("multi-agent plan + board coordination", () => {

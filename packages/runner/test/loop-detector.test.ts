@@ -1,4 +1,4 @@
-import { InProcessBus } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it, vi } from "vitest";
 import { LoopGuard } from "../src/loop-detector.js";
 

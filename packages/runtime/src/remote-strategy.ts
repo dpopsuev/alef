@@ -1,10 +1,10 @@
 import http from "node:http";
+import { Watchdog } from "@dpopsuev/alef-kernel/bus";
 import {
 	DEFAULT_CONVERSATION_TIMEOUT_MS,
 	type ExecutionStrategy,
 	type SendRequest,
-	Watchdog,
-} from "@dpopsuev/alef-kernel";
+} from "@dpopsuev/alef-kernel/execution";
 
 function postMessage(endpoint: string, text: string, timeoutMs: number): Promise<void> {
 	return new Promise((resolve, reject) => {

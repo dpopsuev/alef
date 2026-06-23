@@ -8,8 +8,8 @@ import {
 	materializeBlueprint,
 	materializeDefaultOrgans,
 } from "@dpopsuev/alef-agent-blueprint";
-import type { Adapter } from "@dpopsuev/alef-kernel";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { buildAdapterDirectives, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
 

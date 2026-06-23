@@ -19,9 +19,14 @@
  * Measurement: 69.9% of input tokens were schema overhead before this (2026-05-28).
  */
 
-import { toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
-import type { AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import {
+	type AdapterLogger,
+	defineAdapter,
+	type ToolDefinition,
+	toolInputToJsonSchema,
+	typedAction,
+	withDisplay,
+} from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
 import { z } from "zod";

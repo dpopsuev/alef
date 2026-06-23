@@ -1,5 +1,6 @@
-import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Context, FauxResponseFactory } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { afterEach, describe, expect, it } from "vitest";
@@ -642,7 +643,7 @@ describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
 // Schema validation hang regression
 // ---------------------------------------------------------------------------
 
-import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 
 describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {

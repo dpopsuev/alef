@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import type { PlanUpdateEvent } from "@dpopsuev/alef-kernel";
+import type { PlanUpdateEvent } from "@dpopsuev/alef-kernel/adapter";
 
 export type Phase =
 	| "intention"

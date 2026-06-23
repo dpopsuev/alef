@@ -1,5 +1,5 @@
-import { DEFAULT_LLM_TIMEOUT_MS } from "@dpopsuev/alef-kernel";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { DEFAULT_LLM_TIMEOUT_MS } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import {
 	type Api,

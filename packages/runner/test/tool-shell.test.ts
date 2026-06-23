@@ -11,7 +11,7 @@
  * buildAdapterDirectives — index from organ list
  */
 
-import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { Agent, buildAdapterDirectives, buildBootCatalog, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";

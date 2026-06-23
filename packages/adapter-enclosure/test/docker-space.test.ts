@@ -6,7 +6,7 @@
  * Each test gets a fresh container. Ryuk cleans up on process exit.
  */
 
-import { InProcessBus } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
 import { createEnclosureOrgan } from "../src/adapter.js";
 import { DockerSpace } from "../src/docker-space.js";

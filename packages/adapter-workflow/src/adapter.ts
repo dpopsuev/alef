@@ -1,7 +1,14 @@
-import { newCorrelationId, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
 import type { BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, tool, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import {
+	defineAdapter,
+	tool,
+	typedAction,
+	VALIDATE_REQUEST,
+	VALIDATE_RESULT,
+	withDisplay,
+} from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { newCorrelationId } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { z } from "zod";
 import type { Contract } from "./contract.js";

@@ -36,9 +36,24 @@ export type {
 	Adapter,
 	AdapterContributions,
 	AdapterTheme,
+	AgentRunContext,
+	PlanUpdateEvent,
 	PortCardinality,
 	PortDefinition,
+	Reasoner,
+	ReasoningContributions,
+	SkillBook,
+	SkillPage,
 	ToolDefinition,
+	TuiContribution,
+	TuiSignalHandler,
+} from "./buses.js";
+export {
+	createCompositeAgentRunContribution,
+	gimpedAdapter,
+	isGimped,
+	passthroughSchema,
+	toolInputToJsonSchema,
 } from "./buses.js";
 export { defineAdapter } from "./framework.js";
 export { getBoolean, getNumber, getString, type SenseDisplayBlock, withDisplay, withLlmContent } from "./payload.js";

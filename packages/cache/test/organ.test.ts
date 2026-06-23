@@ -1,4 +1,4 @@
-import { buildSense } from "@dpopsuev/alef-kernel";
+import { buildSense } from "@dpopsuev/alef-kernel/bus";
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createCacheOrgan } from "../src/adapter.js";

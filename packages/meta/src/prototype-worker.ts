@@ -11,7 +11,7 @@
  */
 
 import { parentPort, workerData } from "node:worker_threads";
-import { toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
+import { toolInputToJsonSchema } from "@dpopsuev/alef-kernel/adapter";
 import {
 	type Bus,
 	type BusMessage,

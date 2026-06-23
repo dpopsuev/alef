@@ -17,9 +17,8 @@
  * Powered by @dpopsuev/web-spider — Readability + Turndown + structured output.
  */
 
-import { withLlmContent } from "@dpopsuev/alef-kernel";
 import type { Adapter, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, withLlmContent } from "@dpopsuev/alef-kernel/adapter";
 import {
 	BraveSearchEngine,
 	DdgSearchEngine,

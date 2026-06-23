@@ -1,4 +1,4 @@
-import { InProcessBus } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
 import type { SupervisorConfig } from "../src/tool-supervisor.js";
 import { ToolSupervisor } from "../src/tool-supervisor.js";

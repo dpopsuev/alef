@@ -7,7 +7,7 @@
 import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
 import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
 import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
-import type { Adapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { registerFauxProvider } from "@dpopsuev/alef-llm";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";

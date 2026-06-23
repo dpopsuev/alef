@@ -94,7 +94,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 			);
 			return organs;
 		},
-		createAdHocSession: factory,
+		subagentFactory: factory,
 	});
 
 	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;

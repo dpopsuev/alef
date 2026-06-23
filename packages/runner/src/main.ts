@@ -5,7 +5,7 @@ import "@dpopsuev/alef-factory-agent";
 
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { parseArgs } from "./args.js";
 import { dispatchCliOp } from "./cli-ops.js";
 import { loadConfig } from "./config.js";
@@ -146,7 +146,8 @@ import("@dpopsuev/alef-storage")
 	.then(({ setEmbedder, LocalEmbedder }) => setEmbedder(new LocalEmbedder()))
 	.catch(() => {});
 
-const loaded = await loadAdapters(args, cfg, log);
+const sessionDir = dirname(session.path);
+const loaded = await loadAdapters(args, cfg, log, sessionDir);
 const { blueprintUpgradePolicy, blueprintPath } = loaded;
 
 const {

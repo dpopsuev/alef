@@ -54,7 +54,12 @@ export interface AdapterLoadResult {
 	writableRoots: readonly string[] | undefined;
 }
 
-export async function loadAdapters(args: Args, cfg: AlefConfig, log: Logger): Promise<AdapterLoadResult> {
+export async function loadAdapters(
+	args: Args,
+	cfg: AlefConfig,
+	log: Logger,
+	sessionDir?: string,
+): Promise<AdapterLoadResult> {
 	let blueprintPath: string | undefined;
 	let blueprintName: string | undefined;
 
@@ -117,6 +122,7 @@ export async function loadAdapters(args: Args, cfg: AlefConfig, log: Logger): Pr
 
 		const materialized = await materializeBlueprint(definition, {
 			cwd: args.cwd,
+			sessionDir,
 			loggerFor: (name) => log.child({ adapter: name }),
 			allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 			writableRoots: resolveWritableRoots(args.cwd, cfg),
@@ -140,6 +146,7 @@ export async function loadAdapters(args: Args, cfg: AlefConfig, log: Logger): Pr
 	if (userAdapters) log.info({ count: userAdapters.length }, "loaded user adapters config");
 	const defaultMaterialized = await materializeBlueprint(definition, {
 		cwd: args.cwd,
+		sessionDir,
 		loggerFor: (name) => log.child({ adapter: name }),
 		allowedTools: args.yolo ? ["*"] : cfg.permissions?.allowed_tools,
 		writableRoots: resolveWritableRoots(args.cwd, cfg),

@@ -47,6 +47,7 @@ function resolveAdapterPackage(name: string): string {
 /** Common options passed to every adapter factory. */
 export interface AdapterFactoryOptions {
 	cwd: string;
+	sessionDir?: string;
 	actions?: string[];
 	logger?: AdapterLogger;
 	/**
@@ -91,6 +92,7 @@ export interface MaterializerOptions {
 	 * Source: config.yaml security.writable_roots (after placeholder resolution).
 	 */
 	writableRoots?: readonly string[];
+	sessionDir?: string;
 }
 
 export interface MaterializerResult {
@@ -305,6 +307,7 @@ export async function materializeBlueprint(
 			const mod = await loadAdapterModule(adapterDef, opts.resolveExternalPath);
 			const adapter = await mod.createAdapter({
 				cwd: opts.cwd,
+				sessionDir: opts.sessionDir,
 				actions: adapterDef.actions.length > 0 ? adapterDef.actions : undefined,
 				logger: opts.loggerFor?.(adapterDef.name),
 				writableRoots: opts.writableRoots,

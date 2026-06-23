@@ -29,7 +29,11 @@ export interface ScriptedLlmOptions {}
 export class ScriptedLlmAdapter implements Adapter {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
-	readonly subscriptions = { command: [] as const, event: ["llm.input"] as readonly string[] };
+	readonly subscriptions = {
+		command: [] as const,
+		event: ["llm.input"] as readonly string[],
+		notification: [] as const,
+	};
 	readonly sources = [] as const;
 
 	private readonly steps: SerializedStep[];

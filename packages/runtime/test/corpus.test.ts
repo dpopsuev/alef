@@ -23,7 +23,7 @@ function makeNoopAdapter(): Adapter {
 	return {
 		name: "noop",
 		tools: [],
-		subscriptions: { command: [] as const, event: [] as const },
+		subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 		sources: [],
 		mount: (_bus: Bus) => () => {},
 	};
@@ -33,7 +33,7 @@ function makeNamedAdapter(name: string): Adapter {
 	return {
 		name,
 		tools: [],
-		subscriptions: { command: [] as const, event: [] as const },
+		subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 		sources: [],
 		mount: () => () => {},
 	};
@@ -49,7 +49,7 @@ function makeToolAdapter(toolNames: string[]): Adapter {
 				inputSchema: z.object({}),
 			}),
 		),
-		subscriptions: { command: [] as const, event: [] as const },
+		subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 		sources: [],
 		mount: (_bus: Bus) => () => {},
 	};
@@ -60,7 +60,7 @@ function makeEchoAdapter(): Adapter {
 	return {
 		name: "echo",
 		tools: [],
-		subscriptions: { command: [] as const, event: [] as const },
+		subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 		sources: [],
 		mount: (bus: Bus) => {
 			return bus.event.subscribe("llm.input", (event) => {
@@ -121,7 +121,7 @@ describe("Agent — load()", { tags: ["unit"] }, () => {
 		const badAdapter: Adapter = {
 			name: "bad",
 			tools: [],
-			subscriptions: { command: [] as const, event: [] as const },
+			subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount: () => {
 				throw new Error("mount failed");
@@ -142,7 +142,7 @@ describe("Agent — load()", { tags: ["unit"] }, () => {
 		agent.load({
 			name: "counted",
 			tools: [],
-			subscriptions: { command: [] as const, event: [] as const },
+			subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount: (_n: Bus) => {
 				mountCalls++;
@@ -200,7 +200,7 @@ describe("Agent — dispose()", { tags: ["unit"] }, () => {
 		agent.load({
 			name: "tracked",
 			tools: [],
-			subscriptions: { command: [] as const, event: [] as const },
+			subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount: (_n: Bus) => () => {
 				unmounted = true;
@@ -230,7 +230,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 		const adapter: Adapter = {
 			name: "v-adapter",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			publishSchemas: {
 				command: { "v.event": z.object({ count: z.number() }) },
@@ -250,7 +250,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 		const adapter: Adapter = {
 			name: "bad-adapter",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			publishSchemas: {
 				command: { "strict.event": z.object({ required: z.string() }) },
@@ -275,7 +275,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 		const adapter: Adapter = {
 			name: "bad-event-adapter",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			publishSchemas: {
 				event: { "event.event": z.object({ value: z.number() }) },
@@ -298,7 +298,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 		const adapter: Adapter = {
 			name: "partial-adapter",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			publishSchemas: {
 				command: { "only.this": z.object({ x: z.number() }) },
@@ -323,7 +323,7 @@ describe("Agent payload validation", { tags: ["unit"] }, () => {
 		const adapter: Adapter = {
 			name: "named-adapter",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			publishSchemas: {
 				command: { "typed.event": z.object({ score: z.number() }) },
@@ -367,7 +367,7 @@ describe("Agent — unload()", { tags: ["unit"] }, () => {
 		agent.load({
 			name: "tracked",
 			tools: [],
-			subscriptions: { command: [] as const, event: [] as const },
+			subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount: (_n: Bus) => () => {
 				unmounted = true;
@@ -404,7 +404,7 @@ describe("Agent — reload()", { tags: ["unit"] }, () => {
 		agent.load({
 			name: "hot-adapter",
 			tools: [],
-			subscriptions: { command: [] as const, event: [] as const },
+			subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount: (_n: Bus) => () => {
 				v1Unmounted = true;
@@ -415,7 +415,7 @@ describe("Agent — reload()", { tags: ["unit"] }, () => {
 		const v2: Adapter = {
 			name: "hot-adapter",
 			tools: [],
-			subscriptions: { command: [] as const, event: [] as const },
+			subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount: (_n: Bus) => {
 				v2Mounted = true;
@@ -441,14 +441,14 @@ describe("Agent — reload()", { tags: ["unit"] }, () => {
 		agent.load({
 			name: "adapter",
 			tools: [{ name: "old-tool", description: "", inputSchema: z.object({}) }],
-			subscriptions: { command: [] as const, event: [] as const },
+			subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount: () => () => {},
 		});
 		agent.reload({
 			name: "adapter",
 			tools: [{ name: "new-tool", description: "", inputSchema: z.object({}) }],
-			subscriptions: { command: [] as const, event: [] as const },
+			subscriptions: { command: [] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount: () => () => {},
 		});

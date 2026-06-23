@@ -241,7 +241,7 @@ function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter>
 				type: string;
 				name: string;
 				tools: Array<{ name: string; description: string; jsonSchema: Record<string, unknown> }>;
-				subscriptions: { command: string[]; event: string[] };
+				subscriptions: { command: string[]; event: string[]; notification: string[] };
 				sources: [];
 			}) => {
 				if (msg.type !== "ready") {
@@ -261,7 +261,11 @@ function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter>
 				const proxyAdapter: Adapter = {
 					name: msg.name,
 					tools,
-					subscriptions: { command: msg.subscriptions.command, event: msg.subscriptions.event },
+					subscriptions: {
+						command: msg.subscriptions.command,
+						event: msg.subscriptions.event,
+						notification: msg.subscriptions.notification,
+					},
 					sources: [],
 					mount(bus) {
 						const offs = msg.subscriptions.command.map((type) =>

@@ -16,7 +16,7 @@ import { EvalHarness } from "../src/harness.js";
 class FileReaderLLMAdapter implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const, notification: [] as const };
 	readonly sources = [] as const;
 	mount(bus: Bus): () => void {
 		return bus.event.subscribe("llm.input", async (event) => {

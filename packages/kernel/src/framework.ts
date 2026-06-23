@@ -98,6 +98,7 @@ export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOpt
 		subscriptions: {
 			command: commandSubscriptions,
 			event: eventSubscriptions,
+			notification: [],
 		},
 		sources: opts.sources ?? [],
 		directives: opts.directives,

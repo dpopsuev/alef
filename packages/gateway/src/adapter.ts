@@ -72,7 +72,7 @@ export class RouterOrgan implements Adapter {
 	readonly subscriptions = {
 		command: ["*"] as const,
 		event: ["*"] as const,
-		signal: ["*"] as const,
+		notification: ["*"] as const,
 	};
 	readonly sources = [] as const;
 

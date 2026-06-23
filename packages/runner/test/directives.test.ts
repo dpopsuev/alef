@@ -181,7 +181,7 @@ describe("registerAdapters", { tags: ["unit"] }, () => {
 		const adapter = {
 			name: "fs",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			directives: ["Always read before editing."],
 			mount: () => () => {},
@@ -195,7 +195,7 @@ describe("registerAdapters", { tags: ["unit"] }, () => {
 		const silent = {
 			name: "shell",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			mount: () => () => {},
 		};

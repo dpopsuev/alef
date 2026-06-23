@@ -32,6 +32,7 @@ export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
 		subscriptions: {
 			command: [VALIDATE_REQUEST],
 			event: [],
+			notification: [],
 		},
 		sources: [],
 		mount(bus: Bus): () => void {

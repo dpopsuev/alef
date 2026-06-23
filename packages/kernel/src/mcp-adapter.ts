@@ -22,7 +22,7 @@ class McpAdapterImpl implements Adapter {
 	readonly description: string;
 	readonly labels = ["mcp", "external"] as const;
 	readonly tools: readonly ToolDefinition[];
-	readonly subscriptions: { readonly command: readonly string[]; readonly event: readonly string[] };
+	readonly subscriptions: Adapter["subscriptions"];
 	readonly sources: readonly { readonly name: string; readonly kind: "file" | "memory" | "process" }[] = [];
 	readonly directives?: readonly string[];
 
@@ -39,6 +39,7 @@ class McpAdapterImpl implements Adapter {
 		this.subscriptions = {
 			command: tools.map((t) => t.name),
 			event: [],
+			notification: [],
 		};
 	}
 

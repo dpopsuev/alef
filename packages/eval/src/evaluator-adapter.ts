@@ -33,7 +33,7 @@ export interface EvaluatorAdapterState {
 export class EvaluatorAdapter implements Adapter {
 	readonly name = "evaluator";
 	readonly tools = [] as const;
-	readonly subscriptions = { command: ["*"] as const, event: ["*"] as const };
+	readonly subscriptions = { command: ["*"] as const, event: ["*"] as const, notification: [] as const };
 	readonly sources = [] as const;
 
 	private readonly threshold: number;

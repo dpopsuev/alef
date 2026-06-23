@@ -103,7 +103,11 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 			"Scribe work graph — spawns a dedicated Scribe adapter for artifact tracking, task dispatch, and knowledge management.",
 		labels: ["scribe", "blackboard", "planning"] as const,
 		tools: [],
-		subscriptions: { command: [] as readonly string[], event: [] as readonly string[] },
+		subscriptions: {
+			command: [] as readonly string[],
+			event: [] as readonly string[],
+			notification: [] as readonly string[],
+		},
 		sources: [{ name: "scribe-db", kind: "process" }] as const,
 		directives: [
 			"Scribe tools are available under the scribe.* prefix. Use scribe.artifact to create, query, and manage work artifacts. Use scribe.graph for dependency trees and briefings.",

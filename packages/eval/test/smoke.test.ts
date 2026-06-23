@@ -17,7 +17,7 @@ import { formatReport } from "../src/report.js";
 class QuiescentLLMAdapter implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const, notification: [] as const };
 	readonly sources = [] as const;
 
 	constructor(private readonly reply: string = "smoke ok") {}

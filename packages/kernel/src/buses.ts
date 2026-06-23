@@ -361,10 +361,7 @@ export interface Adapter {
 	readonly tools: readonly ToolDefinition[];
 	mount(bus: Bus): () => void;
 	close?(): Promise<void>;
-	readonly subscriptions: {
-		readonly command: readonly string[];
-		readonly event: readonly string[];
-	};
+	readonly subscriptions: ChannelMap<readonly string[]>;
 	readonly sources: readonly {
 		readonly name: string;
 		readonly kind: "file" | "memory" | "process";
@@ -373,13 +370,8 @@ export interface Adapter {
 	readonly contributions?: AdapterContributions;
 	readonly description?: string;
 	readonly labels?: readonly string[];
-	readonly publishSchemas?: {
-		readonly command?: Readonly<Record<string, ZodTypeAny>>;
-		readonly event?: Readonly<Record<string, ZodTypeAny>>;
-	};
-	readonly inputSchemas?: {
-		readonly command?: Readonly<Record<string, ZodTypeAny>>;
-	};
+	readonly publishSchemas?: Partial<ChannelMap<Readonly<Record<string, ZodTypeAny>>>>;
+	readonly inputSchemas?: Partial<ChannelMap<Readonly<Record<string, ZodTypeAny>>>>;
 	ready?(): Promise<void>;
 }
 
@@ -404,7 +396,8 @@ export function isGimped(adapter: Adapter): boolean {
 	return (
 		adapter.tools.length === 0 &&
 		adapter.subscriptions.command.length === 0 &&
-		adapter.subscriptions.event.length === 0
+		adapter.subscriptions.event.length === 0 &&
+		adapter.subscriptions.notification.length === 0
 	);
 }
 
@@ -412,7 +405,7 @@ export function gimpedAdapter(name: string): Adapter {
 	return {
 		name,
 		tools: [],
-		subscriptions: { command: [], event: [] },
+		subscriptions: { command: [], event: [], notification: [] },
 		sources: [],
 		mount: () => () => {},
 	};

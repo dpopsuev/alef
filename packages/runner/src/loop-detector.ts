@@ -75,7 +75,7 @@ function hashResult(payload: Record<string, unknown>): string {
 export class LoopGuard implements Adapter {
 	readonly name = "loop-detector";
 	readonly tools = [];
-	readonly subscriptions = { command: ["*" as const], event: [] as const };
+	readonly subscriptions = { command: ["*" as const], event: [] as const, notification: [] as const };
 	readonly sources = [] as const;
 
 	private readonly repeatedInteractionThreshold: number;

@@ -90,7 +90,7 @@ const factory = (mod.createAdapter ?? mod.createOrgan) as (opts: { cwd: string }
 const adapter = (await factory({ cwd })) as {
 	name: string;
 	tools: Array<{ name: string; description: string; inputSchema: import("zod").ZodTypeAny }>;
-	subscriptions: { command: readonly string[]; event: readonly string[] };
+	subscriptions: { command: readonly string[]; event: readonly string[]; notification: readonly string[] };
 	mount(bus: Bus): () => void;
 };
 

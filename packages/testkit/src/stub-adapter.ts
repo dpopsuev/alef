@@ -11,6 +11,7 @@ export function defineStubAdapter(name: string, tools: ToolDefinition[], handler
 		subscriptions: {
 			command: tools.map((t) => t.name),
 			event: [],
+			notification: [],
 		},
 		sources: [],
 		mount(bus: Bus): () => void {

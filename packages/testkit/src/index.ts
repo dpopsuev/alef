@@ -36,7 +36,7 @@ export {
 } from "./e2e-session.js";
 export { InMemorySessionStore } from "./in-memory-session-store.js";
 export { MockReasoner } from "./mock-reasoner.js";
-export { NerveFixture } from "./nerve-fixture.js";
+export { NerveFixture, NerveFixture as BusFixture } from "./nerve-fixture.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
 export { ScriptedReasoner, type ToolCallEnd, type ToolCallStart } from "./scripted-reasoner.js";
 export { defineStubAdapter, defineStubAdapter as defineStubOrgan, type StubHandler } from "./stub-adapter.js";

@@ -9,3 +9,4 @@ export function createOrgan(opts: { cwd: string; sessionDir?: string }): Adapter
 	const sessionDir = opts.sessionDir ?? opts.cwd;
 	return createDiscourseOrgan({ sessionDir });
 }
+export { createDiscourseOrgan as createDiscourseAdapter } from "./adapter.js";

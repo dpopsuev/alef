@@ -10,3 +10,4 @@ import { createNodeshOrgan } from "./adapter.js";
 export function createOrgan(opts: BaseAdapterOptions & { cwd: string }): Adapter {
 	return createNodeshOrgan({ cwd: opts.cwd, actions: opts.actions, logger: opts.logger });
 }
+export { createNodeshOrgan as createNodeshAdapter } from "./adapter.js";

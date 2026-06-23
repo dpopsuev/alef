@@ -1,5 +1,5 @@
+export { getProviderColor } from "../cli/provider-colors.js";
 export { getProfileNames, resolveProfile, resolveTier } from "./profiles.js";
-export { getProviderColor } from "./provider-colors.js";
 export type { ModelConfig, ModelResolutionInput } from "./resolve.js";
 export {
 	autoDetectModel,

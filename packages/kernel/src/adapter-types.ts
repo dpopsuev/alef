@@ -64,12 +64,16 @@ export interface EventAction {
 
 export type CommandActionMap = Record<string, CommandAction>;
 export type EventActionMap = Record<string, EventAction>;
-export interface ActionMap {
-	command?: CommandActionMap;
-	event?: EventActionMap;
+
+export interface ChannelActionTypes {
+	command: CommandAction;
+	event: EventAction;
+	notification: EventAction;
 }
 
-import type { AdapterContributions, ChannelMap, SkillBook } from "./buses.js";
+export type ActionMap = { [K in ChannelName]?: Record<string, ChannelActionTypes[K]> };
+
+import type { AdapterContributions, ChannelMap, ChannelName, SkillBook } from "./buses.js";
 
 export interface AdapterOptions {
 	logger?: AdapterLogger;

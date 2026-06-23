@@ -95,13 +95,13 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(def.capabilities.tools).toEqual([]);
 	});
 
-	it("rejects duplicate organs", () => {
+	it("rejects duplicate adapters", () => {
 		expect(() =>
 			compileAgentDefinition({
 				name: "dup",
 				organs: [{ name: "fs" }, { name: "fs" }],
 			}),
-		).toThrow(/duplicate organ.*fs/i);
+		).toThrow(/duplicate adapter.*fs/i);
 	});
 
 	it("accepts any organ name — validation is the materializer's concern", () => {
@@ -119,7 +119,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 				name: "bad-orch",
 				organs: [{ name: "orchestration" }],
 			}),
-		).toThrow(/orchestration organ requires capabilities\.orchestration/i);
+		).toThrow(/orchestration adapter requires capabilities\.orchestration/i);
 	});
 
 	it("rejects capabilities.orchestration without orchestration organ", () => {
@@ -128,7 +128,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 				name: "bad-orch",
 				capabilities: { orchestration: true },
 			}),
-		).toThrow(/capabilities\.orchestration.*requires an orchestration organ/i);
+		).toThrow(/capabilities\.orchestration.*requires an orchestration adapter/i);
 	});
 
 	it("accepts organ with empty actions array", () => {

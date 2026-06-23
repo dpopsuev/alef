@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { defineAdapter } from "../src/framework.js";
-import { InProcessNerve } from "../src/in-process-nerve.js";
+import { InProcessBus } from "../src/in-process-bus.js";
 
 const READ_TOOL = { name: "fs.read", description: "Read", inputSchema: z.object({}) };
 const WRITE_TOOL = { name: "fs.write", description: "Write", inputSchema: z.object({}) };
@@ -49,7 +49,7 @@ function makeFsAdapter(actions?: readonly string[]) {
 
 describe("adapter ablation — no filter (default)", { tags: ["unit"] }, () => {
 	it("mounts all actions when no allowlist is specified", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const adapter = makeFsAdapter();
 		adapter.mount(nerve.asBus());
 
@@ -66,7 +66,7 @@ describe("adapter ablation — no filter (default)", { tags: ["unit"] }, () => {
 
 describe("adapter ablation — read-only allowlist", { tags: ["unit"] }, () => {
 	it("mounts only allowed actions on the bus", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const adapter = makeFsAdapter(["fs.read"]);
 		adapter.mount(nerve.asBus());
 
@@ -81,7 +81,7 @@ describe("adapter ablation — read-only allowlist", { tags: ["unit"] }, () => {
 	});
 
 	it("ablated action command message finds no handler", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const adapter = makeFsAdapter(["fs.read"]);
 		adapter.mount(nerve.asBus());
 
@@ -101,7 +101,7 @@ describe("adapter ablation — read-only allowlist", { tags: ["unit"] }, () => {
 	});
 
 	it("allowed action still dispatches correctly", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const adapter = makeFsAdapter(["fs.read"]);
 		adapter.mount(nerve.asBus());
 
@@ -132,7 +132,7 @@ describe("adapter ablation — subscriptions reflect allowlist", { tags: ["unit"
 	});
 
 	it("empty allowlist mounts nothing", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const adapter = makeFsAdapter([]);
 		adapter.mount(nerve.asBus());
 

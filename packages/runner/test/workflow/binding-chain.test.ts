@@ -9,16 +9,16 @@
  */
 
 import type { Binding } from "@dpopsuev/alef-kernel";
-import { executeBindingChain, InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
+import { executeBindingChain, InProcessBus, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeBus() {
-	const bus = new InProcessNerve();
+	const bus = new InProcessBus();
 	return { bus, asBus: () => bus.asBus() };
 }
 
 function stubEvaluator(
-	bus: InProcessNerve,
+	bus: InProcessBus,
 	adapterName: string,
 	respond: (id: string) => { approved: boolean; feedback?: string },
 ) {

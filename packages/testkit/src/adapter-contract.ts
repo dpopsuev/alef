@@ -16,7 +16,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
-import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel/bus";
+import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -66,7 +66,7 @@ export async function runAdapterContract(
 	const fail = (check: string, detail: string) => violations.push({ check, detail });
 
 	// 1. mount returns a function
-	const nerve = new InProcessNerve();
+	const nerve = new InProcessBus();
 	let unmount: (() => void) | unknown;
 	try {
 		unmount = adapter.mount(nerve.asBus());
@@ -110,7 +110,7 @@ export async function runAdapterContract(
 
 	// 5 & 6. probe each tool with valid + invalid Command events
 	if (adapter.tools.length > 0) {
-		const probeNerve = new InProcessNerve();
+		const probeNerve = new InProcessBus();
 		const probeUnmount = adapter.mount(probeNerve.asBus());
 
 		for (const tool of adapter.tools) {
@@ -283,7 +283,7 @@ export function adapterComplianceSuite(
 	describe("adapter framework compliance", { tags: (opts.tags ?? ["compliance"]) as string[] as never }, () => {
 		let adapter: Adapter;
 		let unmount: (() => void) | undefined;
-		const probeNerve = new InProcessNerve();
+		const probeNerve = new InProcessBus();
 		let capturedLogs: CapturedLog[] = [];
 
 		beforeEach(() => {
@@ -313,7 +313,7 @@ export function adapterComplianceSuite(
 
 		it("mount() returns a cleanup function", () => {
 			const o = createAdapter();
-			const nerve = new InProcessNerve();
+			const nerve = new InProcessBus();
 			const cleanup = o.mount(nerve.asBus());
 			expect(typeof cleanup, "mount() must return a function").toBe("function");
 			expect(() => {
@@ -425,7 +425,7 @@ export async function runSchemaContract(
 		)?.[0];
 		if (!requiredStringField) continue;
 
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const unmount = adapter.mount(nerve.asBus());
 		const correlationId = randomUUID();
 		const commandType = tool.name.replace(/\./g, "_");
@@ -487,7 +487,7 @@ export async function runStreamingContract(
 	const thresholdMs = opts.thresholdMs ?? 1_000;
 	const timeoutMs = opts.timeoutMs ?? 10_000;
 
-	const nerve = new InProcessNerve();
+	const nerve = new InProcessBus();
 	const unmount = adapter.mount(nerve.asBus());
 	const correlationId = randomUUID();
 	const commandType = toolName.replace(/\./g, "_");

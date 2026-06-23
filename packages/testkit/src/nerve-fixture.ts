@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel/bus";
+import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 
 /**
@@ -18,7 +18,7 @@ import { BusEventRecorder } from "./bus-event-recorder.js";
  * call() subscribes before publishing — no race condition.
  */
 export class NerveFixture {
-	readonly nerve = new InProcessNerve();
+	readonly nerve = new InProcessBus();
 	private readonly unmounts: Array<() => void> = [];
 
 	mount(adapter: Adapter): () => void {

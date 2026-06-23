@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { BindingExecutionStrategy, BindingStage } from "../src/binding.js";
 import { executeBindingChain, registerBindingStrategy } from "../src/binding.js";
-import { InProcessNerve } from "../src/in-process-nerve.js";
+import { InProcessBus } from "../src/in-process-bus.js";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "../src/protocols.js";
 
 function makeNerve() {
-	const nerve = new InProcessNerve();
+	const nerve = new InProcessBus();
 	return { nerve, n: nerve.asBus() };
 }
 

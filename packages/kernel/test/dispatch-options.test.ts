@@ -4,14 +4,14 @@ import type { AccessDecision, AccessPolicy } from "../src/access-policy.js";
 import { createMapCache } from "../src/adapter-cache.js";
 import { dispatchCommandAction } from "../src/adapter-dispatch.js";
 import type { CommandMessage, EventMessage } from "../src/buses.js";
-import { InProcessNerve } from "../src/in-process-nerve.js";
+import { InProcessBus } from "../src/in-process-bus.js";
 
 function makeNerve() {
-	const nerve = new InProcessNerve();
+	const nerve = new InProcessBus();
 	return { nerve, n: nerve.asBus() };
 }
 
-function waitEvent(nerve: InProcessNerve, type: string): Promise<EventMessage> {
+function waitEvent(nerve: InProcessBus, type: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
 		const off = nerve.asBus().event.subscribe(type, (e) => {
 			off();

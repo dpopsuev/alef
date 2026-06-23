@@ -14,7 +14,7 @@
  */
 
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { InProcessNerve } from "@dpopsuev/alef-kernel/bus";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { runOrganContract } from "@dpopsuev/alef-testkit";
 
 export interface PreflightConfig {
@@ -79,7 +79,7 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 	// Phase 2: components — each adapter mounts without throwing
 	for (const adapter of cfg.adapters) {
 		try {
-			const nerve = new InProcessNerve();
+			const nerve = new InProcessBus();
 			const unmount = adapter.mount(nerve.asBus());
 			if (typeof unmount !== "function") {
 				fail({

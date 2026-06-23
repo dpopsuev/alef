@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { type BusMessage, newCorrelationId } from "../src/buses.js";
-import { InProcessNerve } from "../src/in-process-nerve.js";
+import { InProcessBus } from "../src/in-process-bus.js";
 
 // ---------------------------------------------------------------------------
 // Register test event schemas via module augmentation.
@@ -47,7 +47,7 @@ function makeEventMessage(
 
 describe("Nerve — event.subscribe", { tags: ["unit"] }, () => {
 	it("delivers event message to subscriber", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const reasoner = nerve.asBus();
 		const received: BusMessage[] = [];
 		reasoner.event.subscribe("test.result", (e) => void received.push(e));
@@ -59,7 +59,7 @@ describe("Nerve — event.subscribe", { tags: ["unit"] }, () => {
 	});
 
 	it("unsubscribes cleanly", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const reasoner = nerve.asBus();
 		const received: BusMessage[] = [];
 		const off = reasoner.event.subscribe("test.result", (e) => void received.push(e));
@@ -72,7 +72,7 @@ describe("Nerve — event.subscribe", { tags: ["unit"] }, () => {
 	});
 
 	it("does not receive wrong event type", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const reasoner = nerve.asBus();
 		const received: BusMessage[] = [];
 		reasoner.event.subscribe("test.result", (e) => void received.push(e));
@@ -85,7 +85,7 @@ describe("Nerve — event.subscribe", { tags: ["unit"] }, () => {
 
 describe("Nerve — command.publish", { tags: ["unit"] }, () => {
 	it("delivers command message to subscriber", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const reasoner = nerve.asBus();
 		const adapter = nerve.asBus();
 		const received: BusMessage[] = [];
@@ -104,7 +104,7 @@ describe("Nerve — command.publish", { tags: ["unit"] }, () => {
 
 describe("Nerve — command.subscribe", { tags: ["unit"] }, () => {
 	it("delivers command message to subscriber", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const adapter = nerve.asBus();
 		const received: BusMessage[] = [];
 		adapter.command.subscribe("test.command", (e) => void received.push(e));
@@ -115,7 +115,7 @@ describe("Nerve — command.subscribe", { tags: ["unit"] }, () => {
 	});
 
 	it("unsubscribes cleanly", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const adapter = nerve.asBus();
 		const received: BusMessage[] = [];
 		const off = adapter.command.subscribe("test.command", (e) => void received.push(e));
@@ -130,7 +130,7 @@ describe("Nerve — command.subscribe", { tags: ["unit"] }, () => {
 
 describe("Nerve — event.publish", { tags: ["unit"] }, () => {
 	it("delivers event message to subscriber", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const adapter = nerve.asBus();
 		const reasoner = nerve.asBus();
 		const received: BusMessage[] = [];
@@ -146,9 +146,9 @@ describe("Nerve — event.publish", { tags: ["unit"] }, () => {
 // Agent root methods
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — bus root methods", { tags: ["unit"] }, () => {
+describe("InProcessBus — bus root methods", { tags: ["unit"] }, () => {
 	it("publishCommand reaches CommandBus subscriber", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const received: BusMessage[] = [];
 		nerve.asBus().command.subscribe("test.command", (e) => void received.push(e));
 
@@ -158,7 +158,7 @@ describe("InProcessNerve — bus root methods", { tags: ["unit"] }, () => {
 	});
 
 	it("subscribeEvent receives from EventBus publish", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const received: BusMessage[] = [];
 		nerve.subscribeEvent("test.result", (e) => void received.push(e));
 
@@ -168,7 +168,7 @@ describe("InProcessNerve — bus root methods", { tags: ["unit"] }, () => {
 	});
 
 	it("correlationId threads through Command→Event round-trip", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const id = newCorrelationId();
 		let received: BusMessage | undefined;
 
@@ -198,9 +198,9 @@ describe("InProcessNerve — bus root methods", { tags: ["unit"] }, () => {
 // Wildcard subscriptions (for BusEventRecorder)
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — wildcard subscriptions", { tags: ["unit"] }, () => {
+describe("InProcessBus — wildcard subscriptions", { tags: ["unit"] }, () => {
 	it("onAnyCommand receives all command messages", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const received: BusMessage[] = [];
 		nerve.onAnyCommand((e) => received.push(e));
 
@@ -211,7 +211,7 @@ describe("InProcessNerve — wildcard subscriptions", { tags: ["unit"] }, () => 
 	});
 
 	it("onAnyEvent receives all event messages", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const received: BusMessage[] = [];
 		nerve.onAnyEvent((e) => received.push(e));
 
@@ -226,14 +226,14 @@ describe("InProcessNerve — wildcard subscriptions", { tags: ["unit"] }, () => 
 // listenerCount
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve — listenerCount", { tags: ["unit"] }, () => {
+describe("InProcessBus — listenerCount", { tags: ["unit"] }, () => {
 	it("returns 0 for unregistered type", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		expect(nerve.listenerCount("command", "test.command")).toBe(0);
 	});
 
 	it("counts and decrements correctly", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const off1 = nerve.asBus().command.subscribe("test.command", vi.fn());
 		const off2 = nerve.asBus().command.subscribe("test.command", vi.fn());
 		expect(nerve.listenerCount("command", "test.command")).toBe(2);
@@ -245,12 +245,12 @@ describe("InProcessNerve — listenerCount", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// InProcessNerve.firstSeen LRU cap
+// InProcessBus.firstSeen LRU cap
 // ---------------------------------------------------------------------------
 
-describe("InProcessNerve.firstSeen LRU cap", { tags: ["unit"] }, () => {
+describe("InProcessBus.firstSeen LRU cap", { tags: ["unit"] }, () => {
 	it("firstSeen size stays bounded after many unique correlationIds", () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const n = nerve.asBus();
 
 		// Subscribe so events don't go to dead-letter (which returns immediately).
@@ -271,7 +271,7 @@ describe("InProcessNerve.firstSeen LRU cap", { tags: ["unit"] }, () => {
 	});
 
 	it("firstSeen entries are evicted after correlation completes", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const n = nerve.asBus();
 		const correlationId = "eviction-test";
 

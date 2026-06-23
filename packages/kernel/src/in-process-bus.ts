@@ -63,7 +63,7 @@ export interface WatchdogOptions {
 	stallMs: number;
 	onStall: () => void;
 }
-export class InProcessNerve {
+export class InProcessBus {
 	private readonly _buses: Record<ChannelName, InternalBus> = {
 		command: new InternalBus(),
 		event: new InternalBus(),

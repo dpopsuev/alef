@@ -6,7 +6,7 @@
  * Each test gets a fresh container. Ryuk cleans up on process exit.
  */
 
-import { InProcessNerve } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { createEnclosureOrgan } from "../src/adapter.js";
 import { DockerSpace } from "../src/docker-space.js";
@@ -92,7 +92,7 @@ describe.skipIf(SKIP)("EnclosureOrgan — docker backend", { tags: ["unit"] }, (
 		const { rm } = await import("node:fs/promises");
 		const workspace = await mkdtemp(`${tmpdir()}/alef-docker-test-`);
 
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const organ = createEnclosureOrgan({
 			backend: "docker",
 			docker: { image: "alpine:latest" },

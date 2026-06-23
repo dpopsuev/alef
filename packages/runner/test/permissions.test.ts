@@ -4,7 +4,7 @@
 
 import { wrapWithPermissions } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel";
-import { InProcessNerve } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { parseArgs } from "../src/args.js";
 
@@ -52,7 +52,7 @@ function makePassthroughOrgan(name: string): Adapter {
 	};
 }
 
-function waitSense(nerve: InProcessNerve, type: string, correlationId: string) {
+function waitSense(nerve: InProcessBus, type: string, correlationId: string) {
 	return new Promise<import("@dpopsuev/alef-kernel").EventMessage>((resolve) => {
 		const off = nerve.asBus().event.subscribe(type, (e) => {
 			if (e.correlationId === correlationId) {
@@ -65,7 +65,7 @@ function waitSense(nerve: InProcessNerve, type: string, correlationId: string) {
 
 describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 	it("['*'] bypasses gate — all tools pass through", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), ["*"]);
 		organ.mount(nerve.asBus());
 
@@ -79,7 +79,7 @@ describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 	});
 
 	it("allowed tool passes through to organ handler", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), ["fs.read"]);
 		organ.mount(nerve.asBus());
 
@@ -94,7 +94,7 @@ describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 	});
 
 	it("denied tool publishes isError sense event with permission message", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), ["fs.read"]);
 		organ.mount(nerve.asBus());
 
@@ -112,7 +112,7 @@ describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 	});
 
 	it("empty allowedTools denies everything", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), []);
 		organ.mount(nerve.asBus());
 

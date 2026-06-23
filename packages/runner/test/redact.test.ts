@@ -123,7 +123,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 		const { mkdtempSync, rmSync } = await import("node:fs");
 		const { join } = await import("node:path");
 		const { tmpdir } = await import("node:os");
-		const { InProcessNerve } = await import("../../kernel/src/in-process-nerve.js");
+		const { InProcessBus } = await import("../../kernel/src/in-process-bus.js");
 		const { SessionLog } = await import("../src/event-log-adapter.js");
 		const { JsonlSessionStore } = await import("../src/session-store.js");
 
@@ -131,7 +131,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 		try {
 			const store = await JsonlSessionStore.create(cwd);
 			const organ = new SessionLog(store);
-			const nerve = new InProcessNerve();
+			const nerve = new InProcessBus();
 			organ.mount(nerve.asBus());
 
 			// Publish event with sensitive payload

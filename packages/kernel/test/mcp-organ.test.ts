@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { InProcessNerve } from "../src/in-process-nerve.js";
+import { InProcessBus } from "../src/in-process-bus.js";
 import { createMcpAdapterFromClient, McpAdapter } from "../src/mcp-adapter.js";
 
 // ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ describe("McpAdapter — Command/Event routing", { tags: ["unit"] }, () => {
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "fs");
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		adapter.mount(nerve.asBus());
 
 		const result = await new Promise<Record<string, unknown>>((resolve) => {
@@ -130,7 +130,7 @@ describe("McpAdapter — Command/Event routing", { tags: ["unit"] }, () => {
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "bad");
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		adapter.mount(nerve.asBus());
 
 		const eventMessage = await new Promise<{ isError: boolean; errorMessage?: string }>((resolve) => {
@@ -158,7 +158,7 @@ describe("McpAdapter — lifecycle", { tags: ["unit"] }, () => {
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "test");
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		adapter.mount(nerve.asBus());
 
 		await adapter.close?.();
@@ -196,7 +196,7 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "net");
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const n = nerve.asBus();
 		adapter.mount(n);
 
@@ -230,7 +230,7 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "net");
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const n = nerve.asBus();
 		adapter.mount(n);
 

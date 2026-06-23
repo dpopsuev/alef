@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-import type { InProcessNerve } from "@dpopsuev/alef-kernel/bus";
+import type { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import type { BusObserver } from "@dpopsuev/alef-runtime";
 
 /**
@@ -13,7 +13,7 @@ import type { BusObserver } from "@dpopsuev/alef-runtime";
  * name map without needing a getTools() callback.
  *
  * Usage:
- *   const nerve = new InProcessNerve();
+ *   const nerve = new InProcessBus();
  *   const driver = new TurnDriver(nerve);
  *   const unmount = createAgentLoop({ ... }).mount(nerve.asBus());
  *   const reply = await driver.send("hello");
@@ -23,7 +23,7 @@ export class TurnDriver {
 	private readonly tools: readonly ToolDefinition[];
 
 	constructor(
-		private readonly nerve: InProcessNerve,
+		private readonly nerve: InProcessBus,
 		private readonly triggerEvent = "llm.input",
 		private readonly replyEvent = "llm.response",
 		tools?: readonly ToolDefinition[],

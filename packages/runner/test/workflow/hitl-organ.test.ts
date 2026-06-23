@@ -10,11 +10,11 @@
  */
 
 import { createHitlOrgan } from "@dpopsuev/alef-adapter-workflow";
-import { InProcessNerve, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
+import { InProcessBus, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeBus() {
-	const bus = new InProcessNerve();
+	const bus = new InProcessBus();
 	return { bus, n: bus.asBus() };
 }
 

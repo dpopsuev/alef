@@ -2,8 +2,8 @@
  * Tests for TUI layout constants and ANSI sanitization.
  */
 
-import { INDENT, SPACING, sanitizeForDisplay, stripAnsi } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it } from "vitest";
+import { INDENT, SPACING, sanitizeForDisplay, stripAnsi } from "../../src/views/index.js";
 
 describe("Layout Constants", { tags: ["unit"] }, () => {
 	it("defines block indent", () => {

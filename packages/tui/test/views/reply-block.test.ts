@@ -1,7 +1,23 @@
-import { Container } from "@dpopsuev/alef-tui";
-import { ReplyBlock } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it } from "vitest";
-import { getTheme } from "../src/theme.js";
+import { Container } from "../../src/tui.js";
+import { ReplyBlock } from "../../src/views/index.js";
+
+const C = { ansi16: 37 };
+function getTheme() {
+	return {
+		userFg: C,
+		userBg: C,
+		agentFg: C,
+		agentBg: C,
+		primaryFg: C,
+		secondaryFg: C,
+		mutedFg: C,
+		accentFg: C,
+		okFg: C,
+		warnFg: C,
+		errFg: C,
+	};
+}
 
 function makeZone(hideThinking = false) {
 	const chat = new Container();
@@ -75,7 +91,7 @@ describe("thinking label", { tags: ["unit"] }, () => {
 	});
 });
 
-import { formatTokenUsage } from "@dpopsuev/alef-tui/views";
+import { formatTokenUsage } from "../../src/views/index.js";
 
 describe("formatTokenUsage", { tags: ["unit"] }, () => {
 	const t = getTheme();

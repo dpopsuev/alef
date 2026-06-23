@@ -8,9 +8,25 @@
  * RED-ORANGE-GREEN-YELLOW-BLUE per Lex testing rule.
  */
 
-import { fmtMs, keyArgFromPayload, renderToolLine, toolActiveLine } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it } from "vitest";
-import { getTheme } from "../src/theme.js";
+import { fmtMs, keyArgFromPayload, renderToolLine, toolActiveLine } from "../../src/views/index.js";
+
+const C = { ansi16: 37 };
+function getTheme() {
+	return {
+		userFg: C,
+		userBg: C,
+		agentFg: C,
+		agentBg: C,
+		primaryFg: C,
+		secondaryFg: C,
+		mutedFg: C,
+		accentFg: C,
+		okFg: C,
+		warnFg: C,
+		errFg: C,
+	};
+}
 
 // Strip all ANSI escape sequences for readability in assertions.
 const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");

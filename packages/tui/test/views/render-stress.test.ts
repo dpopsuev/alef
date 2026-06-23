@@ -9,12 +9,29 @@
  */
 
 import { stripVTControlCharacters } from "node:util";
-import type { RenderMeta } from "@dpopsuev/alef-tui";
-import { Container, Text, TUI } from "@dpopsuev/alef-tui";
-import { DynamicText, ReplyBlock } from "@dpopsuev/alef-tui/views";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { VirtualTerminal } from "../../tui/test/virtual-terminal.js";
-import { getTheme } from "../src/theme.js";
+import { Text } from "../../src/components/text.js";
+import type { RenderMeta } from "../../src/tui.js";
+import { Container, TUI } from "../../src/tui.js";
+import { DynamicText, ReplyBlock } from "../../src/views/index.js";
+import { VirtualTerminal } from "../virtual-terminal.js";
+
+const C = { ansi16: 37 };
+function getTheme() {
+	return {
+		userFg: C,
+		userBg: C,
+		agentFg: C,
+		agentBg: C,
+		primaryFg: C,
+		secondaryFg: C,
+		mutedFg: C,
+		accentFg: C,
+		okFg: C,
+		warnFg: C,
+		errFg: C,
+	};
+}
 
 // ---------------------------------------------------------------------------
 // Shared helpers

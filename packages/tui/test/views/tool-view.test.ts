@@ -3,15 +3,34 @@
  */
 
 import { stripVTControlCharacters } from "node:util";
+import { describe, expect, it } from "vitest";
 import {
 	formatTokenUsage,
 	keyArgFromPayload,
 	renderDiffDisplay,
 	renderToolLine,
 	truncateToolOutput,
-} from "@dpopsuev/alef-tui/views";
-import { describe, expect, it } from "vitest";
-import { getTheme } from "../src/theme.js";
+} from "../../src/views/index.js";
+
+const W = { ansi16: 37 };
+const OK = { ansi16: 32 };
+const ERR = { ansi16: 31 };
+const WARN = { ansi16: 33 };
+function getTheme() {
+	return {
+		userFg: W,
+		userBg: W,
+		agentFg: W,
+		agentBg: W,
+		primaryFg: W,
+		secondaryFg: W,
+		mutedFg: W,
+		accentFg: W,
+		okFg: OK,
+		warnFg: WARN,
+		errFg: ERR,
+	};
+}
 
 describe("keyArgFromPayload", { tags: ["unit"] }, () => {
 	it("extracts path", () => expect(keyArgFromPayload({ path: "src/foo.ts" })).toBe("src/foo.ts"));

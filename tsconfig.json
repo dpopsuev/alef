@@ -40,6 +40,24 @@
 			"@dpopsuev/alef-kernel": [
 				"./packages/kernel/src/index.ts"
 			],
+			"@dpopsuev/alef-kernel/adapter": [
+				"./packages/kernel/src/facade-adapter.ts"
+			],
+			"@dpopsuev/alef-kernel/bus": [
+				"./packages/kernel/src/facade-bus.ts"
+			],
+			"@dpopsuev/alef-kernel/debug": [
+				"./packages/kernel/src/facade-debug.ts"
+			],
+			"@dpopsuev/alef-kernel/pipeline": [
+				"./packages/kernel/src/facade-pipeline.ts"
+			],
+			"@dpopsuev/alef-kernel/errors": [
+				"./packages/kernel/src/facade-errors.ts"
+			],
+			"@dpopsuev/alef-kernel/reconciliation": [
+				"./packages/kernel/src/reconciliation.ts"
+			],
 			"@dpopsuev/alef-kernel/*": [
 				"./packages/kernel/src/*.ts"
 			],

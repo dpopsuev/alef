@@ -18,7 +18,7 @@ export function getEmbedder(): Embedder | undefined {
 const EMBEDDABLE_PREFIXES = ["fs.", "shell.", "code.", "llm.", "web.", "agent."];
 
 function shouldEmbed(bus: string, type: string): boolean {
-	if (bus !== "motor" && bus !== "sense") return false;
+	if (bus !== "command" && bus !== "event" && bus !== "motor" && bus !== "sense") return false;
 	return EMBEDDABLE_PREFIXES.some((p) => type.startsWith(p));
 }
 

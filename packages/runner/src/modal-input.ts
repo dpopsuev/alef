@@ -8,12 +8,12 @@
  *            NOT a third external mode — an internal state on top of Normal,
  *            matching Neovim's command_line_enter(firstc=':') nested-loop design.
  *
- * All keybindings configurable via APP_KEYBINDINGS + KeybindingsManager.
+ * All keybindings configurable via APP_KEYBINDINGS + KeyMap.
  * Prior art: Djinn shell/modes.go, Neovim ex_getln.c:command_line_enter().
  */
 
 import type { Editor } from "@dpopsuev/alef-tui";
-import { APP_KEYBINDINGS, KeybindingsManager } from "@dpopsuev/alef-tui";
+import { APP_KEYBINDINGS, KeyMap } from "@dpopsuev/alef-tui";
 
 export type ModalMode = "insert" | "normal";
 
@@ -64,7 +64,7 @@ export class ModalInputHandler {
 
 	private hintTimer: ReturnType<typeof setTimeout> | undefined;
 
-	private readonly kb: KeybindingsManager;
+	private readonly kb: KeyMap;
 	private readonly onModeChange: (mode: ModalMode) => void;
 	private readonly onHint: (text: string) => void;
 	private readonly onColonCommand: (cmd: string) => void;
@@ -74,13 +74,13 @@ export class ModalInputHandler {
 		onModeChange: (mode: ModalMode) => void,
 		onHint: (text: string) => void = () => {},
 		onColonCommand: (cmd: string) => void = () => {},
-		kb?: KeybindingsManager,
+		kb?: KeyMap,
 	) {
 		this.onModeChange = onModeChange;
 		this.onHint = onHint;
 		this.onColonCommand = onColonCommand;
 		// Use provided manager or create a default one with APP_KEYBINDINGS.
-		this.kb = kb ?? new KeybindingsManager(APP_KEYBINDINGS);
+		this.kb = kb ?? new KeyMap(APP_KEYBINDINGS);
 	}
 
 	getMode(): ModalMode {

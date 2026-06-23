@@ -1,8 +1,8 @@
+export { AgentForum } from "./agent-forum.js";
 export { hasAnsi, stripAnsi } from "./ansi-utils.js";
 export { ChatLog } from "./chat-log.js";
 export { DashboardFooter, type FooterPanel } from "./dashboard-footer.js";
 export { DynamicText } from "./dynamic-text.js";
-export { ForumManager } from "./forum-manager.js";
 export { INDENT, SPACING } from "./layout-constants.js";
 export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 export { OutputPanel } from "./output-panel.js";

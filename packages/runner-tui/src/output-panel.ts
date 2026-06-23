@@ -1,8 +1,8 @@
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { ThemeTokens } from "@dpopsuev/alef-tui";
 import { Container, type TUI } from "@dpopsuev/alef-tui";
+import { AgentForum } from "./agent-forum.js";
 import { ChatLog, type ChatLogLabels } from "./chat-log.js";
-import { ForumManager } from "./forum-manager.js";
 import { ReplyBlock } from "./reply-block.js";
 import { prependSessionHistory } from "./session-history.js";
 import { Typewriter } from "./typewriter.js";
@@ -18,7 +18,7 @@ export class OutputPanel {
 	readonly replyBlock: ReplyBlock;
 	readonly replyTW: Typewriter;
 	readonly thinkingTW: Typewriter;
-	readonly forums: ForumManager;
+	readonly forums: AgentForum;
 
 	private readonly chatParent: Container;
 
@@ -30,7 +30,7 @@ export class OutputPanel {
 		const chat = new Container();
 		this.chatParent.addChild(chat);
 
-		this.forums = new ForumManager(this.chatParent, chat);
+		this.forums = new AgentForum(this.chatParent, chat);
 		this.writer = new ChatLog(chat, t, labels);
 
 		this.replyBlock = new ReplyBlock(chat, () => tui.requestRender(), t, true, labels.agentLabel);

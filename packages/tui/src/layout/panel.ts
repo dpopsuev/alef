@@ -18,7 +18,7 @@ export interface PanelSlot {
 	group?: string;
 }
 
-export class FocusManager {
+export class FocusRing {
 	private panels: Panel[] = [];
 	private activeIndex = 0;
 

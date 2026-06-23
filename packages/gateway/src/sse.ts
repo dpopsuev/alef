@@ -1,5 +1,5 @@
 /**
- * SseManager — tracks connected SSE clients and broadcasts events.
+ * EventStream — tracks connected SSE clients and broadcasts events.
  *
  * Each connected client is a raw Node.js ServerResponse with headers set for
  * the text/event-stream protocol. Events are formatted as:
@@ -22,7 +22,7 @@ export interface BusEvent {
 	timestamp: number;
 }
 
-export class SseManager {
+export class EventStream {
 	private readonly clients = new Set<ServerResponse>();
 
 	/** Register a new SSE client. Sets headers and schedules cleanup on close. */

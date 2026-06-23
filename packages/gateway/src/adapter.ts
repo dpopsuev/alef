@@ -25,7 +25,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
-import { SseManager } from "./sse.js";
+import { EventStream } from "./sse.js";
 
 export interface RouterOptions {
 	/** TCP port to listen on. Default: 3000. */
@@ -77,7 +77,7 @@ export class RouterOrgan implements Adapter {
 	readonly sources = [] as const;
 
 	private server: Server | null = null;
-	private readonly sse = new SseManager();
+	private readonly sse = new EventStream();
 	private readonly options: Required<Omit<RouterOptions, "allowedEvents" | "onMessage" | "triggerEvent">> & {
 		allowedEvents: string[];
 		onMessage?: (text: string) => void;

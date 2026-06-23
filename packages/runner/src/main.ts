@@ -20,6 +20,7 @@ import { setupOTel } from "./otel.js";
 import { runAgent } from "./run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
 import { loadSession } from "./session-lifecycle/index.js";
+import { pickSession } from "./session-picker.js";
 import { setupSupervisorIpc } from "./setup-supervisor-ipc.js";
 import type { DaemonEntry } from "./strategies/remote-session.js";
 import { RemoteSession } from "./strategies/remote-session.js";
@@ -126,7 +127,7 @@ if (willUseTui) {
 	};
 }
 const log = createRunnerLogger(willUseTui, args.debug);
-const session = await loadSession(args, willUseTui);
+const session = await loadSession(args, willUseTui, pickSession);
 
 // Route debug events into the session JSONL — unified transcript.
 const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel");

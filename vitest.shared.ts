@@ -1,20 +1,18 @@
 /**
- * Shared vitest config for all organ and library packages in the monorepo.
+ * Shared vitest config for all adapter and library packages in the monorepo.
  *
  * Uses vite-tsconfig-paths to resolve @dpopsuev/alef-* imports to their
  * source TypeScript files via the paths declared in the root tsconfig.json.
- * That file is already maintained as the single source of truth for all
- * monorepo package locations — editors, TypeScript, and now vitest all
- * read from the same place.
+ * That file is the single source of truth for all monorepo package locations.
  *
- * Usage in packages/organ-X/vitest.config.ts:
+ * Root vitest.config.ts discovers all packages via test.projects.
+ * Each package has its own vitest.config.ts for per-package overrides:
  *
  *   import { defineProject, mergeConfig } from "vitest/config";
  *   import sharedConfig from "../../vitest.shared.js";
- *   export default mergeConfig(sharedConfig, defineProject({ test: { name: "organ-shell" } }));
+ *   export default mergeConfig(sharedConfig, defineProject({ test: { name: "adapter-shell" } }));
  *
- * New organ developers: add one entry to the root tsconfig.json paths when
- * creating a new package. No other config file needs updating.
+ * New packages: add a vitest.config.ts + an entry to root tsconfig.json paths.
  *
  * ## Test Tags
  *

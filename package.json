@@ -15,7 +15,7 @@
 		"check:blueprints": "node scripts/check-blueprint-resolve.mjs",
 		"check:browser-smoke": "node scripts/check-browser-smoke.mjs",
 		"check:organs": "npx tsx scripts/lint-adapters.ts --fail",
-		"check:test": "node scripts/check-test.mjs",
+		"check:test": "vitest run --tags-filter=unit --reporter=dot",
 		"profile:tui": "node scripts/profile-coding-agent-node.mjs --mode tui",
 		"profile:rpc": "node scripts/profile-coding-agent-node.mjs --mode rpc",
 		"test": "npm run test --workspaces --if-present",

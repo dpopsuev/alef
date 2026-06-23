@@ -11,7 +11,7 @@ import {
 	renderDiffDisplay,
 	renderToolLine,
 	truncateToolOutput,
-} from "../src/tui/tool-view.js";
+} from "@dpopsuev/alef-tui/views";
 
 describe("keyArgFromPayload", { tags: ["unit"] }, () => {
 	it("extracts path", () => expect(keyArgFromPayload({ path: "src/foo.ts" })).toBe("src/foo.ts"));

@@ -1,5 +1,9 @@
-import type { ThemeTokens } from "@dpopsuev/alef-tui";
-import { type Component, type Container, Pad, Spacer, Text } from "@dpopsuev/alef-tui";
+import type { Component } from "../component.js";
+import type { ThemeTokens } from "../theme-types.js";
+import type { Container } from "../tui.js";
+import { Pad } from "../components/pad.js";
+import { Spacer } from "../components/spacer.js";
+import { Text } from "../components/text.js";
 import { fmtMs } from "./ansi-utils.js";
 import { INDENT, SPACING } from "./layout-constants.js";
 import { bold, color, glyph } from "./theme.js";

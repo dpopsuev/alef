@@ -14,8 +14,8 @@ import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal.js";
 import { getTheme } from "../src/theme.js";
-import { DynamicText } from "../src/tui/dynamic-text.js";
-import { ReplyBlock } from "../src/tui/reply-block.js";
+import { DynamicText } from "@dpopsuev/alef-tui/views";
+import { ReplyBlock } from "@dpopsuev/alef-tui/views";
 
 // ---------------------------------------------------------------------------
 // Shared helpers

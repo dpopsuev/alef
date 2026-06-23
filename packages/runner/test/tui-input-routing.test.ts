@@ -12,7 +12,7 @@ import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "../src/session.js";
 import { getTheme } from "../src/theme.js";
-import { ChatLog } from "../src/tui/chat-log.js";
+import { ChatLog } from "@dpopsuev/alef-tui/views";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
 import { handleCtrlC } from "../src/tui-mode.js";
 

@@ -1,4 +1,4 @@
-import type { Component } from "@dpopsuev/alef-tui";
+import type { Component } from "../component.js";
 
 export class DynamicText implements Component {
 	private fn: (width: number) => string;

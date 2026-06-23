@@ -1,6 +1,7 @@
-export { bg, bold, color, dim, italic, nerdFontsAvailable, statusGlyph, statusStyle } from "@dpopsuev/alef-tui";
+export { bg, bold, color, dim, italic, nerdFontsAvailable } from "../ansi.js";
+export { statusGlyph, statusStyle } from "../design/palette.js";
 
-import { nerdFontsAvailable } from "@dpopsuev/alef-tui";
+import { nerdFontsAvailable } from "../ansi.js";
 
 interface GlyphPair {
 	nerd: string;

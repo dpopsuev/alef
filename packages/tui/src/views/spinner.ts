@@ -1,5 +1,5 @@
-import type { ColorToken } from "@dpopsuev/alef-tui";
-import { color, colorDepth } from "@dpopsuev/alef-tui";
+import type { ColorToken } from "../ansi.js";
+import { color, colorDepth } from "../ansi.js";
 import chalk from "chalk";
 
 const SCRIPT_RANGES: readonly { start: number; count: number }[] = [

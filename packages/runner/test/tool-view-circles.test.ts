@@ -10,8 +10,8 @@
 
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../src/theme.js";
-import { fmtMs } from "../src/tui/ansi-utils.js";
-import { keyArgFromPayload, renderToolLine, toolActiveLine } from "../src/tui/tool-view.js";
+import { fmtMs } from "@dpopsuev/alef-tui/views";
+import { keyArgFromPayload, renderToolLine, toolActiveLine } from "@dpopsuev/alef-tui/views";
 
 // Strip all ANSI escape sequences for readability in assertions.
 const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");

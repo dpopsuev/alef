@@ -2,6 +2,9 @@ import type {
 	Bus,
 	BusChannel,
 	BusMessage,
+	ChannelHandler,
+	ChannelInput,
+	ChannelName,
 	CommandInput,
 	CommandMessage,
 	EventHandler,
@@ -13,7 +16,7 @@ import { extractToolCallId } from "./sense-builders.js";
 import { Watchdog } from "./watchdog.js";
 
 const FIRST_SEEN_MAX = 500;
-class InProcessBus {
+class InternalBus {
 	private readonly handlers = new Map<string, Set<(event: BusMessage) => void | Promise<void>>>();
 	readonly firstSeen = new Map<string, number>();
 	deadLetterSink?: (event: BusMessage) => void;
@@ -61,18 +64,19 @@ export interface WatchdogOptions {
 	onStall: () => void;
 }
 export class InProcessNerve {
-	private readonly _sense = new InProcessBus();
-	private readonly _motor = new InProcessBus();
-	/** Signal bus — Reasoner telemetry only. No dead-letter sink; signals have no organ handlers. */
-	private readonly _signal = new InProcessBus();
+	private readonly _buses: Record<ChannelName, InternalBus> = {
+		command: new InternalBus(),
+		event: new InternalBus(),
+		notification: new InternalBus(),
+	};
 	private readonly _watchdog: Watchdog | null;
 	constructor(watchdog?: WatchdogOptions) {
 		this._watchdog = watchdog ? new Watchdog(watchdog.stallMs, watchdog.onStall) : null;
 		this._watchdog?.start();
-		this._motor.deadLetterSink = (event) => {
+		this._buses.command.deadLetterSink = (event) => {
 			const payload = (event as CommandMessage).payload;
 			const toolCallId = payload ? extractToolCallId(payload) : undefined;
-			this._sense.emit({
+			this._buses.event.emit({
 				type: event.type,
 				correlationId: event.correlationId,
 				payload: toolCallId ? { toolCallId } : {},
@@ -80,7 +84,6 @@ export class InProcessNerve {
 				errorMessage: `no adapter handles command/${event.type}`,
 			} as unknown as Omit<BusMessage, "timestamp" | "elapsed">);
 		};
-		// Signal bus has no dead-letter sink — signals are fire-and-forget to observers.
 	}
 	pulse(): void {
 		this._watchdog?.reset();
@@ -88,50 +91,66 @@ export class InProcessNerve {
 	dispose(): void {
 		this._watchdog?.stop();
 	}
+
+	// -- Parameterized API (new) ------------------------------------------
+
+	publish<K extends ChannelName>(channel: K, event: ChannelInput<K>): void {
+		if (channel === "event") this._buses.command.evictCorrelation(event.correlationId);
+		this._buses[channel].emit(event);
+	}
+	subscribe<K extends ChannelName>(channel: K, type: string, handler: ChannelHandler<K>): () => void {
+		return this._buses[channel].on(type, handler as (e: BusMessage) => void | Promise<void>);
+	}
+	onAny(channel: ChannelName, handler: (event: BusMessage) => void): () => void {
+		return this._buses[channel].on("*", handler);
+	}
+	listenerCount(channel: ChannelName, type: string): number {
+		return this._buses[channel].listenerCount(type);
+	}
+
+	// -- Bus view ---------------------------------------------------------
+
 	asBus(): Bus {
 		type InternalHandler = (e: BusMessage) => void | Promise<void>;
 		const commandChannel: BusChannel<"command"> = {
-			subscribe: (type, handler) => this._motor.on(type, handler as InternalHandler),
-			publish: (e) => this._motor.emit(e),
+			subscribe: (type, handler) => this._buses.command.on(type, handler as InternalHandler),
+			publish: (e) => this._buses.command.emit(e),
 		};
 		const eventChannel: BusChannel<"event"> = {
-			subscribe: (type, handler) => this._sense.on(type, handler as InternalHandler),
+			subscribe: (type, handler) => this._buses.event.on(type, handler as InternalHandler),
 			publish: (e) => {
-				this._motor.evictCorrelation(e.correlationId);
-				this._sense.emit(e);
+				this._buses.command.evictCorrelation(e.correlationId);
+				this._buses.event.emit(e);
 			},
 		};
 		const notificationChannel: BusChannel<"notification"> = {
-			subscribe: (type, handler) => this._signal.on(type, handler as InternalHandler),
-			publish: (e) => this._signal.emit(e),
+			subscribe: (type, handler) => this._buses.notification.on(type, handler as InternalHandler),
+			publish: (e) => this._buses.notification.emit(e),
 		};
 		return makeBus(commandChannel, eventChannel, notificationChannel, () => this.pulse());
 	}
+
+	// -- Deprecated channel-specific methods (use parameterized API) ------
+
 	publishCommand(event: CommandInput): void {
-		this._motor.emit(event);
+		this.publish("command", event);
 	}
 	subscribeEvent(type: string, handler: EventHandler): () => void {
-		return this._sense.on(type, handler as (e: BusMessage) => void | Promise<void>);
+		return this.subscribe("event", type, handler);
 	}
 	publishEvent(event: EventInput): void {
-		this._motor.evictCorrelation(event.correlationId);
-		this._sense.emit(event);
+		this.publish("event", event);
 	}
 	publishSignal(event: NotificationInput): void {
-		this._signal.emit(event);
+		this.publish("notification", event);
 	}
 	onAnyCommand(handler: (event: BusMessage) => void): () => void {
-		return this._motor.on("*", handler);
+		return this.onAny("command", handler);
 	}
 	onAnyEvent(handler: (event: BusMessage) => void): () => void {
-		return this._sense.on("*", handler);
+		return this.onAny("event", handler);
 	}
 	onAnyNotification(handler: (event: BusMessage) => void): () => void {
-		return this._signal.on("*", handler);
-	}
-	listenerCount(bus: "event" | "command" | "notification", type: string): number {
-		if (bus === "event") return this._sense.listenerCount(type);
-		if (bus === "notification") return this._signal.listenerCount(type);
-		return this._motor.listenerCount(type);
+		return this.onAny("notification", handler);
 	}
 }

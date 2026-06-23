@@ -108,11 +108,11 @@ export interface MaterializerResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Wrap an organ with a permission gate.
+ * Wrap an adapter with a permission gate.
  *
- * Before any motor event reaches the organ's handler, the gate checks the
- * allowlist. If the tool is not permitted it publishes a sense error with the
- * matching toolCallId so waitForToolResult in reasoner resolves with an error
+ * Before any command event reaches the adapter's handler, the gate checks the
+ * allowlist. If the tool is not permitted it publishes an event error with the
+ * matching toolCallId so waitForToolResult in the reasoner resolves with an error
  * the LLM can read, rather than hanging.
  *
  * allowedTools format:
@@ -274,8 +274,8 @@ async function loadAdapterModule(
 }
 
 /**
- * Load a single organ from an absolute TypeScript file path.
- * Used by hot-reload (:reload) to swap an organ in-place without restart.
+ * Load a single adapter from an absolute TypeScript file path.
+ * Used by hot-reload (:reload) to swap an adapter in-place without restart.
  */
 export async function loadAdapterFromPath(
 	path: string,

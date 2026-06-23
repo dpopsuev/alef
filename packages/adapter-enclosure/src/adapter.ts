@@ -1,10 +1,10 @@
 /**
- * EnclosureOrgan — organ wrapping Space lifecycle as Motor/Sense events.
+ * EnclosureOrgan — adapter wrapping Space lifecycle as Command/Event events.
  *
- * The organ holds a session-scoped Map<spaceId, Space>.
+ * The adapter holds a session-scoped Map<spaceId, Space>.
  * The LLM creates a space, gets an ID, operates on it by ID.
  *
- * Motor events handled → Sense events published:
+ * Command events handled → Event events published:
  *   enclosure.create   → spaceId, workDir
  *   enclosure.diff     → changes[]
  *   enclosure.commit   → committed paths count
@@ -102,7 +102,7 @@ export interface EnclosureOrganOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Organ
+// Adapter
 // ---------------------------------------------------------------------------
 
 export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapter {
@@ -230,7 +230,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 }
 
 // ---------------------------------------------------------------------------
-// Handlers — return payloads or throw; framework handles Sense publishing
+// Handlers — return payloads or throw; framework handles Event publishing
 // ---------------------------------------------------------------------------
 
 function getSpace(spaceId: unknown, spaces: Map<string, Space>): Space {

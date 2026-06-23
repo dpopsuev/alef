@@ -117,7 +117,7 @@ describe("remove", { tags: ["unit"] }, () => {
 		writeLock({ v: 1 });
 		await upgrade(); // gen 1
 		writeLock({ v: 2 });
-		await remove("organ-fs"); // gen 2
+		await remove("adapter-fs"); // gen 2
 		expect(readCurrent()).toBe(2);
 	});
 });

@@ -179,7 +179,7 @@ function handleTurnError(state: TuiState, event: Extract<TuiInputEvent, { type: 
 
 // ---------------------------------------------------------------------------
 // TUI Dispatcher — routes events to UI components.
-// Organ-contributed signal handlers run first (OCP extension point).
+// Adapter-contributed signal handlers run first (OCP extension point).
 // Built-in cases handle turn lifecycle, tool display, and inspector chrome.
 // ---------------------------------------------------------------------------
 

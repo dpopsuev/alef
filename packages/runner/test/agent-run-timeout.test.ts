@@ -7,7 +7,7 @@
  * toOuterTimeoutMs reads stripped schema → no timeoutMs default visible
  * → falls back to HTTP timeout → subagents killed at 60s.
  *
- * Fix: pass getFullTools (full schemas) to the LLM organ so toOuterTimeoutMs
+ * Fix: pass getFullTools (full schemas) to the LLM adapter so toOuterTimeoutMs
  * can read the schema default even when the ToolShell has stripped the schema.
  */
 

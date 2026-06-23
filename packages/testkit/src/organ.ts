@@ -1,14 +1,14 @@
 /**
- * @dpopsuev/alef-testkit/organ — slim subpath for organ unit tests.
+ * @dpopsuev/alef-testkit/adapter — slim subpath for adapter unit tests.
  *
- * Exports only the primitives needed to test a single organ in isolation.
- * Does not pull in agent-controller, organ-llm, alef-ai, or agent-blueprint.
+ * Exports only the primitives needed to test a single adapter in isolation.
+ * Does not pull in agent-controller, adapter-llm, alef-ai, or agent-blueprint.
  *
- * External organ developers use this subpath:
- *   import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+ * External adapter developers use this subpath:
+ *   import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/adapter";
  *
- * Internal organ developers use the same import — same experience regardless
- * of whether the organ lives in this monorepo or a separate repository.
+ * Internal adapter developers use the same import — same experience regardless
+ * of whether the adapter lives in this monorepo or a separate repository.
  */
 
 export {

@@ -1,5 +1,5 @@
 /**
- * Minimal scripted LLM organ for ALEF_SCRIPTED_REPLIES integration testing.
+ * Minimal scripted LLM adapter for ALEF_SCRIPTED_REPLIES integration testing.
  *
  * Supports only plain string replies — sufficient for smoke-binary and
  * smoke-tui tests that verify the binary boots and handles one turn.

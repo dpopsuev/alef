@@ -66,8 +66,8 @@ function waitSense(nerve: InProcessBus, type: string, correlationId: string) {
 describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 	it("['*'] bypasses gate — all tools pass through", async () => {
 		const nerve = new InProcessBus();
-		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), ["*"]);
-		organ.mount(nerve.asBus());
+		const adapter = wrapWithPermissions(makePassthroughOrgan("fs"), ["*"]);
+		adapter.mount(nerve.asBus());
 
 		const corrId = "corr-yolo";
 		const result = waitSense(nerve, "fs.read", corrId);

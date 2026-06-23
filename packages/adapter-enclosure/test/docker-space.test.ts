@@ -158,8 +158,8 @@ describe("EnclosureOrgan — backend selection", { tags: ["unit"] }, () => {
 	});
 
 	it("default backend is overlay (no crash on construction)", () => {
-		// Just verifying the organ can be constructed — OverlaySpace.create()
-		// is only called when enclosure.create motor event fires, not at construction.
+		// Just verifying the adapter can be constructed — OverlaySpace.create()
+		// is only called when enclosure.create command event fires, not at construction.
 		const organ = createEnclosureOrgan();
 		expect(organ.name).toBe("enclosure");
 	});

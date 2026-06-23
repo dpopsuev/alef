@@ -14,8 +14,8 @@
  *      times regardless of argument or result variation. Default threshold: 40.
  *
  * Implementation:
- *   - Motor subscriber buffers pending calls by toolCallId.
- *   - Sense subscriber picks up the result, computes the full hash, checks.
+ *   - Command subscriber buffers pending calls by toolCallId.
+ *   - Event subscriber picks up the result, computes the full hash, checks.
  *   - Reset all counters on new correlationId (new user turn).
  *
  * When a loop is detected, onLoop() is called. The caller is responsible for
@@ -54,7 +54,7 @@ function hashArgs(payload: Record<string, unknown>): string {
 	return JSON.stringify(Object.fromEntries(keys.map((k) => [k, args[k]])));
 }
 
-/** Extract a stable text representation of a sense result for hashing. */
+/** Extract a stable text representation of a event result for hashing. */
 function hashResult(payload: Record<string, unknown>): string {
 	const { toolCallId: _tc, isFinal: _if, _display: _d, ...rest } = payload;
 	// For streaming organs: intermediate chunks have isFinal:false — skip them.
@@ -95,7 +95,7 @@ export class LoopGuard implements Adapter {
 	}
 
 	mount(bus: Bus): () => void {
-		// pending: toolCallId → PendingCall (buffered until sense result arrives)
+		// pending: toolCallId → PendingCall (buffered until event result arrives)
 		// interactionCounts: Map<type, Map<interactionHash, count>>
 		// totalCounts: Map<type, totalCallCount>
 		const pending = new Map<string, PendingCall>();
@@ -112,9 +112,9 @@ export class LoopGuard implements Adapter {
 			}
 		};
 
-		// Motor subscriber: buffer call metadata, apply total-count safety net.
+		// Command subscriber: buffer call metadata, apply total-count safety net.
 		// Only count events that carry a toolCallId — those are real tool dispatches.
-		// Infrastructure motor events (llm.response, context.assemble) are skipped.
+		// Infrastructure command events (llm.response, context.assemble) are skipped.
 		const offMotor = bus.command.subscribe("*", (event) => {
 			const corr = event.correlationId ?? "none";
 			resetIfNewTurn(corr);
@@ -136,7 +136,7 @@ export class LoopGuard implements Adapter {
 				return;
 			}
 
-			// Buffer this call so the sense subscriber can complete the hash.
+			// Buffer this call so the event subscriber can complete the hash.
 			pending.set(toolCallId, {
 				type,
 				argsHash: hashArgs(event.payload),
@@ -144,7 +144,7 @@ export class LoopGuard implements Adapter {
 			});
 		});
 
-		// Sense subscriber: complete the interaction hash with the result.
+		// Event subscriber: complete the interaction hash with the result.
 		const offSense = bus.event.subscribe("*" as const, (event: EventMessage) => {
 			const toolCallId = extractToolCallId(event.payload);
 			if (!toolCallId) return;

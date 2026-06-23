@@ -60,11 +60,11 @@ const ConfigSchema = z.object({
 		.optional(),
 
 	/**
-	 * Filesystem security — OCAP grants injected into organs via DI.
+	 * Filesystem security — OCAP grants injected into adapters via DI.
 	 *
-	 * writable_roots: directories organs are allowed to read/write.
+	 * writable_roots: directories adapters are allowed to read/write.
 	 *   Supports "${cwd}" (resolved at boot) and "${tmpdir}" (os.tmpdir()).
-	 *   Default (omitted): unrestricted — organs can access any path.
+	 *   Default (omitted): unrestricted — adapters can access any path.
 	 *   Empty []: cwd only (most restrictive).
 	 *
 	 * Examples:
@@ -78,7 +78,7 @@ const ConfigSchema = z.object({
 		})
 		.optional(),
 
-	/** Skills organ configuration. */
+	/** Skills adapter configuration. */
 	skills: z
 		.object({
 			paths: z.array(z.string()).optional(),

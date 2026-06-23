@@ -1,9 +1,9 @@
 /**
- * NodeshOrgan — JavaScript REPL organ.
+ * NodeshOrgan — JavaScript REPL adapter.
  *
  * nodesh.eval — evaluates a JS expression or statement block in a fresh
  * vm.createContext seeded from the configured prelude. Returns structured
- * JSON result on Sense. No persistent state between calls.
+ * JSON result on Event. No persistent state between calls.
  *
  * Security model:
  *   - Fresh context per call — no leaked variables between turns.

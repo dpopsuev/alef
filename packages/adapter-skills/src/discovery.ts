@@ -10,7 +10,7 @@
  *   5. .agents/skills  (relative to cwd)
  *   6. .alef/skills    (relative to cwd)
  *   7. .claude/skills  (relative to cwd — cross-agent compat)
- *   8. Additional paths from organ options
+ *   8. Additional paths from adapter options
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";

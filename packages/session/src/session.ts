@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // AgentEvent — typed output from the agent to any observer.
-// Types are owned here; they are structurally identical to organ-llm types
-// but session.ts must not depend on organ packages.
+// Types are owned here; they are structurally identical to reasoner types
+// but session.ts must not depend on adapter packages.
 // ---------------------------------------------------------------------------
 
 export interface ToolStarted {
@@ -51,7 +51,7 @@ export type AgentEvent =
 
 // ---------------------------------------------------------------------------
 // DirectiveView — the minimal surface Session exposes from the directive system.
-// Callers never see DirectiveAdapter from organ-alef.
+// Callers never see DirectiveAdapter from adapter-alef.
 // ---------------------------------------------------------------------------
 
 export interface DirectiveView {

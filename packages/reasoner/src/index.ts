@@ -161,7 +161,7 @@ function pickKeyArg(payload: Record<string, unknown>): string {
 }
 
 /**
- * Create a full LLM organ with optional concurrent-ops inflight tracking.
+ * Create a full LLM adapter with optional concurrent-ops inflight tracking.
  * createAgentLoop is the canonical factory.
  */
 export interface ReconciliationSurface {

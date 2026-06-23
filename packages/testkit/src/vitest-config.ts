@@ -1,14 +1,14 @@
 /**
  * @dpopsuev/alef-testkit/vitest-config — shared vitest configuration factory.
  *
- * Provides two named exports so internal and external organ developers use
+ * Provides two named exports so internal and external adapter developers use
  * identical 4-line vitest.config.ts files regardless of repo context:
  *
  *   import { defineProject, mergeConfig } from "vitest/config";
  *   import { monorepoConfig } from "@dpopsuev/alef-testkit/vitest-config";
  *   export default mergeConfig(
  *     monorepoConfig(new URL("../../", import.meta.url).pathname),
- *     defineProject({ test: { name: "organ-shell" } }),
+ *     defineProject({ test: { name: "adapter-shell" } }),
  *   );
  *
  * External developers in their own repo use standaloneConfig() instead —

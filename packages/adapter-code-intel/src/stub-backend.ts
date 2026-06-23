@@ -2,7 +2,7 @@
  * StubCodeIntelBackend — no-op backend for tests.
  *
  * Returns empty results for all LSP operations.
- * Used when testing organ structure without real LSP integration.
+ * Used when testing adapter structure without real LSP integration.
  */
 
 import type { CallersOptions, CallSite, CodeIntelBackend } from "./backend.js";

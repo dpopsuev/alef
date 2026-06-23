@@ -62,7 +62,7 @@ export class ValidationError extends AlefError {
 	}
 }
 
-/** Resource not found errors (file, session, organ, tool) */
+/** Resource not found errors (file, session, adapter, tool) */
 export class NotFoundError extends AlefError {
 	readonly resourceType: string;
 	readonly resourceId: string;
@@ -307,7 +307,7 @@ export function isRetriable(err: unknown): boolean {
 }
 
 /**
- * Create a structured error object for nerve sense bus.
+ * Create a structured error object for the event bus.
  * Compatible with existing buildErrSense() pattern.
  */
 export function toSenseError(err: unknown): { message: string; error: Record<string, unknown> } {

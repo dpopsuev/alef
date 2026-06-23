@@ -4,7 +4,7 @@
  * 12 evaluations run concurrently in a bounded pool.
  * Pool size: ALEF_EVAL_CONCURRENCY (default 3).
  * Spans are isolated per eval via traceId — no global exporter reset needed.
- * 429 / RESOURCE_EXHAUSTED errors retry with exponential backoff in organ-llm.
+ * 429 / RESOURCE_EXHAUSTED errors retry with exponential backoff in adapter-llm.
  *
  * Run:
  *   cd packages/eval
@@ -96,7 +96,7 @@ class AimdScheduler {
 /**
  * Run evaluations through an AIMD-controlled concurrent pool.
  * Pool adapts: shrinks on 429 (MD), grows on consecutive successes (AI).
- * Each eval gets a fresh Agent + organ-llm wired to the scheduler's onRetry.
+ * Each eval gets a fresh Agent + adapter-llm wired to the scheduler's onRetry.
  */
 async function runPool(evals: Evaluation[], maxConcurrency: number): Promise<EvaluationResult[]> {
 	const scheduler = new AimdScheduler(Math.min(3, maxConcurrency), maxConcurrency);

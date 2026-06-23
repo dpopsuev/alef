@@ -111,8 +111,8 @@ describe.skipIf(SKIP)(
 		});
 
 		it("targets session B (notifySelectionChange) not C (EditorWrapper) when asked about arrow key repaint", async () => {
-			// Override SESSION_ROOT in organ-alef to use our temp cwd.
-			// The organ reads from homedir() by default; we need to redirect it.
+			// Override SESSION_ROOT in adapter-alef to use our temp cwd.
+			// The adapter reads from homedir() by default; we need to redirect it.
 			// For this test we call runMetaAgent with a prompt and check if it mentions B's ID.
 			const prompt =
 				`I have sessions in ${cwd}. Find the session where we fixed the bug where ` +

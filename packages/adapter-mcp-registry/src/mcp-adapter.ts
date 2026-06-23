@@ -28,7 +28,7 @@ class McpAdapterImpl implements Adapter {
 	readonly directives?: readonly string[];
 
 	private readonly client: MCPClient;
-	/** Map from motor tool name → cached execute function */
+	/** Map from command tool name → cached execute function */
 	private readonly execMap: Map<string, ExecuteFn>;
 
 	constructor(name: string, tools: ToolDefinition[], client: MCPClient, execMap: Map<string, ExecuteFn>) {

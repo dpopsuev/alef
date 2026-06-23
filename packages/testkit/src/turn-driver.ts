@@ -6,16 +6,16 @@ import type { BusObserver } from "@dpopsuev/alef-runtime";
 /**
  * TurnDriver — event/llm.input → command/llm.response request-reply.
  *
- * Test double for AgentController. Drives an organ-llm adapter on a bare bus
- * without pulling in agent-controller. Keeps organ-llm tests dependency-free.
+ * Test double for AgentController. Drives an adapter-llm adapter on a bare bus
+ * without pulling in agent-controller. Keeps adapter-llm tests dependency-free.
  *
- * Tools are included in the trigger event payload so organ-llm can build its
+ * Tools are included in the trigger event payload so adapter-llm can build its
  * name map without needing a getTools() callback.
  *
  * Usage:
- *   const nerve = new InProcessBus();
- *   const driver = new TurnDriver(nerve);
- *   const unmount = createAgentLoop({ ... }).mount(nerve.asBus());
+ *   const bus = new InProcessBus();
+ *   const driver = new TurnDriver(bus);
+ *   const unmount = createAgentLoop({ ... }).mount(bus.asBus());
  *   const reply = await driver.send("hello");
  *   unmount();
  */

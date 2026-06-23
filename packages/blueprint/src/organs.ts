@@ -1,15 +1,15 @@
 /**
- * Organ compilation — converts YAML organ inputs into materializer instructions.
+ * Adapter compilation — converts YAML adapter inputs into materializer instructions.
  *
  * Purely structural: validates shape, resolves paths, passes names through.
- * Zero knowledge of specific organ packages — alias resolution is the
+ * Zero knowledge of specific adapter packages — alias resolution is the
  * materializer's concern (it is the composition root that ships the organs).
  */
 
 import type { AgentDefinitionOrganInput, AgentRole, CompiledAgentOrganDefinition } from "./types.js";
 
 /**
- * Compile organ inputs from YAML into materializer-ready descriptors.
+ * Compile adapter inputs from YAML into materializer-ready descriptors.
  *
  * Each entry must have either:
  *   name  — an npm package specifier OR a short alias the materializer recognises

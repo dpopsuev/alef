@@ -637,7 +637,7 @@ export function mergeAgentDefinitions(
 		model: overlay.model ?? base.model,
 		systemPrompt: overlay.systemPrompt ?? base.systemPrompt,
 
-		// Organs: merge by name. Overlay organ config wins per-organ field.
+		// Organs: merge by name. Overlay adapter config wins per-adapter field.
 		// Base organs not in overlay are kept. Overlay organs not in base are added.
 		organs: mergeOrganLists(base.organs, overlay.organs),
 		surfaces: overlay.surfaces.length > 0 ? overlay.surfaces : base.surfaces,

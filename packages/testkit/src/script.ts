@@ -9,13 +9,13 @@
  *   toolCalls([...], reply)      — parallel tool calls, wait for all, then reply
  *
  * Tool names use EDA event types (fs.read, shell.exec) not LLM names (fs_read).
- * The real organ handlers execute — tool results are real.
+ * The real adapter handlers execute — tool results are real.
  */
 
 export interface ToolCallSpec {
-	/** EDA Motor event type (e.g. "fs.read", "code.search"). */
+	/** EDA command event type (e.g. "fs.read", "code.search"). */
 	name: string;
-	/** Arguments forwarded to the organ handler. */
+	/** Arguments forwarded to the adapter handler. */
 	args: Record<string, unknown>;
 }
 
@@ -53,7 +53,7 @@ export const step = {
 
 	/**
 	 * One tool call followed by a text reply.
-	 * The real organ handler executes; its Sense result is available in assertions.
+	 * The real adapter handler executes; its event result is available in assertions.
 	 * @example step.toolCall("fs.read", { path: "src/auth.ts" }, "I found the bug.")
 	 */
 	toolCall(name: string, args: Record<string, unknown>, reply: string): ScriptStep {

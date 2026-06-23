@@ -25,7 +25,7 @@ export interface AgentModelSelector {
 }
 
 /**
- * Built-in organ short names. Used as aliases in agent.yaml — the materializer
+ * Built-in adapter short names. Used as aliases in agent.yaml — the materializer
  * resolves these to their npm packages via BUILTIN_PACKAGES.
  * Treat as documentation; do NOT validate against this at parse time.
  */
@@ -71,7 +71,7 @@ export interface AgentDefinitionLectorRuntimeConfig {
 
 export interface AgentDefinitionOrganInput {
 	/**
-	 * Built-in alias (e.g. "fs") or npm package name (e.g. "@company/my-organ").
+	 * Built-in alias (e.g. "fs") or npm package name (e.g. "@company/my-adapter").
 	 * Mutually exclusive with `path`.
 	 */
 	name?: string;
@@ -83,7 +83,7 @@ export interface AgentDefinitionOrganInput {
 	path?: string;
 	/** Action subset to mount. Omit for all defaults. */
 	actions?: string[];
-	/** Shell command patterns to block (regex strings). Passed to organ-shell's blockedPatterns. */
+	/** Shell command patterns to block (regex strings). Passed to adapter-shell's blockedPatterns. */
 	blockedPatterns?: string[];
 	cache?: AgentDefinitionOrganCacheInput;
 	runtime?: AgentDefinitionLectorRuntimeInput;
@@ -91,13 +91,13 @@ export interface AgentDefinitionOrganInput {
 
 export interface CompiledAgentOrganDefinition {
 	/**
-	 * Organ name as written in agent.yaml: an npm package specifier, a short
+	 * Adapter name as written in agent.yaml: an npm package specifier, a short
 	 * alias (resolved by the materializer), or "_external" for path-loaded organs.
 	 */
 	name: string;
 	/** Resolved absolute path. Set for path-based organs (materializer fills this). */
 	path?: string;
-	/** Action filter passed to the organ factory. */
+	/** Action filter passed to the adapter factory. */
 	actions: string[];
 	/** @deprecated EDA organs self-describe. Always empty. */
 	toolNames: string[];
@@ -220,7 +220,7 @@ export interface AgentDefinitionSurfaceInput {
 	/** Transport type. Currently only 'sse' is supported (via RouterOrgan). */
 	type: "sse";
 	/**
-	 * Event type allowlist. Only motor/sense events whose type matches one of
+	 * Event type allowlist. Only command/event events whose type matches one of
 	 * these patterns are forwarded to connected clients.
 	 *
 	 * Patterns support a single trailing wildcard: 'fs.*' matches 'fs.read',

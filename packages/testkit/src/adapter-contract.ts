@@ -8,8 +8,8 @@
  * 2. cleanup is idempotent (callable twice without throwing)
  * 3. adapter.tools is a defined array
  * 4. adapter.subscriptions.command lists every 'command/' key the adapter handles
- * 5. for each tool: valid Command event → Event event within timeout
- * 6. for each tool: invalid payload → isError:true Event event
+ * 5. for each tool: valid command event → event message within timeout
+ * 6. for each tool: invalid payload → isError:true event message
  *
  * Mirrors Tako testkit/contracts/RunWalkerContract.
  */
@@ -108,7 +108,7 @@ export async function runAdapterContract(
 		ok("subscriptions-complete");
 	}
 
-	// 5 & 6. probe each tool with valid + invalid Command events
+	// 5 & 6. probe each tool with valid + invalid command events
 	if (adapter.tools.length > 0) {
 		const probeNerve = new InProcessBus();
 		const probeUnmount = adapter.mount(probeNerve.asBus());
@@ -118,18 +118,18 @@ export async function runAdapterContract(
 			const validPayload = buildMinimalPayload(tool.inputSchema);
 			const invalidPayload = { __invalid__: true };
 
-			// 5. Valid payload → Event response (not necessarily isError)
+			// 5. Valid payload → event response (not necessarily isError)
 			const validResult = await probeCommand(probeNerve.asBus(), tool.name, validPayload, timeoutMs);
 			if (validResult === null) {
-				fail(`probe-valid:${tool.name}`, `no Event response received within ${timeoutMs}ms for valid payload`);
+				fail(`probe-valid:${tool.name}`, `no event response received within ${timeoutMs}ms for valid payload`);
 			} else {
 				ok(`probe-valid:${tool.name}`);
 			}
 
-			// 6. Invalid payload → isError Event response
+			// 6. Invalid payload → isError event response
 			const invalidResult = await probeCommand(probeNerve.asBus(), tool.name, invalidPayload, timeoutMs);
 			if (invalidResult === null) {
-				fail(`probe-invalid:${tool.name}`, `no Event response received within ${timeoutMs}ms for invalid payload`);
+				fail(`probe-invalid:${tool.name}`, `no event response received within ${timeoutMs}ms for invalid payload`);
 			} else if (!invalidResult.isError) {
 				fail(
 					`probe-invalid:${tool.name}`,
@@ -192,7 +192,7 @@ function makeSpyLogger(bindings: Record<string, unknown>, sink: CapturedLog[]): 
 }
 
 // ---------------------------------------------------------------------------
-// organComplianceSuite — vitest-integrated adapter compliance harness
+// adapterComplianceSuite — vitest-integrated adapter compliance harness
 // ---------------------------------------------------------------------------
 
 export interface StreamingToolConfig {
@@ -239,7 +239,7 @@ export type OrganComplianceOptions = AdapterComplianceOptions;
  *
  * @example
  * ```ts
- * // organ-shell/test/adapter.test.ts
+ * // adapter-shell/test/adapter.test.ts
  * import { adapterComplianceSuite } from "@dpopsuev/alef-testkit";
  * import { createShellAdapter } from "../src/adapter.js";
  *
@@ -476,7 +476,7 @@ export async function runSchemaContract(
  * emits at least one isFinal:false event message — so the TUI can show progress.
  *
  * This contract catches adapters that should use typedStreamAction but use
- * typedAction instead (like organ-agent.agent.run, organ-enclosure.exec).
+ * typedAction instead (like adapter-agent.agent.run, adapter-enclosure.exec).
  */
 export async function runStreamingContract(
 	adapter: Adapter,

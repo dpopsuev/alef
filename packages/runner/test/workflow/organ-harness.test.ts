@@ -2,11 +2,11 @@
  * Integration test: outer LLM calls workflow.run as a tool.
  *
  * The outer agent has createWorkflowOrgan mounted. The scripted LLM calls
- * workflow.run("intent", artifact) → the organ dispatches to ImplStationRunner
+ * workflow.run("intent", artifact) → the adapter dispatches to ImplStationRunner
  * → the Intent sub-agent calls contract.submit → the tool result comes back
  * → the outer LLM calls workflow.run("goal", ...) → etc.
  *
- * This proves the organ bus layer works end-to-end, not just runPipeline directly.
+ * This proves the adapter bus layer works end-to-end, not just runPipeline directly.
  */
 
 import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-adapter-workflow";

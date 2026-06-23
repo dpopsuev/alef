@@ -107,9 +107,9 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 	// Track pending cache captures to prevent races
 	const pendingCaptures = new Map<string, () => void>();
 
-	// Middleware that wraps bus to intercept and cache motor events
+	// Middleware that wraps bus to intercept and cache command events
 	const cacheMiddleware: BusMiddleware = (bus: Bus): Bus => {
-		// Subscribe to motor events for cached tools to prevent deadLetterSink
+		// Subscribe to command events for cached tools to prevent deadLetterSink
 		const motorUnsubs: Array<() => void> = [];
 		for (const toolType of cachedTools) {
 			motorUnsubs.push(
@@ -119,7 +119,7 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 
 					if (cached !== undefined) {
 						hits++;
-						// Publish cached result directly to sense bus
+						// Publish cached result directly to event bus
 						bus.event.publish(
 							buildSense(
 								{ ...event, timestamp: Date.now(), elapsed: 0 },
@@ -131,7 +131,7 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 
 					misses++;
 
-					// Subscribe to sense result to cache it
+					// Subscribe to event result to cache it
 					const correlationId = event.correlationId;
 					let captured = false;
 
@@ -157,7 +157,7 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 
 					pendingCaptures.set(correlationId, senseUnsub);
 
-					// lint-ignore: RAWTIMER subscription cleanup deadline for uncaptured sense results
+					// lint-ignore: RAWTIMER subscription cleanup deadline for uncaptured event results
 					setTimeout(
 						() => {
 							if (!captured) {

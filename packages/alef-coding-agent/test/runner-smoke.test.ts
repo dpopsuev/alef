@@ -219,7 +219,7 @@ describe.skipIf(!HAS_KEY)("Real-LLM — full stack integration", { tags: ["real-
 			const reply = await replyPromise;
 
 			// The reply MUST be non-empty even after tool calls.
-			// This is the regression: previously the motor/llm.response was generated
+			// This is the regression: previously the command/llm.response was generated
 			// in the JSONL but the TUI didn't render it (silent empty screen).
 			expect(reply.length).toBeGreaterThan(10);
 		} finally {

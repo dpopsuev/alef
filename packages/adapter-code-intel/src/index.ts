@@ -1,5 +1,5 @@
 /**
- * Code Intelligence Organ — LSP-based TypeScript/JavaScript code intelligence.
+ * Code Intelligence Adapter — LSP-based TypeScript/JavaScript code intelligence.
  */
 
 export { type CodeIntelOrganOptions, createCodeIntelOrgan } from "./adapter.js";

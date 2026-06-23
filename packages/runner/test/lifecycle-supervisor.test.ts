@@ -29,7 +29,7 @@ const ROOT = resolve(__dirname, "../../..");
 const TSX = resolve(ROOT, "node_modules/tsx/dist/cli.mjs");
 const RUNNER_MAIN = resolve(__dirname, "../src/main.ts");
 // Supervisor binary removed with coding-agent. Tests below that use SUPERVISOR
-// are skipped until an organ-native supervisor is implemented.
+// are skipped until an adapter-native supervisor is implemented.
 const SUPERVISOR = resolve(__dirname, "../src/supervisor.ts");
 const TSCONFIG = resolve(ROOT, "tsconfig.json");
 

@@ -8,7 +8,7 @@
  *   code.diagnose — get TypeScript compilation errors for a file
  *
  * Design: Pure code intelligence layer. Use fs.* tools for file operations.
- * This organ focuses solely on LSP capabilities that fs cannot provide.
+ * This adapter focuses solely on LSP capabilities that fs cannot provide.
  */
 
 import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
@@ -110,7 +110,7 @@ function formatDiagnostics(diagnostics: import("./backend.js").Diagnostic[]): st
 }
 
 // ---------------------------------------------------------------------------
-// Organ factory
+// Adapter factory
 // ---------------------------------------------------------------------------
 
 export interface CodeIntelOrganOptions extends BaseAdapterOptions {

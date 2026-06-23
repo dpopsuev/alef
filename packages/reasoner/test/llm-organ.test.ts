@@ -9,8 +9,8 @@ import { createAgentLoop } from "../src/index.js";
 import { waitForToolResult } from "../src/tool-dispatch.js";
 import { buildTools } from "../src/turn-loop.js";
 
-// createContextAssemblyPipeline (from kernel) is the mountable pipeline organ — no tools, pure coordinator.
-// organ-llm is a reasoner (no tools), not a tool-bearing organ.
+// createContextAssemblyPipeline (from kernel) is the mountable pipeline adapter — no tools, pure coordinator.
+// adapter-llm is a reasoner (no tools), not a tool-bearing adapter.
 organComplianceSuite(() => createContextAssemblyPipeline());
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
@@ -31,8 +31,8 @@ function makeModel() {
 }
 
 /**
- * Standard test harness: bare nerve, TurnDriver, LLM organ, optional BusEventRecorder.
- * Replaces the Agent + AgentController + organ-llm construction that appeared in every test.
+ * Standard test harness: bare bus, TurnDriver, LLM adapter, optional BusEventRecorder.
+ * Replaces the Agent + AgentController + adapter-llm construction that appeared in every test.
  */
 function makeHarness(llm: Adapter) {
 	const f = new NerveFixture();
@@ -704,7 +704,7 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 		};
 		faux.setResponses([captureFactory]);
 
-		// When: organ-llm runs with a prepareStep that injects a system message
+		// When: adapter-llm runs with a prepareStep that injects a system message
 		const systemText = "You are Alef. No emojis.";
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
@@ -742,7 +742,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 
-		// A stub organ that subscribes to command/hung_tool but never publishes an event reply
+		// A stub adapter that subscribes to command/hung_tool but never publishes an event reply
 		const { z } = await import("zod");
 		const hungOrgan = defineAdapter(
 			"hung",
@@ -803,7 +803,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 
 describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }, () => {
 	it("emits tool-chunk for each isFinal:false sense event before tool-end", async () => {
-		// Given: a faux LLM that calls a streaming organ, then replies
+		// Given: a faux LLM that calls a streaming adapter, then replies
 		const faux = registerFauxProvider();
 		faux.setResponses([
 			fauxAssistantMessage([fauxToolCall("streamer_run", { command: "go" })]),
@@ -813,7 +813,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const { z } = await import("zod");
 		const { typedStreamAction } = await import("@dpopsuev/alef-kernel");
 
-		// A streaming organ that yields three intermediate chunks then a final result
+		// A streaming adapter that yields three intermediate chunks then a final result
 		const streamingOrgan = defineAdapter(
 			"streamer",
 			{
@@ -1020,7 +1020,7 @@ describe("organ-llm — ambient steering", { tags: ["unit"] }, () => {
 		await new Promise((r) => setTimeout(r, 50));
 
 		const motorDialogEvents = recorder.command.filter((e) => e.type === "llm.response");
-		// Only one motor reply must have been published — the second sense event was buffered, not run.
+		// Only one command reply must have been published — the second sense event was buffered, not run.
 		expect(
 			motorDialogEvents.length,
 			"second llm.input while turn active must not produce a second immediate reply",

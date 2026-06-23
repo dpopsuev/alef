@@ -1,15 +1,15 @@
 /**
- * SessionLog — tap Motor and Sense buses, write every event to the session JSONL.
+ * SessionLog — tap command and event buses, write every event to the session JSONL.
  *
- * Same wildcard pattern as EvaluatorOrgan: subscribes motor/* and sense/*.
+ * Same wildcard pattern as EvaluatorAdapter: subscribes command/* and event/*.
  * Writes each event as a StorageRecord to the session file (fire-and-forget).
  *
  * This is the missing link between the EDA bus and the persistent event log.
  * Once wired, the TurnAssembler can read the full event history
  * and build accurate context windows without relying on AgentController.history[].
  *
- * Not a organ — no tools, no subscriptions via defineOrgan.
- * Implements Adapter directly (same as EvaluatorOrgan).
+ * Not a tool-bearing adapter — no tools, no subscriptions via defineAdapter.
+ * Implements Adapter directly (same as EvaluatorAdapter).
  *
  */
 

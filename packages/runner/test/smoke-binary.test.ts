@@ -4,7 +4,7 @@
  * a real LLM, using ALEF_SCRIPTED_REPLIES.
  *
  * This is the "can I actually use it?" gate. If this passes, the binary is
- * wired correctly end-to-end: args parsing, organ boot, HTTP surface, SSE,
+ * wired correctly end-to-end: args parsing, adapter boot, HTTP surface, SSE,
  * message routing, reply delivery.
  *
  * Does NOT require an API key.
@@ -254,7 +254,7 @@ describe("alef binary smoke tests (no real LLM)", { tags: ["integration"] }, () 
 
 	it("agent.run is present in the tool catalog — organ-agent is mounted on boot", async () => {
 		// Script the LLM to call tools.describe([]) — returns all tool names in its sense payload.
-		// If organ-agent is not mounted, agent.run is absent from the catalog.
+		// If adapter-agent is not mounted, agent.run is absent from the catalog.
 		// No real LLM needed; no inner-agent network call.
 		const cwd = makeTmp();
 		const replies = [

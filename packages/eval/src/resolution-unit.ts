@@ -2,8 +2,8 @@
  * ResolutionUnit \u2014 evaluate a single adapter in isolation.
  *
  * No LLM. No blueprint. No real dependencies.
- * Motor events are injected from PortStubs (fixture JSON).
- * Sense events are collected and scored against a ScoreCard.
+ * Command events are injected from PortStubs (fixture JSON).
+ * Event messages are collected and scored against a ScoreCard.
  *
  * Resolution levels (mirrors Tako calibrate.multi_resolution):
  *   unit       \u2014 one adapter, all ports stubbed
@@ -17,12 +17,12 @@ import { type Adapter, gimpedAdapter, isGimped } from "@dpopsuev/alef-kernel/ada
 import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 
 // ---------------------------------------------------------------------------
-// PortStub \u2014 canned Motor payload for one tool
+// PortStub \u2014 canned command payload for one tool
 // ---------------------------------------------------------------------------
 
 /**
- * A PortStub declares a canned Motor payload for a named tool.
- * The adapter receives this payload and its Sense response is captured.
+ * A PortStub declares a canned command payload for a named tool.
+ * The adapter receives this payload and its event response is captured.
  *
  * Mirrors Tako calibrate.PortStubs: stubs at port boundaries so a circuit
  * can be measured in isolation without invoking real sub-circuits.
@@ -30,7 +30,7 @@ import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 export interface PortStub {
 	/** Tool name (e.g. "fs.read"). Must match a tool in the adapter. */
 	tool: string;
-	/** Motor payload injected. Should satisfy the tool's inputSchema. */
+	/** Command payload injected. Should satisfy the tool's inputSchema. */
 	payload: Record<string, unknown>;
 	/** Optional ground truth for scoring. Passed to the scorer. */
 	groundTruth?: Record<string, unknown>;
@@ -45,17 +45,17 @@ export interface PortStub {
 export interface UnitCaseResult {
 	tool: string;
 	label: string;
-	/** Sense event received (undefined if timed out). */
+	/** Event message received (undefined if timed out). */
 	sense: EventMessage | undefined;
-	/** true if a Sense event arrived (regardless of isError). */
+	/** true if an event message arrived (regardless of isError). */
 	responded: boolean;
-	/** true if sense.isError === true. */
+	/** true if event.isError === true. */
 	isError: boolean;
 	/** User-supplied score from scorer (0\u20131). */
 	score: number;
 	/** Human-readable detail from scorer. */
 	detail: string;
-	/** Wall-clock duration from Motor publish to Sense arrival in ms. */
+	/** Wall-clock duration from command publish to event arrival in ms. */
 	durationMs: number;
 }
 
@@ -81,11 +81,11 @@ export const defaultUnitScorer: UnitScorer = (sensePayload, _groundTruth, _stub)
 export interface UnitEvalConfig {
 	/** The adapter under test. */
 	adapter: Adapter;
-	/** Canned Motor payloads to inject. */
+	/** Canned command payloads to inject. */
 	stubs: PortStub[];
 	/** Optional scorer. Default: 1.0 if response received, 0 otherwise. */
 	scorer?: UnitScorer;
-	/** Timeout per Motor\u2192Sense probe in ms. Default: 5000. */
+	/** Timeout per command\u2192event probe in ms. Default: 5000. */
 	timeoutMs?: number;
 }
 
@@ -101,9 +101,9 @@ export interface UnitEvalReport {
 	cases: UnitCaseResult[];
 	/** Mean score across all cases (0\u20131). */
 	meanScore: number;
-	/** Fraction of cases that received a Sense event. */
+	/** Fraction of cases that received an event message. */
 	responseRate: number;
-	/** Fraction of cases where sense.isError === true. */
+	/** Fraction of cases where event.isError === true. */
 	errorRate: number;
 	/** Wall-clock duration of the entire run in ms. */
 	elapsedMs: number;
@@ -126,9 +126,9 @@ export interface UnitEvalReport {
  *     { tool: "fs.read", payload: { path: "README.md" }, label: "read readme" },
  *     { tool: "fs.grep", payload: { pattern: "TODO" }, label: "grep todos" },
  *   ],
- *   scorer: (sense, _gt, _stub) => ({
- *     score: sense && !sense.isError ? 1 : 0,
- *     detail: sense?.isError ? "error" : "ok",
+ *   scorer: (event, _gt, _stub) => ({
+ *     score: event && !event.isError ? 1 : 0,
+ *     detail: event?.isError ? "error" : "ok",
  *   }),
  * });
  * console.log(report.meanScore, report.responseRate);
@@ -142,7 +142,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 
 	const cases: UnitCaseResult[] = [];
 
-	// Mount the adapter on a fresh nerve
+	// Mount the adapter on a fresh bus
 	const nerve = new InProcessBus();
 	const unmount = adapter.mount(nerve.asBus());
 

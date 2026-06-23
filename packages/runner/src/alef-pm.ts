@@ -299,7 +299,7 @@ export interface SearchResult {
 }
 
 /**
- * Search npm for packages with the `alef-adapter` (or legacy `alef-organ`) keyword.
+ * Search npm for packages with the `alef-adapter` keyword.
  * Optional query further filters by name/description.
  */
 export async function search(query: string): Promise<SearchResult[]> {
@@ -403,7 +403,7 @@ export function resolveAdapterPath(name: string): string | undefined {
 export const resolveOrganPath = resolveAdapterPath;
 
 // ---------------------------------------------------------------------------
-// Project-level lockfile — commit organ versions alongside code (like Cargo.lock)
+// Project-level lockfile — commit adapter versions alongside code (like Cargo.lock)
 // ---------------------------------------------------------------------------
 
 export interface ProjectLockfile {

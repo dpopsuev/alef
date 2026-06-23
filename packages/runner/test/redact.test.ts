@@ -147,7 +147,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 			const events = await store.events();
 			expect(events.length).toBeGreaterThan(0);
 
-			// Motor bus event has the full redacted payload; sense has the dead-letter {}.
+			// Command bus event has the full redacted payload; sense has the dead-letter {}.
 			const record = events.find((e) => e.type === "test.event" && e.bus === "command");
 			expect(record).toBeDefined();
 

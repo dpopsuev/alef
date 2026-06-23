@@ -1,5 +1,5 @@
 /**
- * Default base organ set for EvalHarness.
+ * Default base adapter set for EvalHarness.
  *
  * Exported so callers can extend or replace the defaults:
  *   baseOrgansFactory: (cwd) => [...defaultEvalOrgans(cwd), myOrgan]

@@ -2,7 +2,7 @@
  * E2E real-LLM tests for the runner HTTP surface.
  *
  * POST /message → SSE reply with real LLM
- * Blueprint organ selection verified with real LLM
+ * Blueprint adapter selection verified with real LLM
  * RouterOrgan SSE filter with real LLM
  *
  * Gate: ANTHROPIC_API_KEY or ANTHROPIC_VERTEX_PROJECT_ID must be set.
@@ -528,7 +528,7 @@ describe.skipIf(!HAVE_LLM)(
 );
 
 // ---------------------------------------------------------------------------
-// TSK-185: Blueprint organ selection — real LLM only calls permitted tools
+// TSK-185: Blueprint adapter selection — real LLM only calls permitted tools
 // ---------------------------------------------------------------------------
 
 describe.skipIf(!HAVE_LLM)(

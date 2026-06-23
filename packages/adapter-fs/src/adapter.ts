@@ -1,7 +1,7 @@
 /**
- * FsOrgan — filesystem organ.
+ * FsOrgan — filesystem adapter.
  *
- * Motor events handled → Sense results:
+ * Command events handled → Event results:
  *   fs.read   — read a file with optional offset/limit
  *   fs.grep   — ripgrep content search
  *   fs.find   — fd file-find
@@ -164,7 +164,7 @@ export interface FsOrganOptions {
 	/** Allowlist of fs action names to mount (e.g. ['fs.read', 'fs.grep']). Default: all. */
 	actions?: readonly string[];
 	/**
-	 * Directories the organ is allowed to access (OCAP grant).
+	 * Directories the adapter is allowed to access (OCAP grant).
 	 * Injected by the materializer from config.security.writable_roots.
 	 * Undefined = unrestricted (no guard). Empty or populated = enforce.
 	 */

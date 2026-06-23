@@ -2,16 +2,16 @@
  * PortRegistry — kernel seam cardinality validation.
  *
  * A seam is a named event channel with a declared cardinality constraint.
- * The registry validates that each loaded organ set satisfies all seam constraints
+ * The registry validates that each loaded adapter set satisfies all seam constraints
  * before the first turn.
  *
  * Cardinality:
- *   "exactly-one"  — exactly one organ must subscribe to this seam.
+ *   "exactly-one"  — exactly one adapter must subscribe to this seam.
  *                    Missing → agent cannot respond. Multiple → race condition.
- *   "zero-or-one"  — at most one organ. Multiple → warning (undefined behaviour).
+ *   "zero-or-one"  — at most one adapter. Multiple → warning (undefined behaviour).
  *   "zero-or-many" — no constraint (default pub-sub).
  *
- * Seam detection: an organ covers a seam if any of its action map keys matches
+ * Seam detection: an adapter covers a seam if any of its action map keys matches
  * the seam's event pattern. Wildcards in action keys (command/*) cover all command seams.
  *
  * EIP: PortRegistry implements the Content-Based Router pattern at boot time —
@@ -38,21 +38,21 @@ export interface PortValidationResult {
 // ---------------------------------------------------------------------------
 // Built-in seam definitions
 // ---------------------------------------------------------------------------
-// Organ seam membership detection
+// Adapter seam membership detection
 // ---------------------------------------------------------------------------
 
 /**
- * Returns the action map keys an organ covers.
+ * Returns the action map keys an adapter covers.
  * Organs created with defineOrgan expose their keys via the internal structure.
- * We detect coverage by inspecting the Nerve subscriptions at mount time.
+ * We detect coverage by inspecting the Bus subscriptions at mount time.
  *
- * Strategy: mount the organ onto a probe nerve, record which event types it
- * subscribes to on Motor and Sense buses, then unmount.
+ * Strategy: mount the adapter onto a probe bus, record which event types it
+ * subscribes to on Command and Event buses, then unmount.
  */
 export interface AdapterPortInfo {
 	name: string;
-	commandSubscriptions: string[]; // event types subscribed on Motor bus
-	eventSubscriptions: string[]; // event types subscribed on Sense bus
+	commandSubscriptions: string[]; // event types subscribed on Command bus
+	eventSubscriptions: string[]; // event types subscribed on Event bus
 }
 
 // ---------------------------------------------------------------------------

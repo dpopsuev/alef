@@ -3,7 +3,7 @@
  *
  * Exposes a single tool: report.submit
  * Typed schema enforces structured output from the judge.
- * The organ captures the submission via an event emitter so the
+ * The adapter captures the submission via an event emitter so the
  * JudgePanelRunner can read it after the judge's session ends.
  */
 

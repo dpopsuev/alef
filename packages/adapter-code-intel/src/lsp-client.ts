@@ -14,7 +14,7 @@
  *   client.stop()  — sends shutdown + exit, kills subprocess
  *
  * The client is lazy-started by LocalCodeIntelBackend on the first callers() call
- * and kept alive for the session. It is closed on organ unmount.
+ * and kept alive for the session. It is closed on adapter unmount.
  */
 
 import { spawn } from "node:child_process";

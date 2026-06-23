@@ -4,7 +4,7 @@
  * Protocol:
  *   POST {baseUrl}/message  { text: string }  → 202
  *   GET  {baseUrl}/events   text/event-stream
- *     event: motor/llm.response
+ *     event: command/llm.response
  *     data:  { bus, type, correlationId, payload: { text, role }, timestamp }
  *
  * The runner handles model selection, API keys, and tool execution server-side.

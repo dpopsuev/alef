@@ -2,8 +2,8 @@ type RawMsg = { role?: string; content?: unknown };
 
 /**
  * Inject a text block into the message array after the system message.
- * Used by organs that contribute context via context.assemble (memory, scribe, board).
- * DRY: replaces duplicated splice logic across three organs.
+ * Used by adapters that contribute context via context.assemble (memory, scribe, board).
+ * DRY: replaces duplicated splice logic across three adapters.
  */
 export function injectContextBlock(messages: readonly unknown[], block: string): unknown[] {
 	const result = [...messages];

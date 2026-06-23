@@ -1,9 +1,9 @@
 /**
- * organ-llm real-LLM E2E — proves the LLM turn loop.
+ * adapter-llm real-LLM E2E — proves the LLM turn loop.
  *
  * Uses a stub tool that returns a fixed unguessable token so the test
  * verifies tool dispatch, result injection into context, and LLM reply —
- * without importing any other organ package.
+ * without importing any other adapter package.
  */
 
 import { randomUUID } from "node:crypto";

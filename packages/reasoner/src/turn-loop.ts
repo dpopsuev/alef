@@ -35,7 +35,7 @@ export interface TurnLoopOptions {
 	systemPrompt?: string;
 	apiKey?: string;
 	getApiKey?: () => string | undefined;
-	/** Called immediately before the final motor/llm.response is published — used to clear turn state. */
+	/** Called immediately before the final command/llm.response is published — used to clear turn state. */
 	onBeforeReply?: () => void;
 }
 

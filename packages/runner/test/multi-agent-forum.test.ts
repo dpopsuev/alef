@@ -139,11 +139,11 @@ describe("multi-agent plan + board coordination", () => {
 	});
 
 	it("board context.assemble injects new posts into LLM context", async () => {
-		// Create board organ with a past lastReadTs so new posts are visible
+		// Create board adapter with a past lastReadTs so new posts are visible
 		const boardOrgan = createDiscourseOrgan({ sessionDir: dir });
 		unmounts.push(boardOrgan.mount(nerve.asBus()));
 
-		// Post something — the motor handler writes to disk
+		// Post something — the command handler writes to disk
 		await call("forum.post", {
 			topic: "updates",
 			thread: "status",

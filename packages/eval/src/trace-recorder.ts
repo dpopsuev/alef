@@ -2,10 +2,10 @@
  * TraceRecorder \u2014 JSONL execution trace to disk for eval runs.
  *
  * Implements BusObserver so it can be attached via agent.observe().
- * Writes one TraceEvent per Motor and Sense event as JSONL.
+ * Writes one TraceEvent per Command and Event event as JSONL.
  *
- * Every Motor event = a tool dispatch (level: debug).
- * Every Sense event = a tool result (level: debug, or warn on isError).
+ * Every Command event = a tool dispatch (level: debug).
+ * Every Event event = a tool result (level: debug, or warn on isError).
  * Session lifecycle signals (start/end) = info level.
  *
  * LoadTrace(path) reads the JSONL back for post-hoc analysis.
@@ -33,19 +33,19 @@ export interface TraceEvent {
 	/** RFC3339Nano timestamp. */
 	ts: string;
 	level: TraceLevel;
-	/** Motor event type (e.g. "fs.read") or Sense event type or lifecycle signal. */
+	/** Command event type (e.g. "fs.read") or Event event type or lifecycle signal. */
 	event: string;
 	/** "command" | "event" | "notification". */
 	bus: "command" | "event" | "notification";
-	/** Correlation ID threading Motor\u2192Sense pairs. */
+	/** Correlation ID threading Command\u2192Sense pairs. */
 	correlationId?: string;
-	/** True when the Sense event carries isError:true. */
+	/** True when the Event event carries isError:true. */
 	isError?: true;
 	/** Error message if isError. */
 	errorMessage?: string;
-	/** Cache hit (from alef.cache.hit Sense attribute, if known). */
+	/** Cache hit (from alef.cache.hit Event attribute, if known). */
 	cacheHit?: boolean;
-	/** Elapsed ms between paired Motor and Sense events. */
+	/** Elapsed ms between paired Command and Event events. */
 	elapsedMs?: number;
 	/** Arbitrary metadata. */
 	meta?: Record<string, unknown>;
@@ -172,13 +172,13 @@ export interface ToolSummary {
 	calls: number;
 	errors: number;
 	cacheHits: number;
-	/** Mean elapsed ms across paired Motor\u2192Sense events. */
+	/** Mean elapsed ms across paired Command\u2192Sense events. */
 	meanElapsedMs: number;
 }
 
 export interface TraceSummary {
 	totalEvents: number;
-	/** Motor tool calls in execution order. */
+	/** Command tool calls in execution order. */
 	path: string[];
 	tools: ToolSummary[];
 	errors: TraceEvent[];

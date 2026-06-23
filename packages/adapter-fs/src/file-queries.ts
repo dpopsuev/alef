@@ -1,11 +1,11 @@
 // Re-export barrel — find and grep tools now live in dedicated modules.
-// ls tool kept here (dead code: not exposed as an organ action).
+// ls tool kept here (dead code: not exposed as an adapter action).
 export * from "./file-query-base.js";
 export * from "./find-query.js";
 export * from "./grep-query.js";
 
 // ---------------------------------------------------------------------------
-// ls query (not exposed as an organ action — kept for completeness)
+// ls query (not exposed as an adapter action — kept for completeness)
 // ---------------------------------------------------------------------------
 
 import { existsSync, readdirSync, statSync } from "node:fs";

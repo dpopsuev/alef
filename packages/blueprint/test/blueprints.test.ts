@@ -60,7 +60,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(def.organs).toHaveLength(1);
 		const fs = def.organs[0];
 		expect(fs.name).toBe("fs");
-		// Blueprint is purely structural — no static organ catalog.
+		// Blueprint is purely structural — no static adapter catalog.
 		// Actions default to [] when not specified; toolNames is always [].
 		expect(fs.actions).toEqual([]);
 		expect(fs.toolNames).toEqual([]);
@@ -105,7 +105,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 	});
 
 	it("accepts any organ name — validation is the materializer's concern", () => {
-		// Blueprint is purely structural; it passes organ names through verbatim.
+		// Blueprint is purely structural; it passes adapter names through verbatim.
 		const def = compileAgentDefinition({
 			name: "custom",
 			organs: [{ name: "weather" }],

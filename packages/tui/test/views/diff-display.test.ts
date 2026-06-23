@@ -2,7 +2,7 @@
  * Deterministic tests for diff rendering ( / pi-style diff display).
  *
  * Covers three layers:
- * 1. generateEditDiff (organ-fs) – produces the correct text/x-diff string
+ * 1. generateEditDiff (adapter-fs) – produces the correct text/x-diff string
  * 2. renderDiffDisplay (tui-mode) – produces correct ANSI-colored output
  * 3. ToolCallEnd wiring – displayKind=text/x-diff routes to renderDiffDisplay
  */
@@ -122,8 +122,8 @@ describe("diff display routing (displayKind = text/x-diff)", { tags: ["unit"] },
 
 // ---------------------------------------------------------------------------
 // 3. generateEditDiff format contract (inline re-implementation to test shape)
-// Real implementation lives in organ-fs/src/organ.ts; we test its output
-// contract here to pin the format without importing the organ directly.
+// Real implementation lives in adapter-fs/src/adapter.ts; we test its output
+// contract here to pin the format without importing the adapter directly.
 // ---------------------------------------------------------------------------
 
 describe("generateEditDiff output format contract", { tags: ["unit"] }, () => {

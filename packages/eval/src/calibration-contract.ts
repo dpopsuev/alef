@@ -1,13 +1,13 @@
 /**
- * CalibrationContract \u2014 declarative field extraction from organ Sense payloads.
+ * CalibrationContract \u2014 declarative field extraction from adapter Event payloads.
  *
  * Instead of hard-coding field paths in every scorer, a contract declares
- * how organ output fields map to scorer-addressable names:
+ * how adapter output fields map to scorer-addressable names:
  *
  *   { outputs: [{ field: "output.defect_type", scorerName: "actual_defect_type", type: "string" }] }
  *
  * extractFields(contract, payload) resolves dotted paths and array projections.
- * foldContracts(map) namespaces contracts for multi-organ evals.
+ * foldContracts(map) namespaces contracts for multi-adapter evals.
  *
  * Mirrors Tako calibrate.CalibrationContract + ExtractFields + FoldContracts.
  */
@@ -19,7 +19,7 @@
 export type ContractFieldType = "string" | "number" | "boolean" | "array" | "object";
 
 export interface ContractField {
-	/** Dotted path into the Sense payload, e.g. "output.defect_type" or "files[].path". */
+	/** Dotted path into the Event payload, e.g. "output.defect_type" or "files[].path". */
 	field: string;
 	/** Scorer-addressable name, e.g. "actual_defect_type". */
 	scorerName: string;
@@ -33,11 +33,11 @@ export interface CalibrationContract {
 }
 
 // ---------------------------------------------------------------------------
-// extractFields \u2014 resolve contract outputs from a Sense payload
+// extractFields \u2014 resolve contract outputs from a Event payload
 // ---------------------------------------------------------------------------
 
 /**
- * Extract scorer-addressable values from a Sense payload using a contract.
+ * Extract scorer-addressable values from a Event payload using a contract.
  * Returns a flat map keyed by scorerName.
  *
  * @example
@@ -62,7 +62,7 @@ export function extractFields(
 
 /**
  * Fold multiple named contracts into one with namespace-prefixed scorer names.
- * Enables multi-organ evals where each organ's fields are distinguishable.
+ * Enables multi-adapter evals where each adapter's fields are distinguishable.
  *
  * @example
  * const folded = foldContracts({ lector: lectorContract, shell: shellContract });

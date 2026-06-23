@@ -490,11 +490,11 @@ surfaces:
 		expect(merged.model?.id).toBe("claude-haiku-3");
 	});
 
-	it("overlay organs replace base organs when non-empty", () => {
-		const base = parseAgentDefinitionYaml("name: base\norgans:\n  - name: fs\n  - name: shell\n");
-		const overlay = parseAgentDefinitionYaml("name: base\norgans:\n  - name: code-intel\n");
+	it("overlay adapters union-merge with base adapters", () => {
+		const base = parseAgentDefinitionYaml("name: base\nadapters:\n  - name: fs\n  - name: shell\n");
+		const overlay = parseAgentDefinitionYaml("name: base\nadapters:\n  - name: code-intel\n");
 		const merged = mergeAgentDefinitions(base, overlay);
-		expect(merged.organs.map((o) => o.name)).toEqual(["code-intel"]);
+		expect(merged.organs.map((o) => o.name)).toEqual(["fs", "shell", "code-intel"]);
 	});
 
 	it("working memory is deep-merged, overlay wins per key", () => {

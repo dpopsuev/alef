@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { McpAdapter } from "@dpopsuev/alef-kernel";
+import { McpAdapter } from "@dpopsuev/alef-adapter-mcp-registry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";

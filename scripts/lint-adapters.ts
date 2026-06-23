@@ -297,12 +297,14 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 		const line = lines[i];
 		if (!line.trim().startsWith("import")) continue;
 
-		// Check imports of other adapter-* packages — organs should not depend on each other
+		// Check imports of other adapter-* packages — organs should not depend on each other.
+		// adapter-mcp-registry is whitelisted: it exports McpAdapter, a shared factory.
+		const ALLOWED_ORGAN_DEPS = new Set(["@dpopsuev/alef-adapter-mcp-registry"]);
 		const match = line.match(/from\s+["'](@dpopsuev\/alef-adapter-[\w-]+)["']/);
 		if (match) {
 			const imported = match[1];
 			const importedShort = imported.replace("@dpopsuev/alef-", "");
-			if (importedShort !== pkgName) {
+			if (importedShort !== pkgName && !ALLOWED_ORGAN_DEPS.has(imported)) {
 				report(file, i + 1, "IMPORT",
 					`${pkgName} imports from ${imported} — organs should not depend on other organs`);
 			}

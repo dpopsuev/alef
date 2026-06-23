@@ -14,7 +14,6 @@ export * from "./execution.js";
 export * from "./framework.js";
 export { InProcessBus, InProcessBus as InProcessNerve } from "./in-process-bus.js";
 export { LogField } from "./log-fields.js";
-export * from "./mcp-adapter.js";
 export * from "./payload.js";
 export * from "./protocols.js";
 export * from "./reconciliation.js";

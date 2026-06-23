@@ -46,6 +46,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@dpopsuev/alef-adapter-mcp-registry": "^0.0.1",
     "@dpopsuev/alef-agent-blueprint": "^0.0.1",
     "@dpopsuev/alef-kernel": "^0.0.1"
   },

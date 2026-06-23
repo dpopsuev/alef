@@ -1,4 +1,4 @@
-import { McpAdapter } from "@dpopsuev/alef-kernel";
+import { McpAdapter } from "@dpopsuev/alef-adapter-mcp-registry";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";

@@ -1,10 +1,10 @@
 /**
- * RouterOrgan — HTTP/SSE bridge between the Motor/Sense bus and external processes.
+ * RouterOrgan — HTTP/SSE bridge between the Command/Event bus and external processes.
  *
  * Exposes three endpoints:
  *
- * GET /events → text/event-stream — streams every Motor and Sense event
- * POST /message → { "text": "..." } → publishes motor/triggerEvent
+ * GET /events → text/event-stream — streams every Command and Event bus message
+ * POST /message → { "text": "..." } → publishes command/triggerEvent
  * GET /health → { "ok": true, "clients": N }
  *
  * Usage:
@@ -12,8 +12,8 @@
  * const router = createRouterOrgan({ port: 3000 });
  * agent.mount(router);
  *
- * The organ subscribes motor/* and sense/* wildcards. Every event that crosses
- * the nerve is forwarded to all connected SSE clients. External processes can
+ * The adapter subscribes command/* and event/* wildcards. Every event that crosses
+ * the bus is forwarded to all connected SSE clients. External processes can
  * drive the agent by POSTing to /message.
  *
  * CORS headers are set on all responses to allow web UIs served from a
@@ -33,7 +33,7 @@ export interface RouterOptions {
 	/** Host/interface to bind. Default: '127.0.0.1'. */
 	host?: string;
 	/**
-	 * Push-side event allowlist. Only motor/sense events whose type matches
+	 * Push-side event allowlist. Only command/event bus messages whose type matches
 	 * one of these patterns are forwarded to SSE clients.
 	 *
 	 * Patterns support a single trailing wildcard: 'fs.*' matches 'fs.read',
@@ -47,12 +47,12 @@ export interface RouterOptions {
 	 * Use this to route user messages through the AgentController:
 	 * onMessage: (text) => dialog.receive(text, 'user')
 	 *
-	 * When not provided, the router publishes on motor/triggerEvent directly
+	 * When not provided, the router publishes on command/triggerEvent directly
 	 * (ambient agents can set triggerEvent to their own event type).
 	 */
 	onMessage?: (text: string) => void;
 	/**
-	 * Motor event type published when onMessage is absent.
+	 * Command event type published when onMessage is absent.
 	 */
 	triggerEvent: string;
 }
@@ -65,12 +65,13 @@ export interface RouterAddress {
 
 export class RouterOrgan implements Adapter {
 	readonly name = "router";
-	readonly description = "HTTP/SSE bridge: exposes motor/sense events over GET /events and accepts POST /message.";
+	readonly description =
+		"HTTP/SSE bridge: exposes command/event bus messages over GET /events and accepts POST /message.";
 	readonly labels = ["http", "sse", "bridge", "observability"] as const;
 	readonly tools = [] as const;
 	readonly subscriptions = {
-		motor: ["*"] as const,
-		sense: ["*"] as const,
+		command: ["*"] as const,
+		event: ["*"] as const,
 		signal: ["*"] as const,
 	};
 	readonly sources = [] as const;
@@ -144,7 +145,7 @@ export class RouterOrgan implements Adapter {
 		const off1 = bus.command.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
-				bus: "motor",
+				bus: "command",
 				type: event.type,
 				correlationId: event.correlationId,
 				payload: event.payload,
@@ -155,7 +156,7 @@ export class RouterOrgan implements Adapter {
 		const off2 = bus.event.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
-				bus: "sense",
+				bus: "event",
 				type: event.type,
 				correlationId: event.correlationId,
 				payload: event.payload,
@@ -166,7 +167,7 @@ export class RouterOrgan implements Adapter {
 		const off3 = bus.notification.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
-				bus: "signal",
+				bus: "notification",
 				type: event.type,
 				correlationId: event.correlationId,
 				payload: (event as { payload?: Record<string, unknown> }).payload ?? {},

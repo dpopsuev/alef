@@ -1,6 +1,6 @@
 import { NerveFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it, vi } from "vitest";
-import { createMcpRegistryOrgan } from "../src/organ.js";
+import { createMcpRegistryOrgan } from "../src/adapter.js";
 
 describe("MCP Registry Integration", () => {
 	it("should search the MCP registry", async () => {

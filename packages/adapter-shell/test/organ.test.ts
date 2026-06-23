@@ -1,6 +1,6 @@
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createShellOrgan } from "../src/organ.js";
+import { createShellOrgan } from "../src/adapter.js";
 
 // Framework compliance — schema rejection, structural checks, streaming contract.
 // shell.exec uses typedStreamAction → auto-discovered as a streaming tool.
@@ -28,16 +28,16 @@ describe("Shellorgan", { tags: ["compliance"] }, () => {
 		expect(organ.tools[0].name).toBe("shell.exec");
 	});
 
-	it("unmount unsubscribes motor handler", () => {
+	it("unmount unsubscribes command handler", () => {
 		const f = new NerveFixture();
 		const organ = createShellOrgan({ cwd: process.cwd() });
 		const unmount = f.mount(organ);
-		expect(f.nerve.listenerCount("motor", "shell.exec")).toBe(1);
+		expect(f.nerve.listenerCount("command", "shell.exec")).toBe(1);
 		unmount();
-		expect(f.nerve.listenerCount("motor", "shell.exec")).toBe(0);
+		expect(f.nerve.listenerCount("command", "shell.exec")).toBe(0);
 	});
 
-	it("executes a command and streams Sense/shell.exec, final has output", async () => {
+	it("executes a command and streams Event/shell.exec, final has output", async () => {
 		const f = fixture();
 		const final = await f.callStreaming("shell.exec", { command: "echo hello" });
 		expect(final.isError).toBe(false);

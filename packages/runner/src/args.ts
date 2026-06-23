@@ -161,7 +161,7 @@ Options:
   -h, --help             Show this help
 
 Package manager:
-  install <adapter>[@ver]  Install an adapter (e.g. alef install organ-fs@0.1.2)
+  install <adapter>[@ver]  Install an adapter (e.g. alef install adapter-fs@0.1.2)
   remove  <adapter>        Remove an adapter
   upgrade [adapter...]     Upgrade all or specific adapters
   rollback [N]           Roll back to generation N (default: previous)

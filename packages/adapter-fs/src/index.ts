@@ -1,3 +1,6 @@
+// Standard factory entry point for the materializer's dynamic-load protocol.
+// Receives { cwd, actions?, logger? } from the blueprint; ignores unknown fields.
+export { createFsOrgan, type FsOrganOptions } from "./adapter.js";
 export {
 	InMemoryToolResultCache,
 	type InMemoryToolResultCacheOptions,
@@ -29,14 +32,11 @@ export {
 	type LsToolResponse,
 } from "./file-queries.js";
 export { type FsCacheScope, FsRuntime, type FsRuntimeOptions } from "./fs-runtime.js";
-// Standard factory entry point for the materializer's dynamic-load protocol.
-// Receives { cwd, actions?, logger? } from the blueprint; ignores unknown fields.
-export { createFsOrgan, type FsOrganOptions } from "./organ.js";
 
-import type { Adapter, OrganLogger } from "@dpopsuev/alef-kernel";
-import { createFsOrgan } from "./organ.js";
+import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel";
+import { createFsOrgan } from "./adapter.js";
 /** Standard materializer entry point. Maps short names ("read") to full event types ("fs.read"). */
-export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: OrganLogger }): Adapter {
+export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: AdapterLogger }): Adapter {
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `fs.${a}`));
 	return createFsOrgan({ ...opts, actions });
 }

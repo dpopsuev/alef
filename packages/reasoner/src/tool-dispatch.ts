@@ -21,7 +21,7 @@ function extractDisplay(payload: Record<string, unknown>): { text: string; mimeT
 	return undefined;
 }
 
-type SenseBus = { subscribe: (type: string, handler: (event: EventMessage) => void) => () => void };
+type EventBus = { subscribe: (type: string, handler: (event: EventMessage) => void) => () => void };
 
 const STALL_INTERVAL_MS = 5_000;
 const LONG_RUNNING_TIMEOUT_MS = 3_600_000;
@@ -75,7 +75,7 @@ function buildErrorSenseEvent(
 }
 
 export interface ToolResultSubscription {
-	sense: SenseBus;
+	sense: EventBus;
 	toolName: string;
 	toolCallId: string;
 	correlationId: string;
@@ -172,8 +172,10 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMes
 	});
 }
 
-type MotorBus = { publish: (event: { type: string; payload: Record<string, unknown>; correlationId: string }) => void };
-type SignalBus = {
+type CommandBus = {
+	publish: (event: { type: string; payload: Record<string, unknown>; correlationId: string }) => void;
+};
+type NotificationBus = {
 	publish: (event: { type: string; payload: Record<string, unknown>; correlationId: string }) => void;
 };
 
@@ -185,9 +187,9 @@ interface DispatchToolsOptions {
 }
 
 export async function dispatchTools(
-	motor: MotorBus,
-	signal: SignalBus,
-	sense: SenseBus,
+	motor: CommandBus,
+	signal: NotificationBus,
+	sense: EventBus,
 	correlationId: string,
 	toolCalls: ToolCall[],
 	toMotorName: (llmName: string) => string,

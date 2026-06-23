@@ -143,7 +143,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 
 	// Mount the adapter on a fresh nerve
 	const nerve = new InProcessNerve();
-	const unmount = adapter.mount(nerve.asNerve());
+	const unmount = adapter.mount(nerve.asBus());
 
 	try {
 		for (const stub of cfg.stubs) {
@@ -226,7 +226,7 @@ function probeMotor(
 			resolve(null);
 		}, timeoutMs);
 
-		const nerveView = nerve.asNerve();
+		const nerveView = nerve.asBus();
 		const off = nerveView.event.subscribe(toolName, (event) => {
 			if (event.correlationId === correlationId) {
 				clearTimeout(timer);

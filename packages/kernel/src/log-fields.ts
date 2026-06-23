@@ -9,7 +9,7 @@
  */
 export const LogField = {
 	component: "component",
-	organ: "organ",
+	adapter: "adapter",
 	tool: "tool",
 	correlationId: "correlationId",
 	sessionId: "sessionId",

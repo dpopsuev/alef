@@ -24,14 +24,14 @@ describe("RecallStore", { tags: ["unit"] }, () => {
 		const recall = new RecallStore(client);
 
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/tmp" },
 			timestamp: 1000,
 		});
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "shell.exec",
 			correlationId: "corr-2",
 			payload: { cmd: "ls" },
@@ -62,14 +62,14 @@ describe("RecallStore", { tags: ["unit"] }, () => {
 		const recall = new RecallStore(client);
 
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "fs.read",
 			correlationId: "turn-A",
 			payload: {},
 			timestamp: 1000,
 		});
 		await store.append({
-			bus: "sense",
+			bus: "event",
 			type: "fs.read",
 			correlationId: "turn-A",
 			payload: {},
@@ -134,7 +134,7 @@ describe("RecallStore", { tags: ["unit"] }, () => {
 		const recall = new RecallStore(client);
 
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "fs.read",
 			correlationId: "corr-1",
 			payload: {},

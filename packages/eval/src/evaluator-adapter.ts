@@ -1,5 +1,5 @@
 /**
- * EvaluatorOrgan — Observer organ for evaluation runs.
+ * EvaluatorAdapter — Observer organ for evaluation runs.
  *
  * Wires directly to nerve.command.subscribe("*") and nerve.event.subscribe("*")
  * to count all events and detect tool call loops.
@@ -12,7 +12,7 @@
 
 import type { Adapter, Bus, BusMessage } from "@dpopsuev/alef-kernel";
 
-export interface EvaluatorOrganOptions {
+export interface EvaluatorAdapterOptions {
 	/**
 	 * How many times the same Motor event type on the same correlationId
 	 * triggers loop detection. Default: 10.
@@ -22,38 +22,38 @@ export interface EvaluatorOrganOptions {
 	onLoop?: (eventType: string, correlationId: string, count: number) => void;
 }
 
-export interface EvaluatorOrganState {
-	motorCount: number;
-	senseCount: number;
+export interface EvaluatorAdapterState {
+	commandCount: number;
+	eventCount: number;
 	loopDetected: boolean;
 	loopEventType?: string;
 }
 
-export class EvaluatorOrgan implements Adapter {
+export class EvaluatorAdapter implements Adapter {
 	readonly name = "evaluator";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: ["*"] as const, sense: ["*"] as const };
+	readonly subscriptions = { command: ["*"] as const, event: ["*"] as const };
 	readonly sources = [] as const;
 
 	private readonly threshold: number;
-	private readonly onLoop?: EvaluatorOrganOptions["onLoop"];
+	private readonly onLoop?: EvaluatorAdapterOptions["onLoop"];
 	// Map<correlationId, Map<eventType, count>>
 	private readonly counts = new Map<string, Map<string, number>>();
 
-	readonly state: EvaluatorOrganState = {
-		motorCount: 0,
-		senseCount: 0,
+	readonly state: EvaluatorAdapterState = {
+		commandCount: 0,
+		eventCount: 0,
 		loopDetected: false,
 	};
 
-	constructor(options: EvaluatorOrganOptions = {}) {
+	constructor(options: EvaluatorAdapterOptions = {}) {
 		this.threshold = options.loopThreshold ?? 10;
 		this.onLoop = options.onLoop;
 	}
 
-	mount(nerve: Bus): () => void {
-		const offMotor = nerve.command.subscribe("*", (event: BusMessage) => {
-			this.state.motorCount++;
+	mount(bus: Bus): () => void {
+		const offMotor = bus.command.subscribe("*", (event: BusMessage) => {
+			this.state.commandCount++;
 			if (this.state.loopDetected) return;
 
 			let byType = this.counts.get(event.correlationId);
@@ -71,8 +71,8 @@ export class EvaluatorOrgan implements Adapter {
 			}
 		});
 
-		const offSense = nerve.event.subscribe("*", (_event: BusMessage) => {
-			this.state.senseCount++;
+		const offSense = bus.event.subscribe("*", (_event: BusMessage) => {
+			this.state.eventCount++;
 		});
 
 		return () => {

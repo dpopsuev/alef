@@ -1,15 +1,15 @@
 /**
  * Walking Skeleton — end-to-end proof of the Spine event architecture.
  *
- * Real organs: TextMessageOrgan (organ).
- * Mock organs: MockReasoner (LlmOrgan, canned reply).
+ * Real adapters: TextMessageAdapter (adapter).
+ * Mock adapters: MockReasoner (LlmAdapter, canned reply).
  *
  * Event chain:
- *   Agent.publishMotor("llm.input")
- *     → TextMessageOrgan → Sense.publish("llm.input")
- *       → MockReasoner  → Motor.publish("llm.response")
- *     → TextMessageOrgan → Sense.publish("llm.response")
- *   Agent.subscribeSense("llm.response") → resolves
+ *   Agent.publishCommand("llm.input")
+ *     → TextMessageAdapter → Event.publish("llm.input")
+ *       → MockReasoner  → Command.publish("llm.response")
+ *     → TextMessageAdapter → Event.publish("llm.response")
+ *   Agent.subscribeEvent("llm.response") → resolves
  */
 
 import { AgentController } from "@dpopsuev/alef-runtime";
@@ -57,41 +57,41 @@ describe("Walking Skeleton", { tags: ["integration"] }, () => {
 		expect(await controller.send("ping")).toBe("pong");
 	});
 
-	it("Sense/llm.input carries prompt text", async () => {
+	it("Event/llm.input carries prompt text", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("hello world");
 
-		const msg = recorder.assertSenseEmitted("llm.input");
+		const msg = recorder.assertEventEmitted("llm.input");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(payload.text).toBe("hello world");
 	});
 
-	it("Sense/llm.input carries user message content", async () => {
+	it("Event/llm.input carries user message content", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("what is 2+2?");
 
-		const req = recorder.assertSenseEmitted("llm.input");
+		const req = recorder.assertEventEmitted("llm.input");
 		const payload = (req as unknown as { payload: { text: string; sender: string } }).payload;
 		expect(payload.text).toBe("what is 2+2?");
 		expect(payload.sender).toBe("human");
 	});
 
-	it("Motor/llm.response carries canned reply text", async () => {
+	it("Command/llm.response carries canned reply text", async () => {
 		const { agent: _agent, controller, recorder } = make("the answer is 4");
 		await controller.send("what is 2+2?");
 
-		const msg = recorder.assertMotorEmitted("llm.response");
+		const msg = recorder.assertCommandEmitted("llm.response");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(payload.text).toBe("the answer is 4");
 	});
 
-	it("Motor/llm.response carries the agent reply", async () => {
+	it("Command/llm.response carries the agent reply", async () => {
 		const { agent: _agent, controller, recorder } = make("done");
 		await controller.send("go");
 
-		// The LLM reply is Motor/"llm.response" — controller.send() awaits it
-		const motorEvents = recorder.motor.filter((e) => e.type === "llm.response");
-		const reply = motorEvents[motorEvents.length - 1];
+		// The LLM reply is Command/"llm.response" — controller.send() awaits it
+		const commandEvents = recorder.command.filter((e) => e.type === "llm.response");
+		const reply = commandEvents[commandEvents.length - 1];
 		const payload = (reply as unknown as { payload: { text: string } }).payload;
 		expect(payload.text).toBe("done");
 	});
@@ -100,23 +100,23 @@ describe("Walking Skeleton", { tags: ["integration"] }, () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("test");
 
-		const senseInput = recorder.assertSenseEmitted("llm.input");
-		const motorReply = recorder.assertMotorEmitted("llm.response");
+		const eventInput = recorder.assertEventEmitted("llm.input");
+		const commandReply = recorder.assertCommandEmitted("llm.response");
 
-		expect(motorReply.correlationId).toBe(senseInput.correlationId);
+		expect(commandReply.correlationId).toBe(eventInput.correlationId);
 	});
 
 	it("full event sequence fires on correct buses", async () => {
 		const { agent: _agent, controller, recorder } = make();
 		await controller.send("sequence test");
 
-		const motorTypes = recorder.motor.map((e) => e.type);
-		const senseTypes = recorder.sense.map((e) => e.type);
+		const commandTypes = recorder.command.map((e) => e.type);
+		const eventTypes = recorder.event.map((e) => e.type);
 
-		expect(motorTypes).toContain("llm.response");
-		expect(senseTypes).toContain("llm.input");
-		expect(motorTypes).toContain("llm.response");
-		expect(senseTypes).toContain("llm.input");
+		expect(commandTypes).toContain("llm.response");
+		expect(eventTypes).toContain("llm.input");
+		expect(commandTypes).toContain("llm.response");
+		expect(eventTypes).toContain("llm.input");
 	});
 
 	it("concurrent prompts resolve independently", async () => {

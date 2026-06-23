@@ -8,8 +8,8 @@
 
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
+import { createEnclosureOrgan } from "../src/adapter.js";
 import { DockerSpace } from "../src/docker-space.js";
-import { createEnclosureOrgan } from "../src/organ.js";
 
 // ---------------------------------------------------------------------------
 // Check if Docker is available
@@ -97,16 +97,16 @@ describe.skipIf(SKIP)("EnclosureOrgan — docker backend", { tags: ["unit"] }, (
 			backend: "docker",
 			docker: { image: "alpine:latest" },
 		});
-		const unmount = organ.mount(nerve.asNerve());
+		const unmount = organ.mount(nerve.asBus());
 
 		try {
 			const createResult = await new Promise<Record<string, unknown>>((resolve, reject) => {
-				const off = nerve.asNerve().sense.subscribe("enclosure.create", (e) => {
+				const off = nerve.asBus().event.subscribe("enclosure.create", (e) => {
 					off();
 					if (e.isError) reject(new Error(e.errorMessage));
 					else resolve(e.payload);
 				});
-				nerve.asNerve().motor.publish({
+				nerve.asBus().command.publish({
 					type: "enclosure.create",
 					payload: { workspace, toolCallId: "tc-1" },
 					correlationId: "corr-1",
@@ -120,12 +120,12 @@ describe.skipIf(SKIP)("EnclosureOrgan — docker backend", { tags: ["unit"] }, (
 
 			// Exec a command
 			const execResult = await new Promise<Record<string, unknown>>((resolve, reject) => {
-				const off = nerve.asNerve().sense.subscribe("enclosure.exec", (e) => {
+				const off = nerve.asBus().event.subscribe("enclosure.exec", (e) => {
 					off();
 					if (e.isError) reject(new Error(e.errorMessage));
 					else resolve(e.payload);
 				});
-				nerve.asNerve().motor.publish({
+				nerve.asBus().command.publish({
 					type: "enclosure.exec",
 					payload: { spaceId, command: ["echo", "organ-exec-works"], toolCallId: "tc-2" },
 					correlationId: "corr-1",

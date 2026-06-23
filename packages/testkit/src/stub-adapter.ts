@@ -8,8 +8,8 @@ export function defineStubAdapter(name: string, tools: ToolDefinition[], handler
 		tools,
 		description: `Stub adapter: ${name}`,
 		subscriptions: {
-			motor: tools.map((t) => t.name),
-			sense: [],
+			command: tools.map((t) => t.name),
+			event: [],
 		},
 		sources: [],
 		mount(bus: Bus): () => void {

@@ -2,14 +2,14 @@
  * RunAdapterContract — reusable adapter compliance suite.
  *
  * Any adapter implementation calls runAdapterContract(adapter) in a test to prove
- * it satisfies the Nerve contract. Six checks:
+ * it satisfies the Bus contract. Six checks:
  *
  * 1. mount() returns a cleanup function
  * 2. cleanup is idempotent (callable twice without throwing)
  * 3. adapter.tools is a defined array
- * 4. adapter.subscriptions.motor lists every 'motor/' key the adapter handles
- * 5. for each tool: valid Motor event → Sense event within timeout
- * 6. for each tool: invalid payload → isError:true Sense event
+ * 4. adapter.subscriptions.command lists every 'command/' key the adapter handles
+ * 5. for each tool: valid Command event → Event event within timeout
+ * 6. for each tool: invalid payload → isError:true Event event
  *
  * Mirrors Tako testkit/contracts/RunWalkerContract.
  */
@@ -25,39 +25,41 @@ export interface CapturedLog {
 	msg: string;
 }
 
-export interface OrganContractOptions {
-	/** Timeout per Motor→Sense probe in ms. Default: 2000. */
+export interface AdapterContractOptions {
+	/** Timeout per Command→Event probe in ms. Default: 2000. */
 	timeoutMs?: number;
 }
 
-export interface OrganContractViolation {
+export interface AdapterContractViolation {
 	check: string;
 	detail: string;
 }
 
-export interface OrganContractReport {
-	organ: string;
+export interface AdapterContractReport {
+	adapter: string;
 	passed: string[];
-	violations: OrganContractViolation[];
+	violations: AdapterContractViolation[];
 	ok: boolean;
 }
 
-// Forward-compatible aliases — prefer these in new code.
-export type AdapterContractOptions = OrganContractOptions;
-export type AdapterContractViolation = OrganContractViolation;
-export type AdapterContractReport = OrganContractReport;
+/** @deprecated Use AdapterContractOptions instead. */
+export type OrganContractOptions = AdapterContractOptions;
+/** @deprecated Use AdapterContractViolation instead. */
+export type OrganContractViolation = AdapterContractViolation;
+/** @deprecated Use AdapterContractReport instead. */
+export type OrganContractReport = AdapterContractReport;
 
 /**
  * Run the adapter compliance suite and return a structured report.
  * Does not throw — callers decide how to handle violations.
  */
-export async function runOrganContract(
+export async function runAdapterContract(
 	adapter: Adapter,
-	opts: OrganContractOptions = {},
-): Promise<OrganContractReport> {
+	opts: AdapterContractOptions = {},
+): Promise<AdapterContractReport> {
 	const timeoutMs = opts.timeoutMs ?? 2000;
 	const passed: string[] = [];
-	const violations: OrganContractViolation[] = [];
+	const violations: AdapterContractViolation[] = [];
 
 	const ok = (check: string) => passed.push(check);
 	const fail = (check: string, detail: string) => violations.push({ check, detail });
@@ -66,7 +68,7 @@ export async function runOrganContract(
 	const nerve = new InProcessNerve();
 	let unmount: (() => void) | unknown;
 	try {
-		unmount = adapter.mount(nerve.asNerve());
+		unmount = adapter.mount(nerve.asBus());
 		if (typeof unmount !== "function") {
 			fail("mount-returns-function", `mount() returned ${typeof unmount}, expected function`);
 		} else {
@@ -74,7 +76,7 @@ export async function runOrganContract(
 		}
 	} catch (e) {
 		fail("mount-returns-function", `mount() threw: ${e}`);
-		return { organ: adapter.name, passed, violations, ok: false };
+		return { adapter: adapter.name, passed, violations, ok: false };
 	}
 
 	// 2. unmount is idempotent
@@ -95,38 +97,38 @@ export async function runOrganContract(
 		ok("tools-defined");
 	}
 
-	// 4. subscriptions.motor matches tool names
+	// 4. subscriptions.command matches tool names
 	const toolNames = adapter.tools.map((t) => t.name);
-	const motorSubs = adapter.subscriptions.motor;
-	const unsubscribed = toolNames.filter((n) => !motorSubs.includes(n));
+	const commandSubs = adapter.subscriptions.command;
+	const unsubscribed = toolNames.filter((n) => !commandSubs.includes(n));
 	if (unsubscribed.length > 0) {
-		fail("subscriptions-complete", `tools [${unsubscribed.join(", ")}] have no matching motor subscription`);
+		fail("subscriptions-complete", `tools [${unsubscribed.join(", ")}] have no matching command subscription`);
 	} else if (toolNames.length > 0) {
 		ok("subscriptions-complete");
 	}
 
-	// 5 & 6. probe each tool with valid + invalid Motor events
+	// 5 & 6. probe each tool with valid + invalid Command events
 	if (adapter.tools.length > 0) {
 		const probeNerve = new InProcessNerve();
-		const probeUnmount = adapter.mount(probeNerve.asNerve());
+		const probeUnmount = adapter.mount(probeNerve.asBus());
 
 		for (const tool of adapter.tools) {
 			// Build a minimal valid payload from the schema
 			const validPayload = buildMinimalPayload(tool.inputSchema);
 			const invalidPayload = { __invalid__: true };
 
-			// 5. Valid payload → Sense event (not necessarily isError)
-			const validResult = await probeMotor(probeNerve.asNerve(), tool.name, validPayload, timeoutMs);
+			// 5. Valid payload → Event response (not necessarily isError)
+			const validResult = await probeCommand(probeNerve.asBus(), tool.name, validPayload, timeoutMs);
 			if (validResult === null) {
-				fail(`probe-valid:${tool.name}`, `no Sense event received within ${timeoutMs}ms for valid payload`);
+				fail(`probe-valid:${tool.name}`, `no Event response received within ${timeoutMs}ms for valid payload`);
 			} else {
 				ok(`probe-valid:${tool.name}`);
 			}
 
-			// 6. Invalid payload → isError Sense event
-			const invalidResult = await probeMotor(probeNerve.asNerve(), tool.name, invalidPayload, timeoutMs);
+			// 6. Invalid payload → isError Event response
+			const invalidResult = await probeCommand(probeNerve.asBus(), tool.name, invalidPayload, timeoutMs);
 			if (invalidResult === null) {
-				fail(`probe-invalid:${tool.name}`, `no Sense event received within ${timeoutMs}ms for invalid payload`);
+				fail(`probe-invalid:${tool.name}`, `no Event response received within ${timeoutMs}ms for invalid payload`);
 			} else if (!invalidResult.isError) {
 				fail(
 					`probe-invalid:${tool.name}`,
@@ -141,7 +143,7 @@ export async function runOrganContract(
 	}
 
 	return {
-		organ: adapter.name,
+		adapter: adapter.name,
 		passed,
 		violations,
 		ok: violations.length === 0,
@@ -149,18 +151,18 @@ export async function runOrganContract(
 }
 
 /**
- * assertOrganContract — throws on any violation. Use in vitest tests.
+ * assertAdapterContract — throws on any violation. Use in vitest tests.
  *
  * @example
  * test("fs adapter satisfies contract", async () => {
- * await assertOrganContract(createFsAdapter({ cwd: "/tmp" }));
+ * await assertAdapterContract(createFsAdapter({ cwd: "/tmp" }));
  * });
  */
-export async function assertOrganContract(adapter: Adapter, opts?: OrganContractOptions): Promise<void> {
-	const report = await runOrganContract(adapter, opts);
+export async function assertAdapterContract(adapter: Adapter, opts?: AdapterContractOptions): Promise<void> {
+	const report = await runAdapterContract(adapter, opts);
 	if (!report.ok) {
 		const lines = report.violations.map((v) => ` [${v.check}] ${v.detail}`).join("\n");
-		throw new Error(`Adapter '${report.organ}' failed contract:\n${lines}`);
+		throw new Error(`Adapter '${report.adapter}' failed contract:\n${lines}`);
 	}
 }
 
@@ -201,12 +203,12 @@ export interface StreamingToolConfig {
 	minChunks?: number;
 }
 
-export interface OrganComplianceOptions {
+export interface AdapterComplianceOptions {
 	/**
 	 * Per-tool streaming config — required for every tool whose ToolDefinition
 	 * has streaming:true (set automatically by typedStreamAction).
 	 *
-	 * organComplianceSuite discovers streaming tools from adapter.tools at
+	 * adapterComplianceSuite discovers streaming tools from adapter.tools at
 	 * describe() time and throws an error at test collection phase if any
 	 * streaming tool is missing from this map.
 	 *
@@ -227,20 +229,20 @@ export interface OrganComplianceOptions {
 	tags?: string[];
 }
 
-// Forward-compatible alias — prefer in new code.
-export type AdapterComplianceOptions = OrganComplianceOptions;
+/** @deprecated Use AdapterComplianceOptions instead. */
+export type OrganComplianceOptions = AdapterComplianceOptions;
 
 /**
- * organComplianceSuite — drop into any adapter test file to get framework
+ * adapterComplianceSuite — drop into any adapter test file to get framework
  * compliance as individual named vitest tests.
  *
  * @example
  * ```ts
  * // organ-shell/test/adapter.test.ts
- * import { organComplianceSuite } from "@dpopsuev/alef-testkit";
+ * import { adapterComplianceSuite } from "@dpopsuev/alef-testkit";
  * import { createShellAdapter } from "../src/adapter.js";
  *
- * organComplianceSuite(() => createShellAdapter({ cwd: "/tmp" }), {
+ * adapterComplianceSuite(() => createShellAdapter({ cwd: "/tmp" }), {
  * streaming: {
  * "shell.exec": {
  * validPayload: { command: "sleep 1" },
@@ -253,9 +255,9 @@ export type AdapterComplianceOptions = OrganComplianceOptions;
  * Each check becomes its own vitest `it()` — failures show the specific
  * contract that was broken, not a single thrown error.
  */
-export function organComplianceSuite(
+export function adapterComplianceSuite(
 	createAdapter: (logger?: AdapterLogger) => Adapter,
-	opts: OrganComplianceOptions = {},
+	opts: AdapterComplianceOptions = {},
 ): void {
 	// Discover streaming tools once at describe() time — before any test runs.
 	// This lets us generate it() blocks per tool AND enforce that every
@@ -270,7 +272,7 @@ export function organComplianceSuite(
 	for (const tool of streamingTools) {
 		if (!streamingConfig[tool.name]) {
 			throw new Error(
-				`organComplianceSuite: '${tool.name}' is declared as a streaming tool ` +
+				`adapterComplianceSuite: '${tool.name}' is declared as a streaming tool ` +
 					`(typedStreamAction) but has no entry in opts.streaming.\n` +
 					`Add: streaming: { "${tool.name}": { validPayload: { /* valid args */ } } }`,
 			);
@@ -286,7 +288,7 @@ export function organComplianceSuite(
 		beforeEach(() => {
 			capturedLogs = [];
 			adapter = createAdapter(makeSpyLogger({}, capturedLogs));
-			unmount = adapter.mount(probeNerve.asNerve());
+			unmount = adapter.mount(probeNerve.asBus());
 		});
 		afterEach(() => {
 			unmount?.();
@@ -311,7 +313,7 @@ export function organComplianceSuite(
 		it("mount() returns a cleanup function", () => {
 			const o = createAdapter();
 			const nerve = new InProcessNerve();
-			const cleanup = o.mount(nerve.asNerve());
+			const cleanup = o.mount(nerve.asBus());
 			expect(typeof cleanup, "mount() must return a function").toBe("function");
 			expect(() => {
 				cleanup();
@@ -364,8 +366,8 @@ export function organComplianceSuite(
 // Internals
 // ---------------------------------------------------------------------------
 
-function probeMotor(
-	nerve: import("@dpopsuev/alef-kernel").Nerve,
+function probeCommand(
+	bus: import("@dpopsuev/alef-kernel").Bus,
 	toolName: string,
 	payload: Record<string, unknown>,
 	timeoutMs: number,
@@ -377,7 +379,7 @@ function probeMotor(
 			resolve(null);
 		}, timeoutMs);
 
-		const off = nerve.event.subscribe(toolName, (event) => {
+		const off = bus.event.subscribe(toolName, (event) => {
 			if (event.correlationId === correlationId) {
 				clearTimeout(timer);
 				off();
@@ -385,7 +387,7 @@ function probeMotor(
 			}
 		});
 
-		nerve.command.publish({ type: toolName, correlationId, payload });
+		bus.command.publish({ type: toolName, correlationId, payload });
 	});
 }
 
@@ -400,7 +402,7 @@ export interface SchemaContractResult {
 
 /**
  * Verify that when a required field is set to null, the adapter:
- * 1. Publishes an error sense within 200ms (not a 60s timeout)
+ * 1. Publishes an error event within 200ms (not a 60s timeout)
  * 2. Does not call handle() on rejection
  * 3. Error message is human-readable (no raw zod '[InputValidation]' prefix)
  */
@@ -423,13 +425,13 @@ export async function runSchemaContract(
 		if (!requiredStringField) continue;
 
 		const nerve = new InProcessNerve();
-		const unmount = adapter.mount(nerve.asNerve());
+		const unmount = adapter.mount(nerve.asBus());
 		const correlationId = randomUUID();
-		const motorType = tool.name.replace(/\./g, "_");
+		const commandType = tool.name.replace(/\./g, "_");
 
 		const resultPromise = new Promise<EventMessage | null>((resolve) => {
 			const timer = setTimeout(() => resolve(null), timeoutMs);
-			nerve.asNerve().event.subscribe(motorType, (e) => {
+			nerve.asBus().event.subscribe(commandType, (e) => {
 				if (e.correlationId === correlationId) {
 					clearTimeout(timer);
 					resolve(e);
@@ -438,8 +440,8 @@ export async function runSchemaContract(
 		});
 
 		const start = Date.now();
-		nerve.publishMotor({
-			type: motorType,
+		nerve.publishCommand({
+			type: commandType,
 			correlationId,
 			payload: { [requiredStringField]: null, toolCallId: randomUUID() },
 		});
@@ -448,7 +450,7 @@ export async function runSchemaContract(
 		const elapsed = Date.now() - start;
 
 		if (result === null) {
-			violations.push(`No error sense within ${timeoutMs}ms for null '${requiredStringField}' — likely timed out`);
+			violations.push(`No error event within ${timeoutMs}ms for null '${requiredStringField}' — likely timed out`);
 		} else {
 			if (!result.isError)
 				violations.push(`isError should be true when schema rejects null '${requiredStringField}'`);
@@ -470,7 +472,7 @@ export async function runSchemaContract(
 
 /**
  * Verify that for a long-running tool (duration > thresholdMs), the adapter
- * emits at least one isFinal:false sense event — so the TUI can show progress.
+ * emits at least one isFinal:false event message — so the TUI can show progress.
  *
  * This contract catches adapters that should use typedStreamAction but use
  * typedAction instead (like organ-agent.agent.run, organ-enclosure.exec).
@@ -485,16 +487,16 @@ export async function runStreamingContract(
 	const timeoutMs = opts.timeoutMs ?? 10_000;
 
 	const nerve = new InProcessNerve();
-	const unmount = adapter.mount(nerve.asNerve());
+	const unmount = adapter.mount(nerve.asBus());
 	const correlationId = randomUUID();
-	const motorType = toolName.replace(/\./g, "_");
+	const commandType = toolName.replace(/\./g, "_");
 
 	let chunkCount = 0;
 	const start = Date.now();
 
 	const finalPromise = new Promise<{ durationMs: number }>((resolve, reject) => {
 		const timer = setTimeout(() => reject(new Error(`Tool timed out after ${timeoutMs}ms`)), timeoutMs);
-		nerve.asNerve().event.subscribe(motorType, (e) => {
+		nerve.asBus().event.subscribe(commandType, (e) => {
 			if (e.correlationId !== correlationId) return;
 			if (e.payload.isFinal === false) {
 				chunkCount++;
@@ -505,8 +507,8 @@ export async function runStreamingContract(
 		});
 	});
 
-	nerve.publishMotor({
-		type: motorType,
+	nerve.publishCommand({
+		type: commandType,
 		correlationId,
 		payload: { ...validPayload, toolCallId: randomUUID() },
 	});
@@ -543,3 +545,14 @@ function buildMinimalPayload(schema: z.ZodTypeAny): Record<string, unknown> {
 		return {};
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Deprecated aliases — prefer the Adapter-prefixed names in new code.
+// ---------------------------------------------------------------------------
+
+/** @deprecated Use runAdapterContract instead. */
+export const runOrganContract = runAdapterContract;
+/** @deprecated Use assertAdapterContract instead. */
+export const assertOrganContract = assertAdapterContract;
+/** @deprecated Use adapterComplianceSuite instead. */
+export const organComplianceSuite = adapterComplianceSuite;

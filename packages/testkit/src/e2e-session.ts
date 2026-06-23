@@ -10,7 +10,7 @@
  *
  *   describe.skipIf(!HAVE_REAL_LLM)("adapter-fs real LLM E2E", () => {
  *     it("LLM reads unguessable file", async () => {
- *       const session = createE2eSession([createFsOrgan({ cwd })]);
+ *       const session = createE2eSession([createFsAdapter({ cwd })]);
  *       const { reply, events } = await session.send("Read secret.txt and tell me the UUID");
  *       expect(reply).toContain(uuid);
  *       session.dispose();
@@ -22,7 +22,7 @@ import type { Adapter, NotificationMessage } from "@dpopsuev/alef-kernel";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { Agent, AgentController, createToolShellOrgan } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 
 /** True when the ALEF_TEST_LLM env var is set. Gates all real-LLM tests. */
 export const HAVE_REAL_LLM = process.env.ALEF_TEST_LLM === "1";
@@ -68,7 +68,7 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 	});
 
 	for (const adapter of adapters) agent.load(adapter);
-	const toolShell = createToolShellOrgan({
+	const toolShell = createToolShellAdapter({
 		tools: adapters.flatMap((o) => o.tools),
 		getTools: () => agent.tools,
 	});
@@ -77,9 +77,9 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 	agent.load(pipeline);
 	agent.load(llm);
 	agent.observe({
-		onMotorEvent() {},
-		onSenseEvent() {},
-		onSignalEvent(event) {
+		onCommand() {},
+		onEvent() {},
+		onNotification(event) {
 			events.push(event as NotificationMessage);
 		},
 	});

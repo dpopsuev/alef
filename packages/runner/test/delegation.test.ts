@@ -1,14 +1,14 @@
 /**
  * E2E delegation test
  *
- * Exercises: motor/agent.run → organ-agent → InProcessStrategy
- * → inner organ-llm (faux inner LLM) → sense/agent.run with reply text
- * → outer organ-llm turn 2 receives toolResult → final llm.response
+ * Exercises: command/agent.run → adapter-agent → InProcessStrategy
+ * → inner adapter-llm (faux inner LLM) → event/agent.run with reply text
+ * → outer adapter-llm turn 2 receives toolResult → final llm.response
  */
 
 import { randomUUID } from "node:crypto";
 import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
-import { defineOrgan, type SensePublishInput, typedStreamAction } from "@dpopsuev/alef-kernel";
+import { defineAdapter, type EventInput, typedStreamAction } from "@dpopsuev/alef-kernel";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
@@ -31,9 +31,9 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 		agent.load(llm);
 		if (onChunk) {
 			agent.observe({
-				onMotorEvent() {},
-				onSenseEvent() {},
-				onSignalEvent(event) {
+				onCommand() {},
+				onEvent() {},
+				onNotification(event) {
 					const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 					if (event.type === "llm.chunk" || event.type === "llm.tool-chunk") onChunk(String(p.text ?? ""));
 				},
@@ -48,18 +48,18 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 						off();
 						reject(new Error(`inner agent timed out after ${timeoutMs}ms`));
 					}, timeoutMs);
-					const off = agent.subscribeMotor("llm.response", (event) => {
+					const off = agent.subscribeCommand("llm.response", (event) => {
 						if (event.correlationId !== correlationId) return;
 						clearTimeout(timer);
 						off();
 						resolve(typeof event.payload.text === "string" ? event.payload.text : "");
 					});
-					agent.publishSense({
+					agent.publishEvent({
 						type: "llm.input",
 						correlationId,
 						payload: { text, sender, tools: agent.tools },
 						isError: false,
-					} as SensePublishInput);
+					} as EventInput);
 				});
 			},
 			dispose() {
@@ -89,18 +89,18 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// Inner strategy: InProcessStrategy with inner faux LLM
 		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
 
-		// Organ-delegate with the inner strategy registered as 'explore'
-		const delegateOrgan = createAgentOrgan({ strategies: { explore: innerStrategy } });
+		// Adapter-delegate with the inner strategy registered as 'explore'
+		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
-		// Outer NerveFixture: outer organ-llm + delegate organ
+		// Outer NerveFixture: outer adapter-llm + delegate adapter
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asNerve().signal.subscribe("llm.tool-start", () => {
+		f.nerve.asBus().notification.subscribe("llm.tool-start", () => {
 			capturedEvents.push("tool-start");
 		});
-		f.nerve.asNerve().signal.subscribe("llm.tool-end", () => {
+		f.nerve.asBus().notification.subscribe("llm.tool-end", () => {
 			capturedEvents.push("tool-end");
 		});
 		f.mount(
@@ -109,7 +109,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 				apiKey: "outer-key",
 			}),
 		);
-		f.mount(delegateOrgan);
+		f.mount(delegateAdapter);
 
 		// Outer LLM: turn 1 → call agent.run
 		// turn 2 → reply with the inner result as context
@@ -151,14 +151,14 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// (no response set on innerFaux, so it returns an error)
 
 		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
-		const delegateOrgan = createAgentOrgan({ strategies: { explore: innerStrategy } });
+		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
 		const capturedEnds: Array<{ ok: boolean }> = [];
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asNerve().signal.subscribe("llm.tool-end", (event) => {
+		f.nerve.asBus().notification.subscribe("llm.tool-end", (event) => {
 			capturedEnds.push({ ok: Boolean(event.payload.ok) });
 		});
 		f.mount(
@@ -167,7 +167,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 				apiKey: "outer-key",
 			}),
 		);
-		f.mount(delegateOrgan);
+		f.mount(delegateAdapter);
 
 		// Outer calls agent.run; then handles the error reply
 		outerFaux.setResponses([
@@ -186,8 +186,8 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 	}, 15_000);
 
 	it("inner agent tool activity streams as tool-chunk events to the outer agent", async () => {
-		// Given: outer LLM calls agent.run; inner LLM calls a streaming organ;
-		// the inner organ's chunks must surface as tool-chunk events on the outer organ-llm.
+		// Given: outer LLM calls agent.run; inner LLM calls a streaming adapter;
+		// the inner adapter's chunks must surface as tool-chunk events on the outer adapter-llm.
 		const outerFaux = registerFauxProvider();
 		const innerFaux = registerFauxProvider();
 		disposes.push(
@@ -195,11 +195,11 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 			() => innerFaux.unregister(),
 		);
 
-		// A simple streaming inner organ that yields two text chunks then a result.
-		const readerOrgan = defineOrgan(
+		// A simple streaming inner adapter that yields two text chunks then a result.
+		const readerAdapter = defineAdapter(
 			"reader",
 			{
-				motor: {
+				command: {
 					"reader.scan": typedStreamAction(
 						{
 							name: "reader.scan",
@@ -219,15 +219,15 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 			},
 		);
 
-		const innerStrategy = new InProcessStrategy([readerOrgan], makeTestFactory(innerFaux.getModel()));
-		const delegateOrgan = createAgentOrgan({ strategies: { explore: innerStrategy } });
+		const innerStrategy = new InProcessStrategy([readerAdapter], makeTestFactory(innerFaux.getModel()));
+		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
 		const outerChunks: string[] = [];
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asNerve().signal.subscribe("llm.tool-chunk", (event) => {
+		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			outerChunks.push(String(event.payload.text ?? ""));
 		});
 		f.mount(
@@ -236,7 +236,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 				apiKey: "outer-key",
 			}),
 		);
-		f.mount(delegateOrgan);
+		f.mount(delegateAdapter);
 
 		// Outer: turn 1 calls agent.run; turn 2 uses the result.
 		outerFaux.setResponses([
@@ -252,7 +252,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 
 		await driver.send("scan the packages", "human", 10_000);
 
-		// Inner organ chunks must have reached the outer agent's tool-chunk stream.
+		// Inner adapter chunks must have reached the outer agent's tool-chunk stream.
 		// Without the fix, outerChunks is empty — the inner tool events are dropped.
 		expect(outerChunks.some((c) => c.includes("found:"))).toBe(true);
 	}, 15_000);
@@ -261,9 +261,9 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 // ---------------------------------------------------------------------------
 // Parallel agent.run — callId routing through the full LLM dispatch stack
 //
-// Organ-level stream isolation is tested in organ-agent/test/delegate.test.ts.
+// Adapter-level stream isolation is tested in adapter-agent/test/delegate.test.ts.
 // These tests cover the additional layer: dispatchTools binding tc.id into onChunk
-// so callId flows correctly through the outer organ-llm's LlmEvent stream.
+// so callId flows correctly through the outer adapter-llm's LlmEvent stream.
 // ---------------------------------------------------------------------------
 
 describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () => {
@@ -287,14 +287,14 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 			},
 		};
 
-		const delegateOrgan = createAgentOrgan({ strategies: { explore: stubStrategy } });
+		const delegateAdapter = createAgentOrgan({ strategies: { explore: stubStrategy } });
 
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asNerve().signal.subscribe("llm.tool-chunk", (event) => {
+		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			capturedChunks.push({ callId: String(event.payload.callId ?? ""), text: String(event.payload.text ?? "") });
 		});
 		f.mount(
@@ -303,7 +303,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 				apiKey: "outer-key",
 			}),
 		);
-		f.mount(delegateOrgan);
+		f.mount(delegateAdapter);
 
 		// Two parallel agent.run calls with distinct task texts and explicit stable IDs.
 		const callA = fauxToolCall("agent_run", { text: "task-A", profile: "explore" }, { id: "tc-A" });
@@ -350,7 +350,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		// Strategy that hangs long enough for stall to fire then resolves.
 		// stallIntervalMs in waitForToolResult is 5s by default; we can't override from here,
 		// so we verify isolation via callId rather than timing.
-		// Instead: emits one chunk immediately so the outer organ-llm sees activity.
+		// Instead: emits one chunk immediately so the outer adapter-llm sees activity.
 		// The key assertion is that each chunk's callId matches the call that produced it.
 		const identityStrategy = {
 			async send({ text, onChunk }: import("@dpopsuev/alef-kernel").SendRequest) {
@@ -359,14 +359,14 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 			},
 		};
 
-		const delegateOrgan = createAgentOrgan({ strategies: { explore: identityStrategy } });
+		const delegateAdapter = createAgentOrgan({ strategies: { explore: identityStrategy } });
 
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new NerveFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateOrgan.tools);
+		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asNerve().signal.subscribe("llm.tool-chunk", (event) => {
+		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			capturedChunks.push({ callId: String(event.payload.callId ?? ""), text: String(event.payload.text ?? "") });
 		});
 		f.mount(
@@ -375,7 +375,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 				apiKey: "outer-key",
 			}),
 		);
-		f.mount(delegateOrgan);
+		f.mount(delegateAdapter);
 
 		const callX = fauxToolCall("agent_run", { text: "agent-X", profile: "explore" }, { id: "tc-X" });
 		const callY = fauxToolCall("agent_run", { text: "agent-Y", profile: "explore" }, { id: "tc-Y" });

@@ -4,4 +4,4 @@ export {
 	type DirectiveAdapter,
 	type MetaAdapterOptions,
 	type MetaOrganOptions,
-} from "./organ.js";
+} from "./adapter.js";

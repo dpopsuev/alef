@@ -1,13 +1,13 @@
 /**
  * Unit tests — no infrastructure, no OTel, no filesystem.
  *
- * Layer 1: EvaluatorOrgan event counting and loop detection.
+ * Layer 1: EvaluatorAdapter event counting and loop detection.
  * Layer 2: scoreSpans() pure scoring function.
  */
 
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
-import { EvaluatorOrgan } from "../src/evaluator-organ.js";
+import { EvaluatorAdapter } from "../src/evaluator-adapter.js";
 import type { SpanRecord } from "../src/metrics.js";
 import { deriveturns, READ_ONLY_RULES, scoreSpans, WRITE_RULES } from "../src/metrics.js";
 
@@ -15,16 +15,16 @@ import { deriveturns, READ_ONLY_RULES, scoreSpans, WRITE_RULES } from "../src/me
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeNerve() {
-	const nerve = new InProcessNerve();
-	return nerve.asNerve();
+function makeBus() {
+	const raw = new InProcessNerve();
+	return raw.asBus();
 }
 
-function motorEvent(type: string, correlationId = "c1") {
+function commandMsg(type: string, correlationId = "c1") {
 	return { type, correlationId, timestamp: Date.now(), payload: {} };
 }
 
-function senseEvent(type: string, correlationId = "c1") {
+function eventMsg(type: string, correlationId = "c1") {
 	return {
 		type,
 		correlationId,
@@ -39,110 +39,110 @@ function span(name: string, attrs: Record<string, unknown> = {}): SpanRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Layer 1: EvaluatorOrgan
+// Layer 1: EvaluatorAdapter
 // ---------------------------------------------------------------------------
 
-describe("EvaluatorOrgan — event counting", { tags: ["unit"] }, () => {
-	it("counts motor events", () => {
-		const n = makeNerve();
-		const organ = new EvaluatorOrgan();
-		organ.mount(n);
+describe("EvaluatorAdapter — event counting", { tags: ["unit"] }, () => {
+	it("counts command events", () => {
+		const n = makeBus();
+		const adapter = new EvaluatorAdapter();
+		adapter.mount(n);
 
-		n.motor.publish(motorEvent("fs.read"));
-		n.motor.publish(motorEvent("fs.grep"));
-		n.motor.publish(motorEvent("shell.exec"));
+		n.command.publish(commandMsg("fs.read"));
+		n.command.publish(commandMsg("fs.grep"));
+		n.command.publish(commandMsg("shell.exec"));
 
-		expect(organ.state.motorCount).toBe(3);
+		expect(adapter.state.commandCount).toBe(3);
 	});
 
-	it("counts sense events", () => {
-		const n = makeNerve();
-		const organ = new EvaluatorOrgan();
-		organ.mount(n);
+	it("counts event messages", () => {
+		const n = makeBus();
+		const adapter = new EvaluatorAdapter();
+		adapter.mount(n);
 
-		n.sense.publish(senseEvent("fs.read"));
-		n.sense.publish(senseEvent("fs.read"));
+		n.event.publish(eventMsg("fs.read"));
+		n.event.publish(eventMsg("fs.read"));
 
-		expect(organ.state.senseCount).toBe(2);
+		expect(adapter.state.eventCount).toBe(2);
 	});
 
 	it("starts with no loop detected", () => {
-		const organ = new EvaluatorOrgan();
-		expect(organ.state.loopDetected).toBe(false);
-		expect(organ.state.loopEventType).toBeUndefined();
+		const adapter = new EvaluatorAdapter();
+		expect(adapter.state.loopDetected).toBe(false);
+		expect(adapter.state.loopEventType).toBeUndefined();
 	});
 
 	it("unmount stops counting", () => {
-		const nerve = new InProcessNerve();
-		const n = nerve.asNerve();
-		const organ = new EvaluatorOrgan();
-		const unmount = organ.mount(n);
+		const bus = new InProcessNerve();
+		const n = bus.asBus();
+		const adapter = new EvaluatorAdapter();
+		const unmount = adapter.mount(n);
 
-		n.motor.publish(motorEvent("fs.read"));
-		expect(organ.state.motorCount).toBe(1);
+		n.command.publish(commandMsg("fs.read"));
+		expect(adapter.state.commandCount).toBe(1);
 
 		unmount();
-		n.motor.publish(motorEvent("fs.read"));
-		expect(organ.state.motorCount).toBe(1); // still 1
+		n.command.publish(commandMsg("fs.read"));
+		expect(adapter.state.commandCount).toBe(1); // still 1
 	});
 });
 
-describe("EvaluatorOrgan — loop detection", { tags: ["unit"] }, () => {
+describe("EvaluatorAdapter — loop detection", { tags: ["unit"] }, () => {
 	it("detects loop when same event type exceeds threshold on same correlationId", () => {
-		const n = makeNerve();
+		const n = makeBus();
 		const loopCalls: string[] = [];
-		const organ = new EvaluatorOrgan({
+		const adapter = new EvaluatorAdapter({
 			loopThreshold: 3,
 			onLoop: (type) => loopCalls.push(type),
 		});
-		organ.mount(n);
+		adapter.mount(n);
 
 		for (let i = 0; i < 5; i++) {
-			n.motor.publish(motorEvent("fs.read", "corr-1"));
+			n.command.publish(commandMsg("fs.read", "corr-1"));
 		}
 
-		expect(organ.state.loopDetected).toBe(true);
-		expect(organ.state.loopEventType).toBe("fs.read");
+		expect(adapter.state.loopDetected).toBe(true);
+		expect(adapter.state.loopEventType).toBe("fs.read");
 		expect(loopCalls).toContain("fs.read");
 	});
 
 	it("does not flag loop below threshold", () => {
-		const n = makeNerve();
-		const organ = new EvaluatorOrgan({ loopThreshold: 10 });
-		organ.mount(n);
+		const n = makeBus();
+		const adapter = new EvaluatorAdapter({ loopThreshold: 10 });
+		adapter.mount(n);
 
 		for (let i = 0; i < 5; i++) {
-			n.motor.publish(motorEvent("fs.read", "corr-1"));
+			n.command.publish(commandMsg("fs.read", "corr-1"));
 		}
 
-		expect(organ.state.loopDetected).toBe(false);
+		expect(adapter.state.loopDetected).toBe(false);
 	});
 
 	it("counts per correlationId independently", () => {
-		const n = makeNerve();
-		const organ = new EvaluatorOrgan({ loopThreshold: 3 });
-		organ.mount(n);
+		const n = makeBus();
+		const adapter = new EvaluatorAdapter({ loopThreshold: 3 });
+		adapter.mount(n);
 
 		// 3 events on corr-1, 3 events on corr-2 — neither exceeds threshold of 3
 		for (let i = 0; i < 3; i++) {
-			n.motor.publish(motorEvent("fs.read", "corr-1"));
-			n.motor.publish(motorEvent("fs.read", "corr-2"));
+			n.command.publish(commandMsg("fs.read", "corr-1"));
+			n.command.publish(commandMsg("fs.read", "corr-2"));
 		}
 
-		expect(organ.state.loopDetected).toBe(false);
+		expect(adapter.state.loopDetected).toBe(false);
 	});
 
 	it("different event types on same correlationId do not trigger loop", () => {
-		const n = makeNerve();
-		const organ = new EvaluatorOrgan({ loopThreshold: 3 });
-		organ.mount(n);
+		const n = makeBus();
+		const adapter = new EvaluatorAdapter({ loopThreshold: 3 });
+		adapter.mount(n);
 
-		n.motor.publish(motorEvent("fs.read", "c1"));
-		n.motor.publish(motorEvent("fs.grep", "c1"));
-		n.motor.publish(motorEvent("fs.find", "c1"));
-		n.motor.publish(motorEvent("shell.exec", "c1"));
+		n.command.publish(commandMsg("fs.read", "c1"));
+		n.command.publish(commandMsg("fs.grep", "c1"));
+		n.command.publish(commandMsg("fs.find", "c1"));
+		n.command.publish(commandMsg("shell.exec", "c1"));
 
-		expect(organ.state.loopDetected).toBe(false);
+		expect(adapter.state.loopDetected).toBe(false);
 	});
 });
 
@@ -152,27 +152,27 @@ describe("EvaluatorOrgan — loop detection", { tags: ["unit"] }, () => {
 
 describe("scoreSpans — ReadOnly rules", { tags: ["unit"] }, () => {
 	it("awards points for fs.read spans", () => {
-		const spans = [span("alef.motor/fs.read"), span("alef.motor/fs.read")];
+		const spans = [span("alef.command/fs.read"), span("alef.command/fs.read")];
 		expect(scoreSpans(spans, READ_ONLY_RULES)).toBe(20); // 2 × 10
 	});
 
 	it("awards points for fs.grep spans", () => {
-		expect(scoreSpans([span("alef.motor/fs.grep")], READ_ONLY_RULES)).toBe(5);
+		expect(scoreSpans([span("alef.command/fs.grep")], READ_ONLY_RULES)).toBe(5);
 	});
 
 	it("penalises fs.write spans", () => {
-		expect(scoreSpans([span("alef.motor/fs.write")], READ_ONLY_RULES)).toBe(-15);
+		expect(scoreSpans([span("alef.command/fs.write")], READ_ONLY_RULES)).toBe(-15);
 	});
 
 	it("penalises fs.edit spans", () => {
-		expect(scoreSpans([span("alef.motor/fs.edit")], READ_ONLY_RULES)).toBe(-15);
+		expect(scoreSpans([span("alef.command/fs.edit")], READ_ONLY_RULES)).toBe(-15);
 	});
 
 	it("mixed read+write nets correctly", () => {
 		const spans = [
-			span("alef.motor/fs.read"), // +10
-			span("alef.motor/fs.grep"), // +5
-			span("alef.motor/fs.write"), // -15
+			span("alef.command/fs.read"), // +10
+			span("alef.command/fs.grep"), // +5
+			span("alef.command/fs.write"), // -15
 		];
 		expect(scoreSpans(spans, READ_ONLY_RULES)).toBe(0);
 	});
@@ -184,11 +184,11 @@ describe("scoreSpans — ReadOnly rules", { tags: ["unit"] }, () => {
 
 describe("scoreSpans — Write rules", { tags: ["unit"] }, () => {
 	it("rewards fs.write spans", () => {
-		expect(scoreSpans([span("alef.motor/fs.write")], WRITE_RULES)).toBe(15);
+		expect(scoreSpans([span("alef.command/fs.write")], WRITE_RULES)).toBe(15);
 	});
 
 	it("rewards fs.edit spans", () => {
-		expect(scoreSpans([span("alef.motor/fs.edit")], WRITE_RULES)).toBe(10);
+		expect(scoreSpans([span("alef.command/fs.edit")], WRITE_RULES)).toBe(10);
 	});
 });
 
@@ -234,10 +234,10 @@ describe("deriveturns — schemaTokensEstimate", { tags: ["unit"] }, () => {
 
 describe("scoreSpans — attribute filter", { tags: ["unit"] }, () => {
 	it("only scores spans matching attribute filter", () => {
-		const rules = [{ match: "alef.motor/fs.read", points: 5, attribute: { key: "alef.cache.hit", value: true } }];
+		const rules = [{ match: "alef.command/fs.read", points: 5, attribute: { key: "alef.cache.hit", value: true } }];
 		const spans = [
-			span("alef.motor/fs.read", { "alef.cache.hit": true }), // matches → +5
-			span("alef.motor/fs.read", { "alef.cache.hit": false }), // no match → 0
+			span("alef.command/fs.read", { "alef.cache.hit": true }), // matches → +5
+			span("alef.command/fs.read", { "alef.cache.hit": false }), // no match → 0
 		];
 		expect(scoreSpans(spans, rules)).toBe(5);
 	});

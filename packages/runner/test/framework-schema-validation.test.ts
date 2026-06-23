@@ -1,25 +1,25 @@
 /**
  * Framework contract: schema validation fires immediately on bad payload.
  *
- * defineOrgan auto-builds inputSchemas from tool definitions. dispatchMotorAction
- * must reject the payload and publish an error sense BEFORE calling handle().
- * If this contract is broken, organs that rely on type-safe payloads get
+ * defineAdapter auto-builds inputSchemas from tool definitions. dispatchCommandAction
+ * must reject the payload and publish an error event BEFORE calling handle().
+ * If this contract is broken, adapters that rely on type-safe payloads get
  * null/undefined at runtime and callers time out instead of seeing an error.
  */
 
-import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel";
 import { NerveFixture } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-describe("defineOrgan — schema validation contract", { tags: ["unit"] }, () => {
-	it("fires error sense immediately when motor payload fails inputSchema", async () => {
+describe("defineAdapter — schema validation contract", { tags: ["unit"] }, () => {
+	it("fires error event immediately when command payload fails inputSchema", async () => {
 		let handleCalled = false;
 
-		const organ = defineOrgan(
+		const adapter = defineAdapter(
 			"schema-test",
 			{
-				motor: {
+				command: {
 					"schema.op": typedAction(
 						{
 							name: "schema.op",
@@ -34,13 +34,13 @@ describe("defineOrgan — schema validation contract", { tags: ["unit"] }, () =>
 				},
 			},
 			{
-				description: "Schema validation test organ.",
+				description: "Schema validation test adapter.",
 				directives: ["Use schema.op when asked to test schema validation."],
 			},
 		);
 
 		const f = new NerveFixture();
-		f.mount(organ);
+		f.mount(adapter);
 
 		const startedAt = Date.now();
 
@@ -52,7 +52,7 @@ describe("defineOrgan — schema validation contract", { tags: ["unit"] }, () =>
 		// Must respond immediately — not after a 60s timeout
 		expect(elapsedMs, "schema rejection must be immediate, not a timeout").toBeLessThan(200);
 
-		// Must be an error sense
+		// Must be an error event
 		expect(result.isError, "schema rejection must set isError").toBe(true);
 		expect(result.errorMessage, "error message must be human-readable retry hint").toMatch(
 			/retry with corrected arguments/i,
@@ -70,10 +70,10 @@ describe("defineOrgan — schema validation contract", { tags: ["unit"] }, () =>
 	it("calls handle() normally when payload satisfies inputSchema", async () => {
 		let handleCalled = false;
 
-		const organ = defineOrgan(
+		const adapter = defineAdapter(
 			"schema-test-ok",
 			{
-				motor: {
+				command: {
 					"schema.ok": typedAction(
 						{
 							name: "schema.ok",
@@ -88,13 +88,13 @@ describe("defineOrgan — schema validation contract", { tags: ["unit"] }, () =>
 				},
 			},
 			{
-				description: "Schema validation happy-path organ.",
+				description: "Schema validation happy-path adapter.",
 				directives: ["Use schema.ok when asked to test schema validation happy path."],
 			},
 		);
 
 		const f = new NerveFixture();
-		f.mount(organ);
+		f.mount(adapter);
 
 		const result = await f.call("schema.ok", { text: "hello", toolCallId: "tc-schema-2" }, { timeoutMs: 500 });
 

@@ -1,1 +1,1 @@
-export { createGitOrgan, createOrgan, type GitOrganOptions } from "./organ.js";
+export { createGitOrgan, createOrgan, type GitOrganOptions } from "./adapter.js";

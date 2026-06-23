@@ -80,7 +80,7 @@ export function getRunnerLogger(): MinimalLogger {
  */
 export function logAdapterWarning(adapterName: string, message: string, context?: Record<string, unknown>): void {
 	const logger = getRunnerLogger();
-	logger.warn({ organ: adapterName, ...context }, message);
+	logger.warn({ adapter: adapterName, ...context }, message);
 }
 
 /**

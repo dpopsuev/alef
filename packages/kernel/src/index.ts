@@ -1,7 +1,7 @@
 export * from "./access-policy.js";
 export { type CacheStrategy, createMapCache, makeCacheKey } from "./adapter-cache.js";
 export type { DispatchOptions, EscalationHandler } from "./adapter-dispatch.js";
-export { explainAdapter, explainOrgan } from "./adapter-explain.js";
+export { explainAdapter } from "./adapter-explain.js";
 export * from "./adapter-sdk.js";
 export * from "./binding.js";
 export * from "./budget.js";
@@ -12,7 +12,6 @@ export { debugLog, initSessionSink, initSpineLogger } from "./debug.js";
 export * from "./errors.js";
 export * from "./execution.js";
 export * from "./framework.js";
-export { defineAdapter, defineOrgan } from "./framework.js";
 export { InProcessNerve } from "./in-process-nerve.js";
 export { LogField } from "./log-fields.js";
 export * from "./mcp-adapter.js";

@@ -272,15 +272,15 @@ function buildActorIdentity(store: SessionStore) {
 
 function connectObservers(agent: Agent, observers: Set<(event: AgentEvent) => void>): void {
 	agent.observe({
-		onMotorEvent(event) {
+		onCommand(event) {
 			if (event.type === "llm.response") {
 				const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 				const text = typeof p.text === "string" ? p.text : "";
 				for (const obs of observers) obs({ type: "turn-complete", reply: text });
 			}
 		},
-		onSenseEvent() {},
-		onSignalEvent(event) {
+		onEvent() {},
+		onNotification(event) {
 			const agentEvent = signalToAgentEvent(event);
 			if (agentEvent) for (const obs of observers) obs(agentEvent);
 		},
@@ -431,9 +431,9 @@ export async function createLocalSession(
 	connectObservers(agent, observers);
 
 	agent.observe({
-		onMotorEvent() {},
-		onSenseEvent() {},
-		onSignalEvent(event) {
+		onCommand() {},
+		onEvent() {},
+		onNotification(event) {
 			const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 			const s = (key: string): string => (typeof p[key] === "string" ? p[key] : "");
 			if (event.type === "task.completed") {

@@ -330,7 +330,7 @@ describe.skipIf(!HAVE_LLM)("canary: full-stack real-LLM health check", { tags: [
 			(evs) =>
 				evs.some((ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "llm.response" && Boolean(e.payload?.text?.trim());
+					return e.bus === "command" && e.type === "llm.response" && Boolean(e.payload?.text?.trim());
 				}),
 			60_000,
 		);
@@ -339,7 +339,7 @@ describe.skipIf(!HAVE_LLM)("canary: full-stack real-LLM health check", { tags: [
 
 		const reply = sse.events.find((ev) => {
 			const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-			return e.bus === "motor" && e.type === "llm.response";
+			return e.bus === "command" && e.type === "llm.response";
 		}) as { payload: { text: string } } | undefined;
 
 		expect(reply).toBeDefined();
@@ -376,7 +376,7 @@ describe.skipIf(!HAVE_LLM)("POST /message delivers reply via SSE and persists to
 			(evs) =>
 				evs.some((ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "llm.response" && Boolean(e.payload?.text);
+					return e.bus === "command" && e.type === "llm.response" && Boolean(e.payload?.text);
 				}),
 			90_000,
 		);
@@ -385,7 +385,7 @@ describe.skipIf(!HAVE_LLM)("POST /message delivers reply via SSE and persists to
 
 		const replyEvent = sse.events.find((ev) => {
 			const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-			return e.bus === "motor" && e.type === "llm.response" && Boolean(e.payload?.text);
+			return e.bus === "command" && e.type === "llm.response" && Boolean(e.payload?.text);
 		}) as { payload: { text: string } } | undefined;
 		expect(replyEvent).toBeDefined();
 
@@ -419,7 +419,7 @@ describe.skipIf(!HAVE_LLM)("POST /message delivers reply via SSE and persists to
 			(evs) => {
 				const replies = evs.filter((ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "llm.response" && Boolean(e.payload?.text);
+					return e.bus === "command" && e.type === "llm.response" && Boolean(e.payload?.text);
 				});
 				if (replies.length > replyCount) {
 					replyCount = replies.length;
@@ -433,7 +433,7 @@ describe.skipIf(!HAVE_LLM)("POST /message delivers reply via SSE and persists to
 		const firstReply = sse.events
 			.filter((ev) => {
 				const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-				return e.bus === "motor" && e.type === "llm.response";
+				return e.bus === "command" && e.type === "llm.response";
 			})
 			.at(-1) as { payload: { text: string } } | undefined;
 		expect(firstReply).toBeDefined();
@@ -441,7 +441,7 @@ describe.skipIf(!HAVE_LLM)("POST /message delivers reply via SSE and persists to
 		// Turn 2 — agent should recall from history.
 		const prevCount = sse.events.filter((ev) => {
 			const e = ev as { bus?: string; type?: string };
-			return e.bus === "motor" && e.type === "llm.response";
+			return e.bus === "command" && e.type === "llm.response";
 		}).length;
 
 		// Small gap to ensure turn 1 is fully settled before sending turn 2.
@@ -452,7 +452,7 @@ describe.skipIf(!HAVE_LLM)("POST /message delivers reply via SSE and persists to
 			(evs) =>
 				evs.filter((ev) => {
 					const e = ev as { bus?: string; type?: string };
-					return e.bus === "motor" && e.type === "llm.response";
+					return e.bus === "command" && e.type === "llm.response";
 				}).length > prevCount,
 			120_000,
 		);
@@ -462,7 +462,7 @@ describe.skipIf(!HAVE_LLM)("POST /message delivers reply via SSE and persists to
 		const secondReply = sse.events
 			.filter((ev) => {
 				const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-				return e.bus === "motor" && e.type === "llm.response";
+				return e.bus === "command" && e.type === "llm.response";
 			})
 			.at(-1) as { payload: { text: string } } | undefined;
 		expect(secondReply).toBeDefined();
@@ -506,7 +506,7 @@ describe.skipIf(!HAVE_LLM)(
 				(evs) =>
 					evs.some((ev) => {
 						const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-						return e.bus === "motor" && e.type === "llm.response" && Boolean(e.payload?.text);
+						return e.bus === "command" && e.type === "llm.response" && Boolean(e.payload?.text);
 					}),
 				120_000,
 			);
@@ -515,7 +515,7 @@ describe.skipIf(!HAVE_LLM)(
 
 			const replyEvent = sse.events.find((ev) => {
 				const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-				return e.bus === "motor" && e.type === "llm.response" && Boolean(e.payload?.text);
+				return e.bus === "command" && e.type === "llm.response" && Boolean(e.payload?.text);
 			}) as { payload: { text: string } } | undefined;
 			expect(replyEvent).toBeDefined();
 
@@ -559,7 +559,7 @@ describe.skipIf(!HAVE_LLM)(
 				(evs) =>
 					evs.some((ev) => {
 						const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-						return e.bus === "motor" && e.type === "llm.response" && Boolean(e.payload?.text);
+						return e.bus === "command" && e.type === "llm.response" && Boolean(e.payload?.text);
 					}),
 				90_000,
 			);
@@ -567,7 +567,7 @@ describe.skipIf(!HAVE_LLM)(
 
 			const reply = sse.events.find((ev) => {
 				const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-				return e.bus === "motor" && e.type === "llm.response";
+				return e.bus === "command" && e.type === "llm.response";
 			}) as { payload: { text: string } } | undefined;
 			expect(reply).toBeDefined();
 
@@ -625,7 +625,7 @@ describe.skipIf(!HAVE_LLM)(
 				(evs) =>
 					evs.some((ev) => {
 						const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-						return e.bus === "motor" && e.type === "llm.response" && Boolean(e.payload?.text);
+						return e.bus === "command" && e.type === "llm.response" && Boolean(e.payload?.text);
 					}),
 				90_000,
 			);

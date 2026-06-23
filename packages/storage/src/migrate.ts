@@ -91,7 +91,7 @@ export async function migrateJsonlToSqlite(client: Client): Promise<MigrationRes
 				];
 
 				for (const r of records) {
-					if ((r.bus === "motor" || r.bus === "sense") && !turnMap.has(r.correlationId)) {
+					if ((r.bus === "command" || r.bus === "event") && !turnMap.has(r.correlationId)) {
 						turnMap.set(r.correlationId, turnIndex++);
 					}
 

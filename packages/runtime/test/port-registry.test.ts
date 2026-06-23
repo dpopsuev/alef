@@ -1,23 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { type OrganPortInfo, type PortDefinition, PortValidationError, validatePorts } from "../src/port-registry.js";
+import { type AdapterPortInfo, type PortDefinition, PortValidationError, validatePorts } from "../src/port-registry.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function organ(name: string, motor: string[] = [], sense: string[] = []): OrganPortInfo {
-	return { name, motorSubscriptions: motor, senseSubscriptions: sense };
+function adapter(name: string, command: string[] = [], event: string[] = []): AdapterPortInfo {
+	return { name, commandSubscriptions: command, eventSubscriptions: event };
 }
 
 const PRIMARY_SEAM: PortDefinition = {
 	name: "reasoning",
-	eventPattern: "sense/llm.input",
+	eventPattern: "event/llm.input",
 	cardinality: "exactly-one",
 };
 
 const FS_SEAM: PortDefinition = {
 	name: "filesystem",
-	eventPattern: "motor/fs.",
+	eventPattern: "command/fs.",
 	cardinality: "zero-or-one",
 };
 
@@ -26,26 +26,26 @@ const FS_SEAM: PortDefinition = {
 // ---------------------------------------------------------------------------
 
 describe("validatePorts — exactly-one", { tags: ["unit"] }, () => {
-	it("passes when exactly one organ covers the seam", () => {
-		const organs = [organ("llm", [], ["llm.input"])];
-		const result = validatePorts(organs, [PRIMARY_SEAM]);
+	it("passes when exactly one adapter covers the seam", () => {
+		const adapters = [adapter("llm", [], ["llm.input"])];
+		const result = validatePorts(adapters, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(true);
 		expect(result.violations).toHaveLength(0);
 	});
 
-	it("errors when zero organs cover an exactly-one seam", () => {
-		const organs = [organ("fs", ["fs.read"])];
-		const result = validatePorts(organs, [PRIMARY_SEAM]);
+	it("errors when zero adapters cover an exactly-one seam", () => {
+		const adapters = [adapter("fs", ["fs.read"])];
+		const result = validatePorts(adapters, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(false);
 		expect(result.violations).toHaveLength(1);
 		expect(result.violations[0].severity).toBe("error");
 		expect(result.violations[0].adapterCount).toBe(0);
-		expect(result.violations[0].message).toMatch(/requires exactly one organ.*got 0/);
+		expect(result.violations[0].message).toMatch(/requires exactly one adapter.*got 0/);
 	});
 
-	it("errors when two organs cover an exactly-one seam", () => {
-		const organs = [organ("llm", [], ["llm.input"]), organ("planner", [], ["llm.input"])];
-		const result = validatePorts(organs, [PRIMARY_SEAM]);
+	it("errors when two adapters cover an exactly-one seam", () => {
+		const adapters = [adapter("llm", [], ["llm.input"]), adapter("planner", [], ["llm.input"])];
+		const result = validatePorts(adapters, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(false);
 		expect(result.violations[0].adapterCount).toBe(2);
 		expect(result.violations[0].adapterNames).toEqual(["llm", "planner"]);
@@ -58,21 +58,21 @@ describe("validatePorts — exactly-one", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("validatePorts — zero-or-one", { tags: ["unit"] }, () => {
-	it("passes when zero organs cover a zero-or-one seam", () => {
+	it("passes when zero adapters cover a zero-or-one seam", () => {
 		const result = validatePorts([], [FS_SEAM]);
 		expect(result.valid).toBe(true);
 		expect(result.violations).toHaveLength(0);
 	});
 
-	it("passes when exactly one organ covers a zero-or-one seam", () => {
-		const organs = [organ("fs", ["fs.read", "fs.write"])];
-		const result = validatePorts(organs, [FS_SEAM]);
+	it("passes when exactly one adapter covers a zero-or-one seam", () => {
+		const adapters = [adapter("fs", ["fs.read", "fs.write"])];
+		const result = validatePorts(adapters, [FS_SEAM]);
 		expect(result.valid).toBe(true);
 	});
 
-	it("warns (not errors) when two organs cover a zero-or-one seam", () => {
-		const organs = [organ("fs1", ["fs.read"]), organ("fs2", ["fs.write"])];
-		const result = validatePorts(organs, [FS_SEAM]);
+	it("warns (not errors) when two adapters cover a zero-or-one seam", () => {
+		const adapters = [adapter("fs1", ["fs.read"]), adapter("fs2", ["fs.write"])];
+		const result = validatePorts(adapters, [FS_SEAM]);
 		expect(result.valid).toBe(true); // warning, not error
 		expect(result.violations[0].severity).toBe("warning");
 		expect(result.violations[0].adapterCount).toBe(2);
@@ -84,27 +84,27 @@ describe("validatePorts — zero-or-one", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("seam pattern matching", { tags: ["unit"] }, () => {
-	it("matches exact sense event type", () => {
-		const organs = [organ("llm", [], ["llm.input"])];
-		const result = validatePorts(organs, [PRIMARY_SEAM]);
+	it("matches exact event event type", () => {
+		const adapters = [adapter("llm", [], ["llm.input"])];
+		const result = validatePorts(adapters, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(true);
 	});
 
-	it("matches motor prefix pattern (fs.)", () => {
-		const organs = [organ("fs", ["fs.read", "fs.grep", "fs.write"])];
-		const result = validatePorts(organs, [FS_SEAM]);
+	it("matches command prefix pattern (fs.)", () => {
+		const adapters = [adapter("fs", ["fs.read", "fs.grep", "fs.write"])];
+		const result = validatePorts(adapters, [FS_SEAM]);
 		expect(result.valid).toBe(true);
 	});
 
-	it("wildcard motor/* organ does not cover specific seams", () => {
-		const organs = [organ("evaluator", ["*"])];
-		const result = validatePorts(organs, [FS_SEAM]);
+	it("wildcard command/* adapter does not cover specific seams", () => {
+		const adapters = [adapter("evaluator", ["*"])];
+		const result = validatePorts(adapters, [FS_SEAM]);
 		expect(result.valid).toBe(true);
 	});
 
-	it("organ on unrelated seam does not cover reasoning", () => {
-		const organs = [organ("fs", ["fs.read"])];
-		const result = validatePorts(organs, [PRIMARY_SEAM]);
+	it("adapter on unrelated seam does not cover reasoning", () => {
+		const adapters = [adapter("fs", ["fs.read"])];
+		const result = validatePorts(adapters, [PRIMARY_SEAM]);
 		expect(result.valid).toBe(false);
 	});
 });
@@ -114,19 +114,19 @@ describe("seam pattern matching", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("dynamic port collection", { tags: ["unit"] }, () => {
-	it("validates ports declared by organ contributions", () => {
-		const organs = [organ("llm", [], ["llm.input"]), organ("fs", ["fs.read"])];
+	it("validates ports declared by adapter contributions", () => {
+		const adapters = [adapter("llm", [], ["llm.input"]), adapter("fs", ["fs.read"])];
 		const ports: PortDefinition[] = [
-			{ name: "reasoning", eventPattern: "sense/llm.input", cardinality: "exactly-one" },
-			{ name: "filesystem", eventPattern: "motor/fs.", cardinality: "zero-or-one" },
+			{ name: "reasoning", eventPattern: "event/llm.input", cardinality: "exactly-one" },
+			{ name: "filesystem", eventPattern: "command/fs.", cardinality: "zero-or-one" },
 		];
-		const result = validatePorts(organs, ports);
+		const result = validatePorts(adapters, ports);
 		expect(result.valid).toBe(true);
 		expect(result.violations).toHaveLength(0);
 	});
 
 	it("empty port list passes with no constraints", () => {
-		const result = validatePorts([organ("fs", ["fs.read"])], []);
+		const result = validatePorts([adapter("fs", ["fs.read"])], []);
 		expect(result.valid).toBe(true);
 	});
 });
@@ -137,8 +137,8 @@ describe("dynamic port collection", { tags: ["unit"] }, () => {
 
 describe("PortValidationError", { tags: ["unit"] }, () => {
 	it("is an Error with a descriptive message", () => {
-		const organs: OrganPortInfo[] = [];
-		const result = validatePorts(organs, [PRIMARY_SEAM]);
+		const adapters: AdapterPortInfo[] = [];
+		const result = validatePorts(adapters, [PRIMARY_SEAM]);
 		const errors = result.violations.filter((v) => v.severity === "error");
 		const err = new PortValidationError(errors);
 		expect(err).toBeInstanceOf(Error);

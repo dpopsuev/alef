@@ -72,7 +72,7 @@ export function createGitOrgan(opts: GitOrganOptions): Adapter {
 	return defineAdapter(
 		"git",
 		{
-			motor: {
+			command: {
 				"git.status": typedAction(GIT_STATUS, async () => {
 					const { execSync } = await import("node:child_process");
 					const output = execSync("git status --short", { cwd: opts.cwd, encoding: "utf-8" });

@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import type { Adapter, BaseOrganOptions, Bus, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseAdapterOptions, Bus, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
 import { defineAdapter, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { PlanGraph } from "./graph.js";
 
-export interface PlanOrganOptions extends BaseOrganOptions {
+export interface PlanOrganOptions extends BaseAdapterOptions {
 	sessionDir: string;
 }
 
@@ -16,10 +16,10 @@ function planPath(sessionDir: string): string {
 export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
 	let activePlan: PlanGraph | null = null;
 	const shortId = () => randomUUID().replace(/-/g, "").slice(0, 12);
-	let nerve: Bus | null = null;
+	let mountedBus: Bus | null = null;
 
 	function emitSignal(type: string, payload: Record<string, unknown>): void {
-		nerve?.notification.publish({ type, payload, correlationId: "" });
+		mountedBus?.notification.publish({ type, payload, correlationId: "" });
 	}
 
 	function ensureDisk(): string {
@@ -42,7 +42,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
 	return defineAdapter(
 		"plan",
 		{
-			motor: {
+			command: {
 				"plan.begin": typedAction(
 					{
 						name: "plan.begin",
@@ -335,8 +335,8 @@ export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
 				"The plan is injected into your context automatically. Use plan.show to see the current state.",
 			],
 			sources: [{ name: "plan-file", kind: "file" }],
-			onMount: (n: Bus) => {
-				nerve = n;
+			onMount: (bus: Bus) => {
+				mountedBus = bus;
 			},
 			contributions: {
 				"context.assemble": contextStage,

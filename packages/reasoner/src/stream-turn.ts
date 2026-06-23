@@ -29,8 +29,7 @@ export interface StreamTurnOptions {
 	getApiKey?: () => string | undefined;
 	systemPrompt?: string;
 	getSignal?: () => AbortSignal | undefined;
-	motor: Bus["command"];
-	signal: Bus["notification"];
+	command: Bus["command"];
 	notification: Bus["notification"];
 	correlationId: string;
 }

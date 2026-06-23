@@ -1,40 +1,40 @@
 /**
  * CacheProof.
  *
- * A ScriptedLLMOrgan reads the same file twice in one turn.
+ * A ScriptedLLMAdapter reads the same file twice in one turn.
  * The second read must be served from cache (alef.cache.hit=true on span).
  * Proves: OTel spans carry cache attributes, OAE metric is non-zero.
  */
 
-import type { Nerve, Organ, SenseEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, EventMessage } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { EvalHarness } from "../src/harness.js";
 
 // ---------------------------------------------------------------------------
-// ScriptedLLMOrgan — reads one file twice, then replies.
+// ScriptedLLMAdapter — reads one file twice, then replies.
 // ---------------------------------------------------------------------------
 
-class ScriptedReadTwiceLLM implements Organ {
+class ScriptedReadTwiceLLM implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
 	readonly reads: Array<{ cacheHit: boolean }> = [];
-	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
 	readonly sources = [] as const;
 
-	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("llm.input", async (event) => {
+	mount(bus: Bus): () => void {
+		return bus.event.subscribe("llm.input", async (event) => {
 			const corr = event.correlationId;
 
-			// Helper: publish Motor/fs.read and await Sense/fs.read.
-			const readFile = (path: string, toolCallId: string): Promise<SenseEvent> =>
+			// Helper: publish Command/fs.read and await Event/fs.read.
+			const readFile = (path: string, toolCallId: string): Promise<EventMessage> =>
 				new Promise((resolve) => {
-					const off = nerve.sense.subscribe("fs.read", (e) => {
+					const off = bus.event.subscribe("fs.read", (e) => {
 						if (e.payload.toolCallId === toolCallId && e.correlationId === corr) {
 							off();
 							resolve(e);
 						}
 					});
-					nerve.motor.publish({
+					bus.command.publish({
 						type: "fs.read",
 						payload: { path, toolCallId },
 						correlationId: corr,
@@ -46,7 +46,7 @@ class ScriptedReadTwiceLLM implements Organ {
 			// Second read of same file — cache hit.
 			await readFile("target.txt", "tc-2");
 
-			nerve.motor.publish({
+			bus.command.publish({
 				type: "llm.response",
 				payload: { text: "read twice" },
 				correlationId: corr,
@@ -69,7 +69,7 @@ describe("EvalHarness — file read cache hit", { tags: ["integration"] }, () =>
 			},
 			{
 				scenario: "cache-proof",
-				extraOrgans: [new ScriptedReadTwiceLLM()],
+				extraAdapters: [new ScriptedReadTwiceLLM()],
 			},
 		);
 
@@ -85,7 +85,7 @@ describe("EvalHarness — file read cache hit", { tags: ["integration"] }, () =>
 		expect(metrics.oae).toBeGreaterThan(0);
 
 		// Cache hits + misses for fs.read: expect exactly 1 miss and 1 hit.
-		const fsReadSpans = metrics.spans.filter((s) => s.name.includes("alef.motor/fs.read"));
+		const fsReadSpans = metrics.spans.filter((s) => s.name.includes("alef.command/fs.read"));
 		const misses = fsReadSpans.filter((s) => s.attributes["alef.cache.hit"] === false);
 		const hits = fsReadSpans.filter((s) => s.attributes["alef.cache.hit"] === true);
 

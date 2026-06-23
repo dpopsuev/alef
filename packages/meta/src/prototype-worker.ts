@@ -5,20 +5,13 @@
  * (inheriting tsx/esm hooks), so TypeScript adapter files load without a build step.
  *
  * Protocol:
- *   parent → worker  { dir: 'motor', event: BusMessage }
- *   worker → parent  { dir: 'sense', event: EventInput }
+ *   parent → worker  { dir: 'command', event: BusMessage }
+ *   worker → parent  { dir: 'event', event: EventInput }
  *   worker → parent  { type: 'ready', name, tools[], subscriptions }  (on mount)
  */
 
 import { parentPort, workerData } from "node:worker_threads";
-import type {
-	BusMessage,
-	CommandHandler,
-	CommandMessage,
-	EventHandler,
-	EventInput,
-	Nerve,
-} from "@dpopsuev/alef-kernel";
+import type { Bus, BusMessage, CommandHandler, CommandMessage, EventHandler, EventInput } from "@dpopsuev/alef-kernel";
 import { makeBus, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
 
 const { organPath: adapterPath, cwd } = workerData as { organPath: string; cwd: string };
@@ -26,18 +19,18 @@ const { organPath: adapterPath, cwd } = workerData as { organPath: string; cwd: 
 const port = parentPort;
 if (!port) throw new Error("prototype-worker must run inside a worker_threads.Worker");
 
-// Motor handlers registered by the adapter during mount.
-const motorHandlers = new Map<string, Set<CommandHandler>>();
-// Sense handlers (rarely used by adapters, but bridge it anyway).
-const senseHandlers = new Map<string, Set<EventHandler>>();
+// Command handlers registered by the adapter during mount.
+const commandHandlers = new Map<string, Set<CommandHandler>>();
+// Event handlers (rarely used by adapters, but bridge it anyway).
+const eventHandlers = new Map<string, Set<EventHandler>>();
 
-const bridgeNerve: Nerve = makeBus(
+const bridgeBus: Bus = makeBus(
 	{
 		subscribe(type, handler) {
-			let set = motorHandlers.get(type);
+			let set = commandHandlers.get(type);
 			if (!set) {
 				set = new Set();
-				motorHandlers.set(type, set);
+				commandHandlers.set(type, set);
 			}
 			set.add(handler);
 			return () => {
@@ -45,15 +38,15 @@ const bridgeNerve: Nerve = makeBus(
 			};
 		},
 		publish(event: CommandMessage) {
-			port.postMessage({ dir: "motor", event });
+			port.postMessage({ dir: "command", event });
 		},
 	},
 	{
 		subscribe(type, handler) {
-			let set = senseHandlers.get(type);
+			let set = eventHandlers.get(type);
 			if (!set) {
 				set = new Set();
-				senseHandlers.set(type, set);
+				eventHandlers.set(type, set);
 			}
 			set.add(handler);
 			return () => {
@@ -61,7 +54,7 @@ const bridgeNerve: Nerve = makeBus(
 			};
 		},
 		publish(event: EventInput) {
-			port.postMessage({ dir: "sense", event });
+			port.postMessage({ dir: "event", event });
 		},
 	},
 	{
@@ -73,14 +66,14 @@ const bridgeNerve: Nerve = makeBus(
 	() => {},
 );
 
-// Dispatch incoming motor events to registered handlers.
+// Dispatch incoming command events to registered handlers.
 port.on("message", (msg: { dir: string; event: BusMessage }) => {
-	if (msg.dir !== "motor") return;
-	const motorEvent = msg.event as CommandMessage;
-	const specific = motorHandlers.get(motorEvent.type);
-	if (specific) for (const h of specific) void h(motorEvent);
-	const wildcard = motorHandlers.get("*");
-	if (wildcard) for (const h of wildcard) void h(motorEvent);
+	if (msg.dir !== "command") return;
+	const commandEvent = msg.event as CommandMessage;
+	const specific = commandHandlers.get(commandEvent.type);
+	if (specific) for (const h of specific) void h(commandEvent);
+	const wildcard = commandHandlers.get("*");
+	if (wildcard) for (const h of wildcard) void h(commandEvent);
 });
 
 // Load the adapter and mount it.
@@ -89,11 +82,11 @@ const factory = (mod.createAdapter ?? mod.createOrgan) as (opts: { cwd: string }
 const adapter = (await factory({ cwd })) as {
 	name: string;
 	tools: Array<{ name: string; description: string; inputSchema: import("zod").ZodTypeAny }>;
-	subscriptions: { motor: readonly string[]; sense: readonly string[] };
-	mount(nerve: Nerve): () => void;
+	subscriptions: { command: readonly string[]; event: readonly string[] };
+	mount(bus: Bus): () => void;
 };
 
-adapter.mount(bridgeNerve);
+adapter.mount(bridgeBus);
 
 port.postMessage({
 	type: "ready",

@@ -20,7 +20,7 @@ export class TurnIndexer {
 			}
 			return;
 		}
-		if (record.bus !== "motor" && record.bus !== "sense" && record.type !== "llm.checkpoint") return;
+		if (record.bus !== "command" && record.bus !== "event" && record.type !== "llm.checkpoint") return;
 
 		const turnId = record.correlationId;
 		let turn = this.turnMap.get(turnId);

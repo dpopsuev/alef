@@ -28,7 +28,7 @@ export interface ScriptedLlmOptions {}
 export class ScriptedLlmAdapter implements Adapter {
 	readonly name = "scripted-llm";
 	readonly tools: readonly ToolDefinition[] = [];
-	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as readonly string[] };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as readonly string[] };
 	readonly sources = [] as const;
 
 	private readonly steps: SerializedStep[];
@@ -38,40 +38,40 @@ export class ScriptedLlmAdapter implements Adapter {
 		this.steps = steps;
 	}
 
-	mount(nerve: Bus): () => void {
-		return nerve.event.subscribe("llm.input", (event) => {
+	mount(bus: Bus): () => void {
+		return bus.event.subscribe("llm.input", (event) => {
 			void (async () => {
 				const step = this.steps[this.index++];
 				if (step !== undefined && typeof step === "object" && step.kind === "toolCall") {
 					const toolCallId = randomUUID();
 					const dotName = step.call.name; // e.g. "tools.describe"
-					nerve.command.publish({
+					bus.command.publish({
 						type: "llm.tool-start",
 						payload: { callId: toolCallId, name: dotName, args: step.call.args },
 						correlationId: event.correlationId,
 					});
 					await new Promise<void>((resolve) => {
-						const off = nerve.event.subscribe(dotName, (e) => {
+						const off = bus.event.subscribe(dotName, (e) => {
 							if (e.correlationId === event.correlationId) {
 								off();
 								resolve();
 							}
 						});
-						nerve.command.publish({
+						bus.command.publish({
 							type: dotName,
 							payload: { ...step.call.args, toolCallId },
 							correlationId: event.correlationId,
 						});
 					});
-					nerve.command.publish({
+					bus.command.publish({
 						type: "llm.tool-end",
 						payload: { callId: toolCallId, name: step.call.name, ok: true },
 						correlationId: event.correlationId,
 					});
 				}
 				const text = step !== undefined ? toReplyText(step) : "(scripted-llm: script exhausted)";
-				nerve.command.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
-				nerve.command.publish({ type: "llm.response", payload: { text }, correlationId: event.correlationId });
+				bus.command.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
+				bus.command.publish({ type: "llm.response", payload: { text }, correlationId: event.correlationId });
 			})();
 		});
 	}

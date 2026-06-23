@@ -10,74 +10,65 @@ export interface AdapterLogger {
 	child(bindings: Record<string, unknown>): AdapterLogger;
 }
 
-/** @deprecated Use AdapterLogger */
-export type OrganLogger = AdapterLogger;
-
-export interface MotorHandlerCtx<TPayload = Record<string, unknown>> {
+export interface CommandHandlerCtx<TPayload = Record<string, unknown>> {
 	readonly correlationId: string;
 	readonly toolCallId: string | undefined;
 	readonly payload: TPayload;
 	readonly log: AdapterLogger;
 }
 
-export interface MotorAction {
+export interface CommandAction {
 	readonly tool?: ToolDefinition;
-	handle(ctx: MotorHandlerCtx): AsyncIterable<Record<string, unknown>>;
-	shouldCache?(ctx: MotorHandlerCtx, result: Record<string, unknown>): boolean;
-	invalidates?(ctx: MotorHandlerCtx): string[];
+	handle(ctx: CommandHandlerCtx): AsyncIterable<Record<string, unknown>>;
+	shouldCache?(ctx: CommandHandlerCtx, result: Record<string, unknown>): boolean;
+	invalidates?(ctx: CommandHandlerCtx): string[];
 }
 
 export function typedAction<TSchema extends ZodTypeAny>(
 	tool: ToolDefinition & { readonly inputSchema: TSchema },
-	handle: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
+	handle: (ctx: CommandHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
 	opts?: {
-		shouldCache?: (ctx: MotorHandlerCtx<z.infer<TSchema>>, result: Record<string, unknown>) => boolean;
-		invalidates?: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => string[];
+		shouldCache?: (ctx: CommandHandlerCtx<z.infer<TSchema>>, result: Record<string, unknown>) => boolean;
+		invalidates?: (ctx: CommandHandlerCtx<z.infer<TSchema>>) => string[];
 	},
-): MotorAction {
+): CommandAction {
 	return {
 		tool,
 		async *handle(ctx) {
-			yield await (handle as (ctx: MotorHandlerCtx) => Promise<Record<string, unknown>>)(ctx);
+			yield await (handle as (ctx: CommandHandlerCtx) => Promise<Record<string, unknown>>)(ctx);
 		},
-		...(opts?.shouldCache && { shouldCache: opts.shouldCache as MotorAction["shouldCache"] }),
-		...(opts?.invalidates && { invalidates: opts.invalidates as MotorAction["invalidates"] }),
+		...(opts?.shouldCache && { shouldCache: opts.shouldCache as CommandAction["shouldCache"] }),
+		...(opts?.invalidates && { invalidates: opts.invalidates as CommandAction["invalidates"] }),
 	};
 }
 
 export function typedStreamAction<TSchema extends ZodTypeAny>(
 	tool: ToolDefinition & { readonly inputSchema: TSchema },
-	stream: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
-): MotorAction {
+	stream: (ctx: CommandHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
+): CommandAction {
 	return {
 		tool: { ...tool, streaming: true },
-		handle: stream as MotorAction["handle"],
+		handle: stream as CommandAction["handle"],
 	};
 }
 
-export interface SenseHandlerCtx {
+export interface EventHandlerCtx {
 	readonly correlationId: string;
 	readonly payload: Record<string, unknown>;
 	readonly command: Bus["command"];
 	readonly event: Bus["event"];
 	readonly notification: Bus["notification"];
-	/** @deprecated Use command */
-	readonly motor: Bus["command"];
-	/** @deprecated Use event */
-	readonly sense: Bus["event"];
-	/** @deprecated Use notification */
-	readonly signal: Bus["notification"];
 }
 
-export interface SenseAction {
-	handle(ctx: SenseHandlerCtx): Promise<void>;
+export interface EventAction {
+	handle(ctx: EventHandlerCtx): Promise<void>;
 }
 
-export type MotorActionMap = Record<string, MotorAction>;
-export type SenseActionMap = Record<string, SenseAction>;
+export type CommandActionMap = Record<string, CommandAction>;
+export type EventActionMap = Record<string, EventAction>;
 export interface ActionMap {
-	motor?: MotorActionMap;
-	sense?: SenseActionMap;
+	command?: CommandActionMap;
+	event?: EventActionMap;
 }
 
 import type { AdapterContributions, SkillBook } from "./buses.js";
@@ -91,19 +82,16 @@ export interface AdapterOptions {
 	description?: string;
 	labels?: readonly string[];
 	publishSchemas?: {
-		motor?: Record<string, ZodTypeAny>;
-		sense?: Record<string, ZodTypeAny>;
+		command?: Record<string, ZodTypeAny>;
+		event?: Record<string, ZodTypeAny>;
 	};
 	inputSchemas?: {
-		motor?: Record<string, ZodTypeAny>;
+		command?: Record<string, ZodTypeAny>;
 	};
 	sources?: readonly { name: string; kind: "file" | "memory" | "process" }[];
 	ready?: () => Promise<void>;
-	onMount?: (nerve: Bus) => void;
+	onMount?: (bus: Bus) => void;
 	onUnmount?: () => void;
 	limits?: Budget;
 	middlewares?: BusMiddleware[];
 }
-
-/** @deprecated Use AdapterOptions */
-export type OrganOptions = AdapterOptions;

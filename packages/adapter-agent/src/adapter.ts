@@ -9,7 +9,7 @@
  *   agent.kill    — stop a named child
  *   agent.list    — enumerate running children
  *   agent.status  — health-check a named child
- *   agent.promote — add organ to production blueprint, trigger blue-green
+ *   agent.promote — add adapter to production blueprint, trigger blue-green
  */
 
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -19,9 +19,9 @@ import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
 import type {
 	Adapter,
 	AgentRunContext,
-	BaseOrganOptions,
+	BaseAdapterOptions,
+	Bus,
 	ExecutionStrategy,
-	Nerve,
 	ReasoningContributions,
 	ToolDefinition,
 } from "@dpopsuev/alef-kernel";
@@ -89,7 +89,7 @@ function needsWriteAccess(text: string): boolean {
 	return WRITE_PATTERN.test(text);
 }
 
-export interface AgentAdapterOptions extends BaseOrganOptions {
+export interface AgentAdapterOptions extends BaseAdapterOptions {
 	cwd?: string;
 	strategies?: Record<string, ExecutionStrategy>;
 	createAdHocSession?: (opts: {
@@ -155,7 +155,7 @@ export function createAgentOrgan(
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
 	const children = new Map<string, ChildEntry>();
 	let childSeq = 0;
-	let mountedNerve: Nerve | null = null;
+	let mountedBus: Bus | null = null;
 	let publishInnerSignal: ((type: string, payload: Record<string, unknown>, correlationId: string) => void) | null =
 		null;
 
@@ -195,7 +195,7 @@ export function createAgentOrgan(
 			.boolean()
 			.default(true)
 			.describe("Forward parent directives to subagent. Default: true. Set false for lightweight exploration."),
-		organs: z.array(z.string().min(1)).optional().describe("Override organ set."),
+		organs: z.array(z.string().min(1)).optional().describe("Override adapter set."),
 		isolate: z.boolean().optional().describe("true = spawn a process-isolated child for this task (ephemeral)."),
 		stallMs: z
 			.number()
@@ -315,7 +315,7 @@ export function createAgentOrgan(
 			children.delete(name);
 			strategies.delete(name);
 			if (result.tmpDir) rmSync(result.tmpDir, { recursive: true, force: true });
-			mountedNerve?.event.publish({
+			mountedBus?.event.publish({
 				type: "child.reaped",
 				correlationId: "system",
 				isError: false,
@@ -349,7 +349,7 @@ export function createAgentOrgan(
 				entry.process.kill("SIGTERM");
 				children.delete(childName);
 				strategies.delete(childName);
-				mountedNerve?.event.publish({
+				mountedBus?.event.publish({
 					type: "child.reaped",
 					correlationId: "system",
 					isError: false,
@@ -553,9 +553,9 @@ export function createAgentOrgan(
 	// ── agent.promote — blue-green swap ────────────────────────────────
 
 	async function handlePromote(ctx: {
-		payload: { organPath: string; blueprintPath?: string };
+		payload: { adapterPath: string; blueprintPath?: string };
 	}): Promise<Record<string, unknown>> {
-		const organPath = resolvePath(ctx.payload.organPath, cwd);
+		const adapterPath = resolvePath(ctx.payload.adapterPath, cwd);
 		let blueprintPath: string;
 		if (ctx.payload.blueprintPath) {
 			const registeredNames = blueprintRegistry.list();
@@ -573,7 +573,7 @@ export function createAgentOrgan(
 		}
 		const spec = (doc.spec ?? {}) as Record<string, unknown>;
 		const organs = Array.isArray(spec.organs) ? [...spec.organs] : [];
-		if (!organs.some((o) => (o as { path?: string }).path === organPath)) organs.push({ path: organPath });
+		if (!organs.some((o) => (o as { path?: string }).path === adapterPath)) organs.push({ path: adapterPath });
 		spec.organs = organs;
 		doc.spec = spec;
 		writeFileSync(blueprintPath, stringifyYaml(doc), "utf-8");
@@ -581,14 +581,14 @@ export function createAgentOrgan(
 		if (underSupervisor) {
 			process.send?.({ type: "rebuild" });
 			return withDisplay(
-				{ promoted: true, organPath, blueprintPath },
-				{ text: `Promoted ${organPath} — supervisor rebuild triggered`, mimeType: "text/plain" },
+				{ promoted: true, adapterPath, blueprintPath },
+				{ text: `Promoted ${adapterPath} — supervisor rebuild triggered`, mimeType: "text/plain" },
 			);
 		}
 		return withDisplay(
-			{ promoted: false, reason: "not running under supervisor", organPath, blueprintPath },
+			{ promoted: false, reason: "not running under supervisor", adapterPath, blueprintPath },
 			{
-				text: `Wrote ${organPath} to blueprint but not under supervisor — restart to apply`,
+				text: `Wrote ${adapterPath} to blueprint but not under supervisor — restart to apply`,
 				mimeType: "text/plain",
 			},
 		);
@@ -599,21 +599,21 @@ export function createAgentOrgan(
 	const adapter = defineAdapter(
 		"agent",
 		{
-			sense: {
-				"organ.loaded": {
+			event: {
+				"adapter.loaded": {
 					handle: async (ctx: { payload: Record<string, unknown> }): Promise<void> => {
 						const name = ctx.payload.name as string;
 						const contribution = (ctx.payload.contributions as ReasoningContributions | undefined)?.["agent.run"];
 						if (contribution) composite.add(name, contribution);
 					},
 				},
-				"organ.unloaded": {
+				"adapter.unloaded": {
 					handle: async (ctx: { payload: Record<string, unknown> }): Promise<void> => {
 						composite.remove(ctx.payload.name as string);
 					},
 				},
 			},
-			motor: {
+			command: {
 				"agent.run": typedStreamAction(buildRunTool(), async function* (ctx) {
 					const payload = ctx.payload as Record<string, unknown>;
 					const text = payload.text as string;
@@ -641,7 +641,7 @@ export function createAgentOrgan(
 								text,
 								timeoutMs,
 								onChunk: (chunk) => {
-									mountedNerve?.notification.publish({
+									mountedBus?.notification.publish({
 										type: "task.progress",
 										payload: { taskId, chunk },
 										correlationId: ctx.correlationId,
@@ -652,7 +652,7 @@ export function createAgentOrgan(
 								task.status = "completed";
 								task.reply = reply;
 								task.completedAt = Date.now();
-								mountedNerve?.notification.publish({
+								mountedBus?.notification.publish({
 									type: "task.completed",
 									payload: { taskId, profile, reply, elapsedMs: Date.now() - task.startedAt },
 									correlationId: ctx.correlationId,
@@ -662,7 +662,7 @@ export function createAgentOrgan(
 								task.status = "failed";
 								task.error = err instanceof Error ? err.message : String(err);
 								task.completedAt = Date.now();
-								mountedNerve?.notification.publish({
+								mountedBus?.notification.publish({
 									type: "task.failed",
 									payload: { taskId, profile, error: task.error, elapsedMs: Date.now() - task.startedAt },
 									correlationId: ctx.correlationId,
@@ -712,7 +712,6 @@ export function createAgentOrgan(
 						const context: AgentRunContext = {
 							prependInstructions: (t) => instructionParts.unshift(t),
 							addAdapters: (o) => extraOrgans.push(...o),
-							addOrgans: (o) => extraOrgans.push(...o),
 						};
 						await composite.extend(payload, context);
 						const systemPrompt = instructionParts.join("\n\n") || undefined;
@@ -884,11 +883,11 @@ export function createAgentOrgan(
 		},
 		{
 			logger: opts.logger,
-			onMount: (nerve) => {
-				mountedNerve = nerve;
+			onMount: (bus) => {
+				mountedBus = bus;
 				publishInnerSignal = (innerType, payload, correlationId) => {
 					const { callId, ...innerPayload } = payload as { callId?: string } & Record<string, unknown>;
-					nerve.notification.publish({
+					bus.notification.publish({
 						type: "agent.run.inner",
 						payload: { callId: callId ?? correlationId, innerType, innerPayload },
 						correlationId,
@@ -896,7 +895,7 @@ export function createAgentOrgan(
 				};
 			},
 			onUnmount: () => {
-				mountedNerve = null;
+				mountedBus = null;
 				publishInnerSignal = null;
 			},
 			contributions: {

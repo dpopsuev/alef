@@ -22,8 +22,8 @@ import { dirname, join } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import { defaultEvalOrgans } from "./default-organs.js";
-import { EvaluatorOrgan } from "./evaluator-organ.js";
+import { defaultEvalOrgans } from "./default-adapters.js";
+import { EvaluatorAdapter } from "./evaluator-adapter.js";
 import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
 import { deriveturns } from "./metrics.js";
 import { globalSpanExporter } from "./otel-setup.js";
@@ -111,7 +111,7 @@ export class AgentHandle {
 
 	private readonly _agent: Agent;
 	private readonly _controller: AgentController;
-	private readonly _evaluator: EvaluatorOrgan;
+	private readonly _evaluator: EvaluatorAdapter;
 	private readonly _rootSpan: ReturnType<typeof tracer.startSpan>;
 	private readonly _rootCtx: ReturnType<typeof trace.setSpan>;
 	private readonly _transcriptObserver: () => void;
@@ -135,7 +135,7 @@ export class AgentHandle {
 		path: string;
 		agent: Agent;
 		controller: AgentController;
-		evaluator: EvaluatorOrgan;
+		evaluator: EvaluatorAdapter;
 		rootSpan: ReturnType<typeof tracer.startSpan>;
 		rootCtx: ReturnType<typeof trace.setSpan>;
 		transcriptObserver: () => void;
@@ -285,7 +285,7 @@ export class AgentHandle {
 			error: this._evaluator.state.loopDetected
 				? `Loop detected: ${this._evaluator.state.loopEventType}`
 				: this._error,
-			totalEvents: this._evaluator.state.motorCount + this._evaluator.state.senseCount,
+			totalEvents: this._evaluator.state.commandCount + this._evaluator.state.eventCount,
 			totalSpans,
 			cacheHits,
 			cacheMisses,
@@ -340,7 +340,7 @@ export class EvalHarness {
 			}
 		}
 
-		const evaluator = new EvaluatorOrgan({ loopThreshold: opts.loopThreshold });
+		const evaluator = new EvaluatorAdapter({ loopThreshold: opts.loopThreshold });
 		const agent = new Agent();
 
 		const baseAdapters = (opts.baseAdaptersFactory ?? opts.baseOrgansFactory ?? defaultEvalOrgans)(workspace);
@@ -361,7 +361,7 @@ export class EvalHarness {
 		const SKIP_BUS_EVENTS = new Set(["llm.response", "context.assemble"]);
 
 		const transcriptObserver = agent.observe({
-			onMotorEvent(event) {
+			onCommand(event) {
 				const p = event as unknown as { type?: string; correlationId?: string; payload?: Record<string, unknown> };
 				if (p.type === "llm.response" && Array.isArray(p.payload?.conversationHistory)) {
 					transcript.splice(
@@ -373,14 +373,14 @@ export class EvalHarness {
 				if (!SKIP_BUS_EVENTS.has(p.type ?? "")) {
 					motorTimes.set(p.correlationId ?? "", Date.now());
 					busEvents.push({
-						bus: "motor",
+						bus: "command",
 						event: p.type ?? "unknown",
 						correlationId: p.correlationId ?? "",
 						payload: truncateBusPayload(p.payload),
 					});
 				}
 			},
-			onSenseEvent(event) {
+			onEvent(event) {
 				const p = event as unknown as {
 					type?: string;
 					correlationId?: string;
@@ -393,7 +393,7 @@ export class EvalHarness {
 					const elapsedMs = startMs !== undefined ? Date.now() - startMs : undefined;
 					motorTimes.delete(p.correlationId ?? "");
 					busEvents.push({
-						bus: "sense",
+						bus: "event",
 						event: p.type ?? "unknown",
 						correlationId: p.correlationId ?? "",
 						payload: truncateBusPayload(p.payload),
@@ -403,10 +403,10 @@ export class EvalHarness {
 					});
 				}
 			},
-			onSignalEvent(event) {
+			onNotification(event) {
 				const p = event as unknown as { type?: string; correlationId?: string; payload?: Record<string, unknown> };
 				busEvents.push({
-					bus: "signal",
+					bus: "notification",
 					event: p.type ?? "unknown",
 					correlationId: p.correlationId ?? "",
 					payload: truncateBusPayload(p.payload),
@@ -494,19 +494,19 @@ export class EvalHarness {
 // ---------------------------------------------------------------------------
 
 export function assertToolUsed(metrics: RunMetrics, eventType: string): void {
-	const spanName = `alef.motor/${eventType}`;
+	const spanName = `alef.command/${eventType}`;
 	const used = metrics.spans.some((s) => s.name === spanName);
 	if (!used) {
 		const usedTools = metrics.spans
-			.filter((s) => s.name.startsWith("alef.motor/"))
-			.map((s) => s.name.replace("alef.motor/", ""))
+			.filter((s) => s.name.startsWith("alef.command/"))
+			.map((s) => s.name.replace("alef.command/", ""))
 			.filter((name, i, arr) => arr.indexOf(name) === i);
 		throw new Error(`Expected tool '${eventType}' to be called, but only these were used: [${usedTools.join(", ")}]`);
 	}
 }
 
 export function assertToolNotUsed(metrics: RunMetrics, eventType: string): void {
-	const spanName = `alef.motor/${eventType}`;
+	const spanName = `alef.command/${eventType}`;
 	if (metrics.spans.some((s) => s.name === spanName)) {
 		throw new Error(`Expected tool '${eventType}' NOT to be called, but it was.`);
 	}

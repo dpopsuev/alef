@@ -76,7 +76,7 @@ export class InProcessNerve {
 				correlationId: event.correlationId,
 				payload: toolCallId ? { toolCallId } : {},
 				isError: true,
-				errorMessage: `no adapter handles motor/${event.type}`,
+				errorMessage: `no adapter handles command/${event.type}`,
 			} as unknown as Omit<BusMessage, "timestamp" | "elapsed">);
 		};
 		// Signal bus has no dead-letter sink — signals are fire-and-forget to observers.
@@ -88,13 +88,6 @@ export class InProcessNerve {
 		this._watchdog?.stop();
 	}
 	asBus(): Bus {
-		return this._buildBus();
-	}
-	/** @deprecated Use asBus() */
-	asNerve(): Bus {
-		return this._buildBus();
-	}
-	private _buildBus(): Bus {
 		const commandChannel = {
 			subscribe: (type: string, h: (e: BusMessage) => void | Promise<void>) => this._motor.on(type, h),
 			publish: (e: CommandInput) => this._motor.emit(e),
@@ -112,31 +105,31 @@ export class InProcessNerve {
 		};
 		return makeBus(commandChannel, eventChannel, notificationChannel, () => this.pulse());
 	}
-	publishMotor(event: CommandInput): void {
+	publishCommand(event: CommandInput): void {
 		this._motor.emit(event);
 	}
-	subscribeSense(type: string, handler: EventHandler): () => void {
+	subscribeEvent(type: string, handler: EventHandler): () => void {
 		return this._sense.on(type, handler as (e: BusMessage) => void | Promise<void>);
 	}
-	publishSense(event: EventInput): void {
+	publishEvent(event: EventInput): void {
 		this._motor.evictCorrelation(event.correlationId);
 		this._sense.emit(event);
 	}
 	publishSignal(event: NotificationInput): void {
 		this._signal.emit(event);
 	}
-	onAnyMotor(handler: (event: BusMessage) => void): () => void {
+	onAnyCommand(handler: (event: BusMessage) => void): () => void {
 		return this._motor.on("*", handler);
 	}
-	onAnySense(handler: (event: BusMessage) => void): () => void {
+	onAnyEvent(handler: (event: BusMessage) => void): () => void {
 		return this._sense.on("*", handler);
 	}
-	onAnySignal(handler: (event: BusMessage) => void): () => void {
+	onAnyNotification(handler: (event: BusMessage) => void): () => void {
 		return this._signal.on("*", handler);
 	}
-	listenerCount(bus: "sense" | "motor" | "signal", type: string): number {
-		if (bus === "sense") return this._sense.listenerCount(type);
-		if (bus === "signal") return this._signal.listenerCount(type);
+	listenerCount(bus: "event" | "command" | "notification", type: string): number {
+		if (bus === "event") return this._sense.listenerCount(type);
+		if (bus === "notification") return this._signal.listenerCount(type);
 		return this._motor.listenerCount(type);
 	}
 }

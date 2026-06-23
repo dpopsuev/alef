@@ -79,7 +79,7 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 	for (const adapter of cfg.adapters) {
 		try {
 			const nerve = new InProcessNerve();
-			const unmount = adapter.mount(nerve.asNerve());
+			const unmount = adapter.mount(nerve.asBus());
 			if (typeof unmount !== "function") {
 				fail({
 					phase: "components",

@@ -1,5 +1,5 @@
 import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
-import { createWorkflowOrgan } from "../src/organ.js";
+import { createWorkflowOrgan } from "../src/adapter.js";
 import type { WorkflowDef } from "../src/schema.js";
 
 const def: WorkflowDef = {

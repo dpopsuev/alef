@@ -73,7 +73,7 @@ const FIELD_TYPES = ["string", "number", "boolean"] as const;
 type FieldType = (typeof FIELD_TYPES)[number];
 
 const ADAPTER_TOOL = {
-	name: "factory.organ",
+	name: "factory.adapter",
 	description:
 		"Write a valid TypeScript adapter scaffold to ~/.alef/prototypes/<name>.ts. " +
 		"Returns the absolute path — pass it directly to prototype.plug({ path }) to load it.",
@@ -124,7 +124,7 @@ function buildAdapterScaffold(
 		`\t};`,
 		``,
 		`\treturn defineAdapter("${namespace}", {`,
-		`\t\tmotor: {`,
+		`\t\tcommand: {`,
 		`\t\t\t"${toolName}": typedAction(TOOL, async (ctx) => {`,
 		`\t\t\t\tconst { ${fieldNames} } = ctx.payload;`,
 		`\t\t\t\t// TODO: implement`,
@@ -158,8 +158,8 @@ export function createFactoryOrgan(options: FactoryAdapterOptions = {}): Adapter
 	return defineAdapter(
 		"factory",
 		{
-			motor: {
-				"factory.organ": typedAction(ADAPTER_TOOL, async (ctx) => {
+			command: {
+				"factory.adapter": typedAction(ADAPTER_TOOL, async (ctx) => {
 					const { name, toolName, description, inputFields } = ctx.payload;
 					const fields: Record<string, FieldType> = (inputFields as Record<string, FieldType>) ?? {
 						input: "string",
@@ -206,11 +206,11 @@ export function createFactoryOrgan(options: FactoryAdapterOptions = {}): Adapter
 		{
 			description: "Agent factory: scaffold new adapters and write agent blueprints.",
 			directives: [
-				`**factory.organ — scaffold a new adapter**
+				`**factory.adapter — scaffold a new adapter**
 
 Write a valid TypeScript adapter to ~/.alef/prototypes/<name>.ts, then load it:
 
-  factory.organ({ name, toolName, description, inputFields? })
+  factory.adapter({ name, toolName, description, inputFields? })
   → { path, next: "prototype.plug({ path })" }
 
 inputFields is a map of field name to type: { "city": "string", "units": "string" }.

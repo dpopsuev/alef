@@ -11,9 +11,9 @@ function interact(
 	corr = "corr-1",
 ) {
 	const toolCallId = `t-${Math.random()}`;
-	nerve.asNerve().motor.publish({ type, payload: { toolCallId, ...args }, correlationId: corr });
+	nerve.asBus().command.publish({ type, payload: { toolCallId, ...args }, correlationId: corr });
 	// Publish the matching sense result so the detector can complete the hash.
-	nerve.asNerve().sense.publish({
+	nerve.asBus().event.publish({
 		type,
 		payload: { toolCallId, content: result },
 		isError: false,
@@ -23,7 +23,7 @@ function interact(
 
 /** Publish only the motor event (no sense result). */
 function motorOnly(nerve: InProcessNerve, type: string, args: Record<string, unknown>, corr = "corr-1") {
-	nerve.asNerve().motor.publish({ type, payload: { toolCallId: `t-${Math.random()}`, ...args }, correlationId: corr });
+	nerve.asBus().command.publish({ type, payload: { toolCallId: `t-${Math.random()}`, ...args }, correlationId: corr });
 }
 
 describe("LoopGuard", { tags: ["unit"] }, () => {
@@ -31,14 +31,14 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const organ = new LoopGuard();
 		expect(organ.name).toBe("loop-detector");
 		expect(organ.tools).toHaveLength(0);
-		expect(organ.subscriptions.motor).toContain("*");
+		expect(organ.subscriptions.command).toContain("*");
 	});
 
 	it("does not fire for many calls to the same tool with different args and results", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 3, onLoop });
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		// 10 fs.read calls — different paths, different results — not a loop
 		for (let i = 0; i < 10; i++) {
@@ -52,7 +52,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		// Same path, different content each time — not a loop
 		interact(nerve, "fs.read", { path: "README.md" }, "version 1");
@@ -66,7 +66,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		// Same path AND same content — identical interaction
 		interact(nerve, "fs.read", { path: "README.md" }, "same content");
@@ -82,7 +82,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 3, onLoop });
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		for (let i = 0; i < 3; i++) {
 			interact(nerve, "fs.read", { path: "README.md" }, "same");
@@ -95,7 +95,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ totalCallThreshold: 5, onLoop });
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		// 6 calls with unique content each time — total safety net fires
 		for (let i = 0; i < 6; i++) {
@@ -110,7 +110,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		for (let i = 0; i < 2; i++) {
 			interact(nerve, "fs.read", { path: "README.md" }, "same", "corr-1");
@@ -128,7 +128,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
-		const unmount = organ.mount(nerve.asNerve());
+		const unmount = organ.mount(nerve.asBus());
 		unmount();
 
 		for (let i = 0; i < 5; i++) {
@@ -142,7 +142,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		// interact() generates a unique toolCallId per call but same path+result
 		for (let i = 0; i < 3; i++) {
@@ -156,7 +156,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ totalCallThreshold: 3, onLoop });
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		// Safety net counts motor events — sense result not required
 		for (let i = 0; i < 4; i++) {
@@ -179,18 +179,18 @@ describe("hashResult — Anthropic array-format content", { tags: ["unit"] }, ()
 			repeatedInteractionThreshold: 3,
 			onLoop: (type) => loops.push(type),
 		});
-		organ.mount(nerve.asNerve());
+		organ.mount(nerve.asBus());
 
 		// Publish the same tool call with array-format content 3 times.
 		const arrayContent = [{ type: "text", text: "identical output from tool" }];
 		for (let i = 0; i < 4; i++) {
 			const toolCallId = `tc-arr-${i}`;
-			nerve.asNerve().motor.publish({
+			nerve.asBus().command.publish({
 				type: "fs.read",
 				payload: { toolCallId, path: "file.ts" },
 				correlationId: "corr-arr",
 			});
-			nerve.asNerve().sense.publish({
+			nerve.asBus().event.publish({
 				type: "fs.read",
 				payload: { toolCallId, content: arrayContent },
 				isError: false,
@@ -210,22 +210,22 @@ describe("hashResult — Anthropic array-format content", { tags: ["unit"] }, ()
 		new LoopGuard({
 			repeatedInteractionThreshold: 3,
 			onLoop: (t) => loopsArr.push(t),
-		}).mount(nerveArr.asNerve());
+		}).mount(nerveArr.asBus());
 
 		const nerveStr = new InProcessNerve();
 		new LoopGuard({
 			repeatedInteractionThreshold: 3,
 			onLoop: (t) => loopsStr.push(t),
-		}).mount(nerveStr.asNerve());
+		}).mount(nerveStr.asBus());
 
 		const text = "same output text";
 
 		for (let i = 0; i < 4; i++) {
 			const tcArr = `tc-fmt-arr-${i}`;
 			nerveArr
-				.asNerve()
-				.motor.publish({ type: "shell.exec", payload: { toolCallId: tcArr, command: "ls" }, correlationId: "c" });
-			nerveArr.asNerve().sense.publish({
+				.asBus()
+				.command.publish({ type: "shell.exec", payload: { toolCallId: tcArr, command: "ls" }, correlationId: "c" });
+			nerveArr.asBus().event.publish({
 				type: "shell.exec",
 				payload: { toolCallId: tcArr, content: [{ type: "text", text }] },
 				isError: false,
@@ -234,9 +234,9 @@ describe("hashResult — Anthropic array-format content", { tags: ["unit"] }, ()
 
 			const tcStr = `tc-fmt-str-${i}`;
 			nerveStr
-				.asNerve()
-				.motor.publish({ type: "shell.exec", payload: { toolCallId: tcStr, command: "ls" }, correlationId: "c" });
-			nerveStr.asNerve().sense.publish({
+				.asBus()
+				.command.publish({ type: "shell.exec", payload: { toolCallId: tcStr, command: "ls" }, correlationId: "c" });
+			nerveStr.asBus().event.publish({
 				type: "shell.exec",
 				payload: { toolCallId: tcStr, content: text },
 				isError: false,

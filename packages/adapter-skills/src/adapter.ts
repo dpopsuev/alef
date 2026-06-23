@@ -21,7 +21,7 @@
 import type {
 	Adapter,
 	AdapterLogger,
-	MotorHandlerCtx,
+	CommandHandlerCtx,
 	ReasoningContributions,
 	SkillBook,
 	SkillPage,
@@ -140,7 +140,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Adapter {
 		};
 	}
 
-	function handleInvoke(ctx: MotorHandlerCtx): Record<string, unknown> {
+	function handleInvoke(ctx: CommandHandlerCtx): Record<string, unknown> {
 		const bookName = getString(ctx.payload, "book");
 		const pageName = getString(ctx.payload, "page");
 		const skillName = getString(ctx.payload, "name");
@@ -174,7 +174,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Adapter {
 		throw new Error("skills.invoke: pass name (filesystem skill) or book + page (library)");
 	}
 
-	function handleOpen(ctx: MotorHandlerCtx): Record<string, unknown> {
+	function handleOpen(ctx: CommandHandlerCtx): Record<string, unknown> {
 		const bookName = getString(ctx.payload, "book") ?? "";
 		const book = library.get(bookName);
 		if (!book)
@@ -206,26 +206,26 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Adapter {
 	return defineAdapter(
 		"skills",
 		{
-			sense: {
-				"organ.loaded": {
+			event: {
+				"adapter.loaded": {
 					handle: async (ctx) => {
 						const name = getString(ctx.payload, "name") ?? "";
 						const books = (ctx.payload.contributions as ReasoningContributions | undefined)?.skills ?? [];
 						if (books.length > 0) mergeBooks(name, books);
 					},
 				},
-				"organ.unloaded": {
+				"adapter.unloaded": {
 					handle: async (ctx) => {
 						const name = getString(ctx.payload, "name") ?? "";
 						removeOrgan(name);
 					},
 				},
 			},
-			motor: {
+			command: {
 				"skills.books": typedAction(BOOKS_TOOL, async () => handleBooks()),
 				"skills.list": typedAction(LIST_TOOL, async () => handleList()),
-				"skills.invoke": typedAction(INVOKE_TOOL, async (ctx) => handleInvoke(ctx as unknown as MotorHandlerCtx)),
-				"skills.open": typedAction(OPEN_TOOL, async (ctx) => handleOpen(ctx as unknown as MotorHandlerCtx)),
+				"skills.invoke": typedAction(INVOKE_TOOL, async (ctx) => handleInvoke(ctx as unknown as CommandHandlerCtx)),
+				"skills.open": typedAction(OPEN_TOOL, async (ctx) => handleOpen(ctx as unknown as CommandHandlerCtx)),
 			},
 		},
 		{

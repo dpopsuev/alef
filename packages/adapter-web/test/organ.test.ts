@@ -9,7 +9,7 @@
 
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createWebOrgan } from "../src/organ.js";
+import { createWebOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createWebOrgan());
 

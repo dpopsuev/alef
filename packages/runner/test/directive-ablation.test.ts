@@ -14,7 +14,7 @@ import { readdirSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Organ, SignalEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, NotificationMessage } from "@dpopsuev/alef-kernel";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDefaultDirectives } from "../src/prompt.js";
@@ -37,10 +37,10 @@ function findMdFiles(dir: string): string[] {
 	}
 }
 
-async function createSessionWithPrompt(organs: Organ[], systemPrompt: string) {
+async function createSessionWithPrompt(adapters: Adapter[], systemPrompt: string) {
 	const { getEnvApiKey, getModel } = await import("../../llm/src/index.js");
 	const { createAgentLoop } = await import("../../reasoner/src/index.js");
-	const { Agent, AgentController, createToolShellOrgan } = await import("../../runtime/src/index.js");
+	const { Agent, AgentController, createToolShellAdapter } = await import("../../runtime/src/index.js");
 
 	const provider = process.env.ANTHROPIC_VERTEX_PROJECT_ID ? "anthropic-vertex" : "anthropic";
 	const apiKey = getEnvApiKey(provider) ?? "";
@@ -50,21 +50,21 @@ async function createSessionWithPrompt(organs: Organ[], systemPrompt: string) {
 
 	const agent = new Agent();
 	let reply = "";
-	const events: SignalEvent[] = [];
+	const events: NotificationMessage[] = [];
 
 	const llm = createAgentLoop({ model, getApiKey: () => apiKey, timeoutMs: 30_000, systemPrompt });
 
-	for (const organ of organs) agent.load(organ);
-	const toolShell = createToolShellOrgan({ tools: organs.flatMap((o) => o.tools), getTools: () => agent.tools });
+	for (const adapter of adapters) agent.load(adapter);
+	const toolShell = createToolShellAdapter({ tools: adapters.flatMap((o) => o.tools), getTools: () => agent.tools });
 	const pipeline = createContextAssemblyPipeline();
 	agent.load(toolShell);
 	agent.load(pipeline);
 	agent.load(llm);
 	agent.observe({
-		onMotorEvent() {},
-		onSenseEvent() {},
-		onSignalEvent(event) {
-			events.push(event as SignalEvent);
+		onCommand() {},
+		onEvent() {},
+		onNotification(event) {
+			events.push(event as NotificationMessage);
 		},
 	});
 

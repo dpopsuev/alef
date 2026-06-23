@@ -6,43 +6,43 @@ export class BusEventRecorder implements BusObserver {
 	private readonly _sense: BusMessage[] = [];
 	private readonly _signal: BusMessage[] = [];
 
-	onMotorEvent(event: BusMessage): void {
+	onCommand(event: BusMessage): void {
 		this._motor.push(event);
 	}
-	onSenseEvent(event: BusMessage): void {
+	onEvent(event: BusMessage): void {
 		this._sense.push(event);
 	}
-	onSignalEvent(event: BusMessage): void {
+	onNotification(event: BusMessage): void {
 		this._signal.push(event);
 	}
 
-	get motor(): readonly BusMessage[] {
+	get command(): readonly BusMessage[] {
 		return this._motor;
 	}
-	get sense(): readonly BusMessage[] {
+	get event(): readonly BusMessage[] {
 		return this._sense;
 	}
-	get signal(): readonly BusMessage[] {
+	get notification(): readonly BusMessage[] {
 		return this._signal;
 	}
 
-	assertSenseEmitted(type: string): BusMessage {
+	assertEventEmitted(type: string): BusMessage {
 		const found = this._sense.find((e) => e.type === type);
 		if (!found) {
 			throw new Error(
-				`Expected Sense/${type} to be emitted.\n` +
-					`Sense events: [${this._sense.map((e) => e.type).join(", ") || "none"}]`,
+				`Expected Event/${type} to be emitted.\n` +
+					`Event messages: [${this._sense.map((e) => e.type).join(", ") || "none"}]`,
 			);
 		}
 		return found;
 	}
 
-	assertMotorEmitted(type: string): BusMessage {
+	assertCommandEmitted(type: string): BusMessage {
 		const found = this._motor.find((e) => e.type === type);
 		if (!found) {
 			throw new Error(
-				`Expected Motor/${type} to be emitted.\n` +
-					`Motor events: [${this._motor.map((e) => e.type).join(", ") || "none"}]`,
+				`Expected Command/${type} to be emitted.\n` +
+					`Command messages: [${this._motor.map((e) => e.type).join(", ") || "none"}]`,
 			);
 		}
 		return found;
@@ -59,7 +59,7 @@ export class BusEventRecorder implements BusObserver {
 				.filter((e) => e.type === "llm.tool_call")
 				.map((e) => (e as unknown as { payload?: { toolName?: string } }).payload?.toolName ?? "?");
 			throw new Error(
-				`Expected Motor/llm.tool_call("${toolName}").\n` + `Tool calls: [${calls.join(", ") || "none"}]`,
+				`Expected Command/llm.tool_call("${toolName}").\n` + `Tool calls: [${calls.join(", ") || "none"}]`,
 			);
 		}
 		return found;
@@ -70,8 +70,8 @@ export class BusEventRecorder implements BusObserver {
 		const inMotor = this._motor.some((e) => e.correlationId === correlationId);
 		if (!inSense || !inMotor) {
 			throw new Error(
-				`Expected both Sense and Motor events with correlationId "${correlationId}".\n` +
-					`In sense: ${inSense}, in motor: ${inMotor}`,
+				`Expected both Event and Command messages with correlationId "${correlationId}".\n` +
+					`In event: ${inSense}, in command: ${inMotor}`,
 			);
 		}
 	}

@@ -4,10 +4,10 @@
  * Structure:
  *   Unit:        MockSession → fire events manually → assert captures
  *   Integration: Faux LLM + real Agent → send messages → assert event stream
- *   Tool-call:   Stub organ + faux LLM → assert tool lifecycle ordering
+ *   Tool-call:   Stub adapter + faux LLM → assert tool lifecycle ordering
  */
 
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
@@ -61,8 +61,8 @@ const TURN_ERROR: AgentEvent = { type: "turn-error", message: "LLM timeout" };
 // Agent session factory — adapts real Agent + faux LLM to Session interface
 // ---------------------------------------------------------------------------
 
-/** Maps raw motor bus events to AgentEvent. Returns null for events we don't surface. */
-function motorEventToAgentEvent(e: { type: string; payload: Record<string, unknown> }): AgentEvent | null {
+/** Maps raw command bus events to AgentEvent. Returns null for events we don't surface. */
+function commandEventToAgentEvent(e: { type: string; payload: Record<string, unknown> }): AgentEvent | null {
 	if (e.type === "llm.chunk" && typeof e.payload.text === "string") {
 		return { type: "chunk", text: e.payload.text };
 	}
@@ -94,7 +94,7 @@ interface AgentSession {
 	dispose(): void;
 }
 
-function makeAgentSession(extraOrgans: import("@dpopsuev/alef-kernel").Organ[] = []): AgentSession {
+function makeAgentSession(extraAdapters: import("@dpopsuev/alef-kernel").Adapter[] = []): AgentSession {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
 	let lastReply = "";
@@ -107,20 +107,20 @@ function makeAgentSession(extraOrgans: import("@dpopsuev/alef-kernel").Organ[] =
 	});
 	const llm = createAgentLoop({ model: faux.getModel(), apiKey: "faux" });
 
-	for (const organ of extraOrgans) agent.load(organ);
+	for (const adapter of extraAdapters) agent.load(adapter);
 	agent.load(llm);
 
 	agent.observe({
-		onMotorEvent(event) {
-			// llm.response stays on motor; all other llm.* telemetry is on signal.
-			const agentEvent = motorEventToAgentEvent(
+		onCommand(event) {
+			// llm.response stays on command; all other llm.* telemetry is on notification.
+			const agentEvent = commandEventToAgentEvent(
 				event as unknown as { type: string; payload: Record<string, unknown> },
 			);
 			if (agentEvent) for (const obs of observers) obs(agentEvent);
 		},
-		onSenseEvent() {},
-		onSignalEvent(event) {
-			const agentEvent = motorEventToAgentEvent(
+		onEvent() {},
+		onNotification(event) {
+			const agentEvent = commandEventToAgentEvent(
 				event as unknown as { type: string; payload: Record<string, unknown> },
 			);
 			if (agentEvent) for (const obs of observers) obs(agentEvent);
@@ -157,13 +157,13 @@ function makeAgentSession(extraOrgans: import("@dpopsuev/alef-kernel").Organ[] =
 }
 
 // ---------------------------------------------------------------------------
-// Echo stub organ — used by tool-call tests
+// Echo stub adapter — used by tool-call tests
 // ---------------------------------------------------------------------------
 
-const ECHO_ORGAN = defineOrgan(
+const ECHO_ADAPTER = defineAdapter(
 	"echo-stub",
 	{
-		motor: {
+		command: {
 			echo: typedAction(
 				{ name: "echo", description: "Echo the input back", inputSchema: z.object({ message: z.string() }) },
 				async (ctx) =>
@@ -367,7 +367,7 @@ describe("HeadlessViewMode — faux LLM integration", { tags: ["unit"] }, () => 
 });
 
 // ---------------------------------------------------------------------------
-// Tool-call integration — stub organ + faux LLM
+// Tool-call integration — stub adapter + faux LLM
 // ---------------------------------------------------------------------------
 
 describe("HeadlessViewMode — tool-call lifecycle", { tags: ["unit"] }, () => {
@@ -377,7 +377,7 @@ describe("HeadlessViewMode — tool-call lifecycle", { tags: ["unit"] }, () => {
 	});
 
 	it("captures tool-start → tool-end → turn-complete in order", async () => {
-		const { faux, session, dispose } = makeAgentSession([ECHO_ORGAN]);
+		const { faux, session, dispose } = makeAgentSession([ECHO_ADAPTER]);
 		disposals.push(dispose);
 
 		faux.setResponses([

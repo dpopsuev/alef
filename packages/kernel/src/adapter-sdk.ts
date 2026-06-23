@@ -1,6 +1,6 @@
 import type { ZodTypeAny, z } from "zod";
 import type { ToolDefinition } from "./buses.js";
-import type { AdapterLogger, AdapterOptions, MotorAction, MotorHandlerCtx } from "./framework.js";
+import type { AdapterLogger, AdapterOptions, CommandAction, CommandHandlerCtx } from "./framework.js";
 import { typedAction, typedStreamAction } from "./framework.js";
 import { type SenseDisplayBlock, withDisplay } from "./payload.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
@@ -10,16 +10,11 @@ export interface BaseAdapterOptions {
 	actions?: readonly string[];
 	logger?: AdapterLogger;
 }
-/** @deprecated Use BaseAdapterOptions */
-export type BaseOrganOptions = BaseAdapterOptions;
 
 export interface TimeoutAdapterOptions extends BaseAdapterOptions {
 	defaultTimeoutSeconds?: number;
 	maxTimeoutSeconds?: number;
 }
-
-/** @deprecated Use TimeoutAdapterOptions */
-export type TimeoutOrganOptions = TimeoutAdapterOptions;
 
 export function resolveTimeout(
 	opts: Pick<TimeoutAdapterOptions, "defaultTimeoutSeconds" | "maxTimeoutSeconds">,
@@ -35,20 +30,16 @@ export function spreadAdapterOptions<T extends BaseAdapterOptions>(
 ): Pick<AdapterOptions, "actions" | "logger"> {
 	return { actions: opts.actions, logger: opts.logger };
 }
-/** @deprecated Use spreadAdapterOptions */
-export const spreadOrganOptions = spreadAdapterOptions;
 
 export interface AdapterTool<TSchema extends ZodTypeAny> extends ToolDefinition {
 	readonly inputSchema: TSchema;
 	action(
-		handle: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
-	): Record<string, MotorAction>;
+		handle: (ctx: CommandHandlerCtx<z.infer<TSchema>>) => Promise<Record<string, unknown>>,
+	): Record<string, CommandAction>;
 	stream(
-		generate: (ctx: MotorHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
-	): Record<string, MotorAction>;
+		generate: (ctx: CommandHandlerCtx<z.infer<TSchema>>) => AsyncIterable<Record<string, unknown>>,
+	): Record<string, CommandAction>;
 }
-/** @deprecated Use AdapterTool */
-export type OrganTool<TSchema extends ZodTypeAny> = AdapterTool<TSchema>;
 
 export function tool<TSchema extends ZodTypeAny>(
 	name: string,
@@ -59,10 +50,10 @@ export function tool<TSchema extends ZodTypeAny>(
 	return {
 		...definition,
 		action(handle) {
-			return { [`motor/${name}`]: typedAction(definition, handle) };
+			return { [`command/${name}`]: typedAction(definition, handle) };
 		},
 		stream(generate) {
-			return { [`motor/${name}`]: typedStreamAction(definition, generate) };
+			return { [`command/${name}`]: typedStreamAction(definition, generate) };
 		},
 	};
 }
@@ -72,12 +63,12 @@ export function directive(...lines: string[]): string[] {
 }
 
 export function cachePolicy(
-	action: MotorAction,
+	action: CommandAction,
 	policy: {
-		shouldCache?: (ctx: MotorHandlerCtx, result: Record<string, unknown>) => boolean;
-		invalidates?: (ctx: MotorHandlerCtx) => string[];
+		shouldCache?: (ctx: CommandHandlerCtx, result: Record<string, unknown>) => boolean;
+		invalidates?: (ctx: CommandHandlerCtx) => string[];
 	},
-): MotorAction {
+): CommandAction {
 	return { ...action, ...policy };
 }
 

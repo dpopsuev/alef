@@ -60,7 +60,7 @@ function tmpCwd(): string {
  */
 function motorDialogRecord(correlationId: string, text: string): StorageRecord {
 	return {
-		bus: "motor",
+		bus: "command",
 		type: "llm.response",
 		correlationId,
 		payload: {
@@ -76,7 +76,7 @@ function motorDialogRecord(correlationId: string, text: string): StorageRecord {
 
 function senseDialogRecord(correlationId: string, text: string): StorageRecord {
 	return {
-		bus: "sense",
+		bus: "event",
 		type: "llm.response",
 		correlationId,
 		payload: { text },

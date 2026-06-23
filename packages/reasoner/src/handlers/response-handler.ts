@@ -1,9 +1,9 @@
-import type { SenseHandlerCtx } from "@dpopsuev/alef-kernel";
+import type { EventHandlerCtx } from "@dpopsuev/alef-kernel";
 import type { AssistantMessage, Message } from "@dpopsuev/alef-llm";
 import type { TokenUsage } from "../tool-events.js";
 import { serializeConversationHistory } from "./message-handler.js";
 
-type MotorBus = SenseHandlerCtx["motor"];
+type MotorBus = EventHandlerCtx["command"];
 
 const LLM_RESPONSE = "llm.response";
 

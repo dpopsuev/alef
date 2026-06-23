@@ -42,7 +42,7 @@ function buildStationPrompt(station: StationDef, contract: Contract<z.ZodTypeAny
 export class ImplStationRunner implements StationRunner {
 	constructor(
 		private readonly model: Model<Api>,
-		private readonly domainOrgans: Adapter[] = [],
+		private readonly domainAdapters: Adapter[] = [],
 		private readonly onQuestion?: (q: string) => Promise<string>,
 	) {}
 
@@ -73,7 +73,7 @@ export class ImplStationRunner implements StationRunner {
 		});
 
 		agent.load(llm).load(contractOrgan).load(questionOrgan);
-		for (const organ of this.domainOrgans) agent.load(organ);
+		for (const a of this.domainAdapters) agent.load(a);
 
 		const controller = new AgentController(agent);
 		await agent.ready();

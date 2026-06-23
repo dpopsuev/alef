@@ -24,7 +24,7 @@ export function runValidators(transcript: TranscriptEvent[], validators: Validat
 				}
 				break;
 			case "tool_called":
-				if (!transcript.some((e) => e.bus === "motor" && e.type === v.value)) {
+				if (!transcript.some((e) => e.bus === "command" && e.type === v.value)) {
 					failures.push(`Expected tool "${v.value}" to be called`);
 				}
 				break;

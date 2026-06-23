@@ -1,4 +1,4 @@
-import type { SenseHandlerCtx } from "@dpopsuev/alef-kernel";
+import type { EventHandlerCtx } from "@dpopsuev/alef-kernel";
 import { debugLog } from "@dpopsuev/alef-kernel";
 import type { Message, Tool } from "@dpopsuev/alef-llm";
 import type { z } from "zod";
@@ -9,8 +9,8 @@ export type PhaseResult =
 	| { kind: "abort" };
 
 type ToolDefinition = { name: string; description: string; inputSchema: z.ZodTypeAny };
-type SenseBus = SenseHandlerCtx["sense"];
-type MotorBus = SenseHandlerCtx["motor"];
+type SenseBus = EventHandlerCtx["event"];
+type MotorBus = EventHandlerCtx["command"];
 
 const PHASE_PIPELINE_QUIESCENCE_MS = 30;
 

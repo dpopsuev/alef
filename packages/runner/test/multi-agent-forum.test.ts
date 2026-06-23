@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDiscourseOrgan } from "@dpopsuev/alef-adapter-discourse";
 import { createPlanOrgan } from "@dpopsuev/alef-adapter-plan";
-import { InProcessNerve, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("multi-agent plan + board coordination", () => {
@@ -19,20 +19,20 @@ describe("multi-agent plan + board coordination", () => {
 	let nerve: InProcessNerve;
 	const unmounts: Array<() => void> = [];
 
-	function call(type: string, payload: Record<string, unknown>): Promise<SenseEvent> {
+	function call(type: string, payload: Record<string, unknown>): Promise<EventMessage> {
 		const correlationId = randomUUID();
 		return new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
 				off();
 				reject(new Error(`timeout: ${type}`));
 			}, 5000);
-			const off = nerve.asNerve().sense.subscribe(type, (event) => {
+			const off = nerve.asBus().event.subscribe(type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
 				resolve(event);
 			});
-			nerve.asNerve().motor.publish({ type, payload, correlationId });
+			nerve.asBus().command.publish({ type, payload, correlationId });
 		});
 	}
 
@@ -49,8 +49,8 @@ describe("multi-agent plan + board coordination", () => {
 	it("plan + board: agents post findings, parent reads and advances plan", async () => {
 		const planOrgan = createPlanOrgan({ sessionDir: dir });
 		const boardOrgan = createDiscourseOrgan({ sessionDir: dir });
-		unmounts.push(planOrgan.mount(nerve.asNerve()));
-		unmounts.push(boardOrgan.mount(nerve.asNerve()));
+		unmounts.push(planOrgan.mount(nerve.asBus()));
+		unmounts.push(boardOrgan.mount(nerve.asBus()));
 
 		// 1. Create a plan
 		const beginResult = await call("plan.begin", { intention: "fix error handling gaps" });
@@ -141,7 +141,7 @@ describe("multi-agent plan + board coordination", () => {
 	it("board context.assemble injects new posts into LLM context", async () => {
 		// Create board organ with a past lastReadTs so new posts are visible
 		const boardOrgan = createDiscourseOrgan({ sessionDir: dir });
-		unmounts.push(boardOrgan.mount(nerve.asNerve()));
+		unmounts.push(boardOrgan.mount(nerve.asBus()));
 
 		// Post something — the motor handler writes to disk
 		await call("forum.post", {

@@ -16,7 +16,7 @@
 import { materializeDefaultOrgans } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { createToolShellOrgan } from "@dpopsuev/alef-runtime";
+import { createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";
 import { fixBugWithCleanCommit } from "../../eval/src/evaluations/git-workflow.js";
 import { EvalHarness } from "../../eval/src/harness.js";
@@ -30,7 +30,7 @@ describe.skipIf(SKIP_REAL_LLM)("PhaseEvaluation real-LLM — fix bug with clean 
 			asyncOrganFactory: async (workspace, signal) => {
 				const domainOrgans = await materializeDefaultOrgans(workspace);
 				const pipeline = createContextAssemblyPipeline();
-				const toolShell = createToolShellOrgan({
+				const toolShell = createToolShellAdapter({
 					tools: domainOrgans.flatMap((o) => o.tools),
 					getTools: () => domainOrgans.flatMap((o) => o.tools),
 				});

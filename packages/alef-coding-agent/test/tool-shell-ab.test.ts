@@ -15,7 +15,7 @@
 import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
 import { createShellOrgan } from "@dpopsuev/alef-adapter-shell";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { buildOrganDirectives, createToolShellOrgan } from "@dpopsuev/alef-runtime";
+import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../eval/src/evaluation.js";
 import { EvaluationRunner } from "../../eval/src/evaluation-runner.js";
@@ -56,9 +56,9 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 		// Representative organs for schema snapshot (cwd doesn’t affect schema shape).
 		const repOrgans = [createFsOrgan({ cwd: "/tmp" }), createShellOrgan({ cwd: "/tmp" })];
 		const toolShell = useToolShell
-			? createToolShellOrgan({
+			? createToolShellAdapter({
 					tools: repOrgans.flatMap((o) => o.tools),
-					organDirectives: buildOrganDirectives(repOrgans),
+					adapterDirectives: buildAdapterDirectives(repOrgans),
 				})
 			: undefined;
 

@@ -1,7 +1,7 @@
 import { buildSense } from "@dpopsuev/alef-kernel";
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { createCacheOrgan } from "../src/organ.js";
+import { createCacheOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createCacheOrgan());
 
@@ -23,23 +23,23 @@ describe("CacheOrgan", () => {
 		const results: Array<Record<string, unknown>> = [];
 
 		// Subscribe to sense events
-		const unsub = fixture.nerve.asNerve().sense.subscribe("motor/fs.read", (event) => {
+		const unsub = fixture.nerve.asBus().event.subscribe("command/fs.read", (event) => {
 			results.push(event.payload);
 		});
 
 		// First call - cache miss
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/test/file.txt" },
 		});
 
 		// Simulate the fs organ responding
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "file content", isFinal: true },
 				),
 			);
@@ -48,8 +48,8 @@ describe("CacheOrgan", () => {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
 		// Second call - cache hit
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-2",
 			payload: { path: "/test/file.txt" },
 		});
@@ -66,22 +66,22 @@ describe("CacheOrgan", () => {
 	test("cache miss: different payloads are not cached together", async () => {
 		const results: Array<Record<string, unknown>> = [];
 
-		const unsub = fixture.nerve.asNerve().sense.subscribe("motor/fs.read", (event) => {
+		const unsub = fixture.nerve.asBus().event.subscribe("command/fs.read", (event) => {
 			results.push(event.payload);
 		});
 
 		// First call
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/test/file1.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "content 1", isFinal: true },
 				),
 			);
@@ -89,17 +89,17 @@ describe("CacheOrgan", () => {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
 		// Second call with different payload
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-2",
 			payload: { path: "/test/file2.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "content 2", isFinal: true },
 				),
 			);
@@ -117,22 +117,22 @@ describe("CacheOrgan", () => {
 	test("TTL expiry: cached entry expires after TTL", async () => {
 		const results: Array<Record<string, unknown>> = [];
 
-		const unsub = fixture.nerve.asNerve().sense.subscribe("motor/fs.read", (event) => {
+		const unsub = fixture.nerve.asBus().event.subscribe("command/fs.read", (event) => {
 			results.push(event.payload);
 		});
 
 		// First call
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/test/file.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "original", isFinal: true },
 				),
 			);
@@ -143,17 +143,17 @@ describe("CacheOrgan", () => {
 		await new Promise((resolve) => setTimeout(resolve, 1100));
 
 		// Second call after expiry
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-2",
 			payload: { path: "/test/file.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "refreshed", isFinal: true },
 				),
 			);
@@ -172,22 +172,22 @@ describe("CacheOrgan", () => {
 	test("invalidation: fs.write invalidates fs.read cache", async () => {
 		const results: Array<Record<string, unknown>> = [];
 
-		const unsub = fixture.nerve.asNerve().sense.subscribe("motor/fs.read", (event) => {
+		const unsub = fixture.nerve.asBus().event.subscribe("command/fs.read", (event) => {
 			results.push(event.payload);
 		});
 
 		// First fs.read - cache miss
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/test/file.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "before write", isFinal: true },
 				),
 			);
@@ -195,8 +195,8 @@ describe("CacheOrgan", () => {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
 		// fs.write - invalidates cache
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.write",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.write",
 			correlationId: "corr-write",
 			payload: { path: "/test/file.txt", content: "new content" },
 		});
@@ -204,17 +204,17 @@ describe("CacheOrgan", () => {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
 		// Second fs.read - should be cache miss after invalidation
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-2",
 			payload: { path: "/test/file.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "after write", isFinal: true },
 				),
 			);
@@ -232,17 +232,17 @@ describe("CacheOrgan", () => {
 
 	test("cache.invalidate tool: explicit invalidation", async () => {
 		// Set up fs.read cache
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/test/file.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "cached", isFinal: true },
 				),
 			);
@@ -254,23 +254,23 @@ describe("CacheOrgan", () => {
 
 		expect(result.payload).toMatchObject({
 			invalidated: 1,
-			tools: ["motor/fs.read"],
+			tools: ["command/fs.read"],
 		});
 	});
 
 	test("cache.stats tool: reports metrics", async () => {
 		// Generate some cache activity
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/test/file.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "cached", isFinal: true },
 				),
 			);
@@ -278,8 +278,8 @@ describe("CacheOrgan", () => {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
 		// Hit the cache
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-2",
 			payload: { path: "/test/file.txt" },
 		});
@@ -301,22 +301,22 @@ describe("CacheOrgan", () => {
 	test("toolCallId filtered from cache key", async () => {
 		const results: Array<Record<string, unknown>> = [];
 
-		const unsub = fixture.nerve.asNerve().sense.subscribe("motor/fs.read", (event) => {
+		const unsub = fixture.nerve.asBus().event.subscribe("command/fs.read", (event) => {
 			results.push(event.payload);
 		});
 
 		// First call with toolCallId
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/test/file.txt", toolCallId: "tool-1" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-1", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "content", isFinal: true },
 				),
 			);
@@ -324,8 +324,8 @@ describe("CacheOrgan", () => {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
 		// Second call with different toolCallId but same path - should hit cache
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-2",
 			payload: { path: "/test/file.txt", toolCallId: "tool-2" },
 		});
@@ -342,19 +342,19 @@ describe("CacheOrgan", () => {
 	test("errors are not cached", async () => {
 		const results: Array<Record<string, unknown>> = [];
 
-		const unsub = fixture.nerve.asNerve().sense.subscribe("motor/fs.read", (event) => {
+		const unsub = fixture.nerve.asBus().event.subscribe("command/fs.read", (event) => {
 			results.push(event.payload);
 		});
 
 		// First call results in error
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { path: "/test/missing.txt" },
 		});
 
-		fixture.nerve.asNerve().sense.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().event.publish({
+			type: "command/fs.read",
 			correlationId: "corr-1",
 			payload: { error: "file not found", isFinal: true },
 			isError: true,
@@ -364,17 +364,17 @@ describe("CacheOrgan", () => {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
 		// Second call with same payload
-		fixture.nerve.asNerve().motor.publish({
-			type: "motor/fs.read",
+		fixture.nerve.asBus().command.publish({
+			type: "command/fs.read",
 			correlationId: "corr-2",
 			payload: { path: "/test/missing.txt" },
 		});
 
 		fixture.nerve
-			.asNerve()
-			.sense.publish(
+			.asBus()
+			.event.publish(
 				buildSense(
-					{ type: "motor/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
+					{ type: "command/fs.read", correlationId: "corr-2", timestamp: Date.now(), elapsed: 100, payload: {} },
 					{ content: "now exists", isFinal: true },
 				),
 			);

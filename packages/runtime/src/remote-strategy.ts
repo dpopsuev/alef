@@ -62,7 +62,7 @@ function collectReply(
 					try {
 						const ev = JSON.parse(line.slice(6)) as SSEEvent;
 						onSSEEvent?.(ev);
-						if (ev.bus === "motor" && ev.type === replyEvent && typeof ev.payload?.text === "string") {
+						if (ev.bus === "command" && ev.type === replyEvent && typeof ev.payload?.text === "string") {
 							clearTimeout(timer);
 							res.destroy();
 							resolve(ev.payload.text);
@@ -154,14 +154,14 @@ export class RemoteStrategy implements ExecutionStrategy {
 
 			if (!ev.type || !ev.payload) return;
 
-			if (onChunk && ev.bus === "signal" && ev.type === "llm.chunk") {
+			if (onChunk && ev.bus === "notification" && ev.type === "llm.chunk") {
 				onChunk(typeof ev.payload.text === "string" ? ev.payload.text : "");
 			}
-			if (onChunk && ev.bus === "signal" && ev.type === "llm.tool-chunk") {
+			if (onChunk && ev.bus === "notification" && ev.type === "llm.tool-chunk") {
 				onChunk(typeof ev.payload.text === "string" ? ev.payload.text : "");
 			}
 
-			if (onInnerEvent && ev.bus === "signal") {
+			if (onInnerEvent && ev.bus === "notification") {
 				onInnerEvent("remote", ev.type, ev.payload);
 			}
 		};

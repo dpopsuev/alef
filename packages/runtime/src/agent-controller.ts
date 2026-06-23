@@ -36,7 +36,7 @@ export class AgentController {
 		this.onReply = opts?.onReply ?? (() => {});
 		this.transcript = opts?.transcript;
 		const replyEvent = opts?.replyEvent ?? "llm.response";
-		this.unsubscribe = agent.subscribeMotor(replyEvent, (event) => this.handleReply(event));
+		this.unsubscribe = agent.subscribeCommand(replyEvent, (event) => this.handleReply(event));
 		agent.signal.addEventListener("abort", () => this.dispose(), { once: true });
 	}
 
@@ -57,7 +57,7 @@ export class AgentController {
 	receive(text: string, sender = "human", correlationId = randomUUID()): void {
 		if (this.disposed) return;
 		this.transcript?.store.append(this.transcript.topic, this.transcript.thread, sender, text);
-		this.agent.publishSense({
+		this.agent.publishEvent({
 			type: this.triggerEvent,
 			payload: { text, sender },
 			correlationId,

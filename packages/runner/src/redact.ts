@@ -94,11 +94,11 @@ import type { Bus, BusMiddleware } from "@dpopsuev/alef-kernel";
 /** Apply payload redaction to all SenseEvents before they reach the subscriber. */
 export const withSenseBusRedaction: BusMiddleware = (nerve: Bus): Bus => ({
 	...nerve,
-	sense: {
+	event: {
 		subscribe: (type, handler) =>
 			nerve.event.subscribe(type, (event) =>
 				handler({ ...event, payload: redactPayload(event.payload) as Record<string, unknown> }),
 			),
-		publish: nerve.event.publish.bind(nerve.sense),
+		publish: nerve.event.publish.bind(nerve.event),
 	},
 });

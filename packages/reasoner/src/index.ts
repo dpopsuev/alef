@@ -1,10 +1,10 @@
-import type { Adapter, Bus, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
 import {
 	type ActualConditions,
 	computeError,
 	type DesiredStateSpec,
 	type DomainCondition,
-	defineOrgan,
+	defineAdapter,
 	detectDrift,
 	type ErrorTensor,
 	extractToolCallId,
@@ -82,10 +82,10 @@ const LLM_INPUT = "llm.input";
 export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 	let turnActive = false;
 
-	return defineOrgan("llm", {
-		sense: {
+	return defineAdapter("llm", {
+		event: {
 			[LLM_INPUT]: {
-				handle: async (ctx: SenseHandlerCtx) => {
+				handle: async (ctx: EventHandlerCtx) => {
 					if (turnActive) {
 						const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
 						if (text) {
@@ -214,7 +214,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 	const innerOrgan = createAgentLoopCore(wrappedOptions);
 
 	const publishSchemas = {
-		motor: {
+		command: {
 			[replyType]: z.object({
 				text: z.string().min(1),
 				conversationHistory: z.array(z.unknown()).optional(),
@@ -231,8 +231,8 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 	const baseSubscriptions = innerOrgan.subscriptions;
 	const subscriptions = options.trackConcurrentOps
 		? {
-				motor: [...baseSubscriptions.motor, "*"] as readonly string[],
-				sense: [...baseSubscriptions.sense, "*"] as readonly string[],
+				command: [...baseSubscriptions.command, "*"] as readonly string[],
+				event: [...baseSubscriptions.event, "*"] as readonly string[],
 			}
 		: baseSubscriptions;
 
@@ -262,14 +262,14 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 		subscriptions,
 		sources: [],
 		contributions: {
-			port: { name: "reasoning", eventPattern: "sense/llm.input", cardinality: "exactly-one" },
+			port: { name: "reasoning", eventPattern: "event/llm.input", cardinality: "exactly-one" },
 		},
-		mount(nerve: Bus): () => void {
-			const offOrgan = innerOrgan.mount(nerve);
+		mount(bus: Bus): () => void {
+			const offOrgan = innerOrgan.mount(bus);
 			if (!options.trackConcurrentOps) return offOrgan;
 
 			const inflightExcluded = makeInflightExcluded(replyType);
-			const offMotor = nerve.command.subscribe("*", (event) => {
+			const offMotor = bus.command.subscribe("*", (event) => {
 				if (inflightExcluded.has(event.type)) return;
 				const toolCallId = extractToolCallId(event.payload);
 				inflight.set(inflightKey(event.type, event.correlationId, toolCallId), {
@@ -279,7 +279,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 					keyArg: pickKeyArg(event.payload),
 				});
 			});
-			const offSense = nerve.event.subscribe("*", (event) => {
+			const offSense = bus.event.subscribe("*", (event) => {
 				const toolCallId = extractToolCallId(event.payload);
 				inflight.delete(inflightKey(event.type, event.correlationId, toolCallId));
 				if (event.conditions?.length) {

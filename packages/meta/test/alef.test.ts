@@ -1,6 +1,6 @@
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, describe, expect, it } from "vitest";
-import { createMetaOrgan } from "../src/organ.js";
+import { createMetaOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createMetaOrgan({ dialogEventType: "llm.input" }));
 

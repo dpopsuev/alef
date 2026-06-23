@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createWebOrgan } from "../src/organ.js";
+import { createWebOrgan } from "../src/adapter.js";
 
 describe("web.search — timeRange and topic parameters", { tags: ["unit"] }, () => {
 	it("web.search tool schema includes timeRange field", () => {

@@ -113,12 +113,12 @@ describe("loadOrganFromPath", { tags: ["unit"] }, () => {
 		writeFileSync(
 			organFile,
 			`
-import type { Organ } from "@dpopsuev/alef-kernel";
-export function createOrgan(_opts: unknown): Organ {
+import type { Adapter } from "@dpopsuev/alef-kernel";
+export function createAdapter(_opts: unknown): Adapter {
 	return {
 		name: "my-organ",
 		tools: [],
-		subscriptions: { motor: [], sense: [] },
+		subscriptions: { command: [], event: [] },
 		mount: () => () => {},
 	};
 }

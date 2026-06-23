@@ -8,7 +8,7 @@
  */
 
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -58,10 +58,10 @@ export interface JudgingOrganOptions {
 }
 
 export function createJudgingOrgan(opts: JudgingOrganOptions): Adapter {
-	return defineOrgan(
+	return defineAdapter(
 		"judging",
 		{
-			motor: {
+			command: {
 				"report.submit": typedAction(SUBMIT_TOOL, (ctx) => {
 					const report = ctx.payload as JudgeReport;
 					opts.onReport(report);

@@ -3,7 +3,7 @@ import type { ZodTypeAny } from "zod";
 import type { AccessPolicy } from "./access-policy.js";
 import type { CacheStrategy } from "./adapter-cache.js";
 import { makeCacheKey } from "./adapter-cache.js";
-import type { MotorAction, MotorHandlerCtx, OrganLogger, SenseAction, SenseHandlerCtx } from "./adapter-types.js";
+import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, EventHandlerCtx } from "./adapter-types.js";
 import type { Bus, CommandMessage, EventMessage } from "./buses.js";
 import { debugLog } from "./debug.js";
 import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
@@ -65,7 +65,11 @@ function validateMotorPayload(
 	return result.data as Record<string, unknown>;
 }
 
-function buildHandlerCtx(motor: CommandMessage, payload: Record<string, unknown>, log: OrganLogger): MotorHandlerCtx {
+function buildHandlerCtx(
+	motor: CommandMessage,
+	payload: Record<string, unknown>,
+	log: AdapterLogger,
+): CommandHandlerCtx {
 	const toolCallId = extractToolCallId(motor.payload);
 	return {
 		correlationId: motor.correlationId,
@@ -75,12 +79,12 @@ function buildHandlerCtx(motor: CommandMessage, payload: Record<string, unknown>
 	};
 }
 
-export async function dispatchMotorAction(
+export async function dispatchCommandAction(
 	motor: CommandMessage,
-	action: MotorAction,
+	action: CommandAction,
 	nerve: Bus,
 	cache: CacheStrategy,
-	log: OrganLogger,
+	log: AdapterLogger,
 	schema: ZodTypeAny | undefined,
 	options?: DispatchOptions,
 ): Promise<void> {
@@ -186,23 +190,20 @@ export async function dispatchMotorAction(
 	});
 }
 
-export function dispatchSenseAction(
+export function dispatchEventAction(
 	eventType: string,
 	event: EventMessage,
 	nerve: Bus,
-	senseAction: SenseAction,
-	log: OrganLogger,
+	senseAction: EventAction,
+	log: AdapterLogger,
 ): void {
 	nerve.pulse();
-	const ctx: SenseHandlerCtx = {
+	const ctx: EventHandlerCtx = {
 		correlationId: event.correlationId,
 		payload: event.payload,
 		command: nerve.command,
 		event: nerve.event,
 		notification: nerve.notification,
-		motor: nerve.command,
-		sense: nerve.event,
-		signal: nerve.notification,
 	};
 	const span = tracer.startSpan(`alef.event/${eventType}`, {
 		kind: SpanKind.CONSUMER,

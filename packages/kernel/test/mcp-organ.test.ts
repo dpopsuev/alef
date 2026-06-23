@@ -1,7 +1,7 @@
 /**
  * McpAdapter tests — mock MCP client, no real subprocess or network.
  *
- * Tests: tool discovery, tool naming, Motor routing, Sense publishing,
+ * Tests: tool discovery, tool naming, Command routing, Event publishing,
  * error handling, unmount closes client.
  */
 
@@ -45,26 +45,26 @@ function mockClient(toolDefs: FakeToolMap) {
 // ---------------------------------------------------------------------------
 
 describe("McpAdapter — tool discovery", { tags: ["unit"] }, () => {
-	it("exposes discovered MCP tools as organ.tools[]", async () => {
+	it("exposes discovered MCP tools as adapter.tools[]", async () => {
 		const client = mockClient({
 			list_files: { description: "List files", execute: async () => [] },
 			read_file: { description: "Read a file", execute: async () => "" },
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "fs");
-		expect(organ.tools).toHaveLength(2);
-		const names = organ.tools.map((t) => t.name);
+		const adapter = await createMcpAdapterFromClient(client as never, "fs");
+		expect(adapter.tools).toHaveLength(2);
+		const names = adapter.tools.map((t) => t.name);
 		expect(names).toContain("fs.list_files");
 		expect(names).toContain("fs.read_file");
 	});
 
-	it("organ name prefixes all tool names", async () => {
+	it("adapter name prefixes all tool names", async () => {
 		const client = mockClient({
 			create_issue: { description: "Create a GitHub issue", execute: async () => ({}) },
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "github");
-		expect(organ.tools[0].name).toBe("github.create_issue");
+		const adapter = await createMcpAdapterFromClient(client as never, "github");
+		expect(adapter.tools[0].name).toBe("github.create_issue");
 	});
 
 	it("tool description comes from MCP server metadata", async () => {
@@ -72,8 +72,8 @@ describe("McpAdapter — tool discovery", { tags: ["unit"] }, () => {
 			search: { description: "Search the codebase", execute: async () => [] },
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "code");
-		expect(organ.tools[0].description).toBe("Search the codebase");
+		const adapter = await createMcpAdapterFromClient(client as never, "code");
+		expect(adapter.tools[0].description).toBe("Search the codebase");
 	});
 
 	it("subscriptions match discovered tool names", async () => {
@@ -82,33 +82,33 @@ describe("McpAdapter — tool discovery", { tags: ["unit"] }, () => {
 			put: { description: "Put", execute: async () => null },
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "store");
-		expect(organ.subscriptions.motor).toContain("store.get");
-		expect(organ.subscriptions.motor).toContain("store.put");
-		expect(organ.subscriptions.sense).toHaveLength(0);
+		const adapter = await createMcpAdapterFromClient(client as never, "store");
+		expect(adapter.subscriptions.command).toContain("store.get");
+		expect(adapter.subscriptions.command).toContain("store.put");
+		expect(adapter.subscriptions.event).toHaveLength(0);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// Motor → MCP → Sense routing
+// Command → MCP → Event routing
 // ---------------------------------------------------------------------------
 
-describe("McpAdapter — Motor/Sense routing", { tags: ["unit"] }, () => {
-	it("Motor event routes to MCP execute and publishes Sense result", async () => {
+describe("McpAdapter — Command/Event routing", { tags: ["unit"] }, () => {
+	it("Command message routes to MCP execute and publishes Event result", async () => {
 		const execute = vi.fn().mockResolvedValue({ files: ["a.ts", "b.ts"] });
 		const client = mockClient({
 			list_files: { description: "List files", execute },
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "fs");
+		const adapter = await createMcpAdapterFromClient(client as never, "fs");
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		adapter.mount(nerve.asBus());
 
 		const result = await new Promise<Record<string, unknown>>((resolve) => {
-			nerve.asNerve().sense.subscribe("fs.list_files", (e) => {
+			nerve.asBus().event.subscribe("fs.list_files", (e) => {
 				resolve(e.payload);
 			});
-			nerve.asNerve().motor.publish({
+			nerve.asBus().command.publish({
 				type: "fs.list_files",
 				payload: { path: "/workspace", toolCallId: "tc-1" },
 				correlationId: "c-1",
@@ -119,7 +119,7 @@ describe("McpAdapter — Motor/Sense routing", { tags: ["unit"] }, () => {
 		expect(result.toolCallId).toBe("tc-1");
 	});
 
-	it("MCP tool error publishes isError=true Sense event", async () => {
+	it("MCP tool error publishes isError=true Event message", async () => {
 		const client = mockClient({
 			boom: {
 				description: "Always fails",
@@ -129,21 +129,21 @@ describe("McpAdapter — Motor/Sense routing", { tags: ["unit"] }, () => {
 			},
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "bad");
+		const adapter = await createMcpAdapterFromClient(client as never, "bad");
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		adapter.mount(nerve.asBus());
 
-		const senseEvent = await new Promise<{ isError: boolean; errorMessage?: string }>((resolve) => {
-			nerve.asNerve().sense.subscribe("bad.boom", (e) => resolve(e));
-			nerve.asNerve().motor.publish({
+		const eventMessage = await new Promise<{ isError: boolean; errorMessage?: string }>((resolve) => {
+			nerve.asBus().event.subscribe("bad.boom", (e) => resolve(e));
+			nerve.asBus().command.publish({
 				type: "bad.boom",
 				payload: { toolCallId: "tc-2" },
 				correlationId: "c-2",
 			});
 		});
 
-		expect(senseEvent.isError).toBe(true);
-		expect(senseEvent.errorMessage).toContain("MCP server error");
+		expect(eventMessage.isError).toBe(true);
+		expect(eventMessage.errorMessage).toContain("MCP server error");
 	});
 });
 
@@ -157,11 +157,11 @@ describe("McpAdapter — lifecycle", { tags: ["unit"] }, () => {
 			noop: { description: "No-op", execute: async () => null },
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "test");
+		const adapter = await createMcpAdapterFromClient(client as never, "test");
 		const nerve = new InProcessNerve();
-		organ.mount(nerve.asNerve());
+		adapter.mount(nerve.asBus());
 
-		await organ.close?.();
+		await adapter.close?.();
 		expect(client.close).toHaveBeenCalledOnce();
 	});
 });
@@ -182,7 +182,7 @@ describe("McpAdapter — static factories", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("async MCP execute error handling — regression ", { tags: ["unit"] }, () => {
-	it("publishes isError sense event when execute rejects after an async step", async () => {
+	it("publishes isError event message when execute rejects after an async step", async () => {
 		// Simulate a tool whose execute does real async work then throws.
 		const client = mockClient({
 			slow_fail: {
@@ -195,19 +195,19 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 			},
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "net");
+		const adapter = await createMcpAdapterFromClient(client as never, "net");
 		const nerve = new InProcessNerve();
-		const n = nerve.asNerve();
-		organ.mount(n);
+		const n = nerve.asBus();
+		adapter.mount(n);
 
-		// Collect sense events published on the "net.slow_fail" channel.
-		const senseEvents: import("@dpopsuev/alef-kernel").SenseEvent[] = [];
-		n.sense.subscribe("net.slow_fail", (e) => {
-			senseEvents.push(e);
+		// Collect event messages published on the "net.slow_fail" channel.
+		const eventMessages: import("@dpopsuev/alef-kernel").EventMessage[] = [];
+		n.event.subscribe("net.slow_fail", (e) => {
+			eventMessages.push(e);
 		});
 
-		// Trigger the tool call via motor.
-		n.motor.publish({
+		// Trigger the tool call via command.
+		n.command.publish({
 			type: "net.slow_fail",
 			payload: { toolCallId: "tc-async-throw" },
 			correlationId: "corr-async-throw",
@@ -215,8 +215,8 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 
 		await new Promise((r) => setTimeout(r, 500));
 
-		expect(senseEvents.length).toBeGreaterThan(0);
-		expect(senseEvents[0]?.isError).toBe(true);
+		expect(eventMessages.length).toBeGreaterThan(0);
+		expect(eventMessages[0]?.isError).toBe(true);
 	});
 
 	it("does not hang when execute rejects synchronously (control case)", async () => {
@@ -229,23 +229,23 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 			},
 		});
 
-		const organ = await createMcpAdapterFromClient(client as never, "net");
+		const adapter = await createMcpAdapterFromClient(client as never, "net");
 		const nerve = new InProcessNerve();
-		const n = nerve.asNerve();
-		organ.mount(n);
+		const n = nerve.asBus();
+		adapter.mount(n);
 
-		const senseEvents: import("@dpopsuev/alef-kernel").SenseEvent[] = [];
-		n.sense.subscribe("net.sync_fail", (e) => {
-			senseEvents.push(e);
+		const eventMessages: import("@dpopsuev/alef-kernel").EventMessage[] = [];
+		n.event.subscribe("net.sync_fail", (e) => {
+			eventMessages.push(e);
 		});
-		n.motor.publish({
+		n.command.publish({
 			type: "net.sync_fail",
 			payload: { toolCallId: "tc-sync-throw" },
 			correlationId: "corr-sync-throw",
 		});
 
 		await new Promise((r) => setTimeout(r, 200));
-		expect(senseEvents.length).toBeGreaterThan(0);
-		expect(senseEvents[0]?.isError).toBe(true);
+		expect(eventMessages.length).toBeGreaterThan(0);
+		expect(eventMessages[0]?.isError).toBe(true);
 	});
 });

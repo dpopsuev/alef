@@ -1,18 +1,18 @@
 /**
- * OrganTheme + TUI/history contribution slots
+ * AdapterTheme + TUI/history contribution slots
  *
  * Given/When/Then:
- *   Given OrganTheme is defined in kernel
+ *   Given AdapterTheme is defined in kernel
  *   When an organ declares contributions["tui"] and contributions["history"]
- *   Then the types are accepted by OrganContributions and the methods are callable
+ *   Then the types are accepted by AdapterContributions and the methods are callable
  */
 
 import { describe, expect, it } from "vitest";
-import type { OrganContributions, OrganTheme } from "../src/index.js";
+import type { AdapterContributions, AdapterTheme } from "../src/index.js";
 
-describe("OrganTheme — abstract semantic colour interface", { tags: ["unit"] }, () => {
+describe("AdapterTheme — abstract semantic colour interface", { tags: ["unit"] }, () => {
 	it("fg produces a styled string", () => {
-		const theme: OrganTheme = {
+		const theme: AdapterTheme = {
 			fg: (color, text) => `[${color}]${text}[/${color}]`,
 			bold: (text) => `*${text}*`,
 			dim: (text) => `~${text}~`,
@@ -24,7 +24,7 @@ describe("OrganTheme — abstract semantic colour interface", { tags: ["unit"] }
 
 	it("accepts all semantic colour tokens", () => {
 		const colours = ["accent", "success", "error", "warning", "muted", "dim"] as const;
-		const theme: OrganTheme = {
+		const theme: AdapterTheme = {
 			fg: (color, text) => `${color}:${text}`,
 			bold: (text) => text,
 			dim: (text) => text,
@@ -35,9 +35,9 @@ describe("OrganTheme — abstract semantic colour interface", { tags: ["unit"] }
 	});
 });
 
-describe("OrganContributions — tui and history slots", { tags: ["unit"] }, () => {
+describe("AdapterContributions — tui and history slots", { tags: ["unit"] }, () => {
 	it("tui contribution compiles with renderCall and renderResult", () => {
-		const contrib: OrganContributions = {
+		const contrib: AdapterContributions = {
 			tui: {
 				renderCall: (_name, _args, _theme) => null,
 				renderResult: (_name, _result, _opts, _theme) => null,
@@ -49,7 +49,7 @@ describe("OrganContributions — tui and history slots", { tags: ["unit"] }, () 
 	});
 
 	it("history contribution compiles with ownedTools and extractEntry", () => {
-		const contrib: OrganContributions = {
+		const contrib: AdapterContributions = {
 			history: {
 				ownedTools: ["fs.read", "fs.write", "fs.edit"],
 				extractEntry: (payload) => ({ path: payload.path }),
@@ -60,7 +60,7 @@ describe("OrganContributions — tui and history slots", { tags: ["unit"] }, () 
 	});
 
 	it("both slots are optional — organ without tui/history still compiles", () => {
-		const contrib: OrganContributions = {};
+		const contrib: AdapterContributions = {};
 		expect(contrib.tui).toBeUndefined();
 		expect(contrib.history).toBeUndefined();
 	});

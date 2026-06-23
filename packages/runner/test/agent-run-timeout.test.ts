@@ -15,7 +15,7 @@ import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { AgentController, createToolShellOrgan, InProcessStrategy } from "@dpopsuev/alef-runtime";
+import { AgentController, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { Agent } from "../../runtime/src/index.js";
 import { buildSubagentFactory } from "../src/subagent-factory.js";
@@ -65,7 +65,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 		agent.load(delegateOrgan);
 
 		// ToolShell: currentMetaTools() strips agent.run schema → z.object({})
-		const toolShell = createToolShellOrgan({
+		const toolShell = createToolShellAdapter({
 			tools: agent.tools,
 			getTools: () => agent.tools,
 		});
@@ -123,7 +123,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 
 		agent.load(delegateOrgan);
 
-		const toolShell = createToolShellOrgan({
+		const toolShell = createToolShellAdapter({
 			tools: agent.tools,
 			getTools: () => agent.tools,
 		});

@@ -16,7 +16,7 @@ describe("Session context stage", { tags: ["unit"] }, () => {
 			typeWeight: 0.8,
 			events: [
 				{
-					bus: "motor",
+					bus: "command",
 					type: "llm.response",
 					correlationId: id,
 					payload: { text: "hello", conversationHistory: history },
@@ -135,7 +135,7 @@ describe("Session context stage", { tags: ["unit"] }, () => {
 			typeWeight: 0.8,
 			events: [
 				{
-					bus: "motor",
+					bus: "command",
 					type: "llm.response",
 					correlationId: "explore",
 					payload: { text: "ok", conversationHistory: [{ role: "user", content: "explore" }] },

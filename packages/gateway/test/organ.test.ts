@@ -10,7 +10,7 @@ import http from "node:http";
 
 import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createRouterOrgan } from "../src/organ.js";
+import { createRouterOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input" }));
 
@@ -141,10 +141,10 @@ describe("RouterOrgan — lifecycle", { tags: ["compliance"] }, () => {
 		expect(organ.address()).toBeNull();
 	});
 
-	it("subscriptions covers motor/* and sense/*", async () => {
+	it("subscriptions covers command/* and event/*", async () => {
 		const organ = createRouterOrgan({ triggerEvent: "llm.input" });
-		expect(organ.subscriptions.motor).toContain("*");
-		expect(organ.subscriptions.sense).toContain("*");
+		expect(organ.subscriptions.command).toContain("*");
+		expect(organ.subscriptions.event).toContain("*");
 	});
 });
 
@@ -209,7 +209,7 @@ describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 		}
 	});
 
-	it("streams motor events as SSE frames", async () => {
+	it("streams command events as SSE frames", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
 			// Start collecting before we publish.
@@ -218,7 +218,7 @@ describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 			// Give the SSE connection time to establish.
 			await new Promise((r) => setTimeout(r, 30));
 
-			nerve.asNerve().motor.publish({
+			nerve.asBus().command.publish({
 				type: "test.ping",
 				payload: { msg: "hello" },
 				correlationId: "c-1",
@@ -227,7 +227,7 @@ describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 			const events = await eventsPromise;
 			expect(events).toHaveLength(1);
 			const evt = events[0] as Record<string, unknown>;
-			expect(evt.bus).toBe("motor");
+			expect(evt.bus).toBe("command");
 			expect(evt.type).toBe("test.ping");
 			expect((evt.payload as Record<string, unknown>).msg).toBe("hello");
 		} finally {
@@ -235,13 +235,13 @@ describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 		}
 	});
 
-	it("streams sense events as SSE frames", async () => {
+	it("streams event events as SSE frames", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
 
-			nerve.asNerve().sense.publish({
+			nerve.asBus().event.publish({
 				type: "fs.read",
 				payload: { content: "hello world", truncated: false },
 				correlationId: "c-2",
@@ -250,7 +250,7 @@ describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 
 			const events = await eventsPromise;
 			const evt = events[0] as Record<string, unknown>;
-			expect(evt.bus).toBe("sense");
+			expect(evt.bus).toBe("event");
 			expect(evt.type).toBe("fs.read");
 		} finally {
 			unmount();
@@ -268,7 +268,7 @@ describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 						let buf = "";
 						res.on("data", (chunk: Buffer) => {
 							buf += chunk.toString();
-							if (buf.includes("event: motor/custom.event")) {
+							if (buf.includes("event: command/custom.event")) {
 								clearTimeout(timer);
 								res.destroy();
 								resolve(buf);
@@ -283,10 +283,10 @@ describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 			});
 
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "custom.event", payload: {}, correlationId: "c-3" });
+			nerve.asBus().command.publish({ type: "custom.event", payload: {}, correlationId: "c-3" });
 
 			const frame = await framePromise;
-			expect(frame).toContain("event: motor/custom.event");
+			expect(frame).toContain("event: command/custom.event");
 		} finally {
 			unmount();
 		}
@@ -299,7 +299,7 @@ describe("RouterOrgan — POST /message", { tags: ["compliance"] }, () => {
 		try {
 			// Listen for the dialog.message motor event.
 			const received: unknown[] = [];
-			nerve.asNerve().motor.subscribe("llm.response", (e) => {
+			nerve.asBus().command.subscribe("llm.response", (e) => {
 				received.push(e);
 			});
 
@@ -313,11 +313,11 @@ describe("RouterOrgan — POST /message", { tags: ["compliance"] }, () => {
 		}
 	});
 
-	it("publishes dialog.message on motor bus", async () => {
+	it("publishes dialog.message on command bus", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
 			const publishedPromise = new Promise<unknown>((resolve) => {
-				nerve.asNerve().motor.subscribe("llm.response", (e) => resolve(e));
+				nerve.asBus().command.subscribe("llm.response", (e) => resolve(e));
 			});
 
 			await post(`${baseUrl}/message`, { text: "do something" });
@@ -386,7 +386,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
-			nerve.asNerve().motor.publish({ type: "internal.debug", payload: {}, correlationId: "c-1" });
+			nerve.asBus().command.publish({ type: "internal.debug", payload: {}, correlationId: "c-1" });
 			const events = await eventsPromise;
 			expect((events[0] as Record<string, unknown>).type).toBe("internal.debug");
 		} finally {
@@ -403,7 +403,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
-			fixture.nerve.asNerve().motor.publish({ type: "llm.response", payload: { text: "hi" }, correlationId: "c-1" });
+			fixture.nerve.asBus().command.publish({ type: "llm.response", payload: { text: "hi" }, correlationId: "c-1" });
 			const events = await eventsPromise;
 			expect((events[0] as Record<string, unknown>).type).toBe("llm.response");
 		} finally {
@@ -437,8 +437,8 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 			});
 			await new Promise((r) => setTimeout(r, 30));
 			// Publish a blocked event then an allowed event.
-			fixture.nerve.asNerve().motor.publish({ type: "loop.detected", payload: {}, correlationId: "c-2" });
-			fixture.nerve.asNerve().motor.publish({ type: "llm.response", payload: {}, correlationId: "c-3" });
+			fixture.nerve.asBus().command.publish({ type: "loop.detected", payload: {}, correlationId: "c-2" });
+			fixture.nerve.asBus().command.publish({ type: "llm.response", payload: {}, correlationId: "c-3" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("loop.detected");
@@ -457,8 +457,8 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 2);
 			await new Promise((r) => setTimeout(r, 30));
-			fixture.nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-1" });
-			fixture.nerve.asNerve().motor.publish({ type: "fs.write", payload: {}, correlationId: "c-2" });
+			fixture.nerve.asBus().command.publish({ type: "fs.read", payload: {}, correlationId: "c-1" });
+			fixture.nerve.asBus().command.publish({ type: "fs.write", payload: {}, correlationId: "c-2" });
 			const events = await eventsPromise;
 			const types = events.map((e) => (e as Record<string, unknown>).type);
 			expect(types).toContain("fs.read");
@@ -493,8 +493,8 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 					.on("error", reject);
 			});
 			await new Promise((r) => setTimeout(r, 30));
-			fixture.nerve.asNerve().motor.publish({ type: "shell.exec", payload: {}, correlationId: "c-1" });
-			fixture.nerve.asNerve().motor.publish({ type: "fs.read", payload: {}, correlationId: "c-2" });
+			fixture.nerve.asBus().command.publish({ type: "shell.exec", payload: {}, correlationId: "c-1" });
+			fixture.nerve.asBus().command.publish({ type: "fs.read", payload: {}, correlationId: "c-2" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("shell.exec");

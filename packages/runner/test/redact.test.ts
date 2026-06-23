@@ -70,7 +70,7 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 	it("produces a 64-char hex string", async () => {
 		const { hashRecord } = await import("../src/session-store.js");
 		const hash = hashRecord({
-			bus: "motor",
+			bus: "command",
 			type: "fs.read",
 			correlationId: "c-1",
 			timestamp: 0,
@@ -82,7 +82,7 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 	it("same record produces same hash", async () => {
 		const { hashRecord } = await import("../src/session-store.js");
 		const base = {
-			bus: "motor" as const,
+			bus: "command" as const,
 			type: "fs.read",
 			correlationId: "c-1",
 			timestamp: 0,
@@ -94,14 +94,14 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 	it("different payloads produce different hashes", async () => {
 		const { hashRecord } = await import("../src/session-store.js");
 		const h1 = hashRecord({
-			bus: "motor",
+			bus: "command",
 			type: "fs.read",
 			correlationId: "c-1",
 			timestamp: 0,
 			payload: { path: "a.ts" },
 		});
 		const h2 = hashRecord({
-			bus: "motor",
+			bus: "command",
 			type: "fs.read",
 			correlationId: "c-1",
 			timestamp: 0,
@@ -112,8 +112,8 @@ describe("hashRecord", { tags: ["unit"] }, () => {
 
 	it("modifying type changes the hash (tamper detection)", async () => {
 		const { hashRecord } = await import("../src/session-store.js");
-		const h1 = hashRecord({ bus: "motor", type: "fs.read", correlationId: "c-1", payload: {}, timestamp: 0 });
-		const h2 = hashRecord({ bus: "motor", type: "fs.WRITE", correlationId: "c-1", payload: {}, timestamp: 0 });
+		const h1 = hashRecord({ bus: "command", type: "fs.read", correlationId: "c-1", payload: {}, timestamp: 0 });
+		const h2 = hashRecord({ bus: "command", type: "fs.WRITE", correlationId: "c-1", payload: {}, timestamp: 0 });
 		expect(h1).not.toBe(h2);
 	});
 });
@@ -124,7 +124,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 		const { join } = await import("node:path");
 		const { tmpdir } = await import("node:os");
 		const { InProcessNerve } = await import("../../kernel/src/in-process-nerve.js");
-		const { SessionLog } = await import("../src/event-log-organ.js");
+		const { SessionLog } = await import("../src/event-log-adapter.js");
 		const { JsonlSessionStore } = await import("../src/session-store.js");
 
 		const cwd = mkdtempSync(join(tmpdir(), "alef-audit-"));
@@ -132,10 +132,10 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 			const store = await JsonlSessionStore.create(cwd);
 			const organ = new SessionLog(store);
 			const nerve = new InProcessNerve();
-			organ.mount(nerve.asNerve());
+			organ.mount(nerve.asBus());
 
 			// Publish event with sensitive payload
-			nerve.asNerve().motor.publish({
+			nerve.asBus().command.publish({
 				type: "test.event",
 				payload: { command: "echo hi", apiKey: "super-secret", path: "/tmp" },
 				correlationId: "c-1",
@@ -148,7 +148,7 @@ describe("SessionLog integration — redact + hash", { tags: ["unit"] }, () => {
 			expect(events.length).toBeGreaterThan(0);
 
 			// Motor bus event has the full redacted payload; sense has the dead-letter {}.
-			const record = events.find((e) => e.type === "test.event" && e.bus === "motor");
+			const record = events.find((e) => e.type === "test.event" && e.bus === "command");
 			expect(record).toBeDefined();
 
 			// Hash is present

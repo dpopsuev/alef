@@ -21,7 +21,7 @@ export type { Property } from "./checkers/property.js";
 export { propertyCheck, SUM_PROPERTIES } from "./checkers/property.js";
 export { terminalScript, terminalScriptFile } from "./checkers/terminal.js";
 export { testCheck } from "./checkers/test.js";
-export { defaultEvalOrgans } from "./default-organs.js";
+export { defaultEvalOrgans } from "./default-adapters.js";
 export type {
 	Checker,
 	CheckerContext,
@@ -45,8 +45,8 @@ export * as multiTurnEvaluations from "./evaluations/multi-turn.js";
 export * as readOnlyEvaluations from "./evaluations/read-only.js";
 export * as terminalBenchEvaluations from "./evaluations/terminal-bench.js";
 export * as writeEvaluations from "./evaluations/write.js";
-export type { EvaluatorOrganOptions, EvaluatorOrganState } from "./evaluator-organ.js";
-export { EvaluatorOrgan } from "./evaluator-organ.js";
+export type { EvaluatorAdapterOptions, EvaluatorAdapterState } from "./evaluator-adapter.js";
+export { EvaluatorAdapter } from "./evaluator-adapter.js";
 export {
 	getAgentCommits,
 	getAgentDiff,
@@ -57,8 +57,8 @@ export type { AgentHandle, HarnessOptions, WorkspaceFile } from "./harness.js";
 export { assertAllToolsUsed, assertToolNotUsed, assertToolUsed, EvalHarness } from "./harness.js";
 export type { JudgePanelResult, JudgeResult, JudgeSpec } from "./judge-panel-runner.js";
 export { formatJudgePanelReport, JudgePanelRunner } from "./judge-panel-runner.js";
-export type { JudgeFinding, JudgeReport, JudgeVerdict } from "./judging-organ.js";
-export { createJudgingOrgan } from "./judging-organ.js";
+export type { JudgeFinding, JudgeReport, JudgeVerdict } from "./judging-adapter.js";
+export { createJudgingOrgan } from "./judging-adapter.js";
 export type { RunMetrics, ScoringRule, SpanRecord, TurnRecord } from "./metrics.js";
 export {
 	batchCorrelation,

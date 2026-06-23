@@ -138,7 +138,7 @@ function collectSseUntilDialogMessage(baseUrl: string, timeoutMs: number): Promi
 								type?: string;
 								payload?: { text?: string };
 							};
-							if (ev.bus === "motor" && ev.type === "llm.response" && ev.payload?.text) {
+							if (ev.bus === "command" && ev.type === "llm.response" && ev.payload?.text) {
 								clearTimeout(timer);
 								res.destroy();
 								resolve(ev.payload.text);

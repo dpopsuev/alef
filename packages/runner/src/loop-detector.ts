@@ -74,7 +74,7 @@ function hashResult(payload: Record<string, unknown>): string {
 export class LoopGuard implements Adapter {
 	readonly name = "loop-detector";
 	readonly tools = [];
-	readonly subscriptions = { motor: ["*" as const], sense: [] as const };
+	readonly subscriptions = { command: ["*" as const], event: [] as const };
 	readonly sources = [] as const;
 
 	private readonly repeatedInteractionThreshold: number;
@@ -93,7 +93,7 @@ export class LoopGuard implements Adapter {
 			});
 	}
 
-	mount(nerve: Bus): () => void {
+	mount(bus: Bus): () => void {
 		// pending: toolCallId → PendingCall (buffered until sense result arrives)
 		// interactionCounts: Map<type, Map<interactionHash, count>>
 		// totalCounts: Map<type, totalCallCount>
@@ -114,7 +114,7 @@ export class LoopGuard implements Adapter {
 		// Motor subscriber: buffer call metadata, apply total-count safety net.
 		// Only count events that carry a toolCallId — those are real tool dispatches.
 		// Infrastructure motor events (llm.response, context.assemble) are skipped.
-		const offMotor = nerve.command.subscribe("*", (event) => {
+		const offMotor = bus.command.subscribe("*", (event) => {
 			const corr = event.correlationId ?? "none";
 			resetIfNewTurn(corr);
 
@@ -144,7 +144,7 @@ export class LoopGuard implements Adapter {
 		});
 
 		// Sense subscriber: complete the interaction hash with the result.
-		const offSense = nerve.event.subscribe("*" as const, (event: EventMessage) => {
+		const offSense = bus.event.subscribe("*" as const, (event: EventMessage) => {
 			const toolCallId = extractToolCallId(event.payload);
 			if (!toolCallId) return;
 

@@ -30,37 +30,37 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 	let refreshInFlight = false;
 
 	function queryScribe(
-		nerve: Bus,
+		bus: Bus,
 		action: string,
 		extra: Record<string, unknown>,
 		callback: (text: string) => void,
 	): void {
 		const correlationId = `scribe-${action}-${Date.now()}`;
-		const off = nerve.event.subscribe("scribe.artifact", (event) => {
+		const off = bus.event.subscribe("scribe.artifact", (event) => {
 			if (event.correlationId !== correlationId) return;
 			off();
 			const payload = event.payload as { text?: string };
 			const text = typeof payload.text === "string" ? payload.text : JSON.stringify(payload);
 			if (text && !event.isError) callback(text);
 		});
-		nerve.command.publish({
+		bus.command.publish({
 			type: "scribe.artifact",
 			correlationId,
 			payload: { action, ...extra },
 		});
 	}
 
-	function refreshSummary(nerve: Bus): void {
+	function refreshSummary(bus: Bus): void {
 		if (refreshInFlight || !inner) return;
 		refreshInFlight = true;
 
-		queryScribe(nerve, "dashboard", {}, (text) => {
+		queryScribe(bus, "dashboard", {}, (text) => {
 			knowledgeSummary = text;
 			debugLog("scribe:context:dashboard", { chars: text.length });
 		});
 
 		queryScribe(
-			nerve,
+			bus,
 			"query",
 			{
 				kind: "agent.memory",
@@ -100,7 +100,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 			"Scribe work graph — spawns a dedicated Scribe adapter for artifact tracking, task dispatch, and knowledge management.",
 		labels: ["scribe", "blackboard", "planning"] as const,
 		tools: [],
-		subscriptions: { motor: [] as readonly string[], sense: [] as readonly string[] },
+		subscriptions: { command: [] as readonly string[], event: [] as readonly string[] },
 		sources: [{ name: "scribe-db", kind: "process" }] as const,
 		directives: [
 			"Scribe tools are available under the scribe.* prefix. Use scribe.artifact to create, query, and manage work artifacts. Use scribe.graph for dependency trees and briefings.",
@@ -110,7 +110,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 			"context.assemble": contextStage,
 		},
 
-		mount(nerve: Bus): () => void {
+		mount(bus: Bus): () => void {
 			mkdirSync(join(dbPath, ".."), { recursive: true });
 
 			debugLog("scribe:boot", { binary, dbPath });
@@ -119,15 +119,15 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 					inner = mcpAdapter;
 
 					(adapter as { tools: readonly unknown[] }).tools = mcpAdapter.tools;
-					(adapter as { subscriptions: { motor: readonly string[] } }).subscriptions = {
+					(adapter as { subscriptions: { command: readonly string[] } }).subscriptions = {
 						...adapter.subscriptions,
-						motor: mcpAdapter.tools.map((t) => t.name),
+						command: mcpAdapter.tools.map((t) => t.name),
 					};
 
-					innerCleanup = mcpAdapter.mount(nerve);
+					innerCleanup = mcpAdapter.mount(bus);
 
-					nerve.event.publish({
-						type: "organ.loaded",
+					bus.event.publish({
+						type: "adapter.loaded",
 						correlationId: "scribe-boot",
 						payload: {
 							name: "scribe",
@@ -138,15 +138,15 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 					});
 
 					debugLog("scribe:ready", { tools: mcpAdapter.tools.length });
-					refreshSummary(nerve);
+					refreshSummary(bus);
 				})
 				.catch((err: unknown) => {
 					debugLog("scribe:boot:error", { error: String(err) });
-					nerve.notification.publish({
-						type: "organ.error",
+					bus.notification.publish({
+						type: "adapter.error",
 						correlationId: "scribe-boot",
 						payload: {
-							organ: "scribe",
+							adapter: "scribe",
 							message: `Failed to start Scribe: ${err instanceof Error ? err.message : String(err)}`,
 						},
 					});

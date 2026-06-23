@@ -1,10 +1,10 @@
-import type { Adapter, BaseOrganOptions, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseAdapterOptions, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
 import { defineAdapter, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { DiscourseStore } from "./store.js";
 import type { Post } from "./types.js";
 
-export interface DiscourseOrganOptions extends BaseOrganOptions {
+export interface DiscourseOrganOptions extends BaseAdapterOptions {
 	sessionDir: string;
 }
 
@@ -63,7 +63,7 @@ export function createDiscourseOrgan(opts: DiscourseOrganOptions): Adapter {
 	return defineAdapter(
 		"discourse",
 		{
-			motor: {
+			command: {
 				"discourse.post": typedAction(FORUM_POST, async (ctx) => {
 					const { topic, thread, content, author } = ctx.payload;
 					const post = store.append(topic, thread, author ?? "agent", content);

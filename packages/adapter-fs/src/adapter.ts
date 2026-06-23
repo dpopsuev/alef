@@ -634,7 +634,7 @@ export function createFsOrgan(options: FsOrganOptions): Adapter {
 	return defineAdapter(
 		"fs",
 		{
-			motor: {
+			command: {
 				"fs.read": typedAction(
 					FS_READ_TOOL,
 					async (ctx) => {
@@ -718,12 +718,12 @@ export function createFsOrgan(options: FsOrganOptions): Adapter {
 			contributions: {
 				port: {
 					name: "filesystem",
-					eventPattern: "motor/fs.",
+					eventPattern: "command/fs.",
 					cardinality: "zero-or-one",
 				} satisfies PortDefinition,
 			},
 			publishSchemas: {
-				sense: {
+				event: {
 					"fs.read": z.object({
 						content: z.string().min(1),
 						truncated: z.boolean(),

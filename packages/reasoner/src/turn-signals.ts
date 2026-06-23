@@ -6,7 +6,11 @@ export interface TurnSignals {
 	dispose(): void;
 }
 
-export function createTurnSignals(sense: Bus["sense"], signal: Bus["signal"], userSignal?: AbortSignal): TurnSignals {
+export function createTurnSignals(
+	sense: Bus["event"],
+	signal: Bus["notification"],
+	userSignal?: AbortSignal,
+): TurnSignals {
 	const budgetController = new AbortController();
 	const callAbortControllers = new Map<string, AbortController>();
 

@@ -16,14 +16,14 @@ export function intersectBudgets(limits: Budget, requests: Budget): Budget {
 }
 
 export function withLimits(limits: Budget): BusMiddleware {
-	return (nerve: Bus): Bus => {
+	return (bus: Bus): Bus => {
 		let toolCallCount = 0;
 		return makeBus(
 			{
-				subscribe: nerve.command.subscribe.bind(nerve.motor),
+				subscribe: bus.command.subscribe.bind(bus.command),
 				publish: (event) => {
 					if (limits.maxToolCalls !== undefined && toolCallCount >= limits.maxToolCalls) {
-						nerve.event.publish({
+						bus.event.publish({
 							type: event.type,
 							correlationId: event.correlationId,
 							payload: {},
@@ -33,20 +33,20 @@ export function withLimits(limits: Budget): BusMiddleware {
 						return;
 					}
 					toolCallCount++;
-					nerve.command.publish(event);
+					bus.command.publish(event);
 				},
 			},
-			nerve.sense,
-			nerve.signal,
-			() => nerve.pulse(),
+			bus.event,
+			bus.notification,
+			() => bus.pulse(),
 		);
 	};
 }
 
-export function startElapsedTimer(limits: Budget, nerve: Bus): (() => void) | undefined {
+export function startElapsedTimer(limits: Budget, bus: Bus): (() => void) | undefined {
 	if (limits.maxElapsedMs === undefined) return undefined;
 	const timer = setTimeout(() => {
-		nerve.event.publish({
+		bus.event.publish({
 			type: "budget.cancel",
 			correlationId: "*",
 			payload: { reason: "maxElapsedMs", limitMs: limits.maxElapsedMs },

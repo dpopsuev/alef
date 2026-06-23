@@ -5,26 +5,26 @@
  * collects metrics, and disposes cleanly.
  */
 
-import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { EvalHarness } from "../src/harness.js";
 import { formatReport } from "../src/report.js";
 
 // ---------------------------------------------------------------------------
-// QuiescentLLMOrgan — canned reply, no tool calls. No API key needed.
+// QuiescentLLMAdapter — canned reply, no tool calls. No API key needed.
 // ---------------------------------------------------------------------------
 
-class QuiescentLLMOrgan implements Organ {
+class QuiescentLLMAdapter implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { motor: [] as const, sense: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
 	readonly sources = [] as const;
 
 	constructor(private readonly reply: string = "smoke ok") {}
 
-	mount(nerve: Nerve): () => void {
-		return nerve.sense.subscribe("llm.input", (event) => {
-			nerve.motor.publish({
+	mount(bus: Bus): () => void {
+		return bus.event.subscribe("llm.input", (event) => {
+			bus.command.publish({
 				type: "llm.response",
 				payload: { text: this.reply },
 				correlationId: event.correlationId,
@@ -46,7 +46,7 @@ describe("EvalHarness — smoke", { tags: ["integration"] }, () => {
 			},
 			{
 				scenario: "smoke",
-				extraOrgans: [new QuiescentLLMOrgan("smoke ok")],
+				extraAdapters: [new QuiescentLLMAdapter("smoke ok")],
 			},
 		);
 
@@ -67,7 +67,7 @@ describe("EvalHarness — smoke", { tags: ["integration"] }, () => {
 			},
 			{
 				scenario: "smoke-fail",
-				extraOrgans: [new QuiescentLLMOrgan()],
+				extraAdapters: [new QuiescentLLMAdapter()],
 			},
 		);
 
@@ -79,7 +79,7 @@ describe("EvalHarness — smoke", { tags: ["integration"] }, () => {
 		const harness = new EvalHarness();
 		const metrics = await harness.run(async () => {}, {
 			scenario: "smoke-format",
-			extraOrgans: [new QuiescentLLMOrgan()],
+			extraAdapters: [new QuiescentLLMAdapter()],
 		});
 
 		const report = formatReport(metrics);
@@ -100,7 +100,7 @@ describe("EvalHarness — smoke", { tags: ["integration"] }, () => {
 			},
 			{
 				scenario: "smoke-cleanup",
-				extraOrgans: [new QuiescentLLMOrgan()],
+				extraAdapters: [new QuiescentLLMAdapter()],
 			},
 		);
 

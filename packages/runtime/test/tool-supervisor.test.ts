@@ -12,11 +12,11 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 			},
 		});
 
-		const nerve = new InProcessNerve();
+		const bus = new InProcessNerve();
 		try {
-			await supervisor.start(nerve.asNerve());
+			await supervisor.start(bus.asBus());
 		} catch {
-			// McpOrgan.stdio will fail on "echo" — we test the ordering logic, not the spawn
+			// McpAdapter.stdio will fail on "echo" — we test the ordering logic, not the spawn
 		}
 		// If it threw before recording names, names() is empty — that's fine for this test
 		await supervisor.stop();
@@ -45,8 +45,8 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 			},
 		});
 
-		const nerve = new InProcessNerve();
-		await expect(supervisor.start(nerve.asNerve())).rejects.toThrow("Circular dependency");
+		const bus = new InProcessNerve();
+		await expect(supervisor.start(bus.asBus())).rejects.toThrow("Circular dependency");
 	});
 
 	it("unknown dependency throws", async () => {
@@ -56,15 +56,15 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 			},
 		});
 
-		const nerve = new InProcessNerve();
-		await expect(supervisor.start(nerve.asNerve())).rejects.toThrow("Unknown dependency");
+		const bus = new InProcessNerve();
+		await expect(supervisor.start(bus.asBus())).rejects.toThrow("Unknown dependency");
 	});
 
 	it("double start throws", async () => {
 		const supervisor = new ToolSupervisor({ services: {} });
-		const nerve = new InProcessNerve();
-		await supervisor.start(nerve.asNerve());
-		await expect(supervisor.start(nerve.asNerve())).rejects.toThrow("already started");
+		const bus = new InProcessNerve();
+		await supervisor.start(bus.asBus());
+		await expect(supervisor.start(bus.asBus())).rejects.toThrow("already started");
 		await supervisor.stop();
 	});
 
@@ -75,8 +75,8 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 
 	it("tools returns empty for no services", async () => {
 		const supervisor = new ToolSupervisor({ services: {} });
-		const nerve = new InProcessNerve();
-		await supervisor.start(nerve.asNerve());
+		const bus = new InProcessNerve();
+		await supervisor.start(bus.asBus());
 		expect(supervisor.tools()).toHaveLength(0);
 		await supervisor.stop();
 	});

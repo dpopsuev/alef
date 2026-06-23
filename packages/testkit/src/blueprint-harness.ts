@@ -1,12 +1,12 @@
 /**
  * BlueprintHarness — deterministic blueprint test harness.
  *
- * Loads a blueprint (file or inline organs), wires ScriptedReasoner,
+ * Loads a blueprint (file or inline adapters), wires ScriptedReasoner,
  * provides send() + assertion API. No real LLM call. No API key needed.
  *
  * Two factory methods:
  * BlueprintHarness.fromBlueprint(path, opts) — loads agent.yaml
- * BlueprintHarness.create(opts) — inline organ list
+ * BlueprintHarness.create(opts) — inline adapter list
  *
  * Example:
  * const h = await BlueprintHarness.fromBlueprint("agent.yaml", {
@@ -35,7 +35,7 @@ import { ScriptedReasoner } from "./scripted-reasoner.js";
 // ---------------------------------------------------------------------------
 
 export interface BlueprintHarnessOptions {
-	/** Working directory for organs. Required. */
+	/** Working directory for adapters. Required. */
 	cwd: string;
 	/** Script steps for ScriptedReasoner. */
 	script: ScriptStep[];
@@ -51,8 +51,8 @@ export type MaterializeFn = (
 ) => Promise<{ organs: Adapter[] }>;
 
 export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
-	/** Extra organs to load beyond what the blueprint declares. */
-	extraOrgans?: Adapter[];
+	/** Extra adapters to load beyond what the blueprint declares. */
+	extraAdapters?: Adapter[];
 	/**
 	 * Blueprint materializer — converts a CompiledAgentDefinition into Adapter instances.
 	 * Pass materializeBlueprint from @dpopsuev/alef-runner or alef-coding-agent.
@@ -89,24 +89,24 @@ export class BlueprintHarness implements ExecutionStrategy {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Load a blueprint from a YAML file, instantiate its organs, inject
-	 * ScriptedReasoner. Real organs execute (FsOrgan, ShellOrgan, etc.).
+	 * Load a blueprint from a YAML file, instantiate its adapters, inject
+	 * ScriptedReasoner. Real adapters execute (FsAdapter, ShellAdapter, etc.).
 	 */
 	static async fromBlueprint(blueprintPath: string, opts: BlueprintFromFileOptions): Promise<BlueprintHarness> {
 		const definition = loadAgentDefinition(blueprintPath);
 		const materialized = await opts.materialize(definition, { cwd: opts.cwd });
 
-		const adapters = [...materialized.organs, ...(opts.extraOrgans ?? [])];
+		const adapters = [...materialized.organs, ...(opts.extraAdapters ?? [])];
 		return BlueprintHarness.create({ ...opts, organs: adapters });
 	}
 
 	// -------------------------------------------------------------------------
-	// Factory — inline organs (no blueprint file required)
+	// Factory — inline adapters (no blueprint file required)
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Create a harness with an explicit organ list. Useful when testing
-	 * custom organs directly or when no blueprint file is available.
+	 * Create a harness with an explicit adapter list. Useful when testing
+	 * custom adapters directly or when no blueprint file is available.
 	 */
 	static create(opts: BlueprintHarnessOptions & { organs?: Adapter[] }): BlueprintHarness {
 		const recorder = new BusEventRecorder();
@@ -138,11 +138,11 @@ export class BlueprintHarness implements ExecutionStrategy {
 	}
 
 	/**
-	 * Inject an arbitrary sense event to trigger the Reasoner (autonomous agents).
-	 * Waits for the configured replyEvent to arrive on the motor bus.
-	 * @param eventType - the sense event type (e.g. 'git.push', 'cron.tick')
+	 * Inject an arbitrary event to trigger the Reasoner (autonomous agents).
+	 * Waits for the configured replyEvent to arrive on the command bus.
+	 * @param eventType - the event type (e.g. 'git.push', 'cron.tick')
 	 * @param payload - the event payload
-	 * @param replyEvent - motor event type to wait for (default: same as eventType)
+	 * @param replyEvent - command event type to wait for (default: same as eventType)
 	 */
 	async trigger(
 		eventType: string,
@@ -156,13 +156,13 @@ export class BlueprintHarness implements ExecutionStrategy {
 				() => reject(new Error(`trigger: no ${waitFor} reply within ${this.timeoutMs}ms`)),
 				this.timeoutMs,
 			);
-			const unsub = this.agent.subscribeMotor(waitFor, (event) => {
+			const unsub = this.agent.subscribeCommand(waitFor, (event) => {
 				clearTimeout(timer);
 				unsub();
 				resolve(event.payload as Record<string, unknown>);
 			});
 		});
-		this.agent.publishSense({
+		this.agent.publishEvent({
 			type: eventType,
 			payload,
 			correlationId: `trigger-${Date.now()}`,
@@ -176,14 +176,14 @@ export class BlueprintHarness implements ExecutionStrategy {
 		return this._lastReply;
 	}
 
-	/** All Motor events from the last send() call. */
-	get motorEvents(): readonly BusMessage[] {
-		return this.recorder.motor;
+	/** All Command events from the last send() call. */
+	get commandEvents(): readonly BusMessage[] {
+		return this.recorder.command;
 	}
 
-	/** All Sense events from the last send() call. */
-	get senseEvents(): readonly BusMessage[] {
-		return this.recorder.sense;
+	/** All Event messages from the last send() call. */
+	get eventMessages(): readonly BusMessage[] {
+		return this.recorder.event;
 	}
 
 	// -------------------------------------------------------------------------
@@ -191,20 +191,20 @@ export class BlueprintHarness implements ExecutionStrategy {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Assert that a Motor event with the given event type was published.
+	 * Assert that a Command event with the given event type was published.
 	 * @param toolName EDA event type, e.g. "fs.read"
 	 */
 	assertToolCalled(toolName: string): BusMessage {
-		const found = this.recorder.motor.find((e) => e.type === toolName);
+		const found = this.recorder.command.find((e) => e.type === toolName);
 		if (!found) {
-			const called = [...new Set(this.recorder.motor.map((e) => e.type))].join(", ");
-			throw new Error(`Expected Motor/${toolName} to be published.\n` + `Motor events: [${called || "none"}]`);
+			const called = [...new Set(this.recorder.command.map((e) => e.type))].join(", ");
+			throw new Error(`Expected Command/${toolName} to be published.\n` + `Command events: [${called || "none"}]`);
 		}
 		return found;
 	}
 
 	/**
-	 * Assert that a Motor event was published AND its payload contains the
+	 * Assert that a Command event was published AND its payload contains the
 	 * given partial args (deep subset check).
 	 */
 	assertToolCalledWith(toolName: string, partialArgs: Record<string, unknown>): void {
@@ -213,7 +213,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 		for (const [key, expected] of Object.entries(partialArgs)) {
 			if (payload[key] !== expected) {
 				throw new Error(
-					`Motor/${toolName} payload.${key}: expected ${JSON.stringify(expected)}, ` +
+					`Command/${toolName} payload.${key}: expected ${JSON.stringify(expected)}, ` +
 						`got ${JSON.stringify(payload[key])}`,
 				);
 			}
@@ -221,13 +221,13 @@ export class BlueprintHarness implements ExecutionStrategy {
 	}
 
 	/**
-	 * Assert that a Motor event with the given type was NOT published.
+	 * Assert that a Command event with the given type was NOT published.
 	 */
 	assertNotToolCalled(toolName: string): void {
-		const found = this.recorder.motor.find((e) => e.type === toolName);
+		const found = this.recorder.command.find((e) => e.type === toolName);
 		if (found) {
 			throw new Error(
-				`Expected Motor/${toolName} NOT to be published, but it was.\n` +
+				`Expected Command/${toolName} NOT to be published, but it was.\n` +
 					`Payload: ${JSON.stringify((found as CommandMessage).payload)}`,
 			);
 		}

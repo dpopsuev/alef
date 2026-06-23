@@ -380,7 +380,7 @@ describe("JsonlSessionStore + TurnAssembler", () => {
 
 		// Simulate two motor events on the same correlationId
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "fs.read",
 			correlationId: "corr-1",
 			payload: { path: "auth.ts" },
@@ -388,7 +388,7 @@ describe("JsonlSessionStore + TurnAssembler", () => {
 			hash: "abc",
 		});
 		await store.append({
-			bus: "sense",
+			bus: "event",
 			type: "fs.read",
 			correlationId: "corr-1",
 			payload: { content: "export function login() {}" },
@@ -409,7 +409,7 @@ describe("JsonlSessionStore + TurnAssembler", () => {
 		// Write 3 turns
 		for (let i = 0; i < 3; i++) {
 			await store.append({
-				bus: "motor",
+				bus: "command",
 				type: "llm.response",
 				correlationId: `corr-${i}`,
 				payload: { text: `message ${i}` },

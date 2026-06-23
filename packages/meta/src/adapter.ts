@@ -75,7 +75,7 @@ async function parseSession(
 				if (r.bus === "internal" && r.type === "session.name" && typeof r.payload?.name === "string") {
 					name = r.payload.name;
 				}
-				if (r.bus === "sense" && r.type === dialogEventType) {
+				if (r.bus === "event" && r.type === dialogEventType) {
 					const text = (r.payload?.text ?? "").replace(/\n/g, " ");
 					if (!firstMessage) firstMessage = text.slice(0, 80);
 					if (contentParts.length < 20) contentParts.push(text.slice(0, 200));
@@ -234,7 +234,7 @@ function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter>
 				type: string;
 				name: string;
 				tools: Array<{ name: string; description: string; jsonSchema: Record<string, unknown> }>;
-				subscriptions: { motor: string[]; sense: string[] };
+				subscriptions: { command: string[]; event: string[] };
 				sources: [];
 			}) => {
 				if (msg.type !== "ready") {
@@ -254,16 +254,16 @@ function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter>
 				const proxyAdapter: Adapter = {
 					name: msg.name,
 					tools,
-					subscriptions: { motor: msg.subscriptions.motor, sense: msg.subscriptions.sense },
+					subscriptions: { command: msg.subscriptions.command, event: msg.subscriptions.event },
 					sources: [],
 					mount(bus) {
-						const offs = msg.subscriptions.motor.map((type) =>
+						const offs = msg.subscriptions.command.map((type) =>
 							bus.command.subscribe(type, (event) => {
-								worker.postMessage({ dir: "motor", event });
+								worker.postMessage({ dir: "command", event });
 							}),
 						);
 						const onMessage = (workerMsg: { dir: string; event: Record<string, unknown> }) => {
-							if (workerMsg.dir === "sense") {
+							if (workerMsg.dir === "event") {
 								bus.event.publish(workerMsg.event as Parameters<typeof bus.event.publish>[0]);
 							}
 						};
@@ -325,7 +325,7 @@ export function createAdapter() {
   };
 
   return defineAdapter("namespace", {
-    motor: {
+    command: {
       "namespace.action": typedAction(TOOL, async (ctx) => {
         const { param } = ctx.payload;
         // implementation
@@ -344,7 +344,7 @@ export function createAdapter() {
 
 Rules:
 - Import only from @dpopsuev/alef-kernel and zod.
-- The motor key must be "<name>.<action>" under the motor: { } block.
+- The command key must be "<name>.<action>" under the command: { } block.
 - Always return withDisplay(...) from handlers.
 - Export only createAdapter — no default export.`,
 		},
@@ -409,7 +409,7 @@ function buildPrototypeTools(
 	cwd: string,
 ): ActionMap {
 	return {
-		motor: {
+		command: {
 			"prototype.plug": typedAction(
 				{
 					name: "prototype.plug",
@@ -526,7 +526,7 @@ function buildPrototypeTools(
 
 function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>): ActionMap {
 	return {
-		motor: {
+		command: {
 			"alef.directive.list": typedAction(
 				{
 					name: "alef.directive.list",
@@ -637,7 +637,7 @@ function buildDirectiveTools(g: NonNullable<MetaAdapterOptions["getDirective"]>)
 
 function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
 	return {
-		motor: {
+		command: {
 			"alef.sessions.list": typedAction(
 				{
 					name: "alef.sessions.list",
@@ -776,10 +776,10 @@ export function createMetaAdapter(opts: MetaAdapterOptions) {
 	return defineAdapter(
 		"alef",
 		{
-			motor: {
-				...(getDirective ? buildDirectiveTools(getDirective).motor : {}),
-				...(agent && loadAdapter ? buildPrototypeTools(agent, loadAdapter, cwd).motor : {}),
-				...buildSessionTools(opts).motor,
+			command: {
+				...(getDirective ? buildDirectiveTools(getDirective).command : {}),
+				...(agent && loadAdapter ? buildPrototypeTools(agent, loadAdapter, cwd).command : {}),
+				...buildSessionTools(opts).command,
 			},
 		},
 		{

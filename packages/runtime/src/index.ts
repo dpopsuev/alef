@@ -5,9 +5,7 @@ export { RemoteStrategy, type RemoteStrategyOptions } from "./remote-strategy.js
 export {
 	buildAdapterDirectives,
 	buildBootCatalog,
-	buildOrganDirectives,
 	createToolShellAdapter,
-	createToolShellOrgan,
 	type ToolShellOptions,
 } from "./tool-catalog.js";
 export {
@@ -22,6 +20,7 @@ import {
 	type Adapter,
 	type AdapterLogger,
 	type Binding,
+	type Bus,
 	type BusMessage,
 	type CommandMessage,
 	debugLog,
@@ -29,26 +28,25 @@ import {
 	type EventMessage,
 	InProcessNerve,
 	makeBus,
-	type Nerve,
 	type NotificationInput,
 	type ToolDefinition,
 	withBindings,
 } from "@dpopsuev/alef-kernel";
 import type { ZodTypeAny } from "zod";
-import { type OrganPortInfo, PortValidationError, validatePorts } from "./port-registry.js";
+import { type AdapterPortInfo, PortValidationError, validatePorts } from "./port-registry.js";
 
 const VALIDATE_PAYLOADS = process.env.ALEF_VALIDATE_PAYLOADS === "1" || process.env.NODE_ENV === "test";
 
 /**
  * Wrap a Nerve so publish calls are validated against the adapter's publishSchemas.
- * Returns the original nerve when validation is disabled or the adapter declares no schemas.
+ * Returns the original bus when validation is disabled or the adapter declares no schemas.
  */
-function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
-	const { motor: motorSchemas, sense: senseSchemas } = adapter.publishSchemas ?? {};
-	if (!VALIDATE_PAYLOADS || (!motorSchemas && !senseSchemas)) return nerve;
+function withPayloadValidation(bus: Bus, adapter: Adapter): Bus {
+	const { command: commandSchemas, event: eventSchemas } = adapter.publishSchemas ?? {};
+	if (!VALIDATE_PAYLOADS || (!commandSchemas && !eventSchemas)) return bus;
 
 	const validate = (
-		busLabel: "motor" | "sense",
+		busLabel: "command" | "event",
 		schemas: Readonly<Record<string, ZodTypeAny>> | undefined,
 		event: BusMessage,
 	): string | null => {
@@ -65,13 +63,13 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 
 	return makeBus(
 		{
-			subscribe: nerve.command.subscribe.bind(nerve.motor),
+			subscribe: bus.command.subscribe.bind(bus.command),
 			publish: (event: CommandMessage) => {
-				const err = validate("motor", motorSchemas, event);
+				const err = validate("command", commandSchemas, event);
 				if (err) {
-					// Publish validation failure as a sense error so the caller sees a tool result.
+					// Publish validation failure as an event error so the caller sees a tool result.
 					const payload = event.payload as { toolCallId?: string };
-					nerve.event.publish({
+					bus.event.publish({
 						type: event.type,
 						correlationId: event.correlationId,
 						isError: true,
@@ -80,35 +78,35 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 					});
 					return;
 				}
-				nerve.command.publish(event);
+				bus.command.publish(event);
 			},
 		},
 		{
-			subscribe: nerve.event.subscribe.bind(nerve.sense),
+			subscribe: bus.event.subscribe.bind(bus.event),
 			publish: (event: EventMessage) => {
 				// Error events carry { toolCallId } only — validating against the success schema always fails.
 				if (!event.isError) {
-					const err = validate("sense", senseSchemas, event);
+					const err = validate("event", eventSchemas, event);
 					if (err) {
-						// Log and drop — sense publish failures are non-fatal.
-						// Log and drop — sense publish failures are non-fatal.
-						// Note: withPayloadValidation is used with adapter's nerve, but has no logger access
+						// Log and drop — event publish failures are non-fatal.
+						// Log and drop — event publish failures are non-fatal.
+						// Note: withPayloadValidation is used with adapter's bus, but has no logger access
 						console.warn(err);
 						return;
 					}
 				}
-				nerve.event.publish(event);
+				bus.event.publish(event);
 			},
 		},
-		nerve.signal,
-		() => nerve.pulse(),
+		bus.notification,
+		() => bus.pulse(),
 	);
 }
 
 export interface BusObserver {
-	onMotorEvent(event: BusMessage): void;
-	onSenseEvent(event: BusMessage): void;
-	onSignalEvent?(event: BusMessage): void;
+	onCommand(event: BusMessage): void;
+	onEvent(event: BusMessage): void;
+	onNotification?(event: BusMessage): void;
 }
 
 /** Reserved for future Agent configuration. */
@@ -122,7 +120,7 @@ const noopLogger: AdapterLogger = {
 };
 
 export class Agent {
-	private readonly nerve = new InProcessNerve();
+	private readonly bus = new InProcessNerve();
 	private readonly unmounts: Array<() => void> = [];
 	private readonly log: AdapterLogger;
 
@@ -171,9 +169,8 @@ export class Agent {
 		this._organs.push(adapter);
 		let unmount: () => void;
 		try {
-			const boundNerve =
-				this._bindings.size > 0 ? withBindings(this._bindings, this.nerve.asNerve()) : this.nerve.asNerve();
-			unmount = adapter.mount(withPayloadValidation(boundNerve, adapter));
+			const boundBus = this._bindings.size > 0 ? withBindings(this._bindings, this.bus.asBus()) : this.bus.asBus();
+			unmount = adapter.mount(withPayloadValidation(boundBus, adapter));
 		} catch (err) {
 			this._organs.pop();
 			throw err;
@@ -201,8 +198,8 @@ export class Agent {
 		// then announce the new adapter to everyone. Handlers must be idempotent.
 		const sysId = randomUUID();
 		for (const loaded of this._organs) {
-			this.nerve.publishSense({
-				type: "organ.loaded",
+			this.bus.publishEvent({
+				type: "adapter.loaded",
 				correlationId: sysId,
 				isError: false,
 				payload: {
@@ -226,10 +223,10 @@ export class Agent {
 	 * Logs warnings for zero-or-one violations.
 	 */
 	validate(): this {
-		const infos: OrganPortInfo[] = this._organs.map((a) => ({
+		const infos: AdapterPortInfo[] = this._organs.map((a) => ({
 			name: a.name,
-			motorSubscriptions: [...a.subscriptions.motor],
-			senseSubscriptions: [...a.subscriptions.sense],
+			commandSubscriptions: [...a.subscriptions.command],
+			eventSubscriptions: [...a.subscriptions.event],
 		}));
 
 		const ports = this._organs.flatMap((a) => (a.contributions?.port ? [a.contributions.port] : []));
@@ -249,21 +246,29 @@ export class Agent {
 	 * Used by autonomous-agent test harnesses to trigger the Reasoner
 	 * without going through AgentController.send().
 	 */
+	publishEvent(event: EventInput): void {
+		this.bus.publishEvent(event);
+	}
+	/** @deprecated Use publishEvent */
 	publishSense(event: EventInput): void {
-		this.nerve.publishSense(event);
+		this.publishEvent(event);
 	}
 
 	/** Broadcast a signal event to all observers. Used exclusively by the Reasoner (organ-llm). */
 	publishSignal(event: NotificationInput): void {
-		this.nerve.publishSignal(event);
+		this.bus.publishSignal(event);
 	}
 
 	/**
 	 * Subscribe to a motor event published by the agent.
 	 * Returns an unsubscribe function.
 	 */
+	subscribeCommand(type: string, callback: (event: CommandMessage) => void): () => void {
+		return this.bus.asBus().command.subscribe(type, callback);
+	}
+	/** @deprecated Use subscribeCommand */
 	subscribeMotor(type: string, callback: (event: CommandMessage) => void): () => void {
-		return this.nerve.asNerve().command.subscribe(type, callback);
+		return this.subscribeCommand(type, callback);
 	}
 
 	/**
@@ -272,14 +277,14 @@ export class Agent {
 	 */
 	observe(observer: BusObserver): () => void {
 		const offs = [
-			this.nerve.onAnyMotor((e) => {
-				observer.onMotorEvent(e);
+			this.bus.onAnyCommand((e) => {
+				observer.onCommand(e);
 			}),
-			this.nerve.onAnySense((e) => {
-				observer.onSenseEvent(e);
+			this.bus.onAnyEvent((e) => {
+				observer.onEvent(e);
 			}),
-			this.nerve.onAnySignal((e) => {
-				observer.onSignalEvent?.(e);
+			this.bus.onAnyNotification((e) => {
+				observer.onNotification?.(e);
 			}),
 		];
 		const off = () => {
@@ -334,8 +339,8 @@ export class Agent {
 		this._organs.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
 
-		this.nerve.publishSense({
-			type: "organ.unloaded",
+		this.bus.publishEvent({
+			type: "adapter.unloaded",
 			correlationId: randomUUID(),
 			isError: false,
 			payload: { name },

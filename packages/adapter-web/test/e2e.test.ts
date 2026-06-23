@@ -1,6 +1,6 @@
 import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { createWebOrgan } from "../src/organ.js";
+import { createWebOrgan } from "../src/adapter.js";
 
 describe.skipIf(!HAVE_REAL_LLM)("organ-web — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM fetches a URL and extracts content using web.fetch", async () => {

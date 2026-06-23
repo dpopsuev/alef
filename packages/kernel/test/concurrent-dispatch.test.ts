@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { SenseEvent } from "../src/buses.js";
-import type { MotorHandlerCtx } from "../src/framework.js";
-import { defineOrgan } from "../src/framework.js";
+import type { EventMessage } from "../src/buses.js";
+import type { CommandHandlerCtx } from "../src/framework.js";
+import { defineAdapter } from "../src/framework.js";
 import { InProcessNerve } from "../src/in-process-nerve.js";
 
 function makeNerve() {
 	const nerve = new InProcessNerve();
-	return { nerve, n: nerve.asNerve() };
+	return { nerve, n: nerve.asBus() };
 }
 
-function waitSense(nerve: InProcessNerve, type: string, correlationId: string): Promise<SenseEvent> {
+function waitEvent(nerve: InProcessNerve, type: string, correlationId: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
-		const off = nerve.asNerve().sense.subscribe(type, (event) => {
+		const off = nerve.asBus().event.subscribe(type, (event) => {
 			if (event.correlationId !== correlationId) return;
 			off();
 			resolve(event);
@@ -20,17 +20,17 @@ function waitSense(nerve: InProcessNerve, type: string, correlationId: string): 
 }
 
 // ---------------------------------------------------------------------------
-// concurrent organ dispatch
+// concurrent adapter dispatch
 // ---------------------------------------------------------------------------
 
-describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
-	it("5 concurrent motor events → 5 sense responses with correct correlationIds", async () => {
+describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
+	it("5 concurrent command messages → 5 event responses with correct correlationIds", async () => {
 		const { nerve, n } = makeNerve();
 
-		defineOrgan("echo", {
-			motor: {
+		defineAdapter("echo", {
+			command: {
 				"echo.ping": {
-					async *handle(ctx: MotorHandlerCtx) {
+					async *handle(ctx: CommandHandlerCtx) {
 						yield { echoed: ctx.payload.index };
 					},
 				},
@@ -39,11 +39,11 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 
 		const correlationIds = Array.from({ length: 5 }, (_, i) => `corr-${i}`);
 
-		const responsePromises = correlationIds.map((correlationId) => waitSense(nerve, "echo.ping", correlationId));
+		const responsePromises = correlationIds.map((correlationId) => waitEvent(nerve, "echo.ping", correlationId));
 
 		await Promise.all(
 			correlationIds.map((correlationId, index) =>
-				Promise.resolve(nerve.asNerve().motor.publish({ type: "echo.ping", payload: { index }, correlationId })),
+				Promise.resolve(nerve.asBus().command.publish({ type: "echo.ping", payload: { index }, correlationId })),
 			),
 		);
 
@@ -59,10 +59,10 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 	it("no cross-contamination: each response carries only its own payload", async () => {
 		const { nerve, n } = makeNerve();
 
-		defineOrgan("identity", {
-			motor: {
+		defineAdapter("identity", {
+			command: {
 				"identity.reflect": {
-					async *handle(ctx: MotorHandlerCtx) {
+					async *handle(ctx: CommandHandlerCtx) {
 						yield { value: ctx.payload.value };
 					},
 				},
@@ -73,13 +73,13 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 		const correlationIds = inputs.map((_, i) => `id-corr-${i}`);
 
 		const responsePromises = correlationIds.map((correlationId) =>
-			waitSense(nerve, "identity.reflect", correlationId),
+			waitEvent(nerve, "identity.reflect", correlationId),
 		);
 
 		await Promise.all(
 			inputs.map((value, i) =>
 				Promise.resolve(
-					nerve.asNerve().motor.publish({
+					nerve.asBus().command.publish({
 						type: "identity.reflect",
 						payload: { value },
 						correlationId: correlationIds[i],
@@ -96,13 +96,13 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 		}
 	});
 
-	it("organ throws → error sense carries correct correlationId, nerve stays healthy", async () => {
+	it("adapter throws → error event carries correct correlationId, nerve stays healthy", async () => {
 		const { nerve, n } = makeNerve();
 
-		defineOrgan("fragile", {
-			motor: {
+		defineAdapter("fragile", {
+			command: {
 				"fragile.op": {
-					async *handle(ctx: MotorHandlerCtx) {
+					async *handle(ctx: CommandHandlerCtx) {
 						if (ctx.payload.fail) throw new Error("intentional failure");
 						yield { ok: true };
 					},
@@ -111,8 +111,8 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 		}).mount(n);
 
 		// First call: error path
-		const errorPromise = waitSense(nerve, "fragile.op", "corr-fail");
-		nerve.asNerve().motor.publish({ type: "fragile.op", payload: { fail: true }, correlationId: "corr-fail" });
+		const errorPromise = waitEvent(nerve, "fragile.op", "corr-fail");
+		nerve.asBus().command.publish({ type: "fragile.op", payload: { fail: true }, correlationId: "corr-fail" });
 		const errorResult = await errorPromise;
 
 		expect(errorResult.correlationId).toBe("corr-fail");
@@ -120,8 +120,8 @@ describe("concurrent organ dispatch", { tags: ["unit"] }, () => {
 		expect(errorResult.errorMessage).toBe("intentional failure");
 
 		// Second call: nerve must still be healthy
-		const successPromise = waitSense(nerve, "fragile.op", "corr-ok");
-		nerve.asNerve().motor.publish({ type: "fragile.op", payload: { fail: false }, correlationId: "corr-ok" });
+		const successPromise = waitEvent(nerve, "fragile.op", "corr-ok");
+		nerve.asBus().command.publish({ type: "fragile.op", payload: { fail: false }, correlationId: "corr-ok" });
 		const successResult = await successPromise;
 
 		expect(successResult.correlationId).toBe("corr-ok");

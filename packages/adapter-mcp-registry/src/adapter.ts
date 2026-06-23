@@ -93,7 +93,7 @@ export function createMcpRegistryOrgan(opts: McpRegistryAdapterOptions) {
 	return defineAdapter(
 		"mcp-registry",
 		{
-			motor: {
+			command: {
 				"mcp.search": typedAction(SEARCH_TOOL, async (ctx) => {
 					const { query, limit = 10 } = ctx.payload;
 

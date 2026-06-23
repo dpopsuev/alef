@@ -420,7 +420,7 @@ export function createShellOrgan(options: ShellOrganOptions): Adapter {
 	return defineAdapter(
 		"shell",
 		{
-			motor: { "shell.exec": typedStreamAction(SHELL_EXEC_TOOL, exec) },
+			command: { "shell.exec": typedStreamAction(SHELL_EXEC_TOOL, exec) },
 		},
 		{
 			actions: options.actions,
@@ -429,10 +429,14 @@ export function createShellOrgan(options: ShellOrganOptions): Adapter {
 			description: "Execute shell commands in the workspace.",
 			labels: ["shell", "exec", "process"],
 			contributions: {
-				port: { name: "shell", eventPattern: "motor/shell.", cardinality: "zero-or-one" } satisfies PortDefinition,
+				port: {
+					name: "shell",
+					eventPattern: "command/shell.",
+					cardinality: "zero-or-one",
+				} satisfies PortDefinition,
 			},
 			publishSchemas: {
-				sense: {
+				event: {
 					// Streaming: discriminate on isFinal — intermediate events carry chunk,
 					// final event carries output + exitCode.
 					"shell.exec": z.discriminatedUnion("isFinal", [

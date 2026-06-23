@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createDiscourseOrgan } from "../src/organ.js";
+import { createDiscourseOrgan } from "../src/adapter.js";
 import { DiscourseStore } from "../src/store.js";
 
 organComplianceSuite(() => createDiscourseOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-forum-compliance-")) }));

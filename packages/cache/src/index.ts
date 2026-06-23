@@ -1,1 +1,1 @@
-export { type CacheOrganOptions, createCacheOrgan } from "./organ.js";
+export { type CacheOrganOptions, createCacheOrgan } from "./adapter.js";

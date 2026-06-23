@@ -35,8 +35,8 @@ export interface TraceEvent {
 	level: TraceLevel;
 	/** Motor event type (e.g. "fs.read") or Sense event type or lifecycle signal. */
 	event: string;
-	/** "motor" | "sense" | "signal". */
-	bus: "motor" | "sense" | "signal";
+	/** "command" | "event" | "notification". */
+	bus: "command" | "event" | "notification";
 	/** Correlation ID threading Motor\u2192Sense pairs. */
 	correlationId?: string;
 	/** True when the Sense event carries isError:true. */
@@ -64,7 +64,7 @@ export class TraceRecorder implements BusObserver {
 		this.stream = createWriteStream(path, { flags: "w", encoding: "utf-8" });
 	}
 
-	onMotorEvent(event: BusMessage): void {
+	onCommand(event: BusMessage): void {
 		const p = event as unknown as { type?: string; correlationId?: string; payload?: Record<string, unknown> };
 		const type = p.type ?? "unknown";
 		// Skip internal dialog events \u2014 not tool calls
@@ -74,12 +74,12 @@ export class TraceRecorder implements BusObserver {
 			ts: new Date().toISOString(),
 			level: "debug",
 			event: type,
-			bus: "motor",
+			bus: "command",
 			correlationId: p.correlationId,
 		});
 	}
 
-	onSenseEvent(event: BusMessage): void {
+	onEvent(event: BusMessage): void {
 		const p = event as unknown as {
 			type?: string;
 			correlationId?: string;
@@ -98,7 +98,7 @@ export class TraceRecorder implements BusObserver {
 			ts: new Date().toISOString(),
 			level: p.isError ? "warn" : "debug",
 			event: type,
-			bus: "sense",
+			bus: "event",
 			correlationId: p.correlationId,
 			...(elapsedMs !== undefined && { elapsedMs }),
 			...(p.isError && { isError: true }),
@@ -119,7 +119,7 @@ export class TraceRecorder implements BusObserver {
 			ts: new Date().toISOString(),
 			level: "info",
 			event,
-			bus: "signal",
+			bus: "notification",
 			...(meta && { meta }),
 		});
 	}
@@ -192,13 +192,13 @@ export function summarizeTrace(events: TraceEvent[]): TraceSummary {
 	const errors: TraceEvent[] = [];
 
 	for (const e of events) {
-		if (e.bus === "motor") {
+		if (e.bus === "command") {
 			path.push(e.event);
 			if (!toolMap.has(e.event)) toolMap.set(e.event, { calls: 0, errors: 0, hits: 0, totalMs: 0, count: 0 });
 			const tm = toolMap.get(e.event);
 			if (tm) tm.calls++;
 		}
-		if (e.bus === "sense") {
+		if (e.bus === "event") {
 			if (e.isError) {
 				errors.push(e);
 				const t = toolMap.get(e.event);
@@ -253,7 +253,7 @@ export function summarizeTrace(events: TraceEvent[]): TraceSummary {
  * // fails if agent called: fs.grep \u2192 fs.edit  (no fs.read before edit)
  */
 export function assertPath(events: TraceEvent[], expectedTools: string[]): void {
-	const actual = events.filter((e) => e.bus === "motor").map((e) => e.event);
+	const actual = events.filter((e) => e.bus === "command").map((e) => e.event);
 
 	let ei = 0;
 	for (const expected of expectedTools) {
@@ -274,9 +274,9 @@ export function assertPath(events: TraceEvent[], expectedTools: string[]): void 
  * Simpler than assertPath when order doesn't matter.
  */
 export function assertToolInTrace(events: TraceEvent[], toolName: string): void {
-	const called = events.some((e) => e.bus === "motor" && e.event === toolName);
+	const called = events.some((e) => e.bus === "command" && e.event === toolName);
 	if (!called) {
-		const actual = events.filter((e) => e.bus === "motor").map((e) => e.event);
+		const actual = events.filter((e) => e.bus === "command").map((e) => e.event);
 		throw new Error(
 			`[assertToolInTrace] Tool "${toolName}" was not called.\n` + `  Actual path: [${actual.join(" \u2192 ")}]`,
 		);

@@ -1,4 +1,4 @@
-import type { Nerve, Organ } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import type { Context, FauxResponseFactory } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
@@ -33,7 +33,7 @@ function makeModel() {
  * Standard test harness: bare nerve, TurnDriver, LLM organ, optional BusEventRecorder.
  * Replaces the Agent + AgentController + organ-llm construction that appeared in every test.
  */
-function makeHarness(llm: Organ) {
+function makeHarness(llm: Adapter) {
 	const f = new NerveFixture();
 	const driver = new TurnDriver(f.nerve);
 	const recorder = f.observe();
@@ -161,15 +161,15 @@ describe.skipIf(SKIP)("Reasoner — real API", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		const { driver, recorder } = make(faux);
 		await driver.send("Say hi in one word.");
-		recorder.assertMotorEmitted("llm.response");
-		recorder.assertSenseEmitted("llm.input");
+		recorder.assertCommandEmitted("llm.response");
+		recorder.assertEventEmitted("llm.input");
 	}, 30_000);
 
 	it("llm.response payload contains the reply text", async () => {
 		const faux = registerFauxProvider();
 		const { driver, recorder } = make(faux);
 		await driver.send("What is 2+2? Reply with just the number.");
-		const msg = recorder.assertMotorEmitted("llm.response");
+		const msg = recorder.assertCommandEmitted("llm.response");
 		const payload = (msg as unknown as { payload: { text: string } }).payload;
 		expect(typeof payload.text).toBe("string");
 		expect(payload.text.length).toBeGreaterThan(0);
@@ -179,9 +179,9 @@ describe.skipIf(SKIP)("Reasoner — real API", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		const { driver, recorder } = make(faux);
 		await driver.send("Say yes.");
-		const input = recorder.assertMotorEmitted("llm.response");
-		const prompt = recorder.assertSenseEmitted("llm.input");
-		const msg = recorder.assertMotorEmitted("llm.response");
+		const input = recorder.assertCommandEmitted("llm.response");
+		const prompt = recorder.assertEventEmitted("llm.input");
+		const msg = recorder.assertCommandEmitted("llm.response");
 		expect(prompt.correlationId).toBe(input.correlationId);
 		expect(msg.correlationId).toBe(input.correlationId);
 	}, 30_000);
@@ -236,7 +236,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 		for (const d of disposes.splice(0)) d();
 	});
 
-	it("after error with maxRetries=0, motor/llm.response carries text reply", async () => {
+	it("after error with maxRetries=0, command/llm.response carries text reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" })]);
 		const f = new NerveFixture();
@@ -252,7 +252,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 		disposes.push(() => f.dispose());
 
 		await driver.send("do something", "user", 5_000);
-		const event = recorder.assertMotorEmitted("llm.response") as unknown as { payload: { text: string } };
+		const event = recorder.assertCommandEmitted("llm.response") as unknown as { payload: { text: string } };
 		expect(typeof event.payload.text).toBe("string");
 	});
 
@@ -271,7 +271,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
-		const event = recorder.assertMotorEmitted("llm.response") as unknown as {
+		const event = recorder.assertCommandEmitted("llm.response") as unknown as {
 			payload: { conversationHistory?: unknown[] };
 		};
 		expect(Array.isArray(event.payload.conversationHistory)).toBe(true);
@@ -280,16 +280,16 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 });
 
 // ---------------------------------------------------------------------------
-// motor/context.assemble seam
+// command/context.assemble seam
 // ---------------------------------------------------------------------------
 
-describe("Reasoner — motor/context.assemble seam", { tags: ["unit"] }, () => {
+describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () => {
 	const disposes: Array<() => void> = [];
 	afterEach(() => {
 		for (const d of disposes.splice(0)) d();
 	});
 
-	it("disabled by default (phaseTimeoutMs=0): no motor/context.assemble published", async () => {
+	it("disabled by default (phaseTimeoutMs=0): no command/context.assemble published", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const f = new NerveFixture();
@@ -304,10 +304,10 @@ describe("Reasoner — motor/context.assemble seam", { tags: ["unit"] }, () => {
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
-		expect(recorder.motor.filter((e) => e.type === "context.assemble")).toHaveLength(0);
+		expect(recorder.command.filter((e) => e.type === "context.assemble")).toHaveLength(0);
 	});
 
-	it("publishes motor/context.assemble before each LLM call when phaseTimeoutMs > 0", async () => {
+	it("publishes command/context.assemble before each LLM call when phaseTimeoutMs > 0", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
 		const f = new NerveFixture();
@@ -323,14 +323,14 @@ describe("Reasoner — motor/context.assemble seam", { tags: ["unit"] }, () => {
 		disposes.push(() => f.dispose());
 
 		await driver.send("hi", "user", 5_000);
-		const phaseEvents = recorder.motor.filter((e) => e.type === "context.assemble");
+		const phaseEvents = recorder.command.filter((e) => e.type === "context.assemble");
 		expect(phaseEvents.length).toBeGreaterThanOrEqual(1);
 		const first = phaseEvents[0] as unknown as { payload: { messages: unknown[]; turn: number } };
 		expect(first.payload.turn).toBe(1);
 		expect(Array.isArray(first.payload.messages)).toBe(true);
 	});
 
-	it("phase organ receives messages and its sense/context.assemble reply is awaited", async () => {
+	it("phase organ receives messages and its event/context.assemble reply is awaited", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
 		const f = new NerveFixture();
@@ -344,13 +344,13 @@ describe("Reasoner — motor/context.assemble seam", { tags: ["unit"] }, () => {
 			labels: [] as const,
 			tools: [] as const,
 			publishSchemas: {} as const,
-			subscriptions: { motor: ["context.assemble"] as const, sense: [] as const },
+			subscriptions: { command: ["context.assemble"] as const, event: [] as const },
 			sources: [],
-			mount(nerve: Nerve) {
-				nerve.motor.subscribe("context.assemble", (event) => {
+			mount(nerve: Bus) {
+				nerve.command.subscribe("context.assemble", (event) => {
 					const payload = event.payload as { messages: unknown[] };
 					phaseReceivedMessages = payload.messages;
-					nerve.sense.publish({
+					nerve.event.publish({
 						type: "context.assemble",
 						payload: { messages: payload.messages },
 						correlationId: event.correlationId,
@@ -373,7 +373,7 @@ describe("Reasoner — motor/context.assemble seam", { tags: ["unit"] }, () => {
 
 		await driver.send("hi", "user", 5_000);
 		expect(phaseReceivedMessages.length).toBeGreaterThan(0);
-		recorder.assertMotorEmitted("llm.response");
+		recorder.assertCommandEmitted("llm.response");
 	});
 
 	it("proceeds with original messages when phase organ times out", async () => {
@@ -396,7 +396,7 @@ describe("Reasoner — motor/context.assemble seam", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// motor/context.assemble: skip, abort, llm.result
+// command/context.assemble: skip, abort, llm.result
 // ---------------------------------------------------------------------------
 
 describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, () => {
@@ -417,12 +417,12 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 			labels: [] as const,
 			tools: [] as const,
 			publishSchemas: {} as const,
-			subscriptions: { motor: ["context.assemble"] as const, sense: [] as const },
+			subscriptions: { command: ["context.assemble"] as const, event: [] as const },
 			sources: [],
-			mount(nerve: Nerve) {
-				nerve.motor.subscribe("context.assemble", (event) => {
+			mount(nerve: Bus) {
+				nerve.command.subscribe("context.assemble", (event) => {
 					handler(event.payload as { messages: unknown[]; turn: number }, (response) => {
-						nerve.sense.publish({
+						nerve.event.publish({
 							type: "context.assemble",
 							payload: response,
 							correlationId: event.correlationId,
@@ -458,7 +458,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		expect(result).toBe("phase shortcut");
 	});
 
-	it("skip: phase.skip publishes motor/llm.response with the skip reply text", async () => {
+	it("skip: phase.skip publishes command/llm.response with the skip reply text", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new NerveFixture();
@@ -477,7 +477,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		);
 		disposes.push(() => f.dispose());
 
-		f.nerve.asNerve().sense.publish({
+		f.nerve.asBus().event.publish({
 			type: "llm.input",
 			correlationId: "test-corr",
 			payload: { text: "trigger", sender: "system" },
@@ -485,7 +485,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		});
 		await new Promise<void>((r) => setTimeout(r, 1_000));
 
-		const replies = recorder.motor.filter((e) => e.type === "llm.response");
+		const replies = recorder.command.filter((e) => e.type === "llm.response");
 		expect(replies).toHaveLength(1);
 		expect((replies[0] as unknown as { payload: { text: string } }).payload.text).toBe("ambient shortcut");
 	}, 5_000);
@@ -511,11 +511,11 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		disposes.push(() => f.dispose());
 
 		const result = await driver.send("hi", "user", 2_000).catch(() => "timeout");
-		expect(recorder.motor.filter((e) => e.type === "llm.response")).toHaveLength(0);
+		expect(recorder.command.filter((e) => e.type === "llm.response")).toHaveLength(0);
 		expect(result).toBeDefined();
 	});
 
-	it("motor/llm.result fires after each LLM response with response and toolCalls", async () => {
+	it("command/llm.result fires after each LLM response with response and toolCalls", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const f = new NerveFixture();
@@ -531,7 +531,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 
 		await driver.send("hi", "user", 5_000);
 
-		const resultEvents = recorder.signal.filter((e) => e.type === "llm.result");
+		const resultEvents = recorder.notification.filter((e) => e.type === "llm.result");
 		expect(resultEvents.length).toBeGreaterThanOrEqual(1);
 		const first = resultEvents[0] as unknown as {
 			payload: { response: Record<string, unknown>; toolCalls: unknown[]; turn: number };
@@ -552,7 +552,7 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 		for (const d of disposes.splice(0)) d();
 	});
 
-	it("fires on sense/llm.input and replies on motor/llm.response", async () => {
+	it("fires on event/llm.input and replies on command/llm.response", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello from llm")]);
 		const f = new NerveFixture();
@@ -563,8 +563,8 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 
 		const reply = await driver.send("hi", "user", 5_000);
 		expect(reply).toBe("hello from llm");
-		expect(recorder.motor.find((e) => e.type === "llm.response")).toBeDefined();
-		expect(recorder.sense.find((e) => e.type === "llm.input")).toBeDefined();
+		expect(recorder.command.find((e) => e.type === "llm.response")).toBeDefined();
+		expect(recorder.event.find((e) => e.type === "llm.input")).toBeDefined();
 	});
 
 	it("conversation trigger still works with defaults", async () => {
@@ -590,29 +590,29 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
-	it("declares wildcard motor+sense subscriptions when trackConcurrentOps=true", () => {
+	it("declares wildcard command+event subscriptions when trackConcurrentOps=true", () => {
 		const llm = createAgentLoop({ model: makeModel(), trackConcurrentOps: true });
-		expect(llm.subscriptions.motor).toContain("*");
-		expect(llm.subscriptions.sense).toContain("*");
+		expect(llm.subscriptions.command).toContain("*");
+		expect(llm.subscriptions.event).toContain("*");
 	});
 
 	it("does not declare wildcard subscriptions when trackConcurrentOps=false", () => {
 		const llm = createAgentLoop({ model: makeModel() });
-		expect(llm.subscriptions.motor).not.toContain("*");
-		expect(llm.subscriptions.sense).not.toContain("*");
+		expect(llm.subscriptions.command).not.toContain("*");
+		expect(llm.subscriptions.event).not.toContain("*");
 	});
 
 	it("injects Pending operations into prepareStep output when inflight ops exist", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
 
-		const concurrentOrgan: Organ = {
+		const concurrentOrgan: Adapter = {
 			name: "concurrent-sim",
 			tools: [],
-			subscriptions: { motor: [], sense: [] },
+			subscriptions: { command: [], event: [] },
 			sources: [],
-			mount(nerve: Nerve) {
-				nerve.motor.publish({
+			mount(nerve: Bus) {
+				nerve.command.publish({
 					type: "fs.read",
 					correlationId: "concurrent-turn-abc",
 					payload: { path: "/test/file.ts" },
@@ -642,7 +642,7 @@ describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
 // Schema validation hang regression
 // ---------------------------------------------------------------------------
 
-import { defineOrgan, typedAction } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
@@ -650,10 +650,10 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		const f = new NerveFixture();
 
-		const strictOrgan = defineOrgan(
+		const strictOrgan = defineAdapter(
 			"strict",
 			{
-				motor: {
+				command: {
 					"strict.op": typedAction(
 						{
 							name: "strict.op",
@@ -741,12 +741,12 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve);
 
-		// A stub organ that subscribes to motor/hung_tool but never publishes a sense reply
+		// A stub organ that subscribes to command/hung_tool but never publishes an event reply
 		const { z } = await import("zod");
-		const hungOrgan = defineOrgan(
+		const hungOrgan = defineAdapter(
 			"hung",
 			{
-				motor: {
+				command: {
 					hung_tool: {
 						tool: { name: "hung_tool", description: "Never responds.", inputSchema: z.object({}) },
 						handle: (): AsyncIterable<Record<string, unknown>> =>
@@ -763,10 +763,10 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 			},
 		);
 
-		f.nerve.asNerve().signal.subscribe("llm.tool-start", () => {
+		f.nerve.asBus().notification.subscribe("llm.tool-start", () => {
 			capturedEvents.push({ type: "tool-start" });
 		});
-		f.nerve.asNerve().signal.subscribe("llm.tool-end", (event) => {
+		f.nerve.asBus().notification.subscribe("llm.tool-end", (event) => {
 			capturedEvents.push({
 				type: "tool-end",
 				ok: Boolean(event.payload.ok),
@@ -813,10 +813,10 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const { typedStreamAction } = await import("@dpopsuev/alef-kernel");
 
 		// A streaming organ that yields three intermediate chunks then a final result
-		const streamingOrgan = defineOrgan(
+		const streamingOrgan = defineAdapter(
 			"streamer",
 			{
-				motor: {
+				command: {
 					"streamer.run": typedStreamAction(
 						{
 							name: "streamer.run",
@@ -843,11 +843,11 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const f = new NerveFixture();
 		const driver = new TurnDriver(f.nerve, undefined, undefined, streamingOrgan.tools);
 
-		f.nerve.asNerve().signal.subscribe("llm.tool-chunk", (event) => {
+		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			eventOrder.push("tool-chunk");
 			capturedChunks.push(String((event as { payload: Record<string, unknown> }).payload.text ?? ""));
 		});
-		f.nerve.asNerve().signal.subscribe("llm.tool-end", () => {
+		f.nerve.asBus().notification.subscribe("llm.tool-end", () => {
 			eventOrder.push("tool-end");
 		});
 		f.mount(
@@ -880,7 +880,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 
 describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 	it("fires onStall after stallIntervalMs with no chunks, before timeout", async () => {
-		// Given: a sense bus where the tool never responds (simulating a hung subagent)
+		// Given: an event bus where the tool never responds (simulating a hung subagent)
 		const f = new NerveFixture();
 		const correlationId = "corr-stall-test";
 		const toolCallId = "tc-stall-1";
@@ -889,7 +889,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 
 		// When: waitForToolResult with a 200ms stall interval and 600ms timeout
 		const resultPromise = waitForToolResult({
-			sense: f.nerve.asNerve().sense,
+			sense: f.nerve.asBus().event,
 			toolName: "stall.test",
 			toolCallId,
 			correlationId,
@@ -913,7 +913,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 	}, 3_000);
 
 	it("stall resets when a chunk arrives — onStall does not fire after chunk", async () => {
-		// Given: a sense bus that sends one isFinal:false chunk then goes silent
+		// Given: an event bus that sends one isFinal:false chunk then goes silent
 		const f = new NerveFixture();
 		const correlationId = "corr-stall-reset";
 		const toolCallId = "tc-stall-2";
@@ -922,7 +922,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 		const chunks: string[] = [];
 
 		const resultPromise = waitForToolResult({
-			sense: f.nerve.asNerve().sense,
+			sense: f.nerve.asBus().event,
 			toolName: "stall.reset",
 			toolCallId,
 			correlationId,
@@ -934,7 +934,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 
 		// Emit one chunk at 50ms — resets the stall clock
 		setTimeout(() => {
-			f.nerve.asNerve().sense.publish({
+			f.nerve.asBus().event.publish({
 				type: "stall.reset",
 				correlationId,
 				payload: { toolCallId, isFinal: false, text: "working..." },
@@ -1018,7 +1018,7 @@ describe("organ-llm — ambient steering", { tags: ["unit"] }, () => {
 		// Wait a tick to let any concurrent second turn settle.
 		await new Promise((r) => setTimeout(r, 50));
 
-		const motorDialogEvents = recorder.motor.filter((e) => e.type === "llm.response");
+		const motorDialogEvents = recorder.command.filter((e) => e.type === "llm.response");
 		// Only one motor reply must have been published — the second sense event was buffered, not run.
 		expect(
 			motorDialogEvents.length,

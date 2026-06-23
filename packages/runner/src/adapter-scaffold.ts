@@ -12,8 +12,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-function writeOrganSource(name: string): string {
-	return `import { defineOrgan } from "@dpopsuev/alef-kernel";
+function writeAdapterSource(name: string): string {
+	return `import { defineAdapter } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
 const HELLO_TOOL = {
@@ -22,20 +22,22 @@ const HELLO_TOOL = {
 	inputSchema: z.object({ name: z.string().optional().describe("Name to greet") }),
 };
 
-export function createOrgan() {
-	return defineOrgan(
+export function createAdapter() {
+	return defineAdapter(
 		"${name}",
 		{
-			"motor/${name}.hello": {
-				tool: HELLO_TOOL,
-				handle: async (ctx) => {
-					const { name = "world" } = ctx.payload as { name?: string };
-					return { message: \`Hello, \${name}!\` };
+			command: {
+				"${name}.hello": {
+					tool: HELLO_TOOL,
+					handle: async (ctx) => {
+						const { name = "world" } = ctx.payload as { name?: string };
+						return { message: \`Hello, \${name}!\` };
+					},
 				},
 			},
 		},
 		{
-			description: "${name} organ — describe what this organ does in one sentence.",
+			description: "${name} adapter — describe what this adapter does in one sentence.",
 			directives: [
 				"Use ${name}.hello to greet a user or entity by name. " +
 					"Pass the name field when you know who to greet; omit it for a generic greeting.",
@@ -122,7 +124,7 @@ export function scaffoldAdapter(name: string, cwd: string, version = "0.1.0"): s
 
 	mkdirSync(srcDir, { recursive: true });
 
-	writeFileSync(join(srcDir, "organ.ts"), writeOrganSource(name), "utf-8");
+	writeFileSync(join(srcDir, "organ.ts"), writeAdapterSource(name), "utf-8");
 	writeFileSync(join(dir, "package.json"), writePackageJson(name, version), "utf-8");
 	writeFileSync(join(dir, "tsconfig.json"), writeTsConfig(), "utf-8");
 	writeFileSync(join(dir, "README.md"), writeReadme(name), "utf-8");

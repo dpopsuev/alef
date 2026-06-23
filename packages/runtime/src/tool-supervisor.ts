@@ -36,23 +36,23 @@ export class ToolSupervisor {
 	private readonly managed = new Map<string, ManagedService>();
 	private bootOrder: string[] = [];
 	private started = false;
-	private nerve: Bus | null = null;
+	private bus: Bus | null = null;
 
 	constructor(config: SupervisorConfig) {
 		this.config = config;
 	}
 
-	async start(nerve: Bus): Promise<void> {
+	async start(bus: Bus): Promise<void> {
 		if (this.started) throw new Error("ToolSupervisor already started");
 		this.started = true;
-		this.nerve = nerve;
+		this.bus = bus;
 
 		this.bootOrder = topoSort(this.config.services);
 		debugLog("fleet:start", { order: this.bootOrder });
 
 		for (const name of this.bootOrder) {
 			const cfg = this.config.services[name];
-			await this.bootService(name, cfg, nerve);
+			await this.bootService(name, cfg, bus);
 		}
 	}
 
@@ -75,7 +75,7 @@ export class ToolSupervisor {
 		}
 
 		this.started = false;
-		this.nerve = null;
+		this.bus = null;
 	}
 
 	get(name: string): Adapter | undefined {
@@ -90,10 +90,10 @@ export class ToolSupervisor {
 		return [...this.managed.keys()];
 	}
 
-	private async bootService(name: string, cfg: ToolServiceConfig, nerve: Bus): Promise<void> {
+	private async bootService(name: string, cfg: ToolServiceConfig, bus: Bus): Promise<void> {
 		const resolvedEnv = this.resolveEnv(name, cfg);
 		const adapter = await this.spawnService(name, cfg, resolvedEnv);
-		const cleanup = adapter.mount(nerve);
+		const cleanup = adapter.mount(bus);
 
 		const svc: ManagedService = {
 			name,
@@ -111,8 +111,8 @@ export class ToolSupervisor {
 
 		this.managed.set(name, svc);
 
-		nerve.event.publish({
-			type: "organ.loaded",
+		bus.event.publish({
+			type: "adapter.loaded",
 			correlationId: `fleet-${name}`,
 			payload: {
 				name,
@@ -126,7 +126,7 @@ export class ToolSupervisor {
 
 	private async healthCheck(name: string): Promise<void> {
 		const svc = this.managed.get(name);
-		if (!svc || !this.nerve) return;
+		if (!svc || !this.bus) return;
 
 		try {
 			const adapter = svc.adapter as unknown as { client?: { ping?: () => Promise<void> } };
@@ -141,7 +141,7 @@ export class ToolSupervisor {
 
 	private async restartService(name: string): Promise<void> {
 		const svc = this.managed.get(name);
-		if (!svc || !this.nerve) return;
+		if (!svc || !this.bus) return;
 
 		const policy = svc.config.restart ?? "temporary";
 		if (policy === "temporary") return;
@@ -167,7 +167,7 @@ export class ToolSupervisor {
 		await new Promise((r) => setTimeout(r, backoff));
 
 		try {
-			await this.bootService(name, svc.config, this.nerve);
+			await this.bootService(name, svc.config, this.bus);
 			debugLog("fleet:service:restarted", { name });
 		} catch (err: unknown) {
 			debugLog("fleet:service:restart:failed", { name, error: String(err) });

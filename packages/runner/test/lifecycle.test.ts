@@ -1,19 +1,19 @@
 /**
  * Full Alef lifecycle integration test.
  *
- * Exercises the complete organ stack end-to-end without a real LLM or API key:
+ * Exercises the complete adapter stack end-to-end without a real LLM or API key:
  *
- * Boot → POST /message via RouterOrgan HTTP
+ * Boot → POST /message via RouterAdapter HTTP
  * → ScriptedReasoner calls real fs.read tool
- * → SSE stream delivers motor + sense events
+ * → SSE stream delivers command + event messages
  * → SessionLog writes StorageRecord to JSONL
  * → TurnAssembler reconstructs turn from JSONL
  * → Multi-turn: AgentController accumulates history
  * → SSE filter: allowedEvents blocks internal events
  * → Session resume: reload JSONL, history intact
  *
- * No real LLM. No API key. All organ handlers execute for real.
- * RouterOrgan binds on port 0 (OS-assigned). Cleanup via tmpdir per test.
+ * No real LLM. No API key. All adapter handlers execute for real.
+ * RouterAdapter binds on port 0 (OS-assigned). Cleanup via tmpdir per test.
  *
  */
 
@@ -26,7 +26,7 @@ import { createRouterOrgan } from "@dpopsuev/alef-gateway";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { ScriptedReasoner, type ScriptStep, step } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { SessionLog } from "../src/event-log-organ.js";
+import { SessionLog } from "../src/event-log-adapter.js";
 import { JsonlSessionStore } from "../src/session-store.js";
 import { assembleTurns } from "../src/turn-assembler.js";
 
@@ -119,7 +119,7 @@ function collectSse(
 }
 
 // ---------------------------------------------------------------------------
-// Test fixture — boots the full organ stack in-process
+// Test fixture — boots the full adapter stack in-process
 // ---------------------------------------------------------------------------
 
 interface Fixture {
@@ -201,7 +201,7 @@ describe("Lifecycle — boot and serve", { tags: ["integration"] }, () => {
 });
 
 describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }, () => {
-	it("POST /message → agent reply arrives on SSE as motor/llm.response", async () => {
+	it("POST /message → agent reply arrives on SSE as command/llm.response", async () => {
 		// bootFixture uses controller.send directly (no HTTP /message wiring in-process).
 		// This test verifies that the agent's scripted reply is broadcast over SSE.
 		const fix = await bootFixture({ script: step.reply("I am ready.") });
@@ -210,7 +210,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 				fix.baseUrl,
 				(ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "llm.response" && e.payload?.text === "I am ready.";
+					return e.bus === "command" && e.type === "llm.response" && e.payload?.text === "I am ready.";
 				},
 				1,
 			);
@@ -221,7 +221,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 			const events = await ssePromise;
 			expect(events).toHaveLength(1);
 			const ev = events[0] as { bus: string; type: string; payload: Record<string, unknown> };
-			expect(ev.bus).toBe("motor");
+			expect(ev.bus).toBe("command");
 			expect(ev.type).toBe("llm.response");
 			expect(ev.payload.text).toBe("I am ready.");
 		} finally {
@@ -229,7 +229,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 		}
 	});
 
-	it("ScriptedReasoner tool call — sense/fs.read arrives on SSE", async () => {
+	it("ScriptedReasoner tool call — event/fs.read arrives on SSE", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "I read the README."),
 		});
@@ -237,7 +237,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 			const ssePromise = collectSse(
 				fix.baseUrl,
 				(ev) =>
-					(ev as { bus?: string; type?: string }).bus === "sense" && (ev as { type?: string }).type === "fs.read",
+					(ev as { bus?: string; type?: string }).bus === "event" && (ev as { type?: string }).type === "fs.read",
 				1,
 			);
 
@@ -248,7 +248,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 
 			// SSE delivered the tool result.
 			const fsReadEv = events[0] as { bus: string; type: string; payload: Record<string, unknown> };
-			expect(fsReadEv.bus).toBe("sense");
+			expect(fsReadEv.bus).toBe("event");
 			expect(fsReadEv.type).toBe("fs.read");
 			expect(typeof fsReadEv.payload.content).toBe("string");
 			expect(fsReadEv.payload.content).toContain("Alef");
@@ -260,7 +260,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 		}
 	});
 
-	it("scripted reply appears on SSE as motor/llm.response from agent", async () => {
+	it("scripted reply appears on SSE as command/llm.response from agent", async () => {
 		const fix = await bootFixture({ script: step.reply("task complete") });
 		try {
 			// Collect agent reply on SSE (role=assistant marker in reply payload).
@@ -268,7 +268,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 				fix.baseUrl,
 				(ev) => {
 					const e = ev as { bus?: string; type?: string; payload?: { text?: string } };
-					return e.bus === "motor" && e.type === "llm.response" && e.payload?.text === "task complete";
+					return e.bus === "command" && e.type === "llm.response" && e.payload?.text === "task complete";
 				},
 				1,
 			);
@@ -285,7 +285,7 @@ describe("Lifecycle — POST /message → SSE stream", { tags: ["integration"] }
 });
 
 describe("Lifecycle — JSONL persistence (SessionLog)", { tags: ["integration"] }, () => {
-	it("motor and sense events are written to JSONL after a turn", async () => {
+	it("command and event messages are written to JSONL after a turn", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
 		});
@@ -304,14 +304,14 @@ describe("Lifecycle — JSONL persistence (SessionLog)", { tags: ["integration"]
 			}
 
 			// Sensitive fields are redacted (none in this test, but hash proves redaction ran).
-			const fsReadSense = records.find((r) => r.bus === "sense" && r.type === "fs.read");
-			expect(fsReadSense).toBeDefined();
+			const fsReadEvent = records.find((r) => r.bus === "event" && r.type === "fs.read");
+			expect(fsReadEvent).toBeDefined();
 		} finally {
 			await fix.unmountAgent();
 		}
 	});
 
-	it("StorageRecords contain both motor and sense events for the tool call", async () => {
+	it("StorageRecords contain both command and event messages for the tool call", async () => {
 		const fix = await bootFixture({
 			script: step.toolCall("fs.read", { path: "README.md" }, "done"),
 		});
@@ -322,11 +322,11 @@ describe("Lifecycle — JSONL persistence (SessionLog)", { tags: ["integration"]
 			const records = await fix.store.events();
 			const types = records.map((r) => `${r.bus}/${r.type}`);
 
-			// Motor: user message, tool call request, agent reply
-			expect(types).toContain("sense/llm.input"); // user input on sense bus
-			expect(types).toContain("motor/fs.read"); // tool call request
-			expect(types).toContain("sense/fs.read"); // tool result
-			expect(types).toContain("motor/llm.response"); // agent reply
+			// Command: user message, tool call request, agent reply
+			expect(types).toContain("event/llm.input"); // user input on event bus
+			expect(types).toContain("command/fs.read"); // tool call request
+			expect(types).toContain("event/fs.read"); // tool result
+			expect(types).toContain("command/llm.response"); // agent reply
 		} finally {
 			await fix.unmountAgent();
 		}
@@ -383,7 +383,7 @@ describe("Lifecycle — TurnAssembler session resume", { tags: ["integration"] }
 });
 
 describe("Lifecycle — multi-turn context accumulation", { tags: ["integration"] }, () => {
-	it("session store accumulates motor and sense events across two turns", async () => {
+	it("session store accumulates command and event messages across two turns", async () => {
 		const fix = await bootFixture({
 			script: [step.reply("first answer"), step.reply("second answer")],
 		});
@@ -508,7 +508,7 @@ describe("Lifecycle — audit log integrity", { tags: ["integration"] }, () => {
 
 			const records = await fix.store.events();
 			// fs.read payload should have content (not redacted — it's not sensitive).
-			const fsRead = records.find((r) => r.type === "fs.read" && r.bus === "sense");
+			const fsRead = records.find((r) => r.type === "fs.read" && r.bus === "event");
 			expect(fsRead).toBeDefined();
 			expect(fsRead!.payload.content).toBeTruthy();
 		} finally {

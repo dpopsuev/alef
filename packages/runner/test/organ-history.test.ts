@@ -30,21 +30,21 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 
 	it("returns fs events for organHistory('fs')", async () => {
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "fs.read",
 			correlationId: "c1",
 			payload: { path: "/a.ts" },
 			timestamp: 1,
 		});
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "fs.write",
 			correlationId: "c2",
 			payload: { path: "/b.ts" },
 			timestamp: 2,
 		});
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "shell.exec",
 			correlationId: "c3",
 			payload: { command: "ls" },
@@ -58,14 +58,14 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 
 	it("returns shell events for organHistory('shell')", async () => {
 		await store.append({
-			bus: "motor",
+			bus: "command",
 			type: "shell.exec",
 			correlationId: "c4",
 			payload: { command: "npm test" },
 			timestamp: 4,
 		});
 		await store.append({
-			bus: "sense",
+			bus: "event",
 			type: "shell.exec",
 			correlationId: "c4",
 			payload: { output: "ok" },
@@ -79,7 +79,7 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 	});
 
 	it("returns empty array for unknown organ name", async () => {
-		await store.append({ bus: "motor", type: "fs.read", correlationId: "c5", payload: {}, timestamp: 5 });
+		await store.append({ bus: "command", type: "fs.read", correlationId: "c5", payload: {}, timestamp: 5 });
 		const history = await store.organHistory("nonexistent");
 		expect(history).toHaveLength(0);
 	});
@@ -87,7 +87,7 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 	it("SessionStore interface includes organHistory", async () => {
 		const memStore = new InMemorySessionStore();
 		await memStore.append({
-			bus: "motor",
+			bus: "command",
 			type: "web.search",
 			correlationId: "c6",
 			payload: { query: "ona" },

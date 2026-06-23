@@ -3,7 +3,7 @@
  *
  * These tests prove the full blueprint testing framework:
  * - Simple text replies (no tool calls)
- * - Tool calls with real organ execution
+ * - Tool calls with real adapter execution
  * - Assertions on tool call patterns
  * - Multi-turn conversations
  * - Blueprint file loading
@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFsOrgan } from "../../adapter-fs/src/index.js";
+import { createFsOrgan as createFsAdapter } from "../../adapter-fs/src/index.js";
 import { BlueprintHarness } from "../src/blueprint-harness.js";
 import { step } from "../src/script.js";
 
@@ -91,10 +91,10 @@ describe("BlueprintHarness — simple reply (no tools)", { tags: ["unit"] }, () 
 });
 
 // ---------------------------------------------------------------------------
-// ScriptedReasoner — tool calls with real organ execution
+// ScriptedReasoner — tool calls with real adapter execution
 // ---------------------------------------------------------------------------
 
-describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit"] }, () => {
+describe("BlueprintHarness — tool calls (real adapter handlers)", { tags: ["unit"] }, () => {
 	it("executes fs.read and collects result before replying", async () => {
 		const cwd = tmpDir();
 		writeFileSync(join(cwd, "auth.ts"), "export function login(): boolean { return true; }");
@@ -102,7 +102,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit
 		const h = track(
 			BlueprintHarness.create({
 				cwd,
-				organs: [createFsOrgan({ cwd })],
+				organs: [createFsAdapter({ cwd })],
 				script: [step.toolCall("fs.read", { path: "auth.ts" }, "I read the file.")],
 			}),
 		);
@@ -119,7 +119,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit
 		const h = track(
 			BlueprintHarness.create({
 				cwd,
-				organs: [createFsOrgan({ cwd })],
+				organs: [createFsAdapter({ cwd })],
 				script: [step.toolCall("fs.read", { path: "config.ts" }, "Done.")],
 			}),
 		);
@@ -149,7 +149,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit
 		const h = track(
 			BlueprintHarness.create({
 				cwd,
-				organs: [createFsOrgan({ cwd })],
+				organs: [createFsAdapter({ cwd })],
 				script: [
 					step.toolCalls(
 						[
@@ -165,7 +165,7 @@ describe("BlueprintHarness — tool calls (real organ handlers)", { tags: ["unit
 		const reply = await h.send({ text: "read a and b" });
 		expect(reply).toBe("Read both files.");
 
-		const fsReadCalls = h.motorEvents.filter((e) => e.type === "fs.read");
+		const fsReadCalls = h.commandEvents.filter((e) => e.type === "fs.read");
 		expect(fsReadCalls).toHaveLength(2);
 	});
 });
@@ -227,7 +227,7 @@ describe("BlueprintHarness.fromBlueprint()", { tags: ["unit"] }, () => {
 // ---------------------------------------------------------------------------
 
 describe("BlueprintHarness — event observation", { tags: ["unit"] }, () => {
-	it("motorEvents cleared between send() calls", async () => {
+	it("commandEvents cleared between send() calls", async () => {
 		const cwd = tmpDir();
 		const h = track(
 			BlueprintHarness.create({
@@ -237,10 +237,10 @@ describe("BlueprintHarness — event observation", { tags: ["unit"] }, () => {
 		);
 
 		await h.send({ text: "turn 1" });
-		const firstMotorCount = h.motorEvents.length;
+		const firstCommandCount = h.commandEvents.length;
 
 		await h.send({ text: "turn 2" });
-		// motorEvents is cleared at each send() — so count resets
-		expect(h.motorEvents.length).toBeLessThanOrEqual(firstMotorCount + 2);
+		// commandEvents is cleared at each send() — so count resets
+		expect(h.commandEvents.length).toBeLessThanOrEqual(firstCommandCount + 2);
 	});
 });

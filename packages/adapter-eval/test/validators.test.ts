@@ -3,10 +3,10 @@ import type { TranscriptEvent } from "../src/types.js";
 import { runValidators } from "../src/validators.js";
 
 function motorEvent(type: string, text?: string): TranscriptEvent {
-	return { bus: "motor", type, text };
+	return { bus: "command", type, text };
 }
 function senseEvent(type: string, text?: string): TranscriptEvent {
-	return { bus: "sense", type, text };
+	return { bus: "event", type, text };
 }
 
 describe("runValidators", { tags: ["unit"] }, () => {

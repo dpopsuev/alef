@@ -35,9 +35,9 @@ describe("migrateJsonlToSqlite", { tags: ["unit"] }, () => {
 		const sessionDir = join(sessionRoot, cwdHash);
 
 		writeJsonl(join(sessionDir, `${sessionId}.jsonl`), [
-			{ bus: "motor", type: "fs.read", correlationId: "corr-1", payload: { path: "/tmp" }, timestamp: 1000 },
-			{ bus: "sense", type: "fs.read", correlationId: "corr-1", payload: { content: "hi" }, timestamp: 1001 },
-			{ bus: "motor", type: "shell.exec", correlationId: "corr-2", payload: { cmd: "ls" }, timestamp: 1002 },
+			{ bus: "command", type: "fs.read", correlationId: "corr-1", payload: { path: "/tmp" }, timestamp: 1000 },
+			{ bus: "event", type: "fs.read", correlationId: "corr-1", payload: { content: "hi" }, timestamp: 1001 },
+			{ bus: "command", type: "shell.exec", correlationId: "corr-2", payload: { cmd: "ls" }, timestamp: 1002 },
 		]);
 
 		vi.stubGlobal("process", { ...process, env: { ...process.env, HOME: tmpdir() } });

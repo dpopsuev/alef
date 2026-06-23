@@ -15,7 +15,7 @@
  * the seam's event pattern. Wildcards in action keys (command/*) cover all command seams.
  *
  * EIP: PortRegistry implements the Content-Based Router pattern at boot time —
- * routing organs to seams based on their declared action map key prefixes.
+ * routing adapters to seams based on their declared action map key prefixes.
  */
 
 import type { PortCardinality, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
@@ -43,7 +43,7 @@ export interface PortValidationResult {
 
 /**
  * Returns the action map keys an adapter covers.
- * Organs created with defineOrgan expose their keys via the internal structure.
+ * Adapters created with defineAdapter expose their keys via the internal structure.
  * We detect coverage by inspecting the Bus subscriptions at mount time.
  *
  * Strategy: mount the adapter onto a probe bus, record which event types it
@@ -59,7 +59,7 @@ export interface AdapterPortInfo {
 // Seam matching
 // ---------------------------------------------------------------------------
 
-function organCoversPort(info: AdapterPortInfo, seam: PortDefinition): boolean {
+function adapterCoversPort(info: AdapterPortInfo, seam: PortDefinition): boolean {
 	const pattern = seam.eventPattern;
 
 	if (pattern.startsWith("command/")) {
@@ -93,7 +93,7 @@ export function validatePorts(adapters: AdapterPortInfo[], seams: PortDefinition
 	const violations: PortViolation[] = [];
 
 	for (const seam of seams) {
-		const covering = adapters.filter((o) => organCoversPort(o, seam));
+		const covering = adapters.filter((o) => adapterCoversPort(o, seam));
 		const count = covering.length;
 		const names = covering.map((o) => o.name);
 
@@ -126,7 +126,7 @@ export function validatePorts(adapters: AdapterPortInfo[], seams: PortDefinition
 				message: `Seam '${seam.name}' (${seam.eventPattern}) expects at most one adapter but got ${count}: [${names.join(", ")}]. Behaviour is undefined.`,
 			});
 		}
-		// "ordered-pipeline": multiple organs intentional — no violation.
+		// "ordered-pipeline": multiple adapters intentional — no violation.
 	}
 
 	return {

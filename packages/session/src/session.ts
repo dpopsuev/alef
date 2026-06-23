@@ -47,7 +47,7 @@ export type AgentEvent =
 	| { type: "task-progress"; taskId: string; chunk: string }
 	| { type: "task-completed"; taskId: string; profile: string; reply: string; elapsedMs: number }
 	| { type: "task-failed"; taskId: string; profile: string; error: string; elapsedMs: number }
-	| { type: "organ-signal"; signalType: string; payload: Record<string, unknown> };
+	| { type: "adapter-signal"; signalType: string; payload: Record<string, unknown> };
 
 // ---------------------------------------------------------------------------
 // DirectiveView — the minimal surface Session exposes from the directive system.
@@ -85,10 +85,10 @@ export interface Session {
 
 	setTurnController(ctrl: AbortController | undefined): void;
 
-	loadOrgan?(path: string): Promise<void>;
-	unloadOrgan?(name: string): boolean;
-	reloadOrgan?(name: string, path: string): Promise<void>;
-	readonly organs?: ReadonlyArray<{ name: string; description?: string }>;
+	loadAdapter?(path: string): Promise<void>;
+	unloadAdapter?(name: string): boolean;
+	reloadAdapter?(name: string, path: string): Promise<void>;
+	readonly adapters?: ReadonlyArray<{ name: string; description?: string }>;
 
 	dispose(): void;
 
@@ -110,9 +110,9 @@ export function canSend(session: Session): session is Session & { send: NonNulla
 	return typeof session.send === "function";
 }
 
-export function canManageOrgans(session: Session): session is Session & {
-	loadOrgan: NonNullable<Session["loadOrgan"]>;
-	unloadOrgan: NonNullable<Session["unloadOrgan"]>;
+export function canManageAdapters(session: Session): session is Session & {
+	loadAdapter: NonNullable<Session["loadAdapter"]>;
+	unloadAdapter: NonNullable<Session["unloadAdapter"]>;
 } {
-	return typeof session.loadOrgan === "function" && typeof session.unloadOrgan === "function";
+	return typeof session.loadAdapter === "function" && typeof session.unloadAdapter === "function";
 }

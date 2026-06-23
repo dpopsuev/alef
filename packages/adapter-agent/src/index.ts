@@ -1,8 +1,7 @@
 export {
-	type AgentOrganOptions,
+	type AgentAdapterOptions,
 	type ChildEntry,
-	createAgentOrgan,
-	createAgentOrgan as createOrgan,
-	createAgentOrgan as createAgentAdapter,
+	createAgentAdapter,
+	createAgentAdapter as createAdapter,
 } from "./adapter.js";
 export { strategyRegistry } from "./strategy-registry.js";

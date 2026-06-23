@@ -13,7 +13,7 @@ export type { SubagentFactory, SubagentFactoryOptions };
 
 export class InProcessStrategy implements ExecutionStrategy {
 	constructor(
-		private readonly organs: Adapter[],
+		private readonly adapters: Adapter[],
 		private readonly createSession: SubagentFactory,
 		private readonly baseSystemPrompt?: string,
 		private readonly onChunk?: (chunk: string) => void,
@@ -50,12 +50,12 @@ export class InProcessStrategy implements ExecutionStrategy {
 			: undefined;
 
 		const session = this.createSession({
-			organs: this.organs,
+			adapters: this.adapters,
 			onChunk: wrappedChunk,
 			onInnerEvent: wrappedInnerEvent,
 			systemPrompt: this.baseSystemPrompt,
 		});
-		traceEvent("in-process:start", { organs: this.organs.map((o) => o.name), conversationTimeoutMs, stallMs });
+		traceEvent("in-process:start", { adapters: this.adapters.map((o) => o.name), conversationTimeoutMs, stallMs });
 
 		const onAbort = () => {
 			watchdog.stop();

@@ -77,7 +77,7 @@ export interface SessionStore {
 	events(): Promise<StorageRecord[]>;
 	turns(): Promise<Turn[]>;
 	hitCounts(): Promise<Map<string, number>>;
-	organHistory(organName: string): Promise<StorageRecord[]>;
+	adapterHistory(adapterName: string): Promise<StorageRecord[]>;
 	name(): string | undefined;
 	setName(name: string): Promise<void>;
 }
@@ -303,11 +303,11 @@ export class JsonlSessionStore {
 	}
 
 	/**
-	 * Return all command and event events whose type starts with `<organName>.`.
+	 * Return all command and event events whose type starts with `<adapterName>.`.
 	 * O(n_events) scan — intended for diagnostics and session context stage context injection.
 	 */
-	organHistory(organName: string): Promise<StorageRecord[]> {
-		const prefix = `${organName}.`;
+	adapterHistory(adapterName: string): Promise<StorageRecord[]> {
+		const prefix = `${adapterName}.`;
 		return Promise.resolve(
 			this._cache.filter((r) => (r.bus === "command" || r.bus === "event") && r.type.startsWith(prefix)),
 		);

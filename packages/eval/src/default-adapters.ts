@@ -2,16 +2,16 @@
  * Default base adapter set for EvalHarness.
  *
  * Exported so callers can extend or replace the defaults:
- *   baseOrgansFactory: (cwd) => [...defaultEvalOrgans(cwd), myOrgan]
+ *   baseAdaptersFactory: (cwd) => [...defaultEvalAdapters(cwd), myAdapter]
  *
  * Or suppress them entirely:
- *   baseOrgansFactory: () => []
+ *   baseAdaptersFactory: () => []
  */
 
-import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
-import { createShellOrgan } from "@dpopsuev/alef-adapter-shell";
+import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
+import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 
-export function defaultEvalOrgans(workspace: string): Adapter[] {
-	return [createFsOrgan({ cwd: workspace }), createShellOrgan({ cwd: workspace })];
+export function defaultEvalAdapters(workspace: string): Adapter[] {
+	return [createFsAdapter({ cwd: workspace }), createShellAdapter({ cwd: workspace })];
 }

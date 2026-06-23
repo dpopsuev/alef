@@ -11,7 +11,7 @@
  * can read the schema default even when the ToolShell has stripped the schema.
  */
 
-import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
+import { createAgentAdapter } from "@dpopsuev/alef-adapter-agent";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
@@ -55,14 +55,14 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			},
 		});
 
-		const delegateOrgan = createAgentOrgan({
+		const delegateAdapter = createAgentAdapter({
 			strategies: {
 				explore: new InProcessStrategy([], innerFactory),
 			},
 			createAdHocSession: innerFactory,
 		});
 
-		agent.load(delegateOrgan);
+		agent.load(delegateAdapter);
 
 		// ToolShell: currentMetaTools() strips agent.run schema → z.object({})
 		const toolShell = createToolShellAdapter({
@@ -116,12 +116,12 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			},
 		});
 
-		const delegateOrgan = createAgentOrgan({
+		const delegateAdapter = createAgentAdapter({
 			strategies: { explore: new InProcessStrategy([], innerFactory) },
 			createAdHocSession: innerFactory,
 		});
 
-		agent.load(delegateOrgan);
+		agent.load(delegateAdapter);
 
 		const toolShell = createToolShellAdapter({
 			tools: agent.tools,

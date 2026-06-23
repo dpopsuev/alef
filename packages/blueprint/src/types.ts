@@ -29,15 +29,15 @@ export interface AgentModelSelector {
  * resolves these to their npm packages via BUILTIN_PACKAGES.
  * Treat as documentation; do NOT validate against this at parse time.
  */
-export type AgentOrganName = string;
+export type AgentAdapterName = string;
 
-export interface AgentDefinitionOrganCacheInput {
+export interface AgentDefinitionAdapterCacheInput {
 	enabled?: boolean;
 	ttlMs?: number;
 	maxEntries?: number;
 }
 
-export interface AgentDefinitionOrganCacheConfig {
+export interface AgentDefinitionAdapterCacheConfig {
 	enabled: boolean;
 	ttlMs: number;
 	maxEntries: number;
@@ -69,14 +69,14 @@ export interface AgentDefinitionLectorRuntimeConfig {
 	};
 }
 
-export interface AgentDefinitionOrganInput {
+export interface AgentDefinitionAdapterInput {
 	/**
 	 * Built-in alias (e.g. "fs") or npm package name (e.g. "@company/my-adapter").
 	 * Mutually exclusive with `path`.
 	 */
 	name?: string;
 	/**
-	 * Path to a TypeScript file that exports createOrgan().
+	 * Path to a TypeScript file that exports createAdapter().
 	 * Loaded at runtime via jiti — no build step required.
 	 * Mutually exclusive with `name`. Relative to the blueprint file.
 	 */
@@ -85,25 +85,25 @@ export interface AgentDefinitionOrganInput {
 	actions?: string[];
 	/** Shell command patterns to block (regex strings). Passed to adapter-shell's blockedPatterns. */
 	blockedPatterns?: string[];
-	cache?: AgentDefinitionOrganCacheInput;
+	cache?: AgentDefinitionAdapterCacheInput;
 	runtime?: AgentDefinitionLectorRuntimeInput;
 }
 
-export interface CompiledAgentOrganDefinition {
+export interface CompiledAgentAdapterDefinition {
 	/**
 	 * Adapter name as written in agent.yaml: an npm package specifier, a short
-	 * alias (resolved by the materializer), or "_external" for path-loaded organs.
+	 * alias (resolved by the materializer), or "_external" for path-loaded adapters.
 	 */
 	name: string;
-	/** Resolved absolute path. Set for path-based organs (materializer fills this). */
+	/** Resolved absolute path. Set for path-based adapters (materializer fills this). */
 	path?: string;
 	/** Action filter passed to the adapter factory. */
 	actions: string[];
-	/** @deprecated EDA organs self-describe. Always empty. */
+	/** @deprecated EDA adapters self-describe. Always empty. */
 	toolNames: string[];
 	/** Shell command patterns to block (string regexes compiled to RegExp by materializer). */
 	blockedPatterns?: string[];
-	cache?: AgentDefinitionOrganCacheConfig;
+	cache?: AgentDefinitionAdapterCacheConfig;
 	runtime?: AgentDefinitionLectorRuntimeConfig;
 }
 
@@ -217,7 +217,7 @@ export interface AgentResourceConfig {
 }
 
 export interface AgentDefinitionSurfaceInput {
-	/** Transport type. Currently only 'sse' is supported (via RouterOrgan). */
+	/** Transport type. Currently only 'sse' is supported (via RouterAdapter). */
 	type: "sse";
 	/**
 	 * Event type allowlist. Only command/event events whose type matches one of
@@ -235,9 +235,10 @@ export interface AgentDefinitionInput {
 	name: string;
 	model?: string | AgentModelSelector;
 	systemPrompt?: string;
-	organs?: AgentDefinitionOrganInput[];
-	adapters?: AgentDefinitionOrganInput[];
-	/** Event surface declarations — controls what the RouterOrgan broadcasts. */
+	adapters?: AgentDefinitionAdapterInput[];
+	/** @deprecated Use adapters. Kept for YAML backward compat. */
+	organs?: AgentDefinitionAdapterInput[];
+	/** Event surface declarations — controls what the RouterAdapter broadcasts. */
 	surfaces?: AgentDefinitionSurfaceInput[];
 	capabilities?: {
 		tools?: string[];
@@ -285,7 +286,7 @@ export interface CompiledAgentDefinition {
 	baseDir?: string;
 	model?: AgentModelSelector;
 	systemPrompt?: string;
-	organs: CompiledAgentOrganDefinition[];
+	adapters: CompiledAgentAdapterDefinition[];
 	/** Compiled surface declarations. Empty array = broadcast all events. */
 	surfaces: AgentDefinitionSurfaceInput[];
 	capabilities: AgentDefinitionCapabilities;

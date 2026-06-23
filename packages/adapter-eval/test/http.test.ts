@@ -5,10 +5,10 @@
 import http from "node:http";
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createEvalOrgan } from "../src/adapter.js";
+import { createEvalAdapter } from "../src/adapter.js";
 import { collectEvents, postMessage } from "../src/http.js";
 
-adapterComplianceSuite(() => createEvalOrgan({ cwd: process.cwd(), replyEvent: "llm.response" }));
+adapterComplianceSuite(() => createEvalAdapter({ cwd: process.cwd(), replyEvent: "llm.response" }));
 
 let server: http.Server;
 let port: number;

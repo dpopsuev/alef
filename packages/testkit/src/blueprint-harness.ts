@@ -50,7 +50,7 @@ export interface BlueprintHarnessOptions {
 export type MaterializeFn = (
 	definition: CompiledAgentDefinition,
 	opts: { cwd: string },
-) => Promise<{ organs: Adapter[] }>;
+) => Promise<{ adapters: Adapter[] }>;
 
 export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
 	/** Extra adapters to load beyond what the blueprint declares. */
@@ -98,8 +98,8 @@ export class BlueprintHarness implements ExecutionStrategy {
 		const definition = loadAgentDefinition(blueprintPath);
 		const materialized = await opts.materialize(definition, { cwd: opts.cwd });
 
-		const adapters = [...materialized.organs, ...(opts.extraAdapters ?? [])];
-		return BlueprintHarness.create({ ...opts, organs: adapters });
+		const adapters = [...materialized.adapters, ...(opts.extraAdapters ?? [])];
+		return BlueprintHarness.create({ ...opts, adapters });
 	}
 
 	// -------------------------------------------------------------------------
@@ -110,13 +110,13 @@ export class BlueprintHarness implements ExecutionStrategy {
 	 * Create a harness with an explicit adapter list. Useful when testing
 	 * custom adapters directly or when no blueprint file is available.
 	 */
-	static create(opts: BlueprintHarnessOptions & { organs?: Adapter[] }): BlueprintHarness {
+	static create(opts: BlueprintHarnessOptions & { adapters?: Adapter[] }): BlueprintHarness {
 		const recorder = new BusEventRecorder();
 		const scriptedLlm = new ScriptedReasoner(opts.script);
 		const agent = new Agent();
 
 		agent.load(scriptedLlm);
-		for (const adapter of opts.organs ?? []) {
+		for (const adapter of opts.adapters ?? []) {
 			agent.load(adapter);
 		}
 

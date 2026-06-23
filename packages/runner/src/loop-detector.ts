@@ -57,7 +57,7 @@ function hashArgs(payload: Record<string, unknown>): string {
 /** Extract a stable text representation of a event result for hashing. */
 function hashResult(payload: Record<string, unknown>): string {
 	const { toolCallId: _tc, isFinal: _if, _display: _d, ...rest } = payload;
-	// For streaming organs: intermediate chunks have isFinal:false — skip them.
+	// For streaming adapters: intermediate chunks have isFinal:false — skip them.
 	// Only hash the final payload.
 	if (payload.isFinal === false) return "";
 	if (typeof rest.content === "string") return rest.content.slice(0, 512);

@@ -1,5 +1,5 @@
 /**
- * ShellOrgan — shell execution adapter.
+ * ShellAdapter — shell execution adapter.
  *
  * shell.exec — streaming: yields chunks as they arrive via spawn(),
  *              final event carries exitCode + isFinal: true.
@@ -58,7 +58,7 @@ export const DEFAULT_SHELL_TIMEOUT_S = 300;
 /** Hard cap: the LLM cannot request a timeout longer than this. 600 seconds. */
 export const MAX_SHELL_TIMEOUT_S = 600;
 
-export interface ShellOrganOptions {
+export interface ShellAdapterOptions {
 	cwd: string;
 	shellPath?: string;
 	commandPrefix?: string;
@@ -178,7 +178,7 @@ export function guardCommand(command: string, rules: readonly GuardRule[] = DEFA
 
 async function* streamExec(
 	ctx: { payload: { command: string; timeout?: number } },
-	opts: ShellOrganOptions,
+	opts: ShellAdapterOptions,
 ): AsyncIterable<Record<string, unknown>> {
 	const { command, timeout } = ctx.payload;
 	if (!command) throw new Error("shell.exec: command is required");
@@ -336,7 +336,7 @@ class PtyPool {
 
 async function* streamExecPty(
 	ctx: { payload: { command: string; timeout?: number } },
-	opts: ShellOrganOptions,
+	opts: ShellAdapterOptions,
 	pool: PtyPool,
 ): AsyncIterable<Record<string, unknown>> {
 	const { command, timeout } = ctx.payload;
@@ -411,7 +411,7 @@ async function* streamExecPty(
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createShellOrgan(options: ShellOrganOptions): Adapter {
+export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 	const pool = options.usePty ? new PtyPool() : null;
 	const exec = pool
 		? (ctx: { payload: { command: string; timeout?: number } }) => streamExecPty(ctx, options, pool)

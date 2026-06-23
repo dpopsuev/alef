@@ -107,9 +107,6 @@ async function runLLMJudge(
 	};
 }
 
-/** @deprecated Use EvalAdapterOptions */
-export type EvalOrganOptions = EvalAdapterOptions;
-
 export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 	let bus: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
@@ -208,6 +205,3 @@ Interpreting EvalResult:
 		},
 	);
 }
-
-/** @deprecated Use createEvalAdapter */
-export const createEvalOrgan = createEvalAdapter;

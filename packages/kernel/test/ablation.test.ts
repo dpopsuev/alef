@@ -49,13 +49,13 @@ function makeFsAdapter(actions?: readonly string[]) {
 
 describe("adapter ablation — no filter (default)", { tags: ["unit"] }, () => {
 	it("mounts all actions when no allowlist is specified", () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const adapter = makeFsAdapter();
-		adapter.mount(nerve.asBus());
+		adapter.mount(bus.asBus());
 
-		expect(nerve.listenerCount("command", "fs.read")).toBe(1);
-		expect(nerve.listenerCount("command", "fs.write")).toBe(1);
-		expect(nerve.listenerCount("command", "fs.edit")).toBe(1);
+		expect(bus.listenerCount("command", "fs.read")).toBe(1);
+		expect(bus.listenerCount("command", "fs.write")).toBe(1);
+		expect(bus.listenerCount("command", "fs.edit")).toBe(1);
 	});
 
 	it("exposes all tools when no allowlist is specified", () => {
@@ -66,13 +66,13 @@ describe("adapter ablation — no filter (default)", { tags: ["unit"] }, () => {
 
 describe("adapter ablation — read-only allowlist", { tags: ["unit"] }, () => {
 	it("mounts only allowed actions on the bus", () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const adapter = makeFsAdapter(["fs.read"]);
-		adapter.mount(nerve.asBus());
+		adapter.mount(bus.asBus());
 
-		expect(nerve.listenerCount("command", "fs.read")).toBe(1);
-		expect(nerve.listenerCount("command", "fs.write")).toBe(0); // ablated
-		expect(nerve.listenerCount("command", "fs.edit")).toBe(0); // ablated
+		expect(bus.listenerCount("command", "fs.read")).toBe(1);
+		expect(bus.listenerCount("command", "fs.write")).toBe(0); // ablated
+		expect(bus.listenerCount("command", "fs.edit")).toBe(0); // ablated
 	});
 
 	it("exposes only allowed tools", () => {
@@ -81,14 +81,14 @@ describe("adapter ablation — read-only allowlist", { tags: ["unit"] }, () => {
 	});
 
 	it("ablated action command message finds no handler", async () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const adapter = makeFsAdapter(["fs.read"]);
-		adapter.mount(nerve.asBus());
+		adapter.mount(bus.asBus());
 
 		const received: string[] = [];
-		nerve.onAny("event", (e) => received.push(e.type));
+		bus.onAny("event", (e) => received.push(e.type));
 
-		nerve.asBus().command.publish({
+		bus.asBus().command.publish({
 			type: "fs.write",
 			payload: { path: "x.ts", content: "bad" },
 			correlationId: "c1",
@@ -101,14 +101,14 @@ describe("adapter ablation — read-only allowlist", { tags: ["unit"] }, () => {
 	});
 
 	it("allowed action still dispatches correctly", async () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const adapter = makeFsAdapter(["fs.read"]);
-		adapter.mount(nerve.asBus());
+		adapter.mount(bus.asBus());
 
 		const events: string[] = [];
-		nerve.onAny("event", (e) => events.push(e.type));
+		bus.onAny("event", (e) => events.push(e.type));
 
-		nerve.asBus().command.publish({
+		bus.asBus().command.publish({
 			type: "fs.read",
 			payload: { path: "x.ts" },
 			correlationId: "c1",
@@ -132,12 +132,12 @@ describe("adapter ablation — subscriptions reflect allowlist", { tags: ["unit"
 	});
 
 	it("empty allowlist mounts nothing", () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const adapter = makeFsAdapter([]);
-		adapter.mount(nerve.asBus());
+		adapter.mount(bus.asBus());
 
 		expect(adapter.tools).toHaveLength(0);
-		expect(nerve.listenerCount("command", "fs.read")).toBe(0);
-		expect(nerve.listenerCount("command", "fs.write")).toBe(0);
+		expect(bus.listenerCount("command", "fs.read")).toBe(0);
+		expect(bus.listenerCount("command", "fs.write")).toBe(0);
 	});
 });

@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFsOrgan as createFsAdapter } from "../../adapter-fs/src/index.js";
+import { createFsAdapter } from "../../adapter-fs/src/index.js";
 import { BlueprintHarness } from "../src/blueprint-harness.js";
 import { step } from "../src/script.js";
 
@@ -102,7 +102,7 @@ describe("BlueprintHarness — tool calls (real adapter handlers)", { tags: ["un
 		const h = track(
 			BlueprintHarness.create({
 				cwd,
-				organs: [createFsAdapter({ cwd })],
+				adapters: [createFsAdapter({ cwd })],
 				script: [step.toolCall("fs.read", { path: "auth.ts" }, "I read the file.")],
 			}),
 		);
@@ -119,7 +119,7 @@ describe("BlueprintHarness — tool calls (real adapter handlers)", { tags: ["un
 		const h = track(
 			BlueprintHarness.create({
 				cwd,
-				organs: [createFsAdapter({ cwd })],
+				adapters: [createFsAdapter({ cwd })],
 				script: [step.toolCall("fs.read", { path: "config.ts" }, "Done.")],
 			}),
 		);
@@ -149,7 +149,7 @@ describe("BlueprintHarness — tool calls (real adapter handlers)", { tags: ["un
 		const h = track(
 			BlueprintHarness.create({
 				cwd,
-				organs: [createFsAdapter({ cwd })],
+				adapters: [createFsAdapter({ cwd })],
 				script: [
 					step.toolCalls(
 						[

@@ -19,21 +19,21 @@ describe("ambient agent", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("run linter")]);
 
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const llm = createAgentLoop({
 			model: faux.getModel(),
 			apiKey: "faux-key",
 		});
-		unmounts.push(llm.mount(nerve.asBus()));
+		unmounts.push(llm.mount(bus.asBus()));
 		unmounts.push(() => faux.unregister());
 
 		const received: string[] = [];
-		nerve.asBus().command.subscribe("llm.response", (event) => {
+		bus.asBus().command.subscribe("llm.response", (event) => {
 			const text = typeof event.payload.text === "string" ? event.payload.text : "";
 			if (text) received.push(text);
 		});
 
-		nerve.asBus().event.publish({
+		bus.asBus().event.publish({
 			type: "llm.input",
 			correlationId: randomUUID(),
 			payload: { text: "src/auth.ts changed" },

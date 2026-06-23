@@ -1,6 +1,6 @@
 ---
 name: debug-alef
-description: Use when debugging Alef itself — hung tools, TUI glitches, LLM loop issues, session corruption, organ failures, fs.find hangs. Use ONLY for debugging the Alef agent codebase at /home/dpopsuev/Workspace/alef, not for debugging user applications.
+description: Use when debugging Alef itself — hung tools, TUI glitches, LLM loop issues, session corruption, adapter failures, fs.find hangs. Use ONLY for debugging the Alef agent codebase at /home/dpopsuev/Workspace/alef, not for debugging user applications.
 ---
 
 # Debugging Alef
@@ -81,9 +81,9 @@ jq 'select(.bus == "debug" and (.type | test("error|failed")))' "$SESSION"
 
 | type | Key fields | What it means |
 |---|---|---|
-| `delegate:strategy:start` | `organ, tool, correlationId, profile, timeoutMs` | InProcessStrategy.send() called |
-| `delegate:strategy:done` | `organ, tool, correlationId, profile, elapsedMs, ok` | Strategy completed |
-| `in-process:start` | `organs, timeoutMs` | Inner agent created |
+| `delegate:strategy:start` | `adapter, tool, correlationId, profile, timeoutMs` | InProcessStrategy.send() called |
+| `delegate:strategy:done` | `adapter, tool, correlationId, profile, elapsedMs, ok` | Strategy completed |
+| `in-process:start` | `adapters, timeoutMs` | Inner agent created |
 | `in-process:done` | `replyLength` | Inner agent replied |
 | `in-process:error` | `err` (full stack) | Inner agent threw |
 
@@ -110,10 +110,10 @@ jq 'select(.bus == "debug" and (.type | test("error|failed")))' "$SESSION"
 | `fs:find:close` | `elapsedMs, code, lines, pattern` | fd exited normally |
 | `fs:find:timeout` | `elapsedMs, pattern, searchPath` | 30s kill timer fired |
 
-## Organ handler logs (ctx.log)
+## Adapter handler logs (ctx.log)
 
 Every `typedAction` and `typedStreamAction` handler receives `ctx.log` — a child logger
-pre-stamped with `{ organ, tool, correlationId, toolCallId }`.
+pre-stamped with `{ adapter, tool, correlationId, toolCallId }`.
 
 ```ts
 ctx.log.warn({ path, bytes }, "file too large to read");
@@ -134,7 +134,7 @@ Reproduce the exact fd command:
 fd --glob --color=never --no-require-git --max-results 1000 --hidden -- "<pattern>" "<cwd>"
 ```
 
-Kill timer: `packages/organ-fs/src/find-query.ts` — fires at 30s.
+Kill timer: `packages/adapter-fs/src/find-query.ts` — fires at 30s.
 
 ## TUI frame capture (ALEF_DEBUG=1 only)
 
@@ -174,7 +174,7 @@ curl -N http://127.0.0.1:$(jq .port ~/.alef/daemon.json)/events
 
 ## Missing instrumentation (known gaps)
 
-1. **No AbortSignal in `CorpusHandlerCtx`** — organs cannot be cancelled mid-flight.
+1. **No AbortSignal in `CorpusHandlerCtx`** — adapters cannot be cancelled mid-flight.
    Ctrl+C aborts the LLM turn but fd subprocess runs until 30s kill timer.
 
 ## Key source files
@@ -183,11 +183,11 @@ curl -N http://127.0.0.1:$(jq .port ~/.alef/daemon.json)/events
 |---|---|
 | `debugLog()` + `initSpineLogger()` | `packages/kernel/src/debug.ts` |
 | Logger creation | `packages/runner/src/logger.ts` |
-| `ctx.log` stamping | `packages/kernel/src/organ-dispatch.ts` |
-| organ-llm events | `packages/organ-llm/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
-| delegation events | `packages/organ-delegate/src/organ.ts`, `packages/runner/src/strategies/in-process.ts` |
+| `ctx.log` stamping | `packages/kernel/src/adapter-dispatch.ts` |
+| adapter-llm events | `packages/adapter-llm/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
+| delegation events | `packages/adapter-delegate/src/adapter.ts`, `packages/runner/src/strategies/in-process.ts` |
 | `tools:describe:miss` | `packages/runner/src/tool-shell.ts` |
-| fd subprocess + kill timer | `packages/organ-fs/src/find-query.ts` |
+| fd subprocess + kill timer | `packages/adapter-fs/src/find-query.ts` |
 | Session JSONL format | `packages/session/src/session-store.ts` |
 | Daemon registry + SSE | `packages/runner/src/build-delegation.ts` |
 
@@ -220,12 +220,12 @@ ALEF_LOG_LEVEL=debug alef --no-tui -p "your prompt here" 2>&1 | jq .
 ## CLI introspection (no TUI required)
 
 ```bash
-alef --preflight           # Verify config, profile, model, organs, tools, directives
+alef --preflight           # Verify config, profile, model, adapters, tools, directives
 alef --list-models         # Models for active profile
 alef --show-config         # Parsed config.yaml
 alef --list-directives     # Directive blocks with priorities
 alef --list-tools          # Loaded tools
-alef --list-organs         # Loaded organs with labels
+alef --list-adapters       # Loaded adapters with labels
 ```
 
 ## Model profiles

@@ -1,18 +1,18 @@
 import { buildSense } from "@dpopsuev/alef-kernel/bus";
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { createCacheOrgan } from "../src/adapter.js";
+import { createCacheAdapter } from "../src/adapter.js";
 
-adapterComplianceSuite(() => createCacheOrgan());
+adapterComplianceSuite(() => createCacheAdapter());
 
-describe("CacheOrgan", () => {
+describe("CacheAdapter", () => {
 	let fixture: BusFixture;
-	let cacheOrgan: ReturnType<typeof createCacheOrgan>;
+	let cacheAdapter: ReturnType<typeof createCacheAdapter>;
 
 	beforeEach(() => {
 		fixture = new BusFixture();
-		cacheOrgan = createCacheOrgan({ ttl: 1000 }); // 1 second TTL for tests
-		fixture.mount(cacheOrgan);
+		cacheAdapter = createCacheAdapter({ ttl: 1000 }); // 1 second TTL for tests
+		fixture.mount(cacheAdapter);
 	});
 
 	afterEach(() => {

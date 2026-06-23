@@ -13,7 +13,7 @@
  * Reports per-phase scores regardless of overall pass/fail.
  */
 
-import { materializeDefaultOrgans } from "@dpopsuev/alef-agent-blueprint";
+import { materializeDefaultAdapters } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { createToolShellAdapter } from "@dpopsuev/alef-runtime";
@@ -27,12 +27,12 @@ describe.skipIf(SKIP_REAL_LLM)("PhaseEvaluation real-LLM — fix bug with clean 
 	it("fixBugWithCleanCommit scores >= 0.70 across five phases", async () => {
 		const harness = new EvalHarness();
 		const runner = new PhaseEvaluationRunner(harness, {
-			asyncOrganFactory: async (workspace, signal) => {
-				const domainOrgans = await materializeDefaultOrgans(workspace);
+			asyncAdapterFactory: async (workspace, signal) => {
+				const domainAdapters = await materializeDefaultAdapters(workspace);
 				const pipeline = createContextAssemblyPipeline();
 				const toolShell = createToolShellAdapter({
-					tools: domainOrgans.flatMap((o) => o.tools),
-					getTools: () => domainOrgans.flatMap((o) => o.tools),
+					tools: domainAdapters.flatMap((o) => o.tools),
+					getTools: () => domainAdapters.flatMap((o) => o.tools),
 				});
 				const llm = createAgentLoop({
 					model: getEvalModel(),
@@ -40,7 +40,7 @@ describe.skipIf(SKIP_REAL_LLM)("PhaseEvaluation real-LLM — fix bug with clean 
 					schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
 					phaseTimeoutMs: 100,
 				});
-				return [...domainOrgans, toolShell, pipeline, llm];
+				return [...domainAdapters, toolShell, pipeline, llm];
 			},
 			scenarioTimeoutMs: 600_000,
 		});

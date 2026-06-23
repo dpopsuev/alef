@@ -130,7 +130,7 @@ export async function createMcpAdapterFromClient(client: MCPClient, name: string
 
 export const McpAdapter = {
 	async stdio(command: string, args: string[], name?: string, env?: Record<string, string>): Promise<Adapter> {
-		const organName = name ?? args.at(-1)?.split("/").at(-1)?.replace(/^@/, "") ?? "mcp";
+		const adapterName = name ?? args.at(-1)?.split("/").at(-1)?.replace(/^@/, "") ?? "mcp";
 		const transportOpts: { command: string; args: string[]; env?: Record<string, string> } = { command, args };
 		if (env) {
 			const filteredEnv = Object.fromEntries(
@@ -141,14 +141,14 @@ export const McpAdapter = {
 		const client = await createMCPClient({
 			transport: new StdioClientTransport(transportOpts),
 		});
-		return createMcpAdapterFromClient(client, organName);
+		return createMcpAdapterFromClient(client, adapterName);
 	},
 
 	async http(url: string, name?: string): Promise<Adapter> {
-		const organName = name ?? new URL(url).hostname;
+		const adapterName = name ?? new URL(url).hostname;
 		const client = await createMCPClient({
 			transport: { type: "http", url },
 		});
-		return createMcpAdapterFromClient(client, organName);
+		return createMcpAdapterFromClient(client, adapterName);
 	},
 };

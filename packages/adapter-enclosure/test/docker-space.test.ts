@@ -8,7 +8,7 @@
 
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
-import { createEnclosureOrgan } from "../src/adapter.js";
+import { createEnclosureAdapter } from "../src/adapter.js";
 import { DockerSpace } from "../src/docker-space.js";
 
 // ---------------------------------------------------------------------------
@@ -82,10 +82,10 @@ describe.skipIf(SKIP)("DockerSpace — container lifecycle", { tags: ["unit"] },
 });
 
 // ---------------------------------------------------------------------------
-// EnclosureOrgan with backend='docker'
+// EnclosureAdapter with backend='docker'
 // ---------------------------------------------------------------------------
 
-describe.skipIf(SKIP)("EnclosureOrgan — docker backend", { tags: ["unit"] }, () => {
+describe.skipIf(SKIP)("EnclosureAdapter — docker backend", { tags: ["unit"] }, () => {
 	it("creates a space and execs a command via organ events", async () => {
 		const { mkdtemp } = await import("node:fs/promises");
 		const { tmpdir } = await import("node:os");
@@ -93,7 +93,7 @@ describe.skipIf(SKIP)("EnclosureOrgan — docker backend", { tags: ["unit"] }, (
 		const workspace = await mkdtemp(`${tmpdir()}/alef-docker-test-`);
 
 		const nerve = new InProcessBus();
-		const organ = createEnclosureOrgan({
+		const organ = createEnclosureAdapter({
 			backend: "docker",
 			docker: { image: "alpine:latest" },
 		});
@@ -145,22 +145,22 @@ describe.skipIf(SKIP)("EnclosureOrgan — docker backend", { tags: ["unit"] }, (
 // Backend selection — no Docker required (uses stub)
 // ---------------------------------------------------------------------------
 
-describe("EnclosureOrgan — backend selection", { tags: ["unit"] }, () => {
+describe("EnclosureAdapter — backend selection", { tags: ["unit"] }, () => {
 	it("backend='stub' uses StubSpace (no Docker)", () => {
-		const organ = createEnclosureOrgan({ backend: "stub" });
+		const organ = createEnclosureAdapter({ backend: "stub" });
 		expect(organ.name).toBe("enclosure");
 		expect(organ.tools.length).toBeGreaterThan(0);
 	});
 
 	it("legacy stub:true still works", () => {
-		const organ = createEnclosureOrgan({ stub: true });
+		const organ = createEnclosureAdapter({ stub: true });
 		expect(organ.name).toBe("enclosure");
 	});
 
 	it("default backend is overlay (no crash on construction)", () => {
 		// Just verifying the adapter can be constructed — OverlaySpace.create()
 		// is only called when enclosure.create command event fires, not at construction.
-		const organ = createEnclosureOrgan();
+		const organ = createEnclosureAdapter();
 		expect(organ.name).toBe("enclosure");
 	});
 });

@@ -58,7 +58,7 @@ export interface HistoryEntry {
 	id: number;
 	ts: string;
 	alef: string;
-	organs: Record<string, string>;
+	adapters: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ export function init(): void {
 	if (!existsSync(PACKAGE_JSON)) {
 		writeFileSync(
 			PACKAGE_JSON,
-			JSON.stringify({ name: "alef-organs", version: "0.0.0", private: true, dependencies: {} }, null, 2),
+			JSON.stringify({ name: "alef-adapters", version: "0.0.0", private: true, dependencies: {} }, null, 2),
 		);
 	}
 }
@@ -120,11 +120,7 @@ function parseLockAdapters(lockContent: string): Record<string, string> {
 		const lock = JSON.parse(lockContent) as { packages?: Record<string, { version?: string }> };
 		const result: Record<string, string> = {};
 		for (const [k, v] of Object.entries(lock.packages ?? {})) {
-			if (
-				k.startsWith("node_modules/@dpopsuev/") ||
-				k.startsWith("node_modules/alef-organ") ||
-				k.startsWith("node_modules/alef-adapter")
-			) {
+			if (k.startsWith("node_modules/@dpopsuev/") || k.startsWith("node_modules/alef-adapter")) {
 				const name = basename(k);
 				result[name] = v.version ?? "unknown";
 			}
@@ -165,12 +161,6 @@ export function restoreLocalAdapter(hash: string, fileName: string): string {
 	}
 	return stored;
 }
-
-/** @deprecated Use snapshotLocalAdapter() instead. */
-export const snapshotLocalOrgan = snapshotLocalAdapter;
-
-/** @deprecated Use restoreLocalAdapter() instead. */
-export const restoreLocalOrgan = restoreLocalAdapter;
 
 // ---------------------------------------------------------------------------
 // Core operations
@@ -241,7 +231,7 @@ export function history(): HistoryEntry[] {
 				id: gen.id,
 				ts: gen.ts,
 				alef: gen.alef,
-				organs: parseLockAdapters(gen.lockfileContent),
+				adapters: parseLockAdapters(gen.lockfileContent),
 			};
 		})
 		.sort((a, b) => b.id - a.id);
@@ -376,7 +366,7 @@ export function sbom(): object {
 		spdxVersion: "SPDX-2.3",
 		dataLicense: "CC0-1.0",
 		SPDXID: "SPDXRef-DOCUMENT",
-		name: "alef-organs-sbom",
+		name: "alef-adapters-sbom",
 		documentNamespace: `https://alef.local/sbom/${Date.now()}`,
 		documentDescribes: components.map((c) => c.SPDXID),
 		packages: components,
@@ -389,8 +379,8 @@ export function sbom(): object {
  */
 export function resolveAdapterPath(name: string): string | undefined {
 	const candidates = [
-		join(PM_ROOT, "node_modules", name, "src", "organ.ts"),
-		join(PM_ROOT, "node_modules", `@dpopsuev`, name, "src", "organ.ts"),
+		join(PM_ROOT, "node_modules", name, "src", "adapter.ts"),
+		join(PM_ROOT, "node_modules", `@dpopsuev`, name, "src", "adapter.ts"),
 		join(PM_ROOT, "node_modules", name, "src", "index.ts"),
 	];
 	for (const p of candidates) {
@@ -398,9 +388,6 @@ export function resolveAdapterPath(name: string): string | undefined {
 	}
 	return undefined;
 }
-
-/** @deprecated Use resolveAdapterPath() instead. */
-export const resolveOrganPath = resolveAdapterPath;
 
 // ---------------------------------------------------------------------------
 // Project-level lockfile — commit adapter versions alongside code (like Cargo.lock)
@@ -414,14 +401,14 @@ export interface ProjectLockfile {
 	/** Generation ID at time of export. */
 	generationId: number;
 	/** Adapter name → exact resolved version. */
-	organs: Record<string, string>;
+	adapters: Record<string, string>;
 }
 
-const PROJECT_LOCKFILE_NAME = "alef-organs.lock";
+const PROJECT_LOCKFILE_NAME = "alef-adapters.lock";
 
 /**
  * Export the current adapter generation as a project-level lockfile.
- * Write it to `outputPath` (default: `<cwd>/alef-organs.lock`) so it
+ * Write it to `outputPath` (default: `<cwd>/alef-adapters.lock`) so it
  * can be committed to the project repository alongside the code.
  */
 export function exportLockfile(cwd = process.cwd(), outputPath?: string): string {
@@ -433,7 +420,7 @@ export function exportLockfile(cwd = process.cwd(), outputPath?: string): string
 		alef: process.env.npm_package_version ?? "unknown",
 		exportedAt: new Date().toISOString(),
 		generationId: genId,
-		organs: adapters,
+		adapters,
 	};
 
 	const target = outputPath ?? join(cwd, PROJECT_LOCKFILE_NAME);
@@ -443,23 +430,23 @@ export function exportLockfile(cwd = process.cwd(), outputPath?: string): string
 
 /**
  * Import a project-level lockfile and restore the exact adapter versions.
- * Reads `<cwd>/alef-organs.lock` (or `inputPath`), installs pinned versions,
+ * Reads `<cwd>/alef-adapters.lock` (or `inputPath`), installs pinned versions,
  * and snapshots the result as a new generation.
  */
 export async function importLockfile(cwd = process.cwd(), inputPath?: string): Promise<number> {
 	const source = inputPath ?? join(cwd, PROJECT_LOCKFILE_NAME);
 	if (!existsSync(source)) {
-		throw new Error(`alef-organs.lock not found at ${source}. Run 'alef pm export' first.`);
+		throw new Error(`alef-adapters.lock not found at ${source}. Run 'alef pm export' first.`);
 	}
 
 	const lockfile = JSON.parse(readFileSync(source, "utf-8")) as ProjectLockfile;
-	if (!lockfile.organs || typeof lockfile.organs !== "object") {
-		throw new Error(`Invalid alef-organs.lock: missing organs field.`);
+	if (!lockfile.adapters || typeof lockfile.adapters !== "object") {
+		throw new Error(`Invalid alef-adapters.lock: missing adapters field.`);
 	}
 
 	init();
 
-	const pinned = Object.entries(lockfile.organs)
+	const pinned = Object.entries(lockfile.adapters)
 		.map(([name, version]) => `${name}@${version}`)
 		.join(" ");
 

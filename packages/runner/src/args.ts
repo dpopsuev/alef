@@ -274,7 +274,7 @@ export function parseArgs(argv: string[]): Args {
 			continue;
 		}
 
-		if (arg === "--list-adapters" || arg === "--list-organs") {
+		if (arg === "--list-adapters") {
 			args.listAdapters = true;
 			i++;
 			continue;
@@ -441,7 +441,7 @@ export function parseArgs(argv: string[]): Args {
 			i++;
 			continue;
 		}
-		if (arg === "adapter" || arg === "organ") {
+		if (arg === "adapter") {
 			const sub = argv[++i];
 			if (sub === "list") {
 				args.pmAdapterList = true;

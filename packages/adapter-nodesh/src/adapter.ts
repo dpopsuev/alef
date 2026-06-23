@@ -1,5 +1,5 @@
 /**
- * NodeshOrgan — JavaScript REPL adapter.
+ * NodeshAdapter — JavaScript REPL adapter.
  *
  * nodesh.eval — evaluates a JS expression or statement block in a fresh
  * vm.createContext seeded from the configured prelude. Returns structured
@@ -79,7 +79,7 @@ const ALLOWED_BUILTINS = new Set([
 export const DEFAULT_NODESH_TIMEOUT_S = 10;
 export const MAX_NODESH_TIMEOUT_S = 30;
 
-export interface NodeshOrganOptions extends BaseAdapterOptions {
+export interface NodeshAdapterOptions extends BaseAdapterOptions {
 	cwd: string;
 	/**
 	 * Prelude code evaluated once to seed each fresh context.
@@ -125,7 +125,7 @@ function makeSandboxedRequire(allowed: Set<string>): (mod: string) => unknown {
 
 async function handleEval(
 	ctx: { payload: { code: string; timeout?: number } },
-	opts: NodeshOrganOptions,
+	opts: NodeshAdapterOptions,
 ): Promise<Record<string, unknown>> {
 	const { code, timeout } = ctx.payload;
 	if (!code.trim()) throw new Error("nodesh.eval: code is required");
@@ -200,7 +200,7 @@ function safeSerialize(value: unknown): unknown {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createNodeshOrgan(options: NodeshOrganOptions): Adapter {
+export function createNodeshAdapter(options: NodeshAdapterOptions): Adapter {
 	return defineAdapter(
 		"nodesh",
 		{

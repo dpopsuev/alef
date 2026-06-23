@@ -44,7 +44,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 	it("compiles a minimal definition", () => {
 		const def = compileAgentDefinition({ name: "minimal" });
 		expect(def.name).toBe("minimal");
-		expect(def.organs).toHaveLength(0);
+		expect(def.adapters).toHaveLength(0);
 		expect(def.capabilities.tools).toHaveLength(0);
 		expect(def.capabilities.orchestration).toBe(false);
 		expect(def.memory.session).toBe("memory");
@@ -55,10 +55,10 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 	it("compiles fs organ — name and empty actions when none specified", () => {
 		const def = compileAgentDefinition({
 			name: "fs-agent",
-			organs: [{ name: "fs" }],
+			adapters: [{ name: "fs" }],
 		});
-		expect(def.organs).toHaveLength(1);
-		const fs = def.organs[0];
+		expect(def.adapters).toHaveLength(1);
+		const fs = def.adapters[0];
 		expect(fs.name).toBe("fs");
 		// Blueprint is purely structural — no static adapter catalog.
 		// Actions default to [] when not specified; toolNames is always [].
@@ -69,9 +69,9 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 	it("compiles fs organ with action allowlist — actions pass through verbatim", () => {
 		const def = compileAgentDefinition({
 			name: "read-only",
-			organs: [{ name: "fs", actions: ["read", "grep"] }],
+			adapters: [{ name: "fs", actions: ["read", "grep"] }],
 		});
-		const fs = def.organs[0];
+		const fs = def.adapters[0];
 		expect(fs.actions).toEqual(["read", "grep"]);
 		// toolNames is always [] — resolved at mount time, not compile time.
 		expect(fs.toolNames).toEqual([]);
@@ -80,16 +80,16 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 	it("compiles shell organ — name passes through", () => {
 		const def = compileAgentDefinition({
 			name: "shell-agent",
-			organs: [{ name: "shell" }],
+			adapters: [{ name: "shell" }],
 		});
-		expect(def.organs[0].name).toBe("shell");
-		expect(def.organs[0].toolNames).toEqual([]);
+		expect(def.adapters[0].name).toBe("shell");
+		expect(def.adapters[0].toolNames).toEqual([]);
 	});
 
 	it("compiles fs + shell — capabilities.tools is empty without explicit declaration", () => {
 		const def = compileAgentDefinition({
 			name: "full",
-			organs: [{ name: "fs" }, { name: "shell" }],
+			adapters: [{ name: "fs" }, { name: "shell" }],
 		});
 		// Blueprint does not know tool names — organs self-describe at mount time.
 		expect(def.capabilities.tools).toEqual([]);
@@ -99,7 +99,7 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		expect(() =>
 			compileAgentDefinition({
 				name: "dup",
-				organs: [{ name: "fs" }, { name: "fs" }],
+				adapters: [{ name: "fs" }, { name: "fs" }],
 			}),
 		).toThrow(/duplicate adapter.*fs/i);
 	});
@@ -108,16 +108,16 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		// Blueprint is purely structural; it passes adapter names through verbatim.
 		const def = compileAgentDefinition({
 			name: "custom",
-			organs: [{ name: "weather" }],
+			adapters: [{ name: "weather" }],
 		});
-		expect(def.organs[0].name).toBe("weather");
+		expect(def.adapters[0].name).toBe("weather");
 	});
 
 	it("rejects orchestration organ without capabilities.orchestration", () => {
 		expect(() =>
 			compileAgentDefinition({
 				name: "bad-orch",
-				organs: [{ name: "orchestration" }],
+				adapters: [{ name: "orchestration" }],
 			}),
 		).toThrow(/orchestration adapter requires capabilities\.orchestration/i);
 	});
@@ -135,9 +135,9 @@ describe("compileAgentDefinition", { tags: ["unit"] }, () => {
 		// Blueprint no longer rejects empty action lists — structural only.
 		const def = compileAgentDefinition({
 			name: "no-actions",
-			organs: [{ name: "fs", actions: [] }],
+			adapters: [{ name: "fs", actions: [] }],
 		});
-		expect(def.organs[0].actions).toEqual([]);
+		expect(def.adapters[0].actions).toEqual([]);
 	});
 
 	it("normalises model string 'provider/model-id'", () => {
@@ -210,7 +210,7 @@ metadata:
     env: prod
 spec:
   name: envelope-agent
-  organs:
+  adapters:
     - name: fs
 `.trim();
 		const def = parseAgentDefinitionYaml(yaml);
@@ -218,7 +218,7 @@ spec:
 		expect(def.resource?.apiVersion).toBe(AGENT_RESOURCE_API_VERSION);
 		expect(def.resource?.kind).toBe(AGENT_RESOURCE_KIND);
 		expect(def.resource?.metadata.labels.env).toBe("prod");
-		expect(def.organs[0].name).toBe("fs");
+		expect(def.adapters[0].name).toBe("fs");
 	});
 
 	it("derives name from metadata.name when spec.name is absent", () => {
@@ -228,7 +228,7 @@ kind: ${AGENT_RESOURCE_KIND}
 metadata:
   name: from-metadata
 spec:
-  organs: []
+  adapters: []
 `.trim();
 		const def = parseAgentDefinitionYaml(yaml);
 		expect(def.name).toBe("from-metadata");
@@ -277,7 +277,7 @@ organs:
     actions: [nonexistent_action]
 `.trim();
 		const def = parseAgentDefinitionYaml(yaml);
-		expect(def.organs[0].actions).toEqual(["nonexistent_action"]);
+		expect(def.adapters[0].actions).toEqual(["nonexistent_action"]);
 	});
 });
 
@@ -400,22 +400,22 @@ describe("shipped bootstrap blueprints", { tags: ["unit"] }, () => {
 	it("loads gensec.yaml", () => {
 		const def = loadAgentDefinition(join(BLUEPRINT_DIR, "gensec.yaml"));
 		expect(def.name).toBe("gensec");
-		expect(def.organs.some((o) => o.name === "fs")).toBe(true);
-		expect(def.organs.some((o) => o.name === "shell")).toBe(true);
+		expect(def.adapters.some((o) => o.name === "fs")).toBe(true);
+		expect(def.adapters.some((o) => o.name === "shell")).toBe(true);
 	});
 
 	it("loads 2sec.yaml", () => {
 		const def = loadAgentDefinition(join(BLUEPRINT_DIR, "2sec.yaml"));
 		expect(def.name).toBe("2sec");
-		expect(def.organs.some((o) => o.name === "fs")).toBe(true);
+		expect(def.adapters.some((o) => o.name === "fs")).toBe(true);
 	});
 
 	it("loads primordial.yaml", () => {
 		const def = loadAgentDefinition(join(BLUEPRINT_DIR, "primordial.yaml"));
 		expect(def.name).toBe("primordial");
-		const fs = def.organs.find((o) => o.name === "fs");
+		const fs = def.adapters.find((o) => o.name === "fs");
 		expect(fs).toBeDefined();
-		// cache is an input field; CompiledAgentOrganDefinition does not carry it.
+		// cache is an input field; CompiledAgentAdapterDefinition does not carry it.
 		expect(fs?.name).toBe("fs");
 	});
 
@@ -494,7 +494,7 @@ surfaces:
 		const base = parseAgentDefinitionYaml("name: base\nadapters:\n  - name: fs\n  - name: shell\n");
 		const overlay = parseAgentDefinitionYaml("name: base\nadapters:\n  - name: code-intel\n");
 		const merged = mergeAgentDefinitions(base, overlay);
-		expect(merged.organs.map((o) => o.name)).toEqual(["fs", "shell", "code-intel"]);
+		expect(merged.adapters.map((o) => o.name)).toEqual(["fs", "shell", "code-intel"]);
 	});
 
 	it("working memory is deep-merged, overlay wins per key", () => {

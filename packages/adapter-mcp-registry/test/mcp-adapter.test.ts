@@ -101,14 +101,14 @@ describe("McpAdapter — Command/Event routing", { tags: ["unit"] }, () => {
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "fs");
-		const nerve = new InProcessBus();
-		adapter.mount(nerve.asBus());
+		const bus = new InProcessBus();
+		adapter.mount(bus.asBus());
 
 		const result = await new Promise<Record<string, unknown>>((resolve) => {
-			nerve.asBus().event.subscribe("fs.list_files", (e) => {
+			bus.asBus().event.subscribe("fs.list_files", (e) => {
 				resolve(e.payload);
 			});
-			nerve.asBus().command.publish({
+			bus.asBus().command.publish({
 				type: "fs.list_files",
 				payload: { path: "/workspace", toolCallId: "tc-1" },
 				correlationId: "c-1",
@@ -130,12 +130,12 @@ describe("McpAdapter — Command/Event routing", { tags: ["unit"] }, () => {
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "bad");
-		const nerve = new InProcessBus();
-		adapter.mount(nerve.asBus());
+		const bus = new InProcessBus();
+		adapter.mount(bus.asBus());
 
 		const eventMessage = await new Promise<{ isError: boolean; errorMessage?: string }>((resolve) => {
-			nerve.asBus().event.subscribe("bad.boom", (e) => resolve(e));
-			nerve.asBus().command.publish({
+			bus.asBus().event.subscribe("bad.boom", (e) => resolve(e));
+			bus.asBus().command.publish({
 				type: "bad.boom",
 				payload: { toolCallId: "tc-2" },
 				correlationId: "c-2",
@@ -158,8 +158,8 @@ describe("McpAdapter — lifecycle", { tags: ["unit"] }, () => {
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "test");
-		const nerve = new InProcessBus();
-		adapter.mount(nerve.asBus());
+		const bus = new InProcessBus();
+		adapter.mount(bus.asBus());
 
 		await adapter.close?.();
 		expect(client.close).toHaveBeenCalledOnce();
@@ -196,8 +196,8 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "net");
-		const nerve = new InProcessBus();
-		const n = nerve.asBus();
+		const bus = new InProcessBus();
+		const n = bus.asBus();
 		adapter.mount(n);
 
 		// Collect event messages published on the "net.slow_fail" channel.
@@ -230,8 +230,8 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 		});
 
 		const adapter = await createMcpAdapterFromClient(client as never, "net");
-		const nerve = new InProcessBus();
-		const n = nerve.asBus();
+		const bus = new InProcessBus();
+		const n = bus.asBus();
 		adapter.mount(n);
 
 		const eventMessages: import("@dpopsuev/alef-kernel").EventMessage[] = [];

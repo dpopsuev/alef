@@ -32,8 +32,8 @@ export class InMemorySessionStore implements SessionStore {
 		return Promise.resolve(new Map(this._indexer.hitCountsMap));
 	}
 
-	organHistory(organName: string): Promise<StorageRecord[]> {
-		const prefix = `${organName}.`;
+	adapterHistory(adapterName: string): Promise<StorageRecord[]> {
+		const prefix = `${adapterName}.`;
 		return Promise.resolve(
 			this._cache.filter((r) => (r.bus === "command" || r.bus === "event") && r.type.startsWith(prefix)),
 		);

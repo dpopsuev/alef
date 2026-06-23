@@ -16,7 +16,7 @@ export interface RunAgentOptions {
 	getThinking: () => string;
 	setThinking: (level: string) => void;
 	setLLMAbortController: (ctrl: AbortController | undefined) => void;
-	reloadOrgan: (name: string, path: string) => Promise<void>;
+	reloadAdapter: (name: string, path: string) => Promise<void>;
 	getDirectiveAdapter: () => unknown;
 
 	session: Session;

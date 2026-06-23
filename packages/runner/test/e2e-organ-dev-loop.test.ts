@@ -20,8 +20,8 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
-import { createEvalOrgan } from "@dpopsuev/alef-adapter-eval";
+import { createAgentAdapter } from "@dpopsuev/alef-adapter-agent";
+import { createEvalAdapter } from "@dpopsuev/alef-adapter-eval";
 import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, describe, expect, it } from "vitest";
@@ -44,7 +44,7 @@ function makeTmp(): string {
 
 /** Publish a Command event and wait for the matching Event reply. */
 function commandCall(
-	nerve: InProcessBus,
+	bus: InProcessBus,
 	toolName: string,
 	payload: Record<string, unknown>,
 	timeoutMs: number,
@@ -55,14 +55,14 @@ function commandCall(
 			() => reject(new Error(`command/${toolName} timed out after ${timeoutMs}ms`)),
 			timeoutMs,
 		);
-		const off = nerve.asBus().event.subscribe(toolName, (event) => {
+		const off = bus.asBus().event.subscribe(toolName, (event) => {
 			if (event.correlationId === correlationId) {
 				clearTimeout(timer);
 				off();
 				resolve(event);
 			}
 		});
-		nerve.asBus().command.publish({ type: toolName, correlationId, payload });
+		bus.asBus().command.publish({ type: toolName, correlationId, payload });
 	});
 }
 
@@ -110,15 +110,15 @@ export function createOrgan() {
 		}
 
 		// ── Step 2: mount adapters on a shared bus ─────────────────────────
-		const nerve = new InProcessBus();
-		const orchestrationAdapter = createAgentOrgan({ cwd, replyEvent: "llm.response" });
-		const evalAdapter = createEvalOrgan({ replyEvent: "llm.response" });
-		unmounts.push(orchestrationAdapter.mount(nerve.asBus()));
-		unmounts.push(evalAdapter.mount(nerve.asBus()));
+		const bus = new InProcessBus();
+		const orchestrationAdapter = createAgentAdapter({ cwd, replyEvent: "llm.response" });
+		const evalAdapter = createEvalAdapter({ replyEvent: "llm.response" });
+		unmounts.push(orchestrationAdapter.mount(bus.asBus()));
+		unmounts.push(evalAdapter.mount(bus.asBus()));
 
 		// ── Step 3: agent.spawn — start child Alef with echo adapter ─
 		const spawnResult = await commandCall(
-			nerve,
+			bus,
 			"agent.spawn",
 			{
 				organs: [adapterPath],
@@ -137,7 +137,7 @@ export function createOrgan() {
 		// The scripted reply simulates the child's llm.response response.
 		// The eval validates structurally: reply must contain "Echo".
 		const evalResult = await commandCall(
-			nerve,
+			bus,
 			"eval.run",
 			{
 				endpoint,
@@ -159,7 +159,7 @@ export function createOrgan() {
 		delete process.env.ALEF_SCRIPTED_REPLIES;
 
 		// ── Step 5: clean up via agent.kill ─────────────────────────
-		await commandCall(nerve, "agent.kill", { name }, 5_000).catch(() => {
+		await commandCall(bus, "agent.kill", { name }, 5_000).catch(() => {
 			/* ignore kill errors */
 		});
 

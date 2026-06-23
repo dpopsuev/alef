@@ -1,4 +1,4 @@
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
-import { createSkillsOrgan } from "../src/adapter.js";
+import { createSkillsAdapter } from "../src/adapter.js";
 
-adapterComplianceSuite(() => createSkillsOrgan({ cwd: "/tmp" }));
+adapterComplianceSuite(() => createSkillsAdapter({ cwd: "/tmp" }));

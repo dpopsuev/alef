@@ -30,8 +30,8 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 			it("loads without parse errors", () => {
 				const definition = loadAgentDefinition(bp.path);
 				expect(definition).toBeDefined();
-				expect(definition.organs).toBeDefined();
-				expect(definition.organs.length).toBeGreaterThan(0);
+				expect(definition.adapters).toBeDefined();
+				expect(definition.adapters.length).toBeGreaterThan(0);
 			});
 
 			it("declares a name and description", () => {
@@ -44,7 +44,7 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 				const result = await materializeBlueprint(definition, {
 					cwd: REPO_ROOT,
 				});
-				expect(result.organs.length).toBeGreaterThan(0);
+				expect(result.adapters.length).toBeGreaterThan(0);
 			});
 
 			it("no organ references deleted packages", () => {
@@ -55,7 +55,7 @@ describe("blueprint YAML contract", { tags: ["unit"] }, () => {
 					"delegate",
 					"orchestration",
 				];
-				for (const organ of definition.organs) {
+				for (const organ of definition.adapters) {
 					for (const deleted of deletedPackages) {
 						expect(organ.name).not.toBe(deleted);
 					}

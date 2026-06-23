@@ -9,14 +9,14 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createDiscourseOrgan } from "@dpopsuev/alef-adapter-discourse";
-import { createPlanOrgan } from "@dpopsuev/alef-adapter-plan";
+import { createDiscourseAdapter } from "@dpopsuev/alef-adapter-discourse";
+import { createPlanAdapter } from "@dpopsuev/alef-adapter-plan";
 import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("multi-agent plan + board coordination", () => {
 	let dir: string;
-	let nerve: InProcessBus;
+	let bus: InProcessBus;
 	const unmounts: Array<() => void> = [];
 
 	function call(type: string, payload: Record<string, unknown>): Promise<EventMessage> {
@@ -26,19 +26,19 @@ describe("multi-agent plan + board coordination", () => {
 				off();
 				reject(new Error(`timeout: ${type}`));
 			}, 5000);
-			const off = nerve.asBus().event.subscribe(type, (event) => {
+			const off = bus.asBus().event.subscribe(type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
 				resolve(event);
 			});
-			nerve.asBus().command.publish({ type, payload, correlationId });
+			bus.asBus().command.publish({ type, payload, correlationId });
 		});
 	}
 
 	beforeEach(() => {
 		dir = mkdtempSync(join(tmpdir(), "alef-multi-agent-test-"));
-		nerve = new InProcessBus();
+		bus = new InProcessBus();
 	});
 
 	afterEach(() => {
@@ -47,10 +47,10 @@ describe("multi-agent plan + board coordination", () => {
 	});
 
 	it("plan + board: agents post findings, parent reads and advances plan", async () => {
-		const planOrgan = createPlanOrgan({ sessionDir: dir });
-		const boardOrgan = createDiscourseOrgan({ sessionDir: dir });
-		unmounts.push(planOrgan.mount(nerve.asBus()));
-		unmounts.push(boardOrgan.mount(nerve.asBus()));
+		const planAdapter = createPlanAdapter({ sessionDir: dir });
+		const boardAdapter = createDiscourseAdapter({ sessionDir: dir });
+		unmounts.push(planAdapter.mount(bus.asBus()));
+		unmounts.push(boardAdapter.mount(bus.asBus()));
 
 		// 1. Create a plan
 		const beginResult = await call("plan.begin", { intention: "fix error handling gaps" });
@@ -140,8 +140,8 @@ describe("multi-agent plan + board coordination", () => {
 
 	it("board context.assemble injects new posts into LLM context", async () => {
 		// Create board adapter with a past lastReadTs so new posts are visible
-		const boardOrgan = createDiscourseOrgan({ sessionDir: dir });
-		unmounts.push(boardOrgan.mount(nerve.asBus()));
+		const boardAdapter = createDiscourseAdapter({ sessionDir: dir });
+		unmounts.push(boardAdapter.mount(bus.asBus()));
 
 		// Post something — the command handler writes to disk
 		await call("forum.post", {
@@ -152,7 +152,7 @@ describe("multi-agent plan + board coordination", () => {
 		});
 
 		// Verify the context.assemble contribution exists
-		const stage = boardOrgan.contributions?.["context.assemble"];
+		const stage = boardAdapter.contributions?.["context.assemble"];
 		expect(stage).toBeDefined();
 	});
 });

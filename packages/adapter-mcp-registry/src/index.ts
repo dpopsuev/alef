@@ -1,6 +1,6 @@
 export {
-	createMcpRegistryOrgan,
-	createMcpRegistryOrgan as createOrgan,
-	type McpRegistryOrganOptions,
+	createMcpRegistryAdapter,
+	createMcpRegistryAdapter as createAdapter,
+	type McpRegistryAdapterOptions,
 } from "./adapter.js";
 export { createMcpAdapterFromClient, McpAdapter } from "./mcp-adapter.js";

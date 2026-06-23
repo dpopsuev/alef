@@ -1,5 +1,5 @@
 /**
- * EnclosureOrgan — adapter wrapping Space lifecycle as Command/Event events.
+ * EnclosureAdapter — adapter wrapping Space lifecycle as Command/Event events.
  *
  * The adapter holds a session-scoped Map<spaceId, Space>.
  * The LLM creates a space, gets an ID, operates on it by ID.
@@ -87,7 +87,7 @@ const DESTROY_TOOL = {
 // Options
 // ---------------------------------------------------------------------------
 
-export interface EnclosureOrganOptions {
+export interface EnclosureAdapterOptions {
 	/**
 	 * Space backend to use. Default: 'overlay' (fuse-overlayfs, Linux).
 	 *   'overlay' — fuse-overlayfs, copy-on-write, Linux only
@@ -105,7 +105,7 @@ export interface EnclosureOrganOptions {
 // Adapter
 // ---------------------------------------------------------------------------
 
-export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapter {
+export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): Adapter {
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
 	let bus: Bus | null = null;
@@ -242,7 +242,7 @@ function getSpace(spaceId: unknown, spaces: Map<string, Space>): Space {
 async function handleCreate(
 	ctx: { payload: { workspace: string } },
 	spaces: Map<string, Space>,
-	opts: EnclosureOrganOptions,
+	opts: EnclosureAdapterOptions,
 ): Promise<Record<string, unknown>> {
 	const { workspace } = ctx.payload;
 	if (!workspace) throw new Error("enclosure.create: workspace is required");

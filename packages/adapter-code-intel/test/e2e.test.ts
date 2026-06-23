@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createCodeIntelOrgan } from "../src/index.js";
+import { createCodeIntelAdapter } from "../src/index.js";
 
 describe.skipIf(!HAVE_REAL_LLM)("organ-code-intel — real LLM E2E", { tags: ["real-llm"] }, () => {
 	let tempDir: string;
@@ -20,7 +20,7 @@ describe.skipIf(!HAVE_REAL_LLM)("organ-code-intel — real LLM E2E", { tags: ["r
 	afterAll(() => rmSync(tempDir, { recursive: true, force: true }));
 
 	it("LLM uses code.read then code.edit to modify a TypeScript function", async () => {
-		const session = createE2eSession([createCodeIntelOrgan({ cwd: tempDir })]);
+		const session = createE2eSession([createCodeIntelAdapter({ cwd: tempDir })]);
 		const { events } = await session.send(
 			`Read the file target.ts using code.read, then use code.edit to change the function to return "REPLACED" instead of the current UUID string. You MUST call code.read first, then code.edit.`,
 		);

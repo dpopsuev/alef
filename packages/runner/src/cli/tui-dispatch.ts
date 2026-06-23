@@ -191,7 +191,7 @@ export function dispatchTuiEvent(
 ): TuiState {
 	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, t, session } = ui;
 
-	if (event.type === "organ-signal" && signalHandlers) {
+	if (event.type === "adapter-signal" && signalHandlers) {
 		const handler = signalHandlers.get(event.signalType);
 		if (handler) {
 			handler(event.payload, {

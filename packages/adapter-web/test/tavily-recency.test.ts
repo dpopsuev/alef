@@ -9,11 +9,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createWebOrgan } from "../src/adapter.js";
+import { createWebAdapter } from "../src/adapter.js";
 
 describe("web.search — timeRange and topic parameters", { tags: ["unit"] }, () => {
 	it("web.search tool schema includes timeRange field", () => {
-		const organ = createWebOrgan();
+		const organ = createWebAdapter();
 		const tool = organ.tools.find((t) => t.name === "web.search");
 		expect(tool, "web.search tool must exist").toBeDefined();
 
@@ -23,7 +23,7 @@ describe("web.search — timeRange and topic parameters", { tags: ["unit"] }, ()
 	});
 
 	it("web.search tool schema includes topic field", () => {
-		const organ = createWebOrgan();
+		const organ = createWebAdapter();
 		const tool = organ.tools.find((t) => t.name === "web.search");
 		const schema = tool!.inputSchema;
 
@@ -32,7 +32,7 @@ describe("web.search — timeRange and topic parameters", { tags: ["unit"] }, ()
 	});
 
 	it("timeRange rejects invalid values", () => {
-		const organ = createWebOrgan();
+		const organ = createWebAdapter();
 		const tool = organ.tools.find((t) => t.name === "web.search");
 		const schema = tool!.inputSchema;
 
@@ -41,7 +41,7 @@ describe("web.search — timeRange and topic parameters", { tags: ["unit"] }, ()
 	});
 
 	it("organ directives mention timeRange for recent news", () => {
-		const organ = createWebOrgan();
+		const organ = createWebAdapter();
 		const directivesText = organ.directives?.join("\n") ?? "";
 		expect(directivesText).toMatch(/timeRange/i);
 	});

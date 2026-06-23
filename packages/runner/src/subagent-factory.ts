@@ -30,7 +30,7 @@ export interface SubagentSessionOptions {
 
 export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFactory {
 	return (callOpts) => {
-		const { organs, onChunk, onInnerEvent, systemPrompt: callSystemPrompt, modelOverride } = callOpts;
+		const { adapters, onChunk, onInnerEvent, systemPrompt: callSystemPrompt, modelOverride } = callOpts;
 		// Assign a deterministic color for this subagent instance.
 		const subId = `${opts.parentSessionId ?? "sub"}_${Math.random().toString(36).slice(2, 10)}`;
 		const subActor = resolveSubagentActor(opts.parentSessionId ?? "sub", subId, opts.boardId ?? "");
@@ -50,11 +50,11 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			trackConcurrentOps: opts.trackConcurrentOps,
 			phaseTimeoutMs: 100,
 		});
-		for (const adapter of organs) agent.load(adapter);
+		for (const adapter of adapters) agent.load(adapter);
 		const toolShell = createToolShellAdapter({
-			tools: organs.flatMap((o) => o.tools),
+			tools: adapters.flatMap((o) => o.tools),
 			getTools: () => agent.tools,
-			adapterDirectives: buildAdapterDirectives([...organs]),
+			adapterDirectives: buildAdapterDirectives([...adapters]),
 		});
 		const pipeline = createContextAssemblyPipeline();
 		agent.load(toolShell);

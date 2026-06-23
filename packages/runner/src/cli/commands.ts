@@ -188,7 +188,7 @@ const reload = {
 			ctx.tui.requestRender();
 			return;
 		}
-		if (!ctx.session.reloadOrgan) {
+		if (!ctx.session.reloadAdapter) {
 			ctx.writer.addNotice(":reload not available in this session.");
 			ctx.tui.requestRender();
 			return;
@@ -196,7 +196,7 @@ const reload = {
 		ctx.writer.addNotice(`Reloading ${name}…`);
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			await ctx.session.reloadOrgan?.(name, path);
+			await ctx.session.reloadAdapter?.(name, path);
 			ctx.writer.addNotice(`Reloaded ${name}.`);
 			ctx.tui.requestRender();
 		});
@@ -213,7 +213,7 @@ const load = {
 			ctx.tui.requestRender();
 			return;
 		}
-		if (!ctx.session.loadOrgan) {
+		if (!ctx.session.loadAdapter) {
 			ctx.writer.addNotice(":load not available in this session.");
 			ctx.tui.requestRender();
 			return;
@@ -221,7 +221,7 @@ const load = {
 		ctx.writer.addNotice(`Loading ${path}…`);
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
-			await ctx.session.loadOrgan?.(path);
+			await ctx.session.loadAdapter?.(path);
 			ctx.writer.addNotice(`Loaded ${path}.`);
 			ctx.tui.requestRender();
 		});
@@ -232,30 +232,30 @@ const unload = {
 	name: "unload",
 	description: "Unmount a loaded adapter — :unload or :unload <name>",
 	run(ctx: TuiHandlerContext, args: string[]) {
-		if (!ctx.session.unloadOrgan) {
+		if (!ctx.session.unloadAdapter) {
 			ctx.writer.addNotice(":unload not available in this session.");
 			ctx.tui.requestRender();
 			return;
 		}
 		const [name] = args;
 		if (name) {
-			const removed = ctx.session.unloadOrgan(name);
+			const removed = ctx.session.unloadAdapter(name);
 			ctx.writer.addNotice(removed ? `Unloaded ${name}.` : `No adapter named '${name}'.`);
 			ctx.tui.requestRender();
 			return;
 		}
-		const organs = ctx.session.organs ?? [];
-		if (organs.length === 0) {
-			ctx.writer.addNotice("No organs loaded.");
+		const adapters = ctx.session.adapters ?? [];
+		if (adapters.length === 0) {
+			ctx.writer.addNotice("No adapters loaded.");
 			ctx.tui.requestRender();
 			return;
 		}
 		openConfigPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
 			id: "unload-picker",
-			source: () => [...(ctx.session.organs ?? [])],
+			source: () => [...(ctx.session.adapters ?? [])],
 			toItem: (o) => ({ value: o.name, label: o.name, description: o.description }),
 			onSelect: (o) => {
-				const removed = ctx.session.unloadOrgan?.(o.name);
+				const removed = ctx.session.unloadAdapter?.(o.name);
 				ctx.writer.addNotice(removed ? `Unloaded ${o.name}.` : `No adapter named '${o.name}'.`);
 				ctx.tui.requestRender();
 			},
@@ -288,15 +288,15 @@ const install = {
 
 const upgrade = {
 	name: "upgrade",
-	description: "Upgrade all installed organs",
+	description: "Upgrade all installed adapters",
 	run(ctx: TuiHandlerContext) {
-		ctx.writer.addNotice("Upgrading organs…");
+		ctx.writer.addNotice("Upgrading adapters…");
 		ctx.tui.requestRender();
 		attempt(ctx, async () => {
 			const pm = await import("../alef-pm.js");
 			pm.init();
 			const gen = await pm.upgrade();
-			ctx.writer.addNotice(`Organs upgraded (generation ${gen})`);
+			ctx.writer.addNotice(`Adapters upgraded (generation ${gen})`);
 			ctx.tui.requestRender();
 		});
 	},
@@ -312,7 +312,7 @@ const rollback = {
 			const entries = pm.history();
 			const n = args[0] ? parseInt(args[0], 10) : (entries[1]?.id ?? 1);
 			await pm.rollback(n);
-			ctx.writer.addNotice(`Rolled back to generation ${n}. Restart Alef to load the restored organs.`);
+			ctx.writer.addNotice(`Rolled back to generation ${n}. Restart Alef to load the restored adapters.`);
 			ctx.tui.requestRender();
 		});
 	},

@@ -1,2 +1,2 @@
-export type { LocusOrganOptions } from "./adapter.js";
-export { createLocusOrgan, createLocusOrgan as createOrgan } from "./adapter.js";
+export type { LocusAdapterOptions } from "./adapter.js";
+export { createLocusAdapter, createLocusAdapter as createAdapter } from "./adapter.js";

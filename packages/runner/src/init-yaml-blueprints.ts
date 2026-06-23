@@ -89,7 +89,7 @@ function registerYamlBlueprint(yamlPath: string): void {
 
 		// Create a factory function that wraps the YAML definition
 		const factory = async (opts: BlueprintStackOptions): Promise<BlueprintStack> => {
-			// Materialize organs from the definition
+			// Materialize adapters from the definition
 			const noop = () => {};
 			const noopLogger = {
 				info: noop,
@@ -99,7 +99,7 @@ function registerYamlBlueprint(yamlPath: string): void {
 				child: () => noopLogger,
 			};
 
-			const { organs } = await materializeBlueprint(definition, {
+			const { adapters } = await materializeBlueprint(definition, {
 				cwd: opts.cwd,
 				loggerFor: () => noopLogger,
 				allowedTools: ["*"],
@@ -110,7 +110,7 @@ function registerYamlBlueprint(yamlPath: string): void {
 			const pipeline = createContextAssemblyPipeline();
 
 			return {
-				organs,
+				adapters,
 				pipeline,
 			};
 		};

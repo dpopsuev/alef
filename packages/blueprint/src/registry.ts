@@ -4,8 +4,7 @@ import type { Api, Model } from "@dpopsuev/alef-llm";
 import type { SessionStore } from "@dpopsuev/alef-session";
 
 export interface SubagentFactoryOptions {
-	/** @deprecated Use adapters */
-	organs: readonly Adapter[];
+	adapters: readonly Adapter[];
 	onChunk?: (chunk: string) => void;
 	onInnerEvent?: (callId: string, type: string, payload: Record<string, unknown>) => void;
 	systemPrompt?: string;
@@ -34,8 +33,6 @@ export interface BlueprintStackOptions {
 	 * Allows --blueprint to control which tools are exposed.
 	 */
 	domainAdapters?: Adapter[];
-	/** @deprecated Use domainAdapters */
-	domainOrgans?: Adapter[];
 	/**
 	 * Subagent factory injected by the runner. Creates lightweight inner agents
 	 * for delegation strategies. Blueprint stacks must not construct this themselves —
@@ -50,8 +47,7 @@ export interface BlueprintStackOptions {
 }
 
 export interface BlueprintStack {
-	/** @deprecated Use adapters */
-	organs: Adapter[];
+	adapters: Adapter[];
 	pipeline: ReturnType<typeof createContextAssemblyPipeline>;
 }
 

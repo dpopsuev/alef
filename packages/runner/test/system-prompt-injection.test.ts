@@ -18,7 +18,7 @@ import { JsonlSessionStore } from "../src/session-store.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
 
 const EMPTY_LOADED = {
-	organs: [],
+	adapters: [],
 	blueprintModelId: undefined,
 	blueprintName: undefined,
 	blueprintSurfaces: [],

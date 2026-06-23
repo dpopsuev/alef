@@ -1,5 +1,5 @@
 /**
- * CodeIntelOrgan — LSP-based code intelligence for TypeScript/JavaScript.
+ * CodeIntelAdapter — LSP-based code intelligence for TypeScript/JavaScript.
  *
  * Four LSP-powered tools for code navigation and analysis:
  *   code.symbols  — workspace-wide symbol search (functions, classes, interfaces, types)
@@ -113,7 +113,7 @@ function formatDiagnostics(diagnostics: import("./backend.js").Diagnostic[]): st
 // Adapter factory
 // ---------------------------------------------------------------------------
 
-export interface CodeIntelOrganOptions extends BaseAdapterOptions {
+export interface CodeIntelAdapterOptions extends BaseAdapterOptions {
 	/**
 	 * Workspace root. All relative paths resolve against this.
 	 * Required when using the default LocalCodeIntelBackend.
@@ -123,13 +123,13 @@ export interface CodeIntelOrganOptions extends BaseAdapterOptions {
 	writableRoots?: readonly string[];
 	/**
 	 * Override the backend (e.g. StubCodeIntelBackend for tests,
-	 * DockerCodeIntelBackend for EnclosureOrgan integration).
+	 * DockerCodeIntelBackend for EnclosureAdapter integration).
 	 * Default: LocalCodeIntelBackend.
 	 */
 	backend?: CodeIntelBackend;
 }
 
-export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Adapter {
+export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 	const backend: CodeIntelBackend =
 		opts.backend ??
 		new LocalCodeIntelBackend({

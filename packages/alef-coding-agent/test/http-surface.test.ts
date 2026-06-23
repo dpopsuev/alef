@@ -3,7 +3,7 @@
  *
  * POST /message → SSE reply with real LLM
  * Blueprint adapter selection verified with real LLM
- * RouterOrgan SSE filter with real LLM
+ * RouterAdapter SSE filter with real LLM
  *
  * Gate: ANTHROPIC_API_KEY or ANTHROPIC_VERTEX_PROJECT_ID must be set.
  * Default model: claude-haiku-4-5 (cheapest, fast enough).
@@ -581,11 +581,11 @@ describe.skipIf(!HAVE_LLM)(
 );
 
 // ---------------------------------------------------------------------------
-// TSK-187: RouterOrgan SSE filter with real LLM
+// TSK-187: RouterAdapter SSE filter with real LLM
 // ---------------------------------------------------------------------------
 
 describe.skipIf(!HAVE_LLM)(
-	"SSE event filter: RouterOrgan delivers only allowed event types",
+	"SSE event filter: RouterAdapter delivers only allowed event types",
 	{ tags: ["real-llm"] },
 	() => {
 		it("filtered surface blocks fs.read events but passes llm.response", async () => {

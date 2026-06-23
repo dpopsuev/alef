@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createCodeIntelOrgan } from "../src/adapter.js";
+import { createCodeIntelAdapter } from "../src/adapter.js";
 import { StubCodeIntelBackend } from "../src/stub-backend.js";
 
 describe("code.review tool", () => {
 	it("is registered in the organ's tool list", () => {
-		const organ = createCodeIntelOrgan({
+		const organ = createCodeIntelAdapter({
 			cwd: process.cwd(),
 			backend: new StubCodeIntelBackend(),
 		});
@@ -13,7 +13,7 @@ describe("code.review tool", () => {
 	});
 
 	it("tool count is now 5 (symbols, hover, callers, diagnose, review)", () => {
-		const organ = createCodeIntelOrgan({
+		const organ = createCodeIntelAdapter({
 			cwd: process.cwd(),
 			backend: new StubCodeIntelBackend(),
 		});

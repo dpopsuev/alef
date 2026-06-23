@@ -1,5 +1,5 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { createMetaOrgan, type DirectiveAdapter } from "@dpopsuev/alef-meta";
+import { createMetaAdapter, type DirectiveAdapter } from "@dpopsuev/alef-meta";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { autoDetectModel, buildModel } from "./model/index.js";
 import type { DirectiveView } from "./session.js";
@@ -7,7 +7,7 @@ import { buildSubagentFactory } from "./subagent-factory.js";
 
 const META_SYSTEM_PROMPT =
 	"You are the :meta command inside Alef, a coding agent. " +
-	"You answer questions about the running Alef instance: past sessions, system prompt directives, and loaded organs. " +
+	"You answer questions about the running Alef instance: past sessions, system prompt directives, and loaded adapters. " +
 	"When asked what you are or what you can do, explain that concisely. " +
 	"When asked about sessions: use alef.sessions.list then alef.sessions.read. " +
 	"When asked about the system prompt: use alef.directive.list. " +
@@ -26,7 +26,7 @@ export async function runMetaAgent(
 	// DirectiveView is structurally a subset of DirectiveAdapter; the runtime object
 	// from getDirectiveAdapter() satisfies the full interface.
 	const adapters: Adapter[] = [
-		createMetaOrgan({
+		createMetaAdapter({
 			dialogEventType: "llm.input",
 			getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined,
 		}),

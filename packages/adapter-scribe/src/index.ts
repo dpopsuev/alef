@@ -1,2 +1,2 @@
-export type { ScribeOrganOptions } from "./adapter.js";
-export { createScribeOrgan, createScribeOrgan as createOrgan } from "./adapter.js";
+export type { ScribeAdapterOptions } from "./adapter.js";
+export { createScribeAdapter, createScribeAdapter as createAdapter } from "./adapter.js";

@@ -3,10 +3,10 @@
  *
  * Purely structural: validates shape, resolves paths, passes names through.
  * Zero knowledge of specific adapter packages — alias resolution is the
- * materializer's concern (it is the composition root that ships the organs).
+ * materializer's concern (it is the composition root that ships the adapters).
  */
 
-import type { AgentDefinitionOrganInput, AgentRole, CompiledAgentOrganDefinition } from "./types.js";
+import type { AgentDefinitionAdapterInput, AgentRole, CompiledAgentAdapterDefinition } from "./types.js";
 
 /**
  * Compile adapter inputs from YAML into materializer-ready descriptors.
@@ -17,11 +17,11 @@ import type { AgentDefinitionOrganInput, AgentRole, CompiledAgentOrganDefinition
  *
  * Blueprint does NOT resolve aliases; the materializer does.
  */
-export function compileAgentOrganDefinitions(
-	inputs: AgentDefinitionOrganInput[] | undefined,
+export function compileAgentAdapterDefinitions(
+	inputs: AgentDefinitionAdapterInput[] | undefined,
 	_role: AgentRole = "root",
 	baseDir?: string,
-): CompiledAgentOrganDefinition[] {
+): CompiledAgentAdapterDefinition[] {
 	if (!inputs || inputs.length === 0) return [];
 
 	const seen = new Set<string>();
@@ -54,7 +54,7 @@ export function compileAgentOrganDefinitions(
 	});
 }
 
-/** @deprecated EDA organs self-describe at mount time. Returns empty for compatibility. */
-export function listToolNamesForOrgans(_organs: CompiledAgentOrganDefinition[]): string[] {
+/** @deprecated EDA adapters self-describe at mount time. Returns empty for compatibility. */
+export function listToolNamesForAdapters(_adapters: CompiledAgentAdapterDefinition[]): string[] {
 	return [];
 }

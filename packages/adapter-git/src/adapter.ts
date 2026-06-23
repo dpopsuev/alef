@@ -4,14 +4,14 @@ import { z } from "zod";
 
 const DEFAULT_FORGE_URL = "http://localhost:3000";
 
-export interface GitOrganOptions {
+export interface GitAdapterOptions {
 	cwd: string;
 	forgeUrl?: string;
 	forgeToken?: string;
 	actions?: readonly string[];
 }
 
-async function forgeApi(opts: GitOrganOptions, method: string, path: string, body?: unknown): Promise<unknown> {
+async function forgeApi(opts: GitAdapterOptions, method: string, path: string, body?: unknown): Promise<unknown> {
 	const url = `${opts.forgeUrl ?? DEFAULT_FORGE_URL}/api/v1${path}`;
 	const headers: Record<string, string> = { "Content-Type": "application/json" };
 	if (opts.forgeToken) headers.Authorization = `token ${opts.forgeToken}`;
@@ -68,7 +68,7 @@ const PR_MERGE = {
 	}),
 };
 
-export function createGitOrgan(opts: GitOrganOptions): Adapter {
+export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 	return defineAdapter(
 		"git",
 		{
@@ -131,8 +131,8 @@ export function createGitOrgan(opts: GitOrganOptions): Adapter {
 	);
 }
 
-export function createOrgan(opts: { cwd: string; actions?: string[] }): Adapter {
-	return createGitOrgan({
+export function createAdapter(opts: { cwd: string; actions?: string[] }): Adapter {
+	return createGitAdapter({
 		cwd: opts.cwd,
 		actions: opts.actions,
 		forgeUrl: process.env.ALEF_FORGE_URL,

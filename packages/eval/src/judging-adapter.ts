@@ -1,5 +1,5 @@
 /**
- * JudgingOrgan — the only write tool a judge agent receives.
+ * JudgingAdapter — the only write tool a judge agent receives.
  *
  * Exposes a single tool: report.submit
  * Typed schema enforces structured output from the judge.
@@ -58,11 +58,11 @@ const SUBMIT_TOOL: ToolDefinition = {
 // Adapter
 // ---------------------------------------------------------------------------
 
-export interface JudgingOrganOptions {
+export interface JudgingAdapterOptions {
 	onReport(report: JudgeReport): void;
 }
 
-export function createJudgingOrgan(opts: JudgingOrganOptions): Adapter {
+export function createJudgingAdapter(opts: JudgingAdapterOptions): Adapter {
 	return defineAdapter(
 		"judging",
 		{

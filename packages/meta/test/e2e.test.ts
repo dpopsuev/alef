@@ -1,10 +1,10 @@
 import { createE2eSession, HAVE_REAL_LLM } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
-import { createMetaOrgan } from "../src/adapter.js";
+import { createMetaAdapter } from "../src/adapter.js";
 
 describe.skipIf(!HAVE_REAL_LLM)("organ-alef — real LLM E2E", { tags: ["real-llm"] }, () => {
 	it("LLM fetches running Alef config using alef.config.get", async () => {
-		const session = createE2eSession([createMetaOrgan({ dialogEventType: "llm.input" })]);
+		const session = createE2eSession([createMetaAdapter({ dialogEventType: "llm.input" })]);
 		const { reply, events } = await session.send(
 			"Use alef.config.get to fetch the current Alef configuration and summarise what model it uses. You MUST call alef.config.get.",
 		);

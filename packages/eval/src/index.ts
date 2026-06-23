@@ -21,7 +21,7 @@ export type { Property } from "./checkers/property.js";
 export { propertyCheck, SUM_PROPERTIES } from "./checkers/property.js";
 export { terminalScript, terminalScriptFile } from "./checkers/terminal.js";
 export { testCheck } from "./checkers/test.js";
-export { defaultEvalOrgans } from "./default-adapters.js";
+export { defaultEvalAdapters } from "./default-adapters.js";
 export type {
 	Checker,
 	CheckerContext,
@@ -58,7 +58,7 @@ export { assertAllToolsUsed, assertToolNotUsed, assertToolUsed, EvalHarness } fr
 export type { JudgePanelResult, JudgeResult, JudgeSpec } from "./judge-panel-runner.js";
 export { formatJudgePanelReport, JudgePanelRunner } from "./judge-panel-runner.js";
 export type { JudgeFinding, JudgeReport, JudgeVerdict } from "./judging-adapter.js";
-export { createJudgingOrgan } from "./judging-adapter.js";
+export { createJudgingAdapter } from "./judging-adapter.js";
 export type { RunMetrics, ScoringRule, SpanRecord, TurnRecord } from "./metrics.js";
 export {
 	batchCorrelation,

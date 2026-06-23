@@ -55,7 +55,7 @@ export class ImplStationRunner implements StationRunner {
 		let submittedOutput: unknown;
 		const questions: Array<{ question: string; answer: string }> = [];
 
-		const contractOrgan = createContractTool(contract, (data) => {
+		const contractAdapter = createContractTool(contract, (data) => {
 			submittedOutput = data;
 		});
 
@@ -64,7 +64,7 @@ export class ImplStationRunner implements StationRunner {
 			return Promise.resolve("[awaiting user input]");
 		};
 
-		const questionOrgan = createQuestionTool(this.onQuestion ?? defaultOnQuestion, questions);
+		const questionAdapter = createQuestionTool(this.onQuestion ?? defaultOnQuestion, questions);
 
 		const agent = new Agent();
 		const llm = createAgentLoop({
@@ -72,7 +72,7 @@ export class ImplStationRunner implements StationRunner {
 			systemPrompt: buildStationPrompt(station, contract),
 		});
 
-		agent.load(llm).load(contractOrgan).load(questionOrgan);
+		agent.load(llm).load(contractAdapter).load(questionAdapter);
 		for (const a of this.domainAdapters) agent.load(a);
 
 		const controller = new AgentController(agent);

@@ -7,7 +7,7 @@
  *   run(fn, opts) → RunMetrics         — convenience wrapper for simple scenarios
  *
  * Design decisions:
- *   - Workspace: plain mkdtemp + cleanup. No EnclosureOrgan needed —
+ *   - Workspace: plain mkdtemp + cleanup. No EnclosureAdapter needed —
  *     eval workspaces are throwaway, not production codebases.
  *   - OTel: InMemorySpanExporter collects all alef.spine spans.
  *     No SDK required in the caller — harness sets it up.
@@ -22,7 +22,7 @@ import { dirname, join } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
-import { defaultEvalOrgans } from "./default-adapters.js";
+import { defaultEvalAdapters } from "./default-adapters.js";
 import { EvaluatorAdapter } from "./evaluator-adapter.js";
 import type { BusEvent, RunMetrics, SpanRecord } from "./metrics.js";
 import { deriveturns } from "./metrics.js";
@@ -65,12 +65,8 @@ export interface HarnessOptions {
 	scenario: string;
 	/** Factory for the base adapter set. Default: fs + shell at workspace cwd. */
 	baseAdaptersFactory?: (workspace: string) => Adapter[];
-	/** @deprecated Use baseAdaptersFactory */
-	baseOrgansFactory?: (workspace: string) => Adapter[];
 	/** Extra adapters beyond the base set. */
 	extraAdapters?: Adapter[];
-	/** @deprecated Use extraAdapters */
-	extraOrgans?: Adapter[];
 	/** System prompt for the agent. */
 	systemPrompt?: string;
 	/** Loop detection threshold. Default: 10. */
@@ -92,12 +88,8 @@ export interface HarnessOptions {
 	keepWorkspace?: boolean;
 	/** Factory for abort-aware adapters (preferred over extraAdapters). */
 	adapterFactory?: (signal: AbortSignal) => Adapter[];
-	/** @deprecated Use adapterFactory */
-	organFactory?: (signal: AbortSignal) => Adapter[];
 	/** Async adapter factory — receives workspace path and signal. Takes precedence over adapterFactory. */
 	asyncAdapterFactory?: (workspace: string, signal: AbortSignal) => Promise<Adapter[]>;
-	/** @deprecated Use asyncAdapterFactory */
-	asyncOrganFactory?: (workspace: string, signal: AbortSignal) => Promise<Adapter[]>;
 	/** Directory to write a JSONL execution trace file. */
 	traceDir?: string;
 }
@@ -343,13 +335,13 @@ export class EvalHarness {
 		const evaluator = new EvaluatorAdapter({ loopThreshold: opts.loopThreshold });
 		const agent = new Agent();
 
-		const baseAdapters = (opts.baseAdaptersFactory ?? opts.baseOrgansFactory ?? defaultEvalOrgans)(workspace);
+		const baseAdapters = (opts.baseAdaptersFactory ?? defaultEvalAdapters)(workspace);
 		for (const adapter of baseAdapters) agent.load(adapter);
 		agent.load(evaluator);
-		for (const adapter of opts.extraAdapters ?? opts.extraOrgans ?? []) agent.load(adapter);
+		for (const adapter of opts.extraAdapters ?? []) agent.load(adapter);
 
-		const asyncFactory = opts.asyncAdapterFactory ?? opts.asyncOrganFactory;
-		const syncFactory = opts.adapterFactory ?? opts.organFactory;
+		const asyncFactory = opts.asyncAdapterFactory;
+		const syncFactory = opts.adapterFactory;
 		const asyncAdapters = asyncFactory
 			? await asyncFactory(workspace, agent.signal)
 			: (syncFactory?.(agent.signal) ?? []);

@@ -12,16 +12,13 @@ export interface ScribeAdapterOptions {
 	dbPath?: string;
 }
 
-/** @deprecated Use ScribeAdapterOptions */
-export type ScribeOrganOptions = ScribeAdapterOptions;
-
 const DEFAULT_BINARY = join(homedir(), "Workspace/scribe/bin/scribe");
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 const DEFAULT_DB_PATH = join(XDG_DATA_HOME, "alef", "scribe.db");
 
 const REFRESH_INTERVAL = 10;
 
-export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
+export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const dbPath = opts.dbPath ?? DEFAULT_DB_PATH;
 

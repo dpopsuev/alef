@@ -88,9 +88,9 @@ export class DockerSpace implements Space {
 
 	workDir(): string {
 		// For Docker backend, the agent's "working directory" is communicated
-		// as the container ID + container path. Organs that write files use
+		// as the container ID + container path. Adapters that write files use
 		// exec() rather than the host filesystem directly.
-		// Return a sentinel that EnclosureOrgan uses to identify Docker mode.
+		// Return a sentinel that EnclosureAdapter uses to identify Docker mode.
 		return `docker:${this.container.getId().slice(0, 12)}:${CONTAINER_WORKDIR}`;
 	}
 

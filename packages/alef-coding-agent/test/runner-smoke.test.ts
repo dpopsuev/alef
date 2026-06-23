@@ -181,7 +181,7 @@ describe.skipIf(!HAS_KEY)("Real-LLM — full stack integration", { tags: ["real-
 
 			await new Promise((r) => setTimeout(r, 50));
 			const { status } = await postJson(`${baseUrl}/message`, { text: "Who are you? Reply in one sentence." });
-			// RouterOrgan returns 202 Accepted for async message dispatch.
+			// RouterAdapter returns 202 Accepted for async message dispatch.
 			expect(status).toBe(202);
 
 			const reply = await replyPromise;

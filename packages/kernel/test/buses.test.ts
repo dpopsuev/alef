@@ -47,37 +47,37 @@ function makeEventMessage(
 
 describe("Nerve — event.subscribe", { tags: ["unit"] }, () => {
 	it("delivers event message to subscriber", () => {
-		const nerve = new InProcessBus();
-		const reasoner = nerve.asBus();
+		const bus = new InProcessBus();
+		const reasoner = bus.asBus();
 		const received: BusMessage[] = [];
 		reasoner.event.subscribe("test.result", (e) => void received.push(e));
 
-		nerve.asBus().event.publish(makeEventMessage("test.result"));
+		bus.asBus().event.publish(makeEventMessage("test.result"));
 
 		expect(received).toHaveLength(1);
 		expect(received[0]).toMatchObject({ type: "test.result" });
 	});
 
 	it("unsubscribes cleanly", () => {
-		const nerve = new InProcessBus();
-		const reasoner = nerve.asBus();
+		const bus = new InProcessBus();
+		const reasoner = bus.asBus();
 		const received: BusMessage[] = [];
 		const off = reasoner.event.subscribe("test.result", (e) => void received.push(e));
 
-		nerve.asBus().event.publish(makeEventMessage("test.result"));
+		bus.asBus().event.publish(makeEventMessage("test.result"));
 		off();
-		nerve.asBus().event.publish(makeEventMessage("test.result"));
+		bus.asBus().event.publish(makeEventMessage("test.result"));
 
 		expect(received).toHaveLength(1);
 	});
 
 	it("does not receive wrong event type", () => {
-		const nerve = new InProcessBus();
-		const reasoner = nerve.asBus();
+		const bus = new InProcessBus();
+		const reasoner = bus.asBus();
 		const received: BusMessage[] = [];
 		reasoner.event.subscribe("test.result", (e) => void received.push(e));
 
-		nerve.asBus().event.publish(makeEventMessage("test.observation"));
+		bus.asBus().event.publish(makeEventMessage("test.observation"));
 
 		expect(received).toHaveLength(0);
 	});
@@ -85,9 +85,9 @@ describe("Nerve — event.subscribe", { tags: ["unit"] }, () => {
 
 describe("Nerve — command.publish", { tags: ["unit"] }, () => {
 	it("delivers command message to subscriber", () => {
-		const nerve = new InProcessBus();
-		const reasoner = nerve.asBus();
-		const adapter = nerve.asBus();
+		const bus = new InProcessBus();
+		const reasoner = bus.asBus();
+		const adapter = bus.asBus();
 		const received: BusMessage[] = [];
 		adapter.command.subscribe("test.command", (e) => void received.push(e));
 
@@ -104,25 +104,25 @@ describe("Nerve — command.publish", { tags: ["unit"] }, () => {
 
 describe("Nerve — command.subscribe", { tags: ["unit"] }, () => {
 	it("delivers command message to subscriber", () => {
-		const nerve = new InProcessBus();
-		const adapter = nerve.asBus();
+		const bus = new InProcessBus();
+		const adapter = bus.asBus();
 		const received: BusMessage[] = [];
 		adapter.command.subscribe("test.command", (e) => void received.push(e));
 
-		nerve.publish("command", makeCommandMessage("test.command"));
+		bus.publish("command", makeCommandMessage("test.command"));
 
 		expect(received).toHaveLength(1);
 	});
 
 	it("unsubscribes cleanly", () => {
-		const nerve = new InProcessBus();
-		const adapter = nerve.asBus();
+		const bus = new InProcessBus();
+		const adapter = bus.asBus();
 		const received: BusMessage[] = [];
 		const off = adapter.command.subscribe("test.command", (e) => void received.push(e));
 
-		nerve.publish("command", makeCommandMessage("test.command"));
+		bus.publish("command", makeCommandMessage("test.command"));
 		off();
-		nerve.publish("command", makeCommandMessage("test.command"));
+		bus.publish("command", makeCommandMessage("test.command"));
 
 		expect(received).toHaveLength(1);
 	});
@@ -130,9 +130,9 @@ describe("Nerve — command.subscribe", { tags: ["unit"] }, () => {
 
 describe("Nerve — event.publish", { tags: ["unit"] }, () => {
 	it("delivers event message to subscriber", () => {
-		const nerve = new InProcessBus();
-		const adapter = nerve.asBus();
-		const reasoner = nerve.asBus();
+		const bus = new InProcessBus();
+		const adapter = bus.asBus();
+		const reasoner = bus.asBus();
 		const received: BusMessage[] = [];
 		reasoner.event.subscribe("test.result", (e) => void received.push(e));
 
@@ -148,43 +148,43 @@ describe("Nerve — event.publish", { tags: ["unit"] }, () => {
 
 describe("InProcessBus — bus root methods", { tags: ["unit"] }, () => {
 	it("publishCommand reaches CommandBus subscriber", () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const received: BusMessage[] = [];
-		nerve.asBus().command.subscribe("test.command", (e) => void received.push(e));
+		bus.asBus().command.subscribe("test.command", (e) => void received.push(e));
 
-		nerve.publish("command", makeCommandMessage("test.command"));
+		bus.publish("command", makeCommandMessage("test.command"));
 
 		expect(received).toHaveLength(1);
 	});
 
 	it("subscribeEvent receives from EventBus publish", () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const received: BusMessage[] = [];
-		nerve.subscribe("event", "test.result", (e) => void received.push(e));
+		bus.subscribe("event", "test.result", (e) => void received.push(e));
 
-		nerve.asBus().event.publish(makeEventMessage("test.result"));
+		bus.asBus().event.publish(makeEventMessage("test.result"));
 
 		expect(received).toHaveLength(1);
 	});
 
 	it("correlationId threads through Command→Event round-trip", () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const id = newCorrelationId();
 		let received: BusMessage | undefined;
 
-		nerve.asBus().command.subscribe("test.command", (commandMessage) => {
-			nerve.asBus().event.publish({
+		bus.asBus().command.subscribe("test.command", (commandMessage) => {
+			bus.asBus().event.publish({
 				type: "test.result",
 				payload: { output: "echo" },
 				correlationId: commandMessage.correlationId,
 				isError: false,
 			});
 		});
-		nerve.subscribe("event", "test.result", (e) => {
+		bus.subscribe("event", "test.result", (e) => {
 			received = e;
 		});
 
-		nerve.publish("command", {
+		bus.publish("command", {
 			type: "test.command",
 			payload: { value: "ping" },
 			correlationId: id,
@@ -200,23 +200,23 @@ describe("InProcessBus — bus root methods", { tags: ["unit"] }, () => {
 
 describe("InProcessBus — wildcard subscriptions", { tags: ["unit"] }, () => {
 	it("onAnyCommand receives all command messages", () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const received: BusMessage[] = [];
-		nerve.onAny("command", (e) => received.push(e));
+		bus.onAny("command", (e) => received.push(e));
 
-		nerve.publish("command", makeCommandMessage("test.command"));
-		nerve.publish("command", makeCommandMessage("test.tool_call"));
+		bus.publish("command", makeCommandMessage("test.command"));
+		bus.publish("command", makeCommandMessage("test.tool_call"));
 
 		expect(received).toHaveLength(2);
 	});
 
 	it("onAnyEvent receives all event messages", () => {
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const received: BusMessage[] = [];
-		nerve.onAny("event", (e) => received.push(e));
+		bus.onAny("event", (e) => received.push(e));
 
-		nerve.asBus().event.publish(makeEventMessage("test.result"));
-		nerve.asBus().event.publish(makeEventMessage("test.observation"));
+		bus.asBus().event.publish(makeEventMessage("test.result"));
+		bus.asBus().event.publish(makeEventMessage("test.observation"));
 
 		expect(received).toHaveLength(2);
 	});
@@ -228,19 +228,19 @@ describe("InProcessBus — wildcard subscriptions", { tags: ["unit"] }, () => {
 
 describe("InProcessBus — listenerCount", { tags: ["unit"] }, () => {
 	it("returns 0 for unregistered type", () => {
-		const nerve = new InProcessBus();
-		expect(nerve.listenerCount("command", "test.command")).toBe(0);
+		const bus = new InProcessBus();
+		expect(bus.listenerCount("command", "test.command")).toBe(0);
 	});
 
 	it("counts and decrements correctly", () => {
-		const nerve = new InProcessBus();
-		const off1 = nerve.asBus().command.subscribe("test.command", vi.fn());
-		const off2 = nerve.asBus().command.subscribe("test.command", vi.fn());
-		expect(nerve.listenerCount("command", "test.command")).toBe(2);
+		const bus = new InProcessBus();
+		const off1 = bus.asBus().command.subscribe("test.command", vi.fn());
+		const off2 = bus.asBus().command.subscribe("test.command", vi.fn());
+		expect(bus.listenerCount("command", "test.command")).toBe(2);
 		off1();
-		expect(nerve.listenerCount("command", "test.command")).toBe(1);
+		expect(bus.listenerCount("command", "test.command")).toBe(1);
 		off2();
-		expect(nerve.listenerCount("command", "test.command")).toBe(0);
+		expect(bus.listenerCount("command", "test.command")).toBe(0);
 	});
 });
 
@@ -250,8 +250,8 @@ describe("InProcessBus — listenerCount", { tags: ["unit"] }, () => {
 
 describe("InProcessBus.firstSeen LRU cap", { tags: ["unit"] }, () => {
 	it("firstSeen size stays bounded after many unique correlationIds", () => {
-		const nerve = new InProcessBus();
-		const n = nerve.asBus();
+		const bus = new InProcessBus();
+		const n = bus.asBus();
 
 		// Subscribe so events don't go to dead-letter (which returns immediately).
 		n.command.subscribe("test.command", () => {});
@@ -265,14 +265,14 @@ describe("InProcessBus.firstSeen LRU cap", { tags: ["unit"] }, () => {
 
 		// Access internals via reflection.
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const commandBus = (nerve as any)._buses.command as { firstSeen: Map<string, number> };
+		const commandBus = (bus as any)._buses.command as { firstSeen: Map<string, number> };
 
 		expect(commandBus.firstSeen.size).toBeLessThanOrEqual(500);
 	});
 
 	it("firstSeen entries are evicted after correlation completes", async () => {
-		const nerve = new InProcessBus();
-		const n = nerve.asBus();
+		const bus = new InProcessBus();
+		const n = bus.asBus();
 		const correlationId = "eviction-test";
 
 		// Complete a full request/response cycle.
@@ -286,7 +286,7 @@ describe("InProcessBus.firstSeen LRU cap", { tags: ["unit"] }, () => {
 		await new Promise((r) => setTimeout(r, 10));
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const commandBus = (nerve as any)._buses.command as { firstSeen: Map<string, number> };
+		const commandBus = (bus as any)._buses.command as { firstSeen: Map<string, number> };
 		expect(commandBus.firstSeen.has(correlationId)).toBe(false);
 	});
 });

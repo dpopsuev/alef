@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createFsOrgan as createFsAdapter } from "../../adapter-fs/src/index.js";
+import { createFsAdapter } from "../../adapter-fs/src/index.js";
 import { createShellAdapter } from "../../adapter-shell/src/index.js";
 import { BusFixture } from "../src/index.js";
 
@@ -30,12 +30,12 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
-		const sense = await f.call("fs.read", { path: "hello.ts" });
-		expect(sense.isError).toBe(false);
-		expect(typeof sense.payload.content).toBe("string");
-		expect(typeof sense.payload.truncated).toBe("boolean");
-		expect(typeof sense.payload.totalLines).toBe("number");
-		expect((sense.payload.content as string).length).toBeGreaterThan(0);
+		const result = await f.call("fs.read", { path: "hello.ts" });
+		expect(result.isError).toBe(false);
+		expect(typeof result.payload.content).toBe("string");
+		expect(typeof result.payload.truncated).toBe("boolean");
+		expect(typeof result.payload.totalLines).toBe("number");
+		expect((result.payload.content as string).length).toBeGreaterThan(0);
 		f.dispose();
 	});
 
@@ -45,8 +45,8 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
-		const sense = await f.call("fs.read", { path: "f.ts", toolCallId: "tc-test" });
-		expect(sense.payload.toolCallId).toBeDefined();
+		const result = await f.call("fs.read", { path: "f.ts", toolCallId: "tc-test" });
+		expect(result.payload.toolCallId).toBeDefined();
 		f.dispose();
 	});
 
@@ -55,11 +55,11 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
-		const sense = await f.call("fs.write", { path: "out.ts", content: "export const z = 3;" });
-		expect(sense.isError).toBe(false);
-		expect(typeof sense.payload.path).toBe("string");
-		expect(typeof sense.payload.bytes).toBe("number");
-		expect(sense.payload.bytes as number).toBeGreaterThan(0);
+		const result = await f.call("fs.write", { path: "out.ts", content: "export const z = 3;" });
+		expect(result.isError).toBe(false);
+		expect(typeof result.payload.path).toBe("string");
+		expect(typeof result.payload.bytes).toBe("number");
+		expect(result.payload.bytes as number).toBeGreaterThan(0);
 		f.dispose();
 	});
 
@@ -70,10 +70,10 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 		f.mount(createFsAdapter({ cwd }));
 
 		await f.call("fs.read", { path: "edit.ts" });
-		const sense = await f.call("fs.edit", { path: "edit.ts", oldText: "const a = 1;", newText: "const a = 2;" });
-		expect(sense.isError).toBe(false);
-		expect(typeof sense.payload.path).toBe("string");
-		expect(sense.payload.applied).toBe(true);
+		const result = await f.call("fs.edit", { path: "edit.ts", oldText: "const a = 1;", newText: "const a = 2;" });
+		expect(result.isError).toBe(false);
+		expect(typeof result.payload.path).toBe("string");
+		expect(result.payload.applied).toBe(true);
 		f.dispose();
 	});
 
@@ -82,10 +82,10 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
-		const sense = await f.call("fs.read", { path: "nonexistent.ts" });
-		expect(sense.isError).toBe(true);
-		expect(typeof sense.errorMessage).toBe("string");
-		expect((sense.errorMessage as string).length).toBeGreaterThan(0);
+		const result = await f.call("fs.read", { path: "nonexistent.ts" });
+		expect(result.isError).toBe(true);
+		expect(typeof result.errorMessage).toBe("string");
+		expect((result.errorMessage as string).length).toBeGreaterThan(0);
 		f.dispose();
 	});
 
@@ -95,11 +95,11 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
-		const sense = await f.call("fs.grep", { pattern: "login" });
-		if (sense.isError) {
-			expect(typeof sense.errorMessage).toBe("string");
+		const result = await f.call("fs.grep", { pattern: "login" });
+		if (result.isError) {
+			expect(typeof result.errorMessage).toBe("string");
 		} else {
-			expect(sense.payload).toBeDefined();
+			expect(result.payload).toBeDefined();
 		}
 		f.dispose();
 	});
@@ -111,9 +111,9 @@ describe("FsAdapter contracts", { tags: ["compliance"] }, () => {
 		f.mount(createFsAdapter({ cwd }));
 
 		await f.call("fs.read", { path: "dup.ts" });
-		const sense = await f.call("fs.edit", { path: "dup.ts", oldText: "const x = 1;", newText: "const x = 2;" });
-		expect(sense.isError).toBe(true);
-		expect(sense.errorMessage as string).toMatch(/unique|multiple/i);
+		const result = await f.call("fs.edit", { path: "dup.ts", oldText: "const x = 1;", newText: "const x = 2;" });
+		expect(result.isError).toBe(true);
+		expect(result.errorMessage as string).toMatch(/unique|multiple/i);
 		f.dispose();
 	});
 });
@@ -138,9 +138,9 @@ describe("ShellAdapter contracts", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		f.mount(createShellAdapter({ cwd }));
 
-		const sense = await f.callStreaming("shell.exec", { command: "exit 1" });
-		expect(sense.isError).toBe(true);
-		expect(typeof sense.errorMessage).toBe("string");
+		const result = await f.callStreaming("shell.exec", { command: "exit 1" });
+		expect(result.isError).toBe(true);
+		expect(typeof result.errorMessage).toBe("string");
 		f.dispose();
 	});
 
@@ -163,11 +163,11 @@ describe("EventMessage base shape", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		f.mount(createFsAdapter({ cwd }));
 
-		const sense = await f.call("fs.read", { path: "x.ts" });
-		expect(typeof sense.type).toBe("string");
-		expect(typeof sense.correlationId).toBe("string");
-		expect(typeof sense.timestamp).toBe("number");
-		expect(typeof sense.isError).toBe("boolean");
+		const result = await f.call("fs.read", { path: "x.ts" });
+		expect(typeof result.type).toBe("string");
+		expect(typeof result.correlationId).toBe("string");
+		expect(typeof result.timestamp).toBe("number");
+		expect(typeof result.isError).toBe("boolean");
 		f.dispose();
 	});
 });

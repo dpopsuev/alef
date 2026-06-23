@@ -131,11 +131,11 @@ export async function getConfig(): Promise<Record<string, unknown>> {
 
 export async function listAdapters(): Promise<string[]> {
 	try {
-		const path = join(CONFIG_ROOT, "organs.yaml");
+		const path = join(CONFIG_ROOT, "adapters.yaml");
 		const raw = await readFile(path, "utf-8");
 		return [raw];
 	} catch {
-		return ["(organs.yaml not found)"];
+		return ["(adapters.yaml not found)"];
 	}
 }
 

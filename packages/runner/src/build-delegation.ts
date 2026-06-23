@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { createFactoryOrgan } from "@dpopsuev/alef-adapter-factory";
+import { createFactoryAdapter } from "@dpopsuev/alef-adapter-factory";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { buildDelegationStack } from "@dpopsuev/alef-agent-blueprint";
-import { createRouterOrgan } from "@dpopsuev/alef-gateway";
+import { createRouterAdapter } from "@dpopsuev/alef-gateway";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import type { Agent } from "@dpopsuev/alef-runtime";
 import type { Args } from "./args.js";
@@ -20,7 +20,7 @@ async function createRouter(
 ): Promise<void> {
 	const sseSurface = blueprintSurfaces.filter((surface) => surface.type === "sse");
 	const allowedEvents = sseSurface.flatMap((surface) => surface.events ?? []);
-	const router = createRouterOrgan({
+	const router = createRouterAdapter({
 		port: servePort,
 		allowedEvents,
 		triggerEvent: "llm.input",
@@ -70,16 +70,16 @@ export async function buildDelegation(
 	blueprintSurfaces: AgentDefinitionSurfaceInput[],
 ): Promise<void> {
 	const factory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
-	const factoryOrgan = createFactoryOrgan({ cwd: args.cwd });
+	const factoryAdapter = createFactoryAdapter({ cwd: args.cwd });
 
-	const { organs } = await buildDelegationStack({
+	const { adapters } = await buildDelegationStack({
 		cwd: args.cwd,
 		factory,
 		contextWindow: model.contextWindow,
-		extraAdapters: [factoryOrgan],
+		extraAdapters: [factoryAdapter],
 	});
 
-	for (const organ of organs) agent.load(organ);
+	for (const adapter of adapters) agent.load(adapter);
 
 	const servePort = args.daemon ? 0 : args.serve;
 	if (servePort !== undefined) {

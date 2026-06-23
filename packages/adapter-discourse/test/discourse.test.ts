@@ -1,12 +1,14 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDiscourseOrgan } from "../src/adapter.js";
 import { DiscourseStore } from "../src/store.js";
 
-organComplianceSuite(() => createDiscourseOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-forum-compliance-")) }));
+adapterComplianceSuite(() =>
+	createDiscourseOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-forum-compliance-")) }),
+);
 
 // ---------------------------------------------------------------------------
 // DiscourseStore — unit tests (SUT: store, no I/O mocking — store IS I/O)

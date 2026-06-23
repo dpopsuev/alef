@@ -7,11 +7,11 @@
  * not the exact text transformation (that's web-spider's responsibility).
  */
 
-import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWebOrgan } from "../src/adapter.js";
 
-organComplianceSuite(() => createWebOrgan());
+adapterComplianceSuite(() => createWebOrgan());
 
 describe("WebOrgan — structure", { tags: ["compliance"] }, () => {
 	it("has name 'web'", () => {

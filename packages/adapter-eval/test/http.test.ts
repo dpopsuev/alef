@@ -3,12 +3,12 @@
  * Spins up a real HTTP server on a random port — no mocks.
  */
 import http from "node:http";
-import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createEvalOrgan } from "../src/adapter.js";
 import { collectEvents, postMessage } from "../src/http.js";
 
-organComplianceSuite(() => createEvalOrgan({ cwd: process.cwd(), replyEvent: "llm.response" }));
+adapterComplianceSuite(() => createEvalOrgan({ cwd: process.cwd(), replyEvent: "llm.response" }));
 
 let server: http.Server;
 let port: number;

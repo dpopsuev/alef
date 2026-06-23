@@ -64,7 +64,7 @@ export default defineConfig({
 		// strictTags: true would reject undefined tags; left off until all files are migrated.
 		tags: [
 			{ name: TAGS.UNIT, description: "Fast, isolated, no network, no real LLM." },
-			{ name: TAGS.COMPLIANCE, description: "organComplianceSuite — organ framework contract." },
+			{ name: TAGS.COMPLIANCE, description: "adapterComplianceSuite — adapter framework contract." },
 			{ name: TAGS.INTEGRATION, description: "Multi-component, scripted LLM or real services." },
 			{ name: TAGS.E2E, description: "Full stack, scripted replies, no real LLM required." },
 			{

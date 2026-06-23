@@ -7,15 +7,15 @@
  *                 (network, subprocess, delegation) — should use typedStreamAction
  *   [SCHEMA]      z.string() required field without .min(1) — accepts empty string
  *   [NOTEST]      organ package with no test directory or test files
- *   [NOCOMPLIANCE]        organ has tests but none call organComplianceSuite — hard gate
- *   [NOCOMPLIANCE-STREAM] streaming tool (typedStreamAction) not in organComplianceSuite opts
+ *   [NOCOMPLIANCE]        organ has tests but none call adapterComplianceSuite — hard gate
+ *   [NOCOMPLIANCE-STREAM] streaming tool (typedStreamAction) not in adapterComplianceSuite opts
  *   [IMPORT]      organ importing from another organ or runner — dep direction violation
  *
  * Usage:  npx tsx scripts/lint-organs.ts
  *         npx tsx scripts/lint-organs.ts --fail   (exit 1 on any violation)
  *
  * [NOCOMPLIANCE] is the hard gate: every organ with test files must call
- * organComplianceSuite(). This enforces schema rejection, structural checks,
+ * adapterComplianceSuite(). This enforces schema rejection, structural checks,
  * and (optionally) streaming contracts for every organ automatically.
  */
 
@@ -179,14 +179,14 @@ function checkTestCoverage(pkgDir: string, pkgName: string): void {
 		return;
 	}
 
-	// Hard gate: every organ with test files must call organComplianceSuite.
+	// Hard gate: every organ with test files must call adapterComplianceSuite.
 	// This ensures schema rejection, structural checks, and streaming contracts
 	// are enforced automatically for every organ in CI.
-	const hasCompliance = testFiles.some((f) => readFile(f).includes("organComplianceSuite"));
+	const hasCompliance = testFiles.some((f) => readFile(f).includes("adapterComplianceSuite"));
 	if (!hasCompliance) {
 		report(testFiles[0]!, 1, "NOCOMPLIANCE",
-			`${pkgName} has tests but no organComplianceSuite() call — ` +
-			`add: organComplianceSuite(() => createXxxOrgan(...)) to any test file`);
+			`${pkgName} has tests but no adapterComplianceSuite() call — ` +
+			`add: adapterComplianceSuite(() => createXxxOrgan(...)) to any test file`);
 	}
 }
 
@@ -200,8 +200,8 @@ function checkStreamingCompliance(pkgDir: string, pkgName: string): void {
 	const testFiles = findFiles(testDir, ".test.ts");
 	const srcFiles = findFiles(join(pkgDir, "src"), ".ts");
 
-	// Only check if organComplianceSuite is called
-	const hasCompliance = testFiles.some((f) => readFile(f).includes("organComplianceSuite"));
+	// Only check if adapterComplianceSuite is called
+	const hasCompliance = testFiles.some((f) => readFile(f).includes("adapterComplianceSuite"));
 	if (!hasCompliance) return;
 
 	// Find streaming tool names from src: look for typedStreamAction calls
@@ -221,15 +221,15 @@ function checkStreamingCompliance(pkgDir: string, pkgName: string): void {
 
 	if (streamingToolNames.length === 0) return;
 
-	// Check each streaming tool appears in the organComplianceSuite streaming config
+	// Check each streaming tool appears in the adapterComplianceSuite streaming config
 	for (const testFile of testFiles) {
 		const content = readFile(testFile);
-		if (!content.includes("organComplianceSuite")) continue;
+		if (!content.includes("adapterComplianceSuite")) continue;
 		for (const toolName of streamingToolNames) {
 			if (!content.includes(`"${toolName}"`) && !content.includes(`'${toolName}'`)) {
 				report(testFile, 1, "NOCOMPLIANCE-STREAM",
 					`${pkgName}: streaming tool '${toolName}' (typedStreamAction) is not declared ` +
-					`in organComplianceSuite opts.streaming — ` +
+					`in adapterComplianceSuite opts.streaming — ` +
 					`add: streaming: { "${toolName}": { validPayload: { /* valid args */ } } }`);
 			}
 		}

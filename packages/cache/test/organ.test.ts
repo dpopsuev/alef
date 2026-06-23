@@ -1,9 +1,9 @@
 import { buildSense } from "@dpopsuev/alef-kernel/bus";
-import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createCacheOrgan } from "../src/adapter.js";
 
-organComplianceSuite(() => createCacheOrgan());
+adapterComplianceSuite(() => createCacheOrgan());
 
 describe("CacheOrgan", () => {
 	let fixture: BusFixture;

@@ -6,7 +6,7 @@ import { BusEventRecorder } from "./bus-event-recorder.js";
 /**
  * BusFixture — shared test harness for adapter integration tests.
  *
- * Replaces the makeNerve / publishCommand / waitForEvent triad that every
+ * Replaces the makeBus / publishCommand / waitForEvent triad that every
  * adapter test package copies independently. Provides:
  *
  * fixture.mount(adapter) mount + track for cleanup

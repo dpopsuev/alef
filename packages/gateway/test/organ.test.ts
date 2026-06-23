@@ -8,11 +8,11 @@
 
 import http from "node:http";
 
-import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createRouterOrgan } from "../src/adapter.js";
 
-organComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input" }));
+adapterComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input" }));
 
 // ---------------------------------------------------------------------------
 // Helpers

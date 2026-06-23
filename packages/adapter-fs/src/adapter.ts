@@ -22,11 +22,13 @@ import {
 	type FindToolInput,
 	type GrepToolInput,
 } from "./file-queries.js";
+import { FileTracker } from "./file-tracker.js";
 import { runFormatter } from "./formatter.js";
 import type { FsCacheScope, FsRuntime } from "./fs-runtime.js";
 import { atomicWrite } from "./fs-utils.js";
 import { applyOps, parsePatch, validateOps } from "./patch.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "./truncate.js";
+import { makeWriteQueue } from "./write-queue.js";
 
 // ---------------------------------------------------------------------------
 // Tool definitions
@@ -152,31 +154,6 @@ const FS_UNDO_TOOL = {
 // Per-path write serialization queue
 //
 // Concurrent fs.write / fs.edit calls on the same path chain onto a single
-// promise so each operation sees the committed result of the previous one.
-// The queue is per-organ-instance (not global) and cleans up resolved entries.
-// ---------------------------------------------------------------------------
-
-function makeWriteQueue() {
-	const queues = new Map<string, Promise<void>>();
-
-	return async function withQueue<T>(absolutePath: string, fn: () => Promise<T>): Promise<T> {
-		const prev = queues.get(absolutePath) ?? Promise.resolve();
-		let resolve!: () => void;
-		const gate = new Promise<void>((res) => {
-			resolve = res;
-		});
-		queues.set(absolutePath, gate);
-		try {
-			await prev;
-			return await fn();
-		} finally {
-			resolve();
-			// Clean up resolved entry so the Map does not grow unbounded.
-			if (queues.get(absolutePath) === gate) queues.delete(absolutePath);
-		}
-	};
-}
-
 // ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
@@ -195,66 +172,7 @@ export interface FsOrganOptions {
 	logger?: AdapterLogger;
 }
 
-// ---------------------------------------------------------------------------
-// FileTracker
-//
-// Records when each file was last read by fs.read.
-// fs.edit enforces two guards before applying changes:
-//   1. Read-before-edit: reject if the file has never been read this session.
-//   2. Staleness: reject if the file mtime is newer than lastReadAt.
-//
-// In-memory per organ instance (one alef process = one instance = one session).
-// Mirrors Crush's filetracker.Service pattern (internal/filetracker/service.go).
-// ---------------------------------------------------------------------------
-
-/** Exported for testing. Tracks per-path last-read timestamps to enforce read-before-edit. */
-export class FileTracker {
-	static readonly MAX_SIZE = 1_000;
-
-	private readonly reads = new Map<string, number>();
-	private readonly writes = new Map<string, number>();
-	private readonly snapshots = new Map<string, string>();
-
-	record(absolutePath: string): void {
-		this.reads.delete(absolutePath);
-		this.reads.set(absolutePath, Date.now());
-		if (this.reads.size > FileTracker.MAX_SIZE) {
-			const oldest = this.reads.keys().next().value;
-			if (oldest !== undefined) this.reads.delete(oldest);
-		}
-	}
-
-	recordWrite(absolutePath: string, previousContent?: string): void {
-		this.writes.delete(absolutePath);
-		this.writes.set(absolutePath, Date.now());
-		if (previousContent !== undefined && !this.snapshots.has(absolutePath)) {
-			this.snapshots.set(absolutePath, previousContent);
-		}
-		if (this.writes.size > FileTracker.MAX_SIZE) {
-			const oldest = this.writes.keys().next().value;
-			if (oldest !== undefined) {
-				this.writes.delete(oldest);
-				this.snapshots.delete(oldest);
-			}
-		}
-	}
-
-	lastReadAt(absolutePath: string): number | undefined {
-		return this.reads.get(absolutePath);
-	}
-
-	modifiedFiles(): string[] {
-		return [...this.writes.keys()];
-	}
-
-	getSnapshot(absolutePath: string): string | undefined {
-		return this.snapshots.get(absolutePath);
-	}
-
-	get size(): number {
-		return this.reads.size;
-	}
-}
+export { FileTracker } from "./file-tracker.js";
 
 // ---------------------------------------------------------------------------
 // Handlers

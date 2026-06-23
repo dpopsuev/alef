@@ -26,7 +26,7 @@ const noopLogger: AdapterLogger = {
 	child: () => noopLogger,
 };
 
-export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
+export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./event-builders.js";
 
 function filterActions(actions: ActionMap, allowlist: readonly string[]): ActionMap {
 	const allowed = new Set(allowlist);

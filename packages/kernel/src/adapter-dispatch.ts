@@ -6,7 +6,7 @@ import { makeCacheKey } from "./adapter-cache.js";
 import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, EventHandlerCtx } from "./adapter-types.js";
 import type { Bus, CommandMessage, EventMessage } from "./buses.js";
 import { traceEvent } from "./debug.js";
-import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
+import { buildErrorResult, buildEventResult, extractToolCallId, toErrorMessage } from "./event-builders.js";
 
 /**
  * Escalation callback for access policy decisions.
@@ -52,7 +52,7 @@ function validateCommandPayload(
 			field: firstField,
 			issues: issues.map((i) => ({ path: i.path, message: i.message })),
 		});
-		const errSense = buildErrSense(
+		const errSense = buildErrorResult(
 			command,
 			`${command.type}: argument validation failed — ${humanMsg}. Retry with corrected arguments.`,
 		);
@@ -97,7 +97,7 @@ export async function dispatchCommandAction(
 	if (options?.policy) {
 		const decision = options.policy.check(command.type, payload);
 		if (decision.action === "deny") {
-			nerve.event.publish(buildErrSense(command, decision.reason ?? `${command.type}: denied by access policy`));
+			nerve.event.publish(buildErrorResult(command, decision.reason ?? `${command.type}: denied by access policy`));
 			return;
 		}
 		if (decision.action === "escalate") {
@@ -106,7 +106,7 @@ export async function dispatchCommandAction(
 				: false;
 			if (!approved) {
 				nerve.event.publish(
-					buildErrSense(command, decision.reason ?? `${command.type}: denied (escalation rejected)`),
+					buildErrorResult(command, decision.reason ?? `${command.type}: denied (escalation rejected)`),
 				);
 				return;
 			}
@@ -139,7 +139,7 @@ export async function dispatchCommandAction(
 			span.setAttribute("alef.cache.hit", true);
 			log.debug({ op: command.type, correlationId: command.correlationId, cacheKey }, "cache hit");
 			span.addEvent("tool.result", { result: JSON.stringify(cached) });
-			nerve.event.publish(buildSense(command, cached));
+			nerve.event.publish(buildEventResult(command, cached));
 			span.setStatus({ code: SpanStatusCode.OK });
 			span.end();
 			return;
@@ -149,7 +149,7 @@ export async function dispatchCommandAction(
 		try {
 			let last: Record<string, unknown> | undefined;
 			for await (const chunk of action.handle(ctx)) {
-				if (last !== undefined) nerve.event.publish(buildSense(command, { ...last, isFinal: false }));
+				if (last !== undefined) nerve.event.publish(buildEventResult(command, { ...last, isFinal: false }));
 				last = chunk;
 			}
 			const result = last ?? {};
@@ -176,7 +176,7 @@ export async function dispatchCommandAction(
 				/* non-serialisable result — skip */
 			}
 
-			nerve.event.publish(buildSense(command, { ...result, isFinal: true }));
+			nerve.event.publish(buildEventResult(command, { ...result, isFinal: true }));
 			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (e) {
 			log.warn(
@@ -189,7 +189,7 @@ export async function dispatchCommandAction(
 			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-			nerve.event.publish(buildErrSense(command, toErrorMessage(e)));
+			nerve.event.publish(buildErrorResult(command, toErrorMessage(e)));
 		} finally {
 			span.end();
 		}

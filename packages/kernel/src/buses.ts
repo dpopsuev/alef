@@ -330,17 +330,25 @@ export type CommandInput = Omit<CommandMessage, "timestamp" | "elapsed">;
 export type EventInput = Omit<EventMessage, "timestamp" | "elapsed">;
 export type NotificationInput = Omit<NotificationMessage, "timestamp" | "elapsed">;
 
-export interface BusChannel<THandler, TInput> {
-	subscribe(type: string, handler: THandler): () => void;
-	publish(event: TInput): void;
+export type ChannelName = "command" | "event" | "notification";
+
+export type ChannelMap<T> = { readonly [K in ChannelName]: T };
+
+export interface ChannelMessages {
+	command: CommandMessage;
+	event: EventMessage;
+	notification: NotificationMessage;
 }
 
-export interface Bus {
-	readonly command: BusChannel<CommandHandler, CommandInput>;
-	readonly event: BusChannel<EventHandler, EventInput>;
-	readonly notification: BusChannel<NotificationHandler, NotificationInput>;
-	pulse(): void;
+export type ChannelHandler<K extends ChannelName> = (event: ChannelMessages[K]) => void | Promise<void>;
+export type ChannelInput<K extends ChannelName> = Omit<ChannelMessages[K], "timestamp" | "elapsed">;
+
+export interface BusChannel<K extends ChannelName = ChannelName> {
+	subscribe(type: string, handler: ChannelHandler<K>): () => void;
+	publish(event: ChannelInput<K>): void;
 }
+
+export type Bus = { readonly [K in ChannelName]: BusChannel<K> } & { pulse(): void };
 
 export type BusMiddleware = (bus: Bus) => Bus;
 
@@ -415,9 +423,9 @@ export function gimpedAdapter(name: string): Adapter {
  * and deprecated (motor/sense/signal) properties. Use when constructing a wrapped Bus inline.
  */
 export function makeBus(
-	command: BusChannel<CommandHandler, CommandInput>,
-	event: BusChannel<EventHandler, EventInput>,
-	notification: BusChannel<NotificationHandler, NotificationInput>,
+	command: BusChannel<"command">,
+	event: BusChannel<"event">,
+	notification: BusChannel<"notification">,
 	pulse: () => void,
 ): Bus {
 	return { command, event, notification, pulse };

@@ -89,7 +89,7 @@ export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 					if (turnActive) {
 						const text = typeof ctx.payload.text === "string" ? ctx.payload.text : "";
 						if (text) {
-							ctx.notification.publish({
+							ctx.bus.notification.publish({
 								type: "llm.message-queued",
 								payload: { text },
 								correlationId: ctx.correlationId,
@@ -99,7 +99,7 @@ export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 					}
 					turnActive = true;
 					let partialHistory: unknown[] | undefined;
-					const offCheckpoint = ctx.command.subscribe("llm.checkpoint", (event) => {
+					const offCheckpoint = ctx.bus.command.subscribe("llm.checkpoint", (event) => {
 						const history = (event.payload as { conversationHistory?: unknown[] }).conversationHistory;
 						if (history) partialHistory = history;
 					});
@@ -113,7 +113,7 @@ export function createAgentLoopCore(options: AgentLoopOptions): Adapter {
 					} catch (err) {
 						turnActive = false;
 						const text = `LLM error: ${String(err)}`;
-						ctx.command.publish({
+						ctx.bus.command.publish({
 							type: "llm.response",
 							payload: withDisplay(
 								{

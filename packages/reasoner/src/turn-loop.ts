@@ -52,7 +52,8 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 	const { messages, tools, nameMap } = prepareTurn(payload);
 	const toMotorName = (llmName: string): string => nameMap.get(llmName) ?? llmName;
 
-	const { correlationId, command: motor, event: sense, notification: signal } = ctx;
+	const { correlationId, bus } = ctx;
+	const { command: motor, event: sense, notification: signal } = bus;
 	const defaultTimeoutMs = DEFAULT_TOOL_TIMEOUT_MS;
 	const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
 	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;

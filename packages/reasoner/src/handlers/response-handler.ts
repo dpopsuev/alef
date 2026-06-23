@@ -3,7 +3,7 @@ import type { AssistantMessage, Message } from "@dpopsuev/alef-llm";
 import type { TokenUsage } from "../tool-events.js";
 import { serializeConversationHistory } from "./message-handler.js";
 
-type MotorBus = EventHandlerCtx["command"];
+type MotorBus = EventHandlerCtx["bus"]["command"];
 
 const LLM_RESPONSE = "llm.response";
 

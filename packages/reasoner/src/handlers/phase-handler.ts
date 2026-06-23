@@ -9,8 +9,8 @@ export type PhaseResult =
 	| { kind: "abort" };
 
 type ToolDefinition = { name: string; description: string; inputSchema: z.ZodTypeAny };
-type SenseBus = EventHandlerCtx["event"];
-type MotorBus = EventHandlerCtx["command"];
+type SenseBus = EventHandlerCtx["bus"]["event"];
+type MotorBus = EventHandlerCtx["bus"]["command"];
 
 const PHASE_PIPELINE_QUIESCENCE_MS = 30;
 

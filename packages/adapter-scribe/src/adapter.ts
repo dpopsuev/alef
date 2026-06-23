@@ -112,6 +112,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 		directives: [
 			"Scribe tools are available under the scribe.* prefix. Use scribe.artifact to create, query, and manage work artifacts. Use scribe.graph for dependency trees and briefings.",
 			"To remember something across sessions, create an agent.memory: scribe.artifact(action=create, kind=agent.memory, title='...', sections=[{name:'content', text:'...'}])",
+			"When referencing Scribe artifacts in your responses, use [[artifact-id]] wikilink syntax — e.g. [[KRN-ptp-holdover-params]]. Scribe automatically resolves these to graph edges when your turn is recorded, linking your output to the domain knowledge it draws from. Use [[id]] for IDs, [[Title]] for title-based resolution.",
 		],
 		contributions: {
 			"context.assemble": contextStage,
@@ -183,6 +184,7 @@ function buildContextBlock(dashboard: string, notes: string): string {
 		"Use scribe.artifact(action=query, query=<term>) to search.",
 		'Use scribe.artifact(action=query, labels=["source:locus"]) to filter by source.',
 		"To save a learning: scribe.artifact(action=create, kind=agent.memory, title='...', sections=[{name:'content', text:'...'}])",
+		"Reference artifacts with [[artifact-id]] in your text — Scribe auto-links them.",
 	];
 	if (dashboard) {
 		parts.push("", "### Data Sources", dashboard);

@@ -7,7 +7,7 @@
 		"alef": "bin/alef-runner.js"
 	},
 	"scripts": {
-		"start": "tsx src/main.ts",
+		"start": "tsx src/cli/main.ts",
 		"check": "biome check --write --error-on-warnings . && tsc --noEmit"
 	},
 	"dependencies": {

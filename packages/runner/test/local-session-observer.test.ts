@@ -23,7 +23,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import "@dpopsuev/alef-coding-agent";
 
 import { parseArgs } from "../src/args.js";
-import { createLocalSession } from "../src/local-session.js";
+import { createLocalSession } from "../src/cli/local-session.js";
 import { JsonlSessionStore } from "../src/session-store.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
 

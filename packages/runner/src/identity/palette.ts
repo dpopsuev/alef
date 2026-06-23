@@ -6,7 +6,7 @@
  * All shade names sourced from real color vocabulary.
  */
 
-import type { ColorToken } from "../theme-types.js";
+import type { ColorToken } from "../cli/theme-types.js";
 
 export interface PaletteColor {
 	name: string;

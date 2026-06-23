@@ -3,8 +3,8 @@
  * Verifies all TuiState transitions by replaying AgentEvent sequences.
  */
 import { describe, expect, it, vi } from "vitest";
-import { dispatchTuiEvent } from "../src/tui-dispatch.js";
-import { initialTuiState, type TuiUi } from "../src/tui-state.js";
+import { dispatchTuiEvent } from "../src/cli/tui-dispatch.js";
+import { initialTuiState, type TuiUi } from "../src/cli/tui-state.js";
 
 function makeMockUi(): TuiUi {
 	return {

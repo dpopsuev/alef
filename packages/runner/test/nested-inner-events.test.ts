@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { dispatchTuiEvent } from "../src/tui-dispatch.js";
-import { initialTuiState } from "../src/tui-state.js";
+import { dispatchTuiEvent } from "../src/cli/tui-dispatch.js";
+import { initialTuiState } from "../src/cli/tui-state.js";
 
 function noopUi() {
 	const calls: string[] = [];

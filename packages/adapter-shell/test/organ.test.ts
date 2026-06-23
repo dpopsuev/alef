@@ -1,11 +1,11 @@
-import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createShellOrgan } from "../src/adapter.js";
 
 // Framework compliance — schema rejection, structural checks, streaming contract.
 // shell.exec uses typedStreamAction → auto-discovered as a streaming tool.
 // validPayload must be provided for each streaming tool.
-organComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
+adapterComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
 	streaming: {
 		"shell.exec": {
 			validPayload: { command: "printf 'a%.0s' {1..200}" },

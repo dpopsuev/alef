@@ -43,13 +43,6 @@ export interface AdapterContractReport {
 	ok: boolean;
 }
 
-/** @deprecated Use AdapterContractOptions instead. */
-export type OrganContractOptions = AdapterContractOptions;
-/** @deprecated Use AdapterContractViolation instead. */
-export type OrganContractViolation = AdapterContractViolation;
-/** @deprecated Use AdapterContractReport instead. */
-export type OrganContractReport = AdapterContractReport;
-
 /**
  * Run the adapter compliance suite and return a structured report.
  * Does not throw — callers decide how to handle violations.
@@ -229,9 +222,6 @@ export interface AdapterComplianceOptions {
 	 */
 	tags?: string[];
 }
-
-/** @deprecated Use AdapterComplianceOptions instead. */
-export type OrganComplianceOptions = AdapterComplianceOptions;
 
 /**
  * adapterComplianceSuite — drop into any adapter test file to get framework
@@ -546,14 +536,3 @@ function buildMinimalPayload(schema: z.ZodTypeAny): Record<string, unknown> {
 		return {};
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Deprecated aliases — prefer the Adapter-prefixed names in new code.
-// ---------------------------------------------------------------------------
-
-/** @deprecated Use runAdapterContract instead. */
-export const runOrganContract = runAdapterContract;
-/** @deprecated Use assertAdapterContract instead. */
-export const assertOrganContract = assertAdapterContract;
-/** @deprecated Use adapterComplianceSuite instead. */
-export const organComplianceSuite = adapterComplianceSuite;

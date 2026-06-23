@@ -9,25 +9,17 @@ export {
 	type AdapterContractViolation,
 	adapterComplianceSuite,
 	assertAdapterContract,
-	// Deprecated aliases
-	assertOrganContract,
-	type OrganComplianceOptions,
-	type OrganContractOptions,
-	type OrganContractReport,
-	type OrganContractViolation,
-	organComplianceSuite,
 	runAdapterContract,
-	runOrganContract,
 	runSchemaContract,
 	runStreamingContract,
 	type SchemaContractResult,
 	type StreamingToolConfig,
 } from "./adapter-contract.js";
-export { AdapterHarness, OrganHarness } from "./adapter-harness.js";
+export { AdapterHarness } from "./adapter-harness.js";
 export { BlueprintGauntlet, type GauntletOptions, type GauntletSendOptions } from "./blueprint-gauntlet.js";
 export { type BlueprintFromFileOptions, BlueprintHarness, type BlueprintHarnessOptions } from "./blueprint-harness.js";
 export { BusEventRecorder } from "./bus-event-recorder.js";
-export { BusFixture, BusFixture as NerveFixture } from "./bus-fixture.js";
+export { BusFixture } from "./bus-fixture.js";
 export {
 	createE2eSession,
 	type E2eResult,
@@ -39,5 +31,5 @@ export { InMemorySessionStore } from "./in-memory-session-store.js";
 export { MockReasoner } from "./mock-reasoner.js";
 export { type ScriptStep, step, type ToolCallSpec } from "./script.js";
 export { ScriptedReasoner, type ToolCallEnd, type ToolCallStart } from "./scripted-reasoner.js";
-export { defineStubAdapter, defineStubAdapter as defineStubOrgan, type StubHandler } from "./stub-adapter.js";
+export { defineStubAdapter, type StubHandler } from "./stub-adapter.js";
 export { TurnDriver } from "./turn-driver.js";

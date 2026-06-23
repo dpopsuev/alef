@@ -1,11 +1,11 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFsOrgan } from "../src/adapter.js";
 
-organComplianceSuite(() => createFsOrgan({ cwd: "/tmp" }));
+adapterComplianceSuite(() => createFsOrgan({ cwd: "/tmp" }));
 
 let testDir: string;
 

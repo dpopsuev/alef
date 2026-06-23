@@ -1,4 +1,4 @@
-import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { createScribeOrgan } from "../src/adapter.js";
 
-organComplianceSuite(() => createScribeOrgan());
+adapterComplianceSuite(() => createScribeOrgan());

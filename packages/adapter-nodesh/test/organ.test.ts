@@ -1,8 +1,8 @@
-import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createNodeshOrgan } from "../src/adapter.js";
 
-organComplianceSuite(() => createNodeshOrgan({ cwd: "/tmp" }));
+adapterComplianceSuite(() => createNodeshOrgan({ cwd: "/tmp" }));
 
 function fixture(opts: { prelude?: string; defaultTimeoutSeconds?: number } = {}) {
 	const f = new BusFixture();

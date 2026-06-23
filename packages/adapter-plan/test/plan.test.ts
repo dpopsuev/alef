@@ -1,12 +1,12 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createPlanOrgan } from "../src/adapter.js";
 import { PlanGraph } from "../src/graph.js";
 
-organComplianceSuite(() => createPlanOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-plan-compliance-")) }));
+adapterComplianceSuite(() => createPlanOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-plan-compliance-")) }));
 
 describe("PlanGraph", { tags: ["unit"] }, () => {
 	let dir: string;

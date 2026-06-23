@@ -1,9 +1,9 @@
-import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createEnclosureOrgan } from "../src/adapter.js";
 import { StubSpace } from "../src/space.js";
 
-organComplianceSuite(() => createEnclosureOrgan({ stub: true }));
+adapterComplianceSuite(() => createEnclosureOrgan({ stub: true }));
 
 function fixture() {
 	const f = new BusFixture();

@@ -66,6 +66,3 @@ export class AdapterHarness {
 		this.unmount();
 	}
 }
-
-/** @deprecated Use AdapterHarness instead. */
-export const OrganHarness = AdapterHarness;

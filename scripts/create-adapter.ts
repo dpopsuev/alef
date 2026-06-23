@@ -74,10 +74,10 @@ writeFileSync(
 
 writeFileSync(
 	join(pkgDir, "test", "organ.test.ts"),
-	`import { organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+	`import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { create${pascal(name)}Organ } from "../src/organ.js";
 
-organComplianceSuite(() => create${pascal(name)}Organ({ cwd: "/tmp" }));
+adapterComplianceSuite(() => create${pascal(name)}Organ({ cwd: "/tmp" }));
 `,
 );
 

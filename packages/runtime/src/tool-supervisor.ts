@@ -1,4 +1,4 @@
-import type { Adapter, Nerve, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
 
 export type RestartPolicy = "permanent" | "transient" | "temporary";
@@ -36,13 +36,13 @@ export class ToolSupervisor {
 	private readonly managed = new Map<string, ManagedService>();
 	private bootOrder: string[] = [];
 	private started = false;
-	private nerve: Nerve | null = null;
+	private nerve: Bus | null = null;
 
 	constructor(config: SupervisorConfig) {
 		this.config = config;
 	}
 
-	async start(nerve: Nerve): Promise<void> {
+	async start(nerve: Bus): Promise<void> {
 		if (this.started) throw new Error("ToolSupervisor already started");
 		this.started = true;
 		this.nerve = nerve;
@@ -90,7 +90,7 @@ export class ToolSupervisor {
 		return [...this.managed.keys()];
 	}
 
-	private async bootService(name: string, cfg: ToolServiceConfig, nerve: Nerve): Promise<void> {
+	private async bootService(name: string, cfg: ToolServiceConfig, nerve: Bus): Promise<void> {
 		const resolvedEnv = this.resolveEnv(name, cfg);
 		const adapter = await this.spawnService(name, cfg, resolvedEnv);
 		const cleanup = adapter.mount(nerve);

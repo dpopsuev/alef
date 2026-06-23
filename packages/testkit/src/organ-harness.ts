@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Adapter, SenseEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, EventMessage } from "@dpopsuev/alef-kernel";
 import { InProcessNerve } from "@dpopsuev/alef-kernel";
 
 const DEFAULT_TIMEOUT_MS = 2_000;
@@ -38,9 +38,9 @@ export class AdapterHarness {
 	 * Send a motor event and wait for the matching sense event.
 	 * Rejects with a clear error if no sense event arrives within timeoutMs.
 	 */
-	send(type: string, payload: Record<string, unknown> = {}): Promise<SenseEvent> {
+	send(type: string, payload: Record<string, unknown> = {}): Promise<EventMessage> {
 		const correlationId = randomUUID();
-		return new Promise<SenseEvent>((resolve, reject) => {
+		return new Promise<EventMessage>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				off();
 				reject(
@@ -55,7 +55,7 @@ export class AdapterHarness {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
-				resolve(event as SenseEvent);
+				resolve(event as EventMessage);
 			});
 
 			this.nerve.publishMotor({ type, payload, correlationId });

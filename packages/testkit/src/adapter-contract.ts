@@ -15,7 +15,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { type Adapter, type AdapterLogger, InProcessNerve, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { type Adapter, type AdapterLogger, type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -369,7 +369,7 @@ function probeMotor(
 	toolName: string,
 	payload: Record<string, unknown>,
 	timeoutMs: number,
-): Promise<SenseEvent | null> {
+): Promise<EventMessage | null> {
 	return new Promise((resolve) => {
 		const correlationId = randomUUID();
 		const timer = setTimeout(() => {
@@ -427,7 +427,7 @@ export async function runSchemaContract(
 		const correlationId = randomUUID();
 		const motorType = tool.name.replace(/\./g, "_");
 
-		const resultPromise = new Promise<SenseEvent | null>((resolve) => {
+		const resultPromise = new Promise<EventMessage | null>((resolve) => {
 			const timer = setTimeout(() => resolve(null), timeoutMs);
 			nerve.asNerve().sense.subscribe(motorType, (e) => {
 				if (e.correlationId === correlationId) {

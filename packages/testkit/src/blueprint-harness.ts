@@ -24,7 +24,7 @@
 
 import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
 import { loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
-import type { Adapter, ExecutionStrategy, MotorEvent, NerveEvent, SendRequest } from "@dpopsuev/alef-kernel";
+import type { Adapter, BusMessage, CommandMessage, ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel";
 import { Agent, AgentController, type BusObserver } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import type { ScriptStep } from "./script.js";
@@ -177,12 +177,12 @@ export class BlueprintHarness implements ExecutionStrategy {
 	}
 
 	/** All Motor events from the last send() call. */
-	get motorEvents(): readonly NerveEvent[] {
+	get motorEvents(): readonly BusMessage[] {
 		return this.recorder.motor;
 	}
 
 	/** All Sense events from the last send() call. */
-	get senseEvents(): readonly NerveEvent[] {
+	get senseEvents(): readonly BusMessage[] {
 		return this.recorder.sense;
 	}
 
@@ -194,7 +194,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 	 * Assert that a Motor event with the given event type was published.
 	 * @param toolName EDA event type, e.g. "fs.read"
 	 */
-	assertToolCalled(toolName: string): NerveEvent {
+	assertToolCalled(toolName: string): BusMessage {
 		const found = this.recorder.motor.find((e) => e.type === toolName);
 		if (!found) {
 			const called = [...new Set(this.recorder.motor.map((e) => e.type))].join(", ");
@@ -209,7 +209,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 	 */
 	assertToolCalledWith(toolName: string, partialArgs: Record<string, unknown>): void {
 		const event = this.assertToolCalled(toolName);
-		const payload = (event as MotorEvent).payload;
+		const payload = (event as CommandMessage).payload;
 		for (const [key, expected] of Object.entries(partialArgs)) {
 			if (payload[key] !== expected) {
 				throw new Error(
@@ -228,7 +228,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 		if (found) {
 			throw new Error(
 				`Expected Motor/${toolName} NOT to be published, but it was.\n` +
-					`Payload: ${JSON.stringify((found as MotorEvent).payload)}`,
+					`Payload: ${JSON.stringify((found as CommandMessage).payload)}`,
 			);
 		}
 	}

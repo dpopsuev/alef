@@ -22,7 +22,7 @@
  * termination — typically by aborting the current turn's AbortController.
  */
 
-import type { Adapter, Nerve, SenseEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, EventMessage } from "@dpopsuev/alef-kernel";
 import { extractToolCallId } from "@dpopsuev/alef-kernel";
 
 export interface LoopGuardOptions {
@@ -93,7 +93,7 @@ export class LoopGuard implements Adapter {
 			});
 	}
 
-	mount(nerve: Nerve): () => void {
+	mount(nerve: Bus): () => void {
 		// pending: toolCallId → PendingCall (buffered until sense result arrives)
 		// interactionCounts: Map<type, Map<interactionHash, count>>
 		// totalCounts: Map<type, totalCallCount>
@@ -144,7 +144,7 @@ export class LoopGuard implements Adapter {
 		});
 
 		// Sense subscriber: complete the interaction hash with the result.
-		const offSense = nerve.sense.subscribe("*" as const, (event: SenseEvent) => {
+		const offSense = nerve.sense.subscribe("*" as const, (event: EventMessage) => {
 			const toolCallId = extractToolCallId(event.payload);
 			if (!toolCallId) return;
 

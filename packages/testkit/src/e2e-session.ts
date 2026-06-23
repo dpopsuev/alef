@@ -18,7 +18,7 @@
  *   });
  */
 
-import type { Adapter, SignalEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, NotificationMessage } from "@dpopsuev/alef-kernel";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
 import { getEnvApiKey, getModel } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
@@ -29,7 +29,7 @@ export const HAVE_REAL_LLM = process.env.ALEF_TEST_LLM === "1";
 
 export interface E2eResult {
 	reply: string;
-	events: SignalEvent[];
+	events: NotificationMessage[];
 }
 
 export interface E2eSession {
@@ -59,7 +59,7 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 
 	const agent = new Agent();
 	let reply = "";
-	const events: SignalEvent[] = [];
+	const events: NotificationMessage[] = [];
 
 	const llm = createAgentLoop({
 		model,
@@ -80,7 +80,7 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 		onMotorEvent() {},
 		onSenseEvent() {},
 		onSignalEvent(event) {
-			events.push(event as SignalEvent);
+			events.push(event as NotificationMessage);
 		},
 	});
 

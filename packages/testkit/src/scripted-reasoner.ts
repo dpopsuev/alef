@@ -20,7 +20,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Adapter, Nerve, SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, EventMessage, ToolDefinition } from "@dpopsuev/alef-kernel";
 
 export interface ToolCallStart {
 	callId: string;
@@ -109,14 +109,14 @@ export class ScriptedReasoner implements Adapter {
 		this.stepIndex = 0;
 	}
 
-	mount(nerve: Nerve): () => void {
+	mount(nerve: Bus): () => void {
 		const off = nerve.sense.subscribe(this.triggerEvent, (event) => {
 			void this._handle(nerve, event);
 		});
 		return off;
 	}
 
-	private async _handle(nerve: Nerve, event: SenseEvent): Promise<void> {
+	private async _handle(nerve: Bus, event: EventMessage): Promise<void> {
 		const step = this.queue[this.stepIndex++];
 
 		if (!step) {
@@ -191,19 +191,19 @@ export class ScriptedReasoner implements Adapter {
 // ---------------------------------------------------------------------------
 
 function waitForSense(
-	nerve: Nerve,
+	nerve: Bus,
 	eventType: string,
 	toolCallId: string,
 	correlationId: string,
 	timeoutMs = 30_000,
-): Promise<SenseEvent> {
+): Promise<EventMessage> {
 	return new Promise((resolve, reject) => {
 		const timer = setTimeout(() => {
 			off();
 			reject(new Error(`ScriptedReasoner: timeout waiting for sense/${eventType} (toolCallId=${toolCallId})`));
 		}, timeoutMs);
 
-		const off = nerve.sense.subscribe(eventType, (e: SenseEvent) => {
+		const off = nerve.sense.subscribe(eventType, (e: EventMessage) => {
 			if (e.correlationId === correlationId && (e.payload as { toolCallId?: string }).toolCallId === toolCallId) {
 				clearTimeout(timer);
 				off();

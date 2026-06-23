@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
-import { createContextAssemblyPipeline, debugLog, type NerveEvent, type Adapter } from "@dpopsuev/alef-kernel";
+import { type Adapter, type BusMessage, createContextAssemblyPipeline, debugLog } from "@dpopsuev/alef-kernel";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaOrgan } from "@dpopsuev/alef-meta";
 import { type Agent, AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
@@ -65,7 +65,7 @@ export function markCompacted(): void {
 	_compacted = true;
 }
 
-function signalToAgentEvent(event: NerveEvent): AgentEvent | null {
+function signalToAgentEvent(event: BusMessage): AgentEvent | null {
 	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 	switch (event.type) {
 		case "llm.chunk":

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import type { Adapter, BaseOrganOptions, ContextAssemblyHandler, Nerve } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseOrganOptions, Bus, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
 import { defineAdapter, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { PlanGraph } from "./graph.js";
@@ -16,7 +16,7 @@ function planPath(sessionDir: string): string {
 export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
 	let activePlan: PlanGraph | null = null;
 	const shortId = () => randomUUID().replace(/-/g, "").slice(0, 12);
-	let nerve: Nerve | null = null;
+	let nerve: Bus | null = null;
 
 	function emitSignal(type: string, payload: Record<string, unknown>): void {
 		nerve?.signal.publish({ type, payload, correlationId: "" });
@@ -335,7 +335,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
 				"The plan is injected into your context automatically. Use plan.show to see the current state.",
 			],
 			sources: [{ name: "plan-file", kind: "file" }],
-			onMount: (n: Nerve) => {
+			onMount: (n: Bus) => {
 				nerve = n;
 			},
 			contributions: {

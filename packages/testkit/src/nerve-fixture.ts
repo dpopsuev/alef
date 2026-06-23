@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { InProcessNerve, type Adapter, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { type Adapter, type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 
 /**
@@ -34,11 +34,11 @@ export class NerveFixture {
 		type: string,
 		payload: Record<string, unknown>,
 		opts: { timeoutMs?: number; correlationId?: string } = {},
-	): Promise<SenseEvent> {
+	): Promise<EventMessage> {
 		const correlationId = opts.correlationId ?? randomUUID();
 		const timeoutMs = opts.timeoutMs ?? 5_000;
 
-		const resultPromise = new Promise<SenseEvent>((resolve, reject) => {
+		const resultPromise = new Promise<EventMessage>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				off();
 				reject(new Error(`NerveFixture.call timed out after ${timeoutMs}ms waiting for sense/${type}`));
@@ -63,11 +63,11 @@ export class NerveFixture {
 		type: string,
 		payload: Record<string, unknown>,
 		opts: { timeoutMs?: number; correlationId?: string } = {},
-	): Promise<SenseEvent> {
+	): Promise<EventMessage> {
 		const correlationId = opts.correlationId ?? randomUUID();
 		const timeoutMs = opts.timeoutMs ?? 10_000;
 
-		const resultPromise = new Promise<SenseEvent>((resolve, reject) => {
+		const resultPromise = new Promise<EventMessage>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				off();
 				reject(new Error(`NerveFixture.callStreaming timed out after ${timeoutMs}ms waiting for sense/${type}`));

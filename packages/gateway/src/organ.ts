@@ -24,7 +24,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer } from "node:http";
-import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
 import { SseManager } from "./sse.js";
 
 export interface RouterOptions {
@@ -138,7 +138,7 @@ export class RouterOrgan implements Adapter {
 		return { host: addr.address, port: addr.port };
 	}
 
-	mount(nerve: Nerve): () => void {
+	mount(nerve: Bus): () => void {
 		if (this.server) throw new Error("RouterOrgan already mounted");
 		// Subscribe wildcards — forward every bus event to SSE clients.
 		const off1 = nerve.motor.subscribe("*", (event) => {
@@ -197,7 +197,7 @@ export class RouterOrgan implements Adapter {
 	// Request handler
 	// -------------------------------------------------------------------------
 
-	private handle(req: IncomingMessage, res: ServerResponse, nerve: Nerve): void {
+	private handle(req: IncomingMessage, res: ServerResponse, nerve: Bus): void {
 		// CORS pre-flight.
 		res.setHeader("Access-Control-Allow-Origin", "*");
 		res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -229,7 +229,7 @@ export class RouterOrgan implements Adapter {
 		this.sendJson(res, 404, { error: "not found" });
 	}
 
-	private handleMessage(req: IncomingMessage, res: ServerResponse, nerve: Nerve): void {
+	private handleMessage(req: IncomingMessage, res: ServerResponse, nerve: Bus): void {
 		let body = "";
 		req.on("data", (chunk: Buffer) => {
 			body += chunk.toString("utf-8");

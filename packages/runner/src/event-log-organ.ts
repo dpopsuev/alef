@@ -16,7 +16,7 @@
 import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
 
 import { debugLog } from "@dpopsuev/alef-kernel";
 import type { SessionStore } from "@dpopsuev/alef-session";
@@ -64,7 +64,7 @@ export class SessionLog implements Adapter {
 		this._summaryWriter = summaryWriter;
 	}
 
-	mount(nerve: Nerve): () => void {
+	mount(nerve: Bus): () => void {
 		const startedAt = Date.now();
 		let turns = 0;
 		let inputTokens = 0;

@@ -1,4 +1,4 @@
-import type { Nerve, NerveMiddleware } from "./buses.js";
+import type { Bus, BusMiddleware } from "./buses.js";
 import { makeBus } from "./buses.js";
 
 export interface Budget {
@@ -15,8 +15,8 @@ export function intersectBudgets(limits: Budget, requests: Budget): Budget {
 	};
 }
 
-export function withLimits(limits: Budget): NerveMiddleware {
-	return (nerve: Nerve): Nerve => {
+export function withLimits(limits: Budget): BusMiddleware {
+	return (nerve: Bus): Bus => {
 		let toolCallCount = 0;
 		return makeBus(
 			{
@@ -43,7 +43,7 @@ export function withLimits(limits: Budget): NerveMiddleware {
 	};
 }
 
-export function startElapsedTimer(limits: Budget, nerve: Nerve): (() => void) | undefined {
+export function startElapsedTimer(limits: Budget, nerve: Bus): (() => void) | undefined {
 	if (limits.maxElapsedMs === undefined) return undefined;
 	const timer = setTimeout(() => {
 		nerve.sense.publish({

@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Adapter, ContextAssemblyHandler, Nerve } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
 import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
 
 export interface ScribeAdapterOptions {
@@ -30,7 +30,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 	let refreshInFlight = false;
 
 	function queryScribe(
-		nerve: Nerve,
+		nerve: Bus,
 		action: string,
 		extra: Record<string, unknown>,
 		callback: (text: string) => void,
@@ -50,7 +50,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 		});
 	}
 
-	function refreshSummary(nerve: Nerve): void {
+	function refreshSummary(nerve: Bus): void {
 		if (refreshInFlight || !inner) return;
 		refreshInFlight = true;
 
@@ -110,7 +110,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 			"context.assemble": contextStage,
 		},
 
-		mount(nerve: Nerve): () => void {
+		mount(nerve: Bus): () => void {
 			mkdirSync(join(dbPath, ".."), { recursive: true });
 
 			debugLog("scribe:boot", { binary, dbPath });

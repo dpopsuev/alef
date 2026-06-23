@@ -13,7 +13,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { type Adapter, gimpedAdapter, InProcessNerve, isGimped, type SenseEvent } from "@dpopsuev/alef-kernel";
+import { type Adapter, type EventMessage, gimpedAdapter, InProcessNerve, isGimped } from "@dpopsuev/alef-kernel";
 
 // ---------------------------------------------------------------------------
 // PortStub \u2014 canned Motor payload for one tool
@@ -45,7 +45,7 @@ export interface UnitCaseResult {
 	tool: string;
 	label: string;
 	/** Sense event received (undefined if timed out). */
-	sense: SenseEvent | undefined;
+	sense: EventMessage | undefined;
 	/** true if a Sense event arrived (regardless of isError). */
 	responded: boolean;
 	/** true if sense.isError === true. */
@@ -219,7 +219,7 @@ function probeMotor(
 	payload: Record<string, unknown>,
 	correlationId: string,
 	timeoutMs: number,
-): Promise<SenseEvent | null> {
+): Promise<EventMessage | null> {
 	return new Promise((resolve) => {
 		const timer = setTimeout(() => {
 			off();

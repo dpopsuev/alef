@@ -22,15 +22,15 @@ import {
 	type Adapter,
 	type AdapterLogger,
 	type Binding,
+	type BusMessage,
+	type CommandMessage,
 	debugLog,
+	type EventInput,
+	type EventMessage,
 	InProcessNerve,
-	type MotorEvent,
 	makeBus,
 	type Nerve,
-	type NerveEvent,
-	type SenseEvent,
-	type SensePublishInput,
-	type SignalPublishInput,
+	type NotificationInput,
 	type ToolDefinition,
 	withBindings,
 } from "@dpopsuev/alef-kernel";
@@ -50,7 +50,7 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 	const validate = (
 		busLabel: "motor" | "sense",
 		schemas: Readonly<Record<string, ZodTypeAny>> | undefined,
-		event: NerveEvent,
+		event: BusMessage,
 	): string | null => {
 		const schema = schemas?.[event.type];
 		if (!schema) return null;
@@ -66,7 +66,7 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 	return makeBus(
 		{
 			subscribe: nerve.motor.subscribe.bind(nerve.motor),
-			publish: (event: MotorEvent) => {
+			publish: (event: CommandMessage) => {
 				const err = validate("motor", motorSchemas, event);
 				if (err) {
 					// Publish validation failure as a sense error so the caller sees a tool result.
@@ -85,7 +85,7 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 		},
 		{
 			subscribe: nerve.sense.subscribe.bind(nerve.sense),
-			publish: (event: SenseEvent) => {
+			publish: (event: EventMessage) => {
 				// Error events carry { toolCallId } only — validating against the success schema always fails.
 				if (!event.isError) {
 					const err = validate("sense", senseSchemas, event);
@@ -106,9 +106,9 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 }
 
 export interface BusObserver {
-	onMotorEvent(event: NerveEvent): void;
-	onSenseEvent(event: NerveEvent): void;
-	onSignalEvent?(event: NerveEvent): void;
+	onMotorEvent(event: BusMessage): void;
+	onSenseEvent(event: BusMessage): void;
+	onSignalEvent?(event: BusMessage): void;
 }
 
 /** Reserved for future Agent configuration. */
@@ -249,12 +249,12 @@ export class Agent {
 	 * Used by autonomous-agent test harnesses to trigger the Reasoner
 	 * without going through AgentController.send().
 	 */
-	publishSense(event: SensePublishInput): void {
+	publishSense(event: EventInput): void {
 		this.nerve.publishSense(event);
 	}
 
 	/** Broadcast a signal event to all observers. Used exclusively by the Reasoner (organ-llm). */
-	publishSignal(event: SignalPublishInput): void {
+	publishSignal(event: NotificationInput): void {
 		this.nerve.publishSignal(event);
 	}
 
@@ -262,7 +262,7 @@ export class Agent {
 	 * Subscribe to a motor event published by the agent.
 	 * Returns an unsubscribe function.
 	 */
-	subscribeMotor(type: string, callback: (event: MotorEvent) => void): () => void {
+	subscribeMotor(type: string, callback: (event: CommandMessage) => void): () => void {
 		return this.nerve.asNerve().motor.subscribe(type, callback);
 	}
 

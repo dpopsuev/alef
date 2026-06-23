@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { MotorEvent } from "@dpopsuev/alef-kernel";
+import type { CommandMessage } from "@dpopsuev/alef-kernel";
 import type { Agent } from "./index.js";
 
 export type ReplySink = (text: string, sender: string) => void;
@@ -86,7 +86,7 @@ export class AgentController {
 		this.pending.clear();
 	}
 
-	private handleReply(event: MotorEvent): void {
+	private handleReply(event: CommandMessage): void {
 		const text = typeof event.payload.text === "string" ? event.payload.text : "";
 		const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
 		if (text) this.transcript?.store.append(this.transcript.topic, this.transcript.thread, sender, text);

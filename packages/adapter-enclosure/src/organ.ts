@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Adapter, Nerve, PortDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, PortDefinition } from "@dpopsuev/alef-kernel";
 import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import type { DockerSpaceOptions } from "./docker-space.js";
@@ -107,7 +107,7 @@ export interface EnclosureOrganOptions {
 export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapter {
 	// Session-scoped space registry — lives until unmount.
 	const spaces = new Map<string, Space>();
-	let nerve: Nerve | null = null;
+	let nerve: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
 		nerve?.signal.publish({ type, payload, correlationId: "" });
 
@@ -180,7 +180,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 			},
 		},
 		{
-			onMount: (n: Nerve) => {
+			onMount: (n: Bus) => {
 				nerve = n;
 			},
 			contributions: {
@@ -215,7 +215,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 				cardinality: "zero-or-one",
 			} satisfies PortDefinition,
 		},
-		mount(nerve: Nerve): () => void {
+		mount(nerve: Bus): () => void {
 			const unmount = base.mount(nerve);
 			return () => {
 				unmount();

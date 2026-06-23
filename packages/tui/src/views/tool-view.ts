@@ -1,11 +1,14 @@
-import { KEY_ARG_FIELDS } from "@dpopsuev/alef-reasoner";
-import type { ThemeTokens } from "@dpopsuev/alef-tui";
-import { type Component, Markdown, Text } from "@dpopsuev/alef-tui";
+import type { Component } from "../component.js";
+import type { ThemeTokens } from "../theme-types.js";
+import { Markdown } from "../components/markdown.js";
+import { Text } from "../components/text.js";
 import { fmtMs, sanitizeForDisplay } from "./ansi-utils.js";
 import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";
 import { spinnerFrame } from "./spinner.js";
 import { bold, color, dim, glyph } from "./theme.js";
+
+const KEY_ARG_FIELDS = ["command", "path", "url", "pattern", "glob", "query", "text", "prompt", "name"] as const;
 
 export function toolActiveLine(name: string, keyArg: string, t: ThemeTokens, elapsedMs = 0, callId?: string): string {
 	const elapsed = fmtMs(elapsedMs);

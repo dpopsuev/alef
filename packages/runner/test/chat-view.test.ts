@@ -2,10 +2,10 @@
  * Unit tests for chat-view.ts — UserMsg, AgentBlock, Notice, ToolBlock.
  * No TUI process needed; tests DOM structure directly.
  */
-import { Container } from "@dpopsuev/alef-tui";
+import { Container } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../src/theme.js";
-import { AgentBlock, appendCompletedToolBlock, appendNotice, appendUserMsg } from "../src/tui/chat-view.js";
+import { AgentBlock, appendCompletedToolBlock, appendNotice, appendUserMsg } from "@dpopsuev/alef-tui/views";
 
 function makeChat() {
 	return new Container();
@@ -69,7 +69,7 @@ describe("AgentBlock", { tags: ["unit"] }, () => {
 		const chat = makeChat();
 		const block = new AgentBlock(chat, getTheme());
 		block.start();
-		const { Text } = require("@dpopsuev/alef-tui") as typeof import("@dpopsuev/alef-tui");
+		const { Text } = require("@dpopsuev/alef-tui/views") as typeof import("@dpopsuev/alef-tui/views");
 		const item = new Text("tool output", 1, 0);
 		block.addContent(item);
 		expect(chat.children).not.toContain(item);
@@ -79,7 +79,7 @@ describe("AgentBlock", { tags: ["unit"] }, () => {
 	it("addContent() routes to chat directly when not open", () => {
 		const chat = makeChat();
 		const block = new AgentBlock(chat, getTheme());
-		const { Text } = require("@dpopsuev/alef-tui") as typeof import("@dpopsuev/alef-tui");
+		const { Text } = require("@dpopsuev/alef-tui/views") as typeof import("@dpopsuev/alef-tui/views");
 		const item = new Text("notice", 1, 0);
 		block.addContent(item);
 		expect(chat.children).toContain(item);
@@ -114,7 +114,7 @@ describe("appendCompletedToolBlock", { tags: ["unit"] }, () => {
 
 	it("adds status line + output when display provided", () => {
 		const chat = makeChat();
-		const { Text } = require("@dpopsuev/alef-tui") as typeof import("@dpopsuev/alef-tui");
+		const { Text } = require("@dpopsuev/alef-tui/views") as typeof import("@dpopsuev/alef-tui/views");
 		const output = new Text("file contents", 2, 0);
 		appendCompletedToolBlock(chat, "fs.read", "README.md", 42, true, output, getTheme());
 		// status line + Pad(output) = 2

@@ -46,10 +46,10 @@ import { EventPressure, pressureToInterval } from "./event-pressure.js";
 import { hexToColorToken, lookupColor } from "./identity/palette.js";
 import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./theme.js";
-import { fmtMs } from "./tui/ansi-utils.js";
-import { DynamicText } from "./tui/dynamic-text.js";
-import { accentColorize, spinnerFrame } from "./tui/spinner.js";
-import { toolActiveLine } from "./tui/tool-view.js";
+import { fmtMs } from "@dpopsuev/alef-tui/views";
+import { DynamicText } from "@dpopsuev/alef-tui/views";
+import { accentColorize, spinnerFrame } from "@dpopsuev/alef-tui/views";
+import { toolActiveLine } from "@dpopsuev/alef-tui/views";
 
 export class PromptConsole {
 	readonly editor: Editor;

@@ -5,7 +5,8 @@
  * neither needs to know the other's Markdown rendering details.
  */
 
-import type { MarkdownTheme, ThemeTokens } from "@dpopsuev/alef-tui";
+import type { MarkdownTheme } from "../components/markdown.js";
+import type { ThemeTokens } from "../theme-types.js";
 import chalk from "chalk";
 import { bold, color, dim, italic } from "./theme.js";
 

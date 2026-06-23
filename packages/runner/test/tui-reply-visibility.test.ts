@@ -3,7 +3,7 @@ import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal.js";
 import { getTheme } from "../src/theme.js";
-import { ReplyBlock } from "../src/tui/reply-block.js";
+import { ReplyBlock } from "@dpopsuev/alef-tui/views";
 
 const COLS = 120;
 const ROWS = 40;

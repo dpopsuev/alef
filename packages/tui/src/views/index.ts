@@ -1,6 +1,9 @@
+export { Container } from "../tui.js";
+export { Text } from "../components/text.js";
 export { AgentForum } from "./agent-forum.js";
-export { hasAnsi, stripAnsi } from "./ansi-utils.js";
-export { ChatLog } from "./chat-log.js";
+export { fmtMs, hasAnsi, sanitizeForDisplay, stripAnsi } from "./ansi-utils.js";
+export { ChatLog, type ChatLogLabels } from "./chat-log.js";
+export { AgentBlock, appendCompletedToolBlock, appendNotice, appendUserMsg } from "./chat-view.js";
 export { DashboardFooter, type FooterPanel } from "./dashboard-footer.js";
 export { DynamicText } from "./dynamic-text.js";
 export { INDENT, SPACING } from "./layout-constants.js";
@@ -11,5 +14,15 @@ export { prependSessionHistory, type SessionHistoryOptions } from "./session-his
 export { accentColorize, spinnerFrame } from "./spinner.js";
 export { type TuiState, TuiStateStore } from "./state.js";
 export { glyph } from "./theme.js";
-export { renderDiffDisplay, renderToolLine, truncateToolOutput } from "./tool-view.js";
+export {
+	formatCompact,
+	formatTokenUsage,
+	keyArgFromPayload,
+	makeToolOutputComponent,
+	renderDiffDisplay,
+	renderToolLine,
+	ToolCallRow,
+	toolActiveLine,
+	truncateToolOutput,
+} from "./tool-view.js";
 export { Typewriter } from "./typewriter.js";

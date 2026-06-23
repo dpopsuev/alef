@@ -1,6 +1,6 @@
 import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import { TuiStateStore } from "@dpopsuev/alef-runner-tui";
+import { TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "./interactive.js";
@@ -18,8 +18,8 @@ import { initialTuiState, syncOverlays, type TuiUi } from "./tui-state.js";
 import { createSubmitHandler } from "./tui-submit.js";
 import { checkForUpdate } from "./version-check.js";
 
-export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "./tui/markdown-themes.js";
-export { renderDiffDisplay, renderToolLine, truncateToolOutput } from "./tui/tool-view.js";
+export { makeMarkdownTheme, makeToolOutputMarkdownTheme } from "@dpopsuev/alef-tui/views";
+export { renderDiffDisplay, renderToolLine, truncateToolOutput } from "@dpopsuev/alef-tui/views";
 export type { TuiHandlerContext } from "./tui-commands.js";
 export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./tui-commands.js";
 

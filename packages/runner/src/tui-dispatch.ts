@@ -10,7 +10,7 @@ import {
 	renderChunkWindow,
 	updateInspectorView,
 } from "./tui/inspector.js";
-import { formatTokenUsage, keyArgFromPayload } from "./tui/tool-view.js";
+import { formatTokenUsage, keyArgFromPayload } from "@dpopsuev/alef-tui/views";
 import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./tui-state.js";
 
 // ---------------------------------------------------------------------------

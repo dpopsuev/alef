@@ -11,7 +11,8 @@
  *   @general msg   → post to 'general' without switching
  */
 
-import { Container, Text } from "@dpopsuev/alef-tui";
+import { Container } from "../tui.js";
+import { Text } from "../components/text.js";
 
 export class AgentForum {
 	private readonly forums = new Map<string, Container>();

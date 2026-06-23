@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
-import type { Component } from "@dpopsuev/alef-tui";
-import { truncateToWidth, visibleWidth } from "@dpopsuev/alef-tui";
+import type { Component } from "../component.js";
+import { truncateToWidth, visibleWidth } from "../utils.js";
 import type { TuiStateStore } from "./state.js";
 
 export interface DashboardFooterOptions {

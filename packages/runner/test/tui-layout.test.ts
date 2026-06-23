@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { sanitizeForDisplay, stripAnsi } from "../src/tui/ansi-utils.js";
-import { INDENT, SPACING } from "../src/tui/layout-constants.js";
+import { sanitizeForDisplay, stripAnsi } from "@dpopsuev/alef-tui/views";
+import { INDENT, SPACING } from "@dpopsuev/alef-tui/views";
 
 describe("Layout Constants", { tags: ["unit"] }, () => {
 	it("defines block indent", () => {

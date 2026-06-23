@@ -16,8 +16,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
 import type { Session } from "../src/session.js";
 import { getTheme } from "../src/theme.js";
-import { ChatLog } from "../src/tui/chat-log.js";
-import { ToolCallRow } from "../src/tui/tool-view.js";
+import { ChatLog } from "@dpopsuev/alef-tui/views";
+import { ToolCallRow } from "@dpopsuev/alef-tui/views";
 import type { TuiHandlerContext } from "../src/tui-mode.js";
 import { handleColonCommand, handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/tui-mode.js";
 

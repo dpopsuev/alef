@@ -1,6 +1,6 @@
 import type { SessionStore } from "@dpopsuev/alef-session";
-import type { ThemeTokens } from "@dpopsuev/alef-tui";
-import { Container, type TUI } from "@dpopsuev/alef-tui";
+import type { ThemeTokens } from "../theme-types.js";
+import { Container, type TUI } from "../tui.js";
 import { AgentForum } from "./agent-forum.js";
 import { ChatLog, type ChatLogLabels } from "./chat-log.js";
 import { ReplyBlock } from "./reply-block.js";

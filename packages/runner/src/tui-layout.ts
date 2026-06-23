@@ -1,4 +1,4 @@
-import { DashboardFooter, type FooterPanel, type TuiStateStore } from "@dpopsuev/alef-runner-tui";
+import { DashboardFooter, type FooterPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
@@ -7,7 +7,7 @@ import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, color, type ThemeTokens } from "./theme.js";
 import { InputPanel } from "./tui/input-panel.js";
-import { OutputPanel } from "./tui/output-panel.js";
+import { OutputPanel } from "@dpopsuev/alef-tui/views";
 
 /**
  * TUI Composition Model:

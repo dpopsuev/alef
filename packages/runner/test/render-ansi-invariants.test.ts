@@ -16,7 +16,7 @@
 import { Container, Text, TUI } from "@dpopsuev/alef-tui";
 import { describe, expect, it } from "vitest";
 import { CapturingTerminal } from "../../tui/test/capturing-terminal.js";
-import { DynamicText } from "../src/tui/dynamic-text.js";
+import { DynamicText } from "@dpopsuev/alef-tui/views";
 
 // ---------------------------------------------------------------------------
 // Shared setup

@@ -62,7 +62,8 @@ export type { ChildEntry };
 export interface AgentAdapterOptions extends BaseAdapterOptions {
 	cwd?: string;
 	strategies?: Record<string, ExecutionStrategy>;
-	createAdHocSession?: (opts: {
+	/** Subagent factory for ad-hoc sessions with custom organs/prompt/model. */
+	subagentFactory?: (opts: {
 		organs: readonly Adapter[];
 		onChunk?: (chunk: string) => void;
 		systemPrompt?: string;
@@ -71,6 +72,8 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 		send(text: string, sender: string, timeoutMs: number): Promise<string>;
 		dispose(): void;
 	};
+	/** @deprecated Use subagentFactory */
+	createAdHocSession?: AgentAdapterOptions["subagentFactory"];
 	getParentDirectives?: () => Promise<string>;
 	materializeOrgans?: (names: string[]) => Promise<Adapter[]>;
 	replyEvent?: string;
@@ -87,6 +90,7 @@ export function createAgentOrgan(
 	opts: AgentAdapterOptions,
 ): Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
+	const factory = opts.subagentFactory ?? opts.createAdHocSession;
 	let mountedBus: Bus | null = null;
 
 	const registry = new ChildRegistry({
@@ -325,7 +329,7 @@ export function createAgentOrgan(
 
 					const needsAdHoc = instructions !== undefined || inheritDirectives || organNames !== undefined;
 
-					if (needsAdHoc && opts.createAdHocSession) {
+					if (needsAdHoc && factory) {
 						const queue = new AsyncQueue();
 						const t0 = Date.now();
 						const parentDirectives =
@@ -347,7 +351,7 @@ export function createAgentOrgan(
 						}
 						resolvedOrgans = [...resolvedOrgans, ...extraOrgans];
 						const modelOverride = typeof payload.model === "string" ? payload.model : undefined;
-						const session = opts.createAdHocSession({
+						const session = factory({
 							organs: resolvedOrgans,
 							onChunk: (c) => queue.push(c),
 							systemPrompt,

@@ -5,7 +5,7 @@
  * If the same concept has two spellings across packages, the schema is broken.
  *
  * Naming: snake_case for log fields (pino/OTel convention).
- * Values match the field names in StorageRecord, NerveEvent, and Post.
+ * Values match the field names in StorageRecord, BusMessage, and Post.
  */
 export const LogField = {
 	component: "component",

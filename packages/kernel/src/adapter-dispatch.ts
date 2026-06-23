@@ -4,7 +4,7 @@ import type { AccessPolicy } from "./access-policy.js";
 import type { CacheStrategy } from "./adapter-cache.js";
 import { makeCacheKey } from "./adapter-cache.js";
 import type { MotorAction, MotorHandlerCtx, OrganLogger, SenseAction, SenseHandlerCtx } from "./adapter-types.js";
-import type { MotorEvent, Nerve, SenseEvent } from "./buses.js";
+import type { Bus, CommandMessage, EventMessage } from "./buses.js";
 import { debugLog } from "./debug.js";
 import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
 
@@ -37,9 +37,9 @@ export interface DispatchOptions {
 const tracer = trace.getTracer("alef.spine", "0.0.1");
 
 function validateMotorPayload(
-	motor: MotorEvent,
+	motor: CommandMessage,
 	schema: ZodTypeAny | undefined,
-	nerve: Nerve,
+	nerve: Bus,
 ): Record<string, unknown> | null {
 	if (!schema) return motor.payload;
 	const result = schema.safeParse(motor.payload);
@@ -56,7 +56,7 @@ function validateMotorPayload(
 			motor,
 			`${motor.type}: argument validation failed — ${humanMsg}. Retry with corrected arguments.`,
 		);
-		nerve.sense.publish({
+		nerve.event.publish({
 			...errSense,
 			payload: { ...errSense.payload, _validationError: { field: firstField, message: humanMsg } },
 		});
@@ -65,7 +65,7 @@ function validateMotorPayload(
 	return result.data as Record<string, unknown>;
 }
 
-function buildHandlerCtx(motor: MotorEvent, payload: Record<string, unknown>, log: OrganLogger): MotorHandlerCtx {
+function buildHandlerCtx(motor: CommandMessage, payload: Record<string, unknown>, log: OrganLogger): MotorHandlerCtx {
 	const toolCallId = extractToolCallId(motor.payload);
 	return {
 		correlationId: motor.correlationId,
@@ -76,9 +76,9 @@ function buildHandlerCtx(motor: MotorEvent, payload: Record<string, unknown>, lo
 }
 
 export async function dispatchMotorAction(
-	motor: MotorEvent,
+	motor: CommandMessage,
 	action: MotorAction,
-	nerve: Nerve,
+	nerve: Bus,
 	cache: CacheStrategy,
 	log: OrganLogger,
 	schema: ZodTypeAny | undefined,
@@ -93,7 +93,7 @@ export async function dispatchMotorAction(
 	if (options?.policy) {
 		const decision = options.policy.check(motor.type, payload);
 		if (decision.action === "deny") {
-			nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied by access policy`));
+			nerve.event.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied by access policy`));
 			return;
 		}
 		if (decision.action === "escalate") {
@@ -101,7 +101,7 @@ export async function dispatchMotorAction(
 				? await options.onEscalate(motor.type, payload, decision.reason ?? "")
 				: false;
 			if (!approved) {
-				nerve.sense.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied (escalation rejected)`));
+				nerve.event.publish(buildErrSense(motor, decision.reason ?? `${motor.type}: denied (escalation rejected)`));
 				return;
 			}
 		}
@@ -109,7 +109,7 @@ export async function dispatchMotorAction(
 
 	const ctx = buildHandlerCtx(motor, payload, log);
 
-	const span = tracer.startSpan(`alef.motor/${motor.type}`, {
+	const span = tracer.startSpan(`alef.command/${motor.type}`, {
 		kind: SpanKind.CONSUMER,
 		attributes: {
 			"alef.event.type": motor.type,
@@ -133,7 +133,7 @@ export async function dispatchMotorAction(
 			span.setAttribute("alef.cache.hit", true);
 			log.debug({ op: motor.type, correlationId: motor.correlationId, cacheKey }, "cache hit");
 			span.addEvent("tool.result", { result: JSON.stringify(cached) });
-			nerve.sense.publish(buildSense(motor, cached));
+			nerve.event.publish(buildSense(motor, cached));
 			span.setStatus({ code: SpanStatusCode.OK });
 			span.end();
 			return;
@@ -143,7 +143,7 @@ export async function dispatchMotorAction(
 		try {
 			let last: Record<string, unknown> | undefined;
 			for await (const chunk of action.handle(ctx)) {
-				if (last !== undefined) nerve.sense.publish(buildSense(motor, { ...last, isFinal: false }));
+				if (last !== undefined) nerve.event.publish(buildSense(motor, { ...last, isFinal: false }));
 				last = chunk;
 			}
 			const result = last ?? {};
@@ -170,7 +170,7 @@ export async function dispatchMotorAction(
 				/* non-serialisable result — skip */
 			}
 
-			nerve.sense.publish(buildSense(motor, { ...result, isFinal: true }));
+			nerve.event.publish(buildSense(motor, { ...result, isFinal: true }));
 			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (e) {
 			log.warn(
@@ -179,7 +179,7 @@ export async function dispatchMotorAction(
 			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-			nerve.sense.publish(buildErrSense(motor, toErrorMessage(e)));
+			nerve.event.publish(buildErrSense(motor, toErrorMessage(e)));
 		} finally {
 			span.end();
 		}
@@ -188,8 +188,8 @@ export async function dispatchMotorAction(
 
 export function dispatchSenseAction(
 	eventType: string,
-	event: SenseEvent,
-	nerve: Nerve,
+	event: EventMessage,
+	nerve: Bus,
 	senseAction: SenseAction,
 	log: OrganLogger,
 ): void {
@@ -197,11 +197,11 @@ export function dispatchSenseAction(
 	const ctx: SenseHandlerCtx = {
 		correlationId: event.correlationId,
 		payload: event.payload,
-		motor: nerve.motor,
-		sense: nerve.sense,
-		signal: nerve.signal,
+		motor: nerve.command,
+		sense: nerve.event,
+		signal: nerve.notification,
 	};
-	const span = tracer.startSpan(`alef.sense/${eventType}`, {
+	const span = tracer.startSpan(`alef.event/${eventType}`, {
 		kind: SpanKind.CONSUMER,
 		attributes: { "alef.event.type": eventType, "alef.correlation.id": event.correlationId },
 	});

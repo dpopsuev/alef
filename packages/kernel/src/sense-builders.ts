@@ -1,4 +1,4 @@
-import type { MotorEvent, SensePublishInput } from "./buses.js";
+import type { CommandMessage, EventInput } from "./buses.js";
 import { getErrorMessage } from "./errors.js";
 
 export function extractToolCallId(payload: Record<string, unknown>): string | undefined {
@@ -14,11 +14,11 @@ export function toErrorMessage(err: unknown): string {
 }
 
 export function buildSense(
-	motor: MotorEvent,
+	motor: CommandMessage,
 	payload: Record<string, unknown>,
 	isError = false,
 	errorMessage?: string,
-): SensePublishInput {
+): EventInput {
 	const toolCallId = extractToolCallId(motor.payload);
 	return {
 		type: motor.type,
@@ -29,7 +29,7 @@ export function buildSense(
 	};
 }
 
-export function buildErrSense(motor: MotorEvent, message: string): SensePublishInput {
+export function buildErrSense(motor: CommandMessage, message: string): EventInput {
 	const toolCallId = extractToolCallId(motor.payload);
 	return {
 		type: motor.type,

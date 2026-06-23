@@ -1,6 +1,6 @@
 import type { ZodTypeAny, z } from "zod";
 import type { Budget } from "./budget.js";
-import type { Nerve, NerveMiddleware, ToolDefinition } from "./buses.js";
+import type { Bus, BusMiddleware, ToolDefinition } from "./buses.js";
 
 export interface AdapterLogger {
 	debug(obj: Record<string, unknown>, msg: string): void;
@@ -58,9 +58,9 @@ export function typedStreamAction<TSchema extends ZodTypeAny>(
 export interface SenseHandlerCtx {
 	readonly correlationId: string;
 	readonly payload: Record<string, unknown>;
-	readonly motor: Nerve["motor"];
-	readonly sense: Nerve["sense"];
-	readonly signal: Nerve["signal"];
+	readonly motor: Bus["motor"];
+	readonly sense: Bus["sense"];
+	readonly signal: Bus["signal"];
 }
 
 export interface SenseAction {
@@ -93,10 +93,10 @@ export interface AdapterOptions {
 	};
 	sources?: readonly { name: string; kind: "file" | "memory" | "process" }[];
 	ready?: () => Promise<void>;
-	onMount?: (nerve: Nerve) => void;
+	onMount?: (nerve: Bus) => void;
 	onUnmount?: () => void;
 	limits?: Budget;
-	middlewares?: NerveMiddleware[];
+	middlewares?: BusMiddleware[];
 }
 
 /** @deprecated Use AdapterOptions */

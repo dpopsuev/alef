@@ -1,10 +1,10 @@
 import type {
 	Adapter,
+	Bus,
+	CommandMessage,
 	ContextAssemblyHandler,
-	MotorEvent,
-	Nerve,
+	EventMessage,
 	PipelineContributions,
-	SenseEvent,
 	ToolDefinition,
 } from "./buses.js";
 
@@ -38,21 +38,21 @@ export function createContextAssemblyPipeline(): Adapter & {
 				return undefined;
 			};
 		},
-		mount(nerve: Nerve): () => void {
-			const unsubLoaded = nerve.sense.subscribe("organ.loaded", (event: SenseEvent) => {
+		mount(nerve: Bus): () => void {
+			const unsubLoaded = nerve.event.subscribe("organ.loaded", (event: EventMessage) => {
 				const contributions = event.payload.contributions as PipelineContributions | undefined;
 				const name = event.payload.name as string;
 				if (contributions?.["context.assemble"]) stages.set(name, contributions["context.assemble"]);
 				if (contributions?.["schema-resolver"]) schemaResolvers.set(name, contributions["schema-resolver"]);
 			});
 
-			const unsubUnloaded = nerve.sense.subscribe("organ.unloaded", (event: SenseEvent) => {
+			const unsubUnloaded = nerve.event.subscribe("organ.unloaded", (event: EventMessage) => {
 				const name = event.payload.name as string;
 				stages.delete(name);
 				schemaResolvers.delete(name);
 			});
 
-			const unsubAssemble = nerve.motor.subscribe("context.assemble", (event: MotorEvent) => {
+			const unsubAssemble = nerve.command.subscribe("context.assemble", (event: CommandMessage) => {
 				void (async () => {
 					const payload = event.payload as {
 						messages: readonly unknown[];
@@ -65,7 +65,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 					for (const stage of stages.values()) {
 						const out = await stage({ messages, tools, turn: payload.turn });
 						if (out.abort) {
-							nerve.sense.publish({
+							nerve.event.publish({
 								type: "context.assemble",
 								correlationId: event.correlationId,
 								payload: { abort: true },
@@ -76,7 +76,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 						if (out.messages) messages = out.messages;
 						if (out.tools) tools = out.tools as ToolDefinition[];
 						if (out.skip) {
-							nerve.sense.publish({
+							nerve.event.publish({
 								type: "context.assemble",
 								correlationId: event.correlationId,
 								payload: { skip: true, reply: out.reply ?? "", messages, tools },
@@ -86,7 +86,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 						}
 					}
 
-					nerve.sense.publish({
+					nerve.event.publish({
 						type: "context.assemble",
 						correlationId: event.correlationId,
 						payload: { messages, tools },

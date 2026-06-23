@@ -1,11 +1,11 @@
 import type {
-	MotorEvent,
-	MotorPublishInput,
-	Nerve,
-	NerveEvent,
-	SenseHandler,
-	SensePublishInput,
-	SignalPublishInput,
+	Bus,
+	BusMessage,
+	CommandInput,
+	CommandMessage,
+	EventHandler,
+	EventInput,
+	NotificationInput,
 } from "./buses.js";
 import { makeBus } from "./buses.js";
 import { extractToolCallId } from "./sense-builders.js";
@@ -13,13 +13,13 @@ import { Watchdog } from "./watchdog.js";
 
 const FIRST_SEEN_MAX = 500;
 class InProcessBus {
-	private readonly handlers = new Map<string, Set<(event: NerveEvent) => void | Promise<void>>>();
+	private readonly handlers = new Map<string, Set<(event: BusMessage) => void | Promise<void>>>();
 	readonly firstSeen = new Map<string, number>();
-	deadLetterSink?: (event: NerveEvent) => void;
+	deadLetterSink?: (event: BusMessage) => void;
 	evictCorrelation(correlationId: string): void {
 		this.firstSeen.delete(correlationId);
 	}
-	emit(input: Omit<NerveEvent, "timestamp" | "elapsed">): void {
+	emit(input: Omit<BusMessage, "timestamp" | "elapsed">): void {
 		const now = Date.now();
 		if (!this.firstSeen.has(input.correlationId)) {
 			this.firstSeen.set(input.correlationId, now);
@@ -30,7 +30,7 @@ class InProcessBus {
 		}
 		const startedAt = this.firstSeen.get(input.correlationId) ?? now;
 		const elapsed = now - startedAt;
-		const event: NerveEvent = { ...input, timestamp: now, elapsed };
+		const event: BusMessage = { ...input, timestamp: now, elapsed };
 		const specific = this.handlers.get(event.type);
 		if (specific && specific.size > 0) {
 			for (const h of specific) void h(event);
@@ -40,7 +40,7 @@ class InProcessBus {
 		const wildcard = this.handlers.get("*");
 		if (wildcard) for (const h of wildcard) void h(event);
 	}
-	on(type: string, handler: (event: NerveEvent) => void | Promise<void>): () => void {
+	on(type: string, handler: (event: BusMessage) => void | Promise<void>): () => void {
 		let set = this.handlers.get(type);
 		if (!set) {
 			set = new Set();
@@ -69,7 +69,7 @@ export class InProcessNerve {
 		this._watchdog = watchdog ? new Watchdog(watchdog.stallMs, watchdog.onStall) : null;
 		this._watchdog?.start();
 		this._motor.deadLetterSink = (event) => {
-			const payload = (event as MotorEvent).payload;
+			const payload = (event as CommandMessage).payload;
 			const toolCallId = payload ? extractToolCallId(payload) : undefined;
 			this._sense.emit({
 				type: event.type,
@@ -77,7 +77,7 @@ export class InProcessNerve {
 				payload: toolCallId ? { toolCallId } : {},
 				isError: true,
 				errorMessage: `no organ handles motor/${event.type}`,
-			} as unknown as Omit<NerveEvent, "timestamp" | "elapsed">);
+			} as unknown as Omit<BusMessage, "timestamp" | "elapsed">);
 		};
 		// Signal bus has no dead-letter sink — signals are fire-and-forget to observers.
 	}
@@ -87,44 +87,51 @@ export class InProcessNerve {
 	dispose(): void {
 		this._watchdog?.stop();
 	}
-	asNerve(): Nerve {
+	asBus(): Bus {
+		return this._buildBus();
+	}
+	/** @deprecated Use asBus() */
+	asNerve(): Bus {
+		return this._buildBus();
+	}
+	private _buildBus(): Bus {
 		const commandChannel = {
-			subscribe: (type: string, h: (e: NerveEvent) => void | Promise<void>) => this._motor.on(type, h),
-			publish: (e: MotorPublishInput) => this._motor.emit(e),
+			subscribe: (type: string, h: (e: BusMessage) => void | Promise<void>) => this._motor.on(type, h),
+			publish: (e: CommandInput) => this._motor.emit(e),
 		};
 		const eventChannel = {
-			subscribe: (type: string, h: (e: NerveEvent) => void | Promise<void>) => this._sense.on(type, h),
-			publish: (e: SensePublishInput) => {
+			subscribe: (type: string, h: (e: BusMessage) => void | Promise<void>) => this._sense.on(type, h),
+			publish: (e: EventInput) => {
 				this._motor.evictCorrelation(e.correlationId);
 				this._sense.emit(e);
 			},
 		};
 		const notificationChannel = {
-			subscribe: (type: string, h: (e: NerveEvent) => void | Promise<void>) => this._signal.on(type, h),
-			publish: (e: SignalPublishInput) => this._signal.emit(e),
+			subscribe: (type: string, h: (e: BusMessage) => void | Promise<void>) => this._signal.on(type, h),
+			publish: (e: NotificationInput) => this._signal.emit(e),
 		};
 		return makeBus(commandChannel, eventChannel, notificationChannel, () => this.pulse());
 	}
-	publishMotor(event: MotorPublishInput): void {
+	publishMotor(event: CommandInput): void {
 		this._motor.emit(event);
 	}
-	subscribeSense(type: string, handler: SenseHandler): () => void {
-		return this._sense.on(type, handler as (e: NerveEvent) => void | Promise<void>);
+	subscribeSense(type: string, handler: EventHandler): () => void {
+		return this._sense.on(type, handler as (e: BusMessage) => void | Promise<void>);
 	}
-	publishSense(event: SensePublishInput): void {
+	publishSense(event: EventInput): void {
 		this._motor.evictCorrelation(event.correlationId);
 		this._sense.emit(event);
 	}
-	publishSignal(event: SignalPublishInput): void {
+	publishSignal(event: NotificationInput): void {
 		this._signal.emit(event);
 	}
-	onAnyMotor(handler: (event: NerveEvent) => void): () => void {
+	onAnyMotor(handler: (event: BusMessage) => void): () => void {
 		return this._motor.on("*", handler);
 	}
-	onAnySense(handler: (event: NerveEvent) => void): () => void {
+	onAnySense(handler: (event: BusMessage) => void): () => void {
 		return this._sense.on("*", handler);
 	}
-	onAnySignal(handler: (event: NerveEvent) => void): () => void {
+	onAnySignal(handler: (event: BusMessage) => void): () => void {
 		return this._signal.on("*", handler);
 	}
 	listenerCount(bus: "sense" | "motor" | "signal", type: string): number {

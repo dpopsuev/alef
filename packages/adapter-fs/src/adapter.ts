@@ -10,8 +10,8 @@
 import type { Stats } from "node:fs";
 import { readFile as fsReadFile, mkdir } from "node:fs/promises";
 import { dirname, resolve as nodeResolve } from "node:path";
-import type { Adapter, AdapterLogger, PortDefinition } from "@dpopsuev/alef-kernel";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
 import { diffLines } from "diff";
 import { z } from "zod";
 import {

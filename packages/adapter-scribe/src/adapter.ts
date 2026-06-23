@@ -1,8 +1,11 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Adapter, Bus, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
-import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
+import { McpAdapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { debugLog } from "@dpopsuev/alef-kernel/debug";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
 
 export interface ScribeAdapterOptions {
 	binary?: string;

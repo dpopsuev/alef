@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { debugLog, Watchdog } from "@dpopsuev/alef-kernel";
+import { Watchdog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/debug";
 import type { ToolResultCache, ToolResultCacheHit } from "./cache.js";
 import {
 	type BaseToolDetails,

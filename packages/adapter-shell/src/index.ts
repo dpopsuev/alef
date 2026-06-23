@@ -10,7 +10,7 @@ export {
 } from "./adapter.js";
 export { shouldUseWindowsShell, waitForChildProcess } from "./child-process.js";
 
-import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import { createShellOrgan } from "./adapter.js";
 export function createOrgan(opts: {
 	cwd: string;

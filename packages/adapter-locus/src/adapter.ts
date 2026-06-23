@@ -1,8 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
-import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
+import { McpAdapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { debugLog } from "@dpopsuev/alef-kernel/debug";
 
 export interface LocusAdapterOptions {
 	/** Workspace root(s) to analyze. Defaults to cwd. */

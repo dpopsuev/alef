@@ -16,8 +16,9 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Adapter, Bus, PortDefinition } from "@dpopsuev/alef-kernel";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 import type { DockerSpaceOptions } from "./docker-space.js";
 import { DockerSpace } from "./docker-space.js";

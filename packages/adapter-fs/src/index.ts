@@ -33,7 +33,7 @@ export {
 } from "./file-queries.js";
 export { type FsCacheScope, FsRuntime, type FsRuntimeOptions } from "./fs-runtime.js";
 
-import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import { createFsOrgan } from "./adapter.js";
 /** Standard materializer entry point. Maps short names ("read") to full event types ("fs.read"). */
 export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: AdapterLogger }): Adapter {

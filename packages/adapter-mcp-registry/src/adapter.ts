@@ -1,4 +1,6 @@
-import { type Adapter, defineAdapter, McpAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { McpAdapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 
 export interface McpRegistryAdapterOptions {

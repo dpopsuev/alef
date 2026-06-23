@@ -15,7 +15,7 @@ export { LocalCodeIntelBackend, type LocalCodeIntelBackendOptions } from "./loca
 
 export { StubCodeIntelBackend } from "./stub-backend.js";
 
-import type { Adapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createCodeIntelOrgan } from "./adapter.js";
 
 export function createOrgan(opts: { cwd: string; actions?: string[] }): Adapter {

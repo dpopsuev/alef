@@ -79,8 +79,8 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 	// Phase 2: components — each adapter mounts without throwing
 	for (const adapter of cfg.adapters) {
 		try {
-			const nerve = new InProcessBus();
-			const unmount = adapter.mount(nerve.asBus());
+			const bus = new InProcessBus();
+			const unmount = adapter.mount(bus.asBus());
 			if (typeof unmount !== "function") {
 				fail({
 					phase: "components",

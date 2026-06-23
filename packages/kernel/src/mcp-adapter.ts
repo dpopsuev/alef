@@ -12,7 +12,7 @@
 import type { MCPClient } from "@ai-sdk/mcp";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import type { Adapter, Nerve, ToolDefinition } from "./buses.js";
+import type { Adapter, Bus, ToolDefinition } from "./buses.js";
 import { passthroughSchema } from "./buses.js";
 
 type ExecuteFn = (args: unknown, opts: unknown) => Promise<unknown>;
@@ -46,14 +46,14 @@ class McpAdapterImpl implements Adapter {
 		await this.client.close();
 	}
 
-	mount(nerve: Nerve): () => void {
+	mount(nerve: Bus): () => void {
 		const offs: Array<() => void> = [];
 
 		for (const tool of this.tools) {
 			const toolName = tool.name; // e.g. "github.create_issue"
 			const execFn = this.execMap.get(toolName);
 
-			const off = nerve.motor.subscribe(toolName, async (event) => {
+			const off = nerve.command.subscribe(toolName, async (event) => {
 				const { toolCallId: rawToolCallId, ...args } = event.payload;
 				const toolCallId = typeof rawToolCallId === "string" ? rawToolCallId : undefined;
 				try {
@@ -62,7 +62,7 @@ class McpAdapterImpl implements Adapter {
 					}
 					const result: unknown = await execFn(args, { messages: [], toolCallId: String(toolCallId ?? "") });
 
-					nerve.sense.publish({
+					nerve.event.publish({
 						type: toolName,
 						payload: {
 							toolCallId,
@@ -75,7 +75,7 @@ class McpAdapterImpl implements Adapter {
 						isError: false,
 					});
 				} catch (err) {
-					nerve.sense.publish({
+					nerve.event.publish({
 						type: toolName,
 						payload: { toolCallId },
 						correlationId: event.correlationId,

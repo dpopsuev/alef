@@ -3,7 +3,7 @@ import { createMapCache } from "./adapter-cache.js";
 import { dispatchMotorAction, dispatchSenseAction } from "./adapter-dispatch.js";
 import type { ActionMap, AdapterLogger, AdapterOptions, MotorActionMap, SenseActionMap } from "./adapter-types.js";
 import { startElapsedTimer, withLimits } from "./budget.js";
-import type { Adapter, Nerve, ToolDefinition } from "./buses.js";
+import type { Adapter, Bus, ToolDefinition } from "./buses.js";
 
 export type {
 	ActionMap,
@@ -112,7 +112,7 @@ export function defineAdapter(name: string, actions: ActionMap, opts: AdapterOpt
 		publishSchemas: opts.publishSchemas,
 		inputSchemas: opts.inputSchemas,
 		ready: opts.ready,
-		mount(rawNerve: Nerve): () => void {
+		mount(rawNerve: Bus): () => void {
 			let nerve = rawNerve;
 			if (opts.limits) nerve = withLimits(opts.limits)(nerve);
 			for (const mw of opts.middlewares ?? []) nerve = mw(nerve);

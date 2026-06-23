@@ -155,10 +155,10 @@ export class RemoteStrategy implements ExecutionStrategy {
 			if (!ev.type || !ev.payload) return;
 
 			if (onChunk && ev.bus === "signal" && ev.type === "llm.chunk") {
-				onChunk(String(ev.payload.text ?? ""));
+				onChunk(typeof ev.payload.text === "string" ? ev.payload.text : "");
 			}
 			if (onChunk && ev.bus === "signal" && ev.type === "llm.tool-chunk") {
-				onChunk(String(ev.payload.text ?? ""));
+				onChunk(typeof ev.payload.text === "string" ? ev.payload.text : "");
 			}
 
 			if (onInnerEvent && ev.bus === "signal") {

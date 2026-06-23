@@ -71,7 +71,7 @@ function buildErrorSenseEvent(
 		errorMessage,
 		timestamp: Date.now(),
 		elapsed: elapsedMs,
-	} as SenseEvent;
+	};
 }
 
 export interface ToolResultSubscription {

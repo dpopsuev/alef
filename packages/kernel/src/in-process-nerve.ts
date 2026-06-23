@@ -7,20 +7,18 @@ import type {
 	SensePublishInput,
 	SignalPublishInput,
 } from "./buses.js";
+import { makeBus } from "./buses.js";
 import { extractToolCallId } from "./sense-builders.js";
 import { Watchdog } from "./watchdog.js";
 
 const FIRST_SEEN_MAX = 500;
-
 class InProcessBus {
 	private readonly handlers = new Map<string, Set<(event: NerveEvent) => void | Promise<void>>>();
 	readonly firstSeen = new Map<string, number>();
 	deadLetterSink?: (event: NerveEvent) => void;
-
 	evictCorrelation(correlationId: string): void {
 		this.firstSeen.delete(correlationId);
 	}
-
 	emit(input: Omit<NerveEvent, "timestamp" | "elapsed">): void {
 		const now = Date.now();
 		if (!this.firstSeen.has(input.correlationId)) {
@@ -42,7 +40,6 @@ class InProcessBus {
 		const wildcard = this.handlers.get("*");
 		if (wildcard) for (const h of wildcard) void h(event);
 	}
-
 	on(type: string, handler: (event: NerveEvent) => void | Promise<void>): () => void {
 		let set = this.handlers.get(type);
 		if (!set) {
@@ -54,24 +51,20 @@ class InProcessBus {
 			set?.delete(handler);
 		};
 	}
-
 	listenerCount(type: string): number {
 		return this.handlers.get(type)?.size ?? 0;
 	}
 }
-
 export interface WatchdogOptions {
 	stallMs: number;
 	onStall: () => void;
 }
-
 export class InProcessNerve {
 	private readonly _sense = new InProcessBus();
 	private readonly _motor = new InProcessBus();
 	/** Signal bus — Reasoner telemetry only. No dead-letter sink; signals have no organ handlers. */
 	private readonly _signal = new InProcessBus();
 	private readonly _watchdog: Watchdog | null;
-
 	constructor(watchdog?: WatchdogOptions) {
 		this._watchdog = watchdog ? new Watchdog(watchdog.stallMs, watchdog.onStall) : null;
 		this._watchdog?.start();
@@ -88,66 +81,52 @@ export class InProcessNerve {
 		};
 		// Signal bus has no dead-letter sink — signals are fire-and-forget to observers.
 	}
-
 	pulse(): void {
 		this._watchdog?.reset();
 	}
-
 	dispose(): void {
 		this._watchdog?.stop();
 	}
-
 	asNerve(): Nerve {
-		return {
-			motor: {
-				subscribe: (type, h) => this._motor.on(type, h as (e: NerveEvent) => void | Promise<void>),
-				publish: (e) => this._motor.emit(e),
-			},
-			sense: {
-				subscribe: (type, h) => this._sense.on(type, h as (e: NerveEvent) => void | Promise<void>),
-				// Sense publish evicts from motor's firstSeen — sense response ends the correlation.
-				publish: (e) => {
-					this._motor.evictCorrelation(e.correlationId);
-					this._sense.emit(e);
-				},
-			},
-			signal: {
-				subscribe: (type, h) => this._signal.on(type, h as (e: NerveEvent) => void | Promise<void>),
-				publish: (e) => this._signal.emit(e),
-			},
-			pulse: () => this.pulse(),
+		const commandChannel = {
+			subscribe: (type: string, h: (e: NerveEvent) => void | Promise<void>) => this._motor.on(type, h),
+			publish: (e: MotorPublishInput) => this._motor.emit(e),
 		};
+		const eventChannel = {
+			subscribe: (type: string, h: (e: NerveEvent) => void | Promise<void>) => this._sense.on(type, h),
+			publish: (e: SensePublishInput) => {
+				this._motor.evictCorrelation(e.correlationId);
+				this._sense.emit(e);
+			},
+		};
+		const notificationChannel = {
+			subscribe: (type: string, h: (e: NerveEvent) => void | Promise<void>) => this._signal.on(type, h),
+			publish: (e: SignalPublishInput) => this._signal.emit(e),
+		};
+		return makeBus(commandChannel, eventChannel, notificationChannel, () => this.pulse());
 	}
-
 	publishMotor(event: MotorPublishInput): void {
 		this._motor.emit(event);
 	}
-
 	subscribeSense(type: string, handler: SenseHandler): () => void {
 		return this._sense.on(type, handler as (e: NerveEvent) => void | Promise<void>);
 	}
-
 	publishSense(event: SensePublishInput): void {
 		this._motor.evictCorrelation(event.correlationId);
 		this._sense.emit(event);
 	}
-
 	publishSignal(event: SignalPublishInput): void {
 		this._signal.emit(event);
 	}
-
 	onAnyMotor(handler: (event: NerveEvent) => void): () => void {
 		return this._motor.on("*", handler);
 	}
-
 	onAnySense(handler: (event: NerveEvent) => void): () => void {
 		return this._sense.on("*", handler);
 	}
-
 	onAnySignal(handler: (event: NerveEvent) => void): () => void {
 		return this._signal.on("*", handler);
 	}
-
 	listenerCount(bus: "sense" | "motor" | "signal", type: string): number {
 		if (bus === "sense") return this._sense.listenerCount(type);
 		if (bus === "signal") return this._signal.listenerCount(type);

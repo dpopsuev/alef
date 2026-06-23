@@ -1,4 +1,5 @@
 import type { Nerve, NerveMiddleware } from "./buses.js";
+import { makeBus } from "./buses.js";
 
 export interface Budget {
 	maxToolCalls?: number;
@@ -17,8 +18,8 @@ export function intersectBudgets(limits: Budget, requests: Budget): Budget {
 export function withLimits(limits: Budget): NerveMiddleware {
 	return (nerve: Nerve): Nerve => {
 		let toolCallCount = 0;
-		return {
-			motor: {
+		return makeBus(
+			{
 				subscribe: nerve.motor.subscribe.bind(nerve.motor),
 				publish: (event) => {
 					if (limits.maxToolCalls !== undefined && toolCallCount >= limits.maxToolCalls) {
@@ -35,10 +36,10 @@ export function withLimits(limits: Budget): NerveMiddleware {
 					nerve.motor.publish(event);
 				},
 			},
-			sense: nerve.sense,
-			signal: nerve.signal,
-			pulse: () => nerve.pulse(),
-		};
+			nerve.sense,
+			nerve.signal,
+			() => nerve.pulse(),
+		);
 	};
 }
 

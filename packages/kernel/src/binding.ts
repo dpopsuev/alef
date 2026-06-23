@@ -1,5 +1,5 @@
 import type { Nerve, SenseEvent } from "./buses.js";
-import { newCorrelationId } from "./buses.js";
+import { makeBus, newCorrelationId } from "./buses.js";
 import { debugLog } from "./debug.js";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "./protocols.js";
 
@@ -88,12 +88,7 @@ function waitForValidateResult(sense: Nerve["sense"], id: string, timeoutMs: num
  * Implementations define how stages are executed (ordered, parallel, etc).
  */
 interface BindingExecutionStrategy {
-	execute(
-		chain: BindingStage[],
-		input: ChainInput,
-		nerve: Nerve,
-		sourceCorrelationId: string,
-	): Promise<ChainResult>;
+	execute(chain: BindingStage[], input: ChainInput, nerve: Nerve, sourceCorrelationId: string): Promise<ChainResult>;
 }
 
 /**
@@ -169,7 +164,9 @@ class ParallelFirstStrategy implements BindingExecutionStrategy {
 		sourceCorrelationId: string,
 	): Promise<ChainResult> {
 		const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
-		return Promise.race(stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result));
+		return Promise.race(
+			stages.map((stage) => publishValidateRequest(nerve, stage, input, sourceCorrelationId).result),
+		);
 	}
 }
 
@@ -213,8 +210,8 @@ export function executeBindingChain(
 }
 
 export function withBindings(bindings: Map<string, Binding>, baseNerve: Nerve): Nerve {
-	return {
-		motor: {
+	return makeBus(
+		{
 			subscribe: baseNerve.motor.subscribe.bind(baseNerve.motor),
 			publish: (event) => {
 				const binding = [...bindings.values()].find((b) => b.event === event.type);
@@ -222,18 +219,19 @@ export function withBindings(bindings: Map<string, Binding>, baseNerve: Nerve): 
 					baseNerve.motor.publish(event);
 					return;
 				}
+				const payload = event.payload;
 				const input: ChainInput = {
 					output: event.payload,
-					kind: (event.payload as Record<string, unknown>).kind as string | undefined,
-					context: (event.payload as Record<string, unknown>).context as string | undefined,
+					kind: typeof payload.kind === "string" ? payload.kind : undefined,
+					context: typeof payload.context === "string" ? payload.context : undefined,
 				};
 				void executeBindingChain(binding, input, baseNerve, event.correlationId);
 			},
 		},
-		sense: baseNerve.sense,
-		signal: baseNerve.signal,
-		pulse: () => baseNerve.pulse(),
-	};
+		baseNerve.sense,
+		baseNerve.signal,
+		() => baseNerve.pulse(),
+	);
 }
 
 // Export the interface for external strategy implementations

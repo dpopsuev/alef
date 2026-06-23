@@ -18,15 +18,10 @@
  *   skills.open    — load all pages from a book into context at once
  */
 
-import type {
-	Adapter,
-	AdapterLogger,
-	CommandHandlerCtx,
-	ReasoningContributions,
-	SkillBook,
-	SkillPage,
-} from "@dpopsuev/alef-kernel";
-import { defineAdapter, getString, typedAction } from "@dpopsuev/alef-kernel";
+import type { ReasoningContributions, SkillBook, SkillPage } from "@dpopsuev/alef-kernel";
+import { getString } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger, CommandHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 import { discoverSkills, skillsToXml } from "./discovery.js";
 import type { Skill } from "./types.js";

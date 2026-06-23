@@ -1,5 +1,5 @@
-import type { Adapter } from "@dpopsuev/alef-kernel";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 
 const DEFAULT_FORGE_URL = "http://localhost:3000";

@@ -16,22 +16,11 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
-import type {
-	Adapter,
-	AgentRunContext,
-	BaseAdapterOptions,
-	Bus,
-	ExecutionStrategy,
-	ReasoningContributions,
-	ToolDefinition,
-} from "@dpopsuev/alef-kernel";
-import {
-	createCompositeAgentRunContribution,
-	defineAdapter,
-	typedAction,
-	typedStreamAction,
-	withDisplay,
-} from "@dpopsuev/alef-kernel";
+import type { AgentRunContext, ExecutionStrategy, ReasoningContributions } from "@dpopsuev/alef-kernel";
+import { createCompositeAgentRunContribution } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseAdapterOptions, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, typedStreamAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { RemoteStrategy } from "@dpopsuev/alef-runtime";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";

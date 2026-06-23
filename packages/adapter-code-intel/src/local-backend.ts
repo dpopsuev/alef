@@ -14,7 +14,7 @@ import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/debug";
 import type { CallersOptions, CallSite, CodeIntelBackend } from "./backend.js";
 import { LspClient } from "./lsp-client.js";
 import { extractSymbolsFor } from "./symbol-strategies.js";

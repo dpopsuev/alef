@@ -1,11 +1,7 @@
-import {
-	type Adapter,
-	type Bus,
-	debugLog,
-	VALIDATE_REQUEST,
-	VALIDATE_RESULT,
-	type ValidateRequest,
-} from "@dpopsuev/alef-kernel";
+import { VALIDATE_REQUEST, VALIDATE_RESULT, type ValidateRequest } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { debugLog } from "@dpopsuev/alef-kernel/debug";
 
 export interface HitlEvaluateInput {
 	output: unknown;

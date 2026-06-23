@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import type { Adapter, BaseAdapterOptions, Bus, ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
-import { defineAdapter, injectContextBlock, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
+import { injectContextBlock } from "@dpopsuev/alef-kernel/pipeline";
 import { z } from "zod";
 import { PlanGraph } from "./graph.js";
 

@@ -11,8 +11,8 @@
  * This organ focuses solely on LSP capabilities that fs cannot provide.
  */
 
-import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 import type { CodeIntelBackend } from "./backend.js";
 import { LocalCodeIntelBackend } from "./local-backend.js";

@@ -2,7 +2,8 @@
  * Agent.validate() — seam cardinality enforcement.
  */
 
-import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
 
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/index.js";

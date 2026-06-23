@@ -5,7 +5,8 @@
  * EvaluatorAdapter must detect the loop and set loopDetected=true.
  */
 
-import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
 import { EvalHarness } from "../src/harness.js";
 

@@ -11,8 +11,8 @@
 
 import type { MCPClient } from "@ai-sdk/mcp";
 import { createMCPClient } from "@ai-sdk/mcp";
-import { passthroughSchema } from "@dpopsuev/alef-kernel";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import { passthroughSchema } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 

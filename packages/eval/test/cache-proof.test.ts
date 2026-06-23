@@ -6,7 +6,8 @@
  * Proves: OTel spans carry cache attributes, OAE metric is non-zero.
  */
 
-import type { Adapter, Bus, EventMessage } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus, EventMessage } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
 import { EvalHarness } from "../src/harness.js";
 

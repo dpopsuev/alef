@@ -1,5 +1,5 @@
-import { VALIDATE_REQUEST, VALIDATE_RESULT, type ValidateRequest } from "@dpopsuev/alef-kernel";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Adapter, ValidateRequest } from "@dpopsuev/alef-kernel/adapter";
+import { VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 

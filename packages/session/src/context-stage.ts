@@ -1,4 +1,4 @@
-import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
 import type { SessionStore } from "./session-store.js";
 import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "./turn-assembler.js";
 

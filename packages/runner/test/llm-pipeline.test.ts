@@ -11,7 +11,7 @@
  * All tests run in-process; no subprocesses, no real LLM.
  */
 
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-runtime";

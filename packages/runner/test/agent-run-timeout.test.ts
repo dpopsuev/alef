@@ -12,7 +12,7 @@
  */
 
 import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { AgentController, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-runtime";

@@ -13,8 +13,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { gimpedAdapter, isGimped } from "@dpopsuev/alef-kernel";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { type Adapter, gimpedAdapter, isGimped } from "@dpopsuev/alef-kernel/adapter";
 import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 
 // ---------------------------------------------------------------------------

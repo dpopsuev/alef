@@ -12,11 +12,12 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
-import { passthroughSchema, type SkillBook } from "@dpopsuev/alef-kernel";
 import {
 	type ActionMap,
 	type Adapter,
 	defineAdapter,
+	passthroughSchema,
+	type SkillBook,
 	type ToolDefinition,
 	typedAction,
 	withDisplay,

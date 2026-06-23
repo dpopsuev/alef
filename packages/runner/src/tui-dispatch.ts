@@ -1,4 +1,4 @@
-import type { TuiSignalHandler } from "@dpopsuev/alef-kernel";
+import type { TuiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";

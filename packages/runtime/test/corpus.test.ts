@@ -1,4 +1,5 @@
-import type { Adapter, Bus, BusMessage, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus, BusMessage } from "@dpopsuev/alef-kernel/bus";
 import { AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";

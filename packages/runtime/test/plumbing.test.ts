@@ -9,8 +9,9 @@
  *   - Quiescence: loop terminates when LLM produces zero tool calls
  */
 
-import type { Adapter, Bus, EventMessage, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { passthroughSchema } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import { passthroughSchema } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus, EventMessage } from "@dpopsuev/alef-kernel/bus";
 import { AgentController } from "@dpopsuev/alef-runtime";
 import { defineStubAdapter } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";

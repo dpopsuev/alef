@@ -19,8 +19,8 @@
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type ExecutionStrategy, gimpedAdapter, type SendRequest } from "@dpopsuev/alef-kernel";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { type Adapter, gimpedAdapter } from "@dpopsuev/alef-kernel/adapter";
+import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel/execution";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import { type ScriptStep, step } from "./script.js";

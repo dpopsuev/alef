@@ -8,8 +8,9 @@
  *   - parallel-all mode: both must approve
  */
 
-import type { Binding } from "@dpopsuev/alef-kernel";
-import { executeBindingChain, InProcessBus, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
+import { VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel/adapter";
+import type { Binding } from "@dpopsuev/alef-kernel/bus";
+import { executeBindingChain, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeBus() {

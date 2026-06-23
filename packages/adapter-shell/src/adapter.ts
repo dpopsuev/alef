@@ -6,9 +6,15 @@
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateTail } from "@dpopsuev/alef-kernel";
 import type { Adapter, AdapterLogger, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedStreamAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import {
+	DEFAULT_MAX_BYTES,
+	DEFAULT_MAX_LINES,
+	defineAdapter,
+	truncateTail,
+	typedStreamAction,
+	withDisplay,
+} from "@dpopsuev/alef-kernel/adapter";
 import { PTYManager, ShellAdapter } from "pty-manager";
 import { z } from "zod";
 import { getShellConfig, getShellEnv } from "./shell.js";

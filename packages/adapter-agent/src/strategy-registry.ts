@@ -1,4 +1,4 @@
-import type { ExecutionStrategy } from "@dpopsuev/alef-kernel";
+import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
 
 class StrategyRegistry {
 	private readonly _registry = new Map<string, ExecutionStrategy>();

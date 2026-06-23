@@ -14,7 +14,7 @@
  */
 
 import { materializeDefaultOrgans } from "@dpopsuev/alef-agent-blueprint";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";

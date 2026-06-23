@@ -15,9 +15,8 @@
  * parses a 0-100 score and reasoning string.
  */
 
-import { getNumber, getString } from "@dpopsuev/alef-kernel";
 import type { Adapter, BaseAdapterOptions, CommandHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, getNumber, getString, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";

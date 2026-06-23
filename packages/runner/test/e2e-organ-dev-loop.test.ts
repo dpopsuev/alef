@@ -22,8 +22,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
 import { createEvalOrgan } from "@dpopsuev/alef-adapter-eval";
-import type { EventMessage } from "@dpopsuev/alef-kernel";
-import { InProcessBus } from "@dpopsuev/alef-kernel";
+import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, describe, expect, it } from "vitest";
 
 const tempDirs: string[] = [];

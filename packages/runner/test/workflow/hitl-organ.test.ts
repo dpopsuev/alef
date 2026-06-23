@@ -10,7 +10,8 @@
  */
 
 import { createHitlOrgan } from "@dpopsuev/alef-adapter-workflow";
-import { InProcessBus, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel";
+import { VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel/adapter";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeBus() {

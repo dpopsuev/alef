@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { InProcessBus } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { afterEach, describe, expect, it } from "vitest";

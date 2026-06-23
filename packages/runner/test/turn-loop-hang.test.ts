@@ -3,7 +3,7 @@
  * BlueprintHarness uses ScriptedReasoner and bypasses waitForToolResult; these don't.
  */
 
-import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";

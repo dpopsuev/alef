@@ -8,4 +8,4 @@ export {
 	truncateHead,
 	truncateLine,
 	truncateTail,
-} from "@dpopsuev/alef-kernel";
+} from "@dpopsuev/alef-kernel/adapter";

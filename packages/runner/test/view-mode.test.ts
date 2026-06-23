@@ -7,7 +7,7 @@
  *   Tool-call:   Stub adapter + faux LLM → assert tool lifecycle ordering
  */
 
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";

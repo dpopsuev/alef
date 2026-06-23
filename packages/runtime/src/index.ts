@@ -16,9 +16,9 @@ export {
 } from "./tool-supervisor.js";
 
 import { randomUUID } from "node:crypto";
-import { type Binding, withBindings } from "@dpopsuev/alef-kernel";
 import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import {
+	type Binding,
 	type Bus,
 	type BusMessage,
 	type CommandMessage,
@@ -27,6 +27,7 @@ import {
 	InProcessBus,
 	makeBus,
 	type NotificationInput,
+	withBindings,
 } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { ZodTypeAny } from "zod";

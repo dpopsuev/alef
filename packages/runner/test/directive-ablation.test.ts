@@ -14,8 +14,9 @@ import { readdirSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Adapter, NotificationMessage } from "@dpopsuev/alef-kernel";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { NotificationMessage } from "@dpopsuev/alef-kernel/bus";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDefaultDirectives } from "../src/prompt.js";
 

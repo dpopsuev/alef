@@ -1,6 +1,5 @@
-import { Watchdog } from "@dpopsuev/alef-kernel";
 import type { ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
+import { type EventMessage, Watchdog } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { ToolCall } from "./stream-turn.js";

@@ -10,11 +10,12 @@ import { getModels, getProviders } from "@dpopsuev/alef-llm";
 import type { SelectItem } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { getConfig } from "../config.js";
-import { buildModel, getProviderColor, resolveProfile } from "../model/index.js";
+import { buildModel, resolveProfile } from "../model/index.js";
 import { CommandRegistry } from "./command-registry.js";
 import type { TuiHandlerContext } from "./command-types.js";
 import { openConfigPicker, openEnumPicker } from "./config-picker.js";
 import { openPicker } from "./picker.js";
+import { getProviderColor } from "./provider-colors.js";
 import { color, setThemeByName, statusGlyph } from "./runner-theme.js";
 
 function isAnthropicViaVertex(): boolean {

@@ -1,4 +1,4 @@
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { registry } from "./commands/index.js";
 import type { TuiHandlerContext } from "./commands/types.js";
 
@@ -10,16 +10,16 @@ export function renderHeaderTopBorder(label: string, _width: number): string {
 
 export function handleCtrlC(ctx: TuiHandlerContext): void {
 	if (ctx.abortCurrentTurn) {
-		debugLog("ctrl+c:mid-turn");
+		traceEvent("ctrl+c:mid-turn");
 		ctx.abortCurrentTurn();
 		ctx.setAbortCurrentTurn(undefined);
 		ctx.session.setTurnController(undefined);
 		ctx.writer.addNotice("(interrupted)");
 		ctx.tui.requestRender(true);
 	} else {
-		debugLog("ctrl+c:idle:dispose");
+		traceEvent("ctrl+c:idle:dispose");
 		ctx.session.dispose();
-		debugLog("ctrl+c:idle:tui.stop");
+		traceEvent("ctrl+c:idle:tui.stop");
 		ctx.tui.stop();
 	}
 }

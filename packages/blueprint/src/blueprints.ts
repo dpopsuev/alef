@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { parse } from "yaml";
@@ -437,7 +437,7 @@ export function compileAgentDefinition(
 	const baseDir = sourcePath ? dirname(sourcePath) : undefined;
 	if (input.organs && !input.adapters) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
-		debugLog("blueprint:deprecated", { key: "organs", location: location.trim() });
+		traceEvent("blueprint:deprecated", { key: "organs", location: location.trim() });
 	}
 	const adapterInput = input.adapters ?? input.organs;
 	const adapters = compileAgentOrganDefinitions(adapterInput);

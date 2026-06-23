@@ -28,7 +28,7 @@ import {
 	makeBus,
 	type NotificationInput,
 } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { ZodTypeAny } from "zod";
 import { type AdapterPortInfo, PortValidationError, validatePorts } from "./port-registry.js";
 
@@ -356,7 +356,7 @@ export class Agent {
 
 	bind(binding: Binding): this {
 		this._bindings.set(binding.id, binding);
-		debugLog("agent:bind", {
+		traceEvent("agent:bind", {
 			id: binding.id,
 			event: binding.event,
 			mode: binding.mode,
@@ -367,7 +367,7 @@ export class Agent {
 
 	unbind(id: string): boolean {
 		const removed = this._bindings.delete(id);
-		if (removed) debugLog("agent:unbind", { id });
+		if (removed) traceEvent("agent:unbind", { id });
 		return removed;
 	}
 

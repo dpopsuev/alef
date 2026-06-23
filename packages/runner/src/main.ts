@@ -128,7 +128,7 @@ const log = createRunnerLogger(willUseTui, args.debug);
 const session = await loadSession(args, willUseTui);
 
 // Route debug events into the session JSONL — unified transcript.
-const { debugLog, initSessionSink } = await import("@dpopsuev/alef-kernel");
+const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel");
 initSessionSink((record) => {
 	void session.append({
 		bus: "debug" as "internal",
@@ -139,7 +139,7 @@ initSessionSink((record) => {
 	});
 });
 
-debugLog("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
+traceEvent("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
 
 // Initialize local embedding model for vector recall (lazy-loads on first embed).
 import("@dpopsuev/alef-storage")
@@ -195,5 +195,5 @@ await runAgent({
 	actorRoutes,
 });
 
-debugLog("process.exit");
+traceEvent("process.exit");
 process.exit(0);

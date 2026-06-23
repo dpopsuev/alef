@@ -18,7 +18,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { ActorIdentity } from "./identity/actor.js";
 import { redactPayload } from "./redact.js";
@@ -105,7 +105,7 @@ export class SessionLog implements Adapter {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => debugLog("event-log:motor-append-failed", { error: String(e) }));
+				.catch((e: unknown) => traceEvent("event-log:motor-append-failed", { error: String(e) }));
 		});
 
 		const off2 = bus.event.subscribe("*", (event) => {
@@ -127,7 +127,7 @@ export class SessionLog implements Adapter {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => debugLog("event-log:sense-append-failed", { error: String(e) }));
+				.catch((e: unknown) => traceEvent("event-log:sense-append-failed", { error: String(e) }));
 		});
 
 		const off3 = bus.notification.subscribe("*", (event) => {
@@ -147,7 +147,7 @@ export class SessionLog implements Adapter {
 			};
 			this.store
 				.append({ ...base, hash: hashRecord(base) })
-				.catch((e: unknown) => debugLog("event-log:signal-append-failed", { error: String(e) }));
+				.catch((e: unknown) => traceEvent("event-log:signal-append-failed", { error: String(e) }));
 		});
 
 		return () => {
@@ -176,13 +176,13 @@ export class SessionLog implements Adapter {
 			try {
 				await this._summaryWriter(summary);
 			} catch (e: unknown) {
-				debugLog("session-summary:sqlite-failed", { error: String(e) });
+				traceEvent("session-summary:sqlite-failed", { error: String(e) });
 			}
 		}
 		const json = `${JSON.stringify(summary, null, 2)}\n`;
 		const last = join(homedir(), ".alef", "last-session.json");
 		await writeFile(last, json, "utf-8").catch((e: unknown) =>
-			debugLog("session-summary:write-failed", { path: last, error: String(e) }),
+			traceEvent("session-summary:write-failed", { path: last, error: String(e) }),
 		);
 	}
 }

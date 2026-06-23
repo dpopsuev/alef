@@ -7,7 +7,7 @@ import {
 	Watchdog,
 } from "@dpopsuev/alef-kernel";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 export type { SubagentFactory, SubagentFactoryOptions };
 
@@ -30,7 +30,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 		if (signal?.aborted) throw new Error("Aborted before send");
 
 		const watchdog = new Watchdog(stallMs, () => {
-			debugLog("in-process:stall", { stallMs });
+			traceEvent("in-process:stall", { stallMs });
 			session.dispose();
 		});
 
@@ -55,7 +55,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 			onInnerEvent: wrappedInnerEvent,
 			systemPrompt: this.baseSystemPrompt,
 		});
-		debugLog("in-process:start", { organs: this.organs.map((o) => o.name), conversationTimeoutMs, stallMs });
+		traceEvent("in-process:start", { organs: this.organs.map((o) => o.name), conversationTimeoutMs, stallMs });
 
 		const onAbort = () => {
 			watchdog.stop();
@@ -67,11 +67,11 @@ export class InProcessStrategy implements ExecutionStrategy {
 
 		try {
 			const reply = await session.send(text, "human", conversationTimeoutMs);
-			debugLog("in-process:done", { replyLength: reply.length });
+			traceEvent("in-process:done", { replyLength: reply.length });
 			return reply;
 		} catch (error) {
 			if (signal?.aborted) throw new Error("Aborted");
-			debugLog("in-process:error", { err: error instanceof Error ? error : new Error(String(error)) });
+			traceEvent("in-process:error", { err: error instanceof Error ? error : new Error(String(error)) });
 			throw error;
 		} finally {
 			watchdog.stop();

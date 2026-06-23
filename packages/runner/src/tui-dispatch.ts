@@ -1,5 +1,5 @@
 import type { TuiSignalHandler } from "@dpopsuev/alef-kernel";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";
 import {
@@ -60,7 +60,7 @@ function handleToolEnd(state: TuiState, event: Extract<AgentEvent, { type: "tool
 	const entry = state.activeCalls.get(callId);
 	if (!entry) return state;
 
-	debugLog("tool:end", {
+	traceEvent("tool:end", {
 		callId: callId.slice(0, 8),
 		name: entry.name,
 		elapsedMs,
@@ -259,7 +259,12 @@ export function dispatchTuiEvent(
 		case "tool-start": {
 			const { callId, name, args } = event;
 			const keyArg = keyArgFromPayload(args);
-			debugLog("tool:start", { callId: callId.slice(0, 8), name, keyArg, activeCount: state.activeCalls.size + 1 });
+			traceEvent("tool:start", {
+				callId: callId.slice(0, 8),
+				name,
+				keyArg,
+				activeCount: state.activeCalls.size + 1,
+			});
 			promptConsole.pulse();
 			resetUIComponents(ui);
 			promptConsole.showInFlightCall(callId, name, keyArg);

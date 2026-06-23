@@ -1,4 +1,4 @@
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { Args } from "./args.js";
 import type { ActorRouteTable } from "./identity/routes.js";
@@ -67,9 +67,9 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 		try {
 			await new Promise<void>(() => {});
 		} finally {
-			debugLog("shutdownOTel:start");
+			traceEvent("shutdownOTel:start");
 			await Promise.race([shutdownOTel(), new Promise<void>((resolve) => setTimeout(resolve, 2000).unref())]);
-			debugLog("shutdownOTel:done");
+			traceEvent("shutdownOTel:done");
 		}
 		return;
 	}
@@ -95,8 +95,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
 		await viewer.run(opts.session);
 	} finally {
 		if (originalStderrWrite) process.stderr.write = originalStderrWrite;
-		debugLog("shutdownOTel:start");
+		traceEvent("shutdownOTel:start");
 		await Promise.race([shutdownOTel(), new Promise<void>((resolve) => setTimeout(resolve, 2000).unref())]);
-		debugLog("shutdownOTel:done");
+		traceEvent("shutdownOTel:done");
 	}
 }

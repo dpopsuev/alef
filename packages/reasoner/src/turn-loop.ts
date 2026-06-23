@@ -1,6 +1,6 @@
 import { DEFAULT_TOOL_TIMEOUT_MS } from "@dpopsuev/alef-kernel";
 import type { EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { buildTools, prepareTurn } from "./handlers/message-handler.js";
 import { applyPhaseResult, runPhase } from "./handlers/phase-handler.js";
@@ -98,7 +98,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 			if (shouldRetry(finalMessage, appRetryCount, maxRetries)) {
 				appRetryCount++;
 				effectiveOptions.onRetry?.(appRetryCount, finalMessage.errorMessage ?? "");
-				debugLog("llm:retry", {
+				traceEvent("llm:retry", {
 					turn,
 					attempt: appRetryCount,
 					reason: finalMessage.errorMessage?.slice(0, 80) ?? "unknown",
@@ -111,7 +111,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 			if (finalMessage.stopReason === "error") {
 				const errorMsg = finalMessage.errorMessage ?? "LLM returned an error response";
 				signal.publish({ type: "llm.turn-error", payload: { message: errorMsg }, correlationId });
-				debugLog("llm:turn:error", { turn, errorMessage: errorMsg });
+				traceEvent("llm:turn:error", { turn, errorMessage: errorMsg });
 			}
 
 			messages.push(finalMessage);

@@ -2,7 +2,7 @@
  * Bug regression: pino debug logs leak into the TUI viewport.
  *
  * In TUI mode, stderr is suppressed by run-agent.ts — pino writes to stderr
- * but those writes are silently dropped. Debug events go through debugLog()
+ * but those writes are silently dropped. Debug events go through traceEvent()
  * to the session JSONL (bus: "debug"), not through pino.
  */
 

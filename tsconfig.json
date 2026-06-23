@@ -46,8 +46,8 @@
 			"@dpopsuev/alef-kernel/bus": [
 				"./packages/kernel/src/facade-bus.ts"
 			],
-			"@dpopsuev/alef-kernel/debug": [
-				"./packages/kernel/src/facade-debug.ts"
+			"@dpopsuev/alef-kernel/log": [
+				"./packages/kernel/src/facade-log.ts"
 			],
 			"@dpopsuev/alef-kernel/pipeline": [
 				"./packages/kernel/src/facade-pipeline.ts"

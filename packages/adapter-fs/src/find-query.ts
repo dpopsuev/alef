@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { Watchdog } from "@dpopsuev/alef-kernel";
-import { debugLog } from "@dpopsuev/alef-kernel/debug";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { ToolResultCache, ToolResultCacheHit } from "./cache.js";
 import {
 	type BaseToolDetails,
@@ -236,7 +236,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 				}
 				args.push("--", effectivePattern, searchPath);
 
-				debugLog("fs:find:spawn", { cmd: fdPath, args, pattern: effectivePattern, searchPath });
+				traceEvent("fs:find:spawn", { cmd: fdPath, args, pattern: effectivePattern, searchPath });
 				const child = spawn(fdPath, args, { stdio: ["ignore", "pipe", "pipe"] });
 				if (!child.stdout) {
 					settle(() => reject(new Error("Failed to read fd stdout")));
@@ -254,7 +254,11 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 
 				const fdStart = Date.now();
 				const fdWatchdog = new Watchdog(FD_SUBPROCESS_TIMEOUT_MS, () => {
-					debugLog("fs:find:timeout", { elapsedMs: Date.now() - fdStart, pattern: effectivePattern, searchPath });
+					traceEvent("fs:find:timeout", {
+						elapsedMs: Date.now() - fdStart,
+						pattern: effectivePattern,
+						searchPath,
+					});
 					stopChild?.();
 					settle(() =>
 						reject(
@@ -286,7 +290,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 				});
 
 				child.on("close", (code) => {
-					debugLog("fs:find:close", {
+					traceEvent("fs:find:close", {
 						elapsedMs: Date.now() - fdStart,
 						code,
 						lines: lines.length,

@@ -1,7 +1,7 @@
 import { Watchdog } from "@dpopsuev/alef-kernel";
 import type { ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { ToolCall } from "./stream-turn.js";
 
@@ -101,11 +101,11 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMes
 		stallIntervalMs: stallMs = STALL_INTERVAL_MS,
 	} = sub;
 	const subscribedAt = Date.now();
-	debugLog("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
+	traceEvent("llm:tool:subscribe", { name: toolName, toolCallId, correlationId: correlationId.slice(0, 8) });
 	return new Promise((resolve, reject) => {
 		const watchdog = onStall
 			? new Watchdog(stallMs, () => {
-					debugLog("tool:stall", {
+					traceEvent("tool:stall", {
 						name: toolName,
 						elapsedMs: Date.now() - subscribedAt,
 						lastChunkMs: stallMs,
@@ -123,7 +123,7 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMes
 		const timer = setTimeout(() => {
 			done();
 			off();
-			debugLog("llm:tool:timeout", { name: toolName, elapsedMs: Date.now() - subscribedAt });
+			traceEvent("llm:tool:timeout", { name: toolName, elapsedMs: Date.now() - subscribedAt });
 			reject(new Error(`Tool timed out after ${timeoutMs}ms: ${toolName}`));
 		}, timeoutMs);
 
@@ -132,7 +132,7 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMes
 				clearTimeout(timer);
 				done();
 				off();
-				debugLog("llm:tool:aborted", { name: toolName, elapsedMs: Date.now() - subscribedAt });
+				traceEvent("llm:tool:aborted", { name: toolName, elapsedMs: Date.now() - subscribedAt });
 				reject(new Error(`Tool aborted: ${toolName}`));
 			};
 			if (signal.aborted) {
@@ -162,7 +162,7 @@ export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMes
 				clearTimeout(timer);
 				done();
 				off();
-				debugLog("llm:tool:resolved", {
+				traceEvent("llm:tool:resolved", {
 					name: toolName,
 					elapsedMs: Date.now() - subscribedAt,
 					isError: event.isError,

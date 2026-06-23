@@ -8,7 +8,7 @@ export * from "./budget.js";
 export * from "./buses.js";
 export { createContextAssemblyPipeline } from "./context-assembly-pipeline.js";
 export { injectContextBlock } from "./context-helpers.js";
-export { debugLog, initSessionSink, initSpineLogger } from "./debug.js";
+export { initSessionSink, initSpineLogger, traceEvent } from "./debug.js";
 export * from "./errors.js";
 export * from "./execution.js";
 export * from "./framework.js";

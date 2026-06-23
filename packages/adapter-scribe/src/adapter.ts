@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { McpAdapter } from "@dpopsuev/alef-kernel";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/debug";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
 
 export interface ScribeAdapterOptions {
@@ -59,7 +59,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 
 		queryScribe(bus, "dashboard", {}, (text) => {
 			knowledgeSummary = text;
-			debugLog("scribe:context:dashboard", { chars: text.length });
+			traceEvent("scribe:context:dashboard", { chars: text.length });
 		});
 
 		queryScribe(
@@ -74,7 +74,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 			(text) => {
 				recentNotes = text;
 				refreshInFlight = false;
-				debugLog("scribe:context:notes", { chars: text.length });
+				traceEvent("scribe:context:notes", { chars: text.length });
 			},
 		);
 	}
@@ -116,7 +116,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 		mount(bus: Bus): () => void {
 			mkdirSync(join(dbPath, ".."), { recursive: true });
 
-			debugLog("scribe:boot", { binary, dbPath });
+			traceEvent("scribe:boot", { binary, dbPath });
 			const bootPromise = McpAdapter.stdio(binary, ["serve", "--db", dbPath], "scribe")
 				.then((mcpAdapter) => {
 					inner = mcpAdapter;
@@ -140,11 +140,11 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 						isError: false,
 					});
 
-					debugLog("scribe:ready", { tools: mcpAdapter.tools.length });
+					traceEvent("scribe:ready", { tools: mcpAdapter.tools.length });
 					refreshSummary(bus);
 				})
 				.catch((err: unknown) => {
-					debugLog("scribe:boot:error", { error: String(err) });
+					traceEvent("scribe:boot:error", { error: String(err) });
 					bus.notification.publish({
 						type: "adapter.error",
 						correlationId: "scribe-boot",

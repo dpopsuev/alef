@@ -1,4 +1,4 @@
-import { initSpineLogger } from "@dpopsuev/alef-kernel";
+import { initSpineLogger } from "@dpopsuev/alef-kernel/log";
 import type { Logger } from "pino";
 import pino from "pino";
 

@@ -89,7 +89,7 @@ export function redactPayload(value: unknown, depth = 0): unknown {
 	return value;
 }
 
-import type { Bus, BusMiddleware } from "@dpopsuev/alef-kernel";
+import type { Bus, BusMiddleware } from "@dpopsuev/alef-kernel/bus";
 
 /** Apply payload redaction to all SenseEvents before they reach the subscriber. */
 export const withSenseBusRedaction: BusMiddleware = (nerve: Bus): Bus => ({

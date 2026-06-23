@@ -1,4 +1,4 @@
-import type { Bus } from "@dpopsuev/alef-kernel";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
 
 export interface TurnSignals {
 	readonly effectiveSignal: AbortSignal;

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { parse } from "yaml";

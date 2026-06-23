@@ -13,7 +13,8 @@
  * Mirrors Tako calibrate.Preflight.
  */
 
-import { type Adapter, InProcessNerve } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { InProcessNerve } from "@dpopsuev/alef-kernel/bus";
 import { runOrganContract } from "@dpopsuev/alef-testkit";
 
 export interface PreflightConfig {

@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { join } from "node:path";
-import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { type Directive, Directives, xmlRenderer } from "./directives.js";
 import { loadPrompt } from "./prompt-templates.js";
 

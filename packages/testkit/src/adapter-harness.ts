@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Adapter, EventMessage } from "@dpopsuev/alef-kernel";
-import { InProcessNerve } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel/bus";
 
 const DEFAULT_TIMEOUT_MS = 2_000;
 

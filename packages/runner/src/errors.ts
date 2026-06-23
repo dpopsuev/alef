@@ -7,7 +7,7 @@
  * Kept for backward compatibility during migration.
  */
 
-import { formatErrorForUser } from "@dpopsuev/alef-kernel";
+import { formatErrorForUser } from "@dpopsuev/alef-kernel/errors";
 
 export function formatError(e: unknown): string {
 	return formatErrorForUser(e);

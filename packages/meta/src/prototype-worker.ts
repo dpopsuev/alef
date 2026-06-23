@@ -11,8 +11,16 @@
  */
 
 import { parentPort, workerData } from "node:worker_threads";
-import type { Bus, BusMessage, CommandHandler, CommandMessage, EventHandler, EventInput } from "@dpopsuev/alef-kernel";
-import { makeBus, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
+import { toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
+import {
+	type Bus,
+	type BusMessage,
+	type CommandHandler,
+	type CommandMessage,
+	type EventHandler,
+	type EventInput,
+	makeBus,
+} from "@dpopsuev/alef-kernel/bus";
 
 const { organPath: adapterPath, cwd } = workerData as { organPath: string; cwd: string };
 

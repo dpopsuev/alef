@@ -9,7 +9,7 @@ import {
 	type StationResult,
 	type StationRunner,
 } from "@dpopsuev/alef-adapter-workflow";
-import type { Adapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";

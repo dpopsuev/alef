@@ -1,4 +1,4 @@
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import { matchesKey } from "@dpopsuev/alef-tui";
 import type { TuiHandlerContext } from "./tui-commands.js";
 import { handleCtrlC } from "./tui-commands.js";

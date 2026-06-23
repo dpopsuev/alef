@@ -7,8 +7,13 @@
  * JudgePanelRunner can read it after the judge's session ends.
  */
 
-import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import {
+	type Adapter,
+	defineAdapter,
+	type ToolDefinition,
+	typedAction,
+	withDisplay,
+} from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------

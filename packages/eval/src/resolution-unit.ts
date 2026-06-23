@@ -13,7 +13,9 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { type Adapter, type EventMessage, gimpedAdapter, InProcessNerve, isGimped } from "@dpopsuev/alef-kernel";
+import { gimpedAdapter, isGimped } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel/bus";
 
 // ---------------------------------------------------------------------------
 // PortStub \u2014 canned Motor payload for one tool

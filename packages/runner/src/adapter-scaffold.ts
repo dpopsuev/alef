@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 function writeAdapterSource(name: string): string {
-	return `import { defineAdapter } from "@dpopsuev/alef-kernel";
+	return `import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 
 const HELLO_TOOL = {

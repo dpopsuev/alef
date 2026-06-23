@@ -20,7 +20,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Adapter, Bus, EventMessage, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus, EventMessage } from "@dpopsuev/alef-kernel/bus";
 
 export interface ToolCallStart {
 	callId: string;

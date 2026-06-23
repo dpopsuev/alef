@@ -1,4 +1,4 @@
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { Args } from "./args.js";
 import type { ActorRouteTable } from "./identity/routes.js";

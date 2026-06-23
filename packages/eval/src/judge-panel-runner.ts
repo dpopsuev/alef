@@ -95,8 +95,8 @@ export interface JudgePanelRunnerOptions {
 	agentLoopFactory: (
 		workspace: string,
 		signal: AbortSignal,
-		extraAdapters: import("@dpopsuev/alef-kernel").Adapter[],
-	) => Promise<import("@dpopsuev/alef-kernel").Adapter[]>;
+		extraAdapters: import("@dpopsuev/alef-kernel/adapter").Adapter[],
+	) => Promise<import("@dpopsuev/alef-kernel/adapter").Adapter[]>;
 	/** Turn timeout per judge agent in ms. Default: 120_000. */
 	judgeTimeoutMs?: number;
 	/** Max concurrent judge agents. Default: 3. */

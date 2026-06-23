@@ -12,8 +12,15 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
-import type { ActionMap, Adapter, SkillBook, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { defineAdapter, passthroughSchema, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { passthroughSchema, type SkillBook } from "@dpopsuev/alef-kernel";
+import {
+	type ActionMap,
+	type Adapter,
+	defineAdapter,
+	type ToolDefinition,
+	typedAction,
+	withDisplay,
+} from "@dpopsuev/alef-kernel/adapter";
 import { scanSessionFiles } from "@dpopsuev/alef-session";
 import { z } from "zod";
 

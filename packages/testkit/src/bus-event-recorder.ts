@@ -1,4 +1,4 @@
-import type { BusMessage } from "@dpopsuev/alef-kernel";
+import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import type { BusObserver } from "@dpopsuev/alef-runtime";
 
 export class BusEventRecorder implements BusObserver {

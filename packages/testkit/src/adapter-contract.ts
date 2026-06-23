@@ -15,7 +15,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { type Adapter, type AdapterLogger, type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
+import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -367,7 +368,7 @@ export function adapterComplianceSuite(
 // ---------------------------------------------------------------------------
 
 function probeCommand(
-	bus: import("@dpopsuev/alef-kernel").Bus,
+	bus: import("@dpopsuev/alef-kernel/bus").Bus,
 	toolName: string,
 	payload: Record<string, unknown>,
 	timeoutMs: number,

@@ -1,4 +1,4 @@
-import type { ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 
 declare module "@dpopsuev/alef-kernel" {
 	interface MotorEventRegistry {

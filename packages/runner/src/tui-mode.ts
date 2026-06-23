@@ -1,5 +1,5 @@
 import { createWriteStream } from "node:fs";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import { TuiStateStore } from "@dpopsuev/alef-runner-tui";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";

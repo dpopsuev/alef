@@ -1,4 +1,4 @@
-import type { Adapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createMetaOrgan, type DirectiveAdapter } from "@dpopsuev/alef-meta";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { autoDetectModel, buildModel } from "./model/index.js";

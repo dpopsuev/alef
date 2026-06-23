@@ -1,5 +1,5 @@
-import type { EventHandlerCtx } from "@dpopsuev/alef-kernel";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import type { EventHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import type { Message, Tool } from "@dpopsuev/alef-llm";
 import type { z } from "zod";
 

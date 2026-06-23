@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
-import { type Adapter, type BusMessage, createContextAssemblyPipeline, debugLog } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaOrgan } from "@dpopsuev/alef-meta";
 import { type Agent, AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";

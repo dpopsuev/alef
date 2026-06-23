@@ -5,7 +5,7 @@
  * runner-specific logging patterns.
  */
 
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 
 /** Minimal logger interface for components that don't need full pino */
 export interface MinimalLogger {

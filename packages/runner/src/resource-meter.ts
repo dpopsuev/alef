@@ -1,5 +1,6 @@
-import type { Adapter, Bus, NotificationMessage } from "@dpopsuev/alef-kernel";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus, NotificationMessage } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 
 interface ToolStats {

@@ -19,7 +19,7 @@ import { randomUUID } from "node:crypto";
 import { readFile as fsReadFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import type { Adapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { defaultEvalOrgans } from "./default-adapters.js";

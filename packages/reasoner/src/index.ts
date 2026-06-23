@@ -1,15 +1,15 @@
-import type { Adapter, Bus, EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { extractToolCallId } from "@dpopsuev/alef-kernel/bus";
 import {
 	type ActualConditions,
 	computeError,
 	type DesiredStateSpec,
 	type DomainCondition,
-	defineAdapter,
 	detectDrift,
 	type ErrorTensor,
-	extractToolCallId,
-	withDisplay,
-} from "@dpopsuev/alef-kernel";
+} from "@dpopsuev/alef-kernel/reconciliation";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 
 /**

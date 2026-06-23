@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { type Adapter, type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel/bus";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 
 /**

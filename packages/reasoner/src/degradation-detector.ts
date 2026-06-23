@@ -1,4 +1,4 @@
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 
 const REREAD_THRESHOLD = 3;
 

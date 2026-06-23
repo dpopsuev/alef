@@ -15,7 +15,7 @@ import { initYamlBlueprints } from "./init-yaml-blueprints.js";
 import { loadAdapters } from "./load-adapters.js";
 import { createLocalSession } from "./local-session.js";
 import { createRunnerLogger } from "./logger.js";
-import { resolveStartupModel } from "./model/index.js";
+import { resolveStartupModel, setModelConfigProvider } from "./model/index.js";
 import { setupOTel } from "./otel.js";
 import { runAgent } from "./run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
@@ -31,6 +31,7 @@ import { ensureDirectories } from "./xdg-paths.js";
 process.title = "alef";
 ensureDirectories();
 const cfg = loadConfig();
+setModelConfigProvider(() => cfg);
 setupOTel();
 
 // Auto-register YAML blueprints from config directories

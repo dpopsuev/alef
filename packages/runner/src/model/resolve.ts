@@ -7,9 +7,32 @@ import {
 	type KnownProvider,
 	type Model,
 } from "@dpopsuev/alef-llm";
-import type { Args } from "../args.js";
-import type { AlefConfig } from "../config.js";
-import { getConfig } from "../config.js";
+export interface ModelResolutionInput {
+	modelId: string | undefined;
+	debug: boolean;
+}
+
+export interface ModelConfig {
+	model?: string;
+	profile?: string;
+	profiles?: Record<
+		string,
+		{
+			providers?: string[];
+			models?: string[];
+			modelPatterns?: string[];
+			defaultModel?: string;
+			default?: string;
+			tiers?: Record<string, string>;
+		}
+	>;
+	llm?: { contextWindow?: number };
+}
+
+let _configProvider: () => ModelConfig = () => ({});
+export function setModelConfigProvider(fn: () => ModelConfig): void {
+	_configProvider = fn;
+}
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_HOST ?? "http://localhost:11434/v1";
 
@@ -63,7 +86,7 @@ function syntheticModel(provider: string, modelId: string, api: Api, baseUrl: st
 		reasoning: false,
 		input: ["text" as const],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: getConfig().llm?.contextWindow ?? 128_000,
+		contextWindow: _configProvider().llm?.contextWindow ?? 128_000,
 		maxTokens: 8_192,
 	};
 }
@@ -155,9 +178,9 @@ export function hasCredentials(): boolean {
 }
 
 export function resolveStartupModel(
-	args: Pick<Args, "modelId" | "debug">,
+	args: ModelResolutionInput,
 	blueprintModelId: string | undefined,
-	cfg: AlefConfig,
+	cfg: ModelConfig,
 ): Model<Api> {
 	if (!hasCredentials()) {
 		console.warn(

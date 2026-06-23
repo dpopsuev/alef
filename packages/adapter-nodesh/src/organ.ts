@@ -210,7 +210,7 @@ export function createNodeshOrgan(options: NodeshOrganOptions): Adapter {
 			actions: options.actions,
 			directives: NODESH_DIRECTIVES,
 			logger: options.logger,
-			description: "JavaScript REPL organ for structured computation and Alef API introspection.",
+			description: "JavaScript REPL adapter for structured computation and Alef API introspection.",
 			labels: ["nodesh", "javascript", "repl", "computation"],
 			publishSchemas: {
 				sense: {

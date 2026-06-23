@@ -78,9 +78,9 @@ export function getRunnerLogger(): MinimalLogger {
 /**
  * Log a warning about organ configuration issues.
  */
-export function logOrganWarning(organName: string, message: string, context?: Record<string, unknown>): void {
+export function logAdapterWarning(adapterName: string, message: string, context?: Record<string, unknown>): void {
 	const logger = getRunnerLogger();
-	logger.warn({ organ: organName, ...context }, message);
+	logger.warn({ organ: adapterName, ...context }, message);
 }
 
 /**

@@ -131,7 +131,7 @@ export class SqliteSessionStore implements SessionStore {
 		this._cache.push(record);
 		this._indexer.index(record);
 
-		const organ = deriveOrgan(record.type);
+		const adapter = deriveOrgan(record.type);
 		const turnNumber = this._indexer.turnMap.has(record.correlationId)
 			? this._indexer.turnMap.get(record.correlationId)!.turnIndex
 			: null;
@@ -151,7 +151,7 @@ export class SqliteSessionStore implements SessionStore {
 				record.hash ?? null,
 				record.actor?.address ?? null,
 				record.actor?.type ?? null,
-				organ,
+				adapter,
 				turnNumber,
 				this._version,
 			],
@@ -197,8 +197,8 @@ export class SqliteSessionStore implements SessionStore {
 		return Promise.resolve(new Map(this._indexer.hitCountsMap));
 	}
 
-	organHistory(organName: string): Promise<StorageRecord[]> {
-		const prefix = `${organName}.`;
+	organHistory(adapterName: string): Promise<StorageRecord[]> {
+		const prefix = `${adapterName}.`;
 		return Promise.resolve(
 			this._cache.filter((r) => (r.bus === "motor" || r.bus === "sense") && r.type.startsWith(prefix)),
 		);

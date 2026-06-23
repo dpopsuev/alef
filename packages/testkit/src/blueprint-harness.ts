@@ -96,8 +96,8 @@ export class BlueprintHarness implements ExecutionStrategy {
 		const definition = loadAgentDefinition(blueprintPath);
 		const materialized = await opts.materialize(definition, { cwd: opts.cwd });
 
-		const organs = [...materialized.organs, ...(opts.extraOrgans ?? [])];
-		return BlueprintHarness.create({ ...opts, organs: organs });
+		const adapters = [...materialized.organs, ...(opts.extraOrgans ?? [])];
+		return BlueprintHarness.create({ ...opts, organs: adapters });
 	}
 
 	// -------------------------------------------------------------------------
@@ -114,8 +114,8 @@ export class BlueprintHarness implements ExecutionStrategy {
 		const agent = new Agent();
 
 		agent.load(scriptedLlm);
-		for (const organ of opts.organs ?? []) {
-			agent.load(organ);
+		for (const adapter of opts.organs ?? []) {
+			agent.load(adapter);
 		}
 
 		agent.observe(recorder as BusObserver);

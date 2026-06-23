@@ -92,8 +92,8 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 		const recorder = new BusEventRecorder();
 
 		const agent = new Agent();
-		for (const organ of [...opts.organs, scriptedLlm]) {
-			agent.load(organ);
+		for (const adapter of [...opts.organs, scriptedLlm]) {
+			agent.load(adapter);
 		}
 		agent.observe(recorder);
 
@@ -126,10 +126,10 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	 * );
 	 * // Compare full vs baseline to measure fsOrgan's contribution.
 	 */
-	static withGimpedOrgan(opts: GauntletOptions, organName: string): GauntletOptions {
+	static withGimpedOrgan(opts: GauntletOptions, adapterName: string): GauntletOptions {
 		return {
 			...opts,
-			organs: opts.organs.map((o) => (o.name === organName ? gimpedAdapter(organName) : o)),
+			organs: opts.organs.map((o) => (o.name === adapterName ? gimpedAdapter(adapterName) : o)),
 		};
 	}
 

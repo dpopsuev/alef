@@ -270,7 +270,7 @@ export function createCodeIntelOrgan(opts: CodeIntelOrganOptions): Adapter {
 
 const CODE_INTEL_DIRECTIVES = [
 	`**code-intel tool guidance**
-- Use fs.read, fs.write, and fs.edit for all file operations. The code-intel organ provides LSP-based enhancements only.
+- Use fs.read, fs.write, and fs.edit for all file operations. The code-intel adapter provides LSP-based enhancements only.
 - code.symbols searches for functions, classes, interfaces, and types across the entire workspace. Use this to find definitions without knowing the file location.
 - code.hover provides type information and JSDoc documentation at a specific position. Use this to understand complex TypeScript types.
 - code.callers finds all call sites of a named symbol. Use it before refactoring to understand the blast radius of changes.

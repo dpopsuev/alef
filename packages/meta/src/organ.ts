@@ -256,15 +256,15 @@ function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter>
 					tools,
 					subscriptions: { motor: msg.subscriptions.motor, sense: msg.subscriptions.sense },
 					sources: [],
-					mount(nerve) {
+					mount(bus) {
 						const offs = msg.subscriptions.motor.map((type) =>
-							nerve.command.subscribe(type, (event) => {
+							bus.command.subscribe(type, (event) => {
 								worker.postMessage({ dir: "motor", event });
 							}),
 						);
 						const onMessage = (workerMsg: { dir: string; event: Record<string, unknown> }) => {
 							if (workerMsg.dir === "sense") {
-								nerve.event.publish(workerMsg.event as Parameters<typeof nerve.event.publish>[0]);
+								bus.event.publish(workerMsg.event as Parameters<typeof bus.event.publish>[0]);
 							}
 						};
 						worker.on("message", onMessage);

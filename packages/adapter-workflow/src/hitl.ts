@@ -26,10 +26,10 @@ export interface HitlOrganOptions {
 }
 
 export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
-	const organName = opts.name ?? "hitl";
+	const adapterName = opts.name ?? "hitl";
 
 	return {
-		name: organName,
+		name: adapterName,
 		tools: [],
 		description: "Human-in-the-Loop evaluator — pauses to ask a human for approval.",
 		directives: ["When a contract requires human review, the human approves or rejects with optional feedback."],
@@ -42,8 +42,8 @@ export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
 			return nerve.command.subscribe(VALIDATE_REQUEST, (event) => {
 				const p = event.payload as unknown as ValidateRequest;
 
-				if (p.targetOrgan && p.targetOrgan !== organName) return;
-				if (p.kind && p.kind !== "human" && p.targetOrgan !== organName) return;
+				if (p.targetOrgan && p.targetOrgan !== adapterName) return;
+				if (p.kind && p.kind !== "human" && p.targetOrgan !== adapterName) return;
 
 				debugLog("hitl:evaluate:start", { id: p.id, context: p.context, kind: p.kind });
 

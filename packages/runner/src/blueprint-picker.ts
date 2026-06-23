@@ -100,14 +100,14 @@ function readBlueprintPreview(path: string): string[] {
 			lines.push("");
 		}
 
-		const organMatches = [...raw.matchAll(/^\s+-\s+name:\s*(\S+)/gm)];
-		if (organMatches.length > 0) {
+		const adapterMatches = [...raw.matchAll(/^\s+-\s+name:\s*(\S+)/gm)];
+		if (adapterMatches.length > 0) {
 			lines.push("  Organs (SBOM):");
-			for (const m of organMatches) {
-				const organName = m[1];
-				const pkgMatch = raw.match(new RegExp(`name:\\s*${organName}[\\s\\S]*?package:\\s*"?([^"\\n]+)"?`));
-				const pkg = pkgMatch?.[1] ?? `organ-${organName}`;
-				lines.push(`    ${organName.padEnd(14)} ${pkg}`);
+			for (const m of adapterMatches) {
+				const adapterName = m[1];
+				const pkgMatch = raw.match(new RegExp(`name:\\s*${adapterName}[\\s\\S]*?package:\\s*"?([^"\\n]+)"?`));
+				const pkg = pkgMatch?.[1] ?? `organ-${adapterName}`;
+				lines.push(`    ${adapterName.padEnd(14)} ${pkg}`);
 			}
 			lines.push("");
 		}

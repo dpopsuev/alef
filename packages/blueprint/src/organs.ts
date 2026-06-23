@@ -36,7 +36,7 @@ export function compileAgentOrganDefinitions(
 		}
 
 		const key = input.path ?? input.name ?? "";
-		if (seen.has(key)) throw new Error(`Duplicate organ "${key}" in agent definition.`);
+		if (seen.has(key)) throw new Error(`Duplicate adapter "${key}" in agent definition.`);
 		seen.add(key);
 
 		let resolvedPath: string | undefined;

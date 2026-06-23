@@ -11,7 +11,7 @@ import {
 } from "@dpopsuev/alef-llm";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
-const tracer = trace.getTracer("alef.organ-llm");
+const tracer = trace.getTracer("alef.adapter-llm");
 
 export interface ToolCall {
 	name: string;

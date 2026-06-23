@@ -438,12 +438,14 @@ export function compileAgentDefinition(
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		console.warn(`[blueprint] DEPRECATED: 'organs:' key${location} — use 'adapters:' instead.`);
 	}
-	const organInput = input.adapters ?? input.organs;
-	const organs = compileAgentOrganDefinitions(organInput);
+	const adapterInput = input.adapters ?? input.organs;
+	const adapters = compileAgentOrganDefinitions(adapterInput);
 	const legacyToolNames = normalizeStringArray(input.capabilities?.tools);
 	const toolNames =
-		organs.length > 0 ? [...new Set([...listToolNamesForOrgans(organs), ...legacyToolNames])] : legacyToolNames;
-	const hasOrchestrationOrgan = organs.some((organ) => organ.name === "orchestration" || organ.name === "agent");
+		adapters.length > 0 ? [...new Set([...listToolNamesForOrgans(adapters), ...legacyToolNames])] : legacyToolNames;
+	const hasOrchestrationOrgan = adapters.some(
+		(adapter) => adapter.name === "orchestration" || adapter.name === "agent",
+	);
 	if (hasOrchestrationOrgan && input.capabilities?.orchestration !== true) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		throw new Error(
@@ -463,7 +465,7 @@ export function compileAgentDefinition(
 		baseDir,
 		model: normalizeModelSelector(input.model),
 		systemPrompt: input.systemPrompt?.trim() || undefined,
-		organs,
+		organs: adapters,
 		capabilities: {
 			tools: toolNames,
 			orchestration: input.capabilities?.orchestration ?? false,

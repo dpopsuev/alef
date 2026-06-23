@@ -201,7 +201,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 
 	// Return a wrapper that adds space cleanup on unmount.
 	// Uses a new object rather than mutating base.mount.
-	const organ: Adapter = {
+	const adapter: Adapter = {
 		name: base.name,
 		description: base.description,
 		tools: base.tools,
@@ -225,7 +225,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 		},
 	};
 
-	return organ;
+	return adapter;
 }
 
 // ---------------------------------------------------------------------------

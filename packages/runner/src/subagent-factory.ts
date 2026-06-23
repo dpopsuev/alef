@@ -50,7 +50,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			trackConcurrentOps: opts.trackConcurrentOps,
 			phaseTimeoutMs: 100,
 		});
-		for (const organ of organs) agent.load(organ);
+		for (const adapter of organs) agent.load(adapter);
 		const toolShell = createToolShellOrgan({
 			tools: organs.flatMap((o) => o.tools),
 			getTools: () => agent.tools,

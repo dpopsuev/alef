@@ -138,10 +138,10 @@ export class RouterOrgan implements Adapter {
 		return { host: addr.address, port: addr.port };
 	}
 
-	mount(nerve: Bus): () => void {
+	mount(bus: Bus): () => void {
 		if (this.server) throw new Error("RouterOrgan already mounted");
 		// Subscribe wildcards — forward every bus event to SSE clients.
-		const off1 = nerve.command.subscribe("*", (event) => {
+		const off1 = bus.command.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
 				bus: "motor",
@@ -152,7 +152,7 @@ export class RouterOrgan implements Adapter {
 			});
 		});
 
-		const off2 = nerve.event.subscribe("*", (event) => {
+		const off2 = bus.event.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
 				bus: "sense",
@@ -163,7 +163,7 @@ export class RouterOrgan implements Adapter {
 			});
 		});
 
-		const off3 = nerve.notification.subscribe("*", (event) => {
+		const off3 = bus.notification.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
 			this.sse.broadcast({
 				bus: "signal",
@@ -175,7 +175,7 @@ export class RouterOrgan implements Adapter {
 		});
 
 		// Start the HTTP server. _ready resolves once the port is bound.
-		this.server = createServer((req, res) => this.handle(req, res, nerve));
+		this.server = createServer((req, res) => this.handle(req, res, bus));
 		this._readyPromise = new Promise<void>((resolve, reject) => {
 			this.server?.once("listening", resolve);
 			this.server?.once("error", reject);
@@ -197,7 +197,7 @@ export class RouterOrgan implements Adapter {
 	// Request handler
 	// -------------------------------------------------------------------------
 
-	private handle(req: IncomingMessage, res: ServerResponse, nerve: Bus): void {
+	private handle(req: IncomingMessage, res: ServerResponse, bus: Bus): void {
 		// CORS pre-flight.
 		res.setHeader("Access-Control-Allow-Origin", "*");
 		res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -217,7 +217,7 @@ export class RouterOrgan implements Adapter {
 		}
 
 		if (req.method === "POST" && url === "/message") {
-			this.handleMessage(req, res, nerve);
+			this.handleMessage(req, res, bus);
 			return;
 		}
 
@@ -229,7 +229,7 @@ export class RouterOrgan implements Adapter {
 		this.sendJson(res, 404, { error: "not found" });
 	}
 
-	private handleMessage(req: IncomingMessage, res: ServerResponse, nerve: Bus): void {
+	private handleMessage(req: IncomingMessage, res: ServerResponse, bus: Bus): void {
 		let body = "";
 		req.on("data", (chunk: Buffer) => {
 			body += chunk.toString("utf-8");
@@ -260,7 +260,7 @@ export class RouterOrgan implements Adapter {
 				// the message arrives on the sense bus for Reasoner/ScriptedReasoner.
 				this.options.onMessage(text);
 			} else {
-				nerve.command.publish({
+				bus.command.publish({
 					type: this.options.triggerEvent,
 					payload: { role: "user", text },
 					correlationId,

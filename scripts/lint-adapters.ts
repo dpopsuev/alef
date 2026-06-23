@@ -333,6 +333,8 @@ function checkBarrelImport(file: string, content: string): void {
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
 		if (!line.trim().startsWith("import")) continue;
+		const suppress = lines[i - 1]?.includes("lint-ignore: BARREL") || line.includes("lint-ignore: BARREL");
+		if (suppress) continue;
 		if (/from\s+["']@dpopsuev\/alef-kernel["']/.test(line)) {
 			report(file, i + 1, "BARREL",
 				`bare @dpopsuev/alef-kernel import — use a subpath: /adapter, /bus, /log, /pipeline, /errors, /execution, /reconciliation`);
@@ -406,7 +408,7 @@ for (const [rule, count] of Object.entries(counts).sort()) {
 // Hard gates: NOTEST, NOCOMPLIANCE*, and IMPORT block CI.
 // Advisory: STREAM and SCHEMA are informational — they document gaps but do
 // not block merging. Developers address them incrementally.
-const HARD_GATE_RULES = new Set(["NOTEST", "NOCOMPLIANCE", "NOCOMPLIANCE-STREAM", "IMPORT", "RAWTIMER"]);
+const HARD_GATE_RULES = new Set(["NOTEST", "NOCOMPLIANCE", "NOCOMPLIANCE-STREAM", "IMPORT", "RAWTIMER", "BARREL"]);
 const hardViolations = violations.filter((v) => HARD_GATE_RULES.has(v.rule));
 
 if (hardViolations.length > 0) {

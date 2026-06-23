@@ -167,7 +167,7 @@ Always check tools.describe([]) first — the tool you need may already exist.`,
 			instructions: `Every adapter file must follow this exact structure:
 
 \`\`\`typescript
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
+import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel"; // lint-ignore: BARREL scaffold template
 import { z } from "zod";
 
 export function createAdapter() {

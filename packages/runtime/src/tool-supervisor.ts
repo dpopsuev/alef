@@ -1,5 +1,7 @@
-import type { Adapter, Bus, ToolDefinition } from "@dpopsuev/alef-kernel";
-import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
+import { McpAdapter } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 
 export type RestartPolicy = "permanent" | "transient" | "temporary";
 

@@ -9,7 +9,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Adapter, Bus, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
 
 type SerializedStep =
 	| string

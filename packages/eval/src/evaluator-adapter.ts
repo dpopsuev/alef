@@ -10,7 +10,8 @@
  * Does NOT publish events — read-only observer.
  */
 
-import type { Adapter, Bus, BusMessage } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus, BusMessage } from "@dpopsuev/alef-kernel/bus";
 
 export interface EvaluatorAdapterOptions {
 	/**

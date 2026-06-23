@@ -1,4 +1,4 @@
-import type { Adapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { SessionLog, type SessionSummary } from "./event-log-adapter.js";
 import type { ActorIdentity } from "./identity/actor.js";

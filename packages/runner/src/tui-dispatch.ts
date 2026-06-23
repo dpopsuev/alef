@@ -1,5 +1,5 @@
 import type { TuiSignalHandler } from "@dpopsuev/alef-kernel";
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";
 import {

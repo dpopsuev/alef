@@ -1,5 +1,6 @@
-import type { Bus } from "@dpopsuev/alef-kernel";
-import { DEFAULT_LLM_TIMEOUT_MS, debugLog } from "@dpopsuev/alef-kernel";
+import { DEFAULT_LLM_TIMEOUT_MS } from "@dpopsuev/alef-kernel";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import {
 	type Api,
 	type AssistantMessage,

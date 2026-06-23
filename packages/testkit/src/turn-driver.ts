@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { InProcessNerve, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { InProcessNerve } from "@dpopsuev/alef-kernel/bus";
 import type { BusObserver } from "@dpopsuev/alef-runtime";
 
 /**

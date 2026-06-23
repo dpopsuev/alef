@@ -22,8 +22,9 @@
  * termination — typically by aborting the current turn's AbortController.
  */
 
-import type { Adapter, Bus, EventMessage } from "@dpopsuev/alef-kernel";
-import { extractToolCallId } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus, EventMessage } from "@dpopsuev/alef-kernel/bus";
+import { extractToolCallId } from "@dpopsuev/alef-kernel/bus";
 
 export interface LoopGuardOptions {
 	/**

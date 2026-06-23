@@ -1,4 +1,4 @@
-import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";

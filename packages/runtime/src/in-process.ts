@@ -1,13 +1,13 @@
 import type { SubagentFactory, SubagentFactoryOptions } from "@dpopsuev/alef-agent-blueprint";
 import {
-	type Adapter,
 	DEFAULT_CONVERSATION_TIMEOUT_MS,
 	DEFAULT_STALL_TIMEOUT_MS,
-	debugLog,
 	type ExecutionStrategy,
 	type SendRequest,
 	Watchdog,
 } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 
 export type { SubagentFactory, SubagentFactoryOptions };
 

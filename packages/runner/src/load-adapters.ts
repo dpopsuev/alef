@@ -9,7 +9,7 @@ import {
 	materializeBlueprint,
 	mergeAgentDefinitions,
 } from "@dpopsuev/alef-agent-blueprint";
-import type { Adapter } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";
 import { discoverBlueprints, pickBlueprint, resolveBlueprint } from "./blueprint-picker.js";

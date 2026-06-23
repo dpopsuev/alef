@@ -1,4 +1,5 @@
-import { type Adapter, type Bus, buildSense, type CommandMessage, type ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import { type Bus, buildSense, type CommandMessage } from "@dpopsuev/alef-kernel/bus";
 
 export type StubHandler = (type: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
 

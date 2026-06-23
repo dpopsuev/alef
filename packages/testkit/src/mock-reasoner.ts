@@ -1,4 +1,5 @@
-import type { Adapter, Bus, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
 
 export class MockReasoner implements Adapter {
 	readonly name = "mock-llm";

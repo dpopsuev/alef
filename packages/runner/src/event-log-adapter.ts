@@ -16,9 +16,9 @@
 import { writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
-
-import { debugLog } from "@dpopsuev/alef-kernel";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Bus } from "@dpopsuev/alef-kernel/bus";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { ActorIdentity } from "./identity/actor.js";
 import { redactPayload } from "./redact.js";

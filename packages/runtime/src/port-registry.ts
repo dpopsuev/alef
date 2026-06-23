@@ -18,7 +18,7 @@
  * routing organs to seams based on their declared action map key prefixes.
  */
 
-import type { PortCardinality, PortDefinition } from "@dpopsuev/alef-kernel";
+import type { PortCardinality, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
 
 export type { PortCardinality, PortDefinition };
 

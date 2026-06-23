@@ -1,4 +1,4 @@
-import { debugLog } from "@dpopsuev/alef-kernel";
+import { debugLog } from "@dpopsuev/alef-kernel/log";
 import { registry } from "./commands/index.js";
 import type { TuiHandlerContext } from "./commands/types.js";
 

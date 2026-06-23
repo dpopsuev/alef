@@ -19,7 +19,7 @@ import {
 	loadAgentDefinition,
 	materializeBlueprint,
 } from "@dpopsuev/alef-agent-blueprint";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel";
+import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 
 /**
  * Scan directories for YAML blueprint files

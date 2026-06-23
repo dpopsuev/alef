@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { CommandMessage } from "@dpopsuev/alef-kernel";
+import type { CommandMessage } from "@dpopsuev/alef-kernel/bus";
 import type { Agent } from "./index.js";
 
 export type ReplySink = (text: string, sender: string) => void;

@@ -42,14 +42,11 @@ class EditorWrapper implements Component {
 	}
 }
 
+import { accentColorize, DynamicText, fmtMs, spinnerFrame, toolActiveLine } from "@dpopsuev/alef-tui/views";
 import { EventPressure, pressureToInterval } from "./event-pressure.js";
 import { hexToColorToken, lookupColor } from "./identity/palette.js";
 import { buildPool, randomCodePoint } from "./splash.js";
 import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./theme.js";
-import { fmtMs } from "@dpopsuev/alef-tui/views";
-import { DynamicText } from "@dpopsuev/alef-tui/views";
-import { accentColorize, spinnerFrame } from "@dpopsuev/alef-tui/views";
-import { toolActiveLine } from "@dpopsuev/alef-tui/views";
 
 export class PromptConsole {
 	readonly editor: Editor;

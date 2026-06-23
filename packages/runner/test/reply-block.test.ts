@@ -1,7 +1,7 @@
 import { Container } from "@dpopsuev/alef-tui";
+import { ReplyBlock } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it } from "vitest";
 import { getTheme } from "../src/theme.js";
-import { ReplyBlock } from "@dpopsuev/alef-tui/views";
 
 function makeZone(hideThinking = false) {
 	const chat = new Container();

@@ -1,5 +1,6 @@
 import type { UiSignalHandler } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
+import { formatTokenUsage, keyArgFromPayload } from "@dpopsuev/alef-tui/views";
 import { formatError } from "./errors.js";
 import type { AgentEvent } from "./session.js";
 import {
@@ -10,7 +11,6 @@ import {
 	renderChunkWindow,
 	updateInspectorView,
 } from "./tui/inspector.js";
-import { formatTokenUsage, keyArgFromPayload } from "@dpopsuev/alef-tui/views";
 import type { OverlayDescriptor, TokenFooterHandle, TuiState, TuiUi } from "./tui-state.js";
 
 // ---------------------------------------------------------------------------

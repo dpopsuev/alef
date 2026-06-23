@@ -1,6 +1,6 @@
+import chalk from "chalk";
 import type { ColorToken } from "../ansi.js";
 import { color, colorDepth } from "../ansi.js";
-import chalk from "chalk";
 
 const SCRIPT_RANGES: readonly { start: number; count: number }[] = [
 	{ start: 0x3041, count: 83 }, // Japanese Hiragana

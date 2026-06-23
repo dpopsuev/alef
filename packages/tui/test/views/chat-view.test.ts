@@ -2,10 +2,28 @@
  * Unit tests for chat-view.ts — UserMsg, AgentBlock, Notice, ToolBlock.
  * No TUI process needed; tests DOM structure directly.
  */
-import { Container } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it } from "vitest";
-import { getTheme } from "../src/theme.js";
-import { AgentBlock, appendCompletedToolBlock, appendNotice, appendUserMsg } from "@dpopsuev/alef-tui/views";
+import { Text } from "../../src/components/text.js";
+import type { ThemeTokens } from "../../src/theme-types.js";
+import { Container } from "../../src/tui.js";
+import { AgentBlock, appendCompletedToolBlock, appendNotice, appendUserMsg } from "../../src/views/chat-view.js";
+
+const C = { ansi16: 37 };
+function getTheme(): ThemeTokens {
+	return {
+		userFg: C,
+		userBg: C,
+		agentFg: C,
+		agentBg: C,
+		primaryFg: C,
+		secondaryFg: C,
+		mutedFg: C,
+		accentFg: C,
+		okFg: C,
+		warnFg: C,
+		errFg: C,
+	};
+}
 
 function makeChat() {
 	return new Container();
@@ -15,7 +33,6 @@ describe("appendUserMsg", { tags: ["unit"] }, () => {
 	it("adds children to the chat container", () => {
 		const chat = makeChat();
 		appendUserMsg(chat, "hello world", getTheme());
-		// Spacer + label Text + Pad(content) = 3
 		expect(chat.children.length).toBe(3);
 	});
 
@@ -29,7 +46,6 @@ describe("appendNotice", { tags: ["unit"] }, () => {
 	it("adds children to the chat container", () => {
 		const chat = makeChat();
 		appendNotice(chat, "(interrupted)", getTheme());
-		// Spacer + Text = 2
 		expect(chat.children.length).toBe(2);
 	});
 });
@@ -40,7 +56,7 @@ describe("AgentBlock", { tags: ["unit"] }, () => {
 		const block = new AgentBlock(chat, getTheme());
 		block.start();
 		const countAfterFirst = chat.children.length;
-		block.start(); // no-op
+		block.start();
 		expect(chat.children.length).toBe(countAfterFirst);
 		expect(block.isOpen).toBe(true);
 	});
@@ -61,7 +77,7 @@ describe("AgentBlock", { tags: ["unit"] }, () => {
 		block.start();
 		block.end();
 		const countAfterEnd = chat.children.length;
-		block.end(); // no-op
+		block.end();
 		expect(chat.children.length).toBe(countAfterEnd);
 	});
 
@@ -69,7 +85,6 @@ describe("AgentBlock", { tags: ["unit"] }, () => {
 		const chat = makeChat();
 		const block = new AgentBlock(chat, getTheme());
 		block.start();
-		const { Text } = require("@dpopsuev/alef-tui/views") as typeof import("@dpopsuev/alef-tui/views");
 		const item = new Text("tool output", 1, 0);
 		block.addContent(item);
 		expect(chat.children).not.toContain(item);
@@ -79,7 +94,6 @@ describe("AgentBlock", { tags: ["unit"] }, () => {
 	it("addContent() routes to chat directly when not open", () => {
 		const chat = makeChat();
 		const block = new AgentBlock(chat, getTheme());
-		const { Text } = require("@dpopsuev/alef-tui/views") as typeof import("@dpopsuev/alef-tui/views");
 		const item = new Text("notice", 1, 0);
 		block.addContent(item);
 		expect(chat.children).toContain(item);
@@ -113,11 +127,9 @@ describe("appendCompletedToolBlock", { tags: ["unit"] }, () => {
 	});
 
 	it("adds status line + output when display provided", () => {
-		const chat = makeChat();
-		const { Text } = require("@dpopsuev/alef-tui/views") as typeof import("@dpopsuev/alef-tui/views");
 		const output = new Text("file contents", 2, 0);
+		const chat = makeChat();
 		appendCompletedToolBlock(chat, "fs.read", "README.md", 42, true, output, getTheme());
-		// status line + Pad(output) = 2
 		expect(chat.children.length).toBe(2);
 	});
 });

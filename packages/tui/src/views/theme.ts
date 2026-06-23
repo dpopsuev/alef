@@ -1,5 +1,22 @@
-export { bg, bold, color, dim, italic, nerdFontsAvailable } from "../ansi.js";
-export { statusGlyph, statusStyle } from "../design/palette.js";
+export {
+	bg,
+	bold,
+	type ColorDepth,
+	type ColorToken,
+	color,
+	colorDepth,
+	dim,
+	FG_RESET,
+	fgCode,
+	hexToRgb,
+	italic,
+	nerdFontsAvailable,
+} from "../ansi.js";
+export type { Component } from "../component.js";
+export { Text } from "../components/text.js";
+export { type StatusLevel, type StatusStyle, statusGlyph, statusStyle } from "../design/palette.js";
+export type { ThemeTokens } from "../theme-types.js";
+export { Container, type TUI } from "../tui.js";
 
 import { nerdFontsAvailable } from "../ansi.js";
 

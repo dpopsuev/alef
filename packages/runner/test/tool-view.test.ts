@@ -3,8 +3,6 @@
  */
 
 import { stripVTControlCharacters } from "node:util";
-import { describe, expect, it } from "vitest";
-import { getTheme } from "../src/theme.js";
 import {
 	formatTokenUsage,
 	keyArgFromPayload,
@@ -12,6 +10,8 @@ import {
 	renderToolLine,
 	truncateToolOutput,
 } from "@dpopsuev/alef-tui/views";
+import { describe, expect, it } from "vitest";
+import { getTheme } from "../src/theme.js";
 
 describe("keyArgFromPayload", { tags: ["unit"] }, () => {
 	it("extracts path", () => expect(keyArgFromPayload({ path: "src/foo.ts" })).toBe("src/foo.ts"));

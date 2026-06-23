@@ -7,12 +7,12 @@
  */
 
 import type { Component } from "../component.js";
-import type { ThemeTokens } from "../theme-types.js";
-import type { Container } from "../tui.js";
 import { Collapsible } from "../components/collapsible.js";
 import { Markdown } from "../components/markdown.js";
 import { Pad } from "../components/pad.js";
 import { Text as TuiText } from "../components/text.js";
+import type { ThemeTokens } from "../theme-types.js";
+import type { Container } from "../tui.js";
 import {
 	AgentBlock,
 	appendBatchTiming,

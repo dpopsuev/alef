@@ -139,12 +139,6 @@
 			"@dpopsuev/alef-storage/*": [
 				"./packages/storage/src/*.ts"
 			],
-			"@dpopsuev/alef-runner-tui": [
-				"./packages/runner-tui/src/index.ts"
-			],
-			"@dpopsuev/alef-runner-tui/*": [
-				"./packages/runner-tui/src/*.ts"
-			],
 			"@dpopsuev/alef-adapter-monolog": [
 				"./packages/adapter-monolog/src/index.ts"
 			],

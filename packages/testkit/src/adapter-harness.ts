@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel/bus";
+import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 
 const DEFAULT_TIMEOUT_MS = 2_000;
 
 /**
  * AdapterHarness — unit-level Command→Event test harness.
  *
- * Mounts a single adapter on an isolated InProcessNerve and provides
+ * Mounts a single adapter on an isolated InProcessBus and provides
  * a send() method that fires a command event and returns the matching
  * event response. Fails if no event response arrives within the timeout.
  *
@@ -19,7 +19,7 @@ const DEFAULT_TIMEOUT_MS = 2_000;
  *   h.dispose();
  */
 export class AdapterHarness {
-	private readonly nerve = new InProcessNerve();
+	private readonly nerve = new InProcessBus();
 	private readonly unmount: () => void;
 	private readonly adapter: Adapter;
 	private readonly timeoutMs: number;

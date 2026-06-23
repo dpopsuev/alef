@@ -3,14 +3,14 @@ import { z } from "zod";
 import type { EventMessage } from "../src/buses.js";
 import type { CommandHandlerCtx, EventHandlerCtx } from "../src/framework.js";
 import { defineAdapter } from "../src/framework.js";
-import { InProcessNerve } from "../src/in-process-nerve.js";
+import { InProcessBus } from "../src/in-process-bus.js";
 
 function makeNerve() {
-	const nerve = new InProcessNerve();
+	const nerve = new InProcessBus();
 	return { nerve, n: nerve.asBus() };
 }
 
-function waitEvent(nerve: InProcessNerve, type: string): Promise<EventMessage> {
+function waitEvent(nerve: InProcessBus, type: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
 		const off = nerve.asBus().event.subscribe(type, (e) => {
 			off();
@@ -19,7 +19,7 @@ function waitEvent(nerve: InProcessNerve, type: string): Promise<EventMessage> {
 	});
 }
 
-function publishCommand(nerve: InProcessNerve, type: string, payload: Record<string, unknown>) {
+function publishCommand(nerve: InProcessBus, type: string, payload: Record<string, unknown>) {
 	nerve.asBus().command.publish({ type, payload, correlationId: "corr-1" });
 }
 
@@ -546,7 +546,7 @@ describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => {
 	it("rejects malformed command payload with error event in test env", async () => {
 		const { z } = await import("zod");
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const received: EventMessage[] = [];
 		nerve.subscribeEvent("typed.op", (e) => void received.push(e));
 
@@ -577,7 +577,7 @@ describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => 
 
 	it("passes valid payload through to handler", async () => {
 		const { z } = await import("zod");
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const received: EventMessage[] = [];
 		nerve.subscribeEvent("valid.op", (e) => void received.push(e));
 

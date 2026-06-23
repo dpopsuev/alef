@@ -1,4 +1,4 @@
-import { InProcessNerve } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import type { SupervisorConfig } from "../src/tool-supervisor.js";
 import { ToolSupervisor } from "../src/tool-supervisor.js";
@@ -12,7 +12,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 			},
 		});
 
-		const bus = new InProcessNerve();
+		const bus = new InProcessBus();
 		try {
 			await supervisor.start(bus.asBus());
 		} catch {
@@ -45,7 +45,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 			},
 		});
 
-		const bus = new InProcessNerve();
+		const bus = new InProcessBus();
 		await expect(supervisor.start(bus.asBus())).rejects.toThrow("Circular dependency");
 	});
 
@@ -56,13 +56,13 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 			},
 		});
 
-		const bus = new InProcessNerve();
+		const bus = new InProcessBus();
 		await expect(supervisor.start(bus.asBus())).rejects.toThrow("Unknown dependency");
 	});
 
 	it("double start throws", async () => {
 		const supervisor = new ToolSupervisor({ services: {} });
-		const bus = new InProcessNerve();
+		const bus = new InProcessBus();
 		await supervisor.start(bus.asBus());
 		await expect(supervisor.start(bus.asBus())).rejects.toThrow("already started");
 		await supervisor.stop();
@@ -75,7 +75,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 
 	it("tools returns empty for no services", async () => {
 		const supervisor = new ToolSupervisor({ services: {} });
-		const bus = new InProcessNerve();
+		const bus = new InProcessBus();
 		await supervisor.start(bus.asBus());
 		expect(supervisor.tools()).toHaveLength(0);
 		await supervisor.stop();

@@ -1,10 +1,10 @@
-import { InProcessNerve } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel";
 import { describe, expect, it, vi } from "vitest";
 import { LoopGuard } from "../src/loop-detector.js";
 
 /** Publish a motor event and its matching sense result (full interaction). */
 function interact(
-	nerve: InProcessNerve,
+	nerve: InProcessBus,
 	type: string,
 	args: Record<string, unknown>,
 	result = "some-result",
@@ -22,7 +22,7 @@ function interact(
 }
 
 /** Publish only the motor event (no sense result). */
-function motorOnly(nerve: InProcessNerve, type: string, args: Record<string, unknown>, corr = "corr-1") {
+function motorOnly(nerve: InProcessBus, type: string, args: Record<string, unknown>, corr = "corr-1") {
 	nerve.asBus().command.publish({ type, payload: { toolCallId: `t-${Math.random()}`, ...args }, correlationId: corr });
 }
 
@@ -37,7 +37,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("does not fire for many calls to the same tool with different args and results", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 3, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
 		// 10 fs.read calls — different paths, different results — not a loop
@@ -51,7 +51,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("does not fire when same args produce different results (file changed between reads)", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
 		// Same path, different content each time — not a loop
@@ -65,7 +65,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("fires when same tool produces the same result with the same args more than threshold times", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
 		// Same path AND same content — identical interaction
@@ -81,7 +81,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("does not fire when same interaction appears exactly at threshold", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 3, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
 		for (let i = 0; i < 3; i++) {
@@ -94,7 +94,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("fires safety net when total calls for one tool exceed totalCallThreshold regardless of results", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ totalCallThreshold: 5, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
 		// 6 calls with unique content each time — total safety net fires
@@ -109,7 +109,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("resets counts on new correlationId", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
 		for (let i = 0; i < 2; i++) {
@@ -127,7 +127,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("unmount stops observing", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const unmount = organ.mount(nerve.asBus());
 		unmount();
 
@@ -141,7 +141,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("toolCallId is stripped before hashing — same logical call detected despite different ids", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ repeatedInteractionThreshold: 2, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
 		// interact() generates a unique toolCallId per call but same path+result
@@ -155,7 +155,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 	it("total safety net fires on motor event alone (before sense result)", () => {
 		const onLoop = vi.fn();
 		const organ = new LoopGuard({ totalCallThreshold: 3, onLoop });
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
 		// Safety net counts motor events — sense result not required
@@ -174,7 +174,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 describe("hashResult — Anthropic array-format content", { tags: ["unit"] }, () => {
 	it("detects loop when content is Anthropic-format array", () => {
 		const loops: string[] = [];
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const organ = new LoopGuard({
 			repeatedInteractionThreshold: 3,
 			onLoop: (type) => loops.push(type),
@@ -206,13 +206,13 @@ describe("hashResult — Anthropic array-format content", { tags: ["unit"] }, ()
 		const loopsArr: string[] = [];
 		const loopsStr: string[] = [];
 
-		const nerveArr = new InProcessNerve();
+		const nerveArr = new InProcessBus();
 		new LoopGuard({
 			repeatedInteractionThreshold: 3,
 			onLoop: (t) => loopsArr.push(t),
 		}).mount(nerveArr.asBus());
 
-		const nerveStr = new InProcessNerve();
+		const nerveStr = new InProcessBus();
 		new LoopGuard({
 			repeatedInteractionThreshold: 3,
 			onLoop: (t) => loopsStr.push(t),

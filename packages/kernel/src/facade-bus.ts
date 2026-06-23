@@ -19,5 +19,5 @@ export type {
 	NotificationMessage,
 } from "./buses.js";
 export { makeBus } from "./buses.js";
-export { InProcessNerve, type WatchdogOptions } from "./in-process-nerve.js";
+export { InProcessBus, InProcessBus as InProcessNerve, type WatchdogOptions } from "./in-process-bus.js";
 export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";

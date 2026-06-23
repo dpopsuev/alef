@@ -5,7 +5,7 @@
  * Layer 2: scoreSpans() pure scoring function.
  */
 
-import { InProcessNerve } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel";
 import { describe, expect, it } from "vitest";
 import { EvaluatorAdapter } from "../src/evaluator-adapter.js";
 import type { SpanRecord } from "../src/metrics.js";
@@ -16,7 +16,7 @@ import { deriveturns, READ_ONLY_RULES, scoreSpans, WRITE_RULES } from "../src/me
 // ---------------------------------------------------------------------------
 
 function makeBus() {
-	const raw = new InProcessNerve();
+	const raw = new InProcessBus();
 	return raw.asBus();
 }
 
@@ -73,7 +73,7 @@ describe("EvaluatorAdapter — event counting", { tags: ["unit"] }, () => {
 	});
 
 	it("unmount stops counting", () => {
-		const bus = new InProcessNerve();
+		const bus = new InProcessBus();
 		const n = bus.asBus();
 		const adapter = new EvaluatorAdapter();
 		const unmount = adapter.mount(n);

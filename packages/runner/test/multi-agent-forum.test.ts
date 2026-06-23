@@ -11,12 +11,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDiscourseOrgan } from "@dpopsuev/alef-adapter-discourse";
 import { createPlanOrgan } from "@dpopsuev/alef-adapter-plan";
-import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel";
+import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("multi-agent plan + board coordination", () => {
 	let dir: string;
-	let nerve: InProcessNerve;
+	let nerve: InProcessBus;
 	const unmounts: Array<() => void> = [];
 
 	function call(type: string, payload: Record<string, unknown>): Promise<EventMessage> {
@@ -38,7 +38,7 @@ describe("multi-agent plan + board coordination", () => {
 
 	beforeEach(() => {
 		dir = mkdtempSync(join(tmpdir(), "alef-multi-agent-test-"));
-		nerve = new InProcessNerve();
+		nerve = new InProcessBus();
 	});
 
 	afterEach(() => {

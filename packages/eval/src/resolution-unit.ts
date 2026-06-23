@@ -15,7 +15,7 @@
 import { randomUUID } from "node:crypto";
 import { gimpedAdapter, isGimped } from "@dpopsuev/alef-kernel";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { type EventMessage, InProcessNerve } from "@dpopsuev/alef-kernel/bus";
+import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 
 // ---------------------------------------------------------------------------
 // PortStub \u2014 canned Motor payload for one tool
@@ -117,7 +117,7 @@ export interface UnitEvalReport {
 /**
  * Run a single adapter against a set of PortStubs and return a UnitEvalReport.
  *
- * The adapter is mounted on a fresh isolated InProcessNerve for each run,
+ * The adapter is mounted on a fresh isolated InProcessBus for each run,
  * then unmounted. No state leaks between calls.
  *
  * @example
@@ -144,7 +144,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 	const cases: UnitCaseResult[] = [];
 
 	// Mount the adapter on a fresh nerve
-	const nerve = new InProcessNerve();
+	const nerve = new InProcessBus();
 	const unmount = adapter.mount(nerve.asBus());
 
 	try {
@@ -216,7 +216,7 @@ export async function runUnitEvalBaseline(cfg: UnitEvalConfig): Promise<UnitEval
 // ---------------------------------------------------------------------------
 
 function probeMotor(
-	nerve: InProcessNerve,
+	nerve: InProcessBus,
 	toolName: string,
 	payload: Record<string, unknown>,
 	correlationId: string,

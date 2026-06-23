@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { type EventMessage, newCorrelationId } from "../src/buses.js";
-import { InProcessNerve } from "../src/in-process-nerve.js";
+import { InProcessBus } from "../src/in-process-bus.js";
 
 describe("dead letter detection", { tags: ["unit"] }, () => {
 	it("publishes error event when no specific handler is registered", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const received: EventMessage[] = [];
 		nerve.subscribeEvent("fs.read", (e) => void received.push(e));
 
@@ -17,7 +17,7 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 	});
 
 	it("does not dead-letter when a specific handler is registered", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const deadLetters: EventMessage[] = [];
 		nerve.subscribeEvent("fs.read", (e) => void deadLetters.push(e));
 		// Register specific handler
@@ -30,7 +30,7 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 	});
 
 	it("mirrors toolCallId on the dead letter event message", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const received: EventMessage[] = [];
 		nerve.subscribeEvent("shell.exec", (e) => void received.push(e));
 
@@ -46,7 +46,7 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 	});
 
 	it("wildcard subscribers do not prevent dead letter", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const allCommands: unknown[] = [];
 		const deadLetters: EventMessage[] = [];
 		nerve.onAnyCommand((e) => allCommands.push(e));
@@ -60,7 +60,7 @@ describe("dead letter detection", { tags: ["unit"] }, () => {
 	});
 
 	it("dead letter preserves correlationId", async () => {
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const corr = newCorrelationId();
 		let gotCorr = "";
 		nerve.subscribeEvent("web.fetch", (e) => {

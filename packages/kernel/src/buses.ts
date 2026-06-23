@@ -424,7 +424,7 @@ export function makeBus(
 	return { command, event, notification, pulse };
 }
 
-// InProcessNerve exported from index.ts — not here, to avoid circular import with in-process-nerve.ts
+// InProcessBus exported from index.ts — not here, to avoid circular import with in-process-bus.ts
 
 // ---------------------------------------------------------------------------
 // Helpers

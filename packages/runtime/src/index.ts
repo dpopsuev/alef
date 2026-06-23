@@ -24,7 +24,7 @@ import {
 	type CommandMessage,
 	type EventInput,
 	type EventMessage,
-	InProcessNerve,
+	InProcessBus,
 	makeBus,
 	type NotificationInput,
 } from "@dpopsuev/alef-kernel/bus";
@@ -117,7 +117,7 @@ const noopLogger: AdapterLogger = {
 };
 
 export class Agent {
-	private readonly bus = new InProcessNerve();
+	private readonly bus = new InProcessBus();
 	private readonly unmounts: Array<() => void> = [];
 	private readonly log: AdapterLogger;
 

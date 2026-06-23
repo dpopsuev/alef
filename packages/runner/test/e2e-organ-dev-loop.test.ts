@@ -23,7 +23,7 @@ import { join, resolve } from "node:path";
 import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
 import { createEvalOrgan } from "@dpopsuev/alef-adapter-eval";
 import type { EventMessage } from "@dpopsuev/alef-kernel";
-import { InProcessNerve } from "@dpopsuev/alef-kernel";
+import { InProcessBus } from "@dpopsuev/alef-kernel";
 import { afterEach, describe, expect, it } from "vitest";
 
 const tempDirs: string[] = [];
@@ -44,7 +44,7 @@ function makeTmp(): string {
 
 /** Publish a Command event and wait for the matching Event reply. */
 function commandCall(
-	nerve: InProcessNerve,
+	nerve: InProcessBus,
 	toolName: string,
 	payload: Record<string, unknown>,
 	timeoutMs: number,
@@ -110,7 +110,7 @@ export function createOrgan() {
 		}
 
 		// ── Step 2: mount adapters on a shared bus ─────────────────────────
-		const nerve = new InProcessNerve();
+		const nerve = new InProcessBus();
 		const orchestrationAdapter = createAgentOrgan({ cwd, replyEvent: "llm.response" });
 		const evalAdapter = createEvalOrgan({ replyEvent: "llm.response" });
 		unmounts.push(orchestrationAdapter.mount(nerve.asBus()));

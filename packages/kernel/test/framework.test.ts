@@ -271,7 +271,7 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		nerve.publishEvent({
+		nerve.publish("event", {
 			type: "test.input",
 			payload: { text: "hello", sender: "human" },
 			correlationId: "corr-x",
@@ -288,7 +288,7 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 	it("handler can fan-out Command messages via ctx.command.publish", async () => {
 		const { nerve, n } = makeNerve();
 		const commandMessages: string[] = [];
-		nerve.onAnyCommand((e) => commandMessages.push(e.type));
+		nerve.onAny("command", (e) => commandMessages.push(e.type));
 
 		defineAdapter("test", {
 			event: {
@@ -309,7 +309,7 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		nerve.publishEvent({
+		nerve.publish("event", {
 			type: "test.trigger",
 			payload: {},
 			correlationId: "c1",
@@ -548,7 +548,7 @@ describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => 
 		const { z } = await import("zod");
 		const nerve = new InProcessBus();
 		const received: EventMessage[] = [];
-		nerve.subscribeEvent("typed.op", (e) => void received.push(e));
+		nerve.subscribe("event", "typed.op", (e) => void received.push(e));
 
 		const adapter = defineAdapter(
 			"typed",
@@ -579,7 +579,7 @@ describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => 
 		const { z } = await import("zod");
 		const nerve = new InProcessBus();
 		const received: EventMessage[] = [];
-		nerve.subscribeEvent("valid.op", (e) => void received.push(e));
+		nerve.subscribe("event", "valid.op", (e) => void received.push(e));
 
 		const adapter = defineAdapter(
 			"valid-adapter",

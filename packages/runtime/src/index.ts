@@ -195,7 +195,7 @@ export class Agent {
 		// then announce the new adapter to everyone. Handlers must be idempotent.
 		const sysId = randomUUID();
 		for (const loaded of this._organs) {
-			this.bus.publishEvent({
+			this.bus.publish("event", {
 				type: "adapter.loaded",
 				correlationId: sysId,
 				isError: false,
@@ -244,7 +244,7 @@ export class Agent {
 	 * without going through AgentController.send().
 	 */
 	publishEvent(event: EventInput): void {
-		this.bus.publishEvent(event);
+		this.bus.publish("event", event);
 	}
 	/** @deprecated Use publishEvent */
 	publishSense(event: EventInput): void {
@@ -253,7 +253,7 @@ export class Agent {
 
 	/** Broadcast a signal event to all observers. Used exclusively by the Reasoner (organ-llm). */
 	publishSignal(event: NotificationInput): void {
-		this.bus.publishSignal(event);
+		this.bus.publish("notification", event);
 	}
 
 	/**
@@ -274,13 +274,13 @@ export class Agent {
 	 */
 	observe(observer: BusObserver): () => void {
 		const offs = [
-			this.bus.onAnyCommand((e) => {
+			this.bus.onAny("command", (e) => {
 				observer.onCommand(e);
 			}),
-			this.bus.onAnyEvent((e) => {
+			this.bus.onAny("event", (e) => {
 				observer.onEvent(e);
 			}),
-			this.bus.onAnyNotification((e) => {
+			this.bus.onAny("notification", (e) => {
 				observer.onNotification?.(e);
 			}),
 		];
@@ -336,7 +336,7 @@ export class Agent {
 		this._organs.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
 
-		this.bus.publishEvent({
+		this.bus.publish("event", {
 			type: "adapter.unloaded",
 			correlationId: randomUUID(),
 			isError: false,

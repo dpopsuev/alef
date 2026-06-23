@@ -230,8 +230,16 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 			});
 		});
 
-		f.nerve.publishCommand({ type: "fs.write", correlationId: "c1", payload: { path: filePath, content: "from-1" } });
-		f.nerve.publishCommand({ type: "fs.write", correlationId: "c2", payload: { path: filePath, content: "from-2" } });
+		f.nerve.publish("command", {
+			type: "fs.write",
+			correlationId: "c1",
+			payload: { path: filePath, content: "from-1" },
+		});
+		f.nerve.publish("command", {
+			type: "fs.write",
+			correlationId: "c2",
+			payload: { path: filePath, content: "from-2" },
+		});
 
 		await Promise.all([p1, p2]);
 
@@ -255,7 +263,7 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 				off();
 				resolve();
 			});
-			f.nerve.publishCommand({ type: "fs.read", correlationId: "r0", payload: { path: filePath } });
+			f.nerve.publish("command", { type: "fs.read", correlationId: "r0", payload: { path: filePath } });
 		});
 
 		const collect = (n: number) =>
@@ -271,12 +279,12 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 			});
 
 		const done = collect(2);
-		f.nerve.publishCommand({
+		f.nerve.publish("command", {
 			type: "fs.edit",
 			correlationId: "e1",
 			payload: { path: filePath, oldText: "AAA", newText: "BBB" },
 		});
-		f.nerve.publishCommand({
+		f.nerve.publish("command", {
 			type: "fs.edit",
 			correlationId: "e2",
 			payload: { path: filePath, oldText: "BBB", newText: "CCC" },

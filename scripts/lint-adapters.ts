@@ -325,6 +325,22 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 }
 
 // ---------------------------------------------------------------------------
+// Check 6: [BARREL] bare @dpopsuev/alef-kernel import without subpath
+// ---------------------------------------------------------------------------
+
+function checkBarrelImport(file: string, content: string): void {
+	const lines = content.split("\n");
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		if (!line.trim().startsWith("import")) continue;
+		if (/from\s+["']@dpopsuev\/alef-kernel["']/.test(line)) {
+			report(file, i + 1, "BARREL",
+				`bare @dpopsuev/alef-kernel import — use a subpath: /adapter, /bus, /log, /pipeline, /errors, /execution, /reconciliation`);
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Main scan
 // ---------------------------------------------------------------------------
 
@@ -347,6 +363,7 @@ for (const { name, dir } of organDirs) {
 		checkDisplayChannel(file, content);
 		checkImportDirection(file, content, name);
 		checkRawTimer(file, content);
+		checkBarrelImport(file, content);
 	}
 
 	for (const file of testFiles) {
@@ -356,6 +373,21 @@ for (const { name, dir } of organDirs) {
 
 	checkTestCoverage(dir, name);
 	checkStreamingCompliance(dir, name);
+}
+
+// ---------------------------------------------------------------------------
+// Monorepo barrel scan — check ALL non-kernel packages for bare kernel imports
+// ---------------------------------------------------------------------------
+
+const BARREL_SCAN_EXCLUDE = new Set(["kernel", "web-ui", "tui", "runner-tui"]);
+const allPkgDirs = readdirSync(ORGANS_DIR, { withFileTypes: true })
+	.filter((e) => e.isDirectory() && !e.name.startsWith("adapter-") && !BARREL_SCAN_EXCLUDE.has(e.name))
+	.map((e) => join(ORGANS_DIR, e.name));
+
+for (const pkgDir of allPkgDirs) {
+	for (const file of findFiles(join(pkgDir, "src"), ".ts")) {
+		checkBarrelImport(file, readFile(file));
+	}
 }
 
 // ---------------------------------------------------------------------------

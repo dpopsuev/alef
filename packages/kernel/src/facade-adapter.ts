@@ -14,6 +14,7 @@ export type {
 	ActionMap,
 	AdapterLogger,
 	AdapterOptions,
+	ChannelActionTypes,
 	CommandAction,
 	CommandActionMap,
 	CommandHandlerCtx,

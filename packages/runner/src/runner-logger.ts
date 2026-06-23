@@ -5,7 +5,7 @@
  * runner-specific logging patterns.
  */
 
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 /** Minimal logger interface for components that don't need full pino */
 export interface MinimalLogger {
@@ -34,7 +34,7 @@ export function setRunnerLogger(logger: MinimalLogger): void {
 }
 
 /**
- * Get the runner logger, falling back to debugLog if not initialized.
+ * Get the runner logger, falling back to traceEvent if not initialized.
  * This ensures logging works even before the full logger is set up.
  */
 export function getRunnerLogger(): MinimalLogger {
@@ -42,34 +42,34 @@ export function getRunnerLogger(): MinimalLogger {
 		return runnerLogger;
 	}
 
-	// Fallback logger using debugLog
+	// Fallback logger using traceEvent
 	return {
 		debug: (objOrMsg: Record<string, unknown> | string, msg?: string) => {
 			if (typeof objOrMsg === "string") {
-				debugLog("runner:debug", { message: objOrMsg });
+				traceEvent("runner:debug", { message: objOrMsg });
 			} else {
-				debugLog("runner:debug", { ...objOrMsg, message: msg });
+				traceEvent("runner:debug", { ...objOrMsg, message: msg });
 			}
 		},
 		info: (objOrMsg: Record<string, unknown> | string, msg?: string) => {
 			if (typeof objOrMsg === "string") {
-				debugLog("runner:info", { message: objOrMsg });
+				traceEvent("runner:info", { message: objOrMsg });
 			} else {
-				debugLog("runner:info", { ...objOrMsg, message: msg });
+				traceEvent("runner:info", { ...objOrMsg, message: msg });
 			}
 		},
 		warn: (objOrMsg: Record<string, unknown> | string, msg?: string) => {
 			if (typeof objOrMsg === "string") {
-				debugLog("runner:warn", { message: objOrMsg });
+				traceEvent("runner:warn", { message: objOrMsg });
 			} else {
-				debugLog("runner:warn", { ...objOrMsg, message: msg });
+				traceEvent("runner:warn", { ...objOrMsg, message: msg });
 			}
 		},
 		error: (objOrMsg: Record<string, unknown> | string, msg?: string) => {
 			if (typeof objOrMsg === "string") {
-				debugLog("runner:error", { message: objOrMsg });
+				traceEvent("runner:error", { message: objOrMsg });
 			} else {
-				debugLog("runner:error", { ...objOrMsg, message: msg });
+				traceEvent("runner:error", { ...objOrMsg, message: msg });
 			}
 		},
 	};

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { McpAdapter } from "@dpopsuev/alef-kernel";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/debug";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 export interface LocusAdapterOptions {
 	/** Workspace root(s) to analyze. Defaults to cwd. */
@@ -55,7 +55,7 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 				args.push("--workspace", ws);
 			}
 
-			debugLog("locus:boot", { binary, cacheDir, historyDir, workspaces });
+			traceEvent("locus:boot", { binary, cacheDir, historyDir, workspaces });
 			const bootPromise = McpAdapter.stdio(binary, args, "locus", {
 				LOCUS_CACHE_DIR: cacheDir,
 				LOCUS_HISTORY_DIR: historyDir,
@@ -81,10 +81,10 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 						isError: false,
 					});
 
-					debugLog("locus:ready", { tools: mcpAdapter.tools.length });
+					traceEvent("locus:ready", { tools: mcpAdapter.tools.length });
 				})
 				.catch((err: unknown) => {
-					debugLog("locus:boot:error", { error: String(err) });
+					traceEvent("locus:boot:error", { error: String(err) });
 					bus.notification.publish({
 						type: "adapter.error",
 						correlationId: "locus-boot",

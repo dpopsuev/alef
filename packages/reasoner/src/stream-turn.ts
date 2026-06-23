@@ -1,6 +1,6 @@
 import { DEFAULT_LLM_TIMEOUT_MS } from "@dpopsuev/alef-kernel";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import {
 	type Api,
 	type AssistantMessage,
@@ -75,7 +75,7 @@ export async function callLLM(
 		"alef.message_roles": apiMessages.map((m) => (m as { role?: string }).role ?? "?").join(","),
 		"alef.tool_count": tools.length,
 	});
-	debugLog("llm:http:start", {
+	traceEvent("llm:http:start", {
 		turn,
 		messages: apiMessages.length,
 		tools: tools.length,
@@ -138,7 +138,7 @@ export async function callLLM(
 			}
 		}
 
-		debugLog("llm:http:done", {
+		traceEvent("llm:http:done", {
 			turn,
 			elapsedMs: Date.now() - httpStart,
 			stopReason: finalMessage?.stopReason ?? "none",
@@ -161,7 +161,7 @@ export async function callLLM(
 			err instanceof Error &&
 			(err.name === "AbortError" || err.message.includes("aborted") || err.message.includes("AbortError"));
 		if (isAbort) span.setAttribute("alef.aborted", true);
-		debugLog("llm:http:error", {
+		traceEvent("llm:http:error", {
 			turn,
 			elapsedMs: Date.now() - httpStart,
 			abort: isAbort,

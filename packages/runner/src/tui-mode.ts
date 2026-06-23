@@ -1,5 +1,5 @@
 import { createWriteStream } from "node:fs";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { TuiStateStore } from "@dpopsuev/alef-runner-tui";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";
@@ -127,7 +127,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	tui.start();
 	tui.setFocus(editor);
 	tui.requestRender();
-	debugLog("tui:start");
+	traceEvent("tui:start");
 	if (process.env.ALEF_DEBUG === "1") process.stdout.write("[ALEF_READY]\n");
 	checkForUpdate()
 		.then((n) => {
@@ -140,10 +140,10 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 
 	await new Promise<void>((resolve) => {
 		tui.onStop = () => {
-			debugLog("tui:stop:resolve");
+			traceEvent("tui:stop:resolve");
 			resolve();
 		};
 	});
 	if (promptConsole.isThinking) promptConsole.stopThinking();
-	debugLog("tui:stopped");
+	traceEvent("tui:stopped");
 }

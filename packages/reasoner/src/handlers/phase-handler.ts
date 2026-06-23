@@ -1,5 +1,5 @@
 import type { EventHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { Message, Tool } from "@dpopsuev/alef-llm";
 import type { z } from "zod";
 
@@ -109,7 +109,7 @@ export async function runPhase(
 	phaseTimeoutMs: number,
 ): Promise<PhaseResult | undefined> {
 	const t0 = Date.now();
-	debugLog("llm:phase:enter", { turn });
+	traceEvent("llm:phase:enter", { turn });
 	const phasePromise = waitForPhaseResult(sense, correlationId, phaseTimeoutMs);
 	motor.publish({
 		type: "context.assemble",
@@ -117,7 +117,7 @@ export async function runPhase(
 		correlationId,
 	});
 	const phase = await phasePromise;
-	debugLog("llm:phase:exit", { turn, elapsedMs: Date.now() - t0, modified: !!phase });
+	traceEvent("llm:phase:exit", { turn, elapsedMs: Date.now() - t0, modified: !!phase });
 	return phase;
 }
 

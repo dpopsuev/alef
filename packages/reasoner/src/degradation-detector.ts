@@ -1,4 +1,4 @@
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 const REREAD_THRESHOLD = 3;
 
@@ -18,14 +18,14 @@ export class DegradationDetector {
 				const reads = (this.fileReads.get(path) ?? 0) + 1;
 				this.fileReads.set(path, reads);
 				if (reads >= REREAD_THRESHOLD) {
-					debugLog("degradation:reread", { path, reads });
+					traceEvent("degradation:reread", { path, reads });
 					return `You have read '${path}' ${reads} times this session. The content is already in your conversation history — check earlier turns instead of re-reading.`;
 				}
 			}
 		}
 
 		if (count >= REREAD_THRESHOLD) {
-			debugLog("degradation:repeated-call", { name, count });
+			traceEvent("degradation:repeated-call", { name, count });
 			return `You have called ${name} with the same arguments ${count} times. This may indicate context loss — review your earlier results.`;
 		}
 

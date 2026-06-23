@@ -21,7 +21,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Adapter, AdapterLogger } from "@dpopsuev/alef-kernel/adapter";
 import { type Bus, type EventInput, extractToolCallId } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
 import { loadAgentDefinition } from "./blueprints.js";
@@ -322,7 +322,7 @@ export async function materializeBlueprint(
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes("does not export createAdapter") || msg.includes("does not export createOrgan")) {
-				debugLog("blueprint:adapter:skip", { adapter: label, reason: msg });
+				traceEvent("blueprint:adapter:skip", { adapter: label, reason: msg });
 			} else {
 				throw new Error(`[blueprint] Failed to load adapter '${label}': ${msg}`);
 			}

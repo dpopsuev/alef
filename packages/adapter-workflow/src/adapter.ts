@@ -2,7 +2,7 @@ import { newCorrelationId, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/a
 import type { BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
 import { defineAdapter, tool, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/debug";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { z } from "zod";
 import type { Contract } from "./contract.js";
 import type { StationDef, WorkflowDef } from "./schema.js";
@@ -108,7 +108,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 		{
 			command: {
 				"contract.submit": typedAction(SUBMIT_TOOL, async (ctx) => {
-					debugLog("contract:submit", {
+					traceEvent("contract:submit", {
 						correlationId: (ctx as unknown as { correlationId: string }).correlationId,
 						hasValidator: !!contract.validator,
 					});
@@ -157,7 +157,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 							if (e.payload.id !== id) return;
 							clearTimeout(timer);
 							off();
-							debugLog("contract:result", { id, approved: e.payload.approved });
+							traceEvent("contract:result", { id, approved: e.payload.approved });
 							if (e.payload.approved) {
 								onSubmit(validated);
 								resolve(
@@ -179,7 +179,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 							}
 						});
 
-						debugLog("contract:validate", { id, kind: contract.validator, targetOrgan: contract.validator });
+						traceEvent("contract:validate", { id, kind: contract.validator, targetOrgan: contract.validator });
 						command.publish({
 							type: VALIDATE_REQUEST,
 							payload: { id, output: validated, kind: contract.validator, context: contract.intent },

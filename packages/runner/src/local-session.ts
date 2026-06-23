@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaOrgan } from "@dpopsuev/alef-meta";
@@ -349,7 +349,7 @@ export async function createLocalSession(
 
 	const systemPrompt = directives.build(directivesBudgetChars);
 	const enabledBlocks = directives.list({ enabled: true });
-	debugLog("directives:built", {
+	traceEvent("directives:built", {
 		ids: enabledBlocks.map((b) => b.id),
 		blocks: enabledBlocks.length,
 		chars: systemPrompt.length,
@@ -377,7 +377,7 @@ export async function createLocalSession(
 		modelId: model.id,
 		agentIdentity: agentActor,
 		onLoop: (_type, reason) => {
-			debugLog("loop:detected", { reason });
+			traceEvent("loop:detected", { reason });
 			llmController?.abort(new Error(`[loop-detector] ${reason}`));
 		},
 		summaryWriter: (summary) => summaryStore.write(summary),

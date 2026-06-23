@@ -1,7 +1,7 @@
 import { McpAdapter } from "@dpopsuev/alef-kernel";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/log";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 export type RestartPolicy = "permanent" | "transient" | "temporary";
 
@@ -50,7 +50,7 @@ export class ToolSupervisor {
 		this.bus = bus;
 
 		this.bootOrder = topoSort(this.config.services);
-		debugLog("fleet:start", { order: this.bootOrder });
+		traceEvent("fleet:start", { order: this.bootOrder });
 
 		for (const name of this.bootOrder) {
 			const cfg = this.config.services[name];
@@ -60,7 +60,7 @@ export class ToolSupervisor {
 
 	async stop(): Promise<void> {
 		const reversed = [...this.bootOrder].reverse();
-		debugLog("fleet:stop", { order: reversed });
+		traceEvent("fleet:stop", { order: reversed });
 
 		for (const name of reversed) {
 			const svc = this.managed.get(name);
@@ -70,7 +70,7 @@ export class ToolSupervisor {
 			svc.cleanup();
 			if (svc.adapter.close) {
 				await svc.adapter.close().catch((err: unknown) => {
-					debugLog("fleet:service:close:error", { name, error: String(err) });
+					traceEvent("fleet:service:close:error", { name, error: String(err) });
 				});
 			}
 			this.managed.delete(name);
@@ -123,7 +123,7 @@ export class ToolSupervisor {
 			isError: false,
 		});
 
-		debugLog("fleet:service:ready", { name, tools: adapter.tools.length });
+		traceEvent("fleet:service:ready", { name, tools: adapter.tools.length });
 	}
 
 	private async healthCheck(name: string): Promise<void> {
@@ -136,7 +136,7 @@ export class ToolSupervisor {
 				await adapter.client.ping();
 			}
 		} catch {
-			debugLog("fleet:service:unhealthy", { name });
+			traceEvent("fleet:service:unhealthy", { name });
 			await this.restartService(name);
 		}
 	}
@@ -151,7 +151,7 @@ export class ToolSupervisor {
 		const now = Date.now();
 		const recent = svc.restartTimestamps.filter((t) => now - t < RESTART_WINDOW_MS);
 		if (recent.length >= MAX_RESTARTS) {
-			debugLog("fleet:service:restart:rate-limited", { name, restarts: recent.length });
+			traceEvent("fleet:service:restart:rate-limited", { name, restarts: recent.length });
 			return;
 		}
 
@@ -159,7 +159,7 @@ export class ToolSupervisor {
 		const attempt = recent.length;
 		const backoff = RESTART_BACKOFF_MS[Math.min(attempt, RESTART_BACKOFF_MS.length - 1)];
 
-		debugLog("fleet:service:restarting", { name, attempt: attempt + 1, backoffMs: backoff });
+		traceEvent("fleet:service:restarting", { name, attempt: attempt + 1, backoffMs: backoff });
 
 		svc.cleanup();
 		if (svc.adapter.close) {
@@ -170,9 +170,9 @@ export class ToolSupervisor {
 
 		try {
 			await this.bootService(name, svc.config, this.bus);
-			debugLog("fleet:service:restarted", { name });
+			traceEvent("fleet:service:restarted", { name });
 		} catch (err: unknown) {
-			debugLog("fleet:service:restart:failed", { name, error: String(err) });
+			traceEvent("fleet:service:restart:failed", { name, error: String(err) });
 		}
 	}
 

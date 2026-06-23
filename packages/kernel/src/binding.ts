@@ -1,6 +1,6 @@
 import type { Bus, EventMessage } from "./buses.js";
 import { makeBus, newCorrelationId } from "./buses.js";
-import { debugLog } from "./debug.js";
+import { traceEvent } from "./debug.js";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "./protocols.js";
 
 export type BindingMode = "ordered" | "parallel-all" | "parallel-first";
@@ -111,11 +111,11 @@ class OrderedStrategy implements BindingExecutionStrategy {
 			}
 
 			const { stageId, result: resultPromise } = publishValidateRequest(bus, stage, current, sourceCorrelationId);
-			debugLog("binding:stage:start", { stageIdx: i, adapter: stage.adapter, stageId });
+			traceEvent("binding:stage:start", { stageIdx: i, adapter: stage.adapter, stageId });
 
 			const result = await resultPromise;
 
-			debugLog("binding:stage:result", {
+			traceEvent("binding:stage:result", {
 				stageIdx: i,
 				adapter: stage.adapter,
 				approved: result.approved,
@@ -192,7 +192,7 @@ export function executeBindingChain(
 	bus: Bus,
 	sourceCorrelationId: string,
 ): Promise<ChainResult> {
-	debugLog("binding:chain:start", {
+	traceEvent("binding:chain:start", {
 		id: binding.id,
 		event: binding.event,
 		mode: binding.mode,

@@ -14,7 +14,7 @@
     },
     "./adapter": { "source": "./src/facade-adapter.ts", "import": "./src/facade-adapter.ts", "default": "./src/facade-adapter.ts" },
     "./bus": { "source": "./src/facade-bus.ts", "import": "./src/facade-bus.ts", "default": "./src/facade-bus.ts" },
-    "./debug": { "source": "./src/facade-debug.ts", "import": "./src/facade-debug.ts", "default": "./src/facade-debug.ts" },
+    "./log": { "source": "./src/facade-log.ts", "import": "./src/facade-log.ts", "default": "./src/facade-log.ts" },
     "./pipeline": { "source": "./src/facade-pipeline.ts", "import": "./src/facade-pipeline.ts", "default": "./src/facade-pipeline.ts" },
     "./errors": { "source": "./src/facade-errors.ts", "import": "./src/facade-errors.ts", "default": "./src/facade-errors.ts" },
     "./reconciliation": { "source": "./src/reconciliation.ts", "import": "./src/reconciliation.ts", "default": "./src/reconciliation.ts" }

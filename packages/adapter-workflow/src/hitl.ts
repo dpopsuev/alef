@@ -1,7 +1,7 @@
 import { VALIDATE_REQUEST, VALIDATE_RESULT, type ValidateRequest } from "@dpopsuev/alef-kernel";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { debugLog } from "@dpopsuev/alef-kernel/debug";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 export interface HitlEvaluateInput {
 	output: unknown;
@@ -41,10 +41,10 @@ export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
 				if (p.targetAdapter && p.targetAdapter !== adapterName) return;
 				if (p.kind && p.kind !== "human" && p.targetAdapter !== adapterName) return;
 
-				debugLog("hitl:evaluate:start", { id: p.id, context: p.context, kind: p.kind });
+				traceEvent("hitl:evaluate:start", { id: p.id, context: p.context, kind: p.kind });
 
 				void opts.onEvaluate({ output: p.output, context: p.context, kind: p.kind }).then((result) => {
-					debugLog("hitl:evaluate:result", { id: p.id, approved: result.approved });
+					traceEvent("hitl:evaluate:result", { id: p.id, approved: result.approved });
 					bus.event.publish({
 						type: VALIDATE_RESULT,
 						correlationId: event.correlationId,

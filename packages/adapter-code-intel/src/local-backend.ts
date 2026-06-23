@@ -14,7 +14,7 @@ import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { debugLog } from "@dpopsuev/alef-kernel/debug";
+import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { CallersOptions, CallSite, CodeIntelBackend } from "./backend.js";
 import { LspClient } from "./lsp-client.js";
 import { extractSymbolsFor } from "./symbol-strategies.js";
@@ -107,7 +107,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 		try {
 			await this.getLsp();
 		} catch (error) {
-			debugLog("code-intel:warmup:failed", { error: String(error), cwd: this.cwd });
+			traceEvent("code-intel:warmup:failed", { error: String(error), cwd: this.cwd });
 			// LSP is optional — warm-up failure is non-fatal
 		}
 	}
@@ -149,7 +149,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 			try {
 				return await strategy.resolve(this, symbol, opts, maxResults);
 			} catch (error) {
-				debugLog("code-intel:callers:strategy-failed", { symbol, path: opts.path, error: String(error) });
+				traceEvent("code-intel:callers:strategy-failed", { symbol, path: opts.path, error: String(error) });
 				// strategy unavailable — try next
 			}
 		}
@@ -221,7 +221,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 				if (exitCode > 1) continue; // 1 = no matches (ok), >1 = error
 				return this._parseGrepOutput(stdout, maxResults);
 			} catch (error) {
-				debugLog("code-intel:grep:failed", { cmd, pattern, searchRoot, error: String(error) });
+				traceEvent("code-intel:grep:failed", { cmd, pattern, searchRoot, error: String(error) });
 				// command not found or failed — try next
 			}
 		}
@@ -277,7 +277,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 				source: d.source,
 			}));
 		} catch (error) {
-			debugLog("code-intel:diagnostics:failed", { path, error: String(error) });
+			traceEvent("code-intel:diagnostics:failed", { path, error: String(error) });
 			// LSP unavailable — return empty
 			return [];
 		}
@@ -296,7 +296,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 
 			return await lsp.getHover(fileUrl, line - 1, character); // Convert to 0-indexed
 		} catch (error) {
-			debugLog("code-intel:hover:failed", { path, line, character, error: String(error) });
+			traceEvent("code-intel:hover:failed", { path, line, character, error: String(error) });
 			return null;
 		}
 	}
@@ -336,7 +336,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 				containerName: s.containerName,
 			}));
 		} catch (error) {
-			debugLog("code-intel:workspace-symbols:failed", { query, error: String(error) });
+			traceEvent("code-intel:workspace-symbols:failed", { query, error: String(error) });
 			return [];
 		}
 	}

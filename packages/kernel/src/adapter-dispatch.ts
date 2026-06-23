@@ -5,7 +5,7 @@ import type { CacheStrategy } from "./adapter-cache.js";
 import { makeCacheKey } from "./adapter-cache.js";
 import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, EventHandlerCtx } from "./adapter-types.js";
 import type { Bus, CommandMessage, EventMessage } from "./buses.js";
-import { debugLog } from "./debug.js";
+import { traceEvent } from "./debug.js";
 import { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
 
 /**
@@ -47,7 +47,7 @@ function validateMotorPayload(
 		const issues = result.error.issues;
 		const firstField = String(issues[0]?.path[0] ?? "(root)");
 		const humanMsg = issues.map((i) => `'${i.path.join(".") || "(root)"}' ${i.message.toLowerCase()}`).join("; ");
-		debugLog("tool:schema-rejected", {
+		traceEvent("tool:schema-rejected", {
 			name: motor.type,
 			field: firstField,
 			issues: issues.map((i) => ({ path: i.path, message: i.message })),

@@ -294,12 +294,12 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 			event: {
 				"test.trigger": {
 					handle: async (ctx: EventHandlerCtx) => {
-						ctx.command.publish({
+						ctx.bus.command.publish({
 							type: "tool.a",
 							payload: {},
 							correlationId: ctx.correlationId,
 						});
-						ctx.command.publish({
+						ctx.bus.command.publish({
 							type: "tool.b",
 							payload: {},
 							correlationId: ctx.correlationId,

@@ -201,9 +201,7 @@ export function dispatchEventAction(
 	const ctx: EventHandlerCtx = {
 		correlationId: event.correlationId,
 		payload: event.payload,
-		command: nerve.command,
-		event: nerve.event,
-		notification: nerve.notification,
+		bus: nerve,
 	};
 	const span = tracer.startSpan(`alef.event/${eventType}`, {
 		kind: SpanKind.CONSUMER,

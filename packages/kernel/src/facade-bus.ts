@@ -1,3 +1,12 @@
+export {
+	type Binding,
+	type BindingExecutionStrategy,
+	type BindingMode,
+	type BindingStage,
+	executeBindingChain,
+	registerBindingStrategy,
+	withBindings,
+} from "./binding.js";
 export type {
 	Bus,
 	BusChannel,
@@ -21,3 +30,4 @@ export type {
 export { CHANNEL, makeBus } from "./buses.js";
 export { InProcessBus, InProcessBus as InProcessNerve, type WatchdogOptions } from "./in-process-bus.js";
 export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./sense-builders.js";
+export { Watchdog } from "./watchdog.js";

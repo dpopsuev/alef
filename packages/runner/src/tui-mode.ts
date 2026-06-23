@@ -1,5 +1,6 @@
 import { createWriteStream } from "node:fs";
 import { debugLog } from "@dpopsuev/alef-kernel";
+import { TuiStateStore } from "@dpopsuev/alef-runner-tui";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "./interactive.js";
@@ -40,20 +41,16 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 	}
 
 	let tuiState = initialTuiState();
-	const { output, input } = await buildLayout(
-		tui,
-		t,
-		opts,
-		() => ({
-			inputTokens: tuiState.sessionInputTokens,
-			outputTokens: tuiState.sessionOutputTokens,
-			contextWindow: session.state.contextWindow,
-			contextUsed: tuiState.contextFillTokens,
-			thinkingLevel: session.getThinking(),
-			compacted: isCompacted(),
-		}),
-		store,
-	);
+	const tuiStore = new TuiStateStore({
+		modelId: opts.modelId,
+		thinkingLevel: session.getThinking(),
+		inputTokens: 0,
+		outputTokens: 0,
+		contextWindow: session.state.contextWindow,
+		contextUsed: 0,
+		compacted: false,
+	});
+	const { output, input } = await buildLayout(tui, t, opts, tuiStore, store);
 	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
 	const { promptConsole, historyProvider, editor } = input;
 
@@ -63,12 +60,19 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 		const prev = tuiState;
 		tuiState = dispatchTuiEvent(tuiState, event, tuiUi, signalHandlers);
 		syncOverlays(tui, prev.overlays, tuiState.overlays);
+		tuiStore.update({
+			inputTokens: tuiState.sessionInputTokens,
+			outputTokens: tuiState.sessionOutputTokens,
+			contextUsed: tuiState.contextFillTokens,
+			thinkingLevel: session.getThinking(),
+			compacted: isCompacted(),
+		});
 		tui.requestRender();
 	};
 
 	session.subscribe((event) => dispatch(event));
 
-	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store);
+	const ctx = createContextFactory(t, writer, tui, opts, session, () => tuiState, dispatch, store, tuiStore);
 
 	const historyPickerTheme = createHistoryPickerTheme(t, color, boldColor);
 	const historyPickerToggle = (): boolean =>

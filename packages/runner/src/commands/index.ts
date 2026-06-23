@@ -439,6 +439,7 @@ const model = {
 			try {
 				buildModel(newId);
 				ctx.session.setModel(newId);
+				ctx.tuiStore?.update({ modelId: newId });
 				ctx.writer.addNotice(`Model switched to ${newId}.`);
 			} catch (e) {
 				ctx.writer.addNotice(`Unknown model: ${newId}. ${e instanceof Error ? e.message : ""}`);

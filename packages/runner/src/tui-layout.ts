@@ -1,3 +1,4 @@
+import { DashboardFooter, type FooterPanel, type TuiStateStore } from "@dpopsuev/alef-runner-tui";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
 import { Text } from "@dpopsuev/alef-tui";
@@ -5,7 +6,6 @@ import { AtAddressProvider } from "./history-autocomplete.js";
 import type { InteractiveOptions } from "./interactive.js";
 import { renderSplash } from "./splash.js";
 import { boldColor, color, type ThemeTokens } from "./theme.js";
-import { DashboardFooter, type FooterPanel } from "./tui/dashboard-footer.js";
 import { InputPanel } from "./tui/input-panel.js";
 import { OutputPanel } from "./tui/output-panel.js";
 
@@ -25,7 +25,7 @@ import { OutputPanel } from "./tui/output-panel.js";
  *     hints/app       — Vim hints, :command grid, or InputApplication
  *
  *   FOOTER
- *     dashboard       — cwd (branch) │ session │ model │ tokens
+ *     dashboard       — cwd (branch) │ session │ model │ tokens │ ctx battery bar
  */
 
 export interface TuiLayout {
@@ -34,32 +34,18 @@ export interface TuiLayout {
 	footer: FooterPanel;
 }
 
-export interface LayoutTokenState {
-	inputTokens: number;
-	outputTokens: number;
-	contextWindow: number;
-	contextUsed: number;
-	thinkingLevel: string;
-	compacted: boolean;
-}
-
 export async function buildLayout(
 	tui: TUI,
 	t: ThemeTokens,
 	opts: InteractiveOptions,
-	getTokenState: () => LayoutTokenState,
+	tuiStore: TuiStateStore,
 	store?: SessionStore,
 ): Promise<TuiLayout> {
 	const dashboard = new DashboardFooter({
 		sessionId: opts.sessionId,
-		modelId: opts.modelId,
 		cwd: opts.cwd ?? process.cwd(),
-		getInputTokens: () => getTokenState().inputTokens,
-		getOutputTokens: () => getTokenState().outputTokens,
-		getContextWindow: () => getTokenState().contextWindow,
-		getContextUsed: () => getTokenState().contextUsed,
-		getThinkingLevel: () => getTokenState().thinkingLevel,
-		getCompacted: () => getTokenState().compacted,
+		store: tuiStore,
+		requestRender: () => tui.requestRender(),
 		style: (s) => boldColor(s, t.accentFg),
 		dimStyle: (s) => color(s, t.mutedFg),
 		warnStyle: (s) => color(s, { ansi16: 93 }),

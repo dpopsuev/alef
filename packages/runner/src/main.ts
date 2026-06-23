@@ -113,6 +113,17 @@ if (cfg.storage) {
 }
 
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
+if (willUseTui) {
+	process.stderr.write = (
+		_chunk: string | Uint8Array,
+		encOrCb?: BufferEncoding | ((err?: Error | null) => void),
+		cb?: (err?: Error | null) => void,
+	): boolean => {
+		const callback = typeof encOrCb === "function" ? encOrCb : cb;
+		callback?.();
+		return true;
+	};
+}
 const log = createRunnerLogger(willUseTui, args.debug);
 const session = await loadSession(args, willUseTui);
 

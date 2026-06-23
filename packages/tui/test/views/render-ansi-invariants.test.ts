@@ -13,10 +13,11 @@
  * the corresponding tuning item (T-1, T-3) is implemented.
  */
 
-import { Container, Text, TUI } from "@dpopsuev/alef-tui";
-import { DynamicText } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it } from "vitest";
-import { CapturingTerminal } from "../../tui/test/capturing-terminal.js";
+import { Text } from "../../src/components/text.js";
+import { Container, TUI } from "../../src/tui.js";
+import { DynamicText } from "../../src/views/index.js";
+import { CapturingTerminal } from "../capturing-terminal.js";
 
 // ---------------------------------------------------------------------------
 // Shared setup

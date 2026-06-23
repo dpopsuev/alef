@@ -8,8 +8,28 @@
  */
 import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vitest";
-import { getTheme } from "../src/theme.js";
-import { renderDiffDisplay, truncateToolOutput } from "../src/tui-mode.js";
+
+const W = { ansi16: 37 };
+const OK = { ansi16: 32 };
+const ERR = { ansi16: 31 };
+const WARN = { ansi16: 33 };
+function getTheme() {
+	return {
+		userFg: W,
+		userBg: W,
+		agentFg: W,
+		agentBg: W,
+		primaryFg: W,
+		secondaryFg: W,
+		mutedFg: W,
+		accentFg: W,
+		okFg: OK,
+		warnFg: WARN,
+		errFg: ERR,
+	};
+}
+
+import { renderDiffDisplay, truncateToolOutput } from "../../src/views/index.js";
 
 // ---------------------------------------------------------------------------
 // 1. renderDiffDisplay output format
@@ -164,7 +184,7 @@ describe("generateEditDiff output format contract", { tags: ["unit"] }, () => {
 // 4. Tool output Markdown rendering: **bold** in display text is rendered bold
 // ---------------------------------------------------------------------------
 
-import { Markdown } from "@dpopsuev/alef-tui";
+import { Markdown } from "../../src/components/markdown.js";
 
 describe("tool output Markdown rendering (text/plain display)", { tags: ["unit"] }, () => {
 	const PLAIN_MD_THEME = {

@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createPlanOrgan } from "../src/adapter.js";
+import { createPlanAdapter } from "../src/adapter.js";
 import { PlanGraph } from "../src/graph.js";
 
-adapterComplianceSuite(() => createPlanOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-plan-compliance-")) }));
+adapterComplianceSuite(() => createPlanAdapter({ sessionDir: mkdtempSync(join(tmpdir(), "alef-plan-compliance-")) }));
 
 describe("PlanGraph", { tags: ["unit"] }, () => {
 	let dir: string;

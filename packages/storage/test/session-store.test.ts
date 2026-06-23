@@ -270,7 +270,7 @@ describe("SqliteSessionStore.name + setName", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("SqliteSessionStore.organHistory", { tags: ["unit"] }, () => {
+describe("SqliteSessionStore.adapterHistory", { tags: ["unit"] }, () => {
 	it("filters events by organ prefix", async () => {
 		const client = await makeClient();
 		const store = await SqliteSessionStore.create(client, "/tmp/cwd");
@@ -278,7 +278,7 @@ describe("SqliteSessionStore.organHistory", { tags: ["unit"] }, () => {
 		await store.append(motorEvent("fs.write", "corr-1"));
 		await store.append(motorEvent("shell.exec", "corr-2"));
 
-		const fsHistory = await store.organHistory("fs");
+		const fsHistory = await store.adapterHistory("fs");
 		expect(fsHistory).toHaveLength(2);
 		expect(fsHistory.every((e) => e.type.startsWith("fs."))).toBe(true);
 		client.close();

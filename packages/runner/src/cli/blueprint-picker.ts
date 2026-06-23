@@ -102,7 +102,7 @@ function readBlueprintPreview(path: string): string[] {
 
 		const adapterMatches = [...raw.matchAll(/^\s+-\s+name:\s*(\S+)/gm)];
 		if (adapterMatches.length > 0) {
-			lines.push("  Organs (SBOM):");
+			lines.push("  Adapters (SBOM):");
 			for (const m of adapterMatches) {
 				const adapterName = m[1];
 				const pkgMatch = raw.match(new RegExp(`name:\\s*${adapterName}[\\s\\S]*?package:\\s*"?([^"\\n]+)"?`));

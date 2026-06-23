@@ -1,5 +1,5 @@
 /**
- * RouterOrgan — HTTP/SSE bridge between the Command/Event bus and external processes.
+ * RouterAdapter — HTTP/SSE bridge between the Command/Event bus and external processes.
  *
  * Exposes three endpoints:
  *
@@ -9,7 +9,7 @@
  *
  * Usage:
  *
- * const router = createRouterOrgan({ port: 3000 });
+ * const router = createRouterAdapter({ port: 3000 });
  * agent.mount(router);
  *
  * The adapter subscribes command/* and event/* wildcards. Every event that crosses
@@ -58,13 +58,13 @@ export interface RouterOptions {
 	triggerEvent: string;
 }
 
-/** Resolved bind address returned by createRouterOrgan().address(). */
+/** Resolved bind address returned by createRouterAdapter().address(). */
 export interface RouterAddress {
 	host: string;
 	port: number;
 }
 
-export class RouterOrgan implements Adapter {
+export class RouterAdapter implements Adapter {
 	readonly name = "router";
 	readonly description =
 		"HTTP/SSE bridge: exposes command/event bus messages over GET /events and accepts POST /message.";
@@ -116,7 +116,7 @@ export class RouterOrgan implements Adapter {
 	 * Await this in tests before making requests.
 	 */
 	ready(): Promise<void> {
-		if (!this._readyPromise) return Promise.reject(new Error("RouterOrgan not mounted"));
+		if (!this._readyPromise) return Promise.reject(new Error("RouterAdapter not mounted"));
 		return this._readyPromise;
 	}
 
@@ -141,7 +141,7 @@ export class RouterOrgan implements Adapter {
 	}
 
 	mount(bus: Bus): () => void {
-		if (this.server) throw new Error("RouterOrgan already mounted");
+		if (this.server) throw new Error("RouterAdapter already mounted");
 		// Subscribe wildcards — forward every bus event to SSE clients.
 		const off1 = bus.command.subscribe("*", (event) => {
 			if (!this.isAllowed(event.type)) return;
@@ -281,6 +281,6 @@ export class RouterOrgan implements Adapter {
 }
 
 /** Factory — preferred entry point. */
-export function createRouterOrgan(options: RouterOptions): RouterOrgan {
-	return new RouterOrgan(options);
+export function createRouterAdapter(options: RouterOptions): RouterAdapter {
+	return new RouterAdapter(options);
 }

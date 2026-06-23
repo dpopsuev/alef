@@ -11,7 +11,7 @@
  * Created by the assembly factory (local-session.ts) after all adapters are loaded.
  */
 
-import { loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
+import { loadAdapterFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import type { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
@@ -96,7 +96,7 @@ export class SessionHandle implements Session {
 	}
 
 	async loadAdapter(path: string): Promise<void> {
-		const adapter = await loadOrganFromPath(path, {
+		const adapter = await loadAdapterFromPath(path, {
 			cwd: this._args.cwd,
 			loggerFor: (n) => this._log.child({ adapter: n }),
 		});
@@ -108,26 +108,11 @@ export class SessionHandle implements Session {
 	}
 
 	async reloadAdapter(name: string, path: string): Promise<void> {
-		const adapter = await loadOrganFromPath(path, {
+		const adapter = await loadAdapterFromPath(path, {
 			cwd: this._args.cwd,
 			loggerFor: (n) => this._log.child({ adapter: n }),
 		});
 		this._agent.reload({ ...adapter, name });
-	}
-
-	/** @deprecated Use loadAdapter() instead. */
-	loadOrgan(path: string): Promise<void> {
-		return this.loadAdapter(path);
-	}
-
-	/** @deprecated Use unloadAdapter() instead. */
-	unloadOrgan(name: string): boolean {
-		return this.unloadAdapter(name);
-	}
-
-	/** @deprecated Use reloadAdapter() instead. */
-	reloadOrgan(name: string, path: string): Promise<void> {
-		return this.reloadAdapter(name, path);
 	}
 
 	dispose(): void {
@@ -182,7 +167,7 @@ export class SessionHandle implements Session {
 	get tools() {
 		return this._agent.tools;
 	}
-	get organs() {
-		return this._agent.organs;
+	get adapters() {
+		return this._agent.adapters;
 	}
 }

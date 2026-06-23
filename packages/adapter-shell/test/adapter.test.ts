@@ -1,11 +1,11 @@
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createShellOrgan } from "../src/adapter.js";
+import { createShellAdapter } from "../src/adapter.js";
 
 // Framework compliance — schema rejection, structural checks, streaming contract.
 // shell.exec uses typedStreamAction → auto-discovered as a streaming tool.
 // validPayload must be provided for each streaming tool.
-adapterComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
+adapterComplianceSuite(() => createShellAdapter({ cwd: "/tmp" }), {
 	streaming: {
 		"shell.exec": {
 			validPayload: { command: "printf 'a%.0s' {1..200}" },
@@ -16,13 +16,13 @@ adapterComplianceSuite(() => createShellOrgan({ cwd: "/tmp" }), {
 
 function fixture(opts: { commandPrefix?: string } = {}) {
 	const f = new BusFixture();
-	f.mount(createShellOrgan({ cwd: process.cwd(), ...opts }));
+	f.mount(createShellAdapter({ cwd: process.cwd(), ...opts }));
 	return f;
 }
 
 describe("Shellorgan", { tags: ["compliance"] }, () => {
 	it("has name=shell and 1 tool", () => {
-		const organ = createShellOrgan({ cwd: process.cwd() });
+		const organ = createShellAdapter({ cwd: process.cwd() });
 		expect(organ.name).toBe("shell");
 		expect(organ.tools).toHaveLength(1);
 		expect(organ.tools[0].name).toBe("shell.exec");
@@ -30,7 +30,7 @@ describe("Shellorgan", { tags: ["compliance"] }, () => {
 
 	it("unmount unsubscribes command handler", () => {
 		const f = new BusFixture();
-		const organ = createShellOrgan({ cwd: process.cwd() });
+		const organ = createShellAdapter({ cwd: process.cwd() });
 		const unmount = f.mount(organ);
 		expect(f.nerve.listenerCount("command", "shell.exec")).toBe(1);
 		unmount();

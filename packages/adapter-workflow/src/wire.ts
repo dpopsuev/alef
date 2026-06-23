@@ -63,13 +63,13 @@ function recordEvent(state: WireState, type: string, status: string, detail?: st
 	state.events.push({ type, timestamp: Date.now(), status, detail });
 }
 
-export interface WireOrganOptions {
+export interface WireAdapterOptions {
 	cwd: string;
 	dispatch: (text: string, profile: string, model?: string) => Promise<string>;
 	judge?: (prompt: string, model?: string) => Promise<{ score: number; feedback: string }>;
 }
 
-export function createWireOrgan(opts: WireOrganOptions): Adapter {
+export function createWireAdapter(opts: WireAdapterOptions): Adapter {
 	let bus: Bus | null = null;
 
 	function mountWiring(state: WireState, rules: WiringRule[]) {

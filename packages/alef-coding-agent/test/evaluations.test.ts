@@ -108,7 +108,7 @@ async function runPool(evals: Evaluation[], maxConcurrency: number): Promise<Eva
 		const harness = new EvalHarness();
 		const model = getEvalModel();
 		const runner = new EvaluationRunner(harness, {
-			asyncOrganFactory: async (workspace, signal) => {
+			asyncAdapterFactory: async (workspace, signal) => {
 				const sessionStore = new InMemorySessionStore();
 				const stack = await createCodingAgentStack({
 					cwd: workspace,
@@ -124,7 +124,7 @@ async function runPool(evals: Evaluation[], maxConcurrency: number): Promise<Eva
 					onRetry: (attempt, reason) => scheduler.onRetry(attempt, reason),
 					phaseTimeoutMs: 100,
 				});
-				return [...stack.organs, llm];
+				return [...stack.adapters, llm];
 			},
 			maxErrorRate: 0.5,
 		});

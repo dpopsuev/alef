@@ -16,7 +16,7 @@ const BLUEPRINT_TOOL = {
 			.regex(/^[a-z][a-z0-9-]*$/, "kebab-case, e.g. lector-agent")
 			.describe("Agent name, kebab-case"),
 		description: z.string().min(1).describe("One sentence: what this agent does"),
-		organs: z
+		adapters: z
 			.array(z.string().min(1))
 			.min(1)
 			.describe(
@@ -57,7 +57,7 @@ function buildBlueprint(
 	});
 
 	const spec: Record<string, unknown> = {
-		organs: adapterEntries,
+		adapters: adapterEntries,
 	};
 	if (model) spec.model = model;
 
@@ -149,10 +149,7 @@ export interface FactoryAdapterOptions {
 	cwd?: string;
 }
 
-/** @deprecated Use FactoryAdapterOptions */
-export type FactoryOrganOptions = FactoryAdapterOptions;
-
-export function createFactoryOrgan(options: FactoryAdapterOptions = {}): Adapter {
+export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapter {
 	const cwd = options.cwd ?? process.cwd();
 
 	return defineAdapter(
@@ -181,21 +178,21 @@ export function createFactoryOrgan(options: FactoryAdapterOptions = {}): Adapter
 					);
 				}),
 				"factory.blueprint": typedAction(BLUEPRINT_TOOL, async (ctx) => {
-					const { name, description, organs, model, outputPath } = ctx.payload;
+					const { name, description, adapters, model, outputPath } = ctx.payload;
 
 					const defaultDir = join(homedir(), ".config", "alef", "agents");
 					const targetPath = outputPath ? resolve(cwd, outputPath) : join(defaultDir, `${name}.yaml`);
 
 					mkdirSync(dirname(targetPath), { recursive: true });
 
-					const blueprint = buildBlueprint(name, description, organs, model);
+					const blueprint = buildBlueprint(name, description, adapters, model);
 					writeFileSync(targetPath, toYaml(blueprint), "utf-8");
 
 					return withDisplay(
 						{
 							path: targetPath,
 							name,
-							organs,
+							adapters,
 							next: `orchestration.spawn({ blueprintPath: "${targetPath}" })`,
 						},
 						{ text: `Blueprint written: ${targetPath}`, mimeType: "text/plain" },
@@ -220,7 +217,7 @@ Defaults to { input: "string" } if omitted. Edit the file after loading to add l
 
 Write a blueprint YAML and get back a path. Then spawn it:
 
-  factory.blueprint({ name, description, organs[], model? })
+  factory.blueprint({ name, description, adapters[], model? })
   → { path, next: "orchestration.spawn({ blueprintPath: ... })" }
 
 Built-in adapters you can include:
@@ -242,7 +239,7 @@ Example — create a focused code reviewer:
   factory.blueprint({
     name: "reviewer",
     description: "Reviews code for style and correctness",
-    organs: ["fs", "code-intel"],
+    adapters: ["fs", "code-intel"],
     model: "claude-haiku-4-5"
   })
   → orchestration.spawn({ blueprintPath: "~/.config/alef/agents/reviewer.yaml" })`,

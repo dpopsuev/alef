@@ -1,5 +1,5 @@
 /**
- * AgentOrgan — unified delegation and child lifecycle management.
+ * AgentAdapter — unified delegation and child lifecycle management.
  *
  * Tools:
  *   agent.run     — delegate a task (in-process or process-isolated one-shot)
@@ -62,9 +62,9 @@ export type { ChildEntry };
 export interface AgentAdapterOptions extends BaseAdapterOptions {
 	cwd?: string;
 	strategies?: Record<string, ExecutionStrategy>;
-	/** Subagent factory for ad-hoc sessions with custom organs/prompt/model. */
+	/** Subagent factory for ad-hoc sessions with custom adapters/prompt/model. */
 	subagentFactory?: (opts: {
-		organs: readonly Adapter[];
+		adapters: readonly Adapter[];
 		onChunk?: (chunk: string) => void;
 		systemPrompt?: string;
 		modelOverride?: string;
@@ -75,7 +75,7 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 	/** @deprecated Use subagentFactory */
 	createAdHocSession?: AgentAdapterOptions["subagentFactory"];
 	getParentDirectives?: () => Promise<string>;
-	materializeOrgans?: (names: string[]) => Promise<Adapter[]>;
+	materializeAdapters?: (names: string[]) => Promise<Adapter[]>;
 	replyEvent?: string;
 	readinessTimeoutMs?: number;
 	writableRoots?: readonly string[];
@@ -83,10 +83,7 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 	maxDepth?: number;
 }
 
-/** @deprecated Use AgentAdapterOptions */
-export type AgentOrganOptions = AgentAdapterOptions;
-
-export function createAgentOrgan(
+export function createAgentAdapter(
 	opts: AgentAdapterOptions,
 ): Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
@@ -152,7 +149,7 @@ export function createAgentOrgan(
 			.boolean()
 			.default(true)
 			.describe("Forward parent directives to subagent. Default: true. Set false for lightweight exploration."),
-		organs: z.array(z.string().min(1)).optional().describe("Override adapter set."),
+		adapters: z.array(z.string().min(1)).optional().describe("Override adapter set."),
 		isolate: z.boolean().optional().describe("true = spawn a process-isolated child for this task (ephemeral)."),
 		stallMs: z
 			.number()
@@ -201,7 +198,7 @@ export function createAgentOrgan(
 		const spawnResult = await handleSpawn(deps, {
 			payload: {
 				blueprintPath: payload.blueprintPath as string | undefined,
-				organs: payload.organs as string[] | undefined,
+				adapters: payload.adapters as string[] | undefined,
 				cwd: payload.cwd as string | undefined,
 			},
 			correlationId,
@@ -325,9 +322,9 @@ export function createAgentOrgan(
 					const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
 					const explicitInherit = payload.inheritDirectives as boolean | undefined;
 					const inheritDirectives = explicitInherit ?? profile !== "explore";
-					const organNames = Array.isArray(payload.organs) ? (payload.organs as string[]) : undefined;
+					const adapterNames = Array.isArray(payload.adapters) ? (payload.adapters as string[]) : undefined;
 
-					const needsAdHoc = instructions !== undefined || inheritDirectives || organNames !== undefined;
+					const needsAdHoc = instructions !== undefined || inheritDirectives || adapterNames !== undefined;
 
 					if (needsAdHoc && factory) {
 						const queue = new AsyncQueue();
@@ -335,24 +332,24 @@ export function createAgentOrgan(
 						const parentDirectives =
 							inheritDirectives && opts.getParentDirectives ? await opts.getParentDirectives() : "";
 						const instructionParts = [parentDirectives, instructions].filter(Boolean);
-						const extraOrgans: Adapter[] = [];
+						const extraAdapters: Adapter[] = [];
 						const context: AgentRunContext = {
 							prependInstructions: (t) => instructionParts.unshift(t),
-							addAdapters: (o) => extraOrgans.push(...o),
+							addAdapters: (o) => extraAdapters.push(...o),
 						};
 						await composite.extend(payload, context);
 						const systemPrompt = instructionParts.join("\n\n") || undefined;
-						let resolvedOrgans: Adapter[];
-						if (organNames && opts.materializeOrgans) {
-							resolvedOrgans = await opts.materializeOrgans(organNames);
+						let resolvedAdapters: Adapter[];
+						if (adapterNames && opts.materializeAdapters) {
+							resolvedAdapters = await opts.materializeAdapters(adapterNames);
 						} else {
 							const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
-							resolvedOrgans = (strategy as unknown as { organs?: Adapter[] }).organs ?? [];
+							resolvedAdapters = (strategy as unknown as { adapters?: Adapter[] }).adapters ?? [];
 						}
-						resolvedOrgans = [...resolvedOrgans, ...extraOrgans];
+						resolvedAdapters = [...resolvedAdapters, ...extraAdapters];
 						const modelOverride = typeof payload.model === "string" ? payload.model : undefined;
 						const session = factory({
-							organs: resolvedOrgans,
+							adapters: resolvedAdapters,
 							onChunk: (c) => queue.push(c),
 							systemPrompt,
 							modelOverride,

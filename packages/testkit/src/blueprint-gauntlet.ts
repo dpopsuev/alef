@@ -28,7 +28,7 @@ import { ScriptedReasoner } from "./scripted-reasoner.js";
 
 export interface GauntletOptions {
 	/** Adapters to mount. Required. */
-	organs: Adapter[];
+	adapters: Adapter[];
 	/** Script steps for the ScriptedReasoner. */
 	script?: ScriptStep[];
 	/** System prompt for the agent. Default: "You are a helpful assistant." */
@@ -47,7 +47,7 @@ export interface GauntletSendOptions {
  *
  * @example
  * const g = await BlueprintGauntlet.create({
- * organs: [createFsAdapter({ cwd: workspace })],
+ * adapters: [createFsAdapter({ cwd: workspace })],
  * script: [
  * step.text("Here is the file."),
  * ],
@@ -93,7 +93,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 		const recorder = new BusEventRecorder();
 
 		const agent = new Agent();
-		for (const adapter of [...opts.organs, scriptedLlm]) {
+		for (const adapter of [...opts.adapters, scriptedLlm]) {
 			agent.load(adapter);
 		}
 		agent.observe(recorder);
@@ -120,7 +120,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	 * Use to establish ablation baselines within a story:
 	 *
 	 * @example
-	 * const opts = { organs: [fsAdapter, shellAdapter], script: [...] };
+	 * const opts = { adapters: [fsAdapter, shellAdapter], script: [...] };
 	 * const full = await BlueprintGauntlet.create(opts);
 	 * const baseline = await BlueprintGauntlet.create(
 	 * BlueprintGauntlet.withGimpedAdapter(opts, "fs")
@@ -130,7 +130,7 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 	static withGimpedAdapter(opts: GauntletOptions, adapterName: string): GauntletOptions {
 		return {
 			...opts,
-			organs: opts.organs.map((o) => (o.name === adapterName ? gimpedAdapter(adapterName) : o)),
+			adapters: opts.adapters.map((o) => (o.name === adapterName ? gimpedAdapter(adapterName) : o)),
 		};
 	}
 

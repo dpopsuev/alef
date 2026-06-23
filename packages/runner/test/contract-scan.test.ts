@@ -4,8 +4,8 @@
  * Run manually: npx vitest run test/contract-scan.test.ts
  */
 
-import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
-import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
+import { createAgentAdapter } from "@dpopsuev/alef-adapter-agent";
+import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
 import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Api, Model } from "@dpopsuev/alef-llm";
@@ -26,12 +26,12 @@ function stubFactory(_model: Model<Api>): SubagentFactory {
 }
 
 const faux = registerFauxProvider();
-const delegateAdapter = createAgentOrgan({
+const delegateAdapter = createAgentAdapter({
 	strategies: { explore: new InProcessStrategy([], stubFactory(faux.getModel())) },
 });
 
 const adapters: Array<{ name: string; adapter: Adapter }> = [
-	{ name: "adapter-fs", adapter: createFsOrgan({ cwd: CWD }) },
+	{ name: "adapter-fs", adapter: createFsAdapter({ cwd: CWD }) },
 	{ name: "adapter-shell", adapter: createShellAdapter({ cwd: CWD }) },
 	{ name: "adapter-agent", adapter: delegateAdapter },
 ];
@@ -85,7 +85,7 @@ describe("streaming contract scan", { tags: ["unit"] }, () => {
 	}, 10_000);
 
 	it("adapter-fs/fs.read — non-streaming tool, no streaming violation expected at short threshold", async () => {
-		const adapter = createFsOrgan({ cwd: CWD });
+		const adapter = createFsAdapter({ cwd: CWD });
 		// fs.read returns immediately — thresholdMs=3000 won't be triggered for a fast read
 		const result = await runStreamingContract(
 			adapter,

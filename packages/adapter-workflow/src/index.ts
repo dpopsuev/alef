@@ -1,11 +1,11 @@
 export {
 	createContractTool,
 	createQuestionTool,
-	createWorkflowOrgan,
+	createWorkflowAdapter,
 	type StationResult,
 	type StationRunner,
 	type StationStatus,
-	type WorkflowOrganOptions,
+	type WorkflowAdapterOptions,
 } from "./adapter.js";
 export {
 	type Contract,
@@ -18,10 +18,10 @@ export {
 	type IntentOutput,
 } from "./contract.js";
 export {
-	createHitlOrgan,
+	createHitlAdapter,
+	type HitlAdapterOptions,
 	type HitlEvaluateInput,
 	type HitlEvaluateResult,
-	type HitlOrganOptions,
 	type OnEvaluate,
 } from "./hitl.js";
 export {
@@ -32,4 +32,4 @@ export {
 	type WorkflowDef,
 	WorkflowDefSchema,
 } from "./schema.js";
-export { createWireOrgan, type WireOrganOptions } from "./wire.js";
+export { createWireAdapter, type WireAdapterOptions } from "./wire.js";

@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { blueprintRegistry, loadOrganFromPath } from "@dpopsuev/alef-agent-blueprint";
+import { blueprintRegistry, loadAdapterFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
-import { createMetaOrgan } from "@dpopsuev/alef-meta";
+import { createMetaAdapter } from "@dpopsuev/alef-meta";
 import { type Agent, AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
 import { SqliteDiscourseStore } from "@dpopsuev/alef-storage";
 import type { Logger } from "pino";
@@ -209,11 +209,11 @@ function signalToAgentEvent(event: BusMessage): AgentEvent | null {
 			const mapper = adapterSignalMaps.get(event.type);
 			if (mapper) {
 				const mapped = mapper(p);
-				if (mapped) return { type: "organ-signal", signalType: event.type, payload: mapped };
+				if (mapped) return { type: "adapter-signal", signalType: event.type, payload: mapped };
 				return null;
 			}
 			if (uiSignalHandlers.has(event.type)) {
-				return { type: "organ-signal", signalType: event.type, payload: p };
+				return { type: "adapter-signal", signalType: event.type, payload: p };
 			}
 			return null;
 		}
@@ -304,7 +304,7 @@ export async function createLocalSession(
 	agentAddress: string;
 	actorRoutes: ActorRouteTable;
 }> {
-	const { organs: adapters, blueprintSurfaces } = loaded;
+	const { adapters, blueprintSurfaces } = loaded;
 	registerContributions(adapters);
 
 	const directives = await buildDirectiveSet(args, adapters);
@@ -330,20 +330,20 @@ export async function createLocalSession(
 
 	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 
-	let stack: { organs: Adapter[]; pipeline?: ReturnType<typeof createContextAssemblyPipeline> };
+	let stack: { adapters: Adapter[]; pipeline?: ReturnType<typeof createContextAssemblyPipeline> };
 	if (stackFactory) {
 		stack = await stackFactory({
 			cwd: args.cwd,
 			model,
 			getSignal: () => llmController?.signal,
 			sessionStore: store,
-			domainOrgans: adapters,
+			domainAdapters: adapters,
 			subagentFactory,
 			writableRoots: loaded.writableRoots,
 		});
 	} else {
 		const pipeline = createContextAssemblyPipeline();
-		stack = { organs: adapters, pipeline };
+		stack = { adapters, pipeline };
 	}
 	const { pipeline } = stack;
 
@@ -393,7 +393,7 @@ export async function createLocalSession(
 		await controller.send(message, "human", timeout);
 	});
 
-	for (const adapter of stack.organs) agent.load(adapter);
+	for (const adapter of stack.adapters) agent.load(adapter);
 
 	const sessionAdapter: Session = {
 		state: sessionState,
@@ -413,15 +413,15 @@ export async function createLocalSession(
 	};
 	await setupHttpSurface(args, agent, sessionAdapter, blueprintSurfaces);
 
-	const alefAdapter = createMetaOrgan({
+	const alefAdapter = createMetaAdapter({
 		agent: {
 			load: (o: Adapter) => agent.load(o),
 			unload: (n: string) => agent.unload(n),
 			get adapters() {
-				return agent.organs;
+				return agent.adapters;
 			},
 		},
-		loadAdapter: (path: string, cwd: string) => loadOrganFromPath(path, { cwd }),
+		loadAdapter: (path: string, cwd: string) => loadAdapterFromPath(path, { cwd }),
 		cwd: args.cwd,
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {

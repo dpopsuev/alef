@@ -5,22 +5,22 @@ import type { CommandHandlerCtx, EventHandlerCtx } from "../src/framework.js";
 import { defineAdapter } from "../src/framework.js";
 import { InProcessBus } from "../src/in-process-bus.js";
 
-function makeNerve() {
-	const nerve = new InProcessBus();
-	return { nerve, n: nerve.asBus() };
+function makeBus() {
+	const bus = new InProcessBus();
+	return { bus, n: bus.asBus() };
 }
 
-function waitEvent(nerve: InProcessBus, type: string): Promise<EventMessage> {
+function waitEvent(bus: InProcessBus, type: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
-		const off = nerve.asBus().event.subscribe(type, (e) => {
+		const off = bus.asBus().event.subscribe(type, (e) => {
 			off();
 			resolve(e);
 		});
 	});
 }
 
-function publishCommand(nerve: InProcessBus, type: string, payload: Record<string, unknown>) {
-	nerve.asBus().command.publish({ type, payload, correlationId: "corr-1" });
+function publishCommand(bus: InProcessBus, type: string, payload: Record<string, unknown>) {
+	bus.asBus().command.publish({ type, payload, correlationId: "corr-1" });
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 	});
 
 	it("mount subscribes to Command messages", () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", {
 			command: {
 				"test.x": {
@@ -80,12 +80,12 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 				},
 			},
 		}).mount(n);
-		expect(nerve.listenerCount("command", "test.x")).toBe(1);
-		expect(nerve.listenerCount("command", "test.y")).toBe(1);
+		expect(bus.listenerCount("command", "test.x")).toBe(1);
+		expect(bus.listenerCount("command", "test.y")).toBe(1);
 	});
 
 	it("unmount cleans up all subscriptions", () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		const unmount = defineAdapter("test", {
 			command: {
 				"test.x": {
@@ -101,12 +101,12 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 		unmount();
-		expect(nerve.listenerCount("command", "test.x")).toBe(0);
-		expect(nerve.listenerCount("command", "test.y")).toBe(0);
+		expect(bus.listenerCount("command", "test.x")).toBe(0);
+		expect(bus.listenerCount("command", "test.y")).toBe(0);
 	});
 
 	it("handle success publishes Event with result payload", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", {
 			command: {
 				"test.echo": {
@@ -117,8 +117,8 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p = waitEvent(nerve, "test.echo");
-		publishCommand(nerve, "test.echo", { value: "hello" });
+		const p = waitEvent(bus, "test.echo");
+		publishCommand(bus, "test.echo", { value: "hello" });
 		const result = await p;
 
 		expect(result.isError).toBe(false);
@@ -127,7 +127,7 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 	});
 
 	it("handle throw publishes Event with isError=true", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", {
 			command: {
 				"test.fail": {
@@ -138,8 +138,8 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p = waitEvent(nerve, "test.fail");
-		publishCommand(nerve, "test.fail", {});
+		const p = waitEvent(bus, "test.fail");
+		publishCommand(bus, "test.fail", {});
 		const result = await p;
 
 		expect(result.isError).toBe(true);
@@ -147,7 +147,7 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 	});
 
 	it("toolCallId from Command payload is mirrored to Event payload", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", {
 			command: {
 				"test.tool": {
@@ -158,8 +158,8 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p = waitEvent(nerve, "test.tool");
-		nerve.asBus().command.publish({
+		const p = waitEvent(bus, "test.tool");
+		bus.asBus().command.publish({
 			type: "test.tool",
 			payload: { toolCallId: "tc-42" },
 			correlationId: "corr-1",
@@ -171,7 +171,7 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 	});
 
 	it("toolCallId mirrored even on error", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", {
 			command: {
 				"test.fail": {
@@ -182,8 +182,8 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p = waitEvent(nerve, "test.fail");
-		nerve.asBus().command.publish({
+		const p = waitEvent(bus, "test.fail");
+		bus.asBus().command.publish({
 			type: "test.fail",
 			payload: { toolCallId: "tc-err" },
 			correlationId: "corr-1",
@@ -195,7 +195,7 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 	});
 
 	it("streaming action emits N partial Event messages then one final", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", {
 			command: {
 				"test.stream": {
@@ -210,13 +210,13 @@ describe("defineAdapter (command/ prefix)", { tags: ["unit"] }, () => {
 
 		const events: EventMessage[] = [];
 		const done = new Promise<void>((resolve) => {
-			nerve.asBus().event.subscribe("test.stream", (e) => {
+			bus.asBus().event.subscribe("test.stream", (e) => {
 				events.push(e);
 				if ((e.payload as { isFinal?: boolean }).isFinal) resolve();
 			});
 		});
 
-		publishCommand(nerve, "test.stream", {});
+		publishCommand(bus, "test.stream", {});
 		await done;
 
 		expect(events).toHaveLength(3);
@@ -241,24 +241,24 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 	});
 
 	it("mount subscribes to Event messages", () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", {
 			event: { "sense.a": { handle: async () => {} } },
 		}).mount(n);
-		expect(nerve.listenerCount("event", "sense.a")).toBe(1);
+		expect(bus.listenerCount("event", "sense.a")).toBe(1);
 	});
 
 	it("unmount cleans up", () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		const unmount = defineAdapter("test", {
 			event: { "sense.a": { handle: async () => {} } },
 		}).mount(n);
 		unmount();
-		expect(nerve.listenerCount("event", "sense.a")).toBe(0);
+		expect(bus.listenerCount("event", "sense.a")).toBe(0);
 	});
 
 	it("handle receives correlationId, payload, command, event", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		let capturedCtx: { correlationId: string; payload: Record<string, unknown> } | null = null;
 
 		defineAdapter("test", {
@@ -271,7 +271,7 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		nerve.publish("event", {
+		bus.publish("event", {
 			type: "test.input",
 			payload: { text: "hello", sender: "human" },
 			correlationId: "corr-x",
@@ -286,9 +286,9 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 	});
 
 	it("handler can fan-out Command messages via ctx.command.publish", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		const commandMessages: string[] = [];
-		nerve.onAny("command", (e) => commandMessages.push(e.type));
+		bus.onAny("command", (e) => commandMessages.push(e.type));
 
 		defineAdapter("test", {
 			event: {
@@ -309,7 +309,7 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		nerve.publish("event", {
+		bus.publish("event", {
 			type: "test.trigger",
 			payload: {},
 			correlationId: "c1",
@@ -328,7 +328,7 @@ describe("defineAdapter (event/ prefix)", { tags: ["unit"] }, () => {
 
 describe("defineAdapter — command/ prefix", { tags: ["unit"] }, () => {
 	it("subscribes Command bus for command/ keys", () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", {
 			command: {
 				"test.cmd": {
@@ -338,21 +338,21 @@ describe("defineAdapter — command/ prefix", { tags: ["unit"] }, () => {
 				},
 			},
 		}).mount(n);
-		expect(nerve.listenerCount("command", "test.cmd")).toBe(1);
+		expect(bus.listenerCount("command", "test.cmd")).toBe(1);
 	});
 });
 
 describe("defineAdapter — event/ prefix", { tags: ["unit"] }, () => {
 	it("subscribes Event bus for event/ keys", () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("test", { event: { "test.evt": { handle: async () => {} } } }).mount(n);
-		expect(nerve.listenerCount("event", "test.evt")).toBe(1);
+		expect(bus.listenerCount("event", "test.evt")).toBe(1);
 	});
 });
 
 describe("defineAdapter — mixed adapter", { tags: ["unit"] }, () => {
 	it("can subscribe both Command and Event in one adapter", () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		defineAdapter("bridge", {
 			command: {
 				"bridge.cmd": {
@@ -363,14 +363,14 @@ describe("defineAdapter — mixed adapter", { tags: ["unit"] }, () => {
 			},
 			event: { "bridge.evt": { handle: async () => {} } },
 		}).mount(n);
-		expect(nerve.listenerCount("command", "bridge.cmd")).toBe(1);
-		expect(nerve.listenerCount("event", "bridge.evt")).toBe(1);
+		expect(bus.listenerCount("command", "bridge.cmd")).toBe(1);
+		expect(bus.listenerCount("event", "bridge.evt")).toBe(1);
 	});
 });
 
 describe("defineAdapter — wildcard command/*", { tags: ["unit"] }, () => {
 	it("subscribes all Command messages", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		const seen: string[] = [];
 		defineAdapter("observer", {
 			command: {
@@ -383,8 +383,8 @@ describe("defineAdapter — wildcard command/*", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		nerve.asBus().command.publish({ type: "fs.read", payload: { op: "read" }, correlationId: "c" });
-		nerve.asBus().command.publish({ type: "fs.edit", payload: { op: "edit" }, correlationId: "c" });
+		bus.asBus().command.publish({ type: "fs.read", payload: { op: "read" }, correlationId: "c" });
+		bus.asBus().command.publish({ type: "fs.edit", payload: { op: "edit" }, correlationId: "c" });
 		await new Promise((r) => setTimeout(r, 10));
 
 		expect(seen).toContain("read");
@@ -394,7 +394,7 @@ describe("defineAdapter — wildcard command/*", { tags: ["unit"] }, () => {
 
 describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 	it("caches result on second call (same payload)", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		let callCount = 0;
 		defineAdapter("test", {
 			command: {
@@ -408,19 +408,19 @@ describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		const p1 = waitEvent(nerve, "test.read");
-		publishCommand(nerve, "test.read", { path: "/foo" });
+		const p1 = waitEvent(bus, "test.read");
+		publishCommand(bus, "test.read", { path: "/foo" });
 		await p1;
 
-		const p2 = waitEvent(nerve, "test.read");
-		publishCommand(nerve, "test.read", { path: "/foo" });
+		const p2 = waitEvent(bus, "test.read");
+		publishCommand(bus, "test.read", { path: "/foo" });
 		await p2;
 
 		expect(callCount).toBe(1); // second call served from cache
 	});
 
 	it("different payloads are cached separately", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		let callCount = 0;
 		defineAdapter("test", {
 			command: {
@@ -434,16 +434,16 @@ describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 			},
 		}).mount(n);
 
-		publishCommand(nerve, "test.read", { path: "/foo" });
-		await waitEvent(nerve, "test.read");
-		publishCommand(nerve, "test.read", { path: "/bar" });
-		await waitEvent(nerve, "test.read");
+		publishCommand(bus, "test.read", { path: "/foo" });
+		await waitEvent(bus, "test.read");
+		publishCommand(bus, "test.read", { path: "/bar" });
+		await waitEvent(bus, "test.read");
 
 		expect(callCount).toBe(2);
 	});
 
 	it("invalidates cache entries by event-type prefix", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		let readCount = 0;
 		defineAdapter("test", {
 			command: {
@@ -464,22 +464,22 @@ describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 		}).mount(n);
 
 		// First read — populates cache.
-		publishCommand(nerve, "test.read", { path: "/foo" });
-		await waitEvent(nerve, "test.read");
+		publishCommand(bus, "test.read", { path: "/foo" });
+		await waitEvent(bus, "test.read");
 		expect(readCount).toBe(1);
 
 		// Write — invalidates test.read cache.
-		publishCommand(nerve, "test.write", { path: "/foo" });
-		await waitEvent(nerve, "test.write");
+		publishCommand(bus, "test.write", { path: "/foo" });
+		await waitEvent(bus, "test.write");
 
 		// Second read — cache was purged, handler called again.
-		publishCommand(nerve, "test.read", { path: "/foo" });
-		await waitEvent(nerve, "test.read");
+		publishCommand(bus, "test.read", { path: "/foo" });
+		await waitEvent(bus, "test.read");
 		expect(readCount).toBe(2);
 	});
 
 	it("streaming action is never cached", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		let callCount = 0;
 		defineAdapter("test", {
 			command: {
@@ -494,7 +494,7 @@ describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 
 		const waitFinal = () =>
 			new Promise<void>((resolve) => {
-				const off = nerve.asBus().event.subscribe("test.stream", (e) => {
+				const off = bus.asBus().event.subscribe("test.stream", (e) => {
 					if ((e.payload as { isFinal?: boolean }).isFinal) {
 						off();
 						resolve();
@@ -502,16 +502,16 @@ describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 				});
 			});
 
-		publishCommand(nerve, "test.stream", { path: "/foo" });
+		publishCommand(bus, "test.stream", { path: "/foo" });
 		await waitFinal();
-		publishCommand(nerve, "test.stream", { path: "/foo" });
+		publishCommand(bus, "test.stream", { path: "/foo" });
 		await waitFinal();
 
 		expect(callCount).toBe(2); // streaming: always called
 	});
 
 	it("unmount clears the cache", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 		let callCount = 0;
 		const adapter = defineAdapter("test", {
 			command: {
@@ -526,14 +526,14 @@ describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 		});
 		const unmount = adapter.mount(n);
 
-		publishCommand(nerve, "test.read", { path: "/foo" });
-		await waitEvent(nerve, "test.read");
+		publishCommand(bus, "test.read", { path: "/foo" });
+		await waitEvent(bus, "test.read");
 		unmount();
 
 		// Remount — fresh cache.
 		adapter.mount(n);
-		publishCommand(nerve, "test.read", { path: "/foo" });
-		await waitEvent(nerve, "test.read");
+		publishCommand(bus, "test.read", { path: "/foo" });
+		await waitEvent(bus, "test.read");
 
 		expect(callCount).toBe(2);
 	});
@@ -546,9 +546,9 @@ describe("defineAdapter — cache", { tags: ["unit"] }, () => {
 describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => {
 	it("rejects malformed command payload with error event in test env", async () => {
 		const { z } = await import("zod");
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const received: EventMessage[] = [];
-		nerve.subscribe("event", "typed.op", (e) => void received.push(e));
+		bus.subscribe("event", "typed.op", (e) => void received.push(e));
 
 		const adapter = defineAdapter(
 			"typed",
@@ -565,9 +565,9 @@ describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => 
 				inputSchemas: { command: { "typed.op": z.object({ value: z.string() }) } },
 			},
 		);
-		adapter.mount(nerve.asBus());
+		adapter.mount(bus.asBus());
 
-		publishCommand(nerve, "typed.op", { value: 42 }); // wrong type
+		publishCommand(bus, "typed.op", { value: 42 }); // wrong type
 		await new Promise((r) => setTimeout(r, 20));
 
 		expect(received.length).toBeGreaterThan(0);
@@ -577,9 +577,9 @@ describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => 
 
 	it("passes valid payload through to handler", async () => {
 		const { z } = await import("zod");
-		const nerve = new InProcessBus();
+		const bus = new InProcessBus();
 		const received: EventMessage[] = [];
-		nerve.subscribe("event", "valid.op", (e) => void received.push(e));
+		bus.subscribe("event", "valid.op", (e) => void received.push(e));
 
 		const adapter = defineAdapter(
 			"valid-adapter",
@@ -596,9 +596,9 @@ describe("defineAdapter — inputSchemas validation", { tags: ["unit"] }, () => 
 				inputSchemas: { command: { "valid.op": z.object({ value: z.string() }) } },
 			},
 		);
-		adapter.mount(nerve.asBus());
+		adapter.mount(bus.asBus());
 
-		publishCommand(nerve, "valid.op", { value: "hello" });
+		publishCommand(bus, "valid.op", { value: "hello" });
 		await new Promise((r) => setTimeout(r, 20));
 
 		expect(received.length).toBeGreaterThan(0);

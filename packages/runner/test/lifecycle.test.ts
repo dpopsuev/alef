@@ -21,8 +21,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
-import { createRouterOrgan } from "@dpopsuev/alef-gateway";
+import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
+import { createRouterAdapter } from "@dpopsuev/alef-gateway";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { ScriptedReasoner, type ScriptStep, step } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
@@ -142,8 +142,8 @@ async function bootFixture(
 	const store = await JsonlSessionStore.create(cwd);
 
 	const scripted = new ScriptedReasoner(Array.isArray(opts.script) ? opts.script : [opts.script]);
-	const fs = createFsOrgan({ cwd });
-	const router = createRouterOrgan({ port: 0, allowedEvents: opts.allowedEvents, triggerEvent: "llm.input" });
+	const fs = createFsAdapter({ cwd });
+	const router = createRouterAdapter({ port: 0, allowedEvents: opts.allowedEvents, triggerEvent: "llm.input" });
 	const eventLog = new SessionLog(store);
 
 	const agent = new Agent();

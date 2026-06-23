@@ -95,7 +95,7 @@ if (args.attach !== undefined) {
 		getThinking: () => remoteSession.getThinking(),
 		setThinking: (level) => remoteSession.setThinking(level),
 		setLLMAbortController: (ctrl) => remoteSession.setTurnController(ctrl),
-		reloadOrgan: async (_name: string, _path: string) => {},
+		reloadAdapter: async (_name: string, _path: string) => {},
 		getDirectiveAdapter: () => undefined,
 		session: remoteSession,
 	});
@@ -187,7 +187,7 @@ await runAgent({
 	getThinking: () => localSession.getThinking(),
 	setThinking: (level) => localSession.setThinking(level),
 	setLLMAbortController: (ctrl) => localSession.setTurnController(ctrl),
-	reloadOrgan: async (name, path) => localSession.reloadOrgan?.(name, path),
+	reloadAdapter: async (name, path) => localSession.reloadAdapter?.(name, path),
 	getDirectiveAdapter: () => localSession.getDirective?.(),
 	session: localSession,
 	store: session,

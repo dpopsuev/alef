@@ -1,5 +1,5 @@
-import { createSkillsOrgan } from "@dpopsuev/alef-adapter-skills";
-import { createWireOrgan } from "@dpopsuev/alef-adapter-workflow";
+import { createSkillsAdapter } from "@dpopsuev/alef-adapter-skills";
+import { createWireAdapter } from "@dpopsuev/alef-adapter-workflow";
 import { type BlueprintStack, type BlueprintStackOptions, buildDelegationStack } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 
@@ -11,24 +11,24 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 	}
 	const factory = opts.subagentFactory;
 
-	const skillsOrgan = createSkillsOrgan({ cwd: opts.cwd });
+	const skillsAdapter = createSkillsAdapter({ cwd: opts.cwd });
 
-	const { organs, pipeline, exploreOrgans, generalOrgans } = await buildDelegationStack({
+	const { adapters, pipeline, exploreAdapters, generalAdapters } = await buildDelegationStack({
 		cwd: opts.cwd,
 		factory,
 		contextWindow: opts.model.contextWindow,
-		domainOrgans: opts.domainOrgans,
+		domainAdapters: opts.domainAdapters,
 		sessionStore: opts.sessionStore,
 		writableRoots: opts.writableRoots,
-		extraAdapters: [skillsOrgan],
+		extraAdapters: [skillsAdapter],
 		excludeNames: ["workflow"],
 	});
 
-	const wireOrgan = createWireOrgan({
+	const wireAdapter = createWireAdapter({
 		cwd: opts.cwd,
 		async dispatch(text, profile, modelOverride) {
 			const session = factory({
-				organs: profile === "explore" ? exploreOrgans : generalOrgans,
+				adapters: profile === "explore" ? exploreAdapters : generalAdapters,
 				systemPrompt: profile === "explore" ? "Read-only exploration agent. Report findings concisely." : undefined,
 				modelOverride,
 			});
@@ -40,7 +40,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		},
 		async judge(prompt, modelOverride) {
 			const session = factory({
-				organs: exploreOrgans,
+				adapters: exploreAdapters,
 				systemPrompt:
 					"You are a code reviewer. Score the input 0-10 and provide feedback. Return JSON: { score: number, feedback: string }",
 				modelOverride: modelOverride ?? "claude-haiku-4-5",
@@ -59,7 +59,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		},
 	});
 
-	organs.splice(organs.length - 2, 0, wireOrgan as unknown as Adapter);
+	adapters.splice(adapters.length - 2, 0, wireAdapter as unknown as Adapter);
 
-	return { organs, pipeline };
+	return { adapters, pipeline };
 }

@@ -22,7 +22,7 @@ import {
 	makeBus,
 } from "@dpopsuev/alef-kernel/bus";
 
-const { organPath: adapterPath, cwd } = workerData as { organPath: string; cwd: string };
+const { adapterPath, cwd } = workerData as { adapterPath: string; cwd: string };
 
 const port = parentPort;
 if (!port) throw new Error("prototype-worker must run inside a worker_threads.Worker");
@@ -86,7 +86,7 @@ port.on("message", (msg: { dir: string; event: BusMessage }) => {
 
 // Load the adapter and mount it.
 const mod = (await import(adapterPath)) as Record<string, unknown>;
-const factory = (mod.createAdapter ?? mod.createOrgan) as (opts: { cwd: string }) => unknown | Promise<unknown>;
+const factory = mod.createAdapter as (opts: { cwd: string }) => unknown | Promise<unknown>;
 const adapter = (await factory({ cwd })) as {
 	name: string;
 	tools: Array<{ name: string; description: string; inputSchema: import("zod").ZodTypeAny }>;

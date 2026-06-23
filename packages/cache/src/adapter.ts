@@ -8,7 +8,7 @@ import {
 import { type Bus, type BusMiddleware, buildSense } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 
-export interface CacheOrganOptions {
+export interface CacheAdapterOptions {
 	/** TTL in milliseconds (default: 5 minutes) */
 	ttl?: number;
 	/** Tools to cache (default: fs.read, fs.grep, fs.find, code.read) */
@@ -95,7 +95,7 @@ const STATS_TOOL = {
 	inputSchema: z.object({}),
 };
 
-export function createCacheOrgan(opts: CacheOrganOptions = {}) {
+export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 	const ttl = opts.ttl ?? DEFAULT_TTL;
 	const cachedTools = new Set(opts.cachedTools ?? DEFAULT_CACHED_TOOLS);
 	const invalidatingTools = new Set(opts.invalidatingTools ?? DEFAULT_INVALIDATING_TOOLS);

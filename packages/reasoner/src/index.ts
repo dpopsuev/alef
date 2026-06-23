@@ -16,7 +16,7 @@ import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
  * Payload field names used to extract a human-readable key argument from a
  * tool call — shown in TUI pills and in the concurrent-ops context block.
  * Lives here (not in spine) because it is a presentation hint, not a bus primitive.
- * runner/src/tui imports this; organs themselves never reference it.
+ * runner/src/tui imports this; adapters themselves never reference it.
  */
 export const KEY_ARG_FIELDS = [
 	"command",
@@ -211,7 +211,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 
 	const wrappedOptions: AgentLoopOptions = options;
 
-	const innerOrgan = createAgentLoopCore(wrappedOptions);
+	const innerAdapter = createAgentLoopCore(wrappedOptions);
 
 	const publishSchemas = {
 		command: {
@@ -228,7 +228,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 		},
 	};
 
-	const baseSubscriptions = innerOrgan.subscriptions;
+	const baseSubscriptions = innerAdapter.subscriptions;
 	const subscriptions = options.trackConcurrentOps
 		? {
 				command: [...baseSubscriptions.command, "*"] as readonly string[],
@@ -266,8 +266,8 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 			port: { name: "reasoning", eventPattern: "event/llm.input", cardinality: "exactly-one" },
 		},
 		mount(bus: Bus): () => void {
-			const offOrgan = innerOrgan.mount(bus);
-			if (!options.trackConcurrentOps) return offOrgan;
+			const offAdapter = innerAdapter.mount(bus);
+			if (!options.trackConcurrentOps) return offAdapter;
 
 			const inflightExcluded = makeInflightExcluded(replyType);
 			const offMotor = bus.command.subscribe("*", (event) => {
@@ -290,7 +290,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 			});
 
 			return () => {
-				offOrgan();
+				offAdapter();
 				offMotor();
 				offSense();
 				inflight.clear();

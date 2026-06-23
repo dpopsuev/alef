@@ -1,18 +1,18 @@
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createCodeIntelOrgan } from "../src/adapter.js";
+import { createCodeIntelAdapter } from "../src/adapter.js";
 import { StubCodeIntelBackend } from "../src/stub-backend.js";
 
 adapterComplianceSuite(() =>
-	createCodeIntelOrgan({
+	createCodeIntelAdapter({
 		cwd: process.cwd(),
 		backend: new StubCodeIntelBackend(),
 	}),
 );
 
-describe("CodeIntelOrgan — tool surface", () => {
+describe("CodeIntelAdapter — tool surface", () => {
 	it("exposes five tools by default", () => {
-		const organ = createCodeIntelOrgan({
+		const organ = createCodeIntelAdapter({
 			cwd: process.cwd(),
 			backend: new StubCodeIntelBackend(),
 		});
@@ -21,7 +21,7 @@ describe("CodeIntelOrgan — tool surface", () => {
 	});
 
 	it("ablation: actions allowlist restricts tools", () => {
-		const organ = createCodeIntelOrgan({
+		const organ = createCodeIntelAdapter({
 			cwd: process.cwd(),
 			backend: new StubCodeIntelBackend(),
 			actions: ["code.symbols", "code.hover"],

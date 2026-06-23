@@ -43,10 +43,10 @@ export async function createResearchAgentStack(
 
 	const supervisor = new ToolSupervisor(supervisorConfig);
 
-	const organs: Adapter[] = [...codingStack.organs];
+	const adapters: Adapter[] = [...codingStack.adapters];
 
 	return {
-		organs,
+		adapters,
 		pipeline: codingStack.pipeline,
 		supervisor,
 	};

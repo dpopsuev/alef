@@ -3,7 +3,7 @@ import { cwdHash, type SessionStore, type StorageRecord, type Turn, TurnIndexer 
 import type { Client } from "@libsql/client";
 import { queueEmbedding } from "./embedder.js";
 
-function deriveOrgan(type: string): string | null {
+function deriveAdapter(type: string): string | null {
 	const dot = type.indexOf(".");
 	return dot > 0 ? type.slice(0, dot) : null;
 }
@@ -131,7 +131,7 @@ export class SqliteSessionStore implements SessionStore {
 		this._cache.push(record);
 		this._indexer.index(record);
 
-		const adapter = deriveOrgan(record.type);
+		const adapter = deriveAdapter(record.type);
 		const turnNumber = this._indexer.turnMap.has(record.correlationId)
 			? this._indexer.turnMap.get(record.correlationId)!.turnIndex
 			: null;
@@ -197,7 +197,7 @@ export class SqliteSessionStore implements SessionStore {
 		return Promise.resolve(new Map(this._indexer.hitCountsMap));
 	}
 
-	organHistory(adapterName: string): Promise<StorageRecord[]> {
+	adapterHistory(adapterName: string): Promise<StorageRecord[]> {
 		const prefix = `${adapterName}.`;
 		return Promise.resolve(
 			this._cache.filter((r) => (r.bus === "command" || r.bus === "event") && r.type.startsWith(prefix)),

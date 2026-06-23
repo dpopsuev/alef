@@ -1,5 +1,5 @@
-import { createFactoryOrgan } from "@dpopsuev/alef-adapter-factory";
-import { createSkillsOrgan } from "@dpopsuev/alef-adapter-skills";
+import { createFactoryAdapter } from "@dpopsuev/alef-adapter-factory";
+import { createSkillsAdapter } from "@dpopsuev/alef-adapter-skills";
 import { type BlueprintStack, type BlueprintStackOptions, buildDelegationStack } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { completeSimple } from "@dpopsuev/alef-llm";
@@ -11,8 +11,8 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		throw new Error("BlueprintStackOptions.subagentFactory is required.");
 	}
 
-	const skillsOrgan = createSkillsOrgan({ cwd: opts.cwd });
-	const factoryOrgan = createFactoryOrgan({ cwd: opts.cwd });
+	const skillsAdapter = createSkillsAdapter({ cwd: opts.cwd });
+	const factoryAdapter = createFactoryAdapter({ cwd: opts.cwd });
 
 	const llmSummarize = async (messages: readonly unknown[]): Promise<string> => {
 		const conversation = messages
@@ -58,16 +58,16 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		}
 	};
 
-	const { organs, pipeline } = await buildDelegationStack({
+	const { adapters, pipeline } = await buildDelegationStack({
 		cwd: opts.cwd,
 		factory: opts.subagentFactory,
 		contextWindow: opts.model.contextWindow,
-		domainOrgans: opts.domainOrgans,
+		domainAdapters: opts.domainAdapters,
 		sessionStore: opts.sessionStore,
 		writableRoots: opts.writableRoots,
-		extraAdapters: [skillsOrgan, factoryOrgan as unknown as Adapter],
+		extraAdapters: [skillsAdapter, factoryAdapter as unknown as Adapter],
 		summarize: llmSummarize,
 	});
 
-	return { organs, pipeline };
+	return { adapters, pipeline };
 }

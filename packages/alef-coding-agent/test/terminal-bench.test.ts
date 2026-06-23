@@ -27,7 +27,7 @@ describe.skipIf(SKIP_REAL_LLM)("terminal bench — agent resolves coding tasks",
 				systemPrompt:
 					"You are a precise coding assistant. Complete the task in the current directory. " +
 					"Always use tools to read and write files — never guess.",
-				extraOrgans: [],
+				extraAdapters: [],
 			});
 			const result = await runner.run(evaluation);
 			results.push({ id: evaluation.id, score: result.score, passed: result.pass });

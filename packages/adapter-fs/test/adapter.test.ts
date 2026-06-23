@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createFsOrgan } from "../src/adapter.js";
+import { createFsAdapter } from "../src/adapter.js";
 
-adapterComplianceSuite(() => createFsOrgan({ cwd: "/tmp" }));
+adapterComplianceSuite(() => createFsAdapter({ cwd: "/tmp" }));
 
 let testDir: string;
 
@@ -20,13 +20,13 @@ afterEach(async () => {
 
 function fixture() {
 	const f = new BusFixture();
-	f.mount(createFsOrgan({ cwd: testDir }));
+	f.mount(createFsAdapter({ cwd: testDir }));
 	return f;
 }
 
 describe("Fsorgan", { tags: ["compliance"] }, () => {
 	it("has name=fs and 6 tools", () => {
-		const organ = createFsOrgan({ cwd: testDir });
+		const organ = createFsAdapter({ cwd: testDir });
 		expect(organ.name).toBe("fs");
 		expect(organ.tools.map((t) => t.name)).toEqual([
 			"fs.read",
@@ -40,7 +40,7 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 
 	it("unmount unsubscribes all command handlers", () => {
 		const f = new BusFixture();
-		const organ = createFsOrgan({ cwd: testDir });
+		const organ = createFsAdapter({ cwd: testDir });
 		const unmount = f.mount(organ);
 		expect(f.nerve.listenerCount("command", "fs.read")).toBe(1);
 		unmount();
@@ -201,7 +201,7 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 describe("write serialization — file mutation queue", { tags: ["compliance"] }, () => {
 	it("serializes concurrent fs.write calls on the same path", async () => {
 		const f = new BusFixture();
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 
 		const filePath = "concurrent.txt";
 		const abs = join(testDir, filePath);
@@ -251,7 +251,7 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 
 	it("serializes concurrent fs.edit calls on the same path", async () => {
 		const f = new BusFixture();
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 
 		const filePath = "edit-concurrent.txt";
 		await writeFile(join(testDir, filePath), "AAA");
@@ -303,7 +303,7 @@ describe("fs.find — path-based glob patterns", { tags: ["compliance"] }, () =>
 		await writeFile(join(testDir, "src", "auth", "login.test.ts"), "");
 		await writeFile(join(testDir, "src", "auth", "logout.ts"), "");
 		await writeFile(join(testDir, "other.ts"), "");
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 
 		const result = await f.call("fs.find", { pattern: "src/**/*.test.ts" });
 		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
@@ -317,7 +317,7 @@ describe("fs.find — path-based glob patterns", { tags: ["compliance"] }, () =>
 		const f = new BusFixture();
 		await mkdir(join(testDir, "deep", "nested"), { recursive: true });
 		await writeFile(join(testDir, "deep", "nested", "target.ts"), "");
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 
 		const result = await f.call("fs.find", { pattern: "*.ts" });
 		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
@@ -335,7 +335,7 @@ describe("fs.find — nested gitignore rules", { tags: ["compliance"] }, () => {
 		await mkdir(join(testDir, "sibling-b"), { recursive: true });
 		await writeFile(join(testDir, "sibling-b", "debug.log"), "");
 		await writeFile(join(testDir, "sibling-b", "app.ts"), "");
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 
 		const result = await f.call("fs.find", { pattern: "*.log" });
 		const text = (result.payload as { content?: Array<{ text: string }> }).content?.[0]?.text ?? "";
@@ -348,7 +348,7 @@ describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 	it("applies multiple disjoint edits atomically", async () => {
 		const f = new BusFixture();
 		await writeFile(join(testDir, "multi.ts"), "AAA BBB CCC");
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 		await f.call("fs.read", { path: "multi.ts" });
 
 		const result = await f.call("fs.edit", {
@@ -367,7 +367,7 @@ describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 	it("matches edits against original, not incrementally", async () => {
 		const f = new BusFixture();
 		await writeFile(join(testDir, "orig.ts"), "AAA AAA");
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 		await f.call("fs.read", { path: "orig.ts" });
 
 		const result = await f.call("fs.edit", { path: "orig.ts", edits: [{ oldText: "AAA", newText: "111" }] });
@@ -378,7 +378,7 @@ describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 	it("rejects overlapping edits", async () => {
 		const f = new BusFixture();
 		await writeFile(join(testDir, "over.ts"), "ABCDEF");
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 		await f.call("fs.read", { path: "over.ts" });
 
 		const result = await f.call("fs.edit", {
@@ -395,7 +395,7 @@ describe("fs.edit — multi-edit", { tags: ["compliance"] }, () => {
 
 	it("reports ENOENT clearly", async () => {
 		const f = new BusFixture();
-		f.mount(createFsOrgan({ cwd: testDir }));
+		f.mount(createFsAdapter({ cwd: testDir }));
 
 		const result = await f.call("fs.edit", { path: "nonexistent.ts", oldText: "X", newText: "Y" });
 		expect(result.isError).toBe(true);

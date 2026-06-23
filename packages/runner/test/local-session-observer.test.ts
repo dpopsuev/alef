@@ -29,7 +29,7 @@ import { HeadlessViewMode } from "../src/view-mode.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
 const EMPTY_LOADED = {
-	organs: [],
+	adapters: [],
 	blueprintModelId: undefined,
 	blueprintName: undefined,
 	blueprintSurfaces: [],

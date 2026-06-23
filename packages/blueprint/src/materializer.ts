@@ -68,7 +68,6 @@ interface AdapterModule {
 
 function resolveFactory(mod: Record<string, unknown>): AdapterModule["createAdapter"] | undefined {
 	if (typeof mod.createAdapter === "function") return mod.createAdapter as AdapterModule["createAdapter"];
-	if (typeof mod.createOrgan === "function") return mod.createOrgan as AdapterModule["createAdapter"];
 	return undefined;
 }
 
@@ -98,8 +97,6 @@ export interface MaterializerOptions {
 
 export interface MaterializerResult {
 	adapters: Adapter[];
-	/** @deprecated Use adapters */
-	organs: Adapter[];
 	modelId: string | undefined;
 }
 
@@ -164,7 +161,7 @@ export const DEFAULT_COMPILED_DEFINITION: CompiledAgentDefinition = loadAgentDef
 /** The canonical alef-coding-agent adapter set — matches blueprint.yaml in packages/alef-coding-agent. */
 export const CODING_AGENT_BLUEPRINT: CompiledAgentDefinition = {
 	name: "alef-coding-agent",
-	organs: [
+	adapters: [
 		{ name: "fs", actions: [], toolNames: [] },
 		{ name: "shell", actions: [], toolNames: [] },
 		{ name: "nodesh", actions: [], toolNames: [] },
@@ -193,19 +190,21 @@ export async function materializeDefaultAdapters(cwd: string) {
 /** Path to the user adapters config file. Read at call time so ALEF_PM_ROOT overrides work in tests. */
 export function userAdaptersConfigPath(): string {
 	const root = process.env.ALEF_PM_ROOT ?? join(homedir(), ".config", "alef");
-	return join(root, "organs.yaml");
+	return join(root, "adapters.yaml");
 }
 
 type AdapterEntry = string | { name: string; path?: string; actions?: string[] };
 
 /**
- * Load user adapters config from ~/.config/alef/organs.yaml.
+ * Load user adapters config from ~/.config/alef/adapters.yaml.
  * Returns null when the file does not exist (caller falls back to default).
  */
-export function loadUserAdaptersConfig(): CompiledAgentDefinition["organs"] | null {
+export function loadUserAdaptersConfig(): CompiledAgentDefinition["adapters"] | null {
 	const configPath = userAdaptersConfigPath();
-	if (!existsSync(configPath)) return null;
-	const text = readFileSync(configPath, "utf-8");
+	const legacyPath = configPath.replace("adapters.yaml", "organs.yaml");
+	const effectivePath = existsSync(configPath) ? configPath : existsSync(legacyPath) ? legacyPath : null;
+	if (!effectivePath) return null;
+	const text = readFileSync(effectivePath, "utf-8");
 	const parsed = parseYaml(text) as unknown;
 	if (!parsed || typeof parsed !== "object") return null;
 	const rec = parsed as Record<string, unknown>;
@@ -233,7 +232,7 @@ function getJiti(): ReturnType<typeof createJiti> {
 }
 
 async function loadAdapterModule(
-	adapterDef: CompiledAgentDefinition["organs"][number],
+	adapterDef: CompiledAgentDefinition["adapters"][number],
 	resolveExternalPath?: (name: string) => string | undefined,
 ): Promise<AdapterModule> {
 	if (adapterDef.path) {
@@ -300,7 +299,7 @@ export async function materializeBlueprint(
 ): Promise<MaterializerResult> {
 	const adapters: Adapter[] = [];
 
-	for (const adapterDef of definition.organs) {
+	for (const adapterDef of definition.adapters) {
 		if (["ai", "discourse", "symbols"].includes(adapterDef.name)) continue;
 
 		const label = adapterDef.path ? adapterDef.path : resolveAdapterPackage(adapterDef.name);
@@ -321,7 +320,7 @@ export async function materializeBlueprint(
 			adapters.push(gated);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			if (msg.includes("does not export createAdapter") || msg.includes("does not export createOrgan")) {
+			if (msg.includes("does not export createAdapter")) {
 				traceEvent("blueprint:adapter:skip", { adapter: label, reason: msg });
 			} else {
 				throw new Error(`[blueprint] Failed to load adapter '${label}': ${msg}`);
@@ -334,5 +333,5 @@ export async function materializeBlueprint(
 		modelId = `${definition.model.provider}/${definition.model.id}`;
 	}
 
-	return { adapters, organs: adapters, modelId };
+	return { adapters, modelId };
 }

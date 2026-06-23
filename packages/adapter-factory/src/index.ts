@@ -1,1 +1,1 @@
-export { createFactoryOrgan, createFactoryOrgan as createOrgan, type FactoryOrganOptions } from "./adapter.js";
+export { createFactoryAdapter, type FactoryAdapterOptions } from "./adapter.js";

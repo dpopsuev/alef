@@ -1,10 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { parse } from "yaml";
-import { compileAgentOrganDefinitions, listToolNamesForOrgans } from "./organs.js";
+import { compileAgentAdapterDefinitions, listToolNamesForAdapters } from "./organs.js";
 import type {
 	AgentDefinitionDependenciesConfig,
 	AgentDefinitionInput,
@@ -56,7 +55,7 @@ const AgentDefinitionChildSchema = Type.Object({
 	blueprint: Type.String({ minLength: 1 }),
 });
 
-const AgentDefinitionOrganSchema = Type.Object({
+const AgentDefinitionAdapterSchema = Type.Object({
 	name: Type.Optional(Type.String({ minLength: 1 })),
 	path: Type.Optional(Type.String({ minLength: 1 })),
 	actions: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
@@ -104,8 +103,8 @@ const AgentDefinitionSchema = Type.Object({
 	name: Type.String({ minLength: 1 }),
 	model: Type.Optional(Type.Union([Type.String({ minLength: 1 }), AgentModelSchema])),
 	systemPrompt: Type.Optional(Type.String()),
-	organs: Type.Optional(Type.Array(AgentDefinitionOrganSchema)),
-	adapters: Type.Optional(Type.Array(AgentDefinitionOrganSchema)),
+	adapters: Type.Optional(Type.Array(AgentDefinitionAdapterSchema)),
+	organs: Type.Optional(Type.Array(AgentDefinitionAdapterSchema)),
 	surfaces: Type.Optional(
 		Type.Array(
 			Type.Object({
@@ -435,25 +434,21 @@ export function compileAgentDefinition(
 
 	const sourcePath = options.sourcePath ? resolve(options.sourcePath) : undefined;
 	const baseDir = sourcePath ? dirname(sourcePath) : undefined;
-	if (input.organs && !input.adapters) {
-		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
-		traceEvent("blueprint:deprecated", { key: "organs", location: location.trim() });
-	}
 	const adapterInput = input.adapters ?? input.organs;
-	const adapters = compileAgentOrganDefinitions(adapterInput);
+	const adapters = compileAgentAdapterDefinitions(adapterInput);
 	const legacyToolNames = normalizeStringArray(input.capabilities?.tools);
 	const toolNames =
-		adapters.length > 0 ? [...new Set([...listToolNamesForOrgans(adapters), ...legacyToolNames])] : legacyToolNames;
-	const hasOrchestrationOrgan = adapters.some(
+		adapters.length > 0 ? [...new Set([...listToolNamesForAdapters(adapters), ...legacyToolNames])] : legacyToolNames;
+	const hasOrchestrationAdapter = adapters.some(
 		(adapter) => adapter.name === "orchestration" || adapter.name === "agent",
 	);
-	if (hasOrchestrationOrgan && input.capabilities?.orchestration !== true) {
+	if (hasOrchestrationAdapter && input.capabilities?.orchestration !== true) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		throw new Error(
 			`Invalid agent definition${location}: orchestration adapter requires capabilities.orchestration: true`,
 		);
 	}
-	if (!hasOrchestrationOrgan && input.capabilities?.orchestration === true) {
+	if (!hasOrchestrationAdapter && input.capabilities?.orchestration === true) {
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		throw new Error(
 			`Invalid agent definition${location}: capabilities.orchestration: true requires an orchestration adapter`,
@@ -466,7 +461,7 @@ export function compileAgentDefinition(
 		baseDir,
 		model: normalizeModelSelector(input.model),
 		systemPrompt: input.systemPrompt?.trim() || undefined,
-		organs: adapters,
+		adapters: adapters,
 		capabilities: {
 			tools: toolNames,
 			orchestration: input.capabilities?.orchestration ?? false,
@@ -596,16 +591,16 @@ export function resolveAgentChildDefinition(
  *
  * Follows the Docker Compose overlay convention:
  *   - Scalar fields: overlay wins if defined.
- *   - Array fields (organs, surfaces, children): overlay replaces base if non-empty.
+ *   - Array fields (adapters, surfaces, children): overlay replaces base if non-empty.
  *   - Deeply-nested objects: merged recursively, overlay wins on conflicts.
  *
  * Intended for profile overlays: loadAgentDefinition(base) + loadAgentDefinition(overlay).
  * The overlay file is typically a sparse file with only the fields that differ per profile.
  */
-function mergeOrganLists(
-	base: CompiledAgentDefinition["organs"],
-	overlay: CompiledAgentDefinition["organs"],
-): CompiledAgentDefinition["organs"] {
+function mergeAdapterLists(
+	base: CompiledAgentDefinition["adapters"],
+	overlay: CompiledAgentDefinition["adapters"],
+): CompiledAgentDefinition["adapters"] {
 	if (overlay.length === 0) return base;
 	const merged = new Map(base.map((o) => [o.name, o]));
 	for (const o of overlay) {
@@ -637,9 +632,9 @@ export function mergeAgentDefinitions(
 		model: overlay.model ?? base.model,
 		systemPrompt: overlay.systemPrompt ?? base.systemPrompt,
 
-		// Organs: merge by name. Overlay adapter config wins per-adapter field.
-		// Base organs not in overlay are kept. Overlay organs not in base are added.
-		organs: mergeOrganLists(base.organs, overlay.organs),
+		// Adapters: merge by name. Overlay adapter config wins per-adapter field.
+		// Base adapters not in overlay are kept. Overlay adapters not in base are added.
+		adapters: mergeAdapterLists(base.adapters, overlay.adapters),
 		surfaces: overlay.surfaces.length > 0 ? overlay.surfaces : base.surfaces,
 		children: overlay.children.length > 0 ? overlay.children : base.children,
 

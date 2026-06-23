@@ -249,59 +249,59 @@ describe("robustness", { tags: ["unit"] }, () => {
 
 describe("local-store", { tags: ["unit"] }, () => {
 	it("snapshots and restores by hash", async () => {
-		const { init, snapshotLocalOrgan, restoreLocalOrgan } = await load();
+		const { init, snapshotLocalAdapter, restoreLocalAdapter } = await load();
 		init();
-		const file = join(tmpRoot, "organ.ts");
+		const file = join(tmpRoot, "adapter.ts");
 		writeFileSync(file, "export function createOrgan() {}");
-		const hash = snapshotLocalOrgan(file);
+		const hash = snapshotLocalAdapter(file);
 		expect(hash).toHaveLength(64);
-		expect(readFileSync(restoreLocalOrgan(hash, "organ.ts"), "utf-8")).toBe("export function createOrgan() {}");
+		expect(readFileSync(restoreLocalAdapter(hash, "adapter.ts"), "utf-8")).toBe("export function createOrgan() {}");
 	});
 
-	it("restoreLocalOrgan throws when missing", async () => {
-		const { init, restoreLocalOrgan } = await load();
+	it("restoreLocalAdapter throws when missing", async () => {
+		const { init, restoreLocalAdapter } = await load();
 		init();
-		expect(() => restoreLocalOrgan("a".repeat(64), "organ.ts")).toThrow("not found");
+		expect(() => restoreLocalAdapter("a".repeat(64), "adapter.ts")).toThrow("not found");
 	});
 
-	it("restoreLocalOrgan throws on tampered content", async () => {
-		const { init, snapshotLocalOrgan, restoreLocalOrgan } = await load();
+	it("restoreLocalAdapter throws on tampered content", async () => {
+		const { init, snapshotLocalAdapter, restoreLocalAdapter } = await load();
 		init();
-		const file = join(tmpRoot, "organ.ts");
+		const file = join(tmpRoot, "adapter.ts");
 		writeFileSync(file, "original");
-		const hash = snapshotLocalOrgan(file);
-		writeFileSync(join(tmpRoot, "local-store", hash, "organ.ts"), "tampered");
-		expect(() => restoreLocalOrgan(hash, "organ.ts")).toThrow("hash mismatch");
+		const hash = snapshotLocalAdapter(file);
+		writeFileSync(join(tmpRoot, "local-store", hash, "adapter.ts"), "tampered");
+		expect(() => restoreLocalAdapter(hash, "adapter.ts")).toThrow("hash mismatch");
 	});
 });
 
 // ---------------------------------------------------------------------------
-// resolveOrganPath
+// resolveAdapterPath
 // ---------------------------------------------------------------------------
 
-describe("resolveOrganPath", { tags: ["unit"] }, () => {
+describe("resolveAdapterPath", { tags: ["unit"] }, () => {
 	it("returns undefined when not installed", async () => {
-		const { init, resolveOrganPath } = await load();
+		const { init, resolveAdapterPath } = await load();
 		init();
-		expect(resolveOrganPath("organ-missing")).toBeUndefined();
+		expect(resolveAdapterPath("organ-missing")).toBeUndefined();
 	});
 
 	it("resolves under @dpopsuev namespace", async () => {
-		const { init, resolveOrganPath } = await load();
+		const { init, resolveAdapterPath } = await load();
 		init();
 		const dir = join(tmpRoot, "node_modules", "@dpopsuev", "organ-fs", "src");
 		mkdirSync(dir, { recursive: true });
-		writeFileSync(join(dir, "organ.ts"), "");
-		expect(resolveOrganPath("organ-fs")).toContain("organ.ts");
+		writeFileSync(join(dir, "adapter.ts"), "");
+		expect(resolveAdapterPath("organ-fs")).toContain("adapter.ts");
 	});
 
 	it("resolves directly under node_modules", async () => {
-		const { init, resolveOrganPath } = await load();
+		const { init, resolveAdapterPath } = await load();
 		init();
 		const dir = join(tmpRoot, "node_modules", "my-organ", "src");
 		mkdirSync(dir, { recursive: true });
-		writeFileSync(join(dir, "organ.ts"), "");
-		expect(resolveOrganPath("my-organ")).toContain("my-organ");
+		writeFileSync(join(dir, "adapter.ts"), "");
+		expect(resolveAdapterPath("my-organ")).toContain("my-organ");
 	});
 });
 

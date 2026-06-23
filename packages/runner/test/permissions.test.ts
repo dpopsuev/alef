@@ -21,7 +21,7 @@ declare module "@dpopsuev/alef-kernel" {
 	}
 }
 
-function makePassthroughOrgan(name: string): Adapter {
+function makePassthroughAdapter(name: string): Adapter {
 	return {
 		name,
 		tools: [],
@@ -52,9 +52,9 @@ function makePassthroughOrgan(name: string): Adapter {
 	};
 }
 
-function waitSense(nerve: InProcessBus, type: string, correlationId: string) {
+function waitSense(bus: InProcessBus, type: string, correlationId: string) {
 	return new Promise<import("@dpopsuev/alef-kernel").EventMessage>((resolve) => {
-		const off = nerve.asBus().event.subscribe(type, (e) => {
+		const off = bus.asBus().event.subscribe(type, (e) => {
 			if (e.correlationId === correlationId) {
 				off();
 				resolve(e);
@@ -65,42 +65,46 @@ function waitSense(nerve: InProcessBus, type: string, correlationId: string) {
 
 describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 	it("['*'] bypasses gate — all tools pass through", async () => {
-		const nerve = new InProcessBus();
-		const adapter = wrapWithPermissions(makePassthroughOrgan("fs"), ["*"]);
-		adapter.mount(nerve.asBus());
+		const bus = new InProcessBus();
+		const adapter = wrapWithPermissions(makePassthroughAdapter("fs"), ["*"]);
+		adapter.mount(bus.asBus());
 
 		const corrId = "corr-yolo";
-		const result = waitSense(nerve, "fs.read", corrId);
-		nerve
-			.asBus()
-			.command.publish({ type: "fs.read", payload: { path: "a.ts", toolCallId: "tc1" }, correlationId: corrId });
+		const result = waitSense(bus, "fs.read", corrId);
+		bus.asBus().command.publish({
+			type: "fs.read",
+			payload: { path: "a.ts", toolCallId: "tc1" },
+			correlationId: corrId,
+		});
 		const ev = await result;
 		expect(ev.isError).toBe(false);
 	});
 
 	it("allowed tool passes through to organ handler", async () => {
-		const nerve = new InProcessBus();
-		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), ["fs.read"]);
-		organ.mount(nerve.asBus());
+		const bus = new InProcessBus();
+		const adapter = wrapWithPermissions(makePassthroughAdapter("fs"), ["fs.read"]);
+		adapter.mount(bus.asBus());
 
 		const corrId = "corr-allow";
-		const result = waitSense(nerve, "fs.read", corrId);
-		nerve
-			.asBus()
-			.command.publish({ type: "fs.read", payload: { path: "b.ts", toolCallId: "tc2" }, correlationId: corrId });
+		const result = waitSense(bus, "fs.read", corrId);
+		bus.asBus().command.publish({
+			type: "fs.read",
+			payload: { path: "b.ts", toolCallId: "tc2" },
+			correlationId: corrId,
+		});
 		const ev = await result;
 		expect(ev.isError).toBe(false);
 		expect((ev.payload as { content?: string }).content).toBe("data");
 	});
 
 	it("denied tool publishes isError sense event with permission message", async () => {
-		const nerve = new InProcessBus();
-		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), ["fs.read"]);
-		organ.mount(nerve.asBus());
+		const bus = new InProcessBus();
+		const adapter = wrapWithPermissions(makePassthroughAdapter("fs"), ["fs.read"]);
+		adapter.mount(bus.asBus());
 
 		const corrId = "corr-deny";
-		const result = waitSense(nerve, "fs.write", corrId);
-		nerve.asBus().command.publish({
+		const result = waitSense(bus, "fs.write", corrId);
+		bus.asBus().command.publish({
 			type: "fs.write",
 			payload: { path: "x.ts", content: "evil", toolCallId: "tc3" },
 			correlationId: corrId,
@@ -112,15 +116,17 @@ describe("wrapWithPermissions", { tags: ["unit"] }, () => {
 	});
 
 	it("empty allowedTools denies everything", async () => {
-		const nerve = new InProcessBus();
-		const organ = wrapWithPermissions(makePassthroughOrgan("fs"), []);
-		organ.mount(nerve.asBus());
+		const bus = new InProcessBus();
+		const adapter = wrapWithPermissions(makePassthroughAdapter("fs"), []);
+		adapter.mount(bus.asBus());
 
 		const corrId = "corr-empty";
-		const result = waitSense(nerve, "fs.read", corrId);
-		nerve
-			.asBus()
-			.command.publish({ type: "fs.read", payload: { path: "a.ts", toolCallId: "tc4" }, correlationId: corrId });
+		const result = waitSense(bus, "fs.read", corrId);
+		bus.asBus().command.publish({
+			type: "fs.read",
+			payload: { path: "a.ts", toolCallId: "tc4" },
+			correlationId: corrId,
+		});
 		const ev = await result;
 		expect(ev.isError).toBe(true);
 	});

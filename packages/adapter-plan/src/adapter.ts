@@ -8,7 +8,7 @@ import { injectContextBlock } from "@dpopsuev/alef-kernel/pipeline";
 import { z } from "zod";
 import { PlanGraph } from "./graph.js";
 
-export interface PlanOrganOptions extends BaseAdapterOptions {
+export interface PlanAdapterOptions extends BaseAdapterOptions {
 	sessionDir: string;
 }
 
@@ -16,7 +16,7 @@ function planPath(sessionDir: string): string {
 	return join(sessionDir, "plan.json");
 }
 
-export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
+export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 	let activePlan: PlanGraph | null = null;
 	const shortId = () => randomUUID().replace(/-/g, "").slice(0, 12);
 	let mountedBus: Bus | null = null;

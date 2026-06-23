@@ -9,18 +9,18 @@
 
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createWebOrgan } from "../src/adapter.js";
+import { createWebAdapter } from "../src/adapter.js";
 
-adapterComplianceSuite(() => createWebOrgan());
+adapterComplianceSuite(() => createWebAdapter());
 
 describe("WebOrgan — structure", { tags: ["compliance"] }, () => {
 	it("has name 'web'", () => {
-		const organ = createWebOrgan();
+		const organ = createWebAdapter();
 		expect(organ.name).toBe("web");
 	});
 
 	it("has description and labels", () => {
-		const organ = createWebOrgan();
+		const organ = createWebAdapter();
 		expect(organ.description).toBeTruthy();
 		expect(organ.labels).toContain("web");
 		expect(organ.labels).toContain("fetch");
@@ -28,18 +28,18 @@ describe("WebOrgan — structure", { tags: ["compliance"] }, () => {
 	});
 
 	it("exposes web.fetch tool", () => {
-		const organ = createWebOrgan();
+		const organ = createWebAdapter();
 		expect(organ.tools.some((t) => t.name === "web.fetch")).toBe(true);
 	});
 
 	it("exposes web.search tool", () => {
-		const organ = createWebOrgan();
+		const organ = createWebAdapter();
 		expect(organ.tools.some((t) => t.name === "web.search")).toBe(true);
 	});
 
 	it("mounts and unmounts cleanly", () => {
 		const fixture = new BusFixture();
-		fixture.mount(createWebOrgan());
+		fixture.mount(createWebAdapter());
 		fixture.dispose();
 	});
 });
@@ -49,7 +49,7 @@ describe("WebOrgan — web.fetch validation", { tags: ["compliance"] }, () => {
 
 	beforeEach(() => {
 		fixture = new BusFixture();
-		fixture.mount(createWebOrgan());
+		fixture.mount(createWebAdapter());
 	});
 
 	afterEach(() => fixture.dispose());
@@ -63,7 +63,7 @@ describe("WebOrgan — web.fetch validation", { tags: ["compliance"] }, () => {
 	it("returns isError on network failure", async () => {
 		fixture.dispose();
 		fixture = new BusFixture();
-		fixture.mount(createWebOrgan({ defaultTimeoutMs: 500 }));
+		fixture.mount(createWebAdapter({ defaultTimeoutMs: 500 }));
 		const result = await fixture.call("web.fetch", { url: "http://127.0.0.1:19999" }, { timeoutMs: 3000 });
 		expect(result.isError).toBe(true);
 	});
@@ -74,7 +74,7 @@ describe("WebOrgan — web.search validation", { tags: ["compliance"] }, () => {
 
 	beforeEach(() => {
 		fixture = new BusFixture();
-		fixture.mount(createWebOrgan());
+		fixture.mount(createWebAdapter());
 	});
 
 	afterEach(() => fixture.dispose());
@@ -117,7 +117,7 @@ describe("WebOrgan — web.fetch with Readability + Turndown", { tags: ["complia
 		);
 
 		const fixture = new BusFixture();
-		fixture.mount(createWebOrgan());
+		fixture.mount(createWebAdapter());
 		const result = await fixture.call("web.fetch", { url: "https://example.com" });
 
 		// Contract: content is a string the LLM can read
@@ -148,7 +148,7 @@ describe("WebOrgan — web.fetch with Readability + Turndown", { tags: ["complia
 		);
 
 		const fixture = new BusFixture();
-		fixture.mount(createWebOrgan());
+		fixture.mount(createWebAdapter());
 		const result = await fixture.call("web.fetch", { url: "https://example.com", format: "html" });
 		expect(String(result.payload.content)).toContain("<p>raw content</p>");
 		fixture.dispose();
@@ -178,7 +178,7 @@ describe("WebOrgan — web.fetch with Readability + Turndown", { tags: ["complia
 		);
 
 		const fixture = new BusFixture();
-		fixture.mount(createWebOrgan());
+		fixture.mount(createWebAdapter());
 		const result = await fixture.call("web.fetch", { url: "https://example.com", format: "lean" });
 
 		// Lean output is JSON-stringified in content — short, no markdown body

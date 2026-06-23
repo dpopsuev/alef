@@ -105,8 +105,8 @@ describe.skipIf(!HAVE_LLM)("directive ablation — no-emojis & no-files", { time
 	});
 
 	it("treatment: reply contains no emojis with directives active", async () => {
-		const { createFsOrgan } = await import("../../adapter-fs/src/index.js");
-		const tools = [createFsOrgan({ cwd: workspace })];
+		const { createFsAdapter } = await import("../../adapter-fs/src/index.js");
+		const tools = [createFsAdapter({ cwd: workspace })];
 		const directives = createDefaultDirectives({ tools: tools.flatMap((o) => o.tools), cwd: workspace });
 		const systemPrompt = directives.build(20_000);
 
@@ -123,9 +123,9 @@ describe.skipIf(!HAVE_LLM)("directive ablation — no-emojis & no-files", { time
 	});
 
 	it("treatment: no .md files created with directives active", async () => {
-		const { createFsOrgan } = await import("../../adapter-fs/src/index.js");
+		const { createFsAdapter } = await import("../../adapter-fs/src/index.js");
 		const mdBefore = findMdFiles(workspace);
-		const tools = [createFsOrgan({ cwd: workspace })];
+		const tools = [createFsAdapter({ cwd: workspace })];
 		const directives = createDefaultDirectives({ tools: tools.flatMap((o) => o.tools), cwd: workspace });
 		const systemPrompt = directives.build(20_000);
 
@@ -141,9 +141,9 @@ describe.skipIf(!HAVE_LLM)("directive ablation — no-emojis & no-files", { time
 	});
 
 	it("baseline: bare prompt without directives (observation only)", async () => {
-		const { createFsOrgan } = await import("../../adapter-fs/src/index.js");
+		const { createFsAdapter } = await import("../../adapter-fs/src/index.js");
 		const bare = "You are a coding assistant. Help the user with their request.";
-		const tools = [createFsOrgan({ cwd: workspace })];
+		const tools = [createFsAdapter({ cwd: workspace })];
 
 		const session = await createSessionWithPrompt(tools, bare);
 		try {

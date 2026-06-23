@@ -260,7 +260,7 @@ async function doUpdate(scope: string): Promise<void> {
 	try {
 		const { upgrade, init } = await import("./alef-pm.js");
 		if (scope === "packages") {
-			process.stderr.write("[supervisor] upgrading organs (scope=packages)\n");
+			process.stderr.write("[supervisor] upgrading adapters (scope=packages)\n");
 			init();
 			await upgrade();
 		} else if (scope === "self") {

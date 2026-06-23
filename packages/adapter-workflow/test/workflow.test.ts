@@ -1,5 +1,5 @@
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
-import { createWorkflowOrgan } from "../src/adapter.js";
+import { createWorkflowAdapter } from "../src/adapter.js";
 import type { WorkflowDef } from "../src/schema.js";
 
 const def: WorkflowDef = {
@@ -11,7 +11,7 @@ const def: WorkflowDef = {
 };
 
 adapterComplianceSuite(() =>
-	createWorkflowOrgan({
+	createWorkflowAdapter({
 		def,
 		runner: {
 			run: async () => ({ status: "fulfilled", output: {}, questions: [] }),

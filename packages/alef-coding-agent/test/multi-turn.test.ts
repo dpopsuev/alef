@@ -33,7 +33,7 @@ describe.skipIf(SKIP_REAL_LLM)("multi-turn: tool result visible in follow-up tur
 			{
 				scenario: "multi-turn-history",
 				scenarioTimeoutMs: 150_000,
-				asyncOrganFactory: async (workspace, signal) => {
+				asyncAdapterFactory: async (workspace, signal) => {
 					const sessionStore = new InMemorySessionStore();
 					const stack = await createCodingAgentStack({
 						cwd: workspace,
@@ -47,7 +47,7 @@ describe.skipIf(SKIP_REAL_LLM)("multi-turn: tool result visible in follow-up tur
 						schemaResolver: (name) => stack.pipeline.getSchemaResolver()?.(name),
 						phaseTimeoutMs: 100,
 					});
-					return [...stack.organs, llm];
+					return [...stack.adapters, llm];
 				},
 			},
 		);

@@ -124,7 +124,7 @@ export class Agent {
 
 	get tools(): ReadonlyArray<ToolDefinition> {
 		const seen = new Set<string>();
-		return this._organs
+		return this._adapters
 			.flatMap((o) => o.tools)
 			.filter((t) => {
 				if (seen.has(t.name)) return false;
@@ -132,13 +132,9 @@ export class Agent {
 				return true;
 			});
 	}
-	private readonly _organs: Adapter[] = [];
+	private readonly _adapters: Adapter[] = [];
 	get adapters(): readonly Adapter[] {
-		return this._organs;
-	}
-	/** @deprecated Use adapters */
-	get organs(): readonly Adapter[] {
-		return this._organs;
+		return this._adapters;
 	}
 	private readonly _bindings = new Map<string, Binding>();
 	private disposed = false;
@@ -163,14 +159,14 @@ export class Agent {
 	 */
 	load(adapter: Adapter): this {
 		if (this.disposed) throw new Error("Agent is disposed - cannot load adapters.");
-		// Push to _organs tentatively; roll back if mount() throws so indices stay aligned.
-		this._organs.push(adapter);
+		// Push to _adapters tentatively; roll back if mount() throws so indices stay aligned.
+		this._adapters.push(adapter);
 		let unmount: () => void;
 		try {
 			const boundBus = this._bindings.size > 0 ? withBindings(this._bindings, this.bus.asBus()) : this.bus.asBus();
 			unmount = adapter.mount(withPayloadValidation(boundBus, adapter));
 		} catch (err) {
-			this._organs.pop();
+			this._adapters.pop();
 			throw err;
 		}
 		this.unmounts.push(unmount);
@@ -182,7 +178,7 @@ export class Agent {
 				"adapter exposes tools but has no description",
 			);
 		}
-		const existingToolNames = new Set(this._organs.slice(0, -1).flatMap((o) => o.tools.map((t) => t.name)));
+		const existingToolNames = new Set(this._adapters.slice(0, -1).flatMap((o) => o.tools.map((t) => t.name)));
 		for (const tool of adapter.tools) {
 			if (existingToolNames.has(tool.name)) {
 				this.log.warn(
@@ -195,7 +191,7 @@ export class Agent {
 		// Announce all previously loaded adapters to the new adapter (catch-up),
 		// then announce the new adapter to everyone. Handlers must be idempotent.
 		const sysId = randomUUID();
-		for (const loaded of this._organs) {
+		for (const loaded of this._adapters) {
 			this.bus.publish("event", {
 				type: "adapter.loaded",
 				correlationId: sysId,
@@ -221,13 +217,13 @@ export class Agent {
 	 * Logs warnings for zero-or-one violations.
 	 */
 	validate(): this {
-		const infos: AdapterPortInfo[] = this._organs.map((a) => ({
+		const infos: AdapterPortInfo[] = this._adapters.map((a) => ({
 			name: a.name,
 			commandSubscriptions: [...a.subscriptions.command],
 			eventSubscriptions: [...a.subscriptions.event],
 		}));
 
-		const ports = this._organs.flatMap((a) => (a.contributions?.port ? [a.contributions.port] : []));
+		const ports = this._adapters.flatMap((a) => (a.contributions?.port ? [a.contributions.port] : []));
 
 		const result = validatePorts(infos, ports);
 		for (const w of result.violations.filter((v) => v.severity === "warning")) {
@@ -299,7 +295,7 @@ export class Agent {
 	 */
 	async ready(): Promise<void> {
 		await Promise.all(
-			this._organs
+			this._adapters
 				.filter((o): o is Adapter & { ready: () => Promise<void> } => typeof o.ready === "function")
 				.map((o) =>
 					o.ready().catch((err: unknown) => {
@@ -329,12 +325,12 @@ export class Agent {
 	 * Safe to call while the agent is running. Returns true if found.
 	 */
 	unload(name: string): boolean {
-		const idx = this._organs.findIndex((o) => o.name === name);
+		const idx = this._adapters.findIndex((o) => o.name === name);
 		if (idx === -1) return false;
-		const adapter = this._organs[idx];
+		const adapter = this._adapters[idx];
 		this.unmounts[idx]?.();
 		void adapter?.close?.();
-		this._organs.splice(idx, 1);
+		this._adapters.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
 
 		this.bus.publish("event", {
@@ -381,7 +377,7 @@ export class Agent {
 		this.disposed = true;
 		this.controller.abort();
 		for (const unmount of this.unmounts) unmount();
-		const closePromises = this._organs.map((o) => o.close?.()).filter((p): p is Promise<void> => p !== undefined);
+		const closePromises = this._adapters.map((o) => o.close?.()).filter((p): p is Promise<void> => p !== undefined);
 		void Promise.all(closePromises);
 		this.unmounts.length = 0;
 	}

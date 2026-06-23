@@ -3,9 +3,9 @@
  *
  * Given/When/Then:
  *   Given command events with type "fs.read" and "shell.exec" are appended
- *   When organHistory("fs") is called
+ *   When adapterHistory("fs") is called
  *   Then only events whose type starts with "fs." are returned
- *   And organHistory("shell") returns only shell events
+ *   And adapterHistory("shell") returns only shell events
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
@@ -15,7 +15,7 @@ import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { JsonlSessionStore } from "../src/session-store.js";
 
-describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
+describe("JsonlSessionStore.adapterHistory(name)", { tags: ["unit"] }, () => {
 	let cwd: string;
 	let store: JsonlSessionStore;
 
@@ -28,7 +28,7 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 		rmSync(cwd, { recursive: true, force: true });
 	});
 
-	it("returns fs events for organHistory('fs')", async () => {
+	it("returns fs events for adapterHistory('fs')", async () => {
 		await store.append({
 			bus: "command",
 			type: "fs.read",
@@ -51,12 +51,12 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 			timestamp: 3,
 		});
 
-		const fsHistory = await store.organHistory("fs");
+		const fsHistory = await store.adapterHistory("fs");
 		expect(fsHistory).toHaveLength(2);
 		expect(fsHistory.every((e) => e.type.startsWith("fs."))).toBe(true);
 	});
 
-	it("returns shell events for organHistory('shell')", async () => {
+	it("returns shell events for adapterHistory('shell')", async () => {
 		await store.append({
 			bus: "command",
 			type: "shell.exec",
@@ -72,7 +72,7 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 			timestamp: 5,
 		});
 
-		const shellHistory = await store.organHistory("shell");
+		const shellHistory = await store.adapterHistory("shell");
 		// Both command and sense events for shell.exec
 		expect(shellHistory.length).toBeGreaterThanOrEqual(1);
 		expect(shellHistory.every((e) => e.type.startsWith("shell."))).toBe(true);
@@ -80,11 +80,11 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 
 	it("returns empty array for unknown organ name", async () => {
 		await store.append({ bus: "command", type: "fs.read", correlationId: "c5", payload: {}, timestamp: 5 });
-		const history = await store.organHistory("nonexistent");
+		const history = await store.adapterHistory("nonexistent");
 		expect(history).toHaveLength(0);
 	});
 
-	it("SessionStore interface includes organHistory", async () => {
+	it("SessionStore interface includes adapterHistory", async () => {
 		const memStore = new InMemorySessionStore();
 		await memStore.append({
 			bus: "command",
@@ -93,7 +93,7 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 			payload: { query: "ona" },
 			timestamp: 6,
 		});
-		const webHistory = await memStore.organHistory("web");
+		const webHistory = await memStore.adapterHistory("web");
 		expect(webHistory).toHaveLength(1);
 		expect(webHistory[0].type).toBe("web.search");
 	});

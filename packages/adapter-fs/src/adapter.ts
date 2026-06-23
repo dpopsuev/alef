@@ -1,5 +1,5 @@
 /**
- * FsOrgan — filesystem adapter.
+ * FsAdapter — filesystem adapter.
  *
  * Command events handled → Event results:
  *   fs.read   — read a file with optional offset/limit
@@ -158,7 +158,7 @@ const FS_UNDO_TOOL = {
 // Options
 // ---------------------------------------------------------------------------
 
-export interface FsOrganOptions {
+export interface FsAdapterOptions {
 	cwd: string;
 	runtime?: FsRuntime;
 	/** Allowlist of fs action names to mount (e.g. ['fs.read', 'fs.grep']). Default: all. */
@@ -217,7 +217,7 @@ function detectBinaryMime(buf: Buffer): string | null {
 
 async function handleRead(
 	ctx: { payload: { path: string; offset?: number; limit?: number; format?: string } },
-	opts: FsOrganOptions,
+	opts: FsAdapterOptions,
 	tracker: FileTracker,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, offset, limit, format } = ctx.payload;
@@ -270,7 +270,7 @@ async function handleRead(
 
 async function handleWrite(
 	ctx: { payload: { path: string; content: string } },
-	opts: FsOrganOptions,
+	opts: FsAdapterOptions,
 	tracker: FileTracker,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, content } = ctx.payload;
@@ -357,7 +357,7 @@ type EditPayload =
 
 async function handleEdit(
 	ctx: { payload: EditPayload },
-	opts: FsOrganOptions,
+	opts: FsAdapterOptions,
 	tracker: FileTracker,
 ): Promise<Record<string, unknown>> {
 	const { path: filePath } = ctx.payload;
@@ -469,7 +469,7 @@ async function handleGrep(
 			countOnly?: boolean;
 		};
 	},
-	opts: FsOrganOptions,
+	opts: FsAdapterOptions,
 ): Promise<Record<string, unknown>> {
 	const { pattern, path, glob, ignoreCase, literal, context, limit, type, filesWithMatches, countOnly } = ctx.payload;
 	const input: GrepToolInput = {
@@ -500,7 +500,7 @@ async function handleFind(
 			hidden?: boolean;
 		};
 	},
-	opts: FsOrganOptions,
+	opts: FsAdapterOptions,
 ): Promise<Record<string, unknown>> {
 	const { pattern, path, limit, type, extension, depth, hidden } = ctx.payload;
 	const input: FindToolInput = {
@@ -518,7 +518,7 @@ async function handleFind(
 
 async function handlePatch(
 	ctx: { payload: { patch: string } },
-	opts: FsOrganOptions,
+	opts: FsAdapterOptions,
 ): Promise<Record<string, unknown>> {
 	const { patch } = ctx.payload;
 	const ops = parsePatch(patch);
@@ -545,7 +545,7 @@ async function handlePatch(
 /** Cache-invalidation prefix list for all write-path actions. */
 const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 
-export function createFsOrgan(options: FsOrganOptions): Adapter {
+export function createFsAdapter(options: FsAdapterOptions): Adapter {
 	const withQueue = makeWriteQueue();
 	const tracker = new FileTracker();
 

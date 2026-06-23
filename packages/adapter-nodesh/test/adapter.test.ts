@@ -1,18 +1,18 @@
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createNodeshOrgan } from "../src/adapter.js";
+import { createNodeshAdapter } from "../src/adapter.js";
 
-adapterComplianceSuite(() => createNodeshOrgan({ cwd: "/tmp" }));
+adapterComplianceSuite(() => createNodeshAdapter({ cwd: "/tmp" }));
 
 function fixture(opts: { prelude?: string; defaultTimeoutSeconds?: number } = {}) {
 	const f = new BusFixture();
-	f.mount(createNodeshOrgan({ cwd: process.cwd(), ...opts }));
+	f.mount(createNodeshAdapter({ cwd: process.cwd(), ...opts }));
 	return f;
 }
 
 describe("NodeshOrgan — organ metadata", { tags: ["compliance"] }, () => {
 	it("has name=nodesh and 1 tool", () => {
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
+		const organ = createNodeshAdapter({ cwd: process.cwd() });
 		expect(organ.name).toBe("nodesh");
 		expect(organ.tools).toHaveLength(1);
 		expect(organ.tools[0].name).toBe("nodesh.eval");
@@ -20,7 +20,7 @@ describe("NodeshOrgan — organ metadata", { tags: ["compliance"] }, () => {
 
 	it("unmount unsubscribes motor handler", () => {
 		const f = new BusFixture();
-		const organ = createNodeshOrgan({ cwd: process.cwd() });
+		const organ = createNodeshAdapter({ cwd: process.cwd() });
 		const unmount = f.mount(organ);
 		expect(f.nerve.listenerCount("command", "nodesh.eval")).toBe(1);
 		unmount();

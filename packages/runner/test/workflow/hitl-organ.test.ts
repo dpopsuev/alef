@@ -9,7 +9,7 @@
  *   - works end-to-end with a Binding chain
  */
 
-import { createHitlOrgan } from "@dpopsuev/alef-adapter-workflow";
+import { createHitlAdapter } from "@dpopsuev/alef-adapter-workflow";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel/adapter";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { afterEach, describe, expect, it } from "vitest";
@@ -27,7 +27,7 @@ describe("HitlAdapter", { tags: ["unit"] }, () => {
 
 	it("approves when onEvaluate returns approved:true", async () => {
 		const { bus, n } = makeBus();
-		const hitl = createHitlOrgan({
+		const hitl = createHitlAdapter({
 			onEvaluate: async () => ({ approved: true }),
 		});
 		unmounts.push(hitl.mount(n));
@@ -49,7 +49,7 @@ describe("HitlAdapter", { tags: ["unit"] }, () => {
 
 	it("rejects with feedback when onEvaluate returns approved:false", async () => {
 		const { bus, n } = makeBus();
-		const hitl = createHitlOrgan({
+		const hitl = createHitlAdapter({
 			onEvaluate: async () => ({ approved: false, feedback: "needs more detail" }),
 		});
 		unmounts.push(hitl.mount(n));
@@ -72,7 +72,7 @@ describe("HitlAdapter", { tags: ["unit"] }, () => {
 	it("ignores events targeting a different adapter", async () => {
 		const { n } = makeBus();
 		let called = false;
-		const hitl = createHitlOrgan({
+		const hitl = createHitlAdapter({
 			onEvaluate: async () => {
 				called = true;
 				return { approved: true };
@@ -93,7 +93,7 @@ describe("HitlAdapter", { tags: ["unit"] }, () => {
 	it("receives question input and passes it to onEvaluate", async () => {
 		const { bus, n } = makeBus();
 		let received: unknown;
-		const hitl = createHitlOrgan({
+		const hitl = createHitlAdapter({
 			onEvaluate: async (input: import("@dpopsuev/alef-adapter-workflow").HitlEvaluateInput) => {
 				received = input;
 				return { approved: true };

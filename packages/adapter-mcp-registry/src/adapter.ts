@@ -11,9 +11,6 @@ export interface McpRegistryAdapterOptions {
 	};
 }
 
-/** @deprecated Use McpRegistryAdapterOptions */
-export type McpRegistryOrganOptions = McpRegistryAdapterOptions;
-
 // Registry API types
 interface RegistryServer {
 	server: {
@@ -89,7 +86,7 @@ const LIST_TOOL = {
 	inputSchema: z.object({}),
 };
 
-export function createMcpRegistryOrgan(opts: McpRegistryAdapterOptions) {
+export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 	const loadedAdapters = new Map<string, Adapter>();
 
 	return defineAdapter(

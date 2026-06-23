@@ -49,7 +49,7 @@ register({
 	name: "list-adapters",
 	match: (args) => args.listAdapters,
 	run: (_args, session) => {
-		for (const adapter of session.organs) {
+		for (const adapter of session.adapters) {
 			const suffix = [
 				adapter.labels?.length ? `[${adapter.labels.join(", ")}]` : "",
 				adapter.description ? `— ${adapter.description}` : "",
@@ -125,8 +125,8 @@ register({
 		const model = session.getModel();
 		checks.push({ name: "model", ok: !!model, detail: model || "not resolved" });
 
-		const organs = session.organs;
-		checks.push({ name: "organs", ok: organs.length > 0, detail: `${organs.length} loaded` });
+		const adapters = session.adapters;
+		checks.push({ name: "adapters", ok: adapters.length > 0, detail: `${adapters.length} loaded` });
 
 		const tools = session.tools;
 		checks.push({ name: "tools", ok: tools.length > 0, detail: `${tools.length} available` });

@@ -16,12 +16,12 @@ export interface HitlEvaluateResult {
 
 export type OnEvaluate = (input: HitlEvaluateInput) => Promise<HitlEvaluateResult>;
 
-export interface HitlOrganOptions {
+export interface HitlAdapterOptions {
 	name?: string;
 	onEvaluate: OnEvaluate;
 }
 
-export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
+export function createHitlAdapter(opts: HitlAdapterOptions): Adapter {
 	const adapterName = opts.name ?? "hitl";
 
 	return {

@@ -5,7 +5,7 @@
  * system prompt — not just the parent agent.
  */
 
-import { createOrgan } from "@dpopsuev/alef-adapter-fs";
+import { createAdapter } from "@dpopsuev/alef-adapter-fs";
 import type { Context } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
@@ -32,7 +32,7 @@ describe("subagent context awareness", { tags: ["unit"] }, () => {
 		]);
 
 		const today = new Date().toISOString().split("T")[0];
-		const fsOrgan = createOrgan({ cwd: "/tmp" });
+		const fsOrgan = createAdapter({ cwd: "/tmp" });
 		const basePrompt = "You are a test agent.";
 		const factory = buildSubagentFactory({ model: faux.getModel(), baseSystemPrompt: basePrompt });
 		const strategy = new InProcessStrategy([fsOrgan], factory, basePrompt);
@@ -56,9 +56,9 @@ describe("subagent context awareness", { tags: ["unit"] }, () => {
 			},
 		]);
 
-		const fsOrgan = createOrgan({ cwd: "/home/test/project" });
+		const fsOrgan = createAdapter({ cwd: "/home/test/project" });
 		const factory = buildSubagentFactory({ model: faux.getModel() });
-		const session = factory({ organs: [fsOrgan], systemPrompt: "You are a helper." });
+		const session = factory({ adapters: [fsOrgan], systemPrompt: "You are a helper." });
 		disposes.push(() => session.dispose());
 
 		await session.send("Hello", "human", 10_000);

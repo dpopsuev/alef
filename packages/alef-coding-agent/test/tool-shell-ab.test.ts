@@ -12,8 +12,8 @@
  * Skipped when no credentials are detected.
  */
 
-import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
-import { createShellOrgan } from "@dpopsuev/alef-adapter-shell";
+import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
+import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -54,7 +54,7 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 		const harness = new EvalHarness();
 
 		// Representative organs for schema snapshot (cwd doesn’t affect schema shape).
-		const repOrgans = [createFsOrgan({ cwd: "/tmp" }), createShellOrgan({ cwd: "/tmp" })];
+		const repOrgans = [createFsAdapter({ cwd: "/tmp" }), createShellAdapter({ cwd: "/tmp" })];
 		const toolShell = useToolShell
 			? createToolShellAdapter({
 					tools: repOrgans.flatMap((o) => o.tools),
@@ -64,9 +64,9 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 
 		const runner = new EvaluationRunner(harness, {
 			// Domain organs (fs, shell) are loaded by the harness with the correct workspace cwd.
-			// organFactory adds only the LLM (and ToolShellOrgan when active).
+			// adapterFactory adds only the LLM (and ToolShellOrgan when active).
 			// phaseTimeoutMs=100 activates context.assemble for catalog lifecycle injection.
-			organFactory: (signal) => {
+			adapterFactory: (signal) => {
 				const llm = createAgentLoop({
 					model: getEvalModel(),
 					getSignal: () => signal,

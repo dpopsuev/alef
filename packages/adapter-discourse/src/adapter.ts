@@ -6,7 +6,7 @@ import { z } from "zod";
 import { DiscourseStore } from "./store.js";
 import type { Post } from "./types.js";
 
-export interface DiscourseOrganOptions extends BaseAdapterOptions {
+export interface DiscourseAdapterOptions extends BaseAdapterOptions {
 	sessionDir: string;
 }
 
@@ -49,7 +49,7 @@ function formatContextPost(p: Post): string {
 	return `[${p.topic}/${p.thread}] @${p.author}: ${body}`;
 }
 
-export function createDiscourseOrgan(opts: DiscourseOrganOptions): Adapter {
+export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 	const store = new DiscourseStore(opts.sessionDir);
 	let lastReadTs = Date.now();
 

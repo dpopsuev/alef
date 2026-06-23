@@ -8,7 +8,7 @@
  * (<read_file>, <bash>) instead of structured tool_use blocks.
  */
 
-import { createOrgan } from "@dpopsuev/alef-adapter-fs";
+import { createAdapter } from "@dpopsuev/alef-adapter-fs";
 import type { Context } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
@@ -34,9 +34,9 @@ describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 			},
 		]);
 
-		const fsOrgan = createOrgan({ cwd: "/tmp" });
+		const fsOrgan = createAdapter({ cwd: "/tmp" });
 		const factory = buildSubagentFactory({ model: faux.getModel() });
-		const session = factory({ organs: [fsOrgan] });
+		const session = factory({ adapters: [fsOrgan] });
 		disposes.push(() => session.dispose());
 
 		await session.send("Read the file /tmp/test.txt", "human", 10_000);
@@ -62,7 +62,7 @@ describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 			},
 		]);
 
-		const fsOrgan = createOrgan({ cwd: "/tmp" });
+		const fsOrgan = createAdapter({ cwd: "/tmp" });
 		const factory = buildSubagentFactory({ model: faux.getModel() });
 		const strategy = new InProcessStrategy([fsOrgan], factory, "You are a test agent.");
 

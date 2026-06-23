@@ -3,11 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createDiscourseOrgan } from "../src/adapter.js";
+import { createDiscourseAdapter } from "../src/adapter.js";
 import { DiscourseStore } from "../src/store.js";
 
 adapterComplianceSuite(() =>
-	createDiscourseOrgan({ sessionDir: mkdtempSync(join(tmpdir(), "alef-forum-compliance-")) }),
+	createDiscourseAdapter({ sessionDir: mkdtempSync(join(tmpdir(), "alef-forum-compliance-")) }),
 );
 
 // ---------------------------------------------------------------------------
@@ -220,23 +220,23 @@ describe("organ-forum structure", () => {
 	});
 
 	it("creates organ with correct name and tools", () => {
-		const organ = createDiscourseOrgan({ sessionDir });
+		const organ = createDiscourseAdapter({ sessionDir });
 		expect(organ.name).toBe("discourse");
 		expect(organ.tools.map((t) => t.name)).toEqual(["discourse.post", "discourse.read", "discourse.list"]);
 	});
 
 	it("declares file sources", () => {
-		const organ = createDiscourseOrgan({ sessionDir });
+		const organ = createDiscourseAdapter({ sessionDir });
 		expect(organ.sources).toEqual([{ name: "discourse-files", kind: "file" }]);
 	});
 
 	it("has context.assemble contribution", () => {
-		const organ = createDiscourseOrgan({ sessionDir });
+		const organ = createDiscourseAdapter({ sessionDir });
 		expect(organ.contributions?.["context.assemble"]).toBeDefined();
 	});
 
 	it("has directives", () => {
-		const organ = createDiscourseOrgan({ sessionDir });
+		const organ = createDiscourseAdapter({ sessionDir });
 		expect(organ.directives).toBeDefined();
 		expect(organ.directives!.length).toBeGreaterThan(0);
 	});

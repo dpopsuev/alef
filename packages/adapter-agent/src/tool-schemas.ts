@@ -5,7 +5,7 @@ export const SPAWN_TOOL = {
 	description: "Start a persistent child Alef process. Returns { name, endpoint, sessionId, pid }.",
 	inputSchema: z.object({
 		blueprintPath: z.string().optional().describe("Path to agent.yaml blueprint."),
-		organs: z
+		adapters: z
 			.preprocess(
 				(v) => {
 					if (typeof v === "string") {

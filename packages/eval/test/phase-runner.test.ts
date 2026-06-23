@@ -77,7 +77,9 @@ function makeRunner() {
 
 	const harness = new EvalHarness();
 	const runner = new PhaseEvaluationRunner(harness, {
-		organFactory: (signal) => [createAgentLoop({ model: faux.getModel(), apiKey: "faux", getSignal: () => signal })],
+		adapterFactory: (signal) => [
+			createAgentLoop({ model: faux.getModel(), apiKey: "faux", getSignal: () => signal }),
+		],
 		scenarioTimeoutMs: 30_000,
 		noiseSeeding: false,
 	});

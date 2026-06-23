@@ -66,7 +66,7 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 		if (entries.length === 0) console.log("No generations recorded.");
 		for (const e of entries) {
 			const adapters =
-				Object.entries(e.organs)
+				Object.entries(e.adapters)
 					.map(([k, v]) => `${k}@${v}`)
 					.join(", ") || "(none)";
 			console.log(`  Gen ${e.id}  ${e.ts.slice(0, 19)}  alef=${e.alef}  adapters: ${adapters}`);
@@ -93,12 +93,12 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 	} else if (args.pmSbom) {
 		console.log(JSON.stringify(pm.sbom(), null, 2));
 	} else if (args.pmAdapterList) {
-		const { loadUserOrgansConfig, userOrgansConfigPath } = await import("@dpopsuev/alef-agent-blueprint");
-		const adapters = loadUserOrgansConfig();
+		const { loadUserAdaptersConfig, userAdaptersConfigPath } = await import("@dpopsuev/alef-agent-blueprint");
+		const adapters = loadUserAdaptersConfig();
 		if (!adapters || adapters.length === 0) {
-			console.log(`No adapters registered in ${userOrgansConfigPath()}`);
+			console.log(`No adapters registered in ${userAdaptersConfigPath()}`);
 		} else {
-			console.log(`Adapters registered in ${userOrgansConfigPath()}:`);
+			console.log(`Adapters registered in ${userAdaptersConfigPath()}:`);
 			for (const a of adapters) {
 				console.log(`  ${a.name}${a.path ? `  path: ${a.path}` : ""}`);
 			}

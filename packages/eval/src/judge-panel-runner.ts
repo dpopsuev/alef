@@ -3,7 +3,7 @@
  *
  * Each judge is a fresh Alef agent booted with:
  *   - Read-only tools: fs.read, fs.grep, shell.exec
- *   - JudgingOrgan: exposes report.submit
+ *   - JudgingAdapter: exposes report.submit
  *   - A SKILL.md seeded into .agents/skills/<name>/ so the agent discovers it
  *
  * Parallelism: AIMD scheduler (TCP congestion control) caps concurrency and
@@ -19,12 +19,12 @@
 
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createFsOrgan } from "@dpopsuev/alef-adapter-fs";
-import { createShellOrgan } from "@dpopsuev/alef-adapter-shell";
+import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
+import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 
 import type { JudgeReport } from "./judging-adapter.js";
-import { createJudgingOrgan } from "./judging-adapter.js";
+import { createJudgingAdapter } from "./judging-adapter.js";
 
 export interface JudgeSpec {
 	name: string;
@@ -180,7 +180,7 @@ export class JudgePanelRunner {
 		await writeFile(join(skillDir, "SKILL.md"), judge.skillMd, "utf-8");
 
 		let capturedReport: JudgeReport | undefined;
-		const judgingAdapter = createJudgingOrgan({
+		const judgingAdapter = createJudgingAdapter({
 			onReport: (r) => {
 				capturedReport = r;
 			},
@@ -189,11 +189,11 @@ export class JudgePanelRunner {
 		const agent = new Agent();
 
 		// Read-only fs adapter (no write actions).
-		const fsReadOnly = createFsOrgan({
+		const fsReadOnly = createFsAdapter({
 			cwd: workspace,
 			actions: ["read", "grep", "find"],
 		});
-		const shell = createShellOrgan({ cwd: workspace });
+		const shell = createShellAdapter({ cwd: workspace });
 
 		// Domain-specific adapters from the caller's factory.
 		const extraAdapters = await this.opts.agentLoopFactory(workspace, agent.signal, [

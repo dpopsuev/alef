@@ -386,7 +386,7 @@ describe("Runner — IPC supervisor handoff", { tags: ["integration"] }, () => {
 // RED because: depends on Tests 1 + 2 above. The runner must:
 // - Boot without API key (ALEF_SCRIPTED_REPLIES)
 // - Handle IPC handoff (respond to handoff_prepare)
-// - Serve RouterOrgan HTTP (already works)
+// - Serve RouterAdapter HTTP (already works)
 //
 // The supervisor uses ALEF_SUPERVISOR_GREEN_SCRIPT to override the green
 // binary with the runner.

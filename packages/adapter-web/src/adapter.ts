@@ -1,5 +1,5 @@
 /**
- * WebOrgan — fetch web pages, search the web, and convert content to clean Markdown.
+ * WebAdapter — fetch web pages, search the web, and convert content to clean Markdown.
  *
  * Tools:
  *   web.fetch(url, { format?, timeoutMs? })
@@ -123,7 +123,7 @@ const WEB_SEARCH_TOOL = {
 // Adapter factory
 // ---------------------------------------------------------------------------
 
-export interface WebOrganOptions {
+export interface WebAdapterOptions {
 	/** Default request timeout in milliseconds. Default: 30000. */
 	defaultTimeoutMs?: number;
 }
@@ -147,7 +147,7 @@ const WEB_DIRECTIVES = [
 - If a named company or startup search returns no results: try web.fetch('https://{company-name}.com') directly.`,
 ];
 
-export function createWebOrgan(options: WebOrganOptions = {}): Adapter {
+export function createWebAdapter(options: WebAdapterOptions = {}): Adapter {
 	const defaultTimeoutMs = options.defaultTimeoutMs ?? 30_000;
 
 	// Session-scoped LRU cache — pages fetched during this session are reused.

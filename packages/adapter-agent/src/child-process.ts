@@ -109,7 +109,7 @@ export function healthCheck(endpoint: string): Promise<boolean> {
 export interface SpawnChildOptions {
 	cwd: string;
 	blueprintPath?: string;
-	organs?: string[];
+	adapters?: string[];
 	childCwd?: string;
 	sessionId?: string;
 	sandbox?: boolean;
@@ -123,7 +123,7 @@ export async function spawnChild(
 	opts: SpawnChildOptions,
 ): Promise<{ child: ChildProcess; endpoint: string; sessionId: string | undefined; tmpDir?: string }> {
 	const childCwd = opts.childCwd ?? opts.cwd;
-	const organPaths = opts.organs ?? [];
+	const adapterPaths = opts.adapters ?? [];
 
 	// Check if blueprintPath is a registered blueprint name (e.g., YAML blueprints)
 	// If so, keep it as a name; otherwise resolve it as a file path
@@ -137,7 +137,7 @@ export async function spawnChild(
 
 	let tmpDir: string | undefined;
 
-	if (organPaths.length > 0 && !blueprintPath) {
+	if (adapterPaths.length > 0 && !blueprintPath) {
 		tmpDir = mkdtempSync(join(tmpdir(), "alef-sup-"));
 		blueprintPath = join(tmpDir, "agent.yaml");
 		writeFileSync(
@@ -146,7 +146,7 @@ export async function spawnChild(
 				apiVersion: "alef.dpopsuev.io/v1alpha1",
 				kind: "AgentRuntime",
 				metadata: { name: "staging" },
-				spec: { organs: organPaths.map((p) => ({ path: resolvePath(p, childCwd) })) },
+				spec: { adapters: adapterPaths.map((p) => ({ path: resolvePath(p, childCwd) })) },
 			}),
 			"utf-8",
 		);

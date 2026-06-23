@@ -7,7 +7,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { createAgentOrgan } from "@dpopsuev/alef-adapter-agent";
+import { createAgentAdapter } from "@dpopsuev/alef-adapter-agent";
 import { defineAdapter, typedStreamAction } from "@dpopsuev/alef-kernel/adapter";
 import type { EventInput } from "@dpopsuev/alef-kernel/bus";
 import type { Api, Model } from "@dpopsuev/alef-llm";
@@ -20,7 +20,7 @@ import { Agent } from "../../runtime/src/index.js";
 import { BusFixture, TurnDriver } from "../../testkit/src/index.js";
 
 function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): SubagentFactory {
-	return ({ organs, onChunk, systemPrompt: callSystemPrompt }) => {
+	return ({ adapters, onChunk, systemPrompt: callSystemPrompt }) => {
 		const agent = new Agent();
 		const mergedPrompt = [baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
 		const llm = createAgentLoop({
@@ -28,7 +28,7 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 			apiKey: "test-key",
 			systemPrompt: mergedPrompt,
 		});
-		for (const organ of organs) agent.load(organ);
+		for (const organ of adapters) agent.load(organ);
 		agent.load(llm);
 		if (onChunk) {
 			agent.observe({
@@ -91,7 +91,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
 
 		// Adapter-delegate with the inner strategy registered as 'explore'
-		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
+		const delegateAdapter = createAgentAdapter({ strategies: { explore: innerStrategy } });
 
 		// Outer BusFixture: outer adapter-llm + delegate adapter
 		const f = new BusFixture();
@@ -152,7 +152,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// (no response set on innerFaux, so it returns an error)
 
 		const innerStrategy = new InProcessStrategy([], makeTestFactory(innerFaux.getModel()));
-		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
+		const delegateAdapter = createAgentAdapter({ strategies: { explore: innerStrategy } });
 
 		const capturedEnds: Array<{ ok: boolean }> = [];
 		const f = new BusFixture();
@@ -221,7 +221,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		);
 
 		const innerStrategy = new InProcessStrategy([readerAdapter], makeTestFactory(innerFaux.getModel()));
-		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
+		const delegateAdapter = createAgentAdapter({ strategies: { explore: innerStrategy } });
 
 		const outerChunks: string[] = [];
 		const f = new BusFixture();
@@ -288,7 +288,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 			},
 		};
 
-		const delegateAdapter = createAgentOrgan({ strategies: { explore: stubStrategy } });
+		const delegateAdapter = createAgentAdapter({ strategies: { explore: stubStrategy } });
 
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new BusFixture();
@@ -360,7 +360,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 			},
 		};
 
-		const delegateAdapter = createAgentOrgan({ strategies: { explore: identityStrategy } });
+		const delegateAdapter = createAgentAdapter({ strategies: { explore: identityStrategy } });
 
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new BusFixture();

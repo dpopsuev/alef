@@ -1,5 +1,5 @@
 /**
- * Thin HTTP helpers for talking to a child Alef's RouterOrgan.
+ * Thin HTTP helpers for talking to a child Alef's RouterAdapter.
  * No external deps — plain node:http only.
  */
 

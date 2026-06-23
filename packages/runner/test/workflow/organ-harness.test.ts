@@ -1,7 +1,7 @@
 /**
  * Integration test: outer LLM calls workflow.run as a tool.
  *
- * The outer agent has createWorkflowOrgan mounted. The scripted LLM calls
+ * The outer agent has createWorkflowAdapter mounted. The scripted LLM calls
  * workflow.run("intent", artifact) → the adapter dispatches to ImplStationRunner
  * → the Intent sub-agent calls contract.submit → the tool result comes back
  * → the outer LLM calls workflow.run("goal", ...) → etc.
@@ -9,7 +9,7 @@
  * This proves the adapter bus layer works end-to-end, not just runPipeline directly.
  */
 
-import { createWorkflowOrgan, type WorkflowDef } from "@dpopsuev/alef-adapter-workflow";
+import { createWorkflowAdapter, type WorkflowDef } from "@dpopsuev/alef-adapter-workflow";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
@@ -81,7 +81,7 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 		]);
 
 		const runner = new ImplStationRunner(faux.getModel());
-		const workflowOrgan = createWorkflowOrgan({ def: DEF, runner });
+		const workflowAdapter = createWorkflowAdapter({ def: DEF, runner });
 
 		let outerReply = "";
 		const agent = new Agent();
@@ -94,7 +94,7 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 			model: faux.getModel(),
 		});
 
-		agent.load(llm).load(workflowOrgan);
+		agent.load(llm).load(workflowAdapter);
 		await agent.ready();
 		await controller.send("Plan: add dark mode to the settings page", "human", 60_000);
 		agent.dispose();
@@ -111,7 +111,7 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 		]);
 
 		const runner = new ImplStationRunner(faux.getModel());
-		const workflowOrgan = createWorkflowOrgan({ def: DEF, runner });
+		const workflowAdapter = createWorkflowAdapter({ def: DEF, runner });
 
 		let outerReply = "";
 		const agent = new Agent();
@@ -124,7 +124,7 @@ describe("workflow organ harness — outer LLM calls workflow.run", { tags: ["un
 			model: faux.getModel(),
 		});
 
-		agent.load(llm).load(workflowOrgan);
+		agent.load(llm).load(workflowAdapter);
 		await agent.ready();
 		await controller.send("Run a bad station", "human", 30_000);
 		agent.dispose();

@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	compileAgentDefinition,
-	loadOrganFromPath,
-	loadUserOrgansConfig,
+	loadAdapterFromPath,
+	loadUserAdaptersConfig,
 	materializeBlueprint,
 } from "@dpopsuev/alef-agent-blueprint";
 import { afterEach, describe, expect, it } from "vitest";
@@ -22,10 +22,10 @@ function makeTmp(): string {
 	return d;
 }
 
-function makeDefinition(organs: { name: string; actions?: string[] }[]) {
+function makeDefinition(adapters: { name: string; actions?: string[] }[]) {
 	return compileAgentDefinition({
 		name: "test-agent",
-		organs: organs.map((o) => ({
+		adapters: adapters.map((o) => ({
 			name: o.name as "fs" | "shell",
 			actions: o.actions,
 		})),
@@ -36,49 +36,49 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 	it("returns empty organ list when no organs declared", async () => {
 		const def = compileAgentDefinition({ name: "empty" });
 		const result = await materializeBlueprint(def, { cwd: CWD });
-		expect(result.organs).toHaveLength(0);
+		expect(result.adapters).toHaveLength(0);
 		expect(result.modelId).toBeUndefined();
 	});
 
 	it("instantiates FsOrgan for fs organ", async () => {
 		const def = makeDefinition([{ name: "fs" }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
-		expect(result.organs).toHaveLength(1);
-		expect(result.organs[0].name).toBe("fs");
+		expect(result.adapters).toHaveLength(1);
+		expect(result.adapters[0].name).toBe("fs");
 	});
 
 	it("instantiates ShellOrgan for shell organ", async () => {
 		const def = makeDefinition([{ name: "shell" }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
-		expect(result.organs).toHaveLength(1);
-		expect(result.organs[0].name).toBe("shell");
+		expect(result.adapters).toHaveLength(1);
+		expect(result.adapters[0].name).toBe("shell");
 	});
 
 	it("instantiates both fs and shell", async () => {
 		const def = makeDefinition([{ name: "fs" }, { name: "shell" }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
-		expect(result.organs).toHaveLength(2);
-		expect(result.organs.map((o) => o.name)).toEqual(["fs", "shell"]);
+		expect(result.adapters).toHaveLength(2);
+		expect(result.adapters.map((o) => o.name)).toEqual(["fs", "shell"]);
 	});
 
 	it("lector organ is now supported in the EDA runtime", async () => {
 		const def = compileAgentDefinition({
 			name: "lector-agent",
-			organs: [{ name: "code-intel" }],
+			adapters: [{ name: "code-intel" }],
 		});
 		const result = await materializeBlueprint(def, { cwd: CWD });
-		expect(result.organs).toHaveLength(1);
-		expect(result.organs[0].name).toBe("code-intel");
+		expect(result.adapters).toHaveLength(1);
+		expect(result.adapters[0].name).toBe("code-intel");
 	});
 
 	it("skips truly unsupported organs (symbols) without throwing", async () => {
 		const def = compileAgentDefinition({
 			name: "advanced",
-			organs: [{ name: "fs" }, { name: "symbols" }],
+			adapters: [{ name: "fs" }, { name: "symbols" }],
 		});
 		const result = await materializeBlueprint(def, { cwd: CWD });
-		expect(result.organs).toHaveLength(1);
-		expect(result.organs[0].name).toBe("fs");
+		expect(result.adapters).toHaveLength(1);
+		expect(result.adapters[0].name).toBe("fs");
 	});
 
 	it("returns modelId from blueprint model field", async () => {
@@ -99,14 +99,14 @@ describe("materializeBlueprint", { tags: ["unit"] }, () => {
 	it("respects action allowlist on fs organ", async () => {
 		const def = makeDefinition([{ name: "fs", actions: ["read"] }]);
 		const result = await materializeBlueprint(def, { cwd: CWD });
-		expect(result.organs).toHaveLength(1);
-		const organ = result.organs[0];
+		expect(result.adapters).toHaveLength(1);
+		const organ = result.adapters[0];
 		expect(organ.tools.some((t) => t.name === "fs.read")).toBe(true);
 		expect(organ.tools.some((t) => t.name === "fs.write")).toBe(false);
 	});
 });
 
-describe("loadOrganFromPath", { tags: ["unit"] }, () => {
+describe("loadAdapterFromPath", { tags: ["unit"] }, () => {
 	it("loads a TypeScript organ file and calls createOrgan()", async () => {
 		const dir = makeTmp();
 		const organFile = join(dir, "my-organ.ts");
@@ -124,7 +124,7 @@ export function createAdapter(_opts: unknown): Adapter {
 }
 `,
 		);
-		const organ = await loadOrganFromPath(organFile, { cwd: dir });
+		const organ = await loadAdapterFromPath(organFile, { cwd: dir });
 		expect(organ.name).toBe("my-organ");
 		expect(organ.tools).toHaveLength(0);
 	});
@@ -133,16 +133,16 @@ export function createAdapter(_opts: unknown): Adapter {
 		const dir = makeTmp();
 		const organFile = join(dir, "bad-organ.ts");
 		writeFileSync(organFile, "export const foo = 42;");
-		await expect(loadOrganFromPath(organFile, { cwd: dir })).rejects.toThrow("createAdapter");
+		await expect(loadAdapterFromPath(organFile, { cwd: dir })).rejects.toThrow("createAdapter");
 	});
 });
 
-describe("loadUserOrgansConfig", { tags: ["unit"] }, () => {
+describe("loadUserAdaptersConfig", { tags: ["unit"] }, () => {
 	it("returns null when organs.yaml does not exist", () => {
 		const dir = makeTmp();
 		process.env.ALEF_PM_ROOT = dir;
 		try {
-			expect(loadUserOrgansConfig()).toBeNull();
+			expect(loadUserAdaptersConfig()).toBeNull();
 		} finally {
 			delete process.env.ALEF_PM_ROOT;
 		}
@@ -153,7 +153,7 @@ describe("loadUserOrgansConfig", { tags: ["unit"] }, () => {
 		writeFileSync(join(dir, "organs.yaml"), "organs:\n  - fs\n  - shell\n");
 		process.env.ALEF_PM_ROOT = dir;
 		try {
-			const result = loadUserOrgansConfig();
+			const result = loadUserAdaptersConfig();
 			expect(result).not.toBeNull();
 			expect(result?.map((o) => o.name)).toEqual(["fs", "shell"]);
 			expect(result?.every((o) => o.actions.length === 0)).toBe(true);
@@ -172,7 +172,7 @@ describe("loadUserOrgansConfig", { tags: ["unit"] }, () => {
 		);
 		process.env.ALEF_PM_ROOT = dir;
 		try {
-			const result = loadUserOrgansConfig();
+			const result = loadUserAdaptersConfig();
 			expect(result).toHaveLength(2);
 			expect(result?.[0]).toMatchObject({ name: "fs", actions: ["read"] });
 			expect(result?.[1]).toMatchObject({ name: "my-organ", path: "/organs/my-organ.ts" });
@@ -186,7 +186,7 @@ describe("loadUserOrgansConfig", { tags: ["unit"] }, () => {
 		writeFileSync(join(dir, "organs.yaml"), "model: anthropic/claude\n");
 		process.env.ALEF_PM_ROOT = dir;
 		try {
-			expect(loadUserOrgansConfig()).toBeNull();
+			expect(loadUserAdaptersConfig()).toBeNull();
 		} finally {
 			delete process.env.ALEF_PM_ROOT;
 		}
@@ -197,7 +197,7 @@ describe("loadUserOrgansConfig", { tags: ["unit"] }, () => {
 		writeFileSync(join(dir, "organs.yaml"), "");
 		process.env.ALEF_PM_ROOT = dir;
 		try {
-			expect(loadUserOrgansConfig()).toBeNull();
+			expect(loadUserAdaptersConfig()).toBeNull();
 		} finally {
 			delete process.env.ALEF_PM_ROOT;
 		}

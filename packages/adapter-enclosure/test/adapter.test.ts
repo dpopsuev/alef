@@ -1,19 +1,19 @@
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createEnclosureOrgan } from "../src/adapter.js";
+import { createEnclosureAdapter } from "../src/adapter.js";
 import { StubSpace } from "../src/space.js";
 
-adapterComplianceSuite(() => createEnclosureOrgan({ stub: true }));
+adapterComplianceSuite(() => createEnclosureAdapter({ stub: true }));
 
 function fixture() {
 	const f = new BusFixture();
-	f.mount(createEnclosureOrgan({ stub: true }));
+	f.mount(createEnclosureAdapter({ stub: true }));
 	return f;
 }
 
-describe("EnclosureOrgan", { tags: ["compliance"] }, () => {
+describe("EnclosureAdapter", { tags: ["compliance"] }, () => {
 	it("has name=enclosure and 8 tools", () => {
-		const organ = createEnclosureOrgan({ stub: true });
+		const organ = createEnclosureAdapter({ stub: true });
 		expect(organ.name).toBe("enclosure");
 		expect(organ.tools).toHaveLength(8);
 		expect(organ.tools.map((t) => t.name)).toEqual([
@@ -30,7 +30,7 @@ describe("EnclosureOrgan", { tags: ["compliance"] }, () => {
 
 	it("unmount cleans up all motor subscriptions", () => {
 		const f = new BusFixture();
-		const unmount = f.mount(createEnclosureOrgan({ stub: true }));
+		const unmount = f.mount(createEnclosureAdapter({ stub: true }));
 		expect(f.nerve.listenerCount("command", "enclosure.create")).toBe(1);
 		unmount();
 		expect(f.nerve.listenerCount("command", "enclosure.create")).toBe(0);

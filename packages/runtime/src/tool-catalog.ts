@@ -1,5 +1,5 @@
 /**
- * ToolShellOrgan — progressive disclosure for adapter tool schemas.
+ * ToolShellAdapter — progressive disclosure for adapter tool schemas.
  *
  * Three-tier context lifecycle:
  *
@@ -61,7 +61,7 @@ export interface ToolShellOptions {
 	tools: readonly ToolDefinition[];
 	/**
 	 * Live tool list getter. When provided, takes precedence over tools for all
-	 * catalog operations so newly plugged organs appear without rebuilding the shell.
+	 * catalog operations so newly plugged adapters appear without rebuilding the shell.
 	 */
 	getTools?: () => readonly ToolDefinition[];
 	/**

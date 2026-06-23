@@ -1,5 +1,5 @@
 /**
- * MetaOrgan — typed tools for querying the running Alef instance.
+ * MetaAdapter — typed tools for querying the running Alef instance.
  *
  * Replaces the nodesh prelude used in :meta phase 1.
  * The adapter is loaded by the in-process meta-agent only — it is never
@@ -70,7 +70,7 @@ function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter>
 	return new Promise((resolveP, rejectP) => {
 		const worker = new Worker(WORKER_BOOTSTRAP, {
 			execArgv: process.execArgv,
-			workerData: { organPath: adapterPath, cwd },
+			workerData: { adapterPath: adapterPath, cwd },
 		});
 
 		// lint-ignore: RAWTIMER one-shot readiness deadline for worker bootstrap
@@ -570,12 +570,12 @@ function buildSessionTools(opts: MetaAdapterOptions): ActionMap {
 			"alef.adapters.list": typedAction(
 				{
 					name: "alef.adapters.list",
-					description: "List user-installed adapters from ~/.config/alef/organs.yaml.",
+					description: "List user-installed adapters from ~/.config/alef/adapters.yaml.",
 					inputSchema: z.object({}),
 				},
 				async () => {
 					const adapters = await listAdapters();
-					return withDisplay({ adapters }, { text: "organs.yaml loaded", mimeType: "text/plain" });
+					return withDisplay({ adapters }, { text: "adapters.yaml loaded", mimeType: "text/plain" });
 				},
 				{ shouldCache: () => true },
 			),
@@ -656,9 +656,3 @@ export function createMetaAdapter(opts: MetaAdapterOptions) {
 		},
 	);
 }
-
-/** @deprecated Use MetaAdapterOptions */
-export type MetaOrganOptions = MetaAdapterOptions;
-
-/** @deprecated Use createMetaAdapter */
-export const createMetaOrgan = createMetaAdapter;

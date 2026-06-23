@@ -27,7 +27,7 @@ export async function handleSpawn(
 	ctx: {
 		payload: {
 			blueprintPath?: string;
-			organs?: string[];
+			adapters?: string[];
 			cwd?: string;
 			sessionId?: string;
 			sandbox?: boolean;
@@ -45,7 +45,7 @@ export async function handleSpawn(
 	const result = await spawnChild({
 		cwd: deps.cwd,
 		blueprintPath: ctx.payload.blueprintPath,
-		organs: ctx.payload.organs,
+		adapters: ctx.payload.adapters,
 		childCwd: ctx.payload.cwd,
 		sessionId: ctx.payload.sessionId,
 		sandbox: ctx.payload.sandbox,
@@ -317,9 +317,9 @@ export async function handlePromote(
 		/* start fresh */
 	}
 	const spec = (doc.spec ?? {}) as Record<string, unknown>;
-	const organs = Array.isArray(spec.organs) ? [...spec.organs] : [];
-	if (!organs.some((o) => (o as { path?: string }).path === adapterPath)) organs.push({ path: adapterPath });
-	spec.organs = organs;
+	const adapters = Array.isArray(spec.adapters) ? [...spec.adapters] : [];
+	if (!adapters.some((o) => (o as { path?: string }).path === adapterPath)) adapters.push({ path: adapterPath });
+	spec.adapters = adapters;
 	doc.spec = spec;
 	writeFileSync(blueprintPath, stringifyYaml(doc), "utf-8");
 	const underSupervisor = process.env.ALEF_SUPERVISOR === "1" && typeof process.send === "function";

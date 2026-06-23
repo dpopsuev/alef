@@ -1,4 +1,4 @@
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
-import { createFactoryOrgan } from "../src/adapter.js";
+import { createFactoryAdapter } from "../src/adapter.js";
 
-adapterComplianceSuite(() => createFactoryOrgan({ cwd: "/tmp" }));
+adapterComplianceSuite(() => createFactoryAdapter({ cwd: "/tmp" }));

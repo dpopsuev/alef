@@ -4,14 +4,14 @@ import type { CommandHandlerCtx } from "../src/framework.js";
 import { defineAdapter } from "../src/framework.js";
 import { InProcessBus } from "../src/in-process-bus.js";
 
-function makeNerve() {
-	const nerve = new InProcessBus();
-	return { nerve, n: nerve.asBus() };
+function makeBus() {
+	const bus = new InProcessBus();
+	return { bus, n: bus.asBus() };
 }
 
-function waitEvent(nerve: InProcessBus, type: string, correlationId: string): Promise<EventMessage> {
+function waitEvent(bus: InProcessBus, type: string, correlationId: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
-		const off = nerve.asBus().event.subscribe(type, (event) => {
+		const off = bus.asBus().event.subscribe(type, (event) => {
 			if (event.correlationId !== correlationId) return;
 			off();
 			resolve(event);
@@ -25,7 +25,7 @@ function waitEvent(nerve: InProcessBus, type: string, correlationId: string): Pr
 
 describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 	it("5 concurrent command messages → 5 event responses with correct correlationIds", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		defineAdapter("echo", {
 			command: {
@@ -39,11 +39,11 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 
 		const correlationIds = Array.from({ length: 5 }, (_, i) => `corr-${i}`);
 
-		const responsePromises = correlationIds.map((correlationId) => waitEvent(nerve, "echo.ping", correlationId));
+		const responsePromises = correlationIds.map((correlationId) => waitEvent(bus, "echo.ping", correlationId));
 
 		await Promise.all(
 			correlationIds.map((correlationId, index) =>
-				Promise.resolve(nerve.asBus().command.publish({ type: "echo.ping", payload: { index }, correlationId })),
+				Promise.resolve(bus.asBus().command.publish({ type: "echo.ping", payload: { index }, correlationId })),
 			),
 		);
 
@@ -57,7 +57,7 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 	});
 
 	it("no cross-contamination: each response carries only its own payload", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		defineAdapter("identity", {
 			command: {
@@ -72,14 +72,12 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 		const inputs = ["alpha", "beta", "gamma", "delta", "epsilon"];
 		const correlationIds = inputs.map((_, i) => `id-corr-${i}`);
 
-		const responsePromises = correlationIds.map((correlationId) =>
-			waitEvent(nerve, "identity.reflect", correlationId),
-		);
+		const responsePromises = correlationIds.map((correlationId) => waitEvent(bus, "identity.reflect", correlationId));
 
 		await Promise.all(
 			inputs.map((value, i) =>
 				Promise.resolve(
-					nerve.asBus().command.publish({
+					bus.asBus().command.publish({
 						type: "identity.reflect",
 						payload: { value },
 						correlationId: correlationIds[i],
@@ -97,7 +95,7 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 	});
 
 	it("adapter throws → error event carries correct correlationId, nerve stays healthy", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		defineAdapter("fragile", {
 			command: {
@@ -111,8 +109,8 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 		}).mount(n);
 
 		// First call: error path
-		const errorPromise = waitEvent(nerve, "fragile.op", "corr-fail");
-		nerve.asBus().command.publish({ type: "fragile.op", payload: { fail: true }, correlationId: "corr-fail" });
+		const errorPromise = waitEvent(bus, "fragile.op", "corr-fail");
+		bus.asBus().command.publish({ type: "fragile.op", payload: { fail: true }, correlationId: "corr-fail" });
 		const errorResult = await errorPromise;
 
 		expect(errorResult.correlationId).toBe("corr-fail");
@@ -120,8 +118,8 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 		expect(errorResult.errorMessage).toBe("intentional failure");
 
 		// Second call: bus must still be healthy
-		const successPromise = waitEvent(nerve, "fragile.op", "corr-ok");
-		nerve.asBus().command.publish({ type: "fragile.op", payload: { fail: false }, correlationId: "corr-ok" });
+		const successPromise = waitEvent(bus, "fragile.op", "corr-ok");
+		bus.asBus().command.publish({ type: "fragile.op", payload: { fail: false }, correlationId: "corr-ok" });
 		const successResult = await successPromise;
 
 		expect(successResult.correlationId).toBe("corr-ok");

@@ -1,4 +1,4 @@
 import { adapterComplianceSuite } from "@dpopsuev/alef-testkit/organ";
-import { createAgentOrgan } from "../src/adapter.js";
+import { createAgentAdapter } from "../src/adapter.js";
 
-adapterComplianceSuite(() => createAgentOrgan({ cwd: "/tmp", replyEvent: "llm.response" }));
+adapterComplianceSuite(() => createAgentAdapter({ cwd: "/tmp", replyEvent: "llm.response" }));

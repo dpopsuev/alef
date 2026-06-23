@@ -17,15 +17,12 @@ export interface LocusAdapterOptions {
 	historyDir?: string;
 }
 
-/** @deprecated Use LocusAdapterOptions */
-export type LocusOrganOptions = LocusAdapterOptions;
-
 const DEFAULT_BINARY = join(homedir(), "Workspace/locus/locus");
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 const DEFAULT_CACHE_DIR = join(XDG_DATA_HOME, "alef", "locus", "cache");
 const DEFAULT_HISTORY_DIR = join(XDG_DATA_HOME, "alef", "locus", "history");
 
-export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
+export function createLocusAdapter(opts: LocusAdapterOptions = {}): Adapter {
 	const binary = opts.binary ?? DEFAULT_BINARY;
 	const cacheDir = opts.cacheDir ?? DEFAULT_CACHE_DIR;
 	const historyDir = opts.historyDir ?? DEFAULT_HISTORY_DIR;

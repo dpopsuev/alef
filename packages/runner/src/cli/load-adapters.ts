@@ -5,7 +5,7 @@ import {
 	DEFAULT_COMPILED_DEFINITION,
 	findAgentDefinitionPath,
 	loadAgentDefinition,
-	loadUserOrgansConfig,
+	loadUserAdaptersConfig,
 	materializeBlueprint,
 	mergeAgentDefinitions,
 } from "@dpopsuev/alef-agent-blueprint";
@@ -44,8 +44,7 @@ export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly str
 }
 
 export interface AdapterLoadResult {
-	/** @deprecated Use adapters — kept for backward compatibility */
-	organs: Adapter[];
+	adapters: Adapter[];
 	blueprintModelId: string | undefined;
 	blueprintName: string | undefined;
 	blueprintSurfaces: AgentDefinitionSurfaceInput[];
@@ -93,7 +92,7 @@ export async function loadAdapters(
 				throw new Error(`Blueprint file not found: ${blueprintPath}`);
 			}
 			return {
-				organs: [],
+				adapters: [],
 				blueprintModelId: undefined,
 				blueprintName,
 				blueprintSurfaces: [],
@@ -129,7 +128,7 @@ export async function loadAdapters(
 		});
 
 		return {
-			organs: materialized.organs,
+			adapters: materialized.adapters,
 			blueprintModelId: materialized.modelId,
 			blueprintName: blueprintName ?? definition.name,
 			blueprintSurfaces: definition.surfaces,
@@ -139,9 +138,9 @@ export async function loadAdapters(
 		};
 	}
 
-	const userAdapters = loadUserOrgansConfig();
+	const userAdapters = loadUserAdaptersConfig();
 	const definition = userAdapters
-		? { ...DEFAULT_COMPILED_DEFINITION, organs: userAdapters }
+		? { ...DEFAULT_COMPILED_DEFINITION, adapters: userAdapters }
 		: DEFAULT_COMPILED_DEFINITION;
 	if (userAdapters) log.info({ count: userAdapters.length }, "loaded user adapters config");
 	const defaultMaterialized = await materializeBlueprint(definition, {
@@ -153,7 +152,7 @@ export async function loadAdapters(
 	});
 
 	return {
-		organs: defaultMaterialized.organs,
+		adapters: defaultMaterialized.adapters,
 		blueprintModelId: undefined,
 		blueprintName: undefined,
 		blueprintSurfaces: [],

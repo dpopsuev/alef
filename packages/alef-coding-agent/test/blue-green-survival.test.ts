@@ -112,7 +112,7 @@ describe.skipIf(SKIP_REAL_LLM)(
 
 			const harness = new EvalHarness();
 			const runner = new EvaluationRunner(harness, {
-				organFactory: (signal) => [createAgentLoop({ model: getEvalModel(), getSignal: () => signal })],
+				adapterFactory: (signal) => [createAgentLoop({ model: getEvalModel(), getSignal: () => signal })],
 			});
 			const result = await runner.run(wrappedEval);
 

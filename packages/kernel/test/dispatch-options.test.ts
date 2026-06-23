@@ -6,14 +6,14 @@ import { dispatchCommandAction } from "../src/adapter-dispatch.js";
 import type { CommandMessage, EventMessage } from "../src/buses.js";
 import { InProcessBus } from "../src/in-process-bus.js";
 
-function makeNerve() {
-	const nerve = new InProcessBus();
-	return { nerve, n: nerve.asBus() };
+function makeBus() {
+	const bus = new InProcessBus();
+	return { bus, n: bus.asBus() };
 }
 
-function waitEvent(nerve: InProcessBus, type: string): Promise<EventMessage> {
+function waitEvent(bus: InProcessBus, type: string): Promise<EventMessage> {
 	return new Promise((resolve) => {
-		const off = nerve.asBus().event.subscribe(type, (e) => {
+		const off = bus.asBus().event.subscribe(type, (e) => {
 			off();
 			resolve(e);
 		});
@@ -40,7 +40,7 @@ const noopLogger = {
 
 describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 	it("allows policy injection per-call without global state", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		const denyAllPolicy: AccessPolicy = {
 			check: (): AccessDecision => ({ action: "deny", reason: "test policy denies all" }),
@@ -54,7 +54,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitEvent(nerve, "test.action");
+		const promise = waitEvent(bus, "test.action");
 
 		const command = createCommandMessage("test.action", "corr-1");
 
@@ -67,7 +67,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 	});
 
 	it("allows no policy to be provided", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		const action = {
 			tool: { name: "test.nopolicy", description: "Test", inputSchema: z.object({}) },
@@ -77,7 +77,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitEvent(nerve, "test.nopolicy");
+		const promise = waitEvent(bus, "test.nopolicy");
 
 		const command = createCommandMessage("test.nopolicy", "corr-2");
 
@@ -90,7 +90,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 	});
 
 	it("explicit policy overrides no-policy default", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		const denyPolicy: AccessPolicy = {
 			check: (): AccessDecision => ({ action: "deny", reason: "explicitly denied" }),
@@ -104,7 +104,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitEvent(nerve, "test.override");
+		const promise = waitEvent(bus, "test.override");
 
 		const command = createCommandMessage("test.override", "corr-3");
 
@@ -117,7 +117,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 	});
 
 	it("handles escalation with injected handler", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		const escalatePolicy: AccessPolicy = {
 			check: (): AccessDecision => ({ action: "escalate", reason: "needs approval" }),
@@ -137,7 +137,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitEvent(nerve, "test.escalate");
+		const promise = waitEvent(bus, "test.escalate");
 
 		const command = createCommandMessage("test.escalate", "corr-4");
 
@@ -153,7 +153,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 	});
 
 	it("denies escalation when no handler provided", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		const escalatePolicy: AccessPolicy = {
 			check: (): AccessDecision => ({ action: "escalate", reason: "needs approval" }),
@@ -167,7 +167,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitEvent(nerve, "test.no-handler");
+		const promise = waitEvent(bus, "test.no-handler");
 
 		const command = createCommandMessage("test.no-handler", "corr-5");
 
@@ -179,7 +179,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 	});
 
 	it("allows mocking policy in tests without affecting global state", async () => {
-		const { nerve, n } = makeNerve();
+		const { bus, n } = makeBus();
 
 		const mockPolicy: AccessPolicy = {
 			check: (toolName): AccessDecision => {
@@ -198,7 +198,7 @@ describe("DispatchOptions - Dependency Injection", { tags: ["unit"] }, () => {
 		};
 
 		const cache = createMapCache();
-		const promise = waitEvent(nerve, "test.mock");
+		const promise = waitEvent(bus, "test.mock");
 
 		const command = createCommandMessage("test.mock", "corr-6");
 

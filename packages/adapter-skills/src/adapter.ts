@@ -1,5 +1,5 @@
 /**
- * SkillsOrgan — the Skill Library.
+ * SkillsAdapter — the Skill Library.
  *
  * A single creature that owns the aggregated skill registry and exposes it
  * to the LLM. Two sources are merged at runtime:
@@ -31,7 +31,7 @@ import { z } from "zod";
 import { discoverSkills, skillsToXml } from "./discovery.js";
 import type { Skill } from "./types.js";
 
-export interface SkillsOrganOptions {
+export interface SkillsAdapterOptions {
 	/** Working directory for relative skill path resolution. */
 	cwd: string;
 	/** Additional filesystem skill directories beyond the standard paths. */
@@ -72,13 +72,13 @@ const OPEN_TOOL = {
 	}),
 };
 
-export function createSkillsOrgan(opts: SkillsOrganOptions): Adapter {
+export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 	const library = new Map<string, SkillBook>();
-	const organBooks = new Map<string, SkillBook[]>();
+	const adapterBooks = new Map<string, SkillBook[]>();
 
 	function rebuildLibrary(): void {
 		library.clear();
-		for (const contribution of organBooks.values()) {
+		for (const contribution of adapterBooks.values()) {
 			for (const book of contribution) {
 				const existing = library.get(book.name);
 				library.set(book.name, existing ? { ...existing, pages: [...existing.pages, ...book.pages] } : book);
@@ -86,14 +86,14 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Adapter {
 		}
 	}
 
-	function mergeBooks(organName: string, books: readonly SkillBook[]): void {
-		organBooks.set(organName, [...books]);
+	function mergeBooks(adapterName: string, books: readonly SkillBook[]): void {
+		adapterBooks.set(adapterName, [...books]);
 		rebuildLibrary();
 	}
 
-	function removeOrgan(organName: string): void {
-		if (!organBooks.has(organName)) return;
-		organBooks.delete(organName);
+	function removeAdapter(adapterName: string): void {
+		if (!adapterBooks.has(adapterName)) return;
+		adapterBooks.delete(adapterName);
 		rebuildLibrary();
 	}
 
@@ -217,7 +217,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Adapter {
 				"adapter.unloaded": {
 					handle: async (ctx) => {
 						const name = getString(ctx.payload, "name") ?? "";
-						removeOrgan(name);
+						removeAdapter(name);
 					},
 				},
 			},
@@ -232,7 +232,7 @@ export function createSkillsOrgan(opts: SkillsOrganOptions): Adapter {
 			logger: opts.logger,
 			directives: [buildDirective()],
 			contributions: { "agent.run": agentRunContribution },
-			description: `Skill Library: filesystem skills discovered at boot, organ books registered dynamically via organ.loaded events.`,
+			description: `Skill Library: filesystem skills discovered at boot, adapter books registered dynamically via adapter.loaded events.`,
 			labels: ["skills", "library", "context", "instructions"],
 		},
 	);

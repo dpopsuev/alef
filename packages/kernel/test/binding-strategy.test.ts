@@ -4,14 +4,14 @@ import { executeBindingChain, registerBindingStrategy } from "../src/binding.js"
 import { InProcessBus } from "../src/in-process-bus.js";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "../src/protocols.js";
 
-function makeNerve() {
-	const nerve = new InProcessBus();
-	return { nerve, n: nerve.asBus() };
+function makeBus() {
+	const bus = new InProcessBus();
+	return { bus, n: bus.asBus() };
 }
 
 describe("Binding Execution Strategy Pattern", { tags: ["unit"] }, () => {
 	it("uses OrderedStrategy for ordered mode", async () => {
-		const { n } = makeNerve();
+		const { n } = makeBus();
 
 		// Set up validator that approves all stages
 		const validationResults: string[] = [];
@@ -46,7 +46,7 @@ describe("Binding Execution Strategy Pattern", { tags: ["unit"] }, () => {
 	});
 
 	it("uses ParallelAllStrategy for parallel-all mode", async () => {
-		const { n } = makeNerve();
+		const { n } = makeBus();
 
 		const validationResults: string[] = [];
 		const offCommand = n.command.subscribe(VALIDATE_REQUEST, (event) => {
@@ -87,7 +87,7 @@ describe("Binding Execution Strategy Pattern", { tags: ["unit"] }, () => {
 	});
 
 	it("parallel-all rejects if any stage rejects", async () => {
-		const { n } = makeNerve();
+		const { n } = makeBus();
 
 		const offCommand = n.command.subscribe(VALIDATE_REQUEST, (event) => {
 			const payload = event.payload as { id: string; targetAdapter: string };
@@ -127,7 +127,7 @@ describe("Binding Execution Strategy Pattern", { tags: ["unit"] }, () => {
 	});
 
 	it("uses ParallelFirstStrategy for parallel-first mode", async () => {
-		const { n } = makeNerve();
+		const { n } = makeBus();
 
 		let firstResponded = false;
 		const offCommand = n.command.subscribe(VALIDATE_REQUEST, (event) => {
@@ -171,7 +171,7 @@ describe("Binding Execution Strategy Pattern", { tags: ["unit"] }, () => {
 	});
 
 	it("allows registration of custom strategies", async () => {
-		const { n } = makeNerve();
+		const { n } = makeBus();
 
 		// Custom strategy that always approves without validation
 		class AlwaysApproveStrategy implements BindingExecutionStrategy {
@@ -196,7 +196,7 @@ describe("Binding Execution Strategy Pattern", { tags: ["unit"] }, () => {
 	});
 
 	it("throws error for unknown binding mode", () => {
-		const { n } = makeNerve();
+		const { n } = makeBus();
 
 		const binding = {
 			id: "test-unknown",
@@ -211,7 +211,7 @@ describe("Binding Execution Strategy Pattern", { tags: ["unit"] }, () => {
 	});
 
 	it("ordered strategy stops on first rejection", async () => {
-		const { n } = makeNerve();
+		const { n } = makeBus();
 
 		const executedStages: string[] = [];
 		const offCommand = n.command.subscribe(VALIDATE_REQUEST, (event) => {

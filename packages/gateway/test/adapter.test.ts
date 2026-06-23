@@ -1,5 +1,5 @@
 /**
- * RouterOrgan tests.
+ * RouterAdapter tests.
  *
  * Uses port=0 to get an OS-assigned port, avoiding conflicts in parallel CI.
  * SSE connections are consumed via Node's built-in http.get with response
@@ -10,17 +10,17 @@ import http from "node:http";
 
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createRouterOrgan } from "../src/adapter.js";
+import { createRouterAdapter } from "../src/adapter.js";
 
-adapterComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input" }));
+adapterComplianceSuite(() => createRouterAdapter({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input" }));
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Mount a RouterOrgan on a fresh BusFixture. Returns { adapter, fixture, unmount, baseUrl }. */
+/** Mount a RouterAdapter on a fresh BusFixture. Returns { adapter, fixture, unmount, baseUrl }. */
 async function setup(overrides: { port?: number; host?: string } = {}) {
-	const organ = createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input", ...overrides });
+	const organ = createRouterAdapter({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input", ...overrides });
 	const fixture = new BusFixture();
 	const unmount = fixture.mount(organ);
 	await organ.ready();
@@ -122,9 +122,9 @@ function collectSseEvents(url: string, count: number, timeoutMs = 3000): Promise
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("RouterOrgan — lifecycle", { tags: ["compliance"] }, () => {
+describe("RouterAdapter — lifecycle", { tags: ["compliance"] }, () => {
 	it("address() returns null before mount", async () => {
-		const organ = createRouterOrgan({ triggerEvent: "llm.input" });
+		const organ = createRouterAdapter({ triggerEvent: "llm.input" });
 		expect(organ.address()).toBeNull();
 	});
 
@@ -142,13 +142,13 @@ describe("RouterOrgan — lifecycle", { tags: ["compliance"] }, () => {
 	});
 
 	it("subscriptions covers command/* and event/*", async () => {
-		const organ = createRouterOrgan({ triggerEvent: "llm.input" });
+		const organ = createRouterAdapter({ triggerEvent: "llm.input" });
 		expect(organ.subscriptions.command).toContain("*");
 		expect(organ.subscriptions.event).toContain("*");
 	});
 });
 
-describe("RouterOrgan — GET /health", { tags: ["compliance"] }, () => {
+describe("RouterAdapter — GET /health", { tags: ["compliance"] }, () => {
 	it("returns 200 { ok: true, clients: 0 }", async () => {
 		const { unmount, baseUrl } = await setup();
 		try {
@@ -163,7 +163,7 @@ describe("RouterOrgan — GET /health", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
+describe("RouterAdapter — GET /events (SSE)", { tags: ["compliance"] }, () => {
 	it("responds with text/event-stream headers", async () => {
 		const { unmount, baseUrl } = await setup();
 		try {
@@ -293,7 +293,7 @@ describe("RouterOrgan — GET /events (SSE)", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("RouterOrgan — POST /message", { tags: ["compliance"] }, () => {
+describe("RouterAdapter — POST /message", { tags: ["compliance"] }, () => {
 	it("returns 202 with correlationId", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
@@ -368,7 +368,7 @@ describe("RouterOrgan — POST /message", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("RouterOrgan — unknown routes", { tags: ["compliance"] }, () => {
+describe("RouterAdapter — unknown routes", { tags: ["compliance"] }, () => {
 	it("returns 404 for unknown GET", async () => {
 		const { unmount, baseUrl } = await setup();
 		try {
@@ -380,7 +380,7 @@ describe("RouterOrgan — unknown routes", { tags: ["compliance"] }, () => {
 	});
 });
 
-describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () => {
+describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () => {
 	it("broadcasts all events when allowedEvents is empty (default)", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
@@ -395,7 +395,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 	});
 
 	it("passes events matching an exact allowed type", async () => {
-		const organ = createRouterOrgan({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
+		const organ = createRouterAdapter({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
 		const fixture = new BusFixture();
 		const unmount = fixture.mount(organ);
 		await organ.ready();
@@ -412,7 +412,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 	});
 
 	it("drops events not in the allowedEvents list", async () => {
-		const organ = createRouterOrgan({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
+		const organ = createRouterAdapter({ port: 0, allowedEvents: ["llm.response"], triggerEvent: "llm.input" });
 		const fixture = new BusFixture();
 		const unmount = fixture.mount(organ);
 		await organ.ready();
@@ -449,7 +449,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 	});
 
 	it("passes events matching a wildcard pattern (fs.*)", async () => {
-		const adapter = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
+		const adapter = createRouterAdapter({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
 		const fixture = new BusFixture();
 		const unmount = fixture.mount(adapter);
 		await adapter.ready();
@@ -469,7 +469,7 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 	});
 
 	it("drops events not matching wildcard (shell.exec blocked by fs.*)", async () => {
-		const adapter = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
+		const adapter = createRouterAdapter({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
 		const fixture = new BusFixture();
 		const unmount = fixture.mount(adapter);
 		await adapter.ready();

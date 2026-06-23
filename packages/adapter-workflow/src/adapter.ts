@@ -26,12 +26,12 @@ export interface StationRunner {
 	run(station: StationDef, artifact: unknown): Promise<StationResult>;
 }
 
-export interface WorkflowOrganOptions extends BaseAdapterOptions {
+export interface WorkflowAdapterOptions extends BaseAdapterOptions {
 	def: WorkflowDef;
 	runner: StationRunner;
 }
 
-export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
+export function createWorkflowAdapter(opts: WorkflowAdapterOptions) {
 	let bus: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
 		bus?.notification.publish({ type, payload, correlationId: "" });
@@ -186,7 +186,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 							}
 						});
 
-						traceEvent("contract:validate", { id, kind: contract.validator, targetOrgan: contract.validator });
+						traceEvent("contract:validate", { id, kind: contract.validator, targetAdapter: contract.validator });
 						command.publish({
 							type: VALIDATE_REQUEST,
 							payload: { id, output: validated, kind: contract.validator, context: contract.intent },

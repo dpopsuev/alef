@@ -22,3 +22,4 @@ export function createOrgan(opts: { cwd: string; actions?: string[] }): Adapter 
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `code.${a}`));
 	return createCodeIntelOrgan({ cwd: opts.cwd, actions });
 }
+export { createCodeIntelOrgan as createCodeIntelAdapter } from "./adapter.js";

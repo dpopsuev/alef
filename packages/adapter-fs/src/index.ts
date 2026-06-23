@@ -40,6 +40,7 @@ export function createOrgan(opts: { cwd: string; actions?: string[]; logger?: Ad
 	const actions = opts.actions?.map((a) => (a.includes(".") ? a : `fs.${a}`));
 	return createFsOrgan({ ...opts, actions });
 }
+export { createFsOrgan as createFsAdapter } from "./adapter.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,

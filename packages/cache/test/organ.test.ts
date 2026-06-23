@@ -34,7 +34,7 @@ describe("CacheOrgan", () => {
 			payload: { path: "/test/file.txt" },
 		});
 
-		// Simulate the fs organ responding
+		// Simulate the fs adapter responding
 		fixture.nerve
 			.asBus()
 			.event.publish(

@@ -42,7 +42,7 @@ function makeEventMessage(
 }
 
 // ---------------------------------------------------------------------------
-// Nerve — event.subscribe, command.subscribe, command.publish, event.publish
+// Bus — event.subscribe, command.subscribe, command.publish, event.publish
 // ---------------------------------------------------------------------------
 
 describe("Nerve — event.subscribe", { tags: ["unit"] }, () => {

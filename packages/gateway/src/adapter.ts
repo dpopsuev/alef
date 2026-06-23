@@ -259,7 +259,7 @@ export class RouterOrgan implements Adapter {
 
 			if (this.options.onMessage) {
 				// Route through the AgentController so history is tracked and
-				// the message arrives on the sense bus for Reasoner/ScriptedReasoner.
+				// the message arrives on the event bus for Reasoner/ScriptedReasoner.
 				this.options.onMessage(text);
 			} else {
 				bus.command.publish({

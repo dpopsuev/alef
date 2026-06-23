@@ -5,7 +5,7 @@
  * No HTTP, no subprocess, no API keys required.
  *
  * Emits real token-by-token events with configurable tokensPerSecond so
- * tests can exercise the full pipe: FauxProvider → organ-llm → TUI render.
+ * tests can exercise the full pipe: FauxProvider → adapter-llm → TUI render.
  *
  * Ported from pi-mono packages/ai/src/providers/faux.ts (MIT).
  *

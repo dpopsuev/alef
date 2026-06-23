@@ -1,14 +1,14 @@
 /**
  * ToolShellOrgan unit tests — no PTY, no LLM, no filesystem.
  *
- * Pattern: Agent + BusEventRecorder. Publish motor events, assert sense results.
+ * Pattern: Agent + BusEventRecorder. Publish command events, assert sense results.
  * Mirrors runtime/test/walking-skeleton.test.ts.
  *
  * Covers:
  * createToolShellAdapter — construction, metaTools shape
  * tools.search — keyword match, empty query, result shape
  * tools.describe — full schema + guidance, unknown names silently omitted
- * buildAdapterDirectives — index from organ list
+ * buildAdapterDirectives — index from adapter list
  */
 
 import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
@@ -212,7 +212,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// internal search (not exposed as motor handler)
+// internal search (not exposed as command handler)
 // ---------------------------------------------------------------------------
 
 describe("ToolShellOrgan.search — internal keyword matching", { tags: ["unit"] }, () => {

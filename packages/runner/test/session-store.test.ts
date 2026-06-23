@@ -110,7 +110,7 @@ describe("JsonlSessionStore.turns()", { tags: ["unit"] }, () => {
 
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
-		expect(turns[0].events).toHaveLength(1); // only the motor event, not internal
+		expect(turns[0].events).toHaveLength(1); // only the command event, not internal
 	});
 });
 

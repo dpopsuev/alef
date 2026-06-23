@@ -6,7 +6,7 @@
  *   filesystem / (slash)   beginning-of-input   → slash command aliases
  *   message    @ (at)      beginning-of-input   → actor routing
  *
- * Organ developers can register new patterns via contributions.
+ * Adapter developers can register new patterns via contributions.
  * Users can remap leader keys via config.
  */
 

@@ -18,7 +18,7 @@ organComplianceSuite(() => createRouterOrgan({ port: 0, host: "127.0.0.1", trigg
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Mount a RouterOrgan on a fresh NerveFixture. Returns { organ, fixture, unmount, baseUrl }. */
+/** Mount a RouterOrgan on a fresh NerveFixture. Returns { adapter, fixture, unmount, baseUrl }. */
 async function setup(overrides: { port?: number; host?: string } = {}) {
 	const organ = createRouterOrgan({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input", ...overrides });
 	const fixture = new NerveFixture();
@@ -297,7 +297,7 @@ describe("RouterOrgan — POST /message", { tags: ["compliance"] }, () => {
 	it("returns 202 with correlationId", async () => {
 		const { nerve, unmount, baseUrl } = await setup();
 		try {
-			// Listen for the dialog.message motor event.
+			// Listen for the dialog.message command event.
 			const received: unknown[] = [];
 			nerve.asBus().command.subscribe("llm.response", (e) => {
 				received.push(e);
@@ -449,11 +449,11 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 	});
 
 	it("passes events matching a wildcard pattern (fs.*)", async () => {
-		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
+		const adapter = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
 		const fixture = new NerveFixture();
-		const unmount = fixture.mount(organ);
-		await organ.ready();
-		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 2);
 			await new Promise((r) => setTimeout(r, 30));
@@ -469,11 +469,11 @@ describe("RouterOrgan — allowedEvents filter", { tags: ["compliance"] }, () =>
 	});
 
 	it("drops events not matching wildcard (shell.exec blocked by fs.*)", async () => {
-		const organ = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
+		const adapter = createRouterOrgan({ port: 0, allowedEvents: ["fs.*"], triggerEvent: "llm.input" });
 		const fixture = new NerveFixture();
-		const unmount = fixture.mount(organ);
-		await organ.ready();
-		const baseUrl = `http://${organ.address()!.host}:${organ.address()!.port}`;
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
 		try {
 			const collectedFrames: string[] = [];
 			const connectedPromise = new Promise<void>((resolve, reject) => {

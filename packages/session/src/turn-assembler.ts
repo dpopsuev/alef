@@ -152,12 +152,12 @@ export function assembleTurns(turns: Turn[], opts: AssembleOptions): Turn[] {
  *
  * Three paths, tried in order:
  *
- * 1. Primary — most recent motor/llm.response with conversationHistory.
+ * 1. Primary — most recent command/llm.response with conversationHistory.
  *    Published by the Reasoner at the end of each completed turn; contains
  *    the full tool_use / tool_result block sequence.
  *
  * 2. Aborted-turn supplement — any turns after the primary checkpoint that
- *    have motor/sense tool-call pairs but no llm.response (the agent was
+ *    have command/event tool-call pairs but no llm.response (the agent was
  *    interrupted mid-generation after all tool calls completed). Their work
  *    is injected as a synthetic user context message so the next LLM call
  *    is not amnesiac about what was done.

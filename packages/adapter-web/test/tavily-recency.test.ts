@@ -2,7 +2,7 @@
  * Tavily recency — timeRange and topic exposed in web.search schema + directives.
  *
  * Given/When/Then:
- *   Given the web organ is mounted
+ *   Given the web adapter is mounted
  *   When the tool schema is inspected
  *   Then web.search accepts timeRange and topic parameters
  *   And the directives mention timeRange for recent news

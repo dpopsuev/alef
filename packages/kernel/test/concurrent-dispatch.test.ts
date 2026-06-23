@@ -119,7 +119,7 @@ describe("concurrent adapter dispatch", { tags: ["unit"] }, () => {
 		expect(errorResult.isError).toBe(true);
 		expect(errorResult.errorMessage).toBe("intentional failure");
 
-		// Second call: nerve must still be healthy
+		// Second call: bus must still be healthy
 		const successPromise = waitEvent(nerve, "fragile.op", "corr-ok");
 		nerve.asBus().command.publish({ type: "fragile.op", payload: { fail: false }, correlationId: "corr-ok" });
 		const successResult = await successPromise;

@@ -2,8 +2,8 @@
  * MetaOrgan — typed tools for querying the running Alef instance.
  *
  * Replaces the nodesh prelude used in :meta phase 1.
- * The organ is loaded by the in-process meta-agent only — it is never
- * part of the main agent's organ set.
+ * The adapter is loaded by the in-process meta-agent only — it is never
+ * part of the main agent's adapter set.
  *
  */
 

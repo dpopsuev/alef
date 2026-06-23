@@ -2,7 +2,7 @@ import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it, vi } from "vitest";
 import { LoopGuard } from "../src/loop-detector.js";
 
-/** Publish a motor event and its matching sense result (full interaction). */
+/** Publish a command event and its matching sense result (full interaction). */
 function interact(
 	nerve: InProcessBus,
 	type: string,
@@ -21,7 +21,7 @@ function interact(
 	});
 }
 
-/** Publish only the motor event (no sense result). */
+/** Publish only the command event (no sense result). */
 function motorOnly(nerve: InProcessBus, type: string, args: Record<string, unknown>, corr = "corr-1") {
 	nerve.asBus().command.publish({ type, payload: { toolCallId: `t-${Math.random()}`, ...args }, correlationId: corr });
 }
@@ -158,7 +158,7 @@ describe("LoopGuard", { tags: ["unit"] }, () => {
 		const nerve = new InProcessBus();
 		organ.mount(nerve.asBus());
 
-		// Safety net counts motor events — sense result not required
+		// Safety net counts command events — sense result not required
 		for (let i = 0; i < 4; i++) {
 			motorOnly(nerve, "fs.read", { path: `f${i}.ts` });
 		}

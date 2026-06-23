@@ -52,7 +52,7 @@ describe("runValidators", { tags: ["unit"] }, () => {
 	it("tool_called: ignores sense bus events for same type", () => {
 		const t = [senseEvent("fs.read", '{"content":"data"}'), motorEvent("llm.response", "ok")];
 		const f = runValidators(t, [{ type: "tool_called", value: "fs.read" }]);
-		expect(f).toHaveLength(1); // sense doesn't count — must be motor
+		expect(f).toHaveLength(1); // sense doesn't count — must be command
 	});
 
 	it("multiple validators: all failures collected", () => {

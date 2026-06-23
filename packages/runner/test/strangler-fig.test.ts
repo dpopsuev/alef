@@ -2,13 +2,13 @@
  * Strangler fig validation suite.
  *
  * Proves that the runner (packages/runner) is a correct replacement for
- * the organ-based runner as the alef entry point. Tests the full chain:
+ * the adapter-based runner as the alef entry point. Tests the full chain:
  *
  * auth.ts — credential storage and resolution
  * model.ts — multi-provider detection and registry lookup
  * config.ts — new fields (thinking, llm.*)
- * materializer — blueprint YAML → organ instances
- * BlueprintHarness — blueprint + real organ execution + session JSONL
+ * materializer — blueprint YAML → adapter instances
+ * BlueprintHarness — blueprint + real adapter execution + session JSONL
  * subprocess — spawn main.ts, verify CLI output
  *
  * No real LLM. No API key. Deterministic.
@@ -246,7 +246,7 @@ describe("config.ts — schema validation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Blueprint → organ composition → real tool execution
+// Blueprint → adapter composition → real tool execution
 // ---------------------------------------------------------------------------
 
 describe("blueprint composition — fs organ", () => {
@@ -378,7 +378,7 @@ describe("JsonlSessionStore + TurnAssembler", () => {
 		const cwd = tmpDir();
 		const store = await JsonlSessionStore.create(cwd);
 
-		// Simulate two motor events on the same correlationId
+		// Simulate two command events on the same correlationId
 		await store.append({
 			bus: "command",
 			type: "fs.read",

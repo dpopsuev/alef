@@ -1,5 +1,5 @@
 /**
- * ShellOrgan — shell execution organ.
+ * ShellOrgan — shell execution adapter.
  *
  * shell.exec — streaming: yields chunks as they arrive via spawn(),
  *              final event carries exitCode + isFinal: true.

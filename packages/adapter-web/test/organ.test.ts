@@ -1,6 +1,6 @@
 /**
  * WebOrgan tests — no real network.
- * Validates organ structure, tool definitions, and web-spider integration.
+ * Validates adapter structure, tool definitions, and web-spider integration.
  *
  * The hand-rolled HTML→text pipeline has been replaced by web-spider's
  * Readability + Turndown pipeline. Tests verify the contract shape,

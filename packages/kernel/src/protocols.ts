@@ -1,8 +1,8 @@
 /**
  * Bus-level protocol conventions.
  *
- * Shared event type names and payload contracts for multi-organ protocols.
- * Any organ that participates in these protocols imports from here.
+ * Shared event type names and payload contracts for multi-adapter protocols.
+ * Any adapter that participates in these protocols imports from here.
  * Not part of the bus mechanics (see buses.ts) — these are agreements
  * layered on top of the transport, like HTTP headers on top of TCP.
  */
@@ -11,10 +11,10 @@
 // Validation protocol
 // ---------------------------------------------------------------------------
 
-/** Motor event type: request validation of an output by a validator organ. */
+/** Command event type: request validation of an output by a validator adapter. */
 export const VALIDATE_REQUEST = "validate.required";
 
-/** Sense event type: validation organ responds with approval/rejection. */
+/** Event type: validation adapter responds with approval/rejection. */
 export const VALIDATE_RESULT = "validate.result";
 
 export interface ValidateRequest {

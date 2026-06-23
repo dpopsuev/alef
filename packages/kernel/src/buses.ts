@@ -127,27 +127,27 @@ export interface UiContribution {
 		theme: AdapterTheme,
 	): unknown;
 	/**
-	 * Render a nonCapturing overlay shown while the organ is active.
-	 * Called once after organ mount; returned component is shown/hidden
-	 * by the TUI aggregator as the organ runs.
+	 * Render a nonCapturing overlay shown while the adapter is active.
+	 * Called once after adapter mount; returned component is shown/hidden
+	 * by the TUI aggregator as the adapter runs.
 	 */
 	renderOverlay?(): unknown;
 	/**
-	 * Signal handlers for TUI updates. Keyed by signal type (e.g. "plan.checkpoint").
-	 * The handler receives the signal payload and a minimal TUI surface.
-	 * Collected at mount time — no TUI modification needed per organ.
+	 * Notification handlers for TUI updates. Keyed by notification type (e.g. "plan.checkpoint").
+	 * The handler receives the notification payload and a minimal TUI surface.
+	 * Collected at mount time — no TUI modification needed per adapter.
 	 */
 	signals?: Readonly<Record<string, UiSignalHandler>>;
 }
 
 /**
- * History contribution — declares which tools this organ owns for per-organ history indexing.
+ * History contribution — declares which tools this adapter owns for per-adapter history indexing.
  */
 export interface HistoryContribution {
-	/** Tool names whose motor events should be indexed in this organ's history. */
+	/** Tool names whose command events should be indexed in this adapter's history. */
 	readonly ownedTools: readonly string[];
 	/**
-	 * Extract the fields worth storing from a motor event payload.
+	 * Extract the fields worth storing from a command event payload.
 	 * Return null to skip this event.
 	 */
 	extractEntry(motorPayload: Record<string, unknown>): Record<string, unknown> | null;
@@ -179,7 +179,7 @@ export interface PlanScopeData {
 
 /**
  * Update event from a child scoped plan to its parent.
- * Published to sense bus when child modifies their scoped plan.
+ * Published to event bus when child modifies their scoped plan.
  */
 export interface PlanUpdateEvent {
 	/** Parent plan ID to update */
@@ -223,13 +223,13 @@ export interface PipelineContributions {
 }
 
 export interface PresentationContributions {
-	/** Organ-owned TUI renderers for tool calls and results. */
+	/** Adapter-owned TUI renderers for tool calls and results. */
 	readonly ui?: UiContribution;
-	/** Declares which tools this organ owns for per-organ history indexing. */
+	/** Declares which tools this adapter owns for per-adapter history indexing. */
 	readonly history?: HistoryContribution;
 	/**
-	 * Signal-to-display event mapping. Each key is a signal type (e.g. "workflow.step").
-	 * The function maps the signal payload to a display event object, or null to skip.
+	 * Notification-to-display event mapping. Each key is a notification type (e.g. "workflow.step").
+	 * The function maps the notification payload to a display event object, or null to skip.
 	 * Collected by the runner at mount time — no hardcoded switch needed.
 	 */
 	readonly "signal.map"?: Readonly<
@@ -238,7 +238,7 @@ export interface PresentationContributions {
 }
 
 export interface SeamingContributions {
-	/** Declares the seam this organ owns, validated at boot by the runtime. */
+	/** Declares the seam this adapter owns, validated at boot by the runtime. */
 	readonly port?: PortDefinition;
 	/** Plan scoping for hierarchical multi-agent delegation */
 	readonly "plan.scope"?: PlanScopeContribution;
@@ -286,13 +286,13 @@ export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknow
 
 // ---------------------------------------------------------------------------
 // Bus events — domain-agnostic. Spine knows nothing about payload schemas.
-// Routing is by type string. Each organ package defines its own payloads.
+// Routing is by type string. Each adapter package defines its own payloads.
 //
-//   MotorEvent: commands flowing OUT from the Reasoner to organs (efferent).
-//   SenseEvent: observations flowing IN from organs to the Reasoner (afferent).
-//   SignalEvent: Reasoner internal telemetry broadcast to observers (cortical).
-//               Never dispatched to organ handlers. Consumed by TUI, session-log,
-//               router — NOT by EvaluatorOrgan or LoopGuard.
+//   CommandMessage: commands flowing OUT from the Reasoner to adapters (efferent).
+//   EventMessage:   results flowing IN from adapters to the Reasoner (afferent).
+//   NotificationMessage: Reasoner internal telemetry broadcast to observers.
+//               Never dispatched to adapter handlers. Consumed by TUI, session-log,
+//               router — NOT by Evaluator or LoopGuard.
 // ---------------------------------------------------------------------------
 
 export interface CommandMessage extends BusMessage {
@@ -317,7 +317,7 @@ export interface NotificationMessage extends BusMessage {
 // Bus — unified view of all three channels.
 //
 // Every adapter receives a Bus. Direction is declared via the action-map key
-// prefix in defineAdapter: "command/" subscribes Command, "event/" subscribes Event.
+// prefix in defineAdapter: "command/" subscribes command, "event/" subscribes event.
 // The notification channel has no action-map prefix — only the Reasoner publishes to it
 // and only observers (wildcard "*") subscribe to it.
 // ---------------------------------------------------------------------------
@@ -388,7 +388,7 @@ export interface Adapter {
 /**
  * Reasoner — kernel-level interface for the agent's reasoning component.
  *
- * A Reasoner is NOT an Adapter in the microkernel sense: it provides no tools,
+ * A Reasoner is NOT an Adapter in the microkernel event: it provides no tools,
  * does not respond to tool-call commands, and is not called by the LLM.
  * It is the component that CALLS adapters and drives the agent loop.
  */
@@ -418,8 +418,8 @@ export function gimpedAdapter(name: string): Adapter {
 }
 
 /**
- * Build a Bus from individual channels, populating both canonical (command/event/notification)
- * and deprecated (motor/sense/signal) properties. Use when constructing a wrapped Bus inline.
+ * Build a Bus from individual channels (command/event/notification).
+ * Use when constructing a wrapped Bus inline.
  */
 export function makeBus(
 	command: BusChannel<"command">,

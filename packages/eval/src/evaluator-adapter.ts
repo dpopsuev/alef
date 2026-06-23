@@ -1,10 +1,10 @@
 /**
- * EvaluatorAdapter — Observer organ for evaluation runs.
+ * EvaluatorAdapter — Observer adapter for evaluation runs.
  *
- * Wires directly to nerve.command.subscribe("*") and nerve.event.subscribe("*")
+ * Wires directly to bus.command.subscribe("*") and bus.event.subscribe("*")
  * to count all events and detect tool call loops.
  *
- * Loop detection: same Motor event type > loopThreshold times within the same
+ * Loop detection: same command event type > loopThreshold times within the same
  * correlationId → sets loopDetected, calls onLoop callback.
  *
  * Does NOT publish events — read-only observer.
@@ -15,7 +15,7 @@ import type { Bus, BusMessage } from "@dpopsuev/alef-kernel/bus";
 
 export interface EvaluatorAdapterOptions {
 	/**
-	 * How many times the same Motor event type on the same correlationId
+	 * How many times the same command event type on the same correlationId
 	 * triggers loop detection. Default: 10.
 	 */
 	loopThreshold?: number;

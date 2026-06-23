@@ -79,7 +79,7 @@ describe("verifier: assertHashesPresent", { tags: ["unit"] }, () => {
 });
 
 // ---------------------------------------------------------------------------
-// E2E-185: blueprint organ selection
+// E2E-185: blueprint adapter selection
 // ---------------------------------------------------------------------------
 
 describe("verifier: assertOrganSelection", { tags: ["unit"] }, () => {

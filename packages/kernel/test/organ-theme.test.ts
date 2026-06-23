@@ -3,7 +3,7 @@
  *
  * Given/When/Then:
  *   Given AdapterTheme is defined in kernel
- *   When an organ declares contributions["tui"] and contributions["history"]
+ *   When an adapter declares contributions["tui"] and contributions["history"]
  *   Then the types are accepted by AdapterContributions and the methods are callable
  */
 

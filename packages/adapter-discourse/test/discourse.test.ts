@@ -204,7 +204,7 @@ describe("DiscourseStore", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Organ — structural tests
+// Adapter — structural tests
 // ---------------------------------------------------------------------------
 describe("organ-forum structure", () => {
 	let sessionDir: string;

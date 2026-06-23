@@ -29,7 +29,7 @@ export function runValidators(transcript: TranscriptEvent[], validators: Validat
 				}
 				break;
 			case "exit_code":
-				// exit_code validator: look for shell.exec sense events containing the code
+				// exit_code validator: look for shell.exec event events containing the code
 				if (!transcript.some((e) => e.type === "shell.exec" && String(e.text).includes(`"exitCode":${v.value}`))) {
 					failures.push(`Expected exit code ${v.value}`);
 				}

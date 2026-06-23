@@ -15,7 +15,7 @@
  *     ├── sessions/<cwd-hash>/      → Session JSONL logs
  *     │   ├── <session-id>.jsonl
  *     │   └── latest
- *     └── prototypes/               → User-written organ prototypes
+ *     └── prototypes/               → User-written adapter prototypes
  *         └── <name>.ts
  *
  *   $XDG_STATE_HOME/alef/           → Runtime state

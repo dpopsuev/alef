@@ -1,8 +1,8 @@
 /**
- * Organ history — per-organ indexing of motor events in SessionStore.
+ * Adapter history — per-adapter indexing of command events in SessionStore.
  *
  * Given/When/Then:
- *   Given motor events with type "fs.read" and "shell.exec" are appended
+ *   Given command events with type "fs.read" and "shell.exec" are appended
  *   When organHistory("fs") is called
  *   Then only events whose type starts with "fs." are returned
  *   And organHistory("shell") returns only shell events
@@ -73,7 +73,7 @@ describe("JsonlSessionStore.organHistory(name)", { tags: ["unit"] }, () => {
 		});
 
 		const shellHistory = await store.organHistory("shell");
-		// Both motor and sense events for shell.exec
+		// Both command and sense events for shell.exec
 		expect(shellHistory.length).toBeGreaterThanOrEqual(1);
 		expect(shellHistory.every((e) => e.type.startsWith("shell."))).toBe(true);
 	});

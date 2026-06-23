@@ -261,7 +261,7 @@ describe("error handling", { tags: ["e2e"] }, () => {
 			["name: bad", "organs:", "  - name: fs", "    actions: [teleport]"].join("\n"),
 		);
 
-		// Unknown action = organ mounts with zero tools (ablated). Not an error.
+		// Unknown action = adapter mounts with zero tools (ablated). Not an error.
 		const result = await run(["--blueprint", join(dir, "bad.yaml"), "--list-tools"]);
 		expect(result.exitCode).toBe(0);
 		expect(result.stdout).not.toContain("fs."); // all fs tools ablated

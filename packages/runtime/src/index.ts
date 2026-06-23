@@ -36,7 +36,7 @@ import { type AdapterPortInfo, PortValidationError, validatePorts } from "./port
 const VALIDATE_PAYLOADS = process.env.ALEF_VALIDATE_PAYLOADS === "1" || process.env.NODE_ENV === "test";
 
 /**
- * Wrap a Nerve so publish calls are validated against the adapter's publishSchemas.
+ * Wrap a Bus so publish calls are validated against the adapter's publishSchemas.
  * Returns the original bus when validation is disabled or the adapter declares no schemas.
  */
 function withPayloadValidation(bus: Bus, adapter: Adapter): Bus {
@@ -144,7 +144,7 @@ export class Agent {
 	private disposed = false;
 	/**
 	 * AbortController fired on dispose(). Pass signal to long-running adapters
-	 * (e.g. organ-llm) so in-flight HTTP requests are cancelled when the agent
+	 * (e.g. adapter-llm) so in-flight HTTP requests are cancelled when the agent
 	 * shuts down. Prevents runLLMLoop from continuing after dispose.
 	 */
 	private readonly controller = new AbortController();
@@ -240,7 +240,7 @@ export class Agent {
 	}
 
 	/**
-	 * Inject a sense event directly into the agent's spine.
+	 * Inject a event event directly into the agent's spine.
 	 * Used by autonomous-agent test harnesses to trigger the Reasoner
 	 * without going through AgentController.send().
 	 */
@@ -252,13 +252,13 @@ export class Agent {
 		this.publishEvent(event);
 	}
 
-	/** Broadcast a signal event to all observers. Used exclusively by the Reasoner (organ-llm). */
+	/** Broadcast a signal event to all observers. Used exclusively by the Reasoner (adapter-llm). */
 	publishSignal(event: NotificationInput): void {
 		this.bus.publish("notification", event);
 	}
 
 	/**
-	 * Subscribe to a motor event published by the agent.
+	 * Subscribe to a command event published by the agent.
 	 * Returns an unsubscribe function.
 	 */
 	subscribeCommand(type: string, callback: (event: CommandMessage) => void): () => void {
@@ -310,7 +310,7 @@ export class Agent {
 	}
 
 	/**
-	 * Mount the reasoning adapter (organ-llm or ScriptedReasoner) after all
+	 * Mount the reasoning adapter (adapter-llm or ScriptedReasoner) after all
 	 * adapters are loaded. This guarantees the reasoner's getTools()
 	 * callback sees the full tool catalog — the implicit ordering requirement
 	 * that previously had to be managed by callers is now enforced here.

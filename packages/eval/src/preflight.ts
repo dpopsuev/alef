@@ -3,9 +3,9 @@
  *
  * Four phases in ~2 seconds:
  *   1. validate   — blueprint has adapters, adapter names resolve, no duplicates
- *   2. components — each adapter mounts cleanly on a throw-away Nerve
+ *   2. components — each adapter mounts cleanly on a throw-away Bus
  *   3. tools      — every ToolDefinition has a valid Zod inputSchema
- *   4. probe      — one Motor event per adapter per tool, Sense event returns
+ *   4. probe      — one Command event per adapter per tool, Event event returns
  *
  * Returns PreflightReport { passed, warnings, errors } — structured, not just Error.
  * Mediator connectivity emits a warning not an error (degraded not broken).
@@ -20,7 +20,7 @@ import { runOrganContract } from "@dpopsuev/alef-testkit";
 export interface PreflightConfig {
 	/** Adapters to validate. At least one required. */
 	adapters: Adapter[];
-	/** Timeout per Motor→Sense probe in ms. Default: 2000. */
+	/** Timeout per Command→Event probe in ms. Default: 2000. */
 	probeTimeoutMs?: number;
 }
 
@@ -124,7 +124,7 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 		ok("tools");
 	}
 
-	// Phase 4: probe — RunOrganContract on each adapter (Motor→Sense round-trip)
+	// Phase 4: probe — RunOrganContract on each adapter (Command→Event round-trip)
 	for (const adapter of cfg.adapters) {
 		if (adapter.tools.length === 0) {
 			warn(`adapter "${adapter.name}" has no tools — skipping probe`);

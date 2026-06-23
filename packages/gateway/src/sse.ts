@@ -4,8 +4,8 @@
  * Each connected client is a raw Node.js ServerResponse with headers set for
  * the text/event-stream protocol. Events are formatted as:
  *
- *   event: motor/fs.read\n
- *   data: {"bus":"motor","type":"fs.read",...}\n
+ *   event: command/fs.read\n
+ *   data: {"bus":"command","type":"fs.read",...}\n
  *   \n
  *
  * Clients that close their connection are removed automatically via the
@@ -67,7 +67,7 @@ export class EventStream {
 		return this.clients.size;
 	}
 
-	/** Flush and close all client connections (called on organ unmount). */
+	/** Flush and close all client connections (called on adapter unmount). */
 	closeAll(): void {
 		for (const client of this.clients) {
 			client.end();

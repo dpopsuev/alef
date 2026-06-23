@@ -4,9 +4,9 @@
  * A single creature that owns the aggregated skill registry and exposes it
  * to the LLM. Two sources are merged at runtime:
  *
- *   1. Organ-registered SkillBooks — declared via organ.skills[]; delivered
- *      via sense/organ.loaded announcements emitted by the Agent runtime.
- *      Handlers are idempotent: re-announcing an organ replaces its books.
+ *   1. Adapter-registered SkillBooks — declared via adapter.skills[]; delivered
+ *      via event/adapter.loaded announcements emitted by the Agent runtime.
+ *      Handlers are idempotent: re-announcing an adapter replaces its books.
  *
  *   2. Filesystem SKILL.md files — user-written skills discovered from
  *      standard paths (agentskills.io convention) at construction time.

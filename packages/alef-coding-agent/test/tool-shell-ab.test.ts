@@ -2,7 +2,7 @@
  * ToolShell A/B evaluation.
  *
  * Runs the same eval scenarios twice:
- *   A (baseline): standard organ wiring, all schemas upfront
+ *   A (baseline): standard adapter wiring, all schemas upfront
  *   B (ToolShell): tools.search + tools.describe meta-tools only
  *
  * Reports per-scenario: pass, schema_frac, tokens, turns.

@@ -55,7 +55,7 @@ function tmpCwd(): string {
 }
 
 /**
- * Motor llm.response with text content sized to produce a predictable tokenCost.
+ * Command llm.response with text content sized to produce a predictable tokenCost.
  * extractContentLength picks the 'text' field → text.length / 4 = tokenCost.
  */
 function motorDialogRecord(correlationId: string, text: string): StorageRecord {
@@ -117,7 +117,7 @@ describe("assembleTurns — eviction proof", { tags: ["unit"] }, () => {
 
 		const turns = await store.turns();
 
-		// Verify content-based cost — padded motor text dominates, cost ≈ COST_PER_TURN.
+		// Verify content-based cost — padded command text dominates, cost ≈ COST_PER_TURN.
 		// Sense record adds a small amount of text, so allow a small margin.
 		for (const t of turns) {
 			expect(t.tokenCost).toBeGreaterThanOrEqual(COST_PER_TURN);

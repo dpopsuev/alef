@@ -1,10 +1,10 @@
 /**
- * alef organ new <name> — scaffold a publishable organ package.
+ * alef adapter new <name> — scaffold a publishable adapter package.
  *
  * Generates in the current working directory:
  *   alef-adapter-<name>/
- *     src/organ.ts       ← defineOrgan() factory, createOrgan export
- *     package.json       ← name: alef-adapter-<name>, keywords: [alef-organ]
+ *     src/adapter.ts       ← defineAdapter() factory, createAdapter export
+ *     package.json       ← name: alef-adapter-<name>, keywords: [alef-adapter]
  *     tsconfig.json
  *     README.md
  */
@@ -54,8 +54,8 @@ function writePackageJson(name: string, version: string): string {
 		{
 			name: `alef-adapter-${name}`,
 			version,
-			description: `${name} organ for Alef agents`,
-			keywords: ["alef-organ"],
+			description: `${name} adapter for Alef agents`,
+			keywords: ["alef-adapter"],
 			type: "module",
 			main: "dist/index.js",
 			exports: { ".": "./dist/index.js" },
@@ -95,7 +95,7 @@ function writeTsConfig(): string {
 function writeReadme(name: string): string {
 	return `# alef-adapter-${name}
 
-An Alef organ package.
+An Alef adapter package.
 
 ## Install
 
@@ -112,7 +112,7 @@ alef install alef-adapter-${name}
 ## Usage in blueprint
 
 \`\`\`yaml
-organs:
+adapters:
   - name: ${name}
 \`\`\`
 `;

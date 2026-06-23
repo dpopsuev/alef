@@ -1,5 +1,5 @@
 /**
- * ToolShellOrgan — progressive disclosure for organ tool schemas.
+ * ToolShellOrgan — progressive disclosure for adapter tool schemas.
  *
  * Three-tier context lifecycle:
  *
@@ -65,8 +65,8 @@ export interface ToolShellOptions {
 	 */
 	getTools?: () => readonly ToolDefinition[];
 	/**
-	 * Organ guidance blocks indexed by tool name.
-	 * Populated from organ.directives — travel with schemas instead of system prompt.
+	 * Adapter guidance blocks indexed by tool name.
+	 * Populated from adapter.directives — travel with schemas instead of system prompt.
 	 */
 	adapterDirectives?: ReadonlyMap<string, readonly string[]>;
 	/**
@@ -229,7 +229,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Organ — motor handlers
+	// Adapter — command handlers
 	// ---------------------------------------------------------------------------
 	const adapter = defineAdapter(
 		"tools",

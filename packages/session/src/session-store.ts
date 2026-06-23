@@ -303,7 +303,7 @@ export class JsonlSessionStore {
 	}
 
 	/**
-	 * Return all motor and sense events whose type starts with `<organName>.`.
+	 * Return all command and event events whose type starts with `<organName>.`.
 	 * O(n_events) scan — intended for diagnostics and session context stage context injection.
 	 */
 	organHistory(organName: string): Promise<StorageRecord[]> {

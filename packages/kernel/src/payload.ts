@@ -20,10 +20,10 @@
 // ---------------------------------------------------------------------------
 
 /**
- * Human-readable display block attached to sense payloads.
+ * Human-readable display block attached to event result payloads.
  *
- * Organs include this on their sense results so the TUI can render
- * something meaningful instead of raw JSON. organ-llm strips it before
+ * Adapters include this on their event results so the TUI can render
+ * something meaningful instead of raw JSON. The Reasoner strips it before
  * encoding the payload into the LLM’s tool-result context.
  *
  * Mirrors the MCP content-block `annotations.audience` pattern:
@@ -37,9 +37,9 @@ export interface SenseDisplayBlock {
 }
 
 /**
- * Attach a display block to a sense payload without mutating the original.
+ * Attach a display block to an event payload without mutating the original.
  *
- * Usage in organ handlers:
+ * Usage in adapter handlers:
  *   return withDisplay({ content, truncated }, { text: `Read **${path}**`, mimeType: "text/plain" });
  */
 export function withDisplay(payload: Record<string, unknown>, display: SenseDisplayBlock): Record<string, unknown> {
@@ -47,7 +47,7 @@ export function withDisplay(payload: Record<string, unknown>, display: SenseDisp
 }
 
 /**
- * Build a dual-channel sense result where the LLM receives a clean string and
+ * Build a dual-channel event result where the LLM receives a clean string and
  * the TUI receives a formatted pill.
  *
  * The primary content is always placed in the `content` field — the name that

@@ -1,5 +1,5 @@
 /**
- * Tests for organ-eval HTTP helpers (collectEvents, postMessage).
+ * Tests for adapter-eval HTTP helpers (collectEvents, postMessage).
  * Spins up a real HTTP server on a random port — no mocks.
  */
 import http from "node:http";

@@ -7,7 +7,7 @@
  *   hover            — LSP textDocument/hover
  *   workspaceSymbols — LSP workspace/symbol
  *
- * Design: Pure LSP wrapper. No file I/O operations (use fs organ for that).
+ * Design: Pure LSP wrapper. No file I/O operations (use fs adapter for that).
  */
 
 import { spawn } from "node:child_process";
@@ -65,7 +65,7 @@ export interface LocalCodeIntelBackendOptions {
 	/** Workspace root. All relative paths resolve against this. */
 	cwd: string;
 	/**
-	 * Directories the organ is allowed to access (OCAP grant).
+	 * Directories the adapter is allowed to access (OCAP grant).
 	 * Undefined = unrestricted (no guard). Populated = enforce.
 	 */
 	writableRoots?: readonly string[];
@@ -99,8 +99,8 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 	}
 
 	/**
-	 * Pre-warm the LSP client. Called by Organ.ready() before the first event.
-	 * LSP is optional — warm-up failure is silently swallowed so the organ
+	 * Pre-warm the LSP client. Called by Adapter.ready() before the first event.
+	 * LSP is optional — warm-up failure is silently swallowed so the adapter
 	 * still mounts and serves grep-based results without LSP.
 	 */
 	async warmUp(): Promise<void> {
@@ -112,7 +112,7 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 		}
 	}
 
-	/** Stop the LSP server if one was started. Called on organ unmount. */
+	/** Stop the LSP server if one was started. Called on adapter unmount. */
 	async stopLsp(): Promise<void> {
 		const lsp = this.lsp;
 		this.lsp = null;

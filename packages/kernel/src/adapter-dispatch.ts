@@ -19,7 +19,7 @@ export type EscalationHandler = (
 ) => Promise<boolean>;
 
 /**
- * Options for motor action dispatch.
+ * Options for command action dispatch.
  */
 export interface DispatchOptions {
 	/**
@@ -179,7 +179,7 @@ export async function dispatchCommandAction(
 		} catch (e) {
 			log.warn(
 				{ op: motor.type, correlationId: motor.correlationId, err: e instanceof Error ? e : new Error(String(e)) },
-				"motor action failed",
+				"command action failed",
 			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
@@ -218,7 +218,7 @@ export function dispatchEventAction(
 						correlationId: event.correlationId,
 						err: e instanceof Error ? e : new Error(String(e)),
 					},
-					"sense action failed",
+					"event action failed",
 				);
 				span.recordException(e instanceof Error ? e : new Error(String(e)));
 				span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });

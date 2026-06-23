@@ -24,12 +24,12 @@ interface TurnPair {
 
 /**
  * Read last N turn pairs (llm.input + llm.response) from the store's event cache.
- * Pairs events by correlationId: user message from sense/llm.input,
- * agent reply from motor/llm.response.
+ * Pairs events by correlationId: user message from event/llm.input,
+ * agent reply from command/llm.response.
  */
 async function readRecentTurns(store: SessionStore, maxTurns: number): Promise<TurnPair[]> {
-	// Access the session's events via organHistory on "llm" prefix — but llm events
-	// are on sense/motor buses not organ-prefixed. Use turns() instead which groups
+	// Access the session's events via the store — llm events
+	// are on event/command buses. Use turns() instead which groups
 	// by correlationId and includes llm.input + llm.response events.
 	const turns = await store.turns();
 	const recent = turns.slice(-maxTurns);

@@ -5,8 +5,8 @@
  *   1. Subscribes to session.subscribe to receive AgentEvents (output side)
  *   2. Drives session.send / session.receive to deliver user input (input side)
  *
- * The Dialog Organ sits between the viewer and the bus — the viewer never
- * touches the bus directly. session.send() → AgentController → sense/llm.input.
+ * The Dialog Adapter sits between the viewer and the bus — the viewer never
+ * touches the bus directly. session.send() → AgentController → event/llm.input.
  *
  * Implementations:
  *   HeadlessViewMode  — in-process, records events, exposes typed assertions

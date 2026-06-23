@@ -1,14 +1,14 @@
 /**
  * RunMetrics — collected after each scenario run.
  *
- * Source: OTel spans from InMemorySpanExporter + EvaluatorOrgan observations
+ * Source: OTel spans from InMemorySpanExporter + EvaluatorAdapter observations
  * + direct Bus event capture via agent.observe().
  */
 
 /**
- * One Motor or Sense event captured in real-time from the bus.
+ * One Command or Event message captured in real-time from the bus.
  * Complements OTel spans: spans only cover completed calls; BusEvents include
- * the in-flight motor event that precedes a timeout.
+ * the in-flight command event that precedes a timeout.
  */
 export interface BusEvent {
 	bus: "command" | "event" | "notification";
@@ -18,7 +18,7 @@ export interface BusEvent {
 	payload?: Record<string, unknown>;
 	isError?: boolean;
 	errorMessage?: string;
-	/** Round-trip ms from paired Motor to this Sense event. Undefined on Motor/Signal events. */
+	/** Round-trip ms from paired command to this event message. Undefined on command/notification events. */
 	elapsedMs?: number;
 }
 
@@ -35,7 +35,7 @@ export interface SpanRecord {
 
 /**
  * Structured record for a single LLM call within a run.
- * Populated from OTel spans emitted by organ-llm.
+ * Populated from OTel spans emitted by the Reasoner.
  * Mirrors Tako TurnRecord.
  */
 export interface TurnRecord {
@@ -67,14 +67,14 @@ export interface TurnRecord {
 	retryReasons: string[];
 	/** True if the LLM call was aborted (scenario timeout or AbortSignal). */
 	aborted: boolean;
-	/** Organ-llm turn number within the LLM loop (1-based). */
+	/** Reasoner turn number within the LLM loop (1-based). */
 	llmTurn: number;
 }
 
 /**
  * Derive TurnRecord[] from a flat SpanRecord array.
  * LLM call spans (name starts with 'chat ') are the anchors;
- * motor spans following each LLM call are attributed to that turn.
+ * command spans following each LLM call are attributed to that turn.
  */
 export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 	const turns: TurnRecord[] = [];
@@ -85,7 +85,7 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 		if (!s.name.startsWith("chat ")) continue;
 
 		turnIndex++;
-		// Collect motor tool spans that follow this LLM call until the next LLM call
+		// Collect command tool spans that follow this LLM call until the next LLM call
 		const toolSpans: SpanRecord[] = [];
 		for (let j = i + 1; j < spans.length; j++) {
 			if (spans[j].name.startsWith("chat ")) break;
@@ -93,7 +93,7 @@ export function deriveturns(spans: SpanRecord[]): TurnRecord[] {
 		}
 
 		// Exclude internal seam events from tool path tracking.
-		// context.assemble is ToolShellOrgan's context lifecycle interceptor, not an LLM tool call.
+		// context.assemble is ToolShellAdapter's context lifecycle interceptor, not an LLM tool call.
 		const INTERNAL_EVENTS = new Set(["llm.response", "context.assemble"]);
 		const toolNames = toolSpans
 			.map((ts) => ts.name.replace("alef.command/", ""))
@@ -143,7 +143,7 @@ export interface RunMetrics {
 	/**
 	 * Full conversation transcript: the complete messages array at end of the eval run.
 	 * Each entry is { role, content, toolCallId?, toolName?, isError? }.
-	 * Populated from the conversationHistory field on the last Motor llm.response event.
+	 * Populated from the conversationHistory field on the last command llm.response event.
 	 *
 	 * Anthropic: "A transcript is the complete record of a trial, including outputs,
 	 * tool calls, reasoning, and intermediate results."
@@ -153,7 +153,7 @@ export interface RunMetrics {
 	passed: boolean;
 	/** Error message if passed=false. */
 	error?: string;
-	/** Total Motor+Sense events observed. */
+	/** Total command+event messages observed. */
 	totalEvents: number;
 	/** Total alef.command/* and alef.event/* spans. */
 	totalSpans: number;
@@ -163,7 +163,7 @@ export interface RunMetrics {
 	cacheMisses: number;
 	/** Optimal Action Efficiency: cacheHits / totalSpans (0–1). */
 	oae: number;
-	/** true if EvaluatorOrgan detected a tool call loop. */
+	/** true if EvaluatorAdapter detected a tool call loop. */
 	loopDetected: boolean;
 	/** Event type that looped, if any. */
 	loopEventType?: string;
@@ -186,12 +186,12 @@ export interface RunMetrics {
 	/** True when the scenario was killed by the timeout ceiling. */
 	timedOut: boolean;
 	/**
-	 * Real-time bus event capture: every Motor and Sense event observed during the run,
+	 * Real-time bus event capture: every command and event message observed during the run,
 	 * in chronological order, with truncated payloads. Populated by harness.ts via
 	 * agent.observe(). Skips llm.response (large) and context.assemble (internal).
 	 *
-	 * Unlike OTel spans, this includes in-flight Motor events that never received a
-	 * Sense response — exactly what's needed to diagnose timeout scenarios.
+	 * Unlike OTel spans, this includes in-flight command events that never received an
+	 * event response — exactly what's needed to diagnose timeout scenarios.
 	 */
 	busEvents: BusEvent[];
 }

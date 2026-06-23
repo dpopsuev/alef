@@ -12,8 +12,8 @@
  * Step up to ReadWrite only when the task genuinely requires mutation.
  *
  * Deferred tiers (add when prerequisites are built):
- *   Planning   — ReadWrite + PlanningOrgan
- *   Networked  — Planning + organ-recall + Router/MCP
+ *   Planning   — ReadWrite + PlanningAdapter
+ *   Networked  — Planning + recall adapter + Router/MCP
  *
  * Graduated score from Checker.check():
  *   0.0 — hard fail (missing file, broken assertion)
@@ -107,7 +107,7 @@ export interface Evaluation {
 	 * Failure → score=0.
 	 */
 	readonly expectsAny?: readonly ToolCall[];
-	/** Motor event types that MUST NOT appear in OTel spans. */
+	/** Command event types that MUST NOT appear in OTel spans. */
 	readonly mustNotUse?: readonly string[];
 	/** Deterministic post-run verifier. */
 	readonly checker: Checker;

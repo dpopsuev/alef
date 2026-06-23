@@ -343,7 +343,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
 			},
 			contributions: {
 				"context.assemble": contextStage,
-				tui: {
+				ui: {
 					signals: {
 						"plan.intent": (payload, ui) => {
 							ui.setIntent(String(payload.text ?? ""));

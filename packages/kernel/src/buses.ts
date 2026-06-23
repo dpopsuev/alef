@@ -108,15 +108,15 @@ export interface AdapterTheme {
  * Components are imported from @dpopsuev/alef-tui. Using `unknown` here avoids
  * a kernel → alef-tui dependency; callers cast to Component at use-site.
  */
-export interface TuiSignalSurface {
+export interface UiSignalSurface {
 	setIntent(text: string): void;
 	setStatus(text: string): void;
 	setWidgetAbove(text: string): void;
 }
 
-export type TuiSignalHandler = (payload: Record<string, unknown>, ui: TuiSignalSurface) => void;
+export type UiSignalHandler = (payload: Record<string, unknown>, ui: UiSignalSurface) => void;
 
-export interface TuiContribution {
+export interface UiContribution {
 	/** Render the in-progress tool call header (while waiting for result). */
 	renderCall?(toolName: string, args: Record<string, unknown>, theme: AdapterTheme): unknown;
 	/** Render the completed tool result. */
@@ -137,7 +137,7 @@ export interface TuiContribution {
 	 * The handler receives the signal payload and a minimal TUI surface.
 	 * Collected at mount time — no TUI modification needed per organ.
 	 */
-	signals?: Readonly<Record<string, TuiSignalHandler>>;
+	signals?: Readonly<Record<string, UiSignalHandler>>;
 }
 
 /**
@@ -224,7 +224,7 @@ export interface PipelineContributions {
 
 export interface PresentationContributions {
 	/** Organ-owned TUI renderers for tool calls and results. */
-	readonly tui?: TuiContribution;
+	readonly ui?: UiContribution;
 	/** Declares which tools this organ owns for per-organ history indexing. */
 	readonly history?: HistoryContribution;
 	/**

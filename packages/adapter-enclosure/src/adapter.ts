@@ -185,7 +185,7 @@ export function createEnclosureOrgan(options: EnclosureOrganOptions = {}): Adapt
 				bus = b;
 			},
 			contributions: {
-				tui: {
+				ui: {
 					signals: {
 						"enclosure.status": (payload, ui) => {
 							ui.setStatus(String(payload.text ?? ""));

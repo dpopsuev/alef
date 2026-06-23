@@ -522,7 +522,7 @@ export function createAgentOrgan(
 				deps.publishInnerSignal = undefined;
 			},
 			contributions: {
-				tui: {
+				ui: {
 					signals: {
 						"agent.intent": (payload, ui) => {
 							ui.setIntent(String(payload.text ?? ""));

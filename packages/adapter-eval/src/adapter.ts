@@ -181,7 +181,7 @@ export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 				bus = b;
 			},
 			contributions: {
-				tui: {
+				ui: {
 					signals: {
 						"eval.intent": (payload, ui) => {
 							ui.setIntent(String(payload.text ?? ""));

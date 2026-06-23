@@ -1,102 +1,35 @@
-import { createAgentOrgan, strategyRegistry } from "@dpopsuev/alef-adapter-agent";
 import { createSkillsOrgan } from "@dpopsuev/alef-adapter-skills";
 import { createWireOrgan } from "@dpopsuev/alef-adapter-workflow";
-import {
-	type BlueprintStack,
-	type BlueprintStackOptions,
-	DEFAULT_COMPILED_DEFINITION,
-	materializeBlueprint,
-	materializeDefaultOrgans,
-} from "@dpopsuev/alef-agent-blueprint";
+import { type BlueprintStack, type BlueprintStackOptions, buildDelegationStack } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import { buildAdapterDirectives, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-runtime";
-import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
-const EXPLORE_ORGANS = [
-	{ name: "fs", actions: [] as string[], toolNames: [] as string[] },
-	{ name: "web", actions: [] as string[], toolNames: [] as string[] },
-];
-
-const EXPLORE_SYSTEM_PROMPT = `Read-only exploration agent. Read files, search code, fetch URLs, report findings.
-NEVER write files. NEVER modify state. NEVER execute commands that change anything.
-NEVER use emojis. Start with the finding. No filler, no preamble.
-Read files before describing them. Batch parallel reads.
-Your response IS the return value — factual, structured, under 500 words.`;
-
-const GENERAL_SYSTEM_PROMPT = `General-purpose Alef subagent.
-NEVER create files for research, analysis, summaries, or reports. Report in chat as prose.
-NEVER use emojis. No filler. No preamble. Start with the finding.
-NEVER use git commit --no-verify or skip pre-commit hooks.
-ALWAYS read a file with fs.read before editing it with fs.edit.
-ALWAYS call tools.describe(["tool-name"]) before first use of any tool.
-Batch parallel reads. Answer the question first.`;
-
 export async function createFactoryAgentStack(opts: BlueprintStackOptions): Promise<BlueprintStack> {
-	const { cwd, model } = opts;
-	const materialiOpts = { cwd };
-
 	if (!opts.subagentFactory) {
 		throw new Error("BlueprintStackOptions.subagentFactory is required.");
 	}
 	const factory = opts.subagentFactory;
 
-	const [resolvedDomainOrgans, { organs: exploreOrgans }, { organs: generalOrgans }] = await Promise.all([
-		opts.domainOrgans ? Promise.resolve(opts.domainOrgans) : materializeDefaultOrgans(cwd),
-		materializeBlueprint({ ...DEFAULT_COMPILED_DEFINITION, organs: [...EXPLORE_ORGANS] }, materialiOpts),
-		materializeBlueprint(DEFAULT_COMPILED_DEFINITION, materialiOpts),
-	]);
-	const domainOrgans = resolvedDomainOrgans;
+	const skillsOrgan = createSkillsOrgan({ cwd: opts.cwd });
 
-	const pipeline = createContextAssemblyPipeline();
-
-	const { sessionStore } = opts;
-	if (sessionStore) {
-		pipeline.addStage(
-			"memory",
-			createSessionContextStage({
-				sessionStore: () => sessionStore,
-				contextWindow: model.contextWindow,
-			}),
-		);
-	}
-
-	const skillsOrgan = createSkillsOrgan({ cwd });
-
-	const exploreStrategy = new InProcessStrategy(exploreOrgans, factory, EXPLORE_SYSTEM_PROMPT);
-	const generalStrategy = new InProcessStrategy(generalOrgans, factory, GENERAL_SYSTEM_PROMPT);
-	strategyRegistry.register("explore", exploreStrategy);
-	strategyRegistry.register("general", generalStrategy);
-
-	const agentOrgan = createAgentOrgan({
-		cwd,
-		strategies: {
-			explore: exploreStrategy,
-			general: generalStrategy,
-		},
-		replyEvent: "llm.response",
+	const { organs, pipeline, exploreOrgans, generalOrgans } = await buildDelegationStack({
+		cwd: opts.cwd,
+		factory,
+		contextWindow: opts.model.contextWindow,
+		domainOrgans: opts.domainOrgans,
+		sessionStore: opts.sessionStore,
 		writableRoots: opts.writableRoots,
-		materializeOrgans: async (names) => {
-			const { organs } = await materializeBlueprint(
-				{
-					...DEFAULT_COMPILED_DEFINITION,
-					organs: names.map((n) => ({ name: n, actions: [] as string[], toolNames: [] as string[] })),
-				},
-				materialiOpts,
-			);
-			return organs;
-		},
-		createAdHocSession: factory,
+		extraAdapters: [skillsOrgan],
+		excludeNames: ["workflow"],
 	});
 
 	const wireOrgan = createWireOrgan({
-		cwd,
+		cwd: opts.cwd,
 		async dispatch(text, profile, modelOverride) {
 			const session = factory({
 				organs: profile === "explore" ? exploreOrgans : generalOrgans,
-				systemPrompt: profile === "explore" ? EXPLORE_SYSTEM_PROMPT : GENERAL_SYSTEM_PROMPT,
+				systemPrompt: profile === "explore" ? "Read-only exploration agent. Report findings concisely." : undefined,
 				modelOverride,
 			});
 			try {
@@ -126,37 +59,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		},
 	});
 
-	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;
-	let lastTotalTokens = 0;
-	pipeline.addStage(
-		"compactor",
-		createCompactionStage({
-			contextWindow: model.contextWindow,
-			publishSignal: (type, payload) => signalPublish?.(type, payload),
-			getLastTokenCount: () => lastTotalTokens,
-		}),
-	);
-	const origMount = pipeline.mount.bind(pipeline);
-	(pipeline as { mount: typeof pipeline.mount }).mount = (nerve) => {
-		signalPublish = (type, payload) => nerve.notification.publish({ type, payload, correlationId: "" });
-		nerve.notification.subscribe("llm.token-usage", (event) => {
-			const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
-			if (usage?.totalTokens) lastTotalTokens = usage.totalTokens;
-		});
-		return origMount(nerve);
-	};
-
-	const filteredDomain = domainOrgans.filter(
-		(o) => !["agent", "factory", "skills", "compactor", "workflow"].includes(o.name),
-	);
-	const allOrgans = [...filteredDomain, skillsOrgan, agentOrgan as unknown as Adapter, wireOrgan];
-	const toolShell = createToolShellAdapter({
-		tools: allOrgans.flatMap((o) => o.tools),
-		getTools: () => allOrgans.flatMap((o) => o.tools),
-		adapterDirectives: buildAdapterDirectives(allOrgans),
-	});
-
-	const organs: Adapter[] = [...allOrgans, toolShell, pipeline as unknown as Adapter];
+	organs.splice(organs.length - 2, 0, wireOrgan as unknown as Adapter);
 
 	return { organs, pipeline };
 }

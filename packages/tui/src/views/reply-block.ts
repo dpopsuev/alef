@@ -1,8 +1,8 @@
 import type { Component } from "../component.js";
-import type { ThemeTokens } from "../theme-types.js";
-import type { Container } from "../tui.js";
 import { Collapsible } from "../components/collapsible.js";
 import { Markdown } from "../components/markdown.js";
+import type { ThemeTokens } from "../theme-types.js";
+import type { Container } from "../tui.js";
 import { fmtMs } from "./ansi-utils.js";
 import { AgentBlock } from "./chat-view.js";
 import { makeMarkdownTheme, makeThinkingMarkdownTheme } from "./markdown-themes.js";

@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Typewriter } from "@dpopsuev/alef-tui/views";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("Typewriter middleware", { tags: ["unit"] }, () => {
 	beforeEach(() => vi.useFakeTimers());

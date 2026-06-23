@@ -7,6 +7,11 @@ export default mergeConfig(
 		test: {
 			name: "runner",
 			testTimeout: 30_000,
+			server: {
+				deps: {
+					inline: ["@dpopsuev/alef-tui"],
+				},
+			},
 		},
 	}),
 );

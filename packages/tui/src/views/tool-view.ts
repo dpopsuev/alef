@@ -1,7 +1,7 @@
 import type { Component } from "../component.js";
-import type { ThemeTokens } from "../theme-types.js";
 import { Markdown } from "../components/markdown.js";
 import { Text } from "../components/text.js";
+import type { ThemeTokens } from "../theme-types.js";
 import { fmtMs, sanitizeForDisplay } from "./ansi-utils.js";
 import { INDENT } from "./layout-constants.js";
 import { makeToolOutputMarkdownTheme } from "./markdown-themes.js";

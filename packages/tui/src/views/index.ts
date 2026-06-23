@@ -1,5 +1,3 @@
-export { Container } from "../tui.js";
-export { Text } from "../components/text.js";
 export { AgentForum } from "./agent-forum.js";
 export { fmtMs, hasAnsi, sanitizeForDisplay, stripAnsi } from "./ansi-utils.js";
 export { ChatLog, type ChatLogLabels } from "./chat-log.js";
@@ -13,7 +11,7 @@ export { ReplyBlock } from "./reply-block.js";
 export { prependSessionHistory, type SessionHistoryOptions } from "./session-history.js";
 export { accentColorize, spinnerFrame } from "./spinner.js";
 export { type TuiState, TuiStateStore } from "./state.js";
-export { glyph } from "./theme.js";
+export * from "./theme.js";
 export {
 	formatCompact,
 	formatTokenUsage,

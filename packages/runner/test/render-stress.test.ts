@@ -11,11 +11,10 @@
 import { stripVTControlCharacters } from "node:util";
 import type { RenderMeta } from "@dpopsuev/alef-tui";
 import { Container, Text, TUI } from "@dpopsuev/alef-tui";
+import { DynamicText, ReplyBlock } from "@dpopsuev/alef-tui/views";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal.js";
 import { getTheme } from "../src/theme.js";
-import { DynamicText } from "@dpopsuev/alef-tui/views";
-import { ReplyBlock } from "@dpopsuev/alef-tui/views";
 
 // ---------------------------------------------------------------------------
 // Shared helpers

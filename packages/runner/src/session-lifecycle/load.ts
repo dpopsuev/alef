@@ -1,12 +1,21 @@
 import { type Client, getDatabase, SqliteSessionStore } from "@dpopsuev/alef-storage";
-import type { Args } from "../args.js";
-import { pickSession } from "./picker.js";
+export type SessionPicker = (sessions: Array<{ id: string; path: string; mtime: Date }>) => Promise<string | undefined>;
+
+export interface LoadSessionArgs {
+	cwd: string;
+	resume: string | undefined;
+	listSessions: boolean;
+}
 
 export async function getDb(): Promise<Client> {
 	return getDatabase();
 }
 
-export async function loadSession(args: Args, willUseTui: boolean): Promise<SqliteSessionStore> {
+export async function loadSession(
+	args: LoadSessionArgs,
+	willUseTui: boolean,
+	pickSession?: SessionPicker,
+): Promise<SqliteSessionStore> {
 	const db = await getDb();
 	const pruned = await SqliteSessionStore.prune(db, args.cwd);
 	if (pruned > 0) console.error(`[session] Pruned ${pruned} old session(s)`);
@@ -36,8 +45,8 @@ export async function loadSession(args: Args, willUseTui: boolean): Promise<Sqli
 		return store;
 	}
 
-	const existingSessions = willUseTui ? await SqliteSessionStore.list(db, args.cwd) : [];
-	const pickedId = existingSessions.length > 0 ? await pickSession(existingSessions) : undefined;
+	const existingSessions = willUseTui && pickSession ? await SqliteSessionStore.list(db, args.cwd) : [];
+	const pickedId = existingSessions.length > 0 && pickSession ? await pickSession(existingSessions) : undefined;
 	if (pickedId) {
 		const store = await SqliteSessionStore.resume(db, args.cwd, pickedId);
 		const turnCount = (await store.turns()).length;

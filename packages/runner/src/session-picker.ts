@@ -6,8 +6,8 @@
 import { open, readFile, stat } from "node:fs/promises";
 
 import type { SelectItem } from "@dpopsuev/alef-tui";
-import { runPicker } from "../run-picker.js";
-import type { StorageRecord } from "../session-store.js";
+import { runPicker } from "./run-picker.js";
+import type { StorageRecord } from "./session-store.js";
 
 async function readSessionName(jsonlPath: string): Promise<string | undefined> {
 	try {

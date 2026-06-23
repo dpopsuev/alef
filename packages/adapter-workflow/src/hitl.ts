@@ -39,7 +39,7 @@ export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
 		},
 		sources: [],
 		mount(nerve: Nerve): () => void {
-			return nerve.motor.subscribe(VALIDATE_REQUEST, (event) => {
+			return nerve.command.subscribe(VALIDATE_REQUEST, (event) => {
 				const p = event.payload as unknown as ValidateRequest;
 
 				if (p.targetOrgan && p.targetOrgan !== organName) return;
@@ -49,7 +49,7 @@ export function createHitlOrgan(opts: HitlOrganOptions): Adapter {
 
 				void opts.onEvaluate({ output: p.output, context: p.context, kind: p.kind }).then((result) => {
 					debugLog("hitl:evaluate:result", { id: p.id, approved: result.approved });
-					nerve.sense.publish({
+					nerve.event.publish({
 						type: VALIDATE_RESULT,
 						correlationId: event.correlationId,
 						payload: {

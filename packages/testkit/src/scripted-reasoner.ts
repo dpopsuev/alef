@@ -110,7 +110,7 @@ export class ScriptedReasoner implements Adapter {
 	}
 
 	mount(nerve: Bus): () => void {
-		const off = nerve.sense.subscribe(this.triggerEvent, (event) => {
+		const off = nerve.event.subscribe(this.triggerEvent, (event) => {
 			void this._handle(nerve, event);
 		});
 		return off;
@@ -123,7 +123,7 @@ export class ScriptedReasoner implements Adapter {
 			process.stderr.write(
 				`[ScriptedReasoner] Script exhausted after ${this.stepIndex - 1} steps. Replying with sentinel.\n`,
 			);
-			nerve.motor.publish({
+			nerve.command.publish({
 				type: this.replyEvent,
 				payload: { text: "(ScriptedReasoner: script exhausted)" },
 				correlationId: event.correlationId,
@@ -134,7 +134,7 @@ export class ScriptedReasoner implements Adapter {
 		try {
 			if (step.kind === "reply") {
 				if (step.text) this.opts.onResponseChunk?.(step.text);
-				nerve.motor.publish({
+				nerve.command.publish({
 					type: this.replyEvent,
 					payload: { text: step.text },
 					correlationId: event.correlationId,
@@ -151,7 +151,7 @@ export class ScriptedReasoner implements Adapter {
 					const toolCallId = randomUUID();
 					const startedAt = Date.now();
 					this.opts.onToolStart?.({ callId: toolCallId, name: call.name, args: call.args });
-					nerve.motor.publish({
+					nerve.command.publish({
 						type: call.name,
 						payload: { ...call.args, toolCallId },
 						correlationId: event.correlationId,
@@ -170,14 +170,14 @@ export class ScriptedReasoner implements Adapter {
 
 			// Deliver reply text via onResponseChunk before publishing llm.response.
 			if (replyText) this.opts.onResponseChunk?.(replyText);
-			nerve.motor.publish({
+			nerve.command.publish({
 				type: this.replyEvent,
 				payload: { text: replyText },
 				correlationId: event.correlationId,
 			});
 		} catch (err) {
 			// Publish error as dialog reply so dialog.send() resolves rather than hanging.
-			nerve.motor.publish({
+			nerve.command.publish({
 				type: this.replyEvent,
 				payload: { text: `(ScriptedReasoner error: ${String(err)})` },
 				correlationId: event.correlationId,
@@ -203,7 +203,7 @@ function waitForSense(
 			reject(new Error(`ScriptedReasoner: timeout waiting for sense/${eventType} (toolCallId=${toolCallId})`));
 		}, timeoutMs);
 
-		const off = nerve.sense.subscribe(eventType, (e: EventMessage) => {
+		const off = nerve.event.subscribe(eventType, (e: EventMessage) => {
 			if (e.correlationId === correlationId && (e.payload as { toolCallId?: string }).toolCallId === toolCallId) {
 				clearTimeout(timer);
 				off();

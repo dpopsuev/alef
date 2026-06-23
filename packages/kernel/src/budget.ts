@@ -20,10 +20,10 @@ export function withLimits(limits: Budget): BusMiddleware {
 		let toolCallCount = 0;
 		return makeBus(
 			{
-				subscribe: nerve.motor.subscribe.bind(nerve.motor),
+				subscribe: nerve.command.subscribe.bind(nerve.motor),
 				publish: (event) => {
 					if (limits.maxToolCalls !== undefined && toolCallCount >= limits.maxToolCalls) {
-						nerve.sense.publish({
+						nerve.event.publish({
 							type: event.type,
 							correlationId: event.correlationId,
 							payload: {},
@@ -33,7 +33,7 @@ export function withLimits(limits: Budget): BusMiddleware {
 						return;
 					}
 					toolCallCount++;
-					nerve.motor.publish(event);
+					nerve.command.publish(event);
 				},
 			},
 			nerve.sense,
@@ -46,7 +46,7 @@ export function withLimits(limits: Budget): BusMiddleware {
 export function startElapsedTimer(limits: Budget, nerve: Bus): (() => void) | undefined {
 	if (limits.maxElapsedMs === undefined) return undefined;
 	const timer = setTimeout(() => {
-		nerve.sense.publish({
+		nerve.event.publish({
 			type: "budget.cancel",
 			correlationId: "*",
 			payload: { reason: "maxElapsedMs", limitMs: limits.maxElapsedMs },

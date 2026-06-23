@@ -43,7 +43,7 @@ export class NerveFixture {
 				off();
 				reject(new Error(`NerveFixture.call timed out after ${timeoutMs}ms waiting for sense/${type}`));
 			}, timeoutMs);
-			const off = this.nerve.asNerve().sense.subscribe(type, (event) => {
+			const off = this.nerve.asNerve().event.subscribe(type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
@@ -51,7 +51,7 @@ export class NerveFixture {
 			});
 		});
 
-		this.nerve.asNerve().motor.publish({ type, payload, correlationId });
+		this.nerve.asNerve().command.publish({ type, payload, correlationId });
 		return resultPromise;
 	}
 
@@ -72,7 +72,7 @@ export class NerveFixture {
 				off();
 				reject(new Error(`NerveFixture.callStreaming timed out after ${timeoutMs}ms waiting for sense/${type}`));
 			}, timeoutMs);
-			const off = this.nerve.asNerve().sense.subscribe(type, (event) => {
+			const off = this.nerve.asNerve().event.subscribe(type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				const payload = event.payload as { isFinal?: boolean };
 				if (!event.isError && payload.isFinal !== true && payload.isFinal !== undefined) return;
@@ -82,7 +82,7 @@ export class NerveFixture {
 			});
 		});
 
-		this.nerve.asNerve().motor.publish({ type, payload, correlationId });
+		this.nerve.asNerve().command.publish({ type, payload, correlationId });
 		return resultPromise;
 	}
 

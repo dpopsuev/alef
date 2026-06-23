@@ -65,13 +65,13 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 
 	return makeBus(
 		{
-			subscribe: nerve.motor.subscribe.bind(nerve.motor),
+			subscribe: nerve.command.subscribe.bind(nerve.motor),
 			publish: (event: CommandMessage) => {
 				const err = validate("motor", motorSchemas, event);
 				if (err) {
 					// Publish validation failure as a sense error so the caller sees a tool result.
 					const payload = event.payload as { toolCallId?: string };
-					nerve.sense.publish({
+					nerve.event.publish({
 						type: event.type,
 						correlationId: event.correlationId,
 						isError: true,
@@ -80,11 +80,11 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 					});
 					return;
 				}
-				nerve.motor.publish(event);
+				nerve.command.publish(event);
 			},
 		},
 		{
-			subscribe: nerve.sense.subscribe.bind(nerve.sense),
+			subscribe: nerve.event.subscribe.bind(nerve.sense),
 			publish: (event: EventMessage) => {
 				// Error events carry { toolCallId } only — validating against the success schema always fails.
 				if (!event.isError) {
@@ -97,7 +97,7 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 						return;
 					}
 				}
-				nerve.sense.publish(event);
+				nerve.event.publish(event);
 			},
 		},
 		nerve.signal,
@@ -263,7 +263,7 @@ export class Agent {
 	 * Returns an unsubscribe function.
 	 */
 	subscribeMotor(type: string, callback: (event: CommandMessage) => void): () => void {
-		return this.nerve.asNerve().motor.subscribe(type, callback);
+		return this.nerve.asNerve().command.subscribe(type, callback);
 	}
 
 	/**

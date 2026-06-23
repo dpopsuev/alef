@@ -58,9 +58,15 @@ export function typedStreamAction<TSchema extends ZodTypeAny>(
 export interface SenseHandlerCtx {
 	readonly correlationId: string;
 	readonly payload: Record<string, unknown>;
-	readonly motor: Bus["motor"];
-	readonly sense: Bus["sense"];
-	readonly signal: Bus["signal"];
+	readonly command: Bus["command"];
+	readonly event: Bus["event"];
+	readonly notification: Bus["notification"];
+	/** @deprecated Use command */
+	readonly motor: Bus["command"];
+	/** @deprecated Use event */
+	readonly sense: Bus["event"];
+	/** @deprecated Use notification */
+	readonly signal: Bus["notification"];
 }
 
 export interface SenseAction {

@@ -1,7 +1,7 @@
 /**
  * EvaluatorOrgan — Observer organ for evaluation runs.
  *
- * Wires directly to nerve.motor.subscribe("*") and nerve.sense.subscribe("*")
+ * Wires directly to nerve.command.subscribe("*") and nerve.event.subscribe("*")
  * to count all events and detect tool call loops.
  *
  * Loop detection: same Motor event type > loopThreshold times within the same
@@ -52,7 +52,7 @@ export class EvaluatorOrgan implements Adapter {
 	}
 
 	mount(nerve: Bus): () => void {
-		const offMotor = nerve.motor.subscribe("*", (event: BusMessage) => {
+		const offMotor = nerve.command.subscribe("*", (event: BusMessage) => {
 			this.state.motorCount++;
 			if (this.state.loopDetected) return;
 
@@ -71,7 +71,7 @@ export class EvaluatorOrgan implements Adapter {
 			}
 		});
 
-		const offSense = nerve.sense.subscribe("*", (_event: BusMessage) => {
+		const offSense = nerve.event.subscribe("*", (_event: BusMessage) => {
 			this.state.senseCount++;
 		});
 

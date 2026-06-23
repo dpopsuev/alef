@@ -114,7 +114,7 @@ export class LoopGuard implements Adapter {
 		// Motor subscriber: buffer call metadata, apply total-count safety net.
 		// Only count events that carry a toolCallId — those are real tool dispatches.
 		// Infrastructure motor events (llm.response, context.assemble) are skipped.
-		const offMotor = nerve.motor.subscribe("*", (event) => {
+		const offMotor = nerve.command.subscribe("*", (event) => {
 			const corr = event.correlationId ?? "none";
 			resetIfNewTurn(corr);
 
@@ -144,7 +144,7 @@ export class LoopGuard implements Adapter {
 		});
 
 		// Sense subscriber: complete the interaction hash with the result.
-		const offSense = nerve.sense.subscribe("*" as const, (event: EventMessage) => {
+		const offSense = nerve.event.subscribe("*" as const, (event: EventMessage) => {
 			const toolCallId = extractToolCallId(event.payload);
 			if (!toolCallId) return;
 

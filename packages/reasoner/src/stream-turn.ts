@@ -29,8 +29,9 @@ export interface StreamTurnOptions {
 	getApiKey?: () => string | undefined;
 	systemPrompt?: string;
 	getSignal?: () => AbortSignal | undefined;
-	motor: Bus["motor"];
-	signal: Bus["signal"];
+	motor: Bus["command"];
+	signal: Bus["notification"];
+	notification: Bus["notification"];
 	correlationId: string;
 }
 
@@ -108,14 +109,14 @@ export async function callLLM(
 		for await (const event of stream) {
 			switch (event.type) {
 				case "text_delta":
-					options.signal.publish({
+					options.notification.publish({
 						type: "llm.chunk",
 						payload: { text: event.delta },
 						correlationId: options.correlationId,
 					});
 					break;
 				case "thinking_delta":
-					options.signal.publish({
+					options.notification.publish({
 						type: "llm.thinking",
 						payload: { text: event.delta },
 						correlationId: options.correlationId,

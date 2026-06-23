@@ -39,39 +39,39 @@ export class ScriptedLlmAdapter implements Adapter {
 	}
 
 	mount(nerve: Bus): () => void {
-		return nerve.sense.subscribe("llm.input", (event) => {
+		return nerve.event.subscribe("llm.input", (event) => {
 			void (async () => {
 				const step = this.steps[this.index++];
 				if (step !== undefined && typeof step === "object" && step.kind === "toolCall") {
 					const toolCallId = randomUUID();
 					const dotName = step.call.name; // e.g. "tools.describe"
-					nerve.motor.publish({
+					nerve.command.publish({
 						type: "llm.tool-start",
 						payload: { callId: toolCallId, name: dotName, args: step.call.args },
 						correlationId: event.correlationId,
 					});
 					await new Promise<void>((resolve) => {
-						const off = nerve.sense.subscribe(dotName, (e) => {
+						const off = nerve.event.subscribe(dotName, (e) => {
 							if (e.correlationId === event.correlationId) {
 								off();
 								resolve();
 							}
 						});
-						nerve.motor.publish({
+						nerve.command.publish({
 							type: dotName,
 							payload: { ...step.call.args, toolCallId },
 							correlationId: event.correlationId,
 						});
 					});
-					nerve.motor.publish({
+					nerve.command.publish({
 						type: "llm.tool-end",
 						payload: { callId: toolCallId, name: step.call.name, ok: true },
 						correlationId: event.correlationId,
 					});
 				}
 				const text = step !== undefined ? toReplyText(step) : "(scripted-llm: script exhausted)";
-				nerve.motor.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
-				nerve.motor.publish({ type: "llm.response", payload: { text }, correlationId: event.correlationId });
+				nerve.command.publish({ type: "llm.chunk", payload: { text }, correlationId: event.correlationId });
+				nerve.command.publish({ type: "llm.response", payload: { text }, correlationId: event.correlationId });
 			})();
 		});
 	}

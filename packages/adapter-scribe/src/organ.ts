@@ -36,14 +36,14 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 		callback: (text: string) => void,
 	): void {
 		const correlationId = `scribe-${action}-${Date.now()}`;
-		const off = nerve.sense.subscribe("scribe.artifact", (event) => {
+		const off = nerve.event.subscribe("scribe.artifact", (event) => {
 			if (event.correlationId !== correlationId) return;
 			off();
 			const payload = event.payload as { text?: string };
 			const text = typeof payload.text === "string" ? payload.text : JSON.stringify(payload);
 			if (text && !event.isError) callback(text);
 		});
-		nerve.motor.publish({
+		nerve.command.publish({
 			type: "scribe.artifact",
 			correlationId,
 			payload: { action, ...extra },
@@ -126,7 +126,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 
 					innerCleanup = mcpAdapter.mount(nerve);
 
-					nerve.sense.publish({
+					nerve.event.publish({
 						type: "organ.loaded",
 						correlationId: "scribe-boot",
 						payload: {
@@ -142,7 +142,7 @@ export function createScribeOrgan(opts: ScribeAdapterOptions = {}): Adapter {
 				})
 				.catch((err: unknown) => {
 					debugLog("scribe:boot:error", { error: String(err) });
-					nerve.signal.publish({
+					nerve.notification.publish({
 						type: "organ.error",
 						correlationId: "scribe-boot",
 						payload: {

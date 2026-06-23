@@ -227,7 +227,7 @@ function probeMotor(
 		}, timeoutMs);
 
 		const nerveView = nerve.asNerve();
-		const off = nerveView.sense.subscribe(toolName, (event) => {
+		const off = nerveView.event.subscribe(toolName, (event) => {
 			if (event.correlationId === correlationId) {
 				clearTimeout(timer);
 				off();
@@ -235,6 +235,6 @@ function probeMotor(
 			}
 		});
 
-		nerveView.motor.publish({ type: toolName, correlationId, payload });
+		nerveView.command.publish({ type: toolName, correlationId, payload });
 	});
 }

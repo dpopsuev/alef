@@ -72,7 +72,7 @@ export class SessionLog implements Adapter {
 		let errors = 0;
 		const toolCounts = new Map<string, number>();
 
-		const offAgg1 = nerve.motor.subscribe("*", (event) => {
+		const offAgg1 = nerve.command.subscribe("*", (event) => {
 			if (event.type === "llm.response") {
 				turns++;
 				const u = (event.payload as { usage?: { input?: number; output?: number } }).usage;
@@ -84,14 +84,14 @@ export class SessionLog implements Adapter {
 				toolCounts.set(event.type, (toolCounts.get(event.type) ?? 0) + 1);
 			}
 		});
-		const offAgg2 = nerve.sense.subscribe("*", (event) => {
+		const offAgg2 = nerve.event.subscribe("*", (event) => {
 			if (event.isError) errors++;
 		});
 
 		const sessionId = this.store.id;
 		const agentActor = this.agentActor;
 
-		const off1 = nerve.motor.subscribe("*", (event) => {
+		const off1 = nerve.command.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			const base = {
 				bus: "motor" as BusKind,
@@ -108,7 +108,7 @@ export class SessionLog implements Adapter {
 				.catch((e: unknown) => debugLog("event-log:motor-append-failed", { error: String(e) }));
 		});
 
-		const off2 = nerve.sense.subscribe("*", (event) => {
+		const off2 = nerve.event.subscribe("*", (event) => {
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			// llm.input is the human's message — stamp as human actor when sender indicates so
 			const isHumanInput = event.type === "llm.input" && (payload.sender === "human" || payload.sender === "user");
@@ -130,7 +130,7 @@ export class SessionLog implements Adapter {
 				.catch((e: unknown) => debugLog("event-log:sense-append-failed", { error: String(e) }));
 		});
 
-		const off3 = nerve.signal.subscribe("*", (event) => {
+		const off3 = nerve.notification.subscribe("*", (event) => {
 			const payload = redactPayload((event as { payload?: Record<string, unknown> }).payload ?? {}) as Record<
 				string,
 				unknown

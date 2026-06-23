@@ -19,7 +19,7 @@ export function createPlanOrgan(opts: PlanOrganOptions): Adapter {
 	let nerve: Bus | null = null;
 
 	function emitSignal(type: string, payload: Record<string, unknown>): void {
-		nerve?.signal.publish({ type, payload, correlationId: "" });
+		nerve?.notification.publish({ type, payload, correlationId: "" });
 	}
 
 	function ensureDisk(): string {

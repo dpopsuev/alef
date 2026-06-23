@@ -96,9 +96,9 @@ export const withSenseBusRedaction: BusMiddleware = (nerve: Bus): Bus => ({
 	...nerve,
 	sense: {
 		subscribe: (type, handler) =>
-			nerve.sense.subscribe(type, (event) =>
+			nerve.event.subscribe(type, (event) =>
 				handler({ ...event, payload: redactPayload(event.payload) as Record<string, unknown> }),
 			),
-		publish: nerve.sense.publish.bind(nerve.sense),
+		publish: nerve.event.publish.bind(nerve.sense),
 	},
 });

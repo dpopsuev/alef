@@ -112,7 +112,7 @@ export type EvalOrganOptions = EvalAdapterOptions;
 export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 	let nerve: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
-		nerve?.signal.publish({ type, payload, correlationId: "" });
+		nerve?.notification.publish({ type, payload, correlationId: "" });
 
 	async function handleEval(ctx: MotorHandlerCtx): Promise<Record<string, unknown>> {
 		const endpoint = getString(ctx.payload, "endpoint") ?? "";

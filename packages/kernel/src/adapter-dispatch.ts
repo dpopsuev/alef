@@ -197,6 +197,9 @@ export function dispatchSenseAction(
 	const ctx: SenseHandlerCtx = {
 		correlationId: event.correlationId,
 		payload: event.payload,
+		command: nerve.command,
+		event: nerve.event,
+		notification: nerve.notification,
 		motor: nerve.command,
 		sense: nerve.event,
 		signal: nerve.notification,

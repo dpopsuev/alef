@@ -41,7 +41,7 @@ function publishValidateRequest(
 ): { stageId: string; result: Promise<ChainResult> } {
 	const stageId = newCorrelationId();
 	const result = waitForValidateResult(nerve.sense, stageId, stage.timeout ?? DEFAULT_STAGE_TIMEOUT_MS);
-	nerve.motor.publish({
+	nerve.command.publish({
 		type: VALIDATE_REQUEST,
 		correlationId: sourceCorrelationId,
 		payload: {
@@ -212,11 +212,11 @@ export function executeBindingChain(
 export function withBindings(bindings: Map<string, Binding>, baseNerve: Bus): Bus {
 	return makeBus(
 		{
-			subscribe: baseNerve.motor.subscribe.bind(baseNerve.motor),
+			subscribe: baseNerve.command.subscribe.bind(baseNerve.motor),
 			publish: (event) => {
 				const binding = [...bindings.values()].find((b) => b.event === event.type);
 				if (!binding) {
-					baseNerve.motor.publish(event);
+					baseNerve.command.publish(event);
 					return;
 				}
 				const payload = event.payload;

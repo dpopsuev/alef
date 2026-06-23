@@ -33,7 +33,7 @@ export interface WorkflowOrganOptions extends BaseOrganOptions {
 export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 	let nerve: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
-		nerve?.signal.publish({ type, payload, correlationId: "" });
+		nerve?.notification.publish({ type, payload, correlationId: "" });
 
 	const WORKFLOW_RUN_TOOL = tool(
 		"workflow.run",

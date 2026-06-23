@@ -258,13 +258,13 @@ function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter>
 					sources: [],
 					mount(nerve) {
 						const offs = msg.subscriptions.motor.map((type) =>
-							nerve.motor.subscribe(type, (event) => {
+							nerve.command.subscribe(type, (event) => {
 								worker.postMessage({ dir: "motor", event });
 							}),
 						);
 						const onMessage = (workerMsg: { dir: string; event: Record<string, unknown> }) => {
 							if (workerMsg.dir === "sense") {
-								nerve.sense.publish(workerMsg.event as Parameters<typeof nerve.sense.publish>[0]);
+								nerve.event.publish(workerMsg.event as Parameters<typeof nerve.event.publish>[0]);
 							}
 						};
 						worker.on("message", onMessage);

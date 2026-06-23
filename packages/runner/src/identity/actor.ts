@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { userInfo } from "node:os";
-import type { ColorToken } from "../theme-types.js";
+import type { ColorToken } from "../cli/theme-types.js";
 import { ALL_COLORS, hexToColorToken } from "./palette.js";
 
 export interface ActorIdentity {

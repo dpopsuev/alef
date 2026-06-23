@@ -15,10 +15,10 @@ import { Container } from "@dpopsuev/alef-tui";
 import { ChatLog, ToolCallRow } from "@dpopsuev/alef-tui/views";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getStoredApiKey, removeStoredApiKey } from "../src/auth.js";
+import { getTheme } from "../src/cli/runner-theme.js";
+import type { TuiHandlerContext } from "../src/cli/tui-mode.js";
+import { handleColonCommand, handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/cli/tui-mode.js";
 import type { Session } from "../src/session.js";
-import { getTheme } from "../src/theme.js";
-import type { TuiHandlerContext } from "../src/tui-mode.js";
-import { handleColonCommand, handleCtrlC, handleSlashCommand, truncateToolOutput } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Fake context factory
@@ -446,7 +446,7 @@ import type { Component, TUI as TUIClass } from "@dpopsuev/alef-tui";
 
 // Reach into prompt-console via its Component array after mount() to test EditorWrapper.
 // Since EditorWrapper is not exported, we test it through PromptConsole.mount().
-import { PromptConsole } from "../src/prompt-console.js";
+import { PromptConsole } from "../src/cli/prompt-console.js";
 
 describe("EditorWrapper — rendered lines must not exceed terminal width", { tags: ["unit"] }, () => {
 	for (const width of [40, 80, 120, 179, 180, 200]) {

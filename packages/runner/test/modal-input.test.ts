@@ -6,7 +6,7 @@
  * We verify mode transitions and that the correct sequences reach the editor.
  */
 import { describe, expect, it } from "vitest";
-import { ModalInputHandler } from "../src/modal-input.js";
+import { ModalInputHandler } from "../src/cli/modal-input.js";
 
 // ---------------------------------------------------------------------------
 // Minimal Editor stub — captures handleInput calls

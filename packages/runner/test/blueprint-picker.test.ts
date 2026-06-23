@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { discoverBlueprints, resolveBlueprint } from "../src/blueprint-picker.js";
+import { discoverBlueprints, resolveBlueprint } from "../src/cli/blueprint-picker.js";
 
 const dirs: string[] = [];
 function makeTmp(): string {

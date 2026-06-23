@@ -13,8 +13,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { ThemeTokens } from "../src/theme.js";
-import { BUILT_IN_THEMES } from "../src/theme.js";
+import type { ThemeTokens } from "../src/cli/runner-theme.js";
+import { BUILT_IN_THEMES } from "../src/cli/runner-theme.js";
 
 // ---------------------------------------------------------------------------
 // WCAG luminance and contrast maths

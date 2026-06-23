@@ -11,10 +11,10 @@
 import { Container, matchesKey } from "@dpopsuev/alef-tui";
 import { ChatLog } from "@dpopsuev/alef-tui/views";
 import { describe, expect, it, vi } from "vitest";
+import { getTheme } from "../src/cli/runner-theme.js";
+import type { TuiHandlerContext } from "../src/cli/tui-mode.js";
+import { handleCtrlC } from "../src/cli/tui-mode.js";
 import type { Session } from "../src/session.js";
-import { getTheme } from "../src/theme.js";
-import type { TuiHandlerContext } from "../src/tui-mode.js";
-import { handleCtrlC } from "../src/tui-mode.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

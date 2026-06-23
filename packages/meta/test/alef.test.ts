@@ -1,11 +1,11 @@
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, describe, expect, it } from "vitest";
 import { createMetaOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createMetaOrgan({ dialogEventType: "llm.input" }));
 
 describe("alef.rebuild", { tags: ["unit"] }, () => {
-	const f = new NerveFixture();
+	const f = new BusFixture();
 	afterEach(() => f.dispose());
 
 	it("returns ok:false when onRebuildRequest is not provided", async () => {

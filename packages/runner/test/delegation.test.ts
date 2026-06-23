@@ -17,7 +17,7 @@ import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime"
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { Agent } from "../../runtime/src/index.js";
-import { NerveFixture, TurnDriver } from "../../testkit/src/index.js";
+import { BusFixture, TurnDriver } from "../../testkit/src/index.js";
 
 function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): SubagentFactory {
 	return ({ organs, onChunk, systemPrompt: callSystemPrompt }) => {
@@ -93,8 +93,8 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// Adapter-delegate with the inner strategy registered as 'explore'
 		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
-		// Outer NerveFixture: outer adapter-llm + delegate adapter
-		const f = new NerveFixture();
+		// Outer BusFixture: outer adapter-llm + delegate adapter
+		const f = new BusFixture();
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
@@ -155,7 +155,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
 		const capturedEnds: Array<{ ok: boolean }> = [];
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
@@ -224,7 +224,7 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const delegateAdapter = createAgentOrgan({ strategies: { explore: innerStrategy } });
 
 		const outerChunks: string[] = [];
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
@@ -291,7 +291,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		const delegateAdapter = createAgentOrgan({ strategies: { explore: stubStrategy } });
 
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 
@@ -363,7 +363,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		const delegateAdapter = createAgentOrgan({ strategies: { explore: identityStrategy } });
 
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		disposes.push(() => f.dispose());
 		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
 

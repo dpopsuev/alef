@@ -8,7 +8,7 @@
  */
 
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
-import { NerveFixture } from "@dpopsuev/alef-testkit";
+import { BusFixture } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -39,7 +39,7 @@ describe("defineAdapter — schema validation contract", { tags: ["unit"] }, () 
 			},
 		);
 
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(adapter);
 
 		const startedAt = Date.now();
@@ -93,7 +93,7 @@ describe("defineAdapter — schema validation contract", { tags: ["unit"] }, () 
 			},
 		);
 
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		f.mount(adapter);
 
 		const result = await f.call("schema.ok", { text: "hello", toolCallId: "tc-schema-2" }, { timeoutMs: 500 });

@@ -4,7 +4,7 @@ import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Context, FauxResponseFactory } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { afterEach, describe, expect, it } from "vitest";
-import { NerveFixture, organComplianceSuite, TurnDriver } from "../../testkit/src/index.js";
+import { BusFixture, organComplianceSuite, TurnDriver } from "../../testkit/src/index.js";
 import { createAgentLoop } from "../src/index.js";
 import { waitForToolResult } from "../src/tool-dispatch.js";
 import { buildTools } from "../src/turn-loop.js";
@@ -35,14 +35,14 @@ function makeModel() {
  * Replaces the Agent + AgentController + adapter-llm construction that appeared in every test.
  */
 function makeHarness(llm: Adapter) {
-	const f = new NerveFixture();
+	const f = new BusFixture();
 	const driver = new TurnDriver(f.nerve);
 	const recorder = f.observe();
 	f.mount(llm);
 	return { f, driver, recorder };
 }
 
-const harnesses: Array<{ f: NerveFixture }> = [];
+const harnesses: Array<{ f: BusFixture }> = [];
 afterEach(() => {
 	for (const h of harnesses.splice(0)) h.f.dispose();
 });
@@ -69,7 +69,7 @@ describe("Reasoner — application-level retry", { tags: ["unit"] }, () => {
 	});
 
 	function makeRetryHarness(faux: ReturnType<typeof registerFauxProvider>, maxRetries: number) {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
 			createAgentLoop({
@@ -240,7 +240,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 	it("after error with maxRetries=0, command/llm.response carries text reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" })]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 		f.mount(
@@ -260,7 +260,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 	it("successful turn publishes conversationHistory in llm.response", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("all good")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 		f.mount(
@@ -293,7 +293,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 	it("disabled by default (phaseTimeoutMs=0): no command/context.assemble published", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 		f.mount(
@@ -311,7 +311,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 	it("publishes command/context.assemble before each LLM call when phaseTimeoutMs > 0", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 		f.mount(
@@ -334,7 +334,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 	it("phase organ receives messages and its event/context.assemble reply is awaited", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 
@@ -380,7 +380,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 	it("proceeds with original messages when phase organ times out", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
 			createAgentLoop({
@@ -439,7 +439,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 	it("skip: phase organ bypasses LLM and injects its own reply", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
 			createAgentLoop({
@@ -462,7 +462,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 	it("skip: phase.skip publishes command/llm.response with the skip reply text", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const recorder = f.observe();
 		f.mount(
 			createAgentLoop({
@@ -494,7 +494,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 	it("abort: phase organ exits loop without publishing llm.response", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 		f.mount(
@@ -519,7 +519,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 	it("command/llm.result fires after each LLM response with response and toolCalls", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		const recorder = f.observe();
 		f.mount(
@@ -556,7 +556,7 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 	it("fires on event/llm.input and replies on command/llm.response", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello from llm")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const recorder = f.observe();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" }));
@@ -571,7 +571,7 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 	it("conversation trigger still works with defaults", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
 			createAgentLoop({
@@ -622,7 +622,7 @@ describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
 			},
 		};
 
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
 			createAgentLoop({
@@ -649,7 +649,7 @@ import { z } from "zod";
 describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 	it("turn completes when LLM sends wrong type for a schema field", async () => {
 		const faux = registerFauxProvider();
-		const f = new NerveFixture();
+		const f = new BusFixture();
 
 		const strictOrgan = defineAdapter(
 			"strict",
@@ -706,7 +706,7 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 
 		// When: adapter-llm runs with a prepareStep that injects a system message
 		const systemText = "You are Alef. No emojis.";
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		f.mount(
 			createAgentLoop({
@@ -739,7 +739,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 
 		const capturedEvents: Array<{ type: string; ok?: boolean; result?: string }> = [];
 
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 
 		// A stub adapter that subscribes to command/hung_tool but never publishes an event reply
@@ -841,7 +841,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const capturedChunks: string[] = [];
 		const eventOrder: string[] = [];
 
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve, undefined, undefined, streamingOrgan.tools);
 
 		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
@@ -882,7 +882,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 	it("fires onStall after stallIntervalMs with no chunks, before timeout", async () => {
 		// Given: an event bus where the tool never responds (simulating a hung subagent)
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const correlationId = "corr-stall-test";
 		const toolCallId = "tc-stall-1";
 
@@ -915,7 +915,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 
 	it("stall resets when a chunk arrives — onStall does not fire after chunk", async () => {
 		// Given: an event bus that sends one isFinal:false chunk then goes silent
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const correlationId = "corr-stall-reset";
 		const toolCallId = "tc-stall-2";
 
@@ -995,7 +995,7 @@ describe("buildTools — normalization collision", { tags: ["unit"] }, () => {
 describe("organ-llm — ambient steering", { tags: ["unit"] }, () => {
 	it("second llm.input while turn is active does not start a concurrent turn", async () => {
 		const faux = registerFauxProvider();
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const driver = new TurnDriver(f.nerve);
 		harnesses.push({ f });
 

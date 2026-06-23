@@ -1,16 +1,16 @@
 import { buildSense } from "@dpopsuev/alef-kernel/bus";
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createCacheOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createCacheOrgan());
 
 describe("CacheOrgan", () => {
-	let fixture: NerveFixture;
+	let fixture: BusFixture;
 	let cacheOrgan: ReturnType<typeof createCacheOrgan>;
 
 	beforeEach(() => {
-		fixture = new NerveFixture();
+		fixture = new BusFixture();
 		cacheOrgan = createCacheOrgan({ ttl: 1000 }); // 1 second TTL for tests
 		fixture.mount(cacheOrgan);
 	});

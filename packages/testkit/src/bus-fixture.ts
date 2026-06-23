@@ -4,7 +4,7 @@ import { type EventMessage, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 
 /**
- * NerveFixture — shared test harness for adapter integration tests.
+ * BusFixture — shared test harness for adapter integration tests.
  *
  * Replaces the makeNerve / publishCommand / waitForEvent triad that every
  * adapter test package copies independently. Provides:
@@ -17,7 +17,7 @@ import { BusEventRecorder } from "./bus-event-recorder.js";
  *
  * call() subscribes before publishing — no race condition.
  */
-export class NerveFixture {
+export class BusFixture {
 	readonly nerve = new InProcessBus();
 	private readonly unmounts: Array<() => void> = [];
 
@@ -42,7 +42,7 @@ export class NerveFixture {
 		const resultPromise = new Promise<EventMessage>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				off();
-				reject(new Error(`NerveFixture.call timed out after ${timeoutMs}ms waiting for event/${type}`));
+				reject(new Error(`BusFixture.call timed out after ${timeoutMs}ms waiting for event/${type}`));
 			}, timeoutMs);
 			const off = this.nerve.asBus().event.subscribe(type, (event) => {
 				if (event.correlationId !== correlationId) return;
@@ -71,7 +71,7 @@ export class NerveFixture {
 		const resultPromise = new Promise<EventMessage>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				off();
-				reject(new Error(`NerveFixture.callStreaming timed out after ${timeoutMs}ms waiting for event/${type}`));
+				reject(new Error(`BusFixture.callStreaming timed out after ${timeoutMs}ms waiting for event/${type}`));
 			}, timeoutMs);
 			const off = this.nerve.asBus().event.subscribe(type, (event) => {
 				if (event.correlationId !== correlationId) return;

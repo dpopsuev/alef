@@ -1,11 +1,11 @@
-import { NerveFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
+import { BusFixture, organComplianceSuite } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
 import { createNodeshOrgan } from "../src/adapter.js";
 
 organComplianceSuite(() => createNodeshOrgan({ cwd: "/tmp" }));
 
 function fixture(opts: { prelude?: string; defaultTimeoutSeconds?: number } = {}) {
-	const f = new NerveFixture();
+	const f = new BusFixture();
 	f.mount(createNodeshOrgan({ cwd: process.cwd(), ...opts }));
 	return f;
 }
@@ -19,7 +19,7 @@ describe("NodeshOrgan — organ metadata", { tags: ["compliance"] }, () => {
 	});
 
 	it("unmount unsubscribes motor handler", () => {
-		const f = new NerveFixture();
+		const f = new BusFixture();
 		const organ = createNodeshOrgan({ cwd: process.cwd() });
 		const unmount = f.mount(organ);
 		expect(f.nerve.listenerCount("command", "nodesh.eval")).toBe(1);

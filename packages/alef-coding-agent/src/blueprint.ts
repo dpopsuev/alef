@@ -1,8 +1,9 @@
 import { createFactoryAdapter } from "@dpopsuev/alef-adapter-factory";
 import { createSkillsAdapter } from "@dpopsuev/alef-adapter-skills";
-import { type BlueprintStack, type BlueprintStackOptions, buildDelegationStack } from "@dpopsuev/alef-agent-blueprint";
+import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { completeSimple } from "@dpopsuev/alef-llm";
+import { buildDelegationStack } from "@dpopsuev/alef-runtime";
 
 export type { BlueprintStack, BlueprintStackOptions };
 

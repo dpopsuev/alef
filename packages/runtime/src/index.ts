@@ -382,3 +382,4 @@ export class Agent {
 		this.unmounts.length = 0;
 	}
 }
+export { buildDelegationStack, type DelegationStack, type DelegationStackOptions } from "./delegation.js";

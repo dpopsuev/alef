@@ -1,7 +1,8 @@
 import { createSkillsAdapter } from "@dpopsuev/alef-adapter-skills";
 import { createWireAdapter } from "@dpopsuev/alef-adapter-workflow";
-import { type BlueprintStack, type BlueprintStackOptions, buildDelegationStack } from "@dpopsuev/alef-agent-blueprint";
+import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { buildDelegationStack } from "@dpopsuev/alef-runtime";
 
 export type { BlueprintStack, BlueprintStackOptions };
 

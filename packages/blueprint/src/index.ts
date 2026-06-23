@@ -1,6 +1,5 @@
 export * from "./blueprints.js";
 export * from "./bootstrap.js";
-export { buildDelegationStack, type DelegationStack, type DelegationStackOptions } from "./delegation.js";
 export type { AdapterFactoryOptions } from "./materializer.js";
 export * from "./materializer.js";
 export {

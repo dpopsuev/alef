@@ -1,11 +1,14 @@
 import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-adapter-agent";
+import type { CompiledAgentAdapterDefinition, SubagentFactory } from "@dpopsuev/alef-agent-blueprint";
+import {
+	DEFAULT_COMPILED_DEFINITION,
+	materializeBlueprint,
+	materializeDefaultAdapters,
+} from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { buildAdapterDirectives, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
-import { DEFAULT_COMPILED_DEFINITION, materializeBlueprint, materializeDefaultAdapters } from "./materializer.js";
-import type { SubagentFactory } from "./registry.js";
-import type { CompiledAgentAdapterDefinition } from "./types.js";
 
 const EXPLORE_SYSTEM_PROMPT = `Read-only exploration agent. Read files, search code, fetch URLs, report findings.
 NEVER write files. NEVER modify state. NEVER execute commands that change anything.
@@ -127,7 +130,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		adapterDirectives: buildAdapterDirectives(allAdapters),
 	});
 
-	const adapters: Adapter[] = [...allAdapters, toolShell, pipeline as unknown as Adapter];
+	const adapters: Adapter[] = [...allAdapters, toolShell, pipeline];
 
 	return { adapters, pipeline, exploreAdapters, generalAdapters };
 }

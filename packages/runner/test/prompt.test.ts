@@ -49,7 +49,7 @@ describe("registerAdapters", { tags: ["unit"] }, () => {
 			name: "fs",
 			tools: FS_TOOLS,
 			directives: ["Always read a file before editing it."],
-			subscriptions: { command: [] as string[], event: [] as string[] },
+			subscriptions: { command: [] as string[], event: [] as string[], notification: [] as string[] },
 			sources: [],
 			mount: () => () => {},
 		};
@@ -64,7 +64,7 @@ describe("registerAdapters", { tags: ["unit"] }, () => {
 			name: "tools",
 			tools: [] as never[],
 			directives: ['Call tools.describe(["tool-name"]) before using any tool.'],
-			subscriptions: { command: ["context.assemble"], event: [] as string[] },
+			subscriptions: { command: ["context.assemble"], event: [] as string[], notification: [] as string[] },
 			sources: [],
 			mount: () => () => {},
 		};
@@ -190,7 +190,7 @@ describe("buildPrepareStep — directives reach the LLM context", { tags: ["unit
 		const organ = {
 			name: "custom",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			directives: ["CUSTOM_DIRECTIVE_SENTINEL"],
 			mount: () => () => {},

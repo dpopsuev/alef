@@ -65,7 +65,7 @@ function publishCommand(bus: Bus, type: string, payload: Record<string, unknown>
 class SingleToolLLM implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const, notification: [] as const };
 	readonly sources = [] as const;
 	readonly receivedTools: string[] = [];
 	readonly receivedResults: unknown[] = [];
@@ -90,7 +90,7 @@ class SingleToolLLM implements Adapter {
 class FanOutLLM implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const, notification: [] as const };
 	readonly sources = [] as const;
 	readonly completionOrder: string[] = [];
 
@@ -124,7 +124,7 @@ class FanOutLLM implements Adapter {
 class QuiescentLLM implements Adapter {
 	readonly name = "llm";
 	readonly tools = [] as const;
-	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const, notification: [] as const };
 	readonly sources = [] as const;
 
 	mount(bus: Bus): () => void {

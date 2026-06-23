@@ -16,7 +16,7 @@ function makeReasoner(name = "llm"): Adapter {
 	return {
 		name,
 		tools: [],
-		subscriptions: { command: [] as const, event: ["llm.input"] as const },
+		subscriptions: { command: [] as const, event: ["llm.input"] as const, notification: [] as const },
 		sources: [],
 		mount: (bus: Bus) => bus.event.subscribe("llm.input", () => {}),
 	};
@@ -27,7 +27,7 @@ function makeFsAdapter(): Adapter {
 	return {
 		name: "fs",
 		tools: [],
-		subscriptions: { command: ["fs.read", "fs.write"] as const, event: [] as const },
+		subscriptions: { command: ["fs.read", "fs.write"] as const, event: [] as const, notification: [] as const },
 		sources: [],
 		mount: (bus: Bus) => {
 			const offs = [bus.command.subscribe("fs.read", () => {}), bus.command.subscribe("fs.write", () => {})];

@@ -233,6 +233,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 		? {
 				command: [...baseSubscriptions.command, "*"] as readonly string[],
 				event: [...baseSubscriptions.event, "*"] as readonly string[],
+				notification: [...baseSubscriptions.notification, "*"] as readonly string[],
 			}
 		: baseSubscriptions;
 

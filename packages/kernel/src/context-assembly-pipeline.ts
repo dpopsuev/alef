@@ -18,7 +18,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 	return {
 		name: "context.assembly.pipeline",
 		tools: [],
-		subscriptions: { command: ["context.assemble"], event: ["adapter.loaded", "adapter.unloaded"] },
+		subscriptions: { command: ["context.assemble"], event: ["adapter.loaded", "adapter.unloaded"], notification: [] },
 		sources: [],
 		description:
 			"Ordered context.assemble pipeline — collects ContextAssemblyHandler and schema-resolver contributions from event/adapter.loaded.",

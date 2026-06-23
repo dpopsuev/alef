@@ -344,7 +344,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 			labels: [] as const,
 			tools: [] as const,
 			publishSchemas: {} as const,
-			subscriptions: { command: ["context.assemble"] as const, event: [] as const },
+			subscriptions: { command: ["context.assemble"] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount(nerve: Bus) {
 				nerve.command.subscribe("context.assemble", (event) => {
@@ -417,7 +417,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 			labels: [] as const,
 			tools: [] as const,
 			publishSchemas: {} as const,
-			subscriptions: { command: ["context.assemble"] as const, event: [] as const },
+			subscriptions: { command: ["context.assemble"] as const, event: [] as const, notification: [] as const },
 			sources: [],
 			mount(nerve: Bus) {
 				nerve.command.subscribe("context.assemble", (event) => {
@@ -609,7 +609,7 @@ describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
 		const concurrentOrgan: Adapter = {
 			name: "concurrent-sim",
 			tools: [],
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			mount(nerve: Bus) {
 				nerve.command.publish({

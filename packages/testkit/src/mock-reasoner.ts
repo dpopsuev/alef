@@ -4,7 +4,7 @@ import type { Bus } from "@dpopsuev/alef-kernel/bus";
 export class MockReasoner implements Adapter {
 	readonly name = "mock-llm";
 	readonly tools: readonly ToolDefinition[] = [];
-	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const };
+	readonly subscriptions = { command: [] as const, event: ["llm.input"] as const, notification: [] as const };
 	readonly sources = [] as const;
 
 	constructor(private readonly cannedText: string = "mock response") {}

@@ -40,7 +40,11 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 			"Locus code intelligence — spawns a dedicated Locus adapter for architecture analysis, dependency graphs, symbol search, and diagram rendering.",
 		labels: ["locus", "architecture", "analysis"] as const,
 		tools: [],
-		subscriptions: { command: [] as readonly string[], event: [] as readonly string[] },
+		subscriptions: {
+			command: [] as readonly string[],
+			event: [] as readonly string[],
+			notification: [] as readonly string[],
+		},
 		sources: [],
 		directives: [
 			"Locus tools are available under the locus.* prefix. Use locus.codograph to scan repos, locus.analysis for dependency/coupling/impact queries, and locus.render_diagram for Mermaid diagrams.",

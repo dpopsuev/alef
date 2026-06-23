@@ -1,0 +1,13 @@
+{
+  "id": "plan-0dbc95d31bf5",
+  "phase": "intention",
+  "intention": "Fix remaining 2 SOLID violations: buses.ts ISP and binding.ts OCP with tests and commits",
+  "inception": null,
+  "exclusions": [],
+  "endState": null,
+  "nodes": [],
+  "checkpoints": {},
+  "aar": null,
+  "createdAt": 1782204890683,
+  "updatedAt": 1782204890683
+}

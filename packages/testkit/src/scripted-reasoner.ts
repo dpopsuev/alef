@@ -90,6 +90,7 @@ export class ScriptedReasoner implements Adapter {
 		return {
 			command: [] as const,
 			event: [this.triggerEvent] as readonly string[],
+			notification: [] as const,
 		};
 	}
 

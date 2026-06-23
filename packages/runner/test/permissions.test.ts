@@ -25,7 +25,7 @@ function makePassthroughOrgan(name: string): Adapter {
 	return {
 		name,
 		tools: [],
-		subscriptions: { command: ["fs.read" as const, "fs.write" as const], event: [] },
+		subscriptions: { command: ["fs.read" as const, "fs.write" as const], event: [], notification: [] },
 		sources: [],
 		mount(bus) {
 			const off1 = bus.command.subscribe("fs.read", (e) => {

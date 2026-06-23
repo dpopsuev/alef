@@ -501,7 +501,7 @@ describe("agent.tools — uniqueness invariant", { tags: ["integration"] }, () =
 		return {
 			name,
 			tools,
-			subscriptions: { command: [], event: [] },
+			subscriptions: { command: [], event: [], notification: [] },
 			sources: [],
 			mount() {
 				return () => {};

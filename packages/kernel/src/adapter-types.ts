@@ -55,9 +55,7 @@ export function typedStreamAction<TSchema extends ZodTypeAny>(
 export interface EventHandlerCtx {
 	readonly correlationId: string;
 	readonly payload: Record<string, unknown>;
-	readonly command: Bus["command"];
-	readonly event: Bus["event"];
-	readonly notification: Bus["notification"];
+	readonly bus: Bus;
 }
 
 export interface EventAction {
@@ -71,7 +69,7 @@ export interface ActionMap {
 	event?: EventActionMap;
 }
 
-import type { AdapterContributions, SkillBook } from "./buses.js";
+import type { AdapterContributions, ChannelMap, SkillBook } from "./buses.js";
 
 export interface AdapterOptions {
 	logger?: AdapterLogger;
@@ -81,13 +79,8 @@ export interface AdapterOptions {
 	contributions?: AdapterContributions;
 	description?: string;
 	labels?: readonly string[];
-	publishSchemas?: {
-		command?: Record<string, ZodTypeAny>;
-		event?: Record<string, ZodTypeAny>;
-	};
-	inputSchemas?: {
-		command?: Record<string, ZodTypeAny>;
-	};
+	publishSchemas?: Partial<ChannelMap<Record<string, ZodTypeAny>>>;
+	inputSchemas?: Partial<ChannelMap<Record<string, ZodTypeAny>>>;
 	sources?: readonly { name: string; kind: "file" | "memory" | "process" }[];
 	ready?: () => Promise<void>;
 	onMount?: (bus: Bus) => void;

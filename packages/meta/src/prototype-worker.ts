@@ -19,7 +19,7 @@ import type {
 	SenseHandler,
 	SensePublishInput,
 } from "@dpopsuev/alef-kernel";
-import { toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
+import { makeBus, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
 
 const { organPath: adapterPath, cwd } = workerData as { organPath: string; cwd: string };
 
@@ -31,9 +31,8 @@ const motorHandlers = new Map<string, Set<MotorHandler>>();
 // Sense handlers (rarely used by adapters, but bridge it anyway).
 const senseHandlers = new Map<string, Set<SenseHandler>>();
 
-const bridgeNerve: Nerve = {
-	pulse() {},
-	motor: {
+const bridgeNerve: Nerve = makeBus(
+	{
 		subscribe(type, handler) {
 			let set = motorHandlers.get(type);
 			if (!set) {
@@ -49,7 +48,7 @@ const bridgeNerve: Nerve = {
 			port.postMessage({ dir: "motor", event });
 		},
 	},
-	sense: {
+	{
 		subscribe(type, handler) {
 			let set = senseHandlers.get(type);
 			if (!set) {
@@ -65,13 +64,14 @@ const bridgeNerve: Nerve = {
 			port.postMessage({ dir: "sense", event });
 		},
 	},
-	signal: {
+	{
 		subscribe(_type, _handler) {
 			return () => {};
 		},
 		publish(_event) {},
 	},
-};
+	() => {},
+);
 
 // Dispatch incoming motor events to registered handlers.
 port.on("message", (msg: { dir: string; event: NerveEvent }) => {

@@ -25,6 +25,7 @@ import {
 	debugLog,
 	InProcessNerve,
 	type MotorEvent,
+	makeBus,
 	type Nerve,
 	type NerveEvent,
 	type SenseEvent,
@@ -62,8 +63,8 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 		return null;
 	};
 
-	return {
-		motor: {
+	return makeBus(
+		{
 			subscribe: nerve.motor.subscribe.bind(nerve.motor),
 			publish: (event: MotorEvent) => {
 				const err = validate("motor", motorSchemas, event);
@@ -82,7 +83,7 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 				nerve.motor.publish(event);
 			},
 		},
-		sense: {
+		{
 			subscribe: nerve.sense.subscribe.bind(nerve.sense),
 			publish: (event: SenseEvent) => {
 				// Error events carry { toolCallId } only — validating against the success schema always fails.
@@ -99,9 +100,9 @@ function withPayloadValidation(nerve: Nerve, adapter: Adapter): Nerve {
 				nerve.sense.publish(event);
 			},
 		},
-		signal: nerve.signal,
-		pulse: () => nerve.pulse(),
-	};
+		nerve.signal,
+		() => nerve.pulse(),
+	);
 }
 
 export interface BusObserver {

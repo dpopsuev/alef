@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { type ZodRawShape, type ZodTypeAny, z } from "zod";
 import type { DomainCondition } from "./reconciliation.js";
 
-export interface NerveEvent {
+export interface BusMessage {
 	readonly type: string;
 	readonly correlationId: string;
 	readonly timestamp: number;
@@ -303,12 +303,12 @@ export function toolInputToJsonSchema(schema: ZodTypeAny): Record<string, unknow
 //               router — NOT by EvaluatorOrgan or LoopGuard.
 // ---------------------------------------------------------------------------
 
-export interface MotorEvent extends NerveEvent {
+export interface CommandMessage extends BusMessage {
 	readonly type: string;
 	readonly payload: Record<string, unknown>;
 }
 
-export interface SenseEvent extends NerveEvent {
+export interface EventMessage extends BusMessage {
 	readonly type: string;
 	readonly payload: Record<string, unknown>;
 	readonly isError: boolean;
@@ -316,24 +316,19 @@ export interface SenseEvent extends NerveEvent {
 	readonly conditions?: readonly DomainCondition[];
 }
 
-/**
- * SignalEvent — Reasoner telemetry broadcast to observers.
- *
- * Published by organ-llm for streaming chunks, tool lifecycle notifications,
- * token usage, and other internal state that observers (TUI, session-log,
- * router) need to render but that is NOT a command to an organ.
- *
- * Examples: llm.chunk, llm.thinking, llm.tool-start, llm.tool-end,
- *           llm.token-usage, llm.turn-error, llm.result, llm.checkpoint,
- *           llm.message-queued.
- *
- * Never goes through dispatchMotorAction. No organ subscribes to it.
- * EvaluatorOrgan and LoopGuard subscribe to motor only — they never see signals.
- */
-export interface SignalEvent extends NerveEvent {
+export interface NotificationMessage extends BusMessage {
 	readonly type: string;
 	readonly payload: Record<string, unknown>;
 }
+
+/** @deprecated Use BusMessage */
+export type NerveEvent = BusMessage;
+/** @deprecated Use CommandMessage */
+export type MotorEvent = CommandMessage;
+/** @deprecated Use EventMessage */
+export type SenseEvent = EventMessage;
+/** @deprecated Use NotificationMessage */
+export type SignalEvent = NotificationMessage;
 
 // ---------------------------------------------------------------------------
 // Nerve — unified view of all three buses.
@@ -344,38 +339,51 @@ export interface SignalEvent extends NerveEvent {
 // and only observers (wildcard "*") subscribe to it.
 // ---------------------------------------------------------------------------
 
-export type MotorHandler = (event: MotorEvent) => void | Promise<void>;
-export type SenseHandler = (event: SenseEvent) => void | Promise<void>;
-export type SignalHandler = (event: SignalEvent) => void | Promise<void>;
+export type CommandHandler = (event: CommandMessage) => void | Promise<void>;
+export type EventHandler = (event: EventMessage) => void | Promise<void>;
+export type NotificationHandler = (event: NotificationMessage) => void | Promise<void>;
 
-/**
- * What organs pass to publish. The bus stamps timestamp and elapsed — organs
- * must not set them. Passing a timestamp is a compile-time error.
- */
-export type MotorPublishInput = Omit<MotorEvent, "timestamp" | "elapsed">;
-export type SensePublishInput = Omit<SenseEvent, "timestamp" | "elapsed">;
-export type SignalPublishInput = Omit<SignalEvent, "timestamp" | "elapsed">;
+export type CommandInput = Omit<CommandMessage, "timestamp" | "elapsed">;
+export type EventInput = Omit<EventMessage, "timestamp" | "elapsed">;
+export type NotificationInput = Omit<NotificationMessage, "timestamp" | "elapsed">;
 
-export interface Nerve {
-	readonly motor: {
-		subscribe(type: string, handler: MotorHandler): () => void;
-		publish(event: MotorPublishInput): void;
-	};
-	readonly sense: {
-		subscribe(type: string, handler: SenseHandler): () => void;
-		publish(event: SensePublishInput): void;
-	};
-	/** Signal bus — Reasoner telemetry only. Organs must not publish here. */
-	readonly signal: {
-		subscribe(type: string, handler: SignalHandler): () => void;
-		publish(event: SignalPublishInput): void;
-	};
-	/** Reset the nerve-level liveness watchdog. Called automatically by organ-dispatch on every event. */
+export interface BusChannel<THandler, TInput> {
+	subscribe(type: string, handler: THandler): () => void;
+	publish(event: TInput): void;
+}
+
+export interface Bus {
+	readonly command: BusChannel<CommandHandler, CommandInput>;
+	readonly event: BusChannel<EventHandler, EventInput>;
+	readonly notification: BusChannel<NotificationHandler, NotificationInput>;
+	/** @deprecated Use command */
+	readonly motor: BusChannel<CommandHandler, CommandInput>;
+	/** @deprecated Use event */
+	readonly sense: BusChannel<EventHandler, EventInput>;
+	/** @deprecated Use notification */
+	readonly signal: BusChannel<NotificationHandler, NotificationInput>;
 	pulse(): void;
 }
 
-/** A function that wraps a Nerve to intercept motor/sense events. Composable middleware. */
-export type NerveMiddleware = (nerve: Nerve) => Nerve;
+export type BusMiddleware = (bus: Bus) => Bus;
+
+// ── Backward-compat aliases (Motor/Sense/Signal/Nerve → Command/Event/Notification/Bus) ──
+/** @deprecated Use CommandHandler */
+export type MotorHandler = CommandHandler;
+/** @deprecated Use EventHandler */
+export type SenseHandler = EventHandler;
+/** @deprecated Use NotificationHandler */
+export type SignalHandler = NotificationHandler;
+/** @deprecated Use CommandInput */
+export type MotorPublishInput = CommandInput;
+/** @deprecated Use EventInput */
+export type SensePublishInput = EventInput;
+/** @deprecated Use NotificationInput */
+export type SignalPublishInput = NotificationInput;
+/** @deprecated Use Bus */
+export type Nerve = Bus;
+/** @deprecated Use BusMiddleware */
+export type NerveMiddleware = BusMiddleware;
 
 // ---------------------------------------------------------------------------
 // Adapter — unified interface. mount(nerve: Nerve) handles both bus directions.
@@ -445,6 +453,19 @@ export function gimpedAdapter(name: string): Adapter {
 }
 /** @deprecated Use gimpedAdapter */
 export const gimpedOrgan = gimpedAdapter;
+
+/**
+ * Build a Bus from individual channels, populating both canonical (command/event/notification)
+ * and deprecated (motor/sense/signal) properties. Use when constructing a wrapped Bus inline.
+ */
+export function makeBus(
+	command: BusChannel<CommandHandler, CommandInput>,
+	event: BusChannel<EventHandler, EventInput>,
+	notification: BusChannel<NotificationHandler, NotificationInput>,
+	pulse: () => void,
+): Bus {
+	return { command, event, notification, motor: command, sense: event, signal: notification, pulse };
+}
 
 // InProcessNerve exported from index.ts — not here, to avoid circular import with in-process-nerve.ts
 

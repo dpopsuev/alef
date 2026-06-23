@@ -1,4 +1,4 @@
-import type { Nerve } from "@dpopsuev/alef-kernel";
+import type { Bus } from "@dpopsuev/alef-kernel";
 import { DEFAULT_LLM_TIMEOUT_MS, debugLog } from "@dpopsuev/alef-kernel";
 import {
 	type Api,
@@ -29,8 +29,8 @@ export interface StreamTurnOptions {
 	getApiKey?: () => string | undefined;
 	systemPrompt?: string;
 	getSignal?: () => AbortSignal | undefined;
-	motor: Nerve["motor"];
-	signal: Nerve["signal"];
+	motor: Bus["motor"];
+	signal: Bus["signal"];
 	correlationId: string;
 }
 

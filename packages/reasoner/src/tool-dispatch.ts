@@ -1,4 +1,4 @@
-import type { SenseEvent, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { EventMessage, ToolDefinition } from "@dpopsuev/alef-kernel";
 import { debugLog, Watchdog } from "@dpopsuev/alef-kernel";
 
 import type { ToolCall } from "./stream-turn.js";
@@ -21,7 +21,7 @@ function extractDisplay(payload: Record<string, unknown>): { text: string; mimeT
 	return undefined;
 }
 
-type SenseBus = { subscribe: (type: string, handler: (event: SenseEvent) => void) => () => void };
+type SenseBus = { subscribe: (type: string, handler: (event: EventMessage) => void) => () => void };
 
 const STALL_INTERVAL_MS = 5_000;
 const LONG_RUNNING_TIMEOUT_MS = 3_600_000;
@@ -61,7 +61,7 @@ function buildErrorSenseEvent(
 	callId: string,
 	err: unknown,
 	elapsedMs: number,
-): SenseEvent {
+): EventMessage {
 	const errorMessage = err instanceof Error ? err.message : String(err);
 	return {
 		type: motorType,
@@ -86,7 +86,7 @@ export interface ToolResultSubscription {
 	stallIntervalMs?: number;
 }
 
-export function waitForToolResult(sub: ToolResultSubscription): Promise<SenseEvent> {
+export function waitForToolResult(sub: ToolResultSubscription): Promise<EventMessage> {
 	const {
 		sense,
 		toolName,
@@ -193,7 +193,7 @@ export async function dispatchTools(
 	toMotorName: (llmName: string) => string,
 	timeoutMs: number,
 	options: DispatchToolsOptions,
-): Promise<SenseEvent[]> {
+): Promise<EventMessage[]> {
 	return Promise.all(
 		toolCalls.map((tc) => {
 			const motorType = toMotorName(tc.name);

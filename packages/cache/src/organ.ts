@@ -1,10 +1,10 @@
 import {
+	type BusMiddleware,
 	buildSense,
 	type CacheStrategy,
 	defineOrgan,
 	makeCacheKey,
 	type Nerve,
-	type NerveMiddleware,
 	typedAction,
 	withDisplay,
 } from "@dpopsuev/alef-kernel";
@@ -110,7 +110,7 @@ export function createCacheOrgan(opts: CacheOrganOptions = {}) {
 	const pendingCaptures = new Map<string, () => void>();
 
 	// Middleware that wraps nerve to intercept and cache motor events
-	const cacheMiddleware: NerveMiddleware = (nerve: Nerve): Nerve => {
+	const cacheMiddleware: BusMiddleware = (nerve: Nerve): Nerve => {
 		// Subscribe to motor events for cached tools to prevent deadLetterSink
 		const motorUnsubs: Array<() => void> = [];
 		for (const toolType of cachedTools) {

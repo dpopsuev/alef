@@ -1,4 +1,4 @@
-import type { Nerve } from "@dpopsuev/alef-kernel";
+import type { Bus } from "@dpopsuev/alef-kernel";
 
 export interface TurnSignals {
 	readonly effectiveSignal: AbortSignal;
@@ -6,11 +6,7 @@ export interface TurnSignals {
 	dispose(): void;
 }
 
-export function createTurnSignals(
-	sense: Nerve["sense"],
-	signal: Nerve["signal"],
-	userSignal?: AbortSignal,
-): TurnSignals {
+export function createTurnSignals(sense: Bus["sense"], signal: Bus["signal"], userSignal?: AbortSignal): TurnSignals {
 	const budgetController = new AbortController();
 	const callAbortControllers = new Map<string, AbortController>();
 

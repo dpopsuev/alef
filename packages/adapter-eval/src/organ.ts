@@ -15,7 +15,7 @@
  * parses a 0-100 score and reasoning string.
  */
 
-import type { Adapter, BaseOrganOptions, MotorHandlerCtx, Nerve } from "@dpopsuev/alef-kernel";
+import type { Adapter, BaseOrganOptions, Bus, MotorHandlerCtx } from "@dpopsuev/alef-kernel";
 import { defineAdapter, getNumber, getString, typedAction } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";
@@ -110,7 +110,7 @@ async function runLLMJudge(
 export type EvalOrganOptions = EvalAdapterOptions;
 
 export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
-	let nerve: Nerve | null = null;
+	let nerve: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
 		nerve?.signal.publish({ type, payload, correlationId: "" });
 
@@ -176,7 +176,7 @@ export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 		},
 		{
 			logger: opts.logger,
-			onMount: (n: Nerve) => {
+			onMount: (n: Bus) => {
 				nerve = n;
 			},
 			contributions: {

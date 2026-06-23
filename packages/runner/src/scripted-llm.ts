@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Adapter, Nerve, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, ToolDefinition } from "@dpopsuev/alef-kernel";
 
 type SerializedStep =
 	| string
@@ -38,7 +38,7 @@ export class ScriptedLlmAdapter implements Adapter {
 		this.steps = steps;
 	}
 
-	mount(nerve: Nerve): () => void {
+	mount(nerve: Bus): () => void {
 		return nerve.sense.subscribe("llm.input", (event) => {
 			void (async () => {
 				const step = this.steps[this.index++];

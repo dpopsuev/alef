@@ -1,32 +1,32 @@
-import type { NerveEvent } from "@dpopsuev/alef-kernel";
+import type { BusMessage } from "@dpopsuev/alef-kernel";
 import type { BusObserver } from "@dpopsuev/alef-runtime";
 
 export class BusEventRecorder implements BusObserver {
-	private readonly _motor: NerveEvent[] = [];
-	private readonly _sense: NerveEvent[] = [];
-	private readonly _signal: NerveEvent[] = [];
+	private readonly _motor: BusMessage[] = [];
+	private readonly _sense: BusMessage[] = [];
+	private readonly _signal: BusMessage[] = [];
 
-	onMotorEvent(event: NerveEvent): void {
+	onMotorEvent(event: BusMessage): void {
 		this._motor.push(event);
 	}
-	onSenseEvent(event: NerveEvent): void {
+	onSenseEvent(event: BusMessage): void {
 		this._sense.push(event);
 	}
-	onSignalEvent(event: NerveEvent): void {
+	onSignalEvent(event: BusMessage): void {
 		this._signal.push(event);
 	}
 
-	get motor(): readonly NerveEvent[] {
+	get motor(): readonly BusMessage[] {
 		return this._motor;
 	}
-	get sense(): readonly NerveEvent[] {
+	get sense(): readonly BusMessage[] {
 		return this._sense;
 	}
-	get signal(): readonly NerveEvent[] {
+	get signal(): readonly BusMessage[] {
 		return this._signal;
 	}
 
-	assertSenseEmitted(type: string): NerveEvent {
+	assertSenseEmitted(type: string): BusMessage {
 		const found = this._sense.find((e) => e.type === type);
 		if (!found) {
 			throw new Error(
@@ -37,7 +37,7 @@ export class BusEventRecorder implements BusObserver {
 		return found;
 	}
 
-	assertMotorEmitted(type: string): NerveEvent {
+	assertMotorEmitted(type: string): BusMessage {
 		const found = this._motor.find((e) => e.type === type);
 		if (!found) {
 			throw new Error(
@@ -48,7 +48,7 @@ export class BusEventRecorder implements BusObserver {
 		return found;
 	}
 
-	assertToolCallEmitted(toolName: string): NerveEvent {
+	assertToolCallEmitted(toolName: string): BusMessage {
 		const found = this._motor.find((e) => {
 			if (e.type !== "llm.tool_call") return false;
 			const p = (e as unknown as { payload?: { toolName?: string } }).payload;

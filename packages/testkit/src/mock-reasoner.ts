@@ -1,4 +1,4 @@
-import type { Adapter, Nerve, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, ToolDefinition } from "@dpopsuev/alef-kernel";
 
 export class MockReasoner implements Adapter {
 	readonly name = "mock-llm";
@@ -8,7 +8,7 @@ export class MockReasoner implements Adapter {
 
 	constructor(private readonly cannedText: string = "mock response") {}
 
-	mount(nerve: Nerve): () => void {
+	mount(nerve: Bus): () => void {
 		return nerve.sense.subscribe("llm.input", (event) => {
 			nerve.motor.publish({
 				type: "llm.response" as const,

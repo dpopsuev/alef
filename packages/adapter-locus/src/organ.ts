@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
 import { debugLog, McpAdapter } from "@dpopsuev/alef-kernel";
 
 export interface LocusAdapterOptions {
@@ -44,7 +44,7 @@ export function createLocusOrgan(opts: LocusAdapterOptions = {}): Adapter {
 			"Locus tools are available under the locus.* prefix. Use locus.codograph to scan repos, locus.analysis for dependency/coupling/impact queries, and locus.render_diagram for Mermaid diagrams.",
 		],
 
-		mount(nerve: Nerve): () => void {
+		mount(nerve: Bus): () => void {
 			mkdirSync(cacheDir, { recursive: true });
 			mkdirSync(historyDir, { recursive: true });
 

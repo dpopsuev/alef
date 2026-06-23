@@ -5,19 +5,19 @@
  * (inheriting tsx/esm hooks), so TypeScript adapter files load without a build step.
  *
  * Protocol:
- *   parent → worker  { dir: 'motor', event: NerveEvent }
- *   worker → parent  { dir: 'sense', event: SensePublishInput }
+ *   parent → worker  { dir: 'motor', event: BusMessage }
+ *   worker → parent  { dir: 'sense', event: EventInput }
  *   worker → parent  { type: 'ready', name, tools[], subscriptions }  (on mount)
  */
 
 import { parentPort, workerData } from "node:worker_threads";
 import type {
-	MotorEvent,
-	MotorHandler,
+	BusMessage,
+	CommandHandler,
+	CommandMessage,
+	EventHandler,
+	EventInput,
 	Nerve,
-	NerveEvent,
-	SenseHandler,
-	SensePublishInput,
 } from "@dpopsuev/alef-kernel";
 import { makeBus, toolInputToJsonSchema } from "@dpopsuev/alef-kernel";
 
@@ -27,9 +27,9 @@ const port = parentPort;
 if (!port) throw new Error("prototype-worker must run inside a worker_threads.Worker");
 
 // Motor handlers registered by the adapter during mount.
-const motorHandlers = new Map<string, Set<MotorHandler>>();
+const motorHandlers = new Map<string, Set<CommandHandler>>();
 // Sense handlers (rarely used by adapters, but bridge it anyway).
-const senseHandlers = new Map<string, Set<SenseHandler>>();
+const senseHandlers = new Map<string, Set<EventHandler>>();
 
 const bridgeNerve: Nerve = makeBus(
 	{
@@ -44,7 +44,7 @@ const bridgeNerve: Nerve = makeBus(
 				set?.delete(handler);
 			};
 		},
-		publish(event: MotorEvent) {
+		publish(event: CommandMessage) {
 			port.postMessage({ dir: "motor", event });
 		},
 	},
@@ -60,7 +60,7 @@ const bridgeNerve: Nerve = makeBus(
 				set?.delete(handler);
 			};
 		},
-		publish(event: SensePublishInput) {
+		publish(event: EventInput) {
 			port.postMessage({ dir: "sense", event });
 		},
 	},
@@ -74,9 +74,9 @@ const bridgeNerve: Nerve = makeBus(
 );
 
 // Dispatch incoming motor events to registered handlers.
-port.on("message", (msg: { dir: string; event: NerveEvent }) => {
+port.on("message", (msg: { dir: string; event: BusMessage }) => {
 	if (msg.dir !== "motor") return;
-	const motorEvent = msg.event as MotorEvent;
+	const motorEvent = msg.event as CommandMessage;
 	const specific = motorHandlers.get(motorEvent.type);
 	if (specific) for (const h of specific) void h(motorEvent);
 	const wildcard = motorHandlers.get("*");

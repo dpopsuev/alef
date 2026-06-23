@@ -1,4 +1,4 @@
-import type { BaseOrganOptions, Nerve } from "@dpopsuev/alef-kernel";
+import type { BaseOrganOptions, Bus } from "@dpopsuev/alef-kernel";
 import {
 	debugLog,
 	defineAdapter,
@@ -31,7 +31,7 @@ export interface WorkflowOrganOptions extends BaseOrganOptions {
 }
 
 export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
-	let nerve: Nerve | null = null;
+	let nerve: Bus | null = null;
 	const emitSignal = (type: string, payload: Record<string, unknown>) =>
 		nerve?.signal.publish({ type, payload, correlationId: "" });
 
@@ -73,7 +73,7 @@ export function createWorkflowOrgan(opts: WorkflowOrganOptions) {
 		},
 		{
 			description: `Workflow organ: ${opts.def.name} (${opts.def.stations.map((s) => s.name).join(" → ")})`,
-			onMount: (n: Nerve) => {
+			onMount: (n: Bus) => {
 				nerve = n;
 			},
 			contributions: {

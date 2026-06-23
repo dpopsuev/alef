@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Adapter, AdapterLogger, Nerve, SensePublishInput } from "@dpopsuev/alef-kernel";
+import type { Adapter, AdapterLogger, Bus, EventInput } from "@dpopsuev/alef-kernel";
 import { debugLog, extractToolCallId } from "@dpopsuev/alef-kernel";
 import { createJiti } from "jiti";
 import { parse as parseYaml } from "yaml";
@@ -123,8 +123,8 @@ export function wrapWithPermissions(adapter: Adapter, allowedTools: string[]): A
 
 	return {
 		...adapter,
-		mount(nerve: Nerve): () => void {
-			const gatedNerve: Nerve = {
+		mount(nerve: Bus): () => void {
+			const gatedNerve: Bus = {
 				...nerve,
 				motor: {
 					...nerve.motor,
@@ -144,7 +144,7 @@ export function wrapWithPermissions(adapter: Adapter, allowedTools: string[]): A
 									`Permission denied: '${event.type}' is not in allowed_tools. ` +
 									`Add it to permissions.allowed_tools in config.yaml to enable it.`,
 								correlationId: event.correlationId,
-							} satisfies SensePublishInput);
+							} satisfies EventInput);
 						});
 					},
 				},

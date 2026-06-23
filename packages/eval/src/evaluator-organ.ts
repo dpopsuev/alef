@@ -10,7 +10,7 @@
  * Does NOT publish events — read-only observer.
  */
 
-import type { Adapter, Nerve, NerveEvent } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, BusMessage } from "@dpopsuev/alef-kernel";
 
 export interface EvaluatorOrganOptions {
 	/**
@@ -51,8 +51,8 @@ export class EvaluatorOrgan implements Adapter {
 		this.onLoop = options.onLoop;
 	}
 
-	mount(nerve: Nerve): () => void {
-		const offMotor = nerve.motor.subscribe("*", (event: NerveEvent) => {
+	mount(nerve: Bus): () => void {
+		const offMotor = nerve.motor.subscribe("*", (event: BusMessage) => {
 			this.state.motorCount++;
 			if (this.state.loopDetected) return;
 
@@ -71,7 +71,7 @@ export class EvaluatorOrgan implements Adapter {
 			}
 		});
 
-		const offSense = nerve.sense.subscribe("*", (_event: NerveEvent) => {
+		const offSense = nerve.sense.subscribe("*", (_event: BusMessage) => {
 			this.state.senseCount++;
 		});
 

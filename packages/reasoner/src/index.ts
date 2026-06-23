@@ -1,4 +1,4 @@
-import type { Adapter, Nerve, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus, SenseHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel";
 import {
 	type ActualConditions,
 	computeError,
@@ -264,7 +264,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 		contributions: {
 			port: { name: "reasoning", eventPattern: "sense/llm.input", cardinality: "exactly-one" },
 		},
-		mount(nerve: Nerve): () => void {
+		mount(nerve: Bus): () => void {
 			const offOrgan = innerOrgan.mount(nerve);
 			if (!options.trackConcurrentOps) return offOrgan;
 

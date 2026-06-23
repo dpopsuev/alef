@@ -19,7 +19,7 @@
 
 import { createWriteStream, type WriteStream } from "node:fs";
 import { readFile } from "node:fs/promises";
-import type { NerveEvent } from "@dpopsuev/alef-kernel";
+import type { BusMessage } from "@dpopsuev/alef-kernel";
 
 import type { BusObserver } from "@dpopsuev/alef-runtime";
 
@@ -64,7 +64,7 @@ export class TraceRecorder implements BusObserver {
 		this.stream = createWriteStream(path, { flags: "w", encoding: "utf-8" });
 	}
 
-	onMotorEvent(event: NerveEvent): void {
+	onMotorEvent(event: BusMessage): void {
 		const p = event as unknown as { type?: string; correlationId?: string; payload?: Record<string, unknown> };
 		const type = p.type ?? "unknown";
 		// Skip internal dialog events \u2014 not tool calls
@@ -79,7 +79,7 @@ export class TraceRecorder implements BusObserver {
 		});
 	}
 
-	onSenseEvent(event: NerveEvent): void {
+	onSenseEvent(event: BusMessage): void {
 		const p = event as unknown as {
 			type?: string;
 			correlationId?: string;

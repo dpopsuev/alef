@@ -1,5 +1,5 @@
 import { exec } from "node:child_process";
-import type { Adapter, Nerve } from "@dpopsuev/alef-kernel";
+import type { Adapter, Bus } from "@dpopsuev/alef-kernel";
 import { defineOrgan, typedAction, withDisplay } from "@dpopsuev/alef-kernel";
 import { z } from "zod";
 
@@ -69,7 +69,7 @@ export interface WireOrganOptions {
 }
 
 export function createWireOrgan(opts: WireOrganOptions): Adapter {
-	let nerve: Nerve | null = null;
+	let nerve: Bus | null = null;
 
 	function mountWiring(state: WireState, rules: WiringRule[]) {
 		for (const rule of rules) {
@@ -378,7 +378,7 @@ export function createWireOrgan(opts: WireOrganOptions): Adapter {
 				"Gate types: 'validate' (shell command), 'judge' (LLM scoring), 'gate' (condition routing).",
 				"Use workflow.status to check progress. Use workflow.stop to tear down.",
 			],
-			onMount(n: Nerve) {
+			onMount(n: Bus) {
 				nerve = n;
 			},
 			onUnmount() {

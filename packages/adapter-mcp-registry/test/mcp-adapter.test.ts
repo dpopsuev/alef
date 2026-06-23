@@ -5,8 +5,8 @@
  * error handling, unmount closes client.
  */
 
+import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it, vi } from "vitest";
-import { InProcessBus } from "../src/in-process-bus.js";
 import { createMcpAdapterFromClient, McpAdapter } from "../src/mcp-adapter.js";
 
 // ---------------------------------------------------------------------------

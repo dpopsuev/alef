@@ -1,3 +1,4 @@
+import type { TuiStateStore } from "@dpopsuev/alef-runner-tui";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { InteractiveOptions } from "../interactive.js";
 import type { Session } from "../session.js";
@@ -6,6 +7,7 @@ import type { ChatLog } from "../tui/chat-log.js";
 import type { TuiEvent } from "../tui-dispatch.js";
 
 export interface TuiHandlerContext {
+	tuiStore?: TuiStateStore;
 	t: ThemeTokens;
 	writer: ChatLog;
 	opts?: InteractiveOptions;

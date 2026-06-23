@@ -1,3 +1,4 @@
+import type { TuiStateStore } from "@dpopsuev/alef-runner-tui";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
 import type { InteractiveOptions } from "./interactive.js";
@@ -17,6 +18,7 @@ export function createContextFactory(
 	getState: () => TuiState,
 	dispatch: (event: TuiEvent) => void,
 	store?: SessionStore,
+	tuiStore?: TuiStateStore,
 ): () => TuiHandlerContext {
 	return () => ({
 		t,
@@ -25,6 +27,7 @@ export function createContextFactory(
 		opts,
 		session,
 		store,
+		tuiStore,
 		dispatch,
 		abortCurrentTurn: getState().abortCurrentTurn,
 		setAbortCurrentTurn: (fn: (() => void) | undefined) =>

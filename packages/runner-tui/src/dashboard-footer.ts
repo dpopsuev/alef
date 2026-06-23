@@ -1,17 +1,13 @@
 import { execSync } from "node:child_process";
 import type { Component } from "@dpopsuev/alef-tui";
 import { truncateToWidth, visibleWidth } from "@dpopsuev/alef-tui";
+import type { TuiStateStore } from "./state.js";
 
 export interface DashboardFooterOptions {
 	sessionId: string;
-	modelId: string;
 	cwd: string;
-	getInputTokens: () => number;
-	getOutputTokens: () => number;
-	getContextWindow: () => number;
-	getContextUsed: () => number;
-	getThinkingLevel: () => string;
-	getCompacted: () => boolean;
+	store: TuiStateStore;
+	requestRender: () => void;
 	style: (text: string) => string;
 	dimStyle: (text: string) => string;
 	warnStyle: (text: string) => string;
@@ -40,54 +36,70 @@ function getGitBranch(cwd: string): string | undefined {
 	}
 }
 
+function renderContextBar(
+	used: number,
+	total: number,
+	barWidth: number,
+	style: (s: string) => string,
+	warnStyle: (s: string) => string,
+	errorStyle: (s: string) => string,
+	dimStyle: (s: string) => string,
+): string {
+	if (total <= 0 || used <= 0) return "";
+	const fill = Math.min(used / total, 1);
+	const filled = Math.round(fill * barWidth);
+	const empty = barWidth - filled;
+	const bar = "█".repeat(filled) + "░".repeat(empty);
+	const label = `${fmtTokens(used)}/${fmtTokens(total)}`;
+	const colorFn = fill > 0.9 ? errorStyle : fill > 0.7 ? warnStyle : fill > 0.5 ? style : dimStyle;
+	const autoSuffix = "";
+	return `ctx ${colorFn(bar)} ${dimStyle(label)}${autoSuffix}`;
+}
+
 export type FooterPanel = DashboardFooter;
 
 export class DashboardFooter implements Component {
-	private opts: DashboardFooterOptions;
-	private branch: string | undefined;
+	private readonly opts: DashboardFooterOptions;
+	private readonly branch: string | undefined;
+	private unsub: (() => void) | undefined;
 
 	constructor(opts: DashboardFooterOptions) {
 		this.opts = opts;
 		this.branch = getGitBranch(opts.cwd);
+		this.unsub = opts.store.subscribe(() => opts.requestRender());
 	}
 
 	invalidate(): void {}
 
+	dispose(): void {
+		this.unsub?.();
+	}
+
 	render(width: number): string[] {
-		const { modelId, dimStyle, style, warnStyle, errorStyle } = this.opts;
-		const modelShort = modelId.split("/").pop()?.split(" ")[0] ?? modelId;
+		const { store, dimStyle, style, warnStyle, errorStyle } = this.opts;
+		const s = store.get();
+		const modelShort = s.modelId.split("/").pop()?.split(" ")[0] ?? s.modelId;
 
 		const path = shortPath(this.opts.cwd);
 		const branchPart = this.branch ? ` (${this.branch})` : "";
 		const pathLine = dimStyle(truncateToWidth(`${path}${branchPart}`, width, "…"));
 
-		const inputTok = this.opts.getInputTokens();
-		const outputTok = this.opts.getOutputTokens();
-		const contextWindow = this.opts.getContextWindow();
-		const contextUsed = this.opts.getContextUsed();
-		const thinking = this.opts.getThinkingLevel();
-
 		const segments: string[] = [];
 
-		if (inputTok > 0 || outputTok > 0) {
-			segments.push(dimStyle(`↑${fmtTokens(inputTok)} ↓${fmtTokens(outputTok)}`));
+		if (s.inputTokens > 0 || s.outputTokens > 0) {
+			segments.push(dimStyle(`↑${fmtTokens(s.inputTokens)} ↓${fmtTokens(s.outputTokens)}`));
 		}
 
-		if (contextWindow > 0 && contextUsed > 0) {
-			const fill = contextUsed / contextWindow;
-			const pct = `${Math.round(fill * 100)}%`;
-			const autoSuffix = this.opts.getCompacted() ? " (auto)" : "";
-			const ctxText = `ctx ${pct}${autoSuffix}`;
-			if (fill > 0.9) {
-				segments.push(errorStyle(ctxText));
-			} else if (fill > 0.7) {
-				segments.push(warnStyle(ctxText));
-			} else {
-				segments.push(dimStyle(ctxText));
-			}
+		if (s.contextWindow > 0 && s.contextUsed > 0) {
+			const barWidth = Math.min(Math.max(Math.floor(width * 0.1), 6), 20);
+			const compactSuffix = s.compacted ? dimStyle(" (auto)") : "";
+			segments.push(
+				renderContextBar(s.contextUsed, s.contextWindow, barWidth, style, warnStyle, errorStyle, dimStyle) +
+					compactSuffix,
+			);
 		}
 
-		const thinkingSuffix = thinking && thinking !== "none" ? ` (${thinking})` : "";
+		const thinkingSuffix = s.thinkingLevel && s.thinkingLevel !== "none" ? ` (${s.thinkingLevel})` : "";
 		segments.push(style(`${modelShort}${thinkingSuffix}`));
 
 		const statsLine = segments.join(dimStyle("  "));

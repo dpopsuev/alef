@@ -1,5 +1,6 @@
 import type {
 	Bus,
+	BusChannel,
 	BusMessage,
 	CommandInput,
 	CommandMessage,
@@ -88,20 +89,21 @@ export class InProcessNerve {
 		this._watchdog?.stop();
 	}
 	asBus(): Bus {
-		const commandChannel = {
-			subscribe: (type: string, h: (e: BusMessage) => void | Promise<void>) => this._motor.on(type, h),
-			publish: (e: CommandInput) => this._motor.emit(e),
+		type InternalHandler = (e: BusMessage) => void | Promise<void>;
+		const commandChannel: BusChannel<"command"> = {
+			subscribe: (type, handler) => this._motor.on(type, handler as InternalHandler),
+			publish: (e) => this._motor.emit(e),
 		};
-		const eventChannel = {
-			subscribe: (type: string, h: (e: BusMessage) => void | Promise<void>) => this._sense.on(type, h),
-			publish: (e: EventInput) => {
+		const eventChannel: BusChannel<"event"> = {
+			subscribe: (type, handler) => this._sense.on(type, handler as InternalHandler),
+			publish: (e) => {
 				this._motor.evictCorrelation(e.correlationId);
 				this._sense.emit(e);
 			},
 		};
-		const notificationChannel = {
-			subscribe: (type: string, h: (e: BusMessage) => void | Promise<void>) => this._signal.on(type, h),
-			publish: (e: NotificationInput) => this._signal.emit(e),
+		const notificationChannel: BusChannel<"notification"> = {
+			subscribe: (type, handler) => this._signal.on(type, handler as InternalHandler),
+			publish: (e) => this._signal.emit(e),
 		};
 		return makeBus(commandChannel, eventChannel, notificationChannel, () => this.pulse());
 	}

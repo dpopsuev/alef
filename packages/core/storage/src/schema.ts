@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 export const EMBEDDING_DIMENSION = 384;
 
 const DDL_STATEMENTS = [
@@ -21,7 +21,7 @@ const DDL_STATEMENTS = [
 	`CREATE INDEX IF NOT EXISTS idx_events_type ON events(session_id, type)`,
 	`CREATE INDEX IF NOT EXISTS idx_events_bus ON events(session_id, bus)`,
 	`CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(session_id, timestamp)`,
-	`CREATE INDEX IF NOT EXISTS idx_events_organ ON events(session_id, adapter)`,
+	`CREATE INDEX IF NOT EXISTS idx_events_adapter ON events(session_id, adapter)`,
 	`CREATE TABLE IF NOT EXISTS discourse_posts (
 		rowid INTEGER PRIMARY KEY, session_id TEXT NOT NULL, topic TEXT NOT NULL,
 		thread TEXT NOT NULL, author TEXT NOT NULL, content TEXT NOT NULL, timestamp INTEGER NOT NULL)`,
@@ -43,6 +43,9 @@ const MIGRATIONS: Record<number, string[]> = {
 	2: [
 		`ALTER TABLE events ADD COLUMN embedding F32_BLOB(${EMBEDDING_DIMENSION})`,
 		`ALTER TABLE session_summaries ADD COLUMN embedding F32_BLOB(${EMBEDDING_DIMENSION})`,
+	],
+	3: [
+		`ALTER TABLE events RENAME COLUMN organ TO adapter`,
 	],
 };
 

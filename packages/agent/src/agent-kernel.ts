@@ -1,4 +1,5 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { AgentBus } from "@dpopsuev/alef-kernel/bus";
 import { Agent } from "@dpopsuev/alef-runtime";
 import { SessionLog, type SessionSummary } from "./event-log-adapter.js";
 import type { ActorIdentity } from "./identity/actor.js";
@@ -13,10 +14,11 @@ export interface AgentKernelOptions {
 	onLoop?: (eventType: string, reason: string) => void;
 	agentIdentity?: ActorIdentity;
 	summaryWriter?: (summary: SessionSummary) => void | Promise<void>;
+	bus?: AgentBus;
 }
 
 export function buildAgent(opts: AgentKernelOptions): Agent {
-	const agent = new Agent();
+	const agent = new Agent({ bus: opts.bus });
 
 	agent.load(opts.llm);
 

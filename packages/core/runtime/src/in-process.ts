@@ -66,7 +66,7 @@ export class InProcessStrategy implements ExecutionStrategy {
 		watchdog.start();
 
 		try {
-			const reply = await session.send(text, "human", conversationTimeoutMs);
+			const reply = await session.send!(text, conversationTimeoutMs);
 			traceEvent("in-process:done", { replyLength: reply.length });
 			return reply;
 		} catch (error) {

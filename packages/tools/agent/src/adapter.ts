@@ -69,11 +69,9 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 		systemPrompt?: string;
 		modelOverride?: string;
 	}) => {
-		send(text: string, sender: string, timeoutMs: number): Promise<string>;
+		send?(text: string, timeoutMs?: number): Promise<string>;
 		dispose(): void;
 	};
-	/** @deprecated Use subagentFactory */
-	createAdHocSession?: AgentAdapterOptions["subagentFactory"];
 	getParentDirectives?: () => Promise<string>;
 	materializeAdapters?: (names: string[]) => Promise<Adapter[]>;
 	replyEvent?: string;
@@ -87,7 +85,7 @@ export function createAgentAdapter(
 	opts: AgentAdapterOptions,
 ): Adapter & { registerStrategy(name: string, strategy: ExecutionStrategy): void } {
 	const strategies = new Map<string, ExecutionStrategy>(Object.entries(opts.strategies ?? {}));
-	const factory = opts.subagentFactory ?? opts.createAdHocSession;
+	const factory = opts.subagentFactory;
 	let mountedBus: Bus | null = null;
 
 	const registry = new ChildRegistry({
@@ -354,7 +352,7 @@ export function createAgentAdapter(
 							systemPrompt,
 							modelOverride,
 						});
-						const replyPromise = session.send(text, "human", timeoutMs).finally(() => {
+						const replyPromise = session.send!(text, timeoutMs).finally(() => {
 							queue.finish();
 							session.dispose();
 						});

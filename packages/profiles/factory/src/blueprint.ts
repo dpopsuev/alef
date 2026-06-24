@@ -34,7 +34,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 				modelOverride,
 			});
 			try {
-				return await session.send(text, "human", 600_000);
+				return await session.send!(text, 600_000);
 			} finally {
 				session.dispose();
 			}
@@ -47,7 +47,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 				modelOverride: modelOverride ?? "claude-haiku-4-5",
 			});
 			try {
-				const reply = await session.send(prompt, "human", 60_000);
+				const reply = await session.send!(prompt, 60_000);
 				try {
 					const parsed = JSON.parse(reply) as { score: number; feedback: string };
 					return { score: parsed.score ?? 5, feedback: parsed.feedback ?? reply };

@@ -14,6 +14,7 @@ import type { Api, Model } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
+import type { Session } from "@dpopsuev/alef-session";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { Agent } from "../../core/runtime/src/index.js";
@@ -41,14 +42,22 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 			});
 		}
 		return {
-			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
+			state: { id: `test-${randomUUID()}`, modelId: String(model), contextWindow: 200_000 },
+			getModel: () => String(model),
+			setModel: () => {},
+			getThinking: () => "off",
+			setThinking: () => {},
+			setTurnController: () => {},
+			subscribe: () => () => {},
+			async send(text: string, timeoutMs?: number): Promise<string> {
 				await agent.ready();
 				const correlationId = randomUUID();
+				const timeout = timeoutMs ?? 30_000;
 				return new Promise<string>((resolve, reject) => {
 					const timer = setTimeout(() => {
 						off();
-						reject(new Error(`inner agent timed out after ${timeoutMs}ms`));
-					}, timeoutMs);
+						reject(new Error(`inner agent timed out after ${timeout}ms`));
+					}, timeout);
 					const off = agent.subscribeCommand("llm.response", (event) => {
 						if (event.correlationId !== correlationId) return;
 						clearTimeout(timer);
@@ -58,7 +67,7 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 					agent.publishEvent({
 						type: "llm.input",
 						correlationId,
-						payload: { text, sender, tools: agent.tools },
+						payload: { text, sender: "human", tools: agent.tools },
 						isError: false,
 					} as EventInput);
 				});
@@ -66,7 +75,7 @@ function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): Subagent
 			dispose() {
 				agent.dispose();
 			},
-		};
+		} satisfies Session;
 	};
 }
 

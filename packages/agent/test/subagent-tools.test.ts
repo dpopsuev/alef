@@ -39,7 +39,7 @@ describe("subagent tool schema injection", { tags: ["unit"] }, () => {
 		const session = factory({ adapters: [fsOrgan] });
 		disposes.push(() => session.dispose());
 
-		await session.send("Read the file /tmp/test.txt", "human", 10_000);
+		await session.send!("Read the file /tmp/test.txt", 10_000);
 
 		expect(capturedContext).toBeDefined();
 		expect(capturedContext!.tools).toBeDefined();

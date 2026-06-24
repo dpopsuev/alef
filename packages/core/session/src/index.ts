@@ -2,6 +2,7 @@ export * from "./compaction-stage.js";
 export * from "./context-reconstructor.js";
 export * from "./context-stage.js";
 export * from "./trace-extractor.js";
+export * from "./trace-replayer.js";
 export * from "./session.js";
 export * from "./session-scan.js";
 export * from "./session-store.js";

@@ -1,11 +1,3 @@
-/**
- * RemoteSession — Session implementation backed by a running daemon's HTTP/SSE surface.
- *
- * Connects to GET /events to receive AgentEvents forwarded by the daemon.
- * Sends user messages via POST /message.
- * Reads session identity from the daemon registry entry passed at construction.
- */
-
 import http from "node:http";
 import type { AgentEvent, Session, SessionState } from "../session.js";
 
@@ -18,22 +10,59 @@ export interface DaemonEntry {
 }
 
 export class RemoteSession implements Session {
-	readonly state: SessionState;
-
 	private readonly port: number;
+	private readonly _sessionId: string;
 	private readonly observers = new Set<(event: AgentEvent) => void>();
 	private sseReq: http.ClientRequest | null = null;
 	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private disposed = false;
 
+	private _modelId = "unknown";
+	private _thinking = "off";
+	private _contextWindow = 200_000;
+	private _stateReady: Promise<void>;
+	private _historyReady: Promise<void>;
+
 	constructor(entry: DaemonEntry) {
-		this.state = {
-			id: entry.sessionId,
-			modelId: "remote",
-			contextWindow: 200_000,
-		};
+		this._sessionId = entry.sessionId;
 		this.port = entry.port;
+		this._stateReady = this.fetchState();
+		this._historyReady = this.fetchHistory();
 		this.connectSse();
+	}
+
+	get state(): SessionState {
+		return {
+			id: this._sessionId,
+			modelId: this._modelId,
+			contextWindow: this._contextWindow,
+		};
+	}
+
+	async ready(): Promise<void> {
+		await Promise.all([this._stateReady, this._historyReady]);
+	}
+
+	private fetchState(): Promise<void> {
+		return this.getJson("/state")
+			.then((data) => {
+				if (typeof data.modelId === "string") this._modelId = data.modelId;
+				if (typeof data.thinking === "string") this._thinking = data.thinking;
+				if (typeof data.contextWindow === "number") this._contextWindow = data.contextWindow;
+			})
+			.catch(() => {});
+	}
+
+	private fetchHistory(): Promise<void> {
+		return this.getJson("/history")
+			.then((data) => {
+				if (Array.isArray(data)) {
+					for (const event of data) {
+						for (const obs of this.observers) obs(event as AgentEvent);
+					}
+				}
+			})
+			.catch(() => {});
 	}
 
 	private scheduleReconnect(): void {
@@ -56,15 +85,18 @@ export class RemoteSession implements Session {
 					const dataLine = frame.split("\n").find((l) => l.startsWith("data: "));
 					if (!dataLine) continue;
 					try {
-						const parsed = JSON.parse(dataLine.slice(6)) as {
-							kind?: string;
-							event?: AgentEvent;
-						};
+						const parsed = JSON.parse(dataLine.slice(6)) as Record<string, unknown>;
+						if (parsed.kind === "state") {
+							if (typeof parsed.modelId === "string") this._modelId = parsed.modelId;
+							if (typeof parsed.thinking === "string") this._thinking = parsed.thinking;
+							if (typeof parsed.contextWindow === "number") this._contextWindow = parsed.contextWindow;
+							continue;
+						}
 						if (parsed.kind === "agent" && parsed.event) {
-							for (const observer of this.observers) observer(parsed.event);
+							for (const observer of this.observers) observer(parsed.event as AgentEvent);
 						}
 					} catch {
-						// malformed frame — skip
+						// malformed frame
 					}
 				}
 			});
@@ -81,7 +113,6 @@ export class RemoteSession implements Session {
 
 	send(text: string, timeoutMs = 300_000): Promise<string> {
 		this.receive(text);
-		// Wait for token-usage event (turn completion signal) or timeout.
 		return new Promise<string>((resolve) => {
 			const timer = setTimeout(() => {
 				unsubscribe();
@@ -98,32 +129,45 @@ export class RemoteSession implements Session {
 	}
 
 	receive(text: string): void {
-		const body = JSON.stringify({ text });
-		const req = http.request(
-			{
-				hostname: "127.0.0.1",
-				port: this.port,
-				path: "/message",
-				method: "POST",
-				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
-			},
-			() => {},
-		);
-		req.on("error", () => {});
-		req.write(body);
-		req.end();
+		this.postJson("/message", { text });
 	}
 
-	// Remote session cannot control model/thinking/turn on the daemon — no-ops.
 	getModel(): string {
-		return this.state.modelId;
+		return this._modelId;
 	}
-	setModel(_id: string): void {}
+
+	setModel(id: string): void {
+		this.postJson("/control", { model: id });
+	}
+
 	getThinking(): string {
-		return "off";
+		return this._thinking;
 	}
-	setThinking(_level: string): void {}
-	setTurnController(_ctrl: AbortController | undefined): void {}
+
+	setThinking(level: string): void {
+		this.postJson("/control", { thinking: level });
+	}
+
+	setTurnController(ctrl: AbortController | undefined): void {
+		if (ctrl) {
+			ctrl.signal.addEventListener(
+				"abort",
+				() => {
+					this.postJson("/cancel", {});
+				},
+				{ once: true },
+			);
+		}
+	}
+
+	cancelToolCall(callId: string, toolName: string): void {
+		this.postJson("/cancel", { callId, toolName });
+	}
+
+	reloadAdapter(name: string, path: string): Promise<void> {
+		this.postJson("/reload", { name, path });
+		return Promise.resolve();
+	}
 
 	dispose(): void {
 		this.disposed = true;
@@ -134,5 +178,42 @@ export class RemoteSession implements Session {
 		this.sseReq?.destroy();
 		this.sseReq = null;
 		this.observers.clear();
+	}
+
+	private postJson(path: string, body: Record<string, unknown>): void {
+		const json = JSON.stringify(body);
+		const req = http.request(
+			{
+				hostname: "127.0.0.1",
+				port: this.port,
+				path,
+				method: "POST",
+				headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(json) },
+			},
+			() => {},
+		);
+		req.on("error", () => {});
+		req.write(json);
+		req.end();
+	}
+
+	private getJson(path: string): Promise<Record<string, unknown>> {
+		return new Promise((resolve, reject) => {
+			http
+				.get(`http://127.0.0.1:${this.port}${path}`, (res) => {
+					let body = "";
+					res.on("data", (chunk: Buffer) => {
+						body += chunk.toString();
+					});
+					res.on("end", () => {
+						try {
+							resolve(JSON.parse(body) as Record<string, unknown>);
+						} catch {
+							reject(new Error("invalid JSON"));
+						}
+					});
+				})
+				.on("error", reject);
+		});
 	}
 }

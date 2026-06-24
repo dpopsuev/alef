@@ -5,6 +5,7 @@ import "@dpopsuev/alef-factory-agent";
 
 import { dirname } from "node:path";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
+import { AgentRuntime } from "../agent-runtime.js";
 import { parseArgs } from "../args.js";
 import { dispatchCliOp } from "../cli-ops.js";
 import { loadConfig } from "../config.js";
@@ -22,7 +23,6 @@ import { RemoteSession } from "../strategies/remote-session.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "../terminal-bg.js";
 import { ensureDirectories } from "../xdg-paths.js";
 import { loadAdapters } from "./load-adapters.js";
-import { buildIdentityContext, createLocalSession } from "./local-session.js";
 import { pickSession } from "./session-picker.js";
 import { loadTheme } from "./theme-loader.js";
 
@@ -265,27 +265,22 @@ import("@dpopsuev/alef-storage")
 const sessionDir = dirname(session.path);
 const loaded = await loadAdapters(args, cfg, log, sessionDir);
 const { blueprintUpgradePolicy, blueprintPath } = loaded;
-const identity = buildIdentityContext(session);
 
+const runtime = new AgentRuntime({ storage });
 const {
 	session: localSession,
 	resolvedModelDisplay,
 	humanAddress,
 	agentAddress,
-	actorRoutes,
-	setupSurface,
-} = await createLocalSession(
+	identity: { actorRoutes },
+} = await runtime.startSession(
 	args,
 	cfg,
 	log,
 	session,
 	loaded,
 	resolveStartupModel(args, loaded.blueprintModelId, cfg),
-	storage,
-	identity,
 );
-
-await setupSurface();
 
 if (dispatchCliOp(args, localSession)) {
 	// CLI op dispatched — it calls process.exit() internally

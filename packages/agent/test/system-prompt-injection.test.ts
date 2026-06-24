@@ -15,10 +15,35 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import "@dpopsuev/alef-coding-agent";
 
+import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { parseArgs } from "../src/args.js";
 import { createLocalSession } from "../src/cli/local-session.js";
 import { JsonlSessionStore } from "../src/session-store.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
+
+const STUB_STORAGE: StorageFactory = {
+	daemonStore: () => ({}) as never,
+	summaryStore: () => ({ write: async () => {}, get: async () => undefined, latest: async () => undefined }),
+	discourseStore: () =>
+		({
+			append: async (_t: string, _th: string, _a: string, content: unknown) => ({
+				topic: "",
+				thread: "",
+				author: "",
+				content,
+				timestamp: Date.now(),
+			}),
+			readThread: async () => [],
+			listTopics: async () => [],
+			listThreads: async () => [],
+			threadInfo: async () => ({ name: "", posts: 0, participants: [], lastActivity: 0 }),
+			topicSummaries: async () => [],
+			readNewPosts: async () => [],
+		}) as never,
+	authStore: () => ({}) as never,
+	sessions: {} as never,
+	close: () => {},
+};
 
 const EMPTY_LOADED = {
 	adapters: [],
@@ -63,7 +88,7 @@ describe("system prompt injection — directives reach the LLM", { tags: ["e2e"]
 		const args = { ...parseArgs([]), cwd, noTui: true };
 		const model = faux.getModel();
 
-		const { session } = await createLocalSession(args, {}, log, store, EMPTY_LOADED, model);
+		const { session } = await createLocalSession(args, {}, log, store, EMPTY_LOADED, model, STUB_STORAGE);
 
 		const viewer = new HeadlessViewMode();
 		const running = viewer.run(session);

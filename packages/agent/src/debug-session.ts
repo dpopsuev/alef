@@ -7,42 +7,40 @@
  *   alef debug session --list       — list sessions for current cwd
  */
 
-import { getDatabase, SqliteSessionStore } from "@dpopsuev/alef-storage";
+import type { SessionStoreFactory } from "@dpopsuev/alef-storage";
 import type { StorageRecord } from "./session-store.js";
 
-export async function runDebugSession(args: string[], cwd: string): Promise<void> {
+export async function runDebugSession(args: string[], cwd: string, sessions: SessionStoreFactory): Promise<void> {
 	if (args.includes("--list") || args.includes("-l")) {
-		await listSessions(cwd);
+		await listSessions(cwd, sessions);
 		return;
 	}
 
 	const idPrefix = args[0];
-	await inspectSession(cwd, idPrefix);
+	await inspectSession(cwd, sessions, idPrefix);
 }
 
-async function listSessions(cwd: string): Promise<void> {
-	const db = await getDatabase();
-	const sessions = await SqliteSessionStore.list(db, cwd);
-	if (sessions.length === 0) {
+async function listSessions(cwd: string, sessions: SessionStoreFactory): Promise<void> {
+	const list = await sessions.list(cwd);
+	if (list.length === 0) {
 		console.log("No sessions for", cwd);
 		return;
 	}
-	for (const s of sessions) {
+	for (const s of list) {
 		console.log(`${s.id}  ${s.mtime.toISOString().replace("T", " ").slice(0, 16)}`);
 	}
 }
 
-async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
-	const db = await getDatabase();
-	const sessions = await SqliteSessionStore.list(db, cwd);
-	if (sessions.length === 0) {
+async function inspectSession(cwd: string, sessions: SessionStoreFactory, idPrefix?: string): Promise<void> {
+	const list = await sessions.list(cwd);
+	if (list.length === 0) {
 		console.error("No sessions for", cwd);
 		process.exit(1);
 	}
 
-	let target = sessions[0];
+	let target = list[0];
 	if (idPrefix) {
-		const found = sessions.find((s) => s.id.startsWith(idPrefix));
+		const found = list.find((s) => s.id.startsWith(idPrefix));
 		if (!found) {
 			console.error(`No session matching '${idPrefix}'. Run 'alef debug session --list'.`);
 			process.exit(1);
@@ -50,7 +48,7 @@ async function inspectSession(cwd: string, idPrefix?: string): Promise<void> {
 		target = found;
 	}
 
-	const store = await SqliteSessionStore.resume(db, cwd, target.id);
+	const store = await sessions.resume(cwd, target.id);
 	const records: StorageRecord[] = await store.events();
 
 	const motorByCorr = new Map<string, StorageRecord[]>();

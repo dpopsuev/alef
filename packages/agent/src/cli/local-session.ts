@@ -7,7 +7,7 @@ import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaAdapter } from "@dpopsuev/alef-meta";
 import { AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
-import { SqliteDiscourseStore } from "@dpopsuev/alef-storage";
+import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { Logger } from "pino";
 import { buildAgent } from "../agent-kernel.js";
 import type { Args } from "../args.js";
@@ -131,6 +131,7 @@ export async function createLocalSession(
 	store: SessionStore,
 	loaded: AdapterLoadResult,
 	model: Model<Api>,
+	storage: StorageFactory,
 ): Promise<{
 	session: SessionHandle;
 	resolvedModelDisplay: string;
@@ -201,9 +202,7 @@ export async function createLocalSession(
 		systemPrompt,
 	});
 
-	const { getDatabase, SqliteSummaryStore } = await import("@dpopsuev/alef-storage");
-	const db = await getDatabase();
-	const summaryStore = new SqliteSummaryStore(db);
+	const summaryStore = storage.summaryStore();
 
 	const agent = buildAgent({
 		llm: llmAdapter,
@@ -217,7 +216,7 @@ export async function createLocalSession(
 		summaryWriter: (summary) => summaryStore.write(summary),
 	});
 
-	const sessionForum = new SqliteDiscourseStore(db, store.id);
+	const sessionForum = storage.discourseStore(store.id);
 	const controller = new AgentController(agent, {
 		onReply: replySink,
 		transcript: { store: sessionForum, topic: "sessions", thread: store.id },

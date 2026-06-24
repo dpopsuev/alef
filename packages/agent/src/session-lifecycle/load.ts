@@ -1,4 +1,5 @@
-import { type Client, getDatabase, SqliteSessionStore } from "@dpopsuev/alef-storage";
+import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStoreFactory } from "@dpopsuev/alef-storage";
 export type SessionPicker = (sessions: Array<{ id: string; path: string; mtime: Date }>) => Promise<string | undefined>;
 
 export interface LoadSessionArgs {
@@ -7,24 +8,20 @@ export interface LoadSessionArgs {
 	listSessions: boolean;
 }
 
-export async function getDb(): Promise<Client> {
-	return getDatabase();
-}
-
 export async function loadSession(
 	args: LoadSessionArgs,
+	sessions: SessionStoreFactory,
 	willUseTui: boolean,
 	pickSession?: SessionPicker,
-): Promise<SqliteSessionStore> {
-	const db = await getDb();
-	const pruned = await SqliteSessionStore.prune(db, args.cwd);
+): Promise<SessionStore> {
+	const pruned = await sessions.prune(args.cwd);
 	if (pruned > 0) console.error(`[session] Pruned ${pruned} old session(s)`);
 	if (args.listSessions) {
-		const sessions = await SqliteSessionStore.list(db, args.cwd);
-		if (sessions.length === 0) {
+		const list = await sessions.list(args.cwd);
+		if (list.length === 0) {
 			console.log("No sessions for", args.cwd);
 		} else {
-			for (const session of sessions) {
+			for (const session of list) {
 				console.log(`${session.id}  ${session.mtime.toISOString().replace("T", " ").slice(0, 16)}`);
 			}
 		}
@@ -33,9 +30,7 @@ export async function loadSession(
 
 	if (args.resume) {
 		const resumeId = args.resume === "last" ? undefined : args.resume;
-		const store = resumeId
-			? await SqliteSessionStore.resume(db, args.cwd, resumeId)
-			: await SqliteSessionStore.resumeLatest(db, args.cwd);
+		const store = resumeId ? await sessions.resume(args.cwd, resumeId) : await sessions.resumeLatest(args.cwd);
 		if (!store) {
 			console.error("No session to resume. Start a new session first.");
 			process.exit(1);
@@ -45,16 +40,16 @@ export async function loadSession(
 		return store;
 	}
 
-	const existingSessions = willUseTui && pickSession ? await SqliteSessionStore.list(db, args.cwd) : [];
+	const existingSessions = willUseTui && pickSession ? await sessions.list(args.cwd) : [];
 	const pickedId = existingSessions.length > 0 && pickSession ? await pickSession(existingSessions) : undefined;
 	if (pickedId) {
-		const store = await SqliteSessionStore.resume(db, args.cwd, pickedId);
+		const store = await sessions.resume(args.cwd, pickedId);
 		const turnCount = (await store.turns()).length;
 		console.error(`[session] Resumed ${store.id} (${turnCount} turns)`);
 		return store;
 	}
 
-	const store = await SqliteSessionStore.create(db, args.cwd);
+	const store = await sessions.create(args.cwd);
 	console.error(`[session] ${store.id}`);
 	return store;
 }

@@ -4,11 +4,11 @@ import "@dpopsuev/alef-coding-agent";
 import "@dpopsuev/alef-factory-agent";
 
 import { dirname } from "node:path";
+import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { parseArgs } from "../args.js";
 import { dispatchCliOp } from "../cli-ops.js";
 import { loadConfig } from "../config.js";
 import { runDebugSession } from "../debug-session.js";
-
 import { initYamlBlueprints } from "../init-yaml-blueprints.js";
 import { createRunnerLogger } from "../logger.js";
 import { resolveStartupModel, setModelConfigProvider } from "../model/index.js";
@@ -51,11 +51,32 @@ if (args.migrate) {
 	process.exit(0);
 }
 
+// Configure storage backend from config.yaml (local or Turso cloud).
+if (cfg.storage) {
+	const { configureStorage } = await import("@dpopsuev/alef-storage");
+	configureStorage({
+		backend: cfg.storage.backend,
+		tursoUrl: cfg.storage.turso_url,
+		tursoToken: cfg.storage.turso_token,
+		syncInterval: cfg.storage.sync_interval,
+	});
+}
+
+let _storage: StorageFactory | undefined;
+async function getStorage(): Promise<StorageFactory> {
+	if (!_storage) {
+		const { getDatabase, SqliteStorageFactory } = await import("@dpopsuev/alef-storage");
+		const db = await getDatabase();
+		_storage = new SqliteStorageFactory(db);
+	}
+	return _storage;
+}
+
 // Handle debug subcommands before any session/agent setup.
 if (args.debugSubcmd) {
 	switch (args.debugSubcmd) {
 		case "session":
-			await runDebugSession(args.debugSubcmdArgs, args.cwd);
+			await runDebugSession(args.debugSubcmdArgs, args.cwd, (await getStorage()).sessions);
 			break;
 		default:
 			console.error(`Unknown debug subcommand: ${args.debugSubcmd}`);
@@ -131,9 +152,8 @@ if (args.replay !== undefined) {
 
 // --list: show running daemons
 if (args.listDaemons) {
-	const { getDatabase, SqliteDaemonStore } = await import("@dpopsuev/alef-storage");
-	const db = await getDatabase();
-	const store = new SqliteDaemonStore(db);
+	const storage = await getStorage();
+	const store = storage.daemonStore();
 	await store.prune();
 	const entries = await store.list();
 	if (entries.length === 0) {
@@ -149,9 +169,8 @@ if (args.listDaemons) {
 
 // --kill <sessionId>: stop a running daemon
 if (args.killDaemon !== undefined) {
-	const { getDatabase, SqliteDaemonStore } = await import("@dpopsuev/alef-storage");
-	const db = await getDatabase();
-	const store = new SqliteDaemonStore(db);
+	const storage = await getStorage();
+	const store = storage.daemonStore();
 	const entry = await store.get(args.killDaemon);
 	if (!entry) {
 		console.error(`No daemon found with session ID: ${args.killDaemon}`);
@@ -169,9 +188,8 @@ if (args.killDaemon !== undefined) {
 
 // --attach: connect to a running daemon and run TUI against it.
 if (args.attach !== undefined) {
-	const { getDatabase, SqliteDaemonStore } = await import("@dpopsuev/alef-storage");
-	const db = await getDatabase();
-	const daemonStore = new SqliteDaemonStore(db);
+	const storage = await getStorage();
+	const daemonStore = storage.daemonStore();
 	await daemonStore.prune();
 	let entry: DaemonEntry | undefined;
 	if (args.attach === "last") {
@@ -209,17 +227,6 @@ if (args.attach !== undefined) {
 	process.exit(0);
 }
 
-// Configure storage backend from config.yaml (local or Turso cloud).
-if (cfg.storage) {
-	const { configureStorage } = await import("@dpopsuev/alef-storage");
-	configureStorage({
-		backend: cfg.storage.backend,
-		tursoUrl: cfg.storage.turso_url,
-		tursoToken: cfg.storage.turso_token,
-		syncInterval: cfg.storage.sync_interval,
-	});
-}
-
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
 if (willUseTui) {
 	process.stderr.write = (
@@ -233,7 +240,8 @@ if (willUseTui) {
 	};
 }
 const log = createRunnerLogger(willUseTui, args.debug);
-const session = await loadSession(args, willUseTui, pickSession);
+const storage = await getStorage();
+const session = await loadSession(args, storage.sessions, willUseTui, pickSession);
 
 // Route debug events into the session JSONL — unified transcript.
 const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel");
@@ -264,7 +272,15 @@ const {
 	humanAddress,
 	agentAddress,
 	actorRoutes,
-} = await createLocalSession(args, cfg, log, session, loaded, resolveStartupModel(args, loaded.blueprintModelId, cfg));
+} = await createLocalSession(
+	args,
+	cfg,
+	log,
+	session,
+	loaded,
+	resolveStartupModel(args, loaded.blueprintModelId, cfg),
+	storage,
+);
 
 if (dispatchCliOp(args, localSession)) {
 	// CLI op dispatched — it calls process.exit() internally

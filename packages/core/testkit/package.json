@@ -56,11 +56,11 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@dpopsuev/alef-agent-blueprint": "^0.0.1",
-    "@dpopsuev/alef-llm": "^0.0.1",
-    "@dpopsuev/alef-runtime": "^0.0.1",
-    "@dpopsuev/alef-reasoner": "^0.0.1",
-    "@dpopsuev/alef-kernel": "^0.0.1",
+    "@dpopsuev/alef-agent-blueprint": "workspace:*",
+    "@dpopsuev/alef-llm": "workspace:*",
+    "@dpopsuev/alef-runtime": "workspace:*",
+    "@dpopsuev/alef-reasoner": "workspace:*",
+    "@dpopsuev/alef-kernel": "workspace:*",
     "vite-tsconfig-paths": "*"
   },
   "devDependencies": {

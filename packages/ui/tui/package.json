@@ -36,11 +36,19 @@
 	},
 	"types": "./dist/index.d.ts",
 	"exports": {
-		".": { "source": "./src/index.ts", "import": "./src/index.ts", "default": "./src/index.ts" },
-		"./views": { "source": "./src/views/index.ts", "import": "./src/views/index.ts", "default": "./src/views/index.ts" }
+		".": {
+			"source": "./src/index.ts",
+			"import": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./views": {
+			"source": "./src/views/index.ts",
+			"import": "./src/views/index.ts",
+			"default": "./src/views/index.ts"
+		}
 	},
 	"dependencies": {
-		"@dpopsuev/alef-session": "^0.0.1",
+		"@dpopsuev/alef-session": "workspace:*",
 		"@types/mime-types": "^2.1.4",
 		"chalk": "^5.5.0",
 		"get-east-asian-width": "^1.3.0",
@@ -52,6 +60,8 @@
 	},
 	"devDependencies": {
 		"@xterm/headless": "^5.5.0",
-		"@xterm/xterm": "^5.5.0"
+		"@xterm/xterm": "^5.5.0",
+		"strip-ansi": "^7.2.0",
+		"vitest": "^4.1.6"
 	}
 }

@@ -21,12 +21,12 @@
     "test": "vitest --run"
   },
   "dependencies": {
-    "@dpopsuev/alef-runtime": "^0.0.1",
-    "@dpopsuev/alef-adapter-fs": "^0.0.1",
-    "@dpopsuev/alef-reasoner": "^0.0.1",
-    "@dpopsuev/alef-adapter-shell": "^0.0.1",
-    "@dpopsuev/alef-kernel": "^0.0.1",
-    "@dpopsuev/alef-testkit": "^0.0.1",
+    "@dpopsuev/alef-runtime": "workspace:*",
+    "@dpopsuev/alef-adapter-fs": "workspace:*",
+    "@dpopsuev/alef-reasoner": "workspace:*",
+    "@dpopsuev/alef-adapter-shell": "workspace:*",
+    "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-testkit": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/context-async-hooks": "^2.7.1",
     "@opentelemetry/sdk-trace-base": "^1.30.1",

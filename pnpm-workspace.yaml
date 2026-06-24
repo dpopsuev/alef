@@ -1,0 +1,6 @@
+packages:
+  - packages/core/*
+  - packages/tools/*
+  - packages/ui/*
+  - packages/profiles/*
+  - packages/agent

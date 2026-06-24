@@ -24,8 +24,8 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@dpopsuev/alef-llm": "^0.0.1",
-    "@dpopsuev/alef-kernel": "^0.0.1"
+    "@dpopsuev/alef-llm": "workspace:*",
+    "@dpopsuev/alef-kernel": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

@@ -14,12 +14,12 @@
   },
   "dependencies": {
     "@ai-sdk/mcp": "^1.0.42",
-    "@dpopsuev/alef-kernel": "^0.0.1",
+    "@dpopsuev/alef-kernel": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@dpopsuev/alef-testkit": "^0.0.1",
+    "@dpopsuev/alef-testkit": "workspace:*",
     "vitest": "^4.1.6"
   }
 }

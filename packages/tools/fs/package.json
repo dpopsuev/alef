@@ -41,12 +41,12 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@dpopsuev/alef-kernel": "^0.0.1",
+    "@dpopsuev/alef-kernel": "workspace:*",
     "zod": "^4.4.3",
     "diff": "^5.2.0"
   },
   "devDependencies": {
-    "@dpopsuev/alef-testkit": "^0.0.1",
+    "@dpopsuev/alef-testkit": "workspace:*",
     "@types/node": "^24.3.0",
     "shx": "^0.4.0",
     "typescript": "^5.9.2",

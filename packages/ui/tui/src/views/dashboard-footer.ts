@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import type { Component } from "../component.js";
+import { numericInterpolator, SlotMachine } from "../components/slot-machine.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 import type { TuiStateStore } from "./state.js";
 
@@ -64,17 +65,35 @@ export class DashboardFooter implements Component {
 	private readonly opts: DashboardFooterOptions;
 	private readonly branch: string | undefined;
 	private unsub: (() => void) | undefined;
+	private readonly inputSlot: SlotMachine<number>;
+	private readonly outputSlot: SlotMachine<number>;
 
 	constructor(opts: DashboardFooterOptions) {
 		this.opts = opts;
 		this.branch = getGitBranch(opts.cwd);
-		this.unsub = opts.store.subscribe(() => opts.requestRender());
+		this.unsub = opts.store.subscribe(() => {
+			const s = opts.store.get();
+			this.inputSlot.set(s.inputTokens);
+			this.outputSlot.set(s.outputTokens);
+			opts.requestRender();
+		});
+		const tuiHandle = { requestRender: opts.requestRender, terminal: { rows: 24 } };
+		const slotOpts = {
+			format: fmtTokens,
+			interpolate: numericInterpolator,
+			style: opts.dimStyle,
+			dimStyle: (s: string) => opts.dimStyle(s),
+		};
+		this.inputSlot = new SlotMachine(tuiHandle, 0, { ...slotOpts, prefix: "↑" });
+		this.outputSlot = new SlotMachine(tuiHandle, 0, { ...slotOpts, prefix: "↓" });
 	}
 
 	invalidate(): void {}
 
 	dispose(): void {
 		this.unsub?.();
+		this.inputSlot.dispose();
+		this.outputSlot.dispose();
 	}
 
 	render(width: number): string[] {
@@ -89,7 +108,7 @@ export class DashboardFooter implements Component {
 		const segments: string[] = [];
 
 		if (s.inputTokens > 0 || s.outputTokens > 0) {
-			segments.push(dimStyle(`↑${fmtTokens(s.inputTokens)} ↓${fmtTokens(s.outputTokens)}`));
+			segments.push(`${this.inputSlot.currentStyled()} ${this.outputSlot.currentStyled()}`);
 		}
 
 		if (s.contextWindow > 0 && s.contextUsed > 0) {

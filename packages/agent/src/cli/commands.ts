@@ -130,7 +130,7 @@ function openModelPicker(ctx: TuiHandlerContext): void {
 				ctx.session.setThinking(value);
 				ctx.writer.addNotice(`Thinking set to "${value}".`);
 			}
-			ctx.tui.requestRender();
+			close();
 		},
 		close,
 	);

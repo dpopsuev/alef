@@ -1,6 +1,3 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { createFactoryAdapter } from "@dpopsuev/alef-adapter-factory";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
 import { createRouterAdapter } from "@dpopsuev/alef-gateway";
@@ -19,7 +16,7 @@ async function createRouter(
 	session: Session,
 	args: Args,
 	agent: Agent,
-): Promise<void> {
+): Promise<number> {
 	const sseSurface = blueprintSurfaces.filter((surface) => surface.type === "sse");
 	const allowedEvents = sseSurface.flatMap((surface) => surface.events ?? []);
 	const history: Record<string, unknown>[] = [];
@@ -76,19 +73,9 @@ async function createRouter(
 			history.push(event);
 			if (history.length > MAX_HISTORY_EVENTS) history.shift();
 		});
-		const daemonDir = join(homedir(), ".alef");
-		mkdirSync(daemonDir, { recursive: true });
-		writeFileSync(
-			join(daemonDir, "daemon.json"),
-			JSON.stringify({
-				port: addr.port,
-				pid: process.pid,
-				sessionId: session.state.id,
-				cwd: args.cwd,
-				startedAt: Date.now(),
-			}),
-		);
 	}
+
+	return addr.port;
 }
 
 export async function setupHttpSurface(
@@ -96,11 +83,11 @@ export async function setupHttpSurface(
 	agent: Agent,
 	session: Session,
 	blueprintSurfaces: AgentDefinitionSurfaceInput[],
-): Promise<void> {
+): Promise<number | undefined> {
 	const servePort = args.daemon ? 0 : args.serve;
-	if (servePort === undefined) return;
+	if (servePort === undefined) return undefined;
 
-	await createRouter(servePort, blueprintSurfaces, session, args, agent);
+	return createRouter(servePort, blueprintSurfaces, session, args, agent);
 }
 
 export async function buildDelegation(

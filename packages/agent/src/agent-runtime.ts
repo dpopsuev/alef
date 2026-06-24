@@ -44,8 +44,19 @@ export class AgentRuntime {
 		const { session, resolvedModelDisplay, humanAddress, agentAddress, actorRoutes, setupSurface } =
 			await createLocalSession(args, cfg, log, store, loaded, model, this.storage, identity);
 
-		await setupSurface();
+		const listenPort = await setupSurface();
 		this.sessions.set(session.state.id, session);
+
+		if (args.daemon && listenPort !== undefined) {
+			const daemonStore = this.storage.daemonStore();
+			await daemonStore.register({
+				port: listenPort,
+				pid: process.pid,
+				sessionId: session.state.id,
+				cwd: args.cwd,
+				startedAt: Date.now(),
+			});
+		}
 
 		return {
 			session,
@@ -67,19 +78,25 @@ export class AgentRuntime {
 		return this.sessions.get(id);
 	}
 
-	stopSession(id: string): void {
+	async stopSession(id: string): Promise<void> {
 		const session = this.sessions.get(id);
 		if (session) {
 			session.dispose();
 			this.sessions.delete(id);
+			await this.storage
+				.daemonStore()
+				.unregister(id)
+				.catch(() => {});
 		}
 	}
 
-	dispose(): void {
+	async dispose(): Promise<void> {
+		const daemonStore = this.storage.daemonStore();
 		for (const [id, session] of this.sessions) {
 			session.dispose();
-			this.sessions.delete(id);
+			await daemonStore.unregister(id).catch(() => {});
 		}
+		this.sessions.clear();
 		this.storage.close();
 	}
 }

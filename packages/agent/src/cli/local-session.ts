@@ -148,7 +148,7 @@ export async function createLocalSession(
 	humanAddress: string;
 	agentAddress: string;
 	actorRoutes: ActorRouteTable;
-	setupSurface: () => Promise<void>;
+	setupSurface: () => Promise<number | undefined>;
 }> {
 	const { adapters, blueprintSurfaces } = loaded;
 	registerContributions(adapters);

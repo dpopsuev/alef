@@ -1,29 +1,29 @@
 /**
- * Organ framework linter — static analysis for framework contract violations.
+ * Adapter framework linter — static analysis for framework contract violations.
  *
  * Checks all packages/adapter-* source files and reports:
  *
  *   [STREAM]      typedAction handler that awaits a long-running operation
  *                 (network, subprocess, delegation) — should use typedStreamAction
  *   [SCHEMA]      z.string() required field without .min(1) — accepts empty string
- *   [NOTEST]      organ package with no test directory or test files
- *   [NOCOMPLIANCE]        organ has tests but none call adapterComplianceSuite — hard gate
+ *   [NOTEST]      adapter package with no test directory or test files
+ *   [NOCOMPLIANCE]        adapter has tests but none call adapterComplianceSuite — hard gate
  *   [NOCOMPLIANCE-STREAM] streaming tool (typedStreamAction) not in adapterComplianceSuite opts
- *   [IMPORT]      organ importing from another organ or runner — dep direction violation
+ *   [IMPORT]      adapter importing from another adapter or runner — dep direction violation
  *
- * Usage:  npx tsx scripts/lint-organs.ts
- *         npx tsx scripts/lint-organs.ts --fail   (exit 1 on any violation)
+ * Usage:  npx tsx scripts/lint-adapters.ts
+ *         npx tsx scripts/lint-adapters.ts --fail   (exit 1 on any violation)
  *
- * [NOCOMPLIANCE] is the hard gate: every organ with test files must call
+ * [NOCOMPLIANCE] is the hard gate: every adapter with test files must call
  * adapterComplianceSuite(). This enforces schema rejection, structural checks,
- * and (optionally) streaming contracts for every organ automatically.
+ * and (optionally) streaming contracts for every adapter automatically.
  */
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const ORGANS_DIR = join(ROOT, "packages/tools");
+const ADAPTERS_DIR = join(ROOT, "packages/tools");
 const FAIL_ON_VIOLATIONS = process.argv.includes("--fail");
 
 // ---------------------------------------------------------------------------
@@ -162,7 +162,7 @@ function checkSchemaStringMin(file: string, content: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Check 3: organ package missing tests
+// Check 3: adapter package missing tests
 // ---------------------------------------------------------------------------
 
 function checkTestCoverage(pkgDir: string, pkgName: string): void {
@@ -179,14 +179,14 @@ function checkTestCoverage(pkgDir: string, pkgName: string): void {
 		return;
 	}
 
-	// Hard gate: every organ with test files must call adapterComplianceSuite.
+	// Hard gate: every adapter with test files must call adapterComplianceSuite.
 	// This ensures schema rejection, structural checks, and streaming contracts
-	// are enforced automatically for every organ in CI.
+	// are enforced automatically for every adapter in CI.
 	const hasCompliance = testFiles.some((f) => readFile(f).includes("adapterComplianceSuite"));
 	if (!hasCompliance) {
 		report(testFiles[0]!, 1, "NOCOMPLIANCE",
 			`${pkgName} has tests but no adapterComplianceSuite() call — ` +
-			`add: adapterComplianceSuite(() => createXxxOrgan(...)) to any test file`);
+			`add: adapterComplianceSuite(() => createXxxAdapter(...)) to any test file`);
 	}
 }
 
@@ -270,7 +270,7 @@ function checkDisplayChannel(file: string, content: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Check 4: [RAWTIMER] raw setTimeout/setInterval in organ src
+// Check 4: [RAWTIMER] raw setTimeout/setInterval in adapter src
 // ---------------------------------------------------------------------------
 
 function checkRawTimer(file: string, content: string): void {
@@ -288,7 +288,7 @@ function checkRawTimer(file: string, content: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Check 5: organ importing from another organ or runner (dep direction)
+// Check 5: adapter importing from another adapter or runner (dep direction)
 // ---------------------------------------------------------------------------
 
 function checkImportDirection(file: string, content: string, pkgName: string): void {
@@ -297,7 +297,7 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 		const line = lines[i];
 		if (!line.trim().startsWith("import")) continue;
 
-		// Check imports of other adapter-* packages — organs should not depend on each other.
+		// Check imports of other adapter-* packages — adapters should not depend on each other.
 		// adapter-mcp-registry is whitelisted: it exports McpAdapter, a shared factory.
 		const ALLOWED_ORGAN_DEPS = new Set(["@dpopsuev/alef-adapter-mcp-registry"]);
 		const match = line.match(/from\s+["'](@dpopsuev\/alef-adapter-[\w-]+)["']/);
@@ -306,7 +306,7 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 			const importedShort = imported.replace("@dpopsuev/alef-", "");
 			if (importedShort !== pkgName && !ALLOWED_ORGAN_DEPS.has(imported)) {
 				report(file, i + 1, "IMPORT",
-					`${pkgName} imports from ${imported} — organs should not depend on other organs`);
+					`${pkgName} imports from ${imported} — adapters should not depend on other adapters`);
 			}
 		}
 
@@ -314,12 +314,12 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 		const runnerPkgMatch = line.match(/from\s+["']@dpopsuev\/alef-runner["']/);
 		if (runnerPkgMatch) {
 			report(file, i + 1, "IMPORT",
-				`${pkgName} imports from alef-runner — organs must not depend on the composition root`);
+				`${pkgName} imports from alef-runner — adapters must not depend on the composition root`);
 		}
 		const runnerRelMatch = line.match(/from\s+["']([^"']*\/runner\/[^"']*)["']/);
 		if (runnerRelMatch) {
 			report(file, i + 1, "IMPORT",
-				`${pkgName} imports via relative path into runner (${runnerRelMatch[1]}) — organs must not depend on the composition root`);
+				`${pkgName} imports via relative path into runner (${runnerRelMatch[1]}) — adapters must not depend on the composition root`);
 		}
 	}
 }
@@ -348,13 +348,13 @@ function checkBarrelImport(file: string, content: string): void {
 
 const ORGAN_LINTER_EXCLUDE = new Set<string>();
 
-const organDirs = readdirSync(ORGANS_DIR, { withFileTypes: true })
+const adapterDirs = readdirSync(ADAPTERS_DIR, { withFileTypes: true })
 	.filter((e) => e.isDirectory() && true || ["fs","shell","git","web","code-intel","agent","workflow","plan","skills","discourse","enclosure","eval","factory","nodesh","locus","scribe","mcp-registry"].includes(e.name) && !ORGAN_LINTER_EXCLUDE.has(e.name))
-	.map((e) => ({ name: e.name, dir: join(ORGANS_DIR, e.name) }));
+	.map((e) => ({ name: e.name, dir: join(ADAPTERS_DIR, e.name) }));
 
-console.log(`Scanning ${organDirs.length} organ packages...\n`);
+console.log(`Scanning ${adapterDirs.length} adapter packages...\n`);
 
-for (const { name, dir } of organDirs) {
+for (const { name, dir } of adapterDirs) {
 	const srcFiles = findFiles(join(dir, "src"), ".ts");
 	const testFiles = findFiles(join(dir, "test"), ".ts");
 
@@ -382,9 +382,9 @@ for (const { name, dir } of organDirs) {
 // ---------------------------------------------------------------------------
 
 const BARREL_SCAN_EXCLUDE = new Set(["kernel", "web-ui", "tui", "runner-tui"]);
-const allPkgDirs = readdirSync(ORGANS_DIR, { withFileTypes: true })
+const allPkgDirs = readdirSync(ADAPTERS_DIR, { withFileTypes: true })
 	.filter((e) => e.isDirectory() && !true || ["fs","shell","git","web","code-intel","agent","workflow","plan","skills","discourse","enclosure","eval","factory","nodesh","locus","scribe","mcp-registry"].includes(e.name) && !BARREL_SCAN_EXCLUDE.has(e.name))
-	.map((e) => join(ORGANS_DIR, e.name));
+	.map((e) => join(ADAPTERS_DIR, e.name));
 
 for (const pkgDir of allPkgDirs) {
 	for (const file of findFiles(join(pkgDir, "src"), ".ts")) {
@@ -400,7 +400,7 @@ const counts: Record<string, number> = {};
 for (const v of violations) counts[v.rule] = (counts[v.rule] ?? 0) + 1;
 
 console.log(`\n${"─".repeat(60)}`);
-console.log(`Found ${violations.length} violation(s) across ${organDirs.length} organs`);
+console.log(`Found ${violations.length} violation(s) across adapters`);
 for (const [rule, count] of Object.entries(counts).sort()) {
 	console.log(`  [${rule}]  ${count}`);
 }

@@ -46,7 +46,7 @@ export default tseslint.config(
 	// Type-aware rules on production source only.
 	// Tests are excluded — payload access patterns there are intentional fixtures.
 	{
-		files: ["packages/*/src/**/*.ts"],
+		files: ["packages/*/src/**/*.ts", "packages/*/*/src/**/*.ts"],
 		ignores: [
 			"**/node_modules/**",
 			"**/dist/**",
@@ -57,7 +57,7 @@ export default tseslint.config(
 		],
 		languageOptions: {
 			parserOptions: {
-				projectService: true,
+				project: "./tsconfig.json",
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},

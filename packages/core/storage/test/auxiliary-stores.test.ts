@@ -139,24 +139,33 @@ describe("SqliteDaemonStore", { tags: ["unit"] }, () => {
 		for (const c of clients.splice(0)) c.close();
 	});
 
-	it("set/get/clear daemon entry", async () => {
+	it("register/get/unregister daemon entries", async () => {
 		const client = await makeClient();
 		clients.push(client);
 		const daemon = new SqliteDaemonStore(client);
 
-		expect(await daemon.get()).toBeUndefined();
+		expect(await daemon.get("abc")).toBeUndefined();
 
-		await daemon.set({ port: 8080, pid: 1234, sessionId: "abc", cwd: "/tmp" });
-		const entry = await daemon.get();
+		await daemon.register({ port: 8080, pid: 1234, sessionId: "abc", cwd: "/tmp", startedAt: 1000 });
+		const entry = await daemon.get("abc");
 		expect(entry?.port).toBe(8080);
 		expect(entry?.pid).toBe(1234);
 		expect(entry?.sessionId).toBe("abc");
 
-		await daemon.set({ port: 9090, pid: 5678 });
-		expect((await daemon.get())?.port).toBe(9090);
+		await daemon.register({ port: 9090, pid: 5678, sessionId: "def", cwd: "/tmp2", startedAt: 2000 });
+		const all = await daemon.list();
+		expect(all).toHaveLength(2);
+		expect(all[0].sessionId).toBe("def");
 
-		await daemon.clear();
-		expect(await daemon.get()).toBeUndefined();
+		const latest = await daemon.findLatest();
+		expect(latest?.sessionId).toBe("def");
+
+		const byCwd = await daemon.findByCwd("/tmp");
+		expect(byCwd?.sessionId).toBe("abc");
+
+		await daemon.unregister("abc");
+		expect(await daemon.get("abc")).toBeUndefined();
+		expect(await daemon.list()).toHaveLength(1);
 	});
 });
 

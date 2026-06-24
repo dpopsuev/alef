@@ -8,6 +8,7 @@ export {
 	withBindings,
 } from "./binding.js";
 export type {
+	AgentBus,
 	Bus,
 	BusChannel,
 	BusMessage,

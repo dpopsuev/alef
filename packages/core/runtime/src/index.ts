@@ -18,6 +18,7 @@ export {
 import { randomUUID } from "node:crypto";
 import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import {
+	type AgentBus,
 	type Binding,
 	type Bus,
 	type BusMessage,
@@ -118,7 +119,7 @@ const noopLogger: AdapterLogger = {
 };
 
 export class Agent {
-	private readonly bus = new InProcessBus();
+	private readonly bus: AgentBus;
 	private readonly unmounts: Array<() => void> = [];
 	private readonly log: AdapterLogger;
 
@@ -149,7 +150,8 @@ export class Agent {
 		return this.controller.signal;
 	}
 
-	constructor(options?: { logger?: AdapterLogger }) {
+	constructor(options?: { logger?: AdapterLogger; bus?: AgentBus }) {
+		this.bus = options?.bus ?? new InProcessBus();
 		this.log = options?.logger ?? noopLogger;
 	}
 

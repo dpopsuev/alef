@@ -1,6 +1,6 @@
 import type { AutocompleteProvider, AutocompleteSuggestions } from "../autocomplete.js";
 import { type Component, CURSOR_MARKER, type Focusable, type TuiHandle } from "../component.js";
-import { getKeybindings } from "../keybindings.js";
+import { type Keybindings, getKeybindings } from "../keybindings.js";
 import { decodePrintableKey, matchesKey } from "../keys.js";
 import { KillRing } from "../kill-ring.js";
 import { UndoStack } from "../undo-stack.js";
@@ -284,6 +284,30 @@ export class Editor implements Component, Focusable {
 	public onSubmit?: (text: string) => void;
 	public onChange?: (text: string) => void;
 	public disableSubmit: boolean = false;
+
+	private readonly editorKeyActions: ReadonlyArray<[keyof Keybindings, () => void]> = [
+		["tui.editor.deleteToLineEnd", () => this.deleteToEndOfLine()],
+		["tui.editor.deleteToLineStart", () => this.deleteToStartOfLine()],
+		["tui.editor.deleteWordBackward", () => this.deleteWordBackwards()],
+		["tui.editor.deleteWordForward", () => this.deleteWordForward()],
+		["tui.editor.deleteCharBackward", () => this.handleBackspace()],
+		["tui.editor.deleteCharForward", () => this.handleForwardDelete()],
+		["tui.editor.yank", () => this.yank()],
+		["tui.editor.yankPop", () => this.yankPop()],
+		["tui.editor.cursorLineStart", () => this.moveToLineStart()],
+		["tui.editor.cursorLineEnd", () => this.moveToLineEnd()],
+		["tui.editor.cursorWordLeft", () => this.moveWordBackwards()],
+		["tui.editor.cursorWordRight", () => this.moveWordForwards()],
+	];
+
+	private readonly navigationKeyActions: ReadonlyArray<[keyof Keybindings, () => void]> = [
+		["tui.editor.cursorRight", () => this.moveCursor(0, 1)],
+		["tui.editor.cursorLeft", () => this.moveCursor(0, -1)],
+		["tui.editor.pageUp", () => this.pageScroll(-1)],
+		["tui.editor.pageDown", () => this.pageScroll(1)],
+		["tui.editor.jumpForward", () => { this.jumpMode = "forward"; }],
+		["tui.editor.jumpBackward", () => { this.jumpMode = "backward"; }],
+	];
 
 	constructor(tui: TuiHandle, theme: EditorTheme, options: EditorOptions = {}) {
 		this.tui = tui;
@@ -659,57 +683,18 @@ export class Editor implements Component, Focusable {
 			return;
 		}
 
-		// Deletion actions
-		if (kb.matches(data, "tui.editor.deleteToLineEnd")) {
-			this.deleteToEndOfLine();
-			return;
+		for (const [binding, action] of this.editorKeyActions) {
+			if (kb.matches(data, binding)) {
+				action();
+				return;
+			}
 		}
-		if (kb.matches(data, "tui.editor.deleteToLineStart")) {
-			this.deleteToStartOfLine();
-			return;
-		}
-		if (kb.matches(data, "tui.editor.deleteWordBackward")) {
-			this.deleteWordBackwards();
-			return;
-		}
-		if (kb.matches(data, "tui.editor.deleteWordForward")) {
-			this.deleteWordForward();
-			return;
-		}
-		if (kb.matches(data, "tui.editor.deleteCharBackward") || matchesKey(data, "shift+backspace")) {
+		if (matchesKey(data, "shift+backspace")) {
 			this.handleBackspace();
 			return;
 		}
-		if (kb.matches(data, "tui.editor.deleteCharForward") || matchesKey(data, "shift+delete")) {
+		if (matchesKey(data, "shift+delete")) {
 			this.handleForwardDelete();
-			return;
-		}
-
-		// Kill ring actions
-		if (kb.matches(data, "tui.editor.yank")) {
-			this.yank();
-			return;
-		}
-		if (kb.matches(data, "tui.editor.yankPop")) {
-			this.yankPop();
-			return;
-		}
-
-		// Cursor movement actions
-		if (kb.matches(data, "tui.editor.cursorLineStart")) {
-			this.moveToLineStart();
-			return;
-		}
-		if (kb.matches(data, "tui.editor.cursorLineEnd")) {
-			this.moveToLineEnd();
-			return;
-		}
-		if (kb.matches(data, "tui.editor.cursorWordLeft")) {
-			this.moveWordBackwards();
-			return;
-		}
-		if (kb.matches(data, "tui.editor.cursorWordRight")) {
-			this.moveWordForwards();
 			return;
 		}
 
@@ -773,36 +758,12 @@ export class Editor implements Component, Focusable {
 			}
 			return;
 		}
-		if (kb.matches(data, "tui.editor.cursorRight")) {
-			this.moveCursor(0, 1);
-			return;
+		for (const [binding, action] of this.navigationKeyActions) {
+			if (kb.matches(data, binding)) {
+				action();
+				return;
+			}
 		}
-		if (kb.matches(data, "tui.editor.cursorLeft")) {
-			this.moveCursor(0, -1);
-			return;
-		}
-
-		// Page up/down - scroll by page and move cursor
-		if (kb.matches(data, "tui.editor.pageUp")) {
-			this.pageScroll(-1);
-			return;
-		}
-		if (kb.matches(data, "tui.editor.pageDown")) {
-			this.pageScroll(1);
-			return;
-		}
-
-		// Character jump mode triggers
-		if (kb.matches(data, "tui.editor.jumpForward")) {
-			this.jumpMode = "forward";
-			return;
-		}
-		if (kb.matches(data, "tui.editor.jumpBackward")) {
-			this.jumpMode = "backward";
-			return;
-		}
-
-		// Shift+Space - insert regular space
 		if (matchesKey(data, "shift+space")) {
 			this.insertCharacter(" ");
 			return;

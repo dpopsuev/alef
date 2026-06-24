@@ -1,4 +1,5 @@
 import type { Client } from "@libsql/client";
+import type { SummaryStore } from "./interfaces.js";
 
 export interface SessionSummary {
 	id: string;
@@ -11,7 +12,7 @@ export interface SessionSummary {
 	errors: number;
 }
 
-export class SqliteSummaryStore {
+export class SqliteSummaryStore implements SummaryStore {
 	private readonly client: Client;
 
 	constructor(client: Client) {

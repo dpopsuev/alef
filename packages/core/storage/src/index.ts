@@ -9,8 +9,9 @@ export {
 	type StorageConfig,
 	syncDatabase,
 } from "./database.js";
-export { SqliteDiscourseStore } from "./discourse.js";
+export { type Post, SqliteDiscourseStore, type ThreadInfo, type TopicSummary } from "./discourse.js";
 export { type Embedder, getEmbedder, setEmbedder } from "./embedder.js";
+export type { AuthStore, DaemonStore, DiscourseStore, SummaryStore } from "./interfaces.js";
 export { LocalEmbedder } from "./local-embedder.js";
 export { type MigrationResult, migrateJsonlToSqlite, needsMigration } from "./migrate.js";
 export { type RecallResult, RecallStore, type SessionRecallResult } from "./recall.js";

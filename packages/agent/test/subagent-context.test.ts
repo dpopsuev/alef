@@ -61,7 +61,7 @@ describe("subagent context awareness", { tags: ["unit"] }, () => {
 		const session = factory({ adapters: [fsOrgan], systemPrompt: "You are a helper." });
 		disposes.push(() => session.dispose());
 
-		await session.send("Hello", "human", 10_000);
+		await session.send!("Hello", 10_000);
 
 		expect(capturedSystemPrompt).toBeDefined();
 		expect(capturedSystemPrompt).toContain("Date:");

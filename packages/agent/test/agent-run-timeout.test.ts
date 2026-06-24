@@ -59,7 +59,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 			strategies: {
 				explore: new InProcessStrategy([], innerFactory),
 			},
-			createAdHocSession: innerFactory,
+			subagentFactory: innerFactory,
 		});
 
 		agent.load(delegateAdapter);
@@ -118,7 +118,7 @@ describe("agent.run outer timeout — production ToolShell path", { tags: ["unit
 
 		const delegateAdapter = createAgentAdapter({
 			strategies: { explore: new InProcessStrategy([], innerFactory) },
-			createAdHocSession: innerFactory,
+			subagentFactory: innerFactory,
 		});
 
 		agent.load(delegateAdapter);

@@ -7,6 +7,7 @@ import { assembleAgentServer } from "./assemble.js";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { buildModel } from "./model/index.js";
+import type { AgentEvent, Session, SessionState } from "./session.js";
 
 export interface SubagentSessionOptions {
 	model: Model<Api>;
@@ -92,11 +93,33 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 
 		agent.validate();
 
-		return {
-			async send(text: string, sender: string, timeoutMs: number): Promise<string> {
+		const sessionState: SessionState = {
+			id: subId,
+			modelId: resolvedModel.id,
+			contextWindow: resolvedModel.contextWindow,
+		};
+
+		const session: Session & {
+			identity: { color: string; address: string };
+			tokenUsage: { input: number; output: number };
+		} = {
+			state: sessionState,
+			getModel: () => resolvedModel.id,
+			setModel: () => {},
+			getThinking: () => "off",
+			setThinking: () => {},
+			setTurnController: () => {},
+			subscribe: (obs: (event: AgentEvent) => void) => {
+				observers.add(obs);
+				return () => observers.delete(obs);
+			},
+			async send(text: string, timeoutMs = 300_000): Promise<string> {
 				await agent.ready();
-				await controller.send(text, sender, timeoutMs);
+				await controller.send(text, "human", timeoutMs);
 				return reply;
+			},
+			receive(text: string): void {
+				controller.receive(text, "human");
 			},
 			get identity() {
 				return { color: subActor.color, address: subActor.address };
@@ -109,5 +132,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 				agent.dispose();
 			},
 		};
+
+		return session;
 	};
 }

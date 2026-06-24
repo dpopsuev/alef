@@ -13,16 +13,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { strategyRegistry } from "@dpopsuev/alef-adapter-agent";
 import { registerFauxProvider } from "@dpopsuev/alef-llm";
+import type { Session } from "@dpopsuev/alef-session";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCodingAgentStack } from "../src/blueprint.js";
 
 function stubFactory() {
 	return () => ({
-		async send() {
-			return "stub";
-		},
+		state: { id: "test", modelId: "test", contextWindow: 200_000 },
+		getModel: () => "test",
+		setModel: () => {},
+		getThinking: () => "off",
+		setThinking: () => {},
+		setTurnController: () => {},
+		subscribe: () => () => {},
+		send: async () => "stub",
 		dispose() {},
-	});
+	}) satisfies Session;
 }
 
 let cwd: string;

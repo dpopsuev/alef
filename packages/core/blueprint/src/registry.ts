@@ -1,6 +1,7 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model } from "@dpopsuev/alef-llm";
+import type { Session } from "@dpopsuev/alef-session";
 import type { SessionStore } from "@dpopsuev/alef-session";
 
 export interface SubagentFactoryOptions {
@@ -14,10 +15,7 @@ export interface SubagentFactoryOptions {
 	modelOverride?: string;
 }
 
-export type SubagentSession = {
-	send(text: string, sender: string, timeoutMs: number): Promise<string>;
-	dispose(): void;
-};
+export type SubagentSession = Session;
 
 export type SubagentFactory = (opts: SubagentFactoryOptions) => SubagentSession;
 

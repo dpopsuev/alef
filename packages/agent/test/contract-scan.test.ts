@@ -11,18 +11,25 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { registerFauxProvider } from "@dpopsuev/alef-llm";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
+import type { Session } from "@dpopsuev/alef-session";
 import { runSchemaContract, runStreamingContract } from "@dpopsuev/alef-testkit";
 import { describe, expect, it } from "vitest";
 
 const CWD = "/tmp";
 
 function stubFactory(_model: Model<Api>): SubagentFactory {
-	return () => ({
-		async send(): Promise<string> {
-			return "stub";
-		},
-		dispose() {},
-	});
+	return () =>
+		({
+			state: { id: "test", modelId: "test", contextWindow: 200_000 },
+			getModel: () => "test",
+			setModel: () => {},
+			getThinking: () => "off",
+			setThinking: () => {},
+			setTurnController: () => {},
+			subscribe: () => () => {},
+			send: async () => "stub",
+			dispose() {},
+		}) satisfies Session;
 }
 
 const faux = registerFauxProvider();

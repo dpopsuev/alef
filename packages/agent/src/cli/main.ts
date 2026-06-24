@@ -3,9 +3,7 @@
 import "@dpopsuev/alef-coding-agent";
 import "@dpopsuev/alef-factory-agent";
 
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { parseArgs } from "../args.js";
 import { dispatchCliOp } from "../cli-ops.js";
 import { loadConfig } from "../config.js";
@@ -67,13 +65,57 @@ if (args.debugSubcmd) {
 	process.exit(0);
 }
 
+// --list: show running daemons
+if (args.listDaemons) {
+	const { getDatabase, SqliteDaemonStore } = await import("@dpopsuev/alef-storage");
+	const db = await getDatabase();
+	const store = new SqliteDaemonStore(db);
+	await store.prune();
+	const entries = await store.list();
+	if (entries.length === 0) {
+		console.log("No running daemons.");
+	} else {
+		for (const e of entries) {
+			const age = Math.round((Date.now() - e.startedAt) / 1000);
+			console.log(`  ${e.sessionId}  pid=${e.pid}  port=${e.port}  cwd=${e.cwd}  age=${age}s`);
+		}
+	}
+	process.exit(0);
+}
+
+// --kill <sessionId>: stop a running daemon
+if (args.killDaemon !== undefined) {
+	const { getDatabase, SqliteDaemonStore } = await import("@dpopsuev/alef-storage");
+	const db = await getDatabase();
+	const store = new SqliteDaemonStore(db);
+	const entry = await store.get(args.killDaemon);
+	if (!entry) {
+		console.error(`No daemon found with session ID: ${args.killDaemon}`);
+		process.exit(1);
+	}
+	try {
+		process.kill(entry.pid, "SIGTERM");
+		console.log(`Sent SIGTERM to daemon ${entry.sessionId} (pid ${entry.pid})`);
+	} catch {
+		console.error(`Daemon ${entry.sessionId} (pid ${entry.pid}) is not running.`);
+	}
+	await store.unregister(entry.sessionId);
+	process.exit(0);
+}
+
 // --attach: connect to a running daemon and run TUI against it.
 if (args.attach !== undefined) {
-	const daemonPath = join(homedir(), ".alef", "daemon.json");
-	let entry: DaemonEntry;
-	try {
-		entry = JSON.parse(readFileSync(daemonPath, "utf-8")) as DaemonEntry;
-	} catch {
+	const { getDatabase, SqliteDaemonStore } = await import("@dpopsuev/alef-storage");
+	const db = await getDatabase();
+	const daemonStore = new SqliteDaemonStore(db);
+	await daemonStore.prune();
+	let entry: DaemonEntry | undefined;
+	if (args.attach === "last") {
+		entry = await daemonStore.findLatest();
+	} else {
+		entry = (await daemonStore.get(args.attach)) ?? (await daemonStore.findByCwd(args.attach));
+	}
+	if (!entry) {
 		console.error("No running daemon found. Start one with: alef --daemon");
 		process.exit(1);
 	}

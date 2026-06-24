@@ -111,6 +111,17 @@ const exit = {
 	},
 };
 
+const detach = {
+	name: "detach",
+	description: "Detach from daemon (leave it running)",
+	run(ctx: TuiHandlerContext) {
+		ctx.writer.addNotice("(detached — daemon keeps running)");
+		ctx.tui.requestRender(true);
+		ctx.session.dispose();
+		ctx.tui.stop();
+	},
+};
+
 const clear = {
 	name: "new",
 	description: "Clear conversation",
@@ -639,6 +650,7 @@ const stickies = {
 
 export const registry = new CommandRegistry()
 	.register(exit, "quit", "exit")
+	.register(detach)
 	.register(clear, "clear")
 	.register(session)
 	.register(help, "h")

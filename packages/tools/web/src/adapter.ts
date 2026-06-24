@@ -126,6 +126,8 @@ const WEB_SEARCH_TOOL = {
 export interface WebAdapterOptions {
 	/** Default request timeout in milliseconds. Default: 30000. */
 	defaultTimeoutMs?: number;
+	/** Allowlist of web action names to mount (e.g. ['web.fetch']). Default: all. */
+	actions?: readonly string[];
 }
 
 const WEB_DIRECTIVES = [
@@ -307,6 +309,7 @@ export function createWebAdapter(options: WebAdapterOptions = {}): Adapter {
 			},
 		},
 		{
+			actions: options.actions,
 			directives: WEB_DIRECTIVES,
 			description: "Fetch and read public web pages, search the web for information.",
 			labels: ["web", "fetch", "search", "http", "read"],

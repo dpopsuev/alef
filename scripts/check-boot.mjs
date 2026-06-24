@@ -23,7 +23,7 @@ for (const entry of ENTRY_POINTS) {
 
 // Verify Makefile and alef-test.sh reference existing paths
 const { readFileSync } = await import('node:fs');
-for (const f of ['Makefile', 'alef-test.sh']) {
+for (const f of ['Makefile']) {
   const content = readFileSync(resolve(ROOT, f), 'utf-8');
   const refs = content.match(/packages\/[^\s'"`)]+\.ts/g) ?? [];
   for (const ref of refs) {

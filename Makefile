@@ -69,12 +69,12 @@ test: ## Run tests in all workspaces that define a test script
 	$(NPM) run test
 
 .PHONY: alef
-alef: ## Run Alef from source (./alef-test.sh)
-	./alef-test.sh
+alef: ## Run Alef from source
+	npx tsx packages/agent/src/cli/main.ts
 
 .PHONY: debug
 debug: ## Run Alef in debug mode
-	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 ./alef-test.sh
+	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 npx tsx packages/agent/src/cli/main.ts
 
 .PHONY: organ
 organ: ## Create a new organ scaffold: make organ NAME=weather

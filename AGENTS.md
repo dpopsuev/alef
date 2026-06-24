@@ -31,15 +31,15 @@ LSP inline diagnostics (from Edit/Write tools) show type errors for the edited f
 ## Commands
 
 ```bash
-npm run check          # biome + tsgo + eslint + organ lint + unit tests + browser smoke
-npm run check:test     # unit tests across all packages in parallel (~52s)
+npm run check:fast     # biome + tsc + eslint + adapter lint (pre-commit)
+npm run check          # check:fast + unit tests + blueprints + browser smoke (CI)
+npm run check:test     # unit tests across all packages in parallel
 ```
 
 - `npm run check` does not run integration or real-LLM tests
 - NEVER run: `npm run dev`, `npm run build`, `npm test`
-- Run specific tests from the package root (not from monorepo root):
-  `cd packages/<name> && npx vitest run test/specific.test.ts`
-- Monorepo root vitest cannot resolve path aliases — always run per-package
+- Run specific tests with vitest from monorepo root:
+  `npx vitest run packages/<group>/<name>/test/specific.test.ts`
 - If you create or modify a test file, run it and iterate until it passes
 
 ## Commits
@@ -66,7 +66,7 @@ Legitimate: external constraints, non-obvious regex, OS/API quirks that would su
 
 ## Adapter Framework
 
-Adapters live in `packages/adapter-*`. Each adapter depends only on `@dpopsuev/alef-kernel` and `zod`.
+Adapters live in `packages/tools/*/`. Each adapter depends only on `@dpopsuev/alef-kernel` and `zod`.
 
 ### Creating a new adapter
 
@@ -80,12 +80,12 @@ Adapter names resolve by convention: `"weather"` in a blueprint resolves to `@dp
 
 ### Before writing adapter code
 
-1. Read `packages/kernel/src/framework.ts` — the `defineAdapter()` contract and `ActionMap` type
-2. Read `packages/kernel/src/buses.ts` — `AdapterContributions`, `ToolDefinition`, `ContextAssemblyHandler`
-3. Read an existing adapter as reference (e.g. `packages/adapter-fs/src/organ.ts`)
-4. Run `organComplianceSuite()` from `@dpopsuev/alef-testkit/organ` on the result
+1. Read `packages/core/kernel/src/framework.ts` — the `defineAdapter()` contract and `ActionMap` type
+2. Read `packages/core/kernel/src/buses.ts` — `AdapterContributions`, `ToolDefinition`, `ContextAssemblyHandler`
+3. Read an existing adapter as reference (e.g. `packages/tools/fs/src/adapter.ts`)
+4. Run `adapterComplianceSuite()` from `@dpopsuev/alef-testkit/adapter` on the result
 
-Never write adapter code from memory or training data. The API shape must come from reading the source. Adapters that don't use `defineAdapter()` cannot mount on the nerve and will fail silently.
+Never write adapter code from memory or training data. The API shape must come from reading the source. Adapters that don't use `defineAdapter()` cannot mount on the bus and will fail silently.
 
 Use `explainAdapter(adapter)` from `@dpopsuev/alef-kernel` to inspect any adapter's tools, contributions, and directives.
 
@@ -97,7 +97,7 @@ import { z } from "zod";
 
 export function createWeatherAdapter(opts: WeatherAdapterOptions) {
   return defineAdapter("weather", {
-    "motor/weather.forecast": typedAction(TOOL, async (ctx) => {
+    "command/weather.forecast": typedAction(TOOL, async (ctx) => {
       return withDisplay({ result }, { text: "...", mimeType: "text/plain" });
     }),
   }, {
@@ -112,24 +112,24 @@ export function createWeatherAdapter(opts: WeatherAdapterOptions) {
 }
 ```
 
-Action map key prefix determines bus direction: `"motor/weather.forecast"` subscribes Motor, `"sense/organ.loaded"` subscribes Sense.
+Action map key prefix determines bus direction: `"command/weather.forecast"` subscribes Command, `"event/adapter.loaded"` subscribes Event.
 
 ### Cross-adapter integration (contributions map)
 
-Adapters declare capabilities via `contributions` in `defineAdapter` opts. Aggregator adapters collect them from `sense/organ.loaded`. No optional callbacks, no manual wiring.
+Adapters declare capabilities via `contributions` in `defineAdapter` opts. Aggregator adapters collect them from `event/adapter.loaded`. No optional callbacks, no manual wiring.
 
 Current contribution slots:
 - `"agent.run"?: AgentRunContribution` — extend `agent.run({ text, playbook? })` with schema fields and behaviour
 - `"context.assemble"?: ContextAssemblyHandler` — participate in the pre-LLM pipeline (tools + messages transform)
 - `"skills"?: SkillBook[]` — contribute playbooks to the Skills adapter library
 
-Adding a new slot: add the type to `AdapterContributions` in `kernel/src/buses.ts`, implement a composite aggregator adapter, wire via `sense/organ.loaded`.
+Adding a new slot: add the type to `AdapterContributions` in `core/kernel/src/buses.ts`, implement a composite aggregator adapter, wire via `event/adapter.loaded`.
 
-### Lint rules (enforced by `npm run check:organs`)
+### Lint rules (enforced by `npm run check:adapters`)
 
 - `[RAWTIMER]` — raw `setTimeout`/`setInterval` in adapter `src/` is a hard gate. Suppress with `// lint-ignore: RAWTIMER <reason>` when it is a real deadline, not a stall detector.
 - Adapters with tools must declare `description` and non-empty `directives`.
-- Adapters cannot import from `packages/runner` or `packages/testkit` — kernel + zod only.
+- Adapters cannot import from `packages/agent` or `packages/core/testkit` — kernel + zod only.
 
 ## Import Boundaries (enforced by `eslint-plugin-boundaries`)
 
@@ -160,19 +160,23 @@ callback injected by `local-session.ts` (root).
 
 ## Architecture
 
-Production agent: `packages/alef-coding-agent` — the full coding agent stack.
-- `CODING_AGENT_BLUEPRINT` — canonical adapter set (fs, shell, nodesh, code-intel, web, agent, factory, skills)
+Package structure: `packages/core/*` (platform), `packages/tools/*` (adapters), `packages/ui/*` (TUI/web), `packages/profiles/*` (blueprint configs), `packages/agent` (headless agent runtime).
+
+Production agent: `packages/profiles/coding` — the full coding agent blueprint.
+- Canonical adapter set: fs, shell, nodesh, code-intel, web, agent, factory, skills
 - adapter-agent — unified delegation + child lifecycle (agent.run, agent.spawn, agent.ask, agent.race, agent.converse, agent.kill)
 
-Microkernel: `packages/kernel` — buses, adapter framework, binding chain, contributions. No adapter names, no application concerns.
+Microkernel: `packages/core/kernel` — buses, adapter framework, binding chain, contributions. No adapter names, no application concerns.
 
-Runtime: `packages/runtime` — Agent class, InProcessStrategy, RemoteStrategy (HTTP/SSE with stall watchdog + AbortSignal).
+Runtime: `packages/core/runtime` — Agent class, AgentController, assembleAgentServer, InProcessStrategy.
+
+Session: `packages/core/session` — SessionStore, TurnAssembler, context compaction. Must not reference adapter-specific event names.
+
+Gateway: `packages/tools/gateway` — HTTP/SSE bridge (RouterAdapter). Endpoints: /events, /message, /state, /control, /cancel, /reload, /history.
+
+Agent: `packages/agent` — headless agent server. TUI is a client that attaches via Session interface. Daemon mode (`--daemon`), attach (`--attach`), list (`--list`), kill (`--kill`).
 
 Security: OCAP via `writableRoots` (injected by materializer from config.security.writable_roots). No `allowAbsolutePaths`.
-
-Bus protocol constants (e.g. `VALIDATE_REQUEST`, `DIALOG_MESSAGE`) belong in `kernel/src/protocols.ts` only when they define a cross-adapter handshake. Adapter-specific event names stay in the adapter that owns them.
-
-The `session` package must not reference adapter-specific event names (Feature Envy). Turn boundaries are detected structurally.
 
 ## **CRITICAL** Git Rules
 

@@ -7,9 +7,9 @@
     "test": "vitest --run"
   },
   "dependencies": {
-    "@dpopsuev/alef-coding-agent": "^1.0.0",
-    "@dpopsuev/alef-kernel": "^0.0.1",
-    "@dpopsuev/alef-runtime": "^0.0.1"
+    "@dpopsuev/alef-coding-agent": "workspace:*",
+    "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-runtime": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.6"

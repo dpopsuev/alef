@@ -24,7 +24,7 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@dpopsuev/alef-session": "^0.0.1",
+    "@dpopsuev/alef-session": "workspace:*",
     "@libsql/client": "^0.17.4"
   },
   "devDependencies": {

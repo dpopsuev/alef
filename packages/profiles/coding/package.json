@@ -10,22 +10,22 @@
 		"test": "vitest --run"
 	},
 	"dependencies": {
-		"@dpopsuev/alef-agent-blueprint": "^0.0.1",
-		"@dpopsuev/alef-kernel": "^0.0.1",
-		"@dpopsuev/alef-adapter-agent": "^0.0.1",
-		"@dpopsuev/alef-adapter-factory": "^0.0.1",
-		"@dpopsuev/alef-adapter-fs": "^0.0.1",
-		"@dpopsuev/alef-adapter-code-intel": "^0.0.1",
-		"@dpopsuev/alef-adapter-nodesh": "^0.0.1",
-		"@dpopsuev/alef-adapter-shell": "^0.0.1",
-		"@dpopsuev/alef-adapter-skills": "^0.0.1",
-		"@dpopsuev/alef-adapter-web": "^0.0.1",
-		"@dpopsuev/alef-runtime": "^0.0.1"
+		"@dpopsuev/alef-agent-blueprint": "workspace:*",
+		"@dpopsuev/alef-kernel": "workspace:*",
+		"@dpopsuev/alef-adapter-agent": "workspace:*",
+		"@dpopsuev/alef-adapter-factory": "workspace:*",
+		"@dpopsuev/alef-adapter-fs": "workspace:*",
+		"@dpopsuev/alef-adapter-code-intel": "workspace:*",
+		"@dpopsuev/alef-adapter-nodesh": "workspace:*",
+		"@dpopsuev/alef-adapter-shell": "workspace:*",
+		"@dpopsuev/alef-adapter-skills": "workspace:*",
+		"@dpopsuev/alef-adapter-web": "workspace:*",
+		"@dpopsuev/alef-runtime": "workspace:*"
 	},
 	"devDependencies": {
-		"@dpopsuev/alef-eval": "^0.0.1",
-		"@dpopsuev/alef-reasoner": "^0.0.1",
-		"@dpopsuev/alef-testkit": "^0.0.1",
+		"@dpopsuev/alef-eval": "workspace:*",
+		"@dpopsuev/alef-reasoner": "workspace:*",
+		"@dpopsuev/alef-testkit": "workspace:*",
 		"@types/node": "^24.3.0",
 		"vitest": "^4.1.6"
 	}

@@ -13,12 +13,12 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@dpopsuev/alef-kernel": "^0.0.1",
+    "@dpopsuev/alef-kernel": "workspace:*",
     "yaml": "^2.8.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@dpopsuev/alef-testkit": "^0.0.1",
+    "@dpopsuev/alef-testkit": "workspace:*",
     "@types/node": "^24.3.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.6"

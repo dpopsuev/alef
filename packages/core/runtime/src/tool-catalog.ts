@@ -56,6 +56,8 @@ const CANCEL_TOOL = {
 	}),
 } satisfies ToolDefinition;
 
+export type ToolDisclosure = "full" | "progressive";
+
 export interface ToolShellOptions {
 	/** All domain tools available to the agent, captured at construction time. */
 	tools: readonly ToolDefinition[];
@@ -76,6 +78,18 @@ export interface ToolShellOptions {
 	evictAfterTurn?: number;
 	/** Filter which tools appear in the catalog. Unmatched tools are hidden until explicitly described. */
 	toolFilter?: (tool: ToolDefinition) => boolean;
+	/**
+	 * Tool schema disclosure strategy. Default: "full".
+	 *
+	 * "full" — all tools sent with complete schemas from turn 1. No boot
+	 *          catalog, no tools.describe step. Matches pi-mono/cline/opencode.
+	 *
+	 * "progressive" — tools sent with stripped schemas ({}). Boot catalog
+	 *                 injected as user message. Model must call tools.describe
+	 *                 before use. Saves ~55% schema tokens but some models
+	 *                 output text instead of tool_use.
+	 */
+	disclosure?: ToolDisclosure;
 	/** Logger for warn/debug output. Defaults to no-op. */
 	logger?: AdapterLogger;
 }
@@ -180,6 +194,7 @@ function createPromotionTracker(): PromotionTracker {
 
 export function createToolShellAdapter(opts: ToolShellOptions) {
 	const { adapterDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
+	const disclosure = opts.disclosure ?? "full";
 
 	const resolveTools = opts.getTools ?? (() => opts.tools);
 
@@ -220,7 +235,15 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	}
 
 	function getPromotedTools(): ToolDefinition[] {
-		return [...resolveTools(), DESCRIBE_TOOL];
+		if (disclosure === "full") {
+			return [...resolveTools(), DESCRIBE_TOOL];
+		}
+		const tools = resolveTools();
+		const stripped = getStripped(tools);
+		const promoted = tools.map((t) =>
+			tracker.isPromoted(t.name) ? t : (stripped.find((s) => s.name === t.name) ?? t),
+		);
+		return [...promoted, DESCRIBE_TOOL];
 	}
 
 	// ---------------------------------------------------------------------------
@@ -322,6 +345,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 		currentMetaTools: getPromotedTools,
 		search: (query: string) => searchTools(resolveTools(), query),
 		applyPhase(messages: RawMsg[], turn: number): RawMsg[] {
+			if (disclosure === "full") return [...messages];
 			let msgs = [...messages];
 			if (turn === 1 && !catalogInjected) {
 				msgs = injectCatalogMsg(msgs, resolveTools());

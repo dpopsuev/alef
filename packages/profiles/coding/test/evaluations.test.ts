@@ -48,6 +48,7 @@ const ALL_EVALS: Evaluation[] = [
 	toolUseEvals.multiToolCall,
 	toolUseEvals.grepThenRead,
 	toolUseEvals.complexMultiTool,
+	toolUseEvals.writeFile,
 ];
 
 function stubFactory(modelId: string, contextWindow: number) {

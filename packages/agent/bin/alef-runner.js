@@ -27,7 +27,7 @@ if (!tsxPath) {
 	process.exit(1);
 }
 
-const mainTs = resolve(__dirname, "../src/main.ts");
+const mainTs = resolve(__dirname, "../src/cli/main.ts");
 const tsconfig = resolve(__dirname, "../../../tsconfig.json");
 
 const { spawn } = await import("node:child_process");

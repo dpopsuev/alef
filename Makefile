@@ -30,14 +30,14 @@ install-deps: ## Install Node dependencies (npm install; runs Husky prepare)
 	$(NPM) install
 
 install: install-deps ## Install alef globally (no build step — runs from source via tsx)
-	$(NPM) install -g ./packages/runner
+	$(NPM) install -g ./packages/agent
 
 .PHONY: run
 run: ## Run alef from source (interactive TUI)
-	npx tsx packages/runner/src/main.ts
+	npx tsx packages/agent/src/cli/main.ts
 
 run-serve: ## Run alef in HTTP/SSE serve mode on a random port
-	npx tsx packages/runner/src/main.ts --serve 0
+	npx tsx packages/agent/src/cli/main.ts --serve 0
 
 
 .PHONY: ci

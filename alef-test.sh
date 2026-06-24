@@ -15,7 +15,7 @@ for arg in "$@"; do
 done
 
 if [[ "$NO_ENV" == "true" ]]; then
-  # Unset API keys (see packages/ai/src/env-api-keys.ts)
+  # Unset API keys (see packages/core/llm/src/env-api-keys.ts)
   unset ANTHROPIC_API_KEY
   unset ANTHROPIC_OAUTH_TOKEN
   unset OPENAI_API_KEY
@@ -60,4 +60,4 @@ if [[ ! -x "$TSX_BIN" ]]; then
   exit 1
 fi
 
-"$TSX_BIN" "$SCRIPT_DIR/packages/runner/src/main.ts" ${ARGS[@]+"${ARGS[@]}"}
+"$TSX_BIN" "$SCRIPT_DIR/packages/agent/src/cli/main.ts" ${ARGS[@]+"${ARGS[@]}"}

@@ -10,7 +10,7 @@
  * calls. If the model outputs text instead, toolCallsAreReal detects it.
  */
 
-import { all, replyContains } from "../checker.js";
+import { all, fileContains, fileExists, replyContains } from "../checker.js";
 import type { Evaluation } from "../evaluation.js";
 import { toolCallsAreReal } from "../checkers/tool-use-detector.js";
 
@@ -61,6 +61,21 @@ export const grepThenRead: Evaluation = {
 	prompt: "Search the codebase for DB_HOST. Which files reference it? Read them and tell me the value.",
 	expects: [{ tool: ["fs.grep", "code.search"], target: { pattern: /DB_HOST/i } }],
 	checker: all(replyContains("localhost"), toolCallsAreReal()),
+};
+
+export const writeFile: Evaluation = {
+	id: "ToolUse_WriteFile",
+	toolLevel: "ReadWrite",
+	template: "Write",
+	kind: "regression",
+	seed: [],
+	prompt: "Create a file called hello.txt containing exactly 'hello world'. Nothing else.",
+	expects: [{ tool: ["fs.write", "fs.edit", "code.write"] }],
+	checker: all(
+		fileExists("hello.txt"),
+		fileContains("hello.txt", "hello world"),
+		toolCallsAreReal(),
+	),
 };
 
 export const complexMultiTool: Evaluation = {

@@ -65,6 +65,70 @@ if (args.debugSubcmd) {
 	process.exit(0);
 }
 
+// --replay: deterministic session replay (zero tokens)
+if (args.replay !== undefined) {
+	const { JsonlSessionStore, extractTrace, createReplayAdapters } = await import("@dpopsuev/alef-session");
+	const { Agent, AgentController } = await import("@dpopsuev/alef-runtime");
+
+	let store: Awaited<ReturnType<typeof JsonlSessionStore.resumeLatest>>;
+	if (args.replay === "last") {
+		store = await JsonlSessionStore.resumeLatest(args.cwd);
+		if (!store) {
+			console.error("No sessions found for current directory.");
+			process.exit(1);
+		}
+	} else {
+		store = await JsonlSessionStore.resume(args.cwd, args.replay);
+	}
+
+	const records = await store.events();
+	const trace = extractTrace(records);
+	if (trace.length === 0) {
+		console.error("Session has no turns to replay.");
+		process.exit(1);
+	}
+
+	console.log(`Replaying session ${store.id} (${trace.length} turns, 0 tokens)`);
+	console.log();
+
+	const { reasoner, tools } = createReplayAdapters(trace);
+	const agent = new Agent();
+	agent.load(reasoner);
+	agent.load(tools);
+
+	const controller = new AgentController(agent, {
+		onReply: (text) => {
+			if (text) console.log(`  [reply] ${text.slice(0, 200)}${text.length > 200 ? "..." : ""}`);
+		},
+	});
+
+	agent.observe({
+		onCommand() {},
+		onEvent() {},
+		onNotification(event) {
+			const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
+			if (event.type === "llm.tool-start") {
+				console.log(`  [tool] ${String(p.name)}(${JSON.stringify(p.args ?? {}).slice(0, 80)})`);
+			}
+			if (event.type === "llm.token-usage") {
+				const u = p.usage as { input: number; output: number } | undefined;
+				console.log(`  [usage] ${u?.input ?? 0} in / ${u?.output ?? 0} out`);
+			}
+		},
+	});
+
+	for (let i = 0; i < trace.length; i++) {
+		const step = trace[i];
+		console.log(`Turn ${i}: "${step.userMessage.slice(0, 60)}${step.userMessage.length > 60 ? "..." : ""}"`);
+		await controller.send(step.userMessage, "human", 30_000);
+	}
+
+	console.log();
+	console.log("Replay complete.");
+	agent.dispose();
+	process.exit(0);
+}
+
 // --list: show running daemons
 if (args.listDaemons) {
 	const { getDatabase, SqliteDaemonStore } = await import("@dpopsuev/alef-storage");

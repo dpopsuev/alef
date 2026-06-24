@@ -91,6 +91,8 @@ export interface Args {
 	listDaemons: boolean;
 	/** Kill a running daemon by session ID. */
 	killDaemon: string | undefined;
+	/** Replay a recorded session with zero tokens. */
+	replay: string | undefined;
 	/**
 	 * Blueprint profile name. When set, loads agent.<profile>.yaml alongside
 	 * the base agent.yaml and deep-merges it (overlay wins on conflicts).
@@ -209,6 +211,7 @@ export function parseArgs(argv: string[]): Args {
 		attach: undefined,
 		listDaemons: false,
 		killDaemon: undefined,
+		replay: undefined,
 		profile: undefined,
 		debug: false,
 		pmInstall: undefined,
@@ -382,6 +385,12 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--kill" || arg === "kill") {
 			args.killDaemon = argv[++i] ?? "";
+			i++;
+			continue;
+		}
+
+		if (arg === "--replay" || arg === "replay") {
+			args.replay = argv[++i] ?? "last";
 			i++;
 			continue;
 		}

@@ -168,8 +168,11 @@ export async function createLocalSession(
 	const currentModel = model;
 
 	const resolvedBlueprintName = loaded.blueprintName ?? "(default)";
-	const stackFactory = blueprintRegistry.resolve(loaded.blueprintName);
-	log.info({ blueprint: resolvedBlueprintName, available: blueprintRegistry.list() }, "blueprint:resolve");
+	const stackFactory = blueprintRegistry.resolve(loaded.blueprintName) ?? blueprintRegistry.resolve();
+	log.info(
+		{ blueprint: resolvedBlueprintName, available: blueprintRegistry.list(), resolved: !!stackFactory },
+		"blueprint:resolve",
+	);
 
 	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 

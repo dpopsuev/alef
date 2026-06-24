@@ -504,3 +504,306 @@ describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () 
 		}
 	});
 });
+
+// ---------------------------------------------------------------------------
+// GET /state
+// ---------------------------------------------------------------------------
+
+describe("RouterAdapter — GET /state", { tags: ["unit"] }, () => {
+	it("returns state from getState callback", async () => {
+		const adapter = createRouterAdapter({
+			port: 0,
+			triggerEvent: "llm.input",
+			getState: () => ({ modelId: "claude-sonnet", thinking: "high", contextWindow: 200_000 }),
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status, body } = await get(`${baseUrl}/state`);
+			expect(status).toBe(200);
+			const json = JSON.parse(body);
+			expect(json.modelId).toBe("claude-sonnet");
+			expect(json.thinking).toBe("high");
+			expect(json.contextWindow).toBe(200_000);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns empty object when getState is not provided", async () => {
+		const { unmount, baseUrl } = await setup();
+		try {
+			const { status, body } = await get(`${baseUrl}/state`);
+			expect(status).toBe(200);
+			expect(JSON.parse(body)).toEqual({});
+		} finally {
+			unmount();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// GET /history
+// ---------------------------------------------------------------------------
+
+describe("RouterAdapter — GET /history", { tags: ["unit"] }, () => {
+	it("returns history from getHistory callback", async () => {
+		const events = [
+			{ type: "chunk", text: "hello" },
+			{ type: "turn-complete", reply: "world" },
+		];
+		const adapter = createRouterAdapter({
+			port: 0,
+			triggerEvent: "llm.input",
+			getHistory: () => events,
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status, body } = await get(`${baseUrl}/history`);
+			expect(status).toBe(200);
+			const json = JSON.parse(body);
+			expect(json).toHaveLength(2);
+			expect(json[0].type).toBe("chunk");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns empty array when getHistory is not provided", async () => {
+		const { unmount, baseUrl } = await setup();
+		try {
+			const { status, body } = await get(`${baseUrl}/history`);
+			expect(status).toBe(200);
+			expect(JSON.parse(body)).toEqual([]);
+		} finally {
+			unmount();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// POST /control
+// ---------------------------------------------------------------------------
+
+describe("RouterAdapter — POST /control", { tags: ["unit"] }, () => {
+	it("calls onSetModel when model field is present", async () => {
+		let receivedModel = "";
+		const adapter = createRouterAdapter({
+			port: 0,
+			triggerEvent: "llm.input",
+			onSetModel: (id) => { receivedModel = id; },
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await post(`${baseUrl}/control`, { model: "claude-opus" });
+			expect(status).toBe(202);
+			expect(receivedModel).toBe("claude-opus");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("calls onSetThinking when thinking field is present", async () => {
+		let receivedThinking = "";
+		const adapter = createRouterAdapter({
+			port: 0,
+			triggerEvent: "llm.input",
+			onSetThinking: (level) => { receivedThinking = level; },
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await post(`${baseUrl}/control`, { thinking: "high" });
+			expect(status).toBe(202);
+			expect(receivedThinking).toBe("high");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("calls both callbacks when both fields are present", async () => {
+		let model = "";
+		let thinking = "";
+		const adapter = createRouterAdapter({
+			port: 0,
+			triggerEvent: "llm.input",
+			onSetModel: (id) => { model = id; },
+			onSetThinking: (level) => { thinking = level; },
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await post(`${baseUrl}/control`, { model: "x", thinking: "low" });
+			expect(status).toBe(202);
+			expect(model).toBe("x");
+			expect(thinking).toBe("low");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns 400 for invalid JSON", async () => {
+		const { unmount, baseUrl } = await setup();
+		try {
+			const raw = await new Promise<{ status: number }>((resolve, reject) => {
+				const req = http.request(
+					{
+						hostname: "127.0.0.1",
+						port: Number(new URL(baseUrl).port),
+						path: "/control",
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+					},
+					(res) => resolve({ status: res.statusCode ?? 0 }),
+				);
+				req.on("error", reject);
+				req.write("not json");
+				req.end();
+			});
+			expect(raw.status).toBe(400);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns 202 even when callbacks are not provided", async () => {
+		const { unmount, baseUrl } = await setup();
+		try {
+			const { status } = await post(`${baseUrl}/control`, { model: "ignored" });
+			expect(status).toBe(202);
+		} finally {
+			unmount();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// POST /cancel
+// ---------------------------------------------------------------------------
+
+describe("RouterAdapter — POST /cancel", { tags: ["unit"] }, () => {
+	it("calls onCancel callback", async () => {
+		let cancelled = false;
+		const adapter = createRouterAdapter({
+			port: 0,
+			triggerEvent: "llm.input",
+			onCancel: () => { cancelled = true; },
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await post(`${baseUrl}/cancel`, {});
+			expect(status).toBe(202);
+			expect(cancelled).toBe(true);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns 202 when onCancel is not provided", async () => {
+		const { unmount, baseUrl } = await setup();
+		try {
+			const { status } = await post(`${baseUrl}/cancel`, {});
+			expect(status).toBe(202);
+		} finally {
+			unmount();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// POST /reload
+// ---------------------------------------------------------------------------
+
+describe("RouterAdapter — POST /reload", { tags: ["unit"] }, () => {
+	it("calls onReloadAdapter with name and path", async () => {
+		let reloadedName = "";
+		let reloadedPath = "";
+		const adapter = createRouterAdapter({
+			port: 0,
+			triggerEvent: "llm.input",
+			onReloadAdapter: async (name, path) => { reloadedName = name; reloadedPath = path; },
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await post(`${baseUrl}/reload`, { name: "fs", path: "/tmp/fs.ts" });
+			expect(status).toBe(202);
+			expect(reloadedName).toBe("fs");
+			expect(reloadedPath).toBe("/tmp/fs.ts");
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns 400 when name or path is missing", async () => {
+		const adapter = createRouterAdapter({
+			port: 0,
+			triggerEvent: "llm.input",
+			onReloadAdapter: async () => {},
+		});
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const { status } = await post(`${baseUrl}/reload`, { name: "fs" });
+			expect(status).toBe(400);
+		} finally {
+			unmount();
+		}
+	});
+
+	it("returns 501 when onReloadAdapter is not provided", async () => {
+		const { unmount, baseUrl } = await setup();
+		try {
+			const { status } = await post(`${baseUrl}/reload`, { name: "fs", path: "/tmp/fs.ts" });
+			expect(status).toBe(501);
+		} finally {
+			unmount();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// notifyStateChange
+// ---------------------------------------------------------------------------
+
+describe("RouterAdapter — notifyStateChange", { tags: ["unit"] }, () => {
+	it("broadcasts state event to SSE clients", async () => {
+		const adapter = createRouterAdapter({ port: 0, triggerEvent: "llm.input" });
+		const fixture = new BusFixture();
+		const unmount = fixture.mount(adapter);
+		await adapter.ready();
+		const baseUrl = `http://${adapter.address()!.host}:${adapter.address()!.port}`;
+		try {
+			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
+			await new Promise((r) => setTimeout(r, 30));
+			adapter.notifyStateChange({ modelId: "new-model", thinking: "off" });
+			const events = await eventsPromise;
+			expect(events).toHaveLength(1);
+			const evt = events[0] as Record<string, unknown>;
+			expect(evt.kind).toBe("state");
+			expect(evt.modelId).toBe("new-model");
+			expect(evt.thinking).toBe("off");
+		} finally {
+			unmount();
+		}
+	});
+});

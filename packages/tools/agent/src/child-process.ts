@@ -1,5 +1,5 @@
 import { type ChildProcess, execSync, spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
@@ -17,7 +17,19 @@ export interface ChildEntry {
 }
 
 const RUNNER_MAIN = new URL("../../../agent/src/cli/main.ts", import.meta.url).pathname;
-const TSX_BIN = new URL("../../../node_modules/tsx/dist/cli.mjs", import.meta.url).pathname;
+
+function findTsxModule(): string {
+	let dir = new URL(".", import.meta.url).pathname;
+	for (let i = 0; i < 10; i++) {
+		const candidate = join(dir, "node_modules/tsx/dist/cli.mjs");
+		if (existsSync(candidate)) return candidate;
+		const parent = resolve(dir, "..");
+		if (parent === dir) break;
+		dir = parent;
+	}
+	return "tsx";
+}
+const TSX_BIN = findTsxModule();
 
 export function resolvePath(p: string, base: string): string {
 	return isAbsolute(p) ? p : resolve(base, p);

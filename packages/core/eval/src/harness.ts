@@ -92,6 +92,15 @@ export interface HarnessOptions {
 	asyncAdapterFactory?: (workspace: string, signal: AbortSignal) => Promise<Adapter[]>;
 	/** Directory to write a JSONL execution trace file. */
 	traceDir?: string;
+	/**
+	 * Factory for the Agent instance. When provided, the harness uses this
+	 * instead of `new Agent()`. The caller is responsible for loading all
+	 * adapters (including LLM, ToolShell, LoopGuard, etc.) onto the returned
+	 * agent. The evaluator adapter is still loaded by the harness.
+	 *
+	 * Use this to match the production agent assembly exactly.
+	 */
+	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<Agent>;
 }
 
 // ---------------------------------------------------------------------------
@@ -333,19 +342,25 @@ export class EvalHarness {
 		}
 
 		const evaluator = new EvaluatorAdapter({ loopThreshold: opts.loopThreshold });
-		const agent = new Agent();
 
-		const baseAdapters = (opts.baseAdaptersFactory ?? defaultEvalAdapters)(workspace);
-		for (const adapter of baseAdapters) agent.load(adapter);
-		agent.load(evaluator);
-		for (const adapter of opts.extraAdapters ?? []) agent.load(adapter);
+		let agent: Agent;
+		if (opts.agentFactory) {
+			agent = await opts.agentFactory(workspace, new AbortController().signal);
+			agent.load(evaluator);
+		} else {
+			agent = new Agent();
+			const baseAdapters = (opts.baseAdaptersFactory ?? defaultEvalAdapters)(workspace);
+			for (const adapter of baseAdapters) agent.load(adapter);
+			agent.load(evaluator);
+			for (const adapter of opts.extraAdapters ?? []) agent.load(adapter);
 
-		const asyncFactory = opts.asyncAdapterFactory;
-		const syncFactory = opts.adapterFactory;
-		const asyncAdapters = asyncFactory
-			? await asyncFactory(workspace, agent.signal)
-			: (syncFactory?.(agent.signal) ?? []);
-		for (const adapter of asyncAdapters) agent.load(adapter);
+			const asyncFactory = opts.asyncAdapterFactory;
+			const syncFactory = opts.adapterFactory;
+			const asyncAdapters = asyncFactory
+				? await asyncFactory(workspace, agent.signal)
+				: (syncFactory?.(agent.signal) ?? []);
+			for (const adapter of asyncAdapters) agent.load(adapter);
+		}
 
 		const transcript: Array<Record<string, unknown>> = [];
 		const busEvents: BusEvent[] = [];

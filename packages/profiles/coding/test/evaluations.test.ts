@@ -23,6 +23,7 @@ import type { EvaluationResult } from "../../../core/eval/src/index.js";
 import { EvalHarness, EvaluationRunner } from "../../../core/eval/src/index.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../../core/eval/src/model.js";
 import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from "../../../core/eval/src/scoreboard.js";
+import { buildAgent } from "../../../agent/src/agent-kernel.js";
 import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
 import { parseArgs } from "../../../agent/src/args.js";
 import { createCodingAgentStack } from "../src/index.js";
@@ -68,7 +69,7 @@ async function runEval(evaluation: Evaluation): Promise<EvaluationResult> {
 	const model = getEvalModel();
 	const args = { ...parseArgs([]), noTui: true };
 	const runner = new EvaluationRunner(harness, {
-		asyncAdapterFactory: async (workspace, signal) => {
+		agentFactory: async (workspace, signal) => {
 			const sessionStore = new InMemorySessionStore();
 			const stack = await createCodingAgentStack({
 				cwd: workspace,
@@ -86,7 +87,13 @@ async function runEval(evaluation: Evaluation): Promise<EvaluationResult> {
 				getSignal: () => signal,
 				schemaResolver: (name) => stack.pipeline.getSchemaResolver()?.(name),
 			});
-			return [...stack.adapters, llm];
+			const agent = buildAgent({
+				llm,
+				loopThreshold: 10,
+				onLoop: (_type, reason) => { console.warn(`[eval] loop detected: ${reason}`); },
+			});
+			for (const adapter of stack.adapters) agent.load(adapter);
+			return agent;
 		},
 		maxErrorRate: 0.5,
 	});

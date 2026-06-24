@@ -27,6 +27,8 @@ const ConfigSchema = z.object({
 
 	thinking: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).optional(),
 
+	tool_disclosure: z.enum(["full", "progressive"]).optional(),
+
 	llm: z
 		.object({
 			/** Max retry attempts on transient provider errors. Default: 4. */

@@ -194,7 +194,7 @@ function createPromotionTracker(): PromotionTracker {
 
 export function createToolShellAdapter(opts: ToolShellOptions) {
 	const { adapterDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
-	const disclosure = opts.disclosure ?? "full";
+	const disclosure = opts.disclosure ?? (process.env.ALEF_TOOL_DISCLOSURE as ToolDisclosure | undefined) ?? "full";
 
 	const resolveTools = opts.getTools ?? (() => opts.tools);
 

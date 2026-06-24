@@ -13,11 +13,11 @@
 
 This repository contains the Alef CLI app, runtime, blueprint, and supporting packages.
 
-* **[@dpopsuev/alef-agent-core](packages/agent)**: Agent runtime with tool calling and state management
-* **[@dpopsuev/alef-agent-runtime](packages/runtime)**: Session runtime, services, transports, and backend orchestration
-* **[@dpopsuev/alef-agent-blueprint](packages/blueprint)**: Declarative blueprints, organ mapping, and shipped YAML defaults
-* **[@dpopsuev/alef-coding-agent](packages/coding-agent)**: Interactive CLI/TUI app built on the runtime packages
-* **[@dpopsuev/alef-ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
+* **[@dpopsuev/alef-kernel](packages/core/kernel)**: Microkernel — buses, adapter framework, binding chain, contributions
+* **[@dpopsuev/alef-runtime](packages/core/runtime)**: Agent class, AgentController, delegation, tool shell
+* **[@dpopsuev/alef-llm](packages/core/llm)**: Unified multi-provider LLM API (Anthropic, OpenAI, Google, …)
+* **[@dpopsuev/alef-coding-agent](packages/profiles/coding)**: Coding agent blueprint (fs, shell, code-intel, web, agent, skills)
+* **[packages/agent](packages/agent)**: Headless agent server — TUI-as-client, daemon mode, attach/detach
 
 ## Attribution
 
@@ -45,13 +45,15 @@ I regularly publish my own `pi-mono` work sessions here:
 
 | Package | Description |
 |---------|-------------|
-| **[@dpopsuev/alef-ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[@dpopsuev/alef-agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@dpopsuev/alef-agent-runtime](packages/runtime)** | Session runtime, services, transports, and backend orchestration |
-| **[@dpopsuev/alef-agent-blueprint](packages/blueprint)** | Declarative blueprints, organ mapping, and shipped YAML defaults |
-| **[@dpopsuev/alef-coding-agent](packages/coding-agent)** | Interactive CLI/TUI app built on the runtime packages |
-| **[@dpopsuev/alef-tui](packages/tui)** | Terminal UI library with differential rendering |
-| **[@dpopsuev/alef-web-ui](packages/web-ui)** | Web components for AI chat interfaces |
+| **[@dpopsuev/alef-kernel](packages/core/kernel)** | Microkernel — buses, adapter framework, contributions |
+| **[@dpopsuev/alef-runtime](packages/core/runtime)** | Agent, AgentController, delegation, tool shell |
+| **[@dpopsuev/alef-llm](packages/core/llm)** | Unified multi-provider LLM API (Anthropic, OpenAI, Google, etc.) |
+| **[@dpopsuev/alef-session](packages/core/session)** | Session store, turn assembly, context compaction |
+| **[@dpopsuev/alef-reasoner](packages/core/reasoner)** | LLM turn loop, tool dispatch, budget signals |
+| **[@dpopsuev/alef-tui](packages/ui/tui)** | Terminal UI library with differential rendering |
+| **[@dpopsuev/alef-web-ui](packages/ui/web)** | Web components for AI chat interfaces |
+| **[@dpopsuev/alef-coding-agent](packages/profiles/coding)** | Coding agent blueprint |
+| **[packages/agent](packages/agent)** | Headless agent server + CLI |
 
 For Slack/chat automation and workflows see [earendil-works/pi-chat](https://github.com/earendil-works/pi-chat).
 
@@ -72,11 +74,11 @@ $XDG_CONFIG_HOME/alef/          # User configuration (~/.config/alef)
 
 $XDG_DATA_HOME/alef/            # User data (~/.local/share/alef)
   ├── sessions/<cwd-hash>/      # Session JSONL logs
-  └── prototypes/               # User-written organ prototypes
+  └── prototypes/               # User-written adapter prototypes
 
 $XDG_STATE_HOME/alef/           # Logs & state (~/.local/state/alef)
   ├── debug.log                 # Pino debug trace (rotates at 10MB)
-  ├── daemon.json               # Daemon registry
+  ├── alef.db                   # SQLite (sessions, events, daemon registry)
   └── last-session.json         # Most recent session metadata
 
 $XDG_CACHE_HOME/alef/           # Cache (~/.cache/alef)
@@ -98,14 +100,11 @@ make xdg-info     # Show current XDG paths and status
 ## Development
 
 ```bash
-npm install          # Install all dependencies
-npm run build        # Build all packages
-npm run check        # Lint, format, and type check
-./test.sh            # Run tests (skips LLM-dependent tests without API keys)
+pnpm install         # Install all dependencies
+npm run check:fast   # Lint, format, and type check (pre-commit)
+npm run check        # Full check including unit tests (CI)
 ./alef-test.sh       # Run alef from sources
 ```
-
-> **Note:** `npm run check` requires `npm run build` to be run first. The web-ui package uses `tsc` which needs compiled `.d.ts` files from dependencies.
 
 ## Debug Mode
 

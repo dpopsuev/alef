@@ -18,7 +18,6 @@ import { runAgent } from "../run-agent.js";
 import { handleSelfUpdate, runPmCommand } from "../run-pm-command.js";
 import { loadSession } from "../session-lifecycle/index.js";
 import { setupSupervisorIpc } from "../setup-supervisor-ipc.js";
-import type { DaemonEntry } from "../strategies/remote-session.js";
 import { RemoteSession } from "../strategies/remote-session.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "../terminal-bg.js";
 import { ensureDirectories } from "../xdg-paths.js";
@@ -128,17 +127,14 @@ if (args.killDaemon !== undefined) {
 	process.exit(0);
 }
 
-// --attach: connect to a running daemon and run TUI against it.
 if (args.attach !== undefined) {
 	const storage = await getStorage();
 	const daemonStore = storage.daemonStore();
 	await daemonStore.prune();
-	let entry: DaemonEntry | undefined;
-	if (args.attach === "last") {
-		entry = await daemonStore.findLatest();
-	} else {
-		entry = (await daemonStore.get(args.attach)) ?? (await daemonStore.findByCwd(args.attach));
-	}
+	const entry =
+		args.attach === "last"
+			? await daemonStore.findLatest()
+			: ((await daemonStore.get(args.attach)) ?? (await daemonStore.findByCwd(args.attach)));
 	if (!entry) {
 		console.error("No running daemon found. Start one with: alef --daemon");
 		process.exit(1);

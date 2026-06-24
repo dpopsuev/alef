@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { buildSessionIndex } from "@dpopsuev/alef-session";
 import { afterEach, describe, expect, it } from "vitest";
 import { JsonlSessionStore, type StorageRecord } from "../src/session-store.js";
 
@@ -110,7 +111,12 @@ describe("JsonlSessionStore.turns()", { tags: ["unit"] }, () => {
 
 		const turns = await store.turns();
 		expect(turns).toHaveLength(1);
-		expect(turns[0].events).toHaveLength(1); // only the command event, not internal
+		expect(turns[0].events).toHaveLength(1);
+
+		const records = await store.events();
+		const index = buildSessionIndex(records);
+		expect(index.turns).toHaveLength(1);
+		expect(index.windowAssemblies.size).toBe(1);
 	});
 });
 
@@ -145,6 +151,12 @@ describe("JsonlSessionStore.hitCounts()", { tags: ["unit"] }, () => {
 		expect(counts.get("c-1")).toBe(2);
 		expect(counts.get("c-2")).toBe(1);
 		expect(counts.get("c-3")).toBe(1);
+
+		const records = await store.events();
+		const index = buildSessionIndex(records);
+		expect(index.hitCounts.get("c-1")).toBe(2);
+		expect(index.hitCounts.get("c-2")).toBe(1);
+		expect(index.hitCounts.get("c-3")).toBe(1);
 	});
 });
 

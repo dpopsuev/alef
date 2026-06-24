@@ -11,10 +11,12 @@
  * All tests run in-process; no subprocesses, no real LLM.
  */
 
+import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-runtime";
+import { buildSessionIndex, reconstructTurn, type StorageRecord } from "@dpopsuev/alef-session";
 import { afterEach, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
@@ -187,6 +189,58 @@ describe("command/context.assemble pipeline", { tags: ["unit"] }, () => {
 		const names = (capturedTools ?? []).map((t) => (t as { name: string }).name);
 		// adapter-llm substitutes dots with underscores for the LLM wire format.
 		expect(names.some((n) => n === "tools.describe" || n === "tools_describe")).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Reconstructor cross-check
+// ---------------------------------------------------------------------------
+
+function busToRecord(bus: "command" | "event" | "notification", e: BusMessage): StorageRecord {
+	return {
+		bus,
+		type: e.type,
+		correlationId: e.correlationId,
+		payload: (e as { payload?: Record<string, unknown> }).payload ?? {},
+		timestamp: e.timestamp,
+	};
+}
+
+describe("context reconstructor cross-check", { tags: ["unit"] }, () => {
+	it("reconstructor finds turn 0 with correct tool calls from recorded events", async () => {
+		const { faux, agent, controller } = makeAgent({ phaseTimeoutMs: 100 });
+		const toolShell = createToolShellAdapter({ tools: [] });
+		agent.load(toolShell);
+		agent.load(createContextAssemblyPipeline());
+
+		const records: StorageRecord[] = [];
+		agent.observe({
+			onCommand(e) {
+				records.push(busToRecord("command", e));
+			},
+			onEvent(e) {
+				records.push(busToRecord("event", e));
+			},
+			onNotification(e) {
+				records.push(busToRecord("notification", e));
+			},
+		});
+
+		faux.setResponses([fauxAssistantMessage("done")]);
+		disposes.push(() => {
+			agent.dispose();
+			faux.unregister();
+		});
+
+		await agent.ready();
+		await controller.send("hello", "human", SEND_TIMEOUT);
+
+		const index = buildSessionIndex(records);
+		expect(index.turns.length).toBeGreaterThan(0);
+
+		const snapshot = reconstructTurn(index, 0);
+		expect(snapshot).toBeDefined();
+		expect(snapshot!.correlationId).toBeTruthy();
 	});
 });
 

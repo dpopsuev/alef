@@ -20,6 +20,7 @@ export interface AgentServerOptions {
 	extraAdapters?: readonly Adapter[];
 	signalMappers?: ReadonlyMap<string, SignalMapper>;
 	uiSignalTypes?: ReadonlySet<string>;
+	toolDisclosure?: "full" | "progressive";
 }
 
 export interface AgentServer {
@@ -219,6 +220,7 @@ export function assembleAgentServer(opts: AgentServerOptions): AgentServer {
 		tools: allAdapters.flatMap((o) => o.tools),
 		getTools: () => agent.tools,
 		adapterDirectives: buildAdapterDirectives(allAdapters),
+		disclosure: opts.toolDisclosure ?? "full",
 	});
 	agent.load(toolShell);
 	if (opts.pipeline) agent.load(opts.pipeline);

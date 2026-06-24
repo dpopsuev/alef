@@ -3,8 +3,12 @@
 	"private": true,
 	"type": "module",
 	"workspaces": [
-		"packages/*",
-		"packages/web-ui/example"
+		"packages/core/*",
+		"packages/tools/*",
+		"packages/ui/*",
+		"packages/profiles/*",
+		"packages/agent",
+		"packages/ui/web/example"
 	],
 	"scripts": {
 		"clean": "npm run clean --workspaces",
@@ -38,7 +42,7 @@
 		"release:minor": "node scripts/release.mjs minor",
 		"release:major": "node scripts/release.mjs major",
 		"prepare": "husky",
-		"check:lint": "eslint --cache --cache-strategy content packages/kernel/src/ packages/runtime/src/ packages/reasoner/src/ packages/adapter-fs/src/ packages/adapter-shell/src/ packages/adapter-web/src/ packages/runner/src/ --max-warnings 0"
+		"check:lint": "eslint --cache --cache-strategy content packages/core/kernel/src/ packages/core/runtime/src/ packages/core/reasoner/src/ packages/tools/fs/src/ packages/tools/shell/src/ packages/tools/web/src/ packages/agent/src/ --max-warnings 0"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sandbox-runtime": "^0.0.26",
@@ -64,7 +68,8 @@
 	},
 	"version": "0.0.1",
 	"dependencies": {
-		"get-east-asian-width": "^1.4.0"
+		"get-east-asian-width": "^1.4.0",
+		"zod": "^4.4.3"
 	},
 	"overrides": {
 		"rimraf": "6.1.2",

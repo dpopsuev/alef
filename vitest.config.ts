@@ -17,7 +17,7 @@ export default mergeConfig(
 	sharedConfig,
 	defineConfig({
 		test: {
-			projects: ["packages/*/vitest.config.ts"],
+			projects: ["packages/*/vitest.config.ts", "packages/*/*/vitest.config.ts"],
 		},
 	}),
 );

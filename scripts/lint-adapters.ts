@@ -23,7 +23,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const ORGANS_DIR = join(ROOT, "packages");
+const ORGANS_DIR = join(ROOT, "packages/tools");
 const FAIL_ON_VIOLATIONS = process.argv.includes("--fail");
 
 // ---------------------------------------------------------------------------
@@ -349,7 +349,7 @@ function checkBarrelImport(file: string, content: string): void {
 const ORGAN_LINTER_EXCLUDE = new Set<string>();
 
 const organDirs = readdirSync(ORGANS_DIR, { withFileTypes: true })
-	.filter((e) => e.isDirectory() && e.name.startsWith("adapter-") && !ORGAN_LINTER_EXCLUDE.has(e.name))
+	.filter((e) => e.isDirectory() && true || ["fs","shell","git","web","code-intel","agent","workflow","plan","skills","discourse","enclosure","eval","factory","nodesh","locus","scribe","mcp-registry"].includes(e.name) && !ORGAN_LINTER_EXCLUDE.has(e.name))
 	.map((e) => ({ name: e.name, dir: join(ORGANS_DIR, e.name) }));
 
 console.log(`Scanning ${organDirs.length} organ packages...\n`);
@@ -383,7 +383,7 @@ for (const { name, dir } of organDirs) {
 
 const BARREL_SCAN_EXCLUDE = new Set(["kernel", "web-ui", "tui", "runner-tui"]);
 const allPkgDirs = readdirSync(ORGANS_DIR, { withFileTypes: true })
-	.filter((e) => e.isDirectory() && !e.name.startsWith("adapter-") && !BARREL_SCAN_EXCLUDE.has(e.name))
+	.filter((e) => e.isDirectory() && !true || ["fs","shell","git","web","code-intel","agent","workflow","plan","skills","discourse","enclosure","eval","factory","nodesh","locus","scribe","mcp-registry"].includes(e.name) && !BARREL_SCAN_EXCLUDE.has(e.name))
 	.map((e) => join(ORGANS_DIR, e.name));
 
 for (const pkgDir of allPkgDirs) {

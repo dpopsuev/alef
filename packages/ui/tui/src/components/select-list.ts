@@ -1,6 +1,6 @@
 import type { Component } from "../component.js";
 import { fuzzyFilter } from "../fuzzy.js";
-import { getKeybindings } from "../keybindings.js";
+import { type Keybindings, getKeybindings } from "../keybindings.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
 const DEFAULT_PRIMARY_COLUMN_WIDTH = 32;
@@ -122,25 +122,33 @@ export class SelectList implements Component {
 		return lines;
 	}
 
-	handleInput(keyData: string): void {
-		const kb = getKeybindings();
-		if (kb.matches(keyData, "tui.select.up")) {
-			this.selectedIndex = this.selectedIndex === 0 ? this.filteredItems.length - 1 : this.selectedIndex - 1;
-			this.notifySelectionChange();
-		} else if (kb.matches(keyData, "tui.select.down")) {
-			this.selectedIndex = this.selectedIndex === this.filteredItems.length - 1 ? 0 : this.selectedIndex + 1;
-			this.notifySelectionChange();
-		} else if (kb.matches(keyData, "tui.select.confirm")) {
-			const selectedItem = this.filteredItems[this.selectedIndex];
-			if (selectedItem && this.onSelect) this.onSelect(selectedItem);
-		} else if (kb.matches(keyData, "tui.select.cancel")) {
+	private readonly keyActions: ReadonlyArray<[keyof Keybindings, () => void]> = [
+		["tui.select.up", () => this.moveSelection(-1)],
+		["tui.select.down", () => this.moveSelection(1)],
+		["tui.select.confirm", () => {
+			const item = this.filteredItems[this.selectedIndex];
+			if (item && this.onSelect) this.onSelect(item);
+		}],
+		["tui.select.cancel", () => {
 			if (this.searchable && this.searchBuffer) {
 				this.searchBuffer = "";
 				this.setFilter("");
-			} else if (this.onCancel) {
-				this.onCancel();
+			} else {
+				this.onCancel?.();
 			}
-		} else if (this.searchable) {
+		}],
+	];
+
+	handleInput(keyData: string): void {
+		const kb = getKeybindings();
+		for (const [binding, action] of this.keyActions) {
+			if (kb.matches(keyData, binding)) {
+				action();
+				return;
+			}
+		}
+
+		if (this.searchable) {
 			if (keyData === "\x7F" || keyData === "\b") {
 				this.searchBuffer = this.searchBuffer.slice(0, -1);
 				this.setFilter(this.searchBuffer);
@@ -149,6 +157,12 @@ export class SelectList implements Component {
 				this.setFilter(this.searchBuffer);
 			}
 		}
+	}
+
+	private moveSelection(direction: 1 | -1): void {
+		if (this.filteredItems.length === 0) return;
+		this.selectedIndex = (this.selectedIndex + direction + this.filteredItems.length) % this.filteredItems.length;
+		this.notifySelectionChange();
 	}
 
 	private renderItem(

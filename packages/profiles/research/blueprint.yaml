@@ -2,7 +2,7 @@ name: alef-research-agent
 version: 0.0.1
 description: >
   Research agent: coding tools + Locus architecture analysis + Scribe knowledge base.
-  Same organs as the coding agent, with fleet services added at runtime.
+  Same adapters as the coding agent, with fleet services added at runtime.
 
 adapters:
   - name: fs

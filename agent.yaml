@@ -1,7 +1,7 @@
 name: alef-dev
-description: Alef development — project-specific organ configuration.
+description: Alef development — project-specific adapter configuration.
 
-organs:
+adapters:
   - name: shell
     blockedPatterns:
       - "--no-verify"

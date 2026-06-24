@@ -2,7 +2,7 @@ name: alef-coding-agent
 version: 1.0.0
 description: >
   The default Alef coding agent blueprint.
-  This manifest is the SBOM — the organ list is the canonical record
+  This manifest is the SBOM — the adapter list is the canonical record
   of what ships. No code. Assembly is the runner's concern.
 
 adapters:

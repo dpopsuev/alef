@@ -16,8 +16,8 @@ export interface ChildEntry {
 	tmpDir?: string;
 }
 
-const RUNNER_MAIN = new URL("../../../agent/src/main.ts", import.meta.url).pathname;
-const TSX_BIN = new URL("../../../node_modules/.bin/tsx", import.meta.url).pathname;
+const RUNNER_MAIN = new URL("../../../agent/src/cli/main.ts", import.meta.url).pathname;
+const TSX_BIN = new URL("../../../node_modules/tsx/dist/cli.mjs", import.meta.url).pathname;
 
 export function resolvePath(p: string, base: string): string {
 	return isAbsolute(p) ? p : resolve(base, p);

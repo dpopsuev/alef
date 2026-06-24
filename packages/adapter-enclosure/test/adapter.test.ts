@@ -31,9 +31,9 @@ describe("EnclosureAdapter", { tags: ["compliance"] }, () => {
 	it("unmount cleans up all motor subscriptions", () => {
 		const f = new BusFixture();
 		const unmount = f.mount(createEnclosureAdapter({ stub: true }));
-		expect(f.nerve.listenerCount("command", "enclosure.create")).toBe(1);
+		expect(f.bus.listenerCount("command", "enclosure.create")).toBe(1);
 		unmount();
-		expect(f.nerve.listenerCount("command", "enclosure.create")).toBe(0);
+		expect(f.bus.listenerCount("command", "enclosure.create")).toBe(0);
 	});
 
 	describe("create → diff → commit → destroy lifecycle", () => {

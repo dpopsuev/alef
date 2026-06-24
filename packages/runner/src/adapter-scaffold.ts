@@ -124,7 +124,7 @@ export function scaffoldAdapter(name: string, cwd: string, version = "0.1.0"): s
 
 	mkdirSync(srcDir, { recursive: true });
 
-	writeFileSync(join(srcDir, "organ.ts"), writeAdapterSource(name), "utf-8");
+	writeFileSync(join(srcDir, "adapter.ts"), writeAdapterSource(name), "utf-8");
 	writeFileSync(join(dir, "package.json"), writePackageJson(name, version), "utf-8");
 	writeFileSync(join(dir, "tsconfig.json"), writeTsConfig(), "utf-8");
 	writeFileSync(join(dir, "README.md"), writeReadme(name), "utf-8");

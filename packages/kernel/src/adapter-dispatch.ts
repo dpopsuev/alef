@@ -39,7 +39,7 @@ const tracer = trace.getTracer("alef.spine", "0.0.1");
 function validateCommandPayload(
 	command: CommandMessage,
 	schema: ZodTypeAny | undefined,
-	nerve: Bus,
+	bus: Bus,
 ): Record<string, unknown> | null {
 	if (!schema) return command.payload;
 	const result = schema.safeParse(command.payload);
@@ -56,7 +56,7 @@ function validateCommandPayload(
 			command,
 			`${command.type}: argument validation failed — ${humanMsg}. Retry with corrected arguments.`,
 		);
-		nerve.event.publish({
+		bus.event.publish({
 			...errSense,
 			payload: { ...errSense.payload, _validationError: { field: firstField, message: humanMsg } },
 		});
@@ -82,22 +82,22 @@ function buildHandlerCtx(
 export async function dispatchCommandAction(
 	command: CommandMessage,
 	action: CommandAction,
-	nerve: Bus,
+	bus: Bus,
 	cache: CacheStrategy,
 	log: AdapterLogger,
 	schema: ZodTypeAny | undefined,
 	options?: DispatchOptions,
 ): Promise<void> {
-	nerve.pulse();
+	bus.pulse();
 	// Yield so waitForToolResult subscribes before the synchronous validation-error path publishes.
 	await Promise.resolve();
-	const payload = validateCommandPayload(command, schema, nerve);
+	const payload = validateCommandPayload(command, schema, bus);
 	if (payload === null) return;
 
 	if (options?.policy) {
 		const decision = options.policy.check(command.type, payload);
 		if (decision.action === "deny") {
-			nerve.event.publish(buildErrorResult(command, decision.reason ?? `${command.type}: denied by access policy`));
+			bus.event.publish(buildErrorResult(command, decision.reason ?? `${command.type}: denied by access policy`));
 			return;
 		}
 		if (decision.action === "escalate") {
@@ -105,7 +105,7 @@ export async function dispatchCommandAction(
 				? await options.onEscalate(command.type, payload, decision.reason ?? "")
 				: false;
 			if (!approved) {
-				nerve.event.publish(
+				bus.event.publish(
 					buildErrorResult(command, decision.reason ?? `${command.type}: denied (escalation rejected)`),
 				);
 				return;
@@ -139,7 +139,7 @@ export async function dispatchCommandAction(
 			span.setAttribute("alef.cache.hit", true);
 			log.debug({ op: command.type, correlationId: command.correlationId, cacheKey }, "cache hit");
 			span.addEvent("tool.result", { result: JSON.stringify(cached) });
-			nerve.event.publish(buildEventResult(command, cached));
+			bus.event.publish(buildEventResult(command, cached));
 			span.setStatus({ code: SpanStatusCode.OK });
 			span.end();
 			return;
@@ -149,7 +149,7 @@ export async function dispatchCommandAction(
 		try {
 			let last: Record<string, unknown> | undefined;
 			for await (const chunk of action.handle(ctx)) {
-				if (last !== undefined) nerve.event.publish(buildEventResult(command, { ...last, isFinal: false }));
+				if (last !== undefined) bus.event.publish(buildEventResult(command, { ...last, isFinal: false }));
 				last = chunk;
 			}
 			const result = last ?? {};
@@ -176,7 +176,7 @@ export async function dispatchCommandAction(
 				/* non-serialisable result — skip */
 			}
 
-			nerve.event.publish(buildEventResult(command, { ...result, isFinal: true }));
+			bus.event.publish(buildEventResult(command, { ...result, isFinal: true }));
 			span.setStatus({ code: SpanStatusCode.OK });
 		} catch (e) {
 			log.warn(
@@ -189,7 +189,7 @@ export async function dispatchCommandAction(
 			);
 			span.recordException(e instanceof Error ? e : new Error(String(e)));
 			span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-			nerve.event.publish(buildErrorResult(command, toErrorMessage(e)));
+			bus.event.publish(buildErrorResult(command, toErrorMessage(e)));
 		} finally {
 			span.end();
 		}
@@ -199,15 +199,15 @@ export async function dispatchCommandAction(
 export function dispatchEventAction(
 	eventType: string,
 	event: EventMessage,
-	nerve: Bus,
+	bus: Bus,
 	senseAction: EventAction,
 	log: AdapterLogger,
 ): void {
-	nerve.pulse();
+	bus.pulse();
 	const ctx: EventHandlerCtx = {
 		correlationId: event.correlationId,
 		payload: event.payload,
-		bus: nerve,
+		bus: bus,
 	};
 	const span = tracer.startSpan(`alef.event/${eventType}`, {
 		kind: SpanKind.CONSUMER,

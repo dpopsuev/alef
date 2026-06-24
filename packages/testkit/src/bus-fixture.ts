@@ -18,11 +18,11 @@ import { BusEventRecorder } from "./bus-event-recorder.js";
  * call() subscribes before publishing — no race condition.
  */
 export class BusFixture {
-	readonly nerve = new InProcessBus();
+	readonly bus = new InProcessBus();
 	private readonly unmounts: Array<() => void> = [];
 
 	mount(adapter: Adapter): () => void {
-		const unmount = adapter.mount(this.nerve.asBus());
+		const unmount = adapter.mount(this.bus.asBus());
 		this.unmounts.push(unmount);
 		return unmount;
 	}
@@ -44,7 +44,7 @@ export class BusFixture {
 				off();
 				reject(new Error(`BusFixture.call timed out after ${timeoutMs}ms waiting for event/${type}`));
 			}, timeoutMs);
-			const off = this.nerve.asBus().event.subscribe(type, (event) => {
+			const off = this.bus.asBus().event.subscribe(type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
@@ -52,7 +52,7 @@ export class BusFixture {
 			});
 		});
 
-		this.nerve.asBus().command.publish({ type, payload, correlationId });
+		this.bus.asBus().command.publish({ type, payload, correlationId });
 		return resultPromise;
 	}
 
@@ -73,7 +73,7 @@ export class BusFixture {
 				off();
 				reject(new Error(`BusFixture.callStreaming timed out after ${timeoutMs}ms waiting for event/${type}`));
 			}, timeoutMs);
-			const off = this.nerve.asBus().event.subscribe(type, (event) => {
+			const off = this.bus.asBus().event.subscribe(type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				const payload = event.payload as { isFinal?: boolean };
 				if (!event.isError && payload.isFinal !== true && payload.isFinal !== undefined) return;
@@ -83,15 +83,15 @@ export class BusFixture {
 			});
 		});
 
-		this.nerve.asBus().command.publish({ type, payload, correlationId });
+		this.bus.asBus().command.publish({ type, payload, correlationId });
 		return resultPromise;
 	}
 
 	observe(): BusEventRecorder {
 		const recorder = new BusEventRecorder();
-		this.nerve.onAny("command", (event) => recorder.onCommand(event));
-		this.nerve.onAny("event", (event) => recorder.onEvent(event));
-		this.nerve.onAny("notification", (event) => recorder.onNotification?.(event));
+		this.bus.onAny("command", (event) => recorder.onCommand(event));
+		this.bus.onAny("event", (event) => recorder.onEvent(event));
+		this.bus.onAny("notification", (event) => recorder.onNotification?.(event));
 		return recorder;
 	}
 

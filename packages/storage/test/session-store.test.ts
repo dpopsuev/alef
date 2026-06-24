@@ -85,7 +85,7 @@ describe("SqliteSessionStore.append + events", { tags: ["unit"] }, () => {
 		const rows = result.rows;
 		expect(rows).toHaveLength(1);
 		expect(String(rows[0].type)).toBe("fs.read");
-		expect(String(rows[0].organ)).toBe("fs");
+		expect(String(rows[0].adapter)).toBe("fs");
 		expect(rows[0].version).toBeTruthy();
 	});
 
@@ -101,19 +101,19 @@ describe("SqliteSessionStore.append + events", { tags: ["unit"] }, () => {
 		expect(String(row.actor_type)).toBe("agent");
 	});
 
-	it("derives organ from event type", async () => {
+	it("derives adapter from event type", async () => {
 		await store.append(motorEvent("shell.exec", "corr-1"));
 		await store.append(motorEvent("llm.response", "corr-2"));
 		await store.append(motorEvent("debug", "corr-3"));
 
 		const result = await client.execute({
-			sql: "SELECT type, organ FROM events WHERE session_id = ? ORDER BY rowid",
+			sql: "SELECT type, adapter FROM events WHERE session_id = ? ORDER BY rowid",
 			args: [store.id],
 		});
 		const rows = result.rows;
-		expect(String(rows[0].organ)).toBe("shell");
-		expect(String(rows[1].organ)).toBe("llm");
-		expect(rows[2].organ).toBeNull();
+		expect(String(rows[0].adapter)).toBe("shell");
+		expect(String(rows[1].adapter)).toBe("llm");
+		expect(rows[2].adapter).toBeNull();
 	});
 });
 
@@ -271,7 +271,7 @@ describe("SqliteSessionStore.name + setName", { tags: ["unit"] }, () => {
 });
 
 describe("SqliteSessionStore.adapterHistory", { tags: ["unit"] }, () => {
-	it("filters events by organ prefix", async () => {
+	it("filters events by adapter prefix", async () => {
 		const client = await makeClient();
 		const store = await SqliteSessionStore.create(client, "/tmp/cwd");
 		await store.append(motorEvent("fs.read", "corr-1"));

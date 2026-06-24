@@ -51,17 +51,17 @@ describe("migrateJsonlToSqlite", { tags: ["unit"] }, () => {
 		});
 
 		await client.execute({
-			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, organ, turn_number, version)
+			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, adapter, turn_number, version)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			args: [sessionId, "motor", "fs.read", "corr-1", '{"path":"/tmp"}', 1000, "fs", 0, "migrated"],
 		});
 		await client.execute({
-			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, organ, turn_number, version)
+			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, adapter, turn_number, version)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			args: [sessionId, "sense", "fs.read", "corr-1", '{"content":"hi"}', 1001, "fs", 0, "migrated"],
 		});
 		await client.execute({
-			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, organ, turn_number, version)
+			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, adapter, turn_number, version)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			args: [sessionId, "motor", "shell.exec", "corr-2", '{"cmd":"ls"}', 1002, "shell", 1, "migrated"],
 		});
@@ -72,9 +72,9 @@ describe("migrateJsonlToSqlite", { tags: ["unit"] }, () => {
 		});
 		const events = eventsResult.rows;
 		expect(events).toHaveLength(3);
-		expect(String(events[0].organ)).toBe("fs");
+		expect(String(events[0].adapter)).toBe("fs");
 		expect(Number(events[0].turn_number)).toBe(0);
-		expect(String(events[2].organ)).toBe("shell");
+		expect(String(events[2].adapter)).toBe("shell");
 		expect(Number(events[2].turn_number)).toBe(1);
 
 		const sessionsResult = await client.execute({
@@ -85,28 +85,28 @@ describe("migrateJsonlToSqlite", { tags: ["unit"] }, () => {
 		client.close();
 	});
 
-	it("derives organ from event type", async () => {
+	it("derives adapter from event type", async () => {
 		const client = await makeClient();
 		await client.execute({
 			sql: "INSERT INTO sessions (id, cwd_hash, created_at, updated_at) VALUES (?, ?, ?, ?)",
 			args: ["s1", "h1", 0, 0],
 		});
 		await client.execute({
-			sql: "INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, organ, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			sql: "INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, adapter, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 			args: ["s1", "motor", "fs.read", "c1", "{}", 0, "fs", "test"],
 		});
 		await client.execute({
-			sql: "INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, organ, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			sql: "INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, adapter, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 			args: ["s1", "motor", "llm.response", "c2", "{}", 0, "llm", "test"],
 		});
 
 		const result = await client.execute({
-			sql: "SELECT organ FROM events WHERE session_id = ? ORDER BY rowid",
+			sql: "SELECT adapter FROM events WHERE session_id = ? ORDER BY rowid",
 			args: ["s1"],
 		});
 		const rows = result.rows;
-		expect(String(rows[0].organ)).toBe("fs");
-		expect(String(rows[1].organ)).toBe("llm");
+		expect(String(rows[0].adapter)).toBe("fs");
+		expect(String(rows[1].adapter)).toBe("llm");
 		client.close();
 	});
 });

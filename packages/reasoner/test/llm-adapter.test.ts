@@ -36,7 +36,7 @@ function makeModel() {
  */
 function makeHarness(llm: Adapter) {
 	const f = new BusFixture();
-	const driver = new TurnDriver(f.nerve);
+	const driver = new TurnDriver(f.bus);
 	const recorder = f.observe();
 	f.mount(llm);
 	return { f, driver, recorder };
@@ -70,7 +70,7 @@ describe("Reasoner — application-level retry", { tags: ["unit"] }, () => {
 
 	function makeRetryHarness(faux: ReturnType<typeof registerFauxProvider>, maxRetries: number) {
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
@@ -241,7 +241,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("", { stopReason: "error", errorMessage: "overloaded_error" })]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		const recorder = f.observe();
 		f.mount(
 			createAgentLoop({
@@ -261,7 +261,7 @@ describe("partial conversationHistory published on error/abort", { tags: ["unit"
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("all good")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		const recorder = f.observe();
 		f.mount(
 			createAgentLoop({
@@ -294,7 +294,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		const recorder = f.observe();
 		f.mount(
 			createAgentLoop({
@@ -312,7 +312,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		const recorder = f.observe();
 		f.mount(
 			createAgentLoop({
@@ -335,7 +335,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		const recorder = f.observe();
 
 		let phaseReceivedMessages: unknown[] = [];
@@ -381,7 +381,7 @@ describe("Reasoner — command/context.assemble seam", { tags: ["unit"] }, () =>
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("ok")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
@@ -440,7 +440,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
@@ -478,7 +478,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		);
 		disposes.push(() => f.dispose());
 
-		f.nerve.asBus().event.publish({
+		f.bus.asBus().event.publish({
 			type: "llm.input",
 			correlationId: "test-corr",
 			payload: { text: "trigger", sender: "system" },
@@ -495,7 +495,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("should not appear")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		const recorder = f.observe();
 		f.mount(
 			createAgentLoop({
@@ -520,7 +520,7 @@ describe("Reasoner — phase skip, abort, and llm.result", { tags: ["unit"] }, (
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		const recorder = f.observe();
 		f.mount(
 			createAgentLoop({
@@ -558,7 +558,7 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 		faux.setResponses([fauxAssistantMessage("hello from llm")]);
 		const f = new BusFixture();
 		const recorder = f.observe();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		f.mount(createAgentLoop({ model: faux.getModel(), apiKey: "faux-key" }));
 		disposes.push(() => f.dispose());
 
@@ -572,7 +572,7 @@ describe("Reasoner — configurable triggerEvent", { tags: ["unit"] }, () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
@@ -623,7 +623,7 @@ describe("organ-llm — trackConcurrentOps", { tags: ["unit"] }, () => {
 		};
 
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
@@ -676,7 +676,7 @@ describe("turn loop — schema validation failure", { tags: ["unit"] }, () => {
 		);
 		f.mount(strictOrgan);
 
-		const driver = new TurnDriver(f.nerve, undefined, undefined, strictOrgan.tools);
+		const driver = new TurnDriver(f.bus, undefined, undefined, strictOrgan.tools);
 
 		faux.setResponses([
 			fauxAssistantMessage([fauxToolCall("strict_op", { count: "3" })]),
@@ -707,7 +707,7 @@ describe("prepareStep system prompt delivery to provider", { tags: ["unit"] }, (
 		// When: adapter-llm runs with a prepareStep that injects a system message
 		const systemText = "You are Alef. No emojis.";
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		f.mount(
 			createAgentLoop({
 				model: faux.getModel(),
@@ -740,7 +740,7 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 		const capturedEvents: Array<{ type: string; ok?: boolean; result?: string }> = [];
 
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 
 		// A stub adapter that subscribes to command/hung_tool but never publishes an event reply
 		const { z } = await import("zod");
@@ -764,10 +764,10 @@ describe("dispatchTools — tool:end fires on every exit path", { tags: ["unit"]
 			},
 		);
 
-		f.nerve.asBus().notification.subscribe("llm.tool-start", () => {
+		f.bus.asBus().notification.subscribe("llm.tool-start", () => {
 			capturedEvents.push({ type: "tool-start" });
 		});
-		f.nerve.asBus().notification.subscribe("llm.tool-end", (event) => {
+		f.bus.asBus().notification.subscribe("llm.tool-end", (event) => {
 			capturedEvents.push({
 				type: "tool-end",
 				ok: Boolean(event.payload.ok),
@@ -842,13 +842,13 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		const eventOrder: string[] = [];
 
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve, undefined, undefined, streamingOrgan.tools);
+		const driver = new TurnDriver(f.bus, undefined, undefined, streamingOrgan.tools);
 
-		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
+		f.bus.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			eventOrder.push("tool-chunk");
 			capturedChunks.push(String((event as { payload: Record<string, unknown> }).payload.text ?? ""));
 		});
-		f.nerve.asBus().notification.subscribe("llm.tool-end", () => {
+		f.bus.asBus().notification.subscribe("llm.tool-end", () => {
 			eventOrder.push("tool-end");
 		});
 		f.mount(
@@ -890,7 +890,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 
 		// When: waitForToolResult with a 200ms stall interval and 600ms timeout
 		const resultPromise = waitForToolResult({
-			event: f.nerve.asBus().event,
+			event: f.bus.asBus().event,
 			toolName: "stall.test",
 			toolCallId,
 			correlationId,
@@ -923,7 +923,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 		const chunks: string[] = [];
 
 		const resultPromise = waitForToolResult({
-			event: f.nerve.asBus().event,
+			event: f.bus.asBus().event,
 			toolName: "stall.reset",
 			toolCallId,
 			correlationId,
@@ -935,7 +935,7 @@ describe("waitForToolResult — stall watchdog", { tags: ["unit"] }, () => {
 
 		// Emit one chunk at 50ms — resets the stall clock
 		setTimeout(() => {
-			f.nerve.asBus().event.publish({
+			f.bus.asBus().event.publish({
 				type: "stall.reset",
 				correlationId,
 				payload: { toolCallId, isFinal: false, text: "working..." },
@@ -996,7 +996,7 @@ describe("organ-llm — ambient steering", { tags: ["unit"] }, () => {
 	it("second llm.input while turn is active does not start a concurrent turn", async () => {
 		const faux = registerFauxProvider();
 		const f = new BusFixture();
-		const driver = new TurnDriver(f.nerve);
+		const driver = new TurnDriver(f.bus);
 		harnesses.push({ f });
 
 		const _motorReplies: string[] = [];

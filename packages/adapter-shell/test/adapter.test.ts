@@ -32,9 +32,9 @@ describe("Shellorgan", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		const organ = createShellAdapter({ cwd: process.cwd() });
 		const unmount = f.mount(organ);
-		expect(f.nerve.listenerCount("command", "shell.exec")).toBe(1);
+		expect(f.bus.listenerCount("command", "shell.exec")).toBe(1);
 		unmount();
-		expect(f.nerve.listenerCount("command", "shell.exec")).toBe(0);
+		expect(f.bus.listenerCount("command", "shell.exec")).toBe(0);
 	});
 
 	it("executes a command and streams Event/shell.exec, final has output", async () => {

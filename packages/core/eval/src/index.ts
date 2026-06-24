@@ -23,6 +23,7 @@ export { terminalScript, terminalScriptFile } from "./checkers/terminal.js";
 export { testCheck } from "./checkers/test.js";
 export { toolCallsAreReal } from "./checkers/tool-use-detector.js";
 export { defaultEvalAdapters } from "./default-adapters.js";
+export { defineEvalSuite, stubSessionFactory, type EvalSuiteOptions } from "./eval-suite.js";
 export type {
 	Checker,
 	CheckerContext,

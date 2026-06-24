@@ -87,6 +87,10 @@ export interface Args {
 	 * to, or 'last' for the most recently started daemon.
 	 */
 	attach: string | undefined;
+	/** List running daemons from the registry. */
+	listDaemons: boolean;
+	/** Kill a running daemon by session ID. */
+	killDaemon: string | undefined;
 	/**
 	 * Blueprint profile name. When set, loads agent.<profile>.yaml alongside
 	 * the base agent.yaml and deep-merges it (overlay wins on conflicts).
@@ -203,6 +207,8 @@ export function parseArgs(argv: string[]): Args {
 		serve: undefined,
 		daemon: false,
 		attach: undefined,
+		listDaemons: false,
+		killDaemon: undefined,
 		profile: undefined,
 		debug: false,
 		pmInstall: undefined,
@@ -364,6 +370,18 @@ export function parseArgs(argv: string[]): Args {
 
 		if (arg === "--attach") {
 			args.attach = argv[++i] ?? "last";
+			i++;
+			continue;
+		}
+
+		if (arg === "--list" || arg === "ls") {
+			args.listDaemons = true;
+			i++;
+			continue;
+		}
+
+		if (arg === "--kill" || arg === "kill") {
+			args.killDaemon = argv[++i] ?? "";
 			i++;
 			continue;
 		}

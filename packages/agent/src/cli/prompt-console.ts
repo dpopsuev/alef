@@ -47,6 +47,14 @@ class EditorWrapper implements Component {
 }
 
 import { accentColorize, DynamicText, fmtMs, spinnerFrame } from "@dpopsuev/alef-tui/views";
+
+const SPINNER_FRAME_COUNT = 12;
+const CHUNK_ACCUMULATOR_MAX_CHARS = 500;
+const CHUNK_TAIL_MAX_CHARS = 120;
+const CHUNK_EXPANDED_MAX_LINES = 20;
+const MAX_WIDGET_HEIGHT_FRACTION = 0.2;
+const MIN_WIDGET_LINES = 3;
+
 import { EventPressure, pressureToInterval } from "../event-pressure.js";
 import { hexToColorToken, lookupColor } from "../identity/palette.js";
 import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./runner-theme.js";
@@ -101,7 +109,7 @@ export class PromptConsole {
 
 		const spinnerPool = buildPool();
 		const spinnerBlock = spinnerPool[0];
-		this.frames = Array.from({ length: 12 }, () =>
+		this.frames = Array.from({ length: SPINNER_FRAME_COUNT }, () =>
 			spinnerBlock ? randomCodePoint(spinnerBlock) : glyph("state:active"),
 		);
 
@@ -226,7 +234,7 @@ export class PromptConsole {
 			}
 			return;
 		}
-		const maxLines = Math.max(3, Math.floor(this.tui.terminal.rows * 0.2));
+		const maxLines = Math.max(MIN_WIDGET_LINES, Math.floor(this.tui.terminal.rows * MAX_WIDGET_HEIGHT_FRACTION));
 		const lines = text.split("\n");
 		const truncated =
 			lines.length > maxLines ? [...lines.slice(0, maxLines), `  … ${lines.length - maxLines} more`] : lines;
@@ -313,10 +321,10 @@ export class PromptConsole {
 		const entry = this.inFlightCalls.get(callId);
 		if (entry) {
 			const accumulated = (this.chunkAccumulators.get(callId) ?? "") + text;
-			this.chunkAccumulators.set(callId, accumulated.slice(-500));
+			this.chunkAccumulators.set(callId, accumulated.slice(-CHUNK_ACCUMULATOR_MAX_CHARS));
 			const lines = accumulated.split("\n").filter((l) => l.trim());
-			entry.lastChunk = (lines.at(-1) ?? "").slice(-120);
-			entry.expandedChunks = lines.slice(-20);
+			entry.lastChunk = (lines.at(-1) ?? "").slice(-CHUNK_TAIL_MAX_CHARS);
+			entry.expandedChunks = lines.slice(-CHUNK_EXPANDED_MAX_LINES);
 		}
 	}
 

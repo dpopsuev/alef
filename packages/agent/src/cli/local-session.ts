@@ -27,6 +27,9 @@ import { buildSubagentFactory } from "../subagent-factory.js";
 import type { AdapterLoadResult } from "./load-adapters.js";
 import { getTheme, setTheme } from "./runner-theme.js";
 
+const DIRECTIVE_BUDGET_FRACTION = 0.1;
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+
 const adapterSignalMaps = new Map<string, SignalMapper>();
 
 function registerAdapterSignalMaps(
@@ -152,9 +155,7 @@ export async function createLocalSession(
 
 	const directives = await buildDirectiveSet(args, adapters);
 
-	const CONTEXT_FRACTION = 0.1;
-	const CHARS_PER_TOKEN = 4;
-	const directivesBudgetChars = Math.floor(model.contextWindow * CONTEXT_FRACTION * CHARS_PER_TOKEN);
+	const directivesBudgetChars = Math.floor(model.contextWindow * DIRECTIVE_BUDGET_FRACTION * CHARS_PER_TOKEN_ESTIMATE);
 	const thinkingState = {
 		level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
 	};

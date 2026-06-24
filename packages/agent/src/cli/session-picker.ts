@@ -48,6 +48,7 @@ async function readFirstUserMessage(jsonlPath: string): Promise<string> {
 }
 
 const TAIL_BYTES = 32_768;
+const SESSION_PREVIEW_BATCH_SIZE = 20;
 
 async function readFileTail(path: string, bytes: number): Promise<string> {
 	const info = await stat(path);
@@ -99,14 +100,14 @@ export async function pickSession(
 	if (sessions.length === 0) return undefined;
 
 	const [names, previews] = await Promise.all([
-		Promise.all(sessions.slice(0, 20).map((s) => readSessionName(s.path))),
-		Promise.all(sessions.slice(0, 20).map((s) => readFirstUserMessage(s.path))),
+		Promise.all(sessions.slice(0, SESSION_PREVIEW_BATCH_SIZE).map((s) => readSessionName(s.path))),
+		Promise.all(sessions.slice(0, SESSION_PREVIEW_BATCH_SIZE).map((s) => readFirstUserMessage(s.path))),
 	]);
 
 	const sessionPaths = new Map<string, string>();
 	const items: SelectItem[] = [
 		{ value: "__new__", label: "New session", description: "Start fresh" },
-		...sessions.slice(0, 20).map((s, i) => {
+		...sessions.slice(0, SESSION_PREVIEW_BATCH_SIZE).map((s, i) => {
 			sessionPaths.set(s.id, s.path);
 			return {
 				value: s.id,

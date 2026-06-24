@@ -12,6 +12,7 @@ export interface DashboardFooterOptions {
 	dimStyle: (text: string) => string;
 	warnStyle: (text: string) => string;
 	errorStyle: (text: string) => string;
+	buildInfo?: { version: string; gitHash: string };
 }
 
 function fmtTokens(n: number): string {
@@ -35,6 +36,7 @@ function getGitBranch(cwd: string): string | undefined {
 		return undefined;
 	}
 }
+
 
 function renderContextBar(
 	used: number,
@@ -101,6 +103,10 @@ export class DashboardFooter implements Component {
 
 		const thinkingSuffix = s.thinkingLevel && s.thinkingLevel !== "none" ? ` (${s.thinkingLevel})` : "";
 		segments.push(style(`${modelShort}${thinkingSuffix}`));
+
+		if (this.opts.buildInfo) {
+			segments.push(dimStyle(`v${this.opts.buildInfo.version}@${this.opts.buildInfo.gitHash}`));
+		}
 
 		const statsLine = segments.join(dimStyle("  "));
 		const statsWidth = visibleWidth(statsLine);

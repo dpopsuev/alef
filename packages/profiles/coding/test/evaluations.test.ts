@@ -2,7 +2,8 @@
  * Real-LLM evaluation suite.
  *
  * Each evaluation is its own it() — vitest reports per-test progress.
- * Tests run sequentially within the describe (LLM rate limits).
+ * Uses the production LLM adapter (buildLlmAdapter) to match the
+ * interactive session path exactly.
  *
  * Run:
  *   ALEF_TEST_LLM=1 npx vitest run --tags-filter=real-llm packages/profiles/coding/test/evaluations.test.ts
@@ -11,7 +12,6 @@
 
 import { resolve } from "node:path";
 
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../../core/eval/src/evaluation.js";
@@ -23,6 +23,8 @@ import type { EvaluationResult } from "../../../core/eval/src/index.js";
 import { EvalHarness, EvaluationRunner } from "../../../core/eval/src/index.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../../core/eval/src/model.js";
 import { appendRunRecord, buildRunRecord, loadRunHistory, writeScoreboard } from "../../../core/eval/src/scoreboard.js";
+import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
+import { parseArgs } from "../../../agent/src/args.js";
 import { createCodingAgentStack } from "../src/index.js";
 
 const BENCHMARK_PATH = resolve(__dirname, "../../../core/eval/benchmark.jsonl");
@@ -64,6 +66,7 @@ function stubFactory(modelId: string, contextWindow: number) {
 async function runEval(evaluation: Evaluation): Promise<EvaluationResult> {
 	const harness = new EvalHarness();
 	const model = getEvalModel();
+	const args = { ...parseArgs([]), noTui: true };
 	const runner = new EvaluationRunner(harness, {
 		asyncAdapterFactory: async (workspace, signal) => {
 			const sessionStore = new InMemorySessionStore();
@@ -74,11 +77,14 @@ async function runEval(evaluation: Evaluation): Promise<EvaluationResult> {
 				sessionStore,
 				subagentFactory: stubFactory(model.id, model.contextWindow),
 			});
-			const llm = createAgentLoop({
+			const llm = buildLlmAdapter({
 				model,
+				cfg: {},
+				args: { ...args, cwd: workspace },
+				thinkingState: { level: undefined },
+				getModel: () => model,
 				getSignal: () => signal,
 				schemaResolver: (name) => stack.pipeline.getSchemaResolver()?.(name),
-				phaseTimeoutMs: 100,
 			});
 			return [...stack.adapters, llm];
 		},

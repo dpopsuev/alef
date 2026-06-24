@@ -1,12 +1,15 @@
 /**
  * Regression: directives must reach the LLM as a system prompt.
  * Without this, the agent runs with zero instructions — no identity, no format rules.
+ *
+ * Uses the Context Window Reconstructor to verify the context at turn 0.
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
+import { buildSessionIndex, reconstructTurn } from "@dpopsuev/alef-session";
 import pino from "pino";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -74,5 +77,13 @@ describe("system prompt injection — directives reach the LLM", { tags: ["e2e"]
 		const parsed = JSON.parse(directivesLog!) as { blocks: number; chars: number };
 		expect(parsed.blocks).toBeGreaterThan(5);
 		expect(parsed.chars).toBeGreaterThan(500);
+
+		const records = await store.events();
+		const index = buildSessionIndex(records);
+		const snapshot = reconstructTurn(index, 0);
+
+		expect(snapshot, "reconstructor must find turn 0").toBeDefined();
+		expect(snapshot!.conversationHistory, "turn 0 must have conversation history").toBeDefined();
+		expect(snapshot!.messageCount).toBeGreaterThan(0);
 	});
 });

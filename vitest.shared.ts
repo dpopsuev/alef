@@ -55,7 +55,7 @@ export default defineConfig({
 		// applied, causing module duplication that breaks shared singletons.
 		// resolve.alias applies globally and fixes this.
 		alias: {
-			"@dpopsuev/alef-llm": resolve(MONOREPO_ROOT, "packages/llm/src/index.ts"),
+			"@dpopsuev/alef-llm": resolve(MONOREPO_ROOT, "packages/core/llm/src/index.ts"),
 		},
 	},
 	test: {

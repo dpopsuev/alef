@@ -1,8 +1,8 @@
 /**
  * Coding agent real-LLM eval suite.
  *
- * Uses defineEvalSuite from core/eval — all boilerplate is upstream.
- * This file only provides: the eval list + the agent factory.
+ * Uses createHeadlessAgent — the same assembly as production minus TUI.
+ * The eval is: production headless + eval harness. Nothing more.
  *
  * Run:
  *   ALEF_TEST_LLM=1 npx vitest run --tags-filter=real-llm packages/profiles/coding/test/evaluations.test.ts
@@ -18,10 +18,7 @@ import * as toolUseEvals from "../../../core/eval/src/evaluations/tool-use-regre
 import * as writeEvals from "../../../core/eval/src/evaluations/write.js";
 import { defineEvalSuite, stubSessionFactory } from "../../../core/eval/src/index.js";
 import { getEvalModel } from "../../../core/eval/src/model.js";
-import { buildAgent } from "../../../agent/src/agent-kernel.js";
-import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
-import { parseArgs } from "../../../agent/src/args.js";
-import { createDefaultDirectives, registerAdapters } from "../../../agent/src/prompt.js";
+import { createAgent } from "../../../agent/src/create-agent.js";
 import { createCodingAgentStack } from "../src/index.js";
 
 defineEvalSuite({
@@ -42,12 +39,12 @@ defineEvalSuite({
 		toolUseEvals.singleToolCall,
 		toolUseEvals.multiToolCall,
 		toolUseEvals.grepThenRead,
+		toolUseEvals.openEndedExploration,
 		toolUseEvals.complexMultiTool,
 		toolUseEvals.writeFile,
 	],
 	agentFactory: async (workspace, signal) => {
 		const model = getEvalModel();
-		const args = { ...parseArgs([]), cwd: workspace, noTui: true };
 		const sessionStore = new InMemorySessionStore();
 		const stack = await createCodingAgentStack({
 			cwd: workspace,
@@ -56,23 +53,12 @@ defineEvalSuite({
 			sessionStore,
 			subagentFactory: stubSessionFactory(model.id, model.contextWindow),
 		});
-		const directives = createDefaultDirectives({ tools: stack.adapters.flatMap((o) => o.tools), cwd: workspace });
-		registerAdapters(directives, stack.adapters);
-		const budgetChars = Math.floor(model.contextWindow * 0.1 * 4);
-		const systemPrompt = directives.build(budgetChars);
-
-		const llm = buildLlmAdapter({
+		const { agent } = await createAgent({
+			cwd: workspace,
 			model,
-			cfg: {},
-			args,
-			thinkingState: { level: undefined },
-			getModel: () => model,
+			adapters: stack.adapters,
 			getSignal: () => signal,
-			schemaResolver: (name) => stack.pipeline.getSchemaResolver()?.(name),
-			systemPrompt,
 		});
-		const agent = buildAgent({ llm, loopThreshold: 10 });
-		for (const adapter of stack.adapters) agent.load(adapter);
 		return agent;
 	},
 	benchmarkPath: resolve(__dirname, "../../../core/eval/benchmark.jsonl"),

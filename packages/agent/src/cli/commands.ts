@@ -7,14 +7,14 @@
  */
 
 import { getModels, getProviders } from "@dpopsuev/alef-llm";
-import type { SelectItem } from "@dpopsuev/alef-tui";
+import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { getConfig } from "../config.js";
 import { buildModel, resolveProfile } from "../model/index.js";
 import { CommandRegistry } from "./command-registry.js";
 import type { TuiHandlerContext } from "./command-types.js";
 import { openConfigPicker, openEnumPicker } from "./config-picker.js";
-import { openPicker } from "./picker.js";
+import { buildPickerTheme, openPicker } from "./picker.js";
 import { getProviderColor } from "./provider-colors.js";
 import { color, setThemeByName, statusGlyph } from "./runner-theme.js";
 
@@ -64,26 +64,80 @@ function buildModelItems(): SelectItem[] {
 	return items;
 }
 
-function openModelPicker(ctx: TuiHandlerContext): void {
-	const current = ctx.session.getModel() ?? "";
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+
+function buildModelSubmenu(currentValue: string, done: (value?: string) => void, ctx: TuiHandlerContext) {
 	const items = buildModelItems().map((item) => ({
 		...item,
-		label: current.includes(item.value.split("/").pop() ?? "") ? `${item.label} *` : item.label,
+		label: currentValue.includes(item.value.split("/").pop() ?? "") ? `${item.label} *` : item.label,
 	}));
+	const theme = buildPickerTheme(ctx.t);
+	const list = new SelectList(items, 12, theme).enableSearch();
+	list.onSelect = (item: SelectItem) => {
+		try {
+			buildModel(item.value);
+			done(item.value);
+		} catch (e) {
+			ctx.writer.addNotice(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+			done();
+		}
+	};
+	list.onCancel = () => done();
+	return list;
+}
 
-	openPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
-		id: "model-picker",
-		items,
-		onSelect: (item) => {
-			try {
-				buildModel(item.value);
-				ctx.session.setModel(item.value);
-				ctx.writer.addNotice(`Model switched to ${item.value}.`);
-			} catch (e) {
-				ctx.writer.addNotice(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+function openModelPicker(ctx: TuiHandlerContext): void {
+	const settingsItems: SettingItem[] = [
+		{
+			id: "model",
+			label: "Model",
+			currentValue: ctx.session.getModel(),
+			description: "LLM model for this session. Enter to browse.",
+			submenu: (currentValue, done) => buildModelSubmenu(currentValue, done, ctx),
+		},
+		{
+			id: "thinking",
+			label: "Thinking",
+			currentValue: ctx.session.getThinking(),
+			values: [...THINKING_LEVELS],
+			description: "Extended thinking depth. Space/Enter to cycle.",
+		},
+	];
+
+	const settingsTheme = {
+		label: (s: string, sel: boolean) => (sel ? color(s, ctx.t.accentFg) : s),
+		value: (s: string, sel: boolean) => (sel ? color(s, ctx.t.accentFg) : color(s, ctx.t.mutedFg)),
+		description: (s: string) => color(s, ctx.t.mutedFg),
+		cursor: color("→ ", ctx.t.accentFg),
+		hint: (s: string) => color(s, ctx.t.mutedFg),
+	};
+
+	const close = () => {
+		ctx.dispatch({ type: "overlay.hide", id: "model-picker" });
+		ctx.tui.requestRender();
+	};
+
+	const settings = new SettingsList(
+		settingsItems,
+		10,
+		settingsTheme,
+		(id, value) => {
+			if (id === "model") {
+				ctx.session.setModel(value);
+				ctx.writer.addNotice(`Model switched to ${value}.`);
+			}
+			if (id === "thinking") {
+				ctx.session.setThinking(value);
+				ctx.writer.addNotice(`Thinking set to "${value}".`);
 			}
 			ctx.tui.requestRender();
 		},
+		close,
+	);
+
+	ctx.dispatch({
+		type: "overlay.show",
+		descriptor: { id: "model-picker", component: settings, handleInput: (d: string) => settings.handleInput(d) },
 	});
 }
 
@@ -461,8 +515,6 @@ const model = {
 		openModelPicker(ctx);
 	},
 };
-
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 
 const think = {
 	name: "think",

@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../../core/eval/src/evaluation.js";
 import * as multiTurnEvals from "../../../core/eval/src/evaluations/multi-turn.js";
 import * as readOnlyEvals from "../../../core/eval/src/evaluations/read-only.js";
+import * as toolUseEvals from "../../../core/eval/src/evaluations/tool-use-regression.js";
 import * as writeEvals from "../../../core/eval/src/evaluations/write.js";
 import type { EvaluationResult } from "../../../core/eval/src/index.js";
 import { EvalHarness, EvaluationRunner } from "../../../core/eval/src/index.js";
@@ -49,6 +50,10 @@ const ALL_EVALS: Evaluation[] = [
 	multiTurnEvals.proposeFirst,
 	multiTurnEvals.memoRecall,
 	multiTurnEvals.approveProposal,
+	// Tool-use regression (3)
+	toolUseEvals.singleToolCall,
+	toolUseEvals.multiToolCall,
+	toolUseEvals.grepThenRead,
 ];
 
 // ---------------------------------------------------------------------------

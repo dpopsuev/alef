@@ -166,14 +166,11 @@ export class SettingsList implements Component {
 	}
 
 	handleInput(data: string): void {
-		// If submenu is active, delegate all input to it
-		// The submenu's onCancel (triggered by escape) will call done() which closes it
 		if (this.submenuComponent) {
 			this.submenuComponent.handleInput?.(data);
 			return;
 		}
 
-		// Main list input handling
 		const kb = getKeybindings();
 		const displayItems = this.searchEnabled ? this.filteredItems : this.items;
 		if (kb.matches(data, "tui.select.up")) {
@@ -182,18 +179,29 @@ export class SettingsList implements Component {
 		} else if (kb.matches(data, "tui.select.down")) {
 			if (displayItems.length === 0) return;
 			this.selectedIndex = this.selectedIndex === displayItems.length - 1 ? 0 : this.selectedIndex + 1;
-		} else if (kb.matches(data, "tui.select.confirm") || data === " ") {
+		} else if (kb.matches(data, "tui.input.tab")) {
+			this.cycleSelectedItem(1);
+		} else if (data === "\x1b[Z") {
+			this.cycleSelectedItem(-1);
+		} else if (kb.matches(data, "tui.select.confirm")) {
 			this.activateItem();
 		} else if (kb.matches(data, "tui.select.cancel")) {
 			this.onCancel();
 		} else if (this.searchEnabled && this.searchInput) {
 			const sanitized = data.replace(/ /g, "");
-			if (!sanitized) {
-				return;
-			}
+			if (!sanitized) return;
 			this.searchInput.handleInput(sanitized);
 			this.applyFilter(this.searchInput.getValue());
 		}
+	}
+
+	private cycleSelectedItem(direction: 1 | -1): void {
+		const item = this.searchEnabled ? this.filteredItems[this.selectedIndex] : this.items[this.selectedIndex];
+		if (!item?.values || item.values.length === 0) return;
+		const currentIndex = item.values.indexOf(item.currentValue);
+		const len = item.values.length;
+		const nextIndex = (currentIndex + direction + len) % len;
+		item.currentValue = item.values[nextIndex];
 	}
 
 	private activateItem(): void {
@@ -201,7 +209,6 @@ export class SettingsList implements Component {
 		if (!item) return;
 
 		if (item.submenu) {
-			// Open submenu, passing current value so it can pre-select correctly
 			this.submenuItemIndex = this.selectedIndex;
 			this.submenuComponent = item.submenu(item.currentValue, (selectedValue?: string) => {
 				if (selectedValue !== undefined) {
@@ -210,13 +217,8 @@ export class SettingsList implements Component {
 				}
 				this.closeSubmenu();
 			});
-		} else if (item.values && item.values.length > 0) {
-			// Cycle through values
-			const currentIndex = item.values.indexOf(item.currentValue);
-			const nextIndex = (currentIndex + 1) % item.values.length;
-			const newValue = item.values[nextIndex];
-			item.currentValue = newValue;
-			this.onChange(item.id, newValue);
+		} else {
+			this.onChange(item.id, item.currentValue);
 		}
 	}
 
@@ -240,8 +242,8 @@ export class SettingsList implements Component {
 			truncateToWidth(
 				this.theme.hint(
 					this.searchEnabled
-						? "  Type to search · Enter/Space to change · Esc to cancel"
-						: "  Enter/Space to change · Esc to cancel",
+						? "  Type to search · Tab/Shift+Tab cycle · Enter submit · Esc cancel"
+						: "  Tab/Shift+Tab cycle · Enter submit · Esc cancel",
 				),
 				width,
 			),

@@ -81,6 +81,7 @@ export class SessionHandle implements Session {
 		const supportsThinking = this._currentModel.reasoning && !this._currentModel.id.includes("haiku");
 		if (!supportsThinking) this._thinkingState.level = undefined;
 		else if (!this._thinkingState.level) this._thinkingState.level = "medium";
+		this._notifyStateChanged();
 	}
 
 	getThinking(): string {
@@ -89,6 +90,17 @@ export class SessionHandle implements Session {
 
 	setThinking(level: string): void {
 		this._thinkingState.level = level === "off" ? undefined : (level as ThinkingLevel);
+		this._notifyStateChanged();
+	}
+
+	private _notifyStateChanged(): void {
+		const event: AgentEvent = {
+			type: "state-changed",
+			modelId: this._currentModel.id,
+			thinking: this._thinkingState.level ?? "off",
+			contextWindow: this._currentModel.contextWindow,
+		};
+		for (const obs of this._observers) obs(event);
 	}
 
 	setTurnController(ctrl: AbortController | undefined): void {

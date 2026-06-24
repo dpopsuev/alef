@@ -47,7 +47,8 @@ export type AgentEvent =
 	| { type: "task-progress"; taskId: string; chunk: string }
 	| { type: "task-completed"; taskId: string; profile: string; reply: string; elapsedMs: number }
 	| { type: "task-failed"; taskId: string; profile: string; error: string; elapsedMs: number }
-	| { type: "adapter-signal"; signalType: string; payload: Record<string, unknown> };
+	| { type: "adapter-signal"; signalType: string; payload: Record<string, unknown> }
+	| { type: "state-changed"; modelId: string; thinking: string; contextWindow: number };
 
 // ---------------------------------------------------------------------------
 // DirectiveView — the minimal surface Session exposes from the directive system.

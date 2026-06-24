@@ -7,16 +7,16 @@ description: Use when debugging Alef itself — hung tools, TUI glitches, LLM lo
 
 ## Log system overview
 
-All logging is unified under session JSONL. One file per session, structured records, one activation knob.
+All logging is unified under session storage. One session per ID, structured records, one activation knob.
 
-**Location:** `~/.alef/sessions/<cwd-hash>/<session-id>.jsonl`
+**Storage:** SQLite at `~/.alef/alef.db` (tables: `sessions`, `events`, `daemon`)
 
 **Record schema:**
 ```json
 {"bus":"debug","type":"boot","correlationId":"debug","payload":{"pid":12345,"cwd":"/path","model":"claude-sonnet-4-5","tui":true},"timestamp":1719000000000}
 ```
 
-Buses: `motor` (LLM commands), `sense` (tool results), `signal` (telemetry), `debug` (lifecycle/diagnostics).
+Buses: `command` (tool commands), `event` (tool results), `notification` (telemetry), `debug` (lifecycle/diagnostics).
 
 **Activation:**
 - `--debug` flag — sets pino level to `debug`, all events visible on stderr
@@ -26,21 +26,20 @@ Buses: `motor` (LLM commands), `sense` (tool results), `signal` (telemetry), `de
 ## Start here
 
 ```bash
-# Find the session JSONL for current cwd
-HASH=$(echo -n $(pwd) | sha1sum | cut -c1-12)
-SESSION=$(ls -t ~/.alef/sessions/$HASH/*.jsonl | head -1)
+# List sessions for current cwd
+alef debug session --list
 
-# Watch debug events live
-tail -f "$SESSION" | jq 'select(.bus == "debug")'
+# Inspect most recent session (tool-call pairing analysis)
+alef debug session
+
+# Query session events from SQLite
+sqlite3 ~/.alef/alef.db "SELECT bus, type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' ORDER BY timestamp"
 
 # Filter by event type
-jq 'select(.type == "tool:start")' "$SESSION"
-
-# Filter by correlationId (traces a single tool call end-to-end)
-jq 'select(.correlationId == "CORR_ID")' "$SESSION"
+sqlite3 ~/.alef/alef.db "SELECT payload FROM events WHERE session_id='SESSION_ID' AND type='tool:start'"
 
 # All errors
-jq 'select(.bus == "debug" and (.type | test("error|failed")))' "$SESSION"
+sqlite3 ~/.alef/alef.db "SELECT type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' AND type LIKE '%error%' OR type LIKE '%failed%'"
 ```
 
 ## Event reference
@@ -98,8 +97,8 @@ jq 'select(.bus == "debug" and (.type | test("error|failed")))' "$SESSION"
 | type | Key fields | What it means |
 |---|---|---|
 | `stream action failed` | `op, correlationId, err` | typedStreamAction generator threw |
-| `corpus action failed` | `op, correlationId, err` | typedAction handler threw |
-| `cerebrum action failed` | `op, correlationId, err` | sense-side action threw |
+| `command action failed` | `op, correlationId, err` | typedAction handler threw |
+| `event action failed` | `op, correlationId, err` | event-side action threw |
 | `tool:schema-rejected` | `name, field, issues` | LLM passed invalid args |
 
 ### fs.find events (bus: "debug")
@@ -134,7 +133,7 @@ Reproduce the exact fd command:
 fd --glob --color=never --no-require-git --max-results 1000 --hidden -- "<pattern>" "<cwd>"
 ```
 
-Kill timer: `packages/adapter-fs/src/find-query.ts` — fires at 30s.
+Kill timer: `packages/tools/fs/src/find-query.ts` — fires at 30s.
 
 ## TUI frame capture (ALEF_DEBUG=1 only)
 
@@ -158,18 +157,18 @@ jq 'select(.type == "directives:built") | .payload.ids' "$SESSION"
 If directives aren't working, check:
 1. `alef --list-directives` — are no-emojis and no-files listed?
 2. `jq 'select(.type == "directives:built")' "$SESSION"` — were they loaded at boot?
-3. The ablation test: `ALEF_TEST_LLM=1 npx vitest run packages/runner/test/directive-ablation.test.ts`
+3. Run headless to verify: `alef --no-tui -p "what directives are loaded?" 2>&1 | grep directives`
 
 ## Daemon debugging
 
 When running with `--daemon`:
-- Registry: `~/.alef/daemon.json`
+- Registry: SQLite table `daemon` in `~/.alef/alef.db`
 - Attach: `alef --attach` connects to SSE on `http://127.0.0.1:<port>/events`
 
 ```bash
-cat ~/.alef/daemon.json | jq .
-curl http://127.0.0.1:$(jq .port ~/.alef/daemon.json)/health
-curl -N http://127.0.0.1:$(jq .port ~/.alef/daemon.json)/events
+alef --list-daemons          # Show running daemons
+alef --attach last            # Attach to most recent daemon
+alef --kill-daemon <id>       # Stop a daemon by session ID
 ```
 
 ## Missing instrumentation (known gaps)
@@ -181,40 +180,33 @@ curl -N http://127.0.0.1:$(jq .port ~/.alef/daemon.json)/events
 
 | Concern | File |
 |---|---|
-| `debugLog()` + `initSpineLogger()` | `packages/kernel/src/debug.ts` |
-| Logger creation | `packages/runner/src/logger.ts` |
-| `ctx.log` stamping | `packages/kernel/src/adapter-dispatch.ts` |
-| adapter-llm events | `packages/adapter-llm/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
-| delegation events | `packages/adapter-delegate/src/adapter.ts`, `packages/runner/src/strategies/in-process.ts` |
-| `tools:describe:miss` | `packages/runner/src/tool-shell.ts` |
-| fd subprocess + kill timer | `packages/adapter-fs/src/find-query.ts` |
-| Session JSONL format | `packages/session/src/session-store.ts` |
-| Daemon registry + SSE | `packages/runner/src/build-delegation.ts` |
+| `debugLog()` + `initSessionSink()` | `packages/core/kernel/src/debug.ts` |
+| Logger creation | `packages/agent/src/logger.ts` |
+| `ctx.log` stamping | `packages/core/kernel/src/adapter-dispatch.ts` |
+| reasoner events | `packages/core/reasoner/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
+| delegation events | `packages/core/runtime/src/delegation.ts`, `in-process.ts` |
+| `tools:describe:miss` | `packages/core/runtime/src/tool-catalog.ts` |
+| fd subprocess + kill timer | `packages/tools/fs/src/find-query.ts` |
+| Session store (SQLite) | `packages/core/storage/src/session-store.ts` |
+| Session store (JSONL) | `packages/core/session/src/session-store.ts` |
+| Daemon registry + SSE | `packages/agent/src/build-delegation.ts` |
+| AgentRuntime | `packages/agent/src/agent-runtime.ts` |
 
 ## Quick reference
 
 ```bash
-# Find session JSONL
-HASH=$(echo -n $(pwd) | sha1sum | cut -c1-12)
-SESSION=$(ls -t ~/.alef/sessions/$HASH/*.jsonl | head -1)
+# List sessions, inspect latest
+alef debug session --list
+alef debug session
+
+# Query events from SQLite (replace SESSION_ID)
+sqlite3 -json ~/.alef/alef.db "SELECT type, json_extract(payload,'$.name') as name, json_extract(payload,'$.elapsedMs') as ms FROM events WHERE session_id='SESSION_ID' AND type='tool:end'"
 
 # All debug events
-jq 'select(.bus == "debug")' "$SESSION"
-
-# Tool timing summary
-jq 'select(.type == "tool:end") | {name: .payload.name, elapsedMs: .payload.elapsedMs, ok: .payload.ok}' "$SESSION"
-
-# LLM call timing
-jq 'select(.type == "llm:http:done" or .type == "llm:http:error")' "$SESSION"
-
-# All delegation attempts
-jq 'select(.type | test("delegate:|in-process:"))' "$SESSION"
-
-# Context window fill per turn
-jq -r 'select(.type=="window.assembled") | "\(.payload.budgetUsed)/\(.payload.budgetTotal) = \((.payload.budgetUsed/.payload.budgetTotal*100)|round)%"' "$SESSION"
+sqlite3 ~/.alef/alef.db "SELECT type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' ORDER BY timestamp"
 
 # Run headless to capture everything to terminal
-ALEF_LOG_LEVEL=debug alef --no-tui -p "your prompt here" 2>&1 | jq .
+ALEF_DEBUG=1 alef --no-tui -p "your prompt here" 2>&1
 ```
 
 ## CLI introspection (no TUI required)
@@ -226,6 +218,14 @@ alef --show-config         # Parsed config.yaml
 alef --list-directives     # Directive blocks with priorities
 alef --list-tools          # Loaded tools
 alef --list-adapters       # Loaded adapters with labels
+alef --migrate             # Import legacy JSONL sessions to SQLite
+alef --replay <id|last>    # Replay recorded session (zero tokens)
+alef --daemon              # Run headless, expose HTTP/SSE
+alef --attach <id|last>    # Attach TUI to running daemon
+alef --list-daemons        # Show running daemons
+alef --kill-daemon <id>    # Stop a running daemon
+alef --serve <port>        # Expose HTTP/SSE bridge on port
+alef --thinking <level>    # Set extended thinking: off, low, medium, high
 ```
 
 ## Model profiles

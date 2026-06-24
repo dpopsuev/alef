@@ -220,12 +220,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 	}
 
 	function getPromotedTools(): ToolDefinition[] {
-		const tools = resolveTools();
-		const stripped = getStripped(tools);
-		const promoted = tools.map((t) =>
-			tracker.isPromoted(t.name) ? t : (stripped.find((s) => s.name === t.name) ?? t),
-		);
-		return [...promoted, DESCRIBE_TOOL];
+		return [...resolveTools(), DESCRIBE_TOOL];
 	}
 
 	// ---------------------------------------------------------------------------

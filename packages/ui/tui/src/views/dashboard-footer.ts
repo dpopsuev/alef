@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import type { Component } from "../component.js";
+import { ProgressBar } from "../components/progress-bar.js";
 import { numericInterpolator, SlotMachine } from "../components/slot-machine.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 import type { TuiStateStore } from "./state.js";
@@ -39,6 +40,10 @@ function getGitBranch(cwd: string): string | undefined {
 }
 
 
+const CONTEXT_FILL_ERROR = 0.9;
+const CONTEXT_FILL_WARN = 0.7;
+const CONTEXT_FILL_ACCENT = 0.5;
+
 function renderContextBar(
 	used: number,
 	total: number,
@@ -50,13 +55,18 @@ function renderContextBar(
 ): string {
 	if (total <= 0 || used <= 0) return "";
 	const fill = Math.min(used / total, 1);
-	const filled = Math.round(fill * barWidth);
-	const empty = barWidth - filled;
-	const bar = "█".repeat(filled) + "░".repeat(empty);
+	const pb = new ProgressBar({ value: used, max: total });
+	const bar = pb.format(barWidth);
 	const label = `${fmtTokens(used)}/${fmtTokens(total)}`;
-	const colorFn = fill > 0.9 ? errorStyle : fill > 0.7 ? warnStyle : fill > 0.5 ? style : dimStyle;
-	const autoSuffix = "";
-	return `ctx ${colorFn(bar)} ${dimStyle(label)}${autoSuffix}`;
+	const colorFn =
+		fill > CONTEXT_FILL_ERROR
+			? errorStyle
+			: fill > CONTEXT_FILL_WARN
+				? warnStyle
+				: fill > CONTEXT_FILL_ACCENT
+					? style
+					: dimStyle;
+	return `ctx ${colorFn(bar)} ${dimStyle(label)}`;
 }
 
 export type FooterPanel = DashboardFooter;

@@ -7,10 +7,10 @@ import {
 	type EditorTheme,
 	numericInterpolator,
 	type SelectListTheme,
+	SeparatorLine,
 	SlotMachine,
 	Text,
 	type TUI,
-	visibleWidth,
 } from "@dpopsuev/alef-tui";
 export type { Component };
 
@@ -18,26 +18,20 @@ import { CommandHintGrid } from "./command-hint-grid.js";
 import { registry } from "./commands.js";
 
 class EditorWrapper implements Component {
-	private modeLabel = "";
+	private readonly topBorder = new SeparatorLine();
+	private readonly bottomBorder = new SeparatorLine();
 
 	constructor(private readonly inner: Editor) {}
 
 	setModeLabel(label: string): void {
-		this.modeLabel = label;
+		this.bottomBorder.setLabel(label);
 	}
 
 	render(width: number): string[] {
 		const lines = this.inner.render(width);
 		if (lines.length < 2) return lines;
-		lines[0] = "─".repeat(width);
-		const last = lines.length - 1;
-		if (this.modeLabel) {
-			const text = ` ${this.modeLabel} `;
-			const textWidth = visibleWidth(text);
-			lines[last] = `─${text}${"─".repeat(Math.max(0, width - textWidth - 1))}`;
-		} else {
-			lines[last] = "─".repeat(width);
-		}
+		lines[0] = this.topBorder.render(width)[0];
+		lines[lines.length - 1] = this.bottomBorder.render(width)[0];
 		return lines;
 	}
 
@@ -74,8 +68,7 @@ export class PromptConsole {
 	private readonly t: ThemeTokens;
 
 	private readonly pendingFooter: DynamicText;
-	private pendingFooterFg: ColorToken = { ansi16: 96 };
-	private pendingFooterBgFn: ((s: string) => string) | null = null;
+	private pendingFooterStyle: (s: string) => string = (s) => s;
 	private pendingFooterActive = false;
 
 	private readonly inFlightQueue = new Container();
@@ -133,9 +126,7 @@ export class PromptConsole {
 
 		this.pendingFooter = new DynamicText((w) => {
 			if (!this.pendingFooterActive) return "";
-			const line = "─".repeat(Math.max(0, w));
-			const colored = color(line, this.pendingFooterFg);
-			return this.pendingFooterBgFn ? this.pendingFooterBgFn(colored) : colored;
+			return new SeparatorLine({ style: this.pendingFooterStyle }).render(w)[0];
 		});
 	}
 
@@ -342,9 +333,8 @@ export class PromptConsole {
 	}
 
 	showPendingFooter(fg: ColorToken): void {
-		this.pendingFooterFg = fg;
-		this.pendingFooterBgFn = null;
 		this.pendingFooterActive = true;
+		this.pendingFooterStyle = (s) => color(s, fg);
 		this.tui.requestRender();
 	}
 

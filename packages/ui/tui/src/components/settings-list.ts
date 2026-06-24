@@ -1,6 +1,6 @@
 import type { Component } from "../component.js";
 import { fuzzyFilter } from "../fuzzy.js";
-import { getKeybindings } from "../keybindings.js";
+import { type Keybindings, getKeybindings } from "../keybindings.js";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "../utils.js";
 import { Input } from "./input.js";
 
@@ -13,7 +13,7 @@ export interface SettingItem {
 	description?: string;
 	/** Current value to display (right side) */
 	currentValue: string;
-	/** If provided, Enter/Space cycles through these values */
+	/** If provided, Tab/Shift+Tab cycles through these values; Enter submits */
 	values?: string[];
 	/** If provided, Enter opens this submenu. Receives current value and done callback. */
 	submenu?: (currentValue: string, done: (selectedValue?: string) => void) => Component;
@@ -165,6 +165,15 @@ export class SettingsList implements Component {
 		return lines;
 	}
 
+	private readonly keyActions: ReadonlyArray<[keyof Keybindings, () => void]> = [
+		["tui.select.up", () => this.moveSelection(-1)],
+		["tui.select.down", () => this.moveSelection(1)],
+		["tui.input.tab", () => this.cycleSelectedItem(1)],
+		["tui.input.shiftTab", () => this.cycleSelectedItem(-1)],
+		["tui.select.confirm", () => this.activateItem()],
+		["tui.select.cancel", () => this.onCancel()],
+	];
+
 	handleInput(data: string): void {
 		if (this.submenuComponent) {
 			this.submenuComponent.handleInput?.(data);
@@ -172,27 +181,25 @@ export class SettingsList implements Component {
 		}
 
 		const kb = getKeybindings();
-		const displayItems = this.searchEnabled ? this.filteredItems : this.items;
-		if (kb.matches(data, "tui.select.up")) {
-			if (displayItems.length === 0) return;
-			this.selectedIndex = this.selectedIndex === 0 ? displayItems.length - 1 : this.selectedIndex - 1;
-		} else if (kb.matches(data, "tui.select.down")) {
-			if (displayItems.length === 0) return;
-			this.selectedIndex = this.selectedIndex === displayItems.length - 1 ? 0 : this.selectedIndex + 1;
-		} else if (kb.matches(data, "tui.input.tab")) {
-			this.cycleSelectedItem(1);
-		} else if (data === "\x1b[Z") {
-			this.cycleSelectedItem(-1);
-		} else if (kb.matches(data, "tui.select.confirm")) {
-			this.activateItem();
-		} else if (kb.matches(data, "tui.select.cancel")) {
-			this.onCancel();
-		} else if (this.searchEnabled && this.searchInput) {
+		for (const [binding, action] of this.keyActions) {
+			if (kb.matches(data, binding)) {
+				action();
+				return;
+			}
+		}
+
+		if (this.searchEnabled && this.searchInput) {
 			const sanitized = data.replace(/ /g, "");
 			if (!sanitized) return;
 			this.searchInput.handleInput(sanitized);
 			this.applyFilter(this.searchInput.getValue());
 		}
+	}
+
+	private moveSelection(direction: 1 | -1): void {
+		const items = this.searchEnabled ? this.filteredItems : this.items;
+		if (items.length === 0) return;
+		this.selectedIndex = (this.selectedIndex + direction + items.length) % items.length;
 	}
 
 	private cycleSelectedItem(direction: 1 | -1): void {

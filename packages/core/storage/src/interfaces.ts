@@ -1,3 +1,4 @@
+import type { SessionStore } from "@dpopsuev/alef-session";
 import type { DaemonEntry } from "./daemon.js";
 import type { Post, ThreadInfo, TopicSummary } from "./discourse.js";
 import type { SessionSummary } from "./summary.js";
@@ -33,4 +34,21 @@ export interface AuthStore {
 	set(provider: string, key: string): Promise<void>;
 	remove(provider: string): Promise<void>;
 	list(): Promise<Array<{ provider: string; type: string }>>;
+}
+
+export interface SessionStoreFactory {
+	create(cwd: string): Promise<SessionStore>;
+	resume(cwd: string, id: string): Promise<SessionStore>;
+	resumeLatest(cwd: string): Promise<SessionStore | null>;
+	list(cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>>;
+	prune(cwd: string): Promise<number>;
+}
+
+export interface StorageFactory {
+	daemonStore(): DaemonStore;
+	summaryStore(): SummaryStore;
+	discourseStore(sessionId: string): DiscourseStore;
+	authStore(): AuthStore;
+	readonly sessions: SessionStoreFactory;
+	close(): void;
 }

@@ -4,11 +4,11 @@ import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import type { Transcript } from "@dpopsuev/alef-runtime";
+import { AgentSession } from "@dpopsuev/alef-session";
 import { assembleAgentServer } from "./assemble.js";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { buildModel } from "./model/index.js";
-import type { AgentEvent, Session, SessionState } from "./session.js";
 
 export type LlmAdapterFactory = (opts: { model: Model<Api>; systemPrompt?: string }) => Adapter;
 
@@ -105,45 +105,30 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 
 		agent.validate();
 
-		const sessionState: SessionState = {
-			id: subId,
-			modelId: resolvedModel.id,
-			contextWindow: resolvedModel.contextWindow,
-		};
-
-		const session: Session & {
-			identity: { color: string; address: string };
-			tokenUsage: { input: number; output: number };
-		} = {
-			state: sessionState,
-			getModel: () => resolvedModel.id,
-			setModel: () => {},
-			getThinking: () => "off",
-			setThinking: () => {},
-			setTurnController: () => {},
-			subscribe: (obs: (event: AgentEvent) => void) => {
-				observers.add(obs);
-				return () => observers.delete(obs);
-			},
-			async send(text: string, timeoutMs = 300_000): Promise<string> {
+		const session = new AgentSession({
+			state: { id: subId, modelId: resolvedModel.id, contextWindow: resolvedModel.contextWindow },
+			send: async (text, _sender, timeoutMs) => {
 				await agent.ready();
 				await controller.send(text, "human", timeoutMs);
 				return reply;
 			},
-			receive(text: string): void {
-				controller.receive(text, "human");
-			},
-			get identity() {
-				return { color: subActor.color, address: subActor.address };
-			},
-			get tokenUsage() {
-				return { input: totalInputTokens, output: totalOutputTokens };
-			},
-			dispose() {
+			receive: (text) => controller.receive(text, "human"),
+			dispose: () => {
 				opts.actorRoutes?.unregister(subActor.color);
 				agent.dispose();
 			},
+			observers,
+		}) as AgentSession & {
+			identity: { color: string; address: string };
+			tokenUsage: { input: number; output: number };
 		};
+
+		Object.defineProperty(session, "identity", {
+			get: () => ({ color: subActor.color, address: subActor.address }),
+		});
+		Object.defineProperty(session, "tokenUsage", {
+			get: () => ({ input: totalInputTokens, output: totalOutputTokens }),
+		});
 
 		return session;
 	};

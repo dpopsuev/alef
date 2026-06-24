@@ -260,7 +260,9 @@ traceEvent("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: 
 // Initialize local embedding model for vector recall (lazy-loads on first embed).
 import("@dpopsuev/alef-storage")
 	.then(({ setEmbedder, LocalEmbedder }) => setEmbedder(new LocalEmbedder()))
-	.catch(() => {});
+	.catch((err: unknown) => {
+		log.warn({ error: String(err) }, "embedder init failed, vector recall disabled");
+	});
 
 const sessionDir = dirname(session.path);
 const loaded = await loadAdapters(args, cfg, log, sessionDir);

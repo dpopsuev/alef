@@ -50,7 +50,9 @@ export class RemoteSession implements Session {
 				if (typeof data.thinking === "string") this._thinking = data.thinking;
 				if (typeof data.contextWindow === "number") this._contextWindow = data.contextWindow;
 			})
-			.catch(() => {});
+			.catch((err: unknown) => {
+				console.error(`[remote-session] state sync failed: ${String(err)}`);
+			});
 	}
 
 	private fetchHistory(): Promise<void> {
@@ -62,7 +64,9 @@ export class RemoteSession implements Session {
 					}
 				}
 			})
-			.catch(() => {});
+			.catch((err: unknown) => {
+				console.error(`[remote-session] history sync failed: ${String(err)}`);
+			});
 	}
 
 	private scheduleReconnect(): void {

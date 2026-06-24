@@ -142,7 +142,9 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 				tui.requestRender();
 			}
 		})
-		.catch(() => {});
+		.catch(() => {
+			// Update check is best-effort — network failures are expected.
+		});
 
 	await new Promise<void>((resolve) => {
 		tui.onStop = () => {

@@ -88,6 +88,10 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 				if (phase) applyPhaseResult(phase, messages, tools, nameMap, buildTools);
 			}
 
+			if (tools.length === 0 && turn === 1) {
+				traceEvent("llm:zero-tools", { turn, phaseTimeout: effectiveOptions.phaseTimeoutMs });
+			}
+
 			const { finalMessage, pendingCalls } = await callLLM(model, messages, tools, turn, appRetryCount, {
 				...effectiveOptions,
 				command: command,

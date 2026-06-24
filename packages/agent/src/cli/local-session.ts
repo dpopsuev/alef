@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { blueprintRegistry, loadAdapterFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaAdapter } from "@dpopsuev/alef-meta";
 import { AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
@@ -169,28 +169,26 @@ export async function createLocalSession(
 
 	const resolvedBlueprintName = loaded.blueprintName ?? "(default)";
 	const stackFactory = blueprintRegistry.resolve(loaded.blueprintName) ?? blueprintRegistry.resolve();
-	log.info(
-		{ blueprint: resolvedBlueprintName, available: blueprintRegistry.list(), resolved: !!stackFactory },
-		"blueprint:resolve",
-	);
+	if (!stackFactory) {
+		throw new Error(
+			`No blueprint factory resolved for "${resolvedBlueprintName}". ` +
+				`Available: ${blueprintRegistry.list().join(", ") || "(none)"}. ` +
+				`Ensure @dpopsuev/alef-coding-agent is imported.`,
+		);
+	}
+	log.info({ blueprint: resolvedBlueprintName, available: blueprintRegistry.list() }, "blueprint:resolve");
 
 	const subagentFactory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 
-	let stack: { adapters: Adapter[]; pipeline?: ReturnType<typeof createContextAssemblyPipeline> };
-	if (stackFactory) {
-		stack = await stackFactory({
-			cwd: args.cwd,
-			model,
-			getSignal: () => llmController?.signal,
-			sessionStore: store,
-			domainAdapters: adapters,
-			subagentFactory,
-			writableRoots: loaded.writableRoots,
-		});
-	} else {
-		const pipeline = createContextAssemblyPipeline();
-		stack = { adapters, pipeline };
-	}
+	const stack = await stackFactory({
+		cwd: args.cwd,
+		model,
+		getSignal: () => llmController?.signal,
+		sessionStore: store,
+		domainAdapters: adapters,
+		subagentFactory,
+		writableRoots: loaded.writableRoots,
+	});
 	const { pipeline } = stack;
 
 	const systemPrompt = directives.build(directivesBudgetChars);
@@ -209,7 +207,7 @@ export async function createLocalSession(
 		thinkingState,
 		getModel: () => currentModel,
 		getSignal: () => llmController?.signal,
-		schemaResolver: (name) => pipeline?.getSchemaResolver()?.(name),
+		schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
 		systemPrompt,
 	});
 

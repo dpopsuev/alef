@@ -163,7 +163,9 @@ export class ToolSupervisor {
 
 		svc.cleanup();
 		if (svc.adapter.close) {
-			await svc.adapter.close().catch(() => {});
+			await svc.adapter.close().catch((err: unknown) => {
+				traceEvent("fleet:service:close:failed", { name, error: String(err) });
+			});
 		}
 
 		await new Promise((r) => setTimeout(r, backoff));

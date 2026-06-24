@@ -40,6 +40,7 @@ export async function buildLayout(
 	tuiStore: TuiStateStore,
 	store?: SessionStore,
 ): Promise<TuiLayout> {
+	const { BUILD_INFO } = await import("../build-info.js");
 	const dashboard = new DashboardFooter({
 		sessionId: opts.sessionId,
 		cwd: opts.cwd ?? process.cwd(),
@@ -49,6 +50,7 @@ export async function buildLayout(
 		dimStyle: (s) => color(s, t.mutedFg),
 		warnStyle: (s) => color(s, { ansi16: 93 }),
 		errorStyle: (s) => color(s, { ansi16: 91 }),
+		buildInfo: BUILD_INFO,
 	});
 
 	const splash = await renderSplash();

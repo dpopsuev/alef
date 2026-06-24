@@ -15,8 +15,9 @@
 
 import { materializeDefaultAdapters } from "@dpopsuev/alef-agent-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { createToolShellAdapter } from "@dpopsuev/alef-runtime";
+import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
+import { parseArgs } from "../../../agent/src/args.js";
 import { describe, expect, it } from "vitest";
 import { fixBugWithCleanCommit } from "../../../core/eval/src/evaluations/git-workflow.js";
 import { EvalHarness } from "../../../core/eval/src/harness.js";
@@ -34,11 +35,15 @@ describe.skipIf(SKIP_REAL_LLM)("PhaseEvaluation real-LLM — fix bug with clean 
 					tools: domainAdapters.flatMap((o) => o.tools),
 					getTools: () => domainAdapters.flatMap((o) => o.tools),
 				});
-				const llm = createAgentLoop({
-					model: getEvalModel(),
+				const model = getEvalModel();
+				const llm = buildLlmAdapter({
+					model,
+					cfg: {},
+					args: { ...parseArgs([]), cwd: workspace, noTui: true },
+					thinkingState: { level: undefined },
+					getModel: () => model,
 					getSignal: () => signal,
 					schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
-					phaseTimeoutMs: 100,
 				});
 				return [...domainAdapters, toolShell, pipeline, llm];
 			},

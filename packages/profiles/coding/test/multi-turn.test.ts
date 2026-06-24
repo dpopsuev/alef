@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InMemorySessionStore } from "@dpopsuev/alef-testkit";
+import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
+import { parseArgs } from "../../../agent/src/args.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EvalHarness } from "../../../core/eval/src/harness.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../../core/eval/src/model.js";
@@ -35,17 +36,27 @@ describe.skipIf(SKIP_REAL_LLM)("multi-turn: tool result visible in follow-up tur
 				scenarioTimeoutMs: 150_000,
 				asyncAdapterFactory: async (workspace, signal) => {
 					const sessionStore = new InMemorySessionStore();
+					const stubFactory = () => ({
+						state: { id: "eval", modelId: model.id, contextWindow: model.contextWindow },
+						getModel: () => model.id, setModel: () => {}, getThinking: () => "off" as const,
+						setThinking: () => {}, setTurnController: () => {}, subscribe: () => () => {},
+						send: async () => "", dispose: () => {},
+					});
 					const stack = await createCodingAgentStack({
 						cwd: workspace,
 						model,
 						getSignal: () => signal,
 						sessionStore,
+						subagentFactory: stubFactory,
 					});
-					const llm = createAgentLoop({
+					const llm = buildLlmAdapter({
 						model,
+						cfg: {},
+						args: { ...parseArgs([]), cwd: workspace, noTui: true },
+						thinkingState: { level: undefined },
+						getModel: () => model,
 						getSignal: () => signal,
 						schemaResolver: (name) => stack.pipeline.getSchemaResolver()?.(name),
-						phaseTimeoutMs: 100,
 					});
 					return [...stack.adapters, llm];
 				},

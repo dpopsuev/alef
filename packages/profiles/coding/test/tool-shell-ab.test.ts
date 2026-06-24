@@ -14,8 +14,9 @@
 
 import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
 import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-runtime";
+import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
+import { parseArgs } from "../../../agent/src/args.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "../../../core/eval/src/evaluation.js";
 import { EvaluationRunner } from "../../../core/eval/src/evaluation-runner.js";
@@ -67,10 +68,14 @@ async function runArm(label: string, evals: Evaluation[], useToolShell: boolean)
 			// adapterFactory adds only the LLM (and ToolShellOrgan when active).
 			// phaseTimeoutMs=100 activates context.assemble for catalog lifecycle injection.
 			adapterFactory: (signal) => {
-				const llm = createAgentLoop({
-					model: getEvalModel(),
+				const model = getEvalModel();
+				const llm = buildLlmAdapter({
+					model,
+					cfg: {},
+					args: { ...parseArgs([]), noTui: true, cwd: "." },
+					thinkingState: { level: undefined },
+					getModel: () => model,
 					getSignal: () => signal,
-					...(toolShell ? { phaseTimeoutMs: 100 } : {}),
 				});
 				return toolShell ? [toolShell, llm] : [llm];
 			},

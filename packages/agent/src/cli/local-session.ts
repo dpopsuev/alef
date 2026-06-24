@@ -138,6 +138,7 @@ export async function createLocalSession(
 	humanAddress: string;
 	agentAddress: string;
 	actorRoutes: ActorRouteTable;
+	setupSurface: () => Promise<void>;
 }> {
 	const { adapters, blueprintSurfaces } = loaded;
 	registerContributions(adapters);
@@ -244,7 +245,7 @@ export async function createLocalSession(
 			return () => observers.delete(obs);
 		},
 	};
-	await setupHttpSurface(args, agent, sessionAdapter, blueprintSurfaces);
+	const setupSurface = () => setupHttpSurface(args, agent, sessionAdapter, blueprintSurfaces);
 
 	const alefAdapter = createMetaAdapter({
 		agent: {
@@ -316,5 +317,6 @@ export async function createLocalSession(
 		humanAddress: humanActor.address,
 		agentAddress: agentActor.address,
 		actorRoutes,
+		setupSurface,
 	};
 }

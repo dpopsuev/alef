@@ -272,6 +272,7 @@ const {
 	humanAddress,
 	agentAddress,
 	actorRoutes,
+	setupSurface,
 } = await createLocalSession(
 	args,
 	cfg,
@@ -281,6 +282,8 @@ const {
 	resolveStartupModel(args, loaded.blueprintModelId, cfg),
 	storage,
 );
+
+await setupSurface();
 
 if (dispatchCliOp(args, localSession)) {
 	// CLI op dispatched — it calls process.exit() internally

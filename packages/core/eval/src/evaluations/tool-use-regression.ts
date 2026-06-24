@@ -62,3 +62,24 @@ export const grepThenRead: Evaluation = {
 	expects: [{ tool: ["fs.grep", "code.search"], target: { pattern: /DB_HOST/i } }],
 	checker: all(replyContains("localhost"), toolCallsAreReal()),
 };
+
+export const complexMultiTool: Evaluation = {
+	id: "ToolUse_ComplexMultiTool",
+	toolLevel: "ReadOnly",
+	template: "ReadOnly",
+	kind: "regression",
+	seed: [
+		{ path: "src/server.ts", content: 'import http from "http";\nconst s = http.createServer();\ns.listen(3000);' },
+		{ path: "src/utils.ts", content: "export function add(a: number, b: number) { return a + b; }" },
+		{ path: "src/types.ts", content: "export interface User { id: string; name: string; }" },
+		{ path: "package.json", content: '{"name": "test-project", "version": "1.0.0"}' },
+	],
+	prompt:
+		"Find all TypeScript files, read each one, and give me a summary of what this project does. " +
+		"Also search for any imports between files.",
+	expects: [
+		{ tool: ["fs.find"] },
+		{ tool: ["fs.read", "code.read"] },
+	],
+	checker: toolCallsAreReal(),
+};

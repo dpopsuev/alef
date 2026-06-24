@@ -56,6 +56,19 @@ export interface RouterOptions {
 	 * Command event type published when onMessage is absent.
 	 */
 	triggerEvent: string;
+
+	/** Returns current session state for GET /state. */
+	getState?: () => Record<string, unknown>;
+	/** Called on POST /control { model: "..." }. */
+	onSetModel?: (id: string) => void;
+	/** Called on POST /control { thinking: "..." }. */
+	onSetThinking?: (level: string) => void;
+	/** Called on POST /cancel to abort the current turn. */
+	onCancel?: () => void;
+	/** Called on POST /reload { name, path } to hot-reload an adapter. */
+	onReloadAdapter?: (name: string, path: string) => Promise<void>;
+	/** Returns conversation history for GET /history. */
+	getHistory?: () => Record<string, unknown>[];
 }
 
 /** Resolved bind address returned by createRouterAdapter().address(). */
@@ -79,10 +92,18 @@ export class RouterAdapter implements Adapter {
 
 	private server: Server | null = null;
 	private readonly sse = new EventStream();
-	private readonly options: Required<Omit<RouterOptions, "allowedEvents" | "onMessage" | "triggerEvent">> & {
+	private readonly options: {
+		port: number;
+		host: string;
 		allowedEvents: string[];
-		onMessage?: (text: string) => void;
 		triggerEvent: string;
+		onMessage?: (text: string) => void;
+		getState?: () => Record<string, unknown>;
+		onSetModel?: (id: string) => void;
+		onSetThinking?: (level: string) => void;
+		onCancel?: () => void;
+		onReloadAdapter?: (name: string, path: string) => Promise<void>;
+		getHistory?: () => Record<string, unknown>[];
 	};
 	private _readyPromise: Promise<void> | null = null;
 
@@ -93,6 +114,12 @@ export class RouterAdapter implements Adapter {
 			allowedEvents: options.allowedEvents ?? [],
 			onMessage: options.onMessage,
 			triggerEvent: options.triggerEvent,
+			getState: options.getState,
+			onSetModel: options.onSetModel,
+			onSetThinking: options.onSetThinking,
+			onCancel: options.onCancel,
+			onReloadAdapter: options.onReloadAdapter,
+			getHistory: options.getHistory,
 		};
 	}
 
@@ -131,6 +158,10 @@ export class RouterAdapter implements Adapter {
 	 */
 	notifyAgent(event: Record<string, unknown>): void {
 		this.sse.broadcastRaw("agent", { kind: "agent", event });
+	}
+
+	notifyStateChange(state: Record<string, unknown>): void {
+		this.sse.broadcastRaw("state", { kind: "state", ...state });
 	}
 
 	address(): RouterAddress | null {
@@ -228,6 +259,32 @@ export class RouterAdapter implements Adapter {
 			return;
 		}
 
+		if (req.method === "GET" && url === "/state") {
+			this.sendJson(res, 200, this.options.getState?.() ?? {});
+			return;
+		}
+
+		if (req.method === "GET" && url === "/history") {
+			this.sendJson(res, 200, this.options.getHistory?.() ?? []);
+			return;
+		}
+
+		if (req.method === "POST" && url === "/control") {
+			this.handleControl(req, res);
+			return;
+		}
+
+		if (req.method === "POST" && url === "/cancel") {
+			this.options.onCancel?.();
+			this.sendJson(res, 202, { ok: true });
+			return;
+		}
+
+		if (req.method === "POST" && url === "/reload") {
+			this.handleReload(req, res);
+			return;
+		}
+
 		this.sendJson(res, 404, { error: "not found" });
 	}
 
@@ -270,6 +327,58 @@ export class RouterAdapter implements Adapter {
 			}
 
 			this.sendJson(res, 202, { ok: true, correlationId });
+		});
+	}
+
+	private handleControl(req: IncomingMessage, res: ServerResponse): void {
+		let body = "";
+		req.on("data", (chunk: Buffer) => {
+			body += chunk.toString("utf-8");
+		});
+		req.on("end", () => {
+			let parsed: Record<string, unknown>;
+			try {
+				parsed = JSON.parse(body) as Record<string, unknown>;
+			} catch {
+				this.sendJson(res, 400, { error: "invalid JSON" });
+				return;
+			}
+
+			if (typeof parsed.model === "string") this.options.onSetModel?.(parsed.model);
+			if (typeof parsed.thinking === "string") this.options.onSetThinking?.(parsed.thinking);
+
+			this.sendJson(res, 202, { ok: true });
+		});
+	}
+
+	private handleReload(req: IncomingMessage, res: ServerResponse): void {
+		let body = "";
+		req.on("data", (chunk: Buffer) => {
+			body += chunk.toString("utf-8");
+		});
+		req.on("end", () => {
+			let parsed: Record<string, unknown>;
+			try {
+				parsed = JSON.parse(body) as Record<string, unknown>;
+			} catch {
+				this.sendJson(res, 400, { error: "invalid JSON" });
+				return;
+			}
+
+			if (typeof parsed.name !== "string" || typeof parsed.path !== "string") {
+				this.sendJson(res, 400, { error: 'body must be { "name": string, "path": string }' });
+				return;
+			}
+
+			if (!this.options.onReloadAdapter) {
+				this.sendJson(res, 501, { error: "reload not supported" });
+				return;
+			}
+
+			this.options
+				.onReloadAdapter(parsed.name, parsed.path)
+				.then(() => this.sendJson(res, 202, { ok: true }))
+				.catch((err: unknown) => this.sendJson(res, 500, { error: String(err) }));
 		});
 	}
 

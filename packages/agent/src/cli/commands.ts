@@ -78,6 +78,7 @@ function openModelPicker(ctx: TuiHandlerContext): void {
 			try {
 				buildModel(item.value);
 				ctx.session.setModel(item.value);
+				ctx.tuiStore?.update({ modelId: item.value });
 				ctx.writer.addNotice(`Model switched to ${item.value}.`);
 			} catch (e) {
 				ctx.writer.addNotice(`Failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -477,6 +478,7 @@ const think = {
 				return;
 			}
 			ctx.session.setThinking(level);
+			ctx.tuiStore?.update({ thinkingLevel: level });
 			ctx.writer.addNotice(`Thinking set to "${level}".`);
 			ctx.tui.requestRender();
 			return;
@@ -487,6 +489,7 @@ const think = {
 			active: ctx.session.getThinking() ?? "off",
 			onSelect: (value) => {
 				ctx.session.setThinking(value);
+				ctx.tuiStore?.update({ thinkingLevel: value });
 				ctx.writer.addNotice(`Thinking set to "${value}".`);
 				ctx.tui.requestRender();
 			},

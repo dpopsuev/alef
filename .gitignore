@@ -49,3 +49,10 @@ plans/
 .alef/hf-sessions/
 .alef/hf-sessions-backup/
 collect.sh
+
+# Stale empty directories from package renames
+packages/ai/
+packages/organ-security-policy/
+packages/runner/
+packages/runner-tui/
+packages/adapter-*/

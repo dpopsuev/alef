@@ -35,4 +35,19 @@ export class ChildRegistry {
 	values(): ChildEntry[] {
 		return [...this.entries.values()];
 	}
+
+	killAll(): void {
+		for (const entry of this.entries.values()) {
+			try {
+				entry.process.kill("SIGTERM");
+			} catch {
+				// already dead
+			}
+		}
+		this.entries.clear();
+	}
+
+	get size(): number {
+		return this.entries.size;
+	}
 }

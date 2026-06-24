@@ -102,6 +102,11 @@ export function createAgentAdapter(
 		},
 	});
 
+	const onProcessExit = () => registry.killAll();
+	process.once("exit", onProcessExit);
+	process.once("SIGTERM", onProcessExit);
+	process.once("SIGINT", onProcessExit);
+
 	const deps: ChildLifecycleDeps = {
 		cwd: opts.cwd ?? process.cwd(),
 		replyEvent: opts.replyEvent ?? "llm.response",

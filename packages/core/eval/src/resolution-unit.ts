@@ -87,6 +87,8 @@ export interface UnitEvalConfig {
 	scorer?: UnitScorer;
 	/** Timeout per command\u2192event probe in ms. Default: 5000. */
 	timeoutMs?: number;
+	/** Bus factory. Default: new InProcessBus(). */
+	busFactory?: () => import("@dpopsuev/alef-kernel/bus").AgentBus;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,8 +144,7 @@ export async function runUnitEval(cfg: UnitEvalConfig): Promise<UnitEvalReport> 
 
 	const cases: UnitCaseResult[] = [];
 
-	// Mount the adapter on a fresh bus
-	const bus = new InProcessBus();
+	const bus = cfg.busFactory ? cfg.busFactory() : new InProcessBus();
 	const unmount = adapter.mount(bus.asBus());
 
 	try {
@@ -215,7 +216,7 @@ export async function runUnitEvalBaseline(cfg: UnitEvalConfig): Promise<UnitEval
 // ---------------------------------------------------------------------------
 
 function probeMotor(
-	bus: InProcessBus,
+	bus: { asBus(): import("@dpopsuev/alef-kernel/bus").Bus },
 	toolName: string,
 	payload: Record<string, unknown>,
 	correlationId: string,

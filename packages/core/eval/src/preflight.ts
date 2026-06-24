@@ -14,7 +14,7 @@
  */
 
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
+import { type AgentBus, InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { runAdapterContract } from "@dpopsuev/alef-testkit";
 
 export interface PreflightConfig {
@@ -22,6 +22,8 @@ export interface PreflightConfig {
 	adapters: Adapter[];
 	/** Timeout per Command→Event probe in ms. Default: 2000. */
 	probeTimeoutMs?: number;
+	/** Bus factory. Default: new InProcessBus(). */
+	busFactory?: () => AgentBus;
 }
 
 export interface PreflightError {
@@ -79,7 +81,7 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 	// Phase 2: components — each adapter mounts without throwing
 	for (const adapter of cfg.adapters) {
 		try {
-			const bus = new InProcessBus();
+			const bus = cfg.busFactory ? cfg.busFactory() : new InProcessBus();
 			const unmount = adapter.mount(bus.asBus());
 			if (typeof unmount !== "function") {
 				fail({

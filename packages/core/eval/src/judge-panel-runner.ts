@@ -97,6 +97,7 @@ export interface JudgePanelRunnerOptions {
 		signal: AbortSignal,
 		extraAdapters: import("@dpopsuev/alef-kernel/adapter").Adapter[],
 	) => Promise<import("@dpopsuev/alef-kernel/adapter").Adapter[]>;
+	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<import("@dpopsuev/alef-runtime").Agent>;
 	/** Turn timeout per judge agent in ms. Default: 120_000. */
 	judgeTimeoutMs?: number;
 	/** Max concurrent judge agents. Default: 3. */
@@ -186,7 +187,7 @@ export class JudgePanelRunner {
 			},
 		});
 
-		const agent = new Agent();
+		const agent = this.opts.agentFactory ? await this.opts.agentFactory(workspace, new AbortController().signal) : new Agent();
 
 		// Read-only fs adapter (no write actions).
 		const fsReadOnly = createFsAdapter({

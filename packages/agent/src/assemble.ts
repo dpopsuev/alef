@@ -1,5 +1,5 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
+import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
 import { Agent, AgentController, buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import type { AgentEvent, TokensConsumed } from "./session.js";
 
@@ -21,6 +21,7 @@ export interface AgentServerOptions {
 	signalMappers?: ReadonlyMap<string, SignalMapper>;
 	uiSignalTypes?: ReadonlySet<string>;
 	toolDisclosure?: "full" | "progressive";
+	bus?: AgentBus;
 }
 
 export interface AgentServer {
@@ -210,7 +211,7 @@ export function connectObservers(
 }
 
 export function assembleAgentServer(opts: AgentServerOptions): AgentServer {
-	const agent = new Agent();
+	const agent = new Agent({ bus: opts.bus });
 	const observers = new Set<(event: AgentEvent) => void>();
 
 	agent.load(opts.llm);

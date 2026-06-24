@@ -90,6 +90,13 @@ export class RemoteSession implements Session {
 							if (typeof parsed.modelId === "string") this._modelId = parsed.modelId;
 							if (typeof parsed.thinking === "string") this._thinking = parsed.thinking;
 							if (typeof parsed.contextWindow === "number") this._contextWindow = parsed.contextWindow;
+							const stateEvent: AgentEvent = {
+								type: "state-changed",
+								modelId: this._modelId,
+								thinking: this._thinking,
+								contextWindow: this._contextWindow,
+							};
+							for (const observer of this.observers) observer(stateEvent);
 							continue;
 						}
 						if (parsed.kind === "agent" && parsed.event) {

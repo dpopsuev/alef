@@ -191,6 +191,10 @@ export function dispatchTuiEvent(
 ): TuiState {
 	const { writer, replyBlock, replyTW, thinkingTW, promptConsole, t, session } = ui;
 
+	if (event.type === "state-changed") {
+		return state;
+	}
+
 	if (event.type === "adapter-signal" && signalHandlers) {
 		const handler = signalHandlers.get(event.signalType);
 		if (handler) {

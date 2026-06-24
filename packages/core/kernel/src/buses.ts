@@ -356,6 +356,16 @@ export interface BusChannel<K extends ChannelName = ChannelName> {
 
 export type Bus = { readonly [K in ChannelName]: BusChannel<K> } & { pulse(): void };
 
+export interface AgentBus {
+	publish<K extends ChannelName>(channel: K, event: ChannelInput<K>): void;
+	subscribe<K extends ChannelName>(channel: K, type: string, handler: ChannelHandler<K>): () => void;
+	onAny(channel: ChannelName, handler: (event: BusMessage) => void): () => void;
+	listenerCount(channel: ChannelName, type: string): number;
+	asBus(): Bus;
+	pulse(): void;
+	dispose(): void;
+}
+
 export type BusMiddleware = (bus: Bus) => Bus;
 
 // ---------------------------------------------------------------------------

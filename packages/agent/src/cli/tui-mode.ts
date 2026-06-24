@@ -66,6 +66,7 @@ export async function runTuiMode(session: Session, opts: InteractiveOptions, sto
 		tuiState = dispatchTuiEvent(tuiState, event, tuiUi, signalHandlers);
 		syncOverlays(tui, prev.overlays, tuiState.overlays);
 		tuiStore.update({
+			modelId: session.getModel(),
 			inputTokens: tuiState.sessionInputTokens,
 			outputTokens: tuiState.sessionOutputTokens,
 			contextUsed: tuiState.contextFillTokens,

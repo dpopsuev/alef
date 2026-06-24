@@ -1,5 +1,7 @@
 import type { Component } from "@dpopsuev/alef-tui";
 import {
+	AgentCard,
+	type AgentCardTheme,
 	Container,
 	Editor,
 	type EditorTheme,
@@ -42,14 +44,7 @@ class EditorWrapper implements Component {
 	}
 }
 
-import {
-	accentColorize,
-	DynamicText,
-	fmtMs,
-	formatCompact,
-	spinnerFrame,
-	toolActiveLine,
-} from "@dpopsuev/alef-tui/views";
+import { accentColorize, DynamicText, fmtMs, spinnerFrame } from "@dpopsuev/alef-tui/views";
 import { EventPressure, pressureToInterval } from "../event-pressure.js";
 import { hexToColorToken, lookupColor } from "../identity/palette.js";
 import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./runner-theme.js";
@@ -77,15 +72,17 @@ export class PromptConsole {
 	private readonly inFlightCalls = new Map<
 		string,
 		{
-			dt: DynamicText;
+			card: AgentCard;
 			startedAt: number;
 			lastChunk: string;
+			expandedChunks: string[];
 			identity: { color: string; address: string; token: ColorToken; modelId?: string } | null;
 			inputTokens: number;
 			outputTokens: number;
 			children: Map<string, { name: string; keyArg: string; startedAt: number; depth: number }>;
 		}
 	>();
+	private cardTheme: AgentCardTheme | undefined;
 	private readonly chunkDetail: Text;
 	private readonly inspectorHint: Text;
 	private focusedId: string | null = null;
@@ -180,6 +177,7 @@ export class PromptConsole {
 			const colorize = accentColorize(this.t.accentFg, elapsedMs);
 			const intent = this.intentText ? `  ${color(this.intentText, this.t.mutedFg)}` : "";
 			this.statusText.setText(`  ${colorize(frame)} ${colorize(elapsedS)}${intent}`);
+			this.refreshCards();
 			this.tui.requestRender();
 			this.thinkingTimer = setTimeout(tick, pressureToInterval(level));
 		};
@@ -251,48 +249,45 @@ export class PromptConsole {
 		return this.thinkingTimer !== undefined;
 	}
 
+	private getCardTheme(): AgentCardTheme {
+		if (!this.cardTheme) {
+			const t = this.t;
+			this.cardTheme = {
+				primary: (s) => color(s, t.primaryFg),
+				secondary: (s) => color(s, t.secondaryFg),
+				muted: (s) => color(s, t.mutedFg),
+				accent: (s) => color(s, t.accentFg),
+				identity: (s) => color(s, t.accentFg),
+			};
+		}
+		return this.cardTheme;
+	}
+
 	showInFlightCall(callId: string, name: string, keyArg: string): void {
 		const startedAt = Date.now();
-		const t = this.t;
+		const card = new AgentCard(this.getCardTheme(), {
+			name,
+			keyArg,
+			elapsedMs: 0,
+			inputTokens: 0,
+			outputTokens: 0,
+			lastChunk: "",
+			expandedChunks: [],
+			spinner: spinnerFrame(callId, 0),
+			children: [],
+		});
 		const entry = {
-			dt: null as unknown as DynamicText,
+			card,
 			startedAt,
 			lastChunk: "",
+			expandedChunks: [] as string[],
 			identity: null as { color: string; address: string; token: ColorToken; modelId?: string } | null,
 			inputTokens: 0,
 			outputTokens: 0,
 			children: new Map<string, { name: string; keyArg: string; startedAt: number; depth: number }>(),
 		};
-		const dt = new DynamicText((w) => {
-			const elapsed = Date.now() - startedAt;
-			const modelShort = entry.identity?.modelId?.split("/").pop()?.split(" ")[0] ?? "";
-			const nameParts = [name];
-			if (entry.identity) nameParts.push(color(entry.identity.address, entry.identity.token));
-			if (modelShort) nameParts.push(color(modelShort, t.mutedFg));
-			const displayName = nameParts.join("  ");
-			const statusLine = toolActiveLine(displayName, keyArg, t, elapsed, callId);
-			const focused = this.focusedId === callId;
-			const marker = focused ? `${color(">", t.accentFg)}${statusLine.slice(1)}` : statusLine;
-			const tokenSuffix =
-				entry.inputTokens > 0
-					? `  ${color(`↑${formatCompact(entry.inputTokens)} ↓${formatCompact(entry.outputTokens)}`, t.mutedFg)}`
-					: "";
-			const chunkColor = entry.identity?.token ?? t.secondaryFg;
-			const maxChunkLen = Math.max(20, w - 8);
-			const chunkLine = entry.lastChunk ? `     ${color(entry.lastChunk.slice(-maxChunkLen), chunkColor)}` : "";
-			const lines = [chunkLine ? `${marker}${tokenSuffix}\n${chunkLine}` : `${marker}${tokenSuffix}`];
-			for (const [childId, child] of entry.children) {
-				const indent = "  ".repeat(child.depth + 1);
-				const childElapsed = Date.now() - child.startedAt;
-				lines.push(
-					`${indent}${spinnerFrame(childId, childElapsed)} ${color(child.name, t.secondaryFg)}  ${color(child.keyArg, t.mutedFg)}`,
-				);
-			}
-			return lines.join("\n");
-		});
-		entry.dt = dt;
 		this.inFlightCalls.set(callId, entry);
-		this.inFlightQueue.addChild(dt);
+		this.inFlightQueue.addChild(card);
 		if (this.inFlightCalls.size === 1 && this.isThinking) {
 			this.hintBar.setText(color("Tab to inspect subagents", this.t.mutedFg));
 		}
@@ -306,21 +301,19 @@ export class PromptConsole {
 		if (entry) {
 			const accumulated = (this.chunkAccumulators.get(callId) ?? "") + text;
 			this.chunkAccumulators.set(callId, accumulated.slice(-500));
-			const lastLine =
-				accumulated
-					.split("\n")
-					.filter((l) => l.trim())
-					.at(-1) ?? "";
-			entry.lastChunk = lastLine.slice(-120);
+			const lines = accumulated.split("\n").filter((l) => l.trim());
+			entry.lastChunk = (lines.at(-1) ?? "").slice(-120);
+			entry.expandedChunks = lines.slice(-20);
 		}
 	}
 
 	removeInFlightCall(callId: string): void {
 		const entry = this.inFlightCalls.get(callId);
 		if (entry) {
-			this.inFlightQueue.removeChild(entry.dt);
+			this.inFlightQueue.removeChild(entry.card);
 			this.inFlightCalls.delete(callId);
 			this.chunkAccumulators.delete(callId);
+			this.refreshCards();
 			this.tui.requestRender();
 		}
 	}
@@ -332,7 +325,6 @@ export class PromptConsole {
 		this.tui.requestRender();
 	}
 
-	/** Remove the pending footer — call once the real footer lands in scrollback. */
 	hidePendingFooter(): void {
 		this.pendingFooterActive = false;
 		this.tui.requestRender();
@@ -340,31 +332,21 @@ export class PromptConsole {
 
 	setFocusedCall(callId: string | null): void {
 		this.focusedId = callId;
-		if (!callId) {
-			this.chunkDetail.setText("");
-			this.inspectorHint.setText("");
-			this.tui.requestRender();
-			return;
-		}
-		const total = this.inFlightCalls.size;
-		const idx = [...this.inFlightCalls.keys()].indexOf(callId) + 1;
-		this.inspectorHint.setText(
-			color(`  ${idx}/${total}  Tab cycle · j/k scroll · Ctrl+X cancel · Esc close`, this.t.mutedFg),
-		);
+		this.chunkDetail.setText("");
+		this.inspectorHint.setText("");
+		this.refreshCards();
 		this.tui.requestRender();
 	}
 
-	setChunkText(text: string): void {
-		this.chunkDetail.setText(text ? color(text, this.t.secondaryFg) : "");
-		this.tui.requestRender();
-	}
+	setChunkText(_text: string): void {}
 
 	setCallIdentity(callId: string, colorName: string, address: string, modelId?: string): void {
 		const entry = this.inFlightCalls.get(callId);
 		if (!entry) return;
 		const paletteColor = lookupColor(colorName);
 		const token = paletteColor ? hexToColorToken(paletteColor.hex) : this.t.accentFg;
-		(entry as unknown as { identity: unknown }).identity = { color: colorName, address, token, modelId };
+		entry.identity = { color: colorName, address, token, modelId };
+		entry.card.update({ address, modelId });
 		this.tui.requestRender();
 	}
 
@@ -387,5 +369,31 @@ export class PromptConsole {
 		if (!entry) return;
 		entry.children.delete(callId);
 		this.tui.requestRender();
+	}
+
+	private refreshCards(): void {
+		const hasFocus = this.focusedId !== null;
+		for (const [callId, entry] of this.inFlightCalls) {
+			const focused = callId === this.focusedId;
+			const elapsed = Date.now() - entry.startedAt;
+			entry.card.focused = focused;
+			entry.card.dimmed = hasFocus && !focused;
+			entry.card.update({
+				elapsedMs: elapsed,
+				spinner: spinnerFrame(callId, elapsed),
+				lastChunk: entry.lastChunk,
+				expandedChunks: entry.expandedChunks,
+				inputTokens: entry.inputTokens,
+				outputTokens: entry.outputTokens,
+				children: [...entry.children.entries()].map(([id, c]) => ({
+					id,
+					name: c.name,
+					keyArg: c.keyArg,
+					elapsedMs: Date.now() - c.startedAt,
+					depth: c.depth,
+					spinner: spinnerFrame(id, Date.now() - c.startedAt),
+				})),
+			});
+		}
 	}
 }

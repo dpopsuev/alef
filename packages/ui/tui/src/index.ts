@@ -58,6 +58,7 @@ export {
 export { SeparatorLine, type SeparatorLineOptions } from "./components/separator-line.js";
 export { type SettingItem, SettingsList, type SettingsListTheme } from "./components/settings-list.js";
 export { Spacer } from "./components/spacer.js";
+export { AgentCard, type AgentCardState, type AgentCardTheme } from "./components/agent-card.js";
 export { SplitPane, type SplitPaneOptions } from "./components/split-pane.js";
 export { Table, type TableColumn, type TableOptions } from "./components/table.js";
 export { Text } from "./components/text.js";

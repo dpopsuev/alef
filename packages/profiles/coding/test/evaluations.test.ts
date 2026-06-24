@@ -21,6 +21,7 @@ import { getEvalModel } from "../../../core/eval/src/model.js";
 import { buildAgent } from "../../../agent/src/agent-kernel.js";
 import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
 import { parseArgs } from "../../../agent/src/args.js";
+import { createDefaultDirectives, registerAdapters } from "../../../agent/src/prompt.js";
 import { createCodingAgentStack } from "../src/index.js";
 
 defineEvalSuite({
@@ -46,6 +47,7 @@ defineEvalSuite({
 	],
 	agentFactory: async (workspace, signal) => {
 		const model = getEvalModel();
+		const args = { ...parseArgs([]), cwd: workspace, noTui: true };
 		const sessionStore = new InMemorySessionStore();
 		const stack = await createCodingAgentStack({
 			cwd: workspace,
@@ -54,14 +56,20 @@ defineEvalSuite({
 			sessionStore,
 			subagentFactory: stubSessionFactory(model.id, model.contextWindow),
 		});
+		const directives = createDefaultDirectives({ tools: stack.adapters.flatMap((o) => o.tools), cwd: workspace });
+		registerAdapters(directives, stack.adapters);
+		const budgetChars = Math.floor(model.contextWindow * 0.1 * 4);
+		const systemPrompt = directives.build(budgetChars);
+
 		const llm = buildLlmAdapter({
 			model,
 			cfg: {},
-			args: { ...parseArgs([]), cwd: workspace, noTui: true },
+			args,
 			thinkingState: { level: undefined },
 			getModel: () => model,
 			getSignal: () => signal,
 			schemaResolver: (name) => stack.pipeline.getSchemaResolver()?.(name),
+			systemPrompt,
 		});
 		const agent = buildAgent({ llm, loopThreshold: 10 });
 		for (const adapter of stack.adapters) agent.load(adapter);

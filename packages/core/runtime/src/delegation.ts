@@ -88,6 +88,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		strategies: { explore: exploreStrategy, general: generalStrategy },
 		replyEvent: "llm.response",
 		writableRoots: opts.writableRoots,
+		parentAdapterNames,
 		materializeAdapters: async (names) => {
 			const allowed = names.filter((n) => parentAdapterNames.has(n));
 			const { adapters: materializedAdapters } = await materializeBlueprint(

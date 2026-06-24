@@ -79,6 +79,8 @@ export interface AgentAdapterOptions extends BaseAdapterOptions {
 	writableRoots?: readonly string[];
 	/** Max subagent nesting depth. Default: 3. Set 0 to disable spawning. */
 	maxDepth?: number;
+	allowedBlueprints?: readonly string[];
+	parentAdapterNames?: ReadonlySet<string>;
 }
 
 export function createAgentAdapter(
@@ -107,6 +109,8 @@ export function createAgentAdapter(
 		currentDepth: Number(process.env.ALEF_AGENT_DEPTH) || 0,
 		maxDepth: opts.maxDepth ?? DEFAULT_MAX_DEPTH,
 		writableRoots: opts.writableRoots,
+		allowedBlueprints: opts.allowedBlueprints,
+		parentAdapterNames: opts.parentAdapterNames,
 		registry,
 		strategies,
 	};

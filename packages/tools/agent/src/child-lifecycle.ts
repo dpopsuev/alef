@@ -20,6 +20,8 @@ export interface ChildLifecycleDeps {
 	registry: ChildRegistry;
 	strategies: Map<string, unknown>;
 	publishInnerSignal?: (type: string, payload: Record<string, unknown>, correlationId: string) => void;
+	allowedBlueprints?: readonly string[];
+	parentAdapterNames?: ReadonlySet<string>;
 }
 
 export async function handleSpawn(
@@ -42,10 +44,21 @@ export async function handleSpawn(
 		);
 	}
 
+	const blueprintPath = ctx.payload.blueprintPath;
+	if (blueprintPath && deps.allowedBlueprints && !deps.allowedBlueprints.includes(blueprintPath)) {
+		throw new Error(`agent.spawn: blueprint '${blueprintPath}' not in allowed list`);
+	}
+
+	const requestedAdapters = ctx.payload.adapters;
+	const adapters =
+		requestedAdapters && deps.parentAdapterNames
+			? requestedAdapters.filter((n) => deps.parentAdapterNames!.has(n))
+			: requestedAdapters;
+
 	const result = await spawnChild({
 		cwd: deps.cwd,
-		blueprintPath: ctx.payload.blueprintPath,
-		adapters: ctx.payload.adapters,
+		blueprintPath,
+		adapters,
 		childCwd: ctx.payload.cwd,
 		sessionId: ctx.payload.sessionId,
 		sandbox: ctx.payload.sandbox,

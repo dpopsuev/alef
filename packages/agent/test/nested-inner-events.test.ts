@@ -40,6 +40,7 @@ function noopUi() {
 			setFocusedCall: () => {},
 			setChunkText: () => {},
 			setCallIdentity: () => {},
+			updateCallTokens: () => {},
 			addChildCall: (parentId: string, childId: string) => calls.push(`child:${parentId}->${childId}`),
 			removeChildCall: (parentId: string, childId: string) => calls.push(`unchild:${parentId}->${childId}`),
 		},

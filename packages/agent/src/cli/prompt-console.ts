@@ -42,7 +42,14 @@ class EditorWrapper implements Component {
 	}
 }
 
-import { accentColorize, DynamicText, fmtMs, spinnerFrame, toolActiveLine } from "@dpopsuev/alef-tui/views";
+import {
+	accentColorize,
+	DynamicText,
+	fmtMs,
+	formatCompact,
+	spinnerFrame,
+	toolActiveLine,
+} from "@dpopsuev/alef-tui/views";
 import { EventPressure, pressureToInterval } from "../event-pressure.js";
 import { hexToColorToken, lookupColor } from "../identity/palette.js";
 import { bold, type ColorToken, color, glyph, statusGlyph, type ThemeTokens } from "./runner-theme.js";
@@ -73,7 +80,9 @@ export class PromptConsole {
 			dt: DynamicText;
 			startedAt: number;
 			lastChunk: string;
-			identity: { color: string; address: string; token: ColorToken } | null;
+			identity: { color: string; address: string; token: ColorToken; modelId?: string } | null;
+			inputTokens: number;
+			outputTokens: number;
 			children: Map<string, { name: string; keyArg: string; startedAt: number; depth: number }>;
 		}
 	>();
@@ -249,19 +258,29 @@ export class PromptConsole {
 			dt: null as unknown as DynamicText,
 			startedAt,
 			lastChunk: "",
-			identity: null as { color: string; address: string; token: ColorToken } | null,
+			identity: null as { color: string; address: string; token: ColorToken; modelId?: string } | null,
+			inputTokens: 0,
+			outputTokens: 0,
 			children: new Map<string, { name: string; keyArg: string; startedAt: number; depth: number }>(),
 		};
 		const dt = new DynamicText((w) => {
 			const elapsed = Date.now() - startedAt;
-			const displayName = entry.identity ? `${name}  ${color(entry.identity.address, entry.identity.token)}` : name;
+			const modelShort = entry.identity?.modelId?.split("/").pop()?.split(" ")[0] ?? "";
+			const nameParts = [name];
+			if (entry.identity) nameParts.push(color(entry.identity.address, entry.identity.token));
+			if (modelShort) nameParts.push(color(modelShort, t.mutedFg));
+			const displayName = nameParts.join("  ");
 			const statusLine = toolActiveLine(displayName, keyArg, t, elapsed, callId);
 			const focused = this.focusedId === callId;
 			const marker = focused ? `${color(">", t.accentFg)}${statusLine.slice(1)}` : statusLine;
+			const tokenSuffix =
+				entry.inputTokens > 0
+					? `  ${color(`↑${formatCompact(entry.inputTokens)} ↓${formatCompact(entry.outputTokens)}`, t.mutedFg)}`
+					: "";
 			const chunkColor = entry.identity?.token ?? t.secondaryFg;
 			const maxChunkLen = Math.max(20, w - 8);
 			const chunkLine = entry.lastChunk ? `     ${color(entry.lastChunk.slice(-maxChunkLen), chunkColor)}` : "";
-			const lines = [chunkLine ? `${marker}\n${chunkLine}` : marker];
+			const lines = [chunkLine ? `${marker}${tokenSuffix}\n${chunkLine}` : `${marker}${tokenSuffix}`];
 			for (const [childId, child] of entry.children) {
 				const indent = "  ".repeat(child.depth + 1);
 				const childElapsed = Date.now() - child.startedAt;
@@ -340,13 +359,20 @@ export class PromptConsole {
 		this.tui.requestRender();
 	}
 
-	setCallIdentity(callId: string, colorName: string, address: string): void {
+	setCallIdentity(callId: string, colorName: string, address: string, modelId?: string): void {
 		const entry = this.inFlightCalls.get(callId);
 		if (!entry) return;
 		const paletteColor = lookupColor(colorName);
 		const token = paletteColor ? hexToColorToken(paletteColor.hex) : this.t.accentFg;
-		(entry as unknown as { identity: unknown }).identity = { color: colorName, address, token };
+		(entry as unknown as { identity: unknown }).identity = { color: colorName, address, token, modelId };
 		this.tui.requestRender();
+	}
+
+	updateCallTokens(callId: string, input: number, output: number): void {
+		const entry = this.inFlightCalls.get(callId);
+		if (!entry) return;
+		entry.inputTokens = input;
+		entry.outputTokens = output;
 	}
 
 	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void {

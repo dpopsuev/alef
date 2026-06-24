@@ -36,7 +36,8 @@ export type AgentEvent =
 	| { type: "turn-error"; message: string }
 	| { type: "token-usage"; usage: TokensConsumed }
 	| { type: "message-queued"; queueLength: number }
-	| { type: "subagent-identity"; callId: string; color: string; address: string }
+	| { type: "subagent-identity"; callId: string; color: string; address: string; modelId?: string }
+	| { type: "subagent-token-usage"; callId: string; input: number; output: number }
 	| { type: "inner-tool-start"; parentCallId: string; callId: string; name: string; args: Record<string, unknown> }
 	| { type: "inner-tool-end"; parentCallId: string; callId: string }
 	| { type: "inner-chunk"; parentCallId: string; text: string }

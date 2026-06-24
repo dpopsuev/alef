@@ -37,6 +37,7 @@ function makeMockUi(): TuiUi {
 			setFocusedCall: vi.fn(),
 			setChunkText: vi.fn(),
 			setCallIdentity: vi.fn(),
+			updateCallTokens: vi.fn(),
 			addChildCall: vi.fn(),
 			removeChildCall: vi.fn(),
 		},

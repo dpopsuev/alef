@@ -131,7 +131,8 @@ export interface TuiPromptConsole {
 	readonly widgetSlotBelow: { addChild(c: unknown): void; removeChild(c: unknown): void };
 	setFocusedCall(callId: string | null): void;
 	setChunkText(text: string): void;
-	setCallIdentity(callId: string, colorName: string, address: string): void;
+	setCallIdentity(callId: string, colorName: string, address: string, modelId?: string): void;
+	updateCallTokens(callId: string, input: number, output: number): void;
 	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void;
 	removeChildCall(parentCallId: string, callId: string): void;
 }

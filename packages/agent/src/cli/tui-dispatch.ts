@@ -363,7 +363,12 @@ export function dispatchTuiEvent(
 			return state;
 
 		case "subagent-identity": {
-			promptConsole.setCallIdentity(event.callId, event.color, event.address);
+			promptConsole.setCallIdentity(event.callId, event.color, event.address, event.modelId);
+			return state;
+		}
+
+		case "subagent-token-usage": {
+			promptConsole.updateCallTokens(event.callId, event.input, event.output);
 			return state;
 		}
 

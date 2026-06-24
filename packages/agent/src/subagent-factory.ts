@@ -61,7 +61,11 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		const tokenBudget = callOpts.tokenBudget;
 		let budgetExceeded = false;
 
-		onInnerEvent?.(subId, "agent.identity", { color: subActor.color, address: subActor.address });
+		onInnerEvent?.(subId, "agent.identity", {
+			color: subActor.color,
+			address: subActor.address,
+			modelId: resolvedModel.id,
+		});
 
 		observers.add((event) => {
 			if (event.type === "token-usage") {
@@ -75,6 +79,11 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 						"system",
 					);
 				}
+				onInnerEvent?.(subId, "subagent-token-usage", {
+					callId: subId,
+					input: totalInputTokens,
+					output: totalOutputTokens,
+				});
 			}
 			if (onChunk) {
 				if (event.type === "chunk") onChunk(event.text);

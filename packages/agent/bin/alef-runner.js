@@ -27,13 +27,13 @@ if (!tsxPath) {
 	process.exit(1);
 }
 
-const mainTs = resolve(__dirname, "../src/cli/main.ts");
+const supervisorTs = resolve(__dirname, "../src/supervisor.ts");
 const tsconfig = resolve(__dirname, "../../../tsconfig.json");
 
 const { spawn } = await import("node:child_process");
 const child = spawn(
 	process.execPath,
-	[tsxPath, mainTs, ...process.argv.slice(2)],
+	[tsxPath, supervisorTs, ...process.argv.slice(2)],
 	{
 		env: { ...process.env, TSX_TSCONFIG_PATH: tsconfig },
 		stdio: "inherit",

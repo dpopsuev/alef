@@ -194,6 +194,7 @@ initSessionSink((record) => {
 });
 
 traceEvent("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: !args.noTui, sessionId: session.id });
+process.send?.({ type: "session", sessionId: session.id });
 
 // Initialize local embedding model for vector recall (lazy-loads on first embed).
 import("@dpopsuev/alef-storage")
@@ -239,6 +240,7 @@ loadTheme(
 );
 
 setupSupervisorIpc(blueprintUpgradePolicy);
+process.send?.({ type: "ready" });
 
 await runAgent({
 	args,

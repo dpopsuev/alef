@@ -31,21 +31,15 @@ import { promisify } from "node:util";
 
 const exec = promisify(execCb);
 
-const GREEN_SCRIPT = process.env.ALEF_SUPERVISOR_GREEN_SCRIPT ?? "";
+const DEFAULT_GREEN_SCRIPT = join(dirname(new URL(import.meta.url).pathname), "cli/main.ts");
+const GREEN_SCRIPT = process.env.ALEF_SUPERVISOR_GREEN_SCRIPT || DEFAULT_GREEN_SCRIPT;
 const BUILD_COMMAND = process.env.ALEF_SUPERVISOR_BUILD_COMMAND ?? "";
 const HANDOFF_PATH = process.env.ALEF_SUPERVISOR_HANDOFF_PATH ?? "";
 const SKIP_HEALTH = process.env.ALEF_SUPERVISOR_SKIP_HEALTH === "1";
 const TEST_EVAL_RESULT = process.env.ALEF_SUPERVISOR_TEST_EVAL_RESULT ?? "";
-// Additional args passed to the green process. Defaults to supervisor's own argv
-// so `./alef-dev.sh --debug` forwards --debug to the runner green automatically.
 const GREEN_ARGS: string[] = process.env.ALEF_SUPERVISOR_GREEN_ARGS
 	? (JSON.parse(process.env.ALEF_SUPERVISOR_GREEN_ARGS) as string[])
 	: process.argv.slice(2);
-
-if (!GREEN_SCRIPT) {
-	process.stderr.write("[supervisor] ALEF_SUPERVISOR_GREEN_SCRIPT is required\n");
-	process.exit(1);
-}
 
 // ---------------------------------------------------------------------------
 // State
@@ -69,13 +63,13 @@ let readyPromise: Promise<void> = Promise.resolve();
 function findTsxBin(scriptPath: string): string {
 	let dir = dirname(scriptPath);
 	while (true) {
-		const candidate = join(dir, "node_modules/.bin/tsx");
+		const candidate = join(dir, "node_modules/tsx/dist/cli.mjs");
 		if (existsSync(candidate)) return candidate;
 		const parent = dirname(dir);
 		if (parent === dir) break;
 		dir = parent;
 	}
-	return "tsx"; // fallback: rely on PATH
+	return "tsx";
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +77,7 @@ function findTsxBin(scriptPath: string): string {
 // ---------------------------------------------------------------------------
 
 function spawnGreen(sessionId?: string): ChildProcess {
-	const env: NodeJS.ProcessEnv = { ...process.env };
+	const env: NodeJS.ProcessEnv = { ...process.env, ALEF_SUPERVISOR: "1" };
 	if (sessionId) env.ALEF_CURRENT_SESSION = sessionId;
 
 	// New readiness gate for this slot.
@@ -115,33 +109,7 @@ function spawnGreen(sessionId?: string): ChildProcess {
 		: [GREEN_SCRIPT];
 	const child = spawn(process.execPath, [...spawnArgs, ...GREEN_ARGS], {
 		env,
-		stdio: ["inherit", "pipe", "pipe", "ipc"],
-	});
-
-	// Tee stdout: pass through + check for readiness signal.
-	child.stdout?.on("data", (chunk: Buffer) => {
-		process.stdout.write(chunk);
-		if (chunk.toString().includes("router listening on")) {
-			readyResolve?.();
-			readyResolve = undefined;
-		}
-	});
-
-	// Tee stderr: pass through + parse session ID + check readiness.
-	child.stderr?.on("data", (chunk: Buffer) => {
-		process.stderr.write(chunk);
-		const text = chunk.toString();
-		// Capture session ID for handoff continuity.
-		// Lines are either "[session] <id>" (new) or "[session] Resumed <id> (N turns)" (resume).
-		const sessionMatch = text.match(/\[session\]\s+(?:Resumed\s+)?(\S+)/);
-		// Guard: ignore the word count suffix, parentheses, etc.
-		const rawId = sessionMatch?.[1];
-		const sessionId = rawId && !/^\(|turns/.test(rawId) ? rawId : undefined;
-		if (sessionId) currentSessionId = sessionId;
-		if (text.includes("router listening on")) {
-			readyResolve?.();
-			readyResolve = undefined;
-		}
+		stdio: ["inherit", "inherit", "inherit", "ipc"],
 	});
 
 	// Forward IPC from green to supervisor's parent (if nested).
@@ -150,14 +118,15 @@ function spawnGreen(sessionId?: string): ChildProcess {
 	});
 
 	child.on("exit", (code, signal) => {
-		if (!rebuilding) {
-			process.stderr.write(`[supervisor] green exited (code=${code} signal=${signal}), restarting…\n`);
-			current = spawnGreen(currentSessionId);
-		} else {
-			// Exited during a rebuild. If readyReject is still set the new green
-			// crashed before becoming ready — reject so doRebuild() can roll back.
+		if (rebuilding) {
 			readyReject?.(new Error(`Green exited (${code}/${signal}) before ready`));
+			return;
 		}
+		if (code === 0 || signal === "SIGTERM" || signal === "SIGINT") {
+			process.exit(code ?? 0);
+		}
+		process.stderr.write(`[supervisor] green crashed (code=${code} signal=${signal}), restarting…\n`);
+		current = spawnGreen(currentSessionId);
 	});
 
 	return child;
@@ -309,7 +278,18 @@ async function doUpdate(scope: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function handleGreenMessage(msg: unknown): void {
-	const m = msg as { type?: string; scope?: string };
+	const m = msg as { type?: string; scope?: string; sessionId?: string };
+
+	if (m.type === "ready") {
+		readyResolve?.();
+		readyResolve = undefined;
+		return;
+	}
+
+	if (m.type === "session") {
+		if (m.sessionId) currentSessionId = m.sessionId;
+		return;
+	}
 
 	if (m.type === "rebuild") {
 		void doRebuild();
@@ -321,8 +301,6 @@ function handleGreenMessage(msg: unknown): void {
 		return;
 	}
 
-	// Forward anything else up to supervisor's parent (if the supervisor
-	// itself is supervised — nested blue-green).
 	if (typeof process.send === "function") {
 		process.send(msg);
 	}

@@ -10,8 +10,9 @@ function resolveLevel(debug: boolean): string {
 	return process.env.ALEF_LOG_LEVEL ?? "warn";
 }
 
-export function createRunnerLogger(_willUseTui: boolean, debug: boolean): Logger {
-	const logger = createLogger(resolveLevel(debug));
+export function createRunnerLogger(willUseTui: boolean, debug: boolean): Logger {
+	const level = willUseTui && !debug ? "silent" : resolveLevel(debug);
+	const logger = createLogger(level);
 	initSpineLogger(logger.child({ component: "spine" }));
 	return logger;
 }

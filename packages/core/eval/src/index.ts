@@ -21,6 +21,7 @@ export type { Property } from "./checkers/property.js";
 export { propertyCheck, SUM_PROPERTIES } from "./checkers/property.js";
 export { terminalScript, terminalScriptFile } from "./checkers/terminal.js";
 export { testCheck } from "./checkers/test.js";
+export { toolCallsAreReal } from "./checkers/tool-use-detector.js";
 export { defaultEvalAdapters } from "./default-adapters.js";
 export type {
 	Checker,

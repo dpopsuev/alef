@@ -107,7 +107,8 @@ function readBlueprintPreview(path: string): string[] {
 				const adapterName = m[1];
 				const pkgMatch = raw.match(new RegExp(`name:\\s*${adapterName}[\\s\\S]*?package:\\s*"?([^"\\n]+)"?`));
 				const pkg = pkgMatch?.[1] ?? `adapter-${adapterName}`;
-				lines.push(`    ${adapterName.padEnd(14)} ${pkg}`);
+				const ADAPTER_NAME_COL_WIDTH = 14;
+				lines.push(`    ${adapterName.padEnd(ADAPTER_NAME_COL_WIDTH)} ${pkg}`);
 			}
 			lines.push("");
 		}

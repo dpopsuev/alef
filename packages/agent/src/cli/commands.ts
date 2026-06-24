@@ -203,7 +203,10 @@ const help = {
 	name: "help",
 	description: "Show help",
 	run(ctx: TuiHandlerContext) {
-		const lines = [...registry.list()].map((c) => `  :${c.name.padEnd(22)} ${c.description}`).join("\n");
+		const COMMAND_NAME_COL_WIDTH = 22;
+		const lines = [...registry.list()]
+			.map((c) => `  :${c.name.padEnd(COMMAND_NAME_COL_WIDTH)} ${c.description}`)
+			.join("\n");
 		ctx.writer.addNotice(`Commands:\n${lines}`);
 		ctx.tui.requestRender();
 	},

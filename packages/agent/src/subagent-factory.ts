@@ -1,4 +1,5 @@
 import type { SubagentFactory } from "@dpopsuev/alef-agent-blueprint";
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
@@ -9,6 +10,11 @@ import type { ActorRouteTable } from "./identity/routes.js";
 import { buildModel } from "./model/index.js";
 import type { AgentEvent, Session, SessionState } from "./session.js";
 
+export type LlmAdapterFactory = (opts: { model: Model<Api>; systemPrompt?: string }) => Adapter;
+
+const defaultLlmFactory: LlmAdapterFactory = (opts) =>
+	createAgentLoop({ model: opts.model, systemPrompt: opts.systemPrompt, phaseTimeoutMs: 100 });
+
 export interface SubagentSessionOptions {
 	model: Model<Api>;
 	baseSystemPrompt?: string;
@@ -18,6 +24,7 @@ export interface SubagentSessionOptions {
 	boardId?: string;
 	actorRoutes?: ActorRouteTable;
 	transcript?: Transcript;
+	llmFactory?: LlmAdapterFactory;
 }
 
 export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFactory {
@@ -31,12 +38,8 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			[dateContext, opts.baseSystemPrompt, callSystemPrompt].filter(Boolean).join("\n\n") || undefined;
 		const resolvedModel = modelOverride ? buildModel(modelOverride) : opts.model;
 
-		const llm = createAgentLoop({
-			model: resolvedModel,
-			systemPrompt,
-			trackConcurrentOps: opts.trackConcurrentOps,
-			phaseTimeoutMs: 100,
-		});
+		const llmFactory = opts.llmFactory ?? defaultLlmFactory;
+		const llm = llmFactory({ model: resolvedModel, systemPrompt });
 
 		const pipeline = createContextAssemblyPipeline();
 

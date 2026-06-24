@@ -2,16 +2,16 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { blueprintRegistry, loadAdapterFromPath } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import { createMetaAdapter } from "@dpopsuev/alef-meta";
-import { type Agent, AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
+import { AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
 import { SqliteDiscourseStore } from "@dpopsuev/alef-storage";
 import type { Logger } from "pino";
 import { buildAgent } from "../agent-kernel.js";
 import type { Args } from "../args.js";
+import { connectObservers, type SignalMapper } from "../assemble.js";
 import { setupHttpSurface } from "../build-delegation.js";
 import { buildLlmAdapter } from "../build-llm-adapter.js";
 import type { AlefConfig } from "../config.js";
@@ -19,7 +19,7 @@ import { configureSessionActors } from "../identity/actor.js";
 import { ActorRouteTable } from "../identity/routes.js";
 import { buildModel } from "../model/index.js";
 import { createDefaultDirectives, loadWorkspace, registerAdapters } from "../prompt.js";
-import type { AgentEvent, Session, SessionState, TokensConsumed } from "../session.js";
+import type { AgentEvent, Session, SessionState } from "../session.js";
 import { SessionHandle } from "../session-lifecycle/index.js";
 import type { SessionStore } from "../session-store.js";
 import { makeSink } from "../sink.js";
@@ -27,7 +27,6 @@ import { buildSubagentFactory } from "../subagent-factory.js";
 import type { AdapterLoadResult } from "./load-adapters.js";
 import { getTheme, setTheme } from "./runner-theme.js";
 
-type SignalMapper = (payload: Record<string, unknown>) => Record<string, unknown> | null;
 const adapterSignalMaps = new Map<string, SignalMapper>();
 
 function registerAdapterSignalMaps(
@@ -52,6 +51,7 @@ function registerUiSignals(adapters: readonly { contributions?: { ui?: UiContrib
 		if (!signals) continue;
 		for (const [signalType, handler] of Object.entries(signals)) {
 			uiSignalHandlers.set(signalType, handler);
+			uiSignalHandlerKeys.add(signalType);
 		}
 	}
 }
@@ -59,6 +59,8 @@ function registerUiSignals(adapters: readonly { contributions?: { ui?: UiContrib
 export function getUiSignalHandlers(): ReadonlyMap<string, UiSignalHandler> {
 	return uiSignalHandlers;
 }
+
+const uiSignalHandlerKeys = new Set<string>();
 
 let _compacted = false;
 export function isCompacted(): boolean {
@@ -68,158 +70,6 @@ export function markCompacted(): void {
 	_compacted = true;
 }
 
-function signalToAgentEvent(event: BusMessage): AgentEvent | null {
-	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
-	switch (event.type) {
-		case "llm.chunk":
-			return { type: "chunk", text: typeof p.text === "string" ? p.text : "" };
-		case "llm.thinking":
-			return { type: "thinking", text: typeof p.text === "string" ? p.text : "" };
-		case "llm.tool-start":
-			return {
-				type: "tool-start",
-				callId: String(p.callId),
-				name: String(p.name),
-				args: (p.args ?? {}) as Record<string, unknown>,
-			};
-		case "llm.tool-end":
-			return {
-				type: "tool-end",
-				callId: String(p.callId),
-				elapsedMs: Number(p.elapsedMs),
-				ok: Boolean(p.ok),
-				display: p.display as string | undefined,
-				displayKind: p.displayKind as string | undefined,
-			};
-		case "llm.tool-chunk":
-			return { type: "tool-chunk", callId: String(p.callId), text: typeof p.text === "string" ? p.text : "" };
-		case "llm.tool-stall":
-			return {
-				type: "tool-stall",
-				callId: String(p.callId),
-				name: String(p.name),
-				elapsedMs: Number(p.elapsedMs),
-				lastChunkMs: Number(p.lastChunkMs),
-			};
-		case "llm.tool-validation-error":
-			return {
-				type: "tool-validation-error",
-				callId: String(p.callId),
-				field: String(p.field),
-				message: String(p.message),
-			};
-		case "llm.token-usage":
-			return { type: "token-usage", usage: p.usage as TokensConsumed };
-		case "llm.turn-error":
-			return { type: "turn-error", message: String(p.message) };
-		case "agent.run.inner": {
-			const inner = p as { callId?: string; innerType?: string; innerPayload?: Record<string, unknown> };
-			if (!inner.innerType || !inner.callId) return null;
-			if (inner.innerType === "agent.identity" && inner.innerPayload) {
-				return {
-					type: "subagent-identity",
-					callId: String(inner.callId),
-					color: typeof inner.innerPayload.color === "string" ? inner.innerPayload.color : "",
-					address: typeof inner.innerPayload.address === "string" ? inner.innerPayload.address : "",
-				};
-			}
-			if (inner.innerType === "llm.tool-start" && inner.innerPayload) {
-				const ip = inner.innerPayload;
-				return {
-					type: "inner-tool-start",
-					parentCallId: String(inner.callId),
-					callId: typeof ip.callId === "string" ? ip.callId : "",
-					name: typeof ip.name === "string" ? ip.name : "",
-					args: (ip.args ?? {}) as Record<string, unknown>,
-				};
-			}
-			if (inner.innerType === "llm.tool-end" && inner.innerPayload) {
-				const ip = inner.innerPayload;
-				return {
-					type: "inner-tool-end",
-					parentCallId: String(inner.callId),
-					callId: typeof ip.callId === "string" ? ip.callId : "",
-				};
-			}
-			if (inner.innerType === "llm.chunk" && inner.innerPayload) {
-				const chunkText = inner.innerPayload.text;
-				return {
-					type: "inner-chunk",
-					parentCallId: String(inner.callId),
-					text: typeof chunkText === "string" ? chunkText : "",
-				};
-			}
-			return null;
-		}
-		case "llm.message-queued":
-			return { type: "message-queued", queueLength: Number(p.queueLength ?? 0) };
-		case "workflow.step":
-			return {
-				type: "workflow-step",
-				workflowId: typeof p.workflowId === "string" ? p.workflowId : "",
-				eventType: typeof p.eventType === "string" ? p.eventType : "",
-				step: typeof p.step === "string" ? p.step : "",
-				status: typeof p.status === "string" ? p.status : "",
-				score: p.score !== undefined ? Number(p.score) : undefined,
-			};
-		case "workflow.completed":
-			return {
-				type: "workflow-completed",
-				workflowId: typeof p.workflowId === "string" ? p.workflowId : "",
-				elapsedMs: Number(p.elapsedMs ?? 0),
-			};
-		case "workflow.error":
-			return {
-				type: "workflow-error",
-				workflowId: typeof p.workflowId === "string" ? p.workflowId : "",
-				step: typeof p.step === "string" ? p.step : "",
-				error: typeof p.error === "string" ? p.error : "",
-			};
-		case "workflow.escalated":
-			return {
-				type: "workflow-escalated",
-				workflowId: typeof p.workflowId === "string" ? p.workflowId : "",
-				rule: typeof p.rule === "string" ? p.rule : "",
-				retries: p.retries !== undefined ? Number(p.retries) : undefined,
-				score: p.score !== undefined ? Number(p.score) : undefined,
-			};
-		case "task.progress":
-			return {
-				type: "task-progress",
-				taskId: typeof p.taskId === "string" ? p.taskId : "",
-				chunk: typeof p.chunk === "string" ? p.chunk : "",
-			};
-		case "task.completed":
-			return {
-				type: "task-completed",
-				taskId: typeof p.taskId === "string" ? p.taskId : "",
-				profile: typeof p.profile === "string" ? p.profile : "",
-				reply: typeof p.reply === "string" ? p.reply : "",
-				elapsedMs: Number(p.elapsedMs ?? 0),
-			};
-		case "task.failed":
-			return {
-				type: "task-failed",
-				taskId: typeof p.taskId === "string" ? p.taskId : "",
-				profile: typeof p.profile === "string" ? p.profile : "",
-				error: typeof p.error === "string" ? p.error : "",
-				elapsedMs: Number(p.elapsedMs ?? 0),
-			};
-		default: {
-			const mapper = adapterSignalMaps.get(event.type);
-			if (mapper) {
-				const mapped = mapper(p);
-				if (mapped) return { type: "adapter-signal", signalType: event.type, payload: mapped };
-				return null;
-			}
-			if (uiSignalHandlers.has(event.type)) {
-				return { type: "adapter-signal", signalType: event.type, payload: p };
-			}
-			return null;
-		}
-	}
-}
-
 function registerContributions(
 	adapters: readonly {
 		contributions?: { "signal.map"?: Readonly<Record<string, SignalMapper>>; ui?: UiContribution };
@@ -227,6 +77,7 @@ function registerContributions(
 ): void {
 	registerAdapterSignalMaps(adapters);
 	registerUiSignals(adapters);
+	uiSignalHandlerKeys.add("context.compacted");
 	uiSignalHandlers.set("context.compacted", (payload, ui) => {
 		markCompacted();
 		const before = Number(payload.estimatedBefore ?? 0);
@@ -271,23 +122,6 @@ function buildActorIdentity(store: SessionStore) {
 	actorRoutes.setHumanAddress(humanActor.color);
 
 	return { humanActor, agentActor, actorRoutes };
-}
-
-function connectObservers(agent: Agent, observers: Set<(event: AgentEvent) => void>): void {
-	agent.observe({
-		onCommand(event) {
-			if (event.type === "llm.response") {
-				const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
-				const text = typeof p.text === "string" ? p.text : "";
-				for (const obs of observers) obs({ type: "turn-complete", reply: text });
-			}
-		},
-		onEvent() {},
-		onNotification(event) {
-			const agentEvent = signalToAgentEvent(event);
-			if (agentEvent) for (const obs of observers) obs(agentEvent);
-		},
-	});
 }
 
 export async function createLocalSession(
@@ -431,7 +265,7 @@ export async function createLocalSession(
 	});
 	agent.load(alefAdapter);
 
-	connectObservers(agent, observers);
+	connectObservers(agent, observers, adapterSignalMaps, uiSignalHandlerKeys);
 
 	agent.observe({
 		onCommand() {},

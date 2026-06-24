@@ -8,7 +8,7 @@ export default mergeConfig(
 			name: "alef-coding-agent",
 			testTimeout: 360_000,
 			hookTimeout: 30_000,
-			setupFiles: ["../../packages/eval/src/otel-setup.ts"],
+			setupFiles: ["../../core/eval/src/otel-setup.ts"],
 		},
 	}),
 );

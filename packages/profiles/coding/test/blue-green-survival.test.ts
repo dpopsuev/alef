@@ -23,8 +23,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { afterEach, describe, expect, it } from "vitest";
+import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
+import { parseArgs } from "../../../agent/src/args.js";
 import { addTypeExport } from "../../../core/eval/src/evaluations/write.js";
 import { EvalHarness, EvaluationRunner } from "../../../core/eval/src/index.js";
 import { getEvalModel, SKIP_REAL_LLM } from "../../../core/eval/src/model.js";
@@ -112,7 +113,17 @@ describe.skipIf(SKIP_REAL_LLM)(
 
 			const harness = new EvalHarness();
 			const runner = new EvaluationRunner(harness, {
-				adapterFactory: (signal) => [createAgentLoop({ model: getEvalModel(), getSignal: () => signal })],
+				adapterFactory: (signal) => {
+					const model = getEvalModel();
+					return [buildLlmAdapter({
+						model,
+						cfg: {},
+						args: { ...parseArgs([]), noTui: true, cwd: "." },
+						thinkingState: { level: undefined },
+						getModel: () => model,
+						getSignal: () => signal,
+					})];
+				},
 			});
 			const result = await runner.run(wrappedEval);
 

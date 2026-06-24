@@ -57,6 +57,12 @@ export {
 } from "./components/select-list.js";
 export { SeparatorLine, type SeparatorLineOptions } from "./components/separator-line.js";
 export { type SettingItem, SettingsList, type SettingsListTheme } from "./components/settings-list.js";
+export {
+	glyphInterpolator,
+	numericInterpolator,
+	SlotMachine,
+	type SlotMachineOptions,
+} from "./components/slot-machine.js";
 export { Spacer } from "./components/spacer.js";
 export { AgentCard, type AgentCardState, type AgentCardTheme } from "./components/agent-card.js";
 export { SplitPane, type SplitPaneOptions } from "./components/split-pane.js";

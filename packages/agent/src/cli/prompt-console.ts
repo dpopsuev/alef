@@ -5,7 +5,9 @@ import {
 	Container,
 	Editor,
 	type EditorTheme,
+	numericInterpolator,
 	type SelectListTheme,
+	SlotMachine,
 	Text,
 	type TUI,
 	visibleWidth,
@@ -77,8 +79,8 @@ export class PromptConsole {
 			lastChunk: string;
 			expandedChunks: string[];
 			identity: { color: string; address: string; token: ColorToken; modelId?: string } | null;
-			inputTokens: number;
-			outputTokens: number;
+			inputSlot: SlotMachine<number>;
+			outputSlot: SlotMachine<number>;
 			children: Map<string, { name: string; keyArg: string; startedAt: number; depth: number }>;
 		}
 	>();
@@ -276,14 +278,25 @@ export class PromptConsole {
 			spinner: spinnerFrame(callId, 0),
 			children: [],
 		});
+		const fmtCompact = (n: number) => {
+			if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+			if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+			return String(n);
+		};
+		const slotOpts = {
+			format: fmtCompact,
+			interpolate: numericInterpolator,
+			style: (s: string) => color(s, this.t.secondaryFg),
+			dimStyle: (s: string) => color(s, this.t.mutedFg),
+		};
 		const entry = {
 			card,
 			startedAt,
 			lastChunk: "",
 			expandedChunks: [] as string[],
 			identity: null as { color: string; address: string; token: ColorToken; modelId?: string } | null,
-			inputTokens: 0,
-			outputTokens: 0,
+			inputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "↑" }),
+			outputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "↓" }),
 			children: new Map<string, { name: string; keyArg: string; startedAt: number; depth: number }>(),
 		};
 		this.inFlightCalls.set(callId, entry);
@@ -310,6 +323,8 @@ export class PromptConsole {
 	removeInFlightCall(callId: string): void {
 		const entry = this.inFlightCalls.get(callId);
 		if (entry) {
+			entry.inputSlot.dispose();
+			entry.outputSlot.dispose();
 			this.inFlightQueue.removeChild(entry.card);
 			this.inFlightCalls.delete(callId);
 			this.chunkAccumulators.delete(callId);
@@ -353,8 +368,8 @@ export class PromptConsole {
 	updateCallTokens(callId: string, input: number, output: number): void {
 		const entry = this.inFlightCalls.get(callId);
 		if (!entry) return;
-		entry.inputTokens = input;
-		entry.outputTokens = output;
+		entry.inputSlot.set(input);
+		entry.outputSlot.set(output);
 	}
 
 	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void {
@@ -383,8 +398,12 @@ export class PromptConsole {
 				spinner: spinnerFrame(callId, elapsed),
 				lastChunk: entry.lastChunk,
 				expandedChunks: entry.expandedChunks,
-				inputTokens: entry.inputTokens,
-				outputTokens: entry.outputTokens,
+				inputTokens: entry.inputSlot.get(),
+				outputTokens: entry.outputSlot.get(),
+				tokenDisplay:
+					entry.inputSlot.get() > 0
+						? `${entry.inputSlot.currentStyled()} ${entry.outputSlot.currentStyled()}`
+						: undefined,
 				children: [...entry.children.entries()].map(([id, c]) => ({
 					id,
 					name: c.name,

@@ -17,6 +17,7 @@ export interface AgentCardState {
 	elapsedMs: number;
 	inputTokens: number;
 	outputTokens: number;
+	tokenDisplay?: string;
 	lastChunk: string;
 	expandedChunks: readonly string[];
 	spinner: string;
@@ -114,6 +115,7 @@ export class AgentCard implements Component {
 
 	private renderBudgetRow(s: AgentCardState, t: AgentCardTheme, wrap: (s: string) => string): string {
 		if (s.inputTokens <= 0) return "";
+		if (s.tokenDisplay) return wrap(`     ${s.tokenDisplay}`);
 		const colorFn = this._focused ? t.secondary : t.muted;
 		return wrap(`     ${colorFn(`↑${fmtCompact(s.inputTokens)} ↓${fmtCompact(s.outputTokens)}`)}`);
 	}

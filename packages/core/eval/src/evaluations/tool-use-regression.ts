@@ -1,0 +1,64 @@
+/**
+ * Tool-use regression evaluations.
+ *
+ * Catches the progressive disclosure bug: LLM outputs JSON text describing
+ * tool calls instead of making actual tool_use API calls. This happens when
+ * the ToolShell sends stripped schemas ({}) and the model can't construct
+ * proper tool_use blocks.
+ *
+ * These evals use simple, unambiguous prompts that MUST result in real tool
+ * calls. If the model outputs text instead, toolCallsAreReal detects it.
+ */
+
+import { all, replyContains } from "../checker.js";
+import type { Evaluation } from "../evaluation.js";
+import { toolCallsAreReal } from "../checkers/tool-use-detector.js";
+
+const SEED_FILE = `export function greet(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+`;
+
+const SECRET = "XYZZY_42_PLUGH";
+
+export const singleToolCall: Evaluation = {
+	id: "ToolUse_SingleCall",
+	toolLevel: "ReadOnly",
+	template: "ReadOnly",
+	kind: "regression",
+	seed: [{ path: "src/greet.ts", content: SEED_FILE }],
+	prompt: "Read the file src/greet.ts and tell me the function name defined in it.",
+	expects: [{ tool: ["fs.read", "code.read"], target: { path: "src/greet.ts" } }],
+	checker: all(replyContains("greet"), toolCallsAreReal()),
+};
+
+export const multiToolCall: Evaluation = {
+	id: "ToolUse_MultiCall",
+	toolLevel: "ReadOnly",
+	template: "ReadOnly",
+	kind: "regression",
+	seed: [
+		{ path: "src/a.ts", content: `export const A_TOKEN = "${SECRET}";` },
+		{ path: "src/b.ts", content: 'export const B_VALUE = "nothing special";' },
+	],
+	prompt: "Read both src/a.ts and src/b.ts. Tell me the value of A_TOKEN.",
+	expects: [
+		{ tool: ["fs.read", "code.read"], target: { path: "src/a.ts" } },
+		{ tool: ["fs.read", "code.read"], target: { path: "src/b.ts" } },
+	],
+	checker: all(replyContains(SECRET), toolCallsAreReal()),
+};
+
+export const grepThenRead: Evaluation = {
+	id: "ToolUse_GrepThenRead",
+	toolLevel: "ReadOnly",
+	template: "ReadOnly",
+	kind: "regression",
+	seed: [
+		{ path: "src/config.ts", content: `export const DB_HOST = "localhost";\nexport const DB_PORT = 5432;` },
+		{ path: "src/main.ts", content: 'import { DB_HOST } from "./config";\nconsole.log(DB_HOST);' },
+	],
+	prompt: "Search the codebase for DB_HOST. Which files reference it? Read them and tell me the value.",
+	expects: [{ tool: ["fs.grep", "code.search"], target: { pattern: /DB_HOST/i } }],
+	checker: all(replyContains("localhost"), toolCallsAreReal()),
+};

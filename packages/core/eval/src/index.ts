@@ -44,6 +44,7 @@ export * as gitWorkflowEvaluations from "./evaluations/git-workflow.js";
 export * as multiTurnEvaluations from "./evaluations/multi-turn.js";
 // Evaluation suites
 export * as readOnlyEvaluations from "./evaluations/read-only.js";
+export * as toolUseRegressionEvaluations from "./evaluations/tool-use-regression.js";
 export * as terminalBenchEvaluations from "./evaluations/terminal-bench.js";
 export * as writeEvaluations from "./evaluations/write.js";
 export type { EvaluatorAdapterOptions, EvaluatorAdapterState } from "./evaluator-adapter.js";

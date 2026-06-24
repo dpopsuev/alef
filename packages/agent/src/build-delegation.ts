@@ -11,6 +11,8 @@ import type { Args } from "./args.js";
 import type { AgentEvent, Session } from "./session.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
 
+const MAX_HISTORY_EVENTS = 500;
+
 async function createRouter(
 	servePort: number,
 	blueprintSurfaces: AgentDefinitionSurfaceInput[],
@@ -20,12 +22,49 @@ async function createRouter(
 ): Promise<void> {
 	const sseSurface = blueprintSurfaces.filter((surface) => surface.type === "sse");
 	const allowedEvents = sseSurface.flatMap((surface) => surface.events ?? []);
+	const history: Record<string, unknown>[] = [];
+
 	const router = createRouterAdapter({
 		port: servePort,
 		allowedEvents,
 		triggerEvent: "llm.input",
 		onMessage: (text) => session.receive?.(text),
+		getState: () => ({
+			modelId: session.getModel(),
+			thinking: session.getThinking(),
+			contextWindow: session.state.contextWindow,
+			sessionId: session.state.id,
+		}),
+		onSetModel: (id) => {
+			session.setModel(id);
+			router.notifyStateChange({
+				modelId: session.getModel(),
+				thinking: session.getThinking(),
+				contextWindow: session.state.contextWindow,
+			});
+		},
+		onSetThinking: (level) => {
+			session.setThinking(level);
+			router.notifyStateChange({
+				modelId: session.getModel(),
+				thinking: session.getThinking(),
+				contextWindow: session.state.contextWindow,
+			});
+		},
+		onCancel: () => {
+			agent.publishEvent({
+				type: "budget.cancel",
+				payload: { reason: "cancelled by attached client" },
+				correlationId: "remote-cancel",
+				isError: false,
+			});
+		},
+		onReloadAdapter: async (name, path) => {
+			await session.reloadAdapter?.(name, path);
+		},
+		getHistory: () => history,
 	});
+
 	agent.load(router);
 	await router.ready();
 	const addr = router.address() ?? { host: "127.0.0.1", port: 0 };
@@ -34,6 +73,8 @@ async function createRouter(
 	if (args.daemon) {
 		session.subscribe((event: AgentEvent) => {
 			router.notifyAgent(event);
+			history.push(event);
+			if (history.length > MAX_HISTORY_EVENTS) history.shift();
 		});
 		const daemonDir = join(homedir(), ".alef");
 		mkdirSync(daemonDir, { recursive: true });

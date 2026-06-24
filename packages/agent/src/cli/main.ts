@@ -78,6 +78,7 @@ if (args.attach !== undefined) {
 		process.exit(1);
 	}
 	const remoteSession = new RemoteSession(entry);
+	await remoteSession.ready();
 	loadTheme(
 		undefined,
 		cfg.theme?.name,
@@ -87,7 +88,7 @@ if (args.attach !== undefined) {
 	);
 	await runAgent({
 		args: { ...args, noTui: false },
-		resolvedModelDisplay: `remote:${entry.port}`,
+		resolvedModelDisplay: remoteSession.getModel(),
 		sessionId: entry.sessionId,
 		contextWindow: remoteSession.state.contextWindow,
 		getModel: () => remoteSession.getModel(),
@@ -95,7 +96,7 @@ if (args.attach !== undefined) {
 		getThinking: () => remoteSession.getThinking(),
 		setThinking: (level) => remoteSession.setThinking(level),
 		setLLMAbortController: (ctrl) => remoteSession.setTurnController(ctrl),
-		reloadAdapter: async (_name: string, _path: string) => {},
+		reloadAdapter: async (name: string, path: string) => remoteSession.reloadAdapter(name, path),
 		getDirectiveAdapter: () => undefined,
 		session: remoteSession,
 	});

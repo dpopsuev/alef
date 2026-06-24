@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 export const EMBEDDING_DIMENSION = 384;
 
 const DDL_STATEMENTS = [
@@ -30,8 +30,8 @@ const DDL_STATEMENTS = [
 	`CREATE TABLE IF NOT EXISTS auth (
 		provider TEXT PRIMARY KEY, type TEXT NOT NULL DEFAULT 'api_key', key TEXT NOT NULL)`,
 	`CREATE TABLE IF NOT EXISTS daemon (
-		id INTEGER PRIMARY KEY DEFAULT 1, port INTEGER NOT NULL, pid INTEGER NOT NULL,
-		session_id TEXT, cwd TEXT, started_at INTEGER)`,
+		session_id TEXT PRIMARY KEY, port INTEGER NOT NULL, pid INTEGER NOT NULL,
+		cwd TEXT, started_at INTEGER)`,
 	`CREATE TABLE IF NOT EXISTS session_summaries (
 		session_id TEXT PRIMARY KEY REFERENCES sessions(id), model TEXT NOT NULL,
 		started_at TEXT NOT NULL, duration_ms INTEGER NOT NULL, turns INTEGER NOT NULL,
@@ -46,6 +46,15 @@ const MIGRATIONS: Record<number, string[]> = {
 	],
 	3: [
 		`ALTER TABLE events RENAME COLUMN organ TO adapter`,
+	],
+	4: [
+		`CREATE TABLE IF NOT EXISTS daemon_v2 (
+			session_id TEXT PRIMARY KEY, port INTEGER NOT NULL, pid INTEGER NOT NULL,
+			cwd TEXT, started_at INTEGER)`,
+		`INSERT OR IGNORE INTO daemon_v2 (session_id, port, pid, cwd, started_at)
+			SELECT COALESCE(session_id, 'legacy'), port, pid, cwd, started_at FROM daemon`,
+		`DROP TABLE daemon`,
+		`ALTER TABLE daemon_v2 RENAME TO daemon`,
 	],
 };
 

@@ -24,7 +24,7 @@ import "@dpopsuev/alef-coding-agent";
 
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { parseArgs } from "../src/args.js";
-import { createLocalSession } from "../src/cli/local-session.js";
+import { buildIdentityContext, createLocalSession } from "../src/cli/local-session.js";
 import { JsonlSessionStore } from "../src/session-store.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
 
@@ -84,7 +84,16 @@ describe("createLocalSession — session.subscribe delivers AgentEvents to calle
 		const args = { ...parseArgs([]), cwd, noTui: true };
 		const model = faux.getModel();
 
-		const { session } = await createLocalSession(args, {}, SILENT_LOGGER, store, EMPTY_LOADED, model, STUB_STORAGE);
+		const { session } = await createLocalSession(
+			args,
+			{},
+			SILENT_LOGGER,
+			store,
+			EMPTY_LOADED,
+			model,
+			STUB_STORAGE,
+			buildIdentityContext(store),
+		);
 
 		const viewer = new HeadlessViewMode();
 		const running = viewer.run(session);

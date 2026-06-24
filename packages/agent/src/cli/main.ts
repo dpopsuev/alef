@@ -22,7 +22,7 @@ import { RemoteSession } from "../strategies/remote-session.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "../terminal-bg.js";
 import { ensureDirectories } from "../xdg-paths.js";
 import { loadAdapters } from "./load-adapters.js";
-import { createLocalSession } from "./local-session.js";
+import { buildIdentityContext, createLocalSession } from "./local-session.js";
 import { pickSession } from "./session-picker.js";
 import { loadTheme } from "./theme-loader.js";
 
@@ -265,6 +265,7 @@ import("@dpopsuev/alef-storage")
 const sessionDir = dirname(session.path);
 const loaded = await loadAdapters(args, cfg, log, sessionDir);
 const { blueprintUpgradePolicy, blueprintPath } = loaded;
+const identity = buildIdentityContext(session);
 
 const {
 	session: localSession,
@@ -281,6 +282,7 @@ const {
 	loaded,
 	resolveStartupModel(args, loaded.blueprintModelId, cfg),
 	storage,
+	identity,
 );
 
 await setupSurface();

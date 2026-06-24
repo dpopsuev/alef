@@ -15,7 +15,7 @@ import { connectObservers, type SignalMapper } from "../assemble.js";
 import { setupHttpSurface } from "../build-delegation.js";
 import { buildLlmAdapter } from "../build-llm-adapter.js";
 import type { AlefConfig } from "../config.js";
-import { configureSessionActors } from "../identity/actor.js";
+import { type ActorIdentity, configureSessionActors } from "../identity/actor.js";
 import { ActorRouteTable } from "../identity/routes.js";
 import { buildModel } from "../model/index.js";
 import { createDefaultDirectives, loadWorkspace, registerAdapters } from "../prompt.js";
@@ -113,7 +113,13 @@ async function buildDirectiveSet(args: Args, adapters: readonly Adapter[]) {
 	return directives;
 }
 
-function buildActorIdentity(store: SessionStore) {
+export interface IdentityContext {
+	humanActor: ActorIdentity;
+	agentActor: ActorIdentity;
+	actorRoutes: ActorRouteTable;
+}
+
+export function buildIdentityContext(store: SessionStore): IdentityContext {
 	const boardId = store.id.slice(0, 12);
 	const { humanActor, agentActor, theme } = configureSessionActors(store.id, boardId);
 	setTheme({ ...getTheme(), ...theme });
@@ -132,6 +138,7 @@ export async function createLocalSession(
 	loaded: AdapterLoadResult,
 	model: Model<Api>,
 	storage: StorageFactory,
+	identity: IdentityContext,
 ): Promise<{
 	session: SessionHandle;
 	resolvedModelDisplay: string;
@@ -154,7 +161,7 @@ export async function createLocalSession(
 	const replySink = !args.print && !args.json && !args.noTui && process.stdin.isTTY ? undefined : makeSink(args.json);
 
 	const sessionState: SessionState = { id: store.id, modelId: model.id, contextWindow: model.contextWindow };
-	const { humanActor, agentActor, actorRoutes } = buildActorIdentity(store);
+	const { humanActor, agentActor, actorRoutes } = identity;
 
 	const observers = new Set<(event: AgentEvent) => void>();
 	let llmController: AbortController | undefined;

@@ -59,10 +59,10 @@ export async function runAdapterContract(
 	const fail = (check: string, detail: string) => violations.push({ check, detail });
 
 	// 1. mount returns a function
-	const nerve = new InProcessBus();
+	const bus = new InProcessBus();
 	let unmount: (() => void) | unknown;
 	try {
-		unmount = adapter.mount(nerve.asBus());
+		unmount = adapter.mount(bus.asBus());
 		if (typeof unmount !== "function") {
 			fail("mount-returns-function", `mount() returned ${typeof unmount}, expected function`);
 		} else {
@@ -303,8 +303,8 @@ export function adapterComplianceSuite(
 
 		it("mount() returns a cleanup function", () => {
 			const o = createAdapter();
-			const nerve = new InProcessBus();
-			const cleanup = o.mount(nerve.asBus());
+			const bus = new InProcessBus();
+			const cleanup = o.mount(bus.asBus());
 			expect(typeof cleanup, "mount() must return a function").toBe("function");
 			expect(() => {
 				cleanup();
@@ -415,14 +415,14 @@ export async function runSchemaContract(
 		)?.[0];
 		if (!requiredStringField) continue;
 
-		const nerve = new InProcessBus();
-		const unmount = adapter.mount(nerve.asBus());
+		const bus = new InProcessBus();
+		const unmount = adapter.mount(bus.asBus());
 		const correlationId = randomUUID();
 		const commandType = tool.name.replace(/\./g, "_");
 
 		const resultPromise = new Promise<EventMessage | null>((resolve) => {
 			const timer = setTimeout(() => resolve(null), timeoutMs);
-			nerve.asBus().event.subscribe(commandType, (e) => {
+			bus.asBus().event.subscribe(commandType, (e) => {
 				if (e.correlationId === correlationId) {
 					clearTimeout(timer);
 					resolve(e);
@@ -431,7 +431,7 @@ export async function runSchemaContract(
 		});
 
 		const start = Date.now();
-		nerve.publish("command", {
+		bus.publish("command", {
 			type: commandType,
 			correlationId,
 			payload: { [requiredStringField]: null, toolCallId: randomUUID() },
@@ -477,8 +477,8 @@ export async function runStreamingContract(
 	const thresholdMs = opts.thresholdMs ?? 1_000;
 	const timeoutMs = opts.timeoutMs ?? 10_000;
 
-	const nerve = new InProcessBus();
-	const unmount = adapter.mount(nerve.asBus());
+	const bus = new InProcessBus();
+	const unmount = adapter.mount(bus.asBus());
 	const correlationId = randomUUID();
 	const commandType = toolName.replace(/\./g, "_");
 
@@ -487,7 +487,7 @@ export async function runStreamingContract(
 
 	const finalPromise = new Promise<{ durationMs: number }>((resolve, reject) => {
 		const timer = setTimeout(() => reject(new Error(`Tool timed out after ${timeoutMs}ms`)), timeoutMs);
-		nerve.asBus().event.subscribe(commandType, (e) => {
+		bus.asBus().event.subscribe(commandType, (e) => {
 			if (e.correlationId !== correlationId) return;
 			if (e.payload.isFinal === false) {
 				chunkCount++;
@@ -498,7 +498,7 @@ export async function runStreamingContract(
 		});
 	});
 
-	nerve.publish("command", {
+	bus.publish("command", {
 		type: commandType,
 		correlationId,
 		payload: { ...validPayload, toolCallId: randomUUID() },

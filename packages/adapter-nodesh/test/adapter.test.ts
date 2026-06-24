@@ -22,9 +22,9 @@ describe("NodeshOrgan — organ metadata", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		const organ = createNodeshAdapter({ cwd: process.cwd() });
 		const unmount = f.mount(organ);
-		expect(f.nerve.listenerCount("command", "nodesh.eval")).toBe(1);
+		expect(f.bus.listenerCount("command", "nodesh.eval")).toBe(1);
 		unmount();
-		expect(f.nerve.listenerCount("command", "nodesh.eval")).toBe(0);
+		expect(f.bus.listenerCount("command", "nodesh.eval")).toBe(0);
 	});
 });
 

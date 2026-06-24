@@ -23,7 +23,7 @@ export class TurnDriver {
 	private readonly tools: readonly ToolDefinition[];
 
 	constructor(
-		private readonly nerve: InProcessBus,
+		private readonly bus: InProcessBus,
 		private readonly triggerEvent = "llm.input",
 		private readonly replyEvent = "llm.response",
 		tools?: readonly ToolDefinition[],
@@ -38,13 +38,13 @@ export class TurnDriver {
 				off();
 				reject(new Error(`TurnDriver.send timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
-			const off = this.nerve.asBus().command.subscribe(this.replyEvent, (event) => {
+			const off = this.bus.asBus().command.subscribe(this.replyEvent, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
 				resolve(typeof event.payload.text === "string" ? event.payload.text : "");
 			});
-			this.nerve.asBus().event.publish({
+			this.bus.asBus().event.publish({
 				type: this.triggerEvent,
 				correlationId,
 				payload: { text, sender, tools: this.tools },
@@ -55,7 +55,7 @@ export class TurnDriver {
 
 	receive(text: string, sender = "human"): string {
 		const correlationId = randomUUID();
-		this.nerve.asBus().event.publish({
+		this.bus.asBus().event.publish({
 			type: this.triggerEvent,
 			correlationId,
 			payload: { text, sender, tools: this.tools },
@@ -66,8 +66,8 @@ export class TurnDriver {
 
 	observe(observer: BusObserver): () => void {
 		const offs = [
-			this.nerve.onAny("command", (event) => observer.onCommand(event)),
-			this.nerve.onAny("event", (event) => observer.onEvent(event)),
+			this.bus.onAny("command", (event) => observer.onCommand(event)),
+			this.bus.onAny("event", (event) => observer.onEvent(event)),
 		];
 		return () => {
 			for (const off of offs) off();

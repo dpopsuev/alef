@@ -97,7 +97,7 @@ export async function migrateJsonlToSqlite(client: Client): Promise<MigrationRes
 
 					stmts.push({
 						sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, elapsed, hash,
-						   actor_address, actor_type, organ, turn_number, version)
+						   actor_address, actor_type, adapter, turn_number, version)
 						 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 						args: [
 							sessionId,

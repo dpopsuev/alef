@@ -63,7 +63,7 @@ describe("schema", { tags: ["unit"] }, () => {
 		expect(colNames).toContain("correlation_id");
 		expect(colNames).toContain("actor_address");
 		expect(colNames).toContain("actor_type");
-		expect(colNames).toContain("organ");
+		expect(colNames).toContain("adapter");
 		expect(colNames).toContain("turn_number");
 		expect(colNames).toContain("version");
 	});
@@ -79,7 +79,7 @@ describe("schema", { tags: ["unit"] }, () => {
 		});
 
 		await client.execute({
-			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, organ, turn_number, version)
+			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload, timestamp, adapter, turn_number, version)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			args: ["abcd1234", "motor", "fs.read", "corr-1", '{"path":"/tmp"}', Date.now(), "fs", 1, "0.0.1"],
 		});

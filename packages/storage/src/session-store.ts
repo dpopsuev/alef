@@ -138,7 +138,7 @@ export class SqliteSessionStore implements SessionStore {
 
 		const insertResult = await this._client.execute({
 			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload,
-				timestamp, elapsed, hash, actor_address, actor_type, organ, turn_number, version)
+				timestamp, elapsed, hash, actor_address, actor_type, adapter, turn_number, version)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			args: [
 				this.id,

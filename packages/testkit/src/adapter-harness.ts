@@ -19,7 +19,7 @@ const DEFAULT_TIMEOUT_MS = 2_000;
  *   h.dispose();
  */
 export class AdapterHarness {
-	private readonly nerve = new InProcessBus();
+	private readonly bus = new InProcessBus();
 	private readonly unmount: () => void;
 	private readonly adapter: Adapter;
 	private readonly timeoutMs: number;
@@ -27,7 +27,7 @@ export class AdapterHarness {
 	constructor(adapter: Adapter, opts: { timeoutMs?: number } = {}) {
 		this.adapter = adapter;
 		this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-		this.unmount = adapter.mount(this.nerve.asBus());
+		this.unmount = adapter.mount(this.bus.asBus());
 	}
 
 	async ready(): Promise<void> {
@@ -51,14 +51,14 @@ export class AdapterHarness {
 				);
 			}, this.timeoutMs);
 
-			const off = this.nerve.subscribe("event", type, (event) => {
+			const off = this.bus.subscribe("event", type, (event) => {
 				if (event.correlationId !== correlationId) return;
 				clearTimeout(timer);
 				off();
 				resolve(event as EventMessage);
 			});
 
-			this.nerve.publish("command", { type, payload, correlationId });
+			this.bus.publish("command", { type, payload, correlationId });
 		});
 	}
 

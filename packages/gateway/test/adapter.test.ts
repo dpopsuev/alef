@@ -26,7 +26,7 @@ async function setup(overrides: { port?: number; host?: string } = {}) {
 	await organ.ready();
 	const addr = organ.address()!;
 	const baseUrl = `http://${addr.host}:${addr.port}`;
-	return { organ, fixture, nerve: fixture.nerve, unmount, baseUrl, addr };
+	return { organ, fixture, nerve: fixture.bus, unmount, baseUrl, addr };
 }
 
 /** GET a URL and return { status, body }. */
@@ -403,7 +403,7 @@ describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () 
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 1);
 			await new Promise((r) => setTimeout(r, 30));
-			fixture.nerve.asBus().command.publish({ type: "llm.response", payload: { text: "hi" }, correlationId: "c-1" });
+			fixture.bus.asBus().command.publish({ type: "llm.response", payload: { text: "hi" }, correlationId: "c-1" });
 			const events = await eventsPromise;
 			expect((events[0] as Record<string, unknown>).type).toBe("llm.response");
 		} finally {
@@ -437,8 +437,8 @@ describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () 
 			});
 			await new Promise((r) => setTimeout(r, 30));
 			// Publish a blocked event then an allowed event.
-			fixture.nerve.asBus().command.publish({ type: "loop.detected", payload: {}, correlationId: "c-2" });
-			fixture.nerve.asBus().command.publish({ type: "llm.response", payload: {}, correlationId: "c-3" });
+			fixture.bus.asBus().command.publish({ type: "loop.detected", payload: {}, correlationId: "c-2" });
+			fixture.bus.asBus().command.publish({ type: "llm.response", payload: {}, correlationId: "c-3" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("loop.detected");
@@ -457,8 +457,8 @@ describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () 
 		try {
 			const eventsPromise = collectSseEvents(`${baseUrl}/events`, 2);
 			await new Promise((r) => setTimeout(r, 30));
-			fixture.nerve.asBus().command.publish({ type: "fs.read", payload: {}, correlationId: "c-1" });
-			fixture.nerve.asBus().command.publish({ type: "fs.write", payload: {}, correlationId: "c-2" });
+			fixture.bus.asBus().command.publish({ type: "fs.read", payload: {}, correlationId: "c-1" });
+			fixture.bus.asBus().command.publish({ type: "fs.write", payload: {}, correlationId: "c-2" });
 			const events = await eventsPromise;
 			const types = events.map((e) => (e as Record<string, unknown>).type);
 			expect(types).toContain("fs.read");
@@ -493,8 +493,8 @@ describe("RouterAdapter — allowedEvents filter", { tags: ["compliance"] }, () 
 					.on("error", reject);
 			});
 			await new Promise((r) => setTimeout(r, 30));
-			fixture.nerve.asBus().command.publish({ type: "shell.exec", payload: {}, correlationId: "c-1" });
-			fixture.nerve.asBus().command.publish({ type: "fs.read", payload: {}, correlationId: "c-2" });
+			fixture.bus.asBus().command.publish({ type: "shell.exec", payload: {}, correlationId: "c-1" });
+			fixture.bus.asBus().command.publish({ type: "fs.read", payload: {}, correlationId: "c-2" });
 			await connectedPromise;
 			const full = collectedFrames.join("");
 			expect(full).not.toContain("shell.exec");

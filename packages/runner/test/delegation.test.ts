@@ -96,12 +96,12 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		// Outer BusFixture: outer adapter-llm + delegate adapter
 		const f = new BusFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
+		const driver = new TurnDriver(f.bus, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asBus().notification.subscribe("llm.tool-start", () => {
+		f.bus.asBus().notification.subscribe("llm.tool-start", () => {
 			capturedEvents.push("tool-start");
 		});
-		f.nerve.asBus().notification.subscribe("llm.tool-end", () => {
+		f.bus.asBus().notification.subscribe("llm.tool-end", () => {
 			capturedEvents.push("tool-end");
 		});
 		f.mount(
@@ -157,9 +157,9 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const capturedEnds: Array<{ ok: boolean }> = [];
 		const f = new BusFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
+		const driver = new TurnDriver(f.bus, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asBus().notification.subscribe("llm.tool-end", (event) => {
+		f.bus.asBus().notification.subscribe("llm.tool-end", (event) => {
 			capturedEnds.push({ ok: Boolean(event.payload.ok) });
 		});
 		f.mount(
@@ -226,9 +226,9 @@ describe("agent.run delegation — E2E", { tags: ["e2e"] }, () => {
 		const outerChunks: string[] = [];
 		const f = new BusFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
+		const driver = new TurnDriver(f.bus, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
+		f.bus.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			outerChunks.push(String(event.payload.text ?? ""));
 		});
 		f.mount(
@@ -293,9 +293,9 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new BusFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
+		const driver = new TurnDriver(f.bus, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
+		f.bus.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			capturedChunks.push({ callId: String(event.payload.callId ?? ""), text: String(event.payload.text ?? "") });
 		});
 		f.mount(
@@ -365,9 +365,9 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		const capturedChunks: Array<{ callId: string; text: string }> = [];
 		const f = new BusFixture();
 		disposes.push(() => f.dispose());
-		const driver = new TurnDriver(f.nerve, "llm.input", "llm.response", delegateAdapter.tools);
+		const driver = new TurnDriver(f.bus, "llm.input", "llm.response", delegateAdapter.tools);
 
-		f.nerve.asBus().notification.subscribe("llm.tool-chunk", (event) => {
+		f.bus.asBus().notification.subscribe("llm.tool-chunk", (event) => {
 			capturedChunks.push({ callId: String(event.payload.callId ?? ""), text: String(event.payload.text ?? "") });
 		});
 		f.mount(

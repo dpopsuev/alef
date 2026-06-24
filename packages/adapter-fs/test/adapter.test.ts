@@ -42,11 +42,11 @@ describe("Fsorgan", { tags: ["compliance"] }, () => {
 		const f = new BusFixture();
 		const organ = createFsAdapter({ cwd: testDir });
 		const unmount = f.mount(organ);
-		expect(f.nerve.listenerCount("command", "fs.read")).toBe(1);
+		expect(f.bus.listenerCount("command", "fs.read")).toBe(1);
 		unmount();
-		expect(f.nerve.listenerCount("command", "fs.read")).toBe(0);
-		expect(f.nerve.listenerCount("command", "fs.grep")).toBe(0);
-		expect(f.nerve.listenerCount("command", "fs.find")).toBe(0);
+		expect(f.bus.listenerCount("command", "fs.read")).toBe(0);
+		expect(f.bus.listenerCount("command", "fs.grep")).toBe(0);
+		expect(f.bus.listenerCount("command", "fs.find")).toBe(0);
 	});
 
 	describe("fs.read", () => {
@@ -210,7 +210,7 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 		const order: string[] = [];
 
 		const p1 = new Promise<void>((resolve) => {
-			const unsub = f.nerve.asBus().event.subscribe("fs.write", (event) => {
+			const unsub = f.bus.asBus().event.subscribe("fs.write", (event) => {
 				if ((event.payload as { path?: string }).path === filePath) {
 					order.push("write-1");
 					unsub();
@@ -220,7 +220,7 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 		});
 		const p2 = new Promise<void>((resolve) => {
 			let count = 0;
-			const unsub = f.nerve.asBus().event.subscribe("fs.write", () => {
+			const unsub = f.bus.asBus().event.subscribe("fs.write", () => {
 				count++;
 				if (count === 2) {
 					order.push("write-2");
@@ -230,12 +230,12 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 			});
 		});
 
-		f.nerve.publish("command", {
+		f.bus.publish("command", {
 			type: "fs.write",
 			correlationId: "c1",
 			payload: { path: filePath, content: "from-1" },
 		});
-		f.nerve.publish("command", {
+		f.bus.publish("command", {
 			type: "fs.write",
 			correlationId: "c2",
 			payload: { path: filePath, content: "from-2" },
@@ -259,17 +259,17 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 		// Read first so FileTracker permits edits. Use raw subscribe before
 		// publish — concurrent serialization tests are sensitive to async ordering.
 		await new Promise<void>((resolve) => {
-			const off = f.nerve.asBus().event.subscribe("fs.read", () => {
+			const off = f.bus.asBus().event.subscribe("fs.read", () => {
 				off();
 				resolve();
 			});
-			f.nerve.publish("command", { type: "fs.read", correlationId: "r0", payload: { path: filePath } });
+			f.bus.publish("command", { type: "fs.read", correlationId: "r0", payload: { path: filePath } });
 		});
 
 		const collect = (n: number) =>
 			new Promise<void>((resolve) => {
 				let count = 0;
-				const unsub = f.nerve.asBus().event.subscribe("fs.edit", () => {
+				const unsub = f.bus.asBus().event.subscribe("fs.edit", () => {
 					count++;
 					if (count === n) {
 						unsub();
@@ -279,12 +279,12 @@ describe("write serialization — file mutation queue", { tags: ["compliance"] }
 			});
 
 		const done = collect(2);
-		f.nerve.publish("command", {
+		f.bus.publish("command", {
 			type: "fs.edit",
 			correlationId: "e1",
 			payload: { path: filePath, oldText: "AAA", newText: "BBB" },
 		});
-		f.nerve.publish("command", {
+		f.bus.publish("command", {
 			type: "fs.edit",
 			correlationId: "e2",
 			payload: { path: filePath, oldText: "BBB", newText: "CCC" },

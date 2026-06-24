@@ -82,16 +82,18 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 	strategyRegistry.register("explore", exploreStrategy);
 	strategyRegistry.register("general", generalStrategy);
 
+	const parentAdapterNames = new Set(resolvedDomainAdapters.map((a) => a.name));
 	const agentAdapter = createAgentAdapter({
 		cwd,
 		strategies: { explore: exploreStrategy, general: generalStrategy },
 		replyEvent: "llm.response",
 		writableRoots: opts.writableRoots,
 		materializeAdapters: async (names) => {
+			const allowed = names.filter((n) => parentAdapterNames.has(n));
 			const { adapters: materializedAdapters } = await materializeBlueprint(
 				{
 					...DEFAULT_COMPILED_DEFINITION,
-					adapters: names.map((n) => ({ name: n, actions: [] as string[], toolNames: [] as string[] })),
+					adapters: allowed.map((n) => ({ name: n, actions: [] as string[], toolNames: [] as string[] })),
 				},
 				materialiOpts,
 			);

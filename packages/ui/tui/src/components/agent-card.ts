@@ -69,17 +69,17 @@ export class AgentCard implements Component {
 		const t = this.theme;
 		const wrap = this._dimmed ? t.muted : (x: string) => x;
 
-		const row1 = this.renderIdentityRow(s, t, wrap);
+		const row1 = truncateToWidth(this.renderIdentityRow(s, t, wrap), width, "…");
 		const row2 = this.renderChunkRow(s, t, width);
 		const row3 = this.renderBudgetRow(s, t, wrap);
 
 		const lines = [row1];
 		if (row2) lines.push(row2);
-		if (row3) lines.push(row3);
+		if (row3) lines.push(truncateToWidth(row3, width, "…"));
 
 		for (const child of s.children) {
 			const indent = "  ".repeat(child.depth + 1);
-			lines.push(wrap(`${indent}${child.spinner} ${t.secondary(child.name)}  ${t.muted(child.keyArg)}`));
+			lines.push(truncateToWidth(wrap(`${indent}${child.spinner} ${t.secondary(child.name)}  ${t.muted(child.keyArg)}`), width, "…"));
 		}
 
 		return lines;

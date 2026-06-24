@@ -44,6 +44,7 @@ const ALL_EVALS: Evaluation[] = [
 	toolUseEvals.singleToolCall,
 	toolUseEvals.multiToolCall,
 	toolUseEvals.grepThenRead,
+	toolUseEvals.complexMultiTool,
 ];
 
 function stubFactory(modelId: string, contextWindow: number) {

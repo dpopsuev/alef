@@ -124,15 +124,30 @@ describe.skipIf(SKIP_REAL_LLM)("coding agent evaluations", { tags: ["real-llm"] 
 		if (allResults.length === 0) return;
 
 		const passed = allResults.filter((r) => r.pass).length;
-		const meanScore = allResults.reduce((a, r) => a + r.score, 0) / allResults.length;
+		const total = allResults.length;
+		const meanScore = allResults.reduce((a, r) => a + r.score, 0) / total;
+		const disclosure = process.env.ALEF_TOOL_DISCLOSURE ?? "full";
 
-		console.log(`\n╔═══ REAL-LLM REPORT ═══`);
-		console.log(`Passed: ${passed}/${allResults.length}  Mean score: ${(meanScore * 100).toFixed(1)}%`);
+		const nameWidth = Math.max(...allResults.map((r) => r.metrics.scenario.length), 8);
+		const header = `${"Eval".padEnd(nameWidth)}  Score  Time     Turns  Tools  Tokens`;
+		const divider = "─".repeat(header.length);
+
+		console.log(`\n╔═══ REAL-LLM REPORT (disclosure=${disclosure}) ═══╗`);
+		console.log(header);
+		console.log(divider);
 		for (const r of allResults) {
 			const icon = r.pass ? "✓" : "✗";
-			const err = r.errors[0] ? ` — ${r.errors[0].slice(0, 80)}` : "";
-			console.log(`  ${icon} ${r.metrics.scenario} score=${(r.score * 100).toFixed(0)}%${err}`);
+			const name = r.metrics.scenario.padEnd(nameWidth);
+			const score = `${(r.score * 100).toFixed(0)}%`.padStart(4);
+			const time = `${(r.metrics.durationMs / 1000).toFixed(1)}s`.padStart(6);
+			const turns = String(r.metrics.turns.length).padStart(5);
+			const tools = String(r.metrics.turns.reduce((a, t) => a + t.toolCalls, 0)).padStart(5);
+			const tokens = String(r.metrics.turns.reduce((a, t) => a + t.tokensIn + t.tokensOut, 0)).padStart(6);
+			const err = r.pass ? "" : `  ${r.errors[0]?.slice(0, 60) ?? ""}`;
+			console.log(`${icon} ${name}  ${score}  ${time}  ${turns}  ${tools}  ${tokens}${err}`);
 		}
+		console.log(divider);
+		console.log(`  ${passed}/${total} passed  mean=${(meanScore * 100).toFixed(1)}%  total=${(allResults.reduce((a, r) => a + r.metrics.durationMs, 0) / 1000).toFixed(1)}s`);
 
 		const model = getEvalModel();
 		const record = buildRunRecord(

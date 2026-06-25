@@ -31,5 +31,9 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public"
+  },
+  "alef": {
+    "type": "tool",
+    "entry": "./src/index.ts"
   }
 }

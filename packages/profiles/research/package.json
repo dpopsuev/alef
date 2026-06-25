@@ -17,5 +17,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "alef": {
+    "type": "blueprint",
+    "entry": "./src/index.ts"
   }
 }

@@ -135,5 +135,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "alef": {
+    "type": "core",
+    "entry": "./src/index.ts"
   }
 }

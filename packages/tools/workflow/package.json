@@ -28,5 +28,9 @@
   "devDependenciesComments": {},
   "publishConfig": {
     "access": "public"
+  },
+  "alef": {
+    "type": "tool",
+    "entry": "./src/index.ts"
   }
 }

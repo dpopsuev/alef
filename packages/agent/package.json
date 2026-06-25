@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef",
   "version": "0.0.2",
-  "description": "Minimal Alef agent runner — print mode and interactive stdin loop",
+  "description": "Minimal Alef agent runner \u2014 print mode and interactive stdin loop",
   "type": "module",
   "bin": {
     "alef": "bin/alef.js"
@@ -70,5 +70,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "alef": {
+    "type": "cli",
+    "entry": "./src/index.ts"
   }
 }

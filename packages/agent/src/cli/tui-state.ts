@@ -135,6 +135,7 @@ export interface TuiPromptConsole {
 	updateCallTokens(callId: string, input: number, output: number): void;
 	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void;
 	removeChildCall(parentCallId: string, callId: string): void;
+	showToast(message: string, durationMs?: number): void;
 }
 
 export interface TuiUi {

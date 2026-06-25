@@ -42,6 +42,7 @@ function noopUi() {
 			setCallIdentity: () => {},
 			updateCallTokens: () => {},
 			addChildCall: (parentId: string, childId: string) => calls.push(`child:${parentId}->${childId}`),
+			showToast: () => {},
 			removeChildCall: (parentId: string, childId: string) => calls.push(`unchild:${parentId}->${childId}`),
 		},
 		tui: { requestRender: () => {} },

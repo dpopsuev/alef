@@ -10,6 +10,8 @@ import {
 	SeparatorLine,
 	SlotMachine,
 	Text,
+	Toast,
+	TreeView,
 	type TUI,
 } from "@dpopsuev/alef-tui";
 export type { Component };
@@ -345,7 +347,26 @@ export class PromptConsole {
 
 	setFocusedCall(callId: string | null): void {
 		this.focusedId = callId;
-		this.chunkDetail.setText("");
+		if (callId) {
+			const entry = this.inFlightCalls.get(callId);
+			if (entry) {
+				const childNodes = [...entry.children.entries()].map(([_id, c]) => ({
+					label: `${color(c.name, this.t.secondaryFg)}  ${color(c.keyArg, this.t.mutedFg)}`,
+				}));
+				const tree = new TreeView({
+					nodes: [
+						{
+							label: color(entry.card.focused ? "▾ focused" : callId.slice(0, 8), this.t.accentFg),
+							children: childNodes,
+						},
+					],
+					defaultStyle: (s) => color(s, this.t.mutedFg),
+				});
+				this.chunkDetail.setText(tree.render(80).join("\n"));
+			}
+		} else {
+			this.chunkDetail.setText("");
+		}
 		this.inspectorHint.setText("");
 		this.refreshCards();
 		this.tui.requestRender();
@@ -381,6 +402,23 @@ export class PromptConsole {
 		const entry = this.inFlightCalls.get(parentCallId);
 		if (!entry) return;
 		entry.children.delete(callId);
+		this.tui.requestRender();
+	}
+
+	showToast(message: string, durationMs = 3000): void {
+		const toast = new Toast({
+			message,
+			durationMs,
+			theme: {
+				text: (s) => color(s, this.t.secondaryFg),
+				dim: (s) => color(s, this.t.mutedFg),
+			},
+			onExpire: () => {
+				this.widgetSlotBelow.removeChild(toast);
+				this.tui.requestRender();
+			},
+		});
+		this.widgetSlotBelow.addChild(toast);
 		this.tui.requestRender();
 	}
 

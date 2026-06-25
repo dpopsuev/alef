@@ -40,6 +40,7 @@ function makeMockUi(): TuiUi {
 			updateCallTokens: vi.fn(),
 			addChildCall: vi.fn(),
 			removeChildCall: vi.fn(),
+			showToast: vi.fn(),
 		},
 		tui: { requestRender: vi.fn() } as unknown as TuiUi["tui"],
 		t: { agentFg: "#fff", mutedFg: "#888", accentFg: "#00f" } as unknown as TuiUi["t"],

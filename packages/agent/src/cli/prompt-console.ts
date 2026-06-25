@@ -14,7 +14,6 @@ import {
 	SlotMachine,
 	Text,
 	Toast,
-	TreeView,
 	type TUI,
 } from "@dpopsuev/alef-tui";
 export type { Component };
@@ -50,7 +49,6 @@ import { accentColorize, DynamicText, fmtMs, spinnerFrame } from "@dpopsuev/alef
 const SPINNER_FRAME_COUNT = 12;
 const CHUNK_ACCUMULATOR_MAX_CHARS = 500;
 const CHUNK_TAIL_MAX_CHARS = 120;
-const CHUNK_EXPANDED_MAX_LINES = 20;
 const MAX_WIDGET_HEIGHT_FRACTION = 0.2;
 const MIN_WIDGET_LINES = 3;
 
@@ -83,7 +81,6 @@ export class PromptConsole {
 			card: AgentCard;
 			startedAt: number;
 			lastChunk: string;
-			expandedChunks: string[];
 			identity: { color: string; address: string; token: ColorToken; modelId?: string } | null;
 			inputSlot: SlotMachine<number>;
 			outputSlot: SlotMachine<number>;
@@ -278,7 +275,6 @@ export class PromptConsole {
 			inputTokens: 0,
 			outputTokens: 0,
 			lastChunk: "",
-			expandedChunks: [],
 			spinner: spinnerFrame(callId, 0),
 			children: [],
 		});
@@ -297,7 +293,6 @@ export class PromptConsole {
 			card,
 			startedAt,
 			lastChunk: "",
-			expandedChunks: [] as string[],
 			identity: null as { color: string; address: string; token: ColorToken; modelId?: string } | null,
 			inputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "↑" }),
 			outputSlot: new SlotMachine(this.tui, 0, { ...slotOpts, prefix: "↓" }),
@@ -320,7 +315,6 @@ export class PromptConsole {
 			this.chunkAccumulators.set(callId, accumulated.slice(-CHUNK_ACCUMULATOR_MAX_CHARS));
 			const lines = accumulated.split("\n").filter((l) => l.trim());
 			entry.lastChunk = (lines.at(-1) ?? "").slice(-CHUNK_TAIL_MAX_CHARS);
-			entry.expandedChunks = lines.slice(-CHUNK_EXPANDED_MAX_LINES);
 		}
 	}
 
@@ -351,31 +345,19 @@ export class PromptConsole {
 	setFocusedCall(callId: string | null): void {
 		this.focusedId = callId;
 		if (callId) {
-			const entry = this.inFlightCalls.get(callId);
-			if (entry) {
-				const childNodes = [...entry.children.entries()].map(([_id, c]) => ({
-					label: `${color(c.name, this.t.secondaryFg)}  ${color(c.keyArg, this.t.mutedFg)}`,
-				}));
-				const tree = new TreeView({
-					nodes: [
-						{
-							label: color(entry.card.focused ? "▾ focused" : callId.slice(0, 8), this.t.accentFg),
-							children: childNodes,
-						},
-					],
-					defaultStyle: (s) => color(s, this.t.mutedFg),
-				});
-				this.chunkDetail.setText(tree.render(80).join("\n"));
-			}
+			this.inspectorHint.setText(color("  j/k scroll  Esc close  Ctrl+X cancel", this.t.mutedFg));
 		} else {
 			this.chunkDetail.setText("");
+			this.inspectorHint.setText("");
 		}
-		this.inspectorHint.setText("");
 		this.refreshCards();
 		this.tui.requestRender();
 	}
 
-	setChunkText(_text: string): void {}
+	setChunkText(text: string): void {
+		this.chunkDetail.setText(text);
+		this.tui.requestRender();
+	}
 
 	setCallIdentity(callId: string, colorName: string, address: string, modelId?: string): void {
 		const entry = this.inFlightCalls.get(callId);
@@ -481,7 +463,6 @@ export class PromptConsole {
 				elapsedMs: elapsed,
 				spinner: spinnerFrame(callId, elapsed),
 				lastChunk: entry.lastChunk,
-				expandedChunks: entry.expandedChunks,
 				inputTokens: entry.inputSlot.get(),
 				outputTokens: entry.outputSlot.get(),
 				tokenDisplay:

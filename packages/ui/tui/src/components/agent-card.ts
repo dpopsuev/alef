@@ -19,7 +19,6 @@ export interface AgentCardState {
 	outputTokens: number;
 	tokenDisplay?: string;
 	lastChunk: string;
-	expandedChunks: readonly string[];
 	spinner: string;
 	children: ReadonlyArray<{
 		id: string;
@@ -70,6 +69,9 @@ export class AgentCard implements Component {
 		const wrap = this._dimmed ? t.muted : (x: string) => x;
 
 		const row1 = truncateToWidth(this.renderIdentityRow(s, t, wrap), width, "…");
+
+		if (this._dimmed) return [row1];
+
 		const row2 = this.renderChunkRow(s, t, width);
 		const row3 = this.renderBudgetRow(s, t, wrap);
 
@@ -96,18 +98,13 @@ export class AgentCard implements Component {
 	}
 
 	private renderChunkRow(s: AgentCardState, t: AgentCardTheme, width: number): string {
+		if (this._focused) return "";
+
 		const pad = "     ";
 		const maxW = Math.max(10, width - 6);
-		const colorFn = this._focused ? t.identity : t.muted;
-
-		if (this._focused && s.expandedChunks.length > 0) {
-			const maxLines = 6;
-			const tail = s.expandedChunks.slice(-maxLines);
-			return tail.map((l) => `${pad}${colorFn(truncateToWidth(l, maxW, "…"))}`).join("\n");
-		}
 
 		if (s.lastChunk) {
-			return `${pad}${colorFn(truncateToWidth(s.lastChunk, maxW, "…"))}`;
+			return `${pad}${t.secondary(truncateToWidth(s.lastChunk, maxW, "…"))}`;
 		}
 
 		return "";

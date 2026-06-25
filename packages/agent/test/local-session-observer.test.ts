@@ -31,7 +31,7 @@ import { HeadlessViewMode } from "../src/view-mode.js";
 const SILENT_LOGGER = pino({ level: "silent" });
 
 const STUB_STORAGE: StorageFactory = {
-	daemonStore: () => ({}) as never,
+	daemonRegistry: () => ({}) as never,
 	summaryStore: () => ({ write: async () => {}, get: async () => undefined, latest: async () => undefined }),
 	discourseStore: () =>
 		({

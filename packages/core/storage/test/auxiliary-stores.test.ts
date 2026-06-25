@@ -1,7 +1,7 @@
 import { type Client, createClient } from "@libsql/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { SqliteAuthStore } from "../src/auth.js";
-import { SqliteDaemonStore } from "../src/daemon.js";
+import { SqliteDaemonRegistry } from "../src/daemon.js";
 import { SqliteDiscourseStore } from "../src/discourse.js";
 import { applySchema } from "../src/schema.js";
 import { SqliteSessionStore } from "../src/session-store.js";
@@ -133,7 +133,7 @@ describe("SqliteAuthStore", { tags: ["unit"] }, () => {
 	});
 });
 
-describe("SqliteDaemonStore", { tags: ["unit"] }, () => {
+describe("SqliteDaemonRegistry", { tags: ["unit"] }, () => {
 	const clients: Client[] = [];
 	afterEach(() => {
 		for (const c of clients.splice(0)) c.close();
@@ -142,7 +142,7 @@ describe("SqliteDaemonStore", { tags: ["unit"] }, () => {
 	it("register/get/unregister daemon entries", async () => {
 		const client = await makeClient();
 		clients.push(client);
-		const daemon = new SqliteDaemonStore(client);
+		const daemon = new SqliteDaemonRegistry(client);
 
 		expect(await daemon.get("abc")).toBeUndefined();
 

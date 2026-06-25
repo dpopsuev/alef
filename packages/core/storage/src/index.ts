@@ -1,5 +1,5 @@
 export { SqliteAuthStore } from "./auth.js";
-export { type DaemonEntry, SqliteDaemonStore } from "./daemon.js";
+export { type DaemonEntry, SqliteDaemonRegistry } from "./daemon.js";
 export {
 	type Client,
 	closeDatabase,
@@ -12,7 +12,7 @@ export {
 } from "./database.js";
 export { type Post, SqliteDiscourseStore, type ThreadInfo, type TopicSummary } from "./discourse.js";
 export { type Embedder, getEmbedder, setEmbedder } from "./embedder.js";
-export type { AuthStore, DaemonStore, DiscourseStore, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
+export type { AuthStore, DaemonRegistry, DiscourseStore, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
 export { InMemorySessionStore } from "./in-memory-session-store.js";
 export { SqliteStorageFactory } from "./sqlite-storage-factory.js";
 export { LocalEmbedder } from "./local-embedder.js";

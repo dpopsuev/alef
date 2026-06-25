@@ -3,7 +3,7 @@ import type { DaemonEntry } from "./daemon.js";
 import type { Post, ThreadInfo, TopicSummary } from "./discourse.js";
 import type { SessionSummary } from "./summary.js";
 
-export interface DaemonStore {
+export interface DaemonRegistry {
 	register(entry: DaemonEntry): Promise<void>;
 	unregister(sessionId: string): Promise<void>;
 	get(sessionId: string): Promise<DaemonEntry | undefined>;
@@ -47,7 +47,7 @@ export interface SessionStoreFactory {
 }
 
 export interface StorageFactory {
-	daemonStore(): DaemonStore;
+	daemonRegistry(): DaemonRegistry;
 	summaryStore(): SummaryStore;
 	discourseStore(sessionId: string): DiscourseStore;
 	authStore(): AuthStore;

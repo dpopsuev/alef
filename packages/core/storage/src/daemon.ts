@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import type { DaemonStore } from "./interfaces.js";
+import type { DaemonRegistry } from "./interfaces.js";
 
 export interface DaemonEntry {
 	port: number;
@@ -9,7 +9,7 @@ export interface DaemonEntry {
 	startedAt: number;
 }
 
-export class SqliteDaemonStore implements DaemonStore {
+export class SqliteDaemonRegistry implements DaemonRegistry {
 	private readonly client: Client;
 
 	constructor(client: Client) {

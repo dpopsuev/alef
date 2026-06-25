@@ -1,9 +1,9 @@
 import type { Client } from "@libsql/client";
 import type { SessionStore } from "@dpopsuev/alef-session";
 import { SqliteAuthStore } from "./auth.js";
-import { SqliteDaemonStore } from "./daemon.js";
+import { SqliteDaemonRegistry } from "./daemon.js";
 import { SqliteDiscourseStore } from "./discourse.js";
-import type { AuthStore, DaemonStore, DiscourseStore, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
+import type { AuthStore, DaemonRegistry, DiscourseStore, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
 import { SqliteSessionStore } from "./session-store.js";
 import { SqliteSummaryStore } from "./summary.js";
 
@@ -52,8 +52,8 @@ export class SqliteStorageFactory implements StorageFactory {
 		};
 	}
 
-	daemonStore(): DaemonStore {
-		return new SqliteDaemonStore(this.client);
+	daemonRegistry(): DaemonRegistry {
+		return new SqliteDaemonRegistry(this.client);
 	}
 
 	summaryStore(): SummaryStore {

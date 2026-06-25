@@ -100,7 +100,7 @@ if (args.replay !== undefined) {
 // --list: show running daemons
 if (args.listDaemons) {
 	const storage = await getStorage();
-	const store = storage.daemonStore();
+	const store = storage.daemonRegistry();
 	await store.prune();
 	const entries = await store.list();
 	if (entries.length === 0) {
@@ -117,7 +117,7 @@ if (args.listDaemons) {
 // --kill <sessionId>: stop a running daemon
 if (args.killDaemon !== undefined) {
 	const storage = await getStorage();
-	const store = storage.daemonStore();
+	const store = storage.daemonRegistry();
 	const entry = await store.get(args.killDaemon);
 	if (!entry) {
 		console.error(`No daemon found with session ID: ${args.killDaemon}`);
@@ -135,12 +135,12 @@ if (args.killDaemon !== undefined) {
 
 if (args.attach !== undefined) {
 	const storage = await getStorage();
-	const daemonStore = storage.daemonStore();
-	await daemonStore.prune();
+	const daemonRegistry = storage.daemonRegistry();
+	await daemonRegistry.prune();
 	const entry =
 		args.attach === "last"
-			? await daemonStore.findLatest()
-			: ((await daemonStore.get(args.attach)) ?? (await daemonStore.findByCwd(args.attach)));
+			? await daemonRegistry.findLatest()
+			: ((await daemonRegistry.get(args.attach)) ?? (await daemonRegistry.findByCwd(args.attach)));
 	if (!entry) {
 		console.error("No running daemon found. Start one with: alef --daemon");
 		process.exit(1);

@@ -22,7 +22,7 @@ import { JsonlSessionStore } from "../src/session-store.js";
 import { HeadlessViewMode } from "../src/view-mode.js";
 
 const STUB_STORAGE: StorageFactory = {
-	daemonStore: () => ({}) as never,
+	daemonRegistry: () => ({}) as never,
 	summaryStore: () => ({ write: async () => {}, get: async () => undefined, latest: async () => undefined }),
 	discourseStore: () =>
 		({

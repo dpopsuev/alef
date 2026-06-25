@@ -48,8 +48,8 @@ export class AgentRuntime {
 		this.sessions.set(session.state.id, session);
 
 		if (args.daemon && listenPort !== undefined) {
-			const daemonStore = this.storage.daemonStore();
-			await daemonStore.register({
+			const daemonRegistry = this.storage.daemonRegistry();
+			await daemonRegistry.register({
 				port: listenPort,
 				pid: process.pid,
 				sessionId: session.state.id,
@@ -84,17 +84,17 @@ export class AgentRuntime {
 			session.dispose();
 			this.sessions.delete(id);
 			await this.storage
-				.daemonStore()
+				.daemonRegistry()
 				.unregister(id)
 				.catch(() => {});
 		}
 	}
 
 	async dispose(): Promise<void> {
-		const daemonStore = this.storage.daemonStore();
+		const daemonRegistry = this.storage.daemonRegistry();
 		for (const [id, session] of this.sessions) {
 			session.dispose();
-			await daemonStore.unregister(id).catch(() => {});
+			await daemonRegistry.unregister(id).catch(() => {});
 		}
 		this.sessions.clear();
 		this.storage.close();

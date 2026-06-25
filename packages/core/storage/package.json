@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-storage",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "SQLite-backed storage layer for Alef agent state (sessions, events, discourse, auth)",
   "type": "module",
   "main": "./src/index.ts",

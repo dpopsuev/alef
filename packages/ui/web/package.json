@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-web-ui",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Reusable web UI components for AI chat interfaces powered by @dpopsuev/alef-llm",
   "type": "module",
   "main": "dist/index.js",

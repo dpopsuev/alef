@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-adapter-shell",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Shell organ runtime primitives for command execution and process lifecycle",
   "type": "module",
   "main": "./src/index.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-adapter-nodesh",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "JavaScript REPL organ \u2014 structured computation via vm.createContext",
   "type": "module",
   "main": "./src/index.ts",

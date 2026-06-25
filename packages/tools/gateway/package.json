@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-gateway",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Router organ \u2014 HTTP/SSE bridge exposing the Motor/Sense bus to external processes",
   "type": "module",
   "main": "./src/index.ts",

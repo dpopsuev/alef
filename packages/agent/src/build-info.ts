@@ -25,4 +25,5 @@ export const BUILD_INFO = {
 	version: readVersion(),
 	gitHash: exec("git rev-parse --short HEAD"),
 	gitBranch: exec("git rev-parse --abbrev-ref HEAD"),
+	buildTimestamp: new Date().toISOString(),
 } as const;

@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-meta",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Alef API organ \u2014 typed tools for querying sessions, config, organs, and PM history",
   "type": "module",
   "main": "./src/index.ts",

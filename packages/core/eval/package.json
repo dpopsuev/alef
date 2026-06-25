@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-eval",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Evaluation harness for Alef agents \u2014 OTel span collection, RunMetrics, Pi-parsable reports",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-session",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Session storage, context window assembly, and the Session interface for Alef agents",
   "type": "module",
   "main": "./src/index.ts",

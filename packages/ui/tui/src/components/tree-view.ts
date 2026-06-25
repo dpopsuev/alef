@@ -3,6 +3,7 @@ import { TREE } from "../design/chars.js";
 
 export interface TreeNode {
 	label: string;
+	component?: Component;
 	children?: TreeNode[];
 	collapsed?: boolean;
 	style?: (s: string) => string;
@@ -28,12 +29,19 @@ export class TreeView implements Component {
 
 	invalidate(): void {}
 
-	render(_width: number): string[] {
+	render(width: number): string[] {
 		const lines: string[] = [];
 		const renderNode = (node: TreeNode, prefix: string, isLast: boolean): void => {
 			const branch = isLast ? TREE.last : TREE.branch;
 			const style = node.style ?? this.defaultStyle;
 			lines.push(style(`${prefix}${branch}${node.label}`));
+			if (node.component && !node.collapsed) {
+				const contentPrefix = prefix + (isLast ? TREE.space : TREE.pipe);
+				const contentWidth = Math.max(10, width - contentPrefix.length);
+				for (const line of node.component.render(contentWidth)) {
+					lines.push(`${contentPrefix}  ${line}`);
+				}
+			}
 			if (node.collapsed || !node.children?.length) return;
 			const childPrefix = prefix + (isLast ? TREE.space : TREE.pipe);
 			for (let i = 0; i < node.children.length; i++) {

@@ -7,23 +7,27 @@ export interface ToastTheme {
 }
 
 export interface ToastOptions {
-	message: string;
+	message?: string;
+	content?: Component;
 	durationMs?: number;
 	theme: ToastTheme;
 	onExpire?: () => void;
 }
 
 export class Toast implements Component {
-	private message: string;
+	private message: string | undefined;
+	private content: Component | undefined;
 	private expired = false;
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private readonly theme: ToastTheme;
 
 	constructor(opts: ToastOptions) {
 		this.message = opts.message;
+		this.content = opts.content;
 		this.theme = opts.theme;
 		const duration = opts.durationMs ?? 3000;
 		if (duration > 0) {
+			// lint-ignore: RAWTIMER toast auto-dismiss lifecycle
 			this.timer = setTimeout(() => {
 				this.expired = true;
 				opts.onExpire?.();
@@ -40,10 +44,13 @@ export class Toast implements Component {
 		this.expired = true;
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.content?.invalidate();
+	}
 
 	render(width: number): string[] {
 		if (this.expired) return [];
-		return [this.theme.text(truncateToWidth(`  ${this.message}`, width, "…"))];
+		if (this.content) return this.content.render(width);
+		return [this.theme.text(truncateToWidth(`  ${this.message ?? ""}`, width, "…"))];
 	}
 }

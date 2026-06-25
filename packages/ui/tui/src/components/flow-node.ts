@@ -9,6 +9,7 @@ export interface FlowNodeOptions {
 	title: string;
 	status: StatusLevel;
 	lines?: string[];
+	content?: Component;
 	badge?: string;
 	collapsed?: boolean;
 	style?: (s: string) => string;
@@ -47,8 +48,12 @@ export class FlowNode implements Component {
 		const topPad = Math.max(0, inner - visibleWidth(titleText));
 		const result = [apply(`  ${b.topLeft}${b.horizontal}${titleText}${b.horizontal.repeat(topPad)}${b.topRight}`)];
 
-		for (const line of lines ?? []) {
-			const padded = truncateToWidth(` ${glyph} ${line}`, inner, "…");
+		const contentLines = this.opts.content
+			? this.opts.content.render(inner - 2)
+			: (lines ?? []).map((line) => ` ${glyph} ${line}`);
+
+		for (const line of contentLines) {
+			const padded = truncateToWidth(line, inner, "…");
 			const gap = Math.max(0, inner - visibleWidth(padded));
 			result.push(apply(`  ${b.vertical}${padded}${" ".repeat(gap)} ${b.vertical}`));
 		}

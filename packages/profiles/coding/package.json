@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-coding-agent",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "description": "The default Alef coding agent blueprint. This package IS the SBOM \u2014 dependencies are the organ manifest.",
   "type": "module",
   "main": "./src/index.ts",

@@ -29,13 +29,14 @@ export class SqliteSessionStore implements SessionStore {
 		this._version = version ?? process.env.npm_package_version ?? "unknown";
 	}
 
-	private async _warmFromDb(): Promise<void> {
+	private async _warmFromDb(maxEvents = 50_000): Promise<void> {
 		const result = await this._client.execute({
 			sql: `SELECT bus, type, correlation_id, payload, timestamp, elapsed, hash,
 					actor_address, actor_type, session_id
-			 FROM events WHERE session_id = ? ORDER BY rowid`,
-			args: [this.id],
+			 FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT ?`,
+			args: [this.id, maxEvents],
 		});
+		result.rows.reverse();
 
 		for (const row of result.rows) {
 			const record: StorageRecord = {
@@ -106,28 +107,25 @@ export class SqliteSessionStore implements SessionStore {
 	static async prune(client: Client, cwd: string, maxAgeDays = 30, maxCount = 50): Promise<number> {
 		const hash = cwdHash(cwd);
 		const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
-		const result = await client.execute({
-			sql: "SELECT id, updated_at FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC",
-			args: [hash],
+		const staleIds = await client.execute({
+			sql: `SELECT id FROM sessions WHERE cwd_hash = ? AND updated_at < ? AND id NOT IN (
+				SELECT id FROM sessions WHERE cwd_hash = ? ORDER BY updated_at DESC LIMIT ?
+			)`,
+			args: [hash, cutoff, hash, maxCount],
 		});
+		if (staleIds.rows.length === 0) return 0;
 
-		let removed = 0;
-		for (let i = maxCount; i < result.rows.length; i++) {
-			const updatedAt = Number(result.rows[i].updated_at);
-			if (updatedAt < cutoff) {
-				const sid = String(result.rows[i].id);
-				await client.batch(
-					[
-						{ sql: "DELETE FROM events WHERE session_id = ?", args: [sid] },
-						{ sql: "DELETE FROM session_summaries WHERE session_id = ?", args: [sid] },
-						{ sql: "DELETE FROM sessions WHERE id = ?", args: [sid] },
-					],
-					"write",
-				);
-				removed++;
-			}
-		}
-		return removed;
+		const ids = staleIds.rows.map((r) => String(r.id));
+		const placeholders = ids.map(() => "?").join(",");
+		await client.batch(
+			[
+				{ sql: `DELETE FROM events WHERE session_id IN (${placeholders})`, args: ids },
+				{ sql: `DELETE FROM session_summaries WHERE session_id IN (${placeholders})`, args: ids },
+				{ sql: `DELETE FROM sessions WHERE id IN (${placeholders})`, args: ids },
+			],
+			"write",
+		);
+		return ids.length;
 	}
 
 	async append(record: StorageRecord): Promise<void> {

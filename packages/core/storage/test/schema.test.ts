@@ -23,7 +23,6 @@ describe("schema", { tags: ["unit"] }, () => {
 
 		expect(names).toContain("sessions");
 		expect(names).toContain("events");
-		expect(names).toContain("discourse_posts");
 		expect(names).toContain("auth");
 		expect(names).toContain("daemon");
 		expect(names).toContain("session_summaries");

@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-tool-eval",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Eval organ \u2014 send prompts to a child Alef endpoint and score responses with structural validators and LLM-as-judge",
   "type": "module",
   "main": "./src/index.ts",

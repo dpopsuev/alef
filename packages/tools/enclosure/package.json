@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-tool-enclosure",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Enclosure organ \u2014 Linux namespace, cgroup v2, and fuse-overlayfs isolation for Alef agents",
   "type": "module",
   "main": "./src/index.ts",

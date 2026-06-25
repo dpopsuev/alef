@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-tool-web",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Web organ \u2014 fetch pages and search the web. Supports Brave, Tavily, Exa, and DuckDuckGo.",
   "type": "module",
   "main": "./src/index.ts",

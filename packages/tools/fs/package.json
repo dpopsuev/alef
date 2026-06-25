@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-tool-fs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Filesystem organ runtime for cache policy and query acceleration",
   "type": "module",
   "main": "./src/index.ts",

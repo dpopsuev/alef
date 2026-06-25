@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-tool-plan",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",

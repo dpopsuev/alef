@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Minimal Alef agent runner — print mode and interactive stdin loop",
   "type": "module",
   "bin": {

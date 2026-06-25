@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-reasoner",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "LLMOrgan \u2014 LLM computation organ, tool_choice: any, routes tool calls as Motor events",
   "type": "module",
   "main": "./src/index.ts",

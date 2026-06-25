@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-testkit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Test doubles and bus event recorders for the Alef nerve/organ system",
   "type": "module",
   "main": "./src/index.ts",

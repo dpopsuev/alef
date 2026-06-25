@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-tool-code-intel",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Code Intelligence organ \u2014 unified fs + symbol intelligence with block caching",
   "type": "module",
   "main": "./src/index.ts",

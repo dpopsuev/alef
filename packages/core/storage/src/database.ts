@@ -36,7 +36,15 @@ export async function getDatabase(path?: string): Promise<Client> {
 		_client = createClient({ url: `file:${dbPath}` });
 	}
 
-	await _client.execute("PRAGMA foreign_keys = ON");
+	await _client.batch(
+		[
+			{ sql: "PRAGMA journal_mode = WAL", args: [] },
+			{ sql: "PRAGMA busy_timeout = 5000", args: [] },
+			{ sql: "PRAGMA synchronous = NORMAL", args: [] },
+			{ sql: "PRAGMA foreign_keys = ON", args: [] },
+		],
+		"write",
+	);
 	await applySchema(_client);
 	return _client;
 }
@@ -55,7 +63,15 @@ export async function syncDatabase(): Promise<void> {
 export async function openDatabase(path: string): Promise<Client> {
 	mkdirSync(dirname(path), { recursive: true });
 	const client = createClient({ url: `file:${path}` });
-	await client.execute("PRAGMA foreign_keys = ON");
+	await client.batch(
+		[
+			{ sql: "PRAGMA journal_mode = WAL", args: [] },
+			{ sql: "PRAGMA busy_timeout = 5000", args: [] },
+			{ sql: "PRAGMA synchronous = NORMAL", args: [] },
+			{ sql: "PRAGMA foreign_keys = ON", args: [] },
+		],
+		"write",
+	);
 	await applySchema(client);
 	return client;
 }

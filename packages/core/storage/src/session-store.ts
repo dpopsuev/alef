@@ -136,32 +136,37 @@ export class SqliteSessionStore implements SessionStore {
 			? this._indexer.turnMap.get(record.correlationId)!.turnIndex
 			: null;
 
-		const insertResult = await this._client.execute({
-			sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload,
-				timestamp, elapsed, hash, actor_address, actor_type, adapter, turn_number, version)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			args: [
-				this.id,
-				record.bus,
-				record.type,
-				record.correlationId,
-				JSON.stringify(record.payload),
-				record.timestamp,
-				record.elapsed ?? null,
-				record.hash ?? null,
-				record.actor?.address ?? null,
-				record.actor?.type ?? null,
-				adapter,
-				turnNumber,
-				this._version,
+		const results = await this._client.batch(
+			[
+				{
+					sql: `INSERT INTO events (session_id, bus, type, correlation_id, payload,
+						timestamp, elapsed, hash, actor_address, actor_type, adapter, turn_number, version)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					args: [
+						this.id,
+						record.bus,
+						record.type,
+						record.correlationId,
+						JSON.stringify(record.payload),
+						record.timestamp,
+						record.elapsed ?? null,
+						record.hash ?? null,
+						record.actor?.address ?? null,
+						record.actor?.type ?? null,
+						adapter,
+						turnNumber,
+						this._version,
+					],
+				},
+				{
+					sql: "UPDATE sessions SET updated_at = ? WHERE id = ?",
+					args: [Date.now(), this.id],
+				},
 			],
-		});
-		await this._client.execute({
-			sql: "UPDATE sessions SET updated_at = ? WHERE id = ?",
-			args: [Date.now(), this.id],
-		});
+			"write",
+		);
 
-		queueEmbedding(this._client, Number(insertResult.lastInsertRowid), record.bus, record.type, record.payload);
+		queueEmbedding(this._client, Number(results[0].lastInsertRowid), record.bus, record.type, record.payload);
 	}
 
 	events(): Promise<StorageRecord[]> {

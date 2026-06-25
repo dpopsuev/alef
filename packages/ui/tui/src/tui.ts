@@ -523,6 +523,7 @@ export class TUI extends Container {
 		}
 		const elapsed = performance.now() - this.lastRenderAt;
 		const delay = Math.max(0, TUI.MIN_RENDER_INTERVAL_MS - elapsed);
+		// lint-ignore: RAWTIMER render scheduling
 		this.renderTimer = setTimeout(() => {
 			this.renderTimer = undefined;
 			if (this.stopped || !this.renderRequested) {
@@ -530,7 +531,11 @@ export class TUI extends Container {
 			}
 			this.renderRequested = false;
 			this.lastRenderAt = performance.now();
-			this.doRender();
+			try {
+				this.doRender();
+			} catch (err) {
+				renderLog(`RENDER ERROR ${String(err)}`);
+			}
 			if (this.renderRequested) {
 				this.scheduleRender();
 			}

@@ -4,10 +4,10 @@
 		"noEmit": true,
 		"target": "ES2024",
 		"paths": {
-			"@dpopsuev/alef-agent-blueprint": [
+			"@dpopsuev/alef-blueprint": [
 				"../blueprint/src/index.ts"
 			],
-			"@dpopsuev/alef-agent-blueprint/*": [
+			"@dpopsuev/alef-blueprint/*": [
 				"../blueprint/src/*.ts"
 			],
 			"@dpopsuev/alef-llm": [
@@ -25,10 +25,10 @@
 			"@dpopsuev/alef-gateway": [
 				"../gateway/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-fs": [
+			"@dpopsuev/alef-tool-fs": [
 				"../adapter-fs/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-code-intel": [
+			"@dpopsuev/alef-tool-code-intel": [
 				"../adapter-code-intel/src/index.ts"
 			],
 			"@dpopsuev/alef-tui": [
@@ -37,19 +37,19 @@
 			"@dpopsuev/alef-tui/*": [
 				"../tui/src/*"
 			],
-			"@dpopsuev/alef-adapter-nodesh": [
+			"@dpopsuev/alef-tool-nodesh": [
 				"../adapter-nodesh/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-agent": [
+			"@dpopsuev/alef-tool-agent": [
 				"../adapter-agent/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-web": [
+			"@dpopsuev/alef-tool-web": [
 				"../adapter-web/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-eval": [
+			"@dpopsuev/alef-tool-eval": [
 				"../adapter-eval/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-shell": [
+			"@dpopsuev/alef-tool-shell": [
 				"../adapter-shell/src/index.ts"
 			],
 			"@dpopsuev/alef-reasoner": [

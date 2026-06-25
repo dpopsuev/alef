@@ -299,8 +299,8 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 
 		// Check imports of other adapter-* packages — adapters should not depend on each other.
 		// adapter-mcp-registry is whitelisted: it exports McpAdapter, a shared factory.
-		const ALLOWED_ORGAN_DEPS = new Set(["@dpopsuev/alef-adapter-mcp-registry"]);
-		const match = line.match(/from\s+["'](@dpopsuev\/alef-adapter-[\w-]+)["']/);
+		const ALLOWED_ORGAN_DEPS = new Set(["@dpopsuev/alef-tool-mcp-registry"]);
+		const match = line.match(/from\s+["'](@dpopsuev\/alef-tool-[\w-]+)["']/);
 		if (match) {
 			const imported = match[1];
 			const importedShort = imported.replace("@dpopsuev/alef-", "");

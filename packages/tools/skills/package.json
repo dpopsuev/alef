@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-adapter-skills",
+  "name": "@dpopsuev/alef-tool-skills",
   "version": "0.0.1",
   "description": "Skills organ \u2014 discovers SKILL.md files and injects instructions into the system prompt",
   "type": "module",

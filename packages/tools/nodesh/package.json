@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-adapter-nodesh",
+  "name": "@dpopsuev/alef-tool-nodesh",
   "version": "0.0.1",
   "description": "JavaScript REPL organ \u2014 structured computation via vm.createContext",
   "type": "module",

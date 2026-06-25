@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { blueprintRegistry, loadAdapterFromPath } from "@dpopsuev/alef-agent-blueprint";
+import { blueprintRegistry, loadAdapterFromPath } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
-import { createMetaAdapter } from "@dpopsuev/alef-meta";
 import { AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
+import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";
 import type { Logger } from "pino";
 import { buildAgent } from "../agent-kernel.js";
 import type { Args } from "../args.js";

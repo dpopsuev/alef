@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-adapter-shell",
+  "name": "@dpopsuev/alef-tool-shell",
   "version": "0.0.1",
   "description": "Shell organ runtime primitives for command execution and process lifecycle",
   "type": "module",

@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-adapter-code-intel",
+  "name": "@dpopsuev/alef-tool-code-intel",
   "version": "0.0.1",
   "description": "Code Intelligence organ \u2014 unified fs + symbol intelligence with block caching",
   "type": "module",

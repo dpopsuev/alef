@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
-import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
+import { blueprintRegistry } from "@dpopsuev/alef-blueprint";
 import { stringify as stringifyYaml } from "yaml";
 
 export interface ChildEntry {

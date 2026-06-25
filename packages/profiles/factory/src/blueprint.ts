@@ -1,7 +1,7 @@
-import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-adapter-agent";
-import { createSkillsAdapter } from "@dpopsuev/alef-adapter-skills";
-import { createWireAdapterWithFactory, type WireAdapterFactoryOptions } from "@dpopsuev/alef-adapter-workflow";
-import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-agent-blueprint";
+import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-tool-agent";
+import { createSkillsAdapter } from "@dpopsuev/alef-tool-skills";
+import { createWireAdapterWithFactory, type WireAdapterFactoryOptions } from "@dpopsuev/alef-tool-workflow";
+import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { buildDelegationStack } from "@dpopsuev/alef-runtime";
 import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";

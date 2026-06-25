@@ -85,7 +85,7 @@ writeFileSync(
 	join(pkgDir, "package.json"),
 	JSON.stringify(
 		{
-			name: `@dpopsuev/alef-adapter-${name}`,
+			name: `@dpopsuev/alef-tool-${name}`,
 			version: "0.0.1",
 			type: "module",
 			main: "./src/index.ts",

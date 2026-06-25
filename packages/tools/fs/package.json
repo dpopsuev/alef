@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-adapter-fs",
+  "name": "@dpopsuev/alef-tool-fs",
   "version": "0.0.1",
   "description": "Filesystem organ runtime for cache policy and query acceleration",
   "type": "module",

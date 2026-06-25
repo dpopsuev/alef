@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-agent-blueprint",
+  "name": "@dpopsuev/alef-blueprint",
   "version": "0.0.1",
   "description": "Agent blueprint schemas, compilers, and shipped YAML defaults",
   "type": "module",

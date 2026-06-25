@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { loadAgentDefinition, materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
+import { loadAgentDefinition, materializeBlueprint } from "@dpopsuev/alef-blueprint";
 import { describe, expect, it } from "vitest";
 
 const REPO_ROOT = resolve(__dirname, "../../..");

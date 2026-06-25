@@ -7,7 +7,6 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { createAgentAdapter } from "@dpopsuev/alef-adapter-agent";
 import { defineAdapter, typedStreamAction } from "@dpopsuev/alef-kernel/adapter";
 import type { EventInput } from "@dpopsuev/alef-kernel/bus";
 import type { Api, Model } from "@dpopsuev/alef-llm";
@@ -15,6 +14,7 @@ import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpops
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import type { Session } from "@dpopsuev/alef-session";
+import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { Agent } from "../../core/runtime/src/index.js";

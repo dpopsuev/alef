@@ -93,7 +93,7 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 	} else if (args.pmSbom) {
 		console.log(JSON.stringify(pm.sbom(), null, 2));
 	} else if (args.pmAdapterList) {
-		const { loadUserAdaptersConfig, userAdaptersConfigPath } = await import("@dpopsuev/alef-agent-blueprint");
+		const { loadUserAdaptersConfig, userAdaptersConfigPath } = await import("@dpopsuev/alef-blueprint");
 		const adapters = loadUserAdaptersConfig();
 		if (!adapters || adapters.length === 0) {
 			console.log(`No adapters registered in ${userAdaptersConfigPath()}`);

@@ -7,17 +7,17 @@ description: >
 
 adapters:
   - name: agent
-    package: "@dpopsuev/alef-adapter-agent"
+    package: "@dpopsuev/alef-tool-agent"
   - name: factory
-    package: "@dpopsuev/alef-adapter-factory"
+    package: "@dpopsuev/alef-tool-factory"
   - name: discourse
-    package: "@dpopsuev/alef-adapter-discourse"
+    package: "@dpopsuev/alef-tool-discourse"
   - name: plan
-    package: "@dpopsuev/alef-adapter-plan"
+    package: "@dpopsuev/alef-tool-plan"
   - name: workflow
-    package: "@dpopsuev/alef-adapter-workflow"
+    package: "@dpopsuev/alef-tool-workflow"
   - name: skills
-    package: "@dpopsuev/alef-adapter-skills"
+    package: "@dpopsuev/alef-tool-skills"
 
 capabilities:
   orchestration: true

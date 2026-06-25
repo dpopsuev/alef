@@ -19,8 +19,8 @@
 
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
-import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
+import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
+import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 
 import type { JudgeReport } from "./judging-adapter.js";

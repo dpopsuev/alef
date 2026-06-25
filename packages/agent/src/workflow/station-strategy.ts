@@ -1,3 +1,7 @@
+import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { Api, Model } from "@dpopsuev/alef-llm";
+import { createAgentLoop } from "@dpopsuev/alef-reasoner";
+import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import {
 	type Contract,
 	createContractTool,
@@ -8,11 +12,7 @@ import {
 	type StationDef,
 	type StationResult,
 	type StationRunner,
-} from "@dpopsuev/alef-adapter-workflow";
-import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import type { Api, Model } from "@dpopsuev/alef-llm";
-import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+} from "@dpopsuev/alef-tool-workflow";
 import type { z } from "zod";
 
 const PRESET_CONTRACTS: Record<string, Contract<z.ZodTypeAny>> = {

@@ -16,10 +16,10 @@
     "blueprint": "blueprint.yaml"
   },
   "dependencies": {
-    "@dpopsuev/alef-adapter-agent": "workspace:*",
-    "@dpopsuev/alef-adapter-skills": "workspace:*",
-    "@dpopsuev/alef-adapter-workflow": "workspace:*",
-    "@dpopsuev/alef-agent-blueprint": "workspace:*",
+    "@dpopsuev/alef-tool-agent": "workspace:*",
+    "@dpopsuev/alef-tool-skills": "workspace:*",
+    "@dpopsuev/alef-tool-workflow": "workspace:*",
+    "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-runtime": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*"

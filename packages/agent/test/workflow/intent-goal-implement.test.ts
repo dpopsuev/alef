@@ -1,5 +1,5 @@
-import type { WorkflowDef } from "@dpopsuev/alef-adapter-workflow";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
+import type { WorkflowDef } from "@dpopsuev/alef-tool-workflow";
 
 import { describe, expect, it } from "vitest";
 import { runPipeline } from "../../src/workflow/pipeline.js";

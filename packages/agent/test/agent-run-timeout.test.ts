@@ -11,11 +11,11 @@
  * can read the schema default even when the ToolShell has stripped the schema.
  */
 
-import { createAgentAdapter } from "@dpopsuev/alef-adapter-agent";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { AgentController, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-runtime";
+import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { afterEach, describe, expect, it } from "vitest";
 import { Agent } from "../../core/runtime/src/index.js";
 import { buildSubagentFactory } from "../src/subagent-factory.js";

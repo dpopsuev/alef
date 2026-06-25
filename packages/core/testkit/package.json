@@ -56,7 +56,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@dpopsuev/alef-agent-blueprint": "workspace:*",
+    "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-llm": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",

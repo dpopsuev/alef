@@ -1,4 +1,4 @@
-import { blueprintRegistry } from "@dpopsuev/alef-agent-blueprint";
+import { blueprintRegistry } from "@dpopsuev/alef-blueprint";
 import { createCodingAgentStack } from "./blueprint.js";
 
 blueprintRegistry.register("alef-coding-agent", createCodingAgentStack, { isDefault: true });

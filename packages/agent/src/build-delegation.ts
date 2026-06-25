@@ -1,11 +1,11 @@
-import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-adapter-agent";
-import { createFactoryAdapter } from "@dpopsuev/alef-adapter-factory";
-import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
-import { createRouterAdapter } from "@dpopsuev/alef-gateway";
+import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import type { Agent } from "@dpopsuev/alef-runtime";
 import { buildDelegationStack } from "@dpopsuev/alef-runtime";
 import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
+import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-tool-agent";
+import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
+import { createRouterAdapter } from "@dpopsuev/alef-tool-gateway";
 import type { Args } from "./args.js";
 import type { AgentEvent, Session } from "./session.js";
 import { buildSubagentFactory } from "./subagent-factory.js";

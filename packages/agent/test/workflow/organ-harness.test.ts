@@ -9,10 +9,10 @@
  * This proves the adapter bus layer works end-to-end, not just runPipeline directly.
  */
 
-import { createWorkflowAdapter, type WorkflowDef } from "@dpopsuev/alef-adapter-workflow";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { createWorkflowAdapter, type WorkflowDef } from "@dpopsuev/alef-tool-workflow";
 import { describe, expect, it } from "vitest";
 import { ImplStationRunner } from "../../src/workflow/station-strategy.js";
 

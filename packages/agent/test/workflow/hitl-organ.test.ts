@@ -9,9 +9,9 @@
  *   - works end-to-end with a Binding chain
  */
 
-import { createHitlAdapter } from "@dpopsuev/alef-adapter-workflow";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel/adapter";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
+import { createHitlAdapter } from "@dpopsuev/alef-tool-workflow";
 import { afterEach, describe, expect, it } from "vitest";
 
 function makeBus() {
@@ -94,7 +94,7 @@ describe("HitlAdapter", { tags: ["unit"] }, () => {
 		const { bus, n } = makeBus();
 		let received: unknown;
 		const hitl = createHitlAdapter({
-			onEvaluate: async (input: import("@dpopsuev/alef-adapter-workflow").HitlEvaluateInput) => {
+			onEvaluate: async (input: import("@dpopsuev/alef-tool-workflow").HitlEvaluateInput) => {
 				received = input;
 				return { approved: true };
 			},

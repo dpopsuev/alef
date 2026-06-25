@@ -6,7 +6,7 @@ import {
 	loadAdapterFromPath,
 	loadUserAdaptersConfig,
 	materializeBlueprint,
-} from "@dpopsuev/alef-agent-blueprint";
+} from "@dpopsuev/alef-blueprint";
 import { afterEach, describe, expect, it } from "vitest";
 
 const CWD = "/tmp/test-workspace";

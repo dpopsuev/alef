@@ -74,12 +74,15 @@ for (const name of order) {
 		? `pnpm publish --dry-run --no-git-checks`
 		: `pnpm publish --no-git-checks --access public`;
 	try {
-		run(cmd, { cwd: pkg.path, silent: DRY_RUN });
+		execSync(cmd, { cwd: pkg.path, encoding: "utf-8", stdio: DRY_RUN ? "pipe" : ["pipe", "pipe", "pipe"] });
 	} catch (err) {
+		const combined = `${err.message ?? ""} ${err.stderr?.toString() ?? ""} ${err.stdout?.toString() ?? ""}`;
 		if (DRY_RUN) {
 			console.log(`  (dry-run OK)`);
+		} else if (combined.includes("previously published") || combined.includes("E403") || combined.includes("cannot publish over")) {
+			console.log(`  (already published, skipping)`);
 		} else {
-			console.error(`  FAILED: ${err.message}`);
+			console.error(`  FAILED: ${combined.slice(0, 300)}`);
 			process.exit(1);
 		}
 	}

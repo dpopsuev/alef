@@ -18,7 +18,7 @@ import {
 	blueprintRegistry,
 	loadAgentDefinition,
 	materializeBlueprint,
-} from "@dpopsuev/alef-agent-blueprint";
+} from "@dpopsuev/alef-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 
 /**

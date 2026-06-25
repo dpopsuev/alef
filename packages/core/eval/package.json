@@ -21,8 +21,8 @@
     "test": "vitest --run"
   },
   "dependencies": {
-    "@dpopsuev/alef-adapter-fs": "workspace:*",
-    "@dpopsuev/alef-adapter-shell": "workspace:*",
+    "@dpopsuev/alef-tool-fs": "workspace:*",
+    "@dpopsuev/alef-tool-shell": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-llm": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",

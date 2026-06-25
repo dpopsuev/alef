@@ -12,8 +12,8 @@
  * Skipped when no credentials are detected.
  */
 
-import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
-import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
+import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
+import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
 import { parseArgs } from "../../../agent/src/args.js";

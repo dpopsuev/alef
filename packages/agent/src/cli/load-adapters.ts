@@ -1,6 +1,6 @@
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint";
+import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint";
 import {
 	DEFAULT_COMPILED_DEFINITION,
 	findAgentDefinitionPath,
@@ -8,7 +8,7 @@ import {
 	loadUserAdaptersConfig,
 	materializeBlueprint,
 	mergeAgentDefinitions,
-} from "@dpopsuev/alef-agent-blueprint";
+} from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Logger } from "pino";
 import type { Args } from "../args.js";

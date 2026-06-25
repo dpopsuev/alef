@@ -76,7 +76,7 @@ export class LspClient {
 		if (!existsSync(LSP_BIN)) {
 			throw new Error(
 				`typescript-language-server not found at ${LSP_BIN}. ` +
-					"Install: npm install typescript-language-server --workspace=@dpopsuev/alef-adapter-code-intel",
+					"Install: npm install typescript-language-server --workspace=@dpopsuev/alef-tool-code-intel",
 			);
 		}
 

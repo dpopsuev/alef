@@ -25,10 +25,10 @@
 			"@dpopsuev/alef-agent-core/*": [
 				"./packages/agent/src/*"
 			],
-			"@dpopsuev/alef-agent-blueprint": [
+			"@dpopsuev/alef-blueprint": [
 				"./packages/core/blueprint/src/index.ts"
 			],
-			"@dpopsuev/alef-agent-blueprint/*": [
+			"@dpopsuev/alef-blueprint/*": [
 				"./packages/core/blueprint/src/*.ts"
 			],
 			"@dpopsuev/alef-agent-runtime": [
@@ -85,16 +85,16 @@
 			"@dpopsuev/alef/*": [
 				"./packages/agent/src/*.ts"
 			],
-			"@dpopsuev/alef-adapter-enclosure": [
+			"@dpopsuev/alef-tool-enclosure": [
 				"./packages/tools/enclosure/src/index.ts"
 			],
-			"@dpopsuev/alef-gateway": [
+			"@dpopsuev/alef-tool-gateway": [
 				"./packages/tools/gateway/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-web": [
+			"@dpopsuev/alef-tool-web": [
 				"./packages/tools/web/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-reactor": [
+			"@dpopsuev/alef-tool-reactor": [
 				"./packages/tools/reactor/src/index.ts"
 			],
 			"@dpopsuev/alef-discourse": [
@@ -103,22 +103,22 @@
 			"@dpopsuev/alef-discourse/*": [
 				"./packages/tools/discourse/src/*.ts"
 			],
-			"@dpopsuev/alef-adapter-fs": [
+			"@dpopsuev/alef-tool-fs": [
 				"./packages/tools/fs/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-fs/*": [
+			"@dpopsuev/alef-tool-fs/*": [
 				"./packages/tools/fs/src/*.ts"
 			],
-			"@dpopsuev/alef-adapter-shell": [
+			"@dpopsuev/alef-tool-shell": [
 				"./packages/tools/shell/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-shell/*": [
+			"@dpopsuev/alef-tool-shell/*": [
 				"./packages/tools/shell/src/*.ts"
 			],
-			"@dpopsuev/alef-adapter-code-intel": [
+			"@dpopsuev/alef-tool-code-intel": [
 				"./packages/tools/code-intel/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-code-intel/*": [
+			"@dpopsuev/alef-tool-code-intel/*": [
 				"./packages/tools/code-intel/src/*.ts"
 			],
 			"@dpopsuev/alef-reasoner": [
@@ -139,10 +139,10 @@
 			"@dpopsuev/alef-storage/*": [
 				"./packages/core/storage/src/*.ts"
 			],
-			"@dpopsuev/alef-adapter-monolog": [
+			"@dpopsuev/alef-tool-monolog": [
 				"./packages/tools/monolog/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-monolog/*": [
+			"@dpopsuev/alef-tool-monolog/*": [
 				"./packages/tools/monolog/src/*.ts"
 			],
 			"@dpopsuev/alef-adapter-ai": [
@@ -152,22 +152,22 @@
 				"./packages/tools/ai/src/*.ts",
 				"./packages/tools/ai/src/completer/*.ts"
 			],
-			"@dpopsuev/alef-adapter-agent": [
+			"@dpopsuev/alef-tool-agent": [
 				"./packages/tools/agent/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-factory": [
+			"@dpopsuev/alef-tool-factory": [
 				"./packages/tools/factory/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-eval": [
+			"@dpopsuev/alef-tool-eval": [
 				"./packages/tools/eval/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-eval/*": [
+			"@dpopsuev/alef-tool-eval/*": [
 				"./packages/tools/eval/src/*.ts"
 			],
-			"@dpopsuev/alef-adapter-skills": [
+			"@dpopsuev/alef-tool-skills": [
 				"./packages/tools/skills/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-skills/*": [
+			"@dpopsuev/alef-tool-skills/*": [
 				"./packages/tools/skills/src/*.ts"
 			],
 			"@dpopsuev/alef-adapter-completer": [
@@ -205,33 +205,33 @@
 			"@dpopsuev/web-spider/*": [
 				"../Workspace/web-spider/packages/web-spider/dist/*"
 			],
-			"@dpopsuev/alef-adapter-nodesh": [
+			"@dpopsuev/alef-tool-nodesh": [
 				"./packages/tools/nodesh/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-nodesh/*": [
+			"@dpopsuev/alef-tool-nodesh/*": [
 				"./packages/tools/nodesh/src/*.ts"
 			],
-			"@dpopsuev/alef-meta": [
+			"@dpopsuev/alef-tool-meta": [
 				"./packages/tools/meta/src/index.ts"
 			],
-			"@dpopsuev/alef-meta/*": [
+			"@dpopsuev/alef-tool-meta/*": [
 				"./packages/tools/meta/src/*.ts"
 			],
-			"@dpopsuev/alef-adapter-workflow": [
+			"@dpopsuev/alef-tool-workflow": [
 				"./packages/tools/workflow/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-workflow/*": [
+			"@dpopsuev/alef-tool-workflow/*": [
 				"./packages/tools/workflow/src/*.ts"
 			],
 			"@dpopsuev/alef-coding-agent": [
 				"./packages/profiles/coding/src/index.ts"
 			],
-			"@dpopsuev/alef-adapter-discourse": ["./packages/tools/discourse/src/index.ts"],
-			"@dpopsuev/alef-adapter-plan": ["./packages/tools/plan/src/index.ts"],
-			"@dpopsuev/alef-adapter-mcp-registry": ["./packages/tools/mcp-registry/src/index.ts"],
-			"@dpopsuev/alef-adapter-locus": ["./packages/tools/locus/src/index.ts"],
-			"@dpopsuev/alef-adapter-scribe": ["./packages/tools/scribe/src/index.ts"],
-			"@dpopsuev/alef-adapter-git": ["./packages/tools/git/src/index.ts"],
+			"@dpopsuev/alef-tool-discourse": ["./packages/tools/discourse/src/index.ts"],
+			"@dpopsuev/alef-tool-plan": ["./packages/tools/plan/src/index.ts"],
+			"@dpopsuev/alef-tool-mcp-registry": ["./packages/tools/mcp-registry/src/index.ts"],
+			"@dpopsuev/alef-tool-locus": ["./packages/tools/locus/src/index.ts"],
+			"@dpopsuev/alef-tool-scribe": ["./packages/tools/scribe/src/index.ts"],
+			"@dpopsuev/alef-tool-git": ["./packages/tools/git/src/index.ts"],
 			"@dpopsuev/alef-factory-agent": [
 				"./packages/profiles/factory/src/index.ts"
 			]

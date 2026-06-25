@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-adapter-factory",
+  "name": "@dpopsuev/alef-tool-factory",
   "version": "0.0.1",
   "description": "Agent factory organ \u2014 write and register agent blueprints",
   "type": "module",

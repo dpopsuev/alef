@@ -4,15 +4,15 @@
  * Run manually: npx vitest run test/contract-scan.test.ts
  */
 
-import { createAgentAdapter } from "@dpopsuev/alef-adapter-agent";
-import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
-import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { registerFauxProvider } from "@dpopsuev/alef-llm";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import type { Session } from "@dpopsuev/alef-session";
 import { runSchemaContract, runStreamingContract } from "@dpopsuev/alef-testkit";
+import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
+import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
+import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import { describe, expect, it } from "vitest";
 
 const CWD = "/tmp";

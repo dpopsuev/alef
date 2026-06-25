@@ -1,4 +1,4 @@
-import type { StationResult, StationRunner, WorkflowDef } from "@dpopsuev/alef-adapter-workflow";
+import type { StationResult, StationRunner, WorkflowDef } from "@dpopsuev/alef-tool-workflow";
 
 export interface PipelineResult {
 	stations: Record<string, StationResult>;

@@ -22,8 +22,8 @@
  *
  */
 
-import type { CompiledAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
-import { loadAgentDefinition } from "@dpopsuev/alef-agent-blueprint";
+import type { CompiledAgentDefinition } from "@dpopsuev/alef-blueprint";
+import { loadAgentDefinition } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { BusMessage, CommandMessage } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel/execution";

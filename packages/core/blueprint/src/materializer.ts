@@ -6,7 +6,7 @@
  *
  * Resolution order per adapter entry:
  *   path  → jiti.import(resolvedPath)       — TypeScript file, no build step
- *   name  → import(@dpopsuev/alef-adapter-{name})  — convention-based
+ *   name  → import(@dpopsuev/alef-tool-{name})  — convention-based
  *   name  → import(name)                    — treated as npm package specifier
  *
  * Factory convention:
@@ -35,14 +35,14 @@ import type { CompiledAgentDefinition } from "./types.js";
  */
 /**
  * Resolve a short adapter name to a package specifier.
- * Convention: "fs" → "@dpopsuev/alef-adapter-fs".
+ * Convention: "fs" → "@dpopsuev/alef-tool-fs".
  *
  * In the monorepo, packages resolve via Node's workspace symlinks.
  * Published packages resolve from node_modules via npm.
  * Both use the same naming convention — no registry needed.
  */
 function resolveAdapterPackage(name: string): string {
-	return `@dpopsuev/alef-adapter-${name}`;
+	return `@dpopsuev/alef-tool-${name}`;
 }
 
 /** Common options passed to every adapter factory. */

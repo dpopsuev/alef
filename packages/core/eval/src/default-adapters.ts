@@ -8,8 +8,8 @@
  *   baseAdaptersFactory: () => []
  */
 
-import { createFsAdapter } from "@dpopsuev/alef-adapter-fs";
-import { createShellAdapter } from "@dpopsuev/alef-adapter-shell";
+import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
+import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 
 export function defaultEvalAdapters(workspace: string): Adapter[] {

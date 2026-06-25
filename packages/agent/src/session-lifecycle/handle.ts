@@ -11,7 +11,7 @@
  * Created by the assembly factory (local-session.ts) after all adapters are loaded.
  */
 
-import { loadAdapterFromPath } from "@dpopsuev/alef-agent-blueprint";
+import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint";
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
 import type { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";

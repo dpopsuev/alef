@@ -1,4 +1,4 @@
-import type { SubagentFactory, SubagentFactoryOptions } from "@dpopsuev/alef-agent-blueprint";
+import type { SubagentFactory, SubagentFactoryOptions } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { Watchdog } from "@dpopsuev/alef-kernel/bus";
 import {

@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-gateway",
+  "name": "@dpopsuev/alef-tool-gateway",
   "version": "0.0.1",
   "description": "Router organ \u2014 HTTP/SSE bridge exposing the Motor/Sense bus to external processes",
   "type": "module",

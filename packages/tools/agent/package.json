@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-adapter-agent",
+  "name": "@dpopsuev/alef-tool-agent",
   "version": "0.0.1",
   "description": "Unified agent organ \u2014 in-process delegation + process-isolated child lifecycle",
   "type": "module",
@@ -16,7 +16,7 @@
     "clean": "shx rm -rf dist"
   },
   "dependencies": {
-    "@dpopsuev/alef-agent-blueprint": "workspace:*",
+    "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-llm": "workspace:*",
     "@dpopsuev/alef-runtime": "workspace:*",

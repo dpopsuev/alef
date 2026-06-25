@@ -7,9 +7,9 @@ description: >
 
 adapters:
   - name: fs
-    package: "@dpopsuev/alef-adapter-fs"
+    package: "@dpopsuev/alef-tool-fs"
   - name: shell
-    package: "@dpopsuev/alef-adapter-shell"
+    package: "@dpopsuev/alef-tool-shell"
     blockedPatterns:
       - "--no-verify"
       - "--no-gpg-sign"
@@ -18,11 +18,11 @@ adapters:
       - "HUSKY=0"
       - "rm\\s+-rf\\s+/"
   - name: web
-    package: "@dpopsuev/alef-adapter-web"
+    package: "@dpopsuev/alef-tool-web"
   - name: agent
-    package: "@dpopsuev/alef-adapter-agent"
+    package: "@dpopsuev/alef-tool-agent"
   - name: skills
-    package: "@dpopsuev/alef-adapter-skills"
+    package: "@dpopsuev/alef-tool-skills"
 
 capabilities:
   orchestration: true

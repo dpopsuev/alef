@@ -20,7 +20,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { materializeBlueprint } from "@dpopsuev/alef-agent-blueprint";
+import { materializeBlueprint } from "@dpopsuev/alef-blueprint";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { BlueprintHarness } from "../../core/testkit/src/blueprint-harness.js";

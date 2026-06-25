@@ -8,10 +8,10 @@
  * (<read_file>, <bash>) instead of structured tool_use blocks.
  */
 
-import { createAdapter } from "@dpopsuev/alef-adapter-fs";
 import type { Context } from "@dpopsuev/alef-llm";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
+import { createAdapter } from "@dpopsuev/alef-tool-fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildSubagentFactory } from "../src/subagent-factory.js";
 

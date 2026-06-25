@@ -1,0 +1,15 @@
+{
+  "name": "@example/alef-provider-ollama",
+  "version": "0.0.1",
+  "description": "Example: Ollama LLM provider for Alef — demonstrates the ProviderFactory contract",
+  "type": "module",
+  "main": "./src/index.ts",
+  "alef": {
+    "type": "provider",
+    "entry": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "@dpopsuev/alef-llm": ">=0.0.2"
+  },
+  "license": "MIT"
+}

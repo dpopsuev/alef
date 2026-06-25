@@ -1,4 +1,13 @@
-import { Input, PreviewSelectList, ProcessTerminal, type SelectItem, Text, TUI } from "@dpopsuev/alef-tui";
+import {
+	getKeybindings,
+	Input,
+	matchesKey,
+	PreviewSelectList,
+	ProcessTerminal,
+	type SelectItem,
+	Text,
+	TUI,
+} from "@dpopsuev/alef-tui";
 import { bold, color, getTheme } from "./runner-theme.js";
 
 export interface PickerOptions {
@@ -68,8 +77,16 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 		if (searchInput) tui.addChild(searchInput);
 		tui.addChild(previewList);
 
+		const kb = getKeybindings();
+
 		tui.onRawInput = (data) => {
-			if (data === "\x1b" && previewList.mode === "normal") {
+			if (matchesKey(data, "ctrl+c")) {
+				tui.stop();
+				resolve(undefined);
+				return true;
+			}
+
+			if (previewList.mode === "normal" && (kb.matches(data, "tui.select.cancel") || kb.matches(data, "app.quit"))) {
 				tui.stop();
 				resolve(undefined);
 				return true;

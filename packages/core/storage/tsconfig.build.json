@@ -1,9 +1,26 @@
 {
-	"extends": "../../../tsconfig.base.json",
+	"extends": "./../../../tsconfig.base.json",
 	"compilerOptions": {
+		"composite": true,
 		"outDir": "./dist",
-		"rootDir": "./src"
+		"rootDir": "./src",
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true
 	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["node_modules", "dist", "**/*.d.ts", "src/**/*.d.ts"]
+	"include": [
+		"src/**/*.ts",
+		"src/transformers.d.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"**/*.test.ts",
+		"test/**"
+	],
+	"references": [
+		{
+			"path": "../session/tsconfig.build.json"
+		}
+	]
 }

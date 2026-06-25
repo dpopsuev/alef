@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-coding-agent";
 import { createCodingAgentStack } from "@dpopsuev/alef-coding-agent";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import { McpAdapter } from "@dpopsuev/alef-adapter-mcp-registry";
 import { type SupervisorConfig, ToolSupervisor } from "@dpopsuev/alef-runtime";
 
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
@@ -41,7 +42,7 @@ export async function createResearchAgentStack(
 
 	const codingStack = await createCodingAgentStack(opts);
 
-	const supervisor = new ToolSupervisor(supervisorConfig);
+	const supervisor = new ToolSupervisor(supervisorConfig, McpAdapter);
 
 	const adapters: Adapter[] = [...codingStack.adapters];
 

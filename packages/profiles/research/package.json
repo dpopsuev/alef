@@ -7,6 +7,7 @@
     "test": "vitest --run"
   },
   "dependencies": {
+    "@dpopsuev/alef-adapter-mcp-registry": "workspace:*",
     "@dpopsuev/alef-coding-agent": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-runtime": "workspace:*"

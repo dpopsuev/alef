@@ -1,5 +1,11 @@
+import type { McpAdapterFactory } from "@dpopsuev/alef-runtime";
 import { ToolSupervisor } from "@dpopsuev/alef-runtime";
 import { describe, expect, it } from "vitest";
+
+const stubMcp: McpAdapterFactory = {
+	http: () => ({ name: "stub", tools: [], subscriptions: { command: [], event: [], notification: [] }, sources: [], mount: () => () => {}, invalidate() {} }),
+	stdio: () => ({ name: "stub", tools: [], subscriptions: { command: [], event: [], notification: [] }, sources: [], mount: () => () => {}, invalidate() {} }),
+};
 
 describe("research agent fleet config", { tags: ["unit"] }, () => {
 	it("declares scribe and locus with correct dependency", () => {
@@ -20,7 +26,7 @@ describe("research agent fleet config", { tags: ["unit"] }, () => {
 					ingestURL: "scribe",
 				},
 			},
-		});
+		}, stubMcp);
 
 		expect(supervisor.get("scribe")).toBeUndefined();
 		expect(supervisor.get("locus")).toBeUndefined();
@@ -32,7 +38,7 @@ describe("research agent fleet config", { tags: ["unit"] }, () => {
 			services: {
 				scribe: { binary: "echo", transport: "stdio" },
 			},
-		});
+		}, stubMcp);
 		expect(supervisor.tools()).toHaveLength(0);
 	});
 
@@ -44,7 +50,7 @@ describe("research agent fleet config", { tags: ["unit"] }, () => {
 			},
 		};
 
-		const _fleet = new ToolSupervisor(config);
+		const _fleet = new ToolSupervisor(config, stubMcp);
 		expect(config.services.locus.ingestURL).toBe("scribe");
 		expect(config.services.locus.dependsOn).toEqual(["scribe"]);
 	});
@@ -55,7 +61,7 @@ describe("research agent fleet config", { tags: ["unit"] }, () => {
 				a: { binary: "a", dependsOn: ["b"] },
 				b: { binary: "b", dependsOn: ["a"] },
 			},
-		});
+		}, stubMcp);
 
 		const { InProcessBus } = await import("@dpopsuev/alef-kernel");
 		const nerve = new InProcessBus();

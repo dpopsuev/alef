@@ -12,6 +12,7 @@ export {
 	type RestartPolicy,
 	type SupervisorConfig,
 	type ToolServiceConfig,
+	type McpAdapterFactory,
 	ToolSupervisor,
 } from "./tool-supervisor.js";
 

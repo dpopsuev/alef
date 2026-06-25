@@ -1,7 +1,12 @@
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
-import type { SupervisorConfig } from "../src/tool-supervisor.js";
+import type { McpAdapterFactory, SupervisorConfig } from "../src/tool-supervisor.js";
 import { ToolSupervisor } from "../src/tool-supervisor.js";
+
+const stubMcpFactory: McpAdapterFactory = {
+	http: () => ({ name: "stub", tools: [], subscriptions: { command: [], event: [], notification: [] }, sources: [], mount: () => () => {}, invalidate() {} }),
+	stdio: () => ({ name: "stub", tools: [], subscriptions: { command: [], event: [], notification: [] }, sources: [], mount: () => () => {}, invalidate() {} }),
+};
 
 describe("ToolSupervisor", { tags: ["unit"] }, () => {
 	it("topological sort — no deps boots in insertion order", async () => {
@@ -10,7 +15,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 				alpha: { binary: "echo", args: ["alpha"] },
 				beta: { binary: "echo", args: ["beta"] },
 			},
-		});
+		}, stubMcpFactory);
 
 		const bus = new InProcessBus();
 		try {
@@ -32,7 +37,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 		};
 
 		// Access the topoSort via a fleet start that will fail on spawn but validates ordering
-		const _fleet = new ToolSupervisor(config);
+		const _fleet = new ToolSupervisor(config, stubMcpFactory);
 		expect(config.services.scribe.dependsOn).toBeUndefined();
 		expect(config.services.locus.dependsOn).toEqual(["scribe"]);
 	});
@@ -43,7 +48,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 				a: { binary: "a", dependsOn: ["b"] },
 				b: { binary: "b", dependsOn: ["a"] },
 			},
-		});
+		}, stubMcpFactory);
 
 		const bus = new InProcessBus();
 		await expect(supervisor.start(bus.asBus())).rejects.toThrow("Circular dependency");
@@ -54,14 +59,14 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 			services: {
 				a: { binary: "a", dependsOn: ["nonexistent"] },
 			},
-		});
+		}, stubMcpFactory);
 
 		const bus = new InProcessBus();
 		await expect(supervisor.start(bus.asBus())).rejects.toThrow("Unknown dependency");
 	});
 
 	it("double start throws", async () => {
-		const supervisor = new ToolSupervisor({ services: {} });
+		const supervisor = new ToolSupervisor({ services: {} }, stubMcpFactory);
 		const bus = new InProcessBus();
 		await supervisor.start(bus.asBus());
 		await expect(supervisor.start(bus.asBus())).rejects.toThrow("already started");
@@ -69,12 +74,12 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 	});
 
 	it("get returns undefined for unknown service", async () => {
-		const supervisor = new ToolSupervisor({ services: {} });
+		const supervisor = new ToolSupervisor({ services: {} }, stubMcpFactory);
 		expect(supervisor.get("missing")).toBeUndefined();
 	});
 
 	it("tools returns empty for no services", async () => {
-		const supervisor = new ToolSupervisor({ services: {} });
+		const supervisor = new ToolSupervisor({ services: {} }, stubMcpFactory);
 		const bus = new InProcessBus();
 		await supervisor.start(bus.asBus());
 		expect(supervisor.tools()).toHaveLength(0);
@@ -89,7 +94,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 			},
 		};
 
-		const _fleet = new ToolSupervisor(config);
+		const _fleet = new ToolSupervisor(config, stubMcpFactory);
 		expect(config.services.locus.ingestURL).toBe("scribe");
 		expect(config.services.scribe.httpUrl).toBe("http://localhost:8080");
 	});
@@ -101,7 +106,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 				worker: { binary: "worker", restart: "temporary" },
 			},
 		};
-		const _fleet = new ToolSupervisor(config);
+		const _fleet = new ToolSupervisor(config, stubMcpFactory);
 		expect(config.services.scribe.restart).toBe("permanent");
 		expect(config.services.worker.restart).toBe("temporary");
 	});
@@ -112,7 +117,7 @@ describe("ToolSupervisor", { tags: ["unit"] }, () => {
 				svc: { binary: "svc", restart: "permanent" },
 			},
 		};
-		const _fleet = new ToolSupervisor(config);
+		const _fleet = new ToolSupervisor(config, stubMcpFactory);
 		expect(config.services.svc.restart).toBe("permanent");
 	});
 });

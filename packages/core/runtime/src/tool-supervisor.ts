@@ -1,7 +1,11 @@
-import { McpAdapter } from "@dpopsuev/alef-adapter-mcp-registry";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
+
+export interface McpAdapterFactory {
+	http(url: string, name: string): Adapter | Promise<Adapter>;
+	stdio(binary: string, args: string[], name: string, env?: Record<string, string>): Adapter | Promise<Adapter>;
+}
 
 export type RestartPolicy = "permanent" | "transient" | "temporary";
 
@@ -40,8 +44,11 @@ export class ToolSupervisor {
 	private started = false;
 	private bus: Bus | null = null;
 
-	constructor(config: SupervisorConfig) {
+	private readonly mcpFactory: McpAdapterFactory;
+
+	constructor(config: SupervisorConfig, mcpFactory: McpAdapterFactory) {
 		this.config = config;
+		this.mcpFactory = mcpFactory;
 	}
 
 	async start(bus: Bus): Promise<void> {
@@ -180,10 +187,10 @@ export class ToolSupervisor {
 
 	private async spawnService(name: string, cfg: ToolServiceConfig, env?: Record<string, string>): Promise<Adapter> {
 		if (cfg.transport === "http" && cfg.httpUrl) {
-			return McpAdapter.http(cfg.httpUrl, name);
+			return await this.mcpFactory.http(cfg.httpUrl, name);
 		}
 		const args = cfg.args ?? ["serve"];
-		return McpAdapter.stdio(cfg.binary, args, name, env);
+		return await this.mcpFactory.stdio(cfg.binary, args, name, env);
 	}
 
 	private resolveEnv(name: string, cfg: ToolServiceConfig): Record<string, string> | undefined {

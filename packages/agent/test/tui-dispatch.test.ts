@@ -41,6 +41,8 @@ function makeMockUi(): TuiUi {
 			addChildCall: vi.fn(),
 			removeChildCall: vi.fn(),
 			showToast: vi.fn(),
+			showBackgroundTask: vi.fn(),
+			updateBackgroundTask: vi.fn(),
 			buildFlowLayout: vi.fn().mockReturnValue(null),
 			showCancellableLoader: vi.fn().mockReturnValue({}),
 			removeCancellableLoader: vi.fn(),

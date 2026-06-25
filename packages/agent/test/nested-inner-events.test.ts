@@ -43,6 +43,8 @@ function noopUi() {
 			updateCallTokens: () => {},
 			addChildCall: (parentId: string, childId: string) => calls.push(`child:${parentId}->${childId}`),
 			showToast: () => {},
+			showBackgroundTask: () => {},
+			updateBackgroundTask: () => {},
 			buildFlowLayout: () => null,
 			showCancellableLoader: () => ({}),
 			removeCancellableLoader: () => {},

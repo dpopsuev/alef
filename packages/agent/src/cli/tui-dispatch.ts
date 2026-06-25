@@ -421,6 +421,50 @@ export function dispatchTuiEvent(
 			);
 			return state;
 
+		case "task-progress": {
+			const tasks = new Map(state.backgroundTasks);
+			let task = tasks.get(event.taskId);
+			if (!task) {
+				task = {
+					taskId: event.taskId,
+					profile: "background",
+					status: "running",
+					startedAt: Date.now(),
+					chunks: [],
+				};
+				tasks.set(event.taskId, task);
+				promptConsole.showBackgroundTask(event.taskId, task.profile);
+			}
+			task.chunks.push(event.chunk);
+			return { ...state, backgroundTasks: tasks };
+		}
+
+		case "task-completed": {
+			const tasks = new Map(state.backgroundTasks);
+			const task = tasks.get(event.taskId);
+			if (task) {
+				task.status = "completed";
+				task.completedAt = Date.now();
+				task.reply = event.reply;
+			}
+			promptConsole.updateBackgroundTask(event.taskId, "completed");
+			promptConsole.showToast(`Task ${event.taskId} completed (${event.profile})`, 5000);
+			return { ...state, backgroundTasks: tasks };
+		}
+
+		case "task-failed": {
+			const tasks = new Map(state.backgroundTasks);
+			const task = tasks.get(event.taskId);
+			if (task) {
+				task.status = "failed";
+				task.completedAt = Date.now();
+				task.error = event.error;
+			}
+			promptConsole.updateBackgroundTask(event.taskId, "failed", event.error);
+			promptConsole.showToast(`Task ${event.taskId} failed: ${event.error}`, 5000);
+			return { ...state, backgroundTasks: tasks };
+		}
+
 		default:
 			return state;
 	}

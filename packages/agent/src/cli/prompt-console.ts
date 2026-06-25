@@ -94,6 +94,11 @@ export class PromptConsole {
 	private hintBar!: Text;
 	private commandGrid!: CommandHintGrid;
 	private intentText = "";
+	private readonly backgroundTaskPanel = new Text("", 0, 0);
+	private readonly backgroundTasks = new Map<
+		string,
+		{ taskId: string; profile: string; status: string; startedAt: number }
+	>();
 	readonly widgetSlotAbove = new Container();
 	readonly widgetSlotBelow = new Container();
 	private widgetAboveText: Text | null = null;
@@ -137,6 +142,7 @@ export class PromptConsole {
 		this.tui.addChild(this.inFlightQueue);
 		this.tui.addChild(this.chunkDetail);
 		this.tui.addChild(this.inspectorHint);
+		this.tui.addChild(this.backgroundTaskPanel);
 		this.tui.addChild(this.statusText);
 		this.tui.addChild(this.widgetSlotAbove);
 		this.editorWrapper = new EditorWrapper(this.editor);
@@ -404,6 +410,45 @@ export class PromptConsole {
 			},
 		});
 		this.widgetSlotBelow.addChild(toast);
+		this.tui.requestRender();
+	}
+
+	showBackgroundTask(taskId: string, profile: string): void {
+		this.backgroundTasks.set(taskId, { taskId, profile, status: "running", startedAt: Date.now() });
+		this.refreshBackgroundTaskPanel();
+	}
+
+	updateBackgroundTask(taskId: string, status: "completed" | "failed", _detail?: string): void {
+		const task = this.backgroundTasks.get(taskId);
+		if (task) task.status = status;
+		this.refreshBackgroundTaskPanel();
+		if (status === "completed" || status === "failed") {
+			setTimeout(() => {
+				this.backgroundTasks.delete(taskId);
+				this.refreshBackgroundTaskPanel();
+			}, 10_000);
+		}
+	}
+
+	private refreshBackgroundTaskPanel(): void {
+		if (this.backgroundTasks.size === 0) {
+			this.backgroundTaskPanel.setText("");
+			this.tui.requestRender();
+			return;
+		}
+		const lines: string[] = [];
+		for (const task of this.backgroundTasks.values()) {
+			const elapsed = fmtMs(Date.now() - task.startedAt);
+			const icon =
+				task.status === "running"
+					? statusGlyph("active")
+					: task.status === "completed"
+						? statusGlyph("done")
+						: statusGlyph("error");
+			const style = task.status === "running" ? this.t.accentFg : this.t.mutedFg;
+			lines.push(color(`  ${icon} ${task.taskId}  ${task.profile}  ${elapsed}`, style));
+		}
+		this.backgroundTaskPanel.setText(lines.join("\n"));
 		this.tui.requestRender();
 	}
 

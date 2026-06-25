@@ -22,6 +22,17 @@ export interface TokenFooterHandle {
 	setText(text: string): void;
 }
 
+export interface BackgroundTask {
+	taskId: string;
+	profile: string;
+	status: "running" | "completed" | "failed";
+	startedAt: number;
+	completedAt?: number;
+	chunks: string[];
+	reply?: string;
+	error?: string;
+}
+
 export interface TuiState {
 	activeCalls: Map<string, ActiveCall>;
 	/** null means no tool batch is in progress. */
@@ -48,6 +59,8 @@ export interface TuiState {
 	exitCodes: Map<string, number>;
 	/** Accumulated subagent reply text per parent callId. */
 	innerReplies: Map<string, string>;
+	/** Background tasks launched via agent.run(async: true). */
+	backgroundTasks: Map<string, BackgroundTask>;
 }
 
 export function initialTuiState(): TuiState {
@@ -70,6 +83,7 @@ export function initialTuiState(): TuiState {
 		validationErrors: new Map(),
 		exitCodes: new Map(),
 		innerReplies: new Map(),
+		backgroundTasks: new Map(),
 	};
 }
 
@@ -136,6 +150,8 @@ export interface TuiPromptConsole {
 	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void;
 	removeChildCall(parentCallId: string, callId: string): void;
 	showToast(message: string, durationMs?: number): void;
+	showBackgroundTask(taskId: string, profile: string): void;
+	updateBackgroundTask(taskId: string, status: "completed" | "failed", detail?: string): void;
 	buildFlowLayout(): unknown | null;
 	showCancellableLoader(message: string, onAbort: () => void): unknown;
 	removeCancellableLoader(loader: unknown): void;

@@ -15,6 +15,9 @@
 			"@dpopsuev/alef-llm/provider-port": [
 				"./packages/core/llm/src/api-registry.ts"
 			],
+			"@dpopsuev/alef-llm/provider-contract": [
+				"./packages/core/llm/src/provider-contract.ts"
+			],
 			"@dpopsuev/alef-llm/types": [
 				"./packages/core/llm/src/types.ts"
 			],

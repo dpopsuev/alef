@@ -62,6 +62,12 @@
       "import": "./src/api-registry.ts",
       "default": "./src/api-registry.ts"
     },
+    "./provider-contract": {
+      "source": "./src/provider-contract.ts",
+      "types": "./dist/provider-contract.d.ts",
+      "import": "./src/provider-contract.ts",
+      "default": "./src/provider-contract.ts"
+    },
     "./types": {
       "source": "./src/types.ts",
       "types": "./dist/types.d.ts",

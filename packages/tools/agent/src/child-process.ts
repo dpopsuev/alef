@@ -179,7 +179,7 @@ export async function spawnChild(
 		...(process.env.TSX_TSCONFIG_PATH
 			? {}
 			: {
-					TSX_TSCONFIG_PATH: new URL("../../../tsconfig.json", import.meta.url).pathname,
+					TSX_TSCONFIG_PATH: new URL("../../../../tsconfig.json", import.meta.url).pathname,
 				}),
 	};
 

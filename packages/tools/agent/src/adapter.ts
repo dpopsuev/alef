@@ -560,7 +560,8 @@ Non-blocking delegation:
   Signals emitted: task.progress (chunks), task.completed (reply), task.failed (error).
 
 agent.spawn/ask/kill — persistent child process lifecycle.
-  spawn starts a full child Alef process (15-30s startup).
+  spawn({ blueprintPath: 'coding' | 'research' | 'factory' | path }) starts a child Alef process.
+  Built-in blueprints: coding (default), research, factory.
   ask sends a prompt and waits for reply.
   kill stops it.
 

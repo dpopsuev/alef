@@ -3,7 +3,6 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import type { Transcript } from "@dpopsuev/alef-runtime";
 import { AgentSession } from "@dpopsuev/alef-session";
 import { assembleAgentServer } from "./assemble.js";
 import { resolveSubagentActor } from "./identity/actor.js";
@@ -23,7 +22,6 @@ export interface SubagentSessionOptions {
 	parentSessionId?: string;
 	boardId?: string;
 	actorRoutes?: ActorRouteTable;
-	transcript?: Transcript;
 	llmFactory?: LlmAdapterFactory;
 }
 
@@ -54,7 +52,6 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 			onReply: (text) => {
 				if (text) reply = text;
 			},
-			...(opts.transcript && { transcript: { store: opts.transcript, topic: "subagents", thread: subId } }),
 		});
 
 		const { agent, controller, observers } = server;

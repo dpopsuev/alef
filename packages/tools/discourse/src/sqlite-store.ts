@@ -1,27 +1,7 @@
 import type { Client } from "@libsql/client";
-import type { DiscourseStore } from "./interfaces.js";
+import type { Post, ThreadInfo, TopicSummary } from "./types.js";
 
-export interface Post {
-	readonly topic: string;
-	readonly thread: string;
-	readonly author: string;
-	readonly content: unknown;
-	readonly timestamp: number;
-}
-
-export interface ThreadInfo {
-	readonly name: string;
-	readonly posts: number;
-	readonly participants: readonly string[];
-	readonly lastActivity: number;
-}
-
-export interface TopicSummary {
-	readonly topic: string;
-	readonly threads: readonly string[];
-}
-
-export class SqliteDiscourseStore implements DiscourseStore {
+export class SqliteDiscourseStore {
 	private readonly client: Client;
 	private readonly sessionId: string;
 

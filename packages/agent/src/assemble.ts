@@ -5,18 +5,11 @@ import type { AgentEvent, TokensConsumed } from "./session.js";
 
 export type SignalMapper = (payload: Record<string, unknown>) => Record<string, unknown> | null;
 
-export interface TranscriptConfig {
-	store: { append(topic: string, thread: string, author: string, content: unknown): void };
-	topic: string;
-	thread: string;
-}
-
 export interface AgentServerOptions {
 	llm: Adapter;
 	adapters: readonly Adapter[];
 	pipeline?: Adapter;
 	onReply?: (text: string) => void;
-	transcript?: TranscriptConfig;
 	extraAdapters?: readonly Adapter[];
 	signalMappers?: ReadonlyMap<string, SignalMapper>;
 	uiSignalTypes?: ReadonlySet<string>;
@@ -229,7 +222,6 @@ export function assembleAgentServer(opts: AgentServerOptions): AgentServer {
 
 	const controller = new AgentController(agent, {
 		onReply: opts.onReply,
-		transcript: opts.transcript,
 	});
 
 	connectObservers(agent, observers, opts.signalMappers, opts.uiSignalTypes);

@@ -2,9 +2,8 @@ import { type Client, createClient } from "@libsql/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { SqliteAuthStore } from "../src/auth.js";
 import { SqliteDaemonRegistry } from "../src/daemon.js";
-import { SqliteDiscourseStore } from "../src/discourse.js";
 import { applySchema } from "../src/schema.js";
-import { SqliteSessionStore } from "../src/session-store.js";
+import { SqliteSessionStore } from "../src/sqlite-session.js";
 import { SqliteSummaryStore } from "../src/summary.js";
 
 async function makeClient(): Promise<Client> {
@@ -12,89 +11,6 @@ async function makeClient(): Promise<Client> {
 	await applySchema(client);
 	return client;
 }
-
-describe("SqliteDiscourseStore", { tags: ["unit"] }, () => {
-	const clients: Client[] = [];
-	afterEach(() => {
-		for (const c of clients.splice(0)) c.close();
-	});
-
-	it("appends and reads a thread", async () => {
-		const client = await makeClient();
-		clients.push(client);
-		const session = await SqliteSessionStore.create(client, "/tmp/cwd");
-		const discourse = new SqliteDiscourseStore(client, session.id);
-
-		await discourse.append("sessions", session.id, "alice", { text: "hello" });
-		await discourse.append("sessions", session.id, "bob", { text: "world" });
-
-		const posts = await discourse.readThread("sessions", session.id);
-		expect(posts).toHaveLength(2);
-		expect(posts[0].author).toBe("alice");
-		expect((posts[0].content as { text: string }).text).toBe("hello");
-	});
-
-	it("filters by since timestamp", async () => {
-		const client = await makeClient();
-		clients.push(client);
-		const session = await SqliteSessionStore.create(client, "/tmp/cwd");
-		const discourse = new SqliteDiscourseStore(client, session.id);
-
-		await discourse.append("t", "th", "a", "first");
-		await discourse.append("t", "th", "b", "second");
-
-		const all = await discourse.readThread("t", "th", 0);
-		expect(all).toHaveLength(2);
-
-		const none = await discourse.readThread("t", "th", Date.now() + 10_000);
-		expect(none).toHaveLength(0);
-	});
-
-	it("lists topics and threads", async () => {
-		const client = await makeClient();
-		clients.push(client);
-		const session = await SqliteSessionStore.create(client, "/tmp/cwd");
-		const discourse = new SqliteDiscourseStore(client, session.id);
-
-		await discourse.append("topic-a", "thread-1", "alice", "msg");
-		await discourse.append("topic-a", "thread-2", "bob", "msg");
-		await discourse.append("topic-b", "thread-3", "alice", "msg");
-
-		expect(await discourse.listTopics()).toHaveLength(2);
-		expect(await discourse.listThreads("topic-a")).toHaveLength(2);
-	});
-
-	it("threadInfo returns metadata", async () => {
-		const client = await makeClient();
-		clients.push(client);
-		const session = await SqliteSessionStore.create(client, "/tmp/cwd");
-		const discourse = new SqliteDiscourseStore(client, session.id);
-
-		await discourse.append("t", "th", "alice", "msg");
-		await discourse.append("t", "th", "bob", "msg");
-
-		const info = await discourse.threadInfo("t", "th");
-		expect(info.posts).toBe(2);
-		expect(info.participants).toContain("alice");
-		expect(info.participants).toContain("bob");
-	});
-
-	it("readNewPosts returns all posts after a given timestamp", async () => {
-		const client = await makeClient();
-		clients.push(client);
-		const session = await SqliteSessionStore.create(client, "/tmp/cwd");
-		const discourse = new SqliteDiscourseStore(client, session.id);
-
-		await discourse.append("a", "1", "alice", "msg1");
-		await discourse.append("b", "2", "bob", "msg2");
-
-		const allPosts = await discourse.readNewPosts(0);
-		expect(allPosts).toHaveLength(2);
-
-		const noPosts = await discourse.readNewPosts(Date.now() + 10_000);
-		expect(noPosts).toHaveLength(0);
-	});
-});
 
 describe("SqliteAuthStore", { tags: ["unit"] }, () => {
 	const clients: Client[] = [];

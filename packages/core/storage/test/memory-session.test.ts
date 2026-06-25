@@ -1,6 +1,6 @@
 import type { StorageRecord } from "@dpopsuev/alef-session";
 import { describe, expect, it } from "vitest";
-import { InMemorySessionStore } from "../src/in-memory-session-store.js";
+import { InMemorySessionStore } from "../src/memory-session.js";
 
 function motorEvent(type: string, correlationId: string): StorageRecord {
 	return { bus: "command", type, correlationId, payload: { text: `payload for ${type}` }, timestamp: Date.now() };

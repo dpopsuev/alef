@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { KeyringAuthStore } from "../src/keyring-auth-store.js";
+import { KeyringAuthStore } from "../src/keyring.js";
 
 describe("KeyringAuthStore", { tags: ["integration"] }, () => {
 	const store = new KeyringAuthStore();

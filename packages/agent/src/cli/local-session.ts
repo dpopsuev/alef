@@ -226,11 +226,7 @@ export async function createLocalSession(
 		summaryWriter: (summary) => summaryStore.write(summary),
 	});
 
-	const sessionForum = storage.discourseStore(store.id);
-	const controller = new AgentController(agent, {
-		onReply: replySink,
-		transcript: { store: sessionForum, topic: "sessions", thread: store.id },
-	});
+	const controller = new AgentController(agent, { onReply: replySink });
 
 	actorRoutes.register(agentActor.color, async (message, timeout) => {
 		await controller.send(message, "human", timeout);

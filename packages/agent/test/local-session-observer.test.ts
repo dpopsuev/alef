@@ -33,22 +33,6 @@ const SILENT_LOGGER = pino({ level: "silent" });
 const STUB_STORAGE: StorageFactory = {
 	daemonRegistry: () => ({}) as never,
 	summaryStore: () => ({ write: async () => {}, get: async () => undefined, latest: async () => undefined }),
-	discourseStore: () =>
-		({
-			append: async (_t: string, _th: string, _a: string, content: unknown) => ({
-				topic: "",
-				thread: "",
-				author: "",
-				content,
-				timestamp: Date.now(),
-			}),
-			readThread: async () => [],
-			listTopics: async () => [],
-			listThreads: async () => [],
-			threadInfo: async () => ({ name: "", posts: 0, participants: [], lastActivity: 0 }),
-			topicSummaries: async () => [],
-			readNewPosts: async () => [],
-		}) as never,
 	authStore: () => ({}) as never,
 	sessions: {} as never,
 };

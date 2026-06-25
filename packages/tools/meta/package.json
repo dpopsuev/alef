@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-meta",
   "version": "0.0.1",
-  "description": "Alef API organ — typed tools for querying sessions, config, organs, and PM history",
+  "description": "Alef API organ \u2014 typed tools for querying sessions, config, organs, and PM history",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
@@ -28,5 +28,8 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }

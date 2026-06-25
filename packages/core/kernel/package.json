@@ -12,13 +12,41 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./adapter": { "source": "./src/adapter.ts", "import": "./src/adapter.ts", "default": "./src/adapter.ts" },
-    "./bus": { "source": "./src/bus.ts", "import": "./src/bus.ts", "default": "./src/bus.ts" },
-    "./log": { "source": "./src/log.ts", "import": "./src/log.ts", "default": "./src/log.ts" },
-    "./pipeline": { "source": "./src/pipeline.ts", "import": "./src/pipeline.ts", "default": "./src/pipeline.ts" },
-    "./errors": { "source": "./src/errors.ts", "import": "./src/errors.ts", "default": "./src/errors.ts" },
-    "./execution": { "source": "./src/execution.ts", "import": "./src/execution.ts", "default": "./src/execution.ts" },
-    "./reconciliation": { "source": "./src/reconciliation.ts", "import": "./src/reconciliation.ts", "default": "./src/reconciliation.ts" }
+    "./adapter": {
+      "source": "./src/adapter.ts",
+      "import": "./src/adapter.ts",
+      "default": "./src/adapter.ts"
+    },
+    "./bus": {
+      "source": "./src/bus.ts",
+      "import": "./src/bus.ts",
+      "default": "./src/bus.ts"
+    },
+    "./log": {
+      "source": "./src/log.ts",
+      "import": "./src/log.ts",
+      "default": "./src/log.ts"
+    },
+    "./pipeline": {
+      "source": "./src/pipeline.ts",
+      "import": "./src/pipeline.ts",
+      "default": "./src/pipeline.ts"
+    },
+    "./errors": {
+      "source": "./src/errors.ts",
+      "import": "./src/errors.ts",
+      "default": "./src/errors.ts"
+    },
+    "./execution": {
+      "source": "./src/execution.ts",
+      "import": "./src/execution.ts",
+      "default": "./src/execution.ts"
+    },
+    "./reconciliation": {
+      "source": "./src/reconciliation.ts",
+      "import": "./src/reconciliation.ts",
+      "default": "./src/reconciliation.ts"
+    }
   },
   "files": [
     "dist",
@@ -58,5 +86,8 @@
     "shx": "^0.4.0",
     "typescript": "^5.9.2",
     "vitest": "^4.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

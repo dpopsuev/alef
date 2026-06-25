@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-adapter-workflow",
   "version": "0.0.1",
-  "description": "Workflow organ — contract-driven pipeline execution with Intent → Goal → Implement",
+  "description": "Workflow organ \u2014 contract-driven pipeline execution with Intent \u2192 Goal \u2192 Implement",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
@@ -25,5 +25,8 @@
     "shx": "^0.4.0",
     "vitest": "^4.1.6"
   },
-  "devDependenciesComments": {}
+  "devDependenciesComments": {},
+  "publishConfig": {
+    "access": "public"
+  }
 }

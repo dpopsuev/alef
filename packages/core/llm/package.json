@@ -114,5 +114,8 @@
     "@types/node": "^24.3.0",
     "canvas": "^3.2.0",
     "vitest": "^4.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

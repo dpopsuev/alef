@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-runtime",
   "version": "0.0.1",
-  "description": "Agent runtime — organ loader, nerve, and pub-sub bus",
+  "description": "Agent runtime \u2014 organ loader, nerve, and pub-sub bus",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -49,5 +49,8 @@
     "shx": "^0.4.0",
     "typescript": "^5.9.2",
     "vitest": "^4.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

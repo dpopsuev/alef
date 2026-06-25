@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-adapter-code-intel",
   "version": "0.0.1",
-  "description": "Code Intelligence organ — unified fs + symbol intelligence with block caching",
+  "description": "Code Intelligence organ \u2014 unified fs + symbol intelligence with block caching",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",
@@ -53,5 +53,8 @@
     "shx": "^0.4.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

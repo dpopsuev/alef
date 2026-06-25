@@ -1,7 +1,7 @@
 {
   "name": "@dpopsuev/alef-eval",
   "version": "0.0.1",
-  "description": "Evaluation harness for Alef agents — OTel span collection, RunMetrics, Pi-parsable reports",
+  "description": "Evaluation harness for Alef agents \u2014 OTel span collection, RunMetrics, Pi-parsable reports",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -50,5 +50,8 @@
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

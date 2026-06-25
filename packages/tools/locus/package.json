@@ -19,5 +19,8 @@
   "devDependencies": {
     "@dpopsuev/alef-testkit": "workspace:*",
     "vitest": "^4.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

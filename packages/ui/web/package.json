@@ -54,5 +54,8 @@
     "type": "git",
     "url": "git+https://github.com/dpopsuev/alef.git",
     "directory": "packages/web-ui"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

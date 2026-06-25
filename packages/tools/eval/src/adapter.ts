@@ -67,8 +67,9 @@ async function runLLMJudge(
 	rubric: string,
 ): Promise<{ score: number; reasoning: string }> {
 	const { streamSimple } = await import("@dpopsuev/alef-llm");
-	const { autoDetectModel } = await import("../../../agent/src/model/index.js").catch(() => ({
-		autoDetectModel: () => undefined,
+	const modelPath = "../../../agent/src/model/index.js";
+	const { autoDetectModel } = await import(/* @vite-ignore */ modelPath).catch(() => ({
+		autoDetectModel: () => undefined as unknown,
 	}));
 	const model = autoDetectModel?.();
 	if (!model) return { score: 0, reasoning: "No model available for LLM judge" };

@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "The default Alef coding agent blueprint. This package IS the SBOM — dependencies are the organ manifest.",
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./dist/index.d.ts",
   "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
     "./blueprint": "./blueprint.yaml"
   },
   "scripts": {

@@ -65,8 +65,8 @@ export function defineEvalSuite(opts: EvalSuiteOptions): void {
 	const allResults: EvaluationResult[] = [];
 	const timeoutMs = opts.timeoutMs ?? 300_000;
 
-	// @ts-expect-error vitest tags type is narrower than string[]
-	describe.skipIf(SKIP_REAL_LLM)(opts.name, { tags: opts.tags ?? ["real-llm"] }, () => {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	describe.skipIf(SKIP_REAL_LLM)(opts.name, { tags: opts.tags ?? ["real-llm"] } as any, () => {
 		beforeAll(() => {
 			console.log(`${opts.name}: model=${getEvalModel().id}`);
 		});

@@ -38,6 +38,9 @@
 			"path": "packages/profiles/coding/tsconfig.build.json"
 		},
 		{
+			"path": "packages/profiles/factory/tsconfig.build.json"
+		},
+		{
 			"path": "packages/profiles/research/tsconfig.build.json"
 		},
 		{
@@ -45,6 +48,9 @@
 		},
 		{
 			"path": "packages/tools/code-intel/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/discourse/tsconfig.build.json"
 		},
 		{
 			"path": "packages/tools/enclosure/tsconfig.build.json"
@@ -77,6 +83,9 @@
 			"path": "packages/tools/nodesh/tsconfig.build.json"
 		},
 		{
+			"path": "packages/tools/plan/tsconfig.build.json"
+		},
+		{
 			"path": "packages/tools/scribe/tsconfig.build.json"
 		},
 		{
@@ -96,6 +105,9 @@
 		},
 		{
 			"path": "packages/ui/web/tsconfig.build.json"
+		},
+		{
+			"path": "packages/ui/web/example/tsconfig.build.json"
 		}
 	]
 }

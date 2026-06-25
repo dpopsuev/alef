@@ -23,7 +23,7 @@ function findPackages(base, depth = 0) {
 			if (existsSync(pkgPath)) {
 				try {
 					const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-					if (pkg.name && !pkg.private) {
+					if (pkg.name) {
 						const relDir = relative(ROOT, full);
 						pkgMap.set(pkg.name, { dir: full, relDir, pkg });
 						pkgDirs.push({ dir: full, relDir, pkg });

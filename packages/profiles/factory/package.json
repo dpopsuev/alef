@@ -5,6 +5,7 @@
   "description": "Factory architect agent — builds multi-agent workflows via subscription graphs",
   "type": "module",
   "main": "./src/index.ts",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",

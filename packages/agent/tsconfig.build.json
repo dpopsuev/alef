@@ -23,7 +23,13 @@
 			"path": "../tools/agent/tsconfig.build.json"
 		},
 		{
+			"path": "../profiles/factory/tsconfig.build.json"
+		},
+		{
 			"path": "../tools/code-intel/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/discourse/tsconfig.build.json"
 		},
 		{
 			"path": "../tools/factory/tsconfig.build.json"

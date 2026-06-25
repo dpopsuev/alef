@@ -111,6 +111,9 @@ importers:
       '@dpopsuev/alef-coding-agent':
         specifier: workspace:*
         version: link:../profiles/coding
+      '@dpopsuev/alef-factory-agent':
+        specifier: workspace:*
+        version: link:../profiles/factory
       '@dpopsuev/alef-gateway':
         specifier: workspace:*
         version: link:../tools/gateway

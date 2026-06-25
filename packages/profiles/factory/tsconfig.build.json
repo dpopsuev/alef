@@ -1,0 +1,44 @@
+{
+	"extends": "./../../../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"noEmit": false,
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true
+	},
+	"include": [
+		"src/**/*.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"**/*.test.ts",
+		"test/**"
+	],
+	"references": [
+		{
+			"path": "../../tools/agent/tsconfig.build.json"
+		},
+		{
+			"path": "../../tools/skills/tsconfig.build.json"
+		},
+		{
+			"path": "../../tools/workflow/tsconfig.build.json"
+		},
+		{
+			"path": "../../core/blueprint/tsconfig.build.json"
+		},
+		{
+			"path": "../../core/kernel/tsconfig.build.json"
+		},
+		{
+			"path": "../../core/runtime/tsconfig.build.json"
+		},
+		{
+			"path": "../../core/session/tsconfig.build.json"
+		}
+	]
+}

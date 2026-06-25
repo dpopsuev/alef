@@ -18,6 +18,7 @@
 	},
 	"dependencies": {
 		"@dpopsuev/alef-adapter-agent": "workspace:*",
+		"@dpopsuev/alef-factory-agent": "workspace:*",
 		"@dpopsuev/alef-adapter-code-intel": "workspace:*",
 		"@dpopsuev/alef-adapter-discourse": "workspace:*",
 		"@dpopsuev/alef-adapter-factory": "workspace:*",

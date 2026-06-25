@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "@dpopsuev/alef-session": "workspace:*",
-    "@libsql/client": "^0.17.4"
+    "@libsql/client": "^0.17.4",
+    "@napi-rs/keyring": "1.3.0"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

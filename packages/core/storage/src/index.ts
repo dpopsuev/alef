@@ -1,4 +1,5 @@
 export { SqliteAuthStore } from "./auth.js";
+export { KeyringAuthStore } from "./keyring-auth-store.js";
 export { type DaemonEntry, SqliteDaemonRegistry } from "./daemon.js";
 export {
 	type Client,

@@ -12,11 +12,16 @@ import type { Component } from "../component.js";
  * Update contentLines by calling setContentLines() whenever content changes.
  */
 export class GrowSpacer implements Component {
-	private fixedLines: number;
+	private siblingLines: number;
 	private _contentLines = 0;
+	private _enabled = true;
 
-	constructor(fixedLines: number) {
-		this.fixedLines = fixedLines;
+	constructor(siblingLines: number) {
+		this.siblingLines = siblingLines;
+	}
+
+	setSiblingLines(n: number): void {
+		this.siblingLines = n;
 	}
 
 	setContentLines(n: number): void {
@@ -27,11 +32,18 @@ export class GrowSpacer implements Component {
 		this._contentLines = Math.max(0, this._contentLines + delta);
 	}
 
+	setEnabled(enabled: boolean): void {
+		this._enabled = enabled;
+	}
+
 	invalidate(): void {}
 
 	render(_width: number): string[] {
+		if (!this._enabled) return [];
 		const rows = process.stdout.rows ?? 24;
-		const blank = Math.max(0, rows - this.fixedLines - this._contentLines);
+		const used = this.siblingLines + this._contentLines;
+		if (used >= rows) return [];
+		const blank = Math.max(0, rows - used);
 		return Array(blank).fill("") as string[];
 	}
 }

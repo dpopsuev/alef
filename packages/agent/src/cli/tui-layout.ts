@@ -69,7 +69,8 @@ export async function buildLayout(
 		atProvider: opts.actorRoutes ? new AtAddressProvider(opts.actorRoutes) : undefined,
 	});
 
-	const spacer = new GrowSpacer(4);
+	const SIBLING_LINE_ESTIMATE = 15;
+	const spacer = new GrowSpacer(SIBLING_LINE_ESTIMATE);
 	tui.addChild(spacer);
 	tui.addChild(dashboard);
 

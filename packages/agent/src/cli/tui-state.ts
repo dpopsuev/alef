@@ -136,6 +136,9 @@ export interface TuiPromptConsole {
 	addChildCall(parentCallId: string, callId: string, name: string, keyArg: string, depth: number): void;
 	removeChildCall(parentCallId: string, callId: string): void;
 	showToast(message: string, durationMs?: number): void;
+	buildFlowLayout(): unknown | null;
+	showCancellableLoader(message: string, onAbort: () => void): unknown;
+	removeCancellableLoader(loader: unknown): void;
 }
 
 export interface TuiUi {

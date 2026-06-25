@@ -2,9 +2,12 @@ import type { Component } from "@dpopsuev/alef-tui";
 import {
 	AgentCard,
 	type AgentCardTheme,
+	CancellableLoader,
 	Container,
 	Editor,
 	type EditorTheme,
+	type FlowElement,
+	FlowLayout,
 	numericInterpolator,
 	type SelectListTheme,
 	SeparatorLine,
@@ -419,6 +422,51 @@ export class PromptConsole {
 			},
 		});
 		this.widgetSlotBelow.addChild(toast);
+		this.tui.requestRender();
+	}
+
+	buildFlowLayout(): FlowLayout | null {
+		if (this.inFlightCalls.size < 2) return null;
+		const elements: FlowElement[] = [];
+		let idx = 0;
+		for (const [callId, entry] of this.inFlightCalls) {
+			if (idx > 0) elements.push({ type: "edge" });
+			const status = this.focusedId === callId ? "active" : "pending";
+			elements.push({
+				type: "node",
+				node: {
+					id: callId,
+					title: entry.card.focused ? `▸ ${callId.slice(0, 8)}` : callId.slice(0, 8),
+					status,
+					content: entry.card,
+				},
+			});
+			idx++;
+		}
+		return new FlowLayout({ elements });
+	}
+
+	showCancellableLoader(message: string, onAbort: () => void): CancellableLoader {
+		const loader = new CancellableLoader(
+			this.tui,
+			(s) => color(s, this.t.accentFg),
+			(s) => color(s, this.t.mutedFg),
+			message,
+		);
+		loader.onAbort = () => {
+			this.widgetSlotBelow.removeChild(loader);
+			onAbort();
+			this.tui.requestRender();
+		};
+		loader.start();
+		this.widgetSlotBelow.addChild(loader);
+		this.tui.requestRender();
+		return loader;
+	}
+
+	removeCancellableLoader(loader: CancellableLoader): void {
+		loader.dispose();
+		this.widgetSlotBelow.removeChild(loader);
 		this.tui.requestRender();
 	}
 

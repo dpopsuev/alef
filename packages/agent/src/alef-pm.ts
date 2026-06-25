@@ -174,12 +174,33 @@ export async function runNpm(...args: string[]): Promise<void> {
 	if (stderr) process.stderr.write(stderr);
 }
 
-/** Install an adapter package. */
-export async function install(adapter: string, version?: string): Promise<number> {
+export interface AlefManifest {
+	type: "tool" | "provider" | "blueprint" | "core" | "ui" | "cli";
+	entry: string;
+}
+
+export function readManifest(packageName: string): AlefManifest | undefined {
+	const pkgJsonPath = join(PM_ROOT, "node_modules", packageName, "package.json");
+	if (!existsSync(pkgJsonPath)) return undefined;
+	try {
+		const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as { alef?: AlefManifest };
+		return pkg.alef;
+	} catch {
+		return undefined;
+	}
+}
+
+/** Install a package. Returns the generation ID and the manifest (if present). */
+export async function install(
+	adapter: string,
+	version?: string,
+): Promise<{ generation: number; manifest?: AlefManifest }> {
 	init();
 	const spec = version ? `${adapter}@${version}` : adapter;
 	await runNpm("install", spec);
-	return snapshotGeneration();
+	const manifest = readManifest(adapter);
+	const generation = snapshotGeneration();
+	return { generation, manifest };
 }
 
 /** Remove an adapter package. */
@@ -293,7 +314,7 @@ export interface SearchResult {
  * Optional query further filters by name/description.
  */
 export async function search(query: string): Promise<SearchResult[]> {
-	const terms = query.trim() ? `keywords:alef-adapter ${query}` : "keywords:alef-adapter";
+	const terms = query.trim() ? `keywords:alef-tool ${query}` : "keywords:alef-tool";
 	const cmd = `npm search ${terms} --json`;
 	process.stderr.write(`[alef-pm] ${cmd}\n`);
 	const { stdout } = await exec(cmd);
@@ -378,9 +399,13 @@ export function sbom(): object {
  * Returns undefined if the adapter is not installed in the PM_ROOT.
  */
 export function resolveAdapterPath(name: string): string | undefined {
+	const manifest = readManifest(name);
+	if (manifest?.entry) {
+		const resolved = join(PM_ROOT, "node_modules", name, manifest.entry);
+		if (existsSync(resolved)) return resolved;
+	}
 	const candidates = [
 		join(PM_ROOT, "node_modules", name, "src", "adapter.ts"),
-		join(PM_ROOT, "node_modules", `@dpopsuev`, name, "src", "adapter.ts"),
 		join(PM_ROOT, "node_modules", name, "src", "index.ts"),
 	];
 	for (const p of candidates) {

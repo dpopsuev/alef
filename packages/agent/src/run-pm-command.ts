@@ -48,8 +48,9 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 
 	if (args.pmInstall) {
 		const [name, version] = args.pmInstall.split("@");
-		const gen = await pm.install(name, version);
-		console.log(`Installed ${args.pmInstall} (generation ${gen})`);
+		const { generation, manifest } = await pm.install(name, version);
+		const typeLabel = manifest ? ` [${manifest.type}]` : "";
+		console.log(`Installed ${args.pmInstall}${typeLabel} (generation ${generation})`);
 	} else if (args.pmRemove) {
 		const gen = await pm.remove(args.pmRemove);
 		console.log(`Removed ${args.pmRemove} (generation ${gen})`);

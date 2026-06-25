@@ -1,5 +1,6 @@
 import type { CompiledAgentAdapterDefinition, SubagentFactory } from "@dpopsuev/alef-agent-blueprint";
 import {
+	blueprintRegistry,
 	DEFAULT_COMPILED_DEFINITION,
 	materializeBlueprint,
 	materializeDefaultAdapters,
@@ -99,6 +100,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		replyEvent: "llm.response",
 		writableRoots: opts.writableRoots,
 		parentAdapterNames,
+		allowedBlueprints: blueprintRegistry.list(),
 		materializeAdapters: async (names: string[]) => {
 			const allowed = names.filter((n: string) => parentAdapterNames.has(n));
 			const { adapters: materializedAdapters } = await materializeBlueprint(

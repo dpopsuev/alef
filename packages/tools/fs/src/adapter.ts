@@ -163,11 +163,8 @@ export interface FsAdapterOptions {
 	runtime?: FsRuntime;
 	/** Allowlist of fs action names to mount (e.g. ['fs.read', 'fs.grep']). Default: all. */
 	actions?: readonly string[];
-	/**
-	 * Directories the adapter is allowed to access (OCAP grant).
-	 * Injected by the materializer from config.security.writable_roots.
-	 * Undefined = unrestricted (no guard). Empty or populated = enforce.
-	 */
+	/** Directories the adapter is allowed to access (OCAP grant). Undefined = [cwd]. */
+	writableRoots?: readonly string[];
 	/** Pino-compatible logger. Passed to defineAdapter for Orange/Yellow ROGYB output. */
 	logger?: AdapterLogger;
 }
@@ -191,8 +188,18 @@ function getCache(runtime: FsRuntime | undefined, scope: FsCacheScope) {
 	return runtime?.getCache(scope);
 }
 
-function resolveFilePath(cwd: string, filePath: string): string {
+function resolveFilePath(cwd: string, filePath: string, allowedRoots?: readonly string[]): string {
 	const abs = nodeResolve(cwd, filePath);
+	if (allowedRoots) {
+		const normalized = abs.endsWith("/") ? abs : `${abs}/`;
+		const allowed = allowedRoots.some((root) => {
+			const normalizedRoot = root.endsWith("/") ? root : `${root}/`;
+			return normalized.startsWith(normalizedRoot) || abs === root;
+		});
+		if (!allowed) {
+			throw new Error(`Path '${filePath}' resolves outside allowed roots. Access denied.`);
+		}
+	}
 	return abs;
 }
 
@@ -223,7 +230,7 @@ async function handleRead(
 	const { path: filePath, offset, limit, format } = ctx.payload;
 	if (!filePath) throw new Error("fs.read: path is required");
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots ?? [opts.cwd]);
 
 	// Read as buffer first to detect binary/image files by magic bytes.
 	const rawBuf = await fsReadFile(absolutePath);
@@ -275,7 +282,7 @@ async function handleWrite(
 ): Promise<Record<string, unknown>> {
 	const { path: filePath, content } = ctx.payload;
 	if (!filePath) throw new Error("fs.write: path is required");
-	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots ?? [opts.cwd]);
 	let prev: string | undefined;
 	try {
 		prev = await fsReadFile(absolutePath, "utf-8");
@@ -374,7 +381,7 @@ async function handleEdit(
 		editList = [{ oldText, newText }];
 	}
 
-	const absolutePath = resolveFilePath(opts.cwd, filePath);
+	const absolutePath = resolveFilePath(opts.cwd, filePath, opts.writableRoots ?? [opts.cwd]);
 
 	// Existence check first — ENOENT surfaces before the tracker guard.
 	let fileStat: Stats;
@@ -524,7 +531,7 @@ async function handlePatch(
 	const ops = parsePatch(patch);
 	if (ops.length === 0) throw new Error("fs.patch: no operations found in patch block");
 
-	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p);
+	const resolveAbs = (p: string) => resolveFilePath(opts.cwd, p, opts.writableRoots ?? [opts.cwd]);
 	const errors = await validateOps(ops, resolveAbs);
 	if (errors.length > 0) throw new Error(`fs.patch: validation failed:\n${errors.map((e) => `  ${e}`).join("\n")}`);
 
@@ -548,6 +555,8 @@ const WRITE_INVALIDATES = ["fs.read", "fs.grep"];
 export function createFsAdapter(options: FsAdapterOptions): Adapter {
 	const withQueue = makeWriteQueue();
 	const tracker = new FileTracker();
+	const allowedRoots = options.writableRoots ?? [options.cwd];
+	const resolve = (filePath: string) => resolveFilePath(options.cwd, filePath, allowedRoots);
 
 	return defineAdapter(
 		"fs",
@@ -615,7 +624,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 				}),
 				"fs.undo": typedAction(FS_UNDO_TOOL, async (ctx) => {
 					const { path: filePath } = ctx.payload;
-					const absolutePath = resolveFilePath(options.cwd, filePath);
+					const absolutePath = resolve(filePath);
 					const snapshot = tracker.getSnapshot(absolutePath);
 					if (snapshot === undefined)
 						throw new Error(`fs.undo: no snapshot for '${filePath}'. File was not modified this session.`);

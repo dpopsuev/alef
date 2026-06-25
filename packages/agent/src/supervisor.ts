@@ -31,7 +31,9 @@ import { promisify } from "node:util";
 
 const exec = promisify(execCb);
 
-const DEFAULT_GREEN_SCRIPT = join(dirname(new URL(import.meta.url).pathname), "cli/main.ts");
+const selfPath = new URL(import.meta.url).pathname;
+const selfExt = selfPath.endsWith(".ts") ? ".ts" : ".js";
+const DEFAULT_GREEN_SCRIPT = join(dirname(selfPath), `cli/main${selfExt}`);
 const GREEN_SCRIPT = process.env.ALEF_SUPERVISOR_GREEN_SCRIPT || DEFAULT_GREEN_SCRIPT;
 const BUILD_COMMAND = process.env.ALEF_SUPERVISOR_BUILD_COMMAND ?? "";
 const HANDOFF_PATH = process.env.ALEF_SUPERVISOR_HANDOFF_PATH ?? "";

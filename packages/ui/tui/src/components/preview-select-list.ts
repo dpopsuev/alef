@@ -1,4 +1,5 @@
 import type { Component } from "../component.js";
+import { matchesKey } from "../keys.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 import { ViModal, type ViMode } from "../vi-modal.js";
 import type { SelectItem, SelectListLayoutOptions, SelectListTheme } from "./select-list.js";
@@ -89,42 +90,37 @@ export class PreviewSelectList implements Component {
 		}
 
 		if (this.previewFocused) {
-			if (data === "j" || data === "\x1b[B") {
+			if (matchesKey(data, "down") || matchesKey(data, "j")) {
 				this.previewScrollOffset = Math.min(
 					this.previewScrollOffset + 1,
 					Math.max(0, this.currentPreview.length - 1),
 				);
 				return true;
 			}
-			if (data === "k" || data === "\x1b[A") {
+			if (matchesKey(data, "up") || matchesKey(data, "k")) {
 				this.previewScrollOffset = Math.max(0, this.previewScrollOffset - 1);
 				return true;
 			}
-			if (data === "g") {
+			if (matchesKey(data, "g")) {
 				this.previewScrollOffset = 0;
 				return true;
 			}
-			if (data === "G") {
+			if (matchesKey(data, "shift+g")) {
 				this.previewScrollOffset = Math.max(0, this.currentPreview.length - 6);
 				return true;
 			}
 			return true;
 		}
 
-		// List navigation in normal mode
-		if (data === "j" || data === "\x1b[B") {
-			this.list.handleInput("\x1b[B");
-			return true;
-		}
-		if (data === "k" || data === "\x1b[A") {
-			this.list.handleInput("\x1b[A");
-			return true;
-		}
-		if (data === "\r" || data === "\n") {
+		if (matchesKey(data, "down") || matchesKey(data, "j")) {
 			this.list.handleInput(data);
 			return true;
 		}
-		if (data === "\x1b[A" || data === "\x1b[B") {
+		if (matchesKey(data, "up") || matchesKey(data, "k")) {
+			this.list.handleInput(data);
+			return true;
+		}
+		if (matchesKey(data, "enter")) {
 			this.list.handleInput(data);
 			return true;
 		}

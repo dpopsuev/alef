@@ -17,9 +17,9 @@ export function handleRawInput(
 	historyPickerToggle: () => boolean,
 ): boolean {
 	// Ctrl+R: Toggle history picker
-	if (data === "\x12") {
+	if (matchesKey(data, "ctrl+r")) {
 		const picker = tuiState.overlays.find((o) => o.id === "history-picker");
-		if (picker) picker.handleInput?.("\x1b");
+		if (picker) picker.handleInput?.(data);
 		else historyPickerToggle();
 		return true;
 	}

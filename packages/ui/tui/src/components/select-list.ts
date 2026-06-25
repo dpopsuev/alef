@@ -1,6 +1,7 @@
 import type { Component } from "../component.js";
 import { fuzzyFilter } from "../fuzzy.js";
 import { type Keybindings, getKeybindings } from "../keybindings.js";
+import { matchesKey } from "../keys.js";
 import { truncateToWidth, visibleWidth } from "../utils.js";
 
 const DEFAULT_PRIMARY_COLUMN_WIDTH = 32;
@@ -149,7 +150,7 @@ export class SelectList implements Component {
 		}
 
 		if (this.searchable) {
-			if (keyData === "\x7F" || keyData === "\b") {
+			if (matchesKey(keyData, "backspace")) {
 				this.searchBuffer = this.searchBuffer.slice(0, -1);
 				this.setFilter(this.searchBuffer);
 			} else if (keyData.length === 1 && keyData >= " ") {

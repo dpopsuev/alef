@@ -13,7 +13,7 @@
  */
 
 import type { Editor } from "@dpopsuev/alef-tui";
-import { APP_KEYBINDINGS, KeyMap } from "@dpopsuev/alef-tui";
+import { APP_KEYBINDINGS, KeyMap, matchesKey } from "@dpopsuev/alef-tui";
 
 export type ModalMode = "insert" | "normal";
 
@@ -181,23 +181,19 @@ export class ModalInputHandler {
 	}
 
 	private handleCmdModeKey(data: string): { consume: boolean } {
-		// Esc — cancel command line, stay in Normal.
-		if (data === "\x1b") {
+		if (matchesKey(data, "escape")) {
 			this.exitCmdMode();
 			return { consume: true };
 		}
-		// Enter — execute.
-		if (data === "\r" || data === "\n") {
+		if (matchesKey(data, "enter")) {
 			this.dispatchColonCommand();
 			return { consume: true };
 		}
-		// Tab — cycle completions.
-		if (data === "\t") {
+		if (matchesKey(data, "tab")) {
 			this.tabComplete();
 			return { consume: true };
 		}
-		// Backspace — delete last char.
-		if (data === "\x7f" || data === "\x08") {
+		if (matchesKey(data, "backspace")) {
 			if (this.cmdBuffer.length > 0) {
 				this.cmdBuffer = this.cmdBuffer.slice(0, -1);
 				this.cmdTabIndex = -1;
@@ -231,16 +227,16 @@ export class ModalInputHandler {
 
 		// ── Search mode — '/' in Normal activates, Enter/Esc confirms/cancels ─
 		if (this._searchMode) {
-			if (data === "\r" || data === "\n") {
+			if (matchesKey(data, "enter")) {
 				this._lastSearch = this._searchBuffer;
 				this._searchBuffer = "";
 				this._searchMode = false;
 				this.onHint("");
-			} else if (data === "\x1b") {
+			} else if (matchesKey(data, "escape")) {
 				this._searchBuffer = "";
 				this._searchMode = false;
 				this.onHint("");
-			} else if (data === "\x7f" || data === "\b") {
+			} else if (matchesKey(data, "backspace")) {
 				this._searchBuffer = this._searchBuffer.slice(0, -1);
 				this.onHint(`/${this._searchBuffer}`);
 			} else if (data.length === 1 && data >= " ") {
@@ -374,19 +370,12 @@ export class ModalInputHandler {
 			return { consume: true };
 		}
 
-		// Undo: 'u' — ctrl+- to editor (vim convention)
-		if (data === "u") {
+		if (matchesKey(data, "u") || matchesKey(data, "ctrl+-")) {
 			this.editor.handleInput("\x1f");
 			this.armHint();
 			return { consume: true };
 		}
-		if (data === "\x1f") {
-			this.editor.handleInput("\x1f");
-			this.armHint();
-			return { consume: true };
-		}
-		// Redo: ctrl+r
-		if (data === "\x12") {
+		if (matchesKey(data, "ctrl+r")) {
 			this.editor.handleInput(SEQ.redo);
 			this.armHint();
 			return { consume: true };

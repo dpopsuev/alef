@@ -1,3 +1,5 @@
+import { matchesKey } from "./keys.js";
+
 export type ViMode = "normal" | "insert";
 
 export interface ViModalOptions {
@@ -41,7 +43,7 @@ export class ViModal {
 
 	handleKey(key: string): "mode-change" | "passthrough" {
 		if (this._mode === "insert") {
-			if (key === "\x1b") {
+			if (matchesKey(key, "escape")) {
 				this.enterNormal();
 				return "mode-change";
 			}

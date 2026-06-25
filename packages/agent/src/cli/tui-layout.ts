@@ -1,6 +1,6 @@
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { TUI } from "@dpopsuev/alef-tui";
-import { Text } from "@dpopsuev/alef-tui";
+import { GrowSpacer, Text } from "@dpopsuev/alef-tui";
 import { DashboardFooter, type FooterPanel, OutputPanel, type TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../interactive.js";
 import { AtAddressProvider } from "./history-autocomplete.js";
@@ -69,6 +69,8 @@ export async function buildLayout(
 		atProvider: opts.actorRoutes ? new AtAddressProvider(opts.actorRoutes) : undefined,
 	});
 
+	const spacer = new GrowSpacer(4);
+	tui.addChild(spacer);
 	tui.addChild(dashboard);
 
 	return { output, input, footer: dashboard };

@@ -118,6 +118,8 @@ export {
 } from "./keys.js";
 // Layout engine
 export * from "./layout/index.js";
+// Reactive state
+export { Derived, Store } from "./reactive.js";
 // Input buffering for batch splitting
 export { StdinBuffer, type StdinBufferEventMap, type StdinBufferOptions } from "./stdin-buffer.js";
 // Terminal interface and implementations

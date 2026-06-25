@@ -1,4 +1,10 @@
 export { AgentController, type AgentControllerOptions, type ReplySink, type Transcript } from "./agent-controller.js";
+export {
+	buildDelegationStack,
+	type DelegationAdapters,
+	type DelegationStack,
+	type DelegationStackOptions,
+} from "./delegation.js";
 export type { SubagentFactory, SubagentFactoryOptions } from "./in-process.js";
 export { InProcessStrategy } from "./in-process.js";
 export { RemoteStrategy, type RemoteStrategyOptions } from "./remote-strategy.js";

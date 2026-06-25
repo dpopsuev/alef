@@ -1,4 +1,3 @@
-import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-adapter-agent";
 import type { CompiledAgentAdapterDefinition, SubagentFactory } from "@dpopsuev/alef-agent-blueprint";
 import {
 	DEFAULT_COMPILED_DEFINITION,
@@ -8,7 +7,6 @@ import {
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { buildAdapterDirectives, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-runtime";
-import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
 
 const EXPLORE_SYSTEM_PROMPT = `Read-only exploration agent. Read files, search code, fetch URLs, report findings.
 NEVER write files. NEVER modify state. NEVER execute commands that change anything.
@@ -29,12 +27,21 @@ const DEFAULT_EXPLORE_ADAPTERS: CompiledAgentAdapterDefinition[] = [
 	{ name: "web", actions: [], toolNames: [] },
 ];
 
+export interface DelegationAdapters {
+	createAgentAdapter: (opts: Record<string, unknown>) => Adapter;
+	strategyRegistry: { register(name: string, strategy: unknown): void };
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	createCompactionStage: Function;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	createSessionContextStage: Function;
+}
+
 export interface DelegationStackOptions {
 	cwd: string;
 	factory: SubagentFactory;
 	contextWindow: number;
 	domainAdapters?: readonly Adapter[];
-	sessionStore?: Parameters<typeof createSessionContextStage>[0]["sessionStore"] extends () => infer S ? S : never;
+	sessionStore?: unknown;
 	writableRoots?: readonly string[];
 	exploreAdapterDefs?: CompiledAgentAdapterDefinition[];
 	explorePrompt?: string;
@@ -42,6 +49,7 @@ export interface DelegationStackOptions {
 	extraAdapters?: Adapter[];
 	excludeNames?: string[];
 	summarize?: (messages: readonly unknown[]) => Promise<string>;
+	adapters: DelegationAdapters;
 }
 
 export interface DelegationStack {
@@ -61,6 +69,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		generalPrompt = GENERAL_SYSTEM_PROMPT,
 		extraAdapters = [],
 		excludeNames = [],
+		adapters: injected,
 	} = opts;
 	const materialiOpts = { cwd };
 
@@ -74,27 +83,28 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	if (opts.sessionStore) {
 		const store = opts.sessionStore;
-		pipeline.addStage("memory", createSessionContextStage({ sessionStore: () => store, contextWindow }));
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call
+		pipeline.addStage("memory", injected.createSessionContextStage({ sessionStore: () => store, contextWindow }));
 	}
 
 	const exploreStrategy = new InProcessStrategy(exploreAdapters, factory, explorePrompt);
 	const generalStrategy = new InProcessStrategy(generalAdapters, factory, generalPrompt);
-	strategyRegistry.register("explore", exploreStrategy);
-	strategyRegistry.register("general", generalStrategy);
+	injected.strategyRegistry.register("explore", exploreStrategy);
+	injected.strategyRegistry.register("general", generalStrategy);
 
-	const parentAdapterNames = new Set(resolvedDomainAdapters.map((a) => a.name));
-	const agentAdapter = createAgentAdapter({
+	const parentAdapterNames = new Set(resolvedDomainAdapters.map((a: Adapter) => a.name));
+	const agentAdapter = injected.createAgentAdapter({
 		cwd,
 		strategies: { explore: exploreStrategy, general: generalStrategy },
 		replyEvent: "llm.response",
 		writableRoots: opts.writableRoots,
 		parentAdapterNames,
-		materializeAdapters: async (names) => {
-			const allowed = names.filter((n) => parentAdapterNames.has(n));
+		materializeAdapters: async (names: string[]) => {
+			const allowed = names.filter((n: string) => parentAdapterNames.has(n));
 			const { adapters: materializedAdapters } = await materializeBlueprint(
 				{
 					...DEFAULT_COMPILED_DEFINITION,
-					adapters: allowed.map((n) => ({ name: n, actions: [] as string[], toolNames: [] as string[] })),
+					adapters: allowed.map((n: string) => ({ name: n, actions: [] as string[], toolNames: [] as string[] })),
 				},
 				materialiOpts,
 			);
@@ -107,10 +117,11 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 	let lastTotalTokens = 0;
 	pipeline.addStage(
 		"compactor",
-		createCompactionStage({
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call
+		injected.createCompactionStage({
 			contextWindow,
 			summarize: opts.summarize,
-			publishSignal: (type, payload) => signalPublish?.(type, payload),
+			publishSignal: (type: string, payload: Record<string, unknown>) => signalPublish?.(type, payload),
 			getLastTokenCount: () => lastTotalTokens,
 		}),
 	);
@@ -125,11 +136,11 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 	};
 
 	const baseExclude = new Set(["agent", "factory", "skills", "compactor", ...excludeNames]);
-	const filteredDomain = resolvedDomainAdapters.filter((o) => !baseExclude.has(o.name));
-	const allAdapters = [...filteredDomain, ...extraAdapters, agentAdapter as unknown as Adapter];
+	const filteredDomain = resolvedDomainAdapters.filter((o: Adapter) => !baseExclude.has(o.name));
+	const allAdapters = [...filteredDomain, ...extraAdapters, agentAdapter];
 	const toolShell = createToolShellAdapter({
-		tools: allAdapters.flatMap((o) => o.tools),
-		getTools: () => allAdapters.flatMap((o) => o.tools),
+		tools: allAdapters.flatMap((o: Adapter) => o.tools),
+		getTools: () => allAdapters.flatMap((o: Adapter) => o.tools),
 		adapterDirectives: buildAdapterDirectives(allAdapters),
 	});
 

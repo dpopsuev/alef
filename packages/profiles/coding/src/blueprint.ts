@@ -1,9 +1,11 @@
+import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-adapter-agent";
 import { createFactoryAdapter } from "@dpopsuev/alef-adapter-factory";
 import { createSkillsAdapter } from "@dpopsuev/alef-adapter-skills";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { completeSimple } from "@dpopsuev/alef-llm";
-import { buildDelegationStack } from "./delegation-stack.js";
+import { buildDelegationStack } from "@dpopsuev/alef-runtime";
+import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
@@ -68,6 +70,7 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		writableRoots: opts.writableRoots,
 		extraAdapters: [skillsAdapter, factoryAdapter as unknown as Adapter],
 		summarize: llmSummarize,
+		adapters: { createAgentAdapter, strategyRegistry, createCompactionStage, createSessionContextStage },
 	});
 
 	return { adapters, pipeline };

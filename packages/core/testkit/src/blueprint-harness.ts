@@ -57,7 +57,7 @@ export interface BlueprintFromFileOptions extends BlueprintHarnessOptions {
 	extraAdapters?: Adapter[];
 	/**
 	 * Blueprint materializer — converts a CompiledAgentDefinition into Adapter instances.
-	 * Pass materializeBlueprint from @dpopsuev/alef-runner or alef-coding-agent.
+	 * Pass materializeBlueprint from @dpopsuev/alef or alef-coding-agent.
 	 * Decouples testkit from the runner package.
 	 */
 	materialize: MaterializeFn;

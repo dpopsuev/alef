@@ -79,10 +79,10 @@
 			"@dpopsuev/alef-eval/*": [
 				"./packages/core/eval/src/*.ts"
 			],
-			"@dpopsuev/alef-runner": [
+			"@dpopsuev/alef": [
 				"./packages/agent/src/main.ts"
 			],
-			"@dpopsuev/alef-runner/*": [
+			"@dpopsuev/alef/*": [
 				"./packages/agent/src/*.ts"
 			],
 			"@dpopsuev/alef-adapter-enclosure": [

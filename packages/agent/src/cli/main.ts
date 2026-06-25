@@ -30,7 +30,7 @@ process.title = "alef";
 import updateNotifier from "update-notifier";
 import { BUILD_INFO } from "../build-info.js";
 
-updateNotifier({ pkg: { name: "@dpopsuev/alef-runner", version: BUILD_INFO.version } }).notify();
+updateNotifier({ pkg: { name: "@dpopsuev/alef", version: BUILD_INFO.version } }).notify();
 
 ensureDirectories();
 const cfg = loadConfig();

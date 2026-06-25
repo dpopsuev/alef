@@ -1,10 +1,10 @@
 {
-	"name": "@dpopsuev/alef-runner",
+	"name": "@dpopsuev/alef",
 	"version": "0.1.0",
 	"description": "Minimal Alef agent runner \u2014 print mode and interactive stdin loop",
 	"type": "module",
 	"bin": {
-		"alef": "bin/alef-runner.js"
+		"alef": "bin/alef.js"
 	},
 	"files": [
 		"dist",

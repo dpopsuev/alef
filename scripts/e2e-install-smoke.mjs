@@ -35,7 +35,7 @@ let ok = true;
 
 try {
 	if (FROM_NPM) {
-		run("npm install -g @dpopsuev/alef-runner");
+		run("npm install -g @dpopsuev/alef");
 	} else {
 		const tarball = run("pnpm pack", { cwd: join(process.cwd(), "packages/agent") }).trim();
 		const tarPath = join(process.cwd(), "packages/agent", tarball);

@@ -6,9 +6,9 @@ export async function handleSelfUpdate(args: Args): Promise<void> {
 	const npmCmd = process.env.npm_execpath ? `${process.execPath} "${process.env.npm_execpath}"` : "npm";
 	console.log("Upgrading alef to the latest version...");
 	try {
-		execSync(`${npmCmd} install -g alef-runner@latest`, { stdio: "inherit" });
+		execSync(`${npmCmd} install -g @dpopsuev/alef@latest`, { stdio: "inherit" });
 	} catch {
-		console.error("npm install -g alef-runner@latest failed.");
+		console.error("npm install -g @dpopsuev/alef@latest failed.");
 		process.exit(1);
 	}
 	let globalBin: string;

@@ -248,7 +248,7 @@ async function doUpdate(scope: string): Promise<void> {
 			// the bare 'npm' shell command (not node + npm_execpath) for direct invocations.
 			const npmCmd = process.env.npm_execpath ? `${process.execPath} "${process.env.npm_execpath}"` : "npm";
 			try {
-				await exec(`${npmCmd} install -g alef-runner@latest`);
+				await exec(`${npmCmd} install -g @dpopsuev/alef@latest`);
 			} catch (err) {
 				process.stderr.write(
 					`[supervisor] npm install -g failed — staying on current version: ${err instanceof Error ? err.message : String(err)}\n`,

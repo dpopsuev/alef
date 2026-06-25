@@ -311,10 +311,10 @@ function checkImportDirection(file: string, content: string, pkgName: string): v
 		}
 
 				// Check imports from runner — package name or relative path
-		const runnerPkgMatch = line.match(/from\s+["']@dpopsuev\/alef-runner["']/);
+		const runnerPkgMatch = line.match(/from\s+["']@dpopsuev\/alef(?:-runner)?["']/);
 		if (runnerPkgMatch) {
 			report(file, i + 1, "IMPORT",
-				`${pkgName} imports from alef-runner — adapters must not depend on the composition root`);
+				`${pkgName} imports from @dpopsuev/alef — adapters must not depend on the composition root`);
 		}
 		const runnerRelMatch = line.match(/from\s+["']([^"']*\/runner\/[^"']*)["']/);
 		if (runnerRelMatch) {

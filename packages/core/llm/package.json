@@ -55,6 +55,18 @@
     "./faux": {
       "types": "./src/providers/faux.ts",
       "import": "./src/providers/faux.ts"
+    },
+    "./provider-port": {
+      "source": "./src/api-registry.ts",
+      "types": "./dist/api-registry.d.ts",
+      "import": "./src/api-registry.ts",
+      "default": "./src/api-registry.ts"
+    },
+    "./types": {
+      "source": "./src/types.ts",
+      "types": "./dist/types.d.ts",
+      "import": "./src/types.ts",
+      "default": "./src/types.ts"
     }
   },
   "bin": {

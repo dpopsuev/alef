@@ -17,7 +17,7 @@ describe("session preview", { tags: ["integration"] }, () => {
 		const store = await SqliteSessionStore.create(client, "/tmp/preview");
 		await store.setName("my analysis session");
 
-		const name = await factory.sessions.getSessionName!(store.id);
+		const name = await factory.sessionPreview().getSessionName!(store.id);
 		expect(name).toBe("my analysis session");
 	});
 
@@ -27,7 +27,7 @@ describe("session preview", { tags: ["integration"] }, () => {
 		const factory = new SqliteStorageFactory(client);
 
 		const store = await SqliteSessionStore.create(client, "/tmp/preview");
-		const name = await factory.sessions.getSessionName!(store.id);
+		const name = await factory.sessionPreview().getSessionName!(store.id);
 		expect(name).toBeUndefined();
 	});
 
@@ -43,7 +43,7 @@ describe("session preview", { tags: ["integration"] }, () => {
 		await store.append({ bus: "command", type: "fs.read", correlationId: "t2", payload: { path: "/tmp" }, timestamp: 3000 });
 		await store.append({ bus: "event", type: "llm.input", correlationId: "t3", payload: { text: "second question" }, timestamp: 4000 });
 
-		const preview = await factory.sessions.getSessionPreview!(store.id, 10);
+		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 10);
 
 		expect(preview.length).toBe(4);
 		expect(preview[0]).toContain("▸");
@@ -66,7 +66,7 @@ describe("session preview", { tags: ["integration"] }, () => {
 			await store.append({ bus: "event", type: "llm.input", correlationId: `t${i}`, payload: { text: `msg ${i}` }, timestamp: i * 1000 });
 		}
 
-		const preview = await factory.sessions.getSessionPreview!(store.id, 5);
+		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 5);
 		expect(preview.length).toBe(5);
 		expect(preview[4]).toContain("msg 19");
 	});
@@ -80,7 +80,7 @@ describe("session preview", { tags: ["integration"] }, () => {
 		await store.append({ bus: "event", type: "llm.input", correlationId: "t1", payload: { text: "old message" }, timestamp: 1000 });
 		await store.append({ bus: "event", type: "llm.input", correlationId: "t2", payload: { text: "new message" }, timestamp: 2000 });
 
-		const preview = await factory.sessions.getSessionPreview!(store.id, 5);
+		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 5);
 		expect(preview[0]).toContain("old message");
 		expect(preview[1]).toContain("new message");
 	});

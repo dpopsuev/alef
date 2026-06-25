@@ -42,7 +42,6 @@ const STUB_STORAGE: StorageFactory = {
 		}) as never,
 	authStore: () => ({}) as never,
 	sessions: {} as never,
-	close: () => {},
 };
 
 const EMPTY_LOADED = {

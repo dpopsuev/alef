@@ -1,10 +1,5 @@
 import type { SessionStore } from "@dpopsuev/alef-session";
-import type { SessionStoreFactory } from "@dpopsuev/alef-storage";
-
-export interface SessionPreviewProvider {
-	getSessionName?(id: string): Promise<string | undefined>;
-	getSessionPreview?(id: string, maxLines: number): Promise<string[]>;
-}
+import type { SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
 
 export type SessionPicker = (
 	sessions: Array<{ id: string; path: string; mtime: Date }>,

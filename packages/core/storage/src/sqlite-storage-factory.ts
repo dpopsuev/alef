@@ -3,7 +3,7 @@ import type { SessionStore } from "@dpopsuev/alef-session";
 import { SqliteAuthStore } from "./auth.js";
 import { SqliteDaemonRegistry } from "./daemon.js";
 import { SqliteDiscourseStore } from "./discourse.js";
-import type { AuthStore, DaemonRegistry, DiscourseStore, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
+import type { AuthStore, DaemonRegistry, DiscourseStore, SessionPreviewProvider, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
 import { SqliteSessionStore } from "./session-store.js";
 import { SqliteSummaryStore } from "./summary.js";
 
@@ -19,6 +19,11 @@ export class SqliteStorageFactory implements StorageFactory {
 			resumeLatest: (cwd) => SqliteSessionStore.resumeLatest(this.client, cwd),
 			list: (cwd) => SqliteSessionStore.list(this.client, cwd),
 			prune: (cwd) => SqliteSessionStore.prune(this.client, cwd),
+		};
+	}
+
+	sessionPreview(): SessionPreviewProvider {
+		return {
 			getSessionName: async (sessionId) => {
 				const r = await this.client.execute({ sql: "SELECT name FROM sessions WHERE id = ?", args: [sessionId] });
 				const name = r.rows[0]?.name;

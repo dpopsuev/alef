@@ -97,6 +97,8 @@ export class AgentRuntime {
 			await daemonRegistry.unregister(id).catch(() => {});
 		}
 		this.sessions.clear();
-		this.storage.close();
+		if ("close" in this.storage && typeof (this.storage as Record<string, unknown>).close === "function") {
+			(this.storage as { close(): void }).close();
+		}
 	}
 }

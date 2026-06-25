@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { cwdHash, type SessionStore, type StorageRecord, type Turn, TurnIndexer } from "@dpopsuev/alef-session";
 import type { Client } from "@libsql/client";
-import { queueEmbedding } from "./embedder.js";
+
+export type EmbeddingCallback = (client: Client, rowid: number, bus: string, type: string, payload: Record<string, unknown>) => void;
+let _embeddingCallback: EmbeddingCallback | undefined;
+export function setEmbeddingCallback(cb: EmbeddingCallback | undefined): void { _embeddingCallback = cb; }
 
 function deriveAdapter(type: string): string | null {
 	const dot = type.indexOf(".");
@@ -166,7 +169,7 @@ export class SqliteSessionStore implements SessionStore {
 			"write",
 		);
 
-		queueEmbedding(this._client, Number(results[0].lastInsertRowid), record.bus, record.type, record.payload);
+		_embeddingCallback?.(this._client, Number(results[0].lastInsertRowid), record.bus, record.type, record.payload);
 	}
 
 	events(): Promise<StorageRecord[]> {

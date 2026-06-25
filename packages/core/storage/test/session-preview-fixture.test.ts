@@ -31,7 +31,7 @@ describe("session preview — realistic fixture", { tags: ["integration"] }, () 
 			await store.append({ ...e, payload: { ...e.payload } });
 		}
 
-		const preview = await factory.sessions.getSessionPreview!(store.id, 10);
+		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 10);
 
 		expect(preview.length).toBeGreaterThan(0);
 
@@ -59,7 +59,7 @@ describe("session preview — realistic fixture", { tags: ["integration"] }, () 
 			await store.append({ bus: "notification", type: "llm.result", correlationId: `t${i}`, payload: { text: `answer ${i}` }, timestamp: i * 1000 + 500 });
 		}
 
-		const preview = await factory.sessions.getSessionPreview!(store.id, 6);
+		const preview = await factory.sessionPreview().getSessionPreview!(store.id, 6);
 
 		expect(preview.length).toBe(6);
 		expect(preview[preview.length - 1]).toContain("answer 49");

@@ -185,7 +185,12 @@ if (willUseTui) {
 }
 const log = createRunnerLogger(willUseTui, args.debug);
 const storage = await getStorage();
-const session = await loadSession(args, storage.sessions, willUseTui, pickSession, storage.sessions);
+
+import type { SessionPreviewProvider } from "@dpopsuev/alef-storage";
+
+const preview: SessionPreviewProvider | undefined =
+	"sessionPreview" in storage ? (storage as { sessionPreview(): SessionPreviewProvider }).sessionPreview() : undefined;
+const session = await loadSession(args, storage.sessions, willUseTui, pickSession, preview);
 
 // Route debug events into the session JSONL — unified transcript.
 const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel");
@@ -204,7 +209,10 @@ process.send?.({ type: "session", sessionId: session.id });
 
 // Initialize local embedding model for vector recall (lazy-loads on first embed).
 import("@dpopsuev/alef-storage")
-	.then(({ setEmbedder, LocalEmbedder }) => setEmbedder(new LocalEmbedder()))
+	.then(({ setEmbedder, LocalEmbedder, setEmbeddingCallback, queueEmbedding }) => {
+		setEmbedder(new LocalEmbedder());
+		setEmbeddingCallback(queueEmbedding);
+	})
 	.catch((err: unknown) => {
 		log.warn({ error: String(err) }, "embedder init failed, vector recall disabled");
 	});

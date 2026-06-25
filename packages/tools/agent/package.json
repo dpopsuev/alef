@@ -16,7 +16,9 @@
     "clean": "shx rm -rf dist"
   },
   "dependencies": {
+    "@dpopsuev/alef-agent-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-llm": "workspace:*",
     "@dpopsuev/alef-runtime": "workspace:*",
     "yaml": "^2.8.0",
     "zod": "^4.4.3"

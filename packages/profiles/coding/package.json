@@ -1,32 +1,34 @@
 {
-	"name": "@dpopsuev/alef-coding-agent",
-	"version": "1.0.0",
-	"description": "The default Alef coding agent blueprint. This package IS the SBOM — dependencies are the organ manifest.",
-	"type": "module",
-	"exports": {
-		"./blueprint": "./blueprint.yaml"
-	},
-	"scripts": {
-		"test": "vitest --run"
-	},
-	"dependencies": {
-		"@dpopsuev/alef-agent-blueprint": "workspace:*",
-		"@dpopsuev/alef-kernel": "workspace:*",
-		"@dpopsuev/alef-adapter-agent": "workspace:*",
-		"@dpopsuev/alef-adapter-factory": "workspace:*",
-		"@dpopsuev/alef-adapter-fs": "workspace:*",
-		"@dpopsuev/alef-adapter-code-intel": "workspace:*",
-		"@dpopsuev/alef-adapter-nodesh": "workspace:*",
-		"@dpopsuev/alef-adapter-shell": "workspace:*",
-		"@dpopsuev/alef-adapter-skills": "workspace:*",
-		"@dpopsuev/alef-adapter-web": "workspace:*",
-		"@dpopsuev/alef-runtime": "workspace:*"
-	},
-	"devDependencies": {
-		"@dpopsuev/alef-eval": "workspace:*",
-		"@dpopsuev/alef-reasoner": "workspace:*",
-		"@dpopsuev/alef-testkit": "workspace:*",
-		"@types/node": "^24.3.0",
-		"vitest": "^4.1.6"
-	}
+  "name": "@dpopsuev/alef-coding-agent",
+  "version": "1.0.0",
+  "description": "The default Alef coding agent blueprint. This package IS the SBOM — dependencies are the organ manifest.",
+  "type": "module",
+  "exports": {
+    "./blueprint": "./blueprint.yaml"
+  },
+  "scripts": {
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-adapter-agent": "workspace:*",
+    "@dpopsuev/alef-adapter-code-intel": "workspace:*",
+    "@dpopsuev/alef-adapter-factory": "workspace:*",
+    "@dpopsuev/alef-adapter-fs": "workspace:*",
+    "@dpopsuev/alef-adapter-nodesh": "workspace:*",
+    "@dpopsuev/alef-adapter-shell": "workspace:*",
+    "@dpopsuev/alef-adapter-skills": "workspace:*",
+    "@dpopsuev/alef-adapter-web": "workspace:*",
+    "@dpopsuev/alef-agent-blueprint": "workspace:*",
+    "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-llm": "workspace:*",
+    "@dpopsuev/alef-runtime": "workspace:*",
+    "@dpopsuev/alef-session": "workspace:*"
+  },
+  "devDependencies": {
+    "@dpopsuev/alef-eval": "workspace:*",
+    "@dpopsuev/alef-reasoner": "workspace:*",
+    "@dpopsuev/alef-testkit": "workspace:*",
+    "@types/node": "^24.3.0",
+    "vitest": "^4.1.6"
+  }
 }

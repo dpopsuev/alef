@@ -3,7 +3,7 @@ import { createSkillsAdapter } from "@dpopsuev/alef-adapter-skills";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-agent-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { completeSimple } from "@dpopsuev/alef-llm";
-import { buildDelegationStack } from "@dpopsuev/alef-runtime";
+import { buildDelegationStack } from "./delegation-stack.js";
 
 export type { BlueprintStack, BlueprintStackOptions };
 

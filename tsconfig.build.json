@@ -1,0 +1,101 @@
+{
+	"files": [],
+	"references": [
+		{
+			"path": "packages/agent/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/blueprint/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/cache/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/eval/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/kernel/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/llm/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/reasoner/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/runtime/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/session/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/storage/tsconfig.build.json"
+		},
+		{
+			"path": "packages/core/testkit/tsconfig.build.json"
+		},
+		{
+			"path": "packages/profiles/coding/tsconfig.build.json"
+		},
+		{
+			"path": "packages/profiles/research/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/agent/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/code-intel/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/enclosure/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/eval/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/factory/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/fs/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/gateway/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/git/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/locus/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/mcp-registry/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/meta/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/nodesh/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/scribe/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/shell/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/skills/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/web/tsconfig.build.json"
+		},
+		{
+			"path": "packages/tools/workflow/tsconfig.build.json"
+		},
+		{
+			"path": "packages/ui/tui/tsconfig.build.json"
+		},
+		{
+			"path": "packages/ui/web/tsconfig.build.json"
+		}
+	]
+}

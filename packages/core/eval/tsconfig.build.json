@@ -1,9 +1,44 @@
 {
-	"extends": "../../tsconfig.json",
+	"extends": "./../../../tsconfig.base.json",
 	"compilerOptions": {
-		"outDir": "dist",
-		"rootDir": "src"
+		"composite": true,
+		"noEmit": false,
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true
 	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["node_modules", "dist"]
+	"include": [
+		"src/**/*.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"**/*.test.ts",
+		"test/**"
+	],
+	"references": [
+		{
+			"path": "../../tools/fs/tsconfig.build.json"
+		},
+		{
+			"path": "../../tools/shell/tsconfig.build.json"
+		},
+		{
+			"path": "../kernel/tsconfig.build.json"
+		},
+		{
+			"path": "../llm/tsconfig.build.json"
+		},
+		{
+			"path": "../reasoner/tsconfig.build.json"
+		},
+		{
+			"path": "../runtime/tsconfig.build.json"
+		},
+		{
+			"path": "../testkit/tsconfig.build.json"
+		}
+	]
 }

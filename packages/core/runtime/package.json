@@ -11,11 +11,6 @@
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
-    },
-    "./events": {
-      "source": "./src/events.ts",
-      "types": "./dist/events.d.ts",
-      "import": "./src/events.ts"
     }
   },
   "files": [

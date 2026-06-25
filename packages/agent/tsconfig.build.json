@@ -1,13 +1,80 @@
 {
-	"extends": "../../tsconfig.base.json",
+	"extends": "./../../tsconfig.base.json",
 	"compilerOptions": {
+		"composite": true,
+		"noEmit": false,
 		"outDir": "./dist",
 		"rootDir": "./src",
-		"allowImportingTsExtensions": false,
 		"declaration": true,
 		"declarationMap": true,
 		"sourceMap": true
 	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["node_modules", "dist", "**/*.d.ts", "src/**/*.d.ts", "**/*.test.ts"]
+	"include": [
+		"src/**/*.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"**/*.test.ts",
+		"test/**"
+	],
+	"references": [
+		{
+			"path": "../tools/agent/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/code-intel/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/factory/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/fs/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/nodesh/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/shell/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/web/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/workflow/tsconfig.build.json"
+		},
+		{
+			"path": "../core/blueprint/tsconfig.build.json"
+		},
+		{
+			"path": "../profiles/coding/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/gateway/tsconfig.build.json"
+		},
+		{
+			"path": "../core/kernel/tsconfig.build.json"
+		},
+		{
+			"path": "../core/llm/tsconfig.build.json"
+		},
+		{
+			"path": "../tools/meta/tsconfig.build.json"
+		},
+		{
+			"path": "../core/reasoner/tsconfig.build.json"
+		},
+		{
+			"path": "../core/runtime/tsconfig.build.json"
+		},
+		{
+			"path": "../core/session/tsconfig.build.json"
+		},
+		{
+			"path": "../core/storage/tsconfig.build.json"
+		},
+		{
+			"path": "../ui/tui/tsconfig.build.json"
+		}
+	]
 }

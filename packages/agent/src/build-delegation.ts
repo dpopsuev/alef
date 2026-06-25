@@ -3,8 +3,8 @@ import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-agent-blueprint
 import { createRouterAdapter } from "@dpopsuev/alef-gateway";
 import type { Api, Model } from "@dpopsuev/alef-llm";
 import type { Agent } from "@dpopsuev/alef-runtime";
-import { buildDelegationStack } from "@dpopsuev/alef-runtime";
 import type { Args } from "./args.js";
+import { buildDelegationStack } from "./delegation-stack.js";
 import type { AgentEvent, Session } from "./session.js";
 import { buildSubagentFactory } from "./subagent-factory.js";
 

@@ -1,9 +1,29 @@
 {
-	"extends": "../../../tsconfig.base.json",
+	"extends": "./../../../tsconfig.base.json",
 	"compilerOptions": {
+		"composite": true,
+		"noEmit": false,
 		"outDir": "./dist",
-		"rootDir": "./src"
+		"rootDir": "./src",
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true
 	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["node_modules", "dist", "**/*.d.ts"]
+	"include": [
+		"src/**/*.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"**/*.test.ts",
+		"test/**"
+	],
+	"references": [
+		{
+			"path": "../../core/llm/tsconfig.build.json"
+		},
+		{
+			"path": "../../core/kernel/tsconfig.build.json"
+		}
+	]
 }

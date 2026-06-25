@@ -57,10 +57,11 @@
   },
   "dependencies": {
     "@dpopsuev/alef-agent-blueprint": "workspace:*",
-    "@dpopsuev/alef-llm": "workspace:*",
-    "@dpopsuev/alef-runtime": "workspace:*",
-    "@dpopsuev/alef-reasoner": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-llm": "workspace:*",
+    "@dpopsuev/alef-reasoner": "workspace:*",
+    "@dpopsuev/alef-runtime": "workspace:*",
+    "@dpopsuev/alef-session": "workspace:*",
     "vite-tsconfig-paths": "*"
   },
   "devDependencies": {

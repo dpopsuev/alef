@@ -1,9 +1,7 @@
 import { type Client, createClient } from "@libsql/client";
+import { applySchema, SqliteSessionStore, SqliteSummaryStore } from "@dpopsuev/alef-storage";
 import { afterEach, describe, expect, it } from "vitest";
 import { RecallStore } from "../src/recall.js";
-import { applySchema } from "../src/schema.js";
-import { SqliteSessionStore } from "../src/session-store.js";
-import { SqliteSummaryStore } from "../src/summary.js";
 
 async function makeClient(): Promise<Client> {
 	const client = createClient({ url: ":memory:" });

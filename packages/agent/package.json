@@ -52,7 +52,8 @@
     "jiti": "^2.7.0",
     "pino": "^10.3.1",
     "update-notifier": "7.3.1",
-    "yaml": "^2.8.2"
+    "yaml": "^2.8.2",
+    "@dpopsuev/alef-embedding": "workspace:*"
   },
   "devDependencies": {
     "@libsql/client": "^0.17.4",

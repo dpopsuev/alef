@@ -197,8 +197,8 @@ traceEvent("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: 
 process.send?.({ type: "session", sessionId: session.id });
 
 // Initialize local embedding model for vector recall (lazy-loads on first embed).
-import("@dpopsuev/alef-storage")
-	.then(({ setEmbedder, LocalEmbedder, setEmbeddingCallback, queueEmbedding }) => {
+Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage")])
+	.then(([{ setEmbedder, LocalEmbedder, queueEmbedding }, { setEmbeddingCallback }]) => {
 		setEmbedder(new LocalEmbedder());
 		setEmbeddingCallback(queueEmbedding);
 	})

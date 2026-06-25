@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import { EMBEDDING_DIMENSION } from "./schema.js";
+const EMBEDDING_DIMENSION = 384;
 
 export { EMBEDDING_DIMENSION };
 

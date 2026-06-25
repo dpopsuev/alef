@@ -85,6 +85,12 @@
 			"@dpopsuev/alef-testkit/*": [
 				"./packages/core/testkit/src/*.ts"
 			],
+			"@dpopsuev/alef-embedding": [
+				"./packages/core/embedding/src/index.ts"
+			],
+			"@dpopsuev/alef-embedding/*": [
+				"./packages/core/embedding/src/*.ts"
+			],
 			"@dpopsuev/alef-eval": [
 				"./packages/core/eval/src/index.ts"
 			],

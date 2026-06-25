@@ -1,0 +1,34 @@
+{
+  "name": "@dpopsuev/alef-embedding",
+  "version": "0.0.2",
+  "description": "Vector embedding and recall for Alef — ML model loading, embedding queue, cosine similarity search",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "npx tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.4"
+  },
+  "author": "Daniel Popsuevich",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "alef": {
+    "type": "core",
+    "entry": "./src/index.ts"
+  }
+}

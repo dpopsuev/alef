@@ -1,3 +1,4 @@
+/// <reference path="./transformers.d.ts" />
 import type { Embedder } from "./embedder.js";
 
 type PipelineFn = (text: string, opts: { pooling: string; normalize: boolean }) => Promise<{ data: Float32Array }>;

@@ -112,6 +112,7 @@ export function createDiscourseAdapter(opts: DiscourseAdapterOptions): Adapter {
 		},
 		{
 			description: "Forum — shared message forum for multi-agent coordination. Pull-based: agents read when ready.",
+			labels: ["discourse", "forum", "multi-agent", "experimental"],
 			directives: [
 				"Use discourse.post to share findings, reviews, and feedback with other agents.",
 				"Use discourse.read to check what others have posted.",

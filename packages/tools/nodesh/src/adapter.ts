@@ -211,7 +211,7 @@ export function createNodeshAdapter(options: NodeshAdapterOptions): Adapter {
 			directives: NODESH_DIRECTIVES,
 			logger: options.logger,
 			description: "JavaScript REPL adapter for structured computation and Alef API introspection.",
-			labels: ["nodesh", "javascript", "repl", "computation"],
+			labels: ["nodesh", "javascript", "repl", "computation", "experimental"],
 			publishSchemas: {
 				event: {
 					"nodesh.eval": z.object({

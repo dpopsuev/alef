@@ -17,22 +17,10 @@ adapters:
       - "git\\s+commit\\s+-n"
       - "HUSKY=0"
       - "rm\\s+-rf\\s+/"
-  - name: nodesh
-    package: "@dpopsuev/alef-adapter-nodesh"
   - name: web
     package: "@dpopsuev/alef-adapter-web"
   - name: agent
     package: "@dpopsuev/alef-adapter-agent"
-  - name: factory
-    package: "@dpopsuev/alef-adapter-factory"
-  - name: plan
-    package: "@dpopsuev/alef-adapter-plan"
-  - name: discourse
-    package: "@dpopsuev/alef-adapter-discourse"
-  - name: code-intel
-    package: "@dpopsuev/alef-adapter-code-intel"
-  - name: git
-    package: "@dpopsuev/alef-adapter-git"
   - name: skills
     package: "@dpopsuev/alef-adapter-skills"
 

@@ -202,6 +202,7 @@ export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapt
 		},
 		{
 			description: "Agent factory: scaffold new adapters and write agent blueprints.",
+			labels: ["factory", "scaffold", "experimental"],
 			directives: [
 				`**factory.adapter — scaffold a new adapter**
 

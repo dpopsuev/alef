@@ -333,6 +333,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 		},
 		{
 			description: "Phased planning tool — 11-phase structured lifecycle from intention to introspection.",
+			labels: ["plan", "reasoning", "experimental"],
 			directives: [
 				"Use plan.begin to start a plan. Follow the phases: intention → inception → contraction → fixation → expansion → reduction → consolidation → implementation → assessment → refinement → introspection.",
 				"The plan is injected into your context automatically. Use plan.show to see the current state.",

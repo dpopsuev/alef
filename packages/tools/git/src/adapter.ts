@@ -120,7 +120,7 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 		{
 			actions: opts.actions,
 			description: "Git operations and local Forgejo forge integration.",
-			labels: ["git", "forge", "vcs"],
+			labels: ["git", "forge", "vcs", "experimental"],
 			directives: [
 				"**git adapter tools**\n" +
 					"- git.status shows working tree changes.\n" +

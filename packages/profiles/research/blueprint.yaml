@@ -9,16 +9,10 @@ adapters:
     package: "@dpopsuev/alef-adapter-fs"
   - name: shell
     package: "@dpopsuev/alef-adapter-shell"
-  - name: nodesh
-    package: "@dpopsuev/alef-adapter-nodesh"
-  - name: code-intel
-    package: "@dpopsuev/alef-adapter-code-intel"
   - name: web
     package: "@dpopsuev/alef-adapter-web"
   - name: agent
     package: "@dpopsuev/alef-adapter-agent"
-  - name: factory
-    package: "@dpopsuev/alef-adapter-factory"
   - name: skills
     package: "@dpopsuev/alef-adapter-skills"
 

@@ -259,7 +259,7 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 			actions: opts.actions,
 			directives: CODE_INTEL_DIRECTIVES,
 			description: "LSP-based code intelligence: workspace symbols, type info, call hierarchy, diagnostics.",
-			labels: ["code", "lsp", "typescript", "intelligence"],
+			labels: ["code", "lsp", "typescript", "intelligence", "experimental"],
 			ready: backend instanceof LocalCodeIntelBackend ? () => backend.warmUp() : undefined,
 			onUnmount: backend instanceof LocalCodeIntelBackend ? () => backend.stopLsp() : undefined,
 		},

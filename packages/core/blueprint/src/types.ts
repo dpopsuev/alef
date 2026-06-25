@@ -69,6 +69,8 @@ export interface AgentDefinitionLectorRuntimeConfig {
 	};
 }
 
+export type AdapterStability = "stable" | "beta" | "experimental";
+
 export interface AgentDefinitionAdapterInput {
 	/**
 	 * Built-in alias (e.g. "fs") or npm package name (e.g. "@company/my-adapter").
@@ -85,6 +87,8 @@ export interface AgentDefinitionAdapterInput {
 	actions?: string[];
 	/** Shell command patterns to block (regex strings). Passed to adapter-shell's blockedPatterns. */
 	blockedPatterns?: string[];
+	/** Stability tier. Experimental adapters are excluded from default blueprints. */
+	stability?: AdapterStability;
 	cache?: AgentDefinitionAdapterCacheInput;
 	runtime?: AgentDefinitionLectorRuntimeInput;
 }
@@ -103,6 +107,7 @@ export interface CompiledAgentAdapterDefinition {
 	toolNames: string[];
 	/** Shell command patterns to block (string regexes compiled to RegExp by materializer). */
 	blockedPatterns?: string[];
+	stability?: AdapterStability;
 	cache?: AgentDefinitionAdapterCacheConfig;
 	runtime?: AgentDefinitionLectorRuntimeConfig;
 }

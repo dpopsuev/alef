@@ -5,6 +5,7 @@ import {
 	PreviewSelectList,
 	ProcessTerminal,
 	type SelectItem,
+	type Terminal,
 	Text,
 	TUI,
 } from "@dpopsuev/alef-tui";
@@ -17,6 +18,34 @@ export interface PickerOptions {
 	previewFn: (item: SelectItem | undefined, requestRender?: () => void) => string[];
 	allowFilter?: boolean;
 	listWidthFraction?: number;
+	terminal?: Terminal;
+}
+
+function handlePickerInput(
+	data: string,
+	list: PreviewSelectList,
+	searchInput: Input | undefined,
+	close: () => void,
+): boolean {
+	const kb = getKeybindings();
+
+	if (matchesKey(data, "ctrl+c")) {
+		close();
+		return true;
+	}
+
+	if (list.mode === "normal" && (kb.matches(data, "tui.select.cancel") || kb.matches(data, "app.quit"))) {
+		close();
+		return true;
+	}
+
+	const handled = list.handleInput(data);
+	if (!handled && searchInput && list.mode === "insert") {
+		searchInput.handleInput(data);
+		list.setFilter(searchInput.getValue());
+	}
+
+	return true;
 }
 
 export async function runPicker(opts: PickerOptions): Promise<SelectItem | undefined> {
@@ -33,17 +62,13 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 	};
 
 	return new Promise<SelectItem | undefined>((resolve) => {
-		const terminal = new ProcessTerminal();
+		const terminal = opts.terminal ?? new ProcessTerminal();
 		const tui = new TUI(terminal);
 
-		const modeLabel = new Text(
-			color(
-				`  NORMAL  j/k navigate  h/l preview${opts.allowFilter ? "  i filter" : ""}  Enter select  Esc cancel`,
-				t.mutedFg,
-			),
-			0,
-			0,
-		);
+		const normalHint = `  NORMAL  j/k navigate  h/l preview${opts.allowFilter ? "  i filter" : ""}  Enter select  Esc cancel`;
+		const insertHint = "  INSERT  type to filter  Esc → normal";
+
+		const modeLabel = new Text(color(normalHint, t.mutedFg), 0, 0);
 		tui.addChild(modeLabel);
 		tui.addChild(new Text("", 0, 0));
 
@@ -55,19 +80,17 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 			theme: listTheme,
 			listWidthFraction: opts.listWidthFraction,
 			onModeChange: (mode) => {
-				if (mode === "insert") {
-					modeLabel.setText(color("  INSERT  type to filter  Esc → normal", t.accentFg));
-				} else {
-					modeLabel.setText(
-						color(
-							`  NORMAL  j/k navigate  h/l preview${opts.allowFilter ? "  i filter" : ""}  Enter select  Esc cancel`,
-							t.mutedFg,
-						),
-					);
-				}
+				modeLabel.setText(
+					color(mode === "insert" ? insertHint : normalHint, mode === "insert" ? t.accentFg : t.mutedFg),
+				);
 			},
 			previewFn: (item) => opts.previewFn(item, () => tui.requestRender()),
 		});
+
+		const close = () => {
+			tui.stop();
+			resolve(undefined);
+		};
 
 		previewList.onSelect = (item) => {
 			tui.stop();
@@ -77,26 +100,8 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 		if (searchInput) tui.addChild(searchInput);
 		tui.addChild(previewList);
 
-		const kb = getKeybindings();
-
 		tui.onRawInput = (data) => {
-			if (matchesKey(data, "ctrl+c")) {
-				tui.stop();
-				resolve(undefined);
-				return true;
-			}
-
-			if (previewList.mode === "normal" && (kb.matches(data, "tui.select.cancel") || kb.matches(data, "app.quit"))) {
-				tui.stop();
-				resolve(undefined);
-				return true;
-			}
-
-			const handled = previewList.handleInput(data);
-			if (!handled && searchInput && previewList.mode === "insert") {
-				searchInput.handleInput(data);
-				previewList.setFilter(searchInput.getValue());
-			}
+			handlePickerInput(data, previewList, searchInput, close);
 			tui.requestRender();
 			return true;
 		};

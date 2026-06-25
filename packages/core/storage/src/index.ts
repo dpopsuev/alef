@@ -5,6 +5,7 @@ export {
 	closeDatabase,
 	configureStorage,
 	getDatabase,
+	makeTestDatabase,
 	openDatabase,
 	type StorageConfig,
 	syncDatabase,

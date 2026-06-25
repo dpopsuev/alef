@@ -1,5 +1,5 @@
-import { mkdirSync } from "node:fs";
-import { homedir } from "node:os";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { type Client, createClient } from "@libsql/client";
 import { applySchema } from "./schema.js";
@@ -64,4 +64,10 @@ export async function openDatabase(path: string): Promise<Client> {
 	await client.execute("PRAGMA foreign_keys = ON");
 	await applySchema(client);
 	return client;
+}
+
+export async function makeTestDatabase(): Promise<{ client: Client; cleanup: () => void }> {
+	const dir = mkdtempSync(join(tmpdir(), "alef-test-"));
+	const client = await openDatabase(join(dir, "test.db"));
+	return { client, cleanup: () => { client.close(); rmSync(dir, { recursive: true, force: true }); } };
 }

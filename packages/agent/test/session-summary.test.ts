@@ -10,21 +10,19 @@ import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
-import { applySchema, SqliteSessionStore, SqliteSummaryStore } from "@dpopsuev/alef-storage";
-import { createClient } from "@libsql/client";
+import { makeTestDatabase, SqliteSessionStore, SqliteSummaryStore } from "@dpopsuev/alef-storage";
 import { afterEach, describe, expect, it } from "vitest";
 import { SessionLog } from "../src/event-log-adapter.js";
 
 describe("SessionSummary", { tags: ["unit"] }, () => {
-	const clients: Array<{ close(): void }> = [];
+	const cleanups: Array<() => void> = [];
 	afterEach(() => {
-		for (const c of clients.splice(0)) c.close();
+		for (const fn of cleanups.splice(0)) fn();
 	});
 
 	it("writes summary to SQLite and last-session.json on agent dispose", async () => {
-		const client = createClient({ url: ":memory:" });
-		await applySchema(client);
-		clients.push(client);
+		const { client, cleanup } = await makeTestDatabase();
+		cleanups.push(cleanup);
 
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("done")]);

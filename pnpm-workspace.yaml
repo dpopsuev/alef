@@ -4,3 +4,8 @@ packages:
   - packages/ui/*
   - packages/profiles/*
   - packages/agent
+
+publicHoistPattern:
+  - "*types*"
+  - "*undici*"
+  - "diff"

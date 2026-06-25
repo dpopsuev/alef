@@ -11,6 +11,12 @@
       "import": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
+    },
+    "./storage-port": {
+      "source": "./src/interfaces.ts",
+      "types": "./dist/interfaces.d.ts",
+      "import": "./src/interfaces.ts",
+      "default": "./src/interfaces.ts"
     }
   },
   "files": [

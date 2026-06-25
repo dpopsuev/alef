@@ -145,6 +145,9 @@
 			"@dpopsuev/alef-storage": [
 				"./packages/core/storage/src/index.ts"
 			],
+			"@dpopsuev/alef-storage/storage-port": [
+				"./packages/core/storage/src/interfaces.ts"
+			],
 			"@dpopsuev/alef-storage/*": [
 				"./packages/core/storage/src/*.ts"
 			],

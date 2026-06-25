@@ -91,6 +91,9 @@
 			"@dpopsuev/alef-eval/*": [
 				"./packages/core/eval/src/*.ts"
 			],
+			"@dpopsuev/alef/ui-port": [
+				"./packages/agent/src/cli/presentation.ts"
+			],
 			"@dpopsuev/alef": [
 				"./packages/agent/src/main.ts"
 			],

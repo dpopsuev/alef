@@ -1,7 +1,7 @@
 import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
 import type { SessionStore } from "@dpopsuev/alef-session";
-import { ProcessTerminal, SelectList, TUI } from "@dpopsuev/alef-tui";
+import { ProcessTerminal, SelectList, type Terminal, TUI } from "@dpopsuev/alef-tui";
 import { TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../interactive.js";
 import type { Session } from "../session.js";
@@ -28,8 +28,12 @@ export {
 export type { TuiHandlerContext } from "./tui-commands.js";
 export { handleColonCommand, handleCtrlC, handleSlashCommand, renderHeaderTopBorder } from "./tui-commands.js";
 
-export async function runTuiMode(session: Session, opts: InteractiveOptions, store?: SessionStore): Promise<void> {
-	const terminal = new ProcessTerminal();
+export async function runTuiMode(
+	session: Session,
+	opts: InteractiveOptions & { terminal?: Terminal },
+	store?: SessionStore,
+): Promise<void> {
+	const terminal = opts.terminal ?? new ProcessTerminal();
 	const tui = new TUI(terminal);
 	const t = getTheme();
 

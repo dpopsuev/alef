@@ -6,6 +6,14 @@
   "bin": {
     "alef": "bin/alef.js"
   },
+  "exports": {
+    "./ui-port": {
+      "source": "./src/cli/presentation.ts",
+      "types": "./dist/cli/presentation.d.ts",
+      "import": "./src/cli/presentation.ts",
+      "default": "./src/cli/presentation.ts"
+    }
+  },
   "files": [
     "dist",
     "bin",

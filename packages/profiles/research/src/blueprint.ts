@@ -17,9 +17,9 @@ export interface ResearchAgentOptions extends BlueprintStackOptions {
 export async function createResearchAgentStack(
 	opts: ResearchAgentOptions,
 ): Promise<BlueprintStack & { supervisor: ToolSupervisor }> {
-	const scribeBinary = opts.scribeBinary ?? join(homedir(), "Workspace/scribe/bin/scribe");
+	const scribeBinary = opts.scribeBinary ?? process.env.ALEF_SCRIBE_BIN ?? "scribe";
 	const scribeDbPath = opts.scribeDbPath ?? join(XDG_DATA_HOME, "alef", "scribe.db");
-	const locusBinary = opts.locusBinary ?? join(homedir(), "Workspace/locus/locus");
+	const locusBinary = opts.locusBinary ?? process.env.ALEF_LOCUS_BIN ?? "locus";
 
 	const supervisorConfig: SupervisorConfig = {
 		services: {

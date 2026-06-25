@@ -69,6 +69,66 @@ export interface WireAdapterOptions {
 	judge?: (prompt: string, model?: string) => Promise<{ score: number; feedback: string }>;
 }
 
+const JUDGE_SYSTEM_PROMPT =
+	"You are a code reviewer. Score the input 0-10 and provide feedback. Return JSON: { score: number, feedback: string }";
+const JUDGE_DEFAULT_MODEL = "claude-haiku-4-5";
+const DISPATCH_TIMEOUT_MS = 600_000;
+const JUDGE_TIMEOUT_MS = 60_000;
+
+interface DisposableSession {
+	send?(text: string, timeoutMs?: number): Promise<string>;
+	dispose(): void;
+}
+
+export interface WireAdapterFactoryOptions {
+	cwd: string;
+	subagentFactory: (opts: {
+		adapters: readonly unknown[];
+		systemPrompt?: string;
+		modelOverride?: string;
+	}) => DisposableSession;
+	exploreAdapters: readonly unknown[];
+	generalAdapters: readonly unknown[];
+}
+
+export function createWireAdapterWithFactory(opts: WireAdapterFactoryOptions): Adapter {
+	const { subagentFactory, exploreAdapters, generalAdapters } = opts;
+
+	return createWireAdapter({
+		cwd: opts.cwd,
+		async dispatch(text, profile, modelOverride) {
+			const session = subagentFactory({
+				adapters: profile === "explore" ? exploreAdapters : generalAdapters,
+				systemPrompt: profile === "explore" ? "Read-only exploration agent. Report findings concisely." : undefined,
+				modelOverride,
+			});
+			try {
+				return await session.send!(text, DISPATCH_TIMEOUT_MS);
+			} finally {
+				session.dispose();
+			}
+		},
+		async judge(prompt, modelOverride) {
+			const session = subagentFactory({
+				adapters: exploreAdapters,
+				systemPrompt: JUDGE_SYSTEM_PROMPT,
+				modelOverride: modelOverride ?? JUDGE_DEFAULT_MODEL,
+			});
+			try {
+				const reply = await session.send!(prompt, JUDGE_TIMEOUT_MS);
+				try {
+					const parsed = JSON.parse(reply) as { score: number; feedback: string };
+					return { score: parsed.score ?? 5, feedback: parsed.feedback ?? reply };
+				} catch {
+					return { score: 5, feedback: reply };
+				}
+			} finally {
+				session.dispose();
+			}
+		},
+	});
+}
+
 export function createWireAdapter(opts: WireAdapterOptions): Adapter {
 	let bus: Bus | null = null;
 

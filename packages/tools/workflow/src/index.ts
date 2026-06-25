@@ -32,4 +32,9 @@ export {
 	type WorkflowDef,
 	WorkflowDefSchema,
 } from "./schema.js";
-export { createWireAdapter, type WireAdapterOptions } from "./wire.js";
+export {
+	createWireAdapter,
+	createWireAdapterWithFactory,
+	type WireAdapterFactoryOptions,
+	type WireAdapterOptions,
+} from "./wire.js";

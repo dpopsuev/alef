@@ -4,6 +4,7 @@ export * from "./context-stage.js";
 export * from "./trace-extractor.js";
 export * from "./trace-replayer.js";
 export * from "./agent-session.js";
+export { createLlmSummarizer } from "./llm-summarizer.js";
 export * from "./session.js";
 export * from "./session-scan.js";
 export * from "./session-store.js";

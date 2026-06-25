@@ -1,8 +1,8 @@
 {
   "name": "@dpopsuev/alef-factory-agent",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
-  "description": "Factory architect agent — builds multi-agent workflows via subscription graphs",
+  "description": "Factory architect agent \u2014 builds multi-agent workflows via subscription graphs",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./dist/index.d.ts",

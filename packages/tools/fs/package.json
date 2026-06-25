@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-adapter-fs",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Filesystem organ runtime for cache policy and query acceleration",
   "type": "module",
   "main": "./src/index.ts",

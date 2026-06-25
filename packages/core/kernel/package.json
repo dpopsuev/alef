@@ -1,6 +1,6 @@
 {
   "name": "@dpopsuev/alef-kernel",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Canonical EDA bus, framework, and port registry for Alef organs",
   "type": "module",
   "main": "./src/index.ts",

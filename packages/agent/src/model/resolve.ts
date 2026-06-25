@@ -101,33 +101,72 @@ export function buildModel(id: string): Model<Api> {
 	if (slashIdx !== -1) {
 		const provider = id.slice(0, slashIdx);
 		const modelId = id.slice(slashIdx + 1);
-		return (
-			lookupModel(provider, modelId) ?? syntheticModel(provider, modelId, inferApi(provider), inferBaseUrl(provider))
+		const catalogModel = lookupModel(provider, modelId);
+		if (catalogModel) return catalogModel;
+
+		const knownProviders = getProviders();
+		if (!knownProviders.includes(provider as KnownProvider)) {
+			process.stderr.write(`[model] warning: unknown provider "${provider}" — using synthetic model for ${id}\n`);
+		}
+		const baseUrl = inferBaseUrl(provider);
+		if (!baseUrl && provider !== "google" && provider !== "google-vertex" && provider !== "amazon-bedrock") {
+			process.stderr.write(`[model] warning: no base URL for provider "${provider}" — API calls may fail\n`);
+		}
+		return syntheticModel(provider, modelId, inferApi(provider), baseUrl);
+	}
+
+	const allProviders = getProviders();
+	const matches: Array<{ provider: KnownProvider; model: Model<Api> }> = [];
+	for (const provider of allProviders) {
+		const models = getModels(provider);
+		const found = (models as Model<Api>[]).find((m) => m.id === id);
+		if (found) matches.push({ provider, model: found });
+	}
+
+	if (matches.length > 1) {
+		const names = matches.map((m) => m.provider).join(", ");
+		process.stderr.write(
+			`[model] warning: "${id}" found in multiple providers: ${names} — using ${matches[0].provider}\n`,
 		);
 	}
 
-	const providers = getProviders();
-	for (const provider of providers) {
-		const models = getModels(provider);
-		const found = (models as Model<Api>[]).find((m) => m.id === id);
-		if (found) return found;
-	}
+	if (matches.length > 0) return matches[0].model;
 
+	process.stderr.write(
+		`[model] warning: "${id}" not found in any provider catalog — creating synthetic model (typo?)\n`,
+	);
 	return syntheticModel("anthropic", id, "anthropic-messages", "https://api.anthropic.com");
 }
 
+const PROVIDER_API_MAP: Record<string, Api> = {
+	anthropic: "anthropic-messages",
+	google: "google-generative-ai",
+	"google-vertex": "google-vertex",
+	"amazon-bedrock": "bedrock-converse-stream",
+	mistral: "mistral-conversations",
+	azure: "azure-openai-responses",
+};
+
 function inferApi(provider: string): Api {
-	if (provider === "anthropic") return "anthropic-messages";
-	if (provider === "google" || provider === "google-vertex") return "google-ai";
-	if (provider === "amazon-bedrock") return "bedrock-converse-stream";
-	return "openai-completions";
+	return PROVIDER_API_MAP[provider] ?? "openai-completions";
 }
 
+const PROVIDER_BASE_URL: Record<string, string> = {
+	anthropic: "https://api.anthropic.com",
+	openai: "https://api.openai.com/v1",
+	openrouter: "https://openrouter.ai/api/v1",
+	mistral: "https://api.mistral.ai/v1",
+	groq: "https://api.groq.com/openai/v1",
+	deepseek: "https://api.deepseek.com/v1",
+	xai: "https://api.x.ai/v1",
+	cerebras: "https://api.cerebras.ai/v1",
+	fireworks: "https://api.fireworks.ai/inference/v1",
+	together: "https://api.together.xyz/v1",
+	huggingface: "https://api-inference.huggingface.co/models",
+};
+
 function inferBaseUrl(provider: string): string {
-	if (provider === "anthropic") return "https://api.anthropic.com";
-	if (provider === "openai") return "https://api.openai.com/v1";
-	if (provider === "openrouter") return "https://openrouter.ai/api/v1";
-	return "";
+	return PROVIDER_BASE_URL[provider] ?? "";
 }
 
 export function autoDetectModel(): Model<Api> | undefined {
@@ -177,6 +216,18 @@ export function hasCredentials(): boolean {
 	return false;
 }
 
+function validateApiKey(model: Model<Api>): void {
+	const provider = model.provider;
+	if (provider === "ollama") return;
+	if (hasAnthropicOnVertex() && provider === "anthropic") return;
+	const apiKey = getEnvApiKey(provider as KnownProvider);
+	if (!apiKey) {
+		const envVars = findEnvKeys(provider as KnownProvider);
+		const hint = envVars?.length ? envVars.join(" or ") : `${provider.toUpperCase().replace(/-/g, "_")}_API_KEY`;
+		process.stderr.write(`[model] warning: no API key for provider "${provider}" — set ${hint}\n`);
+	}
+}
+
 export function resolveStartupModel(
 	args: ModelResolutionInput,
 	blueprintModelId: string | undefined,
@@ -191,7 +242,11 @@ export function resolveStartupModel(
 		process.stderr.write(`[alef] detected providers: ${detectedProviders().join(", ")}\n`);
 	}
 	const resolvedId = args.modelId ?? blueprintModelId ?? cfg.model;
-	if (resolvedId) return buildModel(resolvedId);
+	if (resolvedId) {
+		const model = buildModel(resolvedId);
+		validateApiKey(model);
+		return model;
+	}
 	const detected = autoDetectModel();
 	if (detected) return detected;
 	console.error(

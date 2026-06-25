@@ -18,7 +18,7 @@ export type { AuthStore, DaemonRegistry, DiscourseStore, SessionPreviewProvider,
 export { InMemorySessionStore } from "./in-memory-session-store.js";
 export { SqliteStorageFactory } from "./sqlite-storage-factory.js";
 export { LocalEmbedder } from "./local-embedder.js";
-export { type MigrationResult, migrateJsonlToSqlite, needsMigration } from "./migrate.js";
+export { runPluginMigrations } from "./plugin-migrations.js";
 export { type RecallResult, RecallStore, type SessionRecallResult } from "./recall.js";
 export { applySchema, CURRENT_SCHEMA_VERSION, EMBEDDING_DIMENSION } from "./schema.js";
 export { type EmbeddingCallback, setEmbeddingCallback, SqliteSessionStore } from "./session-store.js";

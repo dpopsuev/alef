@@ -22,11 +22,6 @@ const DDL_STATEMENTS = [
 	`CREATE INDEX IF NOT EXISTS idx_events_bus ON events(session_id, bus)`,
 	`CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(session_id, timestamp)`,
 	`CREATE INDEX IF NOT EXISTS idx_events_adapter ON events(session_id, adapter)`,
-	`CREATE TABLE IF NOT EXISTS discourse_posts (
-		rowid INTEGER PRIMARY KEY, session_id TEXT NOT NULL, topic TEXT NOT NULL,
-		thread TEXT NOT NULL, author TEXT NOT NULL, content TEXT NOT NULL, timestamp INTEGER NOT NULL)`,
-	`CREATE INDEX IF NOT EXISTS idx_discourse_thread ON discourse_posts(topic, thread)`,
-	`CREATE INDEX IF NOT EXISTS idx_discourse_session ON discourse_posts(session_id)`,
 	`CREATE TABLE IF NOT EXISTS auth (
 		provider TEXT PRIMARY KEY, type TEXT NOT NULL DEFAULT 'api_key', key TEXT NOT NULL)`,
 	`CREATE TABLE IF NOT EXISTS daemon (

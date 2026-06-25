@@ -45,17 +45,6 @@ const args = parseArgs(process.argv.slice(2));
 await runPmCommand(args);
 await handleSelfUpdate(args);
 
-if (args.migrate) {
-	const { getDatabase, migrateJsonlToSqlite } = await import("@dpopsuev/alef-storage");
-	const db = await getDatabase();
-	const result = await migrateJsonlToSqlite(db);
-	console.log(
-		`Migrated ${result.sessions} sessions (${result.events} events, ${result.discourse} discourse posts, ${result.auth} auth keys)`,
-	);
-	if (result.skipped > 0) console.log(`Skipped ${result.skipped} (empty or malformed)`);
-	process.exit(0);
-}
-
 // Configure storage backend from config.yaml (local or Turso cloud).
 if (cfg.storage) {
 	const { configureStorage } = await import("@dpopsuev/alef-storage");

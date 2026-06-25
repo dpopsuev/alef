@@ -31,6 +31,7 @@ export interface TuiLayout {
 	output: OutputPanel;
 	input: InputPanel;
 	footer: FooterPanel;
+	spacer: GrowSpacer;
 }
 
 export async function buildLayout(
@@ -71,8 +72,9 @@ export async function buildLayout(
 
 	const SIBLING_LINE_ESTIMATE = 15;
 	const spacer = new GrowSpacer(SIBLING_LINE_ESTIMATE);
+	spacer.setEnabled(false);
 	tui.addChild(spacer);
 	tui.addChild(dashboard);
 
-	return { output, input, footer: dashboard };
+	return { output, input, footer: dashboard, spacer };
 }

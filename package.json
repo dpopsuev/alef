@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"clean": "pnpm -r run clean",
-		"build": "cd packages/tui && npm run build && cd ../llm && npm run build && cd ../agent && npm run build && cd ../blueprint && npm run build && cd ../runtime && npm run build && cd ../coding-agent && npm run build && cd ../web-ui && npm run build",
+		"build": "pnpm -r --workspace-concurrency=1 run build",
 		"dev": "concurrently --names \"ai,agent,blueprint,runtime,coding-agent,web-ui,tui\" --prefix-colors \"cyan,yellow,blue,white,red,green,magenta\" \"cd packages/llm && npm run dev\" \"cd packages/agent && npm run dev\" \"cd packages/blueprint && npm run dev\" \"cd packages/runtime && npm run dev\" \"cd packages/coding-agent && npm run dev\" \"cd packages/web-ui && npm run dev\" \"cd packages/tui && npm run dev\"",
 		"dev:tsc": "concurrently --names \"ai,web-ui\" --prefix-colors \"cyan,green\" \"cd packages/llm && npm run dev:tsc\" \"cd packages/web-ui && npm run dev:tsc\"",
 		"check": "npm run check:fast && npm run check:test && npm run check:blueprints && npm run check:browser-smoke && cd packages/web-ui && npm run check",

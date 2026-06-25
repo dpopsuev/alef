@@ -78,6 +78,29 @@ export const writeFile: Evaluation = {
 	),
 };
 
+export const openEndedExploration: Evaluation = {
+	id: "ToolUse_OpenEndedExploration",
+	toolLevel: "ReadOnly",
+	template: "ReadOnly",
+	kind: "regression",
+	seed: [
+		{ path: "src/server.ts", content: 'import http from "http";\nconst s = http.createServer();\ns.listen(3000);' },
+		{ path: "src/utils.ts", content: "export function add(a: number, b: number) { return a + b; }" },
+		{ path: "src/types.ts", content: "export interface User { id: string; name: string; }" },
+		{ path: "src/config.ts", content: 'export const DB_HOST = "localhost";\nexport const DB_PORT = 5432;' },
+		{ path: "package.json", content: '{"name": "test-project", "version": "1.0.0"}' },
+	],
+	prompt:
+		"Explore the code base with subagents. " +
+		"Score it by: Functionality, Architecture, and Performance. " +
+		"Search online for TypeScript best practices. " +
+		"Spawn 3 subagents to analyze different areas.",
+	expects: [
+		{ tool: ["fs.find", "fs.read", "fs.grep", "code.read", "code.search", "agent.run"] },
+	],
+	checker: toolCallsAreReal(),
+};
+
 export const complexMultiTool: Evaluation = {
 	id: "ToolUse_ComplexMultiTool",
 	toolLevel: "ReadOnly",

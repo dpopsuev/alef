@@ -6,8 +6,14 @@
 	"bin": {
 		"alef": "bin/alef-runner.js"
 	},
+	"files": [
+		"dist",
+		"bin",
+		"README.md"
+	],
 	"scripts": {
 		"start": "tsx src/cli/main.ts",
+		"build": "npx tsc -p tsconfig.build.json",
 		"check": "biome check --write --error-on-warnings . && tsc --noEmit"
 	},
 	"dependencies": {

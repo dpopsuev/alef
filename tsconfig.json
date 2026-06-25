@@ -73,6 +73,9 @@
 			"@dpopsuev/alef-runtime": [
 				"./packages/core/runtime/src/index.ts"
 			],
+			"@dpopsuev/alef-runtime/mcp-port": [
+				"./packages/core/runtime/src/tool-supervisor.ts"
+			],
 			"@dpopsuev/alef-runtime/*": [
 				"./packages/core/runtime/src/*.ts"
 			],

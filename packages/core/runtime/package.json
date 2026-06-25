@@ -11,6 +11,12 @@
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./mcp-port": {
+      "source": "./src/tool-supervisor.ts",
+      "types": "./dist/tool-supervisor.d.ts",
+      "import": "./src/tool-supervisor.ts",
+      "default": "./src/tool-supervisor.ts"
     }
   },
   "files": [

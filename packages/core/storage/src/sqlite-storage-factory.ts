@@ -26,7 +26,10 @@ export class SqliteStorageFactory implements StorageFactory {
 			},
 			getSessionPreview: async (sessionId, maxLines) => {
 				const r = await this.client.execute({
-					sql: "SELECT bus, type, payload FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT ?",
+					sql: `SELECT bus, type, payload FROM events
+						WHERE session_id = ? AND bus IN ('event', 'command', 'notification')
+						AND type NOT IN ('adapter.loaded', 'llm.chunk', 'llm.checkpoint', 'llm.thinking', 'context.assemble')
+						ORDER BY rowid DESC LIMIT ?`,
 					args: [sessionId, maxLines * 3],
 				});
 				const lines: string[] = [];
@@ -37,7 +40,7 @@ export class SqliteStorageFactory implements StorageFactory {
 					if (bus === "event" && type === "llm.input") {
 						const text = typeof payload.text === "string" ? payload.text : "";
 						if (text) lines.push(`  ▸ ${text.slice(0, 70).replace(/\n/g, " ")}`);
-					} else if (bus === "command" && type === "llm.response") {
+					} else if ((bus === "notification" && type === "llm.result") || (bus === "command" && type === "llm.response")) {
 						const text = typeof payload.text === "string" ? payload.text : "";
 						if (text) lines.push(`  ◂ ${text.slice(0, 70).replace(/\n/g, " ")}`);
 					} else if (bus === "command" && !type.startsWith("llm.") && !type.startsWith("context.")) {

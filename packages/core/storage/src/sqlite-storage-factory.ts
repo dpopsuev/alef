@@ -19,6 +19,33 @@ export class SqliteStorageFactory implements StorageFactory {
 			resumeLatest: (cwd) => SqliteSessionStore.resumeLatest(this.client, cwd),
 			list: (cwd) => SqliteSessionStore.list(this.client, cwd),
 			prune: (cwd) => SqliteSessionStore.prune(this.client, cwd),
+			getSessionName: async (sessionId) => {
+				const r = await this.client.execute({ sql: "SELECT name FROM sessions WHERE id = ?", args: [sessionId] });
+				const name = r.rows[0]?.name;
+				return name != null ? String(name) : undefined;
+			},
+			getSessionPreview: async (sessionId, maxLines) => {
+				const r = await this.client.execute({
+					sql: "SELECT bus, type, payload FROM events WHERE session_id = ? ORDER BY rowid DESC LIMIT ?",
+					args: [sessionId, maxLines * 3],
+				});
+				const lines: string[] = [];
+				for (const row of [...r.rows].reverse()) {
+					const bus = String(row.bus);
+					const type = String(row.type);
+					const payload = JSON.parse(String(row.payload)) as Record<string, unknown>;
+					if (bus === "event" && type === "llm.input") {
+						const text = typeof payload.text === "string" ? payload.text : "";
+						if (text) lines.push(`  ▸ ${text.slice(0, 70).replace(/\n/g, " ")}`);
+					} else if (bus === "command" && type === "llm.response") {
+						const text = typeof payload.text === "string" ? payload.text : "";
+						if (text) lines.push(`  ◂ ${text.slice(0, 70).replace(/\n/g, " ")}`);
+					} else if (bus === "command" && !type.startsWith("llm.") && !type.startsWith("context.")) {
+						lines.push(`  ● ${type}`);
+					}
+				}
+				return lines.slice(-maxLines);
+			},
 		};
 	}
 

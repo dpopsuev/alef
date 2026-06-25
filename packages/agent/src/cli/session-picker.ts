@@ -3,118 +3,32 @@
  * Delegates to runPicker() for TUI lifecycle.
  */
 
-import { open, readFile, stat } from "node:fs/promises";
-
 import type { SelectItem } from "@dpopsuev/alef-tui";
-import type { StorageRecord } from "../session-store.js";
+import type { SessionPreviewProvider } from "../session-lifecycle/index.js";
 import { runPicker } from "./run-picker.js";
-
-async function readSessionName(jsonlPath: string): Promise<string | undefined> {
-	try {
-		const raw = await readFile(jsonlPath, "utf-8");
-		const lines = raw.split("\n").filter(Boolean);
-		let name: string | undefined;
-		for (const line of lines) {
-			try {
-				const r = JSON.parse(line) as { bus?: string; type?: string; payload?: { name?: string } };
-				if (r.bus === "internal" && r.type === "session.name" && typeof r.payload?.name === "string") {
-					name = r.payload.name;
-				}
-			} catch {
-				break;
-			}
-		}
-		return name;
-	} catch {
-		return undefined;
-	}
-}
-
-async function readFirstUserMessage(jsonlPath: string): Promise<string> {
-	try {
-		const raw = await readFile(jsonlPath, "utf-8");
-		for (const line of raw.split("\n")) {
-			if (!line.trim()) continue;
-			const record = JSON.parse(line) as StorageRecord;
-			if (record.bus === "event" && record.type === "llm.input") {
-				const text = typeof record.payload.text === "string" ? record.payload.text : "";
-				if (text) return text.slice(0, 60).replace(/\n/g, " ");
-			}
-		}
-	} catch {
-		// unreadable
-	}
-	return "";
-}
-
-const TAIL_BYTES = 32_768;
-const SESSION_PREVIEW_BATCH_SIZE = 20;
-
-async function readFileTail(path: string, bytes: number): Promise<string> {
-	const info = await stat(path);
-	if (info.size <= bytes) return readFile(path, "utf-8");
-	const fh = await open(path, "r");
-	try {
-		const buf = Buffer.alloc(bytes);
-		await fh.read(buf, 0, bytes, info.size - bytes);
-		const raw = buf.toString("utf-8");
-		const firstNewline = raw.indexOf("\n");
-		return firstNewline >= 0 ? raw.slice(firstNewline + 1) : raw;
-	} finally {
-		await fh.close();
-	}
-}
-
-async function readSessionTail(jsonlPath: string, maxLines: number): Promise<string[]> {
-	try {
-		const raw = await readFileTail(jsonlPath, TAIL_BYTES);
-		const lines = raw.split("\n").filter(Boolean);
-		const tail: string[] = [];
-
-		for (const line of lines) {
-			try {
-				const r = JSON.parse(line) as StorageRecord;
-				if (r.bus === "event" && r.type === "llm.input") {
-					const text = typeof r.payload.text === "string" ? r.payload.text : "";
-					if (text) tail.push(`  ▸ ${text.slice(0, 70).replace(/\n/g, " ")}`);
-				} else if (r.bus === "command" && r.type === "llm.response") {
-					const text = typeof r.payload.text === "string" ? r.payload.text : "";
-					if (text) tail.push(`  ◂ ${text.slice(0, 70).replace(/\n/g, " ")}`);
-				} else if (r.bus === "command" && !r.type.startsWith("llm.") && !r.type.startsWith("context.")) {
-					tail.push(`  ● ${r.type}`);
-				}
-			} catch {
-				// skip
-			}
-		}
-
-		return tail.slice(-maxLines);
-	} catch {
-		return ["  (unable to read session)"];
-	}
-}
 
 export async function pickSession(
 	sessions: Array<{ id: string; path: string; mtime: Date }>,
+	preview?: SessionPreviewProvider,
 ): Promise<string | undefined> {
 	if (sessions.length === 0) return undefined;
 
-	const [names, previews] = await Promise.all([
-		Promise.all(sessions.slice(0, SESSION_PREVIEW_BATCH_SIZE).map((s) => readSessionName(s.path))),
-		Promise.all(sessions.slice(0, SESSION_PREVIEW_BATCH_SIZE).map((s) => readFirstUserMessage(s.path))),
-	]);
+	const BATCH = 20;
+	const batch = sessions.slice(0, BATCH);
 
-	const sessionPaths = new Map<string, string>();
+	let names: (string | undefined)[] = [];
+	if (preview?.getSessionName) {
+		const fn = preview.getSessionName.bind(preview);
+		names = await Promise.all(batch.map((s) => fn(s.id)));
+	}
+
 	const items: SelectItem[] = [
 		{ value: "__new__", label: "New session", description: "Start fresh" },
-		...sessions.slice(0, SESSION_PREVIEW_BATCH_SIZE).map((s, i) => {
-			sessionPaths.set(s.id, s.path);
-			return {
-				value: s.id,
-				label: names[i] ?? previews[i] ?? s.id,
-				description: s.mtime.toISOString().replace("T", " ").slice(0, 16),
-			};
-		}),
+		...batch.map((s, i) => ({
+			value: s.id,
+			label: names[i] ?? s.id,
+			description: s.mtime.toISOString().replace("T", " ").slice(0, 16),
+		})),
 	];
 
 	const previewCache = new Map<string, string[]>();
@@ -126,14 +40,13 @@ export async function pickSession(
 		allowFilter: true,
 		previewFn: (item) => {
 			if (!item || item.value === "__new__") return ["  Start a new conversation"];
+			if (!preview?.getSessionPreview) return ["  (preview unavailable)"];
+
 			const cached = previewCache.get(item.value);
 			if (cached) return cached;
 
-			const path = sessionPaths.get(item.value);
-			if (!path) return ["  (no session data)"];
-
-			void readSessionTail(path, 12).then((lines) => {
-				previewCache.set(item.value, lines);
+			void preview.getSessionPreview(item.value, 12).then((lines) => {
+				previewCache.set(item.value, lines.length > 0 ? lines : ["  (empty session)"]);
 			});
 			return ["  Loading..."];
 		},

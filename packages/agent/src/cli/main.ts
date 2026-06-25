@@ -185,7 +185,7 @@ if (willUseTui) {
 }
 const log = createRunnerLogger(willUseTui, args.debug);
 const storage = await getStorage();
-const session = await loadSession(args, storage.sessions, willUseTui, pickSession);
+const session = await loadSession(args, storage.sessions, willUseTui, pickSession, storage.sessions);
 
 // Route debug events into the session JSONL — unified transcript.
 const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel");

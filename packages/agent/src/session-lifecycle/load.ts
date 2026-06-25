@@ -1,6 +1,15 @@
 import type { SessionStore } from "@dpopsuev/alef-session";
 import type { SessionStoreFactory } from "@dpopsuev/alef-storage";
-export type SessionPicker = (sessions: Array<{ id: string; path: string; mtime: Date }>) => Promise<string | undefined>;
+
+export interface SessionPreviewProvider {
+	getSessionName?(id: string): Promise<string | undefined>;
+	getSessionPreview?(id: string, maxLines: number): Promise<string[]>;
+}
+
+export type SessionPicker = (
+	sessions: Array<{ id: string; path: string; mtime: Date }>,
+	preview?: SessionPreviewProvider,
+) => Promise<string | undefined>;
 
 export interface LoadSessionArgs {
 	cwd: string;
@@ -13,6 +22,7 @@ export async function loadSession(
 	sessions: SessionStoreFactory,
 	willUseTui: boolean,
 	pickSession?: SessionPicker,
+	preview?: SessionPreviewProvider,
 ): Promise<SessionStore> {
 	const pruned = await sessions.prune(args.cwd);
 	if (pruned > 0) console.error(`[session] Pruned ${pruned} old session(s)`);
@@ -41,7 +51,8 @@ export async function loadSession(
 	}
 
 	const existingSessions = willUseTui && pickSession ? await sessions.list(args.cwd) : [];
-	const pickedId = existingSessions.length > 0 && pickSession ? await pickSession(existingSessions) : undefined;
+	const pickedId =
+		existingSessions.length > 0 && pickSession ? await pickSession(existingSessions, preview) : undefined;
 	if (pickedId) {
 		const store = await sessions.resume(args.cwd, pickedId);
 		const turnCount = (await store.turns()).length;

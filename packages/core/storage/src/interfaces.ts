@@ -42,6 +42,8 @@ export interface SessionStoreFactory {
 	resumeLatest(cwd: string): Promise<SessionStore | null>;
 	list(cwd: string): Promise<Array<{ id: string; path: string; mtime: Date }>>;
 	prune(cwd: string): Promise<number>;
+	getSessionName?(sessionId: string): Promise<string | undefined>;
+	getSessionPreview?(sessionId: string, maxLines: number): Promise<string[]>;
 }
 
 export interface StorageFactory {

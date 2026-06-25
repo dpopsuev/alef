@@ -38,7 +38,7 @@ export async function pickSession(
 		items,
 		maxVisible: 12,
 		allowFilter: true,
-		previewFn: (item) => {
+		previewFn: (item, requestRender) => {
 			if (!item || item.value === "__new__") return ["  Start a new conversation"];
 			if (!preview?.getSessionPreview) return ["  (preview unavailable)"];
 
@@ -47,6 +47,7 @@ export async function pickSession(
 
 			void preview.getSessionPreview(item.value, 12).then((lines) => {
 				previewCache.set(item.value, lines.length > 0 ? lines : ["  (empty session)"]);
+				requestRender?.();
 			});
 			return ["  Loading..."];
 		},

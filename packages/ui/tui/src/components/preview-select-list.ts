@@ -30,6 +30,7 @@ export class PreviewSelectList implements Component {
 	private currentPreview: string[] = [];
 	private previewFocused = false;
 	private previewScrollOffset = 0;
+	private _selectedItem: SelectItem | undefined;
 	private vi: ViModal;
 
 	constructor(opts: PreviewSelectListOptions) {
@@ -40,11 +41,13 @@ export class PreviewSelectList implements Component {
 		this.vi = new ViModal({ onModeChange: opts.onModeChange });
 
 		this.list.onSelectionChange = (item) => {
+			this._selectedItem = item;
 			this.currentPreview = this.previewFn(item);
 			this.previewScrollOffset = 0;
 		};
 
 		if (opts.items.length > 0) {
+			this._selectedItem = opts.items[0];
 			this.currentPreview = this.previewFn(opts.items[0]);
 		}
 	}
@@ -138,6 +141,10 @@ export class PreviewSelectList implements Component {
 	render(width: number): string[] {
 		if (width < 60) {
 			return this.list.render(width);
+		}
+
+		if (this._selectedItem !== undefined) {
+			this.currentPreview = this.previewFn(this._selectedItem);
 		}
 
 		const listWidth = Math.max(20, Math.floor(width * this.listWidthFraction));

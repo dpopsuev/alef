@@ -5,7 +5,7 @@ export interface PickerOptions {
 	title: string;
 	items: SelectItem[];
 	maxVisible?: number;
-	previewFn: (item: SelectItem | undefined) => string[];
+	previewFn: (item: SelectItem | undefined, requestRender?: () => void) => string[];
 	allowFilter?: boolean;
 	listWidthFraction?: number;
 }
@@ -57,7 +57,7 @@ export async function runPicker(opts: PickerOptions): Promise<SelectItem | undef
 					);
 				}
 			},
-			previewFn: opts.previewFn,
+			previewFn: (item) => opts.previewFn(item, () => tui.requestRender()),
 		});
 
 		previewList.onSelect = (item) => {

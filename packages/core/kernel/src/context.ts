@@ -117,3 +117,12 @@ export function injectContextBlock(messages: readonly unknown[], block: string):
 	result.splice(insertAt, 0, { role: "user", content: block });
 	return result;
 }
+
+// Re-exports for ./pipeline subpath consumers
+export type {
+	ContextAssemblyHandler,
+	ContextAssemblyInput,
+	ContextAssemblyOutput,
+	PortCardinality,
+	PortDefinition,
+} from "./adapter/contributions.js";

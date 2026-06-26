@@ -22,9 +22,9 @@
       "default": "./src/trace.ts"
     },
     "./pipeline": {
-      "source": "./src/context-facade.ts",
-      "import": "./src/context-facade.ts",
-      "default": "./src/context-facade.ts"
+      "source": "./src/context.ts",
+      "import": "./src/context.ts",
+      "default": "./src/context.ts"
     },
     "./contributions": {
       "source": "./src/adapter/contributions.ts",

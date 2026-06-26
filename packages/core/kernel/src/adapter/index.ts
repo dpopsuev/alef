@@ -55,7 +55,7 @@ export {
 	type ValidateRequest,
 	type ValidateResult,
 	type Validator,
-} from "../protocols.js";
+} from "../bus/binding.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,

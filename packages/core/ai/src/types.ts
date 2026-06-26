@@ -62,4 +62,3 @@ export type {
 	StopReason,
 	Usage,
 } from "./types/usage.js";
-export type { AssistantMessageEventStream } from "./utils/event-stream.js";

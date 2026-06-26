@@ -13,7 +13,8 @@
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
-import { completeSimple, getEnvApiKey } from "../src/stream.js";
+import { completeSimple } from "../src/stream.js";
+import { getEnvApiKey } from "../src/env-api-keys.js";
 import type { AssistantMessage, Message, Tool, ToolResultMessage } from "../src/types.js";
 import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";

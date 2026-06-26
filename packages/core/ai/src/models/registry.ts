@@ -1,12 +1,12 @@
 import type {
 	Api,
-	AssistantMessageEventStream,
 	Context,
 	Model,
 	SimpleStreamOptions,
 	StreamFunction,
 	StreamOptions,
 } from "../types.js";
+import type { AssistantMessageEventStream } from "../utils/event-stream.js";
 
 export type ApiStreamFunction = (
 	model: Model<Api>,

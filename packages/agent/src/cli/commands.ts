@@ -6,7 +6,7 @@
  * Any other invoker (MCP, HTTP) can dispatch through registry.find(name).
  */
 
-import { getModels, getProviders } from "@dpopsuev/alef-llm";
+import { getModels, getProviders } from "@dpopsuev/alef-llm/models";
 import { type SelectItem, SelectList, type SettingItem, SettingsList } from "@dpopsuev/alef-tui";
 import { getStoredApiKey, removeStoredApiKey, setStoredApiKey } from "../auth.js";
 import { getConfig } from "../config.js";

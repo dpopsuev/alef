@@ -10,7 +10,7 @@ import {
 	detectDrift,
 	type ErrorTensor,
 } from "@dpopsuev/alef-kernel/reconciliation";
-import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
+import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm/types";
 
 /**
  * Payload field names used to extract a human-readable key argument from a

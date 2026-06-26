@@ -1,4 +1,5 @@
-import { streamSimple, type ToolResultMessage, type Usage } from "@dpopsuev/alef-llm";
+import type { ToolResultMessage, Usage } from "@dpopsuev/alef-llm/types";
+import { streamSimple } from "@dpopsuev/alef-llm/stream";
 import { html, LitElement } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
 import type { MessageEditor } from "./MessageEditor.js";

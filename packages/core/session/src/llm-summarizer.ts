@@ -1,5 +1,5 @@
-import type { Api, Model } from "@dpopsuev/alef-llm";
-import { completeSimple } from "@dpopsuev/alef-llm";
+import type { Api, Model } from "@dpopsuev/alef-llm/types";
+import { completeSimple } from "@dpopsuev/alef-llm/stream";
 
 const SUMMARIZATION_SYSTEM_PROMPT =
 	"You are a context summarization assistant. Read the conversation and produce a structured summary. Do NOT continue the conversation.";

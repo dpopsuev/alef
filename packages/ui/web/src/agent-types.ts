@@ -1,4 +1,4 @@
-import type { AssistantMessageEvent, ImageContent, Message, Model, TextContent } from "@dpopsuev/alef-llm";
+import type { AssistantMessageEvent, ImageContent, Message, Model, TextContent } from "@dpopsuev/alef-llm/types";
 import type { Static, TSchema } from "typebox";
 
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";

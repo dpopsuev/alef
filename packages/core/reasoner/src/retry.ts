@@ -1,4 +1,4 @@
-import type { AssistantMessage, Message } from "@dpopsuev/alef-llm";
+import type { AssistantMessage, Message } from "@dpopsuev/alef-llm/types";
 
 function isRetryableError(msg: string | undefined): boolean {
 	if (!msg) return false;

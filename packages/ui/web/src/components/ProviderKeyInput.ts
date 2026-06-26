@@ -1,4 +1,6 @@
-import { type Context, complete, getModel } from "@dpopsuev/alef-llm";
+import type { Context } from "@dpopsuev/alef-llm/types";
+import { getModel } from "@dpopsuev/alef-llm/models";
+import { complete } from "@dpopsuev/alef-llm/stream";
 import { i18n } from "@mariozechner/mini-lit";
 import { Badge } from "@mariozechner/mini-lit/dist/Badge.js";
 import { Button } from "@mariozechner/mini-lit/dist/Button.js";

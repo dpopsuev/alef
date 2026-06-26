@@ -66,7 +66,7 @@ async function runLLMJudge(
 	transcript: TranscriptEvent[],
 	rubric: string,
 ): Promise<{ score: number; reasoning: string }> {
-	const { streamSimple } = await import("@dpopsuev/alef-llm");
+	const { streamSimple } = await import("@dpopsuev/alef-llm/stream");
 	const modelPath = "../../../agent/src/model/index.js";
 	const { autoDetectModel } = await import(/* @vite-ignore */ modelPath).catch(() => ({
 		autoDetectModel: () => undefined as unknown,

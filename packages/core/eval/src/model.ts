@@ -9,7 +9,7 @@
  * Skip: if neither credential is set.
  */
 
-import type { Api, Model } from "@dpopsuev/alef-llm";
+import type { Api, Model } from "@dpopsuev/alef-llm/types";
 
 function hasAnthropicDirect(): boolean {
 	return !!process.env.ANTHROPIC_API_KEY;

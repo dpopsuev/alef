@@ -1,4 +1,4 @@
-import type { Usage } from "@dpopsuev/alef-llm";
+import type { Usage } from "@dpopsuev/alef-llm/types";
 import { i18n } from "@mariozechner/mini-lit";
 
 export function formatCost(cost: number): string {

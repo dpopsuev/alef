@@ -1,4 +1,4 @@
-import type { Model } from "@dpopsuev/alef-llm";
+import type { Model } from "@dpopsuev/alef-llm/types";
 import { Store } from "../store.js";
 import type { StoreConfig } from "../types.js";
 

@@ -1,4 +1,4 @@
-import type { ToolResultMessage } from "@dpopsuev/alef-llm";
+import type { ToolResultMessage } from "@dpopsuev/alef-llm/types";
 import "./javascript-repl.js"; // Auto-registers the renderer
 import "./extract-document.js"; // Auto-registers the renderer
 import { getToolRenderer, registerToolRenderer } from "./renderer-registry.js";

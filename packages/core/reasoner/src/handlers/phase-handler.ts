@@ -1,6 +1,6 @@
 import type { EventHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import type { Message, Tool } from "@dpopsuev/alef-llm";
+import type { Message, Tool } from "@dpopsuev/alef-llm/types";
 import type { z } from "zod";
 
 export type PhaseResult =

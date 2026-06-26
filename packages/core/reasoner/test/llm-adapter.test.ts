@@ -1,8 +1,8 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import type { Context, FauxResponseFactory } from "@dpopsuev/alef-llm";
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm";
+import type { Context } from "@dpopsuev/alef-llm/types";
+import { type FauxResponseFactory, fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm/faux";
 import { afterEach, describe, expect, it } from "vitest";
 import { adapterComplianceSuite, BusFixture, TurnDriver } from "../../testkit/src/index.js";
 import { createAgentLoop } from "../src/index.js";

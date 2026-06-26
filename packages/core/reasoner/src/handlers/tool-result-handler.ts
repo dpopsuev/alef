@@ -1,5 +1,5 @@
 import type { EventMessage } from "@dpopsuev/alef-kernel/bus";
-import type { Message } from "@dpopsuev/alef-llm";
+import type { Message } from "@dpopsuev/alef-llm/types";
 import type { ToolCall } from "../stream-turn.js";
 import { payloadToText } from "../tool-dispatch.js";
 

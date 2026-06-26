@@ -3,15 +3,9 @@
   "version": "0.0.2",
   "description": "Unified LLM API with automatic model discovery and provider configuration",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "main": "./src/types.ts",
+  "types": "./dist/types.d.ts",
   "exports": {
-    ".": {
-      "source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
-    },
     "./anthropic": {
       "types": "./dist/providers/anthropic.d.ts",
       "import": "./dist/providers/anthropic.js"
@@ -51,6 +45,26 @@
     "./bedrock-provider": {
       "types": "./dist/providers/bedrock-provider.d.ts",
       "import": "./dist/providers/bedrock-provider.js"
+    },
+    "./models": {
+      "source": "./src/models.ts",
+      "import": "./src/models.ts",
+      "default": "./src/models.ts"
+    },
+    "./stream": {
+      "source": "./src/stream.ts",
+      "import": "./src/stream.ts",
+      "default": "./src/stream.ts"
+    },
+    "./utils": {
+      "source": "./src/utils/typebox-helpers.ts",
+      "import": "./src/utils/typebox-helpers.ts",
+      "default": "./src/utils/typebox-helpers.ts"
+    },
+    "./env": {
+      "source": "./src/env-api-keys.ts",
+      "import": "./src/env-api-keys.ts",
+      "default": "./src/env-api-keys.ts"
     },
     "./faux": {
       "types": "./src/providers/faux.ts",
@@ -138,6 +152,6 @@
   },
   "alef": {
     "type": "core",
-    "entry": "./src/index.ts"
+    "entry": "./src/types.ts"
   }
 }

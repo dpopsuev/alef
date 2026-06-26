@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 import type { ResponseFunctionCallOutputItemList } from "openai/resources/responses/responses.js";
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
-import type { Api, Context, Model, StreamOptions, Tool, ToolResultMessage } from "../src/index.js";
-import { complete, getModel } from "../src/index.js";
+import { getModel } from "../src/models.js";
+import { complete } from "../src/stream.js";
+import type { Api, Context, Model, StreamOptions, Tool, ToolResultMessage } from "../src/types.js";
 import { hasAzureOpenAICredentials, resolveAzureDeploymentName } from "./azure-utils.js";
 import { resolveApiKey } from "./oauth.js";
 

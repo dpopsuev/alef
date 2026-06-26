@@ -1,5 +1,5 @@
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint";
-import type { Api, Model } from "@dpopsuev/alef-llm";
+import type { Api, Model } from "@dpopsuev/alef-llm/types";
 import type { Agent } from "@dpopsuev/alef-runtime";
 import { buildDelegationStack } from "@dpopsuev/alef-runtime";
 import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";

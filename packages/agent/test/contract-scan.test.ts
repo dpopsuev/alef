@@ -5,8 +5,8 @@
  */
 
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import type { Api, Model } from "@dpopsuev/alef-llm";
-import { registerFauxProvider } from "@dpopsuev/alef-llm";
+import { registerFauxProvider } from "@dpopsuev/alef-llm/faux";
+import type { Api, Model } from "@dpopsuev/alef-llm/types";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import type { Session } from "@dpopsuev/alef-session";
 import { runSchemaContract, runStreamingContract } from "@dpopsuev/alef-testkit";

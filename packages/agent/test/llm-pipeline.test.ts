@@ -13,7 +13,7 @@
 
 import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
+import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm/faux";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import { buildSessionIndex, reconstructTurn, type StorageRecord } from "@dpopsuev/alef-session";

@@ -7,7 +7,7 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
+import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm/faux";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { makeTestDatabase } from "@dpopsuev/alef-storage/sqlite/database";

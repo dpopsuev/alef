@@ -12,7 +12,7 @@
  */
 
 import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint";
-import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
+import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm/types";
 import type { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import type { Logger } from "pino";
 import type { Args } from "../args.js";

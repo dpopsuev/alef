@@ -39,7 +39,8 @@ function findMdFiles(dir: string): string[] {
 }
 
 async function createSessionWithPrompt(adapters: Adapter[], systemPrompt: string) {
-	const { getEnvApiKey, getModel } = await import("../../core/llm/src/index.js");
+	const { getEnvApiKey } = await import("../../core/llm/src/env-api-keys.js");
+	const { getModel } = await import("../../core/llm/src/models.js");
 	const { createAgentLoop } = await import("../../core/reasoner/src/index.js");
 	const { Agent, AgentController, createToolShellAdapter } = await import("../../core/runtime/src/index.js");
 

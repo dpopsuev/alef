@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
-import type { Api, Context, Model, Tool, ToolResultMessage } from "../src/index.js";
-import { complete, getModel } from "../src/index.js";
-import type { StreamOptions } from "../src/types.js";
+import { getModel } from "../src/models.js";
+import { complete } from "../src/stream.js";
+import type { Api, Context, Model, StreamOptions, Tool, ToolResultMessage } from "../src/types.js";
 
 type StreamOptionsWithExtras = StreamOptions & Record<string, unknown>;
 

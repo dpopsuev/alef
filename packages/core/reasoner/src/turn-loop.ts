@@ -1,7 +1,7 @@
 import type { EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { DEFAULT_TOOL_TIMEOUT_MS } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm";
+import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm/types";
 import { buildTools, prepareTurn } from "./handlers/message-handler.js";
 import { applyPhaseResult, runPhase } from "./handlers/phase-handler.js";
 import { publishReply, reportUsage } from "./handlers/response-handler.js";

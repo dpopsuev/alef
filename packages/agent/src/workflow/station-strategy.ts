@@ -1,5 +1,5 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import type { Api, Model } from "@dpopsuev/alef-llm";
+import type { Api, Model } from "@dpopsuev/alef-llm/types";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import {

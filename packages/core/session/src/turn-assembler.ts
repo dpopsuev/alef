@@ -1,4 +1,4 @@
-import type { Message } from "@dpopsuev/alef-llm";
+import type { Message } from "@dpopsuev/alef-llm/types";
 import type { Turn } from "./session-store.js";
 
 export interface ContextWindowPolicy {

@@ -1,4 +1,4 @@
-import type { Api, Model } from "@dpopsuev/alef-llm";
+import type { Api, Model } from "@dpopsuev/alef-llm/types";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { Logger } from "pino";
 import type { Args } from "./args.js";

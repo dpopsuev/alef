@@ -1,15 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import {
-	complete,
-	fauxAssistantMessage,
-	fauxText,
-	fauxThinking,
-	fauxToolCall,
-	registerFauxProvider,
-	stream,
-	Type,
-} from "../src/index.js";
+import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, registerFauxProvider } from "../src/providers/faux.js";
+import { complete, stream } from "../src/stream.js";
 import type { AssistantMessageEvent, Context } from "../src/types.js";
+import { Type } from "typebox";
 
 async function collectEvents(streamResult: ReturnType<typeof stream>): Promise<AssistantMessageEvent[]> {
 	const events: AssistantMessageEvent[] = [];

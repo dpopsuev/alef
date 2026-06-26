@@ -1,6 +1,6 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import type { Api, Model } from "@dpopsuev/alef-llm";
+import type { Api, Model } from "@dpopsuev/alef-llm/types";
 import type { Session } from "@dpopsuev/alef-session";
 import type { SessionStore } from "@dpopsuev/alef-session";
 

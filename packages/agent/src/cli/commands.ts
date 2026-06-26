@@ -222,7 +222,7 @@ const login = {
 			const known = getProviders().slice(0, 8).join(", ");
 			ctx.writer.addNotice(`Usage: :login <provider> <api-key>\nKnown providers: ${known}`);
 		} else {
-			setStoredApiKey(provider, key);
+			void setStoredApiKey(provider, key);
 			ctx.writer.addNotice(`Saved API key for ${provider}. Takes effect on the next message.`);
 		}
 		ctx.tui.requestRender();
@@ -239,7 +239,7 @@ const logout = {
 		} else if (!getStoredApiKey(provider)) {
 			ctx.writer.addNotice(`No stored key for ${provider}.`);
 		} else {
-			removeStoredApiKey(provider);
+			void removeStoredApiKey(provider);
 			ctx.writer.addNotice(`Removed stored key for ${provider}.`);
 		}
 		ctx.tui.requestRender();
@@ -347,8 +347,8 @@ const install = {
 			const pm = await import("../alef-pm.js");
 			pm.init();
 			const [name, version] = spec.split("@");
-			const gen = await pm.install(name, version);
-			ctx.writer.addNotice(`Installed ${spec} (generation ${gen})`);
+			const { generation } = await pm.install(name, version);
+			ctx.writer.addNotice(`Installed ${spec} (generation ${generation})`);
 			ctx.tui.requestRender();
 		});
 	},

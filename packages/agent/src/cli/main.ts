@@ -175,6 +175,11 @@ if (willUseTui) {
 const log = createRunnerLogger(willUseTui, args.debug);
 const storage = await getStorage();
 
+import { setAuthStore, warmAuthCache } from "../auth.js";
+
+setAuthStore(storage.authStore());
+await warmAuthCache();
+
 import type { SessionPreviewProvider } from "@dpopsuev/alef-storage";
 
 const preview: SessionPreviewProvider | undefined =

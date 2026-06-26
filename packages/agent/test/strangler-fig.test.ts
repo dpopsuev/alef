@@ -25,7 +25,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { BlueprintHarness } from "../../core/testkit/src/blueprint-harness.js";
 import { step } from "../../core/testkit/src/script.js";
-import { authFilePath, getStoredApiKey, removeStoredApiKey, resolveApiKey, setStoredApiKey } from "../src/auth.js";
+import { getStoredApiKey, removeStoredApiKey, resolveApiKey, setStoredApiKey } from "../src/auth.js";
 import { autoDetectModel, buildModel } from "../src/model/index.js";
 import { JsonlSessionStore } from "../src/session-store.js";
 import { assembleTurns } from "../src/turn-assembler.js";
@@ -155,13 +155,11 @@ describe("auth.ts — credential storage", () => {
 		}
 	});
 
-	it("auth.json is created with mode 0o600", async () => {
-		setStoredApiKey("groq", "sk-groq");
-		const path = authFilePath();
-		const { statSync } = await import("node:fs");
-		const stat = statSync(path);
-		// mode & 0o777 masks off file type bits
-		expect(stat.mode & 0o777).toBe(0o600);
+	it("stored API keys round-trip via AuthStore", async () => {
+		await setStoredApiKey("groq", "sk-groq");
+		expect(getStoredApiKey("groq")).toBe("sk-groq");
+		await removeStoredApiKey("groq");
+		expect(getStoredApiKey("groq")).toBeUndefined();
 	});
 });
 

@@ -62,6 +62,8 @@ export type { ChildEntry };
 export interface AgentAdapterOptions extends BaseAdapterOptions {
 	cwd?: string;
 	strategies?: Record<string, ExecutionStrategy>;
+	/** Supervisor for service lifecycle. When set, strategy resolution falls through to supervisor before the global registry. */
+	supervisor?: { strategy(name: string): ExecutionStrategy | undefined };
 	/** Subagent factory for ad-hoc sessions with custom adapters/prompt/model. */
 	subagentFactory?: (opts: {
 		adapters: readonly Adapter[];
@@ -271,7 +273,7 @@ export function createAgentAdapter(
 						const task: AsyncTask = { id: taskId, profile, text, status: "running", startedAt: Date.now() };
 						asyncTasks.set(taskId, task);
 
-						const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
+						const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile) ?? strategyRegistry.resolve(profile);
 						if (!strategy) {
 							task.status = "failed";
 							task.error = `unknown profile '${profile}'`;
@@ -365,7 +367,7 @@ export function createAgentAdapter(
 						if (adapterNames && opts.materializeAdapters) {
 							resolvedAdapters = await opts.materializeAdapters(adapterNames);
 						} else {
-							const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
+							const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile) ?? strategyRegistry.resolve(profile);
 							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- strategy duck-typed for optional adapters property
 							resolvedAdapters = (strategy as unknown as { adapters?: Adapter[] }).adapters ?? [];
 						}
@@ -395,7 +397,7 @@ export function createAgentAdapter(
 						return;
 					}
 
-					const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
+					const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile) ?? strategyRegistry.resolve(profile);
 					if (!strategy) {
 						const available = [...new Set([...strategies.keys(), ...strategyRegistry.list()])].join(", ");
 						yield withDisplay(

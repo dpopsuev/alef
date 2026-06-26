@@ -10,7 +10,7 @@ import http from "node:http";
 
 import { adapterComplianceSuite, BusFixture } from "@dpopsuev/alef-testkit/organ";
 import { describe, expect, it } from "vitest";
-import { createRouterAdapter } from "../src/adapter.js";
+import { createRouterAdapter } from "../src/http.js";
 
 adapterComplianceSuite(() => createRouterAdapter({ port: 0, host: "127.0.0.1", triggerEvent: "llm.input" }));
 

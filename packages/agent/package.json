@@ -37,7 +37,6 @@
     "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-coding-agent": "workspace:*",
     "@dpopsuev/alef-factory-agent": "workspace:*",
-    "@dpopsuev/alef-tool-gateway": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-supervisor": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",

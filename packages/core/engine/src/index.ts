@@ -15,3 +15,5 @@ export {
 	type ToolShellOptions,
 } from "./tool-catalog.js";
 export { Agent, type BusObserver } from "./agent.js";
+export { createRouterAdapter, RouterAdapter, type RouterAddress, type RouterOptions } from "./http.js";
+export { EventStream, type BusEvent } from "./sse.js";

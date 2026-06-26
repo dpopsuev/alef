@@ -6,7 +6,7 @@ import {
 	DEFAULT_LLM_TIMEOUT_MS,
 	DEFAULT_STALL_TIMEOUT_MS,
 	DEFAULT_TOOL_TIMEOUT_MS,
-} from "../src/shared/execution.js";
+} from "../src/execution.js";
 
 describe("timeout constants", () => {
 	it("DEFAULT_TOOL_TIMEOUT_MS is 300s (tools need more time than LLM HTTP calls)", () => {

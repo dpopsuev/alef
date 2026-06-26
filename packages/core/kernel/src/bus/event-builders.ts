@@ -1,5 +1,5 @@
 import type { CommandMessage, EventInput } from "./messages.js";
-import { getErrorMessage } from "../shared/errors.js";
+import { getErrorMessage } from "../errors.js";
 
 export function extractToolCallId(payload: Record<string, unknown>): string | undefined {
 	return typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;

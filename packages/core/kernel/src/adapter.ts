@@ -47,7 +47,7 @@ export type {
 export { createCompositeAgentRunContribution } from "./adapter/contributions.js";
 export type { AdapterTheme, UiContribution, UiSignalHandler } from "./adapter/ui.js";
 export { defineAdapter } from "./adapter/framework.js";
-export { getBoolean, getNumber, getString, type SenseDisplayBlock, withDisplay, withLlmContent } from "./shared/payload.js";
+export { getBoolean, getNumber, getString, type SenseDisplayBlock, withDisplay, withLlmContent } from "./payload.js";
 export {
 	type Evaluator,
 	VALIDATE_REQUEST,
@@ -55,7 +55,7 @@ export {
 	type ValidateRequest,
 	type ValidateResult,
 	type Validator,
-} from "./shared/protocols.js";
+} from "./protocols.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -66,4 +66,4 @@ export {
 	truncateHead,
 	truncateLine,
 	truncateTail,
-} from "./shared/truncate.js";
+} from "./truncate.js";

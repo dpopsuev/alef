@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { withDisplay, withLlmContent } from "../src/shared/payload.js";
+import { withDisplay, withLlmContent } from "../src/payload.js";
 
 describe("withLlmContent", { tags: ["unit"] }, () => {
 	it("puts the content string in the 'content' field", () => {

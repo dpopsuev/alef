@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { DomainCondition } from "../shared/reconciliation.js";
+import type { DomainCondition } from "../reconciliation.js";
 
 export interface BusMessage {
 	readonly type: string;

@@ -1,7 +1,7 @@
 import type { Bus, EventMessage } from "./messages.js";
 import { makeBus, newCorrelationId } from "./messages.js";
-import { traceEvent } from "../shared/debug.js";
-import { VALIDATE_REQUEST, VALIDATE_RESULT } from "../shared/protocols.js";
+import { traceEvent } from "../debug.js";
+import { VALIDATE_REQUEST, VALIDATE_RESULT } from "../protocols.js";
 
 export type BindingMode = "ordered" | "parallel-all" | "parallel-first";
 

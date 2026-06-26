@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, truncateLine, truncateTail } from "../src/shared/truncate.js";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, truncateLine, truncateTail } from "../src/truncate.js";
 
 describe("truncateHead", { tags: ["unit"] }, () => {
 	it("returns content unchanged when within limits", () => {

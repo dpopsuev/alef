@@ -37,19 +37,19 @@
       "default": "./src/adapter/ui.ts"
     },
     "./errors": {
-      "source": "./src/shared/errors.ts",
-      "import": "./src/shared/errors.ts",
-      "default": "./src/shared/errors.ts"
+      "source": "./src/errors.ts",
+      "import": "./src/errors.ts",
+      "default": "./src/errors.ts"
     },
     "./execution": {
-      "source": "./src/shared/execution.ts",
-      "import": "./src/shared/execution.ts",
-      "default": "./src/shared/execution.ts"
+      "source": "./src/execution.ts",
+      "import": "./src/execution.ts",
+      "default": "./src/execution.ts"
     },
     "./reconciliation": {
-      "source": "./src/shared/reconciliation.ts",
-      "import": "./src/shared/reconciliation.ts",
-      "default": "./src/shared/reconciliation.ts"
+      "source": "./src/reconciliation.ts",
+      "import": "./src/reconciliation.ts",
+      "default": "./src/reconciliation.ts"
     }
   },
   "files": [

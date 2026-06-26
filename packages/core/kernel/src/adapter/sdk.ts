@@ -2,8 +2,8 @@ import type { ZodTypeAny, z } from "zod";
 import type { ToolDefinition } from "./interface.js";
 import type { AdapterLogger, AdapterOptions, CommandAction, CommandHandlerCtx } from "./framework.js";
 import { typedAction, typedStreamAction } from "./framework.js";
-import { type SenseDisplayBlock, withDisplay } from "../shared/payload.js";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "../shared/truncate.js";
+import { type SenseDisplayBlock, withDisplay } from "../payload.js";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "../truncate.js";
 
 export interface BaseAdapterOptions {
 	cwd?: string;

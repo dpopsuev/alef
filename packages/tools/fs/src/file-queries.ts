@@ -75,6 +75,7 @@ export async function executeLsQuery(input: LsToolInput, options: LsQueryOptions
 
 	signal?.throwIfAborted();
 
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through to "."
 	const dirPath = resolveToCwd(input.path || ".", options.cwd);
 	const effectiveLimit = input.limit ?? DEFAULT_LS_LIMIT;
 	const cacheKey = cache ? makeLsCacheKey({ dirPath, limit: effectiveLimit }) : undefined;

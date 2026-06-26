@@ -111,6 +111,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 
 		void (async () => {
 			try {
+				// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through to "."
 				const searchPath = resolveToCwd(searchDir || ".", options.cwd);
 				const effectiveLimit = limit ?? DEFAULT_FIND_LIMIT;
 				const ops = customOps ?? defaultFindOperations;

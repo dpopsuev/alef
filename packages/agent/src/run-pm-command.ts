@@ -26,6 +26,7 @@ export async function handleSelfUpdate(args: Args): Promise<void> {
 }
 
 export async function runPmCommand(args: Args): Promise<boolean> {
+	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string from CLI args must fall through in boolean chain */
 	const hasPmFlag =
 		args.pmInstall ||
 		args.pmRemove ||
@@ -40,6 +41,7 @@ export async function runPmCommand(args: Args): Promise<boolean> {
 		args.pmAdapterNew !== undefined ||
 		args.pmExport !== undefined ||
 		args.pmImport !== undefined;
+	/* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
 
 	if (!hasPmFlag) return false;
 

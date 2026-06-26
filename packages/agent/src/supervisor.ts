@@ -34,6 +34,7 @@ const exec = promisify(execCb);
 const selfPath = new URL(import.meta.url).pathname;
 const selfExt = selfPath.endsWith(".ts") ? ".ts" : ".js";
 const DEFAULT_GREEN_SCRIPT = join(dirname(selfPath), `cli/main${selfExt}`);
+// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty env var must fall through to default
 const GREEN_SCRIPT = process.env.ALEF_SUPERVISOR_GREEN_SCRIPT || DEFAULT_GREEN_SCRIPT;
 const BUILD_COMMAND = process.env.ALEF_SUPERVISOR_BUILD_COMMAND ?? "";
 const HANDOFF_PATH = process.env.ALEF_SUPERVISOR_HANDOFF_PATH ?? "";

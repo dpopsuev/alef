@@ -56,6 +56,7 @@ function _leanOutput(page: SpideredPage): Record<string, unknown> {
 		bodyLinks: page.links
 			.filter((l: { rel: string }) => l.rel === "body")
 			.map((l: { href: string; text: string }) => ({ href: l.href, text: l.text })),
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- false must coerce to undefined for omitEmpty
 		jsRendered: page.jsRendered || undefined,
 	});
 }

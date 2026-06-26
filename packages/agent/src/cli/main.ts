@@ -189,7 +189,7 @@ const preview: SessionPreviewProvider | undefined =
 const session = await loadSession(args, storage.sessions, willUseTui, pickSession, preview);
 
 // Route debug events into the session JSONL — unified transcript.
-const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel");
+const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel/log");
 initSessionSink((record) => {
 	void session.append({
 		bus: "internal", // debug events stored under the "internal" bus

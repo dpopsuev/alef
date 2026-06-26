@@ -1,5 +1,5 @@
-import type { Bus, EventMessage } from "./buses.js";
-import { makeBus, newCorrelationId } from "./buses.js";
+import type { Bus, EventMessage } from "./messages.js";
+import { makeBus, newCorrelationId } from "./messages.js";
 import { traceEvent } from "./debug.js";
 import { VALIDATE_REQUEST, VALIDATE_RESULT } from "./protocols.js";
 

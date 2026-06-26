@@ -111,7 +111,7 @@ function buildAdapterScaffold(
 	const descLower = description.endsWith(".") ? description.slice(0, -1).toLowerCase() : description.toLowerCase();
 
 	return [
-		`import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel";`,
+		`import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";`,
 		`import { z } from "zod";`,
 		``,
 		`export function createAdapter() {`,

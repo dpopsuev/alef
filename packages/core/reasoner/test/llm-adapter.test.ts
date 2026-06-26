@@ -811,7 +811,7 @@ describe("typedStreamAction — tool-chunk relay to onEvent", { tags: ["unit"] }
 		]);
 
 		const { z } = await import("zod");
-		const { typedStreamAction } = await import("@dpopsuev/alef-kernel");
+		const { typedStreamAction } = await import("@dpopsuev/alef-kernel/adapter");
 
 		// A streaming adapter that yields three intermediate chunks then a final result
 		const streamingOrgan = defineAdapter(

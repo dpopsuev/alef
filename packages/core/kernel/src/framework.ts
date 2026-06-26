@@ -3,7 +3,8 @@ import { createMapCache } from "./adapter-cache.js";
 import { dispatchCommandAction, dispatchEventAction } from "./adapter-dispatch.js";
 import type { ActionMap, AdapterLogger, AdapterOptions, CommandActionMap, EventActionMap } from "./adapter-types.js";
 import { startElapsedTimer, withLimits } from "./budget.js";
-import type { Adapter, Bus, ToolDefinition } from "./buses.js";
+import type { Adapter, ToolDefinition } from "./adapter-interface.js";
+import type { Bus } from "./messages.js";
 
 export type {
 	ActionMap,

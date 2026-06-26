@@ -32,29 +32,20 @@ export type {
 	EventHandlerCtx,
 } from "./adapter-types.js";
 export { typedAction, typedStreamAction } from "./adapter-types.js";
+export type { Adapter, Reasoner, ToolDefinition } from "./adapter-interface.js";
+export { gimpedAdapter, isGimped, passthroughSchema, toolInputToJsonSchema } from "./adapter-interface.js";
 export type {
-	Adapter,
 	AdapterContributions,
-	AdapterTheme,
 	AgentRunContext,
 	PlanUpdateEvent,
 	PortCardinality,
 	PortDefinition,
-	Reasoner,
 	ReasoningContributions,
 	SkillBook,
 	SkillPage,
-	ToolDefinition,
-	UiContribution,
-	UiSignalHandler,
-} from "./buses.js";
-export {
-	createCompositeAgentRunContribution,
-	gimpedAdapter,
-	isGimped,
-	passthroughSchema,
-	toolInputToJsonSchema,
-} from "./buses.js";
+} from "./contributions.js";
+export { createCompositeAgentRunContribution } from "./contributions.js";
+export type { AdapterTheme, UiContribution, UiSignalHandler } from "./ui-types.js";
 export { defineAdapter } from "./framework.js";
 export { getBoolean, getNumber, getString, type SenseDisplayBlock, withDisplay, withLlmContent } from "./payload.js";
 export {

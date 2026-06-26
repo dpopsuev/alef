@@ -1,6 +1,7 @@
 import type { ZodTypeAny, z } from "zod";
 import type { Budget } from "./budget.js";
-import type { Bus, BusMiddleware, ToolDefinition } from "./buses.js";
+import type { Bus, BusMiddleware } from "./messages.js";
+import type { ToolDefinition } from "./adapter-interface.js";
 
 export interface AdapterLogger {
 	debug(obj: Record<string, unknown>, msg: string): void;
@@ -77,7 +78,8 @@ export interface ChannelActionTypes {
 
 export type ActionMap = { [K in ChannelName]?: Record<string, ChannelActionTypes[K]> };
 
-import type { AdapterContributions, ChannelMap, ChannelName, SkillBook } from "./buses.js";
+import type { AdapterContributions, SkillBook } from "./contributions.js";
+import type { ChannelMap, ChannelName } from "./messages.js";
 
 export interface AdapterOptions {
 	logger?: AdapterLogger;

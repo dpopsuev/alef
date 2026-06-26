@@ -77,7 +77,7 @@ describe("adapter dev loop via supervisor", { tags: ["e2e"] }, () => {
 		writeFileSync(
 			adapterPath,
 			`
-import { defineAdapter } from "@dpopsuev/alef-kernel";
+import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
 import { z } from "zod";
 
 export function createOrgan() {

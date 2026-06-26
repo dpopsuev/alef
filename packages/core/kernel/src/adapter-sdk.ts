@@ -1,5 +1,5 @@
 import type { ZodTypeAny, z } from "zod";
-import type { ToolDefinition } from "./buses.js";
+import type { ToolDefinition } from "./adapter-interface.js";
 import type { AdapterLogger, AdapterOptions, CommandAction, CommandHandlerCtx } from "./framework.js";
 import { typedAction, typedStreamAction } from "./framework.js";
 import { type SenseDisplayBlock, withDisplay } from "./payload.js";

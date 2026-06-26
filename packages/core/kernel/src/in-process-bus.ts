@@ -6,8 +6,8 @@ import type {
 	ChannelInput,
 	ChannelName,
 	CommandMessage,
-} from "./buses.js";
-import { makeBus } from "./buses.js";
+} from "./messages.js";
+import { makeBus } from "./messages.js";
 import { extractToolCallId } from "./event-builders.js";
 import { Watchdog } from "./watchdog.js";
 

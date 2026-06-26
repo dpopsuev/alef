@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { EventMessage } from "../src/buses.js";
+import type { EventMessage } from "../src/messages.js";
 import type { CommandHandlerCtx } from "../src/framework.js";
 import { defineAdapter } from "../src/framework.js";
 import { InProcessBus } from "../src/in-process-bus.js";

@@ -201,7 +201,7 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 		adapter.mount(n);
 
 		// Collect event messages published on the "net.slow_fail" channel.
-		const eventMessages: import("@dpopsuev/alef-kernel").EventMessage[] = [];
+		const eventMessages: import("@dpopsuev/alef-kernel/bus").EventMessage[] = [];
 		n.event.subscribe("net.slow_fail", (e) => {
 			eventMessages.push(e);
 		});
@@ -234,7 +234,7 @@ describe("async MCP execute error handling — regression ", { tags: ["unit"] },
 		const n = bus.asBus();
 		adapter.mount(n);
 
-		const eventMessages: import("@dpopsuev/alef-kernel").EventMessage[] = [];
+		const eventMessages: import("@dpopsuev/alef-kernel/bus").EventMessage[] = [];
 		n.event.subscribe("net.sync_fail", (e) => {
 			eventMessages.push(e);
 		});

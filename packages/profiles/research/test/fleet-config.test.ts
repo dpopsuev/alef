@@ -63,7 +63,7 @@ describe("research agent fleet config", { tags: ["unit"] }, () => {
 			},
 		}, stubMcp);
 
-		const { InProcessBus } = await import("@dpopsuev/alef-kernel");
+		const { InProcessBus } = await import("@dpopsuev/alef-kernel/bus");
 		const nerve = new InProcessBus();
 		await expect(supervisor.start(nerve.asBus())).rejects.toThrow("Circular dependency");
 	});

@@ -185,7 +185,7 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 		return { book: bookName, pageCount: book.pages.length, instructions };
 	}
 
-	const agentRunContribution: import("@dpopsuev/alef-kernel").AgentRunContribution = {
+	const agentRunContribution: import("@dpopsuev/alef-kernel/contributions").AgentRunContribution = {
 		schema: {
 			playbook: z
 				.string()

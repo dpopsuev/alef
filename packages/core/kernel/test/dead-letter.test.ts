@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type EventMessage, newCorrelationId } from "../src/buses.js";
+import { type EventMessage, newCorrelationId } from "../src/messages.js";
 import { InProcessBus } from "../src/in-process-bus.js";
 
 describe("dead letter detection", { tags: ["unit"] }, () => {

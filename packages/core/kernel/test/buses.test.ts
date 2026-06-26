@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { type BusMessage, newCorrelationId } from "../src/buses.js";
+import { type BusMessage, newCorrelationId } from "../src/messages.js";
 import { InProcessBus } from "../src/in-process-bus.js";
 
 // ---------------------------------------------------------------------------
 // Register test event schemas via module augmentation.
 // ---------------------------------------------------------------------------
 
-declare module "../src/buses.js" {
+declare module "../src/messages.js" {
 	interface CommandMessageRegistry {
 		"test.command": { value: string };
 		"test.tool_call": { toolName: string; args: Record<string, unknown> };

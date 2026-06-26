@@ -290,7 +290,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		disposes.push(() => outerFaux.unregister());
 
 		const stubStrategy = {
-			async send({ text, onChunk }: import("@dpopsuev/alef-kernel").SendRequest) {
+			async send({ text, onChunk }: import("@dpopsuev/alef-kernel/execution").SendRequest) {
 				await new Promise<void>((r) => setTimeout(r, 20));
 				onChunk?.(`chunk-for:${text}`);
 				return `done:${text}`;
@@ -363,7 +363,7 @@ describe("agent.run delegation — parallel isolation", { tags: ["e2e"] }, () =>
 		// Instead: emits one chunk immediately so the outer adapter-llm sees activity.
 		// The key assertion is that each chunk's callId matches the call that produced it.
 		const identityStrategy = {
-			async send({ text, onChunk }: import("@dpopsuev/alef-kernel").SendRequest) {
+			async send({ text, onChunk }: import("@dpopsuev/alef-kernel/execution").SendRequest) {
 				onChunk?.(`ident:${text}`);
 				return `done:${text}`;
 			},

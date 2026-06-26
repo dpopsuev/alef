@@ -27,8 +27,8 @@ export type {
 	NotificationHandler,
 	NotificationInput,
 	NotificationMessage,
-} from "./buses.js";
-export { CHANNEL, makeBus, newCorrelationId } from "./buses.js";
+} from "./messages.js";
+export { CHANNEL, makeBus, newCorrelationId } from "./messages.js";
 export {
 	buildErrSense,
 	buildErrSense as buildErrorResult,

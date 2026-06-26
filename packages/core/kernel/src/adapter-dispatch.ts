@@ -4,7 +4,7 @@ import type { AccessPolicy } from "./access-policy.js";
 import type { CacheStrategy } from "./adapter-cache.js";
 import { makeCacheKey } from "./adapter-cache.js";
 import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, EventHandlerCtx } from "./adapter-types.js";
-import type { Bus, CommandMessage, EventMessage } from "./buses.js";
+import type { Bus, CommandMessage, EventMessage } from "./messages.js";
 import { traceEvent } from "./debug.js";
 import { buildErrorResult, buildEventResult, extractToolCallId, toErrorMessage } from "./event-builders.js";
 

@@ -8,7 +8,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { AdapterContributions, AdapterTheme } from "../src/index.js";
+import type { AdapterContributions } from "../src/contributions.js";
+import type { AdapterTheme } from "../src/ui-types.js";
 
 describe("AdapterTheme — abstract semantic colour interface", { tags: ["unit"] }, () => {
 	it("fg produces a styled string", () => {

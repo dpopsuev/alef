@@ -1,4 +1,4 @@
-import type { CommandMessage, EventInput } from "./buses.js";
+import type { CommandMessage, EventInput } from "./messages.js";
 import { getErrorMessage } from "./errors.js";
 
 export function extractToolCallId(payload: Record<string, unknown>): string | undefined {

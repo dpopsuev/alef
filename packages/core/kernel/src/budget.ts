@@ -1,5 +1,5 @@
-import type { Bus, BusMiddleware } from "./buses.js";
-import { makeBus } from "./buses.js";
+import type { Bus, BusMiddleware } from "./messages.js";
+import { makeBus } from "./messages.js";
 
 export interface Budget {
 	maxToolCalls?: number;

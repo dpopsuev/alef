@@ -1,12 +1,6 @@
-import type {
-	Adapter,
-	Bus,
-	CommandMessage,
-	ContextAssemblyHandler,
-	EventMessage,
-	PipelineContributions,
-	ToolDefinition,
-} from "./buses.js";
+import type { Adapter, ToolDefinition } from "./adapter-interface.js";
+import type { ContextAssemblyHandler, PipelineContributions } from "./contributions.js";
+import type { Bus, CommandMessage, EventMessage } from "./messages.js";
 
 export function createContextAssemblyPipeline(): Adapter & {
 	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;

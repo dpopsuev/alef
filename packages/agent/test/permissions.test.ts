@@ -8,7 +8,7 @@ import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
 import { parseArgs } from "../src/args.js";
 
-declare module "@dpopsuev/alef-kernel" {
+declare module "@dpopsuev/alef-kernel/bus" {
 	interface CommandMessageRegistry {
 		"fs.read": { path: string; toolCallId: string };
 		"fs.write": { path: string; content: string; toolCallId: string };
@@ -53,7 +53,7 @@ function makePassthroughAdapter(name: string): Adapter {
 }
 
 function waitSense(bus: InProcessBus, type: string, correlationId: string) {
-	return new Promise<import("@dpopsuev/alef-kernel").EventMessage>((resolve) => {
+	return new Promise<import("@dpopsuev/alef-kernel/bus").EventMessage>((resolve) => {
 		const off = bus.asBus().event.subscribe(type, (e) => {
 			if (e.correlationId === correlationId) {
 				off();

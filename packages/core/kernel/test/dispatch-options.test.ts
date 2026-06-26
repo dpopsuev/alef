@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AccessDecision, AccessPolicy } from "../src/access-policy.js";
 import { createMapCache } from "../src/adapter-cache.js";
 import { dispatchCommandAction } from "../src/adapter-dispatch.js";
-import type { CommandMessage, EventMessage } from "../src/buses.js";
+import type { CommandMessage, EventMessage } from "../src/messages.js";
 import { InProcessBus } from "../src/in-process-bus.js";
 
 function makeBus() {

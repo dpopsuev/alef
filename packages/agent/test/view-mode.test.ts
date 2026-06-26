@@ -94,7 +94,7 @@ interface AgentSession {
 	dispose(): void;
 }
 
-function makeAgentSession(extraAdapters: import("@dpopsuev/alef-kernel").Adapter[] = []): AgentSession {
+function makeAgentSession(extraAdapters: import("@dpopsuev/alef-kernel/adapter").Adapter[] = []): AgentSession {
 	const faux = registerFauxProvider();
 	const agent = new Agent();
 	let lastReply = "";

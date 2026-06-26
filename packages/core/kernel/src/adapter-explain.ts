@@ -1,4 +1,4 @@
-import type { Adapter } from "./buses.js";
+import type { Adapter } from "./adapter-interface.js";
 
 export function explainAdapter(adapter: Adapter): string {
 	const lines: string[] = [];

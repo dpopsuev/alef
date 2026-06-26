@@ -3,18 +3,18 @@
   "version": "0.0.2",
   "description": "Canonical EDA bus, framework, and port registry for Alef organs",
   "type": "module",
-  "main": "./src/adapter.ts",
+  "main": "./src/adapter/index.ts",
   "types": "./dist/adapter.d.ts",
   "exports": {
     "./adapter": {
-      "source": "./src/adapter.ts",
-      "import": "./src/adapter.ts",
-      "default": "./src/adapter.ts"
+      "source": "./src/adapter/index.ts",
+      "import": "./src/adapter/index.ts",
+      "default": "./src/adapter/index.ts"
     },
     "./bus": {
-      "source": "./src/bus.ts",
-      "import": "./src/bus.ts",
-      "default": "./src/bus.ts"
+      "source": "./src/bus/index.ts",
+      "import": "./src/bus/index.ts",
+      "default": "./src/bus/index.ts"
     },
     "./log": {
       "source": "./src/log.ts",
@@ -96,6 +96,6 @@
   },
   "alef": {
     "type": "core",
-    "entry": "./src/adapter.ts"
+    "entry": "./src/adapter/index.ts"
   }
 }

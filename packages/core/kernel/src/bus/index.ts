@@ -6,7 +6,7 @@ export {
 	executeBindingChain,
 	registerBindingStrategy,
 	withBindings,
-} from "./bus/binding.js";
+} from "./binding.js";
 export type {
 	AgentBus,
 	Bus,
@@ -27,8 +27,8 @@ export type {
 	NotificationHandler,
 	NotificationInput,
 	NotificationMessage,
-} from "./bus/messages.js";
-export { CHANNEL, makeBus, newCorrelationId } from "./bus/messages.js";
+} from "./messages.js";
+export { CHANNEL, makeBus, newCorrelationId } from "./messages.js";
 export {
 	buildErrSense,
 	buildErrSense as buildErrorResult,
@@ -36,6 +36,6 @@ export {
 	buildSense as buildEventResult,
 	extractToolCallId,
 	toErrorMessage,
-} from "./bus/event-builders.js";
-export { InProcessBus, InProcessBus as InProcessNerve, type WatchdogOptions } from "./bus/in-process-bus.js";
-export { Watchdog } from "./bus/watchdog.js";
+} from "./event-builders.js";
+export { InProcessBus, InProcessBus as InProcessNerve, type WatchdogOptions } from "./in-process-bus.js";
+export { Watchdog } from "./watchdog.js";

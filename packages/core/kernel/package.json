@@ -32,6 +32,16 @@
       "import": "./src/pipeline.ts",
       "default": "./src/pipeline.ts"
     },
+    "./contributions": {
+      "source": "./src/contributions.ts",
+      "import": "./src/contributions.ts",
+      "default": "./src/contributions.ts"
+    },
+    "./ui": {
+      "source": "./src/ui-types.ts",
+      "import": "./src/ui-types.ts",
+      "default": "./src/ui-types.ts"
+    },
     "./errors": {
       "source": "./src/errors.ts",
       "import": "./src/errors.ts",

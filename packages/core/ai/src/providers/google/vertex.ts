@@ -7,7 +7,7 @@ import {
 	type ThinkingConfig,
 	ThinkingLevel,
 } from "@google/genai";
-import { calculateCost, clampThinkingLevel } from "../models/llm.js";
+import { calculateCost, clampThinkingLevel } from "../../models/llm.js";
 import type {
 	Api,
 	AssistantMessage,
@@ -21,10 +21,10 @@ import type {
 	ThinkingBudgets,
 	ThinkingContent,
 	ToolCall,
-} from "../types.js";
-import { AssistantMessageEventStream } from "../utils/event-stream.js";
-import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
-import type { GoogleThinkingLevel } from "./google-shared.js";
+} from "../../types.js";
+import { AssistantMessageEventStream } from "../../utils/event-stream.js";
+import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
+import type { GoogleThinkingLevel } from "./shared.js";
 import {
 	convertMessages,
 	convertTools,
@@ -32,8 +32,8 @@ import {
 	mapStopReason,
 	mapToolChoice,
 	retainThoughtSignature,
-} from "./google-shared.js";
-import { buildBaseOptions } from "./simple-options.js";
+} from "./shared.js";
+import { buildBaseOptions } from "../simple-options.js";
 
 export interface GoogleVertexOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "any";

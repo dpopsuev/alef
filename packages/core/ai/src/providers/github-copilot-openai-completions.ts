@@ -14,10 +14,8 @@
 
 import type { AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";
 import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copilot-headers.js";
-import type { OpenAICompletionsOptions } from "./openai-completions.js";
-import { streamOpenAICompletions, streamSimpleOpenAICompletions } from "./openai-completions.js";
-
-export { matchesGitHubCopilot } from "./github-copilot-match.js";
+import type { OpenAICompletionsOptions } from "./openai/completions.js";
+import { streamOpenAICompletions, streamSimpleOpenAICompletions } from "./openai/completions.js";
 
 export const streamGitHubCopilotCompletions = (
 	model: Model<"openai-completions">,

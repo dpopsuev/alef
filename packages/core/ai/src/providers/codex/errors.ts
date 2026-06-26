@@ -1,6 +1,6 @@
 import type { ResponseStreamEvent } from "openai/resources/responses/responses.js";
 
-import { formatThrownValue } from "../utils/diagnostics.js";
+import { formatThrownValue } from "../../utils/diagnostics.js";
 
 // ============================================================================
 // Configuration

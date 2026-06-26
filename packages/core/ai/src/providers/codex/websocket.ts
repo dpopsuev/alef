@@ -1,8 +1,8 @@
-import { registerSessionResourceCleanup } from "../session-resources.js";
-import { formatThrownValue } from "../utils/diagnostics.js";
-import { headersToRecord } from "../utils/headers.js";
-import { CodexProtocolError } from "./openai-codex-errors.js";
-import type { RequestBody } from "./openai-codex-request.js";
+import { registerSessionResourceCleanup } from "../../session-resources.js";
+import { formatThrownValue } from "../../utils/diagnostics.js";
+import { headersToRecord } from "../../utils/headers.js";
+import { CodexProtocolError } from "./errors.js";
+import type { RequestBody } from "./request.js";
 
 // ============================================================================
 // Configuration

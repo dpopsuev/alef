@@ -4,8 +4,8 @@ import type {
 	ResponseStreamEvent,
 } from "openai/resources/responses/responses.js";
 
-import { getEnvApiKey } from "../env-api-keys.js";
-import { clampThinkingLevel } from "../models/llm.js";
+import { getEnvApiKey } from "../../env-api-keys.js";
+import { clampThinkingLevel } from "../../models/llm.js";
 import type {
 	Api,
 	AssistantMessage,
@@ -14,15 +14,15 @@ import type {
 	SimpleStreamOptions,
 	StreamFunction,
 	StreamOptions,
-} from "../types.js";
+} from "../../types.js";
 import {
 	appendAssistantMessageDiagnostic,
 	createAssistantMessageDiagnostic,
-} from "../utils/diagnostics.js";
-import { AssistantMessageEventStream } from "../utils/event-stream.js";
-import { headersToRecord } from "../utils/headers.js";
-import { convertResponsesMessages, processResponsesStream } from "./openai-responses-shared.js";
-import { buildBaseOptions } from "./simple-options.js";
+} from "../../utils/diagnostics.js";
+import { AssistantMessageEventStream } from "../../utils/event-stream.js";
+import { headersToRecord } from "../../utils/headers.js";
+import { convertResponsesMessages, processResponsesStream } from "../openai/responses-shared.js";
+import { buildBaseOptions } from "../simple-options.js";
 
 // --- Extracted helpers ---
 import {
@@ -34,7 +34,7 @@ import {
 	mapCodexEvents,
 	MAX_RETRIES,
 	BASE_DELAY_MS,
-} from "./openai-codex-errors.js";
+} from "./errors.js";
 import {
 	extractAccountId,
 	createCodexRequestId,
@@ -46,8 +46,8 @@ import {
 	resolveCodexServiceTier,
 	buildRequestBody,
 	CODEX_TOOL_CALL_PROVIDERS,
-} from "./openai-codex-request.js";
-import type { RequestBody } from "./openai-codex-request.js";
+} from "./request.js";
+import type { RequestBody } from "./request.js";
 import {
 	acquireWebSocket,
 	parseWebSocket,
@@ -58,11 +58,11 @@ import {
 	closeOpenAICodexWebSocketSessions,
 	getOpenAICodexWebSocketDebugStats,
 	resetOpenAICodexWebSocketDebugStats,
-} from "./openai-codex-websocket.js";
+} from "./websocket.js";
 import type {
 	CachedWebSocketConnection,
 	CachedWebSocketContinuationState,
-} from "./openai-codex-websocket.js";
+} from "./websocket.js";
 
 // ============================================================================
 // Types
@@ -80,9 +80,9 @@ export {
 	getOpenAICodexWebSocketDebugStats,
 	resetOpenAICodexWebSocketDebugStats,
 	closeOpenAICodexWebSocketSessions,
-} from "./openai-codex-websocket.js";
+} from "./websocket.js";
 
-export type { OpenAICodexWebSocketDebugStats } from "./openai-codex-websocket.js";
+export type { OpenAICodexWebSocketDebugStats } from "./websocket.js";
 
 // ============================================================================
 // Main Stream Function

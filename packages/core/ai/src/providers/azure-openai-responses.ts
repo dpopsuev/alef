@@ -13,7 +13,7 @@ import type {
 } from "../types.js";
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { headersToRecord } from "../utils/headers.js";
-import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./openai-responses-shared.js";
+import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./openai/responses-shared.js";
 import { buildBaseOptions } from "./simple-options.js";
 
 const DEFAULT_AZURE_API_VERSION = "v1";

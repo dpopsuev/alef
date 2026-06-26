@@ -1,6 +1,6 @@
 import type { ChatCompletionChunk } from "openai/resources/chat/completions.js";
-import { calculateCost } from "../models/llm.js";
-import type { AssistantMessage, Model, StopReason } from "../types.js";
+import { calculateCost } from "../../models/llm.js";
+import type { AssistantMessage, Model, StopReason } from "../../types.js";
 
 export function mapStopReason(reason: ChatCompletionChunk.Choice["finish_reason"] | string): {
 	stopReason: StopReason;

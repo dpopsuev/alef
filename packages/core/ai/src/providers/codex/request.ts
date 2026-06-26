@@ -5,8 +5,8 @@ import type {
 	ResponseInput,
 } from "openai/resources/responses/responses.js";
 
-import type { Context, Model, StreamOptions, Usage } from "../types.js";
-import { convertResponsesMessages, convertResponsesTools } from "./openai-responses-shared.js";
+import type { Context, Model, StreamOptions, Usage } from "../../types.js";
+import { convertResponsesMessages, convertResponsesTools } from "../openai/responses-shared.js";
 
 // NEVER convert to top-level runtime imports - breaks browser/Vite builds (web-ui)
 let _os: typeof NodeOs | null = null;

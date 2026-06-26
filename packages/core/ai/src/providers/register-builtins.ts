@@ -12,15 +12,27 @@ import type {
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import type { BedrockOptions } from "./amazon-bedrock.js";
 import type { AnthropicOptions } from "./anthropic.js";
-import { matchesAnthropicVertex } from "./anthropic-vertex-match.js";
 import type { AzureOpenAIResponsesOptions } from "./azure-openai-responses.js";
-import { matchesGitHubCopilot } from "./github-copilot-match.js";
-import type { GoogleOptions } from "./google.js";
-import type { GoogleVertexOptions } from "./google-vertex.js";
+import type { GoogleOptions } from "./google/google.js";
+import type { GoogleVertexOptions } from "./google/vertex.js";
 import type { MistralOptions } from "./mistral.js";
-import type { OpenAICodexResponsesOptions } from "./openai-codex-responses.js";
-import type { OpenAICompletionsOptions } from "./openai-completions.js";
-import type { OpenAIResponsesOptions } from "./openai-responses.js";
+import type { OpenAICodexResponsesOptions } from "./codex/responses.js";
+
+function matchesAnthropicVertex(model: Model<Api>): boolean {
+	if (typeof process === "undefined") return false;
+	const projectId =
+		process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ??
+		process.env.GOOGLE_CLOUD_PROJECT?.trim() ??
+		process.env.GCLOUD_PROJECT?.trim();
+	const region = process.env.CLOUD_ML_REGION?.trim() ?? process.env.GOOGLE_CLOUD_LOCATION?.trim();
+	return model.provider === "anthropic" && Boolean(projectId && region);
+}
+
+function matchesGitHubCopilot(model: Model<Api>): boolean {
+	return model.provider === "github-copilot";
+}
+import type { OpenAICompletionsOptions } from "./openai/completions.js";
+import type { OpenAIResponsesOptions } from "./openai/responses.js";
 
 interface LazyProviderModule<
 	TApi extends Api,
@@ -95,14 +107,14 @@ const loadAzureOpenAIResponsesProviderModule = memoize(() =>
 );
 
 const loadGoogleProviderModule = memoize(() =>
-	import("./google.js").then((m) => ({
+	import("./google/google.js").then((m) => ({
 		stream: m.streamGoogle as StreamFunction<"google-generative-ai", GoogleOptions>,
 		streamSimple: m.streamSimpleGoogle as StreamFunction<"google-generative-ai", SimpleStreamOptions>,
 	})),
 );
 
 const loadGoogleVertexProviderModule = memoize(() =>
-	import("./google-vertex.js").then((m) => ({
+	import("./google/vertex.js").then((m) => ({
 		stream: m.streamGoogleVertex as StreamFunction<"google-vertex", GoogleVertexOptions>,
 		streamSimple: m.streamSimpleGoogleVertex as StreamFunction<"google-vertex", SimpleStreamOptions>,
 	})),
@@ -116,21 +128,21 @@ const loadMistralProviderModule = memoize(() =>
 );
 
 const loadOpenAICodexResponsesProviderModule = memoize(() =>
-	import("./openai-codex-responses.js").then((m) => ({
+	import("./codex/responses.js").then((m) => ({
 		stream: m.streamOpenAICodexResponses as StreamFunction<"openai-codex-responses", OpenAICodexResponsesOptions>,
 		streamSimple: m.streamSimpleOpenAICodexResponses as StreamFunction<"openai-codex-responses", SimpleStreamOptions>,
 	})),
 );
 
 const loadOpenAICompletionsProviderModule = memoize(() =>
-	import("./openai-completions.js").then((m) => ({
+	import("./openai/completions.js").then((m) => ({
 		stream: m.streamOpenAICompletions as StreamFunction<"openai-completions", OpenAICompletionsOptions>,
 		streamSimple: m.streamSimpleOpenAICompletions as StreamFunction<"openai-completions", SimpleStreamOptions>,
 	})),
 );
 
 const loadOpenAIResponsesProviderModule = memoize(() =>
-	import("./openai-responses.js").then((m) => ({
+	import("./openai/responses.js").then((m) => ({
 		stream: m.streamOpenAIResponses as StreamFunction<"openai-responses", OpenAIResponsesOptions>,
 		streamSimple: m.streamSimpleOpenAIResponses as StreamFunction<"openai-responses", SimpleStreamOptions>,
 	})),

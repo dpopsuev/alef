@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletionChunk } from "openai/resources/chat/completions.js";
-import { getEnvApiKey } from "../env-api-keys.js";
-import { clampThinkingLevel } from "../models/llm.js";
+import { getEnvApiKey } from "../../env-api-keys.js";
+import { clampThinkingLevel } from "../../models/llm.js";
 import type {
 	AssistantMessage,
 	CacheRetention,
@@ -13,16 +13,16 @@ import type {
 	TextContent,
 	ThinkingContent,
 	ToolCall,
-} from "../types.js";
-import { AssistantMessageEventStream } from "../utils/event-stream.js";
-import { headersToRecord } from "../utils/headers.js";
-import { parseStreamingJson } from "../utils/json-parse.js";
-import { isCloudflareProvider, resolveCloudflareBaseUrl } from "./cloudflare.js";
+} from "../../types.js";
+import { AssistantMessageEventStream } from "../../utils/event-stream.js";
+import { headersToRecord } from "../../utils/headers.js";
+import { parseStreamingJson } from "../../utils/json-parse.js";
+import { isCloudflareProvider, resolveCloudflareBaseUrl } from "../cloudflare.js";
 
-import { buildBaseOptions } from "./simple-options.js";
+import { buildBaseOptions } from "../simple-options.js";
 
-import type { ResolvedOpenAICompletionsCompat } from "./openai-completions-compat.js";
-import { getCompat } from "./openai-completions-compat.js";
+import type { ResolvedOpenAICompletionsCompat } from "./completions-compat.js";
+import { getCompat } from "./completions-compat.js";
 import {
 	applyAnthropicCacheControl,
 	convertMessages,
@@ -30,10 +30,10 @@ import {
 	getCompatCacheControl,
 	hasToolHistory,
 	resolveCacheRetention,
-} from "./openai-completions-messages.js";
-import { mapStopReason, parseChunkUsage } from "./openai-completions-state.js";
+} from "./completions-messages.js";
+import { mapStopReason, parseChunkUsage } from "./completions-state.js";
 
-export type { ResolvedOpenAICompletionsCompat } from "./openai-completions-compat.js";
+export type { ResolvedOpenAICompletionsCompat } from "./completions-compat.js";
 
 export interface OpenAICompletionsOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "required" | { type: "function"; function: { name: string } };

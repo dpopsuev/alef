@@ -15,36 +15,36 @@
       "import": "./dist/providers/azure-openai-responses.js"
     },
     "./google": {
-      "types": "./dist/providers/google.d.ts",
-      "import": "./dist/providers/google.js"
+      "types": "./dist/providers/google/google.d.ts",
+      "import": "./dist/providers/google/google.js"
     },
     "./google-vertex": {
-      "types": "./dist/providers/google-vertex.d.ts",
-      "import": "./dist/providers/google-vertex.js"
+      "types": "./dist/providers/google/vertex.d.ts",
+      "import": "./dist/providers/google/vertex.js"
     },
     "./mistral": {
       "types": "./dist/providers/mistral.d.ts",
       "import": "./dist/providers/mistral.js"
     },
     "./openai-codex-responses": {
-      "types": "./dist/providers/openai-codex-responses.d.ts",
-      "import": "./dist/providers/openai-codex-responses.js"
+      "types": "./dist/providers/codex/responses.d.ts",
+      "import": "./dist/providers/codex/responses.js"
     },
     "./openai-completions": {
-      "types": "./dist/providers/openai-completions.d.ts",
-      "import": "./dist/providers/openai-completions.js"
+      "types": "./dist/providers/openai/completions.d.ts",
+      "import": "./dist/providers/openai/completions.js"
     },
     "./openai-responses": {
-      "types": "./dist/providers/openai-responses.d.ts",
-      "import": "./dist/providers/openai-responses.js"
+      "types": "./dist/providers/openai/responses.d.ts",
+      "import": "./dist/providers/openai/responses.js"
     },
     "./oauth": {
       "types": "./dist/utils/oauth/index.d.ts",
       "import": "./dist/utils/oauth/index.js"
     },
     "./bedrock-provider": {
-      "types": "./dist/providers/bedrock-provider.d.ts",
-      "import": "./dist/providers/bedrock-provider.js"
+      "types": "./dist/providers/amazon-bedrock.d.ts",
+      "import": "./dist/providers/amazon-bedrock.js"
     },
     "./models": {
       "source": "./src/models/llm.ts",

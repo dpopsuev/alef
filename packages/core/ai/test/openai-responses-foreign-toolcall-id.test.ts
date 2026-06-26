@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getModel } from "../src/models/llm.js";
-import { convertResponsesMessages } from "../src/providers/openai-responses-shared.js";
+import { convertResponsesMessages } from "../src/providers/openai/responses-shared.js";
 import type { AssistantMessage, Context, ToolResultMessage, Usage } from "../src/types.js";
 import { shortHash } from "../src/utils/hash.js";
 

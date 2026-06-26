@@ -281,7 +281,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 
 			let capturedPayload: any = null;
 
-			const { streamOpenAIResponses } = await import("../src/providers/openai-responses.js");
+			const { streamOpenAIResponses } = await import("../src/providers/openai/responses.js");
 
 			try {
 				const s = streamOpenAIResponses(proxyModel, context, {
@@ -310,7 +310,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			};
 			let capturedPayload: any = null;
 
-			const { streamOpenAIResponses } = await import("../src/providers/openai-responses.js");
+			const { streamOpenAIResponses } = await import("../src/providers/openai/responses.js");
 
 			try {
 				const s = streamOpenAIResponses(model, context, {
@@ -337,7 +337,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			const model = getModel("openai", "gpt-4o-mini");
 			let capturedPayload: any = null;
 
-			const { streamOpenAIResponses } = await import("../src/providers/openai-responses.js");
+			const { streamOpenAIResponses } = await import("../src/providers/openai/responses.js");
 
 			try {
 				const s = streamOpenAIResponses(model, context, {
@@ -365,7 +365,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 			const model = getModel("openai", "gpt-4o-mini");
 			let capturedPayload: any = null;
 
-			const { streamOpenAIResponses } = await import("../src/providers/openai-responses.js");
+			const { streamOpenAIResponses } = await import("../src/providers/openai/responses.js");
 
 			try {
 				const s = streamOpenAIResponses(model, context, {
@@ -409,7 +409,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 
 		it("should set prompt_cache_retention for non-api.openai.com baseUrl by default", async () => {
 			let capturedPayload: any = null;
-			const { streamOpenAICompletions } = await import("../src/providers/openai-completions.js");
+			const { streamOpenAICompletions } = await import("../src/providers/openai/completions.js");
 
 			try {
 				const s = streamOpenAICompletions(createCompletionsModel(), context, {
@@ -435,7 +435,7 @@ describe("Cache Retention (ALEF_CACHE_RETENTION)", () => {
 
 		it("should omit prompt_cache_retention when supportsLongCacheRetention is false", async () => {
 			let capturedPayload: any = null;
-			const { streamOpenAICompletions } = await import("../src/providers/openai-completions.js");
+			const { streamOpenAICompletions } = await import("../src/providers/openai/completions.js");
 
 			try {
 				const s = streamOpenAICompletions(createCompletionsModel({ supportsLongCacheRetention: false }), context, {

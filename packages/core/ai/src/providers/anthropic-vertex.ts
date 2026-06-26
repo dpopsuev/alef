@@ -20,7 +20,7 @@ import { streamAnthropic, streamSimpleAnthropic } from "./anthropic.js";
 // this to decide whether Vertex is available.
 // ---------------------------------------------------------------------------
 
-export { matchesAnthropicVertex } from "./anthropic-vertex-match.js";
+// matchesAnthropicVertex is inlined in register-builtins.ts
 
 // ---------------------------------------------------------------------------
 // Streaming — signal the Vertex path via options.isVertex and delegate.

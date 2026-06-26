@@ -21,7 +21,7 @@ export function setupOTel(): void {
 	// Pass spanProcessors at construction — this version does not expose addSpanProcessor.
 	provider = new NodeTracerProvider({
 		spanProcessors: [new SimpleSpanProcessor(exporter)],
-	} as never);
+	});
 	provider.register();
 }
 

@@ -62,6 +62,16 @@ export default tseslint.config(
 			},
 		},
 		rules: {
+			// ── No barrel imports ────────────────────────────────────────────────
+			// Import from the source module, not index.ts re-exports.
+			// Use subpath exports (e.g. @dpopsuev/alef-llm/provider-port).
+			"no-restricted-imports": ["error", {
+				patterns: [{
+					group: ["../index", "../index.js", "../../index", "../../index.js"],
+					message: "Do not import from barrel files (index.ts). Import from the source module directly.",
+				}],
+			}],
+
 			// ── Void suppression ban ─────────────────────────────────────────────
 			// Forbid `void expr` used to silence unused-variable warnings.
 			// `void promise` for fire-and-forget is allowed as a statement.

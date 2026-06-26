@@ -17,8 +17,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { getModels } from "../src/models.js";
-import { complete } from "../src/stream.js";
+import { getModels } from "../src/llm/models.js";
+import { complete } from "../src/llm/stream.js";
 import type { Context } from "../src/types.js";
 import { hasBedrockCredentials } from "./bedrock-utils.js";
 

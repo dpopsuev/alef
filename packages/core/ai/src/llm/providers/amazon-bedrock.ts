@@ -39,10 +39,10 @@ import type {
 	Tool,
 	ToolCall,
 	ToolResultMessage,
-} from "../types.js";
-import { AssistantMessageEventStream } from "../utils/event-stream.js";
-import { parseStreamingJson } from "../utils/json-parse.js";
-import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
+} from "../../types.js";
+import { AssistantMessageEventStream } from "../../utils/event-stream.js";
+import { parseStreamingJson } from "../../utils/json-parse.js";
+import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
 import { adjustMaxTokensForThinking, buildBaseOptions, clampReasoning } from "./simple-options.js";
 import { transformMessages } from "./transform-messages.js";
 

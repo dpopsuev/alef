@@ -6,7 +6,7 @@ import type {
 	SimpleStreamOptions,
 	StreamFunction,
 	StreamOptions,
-} from "./types.js";
+} from "../types.js";
 
 export type ApiStreamFunction = (
 	model: Model<Api>,

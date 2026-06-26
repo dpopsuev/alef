@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/models.js";
-import { convertMessages } from "../src/providers/openai-completions.js";
+import { getModel } from "../src/llm/models.js";
+import { convertMessages } from "../src/llm/providers/openai-completions.js";
 import type {
 	AssistantMessage,
 	Context,

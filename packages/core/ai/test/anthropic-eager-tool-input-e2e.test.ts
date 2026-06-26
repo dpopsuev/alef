@@ -1,8 +1,8 @@
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
 import { getEnvApiKey } from "../src/env-api-keys.js";
-import { getModels, getProviders } from "../src/models.js";
-import { complete } from "../src/stream.js";
+import { getModels, getProviders } from "../src/llm/models.js";
+import { complete } from "../src/llm/stream.js";
 import type { Api, KnownProvider, Model, ProviderStreamOptions, Tool } from "../src/types.js";
 import { HAVE_REAL_LLM } from "./gate.js";
 import { resolveApiKey } from "./oauth.js";

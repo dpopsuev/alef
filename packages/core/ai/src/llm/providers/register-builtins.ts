@@ -1,4 +1,4 @@
-import { clearApiProviders, registerApiProvider } from "../api-registry.js";
+import { clearApiProviders, registerApiProvider } from "../registry.js";
 import type {
 	Api,
 	AssistantMessage,
@@ -8,8 +8,8 @@ import type {
 	SimpleStreamOptions,
 	StreamFunction,
 	StreamOptions,
-} from "../types.js";
-import { AssistantMessageEventStream } from "../utils/event-stream.js";
+} from "../../types.js";
+import { AssistantMessageEventStream } from "../../utils/event-stream.js";
 import type { BedrockOptions } from "./amazon-bedrock.js";
 import type { AnthropicOptions } from "./anthropic.js";
 import { matchesAnthropicVertex } from "./anthropic-vertex-match.js";

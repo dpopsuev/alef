@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { findEnvKeys, getEnvApiKey } from "../src/env-api-keys.js";
-import { getModel } from "../src/models.js";
+import { getModel } from "../src/llm/models.js";
 
 const originalFireworksApiKey = process.env.FIREWORKS_API_KEY;
 

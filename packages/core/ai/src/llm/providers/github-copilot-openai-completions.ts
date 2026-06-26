@@ -12,7 +12,7 @@
  * Strangler Fig extraction from openai-completions.ts.
  */
 
-import type { AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";
+import type { AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../../types.js";
 import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copilot-headers.js";
 import type { OpenAICompletionsOptions } from "./openai-completions.js";
 import { streamOpenAICompletions, streamSimpleOpenAICompletions } from "./openai-completions.js";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/models.js";
-import { type BedrockOptions, streamBedrock } from "../src/providers/amazon-bedrock.js";
+import { getModel } from "../src/llm/models.js";
+import { type BedrockOptions, streamBedrock } from "../src/llm/providers/amazon-bedrock.js";
 import type { Context, Model } from "../src/types.js";
 
 interface BedrockThinkingPayload {

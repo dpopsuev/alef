@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/models.js";
-import { complete, getEnvApiKey } from "../src/stream.js";
+import { getModel } from "../src/llm/models.js";
+import { complete, getEnvApiKey } from "../src/llm/stream.js";
 import type { AssistantMessage, Context, Message, Tool, ToolCall } from "../src/types.js";
 import { HAVE_REAL_LLM } from "./gate.js";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/models.js";
-import { streamSimple } from "../src/stream.js";
+import { getModel } from "../src/llm/models.js";
+import { streamSimple } from "../src/llm/stream.js";
 import type { Api, Context, Model, SimpleStreamOptions } from "../src/types.js";
 import { HAVE_REAL_LLM } from "./gate.js";
 

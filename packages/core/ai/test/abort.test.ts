@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/models.js";
-import { complete, stream } from "../src/stream.js";
+import { getModel } from "../src/llm/models.js";
+import { complete, stream } from "../src/llm/stream.js";
 import type { Api, Context, Model, StreamOptions } from "../src/types.js";
 
 type StreamOptionsWithExtras = StreamOptions & Record<string, unknown>;

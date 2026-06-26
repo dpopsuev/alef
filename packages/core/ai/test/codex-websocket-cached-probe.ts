@@ -10,13 +10,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Type } from "typebox";
 import { getEnvApiKey } from "../src/env-api-keys.js";
-import { getModel } from "../src/models.js";
+import { getModel } from "../src/llm/models.js";
 import {
 	closeOpenAICodexWebSocketSessions,
 	getOpenAICodexWebSocketDebugStats,
 	resetOpenAICodexWebSocketDebugStats,
 	streamOpenAICodexResponses,
-} from "../src/providers/openai-codex-responses.js";
+} from "../src/llm/providers/openai-codex-responses.js";
 import type { AssistantMessage, Context, Message, Model, Tool, ToolResultMessage, Transport } from "../src/types.js";
 
 type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";

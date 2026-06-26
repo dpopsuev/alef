@@ -1,4 +1,4 @@
-import type { Api, Model } from "../../types.js";
+import type { Api, Model } from "../types.js";
 
 /** Workers AI direct endpoint. */
 export const CLOUDFLARE_WORKERS_AI_BASE_URL =

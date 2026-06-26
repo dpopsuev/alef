@@ -16,7 +16,7 @@
  *   faux.unregister();
  */
 
-import { registerApiProvider, unregisterApiProviders } from "../registry.js";
+import { registerApiProvider, unregisterApiProviders } from "../models/registry.js";
 import type {
 	AssistantMessage,
 	Context,
@@ -29,9 +29,9 @@ import type {
 	ToolCall,
 	ToolResultMessage,
 	Usage,
-} from "../../types.js";
-import { formatThrownValue } from "../../utils/diagnostics.js";
-import { createAssistantMessageEventStream } from "../../utils/event-stream.js";
+} from "../types.js";
+import { formatThrownValue } from "../utils/diagnostics.js";
+import { createAssistantMessageEventStream } from "../utils/event-stream.js";
 
 const DEFAULT_API_PREFIX = "faux";
 const DEFAULT_PROVIDER = "faux";

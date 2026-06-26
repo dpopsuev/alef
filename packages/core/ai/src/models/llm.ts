@@ -1,4 +1,4 @@
-import { MODELS } from "./models.generated.js";
+import { MODELS } from "./llm.generated.js";
 import type { Api, KnownProvider, Model, ModelThinkingLevel, Usage } from "../types.js";
 
 const modelRegistry: Map<string, Map<string, Model<Api>>> = new Map();

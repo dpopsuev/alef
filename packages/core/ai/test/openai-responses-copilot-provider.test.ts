@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getModel } from "../src/llm/models.js";
-import { streamOpenAIResponses } from "../src/llm/providers/openai-responses.js";
+import { getModel } from "../src/models/llm.js";
+import { streamOpenAIResponses } from "../src/providers/openai-responses.js";
 import type { Model } from "../src/types.js";
 
 type CapturedHeaders = Headers | string[][] | Record<string, string | readonly string[]> | undefined;

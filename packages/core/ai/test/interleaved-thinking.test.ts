@@ -1,8 +1,8 @@
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
 import { getEnvApiKey } from "../src/env-api-keys.js";
-import { getModel } from "../src/llm/models.js";
-import { completeSimple } from "../src/llm/stream.js";
+import { getModel } from "../src/models/llm.js";
+import { completeSimple } from "../src/stream.js";
 import type { Api, Context, Model, StopReason, Tool, ToolCall, ToolResultMessage } from "../src/types.js";
 import { StringEnum } from "../src/utils/typebox-helpers.js";
 import { hasBedrockCredentials } from "./bedrock-utils.js";

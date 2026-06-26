@@ -2,7 +2,7 @@ import { once } from "node:events";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { convertMessages, streamOpenAICompletions } from "../src/llm/providers/openai-completions.js";
+import { convertMessages, streamOpenAICompletions } from "../src/providers/openai-completions.js";
 import type {
 	AssistantMessage,
 	AssistantMessageEvent,

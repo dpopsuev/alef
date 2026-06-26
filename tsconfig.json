@@ -10,7 +10,7 @@
 				"./packages/core/ai/src/utils/oauth/index.ts"
 			],
 			"@dpopsuev/alef-ai/provider-port": [
-				"./packages/core/ai/src/llm/registry.ts"
+				"./packages/core/ai/src/models/registry.ts"
 			],
 			"@dpopsuev/alef-ai/provider-contract": [
 				"./packages/core/ai/src/provider-contract.ts"
@@ -19,10 +19,10 @@
 				"./packages/core/ai/src/types.ts"
 			],
 			"@dpopsuev/alef-ai/models": [
-				"./packages/core/ai/src/llm/models.ts"
+				"./packages/core/ai/src/models/llm.ts"
 			],
 			"@dpopsuev/alef-ai/stream": [
-				"./packages/core/ai/src/llm/stream.ts"
+				"./packages/core/ai/src/stream.ts"
 			],
 			"@dpopsuev/alef-ai/env": [
 				"./packages/core/ai/src/env-api-keys.ts"
@@ -32,8 +32,8 @@
 			],
 			"@dpopsuev/alef-ai/*": [
 				"./packages/core/ai/src/*.ts",
-				"./packages/core/ai/src/llm/*.ts",
-				"./packages/core/ai/src/llm/providers/*.ts"
+				"./packages/core/ai/src/models/*.ts",
+				"./packages/core/ai/src/providers/*.ts"
 			],
 			"@dpopsuev/alef-ai/dist/*": [
 				"./packages/core/ai/src/*"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/llm/models.js";
-import { completeSimple } from "../src/llm/stream.js";
+import { getModel } from "../src/models/llm.js";
+import { completeSimple } from "../src/stream.js";
 
 function createLongSystemPrompt(): string {
 	const nonce = `${Date.now()}-${Math.random()}`;

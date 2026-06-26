@@ -1,7 +1,7 @@
 import { AzureOpenAI } from "openai";
 import type { ResponseCreateParamsStreaming } from "openai/resources/responses/responses.js";
-import { getEnvApiKey } from "../../env-api-keys.js";
-import { clampThinkingLevel } from "../models.js";
+import { getEnvApiKey } from "../env-api-keys.js";
+import { clampThinkingLevel } from "../models/llm.js";
 import type {
 	Api,
 	AssistantMessage,
@@ -10,9 +10,9 @@ import type {
 	SimpleStreamOptions,
 	StreamFunction,
 	StreamOptions,
-} from "../../types.js";
-import { AssistantMessageEventStream } from "../../utils/event-stream.js";
-import { headersToRecord } from "../../utils/headers.js";
+} from "../types.js";
+import { AssistantMessageEventStream } from "../utils/event-stream.js";
+import { headersToRecord } from "../utils/headers.js";
 import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./openai-responses-shared.js";
 import { buildBaseOptions } from "./simple-options.js";
 

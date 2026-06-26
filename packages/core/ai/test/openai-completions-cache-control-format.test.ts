@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getModel } from "../src/llm/models.js";
-import { streamOpenAICompletions } from "../src/llm/providers/openai-completions.js";
+import { getModel } from "../src/models/llm.js";
+import { streamOpenAICompletions } from "../src/providers/openai-completions.js";
 import type { Model } from "../src/types.js";
 
 interface CacheControl {

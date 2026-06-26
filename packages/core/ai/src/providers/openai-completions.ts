@@ -10,8 +10,8 @@ import type {
 	ChatCompletionSystemMessageParam,
 	ChatCompletionToolMessageParam,
 } from "openai/resources/chat/completions.js";
-import { getEnvApiKey } from "../../env-api-keys.js";
-import { calculateCost, clampThinkingLevel } from "../models.js";
+import { getEnvApiKey } from "../env-api-keys.js";
+import { calculateCost, clampThinkingLevel } from "../models/llm.js";
 import type {
 	AssistantMessage,
 	CacheRetention,
@@ -29,11 +29,11 @@ import type {
 	Tool,
 	ToolCall,
 	ToolResultMessage,
-} from "../../types.js";
-import { AssistantMessageEventStream } from "../../utils/event-stream.js";
-import { headersToRecord } from "../../utils/headers.js";
-import { parseStreamingJson } from "../../utils/json-parse.js";
-import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
+} from "../types.js";
+import { AssistantMessageEventStream } from "../utils/event-stream.js";
+import { headersToRecord } from "../utils/headers.js";
+import { parseStreamingJson } from "../utils/json-parse.js";
+import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { isCloudflareProvider, resolveCloudflareBaseUrl } from "./cloudflare.js";
 
 import { buildBaseOptions } from "./simple-options.js";

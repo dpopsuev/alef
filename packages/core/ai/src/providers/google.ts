@@ -4,8 +4,8 @@ import {
 	GoogleGenAI,
 	type ThinkingConfig,
 } from "@google/genai";
-import { getEnvApiKey } from "../../env-api-keys.js";
-import { calculateCost, clampThinkingLevel } from "../models.js";
+import { getEnvApiKey } from "../env-api-keys.js";
+import { calculateCost, clampThinkingLevel } from "../models/llm.js";
 import type {
 	Api,
 	AssistantMessage,
@@ -19,9 +19,9 @@ import type {
 	ThinkingContent,
 	ThinkingLevel,
 	ToolCall,
-} from "../../types.js";
-import { AssistantMessageEventStream } from "../../utils/event-stream.js";
-import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
+} from "../types.js";
+import { AssistantMessageEventStream } from "../utils/event-stream.js";
+import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import type { GoogleThinkingLevel } from "./google-shared.js";
 import {
 	convertMessages,

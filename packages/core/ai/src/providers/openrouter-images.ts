@@ -6,7 +6,7 @@ import type {
 	ChatCompletionContentPartText,
 	ChatCompletionCreateParamsNonStreaming,
 } from "openai/resources/chat/completions.js";
-import { getEnvApiKey } from "../../env-api-keys.js";
+import { getEnvApiKey } from "../env-api-keys.js";
 import type {
 	AssistantImages,
 	ImageContent,
@@ -15,9 +15,9 @@ import type {
 	ImagesModel,
 	ImagesOptions,
 	TextContent,
-} from "../../types.js";
-import { headersToRecord } from "../../utils/headers.js";
-import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
+} from "../types.js";
+import { headersToRecord } from "../utils/headers.js";
+import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 
 interface OpenRouterGeneratedImage {
 	image_url?: string | { url?: string };

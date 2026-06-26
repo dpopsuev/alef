@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getModel, getSupportedThinkingLevels } from "../src/llm/models.js";
+import { getModel, getSupportedThinkingLevels } from "../src/models/llm.js";
 
 describe("getSupportedThinkingLevels", { tags: ["unit"] }, () => {
 	it("includes xhigh for Anthropic Opus 4.6 on anthropic-messages API", () => {

@@ -1,4 +1,4 @@
-import type { Api, Model } from "../../types.js";
+import type { Api, Model } from "../types.js";
 
 function hasVertexConfig(): boolean {
 	if (typeof process === "undefined") return false;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, registerFauxProvider } from "../src/llm/providers/faux.js";
-import { complete, stream } from "../src/llm/stream.js";
+import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, registerFauxProvider } from "../src/providers/faux.js";
+import { complete, stream } from "../src/stream.js";
 import type { AssistantMessageEvent, Context } from "../src/types.js";
 import { Type } from "typebox";
 

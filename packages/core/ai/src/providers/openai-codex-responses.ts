@@ -21,9 +21,9 @@ if (typeof process !== "undefined" && (process.versions.node || process.versions
 	});
 }
 
-import { getEnvApiKey } from "../../env-api-keys.js";
-import { clampThinkingLevel } from "../models.js";
-import { registerSessionResourceCleanup } from "../../session-resources.js";
+import { getEnvApiKey } from "../env-api-keys.js";
+import { clampThinkingLevel } from "../models/llm.js";
+import { registerSessionResourceCleanup } from "../session-resources.js";
 import type {
 	Api,
 	AssistantMessage,
@@ -33,14 +33,14 @@ import type {
 	StreamFunction,
 	StreamOptions,
 	Usage,
-} from "../../types.js";
+} from "../types.js";
 import {
 	appendAssistantMessageDiagnostic,
 	createAssistantMessageDiagnostic,
 	formatThrownValue,
-} from "../../utils/diagnostics.js";
-import { AssistantMessageEventStream } from "../../utils/event-stream.js";
-import { headersToRecord } from "../../utils/headers.js";
+} from "../utils/diagnostics.js";
+import { AssistantMessageEventStream } from "../utils/event-stream.js";
+import { headersToRecord } from "../utils/headers.js";
 import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./openai-responses-shared.js";
 import { buildBaseOptions } from "./simple-options.js";
 

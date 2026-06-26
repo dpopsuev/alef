@@ -75,8 +75,8 @@ vi.mock("@anthropic-ai/vertex-sdk", () => {
 	return { AnthropicVertex: FakeAnthropicVertex };
 });
 
-import { getModel } from "../src/llm/models.js";
-import { streamSimple } from "../src/llm/stream.js";
+import { getModel } from "../src/models/llm.js";
+import { streamSimple } from "../src/stream.js";
 import type { Context } from "../src/types.js";
 
 function createContext(): Context {

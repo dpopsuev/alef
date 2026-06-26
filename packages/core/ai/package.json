@@ -7,54 +7,54 @@
   "types": "./dist/types.d.ts",
   "exports": {
     "./anthropic": {
-      "types": "./dist/llm/providers/anthropic.d.ts",
-      "import": "./dist/llm/providers/anthropic.js"
+      "types": "./dist/providers/anthropic.d.ts",
+      "import": "./dist/providers/anthropic.js"
     },
     "./azure-openai-responses": {
-      "types": "./dist/llm/providers/azure-openai-responses.d.ts",
-      "import": "./dist/llm/providers/azure-openai-responses.js"
+      "types": "./dist/providers/azure-openai-responses.d.ts",
+      "import": "./dist/providers/azure-openai-responses.js"
     },
     "./google": {
-      "types": "./dist/llm/providers/google.d.ts",
-      "import": "./dist/llm/providers/google.js"
+      "types": "./dist/providers/google.d.ts",
+      "import": "./dist/providers/google.js"
     },
     "./google-vertex": {
-      "types": "./dist/llm/providers/google-vertex.d.ts",
-      "import": "./dist/llm/providers/google-vertex.js"
+      "types": "./dist/providers/google-vertex.d.ts",
+      "import": "./dist/providers/google-vertex.js"
     },
     "./mistral": {
-      "types": "./dist/llm/providers/mistral.d.ts",
-      "import": "./dist/llm/providers/mistral.js"
+      "types": "./dist/providers/mistral.d.ts",
+      "import": "./dist/providers/mistral.js"
     },
     "./openai-codex-responses": {
-      "types": "./dist/llm/providers/openai-codex-responses.d.ts",
-      "import": "./dist/llm/providers/openai-codex-responses.js"
+      "types": "./dist/providers/openai-codex-responses.d.ts",
+      "import": "./dist/providers/openai-codex-responses.js"
     },
     "./openai-completions": {
-      "types": "./dist/llm/providers/openai-completions.d.ts",
-      "import": "./dist/llm/providers/openai-completions.js"
+      "types": "./dist/providers/openai-completions.d.ts",
+      "import": "./dist/providers/openai-completions.js"
     },
     "./openai-responses": {
-      "types": "./dist/llm/providers/openai-responses.d.ts",
-      "import": "./dist/llm/providers/openai-responses.js"
+      "types": "./dist/providers/openai-responses.d.ts",
+      "import": "./dist/providers/openai-responses.js"
     },
     "./oauth": {
       "types": "./dist/utils/oauth/index.d.ts",
       "import": "./dist/utils/oauth/index.js"
     },
     "./bedrock-provider": {
-      "types": "./dist/llm/providers/bedrock-provider.d.ts",
-      "import": "./dist/llm/providers/bedrock-provider.js"
+      "types": "./dist/providers/bedrock-provider.d.ts",
+      "import": "./dist/providers/bedrock-provider.js"
     },
     "./models": {
-      "source": "./src/llm/models.ts",
-      "import": "./src/llm/models.ts",
-      "default": "./src/llm/models.ts"
+      "source": "./src/models/llm.ts",
+      "import": "./src/models/llm.ts",
+      "default": "./src/models/llm.ts"
     },
     "./stream": {
-      "source": "./src/llm/stream.ts",
-      "import": "./src/llm/stream.ts",
-      "default": "./src/llm/stream.ts"
+      "source": "./src/stream.ts",
+      "import": "./src/stream.ts",
+      "default": "./src/stream.ts"
     },
     "./utils": {
       "source": "./src/utils/typebox-helpers.ts",
@@ -67,14 +67,14 @@
       "default": "./src/env-api-keys.ts"
     },
     "./faux": {
-      "types": "./src/llm/providers/faux.ts",
-      "import": "./src/llm/providers/faux.ts"
+      "types": "./src/providers/faux.ts",
+      "import": "./src/providers/faux.ts"
     },
     "./provider-port": {
-      "source": "./src/llm/registry.ts",
+      "source": "./src/models/registry.ts",
       "types": "./dist/api-registry.d.ts",
-      "import": "./src/llm/registry.ts",
-      "default": "./src/llm/registry.ts"
+      "import": "./src/models/registry.ts",
+      "default": "./src/models/registry.ts"
     },
     "./provider-contract": {
       "source": "./src/provider-contract.ts",

@@ -11,7 +11,7 @@
  * Strangler Fig extraction from anthropic.ts.
  */
 
-import type { AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../../types.js";
+import type { AssistantMessageEventStream, Context, Model, SimpleStreamOptions } from "../types.js";
 import type { AnthropicOptions } from "./anthropic.js";
 import { streamAnthropic, streamSimpleAnthropic } from "./anthropic.js";
 

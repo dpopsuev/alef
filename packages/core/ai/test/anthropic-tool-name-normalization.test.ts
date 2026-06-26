@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/llm/models.js";
-import { stream } from "../src/llm/stream.js";
+import { getModel } from "../src/models/llm.js";
+import { stream } from "../src/stream.js";
 import type { Context, Tool } from "../src/types.js";
 import { resolveApiKey } from "./oauth.js";
 

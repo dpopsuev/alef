@@ -1,4 +1,4 @@
-import { IMAGE_MODELS } from "./models.generated.js";
+import { IMAGE_MODELS } from "./images.generated.js";
 import type { ImagesApi, ImagesModel, KnownImagesProvider } from "../types.js";
 
 const imageModelRegistry: Map<string, Map<string, ImagesModel<ImagesApi>>> = new Map();

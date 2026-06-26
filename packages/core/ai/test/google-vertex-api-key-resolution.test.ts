@@ -45,8 +45,8 @@ vi.mock("@google/genai", () => {
 	};
 });
 
-import { getModel } from "../src/llm/models.js";
-import { streamGoogleVertex } from "../src/llm/providers/google-vertex.js";
+import { getModel } from "../src/models/llm.js";
+import { streamGoogleVertex } from "../src/providers/google-vertex.js";
 import type { Context, Model } from "../src/types.js";
 
 const model = getModel("google-vertex", "gemini-3-flash-preview");

@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/llm/models.js";
-import { complete } from "../src/llm/stream.js";
+import { getModel } from "../src/models/llm.js";
+import { complete } from "../src/stream.js";
 import type { Context, Model } from "../src/types.js";
 
 interface MistralToolPayload {

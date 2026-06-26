@@ -12,8 +12,8 @@ import {
 	defineAdapter,
 	type ToolDefinition,
 	typedAction,
-	withDisplay,
 } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------

@@ -26,7 +26,8 @@ import type {
 	SkillBook,
 	SkillPage,
 } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, getString, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { getString } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 import { discoverSkills, skillsToXml } from "./discovery.js";
 import type { Skill } from "./types.js";

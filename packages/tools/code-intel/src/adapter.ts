@@ -12,7 +12,8 @@
  */
 
 import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 import type { CodeIntelBackend } from "./backend.js";
 import { LocalCodeIntelBackend } from "./local-backend.js";

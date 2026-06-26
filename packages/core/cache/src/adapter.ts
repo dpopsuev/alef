@@ -3,8 +3,8 @@ import {
 	defineAdapter,
 	makeCacheKey,
 	typedAction,
-	withDisplay,
 } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { type Bus, type BusMiddleware, buildSense } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 

@@ -16,7 +16,8 @@
  */
 
 import type { Adapter, BaseAdapterOptions, CommandHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, getNumber, getString, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { getNumber, getString } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 import { collectEvents, postMessage } from "./http.js";

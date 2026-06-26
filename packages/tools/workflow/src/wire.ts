@@ -1,6 +1,7 @@
 import { exec } from "node:child_process";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { z } from "zod";
 

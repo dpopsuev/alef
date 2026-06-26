@@ -36,6 +36,11 @@
       "import": "./src/adapter/ui.ts",
       "default": "./src/adapter/ui.ts"
     },
+    "./payload": {
+      "source": "./src/payload.ts",
+      "import": "./src/payload.ts",
+      "default": "./src/payload.ts"
+    },
     "./errors": {
       "source": "./src/errors.ts",
       "import": "./src/errors.ts",

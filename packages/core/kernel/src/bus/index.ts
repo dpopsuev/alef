@@ -3,8 +3,14 @@ export {
 	type BindingExecutionStrategy,
 	type BindingMode,
 	type BindingStage,
+	type Evaluator,
+	type ValidateRequest,
+	type ValidateResult,
+	type Validator,
 	executeBindingChain,
 	registerBindingStrategy,
+	VALIDATE_REQUEST,
+	VALIDATE_RESULT,
 	withBindings,
 } from "./binding.js";
 export type {

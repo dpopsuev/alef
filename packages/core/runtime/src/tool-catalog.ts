@@ -25,8 +25,8 @@ import {
 	type ToolDefinition,
 	toolInputToJsonSchema,
 	typedAction,
-	withDisplay,
 } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
 import { z } from "zod";

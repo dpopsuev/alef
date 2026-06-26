@@ -1,5 +1,6 @@
 import type { Adapter, EventHandlerCtx, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { extractToolCallId } from "@dpopsuev/alef-kernel/bus";
 import {

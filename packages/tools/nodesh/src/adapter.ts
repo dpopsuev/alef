@@ -20,7 +20,8 @@
 
 import vm from "node:vm";
 import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------

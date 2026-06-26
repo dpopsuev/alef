@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint";
-import { withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { RemoteStrategy } from "@dpopsuev/alef-runtime";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { ChildEntry } from "./child-process.js";

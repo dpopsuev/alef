@@ -24,8 +24,8 @@ import {
 	defineAdapter,
 	typedAction,
 	typedStreamAction,
-	withDisplay,
 } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
 import { z } from "zod";

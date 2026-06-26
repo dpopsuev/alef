@@ -18,7 +18,8 @@
  */
 
 import type { Adapter, PortDefinition } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction, withLlmContent } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { withLlmContent } from "@dpopsuev/alef-kernel/payload";
 import {
 	BraveSearchEngine,
 	DdgSearchEngine,

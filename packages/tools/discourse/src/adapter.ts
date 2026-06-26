@@ -1,5 +1,6 @@
 import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
 import { injectContextBlock } from "@dpopsuev/alef-kernel/pipeline";
 import { z } from "zod";

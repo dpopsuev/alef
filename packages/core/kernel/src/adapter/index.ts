@@ -47,15 +47,6 @@ export type {
 export { createCompositeAgentRunContribution } from "./contributions.js";
 export type { AdapterTheme, UiContribution, UiSignalHandler } from "./ui.js";
 export { defineAdapter } from "./framework.js";
-export { getBoolean, getNumber, getString, type SenseDisplayBlock, withDisplay, withLlmContent } from "../payload.js";
-export {
-	type Evaluator,
-	VALIDATE_REQUEST,
-	VALIDATE_RESULT,
-	type ValidateRequest,
-	type ValidateResult,
-	type Validator,
-} from "../bus/binding.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,

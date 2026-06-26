@@ -9,8 +9,7 @@
  *   - works end-to-end with a Binding chain
  */
 
-import { VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel/adapter";
-import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
+import { InProcessBus, VALIDATE_REQUEST, VALIDATE_RESULT } from "@dpopsuev/alef-kernel/bus";
 import { createHitlAdapter } from "@dpopsuev/alef-tool-workflow";
 import { afterEach, describe, expect, it } from "vitest";
 

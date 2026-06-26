@@ -13,8 +13,8 @@ import {
 	defineAdapter,
 	truncateTail,
 	typedStreamAction,
-	withDisplay,
 } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { PTYManager, ShellAdapter } from "pty-manager";
 import { z } from "zod";
 import { getShellConfig, getShellEnv } from "./shell.js";

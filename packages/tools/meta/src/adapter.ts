@@ -20,8 +20,8 @@ import {
 	type SkillBook,
 	type ToolDefinition,
 	typedAction,
-	withDisplay,
 } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 import {
 	getConfig,
@@ -168,7 +168,8 @@ Always check tools.describe([]) first — the tool you need may already exist.`,
 			instructions: `Every adapter file must follow this exact structure:
 
 \`\`\`typescript
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { z } from "zod";
 
 export function createAdapter() {

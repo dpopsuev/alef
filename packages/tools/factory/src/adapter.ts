@@ -2,7 +2,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";
+import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
+import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { stringify as toYaml } from "yaml";
 import { z } from "zod";
 
@@ -111,7 +112,8 @@ function buildAdapterScaffold(
 	const descLower = description.endsWith(".") ? description.slice(0, -1).toLowerCase() : description.toLowerCase();
 
 	return [
-		`import { defineAdapter, typedAction, withDisplay } from "@dpopsuev/alef-kernel/adapter";`,
+		`import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";`,
+		`import { withDisplay } from "@dpopsuev/alef-kernel/payload";`,
 		`import { z } from "zod";`,
 		``,
 		`export function createAdapter() {`,

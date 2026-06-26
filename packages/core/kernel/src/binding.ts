@@ -106,6 +106,7 @@ class OrderedStrategy implements BindingExecutionStrategy {
 
 		for (let i = 0; i < chain.length; i++) {
 			const stage = chain[i];
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ChainInput.output is unknown; filters expect Record
 			if (stage.filter && !stage.filter(current.output as Record<string, unknown>)) {
 				continue;
 			}
@@ -126,6 +127,7 @@ class OrderedStrategy implements BindingExecutionStrategy {
 
 			current = {
 				...current,
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ChainInput.output is unknown; spread requires Record
 				output: { ...(current.output as Record<string, unknown>), _feedback: result.feedback },
 			};
 		}
@@ -144,6 +146,7 @@ class ParallelAllStrategy implements BindingExecutionStrategy {
 		bus: Bus,
 		sourceCorrelationId: string,
 	): Promise<ChainResult> {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ChainInput.output is unknown; filters expect Record
 		const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
 		const results = await Promise.all(
 			stages.map((stage) => publishValidateRequest(bus, stage, input, sourceCorrelationId).result),
@@ -163,6 +166,7 @@ class ParallelFirstStrategy implements BindingExecutionStrategy {
 		bus: Bus,
 		sourceCorrelationId: string,
 	): Promise<ChainResult> {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ChainInput.output is unknown; filters expect Record
 		const stages = chain.filter((s) => !s.filter || s.filter(input.output as Record<string, unknown>));
 		return Promise.race(stages.map((stage) => publishValidateRequest(bus, stage, input, sourceCorrelationId).result));
 	}
@@ -200,10 +204,6 @@ export function executeBindingChain(
 	});
 
 	const strategy = strategies[binding.mode];
-	if (!strategy) {
-		throw new Error(`Unknown binding mode: ${binding.mode}`);
-	}
-
 	return strategy.execute(binding.chain, input, bus, sourceCorrelationId);
 }
 

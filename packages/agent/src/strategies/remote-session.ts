@@ -60,7 +60,8 @@ export class RemoteSession implements Session {
 			.then((data) => {
 				if (Array.isArray(data)) {
 					for (const event of data) {
-						for (const obs of this.observers) obs(event as AgentEvent);
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- HTTP JSON boundary: daemon /history returns AgentEvent[]
+					for (const obs of this.observers) obs(event as AgentEvent);
 					}
 				}
 			})
@@ -89,6 +90,7 @@ export class RemoteSession implements Session {
 					const dataLine = frame.split("\n").find((l) => l.startsWith("data: "));
 					if (!dataLine) continue;
 					try {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- SSE JSON boundary
 						const parsed = JSON.parse(dataLine.slice(6)) as Record<string, unknown>;
 						if (parsed.kind === "state") {
 							if (typeof parsed.modelId === "string") this._modelId = parsed.modelId;
@@ -104,6 +106,7 @@ export class RemoteSession implements Session {
 							continue;
 						}
 						if (parsed.kind === "agent" && parsed.event) {
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- SSE JSON boundary: parsed.event is AgentEvent
 							for (const observer of this.observers) observer(parsed.event as AgentEvent);
 						}
 					} catch {
@@ -218,6 +221,7 @@ export class RemoteSession implements Session {
 					});
 					res.on("end", () => {
 						try {
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- HTTP JSON boundary
 							resolve(JSON.parse(body) as Record<string, unknown>);
 						} catch {
 							reject(new Error("invalid JSON"));

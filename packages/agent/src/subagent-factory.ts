@@ -67,8 +67,8 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		observers.add((event) => {
 			if (event.type === "token-usage") {
 				const usage = event.usage;
-				totalInputTokens += usage.input ?? 0;
-				totalOutputTokens += usage.output ?? 0;
+				totalInputTokens += usage.input;
+				totalOutputTokens += usage.output;
 				if (tokenBudget && !budgetExceeded && totalInputTokens + totalOutputTokens >= tokenBudget) {
 					budgetExceeded = true;
 					controller.receive(
@@ -115,10 +115,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 				agent.dispose();
 			},
 			observers,
-		}) as AgentSession & {
-			identity: { color: string; address: string };
-			tokenUsage: { input: number; output: number };
-		};
+		});
 
 		Object.defineProperty(session, "identity", {
 			get: () => ({ color: subActor.color, address: subActor.address }),

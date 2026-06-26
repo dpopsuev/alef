@@ -89,7 +89,9 @@ export class SessionHandle implements Session {
 	}
 
 	setThinking(level: string): void {
-		this._thinkingState.level = level === "off" ? undefined : (level as ThinkingLevel);
+		const thinkingLevels: readonly string[] = ["minimal", "low", "medium", "high", "xhigh"];
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by includes() check
+		this._thinkingState.level = level !== "off" && thinkingLevels.includes(level) ? (level as ThinkingLevel) : undefined;
 		this._notifyStateChanged();
 	}
 
@@ -155,9 +157,8 @@ export class SessionHandle implements Session {
 		});
 	}
 
-	getDirective(): DirectiveView | undefined {
+	getDirective(): DirectiveView {
 		const d = this._directives;
-		if (!d) return undefined;
 		return {
 			list: () =>
 				d

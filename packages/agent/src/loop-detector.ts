@@ -64,7 +64,8 @@ function hashResult(payload: Record<string, unknown>): string {
 	// Anthropic-format content array: [{ type: "text", text: "..." }]
 	// typeof check above misses this case, causing false-negative loop detection.
 	if (Array.isArray(rest.content)) {
-		const block = (rest.content as { type?: string; text?: unknown }[]).find((b) => b?.type === "text");
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- rest.content is unknown; array shape validated by Array.isArray guard above
+		const block = (rest.content as { type?: string; text?: unknown }[]).find((b) => b.type === "text");
 		if (typeof block?.text === "string") return block.text.slice(0, 512);
 	}
 	if (typeof rest.text === "string") return rest.text.slice(0, 512);
@@ -116,7 +117,7 @@ export class LoopGuard implements Adapter {
 		// Only count events that carry a toolCallId — those are real tool dispatches.
 		// Infrastructure command events (llm.response, context.assemble) are skipped.
 		const offMotor = bus.command.subscribe("*", (event) => {
-			const corr = event.correlationId ?? "none";
+			const corr = event.correlationId;
 			resetIfNewTurn(corr);
 
 			const type = event.type;

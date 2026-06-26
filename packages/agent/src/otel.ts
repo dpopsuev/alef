@@ -40,9 +40,13 @@ export async function shutdownOTel(): Promise<void> {
 	let totalCostUsd = 0;
 
 	for (const s of chatSpans) {
-		inputTokens += (s.attributes["gen_ai.usage.input_tokens"] as number | undefined) ?? 0;
-		outputTokens += (s.attributes["gen_ai.usage.output_tokens"] as number | undefined) ?? 0;
-		totalCostUsd += (s.attributes["alef.estimated_cost_usd"] as number | undefined) ?? 0;
+		const attrs = s.attributes;
+		const inputVal = attrs["gen_ai.usage.input_tokens"];
+		const outputVal = attrs["gen_ai.usage.output_tokens"];
+		const costVal = attrs["alef.estimated_cost_usd"];
+		inputTokens += typeof inputVal === "number" ? inputVal : 0;
+		outputTokens += typeof outputVal === "number" ? outputVal : 0;
+		totalCostUsd += typeof costVal === "number" ? costVal : 0;
 	}
 
 	process.stderr.write(

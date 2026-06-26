@@ -70,8 +70,9 @@ const DEFAULT_MODEL_PER_PROVIDER: Partial<Record<KnownProvider, string>> = {
 };
 
 function lookupModel(provider: string, modelId: string): Model<Api> | undefined {
-	const providers = getProviders();
-	if (!providers.includes(provider as KnownProvider)) return undefined;
+	const providers: readonly string[] = getProviders();
+	if (!providers.includes(provider)) return undefined;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by includes() above
 	const models = getModels(provider as KnownProvider);
 	return (models as Model<Api>[]).find((m) => m.id === modelId);
 }
@@ -104,8 +105,8 @@ export function buildModel(id: string): Model<Api> {
 		const catalogModel = lookupModel(provider, modelId);
 		if (catalogModel) return catalogModel;
 
-		const knownProviders = getProviders();
-		if (!knownProviders.includes(provider as KnownProvider)) {
+		const knownProviders: readonly string[] = getProviders();
+		if (!knownProviders.includes(provider)) {
 			process.stderr.write(`[model] warning: unknown provider "${provider}" — using synthetic model for ${id}\n`);
 		}
 		const baseUrl = inferBaseUrl(provider);
@@ -198,7 +199,9 @@ export function autoDetectModel(): Model<Api> | undefined {
  */
 function hasAnthropicOnVertex(): boolean {
 	const project =
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env vars must fall through
 		process.env.ANTHROPIC_VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env vars must fall through
 	const region = process.env.CLOUD_ML_REGION || process.env.GOOGLE_CLOUD_LOCATION;
 	return !!(project && region);
 }
@@ -220,9 +223,9 @@ function validateApiKey(model: Model<Api>): void {
 	const provider = model.provider;
 	if (provider === "ollama") return;
 	if (hasAnthropicOnVertex() && provider === "anthropic") return;
-	const apiKey = getEnvApiKey(provider as KnownProvider);
+	const apiKey = getEnvApiKey(provider);
 	if (!apiKey) {
-		const envVars = findEnvKeys(provider as KnownProvider);
+		const envVars = findEnvKeys(provider);
 		const hint = envVars?.length ? envVars.join(" or ") : `${provider.toUpperCase().replace(/-/g, "_")}_API_KEY`;
 		process.stderr.write(`[model] warning: no API key for provider "${provider}" — set ${hint}\n`);
 	}

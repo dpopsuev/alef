@@ -35,9 +35,12 @@ export function typedAction<TSchema extends ZodTypeAny>(
 	return {
 		tool,
 		async *handle(ctx) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type erasure: TSchema ctx → base CommandHandlerCtx
 			yield await (handle as (ctx: CommandHandlerCtx) => Promise<Record<string, unknown>>)(ctx);
 		},
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type erasure: TSchema → base CommandAction callbacks
 		...(opts?.shouldCache && { shouldCache: opts.shouldCache as CommandAction["shouldCache"] }),
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type erasure: TSchema → base CommandAction callbacks
 		...(opts?.invalidates && { invalidates: opts.invalidates as CommandAction["invalidates"] }),
 	};
 }
@@ -48,6 +51,7 @@ export function typedStreamAction<TSchema extends ZodTypeAny>(
 ): CommandAction {
 	return {
 		tool: { ...tool, streaming: true },
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type erasure: TSchema stream → base CommandAction handle
 		handle: stream as CommandAction["handle"],
 	};
 }

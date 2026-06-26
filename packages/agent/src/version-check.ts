@@ -24,6 +24,7 @@ async function fetchLatestVersion(): Promise<string | null> {
 			headers: { "User-Agent": `alef/${currentVersion()}` },
 		});
 		if (!response.ok) return null;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- fetch JSON boundary
 		const data = (await response.json()) as { tag_name?: string };
 		return data.tag_name ?? null;
 	} catch {

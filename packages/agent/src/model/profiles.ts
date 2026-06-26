@@ -32,7 +32,8 @@ export function resolveProfile(cfg: ModelConfig): ResolvedProfile | null {
 	const models: ResolvedProfile["models"] = [];
 
 	for (const provider of profile.providers ?? []) {
-		if (!getProviders().includes(provider as KnownProvider)) continue;
+		if (!(getProviders() as readonly string[]).includes(provider)) continue;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by includes() above
 		for (const m of getModels(provider as KnownProvider)) {
 			if (profile.models && !matchesPattern(m.id, profile.models)) continue;
 			models.push({ provider, model: m });

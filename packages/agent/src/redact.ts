@@ -80,6 +80,7 @@ export function redactPayload(value: unknown, depth = 0): unknown {
 
 	if (value !== null && typeof value === "object") {
 		const result: Record<string, unknown> = {};
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by typeof object && !== null check
 		for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
 			result[key] = isSensitiveKey(key) ? REDACTED : redactPayload(val, depth + 1);
 		}
@@ -97,6 +98,7 @@ export const withEventBusRedaction: BusMiddleware = (baseBus: Bus): Bus => ({
 	event: {
 		subscribe: (type, handler) =>
 			baseBus.event.subscribe(type, (event) =>
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- redactPayload preserves Record shape
 				handler({ ...event, payload: redactPayload(event.payload) as Record<string, unknown> }),
 			),
 		publish: baseBus.event.publish.bind(baseBus.event),

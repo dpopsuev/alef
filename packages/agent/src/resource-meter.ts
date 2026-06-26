@@ -119,6 +119,7 @@ export function createResourceMeter(): Adapter {
 				bus.notification.subscribe("*", (event: NotificationMessage) => {
 					const p = event.payload;
 					if (event.type === "llm.token-usage") {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: llm.token-usage payload shape is known
 						const usage = p.usage as { input?: number; output?: number; cacheRead?: number } | undefined;
 						if (usage) {
 							tokens.input += usage.input ?? 0;

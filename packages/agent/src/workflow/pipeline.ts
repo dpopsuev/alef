@@ -40,8 +40,9 @@ function evalCondition(when: string, artifact: unknown): boolean {
 	if (typeof artifact !== "object" || artifact === null) return true;
 	const [lhs, op, rhs] = when.split(/\s*(==|!=)\s*/);
 	if (!lhs || !op) return true;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed from object via typeof guard above
 	const artifactValue = (artifact as Record<string, unknown>)[lhs.trim()];
 	const value = typeof artifactValue === "string" ? artifactValue : "";
-	const expected = rhs?.trim().replace(/^"|"$/g, "") ?? "";
+	const expected = rhs.trim().replace(/^"|"$/g, "");
 	return op === "==" ? value === expected : value !== expected;
 }

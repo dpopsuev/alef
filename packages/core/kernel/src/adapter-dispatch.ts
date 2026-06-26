@@ -62,6 +62,7 @@ function validateCommandPayload(
 		});
 		return null;
 	}
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Zod safeParse returns any; all command payloads are Record<string, unknown>
 	return result.data as Record<string, unknown>;
 }
 

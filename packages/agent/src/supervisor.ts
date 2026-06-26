@@ -41,7 +41,8 @@ const HANDOFF_PATH = process.env.ALEF_SUPERVISOR_HANDOFF_PATH ?? "";
 const SKIP_HEALTH = process.env.ALEF_SUPERVISOR_SKIP_HEALTH === "1";
 const TEST_EVAL_RESULT = process.env.ALEF_SUPERVISOR_TEST_EVAL_RESULT ?? "";
 const GREEN_ARGS: string[] = process.env.ALEF_SUPERVISOR_GREEN_ARGS
-	? (JSON.parse(process.env.ALEF_SUPERVISOR_GREEN_ARGS) as string[])
+	? // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse env var boundary
+		(JSON.parse(process.env.ALEF_SUPERVISOR_GREEN_ARGS) as string[])
 	: process.argv.slice(2);
 
 // ---------------------------------------------------------------------------
@@ -65,7 +66,7 @@ let readyPromise: Promise<void> = Promise.resolve();
 /** Walk up from scriptPath to find the nearest node_modules/.bin/tsx binary. */
 function findTsxBin(scriptPath: string): string {
 	let dir = dirname(scriptPath);
-	while (true) {
+	for (;;) {
 		const candidate = join(dir, "node_modules/tsx/dist/cli.mjs");
 		if (existsSync(candidate)) return candidate;
 		const parent = dirname(dir);
@@ -187,6 +188,7 @@ async function doRebuild(): Promise<void> {
 			await new Promise<void>((resolve) => {
 				const timer = setTimeout(resolve, 5_000);
 				const onMsg = (msg: unknown) => {
+					if (typeof msg !== "object" || msg === null) return;
 					const m = msg as { type?: string; updateId?: string };
 					if (m.type === "handoff_ack" && m.updateId === updateId) {
 						clearTimeout(timer);
@@ -281,6 +283,7 @@ async function doUpdate(scope: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function handleGreenMessage(msg: unknown): void {
+	if (typeof msg !== "object" || msg === null) return;
 	const m = msg as { type?: string; scope?: string; sessionId?: string };
 
 	if (m.type === "ready") {
@@ -313,6 +316,7 @@ function handleGreenMessage(msg: unknown): void {
 process.on("message", (msg: unknown) => {
 	// Forward to current green (which bridges to the runner).
 	if (current?.connected) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- IPC forwarding: msg is Serializable by Node.js contract
 		current.send(msg as Serializable);
 	}
 });

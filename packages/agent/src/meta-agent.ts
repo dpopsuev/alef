@@ -28,6 +28,7 @@ export async function runMetaAgent(
 	const adapters: Adapter[] = [
 		createMetaAdapter({
 			dialogEventType: "llm.input",
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- DirectiveView is a structural subset of DirectiveAdapter; runtime object satisfies both
 			getDirective: getDirective as (() => DirectiveAdapter | undefined) | undefined,
 		}),
 	];

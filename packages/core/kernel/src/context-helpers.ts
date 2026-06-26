@@ -7,6 +7,7 @@ type RawMsg = { role?: string; content?: unknown };
  */
 export function injectContextBlock(messages: readonly unknown[], block: string): unknown[] {
 	const result = [...messages];
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- message array element shape check
 	const systemIdx = result.findIndex((m) => (m as RawMsg).role === "system");
 	const insertAt = systemIdx >= 0 ? systemIdx + 1 : 0;
 	result.splice(insertAt, 0, { role: "user", content: block });

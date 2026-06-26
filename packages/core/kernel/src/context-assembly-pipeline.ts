@@ -40,13 +40,16 @@ export function createContextAssemblyPipeline(): Adapter & {
 		},
 		mount(bus: Bus): () => void {
 			const unsubLoaded = bus.event.subscribe("adapter.loaded", (event: EventMessage) => {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: adapter.loaded payload shape
 				const contributions = event.payload.contributions as PipelineContributions | undefined;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: adapter.loaded payload shape
 				const name = event.payload.name as string;
 				if (contributions?.["context.assemble"]) stages.set(name, contributions["context.assemble"]);
 				if (contributions?.["schema-resolver"]) schemaResolvers.set(name, contributions["schema-resolver"]);
 			});
 
 			const unsubUnloaded = bus.event.subscribe("adapter.unloaded", (event: EventMessage) => {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: adapter.unloaded payload shape
 				const name = event.payload.name as string;
 				stages.delete(name);
 				schemaResolvers.delete(name);
@@ -54,6 +57,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 
 			const unsubAssemble = bus.command.subscribe("context.assemble", (event: CommandMessage) => {
 				void (async () => {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: context.assemble command payload shape
 					const payload = event.payload as {
 						messages: readonly unknown[];
 						tools?: ToolDefinition[];
@@ -74,6 +78,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 							return;
 						}
 						if (out.messages) messages = out.messages;
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pipeline stage output tools are ToolDefinition[]
 						if (out.tools) tools = out.tools as ToolDefinition[];
 						if (out.skip) {
 							bus.event.publish({

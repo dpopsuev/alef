@@ -343,6 +343,23 @@ function checkBarrelImport(file: string, content: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Check 7: [TOOLMODULE] tool index.ts must export createAdapter
+// ---------------------------------------------------------------------------
+
+function checkToolModuleExport(dir: string, name: string): void {
+	const indexPath = join(dir, "src", "index.ts");
+	if (!existsSync(indexPath)) {
+		report(indexPath, 1, "TOOLMODULE", `${name} has no src/index.ts`);
+		return;
+	}
+	const content = readFile(indexPath);
+	if (!content.includes("createAdapter")) {
+		report(indexPath, 1, "TOOLMODULE",
+			`${name}/src/index.ts does not export createAdapter — materializer requires this convention`);
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Main scan
 // ---------------------------------------------------------------------------
 
@@ -375,6 +392,7 @@ for (const { name, dir } of adapterDirs) {
 
 	checkTestCoverage(dir, name);
 	checkStreamingCompliance(dir, name);
+	checkToolModuleExport(dir, name);
 }
 
 // ---------------------------------------------------------------------------

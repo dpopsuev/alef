@@ -1,1 +1,1 @@
-export { createFactoryAdapter, type FactoryAdapterOptions } from "./adapter.js";
+export { createFactoryAdapter, createFactoryAdapter as createAdapter, type FactoryAdapterOptions } from "./adapter.js";

@@ -61,10 +61,13 @@ export interface AdapterFactoryOptions {
 	blockedPatterns?: readonly RegExp[];
 }
 
-/** Expected shape of an adapter module — must export createAdapter. */
-interface AdapterModule {
+/** Expected shape of a tool module — must export createAdapter. */
+export interface ToolModule {
 	createAdapter: (opts: AdapterFactoryOptions) => Adapter | Promise<Adapter>;
 }
+
+/** @deprecated Use ToolModule */
+type AdapterModule = ToolModule;
 
 function resolveFactory(mod: Record<string, unknown>): AdapterModule["createAdapter"] | undefined {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by typeof check

@@ -1,3 +1,4 @@
+export { createWorkflowAdapter as createAdapter } from "./adapter.js";
 export {
 	createContractTool,
 	createQuestionTool,

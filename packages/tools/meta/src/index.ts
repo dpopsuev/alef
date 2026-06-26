@@ -1,4 +1,4 @@
-export {
+export { createMetaAdapter as createAdapter,
 	createMetaAdapter,
 	type DirectiveAdapter,
 	type MetaAdapterOptions,

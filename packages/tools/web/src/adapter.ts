@@ -316,6 +316,7 @@ export function createWebAdapter(options: WebAdapterOptions = {}): Adapter {
 			labels: ["web", "fetch", "search", "http", "read"],
 			contributions: {
 				port: { name: "web", eventPattern: "command/web.", cardinality: "zero-or-one" } satisfies PortDefinition,
+				"event.weights": { "web.fetch": 0.9 },
 				history: {
 					ownedTools: ["web.fetch", "web.search"],
 					extractEntry: (payload) => {

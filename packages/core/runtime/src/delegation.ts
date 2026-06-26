@@ -82,6 +82,16 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	const pipeline = createContextAssemblyPipeline();
 
+	const allWeights: Record<string, number> = {};
+	for (const adapter of [...resolvedDomainAdapters, ...extraAdapters]) {
+		const w = adapter.contributions?.["event.weights"];
+		if (w) Object.assign(allWeights, w);
+	}
+	if (Object.keys(allWeights).length > 0) {
+		const { registerEventWeights } = await import("@dpopsuev/alef-session");
+		registerEventWeights(allWeights);
+	}
+
 	if (opts.sessionStore) {
 		const store = opts.sessionStore;
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call

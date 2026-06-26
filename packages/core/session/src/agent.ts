@@ -1,4 +1,4 @@
-import type { AgentEvent, Session, SessionState } from "./session.js";
+import type { AgentEvent, Session, SessionState } from "./contracts/session.js";
 
 export interface AgentSessionDeps {
 	state: SessionState;

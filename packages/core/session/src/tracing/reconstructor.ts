@@ -1,5 +1,5 @@
-import type { StorageRecord, Turn } from "./session-store.js";
-import { TurnIndexer } from "./turn-indexer.js";
+import type { StorageRecord, Turn } from "../contracts/storage.js";
+import { TurnIndexer } from "../store.js";
 
 export interface TurnSnapshot {
 	turn: number;

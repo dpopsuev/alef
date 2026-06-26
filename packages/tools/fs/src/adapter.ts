@@ -659,6 +659,13 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					eventPattern: "command/fs.",
 					cardinality: "zero-or-one",
 				} satisfies PortDefinition,
+				"event.weights": {
+					"fs.write": 2.0,
+					"fs.edit": 2.0,
+					"fs.read": 1.0,
+					"fs.grep": 0.6,
+					"fs.find": 0.6,
+				},
 			},
 			publishSchemas: {
 				event: {

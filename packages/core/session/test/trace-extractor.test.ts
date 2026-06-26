@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { StorageRecord } from "../src/session-store.js";
-import { extractTrace, traceToScript } from "../src/trace-extractor.js";
+import type { StorageRecord } from "../src/contracts/storage.js";
+import { extractTrace, traceToScript } from "../src/tracing/extractor.js";
 
 function rec(bus: StorageRecord["bus"], type: string, correlationId: string, payload: Record<string, unknown> = {}, timestamp = Date.now()): StorageRecord {
 	return { bus, type, correlationId, payload, timestamp };

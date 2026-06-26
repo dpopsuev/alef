@@ -1,6 +1,6 @@
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
-import type { SessionStore } from "./session-store.js";
-import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "./turn-assembler.js";
+import type { SessionStore } from "../contracts/storage.js";
+import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "./assembler.js";
 
 export interface SessionContextStageOptions {
 	sessionStore: () => SessionStore | undefined;

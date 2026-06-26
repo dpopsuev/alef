@@ -1,7 +1,7 @@
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";
-import type { SessionTrace, TraceStep } from "../src/trace-extractor.js";
-import { TraceReasonerAdapter, TraceToolAdapter, createReplayAdapters } from "../src/trace-replayer.js";
+import type { SessionTrace, TraceStep } from "../src/tracing/extractor.js";
+import { TraceReasonerAdapter, TraceToolAdapter, createReplayAdapters } from "../src/tracing/replayer.js";
 
 function step(overrides: Partial<TraceStep> = {}): TraceStep {
 	return {

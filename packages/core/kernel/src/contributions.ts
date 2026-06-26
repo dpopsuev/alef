@@ -108,6 +108,7 @@ export interface ReasoningContributions {
 export interface PipelineContributions {
 	readonly "context.assemble"?: ContextAssemblyHandler;
 	readonly "schema-resolver"?: (toolName: string) => ToolDefinition | undefined;
+	readonly "event.weights"?: Readonly<Record<string, number>>;
 }
 
 export interface PresentationContributions {

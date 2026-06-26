@@ -1,4 +1,4 @@
-import type { StorageRecord } from "./session-store.js";
+import type { StorageRecord } from "../contracts/storage.js";
 
 export interface ToolExecution {
 	callId: string;

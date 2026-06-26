@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import type { SessionTrace, TraceStep } from "./trace-extractor.js";
+import type { SessionTrace, TraceStep } from "./extractor.js";
 
 export class TraceReasonerAdapter implements Adapter {
 	readonly name = "trace-reasoner";

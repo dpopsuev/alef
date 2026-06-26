@@ -436,6 +436,9 @@ export function createShellAdapter(options: ShellAdapterOptions): Adapter {
 					eventPattern: "command/shell.",
 					cardinality: "zero-or-one",
 				} satisfies PortDefinition,
+				"event.weights": {
+					"shell.exec": 1.5,
+				},
 			},
 			publishSchemas: {
 				event: {

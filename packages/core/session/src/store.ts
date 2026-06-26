@@ -1,5 +1,5 @@
 /**
- * SessionStore interface and JsonlSessionStore implementation.
+ * SessionStore implementation (JSONL), TurnIndexer, and session-scan helpers.
  *
  * SessionStore is the backend-agnostic contract for session persistence.
  * Implementations: JsonlSessionStore (JSONL files), SqliteSessionStore (SQLite),
@@ -13,128 +13,99 @@ import { appendFile, mkdir, readdir, readFile, stat, unlink, writeFile } from "n
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import type { SessionStore, StorageRecord, Turn } from "./contracts/storage.js";
+import { eventTypeWeight, extractContentLength } from "./context/scoring.js";
+
 // ---------------------------------------------------------------------------
-// Storage record types — moved from @dpopsuev/alef-kernel (CRP: only runner uses these)
+// Session-scan helpers (previously session-scan.ts)
 // ---------------------------------------------------------------------------
 
-export type BusKind = "command" | "event" | "notification" | "internal";
+export const SESSION_ROOT = join(homedir(), ".alef", "sessions");
 
-/** Actor identity stamped on each StorageRecord by SessionLog. */
-export interface StorageActor {
-	/** "@crimson" or "@dpopsuev" — the @ address of who produced this event. */
-	address: string;
-	type: "human" | "agent";
+export async function scanSessionFiles(
+	visitor: (id: string, path: string, cwdHash: string) => Promise<void>,
+): Promise<void> {
+	try {
+		const cwdHashes = await readdir(SESSION_ROOT);
+		for (const cwdHash of cwdHashes) {
+			const dir = join(SESSION_ROOT, cwdHash);
+			try {
+				const entries = await readdir(dir);
+				for (const entry of entries) {
+					if (!entry.endsWith(".jsonl")) continue;
+					const id = entry.replace(".jsonl", "");
+					const path = join(dir, entry);
+					try {
+						await visitor(id, path, cwdHash);
+					} catch {
+						/* skip unreadable entries */
+					}
+				}
+			} catch {
+				/* skip inaccessible directories */
+			}
+		}
+	} catch {
+		/* no sessions directory */
+	}
 }
 
-export interface StorageRecord {
-	bus: BusKind;
-	type: string;
-	correlationId: string;
-	payload: Record<string, unknown>;
-	timestamp: number;
-	elapsed?: number;
-	hash?: string;
-	/** The conversation ID (JsonlSessionStore.id) — the Topic this event belongs to. */
-	sessionId?: string;
-	/** Who produced this event. */
-	actor?: StorageActor;
-}
-
-export function hashRecord(record: Omit<StorageRecord, "hash">): string {
-	const stable = JSON.stringify({
-		bus: record.bus,
-		type: record.type,
-		correlationId: record.correlationId,
-		payload: record.payload,
-		timestamp: record.timestamp,
-	});
-	return createHash("sha256").update(stable, "utf-8").digest("hex");
-}
-
-export interface WindowAssembledRecord extends StorageRecord {
-	bus: Extract<BusKind, "internal">;
-	type: "window.assembled";
-	payload: {
-		includedTurnIds: string[];
-		queryTokens: string[];
-		budgetUsed: number;
-		budgetTotal: number;
-	};
-}
-
-export interface Turn {
-	id: string;
-	events: StorageRecord[];
-	turnIndex: number;
-	tokenCost: number;
-	typeWeight: number;
-}
-
-export interface SessionStore {
-	readonly id: string;
-	readonly path: string;
-	append(record: StorageRecord): Promise<void>;
-	events(): Promise<StorageRecord[]>;
-	turns(): Promise<Turn[]>;
-	hitCounts(): Promise<Map<string, number>>;
-	adapterHistory(adapterName: string): Promise<StorageRecord[]>;
-	name(): string | undefined;
-	setName(name: string): Promise<void>;
+export function sessionPath(id: string, cwdHash: string): string {
+	return join(SESSION_ROOT, cwdHash, `${id}.jsonl`);
 }
 
 // ---------------------------------------------------------------------------
+// TurnIndexer (previously turn-indexer.ts)
+// ---------------------------------------------------------------------------
 
-export const EVENT_TYPE_WEIGHTS: Record<string, number> = {
-	"fs.write": 2.0,
-	"fs.edit": 2.0,
-	"code.write": 2.0,
-	"code.edit": 2.0,
-	"shell.exec": 1.5,
-	"code.callers": 1.0,
-	"code.read": 1.0,
-	"fs.read": 1.0,
-	"web.fetch": 0.9,
-	"llm.response": 0.8,
-	"fs.grep": 0.6,
-	"fs.find": 0.6,
-	"code.search": 0.6,
-	"code.find": 0.6,
-};
-
-export function eventTypeWeight(type: string): number {
-	return EVENT_TYPE_WEIGHTS[type] ?? 0.5;
+export function cwdHash(cwd: string): string {
+	return createHash("sha1").update(cwd).digest("hex").slice(0, 12);
 }
 
-/**
- * Extract the LLM-relevant content length from an event payload.
- *
- * Priority: _display.text (human-facing, already clean) → content → text →
- * output → JSON.stringify remainder. Skips metadata fields (toolCallId,
- * correlationId, usage, isFinal) that inflate JSON.stringify estimates
- * without contributing to actual LLM token counts.
- */
-export function extractContentLength(payload: Record<string, unknown>): number {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped display payload field
-	const display = (payload._display as { text?: string } | undefined)?.text;
-	if (typeof display === "string") return display.length;
-	if (typeof payload.content === "string") return payload.content.length;
-	if (typeof payload.text === "string") return payload.text.length;
-	if (typeof payload.output === "string") return payload.output.length;
-	// Fallback: JSON of payload minus known metadata keys.
-	const { _display: _d, toolCallId: _t, isFinal: _f, usage: _u, ...rest } = payload;
-	return JSON.stringify(rest).length;
+export class TurnIndexer {
+	readonly turnMap = new Map<string, Turn>();
+	readonly hitCountsMap = new Map<string, number>();
+	private _nextTurnIndex = 0;
+	private readonly _turnContentLengths = new Map<string, number>();
+
+	index(record: StorageRecord): void {
+		if (record.bus === "internal" && record.type === "window.assembled") {
+			const ids = (record.payload as { includedTurnIds?: string[] }).includedTurnIds ?? [];
+			for (const id of ids) {
+				this.hitCountsMap.set(id, (this.hitCountsMap.get(id) ?? 0) + 1);
+			}
+			return;
+		}
+		if (record.bus !== "command" && record.bus !== "event" && record.type !== "llm.checkpoint") return;
+
+		const turnId = record.correlationId;
+		let turn = this.turnMap.get(turnId);
+		if (!turn) {
+			turn = { id: turnId, events: [], turnIndex: this._nextTurnIndex++, tokenCost: 0, typeWeight: 0 };
+			this.turnMap.set(turnId, turn);
+			this._turnContentLengths.set(turnId, 0);
+		}
+		turn.events.push(record);
+		turn.typeWeight = Math.max(turn.typeWeight, eventTypeWeight(record.type));
+		const sum = (this._turnContentLengths.get(turnId) ?? 0) + extractContentLength(record.payload);
+		this._turnContentLengths.set(turnId, sum);
+		turn.tokenCost = Math.ceil(sum / 4);
+	}
+
+	get nextTurnIndex(): number {
+		return this._nextTurnIndex;
+	}
 }
 
 // ---------------------------------------------------------------------------
+// Private helpers
 // ---------------------------------------------------------------------------
-
-import { cwdHash, TurnIndexer } from "./turn-indexer.js";
 
 function sessionDir(cwd: string): string {
 	return join(homedir(), ".alef", "sessions", cwdHash(cwd));
 }
 
-function sessionPath(cwd: string, id: string): string {
+function storeSessionPath(cwd: string, id: string): string {
 	return join(sessionDir(cwd), `${id}.jsonl`);
 }
 
@@ -146,6 +117,10 @@ async function ensureDir(cwd: string): Promise<void> {
 	await mkdir(sessionDir(cwd), { recursive: true });
 }
 
+// ---------------------------------------------------------------------------
+// JsonlSessionStore
+// ---------------------------------------------------------------------------
+
 export class JsonlSessionStore {
 	readonly id: string;
 	readonly path: string;
@@ -155,7 +130,7 @@ export class JsonlSessionStore {
 
 	private constructor(cwd: string, id: string) {
 		this.id = id;
-		this.path = sessionPath(cwd, id);
+		this.path = storeSessionPath(cwd, id);
 	}
 
 	private static async _warmCache(store: JsonlSessionStore): Promise<JsonlSessionStore> {
@@ -179,13 +154,13 @@ export class JsonlSessionStore {
 	static async create(cwd: string): Promise<JsonlSessionStore> {
 		const id = randomUUID().replace(/-/g, "").slice(0, 8);
 		await ensureDir(cwd);
-		await appendFile(sessionPath(cwd, id), "");
+		await appendFile(storeSessionPath(cwd, id), "");
 		await writeFile(latestPath(cwd), id, "utf-8");
 		return new JsonlSessionStore(cwd, id); // cache starts empty for a new session
 	}
 
 	static async resume(cwd: string, id: string): Promise<JsonlSessionStore> {
-		const path = sessionPath(cwd, id);
+		const path = storeSessionPath(cwd, id);
 		try {
 			await stat(path);
 		} catch {
@@ -315,6 +290,3 @@ export class JsonlSessionStore {
 		);
 	}
 }
-
-/** @deprecated Use SessionStore (the interface) */
-export type ISessionStore = SessionStore;

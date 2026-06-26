@@ -1,5 +1,5 @@
 import type { Message } from "@dpopsuev/alef-ai/types";
-import type { Turn } from "./session-store.js";
+import type { Turn } from "../contracts/storage.js";
 
 export interface ContextWindowPolicy {
 	/**

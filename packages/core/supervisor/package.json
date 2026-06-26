@@ -1,0 +1,39 @@
+{
+  "name": "@dpopsuev/alef-supervisor",
+  "version": "0.0.1",
+  "description": "Service lifecycle management for Alef tools",
+  "type": "module",
+  "main": "./src/lifecycle.ts",
+  "types": "./dist/lifecycle.d.ts",
+  "exports": {
+    "./lifecycle": "./src/lifecycle.ts",
+    "./tool": "./src/tool.ts"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "npx tsc -p tsconfig.build.json",
+    "dev": "npx tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-kernel": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "shx": "^0.4.0",
+    "typescript": "^5.9.2"
+  },
+  "author": "Daniel Popsuevich",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "alef": {
+    "type": "core",
+    "entry": "./src/lifecycle.ts"
+  }
+}

@@ -1,5 +1,5 @@
-import type { McpAdapterFactory } from "@dpopsuev/alef-engine";
-import { ToolSupervisor } from "@dpopsuev/alef-engine";
+import type { McpAdapterFactory } from "@dpopsuev/alef-supervisor/tool";
+import { ToolSupervisor } from "@dpopsuev/alef-supervisor/tool";
 import { describe, expect, it } from "vitest";
 
 const stubMcp: McpAdapterFactory = {

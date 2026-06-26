@@ -83,11 +83,11 @@
 			"@dpopsuev/alef-engine": [
 				"./packages/core/engine/src/index.ts"
 			],
-			"@dpopsuev/alef-engine/mcp-port": [
-				"./packages/core/engine/src/tool-supervisor.ts"
-			],
 			"@dpopsuev/alef-engine/*": [
 				"./packages/core/engine/src/*.ts"
+			],
+			"@dpopsuev/alef-supervisor/*": [
+				"./packages/core/supervisor/src/*.ts"
 			],
 			"@dpopsuev/alef-testkit": [
 				"./packages/core/testkit/src/index.ts"

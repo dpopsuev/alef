@@ -14,13 +14,7 @@ export {
 	createToolShellAdapter,
 	type ToolShellOptions,
 } from "./tool-catalog.js";
-export {
-	type RestartPolicy,
-	type SupervisorConfig,
-	type ToolServiceConfig,
-	type McpAdapterFactory,
-	ToolSupervisor,
-} from "./tool-supervisor.js";
+// ToolSupervisor moved to @dpopsuev/alef-supervisor/tool
 
 import { randomUUID } from "node:crypto";
 import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";

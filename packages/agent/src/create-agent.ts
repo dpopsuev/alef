@@ -28,9 +28,10 @@ export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstan
 	const args = { ...parseArgs([]), cwd: opts.cwd, noTui: true };
 	const cfg = opts.cfg ?? {};
 	const thinkingState = {
-		level: (opts.thinking ??
-			(cfg as Record<string, unknown>).thinking ??
-			(opts.model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- args/cfg provide validated ThinkingLevel strings
+		level: (opts.thinking ?? cfg.thinking ?? (opts.model.reasoning ? "medium" : undefined)) as
+			| ThinkingLevel
+			| undefined,
 	};
 
 	const directives = createDefaultDirectives({ tools: opts.adapters.flatMap((o) => o.tools), cwd: opts.cwd });

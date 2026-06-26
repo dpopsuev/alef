@@ -157,6 +157,7 @@ export async function createLocalSession(
 
 	const directivesBudgetChars = Math.floor(model.contextWindow * DIRECTIVE_BUDGET_FRACTION * CHARS_PER_TOKEN_ESTIMATE);
 	const thinkingState = {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- args/cfg provide validated ThinkingLevel strings
 		level: (args.thinking ?? cfg.thinking ?? (model.reasoning ? "medium" : undefined)) as ThinkingLevel | undefined,
 	};
 	const replySink = !args.print && !args.json && !args.noTui && process.stdin.isTTY ? undefined : makeSink(args.json);
@@ -264,8 +265,8 @@ export async function createLocalSession(
 		cwd: args.cwd,
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {
-			const trigger = (globalThis as Record<string, unknown>).alefRequestRebuild;
-			if (typeof trigger === "function") (trigger as () => void)();
+			const g = globalThis as Record<string, unknown>; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- globalThis duck-typing for cross-module signaling
+			if (typeof g.alefRequestRebuild === "function") g.alefRequestRebuild();
 		},
 	});
 	agent.load(alefAdapter);
@@ -276,6 +277,7 @@ export async function createLocalSession(
 		onCommand() {},
 		onEvent() {},
 		onNotification(event) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage concrete subtypes carry payload
 			const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 			const s = (key: string): string => (typeof p[key] === "string" ? p[key] : "");
 			if (event.type === "task.completed") {

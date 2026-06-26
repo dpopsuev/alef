@@ -12,6 +12,7 @@ function exec(cmd: string): string {
 
 function readVersion(): string {
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json shape is well-known
 		const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, "../../../package.json"), "utf-8")) as {
 			version?: string;
 		};

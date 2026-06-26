@@ -23,12 +23,25 @@ export interface AgentServer {
 	readonly observers: Set<(event: AgentEvent) => void>;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+	return typeof v === "object" && v !== null;
+}
+
+/** Safely extract payload from a bus event (BusMessage base type has no payload; concrete subtypes do). */
+function busPayload(event: BusMessage): Record<string, unknown> {
+	if ("payload" in event) {
+		const raw: unknown = (event as Record<string, unknown>)["payload"]; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage concrete subtypes carry payload
+		if (typeof raw === "object" && raw !== null) return raw as Record<string, unknown>; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof+null check
+	}
+	return {};
+}
+
 export function signalToAgentEvent(
 	event: BusMessage,
 	signalMappers?: ReadonlyMap<string, SignalMapper>,
 	uiSignalTypes?: ReadonlySet<string>,
 ): AgentEvent | null {
-	const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
+	const p = busPayload(event);
 	switch (event.type) {
 		case "llm.chunk":
 			return { type: "chunk", text: typeof p.text === "string" ? p.text : "" };
@@ -39,7 +52,7 @@ export function signalToAgentEvent(
 				type: "tool-start",
 				callId: String(p.callId),
 				name: String(p.name),
-				args: (p.args ?? {}) as Record<string, unknown>,
+				args: isRecord(p.args) ? p.args : {},
 			};
 		case "llm.tool-end":
 			return {
@@ -47,8 +60,8 @@ export function signalToAgentEvent(
 				callId: String(p.callId),
 				elapsedMs: Number(p.elapsedMs),
 				ok: Boolean(p.ok),
-				display: p.display as string | undefined,
-				displayKind: p.displayKind as string | undefined,
+				display: typeof p.display === "string" ? p.display : undefined,
+				displayKind: typeof p.displayKind === "string" ? p.displayKind : undefined,
 			};
 		case "llm.tool-chunk":
 			return { type: "tool-chunk", callId: String(p.callId), text: typeof p.text === "string" ? p.text : "" };
@@ -68,44 +81,44 @@ export function signalToAgentEvent(
 				message: String(p.message),
 			};
 		case "llm.token-usage":
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus payload shape guaranteed by llm adapter
 			return { type: "token-usage", usage: p.usage as TokensConsumed };
 		case "llm.turn-error":
 			return { type: "turn-error", message: String(p.message) };
 		case "agent.run.inner": {
-			const inner = p as { callId?: string; innerType?: string; innerPayload?: Record<string, unknown> };
-			if (!inner.innerType || !inner.callId) return null;
-			if (inner.innerType === "agent.identity" && inner.innerPayload) {
+			const innerCallId = typeof p.callId === "string" ? p.callId : undefined;
+			const innerType = typeof p.innerType === "string" ? p.innerType : undefined;
+			const innerPayload = isRecord(p.innerPayload) ? p.innerPayload : undefined;
+			if (!innerType || !innerCallId) return null;
+			if (innerType === "agent.identity" && innerPayload) {
 				return {
 					type: "subagent-identity",
-					callId: String(inner.callId),
-					color: typeof inner.innerPayload.color === "string" ? inner.innerPayload.color : "",
-					address: typeof inner.innerPayload.address === "string" ? inner.innerPayload.address : "",
+					callId: innerCallId,
+					color: typeof innerPayload.color === "string" ? innerPayload.color : "",
+					address: typeof innerPayload.address === "string" ? innerPayload.address : "",
 				};
 			}
-			if (inner.innerType === "llm.tool-start" && inner.innerPayload) {
-				const ip = inner.innerPayload;
+			if (innerType === "llm.tool-start" && innerPayload) {
 				return {
 					type: "inner-tool-start",
-					parentCallId: String(inner.callId),
-					callId: typeof ip.callId === "string" ? ip.callId : "",
-					name: typeof ip.name === "string" ? ip.name : "",
-					args: (ip.args ?? {}) as Record<string, unknown>,
+					parentCallId: innerCallId,
+					callId: typeof innerPayload.callId === "string" ? innerPayload.callId : "",
+					name: typeof innerPayload.name === "string" ? innerPayload.name : "",
+					args: isRecord(innerPayload.args) ? innerPayload.args : {},
 				};
 			}
-			if (inner.innerType === "llm.tool-end" && inner.innerPayload) {
-				const ip = inner.innerPayload;
+			if (innerType === "llm.tool-end" && innerPayload) {
 				return {
 					type: "inner-tool-end",
-					parentCallId: String(inner.callId),
-					callId: typeof ip.callId === "string" ? ip.callId : "",
+					parentCallId: innerCallId,
+					callId: typeof innerPayload.callId === "string" ? innerPayload.callId : "",
 				};
 			}
-			if (inner.innerType === "llm.chunk" && inner.innerPayload) {
-				const chunkText = inner.innerPayload.text;
+			if (innerType === "llm.chunk" && innerPayload) {
 				return {
 					type: "inner-chunk",
-					parentCallId: String(inner.callId),
-					text: typeof chunkText === "string" ? chunkText : "",
+					parentCallId: innerCallId,
+					text: typeof innerPayload.text === "string" ? innerPayload.text : "",
 				};
 			}
 			return null;
@@ -190,7 +203,7 @@ export function connectObservers(
 	agent.observe({
 		onCommand(event) {
 			if (event.type === "llm.response") {
-				const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
+				const p = busPayload(event);
 				const text = typeof p.text === "string" ? p.text : "";
 				for (const obs of observers) obs({ type: "turn-complete", reply: text });
 			}

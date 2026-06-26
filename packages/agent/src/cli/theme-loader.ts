@@ -13,6 +13,7 @@ interface ThemeManifest {
 function loadManifest(path: string): ThemeManifest | null {
 	try {
 		const raw = readFileSync(path, "utf-8");
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- YAML config shape is well-known
 		return parseYaml(raw) as ThemeManifest;
 	} catch {
 		return null;
@@ -35,7 +36,7 @@ export function loadTheme(
 	const candidates = [
 		blueprintDir ? join(blueprintDir, "agent.yaml") : null,
 		join(homedir(), ".config", "alef", "theme.yaml"),
-	].filter(Boolean) as string[];
+	].filter((p): p is string => p !== null);
 
 	let manifest: ThemeManifest | null = null;
 	for (const path of candidates) {
@@ -60,6 +61,7 @@ export function loadTheme(
 	const base = BUILT_IN_THEMES[baseName.toLowerCase()] ?? BUILT_IN_THEMES.terminal;
 	const overrides: Partial<Record<keyof ThemeTokens, ColorToken>> = {};
 	for (const [k, v] of Object.entries(allColors)) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- user config keys mapped to ThemeTokens; unknown keys are harmless
 		if (typeof v === "string") overrides[k as keyof ThemeTokens] = hexToken(v);
 	}
 

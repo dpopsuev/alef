@@ -182,6 +182,7 @@ await warmAuthCache();
 
 import type { SessionPreviewProvider } from "@dpopsuev/alef-storage";
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- StorageFactory concrete impls may expose sessionPreview(); duck-typed at boundary
 const preview: SessionPreviewProvider | undefined =
 	"sessionPreview" in storage ? (storage as { sessionPreview(): SessionPreviewProvider }).sessionPreview() : undefined;
 const session = await loadSession(args, storage.sessions, willUseTui, pickSession, preview);
@@ -190,7 +191,7 @@ const session = await loadSession(args, storage.sessions, willUseTui, pickSessio
 const { traceEvent, initSessionSink } = await import("@dpopsuev/alef-kernel");
 initSessionSink((record) => {
 	void session.append({
-		bus: "debug" as "internal",
+		bus: "internal", // debug events stored under the "internal" bus
 		type: typeof record.type === "string" ? record.type : "debug",
 		correlationId: "debug",
 		payload: record,
@@ -260,8 +261,8 @@ await runAgent({
 	getThinking: () => localSession.getThinking(),
 	setThinking: (level) => localSession.setThinking(level),
 	setLLMAbortController: (ctrl) => localSession.setTurnController(ctrl),
-	reloadAdapter: async (name, path) => localSession.reloadAdapter?.(name, path),
-	getDirectiveAdapter: () => localSession.getDirective?.(),
+	reloadAdapter: async (name, path) => localSession.reloadAdapter(name, path),
+	getDirectiveAdapter: () => localSession.getDirective(),
 	session: localSession,
 	store: session,
 	humanAddress,

@@ -24,6 +24,7 @@ export function buildLlmAdapter(opts: LlmAdapterOptions): Adapter {
 	const scriptedRepliesEnv = process.env.ALEF_SCRIPTED_REPLIES;
 
 	if (scriptedRepliesEnv) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- test-only env var; caller guarantees JSON string array
 		return new ScriptedLlmAdapter(JSON.parse(scriptedRepliesEnv) as string[]);
 	}
 

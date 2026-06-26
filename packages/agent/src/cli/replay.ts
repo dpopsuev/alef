@@ -46,6 +46,7 @@ export async function runReplay(cwd: string, sessionIdOrLast: string): Promise<v
 		onCommand() {},
 		onEvent() {},
 		onNotification(event) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage concrete subtypes carry payload
 			const p = (event as { payload?: Record<string, unknown> }).payload ?? {};
 			if (event.type === "llm.tool-start") {
 				console.log(
@@ -53,6 +54,7 @@ export async function runReplay(cwd: string, sessionIdOrLast: string): Promise<v
 				);
 			}
 			if (event.type === "llm.token-usage") {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus payload shape guaranteed by llm adapter
 				const u = p.usage as { input: number; output: number } | undefined;
 				console.log(`  [usage] ${u?.input ?? 0} in / ${u?.output ?? 0} out`);
 			}

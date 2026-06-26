@@ -34,8 +34,8 @@ export function resolveWritableRoots(cwd: string, cfg: AlefConfig): readonly str
 	const envRoots = process.env.ALEF_WRITABLE_ROOTS;
 	if (envRoots) {
 		try {
-			const parsed = JSON.parse(envRoots) as string[];
-			if (Array.isArray(parsed)) return parsed.map((r) => resolve(r));
+			const parsed: unknown = JSON.parse(envRoots);
+			if (Array.isArray(parsed)) return (parsed as string[]).map((r) => resolve(r)); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- Array.isArray narrows; elements are strings by convention
 		} catch {
 			/* malformed — treat as unrestricted */
 		}
@@ -78,9 +78,7 @@ export async function loadAdapters(
 	}
 
 	const isExplicitBlueprint = !!blueprintPath;
-	if (!blueprintPath) {
-		blueprintPath = findAgentDefinitionPath(args.cwd);
-	}
+	blueprintPath ??= findAgentDefinitionPath(args.cwd);
 
 	if (blueprintPath) {
 		const { existsSync } = await import("node:fs");

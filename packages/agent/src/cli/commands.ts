@@ -479,7 +479,7 @@ const theme = {
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const name = args[0]?.toLowerCase();
 		if (name) {
-			if (!THEMES.includes(name as (typeof THEMES)[number])) {
+			if (!(THEMES as readonly string[]).includes(name)) {
 				ctx.writer.addNotice(`Unknown theme '${name}'. Available: ${THEMES.join(", ")}`);
 				ctx.tui.requestRender();
 				return;
@@ -527,7 +527,7 @@ const think = {
 	run(ctx: TuiHandlerContext, args: string[]) {
 		const [level] = args;
 		if (level) {
-			if (!THINKING_LEVELS.includes(level as (typeof THINKING_LEVELS)[number])) {
+			if (!(THINKING_LEVELS as readonly string[]).includes(level)) {
 				ctx.writer.addNotice(`Unknown level: ${level}. Valid: ${THINKING_LEVELS.join(" | ")}`);
 				ctx.tui.requestRender();
 				return;
@@ -540,7 +540,7 @@ const think = {
 		openEnumPicker(ctx.t, ctx.dispatch, () => ctx.tui.requestRender(), {
 			id: "think-picker",
 			values: THINKING_LEVELS,
-			active: ctx.session.getThinking() ?? "off",
+			active: ctx.session.getThinking(),
 			onSelect: (value) => {
 				ctx.session.setThinking(value);
 				ctx.writer.addNotice(`Thinking set to "${value}".`);

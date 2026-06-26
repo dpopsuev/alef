@@ -75,6 +75,7 @@ export class SessionLog implements Adapter {
 		const offAgg1 = bus.command.subscribe("*", (event) => {
 			if (event.type === "llm.response") {
 				turns++;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- llm.response payload shape guaranteed by reasoner
 				const u = (event.payload as { usage?: { input?: number; output?: number } }).usage;
 				if (u) {
 					inputTokens += u.input ?? 0;
@@ -92,9 +93,11 @@ export class SessionLog implements Adapter {
 		const agentActor = this.agentActor;
 
 		const off1 = bus.command.subscribe("*", (event) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- redactPayload preserves object structure
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
+			const bus: BusKind = "command";
 			const base = {
-				bus: "command" as BusKind,
+				bus,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,
@@ -109,14 +112,17 @@ export class SessionLog implements Adapter {
 		});
 
 		const off2 = bus.event.subscribe("*", (event) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- redactPayload preserves object structure
 			const payload = redactPayload(event.payload) as Record<string, unknown>;
 			// llm.input is the human's message — stamp as human actor when sender indicates so
 			const isHumanInput = event.type === "llm.input" && (payload.sender === "human" || payload.sender === "user");
+			const senderStr = typeof payload.sender === "string" ? payload.sender : "human";
 			const actor: StorageActor | undefined = isHumanInput
-				? { address: `@${(payload.sender as string) ?? "human"}`, type: "human" }
+				? { address: `@${senderStr}`, type: "human" }
 				: agentActor;
+			const eventBus: BusKind = "event";
 			const base = {
-				bus: "event" as BusKind,
+				bus: eventBus,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,
@@ -131,12 +137,11 @@ export class SessionLog implements Adapter {
 		});
 
 		const off3 = bus.notification.subscribe("*", (event) => {
-			const payload = redactPayload((event as { payload?: Record<string, unknown> }).payload ?? {}) as Record<
-				string,
-				unknown
-			>;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- redactPayload preserves object structure
+			const payload = redactPayload(event.payload) as Record<string, unknown>;
+			const notifBus: BusKind = "notification";
 			const base = {
-				bus: "notification" as BusKind,
+				bus: notifBus,
 				type: event.type,
 				correlationId: event.correlationId,
 				payload,

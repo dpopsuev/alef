@@ -64,12 +64,12 @@ async function inspectSession(cwd: string, sessions: SessionStoreFactory, idPref
 				continue;
 			}
 			if (!motorByCorr.has(key)) motorByCorr.set(key, []);
-			(motorByCorr.get(key) as StorageRecord[]).push(r);
+			motorByCorr.get(key)!.push(r);
 		} else if (r.bus === "event") {
-			if ((r.payload as { isError?: boolean }).isError) errors++;
+			if (r.payload.isError) errors++;
 			if (r.type === "llm.input") continue;
 			if (!senseByCorr.has(key)) senseByCorr.set(key, []);
-			(senseByCorr.get(key) as StorageRecord[]).push(r);
+			senseByCorr.get(key)!.push(r);
 		}
 	}
 

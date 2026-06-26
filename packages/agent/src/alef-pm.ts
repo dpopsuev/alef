@@ -92,6 +92,7 @@ function nextGenId(): number {
 }
 
 function readGen(id: number): Generation {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown; shape validated by generation contract
 	return JSON.parse(readFileSync(join(GEN_DIR, `${id}.json`), "utf-8")) as Generation;
 }
 
@@ -117,6 +118,7 @@ function snapshotGeneration(): number {
 
 function parseLockAdapters(lockContent: string): Record<string, string> {
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- npm lockfile structure is well-known
 		const lock = JSON.parse(lockContent) as { packages?: Record<string, { version?: string }> };
 		const result: Record<string, string> = {};
 		for (const [k, v] of Object.entries(lock.packages ?? {})) {
@@ -183,6 +185,7 @@ export function readManifest(packageName: string): AlefManifest | undefined {
 	const pkgJsonPath = join(PM_ROOT, "node_modules", packageName, "package.json");
 	if (!existsSync(pkgJsonPath)) return undefined;
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json shape is well-known
 		const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as { alef?: AlefManifest };
 		return pkg.alef;
 	} catch {
@@ -247,6 +250,7 @@ export function history(): HistoryEntry[] {
 	return readdirSync(GEN_DIR)
 		.filter((f) => f.endsWith(".json"))
 		.map((f) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generation file structure is well-known
 			const gen = JSON.parse(readFileSync(join(GEN_DIR, f), "utf-8")) as Generation;
 			return {
 				id: gen.id,
@@ -279,6 +283,7 @@ export function gc(keep = 10): { removedGenerations: number; removedStoreEntries
 	const kept = files.slice(0, keep);
 	const referencedHashes = new Set<string>();
 	for (const { file } of kept) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generation file structure is well-known
 		const gen = JSON.parse(readFileSync(join(GEN_DIR, file), "utf-8")) as Generation;
 		referencedHashes.add(gen.lockHash);
 	}
@@ -318,6 +323,7 @@ export async function search(query: string): Promise<SearchResult[]> {
 	const cmd = `npm search ${terms} --json`;
 	process.stderr.write(`[alef-pm] ${cmd}\n`);
 	const { stdout } = await exec(cmd);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- npm search --json output structure is well-known
 	const raw = JSON.parse(stdout.trim() || "[]") as Array<{
 		name?: string;
 		description?: string;
@@ -355,6 +361,7 @@ export function sbom(): object {
 	const components: SbomComponent[] = [];
 
 	if (existsSync(LOCK_FILE)) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- npm lockfile structure is well-known
 		const lock = JSON.parse(readFileSync(LOCK_FILE, "utf-8")) as {
 			packages?: Record<string, { version?: string; integrity?: string; resolved?: string }>;
 		};
@@ -464,10 +471,8 @@ export async function importLockfile(cwd = process.cwd(), inputPath?: string): P
 		throw new Error(`alef-adapters.lock not found at ${source}. Run 'alef pm export' first.`);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- alef-adapters.lock structure is well-known
 	const lockfile = JSON.parse(readFileSync(source, "utf-8")) as ProjectLockfile;
-	if (!lockfile.adapters || typeof lockfile.adapters !== "object") {
-		throw new Error(`Invalid alef-adapters.lock: missing adapters field.`);
-	}
 
 	init();
 

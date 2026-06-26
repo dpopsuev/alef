@@ -172,8 +172,8 @@ const LANG_ALIAS: Record<string, string> = {
 export function systemLang(): string {
 	const raw =
 		[process.env.LC_ALL, process.env.LC_MESSAGES, process.env.LANG, process.env.LANGUAGE]
-			.filter(Boolean)
-			.flatMap((v) => (v as string).split(":"))[0] ?? "en";
+			.filter((v): v is string => Boolean(v))
+			.flatMap((v) => v.split(":"))[0] ?? "en";
 	const code = raw.split("_")[0].split(".")[0].toLowerCase();
 	return LANG_ALIAS[code] ?? code;
 }
@@ -181,7 +181,8 @@ export function systemLang(): string {
 /** Return shuffled spinner frames from the user's locale script. */
 export function spinnerFrames(count = 12): string[] {
 	const lang = systemLang();
-	const pool = [...(SCRIPT_GLYPHS[lang] ?? SCRIPT_GLYPHS.default ?? [])];
+	const glyphs = SCRIPT_GLYPHS[lang] as readonly string[] | undefined;
+	const pool = [...(glyphs ?? SCRIPT_GLYPHS.default)];
 	for (let i = pool.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
 		[pool[i], pool[j]] = [pool[j], pool[i]];
@@ -238,7 +239,7 @@ export function buildTerminalTheme(palette: Record<number, string>): ThemeTokens
 export const TERMINAL_PALETTE_SLOTS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14] as const;
 
 export function setThemeByName(name: string): void {
-	const t = BUILT_IN_THEMES[name.toLowerCase()];
+	const t = BUILT_IN_THEMES[name.toLowerCase()] as ThemeTokens | undefined;
 	if (!t) {
 		process.stderr.write(`[alef] unknown theme '${name}', using terminal\n`);
 		_active = TERMINAL;

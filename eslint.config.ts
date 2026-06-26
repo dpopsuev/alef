@@ -43,6 +43,24 @@ export default tseslint.config(
 		},
 	},
 
+	// ── Architectural boundary: core → tools is forbidden ──────────────
+	// Core packages define abstractions; tool packages implement them.
+	// If a core package needs tool-specific knowledge (event names, options),
+	// it must go through a contribution interface, not a direct import.
+	{
+		files: ["packages/core/*/src/**/*.ts"],
+		rules: {
+			"no-restricted-imports": ["error", {
+				patterns: [
+					{
+						group: ["@dpopsuev/alef-tool-*"],
+						message: "Core packages must not import from tool packages. Use adapter contributions instead.",
+					},
+				],
+			}],
+		},
+	},
+
 	// Type-aware rules on production source only.
 	// Tests are excluded — payload access patterns there are intentional fixtures.
 	{

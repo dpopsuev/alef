@@ -1,5 +1,5 @@
-import type { Model } from "@dpopsuev/alef-llm/types";
-import { getModels, getProviders, modelsAreEqual } from "@dpopsuev/alef-llm/models";
+import type { Model } from "@dpopsuev/alef-ai/types";
+import { getModels, getProviders, modelsAreEqual } from "@dpopsuev/alef-ai/models";
 import { icon } from "@mariozechner/mini-lit";
 import { Badge } from "@mariozechner/mini-lit/dist/Badge.js";
 import { Button } from "@mariozechner/mini-lit/dist/Button.js";

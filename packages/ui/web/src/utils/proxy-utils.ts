@@ -1,5 +1,5 @@
-import type { Api, Context, Model, SimpleStreamOptions } from "@dpopsuev/alef-llm/types";
-import { streamSimple } from "@dpopsuev/alef-llm/stream";
+import type { Api, Context, Model, SimpleStreamOptions } from "@dpopsuev/alef-ai/types";
+import { streamSimple } from "@dpopsuev/alef-ai/stream";
 
 /**
  * Centralized proxy decision logic.

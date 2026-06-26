@@ -1,5 +1,5 @@
+import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm/types";
 
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import type { Args } from "./args.js";

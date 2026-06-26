@@ -1,4 +1,4 @@
-import type { ToolResultMessage } from "@dpopsuev/alef-llm/types";
+import type { ToolResultMessage } from "@dpopsuev/alef-ai/types";
 import { html } from "lit";
 import { Calculator } from "lucide";
 import { i18n } from "../../utils/i18n.js";

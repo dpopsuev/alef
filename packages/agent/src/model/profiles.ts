@@ -1,5 +1,5 @@
-import { getModels, getProviders } from "@dpopsuev/alef-llm/models";
-import type { Api, KnownProvider, Model } from "@dpopsuev/alef-llm/types";
+import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
+import type { Api, KnownProvider, Model } from "@dpopsuev/alef-ai/types";
 import type { ModelConfig } from "./resolve.js";
 
 export interface ModelProfile {

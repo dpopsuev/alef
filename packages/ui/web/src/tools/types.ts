@@ -1,4 +1,4 @@
-import type { ToolResultMessage } from "@dpopsuev/alef-llm/types";
+import type { ToolResultMessage } from "@dpopsuev/alef-ai/types";
 import type { TemplateResult } from "lit";
 
 export interface ToolRenderResult {

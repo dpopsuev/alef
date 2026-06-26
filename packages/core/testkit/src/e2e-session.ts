@@ -21,8 +21,8 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { NotificationMessage } from "@dpopsuev/alef-kernel/bus";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import { getEnvApiKey } from "@dpopsuev/alef-llm/env";
-import { getModel } from "@dpopsuev/alef-llm/models";
+import { getEnvApiKey } from "@dpopsuev/alef-ai/env";
+import { getModel } from "@dpopsuev/alef-ai/models";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 

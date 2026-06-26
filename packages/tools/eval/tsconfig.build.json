@@ -20,7 +20,7 @@
 	],
 	"references": [
 		{
-			"path": "../../core/llm/tsconfig.build.json"
+			"path": "../../core/ai/tsconfig.build.json"
 		},
 		{
 			"path": "../../core/kernel/tsconfig.build.json"

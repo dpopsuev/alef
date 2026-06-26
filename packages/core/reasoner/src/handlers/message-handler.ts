@@ -1,5 +1,5 @@
 import { toolInputToJsonSchema } from "@dpopsuev/alef-kernel/adapter";
-import type { Message, Tool } from "@dpopsuev/alef-llm/types";
+import type { Message, Tool } from "@dpopsuev/alef-ai/types";
 import type { z } from "zod";
 import { normalizeMessage } from "../retry.js";
 

@@ -1,8 +1,8 @@
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { DEFAULT_LLM_TIMEOUT_MS } from "@dpopsuev/alef-kernel/execution";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-llm/types";
-import { streamSimple } from "@dpopsuev/alef-llm/stream";
+import type { Api, AssistantMessage, Message, Model, ThinkingLevel, Tool } from "@dpopsuev/alef-ai/types";
+import { streamSimple } from "@dpopsuev/alef-ai/stream";
 import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("alef.adapter-llm");

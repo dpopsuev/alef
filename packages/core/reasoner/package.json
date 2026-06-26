@@ -47,7 +47,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@dpopsuev/alef-llm": "workspace:*",
+    "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@opentelemetry/api": "^1.9.1"
   },

@@ -5,7 +5,7 @@
  * violation reporting, and equal-weight distribution.
  */
 
-import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm/faux";
+import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Phase, PhaseEvaluation } from "../src/evaluation.js";

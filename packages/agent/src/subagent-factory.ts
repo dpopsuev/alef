@@ -1,7 +1,7 @@
+import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SubagentFactory } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import type { Api, Model } from "@dpopsuev/alef-llm/types";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { AgentSession } from "@dpopsuev/alef-session";
 import { assembleAgentServer } from "./assemble.js";

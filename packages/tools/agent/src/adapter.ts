@@ -495,7 +495,7 @@ export function createAgentAdapter(
 					},
 					async (ctx) => {
 						try {
-							const { getProviders, getModels } = await import("@dpopsuev/alef-llm/models");
+							const { getProviders, getModels } = await import("@dpopsuev/alef-ai/models");
 							const providers = ctx.payload.provider ? [ctx.payload.provider] : (getProviders() as string[]);
 							const result: Array<{ provider: string; id: string; name: string; contextWindow: number }> = [];
 							for (const p of providers) {

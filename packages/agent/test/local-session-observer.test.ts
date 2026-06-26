@@ -15,7 +15,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm/faux";
+import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import pino from "pino";
 import { afterEach, describe, expect, it } from "vitest";
 

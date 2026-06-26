@@ -1,4 +1,4 @@
-import type { Model } from "@dpopsuev/alef-llm/types";
+import type { Model } from "@dpopsuev/alef-ai/types";
 import type { AgentMessage, ThinkingLevel } from "../agent-types.js";
 
 /**

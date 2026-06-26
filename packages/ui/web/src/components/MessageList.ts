@@ -1,7 +1,7 @@
 import type {
 	AssistantMessage as AssistantMessageType,
 	ToolResultMessage as ToolResultMessageType,
-} from "@dpopsuev/alef-llm/types";
+} from "@dpopsuev/alef-ai/types";
 import { html, LitElement, type TemplateResult } from "lit";
 import { property } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";

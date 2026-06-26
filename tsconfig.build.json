@@ -17,7 +17,7 @@
 			"path": "packages/core/kernel/tsconfig.build.json"
 		},
 		{
-			"path": "packages/core/llm/tsconfig.build.json"
+			"path": "packages/core/ai/tsconfig.build.json"
 		},
 		{
 			"path": "packages/core/reasoner/tsconfig.build.json"

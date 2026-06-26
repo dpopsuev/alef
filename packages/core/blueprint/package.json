@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@dpopsuev/alef-kernel": "workspace:*",
-    "@dpopsuev/alef-llm": "workspace:*",
+    "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
     "jiti": "^2.7.0",
     "typebox": "^1.1.24",

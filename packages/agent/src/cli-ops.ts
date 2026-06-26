@@ -1,4 +1,4 @@
-import { getModels, getProviders } from "@dpopsuev/alef-llm/models";
+import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
 import type { Args } from "./args.js";
 import { getConfig } from "./config.js";
 import { resolveProfile } from "./model/index.js";

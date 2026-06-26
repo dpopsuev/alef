@@ -1,4 +1,4 @@
-import type { ToolResultMessage } from "@dpopsuev/alef-llm/types";
+import type { ToolResultMessage } from "@dpopsuev/alef-ai/types";
 import { html, LitElement } from "lit";
 import { property, state } from "lit/decorators.js";
 import type { AgentMessage, AgentTool } from "../agent-types.js";

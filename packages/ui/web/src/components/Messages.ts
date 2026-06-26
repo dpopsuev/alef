@@ -5,7 +5,7 @@ import type {
 	ToolCall,
 	ToolResultMessage as ToolResultMessageType,
 	UserMessage as UserMessageType,
-} from "@dpopsuev/alef-llm/types";
+} from "@dpopsuev/alef-ai/types";
 import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { renderTool } from "../tools/index.js";
@@ -289,7 +289,7 @@ export class AbortedMessage extends LitElement {
 // Default Message Transformer
 // ============================================================================
 
-import type { Message } from "@dpopsuev/alef-llm/types";
+import type { Message } from "@dpopsuev/alef-ai/types";
 import type { AgentMessage } from "../agent-types.js";
 
 /**

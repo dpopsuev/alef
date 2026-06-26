@@ -1,4 +1,4 @@
-import { getEnvApiKey } from "@dpopsuev/alef-llm/env";
+import { getEnvApiKey } from "@dpopsuev/alef-ai/env";
 import type { AuthStore } from "@dpopsuev/alef-storage";
 
 let _store: AuthStore | undefined;

@@ -5,8 +5,8 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
     "paths": {
-      "@dpopsuev/alef-llm": ["../ai/src/index.ts"],
-      "@dpopsuev/alef-llm/oauth": ["../ai/src/oauth.ts"],
+      "@dpopsuev/alef-ai": ["../ai/src/index.ts"],
+      "@dpopsuev/alef-ai/oauth": ["../ai/src/oauth.ts"],
       "@dpopsuev/alef-tui": ["../tui/src/index.ts"]
     }
   },

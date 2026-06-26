@@ -10,10 +10,10 @@
 			"@dpopsuev/alef-blueprint/*": [
 				"../blueprint/src/*.ts"
 			],
-			"@dpopsuev/alef-llm": [
+			"@dpopsuev/alef-ai": [
 				"../ai/src/index.ts"
 			],
-			"@dpopsuev/alef-llm/*": [
+			"@dpopsuev/alef-ai/*": [
 				"../ai/src/*"
 			],
 			"@dpopsuev/alef-runtime": [

@@ -1,7 +1,7 @@
 import { icon } from "@mariozechner/mini-lit";
 import "@mariozechner/mini-lit/dist/MarkdownBlock.js";
-import type { ToolCall } from "@dpopsuev/alef-llm/types";
-import { StringEnum } from "@dpopsuev/alef-llm/utils";
+import type { ToolCall } from "@dpopsuev/alef-ai/types";
+import { StringEnum } from "@dpopsuev/alef-ai/utils";
 import { Button } from "@mariozechner/mini-lit/dist/Button.js";
 import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";

@@ -11,8 +11,8 @@
  * can read the schema default even when the ToolShell has stripped the schema.
  */
 
+import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm/faux";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { AgentController, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";

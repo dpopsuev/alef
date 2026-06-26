@@ -1,10 +1,9 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
 import { blueprintRegistry, loadAdapterFromPath } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-
-import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-llm/types";
 import { AgentController, buildBootCatalog } from "@dpopsuev/alef-runtime";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import { createMetaAdapter } from "@dpopsuev/alef-tool-meta";

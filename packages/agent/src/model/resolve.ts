@@ -1,6 +1,6 @@
-import { findEnvKeys, getEnvApiKey } from "@dpopsuev/alef-llm/env";
-import { getModels, getProviders } from "@dpopsuev/alef-llm/models";
-import type { Api, KnownProvider, Model } from "@dpopsuev/alef-llm/types";
+import { findEnvKeys, getEnvApiKey } from "@dpopsuev/alef-ai/env";
+import { getModels, getProviders } from "@dpopsuev/alef-ai/models";
+import type { Api, KnownProvider, Model } from "@dpopsuev/alef-ai/types";
 export interface ModelResolutionInput {
 	modelId: string | undefined;
 	debug: boolean;

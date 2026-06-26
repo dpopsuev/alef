@@ -7,7 +7,7 @@
 		"baseUrl": ".",
 		"paths": {
 			"*": ["./*"],
-			"@dpopsuev/alef-llm": ["../../ai/src/index.ts"],
+			"@dpopsuev/alef-ai": ["../../ai/src/index.ts"],
 			"@dpopsuev/alef-tui": ["../../tui/src/index.ts"],
 			"@dpopsuev/alef-web-ui": ["../src/index.ts"]
 		},

@@ -7,10 +7,10 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
+import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import { defineAdapter, typedStreamAction } from "@dpopsuev/alef-kernel/adapter";
 import type { EventInput } from "@dpopsuev/alef-kernel/bus";
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-llm/faux";
-import type { Api, Model } from "@dpopsuev/alef-llm/types";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import type { Session } from "@dpopsuev/alef-session";

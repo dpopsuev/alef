@@ -1,5 +1,5 @@
 import type { EventHandlerCtx } from "@dpopsuev/alef-kernel/adapter";
-import type { AssistantMessage, Message } from "@dpopsuev/alef-llm/types";
+import type { AssistantMessage, Message } from "@dpopsuev/alef-ai/types";
 import type { TokenUsage } from "../tool-events.js";
 import { serializeConversationHistory } from "./message-handler.js";
 

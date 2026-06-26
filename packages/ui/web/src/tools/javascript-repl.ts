@@ -1,4 +1,4 @@
-import type { ToolResultMessage } from "@dpopsuev/alef-llm/types";
+import type { ToolResultMessage } from "@dpopsuev/alef-ai/types";
 import { i18n } from "@mariozechner/mini-lit";
 import { html } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";

@@ -8,8 +8,8 @@
  * (<read_file>, <bash>) instead of structured tool_use blocks.
  */
 
-import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm/faux";
-import type { Context } from "@dpopsuev/alef-llm/types";
+import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
+import type { Context } from "@dpopsuev/alef-ai/types";
 import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { createAdapter } from "@dpopsuev/alef-tool-fs";
 import { afterEach, describe, expect, it } from "vitest";

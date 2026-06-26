@@ -6,27 +6,36 @@
 			"*": [
 				"./*"
 			],
-			"@dpopsuev/alef-llm": [
-				"./packages/core/llm/src/index.ts"
+			"@dpopsuev/alef-ai/oauth": [
+				"./packages/core/ai/src/utils/oauth/index.ts"
 			],
-			"@dpopsuev/alef-llm/oauth": [
-				"./packages/core/llm/src/oauth.ts"
+			"@dpopsuev/alef-ai/provider-port": [
+				"./packages/core/ai/src/api-registry.ts"
 			],
-			"@dpopsuev/alef-llm/provider-port": [
-				"./packages/core/llm/src/api-registry.ts"
+			"@dpopsuev/alef-ai/provider-contract": [
+				"./packages/core/ai/src/provider-contract.ts"
 			],
-			"@dpopsuev/alef-llm/provider-contract": [
-				"./packages/core/llm/src/provider-contract.ts"
+			"@dpopsuev/alef-ai/types": [
+				"./packages/core/ai/src/types.ts"
 			],
-			"@dpopsuev/alef-llm/types": [
-				"./packages/core/llm/src/types.ts"
+			"@dpopsuev/alef-ai/models": [
+				"./packages/core/ai/src/models.ts"
 			],
-			"@dpopsuev/alef-llm/*": [
-				"./packages/core/llm/src/*.ts",
-				"./packages/core/llm/src/providers/*.ts"
+			"@dpopsuev/alef-ai/stream": [
+				"./packages/core/ai/src/stream.ts"
 			],
-			"@dpopsuev/alef-llm/dist/*": [
-				"./packages/core/llm/src/*"
+			"@dpopsuev/alef-ai/env": [
+				"./packages/core/ai/src/env-api-keys.ts"
+			],
+			"@dpopsuev/alef-ai/utils": [
+				"./packages/core/ai/src/utils/typebox-helpers.ts"
+			],
+			"@dpopsuev/alef-ai/*": [
+				"./packages/core/ai/src/*.ts",
+				"./packages/core/ai/src/providers/*.ts"
+			],
+			"@dpopsuev/alef-ai/dist/*": [
+				"./packages/core/ai/src/*"
 			],
 			"@dpopsuev/alef-agent-core": [
 				"./packages/agent/src/index.ts"

@@ -99,7 +99,7 @@ export class AgentRuntime {
 		this.sessions.clear();
 		const storage: object = this.storage;
 		if ("close" in storage && typeof storage.close === "function") {
-			storage.close();
+			(storage.close as () => void)(); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- duck-type check above
 		}
 	}
 }

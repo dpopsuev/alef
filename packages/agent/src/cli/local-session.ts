@@ -266,7 +266,7 @@ export async function createLocalSession(
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {
 			const g = globalThis as Record<string, unknown>;
-			if (typeof g.alefRequestRebuild === "function") g.alefRequestRebuild();
+			if (typeof g.alefRequestRebuild === "function") (g.alefRequestRebuild as () => void)(); // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof
 		},
 	});
 	agent.load(alefAdapter);

@@ -9,7 +9,7 @@
     ".": "./src/interfaces.ts",
     "./factory": "./src/factory.ts",
     "./keyring": "./src/keyring.ts",
-    "./memory": "./src/memory-session.ts",
+    "./memory": "./src/memory/session.ts",
     "./sqlite/database": "./src/sqlite/database.ts",
     "./sqlite/session": "./src/sqlite/session.ts",
     "./sqlite/schema": "./src/sqlite/schema.ts",

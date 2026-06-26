@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { SessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session";
-import { TurnIndexer } from "@dpopsuev/alef-session";
+import type { SessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session/storage";
+import { TurnIndexer } from "@dpopsuev/alef-session/store";
 
 const MEMORY_PATH_PREFIX = "memory:";
 const SESSION_ID_LENGTH = 8;

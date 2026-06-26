@@ -162,7 +162,10 @@
 				"./packages/core/session/src/index.ts"
 			],
 			"@dpopsuev/alef-session/*": [
-				"./packages/core/session/src/*.ts"
+				"./packages/core/session/src/*.ts",
+				"./packages/core/session/src/contracts/*.ts",
+				"./packages/core/session/src/context/*.ts",
+				"./packages/core/session/src/tracing/*.ts"
 			],
 			"@dpopsuev/alef-storage": [
 				"./packages/core/storage/src/index.ts"

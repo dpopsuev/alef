@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { cwdHash, type SessionStore, type StorageRecord, type Turn, TurnIndexer } from "@dpopsuev/alef-session";
+import type { SessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session/storage";
+import { cwdHash, TurnIndexer } from "@dpopsuev/alef-session/store";
 import type { Client } from "@libsql/client";
 
 const SQLITE_PATH_PREFIX = "sqlite:alef.db#";

@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { SqliteAuthStore } from "./sqlite/auth.js";
 import { SqliteDaemonRegistry } from "./sqlite/daemon.js";
 import type { AuthStore, DaemonRegistry, SessionPreviewProvider, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";

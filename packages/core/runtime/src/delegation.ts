@@ -88,7 +88,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		if (w) Object.assign(allWeights, w);
 	}
 	if (Object.keys(allWeights).length > 0) {
-		const { registerEventWeights } = await import("@dpopsuev/alef-session");
+		const { registerEventWeights } = await import("@dpopsuev/alef-session/scoring");
 		registerEventWeights(allWeights);
 	}
 

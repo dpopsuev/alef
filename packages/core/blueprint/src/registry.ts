@@ -1,8 +1,8 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
-import type { Session } from "@dpopsuev/alef-session";
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { Session } from "@dpopsuev/alef-session/contracts";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 
 export interface SubagentFactoryOptions {
 	adapters: readonly Adapter[];

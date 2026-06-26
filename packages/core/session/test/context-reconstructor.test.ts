@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type StorageRecord, buildSessionIndex, reconstructAllTurns, reconstructTurn } from "../src/index.js";
+import type { StorageRecord } from "../src/contracts/storage.js";
+import { buildSessionIndex, reconstructAllTurns, reconstructTurn } from "../src/tracing/reconstructor.js";
 
 function record(bus: StorageRecord["bus"], type: string, correlationId: string, payload: Record<string, unknown> = {}): StorageRecord {
 	return { bus, type, correlationId, payload, timestamp: Date.now() };

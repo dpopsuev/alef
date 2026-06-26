@@ -1,4 +1,4 @@
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 
 export interface DaemonEntry {
 	port: number;

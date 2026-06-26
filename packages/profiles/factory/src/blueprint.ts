@@ -4,7 +4,8 @@ import { createWireAdapterWithFactory, type WireAdapterFactoryOptions } from "@d
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { buildDelegationStack } from "@dpopsuev/alef-runtime";
-import { createCompactionStage, createSessionContextStage } from "@dpopsuev/alef-session";
+import { createSessionContextStage } from "@dpopsuev/alef-session/context";
+import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
 
 export type { BlueprintStack, BlueprintStackOptions };
 

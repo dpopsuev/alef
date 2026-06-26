@@ -3,7 +3,7 @@ import type { SubagentFactory } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { AgentSession } from "@dpopsuev/alef-session";
+import { AgentSession } from "@dpopsuev/alef-session/agent";
 import { assembleAgentServer } from "./assemble.js";
 import { resolveSubagentActor } from "./identity/actor.js";
 import type { ActorRouteTable } from "./identity/routes.js";

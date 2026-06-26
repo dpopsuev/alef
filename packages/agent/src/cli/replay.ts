@@ -1,5 +1,7 @@
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
-import { createReplayAdapters, extractTrace, JsonlSessionStore } from "@dpopsuev/alef-session";
+import { createReplayAdapters } from "@dpopsuev/alef-session/replay";
+import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
+import { extractTrace } from "@dpopsuev/alef-session/tracing";
 
 const REPLAY_TURN_TIMEOUT_MS = 30_000;
 const REPLY_PREVIEW_MAX_CHARS = 200;

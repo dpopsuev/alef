@@ -3,15 +3,19 @@
   "version": "0.0.2",
   "description": "Session storage, context window assembly, and the Session interface for Alef agents",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "main": "./src/contracts/session.ts",
+  "types": "./dist/contracts/session.d.ts",
   "exports": {
-    ".": {
-      "source": "./src/index.ts",
-      "import": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "default": "./src/index.ts"
-    }
+    "./contracts": "./src/contracts/session.ts",
+    "./storage": "./src/contracts/storage.ts",
+    "./store": "./src/store.ts",
+    "./agent": "./src/agent.ts",
+    "./context": "./src/context/index.ts",
+    "./compaction": "./src/context/compaction.ts",
+    "./summarizer": "./src/context/summarizer.ts",
+    "./scoring": "./src/context/scoring.ts",
+    "./tracing": "./src/tracing/index.ts",
+    "./replay": "./src/tracing/replayer.ts"
   },
   "files": [
     "dist"
@@ -48,6 +52,6 @@
   },
   "alef": {
     "type": "core",
-    "entry": "./src/index.ts"
+    "entry": "./src/contracts/session.ts"
   }
 }

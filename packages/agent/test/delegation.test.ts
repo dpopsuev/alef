@@ -13,7 +13,7 @@ import { defineAdapter, typedStreamAction } from "@dpopsuev/alef-kernel/adapter"
 import type { EventInput } from "@dpopsuev/alef-kernel/bus";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
-import type { Session } from "@dpopsuev/alef-session";
+import type { Session } from "@dpopsuev/alef-session/contracts";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";

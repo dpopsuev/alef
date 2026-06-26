@@ -1,4 +1,4 @@
-import type { StorageRecord } from "@dpopsuev/alef-session";
+import type { StorageRecord } from "@dpopsuev/alef-session/storage";
 import { describe, expect, it } from "vitest";
 import { InMemorySessionStore } from "../src/memory/session.js";
 

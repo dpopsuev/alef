@@ -1,4 +1,4 @@
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ThemeTokens } from "../theme-types.js";
 import { Container, type TUI } from "../tui.js";
 import { AgentForum } from "./agent-forum.js";

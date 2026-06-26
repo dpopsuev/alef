@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { scanSessionFiles } from "@dpopsuev/alef-session";
+import { scanSessionFiles } from "@dpopsuev/alef-session/store";
 
 const CONFIG_ROOT = join(process.env.HOME ?? "", ".alef");
 

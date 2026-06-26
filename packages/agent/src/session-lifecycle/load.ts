@@ -1,4 +1,4 @@
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { SessionPreviewProvider, SessionStoreFactory } from "@dpopsuev/alef-storage";
 
 export type SessionPicker = (

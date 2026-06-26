@@ -16,7 +16,8 @@ import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-runtime";
-import { buildSessionIndex, reconstructTurn, type StorageRecord } from "@dpopsuev/alef-session";
+import type { StorageRecord } from "@dpopsuev/alef-session/storage";
+import { buildSessionIndex, reconstructTurn } from "@dpopsuev/alef-session/tracing";
 import { afterEach, describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------

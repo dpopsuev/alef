@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { strategyRegistry } from "@dpopsuev/alef-tool-agent";
 import { registerFauxProvider } from "@dpopsuev/alef-ai/faux";
-import type { Session } from "@dpopsuev/alef-session";
+import type { Session } from "@dpopsuev/alef-session/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCodingAgentStack } from "../src/blueprint.js";
 

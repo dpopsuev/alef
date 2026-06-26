@@ -1,6 +1,6 @@
 import { createWriteStream } from "node:fs";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import { ProcessTerminal, SelectList, type Terminal, TUI } from "@dpopsuev/alef-tui";
 import { TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../interactive.js";

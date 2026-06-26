@@ -1,4 +1,4 @@
-import type { StorageRecord } from "@dpopsuev/alef-session";
+import type { StorageRecord } from "@dpopsuev/alef-session/storage";
 import { type Client, createClient } from "@libsql/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { applySchema } from "../src/sqlite/schema.js";

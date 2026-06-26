@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildSessionIndex } from "@dpopsuev/alef-session";
+import { buildSessionIndex } from "@dpopsuev/alef-session/tracing";
 import { afterEach, describe, expect, it } from "vitest";
 import { JsonlSessionStore, type StorageRecord } from "../src/session-store.js";
 

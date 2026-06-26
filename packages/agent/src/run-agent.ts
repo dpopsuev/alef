@@ -1,5 +1,5 @@
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { Args } from "./args.js";
 import type { ActorRouteTable } from "./identity/routes.js";
 import { shutdownOTel } from "./otel.js";

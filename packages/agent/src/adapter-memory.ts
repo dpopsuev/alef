@@ -1,1 +1,1 @@
-export { createSessionContextStage, type SessionContextStageOptions } from "@dpopsuev/alef-session";
+export { createSessionContextStage, type SessionContextStageOptions } from "@dpopsuev/alef-session/context";

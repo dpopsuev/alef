@@ -9,7 +9,7 @@
  * enhancement once Container gains scroll-position detection.
  */
 
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ChatLog } from "./chat-log.js";
 
 export interface SessionHistoryOptions {

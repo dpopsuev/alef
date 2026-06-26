@@ -1,4 +1,4 @@
-import type { SessionStore } from "@dpopsuev/alef-session";
+import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ChatLog, TuiStateStore } from "@dpopsuev/alef-tui/views";
 import type { InteractiveOptions } from "../interactive.js";
 import type { Session } from "../session.js";

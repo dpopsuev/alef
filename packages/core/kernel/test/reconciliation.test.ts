@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type ActualConditions, computeError, type DesiredStateSpec, detectDrift } from "../src/reconciliation.js";
+import { type ActualConditions, computeError, type DesiredStateSpec, detectDrift } from "../src/shared/reconciliation.js";
 
 describe("computeError", { tags: ["unit"] }, () => {
 	const dss: DesiredStateSpec = {

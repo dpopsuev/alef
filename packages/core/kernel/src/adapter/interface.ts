@@ -1,7 +1,7 @@
 import type { ZodTypeAny } from "zod";
 import { z } from "zod";
 import type { AdapterContributions } from "./contributions.js";
-import type { Bus, ChannelMap } from "./messages.js";
+import type { Bus, ChannelMap } from "../bus/messages.js";
 
 export interface ToolDefinition {
 	readonly name: string;

@@ -1,10 +1,10 @@
 import type { ZodTypeAny } from "zod";
-import { createMapCache } from "./adapter-cache.js";
-import { dispatchCommandAction, dispatchEventAction } from "./adapter-dispatch.js";
-import type { ActionMap, AdapterLogger, AdapterOptions, CommandActionMap, EventActionMap } from "./adapter-types.js";
-import { startElapsedTimer, withLimits } from "./budget.js";
-import type { Adapter, ToolDefinition } from "./adapter-interface.js";
-import type { Bus } from "./messages.js";
+import { createMapCache } from "./cache.js";
+import { dispatchCommandAction, dispatchEventAction } from "./dispatch.js";
+import type { ActionMap, AdapterLogger, AdapterOptions, CommandActionMap, EventActionMap } from "./types.js";
+import { startElapsedTimer, withLimits } from "../bus/budget.js";
+import type { Adapter, ToolDefinition } from "./interface.js";
+import type { Bus } from "../bus/messages.js";
 
 export type {
 	ActionMap,
@@ -16,8 +16,8 @@ export type {
 	EventAction,
 	EventActionMap,
 	EventHandlerCtx,
-} from "./adapter-types.js";
-export { typedAction, typedStreamAction } from "./adapter-types.js";
+} from "./types.js";
+export { typedAction, typedStreamAction } from "./types.js";
 
 const noopLogger: AdapterLogger = {
 	debug: () => {},
@@ -27,7 +27,7 @@ const noopLogger: AdapterLogger = {
 	child: () => noopLogger,
 };
 
-export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "./event-builders.js";
+export { buildErrSense, buildSense, extractToolCallId, toErrorMessage } from "../bus/event-builders.js";
 
 function filterActions(actions: ActionMap, allowlist: readonly string[]): ActionMap {
 	const allowed = new Set(allowlist);

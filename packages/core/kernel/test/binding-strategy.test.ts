@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { BindingExecutionStrategy, BindingStage } from "../src/binding.js";
-import { executeBindingChain, registerBindingStrategy } from "../src/binding.js";
-import { InProcessBus } from "../src/in-process-bus.js";
-import { VALIDATE_REQUEST, VALIDATE_RESULT } from "../src/protocols.js";
+import type { BindingExecutionStrategy, BindingStage } from "../src/bus/binding.js";
+import { executeBindingChain, registerBindingStrategy } from "../src/bus/binding.js";
+import { InProcessBus } from "../src/bus/in-process-bus.js";
+import { VALIDATE_REQUEST, VALIDATE_RESULT } from "../src/shared/protocols.js";
 
 function makeBus() {
 	const bus = new InProcessBus();

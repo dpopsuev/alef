@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { EventMessage } from "../src/messages.js";
-import type { CommandHandlerCtx, EventHandlerCtx } from "../src/framework.js";
-import { defineAdapter } from "../src/framework.js";
-import { InProcessBus } from "../src/in-process-bus.js";
+import type { EventMessage } from "../src/bus/messages.js";
+import type { CommandHandlerCtx, EventHandlerCtx } from "../src/adapter/framework.js";
+import { defineAdapter } from "../src/adapter/framework.js";
+import { InProcessBus } from "../src/bus/in-process-bus.js";
 
 function makeBus() {
 	const bus = new InProcessBus();

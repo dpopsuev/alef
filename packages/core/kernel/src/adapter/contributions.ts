@@ -1,6 +1,6 @@
 import type { ZodRawShape } from "zod";
-import type { Adapter, ToolDefinition } from "./adapter-interface.js";
-import type { UiContribution, HistoryContribution } from "./ui-types.js";
+import type { Adapter, ToolDefinition } from "./interface.js";
+import type { UiContribution, HistoryContribution } from "./ui.js";
 
 export interface SkillPage {
 	readonly name: string;

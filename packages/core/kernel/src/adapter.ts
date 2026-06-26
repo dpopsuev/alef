@@ -4,10 +4,10 @@ export {
 	type AccessPolicyRules,
 	ALLOW_ALL,
 	createAccessPolicy,
-} from "./access-policy.js";
-export { type CacheStrategy, createMapCache, makeCacheKey } from "./adapter-cache.js";
-export type { DispatchOptions, EscalationHandler } from "./adapter-dispatch.js";
-export { explainAdapter } from "./adapter-explain.js";
+} from "./adapter/policy.js";
+export { type CacheStrategy, createMapCache, makeCacheKey } from "./adapter/cache.js";
+export type { DispatchOptions, EscalationHandler } from "./adapter/dispatch.js";
+export { explainAdapter } from "./adapter/explain.js";
 export {
 	type AdapterTool,
 	type BaseAdapterOptions,
@@ -18,7 +18,7 @@ export {
 	type TimeoutAdapterOptions,
 	tool,
 	withTruncatedDisplay,
-} from "./adapter-sdk.js";
+} from "./adapter/sdk.js";
 export type {
 	ActionMap,
 	AdapterLogger,
@@ -30,10 +30,10 @@ export type {
 	EventAction,
 	EventActionMap,
 	EventHandlerCtx,
-} from "./adapter-types.js";
-export { typedAction, typedStreamAction } from "./adapter-types.js";
-export type { Adapter, Reasoner, ToolDefinition } from "./adapter-interface.js";
-export { gimpedAdapter, isGimped, passthroughSchema, toolInputToJsonSchema } from "./adapter-interface.js";
+} from "./adapter/types.js";
+export { typedAction, typedStreamAction } from "./adapter/types.js";
+export type { Adapter, Reasoner, ToolDefinition } from "./adapter/interface.js";
+export { gimpedAdapter, isGimped, passthroughSchema, toolInputToJsonSchema } from "./adapter/interface.js";
 export type {
 	AdapterContributions,
 	AgentRunContext,
@@ -43,11 +43,11 @@ export type {
 	ReasoningContributions,
 	SkillBook,
 	SkillPage,
-} from "./contributions.js";
-export { createCompositeAgentRunContribution } from "./contributions.js";
-export type { AdapterTheme, UiContribution, UiSignalHandler } from "./ui-types.js";
-export { defineAdapter } from "./framework.js";
-export { getBoolean, getNumber, getString, type SenseDisplayBlock, withDisplay, withLlmContent } from "./payload.js";
+} from "./adapter/contributions.js";
+export { createCompositeAgentRunContribution } from "./adapter/contributions.js";
+export type { AdapterTheme, UiContribution, UiSignalHandler } from "./adapter/ui.js";
+export { defineAdapter } from "./adapter/framework.js";
+export { getBoolean, getNumber, getString, type SenseDisplayBlock, withDisplay, withLlmContent } from "./shared/payload.js";
 export {
 	type Evaluator,
 	VALIDATE_REQUEST,
@@ -55,7 +55,7 @@ export {
 	type ValidateRequest,
 	type ValidateResult,
 	type Validator,
-} from "./protocols.js";
+} from "./shared/protocols.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -66,4 +66,4 @@ export {
 	truncateHead,
 	truncateLine,
 	truncateTail,
-} from "./truncate.js";
+} from "./shared/truncate.js";

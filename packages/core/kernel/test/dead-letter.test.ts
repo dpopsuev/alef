@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type EventMessage, newCorrelationId } from "../src/messages.js";
-import { InProcessBus } from "../src/in-process-bus.js";
+import { type EventMessage, newCorrelationId } from "../src/bus/messages.js";
+import { InProcessBus } from "../src/bus/in-process-bus.js";
 
 describe("dead letter detection", { tags: ["unit"] }, () => {
 	it("publishes error event when no specific handler is registered", async () => {

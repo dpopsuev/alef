@@ -1,4 +1,4 @@
-import type { Adapter } from "./adapter-interface.js";
+import type { Adapter } from "./interface.js";
 
 export function explainAdapter(adapter: Adapter): string {
 	const lines: string[] = [];

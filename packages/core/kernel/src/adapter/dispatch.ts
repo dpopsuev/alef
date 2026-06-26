@@ -1,12 +1,12 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { ZodTypeAny } from "zod";
-import type { AccessPolicy } from "./access-policy.js";
-import type { CacheStrategy } from "./adapter-cache.js";
-import { makeCacheKey } from "./adapter-cache.js";
-import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, EventHandlerCtx } from "./adapter-types.js";
-import type { Bus, CommandMessage, EventMessage } from "./messages.js";
-import { traceEvent } from "./debug.js";
-import { buildErrorResult, buildEventResult, extractToolCallId, toErrorMessage } from "./event-builders.js";
+import type { AccessPolicy } from "./policy.js";
+import type { CacheStrategy } from "./cache.js";
+import { makeCacheKey } from "./cache.js";
+import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, EventHandlerCtx } from "./types.js";
+import type { Bus, CommandMessage, EventMessage } from "../bus/messages.js";
+import { traceEvent } from "../shared/debug.js";
+import { buildErrorResult, buildEventResult, extractToolCallId, toErrorMessage } from "../bus/event-builders.js";
 
 /**
  * Escalation callback for access policy decisions.

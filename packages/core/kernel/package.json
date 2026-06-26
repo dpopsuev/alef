@@ -27,29 +27,29 @@
       "default": "./src/pipeline.ts"
     },
     "./contributions": {
-      "source": "./src/contributions.ts",
-      "import": "./src/contributions.ts",
-      "default": "./src/contributions.ts"
+      "source": "./src/adapter/contributions.ts",
+      "import": "./src/adapter/contributions.ts",
+      "default": "./src/adapter/contributions.ts"
     },
     "./ui": {
-      "source": "./src/ui-types.ts",
-      "import": "./src/ui-types.ts",
-      "default": "./src/ui-types.ts"
+      "source": "./src/adapter/ui.ts",
+      "import": "./src/adapter/ui.ts",
+      "default": "./src/adapter/ui.ts"
     },
     "./errors": {
-      "source": "./src/errors.ts",
-      "import": "./src/errors.ts",
-      "default": "./src/errors.ts"
+      "source": "./src/shared/errors.ts",
+      "import": "./src/shared/errors.ts",
+      "default": "./src/shared/errors.ts"
     },
     "./execution": {
-      "source": "./src/execution.ts",
-      "import": "./src/execution.ts",
-      "default": "./src/execution.ts"
+      "source": "./src/shared/execution.ts",
+      "import": "./src/shared/execution.ts",
+      "default": "./src/shared/execution.ts"
     },
     "./reconciliation": {
-      "source": "./src/reconciliation.ts",
-      "import": "./src/reconciliation.ts",
-      "default": "./src/reconciliation.ts"
+      "source": "./src/shared/reconciliation.ts",
+      "import": "./src/shared/reconciliation.ts",
+      "default": "./src/shared/reconciliation.ts"
     }
   },
   "files": [

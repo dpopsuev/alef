@@ -7,8 +7,8 @@
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { defineAdapter } from "../src/framework.js";
-import { InProcessBus } from "../src/in-process-bus.js";
+import { defineAdapter } from "../src/adapter/framework.js";
+import { InProcessBus } from "../src/bus/in-process-bus.js";
 
 const READ_TOOL = { name: "fs.read", description: "Read", inputSchema: z.object({}) };
 const WRITE_TOOL = { name: "fs.write", description: "Write", inputSchema: z.object({}) };

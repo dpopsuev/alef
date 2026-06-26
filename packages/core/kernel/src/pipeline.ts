@@ -4,6 +4,6 @@ export type {
 	ContextAssemblyOutput,
 	PortCardinality,
 	PortDefinition,
-} from "./contributions.js";
-export { createContextAssemblyPipeline } from "./context-assembly-pipeline.js";
-export { injectContextBlock } from "./context-helpers.js";
+} from "./adapter/contributions.js";
+export { createContextAssemblyPipeline } from "./pipeline/assembly.js";
+export { injectContextBlock } from "./pipeline/helpers.js";

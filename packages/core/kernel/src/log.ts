@@ -1,2 +1,2 @@
-export { debugLog, initSessionSink, initSpineLogger, traceEvent } from "./debug.js";
-export { LogField } from "./log-fields.js";
+export { debugLog, initSessionSink, initSpineLogger, traceEvent } from "./shared/debug.js";
+export { LogField } from "./shared/log-fields.js";

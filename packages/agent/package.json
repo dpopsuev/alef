@@ -42,7 +42,7 @@
     "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-tool-meta": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",
-    "@dpopsuev/alef-runtime": "workspace:*",
+    "@dpopsuev/alef-engine": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
     "@dpopsuev/alef-storage": "workspace:*",
     "@dpopsuev/alef-tui": "workspace:*",

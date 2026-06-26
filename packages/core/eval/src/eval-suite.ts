@@ -1,4 +1,4 @@
-import type { Agent } from "@dpopsuev/alef-runtime";
+import type { Agent } from "@dpopsuev/alef-engine";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Evaluation } from "./evaluation.js";
 import type { EvaluationResult } from "./evaluation-runner.js";

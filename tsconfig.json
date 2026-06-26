@@ -51,10 +51,10 @@
 				"./packages/core/blueprint/src/*.ts"
 			],
 			"@dpopsuev/alef-agent-runtime": [
-				"./packages/core/runtime/src/index.ts"
+				"./packages/core/engine/src/index.ts"
 			],
 			"@dpopsuev/alef-agent-runtime/*": [
-				"./packages/core/runtime/src/*.ts"
+				"./packages/core/engine/src/*.ts"
 			],
 			"@dpopsuev/alef-kernel": [
 				"./packages/core/kernel/src/index.ts"
@@ -80,14 +80,14 @@
 			"@dpopsuev/alef-kernel/*": [
 				"./packages/core/kernel/src/*.ts"
 			],
-			"@dpopsuev/alef-runtime": [
-				"./packages/core/runtime/src/index.ts"
+			"@dpopsuev/alef-engine": [
+				"./packages/core/engine/src/index.ts"
 			],
-			"@dpopsuev/alef-runtime/mcp-port": [
-				"./packages/core/runtime/src/tool-supervisor.ts"
+			"@dpopsuev/alef-engine/mcp-port": [
+				"./packages/core/engine/src/tool-supervisor.ts"
 			],
-			"@dpopsuev/alef-runtime/*": [
-				"./packages/core/runtime/src/*.ts"
+			"@dpopsuev/alef-engine/*": [
+				"./packages/core/engine/src/*.ts"
 			],
 			"@dpopsuev/alef-testkit": [
 				"./packages/core/testkit/src/index.ts"

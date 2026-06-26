@@ -19,7 +19,7 @@
     "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
-    "@dpopsuev/alef-runtime": "workspace:*",
+    "@dpopsuev/alef-engine": "workspace:*",
     "yaml": "^2.8.0",
     "zod": "^4.4.3"
   },

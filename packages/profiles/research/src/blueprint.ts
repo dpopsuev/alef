@@ -4,7 +4,7 @@ import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-codin
 import { createCodingAgentStack } from "@dpopsuev/alef-coding-agent";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { McpAdapter } from "@dpopsuev/alef-tool-mcp-registry";
-import { type SupervisorConfig, ToolSupervisor } from "@dpopsuev/alef-runtime";
+import { type SupervisorConfig, ToolSupervisor } from "@dpopsuev/alef-engine";
 
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share");
 

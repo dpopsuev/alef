@@ -15,7 +15,7 @@
 
 import { materializeDefaultAdapters } from "@dpopsuev/alef-blueprint";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
-import { createToolShellAdapter } from "@dpopsuev/alef-runtime";
+import { createToolShellAdapter } from "@dpopsuev/alef-engine";
 import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
 import { parseArgs } from "../../../agent/src/args.js";
 import { describe, expect, it } from "vitest";

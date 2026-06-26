@@ -16,7 +16,7 @@
 			"@dpopsuev/alef-ai/*": [
 				"../ai/src/*"
 			],
-			"@dpopsuev/alef-runtime": [
+			"@dpopsuev/alef-engine": [
 				"../runtime/src/index.ts"
 			],
 			"@dpopsuev/alef-kernel": [

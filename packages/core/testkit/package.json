@@ -60,7 +60,7 @@
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-reasoner": "workspace:*",
-    "@dpopsuev/alef-runtime": "workspace:*",
+    "@dpopsuev/alef-engine": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
     "vite-tsconfig-paths": "*"
   },

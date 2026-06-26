@@ -10,7 +10,7 @@
     "@dpopsuev/alef-tool-mcp-registry": "workspace:*",
     "@dpopsuev/alef-coding-agent": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
-    "@dpopsuev/alef-runtime": "workspace:*"
+    "@dpopsuev/alef-engine": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.6"

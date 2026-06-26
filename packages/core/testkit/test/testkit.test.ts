@@ -1,4 +1,4 @@
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-engine";
 import { afterEach, describe, expect, it } from "vitest";
 import { BusEventRecorder, MockReasoner } from "../src/index.js";
 

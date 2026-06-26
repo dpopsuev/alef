@@ -1,5 +1,5 @@
 {
-  "name": "@dpopsuev/alef-runtime",
+  "name": "@dpopsuev/alef-engine",
   "version": "0.0.2",
   "description": "Agent runtime \u2014 organ loader, nerve, and pub-sub bus",
   "type": "module",

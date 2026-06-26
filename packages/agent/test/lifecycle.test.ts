@@ -21,7 +21,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-engine";
 import { ScriptedReasoner, type ScriptStep, step } from "@dpopsuev/alef-testkit";
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
 import { createRouterAdapter } from "@dpopsuev/alef-tool-gateway";

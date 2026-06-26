@@ -7,7 +7,7 @@
 
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import type { Context } from "@dpopsuev/alef-ai/types";
-import { InProcessStrategy } from "@dpopsuev/alef-runtime";
+import { InProcessStrategy } from "@dpopsuev/alef-engine";
 import { createAdapter } from "@dpopsuev/alef-tool-fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildSubagentFactory } from "../src/subagent-factory.js";

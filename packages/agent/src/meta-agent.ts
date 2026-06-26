@@ -1,5 +1,5 @@
+import { InProcessStrategy } from "@dpopsuev/alef-engine";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { InProcessStrategy } from "@dpopsuev/alef-runtime";
 import { createMetaAdapter, type DirectiveAdapter } from "@dpopsuev/alef-tool-meta";
 import { autoDetectModel, buildModel } from "./model/index.js";
 import type { DirectiveView } from "./session.js";

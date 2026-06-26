@@ -21,7 +21,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
 import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-engine";
 
 import type { JudgeReport } from "./judging-adapter.js";
 import { createJudgingAdapter } from "./judging-adapter.js";
@@ -97,7 +97,7 @@ export interface JudgePanelRunnerOptions {
 		signal: AbortSignal,
 		extraAdapters: import("@dpopsuev/alef-kernel/adapter").Adapter[],
 	) => Promise<import("@dpopsuev/alef-kernel/adapter").Adapter[]>;
-	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<import("@dpopsuev/alef-runtime").Agent>;
+	agentFactory?: (workspace: string, signal: AbortSignal) => Promise<import("@dpopsuev/alef-engine").Agent>;
 	/** Turn timeout per judge agent in ms. Default: 120_000. */
 	judgeTimeoutMs?: number;
 	/** Max concurrent judge agents. Default: 3. */

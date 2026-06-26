@@ -23,7 +23,7 @@
 			"path": "packages/core/reasoner/tsconfig.build.json"
 		},
 		{
-			"path": "packages/core/runtime/tsconfig.build.json"
+			"path": "packages/core/engine/tsconfig.build.json"
 		},
 		{
 			"path": "packages/core/session/tsconfig.build.json"

@@ -3,7 +3,7 @@ import { createSkillsAdapter } from "@dpopsuev/alef-tool-skills";
 import { createWireAdapterWithFactory, type WireAdapterFactoryOptions } from "@dpopsuev/alef-tool-workflow";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { buildDelegationStack } from "@dpopsuev/alef-runtime";
+import { buildDelegationStack } from "@dpopsuev/alef-engine";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
 import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
 

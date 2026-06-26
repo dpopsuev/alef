@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Adapter, gimpedAdapter } from "@dpopsuev/alef-kernel/adapter";
 import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel/execution";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController } from "@dpopsuev/alef-engine";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import { type ScriptStep, step } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";

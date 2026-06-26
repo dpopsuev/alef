@@ -1,7 +1,7 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
+import { Agent, AgentController } from "@dpopsuev/alef-engine";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import {
 	type Contract,
 	createContractTool,

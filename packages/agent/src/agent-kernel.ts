@@ -1,6 +1,6 @@
+import { Agent } from "@dpopsuev/alef-engine";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus } from "@dpopsuev/alef-kernel/bus";
-import { Agent } from "@dpopsuev/alef-runtime";
 import { SessionLog, type SessionSummary } from "./event-log-adapter.js";
 import type { ActorIdentity } from "./identity/actor.js";
 import { LoopGuard } from "./loop-detector.js";

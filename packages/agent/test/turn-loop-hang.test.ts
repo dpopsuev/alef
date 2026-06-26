@@ -4,9 +4,9 @@
  */
 
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
+import { Agent, AgentController } from "@dpopsuev/alef-engine";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { Agent, AgentController } from "@dpopsuev/alef-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 

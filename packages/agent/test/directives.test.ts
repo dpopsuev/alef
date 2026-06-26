@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createToolShellAdapter } from "@dpopsuev/alef-runtime";
+import { createToolShellAdapter } from "@dpopsuev/alef-engine";
 import { afterEach, describe, expect, it } from "vitest";
 import { Directives } from "../src/directives.js";
 import { createDefaultDirectives, loadWorkspace, registerAdapters } from "../src/prompt.js";

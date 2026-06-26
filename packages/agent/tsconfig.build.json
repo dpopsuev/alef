@@ -71,7 +71,7 @@
 			"path": "../core/reasoner/tsconfig.build.json"
 		},
 		{
-			"path": "../core/runtime/tsconfig.build.json"
+			"path": "../core/engine/tsconfig.build.json"
 		},
 		{
 			"path": "../core/session/tsconfig.build.json"

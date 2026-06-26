@@ -1,6 +1,6 @@
+import { Agent, AgentController, buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
-import { Agent, AgentController, buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-runtime";
 import type { AgentEvent, TokensConsumed } from "./session.js";
 
 export type SignalMapper = (payload: Record<string, unknown>) => Record<string, unknown> | null;

@@ -9,15 +9,15 @@
 import { randomUUID } from "node:crypto";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
+import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-engine";
 import { defineAdapter, typedStreamAction } from "@dpopsuev/alef-kernel/adapter";
 import type { EventInput } from "@dpopsuev/alef-kernel/bus";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { InProcessStrategy, type SubagentFactory } from "@dpopsuev/alef-runtime";
 import type { Session } from "@dpopsuev/alef-session/contracts";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { Agent } from "../../core/runtime/src/index.js";
+import { Agent } from "../../core/engine/src/index.js";
 import { BusFixture, TurnDriver } from "../../core/testkit/src/index.js";
 
 function makeTestFactory(model: Model<Api>, baseSystemPrompt?: string): SubagentFactory {

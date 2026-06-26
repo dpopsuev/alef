@@ -29,7 +29,7 @@
 			"path": "../../core/ai/tsconfig.build.json"
 		},
 		{
-			"path": "../../core/runtime/tsconfig.build.json"
+			"path": "../../core/engine/tsconfig.build.json"
 		}
 	]
 }

@@ -27,7 +27,7 @@ import { loadAgentDefinition } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { BusMessage, CommandMessage } from "@dpopsuev/alef-kernel/bus";
 import type { ExecutionStrategy, SendRequest } from "@dpopsuev/alef-kernel/execution";
-import { Agent, AgentController, type BusObserver } from "@dpopsuev/alef-runtime";
+import { Agent, AgentController, type BusObserver } from "@dpopsuev/alef-engine";
 import { BusEventRecorder } from "./bus-event-recorder.js";
 import type { ScriptStep } from "./script.js";
 import { ScriptedReasoner } from "./scripted-reasoner.js";

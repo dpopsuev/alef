@@ -1,5 +1,8 @@
 import type { StorageRecord } from "../contracts/storage.js";
 
+const SCRIPT_REPLY_PREVIEW_CHARS = 80;
+const SCRIPT_MESSAGE_PREVIEW_CHARS = 60;
+
 export interface ToolExecution {
 	callId: string;
 	toolName: string;
@@ -115,14 +118,14 @@ export function extractTrace(records: StorageRecord[]): SessionTrace {
 export function traceToScript(trace: SessionTrace): string {
 	const lines: string[] = [];
 	for (const step of trace) {
-		lines.push(`// Turn ${step.turn}: "${step.userMessage.slice(0, 60)}"`);
+		lines.push(`// Turn ${step.turn}: "${step.userMessage.slice(0, SCRIPT_MESSAGE_PREVIEW_CHARS)}"`);
 		if (step.toolExecutions.length > 0) {
 			for (const exec of step.toolExecutions) {
 				lines.push(`await tools.call("${exec.toolName}", ${JSON.stringify(exec.args)});`);
 			}
 		}
 		if (step.finalReply) {
-			lines.push(`// Reply: "${step.finalReply.slice(0, 80)}"`);
+			lines.push(`// Reply: "${step.finalReply.slice(0, SCRIPT_REPLY_PREVIEW_CHARS)}"`);
 		}
 		lines.push("");
 	}

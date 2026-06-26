@@ -2,6 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { SessionStore, StorageRecord, Turn } from "@dpopsuev/alef-session";
 import { TurnIndexer } from "@dpopsuev/alef-session";
 
+const MEMORY_PATH_PREFIX = "memory:";
+const SESSION_ID_LENGTH = 8;
+const BUS_INTERNAL = "internal";
+const EVENT_SESSION_NAME = "session.name";
+const CORRELATION_META = "meta";
+
 export class InMemorySessionStore implements SessionStore {
 	readonly id: string;
 	readonly path: string;
@@ -11,8 +17,8 @@ export class InMemorySessionStore implements SessionStore {
 	private _name: string | undefined;
 
 	constructor(id?: string) {
-		this.id = id ?? randomUUID().replace(/-/g, "").slice(0, 8);
-		this.path = `memory:${this.id}`;
+		this.id = id ?? randomUUID().replace(/-/g, "").slice(0, SESSION_ID_LENGTH);
+		this.path = `${MEMORY_PATH_PREFIX}${this.id}`;
 	}
 
 	async append(record: StorageRecord): Promise<void> {
@@ -31,9 +37,9 @@ export class InMemorySessionStore implements SessionStore {
 	async setName(name: string): Promise<void> {
 		this._name = name;
 		await this.append({
-			bus: "internal",
-			type: "session.name",
-			correlationId: "meta",
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_NAME,
+			correlationId: CORRELATION_META,
 			payload: { name },
 			timestamp: Date.now(),
 		});

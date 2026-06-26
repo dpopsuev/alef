@@ -16,6 +16,18 @@ import { join } from "node:path";
 import type { SessionStore, StorageRecord, Turn } from "./contracts/storage.js";
 import { eventTypeWeight, extractContentLength } from "./context/scoring.js";
 
+const CWD_HASH_LENGTH = 12;
+const SESSION_ID_LENGTH = 8;
+const CHARS_PER_TOKEN = 4;
+const SIZE_CHECK_INTERVAL = 500;
+const FILE_SIZE_WARNING_BYTES = 50 * 1024 * 1024;
+const DEFAULT_PRUNE_AGE_DAYS = 30;
+const DEFAULT_PRUNE_MAX_COUNT = 50;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const BUS_INTERNAL = "internal" as const;
+const EVENT_SESSION_NAME = "session.name" as const;
+const CORRELATION_META = "meta";
+
 // ---------------------------------------------------------------------------
 // Session-scan helpers (previously session-scan.ts)
 // ---------------------------------------------------------------------------
@@ -59,7 +71,7 @@ export function sessionPath(id: string, cwdHash: string): string {
 // ---------------------------------------------------------------------------
 
 export function cwdHash(cwd: string): string {
-	return createHash("sha1").update(cwd).digest("hex").slice(0, 12);
+	return createHash("sha1").update(cwd).digest("hex").slice(0, CWD_HASH_LENGTH);
 }
 
 export class TurnIndexer {
@@ -89,7 +101,7 @@ export class TurnIndexer {
 		turn.typeWeight = Math.max(turn.typeWeight, eventTypeWeight(record.type));
 		const sum = (this._turnContentLengths.get(turnId) ?? 0) + extractContentLength(record.payload);
 		this._turnContentLengths.set(turnId, sum);
-		turn.tokenCost = Math.ceil(sum / 4);
+		turn.tokenCost = Math.ceil(sum / CHARS_PER_TOKEN);
 	}
 
 	get nextTurnIndex(): number {
@@ -152,7 +164,7 @@ export class JsonlSessionStore {
 	}
 
 	static async create(cwd: string): Promise<JsonlSessionStore> {
-		const id = randomUUID().replace(/-/g, "").slice(0, 8);
+		const id = randomUUID().replace(/-/g, "").slice(0, SESSION_ID_LENGTH);
 		await ensureDir(cwd);
 		await appendFile(storeSessionPath(cwd, id), "");
 		await writeFile(latestPath(cwd), id, "utf-8");
@@ -187,10 +199,10 @@ export class JsonlSessionStore {
 		const line = `${JSON.stringify(record)}\n`;
 		await appendFile(this.path, line, "utf-8");
 
-		if (!this._sizeWarned && this._cache.length % 500 === 0) {
+		if (!this._sizeWarned && this._cache.length % SIZE_CHECK_INTERVAL === 0) {
 			try {
 				const s = await stat(this.path);
-				if (s.size > 50 * 1024 * 1024) {
+				if (s.size > FILE_SIZE_WARNING_BYTES) {
 					this._sizeWarned = true;
 					process.stderr.write(
 						`[session] Warning: session file is ${Math.round(s.size / 1024 / 1024)}MB (${this.path}). Consider starting a new session.\n`,
@@ -208,7 +220,7 @@ export class JsonlSessionStore {
 	name(): string | undefined {
 		for (let i = this._cache.length - 1; i >= 0; i--) {
 			const r = this._cache[i];
-			if (r.bus === "internal" && r.type === "session.name") {
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_NAME) {
 				return typeof r.payload.name === "string" ? r.payload.name : undefined;
 			}
 		}
@@ -218,17 +230,17 @@ export class JsonlSessionStore {
 	/** Persist a human-readable name for this session (WAL — last record wins). */
 	async setName(name: string): Promise<void> {
 		await this.append({
-			bus: "internal",
-			type: "session.name",
-			correlationId: "meta",
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_NAME,
+			correlationId: CORRELATION_META,
 			payload: { name },
 			timestamp: Date.now(),
 		});
 	}
 
-	static async prune(cwd: string, maxAgeDays = 30, maxCount = 50): Promise<number> {
+	static async prune(cwd: string, maxAgeDays = DEFAULT_PRUNE_AGE_DAYS, maxCount = DEFAULT_PRUNE_MAX_COUNT): Promise<number> {
 		const sessions = await JsonlSessionStore.list(cwd);
-		const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+		const cutoff = Date.now() - maxAgeDays * MS_PER_DAY;
 		let removed = 0;
 		for (let i = maxCount; i < sessions.length; i++) {
 			if (sessions[i].mtime.getTime() < cutoff) {

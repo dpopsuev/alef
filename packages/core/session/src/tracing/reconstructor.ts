@@ -1,6 +1,8 @@
 import type { StorageRecord, Turn } from "../contracts/storage.js";
 import { TurnIndexer } from "../store.js";
 
+const DEFAULT_EVICT_AFTER_TURN = 3;
+
 export interface TurnSnapshot {
 	turn: number;
 	correlationId: string;
@@ -73,7 +75,7 @@ export function buildSessionIndex(records: StorageRecord[]): SessionIndex {
 	};
 }
 
-export function reconstructTurn(index: SessionIndex, turnNumber: number, evictAfterTurn = 3): TurnSnapshot | undefined {
+export function reconstructTurn(index: SessionIndex, turnNumber: number, evictAfterTurn = DEFAULT_EVICT_AFTER_TURN): TurnSnapshot | undefined {
 	const turn = index.turnByNumber.get(turnNumber);
 	if (!turn) return undefined;
 
@@ -140,7 +142,7 @@ export function reconstructTurn(index: SessionIndex, turnNumber: number, evictAf
 	};
 }
 
-export function reconstructAllTurns(records: StorageRecord[], evictAfterTurn = 3): TurnSnapshot[] {
+export function reconstructAllTurns(records: StorageRecord[], evictAfterTurn = DEFAULT_EVICT_AFTER_TURN): TurnSnapshot[] {
 	const index = buildSessionIndex(records);
 	const snapshots: TurnSnapshot[] = [];
 	for (let i = 0; i < index.turns.length; i++) {

@@ -22,8 +22,10 @@ export interface CompactionStageOptions {
 }
 
 const CHARS_PER_TOKEN = 4;
-const DEFAULT_THRESHOLD = 0.9;
+const DEFAULT_COMPACTION_THRESHOLD = 0.9;
 const DEFAULT_PRESERVE_RECENT = 4;
+const DEFAULT_CONTEXT_WINDOW = 200_000;
+const SCRATCHPAD_PREFIX = "[Scratchpad";
 
 function estimateTokens(messages: readonly unknown[]): number {
 	let chars = 0;
@@ -73,8 +75,8 @@ function injectPriorSummary(messages: readonly unknown[], summary: string): Cont
 }
 
 export function createCompactionStage(opts: CompactionStageOptions = {}): ContextAssemblyHandler {
-	const contextWindow = opts.contextWindow ?? 200_000;
-	const threshold = opts.threshold ?? DEFAULT_THRESHOLD;
+	const contextWindow = opts.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+	const threshold = opts.threshold ?? DEFAULT_COMPACTION_THRESHOLD;
 	const preserveRecent = opts.preserveRecentTurns ?? DEFAULT_PRESERVE_RECENT;
 	const tokenLimit = Math.floor(contextWindow * threshold);
 	const summarizeFn: SummarizeFn = opts.summarize ?? defaultSummarize;
@@ -111,7 +113,7 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 		const isScratchpad = (m: unknown) => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for content check
 			const content = (m as { content?: string }).content;
-			return typeof content === "string" && content.startsWith("[Scratchpad");
+			return typeof content === "string" && content.startsWith(SCRATCHPAD_PREFIX);
 		};
 		const preserved = oldMessages.filter(isScratchpad);
 		const toCompact = oldMessages.filter((m) => !isScratchpad(m));

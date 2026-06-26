@@ -1,6 +1,8 @@
 import { MODELS } from "./llm.generated.js";
 import type { Api, KnownProvider, Model, ModelThinkingLevel, Usage } from "../types.js";
 
+const COST_PER_MILLION = 1_000_000;
+
 const modelRegistry: Map<string, Map<string, Model<Api>>> = new Map();
 
 // Initialize registry from MODELS on module load
@@ -41,10 +43,10 @@ export function getModels<TProvider extends KnownProvider>(
 }
 
 export function calculateCost<TApi extends Api>(model: Model<TApi>, usage: Usage): Usage["cost"] {
-	usage.cost.input = (model.cost.input / 1000000) * usage.input;
-	usage.cost.output = (model.cost.output / 1000000) * usage.output;
-	usage.cost.cacheRead = (model.cost.cacheRead / 1000000) * usage.cacheRead;
-	usage.cost.cacheWrite = (model.cost.cacheWrite / 1000000) * usage.cacheWrite;
+	usage.cost.input = (model.cost.input / COST_PER_MILLION) * usage.input;
+	usage.cost.output = (model.cost.output / COST_PER_MILLION) * usage.output;
+	usage.cost.cacheRead = (model.cost.cacheRead / COST_PER_MILLION) * usage.cacheRead;
+	usage.cost.cacheWrite = (model.cost.cacheWrite / COST_PER_MILLION) * usage.cacheWrite;
 	usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
 	return usage.cost;
 }

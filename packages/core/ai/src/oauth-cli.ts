@@ -6,6 +6,7 @@ import { getOAuthProvider, getOAuthProviders } from "./utils/oauth/index.js";
 import type { OAuthCredentials, OAuthProviderId } from "./utils/oauth/types.js";
 
 const AUTH_FILE = "auth.json";
+const PROVIDER_COLUMN_WIDTH = 20;
 const PROVIDERS = getOAuthProviders();
 
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
@@ -63,7 +64,7 @@ async function main(): Promise<void> {
 	const command = args[0];
 
 	if (!command || command === "help" || command === "--help" || command === "-h") {
-		const providerList = PROVIDERS.map((p) => `  ${p.id.padEnd(20)} ${p.name}`).join("\n");
+		const providerList = PROVIDERS.map((p) => `  ${p.id.padEnd(PROVIDER_COLUMN_WIDTH)} ${p.name}`).join("\n");
 		console.log(`Usage: npx @dpopsuev/alef-ai <command> [provider]
 
 Commands:
@@ -84,7 +85,7 @@ Examples:
 	if (command === "list") {
 		console.log("Available OAuth providers:\n");
 		for (const p of PROVIDERS) {
-			console.log(`  ${p.id.padEnd(20)} ${p.name}`);
+			console.log(`  ${p.id.padEnd(PROVIDER_COLUMN_WIDTH)} ${p.name}`);
 		}
 		return;
 	}

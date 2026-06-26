@@ -2,6 +2,15 @@ import { randomUUID } from "node:crypto";
 import { cwdHash, type SessionStore, type StorageRecord, type Turn, TurnIndexer } from "@dpopsuev/alef-session";
 import type { Client } from "@libsql/client";
 
+const SQLITE_PATH_PREFIX = "sqlite:alef.db#";
+const MAX_WARM_EVENTS = 50_000;
+const SESSION_ID_LENGTH = 8;
+const DEFAULT_PRUNE_MAX_AGE_DAYS = 30;
+const DEFAULT_PRUNE_MAX_COUNT = 50;
+const BUS_INTERNAL = "internal";
+const EVENT_SESSION_NAME = "session.name";
+const CORRELATION_META = "meta";
+
 export type EmbeddingCallback = (client: Client, rowid: number, bus: string, type: string, payload: Record<string, unknown>) => void;
 let _embeddingCallback: EmbeddingCallback | undefined;
 export function setEmbeddingCallback(cb: EmbeddingCallback | undefined): void { _embeddingCallback = cb; }
@@ -25,11 +34,11 @@ export class SqliteSessionStore implements SessionStore {
 	private constructor(client: Client, id: string, version?: string) {
 		this._client = client;
 		this.id = id;
-		this.path = `sqlite:alef.db#${id}`;
+		this.path = `${SQLITE_PATH_PREFIX}${id}`;
 		this._version = version ?? process.env.npm_package_version ?? "unknown";
 	}
 
-	private async _warmFromDb(maxEvents = 50_000): Promise<void> {
+	private async _warmFromDb(maxEvents = MAX_WARM_EVENTS): Promise<void> {
 		const result = await this._client.execute({
 			sql: `SELECT bus, type, correlation_id, payload, timestamp, elapsed, hash,
 					actor_address, actor_type, session_id
@@ -62,7 +71,7 @@ export class SqliteSessionStore implements SessionStore {
 	}
 
 	static async create(client: Client, cwd: string, version?: string): Promise<SqliteSessionStore> {
-		const id = randomUUID().replace(/-/g, "").slice(0, 8);
+		const id = randomUUID().replace(/-/g, "").slice(0, SESSION_ID_LENGTH);
 		const hash = cwdHash(cwd);
 		const now = Date.now();
 		await client.execute({
@@ -102,12 +111,12 @@ export class SqliteSessionStore implements SessionStore {
 		});
 		return result.rows.map((r) => ({
 			id: String(r.id),
-			path: `sqlite:alef.db#${String(r.id)}`,
+			path: `${SQLITE_PATH_PREFIX}${String(r.id)}`,
 			mtime: new Date(Number(r.updated_at)),
 		}));
 	}
 
-	static async prune(client: Client, cwd: string, maxAgeDays = 30, maxCount = 50): Promise<number> {
+	static async prune(client: Client, cwd: string, maxAgeDays = DEFAULT_PRUNE_MAX_AGE_DAYS, maxCount = DEFAULT_PRUNE_MAX_COUNT): Promise<number> {
 		const hash = cwdHash(cwd);
 		const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
 		const staleIds = await client.execute({
@@ -180,7 +189,7 @@ export class SqliteSessionStore implements SessionStore {
 	name(): string | undefined {
 		for (let i = this._cache.length - 1; i >= 0; i--) {
 			const r = this._cache[i];
-			if (r.bus === "internal" && r.type === "session.name") {
+			if (r.bus === BUS_INTERNAL && r.type === EVENT_SESSION_NAME) {
 				return typeof r.payload.name === "string" ? r.payload.name : undefined;
 			}
 		}
@@ -189,9 +198,9 @@ export class SqliteSessionStore implements SessionStore {
 
 	async setName(name: string): Promise<void> {
 		await this.append({
-			bus: "internal",
-			type: "session.name",
-			correlationId: "meta",
+			bus: BUS_INTERNAL,
+			type: EVENT_SESSION_NAME,
+			correlationId: CORRELATION_META,
 			payload: { name },
 			timestamp: Date.now(),
 		});

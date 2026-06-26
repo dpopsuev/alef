@@ -4,6 +4,11 @@ import { dirname, join } from "node:path";
 import { type Client, createClient } from "@libsql/client";
 import { applySchema } from "./schema.js";
 
+const ALEF_DIR = ".alef";
+const DB_FILENAME = "alef.db";
+const DEFAULT_SYNC_INTERVAL_S = 60;
+const SQLITE_BUSY_TIMEOUT_MS = 5000;
+
 export type { Client };
 
 export interface StorageConfig {
@@ -22,7 +27,7 @@ export function configureStorage(config: StorageConfig): void {
 
 export async function getDatabase(path?: string): Promise<Client> {
 	if (_client) return _client;
-	const dbPath = path ?? join(homedir(), ".alef", "alef.db");
+	const dbPath = path ?? join(homedir(), ALEF_DIR, DB_FILENAME);
 	mkdirSync(dirname(dbPath), { recursive: true });
 
 	if (_config.backend === "turso" && _config.tursoUrl) {
@@ -30,7 +35,7 @@ export async function getDatabase(path?: string): Promise<Client> {
 			url: `file:${dbPath}`,
 			syncUrl: _config.tursoUrl,
 			authToken: _config.tursoToken ?? process.env.TURSO_AUTH_TOKEN,
-			syncInterval: _config.syncInterval ?? 60,
+			syncInterval: _config.syncInterval ?? DEFAULT_SYNC_INTERVAL_S,
 		});
 	} else {
 		_client = createClient({ url: `file:${dbPath}` });
@@ -59,7 +64,7 @@ export async function syncDatabase(): Promise<void> {
 
 async function configurePragmas(client: Client): Promise<void> {
 	await client.execute("PRAGMA journal_mode = WAL");
-	await client.execute("PRAGMA busy_timeout = 5000");
+	await client.execute(`PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT_MS}`);
 	await client.execute("PRAGMA synchronous = NORMAL");
 	await client.execute("PRAGMA foreign_keys = ON");
 }

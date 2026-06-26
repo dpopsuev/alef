@@ -1,6 +1,8 @@
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
 import type { SessionStore } from "../contracts/storage.js";
-import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, turnsToMessages } from "./assembler.js";
+import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, DEFAULT_RECENT_GUARANTEE, HISTORY_BUDGET_FRACTION, turnsToMessages } from "./assembler.js";
+
+const DEFAULT_CONTEXT_WINDOW = 128_000;
 
 export interface SessionContextStageOptions {
 	sessionStore: () => SessionStore | undefined;
@@ -10,7 +12,7 @@ export interface SessionContextStageOptions {
 type RawMsg = { role: string; content: unknown };
 
 export function createSessionContextStage(opts: SessionContextStageOptions): ContextAssemblyHandler {
-	const contextWindow = opts.contextWindow ?? 128_000;
+	const contextWindow = opts.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 
 	return async ({ messages }) => {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pipeline messages to internal RawMsg shape
@@ -31,11 +33,11 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 			query,
 			contextWindow,
 			hitCounts,
-			policy: { recentGuarantee: 4 },
+			policy: { recentGuarantee: DEFAULT_RECENT_GUARANTEE },
 		});
 		if (selected.length === 0) return {};
 
-		const budgetTotal = Math.floor(contextWindow * 0.7);
+		const budgetTotal = Math.floor(contextWindow * HISTORY_BUDGET_FRACTION);
 		const maxSingleTurnCost = Math.floor(budgetTotal * DEFAULT_CONTEXT_WINDOW_POLICY.maxSingleTurnFraction);
 		const budgetUsed = selected.reduce((n, t) => n + Math.min(t.tokenCost, maxSingleTurnCost), 0);
 		void session.append({

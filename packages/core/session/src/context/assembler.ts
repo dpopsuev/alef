@@ -1,6 +1,15 @@
 import type { Message } from "@dpopsuev/alef-ai/types";
 import type { Turn } from "../contracts/storage.js";
 
+export const HISTORY_BUDGET_FRACTION = 0.7;
+export const MAX_SINGLE_TURN_FRACTION = 0.25;
+export const DEFAULT_RECENT_GUARANTEE = 4;
+const QUERY_MATCH_WEIGHT = 0.4;
+const ACCESS_FREQUENCY_WEIGHT = 0.3;
+const RECENCY_WEIGHT = 0.3;
+const VECTOR_SIMILARITY_SCALE = 0.5;
+const QUERY_TOKEN_MIN_LENGTH = 2;
+
 export interface ContextWindowPolicy {
 	/**
 	 * Fraction of model.contextWindow allocated to history.
@@ -28,12 +37,12 @@ export interface ContextWindowPolicy {
 }
 
 export const DEFAULT_CONTEXT_WINDOW_POLICY: ContextWindowPolicy = {
-	historyFraction: 0.7,
-	maxSingleTurnFraction: 0.25,
-	recentGuarantee: 4,
-	queryMatchWeight: 0.4,
-	accessFrequencyWeight: 0.3,
-	sessionRecencyWeight: 0.3,
+	historyFraction: HISTORY_BUDGET_FRACTION,
+	maxSingleTurnFraction: MAX_SINGLE_TURN_FRACTION,
+	recentGuarantee: DEFAULT_RECENT_GUARANTEE,
+	queryMatchWeight: QUERY_MATCH_WEIGHT,
+	accessFrequencyWeight: ACCESS_FREQUENCY_WEIGHT,
+	sessionRecencyWeight: RECENCY_WEIGHT,
 };
 
 function termOverlap(turn: Turn, queryTokens: string[]): number {
@@ -74,7 +83,7 @@ function scoreTurn(
 		policy.accessFrequencyWeight * hitFreq +
 		policy.sessionRecencyWeight * recency +
 		turn.typeWeight +
-		vectorSimilarity * 0.5
+		vectorSimilarity * VECTOR_SIMILARITY_SCALE
 	);
 }
 
@@ -82,7 +91,7 @@ function tokenize(text: string): string[] {
 	return text
 		.toLowerCase()
 		.split(/\W+/)
-		.filter((t) => t.length > 2);
+		.filter((t) => t.length > QUERY_TOKEN_MIN_LENGTH);
 }
 
 export interface AssembleOptions {

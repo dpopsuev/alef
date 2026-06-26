@@ -29,6 +29,12 @@ if (typeof process !== "undefined" && (process.versions?.node ?? process.version
 
 import type { KnownProvider } from "./types.js";
 
+const PROC_ENVIRON_PATH = "/proc/self/environ";
+const GCLOUD_CONFIG_DIR = ".config";
+const GCLOUD_CACHE_DIR = "gcloud";
+const GCLOUD_ADC_FILENAME = "application_default_credentials.json";
+const AUTHENTICATED_SENTINEL = "<authenticated>";
+
 let _procEnvCache: Map<string, string> | null = null;
 
 /**
@@ -48,7 +54,7 @@ function getProcEnv(key: string): string | undefined {
 		try {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-require-imports -- require() needed for sync fs in Bun fallback path
 			const { readFileSync } = require("node:fs") as typeof import("node:fs");
-			const data = readFileSync("/proc/self/environ", "utf-8");
+			const data = readFileSync(PROC_ENVIRON_PATH, "utf-8");
 			for (const entry of data.split("\0")) {
 				const idx = entry.indexOf("=");
 				if (idx > 0) {
@@ -88,7 +94,7 @@ function hasVertexAdcCredentials(): boolean {
 		} else {
 			// Fall back to default ADC path (lazy evaluation)
 			cachedVertexAdcCredentialsExists = _existsSync(
-				_join(_homedir(), ".config", "gcloud", "application_default_credentials.json"),
+				_join(_homedir(), GCLOUD_CONFIG_DIR, GCLOUD_CACHE_DIR, GCLOUD_ADC_FILENAME),
 			);
 		}
 	}
@@ -187,7 +193,7 @@ export function getEnvApiKey(provider: string): string | undefined {
 		const hasLocation = !!(process.env.GOOGLE_CLOUD_LOCATION || getProcEnv("GOOGLE_CLOUD_LOCATION"));
 
 		if (hasCredentials && hasProject && hasLocation) {
-			return "<authenticated>";
+			return AUTHENTICATED_SENTINEL;
 		}
 	}
 
@@ -213,7 +219,7 @@ export function getEnvApiKey(provider: string): string | undefined {
 			getProcEnv("AWS_CONTAINER_CREDENTIALS_FULL_URI") ||
 			getProcEnv("AWS_WEB_IDENTITY_TOKEN_FILE")
 		) {
-			return "<authenticated>";
+			return AUTHENTICATED_SENTINEL;
 		}
 	}
 

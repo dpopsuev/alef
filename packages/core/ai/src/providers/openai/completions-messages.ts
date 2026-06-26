@@ -22,7 +22,7 @@ import type {
 	ToolResultMessage,
 } from "../../types.js";
 import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
-import { transformMessages } from "../transform-messages.js";
+import { transformMessages } from "../normalize-messages.js";
 import type { ResolvedOpenAICompletionsCompat } from "./completions-compat.js";
 
 // ---------------------------------------------------------------------------

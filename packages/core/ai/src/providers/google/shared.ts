@@ -5,7 +5,7 @@
 import { type Content, FinishReason, FunctionCallingConfigMode, type Part } from "@google/genai";
 import type { Context, ImageContent, Model, StopReason, TextContent, Tool } from "../../types.js";
 import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
-import { transformMessages } from "../transform-messages.js";
+import { transformMessages } from "../normalize-messages.js";
 
 type GoogleApiType = "google-generative-ai" | "google-vertex";
 

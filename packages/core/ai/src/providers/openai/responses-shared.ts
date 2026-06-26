@@ -31,7 +31,7 @@ import type { AssistantMessageEventStream } from "../../utils/event-stream.js";
 import { shortHash } from "../../utils/hash.js";
 import { parseStreamingJson } from "../../utils/json-parse.js";
 import { sanitizeSurrogates } from "../../utils/sanitize-unicode.js";
-import { transformMessages } from "../transform-messages.js";
+import { transformMessages } from "../normalize-messages.js";
 
 // =============================================================================
 // Utilities

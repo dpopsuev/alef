@@ -35,7 +35,7 @@ import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { resolveCloudflareBaseUrl } from "./cloudflare.js";
 import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copilot-headers.js";
 import { adjustMaxTokensForThinking, buildBaseOptions } from "./base-options.js";
-import { transformMessages } from "./transform-messages.js";
+import { transformMessages } from "./normalize-messages.js";
 
 /**
  * Resolve cache retention preference.

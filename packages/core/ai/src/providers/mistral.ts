@@ -27,7 +27,7 @@ import { shortHash } from "../utils/hash.js";
 import { parseStreamingJson } from "../utils/json-parse.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { buildBaseOptions } from "./base-options.js";
-import { transformMessages } from "./transform-messages.js";
+import { transformMessages } from "./normalize-messages.js";
 
 const MISTRAL_TOOL_CALL_ID_LENGTH = 9;
 const MAX_MISTRAL_ERROR_BODY_CHARS = 4000;

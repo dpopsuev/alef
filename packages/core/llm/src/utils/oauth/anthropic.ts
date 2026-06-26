@@ -8,7 +8,15 @@
 import type { Server } from "node:http";
 import { oauthErrorHtml, oauthSuccessHtml } from "./oauth-page.js";
 import { generatePKCE } from "./pkce.js";
+import { z } from "zod";
 import type { OAuthCredentials, OAuthLoginCallbacks, OAuthPrompt, OAuthProviderInterface } from "./types.js";
+
+const TokenResponseSchema = z.object({
+	access_token: z.string(),
+	refresh_token: z.string(),
+	expires_in: z.number(),
+	scope: z.string().optional(),
+});
 
 type CallbackServerInfo = {
 	server: Server;
@@ -210,10 +218,9 @@ async function exchangeAuthorizationCode(
 		);
 	}
 
-	let tokenData: { access_token: string; refresh_token: string; expires_in: number };
+	let tokenData: z.infer<typeof TokenResponseSchema>;
 	try {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, narrowing to expected token response shape
-		tokenData = JSON.parse(responseBody) as { access_token: string; refresh_token: string; expires_in: number };
+		tokenData = TokenResponseSchema.parse(JSON.parse(responseBody));
 	} catch (error) {
 		throw new Error(
 			`Token exchange returned invalid JSON. url=${TOKEN_URL}; body=${responseBody}; details=${formatErrorDetails(error)}`,
@@ -361,15 +368,9 @@ export async function refreshAnthropicToken(refreshToken: string): Promise<OAuth
 		throw new Error(`Anthropic token refresh request failed. url=${TOKEN_URL}; details=${formatErrorDetails(error)}`);
 	}
 
-	let data: { access_token: string; refresh_token: string; expires_in: number; scope?: string };
+	let data: z.infer<typeof TokenResponseSchema>;
 	try {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, narrowing to expected token response shape
-		data = JSON.parse(responseBody) as {
-			access_token: string;
-			refresh_token: string;
-			expires_in: number;
-			scope?: string;
-		};
+		data = TokenResponseSchema.parse(JSON.parse(responseBody));
 	} catch (error) {
 		throw new Error(
 			`Anthropic token refresh returned invalid JSON. url=${TOKEN_URL}; body=${responseBody}; details=${formatErrorDetails(error)}`,

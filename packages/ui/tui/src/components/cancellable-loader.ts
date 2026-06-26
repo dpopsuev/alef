@@ -39,7 +39,7 @@ export class CancellableLoader extends Loader {
 		}
 	}
 
-	render(width: number): string[] {
+	override render(width: number): string[] {
 		if (this.aborted) return [];
 		if (this.wrappedContent) {
 			return [...this.wrappedContent.render(width), ...super.render(width)];
@@ -47,7 +47,7 @@ export class CancellableLoader extends Loader {
 		return super.render(width);
 	}
 
-	invalidate(): void {
+	override invalidate(): void {
 		this.wrappedContent?.invalidate();
 	}
 

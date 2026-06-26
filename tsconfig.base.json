@@ -4,6 +4,7 @@
 		"module": "Node16",
 		"lib": ["ES2024"],
 		"strict": true,
+		"noImplicitOverride": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"noEmit": false,

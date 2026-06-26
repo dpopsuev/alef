@@ -61,7 +61,7 @@ export class RemoteSession implements Session {
 				if (Array.isArray(data)) {
 					for (const event of data) {
 						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- HTTP JSON boundary: daemon /history returns AgentEvent[]
-					for (const obs of this.observers) obs(event as AgentEvent);
+						for (const obs of this.observers) obs(event as AgentEvent);
 					}
 				}
 			})

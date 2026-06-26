@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-supervisor": "workspace:*",
     "typescript-language-server": "^5.2.0",
     "zod": "^4.4.3"
   },

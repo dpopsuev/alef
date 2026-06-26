@@ -13,8 +13,9 @@
     "test": "vitest --run"
   },
   "dependencies": {
-    "@dpopsuev/alef-tool-mcp-registry": "workspace:*",
-    "@dpopsuev/alef-kernel": "workspace:*"
+    "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-supervisor": "workspace:*",
+    "@dpopsuev/alef-tool-mcp-registry": "workspace:*"
   },
   "devDependencies": {
     "@dpopsuev/alef-testkit": "workspace:*",

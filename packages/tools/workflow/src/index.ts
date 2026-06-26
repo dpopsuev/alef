@@ -8,6 +8,7 @@ export {
 	type StationStatus,
 	type WorkflowAdapterOptions,
 } from "./adapter.js";
+export { service } from "./service.js";
 export {
 	type Contract,
 	defineContract,

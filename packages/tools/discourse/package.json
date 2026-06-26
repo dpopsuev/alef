@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-supervisor": "workspace:*",
     "@libsql/client": "^0.17.4"
   },
   "devDependencies": {

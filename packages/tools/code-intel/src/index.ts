@@ -17,3 +17,4 @@ export type {
 } from "./backend.js";
 export { LocalCodeIntelBackend, type LocalCodeIntelBackendOptions } from "./local-backend.js";
 export { StubCodeIntelBackend } from "./stub-backend.js";
+export { service } from "./service.js";

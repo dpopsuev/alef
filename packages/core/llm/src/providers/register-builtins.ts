@@ -264,79 +264,37 @@ export const streamSimpleOpenAIResponses = createLazySimpleStream(loadOpenAIResp
 const streamBedrockLazy = createLazyStream(loadBedrockProviderModule);
 const streamSimpleBedrockLazy = createLazySimpleStream(loadBedrockProviderModule);
 
+// Registration order matters: specific strategies (with match()) before fallbacks.
+// Adding a new provider: add one lazy loader above, one export pair, one entry here.
+const BUILTIN_PROVIDERS: ReadonlyArray<{
+	api: Api;
+	stream: StreamFunction<Api, StreamOptions>;
+	streamSimple: StreamFunction<Api, SimpleStreamOptions>;
+	match?: (model: Model<Api>) => boolean;
+}> = [
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowly-typed providers widen to Api union for registry iteration
+	{ api: "anthropic-messages", stream: streamAnthropicVertex, streamSimple: streamSimpleAnthropicVertex, match: matchesAnthropicVertex },
+	{ api: "anthropic-messages", stream: streamAnthropic, streamSimple: streamSimpleAnthropic },
+	{ api: "openai-completions", stream: streamGitHubCopilotCompletions, streamSimple: streamSimpleGitHubCopilotCompletions, match: matchesGitHubCopilot },
+	{ api: "openai-completions", stream: streamOpenAICompletions, streamSimple: streamSimpleOpenAICompletions },
+	{ api: "mistral-conversations", stream: streamMistral, streamSimple: streamSimpleMistral },
+	{ api: "openai-responses", stream: streamOpenAIResponses, streamSimple: streamSimpleOpenAIResponses },
+	{ api: "azure-openai-responses", stream: streamAzureOpenAIResponses, streamSimple: streamSimpleAzureOpenAIResponses },
+	{ api: "openai-codex-responses", stream: streamOpenAICodexResponses, streamSimple: streamSimpleOpenAICodexResponses },
+	{ api: "google-generative-ai", stream: streamGoogle, streamSimple: streamSimpleGoogle },
+	{ api: "google-vertex", stream: streamGoogleVertex, streamSimple: streamSimpleGoogleVertex },
+	{ api: "bedrock-converse-stream", stream: streamBedrockLazy, streamSimple: streamSimpleBedrockLazy },
+] as unknown as ReadonlyArray<{
+	api: Api;
+	stream: StreamFunction<Api, StreamOptions>;
+	streamSimple: StreamFunction<Api, SimpleStreamOptions>;
+	match?: (model: Model<Api>) => boolean;
+}>;
+
 export function registerBuiltInApiProviders(): void {
-	// Vertex Claude — registered first so match() intercepts before the direct strategy.
-	registerApiProvider({
-		api: "anthropic-messages",
-		stream: streamAnthropicVertex,
-		streamSimple: streamSimpleAnthropicVertex,
-		match: matchesAnthropicVertex,
-	});
-
-	// Direct Anthropic API — fallback when Vertex env vars are absent.
-	registerApiProvider({
-		api: "anthropic-messages",
-		stream: streamAnthropic,
-		streamSimple: streamSimpleAnthropic,
-	});
-
-	// GitHub Copilot — registered before generic openai-completions.
-	// Injects per-request Copilot dynamic headers before delegating.
-	registerApiProvider({
-		api: "openai-completions",
-		stream: streamGitHubCopilotCompletions,
-		streamSimple: streamSimpleGitHubCopilotCompletions,
-		match: matchesGitHubCopilot,
-	});
-
-	// Generic OpenAI-compatible completions — fallback for all other providers.
-	registerApiProvider({
-		api: "openai-completions",
-		stream: streamOpenAICompletions,
-		streamSimple: streamSimpleOpenAICompletions,
-	});
-
-	registerApiProvider({
-		api: "mistral-conversations",
-		stream: streamMistral,
-		streamSimple: streamSimpleMistral,
-	});
-
-	registerApiProvider({
-		api: "openai-responses",
-		stream: streamOpenAIResponses,
-		streamSimple: streamSimpleOpenAIResponses,
-	});
-
-	registerApiProvider({
-		api: "azure-openai-responses",
-		stream: streamAzureOpenAIResponses,
-		streamSimple: streamSimpleAzureOpenAIResponses,
-	});
-
-	registerApiProvider({
-		api: "openai-codex-responses",
-		stream: streamOpenAICodexResponses,
-		streamSimple: streamSimpleOpenAICodexResponses,
-	});
-
-	registerApiProvider({
-		api: "google-generative-ai",
-		stream: streamGoogle,
-		streamSimple: streamSimpleGoogle,
-	});
-
-	registerApiProvider({
-		api: "google-vertex",
-		stream: streamGoogleVertex,
-		streamSimple: streamSimpleGoogleVertex,
-	});
-
-	registerApiProvider({
-		api: "bedrock-converse-stream",
-		stream: streamBedrockLazy,
-		streamSimple: streamSimpleBedrockLazy,
-	});
+	for (const entry of BUILTIN_PROVIDERS) {
+		registerApiProvider(entry);
+	}
 }
 
 export function resetApiProviders(): void {

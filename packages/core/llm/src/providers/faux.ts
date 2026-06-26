@@ -60,6 +60,21 @@ export interface FauxModelDefinition {
 	maxTokens?: number;
 }
 
+function buildFauxModel(def: FauxModelDefinition, api: string, provider: string): Model<string> {
+	return {
+		id: def.id,
+		name: def.name ?? def.id,
+		api,
+		provider,
+		baseUrl: DEFAULT_BASE_URL,
+		reasoning: def.reasoning ?? false,
+		input: def.input ?? ["text", "image"],
+		cost: def.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: def.contextWindow ?? 128_000,
+		maxTokens: def.maxTokens ?? 16_384,
+	};
+}
+
 export type FauxContentBlock = TextContent | ThinkingContent | ToolCall;
 
 export function fauxText(text: string): TextContent {
@@ -388,18 +403,7 @@ export function registerFauxProvider(options: RegisterFauxProviderOptions = {}):
 			];
 
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- assertion safe: modelDefs always has >= 1 element, guaranteeing non-empty tuple
-	const models = modelDefs.map((d) => ({
-		id: d.id,
-		name: d.name ?? d.id,
-		api,
-		provider,
-		baseUrl: DEFAULT_BASE_URL,
-		reasoning: d.reasoning ?? false,
-		input: d.input ?? (["text", "image"] as ("text" | "image")[]),
-		cost: d.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: d.contextWindow ?? 128_000,
-		maxTokens: d.maxTokens ?? 16_384,
-	})) as [Model<string>, ...Model<string>[]];
+	const models = modelDefs.map((d) => buildFauxModel(d, api, provider)) as [Model<string>, ...Model<string>[]];
 
 	const streamFn = (requestModel: Model<string>, ctx: Context, opts?: StreamOptions) => {
 		const outer = createAssistantMessageEventStream();

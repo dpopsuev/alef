@@ -2,7 +2,7 @@
  * Stream and completion options type definitions
  */
 
-import type { ThinkingBudgets, ThinkingLevel } from "./types-models.js";
+import type { ThinkingBudgets, ThinkingLevel } from "./models.js";
 
 export type CacheRetention = "none" | "short" | "long";
 

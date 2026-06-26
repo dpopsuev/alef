@@ -1,33 +1,22 @@
-/**
- * Unified types module - re-exports all types from domain-focused modules
- * This maintains API compatibility while reducing coupling
- */
-
-// Re-export from content module
 export type {
 	ImageContent,
 	TextContent,
 	TextSignatureV1,
 	ThinkingContent,
 	ToolCall,
-} from "./types-content.js";
-// Re-export from events module
-export type { AssistantMessageEvent } from "./types-events.js";
-// Re-export from functions module
+} from "./types/content.js";
+export type { AssistantMessageEvent } from "./types/events.js";
 export type {
 	ImagesFunction,
 	StreamFunction,
-} from "./types-functions.js";
-// Re-export from images module
+} from "./types/functions.js";
 export type {
 	AssistantImages,
 	ImagesContext,
 	ImagesInputContent,
 	ImagesModel,
 	ImagesOutputContent,
-} from "./types-images.js";
-
-// Re-export from messages module
+} from "./types/images.js";
 export type {
 	AssistantMessage,
 	Context,
@@ -35,8 +24,7 @@ export type {
 	Tool,
 	ToolResultMessage,
 	UserMessage,
-} from "./types-messages.js";
-// Re-export from models module (includes compat types)
+} from "./types/messages.js";
 export type {
 	AnthropicMessagesCompat,
 	Model,
@@ -48,8 +36,7 @@ export type {
 	ThinkingLevel,
 	ThinkingLevelMap,
 	VercelGatewayRouting,
-} from "./types-models.js";
-// Re-export from options module
+} from "./types/models.js";
 export type {
 	CacheRetention,
 	ImagesOptions,
@@ -59,8 +46,7 @@ export type {
 	SimpleStreamOptions,
 	StreamOptions,
 	Transport,
-} from "./types-options.js";
-// Re-export from providers module
+} from "./types/options.js";
 export type {
 	Api,
 	ImagesApi,
@@ -70,12 +56,10 @@ export type {
 	KnownImagesProvider,
 	KnownProvider,
 	Provider,
-} from "./types-providers.js";
-// Re-export from usage module
+} from "./types/providers.js";
 export type {
 	ImagesStopReason,
 	StopReason,
 	Usage,
-} from "./types-usage.js";
-// Re-export external types that were previously imported
+} from "./types/usage.js";
 export type { AssistantMessageEventStream } from "./utils/event-stream.js";

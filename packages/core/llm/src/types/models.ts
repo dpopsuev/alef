@@ -2,7 +2,7 @@
  * Model configuration type definitions
  */
 
-import type { Api, Provider } from "./types-providers.js";
+import type { Api, Provider } from "./providers.js";
 
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
 export type ModelThinkingLevel = "off" | ThinkingLevel;

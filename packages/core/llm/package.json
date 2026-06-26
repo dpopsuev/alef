@@ -45,12 +45,12 @@
       "import": "./dist/providers/openai-responses.js"
     },
     "./oauth": {
-      "types": "./dist/oauth.d.ts",
-      "import": "./dist/oauth.js"
+      "types": "./dist/utils/oauth/index.d.ts",
+      "import": "./dist/utils/oauth/index.js"
     },
     "./bedrock-provider": {
-      "types": "./dist/bedrock-provider.d.ts",
-      "import": "./dist/bedrock-provider.js"
+      "types": "./dist/providers/bedrock-provider.d.ts",
+      "import": "./dist/providers/bedrock-provider.js"
     },
     "./faux": {
       "types": "./src/providers/faux.ts",

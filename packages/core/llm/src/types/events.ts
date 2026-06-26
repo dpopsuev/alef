@@ -2,9 +2,9 @@
  * Event stream type definitions
  */
 
-import type { ToolCall } from "./types-content.js";
-import type { AssistantMessage } from "./types-messages.js";
-import type { StopReason } from "./types-usage.js";
+import type { ToolCall } from "./content.js";
+import type { AssistantMessage } from "./messages.js";
+import type { StopReason } from "./usage.js";
 
 /**
  * Event protocol for AssistantMessageEventStream.

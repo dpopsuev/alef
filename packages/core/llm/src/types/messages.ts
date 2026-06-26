@@ -3,10 +3,10 @@
  */
 
 import type { TSchema } from "typebox";
-import type { ImageContent, TextContent, ThinkingContent, ToolCall } from "./types-content.js";
-import type { Api, Provider } from "./types-providers.js";
-import type { StopReason, Usage } from "./types-usage.js";
-import type { AssistantMessageDiagnostic } from "./utils/diagnostics.js";
+import type { ImageContent, TextContent, ThinkingContent, ToolCall } from "./content.js";
+import type { Api, Provider } from "./providers.js";
+import type { StopReason, Usage } from "./usage.js";
+import type { AssistantMessageDiagnostic } from "../utils/diagnostics.js";
 
 export interface UserMessage {
 	role: "user";

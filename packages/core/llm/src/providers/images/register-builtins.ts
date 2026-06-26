@@ -1,4 +1,4 @@
-import { registerImagesApiProvider } from "../../images-api-registry.js";
+import { registerImagesApiProvider } from "../../images/registry.js";
 import type { AssistantImages, ImagesContext, ImagesFunction, ImagesModel, ImagesOptions } from "../../types.js";
 import type { generateImagesOpenRouter as generateImagesOpenRouterFunction } from "./openrouter.js";
 

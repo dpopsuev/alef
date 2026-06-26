@@ -2,9 +2,9 @@
  * Image generation type definitions
  */
 
-import type { ImageContent, TextContent } from "./types-content.js";
-import type { ImagesApi, ImagesProvider } from "./types-providers.js";
-import type { ImagesStopReason, Usage } from "./types-usage.js";
+import type { ImageContent, TextContent } from "./content.js";
+import type { ImagesApi, ImagesProvider } from "./providers.js";
+import type { ImagesStopReason, Usage } from "./usage.js";
 
 export type ImagesInputContent = TextContent | ImageContent;
 export type ImagesOutputContent = TextContent | ImageContent;

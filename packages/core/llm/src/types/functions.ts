@@ -2,14 +2,14 @@
  * Function type definitions for streaming and image generation
  */
 
-import type { AssistantImages, ImagesContext, ImagesModel } from "./types-images.js";
-import type { Context } from "./types-messages.js";
+import type { AssistantImages, ImagesContext, ImagesModel } from "./images.js";
+import type { Context } from "./messages.js";
 // Import Model from types-models to avoid circular dependency
 // We import it here since functions depend on models
-import type { Model } from "./types-models.js";
-import type { ImagesOptions, StreamOptions } from "./types-options.js";
-import type { Api, ImagesApi } from "./types-providers.js";
-import type { AssistantMessageEventStream } from "./utils/event-stream.js";
+import type { Model } from "./models.js";
+import type { ImagesOptions, StreamOptions } from "./options.js";
+import type { Api, ImagesApi } from "./providers.js";
+import type { AssistantMessageEventStream } from "../utils/event-stream.js";
 
 // Generic StreamFunction with typed options.
 //

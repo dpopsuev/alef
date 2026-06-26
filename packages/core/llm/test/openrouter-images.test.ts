@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { generateImages } from "../src/images.js";
+import { generateImages } from "../src/images/api.js";
 import type { ImagesContext, ImagesModel } from "../src/types.js";
 
 const mockState = vi.hoisted(() => ({

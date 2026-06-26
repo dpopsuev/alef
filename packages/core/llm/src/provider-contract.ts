@@ -1,6 +1,6 @@
 import type { ApiProvider } from "./api-registry.js";
-import type { Api, Provider } from "./types-providers.js";
-import type { StreamOptions } from "./types-options.js";
+import type { Api, Provider } from "./types/providers.js";
+import type { StreamOptions } from "./types/options.js";
 
 export interface ProviderModelDefinition {
 	id: string;

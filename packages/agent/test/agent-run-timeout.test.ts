@@ -12,12 +12,14 @@
  */
 
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
-import { AgentController, createToolShellAdapter, InProcessStrategy } from "@dpopsuev/alef-engine";
+import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
+import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { afterEach, describe, expect, it } from "vitest";
-import { Agent } from "../../core/engine/src/index.js";
+import { Agent } from "../../core/engine/src/agent.js";
 import { buildSubagentFactory } from "../src/subagent-factory.js";
 
 const HTTP_TIMEOUT_MS = 200;

@@ -16,8 +16,20 @@
 			"@dpopsuev/alef-ai/*": [
 				"../ai/src/*"
 			],
-			"@dpopsuev/alef-engine": [
-				"../runtime/src/index.ts"
+			"@dpopsuev/alef-engine/controller": [
+				"../core/engine/src/agent-controller.ts"
+			],
+			"@dpopsuev/alef-engine/catalog": [
+				"../core/engine/src/tool-catalog.ts"
+			],
+			"@dpopsuev/alef-engine/ports": [
+				"../core/engine/src/port-registry.ts"
+			],
+			"@dpopsuev/alef-engine/remote": [
+				"../core/engine/src/remote-strategy.ts"
+			],
+			"@dpopsuev/alef-engine/*": [
+				"../core/engine/src/*.ts"
 			],
 			"@dpopsuev/alef-kernel": [
 				"../kernel/src/index.ts"

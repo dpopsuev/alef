@@ -1,9 +1,9 @@
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus, BusMessage } from "@dpopsuev/alef-kernel/bus";
-import { AgentController } from "@dpopsuev/alef-engine";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { Agent, type BusObserver } from "../src/index.js";
+import { Agent, type BusObserver } from "../src/agent.js";
 
 class BusEventRecorder implements BusObserver {
 	readonly command: BusMessage[] = [];

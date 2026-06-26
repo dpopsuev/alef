@@ -1,7 +1,8 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint";
-import type { Agent } from "@dpopsuev/alef-engine";
-import { buildDelegationStack, createRouterAdapter } from "@dpopsuev/alef-engine";
+import type { Agent } from "@dpopsuev/alef-engine/agent";
+import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
+import { createRouterAdapter } from "@dpopsuev/alef-engine/http";
 import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
 import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-tool-agent";

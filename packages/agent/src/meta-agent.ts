@@ -1,4 +1,4 @@
-import { InProcessStrategy } from "@dpopsuev/alef-engine";
+import { InProcessStrategy } from "@dpopsuev/alef-engine/in-process";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createMetaAdapter, type DirectiveAdapter } from "@dpopsuev/alef-tool-meta";
 import { autoDetectModel, buildModel } from "./model/index.js";

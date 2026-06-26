@@ -1,4 +1,5 @@
-import { Agent, AgentController } from "@dpopsuev/alef-engine";
+import { Agent } from "@dpopsuev/alef-engine/agent";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { createReplayAdapters } from "@dpopsuev/alef-session/replay";
 import { JsonlSessionStore } from "@dpopsuev/alef-session/store";
 import { extractTrace } from "@dpopsuev/alef-session/tracing";

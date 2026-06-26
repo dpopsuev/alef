@@ -14,7 +14,7 @@
 
 import { createFsAdapter } from "@dpopsuev/alef-tool-fs";
 import { createShellAdapter } from "@dpopsuev/alef-tool-shell";
-import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine";
+import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
 import { parseArgs } from "../../../agent/src/args.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { InProcessBus } from "@dpopsuev/alef-kernel/bus";
-import type { BusObserver } from "@dpopsuev/alef-engine";
+import type { BusObserver } from "@dpopsuev/alef-engine/agent";
 
 /**
  * TurnDriver — event/llm.input → command/llm.response request-reply.

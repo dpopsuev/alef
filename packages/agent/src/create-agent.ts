@@ -1,5 +1,7 @@
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
-import { type Agent, AgentController, buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine";
+import type { Agent } from "@dpopsuev/alef-engine/agent";
+import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { buildAgent } from "./agent-kernel.js";

@@ -1,4 +1,6 @@
-import { Agent, AgentController, buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine";
+import { Agent } from "@dpopsuev/alef-engine/agent";
+import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus, BusMessage } from "@dpopsuev/alef-kernel/bus";
 import type { AgentEvent, TokensConsumed } from "./session.js";

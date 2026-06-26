@@ -24,7 +24,9 @@ import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { getEnvApiKey } from "@dpopsuev/alef-ai/env";
 import { getModel } from "@dpopsuev/alef-ai/models";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
-import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-engine";
+import { Agent } from "@dpopsuev/alef-engine/agent";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
+import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 
 /** True when the ALEF_TEST_LLM env var is set. Gates all real-LLM tests. */
 export const HAVE_REAL_LLM = process.env.ALEF_TEST_LLM === "1";

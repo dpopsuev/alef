@@ -1,4 +1,4 @@
-import { Agent } from "@dpopsuev/alef-engine";
+import { Agent } from "@dpopsuev/alef-engine/agent";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { AgentBus } from "@dpopsuev/alef-kernel/bus";
 import { SessionLog, type SessionSummary } from "./event-log-adapter.js";

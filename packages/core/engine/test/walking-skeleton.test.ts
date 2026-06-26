@@ -12,10 +12,10 @@
  *   Agent.subscribeEvent("llm.response") → resolves
  */
 
-import { AgentController } from "@dpopsuev/alef-engine";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { BusEventRecorder, MockReasoner } from "@dpopsuev/alef-testkit";
 import { afterEach, describe, expect, it } from "vitest";
-import { Agent } from "../src/index.js";
+import { Agent } from "../src/agent.js";
 
 // ---------------------------------------------------------------------------
 // Harness

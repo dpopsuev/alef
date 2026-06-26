@@ -12,7 +12,9 @@
  */
 
 import { type FauxResponseFactory, fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
-import { Agent, AgentController, createToolShellAdapter } from "@dpopsuev/alef-engine";
+import { Agent } from "@dpopsuev/alef-engine/agent";
+import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";

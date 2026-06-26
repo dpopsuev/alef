@@ -21,7 +21,7 @@ import { createWriteStream, type WriteStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
 
-import type { BusObserver } from "@dpopsuev/alef-engine";
+import type { BusObserver } from "@dpopsuev/alef-engine/agent";
 
 // ---------------------------------------------------------------------------
 // TraceEvent \u2014 one JSONL line

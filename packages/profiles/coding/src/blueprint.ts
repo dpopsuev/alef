@@ -3,7 +3,7 @@ import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
 import { createSkillsAdapter } from "@dpopsuev/alef-tool-skills";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { buildDelegationStack } from "@dpopsuev/alef-engine";
+import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
 import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
 import { createLlmSummarizer } from "@dpopsuev/alef-session/summarizer";

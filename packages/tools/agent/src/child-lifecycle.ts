@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
-import { RemoteStrategy } from "@dpopsuev/alef-engine";
+import { RemoteStrategy } from "@dpopsuev/alef-engine/remote";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { ChildEntry } from "./child-process.js";
 import { healthCheck, resolvePath, spawnChild } from "./child-process.js";

@@ -80,8 +80,17 @@
 			"@dpopsuev/alef-kernel/*": [
 				"./packages/core/kernel/src/*.ts"
 			],
-			"@dpopsuev/alef-engine": [
-				"./packages/core/engine/src/index.ts"
+			"@dpopsuev/alef-engine/controller": [
+				"./packages/core/engine/src/agent-controller.ts"
+			],
+			"@dpopsuev/alef-engine/catalog": [
+				"./packages/core/engine/src/tool-catalog.ts"
+			],
+			"@dpopsuev/alef-engine/ports": [
+				"./packages/core/engine/src/port-registry.ts"
+			],
+			"@dpopsuev/alef-engine/remote": [
+				"./packages/core/engine/src/remote-strategy.ts"
 			],
 			"@dpopsuev/alef-engine/*": [
 				"./packages/core/engine/src/*.ts"

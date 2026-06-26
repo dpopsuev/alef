@@ -42,7 +42,9 @@ async function createSessionWithPrompt(adapters: Adapter[], systemPrompt: string
 	const { getEnvApiKey } = await import("../../core/ai/src/env-api-keys.js");
 	const { getModel } = await import("../../core/ai/src/models/llm.js");
 	const { createAgentLoop } = await import("../../core/reasoner/src/index.js");
-	const { Agent, AgentController, createToolShellAdapter } = await import("../../core/engine/src/index.js");
+	const { Agent } = await import("../../core/engine/src/agent.js");
+	const { AgentController } = await import("../../core/engine/src/agent-controller.js");
+	const { createToolShellAdapter } = await import("../../core/engine/src/tool-catalog.js");
 
 	const provider = process.env.ANTHROPIC_VERTEX_PROJECT_ID ? "anthropic-vertex" : "anthropic";
 	const apiKey = getEnvApiKey(provider) ?? "";

@@ -8,7 +8,8 @@
  */
 
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
-import { Agent, AgentController } from "@dpopsuev/alef-engine";
+import { Agent } from "@dpopsuev/alef-engine/agent";
+import { AgentController } from "@dpopsuev/alef-engine/controller";
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";

@@ -3,15 +3,18 @@
   "version": "0.0.2",
   "description": "Agent runtime \u2014 organ loader, nerve, and pub-sub bus",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "main": "./src/agent.ts",
+  "types": "./dist/agent.d.ts",
   "exports": {
-    ".": {
-      "source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
+    "./agent": "./src/agent.ts",
+    "./controller": "./src/agent-controller.ts",
+    "./catalog": "./src/tool-catalog.ts",
+    "./ports": "./src/port-registry.ts",
+    "./delegation": "./src/delegation.ts",
+    "./in-process": "./src/in-process.ts",
+    "./remote": "./src/remote-strategy.ts",
+    "./http": "./src/http.ts",
+    "./sse": "./src/sse.ts"
   },
   "files": [
     "dist",
@@ -55,6 +58,6 @@
   },
   "alef": {
     "type": "core",
-    "entry": "./src/index.ts"
+    "entry": "./src/agent.ts"
   }
 }

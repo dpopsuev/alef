@@ -90,8 +90,9 @@ export class SessionHandle implements Session {
 
 	setThinking(level: string): void {
 		const thinkingLevels: readonly string[] = ["minimal", "low", "medium", "high", "xhigh"];
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by includes() check
-		this._thinkingState.level = level !== "off" && thinkingLevels.includes(level) ? (level as ThinkingLevel) : undefined;
+		this._thinkingState.level =
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by includes() check above
+			level !== "off" && thinkingLevels.includes(level) ? (level as ThinkingLevel) : undefined;
 		this._notifyStateChanged();
 	}
 

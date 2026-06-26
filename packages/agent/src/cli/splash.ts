@@ -72,8 +72,14 @@ function fontPathForLang(lang: string): string | null {
 			.map((l) => l.trim())
 			.filter((f) => f.endsWith(".ttf") || f.endsWith(".otf"));
 		// Prefer Noto / Google fonts over bitmap/terminal fonts (Terminus, etc.)
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: files may be empty, but TS types array index as non-nullable
-		return files.find((f) => /noto/i.test(f)) ?? files.find((f) => !/terminus|terminess|nerd/i.test(f)) ?? files[0] ?? null;
+		/* eslint-disable @typescript-eslint/no-unnecessary-condition -- find() can return undefined; array index may be out of bounds */
+		return (
+			files.find((f) => /noto/i.test(f)) ??
+			files.find((f) => !/terminus|terminess|nerd/i.test(f)) ??
+			files[0] ??
+			null
+		);
+		/* eslint-enable @typescript-eslint/no-unnecessary-condition */
 	} catch {
 		return null;
 	}

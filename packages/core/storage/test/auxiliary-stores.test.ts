@@ -1,10 +1,10 @@
 import { type Client, createClient } from "@libsql/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { SqliteAuthStore } from "../src/auth.js";
-import { SqliteDaemonRegistry } from "../src/daemon.js";
-import { applySchema } from "../src/schema.js";
-import { SqliteSessionStore } from "../src/sqlite-session.js";
-import { SqliteSummaryStore } from "../src/summary.js";
+import { SqliteAuthStore } from "../src/sqlite/auth.js";
+import { SqliteDaemonRegistry } from "../src/sqlite/daemon.js";
+import { applySchema } from "../src/sqlite/schema.js";
+import { SqliteSessionStore } from "../src/sqlite/session.js";
+import { SqliteSummaryStore } from "../src/sqlite/summary.js";
 
 async function makeClient(): Promise<Client> {
 	const client = createClient({ url: ":memory:" });

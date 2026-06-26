@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { makeTestDatabase } from "../src/database.js";
-import { SqliteSessionStore } from "../src/sqlite-session.js";
+import { makeTestDatabase } from "../src/sqlite/database.js";
+import { SqliteSessionStore } from "../src/sqlite/session.js";
 import { SqliteStorageFactory } from "../src/factory.js";
 
 describe("session preview — realistic fixture", { tags: ["integration"] }, () => {

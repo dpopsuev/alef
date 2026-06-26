@@ -3,21 +3,20 @@
   "version": "0.0.2",
   "description": "SQLite-backed storage layer for Alef agent state (sessions, events, discourse, auth)",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "main": "./src/interfaces.ts",
+  "types": "./dist/interfaces.d.ts",
   "exports": {
-    ".": {
-      "source": "./src/index.ts",
-      "import": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "default": "./src/index.ts"
-    },
-    "./storage-port": {
-      "source": "./src/interfaces.ts",
-      "types": "./dist/interfaces.d.ts",
-      "import": "./src/interfaces.ts",
-      "default": "./src/interfaces.ts"
-    }
+    ".": "./src/interfaces.ts",
+    "./factory": "./src/factory.ts",
+    "./keyring": "./src/keyring.ts",
+    "./memory": "./src/memory-session.ts",
+    "./sqlite/database": "./src/sqlite/database.ts",
+    "./sqlite/session": "./src/sqlite/session.ts",
+    "./sqlite/schema": "./src/sqlite/schema.ts",
+    "./sqlite/summary": "./src/sqlite/summary.ts",
+    "./sqlite/auth": "./src/sqlite/auth.ts",
+    "./sqlite/daemon": "./src/sqlite/daemon.ts",
+    "./sqlite/migrations": "./src/sqlite/migrations.ts"
   },
   "files": [
     "dist"
@@ -55,6 +54,6 @@
   },
   "alef": {
     "type": "core",
-    "entry": "./src/index.ts"
+    "entry": "./src/interfaces.ts"
   }
 }

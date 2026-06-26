@@ -1,13 +1,7 @@
 import type { Client } from "@libsql/client";
-import type { DaemonRegistry } from "./interfaces.js";
+import type { DaemonEntry, DaemonRegistry } from "../interfaces.js";
 
-export interface DaemonEntry {
-	port: number;
-	pid: number;
-	sessionId: string;
-	cwd: string;
-	startedAt: number;
-}
+export type { DaemonEntry };
 
 export class SqliteDaemonRegistry implements DaemonRegistry {
 	private readonly client: Client;

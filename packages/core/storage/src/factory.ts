@@ -1,10 +1,10 @@
 import type { Client } from "@libsql/client";
 import type { SessionStore } from "@dpopsuev/alef-session";
-import { SqliteAuthStore } from "./auth.js";
-import { SqliteDaemonRegistry } from "./daemon.js";
+import { SqliteAuthStore } from "./sqlite/auth.js";
+import { SqliteDaemonRegistry } from "./sqlite/daemon.js";
 import type { AuthStore, DaemonRegistry, SessionPreviewProvider, SessionStoreFactory, StorageFactory, SummaryStore } from "./interfaces.js";
-import { SqliteSessionStore } from "./sqlite-session.js";
-import { SqliteSummaryStore } from "./summary.js";
+import { SqliteSessionStore } from "./sqlite/session.js";
+import { SqliteSummaryStore } from "./sqlite/summary.js";
 
 export class SqliteStorageFactory implements StorageFactory {
 	private readonly client: Client;

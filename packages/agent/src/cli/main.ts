@@ -47,7 +47,7 @@ await handleSelfUpdate(args);
 
 // Configure storage backend from config.yaml (local or Turso cloud).
 if (cfg.storage) {
-	const { configureStorage } = await import("@dpopsuev/alef-storage");
+	const { configureStorage } = await import("@dpopsuev/alef-storage/sqlite/database");
 	configureStorage({
 		backend: cfg.storage.backend,
 		tursoUrl: cfg.storage.turso_url,
@@ -59,7 +59,8 @@ if (cfg.storage) {
 let _storage: StorageFactory | undefined;
 async function getStorage(): Promise<StorageFactory> {
 	if (!_storage) {
-		const { getDatabase, SqliteStorageFactory } = await import("@dpopsuev/alef-storage");
+		const { getDatabase } = await import("@dpopsuev/alef-storage/sqlite/database");
+		const { SqliteStorageFactory } = await import("@dpopsuev/alef-storage/factory");
 		const db = await getDatabase();
 		_storage = new SqliteStorageFactory(db);
 	}
@@ -203,7 +204,7 @@ traceEvent("boot", { pid: process.pid, cwd: args.cwd, model: args.modelId, tui: 
 process.send?.({ type: "session", sessionId: session.id });
 
 // Initialize local embedding model for vector recall (lazy-loads on first embed).
-Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage")])
+Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage/sqlite/session")])
 	.then(([{ setEmbedder, LocalEmbedder, queueEmbedding }, { setEmbeddingCallback }]) => {
 		setEmbedder(new LocalEmbedder());
 		setEmbeddingCallback(queueEmbedding);

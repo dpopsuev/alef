@@ -1,6 +1,23 @@
 import type { SessionStore } from "@dpopsuev/alef-session";
-import type { DaemonEntry } from "./daemon.js";
-import type { SessionSummary } from "./summary.js";
+
+export interface DaemonEntry {
+	port: number;
+	pid: number;
+	sessionId: string;
+	cwd: string;
+	startedAt: number;
+}
+
+export interface SessionSummary {
+	id: string;
+	model: string;
+	started_at: string;
+	duration_ms: number;
+	turns: number;
+	tokens: { input: number; output: number };
+	tools: Array<{ name: string; calls: number }>;
+	errors: number;
+}
 
 export interface DaemonRegistry {
 	register(entry: DaemonEntry): Promise<void>;

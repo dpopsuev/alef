@@ -10,7 +10,9 @@ import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-llm";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { Agent, AgentController } from "@dpopsuev/alef-runtime";
-import { makeTestDatabase, SqliteSessionStore, SqliteSummaryStore } from "@dpopsuev/alef-storage";
+import { makeTestDatabase } from "@dpopsuev/alef-storage/sqlite/database";
+import { SqliteSessionStore } from "@dpopsuev/alef-storage/sqlite/session";
+import { SqliteSummaryStore } from "@dpopsuev/alef-storage/sqlite/summary";
 import { afterEach, describe, expect, it } from "vitest";
 import { SessionLog } from "../src/event-log-adapter.js";
 

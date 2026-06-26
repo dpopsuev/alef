@@ -1,5 +1,7 @@
 import { type Client, createClient } from "@libsql/client";
-import { applySchema, SqliteSessionStore, SqliteSummaryStore } from "@dpopsuev/alef-storage";
+import { applySchema } from "@dpopsuev/alef-storage/sqlite/schema";
+import { SqliteSessionStore } from "@dpopsuev/alef-storage/sqlite/session";
+import { SqliteSummaryStore } from "@dpopsuev/alef-storage/sqlite/summary";
 import { afterEach, describe, expect, it } from "vitest";
 import { RecallStore } from "../src/recall.js";
 

@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { getDatabase, closeDatabase, openDatabase } from "../src/database.js";
-import { SqliteSessionStore } from "../src/sqlite-session.js";
+import { getDatabase, closeDatabase, openDatabase } from "../src/sqlite/database.js";
+import { SqliteSessionStore } from "../src/sqlite/session.js";
 
 describe("database boot smoke test", { tags: ["integration"] }, () => {
 	let tempDir: string;

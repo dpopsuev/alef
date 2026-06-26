@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { makeTestDatabase } from "../src/database.js";
-import { getPluginVersion, runPluginMigrations } from "../src/plugin-migrations.js";
+import { makeTestDatabase } from "../src/sqlite/database.js";
+import { getPluginVersion, runPluginMigrations } from "../src/sqlite/migrations.js";
 
 describe("plugin migrations", { tags: ["integration"] }, () => {
 	const cleanups: Array<() => void> = [];

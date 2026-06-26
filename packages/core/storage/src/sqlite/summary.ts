@@ -1,16 +1,7 @@
 import type { Client } from "@libsql/client";
-import type { SummaryStore } from "./interfaces.js";
+import type { SessionSummary, SummaryStore } from "../interfaces.js";
 
-export interface SessionSummary {
-	id: string;
-	model: string;
-	started_at: string;
-	duration_ms: number;
-	turns: number;
-	tokens: { input: number; output: number };
-	tools: Array<{ name: string; calls: number }>;
-	errors: number;
-}
+export type { SessionSummary };
 
 export class SqliteSummaryStore implements SummaryStore {
 	private readonly client: Client;

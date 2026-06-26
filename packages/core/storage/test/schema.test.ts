@@ -1,6 +1,6 @@
 import { type Client, createClient } from "@libsql/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { applySchema, CURRENT_SCHEMA_VERSION } from "../src/schema.js";
+import { applySchema, CURRENT_SCHEMA_VERSION } from "../src/sqlite/schema.js";
 
 async function makeClient(): Promise<Client> {
 	const client = createClient({ url: ":memory:" });

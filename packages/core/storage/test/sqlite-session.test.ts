@@ -1,8 +1,8 @@
 import type { StorageRecord } from "@dpopsuev/alef-session";
 import { type Client, createClient } from "@libsql/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applySchema } from "../src/schema.js";
-import { SqliteSessionStore } from "../src/sqlite-session.js";
+import { applySchema } from "../src/sqlite/schema.js";
+import { SqliteSessionStore } from "../src/sqlite/session.js";
 
 async function makeClient(): Promise<Client> {
 	const client = createClient({ url: ":memory:" });

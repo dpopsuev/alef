@@ -66,4 +66,4 @@ export {
 	truncateHead,
 	truncateLine,
 	truncateTail,
-} from "../truncate.js";
+} from "./truncate.js";

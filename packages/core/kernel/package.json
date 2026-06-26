@@ -17,14 +17,14 @@
       "default": "./src/bus/index.ts"
     },
     "./log": {
-      "source": "./src/log.ts",
-      "import": "./src/log.ts",
-      "default": "./src/log.ts"
+      "source": "./src/trace.ts",
+      "import": "./src/trace.ts",
+      "default": "./src/trace.ts"
     },
     "./pipeline": {
-      "source": "./src/pipeline.ts",
-      "import": "./src/pipeline.ts",
-      "default": "./src/pipeline.ts"
+      "source": "./src/context-facade.ts",
+      "import": "./src/context-facade.ts",
+      "default": "./src/context-facade.ts"
     },
     "./contributions": {
       "source": "./src/adapter/contributions.ts",

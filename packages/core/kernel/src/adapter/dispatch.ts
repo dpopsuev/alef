@@ -5,7 +5,7 @@ import type { CacheStrategy } from "./cache.js";
 import { makeCacheKey } from "./cache.js";
 import type { AdapterLogger, CommandAction, CommandHandlerCtx, EventAction, EventHandlerCtx } from "./types.js";
 import type { Bus, CommandMessage, EventMessage } from "../bus/messages.js";
-import { traceEvent } from "../debug.js";
+import { traceEvent } from "../trace.js";
 import { buildErrorResult, buildEventResult, extractToolCallId, toErrorMessage } from "../bus/event-builders.js";
 
 /**

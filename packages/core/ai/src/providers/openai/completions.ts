@@ -19,7 +19,7 @@ import { headersToRecord } from "../../utils/headers.js";
 import { parseStreamingJson } from "../../utils/json-parse.js";
 import { isCloudflareProvider, resolveCloudflareBaseUrl } from "../cloudflare.js";
 
-import { buildBaseOptions } from "../simple-options.js";
+import { buildBaseOptions } from "../base-options.js";
 
 import type { ResolvedOpenAICompletionsCompat } from "./completions-compat.js";
 import { getCompat } from "./completions-compat.js";

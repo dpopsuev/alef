@@ -33,7 +33,7 @@ import {
 	mapToolChoice,
 	retainThoughtSignature,
 } from "./shared.js";
-import { buildBaseOptions } from "../simple-options.js";
+import { buildBaseOptions } from "../base-options.js";
 
 export interface GoogleVertexOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "any";

@@ -43,7 +43,7 @@ import type {
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { parseStreamingJson } from "../utils/json-parse.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
-import { adjustMaxTokensForThinking, buildBaseOptions, clampReasoning } from "./simple-options.js";
+import { adjustMaxTokensForThinking, buildBaseOptions, clampReasoning } from "./base-options.js";
 import { transformMessages } from "./transform-messages.js";
 
 export type BedrockThinkingDisplay = "summarized" | "omitted";

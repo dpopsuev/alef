@@ -22,7 +22,7 @@ import {
 import { AssistantMessageEventStream } from "../../utils/event-stream.js";
 import { headersToRecord } from "../../utils/headers.js";
 import { convertResponsesMessages, processResponsesStream } from "../openai/responses-shared.js";
-import { buildBaseOptions } from "../simple-options.js";
+import { buildBaseOptions } from "../base-options.js";
 
 // --- Extracted helpers ---
 import {

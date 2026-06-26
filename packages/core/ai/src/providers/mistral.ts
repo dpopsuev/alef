@@ -26,7 +26,7 @@ import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { shortHash } from "../utils/hash.js";
 import { parseStreamingJson } from "../utils/json-parse.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
-import { buildBaseOptions } from "./simple-options.js";
+import { buildBaseOptions } from "./base-options.js";
 import { transformMessages } from "./transform-messages.js";
 
 const MISTRAL_TOOL_CALL_ID_LENGTH = 9;

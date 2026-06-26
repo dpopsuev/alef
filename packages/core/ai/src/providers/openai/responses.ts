@@ -19,7 +19,7 @@ import { headersToRecord } from "../../utils/headers.js";
 import { isCloudflareProvider, resolveCloudflareBaseUrl } from "../cloudflare.js";
 import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "../github-copilot-headers.js";
 import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./responses-shared.js";
-import { buildBaseOptions } from "../simple-options.js";
+import { buildBaseOptions } from "../base-options.js";
 
 const OPENAI_TOOL_CALL_PROVIDERS = new Set(["openai", "openai-codex", "opencode"]);
 

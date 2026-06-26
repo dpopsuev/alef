@@ -1,7 +1,7 @@
 /**
  * Anthropic Vertex strategy — routes claude-* models through Google Vertex AI.
  *
- * Registered before the direct Anthropic strategy in register-builtins.ts.
+ * Registered before the direct Anthropic strategy in register-llm.ts.
  * match() self-selects when model.provider === "anthropic" AND Vertex env vars
  * (ANTHROPIC_VERTEX_PROJECT_ID / GOOGLE_CLOUD_PROJECT + CLOUD_ML_REGION) are set.
  *
@@ -20,7 +20,7 @@ import { streamAnthropic, streamSimpleAnthropic } from "./anthropic.js";
 // this to decide whether Vertex is available.
 // ---------------------------------------------------------------------------
 
-// matchesAnthropicVertex is inlined in register-builtins.ts
+// matchesAnthropicVertex is inlined in register-llm.ts
 
 // ---------------------------------------------------------------------------
 // Streaming — signal the Vertex path via options.isVertex and delegate.

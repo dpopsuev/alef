@@ -31,7 +31,7 @@ import {
 	mapToolChoice,
 	retainThoughtSignature,
 } from "./shared.js";
-import { buildBaseOptions } from "../simple-options.js";
+import { buildBaseOptions } from "../base-options.js";
 
 export interface GoogleOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "any";

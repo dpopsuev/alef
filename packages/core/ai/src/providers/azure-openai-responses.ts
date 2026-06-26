@@ -14,7 +14,7 @@ import type {
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { headersToRecord } from "../utils/headers.js";
 import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./openai/responses-shared.js";
-import { buildBaseOptions } from "./simple-options.js";
+import { buildBaseOptions } from "./base-options.js";
 
 const DEFAULT_AZURE_API_VERSION = "v1";
 const AZURE_TOOL_CALL_PROVIDERS = new Set(["openai", "openai-codex", "opencode", "azure-openai-responses"]);

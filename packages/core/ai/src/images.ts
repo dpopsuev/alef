@@ -1,4 +1,4 @@
-import "./providers/register-builtins.js";
+import "./providers/register-llm.js";
 
 import { getImagesApiProvider } from "./models/images-registry.js";
 import type { AssistantImages, ImagesApi, ImagesContext, ImagesModel, ProviderImagesOptions } from "./types.js";

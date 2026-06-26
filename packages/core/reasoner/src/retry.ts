@@ -36,10 +36,13 @@ export function retryDelayMs(attempt: number, maxDelayMs: number): number {
 export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function normalizeMessage(m: unknown): Message {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- casting untyped bus payload for field access
 	const raw = m as Record<string, unknown>;
 	const withTs: Record<string, unknown> = typeof raw.timestamp === "number" ? raw : { ...raw, timestamp: Date.now() };
 	if (withTs.role === "assistant" && typeof withTs.content === "string") {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- reconstructing Message from untyped payload
 		return { ...withTs, content: [{ type: "text", text: withTs.content }] } as unknown as Message;
 	}
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- casting validated payload to Message
 	return withTs as unknown as Message;
 }

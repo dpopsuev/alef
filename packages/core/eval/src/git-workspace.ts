@@ -112,7 +112,7 @@ export function getAgentCommits(
 		.filter(Boolean)
 		.map((entry) => {
 			const [sha, subject, ...bodyParts] = entry.split("\x1F");
-			return { sha: (sha ?? "").trim(), subject: (subject ?? "").trim(), body: bodyParts.join("").trim() };
+			return { sha: sha.trim(), subject: subject.trim(), body: bodyParts.join("").trim() };
 		})
 		.filter((c) => c.sha.length > 0);
 }

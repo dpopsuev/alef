@@ -172,6 +172,7 @@ export function wordWrapLine(line: string, maxWidth: number, preSegmented?: Intl
 		// Multiple spaces join (no break between them); the break point is
 		// after the last space before the next word.
 		const next = segments[i + 1];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 		if (isWs && next && (isPasteMarker(next.segment) || !isWhitespaceChar(next.segment))) {
 			wrapOppIndex = next.index;
 			wrapOppWidth = currentWidth;
@@ -820,6 +821,7 @@ export class Editor implements Component, Focusable {
 
 				for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
 					const chunk = chunks[chunkIndex];
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 					if (!chunk) continue;
 
 					const cursorPos = this.state.cursorCol;
@@ -1176,6 +1178,7 @@ export class Editor implements Component, Focusable {
 			// Find the last grapheme in the text before cursor
 			const graphemes = [...this.segment(beforeCursor)];
 			const lastGrapheme = graphemes[graphemes.length - 1];
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 			const graphemeLength = lastGrapheme ? lastGrapheme.segment.length : 1;
 
 			const before = line.slice(0, this.state.cursorCol - graphemeLength);
@@ -1240,6 +1243,7 @@ export class Editor implements Component, Focusable {
 	): void {
 		const currentVL = visualLines[currentVisualLine];
 		const targetVL = visualLines[targetVisualLine];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array indices may be out of bounds
 		if (!(currentVL && targetVL)) return;
 
 		// When the cursor was snapped to a segment start, resolve the pre-snap
@@ -1548,6 +1552,7 @@ export class Editor implements Component, Focusable {
 			// Find the first grapheme at cursor
 			const graphemes = [...this.segment(afterCursor)];
 			const firstGrapheme = graphemes[0];
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 			const graphemeLength = firstGrapheme ? firstGrapheme.segment.length : 1;
 
 			const before = currentLine.slice(0, this.state.cursorCol);
@@ -1627,6 +1632,7 @@ export class Editor implements Component, Focusable {
 	): number {
 		for (let i = 0; i < visualLines.length; i++) {
 			const vl = visualLines[i];
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 			if (!vl || vl.logicalLine !== line) continue;
 			const offset = col - vl.startCol;
 			// Cursor is in this segment if it's within range. For the last
@@ -1670,6 +1676,7 @@ export class Editor implements Component, Focusable {
 					const afterCursor = currentLine.slice(this.state.cursorCol);
 					const graphemes = [...this.segment(afterCursor)];
 					const firstGrapheme = graphemes[0];
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 					this.setCursorCol(this.state.cursorCol + (firstGrapheme ? firstGrapheme.segment.length : 1));
 				} else if (this.state.cursorLine < this.state.lines.length - 1) {
 					// Wrap to start of next logical line
@@ -1678,6 +1685,7 @@ export class Editor implements Component, Focusable {
 				} else {
 					// At end of last line - can't move, but set preferredVisualCol for up/down navigation
 					const currentVL = visualLines[currentVisualLine];
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 					if (currentVL) {
 						this.preferredVisualCol = this.state.cursorCol - currentVL.startCol;
 					}
@@ -1688,6 +1696,7 @@ export class Editor implements Component, Focusable {
 					const beforeCursor = currentLine.slice(0, this.state.cursorCol);
 					const graphemes = [...this.segment(beforeCursor)];
 					const lastGrapheme = graphemes[graphemes.length - 1];
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 					this.setCursorCol(this.state.cursorCol - (lastGrapheme ? lastGrapheme.segment.length : 1));
 				} else if (this.state.cursorLine > 0) {
 					// Wrap to end of previous logical line
@@ -1739,14 +1748,14 @@ export class Editor implements Component, Focusable {
 			!isPasteMarker(graphemes[graphemes.length - 1]?.segment || "") &&
 			isWhitespaceChar(graphemes[graphemes.length - 1]?.segment || "")
 		) {
-			newCol -= graphemes.pop()?.segment.length || 0;
+			newCol -= graphemes.pop()?.segment.length ?? 0;
 		}
 
 		if (graphemes.length > 0) {
 			const lastGrapheme = graphemes[graphemes.length - 1]?.segment || "";
 			if (isPasteMarker(lastGrapheme)) {
 				// Paste marker is a single atomic word
-				newCol -= graphemes.pop()?.segment.length || 0;
+				newCol -= graphemes.pop()?.segment.length ?? 0;
 			} else if (isPunctuationChar(lastGrapheme)) {
 				// Skip punctuation run
 				while (
@@ -1754,7 +1763,7 @@ export class Editor implements Component, Focusable {
 					isPunctuationChar(graphemes[graphemes.length - 1]?.segment || "") &&
 					!isPasteMarker(graphemes[graphemes.length - 1]?.segment || "")
 				) {
-					newCol -= graphemes.pop()?.segment.length || 0;
+					newCol -= graphemes.pop()?.segment.length ?? 0;
 				}
 			} else {
 				// Skip word run
@@ -1764,7 +1773,7 @@ export class Editor implements Component, Focusable {
 					!isPunctuationChar(graphemes[graphemes.length - 1]?.segment || "") &&
 					!isPasteMarker(graphemes[graphemes.length - 1]?.segment || "")
 				) {
-					newCol -= graphemes.pop()?.segment.length || 0;
+					newCol -= graphemes.pop()?.segment.length ?? 0;
 				}
 			}
 		}

@@ -150,7 +150,6 @@ export class JudgePanelRunner {
 		const dispatch = (): void => {
 			while (inFlight.length < scheduler.current && next < queue.length) {
 				const item = queue[next++];
-				if (!item) break;
 				const p = runOne(item).finally(() => {
 					inFlight.splice(inFlight.indexOf(p), 1);
 					dispatch();
@@ -162,7 +161,7 @@ export class JudgePanelRunner {
 		dispatch();
 		while (inFlight.length > 0) await Promise.race(inFlight);
 
-		const valid = results.filter((r): r is JudgeResult => r !== null && !!r.report);
+		const valid = results.filter((r) => !!r.report);
 		const panelScore = valid.length > 0 ? valid.reduce((s, r) => s + r.weightedScore, 0) : 0;
 
 		const blockingFindings = valid.flatMap((r) =>
@@ -171,7 +170,7 @@ export class JudgePanelRunner {
 				.map((f) => ({ judge: r.name, location: f.location, message: f.message })),
 		);
 
-		return { judges: results.filter((r): r is JudgeResult => r !== null), panelScore, blockingFindings };
+		return { judges: results, panelScore, blockingFindings };
 	}
 
 	private async runJudge(judge: JudgeSpec, workspace: string, timeoutMs: number): Promise<JudgeReport | undefined> {

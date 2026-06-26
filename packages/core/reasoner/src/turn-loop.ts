@@ -66,6 +66,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 	let turn = 0;
 
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional infinite loop with break exits
 		while (true) {
 			turn++;
 			const model = effectiveOptions.getModel?.() ?? effectiveOptions.model;
@@ -135,7 +136,7 @@ export async function runLLMLoop(ctx: EventHandlerCtx, options: TurnLoopOptions)
 			});
 
 			const usage = reportUsage(finalMessage);
-			if (usage && agentIsReplying) {
+			if (agentIsReplying) {
 				signal.publish({ type: "llm.token-usage", payload: { usage }, correlationId });
 			}
 

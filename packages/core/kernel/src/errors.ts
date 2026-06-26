@@ -28,9 +28,7 @@ export class AlefError extends Error {
 		this.timestamp = Date.now();
 
 		// Preserve stack trace in V8 engines
-		if (Error.captureStackTrace) {
-			Error.captureStackTrace(this, this.constructor);
-		}
+		Error.captureStackTrace(this, this.constructor);
 	}
 
 	/** Serialize error to structured log format */
@@ -269,6 +267,7 @@ export function formatErrorForUser(err: unknown): string {
  */
 export function wrapError(err: unknown, message: string, context: ErrorContext = {}): AlefError {
 	const originalError = ensureError(err);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- widen to include cause (Node 16.9+ Error property)
 	const wrappedError = new AlefError(message, context) as AlefError & { cause: Error };
 	wrappedError.cause = originalError;
 	return wrappedError;

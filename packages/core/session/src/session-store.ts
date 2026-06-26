@@ -114,6 +114,7 @@ export function eventTypeWeight(type: string): number {
  * without contributing to actual LLM token counts.
  */
 export function extractContentLength(payload: Record<string, unknown>): number {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped display payload field
 	const display = (payload._display as { text?: string } | undefined)?.text;
 	if (typeof display === "string") return display.length;
 	if (typeof payload.content === "string") return payload.content.length;
@@ -163,6 +164,7 @@ export class JsonlSessionStore {
 			const records = raw
 				.split("\n")
 				.filter(Boolean)
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL deserialization to known schema
 				.map((line) => JSON.parse(line) as StorageRecord);
 			for (const record of records) {
 				store._cache.push(record);

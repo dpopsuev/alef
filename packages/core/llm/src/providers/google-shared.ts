@@ -154,12 +154,12 @@ export function convertMessages<T extends GoogleApiType>(model: Model<T>, contex
 							text: sanitizeSurrogates(block.thinking),
 						});
 					}
-				} else if (block.type === "toolCall") {
+				} else {
 					const thoughtSignature = resolveThoughtSignature(isSameProviderAndModel, block.thoughtSignature);
 					const part: Part = {
 						functionCall: {
 							name: block.name,
-							args: block.arguments ?? {},
+							args: block.arguments,
 							...(requiresToolCallId(model.id) ? { id: block.id } : {}),
 						},
 						...(thoughtSignature && { thoughtSignature }),
@@ -173,7 +173,7 @@ export function convertMessages<T extends GoogleApiType>(model: Model<T>, contex
 				role: "model",
 				parts,
 			});
-		} else if (msg.role === "toolResult") {
+		} else {
 			// Extract text and image content
 			const textContent = msg.content.filter((c): c is TextContent => c.type === "text");
 			const textResult = textContent.map((c) => c.text).join("\n");
@@ -212,7 +212,8 @@ export function convertMessages<T extends GoogleApiType>(model: Model<T>, contex
 			// Cloud Code Assist API requires all function responses to be in a single user turn.
 			// Check if the last content is already a user turn with function responses and merge.
 			const lastContent = contents[contents.length - 1];
-			if (lastContent?.role === "user" && lastContent.parts?.some((p) => p.functionResponse)) {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- parts may be undefined at runtime
+			if (lastContent.role === "user" && lastContent.parts?.some((p) => p.functionResponse)) {
 				lastContent.parts.push(functionResponsePart);
 			} else {
 				contents.push({

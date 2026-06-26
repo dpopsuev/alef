@@ -37,6 +37,7 @@ function resolveDeploymentName(model: Model<"azure-openai-responses">, options?:
 		return options.azureDeploymentName;
 	}
 	const mappedDeployment = parseDeploymentNameMap(process.env.AZURE_OPENAI_DEPLOYMENT_NAME_MAP).get(model.id);
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty deployment name should fall through to model.id
 	return mappedDeployment || model.id;
 }
 
@@ -84,11 +85,13 @@ export const streamAzureOpenAIResponses: StreamFunction<"azure-openai-responses"
 
 		try {
 			// Create Azure OpenAI client
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string API key should fall through
 			const apiKey = options?.apiKey || getEnvApiKey(model.provider) || "";
 			const client = createClient(model, apiKey, options);
 			let params = buildParams(model, context, options, deploymentName);
 			const nextParams = await options?.onPayload?.(params, model);
 			if (nextParams !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: onPayload returns provider-specific params shape
 				params = nextParams as ResponseCreateParamsStreaming;
 			}
 			const requestOptions = {
@@ -114,8 +117,10 @@ export const streamAzureOpenAIResponses: StreamFunction<"azure-openai-responses"
 			stream.end();
 		} catch (error) {
 			for (const block of output.content) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: stripping internal streaming scratch property
 				delete (block as { index?: number }).index;
 				// partialJson is only a streaming scratch buffer; never persist it.
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: stripping internal streaming scratch property
 				delete (block as { partialJson?: string }).partialJson;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
@@ -133,6 +138,7 @@ export const streamSimpleAzureOpenAIResponses: StreamFunction<"azure-openai-resp
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string API key should fall through
 	const apiKey = options?.apiKey || getEnvApiKey(model.provider);
 	if (!apiKey) {
 		throw new Error(`No API key for provider: ${model.provider}`);
@@ -179,9 +185,12 @@ function resolveAzureConfig(
 	model: Model<"azure-openai-responses">,
 	options?: AzureOpenAIResponsesOptions,
 ): { baseUrl: string; apiVersion: string } {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string version should fall through
 	const apiVersion = options?.azureApiVersion || process.env.AZURE_OPENAI_API_VERSION || DEFAULT_AZURE_API_VERSION;
 
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty trimmed URL should fall through
 	const baseUrl = options?.azureBaseUrl?.trim() || process.env.AZURE_OPENAI_BASE_URL?.trim() || undefined;
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty resource name should fall through
 	const resourceName = options?.azureResourceName || process.env.AZURE_OPENAI_RESOURCE_NAME;
 
 	let resolvedBaseUrl = baseUrl;
@@ -249,11 +258,11 @@ function buildParams(
 	};
 
 	if (options?.maxTokens) {
-		params.max_output_tokens = options?.maxTokens;
+		params.max_output_tokens = options.maxTokens;
 	}
 
 	if (options?.temperature !== undefined) {
-		params.temperature = options?.temperature;
+		params.temperature = options.temperature;
 	}
 
 	if (context.tools && context.tools.length > 0) {
@@ -262,16 +271,19 @@ function buildParams(
 
 	if (model.reasoning) {
 		if (options?.reasoningEffort || options?.reasoningSummary) {
-			const effort = options?.reasoningEffort
+			const effort = options.reasoningEffort
 				? (model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort)
 				: "medium";
 			params.reasoning = {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: effort value validated by thinkingLevelMap lookup
 				effort: effort as NonNullable<typeof params.reasoning>["effort"],
-				summary: options?.reasoningSummary || "auto",
+				// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: null should fall through to 'auto'
+				summary: options.reasoningSummary || "auto",
 			};
 			params.include = ["reasoning.encrypted_content"];
 		} else if (model.thinkingLevelMap?.off !== null) {
 			params.reasoning = {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: effort value from thinkingLevelMap or default
 				effort: (model.thinkingLevelMap?.off ?? "none") as NonNullable<typeof params.reasoning>["effort"],
 			};
 		}

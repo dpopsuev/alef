@@ -48,7 +48,7 @@ class InternalBus {
 		}
 		set.add(handler);
 		return () => {
-			set?.delete(handler);
+			set.delete(handler);
 		};
 	}
 	listenerCount(type: string): number {
@@ -70,8 +70,10 @@ export class InProcessBus {
 		this._watchdog = watchdog ? new Watchdog(watchdog.stallMs, watchdog.onStall) : null;
 		this._watchdog?.start();
 		this._buses.command.deadLetterSink = (event) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dead-letter sink is only wired to command bus
 			const payload = (event as CommandMessage).payload;
-			const toolCallId = payload ? extractToolCallId(payload) : undefined;
+			const toolCallId = extractToolCallId(payload);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- emit() adds timestamp/elapsed; object satisfies the remaining fields
 			this._buses.event.emit({
 				type: event.type,
 				correlationId: event.correlationId,
@@ -95,6 +97,7 @@ export class InProcessBus {
 		this._buses[channel].emit(event);
 	}
 	subscribe<K extends ChannelName>(channel: K, type: string, handler: ChannelHandler<K>): () => void {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ChannelHandler<K> narrows BusMessage; internal bus stores the generic form
 		return this._buses[channel].on(type, handler as (e: BusMessage) => void | Promise<void>);
 	}
 	onAny(channel: ChannelName, handler: (event: BusMessage) => void): () => void {
@@ -109,10 +112,12 @@ export class InProcessBus {
 	asBus(): Bus {
 		type InternalHandler = (e: BusMessage) => void | Promise<void>;
 		const commandChannel: BusChannel<"command"> = {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- CommandHandler narrows BusMessage handler
 			subscribe: (type, handler) => this._buses.command.on(type, handler as InternalHandler),
 			publish: (e) => this._buses.command.emit(e),
 		};
 		const eventChannel: BusChannel<"event"> = {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- EventHandler narrows BusMessage handler
 			subscribe: (type, handler) => this._buses.event.on(type, handler as InternalHandler),
 			publish: (e) => {
 				this._buses.command.evictCorrelation(e.correlationId);
@@ -120,6 +125,7 @@ export class InProcessBus {
 			},
 		};
 		const notificationChannel: BusChannel<"notification"> = {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- NotificationHandler narrows BusMessage handler
 			subscribe: (type, handler) => this._buses.notification.on(type, handler as InternalHandler),
 			publish: (e) => this._buses.notification.emit(e),
 		};

@@ -54,25 +54,23 @@ export class InputPanel {
 		const combinedProvider = new CombinedAutocompleteProvider(commands, cwd, fdPath);
 		const { historyProvider } = this;
 
-		if (this.editor.setAutocompleteProvider) {
-			this.editor.setAutocompleteProvider({
-				getSuggestions: (lines, cursorLine, cursorCol, options) => {
-					const prefix = (lines[cursorLine] ?? "").slice(0, cursorCol);
-					if (prefix.startsWith("@") && atProvider)
-						return atProvider.getSuggestions(lines, cursorLine, cursorCol, options);
-					if (prefix.startsWith(":"))
-						return combinedProvider.getSuggestions(lines, cursorLine, cursorCol, options);
-					return historyProvider.getSuggestions(lines, cursorLine, cursorCol, options);
-				},
-				applyCompletion: (lines, cursorLine, cursorCol, item, pfx) => {
-					if (item.description === "actor" && atProvider)
-						return atProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
-					if (pfx.startsWith(":"))
-						return combinedProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
-					return historyProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
-				},
-				shouldTriggerFileCompletion: combinedProvider.shouldTriggerFileCompletion?.bind(combinedProvider),
-			});
-		}
+		this.editor.setAutocompleteProvider({
+			getSuggestions: (lines, cursorLine, cursorCol, options) => {
+				const prefix = (lines[cursorLine] ?? "").slice(0, cursorCol);
+				if (prefix.startsWith("@") && atProvider)
+					return atProvider.getSuggestions(lines, cursorLine, cursorCol, options);
+				if (prefix.startsWith(":"))
+					return combinedProvider.getSuggestions(lines, cursorLine, cursorCol, options);
+				return historyProvider.getSuggestions(lines, cursorLine, cursorCol, options);
+			},
+			applyCompletion: (lines, cursorLine, cursorCol, item, pfx) => {
+				if (item.description === "actor" && atProvider)
+					return atProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
+				if (pfx.startsWith(":"))
+					return combinedProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
+				return historyProvider.applyCompletion(lines, cursorLine, cursorCol, item, pfx);
+			},
+			shouldTriggerFileCompletion: combinedProvider.shouldTriggerFileCompletion.bind(combinedProvider),
+		});
 	}
 }

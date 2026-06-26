@@ -232,6 +232,7 @@ export class KeyMap {
 			if (!(keybinding in this.definitions)) continue;
 			for (const key of normalizeKeys(keys)) {
 				const claimants = userClaims.get(key) ?? new Set<Keybinding>();
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- key validated by Object.keys iteration
 				claimants.add(keybinding as Keybinding);
 				userClaims.set(key, claimants);
 			}
@@ -246,6 +247,7 @@ export class KeyMap {
 		for (const [id, definition] of Object.entries(this.definitions)) {
 			const userKeys = this.userBindings[id];
 			const keys = userKeys === undefined ? normalizeKeys(definition.defaultKeys) : normalizeKeys(userKeys);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- key validated by Object.keys iteration
 			this.keysById.set(id as Keybinding, keys);
 		}
 	}
@@ -282,6 +284,7 @@ export class KeyMap {
 	getResolvedBindings(): KeybindingsConfig {
 		const resolved: KeybindingsConfig = {};
 		for (const id of Object.keys(this.definitions)) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- key validated by Object.keys iteration
 			const keys = this.keysById.get(id as Keybinding) ?? [];
 			resolved[id] = keys.length === 1 ? keys[0]! : [...keys];
 		}
@@ -296,8 +299,6 @@ export function setKeybindings(keybindings: KeyMap): void {
 }
 
 export function getKeybindings(): KeyMap {
-	if (!globalKeybindings) {
-		globalKeybindings = new KeyMap(TUI_KEYBINDINGS);
-	}
+	globalKeybindings ??= new KeyMap(TUI_KEYBINDINGS);
 	return globalKeybindings;
 }

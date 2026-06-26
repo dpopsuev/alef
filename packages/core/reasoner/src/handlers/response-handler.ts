@@ -14,12 +14,11 @@ function extractText(message: AssistantMessage): string {
 		.join("");
 }
 
-export function reportUsage(finalMessage: AssistantMessage): TokenUsage | undefined {
-	if (!finalMessage.usage) return undefined;
+export function reportUsage(finalMessage: AssistantMessage): TokenUsage {
 	return {
 		input: finalMessage.usage.input,
 		output: finalMessage.usage.output,
-		totalTokens: finalMessage.usage.totalTokens ?? finalMessage.usage.input + finalMessage.usage.output,
+		totalTokens: finalMessage.usage.totalTokens,
 	};
 }
 
@@ -38,7 +37,7 @@ export function publishReply(
 		});
 	} else {
 		const fallback =
-			finalMessage.errorMessage || (finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
+			finalMessage.errorMessage ?? (finalMessage.stopReason === "error" ? "An error occurred." : "(no response)");
 		command.publish({ type: LLM_RESPONSE, payload: { text: fallback }, correlationId });
 	}
 }

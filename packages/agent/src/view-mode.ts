@@ -159,7 +159,7 @@ export class JsonViewMode implements ViewMode {
 // ---------------------------------------------------------------------------
 
 export function selectViewMode(args: Args, interactiveOpts: InteractiveOptions, store?: SessionStore): ViewMode {
-	if (args.print) return new PrintViewMode(args.prompt ?? "");
+	if (args.print) return new PrintViewMode(args.prompt);
 
 	const useTui = !args.json && !args.noTui && process.stdin.isTTY;
 	if (useTui) return new TuiViewMode(interactiveOpts, store);

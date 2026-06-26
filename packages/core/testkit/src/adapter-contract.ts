@@ -254,14 +254,15 @@ export function adapterComplianceSuite(
 	// This lets us generate it() blocks per tool AND enforce that every
 	// streaming tool has a validPayload in opts.streaming.
 	const discoveryAdapter = createAdapter();
-	const streamingTools = (discoveryAdapter.tools ?? []).filter((t) => t.streaming === true);
+	const streamingTools = discoveryAdapter.tools.filter((t) => t.streaming === true);
 	const streamingConfig = opts.streaming ?? {};
 
 	// Enforce at collection time: every streaming tool needs a validPayload.
 	// Throwing here (not inside it()) surfaces the error during test discovery,
 	// not as a test failure — the developer sees it immediately on first run.
 	for (const tool of streamingTools) {
-		if (!streamingConfig[tool.name]) {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: Record indexing can yield undefined
+		if (streamingConfig[tool.name] === undefined) {
 			throw new Error(
 				`adapterComplianceSuite: '${tool.name}' is declared as a streaming tool ` +
 					`(typedStreamAction) but has no entry in opts.streaming.\n` +
@@ -270,6 +271,7 @@ export function adapterComplianceSuite(
 		}
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- vitest tags API expects branded array type
 	describe("adapter framework compliance", { tags: (opts.tags ?? ["compliance"]) as string[] as never }, () => {
 		let adapter: Adapter;
 		let unmount: (() => void) | undefined;
@@ -289,15 +291,15 @@ export function adapterComplianceSuite(
 		// ── Structural ─────────────────────────────────────────────────────
 
 		it("has a non-empty description", () => {
-			const o = adapter ?? createAdapter();
+			const o = adapter;
 			expect(o.description, "adapter must have a description").toBeTruthy();
-			expect((o.description ?? "").length, "description must be > 10 chars").toBeGreaterThan(10);
+			expect(o.description!.length, "description must be > 10 chars").toBeGreaterThan(10);
 		});
 
 		it("has directives when it exposes tools", () => {
-			const o = adapter ?? createAdapter();
-			if ((o.tools ?? []).length > 0) {
-				expect((o.directives ?? []).length, "tool-bearing adapters must have directives").toBeGreaterThan(0);
+			const o = adapter;
+			if (o.tools.length > 0) {
+				expect(o.directives!.length, "tool-bearing adapters must have directives").toBeGreaterThan(0);
 			}
 		});
 
@@ -406,7 +408,10 @@ export async function runSchemaContract(
 
 	for (const tool of adapter.tools) {
 		const violations: string[] = [];
-		const shape = (tool.inputSchema as z.ZodObject<z.ZodRawShape>)?.shape;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing Zod schema to access .shape
+		const zodObj = tool.inputSchema as z.ZodObject<z.ZodRawShape>;
+		const shape = zodObj.shape;
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: cast may produce non-ZodObject without .shape
 		if (!shape) continue;
 
 		// Find the first required string field to invalidate
@@ -519,10 +524,14 @@ export async function runStreamingContract(
 /** Build a minimal payload that satisfies a Zod schema (all fields empty/zero). */
 function buildMinimalPayload(schema: z.ZodTypeAny): Record<string, unknown> {
 	try {
-		const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing Zod schema to access .shape
+		const zodObj = schema as z.ZodObject<z.ZodRawShape>;
+		const shape = zodObj.shape;
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: cast may produce non-ZodObject without .shape
 		if (!shape) return {};
 		const out: Record<string, unknown> = {};
 		for (const [key, field] of Object.entries(shape)) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Zod shape values need cast to ZodTypeAny
 			const f = field as z.ZodTypeAny;
 			// Optional fields get omitted; required strings get ""
 			if (f instanceof z.ZodOptional || f instanceof z.ZodNullable) continue;

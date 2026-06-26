@@ -125,7 +125,7 @@ export class DockerSpace implements Space {
 			const trimmed = line.trim();
 			if (!trimmed) continue;
 			const [kind, rawPath] = trimmed.split(" ", 2);
-			if (!rawPath?.startsWith(CONTAINER_WORKDIR)) continue;
+			if (!rawPath.startsWith(CONTAINER_WORKDIR)) continue;
 
 			const relPath = relative(CONTAINER_WORKDIR, rawPath);
 			const changeKind: Record<string, Change["kind"]> = {
@@ -133,7 +133,7 @@ export class DockerSpace implements Space {
 				C: "modified",
 				D: "deleted",
 			};
-			const mappedKind = changeKind[kind];
+			const mappedKind = changeKind[kind] as Change["kind"] | undefined;
 			if (!mappedKind) continue;
 
 			// Get size for non-deleted files

@@ -194,7 +194,9 @@ function createPromotionTracker(): PromotionTracker {
 
 export function createToolShellAdapter(opts: ToolShellOptions) {
 	const { adapterDirectives = new Map<string, readonly string[]>(), evictAfterTurn = 3, logger } = opts;
-	const disclosure = opts.disclosure ?? (process.env.ALEF_TOOL_DISCLOSURE as ToolDisclosure | undefined) ?? "full";
+	const envDisclosure = process.env.ALEF_TOOL_DISCLOSURE;
+	const disclosure: ToolDisclosure =
+		opts.disclosure ?? (envDisclosure === "full" || envDisclosure === "progressive" ? envDisclosure : "full");
 
 	const resolveTools = opts.getTools ?? (() => opts.tools);
 
@@ -357,6 +359,7 @@ export function createToolShellAdapter(opts: ToolShellOptions) {
 		},
 		phaseStage(): ContextAssemblyHandler {
 			return ({ messages, turn }) => {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bridge ContextAssemblyHandler message type to internal RawMsg[]
 				const msgs = shell.applyPhase(messages as unknown as RawMsg[], turn) as unknown as typeof messages;
 				return Promise.resolve({ messages: msgs, tools: getPromotedTools() });
 			};

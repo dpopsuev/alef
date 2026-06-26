@@ -87,69 +87,63 @@ export function transformMessages<TApi extends Api>(
 		}
 
 		// Assistant messages need transformation check
-		if (msg.role === "assistant") {
-			const assistantMsg = msg as AssistantMessage;
-			const isSameModel =
-				assistantMsg.provider === model.provider &&
-				assistantMsg.api === model.api &&
-				assistantMsg.model === model.id;
+		const assistantMsg = msg as AssistantMessage;
+		const isSameModel =
+			assistantMsg.provider === model.provider &&
+			assistantMsg.api === model.api &&
+			assistantMsg.model === model.id;
 
-			const transformedContent = assistantMsg.content.flatMap((block) => {
-				if (block.type === "thinking") {
-					// Redacted thinking is opaque encrypted content, only valid for the same model.
-					// Drop it for cross-model to avoid API errors.
-					if (block.redacted) {
-						return isSameModel ? block : [];
-					}
-					// For same model: keep thinking blocks with signatures (needed for replay)
-					// even if the thinking text is empty (OpenAI encrypted reasoning)
-					if (isSameModel && block.thinkingSignature) return block;
-					// Skip empty thinking blocks, convert others to plain text
-					if (!block.thinking || block.thinking.trim() === "") return [];
-					if (isSameModel) return block;
-					return {
-						type: "text" as const,
-						text: block.thinking,
-					};
+		const transformedContent = assistantMsg.content.flatMap((block) => {
+			if (block.type === "thinking") {
+				// Redacted thinking is opaque encrypted content, only valid for the same model.
+				// Drop it for cross-model to avoid API errors.
+				if (block.redacted) {
+					return isSameModel ? block : [];
 				}
+				// For same model: keep thinking blocks with signatures (needed for replay)
+				// even if the thinking text is empty (OpenAI encrypted reasoning)
+				if (isSameModel && block.thinkingSignature) return block;
+				// Skip empty thinking blocks, convert others to plain text
+				if (!block.thinking || block.thinking.trim() === "") return [];
+				if (isSameModel) return block;
+				return {
+					type: "text" as const,
+					text: block.thinking,
+				};
+			}
 
-				if (block.type === "text") {
-					if (isSameModel) return block;
-					return {
-						type: "text" as const,
-						text: block.text,
-					};
+			if (block.type === "text") {
+				if (isSameModel) return block;
+				return {
+					type: "text" as const,
+					text: block.text,
+				};
+			}
+
+			// toolCall — only remaining variant in the discriminated union
+			const toolCall = block as ToolCall;
+			let normalizedToolCall: ToolCall = toolCall;
+
+			if (!isSameModel && toolCall.thoughtSignature) {
+				normalizedToolCall = { ...toolCall };
+				delete (normalizedToolCall as { thoughtSignature?: string }).thoughtSignature;
+			}
+
+			if (!isSameModel && normalizeToolCallId) {
+				const normalizedId = normalizeToolCallId(toolCall.id, model, assistantMsg);
+				if (normalizedId !== toolCall.id) {
+					toolCallIdMap.set(toolCall.id, normalizedId);
+					normalizedToolCall = { ...normalizedToolCall, id: normalizedId };
 				}
+			}
 
-				if (block.type === "toolCall") {
-					const toolCall = block as ToolCall;
-					let normalizedToolCall: ToolCall = toolCall;
+			return normalizedToolCall;
+		});
 
-					if (!isSameModel && toolCall.thoughtSignature) {
-						normalizedToolCall = { ...toolCall };
-						delete (normalizedToolCall as { thoughtSignature?: string }).thoughtSignature;
-					}
-
-					if (!isSameModel && normalizeToolCallId) {
-						const normalizedId = normalizeToolCallId(toolCall.id, model, assistantMsg);
-						if (normalizedId !== toolCall.id) {
-							toolCallIdMap.set(toolCall.id, normalizedId);
-							normalizedToolCall = { ...normalizedToolCall, id: normalizedId };
-						}
-					}
-
-					return normalizedToolCall;
-				}
-
-				return block;
-			});
-
-			return {
-				...assistantMsg,
-				content: transformedContent,
-			};
-		}
-		return msg;
+		return {
+			...assistantMsg,
+			content: transformedContent,
+		};
 	});
 
 	// Second pass: insert synthetic empty tool results for orphaned tool calls
@@ -204,11 +198,9 @@ export function transformMessages<TApi extends Api>(
 		} else if (msg.role === "toolResult") {
 			existingToolResultIds.add(msg.toolCallId);
 			result.push(msg);
-		} else if (msg.role === "user") {
+		} else {
 			// User message interrupts tool flow - insert synthetic results for orphaned calls
 			insertSyntheticToolResults();
-			result.push(msg);
-		} else {
 			result.push(msg);
 		}
 	}

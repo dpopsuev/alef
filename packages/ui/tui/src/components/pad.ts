@@ -67,7 +67,7 @@ export class Pad implements Component {
 	invalidate(): void {
 		this.invalidateCache();
 		for (const child of this.children) {
-			child.invalidate?.();
+			child.invalidate();
 		}
 	}
 

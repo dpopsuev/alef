@@ -112,7 +112,7 @@ function isWhatComment(commentText: string): boolean {
 	if (WHAT_VERBS.has(firstWord)) return true;
 
 	// Also flag lowercase variants of the same verbs (e.g. "// get the user").
-	const capitalised = firstWord[0]?.toUpperCase() + firstWord.slice(1);
+	const capitalised = firstWord[0].toUpperCase() + firstWord.slice(1);
 	if (WHAT_VERBS.has(capitalised)) return true;
 
 	return false;
@@ -149,7 +149,7 @@ export function commentCheck(opts?: Partial<CommentCheckOptions>): Checker {
 				// Track current file from diff header.
 				if (raw.startsWith("diff --git ")) {
 					const m = raw.match(/b\/(.+)$/);
-					currentFile = m ? (m[1] ?? "") : "";
+					currentFile = m ? m[1] : "";
 					lineNumber = 0;
 					continue;
 				}

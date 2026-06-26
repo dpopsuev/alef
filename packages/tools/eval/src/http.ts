@@ -57,6 +57,7 @@ export function collectEvents(
 					const line = frame.split("\n").find((l) => l.startsWith("data: "));
 					if (!line) continue;
 					try {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- SSE frame JSON shape
 						const raw = JSON.parse(line.slice(6)) as {
 							bus?: string;
 							type?: string;

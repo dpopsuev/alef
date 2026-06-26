@@ -50,8 +50,8 @@ async function executeWithDetachedMode(
 			}, context.timeout * 1000);
 		}
 
-		child.stdout?.on("data", context.onData);
-		child.stderr?.on("data", context.onData);
+		child.stdout.on("data", context.onData);
+		child.stderr.on("data", context.onData);
 
 		const onAbort = () => {
 			if (child.pid) {

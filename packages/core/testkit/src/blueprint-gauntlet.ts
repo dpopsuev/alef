@@ -163,10 +163,12 @@ export class BlueprintGauntlet implements ExecutionStrategy {
 			throw new Error(`Expected tool "${toolName}" to be called, but it was not.`);
 		}
 		const matched = calls.some((e) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage lacks payload; narrowing via cast
 			const p = (e as unknown as { payload?: Record<string, unknown> }).payload ?? {};
 			return Object.entries(expectedPayload).every(([k, v]) => JSON.stringify(p[k]) === JSON.stringify(v));
 		});
 		if (!matched) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage lacks payload; narrowing via cast
 			const payloads = calls.map((e) => JSON.stringify((e as unknown as { payload?: unknown }).payload)).join("\n ");
 			throw new Error(
 				`Tool "${toolName}" was called but not with expected payload ${JSON.stringify(expectedPayload)}.\n Actual payloads:\n ${payloads}`,

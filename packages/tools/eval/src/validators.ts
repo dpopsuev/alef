@@ -8,6 +8,7 @@ export function runValidators(transcript: TranscriptEvent[], validators: Validat
 	const failures: string[] = [];
 	const allText = transcript
 		.filter((e) => e.text)
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- filtered by .filter(e => e.text) above
 		.map((e) => e.text as string)
 		.join("\n");
 

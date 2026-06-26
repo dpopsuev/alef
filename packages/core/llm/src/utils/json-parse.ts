@@ -51,7 +51,8 @@ export function repairJson(json: string): string {
 		}
 
 		if (char === "\\") {
-			const nextChar = json[index + 1];
+			const nextChar: string | undefined = json[index + 1];
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- index+1 may be out of bounds
 			if (nextChar === undefined) {
 				repaired += "\\\\";
 				continue;
@@ -84,10 +85,12 @@ export function repairJson(json: string): string {
 
 export function parseJsonWithRepair<T>(json: string): T {
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, caller provides expected type T
 		return JSON.parse(json) as T;
 	} catch (error) {
 		const repairedJson = repairJson(json);
 		if (repairedJson !== json) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, caller provides expected type T
 			return JSON.parse(repairedJson) as T;
 		}
 		throw error;
@@ -103,6 +106,7 @@ export function parseJsonWithRepair<T>(json: string): T {
  */
 export function parseStreamingJson<T = Record<string, unknown>>(partialJson: string | undefined): T {
 	if (!partialJson || partialJson.trim() === "") {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- empty fallback for streaming parse, T defaults to Record<string, unknown>
 		return {} as T;
 	}
 
@@ -110,13 +114,16 @@ export function parseStreamingJson<T = Record<string, unknown>>(partialJson: str
 		return parseJsonWithRepair<T>(partialJson);
 	} catch {
 		try {
-			const result = partialParse(partialJson);
+			const result: unknown = partialParse(partialJson);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- partial-json returns unknown, caller provides expected type T
 			return (result ?? {}) as T;
 		} catch {
 			try {
-				const result = partialParse(repairJson(partialJson));
+				const result: unknown = partialParse(repairJson(partialJson));
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- partial-json returns unknown, caller provides expected type T
 				return (result ?? {}) as T;
 			} catch {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- empty fallback for streaming parse, T defaults to Record<string, unknown>
 				return {} as T;
 			}
 		}

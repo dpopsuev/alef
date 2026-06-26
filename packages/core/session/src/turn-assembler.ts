@@ -179,6 +179,7 @@ export function turnsToMessages(turns: Turn[]): Message[] {
 			if (!isDialogMessage && !isCheckpoint) continue;
 			const hist = e.payload.conversationHistory;
 			if (Array.isArray(hist) && hist.length > 0) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- array-guarded payload cast to Message[]
 				baseHistory = hist as Message[];
 				baseFoundAt = i;
 				break outer;

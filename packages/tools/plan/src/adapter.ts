@@ -323,6 +323,7 @@ export function createPlanAdapter(opts: PlanAdapterOptions): Adapter {
 								{ active: false },
 								{ text: "No active plan. Use plan.begin to start.", mimeType: "text/plain" },
 							);
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- PlanData is a plain object, safe to widen
 						return withDisplay(plan.toJSON() as unknown as Record<string, unknown>, {
 							text: plan.renderSummary(),
 							mimeType: "text/plain",

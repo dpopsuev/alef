@@ -65,7 +65,7 @@ export function defineEvalSuite(opts: EvalSuiteOptions): void {
 	const allResults: EvaluationResult[] = [];
 	const timeoutMs = opts.timeoutMs ?? 300_000;
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion -- vitest describe options type is too narrow for tags
 	describe.skipIf(SKIP_REAL_LLM)(opts.name, { tags: opts.tags ?? ["real-llm"] } as any, () => {
 		beforeAll(() => {
 			console.log(`${opts.name}: model=${getEvalModel().id}`);
@@ -96,7 +96,7 @@ export function defineEvalSuite(opts: EvalSuiteOptions): void {
 				const model = getEvalModel();
 				const record = buildRunRecord(
 					model.id,
-					model.provider ?? "unknown",
+					model.provider,
 					allResults.map((r) => ({
 						id: r.metrics.scenario,
 						pass: r.pass,

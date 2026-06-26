@@ -31,6 +31,7 @@ function wrapGenerateImages<TApi extends ImagesApi, TOptions extends ImagesOptio
 		if (model.api !== api) {
 			throw new Error(`Mismatched api: ${model.api} expected ${api}`);
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- api equality checked above, safe to narrow
 		return generateImages(model as ImagesModel<TApi>, context, options as TOptions);
 	};
 }

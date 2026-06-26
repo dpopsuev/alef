@@ -16,6 +16,7 @@ export class AsyncQueue {
 	}
 
 	async *iter(): AsyncIterable<string> {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional infinite loop, exits via return when done
 		while (true) {
 			while (this.queue.length > 0) {
 				const item = this.queue.shift();

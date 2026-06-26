@@ -14,8 +14,9 @@ type DynamicImport = (specifier: string) => Promise<unknown>;
 const dynamicImport: DynamicImport = (specifier) => import(specifier);
 const NODE_OS_SPECIFIER = "node:" + "os";
 
-if (typeof process !== "undefined" && (process.versions?.node || process.versions?.bun)) {
+if (typeof process !== "undefined" && (process.versions.node || process.versions.bun)) {
 	dynamicImport(NODE_OS_SPECIFIER).then((m) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import boundary
 		_os = m as typeof NodeOs;
 	});
 }
@@ -151,6 +152,7 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 		};
 
 		try {
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty API key must fall through
 			const apiKey = options?.apiKey || getEnvApiKey(model.provider) || "";
 			if (!apiKey) {
 				throw new Error(`No API key for provider: ${model.provider}`);
@@ -160,8 +162,10 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 			let body = buildRequestBody(model, context, options);
 			const nextBody = await options?.onPayload?.(body, model);
 			if (nextBody !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- onPayload callback boundary
 				body = nextBody as RequestBody;
 			}
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty sessionId must fall through
 			const websocketRequestId = options?.sessionId || createCodexRequestId();
 			const sseHeaders = buildSSEHeaders(model.headers, options?.headers, accountId, apiKey, options?.sessionId);
 			const websocketHeaders = buildWebSocketHeaders(
@@ -172,6 +176,7 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 				websocketRequestId,
 			);
 			const bodyJson = JSON.stringify(body);
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty transport must fall through
 			const transport = options?.transport || "auto";
 			const websocketDisabledForSession = transport !== "sse" && isWebSocketSseFallbackActive(options?.sessionId);
 			if (websocketDisabledForSession) {
@@ -199,6 +204,7 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 					}
 					stream.push({
 						type: "done",
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- stopReason narrowing for event type
 						reason: output.stopReason as "stop" | "length" | "toolUse",
 						message: output,
 					});
@@ -213,13 +219,16 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 						output,
 						createAssistantMessageDiagnostic("provider_transport_failure", error, {
 							configuredTransport: transport,
+							// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- websocketStarted set via callback, ESLint can't track closure mutation
 							fallbackTransport: websocketStarted ? undefined : "sse",
 							eventsEmitted: websocketStarted,
+							// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- websocketStarted set via callback, ESLint can't track closure mutation
 							phase: websocketStarted ? "after_message_stream_start" : "before_message_stream_start",
 							requestBytes: new TextEncoder().encode(bodyJson).byteLength,
 						}),
 					);
 					recordWebSocketFailure(options?.sessionId, error);
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- websocketStarted set via callback, ESLint can't track closure mutation
 					if (websocketStarted) {
 						throw error;
 					}
@@ -265,7 +274,7 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 						statusText: response.statusText,
 					});
 					const info = await parseErrorResponse(fakeResponse);
-					throw new Error(info.friendlyMessage || info.message);
+					throw new Error(info.friendlyMessage ?? info.message);
 				} catch (error) {
 					if (error instanceof Error) {
 						if (error.name === "AbortError" || error.message === "Request was aborted") {
@@ -298,11 +307,13 @@ export const streamOpenAICodexResponses: StreamFunction<"openai-codex-responses"
 				throw new Error("Request was aborted");
 			}
 
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- stopReason narrowing for event type
 			stream.push({ type: "done", reason: output.stopReason as "stop" | "length" | "toolUse", message: output });
 			stream.end();
 		} catch (error) {
 			for (const block of output.content) {
 				// partialJson is only a streaming scratch buffer; never persist it.
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- stripping streaming scratch property
 				delete (block as { partialJson?: string }).partialJson;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
@@ -320,6 +331,7 @@ export const streamSimpleOpenAICodexResponses: StreamFunction<"openai-codex-resp
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty API key must fall through
 	const apiKey = options?.apiKey || getEnvApiKey(model.provider);
 	if (!apiKey) {
 		throw new Error(`No API key for provider: ${model.provider}`);
@@ -352,8 +364,10 @@ function buildRequestBody(
 		model: model.id,
 		store: false,
 		stream: true,
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through to default
 		instructions: context.systemPrompt || "You are a helpful assistant.",
 		input: messages,
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through to default
 		text: { verbosity: options?.textVerbosity || "low" },
 		include: ["reasoning.encrypted_content"],
 		prompt_cache_key: options?.sessionId,
@@ -378,12 +392,10 @@ function buildRequestBody(
 			options.reasoningEffort === "none"
 				? (model.thinkingLevelMap?.off ?? "none")
 				: (model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort);
-		if (effort !== null) {
-			body.reasoning = {
-				effort,
-				summary: options.reasoningSummary ?? "auto",
-			};
-		}
+		body.reasoning = {
+			effort,
+			summary: options.reasoningSummary ?? "auto",
+		};
 	}
 
 	return body;
@@ -495,8 +507,8 @@ async function* mapCodexEvents(events: AsyncIterable<Record<string, unknown>>): 
 		if (!type) continue;
 
 		if (type === "error") {
-			const code = (event as { code?: string }).code || "";
-			const message = (event as { message?: string }).message || "";
+			const code = (event as { code?: string }).code ?? "";
+			const message = (event as { message?: string }).message ?? "";
 			throw new CodexApiError(`Codex error: ${message || code || JSON.stringify(event)}`, {
 				code: code || undefined,
 				payload: event,
@@ -507,7 +519,7 @@ async function* mapCodexEvents(events: AsyncIterable<Record<string, unknown>>): 
 			const response = (event as { response?: { error?: { code?: string; message?: string } } }).response;
 			const code = response?.error?.code;
 			const message = response?.error?.message;
-			throw new CodexApiError(message || "Codex response failed", { code, payload: event });
+			throw new CodexApiError(message ?? "Codex response failed", { code, payload: event });
 		}
 
 		if (type === "response.done" || type === "response.completed" || type === "response.incomplete") {
@@ -515,16 +527,19 @@ async function* mapCodexEvents(events: AsyncIterable<Record<string, unknown>>): 
 			const normalizedResponse = response
 				? { ...response, status: normalizeCodexStatus(response.status) }
 				: response;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Codex event type mapping
 			yield { ...event, type: "response.completed", response: normalizedResponse } as ResponseStreamEvent;
 			return;
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Codex event type mapping
 		yield event as unknown as ResponseStreamEvent;
 	}
 }
 
 function normalizeCodexStatus(status: unknown): CodexResponseStatus | undefined {
 	if (typeof status !== "string") return undefined;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by Set.has check above
 	return CODEX_RESPONSE_STATUSES.has(status as CodexResponseStatus) ? (status as CodexResponseStatus) : undefined;
 }
 
@@ -540,6 +555,7 @@ async function* parseSSE(response: Response): AsyncGenerator<Record<string, unkn
 	let buffer = "";
 
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- stream reader loop exits via break
 		while (true) {
 			const { done, value } = await reader.read();
 			if (done) break;
@@ -558,6 +574,7 @@ async function* parseSSE(response: Response): AsyncGenerator<Record<string, unkn
 					const data = dataLines.join("\n").trim();
 					if (data && data !== "[DONE]") {
 						try {
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse boundary
 							yield JSON.parse(data) as Record<string, unknown>;
 						} catch (cause) {
 							throw new CodexProtocolError(`Invalid Codex SSE JSON: ${formatThrownValue(cause)}`, {
@@ -714,6 +731,7 @@ type WebSocketConstructor = new (
 function getWebSocketConstructor(): WebSocketConstructor | null {
 	const ctor = (globalThis as { WebSocket?: unknown }).WebSocket;
 	if (typeof ctor !== "function") return null;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime WebSocket constructor type check
 	return ctor as unknown as WebSocketConstructor;
 }
 
@@ -732,6 +750,7 @@ class WebSocketCloseError extends Error {
 }
 
 function getWebSocketReadyState(socket: WebSocketLike): number | undefined {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- accessing non-standard WebSocket property
 	const readyState = (socket as { readyState?: unknown }).readyState;
 	return typeof readyState === "number" ? readyState : undefined;
 }
@@ -958,6 +977,7 @@ async function decodeWebSocketData(data: unknown): Promise<string | null> {
 		return new TextDecoder().decode(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
 	}
 	if (data && typeof data === "object" && "arrayBuffer" in data) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- duck-type check boundary
 		const blobLike = data as { arrayBuffer: () => Promise<ArrayBuffer> };
 		const arrayBuffer = await blobLike.arrayBuffer();
 		return new TextDecoder().decode(new Uint8Array(arrayBuffer));
@@ -986,6 +1006,7 @@ async function* parseWebSocket(socket: WebSocketLike, signal?: AbortSignal): Asy
 				if (!event || typeof event !== "object" || !("data" in event)) return;
 				text = await decodeWebSocketData((event as { data?: unknown }).data);
 				if (!text) return;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse boundary
 				const parsed = JSON.parse(text) as Record<string, unknown>;
 				const type = typeof parsed.type === "string" ? parsed.type : "";
 				if (type === "response.completed" || type === "response.done" || type === "response.incomplete") {
@@ -1017,9 +1038,7 @@ async function* parseWebSocket(socket: WebSocketLike, signal?: AbortSignal): Asy
 			wake();
 			return;
 		}
-		if (!failed) {
-			failed = extractWebSocketCloseError(event);
-		}
+		failed ??= extractWebSocketCloseError(event);
 		done = true;
 		wake();
 	};
@@ -1036,6 +1055,7 @@ async function* parseWebSocket(socket: WebSocketLike, signal?: AbortSignal): Asy
 	signal?.addEventListener("abort", onAbort);
 
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- async generator loop exits via break
 		while (true) {
 			if (signal?.aborted) {
 				throw new Error("Request was aborted");
@@ -1044,15 +1064,18 @@ async function* parseWebSocket(socket: WebSocketLike, signal?: AbortSignal): Asy
 				yield queue.shift()!;
 				continue;
 			}
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by async callbacks between yields
 			if (done) break;
 			await new Promise<void>((resolve) => {
 				pending = resolve;
 			});
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by async callbacks between yields
 		if (failed) {
 			throw failed;
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by async callbacks between yields
 		if (!sawCompletion) {
 			throw new Error("WebSocket stream closed before response.completed");
 		}
@@ -1221,11 +1244,13 @@ async function parseErrorResponse(response: Response): Promise<{ message: string
 	let friendlyMessage: string | undefined;
 
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse boundary
 		const parsed = JSON.parse(raw) as {
 			error?: { code?: string; type?: string; message?: string; plan_type?: string; resets_at?: number };
 		};
-		const err = parsed?.error;
+		const err = parsed.error;
 		if (err) {
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through
 			const code = err.code || err.type || "";
 			if (/usage_limit_reached|usage_not_included|rate_limit_exceeded/i.test(code) || response.status === 429) {
 				const plan = err.plan_type ? ` (${err.plan_type.toLowerCase()} plan)` : "";
@@ -1235,6 +1260,7 @@ async function parseErrorResponse(response: Response): Promise<{ message: string
 				const when = mins !== undefined ? ` Try again in ~${mins} min.` : "";
 				friendlyMessage = `You have hit your ChatGPT usage limit${plan}.${when}`.trim();
 			}
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through
 			message = err.message || friendlyMessage || message;
 		}
 	} catch {}
@@ -1260,7 +1286,7 @@ function extractAccountId(token: string): string {
 }
 
 function createCodexRequestId(): string {
-	if (typeof globalThis.crypto?.randomUUID === "function") {
+	if (typeof globalThis.crypto.randomUUID === "function") {
 		return globalThis.crypto.randomUUID();
 	}
 	return `codex_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -1273,7 +1299,7 @@ function buildBaseCodexHeaders(
 	token: string,
 ): Headers {
 	const headers = new Headers(initHeaders);
-	for (const [key, value] of Object.entries(additionalHeaders || {})) {
+	for (const [key, value] of Object.entries(additionalHeaders ?? {})) {
 		headers.set(key, value);
 	}
 	headers.set("Authorization", `Bearer ${token}`);

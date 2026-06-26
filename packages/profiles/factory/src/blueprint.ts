@@ -29,11 +29,13 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 
 	const wireAdapter = createWireAdapterWithFactory({
 		cwd: opts.cwd,
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- subagentFactory satisfies WireAdapterFactoryOptions shape
 		subagentFactory: opts.subagentFactory as WireAdapterFactoryOptions["subagentFactory"],
 		exploreAdapters,
 		generalAdapters,
 	});
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- wireAdapter conforms to Adapter but has narrower type
 	adapters.splice(adapters.length - 2, 0, wireAdapter as unknown as Adapter);
 
 	return { adapters, pipeline };

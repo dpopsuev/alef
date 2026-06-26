@@ -67,6 +67,7 @@ interface AdapterModule {
 }
 
 function resolveFactory(mod: Record<string, unknown>): AdapterModule["createAdapter"] | undefined {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by typeof check
 	if (typeof mod.createAdapter === "function") return mod.createAdapter as AdapterModule["createAdapter"];
 	return undefined;
 }
@@ -207,9 +208,11 @@ export function loadUserAdaptersConfig(): CompiledAgentDefinition["adapters"] | 
 	const text = readFileSync(effectivePath, "utf-8");
 	const parsed = parseYaml(text) as unknown;
 	if (!parsed || typeof parsed !== "object") return null;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by typeof/null check above
 	const rec = parsed as Record<string, unknown>;
 	const entries = rec.adapters ?? rec.organs;
 	if (!Array.isArray(entries)) return null;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- entries validated by Array.isArray guard
 	return (entries as AdapterEntry[]).map((entry) => {
 		if (typeof entry === "string") {
 			return { name: entry, actions: [], toolNames: [] };
@@ -225,9 +228,7 @@ export function loadUserAdaptersConfig(): CompiledAgentDefinition["adapters"] | 
 
 let _jiti: ReturnType<typeof createJiti> | undefined;
 function getJiti(): ReturnType<typeof createJiti> {
-	if (!_jiti) {
-		_jiti = createJiti(import.meta.url, { moduleCache: false, tryNative: false });
-	}
+	_jiti ??= createJiti(import.meta.url, { moduleCache: false, tryNative: false });
 	return _jiti;
 }
 
@@ -237,6 +238,7 @@ async function loadAdapterModule(
 ): Promise<AdapterModule> {
 	if (adapterDef.path) {
 		const jitiMod = await getJiti().import(adapterDef.path);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- jiti returns unknown module shape
 		const mod = jitiMod as Record<string, unknown>;
 		const factory = resolveFactory(mod);
 		if (!factory) {
@@ -251,6 +253,7 @@ async function loadAdapterModule(
 	const pmPath = resolveExternalPath?.(adapterDef.name);
 	if (pmPath) {
 		const jitiMod = await getJiti().import(pmPath);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- jiti returns unknown module shape
 		const mod = jitiMod as Record<string, unknown>;
 		const factory = resolveFactory(mod);
 		if (!factory) {
@@ -261,6 +264,7 @@ async function loadAdapterModule(
 	const pkg = resolveAdapterPackage(adapterDef.name);
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 	const rawMod = await import(pkg);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns unknown module shape
 	const mod = rawMod as unknown as Record<string, unknown>;
 	const factory = resolveFactory(mod);
 	if (!factory) {
@@ -281,6 +285,7 @@ export async function loadAdapterFromPath(
 	opts: Pick<MaterializerOptions, "cwd" | "loggerFor" | "writableRoots">,
 ): Promise<Adapter> {
 	const jitiMod = await getJiti().import(path);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- jiti returns unknown module shape
 	const mod = jitiMod as Record<string, unknown>;
 	const factory = resolveFactory(mod);
 	if (!factory) {
@@ -302,7 +307,7 @@ export async function materializeBlueprint(
 	for (const adapterDef of definition.adapters) {
 		if (["ai", "discourse", "symbols"].includes(adapterDef.name)) continue;
 
-		const label = adapterDef.path ? adapterDef.path : resolveAdapterPackage(adapterDef.name);
+		const label = adapterDef.path ?? resolveAdapterPackage(adapterDef.name);
 		try {
 			const mod = await loadAdapterModule(adapterDef, opts.resolveExternalPath);
 			const adapter = await mod.createAdapter({

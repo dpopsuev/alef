@@ -119,9 +119,11 @@ export function createEvalAdapter(opts: EvalAdapterOptions): Adapter {
 		emitSignal("eval.intent", { text: `scoring ${endpoint}` });
 
 		const promptsRaw = ctx.payload.prompts;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by Array.isArray guard
 		const prompts: EvalPrompt[] = Array.isArray(promptsRaw) ? (promptsRaw as EvalPrompt[]) : [];
 
 		const validatorsRaw = ctx.payload.validators;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by Array.isArray guard
 		const validators: Validator[] = Array.isArray(validatorsRaw) ? (validatorsRaw as Validator[]) : [];
 
 		const judgeRubric = getString(ctx.payload, "judgeRubric");

@@ -239,10 +239,6 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 
 				traceEvent("fs:find:spawn", { cmd: fdPath, args, pattern: effectivePattern, searchPath });
 				const child = spawn(fdPath, args, { stdio: ["ignore", "pipe", "pipe"] });
-				if (!child.stdout) {
-					settle(() => reject(new Error("Failed to read fd stdout")));
-					return;
-				}
 				const rl = createInterface({ input: child.stdout });
 				let stderr = "";
 				const lines: string[] = [];
@@ -276,7 +272,7 @@ export async function executeFindQuery(input: FindToolInput, options: FindQueryO
 					fdWatchdog.stop();
 				};
 
-				child.stderr?.on("data", (chunk: Buffer | string) => {
+				child.stderr.on("data", (chunk: Buffer | string) => {
 					stderr += chunk.toString();
 				});
 

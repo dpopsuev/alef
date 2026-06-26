@@ -32,8 +32,10 @@ export function prepareTurn(payload: {
 	const rawMessages =
 		payload.messages ?? (payload.text ? [{ role: "user", content: payload.text, timestamp: Date.now() }] : []);
 	const nameMap = new Map<string, string>();
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped bus payload to known tool shape
 	const toolDefs = (payload.tools as readonly ToolDef[] | undefined) ?? [];
 	const tools = buildTools(toolDefs, nameMap);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped bus payload to Message[]
 	const messages = (rawMessages as Message[]).map(normalizeMessage);
 	return { messages, tools, nameMap };
 }

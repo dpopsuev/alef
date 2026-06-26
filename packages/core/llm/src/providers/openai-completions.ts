@@ -135,6 +135,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 		};
 
 		try {
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty API key must fall through
 			const apiKey = options?.apiKey || getEnvApiKey(model.provider) || "";
 			const compat = getCompat(model);
 			const cacheRetention = resolveCacheRetention(options?.cacheRetention);
@@ -143,6 +144,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			let params = buildParams(model, context, options, compat, cacheRetention);
 			const nextParams = await options?.onPayload?.(params, model);
 			if (nextParams !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- onPayload callback boundary
 				params = nextParams as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming;
 			}
 			const requestOptions = {
@@ -188,7 +190,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 						content: block.thinking,
 						partial: output,
 					});
-				} else if (block.type === "toolCall") {
+				} else {
 					block.arguments = parseStreamingJson(block.partialArgs);
 					// Finalize in-place and strip the scratch buffers so replay only
 					// carries parsed arguments.
@@ -231,8 +233,8 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 				if (!block) {
 					block = {
 						type: "toolCall",
-						id: toolCall.id || "",
-						name: toolCall.function?.name || "",
+						id: toolCall.id ?? "",
+						name: toolCall.function?.name ?? "",
 						arguments: {},
 						partialArgs: "",
 						streamIndex,
@@ -261,13 +263,14 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			};
 
 			for await (const chunk of openaiStream) {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive guard for non-standard providers
 				if (!chunk || typeof chunk !== "object") continue;
 
 				// OpenAI documents ChatCompletionChunk.id as the unique chat completion identifier,
 				// and each chunk in a streamed completion carries the same id.
-				output.responseId ||= chunk.id;
+				output.responseId ??= chunk.id;
 				if (typeof chunk.model === "string" && chunk.model.length > 0 && chunk.model !== model.id) {
-					output.responseModel ||= chunk.model;
+					output.responseModel ??= chunk.model;
 				}
 				if (chunk.usage) {
 					output.usage = parseChunkUsage(chunk.usage, model);
@@ -278,7 +281,9 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 
 				// Fallback: some providers (e.g., Moonshot) return usage
 				// in choice.usage instead of the standard chunk.usage
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
 				if (!chunk.usage && (choice as any).usage) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
 					output.usage = parseChunkUsage((choice as any).usage, model);
 				}
 
@@ -290,87 +295,88 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 					}
 				}
 
-				if (choice.delta) {
-					if (
-						choice.delta.content !== null &&
-						choice.delta.content !== undefined &&
-						choice.delta.content.length > 0
-					) {
-						const block = ensureTextBlock();
-						block.text += choice.delta.content;
+				if (
+					choice.delta.content !== null &&
+					choice.delta.content !== undefined &&
+					choice.delta.content.length > 0
+				) {
+					const block = ensureTextBlock();
+					block.text += choice.delta.content;
+					stream.push({
+						type: "text_delta",
+						contentIndex: getContentIndex(block),
+						delta: choice.delta.content,
+						partial: output,
+					});
+				}
+
+				// Some endpoints return reasoning in reasoning_content (llama.cpp),
+				// or reasoning (other openai compatible endpoints)
+				// Use the first non-empty reasoning field to avoid duplication
+				// (e.g., chutes.ai returns both reasoning_content and reasoning with same content)
+				const reasoningFields = ["reasoning_content", "reasoning", "reasoning_text"];
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- accessing non-standard provider fields
+				const deltaFields = choice.delta as Record<string, unknown>;
+				let foundReasoningField: string | null = null;
+				for (const field of reasoningFields) {
+					const value = deltaFields[field];
+					if (typeof value === "string" && value.length > 0) {
+						foundReasoningField = field;
+						break;
+					}
+				}
+
+				if (foundReasoningField) {
+					const delta = deltaFields[foundReasoningField];
+					if (typeof delta === "string" && delta.length > 0) {
+						const block = ensureThinkingBlock(foundReasoningField);
+						block.thinking += delta;
 						stream.push({
-							type: "text_delta",
+							type: "thinking_delta",
 							contentIndex: getContentIndex(block),
-							delta: choice.delta.content,
+							delta,
 							partial: output,
 						});
 					}
+				}
 
-					// Some endpoints return reasoning in reasoning_content (llama.cpp),
-					// or reasoning (other openai compatible endpoints)
-					// Use the first non-empty reasoning field to avoid duplication
-					// (e.g., chutes.ai returns both reasoning_content and reasoning with same content)
-					const reasoningFields = ["reasoning_content", "reasoning", "reasoning_text"];
-					const deltaFields = choice.delta as Record<string, unknown>;
-					let foundReasoningField: string | null = null;
-					for (const field of reasoningFields) {
-						const value = deltaFields[field];
-						if (typeof value === "string" && value.length > 0) {
-							foundReasoningField = field;
-							break;
+				if (choice.delta.tool_calls) {
+					for (const toolCall of choice.delta.tool_calls) {
+						const block = ensureToolCallBlock(toolCall);
+						if (!block.id && toolCall.id) {
+							block.id = toolCall.id;
+							toolCallBlocksById.set(toolCall.id, block);
 						}
-					}
-
-					if (foundReasoningField) {
-						const delta = deltaFields[foundReasoningField];
-						if (typeof delta === "string" && delta.length > 0) {
-							const block = ensureThinkingBlock(foundReasoningField);
-							block.thinking += delta;
-							stream.push({
-								type: "thinking_delta",
-								contentIndex: getContentIndex(block),
-								delta,
-								partial: output,
-							});
+						if (!block.name && toolCall.function?.name) {
+							block.name = toolCall.function.name;
 						}
-					}
 
-					if (choice?.delta?.tool_calls) {
-						for (const toolCall of choice.delta.tool_calls) {
-							const block = ensureToolCallBlock(toolCall);
-							if (!block.id && toolCall.id) {
-								block.id = toolCall.id;
-								toolCallBlocksById.set(toolCall.id, block);
-							}
-							if (!block.name && toolCall.function?.name) {
-								block.name = toolCall.function.name;
-							}
-
-							let delta = "";
-							if (toolCall.function?.arguments) {
-								delta = toolCall.function.arguments;
-								block.partialArgs = (block.partialArgs ?? "") + toolCall.function.arguments;
-								block.arguments = parseStreamingJson(block.partialArgs);
-							}
-							stream.push({
-								type: "toolcall_delta",
-								contentIndex: getContentIndex(block),
-								delta,
-								partial: output,
-							});
+						let delta = "";
+						if (toolCall.function?.arguments) {
+							delta = toolCall.function.arguments;
+							block.partialArgs = (block.partialArgs ?? "") + toolCall.function.arguments;
+							block.arguments = parseStreamingJson(block.partialArgs);
 						}
+						stream.push({
+							type: "toolcall_delta",
+							contentIndex: getContentIndex(block),
+							delta,
+							partial: output,
+						});
 					}
+				}
 
-					const reasoningDetails = (choice.delta as any).reasoning_details;
-					if (reasoningDetails && Array.isArray(reasoningDetails)) {
-						for (const detail of reasoningDetails) {
-							if (detail.type === "reasoning.encrypted" && detail.id && detail.data) {
-								const matchingToolCall = output.content.find(
-									(b) => b.type === "toolCall" && b.id === detail.id,
-								) as ToolCall | undefined;
-								if (matchingToolCall) {
-									matchingToolCall.thoughtSignature = JSON.stringify(detail);
-								}
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider field
+				const reasoningDetails = (choice.delta as any).reasoning_details;
+				if (reasoningDetails && Array.isArray(reasoningDetails)) {
+					for (const detail of reasoningDetails) {
+						if (detail.type === "reasoning.encrypted" && detail.id && detail.data) {
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing union to ToolCall after type check
+							const matchingToolCall = output.content.find(
+								(b) => b.type === "toolCall" && b.id === detail.id,
+							) as ToolCall | undefined;
+							if (matchingToolCall) {
+								matchingToolCall.thoughtSignature = JSON.stringify(detail);
 							}
 						}
 					}
@@ -388,6 +394,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 				throw new Error("Request was aborted");
 			}
 			if (output.stopReason === "error") {
+				// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty error message must fall through
 				throw new Error(output.errorMessage || "Provider returned an error stop reason");
 			}
 
@@ -395,14 +402,18 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			stream.end();
 		} catch (error) {
 			for (const block of output.content) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- stripping internal streaming property
 				delete (block as { index?: number }).index;
 				// Streaming scratch buffers are only used during parsing; never persist them.
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- stripping internal streaming property
 				delete (block as { partialArgs?: string }).partialArgs;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- stripping internal streaming property
 				delete (block as { streamIndex?: number }).streamIndex;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
 			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
 			// Some providers via OpenRouter give additional information in this field.
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard provider error metadata
 			const rawMetadata = (error as any)?.error?.metadata?.raw;
 			if (rawMetadata) output.errorMessage += `\n${rawMetadata}`;
 			stream.push({ type: "error", reason: output.stopReason, error: output });
@@ -418,6 +429,7 @@ export const streamSimpleOpenAICompletions: StreamFunction<"openai-completions",
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty API key must fall through
 	const apiKey = options?.apiKey || getEnvApiKey(model.provider);
 	if (!apiKey) {
 		throw new Error(`No API key for provider: ${model.provider}`);
@@ -471,6 +483,7 @@ function createClient(
 		model.provider === "cloudflare-ai-gateway"
 			? {
 					...headers,
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime value may be undefined despite Record<string,string> index signature
 					Authorization: headers.Authorization ?? null,
 					"cf-aig-authorization": `Bearer ${apiKey}`,
 				}
@@ -507,6 +520,7 @@ function buildParams(
 	};
 
 	if (compat.supportsUsageInStreaming !== false) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard OpenAI extension
 		(params as any).stream_options = { include_usage: true };
 	}
 
@@ -516,6 +530,7 @@ function buildParams(
 
 	if (options?.maxTokens) {
 		if (compat.maxTokensField === "max_tokens") {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- legacy max_tokens field for compat
 			(params as any).max_tokens = options.maxTokens;
 		} else {
 			params.max_completion_tokens = options.maxTokens;
@@ -529,6 +544,7 @@ function buildParams(
 	if (context.tools && context.tools.length > 0) {
 		params.tools = convertTools(context.tools, compat);
 		if (compat.zaiToolStream) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 			(params as any).tool_stream = true;
 		}
 	} else if (hasToolHistory(context.messages)) {
@@ -545,17 +561,22 @@ function buildParams(
 	}
 
 	if (compat.thinkingFormat === "zai" && model.reasoning) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 		(params as any).enable_thinking = !!options?.reasoningEffort;
 	} else if (compat.thinkingFormat === "qwen" && model.reasoning) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 		(params as any).enable_thinking = !!options?.reasoningEffort;
 	} else if (compat.thinkingFormat === "qwen-chat-template" && model.reasoning) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 		(params as any).chat_template_kwargs = {
 			enable_thinking: !!options?.reasoningEffort,
 			preserve_thinking: true,
 		};
 	} else if (compat.thinkingFormat === "deepseek" && model.reasoning) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
 		if (options?.reasoningEffort) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 			(params as any).reasoning_effort =
 				model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
 		}
@@ -570,6 +591,7 @@ function buildParams(
 			openRouterParams.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
 		}
 	} else if (compat.thinkingFormat === "together" && model.reasoning) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific params extension
 		const togetherParams = params as Omit<typeof params, "reasoning_effort"> & {
 			reasoning?: { enabled: boolean };
 			reasoning_effort?: string;
@@ -580,16 +602,19 @@ function buildParams(
 		}
 	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
 		// OpenAI-style reasoning_effort
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 		(params as any).reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
 	} else if (!options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
 		const offValue = model.thinkingLevelMap?.off;
 		if (typeof offValue === "string") {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 			(params as any).reasoning_effort = offValue;
 		}
 	}
 
 	// OpenRouter provider routing preferences
 	if (model.baseUrl.includes("openrouter.ai") && model.compat?.openRouterRouting) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 		(params as any).provider = model.compat.openRouterRouting;
 	}
 
@@ -600,6 +625,7 @@ function buildParams(
 			const gatewayOptions: Record<string, string[]> = {};
 			if (routing.only) gatewayOptions.only = routing.only;
 			if (routing.order) gatewayOptions.order = routing.order;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 			(params as any).providerOptions = { gateway: gatewayOptions };
 		}
 	}
@@ -712,7 +738,7 @@ function addCacheControlToTextContent(
 
 	for (let i = content.length - 1; i >= 0; i--) {
 		const part = content[i];
-		if (part?.type === "text") {
+		if (part.type === "text") {
 			const textPart = part as ChatCompletionTextPartWithCacheControl;
 			textPart.cache_control = cacheControl;
 			return true;
@@ -835,6 +861,7 @@ export function convertMessages(
 					// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
 					const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
 					if (signature && signature.length > 0) {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic property name from provider thinking signature
 						(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
 					}
 				}
@@ -868,14 +895,17 @@ export function convertMessages(
 					})
 					.filter(Boolean);
 				if (reasoningDetails.length > 0) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- non-standard OpenAI reasoning extension
 					(assistantMsg as any).reasoning_details = reasoningDetails;
 				}
 			}
 			if (
 				compat.requiresReasoningContentOnAssistantMessages &&
 				model.reasoning &&
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field
 				(assistantMsg as { reasoning_content?: string }).reasoning_content === undefined
 			) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension field
 				(assistantMsg as { reasoning_content?: string }).reasoning_content = "";
 			}
 			// Skip assistant messages that have no content and no tool calls.
@@ -891,11 +921,12 @@ export function convertMessages(
 				continue;
 			}
 			params.push(assistantMsg);
-		} else if (msg.role === "toolResult") {
+		} else {
 			const imageBlocks: Array<{ type: "image_url"; image_url: { url: string } }> = [];
 			let j = i;
 
 			for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- role check boundary
 				const toolMsg = transformedMessages[j] as ToolResultMessage;
 
 				// Extract text and image content
@@ -914,6 +945,7 @@ export function convertMessages(
 					tool_call_id: toolMsg.toolCallId,
 				};
 				if (compat.requiresToolResultName && toolMsg.toolName) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider-specific extension
 					(toolResultMsg as any).name = toolMsg.toolName;
 				}
 				params.push(toolResultMsg);
@@ -974,6 +1006,7 @@ function convertTools(
 		function: {
 			name: tool.name,
 			description: tool.description,
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TypeBox generates JSON Schema compatible with OpenAI
 			parameters: tool.parameters as any, // TypeBox already generates JSON Schema
 			// Only include strict if provider supports it. Some reject unknown fields.
 			...(compat.supportsStrictMode !== false && { strict: false }),
@@ -990,9 +1023,9 @@ function parseChunkUsage(
 	},
 	model: Model<"openai-completions">,
 ): AssistantMessage["usage"] {
-	const promptTokens = rawUsage.prompt_tokens || 0;
+	const promptTokens = rawUsage.prompt_tokens ?? 0;
 	const reportedCachedTokens = rawUsage.prompt_tokens_details?.cached_tokens ?? rawUsage.prompt_cache_hit_tokens ?? 0;
-	const cacheWriteTokens = rawUsage.prompt_tokens_details?.cache_write_tokens || 0;
+	const cacheWriteTokens = rawUsage.prompt_tokens_details?.cache_write_tokens ?? 0;
 
 	// Normalize to pi-ai semantics:
 	// - cacheRead: hits from cache created by previous requests only
@@ -1004,7 +1037,7 @@ function parseChunkUsage(
 
 	const input = Math.max(0, promptTokens - cacheReadTokens - cacheWriteTokens);
 	// OpenAI completion_tokens already includes reasoning_tokens.
-	const outputTokens = rawUsage.completion_tokens || 0;
+	const outputTokens = rawUsage.completion_tokens ?? 0;
 	const usage: AssistantMessage["usage"] = {
 		input,
 		output: outputTokens,

@@ -55,7 +55,7 @@ export async function callLLM(
 	const apiMessages = systemMsg ? messages.filter((m) => (m as { role?: string }).role !== "system") : messages;
 	const systemPrompt =
 		typeof (systemMsg as { content?: unknown } | undefined)?.content === "string"
-			? (systemMsg as { content: string }).content
+			? (systemMsg as { content: string }).content // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- narrowing validated system message
 			: options.systemPrompt;
 
 	const schemaTokenEstimate = Math.round(JSON.stringify(tools).length / 4);

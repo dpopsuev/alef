@@ -126,6 +126,7 @@ export function createEnclosureAdapter(options: EnclosureAdapterOptions = {}): A
 				}),
 				"enclosure.diff": typedAction(DIFF_TOOL, async (ctx) => {
 					const result = await handleDiff(ctx, spaces);
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- diff handler returns string[] changes
 					const changes = result.changes as string[];
 					return withDisplay(
 						{ changes },

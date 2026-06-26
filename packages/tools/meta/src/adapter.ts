@@ -119,6 +119,7 @@ function loadAdapterInWorker(adapterPath: string, cwd: string): Promise<Adapter>
 						);
 						const onMessage = (workerMsg: { dir: string; event: Record<string, unknown> }) => {
 							if (workerMsg.dir === "event") {
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- worker bridge event shape matches EventInput
 								bus.event.publish(workerMsg.event as Parameters<typeof bus.event.publish>[0]);
 							}
 						};
@@ -316,6 +317,7 @@ function buildPrototypeTools(
 						adapterPath = join(PROTOTYPES_DIR, filename);
 						await writeFile(adapterPath, code, "utf-8");
 					} else {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- zod refine guarantees path is set in this branch
 						adapterPath = resolve(cwd, ctx.payload.path as string);
 					}
 					const useThread = (ctx.payload as { thread?: boolean }).thread ?? false;

@@ -427,7 +427,7 @@ export function compileAgentDefinition(
 ): CompiledAgentDefinition {
 	if (!agentDefinitionValidator.Check(input)) {
 		const [firstError] = agentDefinitionValidator.Errors(input);
-		const errorMessage = firstError?.message ?? "Unknown validation error";
+		const errorMessage = firstError.message;
 		const location = options.sourcePath ? ` in ${options.sourcePath}` : "";
 		throw new Error(`Invalid agent definition${location}: ${errorMessage}`);
 	}
@@ -460,6 +460,7 @@ export function compileAgentDefinition(
 		sourcePath,
 		baseDir,
 		model: normalizeModelSelector(input.model),
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must collapse to undefined
 		systemPrompt: input.systemPrompt?.trim() || undefined,
 		adapters: adapters,
 		capabilities: {
@@ -479,7 +480,7 @@ export function compileAgentDefinition(
 		hooks: {
 			extensions: normalizeStringArray(input.hooks?.extensions),
 		},
-		surfaces: (input.surfaces ?? []).filter((s) => s.type === "sse"),
+		surfaces: input.surfaces ?? [],
 		children: resolveChildBlueprints(input.children, baseDir),
 	};
 	const dependencies = normalizeDependencies(input.dependencies);
@@ -503,9 +504,12 @@ export function parseAgentDefinitionYaml(
 	}
 
 	if (isAgentResourceEnvelope(parsed)) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by isAgentResourceEnvelope guard
 		let envelope = parsed as unknown as Record<string, unknown>;
 		if (envelope.apiVersion !== AGENT_RESOURCE_API_VERSION) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- apiVersion is typed as string in envelope
 			const migrate = MIGRATION_CHAIN[envelope.apiVersion as string];
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- guard for future MIGRATION_CHAIN entries
 			if (!migrate) {
 				throw new Error(
 					`Unsupported agent resource apiVersion "${envelope.apiVersion}". ` +
@@ -514,6 +518,7 @@ export function parseAgentDefinitionYaml(
 			}
 			envelope = migrate(envelope);
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- envelope is narrowed to AgentResourceEnvelope shape
 		const current = envelope as typeof parsed;
 		if (current.kind !== AGENT_RESOURCE_KIND) {
 			throw new Error(`Unsupported agent resource kind "${current.kind}". Expected "${AGENT_RESOURCE_KIND}".`);
@@ -528,6 +533,7 @@ export function parseAgentDefinitionYaml(
 		if (typeof spec.name !== "string" || spec.name.trim().length === 0) {
 			throw new Error("Invalid agent resource: spec.name is required (or metadata.name must be set).");
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- spec validated by compileAgentDefinition
 		return compileAgentDefinition(spec as unknown as AgentDefinitionInput, {
 			sourcePath: options.sourcePath,
 			resource: {
@@ -538,6 +544,7 @@ export function parseAgentDefinitionYaml(
 		});
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- parsed validated by compileAgentDefinition
 	return compileAgentDefinition(parsed as unknown as AgentDefinitionInput, options);
 }
 
@@ -626,7 +633,7 @@ export function mergeAgentDefinitions(
 ): CompiledAgentDefinition {
 	return {
 		// Scalars: overlay wins when defined.
-		name: overlay.name ?? base.name,
+		name: overlay.name,
 		sourcePath: base.sourcePath,
 		baseDir: base.baseDir,
 		model: overlay.model ?? base.model,

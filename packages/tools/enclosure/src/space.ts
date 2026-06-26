@@ -226,6 +226,7 @@ export class OverlaySpace implements Space {
 			});
 			return { exitCode: 0, output: stdout + stderr };
 		} catch (err: unknown) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- unknown error shape from execa
 			const e = err as { code?: number; stdout?: string; stderr?: string; message?: string };
 			return {
 				exitCode: typeof e.code === "number" ? e.code : 1,

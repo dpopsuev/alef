@@ -22,6 +22,7 @@ export class TuiStateStore {
 
 	update(partial: Partial<TuiState>): void {
 		let changed = false;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Object.keys returns string[], narrowing to keyof TuiState is safe for index access
 		for (const key of Object.keys(partial) as (keyof TuiState)[]) {
 			if (this.state[key] !== partial[key]) {
 				changed = true;

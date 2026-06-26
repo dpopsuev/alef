@@ -138,6 +138,7 @@ export function llmJudge(rubric: string, modelId = "claude-haiku-4-5"): Checker 
 				return { pass: false, score: 0, errors: [`LLMJudge API error: ${res.status}`] };
 			}
 
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic API response shape is well-known
 			const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
 			const text = json.content?.find((b) => b.type === "text")?.text ?? "";
 			const score = Math.max(0, Math.min(1, parseFloat(text.trim())));
@@ -169,7 +170,7 @@ export function lintPasses(cmd: string, args: string[] = []): Checker {
 			return new Promise((resolve) => {
 				const child = spawn(cmd, args, { cwd: workspace, stdio: "pipe" });
 				const stderr: string[] = [];
-				child.stderr?.on("data", (chunk: Buffer) => stderr.push(chunk.toString()));
+				child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk.toString()));
 				child.on("close", (code) => {
 					if (code === 0) {
 						resolve({ pass: true, score: 1.0, errors: [] });

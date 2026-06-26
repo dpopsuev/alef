@@ -13,6 +13,7 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 	const contextWindow = opts.contextWindow ?? 128_000;
 
 	return async ({ messages }) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pipeline messages to internal RawMsg shape
 		const msgs = messages as unknown as RawMsg[];
 		if (!msgs.length) return {};
 
@@ -56,11 +57,12 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 		const projected = turnsToMessages(selected);
 		if (projected.length === 0) return {};
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Message[] to internal RawMsg shape
 		const projectedMsgs = projected as unknown as RawMsg[];
 		const projectedLast = projectedMsgs.at(-1);
 		const systemMsg = msgs.find((m) => m.role === "system");
 		const alreadyAppended =
-			projectedLast?.role === currentUserMsg.role && projectedLast?.content === currentUserMsg.content;
+			projectedLast?.role === currentUserMsg.role && projectedLast.content === currentUserMsg.content;
 
 		const assembled: RawMsg[] = [
 			...(systemMsg ? [systemMsg] : []),
@@ -68,6 +70,7 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 			...(!alreadyAppended && currentUserMsg.role === "user" ? [currentUserMsg] : []),
 		];
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- RawMsg[] back to pipeline message type
 		return { messages: assembled as unknown as typeof messages };
 	};
 }

@@ -32,7 +32,9 @@ export function ensureBootstrapBlueprints(agentDir: string): MaterializedBootstr
 		mkdirSync(targetDir, { recursive: true });
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- incrementally populated, complete after loop
 	const entries = {} as Record<BootstrapBlueprintId, MaterializedBootstrapBlueprint>;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Object.entries loses literal key types
 	for (const [id, blueprint] of Object.entries(SHIPPED_BLUEPRINT_FILES) as Array<
 		[BootstrapBlueprintId, { fileName: string; label: string }]
 	>) {

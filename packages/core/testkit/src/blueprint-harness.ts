@@ -211,6 +211,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 	 */
 	assertToolCalledWith(toolName: string, partialArgs: Record<string, unknown>): void {
 		const event = this.assertToolCalled(toolName);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing BusMessage to CommandMessage for payload access
 		const payload = (event as CommandMessage).payload;
 		for (const [key, expected] of Object.entries(partialArgs)) {
 			if (payload[key] !== expected) {
@@ -230,6 +231,7 @@ export class BlueprintHarness implements ExecutionStrategy {
 		if (found) {
 			throw new Error(
 				`Expected Command/${toolName} NOT to be published, but it was.\n` +
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing BusMessage to CommandMessage for payload access
 					`Payload: ${JSON.stringify((found as CommandMessage).payload)}`,
 			);
 		}

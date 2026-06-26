@@ -476,7 +476,7 @@ export function parseArgs(argv: string[]): Args {
 				args.pmAdapterNew = argv[++i] ?? "";
 				i++;
 			} else {
-				console.error(`Unknown adapter subcommand: ${sub ?? "(none)"}. Available: list, new`);
+				console.error(`Unknown adapter subcommand: ${sub}. Available: list, new`);
 				process.exit(1);
 			}
 			i++;

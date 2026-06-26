@@ -17,11 +17,12 @@ export function parseOSC11Response(response: string): BgColor | null {
 	//   \x1b]11;rgba:RRRR/GGGG/BBBB/AAAA\x07  (with alpha)
 	const m = response.match(/\]1[01];rgba?:([\da-fA-F]+)\/([\da-fA-F]+)\/([\da-fA-F]+)(?:\/([\da-fA-F]+))?/);
 	if (!m) return null;
-	const scale = (m[1]?.length ?? 2) <= 2 ? 255 : 65535;
+	const scale = m[1].length <= 2 ? 255 : 65535;
 	return {
-		r: parseInt(m[1] ?? "0", 16) / scale,
-		g: parseInt(m[2] ?? "0", 16) / scale,
-		b: parseInt(m[3] ?? "0", 16) / scale,
+		r: parseInt(m[1], 16) / scale,
+		g: parseInt(m[2], 16) / scale,
+		b: parseInt(m[3], 16) / scale,
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- m[4] is from optional regex group (?:\/…)?
 		a: m[4] !== undefined ? parseInt(m[4], 16) / scale : 1,
 	};
 }
@@ -42,7 +43,7 @@ async function queryOSC11(timeoutMs = 50): Promise<BgColor | null> {
 
 	return new Promise((resolve) => {
 		const stdin = process.stdin as NodeJS.ReadStream & { isRaw?: boolean };
-		const wasRaw = stdin.isRaw ?? false;
+		const wasRaw = stdin.isRaw;
 		let settled = false;
 
 		const finish = (result: BgColor | null): void => {
@@ -156,7 +157,7 @@ export async function queryPalette(slots: readonly number[], timeoutMs = 200): P
 
 	return new Promise((resolve) => {
 		const stdin = process.stdin as NodeJS.ReadStream & { isRaw?: boolean };
-		const wasRaw = stdin.isRaw ?? false;
+		const wasRaw = stdin.isRaw;
 		const result: Record<number, string> = {};
 		const pending = new Set(slots);
 		let settled = false;
@@ -186,10 +187,10 @@ export async function queryPalette(slots: readonly number[], timeoutMs = 200): P
 				const m = re.exec(buf);
 				if (!m) break;
 				const slot = Number(m[1]);
-				const scale = (m[2]?.length ?? 2) <= 2 ? 255 : 65535;
-				const r = Math.round((parseInt(m[2] ?? "0", 16) / scale) * 255);
-				const g = Math.round((parseInt(m[3] ?? "0", 16) / scale) * 255);
-				const b = Math.round((parseInt(m[4] ?? "0", 16) / scale) * 255);
+				const scale = m[2].length <= 2 ? 255 : 65535;
+				const r = Math.round((parseInt(m[2], 16) / scale) * 255);
+				const g = Math.round((parseInt(m[3], 16) / scale) * 255);
+				const b = Math.round((parseInt(m[4], 16) / scale) * 255);
 				result[slot] =
 					`#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 				pending.delete(slot);

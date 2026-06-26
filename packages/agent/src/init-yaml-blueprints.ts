@@ -81,7 +81,7 @@ function registerYamlBlueprint(yamlPath: string): void {
 
 		// Extract the blueprint name
 		// It's either in resource.metadata.name (envelope format) or definition.name (bare format)
-		const name = definition.resource?.metadata?.name || definition.name;
+		const name = definition.resource?.metadata.name ?? definition.name;
 		if (!name) {
 			console.warn(`Skipping ${yamlPath}: missing name`);
 			return;
@@ -118,7 +118,7 @@ function registerYamlBlueprint(yamlPath: string): void {
 		// Register in the runtime registry
 		blueprintRegistry.register(name, factory);
 
-		const description = definition.resource?.metadata?.annotations?.description || `YAML blueprint: ${name}`;
+		const description = definition.resource?.metadata.annotations.description ?? `YAML blueprint: ${name}`;
 		console.log(`[init-yaml-blueprints] Registered: ${name} - ${description}`);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);

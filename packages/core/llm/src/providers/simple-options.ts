@@ -9,6 +9,7 @@ export function buildBaseOptions(model: Model<Api>, options?: SimpleStreamOption
 		temperature: options?.temperature,
 		maxTokens: options?.maxTokens ?? (model.maxTokens > 0 ? Math.min(model.maxTokens, 32000) : undefined),
 		signal: options?.signal,
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string should fall through to options apiKey
 		apiKey: apiKey || options?.apiKey,
 		transport: options?.transport,
 		cacheRetention: options?.cacheRetention,

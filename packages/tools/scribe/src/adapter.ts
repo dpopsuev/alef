@@ -86,8 +86,10 @@ export function createScribeAdapter(opts: ScribeAdapterOptions = {}): Adapter {
 		if (!block) return {};
 
 		const messages = [...input.messages];
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- message shape includes role field
 		const systemIdx = messages.findIndex((m) => (m as { role?: string }).role === "system");
 		if (systemIdx >= 0) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- system message has role + content
 			const sys = messages[systemIdx] as { role: string; content: string };
 			messages[systemIdx] = { ...sys, content: `${sys.content}\n\n${block}` };
 		}

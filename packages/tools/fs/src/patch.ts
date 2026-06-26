@@ -64,13 +64,13 @@ export function parsePatch(text: string): PatchOp[] {
 		if (addMatch ?? updateMatch ?? deleteMatch ?? moveMatch) {
 			if (current) ops.push(current);
 			if (moveMatch) {
-				current = { kind: "move", path: (moveMatch[1] ?? "").trim(), dest: (moveMatch[2] ?? "").trim(), lines: [] };
+				current = { kind: "move", path: moveMatch[1].trim(), dest: moveMatch[2].trim(), lines: [] };
 			} else if (addMatch) {
-				current = { kind: "add", path: (addMatch[1] ?? "").trim(), lines: [] };
+				current = { kind: "add", path: addMatch[1].trim(), lines: [] };
 			} else if (updateMatch) {
-				current = { kind: "update", path: (updateMatch[1] ?? "").trim(), lines: [] };
+				current = { kind: "update", path: updateMatch[1].trim(), lines: [] };
 			} else if (deleteMatch) {
-				current = { kind: "delete", path: (deleteMatch[1] ?? "").trim(), lines: [] };
+				current = { kind: "delete", path: deleteMatch[1].trim(), lines: [] };
 			}
 		} else if (current) {
 			current.lines.push(line);

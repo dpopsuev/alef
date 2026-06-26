@@ -43,7 +43,7 @@ export async function buildLayout(
 	const { BUILD_INFO } = await import("../build-info.js");
 	const dashboard = new DashboardFooter({
 		sessionId: opts.sessionId,
-		cwd: opts.cwd ?? process.cwd(),
+		cwd: opts.cwd,
 		store: tuiStore,
 		requestRender: () => tui.requestRender(),
 		style: (s) => boldColor(s, t.accentFg),
@@ -65,7 +65,7 @@ export async function buildLayout(
 		tui,
 		t,
 		modelId: opts.modelId,
-		cwd: opts.cwd ?? process.cwd(),
+		cwd: opts.cwd,
 		atProvider: opts.actorRoutes ? new AtAddressProvider(opts.actorRoutes) : undefined,
 	});
 

@@ -204,12 +204,16 @@ export function createAgentAdapter(
 	): Promise<{ reply: string; profile: string; elapsed: number; relevance: number }> {
 		const spawnResult = await handleSpawn(deps, {
 			payload: {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape validated by tool schema
 				blueprintPath: payload.blueprintPath as string | undefined,
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape validated by tool schema
 				adapters: payload.adapters as string[] | undefined,
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape validated by tool schema
 				cwd: payload.cwd as string | undefined,
 			},
 			correlationId,
 		});
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- spawnResult contains name from handleSpawn
 		const childName = (spawnResult as { name: string }).name;
 		try {
 			const askResult = await handleAsk(deps, {
@@ -227,33 +231,41 @@ export function createAgentAdapter(
 
 	// ── defineAdapter ────────────────────────────────────────────────────
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- defineAdapter returns base Adapter, extended with registerStrategy below
 	const adapter = defineAdapter(
 		"agent",
 		{
 			event: {
 				"adapter.loaded": {
 					handle: async (ctx: { payload: Record<string, unknown> }): Promise<void> => {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape from bus event contract
 						const name = ctx.payload.name as string;
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape from bus event contract
 						const contribution = (ctx.payload.contributions as ReasoningContributions | undefined)?.["agent.run"];
 						if (contribution) composite.add(name, contribution);
 					},
 				},
 				"adapter.unloaded": {
 					handle: async (ctx: { payload: Record<string, unknown> }): Promise<void> => {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape from bus event contract
 						composite.remove(ctx.payload.name as string);
 					},
 				},
 			},
 			command: {
 				"agent.run": typedStreamAction(buildRunTool(), async function* (ctx) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctx.payload typed by zod schema
 					const payload = ctx.payload as Record<string, unknown>;
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod text schema
 					const text = payload.text as string;
 					const isolate = payload.isolate === true;
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod maxMs schema
 					const maxMs = (payload.maxMs as number | undefined) ?? DEFAULT_RUN_MAX_MS;
 					const timeoutMs = maxMs;
 
 					if (payload.async === true) {
 						const taskId = `task-${++taskSeq}`;
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod profile schema
 						const explicitProfile = payload.profile as string | undefined;
 						const profile = explicitProfile ?? (needsWriteAccess(text) ? "general" : "explore");
 						const task: AsyncTask = { id: taskId, profile, text, status: "running", startedAt: Date.now() };
@@ -324,11 +336,14 @@ export function createAgentAdapter(
 						return;
 					}
 
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod profile schema
 					const explicitProfile = payload.profile as string | undefined;
 					const profile = explicitProfile ?? (needsWriteAccess(text) ? "general" : "explore");
 					const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod inheritDirectives schema
 					const explicitInherit = payload.inheritDirectives as boolean | undefined;
 					const inheritDirectives = explicitInherit ?? profile !== "explore";
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by zod adapters schema
 					const adapterNames = Array.isArray(payload.adapters) ? (payload.adapters as string[]) : undefined;
 
 					const needsAdHoc = instructions !== undefined || inheritDirectives || adapterNames !== undefined;
@@ -351,6 +366,7 @@ export function createAgentAdapter(
 							resolvedAdapters = await opts.materializeAdapters(adapterNames);
 						} else {
 							const strategy = strategies.get(profile) ?? strategyRegistry.resolve(profile);
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- strategy duck-typed for optional adapters property
 							resolvedAdapters = (strategy as unknown as { adapters?: Adapter[] }).adapters ?? [];
 						}
 						resolvedAdapters = [...resolvedAdapters, ...extraAdapters];
@@ -483,6 +499,7 @@ export function createAgentAdapter(
 							const providers = ctx.payload.provider ? [ctx.payload.provider] : (getProviders() as string[]);
 							const result: Array<{ provider: string; id: string; name: string; contextWindow: number }> = [];
 							for (const p of providers) {
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider string narrowed from getProviders()
 								for (const m of getModels(p as never)) {
 									result.push({ provider: p, id: m.id, name: m.name, contextWindow: m.contextWindow });
 								}

@@ -123,18 +123,16 @@ export class LocalCodeIntelBackend implements CodeIntelBackend {
 	private async getLsp(): Promise<LspClient> {
 		if (this.lsp) return this.lsp;
 		if (this.lspBroken) throw new Error("LSP server unavailable for this session");
-		if (!this.lspStarting) {
-			this.lspStarting = LspClient.start(this.cwd)
-				.then((c) => {
-					this.lsp = c;
-					return c;
-				})
-				.catch((e) => {
-					this.lspBroken = true;
-					this.lspStarting = null;
-					throw e;
-				});
-		}
+		this.lspStarting ??= LspClient.start(this.cwd)
+			.then((c) => {
+				this.lsp = c;
+				return c;
+			})
+			.catch((e) => {
+				this.lspBroken = true;
+				this.lspStarting = null;
+				throw e;
+			});
 		return this.lspStarting;
 	}
 

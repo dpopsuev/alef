@@ -55,7 +55,7 @@ function extractToolsAndSubscriptions(actions: ActionMap): {
 } {
 	const tools: ToolDefinition[] = Object.values(actions.command ?? {})
 		.filter((a) => a.tool !== undefined)
-		.map((a) => a.tool as ToolDefinition);
+		.map((a) => a.tool!);
 	return {
 		tools,
 		command: Object.keys(actions.command ?? {}),

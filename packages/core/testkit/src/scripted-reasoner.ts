@@ -47,7 +47,9 @@ function payloadToText(payload: Record<string, unknown>, isError: boolean, error
 
 function extractDisplay(payload: Record<string, unknown>): { text: string; mimeType?: string } | undefined {
 	const d = payload._display;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown _display to check .text property
 	if (d !== null && typeof d === "object" && typeof (d as Record<string, unknown>).text === "string") {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated above: d has .text string
 		return d as { text: string; mimeType?: string };
 	}
 	return undefined;
@@ -121,6 +123,7 @@ export class ScriptedReasoner implements Adapter {
 	private async _handle(bus: Bus, event: EventMessage): Promise<void> {
 		const step = this.queue[this.stepIndex++];
 
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: array index can exceed bounds
 		if (!step) {
 			process.stderr.write(
 				`[ScriptedReasoner] Script exhausted after ${this.stepIndex - 1} steps. Replying with sentinel.\n`,

@@ -155,7 +155,7 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 							},
 						);
 					},
-					{ shouldCache: (_ctx, result) => result !== undefined },
+					{ shouldCache: () => true },
 				),
 
 				"code.hover": typedAction(
@@ -175,7 +175,7 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 							{ text: `Type info:\n\`\`\`\n${hover.contents}\n\`\`\``, mimeType: "text/markdown" },
 						);
 					},
-					{ shouldCache: (_ctx, result) => result !== undefined },
+					{ shouldCache: () => true },
 				),
 
 				"code.callers": typedAction(
@@ -192,7 +192,7 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 							},
 						);
 					},
-					{ shouldCache: (_ctx, result) => result !== undefined },
+					{ shouldCache: () => true },
 				),
 
 				"code.diagnose": typedAction(
@@ -215,7 +215,7 @@ export function createCodeIntelAdapter(opts: CodeIntelAdapterOptions): Adapter {
 							},
 						);
 					},
-					{ shouldCache: (_ctx, result) => result !== undefined },
+					{ shouldCache: () => true },
 				),
 
 				"code.review": typedAction(REVIEW_TOOL, async (ctx) => {

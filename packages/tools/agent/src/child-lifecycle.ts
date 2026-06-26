@@ -325,12 +325,15 @@ export async function handlePromote(
 	}
 	let doc: Record<string, unknown> = {};
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- YAML parse returns unknown, cast to expected blueprint shape
 		doc = parseYaml(readFileSync(blueprintPath, "utf-8")) as Record<string, unknown>;
 	} catch {
 		/* start fresh */
 	}
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- spec is an untyped YAML section
 	const spec = (doc.spec ?? {}) as Record<string, unknown>;
 	const adapters = Array.isArray(spec.adapters) ? [...spec.adapters] : [];
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- adapter entries are untyped YAML objects
 	if (!adapters.some((o) => (o as { path?: string }).path === adapterPath)) adapters.push({ path: adapterPath });
 	spec.adapters = adapters;
 	doc.spec = spec;

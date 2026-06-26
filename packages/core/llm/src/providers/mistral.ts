@@ -57,6 +57,7 @@ export const streamMistral: StreamFunction<"mistral-conversations", MistralOptio
 		const output = createOutput(model);
 
 		try {
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string API key should fall through
 			const apiKey = options?.apiKey || getEnvApiKey(model.provider);
 			if (!apiKey) {
 				throw new Error(`No API key for provider: ${model.provider}`);
@@ -74,6 +75,7 @@ export const streamMistral: StreamFunction<"mistral-conversations", MistralOptio
 			let payload = buildChatPayload(model, context, transformedMessages, options);
 			const nextPayload = await options?.onPayload?.(payload, model);
 			if (nextPayload !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: onPayload returns provider-specific params shape
 				payload = nextPayload as ChatCompletionStreamRequest;
 			}
 			const mistralStream = await mistral.chat.stream(payload, buildRequestOptions(model, options));
@@ -93,6 +95,7 @@ export const streamMistral: StreamFunction<"mistral-conversations", MistralOptio
 		} catch (error) {
 			for (const block of output.content) {
 				// partialArgs is only a streaming scratch buffer; never persist it.
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: stripping internal streaming scratch property
 				delete (block as { partialArgs?: string }).partialArgs;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
@@ -113,6 +116,7 @@ export const streamSimpleMistral: StreamFunction<"mistral-conversations", Simple
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string API key should fall through
 	const apiKey = options?.apiKey || getEnvApiKey(model.provider);
 	if (!apiKey) {
 		throw new Error(`No API key for provider: ${model.provider}`);
@@ -160,7 +164,7 @@ function createMistralToolCallIdNormalizer(): (id: string) => string {
 		if (existing) return existing;
 
 		let attempt = 0;
-		while (true) {
+		for (;;) {
 			const candidate = deriveMistralToolCallId(id, attempt);
 			const owner = reverseMap.get(candidate);
 			if (!owner || owner === id) {
@@ -204,8 +208,7 @@ function truncateErrorText(text: string, maxChars: number): string {
 
 function safeJsonStringify(value: unknown): string {
 	try {
-		const serialized = JSON.stringify(value);
-		return serialized === undefined ? String(value) : serialized;
+		return JSON.stringify(value);
 	} catch {
 		return String(value);
 	}
@@ -289,33 +292,30 @@ async function consumeChatStream(
 			});
 			return;
 		}
-		if (block.type === "thinking") {
-			stream.push({
-				type: "thinking_end",
-				contentIndex: blockIndex(),
-				content: block.thinking,
-				partial: output,
-			});
-		}
+		stream.push({
+			type: "thinking_end",
+			contentIndex: blockIndex(),
+			content: block.thinking,
+			partial: output,
+		});
 	};
 
 	for await (const event of mistralStream) {
 		const chunk = event.data;
 		// Mistral's streamed CompletionChunk carries an id field. Keep the first non-empty one,
 		// mirroring how OpenAI-style streaming exposes a stable response identifier per stream.
-		output.responseId ||= chunk.id;
+		output.responseId ??= chunk.id;
 
 		if (chunk.usage) {
-			output.usage.input = chunk.usage.promptTokens || 0;
-			output.usage.output = chunk.usage.completionTokens || 0;
+			output.usage.input = chunk.usage.promptTokens ?? 0;
+			output.usage.output = chunk.usage.completionTokens ?? 0;
 			output.usage.cacheRead = 0;
 			output.usage.cacheWrite = 0;
-			output.usage.totalTokens = chunk.usage.totalTokens || output.usage.input + output.usage.output;
+			output.usage.totalTokens = chunk.usage.totalTokens ?? output.usage.input + output.usage.output;
 			calculateCost(model, output.usage);
 		}
 
 		const choice = chunk.choices[0];
-		if (!choice) continue;
 
 		if (choice.finishReason) {
 			output.stopReason = mapChatStopReason(choice.finishReason);
@@ -385,7 +385,7 @@ async function consumeChatStream(
 			}
 		}
 
-		const toolCalls = delta.toolCalls || [];
+		const toolCalls = delta.toolCalls ?? [];
 		for (const toolCall of toolCalls) {
 			if (currentBlock) {
 				finishCurrentBlock(currentBlock);
@@ -395,13 +395,13 @@ async function consumeChatStream(
 				toolCall.id && toolCall.id !== "null"
 					? toolCall.id
 					: deriveMistralToolCallId(`toolcall:${toolCall.index ?? 0}`, 0);
-			const key = `${callId}:${toolCall.index || 0}`;
+			const key = `${callId}:${toolCall.index ?? 0}`;
 			const existingIndex = toolBlocksByKey.get(key);
 			let block: (ToolCall & { partialArgs?: string }) | undefined;
 
 			if (existingIndex !== undefined) {
 				const existing = output.content[existingIndex];
-				if (existing?.type === "toolCall") {
+				if (existing.type === "toolCall") {
 					block = existing as ToolCall & { partialArgs?: string };
 				}
 			}
@@ -422,8 +422,8 @@ async function consumeChatStream(
 			const argsDelta =
 				typeof toolCall.function.arguments === "string"
 					? toolCall.function.arguments
-					: JSON.stringify(toolCall.function.arguments || {});
-			block.partialArgs = (block.partialArgs || "") + argsDelta;
+					: JSON.stringify(toolCall.function.arguments);
+			block.partialArgs = (block.partialArgs ?? "") + argsDelta;
 			block.arguments = parseStreamingJson<Record<string, unknown>>(block.partialArgs);
 			stream.push({
 				type: "toolcall_delta",
@@ -458,6 +458,7 @@ function toFunctionTools(tools: Tool[]): Array<FunctionTool & { type: "function"
 		function: {
 			name: tool.name,
 			description: tool.description,
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: stripSymbolKeys returns structurally same shape
 			parameters: stripSymbolKeys(tool.parameters) as Record<string, unknown>,
 			strict: false,
 		},
@@ -529,7 +530,7 @@ function toChatMessages(messages: Message[], supportsImages: boolean): ChatCompl
 				toolCalls.push({
 					id: block.id,
 					type: "function",
-					function: { name: block.name, arguments: JSON.stringify(block.arguments || {}) },
+					function: { name: block.name, arguments: JSON.stringify(block.arguments) },
 				});
 			}
 
@@ -543,7 +544,7 @@ function toChatMessages(messages: Message[], supportsImages: boolean): ChatCompl
 		const toolContent: ContentChunk[] = [];
 		const textResult = msg.content
 			.filter((part) => part.type === "text")
-			.map((part) => (part.type === "text" ? sanitizeSurrogates(part.text) : ""))
+			.map((part) => sanitizeSurrogates(part.text))
 			.join("\n");
 		const hasImages = msg.content.some((part) => part.type === "image");
 		const toolText = buildToolResultText(textResult, hasImages, supportsImages, msg.isError);
@@ -600,6 +601,7 @@ function mapReasoningEffort(
 	model: Model<"mistral-conversations">,
 	level: Exclude<SimpleStreamOptions["reasoning"], undefined>,
 ): MistralReasoningEffort {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: thinkingLevelMap value mapped to MistralReasoningEffort
 	return (model.thinkingLevelMap?.[level] ?? "high") as MistralReasoningEffort;
 }
 
@@ -608,6 +610,7 @@ function mapToolChoice(
 ): "auto" | "none" | "any" | "required" | { type: "function"; function: { name: string } } | undefined {
 	if (!choice) return undefined;
 	if (choice === "auto" || choice === "none" || choice === "any" || choice === "required") {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Mistral SDK toolChoice union not fully compatible with our type
 		return choice as any;
 	}
 	return {

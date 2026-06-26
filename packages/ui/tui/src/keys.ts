@@ -419,7 +419,7 @@ const LEGACY_CTRL_SEQUENCES = {
 	end: ["\x1b[8^"],
 } as const;
 
-const LEGACY_SEQUENCE_KEY_IDS: Record<string, KeyId> = {
+const LEGACY_SEQUENCE_KEY_IDS: Partial<Record<string, KeyId>> = {
 	"\x1bOA": "up",
 	"\x1bOB": "down",
 	"\x1bOC": "right",
@@ -622,7 +622,7 @@ function parseKittySequence(data: string): ParsedKittySequence | null {
 		const keyNum = parseInt(funcMatch[1]!, 10);
 		const modValue = funcMatch[2] ? parseInt(funcMatch[2], 10) : 1;
 		const eventType = parseEventType(funcMatch[3]);
-		const funcCodes: Record<number, number> = {
+		const funcCodes: Partial<Record<number, number>> = {
 			2: FUNCTIONAL_CODEPOINTS.insert,
 			3: FUNCTIONAL_CODEPOINTS.delete,
 			5: FUNCTIONAL_CODEPOINTS.pageUp,
@@ -1344,7 +1344,7 @@ export function decodeKittyPrintable(data: string): string | undefined {
 	if (!match) return undefined;
 
 	// CSI-u groups: <codepoint>[:<shifted>[:<base>]];<mod>[:<event>]u
-	const codepoint = Number.parseInt(match[1] ?? "", 10);
+	const codepoint = Number.parseInt(match[1], 10);
 	if (!Number.isFinite(codepoint)) return undefined;
 
 	const shiftedKey = match[2] && match[2].length > 0 ? Number.parseInt(match[2], 10) : undefined;

@@ -73,7 +73,7 @@ export function fauxThinking(thinking: string): ThinkingContent {
 export function fauxToolCall(name: string, args: ToolCall["arguments"], options: { id?: string } = {}): ToolCall {
 	const id =
 		options.id ??
-		(typeof globalThis.crypto?.randomUUID === "function"
+		(typeof globalThis.crypto.randomUUID === "function"
 			? globalThis.crypto.randomUUID()
 			: `tool:${Math.random().toString(36).slice(2)}`);
 	return { type: "toolCall", id, name, arguments: args };
@@ -206,7 +206,7 @@ function withUsage(
 	let cacheRead = 0;
 	let cacheWrite = 0;
 	const sid = opts?.sessionId;
-	if (sid && opts?.cacheRetention !== "none") {
+	if (sid && opts.cacheRetention !== "none") {
 		const prev = cache.get(sid);
 		if (prev) {
 			const cached = commonPrefixLen(prev, prompt);
@@ -243,8 +243,8 @@ function cloneMsg(msg: AssistantMessage, api: string, provider: string, modelId:
 		api,
 		provider,
 		model: modelId,
-		timestamp: msg.timestamp ?? Date.now(),
-		usage: msg.usage ?? DEFAULT_USAGE,
+		timestamp: msg.timestamp,
+		usage: msg.usage,
 	};
 }
 
@@ -293,7 +293,6 @@ async function streamWithDeltas(
 			return;
 		}
 		const block = msg.content[idx];
-		if (!block) continue;
 
 		if (block.type === "thinking") {
 			partial.content = [...partial.content, { type: "thinking", thinking: "" }];
@@ -306,6 +305,7 @@ async function streamWithDeltas(
 					stream.end(ab);
 					return;
 				}
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- assertion safe: we pushed ThinkingContent at content[idx] above
 				(partial.content[idx] as ThinkingContent).thinking += chunk;
 				stream.push({ type: "thinking_delta", contentIndex: idx, delta: chunk, partial: { ...partial } });
 			}
@@ -324,6 +324,7 @@ async function streamWithDeltas(
 					stream.end(ab);
 					return;
 				}
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- assertion safe: we pushed TextContent at content[idx] above
 				(partial.content[idx] as TextContent).text += chunk;
 				stream.push({ type: "text_delta", contentIndex: idx, delta: chunk, partial: { ...partial } });
 			}
@@ -344,6 +345,7 @@ async function streamWithDeltas(
 			}
 			stream.push({ type: "toolcall_delta", contentIndex: idx, delta: chunk, partial: { ...partial } });
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- assertion safe: we pushed ToolCall at content[idx] above
 		(partial.content[idx] as ToolCall).arguments = block.arguments;
 		stream.push({ type: "toolcall_end", contentIndex: idx, toolCall: block, partial: { ...partial } });
 	}
@@ -359,7 +361,7 @@ async function streamWithDeltas(
 
 export function registerFauxProvider(options: RegisterFauxProviderOptions = {}): FauxProviderRegistration {
 	const uuid = (): string =>
-		typeof globalThis.crypto?.randomUUID === "function"
+		typeof globalThis.crypto.randomUUID === "function"
 			? globalThis.crypto.randomUUID()
 			: Math.random().toString(36).slice(2);
 	const api = options.api ?? `${DEFAULT_API_PREFIX}:${uuid()}`;
@@ -385,6 +387,7 @@ export function registerFauxProvider(options: RegisterFauxProviderOptions = {}):
 				},
 			];
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- assertion safe: modelDefs always has >= 1 element, guaranteeing non-empty tuple
 	const models = modelDefs.map((d) => ({
 		id: d.id,
 		name: d.name ?? d.id,

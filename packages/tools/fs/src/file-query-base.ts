@@ -50,9 +50,11 @@ export function withCacheHit<D extends BaseToolDetails>(
 	cacheHit: ToolResultCacheHit | undefined,
 ): ToolQueryResponse<D> | undefined {
 	if (!cacheHit) return undefined;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- cache stores ToolQueryResponse, runtime-checked below
 	const cached = cacheHit.value as ToolQueryResponse<D> | undefined;
 	if (!cached || !Array.isArray(cached.content)) return undefined;
 	const cloned = structuredClone(cached);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- extending generic D with cache metadata
 	const details: D = {
 		...cloned.details,
 		cache: { hit: true, ageMs: cacheHit.ageMs, ttlMs: cacheHit.ttlMs },

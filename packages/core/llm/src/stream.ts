@@ -28,6 +28,7 @@ export function stream<TApi extends Api>(
 	options?: ProviderStreamOptions,
 ): AssistantMessageEventStream {
 	const provider = resolveApiProvider(model);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ProviderStreamOptions is a union that narrows to StreamOptions here
 	return provider.stream(model, context, options as StreamOptions);
 }
 

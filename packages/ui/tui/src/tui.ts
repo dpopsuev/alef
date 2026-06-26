@@ -40,7 +40,7 @@ function extractKittyImageIds(line: string): number[] {
 	const params = line.slice(paramsStart, paramsEnd);
 	for (const param of params.split(",")) {
 		const [key, value] = param.split("=", 2);
-		if (key !== "i" || value === undefined) continue;
+		if (key !== "i") continue;
 		const id = Number(value);
 		if (Number.isInteger(id) && id > 0 && id <= 0xffffffff) {
 			return [id];
@@ -187,7 +187,7 @@ export class Container implements Component {
 
 	invalidate(): void {
 		for (const child of this.children) {
-			child.invalidate?.();
+			child.invalidate();
 		}
 	}
 
@@ -424,7 +424,7 @@ export class TUI extends Container {
 
 	override invalidate(): void {
 		super.invalidate();
-		for (const overlay of this.overlayStack) overlay.component.invalidate?.();
+		for (const overlay of this.overlayStack) overlay.component.invalidate();
 	}
 
 	start(): void {
@@ -536,6 +536,7 @@ export class TUI extends Container {
 			} catch (err) {
 				renderLog(`RENDER ERROR ${String(err)}`);
 			}
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- doRender() may set renderRequested=true via requestRender() callback
 			if (this.renderRequested) {
 				this.scheduleRender();
 			}

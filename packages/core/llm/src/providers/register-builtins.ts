@@ -55,7 +55,7 @@ const importNodeOnlyProvider = (specifier: string): Promise<unknown> => import(s
 function memoize<T>(fn: () => Promise<T>): () => Promise<T> {
 	let cached: Promise<T> | undefined;
 	return () => {
-		cached ||= fn();
+		cached ??= fn();
 		return cached;
 	};
 }
@@ -230,7 +230,8 @@ function loadBedrockProviderModule(): Promise<
 	if (bedrockProviderModuleOverride) {
 		return Promise.resolve(bedrockProviderModuleOverride);
 	}
-	bedrockProviderModulePromise ||= importNodeOnlyProvider("./amazon-bedrock.js").then((module) => {
+	bedrockProviderModulePromise ??= importNodeOnlyProvider("./amazon-bedrock.js").then((module) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: dynamic import returns unknown module shape
 		const provider = module as BedrockProviderModule;
 		return {
 			stream: provider.streamBedrock,

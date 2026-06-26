@@ -41,6 +41,7 @@ export class EvalBaseline {
 	static async load(path: string): Promise<EvalBaseline> {
 		try {
 			const raw = await readFile(path, "utf-8");
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, we validate shape by usage
 			const obj = JSON.parse(raw) as Record<string, BaselineEntry>;
 			return new EvalBaseline(new Map(Object.entries(obj)));
 		} catch {

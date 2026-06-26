@@ -81,6 +81,7 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 				"git.pr-create": typedAction(PR_CREATE, async (ctx) => {
 					const { repo, title, head, base, body } = ctx.payload;
 					const pr = await forgeApi(opts, "POST", `/repos/${repo}/pulls`, { title, head, base, body });
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- forge API returns dynamic JSON
 					return withDisplay(pr as Record<string, unknown>, {
 						text: `PR created: ${title}`,
 						mimeType: "text/plain",
@@ -90,6 +91,7 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 					const { repo, state } = ctx.payload;
 					const qs = state ? `?state=${state}` : "";
 					const prs = await forgeApi(opts, "GET", `/repos/${repo}/pulls${qs}`);
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- forge API returns dynamic JSON
 					const list = prs as Array<{ number: number; title: string; state: string }>;
 					const text = list.map((p) => `#${p.number} [${p.state}] ${p.title}`).join("\n") || "(none)";
 					return withDisplay({ prs: list, count: list.length }, { text, mimeType: "text/plain" });
@@ -100,6 +102,7 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 						body,
 						event: event ?? "COMMENT",
 					});
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- forge API returns dynamic JSON
 					return withDisplay(review as Record<string, unknown>, {
 						text: `Review posted on PR #${number}`,
 						mimeType: "text/plain",
@@ -110,6 +113,7 @@ export function createGitAdapter(opts: GitAdapterOptions): Adapter {
 					const result = await forgeApi(opts, "POST", `/repos/${repo}/pulls/${number}/merge`, {
 						Do: method ?? "merge",
 					});
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- forge API returns dynamic JSON
 					return withDisplay(result as Record<string, unknown>, {
 						text: `PR #${number} merged.`,
 						mimeType: "text/plain",

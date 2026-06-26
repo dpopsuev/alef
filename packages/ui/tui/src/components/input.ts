@@ -150,7 +150,7 @@ export class Input implements Component, Focusable {
 				const beforeCursor = this.value.slice(0, this.cursor);
 				const graphemes = [...segmenter.segment(beforeCursor)];
 				const lastGrapheme = graphemes[graphemes.length - 1];
-				this.cursor -= lastGrapheme ? lastGrapheme.segment.length : 1;
+				this.cursor -= lastGrapheme.segment.length;
 			}
 			return;
 		}
@@ -161,7 +161,7 @@ export class Input implements Component, Focusable {
 				const afterCursor = this.value.slice(this.cursor);
 				const graphemes = [...segmenter.segment(afterCursor)];
 				const firstGrapheme = graphemes[0];
-				this.cursor += firstGrapheme ? firstGrapheme.segment.length : 1;
+				this.cursor += firstGrapheme.segment.length;
 			}
 			return;
 		}
@@ -227,7 +227,7 @@ export class Input implements Component, Focusable {
 			const beforeCursor = this.value.slice(0, this.cursor);
 			const graphemes = [...segmenter.segment(beforeCursor)];
 			const lastGrapheme = graphemes[graphemes.length - 1];
-			const graphemeLength = lastGrapheme ? lastGrapheme.segment.length : 1;
+			const graphemeLength = lastGrapheme.segment.length;
 			this.value = this.value.slice(0, this.cursor - graphemeLength) + this.value.slice(this.cursor);
 			this.cursor -= graphemeLength;
 		}
@@ -240,7 +240,7 @@ export class Input implements Component, Focusable {
 			const afterCursor = this.value.slice(this.cursor);
 			const graphemes = [...segmenter.segment(afterCursor)];
 			const firstGrapheme = graphemes[0];
-			const graphemeLength = firstGrapheme ? firstGrapheme.segment.length : 1;
+			const graphemeLength = firstGrapheme.segment.length;
 			this.value = this.value.slice(0, this.cursor) + this.value.slice(this.cursor + graphemeLength);
 		}
 	}
@@ -322,13 +322,13 @@ export class Input implements Component, Focusable {
 		this.pushUndo();
 
 		// Delete the previously yanked text (still at end of ring before rotation)
-		const prevText = this.killRing.peek() || "";
+		const prevText = this.killRing.peek() ?? "";
 		this.value = this.value.slice(0, this.cursor - prevText.length) + this.value.slice(this.cursor);
 		this.cursor -= prevText.length;
 
 		// Rotate and insert new entry
 		this.killRing.rotate();
-		const text = this.killRing.peek() || "";
+		const text = this.killRing.peek() ?? "";
 		this.value = this.value.slice(0, this.cursor) + text + this.value.slice(this.cursor);
 		this.cursor += text.length;
 		this.lastAction = "yank";
@@ -356,25 +356,25 @@ export class Input implements Component, Focusable {
 		const graphemes = [...segmenter.segment(textBeforeCursor)];
 
 		// Skip trailing whitespace
-		while (graphemes.length > 0 && isWhitespaceChar(graphemes[graphemes.length - 1]?.segment || "")) {
-			this.cursor -= graphemes.pop()?.segment.length || 0;
+		while (graphemes.length > 0 && isWhitespaceChar(graphemes[graphemes.length - 1]?.segment ?? "")) {
+			this.cursor -= graphemes.pop()?.segment.length ?? 0;
 		}
 
 		if (graphemes.length > 0) {
-			const lastGrapheme = graphemes[graphemes.length - 1]?.segment || "";
+			const lastGrapheme = graphemes[graphemes.length - 1]?.segment ?? "";
 			if (isPunctuationChar(lastGrapheme)) {
 				// Skip punctuation run
-				while (graphemes.length > 0 && isPunctuationChar(graphemes[graphemes.length - 1]?.segment || "")) {
-					this.cursor -= graphemes.pop()?.segment.length || 0;
+				while (graphemes.length > 0 && isPunctuationChar(graphemes[graphemes.length - 1]?.segment ?? "")) {
+					this.cursor -= graphemes.pop()?.segment.length ?? 0;
 				}
 			} else {
 				// Skip word run
 				while (
 					graphemes.length > 0 &&
-					!isWhitespaceChar(graphemes[graphemes.length - 1]?.segment || "") &&
-					!isPunctuationChar(graphemes[graphemes.length - 1]?.segment || "")
+					!isWhitespaceChar(graphemes[graphemes.length - 1]?.segment ?? "") &&
+					!isPunctuationChar(graphemes[graphemes.length - 1]?.segment ?? "")
 				) {
-					this.cursor -= graphemes.pop()?.segment.length || 0;
+					this.cursor -= graphemes.pop()?.segment.length ?? 0;
 				}
 			}
 		}
@@ -483,7 +483,7 @@ export class Input implements Component, Focusable {
 		const cursorGrapheme = graphemes[0];
 
 		const beforeCursor = visibleText.slice(0, cursorDisplay);
-		const atCursor = cursorGrapheme?.segment ?? " "; // Character at cursor, or space if at end
+		const atCursor = cursorGrapheme.segment; // Character at cursor, or space if at end
 		const afterCursor = visibleText.slice(cursorDisplay + atCursor.length);
 
 		// Hardware cursor marker (zero-width, emitted before fake cursor for IME positioning)

@@ -91,6 +91,7 @@ export class LspClient {
 	}
 
 	private _drain(): void {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- idiomatic infinite loop
 		while (true) {
 			const headerEnd = this.buf.indexOf("\r\n\r\n");
 			if (headerEnd === -1) break;
@@ -106,6 +107,7 @@ export class LspClient {
 			const body = this.buf.slice(bodyStart, bodyStart + len);
 			this.buf = this.buf.slice(bodyStart + len);
 			try {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown; shape validated by id/error checks below
 				const msg = JSON.parse(body) as { id?: number; result?: unknown; error?: { message: string } };
 				if (msg.id !== undefined) {
 					const p = this.pending.get(msg.id);
@@ -192,6 +194,7 @@ export class LspClient {
 		if (!this.ready) throw new Error("LspClient: not initialized");
 
 		// Prepare call hierarchy at the cursor position.
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- LSP response shape defined by protocol spec
 		const items = (await this._request("textDocument/prepareCallHierarchy", {
 			textDocument: { uri: fileUri },
 			position: { line, character },
@@ -204,6 +207,7 @@ export class LspClient {
 		if (!items || items.length === 0) return [];
 
 		// Get incoming calls for the first item.
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- LSP response shape defined by protocol spec
 		const calls = (await this._request("callHierarchy/incomingCalls", {
 			item: items[0],
 		})) as Array<{
@@ -243,6 +247,7 @@ export class LspClient {
 	> {
 		if (!this.ready) throw new Error("LspClient: not initialized");
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- LSP response shape defined by protocol spec
 		const result = (await this._request("textDocument/diagnostic", {
 			textDocument: { uri: fileUri },
 		})) as {
@@ -271,6 +276,7 @@ export class LspClient {
 	} | null> {
 		if (!this.ready) throw new Error("LspClient: not initialized");
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- LSP response shape defined by protocol spec
 		const result = (await this._request("textDocument/hover", {
 			textDocument: { uri: fileUri },
 			position: { line, character },
@@ -310,6 +316,7 @@ export class LspClient {
 	> {
 		if (!this.ready) throw new Error("LspClient: not initialized");
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- LSP response shape defined by protocol spec
 		const result = (await this._request("workspace/symbol", {
 			query,
 		})) as Array<{

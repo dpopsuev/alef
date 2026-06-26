@@ -103,6 +103,7 @@ export async function loadRunHistory(benchmarkPath: string): Promise<RunRecord[]
 		return raw
 			.split("\n")
 			.filter((l) => l.trim())
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL lines are RunRecord objects
 			.map((l) => JSON.parse(l) as RunRecord);
 	} catch {
 		return [];
@@ -182,11 +183,11 @@ export function generateScoreboard(history: RunRecord[]): string {
 	lines.push("|---|---|---|---|---|");
 
 	for (const id of evalIds) {
-		const allRuns = history.filter((r) => r.evals[id] !== undefined);
+		const allRuns = history.filter((r) => id in r.evals);
 		const passCount = allRuns.filter((r) => r.evals[id].pass).length;
 		const passRate = allRuns.length > 0 ? `${((passCount / allRuns.length) * 100).toFixed(0)}%` : "—";
 		const bestScore = Math.max(...allRuns.map((r) => r.evals[id].score));
-		const latestScore = latest.evals[id]?.score ?? 0;
+		const latestScore = latest.evals[id].score;
 		lines.push(
 			`| ${id} | ${allRuns.length} | ${passRate} | ${(bestScore * 100).toFixed(0)}% | ${(latestScore * 100).toFixed(0)}% |`,
 		);

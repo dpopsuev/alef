@@ -50,7 +50,7 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 	};
 
 	try {
-		const apiKey = options?.apiKey || getEnvApiKey(model.provider);
+		const apiKey = options?.apiKey ?? getEnvApiKey(model.provider);
 		if (!apiKey) {
 			throw new Error(`No API key available for provider: ${model.provider}`);
 		}
@@ -58,6 +58,7 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 		let params = buildParams(model, context);
 		const nextParams = await options?.onPayload?.(params, model);
 		if (nextParams !== undefined) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: onPayload returns provider-specific params shape
 			params = nextParams as typeof params;
 		}
 		const requestOptions = {
@@ -66,6 +67,7 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 			...(options?.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
 		};
 		const { data: response, response: rawResponse } = await client.chat.completions
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: OpenRouter extends ChatCompletion params with modalities field
 			.create(params as unknown as ChatCompletionCreateParamsNonStreaming, requestOptions)
 			.withResponse();
 		await options?.onResponse?.({ status: rawResponse.status, headers: headersToRecord(rawResponse.headers) }, model);
@@ -77,23 +79,21 @@ export const generateImagesOpenRouter: ImagesFunction<"openrouter-images", Image
 		}
 
 		const choice = imageResponse.choices[0];
-		if (choice) {
-			const content = choice.message.content;
-			if (typeof content === "string" && content.length > 0) {
-				output.output.push({ type: "text", text: content } satisfies TextContent);
-			}
+		const content = choice.message.content;
+		if (typeof content === "string" && content.length > 0) {
+			output.output.push({ type: "text", text: content } satisfies TextContent);
+		}
 
-			for (const image of choice.message.images ?? []) {
-				const imageUrl = typeof image.image_url === "string" ? image.image_url : image.image_url?.url;
-				if (!imageUrl?.startsWith("data:")) continue;
-				const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
-				if (!matches) continue;
-				output.output.push({
-					type: "image",
-					mimeType: matches[1],
-					data: matches[2],
-				} satisfies ImageContent);
-			}
+		for (const image of choice.message.images ?? []) {
+			const imageUrl = typeof image.image_url === "string" ? image.image_url : image.image_url?.url;
+			if (!imageUrl?.startsWith("data:")) continue;
+			const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+			if (!matches) continue;
+			output.output.push({
+				type: "image",
+				mimeType: matches[1],
+				data: matches[2],
+			} satisfies ImageContent);
 		}
 
 		return output;
@@ -161,13 +161,13 @@ function parseUsage(
 	},
 	model: ImagesModel<"openrouter-images">,
 ) {
-	const promptTokens = rawUsage.prompt_tokens || 0;
-	const reportedCachedTokens = rawUsage.prompt_tokens_details?.cached_tokens || 0;
-	const cacheWriteTokens = rawUsage.prompt_tokens_details?.cache_write_tokens || 0;
+	const promptTokens = rawUsage.prompt_tokens ?? 0;
+	const reportedCachedTokens = rawUsage.prompt_tokens_details?.cached_tokens ?? 0;
+	const cacheWriteTokens = rawUsage.prompt_tokens_details?.cache_write_tokens ?? 0;
 	const cacheReadTokens =
 		cacheWriteTokens > 0 ? Math.max(0, reportedCachedTokens - cacheWriteTokens) : reportedCachedTokens;
 	const input = Math.max(0, promptTokens - cacheReadTokens - cacheWriteTokens);
-	const output = rawUsage.completion_tokens || 0;
+	const output = rawUsage.completion_tokens ?? 0;
 	const usage = {
 		input,
 		output,

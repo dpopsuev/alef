@@ -40,7 +40,7 @@ export class Envelope implements Component {
 	}
 
 	invalidate(): void {
-		this.content?.invalidate?.();
+		this.content?.invalidate();
 	}
 
 	render(width: number): string[] {

@@ -8,11 +8,12 @@
 // NEVER convert to top-level imports - breaks browser/Vite builds (web-ui)
 let _randomBytes: typeof import("node:crypto").randomBytes | null = null;
 let _http: typeof import("node:http") | null = null;
-if (typeof process !== "undefined" && (process.versions?.node || process.versions?.bun)) {
-	import("node:crypto").then((m) => {
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.versions may not exist in all environments
+if (typeof process !== "undefined" && (process.versions?.node ?? process.versions?.bun)) {
+	void import("node:crypto").then((m) => {
 		_randomBytes = m.randomBytes;
 	});
-	import("node:http").then((m) => {
+	void import("node:http").then((m) => {
 		_http = m;
 	});
 }
@@ -21,6 +22,7 @@ import { oauthErrorHtml, oauthSuccessHtml } from "./oauth-page.js";
 import { generatePKCE } from "./pkce.js";
 import type { OAuthCredentials, OAuthLoginCallbacks, OAuthPrompt, OAuthProviderInterface } from "./types.js";
 
+// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env var should fall through to default
 const CALLBACK_HOST = process.env.ALEF_OAUTH_CALLBACK_HOST || "127.0.0.1";
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
@@ -83,6 +85,7 @@ function decodeJwt(token: string): JwtPayload | null {
 		if (parts.length !== 3) return null;
 		const payload = parts[1] ?? "";
 		const decoded = atob(payload);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, narrowing to expected JWT payload shape
 		return JSON.parse(decoded) as JwtPayload;
 	} catch {
 		return null;
@@ -115,6 +118,7 @@ async function exchangeAuthorizationCode(
 		};
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- response.json() returns unknown, narrowing to expected token response shape
 	const json = (await response.json()) as {
 		access_token?: string;
 		refresh_token?: string;
@@ -157,6 +161,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResult> {
 			};
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- response.json() returns unknown, narrowing to expected token response shape
 		const json = (await response.json()) as {
 			access_token?: string;
 			refresh_token?: string;
@@ -228,7 +233,7 @@ function startLocalOAuthServer(state: string): Promise<OAuthServerInfo> {
 
 	const server = _http.createServer((req, res) => {
 		try {
-			const url = new URL(req.url || "", "http://localhost");
+			const url = new URL(req.url ?? "", "http://localhost");
 			if (url.pathname !== "/auth/callback") {
 				res.statusCode = 404;
 				res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -356,6 +361,7 @@ export async function loginOpenAICodex(options: {
 			// If still no code, wait for manual promise to complete and try that
 			if (!code) {
 				await manualPromise;
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- manualError may be set asynchronously by manualPromise
 				if (manualError) {
 					throw manualError;
 				}

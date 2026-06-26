@@ -41,6 +41,5 @@ const GLYPHS: Record<string, GlyphPair> = {
 
 export function glyph(key: string): string {
 	const pair = GLYPHS[key];
-	if (!pair) return key;
 	return nerdFontsAvailable() ? pair.nerd : pair.ascii;
 }

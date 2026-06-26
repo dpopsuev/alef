@@ -265,7 +265,7 @@ export async function createLocalSession(
 		cwd: args.cwd,
 		dialogEventType: "llm.input",
 		onRebuildRequest: () => {
-			const g = globalThis as Record<string, unknown>; // eslint-disable-line @typescript-eslint/no-unsafe-type-assertion -- globalThis duck-typing for cross-module signaling
+			const g = globalThis as Record<string, unknown>;
 			if (typeof g.alefRequestRebuild === "function") g.alefRequestRebuild();
 		},
 	});

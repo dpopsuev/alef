@@ -19,8 +19,7 @@ async function createRouter(
 	args: Args,
 	agent: Agent,
 ): Promise<number> {
-	const sseSurface = blueprintSurfaces.filter((surface) => surface.type === "sse");
-	const allowedEvents = sseSurface.flatMap((surface) => surface.events ?? []);
+	const allowedEvents = blueprintSurfaces.flatMap((surface) => surface.events ?? []);
 	const history: Record<string, unknown>[] = [];
 
 	const router = createRouterAdapter({

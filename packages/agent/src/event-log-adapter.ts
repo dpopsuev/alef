@@ -75,7 +75,6 @@ export class SessionLog implements Adapter {
 		const offAgg1 = bus.command.subscribe("*", (event) => {
 			if (event.type === "llm.response") {
 				turns++;
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- llm.response payload shape guaranteed by reasoner
 				const u = (event.payload as { usage?: { input?: number; output?: number } }).usage;
 				if (u) {
 					inputTokens += u.input ?? 0;

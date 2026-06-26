@@ -48,7 +48,7 @@ function computeWeights(phases: readonly Phase[]): number[] {
 	const explicitSum = explicit.reduce((s, p) => s + (p.weight ?? 0), 0);
 	const remainder = Math.max(0, 1 - explicitSum);
 	const implicitWeight = implicit.length > 0 ? remainder / implicit.length : 0;
-	return phases.map((p) => (p.weight !== undefined ? p.weight : implicitWeight));
+	return phases.map((p) => p.weight ?? implicitWeight);
 }
 
 export interface PhaseRunnerOptions extends Partial<HarnessOptions> {
@@ -89,7 +89,6 @@ export class PhaseEvaluationRunner {
 		for (let i = 0; i < evaluation.phases.length; i++) {
 			const phase = evaluation.phases[i];
 			const weight = weights[i];
-			if (!phase || weight === undefined) continue;
 
 			if (aborted) {
 				results.push({
@@ -118,7 +117,7 @@ export class PhaseEvaluationRunner {
 			attempts++;
 
 			// Retry loop.
-			while (true) {
+			for (;;) {
 				const checkerResult = await phase.checker.check({
 					workspace: handle.path,
 					spans: handle.spans(),

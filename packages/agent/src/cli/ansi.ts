@@ -40,6 +40,7 @@ const GLYPHS: Record<string, GlyphPair> = {
 
 export function glyph(key: string): string {
 	const pair = GLYPHS[key];
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard for unknown glyph keys
 	if (!pair) return key;
 	return nerdFontsAvailable() ? pair.nerd : pair.ascii;
 }

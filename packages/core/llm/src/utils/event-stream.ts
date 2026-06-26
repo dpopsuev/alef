@@ -42,11 +42,13 @@ export class EventStream<T, R = T> implements AsyncIterable<T> {
 		// Notify all waiting consumers that we're done
 		while (this.waiting.length > 0) {
 			const waiter = this.waiting.shift()!;
-			waiter({ value: undefined as any, done: true });
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- IteratorResult requires a value even when done:true
+			waiter({ value: undefined as unknown as T, done: true });
 		}
 	}
 
 	async *[Symbol.asyncIterator](): AsyncIterator<T> {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional infinite loop, exits via return statements
 		while (true) {
 			if (this.queue.length > 0) {
 				yield this.queue.shift()!;

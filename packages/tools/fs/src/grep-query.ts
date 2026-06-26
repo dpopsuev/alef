@@ -72,6 +72,7 @@ function parseGrepMatch(line: string): ParsedGrepMatch | undefined {
 	} catch {
 		return undefined;
 	}
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse result narrowed to RgMatchEvent, fields checked below
 	const event = parsed as RgMatchEvent;
 	if (event.type !== "match") {
 		return undefined;
@@ -155,6 +156,7 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 					return;
 				}
 
+				// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through to "."
 				const searchPath = resolveToCwd(searchDir || ".", options.cwd);
 				const ops = customOps ?? defaultGrepOperations;
 				let isDirectory: boolean;
@@ -240,10 +242,6 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 				args.push("--", pattern, searchPath);
 
 				const child = spawn(rgPath, args, { stdio: ["ignore", "pipe", "pipe"] });
-				if (!child.stdout) {
-					settle(() => reject(new Error("Failed to read ripgrep stdout")));
-					return;
-				}
 				const rl = createInterface({ input: child.stdout });
 				let stderr = "";
 				let matchCount = 0;
@@ -269,7 +267,7 @@ export async function executeGrepQuery(input: GrepToolInput, options: GrepQueryO
 				};
 				signal?.addEventListener("abort", onAbort, { once: true });
 
-				child.stderr?.on("data", (chunk: Buffer | string) => {
+				child.stderr.on("data", (chunk: Buffer | string) => {
 					stderr += chunk.toString();
 				});
 

@@ -116,6 +116,7 @@ export function reconstructTurn(index: SessionIndex, turnNumber: number, evictAf
 	let messageCount = 0;
 	if (conversationHistory) {
 		for (const msg of conversationHistory) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped conversation history message
 			const role = (msg as { role?: string }).role ?? "unknown";
 			messageRoles.push(role);
 			messageCount++;

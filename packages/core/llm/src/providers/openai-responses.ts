@@ -90,6 +90,7 @@ export const streamOpenAIResponses: StreamFunction<"openai-responses", OpenAIRes
 
 		try {
 			// Create OpenAI client
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string API key should fall through
 			const apiKey = options?.apiKey || getEnvApiKey(model.provider) || "";
 			const cacheRetention = resolveCacheRetention(options?.cacheRetention);
 			const cacheSessionId = cacheRetention === "none" ? undefined : options?.sessionId;
@@ -97,6 +98,7 @@ export const streamOpenAIResponses: StreamFunction<"openai-responses", OpenAIRes
 			let params = buildParams(model, context, options);
 			const nextParams = await options?.onPayload?.(params, model);
 			if (nextParams !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: onPayload returns provider-specific params shape
 				params = nextParams as ResponseCreateParamsStreaming;
 			}
 			const requestOptions = {
@@ -125,8 +127,10 @@ export const streamOpenAIResponses: StreamFunction<"openai-responses", OpenAIRes
 			stream.end();
 		} catch (error) {
 			for (const block of output.content) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: stripping internal streaming scratch property
 				delete (block as { index?: number }).index;
 				// partialJson is only a streaming scratch buffer; never persist it.
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: stripping internal streaming scratch property
 				delete (block as { partialJson?: string }).partialJson;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
@@ -144,6 +148,7 @@ export const streamSimpleOpenAIResponses: StreamFunction<"openai-responses", Sim
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string API key should fall through
 	const apiKey = options?.apiKey || getEnvApiKey(model.provider);
 	if (!apiKey) {
 		throw new Error(`No API key for provider: ${model.provider}`);
@@ -202,6 +207,7 @@ function createClient(
 		model.provider === "cloudflare-ai-gateway"
 			? {
 					...headers,
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional: null fallback prevents OpenAI SDK from injecting default Authorization
 					Authorization: headers.Authorization ?? null,
 					"cf-aig-authorization": `Bearer ${apiKey}`,
 				}
@@ -230,11 +236,11 @@ function buildParams(model: Model<"openai-responses">, context: Context, options
 	};
 
 	if (options?.maxTokens) {
-		params.max_output_tokens = options?.maxTokens;
+		params.max_output_tokens = options.maxTokens;
 	}
 
 	if (options?.temperature !== undefined) {
-		params.temperature = options?.temperature;
+		params.temperature = options.temperature;
 	}
 
 	if (options?.serviceTier !== undefined) {
@@ -247,16 +253,18 @@ function buildParams(model: Model<"openai-responses">, context: Context, options
 
 	if (model.reasoning) {
 		if (options?.reasoningEffort || options?.reasoningSummary) {
-			const effort = options?.reasoningEffort
+			const effort = options.reasoningEffort
 				? (model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort)
 				: "medium";
 			params.reasoning = {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: effort value validated by thinkingLevelMap lookup
 				effort: effort as NonNullable<typeof params.reasoning>["effort"],
-				summary: options?.reasoningSummary || "auto",
+				summary: options.reasoningSummary ?? "auto",
 			};
 			params.include = ["reasoning.encrypted_content"];
 		} else if (model.provider !== "github-copilot" && model.thinkingLevelMap?.off !== null) {
 			params.reasoning = {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: effort value from thinkingLevelMap or default
 				effort: (model.thinkingLevelMap?.off ?? "none") as NonNullable<typeof params.reasoning>["effort"],
 			};
 		}

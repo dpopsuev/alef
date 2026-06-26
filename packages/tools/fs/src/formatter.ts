@@ -10,7 +10,9 @@ async function hasDepInPackageJson(cwd: string, dep: string): Promise<boolean> {
 	if (!existsSync(pkgPath)) return false;
 	try {
 		const text = await readFile(pkgPath, "utf-8");
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, narrowed to expected shape
 		const pkg = JSON.parse(text) as Record<string, unknown>;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- package.json deps are objects
 		const deps = { ...(pkg.dependencies as object), ...(pkg.devDependencies as object) };
 		return dep in deps;
 	} catch {

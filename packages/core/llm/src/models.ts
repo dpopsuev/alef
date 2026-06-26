@@ -7,6 +7,7 @@ const modelRegistry: Map<string, Map<string, Model<Api>>> = new Map();
 for (const [provider, models] of Object.entries(MODELS)) {
 	const providerModels = new Map<string, Model<Api>>();
 	for (const [id, model] of Object.entries(models)) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generated MODELS entries conform to Model<Api>
 		providerModels.set(id, model as Model<Api>);
 	}
 	modelRegistry.set(provider, providerModels);
@@ -22,10 +23,12 @@ export function getModel<TProvider extends KnownProvider, TModelId extends keyof
 	modelId: TModelId,
 ): Model<ModelApi<TProvider, TModelId>> {
 	const providerModels = modelRegistry.get(provider);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type narrowing from runtime registry lookup
 	return providerModels?.get(modelId as string) as Model<ModelApi<TProvider, TModelId>>;
 }
 
 export function getProviders(): KnownProvider[] {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- registry keys are KnownProvider strings from MODELS
 	return Array.from(modelRegistry.keys()) as KnownProvider[];
 }
 
@@ -33,6 +36,7 @@ export function getModels<TProvider extends KnownProvider>(
 	provider: TProvider,
 ): Model<ModelApi<TProvider, keyof (typeof MODELS)[TProvider]>>[] {
 	const models = modelRegistry.get(provider);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type narrowing from runtime registry lookup
 	return models ? (Array.from(models.values()) as Model<ModelApi<TProvider, keyof (typeof MODELS)[TProvider]>>[]) : [];
 }
 

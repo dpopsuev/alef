@@ -23,6 +23,7 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		domainAdapters: opts.domainAdapters,
 		sessionStore: opts.sessionStore,
 		writableRoots: opts.writableRoots,
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- factoryAdapter conforms to Adapter but has narrower type
 		extraAdapters: [skillsAdapter, factoryAdapter as unknown as Adapter],
 		summarize: createLlmSummarizer(opts.model),
 		adapters: { createAgentAdapter, strategyRegistry, createCompactionStage, createSessionContextStage },

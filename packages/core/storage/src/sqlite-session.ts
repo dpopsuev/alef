@@ -40,9 +40,11 @@ export class SqliteSessionStore implements SessionStore {
 
 		for (const row of result.rows) {
 			const record: StorageRecord = {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus column constrained to StorageRecord bus values
 				bus: String(row.bus) as StorageRecord["bus"],
 				type: String(row.type),
 				correlationId: String(row.correlation_id),
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload stored as JSON object
 				payload: JSON.parse(String(row.payload)) as Record<string, unknown>,
 				timestamp: Number(row.timestamp),
 				elapsed: row.elapsed != null ? Number(row.elapsed) : undefined,
@@ -50,6 +52,7 @@ export class SqliteSessionStore implements SessionStore {
 				sessionId: row.session_id != null ? String(row.session_id) : undefined,
 				actor:
 					row.actor_address != null && row.actor_type != null
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- actor_type column constrained to "human" | "agent"
 						? { address: String(row.actor_address), type: String(row.actor_type) as "human" | "agent" }
 						: undefined,
 			};

@@ -201,15 +201,16 @@ export class AgentHandle {
 			.getFinishedSpans()
 			.filter((s) => s.spanContext().traceId === this._rootSpan.spanContext().traceId)
 			.map((s) => {
-				const attrs = Object.fromEntries(Object.entries(s.attributes ?? {}));
+				const attrs = Object.fromEntries(Object.entries(s.attributes));
 				let args: Record<string, unknown> | undefined;
 				let result: string | undefined;
 				const retryReasons: string[] = [];
-				for (const event of s.events ?? []) {
+				for (const event of s.events) {
 					if (event.name === "tool.args" && event.attributes) {
 						const raw = event.attributes.args;
 						if (typeof raw === "string") {
 							try {
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, casting to expected shape
 								args = JSON.parse(raw) as Record<string, unknown>;
 							} catch {
 								/* ignore */
@@ -369,11 +370,13 @@ export class EvalHarness {
 
 		const transcriptObserver = agent.observe({
 			onCommand(event) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage is opaque, cast to known event shape
 				const p = event as unknown as { type?: string; correlationId?: string; payload?: Record<string, unknown> };
 				if (p.type === "llm.response" && Array.isArray(p.payload?.conversationHistory)) {
 					transcript.splice(
 						0,
 						transcript.length,
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- conversationHistory is an array of message objects
 						...(p.payload.conversationHistory as Array<Record<string, unknown>>),
 					);
 				}
@@ -388,6 +391,7 @@ export class EvalHarness {
 				}
 			},
 			onEvent(event) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage is opaque, cast to known event shape
 				const p = event as unknown as {
 					type?: string;
 					correlationId?: string;
@@ -411,6 +415,7 @@ export class EvalHarness {
 				}
 			},
 			onNotification(event) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage is opaque, cast to known event shape
 				const p = event as unknown as { type?: string; correlationId?: string; payload?: Record<string, unknown> };
 				busEvents.push({
 					bus: "notification",

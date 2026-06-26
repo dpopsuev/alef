@@ -78,6 +78,7 @@ export function formatTranscript(metrics: RunMetrics): string {
 			const content = msg.content;
 			if (Array.isArray(content)) {
 				for (const block of content) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- transcript content blocks have known shape
 					const b = block as Record<string, unknown>;
 					if (b.type === "text") {
 						lines.push(`\n[ASSISTANT]`);

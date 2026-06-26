@@ -180,6 +180,7 @@ function extractContentText(response: unknown): string | undefined {
 	if (response === null || typeof response !== "object") return undefined;
 	const { content } = response as { content?: unknown };
 	if (!Array.isArray(content) || content.length === 0) return undefined;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- untyped response shape, runtime-checked below
 	const first = content[0] as { type?: string; text?: string };
 	return typeof first.text === "string" ? first.text : undefined;
 }
@@ -328,8 +329,8 @@ function generateEditDiff(oldContent: string, newContent: string, filePath: stri
 				}
 			}
 		} else {
-			const prevChange = i > 0 && (parts[i - 1]?.added || parts[i - 1]?.removed);
-			const nextChange = i < parts.length - 1 && (parts[i + 1]?.added || parts[i + 1]?.removed);
+			const prevChange = i > 0 && (parts[i - 1]?.added ?? parts[i - 1]?.removed);
+			const nextChange = i < parts.length - 1 && (parts[i + 1]?.added ?? parts[i + 1]?.removed);
 			if (!prevChange && !nextChange) {
 				oldLine += raw.length;
 				newLine += raw.length;
@@ -388,6 +389,7 @@ async function handleEdit(
 	try {
 		fileStat = await import("node:fs/promises").then((m) => m.stat(absolutePath));
 	} catch (err) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown catch to ErrnoException for .code
 		const code = (err as NodeJS.ErrnoException).code;
 		if (code === "ENOENT") throw new Error(`fs.edit: file not found: ${filePath}`);
 		if (code === "EACCES") throw new Error(`fs.edit: permission denied: ${filePath}`);
@@ -419,6 +421,7 @@ async function handleEdit(
 	try {
 		original = await fsReadFile(absolutePath, "utf-8");
 	} catch (err) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown catch to ErrnoException for .code
 		const code = (err as NodeJS.ErrnoException).code;
 		if (code === "ENOENT") throw new Error(`fs.edit: file not found: ${filePath}`);
 		if (code === "EACCES") throw new Error(`fs.edit: permission denied: ${filePath}`);
@@ -492,6 +495,7 @@ async function handleGrep(
 		countOnly: countOnly ?? false,
 	};
 	const response = await executeGrepQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "grep") });
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ToolQueryResponse to generic Record for unified handler return
 	return response as unknown as Record<string, unknown>;
 }
 
@@ -520,6 +524,7 @@ async function handleFind(
 		hidden,
 	};
 	const response = await executeFindQuery(input, { cwd: opts.cwd, cache: getCache(opts.runtime, "find") });
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ToolQueryResponse to generic Record for unified handler return
 	return response as unknown as Record<string, unknown>;
 }
 
@@ -566,8 +571,11 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					FS_READ_TOOL,
 					async (ctx) => {
 						const result = await handleRead(ctx, options, tracker);
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleRead returns known shape
 						const truncated = result.truncated as boolean;
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleRead returns known shape
 						const outputLines = result.outputLines as number | undefined;
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleRead returns known shape
 						const totalLines = result.totalLines as number;
 						const truncNote = truncated
 							? ` (truncated to ${outputLines ?? "?"} / ${totalLines} lines)`
@@ -598,7 +606,9 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 					async (ctx) => {
 						const absolutePath = nodeResolve(options.cwd, ctx.payload.path);
 						const raw = await withQueue(absolutePath, () => handleWrite(ctx, options, tracker));
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleWrite returns known shape
 						const filePath = raw.path as string;
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleWrite returns known shape
 						const bytes = raw.bytes as number;
 						return withDisplay(
 							{ path: filePath, bytes },
@@ -614,6 +624,7 @@ export function createFsAdapter(options: FsAdapterOptions): Adapter {
 						const result = await withQueue(absolutePath, () => handleEdit(ctx, options, tracker));
 						return withDisplay(
 							{ path: result.path, applied: result.applied, editCount: result.editCount },
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- handleEdit returns known shape
 							{ text: result.diff as string, mimeType: "text/x-diff" },
 						);
 					},

@@ -15,7 +15,7 @@ export function toolCallsAreReal(expectedToolPrefix?: string): Checker {
 			const hasJsonToolCalls = TOOL_CALL_JSON_PATTERNS.some((p) => p.test(lastReply));
 
 			const toolSpans = spans.filter((s) => {
-				const name = s.name ?? "";
+				const name = s.name;
 				if (expectedToolPrefix) return name.startsWith(expectedToolPrefix);
 				return name.includes(".") && !name.startsWith("llm.") && !name.startsWith("context.");
 			});

@@ -58,6 +58,7 @@ function withPayloadValidation(bus: Bus, adapter: Adapter): Bus {
 	): string | null => {
 		const schema = schemas?.[event.type];
 		if (!schema) return null;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage subtype always carries payload; base type omits it
 		const result = schema.safeParse((event as { payload?: unknown }).payload);
 		if (!result.success) {
 			return `[PayloadValidation] ${adapter.name} → ${busLabel}/${event.type}: ${result.error.issues
@@ -337,8 +338,8 @@ export class Agent {
 		const idx = this._adapters.findIndex((o) => o.name === name);
 		if (idx === -1) return false;
 		const adapter = this._adapters[idx];
-		this.unmounts[idx]?.();
-		void adapter?.close?.();
+		this.unmounts[idx]();
+		void adapter.close?.();
 		this._adapters.splice(idx, 1);
 		this.unmounts.splice(idx, 1);
 

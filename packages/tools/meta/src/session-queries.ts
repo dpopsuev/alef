@@ -26,6 +26,7 @@ async function parseSession(
 		const contentParts: string[] = [];
 		for (const line of lines) {
 			try {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL schema enforced by session writer
 				const r = JSON.parse(line) as { bus?: string; type?: string; payload?: { text?: string; name?: string } };
 				if (r.bus === "internal" && r.type === "session.name" && typeof r.payload?.name === "string") {
 					name = r.payload.name;
@@ -67,6 +68,7 @@ export async function readSessionTurns(
 		const turns: { turn: string; type: string }[] = [];
 		for (const line of raw.split("\n").filter(Boolean)) {
 			try {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL schema enforced by session writer
 				const r = JSON.parse(line) as { type?: string; payload?: { text?: string } };
 				if (r.type === dialogEventType) {
 					const text = r.payload?.text ?? "";
@@ -97,6 +99,7 @@ export async function renameSession(id: string, name: string): Promise<{ ok: boo
 		await appendFile(path, `${record}\n`, "utf-8");
 		renamed = true;
 	});
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated inside awaited callback
 	return renamed ? { ok: true } : { ok: false, error: `Session '${id}' not found` };
 }
 
@@ -148,9 +151,11 @@ export async function pmHistory(): Promise<Array<{ id: number; ts: string; adapt
 				.filter((f) => f.endsWith(".json"))
 				.map(async (f) => {
 					const raw = await readFile(join(genDir, f), "utf-8");
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generation file schema is stable
 					const gen = JSON.parse(raw) as { id: number; ts: string; lockfileContent: string };
 					const adapters: Record<string, string> = {};
 					try {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- lockfile JSON shape is well-known
 						const lock = JSON.parse(gen.lockfileContent) as { packages?: Record<string, { version?: string }> };
 						for (const [k, v] of Object.entries(lock.packages ?? {})) {
 							if (k.startsWith("node_modules/")) adapters[k.slice("node_modules/".length)] = v.version ?? "?";

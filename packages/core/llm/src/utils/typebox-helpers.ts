@@ -17,7 +17,8 @@ export function StringEnum<T extends readonly string[]>(
 ): TUnsafe<T[number]> {
 	return Type.Unsafe<T[number]>({
 		type: "string",
-		enum: values as any,
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TypeBox Unsafe schema requires raw enum array
+		enum: values as unknown as string[],
 		...(options?.description && { description: options.description }),
 		...(options?.default && { default: options.default }),
 	});

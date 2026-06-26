@@ -116,6 +116,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 			command: {
 				"contract.submit": typedAction(SUBMIT_TOOL, async (ctx) => {
 					traceEvent("contract:submit", {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctx carries correlationId at runtime via bus dispatch
 						correlationId: (ctx as unknown as { correlationId: string }).correlationId,
 						hasValidator: !!contract.validator,
 					});
@@ -141,6 +142,7 @@ export function createContractTool<T extends z.ZodTypeAny>(
 					}
 
 					const id = newCorrelationId();
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctx exposes command/event channels at runtime via bus
 					const { command, event } = ctx as unknown as {
 						command: { publish: (e: unknown) => void };
 						event: { subscribe: (type: string, h: (e: unknown) => void) => () => void };
@@ -160,7 +162,8 @@ export function createContractTool<T extends z.ZodTypeAny>(
 						}, AUTO_APPROVE_MS);
 
 						const off = event.subscribe(VALIDATE_RESULT, (evt: unknown) => {
-							const e = evt as { payload: { id: string; approved: boolean; feedback?: string } };
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- VALIDATE_RESULT payload shape enforced by bus protocol
+						const e = evt as { payload: { id: string; approved: boolean; feedback?: string } };
 							if (e.payload.id !== id) return;
 							clearTimeout(timer);
 							off();
@@ -190,7 +193,8 @@ export function createContractTool<T extends z.ZodTypeAny>(
 						command.publish({
 							type: VALIDATE_REQUEST,
 							payload: { id, output: validated, kind: contract.validator, context: contract.intent },
-							correlationId: (ctx as unknown as { correlationId: string }).correlationId,
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctx carries correlationId at runtime via bus dispatch
+						correlationId: (ctx as unknown as { correlationId: string }).correlationId,
 						});
 					});
 				}),

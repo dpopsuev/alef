@@ -182,8 +182,8 @@ await warmAuthCache();
 
 import type { SessionPreviewProvider } from "@dpopsuev/alef-storage";
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- StorageFactory concrete impls may expose sessionPreview(); duck-typed at boundary
 const preview: SessionPreviewProvider | undefined =
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- StorageFactory concrete impls may expose sessionPreview(); duck-typed at boundary
 	"sessionPreview" in storage ? (storage as { sessionPreview(): SessionPreviewProvider }).sessionPreview() : undefined;
 const session = await loadSession(args, storage.sessions, willUseTui, pickSession, preview);
 

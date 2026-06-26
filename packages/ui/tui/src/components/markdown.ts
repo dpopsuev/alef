@@ -148,7 +148,7 @@ export class Markdown implements Component {
 		for (let i = 0; i < tokens.length; i++) {
 			const token = tokens[i];
 			const nextToken = tokens[i + 1];
-			const tokenLines = this.renderToken(token, contentWidth, nextToken?.type);
+			const tokenLines = this.renderToken(token, contentWidth, nextToken.type);
 			renderedLines.push(...tokenLines);
 		}
 
@@ -316,7 +316,7 @@ export class Markdown implements Component {
 					stylePrefix: this.getStylePrefix(headingStyleFn),
 				};
 
-				const headingText = this.renderInlineTokens(token.tokens || [], headingStyleContext);
+				const headingText = this.renderInlineTokens(token.tokens ?? [], headingStyleContext);
 				const styledHeading = headingLevel >= 3 ? headingStyleFn(headingPrefix) + headingText : headingText;
 				lines.push(styledHeading);
 				if (nextTokenType && nextTokenType !== "space") {
@@ -326,7 +326,7 @@ export class Markdown implements Component {
 			}
 
 			case "paragraph": {
-				const paragraphText = this.renderInlineTokens(token.tokens || [], styleContext);
+				const paragraphText = this.renderInlineTokens(token.tokens ?? [], styleContext);
 				lines.push(paragraphText);
 				// Don't add spacing if next token is space or list
 				if (nextTokenType && nextTokenType !== "list" && nextTokenType !== "space") {
@@ -341,7 +341,7 @@ export class Markdown implements Component {
 
 			case "code": {
 				const indent = this.theme.codeBlockIndent ?? "  ";
-				lines.push(this.theme.codeBlockBorder(`\`\`\`${token.lang || ""}`));
+				lines.push(this.theme.codeBlockBorder(`\`\`\`${token.lang ?? ""}`));
 				if (this.theme.highlightCode) {
 					const highlightedLines = this.theme.highlightCode(token.text, token.lang);
 					for (const hlLine of highlightedLines) {
@@ -362,6 +362,7 @@ export class Markdown implements Component {
 			}
 
 			case "list": {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- mdast node type checked by parent case
 				const listLines = this.renderList(token as Tokens.List, 0, width, styleContext);
 				lines.push(...listLines);
 				// Don't add spacing after lists if a space token follows
@@ -370,6 +371,7 @@ export class Markdown implements Component {
 			}
 
 			case "table": {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- mdast node type checked by parent case
 				const tableLines = this.renderTable(token as Tokens.Table, width, nextTokenType, styleContext);
 				lines.push(...tableLines);
 				break;
@@ -396,13 +398,13 @@ export class Markdown implements Component {
 					applyText: (text: string) => text,
 					stylePrefix: quoteStylePrefix,
 				};
-				const quoteTokens = token.tokens || [];
+				const quoteTokens = token.tokens ?? [];
 				const renderedQuoteLines: string[] = [];
 				for (let i = 0; i < quoteTokens.length; i++) {
 					const quoteToken = quoteTokens[i];
 					const nextQuoteToken = quoteTokens[i + 1];
 					renderedQuoteLines.push(
-						...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken?.type, quoteInlineStyleContext),
+						...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken.type, quoteInlineStyleContext),
 					);
 				}
 
@@ -475,17 +477,17 @@ export class Markdown implements Component {
 
 				case "paragraph":
 					// Paragraph tokens contain nested inline tokens
-					result += this.renderInlineTokens(token.tokens || [], resolvedStyleContext);
+					result += this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
 					break;
 
 				case "strong": {
-					const boldContent = this.renderInlineTokens(token.tokens || [], resolvedStyleContext);
+					const boldContent = this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
 					result += this.theme.bold(boldContent) + stylePrefix;
 					break;
 				}
 
 				case "em": {
-					const italicContent = this.renderInlineTokens(token.tokens || [], resolvedStyleContext);
+					const italicContent = this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
 					result += this.theme.italic(italicContent) + stylePrefix;
 					break;
 				}
@@ -495,7 +497,7 @@ export class Markdown implements Component {
 					break;
 
 				case "link": {
-					const linkText = this.renderInlineTokens(token.tokens || [], resolvedStyleContext);
+					const linkText = this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
 					const styledLink = this.theme.link(this.theme.underline(linkText));
 					if (getCapabilities().hyperlinks) {
 						// OSC 8: render as a clickable hyperlink. The URL is not printed inline,
@@ -521,7 +523,7 @@ export class Markdown implements Component {
 					break;
 
 				case "del": {
-					const delContent = this.renderInlineTokens(token.tokens || [], resolvedStyleContext);
+					const delContent = this.renderInlineTokens(token.tokens ?? [], resolvedStyleContext);
 					result += this.theme.strikethrough(delContent) + stylePrefix;
 					break;
 				}
@@ -567,6 +569,7 @@ export class Markdown implements Component {
 
 			for (const itemToken of item.tokens) {
 				if (itemToken.type === "list") {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- mdast node type checked by parent case
 					lines.push(...this.renderList(itemToken as Tokens.List, depth + 1, width, styleContext));
 					renderedAnyLine = true;
 					continue;
@@ -651,13 +654,13 @@ export class Markdown implements Component {
 		const naturalWidths: number[] = [];
 		const minWordWidths: number[] = [];
 		for (let i = 0; i < numCols; i++) {
-			const headerText = this.renderInlineTokens(token.header[i].tokens || [], styleContext);
+			const headerText = this.renderInlineTokens(token.header[i].tokens, styleContext);
 			naturalWidths[i] = visibleWidth(headerText);
 			minWordWidths[i] = Math.max(1, this.getLongestWordWidth(headerText, maxUnbrokenWordWidth));
 		}
 		for (const row of token.rows) {
 			for (let i = 0; i < row.length; i++) {
-				const cellText = this.renderInlineTokens(row[i].tokens || [], styleContext);
+				const cellText = this.renderInlineTokens(row[i].tokens, styleContext);
 				naturalWidths[i] = Math.max(naturalWidths[i] || 0, visibleWidth(cellText));
 				minWordWidths[i] = Math.max(
 					minWordWidths[i] || 1,
@@ -742,7 +745,7 @@ export class Markdown implements Component {
 
 		// Render header with wrapping
 		const headerCellLines: string[][] = token.header.map((cell, i) => {
-			const text = this.renderInlineTokens(cell.tokens || [], styleContext);
+			const text = this.renderInlineTokens(cell.tokens, styleContext);
 			return this.wrapCellText(text, columnWidths[i]);
 		});
 		const headerLineCount = Math.max(...headerCellLines.map((c) => c.length));
@@ -765,7 +768,7 @@ export class Markdown implements Component {
 		for (let rowIndex = 0; rowIndex < token.rows.length; rowIndex++) {
 			const row = token.rows[rowIndex];
 			const rowCellLines: string[][] = row.map((cell, i) => {
-				const text = this.renderInlineTokens(cell.tokens || [], styleContext);
+				const text = this.renderInlineTokens(cell.tokens, styleContext);
 				return this.wrapCellText(text, columnWidths[i]);
 			});
 			const rowLineCount = Math.max(...rowCellLines.map((c) => c.length));

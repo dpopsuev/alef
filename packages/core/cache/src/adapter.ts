@@ -193,6 +193,7 @@ export function createCacheAdapter(opts: CacheAdapterOptions = {}) {
 		};
 
 		// Store cleanup function for later
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- attaching cleanup fn to bus wrapper for later disposal
 		(wrappedNerve as unknown as { _cacheCleanup?: () => void })._cacheCleanup = () => {
 			for (const unsub of motorUnsubs) unsub();
 			for (const unsub of invalidateUnsubs) unsub();

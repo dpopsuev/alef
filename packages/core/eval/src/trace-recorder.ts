@@ -65,6 +65,7 @@ export class TraceRecorder implements BusObserver {
 	}
 
 	onCommand(event: BusMessage): void {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage is opaque, cast to known command shape
 		const p = event as unknown as { type?: string; correlationId?: string; payload?: Record<string, unknown> };
 		const type = p.type ?? "unknown";
 		// Skip internal dialog events \u2014 not tool calls
@@ -80,6 +81,7 @@ export class TraceRecorder implements BusObserver {
 	}
 
 	onEvent(event: BusMessage): void {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage is opaque, cast to known event shape
 		const p = event as unknown as {
 			type?: string;
 			correlationId?: string;
@@ -155,7 +157,8 @@ export async function loadTrace(path: string): Promise<TraceEvent[]> {
 	for (const line of raw.split("\n")) {
 		if (!line.trim()) continue;
 		try {
-			events.push(JSON.parse(line) as TraceEvent);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL lines are TraceEvent objects
+		events.push(JSON.parse(line) as TraceEvent);
 		} catch {
 			/* skip malformed lines */
 		}

@@ -132,11 +132,12 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 		}
 
 		// Resolve bearer token for Bedrock API key auth.
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through (not a valid token)
 		const bearerToken = options.bearerToken || process.env.AWS_BEARER_TOKEN_BEDROCK || undefined;
 		const useBearerToken = bearerToken !== undefined && process.env.AWS_BEDROCK_SKIP_AUTH !== "1";
 
 		// in Node.js/Bun environment only
-		if (typeof process !== "undefined" && (process.versions?.node || process.versions?.bun)) {
+		if (typeof process !== "undefined" && (process.versions.node || process.versions.bun)) {
 			// Region resolution: explicit option > env vars > SDK default chain.
 			// When AWS_PROFILE is set, we leave region undefined so the SDK can
 			// resovle it from aws profile configs. Otherwise fall back to us-east-1.
@@ -185,6 +186,7 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 			// Non-Node environment (browser): fall back to us-east-1 since
 			// there's no config file resolution available.
 			config.region =
+				// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through to "us-east-1"
 				configuredRegion || (endpointRegion && useExplicitEndpoint ? endpointRegion : undefined) || "us-east-1";
 		}
 
@@ -208,8 +210,9 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 				additionalModelRequestFields: buildAdditionalModelRequestFields(model, options),
 				...(options.requestMetadata !== undefined && { requestMetadata: options.requestMetadata }),
 			};
-			const nextCommandInput = await options?.onPayload?.(commandInput, model);
+			const nextCommandInput = await options.onPayload?.(commandInput, model);
 			if (nextCommandInput !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- API payload boundary
 				commandInput = nextCommandInput as typeof commandInput;
 			}
 			const command = new ConverseStreamCommand(commandInput);
@@ -220,7 +223,7 @@ export const streamBedrock: StreamFunction<"bedrock-converse-stream", BedrockOpt
 				if (response.$metadata.requestId) {
 					responseHeaders["x-amzn-requestid"] = response.$metadata.requestId;
 				}
-				await options?.onResponse?.({ status: response.$metadata.httpStatusCode, headers: responseHeaders }, model);
+				await options.onResponse?.({ status: response.$metadata.httpStatusCode, headers: responseHeaders }, model);
 			}
 
 			for await (const item of response.stream!) {
@@ -328,7 +331,7 @@ export const streamSimpleBedrock: StreamFunction<"bedrock-converse-stream", Simp
 		}
 
 		const adjusted = adjustMaxTokensForThinking(
-			base.maxTokens || 0,
+			base.maxTokens ?? 0,
 			model.maxTokens,
 			options.reasoning,
 			options.thinkingBudgets,
@@ -339,7 +342,7 @@ export const streamSimpleBedrock: StreamFunction<"bedrock-converse-stream", Simp
 			maxTokens: adjusted.maxTokens,
 			reasoning: options.reasoning,
 			thinkingBudgets: {
-				...(options.thinkingBudgets || {}),
+				...(options.thinkingBudgets ?? {}),
 				[clampReasoning(options.reasoning)!]: adjusted.thinkingBudget,
 			},
 		} satisfies BedrockOptions);
@@ -364,8 +367,8 @@ function handleContentBlockStart(
 	if (start?.toolUse) {
 		const block: Block = {
 			type: "toolCall",
-			id: start.toolUse.toolUseId || "",
-			name: start.toolUse.name || "",
+			id: start.toolUse.toolUseId ?? "",
+			name: start.toolUse.name ?? "",
 			arguments: {},
 			partialJson: "",
 			index,
@@ -387,7 +390,8 @@ function handleContentBlockDelta(
 	let block = blocks[index];
 
 	if (delta?.text !== undefined) {
-		// If no text block exists yet, create one, as `handleContentBlockStart` is not sent for text blocks
+		// handleContentBlockStart is not sent for text blocks — create one if missing.
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- noUncheckedIndexedAccess is off; block can be undefined at runtime
 		if (!block) {
 			const newBlock: Block = { type: "text", text: "", index: contentBlockIndex };
 			output.content.push(newBlock);
@@ -399,14 +403,16 @@ function handleContentBlockDelta(
 			block.text += delta.text;
 			stream.push({ type: "text_delta", contentIndex: index, delta: delta.text, partial: output });
 		}
-	} else if (delta?.toolUse && block?.type === "toolCall") {
-		block.partialJson = (block.partialJson || "") + (delta.toolUse.input || "");
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- delta may be undefined at runtime
+	} else if (delta?.toolUse && block.type === "toolCall") {
+		block.partialJson = (block.partialJson ?? "") + (delta.toolUse.input ?? "");
 		block.arguments = parseStreamingJson(block.partialJson);
-		stream.push({ type: "toolcall_delta", contentIndex: index, delta: delta.toolUse.input || "", partial: output });
+		stream.push({ type: "toolcall_delta", contentIndex: index, delta: delta.toolUse.input ?? "", partial: output });
 	} else if (delta?.reasoningContent) {
 		let thinkingBlock = block;
 		let thinkingIndex = index;
 
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- noUncheckedIndexedAccess is off; thinkingBlock can be undefined at runtime
 		if (!thinkingBlock) {
 			const newBlock: Block = { type: "thinking", thinking: "", thinkingSignature: "", index: contentBlockIndex };
 			output.content.push(newBlock);
@@ -415,7 +421,7 @@ function handleContentBlockDelta(
 			stream.push({ type: "thinking_start", contentIndex: thinkingIndex, partial: output });
 		}
 
-		if (thinkingBlock?.type === "thinking") {
+		if (thinkingBlock.type === "thinking") {
 			if (delta.reasoningContent.text) {
 				thinkingBlock.thinking += delta.reasoningContent.text;
 				stream.push({
@@ -427,7 +433,7 @@ function handleContentBlockDelta(
 			}
 			if (delta.reasoningContent.signature) {
 				thinkingBlock.thinkingSignature =
-					(thinkingBlock.thinkingSignature || "") + delta.reasoningContent.signature;
+					(thinkingBlock.thinkingSignature ?? "") + delta.reasoningContent.signature;
 			}
 		}
 	}
@@ -439,11 +445,11 @@ function handleMetadata(
 	output: AssistantMessage,
 ): void {
 	if (event.usage) {
-		output.usage.input = event.usage.inputTokens || 0;
-		output.usage.output = event.usage.outputTokens || 0;
-		output.usage.cacheRead = event.usage.cacheReadInputTokens || 0;
-		output.usage.cacheWrite = event.usage.cacheWriteInputTokens || 0;
-		output.usage.totalTokens = event.usage.totalTokens || output.usage.input + output.usage.output;
+		output.usage.input = event.usage.inputTokens ?? 0;
+		output.usage.output = event.usage.outputTokens ?? 0;
+		output.usage.cacheRead = event.usage.cacheReadInputTokens ?? 0;
+		output.usage.cacheWrite = event.usage.cacheWriteInputTokens ?? 0;
+		output.usage.totalTokens = event.usage.totalTokens ?? output.usage.input + output.usage.output;
 		calculateCost(model, output.usage);
 	}
 }
@@ -456,6 +462,7 @@ function handleContentBlockStop(
 ): void {
 	const index = blocks.findIndex((b) => b.index === event.contentBlockIndex);
 	const block = blocks[index];
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- noUncheckedIndexedAccess is off; block can be undefined at runtime
 	if (!block) return;
 	delete (block as Block).index;
 
@@ -506,6 +513,7 @@ function mapThinkingLevelToEffort(
 	if (level === "xhigh" && supportsNativeXhighEffort(model)) return "xhigh";
 
 	const mapped = level ? model.thinkingLevelMap?.[level] : undefined;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing string from thinkingLevelMap
 	if (typeof mapped === "string") return mapped as "low" | "medium" | "high" | "xhigh" | "max";
 
 	switch (level) {
@@ -542,7 +550,7 @@ function resolveCacheRetention(cacheRetention?: CacheRetention): CacheRetention 
  */
 function isAnthropicClaudeModel(model: Model<"bedrock-converse-stream">): boolean {
 	const id = model.id.toLowerCase();
-	const name = model.name?.toLowerCase() ?? "";
+	const name = model.name.toLowerCase();
 	return (
 		id.includes("anthropic.claude") ||
 		id.includes("anthropic/claude") ||
@@ -733,7 +741,8 @@ function convertMessages(
 				// Look ahead for consecutive toolResult messages
 				let j = i + 1;
 				while (j < transformedMessages.length && transformedMessages[j].role === "toolResult") {
-					const nextMsg = transformedMessages[j] as ToolResultMessage;
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- role === "toolResult" guard above
+				const nextMsg = transformedMessages[j] as ToolResultMessage;
 					toolResults.push({
 						toolResult: {
 							toolUseId: nextMsg.toolCallId,
@@ -788,6 +797,7 @@ function convertToolConfig(
 		toolSpec: {
 			name: tool.name,
 			description: tool.description,
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON schema boundary cast
 			inputSchema: { json: tool.parameters as unknown as DocumentType },
 		},
 	}));
@@ -829,6 +839,7 @@ function getConfiguredBedrockRegion(options: BedrockOptions): string | undefined
 		return options.region;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through to next fallback
 	return options.region || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || undefined;
 }
 

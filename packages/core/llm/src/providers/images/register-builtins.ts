@@ -21,7 +21,7 @@ function createLazyLoadErrorImages(model: ImagesModel<"openrouter-images">, erro
 }
 
 function loadOpenRouterImagesProviderModule(): Promise<OpenRouterImagesProviderModule> {
-	openRouterImagesProviderModulePromise ||= import("./openrouter.js").then(
+	openRouterImagesProviderModulePromise ??= import("./openrouter.js").then(
 		(module) => module as OpenRouterImagesProviderModule,
 	);
 	return openRouterImagesProviderModulePromise;

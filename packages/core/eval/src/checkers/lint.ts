@@ -55,6 +55,7 @@ function runBiome(workspace: string, files: string[]): Promise<{ report: BiomeRe
 						.split("\n")
 						.filter((l) => l.trim().startsWith("{"))
 						.at(-1) ?? "{}";
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns any; shape validated by downstream usage
 				const report = JSON.parse(jsonLine) as BiomeReport;
 				resolve({ report, ok: (code ?? 1) === 0 });
 			} catch {

@@ -158,9 +158,8 @@ export function createFactoryAdapter(options: FactoryAdapterOptions = {}): Adapt
 			command: {
 				"factory.adapter": typedAction(ADAPTER_TOOL, async (ctx) => {
 					const { name, toolName, description, inputFields } = ctx.payload;
-					const fields: Record<string, FieldType> = (inputFields as Record<string, FieldType>) ?? {
-						input: "string",
-					};
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload shape from tool schema
+					const fields: Record<string, FieldType> = inputFields as Record<string, FieldType>;
 
 					mkdirSync(PROTOTYPES_DIR, { recursive: true });
 					const targetPath = join(PROTOTYPES_DIR, `${name}.ts`);

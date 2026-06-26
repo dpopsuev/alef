@@ -49,6 +49,7 @@ function parseTextSignature(
 	if (!signature) return undefined;
 	if (signature.startsWith("{")) {
 		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse boundary
 			const parsed = JSON.parse(signature) as Partial<TextSignatureV1>;
 			if (parsed.v === 1 && typeof parsed.id === "string") {
 				if (parsed.phase === "commentary" || parsed.phase === "final_answer") {
@@ -170,6 +171,7 @@ export function convertResponsesMessages<TApi extends Api>(
 			for (const block of msg.content) {
 				if (block.type === "thinking") {
 					if (block.thinkingSignature) {
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse boundary
 						const reasoningItem = JSON.parse(block.thinkingSignature) as ResponseReasoningItem;
 						output.push(reasoningItem);
 					}
@@ -191,7 +193,7 @@ export function convertResponsesMessages<TApi extends Api>(
 						id: msgId,
 						phase: parsedSignature?.phase,
 					} satisfies ResponseOutputMessage);
-				} else if (block.type === "toolCall") {
+				} else { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- toolCall branch
 					const toolCall = block as ToolCall;
 					const [callId, itemIdRaw] = toolCall.id.split("|");
 					let itemId: string | undefined = itemIdRaw;
@@ -199,7 +201,7 @@ export function convertResponsesMessages<TApi extends Api>(
 					// For different-model messages, set id to undefined to avoid pairing validation.
 					// OpenAI tracks which fc_xxx IDs were paired with rs_xxx reasoning items.
 					// By omitting the id, we avoid triggering that validation (like cross-provider does).
-					if (isDifferentModel && itemId?.startsWith("fc_")) {
+					if (isDifferentModel && itemId.startsWith("fc_")) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- itemId from split can be undefined
 						itemId = undefined;
 					}
 
@@ -214,7 +216,7 @@ export function convertResponsesMessages<TApi extends Api>(
 			}
 			if (output.length === 0) continue;
 			messages.push(...output);
-		} else if (msg.role === "toolResult") {
+		} else { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- toolResult branch
 			const textResult = msg.content
 				.filter((c): c is TextContent => c.type === "text")
 				.map((c) => c.text)
@@ -271,7 +273,8 @@ export function convertResponsesTools(tools: Tool[], options?: ConvertResponsesT
 		type: "function",
 		name: tool.name,
 		description: tool.description,
-		parameters: tool.parameters as any, // TypeBox already generates JSON Schema
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TypeBox JSON Schema boundary
+		parameters: tool.parameters as any,
 		strict,
 	}));
 }
@@ -320,15 +323,17 @@ export async function processResponsesStream<TApi extends Api>(
 				stream.push({ type: "toolcall_start", contentIndex: blockIndex(), partial: output });
 			}
 		} else if (event.type === "response.reasoning_summary_part.added") {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem is nullable at runtime
 			if (currentItem && currentItem.type === "reasoning") {
-				currentItem.summary = currentItem.summary || [];
+				currentItem.summary = currentItem.summary ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- summary may be absent in stream
 				currentItem.summary.push(event.part);
 			}
 		} else if (event.type === "response.reasoning_summary_text.delta") {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock are nullable at runtime
 			if (currentItem?.type === "reasoning" && currentBlock?.type === "thinking") {
-				currentItem.summary = currentItem.summary || [];
+				currentItem.summary = currentItem.summary ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- summary may be absent in stream
 				const lastPart = currentItem.summary[currentItem.summary.length - 1];
-				if (lastPart) {
+				if (lastPart) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 					currentBlock.thinking += event.delta;
 					lastPart.text += event.delta;
 					stream.push({
@@ -340,10 +345,11 @@ export async function processResponsesStream<TApi extends Api>(
 				}
 			}
 		} else if (event.type === "response.reasoning_summary_part.done") {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock are nullable at runtime
 			if (currentItem?.type === "reasoning" && currentBlock?.type === "thinking") {
-				currentItem.summary = currentItem.summary || [];
+				currentItem.summary = currentItem.summary ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- summary may be absent in stream
 				const lastPart = currentItem.summary[currentItem.summary.length - 1];
-				if (lastPart) {
+				if (lastPart) { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds
 					currentBlock.thinking += "\n\n";
 					lastPart.text += "\n\n";
 					stream.push({
@@ -355,6 +361,7 @@ export async function processResponsesStream<TApi extends Api>(
 				}
 			}
 		} else if (event.type === "response.reasoning_text.delta") {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock are nullable at runtime
 			if (currentItem?.type === "reasoning" && currentBlock?.type === "thinking") {
 				currentBlock.thinking += event.delta;
 				stream.push({
@@ -365,20 +372,23 @@ export async function processResponsesStream<TApi extends Api>(
 				});
 			}
 		} else if (event.type === "response.content_part.added") {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem nullable at runtime
 			if (currentItem?.type === "message") {
-				currentItem.content = currentItem.content || [];
+				currentItem.content = currentItem.content ?? []; // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- content may not be initialized
 				// Filter out ReasoningText, only accept output_text and refusal
 				if (event.part.type === "output_text" || event.part.type === "refusal") {
 					currentItem.content.push(event.part);
 				}
 			}
 		} else if (event.type === "response.output_text.delta") {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock nullable at runtime
 			if (currentItem?.type === "message" && currentBlock?.type === "text") {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- content may not be set yet
 				if (!currentItem.content || currentItem.content.length === 0) {
 					continue;
 				}
 				const lastPart = currentItem.content[currentItem.content.length - 1];
-				if (lastPart?.type === "output_text") {
+				if (lastPart?.type === "output_text") { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- array index may be undefined
 					currentBlock.text += event.delta;
 					lastPart.text += event.delta;
 					stream.push({
@@ -390,12 +400,14 @@ export async function processResponsesStream<TApi extends Api>(
 				}
 			}
 		} else if (event.type === "response.refusal.delta") {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentItem/currentBlock nullable at runtime
 			if (currentItem?.type === "message" && currentBlock?.type === "text") {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- content may not be set yet
 				if (!currentItem.content || currentItem.content.length === 0) {
 					continue;
 				}
 				const lastPart = currentItem.content[currentItem.content.length - 1];
-				if (lastPart?.type === "refusal") {
+				if (lastPart?.type === "refusal") { // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- array index may be undefined
 					currentBlock.text += event.delta;
 					lastPart.refusal += event.delta;
 					stream.push({
@@ -438,9 +450,11 @@ export async function processResponsesStream<TApi extends Api>(
 		} else if (event.type === "response.output_item.done") {
 			const item = event.item;
 
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentBlock nullable at runtime
 			if (item.type === "reasoning" && currentBlock?.type === "thinking") {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/prefer-nullish-coalescing -- summary may be undefined; empty string fallthrough
 				const summaryText = item.summary?.map((s) => s.text).join("\n\n") || "";
-				const contentText = item.content?.map((c) => c.text).join("\n\n") || "";
+				const contentText = item.content?.map((c) => c.text).join("\n\n") ?? "";
 				currentBlock.thinking = summaryText || contentText || currentBlock.thinking;
 				currentBlock.thinkingSignature = JSON.stringify(item);
 				stream.push({
@@ -450,6 +464,7 @@ export async function processResponsesStream<TApi extends Api>(
 					partial: output,
 				});
 				currentBlock = null;
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- currentBlock nullable at runtime
 			} else if (item.type === "message" && currentBlock?.type === "text") {
 				currentBlock.text = item.content.map((c) => (c.type === "output_text" ? c.text : c.refusal)).join("");
 				currentBlock.textSignature = encodeTextSignatureV1(item.id, item.phase ?? undefined);
@@ -487,10 +502,13 @@ export async function processResponsesStream<TApi extends Api>(
 			}
 		} else if (event.type === "response.completed") {
 			const response = event.response;
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- response fields may be absent in streaming
 			if (response?.id) {
 				output.responseId = response.id;
 			}
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- usage may be absent in streaming
 			if (response?.usage) {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/prefer-nullish-coalescing -- details may be absent
 				const cachedTokens = response.usage.input_tokens_details?.cached_tokens || 0;
 				output.usage = {
 					// OpenAI includes cached tokens in input_tokens, so subtract to get non-cached input
@@ -505,11 +523,14 @@ export async function processResponsesStream<TApi extends Api>(
 			calculateCost(model, output.usage);
 			if (options?.applyServiceTierPricing) {
 				const serviceTier = options.resolveServiceTier
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- response fields may be absent
 					? options.resolveServiceTier(response?.service_tier, options.serviceTier)
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- response fields may be absent
 					: (response?.service_tier ?? options.serviceTier);
 				options.applyServiceTierPricing(output.usage, serviceTier);
 			}
 			// Map status to stop reason
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- response may lack status
 			output.stopReason = mapStopReason(response?.status);
 			if (output.content.some((b) => b.type === "toolCall") && output.stopReason === "stop") {
 				output.stopReason = "toolUse";
@@ -517,9 +538,13 @@ export async function processResponsesStream<TApi extends Api>(
 		} else if (event.type === "error") {
 			throw new Error(`Error Code ${event.code}: ${event.message}` || "Unknown error");
 		} else if (event.type === "response.failed") {
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- error/details may be absent in failed response
 			const error = event.response?.error;
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- incomplete_details may be absent
 			const details = event.response?.incomplete_details;
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- error may be null at runtime
 			const msg = error
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/prefer-nullish-coalescing -- always truthy template; empty string fallthrough
 				? `${error.code || "unknown"}: ${error.message || "no message"}`
 				: details?.reason
 					? `incomplete: ${details.reason}`

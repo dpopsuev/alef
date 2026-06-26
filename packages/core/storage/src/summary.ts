@@ -49,6 +49,7 @@ export class SqliteSummaryStore implements SummaryStore {
 			args: [sessionId],
 		});
 		const row = result.rows[0];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- row may be undefined if no matching record
 		if (!row) return undefined;
 		return {
 			id: String(row.session_id),
@@ -57,6 +58,7 @@ export class SqliteSummaryStore implements SummaryStore {
 			duration_ms: Number(row.duration_ms),
 			turns: Number(row.turns),
 			tokens: { input: Number(row.input_tokens), output: Number(row.output_tokens) },
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- tools stored as JSON array
 			tools: JSON.parse(String(row.tools)) as Array<{ name: string; calls: number }>,
 			errors: Number(row.errors),
 		};
@@ -68,6 +70,7 @@ export class SqliteSummaryStore implements SummaryStore {
 			args: [],
 		});
 		const row = result.rows[0];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- row may be undefined if no matching record
 		if (!row) return undefined;
 		return this.get(String(row.session_id));
 	}

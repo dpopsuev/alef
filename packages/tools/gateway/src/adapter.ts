@@ -305,12 +305,14 @@ export class RouterAdapter implements Adapter {
 			if (
 				typeof parsed !== "object" ||
 				parsed === null ||
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing parsed object shape
 				typeof (parsed as Record<string, unknown>).text !== "string"
 			) {
 				this.sendJson(res, 400, { error: 'body must be { "text": string }' });
 				return;
 			}
 
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- validated by typeof check above
 			const text = (parsed as { text: string }).text;
 			const correlationId = randomUUID();
 
@@ -338,6 +340,7 @@ export class RouterAdapter implements Adapter {
 		req.on("end", () => {
 			let parsed: Record<string, unknown>;
 			try {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse result narrowed to expected shape
 				parsed = JSON.parse(body) as Record<string, unknown>;
 			} catch {
 				this.sendJson(res, 400, { error: "invalid JSON" });
@@ -359,6 +362,7 @@ export class RouterAdapter implements Adapter {
 		req.on("end", () => {
 			let parsed: Record<string, unknown>;
 			try {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse result narrowed to expected shape
 				parsed = JSON.parse(body) as Record<string, unknown>;
 			} catch {
 				this.sendJson(res, 400, { error: "invalid JSON" });

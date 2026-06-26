@@ -28,6 +28,7 @@ const decode = (s: string) => atob(s);
 const CLIENT_ID = decode("OWQxYzI1MGEtZTYxYi00NGQ5LTg4ZWQtNTk0NGQxOTYyZjVl");
 const AUTHORIZE_URL = "https://claude.ai/oauth/authorize";
 const TOKEN_URL = "https://platform.claude.com/v1/oauth/token";
+// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env var should fall through to default
 const CALLBACK_HOST = process.env.ALEF_OAUTH_CALLBACK_HOST || "127.0.0.1";
 const CALLBACK_PORT = 53692;
 const CALLBACK_PATH = "/callback";
@@ -37,6 +38,7 @@ const SCOPES =
 async function getNodeApis(): Promise<NodeApis> {
 	if (nodeApis) return nodeApis;
 	if (!nodeApisPromise) {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.versions may not exist in all environments
 		if (typeof process === "undefined" || (!process.versions?.node && !process.versions?.bun)) {
 			throw new Error("Anthropic OAuth is only available in Node.js environments");
 		}
@@ -111,7 +113,7 @@ async function startCallbackServer(expectedState: string): Promise<CallbackServe
 
 		const server = createServer((req, res) => {
 			try {
-				const url = new URL(req.url || "", "http://localhost");
+				const url = new URL(req.url ?? "", "http://localhost");
 				if (url.pathname !== CALLBACK_PATH) {
 					res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
 					res.end(oauthErrorHtml("Callback route not found."));
@@ -210,6 +212,7 @@ async function exchangeAuthorizationCode(
 
 	let tokenData: { access_token: string; refresh_token: string; expires_in: number };
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, narrowing to expected token response shape
 		tokenData = JSON.parse(responseBody) as { access_token: string; refresh_token: string; expires_in: number };
 	} catch (error) {
 		throw new Error(
@@ -293,6 +296,7 @@ export async function loginAnthropic(options: {
 
 			if (!code) {
 				await manualPromise;
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- manualError may be set asynchronously by manualPromise
 				if (manualError) {
 					throw manualError;
 				}
@@ -359,6 +363,7 @@ export async function refreshAnthropicToken(refreshToken: string): Promise<OAuth
 
 	let data: { access_token: string; refresh_token: string; expires_in: number; scope?: string };
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown, narrowing to expected token response shape
 		data = JSON.parse(responseBody) as {
 			access_token: string;
 			refresh_token: string;

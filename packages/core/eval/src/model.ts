@@ -16,6 +16,7 @@ function hasAnthropicDirect(): boolean {
 }
 
 function hasAnthropicVertex(): boolean {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env var means not set, must fall through
 	return !!(process.env.ANTHROPIC_VERTEX_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT);
 }
 

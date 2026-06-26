@@ -32,6 +32,7 @@ const FALLBACK_LINE_MAX_CHARS = 120;
 function formatConversation(messages: readonly unknown[]): string {
 	return messages
 		.map((m) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for role/content access
 			const msg = m as { role?: string; content?: string | Array<{ text?: string }> };
 			const role = msg.role ?? "unknown";
 			let text = "";
@@ -50,6 +51,7 @@ function fallbackSummary(messages: readonly unknown[]): string {
 	return messages
 		.slice(0, FALLBACK_MESSAGE_COUNT)
 		.map((m) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for role/content access
 			const msg = m as { role?: string; content?: string };
 			return `- ${msg.role ?? "?"}: ${typeof msg.content === "string" ? msg.content.split("\n")[0]?.slice(0, FALLBACK_LINE_MAX_CHARS) : "..."}`;
 		})

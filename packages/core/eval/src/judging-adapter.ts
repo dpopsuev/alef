@@ -68,6 +68,7 @@ export function createJudgingAdapter(opts: JudgingAdapterOptions): Adapter {
 		{
 			command: {
 				"report.submit": typedAction(SUBMIT_TOOL, (ctx) => {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload validated by Zod inputSchema before reaching handler
 					const report = ctx.payload as JudgeReport;
 					opts.onReport(report);
 					const text = `Report submitted. Score: ${report.score.toFixed(2)}. Verdict: ${report.verdict}.`;

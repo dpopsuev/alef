@@ -70,6 +70,7 @@ class McpAdapterImpl implements Adapter {
 							toolCallId,
 							result,
 							...(typeof result === "object" && result !== null
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime-guarded object spread
 								? (result as Record<string, unknown>)
 								: { value: result }),
 						},
@@ -111,6 +112,7 @@ export async function createMcpAdapterFromClient(client: MCPClient, name: string
 	for (const mcpName of toolNames) {
 		const tool = aiTools[mcpName];
 		const motorName = adapterToolName(name, mcpName);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- MCP tool shape not statically typed
 		const execFn = (tool as unknown as { execute?: ExecuteFn }).execute;
 		if (execFn) execMap.set(motorName, execFn);
 
@@ -120,6 +122,7 @@ export async function createMcpAdapterFromClient(client: MCPClient, name: string
 			// MCP returns JSON Schema natively — wrap with passthroughSchema so
 			// toolInputToJsonSchema() returns it unchanged to the LLM provider.
 			inputSchema: passthroughSchema(
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- MCP tool shape not statically typed
 				(tool as { inputSchema?: Record<string, unknown> }).inputSchema ?? { type: "object", properties: {} },
 			),
 		});
@@ -133,6 +136,7 @@ export const McpAdapter = {
 		const adapterName = name ?? args.at(-1)?.split("/").at(-1)?.replace(/^@/, "") ?? "mcp";
 		const transportOpts: { command: string; args: string[]; env?: Record<string, string> } = { command, args };
 		if (env) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- undefined values filtered out above
 			const filteredEnv = Object.fromEntries(
 				Object.entries({ ...process.env, ...env }).filter(([_, v]) => v !== undefined),
 			) as Record<string, string>;

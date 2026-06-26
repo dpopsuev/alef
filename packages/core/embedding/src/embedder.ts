@@ -23,6 +23,7 @@ function shouldEmbed(bus: string, type: string): boolean {
 }
 
 function extractText(payload: Record<string, unknown>): string {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing unknown _display to extract optional text
 	const display = (payload._display as { text?: string } | undefined)?.text;
 	if (typeof display === "string" && display.length > 0) return display.slice(0, 2000);
 	if (typeof payload.content === "string") return payload.content.slice(0, 2000);
@@ -51,11 +52,9 @@ export function queueEmbedding(
 
 	pendingEmbeddings.push({ rowid, text: `${type}: ${text}` });
 
-	if (!flushTimer) {
-		flushTimer = setTimeout(() => {
-			void flushEmbeddings(client);
-		}, 500);
-	}
+	flushTimer ??= setTimeout(() => {
+		void flushEmbeddings(client);
+	}, 500);
 }
 
 async function flushEmbeddings(client: Client): Promise<void> {

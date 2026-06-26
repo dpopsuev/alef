@@ -28,6 +28,7 @@ import type { SymbolBlock, SymbolKind } from "./backend.js";
 // ---------------------------------------------------------------------------
 
 function hasExportModifier(node: ts.Node): boolean {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ts.getModifiers requires HasModifiers; callers pass declaration nodes
 	return (ts.getModifiers(node as ts.HasModifiers) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
 }
 

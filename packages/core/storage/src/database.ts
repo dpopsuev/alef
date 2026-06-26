@@ -52,6 +52,7 @@ export function closeDatabase(): void {
 
 export async function syncDatabase(): Promise<void> {
 	if (_client && "sync" in _client) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- sync exists at runtime (Turso embedded replica)
 		await (_client as Client & { sync(): Promise<void> }).sync();
 	}
 }

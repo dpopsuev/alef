@@ -677,9 +677,6 @@ export class CombinedAutocompleteProvider implements AutocompleteProvider {
 			const fdBaseDir = scopedQuery?.baseDir ?? this.basePath;
 			const fdQuery = scopedQuery?.query ?? query;
 			const entries = await walkDirectoryWithFd(fdBaseDir, this.fdPath, fdQuery, 100, options.signal);
-			if (options.signal.aborted) {
-				return [];
-			}
 
 			const scoredEntries = entries
 				.map((entry) => ({

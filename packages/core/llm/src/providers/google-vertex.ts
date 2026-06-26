@@ -95,6 +95,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 			let params = buildParams(model, context, options);
 			const nextParams = await options?.onPayload?.(params, model);
 			if (nextParams !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: onPayload returns provider-specific params shape
 				params = nextParams as GenerateContentParameters;
 			}
 			const googleStream = await client.models.generateContentStream(params);
@@ -106,7 +107,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 			for await (const chunk of googleStream) {
 				// Vertex uses the same @google/genai GenerateContentResponse type as Gemini.
 				// responseId is documented there as an output-only identifier for each response.
-				output.responseId ||= chunk.responseId;
+				output.responseId ??= chunk.responseId;
 				const candidate = chunk.candidates?.[0];
 				if (candidate?.content?.parts) {
 					for (const part of candidate.content.parts) {
@@ -201,8 +202,9 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 							const toolCall: ToolCall = {
 								type: "toolCall",
 								id: toolCallId,
-								name: part.functionCall.name || "",
-								arguments: (part.functionCall.args as Record<string, any>) ?? {},
+								name: part.functionCall.name ?? "",
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Vertex SDK returns args as object|undefined, narrowed to Record
+								arguments: (part.functionCall.args as Record<string, any>),
 								...(part.thoughtSignature && { thoughtSignature: part.thoughtSignature }),
 							};
 
@@ -229,12 +231,12 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 				if (chunk.usageMetadata) {
 					output.usage = {
 						input:
-							(chunk.usageMetadata.promptTokenCount || 0) - (chunk.usageMetadata.cachedContentTokenCount || 0),
+							(chunk.usageMetadata.promptTokenCount ?? 0) - (chunk.usageMetadata.cachedContentTokenCount ?? 0),
 						output:
-							(chunk.usageMetadata.candidatesTokenCount || 0) + (chunk.usageMetadata.thoughtsTokenCount || 0),
-						cacheRead: chunk.usageMetadata.cachedContentTokenCount || 0,
+							(chunk.usageMetadata.candidatesTokenCount ?? 0) + (chunk.usageMetadata.thoughtsTokenCount ?? 0),
+						cacheRead: chunk.usageMetadata.cachedContentTokenCount ?? 0,
 						cacheWrite: 0,
-						totalTokens: chunk.usageMetadata.totalTokenCount || 0,
+						totalTokens: chunk.usageMetadata.totalTokenCount ?? 0,
 						cost: {
 							input: 0,
 							output: 0,
@@ -279,6 +281,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 			// Remove internal index property used during streaming
 			for (const block of output.content) {
 				if ("index" in block) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: stripping internal streaming scratch property
 					delete (block as { index?: number }).index;
 				}
 			}
@@ -306,7 +309,9 @@ export const streamSimpleGoogleVertex: StreamFunction<"google-vertex", SimpleStr
 	}
 
 	const clampedReasoning = clampThinkingLevel(model, options.reasoning);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: clampThinkingLevel output narrowed to ClampedThinkingLevel after 'off' check
 	const effort = (clampedReasoning === "off" ? "high" : clampedReasoning) as ClampedThinkingLevel;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: google-vertex model is structurally identical to google-generative-ai model
 	const geminiModel = model as unknown as Model<"google-generative-ai">;
 
 	if (isGemini3ProModel(geminiModel) || isGemini3FlashModel(geminiModel)) {
@@ -395,6 +400,7 @@ function baseUrlIncludesApiVersion(baseUrl: string): boolean {
 }
 
 function resolveApiKey(options?: GoogleVertexOptions): string | undefined {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty trimmed API key should fall through
 	const apiKey = options?.apiKey?.trim() || process.env.GOOGLE_CLOUD_API_KEY?.trim();
 	if (!apiKey || apiKey === GCP_VERTEX_CREDENTIALS_MARKER || isPlaceholderApiKey(apiKey)) {
 		return undefined;
@@ -407,6 +413,7 @@ function isPlaceholderApiKey(apiKey: string): boolean {
 }
 
 function resolveProject(options?: GoogleVertexOptions): string {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty project string should fall through
 	const project = options?.project || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
 	if (!project) {
 		throw new Error(
@@ -417,6 +424,7 @@ function resolveProject(options?: GoogleVertexOptions): string {
 }
 
 function resolveLocation(options?: GoogleVertexOptions): string {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty location string should fall through
 	const location = options?.location || process.env.GOOGLE_CLOUD_LOCATION;
 	if (!location) {
 		throw new Error("Vertex AI requires a location. Set GOOGLE_CLOUD_LOCATION or pass location in options.");
@@ -497,6 +505,7 @@ function getDisabledThinkingConfig(model: Model<"google-vertex">): ThinkingConfi
 	// Google docs: Gemini 3.1 Pro cannot disable thinking, and Gemini 3 Flash / Flash-Lite
 	// do not support full thinking-off either. For Gemini 3 models, use the lowest supported
 	// thinkingLevel without includeThoughts so hidden thinking remains invisible to pi.
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: google-vertex model is structurally identical to google-generative-ai model
 	const geminiModel = model as unknown as Model<"google-generative-ai">;
 	if (isGemini3ProModel(geminiModel)) {
 		return { thinkingLevel: ThinkingLevel.LOW };

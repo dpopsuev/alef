@@ -91,6 +91,7 @@ function convertContentBlocks(content: (TextContent | ImageContent)[]):
 	// If only text blocks, return as concatenated string for simplicity
 	const hasImages = content.some((c) => c.type === "image");
 	if (!hasImages) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- filtered to text-only content above
 		return sanitizeSurrogates(content.map((c) => (c as TextContent).text).join("\n"));
 	}
 
@@ -106,6 +107,7 @@ function convertContentBlocks(content: (TextContent | ImageContent)[]):
 			type: "image" as const,
 			source: {
 				type: "base64" as const,
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- MIME type narrowing for API
 				media_type: block.mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
 				data: block.data,
 			},
@@ -235,6 +237,7 @@ function serializeError(error: unknown): string {
 		if (current instanceof Error) {
 			if (current.message) parts.push(current.message);
 			// Append error code if not already in the message (e.g. ECONNREFUSED)
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Error subclass may carry .code
 			const code = (current as { code?: string }).code;
 			if (code && !current.message.includes(code)) parts.push(code);
 			// gaxios FetchError stores the inner system error in `.error`
@@ -330,6 +333,7 @@ async function* iterateSseMessages(
 	let buffer = "";
 
 	try {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- deliberate infinite loop, exits via break
 		while (true) {
 			if (signal?.aborted) {
 				throw new Error("Request was aborted");
@@ -458,14 +462,17 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				isOAuth = false;
 			} else if (isVertex) {
 				// Vertex path — project/region resolved by the strategy before calling here.
+				/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through */
 				const projectId =
 					process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ||
 					process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
 					process.env.GCLOUD_PROJECT?.trim() ||
 					"";
 				const region = process.env.CLOUD_ML_REGION?.trim() || process.env.GOOGLE_CLOUD_LOCATION?.trim() || "";
+				/* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
 				// Node-only SDK; lazy-loaded so browser bundles skip it.
 				const { AnthropicVertex } = await import("@anthropic-ai/vertex-sdk");
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- AnthropicVertex SDK type mismatch
 				client = new AnthropicVertex({ projectId, region }) as unknown as Anthropic;
 				isOAuth = false;
 			} else {
@@ -494,6 +501,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			let params = buildParams(model, context, isOAuth, options, isVertex);
 			const nextParams = await options?.onPayload?.(params, model);
 			if (nextParams !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- onPayload callback boundary
 				params = nextParams as MessageCreateParamsStreaming;
 			}
 			const requestOptions = {
@@ -506,6 +514,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			stream.push({ type: "start", partial: output });
 
 			type Block = (ThinkingContent | TextContent | (ToolCall & { partialJson: string })) & { index: number };
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- internal streaming block type
 			const blocks = output.content as Block[];
 
 			for await (const event of iterateAnthropicEvents(response, options?.signal)) {
@@ -513,10 +522,10 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					output.responseId = event.message.id;
 					// Capture initial token usage from message_start event
 					// This ensures we have input token counts even if the stream is aborted early
-					output.usage.input = event.message.usage.input_tokens || 0;
-					output.usage.output = event.message.usage.output_tokens || 0;
-					output.usage.cacheRead = event.message.usage.cache_read_input_tokens || 0;
-					output.usage.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
+					output.usage.input = event.message.usage.input_tokens;
+					output.usage.output = event.message.usage.output_tokens;
+					output.usage.cacheRead = event.message.usage.cache_read_input_tokens ?? 0;
+					output.usage.cacheWrite = event.message.usage.cache_creation_input_tokens ?? 0;
 					// Anthropic doesn't provide total_tokens, compute from components
 					output.usage.totalTokens =
 						output.usage.input + output.usage.output + output.usage.cacheRead + output.usage.cacheWrite;
@@ -559,7 +568,8 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 								parsedInput = {};
 							}
 						} else {
-							parsedInput = (event.content_block.input as Record<string, any>) ?? {};
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- API response boundary
+							parsedInput = event.content_block.input as Record<string, any>;
 						}
 
 						const block: Block = {
@@ -581,6 +591,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					if (event.delta.type === "text_delta") {
 						const index = blocks.findIndex((b) => b.index === event.index);
 						const block = blocks[index];
+						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
 						if (block && block.type === "text") {
 							block.text += event.delta.text;
 							stream.push({
@@ -593,6 +604,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					} else if (event.delta.type === "thinking_delta") {
 						const index = blocks.findIndex((b) => b.index === event.index);
 						const block = blocks[index];
+						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
 						if (block && block.type === "thinking") {
 							block.thinking += event.delta.thinking;
 							stream.push({
@@ -605,6 +617,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					} else if (event.delta.type === "input_json_delta") {
 						const index = blocks.findIndex((b) => b.index === event.index);
 						const block = blocks[index];
+						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
 						if (block && block.type === "toolCall") {
 							block.partialJson += event.delta.partial_json;
 							block.arguments = parseStreamingJson(block.partialJson);
@@ -618,16 +631,18 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					} else if (event.delta.type === "signature_delta") {
 						const index = blocks.findIndex((b) => b.index === event.index);
 						const block = blocks[index];
+						// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
 						if (block && block.type === "thinking") {
-							block.thinkingSignature = block.thinkingSignature || "";
+							block.thinkingSignature = block.thinkingSignature ?? "";
 							block.thinkingSignature += event.delta.signature;
 						}
 					}
 				} else if (event.type === "content_block_stop") {
 					const index = blocks.findIndex((b) => b.index === event.index);
 					const block = blocks[index];
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array index may be -1
 					if (block) {
-						delete (block as any).index;
+						delete (block as { index?: number }).index;
 						if (block.type === "text") {
 							stream.push({
 								type: "text_end",
@@ -642,7 +657,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 								content: block.thinking,
 								partial: output,
 							});
-						} else if (block.type === "toolCall") {
+						} else {
 							block.arguments = parseStreamingJson(block.partialJson);
 							// Finalize in-place and strip the scratch buffer so replay only
 							// carries parsed arguments.
@@ -664,9 +679,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					if (event.usage.input_tokens != null) {
 						output.usage.input = event.usage.input_tokens;
 					}
-					if (event.usage.output_tokens != null) {
-						output.usage.output = event.usage.output_tokens;
-					}
+					output.usage.output = event.usage.output_tokens;
 					if (event.usage.cache_read_input_tokens != null) {
 						output.usage.cacheRead = event.usage.cache_read_input_tokens;
 					}
@@ -692,8 +705,10 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 			stream.end();
 		} catch (error) {
 			for (const block of output.content) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- stripping internal streaming property
 				delete (block as { index?: number }).index;
 				// partialJson is only a streaming scratch buffer; never persist it.
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- stripping internal streaming property
 				delete (block as { partialJson?: string }).partialJson;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
@@ -730,6 +745,7 @@ function mapThinkingLevelToEffort(
 	level: SimpleStreamOptions["reasoning"],
 ): AnthropicEffort {
 	const mapped = level ? model.thinkingLevelMap?.[level] : undefined;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- type narrowing after typeof check
 	if (typeof mapped === "string") return mapped as AnthropicEffort;
 
 	switch (level) {
@@ -778,7 +794,7 @@ export const streamSimpleAnthropic: StreamFunction<
 	}
 
 	const adjusted = adjustMaxTokensForThinking(
-		base.maxTokens || 0,
+		base.maxTokens ?? 0,
 		model.maxTokens,
 		options.reasoning,
 		options.thinkingBudgets,
@@ -924,6 +940,7 @@ function buildParams(
 	const params: MessageCreateParamsStreaming = {
 		model: model.id,
 		messages: convertMessages(context.messages, model, isOAuthToken, cacheControl),
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
 		max_tokens: options?.maxTokens || (model.maxTokens / 3) | 0,
 		stream: true,
 	};
@@ -956,7 +973,7 @@ function buildParams(
 	}
 
 	// Temperature is incompatible with extended thinking (adaptive or budget-based).
-	if (options?.temperature !== undefined && !options?.thinkingEnabled) {
+	if (options?.temperature !== undefined && !options.thinkingEnabled) {
 		params.temperature = options.temperature;
 	}
 
@@ -984,7 +1001,8 @@ function buildParams(
 					// The Anthropic SDK types can lag newly supported effort values such as "xhigh".
 					params.output_config =
 						options.effort === "xhigh"
-							? ({ effort: options.effort } as unknown as NonNullable<
+							? // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- SDK type mismatch, xhigh not yet in SDK types
+								({ effort: options.effort } as unknown as NonNullable<
 									MessageCreateParamsStreaming["output_config"]
 								>)
 							: { effort: options.effort };
@@ -993,6 +1011,7 @@ function buildParams(
 				// Budget-based thinking for older models
 				params.thinking = {
 					type: "enabled",
+					// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- zero must fall through to default
 					budget_tokens: options.thinkingBudgetTokens || 1024,
 					display,
 				};
@@ -1059,6 +1078,7 @@ function convertMessages(
 							type: "image",
 							source: {
 								type: "base64",
+								// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- MIME type narrowing for API
 								media_type: item.mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
 								data: item.data,
 							},
@@ -1112,12 +1132,12 @@ function convertMessages(
 							signature: block.thinkingSignature,
 						});
 					}
-				} else if (block.type === "toolCall") {
+				} else {
 					blocks.push({
 						type: "tool_use",
 						id: block.id,
 						name: isOAuthToken ? toClaudeCodeName(block.name) : block.name,
-						input: block.arguments ?? {},
+						input: block.arguments,
 					});
 				}
 			}
@@ -1126,7 +1146,7 @@ function convertMessages(
 				role: "assistant",
 				content: blocks,
 			});
-		} else if (msg.role === "toolResult") {
+		} else {
 			// Collect all consecutive toolResult messages, needed for z.ai Anthropic endpoint
 			const toolResults: ContentBlockParam[] = [];
 
@@ -1141,7 +1161,8 @@ function convertMessages(
 			// Look ahead for consecutive toolResult messages
 			let j = i + 1;
 			while (j < transformedMessages.length && transformedMessages[j].role === "toolResult") {
-				const nextMsg = transformedMessages[j] as ToolResultMessage; // We know it's a toolResult
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- role checked in while condition
+				const nextMsg = transformedMessages[j] as ToolResultMessage;
 				toolResults.push({
 					type: "tool_result",
 					tool_use_id: nextMsg.toolCallId,
@@ -1168,13 +1189,17 @@ function convertMessages(
 		if (lastMessage.role === "user") {
 			if (Array.isArray(lastMessage.content)) {
 				const lastBlock = lastMessage.content[lastMessage.content.length - 1];
+				/* eslint-disable @typescript-eslint/no-unnecessary-condition -- array index may be out of bounds */
 				if (
 					lastBlock &&
 					(lastBlock.type === "text" || lastBlock.type === "image" || lastBlock.type === "tool_result")
 				) {
+					/* eslint-enable @typescript-eslint/no-unnecessary-condition */
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control extension not in SDK types
 					(lastBlock as any).cache_control = cacheControl;
 				}
 			} else if (typeof lastMessage.content === "string") {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Anthropic cache_control content type workaround
 				lastMessage.content = [
 					{
 						type: "text",
@@ -1200,8 +1225,6 @@ function convertTools(
 	cacheControl?: CacheControlEphemeral,
 	isVertex = false,
 ): Anthropic.Messages.Tool[] {
-	if (!tools) return [];
-
 	return tools.map((tool, index) => {
 		const schema = tool.parameters as { properties?: unknown; required?: string[] };
 

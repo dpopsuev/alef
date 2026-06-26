@@ -51,12 +51,14 @@ export class BusEventRecorder implements BusObserver {
 	assertToolCallEmitted(toolName: string): BusMessage {
 		const found = this._motor.find((e) => {
 			if (e.type !== "llm.tool_call") return false;
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage lacks typed payload; narrowing to access toolName
 			const p = (e as unknown as { payload?: { toolName?: string } }).payload;
 			return p?.toolName === toolName;
 		});
 		if (!found) {
 			const calls = this._motor
 				.filter((e) => e.type === "llm.tool_call")
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage lacks typed payload; narrowing to access toolName
 				.map((e) => (e as unknown as { payload?: { toolName?: string } }).payload?.toolName ?? "?");
 			throw new Error(
 				`Expected Command/llm.tool_call("${toolName}").\n` + `Tool calls: [${calls.join(", ") || "none"}]`,

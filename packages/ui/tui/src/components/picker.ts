@@ -96,10 +96,8 @@ export class Picker<T extends PickerItem = PickerItem> implements Component {
 			for (let i = 0; i < bodyLines && i < previewLines.length; i++) {
 				const contentLine = lines[(this.title ? 2 : 1) + i];
 				const pl = truncateToWidth(previewLines[i], previewWidth, "…");
-				const gap = Math.max(0, listWidth + 1 - visibleWidth(contentLine ?? ""));
-				if (contentLine !== undefined) {
-					lines[(this.title ? 2 : 1) + i] = `${contentLine}${" ".repeat(gap)}${theme.dim(pl)}`;
-				}
+				const gap = Math.max(0, listWidth + 1 - visibleWidth(contentLine));
+				lines[(this.title ? 2 : 1) + i] = `${contentLine}${" ".repeat(gap)}${theme.dim(pl)}`;
 			}
 		}
 

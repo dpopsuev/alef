@@ -4,7 +4,7 @@ import type { Message } from "../types.js";
 // or agent-initiated (e.g. follow-up after assistant/tool messages).
 export function inferCopilotInitiator(messages: Message[]): "user" | "agent" {
 	const last = messages[messages.length - 1];
-	return last && last.role !== "user" ? "agent" : "user";
+	return last.role !== "user" ? "agent" : "user";
 }
 
 // Copilot requires Copilot-Vision-Request header when sending images

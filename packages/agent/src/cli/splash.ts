@@ -72,12 +72,8 @@ function fontPathForLang(lang: string): string | null {
 			.map((l) => l.trim())
 			.filter((f) => f.endsWith(".ttf") || f.endsWith(".otf"));
 		// Prefer Noto / Google fonts over bitmap/terminal fonts (Terminus, etc.)
-		return (
-			files.find((f) => /noto/i.test(f)) ??
-			files.find((f) => !/terminus|terminess|nerd/i.test(f)) ??
-			files[0] ??
-			null
-		);
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: files may be empty, but TS types array index as non-nullable
+		return files.find((f) => /noto/i.test(f)) ?? files.find((f) => !/terminus|terminess|nerd/i.test(f)) ?? files[0] ?? null;
 	} catch {
 		return null;
 	}
@@ -104,6 +100,7 @@ export async function renderSplash(): Promise<string> {
 
 	for (let attempt = 0; attempt < 8; attempt++) {
 		const block = attempt === 0 ? pool[0] : pool[Math.floor(Math.random() * pool.length)];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: pool index may be out of bounds
 		if (!block) continue;
 
 		const fontPath = fontPathForLang(block.lang);

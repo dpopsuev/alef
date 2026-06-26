@@ -401,7 +401,7 @@ class AnsiCodeTracker {
 			if (code === 38 || code === 48) {
 				// 38;5;N (256 color fg) or 38;2;R;G;B (RGB fg)
 				// 48;5;N (256 color bg) or 48;2;R;G;B (RGB bg)
-				if (parts[i + 1] === "5" && parts[i + 2] !== undefined) {
+				if (parts[i + 1] === "5") {
 					// 256 color: 38;5;N or 48;5;N
 					const colorCode = `${parts[i]};${parts[i + 1]};${parts[i + 2]}`;
 					if (code === 38) {
@@ -411,7 +411,7 @@ class AnsiCodeTracker {
 					}
 					i += 3;
 					continue;
-				} else if (parts[i + 1] === "2" && parts[i + 4] !== undefined) {
+				} else if (parts[i + 1] === "2") {
 					// RGB color: 38;2;R;G;B or 48;2;R;G;B
 					const colorCode = `${parts[i]};${parts[i + 1]};${parts[i + 2]};${parts[i + 3]};${parts[i + 4]}`;
 					if (code === 38) {

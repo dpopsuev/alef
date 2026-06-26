@@ -48,6 +48,7 @@ export class ImplStationRunner implements StationRunner {
 
 	async run(station: StationDef, artifact: unknown): Promise<StationResult> {
 		const contract = PRESET_CONTRACTS[station.contract];
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard: contract key may not exist in PRESET_CONTRACTS
 		if (!contract) {
 			return { status: "error", output: undefined, questions: [] };
 		}

@@ -55,8 +55,8 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 
 	const provider = process.env.ANTHROPIC_VERTEX_PROJECT_ID ? "anthropic-vertex" : "anthropic";
 	const apiKey = getEnvApiKey(provider) ?? "";
-	const model =
-		getModel(provider as "anthropic", modelId as never) ?? getModel("anthropic", "claude-haiku-4-5" as never);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- provider string narrowed to union for getModel lookup
+	const model = getModel(provider as "anthropic", modelId as never);
 
 	const agent = new Agent();
 	let reply = "";
@@ -81,6 +81,7 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 		onCommand() {},
 		onEvent() {},
 		onNotification(event) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- BusMessage narrowed to NotificationMessage in onNotification handler
 			events.push(event as NotificationMessage);
 		},
 	});

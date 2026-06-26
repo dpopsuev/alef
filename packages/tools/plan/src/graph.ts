@@ -112,6 +112,7 @@ export class PlanGraph {
 	static load(diskPath: string): PlanGraph | null {
 		try {
 			const raw = readFileSync(diskPath, "utf-8");
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- plan JSON written by flush()
 			const data = JSON.parse(raw) as PlanData;
 			const graph = new PlanGraph(data.id, data.intention, diskPath);
 			graph.data = data;
@@ -383,12 +384,14 @@ export class PlanGraph {
 
 			case "expand": {
 				// Child added new nodes under their scope
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- PlanUpdateEvent payload shape per action
 				const { label, parentId } = update.payload as { label: string; parentId: string };
 				this.addNode(label, parentId);
 				break;
 			}
 
 			case "assess": {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- PlanUpdateEvent payload shape per action
 				const { result } = update.payload as { result: string };
 				node.result = result;
 				this.data.checkpoints[update.nodeId] = { status: "assessed", result };
@@ -396,6 +399,7 @@ export class PlanGraph {
 			}
 
 			case "refine": {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- PlanUpdateEvent payload shape per action
 				const { feedback } = update.payload as { feedback: string };
 				node.feedback = feedback;
 				node.status = "pending";
@@ -417,6 +421,7 @@ export class PlanGraph {
 
 	children(parentId: string | null): PlanNode[] {
 		const key = parentId ?? "__root__";
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- filter(Boolean) removes undefined entries
 		return (this.childIndex.get(key) ?? []).map((id) => this.nodeIndex.get(id)).filter(Boolean) as PlanNode[];
 	}
 

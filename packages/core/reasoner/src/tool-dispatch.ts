@@ -15,7 +15,9 @@ export function payloadToText(payload: Record<string, unknown>, isError: boolean
 
 function extractDisplay(payload: Record<string, unknown>): { text: string; mimeType?: string } | undefined {
 	const d = payload._display;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime-guarded access to untyped display block
 	if (d !== null && typeof d === "object" && typeof (d as Record<string, unknown>).text === "string") {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- shape validated by guard above
 		const block = d as { text: string; mimeType?: string };
 		return { text: block.text, mimeType: block.mimeType };
 	}
@@ -35,15 +37,17 @@ function toOuterTimeoutMs(
 	defaultMs: number,
 	toolDef?: ToolDefinition,
 ): number {
-	const longRunning = toolDef?.longRunning || LONG_RUNNING_PREFIXES.some((p) => toolName.startsWith(p));
+	const longRunning = toolDef?.longRunning ?? LONG_RUNNING_PREFIXES.some((p) => toolName.startsWith(p));
 	if (longRunning) {
 		const parsed = toolDef?.inputSchema.safeParse(args);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Zod safeParse .data is unknown at type level
 		const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
 		const explicit =
 			typeof data.maxMs === "number" ? data.maxMs : typeof data.timeoutMs === "number" ? data.timeoutMs : undefined;
 		return (explicit ?? LONG_RUNNING_TIMEOUT_MS) + TIMEOUT_BUFFER_MS;
 	}
 	const parsed = toolDef?.inputSchema.safeParse(args);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Zod safeParse .data is unknown at type level
 	const data = parsed?.success ? (parsed.data as Record<string, unknown>) : args;
 	const inner =
 		typeof data.timeoutMs === "number" ? data.timeoutMs : typeof data.maxMs === "number" ? data.maxMs : undefined;
@@ -52,6 +56,7 @@ function toOuterTimeoutMs(
 
 function extractValidationError(payload: Record<string, unknown>): { field: string; message: string } | undefined {
 	const v = payload._validationError;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- shape validated by typeof+in guard
 	if (v && typeof v === "object" && "field" in v) return v as { field: string; message: string };
 	return undefined;
 }

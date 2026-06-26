@@ -60,6 +60,7 @@ function wrapStream<TApi extends Api, TOptions extends StreamOptions>(
 		if (model.api !== api) {
 			throw new Error(`Mismatched api: ${model.api} expected ${api}`);
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- api equality checked above, safe to narrow
 		return stream(model as Model<TApi>, context, options as TOptions);
 	};
 }
@@ -72,6 +73,7 @@ function wrapStreamSimple<TApi extends Api>(
 		if (model.api !== api) {
 			throw new Error(`Mismatched api: ${model.api} expected ${api}`);
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- api equality checked above, safe to narrow
 		return streamSimple(model as Model<TApi>, context, options);
 	};
 }

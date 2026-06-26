@@ -138,6 +138,7 @@ export class ToolSupervisor {
 		if (!svc || !this.bus) return;
 
 		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- duck-type probe for MCP client ping
 			const adapter = svc.adapter as unknown as { client?: { ping?: () => Promise<void> } };
 			if (typeof adapter.client?.ping === "function") {
 				await adapter.client.ping();
@@ -198,7 +199,6 @@ export class ToolSupervisor {
 
 		const dep = cfg.ingestURL;
 		const depCfg = this.config.services[dep];
-		if (!depCfg) return cfg.env;
 
 		let ingestAddr: string;
 		if (depCfg.transport === "http" && depCfg.httpUrl) {
@@ -222,7 +222,7 @@ function topoSort(services: Record<string, ToolServiceConfig>): string[] {
 		if (visiting.has(name)) throw new Error(`Circular dependency: ${name}`);
 		visiting.add(name);
 
-		const deps = services[name]?.dependsOn ?? [];
+		const deps = services[name].dependsOn ?? [];
 		for (const dep of deps) {
 			if (!(dep in services)) throw new Error(`Unknown dependency: ${dep} (required by ${name})`);
 			visit(dep);

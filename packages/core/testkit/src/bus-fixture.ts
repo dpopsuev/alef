@@ -91,7 +91,7 @@ export class BusFixture {
 		const recorder = new BusEventRecorder();
 		this.bus.onAny("command", (event) => recorder.onCommand(event));
 		this.bus.onAny("event", (event) => recorder.onEvent(event));
-		this.bus.onAny("notification", (event) => recorder.onNotification?.(event));
+		this.bus.onAny("notification", (event) => recorder.onNotification(event));
 		return recorder;
 	}
 

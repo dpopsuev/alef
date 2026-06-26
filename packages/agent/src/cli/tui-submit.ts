@@ -66,7 +66,7 @@ export function createSubmitHandler(config: SubmitConfig) {
 			// Bare "@" → list available forums
 			if (trimmed === "@" && config.forums) {
 				const chans = config.forums.list();
-				const active = config.forums?.active;
+				const active = config.forums.active;
 				writer.addNotice(`Channels: ${chans.map((c) => `@${c}${c === active ? " (active)" : ""}`).join(", ")}`);
 				return true;
 			}
@@ -182,6 +182,7 @@ async function executeMessage(config: ExecuteMessageConfig): Promise<void> {
 
 	try {
 		if (executor) await executor();
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- aborted is mutated by abort callback during await
 		if (!aborted) {
 			const tokenFooter: TokenFooterHandle = writer.addTokenFooter();
 			dispatch({ type: "turn.complete", tokenFooter });

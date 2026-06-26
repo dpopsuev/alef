@@ -116,6 +116,7 @@ function resolvePath(path: string, root: unknown): unknown {
 
 function getKey(obj: unknown, key: string): unknown {
 	if (obj !== null && typeof obj === "object" && !Array.isArray(obj)) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed to non-array object above
 		return (obj as Record<string, unknown>)[key];
 	}
 	return undefined;

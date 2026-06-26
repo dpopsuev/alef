@@ -52,6 +52,7 @@ export function extractTrace(records: StorageRecord[]): SessionTrace {
 			}
 
 			if (e.type === "llm.result" && (bus === "notification" || bus === "sense")) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped event payload field
 				const resp = e.payload.response as Record<string, unknown> | undefined;
 				if (resp && resp.role === "assistant") {
 					llmResponse = resp;
@@ -63,6 +64,7 @@ export function extractTrace(records: StorageRecord[]): SessionTrace {
 			}
 
 			if ((bus === "command" || bus === "motor") && e.type !== "llm.response" && e.type !== "context.assemble" && e.type !== "llm.checkpoint") {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped event payload field
 				const toolCallId = e.payload.toolCallId as string | undefined;
 				if (toolCallId) {
 					toolCommands.set(toolCallId, {
@@ -74,6 +76,7 @@ export function extractTrace(records: StorageRecord[]): SessionTrace {
 			}
 
 			if ((bus === "event" || bus === "sense") && e.type !== "llm.input" && e.type !== "context.assemble") {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped event payload field
 				const toolCallId = e.payload.toolCallId as string | undefined;
 				if (toolCallId) {
 					toolResults.set(toolCallId, {

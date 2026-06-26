@@ -76,7 +76,7 @@ export class ProcessTerminal implements Terminal {
 	private stdinDataHandler?: (data: string) => void;
 	private progressInterval?: ReturnType<typeof setInterval>;
 	private writeLogPath = (() => {
-		const env = process.env.ALEF_TUI_WRITE_LOG || "";
+		const env = process.env.ALEF_TUI_WRITE_LOG ?? "";
 		if (!env) return "";
 		try {
 			if (fs.statSync(env).isDirectory()) {
@@ -104,9 +104,7 @@ export class ProcessTerminal implements Terminal {
 
 		// Save previous state and enable raw mode
 		this.wasRaw = process.stdin.isRaw || false;
-		if (process.stdin.setRawMode) {
-			process.stdin.setRawMode(true);
-		}
+		process.stdin.setRawMode(true);
 		process.stdin.setEncoding("utf8");
 		process.stdin.resume();
 
@@ -280,7 +278,7 @@ export class ProcessTerminal implements Terminal {
 		const endTime = Date.now() + maxMs;
 
 		try {
-			while (true) {
+			for (;;) {
 				const now = Date.now();
 				const timeLeft = endTime - now;
 				if (timeLeft <= 0) break;
@@ -335,9 +333,7 @@ export class ProcessTerminal implements Terminal {
 		process.stdin.pause();
 
 		// Restore raw mode state
-		if (process.stdin.setRawMode) {
-			process.stdin.setRawMode(this.wasRaw);
-		}
+		process.stdin.setRawMode(this.wasRaw);
 	}
 
 	write(data: string): void {
@@ -399,11 +395,9 @@ export class ProcessTerminal implements Terminal {
 		if (active) {
 			// OSC 9;4;3 - indeterminate progress
 			process.stdout.write(TERMINAL_PROGRESS_ACTIVE_SEQUENCE);
-			if (!this.progressInterval) {
-				this.progressInterval = setInterval(() => {
-					process.stdout.write(TERMINAL_PROGRESS_ACTIVE_SEQUENCE);
-				}, TERMINAL_PROGRESS_KEEPALIVE_MS);
-			}
+			this.progressInterval ??= setInterval(() => {
+				process.stdout.write(TERMINAL_PROGRESS_ACTIVE_SEQUENCE);
+			}, TERMINAL_PROGRESS_KEEPALIVE_MS);
 		} else {
 			this.clearProgressInterval();
 			// OSC 9;4;0 - clear progress

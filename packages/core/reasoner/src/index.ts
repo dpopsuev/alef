@@ -206,6 +206,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 			updated[sysIdx] = { ...messages[sysIdx], content: messages[sysIdx].content + block };
 			return updated;
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- constructing a system message with shape matching generic T
 		return [{ role: "system", content: block.trimStart() } as unknown as T, ...messages];
 	}
 
@@ -250,7 +251,7 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 			if (!desiredState) return null;
 			const prev = lastErrorTensor;
 			lastErrorTensor = computeError(desiredState, getActualConditions());
-			if (prev && lastErrorTensor) {
+			if (prev) {
 				const drifted = detectDrift(prev, lastErrorTensor);
 				if (drifted.length > 0) {
 					lastErrorTensor = { ...lastErrorTensor, dimensions: [...lastErrorTensor.dimensions] };

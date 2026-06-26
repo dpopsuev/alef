@@ -37,6 +37,7 @@ export function createHitlAdapter(opts: HitlAdapterOptions): Adapter {
 		sources: [],
 		mount(bus: Bus): () => void {
 			return bus.command.subscribe(VALIDATE_REQUEST, (event) => {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- VALIDATE_REQUEST payload shape enforced by bus protocol
 				const p = event.payload as unknown as ValidateRequest;
 
 				if (p.targetAdapter && p.targetAdapter !== adapterName) return;

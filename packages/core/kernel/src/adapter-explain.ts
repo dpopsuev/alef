@@ -12,7 +12,7 @@ export function explainAdapter(adapter: Adapter): string {
 		lines.push(`  tools (${adapter.tools.length}):`);
 		for (const tool of adapter.tools) {
 			lines.push(
-				`    ${tool.name} — ${tool.description?.split(".")[0] ?? "(no description)"}${tool.longRunning ? " [long-running]" : ""}`,
+				`    ${tool.name} — ${tool.description.split(".")[0]}${tool.longRunning ? " [long-running]" : ""}`,
 			);
 		}
 	}

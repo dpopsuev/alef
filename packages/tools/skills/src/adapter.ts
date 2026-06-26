@@ -210,7 +210,8 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 				"adapter.loaded": {
 					handle: async (ctx) => {
 						const name = getString(ctx.payload, "name") ?? "";
-						const books = (ctx.payload.contributions as ReasoningContributions | undefined)?.skills ?? [];
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- contributions shape defined by adapter protocol
+					const books = (ctx.payload.contributions as ReasoningContributions | undefined)?.skills ?? [];
 						if (books.length > 0) mergeBooks(name, books);
 					},
 				},
@@ -224,7 +225,9 @@ export function createSkillsAdapter(opts: SkillsAdapterOptions): Adapter {
 			command: {
 				"skills.books": typedAction(BOOKS_TOOL, async () => handleBooks()),
 				"skills.list": typedAction(LIST_TOOL, async () => handleList()),
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typedAction ctx is structurally compatible with CommandHandlerCtx
 				"skills.invoke": typedAction(INVOKE_TOOL, async (ctx) => handleInvoke(ctx as unknown as CommandHandlerCtx)),
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typedAction ctx is structurally compatible with CommandHandlerCtx
 				"skills.open": typedAction(OPEN_TOOL, async (ctx) => handleOpen(ctx as unknown as CommandHandlerCtx)),
 			},
 		},

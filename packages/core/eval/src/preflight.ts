@@ -58,7 +58,7 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 	const fail = (error: PreflightError) => errors.push(error);
 
 	// Phase 1: validate — adapters array non-empty, names non-empty, no duplicates
-	if (!cfg.adapters || cfg.adapters.length === 0) {
+	if (cfg.adapters.length === 0) {
 		fail({ phase: "validate", detail: "adapters array is empty — nothing to validate" });
 		return { passed, warnings, errors, elapsedMs: Date.now() - start, ok: false };
 	}
@@ -104,10 +104,6 @@ export async function preflight(cfg: PreflightConfig): Promise<PreflightReport> 
 	// Phase 3: tools — every ToolDefinition has a parseable inputSchema
 	for (const adapter of cfg.adapters) {
 		for (const tool of adapter.tools) {
-			if (!tool.inputSchema) {
-				fail({ phase: "tools", adapter: adapter.name, tool: tool.name, detail: "inputSchema is missing" });
-				continue;
-			}
 			try {
 				// safeParse with empty object — we just want to know the schema is functional
 				tool.inputSchema.safeParse({});

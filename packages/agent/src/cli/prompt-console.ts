@@ -109,9 +109,7 @@ export class PromptConsole {
 
 		const spinnerPool = buildPool();
 		const spinnerBlock = spinnerPool[0];
-		this.frames = Array.from({ length: SPINNER_FRAME_COUNT }, () =>
-			spinnerBlock ? randomCodePoint(spinnerBlock) : glyph("state:active"),
-		);
+		this.frames = Array.from({ length: SPINNER_FRAME_COUNT }, () => randomCodePoint(spinnerBlock));
 
 		this.statusText = new Text("", 0, 0);
 
@@ -422,12 +420,10 @@ export class PromptConsole {
 		const task = this.backgroundTasks.get(taskId);
 		if (task) task.status = status;
 		this.refreshBackgroundTaskPanel();
-		if (status === "completed" || status === "failed") {
-			setTimeout(() => {
-				this.backgroundTasks.delete(taskId);
-				this.refreshBackgroundTaskPanel();
-			}, 10_000);
-		}
+		setTimeout(() => {
+			this.backgroundTasks.delete(taskId);
+			this.refreshBackgroundTaskPanel();
+		}, 10_000);
 	}
 
 	private refreshBackgroundTaskPanel(): void {

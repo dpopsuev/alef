@@ -40,9 +40,9 @@ export function setCellDimensions(dims: CellDimensions): void {
 }
 
 export function detectCapabilities(): TerminalCapabilities {
-	const termProgram = process.env.TERM_PROGRAM?.toLowerCase() || "";
-	const term = process.env.TERM?.toLowerCase() || "";
-	const colorTerm = process.env.COLORTERM?.toLowerCase() || "";
+	const termProgram = process.env.TERM_PROGRAM?.toLowerCase() ?? "";
+	const term = process.env.TERM?.toLowerCase() ?? "";
+	const colorTerm = process.env.COLORTERM?.toLowerCase() ?? "";
 
 	// tmux and screen swallow OSC 8 by default (passthrough is opt-in and wraps
 	// sequences differently). Force hyperlinks off whenever we detect them, even
@@ -87,9 +87,7 @@ export function detectCapabilities(): TerminalCapabilities {
 }
 
 export function getCapabilities(): TerminalCapabilities {
-	if (!cachedCapabilities) {
-		cachedCapabilities = detectCapabilities();
-	}
+	cachedCapabilities ??= detectCapabilities();
 	return cachedCapabilities;
 }
 
@@ -388,16 +386,12 @@ export function renderImage(
 		return { sequence, rows, imageId: options.imageId };
 	}
 
-	if (caps.images === "iterm2") {
-		const sequence = encodeITerm2(base64Data, {
-			width: maxWidth,
-			height: "auto",
-			preserveAspectRatio: options.preserveAspectRatio ?? true,
-		});
-		return { sequence, rows };
-	}
-
-	return null;
+	const sequence = encodeITerm2(base64Data, {
+		width: maxWidth,
+		height: "auto",
+		preserveAspectRatio: options.preserveAspectRatio ?? true,
+	});
+	return { sequence, rows };
 }
 
 /**

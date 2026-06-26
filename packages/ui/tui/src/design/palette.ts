@@ -23,11 +23,11 @@ const STATUS_MAP: Record<StatusLevel, StatusStyle> = {
 };
 
 export function statusStyle(status: StatusLevel): StatusStyle {
-	return STATUS_MAP[status] ?? STATUS_MAP.pending;
+	return STATUS_MAP[status];
 }
 
 export function statusGlyph(status: StatusLevel): string {
-	return STATUS_MAP[status]?.glyph ?? "○";
+	return STATUS_MAP[status].glyph;
 }
 
 export const DEPTH_SEPARATOR = {

@@ -95,6 +95,6 @@ export async function prependSessionHistory(
 	const newChildren = writer.container.children.splice(totalBefore);
 	for (let i = newChildren.length - 1; i >= 0; i--) {
 		const child = newChildren[i];
-		if (child) writer.container.insertAt(0, child);
+		writer.container.insertAt(0, child);
 	}
 }

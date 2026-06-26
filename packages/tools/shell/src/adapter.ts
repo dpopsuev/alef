@@ -93,7 +93,7 @@ export interface ShellAdapterOptions {
 async function* pushQueue<T>(register: (push: (item: T) => void, done: () => void) => void): AsyncIterable<T> {
 	const queue: T[] = [];
 	let notify: (() => void) | null = null;
-	let finished = false;
+	const state = { finished: false };
 
 	register(
 		(item) => {
@@ -101,18 +101,19 @@ async function* pushQueue<T>(register: (push: (item: T) => void, done: () => voi
 			notify?.();
 		},
 		() => {
-			finished = true;
+			state.finished = true;
 			notify?.();
 		},
 	);
 
-	while (!finished || queue.length > 0) {
+	while (!state.finished || queue.length > 0) {
 		if (queue.length === 0) {
 			await new Promise<void>((r) => {
 				notify = r;
 			});
 			notify = null;
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- queue.shift() returns T; length check guarantees non-undefined
 		while (queue.length > 0) yield queue.shift() as T;
 	}
 }
@@ -208,7 +209,7 @@ async function* streamExec(
 		env: { ...getShellEnv({ binDir: opts.binDir }), COLUMNS: "220", LINES: "50" },
 	});
 
-	let timedOut = false;
+	const timeout$ = { timedOut: false };
 	let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
 	let sigkillTimer2: ReturnType<typeof setTimeout> | undefined;
 	let stallTimer: ReturnType<typeof setInterval> | undefined;
@@ -216,7 +217,7 @@ async function* streamExec(
 	if (timeoutMs !== undefined) {
 		// lint-ignore: RAWTIMER hard wall-clock cap (safety net)
 		sigkillTimer = setTimeout(() => {
-			timedOut = true;
+			timeout$.timedOut = true;
 			child.kill("SIGTERM");
 			// lint-ignore: RAWTIMER SIGKILL escalation 5s after SIGTERM
 			sigkillTimer2 = setTimeout(() => child.kill("SIGKILL"), 5000);
@@ -239,7 +240,7 @@ async function* streamExec(
 				if (lastCpuTime >= 0 && cpuTime === lastCpuTime) {
 					stallCount++;
 					if (stallCount >= STALL_THRESHOLD) {
-						timedOut = true;
+						timeout$.timedOut = true;
 						child.kill("SIGTERM");
 						// lint-ignore: RAWTIMER SIGKILL escalation
 						setTimeout(() => child.kill("SIGKILL"), 5000);
@@ -259,8 +260,8 @@ async function* streamExec(
 		let exitCode = 0;
 
 		for await (const buf of pushQueue<Buffer>((push, done) => {
-			child.stdout?.on("data", push);
-			child.stderr?.on("data", push);
+			child.stdout.on("data", push);
+			child.stderr.on("data", push);
 			child.on("close", (code) => {
 				exitCode = code ?? 0;
 				done();
@@ -272,7 +273,8 @@ async function* streamExec(
 
 		const raw = Buffer.concat(chunks).toString("utf-8");
 		const tr = truncateTail(raw, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-		if (timedOut) {
+		if (timeout$.timedOut) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- timeoutMs is guaranteed defined when timedOut is true
 			throw new ShellTimeoutError(timeoutMs as number, exitCode, tr.content);
 		}
 		if (exitCode !== 0) {

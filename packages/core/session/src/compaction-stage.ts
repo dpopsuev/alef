@@ -28,6 +28,7 @@ const DEFAULT_PRESERVE_RECENT = 4;
 function estimateTokens(messages: readonly unknown[]): number {
 	let chars = 0;
 	for (const msg of messages) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for content access
 		const m = msg as { content?: string | Array<{ text?: string }> };
 		if (typeof m.content === "string") {
 			chars += m.content.length;
@@ -43,6 +44,7 @@ function estimateTokens(messages: readonly unknown[]): number {
 function defaultSummarize(messages: readonly unknown[]): string {
 	const lines: string[] = ["[Context compacted — earlier turns summarized]", ""];
 	for (const msg of messages) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for role/content access
 		const m = msg as { role?: string; content?: string | Array<{ text?: string }> };
 		const role = m.role ?? "unknown";
 		let text = "";
@@ -63,6 +65,7 @@ function defaultSummarize(messages: readonly unknown[]): string {
 
 function injectPriorSummary(messages: readonly unknown[], summary: string): ContextAssemblyOutput {
 	const result = [...messages];
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for role check
 	const systemIdx = result.findIndex((m) => (m as { role?: string }).role === "system");
 	const insertAt = systemIdx >= 0 ? systemIdx + 1 : 0;
 	result.splice(insertAt, 0, { role: "user", content: summary });
@@ -82,6 +85,7 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 	let lastSummary = "";
 
 	return async (input) => {
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- 0 tokens means no data, must fall through to estimation
 		const estimated = getLastTokenCount?.() || estimateTokens(input.messages);
 
 		if (estimated <= tokenLimit) {
@@ -92,7 +96,9 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 		}
 
 		const messages = [...input.messages];
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for role check
 		const systemMsg = messages.find((m) => (m as { role?: string }).role === "system");
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for role check
 		const nonSystem = messages.filter((m) => (m as { role?: string }).role !== "system");
 
 		if (nonSystem.length <= preserveRecent) {
@@ -103,6 +109,7 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 		const toKeep = nonSystem.slice(-preserveRecent);
 
 		const isScratchpad = (m: unknown) => {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowing untyped message for content check
 			const content = (m as { content?: string }).content;
 			return typeof content === "string" && content.startsWith("[Scratchpad");
 		};
@@ -125,6 +132,7 @@ export function createCompactionStage(opts: CompactionStageOptions = {}): Contex
 			estimatedAfter: estimateTokens(compactedMessages),
 		};
 		onCompact?.(result);
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- CompactionResult to generic signal payload
 		publishSignal?.("context.compacted", result as unknown as Record<string, unknown>);
 
 		return { messages: compactedMessages };

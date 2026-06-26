@@ -104,8 +104,9 @@ export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 							throw new Error(`Registry API error: ${response.status} ${response.statusText}`);
 						}
 
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- fetch JSON has no static type
 						const data = (await response.json()) as RegistryResponse;
-						const servers = data.servers || [];
+						const servers = data.servers;
 
 						// Format results for display
 						const results = servers.map((s) => ({
@@ -127,8 +128,8 @@ export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 								(r, i) =>
 									`${i + 1}. **${r.name}** (${r.version})\n` +
 									`   ${r.description}\n` +
-									`   Repository: ${r.repository || "N/A"}\n` +
-									`   Status: ${r.status || "unknown"}`,
+									`   Repository: ${r.repository ?? "N/A"}\n` +
+									`   Status: ${r.status ?? "unknown"}`,
 							)
 							.join("\n\n");
 
@@ -171,17 +172,15 @@ export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 
 						if (transport === "stdio") {
 							// Default to npx for npm packages
-							const command = config.command || "npx";
-							const args = config.args || ["-y", serverName];
+							const command = config.command ?? "npx";
+							const args = config.args ?? ["-y", serverName];
 
 							adapter = await McpAdapter.stdio(command, args, serverName);
-						} else if (transport === "http") {
+						} else {
 							if (!config.url) {
 								throw new Error("config.url is required for http transport");
 							}
 							adapter = await McpAdapter.http(config.url, serverName);
-						} else {
-							throw new Error(`Unsupported transport: ${transport}`);
 						}
 
 						loadedAdapters.set(serverName, adapter);
@@ -189,15 +188,15 @@ export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 							opts.agent.load(adapter);
 						}
 
-						const toolCount = adapter.tools?.length || 0;
-						const toolNames = adapter.tools?.map((t) => t.name).join(", ") || "none";
+						const toolCount = adapter.tools.length;
+						const toolNames = adapter.tools.map((t) => t.name).join(", ") || "none";
 
 						return withDisplay(
 							{
 								serverName,
 								transport,
 								toolCount,
-								tools: adapter.tools?.map((t) => ({ name: t.name, description: t.description })),
+								tools: adapter.tools.map((t) => ({ name: t.name, description: t.description })),
 							},
 							{
 								text:
@@ -222,8 +221,8 @@ export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 				"mcp.list": typedAction(LIST_TOOL, async () => {
 					const adapters = Array.from(loadedAdapters.entries()).map(([name, adapter]) => ({
 						name,
-						toolCount: adapter.tools?.length || 0,
-						tools: adapter.tools?.map((t) => ({ name: t.name, description: t.description })),
+						toolCount: adapter.tools.length,
+						tools: adapter.tools.map((t) => ({ name: t.name, description: t.description })),
 					}));
 
 					const displayText =
@@ -233,7 +232,7 @@ export function createMcpRegistryAdapter(opts: McpRegistryAdapterOptions) {
 									.map(
 										(o) =>
 											`**${o.name}** (${o.toolCount} tools)\n` +
-											o.tools?.map((t) => `  - ${t.name}: ${t.description}`).join("\n"),
+											o.tools.map((t) => `  - ${t.name}: ${t.description}`).join("\n"),
 									)
 									.join("\n\n");
 

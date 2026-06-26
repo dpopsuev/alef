@@ -11,14 +11,18 @@ const NODE_OS_SPECIFIER = "node:" + "os";
 const NODE_PATH_SPECIFIER = "node:" + "path";
 
 // Eagerly load in Node.js/Bun environment only
-if (typeof process !== "undefined" && (process.versions?.node || process.versions?.bun)) {
-	dynamicImport(NODE_FS_SPECIFIER).then((m) => {
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.versions may not exist in all environments
+if (typeof process !== "undefined" && (process.versions?.node ?? process.versions?.bun)) {
+	void dynamicImport(NODE_FS_SPECIFIER).then((m) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns unknown, narrowing to known Node module
 		_existsSync = (m as typeof import("node:fs")).existsSync;
 	});
-	dynamicImport(NODE_OS_SPECIFIER).then((m) => {
+	void dynamicImport(NODE_OS_SPECIFIER).then((m) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns unknown, narrowing to known Node module
 		_homedir = (m as typeof import("node:os")).homedir;
 	});
-	dynamicImport(NODE_PATH_SPECIFIER).then((m) => {
+	void dynamicImport(NODE_PATH_SPECIFIER).then((m) => {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import returns unknown, narrowing to known Node module
 		_join = (m as typeof import("node:path")).join;
 	});
 }
@@ -33,8 +37,8 @@ let _procEnvCache: Map<string, string> | null = null;
  * environments on Linux. We can recover the env from `/proc/self/environ`.
  */
 function getProcEnv(key: string): string | undefined {
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.versions may not exist in all environments
 	if (!process.versions?.bun) return undefined;
-	if (typeof process === "undefined") return undefined;
 
 	// If process.env already has entries, the bug is not triggered.
 	if (Object.keys(process.env).length > 0) return undefined;
@@ -42,6 +46,7 @@ function getProcEnv(key: string): string | undefined {
 	if (_procEnvCache === null) {
 		_procEnvCache = new Map();
 		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-require-imports -- require() needed for sync fs in Bun fallback path
 			const { readFileSync } = require("node:fs") as typeof import("node:fs");
 			const data = readFileSync("/proc/self/environ", "utf-8");
 			for (const entry of data.split("\0")) {
@@ -66,7 +71,8 @@ function hasVertexAdcCredentials(): boolean {
 		// return false WITHOUT caching so the next call retries once they're ready.
 		// Only cache false permanently in a browser environment where fs is never available.
 		if (!_existsSync || !_homedir || !_join) {
-			const isNode = typeof process !== "undefined" && (process.versions?.node || process.versions?.bun);
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.versions may not exist in all environments
+		const isNode = typeof process !== "undefined" && (process.versions?.node ?? process.versions?.bun);
 			if (!isNode) {
 				// Definitively in a browser — safe to cache false permanently
 				cachedVertexAdcCredentialsExists = false;
@@ -75,7 +81,8 @@ function hasVertexAdcCredentials(): boolean {
 		}
 
 		// Check GOOGLE_APPLICATION_CREDENTIALS env var first (standard way)
-		const gacPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || getProcEnv("GOOGLE_APPLICATION_CREDENTIALS");
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env var should fall through to getProcEnv
+	const gacPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || getProcEnv("GOOGLE_APPLICATION_CREDENTIALS");
 		if (gacPath) {
 			cachedVertexAdcCredentialsExists = _existsSync(gacPath);
 		} else {
@@ -160,6 +167,7 @@ export function getEnvApiKey(provider: string): string | undefined;
 export function getEnvApiKey(provider: string): string | undefined {
 	const envKeys = findEnvKeys(provider);
 	if (envKeys?.[0]) {
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env var should fall through to getProcEnv
 		return process.env[envKeys[0]] || getProcEnv(envKeys[0]);
 	}
 
@@ -167,12 +175,15 @@ export function getEnvApiKey(provider: string): string | undefined {
 	// Auth is configured via `gcloud auth application-default login`.
 	if (provider === "google-vertex") {
 		const hasCredentials = hasVertexAdcCredentials();
+		/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string env var should fall through */
 		const hasProject = !!(
 			process.env.GOOGLE_CLOUD_PROJECT ||
 			process.env.GCLOUD_PROJECT ||
 			getProcEnv("GOOGLE_CLOUD_PROJECT") ||
 			getProcEnv("GCLOUD_PROJECT")
 		);
+		/* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
+		// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string env var should fall through
 		const hasLocation = !!(process.env.GOOGLE_CLOUD_LOCATION || getProcEnv("GOOGLE_CLOUD_LOCATION"));
 
 		if (hasCredentials && hasProject && hasLocation) {

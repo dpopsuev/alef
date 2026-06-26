@@ -25,10 +25,12 @@ export function getImageModel<
 	TModelId extends keyof (typeof IMAGE_MODELS)[TProvider],
 >(provider: TProvider, modelId: TModelId): ImagesModel<ImageModelApi<TProvider, TModelId>> {
 	const providerModels = imageModelRegistry.get(provider);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type narrowing from runtime registry lookup
 	return providerModels?.get(modelId as string) as ImagesModel<ImageModelApi<TProvider, TModelId>>;
 }
 
 export function getImageProviders(): KnownImagesProvider[] {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- registry keys are KnownImagesProvider strings from IMAGE_MODELS
 	return Array.from(imageModelRegistry.keys()) as KnownImagesProvider[];
 }
 
@@ -37,6 +39,7 @@ export function getImageModels<TProvider extends KnownImagesProvider>(
 ): ImagesModel<ImageModelApi<TProvider, keyof (typeof IMAGE_MODELS)[TProvider]>>[] {
 	const models = imageModelRegistry.get(provider);
 	return models
-		? (Array.from(models.values()) as ImagesModel<ImageModelApi<TProvider, keyof (typeof IMAGE_MODELS)[TProvider]>>[])
+		? // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- generic type narrowing from runtime registry lookup
+			(Array.from(models.values()) as ImagesModel<ImageModelApi<TProvider, keyof (typeof IMAGE_MODELS)[TProvider]>>[])
 		: [];
 }

@@ -40,6 +40,7 @@ export class SqliteStorageFactory implements StorageFactory {
 				for (const row of [...r.rows].reverse()) {
 					const bus = String(row.bus);
 					const type = String(row.type);
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- payload stored as JSON object
 					const payload = JSON.parse(String(row.payload)) as Record<string, unknown>;
 					if (bus === "event" && type === "llm.input") {
 						const text = typeof payload.text === "string" ? payload.text : "";

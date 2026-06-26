@@ -72,11 +72,13 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 		};
 
 		try {
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string API key should fall through
 			const apiKey = options?.apiKey || getEnvApiKey(model.provider) || "";
 			const client = createClient(model, apiKey, options?.headers);
 			let params = buildParams(model, context, options);
 			const nextParams = await options?.onPayload?.(params, model);
 			if (nextParams !== undefined) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: onPayload returns provider-specific params shape
 				params = nextParams as GenerateContentParameters;
 			}
 			const googleStream = await client.models.generateContentStream(params);
@@ -88,7 +90,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 			for await (const chunk of googleStream) {
 				// @google/genai documents GenerateContentResponse.responseId as an output-only field
 				// used to identify each response. Keep the first non-empty one from the stream.
-				output.responseId ||= chunk.responseId;
+				output.responseId ??= chunk.responseId;
 				const candidate = chunk.candidates?.[0];
 				if (candidate?.content?.parts) {
 					for (const part of candidate.content.parts) {
@@ -184,8 +186,8 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 							const toolCall: ToolCall = {
 								type: "toolCall",
 								id: toolCallId,
-								name: part.functionCall.name || "",
-								arguments: (part.functionCall.args as Record<string, any>) ?? {},
+								name: part.functionCall.name ?? "",
+								arguments: (part.functionCall.args ?? {}) as Record<string, any>,
 								...(part.thoughtSignature && { thoughtSignature: part.thoughtSignature }),
 							};
 
@@ -212,12 +214,12 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 				if (chunk.usageMetadata) {
 					output.usage = {
 						input:
-							(chunk.usageMetadata.promptTokenCount || 0) - (chunk.usageMetadata.cachedContentTokenCount || 0),
+							(chunk.usageMetadata.promptTokenCount ?? 0) - (chunk.usageMetadata.cachedContentTokenCount ?? 0),
 						output:
-							(chunk.usageMetadata.candidatesTokenCount || 0) + (chunk.usageMetadata.thoughtsTokenCount || 0),
-						cacheRead: chunk.usageMetadata.cachedContentTokenCount || 0,
+							(chunk.usageMetadata.candidatesTokenCount ?? 0) + (chunk.usageMetadata.thoughtsTokenCount ?? 0),
+						cacheRead: chunk.usageMetadata.cachedContentTokenCount ?? 0,
 						cacheWrite: 0,
-						totalTokens: chunk.usageMetadata.totalTokenCount || 0,
+						totalTokens: chunk.usageMetadata.totalTokenCount ?? 0,
 						cost: {
 							input: 0,
 							output: 0,
@@ -262,6 +264,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 			// Remove internal index property used during streaming
 			for (const block of output.content) {
 				if ("index" in block) {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: stripping internal streaming scratch property
 					delete (block as { index?: number }).index;
 				}
 			}
@@ -280,6 +283,7 @@ export const streamSimpleGoogle: StreamFunction<"google-generative-ai", SimpleSt
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
+	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: empty string API key should fall through
 	const apiKey = options?.apiKey || getEnvApiKey(model.provider);
 	if (!apiKey) {
 		throw new Error(`No API key for provider: ${model.provider}`);
@@ -291,6 +295,7 @@ export const streamSimpleGoogle: StreamFunction<"google-generative-ai", SimpleSt
 	}
 
 	const clampedReasoning = clampThinkingLevel(model, options.reasoning);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: clampThinkingLevel output narrowed to ClampedThinkingLevel after 'off' check
 	const effort = (clampedReasoning === "off" ? "high" : clampedReasoning) as ClampedThinkingLevel;
 	const googleModel = model as Model<"google-generative-ai">;
 
@@ -367,7 +372,7 @@ function buildParams(
 	if (options.thinking?.enabled && model.reasoning) {
 		const thinkingConfig: ThinkingConfig = { includeThoughts: true };
 		if (options.thinking.level !== undefined) {
-			// Cast to any since our GoogleThinkingLevel mirrors Google's ThinkingLevel enum values
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: GoogleThinkingLevel mirrors Google SDK's ThinkingLevel enum values
 			thinkingConfig.thinkingLevel = options.thinking.level as any;
 		} else if (options.thinking.budgetTokens !== undefined) {
 			thinkingConfig.thinkingBudget = options.thinking.budgetTokens;
@@ -412,12 +417,15 @@ function getDisabledThinkingConfig(model: Model<"google-generative-ai">): Thinki
 	// do not support full thinking-off either. For Gemini 3 models, use the lowest supported
 	// thinkingLevel without includeThoughts so hidden thinking remains invisible to pi.
 	if (isGemini3ProModel(model)) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Gemini 3.1 Pro requires LOW as minimum thinking level
 		return { thinkingLevel: "LOW" as any };
 	}
 	if (isGemini3FlashModel(model)) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Gemini 3 Flash requires MINIMAL as minimum thinking level
 		return { thinkingLevel: "MINIMAL" as any };
 	}
 	if (isGemma4Model(model)) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- boundary cast: Gemma 4 requires MINIMAL as minimum thinking level
 		return { thinkingLevel: "MINIMAL" as any };
 	}
 

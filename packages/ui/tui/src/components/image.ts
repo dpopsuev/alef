@@ -42,7 +42,7 @@ export class Image implements Component {
 		this.mimeType = mimeType;
 		this.theme = theme;
 		this.options = options;
-		this.dimensions = dimensions || getImageDimensions(base64Data, mimeType) || { widthPx: 800, heightPx: 600 };
+		this.dimensions = dimensions ?? getImageDimensions(base64Data, mimeType) ?? { widthPx: 800, heightPx: 600 };
 		this.imageId = options.imageId;
 	}
 

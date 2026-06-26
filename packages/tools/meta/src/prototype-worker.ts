@@ -22,6 +22,7 @@ import {
 	makeBus,
 } from "@dpopsuev/alef-kernel/bus";
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- workerData shape set by parent thread
 const { adapterPath, cwd } = workerData as { adapterPath: string; cwd: string };
 
 const port = parentPort;
@@ -42,7 +43,7 @@ const bridgeBus: Bus = makeBus(
 			}
 			set.add(handler);
 			return () => {
-				set?.delete(handler);
+				set.delete(handler);
 			};
 		},
 		publish(event: CommandMessage) {
@@ -58,7 +59,7 @@ const bridgeBus: Bus = makeBus(
 			}
 			set.add(handler);
 			return () => {
-				set?.delete(handler);
+				set.delete(handler);
 			};
 		},
 		publish(event: EventInput) {
@@ -77,6 +78,7 @@ const bridgeBus: Bus = makeBus(
 // Dispatch incoming command events to registered handlers.
 port.on("message", (msg: { dir: string; event: BusMessage }) => {
 	if (msg.dir !== "command") return;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- parent port message shape matches CommandMessage
 	const commandEvent = msg.event as CommandMessage;
 	const specific = commandHandlers.get(commandEvent.type);
 	if (specific) for (const h of specific) void h(commandEvent);
@@ -85,8 +87,11 @@ port.on("message", (msg: { dir: string; event: BusMessage }) => {
 });
 
 // Load the adapter and mount it.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dynamic import has no static type
 const mod = (await import(adapterPath)) as Record<string, unknown>;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- adapter factory contract enforced by convention
 const factory = mod.createAdapter as (opts: { cwd: string }) => unknown | Promise<unknown>;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- adapter shape validated by mount protocol
 const adapter = (await factory({ cwd })) as {
 	name: string;
 	tools: Array<{ name: string; description: string; inputSchema: import("zod").ZodTypeAny }>;

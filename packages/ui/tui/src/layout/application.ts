@@ -19,6 +19,7 @@ export class Application implements Component {
 		this.focus = new FocusRing();
 
 		for (const [mode, def] of Object.entries(opts.views)) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ViewMode validated by Object.entries over Partial<Record<ViewMode, …>>
 			this.router.register(mode as ViewMode, def as ViewDefinition);
 			for (const slot of (def as ViewDefinition).slots) {
 				this.focus.register(slot.panel);
@@ -43,7 +44,7 @@ export class Application implements Component {
 
 	invalidate(): void {
 		for (const slot of this.router.currentSlots) {
-			slot.panel.invalidate?.();
+			slot.panel.invalidate();
 		}
 	}
 

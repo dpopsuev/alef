@@ -117,8 +117,9 @@ export function createWireAdapterWithFactory(opts: WireAdapterFactoryOptions): A
 			try {
 				const reply = await session.send!(prompt, JUDGE_TIMEOUT_MS);
 				try {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse returns unknown; shape validated by destructuring
 					const parsed = JSON.parse(reply) as { score: number; feedback: string };
-					return { score: parsed.score ?? 5, feedback: parsed.feedback ?? reply };
+					return { score: parsed.score, feedback: parsed.feedback };
 				} catch {
 					return { score: 5, feedback: reply };
 				}

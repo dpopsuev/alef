@@ -31,7 +31,8 @@ export class DiscourseStore {
 		const posts: Post[] = [];
 		for (const line of lines) {
 			try {
-				const stored = JSON.parse(line) as StoredPost;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSONL line parsed from append-only store with known schema
+			const stored = JSON.parse(line) as StoredPost;
 				if (since !== undefined && stored.timestamp <= since) continue;
 				posts.push({ topic, thread, author: stored.author, content: stored.content, timestamp: stored.timestamp });
 			} catch {

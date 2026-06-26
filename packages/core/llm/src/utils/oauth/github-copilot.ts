@@ -31,17 +31,6 @@ type DeviceCodeResponse = {
 	expires_in: number;
 };
 
-type DeviceTokenSuccessResponse = {
-	access_token: string;
-	token_type?: string;
-	scope?: string;
-};
-
-type DeviceTokenErrorResponse = {
-	error: string;
-	error_description?: string;
-	interval?: number;
-};
 
 export function normalizeDomain(input: string): string | null {
 	const trimmed = input.trim();
@@ -119,11 +108,13 @@ async function startDeviceFlow(domain: string): Promise<DeviceCodeResponse> {
 		throw new Error("Invalid device code response");
 	}
 
-	const deviceCode = (data as Record<string, unknown>).device_code;
-	const userCode = (data as Record<string, unknown>).user_code;
-	const verificationUri = (data as Record<string, unknown>).verification_uri;
-	const interval = (data as Record<string, unknown>).interval;
-	const expiresIn = (data as Record<string, unknown>).expires_in;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typeof check above ensures data is object
+	const record = data as Record<string, unknown>;
+	const deviceCode = record.device_code;
+	const userCode = record.user_code;
+	const verificationUri = record.verification_uri;
+	const interval = record.interval;
+	const expiresIn = record.expires_in;
 
 	if (
 		typeof deviceCode !== "string" ||
@@ -203,26 +194,33 @@ async function pollForGitHubAccessToken(
 			}),
 		});
 
-		if (raw && typeof raw === "object" && typeof (raw as DeviceTokenSuccessResponse).access_token === "string") {
-			return (raw as DeviceTokenSuccessResponse).access_token;
-		}
-
-		if (raw && typeof raw === "object" && typeof (raw as DeviceTokenErrorResponse).error === "string") {
-			const { error, error_description: description, interval } = raw as DeviceTokenErrorResponse;
-			if (error === "authorization_pending") {
-				continue;
+		if (raw && typeof raw === "object") {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typeof check ensures raw is object
+			const rawRecord = raw as Record<string, unknown>;
+			if (typeof rawRecord.access_token === "string") {
+				return rawRecord.access_token;
 			}
 
-			if (error === "slow_down") {
-				slowDownResponses += 1;
-				intervalMs =
-					typeof interval === "number" && interval > 0 ? interval * 1000 : Math.max(1000, intervalMs + 5000);
-				intervalMultiplier = SLOW_DOWN_POLL_INTERVAL_MULTIPLIER;
-				continue;
-			}
+			if (typeof rawRecord.error === "string") {
+				const error = rawRecord.error;
+				const description =
+					typeof rawRecord.error_description === "string" ? rawRecord.error_description : undefined;
+				const interval = typeof rawRecord.interval === "number" ? rawRecord.interval : undefined;
+				if (error === "authorization_pending") {
+					continue;
+				}
 
-			const descriptionSuffix = description ? `: ${description}` : "";
-			throw new Error(`Device flow failed: ${error}${descriptionSuffix}`);
+				if (error === "slow_down") {
+					slowDownResponses += 1;
+					intervalMs =
+						interval !== undefined && interval > 0 ? interval * 1000 : Math.max(1000, intervalMs + 5000);
+					intervalMultiplier = SLOW_DOWN_POLL_INTERVAL_MULTIPLIER;
+					continue;
+				}
+
+				const descriptionSuffix = description ? `: ${description}` : "";
+				throw new Error(`Device flow failed: ${error}${descriptionSuffix}`);
+			}
 		}
 	}
 
@@ -242,7 +240,7 @@ export async function refreshGitHubCopilotToken(
 	refreshToken: string,
 	enterpriseDomain?: string,
 ): Promise<OAuthCredentials> {
-	const domain = enterpriseDomain || "github.com";
+	const domain = enterpriseDomain ?? "github.com";
 	const urls = getUrls(domain);
 
 	const raw = await fetchJson(urls.copilotTokenUrl, {
@@ -257,8 +255,10 @@ export async function refreshGitHubCopilotToken(
 		throw new Error("Invalid Copilot token response");
 	}
 
-	const token = (raw as Record<string, unknown>).token;
-	const expiresAt = (raw as Record<string, unknown>).expires_at;
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- typeof check above ensures raw is object
+	const rawRecord = raw as Record<string, unknown>;
+	const token = rawRecord.token;
+	const expiresAt = rawRecord.expires_at;
 
 	if (typeof token !== "string" || typeof expiresAt !== "number") {
 		throw new Error("Invalid Copilot token response fields");
@@ -345,7 +345,7 @@ export async function loginGitHubCopilot(options: {
 	if (trimmed && !enterpriseDomain) {
 		throw new Error("Invalid GitHub Enterprise URL/domain");
 	}
-	const domain = enterpriseDomain || "github.com";
+	const domain = enterpriseDomain ?? "github.com";
 
 	const device = await startDeviceFlow(domain);
 	options.onAuth(device.verification_uri, `Enter code: ${device.user_code}`);

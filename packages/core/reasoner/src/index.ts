@@ -36,7 +36,7 @@ import { z } from "zod";
 
 import { runLLMLoop } from "./turn-loop.js";
 
-export { payloadToText } from "./tool-dispatch.js";
+
 
 /** Core execution options — model identity, auth, retry, timeout. */
 export interface LlmCallOptions {
@@ -301,5 +301,3 @@ export function createAgentLoop(options: AgentLoopOptions): Adapter & Reconcilia
 	};
 }
 
-export type { ToolDefinition };
-export type { TokenUsage, ToolCallEnd, ToolCallStart } from "./tool-events.js";

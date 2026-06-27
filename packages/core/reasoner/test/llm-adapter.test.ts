@@ -192,7 +192,7 @@ describe.skipIf(SKIP)("Reasoner — real API", { tags: ["unit"] }, () => {
 // payloadToText
 // ---------------------------------------------------------------------------
 
-import { payloadToText } from "../src/index.js";
+import { payloadToText } from "../src/tool-dispatch.js";
 
 describe("payloadToText", { tags: ["unit"] }, () => {
 	it("returns errorMessage when isError is true", () => {

@@ -10,7 +10,7 @@
  * handleSlashCommand — /exit, /new, /resume, /help, unknown
  */
 
-import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-reasoner";
+import type { ToolCallEnd, ToolCallStart } from "@dpopsuev/alef-reasoner/tool-events";
 import { Container } from "@dpopsuev/alef-tui";
 import { ChatLog, ToolCallRow } from "@dpopsuev/alef-tui/views";
 import { afterEach, describe, expect, it, vi } from "vitest";

@@ -1,21 +1,11 @@
 import type { SessionStore } from "@dpopsuev/alef-session/storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { AgentService } from "./agent-service.js";
 import type { Args } from "./args.js";
-import type { Session } from "./session.js";
 import { selectViewMode } from "./view-mode.js";
 
 export interface TuiServiceOptions {
 	args: Args;
-	resolvedModelDisplay: string;
-	sessionId: string;
-	contextWindow: number;
-	getModel: () => string;
-	setModel: (id: string) => void;
-	getThinking: () => string;
-	setThinking: (level: string) => void;
-	humanAddress?: string;
-	agentAddress?: string;
-	session: Session;
 	store?: SessionStore;
 }
 
@@ -26,18 +16,23 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 		shareable: true,
 		dependsOn: ["agent"],
 
-		create(_createOpts: ServiceCreateOpts): Promise<ManagedService> {
+		create(createOpts: ServiceCreateOpts): Promise<ManagedService> {
+			const raw = createOpts.supervisor?.get("agent");
+			if (!raw || !("sessionHandle" in raw)) throw new Error("Agent service not found — TUI depends on agent");
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'sessionHandle' in check above
+			const agentSvc = raw as AgentService;
+
 			const interactiveOpts = {
 				cwd: opts.args.cwd,
-				modelId: opts.resolvedModelDisplay,
-				sessionId: opts.sessionId,
-				contextWindow: opts.contextWindow,
-				getModel: opts.getModel,
-				setModel: opts.setModel,
-				getThinking: opts.getThinking,
-				setThinking: opts.setThinking,
-				humanAddress: opts.humanAddress ?? "@you",
-				agentAddress: opts.agentAddress ?? "@alef",
+				modelId: agentSvc.resolvedModelDisplay,
+				sessionId: agentSvc.sessionHandle.state.id,
+				contextWindow: agentSvc.sessionHandle.state.contextWindow,
+				getModel: () => agentSvc.sessionHandle.getModel(),
+				setModel: (id: string) => agentSvc.sessionHandle.setModel(id),
+				getThinking: () => agentSvc.sessionHandle.getThinking(),
+				setThinking: (level: string) => agentSvc.sessionHandle.setThinking(level),
+				humanAddress: agentSvc.humanAddress,
+				agentAddress: agentSvc.agentAddress,
 			};
 
 			const viewer = selectViewMode(opts.args, interactiveOpts, opts.store);
@@ -50,7 +45,7 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 				tools: [],
 				start() {
 					running = true;
-					void viewer.run(opts.session).finally(() => {
+					void viewer.run(agentSvc.sessionHandle).finally(() => {
 						running = false;
 					});
 					return Promise.resolve();

@@ -1,5 +1,3 @@
-/** @deprecated Supervisor provides adapters via supervisor.adapters(). See agent-service.ts. */
-
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";

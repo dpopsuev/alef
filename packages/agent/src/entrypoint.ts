@@ -1,13 +1,11 @@
 #!/usr/bin/env tsx
 
 /**
- * Supervisor-based entrypoint — replaces supervisor.ts (process manager) + cli/main.ts.
+ * Supervisor-based entrypoint.
  *
- * Key difference from old boot: no child process, no IPC.
- * The Supervisor runs in THIS process. The agent is a service, not a spawned green slot.
- *
- * Phase 1 (CLI dispatch): early-exit commands that don't need the full service graph.
- * Phase 2 (Supervisor boot): storage → tools → agent composition → TUI.
+ * Phase 1: Pure setup (config, OTel, args)
+ * Phase 2: CLI dispatch (early-exit commands)
+ * Phase 3: Supervisor boot (storage → agent → TUI)
  */
 
 import "@dpopsuev/alef-coding-agent";
@@ -19,10 +17,11 @@ import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-sto
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import updateNotifier from "update-notifier";
-import { AgentRuntime } from "./agent-runtime.js";
+import { type AgentService, createAgentServiceDescriptor } from "./agent-service.js";
 import { parseArgs } from "./args.js";
 import { BUILD_INFO } from "./build-info.js";
 import { loadAdapters } from "./cli/load-adapters.js";
+import { buildIdentityContext } from "./cli/local-session.js";
 import { pickSession } from "./cli/session-picker.js";
 import { loadTheme } from "./cli/theme-loader.js";
 import { dispatchCliOp } from "./cli-ops.js";
@@ -31,11 +30,11 @@ import { runDebugSession } from "./debug-session.js";
 import { initYamlBlueprints } from "./init-yaml-blueprints.js";
 import { createRunnerLogger } from "./logger.js";
 import { resolveStartupModel, setModelConfigProvider } from "./model/index.js";
-import { setupOTel, shutdownOTel } from "./otel.js";
-import { runAgent } from "./run-agent.js";
+import { setupOTel } from "./otel.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
 import { loadSession } from "./session-lifecycle/index.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
+import { createTuiServiceDescriptor } from "./tui-service.js";
 import { ensureDirectories } from "./xdg-paths.js";
 
 // ---------------------------------------------------------------------------
@@ -54,7 +53,7 @@ await initYamlBlueprints();
 const args = parseArgs(process.argv.slice(2));
 
 // ---------------------------------------------------------------------------
-// Phase 2: CLI dispatcher — early exit (no Supervisor)
+// Phase 2: CLI dispatch — early exit (no Supervisor)
 // ---------------------------------------------------------------------------
 
 await runPmCommand(args);
@@ -142,6 +141,7 @@ if (args.attach !== undefined) {
 		process.exit(1);
 	}
 	const { RemoteSession } = await import("./strategies/remote-session.js");
+	const { runAgent } = await import("./run-agent.js");
 	const remoteSession = new RemoteSession(entry);
 	await remoteSession.ready();
 	loadTheme(
@@ -170,8 +170,7 @@ if (args.attach !== undefined) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 3: Full boot — storage is already started from getStorage() calls above
-//          or needs starting now for the main agent path
+// Phase 3: Supervisor boot — agent + TUI as services
 // ---------------------------------------------------------------------------
 
 const willUseTui = !args.print && !args.json && !args.noTui && process.stdin.isTTY;
@@ -223,45 +222,54 @@ Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage/
 		log.warn({ error: String(err) }, "embedder init failed, vector recall disabled");
 	});
 
+// Boot-time inputs for agent service
 const sessionDir = dirname(session.path);
 const loaded = await loadAdapters(args, cfg, log, sessionDir);
-const { blueprintUpgradePolicy: _upgradePolicy, blueprintPath } = loaded;
+const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
+const identity = buildIdentityContext(session);
 
-const runtime = new AgentRuntime({ storage });
-const {
-	session: localSession,
-	resolvedModelDisplay,
-	humanAddress,
-	agentAddress,
-	identity: { actorRoutes },
-} = await runtime.startSession(
-	args,
-	cfg,
-	log,
-	session,
-	loaded,
-	resolveStartupModel(args, loaded.blueprintModelId, cfg),
+// Register agent service — wraps createLocalSession
+supervisor.register(
+	createAgentServiceDescriptor({
+		args,
+		cfg,
+		log,
+		store: session,
+		loaded,
+		model,
+		storage,
+		identity,
+	}),
 );
 
-if (dispatchCliOp(args, localSession)) {
-	// CLI op dispatched — it calls process.exit() internally
-}
+// Register TUI service — wraps selectViewMode + viewer.run
+supervisor.register(createTuiServiceDescriptor({ args, store: session }));
+
+// Theme
 const opacity = cfg.theme?.background_opacity ?? readAlacrittyOpacity();
 const [isDark, terminalPalette] = await Promise.all([
 	detectDark(opacity),
 	queryPalette(Array.from({ length: 10 }, (_, i) => i + 5)),
 ]);
 loadTheme(
-	blueprintPath ? new URL("..", `file://${blueprintPath}`).pathname : undefined,
+	loaded.blueprintPath ? new URL("..", `file://${loaded.blueprintPath}`).pathname : undefined,
 	cfg.theme?.name,
 	cfg.theme?.colors,
 	isDark,
 	terminalPalette,
 );
 
-// No setupSupervisorIpc — no child process, no IPC needed.
-// No process.send({ type: "ready" }) — we ARE the process.
+// Start agent + TUI (topo-sorted: storage already running, agent first, TUI after)
+await supervisor.startAll({ cwd: args.cwd });
 
+const agentRaw = supervisor.get("agent");
+if (agentRaw && "sessionHandle" in agentRaw) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'sessionHandle' in check
+	const agentSvc = agentRaw as AgentService;
+	dispatchCliOp(args, agentSvc.sessionHandle);
+}
+
+// Signal handlers — Supervisor stops everything
 process.once("SIGTERM", () => {
 	void supervisor.stopAll().then(() => process.exit(0));
 });
@@ -269,26 +277,7 @@ process.once("SIGINT", () => {
 	void supervisor.stopAll().then(() => process.exit(0));
 });
 
-await runAgent({
-	args,
-	resolvedModelDisplay,
-	sessionId: session.id,
-	contextWindow: localSession.state.contextWindow,
-	getModel: () => localSession.getModel(),
-	setModel: (id) => localSession.setModel(id),
-	getThinking: () => localSession.getThinking(),
-	setThinking: (level) => localSession.setThinking(level),
-	setLLMAbortController: (ctrl) => localSession.setTurnController(ctrl),
-	reloadAdapter: async (name, path) => localSession.reloadAdapter(name, path),
-	getDirectiveAdapter: () => localSession.getDirective(),
-	session: localSession,
-	store: session,
-	humanAddress,
-	agentAddress,
-	actorRoutes,
-});
-
-traceEvent("process.exit");
-await supervisor.stopAll();
-await Promise.race([shutdownOTel(), new Promise<void>((resolve) => setTimeout(resolve, 2000).unref())]);
-process.exit(0);
+// TUI service is running (started by startAll). Wait for it to finish.
+// In daemon mode, TUI service picks headless mode (blocks forever).
+// The process stays alive until SIGTERM or the TUI exits.
+await new Promise<void>(() => {});

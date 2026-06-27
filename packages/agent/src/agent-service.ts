@@ -1,77 +1,87 @@
-import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
-import type { Agent } from "@dpopsuev/alef-engine/agent";
+import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
+import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
-import { buildAgent } from "./agent-kernel.js";
+import type { Logger } from "pino";
 import type { Args } from "./args.js";
-import { buildLlmAdapter } from "./build-llm-adapter.js";
+import type { AdapterLoadResult } from "./cli/load-adapters.js";
+import { createLocalSession, type IdentityContext } from "./cli/local-session.js";
 import type { AlefConfig } from "./config.js";
+import type { SessionHandle } from "./session-lifecycle/index.js";
 import type { SessionStore } from "./session-store.js";
 
 export interface AgentServiceOptions {
 	args: Args;
 	cfg: AlefConfig;
+	log: Logger;
+	store: SessionStore;
+	loaded: AdapterLoadResult;
 	model: Model<Api>;
-	getModel: () => Model<Api>;
-	getSignal: () => AbortSignal | undefined;
-	thinkingState: { level: ThinkingLevel | undefined };
-	systemPrompt?: string;
-	sessionStore?: SessionStore;
-	modelId?: string;
-	extraAdapters?: Adapter[];
+	storage: StorageFactory;
+	identity: IdentityContext;
 }
 
 export interface AgentService extends ManagedService {
-	readonly agent: Agent;
+	readonly sessionHandle: SessionHandle;
+	readonly resolvedModelDisplay: string;
+	readonly humanAddress: string;
+	readonly agentAddress: string;
 }
 
-export function createAgentServiceDescriptor(opts: AgentServiceOptions, toolDeps: string[] = []): ServiceDescriptor {
+export function createAgentServiceDescriptor(opts: AgentServiceOptions): ServiceDescriptor {
 	return {
 		name: "agent",
 		restart: "permanent",
 		shareable: false,
-		dependsOn: ["storage", ...toolDeps],
+		dependsOn: ["storage"],
 
-		create(createOpts: ServiceCreateOpts): Promise<AgentService> {
-			const toolAdapters = createOpts.supervisor?.adapters() ?? [];
+		async create(_createOpts: ServiceCreateOpts): Promise<AgentService> {
+			const {
+				session: sessionHandle,
+				resolvedModelDisplay,
+				humanAddress,
+				agentAddress,
+				actorRoutes: _actorRoutes,
+				setupSurface,
+			} = await createLocalSession(
+				opts.args,
+				opts.cfg,
+				opts.log,
+				opts.store,
+				opts.loaded,
+				opts.model,
+				opts.storage,
+				opts.identity,
+			);
 
-			const llm = buildLlmAdapter({
-				model: opts.model,
-				cfg: opts.cfg,
-				args: opts.args,
-				thinkingState: opts.thinkingState,
-				getModel: opts.getModel,
-				getSignal: opts.getSignal,
-				systemPrompt: opts.systemPrompt,
-			});
-
-			const agent = buildAgent({
-				llm,
-				session: opts.sessionStore,
-				modelId: opts.modelId,
-			});
-
-			for (const adapter of toolAdapters) {
-				agent.load(adapter);
+			const listenPort = await setupSurface();
+			if (opts.args.daemon && listenPort !== undefined) {
+				const daemonRegistry = opts.storage.daemonRegistry();
+				await daemonRegistry.register({
+					port: listenPort,
+					pid: process.pid,
+					sessionId: opts.store.id,
+					cwd: opts.args.cwd,
+					startedAt: Date.now(),
+				});
 			}
 
-			for (const adapter of opts.extraAdapters ?? []) {
-				agent.load(adapter);
-			}
-
-			return Promise.resolve({
+			return {
 				name: "agent",
 				restart: "permanent" as const,
-				adapters: [llm],
+				adapters: [] as Adapter[],
 				tools: [],
-				agent,
+				sessionHandle,
+				resolvedModelDisplay,
+				humanAddress,
+				agentAddress,
 				start: () => Promise.resolve(),
 				stop() {
-					agent.dispose();
+					sessionHandle.dispose();
 					return Promise.resolve();
 				},
-				health: () => Promise.resolve(!agent.signal.aborted),
-			});
+				health: () => Promise.resolve(true),
+			};
 		},
 	};
 }

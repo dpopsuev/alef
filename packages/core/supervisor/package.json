@@ -9,7 +9,8 @@
     "./lifecycle": "./src/lifecycle.ts",
     "./supervisor": "./src/supervisor.ts",
     "./tool": "./src/tool.ts",
-    "./scheduler": "./src/scheduler.ts"
+    "./scheduler": "./src/scheduler.ts",
+    "./package-manager": "./src/package-manager.ts"
   },
   "files": ["dist"],
   "scripts": {

@@ -13,6 +13,7 @@ export interface ManagedLifecycle {
 }
 
 export interface ServiceRegistry {
+	register(descriptor: ServiceDescriptor): void;
 	get(name: string): ManagedService | undefined;
 	adapters(): Adapter[];
 	tools(): ToolDefinition[];

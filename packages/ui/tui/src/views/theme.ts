@@ -25,7 +25,7 @@ interface GlyphPair {
 	ascii: string;
 }
 
-const GLYPHS: Record<string, GlyphPair> = {
+const GLYPHS = {
 	"state:done": { nerd: "■", ascii: "■" },
 	"state:active": { nerd: "●", ascii: "●" },
 	"state:error": { nerd: "▲", ascii: "▲" },
@@ -33,13 +33,16 @@ const GLYPHS: Record<string, GlyphPair> = {
 	"state:pruned": { nerd: "×", ascii: "×" },
 	"state:deferred": { nerd: "◇", ascii: "◇" },
 	"state:current": { nerd: "◄", ascii: "◄" },
+	"state:batch": { nerd: "⏱", ascii: "~" },
 	user: { nerd: "▸", ascii: ">" },
 	bullet: { nerd: "▪", ascii: "*" },
 	sep: { nerd: "─", ascii: "-" },
 	dot: { nerd: "·", ascii: "." },
-};
+} satisfies Record<string, GlyphPair>;
 
-export function glyph(key: string): string {
+export type GlyphKey = keyof typeof GLYPHS;
+
+export function glyph(key: GlyphKey): string {
 	const pair = GLYPHS[key];
 	return nerdFontsAvailable() ? pair.nerd : pair.ascii;
 }

@@ -171,6 +171,28 @@ alef --attach last            # Attach to most recent daemon
 alef --kill-daemon <id>       # Stop a daemon by session ID
 ```
 
+## Roundtrip trace (ALEF_DEBUG=1)
+
+Trace the full message lifecycle by correlationId:
+
+```bash
+# From SQLite
+sqlite3 /home/dpopsuev/.alef/alef.db "SELECT type, json_extract(payload,'$.step') as step, json_extract(payload,'$.phase') as phase, json_extract(payload,'$.correlationId') as cid FROM events WHERE session_id='SESSION_ID' AND type='trace:roundtrip' ORDER BY timestamp"
+```
+
+| Step | Phase | Where |
+|---|---|---|
+| 2 | tui-submit.onSubmit | User pressed Enter |
+| 3 | SessionHandle.send | Turn started |
+| 4 | AgentController.send | correlationId assigned |
+| 5 | AgentController.receive | llm.input published to bus |
+| 11 | connectObservers.onCommand | llm.response arrived, dispatched to observers |
+| 12 | connectObservers.onNotification | chunk/token-usage events dispatched |
+| 17 | AgentController.handleReply | Controller resolved pending promise |
+| 18 | SessionHandle.send.resolved | send() promise returned |
+
+**Hang diagnosis:** If steps 2-5 fire but 11 never fires, the LLM call failed or the response wasn't published. If 11 fires but 17 shows `hasPending: false`, the promise was already resolved (race condition). If chunks stream (step 12) but the TUI doesn't render, check the glyph registry for missing keys.
+
 ## Missing instrumentation (known gaps)
 
 1. **No AbortSignal in `CorpusHandlerCtx`** — adapters cannot be cancelled mid-flight.
@@ -184,13 +206,18 @@ alef --kill-daemon <id>       # Stop a daemon by session ID
 | Logger creation | `packages/agent/src/logger.ts` |
 | `ctx.log` stamping | `packages/core/kernel/src/adapter-dispatch.ts` |
 | reasoner events | `packages/core/reasoner/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
-| delegation events | `packages/core/runtime/src/delegation.ts`, `in-process.ts` |
-| `tools:describe:miss` | `packages/core/runtime/src/tool-catalog.ts` |
+| delegation events | `packages/core/engine/src/delegation.ts`, `in-process.ts` |
+| `tools:describe:miss` | `packages/core/engine/src/tool-catalog.ts` |
 | fd subprocess + kill timer | `packages/tools/fs/src/find-query.ts` |
 | Session store (SQLite) | `packages/core/storage/src/session-store.ts` |
 | Session store (JSONL) | `packages/core/session/src/session-store.ts` |
 | Daemon registry + SSE | `packages/agent/src/build-delegation.ts` |
-| AgentRuntime | `packages/agent/src/agent-runtime.ts` |
+| Supervisor entrypoint | `packages/agent/src/entrypoint.ts` |
+| Session service (mediator) | `packages/agent/src/session-service.ts` |
+| Agent service | `packages/agent/src/agent-service.ts` |
+| TUI service | `packages/agent/src/tui-service.ts` |
+| Glyph registry (TUI) | `packages/ui/tui/src/views/theme.ts` |
+| Glyph registry (agent) | `packages/agent/src/cli/ansi.ts` |
 
 ## Quick reference
 

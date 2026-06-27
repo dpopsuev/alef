@@ -3,14 +3,26 @@
  * alef store — CLI tool for querying the session store.
  *
  * Subcommands:
- *   sessions [--search <q>]              List sessions
- *   events <id> [--bus X] [--type X] [--errors] [--json]   Query events
- *   trace <id> <correlationId>           Show one turn's events
- *   summary <id>                         Token/tool/error summary
- *   tail [--json]                        Latest session events
+ *   sessions [--search <q>]                        List sessions
+ *   events <id> [filters...]                       Query events
+ *   trace <id> <correlationId>                     Show one turn
+ *   summary [<id>]                                 Token/tool/error summary
+ *   tail [filters...]                              Latest session events
+ *
+ * Filters (composable, any combination):
+ *   --bus <name>          command | event | notification | internal
+ *   --type <pattern>      glob pattern, e.g. llm.* or tool:*
+ *   --adapter <name>      filter by adapter prefix, e.g. fs, shell
+ *   --after <time>        events after HH:MM:SS or ISO timestamp
+ *   --before <time>       events before HH:MM:SS or ISO timestamp
+ *   --corr <prefix>       correlationId prefix
+ *   --errors              only error events
+ *   --payload <substring> payload contains substring
+ *   --limit <n>           max results (default 100)
+ *   --json                JSON output
  */
 
-import type { Client } from "@libsql/client";
+import type { Client, InValue } from "@libsql/client";
 
 export async function runStoreCommand(subcmd: string, args: string[]): Promise<void> {
 	const { getDatabase } = await import("@dpopsuev/alef-storage/sqlite/database");
@@ -39,6 +51,120 @@ export async function runStoreCommand(subcmd: string, args: string[]): Promise<v
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Filter parser — composable key=value filters
+// ---------------------------------------------------------------------------
+
+interface EventFilters {
+	bus?: string;
+	typePattern?: string;
+	adapter?: string;
+	after?: number;
+	before?: number;
+	correlationId?: string;
+	errorsOnly: boolean;
+	payloadSubstring?: string;
+	limit: number;
+	json: boolean;
+}
+
+function parseFilters(args: string[]): EventFilters {
+	const filters: EventFilters = { errorsOnly: false, limit: 100, json: false };
+
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		const next = () => args[++i] ?? "";
+
+		switch (arg) {
+			case "--bus":
+				filters.bus = next();
+				break;
+			case "--type":
+				filters.typePattern = next();
+				break;
+			case "--adapter":
+				filters.adapter = next();
+				break;
+			case "--after":
+				filters.after = parseTime(next());
+				break;
+			case "--before":
+				filters.before = parseTime(next());
+				break;
+			case "--corr":
+				filters.correlationId = next();
+				break;
+			case "--errors":
+				filters.errorsOnly = true;
+				break;
+			case "--payload":
+				filters.payloadSubstring = next();
+				break;
+			case "--limit":
+				filters.limit = Number.parseInt(next(), 10) || 100;
+				break;
+			case "--json":
+				filters.json = true;
+				break;
+		}
+	}
+	return filters;
+}
+
+function parseTime(s: string): number {
+	if (/^\d{2}:\d{2}(:\d{2})?$/.test(s)) {
+		const today = new Date();
+		const parts = s.split(":").map(Number);
+		today.setHours(parts[0], parts[1], parts[2] ?? 0, 0);
+		return today.getTime();
+	}
+	const ts = Date.parse(s);
+	return Number.isNaN(ts) ? 0 : ts;
+}
+
+function buildWhere(sessionId: string, filters: EventFilters): { where: string; args: InValue[] } {
+	const conditions = ["session_id LIKE ?"];
+	const sqlArgs: InValue[] = [`${sessionId}%`];
+
+	if (filters.bus) {
+		conditions.push("bus = ?");
+		sqlArgs.push(filters.bus);
+	}
+	if (filters.typePattern) {
+		conditions.push("type LIKE ?");
+		sqlArgs.push(filters.typePattern.replace(/\*/g, "%"));
+	}
+	if (filters.adapter) {
+		conditions.push("type LIKE ?");
+		sqlArgs.push(`${filters.adapter}.%`);
+	}
+	if (filters.after) {
+		conditions.push("timestamp >= ?");
+		sqlArgs.push(filters.after);
+	}
+	if (filters.before) {
+		conditions.push("timestamp <= ?");
+		sqlArgs.push(filters.before);
+	}
+	if (filters.correlationId) {
+		conditions.push("correlation_id LIKE ?");
+		sqlArgs.push(`${filters.correlationId}%`);
+	}
+	if (filters.errorsOnly) {
+		conditions.push("(type LIKE '%error%' OR type LIKE '%fail%' OR json_extract(payload, '$.isError') = true)");
+	}
+	if (filters.payloadSubstring) {
+		conditions.push("payload LIKE ?");
+		sqlArgs.push(`%${filters.payloadSubstring}%`);
+	}
+
+	return { where: conditions.join(" AND "), args: sqlArgs };
+}
+
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
+
 function fmtTime(ts: number): string {
 	return new Date(ts).toISOString().replace("T", " ").slice(0, 19);
 }
@@ -52,6 +178,10 @@ function pad(s: string, width: number): string {
 	return s.padEnd(width);
 }
 
+// ---------------------------------------------------------------------------
+// Subcommands
+// ---------------------------------------------------------------------------
+
 async function listSessions(db: Client, args: string[]): Promise<void> {
 	const searchIdx = args.indexOf("--search");
 	const search = searchIdx >= 0 ? args[searchIdx + 1] : undefined;
@@ -64,8 +194,7 @@ async function listSessions(db: Client, args: string[]): Promise<void> {
 		ORDER BY s.created_at DESC
 		LIMIT 20
 	`;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic SQL args
-	let sqlArgs: any[] = [];
+	let sqlArgs: InValue[] = [];
 
 	if (search) {
 		sql = `
@@ -109,47 +238,28 @@ async function listSessions(db: Client, args: string[]): Promise<void> {
 
 async function queryEvents(db: Client, args: string[]): Promise<void> {
 	const sessionId = args[0];
-	if (!sessionId) {
-		console.error("Usage: alef store events <session-id> [--bus X] [--type X] [--errors] [--json]");
+	if (!sessionId || sessionId.startsWith("--")) {
+		console.error(
+			"Usage: alef store events <session-id> [--bus X] [--type X] [--adapter X] [--after HH:MM] [--before HH:MM] [--corr X] [--errors] [--payload X] [--limit N] [--json]",
+		);
 		process.exit(1);
 	}
 
-	const busIdx = args.indexOf("--bus");
-	const bus = busIdx >= 0 ? args[busIdx + 1] : undefined;
-	const typeIdx = args.indexOf("--type");
-	const typePattern = typeIdx >= 0 ? args[typeIdx + 1] : undefined;
-	const errorsOnly = args.includes("--errors");
-	const jsonOutput = args.includes("--json");
-	const limit = 100;
-
-	const conditions = ["session_id LIKE ?"];
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic SQL args
-	const sqlArgs: any[] = [`${sessionId}%`];
-
-	if (bus) {
-		conditions.push("bus = ?");
-		sqlArgs.push(bus);
-	}
-	if (typePattern) {
-		conditions.push("type LIKE ?");
-		sqlArgs.push(typePattern.replace(/\*/g, "%"));
-	}
-	if (errorsOnly) {
-		conditions.push("(type LIKE '%error%' OR type LIKE '%fail%' OR json_extract(payload, '$.isError') = true)");
-	}
+	const filters = parseFilters(args.slice(1));
+	const { where, args: sqlArgs } = buildWhere(sessionId, filters);
 
 	const sql = `
 		SELECT bus, type, correlation_id, substr(payload, 1, 200) as payload_short, timestamp, elapsed
 		FROM events
-		WHERE ${conditions.join(" AND ")}
+		WHERE ${where}
 		ORDER BY timestamp
 		LIMIT ?
 	`;
-	sqlArgs.push(limit);
+	sqlArgs.push(filters.limit);
 
 	const result = await db.execute({ sql, args: sqlArgs });
 
-	if (jsonOutput) {
+	if (filters.json) {
 		for (const row of result.rows) {
 			console.log(JSON.stringify(row));
 		}
@@ -256,7 +366,7 @@ async function showSummary(db: Client, args: string[]): Promise<void> {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse from DB field
 			const tools = JSON.parse(String(s.tools)) as Array<{ name: string; calls: number }>;
 			if (tools.length > 0) {
-				console.log(`Tools:`);
+				console.log("Tools:");
 				for (const t of tools) console.log(`  ${t.name}: ${t.calls} calls`);
 			}
 		} catch {
@@ -266,8 +376,6 @@ async function showSummary(db: Client, args: string[]): Promise<void> {
 }
 
 async function tailLatest(db: Client, args: string[]): Promise<void> {
-	const jsonOutput = args.includes("--json");
-
 	const session = await db.execute({
 		sql: "SELECT id FROM sessions ORDER BY created_at DESC LIMIT 1",
 		args: [],
@@ -281,5 +389,5 @@ async function tailLatest(db: Client, args: string[]): Promise<void> {
 	const sessionId = String(session.rows[0]?.id ?? "");
 	console.log(`Session: ${sessionId}\n`);
 
-	await queryEvents(db, [sessionId, ...(jsonOutput ? ["--json"] : [])]);
+	await queryEvents(db, [sessionId, ...args]);
 }

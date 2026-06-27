@@ -5,10 +5,31 @@ import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { RemoteStrategy } from "@dpopsuev/alef-engine/remote";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import type { ManagedService } from "@dpopsuev/alef-supervisor/lifecycle";
+import type { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import type { ChildEntry } from "./child-process.js";
 import { healthCheck, resolvePath, spawnChild } from "./child-process.js";
-import type { ChildRegistry } from "./child-registry.js";
 import { DEFAULT_ASK_MAX_MS, DEFAULT_ASK_STALL_MS, MIN_REMAINING_MS, SIGKILL_GRACE_MS } from "./constants.js";
+
+export interface ChildAgentService extends ManagedService {
+	readonly entry: ChildEntry;
+}
+
+let childSeq = 0;
+
+function getChild(deps: ChildLifecycleDeps, name: string): ChildEntry | undefined {
+	const svc = deps.supervisor.get(name);
+	if (svc && "entry" in svc) return (svc as ChildAgentService).entry;
+	return undefined;
+}
+
+function listChildren(deps: ChildLifecycleDeps): ChildEntry[] {
+	return deps.supervisor
+		.names()
+		.filter((n) => n.startsWith("child-"))
+		.map((n) => getChild(deps, n))
+		.filter((e): e is ChildEntry => e !== undefined);
+}
 
 export interface ChildLifecycleDeps {
 	cwd: string;
@@ -17,7 +38,7 @@ export interface ChildLifecycleDeps {
 	currentDepth: number;
 	maxDepth: number;
 	writableRoots?: readonly string[];
-	registry: ChildRegistry;
+	supervisor: Supervisor;
 	strategies: Map<string, unknown>;
 	publishInnerSignal?: (type: string, payload: Record<string, unknown>, correlationId: string) => void;
 	allowedBlueprints?: readonly string[];
@@ -67,7 +88,7 @@ export async function handleSpawn(
 		childDepth: deps.currentDepth + 1,
 	});
 
-	const name = deps.registry.nextName();
+	const name = `child-${++childSeq}`;
 	const entry: ChildEntry = {
 		name,
 		endpoint: result.endpoint,
@@ -77,7 +98,29 @@ export async function handleSpawn(
 		startedAt: Date.now(),
 		tmpDir: result.tmpDir,
 	};
-	deps.registry.register(entry);
+	const descriptor = {
+		name,
+		restart: "temporary" as const,
+		shareable: false,
+		create: () =>
+			Promise.resolve({
+				name,
+				restart: "temporary" as const,
+				adapters: [],
+				tools: [],
+				entry,
+				start: () => Promise.resolve(),
+				async stop() {
+					entry.process.kill("SIGTERM");
+					if (entry.tmpDir) {
+						const { rmSync } = await import("node:fs");
+						rmSync(entry.tmpDir, { recursive: true, force: true });
+					}
+				},
+				health: () => healthCheck(entry.endpoint),
+			}),
+	};
+	await deps.supervisor.getOrStart(descriptor, { cwd: deps.cwd });
 
 	const strategy = new RemoteStrategy({ endpoint: result.endpoint, replyEvent: deps.replyEvent });
 	deps.strategies.set(name, strategy);
@@ -98,7 +141,7 @@ export async function handleAsk(
 ): Promise<Record<string, unknown>> {
 	const { name: childName, prompt, stallMs = DEFAULT_ASK_STALL_MS, maxMs = DEFAULT_ASK_MAX_MS } = ctx.payload;
 	const parentCallId = ctx.toolCallId ?? ctx.correlationId;
-	const entry = deps.registry.get(childName);
+	const entry = getChild(deps, childName);
 	if (!entry) throw new Error(`agent.ask: no child named '${childName}'`);
 
 	const strategy = new RemoteStrategy({
@@ -107,7 +150,7 @@ export async function handleAsk(
 		stallMs,
 		onStall: () => {
 			entry.process.kill("SIGTERM");
-			deps.registry.remove(childName);
+			void deps.supervisor.stop(childName);
 			deps.strategies.delete(childName);
 		},
 	});
@@ -141,7 +184,7 @@ export async function handleRace(
 	const parentCallId = ctx.toolCallId ?? ctx.correlationId;
 	const results = await Promise.allSettled(
 		tasks.map(async ({ name: childName, prompt }) => {
-			const entry = deps.registry.get(childName);
+			const entry = getChild(deps, childName);
 			if (!entry) return { name: childName, reply: null, error: `no child named '${childName}'` };
 			const strategy = new RemoteStrategy({ endpoint: entry.endpoint, replyEvent: deps.replyEvent, stallMs });
 			try {
@@ -187,7 +230,7 @@ export async function handleConverse(
 ): Promise<Record<string, unknown>> {
 	const { name: childName, prompts, stallMs = DEFAULT_ASK_STALL_MS, maxMs = DEFAULT_ASK_MAX_MS } = ctx.payload;
 	const parentCallId = ctx.toolCallId ?? ctx.correlationId;
-	const entry = deps.registry.get(childName);
+	const entry = getChild(deps, childName);
 	if (!entry) throw new Error(`agent.converse: no child named '${childName}'`);
 
 	const transcript: Array<{ role: "parent" | "child"; text: string }> = [];
@@ -243,7 +286,7 @@ export async function handleKill(
 	ctx: { payload: { name: string } },
 ): Promise<Record<string, unknown>> {
 	const { name: childName } = ctx.payload;
-	const entry = deps.registry.get(childName);
+	const entry = getChild(deps, childName);
 	if (!entry)
 		return withDisplay(
 			{ stopped: false, reason: `no child named '${childName}'` },
@@ -261,7 +304,7 @@ export async function handleKill(
 			res();
 		});
 	});
-	deps.registry.remove(childName);
+	void deps.supervisor.stop(childName);
 	deps.strategies.delete(childName);
 	return withDisplay(
 		{ stopped: true, name: childName },
@@ -271,7 +314,7 @@ export async function handleKill(
 
 export async function handleList(deps: ChildLifecycleDeps): Promise<Record<string, unknown>> {
 	const items = await Promise.all(
-		deps.registry.values().map(async (e) => ({
+		listChildren(deps).map(async (e) => ({
 			name: e.name,
 			endpoint: e.endpoint,
 			sessionId: e.sessionId ?? null,
@@ -292,7 +335,7 @@ export async function handleStatus(
 	ctx: { payload: { name: string } },
 ): Promise<Record<string, unknown>> {
 	const { name: childName } = ctx.payload;
-	const entry = deps.registry.get(childName);
+	const entry = getChild(deps, childName);
 	if (!entry)
 		return withDisplay(
 			{ alive: false, reason: `no child named '${childName}'` },

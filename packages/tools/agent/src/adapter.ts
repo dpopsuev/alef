@@ -42,8 +42,8 @@ import {
 	handleStatus,
 } from "./child-lifecycle.js";
 import type { ChildEntry } from "./child-process.js";
-import { ChildRegistry } from "./child-registry.js";
 import { DEFAULT_MAX_DEPTH, DEFAULT_READINESS_TIMEOUT_MS, DEFAULT_RUN_MAX_MS, DEFAULT_STALL_MS } from "./constants.js";
+import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 
 import { checkRelevance, needsWriteAccess } from "./text-analysis.js";
 import {
@@ -92,22 +92,7 @@ export function createAgentAdapter(
 	const factory = opts.subagentFactory;
 	let mountedBus: Bus | null = null;
 
-	const registry = new ChildRegistry({
-		onReaped: (name, reason, exitCode) => {
-			strategies.delete(name);
-			mountedBus?.event.publish({
-				type: "child.reaped",
-				correlationId: "system",
-				isError: false,
-				payload: { name, reason, exitCode },
-			});
-		},
-	});
-
-	const onProcessExit = () => registry.killAll();
-	process.once("exit", onProcessExit);
-	process.once("SIGTERM", onProcessExit);
-	process.once("SIGINT", onProcessExit);
+	const childSupervisor = new Supervisor();
 
 	const deps: ChildLifecycleDeps = {
 		cwd: opts.cwd ?? process.cwd(),
@@ -118,7 +103,7 @@ export function createAgentAdapter(
 		writableRoots: opts.writableRoots,
 		allowedBlueprints: opts.allowedBlueprints,
 		parentAdapterNames: opts.parentAdapterNames,
-		registry,
+		supervisor: childSupervisor,
 		strategies,
 	};
 

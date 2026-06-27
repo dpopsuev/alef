@@ -85,6 +85,15 @@ export class Supervisor implements ServiceRegistry {
 		this.bootOrder = [];
 	}
 
+	async stop(name: string): Promise<void> {
+		const svc = this.running.get(name);
+		if (!svc) return;
+		if (svc.healthTimer) clearInterval(svc.healthTimer);
+		await svc.instance.stop().catch(() => {});
+		this.running.delete(name);
+		this.descriptors.delete(name);
+	}
+
 	get(name: string): ManagedService | undefined {
 		return this.running.get(name)?.instance;
 	}

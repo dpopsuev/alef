@@ -11,7 +11,10 @@
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./embedder": "./src/embedder.ts",
+    "./recall": "./src/recall.ts",
+    "./local": "./src/local-embedder.ts"
   },
   "files": [
     "dist"

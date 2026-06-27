@@ -11,21 +11,22 @@
       "types": "./dist/index.d.ts",
       "import": "./src/index.ts"
     },
-    "./bdd": {
-      "source": "./src/bdd.ts",
-      "types": "./dist/bdd.d.ts",
-      "import": "./src/bdd.ts"
-    },
-    "./organ": {
-      "source": "./src/organ.ts",
-      "types": "./dist/organ.d.ts",
-      "import": "./src/organ.ts"
-    },
-    "./vitest-config": {
-      "source": "./src/vitest-config.ts",
-      "types": "./dist/vitest-config.d.ts",
-      "import": "./src/vitest-config.ts"
-    }
+    "./adapter-contract": "./src/adapter-contract.ts",
+    "./adapter-harness": "./src/adapter-harness.ts",
+    "./bdd": "./src/bdd.ts",
+    "./blueprint-gauntlet": "./src/blueprint-gauntlet.ts",
+    "./blueprint-harness": "./src/blueprint-harness.ts",
+    "./bus-fixture": "./src/bus-fixture.ts",
+    "./bus-recorder": "./src/bus-event-recorder.ts",
+    "./e2e": "./src/e2e-session.ts",
+    "./memory-store": "./src/in-memory-session-store.ts",
+    "./mock-reasoner": "./src/mock-reasoner.ts",
+    "./organ": "./src/organ.ts",
+    "./script": "./src/script.ts",
+    "./scripted-reasoner": "./src/scripted-reasoner.ts",
+    "./stub-adapter": "./src/stub-adapter.ts",
+    "./turn-driver": "./src/turn-driver.ts",
+    "./vitest-config": "./src/vitest-config.ts"
   },
   "files": [
     "dist",

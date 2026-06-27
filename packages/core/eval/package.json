@@ -9,7 +9,23 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./harness": "./src/harness.ts",
+    "./model": "./src/model.ts",
+    "./runner": "./src/evaluation-runner.ts",
+    "./phase-runner": "./src/phase-runner.ts",
+    "./evaluation": "./src/evaluation.ts",
+    "./metrics": "./src/metrics.ts",
+    "./report": "./src/report.ts",
+    "./checker": "./src/checker.ts",
+    "./trace": "./src/trace-recorder.ts",
+    "./baseline": "./src/baseline.ts",
+    "./scoreboard": "./src/scoreboard.ts",
+    "./preflight": "./src/preflight.ts",
+    "./judge": "./src/judge-panel-runner.ts",
+    "./unit": "./src/resolution-unit.ts",
+    "./git": "./src/git-workspace.ts",
+    "./suite": "./src/eval-suite.ts"
   },
   "files": [
     "dist",

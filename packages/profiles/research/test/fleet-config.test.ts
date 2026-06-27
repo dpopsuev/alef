@@ -1,70 +1,71 @@
-import type { McpAdapterFactory } from "@dpopsuev/alef-supervisor/tool";
-import { ToolSupervisor } from "@dpopsuev/alef-supervisor/tool";
+import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "@dpopsuev/alef-supervisor/lifecycle";
+import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { describe, expect, it } from "vitest";
 
-const stubMcp: McpAdapterFactory = {
-	http: () => ({ name: "stub", tools: [], subscriptions: { command: [], event: [], notification: [] }, sources: [], mount: () => () => {}, invalidate() {} }),
-	stdio: () => ({ name: "stub", tools: [], subscriptions: { command: [], event: [], notification: [] }, sources: [], mount: () => () => {}, invalidate() {} }),
-};
+function stubServiceDescriptor(name: string, dependsOn?: string[]): ServiceDescriptor {
+	return {
+		name,
+		restart: "permanent",
+		shareable: true,
+		dependsOn,
+		create(_opts: ServiceCreateOpts): Promise<ManagedService> {
+			return Promise.resolve({
+				name,
+				restart: "permanent" as const,
+				adapters: [],
+				tools: [],
+				start: () => Promise.resolve(),
+				stop: () => Promise.resolve(),
+				health: () => Promise.resolve(true),
+			});
+		},
+	};
+}
 
 describe("research agent fleet config", { tags: ["unit"] }, () => {
-	it("declares scribe and locus with correct dependency", () => {
-		const supervisor = new ToolSupervisor({
-			services: {
-				scribe: {
-					binary: "/usr/bin/echo",
-					args: ["scribe"],
-					transport: "stdio",
-					restart: "permanent",
-				},
-				locus: {
-					binary: "/usr/bin/echo",
-					args: ["locus"],
-					transport: "stdio",
-					restart: "permanent",
-					dependsOn: ["scribe"],
-					ingestURL: "scribe",
-				},
-			},
-		}, stubMcp);
+	it("services are not running before startAll", () => {
+		const supervisor = new Supervisor();
+		supervisor.register(stubServiceDescriptor("scribe"));
+		supervisor.register(stubServiceDescriptor("locus", ["scribe"]));
 
 		expect(supervisor.get("scribe")).toBeUndefined();
 		expect(supervisor.get("locus")).toBeUndefined();
 		expect(supervisor.names()).toHaveLength(0);
 	});
 
-	it("fleet tools are empty before start", () => {
-		const supervisor = new ToolSupervisor({
-			services: {
-				scribe: { binary: "echo", transport: "stdio" },
-			},
-		}, stubMcp);
+	it("tools are empty before start", () => {
+		const supervisor = new Supervisor();
+		supervisor.register(stubServiceDescriptor("scribe"));
 		expect(supervisor.tools()).toHaveLength(0);
 	});
 
-	it("fleet config supports ingestURL reference", () => {
-		const config = {
-			services: {
-				scribe: { binary: "scribe", transport: "http" as const, httpUrl: "http://localhost:8080" },
-				locus: { binary: "locus", dependsOn: ["scribe"], ingestURL: "scribe" },
-			},
-		};
+	it("dependency ordering is preserved", async () => {
+		const bootOrder: string[] = [];
+		function trackingDescriptor(name: string, dependsOn?: string[]): ServiceDescriptor {
+			return {
+				...stubServiceDescriptor(name, dependsOn),
+				create(_opts: ServiceCreateOpts): Promise<ManagedService> {
+					bootOrder.push(name);
+					return stubServiceDescriptor(name).create(_opts);
+				},
+			};
+		}
 
-		const _fleet = new ToolSupervisor(config, stubMcp);
-		expect(config.services.locus.ingestURL).toBe("scribe");
-		expect(config.services.locus.dependsOn).toEqual(["scribe"]);
+		const supervisor = new Supervisor();
+		supervisor.register(trackingDescriptor("locus", ["scribe"]));
+		supervisor.register(trackingDescriptor("scribe"));
+
+		await supervisor.startAll({ cwd: "/tmp" });
+
+		expect(bootOrder).toEqual(["scribe", "locus"]);
+		await supervisor.stopAll();
 	});
 
-	it("fleet rejects circular dependencies", async () => {
-		const supervisor = new ToolSupervisor({
-			services: {
-				a: { binary: "a", dependsOn: ["b"] },
-				b: { binary: "b", dependsOn: ["a"] },
-			},
-		}, stubMcp);
+	it("rejects circular dependencies", async () => {
+		const supervisor = new Supervisor();
+		supervisor.register(stubServiceDescriptor("a", ["b"]));
+		supervisor.register(stubServiceDescriptor("b", ["a"]));
 
-		const { InProcessBus } = await import("@dpopsuev/alef-kernel/bus");
-		const nerve = new InProcessBus();
-		await expect(supervisor.start(nerve.asBus())).rejects.toThrow("Circular dependency");
+		await expect(supervisor.startAll({ cwd: "/tmp" })).rejects.toThrow("Circular dependency");
 	});
 });

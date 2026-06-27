@@ -124,6 +124,17 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		const terminal = new MockTerminal(120, 40);
 
 		let renderCount = 0;
+		// Instrument session.subscribe to see what events the TUI dispatch receives
+		const dispatchedEvents: Array<{ type: string; text?: string }> = [];
+		const origSubscribe = session.subscribe.bind(session);
+		session.subscribe = (observer: (event: import("../src/session.js").AgentEvent) => void) => {
+			return origSubscribe((event: import("../src/session.js").AgentEvent) => {
+				const text = "text" in event ? String((event as { text?: string }).text) : undefined;
+				dispatchedEvents.push({ type: event.type, text });
+				observer(event);
+			});
+		};
+
 		const { runTuiMode } = await import("../src/cli/tui-mode.js");
 		const origWrite = terminal.write.bind(terminal);
 		terminal.write = (data: string) => {
@@ -159,19 +170,50 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 				await session.send("hello", 10_000);
 			}
 
-			// Wait for render cycles (longer, multiple attempts)
-			for (let i = 0; i < 10; i++) {
+			// Wait for Typewriter ticks (16ms per char, ~20 chars = ~400ms)
+			// plus render cycles
+			for (let i = 0; i < 20; i++) {
 				await new Promise((r) => setTimeout(r, 100));
-				if (terminal.output.length > outputBefore + 2) break;
+				if (terminal.stripAnsi().includes("mock terminal reply")) break;
 			}
 
 			console.log("outputs after send:", terminal.output.length - outputBefore);
 			console.log("total output chars:", terminal.allOutput().length);
 			const rendered = terminal.stripAnsi();
 			console.log("stripped length:", rendered.length);
+			console.log("dispatched events:", JSON.stringify(dispatchedEvents));
+
+			// The Typewriter is not rendering text. Is the problem:
+			// A) Typewriter.tick() never fires (setTimeout blocked)
+			// B) Markdown.setText() doesn't invalidate the component
+			// C) doRender() diff doesn't detect the change
+			//
+			// To isolate: the faux provider is synchronous. session.send()
+			// resolves immediately. The chunk arrives synchronously in the
+			// same microtask. The Typewriter.receive() buffers and schedules
+			// a setTimeout(tick, 16ms). But session.send() is AWAITED in the
+			// test — when it resolves, the current microtask chain is done.
+			// The 16ms setTimeout should fire during the next await.
+			// Force flush the typewriter by waiting and checking renders
+			console.log("all renders after extra wait:", terminal.output.length);
+			// Let's check raw output content for ANY text
+			const allRaw = terminal.allOutput();
+			console.log("raw output contains 'mock':", allRaw.includes("mock"));
+			console.log("raw output contains 'reply':", allRaw.includes("reply"));
+			console.log("raw output contains 'terminal':", allRaw.includes("terminal"));
+			// Check if the Typewriter is still pending
+			console.log("waiting 500ms more for typewriter ticks...");
+			await new Promise((r) => setTimeout(r, 500));
+			console.log("outputs after extra wait:", terminal.output.length - outputBefore);
+			const renderedAfterWait = terminal.stripAnsi();
+			console.log("contains reply after extra wait:", renderedAfterWait.includes("mock terminal reply"));
 			console.log("contains reply:", rendered.includes("mock terminal reply"));
 			if (!rendered.includes("mock terminal reply")) {
-				console.log("last 500 chars stripped:", rendered.slice(-500));
+				// Check if chunks were dispatched
+				const chunkCount = dispatchedEvents.filter((e) => e.type === "chunk").length;
+				const turnCompleteCount = dispatchedEvents.filter((e) => e.type === "turn-complete").length;
+				console.log("chunk events dispatched:", chunkCount);
+				console.log("turn-complete events dispatched:", turnCompleteCount);
 				console.log("raw last output:", JSON.stringify(terminal.output[terminal.output.length - 1]?.slice(0, 200)));
 			}
 			expect(rendered).toContain("mock terminal reply");

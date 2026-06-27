@@ -148,7 +148,7 @@ export class Markdown implements Component {
 		for (let i = 0; i < tokens.length; i++) {
 			const token = tokens[i];
 			const nextToken = tokens[i + 1];
-			const tokenLines = this.renderToken(token, contentWidth, nextToken.type);
+			const tokenLines = this.renderToken(token, contentWidth, nextToken?.type);
 			renderedLines.push(...tokenLines);
 		}
 

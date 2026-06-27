@@ -45,7 +45,8 @@
       "source": "./src/views/index.ts",
       "import": "./src/views/index.ts",
       "default": "./src/views/index.ts"
-    }
+    },
+    "./mock-terminal": "./src/mock-terminal.ts"
   },
   "dependencies": {
     "@dpopsuev/alef-session": "workspace:*",

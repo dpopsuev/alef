@@ -4,6 +4,10 @@ import type { Args } from "./args.js";
 import type { SessionService } from "./session-service.js";
 import { selectViewMode } from "./view-mode.js";
 
+export interface TuiService extends ManagedService {
+	readonly done: Promise<void>;
+}
+
 export interface TuiServiceOptions {
 	args: Args;
 	store?: SessionStore;
@@ -16,7 +20,7 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 		shareable: true,
 		dependsOn: ["session"],
 
-		create(createOpts: ServiceCreateOpts): Promise<ManagedService> {
+		create(createOpts: ServiceCreateOpts): Promise<TuiService> {
 			const raw = createOpts.supervisor?.get("session");
 			if (!raw || !("session" in raw)) throw new Error("Session service not found — TUI depends on session");
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check
@@ -37,21 +41,28 @@ export function createTuiServiceDescriptor(opts: TuiServiceOptions): ServiceDesc
 
 			const viewer = selectViewMode(opts.args, interactiveOpts, opts.store);
 			let running = false;
+			let doneResolve: () => void;
+			const done = new Promise<void>((resolve) => {
+				doneResolve = resolve;
+			});
 
 			return Promise.resolve({
 				name: "tui",
 				restart: "permanent" as const,
 				adapters: [],
 				tools: [],
+				done,
 				start() {
 					running = true;
 					void viewer.run(sessionSvc.session).finally(() => {
 						running = false;
+						doneResolve();
 					});
 					return Promise.resolve();
 				},
 				stop() {
 					running = false;
+					doneResolve();
 					return Promise.resolve();
 				},
 				health: () => Promise.resolve(running),

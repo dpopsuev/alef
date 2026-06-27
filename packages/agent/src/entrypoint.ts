@@ -278,7 +278,12 @@ process.once("SIGINT", () => {
 	void supervisor.stopAll().then(() => process.exit(0));
 });
 
-// TUI service is running (started by startAll). Wait for it to finish.
-// In daemon mode, TUI service picks headless mode (blocks forever).
-// The process stays alive until SIGTERM or the TUI exits.
-await new Promise<void>(() => {});
+// Wait for TUI viewer to finish (user exits, or daemon blocks forever).
+const tuiRaw = supervisor.get("tui");
+if (tuiRaw && "done" in tuiRaw) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'done' in check above
+	await (tuiRaw as unknown as { done: Promise<void> }).done;
+}
+
+await supervisor.stopAll();
+process.exit(0);

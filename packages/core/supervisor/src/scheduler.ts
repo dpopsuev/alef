@@ -12,6 +12,7 @@ export interface Scheduler {
 	repeat(intervalMs: number, event: ScheduledTask["event"]): string;
 	cancel(id: string): boolean;
 	list(): readonly ScheduledTask[];
+	setPublisher(fn: (event: ScheduledTask["event"]) => void): void;
 }
 
 let nextId = 0;
@@ -60,6 +61,10 @@ export function createSchedulerDescriptor(): ServiceDescriptor {
 				list() {
 					return [...timers.values()].map((e) => e.task);
 				},
+
+				setPublisher(fn: (event: ScheduledTask["event"]) => void) {
+					publishFn = fn;
+				},
 			};
 
 			return Promise.resolve({
@@ -78,10 +83,6 @@ export function createSchedulerDescriptor(): ServiceDescriptor {
 					return Promise.resolve();
 				},
 				health: () => Promise.resolve(true),
-
-				setPublisher(fn: (event: ScheduledTask["event"]) => void) {
-					publishFn = fn;
-				},
 			});
 		},
 	};

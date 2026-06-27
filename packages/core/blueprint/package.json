@@ -5,12 +5,12 @@
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": {
-      "source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
+    "./blueprints": "./src/blueprints.ts",
+    "./bootstrap": "./src/bootstrap.ts",
+    "./materializer": "./src/materializer.ts",
+    "./organs": "./src/organs.ts",
+    "./registry": "./src/registry.ts",
+    "./types": "./src/types.ts"
   },
   "types": "./dist/index.d.ts",
   "files": [

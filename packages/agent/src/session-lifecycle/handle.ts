@@ -12,7 +12,7 @@
  */
 
 import type { Api, Model, ThinkingLevel } from "@dpopsuev/alef-ai/types";
-import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint";
+import { loadAdapterFromPath } from "@dpopsuev/alef-blueprint/materializer";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import type { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Logger } from "pino";

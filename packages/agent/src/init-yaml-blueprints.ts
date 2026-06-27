@@ -12,13 +12,10 @@ import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import {
-	type BlueprintStack,
-	type BlueprintStackOptions,
-	blueprintRegistry,
-	loadAgentDefinition,
-	materializeBlueprint,
-} from "@dpopsuev/alef-blueprint";
+import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
+import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
+import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
+import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 
 /**

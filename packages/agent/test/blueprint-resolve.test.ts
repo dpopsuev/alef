@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import "@dpopsuev/alef-coding-agent";
 import "@dpopsuev/alef-factory-agent";
-import { blueprintRegistry } from "@dpopsuev/alef-blueprint";
+import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 
 describe("blueprintRegistry.resolve", { tags: ["unit"] }, () => {
 	it("resolves default when no name provided", () => {

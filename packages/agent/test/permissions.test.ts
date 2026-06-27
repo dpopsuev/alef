@@ -2,7 +2,7 @@
  * Unit tests for wrapWithPermissions.
  */
 
-import { wrapWithPermissions } from "@dpopsuev/alef-blueprint";
+import { wrapWithPermissions } from "@dpopsuev/alef-blueprint/materializer";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { InProcessBus } from "@dpopsuev/alef-kernel/bus";
 import { describe, expect, it } from "vitest";

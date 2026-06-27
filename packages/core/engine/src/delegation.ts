@@ -1,10 +1,12 @@
-import type { AdapterFactoryOptions, CompiledAgentAdapterDefinition, SubagentFactory } from "@dpopsuev/alef-blueprint";
+import type { AdapterFactoryOptions } from "@dpopsuev/alef-blueprint/materializer";
+import type { CompiledAgentAdapterDefinition } from "@dpopsuev/alef-blueprint/types";
+import type { SubagentFactory } from "@dpopsuev/alef-blueprint/registry";
+import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import {
-	blueprintRegistry,
 	DEFAULT_COMPILED_DEFINITION,
 	materializeBlueprint,
 	materializeDefaultAdapters,
-} from "@dpopsuev/alef-blueprint";
+} from "@dpopsuev/alef-blueprint/materializer";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { buildAdapterDirectives, createToolShellAdapter } from "./tool-catalog.js";

@@ -13,7 +13,7 @@
  * Reports per-phase scores regardless of overall pass/fail.
  */
 
-import { materializeDefaultAdapters } from "@dpopsuev/alef-blueprint";
+import { materializeDefaultAdapters } from "@dpopsuev/alef-blueprint/materializer";
 import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";

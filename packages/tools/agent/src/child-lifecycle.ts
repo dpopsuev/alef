@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { blueprintRegistry } from "@dpopsuev/alef-blueprint";
+import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import { RemoteStrategy } from "@dpopsuev/alef-engine/remote";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";

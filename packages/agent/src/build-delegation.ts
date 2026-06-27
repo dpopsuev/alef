@@ -1,5 +1,5 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
-import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint";
+import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { createRouterAdapter } from "@dpopsuev/alef-engine/http";

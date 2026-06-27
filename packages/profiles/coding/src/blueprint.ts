@@ -1,7 +1,7 @@
 import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-tool-agent";
 import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
 import { createSkillsAdapter } from "@dpopsuev/alef-tool-skills";
-import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint";
+import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";

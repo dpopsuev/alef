@@ -12,10 +12,18 @@ export interface ManagedLifecycle {
 	readonly restart: RestartPolicy;
 }
 
+export interface ServiceRegistry {
+	get(name: string): ManagedService | undefined;
+	adapters(): Adapter[];
+	tools(): ToolDefinition[];
+	names(): string[];
+}
+
 export interface ServiceCreateOpts {
 	cwd: string;
 	bus?: Bus;
 	logger?: AdapterLogger;
+	supervisor?: ServiceRegistry;
 }
 
 export interface ServiceDescriptor {

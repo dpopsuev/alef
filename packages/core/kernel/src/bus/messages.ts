@@ -70,6 +70,10 @@ export interface AgentBus {
 	dispose(): void;
 }
 
+export interface BusView extends Bus {
+	readonly viewId: string;
+}
+
 export type BusMiddleware = (bus: Bus) => Bus;
 
 export function makeBus(

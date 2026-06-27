@@ -19,6 +19,7 @@ export type {
 	BusChannel,
 	BusMessage,
 	BusMiddleware,
+	BusView,
 	ChannelHandler,
 	ChannelInput,
 	ChannelMap,

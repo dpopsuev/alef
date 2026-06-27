@@ -1,6 +1,6 @@
 import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
-import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
+import type { ManagedService, ServiceCreateOpts, ServiceDescriptor, ServiceRegistry } from "./lifecycle.js";
 
 export function isServiceDescriptor(v: unknown): v is ServiceDescriptor {
 	return typeof v === "object" && v !== null && "name" in v && "create" in v && typeof (v as { create: unknown }).create === "function";
@@ -54,7 +54,7 @@ function topoSort(descriptors: ServiceDescriptor[]): ServiceDescriptor[] {
 	return sorted;
 }
 
-export class Supervisor {
+export class Supervisor implements ServiceRegistry {
 	private readonly descriptors = new Map<string, ServiceDescriptor>();
 	private readonly running = new Map<string, RunningService>();
 	private bootOrder: string[] = [];
@@ -128,8 +128,36 @@ export class Supervisor {
 		return this.running.get(descriptor.name)!.instance;
 	}
 
+	async swap(
+		name: string,
+		opts: ServiceCreateOpts,
+		handoff?: (old: ManagedService, next: ManagedService) => Promise<void>,
+	): Promise<void> {
+		const entry = this.running.get(name);
+		if (!entry) return;
+
+		const enriched = { ...opts, supervisor: this as ServiceRegistry };
+		const next = await entry.descriptor.create(enriched);
+		await next.start();
+
+		if (handoff) await handoff(entry.instance, next);
+
+		if (entry.healthTimer) clearInterval(entry.healthTimer);
+		await entry.instance.stop().catch(() => {});
+
+		entry.instance = next;
+		entry.restartTimestamps = [];
+
+		if (entry.descriptor.restart === "permanent") {
+			entry.healthTimer = setInterval(() => {
+				void this.checkHealth(entry, opts);
+			}, HEALTH_CHECK_INTERVAL_MS);
+		}
+	}
+
 	private async startService(descriptor: ServiceDescriptor, opts: ServiceCreateOpts): Promise<void> {
-		const instance = await descriptor.create(opts);
+		const enriched = { ...opts, supervisor: this as ServiceRegistry };
+		const instance = await descriptor.create(enriched);
 		await instance.start();
 
 		const entry: RunningService = {
@@ -162,7 +190,8 @@ export class Supervisor {
 		await new Promise((r) => setTimeout(r, delay));
 		await entry.instance.stop().catch(() => {});
 
-		const newInstance = await entry.descriptor.create(opts);
+		const enriched = { ...opts, supervisor: this as ServiceRegistry };
+		const newInstance = await entry.descriptor.create(enriched);
 		await newInstance.start();
 		entry.instance = newInstance;
 	}

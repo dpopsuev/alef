@@ -2,6 +2,7 @@ import type {
 	Bus,
 	BusChannel,
 	BusMessage,
+	BusView,
 	ChannelHandler,
 	ChannelInput,
 	ChannelName,
@@ -105,6 +106,44 @@ export class InProcessBus {
 	}
 	listenerCount(channel: ChannelName, type: string): number {
 		return this._buses[channel].listenerCount(type);
+	}
+
+	createView(viewId: string): BusView {
+		const buses = this._buses;
+		const pulseFn = () => this.pulse();
+		const prefix = `${viewId}:`;
+
+		const scopedSubscribe = (bus: InternalBus) =>
+			(type: string, handler: (e: BusMessage) => void | Promise<void>) =>
+				bus.on(type, (e: BusMessage) => {
+					if (e.correlationId.startsWith(prefix)) void handler(e);
+				});
+
+		const scopedPublish = (bus: InternalBus) =>
+			(e: Omit<BusMessage, "timestamp" | "elapsed">) =>
+				bus.emit({ ...e, correlationId: `${prefix}${e.correlationId}` });
+
+		const commandChannel: BusChannel<"command"> = {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- CommandHandler narrows BusMessage handler
+			subscribe: scopedSubscribe(buses.command) as BusChannel<"command">["subscribe"],
+			publish: scopedPublish(buses.command),
+		};
+		const eventChannel: BusChannel<"event"> = {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- EventHandler narrows BusMessage handler
+			subscribe: scopedSubscribe(buses.event) as BusChannel<"event">["subscribe"],
+			publish: (e) => {
+				buses.command.evictCorrelation(`${prefix}${e.correlationId}`);
+				scopedPublish(buses.event)(e);
+			},
+		};
+		const notificationChannel: BusChannel<"notification"> = {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- NotificationHandler narrows BusMessage handler
+			subscribe: (type, handler) => buses.notification.on(type, handler as (e: BusMessage) => void | Promise<void>),
+			publish: (e) => buses.notification.emit(e),
+		};
+
+		const bus = makeBus(commandChannel, eventChannel, notificationChannel, pulseFn);
+		return { ...bus, viewId };
 	}
 
 	// -- Bus view ---------------------------------------------------------

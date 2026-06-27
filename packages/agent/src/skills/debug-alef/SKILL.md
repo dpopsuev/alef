@@ -5,6 +5,22 @@ description: Use when debugging Alef itself — hung tools, TUI glitches, LLM lo
 
 # Debugging Alef
 
+## Architecture overview
+
+Alef uses a Supervisor-as-entrypoint model. One process, everything is a service.
+
+```
+Supervisor (entrypoint.ts)
+  ├── storage service     — SQLite DB lifecycle
+  ├── scheduler service   — deferred/recurring timers
+  ├── session service     — Session mediator (Observer+Mediator pattern)
+  ├── agent service       — daemon registration, HTTP surface
+  └── tui service         — ViewMode lifecycle, done promise
+```
+
+Boot: `bin/alef.js` → `entrypoint.ts` → CLI dispatch (early exit) → Supervisor boot.
+No child process. No IPC. The Supervisor IS the process.
+
 ## Log system overview
 
 All logging is unified under session storage. One session per ID, structured records, one activation knob.
@@ -23,6 +39,39 @@ Buses: `command` (tool commands), `event` (tool results), `notification` (teleme
 - `ALEF_DEBUG=1` — identical to `--debug`
 - No flag — debug events still land in session JSONL, but pino stderr output is warn-level only
 
+## Bus auto-tracing (zero boilerplate)
+
+`InProcessBus({ trace: true })` subscribes wildcard listeners on all 3 channels. Every message flowing through the bus is traced with type + correlationId + elapsed. No per-call-site instrumentation needed.
+
+Bus auto-trace events:
+```
+bus:command:llm.input          — user message published
+bus:command:llm.response       — LLM reply published
+bus:notification:llm.chunk     — streaming chunk
+bus:notification:llm.thinking  — thinking chunk
+bus:notification:llm.tool-start — tool call dispatched
+bus:notification:llm.tool-end  — tool result received
+bus:event:fs.read              — tool command on event bus
+```
+
+Query all bus events for a session:
+```bash
+sqlite3 ~/.alef/alef.db "SELECT type, json_extract(payload,'$.correlationId') as cid, json_extract(payload,'$.elapsed') as ms FROM events WHERE session_id='SESSION_ID' AND type LIKE 'bus:%' ORDER BY timestamp"
+```
+
+## AsyncLocalStorage trace context
+
+`traceEvent()` automatically enriches events with `correlationId` and `turn` from the current async context when `runInTraceContext()` is active. No parameter passing needed.
+
+```ts
+import { traceEvent, runInTraceContext } from "@dpopsuev/alef-kernel/log";
+
+runInTraceContext({ correlationId: "abc-123", turn: 1 }, () => {
+  traceEvent("my:event", { custom: "data" });
+  // → automatically includes correlationId: "abc-123", turn: 1
+});
+```
+
 ## Start here
 
 ```bash
@@ -35,12 +84,39 @@ alef debug session
 # Query session events from SQLite
 sqlite3 ~/.alef/alef.db "SELECT bus, type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' ORDER BY timestamp"
 
-# Filter by event type
-sqlite3 ~/.alef/alef.db "SELECT payload FROM events WHERE session_id='SESSION_ID' AND type='tool:start'"
+# All bus-level traces (auto-traced, no manual instrumentation)
+sqlite3 ~/.alef/alef.db "SELECT type, json_extract(payload,'$.correlationId') as cid FROM events WHERE session_id='SESSION_ID' AND type LIKE 'bus:%' ORDER BY timestamp"
 
 # All errors
 sqlite3 ~/.alef/alef.db "SELECT type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' AND type LIKE '%error%' OR type LIKE '%failed%'"
 ```
+
+## Message round-trip
+
+Full lifecycle of a user message:
+
+```
+User types → Enter
+  1. editor.onSubmit        (tui-submit.ts)
+  2. session.send()         (SessionHandle → AgentController)
+  3. bus command/llm.input   (agent publishes to bus)
+  4. Reasoner handles it    (createAgentLoop subscribed to event/llm.input)
+  5. HTTP stream to LLM     (callLLM → provider)
+  6. Chunks stream back     (bus notification/llm.chunk for each)
+  7. connectObservers       (assemble.ts converts bus events → AgentEvent)
+  8. session.subscribe      (TUI dispatch receives events)
+  9. tui.requestRender()    (TUI repaints terminal)
+ 10. bus command/llm.response (stream ends, reply published)
+ 11. AgentController.handleReply resolves the pending promise
+ 12. session.send() promise resolves
+```
+
+With bus auto-trace enabled, steps 3, 6, 10 are traced automatically. No manual instrumentation.
+
+**Hang diagnosis:**
+- `bus:command:llm.input` without `bus:command:llm.response` = LLM call failed or hung
+- Chunks stream but TUI doesn't render = check glyph registry for missing keys (GlyphKey union type prevents this at compile time now)
+- `llm.tool-end` with `ok:false` = tool result rendering crashed
 
 ## Event reference
 
@@ -86,12 +162,6 @@ sqlite3 ~/.alef/alef.db "SELECT type, payload FROM events WHERE session_id='SESS
 | `in-process:done` | `replyLength` | Inner agent replied |
 | `in-process:error` | `err` (full stack) | Inner agent threw |
 
-### Tool catalog
-
-| type | Key fields | What it means |
-|---|---|---|
-| `tools:describe:miss` | `name, available` | LLM asked for schema of unknown tool |
-
 ### Framework errors (bus: "debug")
 
 | type | Key fields | What it means |
@@ -119,7 +189,7 @@ ctx.log.warn({ path, bytes }, "file too large to read");
 ```
 
 These flow through pino to stderr (suppressed in TUI mode). For persistent records,
-use `debugLog()` which writes to session JSONL.
+use `traceEvent()` which writes to session JSONL.
 
 ## Diagnosing a hung fs.find
 
@@ -141,6 +211,12 @@ Kill timer: `packages/tools/fs/src/find-query.ts` — fires at 30s.
 tail -f /tmp/alef-frames.jsonl | jq .frame
 ```
 
+## TUI glyph crash prevention
+
+Glyph keys are type-safe via `GlyphKey` union type. `glyph("unknown")` is a compile-time error (TS2345). If a new glyph key is needed, add it to the `GLYPHS` map in both:
+- `packages/ui/tui/src/views/theme.ts`
+- `packages/agent/src/cli/ansi.ts`
+
 ## Directive system
 
 Directives are standalone XML blocks injected into the system prompt. Key blocks:
@@ -154,11 +230,6 @@ Check directives in the session JSONL:
 jq 'select(.type == "directives:built") | .payload.ids' "$SESSION"
 ```
 
-If directives aren't working, check:
-1. `alef --list-directives` — are no-emojis and no-files listed?
-2. `jq 'select(.type == "directives:built")' "$SESSION"` — were they loaded at boot?
-3. Run headless to verify: `alef --no-tui -p "what directives are loaded?" 2>&1 | grep directives`
-
 ## Daemon debugging
 
 When running with `--daemon`:
@@ -171,27 +242,17 @@ alef --attach last            # Attach to most recent daemon
 alef --kill-daemon <id>       # Stop a daemon by session ID
 ```
 
-## Roundtrip trace (ALEF_DEBUG=1)
-
-Trace the full message lifecycle by correlationId:
+## Supervisor service debugging
 
 ```bash
-# From SQLite
-sqlite3 /home/dpopsuev/.alef/alef.db "SELECT type, json_extract(payload,'$.step') as step, json_extract(payload,'$.phase') as phase, json_extract(payload,'$.correlationId') as cid FROM events WHERE session_id='SESSION_ID' AND type='trace:roundtrip' ORDER BY timestamp"
+# Check which services are registered
+# In code: supervisor.names() → string[]
+# In debug events: look for service start/stop events
+
+# Session service is the mediator — all UI events flow through it
+# Agent service manages daemon registration
+# TUI service exposes done promise — resolves when viewer exits
 ```
-
-| Step | Phase | Where |
-|---|---|---|
-| 2 | tui-submit.onSubmit | User pressed Enter |
-| 3 | SessionHandle.send | Turn started |
-| 4 | AgentController.send | correlationId assigned |
-| 5 | AgentController.receive | llm.input published to bus |
-| 11 | connectObservers.onCommand | llm.response arrived, dispatched to observers |
-| 12 | connectObservers.onNotification | chunk/token-usage events dispatched |
-| 17 | AgentController.handleReply | Controller resolved pending promise |
-| 18 | SessionHandle.send.resolved | send() promise returned |
-
-**Hang diagnosis:** If steps 2-5 fire but 11 never fires, the LLM call failed or the response wasn't published. If 11 fires but 17 shows `hasPending: false`, the promise was already resolved (race condition). If chunks stream (step 12) but the TUI doesn't render, check the glyph registry for missing keys.
 
 ## Missing instrumentation (known gaps)
 
@@ -202,22 +263,27 @@ sqlite3 /home/dpopsuev/.alef/alef.db "SELECT type, json_extract(payload,'$.step'
 
 | Concern | File |
 |---|---|
-| `debugLog()` + `initSessionSink()` | `packages/core/kernel/src/debug.ts` |
+| `traceEvent()` + `runInTraceContext()` | `packages/core/kernel/src/trace.ts` |
+| Bus auto-trace | `packages/core/kernel/src/bus/in-process-bus.ts` (trace option) |
 | Logger creation | `packages/agent/src/logger.ts` |
-| `ctx.log` stamping | `packages/core/kernel/src/adapter-dispatch.ts` |
-| reasoner events | `packages/core/reasoner/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
-| delegation events | `packages/core/engine/src/delegation.ts`, `in-process.ts` |
+| `ctx.log` stamping | `packages/core/kernel/src/adapter/dispatch.ts` |
+| Reasoner events | `packages/core/reasoner/src/stream-turn.ts`, `tool-dispatch.ts`, `turn-loop.ts` |
+| Delegation events | `packages/core/engine/src/delegation.ts`, `in-process.ts` |
 | `tools:describe:miss` | `packages/core/engine/src/tool-catalog.ts` |
 | fd subprocess + kill timer | `packages/tools/fs/src/find-query.ts` |
-| Session store (SQLite) | `packages/core/storage/src/session-store.ts` |
-| Session store (JSONL) | `packages/core/session/src/session-store.ts` |
-| Daemon registry + SSE | `packages/agent/src/build-delegation.ts` |
+| Session store (SQLite) | `packages/core/storage/src/factory.ts` |
+| Session store (JSONL) | `packages/agent/src/session-store.ts` |
 | Supervisor entrypoint | `packages/agent/src/entrypoint.ts` |
 | Session service (mediator) | `packages/agent/src/session-service.ts` |
 | Agent service | `packages/agent/src/agent-service.ts` |
 | TUI service | `packages/agent/src/tui-service.ts` |
 | Glyph registry (TUI) | `packages/ui/tui/src/views/theme.ts` |
 | Glyph registry (agent) | `packages/agent/src/cli/ansi.ts` |
+| Supervisor class | `packages/core/supervisor/src/supervisor.ts` |
+| ServiceDescriptor / lifecycle | `packages/core/supervisor/src/lifecycle.ts` |
+| Scheduler service | `packages/core/supervisor/src/scheduler.ts` |
+| Package Manager service | `packages/core/supervisor/src/package-manager.ts` |
+| Storage service | `packages/core/storage/src/service.ts` |
 
 ## Quick reference
 
@@ -231,6 +297,9 @@ sqlite3 -json ~/.alef/alef.db "SELECT type, json_extract(payload,'$.name') as na
 
 # All debug events
 sqlite3 ~/.alef/alef.db "SELECT type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' ORDER BY timestamp"
+
+# Bus auto-trace (every message on every channel)
+sqlite3 ~/.alef/alef.db "SELECT type, json_extract(payload,'$.correlationId') as cid, json_extract(payload,'$.elapsed') as ms FROM events WHERE session_id='SESSION_ID' AND type LIKE 'bus:%' ORDER BY timestamp"
 
 # Run headless to capture everything to terminal
 ALEF_DEBUG=1 alef --no-tui -p "your prompt here" 2>&1
@@ -255,27 +324,6 @@ alef --serve <port>        # Expose HTTP/SSE bridge on port
 alef --thinking <level>    # Set extended thinking: off, low, medium, high
 ```
 
-## Model profiles
-
-Config at `~/.config/alef/config.yaml`:
-```yaml
-profile: work
-profiles:
-  work:
-    providers: [anthropic, google-vertex]
-    tiers:
-      strong: anthropic/claude-opus-4-8
-      default: anthropic/claude-sonnet-4-5
-      fast: anthropic/claude-haiku-4-5
-```
-
-## Background task completion
-
-When `agent.run({ async: true })` completes, the result is injected as a new turn via `controller.receive()`:
-```bash
-jq 'select(.type == "task.completed" or .type == "task.failed")' "$SESSION"
-```
-
 ## Timeout constants
 
 ```
@@ -286,14 +334,3 @@ DEFAULT_STALL_TIMEOUT_MS  = 180s  (3 min inactivity)
 ```
 
 Override via env: `ALEF_LLM_TIMEOUT_MS=60000 alef`
-
-## Footer context %
-
-The dashboard footer shows actual LLM context fill (from `totalTokens` in token-usage events), not cumulative session total. After compaction it drops correctly.
-
-## New tools (June 2026)
-
-- `fs.undo` — revert a file to pre-edit content (in-memory snapshot)
-- `code.review` — capture git diff for structured review annotations
-- `git.status` — working tree status
-- `git.pr-create/list/review/merge` — Forgejo forge integration (requires ALEF_FORGE_URL)

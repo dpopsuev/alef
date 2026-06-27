@@ -6,9 +6,19 @@
  */
 
 import chalk from "chalk";
+import { highlight } from "cli-highlight";
 import type { MarkdownTheme } from "../components/markdown.js";
 import type { ThemeTokens } from "../theme-types.js";
 import { bold, color, dim, italic } from "./theme.js";
+
+function terminalHighlight(code: string, lang?: string): string[] {
+	try {
+		const highlighted = highlight(code, { language: lang, ignoreIllegals: true });
+		return highlighted.split("\n");
+	} catch {
+		return code.split("\n");
+	}
+}
 
 export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 	return {
@@ -26,6 +36,7 @@ export function makeMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 		italic: (s) => italic(s),
 		strikethrough: (s) => s,
 		underline: (s) => chalk.underline(s),
+		highlightCode: terminalHighlight,
 	};
 }
 
@@ -65,5 +76,6 @@ export function makeToolOutputMarkdownTheme(t: ThemeTokens): MarkdownTheme {
 		italic: (s) => italic(s),
 		strikethrough: (s) => s,
 		underline: (s) => s,
+		highlightCode: terminalHighlight,
 	};
 }

@@ -565,6 +565,9 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
       '@dpopsuev/alef-tool-agent':
         specifier: workspace:*
         version: link:../../tools/agent
@@ -620,6 +623,9 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
       '@dpopsuev/alef-tool-agent':
         specifier: workspace:*
         version: link:../../tools/agent

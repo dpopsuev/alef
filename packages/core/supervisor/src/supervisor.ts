@@ -1,6 +1,25 @@
-import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
+import type { Adapter, AdapterLogger, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
 import type { ExecutionStrategy } from "@dpopsuev/alef-kernel/execution";
 import type { ManagedService, ServiceCreateOpts, ServiceDescriptor } from "./lifecycle.js";
+
+export function isServiceDescriptor(v: unknown): v is ServiceDescriptor {
+	return typeof v === "object" && v !== null && "name" in v && "create" in v && typeof (v as { create: unknown }).create === "function";
+}
+
+export interface ServiceResolverOpts {
+	cwd: string;
+	logger?: AdapterLogger;
+}
+
+export function createServiceResolver(
+	supervisor: Supervisor,
+): (service: unknown, opts: ServiceResolverOpts) => Promise<readonly Adapter[] | undefined> {
+	return async (service, opts) => {
+		if (!isServiceDescriptor(service)) return undefined;
+		const svc = await supervisor.getOrStart(service, { cwd: opts.cwd, logger: opts.logger });
+		return svc.adapters;
+	};
+}
 
 const MAX_RESTARTS = 3;
 const RESTART_WINDOW_MS = 60_000;
@@ -92,6 +111,21 @@ export class Supervisor {
 
 	names(): string[] {
 		return [...this.running.keys()];
+	}
+
+	async getOrStart(descriptor: ServiceDescriptor, opts: ServiceCreateOpts): Promise<ManagedService> {
+		const existing = this.running.get(descriptor.name);
+		if (existing && descriptor.shareable) return existing.instance;
+
+		if (!this.descriptors.has(descriptor.name)) {
+			this.register(descriptor);
+		}
+
+		if (!this.running.has(descriptor.name)) {
+			await this.startService(descriptor, opts);
+		}
+
+		return this.running.get(descriptor.name)!.instance;
 	}
 
 	private async startService(descriptor: ServiceDescriptor, opts: ServiceCreateOpts): Promise<void> {

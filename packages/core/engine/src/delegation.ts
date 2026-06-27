@@ -1,4 +1,4 @@
-import type { CompiledAgentAdapterDefinition, SubagentFactory } from "@dpopsuev/alef-blueprint";
+import type { AdapterFactoryOptions, CompiledAgentAdapterDefinition, SubagentFactory } from "@dpopsuev/alef-blueprint";
 import {
 	blueprintRegistry,
 	DEFAULT_COMPILED_DEFINITION,
@@ -52,6 +52,7 @@ export interface DelegationStackOptions {
 	excludeNames?: string[];
 	summarize?: (messages: readonly unknown[]) => Promise<string>;
 	adapters: DelegationAdapters;
+	resolveService?: (service: unknown, opts: AdapterFactoryOptions) => Promise<readonly Adapter[] | undefined>;
 }
 
 export interface DelegationStack {
@@ -73,7 +74,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		excludeNames = [],
 		adapters: injected,
 	} = opts;
-	const materialiOpts = { cwd };
+	const materialiOpts = { cwd, resolveService: opts.resolveService };
 
 	const [resolvedDomainAdapters, { adapters: exploreAdapters }, { adapters: generalAdapters }] = await Promise.all([
 		opts.domainAdapters ? Promise.resolve([...opts.domainAdapters]) : materializeDefaultAdapters(cwd),

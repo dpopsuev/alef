@@ -30,7 +30,8 @@
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*",
-    "@dpopsuev/alef-session": "workspace:*"
+    "@dpopsuev/alef-session": "workspace:*",
+    "@dpopsuev/alef-supervisor": "workspace:*"
   },
   "devDependencies": {
     "@dpopsuev/alef-eval": "workspace:*",

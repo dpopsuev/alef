@@ -5,6 +5,7 @@ import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { createRouterAdapter } from "@dpopsuev/alef-engine/http";
 import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
+import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-tool-agent";
 import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
 import type { Args } from "./args.js";
@@ -102,12 +103,16 @@ export async function buildDelegation(
 	const factory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
 	const factoryAdapter = createFactoryAdapter({ cwd: args.cwd });
 
+	const supervisor = new Supervisor();
+	const resolveService = createServiceResolver(supervisor);
+
 	const { adapters } = await buildDelegationStack({
 		cwd: args.cwd,
 		factory,
 		contextWindow: model.contextWindow,
 		extraAdapters: [factoryAdapter],
 		adapters: { createAgentAdapter, strategyRegistry, createCompactionStage, createSessionContextStage },
+		resolveService,
 	});
 
 	for (const adapter of adapters) agent.load(adapter);

@@ -22,6 +22,7 @@
     "@dpopsuev/alef-blueprint": "workspace:*",
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*",
-    "@dpopsuev/alef-session": "workspace:*"
+    "@dpopsuev/alef-session": "workspace:*",
+    "@dpopsuev/alef-supervisor": "workspace:*"
   }
 }

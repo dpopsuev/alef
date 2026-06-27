@@ -66,12 +66,19 @@ export interface ToolModule {
 	createAdapter: (opts: AdapterFactoryOptions) => Adapter | Promise<Adapter>;
 }
 
-/** @deprecated Use ToolModule */
-type AdapterModule = ToolModule;
+interface ResolvedModule {
+	createAdapter: ToolModule["createAdapter"];
+	service?: unknown;
+}
 
-function resolveFactory(mod: Record<string, unknown>): AdapterModule["createAdapter"] | undefined {
+function resolveFactory(mod: Record<string, unknown>): ToolModule["createAdapter"] | undefined {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- guarded by typeof check
-	if (typeof mod.createAdapter === "function") return mod.createAdapter as AdapterModule["createAdapter"];
+	if (typeof mod.createAdapter === "function") return mod.createAdapter as ToolModule["createAdapter"];
+	return undefined;
+}
+
+function resolveServiceExport(mod: Record<string, unknown>): unknown | undefined {
+	if (mod.service && typeof mod.service === "object") return mod.service;
 	return undefined;
 }
 
@@ -97,6 +104,13 @@ export interface MaterializerOptions {
 	 */
 	writableRoots?: readonly string[];
 	sessionDir?: string;
+	/**
+	 * Resolve adapters through a service supervisor instead of createAdapter().
+	 * When provided, the materializer passes the module's `service` export (opaque)
+	 * and factory options. Return adapters to use them; return undefined to fall
+	 * through to createAdapter().
+	 */
+	resolveService?: (service: unknown, opts: AdapterFactoryOptions) => Promise<readonly Adapter[] | undefined>;
 }
 
 export interface MaterializerResult {
@@ -238,7 +252,7 @@ function getJiti(): ReturnType<typeof createJiti> {
 async function loadAdapterModule(
 	adapterDef: CompiledAgentDefinition["adapters"][number],
 	resolveExternalPath?: (name: string) => string | undefined,
-): Promise<AdapterModule> {
+): Promise<ResolvedModule> {
 	if (adapterDef.path) {
 		const jitiMod = await getJiti().import(adapterDef.path);
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- jiti returns unknown module shape
@@ -250,7 +264,7 @@ async function loadAdapterModule(
 					`Export a function named createAdapter that returns an Adapter.`,
 			);
 		}
-		return { createAdapter: factory };
+		return { createAdapter: factory, service: resolveServiceExport(mod) };
 	}
 
 	const pmPath = resolveExternalPath?.(adapterDef.name);
@@ -262,7 +276,7 @@ async function loadAdapterModule(
 		if (!factory) {
 			throw new Error(`Adapter at '${pmPath}' (alef-pm managed) does not export createAdapter(opts).`);
 		}
-		return { createAdapter: factory };
+		return { createAdapter: factory, service: resolveServiceExport(mod) };
 	}
 	const pkg = resolveAdapterPackage(adapterDef.name);
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -276,7 +290,7 @@ async function loadAdapterModule(
 				`Add \`export { createYourAdapter as createAdapter } from "./adapter.js"\` to its index.`,
 		);
 	}
-	return { createAdapter: factory };
+	return { createAdapter: factory, service: resolveServiceExport(mod) };
 }
 
 /**
@@ -313,19 +327,36 @@ export async function materializeBlueprint(
 		const label = adapterDef.path ?? resolveAdapterPackage(adapterDef.name);
 		try {
 			const mod = await loadAdapterModule(adapterDef, opts.resolveExternalPath);
-			const adapter = await mod.createAdapter({
+			const factoryOpts: AdapterFactoryOptions = {
 				cwd: opts.cwd,
 				sessionDir: opts.sessionDir,
 				actions: adapterDef.actions.length > 0 ? adapterDef.actions : undefined,
 				logger: opts.loggerFor?.(adapterDef.name),
 				writableRoots: opts.writableRoots,
 				blockedPatterns: adapterDef.blockedPatterns?.map((p) => new RegExp(p)),
-			});
-			const gated =
-				opts.allowedTools && opts.allowedTools.length > 0
-					? wrapWithPermissions(adapter, opts.allowedTools)
-					: adapter;
-			adapters.push(gated);
+			};
+
+			let resolved: readonly Adapter[] | undefined;
+			if (mod.service && opts.resolveService) {
+				resolved = await opts.resolveService(mod.service, factoryOpts);
+			}
+
+			if (resolved) {
+				for (const adapter of resolved) {
+					const gated =
+						opts.allowedTools && opts.allowedTools.length > 0
+							? wrapWithPermissions(adapter, opts.allowedTools)
+							: adapter;
+					adapters.push(gated);
+				}
+			} else {
+				const adapter = await mod.createAdapter(factoryOpts);
+				const gated =
+					opts.allowedTools && opts.allowedTools.length > 0
+						? wrapWithPermissions(adapter, opts.allowedTools)
+						: adapter;
+				adapters.push(gated);
+			}
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes("does not export createAdapter")) {

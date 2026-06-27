@@ -6,6 +6,7 @@ import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
 import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
+import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 
 export type { BlueprintStack, BlueprintStackOptions };
 
@@ -15,6 +16,9 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 	}
 
 	const skillsAdapter = createSkillsAdapter({ cwd: opts.cwd });
+
+	const supervisor = new Supervisor();
+	const resolveService = createServiceResolver(supervisor);
 
 	const { adapters, pipeline, exploreAdapters, generalAdapters } = await buildDelegationStack({
 		cwd: opts.cwd,
@@ -26,6 +30,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		extraAdapters: [skillsAdapter],
 		excludeNames: ["workflow"],
 		adapters: { createAgentAdapter, strategyRegistry, createCompactionStage, createSessionContextStage },
+		resolveService,
 	});
 
 	const wireAdapter = createWireAdapterWithFactory({

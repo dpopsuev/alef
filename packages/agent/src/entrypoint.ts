@@ -17,11 +17,10 @@ import { createStorageDescriptor, type StorageService } from "@dpopsuev/alef-sto
 import { createSchedulerDescriptor } from "@dpopsuev/alef-supervisor/scheduler";
 import { Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
 import updateNotifier from "update-notifier";
-import { type AgentService, createAgentServiceDescriptor } from "./agent-service.js";
+import { createAgentServiceDescriptor } from "./agent-service.js";
 import { parseArgs } from "./args.js";
 import { BUILD_INFO } from "./build-info.js";
 import { loadAdapters } from "./cli/load-adapters.js";
-import { buildIdentityContext } from "./cli/local-session.js";
 import { pickSession } from "./cli/session-picker.js";
 import { loadTheme } from "./cli/theme-loader.js";
 import { dispatchCliOp } from "./cli-ops.js";
@@ -32,7 +31,9 @@ import { createRunnerLogger } from "./logger.js";
 import { resolveStartupModel, setModelConfigProvider } from "./model/index.js";
 import { setupOTel } from "./otel.js";
 import { handleSelfUpdate, runPmCommand } from "./run-pm-command.js";
+import type { SessionHandle } from "./session-lifecycle/index.js";
 import { loadSession } from "./session-lifecycle/index.js";
+import { createSessionServiceDescriptor, type SessionService } from "./session-service.js";
 import { detectDark, queryPalette, readAlacrittyOpacity } from "./terminal-bg.js";
 import { createTuiServiceDescriptor } from "./tui-service.js";
 import { ensureDirectories } from "./xdg-paths.js";
@@ -222,15 +223,14 @@ Promise.all([import("@dpopsuev/alef-embedding"), import("@dpopsuev/alef-storage/
 		log.warn({ error: String(err) }, "embedder init failed, vector recall disabled");
 	});
 
-// Boot-time inputs for agent service
+// Boot-time inputs
 const sessionDir = dirname(session.path);
 const loaded = await loadAdapters(args, cfg, log, sessionDir);
 const model = resolveStartupModel(args, loaded.blueprintModelId, cfg);
-const identity = buildIdentityContext(session);
 
-// Register agent service — wraps createLocalSession
+// Session service — the mediator between agent and UI surfaces
 supervisor.register(
-	createAgentServiceDescriptor({
+	createSessionServiceDescriptor({
 		args,
 		cfg,
 		log,
@@ -238,11 +238,13 @@ supervisor.register(
 		loaded,
 		model,
 		storage,
-		identity,
 	}),
 );
 
-// Register TUI service — wraps selectViewMode + viewer.run
+// Agent service — manages daemon registration, depends on session
+supervisor.register(createAgentServiceDescriptor({ args, storage }));
+
+// TUI service — depends on session (not agent), runs ViewMode
 supervisor.register(createTuiServiceDescriptor({ args, store: session }));
 
 // Theme
@@ -262,11 +264,10 @@ loadTheme(
 // Start agent + TUI (topo-sorted: storage already running, agent first, TUI after)
 await supervisor.startAll({ cwd: args.cwd });
 
-const agentRaw = supervisor.get("agent");
-if (agentRaw && "sessionHandle" in agentRaw) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'sessionHandle' in check
-	const agentSvc = agentRaw as AgentService;
-	dispatchCliOp(args, agentSvc.sessionHandle);
+const sessionRaw = supervisor.get("session");
+if (sessionRaw && "session" in sessionRaw) {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- narrowed by 'session' in check; SessionService.session is SessionHandle at runtime
+	dispatchCliOp(args, (sessionRaw as SessionService).session as SessionHandle);
 }
 
 // Signal handlers — Supervisor stops everything

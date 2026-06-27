@@ -2,10 +2,11 @@
  * Supervisor service boot tests — verify the Supervisor-as-entrypoint pattern.
  *
  * Tests:
- *   1. Agent service boots via Supervisor, exposes SessionHandle
- *   2. Agent + TUI services boot, TUI gets SessionHandle from agent
- *   3. Agent service stop disposes SessionHandle
- *   4. Storage service starts before agent (dependency order)
+ *   1. Session service boots via Supervisor, exposes Session interface
+ *   2. Session service stop disposes Session (health → false)
+ *   3. Storage starts before session (dependency order)
+ *   4. Daemon mode registers in daemon registry
+ *   5. Multi-UI: two observers subscribe to same Session, both receive events
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
@@ -20,9 +21,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import "@dpopsuev/alef-coding-agent";
 
-import { type AgentService, createAgentServiceDescriptor } from "../src/agent-service.js";
+import { createAgentServiceDescriptor } from "../src/agent-service.js";
 import { parseArgs } from "../src/args.js";
-import { buildIdentityContext } from "../src/cli/local-session.js";
+import { createSessionServiceDescriptor, type SessionService } from "../src/session-service.js";
 import { JsonlSessionStore } from "../src/session-store.js";
 
 const SILENT_LOGGER = pino({ level: "silent" });
@@ -91,75 +92,64 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 		};
 	}
 
-	it("agent service boots via Supervisor and exposes SessionHandle", async () => {
+	function makeSessionOpts(cwd: string, store: JsonlSessionStore) {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("hello")]);
-
-		const cwd = makeTmp();
-		const store = await JsonlSessionStore.create(cwd);
-		const args = { ...parseArgs([]), cwd, noTui: true };
-		const model = faux.getModel();
-
-		const supervisor = trackSupervisor(new Supervisor());
-		supervisor.register(makeStorageDescriptor());
-		supervisor.register(
-			createAgentServiceDescriptor({
-				args,
+		return {
+			opts: {
+				args: { ...parseArgs([]), cwd, noTui: true },
 				cfg: {},
 				log: SILENT_LOGGER,
 				store,
 				loaded: EMPTY_LOADED,
-				model,
+				model: faux.getModel(),
 				storage: STUB_STORAGE,
-				identity: buildIdentityContext(store),
-			}),
-		);
+			},
+			faux,
+		};
+	}
+
+	it("session service boots via Supervisor and exposes Session interface", async () => {
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const { opts } = makeSessionOpts(cwd, store);
+
+		const supervisor = trackSupervisor(new Supervisor());
+		supervisor.register(makeStorageDescriptor());
+		supervisor.register(createSessionServiceDescriptor(opts));
 
 		await supervisor.startAll({ cwd });
 
-		const agentSvc = supervisor.get("agent");
-		expect(agentSvc).toBeDefined();
-		expect("sessionHandle" in agentSvc!).toBe(true);
+		const svc = supervisor.get("session");
+		expect(svc).toBeDefined();
+		expect("session" in svc!).toBe(true);
 
-		const handle = (agentSvc as AgentService).sessionHandle;
-		expect(handle.state.id).toBe(store.id);
+		const sessionSvc = svc as SessionService;
+		expect(sessionSvc.session.state.id).toBe(store.id);
+		expect(typeof sessionSvc.session.subscribe).toBe("function");
+		expect(typeof sessionSvc.session.getModel).toBe("function");
 	}, 15_000);
 
-	it("agent service stop disposes SessionHandle", async () => {
-		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("bye")]);
-
+	it("session service stop disposes Session (health → false)", async () => {
 		const cwd = makeTmp();
 		const store = await JsonlSessionStore.create(cwd);
-		const args = { ...parseArgs([]), cwd, noTui: true };
-		const model = faux.getModel();
+		const { opts } = makeSessionOpts(cwd, store);
 
 		const supervisor = trackSupervisor(new Supervisor());
 		supervisor.register(makeStorageDescriptor());
-		supervisor.register(
-			createAgentServiceDescriptor({
-				args,
-				cfg: {},
-				log: SILENT_LOGGER,
-				store,
-				loaded: EMPTY_LOADED,
-				model,
-				storage: STUB_STORAGE,
-				identity: buildIdentityContext(store),
-			}),
-		);
+		supervisor.register(createSessionServiceDescriptor(opts));
 
 		await supervisor.startAll({ cwd });
-		const agentSvc = supervisor.get("agent") as AgentService;
-		expect(agentSvc).toBeDefined();
+		const svc = supervisor.get("session") as SessionService;
+		expect(svc).toBeDefined();
 
 		await supervisor.stopAll();
 
-		const health = await agentSvc.health();
+		const health = await svc.health();
 		expect(health).toBe(false);
 	}, 15_000);
 
-	it("storage service starts before agent (dependency order)", async () => {
+	it("storage service starts before session (dependency order)", async () => {
 		const bootOrder: string[] = [];
 
 		const trackingStorage: ServiceDescriptor = {
@@ -181,44 +171,26 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 			},
 		};
 
-		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("ordered")]);
-
 		const cwd = makeTmp();
 		const store = await JsonlSessionStore.create(cwd);
-		const args = { ...parseArgs([]), cwd, noTui: true };
-		const model = faux.getModel();
+		const { opts } = makeSessionOpts(cwd, store);
 
 		const supervisor = trackSupervisor(new Supervisor());
-		// Register agent FIRST to verify topo-sort puts storage before it
-		supervisor.register(
-			createAgentServiceDescriptor({
-				args,
-				cfg: {},
-				log: SILENT_LOGGER,
-				store,
-				loaded: EMPTY_LOADED,
-				model,
-				storage: STUB_STORAGE,
-				identity: buildIdentityContext(store),
-			}),
-		);
+		// Register session FIRST to verify topo-sort puts storage before it
+		supervisor.register(createSessionServiceDescriptor(opts));
 		supervisor.register(trackingStorage);
 
 		await supervisor.startAll({ cwd });
-		bootOrder.push("agent");
+		bootOrder.push("session");
 
 		expect(bootOrder[0]).toBe("storage");
 	}, 15_000);
 
 	it("daemon mode registers in daemon registry", async () => {
-		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("daemon")]);
-
 		const cwd = makeTmp();
 		const store = await JsonlSessionStore.create(cwd);
-		const args = { ...parseArgs(["--daemon"]), cwd };
-		const model = faux.getModel();
+		const { opts } = makeSessionOpts(cwd, store);
+		opts.args = { ...opts.args, daemon: true, serve: 0 };
 
 		let registered = false;
 		const daemonStorage: StorageFactory = {
@@ -238,21 +210,54 @@ describe("Supervisor service boot", { tags: ["unit"] }, () => {
 
 		const supervisor = trackSupervisor(new Supervisor());
 		supervisor.register(makeStorageDescriptor());
-		supervisor.register(
-			createAgentServiceDescriptor({
-				args,
-				cfg: {},
-				log: SILENT_LOGGER,
-				store,
-				loaded: EMPTY_LOADED,
-				model,
-				storage: daemonStorage,
-				identity: buildIdentityContext(store),
-			}),
-		);
+		supervisor.register(createSessionServiceDescriptor(opts));
+		supervisor.register(createAgentServiceDescriptor({ args: opts.args, storage: daemonStorage }));
 
 		await supervisor.startAll({ cwd });
 
 		expect(registered).toBe(true);
+	}, 15_000);
+
+	it("multi-UI: two observers subscribe to same Session, both receive events", async () => {
+		const cwd = makeTmp();
+		const store = await JsonlSessionStore.create(cwd);
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage("shared reply")]);
+		const opts = {
+			args: { ...parseArgs([]), cwd, noTui: true },
+			cfg: {},
+			log: SILENT_LOGGER,
+			store,
+			loaded: EMPTY_LOADED,
+			model: faux.getModel(),
+			storage: STUB_STORAGE,
+		};
+
+		const supervisor = trackSupervisor(new Supervisor());
+		supervisor.register(makeStorageDescriptor());
+		supervisor.register(createSessionServiceDescriptor(opts));
+
+		await supervisor.startAll({ cwd });
+
+		const sessionSvc = supervisor.get("session") as SessionService;
+		const session = sessionSvc.session;
+
+		// Two independent observers — simulates two UI surfaces
+		const eventsA: string[] = [];
+		const eventsB: string[] = [];
+		const unsubA = session.subscribe((e) => eventsA.push(e.type));
+		const unsubB = session.subscribe((e) => eventsB.push(e.type));
+
+		// Send a message — both observers should receive the same events
+		if (session.send) {
+			await session.send("hello", 10_000);
+		}
+
+		unsubA();
+		unsubB();
+
+		expect(eventsA.length).toBeGreaterThan(0);
+		expect(eventsB.length).toBeGreaterThan(0);
+		expect(eventsA).toEqual(eventsB);
 	}, 15_000);
 });

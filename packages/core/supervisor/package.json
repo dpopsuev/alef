@@ -8,7 +8,8 @@
   "exports": {
     "./lifecycle": "./src/lifecycle.ts",
     "./supervisor": "./src/supervisor.ts",
-    "./tool": "./src/tool.ts"
+    "./tool": "./src/tool.ts",
+    "./scheduler": "./src/scheduler.ts"
   },
   "files": ["dist"],
   "scripts": {

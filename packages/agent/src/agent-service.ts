@@ -66,6 +66,7 @@ export function createAgentServiceDescriptor(opts: AgentServiceOptions): Service
 				});
 			}
 
+			let stopped = false;
 			return {
 				name: "agent",
 				restart: "permanent" as const,
@@ -77,10 +78,11 @@ export function createAgentServiceDescriptor(opts: AgentServiceOptions): Service
 				agentAddress,
 				start: () => Promise.resolve(),
 				stop() {
+					stopped = true;
 					sessionHandle.dispose();
 					return Promise.resolve();
 				},
-				health: () => Promise.resolve(true),
+				health: () => Promise.resolve(!stopped),
 			};
 		},
 	};

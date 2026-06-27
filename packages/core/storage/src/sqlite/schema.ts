@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 export const EMBEDDING_DIMENSION = 384;
 
 const DDL_STATEMENTS = [
@@ -50,6 +50,23 @@ const MIGRATIONS: Record<number, string[]> = {
 			SELECT COALESCE(session_id, 'legacy'), port, pid, cwd, started_at FROM daemon`,
 		`DROP TABLE daemon`,
 		`ALTER TABLE daemon_v2 RENAME TO daemon`,
+	],
+	5: [
+		`CREATE TABLE IF NOT EXISTS spans (
+			span_id TEXT PRIMARY KEY,
+			trace_id TEXT NOT NULL,
+			parent_span_id TEXT,
+			name TEXT NOT NULL,
+			kind INTEGER,
+			start_time INTEGER NOT NULL,
+			end_time INTEGER NOT NULL,
+			status INTEGER,
+			attributes TEXT,
+			events TEXT,
+			session_id TEXT)`,
+		`CREATE INDEX IF NOT EXISTS idx_spans_trace ON spans(trace_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_spans_parent ON spans(parent_span_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_spans_session ON spans(session_id)`,
 	],
 };
 

@@ -1,36 +1,51 @@
 /**
  * OTel setup for the Alef runner.
  *
- * Registers a NodeTracerProvider with an InMemorySpanExporter.
- * At shutdown, prints a session summary to stderr:
- *   - Number of LLM calls (chat spans)
- *   - Total input/output tokens
- *   - Estimated cost (USD)
+ * Registers a NodeTracerProvider with a SqliteSpanExporter that persists
+ * every span to the session database. The causal DAG (parent-child span
+ * relationships) is preserved for backward causality walking.
  *
- * For durable span export, wire a file exporter here.
+ * Falls back to InMemorySpanExporter if the database is not available.
  */
 
 import { InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 
-let exporter: InMemorySpanExporter | undefined;
+let memoryExporter: InMemorySpanExporter | undefined;
 let provider: NodeTracerProvider | undefined;
 
 export function setupOTel(): void {
-	exporter = new InMemorySpanExporter();
-	// Pass spanProcessors at construction — this version does not expose addSpanProcessor.
+	memoryExporter = new InMemorySpanExporter();
 	provider = new NodeTracerProvider({
-		spanProcessors: [new SimpleSpanProcessor(exporter)],
+		spanProcessors: [new SimpleSpanProcessor(memoryExporter)],
 	});
 	provider.register();
 }
 
+export async function upgradeToSqliteExporter(): Promise<void> {
+	if (!provider) return;
+	try {
+		const { getDatabase } = await import("@dpopsuev/alef-storage/sqlite/database");
+		const { SqliteSpanExporter } = await import("@dpopsuev/alef-storage/sqlite/span-exporter");
+		const db = await getDatabase();
+		const sqliteExporter = new SqliteSpanExporter(db);
+
+		await provider.shutdown();
+		provider = new NodeTracerProvider({
+			spanProcessors: [new SimpleSpanProcessor(memoryExporter!), new SimpleSpanProcessor(sqliteExporter)],
+		});
+		provider.register();
+	} catch {
+		// Database not available — keep in-memory exporter
+	}
+}
+
 export async function shutdownOTel(): Promise<void> {
-	if (!provider || !exporter) return;
+	if (!provider) return;
 
 	await provider.shutdown();
 
-	const spans = exporter.getFinishedSpans();
+	const spans = memoryExporter?.getFinishedSpans() ?? [];
 	const chatSpans = spans.filter((s) => s.name.startsWith("chat "));
 
 	if (chatSpans.length === 0) return;

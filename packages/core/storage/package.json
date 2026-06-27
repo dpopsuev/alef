@@ -17,6 +17,7 @@
     "./sqlite/auth": "./src/sqlite/auth.ts",
     "./sqlite/daemon": "./src/sqlite/daemon.ts",
     "./sqlite/migrations": "./src/sqlite/migrations.ts",
+    "./sqlite/span-exporter": "./src/sqlite/span-exporter.ts",
     "./service": "./src/service.ts"
   },
   "files": [
@@ -32,6 +33,8 @@
   "dependencies": {
     "@dpopsuev/alef-supervisor": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
+    "@opentelemetry/core": "^2.0.0",
+    "@opentelemetry/sdk-trace-base": "^2.8.0",
     "@libsql/client": "^0.17.4",
     "@napi-rs/keyring": "1.3.0"
   },

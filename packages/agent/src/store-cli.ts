@@ -44,9 +44,15 @@ export async function runStoreCommand(subcmd: string, args: string[]): Promise<v
 		case "tail":
 			await tailLatest(db, args);
 			break;
+		case "cause":
+			await walkCause(db, args);
+			break;
+		case "spans":
+			await listSpans(db, args);
+			break;
 		default:
 			console.error(`Unknown store subcommand: ${subcmd}`);
-			console.error("Available: sessions, events, trace, summary, tail");
+			console.error("Available: sessions, events, trace, summary, tail, cause, spans");
 			process.exit(1);
 	}
 }
@@ -390,4 +396,101 @@ async function tailLatest(db: Client, args: string[]): Promise<void> {
 	console.log(`Session: ${sessionId}\n`);
 
 	await queryEvents(db, [sessionId, ...args]);
+}
+
+async function listSpans(db: Client, args: string[]): Promise<void> {
+	const sessionId = args[0];
+	const limit = 50;
+
+	let sql: string;
+	let sqlArgs: InValue[];
+
+	if (sessionId) {
+		sql = `SELECT span_id, trace_id, parent_span_id, name, start_time, end_time, status
+			FROM spans WHERE session_id LIKE ? ORDER BY start_time LIMIT ?`;
+		sqlArgs = [`${sessionId}%`, limit];
+	} else {
+		sql = `SELECT span_id, trace_id, parent_span_id, name, start_time, end_time, status
+			FROM spans ORDER BY start_time DESC LIMIT ?`;
+		sqlArgs = [limit];
+	}
+
+	const result = await db.execute({ sql, args: sqlArgs });
+
+	console.log(`${pad("SpanID", 18)} ${pad("Parent", 18)} ${pad("Name", 30)} ${pad("Duration", 10)} Status`);
+	console.log("-".repeat(90));
+
+	for (const row of result.rows) {
+		const spanId = String(row.span_id).slice(0, 16);
+		const parent = row.parent_span_id ? String(row.parent_span_id).slice(0, 16) : "(root)";
+		const name = truncate(String(row.name), 28);
+		const duration = `${Number(row.end_time) - Number(row.start_time)}ms`;
+		const status = Number(row.status) === 0 ? "OK" : Number(row.status) === 2 ? "ERR" : "?";
+		console.log(`${pad(spanId, 18)} ${pad(parent, 18)} ${pad(name, 30)} ${pad(duration, 10)} ${status}`);
+	}
+
+	console.log(`\n${result.rows.length} span(s)`);
+}
+
+async function walkCause(db: Client, args: string[]): Promise<void> {
+	const spanId = args[0];
+	if (!spanId) {
+		console.error("Usage: alef store cause <span-id>");
+		console.error("  Find span IDs with: alef store spans <session-id>");
+		process.exit(1);
+	}
+
+	const chain: Array<{ name: string; spanId: string; duration: number; attributes: string }> = [];
+	const visited = new Set<string>();
+	let nextId: string | null = spanId;
+
+	while (nextId && !visited.has(nextId)) {
+		visited.add(nextId);
+		const rows: Array<Record<string, unknown>> = (
+			await db.execute({
+				sql: "SELECT span_id, parent_span_id, name, start_time, end_time, attributes FROM spans WHERE span_id LIKE ?",
+				args: [`${nextId}%`] as InValue[],
+			})
+		).rows;
+
+		if (rows.length === 0) break;
+
+		chain.push({
+			name: String(rows[0].name),
+			spanId: String(rows[0].span_id).slice(0, 16),
+			duration: Number(rows[0].end_time) - Number(rows[0].start_time),
+			attributes: String(rows[0].attributes ?? "{}"),
+		});
+
+		nextId = rows[0].parent_span_id ? String(rows[0].parent_span_id) : null;
+	}
+
+	if (chain.length === 0) {
+		console.log(`No span found matching ${spanId}`);
+		return;
+	}
+
+	console.log(`[Causal chain — ${chain.length} span(s)]`);
+	for (let i = 0; i < chain.length; i++) {
+		const s = chain[i];
+		const indent = "  ".repeat(i);
+		const arrow = i === 0 ? "→" : "←";
+
+		let detail = "";
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- JSON.parse from DB field
+			const attrs = JSON.parse(s.attributes) as Record<string, unknown>;
+			if (typeof attrs["alef.correlation.id"] === "string")
+				detail += ` corr:${String(attrs["alef.correlation.id"]).slice(0, 8)}`;
+			if (typeof attrs["gen_ai.request.model"] === "string")
+				detail += ` model:${String(attrs["gen_ai.request.model"])}`;
+			if (typeof attrs["alef.tool.call.id"] === "string")
+				detail += ` call:${String(attrs["alef.tool.call.id"]).slice(0, 12)}`;
+		} catch {
+			// skip
+		}
+
+		const label = i === chain.length - 1 ? " = ROOT" : "";
+		console.log(`${indent}${arrow} ${s.name} (${s.spanId}, ${s.duration}ms)${detail}${label}`);
+	}
 }

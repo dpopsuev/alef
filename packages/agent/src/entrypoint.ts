@@ -195,6 +195,10 @@ if (willUseTui) {
 const log = createRunnerLogger(willUseTui, args.debug);
 const storage = await getStorage();
 
+import { upgradeToSqliteExporter } from "./otel.js";
+
+await upgradeToSqliteExporter();
+
 import { setAuthStore, warmAuthCache } from "./auth.js";
 
 setAuthStore(storage.authStore());

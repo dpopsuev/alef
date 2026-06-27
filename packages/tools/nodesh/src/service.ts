@@ -6,22 +6,20 @@ export const service: ServiceDescriptor = {
 	restart: "temporary",
 	shareable: false,
 
-	async create(opts: ServiceCreateOpts): Promise<ManagedService> {
+	create(opts: ServiceCreateOpts): Promise<ManagedService> {
 		const adapter = createNodeshAdapter({ cwd: opts.cwd, logger: opts.logger });
 
-		return {
+		return Promise.resolve({
 			name: "nodesh",
 			restart: "temporary",
 			adapters: [adapter],
 			tools: [...adapter.tools],
 
-			async start() {},
+			start: () => Promise.resolve(),
 
-			async stop() {},
+			stop: () => Promise.resolve(),
 
-			async health() {
-				return true;
-			},
-		};
+			health: () => Promise.resolve(true),
+		});
 	},
 };

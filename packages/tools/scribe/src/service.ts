@@ -6,16 +6,16 @@ export const service: ServiceDescriptor = {
 	restart: "transient",
 	shareable: true,
 
-	async create(_opts: ServiceCreateOpts): Promise<ManagedService> {
+	create(_opts: ServiceCreateOpts): Promise<ManagedService> {
 		const adapter = createScribeAdapter();
 
-		return {
+		return Promise.resolve({
 			name: "scribe",
 			restart: "transient",
 			adapters: [adapter],
 			tools: [...adapter.tools],
 
-			async start() {},
+			start: () => Promise.resolve(),
 
 			async stop() {
 				if ("close" in adapter && typeof adapter.close === "function") {
@@ -23,9 +23,7 @@ export const service: ServiceDescriptor = {
 				}
 			},
 
-			async health() {
-				return true;
-			},
-		};
+			health: () => Promise.resolve(true),
+		});
 	},
 };

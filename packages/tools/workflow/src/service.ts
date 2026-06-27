@@ -6,7 +6,7 @@ export const service: ServiceDescriptor = {
 	restart: "temporary",
 	shareable: false,
 
-	async create(opts: ServiceCreateOpts): Promise<ManagedService> {
+	create(opts: ServiceCreateOpts): Promise<ManagedService> {
 		const adapter = createWorkflowAdapter({
 			cwd: opts.cwd,
 			logger: opts.logger,
@@ -14,19 +14,17 @@ export const service: ServiceDescriptor = {
 			runner: { async run() { return { status: "fulfilled", output: null, questions: [] }; } },
 		});
 
-		return {
+		return Promise.resolve({
 			name: "workflow",
 			restart: "temporary",
 			adapters: [adapter],
 			tools: [...adapter.tools],
 
-			async start() {},
+			start: () => Promise.resolve(),
 
-			async stop() {},
+			stop: () => Promise.resolve(),
 
-			async health() {
-				return true;
-			},
-		};
+			health: () => Promise.resolve(true),
+		});
 	},
 };

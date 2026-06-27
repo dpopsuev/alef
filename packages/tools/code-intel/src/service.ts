@@ -7,13 +7,13 @@ export const service: ServiceDescriptor = {
 	restart: "permanent",
 	shareable: true,
 
-	async create(opts: ServiceCreateOpts): Promise<ManagedService> {
+	create(opts: ServiceCreateOpts): Promise<ManagedService> {
 		const backend = new LocalCodeIntelBackend({
 			cwd: opts.cwd,
 		});
 		const adapter = createCodeIntelAdapter({ cwd: opts.cwd, backend, logger: opts.logger });
 
-		return {
+		return Promise.resolve({
 			name: "code-intel",
 			restart: "permanent",
 			adapters: [adapter],
@@ -27,9 +27,7 @@ export const service: ServiceDescriptor = {
 				await backend.stopLsp();
 			},
 
-			async health() {
-				return true;
-			},
-		};
+			health: () => Promise.resolve(true),
+		});
 	},
 };

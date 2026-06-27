@@ -1,3 +1,4 @@
+/** @deprecated Superseded by Supervisor-based entrypoint. No IPC needed when agent runs in-process. */
 export function setupSupervisorIpc(blueprintUpgradePolicy: "rebuild_only" | "packages" | "self"): void {
 	if (process.env.ALEF_SUPERVISOR !== "1" || typeof process.send !== "function") return;
 

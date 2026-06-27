@@ -1,3 +1,5 @@
+/** @deprecated Supervisor manages session lifecycle. See agent-service.ts + entrypoint.ts. */
+
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
 import type { Logger } from "pino";

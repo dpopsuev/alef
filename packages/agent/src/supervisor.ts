@@ -1,4 +1,9 @@
 /**
+ * @deprecated Superseded by Supervisor class (core/supervisor) + entrypoint.ts.
+ * This process supervisor script will be deleted once bin/alef.js switches
+ * to the new Supervisor-based boot path. See G8 in campaign
+ * supervisor-as-entrypoint-openbsd-base-system-model-ff54.
+ *
  * Blue-green supervisor for Alef runner.
  *
  * Manages a single "current" slot (the green instance). When the runner

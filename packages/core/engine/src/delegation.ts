@@ -1,3 +1,5 @@
+/** @deprecated buildDelegationStack superseded by Supervisor + PM. See agent-service.ts. */
+
 import type { AdapterFactoryOptions } from "@dpopsuev/alef-blueprint/materializer";
 import type { CompiledAgentAdapterDefinition } from "@dpopsuev/alef-blueprint/types";
 import type { SubagentFactory } from "@dpopsuev/alef-blueprint/registry";

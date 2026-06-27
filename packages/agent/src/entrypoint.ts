@@ -87,6 +87,12 @@ if (args.debugSubcmd) {
 	process.exit(0);
 }
 
+if (args.storeSubcmd) {
+	const { runStoreCommand } = await import("./store-cli.js");
+	await runStoreCommand(args.storeSubcmd, args.storeArgs);
+	process.exit(0);
+}
+
 if (args.replay !== undefined) {
 	const { runReplay } = await import("./cli/replay.js");
 	await runReplay(args.cwd, args.replay);

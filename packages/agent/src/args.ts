@@ -58,6 +58,8 @@ export interface Args {
 	 */
 	debugSubcmd: string | undefined;
 	debugSubcmdArgs: string[];
+	storeSubcmd: string | undefined;
+	storeArgs: string[];
 	/** Print all sessions for the current --cwd and exit. */
 	listSessions: boolean;
 	/**
@@ -200,6 +202,8 @@ export function parseArgs(argv: string[]): Args {
 		maxTurns: 50,
 		debugSubcmd: undefined,
 		debugSubcmdArgs: [],
+		storeSubcmd: undefined,
+		storeArgs: [],
 		thinking: undefined,
 		resume: undefined,
 		listSessions: false,
@@ -244,6 +248,12 @@ export function parseArgs(argv: string[]): Args {
 			// alef debug <subcmd> [args...]
 			args.debugSubcmd = argv[++i] ?? "session";
 			args.debugSubcmdArgs = argv.slice(i + 1);
+			break;
+		}
+
+		if (arg === "store") {
+			args.storeSubcmd = argv[++i] ?? "sessions";
+			args.storeArgs = argv.slice(i + 1);
 			break;
 		}
 

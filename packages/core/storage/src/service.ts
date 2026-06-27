@@ -5,29 +5,42 @@ export interface StorageService extends ManagedService {
 	readonly factory: StorageFactory;
 }
 
-export const service: ServiceDescriptor = {
-	name: "storage",
-	restart: "permanent",
-	shareable: true,
+export interface StorageServiceConfig {
+	backend?: "local" | "turso";
+	tursoUrl?: string;
+	tursoToken?: string;
+	syncInterval?: number;
+}
 
-	async create(_opts: ServiceCreateOpts): Promise<StorageService> {
-		const { getDatabase } = await import("./sqlite/database.js");
-		const { SqliteStorageFactory } = await import("./factory.js");
-		const db = await getDatabase();
-		const factory = new SqliteStorageFactory(db);
+export function createStorageDescriptor(config?: StorageServiceConfig): ServiceDescriptor {
+	return {
+		name: "storage",
+		restart: "permanent",
+		shareable: true,
 
-		return {
-			name: "storage",
-			restart: "permanent" as const,
-			adapters: [],
-			tools: [],
-			factory,
-			start: () => Promise.resolve(),
-			stop() {
-				factory.close();
-				return Promise.resolve();
-			},
-			health: () => Promise.resolve(true),
-		};
-	},
-};
+		async create(_opts: ServiceCreateOpts): Promise<StorageService> {
+			if (config) {
+				const { configureStorage } = await import("./sqlite/database.js");
+				configureStorage(config);
+			}
+			const { getDatabase } = await import("./sqlite/database.js");
+			const { SqliteStorageFactory } = await import("./factory.js");
+			const db = await getDatabase();
+			const factory = new SqliteStorageFactory(db);
+
+			return {
+				name: "storage",
+				restart: "permanent" as const,
+				adapters: [],
+				tools: [],
+				factory,
+				start: () => Promise.resolve(),
+				stop() {
+					factory.close();
+					return Promise.resolve();
+				},
+				health: () => Promise.resolve(true),
+			};
+		},
+	};
+}

@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const ENTRY_POINTS = [
-  'packages/agent/src/cli/main.ts',
+  'packages/agent/src/entrypoint.ts',
   'packages/agent/bin/alef.js',
 ];
 

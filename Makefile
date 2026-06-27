@@ -34,10 +34,10 @@ install: install-deps ## Install alef globally (no build step — runs from sour
 
 .PHONY: run
 run: ## Run alef from source (interactive TUI)
-	npx tsx packages/agent/src/cli/main.ts
+	npx tsx packages/agent/src/entrypoint.ts
 
 run-serve: ## Run alef in HTTP/SSE serve mode on a random port
-	npx tsx packages/agent/src/cli/main.ts --serve 0
+	npx tsx packages/agent/src/entrypoint.ts --serve 0
 
 
 .PHONY: ci
@@ -70,11 +70,11 @@ test: ## Run tests in all workspaces that define a test script
 
 .PHONY: alef
 alef: ## Run Alef from source
-	npx tsx packages/agent/src/cli/main.ts
+	npx tsx packages/agent/src/entrypoint.ts
 
 .PHONY: debug
 debug: ## Run Alef in debug mode
-	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 npx tsx packages/agent/src/cli/main.ts
+	@ALEF_DEBUG=1 ALEF_MODEL=claude-sonnet-4-5 npx tsx packages/agent/src/entrypoint.ts
 
 .PHONY: organ
 organ: ## Create a new organ scaffold: make organ NAME=weather

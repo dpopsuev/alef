@@ -20,7 +20,7 @@
     "README.md"
   ],
   "scripts": {
-    "start": "tsx src/cli/main.ts",
+    "start": "tsx src/entrypoint.ts",
     "build": "npx tsc -p tsconfig.build.json",
     "check": "biome check --write --error-on-warnings . && tsc --noEmit"
   },

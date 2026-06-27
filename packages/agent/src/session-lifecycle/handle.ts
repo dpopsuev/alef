@@ -135,18 +135,14 @@ export class SessionHandle implements Session {
 		this._agent.dispose();
 	}
 
-	send = async (text: string, timeoutMs?: number): Promise<string> => {
+	send = (text: string, timeoutMs?: number): Promise<string> => {
 		if (this._args.maxTurns > 0 && this._turnCount >= this._args.maxTurns) {
 			return Promise.reject(
 				new Error(`Max turns reached (${this._args.maxTurns}). Start a new session to continue.`),
 			);
 		}
 		this._turnCount++;
-		const { traceEvent } = await import("@dpopsuev/alef-kernel/log");
-		traceEvent("trace:roundtrip", { step: 3, phase: "SessionHandle.send", turn: this._turnCount });
-		const reply = await this._controller.send(text, "human", timeoutMs);
-		traceEvent("trace:roundtrip", { step: 18, phase: "SessionHandle.send.resolved", replyLen: reply.length });
-		return reply;
+		return this._controller.send(text, "human", timeoutMs);
 	};
 
 	receive(text: string): void {

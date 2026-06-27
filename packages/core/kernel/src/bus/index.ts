@@ -44,5 +44,5 @@ export {
 	extractToolCallId,
 	toErrorMessage,
 } from "./event-builders.js";
-export { InProcessBus, InProcessBus as InProcessNerve, type WatchdogOptions } from "./in-process-bus.js";
+export { InProcessBus, InProcessBus as InProcessNerve, type BusOptions, type WatchdogOptions } from "./in-process-bus.js";
 export { Watchdog } from "./watchdog.js";

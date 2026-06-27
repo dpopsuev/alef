@@ -36,9 +36,6 @@ export class AgentController {
 	send(text: string, sender = "human", timeoutMs = 30_000): Promise<string> {
 		if (this.disposed) return Promise.reject(new Error("AgentController: disposed"));
 		const correlationId = randomUUID();
-		void import("@dpopsuev/alef-kernel/log").then(({ traceEvent }) =>
-			traceEvent("trace:roundtrip", { step: 4, phase: "AgentController.send", correlationId }),
-		);
 		return new Promise<string>((resolve, reject) => {
 			// lint-ignore: RAWTIMER AgentController send deadline — fires once when the agent does not reply within the caller's budget
 			const timer = setTimeout(() => {
@@ -52,9 +49,6 @@ export class AgentController {
 
 	receive(text: string, sender = "human", correlationId = randomUUID()): void {
 		if (this.disposed) return;
-		void import("@dpopsuev/alef-kernel/log").then(({ traceEvent }) =>
-			traceEvent("trace:roundtrip", { step: 5, phase: "AgentController.receive→publishEvent", correlationId, triggerEvent: this.triggerEvent }),
-		);
 		this.agent.publishEvent({
 			type: this.triggerEvent,
 			payload: { text, sender },
@@ -87,9 +81,6 @@ export class AgentController {
 	private handleReply(event: CommandMessage): void {
 		const text = typeof event.payload.text === "string" ? event.payload.text : "";
 		const sender = typeof event.payload.sender === "string" ? event.payload.sender : "agent";
-		void import("@dpopsuev/alef-kernel/log").then(({ traceEvent }) =>
-			traceEvent("trace:roundtrip", { step: 17, phase: "AgentController.handleReply", correlationId: event.correlationId, hasPending: this.pending.has(event.correlationId), replyLen: text.length }),
-		);
 		this.onReply(text, sender);
 
 		const pending = this.pending.get(event.correlationId);

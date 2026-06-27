@@ -11,6 +11,7 @@ import type {
 import { makeBus } from "./messages.js";
 import { extractToolCallId } from "./event-builders.js";
 import { Watchdog } from "./watchdog.js";
+import { traceEvent } from "../trace.js";
 
 const FIRST_SEEN_MAX = 500;
 class InternalBus {
@@ -60,6 +61,10 @@ export interface WatchdogOptions {
 	stallMs: number;
 	onStall: () => void;
 }
+export interface BusOptions {
+	watchdog?: WatchdogOptions;
+	trace?: boolean;
+}
 export class InProcessBus {
 	private readonly _buses: Record<ChannelName, InternalBus> = {
 		command: new InternalBus(),
@@ -67,9 +72,19 @@ export class InProcessBus {
 		notification: new InternalBus(),
 	};
 	private readonly _watchdog: Watchdog | null;
-	constructor(watchdog?: WatchdogOptions) {
-		this._watchdog = watchdog ? new Watchdog(watchdog.stallMs, watchdog.onStall) : null;
+	constructor(optsOrWatchdog?: BusOptions | WatchdogOptions) {
+		const opts: BusOptions = optsOrWatchdog && "stallMs" in optsOrWatchdog ? { watchdog: optsOrWatchdog } : (optsOrWatchdog ?? {});
+		this._watchdog = opts.watchdog ? new Watchdog(opts.watchdog.stallMs, opts.watchdog.onStall) : null;
 		this._watchdog?.start();
+
+		if (opts.trace) {
+			const channels = ["command", "event", "notification"] as const;
+			for (const ch of channels) {
+				this._buses[ch].on("*", (e: BusMessage) => {
+					traceEvent(`bus:${ch}:${e.type}`, { correlationId: e.correlationId, elapsed: e.elapsed });
+				});
+			}
+		}
 		this._buses.command.deadLetterSink = (event) => {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- dead-letter sink is only wired to command bus
 			const payload = (event as CommandMessage).payload;

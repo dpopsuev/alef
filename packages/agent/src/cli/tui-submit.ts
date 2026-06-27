@@ -123,8 +123,6 @@ export function createSubmitHandler(config: SubmitConfig) {
 		if (await inputPatterns.dispatch(text)) return;
 
 		// Execute regular message
-		const { traceEvent: trace } = await import("@dpopsuev/alef-kernel/log");
-		trace("trace:roundtrip", { step: 2, phase: "tui-submit.onSubmit", text: text.slice(0, 50) });
 		const sendFn = session.send;
 		await executeMessage({
 			text,

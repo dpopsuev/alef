@@ -6,10 +6,16 @@
  * 2. Nothing writes to stdout/stderr — all output goes through sinks
  * 3. No console.log/warn/error needed anywhere in the codebase
  *
+ * AsyncLocalStorage context: traceEvent automatically includes
+ * correlationId and turn from the current async context if available.
+ * Use runInTraceContext() to set context for an async chain.
+ *
  * Usage:
  *   import { traceEvent } from "@dpopsuev/alef-kernel/log";
  *   traceEvent("llm:http:start", { turn, messages: n, tools: n });
  */
+
+import { AsyncLocalStorage } from "node:async_hooks";
 
 interface MinimalLogger {
 	debug(obj: Record<string, unknown>, msg: string): void;
@@ -22,6 +28,29 @@ let sessionSink: SessionSink | undefined;
 
 const pendingEvents: Array<{ event: string; extra?: Record<string, unknown>; timestamp: number }> = [];
 const MAX_PENDING = 500;
+
+// ---------------------------------------------------------------------------
+// Trace context — AsyncLocalStorage carries correlationId + turn
+// ---------------------------------------------------------------------------
+
+export interface TraceContext {
+	correlationId: string;
+	turn?: number;
+}
+
+const traceContextStorage = new AsyncLocalStorage<TraceContext>();
+
+export function runInTraceContext<T>(ctx: TraceContext, fn: () => T): T {
+	return traceContextStorage.run(ctx, fn);
+}
+
+export function getTraceContext(): TraceContext | undefined {
+	return traceContextStorage.getStore();
+}
+
+// ---------------------------------------------------------------------------
+// Sinks
+// ---------------------------------------------------------------------------
 
 function flushPending(): void {
 	if (pendingEvents.length === 0) return;
@@ -45,13 +74,16 @@ export function initSessionSink(sink: SessionSink): void {
 }
 
 export function traceEvent(event: string, extra?: Record<string, unknown>): void {
+	const ctx = traceContextStorage.getStore();
+	const enriched = ctx ? { correlationId: ctx.correlationId, ...(ctx.turn !== undefined ? { turn: ctx.turn } : {}), ...(extra ?? {}) } : extra;
+
 	if (sharedLogger || sessionSink) {
-		if (sharedLogger) sharedLogger.debug(extra ?? {}, event);
-		if (sessionSink) sessionSink({ bus: "debug", type: event, timestamp: Date.now(), ...(extra ?? {}) });
+		if (sharedLogger) sharedLogger.debug(enriched ?? {}, event);
+		if (sessionSink) sessionSink({ bus: "debug", type: event, timestamp: Date.now(), ...(enriched ?? {}) });
 		return;
 	}
 	if (pendingEvents.length < MAX_PENDING) {
-		pendingEvents.push({ event, extra, timestamp: Date.now() });
+		pendingEvents.push({ event, extra: enriched, timestamp: Date.now() });
 	}
 }
 
@@ -85,4 +117,3 @@ export const LogField = {
 	profile: "profile",
 	status: "status",
 } as const;
-

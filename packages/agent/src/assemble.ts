@@ -207,15 +207,6 @@ export function connectObservers(
 			if (event.type === "llm.response") {
 				const p = busPayload(event);
 				const text = typeof p.text === "string" ? p.text : "";
-				void import("@dpopsuev/alef-kernel/log").then(({ traceEvent }) =>
-					traceEvent("trace:roundtrip", {
-						step: 11,
-						phase: "connectObservers.onCommand(llm.response)",
-						correlationId: event.correlationId,
-						observerCount: observers.size,
-						replyLen: text.length,
-					}),
-				);
 				for (const obs of observers) obs({ type: "turn-complete", reply: text });
 			}
 		},
@@ -223,19 +214,6 @@ export function connectObservers(
 		onNotification(event) {
 			const agentEvent = signalToAgentEvent(event, signalMappers, uiSignalTypes);
 			if (agentEvent) {
-				if (
-					agentEvent.type === "chunk" ||
-					agentEvent.type === "turn-complete" ||
-					agentEvent.type === "token-usage"
-				) {
-					void import("@dpopsuev/alef-kernel/log").then(({ traceEvent }) =>
-						traceEvent("trace:roundtrip", {
-							step: 12,
-							phase: `connectObservers.onNotification(${event.type})`,
-							observerCount: observers.size,
-						}),
-					);
-				}
 				for (const obs of observers) obs(agentEvent);
 			}
 		},

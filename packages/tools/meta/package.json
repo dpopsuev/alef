@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@dpopsuev/alef-kernel": "workspace:*",
+    "@dpopsuev/alef-supervisor": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
     "zod": "^4.4.3"
   },

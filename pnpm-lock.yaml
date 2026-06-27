@@ -666,6 +666,9 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
       yaml:
         specifier: ^2.8.0
         version: 2.9.0
@@ -738,6 +741,9 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
       testcontainers:
         specifier: ^11.14.0
         version: 11.14.0
@@ -819,6 +825,9 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
       diff:
         specifier: ^5.2.0
         version: 5.2.2
@@ -885,6 +894,9 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
@@ -907,6 +919,9 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -957,6 +972,9 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
     devDependencies:
       vitest:
         specifier: ^4.1.6
@@ -989,6 +1007,9 @@ importers:
       '@dpopsuev/alef-kernel':
         specifier: workspace:*
         version: link:../../core/kernel
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../../core/supervisor
       pty-manager:
         specifier: ^1.11.1
         version: 1.11.1

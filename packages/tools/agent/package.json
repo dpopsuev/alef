@@ -20,6 +20,7 @@
     "@dpopsuev/alef-kernel": "workspace:*",
     "@dpopsuev/alef-ai": "workspace:*",
     "@dpopsuev/alef-engine": "workspace:*",
+    "@dpopsuev/alef-supervisor": "workspace:*",
     "yaml": "^2.8.0",
     "zod": "^4.4.3"
   },

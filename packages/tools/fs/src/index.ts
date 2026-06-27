@@ -51,3 +51,4 @@ export {
 	truncateHead,
 	truncateLine,
 } from "./truncate.js";
+export { service } from "./service.js";

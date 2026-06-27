@@ -3,3 +3,4 @@ export { createMetaAdapter as createAdapter,
 	type DirectiveAdapter,
 	type MetaAdapterOptions,
 } from "./adapter.js";
+export { service } from "./service.js";

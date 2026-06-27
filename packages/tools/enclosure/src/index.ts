@@ -14,3 +14,4 @@ export {
 	type SpaceOptions,
 	StubSpace,
 } from "./space.js";
+export { service } from "./service.js";

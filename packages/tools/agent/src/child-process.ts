@@ -16,7 +16,7 @@ export interface ChildEntry {
 	tmpDir?: string;
 }
 
-const RUNNER_MAIN = new URL("../../../agent/src/cli/main.ts", import.meta.url).pathname;
+const RUNNER_MAIN = new URL("../../../agent/src/entrypoint.ts", import.meta.url).pathname;
 
 function findTsxModule(): string {
 	let dir = new URL(".", import.meta.url).pathname;

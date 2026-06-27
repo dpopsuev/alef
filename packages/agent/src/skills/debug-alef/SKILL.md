@@ -72,23 +72,73 @@ runInTraceContext({ correlationId: "abc-123", turn: 1 }, () => {
 });
 ```
 
+## alef store — session query CLI
+
+Built-in CLI for querying the SQLite session store. No raw SQL needed.
+
+### Subcommands
+
+```bash
+alef store sessions                      # list sessions (newest first)
+alef store sessions --search "refactor"  # search by name/ID
+alef store events <id>                   # all events in a session
+alef store trace <id> <correlationId>    # one turn's full trace
+alef store summary <id>                  # token/tool/error summary
+alef store summary                       # latest session summary
+alef store tail                          # latest session events
+```
+
+### Composable filters (any combination)
+
+```bash
+alef store events <id> --bus notification          # filter by bus
+alef store events <id> --type 'llm.%'              # filter by type pattern
+alef store events <id> --adapter fs                # filter by adapter prefix
+alef store events <id> --after 22:30 --before 22:35  # time window
+alef store events <id> --corr e9f1                 # correlationId prefix
+alef store events <id> --errors                    # errors only
+alef store events <id> --payload "Cannot read"     # payload substring
+alef store events <id> --limit 5                   # max results
+alef store events <id> --json                      # JSON output for piping
+alef store tail --adapter llm --limit 10           # filters work on tail too
+```
+
+### Common debugging workflows
+
+```bash
+# Find the crash: which session had errors?
+alef store sessions
+
+# What errors happened in session bfd457a7?
+alef store events bfd457a7 --errors
+
+# Trace a specific turn by correlationId
+alef store trace bfd457a7 e9f102f1
+
+# Find all tool calls in a session
+alef store events bfd457a7 --type 'llm.tool-%'
+
+# Find events containing specific text
+alef store events bfd457a7 --payload "Cannot read properties"
+
+# Get JSON for piping to jq
+alef store tail --json | jq '.type'
+```
+
 ## Start here
 
 ```bash
-# List sessions for current cwd
-alef debug session --list
+# List sessions
+alef store sessions
 
 # Inspect most recent session (tool-call pairing analysis)
 alef debug session
 
-# Query session events from SQLite
-sqlite3 ~/.alef/alef.db "SELECT bus, type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' ORDER BY timestamp"
+# All errors in a session
+alef store events <id> --errors
 
-# All bus-level traces (auto-traced, no manual instrumentation)
-sqlite3 ~/.alef/alef.db "SELECT type, json_extract(payload,'$.correlationId') as cid FROM events WHERE session_id='SESSION_ID' AND type LIKE 'bus:%' ORDER BY timestamp"
-
-# All errors
-sqlite3 ~/.alef/alef.db "SELECT type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' AND type LIKE '%error%' OR type LIKE '%failed%'"
+# Trace a specific turn
+alef store trace <id> <correlationId>
 ```
 
 ## Message round-trip
@@ -284,25 +334,38 @@ alef --kill-daemon <id>       # Stop a daemon by session ID
 | Scheduler service | `packages/core/supervisor/src/scheduler.ts` |
 | Package Manager service | `packages/core/supervisor/src/package-manager.ts` |
 | Storage service | `packages/core/storage/src/service.ts` |
+| Store CLI | `packages/agent/src/store-cli.ts` |
 
 ## Quick reference
 
 ```bash
-# List sessions, inspect latest
-alef debug session --list
+# Sessions
+alef store sessions                          # list all
+alef store sessions --search "refactor"      # search
+
+# Events (with composable filters)
+alef store events <id>                       # all events
+alef store events <id> --errors              # errors only
+alef store events <id> --adapter llm         # LLM events
+alef store events <id> --bus notification    # notification bus
+alef store events <id> --payload "error"     # payload search
+alef store events <id> --after 22:30         # time filter
+alef store events <id> --json                # pipe to jq
+
+# Tracing
+alef store trace <id> <correlationId>        # one turn trace
+alef store tail                              # latest session
+alef store tail --errors                     # latest errors
+
+# Summary
+alef store summary <id>                      # session stats
+alef store summary                           # latest session
+
+# Legacy (tool-call pairing analysis)
 alef debug session
 
-# Query events from SQLite (replace SESSION_ID)
-sqlite3 -json ~/.alef/alef.db "SELECT type, json_extract(payload,'$.name') as name, json_extract(payload,'$.elapsedMs') as ms FROM events WHERE session_id='SESSION_ID' AND type='tool:end'"
-
-# All debug events
-sqlite3 ~/.alef/alef.db "SELECT type, payload FROM events WHERE session_id='SESSION_ID' AND bus='debug' ORDER BY timestamp"
-
-# Bus auto-trace (every message on every channel)
-sqlite3 ~/.alef/alef.db "SELECT type, json_extract(payload,'$.correlationId') as cid, json_extract(payload,'$.elapsed') as ms FROM events WHERE session_id='SESSION_ID' AND type LIKE 'bus:%' ORDER BY timestamp"
-
-# Run headless to capture everything to terminal
-ALEF_DEBUG=1 alef --no-tui -p "your prompt here" 2>&1
+# Headless capture
+ALEF_DEBUG=1 alef --no-tui -p "prompt" 2>&1
 ```
 
 ## CLI introspection (no TUI required)

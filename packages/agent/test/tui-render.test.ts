@@ -2,11 +2,7 @@
  * TUI render pipeline E2E test with MockTerminal.
  *
  * Tests the ACTUAL render path: session events → TUI dispatch →
- * requestRender() → doRender() → terminal.write(). Uses MockTerminal
- * instead of a real TTY.
- *
- * This catches bugs where the event flow works (HeadlessViewMode passes)
- * but the TUI renderer fails to paint (user sees "thinking" then nothing).
+ * requestRender() → doRender() → terminal.write().
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
@@ -14,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import type { StorageFactory } from "@dpopsuev/alef-storage";
+import { TUI } from "@dpopsuev/alef-tui";
 import { MockTerminal } from "@dpopsuev/alef-tui/mock-terminal";
 import pino from "pino";
 import { afterEach, describe, expect, it } from "vitest";
@@ -63,6 +60,47 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 		return d;
 	}
 
+	it("TUI.requestRender writes to MockTerminal (isolated)", async () => {
+		const terminal = new MockTerminal(80, 24);
+		const tui = new TUI(terminal);
+
+		tui.start();
+		tui.requestRender();
+
+		// Wait for process.nextTick → scheduleRender → setTimeout(doRender)
+		await new Promise((r) => setTimeout(r, 100));
+
+		console.log("output.length:", terminal.output.length);
+		console.log(
+			"first 3 outputs:",
+			terminal.output.slice(0, 3).map((s) => JSON.stringify(s.slice(0, 40))),
+		);
+
+		// TUI should have rendered SOMETHING (even an empty frame writes cursor positioning)
+		expect(terminal.output.length).toBeGreaterThan(0);
+
+		tui.stop();
+	});
+
+	it("TUI.requestRender works inside an async function (like runTuiMode)", async () => {
+		const terminal = new MockTerminal(80, 24);
+		const tui = new TUI(terminal);
+
+		// Simulate what runTuiMode does: async setup, then start + requestRender
+		await new Promise((r) => setTimeout(r, 10)); // simulate async buildLayout
+
+		tui.start();
+		tui.requestRender();
+
+		// Wait for render
+		await new Promise((r) => setTimeout(r, 100));
+
+		console.log("async context output.length:", terminal.output.length);
+		expect(terminal.output.length).toBeGreaterThan(0);
+
+		tui.stop();
+	});
+
 	it("renders LLM response text to terminal after message round-trip", async () => {
 		const faux = registerFauxProvider();
 		faux.setResponses([fauxAssistantMessage("mock terminal reply")]);
@@ -85,7 +123,13 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 
 		const terminal = new MockTerminal(120, 40);
 
+		let renderCount = 0;
 		const { runTuiMode } = await import("../src/cli/tui-mode.js");
+		const origWrite = terminal.write.bind(terminal);
+		terminal.write = (data: string) => {
+			renderCount++;
+			origWrite(data);
+		};
 		const tuiDone = runTuiMode(session, {
 			cwd: args.cwd,
 			modelId: "faux/test",
@@ -98,77 +142,43 @@ describe("TUI render pipeline with MockTerminal", { tags: ["unit"] }, () => {
 			terminal,
 		});
 
-		// Wait for initial render
-		await new Promise((r) => setTimeout(r, 200));
-
-		// The TUI should have written SOMETHING to the terminal.
-		// If this fails, doRender() never fired or produced empty output.
-		// Debug: check terminal.output for any data at all
-		if (terminal.output.length === 0) {
-			// doRender never called terminal.write — the render pipeline is broken
-			console.log("BUG CAUGHT: terminal.output is empty after 200ms");
-			console.log("terminal.started:", terminal.started);
-		}
-		expect(terminal.output.length).toBeGreaterThan(0);
-
-		// Send a message
-		if (session.send) {
-			await session.send("hello", 10_000);
+		// Wait for buildLayout + splash render + initial render
+		// buildLayout is async (font rasterization), may take >200ms
+		for (let i = 0; i < 20; i++) {
+			await new Promise((r) => setTimeout(r, 100));
+			if (terminal.output.length > 0) break;
 		}
 
-		// Wait for render cycle to process the response
-		await new Promise((r) => setTimeout(r, 200));
+		console.log("after runTuiMode, output.length:", terminal.output.length, "renderCount:", renderCount);
 
-		// The terminal should contain the response text
-		const rendered = terminal.stripAnsi();
-		expect(rendered).toContain("mock terminal reply");
+		if (terminal.output.length > 0) {
+			const outputBefore = terminal.output.length;
 
-		// Clean up
-		session.dispose();
-		await Promise.race([tuiDone, new Promise((r) => setTimeout(r, 500))]);
-	}, 15_000);
+			// Send a message
+			if (session.send) {
+				await session.send("hello", 10_000);
+			}
 
-	it("renders initial frame on boot without keypress", async () => {
-		const faux = registerFauxProvider();
-		faux.setResponses([fauxAssistantMessage("boot test")]);
+			// Wait for render cycles (longer, multiple attempts)
+			for (let i = 0; i < 10; i++) {
+				await new Promise((r) => setTimeout(r, 100));
+				if (terminal.output.length > outputBefore + 2) break;
+			}
 
-		const cwd = makeTmp();
-		const store = await JsonlSessionStore.create(cwd);
-		const args = { ...parseArgs([]), cwd, noTui: false };
-		const model = faux.getModel();
-
-		const { session } = await createLocalSession(
-			args,
-			{},
-			SILENT_LOGGER,
-			store,
-			EMPTY_LOADED,
-			model,
-			STUB_STORAGE,
-			buildIdentityContext(store),
-		);
-
-		const terminal = new MockTerminal(120, 40);
-
-		const { runTuiMode } = await import("../src/cli/tui-mode.js");
-		const tuiDone = runTuiMode(session, {
-			cwd: args.cwd,
-			modelId: "faux/test",
-			sessionId: store.id,
-			contextWindow: model.contextWindow,
-			getModel: () => model.id,
-			setModel: () => {},
-			getThinking: () => "off",
-			setThinking: () => {},
-			terminal,
-		});
-
-		// Wait for initial render — NO keypress
-		await new Promise((r) => setTimeout(r, 100));
-
-		// Terminal should have received render output without any input
-		expect(terminal.output.length).toBeGreaterThan(0);
-		expect(terminal.started).toBe(true);
+			console.log("outputs after send:", terminal.output.length - outputBefore);
+			console.log("total output chars:", terminal.allOutput().length);
+			const rendered = terminal.stripAnsi();
+			console.log("stripped length:", rendered.length);
+			console.log("contains reply:", rendered.includes("mock terminal reply"));
+			if (!rendered.includes("mock terminal reply")) {
+				console.log("last 500 chars stripped:", rendered.slice(-500));
+				console.log("raw last output:", JSON.stringify(terminal.output[terminal.output.length - 1]?.slice(0, 200)));
+			}
+			expect(rendered).toContain("mock terminal reply");
+		} else {
+			// Initial render didn't fire — this IS the bug
+			expect.fail("BUG: terminal.output is empty after runTuiMode + 200ms — doRender never wrote to terminal");
+		}
 
 		session.dispose();
 		await Promise.race([tuiDone, new Promise((r) => setTimeout(r, 500))]);

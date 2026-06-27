@@ -16,7 +16,8 @@
     "./sqlite/summary": "./src/sqlite/summary.ts",
     "./sqlite/auth": "./src/sqlite/auth.ts",
     "./sqlite/daemon": "./src/sqlite/daemon.ts",
-    "./sqlite/migrations": "./src/sqlite/migrations.ts"
+    "./sqlite/migrations": "./src/sqlite/migrations.ts",
+    "./service": "./src/service.ts"
   },
   "files": [
     "dist"
@@ -29,6 +30,7 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
+    "@dpopsuev/alef-supervisor": "workspace:*",
     "@dpopsuev/alef-session": "workspace:*",
     "@libsql/client": "^0.17.4",
     "@napi-rs/keyring": "1.3.0"

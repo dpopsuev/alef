@@ -472,6 +472,9 @@ importers:
       '@dpopsuev/alef-session':
         specifier: workspace:*
         version: link:../session
+      '@dpopsuev/alef-supervisor':
+        specifier: workspace:*
+        version: link:../supervisor
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4

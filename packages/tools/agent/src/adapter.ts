@@ -44,7 +44,7 @@ import {
 import type { ChildEntry } from "./child-process.js";
 import { ChildRegistry } from "./child-registry.js";
 import { DEFAULT_MAX_DEPTH, DEFAULT_READINESS_TIMEOUT_MS, DEFAULT_RUN_MAX_MS, DEFAULT_STALL_MS } from "./constants.js";
-import { strategyRegistry } from "./strategy-registry.js";
+
 import { checkRelevance, needsWriteAccess } from "./text-analysis.js";
 import {
 	ASK_TOOL,
@@ -273,7 +273,7 @@ export function createAgentAdapter(
 						const task: AsyncTask = { id: taskId, profile, text, status: "running", startedAt: Date.now() };
 						asyncTasks.set(taskId, task);
 
-						const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile) ?? strategyRegistry.resolve(profile);
+						const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile);
 						if (!strategy) {
 							task.status = "failed";
 							task.error = `unknown profile '${profile}'`;
@@ -367,7 +367,7 @@ export function createAgentAdapter(
 						if (adapterNames && opts.materializeAdapters) {
 							resolvedAdapters = await opts.materializeAdapters(adapterNames);
 						} else {
-							const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile) ?? strategyRegistry.resolve(profile);
+							const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile);
 							// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- strategy duck-typed for optional adapters property
 							resolvedAdapters = (strategy as unknown as { adapters?: Adapter[] }).adapters ?? [];
 						}
@@ -397,9 +397,9 @@ export function createAgentAdapter(
 						return;
 					}
 
-					const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile) ?? strategyRegistry.resolve(profile);
+					const strategy = strategies.get(profile) ?? opts.supervisor?.strategy(profile);
 					if (!strategy) {
-						const available = [...new Set([...strategies.keys(), ...strategyRegistry.list()])].join(", ");
+						const available = [...strategies.keys()].join(", ");
 						yield withDisplay(
 							{ error: `unknown profile '${profile}'`, available },
 							{

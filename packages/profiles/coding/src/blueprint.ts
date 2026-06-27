@@ -1,4 +1,4 @@
-import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-tool-agent";
+import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
 import { createSkillsAdapter } from "@dpopsuev/alef-tool-skills";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
@@ -32,7 +32,7 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- factoryAdapter conforms to Adapter but has narrower type
 		extraAdapters: [skillsAdapter, factoryAdapter as unknown as Adapter],
 		summarize: createLlmSummarizer(opts.model),
-		adapters: { createAgentAdapter, strategyRegistry, createCompactionStage, createSessionContextStage },
+		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		resolveService,
 	});
 

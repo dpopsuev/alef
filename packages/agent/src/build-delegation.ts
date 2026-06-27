@@ -6,7 +6,7 @@ import { createRouterAdapter } from "@dpopsuev/alef-engine/http";
 import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
 import { createSessionContextStage } from "@dpopsuev/alef-session/context";
 import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
-import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-tool-agent";
+import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
 import type { Args } from "./args.js";
 import type { AgentEvent, Session } from "./session.js";
@@ -111,7 +111,7 @@ export async function buildDelegation(
 		factory,
 		contextWindow: model.contextWindow,
 		extraAdapters: [factoryAdapter],
-		adapters: { createAgentAdapter, strategyRegistry, createCompactionStage, createSessionContextStage },
+		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		resolveService,
 	});
 

@@ -1,4 +1,4 @@
-import { createAgentAdapter, strategyRegistry } from "@dpopsuev/alef-tool-agent";
+import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
 import { createSkillsAdapter } from "@dpopsuev/alef-tool-skills";
 import { createWireAdapterWithFactory, type WireAdapterFactoryOptions } from "@dpopsuev/alef-tool-workflow";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
@@ -29,7 +29,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 		writableRoots: opts.writableRoots,
 		extraAdapters: [skillsAdapter],
 		excludeNames: ["workflow"],
-		adapters: { createAgentAdapter, strategyRegistry, createCompactionStage, createSessionContextStage },
+		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
 		resolveService,
 	});
 

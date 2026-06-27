@@ -35,7 +35,7 @@ const DEFAULT_EXPLORE_ADAPTERS: CompiledAgentAdapterDefinition[] = [
 
 export interface DelegationAdapters {
 	createAgentAdapter: (opts: Record<string, unknown>) => Adapter;
-	strategyRegistry: { register(name: string, strategy: unknown): void };
+	strategyRegistry?: { register(name: string, strategy: unknown): void };
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 	createCompactionStage: Function;
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -106,8 +106,8 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	const exploreStrategy = new InProcessStrategy(exploreAdapters, factory, explorePrompt);
 	const generalStrategy = new InProcessStrategy(generalAdapters, factory, generalPrompt);
-	injected.strategyRegistry.register("explore", exploreStrategy);
-	injected.strategyRegistry.register("general", generalStrategy);
+	injected.strategyRegistry?.register("explore", exploreStrategy);
+	injected.strategyRegistry?.register("general", generalStrategy);
 
 	const parentAdapterNames = new Set(resolvedDomainAdapters.map((a: Adapter) => a.name));
 	const agentAdapter = injected.createAgentAdapter({

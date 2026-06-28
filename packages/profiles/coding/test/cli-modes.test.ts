@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { hasCredentials } from "@dpopsuev/alef-agent/model";
 
-const MAIN = fileURLToPath(new URL("../../../agent/src/main.ts", import.meta.url));
+const MAIN = fileURLToPath(new URL("../../../cli/src/main.ts", import.meta.url));
 const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));
 const TSCONFIG = fileURLToPath(new URL("../../../tsconfig.json", import.meta.url));
 

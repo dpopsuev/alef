@@ -33,7 +33,7 @@ import {
 	assertSseFilter,
 	assertSubagentWorkflow,
 	assertToolSequence,
-} from "../../../agent/test/e2e-verifiers.js";
+} from "../../../cli/test/e2e-verifiers.js";
 
 // ---------------------------------------------------------------------------
 // Debug collector — dumps full event log on test failure (Orange instrumentation)

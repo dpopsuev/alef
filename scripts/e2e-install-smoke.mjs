@@ -51,7 +51,7 @@ try {
 			if (crashed) console.error(preflight.split("\n").slice(0, 5).join("\n"));
 		}
 	} else {
-		const agentDir = join(process.cwd(), "packages/agent");
+		const agentDir = join(process.cwd(), "packages/cli");
 		const packOutput = run("pnpm pack", { cwd: agentDir });
 		const tarball = packOutput.split("\n").filter(l => l.endsWith(".tgz"))[0]?.trim();
 		check("pnpm pack produced a .tgz", !!tarball);

@@ -16,8 +16,8 @@
 import { materializeDefaultAdapters } from "@dpopsuev/alef-blueprint/materializer";
 import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
-import { buildLlmAdapter } from "../../../agent/src/boot/build-llm-adapter.js";
-import { parseArgs } from "../../../agent/src/boot/args.js";
+import { buildLlmAdapter } from "../../../cli/src/boot/build-llm-adapter.js";
+import { parseArgs } from "../../../cli/src/boot/args.js";
 import { describe, expect, it } from "vitest";
 import { fixBugWithCleanCommit } from "../../../core/eval/src/evaluations/git-workflow.js";
 import { EvalHarness } from "../../../core/eval/src/harness.js";

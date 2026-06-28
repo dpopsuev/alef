@@ -39,10 +39,10 @@
 				"./packages/core/ai/src/*"
 			],
 			"@dpopsuev/alef-agent-core": [
-				"./packages/agent/src/index.ts"
+				"./packages/cli/src/index.ts"
 			],
 			"@dpopsuev/alef-agent-core/*": [
-				"./packages/agent/src/*"
+				"./packages/cli/src/*"
 			],
 			"@dpopsuev/alef-agent/loop-detector": [
 				"./packages/core/agent/src/loop-detector.ts"
@@ -174,13 +174,13 @@
 				"./packages/core/eval/src/*.ts"
 			],
 			"@dpopsuev/alef/ui-port": [
-				"./packages/agent/src/cli/presentation.ts"
+				"./packages/cli/src/client/presentation.ts"
 			],
 			"@dpopsuev/alef": [
-				"./packages/agent/src/main.ts"
+				"./packages/cli/src/main.ts"
 			],
 			"@dpopsuev/alef/*": [
-				"./packages/agent/src/*.ts"
+				"./packages/cli/src/*.ts"
 			],
 			"@dpopsuev/alef-tool-enclosure": [
 				"./packages/tools/enclosure/src/index.ts"
@@ -343,8 +343,8 @@
 	"include": [
 		"packages/*/*/src/**/*",
 		"packages/*/*/test/**/*",
-		"packages/agent/src/**/*",
-		"packages/agent/test/**/*",
+		"packages/cli/src/**/*",
+		"packages/cli/test/**/*",
 		"vitest.shims.ts"
 	],
 	"exclude": [

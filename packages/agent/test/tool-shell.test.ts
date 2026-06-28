@@ -118,7 +118,7 @@ describe("createToolShellAdapter — metaTools", { tags: ["unit"] }, () => {
 
 describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	it("initially identical shape to metaTools (all stripped)", () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive" });
 		const current = shell.currentMetaTools();
 		expect(current).toHaveLength(ALL_TOOLS.length + 1);
 		expect(current.at(-1)?.name).toBe("tools.describe");
@@ -128,7 +128,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	});
 
 	it("describing fs.read promotes all fs.* tools (family promotion via describe)", async () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive" });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
 
@@ -146,7 +146,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	});
 
 	it("event/fs.read result promotes all fs.* (auto-promotion without describe)", async () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive" });
 		const recorder = new BusEventRecorder();
 		const agent = new Agent();
 		agent.load(shell);
@@ -172,7 +172,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	});
 
 	it("describing shell.exec promotes shell.* but not fs.*", async () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive" });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
 
@@ -185,7 +185,7 @@ describe("currentMetaTools — schema promotion", { tags: ["unit"] }, () => {
 	});
 
 	it("multiple describe calls union their promoted families", async () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive" });
 		const harness = makeHarness(shell);
 		harnesses.push(harness);
 
@@ -316,7 +316,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	}
 
 	it("injects catalog message on turn 1", () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive" });
 		const result = shell.applyPhase(msgs(1), 1);
 		expect(result.length).toBe(2);
 		const first = result[0].content as string;
@@ -325,7 +325,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	});
 
 	it("does not inject catalog twice", () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive" });
 		const after1 = shell.applyPhase(msgs(1), 1);
 		const after2 = shell.applyPhase(after1, 2);
 		const count = after2.filter(
@@ -335,7 +335,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	});
 
 	it("evicts catalog after evictAfterTurn", () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS, evictAfterTurn: 2 });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive", evictAfterTurn: 2 });
 		let m = msgs(1);
 		m = shell.applyPhase(m, 1); // inject
 		m = shell.applyPhase(m, 2); // persist
@@ -349,7 +349,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	});
 
 	it("eviction message lists remaining tools", () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS, evictAfterTurn: 1 });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive", evictAfterTurn: 1 });
 		let m = shell.applyPhase(msgs(1), 1);
 		m = shell.applyPhase(m, 2); // evict
 		const summary = m.find((msg) => typeof msg.content === "string" && (msg.content as string).includes("compacted"));
@@ -357,7 +357,7 @@ describe("ToolShellOrgan lifecycle — catalog injection and eviction", { tags: 
 	});
 
 	it("evictAfterTurn=Infinity disables eviction", () => {
-		const shell = createToolShellAdapter({ tools: ALL_TOOLS, evictAfterTurn: Infinity });
+		const shell = createToolShellAdapter({ tools: ALL_TOOLS, disclosure: "progressive", evictAfterTurn: Infinity });
 		let m = msgs(1);
 		m = shell.applyPhase(m, 1);
 		for (let t = 2; t <= 20; t++) m = shell.applyPhase(m, t);

@@ -6,6 +6,7 @@ export interface TuiState {
 	contextWindow: number;
 	contextUsed: number;
 	compacted: boolean;
+	costUsd: number;
 }
 
 export class TuiStateStore {

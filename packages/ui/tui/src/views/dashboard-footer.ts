@@ -77,6 +77,7 @@ export class DashboardFooter implements Component {
 	private unsub: (() => void) | undefined;
 	private readonly inputSlot: SlotMachine<number>;
 	private readonly outputSlot: SlotMachine<number>;
+	private readonly costSlot: SlotMachine<number>;
 
 	constructor(opts: DashboardFooterOptions) {
 		this.opts = opts;
@@ -85,6 +86,7 @@ export class DashboardFooter implements Component {
 			const s = opts.store.get();
 			this.inputSlot.set(s.inputTokens);
 			this.outputSlot.set(s.outputTokens);
+			this.costSlot.set(s.costUsd);
 			opts.requestRender();
 		});
 		const tuiHandle = { requestRender: opts.requestRender, terminal: { rows: 24 } };
@@ -96,6 +98,12 @@ export class DashboardFooter implements Component {
 		};
 		this.inputSlot = new SlotMachine(tuiHandle, 0, { ...slotOpts, prefix: "↑" });
 		this.outputSlot = new SlotMachine(tuiHandle, 0, { ...slotOpts, prefix: "↓" });
+		this.costSlot = new SlotMachine(tuiHandle, 0, {
+			format: (n: number) => `$${n.toFixed(4)}`,
+			interpolate: numericInterpolator,
+			style: opts.dimStyle,
+			dimStyle: (s: string) => opts.dimStyle(s),
+		});
 	}
 
 	invalidate(): void {}
@@ -104,6 +112,7 @@ export class DashboardFooter implements Component {
 		this.unsub?.();
 		this.inputSlot.dispose();
 		this.outputSlot.dispose();
+		this.costSlot.dispose();
 	}
 
 	render(width: number): string[] {
@@ -117,11 +126,9 @@ export class DashboardFooter implements Component {
 
 		const segments: string[] = [];
 
-		if (s.inputTokens > 0 || s.outputTokens > 0) {
-			segments.push(`${this.inputSlot.currentStyled()} ${this.outputSlot.currentStyled()}`);
-		}
+		segments.push(`${this.inputSlot.currentStyled()} ${this.outputSlot.currentStyled()} ${this.costSlot.currentStyled()}`);
 
-		if (s.contextWindow > 0 && s.contextUsed > 0) {
+		if (s.contextWindow > 0) {
 			const barWidth = Math.min(Math.max(Math.floor(width * 0.1), 6), 20);
 			const compactSuffix = s.compacted ? dimStyle(" (auto)") : "";
 			segments.push(

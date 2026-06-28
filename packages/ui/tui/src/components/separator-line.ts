@@ -1,6 +1,7 @@
 import type { Component } from "../component.js";
 import { SEPARATOR } from "../design/chars.js";
 import type { SeparatorWeight } from "../design/typography.js";
+import { visibleWidth } from "../utils.js";
 
 const WEIGHT_CHARS: Record<SeparatorWeight, string> = {
 	thick: SEPARATOR.thick,
@@ -36,7 +37,7 @@ export class SeparatorLine implements Component {
 		const char = WEIGHT_CHARS[this.weight];
 		if (!this.label) return [this.style(char.repeat(width))];
 		const text = ` ${this.label} `;
-		const remaining = Math.max(0, width - text.length - 1);
+		const remaining = Math.max(0, width - visibleWidth(text) - 1);
 		return [this.style(`${char}${text}${char.repeat(remaining)}`)];
 	}
 }

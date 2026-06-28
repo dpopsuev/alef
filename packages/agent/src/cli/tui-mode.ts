@@ -58,6 +58,7 @@ export async function runTuiMode(
 		contextWindow: session.state.contextWindow,
 		contextUsed: 0,
 		compacted: false,
+		costUsd: 0,
 	});
 	const { output, input } = await buildLayout(tui, t, opts, tuiStore, store);
 	const { writer, replyBlock, replyTW, thinkingTW, forums } = output;
@@ -136,6 +137,7 @@ export async function runTuiMode(
 
 	tui.start();
 	tui.setFocus(editor);
+	promptConsole.setStatus(color(bold("INSERT"), t.accentFg));
 	tui.requestRender();
 	traceEvent("tui:start");
 	if (process.env.ALEF_DEBUG === "1") process.stdout.write("[ALEF_READY]\n");

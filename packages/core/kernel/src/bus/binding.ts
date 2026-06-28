@@ -229,7 +229,9 @@ export function executeBindingChain(
 		stages: binding.chain.length,
 	});
 
-	const strategy = strategies[binding.mode];
+	const mode: string = binding.mode;
+	const strategy = (strategies as Record<string, BindingExecutionStrategy | undefined>)[mode];
+	if (!strategy) throw new Error(`Unknown binding mode: ${mode}`);
 	return strategy.execute(binding.chain, input, bus, sourceCorrelationId);
 }
 

@@ -1,0 +1,29 @@
+{
+  "name": "@dpopsuev/alef-agent",
+  "version": "0.0.2",
+  "description": "Agent runtime — composition root for LLM-powered tool-calling agents",
+  "type": "module",
+  "exports": {
+    "./loop-detector": "./src/loop-detector.ts",
+    "./errors": "./src/errors.ts",
+    "./resource-meter": "./src/resource-meter.ts",
+    "./event-pressure": "./src/event-pressure.ts",
+    "./input-patterns": "./src/input-patterns.ts",
+    "./directives": "./src/directives.ts",
+    "./prompt-templates": "./src/prompt-templates.ts",
+    "./runner-logger": "./src/runner-logger.ts",
+    "./scripted-llm": "./src/scripted-llm.ts"
+  },
+  "scripts": {
+    "build": "npx tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dpopsuev/alef-kernel": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "author": "Daniel Popsuevich",
+  "license": "MIT"
+}

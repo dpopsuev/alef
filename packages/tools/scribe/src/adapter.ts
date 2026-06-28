@@ -5,7 +5,7 @@ import { McpAdapter } from "@dpopsuev/alef-tool-mcp-registry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
 import { traceEvent } from "@dpopsuev/alef-kernel/log";
-import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
 
 export interface ScribeAdapterOptions {
 	binary?: string;

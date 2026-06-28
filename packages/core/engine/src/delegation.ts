@@ -1,6 +1,6 @@
 /**
  * Delegation stack builder — materializes adapters, creates explore/general
- * strategies, and wires the context assembly pipeline.
+ * strategies, and wires the context assembly contextAssembly.
  *
  * Used by blueprint profiles (coding, factory) to build the full adapter stack.
  */
@@ -16,7 +16,7 @@ import {
 } from "@dpopsuev/alef-blueprint/materializer";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/contributions";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { buildAdapterDirectives, createToolShellAdapter } from "./tool-catalog.js";
 import { InProcessStrategy } from "./in-process.js";
 
@@ -67,7 +67,7 @@ export interface DelegationStackOptions {
 
 export interface DelegationStack {
 	adapters: Adapter[];
-	pipeline: ReturnType<typeof createContextAssemblyPipeline>;
+	contextAssembly: ReturnType<typeof createContextAssembler>;
 	exploreAdapters: Adapter[];
 	generalAdapters: Adapter[];
 }
@@ -92,7 +92,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		materializeBlueprint(DEFAULT_COMPILED_DEFINITION, materialiOpts),
 	]);
 
-	const pipeline = createContextAssemblyPipeline();
+	const contextAssembly = createContextAssembler();
 
 	const allWeights: Record<string, number> = {};
 	for (const adapter of [...resolvedDomainAdapters, ...extraAdapters]) {
@@ -106,7 +106,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	if (opts.sessionStore) {
 		const store = opts.sessionStore;
-		pipeline.addStage("memory", injected.createSessionContextStage({ sessionStore: () => store, contextWindow }));
+		contextAssembly.addStage("memory", injected.createSessionContextStage({ sessionStore: () => store, contextWindow }));
 	}
 
 	const exploreStrategy = new InProcessStrategy(exploreAdapters, factory, explorePrompt);
@@ -138,7 +138,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 
 	let signalPublish: ((type: string, payload: Record<string, unknown>) => void) | undefined;
 	let lastTotalTokens = 0;
-	pipeline.addStage(
+	contextAssembly.addStage(
 		"compactor",
 		injected.createCompactionStage({
 			contextWindow,
@@ -147,8 +147,8 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 			getLastTokenCount: () => lastTotalTokens,
 		}),
 	);
-	const origMount = pipeline.mount.bind(pipeline);
-	(pipeline as { mount: typeof pipeline.mount }).mount = (bus) => {
+	const origMount = contextAssembly.mount.bind(contextAssembly);
+	(contextAssembly as { mount: typeof contextAssembly.mount }).mount = (bus) => {
 		signalPublish = (type, payload) => bus.notification.publish({ type, payload, correlationId: "" });
 		bus.notification.subscribe("llm.token-usage", (event) => {
 			const usage = (event as { payload?: { usage?: { totalTokens?: number } } }).payload?.usage;
@@ -166,7 +166,7 @@ export async function buildDelegationStack(opts: DelegationStackOptions): Promis
 		adapterDirectives: buildAdapterDirectives(allAdapters),
 	});
 
-	const adapters: Adapter[] = [...allAdapters, toolShell, pipeline];
+	const adapters: Adapter[] = [...allAdapters, toolShell, contextAssembly];
 
-	return { adapters, pipeline, exploreAdapters, generalAdapters };
+	return { adapters, contextAssembly, exploreAdapters, generalAdapters };
 }

@@ -21,7 +21,7 @@
       "import": "./src/trace.ts",
       "default": "./src/trace.ts"
     },
-    "./pipeline": {
+    "./context-assembly": {
       "source": "./src/context.ts",
       "import": "./src/context.ts",
       "default": "./src/context.ts"

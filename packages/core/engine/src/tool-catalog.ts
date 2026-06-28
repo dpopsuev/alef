@@ -28,7 +28,7 @@ import {
 } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
 import { z } from "zod";
 
 const DESCRIBE_TOOL = {

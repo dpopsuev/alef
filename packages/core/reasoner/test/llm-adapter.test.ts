@@ -1,6 +1,6 @@
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import type { Context } from "@dpopsuev/alef-ai/types";
 import { type FauxResponseFactory, fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@dpopsuev/alef-ai/faux";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,9 +9,9 @@ import { createAgentLoop } from "../src/index.js";
 import { waitForToolResult } from "../src/tool-dispatch.js";
 import { buildTools } from "../src/turn-loop.js";
 
-// createContextAssemblyPipeline (from kernel) is the mountable pipeline adapter — no tools, pure coordinator.
+// createContextAssembler (from kernel) is the mountable pipeline adapter — no tools, pure coordinator.
 // adapter-llm is a reasoner (no tools), not a tool-bearing adapter.
-adapterComplianceSuite(() => createContextAssemblyPipeline());
+adapterComplianceSuite(() => createContextAssembler());
 
 const SKIP = !process.env.ANTHROPIC_API_KEY;
 

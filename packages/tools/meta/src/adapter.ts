@@ -236,7 +236,7 @@ const CORE_ADAPTERS = new Set([
 	"alef",
 	"dialog",
 	"toolshell",
-	"context.assembly.pipeline",
+	"context.assembly",
 	"security-policy",
 ]);
 

@@ -192,7 +192,7 @@ export async function createLocalSession(
 		subagentFactory,
 		writableRoots: loaded.writableRoots,
 	});
-	const { pipeline } = stack;
+	const { contextAssembly } = stack;
 
 	const systemPrompt = directives.build(directivesBudgetChars);
 	const enabledBlocks = directives.list({ enabled: true });
@@ -210,7 +210,7 @@ export async function createLocalSession(
 		thinkingState,
 		getModel: () => currentModel,
 		getSignal: () => llmController?.signal,
-		schemaResolver: (name) => pipeline.getSchemaResolver()?.(name),
+		schemaResolver: (name) => contextAssembly.getSchemaResolver()?.(name),
 		systemPrompt,
 	});
 

@@ -16,7 +16,7 @@ import { loadAgentDefinition } from "@dpopsuev/alef-blueprint/blueprints";
 import { materializeBlueprint } from "@dpopsuev/alef-blueprint/materializer";
 import type { BlueprintStack, BlueprintStackOptions } from "@dpopsuev/alef-blueprint/registry";
 import { blueprintRegistry } from "@dpopsuev/alef-blueprint/registry";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 
 /**
  * Scan directories for YAML blueprint files
@@ -103,12 +103,12 @@ function registerYamlBlueprint(yamlPath: string): void {
 				writableRoots: opts.writableRoots,
 			});
 
-			// Create the context assembly pipeline
-			const pipeline = createContextAssemblyPipeline();
+			// Create the context assembly contextAssembly
+			const contextAssembly = createContextAssembler();
 
 			return {
 				adapters,
-				pipeline,
+				contextAssembly,
 			};
 		};
 

@@ -56,7 +56,7 @@ describe.skipIf(SKIP_REAL_LLM)("multi-turn: tool result visible in follow-up tur
 						thinkingState: { level: undefined },
 						getModel: () => model,
 						getSignal: () => signal,
-						schemaResolver: (name) => stack.pipeline.getSchemaResolver()?.(name),
+						schemaResolver: (name) => stack.contextAssembly.getSchemaResolver()?.(name),
 					});
 					return [...stack.adapters, llm];
 				},

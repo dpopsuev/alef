@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { NotificationMessage } from "@dpopsuev/alef-kernel/bus";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDefaultDirectives } from "../src/prompt.js";
 
@@ -60,7 +60,7 @@ async function createSessionWithPrompt(adapters: Adapter[], systemPrompt: string
 
 	for (const adapter of adapters) agent.load(adapter);
 	const toolShell = createToolShellAdapter({ tools: adapters.flatMap((o) => o.tools), getTools: () => agent.tools });
-	const pipeline = createContextAssemblyPipeline();
+	const pipeline = createContextAssembler();
 	agent.load(toolShell);
 	agent.load(pipeline);
 	agent.load(llm);

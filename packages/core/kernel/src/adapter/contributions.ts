@@ -105,7 +105,7 @@ export interface ReasoningContributions {
 	readonly skills?: readonly SkillBook[];
 }
 
-export interface PipelineContributions {
+export interface ContextAssemblyContributions {
 	readonly "context.assemble"?: ContextAssemblyHandler;
 	readonly "schema-resolver"?: (toolName: string) => ToolDefinition | undefined;
 	readonly "event.weights"?: Readonly<Record<string, number>>;
@@ -126,6 +126,6 @@ export interface SeamingContributions {
 
 export interface AdapterContributions
 	extends ReasoningContributions,
-		PipelineContributions,
+		ContextAssemblyContributions,
 		PresentationContributions,
 		SeamingContributions {}

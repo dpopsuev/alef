@@ -1,4 +1,4 @@
-import type { ContextAssemblyHandler, ContextAssemblyOutput } from "@dpopsuev/alef-kernel/pipeline";
+import type { ContextAssemblyHandler, ContextAssemblyOutput } from "@dpopsuev/alef-kernel/context-assembly";
 
 export type SummarizeFn = (messages: readonly unknown[]) => Promise<string> | string;
 

@@ -16,7 +16,7 @@ import { Agent } from "@dpopsuev/alef-engine/agent";
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { BusMessage } from "@dpopsuev/alef-kernel/bus";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import type { StorageRecord } from "@dpopsuev/alef-session/storage";
 import { buildSessionIndex, reconstructTurn } from "@dpopsuev/alef-session/tracing";
@@ -42,7 +42,7 @@ function makeAgent(opts: { systemPrompt?: string; phaseTimeoutMs?: number; maxRe
 	});
 
 	agent.load(llm);
-	if (opts.phaseTimeoutMs) agent.load(createContextAssemblyPipeline());
+	if (opts.phaseTimeoutMs) agent.load(createContextAssembler());
 	const controller = new AgentController(agent);
 	return { faux, agent, controller };
 }
@@ -184,7 +184,7 @@ describe("command/context.assemble pipeline", { tags: ["unit"] }, () => {
 		});
 
 		agent.load(toolShell);
-		agent.load(createContextAssemblyPipeline());
+		agent.load(createContextAssembler());
 
 		await agent.ready();
 		await controller.send("hello", "human", SEND_TIMEOUT);
@@ -214,7 +214,7 @@ describe("context reconstructor cross-check", { tags: ["unit"] }, () => {
 		const { faux, agent, controller } = makeAgent({ phaseTimeoutMs: 100 });
 		const toolShell = createToolShellAdapter({ tools: [] });
 		agent.load(toolShell);
-		agent.load(createContextAssemblyPipeline());
+		agent.load(createContextAssembler());
 
 		const records: StorageRecord[] = [];
 		agent.observe({

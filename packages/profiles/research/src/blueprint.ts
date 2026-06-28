@@ -65,7 +65,7 @@ export async function createResearchAgentStack(
 
 	return {
 		adapters,
-		pipeline: codingStack.pipeline,
+		contextAssembly: codingStack.contextAssembly,
 		supervisor,
 	};
 }

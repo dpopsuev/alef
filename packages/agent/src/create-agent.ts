@@ -3,7 +3,7 @@ import type { Agent } from "@dpopsuev/alef-engine/agent";
 import { buildAdapterDirectives, createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { AgentController } from "@dpopsuev/alef-engine/controller";
 import type { Adapter, ToolDefinition } from "@dpopsuev/alef-kernel/adapter";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { buildAgent } from "./agent-kernel.js";
 import { parseArgs } from "./args.js";
 import { buildLlmAdapter } from "./build-llm-adapter.js";
@@ -49,7 +49,7 @@ export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstan
 		adapterDirectives: buildAdapterDirectives(opts.adapters),
 	});
 
-	const pipeline = createContextAssemblyPipeline();
+	const contextAssembly = createContextAssembler();
 
 	const llm = buildLlmAdapter({
 		model: opts.model,
@@ -58,7 +58,7 @@ export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstan
 		thinkingState,
 		getModel: () => opts.model,
 		getSignal: opts.getSignal ?? (() => undefined),
-		schemaResolver: opts.schemaResolver ?? ((name) => pipeline.getSchemaResolver()?.(name)),
+		schemaResolver: opts.schemaResolver ?? ((name) => contextAssembly.getSchemaResolver()?.(name)),
 		systemPrompt,
 	});
 
@@ -66,7 +66,7 @@ export async function createAgent(opts: CreateAgentOptions): Promise<AgentInstan
 
 	for (const adapter of opts.adapters) agent.load(adapter);
 	agent.load(toolShell);
-	agent.load(pipeline);
+	agent.load(contextAssembly);
 
 	agent.validate();
 	await agent.ready();

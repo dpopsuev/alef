@@ -1,8 +1,8 @@
 import type { Adapter, ToolDefinition } from "./adapter/interface.js";
-import type { ContextAssemblyHandler, PipelineContributions } from "./adapter/contributions.js";
+import type { ContextAssemblyContributions, ContextAssemblyHandler } from "./adapter/contributions.js";
 import type { Bus, CommandMessage, EventMessage } from "./bus/messages.js";
 
-export function createContextAssemblyPipeline(): Adapter & {
+export function createContextAssembler(): Adapter & {
 	getSchemaResolver(): ((toolName: string) => ToolDefinition | undefined) | undefined;
 	addStage(name: string, handler: ContextAssemblyHandler): void;
 } {
@@ -10,12 +10,12 @@ export function createContextAssemblyPipeline(): Adapter & {
 	const schemaResolvers = new Map<string, (toolName: string) => ToolDefinition | undefined>();
 
 	return {
-		name: "context.assembly.pipeline",
+		name: "context.assembly",
 		tools: [],
 		subscriptions: { command: ["context.assemble"], event: ["adapter.loaded", "adapter.unloaded"], notification: [] },
 		sources: [],
 		description:
-			"Ordered context.assemble pipeline — collects ContextAssemblyHandler and schema-resolver contributions from event/adapter.loaded.",
+			"Context assembler — collects ContextAssemblyHandler and schema-resolver contributions from adapters.",
 		contributions: {
 			port: { name: "context_assembly", eventPattern: "command/context.assemble", cardinality: "ordered-pipeline" },
 		},
@@ -35,7 +35,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 		mount(bus: Bus): () => void {
 			const unsubLoaded = bus.event.subscribe("adapter.loaded", (event: EventMessage) => {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: adapter.loaded payload shape
-				const contributions = event.payload.contributions as PipelineContributions | undefined;
+				const contributions = event.payload.contributions as ContextAssemblyContributions | undefined;
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- bus protocol: adapter.loaded payload shape
 				const name = event.payload.name as string;
 				if (contributions?.["context.assemble"]) stages.set(name, contributions["context.assemble"]);
@@ -72,7 +72,7 @@ export function createContextAssemblyPipeline(): Adapter & {
 							return;
 						}
 						if (out.messages) messages = out.messages;
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pipeline stage output tools are ToolDefinition[]
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- context assembly stage output tools are ToolDefinition[]
 						if (out.tools) tools = out.tools as ToolDefinition[];
 						if (out.skip) {
 							bus.event.publish({
@@ -118,7 +118,7 @@ export function injectContextBlock(messages: readonly unknown[], block: string):
 	return result;
 }
 
-// Re-exports for ./pipeline subpath consumers
+// Re-exports for ./context-assembly subpath consumers
 export type {
 	ContextAssemblyHandler,
 	ContextAssemblyInput,

@@ -1,7 +1,7 @@
 import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { SubagentFactory } from "@dpopsuev/alef-blueprint/registry";
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
 import { AgentSession } from "@dpopsuev/alef-session/agent";
 import { assembleAgentServer } from "./assemble.js";
@@ -39,7 +39,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		const llmFactory = opts.llmFactory ?? defaultLlmFactory;
 		const llm = llmFactory({ model: resolvedModel, systemPrompt });
 
-		const pipeline = createContextAssemblyPipeline();
+		const contextAssembly = createContextAssembler();
 
 		let reply = "";
 		let totalInputTokens = 0;
@@ -48,7 +48,7 @@ export function buildSubagentFactory(opts: SubagentSessionOptions): SubagentFact
 		const server = assembleAgentServer({
 			llm,
 			adapters,
-			pipeline,
+			contextAssembly,
 			onReply: (text) => {
 				if (text) reply = text;
 			},

@@ -10,7 +10,7 @@ export type SignalMapper = (payload: Record<string, unknown>) => Record<string, 
 export interface AgentServerOptions {
 	llm: Adapter;
 	adapters: readonly Adapter[];
-	pipeline?: Adapter;
+	contextAssembly?: Adapter;
 	onReply?: (text: string) => void;
 	extraAdapters?: readonly Adapter[];
 	signalMappers?: ReadonlyMap<string, SignalMapper>;
@@ -234,7 +234,7 @@ export function assembleAgentServer(opts: AgentServerOptions): AgentServer {
 		disclosure: opts.toolDisclosure ?? "full",
 	});
 	agent.load(toolShell);
-	if (opts.pipeline) agent.load(opts.pipeline);
+	if (opts.contextAssembly) agent.load(opts.contextAssembly);
 	for (const adapter of allAdapters) agent.load(adapter);
 
 	const controller = new AgentController(agent, {

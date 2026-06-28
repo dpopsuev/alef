@@ -22,7 +22,7 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 	const supervisor = new Supervisor();
 	const resolveService = createServiceResolver(supervisor);
 
-	const { adapters, pipeline } = await buildDelegationStack({
+	const { adapters, contextAssembly } = await buildDelegationStack({
 		cwd: opts.cwd,
 		factory: opts.subagentFactory,
 		contextWindow: opts.model.contextWindow,
@@ -36,5 +36,5 @@ export async function createCodingAgentStack(opts: BlueprintStackOptions): Promi
 		resolveService,
 	});
 
-	return { adapters, pipeline };
+	return { adapters, contextAssembly };
 }

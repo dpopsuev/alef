@@ -20,7 +20,7 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 	const supervisor = new Supervisor();
 	const resolveService = createServiceResolver(supervisor);
 
-	const { adapters, pipeline, exploreAdapters, generalAdapters } = await buildDelegationStack({
+	const { adapters, contextAssembly, exploreAdapters, generalAdapters } = await buildDelegationStack({
 		cwd: opts.cwd,
 		factory: opts.subagentFactory,
 		contextWindow: opts.model.contextWindow,
@@ -44,5 +44,5 @@ export async function createFactoryAgentStack(opts: BlueprintStackOptions): Prom
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- wireAdapter conforms to Adapter but has narrower type
 	adapters.splice(adapters.length - 2, 0, wireAdapter as unknown as Adapter);
 
-	return { adapters, pipeline };
+	return { adapters, contextAssembly };
 }

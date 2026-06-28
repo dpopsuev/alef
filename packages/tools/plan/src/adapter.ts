@@ -4,8 +4,8 @@ import type { Adapter, BaseAdapterOptions } from "@dpopsuev/alef-kernel/adapter"
 import { defineAdapter, typedAction } from "@dpopsuev/alef-kernel/adapter";
 import { withDisplay } from "@dpopsuev/alef-kernel/payload";
 import type { Bus } from "@dpopsuev/alef-kernel/bus";
-import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
-import { injectContextBlock } from "@dpopsuev/alef-kernel/pipeline";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
+import { injectContextBlock } from "@dpopsuev/alef-kernel/context-assembly";
 import { z } from "zod";
 import { PlanGraph } from "./graph.js";
 

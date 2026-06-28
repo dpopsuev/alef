@@ -14,7 +14,7 @@
  */
 
 import { materializeDefaultAdapters } from "@dpopsuev/alef-blueprint/materializer";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { createToolShellAdapter } from "@dpopsuev/alef-engine/catalog";
 import { buildLlmAdapter } from "../../../agent/src/build-llm-adapter.js";
 import { parseArgs } from "../../../agent/src/args.js";
@@ -30,7 +30,7 @@ describe.skipIf(SKIP_REAL_LLM)("PhaseEvaluation real-LLM — fix bug with clean 
 		const runner = new PhaseEvaluationRunner(harness, {
 			asyncAdapterFactory: async (workspace, signal) => {
 				const domainAdapters = await materializeDefaultAdapters(workspace);
-				const pipeline = createContextAssemblyPipeline();
+				const pipeline = createContextAssembler();
 				const toolShell = createToolShellAdapter({
 					tools: domainAdapters.flatMap((o) => o.tools),
 					getTools: () => domainAdapters.flatMap((o) => o.tools),

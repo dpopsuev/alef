@@ -20,7 +20,7 @@
 
 import type { Adapter } from "@dpopsuev/alef-kernel/adapter";
 import type { NotificationMessage } from "@dpopsuev/alef-kernel/bus";
-import { createContextAssemblyPipeline } from "@dpopsuev/alef-kernel/pipeline";
+import { createContextAssembler } from "@dpopsuev/alef-kernel/context-assembly";
 import { getEnvApiKey } from "@dpopsuev/alef-ai/env";
 import { getModel } from "@dpopsuev/alef-ai/models";
 import { createAgentLoop } from "@dpopsuev/alef-reasoner";
@@ -76,9 +76,9 @@ export function createE2eSession(adapters: Adapter[], opts: E2eSessionOptions = 
 		tools: adapters.flatMap((o) => o.tools),
 		getTools: () => agent.tools,
 	});
-	const pipeline = createContextAssemblyPipeline();
+	const contextAssembly = createContextAssembler();
 	agent.load(toolShell);
-	agent.load(pipeline);
+	agent.load(contextAssembly);
 	agent.load(llm);
 	agent.observe({
 		onCommand() {},

@@ -1,4 +1,4 @@
-import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/pipeline";
+import type { ContextAssemblyHandler } from "@dpopsuev/alef-kernel/context-assembly";
 import type { SessionStore } from "../contracts/storage.js";
 import { assembleTurns, DEFAULT_CONTEXT_WINDOW_POLICY, DEFAULT_RECENT_GUARANTEE, HISTORY_BUDGET_FRACTION, turnsToMessages } from "./assembler.js";
 
@@ -15,7 +15,7 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 	const contextWindow = opts.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 
 	return async ({ messages }) => {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- pipeline messages to internal RawMsg shape
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- context assembly messages to internal RawMsg shape
 		const msgs = messages as unknown as RawMsg[];
 		if (!msgs.length) return {};
 
@@ -72,7 +72,7 @@ export function createSessionContextStage(opts: SessionContextStageOptions): Con
 			...(!alreadyAppended && currentUserMsg.role === "user" ? [currentUserMsg] : []),
 		];
 
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- RawMsg[] back to pipeline message type
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- RawMsg[] back to context assembly message type
 		return { messages: assembled as unknown as typeof messages };
 	};
 }

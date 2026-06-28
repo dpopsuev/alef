@@ -26,7 +26,7 @@ export function toolCallsAreReal(expectedToolPrefix?: string): Checker {
 					score: 0,
 					errors: [
 						"LLM output JSON text describing tool calls instead of making actual tool_use API calls. " +
-							"This indicates the progressive disclosure pipeline sent empty schemas, " +
+							"This indicates the progressive disclosure sent empty schemas, " +
 							"and the model fell back to text output.",
 					],
 				};

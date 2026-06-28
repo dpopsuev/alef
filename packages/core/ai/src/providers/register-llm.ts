@@ -20,11 +20,13 @@ import type { OpenAICodexResponsesOptions } from "./codex/responses.js";
 
 function matchesAnthropicVertex(model: Model<Api>): boolean {
 	if (typeof process === "undefined") return false;
+	/* eslint-disable @typescript-eslint/prefer-nullish-coalescing -- empty string must fall through */
 	const projectId =
-		process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ??
-		process.env.GOOGLE_CLOUD_PROJECT?.trim() ??
+		process.env.ANTHROPIC_VERTEX_PROJECT_ID?.trim() ||
+		process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
 		process.env.GCLOUD_PROJECT?.trim();
-	const region = process.env.CLOUD_ML_REGION?.trim() ?? process.env.GOOGLE_CLOUD_LOCATION?.trim();
+	const region = process.env.CLOUD_ML_REGION?.trim() || process.env.GOOGLE_CLOUD_LOCATION?.trim();
+	/* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
 	return model.provider === "anthropic" && Boolean(projectId && region);
 }
 

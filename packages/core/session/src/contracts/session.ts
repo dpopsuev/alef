@@ -22,6 +22,7 @@ export interface TokensConsumed {
 	input: number;
 	output: number;
 	totalTokens: number;
+	costUsd?: number;
 }
 
 export type AgentEvent =

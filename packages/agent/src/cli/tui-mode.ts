@@ -77,6 +77,7 @@ export async function runTuiMode(
 			contextUsed: tuiState.contextFillTokens,
 			thinkingLevel: session.getThinking(),
 			compacted: isCompacted(),
+			costUsd: tuiState.sessionCostUsd,
 		});
 		tui.requestRender();
 	};

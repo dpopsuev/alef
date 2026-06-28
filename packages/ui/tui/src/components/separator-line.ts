@@ -35,9 +35,12 @@ export class SeparatorLine implements Component {
 
 	render(width: number): string[] {
 		const char = WEIGHT_CHARS[this.weight];
-		if (!this.label) return [this.style(char.repeat(width))];
+		const fullLine = char.repeat(width);
+		if (!this.label) return [this.style(fullLine)];
 		const text = ` ${this.label} `;
-		const remaining = Math.max(0, width - visibleWidth(text) - 1);
-		return [this.style(`${char}${text}${char.repeat(remaining)}`)];
+		const labelWidth = visibleWidth(text);
+		const prefixLen = 1;
+		const suffixLen = Math.max(0, width - prefixLen - labelWidth);
+		return [this.style(char.repeat(prefixLen)) + text + this.style(char.repeat(suffixLen))];
 	}
 }

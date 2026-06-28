@@ -317,10 +317,11 @@ export function dispatchTuiEvent(
 		}
 
 		case "token-usage": {
-			const { input, output, totalTokens } = event.usage;
+			const { input, output, totalTokens, costUsd } = event.usage;
 			const sessionTokensTotal = state.sessionTokensTotal + input + output;
 			const sessionInputTokens = state.sessionInputTokens + input;
 			const sessionOutputTokens = state.sessionOutputTokens + output;
+			const sessionCostUsd = state.sessionCostUsd + (costUsd ?? 0);
 			const contextFillTokens = totalTokens > 0 ? totalTokens : state.contextFillTokens;
 			if (state.pendingTokenFooter) {
 				state.pendingTokenFooter.setText(
@@ -343,6 +344,7 @@ export function dispatchTuiEvent(
 				sessionTokensTotal,
 				sessionInputTokens,
 				sessionOutputTokens,
+				sessionCostUsd,
 				contextFillTokens,
 				pendingTokenFooter: null,
 			};

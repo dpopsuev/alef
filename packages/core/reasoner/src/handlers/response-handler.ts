@@ -19,6 +19,7 @@ export function reportUsage(finalMessage: AssistantMessage): TokenUsage {
 		input: finalMessage.usage.input,
 		output: finalMessage.usage.output,
 		totalTokens: finalMessage.usage.totalTokens,
+		costUsd: finalMessage.usage.cost.total,
 	};
 }
 

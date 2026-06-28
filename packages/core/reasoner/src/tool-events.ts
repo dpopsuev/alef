@@ -17,6 +17,7 @@ export interface TokenUsage {
 	input: number;
 	output: number;
 	totalTokens: number;
+	costUsd?: number;
 }
 
 export type LlmEvent =

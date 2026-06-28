@@ -1,17 +1,9 @@
-import type { Api, Model } from "@dpopsuev/alef-ai/types";
 import type { AgentDefinitionSurfaceInput } from "@dpopsuev/alef-blueprint/types";
 import type { Agent } from "@dpopsuev/alef-engine/agent";
-import { buildDelegationStack } from "@dpopsuev/alef-engine/delegation";
 import { createRouterAdapter, HTTP, type RouterAdapter } from "@dpopsuev/alef-engine/http";
-import { createCompactionStage } from "@dpopsuev/alef-session/compaction";
-import { createSessionContextStage } from "@dpopsuev/alef-session/context";
-import { createServiceResolver, Supervisor } from "@dpopsuev/alef-supervisor/supervisor";
-import { createAgentAdapter } from "@dpopsuev/alef-tool-agent";
-import { createFactoryAdapter } from "@dpopsuev/alef-tool-factory";
 import type { Args } from "./args.js";
 import { metricsHandler, setupMetrics } from "./metrics.js";
 import type { AgentEvent, Session } from "./session.js";
-import { buildSubagentFactory } from "./subagent-factory.js";
 
 export interface HttpSurface {
 	port: number;
@@ -106,34 +98,4 @@ export async function setupHttpSurface(
 	if (servePort === undefined) return undefined;
 
 	return createRouter(servePort, blueprintSurfaces, session, args, agent);
-}
-
-export async function buildDelegation(
-	args: Args,
-	model: Model<Api>,
-	agent: Agent,
-	session: Session,
-	blueprintSurfaces: AgentDefinitionSurfaceInput[],
-): Promise<void> {
-	const factory = buildSubagentFactory({ model, trackConcurrentOps: true, forwardToolChunks: true });
-	const factoryAdapter = createFactoryAdapter({ cwd: args.cwd });
-
-	const supervisor = new Supervisor();
-	const resolveService = createServiceResolver(supervisor);
-
-	const { adapters } = await buildDelegationStack({
-		cwd: args.cwd,
-		factory,
-		contextWindow: model.contextWindow,
-		extraAdapters: [factoryAdapter],
-		adapters: { createAgentAdapter, createCompactionStage, createSessionContextStage },
-		resolveService,
-	});
-
-	for (const adapter of adapters) agent.load(adapter);
-
-	const servePort = args.daemon ? 0 : args.serve;
-	if (servePort !== undefined) {
-		await createRouter(servePort, blueprintSurfaces, session, args, agent);
-	}
 }

@@ -1,4 +1,9 @@
-/** @deprecated buildDelegationStack superseded by Supervisor + PM. See agent-service.ts. */
+/**
+ * Delegation stack builder — materializes adapters, creates explore/general
+ * strategies, and wires the context assembly pipeline.
+ *
+ * Used by blueprint profiles (coding, factory) to build the full adapter stack.
+ */
 
 import type { AdapterFactoryOptions } from "@dpopsuev/alef-blueprint/materializer";
 import type { CompiledAgentAdapterDefinition } from "@dpopsuev/alef-blueprint/types";

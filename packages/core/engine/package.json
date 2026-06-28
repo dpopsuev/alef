@@ -9,12 +9,10 @@
     "./agent": "./src/agent.ts",
     "./controller": "./src/agent-controller.ts",
     "./catalog": "./src/tool-catalog.ts",
-    "./ports": "./src/port-registry.ts",
     "./delegation": "./src/delegation.ts",
     "./in-process": "./src/in-process.ts",
     "./remote": "./src/remote-strategy.ts",
-    "./http": "./src/http.ts",
-    "./sse": "./src/sse.ts"
+    "./http": "./src/http.ts"
   },
   "files": [
     "dist",
